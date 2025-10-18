@@ -1,0 +1,97 @@
+[settings]
+color = true
+verbose = false
+
+[tools]
+node = "lts"
+pnpm = "latest"
+terraform = "latest"
+
+[tasks.install]
+description = "Install all dependencies"
+run = "cd ui && pnpm install"
+sources = ["ui/package.json", "ui/pnpm-lock.yaml"]
+outputs = ["ui/node_modules"]
+
+[tasks.dev]
+description = "Start Next.js development server"
+depends = ["install"]
+run = "cd ui && pnpm dev"
+
+[tasks.build]
+description = "Build Next.js application for production"
+depends = ["install"]
+run = "cd ui && pnpm build"
+sources = ["ui/app/**/*", "ui/components/**/*", "ui/lib/**/*", "ui/public/**/*", "ui/*.ts", "ui/*.tsx", "ui/*.json"]
+outputs = ["ui/.next/**/*"]
+
+[tasks.test]
+description = "Run all tests"
+depends = ["install"]
+run = "cd ui && pnpm test"
+
+[tasks."test:watch"]
+description = "Run tests in watch mode"
+depends = ["install"]
+run = "cd ui && pnpm test:watch"
+
+[tasks.lint]
+description = "Lint and format check with Biome"
+depends = ["install"]
+run = "cd ui && pnpm lint"
+
+[tasks.format]
+description = "Format and fix issues with Biome"
+depends = ["install"]
+run = "cd ui && pnpm format"
+
+[tasks."format:check"]
+description = "Check formatting without making changes"
+depends = ["install"]
+run = "cd ui && pnpm format:check"
+
+[tasks.typecheck]
+description = "Run TypeScript type checking"
+depends = ["install"]
+run = "cd ui && pnpm typecheck"
+
+[tasks."tf:fmt"]
+description = "Format all Terraform files"
+run = "terraform fmt -recursive infra"
+
+[tasks."tf:cf:init"]
+description = "Initialize Terraform for Cloudflare"
+run = "cd infra/cloudflare && terraform init"
+sources = ["infra/cloudflare/*.tf"]
+outputs = ["infra/cloudflare/.terraform/**/*"]
+
+[tasks."tf:cf:plan"]
+description = "Run Terraform plan for Cloudflare"
+depends = ["tf:cf:init"]
+run = "cd infra/cloudflare && terraform plan"
+
+[tasks."tf:cf:apply"]
+description = "Apply Terraform changes for Cloudflare"
+depends = ["tf:cf:init"]
+run = "cd infra/cloudflare && terraform apply"
+
+[tasks."tf:cf:validate"]
+description = "Validate Terraform configuration for Cloudflare"
+depends = ["tf:cf:init"]
+run = "cd infra/cloudflare && terraform validate"
+
+[tasks.clean]
+description = "Clean build artifacts and dependencies"
+run = """
+cd ui
+rm -rf .next
+rm -rf node_modules
+rm -rf out
+"""
+
+[tasks.check]
+description = "Run all checks (lint, format, typecheck, test)"
+depends = ["lint", "format:check", "typecheck", "test"]
+
+[env]
+_.file = ".env"
