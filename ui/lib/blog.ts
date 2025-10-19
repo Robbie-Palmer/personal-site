@@ -27,7 +27,20 @@ export function getAllPostSlugs(): string[] {
 }
 
 export function getPostBySlug(slug: string): BlogPost {
+  // Validate slug: only lowercase letters, numbers, hyphens, and underscores
+  if (!slug || !/^[a-z0-9_-]+$/.test(slug)) {
+    throw new Error("Invalid slug");
+  }
+
   const fullPath = path.join(contentDirectory, `${slug}.mdx`);
+
+  // Ensure the resolved path is within contentDirectory
+  const normalizedPath = path.resolve(fullPath);
+  const normalizedDir = path.resolve(contentDirectory);
+  if (!normalizedPath.startsWith(normalizedDir)) {
+    throw new Error("Invalid slug");
+  }
+
   const fileContents = fs.readFileSync(fullPath, "utf8");
   const { data, content } = matter(fileContents);
 
@@ -50,8 +63,8 @@ export function getAllPosts(): BlogPostMetadata[] {
   });
 
   return posts.sort((a, b) => {
-    if (a.date > b.date) return -1;
-    if (a.date < b.date) return 1;
-    return 0;
+    const dateA = new Date(a.date).getTime();
+    const dateB = new Date(b.date).getTime();
+    return dateB - dateA; // Descending order (newest first)
   });
 }

@@ -8,7 +8,7 @@ export default function Home() {
         <div className="text-center max-w-3xl">
           <h1 className="text-5xl md:text-6xl font-bold mb-6">Robbie Palmer</h1>
           <p className="text-xl md:text-2xl text-muted-foreground mb-8">
-            [Your tagline here]
+            ML expert | Full-stack builder | Team lead who ships
           </p>
           <div className="flex gap-4 justify-center">
             <Button size="lg" asChild>

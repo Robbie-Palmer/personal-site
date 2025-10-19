@@ -1,10 +1,10 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import rehypeHighlight from "rehype-highlight";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
-import { useMDXComponents } from "@/components/mdx-components";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getAllPostSlugs, getPostBySlug } from "@/lib/blog";
@@ -19,6 +19,13 @@ export default async function BlogPostPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+
+  // Validate slug exists
+  const validSlugs = getAllPostSlugs();
+  if (!validSlugs.includes(slug)) {
+    notFound();
+  }
+
   const post = getPostBySlug(slug);
 
   return (
@@ -58,7 +65,6 @@ export default async function BlogPostPage({
       <div className="prose prose-zinc dark:prose-invert max-w-none">
         <MDXRemote
           source={post.content}
-          components={useMDXComponents({})}
           options={{
             mdxOptions: {
               remarkPlugins: [remarkGfm],
