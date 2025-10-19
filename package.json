@@ -1,0 +1,29 @@
+{
+  "name": "personal-site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal website mono-repo - root package for repo-wide tooling",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.4",
+    "markdownlint-cli": "^0.45.0",
+    "yaml-lint": "^1.7.0"
+  },
+  "lint-staged": {
+    "ui/**/*.{ts,tsx,js,jsx,json}": [
+      "mise run //ui:format"
+    ],
+    "infra/**/*.tf": [
+      "mise run //infra:format"
+    ],
+    "*.md": [
+      "mise run //:lint-markdown"
+    ],
+    "*.{yml,yaml}": [
+      "mise run //:lint-yaml"
+    ]
+  }
+}
