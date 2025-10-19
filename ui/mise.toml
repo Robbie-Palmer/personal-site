@@ -14,7 +14,7 @@ description = "Build Next.js application for production"
 depends = ["//ui:install"]
 run = "pnpm build"
 sources = ["app/**/*", "components/**/*", "lib/**/*", "public/**/*", "*.ts", "*.tsx", "*.json"]
-outputs = [".next/**/*"]
+outputs = ["out/**/*"]
 
 [tasks.test]
 description = "Run all tests"

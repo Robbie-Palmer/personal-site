@@ -1,3 +1,6 @@
+[env]
+_.file = ".env"
+
 [tasks.init]
 description = "Initialize Terraform for Cloudflare"
 run = "terraform init"
@@ -20,12 +23,13 @@ run = "terraform validate"
 [tasks.plan]
 description = "Run Terraform plan for Cloudflare"
 depends = ["//infra/cloudflare:init"]
-run = "terraform plan"
+run = "terraform plan -out .planfile"
+outputs = [".planfile"]
 
 [tasks.apply]
 description = "Apply Terraform changes for Cloudflare"
 depends = ["//infra/cloudflare:init"]
-run = "terraform apply"
+run = "terraform apply -auto-approve .planfile"
 
 [tasks.check]
 description = "Run all checks (format, lint, plan)"

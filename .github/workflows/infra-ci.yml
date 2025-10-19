@@ -1,0 +1,52 @@
+name: Infrastructure CI
+
+on:
+  pull_request:
+    paths:
+      - "infra/**"
+      - ".github/workflows/infra-ci.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    environment:
+      name: cloudflare-production
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    defaults:
+      run:
+        working-directory: infra/cloudflare
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jdx/mise-action@v2
+        with:
+          experimental: true
+
+      - name: Create .env file for Terraform
+        run: |
+          cat > .env <<EOF
+          export CLOUDFLARE_API_TOKEN="${CLOUDFLARE_API_TOKEN}"
+          export TF_TOKEN_app_terraform_io="${TF_TOKEN_app_terraform_io}"
+          EOF
+
+      - name: Check Terraform formatting
+        run: mise run //infra/cloudflare:format:check
+
+      - name: Validate Terraform
+        run: mise run //infra/cloudflare:lint
+
+      - name: Terraform Plan
+        run: mise run //infra/cloudflare:plan
+
+      - name: Add Terraform Plan to PR Comment
+        uses: borchero/terraform-plan-comment@v2
+        with:
+          token: ${{ github.token }}
+          planfile: .planfile
+          working-directory: ./infra/cloudflare
