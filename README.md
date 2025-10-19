@@ -39,7 +39,7 @@ Personal website with blog and interactive resume.
    mise //ui:dev
    ```
 
-Visit http://localhost:3000
+Visit [http://localhost:3000](http://localhost:3000)
 
 ## Commands
 
