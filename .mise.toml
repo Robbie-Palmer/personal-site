@@ -12,3 +12,50 @@ terraform = "latest"
 [env]
 _.file = ".env"
 MISE_EXPERIMENTAL = "1"
+
+# Root-level tasks for repo-wide tooling
+[tasks.lint]
+description = "Lint all files across the entire repo"
+depends = ["//:lint:markdown", "//:lint:yaml", "//ui:lint", "//infra/cloudflare:lint"]
+
+[tasks."lint:markdown"]
+description = "Lint and fix Markdown files (optionally pass files as args)"
+run = """
+#!/usr/bin/env bash
+if [ $# -eq 0 ]; then
+  pnpm exec markdownlint --fix "**/*.md" --ignore node_modules --ignore '**/node_modules'
+else
+  pnpm exec markdownlint --fix --ignore node_modules --ignore '**/node_modules' "$@"
+fi
+"""
+
+[tasks."lint:markdown:check"]
+description = "Check Markdown files without fixing (optionally pass files as args)"
+run = """
+#!/usr/bin/env bash
+if [ $# -eq 0 ]; then
+  pnpm exec markdownlint "**/*.md" --ignore node_modules --ignore '**/node_modules'
+else
+  pnpm exec markdownlint --ignore node_modules --ignore '**/node_modules' "$@"
+fi
+"""
+
+[tasks."lint:yaml"]
+description = "Lint YAML files (optionally pass files as args)"
+run = """
+#!/usr/bin/env bash
+if [ $# -eq 0 ]; then
+  pnpm exec yamllint "**/*.{yml,yaml}" --ignore '**/node_modules/**'
+else
+  pnpm exec yamllint --ignore '**/node_modules/**' "$@"
+fi
+"""
+
+[tasks.pre-commit]
+description = "Run pre-commit checks (called by Husky)"
+run = "pnpm lint-staged"
+depends = ["//:install"]
+
+[tasks.install]
+description = "Install all dependencies (root and workspaces)"
+run = "pnpm install"

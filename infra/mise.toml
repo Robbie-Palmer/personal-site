@@ -1,7 +1,21 @@
 [tasks.format]
-description = "Format all Terraform files recursively"
-run = "terraform fmt -recursive ."
+description = "Format Terraform files (optionally pass files as args)"
+run = """
+#!/usr/bin/env bash
+if [ $# -eq 0 ]; then
+  terraform fmt -recursive .
+else
+  terraform fmt "$@"
+fi
+"""
 
 [tasks."format:check"]
 description = "Check Terraform formatting without making changes"
-run = "terraform fmt -check -recursive ."
+run = """
+#!/usr/bin/env bash
+if [ $# -eq 0 ]; then
+  terraform fmt -check -recursive .
+else
+  terraform fmt -check "$@"
+fi
+"""
