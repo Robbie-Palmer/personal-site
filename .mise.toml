@@ -30,8 +30,15 @@ fi
 """
 
 [tasks."lint:markdown:check"]
-description = "Check Markdown files without fixing"
-run = "pnpm exec markdownlint \"**/*.md\" --ignore node_modules --ignore '**/node_modules'"
+description = "Check Markdown files without fixing (optionally pass files as args)"
+run = """
+#!/usr/bin/env bash
+if [ $# -eq 0 ]; then
+  pnpm exec markdownlint "**/*.md" --ignore node_modules --ignore '**/node_modules'
+else
+  pnpm exec markdownlint --ignore node_modules --ignore '**/node_modules' "$@"
+fi
+"""
 
 [tasks."lint:yaml"]
 description = "Lint YAML files (optionally pass files as args)"
