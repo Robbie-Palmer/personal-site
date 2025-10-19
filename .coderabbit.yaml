@@ -148,6 +148,43 @@ reviews:
     osvScanner:
       enabled: true
 
+    # Disabled language-specific linters (languages not used in this project)
+    # Python linters
+    ruff:
+      enabled: false
+    pylint:
+      enabled: false
+    flake8:
+      enabled: false
+
+    # Ruby linters
+    rubocop:
+      enabled: false
+
+    # Go linters
+    golangci-lint:
+      enabled: false
+
+    # Kotlin linters
+    detekt:
+      enabled: false
+
+    # PHP linters
+    phpstan:
+      enabled: false
+    phpmd:
+      enabled: false
+    phpcs:
+      enabled: false
+
+    # Java/multi-language linters
+    pmd:
+      enabled: false
+
+    # ESLint (using Biome instead)
+    eslint:
+      enabled: false
+
 # =============================================================================
 # CHAT
 # =============================================================================
