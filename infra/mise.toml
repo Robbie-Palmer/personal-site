@@ -1,0 +1,7 @@
+[tasks.format]
+description = "Format all Terraform files recursively"
+run = "terraform fmt -recursive ."
+
+[tasks."format:check"]
+description = "Check Terraform formatting without making changes"
+run = "terraform fmt -check -recursive ."

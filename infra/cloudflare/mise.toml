@@ -1,0 +1,32 @@
+[tasks.init]
+description = "Initialize Terraform for Cloudflare"
+run = "terraform init"
+sources = ["*.tf"]
+outputs = [".terraform/**/*"]
+
+[tasks.format]
+description = "Format Terraform files"
+run = "terraform fmt"
+
+[tasks."format:check"]
+description = "Check Terraform formatting without making changes"
+run = "terraform fmt -check"
+
+[tasks.lint]
+description = "Validate Terraform configuration"
+depends = ["//infra/cloudflare:init"]
+run = "terraform validate"
+
+[tasks.plan]
+description = "Run Terraform plan for Cloudflare"
+depends = ["//infra/cloudflare:init"]
+run = "terraform plan"
+
+[tasks.apply]
+description = "Apply Terraform changes for Cloudflare"
+depends = ["//infra/cloudflare:init"]
+run = "terraform apply"
+
+[tasks.check]
+description = "Run all checks (format, lint, plan)"
+depends = ["//infra/cloudflare:format:check", "//infra/cloudflare:lint", "//infra/cloudflare:plan"]

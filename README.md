@@ -13,24 +13,51 @@ Personal website with blog and interactive resume.
 
 ## Setup
 
-```bash
-# Install mise (one-time)
-curl https://mise.run | sh
+1. Install mise (one-time)
+   ```bash
+   curl https://mise.run | sh
+   ```
 
-# mise auto-installs tools and dependencies
-mise run install
+2. Add mise to your shell config (one-time)
+   ```bash
+   echo 'eval "$(mise activate bash)"' >> ~/.bashrc  # or ~/.zshrc for zsh
+   source ~/.bashrc  # reload your shell
+   ```
 
-# Start dev server
-mise run dev
-```
+3. Clone and enter the project directory
+   ```bash
+   cd personal-site
+   ```
+
+4. Install dependencies
+   ```bash
+   mise //ui:install
+   ```
+
+5. Start dev server
+   ```bash
+   mise //ui:dev
+   ```
 
 Visit http://localhost:3000
 
 ## Commands
 
+This project uses mise's **monorepo tasks** feature for managing tasks across multiple projects.
+
 ```bash
-mise tasks    # List all available commands
+# List all available tasks
+mise tasks --all
+
+# Run tasks from anywhere using full path
+mise //ui:dev              # Example: start dev server
+mise //infra:format        # Example: format Terraform files
+
+# Or run from within a project directory
+cd ui && mise :dev         # Shorter syntax when in the directory
 ```
+
+**Note:** This project requires mise's experimental monorepo feature. The `MISE_EXPERIMENTAL=1` env var is configured in `.mise.toml` and loaded automatically when you activate mise.
 
 ## Structure
 

@@ -1,0 +1,59 @@
+[tasks.install]
+description = "Install all dependencies"
+run = "pnpm install"
+sources = ["package.json", "pnpm-lock.yaml"]
+outputs = ["node_modules"]
+
+[tasks.dev]
+description = "Start Next.js development server"
+depends = ["//ui:install"]
+run = "pnpm dev"
+
+[tasks.build]
+description = "Build Next.js application for production"
+depends = ["//ui:install"]
+run = "pnpm build"
+sources = ["app/**/*", "components/**/*", "lib/**/*", "public/**/*", "*.ts", "*.tsx", "*.json"]
+outputs = [".next/**/*"]
+
+[tasks.test]
+description = "Run all tests"
+depends = ["//ui:install"]
+run = "pnpm test"
+
+[tasks."test:watch"]
+description = "Run tests in watch mode"
+depends = ["//ui:install"]
+run = "pnpm test:watch"
+
+[tasks.lint]
+description = "Lint and format check with Biome"
+depends = ["//ui:install"]
+run = "pnpm lint"
+
+[tasks.format]
+description = "Format and fix issues with Biome"
+depends = ["//ui:install"]
+run = "pnpm format"
+
+[tasks."format:check"]
+description = "Check formatting without making changes"
+depends = ["//ui:install"]
+run = "pnpm format:check"
+
+[tasks.typecheck]
+description = "Run TypeScript type checking"
+depends = ["//ui:install"]
+run = "pnpm typecheck"
+
+[tasks.clean]
+description = "Clean build artifacts and dependencies"
+run = """
+rm -rf .next
+rm -rf node_modules
+rm -rf out
+"""
+
+[tasks.check]
+description = "Run all checks (lint, format, typecheck, test)"
+depends = ["//ui:lint", "//ui:format:check", "//ui:typecheck", "//ui:test"]
