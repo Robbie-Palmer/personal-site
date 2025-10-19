@@ -1,0 +1,56 @@
+name: Infrastructure CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "infra/**"
+      - ".github/workflows/infra-cd.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    environment:
+      name: cloudflare-production
+    defaults:
+      run:
+        working-directory: infra/cloudflare
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+          terraform_wrapper: false
+
+      - uses: jdx/mise-action@v2
+        with:
+          experimental: true
+
+      - name: Terraform Plan
+        run: mise run //infra/cloudflare:plan
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_github_repo_owner: ${{ github.repository_owner }}
+          TF_VAR_github_repo_name: ${{ github.event.repository.name }}
+
+      - name: Add Terraform Plan to Summary
+        uses: borchero/terraform-plan-comment@v2
+        with:
+          token: ${{ github.token }}
+          planfile: .planfile
+          working-directory: ./infra/cloudflare
+          skip-comment: true
+
+      - name: Terraform Apply
+        run: mise run //infra/cloudflare:apply
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_github_repo_owner: ${{ github.repository_owner }}
+          TF_VAR_github_repo_name: ${{ github.event.repository.name }}

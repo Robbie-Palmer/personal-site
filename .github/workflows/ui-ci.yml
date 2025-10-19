@@ -1,0 +1,23 @@
+name: UI CI
+
+on:
+  pull_request:
+    paths:
+      - "ui/**"
+      - ".github/workflows/ui-ci.yml"
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jdx/mise-action@v2
+        with:
+          experimental: true
+
+      - name: Run checks
+        run: mise run //ui:check
+
+      - name: Build
+        run: mise run //ui:build
