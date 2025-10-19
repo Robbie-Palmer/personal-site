@@ -8,7 +8,7 @@ updates:
       day: "sunday"
     open-pull-requests-limit: 1
     commit-message:
-      prefix: "deps"
+      prefix: "deps(tools)"
     groups:
       all:
         patterns:
@@ -37,3 +37,7 @@ updates:
     open-pull-requests-limit: 1
     commit-message:
       prefix: "deps(infra)"
+    groups:
+      all:
+        patterns:
+          - "*"
