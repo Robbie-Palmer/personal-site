@@ -31,6 +31,13 @@ jobs:
         with:
           experimental: true
 
+      - name: Create .env file for Terraform
+        run: |
+          cat > .env <<EOF
+          export CLOUDFLARE_API_TOKEN="${CLOUDFLARE_API_TOKEN}"
+          export TF_TOKEN_app_terraform_io="${TF_TOKEN_app_terraform_io}"
+          EOF
+
       - name: Terraform Plan
         run: mise run //infra/cloudflare:plan
         env:
