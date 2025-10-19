@@ -24,6 +24,13 @@
       "Read(**/terraform.tfstate.backup)",
       "Read(**/terraform.tfvars)",
       "Read(**/*.tfvars)",
+      "Read(**/.aws/credentials)",
+      "Read(**/.ssh/id_*)",
+      "Read(**/.ssh/authorized_keys)",
+      "Read(**/service-account*.json)",
+      "Read(**/*-service-account*.json)",
+      "Read(**/.npmrc)",
+      "Read(**/.docker/config.json)",
       "Edit(**/.env)",
       "Edit(**/.env.*)",
       "Edit(**/secrets/**)",
@@ -35,7 +42,16 @@
       "Edit(**/terraform.tfstate)",
       "Edit(**/terraform.tfstate.backup)",
       "Edit(**/terraform.tfvars)",
-      "Edit(**/*.tfvars)"
+      "Edit(**/*.tfvars)",
+      "Edit(**/.aws/credentials)",
+      "Edit(**/.aws/config)",
+      "Edit(**/.ssh/id_*)",
+      "Edit(**/.ssh/config)",
+      "Edit(**/.ssh/authorized_keys)",
+      "Edit(**/service-account*.json)",
+      "Edit(**/*-service-account*.json)",
+      "Edit(**/.npmrc)",
+      "Edit(**/.docker/config.json)"
     ]
   }
 }
