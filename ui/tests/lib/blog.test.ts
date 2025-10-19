@@ -266,6 +266,7 @@ Content`;
       expect(result).toHaveLength(2);
       // Valid date should sort first (NaN - validTimestamp = NaN, which makes it sort last)
       expect(result[0]?.slug).toBe("valid");
+      expect(result[1]?.slug).toBe("invalid");
     });
 
     it("should handle posts with same date consistently", () => {
