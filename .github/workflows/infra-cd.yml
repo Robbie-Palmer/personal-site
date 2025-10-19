@@ -18,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: cloudflare-production
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     defaults:
       run:
         working-directory: infra/cloudflare
@@ -31,8 +34,6 @@ jobs:
       - name: Terraform Plan
         run: mise run //infra/cloudflare:plan
         env:
-          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_github_repo_owner: ${{ github.repository_owner }}
           TF_VAR_github_repo_name: ${{ github.event.repository.name }}
 
@@ -47,7 +48,5 @@ jobs:
       - name: Terraform Apply
         run: mise run //infra/cloudflare:apply
         env:
-          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_github_repo_owner: ${{ github.repository_owner }}
           TF_VAR_github_repo_name: ${{ github.event.repository.name }}
