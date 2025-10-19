@@ -32,7 +32,7 @@ Create a GitHub environment named `cloudflare-production`:
 
 Create a workspace in Terraform Cloud for remote state:
 
-1. Go to: <https://app.terraform.io/app/robbie-palmer/workspaces>
+1. Go to: [Terraform Cloud workspaces](https://app.terraform.io/app/robbie-palmer/workspaces)
 2. Create a new workspace named: `personal-site`
 3. Choose "API-driven workflow"
 
