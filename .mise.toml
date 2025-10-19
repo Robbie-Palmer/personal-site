@@ -23,24 +23,24 @@ description = "Lint and fix Markdown files (optionally pass files as args)"
 run = """
 #!/usr/bin/env bash
 if [ $# -eq 0 ]; then
-  pnpm exec markdownlint --fix '**/*.md' --ignore node_modules --ignore '**/node_modules'
+  pnpm exec markdownlint --fix "**/*.md" --ignore node_modules --ignore '**/node_modules'
 else
-  pnpm exec markdownlint --fix "$@"
+  pnpm exec markdownlint --fix --ignore node_modules --ignore '**/node_modules' "$@"
 fi
 """
 
 [tasks."lint:markdown:check"]
 description = "Check Markdown files without fixing"
-run = "pnpm exec markdownlint '**/*.md' --ignore node_modules --ignore '**/node_modules'"
+run = "pnpm exec markdownlint \"**/*.md\" --ignore node_modules --ignore '**/node_modules'"
 
 [tasks."lint:yaml"]
 description = "Lint YAML files (optionally pass files as args)"
 run = """
 #!/usr/bin/env bash
 if [ $# -eq 0 ]; then
-  pnpm exec yamllint '**/*.{yml,yaml}' --ignore '**/node_modules/**'
+  pnpm exec yamllint "**/*.{yml,yaml}" --ignore '**/node_modules/**'
 else
-  pnpm exec yamllint "$@"
+  pnpm exec yamllint --ignore '**/node_modules/**' "$@"
 fi
 """
 
