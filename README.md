@@ -14,27 +14,32 @@ Personal website with blog and interactive resume.
 ## Setup
 
 1. Install mise (one-time)
+
    ```bash
    curl https://mise.run | sh
    ```
 
 2. Add mise to your shell config (one-time)
+
    ```bash
    echo 'eval "$(mise activate bash)"' >> ~/.bashrc  # or ~/.zshrc for zsh
    source ~/.bashrc  # reload your shell
    ```
 
 3. Clone and enter the project directory
+
    ```bash
    cd personal-site
    ```
 
 4. Install dependencies
+
    ```bash
    mise //ui:install
    ```
 
 5. Start dev server
+
    ```bash
    mise //ui:dev
    ```
@@ -57,11 +62,21 @@ mise //infra:format        # Example: format Terraform files
 cd ui && mise :dev         # Shorter syntax when in the directory
 ```
 
-**Note:** This project requires mise's experimental monorepo feature. The `MISE_EXPERIMENTAL=1` env var is configured in `.mise.toml` and loaded automatically when you activate mise.
+**Note:** This project requires mise's experimental monorepo feature.
+The `MISE_EXPERIMENTAL=1` env var is configured in `.mise.toml` and loaded automatically when you activate mise.
+
+## Pre-commit Hooks
+
+Automatic linting and formatting runs on commit. See:
+
+- `.husky/pre-commit` - Hook entry point
+- `package.json` (`lint-staged`) - File patterns and commands
+- `.mise.toml` - Task definitions (single source of truth for all tooling)
+- `.markdownlint.json`, `.yamllint` - Linter configurations
 
 ## Structure
 
-```
+```text
 ui/          Next.js application
 infra/       Terraform (Cloudflare Pages, DNS)
 .github/     CI/CD workflows
