@@ -14,7 +14,11 @@ _.file = ".env"
 MISE_EXPERIMENTAL = "1"
 
 # Root-level tasks for repo-wide tooling
-[tasks.lint-markdown]
+[tasks.lint]
+description = "Lint all files across the entire repo"
+depends = ["//:lint:markdown", "//:lint:yaml", "//ui:lint", "//infra/cloudflare:lint"]
+
+[tasks."lint:markdown"]
 description = "Lint and fix Markdown files (optionally pass files as args)"
 run = """
 #!/usr/bin/env bash
@@ -25,11 +29,11 @@ else
 fi
 """
 
-[tasks."lint-markdown:check"]
+[tasks."lint:markdown:check"]
 description = "Check Markdown files without fixing"
 run = "pnpm exec markdownlint '**/*.md' --ignore node_modules --ignore '**/node_modules'"
 
-[tasks.lint-yaml]
+[tasks."lint:yaml"]
 description = "Lint YAML files (optionally pass files as args)"
 run = """
 #!/usr/bin/env bash

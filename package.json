@@ -20,10 +20,10 @@
       "mise run //infra:format"
     ],
     "*.md": [
-      "mise run //:lint-markdown"
+      "mise run //:lint:markdown"
     ],
     "*.{yml,yaml}": [
-      "mise run //:lint-yaml"
+      "mise run //:lint:yaml"
     ]
   }
 }
