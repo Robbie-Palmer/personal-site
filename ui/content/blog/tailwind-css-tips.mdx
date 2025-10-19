@@ -1,0 +1,66 @@
+---
+title: "Tailwind CSS Tips and Tricks"
+description: "Level up your Tailwind CSS skills with these practical tips for building better UIs"
+date: "2024-01-10"
+tags: ["css", "tailwind", "frontend"]
+---
+
+Tailwind CSS has revolutionized how we write CSS. Here are some tips to help you get the most out of it.
+
+## Customizing Your Theme
+
+Tailwind's configuration file lets you extend the default theme:
+
+```javascript
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        brand: {
+          50: '#f0f9ff',
+          500: '#0ea5e9',
+          900: '#0c4a6e',
+        }
+      }
+    }
+  }
+}
+```
+
+## Useful Utility Patterns
+
+### Centering Content
+
+The classic centering problem, solved elegantly:
+
+```html
+<div class="flex items-center justify-center min-h-screen">
+  <div>Centered content</div>
+</div>
+```
+
+### Responsive Design
+
+Tailwind makes responsive design straightforward:
+
+```html
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <!-- Grid items -->
+</div>
+```
+
+## Component Extraction
+
+Don't repeat yourself! Extract common patterns:
+
+* Use `@apply` in CSS for component classes
+* Create React components for reusable UI elements
+* Consider using **shadcn/ui** for pre-built components
+
+## Performance Tips
+
+* Purge unused styles in production
+* Use JIT mode for faster builds
+* Keep utility classes composable and atomic
+
+Check out the [official documentation](https://tailwindcss.com) for more advanced techniques and examples.
