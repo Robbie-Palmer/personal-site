@@ -18,6 +18,7 @@ Configure these in GitHub repository settings (Settings → Secrets and variable
 2. **`TF_API_TOKEN`**
    - Create at: Terraform Cloud → User Settings → Tokens
    - Used for remote state management
+   - Note: Stored as `TF_API_TOKEN` in GitHub, but workflows map it to `TF_TOKEN_app_terraform_io` for Terraform CLI
 
 ### Required Environment
 
