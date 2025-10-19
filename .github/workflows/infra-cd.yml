@@ -28,22 +28,10 @@ jobs:
         with:
           experimental: true
 
-      - name: Configure Terraform Cloud credentials
-        run: |
-          mkdir -p ~/.terraform.d
-          cat > ~/.terraform.d/credentials.tfrc.json <<EOF
-          {
-            "credentials": {
-              "app.terraform.io": {
-                "token": "${{ secrets.TF_API_TOKEN }}"
-              }
-            }
-          }
-          EOF
-
       - name: Terraform Plan
         run: mise run //infra/cloudflare:plan
         env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_github_repo_owner: ${{ github.repository_owner }}
           TF_VAR_github_repo_name: ${{ github.event.repository.name }}
@@ -59,6 +47,7 @@ jobs:
       - name: Terraform Apply
         run: mise run //infra/cloudflare:apply
         env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_github_repo_owner: ${{ github.repository_owner }}
           TF_VAR_github_repo_name: ${{ github.event.repository.name }}
