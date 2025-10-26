@@ -34,10 +34,20 @@ export function getPostBySlug(slug: string): BlogPost {
 
   const fullPath = path.join(contentDirectory, `${slug}.mdx`);
 
-  // Ensure the resolved path is within contentDirectory
+  // Ensure the resolved path is within contentDirectory using path.relative
   const normalizedPath = path.resolve(fullPath);
   const normalizedDir = path.resolve(contentDirectory);
-  if (!normalizedPath.startsWith(normalizedDir)) {
+  const relativePath = path.relative(normalizedDir, normalizedPath);
+
+  // Security checks:
+  // 1. relativePath must not start with '..' (going outside the directory)
+  // 2. relativePath must not be an absolute path (completely outside)
+  // 3. Must have .mdx extension
+  if (
+    relativePath.startsWith("..") ||
+    path.isAbsolute(relativePath) ||
+    !relativePath.endsWith(".mdx")
+  ) {
     throw new Error("Invalid slug");
   }
 

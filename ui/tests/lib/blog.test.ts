@@ -20,11 +20,21 @@ const pathMock = vi.hoisted(() => {
     const joined = args.join("/");
     return joined.startsWith("/") ? joined : `/${joined}`;
   });
+  const relative = vi.fn((from: string, to: string) => {
+    // Simple mock implementation for testing
+    if (to.startsWith(from)) {
+      return to.slice(from.length + 1); // Remove the base path
+    }
+    return `../${to.split("/").pop()}`; // Mock going outside
+  });
+  const isAbsolute = vi.fn((p: string) => p.startsWith("/"));
 
   return {
-    default: { join, resolve },
+    default: { join, resolve, relative, isAbsolute },
     join,
     resolve,
+    relative,
+    isAbsolute,
   };
 });
 
@@ -122,10 +132,23 @@ tags: ["test"]
       expect(() => getPostBySlug("malicious")).toThrow("Invalid slug");
     });
 
+    it("should reject slug with path that starts with content dir but is outside (prefix bypass)", () => {
+      // This tests the vulnerability: /mock/content/blog-evil/ starts with /mock/content/blog
+      // but is actually outside the intended directory
+      vi.mocked(path.resolve)
+        .mockReturnValueOnce("/mock/content/blog-evil/malicious.mdx") // fullPath - note the "-evil" suffix
+        .mockReturnValueOnce("/mock/content/blog"); // contentDirectory
+      vi.mocked(path.relative).mockReturnValueOnce(
+        "../blog-evil/malicious.mdx",
+      ); // relative path shows it goes outside
+      expect(() => getPostBySlug("malicious")).toThrow("Invalid slug");
+    });
+
     it("should accept valid simple slugs", () => {
       vi.mocked(path.resolve)
         .mockReturnValueOnce("/mock/content/blog/valid-slug.mdx")
         .mockReturnValueOnce("/mock/content/blog");
+      vi.mocked(path.relative).mockReturnValueOnce("valid-slug.mdx");
       vi.mocked(fs.readFileSync).mockReturnValue(validFileContent);
       const result = getPostBySlug("valid-slug");
       expect(result.slug).toBe("valid-slug");
@@ -136,6 +159,7 @@ tags: ["test"]
       vi.mocked(path.resolve)
         .mockReturnValueOnce("/mock/content/blog/valid-slug_123.mdx")
         .mockReturnValueOnce("/mock/content/blog");
+      vi.mocked(path.relative).mockReturnValueOnce("valid-slug_123.mdx");
       vi.mocked(fs.readFileSync).mockReturnValue(validFileContent);
       const result = getPostBySlug("valid-slug_123");
       expect(result.slug).toBe("valid-slug_123");
@@ -157,6 +181,7 @@ This is the content.`;
       vi.mocked(path.resolve)
         .mockReturnValueOnce("/mock/content/blog/test.mdx")
         .mockReturnValueOnce("/mock/content/blog");
+      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
       vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
       const result = getPostBySlug("test");
       expect(result).toEqual({
@@ -178,6 +203,7 @@ Content here.`;
       vi.mocked(path.resolve)
         .mockReturnValueOnce("/mock/content/blog/test.mdx")
         .mockReturnValueOnce("/mock/content/blog");
+      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
       vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
       const result = getPostBySlug("test");
       expect(result).toEqual({
@@ -199,6 +225,7 @@ Content.`;
       vi.mocked(path.resolve)
         .mockReturnValueOnce("/mock/content/blog/test.mdx")
         .mockReturnValueOnce("/mock/content/blog");
+      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
       vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
       const result = getPostBySlug("test");
       expect(result.title).toBe("Untitled");
