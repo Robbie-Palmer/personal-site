@@ -308,18 +308,14 @@ Content.`;
         { slug: "middle-post", date: "2025-06-10" },
       ];
 
-      // Mock path.resolve based on input instead of call count
       vi.mocked(path.resolve).mockImplementation((...args: string[]) => {
         const joined = args.join("/");
-        // If it's resolving a full path with .mdx, return it as-is
         if (joined.includes(".mdx")) {
           return `/mock/${joined}`;
         }
-        // Otherwise it's resolving the content directory
         return "/mock/content/blog";
       });
 
-      // Mock path.relative to return valid relative paths
       vi.mocked(path.relative).mockImplementation(
         (_from: string, to: string) => {
           // Extract the filename from the full path
@@ -345,6 +341,11 @@ Content`;
         "middle-post",
         "old-post",
       ]);
+
+      // Verify content is omitted (metadata-only contract)
+      for (const post of result) {
+        expect(post).not.toHaveProperty("content");
+      }
     });
 
     it("should handle posts with same date consistently", () => {
@@ -356,18 +357,14 @@ Content`;
         // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
       ] as any);
 
-      // Mock path.resolve based on input instead of call count
       vi.mocked(path.resolve).mockImplementation((...args: string[]) => {
         const joined = args.join("/");
-        // If it's resolving a full path with .mdx, return it as-is
         if (joined.includes(".mdx")) {
           return `/mock/${joined}`;
         }
-        // Otherwise it's resolving the content directory
         return "/mock/content/blog";
       });
 
-      // Mock path.relative to return valid relative paths
       vi.mocked(path.relative).mockImplementation(
         (_from: string, to: string) => {
           // Extract the filename from the full path
