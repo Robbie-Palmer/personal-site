@@ -18,31 +18,33 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="antialiased flex flex-col min-h-screen">
+      <body>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
-          <header className="border-b">
-            <nav className="container mx-auto px-4 py-4 flex items-center justify-between">
-              <Link href="/" className="text-xl font-bold hover:text-primary">
-                Robbie Palmer
-              </Link>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" asChild>
-                  <Link href="/blog">Blog</Link>
-                </Button>
-                <Button variant="ghost" asChild>
-                  <Link href="/experience">Experience</Link>
-                </Button>
-                <ThemeToggle />
-              </div>
-            </nav>
-          </header>
-          <main className="flex-1">{children}</main>
-          <Footer />
+          <div className="antialiased flex flex-col min-h-screen">
+            <header className="border-b">
+              <nav className="container mx-auto px-4 py-4 flex items-center justify-between">
+                <Link href="/" className="text-xl font-bold hover:text-primary">
+                  Robbie Palmer
+                </Link>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" asChild>
+                    <Link href="/blog">Blog</Link>
+                  </Button>
+                  <Button variant="ghost" asChild>
+                    <Link href="/experience">Experience</Link>
+                  </Button>
+                  <ThemeToggle />
+                </div>
+              </nav>
+            </header>
+            <main className="flex-1 flex flex-col">{children}</main>
+            <Footer />
+          </div>
         </ThemeProvider>
       </body>
     </html>
