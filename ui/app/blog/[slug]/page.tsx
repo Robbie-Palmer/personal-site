@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getAllPostSlugs, getPostBySlug } from "@/lib/blog";
+import { formatDate } from "@/lib/date";
 
 export function generateStaticParams() {
   return getAllPostSlugs().map((slug) => ({ slug }));
@@ -42,13 +43,7 @@ export default async function BlogPostPage({
         <p className="text-xl text-muted-foreground mb-4">{post.description}</p>
 
         <div className="flex flex-wrap items-center gap-4 text-sm">
-          <time className="text-muted-foreground">
-            {new Date(post.date).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          </time>
+          <time className="text-muted-foreground">{formatDate(post.date)}</time>
 
           <div className="flex flex-wrap gap-2">
             {post.tags.map((tag) => (

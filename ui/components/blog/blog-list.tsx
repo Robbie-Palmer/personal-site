@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { BlogPostMetadata } from "@/lib/blog";
+import { formatDate } from "@/lib/date";
 
 interface BlogListProps {
   posts: BlogPostMetadata[];
@@ -84,11 +85,7 @@ export function BlogList({ posts }: BlogListProps) {
                 ))}
               </div>
               <time className="text-sm text-muted-foreground">
-                {new Date(post.date).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
+                {formatDate(post.date)}
               </time>
             </CardContent>
           </Card>
