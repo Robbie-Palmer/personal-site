@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
-import rehypeHighlight from "rehype-highlight";
+import rehypePrettyCode from "rehype-pretty-code";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 import { Badge } from "@/components/ui/badge";
@@ -71,7 +71,16 @@ export default async function BlogPostPage({
               rehypePlugins: [
                 rehypeSlug,
                 rehypeAutolinkHeadings,
-                rehypeHighlight,
+                [
+                  rehypePrettyCode,
+                  {
+                    theme: {
+                      dark: "github-dark",
+                      light: "github-light",
+                    },
+                    keepBackground: false,
+                  },
+                ],
               ],
             },
           }}
