@@ -383,9 +383,10 @@ describe("Blog content validation (integration)", () => {
   });
 
   it("all posts in content/blog should have valid frontmatter", async () => {
-    // Dynamically import real modules
-    const realFs = await import("node:fs");
-    const realPath = await import("node:path");
+    // Import the actual unmocked modules
+    const realFs = await vi.importActual<typeof import("node:fs")>("node:fs");
+    const realPath =
+      await vi.importActual<typeof import("node:path")>("node:path");
 
     const contentDir = realPath.join(process.cwd(), "content/blog");
     const files = realFs
