@@ -30,7 +30,15 @@ export function Footer() {
           </div>
 
           <p className="text-sm text-muted-foreground">
-            © {currentYear} Robbie Palmer. All rights reserved.
+            <Link
+              href="https://github.com/Robbie-Palmer/personal-site"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground transition-colors underline decoration-dotted underline-offset-4"
+            >
+              View Source
+            </Link>
+            {" · "}© {currentYear} Robbie Palmer
           </p>
         </div>
       </div>
