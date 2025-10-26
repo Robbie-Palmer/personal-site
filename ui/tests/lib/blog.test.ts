@@ -307,15 +307,27 @@ Content.`;
         { slug: "new-post", date: "2025-10-19" },
         { slug: "middle-post", date: "2025-06-10" },
       ];
-      let callCount = 0;
-      vi.mocked(path.resolve).mockImplementation(() => {
-        callCount++;
-        // Always return valid paths that pass security checks
-        if (callCount % 2 === 1) {
-          return "/mock/content/blog/post.mdx";
+
+      // Mock path.resolve based on input instead of call count
+      vi.mocked(path.resolve).mockImplementation((...args: string[]) => {
+        const joined = args.join("/");
+        // If it's resolving a full path with .mdx, return it as-is
+        if (joined.includes(".mdx")) {
+          return `/mock/${joined}`;
         }
+        // Otherwise it's resolving the content directory
         return "/mock/content/blog";
       });
+
+      // Mock path.relative to return valid relative paths
+      vi.mocked(path.relative).mockImplementation(
+        (_from: string, to: string) => {
+          // Extract the filename from the full path
+          const filename = to.split("/").pop() || "";
+          return filename;
+        },
+      );
+
       // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
       vi.mocked(fs.readFileSync).mockImplementation((filePath: any) => {
         const post = posts.find((p) => filePath.includes(p.slug));
@@ -343,14 +355,27 @@ Content`;
         "third.mdx",
         // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
       ] as any);
-      let callCount = 0;
-      vi.mocked(path.resolve).mockImplementation(() => {
-        callCount++;
-        if (callCount % 2 === 1) {
-          return "/mock/content/blog/post.mdx";
+
+      // Mock path.resolve based on input instead of call count
+      vi.mocked(path.resolve).mockImplementation((...args: string[]) => {
+        const joined = args.join("/");
+        // If it's resolving a full path with .mdx, return it as-is
+        if (joined.includes(".mdx")) {
+          return `/mock/${joined}`;
         }
+        // Otherwise it's resolving the content directory
         return "/mock/content/blog";
       });
+
+      // Mock path.relative to return valid relative paths
+      vi.mocked(path.relative).mockImplementation(
+        (_from: string, to: string) => {
+          // Extract the filename from the full path
+          const filename = to.split("/").pop() || "";
+          return filename;
+        },
+      );
+
       // All posts have the same date
       // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
       vi.mocked(fs.readFileSync).mockImplementation((filePath: any) => {
