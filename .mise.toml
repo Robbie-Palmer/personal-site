@@ -16,16 +16,16 @@ MISE_EXPERIMENTAL = "1"
 # Root-level tasks for repo-wide tooling
 [tasks.lint]
 description = "Lint all files across the entire repo"
-depends = ["//:lint:markdown", "//:lint:yaml", "//ui:lint", "//infra/cloudflare:lint"]
+depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//ui:lint", "//infra/cloudflare:lint"]
 
 [tasks."lint:markdown"]
 description = "Lint and fix Markdown files (optionally pass files as args)"
 run = """
 #!/usr/bin/env bash
 if [ $# -eq 0 ]; then
-  pnpm exec markdownlint --fix "**/*.md" --ignore node_modules --ignore '**/node_modules'
+  pnpm exec markdownlint --fix "**/*.md" --ignore node_modules --ignore '**/node_modules' --ignore .terraform --ignore '**/.terraform'
 else
-  pnpm exec markdownlint --fix --ignore node_modules --ignore '**/node_modules' "$@"
+  pnpm exec markdownlint --fix --ignore node_modules --ignore '**/node_modules' --ignore .terraform --ignore '**/.terraform' "$@"
 fi
 """
 
@@ -34,9 +34,31 @@ description = "Check Markdown files without fixing (optionally pass files as arg
 run = """
 #!/usr/bin/env bash
 if [ $# -eq 0 ]; then
-  pnpm exec markdownlint "**/*.md" --ignore node_modules --ignore '**/node_modules'
+  pnpm exec markdownlint "**/*.md" --ignore node_modules --ignore '**/node_modules' --ignore .terraform --ignore '**/.terraform'
 else
-  pnpm exec markdownlint --ignore node_modules --ignore '**/node_modules' "$@"
+  pnpm exec markdownlint --ignore node_modules --ignore '**/node_modules' --ignore .terraform --ignore '**/.terraform' "$@"
+fi
+"""
+
+[tasks."lint:mdx"]
+description = "Lint and fix MDX files (optionally pass files as args)"
+run = """
+#!/usr/bin/env bash
+if [ $# -eq 0 ]; then
+  pnpm exec remark "**/*.mdx" --output --frail --quiet
+else
+  pnpm exec remark "$@" --output --frail --quiet
+fi
+"""
+
+[tasks."lint:mdx:check"]
+description = "Check MDX files without fixing (optionally pass files as args)"
+run = """
+#!/usr/bin/env bash
+if [ $# -eq 0 ]; then
+  pnpm exec remark "**/*.mdx" --frail --quiet
+else
+  pnpm exec remark "$@" --frail --quiet
 fi
 """
 

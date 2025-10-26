@@ -1,0 +1,60 @@
+---
+title: "Understanding Machine Learning Fundamentals"
+description: "An introduction to core machine learning concepts and practical applications"
+date: "2025-09-05"
+tags: ["machine-learning", "python", "data-science"]
+---
+
+Machine learning has transformed how we approach complex problems. This post introduces fundamental concepts and practical applications.
+
+## Core Concepts
+
+Machine learning involves training algorithms to learn patterns from data. The main categories include:
+
+1. **Supervised Learning**: Learning from labeled data
+2. **Unsupervised Learning**: Finding patterns in unlabeled data
+3. **Reinforcement Learning**: Learning through trial and error
+
+## A Simple Example
+
+Here's a basic linear regression example using scikit-learn:
+
+```python
+from sklearn.linear_model import LinearRegression
+import numpy as np
+
+# Training data
+X = np.array([[1], [2], [3], [4], [5]])
+y = np.array([2, 4, 6, 8, 10])
+
+# Create and train model
+model = LinearRegression()
+model.fit(X, y)
+
+# Make prediction
+prediction = model.predict([[6]])
+print(f"Prediction: {prediction[0]}")
+```
+
+## Model Evaluation Metrics
+
+| Metric   | Use Case           | Range |
+| -------- | ------------------ | ----- |
+| Accuracy | Classification     | 0-1   |
+| RMSE     | Regression         | 0-∞   |
+| F1 Score | Imbalanced classes | 0-1   |
+
+## Best Practices
+
+> Always split your data into training and testing sets to avoid overfitting. A common split is 80% training and 20% testing.
+
+## Next Steps
+
+To dive deeper into machine learning:
+
+* Explore popular libraries like TensorFlow and PyTorch
+* Practice with real datasets from Kaggle
+* Build projects to solidify your understanding
+* Stay updated with the latest research and techniques
+
+Machine learning is a vast field, but starting with these fundamentals will set you on the right path.

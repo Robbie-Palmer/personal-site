@@ -2,6 +2,7 @@
   "name": "personal-site",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Personal website mono-repo - root package for repo-wide tooling",
   "scripts": {
     "prepare": "husky"
@@ -10,6 +11,12 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.2.6",
     "markdownlint-cli": "^0.45.0",
+    "remark-cli": "^12.0.1",
+    "remark-frontmatter": "^5.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-lint": "^10.0.0",
+    "remark-mdx": "^3.1.0",
+    "remark-preset-lint-recommended": "^7.0.0",
     "yaml-lint": "^1.7.0"
   },
   "lint-staged": {
@@ -19,8 +26,11 @@
     "infra/**/*.tf": [
       "mise run //infra:format"
     ],
-    "*.md": [
+    "**/*.md": [
       "mise run //:lint:markdown"
+    ],
+    "**/*.mdx": [
+      "mise run //:lint:mdx"
     ],
     "*.{yml,yaml}": [
       "mise run //:lint:yaml"
