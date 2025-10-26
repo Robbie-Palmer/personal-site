@@ -14,11 +14,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import type { BlogPostMetadata } from "@/lib/blog";
+import type { BlogPost } from "@/lib/blog";
 import { formatDate } from "@/lib/date";
 
 interface BlogListProps {
-  posts: BlogPostMetadata[];
+  posts: BlogPost[];
 }
 
 export function BlogList({ posts }: BlogListProps) {
@@ -37,7 +37,6 @@ export function BlogList({ posts }: BlogListProps) {
         ],
         threshold: 0.1,
         ignoreLocation: true,
-        minMatchCharLength: 2,
       }),
     [posts],
   );

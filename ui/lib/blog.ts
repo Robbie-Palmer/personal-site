@@ -4,16 +4,12 @@ import matter from "gray-matter";
 
 const contentDirectory = path.join(process.cwd(), "content/blog");
 
-export interface BlogPostMetadata {
+export interface BlogPost {
   title: string;
   description: string;
   date: string;
   tags: string[];
   slug: string;
-  content: string;
-}
-
-export interface BlogPost extends BlogPostMetadata {
   content: string;
 }
 
@@ -90,7 +86,7 @@ export function getPostBySlug(slug: string): BlogPost {
   };
 }
 
-export function getAllPosts(): BlogPostMetadata[] {
+export function getAllPosts(): BlogPost[] {
   const slugs = getAllPostSlugs();
   const posts = slugs.map((slug) => getPostBySlug(slug));
 
