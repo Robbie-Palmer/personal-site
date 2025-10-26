@@ -1,21 +1,44 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// Hoist mocks before importing code under test to avoid real FS access
+const fsMock = vi.hoisted(() => {
+  const existsSync = vi.fn();
+  const readdirSync = vi.fn();
+  const readFileSync = vi.fn();
+
+  return {
+    default: { existsSync, readdirSync, readFileSync },
+    existsSync,
+    readdirSync,
+    readFileSync,
+  };
+});
+
+const pathMock = vi.hoisted(() => {
+  const join = vi.fn((...args: string[]) => args.join("/"));
+  const resolve = vi.fn((...args: string[]) => {
+    const joined = args.join("/");
+    return joined.startsWith("/") ? joined : `/${joined}`;
+  });
+
+  return {
+    default: { join, resolve },
+    join,
+    resolve,
+  };
+});
+
+vi.mock("node:fs", () => fsMock);
+vi.mock("node:path", () => pathMock);
+
+// Import after mocks are hoisted
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getAllPostSlugs, getAllPosts, getPostBySlug } from "@/lib/blog";
-
-// Mock the filesystem modules
-vi.mock("node:fs");
-vi.mock("node:path");
 
 describe("Blog functions", () => {
   beforeEach(() => {
-    vi.resetAllMocks();
-    // Setup default path.join behavior
-    vi.mocked(path.join).mockImplementation((...args) => args.join("/"));
-    vi.mocked(path.resolve).mockImplementation((...args) => {
-      const joined = args.join("/");
-      return joined.startsWith("/") ? joined : `/${joined}`;
-    });
+    vi.clearAllMocks();
   });
 
   describe("getAllPostSlugs", () => {
