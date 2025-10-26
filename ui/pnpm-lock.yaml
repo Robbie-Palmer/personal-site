@@ -8,15 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@mdx-js/loader':
-        specifier: ^3.1.1
-        version: 3.1.1
-      '@mdx-js/react':
-        specifier: ^3.1.1
-        version: 3.1.1(@types/react@19.2.2)(react@19.2.0)
-      '@next/mdx':
-        specifier: ^15.5.6
-        version: 15.5.6(@mdx-js/loader@3.1.1)(@mdx-js/react@3.1.1(@types/react@19.2.2)(react@19.2.0))
       '@radix-ui/react-separator':
         specifier: ^1.1.7
         version: 1.1.7(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -605,14 +596,6 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@mdx-js/loader@3.1.1':
-    resolution: {integrity: sha512-0TTacJyZ9mDmY+VefuthVshaNIyCGZHJG2fMnGaDttCt8HmjUF7SizlHJpaCDoGnN635nK1wpzfpx/Xx5S4WnQ==}
-    peerDependencies:
-      webpack: '>=5'
-    peerDependenciesMeta:
-      webpack:
-        optional: true
-
   '@mdx-js/mdx@3.1.1':
     resolution: {integrity: sha512-f6ZO2ifpwAQIpzGWaBQT2TXxPv6z3RBzQKpVftEWN78Vl/YweF1uwussDx8ECAXVtr3Rs89fKyG9YlzUs9DyGQ==}
 
@@ -624,17 +607,6 @@ packages:
 
   '@next/env@15.5.6':
     resolution: {integrity: sha512-3qBGRW+sCGzgbpc5TS1a0p7eNxnOarGVQhZxfvTdnV0gFI61lX7QNtQ4V1TSREctXzYn5NetbUsLvyqwLFJM6Q==}
-
-  '@next/mdx@15.5.6':
-    resolution: {integrity: sha512-lyzXcnZWPjYxbkz/5tv1bRlCOjKYX1lFg3LIuoIf9ERTOUBDzkCvUnWjtRsmFRxKv1/6uwpLVQvrJDd54gVDBw==}
-    peerDependencies:
-      '@mdx-js/loader': '>=0.15.0'
-      '@mdx-js/react': '>=0.15.0'
-    peerDependenciesMeta:
-      '@mdx-js/loader':
-        optional: true
-      '@mdx-js/react':
-        optional: true
 
   '@next/swc-darwin-arm64@15.5.6':
     resolution: {integrity: sha512-ES3nRz7N+L5Umz4KoGfZ4XX6gwHplwPhioVRc25+QNsDa7RtUF/z8wJcbuQ2Tffm5RZwuN2A063eapoJ1u4nPg==}
@@ -2636,13 +2608,6 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@mdx-js/loader@3.1.1':
-    dependencies:
-      '@mdx-js/mdx': 3.1.1
-      source-map: 0.7.6
-    transitivePeerDependencies:
-      - supports-color
-
   '@mdx-js/mdx@3.1.1':
     dependencies:
       '@types/estree': 1.0.8
@@ -2680,13 +2645,6 @@ snapshots:
       react: 19.2.0
 
   '@next/env@15.5.6': {}
-
-  '@next/mdx@15.5.6(@mdx-js/loader@3.1.1)(@mdx-js/react@3.1.1(@types/react@19.2.2)(react@19.2.0))':
-    dependencies:
-      source-map: 0.7.6
-    optionalDependencies:
-      '@mdx-js/loader': 3.1.1
-      '@mdx-js/react': 3.1.1(@types/react@19.2.2)(react@19.2.0)
 
   '@next/swc-darwin-arm64@15.5.6':
     optional: true
