@@ -80,6 +80,7 @@ export function BlogList({ posts }: BlogListProps) {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-9 pr-9"
+          aria-label="Search blog posts"
         />
         {searchQuery && (
           <button
