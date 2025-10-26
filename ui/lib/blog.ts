@@ -22,7 +22,7 @@ export function getAllPostSlugs(): string[] {
   }
   const files = fs.readdirSync(contentDirectory);
   return files
-    .filter((file) => file.endsWith(".mdx"))
+    .filter((file) => file.endsWith(".mdx") && !file.startsWith("."))
     .map((file) => file.replace(/\.mdx$/, ""));
 }
 

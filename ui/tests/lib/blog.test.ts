@@ -48,7 +48,7 @@ describe("Blog functions", () => {
       expect(result).toEqual([]);
     });
 
-    it("should return slugs from .mdx files only", () => {
+    it("should return slugs from .mdx files only, excluding hidden files", () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
       vi.mocked(fs.readdirSync).mockReturnValue([
         "post-one.mdx",
@@ -59,7 +59,7 @@ describe("Blog functions", () => {
         // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
       ] as any);
       const result = getAllPostSlugs();
-      expect(result).toEqual(["post-one", "post-two", ".hidden"]);
+      expect(result).toEqual(["post-one", "post-two"]);
     });
   });
 
