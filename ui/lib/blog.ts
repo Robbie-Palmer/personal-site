@@ -10,6 +10,7 @@ export interface BlogPostMetadata {
   date: string;
   tags: string[];
   slug: string;
+  content: string;
 }
 
 export interface BlogPost extends BlogPostMetadata {
@@ -91,11 +92,7 @@ export function getPostBySlug(slug: string): BlogPost {
 
 export function getAllPosts(): BlogPostMetadata[] {
   const slugs = getAllPostSlugs();
-  const posts = slugs.map((slug) => {
-    const post = getPostBySlug(slug);
-    const { content, ...metadata } = post;
-    return metadata;
-  });
+  const posts = slugs.map((slug) => getPostBySlug(slug));
 
   return posts.sort((a, b) => {
     const dateA = new Date(a.date).getTime();

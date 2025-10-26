@@ -342,9 +342,10 @@ Content`;
         "old-post",
       ]);
 
-      // Verify content is omitted (metadata-only contract)
+      // Verify content is included (for search functionality)
       for (const post of result) {
-        expect(post).not.toHaveProperty("content");
+        expect(post).toHaveProperty("content");
+        expect(typeof post.content).toBe("string");
       }
     });
 
