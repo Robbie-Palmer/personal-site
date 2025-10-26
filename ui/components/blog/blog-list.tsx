@@ -78,7 +78,7 @@ export function BlogList({ posts }: BlogListProps) {
             <CardContent className="flex-1 flex flex-col justify-end">
               <div className="flex flex-wrap gap-2 mb-3">
                 {post.tags.map((tag) => (
-                  <Link key={tag} href={`/blog?tag=${tag}`}>
+                  <Link key={tag} href={`/blog?tag=${encodeURIComponent(tag)}`}>
                     <Badge variant="secondary">{tag}</Badge>
                   </Link>
                 ))}
