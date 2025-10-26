@@ -42,7 +42,7 @@ export default function RootLayout({
                 </div>
               </nav>
             </header>
-            <main className="flex-1">{children}</main>
+            <main className="flex-1 flex flex-col">{children}</main>
             <Footer />
           </div>
         </ThemeProvider>
