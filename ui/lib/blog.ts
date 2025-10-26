@@ -54,12 +54,37 @@ export function getPostBySlug(slug: string): BlogPost {
   const fileContents = fs.readFileSync(fullPath, "utf8");
   const { data, content } = matter(fileContents);
 
+  // Validate required frontmatter fields
+  if (!data.title || typeof data.title !== "string") {
+    throw new Error(`Post ${slug} is missing required field: title`);
+  }
+
+  if (!data.description || typeof data.description !== "string") {
+    throw new Error(`Post ${slug} is missing required field: description`);
+  }
+
+  if (!data.date || typeof data.date !== "string") {
+    throw new Error(`Post ${slug} is missing required field: date`);
+  }
+
+  // Validate date is actually a valid date
+  const dateTimestamp = new Date(data.date).getTime();
+  if (Number.isNaN(dateTimestamp)) {
+    throw new Error(`Post ${slug} has invalid date: ${data.date}`);
+  }
+
+  if (!Array.isArray(data.tags)) {
+    throw new Error(
+      `Post ${slug} is missing required field: tags (must be an array)`,
+    );
+  }
+
   return {
     slug,
-    title: data.title || "Untitled",
-    description: data.description || "",
-    date: data.date || "",
-    tags: data.tags || [],
+    title: data.title,
+    description: data.description,
+    date: data.date,
+    tags: data.tags,
     content,
   };
 }

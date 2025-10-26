@@ -194,31 +194,11 @@ This is the content.`;
       });
     });
 
-    it("should use default values for missing frontmatter fields", () => {
-      const mockContent = `---
-title: "Only Title"
----
-
-Content here.`;
-      vi.mocked(path.resolve)
-        .mockReturnValueOnce("/mock/content/blog/test.mdx")
-        .mockReturnValueOnce("/mock/content/blog");
-      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
-      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
-      const result = getPostBySlug("test");
-      expect(result).toEqual({
-        slug: "test",
-        title: "Only Title",
-        description: "",
-        date: "",
-        tags: [],
-        content: "\nContent here.",
-      });
-    });
-
-    it("should use 'Untitled' when title is missing", () => {
+    it("should throw error when title is missing", () => {
       const mockContent = `---
 description: "No title here"
+date: "2025-10-19"
+tags: []
 ---
 
 Content.`;
@@ -227,8 +207,83 @@ Content.`;
         .mockReturnValueOnce("/mock/content/blog");
       vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
       vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
-      const result = getPostBySlug("test");
-      expect(result.title).toBe("Untitled");
+      expect(() => getPostBySlug("test")).toThrow(
+        "missing required field: title",
+      );
+    });
+
+    it("should throw error when description is missing", () => {
+      const mockContent = `---
+title: "Test Post"
+date: "2025-10-19"
+tags: []
+---
+
+Content.`;
+      vi.mocked(path.resolve)
+        .mockReturnValueOnce("/mock/content/blog/test.mdx")
+        .mockReturnValueOnce("/mock/content/blog");
+      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
+      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
+      expect(() => getPostBySlug("test")).toThrow(
+        "missing required field: description",
+      );
+    });
+
+    it("should throw error when date is missing", () => {
+      const mockContent = `---
+title: "Test Post"
+description: "A test"
+tags: []
+---
+
+Content.`;
+      vi.mocked(path.resolve)
+        .mockReturnValueOnce("/mock/content/blog/test.mdx")
+        .mockReturnValueOnce("/mock/content/blog");
+      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
+      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
+      expect(() => getPostBySlug("test")).toThrow(
+        "missing required field: date",
+      );
+    });
+
+    it("should throw error when date is invalid", () => {
+      const mockContent = `---
+title: "Test Post"
+description: "A test"
+date: "not-a-real-date"
+tags: []
+---
+
+Content.`;
+      vi.mocked(path.resolve)
+        .mockReturnValueOnce("/mock/content/blog/test.mdx")
+        .mockReturnValueOnce("/mock/content/blog");
+      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
+      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
+      expect(() => getPostBySlug("test")).toThrow(
+        "has invalid date: not-a-real-date",
+      );
+    });
+
+    it("should throw error when tags is not an array", () => {
+      const mockContent = `---
+title: "Test Post"
+description: "A test"
+date: "2025-10-19"
+tags: "not-an-array"
+---
+
+Content.`;
+      vi.mocked(path.resolve)
+        .mockReturnValueOnce("/mock/content/blog/test.mdx")
+        .mockReturnValueOnce("/mock/content/blog");
+      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
+      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
+      expect(() => getPostBySlug("test")).toThrow(
+        "missing required field: tags (must be an array)",
+      );
     });
   });
 
@@ -280,45 +335,6 @@ Content`;
       ]);
     });
 
-    it("should not crash when sorting posts with invalid dates", () => {
-      // If frontmatter has date: "oops-not-a-date", new Date() returns NaN
-      // This test ensures sorting doesn't throw when comparing NaN timestamps
-      vi.mocked(fs.existsSync).mockReturnValue(true);
-      vi.mocked(fs.readdirSync).mockReturnValue([
-        "valid.mdx",
-        "invalid.mdx",
-        // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
-      ] as any);
-      let callCount = 0;
-      vi.mocked(path.resolve).mockImplementation(() => {
-        callCount++;
-        if (callCount % 2 === 1) {
-          return "/mock/content/blog/post.mdx";
-        }
-        return "/mock/content/blog";
-      });
-      // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
-      vi.mocked(fs.readFileSync).mockImplementation((filePath: any) => {
-        if (filePath.includes("valid")) {
-          return `---
-title: "Valid"
-date: "2025-10-19"
----
-Content`;
-        }
-        return `---
-title: "Invalid"
-date: "oops-not-a-date"
----
-Content`;
-      });
-      const result = getAllPosts();
-      expect(result).toHaveLength(2);
-      // Valid date should sort first (NaN - validTimestamp = NaN, which makes it sort last)
-      expect(result[0]?.slug).toBe("valid");
-      expect(result[1]?.slug).toBe("invalid");
-    });
-
     it("should handle posts with same date consistently", () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
       vi.mocked(fs.readdirSync).mockReturnValue([
@@ -345,7 +361,9 @@ Content`;
             : "third";
         return `---
 title: "${slug}"
+description: "Description"
 date: "2025-10-19"
+tags: []
 ---
 Content`;
       });
@@ -353,5 +371,65 @@ Content`;
       // Should maintain file system order when dates are equal
       expect(result.map((p) => p.slug)).toEqual(["first", "second", "third"]);
     });
+  });
+});
+
+// Integration test: validate all real posts have valid frontmatter
+// This test uses the real filesystem to ensure all blog posts are valid
+describe("Blog content validation (integration)", () => {
+  beforeEach(() => {
+    // Clear mocks to use real fs/path for this test
+    vi.clearAllMocks();
+  });
+
+  it("all posts in content/blog should have valid frontmatter", async () => {
+    // Dynamically import real modules
+    const realFs = await import("node:fs");
+    const realPath = await import("node:path");
+
+    const contentDir = realPath.join(process.cwd(), "content/blog");
+    const files = realFs
+      .readdirSync(contentDir)
+      .filter((file) => file.endsWith(".mdx") && !file.startsWith("."));
+
+    // Ensure we actually have posts to test
+    expect(files.length).toBeGreaterThan(0);
+
+    // Validate each post by reading and parsing manually
+    for (const file of files) {
+      const filePath = realPath.join(contentDir, file);
+      const content = realFs.readFileSync(filePath, "utf8");
+      const slug = file.replace(/\.mdx$/, "");
+
+      // Parse frontmatter using gray-matter
+      const matter = await import("gray-matter");
+      const { data } = matter.default(content);
+
+      // Validate required fields exist
+      expect(data.title, `${slug}: title is required`).toBeTruthy();
+      expect(typeof data.title, `${slug}: title must be a string`).toBe(
+        "string",
+      );
+
+      expect(data.description, `${slug}: description is required`).toBeTruthy();
+      expect(
+        typeof data.description,
+        `${slug}: description must be a string`,
+      ).toBe("string");
+
+      expect(data.date, `${slug}: date is required`).toBeTruthy();
+      expect(typeof data.date, `${slug}: date must be a string`).toBe("string");
+
+      // Validate date is actually a valid date
+      const timestamp = new Date(data.date).getTime();
+      expect(
+        Number.isNaN(timestamp),
+        `${slug}: date "${data.date}" is not a valid date`,
+      ).toBe(false);
+
+      expect(Array.isArray(data.tags), `${slug}: tags must be an array`).toBe(
+        true,
+      );
+    }
   });
 });
