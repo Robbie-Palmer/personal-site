@@ -15,7 +15,8 @@
       "*.ts",
       "*.tsx",
       "*.js",
-      "*.jsx"
+      "*.jsx",
+      "*.json"
     ]
   },
   "formatter": {
