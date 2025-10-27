@@ -41,9 +41,14 @@ description = "Check formatting without making changes"
 depends = ["//ui:install"]
 run = "pnpm format:check"
 
+[tasks.typegen]
+description = "Generate Next.js types (PageProps, etc.)"
+depends = ["//ui:install"]
+run = "pnpm exec next typegen"
+
 [tasks.typecheck]
 description = "Run TypeScript type checking"
-depends = ["//ui:install"]
+depends = ["//ui:typegen"]
 run = "pnpm typecheck"
 
 [tasks.clean]
