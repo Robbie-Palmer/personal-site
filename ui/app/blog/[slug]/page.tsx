@@ -31,7 +31,6 @@ export async function generateMetadata({
 
   const post = getPostBySlug(slug);
   const url = `${siteConfig.url}/blog/${slug}`;
-  const ogImage = `${siteConfig.url}${siteConfig.ogImage}`;
 
   return {
     title: post.title,
@@ -49,7 +48,7 @@ export async function generateMetadata({
       tags: post.tags,
       images: [
         {
-          url: ogImage,
+          url: siteConfig.ogImage,
           width: 1200,
           height: 630,
           alt: post.title,
@@ -60,7 +59,7 @@ export async function generateMetadata({
       card: "summary_large_image",
       title: post.title,
       description: post.description,
-      images: [ogImage],
+      images: [siteConfig.ogImage],
     },
   };
 }

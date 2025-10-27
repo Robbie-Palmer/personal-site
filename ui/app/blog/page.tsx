@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: `${siteConfig.url}${siteConfig.ogImage}`,
+        url: siteConfig.ogImage,
         width: 1200,
         height: 630,
         alt: `${siteConfig.name}'s Blog`,
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: siteConfig.blog.title,
     description: siteConfig.blog.description,
-    images: [`${siteConfig.url}${siteConfig.ogImage}`],
+    images: [siteConfig.ogImage],
   },
 };
 
