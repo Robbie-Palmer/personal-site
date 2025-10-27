@@ -38,6 +38,9 @@ export async function generateMetadata({
     authors: [
       { name: siteConfig.author.name, url: siteConfig.author.linkedin },
     ],
+    alternates: {
+      canonical: url,
+    },
     openGraph: {
       title: post.title,
       description: post.description,
