@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -9,9 +10,59 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getAllPostSlugs, getPostBySlug } from "@/lib/blog";
 import { formatDate } from "@/lib/date";
+import { siteConfig } from "@/lib/site-config";
 
 export function generateStaticParams() {
   return getAllPostSlugs().map((slug) => ({ slug }));
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const validSlugs = getAllPostSlugs();
+  if (!validSlugs.includes(slug)) {
+    return {
+      title: "Post Not Found",
+    };
+  }
+
+  const post = getPostBySlug(slug);
+  const url = `${siteConfig.url}/blog/${slug}`;
+  const ogImage = `${siteConfig.url}${siteConfig.ogImage}`;
+
+  return {
+    title: post.title,
+    description: post.description,
+    authors: [{ name: siteConfig.author.name }],
+    openGraph: {
+      title: post.title,
+      description: post.description,
+      url,
+      siteName: siteConfig.name,
+      type: "article",
+      publishedTime: post.date,
+      modifiedTime: post.updated || post.date,
+      authors: [siteConfig.author.name],
+      tags: post.tags,
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: post.title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description: post.description,
+      images: [ogImage],
+    },
+  };
 }
 
 export default async function BlogPostPage({

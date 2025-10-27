@@ -1,6 +1,34 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { BlogList } from "@/components/blog/blog-list";
 import { getAllPosts } from "@/lib/blog";
+import { siteConfig } from "@/lib/site-config";
+
+export const metadata: Metadata = {
+  title: siteConfig.blog.title,
+  description: siteConfig.blog.description,
+  openGraph: {
+    title: siteConfig.blog.title,
+    description: siteConfig.blog.description,
+    url: `${siteConfig.url}/blog`,
+    siteName: siteConfig.name,
+    type: "website",
+    images: [
+      {
+        url: `${siteConfig.url}${siteConfig.ogImage}`,
+        width: 1200,
+        height: 630,
+        alt: `${siteConfig.name}'s Blog`,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteConfig.blog.title,
+    description: siteConfig.blog.description,
+    images: [`${siteConfig.url}${siteConfig.ogImage}`],
+  },
+};
 
 export default function BlogPage() {
   const allPosts = getAllPosts();

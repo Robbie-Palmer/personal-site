@@ -1,5 +1,6 @@
 import { Github, Linkedin } from "lucide-react";
 import Link from "next/link";
+import { siteConfig } from "@/lib/site-config";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -19,7 +20,7 @@ export function Footer() {
               <Github className="h-6 w-6" />
             </Link>
             <Link
-              href="https://www.linkedin.com/in/robertjohnpalmer/"
+              href={siteConfig.author.linkedin}
               target="_blank"
               rel="noopener noreferrer"
               className="text-foreground hover:opacity-60 transition-opacity"
@@ -38,7 +39,7 @@ export function Footer() {
             >
               View Source
             </Link>
-            {" · "}© {currentYear} Robbie Palmer
+            {" · "}© {currentYear} {siteConfig.author.name}
           </p>
         </div>
       </div>

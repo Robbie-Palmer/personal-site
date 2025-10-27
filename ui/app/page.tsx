@@ -1,14 +1,17 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { siteConfig } from "@/lib/site-config";
 
 export default function Home() {
   return (
     <div className="container mx-auto px-4">
       <section className="flex min-h-[calc(100vh-5rem)] items-center justify-center">
         <div className="text-center max-w-3xl">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6">Robbie Palmer</h1>
+          <h1 className="text-5xl md:text-6xl font-bold mb-6">
+            {siteConfig.name}
+          </h1>
           <p className="text-xl md:text-2xl text-muted-foreground mb-8">
-            ML expert | Full-stack builder | Team lead who ships
+            {siteConfig.description}
           </p>
           <div className="flex gap-4 justify-center">
             <Button size="lg" asChild>
