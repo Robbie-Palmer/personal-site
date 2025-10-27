@@ -7,7 +7,11 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/lib/site-config";
 
+// Use Cloudflare Pages URL for preview deployments, fallback to production URL
+const baseUrl = process.env.CF_PAGES_URL || siteConfig.url;
+
 export const metadata: Metadata = {
+  metadataBase: new URL(baseUrl),
   title: {
     default: siteConfig.name,
     template: `%s | ${siteConfig.name}`,
