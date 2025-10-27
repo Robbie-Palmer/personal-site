@@ -35,7 +35,9 @@ export async function generateMetadata({
   return {
     title: post.title,
     description: post.description,
-    authors: [{ name: siteConfig.author.name }],
+    authors: [
+      { name: siteConfig.author.name, url: siteConfig.author.linkedin },
+    ],
     openGraph: {
       title: post.title,
       description: post.description,
