@@ -9,6 +9,7 @@ export interface BlogPost {
   title: string;
   description: string;
   date: string;
+  updated?: string;
   tags: string[];
   slug: string;
   content: string;
@@ -78,6 +79,19 @@ export function getPostBySlug(slug: string): BlogPost {
     );
   }
 
+  // Validate optional updated field if present
+  if (data.updated !== undefined) {
+    if (typeof data.updated !== "string") {
+      throw new Error(
+        `Post ${slug} has invalid updated field: must be a string`,
+      );
+    }
+    const updatedTimestamp = new Date(data.updated).getTime();
+    if (Number.isNaN(updatedTimestamp)) {
+      throw new Error(`Post ${slug} has invalid updated date: ${data.updated}`);
+    }
+  }
+
   const stats = readingTime(content);
 
   return {
@@ -85,6 +99,7 @@ export function getPostBySlug(slug: string): BlogPost {
     title: data.title,
     description: data.description,
     date: data.date,
+    updated: data.updated,
     tags: data.tags,
     content,
     readingTime: stats.text,

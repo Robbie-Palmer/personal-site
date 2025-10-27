@@ -1,11 +1,12 @@
 "use client";
 
 import Fuse from "fuse.js";
-import { Search, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Clock, Search, X } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -21,9 +22,14 @@ interface BlogListProps {
   posts: BlogPost[];
 }
 
+type SortOption = "newest" | "oldest" | "updated";
+
 export function BlogList({ posts }: BlogListProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const currentTag = searchParams.get("tag");
+  const sortParam = searchParams.get("sort") as SortOption | null;
+  const currentSort: SortOption = sortParam || "newest";
   const [searchQuery, setSearchQuery] = useState("");
 
   const fuse = useMemo(
@@ -51,6 +57,60 @@ export function BlogList({ posts }: BlogListProps) {
     );
   }
 
+  // Apply sorting
+  const sortedPosts = [...filteredPosts].sort((a, b) => {
+    if (currentSort === "oldest") {
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    }
+    if (currentSort === "updated") {
+      // Use updated date if available, otherwise fall back to date
+      const aDate = new Date(a.updated || a.date).getTime();
+      const bDate = new Date(b.updated || b.date).getTime();
+      return bDate - aDate; // Most recent first
+    }
+    // Default: newest
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
+
+  const cycleSortOrder = () => {
+    const sortCycle: SortOption[] = ["newest", "oldest", "updated"];
+    const currentIndex = sortCycle.indexOf(currentSort);
+    const nextSort = sortCycle[
+      (currentIndex + 1) % sortCycle.length
+    ] as SortOption;
+
+    const params = new URLSearchParams(searchParams?.toString() || "");
+    if (nextSort === "newest") {
+      params.delete("sort");
+    } else {
+      params.set("sort", nextSort);
+    }
+    const queryString = params.toString();
+    router.push(`/blog${queryString ? `?${queryString}` : ""}`);
+  };
+
+  const getSortIcon = () => {
+    switch (currentSort) {
+      case "oldest":
+        return <ArrowUp className="h-4 w-4" />;
+      case "updated":
+        return <Clock className="h-4 w-4" />;
+      default:
+        return <ArrowDown className="h-4 w-4" />;
+    }
+  };
+
+  const getSortLabel = () => {
+    switch (currentSort) {
+      case "oldest":
+        return "Oldest first";
+      case "updated":
+        return "Recently updated";
+      default:
+        return "Newest first";
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="flex flex-wrap items-baseline gap-4 mb-6">
@@ -72,37 +132,49 @@ export function BlogList({ posts }: BlogListProps) {
         )}
       </div>
 
-      <div className="relative mb-6 max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="text"
-          placeholder="Search posts..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9 pr-9"
-          aria-label="Search blog posts"
-        />
-        {searchQuery && (
-          <button
-            type="button"
-            onClick={() => setSearchQuery("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            aria-label="Clear search"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
+      <div className="flex items-center gap-4 mb-6">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search posts..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 pr-9"
+            aria-label="Search blog posts"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={cycleSortOrder}
+          title={getSortLabel()}
+          aria-label={`Sort: ${getSortLabel()}. Click to change sort order.`}
+        >
+          {getSortIcon()}
+        </Button>
       </div>
 
-      {(searchQuery || currentTag) && filteredPosts.length > 0 && (
+      {(searchQuery || currentTag) && sortedPosts.length > 0 && (
         <p className="text-sm text-muted-foreground mb-6">
-          Showing {filteredPosts.length} of {posts.length} posts
+          Showing {sortedPosts.length} of {posts.length} posts
           {searchQuery && ` matching "${searchQuery}"`}
           {currentTag && ` with tag "${currentTag}"`}
         </p>
       )}
 
-      {filteredPosts.length === 0 ? (
+      {sortedPosts.length === 0 ? (
         <p className="text-muted-foreground">
           No posts found
           {searchQuery && ` matching "${searchQuery}"`}
@@ -110,7 +182,7 @@ export function BlogList({ posts }: BlogListProps) {
         </p>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filteredPosts.map((post) => (
+          {sortedPosts.map((post) => (
             <Card key={post.slug} className="h-full flex flex-col">
               <CardHeader>
                 <Link href={`/blog/${post.slug}`}>
