@@ -43,7 +43,11 @@ export default async function BlogPostPage({
         <p className="text-xl text-muted-foreground mb-4">{post.description}</p>
 
         <div className="flex flex-wrap items-center gap-4 text-sm">
-          <time className="text-muted-foreground">{formatDate(post.date)}</time>
+          <div className="text-muted-foreground">
+            <time>{formatDate(post.date)}</time>
+            <span className="mx-2">·</span>
+            <span>{post.readingTime}</span>
+          </div>
 
           <div className="flex flex-wrap gap-2">
             {post.tags.map((tag) => (
