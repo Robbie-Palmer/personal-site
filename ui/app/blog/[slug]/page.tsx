@@ -71,12 +71,6 @@ export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
   const params = await props.params;
   const { slug } = params;
 
-  // Validate slug exists
-  const validSlugs = getAllPostSlugs();
-  if (!validSlugs.includes(slug)) {
-    notFound();
-  }
-
   const post = getPostBySlug(slug);
 
   return (
