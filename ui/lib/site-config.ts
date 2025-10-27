@@ -13,5 +13,5 @@ export const siteConfig = {
     // Add Twitter handle when available
     // twitter: "@yourusername",
   },
-  ogImage: "/og-image.svg",
+  ogImage: "/og-image.png",
 } as const;
