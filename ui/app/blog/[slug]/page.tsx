@@ -24,9 +24,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const validSlugs = getAllPostSlugs();
   if (!validSlugs.includes(slug)) {
-    return {
-      title: "Post Not Found",
-    };
+    notFound();
   }
 
   const post = getPostBySlug(slug);
