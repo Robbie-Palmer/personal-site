@@ -21,6 +21,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_GB",
+    // Always use production URL for canonical/permanent reference, even in previews
     url: siteConfig.url,
     siteName: siteConfig.name,
     title: siteConfig.name,

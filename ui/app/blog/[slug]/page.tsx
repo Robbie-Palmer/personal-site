@@ -30,6 +30,7 @@ export async function generateMetadata({
   }
 
   const post = getPostBySlug(slug);
+  // Always use production URL for canonical/permanent reference, even in previews
   const url = `${siteConfig.url}/blog/${slug}`;
 
   return {
