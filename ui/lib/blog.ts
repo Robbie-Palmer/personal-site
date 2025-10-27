@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
+import readingTime from "reading-time";
 
 const contentDirectory = path.join(process.cwd(), "content/blog");
 
@@ -11,6 +12,7 @@ export interface BlogPost {
   tags: string[];
   slug: string;
   content: string;
+  readingTime: string;
 }
 
 export function getAllPostSlugs(): string[] {
@@ -76,6 +78,8 @@ export function getPostBySlug(slug: string): BlogPost {
     );
   }
 
+  const stats = readingTime(content);
+
   return {
     slug,
     title: data.title,
@@ -83,6 +87,7 @@ export function getPostBySlug(slug: string): BlogPost {
     date: data.date,
     tags: data.tags,
     content,
+    readingTime: stats.text,
   };
 }
 

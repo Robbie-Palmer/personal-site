@@ -131,9 +131,11 @@ export function BlogList({ posts }: BlogListProps) {
                     </Link>
                   ))}
                 </div>
-                <time className="text-sm text-muted-foreground">
-                  {formatDate(post.date)}
-                </time>
+                <div className="text-sm text-muted-foreground">
+                  <time>{formatDate(post.date)}</time>
+                  <span className="mx-2">·</span>
+                  <span>{post.readingTime}</span>
+                </div>
               </CardContent>
             </Card>
           ))}

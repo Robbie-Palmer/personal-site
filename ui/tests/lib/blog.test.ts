@@ -191,6 +191,7 @@ This is the content.`;
         date: "2025-10-19",
         tags: ["tag1", "tag2"],
         content: "\n# Heading\n\nThis is the content.",
+        readingTime: "1 min read",
       });
     });
 
