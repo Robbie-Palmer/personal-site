@@ -12,6 +12,9 @@ const baseUrl = process.env.CF_PAGES_URL || siteConfig.url;
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
+  alternates: {
+    canonical: siteConfig.url,
+  },
   title: {
     default: siteConfig.name,
     template: `%s | ${siteConfig.name}`,
@@ -49,7 +52,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en-GB" suppressHydrationWarning>
       <body>
         <ThemeProvider
           attribute="class"
