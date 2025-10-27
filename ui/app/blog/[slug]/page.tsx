@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, PageProps } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -18,9 +18,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata({
   params,
-}: {
-  params: Promise<{ slug: string }>;
-}): Promise<Metadata> {
+}: PageProps<{ slug: string }>): Promise<Metadata> {
   const { slug } = await params;
   const validSlugs = getAllPostSlugs();
   if (!validSlugs.includes(slug)) {
@@ -70,9 +68,7 @@ export async function generateMetadata({
 
 export default async function BlogPostPage({
   params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+}: PageProps<{ slug: string }>) {
   const { slug } = await params;
 
   // Validate slug exists
