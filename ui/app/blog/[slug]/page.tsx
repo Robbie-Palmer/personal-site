@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -9,23 +10,66 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getAllPostSlugs, getPostBySlug } from "@/lib/blog";
 import { formatDate } from "@/lib/date";
+import { siteConfig } from "@/lib/site-config";
 
 export function generateStaticParams() {
   return getAllPostSlugs().map((slug) => ({ slug }));
 }
 
-export default async function BlogPostPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
-
-  // Validate slug exists
+export async function generateMetadata(
+  props: PageProps<"/blog/[slug]">,
+): Promise<Metadata> {
+  const params = await props.params;
+  const { slug } = params;
   const validSlugs = getAllPostSlugs();
   if (!validSlugs.includes(slug)) {
     notFound();
   }
+
+  const post = getPostBySlug(slug);
+  // Always use production URL for canonical/permanent reference, even in previews
+  const url = `${siteConfig.url}/blog/${slug}`;
+
+  return {
+    title: post.title,
+    description: post.description,
+    authors: [
+      { name: siteConfig.author.name, url: siteConfig.author.linkedin },
+    ],
+    alternates: {
+      canonical: url,
+    },
+    openGraph: {
+      title: post.title,
+      description: post.description,
+      url,
+      siteName: siteConfig.name,
+      type: "article",
+      publishedTime: post.date,
+      modifiedTime: post.updated || post.date,
+      authors: [siteConfig.author.name],
+      tags: post.tags,
+      images: [
+        {
+          url: siteConfig.ogImage,
+          width: 1200,
+          height: 630,
+          alt: post.title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description: post.description,
+      images: [siteConfig.ogImage],
+    },
+  };
+}
+
+export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
+  const params = await props.params;
+  const { slug } = params;
 
   const post = getPostBySlug(slug);
 
