@@ -11,6 +11,7 @@ export interface BlogPost {
   date: string;
   updated?: string;
   tags: string[];
+  canonicalUrl?: string;
   slug: string;
   content: string;
   readingTime: string;
@@ -92,6 +93,23 @@ export function getPostBySlug(slug: string): BlogPost {
     }
   }
 
+  // Validate optional canonicalUrl field if present
+  if (data.canonicalUrl !== undefined) {
+    if (typeof data.canonicalUrl !== "string") {
+      throw new Error(
+        `Post ${slug} has invalid canonicalUrl field: must be a string`,
+      );
+    }
+    // Basic URL validation
+    try {
+      new URL(data.canonicalUrl);
+    } catch {
+      throw new Error(
+        `Post ${slug} has invalid canonicalUrl: ${data.canonicalUrl}`,
+      );
+    }
+  }
+
   const stats = readingTime(content);
 
   return {
@@ -101,6 +119,7 @@ export function getPostBySlug(slug: string): BlogPost {
     date: data.date,
     updated: data.updated,
     tags: data.tags,
+    canonicalUrl: data.canonicalUrl,
     content,
     readingTime: stats.text,
   };

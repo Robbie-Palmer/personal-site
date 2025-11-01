@@ -29,6 +29,8 @@ export async function generateMetadata(
   const post = getPostBySlug(slug);
   // Always use production URL for canonical/permanent reference, even in previews
   const url = `${siteConfig.url}/blog/${slug}`;
+  // Use custom canonical URL if specified in frontmatter, otherwise use this page's URL
+  const canonicalUrl = post.canonicalUrl || url;
 
   return {
     title: post.title,
@@ -37,7 +39,7 @@ export async function generateMetadata(
       { name: siteConfig.author.name, url: siteConfig.author.linkedin },
     ],
     alternates: {
-      canonical: url,
+      canonical: canonicalUrl,
     },
     openGraph: {
       title: post.title,
