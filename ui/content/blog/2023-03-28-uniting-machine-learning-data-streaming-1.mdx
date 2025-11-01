@@ -1,0 +1,159 @@
+---
+title: "Uniting the Machine Learning and Data Streaming Ecosystems - Part 1"
+description: "Exploring the current state of machine learning and data streaming markets, the opportunities where they overlap, and the socio-technical barriers we need to overcome to unite them."
+date: "2023-03-28"
+tags: ["machine-learning", "data-streaming", "kafka", "mlops"]
+canonical: "https://www.confluent.io/blog/uniting-machine-learning-data-streaming-1/"
+---
+
+In part one of this series, we will look at the current state of the machine learning and data streaming markets, the opportunities that arise where they overlap, and what socio-technical barriers we need to overcome to unite them. In part two, we will look at the current trajectory of solutions and their fundamental limitations and see how to use a suite of tools for real-time ML today.
+
+# The machine learning market
+
+The machine learning field is being held back by socio-technical baggage, the same baggage that Confluent aims to help its customers overcome in all data-intensive fields. We can't just adopt new tools; we need to combine new tools with a mindset shift. Operationalizing ML means operationalizing data. Organizations require a powerful data platform and a culture shift to do this effectively.
+
+The ML market is rapidly reaching an inflection point. The 2022 NewVantage Data and AI Survey showcases the continued massive investment in AI, with 96% of respondents having initiatives in limited production, but only 26% have widespread deployments. This number is rapidly improving, but these organizations are feeling intense growing pains. Very few identify as being data-driven. Most are struggling to introduce new roles such as Chief Data and Analytics Officer (CDAO) with high turnover, and almost all surveyed executives identified culture as their most significant impediment. This marks the challenging shift from centralized data warehouses and data lakes to federated data products. The challenging shift towards embracing the Modern Data Flow.
+
+Even those who embrace the theory of data mesh continue to practice organizational anti-patterns. Data remains in functional silos, and data products are created by data teams, disconnected from app and service teams. Zhamak Dehghani (author of Data Mesh) states that data products can only succeed with domain-driven, embedded data science at their core.
+
+Machine learning's need for larger, fresher, and more diverse data provides the underlying drive to put data in motion. Dehghani outlines four critical metrics for assessing your data products. Three are standard metrics for any app or service: change frequency, change fail ratio, and mean time to recovery. But the fourth metric directly measures your ability to implement MLOps practices: the lead time from data to value via ML models. This is the time it takes to gather your data, use it to train a new model, deploy the model, infer insights, and present them to your user.
+
+> Machine learning is going real time, whether you're ready or not.
+>
+> — Chip Huyen, Co-founder, Claypot AI
+
+The transformation happening in the ML market heavily mirrors the shift we've seen in traditional tech. Data science is mimicking computer science. Data engineering is mimicking software engineering. MLOps is mimicking DevOps. Data mesh is to data warehouses as microservices are to monoliths.
+
+The vision promoted by microservices and data mesh of a proactive, loosely coupled, highly autonomous organization is a vision shared by Confluent. We work hard to help our customers move up the event streaming maturity curve and experience the network effects of having a central nervous system that drives exponential returns on investment.
+
+This snowballing of value lies at the heart of these design patterns. At a high level, providing the reusability and the composability required for innovative scaling. At the low level, providing the focus, the context, and the ubiquitous language required for productive development.
+
+# Why use Apache Kafka to power machine learning?
+
+Where ML-powered applications are the brain of a data-driven, proactive organization, Apache Kafka® is the central nervous system. Raw data is gathered in your source systems, representing events in the environment. Kafka Connect feeds this cross-domain data into Kafka brokers. This data is given context through data governance tooling, making it analyzable. Stream processing apps "sense" all relevant signals using the Kafka client libraries. The apps turn this "sense data" into actionable information through model inference. This new information is sent back to the Kafka brokers, and "actuators" react to it, producing an outcome. This action affects the environment, further observations are gathered in your source systems, and the cycle starts again.
+
+Kafka is a distributed event streaming platform which thrives on connecting data, and ML models thrive on accessing the richest, most diverse data ASAP. It is a match made in heaven.
+
+> Kafka becomes the central nervous system in the ML architecture to feed, build, apply, and monitor analytic models.
+>
+> — Kai Waehner, Field CTO, Confluent
+
+To explore a real life case study, check out how the U.S. Department of Defense used Kafka with computer vision to identify Taliban threats approaching troops in Afghanistan.
+
+## Real-time analytics
+
+In most use cases, sooner is better than later, but real-time results are increasingly essential to businesses. With real-time analytics, you can move from fraud detection to fraud prevention. Customer support can be fed real-time recommendations to move from solving known problems to selling solutions for inferred ones. Engineers can proactively maintain critical infrastructure instead of reactively fixing it.
+
+> There's been an explosion of ML use cases that… don't make sense if they aren't in real time. More and more people are doing ML in production, and most cases have to be streamed.
+>
+> — Ali Ghodsi, Databricks, CEO
+
+The AI Infrastructure Ecosystem Report ranked latency as the most significant challenge when building ML infrastructure. This ranked higher than traditionally discussed challenges such as hiring appropriate talent, data labeling, or model explainability. To optimize model training and inference latency, you must use appropriately sized models with efficient architectures, but this is only one slice of end-to-end latency. For real-time solutions, you need to optimize the speed of feeding data to the model, transforming the results and getting these to the user.
+
+Most model training platforms encourage you to export your ML model as a Docker container with an HTTP API slapped in front of it. The HTTP protocol is designed for web browsing, not for rapidly transferring large amounts of data to and from a data service. The Kafka protocol is much more suitable for this use case. It is a binary TCP protocol optimized for efficiency, which groups messages together to reduce network overhead.
+
+> Kafka also enables us to deploy more advanced techniques in-stream, such as machine learning models that analyze data and produce new insights. This helps us reduce mean time to detect and respond.
+>
+> — Brent Conran, Vice President and Chief Information Security Officer, Intel
+
+Stream processing has three axes of trade-offs for which you can only choose two: speed, correctness, and cost. If speed is a priority, then Kafka should be part of your ML platform.
+
+Kafka is often associated with the tech giants' ML platforms (such as Netflix, Uber, and LinkedIn), which can choose speed and correctness, absorbing the cost. However, it is still valuable for even the smallest companies, enabling real-time event-driven inference, monitoring, alerting, online training, and data pipelining. Plus, Confluent aims to make Kafka accessible. Our cloud-native engineering has reduced the total cost of ownership by 60%, and we have launched Confluent for Startups.
+
+## Historical data
+
+Databases are typically optimized for live operations rather than longer-term analytics, which means they are designed to store only the current state. This makes working with historical data challenging, with most data warehouses deciding to tally aggregates of what is deemed essential features. But this is lossy and can only be designed for what you know now, not the unknown unknowns that are coming. The use cases of the future need to tap into the data of the past.
+
+Kafka topics are great for working with historical data if you use the event-sourcing pattern to store a log of change events rather than keeping the current state. By replaying the log, the state can be rebuilt as it existed at any point in time. Kafka's log is immutable and time-ordered. This is what makes Kafka a streaming platform rather than a traditional messaging system or a traditional database. Message systems propagate future messages, storage systems store past writes, and Kafka combines these. Kafka is used to process past events and to continue processing into the future.
+
+Using infinite retention, Kafka can be your system of record and your single source of truth. Kafka is built to scale; Kafka clusters run in production with over a petabyte of stored data. This is made financially feasible by Tiered Storage, which keeps recent data on more expensive drives with faster read speeds, and offloads historical data to cheaper object stores.
+
+## Data integration
+
+As a central hub, Kafka connects to many third-party systems in a reliable and scalable manner. It acts as a single point of truth between various systems, technologies, and communication paradigms. It stands out from other middleware by being a single integrated solution that is fast enough and scalable enough to route big data through processing pipelines.
+
+Kafka Connect integrates with over a hundred services, covering data stores, compute services, and visualization tools. Below are examples of connectors that provide pre-built ML services or analytics environments which may be relevant to your ML workflows.
+
+Confluent Cloud offers several managed connectors for general analytics and ML use cases:
+
+**Azure**
+- Cognitive Search Sink Connector
+- Data Lake Storage Gen2 Sink Connector
+- Synapse Analytics Sink Connector
+
+**Google Cloud**
+- BigQuery Sink Connector
+- BigTable Sink Connector
+
+**Databricks**
+- Delta Lake Sink Connector
+
+**Snowflake**
+- Sink Connector
+
+Confluent platform additionally supports self-managed connectors for:
+- SymetryML
+- Kinetica
+- Vertica
+
+Data can also be integrated with Kafka via alternative methods, such as:
+- Kafka to Apache Flink to Python's Pandas
+- Apache Spark Structured Streaming Kafka Integration
+- DataRobot's Apache Kafka Spooler
+- Pachyderm's Spouts
+
+## Data governance
+
+Effective data governance is essential to productive ML workflows. The four fundamental data governance principles are availability, usability, data integrity, and security. Kafka enables you to build a distributed architecture to maintain a high availability and mitigate failures. Data catalogs are essential to make data interpretable and usable. Data schemas and versioning controls are vital for maintaining data integrity. Layers of authentication, authorization, and encryption are required to ensure legal compliance and ethical practices.
+
+All data scientists, data engineers, and ML engineers are far too acutely aware of the pain of using dirty data. Whether it's records that break the pattern of the dataset, outdated and disconnected documentation, features with names no one understands, or breaking changes to the data format. Our data governance solutions help support your enterprise data governance initiatives.
+
+Confluent Schema Registry makes schemas easily discoverable in a centralized location, with a UI and APIs designed for this purpose (rather than maintaining wikis and spreadsheets). It enforces compatibility rules, preventing bad data from accidentally being published, and ensures schema drift is intentional and supervised. This encourages best practices and helps build trust in your data products. The Confluent Stream Catalog enriches this further, enabling topics, schema records, and fields to be tagged with queryable metadata. This allows you to gain cross-organizational insights and build automated governance solutions.
+
+Data provenance is essential for sourcing errors and breaches, providing trust in data quality and enabling audits for legal compliance. Confluent Cloud's Stream Lineage visualizes your data flow now and at any point in the past. This can assist in diagnosing issues with any versions of your models and data and, if coupled with Stream Catalog tags, can assist in monitoring the flow of critical types of data such as personally identifiable information (PII).
+
+Ethical data science practices aim to reduce the systemic bias machine learning models can perpetuate. Including gender, nationality, and religion in your training data can lead to your model learning how society currently treats certain groups, resulting in your solutions re-enacting these biases. Preventing PII features from even entering your training environment will mitigate this risk. This can be achieved by filtering fields based on their Stream Catalog tags or utilizing our PII detection accelerator for free-form text fields, which uses natural language processing (NLP) to redact sensitive information.
+
+# Socio-technical barriers
+
+We've examined the harmony between these ecosystems and their vast potential to disrupt existing solutions. So why isn't this the prevailing paradigm? There is always inertia, and data streaming is a market still in its infancy, with a path of enormous growth ahead. But the uniting of these markets has been too slow (given their synergies) to simply be inertia. We face critical socio-technical barriers that reinforce each other in a cycle driven by a lack of a common tongue.
+
+Java is at the core of the data streaming ecosystem and many other big data technologies, and Python is the undisputed king of ML. This discrepancy leads to massive system architecture and team organization issues that perpetuate throughout the industry.
+
+Feature-oriented teams are better than component-oriented teams for significant, fast changes, and component teams are better for the long-term maintenance of a mature system. No organization looking to productionize machine learning on a real-time streaming platform should use component-oriented teams. This is not a mature space; this is the bleeding edge of innovation.
+
+> As component teams tend to build software for other development teams, they can lose sight of the end users and sub-optimize their building blocks: I have seen component teams who were more concerned about the performance of their components than the end-user experience.
+>
+> — Roman Pichler, Founder, Pichler Consulting
+
+The team architecture challenges are most egregious in large enterprise organizations. They tend to have component-oriented teams for their mature products, with the most traditional orgs having a front-end team, a back-end team, and a QA team. Feeling threatened by smaller, agile startups, they look to introduce cutting-edge tech and patterns to their products. With machine learning, this produces a new "data science" component team or hijacks and rebrands the existing BI team. It is politically infeasible to reorganize long-existing component teams into feature teams and threaten the maintenance of the current mature product to introduce new, high-risk, high-reward ML-powered features.
+
+As a result, these features tend to be pushed to the periphery, with few breaking through to have meaningful customer impact. These social boundaries create an ever-increasing technical boundary between the Java and Python ecosystems, with ML solutions ever more isolated from data streaming solutions — a prime example of Conway's Law in action.
+
+> The technical structure of a system will reflect the social boundaries of the organizations that produced it.
+>
+> — Conway's Law
+
+In smaller companies, feature teams are common, but it is still very rare for ML engineers to be integrated within these because of the inverse of Conway's Law. The structure of the software affects the organization structure itself. Even when organizations recognize their teams should not be component-oriented, they are blocked by language barriers.
+
+If there are too many technologies for individuals to productively work full-stack, then subsections of the team will naturally specialize. This force is much stronger for programming languages than other tech, such as platforms or frameworks, because each general-purpose programming language has a whole ecosystem solving the same problems but with its own conventions and nuances.
+
+We've encountered many organizations with immature products and agile team structures set up to rapidly find product-market fit. But, they choose languages such as Java or C# for their back-end while also trying to make ML-powered features core to their product. This creates a "valley of death" between the "Data Science team" and the "Product team".
+
+The Data Science team takes responsibility for what is only feasible within their tech stack. They build standalone ML-powered apps, including business logic and the ML model. These are primarily written in Python (less commonly R or Julia) and depend heavily on powerful libraries and tools in its ecosystem. The Product Team is then responsible for building the integrated feature/service and will rewrite it in their tech stack. They tend to simplify the logic to avoid the dependencies that don't exist in their chosen language. Bugs are commonly introduced via translation errors. Maintenance is disastrous because the Product team has no domain knowledge related to the code they're writing.
+
+The most effective organizations have their language barriers aligned with their domain model. For ML-driven products/bounded contexts, this means building full-stack Python apps (using libraries such as Django, Dash, or Streamlit), enabling a team to own the entire user experience and utilize Python's ML ecosystem. A middle ground is using Python for the back end only, building microservices served over HTTP (using Flask or FastAPI) or the Kafka protocol (these solutions are covered later in the series).
+
+It has traditionally been impractical to be both a Python and a Kafka shop throughout your whole org. Python Kafka clients are available for basic pub/sub, and there is decent Schema Registry integration. Still, Kafka Connect, the Kafka Streams API, and ksqlDB UDFs are Java only, while Flink is Java/SQL first and Python second. Several projects are trying to port Python's ecosystem to Java, but this is no more practical than porting the Java ecosystem to Python.
+
+> Streaming is a concept from the infrastructure world. True streaming engines like Flink are built on top of the JVM, a place most data scientists aren't acquainted with. This fact is, unfortunately, often dismissed by the infra engineers who build feature platforms.
+>
+> — Chip Huyen, Co-founder, Claypot AI
+
+The feedback loop of big companies being shaped by Conway's Law, and small companies being shaped by its inverse, causes the underlying technical problem to not be addressed. The data streaming and machine learning ecosystems will stay unbridged until an outside force enters and breaks this industry-wide Conway cycle.
+
+# Looking forward
+
+The future of the ML market is distributed, federated, and real time as we move to the Modern Data Flow. We see this increasingly come to be as we follow the trend of microservices via the data mesh methodology. We, as an industry, need to overcome socio-technical blockers to make this reality.
+
+Come back for part two of this series when we dive into the opportunities and pitfalls of SQL as an ecosystem bridge, look at solutions to interface the JVM and Python interpreter, and explore code examples of how to build your own streaming machine learning solution using a suite of tools.
