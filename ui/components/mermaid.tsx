@@ -65,7 +65,7 @@ export function Mermaid({ chart, className = "" }: MermaidProps) {
         containerRef.current.innerHTML = "";
 
         // Generate unique ID for this diagram
-        const id = `mermaid-${Math.random().toString(36).slice(2, 11)}`;
+        const id = `mermaid-${crypto.randomUUID()}`;
         const { svg } = await mermaid.render(id, diagramWithClasses);
 
         // Check again after async operation completes
