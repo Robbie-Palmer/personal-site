@@ -1,21 +1,28 @@
-"use client"
+"use client";
 
-import { Line, LineChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from "@/components/ui/card";
 import {
-  ChartConfig,
+  type ChartConfig,
   ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
-} from "@/components/ui/chart"
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 
 const chartData = [
   { year: 1, pensionEmployer: 100.0, pensionEmployee: 25.0, isa: 0.0 },
@@ -38,7 +45,7 @@ const chartData = [
   { year: 18, pensionEmployer: 277.77, pensionEmployee: 136.1, isa: 88.88 },
   { year: 19, pensionEmployer: 293.46, pensionEmployee: 145.91, isa: 96.73 },
   { year: 20, pensionEmployer: 309.95, pensionEmployee: 156.22, isa: 104.98 },
-]
+];
 
 const chartConfig = {
   pensionEmployer: {
@@ -53,7 +60,7 @@ const chartConfig = {
     label: "ISA (After Tax)",
     color: "hsl(var(--chart-3))",
   },
-} satisfies ChartConfig
+} satisfies ChartConfig;
 
 export function PensionReturnsChart() {
   return (
@@ -61,13 +68,17 @@ export function PensionReturnsChart() {
       <CardHeader>
         <CardTitle>Total Return on Investment (%)</CardTitle>
         <CardDescription>
-          Comparing pension with employer contributions, pension without, and ISA investments
+          Comparing pension with employer contributions, pension without, and
+          ISA investments
         </CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="min-h-[400px] w-full">
           <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <LineChart
+              data={chartData}
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            >
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis
                 dataKey="year"
@@ -75,7 +86,11 @@ export function PensionReturnsChart() {
                 className="text-xs"
               />
               <YAxis
-                label={{ value: "Total Return (%)", angle: -90, position: "insideLeft" }}
+                label={{
+                  value: "Total Return (%)",
+                  angle: -90,
+                  position: "insideLeft",
+                }}
                 className="text-xs"
               />
               <ChartTooltip content={<ChartTooltipContent />} />
@@ -106,5 +121,5 @@ export function PensionReturnsChart() {
         </ChartContainer>
       </CardContent>
     </Card>
-  )
+  );
 }

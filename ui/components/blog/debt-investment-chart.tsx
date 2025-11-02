@@ -1,27 +1,34 @@
-"use client"
+"use client";
 
-import { Line, LineChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from "@/components/ui/card";
 import {
-  ChartConfig,
+  type ChartConfig,
   ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
-} from "@/components/ui/chart"
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 
 const chartData = [
   { year: 1, creditCard: 1190.0, savings: 1012.0, investment: 1070.0 },
   { year: 2, creditCard: 1416.1, savings: 1024.144, investment: 1144.9 },
   { year: 3, creditCard: 1685.16, savings: 1036.43, investment: 1225.04 },
-  { year: 4, creditCard: 2005.34, savings: 1048.87, investment: 1310.80 },
+  { year: 4, creditCard: 2005.34, savings: 1048.87, investment: 1310.8 },
   { year: 5, creditCard: 2386.35, savings: 1061.46, investment: 1402.55 },
   { year: 6, creditCard: 2839.76, savings: 1074.19, investment: 1500.73 },
   { year: 7, creditCard: 3379.32, savings: 1087.09, investment: 1605.78 },
@@ -38,7 +45,7 @@ const chartData = [
   { year: 18, creditCard: 22900.52, savings: 1239.51, investment: 3379.93 },
   { year: 19, creditCard: 27251.62, savings: 1254.38, investment: 3616.53 },
   { year: 20, creditCard: 32429.42, savings: 1269.43, investment: 3869.68 },
-]
+];
 
 const chartConfig = {
   creditCard: {
@@ -53,7 +60,7 @@ const chartConfig = {
     label: "Investment",
     color: "hsl(var(--chart-3))",
   },
-} satisfies ChartConfig
+} satisfies ChartConfig;
 
 export function DebtInvestmentChart() {
   return (
@@ -61,13 +68,17 @@ export function DebtInvestmentChart() {
       <CardHeader>
         <CardTitle>£1,000 Over 20 Years</CardTitle>
         <CardDescription>
-          Comparing debt (19% interest), savings (1.2% interest), and investment (7% returns)
+          Comparing debt (19% interest), savings (1.2% interest), and investment
+          (7% returns)
         </CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="min-h-[400px] w-full">
           <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <LineChart
+              data={chartData}
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            >
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis
                 dataKey="year"
@@ -75,7 +86,11 @@ export function DebtInvestmentChart() {
                 className="text-xs"
               />
               <YAxis
-                label={{ value: "Balance (£)", angle: -90, position: "insideLeft" }}
+                label={{
+                  value: "Balance (£)",
+                  angle: -90,
+                  position: "insideLeft",
+                }}
                 className="text-xs"
               />
               <ChartTooltip content={<ChartTooltipContent />} />
@@ -106,5 +121,5 @@ export function DebtInvestmentChart() {
         </ChartContainer>
       </CardContent>
     </Card>
-  )
+  );
 }

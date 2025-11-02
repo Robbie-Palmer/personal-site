@@ -1,35 +1,35 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import * as RechartsPrimitive from "recharts"
+import * as React from "react";
+import * as RechartsPrimitive from "recharts";
 
-import { cn } from "@/lib/styles"
+import { cn } from "@/lib/styles";
 
 // Context for chart configuration
 const ChartContext = React.createContext<{
-  config: ChartConfig
-} | null>(null)
+  config: ChartConfig;
+} | null>(null);
 
 function useChart() {
-  const context = React.useContext(ChartContext)
+  const context = React.useContext(ChartContext);
   if (!context) {
-    throw new Error("useChart must be used within a <ChartContainer />")
+    throw new Error("useChart must be used within a <ChartContainer />");
   }
-  return context
+  return context;
 }
 
 type ChartConfig = {
   [key: string]: {
-    label?: string
-    color?: string
-  }
-}
+    label?: string;
+    color?: string;
+  };
+};
 
 const ChartContainer = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
-    config: ChartConfig
-    children: React.ReactElement
+    config: ChartConfig;
+    children: React.ReactElement;
   }
 >(({ config, children, className, ...props }, ref) => {
   return (
@@ -42,23 +42,23 @@ const ChartContainer = React.forwardRef<
         {children}
       </div>
     </ChartContext.Provider>
-  )
-})
-ChartContainer.displayName = "ChartContainer"
+  );
+});
+ChartContainer.displayName = "ChartContainer";
 
-const ChartTooltip = RechartsPrimitive.Tooltip
+const ChartTooltip = RechartsPrimitive.Tooltip;
 
 const ChartTooltipContent = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<typeof RechartsPrimitive.Tooltip> & {
-    hideLabel?: boolean
-    hideIndicator?: boolean
+    hideLabel?: boolean;
+    hideIndicator?: boolean;
   }
->(({ active, payload, hideLabel, hideIndicator }, ref) => {
-  const { config } = useChart()
+>(({ active, payload, hideIndicator }, ref) => {
+  const { config } = useChart();
 
   if (!active || !payload?.length) {
-    return null
+    return null;
   }
 
   return (
@@ -66,15 +66,12 @@ const ChartTooltipContent = React.forwardRef<
       ref={ref}
       className="grid min-w-[8rem] gap-1.5 rounded-lg border bg-background px-2.5 py-1.5 text-xs shadow-xl"
     >
-      {payload.map((item, index) => {
-        const key = item.dataKey as string
-        const itemConfig = config[key]
+      {payload.map((item) => {
+        const key = item.dataKey as string;
+        const itemConfig = config[key];
 
         return (
-          <div
-            key={index}
-            className="flex w-full items-center gap-2"
-          >
+          <div key={key} className="flex w-full items-center gap-2">
             {!hideIndicator && (
               <div
                 className="h-2.5 w-2.5 shrink-0 rounded-sm"
@@ -84,9 +81,7 @@ const ChartTooltipContent = React.forwardRef<
               />
             )}
             <div className="flex flex-1 justify-between gap-2">
-              <span className="font-medium">
-                {itemConfig?.label || key}
-              </span>
+              <span className="font-medium">{itemConfig?.label || key}</span>
               <span className="font-mono font-medium tabular-nums">
                 {typeof item.value === "number"
                   ? item.value.toLocaleString()
@@ -94,25 +89,25 @@ const ChartTooltipContent = React.forwardRef<
               </span>
             </div>
           </div>
-        )
+        );
       })}
     </div>
-  )
-})
-ChartTooltipContent.displayName = "ChartTooltipContent"
+  );
+});
+ChartTooltipContent.displayName = "ChartTooltipContent";
 
-const ChartLegend = RechartsPrimitive.Legend
+const ChartLegend = RechartsPrimitive.Legend;
 
 const ChartLegendContent = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
-    payload?: Array<{ value: string; color: string }>
+    payload?: Array<{ value: string; color: string }>;
   }
 >(({ payload, className }, ref) => {
-  const { config } = useChart()
+  const { config } = useChart();
 
   if (!payload?.length) {
-    return null
+    return null;
   }
 
   return (
@@ -121,8 +116,8 @@ const ChartLegendContent = React.forwardRef<
       className={cn("flex items-center justify-center gap-4", className)}
     >
       {payload.map((item) => {
-        const key = item.value as string
-        const itemConfig = config[key]
+        const key = item.value as string;
+        const itemConfig = config[key];
 
         return (
           <div key={key} className="flex items-center gap-1.5">
@@ -134,12 +129,12 @@ const ChartLegendContent = React.forwardRef<
               {itemConfig?.label || key}
             </span>
           </div>
-        )
+        );
       })}
     </div>
-  )
-})
-ChartLegendContent.displayName = "ChartLegendContent"
+  );
+});
+ChartLegendContent.displayName = "ChartLegendContent";
 
 export {
   ChartContainer,
@@ -148,4 +143,4 @@ export {
   ChartLegend,
   ChartLegendContent,
   type ChartConfig,
-}
+};
