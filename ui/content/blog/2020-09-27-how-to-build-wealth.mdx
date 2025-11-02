@@ -5,6 +5,11 @@ date: "2020-09-27"
 tags: ["personal-finance", "investing"]
 ---
 
+import { DebtInvestmentChart } from '@/components/blog/debt-investment-chart'
+import { PensionReturnsChart } from '@/components/blog/pension-returns-chart'
+import { LisaComparisonChart } from '@/components/blog/lisa-comparison-chart'
+import { FinancialIndependenceChart } from '@/components/blog/financial-independence-chart'
+
 Money shapes our lives.
 
 We spend 80,000 hours working to earn money.
@@ -99,6 +104,8 @@ The difference in growth is exceptional.
 
 The graph below shows what happens to £1000 worth of debt, savings and investment, left untouched for 20 years.
 
+<DebtInvestmentChart />
+
 Once you have no debt, start saving.
 
 To avoid debt it is important to have an emergency cash fund.
@@ -190,6 +197,8 @@ The graph below shows the difference in your return on investment if you invest:
 employer's offer)
 3. In an ISA with your extra take home pay (what would have went into your pension)
 
+<PensionReturnsChart />
+
 <details><summary>Assumptions</summary>
 This assumes all investments have an identical return of 7% per year.<br/>
 The values used for the plot are based on the median UK salary of £15.38 per hour
@@ -264,6 +273,8 @@ Investing in a normal ISA is marginally better than a LISA with fees.
 Investing in a LISA and withdrawing with fees is much better than not investing.
 
 So don't let the fees put you off too much!
+
+<LisaComparisonChart />
 
 ### ISA
 
@@ -424,6 +435,8 @@ But thanks to investing Jill has many choices.
 - She could work for only 10 years then switch to part time work
 
 Her investments give her opportunities to control her life.
+
+<FinancialIndependenceChart />
 
 ## How To Build Wealth
 
