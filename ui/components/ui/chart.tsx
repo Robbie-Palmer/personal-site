@@ -53,6 +53,12 @@ const ChartTooltipContent = React.forwardRef<
   React.ComponentProps<typeof RechartsPrimitive.Tooltip> & {
     hideLabel?: boolean;
     hideIndicator?: boolean;
+    active?: boolean;
+    payload?: Array<{
+      dataKey: string;
+      value: number | string;
+      color: string;
+    }>;
   }
 >(({ active, payload, hideIndicator }, ref) => {
   const { config } = useChart();

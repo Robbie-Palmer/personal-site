@@ -8,6 +8,10 @@ import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { DebtInvestmentChart } from "@/components/blog/debt-investment-chart";
+import { FinancialIndependenceChart } from "@/components/blog/financial-independence-chart";
+import { LisaComparisonChart } from "@/components/blog/lisa-comparison-chart";
+import { PensionReturnsChart } from "@/components/blog/pension-returns-chart";
 import { getAllPostSlugs, getPostBySlug } from "@/lib/blog";
 import { formatDate } from "@/lib/date";
 import { siteConfig } from "@/lib/site-config";
@@ -108,6 +112,12 @@ export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
       <div className="prose prose-zinc dark:prose-invert max-w-none">
         <MDXRemote
           source={post.content}
+          components={{
+            DebtInvestmentChart,
+            PensionReturnsChart,
+            LisaComparisonChart,
+            FinancialIndependenceChart,
+          }}
           options={{
             mdxOptions: {
               remarkPlugins: [remarkGfm],
