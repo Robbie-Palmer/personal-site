@@ -21,9 +21,9 @@ fi
 """
 
 [tasks.lint]
-description = "Validate Terraform configuration"
-run = """
-#!/usr/bin/env bash
-terraform init -backend=false > /dev/null 2>&1
-terraform validate
-"""
+description = "Validate all Terraform configurations"
+depends = ["//infra/cloudflare:lint"]
+
+[tasks.precommit-lint]
+description = "Validate all Terraform configurations (lightweight for pre-commit)"
+depends = ["//infra/cloudflare:precommit-lint"]
