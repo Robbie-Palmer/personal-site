@@ -43,11 +43,11 @@ const chartData = [
 const chartConfig = {
   uninvested: {
     label: "Uninvested",
-    color: "hsl(var(--chart-1))",
+    color: "var(--chart-1)",
   },
   invested: {
     label: "Invested",
-    color: "hsl(var(--chart-2))",
+    color: "var(--chart-2)",
   },
 } satisfies ChartConfig;
 

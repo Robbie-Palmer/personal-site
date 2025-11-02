@@ -50,15 +50,15 @@ const chartData = [
 const chartConfig = {
   creditCard: {
     label: "Credit Card",
-    color: "hsl(var(--chart-1))",
+    color: "var(--chart-1)",
   },
   savings: {
     label: "Savings Account",
-    color: "hsl(var(--chart-2))",
+    color: "var(--chart-2)",
   },
   investment: {
     label: "Investment",
-    color: "hsl(var(--chart-3))",
+    color: "var(--chart-3)",
   },
 } satisfies ChartConfig;
 

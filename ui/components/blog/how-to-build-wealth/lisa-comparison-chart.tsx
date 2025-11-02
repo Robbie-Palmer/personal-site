@@ -146,19 +146,19 @@ const chartData = [
 const chartConfig = {
   invested: {
     label: "Total Invested",
-    color: "hsl(var(--chart-1))",
+    color: "var(--chart-1)",
   },
   isa: {
     label: "Normal ISA Balance",
-    color: "hsl(var(--chart-2))",
+    color: "var(--chart-2)",
   },
   lisa: {
     label: "LISA",
-    color: "hsl(var(--chart-3))",
+    color: "var(--chart-3)",
   },
   lisaFees: {
     label: "LISA With Fees",
-    color: "hsl(var(--chart-4))",
+    color: "var(--chart-4)",
   },
 } satisfies ChartConfig;
 

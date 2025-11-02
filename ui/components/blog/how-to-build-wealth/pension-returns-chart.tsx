@@ -50,15 +50,15 @@ const chartData = [
 const chartConfig = {
   pensionEmployer: {
     label: "Pension (Employer Contribution)",
-    color: "hsl(var(--chart-1))",
+    color: "var(--chart-1)",
   },
   pensionEmployee: {
     label: "Pension (Employee Only)",
-    color: "hsl(var(--chart-2))",
+    color: "var(--chart-2)",
   },
   isa: {
     label: "ISA (After Tax)",
-    color: "hsl(var(--chart-3))",
+    color: "var(--chart-3)",
   },
 } satisfies ChartConfig;
 
