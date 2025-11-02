@@ -1,0 +1,399 @@
+---
+title: "How to Enable Multi-omic Data Management"
+description: "Exploring data management structures from Data Warehouses to Data Meshes, and how to leverage multi-omic data effectively in bioinformatics and healthcare contexts."
+date: "2022-02-28"
+tags: ["data-science", "bioinformatics", "data-management", "data-mesh"]
+canonicalUrl: "https://sonraianalytics.com/how-to-enable-multi-omic-data-management/"
+---
+
+***
+
+**📝 Note:** Originally published on [Sonrai Analytics](https://sonraianalytics.com/how-to-enable-multi-omic-data-management/). Republished here as part of my writing portfolio.
+
+***
+
+All leaders know that data has value. Many organisations have made considerable investments to collect as much data as possible. [The big data market](https://www.precisely.com/blog/big-data/quality-data-big-data-worth#:~:text=The%20big%20data%20market%20is,they%20were%20deriving%20from%20it) was worth $138.9 billion in 2020 and is expected to top $229.4 billion by 2025. These organisations aim to capitalise quickly on their enormous investment by building data-driven data teams and by applying advanced analytics to their data assets.
+
+They want a data management system and strategy that enables them to leverage their data as an asset. They want successful data, not data that acts as a liability. They want to analyse data from disparate sources to drive business decisions from advanced analytics, such as via machine learning.
+
+There has been a [data revolution in medicine](https://www.nature.com/articles/s41591-019-0727-5). Many lab machines now output gigabytes to terabytes of data. As Bioinformatics data explodes, organisations face big data management challenges, often for the first time. To capitalise on their data, an organisation must understand the unique organisational challenges data brings.
+
+# Data Is Not A Simple Commodity
+
+Many [business strategists](https://www.economist.com/leaders/2017/05/06/the-worlds-most-valuable-resource-is-no-longer-oil-but-data) have viewed data as the "new oil" and designed systems to treat it as such. Data is viewed as a precious commodity. It is a commodity that requires a considerable upfront investment to locate, but its value is readily accessible once found. But data is not like oil.
+
+<div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '1.5rem 0 0 0', gap: '0'}}>
+  <img src="https://www.economist.com/cdn-cgi/image/width=834,quality=80,format=auto/sites/default/files/images/print-edition/20170506_LDD001_0.jpg" alt="The world's most valuable resource is no longer oil, but data" style={{margin: '0', display: 'block'}} />
+
+  <p style={{margin: '0.25rem 0 0 0', fontSize: '0.9em'}}>
+    <em>Image: <a href="https://www.economist.com/leaders/2017/05/06/the-worlds-most-valuable-resource-is-no-longer-oil-but-data">The Economist, 2017</a> - "The world's most valuable resource is no longer oil, but data"</em>
+  </p>
+</div>
+
+Oil can be used interchangeably by any person in any part of the world to provide energy for many different tasks. Oil can be graded based on common traits such as what percentage contains undesirable contaminants, how acidic it is and its viscosity. These metrics provide insight into globally common characteristics that relate to the energy yield, amount of processing required and ease of transportation. Oil can be safely stored for a long time without degradation.
+
+In contrast:
+
+* **Data is not fungible.** Data has an inherently limited context.
+* **Data is near impossible to universally grade.** A feature that is a distraction in one context is of huge value in another.
+* **Data is a perishable good.** It rots. Maintaining data compatibility and context over long periods of time requires continual investment.
+
+Raw data is gathered representing events in the world. Raw data can be mined to provide context.
+
+<Mermaid
+  chart={`graph LR
+  RawData[RAW DATA]:::data
+  QualityData[QUALITY DATA]:::data
+  Information[INFORMATION]:::data
+  Outcomes[OUTCOMES]:::data
+
+  RawData -->|CONTEXTUALIZED| QualityData
+  QualityData -->|ANALYZED| Information
+  Information -->|ACTED UPON| Outcomes
+  Outcomes -->|OBSERVED| RawData
+`}
+/>
+
+* Quality data is analysable. Analysis provides information.
+* Information is actionable. Acting produces outcomes.
+* Observing outcomes generates new raw data.
+
+## Data Is Contextual
+
+Data can only ever be quality data within the context of a specific problem / intended outcome. When contextualised, data sets can show new solutions that are orders of magnitude more efficient than existing solutions. Within a context, subsets of data can help you solve otherwise completely unsolvable problems. When utilised correctly, data can make the intractable tractable. This is from where data derives its value. In each datum's match to its subjective, contextual application.
+
+Engineering systems/processes to bring relevant, contextual data to the surface, given diverse problem needs, is a huge unsolved problem. [McKinsey says only 10-20% of value has been captured from US healthcare data](https://www.mckinsey.com/business-functions/mckinsey-analytics/our-insights/the-age-of-analytics-competing-in-a-data-driven-world), especially with regards to AI and analytics adoption. This is due to the disconnect between data and context, analytics and vision. Often this comes from a [lack of understanding between traditional business analytics and advanced analytics](https://www.mckinsey.com/business-functions/mckinsey-analytics/our-insights/ten-red-flags-signaling-your-analytics-program-will-fail). Business intelligence and reporting acts on already contextualised data. Determining how to manage and utilise other types of data effectively, will overturn businesses and research institutions.
+
+We have passed through a number of generations of data management approaches. Each attempt to address the challenges above. The goal of all these methodologies is to tap into the huge potential to leverage data for driving business and research outcomes. Each generation requires greater up-front investment than its predecessor and greater organisational restructuring. But each new generation enables an organisation to better scale quality data management.
+
+# Organisation Structure
+
+## Organised with No Data Management
+
+Without data management, the potential for data-driven insights is completely lost.
+
+<Mermaid
+  chart={`graph LR
+  OrgLeaders[Org Leaders]:::person
+  TeamLeads[Team Leads]:::person
+  Staff[Staff]:::person
+  Data((Data)):::data
+  Abyss[Lost]:::data
+
+  OrgLeaders -->|Existing Knowledge| TeamLeads
+  TeamLeads -->|Existing Information| Staff
+  Staff -->|Produce| Data
+  Data -->|×| Abyss
+`}
+/>
+
+## Organised By Business Function
+
+When organised via a business function, the Lab team focuses on operating the increasing number of machines that generate raw data. They leverage this for their specific workflows. The Bioinformatics team focuses on consuming the generated raw data. They focus on learning how to interpret the increasing number of modalities, and how to derive new information from them.
+
+<Mermaid
+  chart={`graph LR
+  OrgLeaders[Organisation Leaders]:::person
+  LabLead[Lab Team Lead]:::person
+  LabStaff[Lab Staff]:::person
+  Data((Data)):::data
+  BioStaff[Bioinformatics Staff]:::person
+  BioLead[Bioinformatics Team Lead]:::person
+
+  OrgLeaders -->|Existing Knowledge| LabLead
+  LabLead -->|Existing Information| LabStaff
+  LabStaff -->|Produce| Data
+  Data -->|Consume| BioStaff
+  BioStaff -->|New Information| BioLead
+  BioLead -->|New Knowledge| OrgLeaders
+`}
+/>
+
+This organisation allows application and analysis to operate independently. This is useful for the allocation of resources. It enables each to grow or shrink independently. It enables employees to specialise in different processes and technology. E.g. Lab staff can specialise in machine operation and [SOPs](https://en.wikipedia.org/wiki/Standard_operating_procedure), while Bioinformaticians can specialise in statistics, data science, data formats etc.
+
+In this organisational structure, the data producers will contextualise some of the raw data they produce. The data that will be contextualised, is that which is directly required to carry out their function. They are not incentivised to produce contextualised data for use-cases outside of their function. Once their function is complete, they are not incentivised to retain data in a contextualised form that can persist over time.
+
+This means many contexts will be lost, making lots of data unusable, and where context is retained, it will not be easily consumable. Data that could be "easily" contextualised by the producers, will be very challenging to contextualise within the consuming team. Organisational incentives mean potential insights are lost, and those still accessible have a high cost to extract.
+
+The data consumers will also be challenged by the diversity and multi-modal nature of the available data. Teams will likely be more capable of leveraging some types of data over others, biassing the insights that are derived.
+
+## Organised By Modality
+
+When organised via modality, each team becomes specialised in a specific domain. This specialisation enables a single employee to act as both lab staff and Bioinformatician. Examples of a specialised domain could be genetics, radiology, proteomics, pathology etc.
+
+<Mermaid
+  chart={`graph TB
+  OrgLeaders[Organisation Leaders]:::person
+
+  subgraph ModalityTeam["Modality Team"]
+      ModalityLead[Modality Team Lead]:::person
+      ModalityStaff[Modality Staff]:::person
+      Data((Data)):::data
+      Note[x Number of<br/>Modalities]
+
+      ModalityLead -->|Existing Information| ModalityStaff
+      ModalityStaff -->|Produce| Data
+      Data -->|Consume| ModalityStaff
+  end
+
+  OrgLeaders -->|Existing Knowledge| ModalityLead
+  ModalityLead -->|New Knowledge| OrgLeaders
+`}
+/>
+
+This organisation allows each modality to operate independently, which can be useful for the allocation of resources. It enables each to grow or shrink independently. It enables employees to specialise in different processes and technology.
+
+In this organisational structure, the data producers and consumers are the same. They are incentivised to produce contextualised data for analysis and to retain it in a persistable form. But only within the context of their team. This means data is siloed by modality. In this type of organisation, it will be very rare, and expensive to gain multi-modal insights.
+
+All aspects of the body are inherently interlinked, and different modalities provide different contexts to the same information. Without combining these various perspectives many potential insights are lost.
+
+# Generation 1 - The Data Warehouse
+
+In both organisation structures, it is clear that by improving data accessibility, more data could be appropriately contextualised. By appropriately contextualising more data, more information could be derived, producing better outcomes. This can be tackled by creating a new team responsible for creating and maintaining a Data Warehouse.
+
+A Data Warehouse gathers all data in one consistent location, organised via a standard [schema](https://en.wikipedia.org/wiki/Database_schema). Data Engineers build [ETL](https://docs.microsoft.com/en-us/azure/architecture/data-guide/relational-data/etl) (extract, transform and load) / data pipelines to contextualise data. Data is consumed from the warehouse.
+
+<Mermaid
+  chart={`graph LR
+  OpStaff[Operational Staff]:::person
+  RawData[Raw Data]:::data
+  DataEngineers[Data Engineers]:::person
+  QualityData[Quality Data]:::data
+  Warehouse[(Data Warehouse)]:::storage
+  AnalyticsStaff[Analytics Staff]:::person
+
+  OpStaff -->|Produce| RawData
+  RawData -->|Transformed by| DataEngineers
+  DataEngineers -->|Produce| QualityData
+  QualityData -->|Resides in| Warehouse
+  DataEngineers -->|Maintain| Warehouse
+  Warehouse -->|Load| AnalyticsStaff
+`}
+/>
+
+## Organised By Business Function
+
+For organisations structured by business function, if the data engineering team succeeds in efficiently transforming raw data into quality data, the data consumers will be far more productive in their analysis. Successfully integrating all data into a single schema opens the ability to more easily explore multi-modal contexts.
+
+However, data producers aren't any more incentivised to assist the data engineers than they were to assist the data consumers. The data engineers also need to act as a middleman between data producers and data consumers. They must try to understand the consumers' needs, which will be error-prone.
+
+## Organised By Modality
+
+For organisations structured by modality, a Data Warehouse is unlikely to assist in staff's day-to-day analysis of their single modality.
+
+### Process in theory
+
+In theory, the Data Engineering team could take on the burden of converting the raw data into quality data.
+
+<Mermaid
+  chart={`graph LR
+  ModalityStaff[MODALITY STAFF]:::person
+  RawData[RAW DATA]:::data
+  DataEngineers[DATA ENGINEERS]:::person
+  QualityData[QUALITY DATA]:::data
+  Warehouse[(DATA WAREHOUSE)]:::storage
+
+  ModalityStaff -->|EXTRACT| RawData
+  RawData -->|TRANSFORMED BY| DataEngineers
+  DataEngineers -->|PRODUCE| QualityData
+  QualityData -->|RESIDES IN| Warehouse
+  DataEngineers -->|MAINTAIN| Warehouse
+  Warehouse -->|LOAD| ModalityStaff
+`}
+/>
+
+### Process in practice
+
+In practice, the modality team is best placed to do this within their modality. Transferring data back and forth to a third-party generic team will not improve the focused team's analysis.
+
+<Mermaid
+  chart={`graph LR
+  ModalityStaff[MODALITY STAFF]:::person
+  RawData[RAW DATA]:::data
+  DataEngineers[DATA ENGINEERS]:::person
+  InterModalityContextual1[INTER-MODALITY<br/>CONTEXTUAL DATA]:::data
+  InterModalityContextual2[INTER-MODALITY<br/>CONTEXTUAL DATA]:::data
+  Warehouse[(DATA WAREHOUSE)]:::storage
+
+  ModalityStaff -->|EXTRACT| RawData
+  RawData -->|TRANSFORMED BY| DataEngineers
+  DataEngineers -->|PRODUCE| InterModalityContextual1
+  InterModalityContextual1 -->|RESIDES IN| Warehouse
+
+  RawData -->|TRANSFORMED BY| ModalityStaff
+  ModalityStaff -->|PRODUCE| InterModalityContextual2
+  InterModalityContextual2 -->|CONSUME| ModalityStaff
+
+  Warehouse -->|CONSUMES OTHER<br/>MODALITY DATA| ModalityStaff
+`}
+/>
+
+The Data Warehouse opens up opportunities for multi-modal analysis. These could be very enriching for some modalities, but less so for others. Some modalities will be more in demand depending on their level of abstraction, inter-connectedness and ease of analysis.
+
+The Data Warehouse is prone to the "[Tragedy of the commons](https://en.wikipedia.org/wiki/Tragedy_of_the_commons)". This is especially true, due to the inverse correlation between the teams that provide the most value to the Data Warehouse, and the teams that consume the most value from it.
+
+## Failure Modes
+
+For small-scale, light-touch analysis, this approach can perform well, but it does not scale. Integrating many data sources into a single schema, while retaining appropriate context for a variety of downstream use cases, is a daunting task.
+
+Integrating data from multiple domains, and integrating new data with historical data, into a single schema becomes exponentially more difficult over time.
+
+Data Engineers are unlikely to be adept at handling each specialisation.
+
+Often data warehouses can also lose data that could be vital in analysis through aggregation / other view transformations.
+
+# Generation 2 - The Data Lake
+
+If an organisation tries to scale its usage of the Data Warehouse, to support lots of types of data for lots of types of use cases, they will observe productivity grinding to a halt. The surface-level problem is the single schema.
+
+A Data Lake is the next intuitive progression to resolve these issues, as a Data Lake is schema-less. Data producers are responsible for pushing their data into this central repository. A single queryable location, with individually defined schemas. Data analysts have direct access to the raw data. Data engineers no longer have to work on presenting data in a generic yet useful way.
+
+Data consumers who want repeatable views are incentivised to create ETL pipelines that generate Lakeshore Data Marts. Lakeshore Data Marts are like various Data Warehouses built on the side of the Data Lake. They serve a schema for the most common analytics use cases. Data engineers get to focus on their strengths of scalable infrastructure, ignoring the contents of the data.
+
+In principle, [data provenance](https://www.ands.org.au/working-with-data/publishing-and-reusing-data/data-provenance) should be retained and each item in the lake should be immutable. Immutability can be governed by the Data Engineers. Data provenance can be facilitated by Data Engineers but in practice is the responsibility of those doing data transformations.
+
+## Data Lake for Teams Organised by Business Function
+
+<Mermaid
+  chart={`graph TB
+  LabStaff[LAB STAFF]:::person
+  RawData[RAW DATA]:::data
+  DataWarehouse[(DATA WAREHOUSE)]:::storage
+  BioStaff[BIOINFORMATICS STAFF]:::person
+  ETLPipelines[ETL PIPELINES]:::app
+  DataEngineers[DATA ENGINEERS]:::person
+
+  LabStaff -->|EXTRACT| RawData
+  RawData -->|RESIDES IN| DataWarehouse
+  DataWarehouse -->|CONSUMES<br/>DATA FROM| BioStaff
+  BioStaff -->|BUILD| ETLPipelines
+  DataEngineers -->|ASSIST WITH| BioStaff
+  DataEngineers -->|MAINTAIN| DataWarehouse
+  ETLPipelines -->|TRANSFORMS<br/>DATA IN| DataWarehouse
+`}
+/>
+
+This organisation allows application and analysis to operate independently. This is useful for the allocation of resources. It enables each to grow or shrink independently. It enables employees to specialise in different processes and technology. E.g. Lab staff can specialise in machine operation and [SOPs](https://en.wikipedia.org/wiki/Standard_operating_procedure), while Bioinformaticians can specialise in statistics, data science, data formats etc.
+
+In this organisational structure, the data producers will contextualise some of the raw data they produce. The data that will be contextualised, is that which is directly required to carry out their function. They are not incentivised to produce contextualised data for use-cases outside of their function. Once their function is complete, they are not incentivised to retain data in a contextualised form that can persist over time.
+
+This means many contexts will be lost, making lots of data unusable, and where context is retained, it will not be easily consumable. Data that could be "easily" contextualised by the producers, will be very challenging to contextualise within the consuming team. Organisational incentives mean potential insights are lost, and those still accessible have a high cost to extract.
+
+The data consumers will also be challenged by the diversity and multi-modal nature of the available data. Teams will likely be more capable of leveraging some types of data over others, biassing the insights that are derived.
+
+## Data Lake for Teams Organised by Modality
+
+<Mermaid
+  chart={`graph LR
+  DataEngineers[DATA ENGINEERS]:::person
+  ETLPipelines[ETL PIPELINES]:::app
+  ModalityStaff[MODALITY STAFF]:::person
+  RawData[RAW DATA]:::data
+  DataWarehouse[(DATA WAREHOUSE)]:::storage
+
+  DataEngineers -->|ASSIST WITH| ETLPipelines
+  ETLPipelines -->|BUILD| ModalityStaff
+  ETLPipelines -->|MAINTAIN| DataWarehouse
+  ETLPipelines -->|TRANSFORMS<br/>DATA IN| DataWarehouse
+
+  ModalityStaff -->|PRODUCE| RawData
+  RawData -->|RESIDES IN| DataWarehouse
+  DataWarehouse -->|CONSUMES<br/>DATA FROM| ModalityStaff
+`}
+/>
+
+This organisation allows each modality to operate independently, which can be useful for the allocation of resources. It enables each to grow or shrink independently. It enables employees to specialise in different processes and technology.
+
+In this organisational structure, the data producers and consumers are the same. They are incentivised to produce contextualised data for analysis and to retain it in a persistable form. But only within the context of their team. This means data is siloed by modality. In this type of organisation, it will be very rare, and expensive to gain multi-modal insights.
+
+All aspects of the body are inherently interlinked, and different modalities provide different contexts to the same information. Without combining these various perspectives many potential insights are lost.
+
+## Failure Modes
+
+Data Lakes consistently turn into Data Swamps. Data Swamps are dumping grounds where data provenance and context are lost, and there is no organisational structure. This makes it hard for analysts to navigate, source contextually relevant data and ignore misleading irrelevant/outdated data. A Data Swamp causes the productivity of analysts to massively drop, and the number of errors in their analysis to increase.
+
+In the Data Warehouse, the data engineers took data ownership. They were responsible for all Data Governance. In the Data Lake, no one is directly responsible for Data Governance. Organisationally, Data Lakes often produce dynamics where data engineers and data scientists work in silos. [Conway's Law](https://en.wikipedia.org/wiki/Conway%27s_law) prevents iterative collaboration to create the lake.
+
+# Generation 3 - The Data Mesh
+
+To recap:
+
+* When we have no data infrastructure, we lose a valuable asset that can generate quality information to drive decisions and outcomes
+* Data leveraged within its appropriate context can be transformative, so we are driven to build data infrastructure
+* Data Warehouses provide governance but fail to scale
+* Data Lakes enable scaling but fail to enable governance
+
+A Data Mesh is a proposed structure for retaining flexibility while providing data governance. It requires a lot of organisational restructuring, investment and maintenance, but could reap huge rewards for organisations with large amounts of complex data. Its methodology is to treat data as a product.
+
+<Mermaid
+  chart={`graph TB
+  LabStaff[Lab Staff]:::person
+  RawData[Raw Data]:::data
+  SourceTeams[Source Dataset Teams]:::person
+  SourceDataset[Source Oriented Dataset]:::data
+
+  DataEngineers[Data Engineers]:::person
+  Platform[Data Platform]:::storage
+
+  ConsumerTeams[Consumer Dataset Teams]:::person
+  ConsumerDataset[Consumer Oriented Dataset]:::data
+
+  BioStaff[Bioinformatics Staff]:::person
+  AnalyticsApp[Analytics App]:::app
+  Dashboard[Dashboard]:::app
+
+  LabStaff -->|Extracts| RawData
+  RawData -->|Transformed by| SourceTeams
+  SourceTeams -->|Build & Maintain| SourceDataset
+
+  DataEngineers -->|Build & Maintain| Platform
+  Platform -->|Supports| SourceTeams
+  Platform -->|Supports| ConsumerTeams
+
+  SourceDataset -->|Consumed By| BioStaff
+  SourceDataset -->|Transformed By| ConsumerTeams
+  ConsumerTeams -->|Build & Maintain| ConsumerDataset
+
+  ConsumerDataset -->|Consumed By| BioStaff
+  ConsumerDataset -->|Consumed By| AnalyticsApp
+  ConsumerDataset -->|Presented By| Dashboard
+`}
+/>
+
+Within the Data Mesh are Datasets. Each Dataset is treated as a product in its own right. Each Dataset has a cross-functional team responsible for it. An example of the roles that can exist within a Dataset team are Product Manager, Bioinformatician, Data Scientist, Software Engineer and Data Engineer.
+
+Some teams build Datasets to provide data views for the lowest-level immutable facts extracted from the labs. These types of Datasets are referred to as "Source Oriented Datasets". These teams will collaborate closely with the Lab Staff. They focus on how to collect the original data in a maintainable, high-quality contextual manner.
+
+These Datasets may aggregate data from multiple sources where this is appropriate to provide a coherent context. Some Source Oriented Datasets will have a single modality, while others will represent multi-modal, multi-omic data.
+
+Some teams build Datasets to provide data views for specific analysis use cases. These Datasets depend on source-oriented datasets and can be re-generated from them. These Datasets will change much more often than a source-oriented dataset. These types of Datasets are referred to as "Consumer-Oriented Datasets".
+
+Data Analysts carrying out common use cases will find their needs met by Consumer-Oriented Datasets. Data Analysts who want to investigate novel insights will be able to do so directly via Source Oriented Datasets; or by combining these with Consumer-Oriented Datasets. This structure should give Data Analysts a huge productivity boost.
+
+When new types of data are generated by the lab, new Source Oriented Datasets will be created, and/or existing Source Oriented Datasets will expand. When new data insights are generated by analysts, new Consumer-Oriented Datasets will be created, and/or existing Consumer-Oriented Datasets will expand.
+
+The previous generations had a central Data Warehouse or a central Data Lake. A Data Mesh distributes data into data domains. This approach requires discipline, strong technical leadership and strong data engineering practices. The overall distributed Data Mesh architecture needs to be managed and refined. A data engineering team is required to build infrastructure as a platform to enable the Dataset teams to focus on their domain.
+
+The Data Mesh model means:
+
+* New features can be readily produced within a scoped context, by a team with domain expertise
+* Data engineers are no longer caught in the middle and can focus on where their skills lie
+* Datasets are treated as products. This enables data to be treated with rigour. It encourages strong quality control practises and can inspire those working on it
+* Data governance and maintenance incentives are aligned with best practice
+
+## Challenges
+
+* This model has not been widely adopted, so common failure modes are as of yet unknown
+* How to efficiently spin up and spin down teams as appropriate
+* How to utilise staff to support Datasets that only require minimal maintenance
+* How to ensure consistent, quality practices across all Dataset teams
+
+If interested in learning more about this methodology, Zhamak Dehghani has an upcoming book [Data Mesh: Delivering Data-Driven Value at Scale](https://www.oreilly.com/library/view/data-mesh/9781492092384/).
+
+# Managing Your Data Needs
+
+Each data management process has its pros and cons. Functionally, a Data Mesh may be the most promising solution, but it also requires investment, manpower and organisational restructuring. This will be unattainable, or simply unproductive for many organisations.
+
+No matter what organisational approach is taken, wrangling your data, understanding your objectives, and deeply understanding your domain; are all difficult challenges. They require skill sets at multiple technical and business levels.
+
+It is important for businesses to be mindful of their data needs and the available operational models. This lets them identify when a model is no longer working and can seek change.
