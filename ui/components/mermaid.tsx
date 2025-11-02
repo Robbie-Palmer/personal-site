@@ -75,7 +75,15 @@ export function Mermaid({ chart, className = "" }: MermaidProps) {
       } catch (error) {
         console.error("Error rendering mermaid diagram:", error);
         if (!isCancelled && containerRef.current) {
-          containerRef.current.innerHTML = `<pre class="text-red-500">Error rendering diagram: ${error}</pre>`;
+          // Clear container safely
+          containerRef.current.textContent = "";
+
+          // Create error element with safe text content
+          const errorElement = document.createElement("pre");
+          errorElement.className = "text-red-500";
+          errorElement.textContent = `Error rendering diagram: ${error}`;
+
+          containerRef.current.appendChild(errorElement);
         }
       }
     };
