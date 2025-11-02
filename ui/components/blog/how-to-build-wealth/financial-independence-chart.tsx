@@ -90,7 +90,7 @@ export function FinancialIndependenceChart() {
               <ChartLegend content={<ChartLegendContent />} />
               <ReferenceLine
                 y={FI_VALUE}
-                stroke="hsl(var(--chart-3))"
+                stroke="var(--chart-3)"
                 strokeDasharray="3 3"
                 label={{
                   value: "Financial Independence",
