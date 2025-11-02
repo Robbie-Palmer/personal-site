@@ -171,7 +171,7 @@ export function LisaComparisonChart() {
           Investing £4,000 per year over 20 years (7% returns)
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-2 sm:px-6">
         <ChartContainer config={chartConfig} className="min-h-[400px] w-full">
           <ResponsiveContainer width="100%" height={400}>
             <LineChart
