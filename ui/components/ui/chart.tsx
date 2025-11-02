@@ -32,11 +32,23 @@ const ChartContainer = React.forwardRef<
     children: React.ReactElement;
   }
 >(({ config, children, className, ...props }, ref) => {
+  // Create CSS variables from chartConfig
+  const style = React.useMemo(() => {
+    const cssVars: Record<string, string> = {};
+    for (const [key, value] of Object.entries(config)) {
+      if (value.color) {
+        cssVars[`--color-${key}`] = value.color;
+      }
+    }
+    return cssVars as React.CSSProperties;
+  }, [config]);
+
   return (
     <ChartContext.Provider value={{ config }}>
       <div
         ref={ref}
         className={cn("flex aspect-video justify-center text-xs", className)}
+        style={style}
         {...props}
       >
         {children}
