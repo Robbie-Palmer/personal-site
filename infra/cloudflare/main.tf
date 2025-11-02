@@ -23,4 +23,11 @@ resource "cloudflare_pages_project" "personal_site" {
       preview_branch_excludes       = []
     }
   }
+
+  lifecycle {
+    ignore_changes = [
+      latest_deployment,
+      canonical_deployment,
+    ]
+  }
 }
