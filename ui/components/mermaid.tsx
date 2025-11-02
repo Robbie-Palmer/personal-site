@@ -21,6 +21,8 @@ export function Mermaid({ chart, className = "" }: MermaidProps) {
   useEffect(() => {
     if (!mounted || !containerRef.current) return;
 
+    let isCancelled = false;
+
     const renderDiagram = async () => {
       const isDark = resolvedTheme === "dark";
       const textColor = isDark ? "#f9fafb" : "#0c0a09";
@@ -36,18 +38,18 @@ export function Mermaid({ chart, className = "" }: MermaidProps) {
         startOnLoad: false,
         theme: isDark ? "dark" : "default",
         themeVariables: {
-          darkMode: resolvedTheme === "dark",
-          primaryColor: resolvedTheme === "dark" ? "#60a5fa" : "#3b82f6",
-          primaryTextColor: resolvedTheme === "dark" ? "#e5e7eb" : "#1f2937",
-          primaryBorderColor: resolvedTheme === "dark" ? "#374151" : "#d1d5db",
-          lineColor: resolvedTheme === "dark" ? "#6b7280" : "#9ca3af",
-          secondaryColor: resolvedTheme === "dark" ? "#1f2937" : "#f3f4f6",
-          tertiaryColor: resolvedTheme === "dark" ? "#111827" : "#ffffff",
-          background: resolvedTheme === "dark" ? "#111827" : "#ffffff",
-          mainBkg: resolvedTheme === "dark" ? "#1f2937" : "#f9fafb",
-          secondBkg: resolvedTheme === "dark" ? "#374151" : "#f3f4f6",
-          clusterBkg: resolvedTheme === "dark" ? "#1f2937" : "#f9fafb",
-          edgeLabelBackground: resolvedTheme === "dark" ? "#1f2937" : "#f9fafb",
+          darkMode: isDark,
+          primaryColor: isDark ? "#60a5fa" : "#3b82f6",
+          primaryTextColor: isDark ? "#e5e7eb" : "#1f2937",
+          primaryBorderColor: isDark ? "#374151" : "#d1d5db",
+          lineColor: isDark ? "#6b7280" : "#9ca3af",
+          secondaryColor: isDark ? "#1f2937" : "#f3f4f6",
+          tertiaryColor: isDark ? "#111827" : "#ffffff",
+          background: isDark ? "#111827" : "#ffffff",
+          mainBkg: isDark ? "#1f2937" : "#f9fafb",
+          secondBkg: isDark ? "#374151" : "#f3f4f6",
+          clusterBkg: isDark ? "#1f2937" : "#f9fafb",
+          edgeLabelBackground: isDark ? "#1f2937" : "#f9fafb",
           fontSize: "16px",
         },
         flowchart: {
@@ -58,24 +60,31 @@ export function Mermaid({ chart, className = "" }: MermaidProps) {
       });
 
       try {
-        if (containerRef.current) {
-          containerRef.current.innerHTML = "";
-        }
+        if (isCancelled || !containerRef.current) return;
+
+        containerRef.current.innerHTML = "";
+
         // Generate unique ID for this diagram
         const id = `mermaid-${Math.random().toString(36).slice(2, 11)}`;
         const { svg } = await mermaid.render(id, diagramWithClasses);
-        if (containerRef.current) {
-          containerRef.current.innerHTML = svg;
-        }
+
+        // Check again after async operation completes
+        if (isCancelled || !containerRef.current) return;
+
+        containerRef.current.innerHTML = svg;
       } catch (error) {
         console.error("Error rendering mermaid diagram:", error);
-        if (containerRef.current) {
+        if (!isCancelled && containerRef.current) {
           containerRef.current.innerHTML = `<pre class="text-red-500">Error rendering diagram: ${error}</pre>`;
         }
       }
     };
 
     renderDiagram();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [chart, resolvedTheme, mounted]);
 
   // Prevent hydration mismatch by not rendering anything server-side
