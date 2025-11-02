@@ -1,0 +1,364 @@
+---
+title: "Personal Site Architecture"
+description: "A meta-examination of the technical decisions behind this self-documenting site: from Next.js and MDX to Cloudflare Pages and automated DevOps workflows"
+date: "2025-11-02"
+tags: ["web-development", "architecture", "devops", "meta"]
+technologies: ["Next.js", "React", "TypeScript", "MDX", "Tailwind CSS", "Terraform", "Cloudflare Pages", "pnpm", "GitHub Actions"]
+githubUrl: "https://github.com/Robbie-Palmer/personal-site"
+demoUrl: "https://robbiepalmer.me"
+---
+
+## Overview
+
+This personal site serves as both a portfolio and a living example of modern web architecture. It's intentionally over-engineered for a personal site—not because it's necessary, but because it demonstrates production-grade patterns and tools I use professionally.
+
+The site is built with **Next.js 15** using the App Router, deployed on **Cloudflare Pages**, and managed with **Terraform**. Development tooling includes **Mise** for environment management, **Husky** for git hooks, **Renovate** for dependency updates, and **AI-assisted code review**.
+
+## Core Technology Decisions
+
+### Why Next.js?
+
+**Next.js 15** with the App Router provides the perfect balance of static site generation (SSG) and modern developer experience:
+
+- **Static Site Generation (SSG)**: Blog posts and projects are pre-rendered at build time, resulting in near-instant page loads
+- **React Server Components**: Reduces client-side JavaScript bundle size significantly
+- **File-based routing**: Intuitive organization that maps directly to URLs
+- **Built-in optimizations**: Image optimization, font optimization, and automatic code splitting
+- **TypeScript-first**: Excellent type safety out of the box
+
+Alternative considered: **Astro** would have been lighter, but I wanted to showcase my React expertise and leverage the broader React ecosystem.
+
+### Why MDX?
+
+**MDX** allows me to write content in Markdown while embedding React components when needed:
+
+```mdx
+# Regular Markdown
+
+Here's a diagram:
+
+<Mermaid chart={`
+graph TD
+    A[MDX] --> B[Markdown]
+    A --> C[JSX Components]
+`} />
+```
+
+This provides:
+- **Content authoring in Markdown**: Fast writing without HTML
+- **React component embedding**: Interactive demos, diagrams, custom layouts
+- **Type-safe frontmatter**: Validated metadata using TypeScript interfaces
+- **Syntax highlighting**: Using `rehype-pretty-code` with Shiki
+
+### Content Architecture
+
+Both blog posts and projects use the same underlying infrastructure but with different metadata schemas:
+
+```typescript
+// Blog posts: conceptual writing
+interface BlogPost {
+  title: string;
+  description: string;
+  date: string;
+  tags: string[];
+  updated?: string;
+  canonicalUrl?: string;
+}
+
+// Projects: technical deep-dives with context
+interface Project {
+  title: string;
+  description: string;
+  date: string;
+  tags: string[];
+  technologies?: string[];
+  company?: string;      // Optional: for work projects
+  role?: string;         // Optional: for work projects
+  githubUrl?: string;
+  demoUrl?: string;
+  experienceLink?: string;
+}
+```
+
+This separation allows:
+- Blog posts to remain timeless and conceptual
+- Projects to link to specific roles and showcase technical implementations
+- Shared search/filter infrastructure via **Fuse.js**
+
+### Why Static Site Generation?
+
+SSG was the obvious choice for content that rarely changes:
+
+- **Performance**: Pre-rendered HTML served from CDN edge locations
+- **Cost**: Cloudflare Pages free tier is generous
+- **Security**: No server to compromise, no database to breach
+- **SEO**: Perfect for search engines (fully rendered HTML)
+- **Scalability**: Handles traffic spikes effortlessly
+
+The tradeoff is build time, but with incremental static regeneration patterns available in Next.js, this can be mitigated if needed.
+
+## Infrastructure & DevOps
+
+### Cloudflare Pages
+
+**Cloudflare Pages** provides:
+- **Global CDN**: Sub-100ms response times worldwide
+- **Automatic deployments**: Every push to main triggers a build
+- **Preview deployments**: Every PR gets its own URL
+- **Custom domains**: Free SSL certificates
+- **Edge functions**: Available if I need serverless compute
+
+### Infrastructure as Code with Terraform
+
+Managing Cloudflare configuration via **Terraform** ensures:
+- **Reproducibility**: Infrastructure can be rebuilt from code
+- **Version control**: Changes are tracked in Git
+- **CI/CD integration**: Validated in pre-commit hooks and GitHub Actions
+- **Documentation**: The code *is* the documentation
+
+```hcl
+resource "cloudflare_pages_project" "personal_site" {
+  account_id        = var.cloudflare_account_id
+  name              = "personal-site"
+  production_branch = "main"
+
+  build_config {
+    build_command   = "pnpm run build"
+    destination_dir = "ui/out"
+  }
+}
+```
+
+### Package Management: pnpm
+
+**pnpm** over npm/yarn because:
+- **Disk efficiency**: Shared dependency storage across projects
+- **Strict dependency resolution**: Prevents phantom dependencies
+- **Speed**: Faster installs than npm
+- **Monorepo support**: Workspace features for ui/ and infra/
+
+### Development Environment: Mise
+
+**Mise** (formerly rtx) manages tool versions:
+
+```toml
+[tools]
+node = "22"
+pnpm = "9"
+terraform = "1.10"
+```
+
+This ensures:
+- Consistent environments across machines
+- Automatic version switching per project
+- Replaces multiple version managers (nvm, tfenv, etc.)
+
+### Git Hooks with Husky
+
+**Husky** enforces quality gates before commits:
+
+- **Pre-commit**: Runs Biome formatter, type checking, linting
+- **Pre-push**: Runs tests and Terraform validation
+- **Commit-msg**: Validates conventional commit messages
+
+This catches issues early, before CI/CD.
+
+### Dependency Management: Renovate
+
+**Renovate** automatically:
+- Detects outdated dependencies
+- Creates PRs with updates
+- Groups related updates (e.g., all React packages)
+- Runs tests before merging
+
+This keeps the site secure and modern without manual effort.
+
+## CI/CD Pipeline
+
+### GitHub Actions Workflows
+
+Three workflows handle different concerns:
+
+**1. UI CI** (`ui-ci.yml`):
+```yaml
+- Lint code with Biome
+- Type check with TypeScript
+- Run tests with Vitest
+- Build Next.js app
+- Preview bundle size
+```
+
+**2. Infrastructure CI** (`infra-ci.yml`):
+```yaml
+- Validate Terraform syntax
+- Format check Terraform files
+- Run terraform plan
+```
+
+**3. Infrastructure CD** (`infra-cd.yml`):
+```yaml
+- Apply Terraform changes (main branch only)
+- Deploy infrastructure updates
+```
+
+### AI-Assisted Development
+
+**Claude Code** for implementation:
+- Architecture discussions
+- Code generation with context
+- Refactoring assistance
+
+**Code Rabbit** for PR reviews:
+- Automated code review comments
+- Suggests improvements
+- Catches potential bugs
+
+## Styling & Design System
+
+### Tailwind CSS v4
+
+**Tailwind CSS** provides:
+- **Utility-first CSS**: Rapid UI development
+- **Design consistency**: Predefined spacing, colors, typography
+- **Purge unused styles**: Tiny production bundles
+- **Dark mode**: Built-in theme support via `next-themes`
+
+### shadcn/ui Components
+
+**shadcn/ui** components are copied into the project (not imported as a library):
+- Full customization control
+- No bloated dependencies
+- Accessible by default (Radix UI primitives)
+- TypeScript-first
+
+Components used:
+- `Badge`, `Button`, `Card`, `Input`, `Separator`
+
+### Typography Plugin
+
+The `@tailwindcss/typography` plugin provides beautiful prose styling for MDX content without custom CSS:
+
+```jsx
+<div className="prose prose-zinc dark:prose-invert">
+  <MDXRemote source={content} />
+</div>
+```
+
+## Search & Discovery
+
+### Fuzzy Search with Fuse.js
+
+**Fuse.js** enables client-side fuzzy search across:
+
+```typescript
+keys: [
+  { name: "title", weight: 3 },
+  { name: "description", weight: 2 },
+  { name: "tags", weight: 2 },
+  { name: "content", weight: 1 },
+]
+```
+
+**Why client-side?** With a small content set, client-side search:
+- Eliminates server costs
+- Provides instant results
+- Works offline
+- No privacy concerns (no search tracking)
+
+### Tag-Based Filtering
+
+Tags create taxonomy without complex categorization:
+- Multiple tags per post/project
+- Clickable tags filter content
+- URL-based filtering (`?tag=architecture`)
+- Shareable filtered views
+
+## Performance Optimizations
+
+### Bundle Size Management
+
+- **Tree shaking**: Unused code eliminated
+- **Code splitting**: Route-based chunks
+- **Dynamic imports**: Heavy components loaded on demand
+
+Example: Mermaid diagrams (heavy library) load only when needed:
+
+```typescript
+const Mermaid = dynamic(() => import('./mermaid'), {
+  ssr: false,
+  loading: () => <div>Loading diagram...</div>
+});
+```
+
+### SEO & Metadata
+
+Every page includes:
+- **Open Graph tags**: Rich social previews
+- **Twitter Cards**: Optimized sharing
+- **Canonical URLs**: Prevents duplicate content penalties
+- **Structured metadata**: Helps search engines understand content
+
+## Testing Strategy
+
+### Unit Testing with Vitest
+
+**Vitest** over Jest because:
+- **Faster**: Native ESM support, less configuration
+- **Vite compatibility**: Shares config with build tool
+- **Modern**: Better TypeScript support
+
+**Testing Library** ensures tests focus on user behavior, not implementation details.
+
+## What I'd Do Differently
+
+### Consider Astro for Better Performance
+
+**Astro** would provide:
+- Even smaller JavaScript bundles (islands architecture)
+- Faster build times
+- Simpler mental model for static content
+
+But I'd lose the React ecosystem and familiarity.
+
+### Add Analytics
+
+Currently no analytics to respect privacy, but anonymous metrics would help understand:
+- Which content resonates
+- User navigation patterns
+- Performance in the real world
+
+**Plausible** or **Fathom** would be privacy-friendly options.
+
+### E2E Testing
+
+Playwright tests would catch:
+- Navigation issues
+- Mobile responsiveness problems
+- Dark mode bugs
+
+Currently relying on manual testing.
+
+## Lessons Learned
+
+1. **Over-engineering can be pedagogical**: This site demonstrates enterprise patterns even though it's overkill for a personal site. That's the point.
+
+2. **Automation pays off**: Renovate, Husky, and GitHub Actions save hours of manual work.
+
+3. **MDX is powerful but complex**: The flexibility comes with configuration overhead (rehype/remark plugins).
+
+4. **Infrastructure as Code is essential**: Even for simple deployments, Terraform provides clarity and reproducibility.
+
+5. **Self-documenting projects are meta and fun**: Writing about the site architecture *on* the site creates a feedback loop of improvement.
+
+## Conclusion
+
+This site represents a snapshot of modern web development best practices circa 2025. It's intentionally over-engineered to showcase professional patterns, and it serves as a living portfolio piece that documents itself.
+
+The source code is available on [GitHub](https://github.com/Robbie-Palmer/personal-site), and the site itself is deployed at [robbiepalmer.me](https://robbiepalmer.me).
+
+Future additions might include:
+- Interactive demos of algorithms/data structures
+- D3.js visualizations
+- Integration with the Experience page to showcase work-related projects
+
+The infrastructure is designed to scale from a personal blog to a full portfolio site showcasing complex technical implementations.
