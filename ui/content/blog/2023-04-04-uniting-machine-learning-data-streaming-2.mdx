@@ -72,7 +72,7 @@ ML experiment management platforms are core to MLOps best practices. These platf
 
 There are currently no managed direct Kafka integrations for any ML experiment management platform. DataRobot comes the closest, having an SDK that leverages Kafka, but it still requires you to run your own monitoring agent. Amazon SageMaker Feature Store's streaming ingestion demo suggests sinking to an AWS Lambda function hosting your own code that leverages their feature store client API. Pachyderm supports spout pipelines for ingesting streaming data and has an example that integrates via a Kafka Golang client library. Arize AI recommends integration by running a service utilizing the Python Kafka Client and the Arize Pandas SDK. This blog post showcases using Airflow to pull daily data from Kafka to update an ML model, with data logged in MLflow.
 
-This underdevelopment is unfortunate as Kafka and experiment management platforms complement each other beautifully. There are use cases such as sinking data to these platforms to monitor distribution shifts and sourcing data to trigger MLOps actions such as automated deployments of models. Luckily, there is a thriving open source Kafka community, and the Kafka Connect API provides an easy way to create fault-tolerant integrations, so you may find one in the wild or build one yourself.
+This underdevelopment is unfortunate as Kafka and experiment management platforms complement each other beautifully. There are use cases such as sinking data to these platforms to monitor distribution shifts and sourcing data to trigger MLOps actions such as automated deployments of models. Luckily, there is a thriving open-source Kafka community, and the Kafka Connect API provides an easy way to create fault-tolerant integrations, so you may find one in the wild or build one yourself.
 
 Popular ML experiment management platforms include:
 
@@ -136,7 +136,7 @@ c.close()
 
 Kafka Streams is a Java library which enables the building of powerful stream processing apps. It maintains computed states materialized off the stream, which can be queried directly or piped into external systems. This doesn't involve querying Kafka directly but instead makes it so that stream processing applications can keep a derived, queryable, materialized view of the data in Kafka and run low-latency queries against it. The Kafka cluster stores the log, and the stream processing API stores the materialized view and processes queries against it.
 
-Faust is a community maintained, open source project that brings functionality equivalent to Kafka Streams to Python. This enables Python developers to build powerful stream processing apps.
+Faust is a community-maintained, open-source project that brings functionality equivalent to Kafka Streams to Python. This enables Python developers to build powerful stream processing apps.
 
 Alex Morley from Babylon gave a great talk at Current 2022 about their experience building stream processing apps to drive ML-powered health risk prediction and real-time early detection alerts. For example, on receiving a new blood pressure reading, their event-driven architecture updates all the patient's risks, including cardiovascular risk, for the next 10 days. This solution requires complex logic, Python libraries, API requests, and internal state. Morley outlined how SQL-based solutions, existing FaaS solutions, and Flink did not meet their needs. They used Faust to build a Function as a Service API with excellent results.
 
