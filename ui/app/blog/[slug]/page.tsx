@@ -6,6 +6,7 @@ import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import rehypePrettyCode from "rehype-pretty-code";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
+import { Mermaid } from "@/components/mermaid";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getAllPostSlugs, getPostBySlug } from "@/lib/blog";
@@ -128,6 +129,9 @@ export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
                 ],
               ],
             },
+          }}
+          components={{
+            Mermaid,
           }}
         />
       </div>

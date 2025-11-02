@@ -24,7 +24,8 @@
       "mise run //ui:format"
     ],
     "infra/**/*.tf": [
-      "mise run //infra:format"
+      "mise run //infra:format",
+      "mise run //infra:precommit-lint"
     ],
     "**/*.md": [
       "mise run //:lint:markdown"
