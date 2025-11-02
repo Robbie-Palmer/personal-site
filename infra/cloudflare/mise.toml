@@ -20,6 +20,15 @@ description = "Validate Terraform configuration"
 depends = ["//infra/cloudflare:init"]
 run = "terraform validate"
 
+[tasks.precommit-lint]
+description = "Validate Terraform configuration (lightweight for pre-commit)"
+run = """
+#!/usr/bin/env bash
+# Initialize without backend for pre-commit usage, showing errors if init fails
+terraform init -backend=false > /dev/null || { echo "Terraform init failed" >&2; exit 1; }
+terraform validate
+"""
+
 [tasks.plan]
 description = "Run Terraform plan for Cloudflare"
 depends = ["//infra/cloudflare:init"]
