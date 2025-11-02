@@ -24,7 +24,6 @@ fi
 description = "Validate Terraform configuration"
 run = """
 #!/usr/bin/env bash
-cd "$(dirname "$1")" 2>/dev/null || cd .
 terraform init -backend=false > /dev/null 2>&1
 terraform validate
 """
