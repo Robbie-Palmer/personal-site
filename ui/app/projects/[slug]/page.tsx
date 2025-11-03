@@ -1,18 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MDXRemote } from "next-mdx-remote/rsc";
-import rehypeAutolinkHeadings from "rehype-autolink-headings";
-import rehypePrettyCode from "rehype-pretty-code";
-import rehypeSlug from "rehype-slug";
-import remarkGfm from "remark-gfm";
 import { ExternalLink, Github } from "lucide-react";
-import { Mermaid } from "@/components/mermaid";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { getAllProjectSlugs, getProjectBySlug } from "@/lib/projects";
 import { formatDate } from "@/lib/date";
+import { renderMDX } from "@/lib/mdx";
 import { siteConfig } from "@/lib/site-config";
 
 export function generateStaticParams() {
@@ -165,31 +160,7 @@ export default async function ProjectPage(
       <Separator className="mb-8" />
 
       <div className="prose prose-zinc dark:prose-invert max-w-none">
-        <MDXRemote
-          source={project.content}
-          options={{
-            mdxOptions: {
-              remarkPlugins: [remarkGfm],
-              rehypePlugins: [
-                rehypeSlug,
-                rehypeAutolinkHeadings,
-                [
-                  rehypePrettyCode,
-                  {
-                    theme: {
-                      dark: "github-dark",
-                      light: "github-light",
-                    },
-                    keepBackground: false,
-                  },
-                ],
-              ],
-            },
-          }}
-          components={{
-            Mermaid,
-          }}
-        />
+        {renderMDX(project.content)}
       </div>
     </article>
   );
