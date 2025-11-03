@@ -104,16 +104,29 @@ The tradeoff is build time, but with incremental static regeneration patterns av
 
 ## Infrastructure & DevOps
 
-### Cloudflare Pages
+### Cloudflare Pages: Right-Sized for Extensibility
 
-**Cloudflare Pages** provides:
+**Why Cloudflare over Vercel?**
+
+Cloudflare provides the **right balance** for current needs and future ambitions:
+
+- **DDoS protection**: Built-in, not an add-on (essential for public sites)
+- **Edge compute**: Workers at 300+ locations globally
+- **Extensibility without AWS weight**: Can add databases (D1), KV storage, R2 object storage without introducing a heavyweight CSP like AWS
+- **Pricing transparency**: Generous free tier, predictable pricing
+
+Vercel is excellent for Next.js, but lacks the infrastructure primitives I'll need for future server-side features.
+
+AWS would be overkill—too much operational complexity for a personal site.
+
+**What Cloudflare Pages provides:**
 - **Global CDN**: Sub-100ms response times worldwide
 - **Automatic deployments**: Every push to main triggers a build
 - **Preview deployments**: Every PR gets its own URL
 - **Custom domains**: Free SSL certificates
-- **Edge functions**: Available if I need serverless compute
+- **Edge functions**: Available when I need serverless compute
 
-### Terraform: Drop In/Out of Infrastructure
+### Terraform: Right-Sizing Operational Complexity
 
 **The problem Terraform solves:** I don't work on this site every day. When I come back after weeks, I don't want to remember Cloudflare configuration or click through GUIs.
 
@@ -138,28 +151,40 @@ This tells me (and Claude Code):
 
 No Cloudflare GUI. No remembered configuration. Just read the code.
 
-**GitHub Actions for state management** (not Terraform Cloud):
+**Terraform Cloud for state, GitHub Actions for execution:**
+
+I use **Terraform Cloud** for state storage, but run `terraform plan` and `terraform apply` in **GitHub Actions**:
+
 ```yaml
 # .github/workflows/infra-cd.yml
 - name: Terraform Plan
   run: terraform plan
   env:
+    TF_CLOUD_ORGANIZATION: ${{ vars.TF_CLOUD_ORG }}
+    TF_WORKSPACE: ${{ vars.TF_WORKSPACE }}
+    TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
     CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
 - name: Terraform Apply
   run: terraform apply -auto-approve
 ```
 
-Secrets stored in **GitHub Environments**. State stored in **local backend** (committed to repo for this simple use case).
+**Why this split setup?**
 
-**Why not Terraform Cloud?** GitHub is already the single source of truth for:
-- Code (obviously)
-- Dependencies (Renovate creates issues/PRs)
-- Work in progress (branches, PRs)
-- Secrets (Environments)
-- CI/CD (Actions)
+- **Terraform Cloud for state** = Less operational complexity than managing S3 buckets, DynamoDB locks, or local state
+- **GitHub Actions for execution** = I regularly review `terraform plan` outputs on PRs (need them visible, not buried in Terraform Cloud UI)
+- **Secrets in GitHub Environments** = Single source of truth for credentials
 
-Adding Terraform Cloud would fragment this. Keep everything in GitHub.
+This mirrors my ML workflow: results get published to PRs for review, not hidden in separate dashboards.
+
+**Why Terraform over OpenTofu?**
+
+Pragmatism. I prefer open tooling theoretically, but Terraform Cloud's state management is **operationally simpler** than:
+- Running my own state backend (S3 + DynamoDB)
+- Using another CSP just for state storage
+- Managing OpenTofu + separate state solution
+
+The goal isn't minimizing complexity—it's **right-sizing operational complexity** for current needs and future ambitions.
 
 ## Development Workflow: Single Source of Truth
 
@@ -452,7 +477,7 @@ Thanks to the abstracted content manager, these features would work across blog 
 
 3. **Pre-commit hooks align everyone**: When code formatting is automatic, AI assistants and humans stay aligned without style discussions. The formatter is the source of truth—no debates, no manual effort.
 
-4. **GitHub as single source of truth scales**: Code, dependencies (Renovate issues), secrets (Environments), CI/CD (Actions), and Terraform state all in one place. Don't fragment across services (Terraform Cloud, separate secret managers, etc.).
+4. **Right-size operational complexity**: Use the best tool for each job. Terraform Cloud for state (simpler than S3/DynamoDB), GitHub Actions for execution (need plan outputs visible on PRs), Cloudflare for hosting (DDoS + edge compute without AWS weight). The goal isn't minimizing services—it's minimizing operational burden.
 
 5. **Cloud dev environments + Mise = instant productivity**: Spin up a fresh environment for each feature. Mise installs tools automatically. Git worktrees let you context-switch without cleanup. AI assistants can iterate rapidly when environment setup is instant.
 
@@ -460,16 +485,19 @@ Thanks to the abstracted content manager, these features would work across blog 
 
 7. **Self-documenting projects close the loop**: This MDX file **is** the architecture documentation. It lives in the repo, gets reviewed in PRs, and Claude can read it to understand design decisions. No separate wiki to maintain.
 
+8. **PR-centric workflow pattern**: Both terraform plans and ML experiment results get published to PRs for review. Keep critical information visible where decisions are made, not hidden in separate dashboards or UIs.
+
 ## Conclusion
 
 This site demonstrates a **workflow-first approach** to AI-assisted development. The key isn't just choosing the right technologies—it's creating an environment where AI assistants can be maximally effective.
 
 **The workflow principles:**
 - **Machine-readable configuration** → Mise tasks, Terraform, Renovate (AI can discover everything)
-- **Single source of truth** → GitHub for code, dependencies, secrets, CI/CD, infrastructure
+- **Right-sized operational complexity** → Best tool for each job (Terraform Cloud for state, GitHub Actions for execution, Cloudflare for hosting)
 - **Automatic alignment** → Pre-commit hooks keep human and AI code consistent
 - **Instant environments** → Cloud dev + Mise = seconds to productivity
 - **Intermittent attention** → Design for dropping in/out without remembering context
+- **PR-centric workflow** → Terraform plans and results published to PRs for review (like ML workflows)
 
 **The technology choices:**
 - **Next.js, Terraform, Tailwind** → Well-documented, AI generates better code
