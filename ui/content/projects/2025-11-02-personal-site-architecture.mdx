@@ -84,73 +84,11 @@ This provides:
 - **Type-safe frontmatter**: Validated metadata using TypeScript interfaces
 - **Syntax highlighting**: Using `rehype-pretty-code` with Shiki
 
-### Content Architecture: Generic Content Management
+### Content Architecture: MDX with Type-Safe Frontmatter
 
-Both blog posts and projects use a **generic content management system** that eliminates duplication while maintaining type safety:
+Blog posts and projects are stored as MDX files with validated frontmatter metadata. A generic `ContentManager` class handles file operations, security validation, and parsing—blog posts and projects share ~95% of this logic.
 
-```typescript
-// lib/content.ts - Generic base for all content types
-export class ContentManager<T extends BaseContent> {
-  constructor(config: ContentConfig<T>) {
-    // Shared file operations, validation, parsing
-  }
-
-  getAll(): T[]           // Read all items, sorted by date
-  getBySlug(slug: string): T  // Get single item with security checks
-  getAllSlugs(): string[]     // For static generation
-}
-
-// lib/blog.ts - Blog-specific configuration (53 lines)
-interface BlogPost extends BaseContent {
-  canonicalUrl?: string;
-}
-
-const blogManager = new ContentManager<BlogPost>({
-  contentDir: "content/blog",
-  validate: validateBlogPost,  // Type-safe frontmatter validation
-});
-
-// lib/projects.ts - Project-specific configuration (63 lines)
-interface Project extends BaseContent {
-  technologies?: string[];
-  company?: string;
-  role?: string;
-  githubUrl?: string;
-  demoUrl?: string;
-  experienceLink?: string;
-}
-
-const projectManager = new ContentManager<Project>({
-  contentDir: "content/projects",
-  validate: validateProject,
-});
-```
-
-**Why this architecture?**
-
-This generic approach reduced code by **~600 lines** (75% reduction):
-- `blog.ts`: 137 → 53 lines
-- `projects.ts`: 185 → 63 lines
-- `blog-list.tsx`: 218 → 45 lines
-- `project-list.tsx`: 261 → 93 lines
-
-More importantly, **adding new content types is now trivial**. Creating a "talks" or "notes" section requires ~10 lines:
-
-```typescript
-interface Talk extends BaseContent {
-  venue?: string;
-  slidesUrl?: string;
-}
-
-const talkManager = new ContentManager<Talk>({
-  contentDir: "content/talks",
-  validate: validateTalk,
-});
-```
-
-When I add shared features like **commenting**, **plotting**, or **interactive diagrams**, they'll work across all content types immediately.
-
-This demonstrates the AI-era principle: **proper abstractions make extensibility effortless**. Claude Code suggested and implemented this refactoring in minutes—something that would have taken hours of careful manual work.
+The more interesting story isn't the code structure, but the **workflow tooling** that makes AI-assisted development seamless. That's covered in the sections below.
 
 ### Why Static Site Generation?
 
@@ -175,14 +113,11 @@ The tradeoff is build time, but with incremental static regeneration patterns av
 - **Custom domains**: Free SSL certificates
 - **Edge functions**: Available if I need serverless compute
 
-### Infrastructure as Code with Terraform
+### Terraform: Drop In/Out of Infrastructure
 
-Managing Cloudflare configuration via **Terraform** ensures:
-- **Reproducibility**: Infrastructure can be rebuilt from code
-- **Version control**: Changes are tracked in Git
-- **CI/CD integration**: Validated in pre-commit hooks and GitHub Actions
-- **Documentation**: The code *is* the documentation
+**The problem Terraform solves:** I don't work on this site every day. When I come back after weeks, I don't want to remember Cloudflare configuration or click through GUIs.
 
+**Terraform as documentation:**
 ```hcl
 resource "cloudflare_pages_project" "personal_site" {
   account_id        = var.cloudflare_account_id
@@ -190,95 +125,197 @@ resource "cloudflare_pages_project" "personal_site" {
   production_branch = "main"
 
   build_config {
-    build_command   = "pnpm run build"
+    build_command   = "mise run //ui:build"
     destination_dir = "ui/out"
   }
 }
 ```
 
-### Package Management: pnpm
+This tells me (and Claude Code):
+- What's deployed
+- How it's configured
+- Where builds come from
 
-**pnpm** over npm/yarn because:
-- **Disk efficiency**: Shared dependency storage across projects
-- **Strict dependency resolution**: Prevents phantom dependencies
-- **Speed**: Faster installs than npm
-- **Monorepo support**: Workspace features for ui/ and infra/
+No Cloudflare GUI. No remembered configuration. Just read the code.
 
-### Development Environment: Mise
+**GitHub Actions for state management** (not Terraform Cloud):
+```yaml
+# .github/workflows/infra-cd.yml
+- name: Terraform Plan
+  run: terraform plan
+  env:
+    CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
-**Mise** (formerly rtx) manages tool versions:
-
-```toml
-[tools]
-node = "22"
-pnpm = "9"
-terraform = "1.10"
+- name: Terraform Apply
+  run: terraform apply -auto-approve
 ```
 
-This ensures:
-- Consistent environments across machines
-- Automatic version switching per project
-- Replaces multiple version managers (nvm, tfenv, etc.)
+Secrets stored in **GitHub Environments**. State stored in **local backend** (committed to repo for this simple use case).
 
-### Git Hooks with Husky
+**Why not Terraform Cloud?** GitHub is already the single source of truth for:
+- Code (obviously)
+- Dependencies (Renovate creates issues/PRs)
+- Work in progress (branches, PRs)
+- Secrets (Environments)
+- CI/CD (Actions)
 
-**Husky** enforces quality gates before commits:
+Adding Terraform Cloud would fragment this. Keep everything in GitHub.
 
-- **Pre-commit**: Runs Biome formatter, type checking, linting
-- **Pre-push**: Runs tests and Terraform validation
-- **Commit-msg**: Validates conventional commit messages
+## Development Workflow: Single Source of Truth
 
-This catches issues early, before CI/CD.
+The key insight for AI-assisted development: **tooling configuration must be machine-readable**. AI assistants need to discover commands, versions, and tasks automatically.
 
-### Dependency Management: Renovate
+### Mise: Monorepo Task Runner as Documentation
 
-**Renovate** automatically:
-- Detects outdated dependencies
-- Creates PRs with updates
-- Groups related updates (e.g., all React packages)
-- Runs tests before merging
+**Mise** (formerly rtx) provides a **single source of truth** for both tool versions and tasks:
 
-This keeps the site secure and modern without manual effort.
+```toml
+# .mise.toml (root)
+[tools]
+node = "lts"
+pnpm = "latest"
+terraform = "latest"
+
+[tasks.lint]
+description = "Lint all files across the entire repo"
+depends = ["//:lint:markdown", "//:lint:mdx", "//ui:lint", "//infra/cloudflare:lint"]
+
+# ui/mise.toml
+[tasks.dev]
+description = "Start Next.js development server"
+depends = ["//ui:install"]
+run = "pnpm dev"
+
+[tasks.check]
+description = "Run all checks (lint, format, typecheck, test)"
+depends = ["//ui:lint", "//ui:format:check", "//ui:typecheck", "//ui:test"]
+```
+
+**Why this matters for AI assistants:**
+
+When I ask Claude Code to "run the checks," it reads `mise.toml` and discovers:
+- `mise run //ui:check` runs all quality checks
+- It depends on lint, format:check, typecheck, and test
+- Dependencies auto-install via the `install` task
+
+No documentation to maintain. No "how do I run tests?" questions. The configuration **is** the documentation.
+
+**Monorepo support** means tasks can reference other workspaces:
+- `//ui:build` - Build the frontend
+- `//infra/cloudflare:lint` - Lint Terraform
+- `//:lint` - Lint everything across all workspaces
+
+This gives AI assistants (and humans) a **discoverable task graph** without needing to remember package.json scripts scattered across multiple directories.
+
+### Cloud Development Environments
+
+Using **Claude Code's cloud development environments** (linked to my GitHub account) means:
+- Spin up isolated environments in seconds
+- Mise auto-installs correct tool versions
+- No "works on my machine" issues
+- Fresh environment for each feature branch
+
+Combined with **git worktrees**, I can work on multiple features simultaneously without environment conflicts.
+
+### Pre-commit Hooks: Keeping Human and AI Aligned
+
+**Husky** + **lint-staged** enforce formatting before commits:
+
+```bash
+# .husky/pre-commit
+mise run //:pre-commit  # Runs lint-staged
+```
+
+This means:
+- **Automatic formatting**: Don't think about Biome config
+- **AI stays aligned**: Claude Code's output gets formatted automatically
+- **No style debates**: The formatter is the source of truth
+
+When Claude generates code, the pre-commit hook fixes formatting. When I write code, same thing. We both stay aligned to the same standard without manual effort.
+
+### Local Dev Server + Cloudflare Preview Deployments
+
+**Local development:**
+```bash
+mise run //ui:dev  # Next.js dev server on localhost:3000
+```
+
+**Cloudflare Pages** provides:
+- **Branch deployments**: Every branch gets a preview URL
+- **Commit deployments**: Every commit gets a unique URL
+- **Instant**: Deploys in ~60 seconds
+
+Testing flow:
+1. Make changes locally (instant hot reload)
+2. Push to branch (preview URL in ~60s)
+3. Share preview URL for review
+4. Merge → production deploy
+
+No deployment complexity. No environment management. Testing is effortless.
+
+## Dependency Management: Renovate vs Dependabot
+
+**Why Renovate over Dependabot:**
+
+Dependabot is fine for simple use cases, but **Renovate provides crucial flexibility**:
+
+```json
+{
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true  // Don't auto-update major versions
+    },
+    {
+      "description": "Auto-merge devDependencies (non-major)",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true  // Auto-merge dev tools that pass CI
+    }
+  ]
+}
+```
+
+**The workflow:**
+- **Major version updates** → Require manual approval via dependency dashboard
+- **Minor/patch dev dependencies** → Auto-merge if CI passes
+- **Production dependencies** → Create PR, manual review
+
+Renovate uses **GitHub Issues** to track dependency status, creating a single dashboard for:
+- Outdated dependencies
+- Security vulnerabilities
+- Rate-limited updates
+
+Dependabot couldn't provide this level of control—I'd either auto-merge everything (risky) or manually review everything (tedious).
 
 ## CI/CD Pipeline
 
-### GitHub Actions Workflows
+### GitHub Actions + Mise Integration
 
-Three workflows handle different concerns:
+Workflows use Mise for **consistent task execution**:
 
-**1. UI CI** (`ui-ci.yml`):
 ```yaml
-- Lint code with Biome
-- Type check with TypeScript
-- Run tests with Vitest
-- Build Next.js app
-- Preview bundle size
+# .github/workflows/ui-ci.yml
+- uses: jdx/mise-action@v3
+  with:
+    experimental: true
+
+- name: Run checks
+  run: mise run //ui:check  # Same command locally and in CI
+
+- name: Build
+  run: mise run //ui:build
 ```
 
-**2. Infrastructure CI** (`infra-ci.yml`):
-```yaml
-- Validate Terraform syntax
-- Format check Terraform files
-- Run terraform plan
-```
+**Why this matters:**
+- **No script duplication**: `//ui:check` works locally, in CI, and in cloud dev environments
+- **Version consistency**: Mise installs the same Node/pnpm versions everywhere
+- **Single source of truth**: Change the task once, works everywhere
 
-**3. Infrastructure CD** (`infra-cd.yml`):
-```yaml
-- Apply Terraform changes (main branch only)
-- Deploy infrastructure updates
-```
-
-### AI-Assisted Development
-
-**Claude Code** for implementation:
-- Architecture discussions
-- Code generation with context
-- Refactoring assistance
-
-**Code Rabbit** for PR reviews:
-- Automated code review comments
-- Suggests improvements
-- Catches potential bugs
+Three workflows:
+1. **UI CI** - Runs `//ui:check` and `//ui:build` on PRs
+2. **Infra CI** - Validates Terraform on PRs
+3. **Infra CD** - Applies Terraform on main branch merges
 
 ## Styling & Design System
 
@@ -409,36 +446,45 @@ Thanks to the abstracted content manager, these features would work across blog 
 
 ## Lessons Learned
 
-1. **Optimize for AI assistants, not just humans**: In 2025, choosing popular, well-documented frameworks (Next.js, Terraform, Tailwind) means AI assistants generate better, more maintainable code. The old advice to "minimize complexity" is outdated when AI handles the complexity for you.
+1. **Single source of truth beats documentation**: Mise tasks, Terraform configs, and Renovate rules are all **machine-readable**. AI assistants (and humans) can discover how to build, test, and deploy without reading docs. The configuration **is** the documentation.
 
-2. **Abstractions enable rapid AI-assisted iteration**: The generic ContentManager refactoring took minutes with Claude Code, reduced code by 75%, and makes future extensions trivial. Proper abstractions aren't premature optimization—they're essential for AI-assisted development.
+2. **Optimize for dropping in/out**: I don't work on this site daily. Terraform means I never touch the Cloudflare GUI. Mise means I never remember build commands. Renovate means dependencies stay current without me checking. Design for **intermittent attention**.
 
-3. **Git worktrees + cloud dev environments scale with AI**: When AI can spin up entire features rapidly, the bottleneck becomes environment setup. Mise + containerized environments let me launch isolated workspaces in seconds.
+3. **Pre-commit hooks align everyone**: When code formatting is automatic, AI assistants and humans stay aligned without style discussions. The formatter is the source of truth—no debates, no manual effort.
 
-4. **Infrastructure as Code is essential**: Even for simple deployments, Terraform provides reproducibility. AI assistants excel at Terraform because it's declarative and well-documented.
+4. **GitHub as single source of truth scales**: Code, dependencies (Renovate issues), secrets (Environments), CI/CD (Actions), and Terraform state all in one place. Don't fragment across services (Terraform Cloud, separate secret managers, etc.).
 
-5. **Automation pays off exponentially**: Renovate, Husky, and GitHub Actions save hours of manual work. AI assistants can also maintain and improve these workflows automatically.
+5. **Cloud dev environments + Mise = instant productivity**: Spin up a fresh environment for each feature. Mise installs tools automatically. Git worktrees let you context-switch without cleanup. AI assistants can iterate rapidly when environment setup is instant.
 
-6. **Self-documenting projects create feedback loops**: Writing about the architecture *in* the project means the documentation is always up-to-date. Plus, Claude can read this file and understand the design decisions when making changes.
+6. **Renovate flexibility > Dependabot simplicity**: The ability to auto-merge dev dependencies while requiring approval for major versions is crucial. Dependabot's all-or-nothing approach doesn't work for production codebases.
+
+7. **Self-documenting projects close the loop**: This MDX file **is** the architecture documentation. It lives in the repo, gets reviewed in PRs, and Claude can read it to understand design decisions. No separate wiki to maintain.
 
 ## Conclusion
 
-This site represents a paradigm shift in how we think about web development architecture in the **age of AI assistants**. The traditional advice to "keep it simple" and "minimize complexity" no longer applies when AI handles that complexity for you.
+This site demonstrates a **workflow-first approach** to AI-assisted development. The key isn't just choosing the right technologies—it's creating an environment where AI assistants can be maximally effective.
 
-Instead, the winning strategy is:
-- **Choose popular, well-documented tools** → AI generates better code
-- **Build proper abstractions** → AI extends them effortlessly
-- **Optimize for extensibility** → architectural escape hatches are free
-- **Embrace automation** → let AI maintain infrastructure
+**The workflow principles:**
+- **Machine-readable configuration** → Mise tasks, Terraform, Renovate (AI can discover everything)
+- **Single source of truth** → GitHub for code, dependencies, secrets, CI/CD, infrastructure
+- **Automatic alignment** → Pre-commit hooks keep human and AI code consistent
+- **Instant environments** → Cloud dev + Mise = seconds to productivity
+- **Intermittent attention** → Design for dropping in/out without remembering context
 
-This site demonstrates these principles in action. The generic content architecture, comprehensive tooling, and infrastructure-as-code approach would have been "over-engineering" in 2020. In 2025, they're **essential for AI-assisted development velocity**.
+**The technology choices:**
+- **Next.js, Terraform, Tailwind** → Well-documented, AI generates better code
+- **Mise, Husky, Renovate** → Automation that maintains itself
+- **Cloudflare Pages** → Preview deployments make testing effortless
+
+In 2020, this would have been "over-engineering." In 2025, it's the **baseline for AI-assisted development velocity**.
 
 The source code is available on [GitHub](https://github.com/Robbie-Palmer/personal-site), and the site itself is deployed at [robbiepalmer.me](https://robbiepalmer.me).
 
-Future additions will showcase the benefits of this architecture:
-- Interactive demos (leveraging the generic content system)
-- Server-side features (using Next.js escape hatches)
-- Complex visualizations (D3.js, Mermaid, plotting libraries)
-- Integration with the Experience page
+When I add server-side features, interactive visualizations, or complex data pipelines, the workflow infrastructure will handle it:
+- Mise tasks for new build steps
+- Terraform for new services
+- Renovate for new dependencies
+- GitHub Actions for new CI checks
+- Claude Code can read this file and extend the patterns
 
-The infrastructure scales effortlessly from a personal blog to a full portfolio site with server-side rendering, authentication, and complex interactive features—all while maintaining AI-assistant-friendly code quality.
+The goal isn't to showcase technical knowledge—it's to build a **development environment where AI assistants multiply productivity**.
