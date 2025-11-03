@@ -4,8 +4,8 @@ import { ExternalLink, Github } from "lucide-react";
 import Link from "next/link";
 import { ContentList } from "@/components/content/content-list";
 import { Badge } from "@/components/ui/badge";
-import type { Project } from "@/lib/projects";
 import { formatDate } from "@/lib/date";
+import type { Project } from "@/lib/projects";
 
 interface ProjectListProps {
   projects: Project[];
@@ -46,10 +46,7 @@ export function ProjectList({ projects }: ProjectListProps) {
           )}
           <div className="flex flex-wrap gap-2 mb-3">
             {project.tags.map((tag) => (
-              <Link
-                key={tag}
-                href={`/projects?tag=${encodeURIComponent(tag)}`}
-              >
+              <Link key={tag} href={`/projects?tag=${encodeURIComponent(tag)}`}>
                 <Badge variant="secondary">{tag}</Badge>
               </Link>
             ))}

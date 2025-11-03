@@ -4,10 +4,9 @@ import Fuse, { type FuseOptionKey } from "fuse.js";
 import { ArrowDown, ArrowUp, Clock, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState, type ReactNode } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -15,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import type { BaseContent } from "@/lib/content";
 
 export type SortOption = "newest" | "oldest" | "updated";

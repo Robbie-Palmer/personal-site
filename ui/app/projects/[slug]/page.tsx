@@ -1,13 +1,13 @@
+import { ExternalLink, Github } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ExternalLink, Github } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { getAllProjectSlugs, getProjectBySlug } from "@/lib/projects";
 import { formatDate } from "@/lib/date";
 import { renderMDX } from "@/lib/mdx";
+import { getAllProjectSlugs, getProjectBySlug } from "@/lib/projects";
 import { siteConfig } from "@/lib/site-config";
 
 export function generateStaticParams() {
@@ -104,10 +104,7 @@ export default async function ProjectPage(
 
           <div className="flex flex-wrap gap-2">
             {project.tags.map((tag) => (
-              <Link
-                key={tag}
-                href={`/projects?tag=${encodeURIComponent(tag)}`}
-              >
+              <Link key={tag} href={`/projects?tag=${encodeURIComponent(tag)}`}>
                 <Badge variant="secondary">{tag}</Badge>
               </Link>
             ))}

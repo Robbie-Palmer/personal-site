@@ -1,8 +1,8 @@
 import {
-  BaseContent,
+  type BaseContent,
   ContentManager,
-  validators,
   type ContentValidator,
+  validators,
 } from "./content";
 
 export interface Project extends BaseContent {

@@ -21,7 +21,7 @@ export interface BaseContent {
  * Validator function type - validates and extracts frontmatter fields
  */
 export type ContentValidator<T extends BaseContent> = (
-  data: any,
+  data: unknown,
   content: string,
   slug: string,
 ) => Omit<T, "slug" | "content" | "readingTime">;
@@ -140,21 +140,29 @@ export const validators = {
   /**
    * Validate required string field
    */
-  requireString(data: any, field: string, slug: string): string {
-    if (!data[field] || typeof data[field] !== "string") {
+  requireString(data: unknown, field: string, slug: string): string {
+    if (
+      typeof data !== "object" ||
+      data === null ||
+      !(field in data) ||
+      typeof (data as Record<string, unknown>)[field] !== "string"
+    ) {
       throw new Error(`Content ${slug} is missing required field: ${field}`);
     }
-    return data[field];
+    const record = data as Record<string, string>;
+    return record[field]!;
   },
 
   /**
    * Validate required date field
    */
-  requireDate(data: any, field: string, slug: string): string {
+  requireDate(data: unknown, field: string, slug: string): string {
     const value = validators.requireString(data, field, slug);
     const timestamp = new Date(value).getTime();
     if (Number.isNaN(timestamp)) {
-      throw new Error(`Content ${slug} has invalid date in field ${field}: ${value}`);
+      throw new Error(
+        `Content ${slug} has invalid date in field ${field}: ${value}`,
+      );
     }
     return value;
   },
@@ -162,35 +170,57 @@ export const validators = {
   /**
    * Validate required array field
    */
-  requireArray(data: any, field: string, slug: string): string[] {
-    if (!Array.isArray(data[field])) {
+  requireArray(data: unknown, field: string, slug: string): string[] {
+    if (
+      typeof data !== "object" ||
+      data === null ||
+      !(field in data) ||
+      !Array.isArray((data as Record<string, unknown>)[field])
+    ) {
       throw new Error(
         `Content ${slug} is missing required field: ${field} (must be an array)`,
       );
     }
-    return data[field];
+    const record = data as Record<string, string[]>;
+    return record[field]!;
   },
 
   /**
    * Validate optional string field
    */
-  optionalString(data: any, field: string, slug: string): string | undefined {
-    if (data[field] === undefined) return undefined;
-    if (typeof data[field] !== "string") {
-      throw new Error(`Content ${slug} has invalid ${field} field: must be a string`);
+  optionalString(
+    data: unknown,
+    field: string,
+    slug: string,
+  ): string | undefined {
+    if (
+      typeof data !== "object" ||
+      data === null ||
+      !(field in data) ||
+      (data as Record<string, unknown>)[field] === undefined
+    ) {
+      return undefined;
     }
-    return data[field];
+    if (typeof (data as Record<string, unknown>)[field] !== "string") {
+      throw new Error(
+        `Content ${slug} has invalid ${field} field: must be a string`,
+      );
+    }
+    const record = data as Record<string, string>;
+    return record[field]!;
   },
 
   /**
    * Validate optional date field
    */
-  optionalDate(data: any, field: string, slug: string): string | undefined {
+  optionalDate(data: unknown, field: string, slug: string): string | undefined {
     const value = validators.optionalString(data, field, slug);
     if (value === undefined) return undefined;
     const timestamp = new Date(value).getTime();
     if (Number.isNaN(timestamp)) {
-      throw new Error(`Content ${slug} has invalid date in field ${field}: ${value}`);
+      throw new Error(
+        `Content ${slug} has invalid date in field ${field}: ${value}`,
+      );
     }
     return value;
   },
@@ -198,27 +228,41 @@ export const validators = {
   /**
    * Validate optional array field
    */
-  optionalArray(data: any, field: string, slug: string): string[] | undefined {
-    if (data[field] === undefined) return undefined;
-    if (!Array.isArray(data[field])) {
+  optionalArray(
+    data: unknown,
+    field: string,
+    slug: string,
+  ): string[] | undefined {
+    if (
+      typeof data !== "object" ||
+      data === null ||
+      !(field in data) ||
+      (data as Record<string, unknown>)[field] === undefined
+    ) {
+      return undefined;
+    }
+    if (!Array.isArray((data as Record<string, unknown>)[field])) {
       throw new Error(
         `Content ${slug} has invalid ${field} field: must be an array`,
       );
     }
-    return data[field];
+    const record = data as Record<string, string[]>;
+    return record[field]!;
   },
 
   /**
    * Validate optional URL field
    */
-  optionalUrl(data: any, field: string, slug: string): string | undefined {
+  optionalUrl(data: unknown, field: string, slug: string): string | undefined {
     const value = validators.optionalString(data, field, slug);
     if (value === undefined) return undefined;
     try {
       new URL(value);
       return value;
     } catch {
-      throw new Error(`Content ${slug} has invalid URL in field ${field}: ${value}`);
+      throw new Error(
+        `Content ${slug} has invalid URL in field ${field}: ${value}`,
+      );
     }
   },
 };
