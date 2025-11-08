@@ -1,28 +1,7 @@
 "use client";
 
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  type ChartConfig,
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
+import type { ChartConfig } from "@/components/ui/chart";
+import { LineChartCard } from "./line-chart-card";
 
 const FI_VALUE = 365724.48;
 
@@ -83,71 +62,19 @@ const chartConfig = {
 
 export function FinancialIndependenceChart() {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Path to Financial Independence</CardTitle>
-        <CardDescription>
-          Median UK earner saving £10k/year. Horizontal line shows FI target
-          (£365,724)
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="px-2 sm:px-6">
-        <ChartContainer config={chartConfig} className="aspect-auto w-full">
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart
-              data={chartData}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis
-                dataKey="year"
-                label={{ value: "Year", position: "insideBottom", offset: -5 }}
-                className="text-xs"
-              />
-              <YAxis
-                label={{
-                  value: "Balance (£)",
-                  angle: -90,
-                  position: "insideLeft",
-                }}
-                className="text-xs"
-                tickFormatter={(value) => `£${(value / 1000).toFixed(0)}k`}
-              />
-              <ChartTooltip
-                content={<ChartTooltipContent />}
-                formatter={(value: number) => `£${value.toLocaleString()}`}
-              />
-              <ChartLegend
-                content={<ChartLegendContent />}
-                verticalAlign="bottom"
-                wrapperStyle={{ paddingTop: "20px" }}
-              />
-              <Line
-                type="monotone"
-                dataKey="uninvested"
-                stroke="var(--color-uninvested)"
-                strokeWidth={2}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="invested"
-                stroke="var(--color-invested)"
-                strokeWidth={2}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="fiTarget"
-                stroke="var(--color-fiTarget)"
-                strokeWidth={2}
-                strokeDasharray="5 5"
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartContainer>
-      </CardContent>
-    </Card>
+    <LineChartCard
+      title="Path to Financial Independence"
+      description="Median UK earner saving £10k/year. Horizontal line shows FI target (£365,724)"
+      chartData={chartData}
+      chartConfig={chartConfig}
+      yAxisLabel="Balance (£)"
+      yAxisTickFormatter={(value) => `£${(value / 1000).toFixed(0)}k`}
+      tooltipFormatter={(value: number) => `£${value.toLocaleString()}`}
+      lines={[
+        { dataKey: "uninvested" },
+        { dataKey: "invested" },
+        { dataKey: "fiTarget", strokeDasharray: "5 5" },
+      ]}
+    />
   );
 }

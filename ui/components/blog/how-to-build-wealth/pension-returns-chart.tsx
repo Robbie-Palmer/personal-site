@@ -1,28 +1,7 @@
 "use client";
 
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  type ChartConfig,
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
+import type { ChartConfig } from "@/components/ui/chart";
+import { LineChartCard } from "./line-chart-card";
 
 const chartData = [
   { year: 1, pensionEmployer: 100.0, pensionEmployee: 25.0, isa: 0.0 },
@@ -64,66 +43,17 @@ const chartConfig = {
 
 export function PensionReturnsChart() {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Total Return on Investment (%)</CardTitle>
-        <CardDescription>
-          Comparing pension with employer contributions, pension without, and
-          ISA investments
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="px-2 sm:px-6">
-        <ChartContainer config={chartConfig} className="aspect-auto w-full">
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart
-              data={chartData}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis
-                dataKey="year"
-                label={{ value: "Year", position: "insideBottom", offset: -5 }}
-                className="text-xs"
-              />
-              <YAxis
-                label={{
-                  value: "Total Return (%)",
-                  angle: -90,
-                  position: "insideLeft",
-                }}
-                className="text-xs"
-              />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <ChartLegend
-                content={<ChartLegendContent />}
-                verticalAlign="bottom"
-                wrapperStyle={{ paddingTop: "20px" }}
-              />
-              <Line
-                type="monotone"
-                dataKey="pensionEmployer"
-                stroke="var(--color-pensionEmployer)"
-                strokeWidth={2}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="pensionEmployee"
-                stroke="var(--color-pensionEmployee)"
-                strokeWidth={2}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="isa"
-                stroke="var(--color-isa)"
-                strokeWidth={2}
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartContainer>
-      </CardContent>
-    </Card>
+    <LineChartCard
+      title="Total Return on Investment (%)"
+      description="Comparing pension with employer contributions, pension without, and ISA investments"
+      chartData={chartData}
+      chartConfig={chartConfig}
+      yAxisLabel="Total Return (%)"
+      lines={[
+        { dataKey: "pensionEmployer" },
+        { dataKey: "pensionEmployee" },
+        { dataKey: "isa" },
+      ]}
+    />
   );
 }

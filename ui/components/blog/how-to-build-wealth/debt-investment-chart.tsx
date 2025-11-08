@@ -1,28 +1,7 @@
 "use client";
 
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  type ChartConfig,
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
+import type { ChartConfig } from "@/components/ui/chart";
+import { LineChartCard } from "./line-chart-card";
 
 const chartData = [
   { year: 1, creditCard: 1190.0, savings: 1012.0, investment: 1070.0 },
@@ -64,66 +43,17 @@ const chartConfig = {
 
 export function DebtInvestmentChart() {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>£1,000 Over 20 Years</CardTitle>
-        <CardDescription>
-          Comparing debt (19% interest), savings (1.2% interest), and investment
-          (7% returns)
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="px-2 sm:px-6">
-        <ChartContainer config={chartConfig} className="aspect-auto w-full">
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart
-              data={chartData}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis
-                dataKey="year"
-                label={{ value: "Year", position: "insideBottom", offset: -5 }}
-                className="text-xs"
-              />
-              <YAxis
-                label={{
-                  value: "Balance (£)",
-                  angle: -90,
-                  position: "insideLeft",
-                }}
-                className="text-xs"
-              />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <ChartLegend
-                content={<ChartLegendContent />}
-                verticalAlign="bottom"
-                wrapperStyle={{ paddingTop: "20px" }}
-              />
-              <Line
-                type="monotone"
-                dataKey="creditCard"
-                stroke="var(--color-creditCard)"
-                strokeWidth={2}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="savings"
-                stroke="var(--color-savings)"
-                strokeWidth={2}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="investment"
-                stroke="var(--color-investment)"
-                strokeWidth={2}
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartContainer>
-      </CardContent>
-    </Card>
+    <LineChartCard
+      title="£1,000 Over 20 Years"
+      description="Comparing debt (19% interest), savings (1.2% interest), and investment (7% returns)"
+      chartData={chartData}
+      chartConfig={chartConfig}
+      yAxisLabel="Balance (£)"
+      lines={[
+        { dataKey: "creditCard" },
+        { dataKey: "savings" },
+        { dataKey: "investment" },
+      ]}
+    />
   );
 }
