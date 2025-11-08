@@ -19,20 +19,14 @@ function extractReadableText(mdxContent: string): string {
   function removeJSX() {
     return (tree: Root) => {
       visit(tree, (node, index, parent) => {
-        if (
+        const shouldRemove =
           node.type === "mdxJsxFlowElement" ||
-          node.type === "mdxJsxTextElement"
-        ) {
-          if (parent && typeof index === "number") {
-            parent.children.splice(index, 1);
-            return index;
-          }
-        }
-        if (node.type === "code") {
-          if (parent && typeof index === "number") {
-            parent.children.splice(index, 1);
-            return index;
-          }
+          node.type === "mdxJsxTextElement" ||
+          node.type === "code";
+
+        if (shouldRemove && parent && typeof index === "number") {
+          parent.children.splice(index, 1);
+          return index;
         }
       });
     };
