@@ -19,6 +19,9 @@ jobs:
         with:
           experimental: true
 
+      - name: Install dependencies
+        run: mise run //:install
+
       - name: Lint MDX files
         run: mise run //:lint:mdx:check
 
