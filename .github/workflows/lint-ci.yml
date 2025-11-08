@@ -1,0 +1,29 @@
+name: Lint CI
+
+on:
+  pull_request:
+    paths:
+      - "**/*.md"
+      - "**/*.yml"
+      - "**/*.yaml"
+      - ".github/workflows/lint-ci.yml"
+      - ".mise.toml"
+      - ".markdownlint.json"
+      - ".yamllint"
+      - "package.json"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: jdx/mise-action@v3
+        with:
+          experimental: true
+
+      - name: Lint Markdown files
+        run: mise run //:lint:markdown:check
+
+      - name: Lint YAML files
+        run: mise run //:lint:yaml

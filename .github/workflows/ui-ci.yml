@@ -7,8 +7,6 @@ on:
       - ".github/workflows/ui-ci.yml"
       - ".mise.toml"
       - ".remarkrc.js"
-      - ".markdownlint.json"
-      - ".yamllint"
       - "package.json"
 
 jobs:
@@ -21,14 +19,8 @@ jobs:
         with:
           experimental: true
 
-      - name: Lint Markdown files
-        run: mise run //:lint:markdown:check
-
       - name: Lint MDX files
         run: mise run //:lint:mdx:check
-
-      - name: Lint YAML files
-        run: mise run //:lint:yaml
 
       - name: Run checks
         run: mise run //ui:check
