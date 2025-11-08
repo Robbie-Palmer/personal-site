@@ -1,13 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
+import type { Root } from "mdast";
+import { toString as mdastToString } from "mdast-util-to-string";
 import readingTime from "reading-time";
 import { remark } from "remark";
 import remarkMdx from "remark-mdx";
 import stripMarkdown from "strip-markdown";
-import { toString } from "mdast-util-to-string";
 import { visit } from "unist-util-visit";
-import type { Root } from "mdast";
 
 const contentDirectory = path.join(process.cwd(), "content/blog");
 
@@ -45,7 +45,7 @@ function extractReadableText(mdxContent: string): string {
       .use(stripMarkdown)
       .processSync(mdxContent);
 
-    return toString(processed);
+    return mdastToString(processed);
   } catch (error) {
     console.warn("Failed to parse MDX for reading time:", error);
     return mdxContent;
