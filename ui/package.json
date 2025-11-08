@@ -22,6 +22,7 @@
     "fuse.js": "^7.1.0",
     "gray-matter": "^4.0.3",
     "lucide-react": "^0.553.0",
+    "mdast-util-to-string": "^4.0.0",
     "mermaid": "^11.12.1",
     "next": "^15.5.6",
     "next-mdx-remote": "^5.0.0",
@@ -32,9 +33,13 @@
     "rehype-autolink-headings": "^7.1.0",
     "rehype-pretty-code": "^0.14.1",
     "rehype-slug": "^6.0.0",
+    "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
+    "remark-mdx": "^3.1.1",
     "shiki": "^3.14.0",
-    "tailwind-merge": "^3.3.1"
+    "strip-markdown": "^6.0.0",
+    "tailwind-merge": "^3.3.1",
+    "unist-util-visit": "^5.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.2",
@@ -42,6 +47,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
+    "@types/mdast": "^4.0.4",
     "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
