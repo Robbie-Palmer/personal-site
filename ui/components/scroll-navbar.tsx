@@ -21,9 +21,12 @@ export function ScrollNavbar() {
         return;
       }
 
+      // Higher threshold on mobile (150px) vs desktop (80px) to accommodate swipe gestures
+      const isMobile = window.innerWidth < 768;
+      const scrollThreshold = isMobile ? 150 : 80;
+
       // Check scroll direction with a threshold to avoid jank
-      // Only trigger if scrolled more than 80px (more deliberate gesture)
-      if (Math.abs(currentScrollY - lastScrollYRef.current) < 80) {
+      if (Math.abs(currentScrollY - lastScrollYRef.current) < scrollThreshold) {
         return;
       }
 
@@ -56,7 +59,8 @@ export function ScrollNavbar() {
     >
       <nav className="container mx-auto px-4 py-4 flex items-center justify-between">
         <Link href="/" className="text-xl font-bold hover:text-primary">
-          {siteConfig.name}
+          <span className="md:hidden">RP</span>
+          <span className="hidden md:inline">{siteConfig.name}</span>
         </Link>
         <div className="flex items-center gap-2">
           <Button variant="ghost" asChild>
