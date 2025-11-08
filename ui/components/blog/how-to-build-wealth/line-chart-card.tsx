@@ -34,6 +34,8 @@ interface LineChartCardProps {
   description: string;
   chartData: Array<Record<string, any>>;
   chartConfig: ChartConfig;
+  xAxisDataKey?: string;
+  xAxisLabel?: string;
   yAxisLabel: string;
   lines: LineConfig[];
   yAxisTickFormatter?: (value: number) => string;
@@ -45,6 +47,8 @@ export function LineChartCard({
   description,
   chartData,
   chartConfig,
+  xAxisDataKey = "year",
+  xAxisLabel = "Year",
   yAxisLabel,
   lines,
   yAxisTickFormatter,
@@ -65,8 +69,12 @@ export function LineChartCard({
             >
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis
-                dataKey="year"
-                label={{ value: "Year", position: "insideBottom", offset: -5 }}
+                dataKey={xAxisDataKey}
+                label={{
+                  value: xAxisLabel,
+                  position: "insideBottom",
+                  offset: -5,
+                }}
                 className="text-xs"
               />
               <YAxis
