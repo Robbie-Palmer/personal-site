@@ -20,9 +20,8 @@
       "automerge": true
     },
     {
-      "description": "Auto-merge GitHub Actions (non-major)",
+      "description": "Auto-merge GitHub Actions (all updates)",
       "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor", "patch"],
       "automerge": true
     }
   ]
