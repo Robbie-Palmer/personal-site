@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Footer } from "@/components/footer";
-import { ThemeProvider } from "@/components/theme-provider";
 import { ScrollNavbar } from "@/components/scroll-navbar";
+import { ThemeProvider } from "@/components/theme-provider";
 import { siteConfig } from "@/lib/site-config";
 
 // Use Cloudflare Pages URL for preview deployments, fallback to production URL
