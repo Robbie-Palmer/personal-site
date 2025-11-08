@@ -53,7 +53,7 @@ export function ScrollNavbar() {
     <header
       className={`
         sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60
-        transition-transform duration-300 ease-in-out
+        transition-transform duration-200 ease-in-out
         ${isVisible ? "translate-y-0" : "-translate-y-full"}
       `}
       inert={isVisible ? undefined : ""}
