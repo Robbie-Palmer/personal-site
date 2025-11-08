@@ -22,8 +22,8 @@ export function ScrollNavbar() {
       }
 
       // Check scroll direction with a threshold to avoid jank
-      // Only trigger if scrolled more than 10px
-      if (Math.abs(currentScrollY - lastScrollY) < 10) {
+      // Only trigger if scrolled more than 80px (more deliberate gesture)
+      if (Math.abs(currentScrollY - lastScrollY) < 80) {
         return;
       }
 
