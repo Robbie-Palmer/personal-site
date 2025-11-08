@@ -73,7 +73,7 @@ export function PensionReturnsChart() {
         </CardDescription>
       </CardHeader>
       <CardContent className="px-2 sm:px-6">
-        <ChartContainer config={chartConfig} className="min-h-[400px] w-full">
+        <ChartContainer config={chartConfig} className="aspect-auto w-full">
           <ResponsiveContainer width="100%" height={400}>
             <LineChart
               data={chartData}
@@ -94,7 +94,11 @@ export function PensionReturnsChart() {
                 className="text-xs"
               />
               <ChartTooltip content={<ChartTooltipContent />} />
-              <ChartLegend content={<ChartLegendContent />} />
+              <ChartLegend
+                content={<ChartLegendContent />}
+                verticalAlign="bottom"
+                wrapperStyle={{ paddingTop: "20px" }}
+              />
               <Line
                 type="monotone"
                 dataKey="pensionEmployer"

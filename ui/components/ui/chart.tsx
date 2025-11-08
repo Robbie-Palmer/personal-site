@@ -131,7 +131,10 @@ const ChartLegendContent = React.forwardRef<
   return (
     <div
       ref={ref}
-      className={cn("flex items-center justify-center gap-4", className)}
+      className={cn(
+        "flex flex-wrap items-center justify-center gap-x-4 gap-y-2",
+        className,
+      )}
     >
       {payload.map((item) => {
         const key = item.value as string;
