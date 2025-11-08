@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/lib/site-config";
 
 export function ScrollNavbar() {
   const [isVisible, setIsVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
+  const lastScrollYRef = useRef(0);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -17,17 +17,17 @@ export function ScrollNavbar() {
       // Don't hide if we're near the top (within 100px)
       if (currentScrollY < 100) {
         setIsVisible(true);
-        setLastScrollY(currentScrollY);
+        lastScrollYRef.current = currentScrollY;
         return;
       }
 
       // Check scroll direction with a threshold to avoid jank
       // Only trigger if scrolled more than 80px (more deliberate gesture)
-      if (Math.abs(currentScrollY - lastScrollY) < 80) {
+      if (Math.abs(currentScrollY - lastScrollYRef.current) < 80) {
         return;
       }
 
-      if (currentScrollY > lastScrollY) {
+      if (currentScrollY > lastScrollYRef.current) {
         // Scrolling down - hide navbar
         setIsVisible(false);
       } else {
@@ -35,7 +35,7 @@ export function ScrollNavbar() {
         setIsVisible(true);
       }
 
-      setLastScrollY(currentScrollY);
+      lastScrollYRef.current = currentScrollY;
     };
 
     // Passive listener for better scroll performance
@@ -44,7 +44,7 @@ export function ScrollNavbar() {
     return () => {
       window.removeEventListener("scroll", handleScroll);
     };
-  }, [lastScrollY]);
+  }, []);
 
   return (
     <header
