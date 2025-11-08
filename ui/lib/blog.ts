@@ -33,13 +33,12 @@ function extractReadableText(mdxContent: string): string {
   }
 
   try {
-    const processed = remark()
-      .use(remarkMdx)
-      .use(removeJSX)
-      .use(stripMarkdown)
-      .processSync(mdxContent);
+    const processor = remark().use(remarkMdx).use(removeJSX).use(stripMarkdown);
 
-    return mdastToString(processed);
+    const tree = processor.parse(mdxContent);
+    const transformedTree = processor.runSync(tree);
+
+    return mdastToString(transformedTree);
   } catch (error) {
     console.warn("Failed to parse MDX for reading time:", error);
     return mdxContent;
