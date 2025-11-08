@@ -2,8 +2,61 @@ import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import readingTime from "reading-time";
+import { remark } from "remark";
+import remarkMdx from "remark-mdx";
+import stripMarkdown from "strip-markdown";
+import { toString } from "mdast-util-to-string";
+import { visit } from "unist-util-visit";
+import type { Root } from "mdast";
 
 const contentDirectory = path.join(process.cwd(), "content/blog");
+
+/**
+ * Extracts readable text from MDX content for reading time calculation.
+ * Removes JSX components (including Mermaid diagrams) and code blocks
+ * to get only the actual prose content.
+ */
+function extractReadableText(mdxContent: string): string {
+  // Remove JSX elements using a plugin
+  function removeJSX() {
+    return (tree: Root) => {
+      visit(tree, (node, index, parent) => {
+        // Remove MDX JSX elements (like <Mermaid />)
+        if (
+          node.type === "mdxJsxFlowElement" ||
+          node.type === "mdxJsxTextElement"
+        ) {
+          if (parent && typeof index === "number") {
+            parent.children.splice(index, 1);
+            return index;
+          }
+        }
+        // Remove code blocks - they're not prose to read
+        if (node.type === "code") {
+          if (parent && typeof index === "number") {
+            parent.children.splice(index, 1);
+            return index;
+          }
+        }
+      });
+    };
+  }
+
+  try {
+    const processed = remark()
+      .use(remarkMdx) // Parse MDX syntax
+      .use(removeJSX) // Remove JSX components and code blocks
+      .use(stripMarkdown) // Remove markdown formatting
+      .processSync(mdxContent);
+
+    // Extract plain text from the processed AST
+    return toString(processed);
+  } catch (error) {
+    // If parsing fails, fall back to original content
+    console.warn("Failed to parse MDX for reading time:", error);
+    return mdxContent;
+  }
+}
 
 export interface BlogPost {
   title: string;
@@ -110,7 +163,10 @@ export function getPostBySlug(slug: string): BlogPost {
     }
   }
 
-  const stats = readingTime(content);
+  // Extract readable text (removing JSX components and code blocks)
+  // before calculating reading time
+  const readableText = extractReadableText(content);
+  const stats = readingTime(readableText);
 
   return {
     slug,
