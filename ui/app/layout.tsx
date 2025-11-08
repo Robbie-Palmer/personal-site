@@ -71,6 +71,9 @@ export default function RootLayout({
                     <Link href="/blog">Blog</Link>
                   </Button>
                   <Button variant="ghost" asChild>
+                    <Link href="/projects">Projects</Link>
+                  </Button>
+                  <Button variant="ghost" asChild>
                     <Link href="/experience">Experience</Link>
                   </Button>
                   <ThemeToggle />

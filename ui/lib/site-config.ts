@@ -7,6 +7,11 @@ export const siteConfig = {
     description:
       "Writing about machine learning, software engineering, personal finance, and building products",
   },
+  projects: {
+    title: "Projects",
+    description:
+      "Technical deep-dives into architectural decisions, implementation details, and lessons learned from building production systems",
+  },
   author: {
     name: "Robbie Palmer",
     linkedin: "https://www.linkedin.com/in/robertjohnpalmer/",

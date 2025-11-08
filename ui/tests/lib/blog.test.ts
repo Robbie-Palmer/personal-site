@@ -264,7 +264,7 @@ Content.`;
       vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
       vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
       expect(() => getPostBySlug("test")).toThrow(
-        "has invalid date: not-a-real-date",
+        "has invalid date in field date: not-a-real-date",
       );
     });
 
