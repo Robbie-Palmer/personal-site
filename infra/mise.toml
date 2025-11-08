@@ -19,3 +19,11 @@ else
   terraform fmt -check "$@"
 fi
 """
+
+[tasks.lint]
+description = "Validate all Terraform configurations"
+depends = ["//infra/cloudflare:lint"]
+
+[tasks.precommit-lint]
+description = "Validate all Terraform configurations (lightweight for pre-commit)"
+depends = ["//infra/cloudflare:precommit-lint"]

@@ -10,6 +10,7 @@ import { DebtInvestmentChart } from "@/components/blog/how-to-build-wealth/debt-
 import { FinancialIndependenceChart } from "@/components/blog/how-to-build-wealth/financial-independence-chart";
 import { LisaComparisonChart } from "@/components/blog/how-to-build-wealth/lisa-comparison-chart";
 import { PensionReturnsChart } from "@/components/blog/how-to-build-wealth/pension-returns-chart";
+import { Mermaid } from "@/components/mermaid";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getAllPostSlugs, getPostBySlug } from "@/lib/blog";
@@ -33,6 +34,8 @@ export async function generateMetadata(
   const post = getPostBySlug(slug);
   // Always use production URL for canonical/permanent reference, even in previews
   const url = `${siteConfig.url}/blog/${slug}`;
+  // Use custom canonical URL if specified in frontmatter, otherwise use this page's URL
+  const canonicalUrl = post.canonicalUrl || url;
 
   return {
     title: post.title,
@@ -41,7 +44,7 @@ export async function generateMetadata(
       { name: siteConfig.author.name, url: siteConfig.author.linkedin },
     ],
     alternates: {
-      canonical: url,
+      canonical: canonicalUrl,
     },
     openGraph: {
       title: post.title,
@@ -117,6 +120,7 @@ export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
             PensionReturnsChart,
             LisaComparisonChart,
             FinancialIndependenceChart,
+            Mermaid,
           }}
           options={{
             mdxOptions: {
