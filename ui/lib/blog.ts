@@ -13,15 +13,12 @@ const contentDirectory = path.join(process.cwd(), "content/blog");
 
 /**
  * Extracts readable text from MDX content for reading time calculation.
- * Removes JSX components (including Mermaid diagrams) and code blocks
- * to get only the actual prose content.
+ * Removes JSX components and code blocks to get only prose content.
  */
 function extractReadableText(mdxContent: string): string {
-  // Remove JSX elements using a plugin
   function removeJSX() {
     return (tree: Root) => {
       visit(tree, (node, index, parent) => {
-        // Remove MDX JSX elements (like <Mermaid />)
         if (
           node.type === "mdxJsxFlowElement" ||
           node.type === "mdxJsxTextElement"
@@ -31,7 +28,6 @@ function extractReadableText(mdxContent: string): string {
             return index;
           }
         }
-        // Remove code blocks - they're not prose to read
         if (node.type === "code") {
           if (parent && typeof index === "number") {
             parent.children.splice(index, 1);
@@ -44,15 +40,13 @@ function extractReadableText(mdxContent: string): string {
 
   try {
     const processed = remark()
-      .use(remarkMdx) // Parse MDX syntax
-      .use(removeJSX) // Remove JSX components and code blocks
-      .use(stripMarkdown) // Remove markdown formatting
+      .use(remarkMdx)
+      .use(removeJSX)
+      .use(stripMarkdown)
       .processSync(mdxContent);
 
-    // Extract plain text from the processed AST
     return toString(processed);
   } catch (error) {
-    // If parsing fails, fall back to original content
     console.warn("Failed to parse MDX for reading time:", error);
     return mdxContent;
   }
@@ -163,8 +157,6 @@ export function getPostBySlug(slug: string): BlogPost {
     }
   }
 
-  // Extract readable text (removing JSX components and code blocks)
-  // before calculating reading time
   const readableText = extractReadableText(content);
   const stats = readingTime(readableText);
 
