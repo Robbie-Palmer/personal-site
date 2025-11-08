@@ -21,9 +21,9 @@ export function ScrollNavbar() {
         return;
       }
 
-      // Higher threshold on mobile (150px) vs desktop (80px) to accommodate swipe gestures
+      // Higher threshold on mobile (120px) vs desktop (80px) to accommodate swipe gestures
       const isMobile = window.innerWidth < 768;
-      const scrollThreshold = isMobile ? 150 : 80;
+      const scrollThreshold = isMobile ? 120 : 80;
 
       // Check scroll direction with a threshold to avoid jank
       if (Math.abs(currentScrollY - lastScrollYRef.current) < scrollThreshold) {
