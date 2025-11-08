@@ -56,6 +56,7 @@ export function ScrollNavbar() {
         transition-transform duration-300 ease-in-out
         ${isVisible ? "translate-y-0" : "-translate-y-full"}
       `}
+      inert={isVisible ? undefined : ""}
     >
       <nav className="container mx-auto px-4 py-4 flex items-center justify-between">
         <Link href="/" className="text-xl font-bold hover:text-primary">
