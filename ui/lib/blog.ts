@@ -22,6 +22,9 @@ function extractReadableText(mdxContent: string): string {
         const shouldRemove =
           node.type === "mdxJsxFlowElement" ||
           node.type === "mdxJsxTextElement" ||
+          node.type === "mdxjsEsm" ||
+          node.type === "mdxFlowExpression" ||
+          node.type === "mdxTextExpression" ||
           node.type === "code";
 
         if (shouldRemove && parent && typeof index === "number") {
