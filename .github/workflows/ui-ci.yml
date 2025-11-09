@@ -5,6 +5,9 @@ on:
     paths:
       - "ui/**"
       - ".github/workflows/ui-ci.yml"
+      - ".mise.toml"
+      - ".remarkrc.js"
+      - "package.json"
 
 jobs:
   ci:
@@ -15,6 +18,12 @@ jobs:
       - uses: jdx/mise-action@v3
         with:
           experimental: true
+
+      - name: Install dependencies
+        run: mise run //:install
+
+      - name: Lint MDX files
+        run: mise run //:lint:mdx:check
 
       - name: Run checks
         run: mise run //ui:check

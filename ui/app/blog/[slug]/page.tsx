@@ -6,6 +6,10 @@ import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import rehypePrettyCode from "rehype-pretty-code";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
+import { DebtInvestmentChart } from "@/components/blog/how-to-build-wealth/debt-investment-chart";
+import { FinancialIndependenceChart } from "@/components/blog/how-to-build-wealth/financial-independence-chart";
+import { LisaComparisonChart } from "@/components/blog/how-to-build-wealth/lisa-comparison-chart";
+import { PensionReturnsChart } from "@/components/blog/how-to-build-wealth/pension-returns-chart";
 import { Mermaid } from "@/components/mermaid";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -111,6 +115,13 @@ export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
       <div className="prose prose-zinc dark:prose-invert max-w-none">
         <MDXRemote
           source={post.content}
+          components={{
+            DebtInvestmentChart,
+            PensionReturnsChart,
+            LisaComparisonChart,
+            FinancialIndependenceChart,
+            Mermaid,
+          }}
           options={{
             mdxOptions: {
               remarkPlugins: [remarkGfm],
@@ -129,9 +140,6 @@ export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
                 ],
               ],
             },
-          }}
-          components={{
-            Mermaid,
           }}
         />
       </div>

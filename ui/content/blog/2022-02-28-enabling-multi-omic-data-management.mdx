@@ -42,15 +42,15 @@ Raw data is gathered representing events in the world. Raw data can be mined to 
 
 <Mermaid
   chart={`graph LR
-  RawData[RAW DATA]:::data
-  QualityData[QUALITY DATA]:::data
-  Information[INFORMATION]:::data
-  Outcomes[OUTCOMES]:::data
+RawData[RAW DATA]:::data
+QualityData[QUALITY DATA]:::data
+Information[INFORMATION]:::data
+Outcomes[OUTCOMES]:::data
 
-  RawData -->|CONTEXTUALIZED| QualityData
-  QualityData -->|ANALYZED| Information
-  Information -->|ACTED UPON| Outcomes
-  Outcomes -->|OBSERVED| RawData
+RawData -->|CONTEXTUALIZED| QualityData
+QualityData -->|ANALYZED| Information
+Information -->|ACTED UPON| Outcomes
+Outcomes -->|OBSERVED| RawData
 `}
 />
 
@@ -74,16 +74,16 @@ Without data management, the potential for data-driven insights is completely lo
 
 <Mermaid
   chart={`graph LR
-  OrgLeaders[Org Leaders]:::person
-  TeamLeads[Team Leads]:::person
-  Staff[Staff]:::person
-  Data((Data)):::data
-  Abyss[Lost]:::data
+OrgLeaders[Org Leaders]:::person
+TeamLeads[Team Leads]:::person
+Staff[Staff]:::person
+Data((Data)):::data
+Abyss[Lost]:::data
 
-  OrgLeaders -->|Existing Knowledge| TeamLeads
-  TeamLeads -->|Existing Information| Staff
-  Staff -->|Produce| Data
-  Data -->|×| Abyss
+OrgLeaders -->|Existing Knowledge| TeamLeads
+TeamLeads -->|Existing Information| Staff
+Staff -->|Produce| Data
+Data -->|×| Abyss
 `}
 />
 
@@ -93,19 +93,19 @@ When organised via a business function, the Lab team focuses on operating the in
 
 <Mermaid
   chart={`graph LR
-  OrgLeaders[Organisation Leaders]:::person
-  LabLead[Lab Team Lead]:::person
-  LabStaff[Lab Staff]:::person
-  Data((Data)):::data
-  BioStaff[Bioinformatics Staff]:::person
-  BioLead[Bioinformatics Team Lead]:::person
+OrgLeaders[Organisation Leaders]:::person
+LabLead[Lab Team Lead]:::person
+LabStaff[Lab Staff]:::person
+Data((Data)):::data
+BioStaff[Bioinformatics Staff]:::person
+BioLead[Bioinformatics Team Lead]:::person
 
-  OrgLeaders -->|Existing Knowledge| LabLead
-  LabLead -->|Existing Information| LabStaff
-  LabStaff -->|Produce| Data
-  Data -->|Consume| BioStaff
-  BioStaff -->|New Information| BioLead
-  BioLead -->|New Knowledge| OrgLeaders
+OrgLeaders -->|Existing Knowledge| LabLead
+LabLead -->|Existing Information| LabStaff
+LabStaff -->|Produce| Data
+Data -->|Consume| BioStaff
+BioStaff -->|New Information| BioLead
+BioLead -->|New Knowledge| OrgLeaders
 `}
 />
 
@@ -123,21 +123,21 @@ When organised via modality, each team becomes specialised in a specific domain.
 
 <Mermaid
   chart={`graph TB
-  OrgLeaders[Organisation Leaders]:::person
+OrgLeaders[Organisation Leaders]:::person
 
-  subgraph ModalityTeam["Modality Team"]
-      ModalityLead[Modality Team Lead]:::person
-      ModalityStaff[Modality Staff]:::person
-      Data((Data)):::data
-      Note[x Number of<br/>Modalities]
+subgraph ModalityTeam["Modality Team"]
+    ModalityLead[Modality Team Lead]:::person
+    ModalityStaff[Modality Staff]:::person
+    Data((Data)):::data
+    Note[x Number of<br/>Modalities]
 
-      ModalityLead -->|Existing Information| ModalityStaff
-      ModalityStaff -->|Produce| Data
-      Data -->|Consume| ModalityStaff
-  end
+    ModalityLead -->|Existing Information| ModalityStaff
+    ModalityStaff -->|Produce| Data
+    Data -->|Consume| ModalityStaff
+end
 
-  OrgLeaders -->|Existing Knowledge| ModalityLead
-  ModalityLead -->|New Knowledge| OrgLeaders
+OrgLeaders -->|Existing Knowledge| ModalityLead
+ModalityLead -->|New Knowledge| OrgLeaders
 `}
 />
 
@@ -155,19 +155,19 @@ A Data Warehouse gathers all data in one consistent location, organised via a st
 
 <Mermaid
   chart={`graph LR
-  OpStaff[Operational Staff]:::person
-  RawData[Raw Data]:::data
-  DataEngineers[Data Engineers]:::person
-  QualityData[Quality Data]:::data
-  Warehouse[(Data Warehouse)]:::storage
-  AnalyticsStaff[Analytics Staff]:::person
+OpStaff[Operational Staff]:::person
+RawData[Raw Data]:::data
+DataEngineers[Data Engineers]:::person
+QualityData[Quality Data]:::data
+Warehouse[(Data Warehouse)]:::storage
+AnalyticsStaff[Analytics Staff]:::person
 
-  OpStaff -->|Produce| RawData
-  RawData -->|Transformed by| DataEngineers
-  DataEngineers -->|Produce| QualityData
-  QualityData -->|Resides in| Warehouse
-  DataEngineers -->|Maintain| Warehouse
-  Warehouse -->|Load| AnalyticsStaff
+OpStaff -->|Produce| RawData
+RawData -->|Transformed by| DataEngineers
+DataEngineers -->|Produce| QualityData
+QualityData -->|Resides in| Warehouse
+DataEngineers -->|Maintain| Warehouse
+Warehouse -->|Load| AnalyticsStaff
 `}
 />
 
@@ -187,18 +187,18 @@ In theory, the Data Engineering team could take on the burden of converting the 
 
 <Mermaid
   chart={`graph LR
-  ModalityStaff[MODALITY STAFF]:::person
-  RawData[RAW DATA]:::data
-  DataEngineers[DATA ENGINEERS]:::person
-  QualityData[QUALITY DATA]:::data
-  Warehouse[(DATA WAREHOUSE)]:::storage
+ModalityStaff[MODALITY STAFF]:::person
+RawData[RAW DATA]:::data
+DataEngineers[DATA ENGINEERS]:::person
+QualityData[QUALITY DATA]:::data
+Warehouse[(DATA WAREHOUSE)]:::storage
 
-  ModalityStaff -->|EXTRACT| RawData
-  RawData -->|TRANSFORMED BY| DataEngineers
-  DataEngineers -->|PRODUCE| QualityData
-  QualityData -->|RESIDES IN| Warehouse
-  DataEngineers -->|MAINTAIN| Warehouse
-  Warehouse -->|LOAD| ModalityStaff
+ModalityStaff -->|EXTRACT| RawData
+RawData -->|TRANSFORMED BY| DataEngineers
+DataEngineers -->|PRODUCE| QualityData
+QualityData -->|RESIDES IN| Warehouse
+DataEngineers -->|MAINTAIN| Warehouse
+Warehouse -->|LOAD| ModalityStaff
 `}
 />
 
@@ -208,23 +208,23 @@ In practice, the modality team is best placed to do this within their modality. 
 
 <Mermaid
   chart={`graph LR
-  ModalityStaff[MODALITY STAFF]:::person
-  RawData[RAW DATA]:::data
-  DataEngineers[DATA ENGINEERS]:::person
-  InterModalityContextual1[INTER-MODALITY<br/>CONTEXTUAL DATA]:::data
-  InterModalityContextual2[INTER-MODALITY<br/>CONTEXTUAL DATA]:::data
-  Warehouse[(DATA WAREHOUSE)]:::storage
+ModalityStaff[MODALITY STAFF]:::person
+RawData[RAW DATA]:::data
+DataEngineers[DATA ENGINEERS]:::person
+InterModalityContextual1[INTER-MODALITY<br/>CONTEXTUAL DATA]:::data
+InterModalityContextual2[INTER-MODALITY<br/>CONTEXTUAL DATA]:::data
+Warehouse[(DATA WAREHOUSE)]:::storage
 
-  ModalityStaff -->|EXTRACT| RawData
-  RawData -->|TRANSFORMED BY| DataEngineers
-  DataEngineers -->|PRODUCE| InterModalityContextual1
-  InterModalityContextual1 -->|RESIDES IN| Warehouse
+ModalityStaff -->|EXTRACT| RawData
+RawData -->|TRANSFORMED BY| DataEngineers
+DataEngineers -->|PRODUCE| InterModalityContextual1
+InterModalityContextual1 -->|RESIDES IN| Warehouse
 
-  RawData -->|TRANSFORMED BY| ModalityStaff
-  ModalityStaff -->|PRODUCE| InterModalityContextual2
-  InterModalityContextual2 -->|CONSUME| ModalityStaff
+RawData -->|TRANSFORMED BY| ModalityStaff
+ModalityStaff -->|PRODUCE| InterModalityContextual2
+InterModalityContextual2 -->|CONSUME| ModalityStaff
 
-  Warehouse -->|CONSUMES OTHER<br/>MODALITY DATA| ModalityStaff
+Warehouse -->|CONSUMES OTHER<br/>MODALITY DATA| ModalityStaff
 `}
 />
 
@@ -256,20 +256,20 @@ In principle, [data provenance](https://www.ands.org.au/working-with-data/publis
 
 <Mermaid
   chart={`graph TB
-  LabStaff[LAB STAFF]:::person
-  RawData[RAW DATA]:::data
-  DataWarehouse[(DATA WAREHOUSE)]:::storage
-  BioStaff[BIOINFORMATICS STAFF]:::person
-  ETLPipelines[ETL PIPELINES]:::app
-  DataEngineers[DATA ENGINEERS]:::person
+LabStaff[LAB STAFF]:::person
+RawData[RAW DATA]:::data
+DataWarehouse[(DATA WAREHOUSE)]:::storage
+BioStaff[BIOINFORMATICS STAFF]:::person
+ETLPipelines[ETL PIPELINES]:::app
+DataEngineers[DATA ENGINEERS]:::person
 
-  LabStaff -->|EXTRACT| RawData
-  RawData -->|RESIDES IN| DataWarehouse
-  DataWarehouse -->|CONSUMES<br/>DATA FROM| BioStaff
-  BioStaff -->|BUILD| ETLPipelines
-  DataEngineers -->|ASSIST WITH| BioStaff
-  DataEngineers -->|MAINTAIN| DataWarehouse
-  ETLPipelines -->|TRANSFORMS<br/>DATA IN| DataWarehouse
+LabStaff -->|EXTRACT| RawData
+RawData -->|RESIDES IN| DataWarehouse
+DataWarehouse -->|CONSUMES<br/>DATA FROM| BioStaff
+BioStaff -->|BUILD| ETLPipelines
+DataEngineers -->|ASSIST WITH| BioStaff
+DataEngineers -->|MAINTAIN| DataWarehouse
+ETLPipelines -->|TRANSFORMS<br/>DATA IN| DataWarehouse
 `}
 />
 
@@ -285,20 +285,20 @@ The data consumers will also be challenged by the diversity and multi-modal natu
 
 <Mermaid
   chart={`graph LR
-  DataEngineers[DATA ENGINEERS]:::person
-  ETLPipelines[ETL PIPELINES]:::app
-  ModalityStaff[MODALITY STAFF]:::person
-  RawData[RAW DATA]:::data
-  DataWarehouse[(DATA WAREHOUSE)]:::storage
+DataEngineers[DATA ENGINEERS]:::person
+ETLPipelines[ETL PIPELINES]:::app
+ModalityStaff[MODALITY STAFF]:::person
+RawData[RAW DATA]:::data
+DataWarehouse[(DATA WAREHOUSE)]:::storage
 
-  DataEngineers -->|ASSIST WITH| ETLPipelines
-  ETLPipelines -->|BUILD| ModalityStaff
-  ETLPipelines -->|MAINTAIN| DataWarehouse
-  ETLPipelines -->|TRANSFORMS<br/>DATA IN| DataWarehouse
+DataEngineers -->|ASSIST WITH| ETLPipelines
+ETLPipelines -->|BUILD| ModalityStaff
+ETLPipelines -->|MAINTAIN| DataWarehouse
+ETLPipelines -->|TRANSFORMS<br/>DATA IN| DataWarehouse
 
-  ModalityStaff -->|PRODUCE| RawData
-  RawData -->|RESIDES IN| DataWarehouse
-  DataWarehouse -->|CONSUMES<br/>DATA FROM| ModalityStaff
+ModalityStaff -->|PRODUCE| RawData
+RawData -->|RESIDES IN| DataWarehouse
+DataWarehouse -->|CONSUMES<br/>DATA FROM| ModalityStaff
 `}
 />
 
@@ -327,36 +327,36 @@ A Data Mesh is a proposed structure for retaining flexibility while providing da
 
 <Mermaid
   chart={`graph TB
-  LabStaff[Lab Staff]:::person
-  RawData[Raw Data]:::data
-  SourceTeams[Source Dataset Teams]:::person
-  SourceDataset[Source Oriented Dataset]:::data
+LabStaff[Lab Staff]:::person
+RawData[Raw Data]:::data
+SourceTeams[Source Dataset Teams]:::person
+SourceDataset[Source Oriented Dataset]:::data
 
-  DataEngineers[Data Engineers]:::person
-  Platform[Data Platform]:::storage
+DataEngineers[Data Engineers]:::person
+Platform[Data Platform]:::storage
 
-  ConsumerTeams[Consumer Dataset Teams]:::person
-  ConsumerDataset[Consumer Oriented Dataset]:::data
+ConsumerTeams[Consumer Dataset Teams]:::person
+ConsumerDataset[Consumer Oriented Dataset]:::data
 
-  BioStaff[Bioinformatics Staff]:::person
-  AnalyticsApp[Analytics App]:::app
-  Dashboard[Dashboard]:::app
+BioStaff[Bioinformatics Staff]:::person
+AnalyticsApp[Analytics App]:::app
+Dashboard[Dashboard]:::app
 
-  LabStaff -->|Extracts| RawData
-  RawData -->|Transformed by| SourceTeams
-  SourceTeams -->|Build & Maintain| SourceDataset
+LabStaff -->|Extracts| RawData
+RawData -->|Transformed by| SourceTeams
+SourceTeams -->|Build & Maintain| SourceDataset
 
-  DataEngineers -->|Build & Maintain| Platform
-  Platform -->|Supports| SourceTeams
-  Platform -->|Supports| ConsumerTeams
+DataEngineers -->|Build & Maintain| Platform
+Platform -->|Supports| SourceTeams
+Platform -->|Supports| ConsumerTeams
 
-  SourceDataset -->|Consumed By| BioStaff
-  SourceDataset -->|Transformed By| ConsumerTeams
-  ConsumerTeams -->|Build & Maintain| ConsumerDataset
+SourceDataset -->|Consumed By| BioStaff
+SourceDataset -->|Transformed By| ConsumerTeams
+ConsumerTeams -->|Build & Maintain| ConsumerDataset
 
-  ConsumerDataset -->|Consumed By| BioStaff
-  ConsumerDataset -->|Consumed By| AnalyticsApp
-  ConsumerDataset -->|Presented By| Dashboard
+ConsumerDataset -->|Consumed By| BioStaff
+ConsumerDataset -->|Consumed By| AnalyticsApp
+ConsumerDataset -->|Presented By| Dashboard
 `}
 />
 

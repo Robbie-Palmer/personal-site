@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Link from "next/link";
 import { Footer } from "@/components/footer";
+import { ScrollNavbar } from "@/components/scroll-navbar";
 import { ThemeProvider } from "@/components/theme-provider";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/lib/site-config";
 
 // Use Cloudflare Pages URL for preview deployments, fallback to production URL
@@ -61,22 +59,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <div className="antialiased flex flex-col min-h-screen">
-            <header className="border-b">
-              <nav className="container mx-auto px-4 py-4 flex items-center justify-between">
-                <Link href="/" className="text-xl font-bold hover:text-primary">
-                  {siteConfig.name}
-                </Link>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" asChild>
-                    <Link href="/blog">Blog</Link>
-                  </Button>
-                  <Button variant="ghost" asChild>
-                    <Link href="/experience">Experience</Link>
-                  </Button>
-                  <ThemeToggle />
-                </div>
-              </nav>
-            </header>
+            <ScrollNavbar />
             <main className="flex-1 flex flex-col">{children}</main>
             <Footer />
           </div>

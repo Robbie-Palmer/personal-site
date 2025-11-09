@@ -11,6 +11,7 @@
   "packageRules": [
     {
       "matchUpdateTypes": ["major"],
+      "excludeManagers": ["github-actions"],
       "dependencyDashboardApproval": true
     },
     {
@@ -20,9 +21,9 @@
       "automerge": true
     },
     {
-      "description": "Auto-merge GitHub Actions (non-major)",
+      "description": "Auto-merge GitHub Actions (all updates)",
       "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchUpdateTypes": ["minor", "patch", "major"],
       "automerge": true
     }
   ]
