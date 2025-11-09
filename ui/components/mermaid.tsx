@@ -31,7 +31,9 @@ export function Mermaid({ chart, className = "" }: MermaidProps) {
 				classDef storage fill:${isDark ? "#4338ca" : "#a5b4fc"},stroke:${isDark ? "#6366f1" : "#4f46e5"},color:${textColor}
 				classDef person fill:${isDark ? "#5b21b6" : "#ddd6fe"},stroke:${isDark ? "#8b5cf6" : "#7c3aed"},color:${textColor}
 				classDef app fill:${isDark ? "#134e4a" : "#99f6e4"},stroke:${isDark ? "#14b8a6" : "#0d9488"},color:${textColor}
-				linkStyle default stroke:${isDark ? "#78716c" : "#a8a29e"},stroke-width:2px,color:${isDark ? "#d6d3d1" : "#57534e"}
+				classDef ml fill:${isDark ? "#dc2626" : "#ef4444"},stroke:${isDark ? "#991b1b" : "#b91c1c"},color:${textColor}
+				classDef input fill:${isDark ? "#0891b2" : "#22d3ee"},stroke:${isDark ? "#155e75" : "#0891b2"},color:${textColor}
+				linkStyle default stroke:${isDark ? "#78716c" : "#64748b"},stroke-width:2px,color:${isDark ? "#d6d3d1" : "#334155"}
 			`;
       const diagramWithClasses = `${chart}\n${themeClasses}`;
       mermaid.initialize({

@@ -75,6 +75,9 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.705 0.015 286.067);
+  --highlight-bg: oklch(0.7 0.1 264 / 0.15);
+  --highlight-border: oklch(0.7 0.1 264);
+  --highlight-chars-bg: oklch(0.7 0.1 264 / 0.25);
 }
 
 .dark {
@@ -109,6 +112,9 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
+  --highlight-bg: oklch(0.5 0.15 264 / 0.2);
+  --highlight-border: oklch(0.6 0.2 264);
+  --highlight-chars-bg: oklch(0.5 0.15 264 / 0.3);
 }
 
 @layer base {
@@ -118,4 +124,62 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Syntax highlighting for code blocks */
+code {
+  counter-reset: line;
+}
+
+/* Dual-theme syntax highlighting using Shiki CSS variables.
+ *
+ * rehype-pretty-code outputs data-language and data-theme attributes on code blocks.
+ * We target code blocks with data-language (which all syntax-highlighted blocks have)
+ * to apply theme-aware colors using Shiki's CSS variables (--shiki-light/dark).
+ */
+code[data-language],
+code[data-language] span {
+  color: var(--shiki-light);
+}
+
+html.dark code[data-language],
+html.dark code[data-language] span {
+  color: var(--shiki-dark);
+}
+
+/* Pre element background uses muted color from design system for consistency */
+pre[data-language] {
+  background-color: var(--muted);
+}
+
+code[data-line-numbers] > [data-line]::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: 1rem;
+  margin-right: 1.5rem;
+  text-align: right;
+  color: gray;
+}
+
+code[data-line-numbers-max-digits="2"] > [data-line]::before {
+  width: 2rem;
+}
+
+code[data-line-numbers-max-digits="3"] > [data-line]::before {
+  width: 3rem;
+}
+
+/* Code highlighting styles - theme-aware with accessible contrast */
+[data-highlighted-line] {
+  background-color: var(--highlight-bg);
+  border-left: 2px solid var(--highlight-border);
+  padding-left: 0.5rem;
+  margin-left: -0.5rem;
+}
+
+[data-highlighted-chars] {
+  background-color: var(--highlight-chars-bg);
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.2rem;
 }
