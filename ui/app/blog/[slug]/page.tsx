@@ -121,6 +121,31 @@ export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
             LisaComparisonChart,
             FinancialIndependenceChart,
             Mermaid,
+            a: ({ href, children, ...props }) => {
+              // Check if the link is external (starts with http:// or https://)
+              const isExternal =
+                href?.startsWith("http://") || href?.startsWith("https://");
+
+              if (isExternal) {
+                return (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    {...props}
+                  >
+                    {children}
+                  </a>
+                );
+              }
+
+              // For internal links, use Next.js Link component
+              return (
+                <Link href={href || ""} {...props}>
+                  {children}
+                </Link>
+              );
+            },
           }}
           options={{
             mdxOptions: {

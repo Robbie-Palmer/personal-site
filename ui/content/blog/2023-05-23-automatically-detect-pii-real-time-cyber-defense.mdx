@@ -14,7 +14,7 @@ canonical: "https://www.confluent.io/blog/pii-detection-real-time-cyber-defense/
 
 Security information event management (SIEM) and security orchestration, automation, and response (SOAR) solutions are integral to cybersecurity practice. As organizations' data grows ever larger and data streams flow at an ever-increasing velocity, InfoSec teams need help to respond to threats quickly.
 
-As part of our suite of data governance solutions, we have developed a machine learning-powered PII Detection accelerator to enable your advanced SIEM, SOAR, and analytics use cases.
+As part of our suite of data governance solutions, we have developed a machine learning-powered PII Detection [accelerator](https://www.confluent.io/en-gb/confluent-accelerators/)] to enable your advanced SIEM, SOAR, and analytics use cases.
 
 # Real-time cyber defense
 
@@ -28,15 +28,23 @@ Modern cyberdefense architecture has moved to an event streaming platform to pro
 
 You can maximize your data signal by normalizing and enriching your data in-stream before it reaches your data warehouse and analytics tools. Confluent supports public cloud, multicloud, private cloud, on-premises, and hybrid cloud. Your SIEM may be in the cloud, and you may have several networks on-prem. With a stream processor, you can pre-process the data and only send relevant data to the cloud, resulting in greater efficiency and scalability. Processing data at the point of collection or at the edge can provide contextually rich insights for threat detection and data analytics.
 
-Confluent acts as a central nervous system/curation fabric to ingest, aggregate, transform, filter, and clean a broad set of data streams. This enables data scientists, analysts, and engineers to use sophisticated stream processing and single message transforms, and bring ML/AI models to production faster to aid with richer real-time threat detection.
+Confluent acts as a central nervous system/curation fabric to ingest, aggregate, transform, filter, and clean a broad set of data streams. This enables data scientists, analysts, and engineers to use sophisticated [stream processing](https://www.confluent.io/product/ksql/) and [single message transforms](https://docs.confluent.io/platform/current/connect/transforms/overview.html), and [bring ML/AI models to production](/blog/2023-03-28-uniting-machine-learning-data-streaming-1) faster to aid with richer real-time threat detection.
+
+<div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '1.5rem 0', gap: '0'}}>
+  <img src="/blog-images/pii-central-nervous-system.png" alt="Diagram showing stream processing and ML augmenting SIEM solutions" style={{margin: '0', display: 'block', maxWidth: '100%'}} />
+
+  <p style={{margin: '0.25rem 0 0 0', fontSize: '0.9em'}}>
+    <em>Augmenting SIEM solutions with stream processing and machine learning</em>
+  </p>
+</div>
 
 # Structured vs. unstructured data management
 
 Fully structured data has a schema defined on-write, making all primitive entities easily queryable. Semi-structured data is schemaless but contains definitive markers to separate distinct semantic elements. Semi-structured data can be processed like structured data but with much more work for the consumer. Unstructured data has no schema and no clear boundaries between entities of interest. Unstructured data is often the source data used to produce multiple structured data packages for varying use cases. For example, the pixel data of a photograph is unstructured and requires advanced analytics to extract relevant numbers/classes for further downstream processing. This could involve counting the number of people in the image, detecting cancer, or mapping a barcode to an inventory item. Unstructured data often comes embedded inside a structured package to enable structured metadata, e.g., photographs contain the unstructured pixel data alongside the capture date and location.
 
-SIEM solutions provide tooling to inspect static structured data. Confluent provides complementary solutions for data in motion, enabling you to control structured data at numerous levels of abstraction. You can use role-based access control (RBAC) to lock down entire topics and schemas, use the end-to-end encryption accelerator to restrict messages and individual fields, and implement attribute-based access control (ABAC) using the Confluent Service Mesh accelerator. In tandem with the Stream Catalog, you can fully manage your structured sensitive data.
+SIEM solutions provide tooling to inspect static structured data. Confluent provides complementary solutions for data in motion, enabling you to control structured data at numerous levels of abstraction. You can use [role-based access control](https://docs.confluent.io/platform/current/security/rbac/index.html#cp-metadata-service) (RBAC) to lock down entire topics and schemas, use the [end-to-end encryption accelerator](https://www.confluent.io/en-gb/confluent-accelerators/) to restrict messages and individual fields, and implement [attribute-based access control](https://en.wikipedia.org/wiki/Attribute-based_access_control) (ABAC) using the Confluent Service Mesh accelerator. In tandem with the [Stream Catalog](https://docs.confluent.io/cloud/current/stream-governance/stream-catalog.html), you can fully manage your structured sensitive data.
 
-Unstructured data is more challenging, requiring domain knowledge to parse into useful information. But it is vitally important, 80% to 90% of data generated and collected by organizations is unstructured. With some collaboration with the data producers, some of this data can become structured or semi-structured, but this is a work in progress, and security concerns cannot wait for data to be cleaned. Plus, many types of data are inherently unstructured such as email, log files, social media posts, webpages, audio, and images.
+Unstructured data is more challenging, requiring domain knowledge to parse into useful information. But it is vitally important, [80% to 90% of data generated and collected by organizations is unstructured](https://www.mongodb.com/unstructured-data). With some collaboration with the data producers, some of this data can become structured or semi-structured, but this is a work in progress, and security concerns cannot wait for data to be cleaned. Plus, many types of data are inherently unstructured such as email, log files, social media posts, webpages, audio, and images.
 
 For example, you may be ingesting a stream of medical reports. These messages will include structured data such as patient ID and the date and contain inherently unstructured data such as the doctor's notes.
 
@@ -58,7 +66,34 @@ There are solutions for analyzing unstructured data at rest and detecting critic
 
 We built a PII Detection stream processing app to provide entity-level control over unstructured text. It acts as a pass-through filter deployed inside your data pipeline, inspecting your message for PII entities and redacting them while retaining the rest of the data. It also enables real-time alerting and monitoring by publishing a stream of entity metadata events to an "entity alert" topic.
 
-This solution uses cutting-edge natural language processing (NLP) machine learning models in combination with pattern recognition and business logic to identify a range of PII entities. You can detect custom entity types by configuring the app with additional deny lists or regex rules.
+<Mermaid
+  chart={`graph LR
+  DataSource[("Data Source")]:::data
+  SensitiveTopic(("Sensitive<br/>Data Topic")):::storage
+  PrivConsumer["Privileged Consumer"]:::app
+  PIIDetector["PII Detector"]:::ml
+  EntityTopic(("Entity Alert<br/>Topic")):::storage
+  AnonTopic(("Anonymized<br/>Data Topic")):::storage
+  Dashboard["Real-time Dashboard"]:::app
+  Email["Email Alert Service"]:::app
+  DataStore[("Data Store")]:::data
+
+  DataSource -->|"Publish"| SensitiveTopic
+  SensitiveTopic -->|"Consume"| PrivConsumer
+  SensitiveTopic -->|"Consume"| PIIDetector
+  PIIDetector -->|"Publish Alerts"| EntityTopic
+  PIIDetector -->|"Publish Redacted"| AnonTopic
+  EntityTopic -->|"Display"| Dashboard
+  EntityTopic -->|"Trigger"| Email
+  AnonTopic -->|"Sink"| DataStore
+`}
+/>
+
+<p style={{textAlign: 'center', margin: '0.25rem 0 1rem 0', fontSize: '0.9em'}}>
+  <em>Sensitive data streaming through the PII Detector and sunk into a data store. Entity alerts used for real-time dashboards and email alerts.</em>
+</p>
+
+This solution uses cutting-edge [natural language processing](https://en.wikipedia.org/wiki/Natural_language_processing) (NLP) machine learning models in combination with pattern recognition and business logic to identify a range of PII entities. You can detect custom entity types by configuring the app with additional deny lists or regex rules.
 
 ```yaml
 recognizers:
@@ -86,9 +121,17 @@ recognizers:
 
 This in-stream solution can be deployed on the edge, on-premises, or in your cloud. If deployed against Confluent Cloud, it can integrate with Stream Catalog and be configured to skip fields with specific tags, which can help reduce false positives.
 
+<div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '1.5rem 0', gap: '0'}}>
+  <img src="/blog-images/pii-anon-data.png" alt="Screenshot of Confluent Cloud showing redacted PII data stream" style={{margin: '0', display: 'block', maxWidth: '100%'}} />
+
+  <p style={{margin: '0.25rem 0 0 0', fontSize: '0.9em'}}>
+    <em>Redacted data stream on Confluent Cloud</em>
+  </p>
+</div>
+
 # PII UDFs
 
-Confluent has developed PII user-defined functions (UDFs) (`containsPII` and `redactPII`) and user-defined table functions (UDTFs) (`extractPiiEntities` and `extractPiiEntityTypes`) to enable you to build custom data governance solutions with ksqlDB. This provides the flexibility to target specific fields or do more complex pipelining, such as routing messages based on their sensitivity.
+Confluent has developed PII [user-defined functions](https://docs.ksqldb.io/en/latest/reference/user-defined-functions/) (UDFs) (`containsPII` and `redactPII`) and [user-defined table functions](https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-reference/table-functions/) (UDTFs) (`extractPiiEntities` and `extractPiiEntityTypes`) to enable you to build custom data governance solutions with [ksqlDB](https://docs.ksqldb.io/en/latest/). This provides the flexibility to target specific fields or do more complex pipelining, such as routing messages based on their sensitivity.
 
 ```sql
 SELECT log, containsPII(log) as contains_pii, redactPII(log) as redacted_log
@@ -96,17 +139,33 @@ FROM logs
 EMIT CHANGES;
 ```
 
+<div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '1.5rem 0', gap: '0'}}>
+  <img src="/blog-images/pii-udfs-1.png" alt="Screenshot showing PII UDF query results with contains_pii and redacted_log columns" style={{margin: '0', display: 'block', maxWidth: '100%'}} />
+
+  <p style={{margin: '0.25rem 0 0 0', fontSize: '0.9em'}}>
+    <em>Using PII UDFs to detect and redact sensitive information in log streams</em>
+  </p>
+</div>
+
 ```sql
 SELECT log, extractPiiEntities(log) AS PII, extractPiiEntityTypes(log) AS PII_TYPE
 FROM logs
 EMIT CHANGES;
 ```
 
+<div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '1.5rem 0', gap: '0'}}>
+  <img src="/blog-images/pii-udfs-2.png" alt="Screenshot showing PII extraction query results with entity types and values" style={{margin: '0', display: 'block', maxWidth: '100%'}} />
+
+  <p style={{margin: '0.25rem 0 0 0', fontSize: '0.9em'}}>
+    <em>Extracting PII entities and types from unstructured text data</em>
+  </p>
+</div>
+
 These UDFs and UDTFs use the same underlying technology as the stream processing app, providing the same level of accuracy and throughput.
 
 # PII SMT
 
-We have developed a PII single message transformation (SMT) for Kafka Connect (`redactPII`) to remove sensitive information from your data stream before it even touches an Apache Kafka® broker.
+We have developed a PII [single message transformation](https://docs.confluent.io/platform/current/connect/transforms/overview.html) (SMT) for [Kafka Connect](https://docs.confluent.io/platform/current/connect/index.html#:~:text=Kafka%20Connect%20is%20a%20free,search%20indexes%2C%20and%20file%20systems.) (`redactPII`) to remove sensitive information from your data stream before it even touches an Apache Kafka® broker.
 
 For example, if a source message takes the form:
 
@@ -137,28 +196,25 @@ And the message that reaches the Kafka topic will be:
 
 # Supported entities
 
-These PII Detection solutions support 25 entity types out of the box, including PCI (such as credit card numbers) and country-specific entities (such as U.S. Social Security numbers). The full list of entities includes:
+These PII Detection solutions support 25 entity types out of the box, including PCI (such as credit card numbers) and country-specific entities (such as U.S. Social Security numbers). The full list of entities is as follows:
 
-- Person names
-- Email addresses
-- Phone numbers
-- Credit card numbers
-- Social Security numbers
-- IP addresses
-- Location data
-- Medical license numbers
-- URLs
-- And many more
+<div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '1.5rem 0', gap: '0'}}>
+  <img src="/blog-images/pii-detection-solutions.jpg" alt="Overview diagram of PII detection solutions: Stream Processing App, ksqlDB UDFs/UDTFs, and Kafka Connect SMT" style={{margin: '0', display: 'block', maxWidth: '100%'}} />
+
+  <p style={{margin: '0.25rem 0 0 0', fontSize: '0.9em'}}>
+    <em>The entities these solutions can detect including names, email addresses, phone numbers etc.</em>
+  </p>
+</div>
 
 # Accessing and deploying artifacts
 
-If you want to use the PII Detection accelerator, please get in touch with us via our intake form. This accelerator is provided via Professional Services engagement, with a specific license and terms and conditions.
+If you want to use the PII Detection accelerator, please get in touch with us via our [intake form](https://www.confluent.io/confluent-accelerators/). This [accelerator](https://www.confluent.io/en-gb/confluent-accelerators/) is provided via [Professional Services](https://www.confluent.io/en-gb/services/) engagement, with a specific license and terms and conditions.
 
-The PII Detector app can be supplied as a wheel to install in your custom Python environment or as a Docker image to deploy via your custom container management platform. This stream processing app is easily configured to connect to your Kafka, Schema Registry, and Stream Catalog instances hosted on Confluent Cloud via your API keys.
+The PII Detector app can be supplied as a [wheel](https://packaging.python.org/en/latest/specifications/binary-distribution-format/#binary-distribution-format) to install in your custom Python environment or as a Docker image to deploy via your custom container management platform. This stream processing app is easily configured to connect to your Kafka, [Schema Registry](https://docs.confluent.io/platform/current/schema-registry/index.html), and Stream Catalog instances hosted on Confluent Cloud via your [API keys](https://docs.confluent.io/cloud/current/access-management/authenticate/api-keys/api-keys.html).
 
-The UDFs and UDTFs are provided as an Uber-JAR, which you can load into your self-managed ksqlDB instance. Configure the `ksql.extension.dir` property to point to a directory containing the PII UDF Uber-JAR.
+The UDFs and UDTFs are provided as an [Uber-JAR](https://blog.payara.fish/what-is-a-java-uber-jar), which you can load into your self-managed ksqlDB instance. Configure the [ksql.extension.dir](https://docs.ksqldb.io/en/latest/reference/server-configuration/#ksqlextensiondir) property to point to a directory containing the PII UDF Uber-JAR.
 
-The SMT is provided as an Uber-JAR, which you can load into your self-managed Kafka Connect instance. Configure the `plugin.path` property to point to a directory containing the PII SMT Uber-JAR.
+The SMT is provided as an [Uber-JAR](https://blog.payara.fish/what-is-a-java-uber-jar), which you can load into your self-managed Kafka Connect instance. Configure the [plugin.path](https://docs.confluent.io/kafka-connectors/self-managed/userguide.html#define-a-plugin) property to point to a directory containing the PII SMT Uber-JAR.
 
 Our Professional Services team can assist you in architecting and configuring this solution to match your accuracy, throughput, and scalability needs.
 
@@ -166,9 +222,9 @@ Our Professional Services team can assist you in architecting and configuring th
 
 There's a lot more that Confluent can do to help you with your data governance strategy. Check out the following resources to get you started:
 
-- Confluent Developer course: Governing Data Streams
-- Confluent solution page on SIEM
-- Video: How to optimize your SIEM platforms
-- Whitepaper: Using Confluent to improve the nation's cybersecurity stance
-- Intel's Kafka Summit talk: Building a Modern, Scalable Cyber Intelligence Platform with Apache Kafka
-- Robin Moffatt's tutorial on detecting attacks with ksqlDB
+* Confluent Developer course: [Governing Data Streams](https://developer.confluent.io/learn-kafka/governing-data-streams/overview/)
+* [Confluent solution page on SIEM](https://www.confluent.io/use-case/siem/)
+* Video: [How to optimize your SIEM platforms](https://www.confluent.io/resources/video/how-to-optimize-your-siem-platforms-with-confluent/)
+* Whitepaper: [Using Confluent to improve the nation's cybersecurity stance](https://assets.confluent.io/m/fabf64047029937/original/20211014-WP-Improving_the_Nation-s_Cybersecurity_with_Confluent.pdf)
+* Intel's Kafka Summit talk: [Building a Modern, Scalable Cyber Intelligence Platform with Apache Kafka](https://www.confluent.io/events/kafka-summit-americas-2021/building-a-modern-scalable-cyber-intelligence-platform-with-apache-kafka-ksam21/)
+* Robin Moffatt's [tutorial on detecting attacks with ksqlDB](https://rmoff.net/2019/12/18/detecting-and-analysing-ssh-attacks-with-ksqldb/)
