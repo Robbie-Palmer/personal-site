@@ -125,28 +125,25 @@ code {
   counter-reset: line;
 }
 
-code[data-theme*=" "],
-code[data-theme*=" "] span {
+/* Dual-theme syntax highlighting using Shiki CSS variables.
+ *
+ * rehype-pretty-code outputs data-language and data-theme attributes on code blocks.
+ * We target code blocks with data-language (which all syntax-highlighted blocks have)
+ * to apply theme-aware colors using Shiki's CSS variables (--shiki-light/dark).
+ */
+code[data-language],
+code[data-language] span {
   color: var(--shiki-light);
-  background-color: var(--shiki-light-bg);
 }
 
-@media (prefers-color-scheme: dark) {
-  code[data-theme*=" "],
-  code[data-theme*=" "] span {
-    color: var(--shiki-dark);
-    background-color: var(--shiki-dark-bg);
-  }
-}
-
-.dark code[data-theme*=" "],
-.dark code[data-theme*=" "] span {
+html.dark code[data-language],
+html.dark code[data-language] span {
   color: var(--shiki-dark);
-  background-color: var(--shiki-dark-bg);
 }
 
-code[data-line-numbers] {
-  counter-reset: line;
+/* Pre element background uses muted color from design system for consistency */
+pre[data-language] {
+  background-color: var(--muted);
 }
 
 code[data-line-numbers] > [data-line]::before {
