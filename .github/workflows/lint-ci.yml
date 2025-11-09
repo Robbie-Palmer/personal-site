@@ -11,7 +11,6 @@ on:
       - ".markdownlint.json"
       - ".yamllint"
       - "package.json"
-      - "renovate.json"
 
 jobs:
   lint:
@@ -31,8 +30,3 @@ jobs:
 
       - name: Lint YAML files
         run: mise run //:lint:yaml
-
-      - name: Validate Renovate config
-        uses: rinchsan/renovate-config-validator@v0.2.0
-        with:
-          pattern: 'renovate.json'
