@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useMediaQuery } from "react-responsive";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { BREAKPOINTS } from "@/lib/breakpoints";
 import { siteConfig } from "@/lib/site-config";
 
 export function ScrollNavbar() {
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollYRef = useRef(0);
+  const isMobile = useMediaQuery({ maxWidth: BREAKPOINTS.md - 1 });
 
   useEffect(() => {
     const handleScroll = () => {
@@ -22,7 +25,6 @@ export function ScrollNavbar() {
       }
 
       // Higher threshold on mobile (120px) vs desktop (80px) to accommodate swipe gestures
-      const isMobile = window.innerWidth < 768;
       const scrollThreshold = isMobile ? 120 : 80;
 
       // Check scroll direction with a threshold to avoid jank
@@ -47,7 +49,7 @@ export function ScrollNavbar() {
     return () => {
       window.removeEventListener("scroll", handleScroll);
     };
-  }, []);
+  }, [isMobile]);
 
   return (
     <header
