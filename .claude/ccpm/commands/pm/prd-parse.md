@@ -30,7 +30,7 @@ Do not bother the user with preflight checks progress ("I'm not going to ..."). 
 
 3. **Validate PRD frontmatter:**
    - Verify PRD has valid frontmatter with: name, description, status, created
-- If frontmatter is invalid or missing, tell user: "❌ Invalid PRD frontmatter. Please check: .claude/prds/$ARGUMENTS.md"
+   - If frontmatter is invalid or missing, tell user: "❌ Invalid PRD frontmatter. Please check: .claude/prds/$ARGUMENTS.md"
    - Show what's missing or invalid
 
 4. **Check for existing epic:**
