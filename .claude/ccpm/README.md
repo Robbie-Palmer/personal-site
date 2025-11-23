@@ -1,96 +1,104 @@
 # CCPM - GitHub Issues Project Management
 
-Lightweight project management using GitHub Issues, local markdown files, and bidirectional sync.
+Lightweight project management using GitHub Issues as source of truth, with local markdown files for offline work.
 
 ## Quick Start
 
 ```bash
-# 1. Create a Product Requirements Document
+# 1. Create a Product Requirements Document (committed to git)
 /pm:prd-new feature-name
+git add .claude/prds/feature-name.md
+git commit -m "docs: add feature PRD"
 
-# 2. Convert PRD to Epic
+# 2. Convert PRD to Epic (local working copy)
 /pm:prd-parse feature-name
 
-# 3. Break Epic into Tasks
+# 3. Break Epic into Tasks (local working copy)
 /pm:epic-decompose feature-name
 
-# 4. Sync to GitHub (creates issues with full content)
+# 4. Sync to GitHub (creates issues - now source of truth)
 /pm:epic-sync feature-name
 
 # 5. Work in isolated worktree
 cd ../epic-feature-name
 # Make commits, implement tasks
 
-# 6. Post progress updates
+# 6. Post progress updates to GitHub
 /pm:issue-sync 123
 ```
 
-## Key Features
+## Design Philosophy
 
-### Full Content Sync
+**Project management is separate from code execution.** PRDs live in git as documentation.
+Epics and tasks live in GitHub Issues as the source of truth for work tracking.
+Local `.claude/epics/` files are working copies only (gitignored).
+This follows the Jira/Linear model where issues are independent of branches.
 
-GitHub issues contain complete task details, not just titles. You can import and work on any machine:
+## Workflow
+
+**On your machine:**
 
 ```bash
-# On another machine
-git clone <repo>
-/pm:import          # Pulls all issues with full content
-# Now you have complete .claude/epics/ structure
+/pm:prd-new auth        # Create PRD, commit to git
+/pm:epic-decompose auth # Create tasks locally
+/pm:epic-sync auth      # Push to GitHub (source of truth)
+cd ../epic-auth         # Work in worktree
 ```
 
-### Metadata Encoding
+**On another machine:**
 
-- Local frontmatter (`depends_on`, `parallel`) → GitHub labels (`depends:123`, `parallel`)
-- GitHub labels + content → Reconstructed local frontmatter on import
-- No data loss in either direction
+```bash
+git pull                # Get PRDs
+/pm:import              # Pull epics/tasks from GitHub
+cd ../epic-auth         # Continue work
+```
 
-### Worktree Support
+**On any branch:**
 
-Each epic gets an isolated worktree for parallel work:
-
-```text
-../epic-auth/       # Work on auth feature
-../epic-payments/   # Work on payments feature
+```bash
+git checkout -b feature/auth
+/pm:import              # Issues exist independently of branches
+# Work on issue #123 from any branch
 ```
 
 ## Commands
 
 ### Core Workflow
 
-- `/pm:prd-new <name>` - Create PRD
-- `/pm:prd-parse <name>` - PRD → Epic
-- `/pm:epic-decompose <name>` - Epic → Tasks
-- `/pm:epic-sync <name>` - Push to GitHub
+- `/pm:prd-new <name>` - Create PRD (commit to git)
+- `/pm:prd-parse <name>` - PRD → Epic (local)
+- `/pm:epic-decompose <name>` - Epic → Tasks (local)
+- `/pm:epic-sync <name>` - Push to GitHub (→ source of truth)
 - `/pm:import` - Pull from GitHub
 - `/pm:sync` - Bidirectional sync
 - `/pm:issue-sync <number>` - Post progress
 
 ### Management
 
-- `/pm:status` - Project overview
 - `/pm:epic-refresh <name>` - Update epic progress
 - `/pm:epic-merge <name>` - Merge completed epic
-- `/pm:init` - Initialize CCPM
-- `/pm:help` - Documentation
 
 ## File Structure
 
 ```text
 .claude/
 ├── prds/
-│   └── feature-name.md           # Product requirements
-├── epics/
+│   └── feature-name.md           # Committed to git (documentation)
+├── epics/                        # Gitignored (working copies)
 │   └── feature-name/
-│       ├── epic.md               # Epic overview
-│       ├── 123.md                # Task (GitHub issue #123)
-│       └── 124.md                # Task (GitHub issue #124)
+│       ├── epic.md               # Working copy from GitHub
+│       ├── 123.md                # Working copy (issue #123)
+│       └── 124.md                # Working copy (issue #124)
 └── ccpm/
-    ├── commands/pm/              # 12 PM commands
+    ├── commands/pm/              # 9 PM commands
     ├── rules/                    # 2 safety rules
     └── README.md                 # This file
 
 ../epic-feature-name/             # Worktree for isolated work
 ```
+
+- GitHub Issues = source of truth for epics/tasks
+- Local .claude/epics/ = working copies only (gitignored)
 
 ## Task File Format
 
@@ -109,36 +117,40 @@ conflicts_with: []
 # Task: Title
 
 ## Description
+
 What needs to be done
 
 ## Acceptance Criteria
+
 - [ ] Specific, testable requirements
 
 ## Technical Details
+
 - Implementation approach
 - Files affected
 
 ## Effort Estimate
-- Size: S/M/L
-- Hours: 4-8
+
+T-shirt size: XS | S | M | L | XL
 ```
 
-## Bidirectional Sync
+## How Sync Works
 
-**Local → GitHub:**
+**Local → GitHub (epic-sync, sync):**
 
-1. Strip frontmatter from task files
-2. Create GitHub issues with full content (all sections)
+1. Strip frontmatter from local task files
+2. Create/update GitHub issues with full content
 3. Encode metadata as labels: `depends:123`, `parallel`, `epic:name`
+4. GitHub is now source of truth
 
-**GitHub → Local:**
+**GitHub → Local (import, sync):**
 
 1. Fetch issues with full JSON metadata
 2. Parse body for structured content
 3. Reconstruct frontmatter from labels + dates
-4. Create local files with issue numbers as filenames
+4. Write to local `.claude/epics/` (working copies)
 
-**Result:** Complete task files can be recreated from GitHub alone.
+**Result:** Work online/offline, GitHub is always source of truth.
 
 ## Integration with mise.toml
 
@@ -147,15 +159,17 @@ Commands describe goals, not exact bash commands. Claude uses your project's too
 ```toml
 # If you want shortcuts, add to .mise.toml:
 [tasks."pm:status"]
-run = "find .claude/epics -name '*.md' | wc -l"
+run = "gh issue list --label epic"
 
-[tasks."pm:list"]
-run = "ls .claude/epics/*/epic.md"
+[tasks."pm:my-issues"]
+run = "gh issue list --assignee @me"
 ```
 
-## Philosophy
+## Summary
 
-- **Goal-oriented commands** - Describe WHAT, not HOW
-- **Trust Claude** - Knows git, bash, gh CLI, can read files
-- **Full content sync** - No data loss across machines
-- **Minimal** - 21 files, 128KB total
+- **PRDs (git)** - Documentation, committed and versioned
+- **Epics/Tasks (GitHub)** - Work tracking, issues are source of truth
+- **Local files** - Working copies for offline work (gitignored)
+- **Bidirectional sync** - Work offline, sync when online
+- **Like Jira/Linear** - Issues independent of git branches
+- **Minimal** - 17 files, goal-oriented commands

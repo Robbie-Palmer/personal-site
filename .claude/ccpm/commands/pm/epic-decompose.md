@@ -50,8 +50,7 @@ What needs to be done
 - Files affected
 
 ## Effort Estimate
-- Size: XS/S/M/L/XL
-- Hours: estimate
+T-shirt size: XS | S | M | L | XL
 ```
 
 ## After Creating Tasks

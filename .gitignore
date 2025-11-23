@@ -60,10 +60,5 @@ Thumbs.db
 # Misc
 *.pem
 
-# CCPM - Local workspace files
+# CCPM - Working copies (GitHub Issues is source of truth)
 .claude/epics/
-.claude/settings.local.json
-
-# CCPM - Symlinks (recreated by installer)
-.claude/agents
-.claude/commands
