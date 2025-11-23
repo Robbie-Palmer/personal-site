@@ -59,3 +59,11 @@ Thumbs.db
 
 # Misc
 *.pem
+
+# CCPM - Local workspace files
+.claude/epics/
+.claude/settings.local.json
+
+# CCPM - Symlinks (recreated by installer)
+.claude/agents
+.claude/commands
