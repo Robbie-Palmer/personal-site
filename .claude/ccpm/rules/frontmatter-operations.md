@@ -28,10 +28,10 @@ name: {identifier}
 created: {ISO datetime}      # Never change after creation
 updated: {ISO datetime}      # Update on any modification
 ---
-
-```text
+```
 
 ### Status Values
+
 - PRDs: `backlog`, `in-progress`, `complete`
 - Epics: `backlog`, `in-progress`, `completed`  
 - Tasks: `open`, `in-progress`, `closed`
@@ -41,8 +41,7 @@ updated: {ISO datetime}      # Update on any modification
 ```yaml
 progress: {0-100}%           # For epics
 completion: {0-100}%         # For progress files
-
-```text
+```
 
 ## Creating New Files
 
@@ -55,8 +54,7 @@ status: {initial_status}
 created: {current_datetime}
 updated: {current_datetime}
 ---
-
-```text
+```
 
 ## Important Notes
 

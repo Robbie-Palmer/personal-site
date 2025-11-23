@@ -53,6 +53,7 @@ For each issue:
   depends_on: [{extract from depends:NNN labels}]
   parallel: {true if has parallel label}
   conflicts_with: []
+  imported: true
   ```
 
 - Combine frontmatter + GitHub body content into local `.md` file

@@ -40,7 +40,7 @@ For each GitHub issue:
 
 For each local task file:
 
-- Check if has `github:` URL
+- Check if it has `github:` URL
 - If no URL: Create new GitHub issue (like `/pm:epic-sync`)
 - If URL exists but issue deleted: Mark local as archived
 - If local is newer (`updated` > GitHub `updatedAt`):
