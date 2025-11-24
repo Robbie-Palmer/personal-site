@@ -187,3 +187,39 @@ sed -i "s/CREATED_DATETIME/$CREATED_DATETIME/g" ".claude/epics/$FEATURE_NAME/epi
 echo "✅ Template created at .claude/epics/$FEATURE_NAME/epic.md"
 echo "   Now analyze PRD and fill in all technical sections"
 """
+
+[tasks."ccpm:task:new"]
+description = "Create a new task file from template"
+run = """
+#!/usr/bin/env bash
+set -e
+
+EPIC_NAME="${1:-}"
+TASK_NUMBER="${2:-}"
+TASK_TITLE="${3:-}"
+
+# Validate inputs
+if [ -z "$EPIC_NAME" ] || [ -z "$TASK_NUMBER" ] || [ -z "$TASK_TITLE" ]; then
+  echo "❌ Usage: mise run ccpm:task:new <epic-name> <task-number> <task-title>"
+  echo "   Example: mise run ccpm:task:new user-auth 001 'Setup authentication service'"
+  exit 1
+fi
+
+# Validate epic exists
+if [ ! -d ".claude/epics/$EPIC_NAME" ]; then
+  echo "❌ Epic not found: $EPIC_NAME"
+  exit 1
+fi
+
+# Copy template
+TASK_FILE=".claude/epics/$EPIC_NAME/$TASK_NUMBER.md"
+cp .claude/ccpm/templates/task-template.md "$TASK_FILE"
+
+# Replace placeholders
+CREATED_DATETIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+sed -i "s/TASK_TITLE/$TASK_TITLE/g" "$TASK_FILE"
+sed -i "s/CREATED_DATETIME/$CREATED_DATETIME/g" "$TASK_FILE"
+sed -i "s/UPDATED_DATETIME/$CREATED_DATETIME/g" "$TASK_FILE"
+
+echo "✅ Created task: $TASK_FILE"
+"""

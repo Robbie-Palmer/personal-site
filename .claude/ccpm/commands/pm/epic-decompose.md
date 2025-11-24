@@ -29,13 +29,15 @@ Read epic requirements and create numbered task files from template.
    - Identify discrete, concrete tasks
 
 2. **Create Task Files**
-   - For each task, copy template: `.claude/ccpm/templates/task-template.md`
-   - Save as: `.claude/epics/$ARGUMENTS/{number}.md` (001.md, 002.md, etc.)
-   - Replace placeholders:
-     - `TASK_TITLE` → Task name
-     - `CREATED_DATETIME` → Current ISO datetime (`date -u +"%Y-%m-%dT%H:%M:%SZ"`)
-     - `UPDATED_DATETIME` → Same as created
-   - Fill in all sections:
+   - For each task, run:
+
+     ```bash
+     mise run //:ccpm:task:new $ARGUMENTS {number} "{task-title}"
+     ```
+
+     Example: `mise run //:ccpm:task:new user-auth 001 "Setup authentication service"`
+   - This creates `.claude/epics/$ARGUMENTS/{number}.md` with placeholders filled in
+   - Then fill in all sections:
      - Description: What needs to be done
      - Acceptance Criteria: Specific, testable requirements
      - Technical Details: Implementation approach, files affected
