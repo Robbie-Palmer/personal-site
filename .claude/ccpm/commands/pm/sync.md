@@ -47,6 +47,28 @@ For each local task file:
   - Update GitHub issue body from local content (strip frontmatter)
   - Update labels from frontmatter (`depends_on` → `depends:NNN` labels, `parallel` → `parallel` label)
 
+### 3a. Link Sub-Issues to Epic
+
+After creating/updating issues, link task issues to their epic using GitHub's sub-issues feature:
+
+1. Get the epic issue ID:
+
+   ```bash
+   epic_id=$(gh api graphql -f query='query { repository(owner: "OWNER", name: "REPO") { issue(number: EPIC_NUM) { id } } }' --jq '.data.repository.issue.id')
+   ```
+
+2. For each task issue, get its ID and add as sub-issue:
+
+   ```bash
+   for issue_num in TASK_NUMBERS; do
+     issue_id=$(gh api graphql -f query="query { repository(owner: \"OWNER\", name: \"REPO\") { issue(number: $issue_num) { id } } }" --jq '.data.repository.issue.id')
+     gh api graphql -f query="mutation { addSubIssue(input: {issueId: \"$epic_id\", subIssueId: \"$issue_id\"}) { issue { number } } }"
+   done
+   ```
+
+**Note**: The `gh` CLI doesn't have a `--add-subissue` flag, so we must use the GraphQL API with the
+`addSubIssue` mutation. This creates the proper parent-child relationship visible in GitHub's UI.
+
 ### 4. Handle Conflicts
 
 If both changed (local `updated` and GitHub `updatedAt` both newer than last sync):
@@ -80,7 +102,11 @@ Status: ✅ All in sync
 
 ## Important
 
-- GitHub issue bodies have full content (all sections)
+- Epic issue bodies should contain full epic content WITHOUT redundant task lists (GitHub's sub-issues
+  section displays tasks automatically)
+- Task issue bodies should contain full task content INCLUDING dependencies listed as "#123" references
 - Frontmatter is reconstructed from GitHub metadata on import
-- Labels encode metadata: `depends:123`, `parallel`, `epic:name`, `task`
+- Labels encode metadata: `epic:name`, `task`, `parallel`
+- Dependencies between tasks are documented in task issue bodies (e.g., "**Dependencies:** #81, #82")
+- Sub-issues must be linked via GraphQL API (`addSubIssue` mutation) - `gh` CLI has no direct flag for this
 - This enables working across multiple machines seamlessly
