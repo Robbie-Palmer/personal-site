@@ -58,8 +58,10 @@ export interface BlogPost {
   slug: string;
   content: string;
   readingTime: string;
-  image: string;
-  imageAlt: string;
+  // Optional until all posts have images (Task 006)
+  // Currently validated with warnings only for progressive enhancement
+  image?: string;
+  imageAlt?: string;
 }
 
 export function getAllPostSlugs(): string[] {
