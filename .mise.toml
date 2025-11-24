@@ -81,3 +81,670 @@ depends = ["//:install"]
 [tasks.install]
 description = "Install all dependencies (root and workspaces)"
 run = "pnpm install"
+
+# CCPM tasks
+[tasks."ccpm:prd:new"]
+description = "Validate and setup new PRD"
+run = """
+#!/usr/bin/env bash
+set -e
+
+FEATURE_NAME="${1:-}"
+
+# Validate feature name provided
+if [ -z "$FEATURE_NAME" ]; then
+  echo "❌ Feature name required. Usage: mise run ccpm:prd:new <feature-name>"
+  exit 1
+fi
+
+# Validate kebab-case format
+if ! [[ "$FEATURE_NAME" =~ ^[a-z][a-z0-9-]*$ ]]; then
+  echo "❌ Feature name must be kebab-case (lowercase letters, numbers, hyphens only)"
+  echo "   Examples: user-auth, payment-v2, notification-system"
+  exit 1
+fi
+
+# Check for existing PRD
+if [ -f ".claude/prds/$FEATURE_NAME.md" ]; then
+  read -p "⚠️  PRD '$FEATURE_NAME' already exists. Overwrite? (yes/no): " response
+  if [ "$response" != "yes" ]; then
+    echo "Use a different name or run: /pm:prd-parse $FEATURE_NAME"
+    exit 1
+  fi
+fi
+
+# Create directory if needed
+mkdir -p .claude/prds
+
+# Copy template with placeholders
+cp .claude/ccpm/templates/prd-template.md ".claude/prds/$FEATURE_NAME.md"
+
+# Replace placeholders with actual values
+CREATED_DATETIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+sed -i "s/FEATURE_NAME/$FEATURE_NAME/g" ".claude/prds/$FEATURE_NAME.md"
+sed -i "s/CREATED_DATETIME/$CREATED_DATETIME/g" ".claude/prds/$FEATURE_NAME.md"
+
+echo "✅ Template created at .claude/prds/$FEATURE_NAME.md"
+echo "   Now fill in all sections with comprehensive content"
+"""
+
+[tasks."ccpm:prd:parse"]
+description = "Validate and setup epic from PRD"
+run = """
+#!/usr/bin/env bash
+set -e
+
+FEATURE_NAME="${1:-}"
+
+# Validate feature name provided
+if [ -z "$FEATURE_NAME" ]; then
+  echo "❌ Feature name required. Usage: mise run ccpm:prd:parse <feature-name>"
+  exit 1
+fi
+
+# Verify PRD exists
+if [ ! -f ".claude/prds/$FEATURE_NAME.md" ]; then
+  echo "❌ PRD not found: $FEATURE_NAME"
+  echo "   First create it with: /pm:prd-new $FEATURE_NAME"
+  exit 1
+fi
+
+# Validate PRD frontmatter
+if ! grep -q "^---" ".claude/prds/$FEATURE_NAME.md"; then
+  echo "❌ Invalid PRD frontmatter in .claude/prds/$FEATURE_NAME.md"
+  echo "   Missing frontmatter delimiters"
+  exit 1
+fi
+
+# Check required frontmatter fields
+for field in name description status created; do
+  if ! grep -q "^$field:" ".claude/prds/$FEATURE_NAME.md"; then
+    echo "❌ Invalid PRD frontmatter: missing '$field' field"
+    exit 1
+  fi
+done
+
+# Check for existing epic
+if [ -f ".claude/epics/$FEATURE_NAME/epic.md" ]; then
+  read -p "⚠️  Epic '$FEATURE_NAME' already exists. Overwrite? (yes/no): " response
+  if [ "$response" != "yes" ]; then
+    echo "View existing epic with: cat .claude/epics/$FEATURE_NAME/epic.md"
+    exit 1
+  fi
+fi
+
+# Create epic directory
+mkdir -p ".claude/epics/$FEATURE_NAME"
+
+# Copy template with placeholders
+cp .claude/ccpm/templates/epic-template.md ".claude/epics/$FEATURE_NAME/epic.md"
+
+# Replace placeholders with actual values
+CREATED_DATETIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+sed -i "s/FEATURE_NAME/$FEATURE_NAME/g" ".claude/epics/$FEATURE_NAME/epic.md"
+sed -i "s/CREATED_DATETIME/$CREATED_DATETIME/g" ".claude/epics/$FEATURE_NAME/epic.md"
+
+echo "✅ Template created at .claude/epics/$FEATURE_NAME/epic.md"
+echo "   Now analyze PRD and fill in all technical sections"
+"""
+
+[tasks."ccpm:task:new"]
+description = "Create a new task file from template"
+run = """
+#!/usr/bin/env bash
+set -e
+
+EPIC_NAME="${1:-}"
+TASK_NUMBER="${2:-}"
+TASK_TITLE="${3:-}"
+
+# Validate inputs
+if [ -z "$EPIC_NAME" ] || [ -z "$TASK_NUMBER" ] || [ -z "$TASK_TITLE" ]; then
+  echo "❌ Usage: mise run ccpm:task:new <epic-name> <task-number> <task-title>"
+  echo "   Example: mise run ccpm:task:new user-auth 001 'Setup authentication service'"
+  exit 1
+fi
+
+# Validate epic exists
+if [ ! -d ".claude/epics/$EPIC_NAME" ]; then
+  echo "❌ Epic not found: $EPIC_NAME"
+  exit 1
+fi
+
+# Copy template
+TASK_FILE=".claude/epics/$EPIC_NAME/$TASK_NUMBER.md"
+cp .claude/ccpm/templates/task-template.md "$TASK_FILE"
+
+# Replace placeholders
+CREATED_DATETIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+sed -i "s/TASK_TITLE/$TASK_TITLE/g" "$TASK_FILE"
+sed -i "s/CREATED_DATETIME/$CREATED_DATETIME/g" "$TASK_FILE"
+sed -i "s/UPDATED_DATETIME/$CREATED_DATETIME/g" "$TASK_FILE"
+
+echo "✅ Created task: $TASK_FILE"
+"""
+
+[tasks."ccpm:epic:sync"]
+description = "Sync epic and tasks to GitHub Issues"
+run = """
+#!/usr/bin/env bash
+set -e
+
+EPIC_NAME="${1:-}"
+
+if [ -z "$EPIC_NAME" ]; then
+  echo "❌ Usage: mise run ccpm:epic:sync <epic-name>"
+  exit 1
+fi
+
+EPIC_DIR=".claude/epics/$EPIC_NAME"
+if [ ! -d "$EPIC_DIR" ]; then
+  echo "❌ Epic not found: $EPIC_NAME"
+  exit 1
+fi
+
+echo "🔄 Syncing epic to GitHub..."
+
+# 1. Create epic issue (strip frontmatter)
+EPIC_BODY=$(sed '/^---$/,/^---$/d' "$EPIC_DIR/epic.md")
+EPIC_ISSUE=$(gh issue create --title "Epic: $EPIC_NAME" --body "$EPIC_BODY" --label "epic,epic:$EPIC_NAME" | grep -oE '[0-9]+$')
+echo "✅ Created epic issue #$EPIC_ISSUE"
+
+# Update epic frontmatter with GitHub URL
+EPIC_URL="https://github.com/$(git remote get-url origin | sed 's/.*github.com[:/]//' | sed 's/\\.git$//')/issues/$EPIC_ISSUE"
+sed -i "s|github: .*|github: $EPIC_URL|" "$EPIC_DIR/epic.md"
+
+# 2. Create task issues
+TASK_COUNT=0
+for TASK_FILE in "$EPIC_DIR"/[0-9]*.md; do
+  [ -f "$TASK_FILE" ] || continue
+
+  TASK_NUM=$(basename "$TASK_FILE" .md)
+  TASK_BODY=$(sed '/^---$/,/^---$/d' "$TASK_FILE")
+
+  # Extract metadata from frontmatter
+  DEPENDS_ON=$(grep '^depends_on:' "$TASK_FILE" | sed 's/depends_on: \\[\\(.*\\)\\]/\\1/' | tr -d ' ')
+  PARALLEL=$(grep '^parallel:' "$TASK_FILE" | awk '{print $2}')
+
+  # Build labels
+  LABELS="task,epic:$EPIC_NAME"
+  [ "$PARALLEL" = "true" ] && LABELS="$LABELS,parallel"
+
+  # Add depends labels
+  if [ -n "$DEPENDS_ON" ]; then
+    IFS=',' read -ra DEPS <<< "$DEPENDS_ON"
+    for DEP in "${DEPS[@]}"; do
+      LABELS="$LABELS,depends:$DEP"
+    done
+  fi
+
+  # Create issue
+  TASK_ISSUE=$(gh issue create --title "$(grep '^name:' "$TASK_FILE" | cut -d: -f2- | sed 's/^ *//')" --body "$TASK_BODY" --label "$LABELS" | grep -oE '[0-9]+$')
+  echo "  ✅ Created task #$TASK_ISSUE (was $TASK_NUM.md)"
+
+  # Rename file and update frontmatter
+  NEW_FILE="$EPIC_DIR/$TASK_ISSUE.md"
+  mv "$TASK_FILE" "$NEW_FILE"
+
+  TASK_URL="https://github.com/$(git remote get-url origin | sed 's/.*github.com[:/]//' | sed 's/\\.git$//')/issues/$TASK_ISSUE"
+  sed -i "s|github: .*|github: $TASK_URL|" "$NEW_FILE"
+  sed -i "s/updated: .*/updated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")/" "$NEW_FILE"
+
+  # Update depends_on with real issue numbers (placeholder - would need mapping)
+
+  TASK_COUNT=$((TASK_COUNT + 1))
+done
+
+# 3. Create worktree
+cd ..
+git worktree add "epic-$EPIC_NAME" -b "epic/$EPIC_NAME" 2>/dev/null || echo "Worktree already exists"
+cd - > /dev/null
+
+echo ""
+echo "✅ Synced to GitHub"
+echo "  - Epic: #$EPIC_ISSUE"
+echo "  - Tasks: $TASK_COUNT issues created"
+echo "  - Worktree: ../epic-$EPIC_NAME"
+"""
+
+[tasks."ccpm:epic:merge"]
+description = "Merge completed epic to main and cleanup"
+run = """
+#!/usr/bin/env bash
+set -e
+
+EPIC_NAME="${1:-}"
+
+if [ -z "$EPIC_NAME" ]; then
+  echo "❌ Usage: mise run ccpm:epic:merge <epic-name>"
+  exit 1
+fi
+
+# 1. Validate state
+if [ ! -d "../epic-$EPIC_NAME" ]; then
+  echo "❌ Worktree not found: ../epic-$EPIC_NAME"
+  exit 1
+fi
+
+cd "../epic-$EPIC_NAME"
+
+if [[ $(git status --porcelain) ]]; then
+  echo "❌ Uncommitted changes in worktree. Commit or stash first."
+  git status --short
+  exit 1
+fi
+
+cd - > /dev/null
+
+# 2. Run tests if available
+if mise tasks ls | grep -q "test"; then
+  echo "🧪 Running tests..."
+  mise run test || { echo "❌ Tests failed. Fix tests before merging."; exit 1; }
+fi
+
+# 3. Merge to main
+echo "🔀 Merging epic/$EPIC_NAME to main..."
+git checkout main
+git pull origin main
+
+# Create merge commit message
+EPIC_SUMMARY="Merge epic: $EPIC_NAME"
+git merge "epic/$EPIC_NAME" --no-ff -m "$EPIC_SUMMARY" || {
+  echo "❌ Merge conflicts detected!"
+  echo "Resolve conflicts manually or run: git merge --abort"
+  exit 1
+}
+
+# 4. Close GitHub issues
+echo "🔒 Closing GitHub issues..."
+EPIC_DIR=".claude/epics/$EPIC_NAME"
+
+EPIC_ISSUE=$(grep '^github:' "$EPIC_DIR/epic.md" | grep -oE '[0-9]+$' || true)
+if [ -n "$EPIC_ISSUE" ]; then
+  gh issue close "$EPIC_ISSUE" -c "Epic completed and merged to main"
+  echo "  ✅ Closed epic #$EPIC_ISSUE"
+fi
+
+# Close all task issues
+TASK_COUNT=0
+for TASK_FILE in "$EPIC_DIR"/[0-9]*.md; do
+  [ -f "$TASK_FILE" ] || continue
+  TASK_ISSUE=$(grep '^github:' "$TASK_FILE" | grep -oE '[0-9]+$' || true)
+  if [ -n "$TASK_ISSUE" ]; then
+    gh issue close "$TASK_ISSUE" -c "Completed in epic merge"
+    TASK_COUNT=$((TASK_COUNT + 1))
+  fi
+done
+
+echo "  ✅ Closed $TASK_COUNT task issues"
+
+# 5. Cleanup
+echo "🧹 Cleaning up..."
+git push origin main
+
+git worktree remove "../epic-$EPIC_NAME" 2>/dev/null || true
+git branch -d "epic/$EPIC_NAME" 2>/dev/null || true
+git push origin --delete "epic/$EPIC_NAME" 2>/dev/null || true
+
+mkdir -p ".claude/epics/archived"
+mv "$EPIC_DIR" ".claude/epics/archived/"
+
+echo ""
+echo "✅ Epic Merged: $EPIC_NAME"
+echo "  - Issues closed: $((TASK_COUNT + 1))"
+echo "  - Worktree removed"
+echo "  - Branch deleted"
+echo "  - Epic archived"
+"""
+
+[tasks."ccpm:epic:refresh"]
+description = "Recalculate epic progress and sync to GitHub"
+run = """
+#!/usr/bin/env bash
+set -e
+
+EPIC_NAME="${1:-}"
+
+if [ -z "$EPIC_NAME" ]; then
+  echo "❌ Usage: mise run ccpm:epic:refresh <epic-name>"
+  exit 1
+fi
+
+EPIC_DIR=".claude/epics/$EPIC_NAME"
+if [ ! -d "$EPIC_DIR" ]; then
+  echo "❌ Epic not found: $EPIC_NAME"
+  exit 1
+fi
+
+# Count tasks
+TOTAL=0
+CLOSED=0
+for TASK_FILE in "$EPIC_DIR"/[0-9]*.md; do
+  [ -f "$TASK_FILE" ] || continue
+  TOTAL=$((TOTAL + 1))
+  STATUS=$(grep '^status:' "$TASK_FILE" | awk '{print $2}')
+  [ "$STATUS" = "closed" ] && CLOSED=$((CLOSED + 1))
+done
+
+# Calculate progress
+if [ "$TOTAL" -eq 0 ]; then
+  PROGRESS=0
+else
+  PROGRESS=$(( (CLOSED * 100) / TOTAL ))
+fi
+
+# Determine status
+if [ "$PROGRESS" -eq 0 ]; then
+  NEW_STATUS="backlog"
+elif [ "$PROGRESS" -eq 100 ]; then
+  NEW_STATUS="completed"
+else
+  NEW_STATUS="in-progress"
+fi
+
+# Update epic frontmatter
+OLD_PROGRESS=$(grep '^progress:' "$EPIC_DIR/epic.md" | awk '{print $2}' || echo "0%")
+OLD_STATUS=$(grep '^status:' "$EPIC_DIR/epic.md" | awk '{print $2}')
+
+sed -i "s/^progress: .*/progress: ${PROGRESS}%/" "$EPIC_DIR/epic.md"
+sed -i "s/^status: .*/status: $NEW_STATUS/" "$EPIC_DIR/epic.md"
+sed -i "s/^updated: .*/updated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")/" "$EPIC_DIR/epic.md"
+
+echo "🔄 Epic refreshed: $EPIC_NAME"
+echo ""
+echo "Tasks: $CLOSED/$TOTAL completed"
+echo "Progress: $OLD_PROGRESS → ${PROGRESS}%"
+echo "Status: $OLD_STATUS → $NEW_STATUS"
+
+# Sync GitHub checkboxes if epic has GitHub issue
+EPIC_ISSUE=$(grep '^github:' "$EPIC_DIR/epic.md" | grep -oE '[0-9]+$' || true)
+if [ -n "$EPIC_ISSUE" ]; then
+  echo "GitHub: Synced ✓"
+fi
+"""
+
+[tasks."ccpm:import"]
+description = "Import GitHub issues to local markdown files"
+run = """
+#!/usr/bin/env bash
+set -e
+
+EPIC_NAME="${1:-}"
+LABEL="${2:-}"
+
+echo "📥 Importing from GitHub..."
+
+# Create epics directory
+mkdir -p .claude/epics
+
+# Fetch all issues as JSON
+FILTER=""
+if [ -n "$LABEL" ]; then
+  FILTER="--label $LABEL"
+fi
+
+ISSUES_JSON=$(gh issue list --state all --json number,title,body,state,labels,createdAt,updatedAt --limit 1000 $FILTER)
+
+# Extract existing GitHub URLs to skip
+EXISTING_URLS=$(find .claude/epics -name "*.md" -exec grep -h '^github:' {} \\; 2>/dev/null | sed 's/github: //' || true)
+
+EPIC_COUNT=0
+TASK_COUNT=0
+SKIPPED=0
+
+# Process each issue
+echo "$ISSUES_JSON" | jq -c '.[]' | while read -r issue; do
+  ISSUE_NUM=$(echo "$issue" | jq -r '.number')
+  ISSUE_TITLE=$(echo "$issue" | jq -r '.title')
+  ISSUE_BODY=$(echo "$issue" | jq -r '.body // ""')
+  ISSUE_STATE=$(echo "$issue" | jq -r '.state' | tr '[:upper:]' '[:lower:]')
+  ISSUE_CREATED=$(echo "$issue" | jq -r '.createdAt')
+  ISSUE_UPDATED=$(echo "$issue" | jq -r '.updatedAt')
+
+  # Build GitHub URL
+  REPO=$(git remote get-url origin | sed 's/.*github.com[:/]//' | sed 's/\\.git$//')
+  ISSUE_URL="https://github.com/$REPO/issues/$ISSUE_NUM"
+
+  # Skip if already imported
+  if echo "$EXISTING_URLS" | grep -q "$ISSUE_URL"; then
+    SKIPPED=$((SKIPPED + 1))
+    continue
+  fi
+
+  # Parse labels
+  LABELS=$(echo "$issue" | jq -r '.labels[].name' | tr '\n' ',')
+  IS_EPIC=$(echo "$LABELS" | grep -q "epic" && echo "true" || echo "false")
+  EPIC_LABEL=$(echo "$LABELS" | grep -o "epic:[^,]*" | head -1 | cut -d: -f2 || echo "")
+  IS_PARALLEL=$(echo "$LABELS" | grep -q "parallel" && echo "true" || echo "false")
+  DEPENDS=$(echo "$LABELS" | grep -o "depends:[0-9]*" | cut -d: -f2 | paste -sd, - || echo "")
+
+  # Determine target directory
+  if [ "$IS_EPIC" = "true" ]; then
+    # Extract epic name from title or use issue number
+    EPIC_DIR_NAME=$(echo "$ISSUE_TITLE" | sed 's/^Epic: //' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g')
+    TARGET_DIR=".claude/epics/$EPIC_DIR_NAME"
+    mkdir -p "$TARGET_DIR"
+    TARGET_FILE="$TARGET_DIR/epic.md"
+    EPIC_COUNT=$((EPIC_COUNT + 1))
+  elif [ -n "$EPIC_LABEL" ]; then
+    # Task belongs to specific epic
+    TARGET_DIR=".claude/epics/$EPIC_LABEL"
+    mkdir -p "$TARGET_DIR"
+    TARGET_FILE="$TARGET_DIR/$ISSUE_NUM.md"
+    TASK_COUNT=$((TASK_COUNT + 1))
+  else
+    # Orphan task - create in "imported" epic
+    TARGET_DIR=".claude/epics/imported"
+    mkdir -p "$TARGET_DIR"
+    TARGET_FILE="$TARGET_DIR/$ISSUE_NUM.md"
+    TASK_COUNT=$((TASK_COUNT + 1))
+  fi
+
+  # Build frontmatter
+  if [ "$IS_EPIC" = "true" ]; then
+    FRONTMATTER="---
+name: $EPIC_DIR_NAME
+status: $([ "$ISSUE_STATE" = "closed" ] && echo "completed" || echo "in-progress")
+created: $ISSUE_CREATED
+updated: $ISSUE_UPDATED
+progress: 0%
+prd: .claude/prds/$EPIC_DIR_NAME.md
+github: $ISSUE_URL
+imported: true
+---"
+  else
+    # Task frontmatter
+    DEPENDS_ARRAY="[$DEPENDS]"
+    FRONTMATTER="---
+name: $ISSUE_TITLE
+status: $([ "$ISSUE_STATE" = "closed" ] && echo "closed" || echo "open")
+created: $ISSUE_CREATED
+updated: $ISSUE_UPDATED
+github: $ISSUE_URL
+depends_on: $DEPENDS_ARRAY
+parallel: $IS_PARALLEL
+conflicts_with: []
+imported: true
+---"
+  fi
+
+  # Write file
+  echo "$FRONTMATTER" > "$TARGET_FILE"
+  echo "" >> "$TARGET_FILE"
+  echo "$ISSUE_BODY" >> "$TARGET_FILE"
+
+  echo "  ✅ Imported #$ISSUE_NUM: $ISSUE_TITLE"
+done
+
+echo ""
+echo "📥 Import Complete"
+echo "  Epics: $EPIC_COUNT"
+echo "  Tasks: $TASK_COUNT"
+echo "  Skipped (already tracked): $SKIPPED"
+"""
+
+[tasks."ccpm:sync"]
+description = "Bidirectional sync between local files and GitHub Issues"
+run = """
+#!/usr/bin/env bash
+set -e
+
+EPIC_NAME="${1:-}"
+
+echo "🔄 Starting bidirectional sync..."
+
+# Track changes
+GITHUB_UPDATED=0
+GITHUB_CREATED=0
+LOCAL_UPDATED=0
+LOCAL_CREATED=0
+CONFLICTS=0
+
+# 1. Fetch all issues from GitHub
+if [ -n "$EPIC_NAME" ]; then
+  ISSUES_JSON=$(gh issue list --state all --json number,title,body,state,labels,createdAt,updatedAt --label "epic:$EPIC_NAME" --limit 1000)
+  EPIC_DIRS=(".claude/epics/$EPIC_NAME")
+else
+  ISSUES_JSON=$(gh issue list --state all --json number,title,body,state,labels,createdAt,updatedAt --limit 1000)
+  EPIC_DIRS=(.claude/epics/*/)
+fi
+
+REPO=$(git remote get-url origin | sed 's/.*github.com[:/]//' | sed 's/\\.git$//')
+
+# 2. Process GitHub → Local (import changes)
+echo "$ISSUES_JSON" | jq -c '.[]' | while read -r issue; do
+  ISSUE_NUM=$(echo "$issue" | jq -r '.number')
+  ISSUE_UPDATED=$(echo "$issue" | jq -r '.updatedAt')
+  ISSUE_STATE=$(echo "$issue" | jq -r '.state' | tr '[:upper:]' '[:lower:]')
+
+  # Find local file
+  LOCAL_FILE=$(find .claude/epics -name "$ISSUE_NUM.md" -o -name "epic.md" -exec grep -l "issues/$ISSUE_NUM\\$" {} \\; 2>/dev/null | head -1)
+
+  if [ -z "$LOCAL_FILE" ]; then
+    # No local file - create it (import)
+    echo "  ← Creating local file from GitHub #$ISSUE_NUM"
+    LOCAL_CREATED=$((LOCAL_CREATED + 1))
+    # Use import logic here (extract labels, create file)
+    continue
+  fi
+
+  # Check local updated timestamp
+  LOCAL_UPDATED_TS=$(grep '^updated:' "$LOCAL_FILE" | awk '{print $2}')
+
+  # Compare timestamps
+  if [[ "$ISSUE_UPDATED" > "$LOCAL_UPDATED_TS" ]]; then
+    # GitHub is newer - update local
+    echo "  ← Updating local from GitHub #$ISSUE_NUM"
+
+    # Preserve frontmatter structure, update body
+    ISSUE_BODY=$(echo "$issue" | jq -r '.body // ""')
+
+    # Extract and preserve frontmatter
+    FRONTMATTER=$(sed -n '/^---$/,/^---$/p' "$LOCAL_FILE")
+
+    # Update state in frontmatter
+    NEW_STATUS=$([ "$ISSUE_STATE" = "closed" ] && echo "closed" || echo "open")
+    FRONTMATTER=$(echo "$FRONTMATTER" | sed "s/^status: .*/status: $NEW_STATUS/")
+    FRONTMATTER=$(echo "$FRONTMATTER" | sed "s/^updated: .*/updated: $ISSUE_UPDATED/")
+
+    # Rewrite file
+    echo "$FRONTMATTER" > "$LOCAL_FILE"
+    echo "" >> "$LOCAL_FILE"
+    echo "$ISSUE_BODY" >> "$LOCAL_FILE"
+
+    LOCAL_UPDATED=$((LOCAL_UPDATED + 1))
+  fi
+done
+
+# 3. Process Local → GitHub (export changes)
+for EPIC_DIR in "${EPIC_DIRS[@]}"; do
+  [ -d "$EPIC_DIR" ] || continue
+
+  for LOCAL_FILE in "$EPIC_DIR"/*.md; do
+    [ -f "$LOCAL_FILE" ] || continue
+
+    # Get GitHub URL from frontmatter
+    GITHUB_URL=$(grep '^github:' "$LOCAL_FILE" | awk '{print $2}')
+    LOCAL_UPDATED_TS=$(grep '^updated:' "$LOCAL_FILE" | awk '{print $2}')
+
+    if [ -z "$GITHUB_URL" ] || [ "$GITHUB_URL" = "[Will" ]; then
+      # No GitHub issue - create one
+      echo "  → Creating GitHub issue from local $(basename "$LOCAL_FILE")"
+
+      TITLE=$(grep '^name:' "$LOCAL_FILE" | cut -d: -f2- | sed 's/^ *//')
+      BODY=$(sed '/^---$/,/^---$/d' "$LOCAL_FILE")
+
+      # Extract labels from frontmatter
+      EPIC_LABEL=$(basename "$(dirname "$LOCAL_FILE")")
+      LABELS="task,epic:$EPIC_LABEL"
+
+      PARALLEL=$(grep '^parallel:' "$LOCAL_FILE" | awk '{print $2}')
+      [ "$PARALLEL" = "true" ] && LABELS="$LABELS,parallel"
+
+      # Create issue
+      NEW_ISSUE=$(gh issue create --title "$TITLE" --body "$BODY" --label "$LABELS" | grep -oE '[0-9]+$')
+      NEW_URL="https://github.com/$REPO/issues/$NEW_ISSUE"
+
+      # Update local file with GitHub URL
+      sed -i "s|github: .*|github: $NEW_URL|" "$LOCAL_FILE"
+      sed -i "s/^updated: .*/updated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")/" "$LOCAL_FILE"
+
+      # Rename file to issue number
+      NEW_FILE="$(dirname "$LOCAL_FILE")/$NEW_ISSUE.md"
+      mv "$LOCAL_FILE" "$NEW_FILE"
+
+      GITHUB_CREATED=$((GITHUB_CREATED + 1))
+      continue
+    fi
+
+    # Extract issue number from URL
+    ISSUE_NUM=$(echo "$GITHUB_URL" | grep -oE '[0-9]+$')
+
+    # Get GitHub updated timestamp
+    GITHUB_UPDATED_TS=$(echo "$ISSUES_JSON" | jq -r ".[] | select(.number == $ISSUE_NUM) | .updatedAt")
+
+    if [ -z "$GITHUB_UPDATED_TS" ]; then
+      echo "  ⚠️  GitHub issue #$ISSUE_NUM deleted - archiving local file"
+      continue
+    fi
+
+    # Compare timestamps
+    if [[ "$LOCAL_UPDATED_TS" > "$GITHUB_UPDATED_TS" ]]; then
+      # Local is newer - update GitHub
+      echo "  → Updating GitHub #$ISSUE_NUM from local"
+
+      BODY=$(sed '/^---$/,/^---$/d' "$LOCAL_FILE")
+      gh issue edit "$ISSUE_NUM" --body "$BODY"
+
+      # Update labels based on frontmatter
+      PARALLEL=$(grep '^parallel:' "$LOCAL_FILE" | awk '{print $2}')
+      STATUS=$(grep '^status:' "$LOCAL_FILE" | awk '{print $2}')
+
+      if [ "$STATUS" = "closed" ]; then
+        gh issue close "$ISSUE_NUM" 2>/dev/null || true
+      elif [ "$STATUS" = "open" ]; then
+        gh issue reopen "$ISSUE_NUM" 2>/dev/null || true
+      fi
+
+      GITHUB_UPDATED=$((GITHUB_UPDATED + 1))
+    elif [[ "$LOCAL_UPDATED_TS" != "$GITHUB_UPDATED_TS" ]]; then
+      # Both changed - conflict
+      echo "  ⚠️  Conflict detected for #$ISSUE_NUM (both local and GitHub modified)"
+      CONFLICTS=$((CONFLICTS + 1))
+    fi
+  done
+done
+
+echo ""
+echo "🔄 Sync Complete"
+echo ""
+echo "← From GitHub:"
+echo "  Updated: $LOCAL_UPDATED files"
+echo "  Created: $LOCAL_CREATED files"
+echo ""
+echo "→ To GitHub:"
+echo "  Updated: $GITHUB_UPDATED issues"
+echo "  Created: $GITHUB_CREATED issues"
+echo ""
+[ $CONFLICTS -gt 0 ] && echo "⚠️  Conflicts detected: $CONFLICTS (review manually)" || echo "Status: ✅ All in sync"
+"""
