@@ -41,10 +41,17 @@ guide you.
 After running the mise task:
 
 1. **Link Sub-Issues**:
-   Use `gh` CLI to link tasks to epic as sub-issues:
+   Link tasks to epic using GraphQL API:
 
    ```bash
-   gh issue edit EPIC_NUM --add-subissue TASK_NUM_1,TASK_NUM_2,TASK_NUM_3
+   # Get epic issue ID
+   epic_id=$(gh api graphql -f query='query { repository(owner: "OWNER", name: "REPO") { issue(number: EPIC_NUM) { id } } }' --jq '.data.repository.issue.id')
+
+   # Link each task
+   for task_num in TASK_NUM_1 TASK_NUM_2 TASK_NUM_3; do
+     task_id=$(gh api graphql -f query="query { repository(owner: \"OWNER\", name: \"REPO\") { issue(number: $task_num) { id } } }" --jq '.data.repository.issue.id')
+     gh api graphql -f query="mutation { addSubIssue(input: {issueId: \"$epic_id\", subIssueId: \"$task_id\"}) { issue { number } } }"
+   done
    ```
 
 2. **Verify Sync**:
