@@ -18,38 +18,27 @@ Safely merge a completed epic branch to main, close related GitHub issues, and c
 
 ## Prerequisites
 
-- Epic worktree exists at `../epic-$ARGUMENTS`
-- Epic branch `epic/$ARGUMENTS` exists
-- All tasks are completed (check epic.md status)
-- No active agents running (check execution-status.md if it exists)
+Run the merge task:
 
-## Steps
+```bash
+mise run //:ccpm:epic:merge $ARGUMENTS
+```
 
-1. **Validate State**
-   - Verify worktree exists and has no uncommitted changes
-   - Check epic completion status
-   - Run tests if configured in mise.toml
+This will:
 
-2. **Merge to Main**
-   - Update main branch from remote
-   - Merge epic branch with `--no-ff` (preserve history)
-   - Include epic summary in merge commit message
-   - Handle conflicts if they occur (abort and report if needed)
+- Validate worktree exists with no uncommitted changes
+- Run tests if available in mise.toml
+- Merge epic branch to main with `--no-ff`
+- Close all GitHub issues (epic + tasks)
+- Remove worktree and delete branches
+- Archive epic to `.claude/epics/archived/`
+- Push to main
 
-3. **Update Epic Documentation**
-   - Mark epic as completed
-   - Update completion timestamp
-   - Archive to `.claude/epics/archived/$ARGUMENTS`
+If the task succeeds, the epic is merged and cleaned up. If it fails, the error message will guide you.
 
-4. **Close GitHub Issues**
-   - Extract epic and task issue numbers from frontmatter
-   - Close epic issue with completion comment
-   - Close all related task issues
+## Instructions
 
-5. **Cleanup**
-   - Remove worktree
-   - Delete local and remote epic branch
-   - Push changes to main
+The mise task handles all deterministic operations. You only need to run it when the epic is complete.
 
 ## Expected Output
 

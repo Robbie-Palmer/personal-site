@@ -22,42 +22,28 @@ Options:
 
 Pull GitHub issues and create local markdown files with frontmatter + full content.
 
-## Steps
+## Instructions
 
-1. **Fetch Issues**
-   - Get issues with JSON: `number,title,body,state,labels,createdAt,updatedAt`
-   - Filter by provided options
+Run the import task:
 
-2. **Identify Untracked**
-   - Search local files for existing `github:` URLs
-   - Skip already imported issues
+```bash
+mise run //:ccpm:import [$ARGUMENTS] [--label <label>]
+```
 
-3. **Categorize by Labels**
-   - `epic` label → Create epic structure
-   - `task` + `epic:{name}` → Create task in that epic
-   - Other issues → Ask user or create in "imported" epic
+Options:
 
-4. **Create Local Files**
+- First argument: Epic name (optional - imports only that epic's issues)
+- `--label`: Import only issues with specific label (optional)
+- No args: Import all untracked issues
 
-For each issue:
+This will:
 
-- Parse GitHub body for structured content (Description, Acceptance Criteria, etc.)
-- Reconstruct frontmatter:
-
-  ```yaml
-  name: {issue title}
-  status: {open|closed}
-  created: {GitHub createdAt}
-  updated: {GitHub updatedAt}
-  github: {issue URL}
-  depends_on: [{extract from depends:NNN labels}]
-  parallel: {true if has parallel label}
-  conflicts_with: []
-  imported: true
-  ```
-
-- Combine frontmatter + GitHub body content into local `.md` file
-- Use issue number as filename: `{issue_number}.md`
+- Fetch all GitHub issues as JSON
+- Skip issues already tracked locally
+- Categorize by labels (epic, task, epic:name)
+- Reconstruct frontmatter from GitHub metadata
+- Create local files with full content
+- Mark with `imported: true`
 
 ## Expected Output
 

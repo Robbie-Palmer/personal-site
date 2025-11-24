@@ -18,68 +18,57 @@ If epic_name provided, sync only that epic. Otherwise sync all.
 
 Keep local markdown files and GitHub issues in sync, preserving all content in both directions.
 
-## Steps
+## Instructions
 
-### 1. Pull from GitHub
+Run the sync task:
 
-- Fetch all epic/task issues with full JSON metadata
-- For each issue, compare with local file by issue number
+```bash
+mise run //:ccpm:sync [$ARGUMENTS]
+```
 
-### 2. GitHub → Local (Import changes)
+Options:
 
-For each GitHub issue:
+- Argument: Epic name (optional - syncs only that epic)
+- No args: Sync all epics
 
-- Find local file: `.claude/epics/*/{issue_number}.md`
-- If no local file exists: Create it (like `/pm:import`)
-- If local exists but GitHub is newer (`updatedAt` > local `updated`):
-  - Update local file content from GitHub body
-  - Update frontmatter from GitHub metadata (state, labels)
-  - Preserve local-only fields (notes, etc.)
+This will:
 
-### 3. Local → GitHub (Export changes)
+### GitHub → Local
 
-For each local task file:
+- Fetch all GitHub issues
+- Create local files for new issues
+- Update local files when GitHub is newer
+- Preserve frontmatter structure
 
-- Check if it has `github:` URL
-- If no URL: Create new GitHub issue (like `/pm:epic-sync`)
-- If URL exists but issue deleted: Mark local as archived
-- If local is newer (`updated` > GitHub `updatedAt`):
-  - Update GitHub issue body from local content (strip frontmatter)
-  - Update labels from frontmatter (`depends_on` → `depends:NNN` labels, `parallel` → `parallel` label)
+### Local → GitHub
 
-### 3a. Link Sub-Issues to Epic
+- Create GitHub issues for unsynced local files
+- Update GitHub when local is newer
+- Update labels and state
 
-After creating/updating issues, link task issues to their epic using GitHub's sub-issues feature:
+### Conflict Detection
 
-1. Get the epic issue ID:
+- Detect when both local and GitHub changed
+- Report conflicts for manual resolution
+
+## Post-Sync: Link Sub-Issues
+
+After sync, you may want to link task issues to epic as sub-issues using GraphQL:
+
+1. Get epic issue ID:
 
    ```bash
    epic_id=$(gh api graphql -f query='query { repository(owner: "OWNER", name: "REPO") { issue(number: EPIC_NUM) { id } } }' --jq '.data.repository.issue.id')
    ```
 
-2. For each task issue, get its ID and add as sub-issue:
+2. Link each task:
 
    ```bash
-   for issue_num in TASK_NUMBERS; do
-     issue_id=$(gh api graphql -f query="query { repository(owner: \"OWNER\", name: \"REPO\") { issue(number: $issue_num) { id } } }" --jq '.data.repository.issue.id')
-     gh api graphql -f query="mutation { addSubIssue(input: {issueId: \"$epic_id\", subIssueId: \"$issue_id\"}) { issue { number } } }"
-   done
+   issue_id=$(gh api graphql -f query="query { repository(owner: \"OWNER\", name: \"REPO\") { issue(number: TASK_NUM) { id } } }" --jq '.data.repository.issue.id')
+   gh api graphql -f query="mutation { addSubIssue(input: {issueId: \"$epic_id\", subIssueId: \"$issue_id\"}) { issue { number } } }"
    ```
 
-**Note**: The `gh` CLI doesn't have a `--add-subissue` flag, so we must use the GraphQL API with the
-`addSubIssue` mutation. This creates the proper parent-child relationship visible in GitHub's UI.
-
-### 4. Handle Conflicts
-
-If both changed (local `updated` and GitHub `updatedAt` both newer than last sync):
-
-- Show diff of both versions
-- Ask user: "Both changed. Keep: (local/github/merge)?"
-- Apply choice
-
-### 5. Update Timestamps
-
-Update all synced files with current `updated`/`last_sync` timestamp.
+Note: The `gh` CLI doesn't have a direct flag for sub-issues - must use GraphQL API.
 
 ## Expected Output
 

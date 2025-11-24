@@ -18,37 +18,33 @@ Sync local epic and task files to GitHub Issues, preserving all content so issue
 
 ## Prerequisites
 
-- Epic exists: `.claude/epics/$ARGUMENTS/epic.md`
-- Tasks exist: `.claude/epics/$ARGUMENTS/001.md`, `002.md`, etc.
-- Remote is not the CCPM template repo
+Run the sync task to create GitHub issues:
 
-## Steps
+```bash
+mise run //:ccpm:epic:sync $ARGUMENTS
+```
 
-1. **Create Epic Issue**
-   - Strip frontmatter from epic.md
-   - Create GitHub issue with full markdown content (all sections: Description, Requirements, etc.)
-   - Labels: `epic,epic:$ARGUMENTS`
+This will:
 
-2. **Create Task Issues**
-   - For each task file: Strip frontmatter, include ALL content (Description, Acceptance Criteria, Technical Details,
-     Effort Estimate)
-   - Labels: `task,epic:$ARGUMENTS`
-   - If `depends_on` has values, add labels: `depends:001`, `depends:002`
-   - If `parallel: true`, add label: `parallel`
-   - Use `gh-sub-issue` extension if available for parent/child relationships
+- Validate epic exists with tasks
+- Create GitHub epic issue with full content
+- Create task issues with labels (epic:name, parallel, depends:NNN)
+- Rename local files to issue numbers
+- Update frontmatter with GitHub URLs
+- Create worktree at `../epic-$ARGUMENTS`
 
-3. **Rename & Update Local Files**
-   - Rename `001.md` → `{issue_number}.md`
-   - Update `depends_on`/`conflicts_with` to use real issue numbers
-   - Set `github:` field to issue URL
-   - Update `updated:` timestamp
+If the task succeeds, all issues are created and the worktree is ready. If it fails, the error message will
+guide you.
 
-4. **Update Epic**
-   - Add GitHub URL to epic frontmatter
-   - Update "Tasks Created" section with real issue numbers
+## Instructions
 
-5. **Create Worktree**
-   - Create worktree at `../epic-$ARGUMENTS` on branch `epic/$ARGUMENTS`
+After running the mise task, you may want to:
+
+1. **Link Sub-Issues** (if not using gh-sub-issue extension):
+   Use GraphQL API to link tasks to epic as sub-issues (see sync.md for details)
+
+2. **Verify Sync**:
+   Check that all GitHub issues contain full content and correct labels
 
 ## Important: Content Preservation
 

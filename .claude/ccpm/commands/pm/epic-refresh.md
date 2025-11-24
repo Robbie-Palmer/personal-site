@@ -16,28 +16,21 @@ Update epic progress based on task states.
 
 Recalculate epic completion percentage and status based on task states, sync with GitHub.
 
-## Steps
+## Instructions
 
-1. **Count Tasks**
-   - Scan all task files in `.claude/epics/$ARGUMENTS/`
-   - Count total, closed, and open tasks
+Run the refresh task:
 
-2. **Calculate Progress**
-   - Progress = (closed_tasks / total_tasks) * 100
-   - Round to nearest integer
+```bash
+mise run //:ccpm:epic:refresh $ARGUMENTS
+```
 
-3. **Determine Status**
-   - `backlog` if 0% and no work started
-   - `in-progress` if 0% < progress < 100%
-   - `completed` if 100%
+This will:
 
-4. **Update Epic**
-   - Update epic.md frontmatter: status, progress, updated timestamp
-   - Preserve all other fields
-
-5. **Sync GitHub**
-   - If epic has GitHub issue, update task checkboxes to match local status
-   - Checked = closed, unchecked = open
+- Count total and closed tasks
+- Calculate progress percentage
+- Determine status (backlog/in-progress/completed)
+- Update epic.md frontmatter
+- Report changes
 
 ## Expected Output
 
