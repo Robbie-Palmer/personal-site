@@ -38,10 +38,14 @@ guide you.
 
 ## Instructions
 
-After running the mise task, you may want to:
+After running the mise task:
 
-1. **Link Sub-Issues** (if not using gh-sub-issue extension):
-   Use GraphQL API to link tasks to epic as sub-issues (see sync.md for details)
+1. **Link Sub-Issues**:
+   Use `gh` CLI to link tasks to epic as sub-issues:
+
+   ```bash
+   gh issue edit EPIC_NUM --add-subissue TASK_NUM_1,TASK_NUM_2,TASK_NUM_3
+   ```
 
 2. **Verify Sync**:
    Check that all GitHub issues contain full content and correct labels

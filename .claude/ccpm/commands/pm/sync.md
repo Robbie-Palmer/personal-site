@@ -53,22 +53,11 @@ This will:
 
 ## Post-Sync: Link Sub-Issues
 
-After sync, you may want to link task issues to epic as sub-issues using GraphQL:
+After sync, link task issues to epic as sub-issues:
 
-1. Get epic issue ID:
-
-   ```bash
-   epic_id=$(gh api graphql -f query='query { repository(owner: "OWNER", name: "REPO") { issue(number: EPIC_NUM) { id } } }' --jq '.data.repository.issue.id')
-   ```
-
-2. Link each task:
-
-   ```bash
-   issue_id=$(gh api graphql -f query="query { repository(owner: \"OWNER\", name: \"REPO\") { issue(number: TASK_NUM) { id } } }" --jq '.data.repository.issue.id')
-   gh api graphql -f query="mutation { addSubIssue(input: {issueId: \"$epic_id\", subIssueId: \"$issue_id\"}) { issue { number } } }"
-   ```
-
-Note: The `gh` CLI doesn't have a direct flag for sub-issues - must use GraphQL API.
+```bash
+gh issue edit EPIC_NUM --add-subissue TASK_NUM_1,TASK_NUM_2,TASK_NUM_3
+```
 
 ## Expected Output
 
@@ -97,5 +86,5 @@ Status: ✅ All in sync
 - Frontmatter is reconstructed from GitHub metadata on import
 - Labels encode metadata: `epic:name`, `task`, `parallel`
 - Dependencies between tasks are documented in task issue bodies (e.g., "**Dependencies:** #81, #82")
-- Sub-issues must be linked via GraphQL API (`addSubIssue` mutation) - `gh` CLI has no direct flag for this
+- Sub-issues are linked using `gh issue edit --add-subissue`
 - This enables working across multiple machines seamlessly
