@@ -58,6 +58,10 @@ export interface BlogPost {
   slug: string;
   content: string;
   readingTime: string;
+  // Optional until all posts have images (Task 006)
+  // Currently validated with warnings only for progressive enhancement
+  image?: string;
+  imageAlt?: string;
 }
 
 export function getAllPostSlugs(): string[] {
@@ -153,6 +157,21 @@ export function getPostBySlug(slug: string): BlogPost {
     }
   }
 
+  if (!data.image || typeof data.image !== "string") {
+    console.warn(`Post ${slug} is missing required field: image`);
+  } else {
+    const imagePath = path.join(process.cwd(), "public", data.image);
+    if (!fs.existsSync(imagePath)) {
+      console.warn(
+        `Post ${slug}: Featured image file not found at ${data.image}`,
+      );
+    }
+  }
+
+  if (!data.imageAlt || typeof data.imageAlt !== "string") {
+    console.warn(`Post ${slug} is missing required field: imageAlt`);
+  }
+
   const readableText = extractReadableText(content);
   const stats = readingTime(readableText);
 
@@ -166,6 +185,8 @@ export function getPostBySlug(slug: string): BlogPost {
     canonicalUrl: data.canonicalUrl,
     content,
     readingTime: stats.text,
+    image: data.image,
+    imageAlt: data.imageAlt,
   };
 }
 
