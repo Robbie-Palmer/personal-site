@@ -21,11 +21,10 @@ const pathMock = vi.hoisted(() => {
     return joined.startsWith("/") ? joined : `/${joined}`;
   });
   const relative = vi.fn((from: string, to: string) => {
-    // Simple mock implementation for testing
     if (to.startsWith(from)) {
-      return to.slice(from.length + 1); // Remove the base path
+      return to.slice(from.length + 1);
     }
-    return `../${to.split("/").pop()}`; // Mock going outside
+    return `../${to.split("/").pop()}`;
   });
   const isAbsolute = vi.fn((p: string) => p.startsWith("/"));
 
@@ -48,7 +47,7 @@ import { getAllPostSlugs, getAllPosts, getPostBySlug } from "@/lib/blog";
 
 describe("Blog functions", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   describe("getAllPostSlugs", () => {
@@ -79,6 +78,8 @@ title: "Test Post"
 description: "Test description"
 date: "2025-10-19"
 tags: ["test"]
+image: "/blog-images/test.jpg"
+imageAlt: "Test image"
 ---
 
 # Test Content`;
@@ -147,9 +148,11 @@ tags: ["test"]
     it("should accept valid simple slugs", () => {
       vi.mocked(path.resolve)
         .mockReturnValueOnce("/mock/content/blog/valid-slug.mdx")
-        .mockReturnValueOnce("/mock/content/blog");
+        .mockReturnValueOnce("/mock/content/blog")
+        .mockReturnValueOnce("/mock/public/blog-images/test.jpg");
       vi.mocked(path.relative).mockReturnValueOnce("valid-slug.mdx");
       vi.mocked(fs.readFileSync).mockReturnValue(validFileContent);
+      vi.mocked(fs.existsSync).mockReturnValue(true);
       const result = getPostBySlug("valid-slug");
       expect(result.slug).toBe("valid-slug");
       expect(result.title).toBe("Test Post");
@@ -158,9 +161,11 @@ tags: ["test"]
     it("should accept slugs with hyphens and underscores", () => {
       vi.mocked(path.resolve)
         .mockReturnValueOnce("/mock/content/blog/valid-slug_123.mdx")
-        .mockReturnValueOnce("/mock/content/blog");
+        .mockReturnValueOnce("/mock/content/blog")
+        .mockReturnValueOnce("/mock/public/blog-images/test.jpg");
       vi.mocked(path.relative).mockReturnValueOnce("valid-slug_123.mdx");
       vi.mocked(fs.readFileSync).mockReturnValue(validFileContent);
+      vi.mocked(fs.existsSync).mockReturnValue(true);
       const result = getPostBySlug("valid-slug_123");
       expect(result.slug).toBe("valid-slug_123");
     });
@@ -173,6 +178,8 @@ title: "My Blog Post"
 description: "A great post"
 date: "2025-10-19"
 tags: ["tag1", "tag2"]
+image: "/blog-images/test.jpg"
+imageAlt: "Test image"
 ---
 
 # Heading
@@ -180,9 +187,11 @@ tags: ["tag1", "tag2"]
 This is the content.`;
       vi.mocked(path.resolve)
         .mockReturnValueOnce("/mock/content/blog/test.mdx")
-        .mockReturnValueOnce("/mock/content/blog");
+        .mockReturnValueOnce("/mock/content/blog")
+        .mockReturnValueOnce("/mock/public/blog-images/test.jpg");
       vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
       vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
+      vi.mocked(fs.existsSync).mockReturnValue(true);
       const result = getPostBySlug("test");
       expect(result).toEqual({
         slug: "test",
@@ -190,6 +199,8 @@ This is the content.`;
         description: "A great post",
         date: "2025-10-19",
         tags: ["tag1", "tag2"],
+        image: "/blog-images/test.jpg",
+        imageAlt: "Test image",
         content: "\n# Heading\n\nThis is the content.",
         readingTime: "1 min read",
       });
@@ -309,22 +320,6 @@ Content.`;
         { slug: "middle-post", date: "2025-06-10" },
       ];
 
-      vi.mocked(path.resolve).mockImplementation((...args: string[]) => {
-        const joined = args.join("/");
-        if (joined.includes(".mdx")) {
-          return `/mock/${joined}`;
-        }
-        return "/mock/content/blog";
-      });
-
-      vi.mocked(path.relative).mockImplementation(
-        (_from: string, to: string) => {
-          // Extract the filename from the full path
-          const filename = to.split("/").pop() || "";
-          return filename;
-        },
-      );
-
       // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
       vi.mocked(fs.readFileSync).mockImplementation((filePath: any) => {
         const post = posts.find((p) => filePath.includes(p.slug));
@@ -333,9 +328,12 @@ title: "${post?.slug}"
 description: "Description"
 date: "${post?.date}"
 tags: []
+image: "/blog-images/${post?.slug}.jpg"
+imageAlt: "Test image"
 ---
 Content`;
       });
+
       const result = getAllPosts();
       expect(result.map((p) => p.slug)).toEqual([
         "new-post",
@@ -359,22 +357,6 @@ Content`;
         // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
       ] as any);
 
-      vi.mocked(path.resolve).mockImplementation((...args: string[]) => {
-        const joined = args.join("/");
-        if (joined.includes(".mdx")) {
-          return `/mock/${joined}`;
-        }
-        return "/mock/content/blog";
-      });
-
-      vi.mocked(path.relative).mockImplementation(
-        (_from: string, to: string) => {
-          // Extract the filename from the full path
-          const filename = to.split("/").pop() || "";
-          return filename;
-        },
-      );
-
       // All posts have the same date
       // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
       vi.mocked(fs.readFileSync).mockImplementation((filePath: any) => {
@@ -388,9 +370,12 @@ title: "${slug}"
 description: "Description"
 date: "2025-10-19"
 tags: []
+image: "/blog-images/${slug}.jpg"
+imageAlt: "Test image"
 ---
 Content`;
       });
+
       const result = getAllPosts();
       // Should maintain file system order when dates are equal
       expect(result.map((p) => p.slug)).toEqual(["first", "second", "third"]);
