@@ -12,174 +12,66 @@ Convert PRD to technical implementation epic.
 /pm:prd-parse <feature_name>
 ```
 
-## Preflight Checklist
+## Prerequisites
 
-Before proceeding, complete these validation steps.
-Do not bother the user with preflight checks progress ("I'm not going to ..."). Just do them and move on.
+Run the setup task to validate and prepare:
 
-### Validation Steps
+```bash
+mise run //:ccpm:prd:parse $ARGUMENTS
+```
 
-1. **Verify <feature_name> was provided as a parameter:**
-   - If not, tell user: "❌ <feature_name> was not provided as parameter. Please run: /pm:prd-parse <feature_name>"
-   - Stop execution if <feature_name> was not provided
+This will:
 
-2. **Verify PRD exists:**
-   - Check if `.claude/prds/$ARGUMENTS.md` exists
-   - If not found, tell user: "❌ PRD not found: $ARGUMENTS. First create it with: /pm:prd-new $ARGUMENTS"
-   - Stop execution if PRD doesn't exist
+- Verify PRD exists at `.claude/prds/$ARGUMENTS.md`
+- Validate PRD frontmatter
+- Check for existing epic and prompt for overwrite
+- Create `.claude/epics/$ARGUMENTS/` directory
+- Copy template to `.claude/epics/$ARGUMENTS/epic.md` with frontmatter filled in
 
-3. **Validate PRD frontmatter:**
-   - Verify PRD has valid frontmatter with: name, description, status, created
-   - If frontmatter is invalid or missing, tell user: "❌ Invalid PRD frontmatter. Please check: .claude/prds/$ARGUMENTS.md"
-   - Show what's missing or invalid
+If the task succeeds, the template file is ready for you to fill in. If it fails, the error message will guide you.
 
-4. **Check for existing epic:**
-   - Check if `.claude/epics/$ARGUMENTS/epic.md` already exists
-   - If it exists, ask user: "⚠️ Epic '$ARGUMENTS' already exists. Overwrite? (yes/no)"
-   - Only proceed with explicit 'yes' confirmation
-   - If user says no, suggest: "View existing epic with: /pm:epic-show $ARGUMENTS"
+## Goal
 
-5. **Verify directory permissions:**
-   - Ensure `.claude/epics/` directory exists or can be created
-   - If cannot create, tell user: "❌ Cannot create epic directory. Please check permissions."
+Convert the PRD into a detailed technical implementation epic for **$ARGUMENTS**.
 
 ## Instructions
 
-You are a technical lead converting a Product Requirements Document into a detailed implementation epic for:
-**$ARGUMENTS**
+1. **Read PRD**
+   - Load `.claude/prds/$ARGUMENTS.md`
+   - Analyze all requirements and constraints
+   - Understand user stories and success criteria
+   - Extract PRD description from frontmatter
 
-### 1. Read the PRD
+2. **Technical Analysis**
+   - **Architecture**: Identify key technical decisions needed, determine technology stack and approaches
+   - **Mapping**: Map functional requirements to technical components (Frontend, Backend, Infrastructure)
+   - **Integration**: Identify integration points and external dependencies
+   - **Risk**: Identify potential technical risks and mitigation strategies
 
-- Load the PRD from `.claude/prds/$ARGUMENTS.md`
-- Analyze all requirements and constraints
-- Understand the user stories and success criteria
-- Extract the PRD description from frontmatter
+3. **Fill Template**
+   - The template has been copied to: `.claude/epics/$ARGUMENTS/epic.md`
+   - Placeholders already replaced (feature name, created datetime, prd reference)
+   - Fill all sections with comprehensive technical details:
+     - **Architecture Decisions**: Technology choices, design patterns, rationale
+     - **Technical Approach**: Frontend components, backend services, infrastructure needs
+     - **Implementation Strategy**: Development phases, risk mitigation, testing approach
+     - **Task Breakdown Preview**: High-level categories (aim for ≤10 total tasks)
+     - **Dependencies**: External services, internal teams, prerequisite work
+     - **Success Criteria**: Performance benchmarks, quality gates, technical acceptance criteria
+     - **Estimated Effort**: Timeline, resources, critical path
 
-### 2. Technical Analysis
+4. **Quality Check**
+   - All PRD requirements addressed in technical approach
+   - Task breakdown categories cover all implementation areas
+   - Dependencies are technically accurate and complete
+   - Effort estimates are realistic
+   - Architecture decisions are justified
+   - **Aim for ≤10 tasks total** - simplify and leverage existing functionality where possible
 
-- Identify architectural decisions needed
-- Determine technology stack and approaches
-- Map functional requirements to technical components
-- Identify integration points and dependencies
-
-### 3. File Format with Frontmatter
-
-Create the epic file at: `.claude/epics/$ARGUMENTS/epic.md` with this exact structure:
-
-```markdown
----
-name: $ARGUMENTS
-status: backlog
-created: [Current ISO date/time]
-progress: 0%
-prd: .claude/prds/$ARGUMENTS.md
-github: [Will be updated when synced to GitHub]
----
-
-# Epic: $ARGUMENTS
-
-## Overview
-Brief technical summary of the implementation approach
-
-## Architecture Decisions
-- Key technical decisions and rationale
-- Technology choices
-- Design patterns to use
-
-## Technical Approach
-### Frontend Components
-- UI components needed
-- State management approach
-- User interaction patterns
-
-### Backend Services
-- API endpoints required
-- Data models and schema
-- Business logic components
-
-### Infrastructure
-- Deployment considerations
-- Scaling requirements
-- Monitoring and observability
-
-## Implementation Strategy
-- Development phases
-- Risk mitigation
-- Testing approach
-
-## Task Breakdown Preview
-High-level task categories that will be created:
-- [ ] Category 1: Description
-- [ ] Category 2: Description
-- [ ] etc.
-
-## Dependencies
-- External service dependencies
-- Internal team dependencies
-- Prerequisite work
-
-## Success Criteria (Technical)
-- Performance benchmarks
-- Quality gates
-- Acceptance criteria
-
-## Estimated Effort
-- Overall timeline estimate
-- Resource requirements
-- Critical path items
-```
-
-### 4. Frontmatter Guidelines
-
-- **name**: Use the exact feature name (same as $ARGUMENTS)
-- **status**: Always start with "backlog" for new epics
-- **created**: Get REAL current datetime by running: `date -u +"%Y-%m-%dT%H:%M:%SZ"`
-- **progress**: Always start with "0%" for new epics
-- **prd**: Reference the source PRD file path
-- **github**: Leave placeholder text - will be updated during sync
-
-### 5. Output Location
-
-Create the directory structure if it doesn't exist:
-
-- `.claude/epics/$ARGUMENTS/` (directory)
-- `.claude/epics/$ARGUMENTS/epic.md` (epic file)
-
-### 6. Quality Validation
-
-Before saving the epic, verify:
-
-- [ ] All PRD requirements are addressed in the technical approach
-- [ ] Task breakdown categories cover all implementation areas
-- [ ] Dependencies are technically accurate
-- [ ] Effort estimates are realistic
-- [ ] Architecture decisions are justified
-
-### 7. Post-Creation
-
-After successfully creating the epic:
-
-1. Confirm: "✅ Epic created: .claude/epics/$ARGUMENTS/epic.md"
-2. Show summary of:
-   - Number of task categories identified
-   - Key architecture decisions
-   - Estimated effort
-3. Suggest next step: "Ready to break down into tasks? Run: /pm:epic-decompose $ARGUMENTS"
-
-## Error Recovery
-
-If any step fails:
-
-- Clearly explain what went wrong
-- If PRD is incomplete, list specific missing sections
-- If technical approach is unclear, identify what needs clarification
-- Never create an epic with incomplete information
-
-Focus on creating a technically sound implementation plan that addresses all PRD requirements while being practical and
-achievable for "$ARGUMENTS".
-
-## IMPORTANT
-
-- Aim for as few tasks as possible and limit the total number of tasks to 10 or less.
-- When creating the epic, identify ways to simplify and improve it. Look for ways to leverage existing
-  functionality instead of creating more code when possible.
+5. **Completion**
+   - Confirm: "✅ Epic created: .claude/epics/$ARGUMENTS/epic.md"
+   - Show summary:
+     - Number of task categories identified
+     - Key architecture decisions
+     - Estimated effort
+   - Suggest: "Ready to break down into tasks? Run: /pm:epic-decompose $ARGUMENTS"

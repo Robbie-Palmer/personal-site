@@ -81,3 +81,109 @@ depends = ["//:install"]
 [tasks.install]
 description = "Install all dependencies (root and workspaces)"
 run = "pnpm install"
+
+# CCPM tasks
+[tasks."ccpm:prd:new"]
+description = "Validate and setup new PRD"
+run = """
+#!/usr/bin/env bash
+set -e
+
+FEATURE_NAME="${1:-}"
+
+# Validate feature name provided
+if [ -z "$FEATURE_NAME" ]; then
+  echo "❌ Feature name required. Usage: mise run ccpm:prd:new <feature-name>"
+  exit 1
+fi
+
+# Validate kebab-case format
+if ! [[ "$FEATURE_NAME" =~ ^[a-z][a-z0-9-]*$ ]]; then
+  echo "❌ Feature name must be kebab-case (lowercase letters, numbers, hyphens only)"
+  echo "   Examples: user-auth, payment-v2, notification-system"
+  exit 1
+fi
+
+# Check for existing PRD
+if [ -f ".claude/prds/$FEATURE_NAME.md" ]; then
+  read -p "⚠️  PRD '$FEATURE_NAME' already exists. Overwrite? (yes/no): " response
+  if [ "$response" != "yes" ]; then
+    echo "Use a different name or run: /pm:prd-parse $FEATURE_NAME"
+    exit 1
+  fi
+fi
+
+# Create directory if needed
+mkdir -p .claude/prds
+
+# Copy template with placeholders
+cp .claude/ccpm/templates/prd-template.md ".claude/prds/$FEATURE_NAME.md"
+
+# Replace placeholders with actual values
+CREATED_DATETIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+sed -i "s/FEATURE_NAME/$FEATURE_NAME/g" ".claude/prds/$FEATURE_NAME.md"
+sed -i "s/CREATED_DATETIME/$CREATED_DATETIME/g" ".claude/prds/$FEATURE_NAME.md"
+
+echo "✅ Template created at .claude/prds/$FEATURE_NAME.md"
+echo "   Now fill in all sections with comprehensive content"
+"""
+
+[tasks."ccpm:prd:parse"]
+description = "Validate and setup epic from PRD"
+run = """
+#!/usr/bin/env bash
+set -e
+
+FEATURE_NAME="${1:-}"
+
+# Validate feature name provided
+if [ -z "$FEATURE_NAME" ]; then
+  echo "❌ Feature name required. Usage: mise run ccpm:prd:parse <feature-name>"
+  exit 1
+fi
+
+# Verify PRD exists
+if [ ! -f ".claude/prds/$FEATURE_NAME.md" ]; then
+  echo "❌ PRD not found: $FEATURE_NAME"
+  echo "   First create it with: /pm:prd-new $FEATURE_NAME"
+  exit 1
+fi
+
+# Validate PRD frontmatter
+if ! grep -q "^---" ".claude/prds/$FEATURE_NAME.md"; then
+  echo "❌ Invalid PRD frontmatter in .claude/prds/$FEATURE_NAME.md"
+  echo "   Missing frontmatter delimiters"
+  exit 1
+fi
+
+# Check required frontmatter fields
+for field in name description status created; do
+  if ! grep -q "^$field:" ".claude/prds/$FEATURE_NAME.md"; then
+    echo "❌ Invalid PRD frontmatter: missing '$field' field"
+    exit 1
+  fi
+done
+
+# Check for existing epic
+if [ -f ".claude/epics/$FEATURE_NAME/epic.md" ]; then
+  read -p "⚠️  Epic '$FEATURE_NAME' already exists. Overwrite? (yes/no): " response
+  if [ "$response" != "yes" ]; then
+    echo "View existing epic with: cat .claude/epics/$FEATURE_NAME/epic.md"
+    exit 1
+  fi
+fi
+
+# Create epic directory
+mkdir -p ".claude/epics/$FEATURE_NAME"
+
+# Copy template with placeholders
+cp .claude/ccpm/templates/epic-template.md ".claude/epics/$FEATURE_NAME/epic.md"
+
+# Replace placeholders with actual values
+CREATED_DATETIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+sed -i "s/FEATURE_NAME/$FEATURE_NAME/g" ".claude/epics/$FEATURE_NAME/epic.md"
+sed -i "s/CREATED_DATETIME/$CREATED_DATETIME/g" ".claude/epics/$FEATURE_NAME/epic.md"
+
+echo "✅ Template created at .claude/epics/$FEATURE_NAME/epic.md"
+echo "   Now analyze PRD and fill in all technical sections"
+"""
