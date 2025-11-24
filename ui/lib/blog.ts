@@ -160,7 +160,11 @@ export function getPostBySlug(slug: string): BlogPost {
   if (!data.image || typeof data.image !== "string") {
     console.warn(`Post ${slug} is missing required field: image`);
   } else {
-    const imagePath = path.join(process.cwd(), "public", data.image);
+    const imagePath = path.join(
+      process.cwd(),
+      "public",
+      data.image.replace(/^\//, ""),
+    );
     if (!fs.existsSync(imagePath)) {
       console.warn(
         `Post ${slug}: Featured image file not found at ${data.image}`,

@@ -15,7 +15,19 @@ const fsMock = vi.hoisted(() => {
 });
 
 const pathMock = vi.hoisted(() => {
-  const join = vi.fn((...args: string[]) => args.join("/"));
+  const join = vi.fn((...args: string[]) => {
+    let result = "";
+    for (const arg of args) {
+      if (arg.startsWith("/")) {
+        result = arg;
+      } else if (result) {
+        result += "/" + arg;
+      } else {
+        result = arg;
+      }
+    }
+    return result;
+  });
   const resolve = vi.fn((...args: string[]) => {
     const joined = args.join("/");
     return joined.startsWith("/") ? joined : `/${joined}`;
@@ -148,8 +160,7 @@ imageAlt: "Test image"
     it("should accept valid simple slugs", () => {
       vi.mocked(path.resolve)
         .mockReturnValueOnce("/mock/content/blog/valid-slug.mdx")
-        .mockReturnValueOnce("/mock/content/blog")
-        .mockReturnValueOnce("/mock/public/blog-images/test.jpg");
+        .mockReturnValueOnce("/mock/content/blog");
       vi.mocked(path.relative).mockReturnValueOnce("valid-slug.mdx");
       vi.mocked(fs.readFileSync).mockReturnValue(validFileContent);
       vi.mocked(fs.existsSync).mockReturnValue(true);
@@ -161,8 +172,7 @@ imageAlt: "Test image"
     it("should accept slugs with hyphens and underscores", () => {
       vi.mocked(path.resolve)
         .mockReturnValueOnce("/mock/content/blog/valid-slug_123.mdx")
-        .mockReturnValueOnce("/mock/content/blog")
-        .mockReturnValueOnce("/mock/public/blog-images/test.jpg");
+        .mockReturnValueOnce("/mock/content/blog");
       vi.mocked(path.relative).mockReturnValueOnce("valid-slug_123.mdx");
       vi.mocked(fs.readFileSync).mockReturnValue(validFileContent);
       vi.mocked(fs.existsSync).mockReturnValue(true);
@@ -187,8 +197,7 @@ imageAlt: "Test image"
 This is the content.`;
       vi.mocked(path.resolve)
         .mockReturnValueOnce("/mock/content/blog/test.mdx")
-        .mockReturnValueOnce("/mock/content/blog")
-        .mockReturnValueOnce("/mock/public/blog-images/test.jpg");
+        .mockReturnValueOnce("/mock/content/blog");
       vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
       vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
       vi.mocked(fs.existsSync).mockReturnValue(true);
