@@ -14,60 +14,46 @@ Break epic into concrete, actionable tasks.
 
 ## Goal
 
-Read epic requirements and create numbered task files with proper frontmatter and structure.
+Read epic requirements and create numbered task files from template.
 
 ## Prerequisites
 
 - Epic exists: `.claude/epics/$ARGUMENTS/epic.md`
 - Confirm before overwriting existing tasks
 
-## Task File Format
+## Instructions
 
-Create `.claude/epics/$ARGUMENTS/{number}.md` files:
+1. **Read Epic**
+   - Load `.claude/epics/$ARGUMENTS/epic.md`
+   - Analyze technical approach and task breakdown preview
+   - Identify discrete, concrete tasks
 
-```markdown
----
-name: Task Title
-status: open
-created: [ISO datetime]
-updated: [ISO datetime]
-github: [Will be set by epic-sync]
-depends_on: [001, 002]
-parallel: true
-conflicts_with: []
----
+2. **Create Task Files**
+   - For each task, copy template: `.claude/ccpm/templates/task-template.md`
+   - Save as: `.claude/epics/$ARGUMENTS/{number}.md` (001.md, 002.md, etc.)
+   - Replace placeholders:
+     - `TASK_TITLE` → Task name
+     - `CREATED_DATETIME` → Current ISO datetime (`date -u +"%Y-%m-%dT%H:%M:%SZ"`)
+     - `UPDATED_DATETIME` → Same as created
+   - Fill in all sections:
+     - Description: What needs to be done
+     - Acceptance Criteria: Specific, testable requirements
+     - Technical Details: Implementation approach, files affected
+     - Effort Estimate: T-shirt size (XS/S/M/L/XL)
+   - Set `depends_on` to task numbers that must complete first (e.g., [001, 002])
+   - Set `parallel: true` if can run concurrently, `false` if sequential
 
-# Task: Title
+3. **Update Epic**
+   - Add task list to epic.md:
 
-## Description
-What needs to be done
+     ```markdown
+     ## Tasks Created
+     - [ ] 001.md - Title (parallel: true/false)
+     - [ ] 002.md - Title (parallel: true/false)
 
-## Acceptance Criteria
-- [ ] Specific, testable requirements
+     Total: {count} | Parallel: {count} | Sequential: {count}
+     ```
 
-## Technical Details
-- Implementation approach
-- Files affected
-
-## Effort Estimate
-T-shirt size: XS | S | M | L | XL
-```
-
-## After Creating Tasks
-
-Update epic.md with:
-
-```markdown
-## Tasks Created
-- [ ] 001.md - Title (parallel: true/false)
-- [ ] 002.md - Title (parallel: true/false)
-
-Total: {count} | Parallel: {count} | Sequential: {count}
-```
-
-## Expected Output
-
-```text
-✅ Created {count} tasks for epic: $ARGUMENTS
-Next: /pm:epic-sync $ARGUMENTS
-```
+4. **Output**
+   - Confirm: "✅ Created {count} tasks for epic: $ARGUMENTS"
+   - Suggest: "Next: /pm:epic-sync $ARGUMENTS"
