@@ -1,6 +1,8 @@
-# CCPM - GitHub Issues Project Management
+# CCPM - Claude Code Project Management
 
 Lightweight project management using GitHub Issues as source of truth, with local markdown files for offline work.
+
+Forked from https://github.com/automazeio/ccpm
 
 ## Quick Start
 
@@ -32,7 +34,7 @@ cd ../epic-feature-name
 **Project management is separate from code execution.** PRDs live in git as documentation.
 Epics and tasks live in GitHub Issues as the source of truth for work tracking.
 Local `.claude/epics/` files are working copies only (gitignored).
-This follows the Jira/Linear model where issues are independent of branches.
+This follows traditional project management models where PRDs are documentation and epics / tasks are in a separate work tracking system.
 
 ## Workflow
 
@@ -171,5 +173,3 @@ run = "gh issue list --assignee @me"
 - **Epics/Tasks (GitHub)** - Work tracking, issues are source of truth
 - **Local files** - Working copies for offline work (gitignored)
 - **Bidirectional sync** - Work offline, sync when online
-- **Like Jira/Linear** - Issues independent of git branches
-- **Minimal** - 17 files, goal-oriented commands
