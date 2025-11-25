@@ -5,7 +5,7 @@ date: "2023-03-28"
 tags: ["machine-learning", "data-streaming", "kafka", "mlops"]
 canonical: "https://www.confluent.io/blog/uniting-machine-learning-data-streaming-1/"
 image: "/blog-images/uniting-machine-learning-data-streaming-1-featured.jpg"
-imageAlt: "Abstract data streams and network connections representing ML data streaming"
+imageAlt: "Colourful streams flowing into a neural network like structure containing nodes and connections"
 ---
 
 ***
@@ -50,18 +50,18 @@ Where ML-powered applications are the brain of a data-driven, proactive organiza
 
 <Mermaid
   chart={`graph BT
-  Sensors["📡 Source Systems"]:::input
-  Actuators["🎯 Applications"]:::app
+Sensors["📡 Source Systems"]:::input
+Actuators["🎯 Applications"]:::app
 
-  CNS["⚡ Apache Kafka"]:::storage
+CNS["⚡ Apache Kafka"]:::storage
 
-  Brain["🧠 ML Models"]:::ml
+Brain["🧠 ML Models"]:::ml
 
-  Sensors -->|"Raw Events"| CNS
-  CNS -->|"Sense Data"| Brain
-  Brain -->|"Actionable Info"| CNS
-  CNS -->|"Outcomes"| Actuators
-  Actuators -.->|"Environment"| Sensors
+Sensors -->|"Raw Events"| CNS
+CNS -->|"Sense Data"| Brain
+Brain -->|"Actionable Info"| CNS
+CNS -->|"Outcomes"| Actuators
+Actuators -.->|"Environment"| Sensors
 `}
 />
 

@@ -5,7 +5,7 @@ date: "2022-02-28"
 tags: ["data-science", "bioinformatics", "data-management", "data-mesh"]
 canonicalUrl: "https://sonraianalytics.com/how-to-enable-multi-omic-data-management/"
 image: "/blog-images/enabling-multi-omic-data-management-featured.jpg"
-imageAlt: "DNA helix and molecular structures representing multi-omic data"
+imageAlt: "A microscope viewing a DNA helix, connected to computer monitors and desks with various views."
 ---
 
 ***
@@ -128,14 +128,14 @@ When organised via modality, each team becomes specialised in a specific domain.
 OrgLeaders[Organisation Leaders]:::person
 
 subgraph ModalityTeam["Modality Team"]
-    ModalityLead[Modality Team Lead]:::person
-    ModalityStaff[Modality Staff]:::person
-    Data((Data)):::data
-    Note[x Number of<br/>Modalities]
+  ModalityLead[Modality Team Lead]:::person
+  ModalityStaff[Modality Staff]:::person
+  Data((Data)):::data
+  Note[x Number of<br/>Modalities]
 
-    ModalityLead -->|Existing Information| ModalityStaff
-    ModalityStaff -->|Produce| Data
-    Data -->|Consume| ModalityStaff
+  ModalityLead -->|Existing Information| ModalityStaff
+  ModalityStaff -->|Produce| Data
+  Data -->|Consume| ModalityStaff
 end
 
 OrgLeaders -->|Existing Knowledge| ModalityLead
