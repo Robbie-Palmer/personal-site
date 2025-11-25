@@ -11,17 +11,26 @@ export interface Experience {
   technologies: string[];
 }
 
+function parseDateString(dateStr: string): Date {
+  const [yearStr, monthStr] = dateStr.split("-");
+  const year = parseInt(yearStr!, 10);
+  const month = parseInt(monthStr!, 10);
+  return new Date(Date.UTC(year, month - 1, 1));
+}
+
 export function formatDateRange(startDate: string, endDate?: string): string {
-  const start = new Date(startDate);
-  const end = endDate ? new Date(endDate) : new Date();
+  const start = parseDateString(startDate);
+  const end = endDate ? parseDateString(endDate) : new Date();
   const startFormatted = start.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
+    timeZone: "UTC",
   });
   const endFormatted = endDate
     ? end.toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
+        timeZone: "UTC",
       })
     : "Present";
   const duration = formatDuration(start, end);

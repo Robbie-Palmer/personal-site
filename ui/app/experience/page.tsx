@@ -4,20 +4,20 @@ import { ExperienceCard } from "@/components/experience/experience-card";
 import { getAllExperience } from "@/lib/experience";
 import { siteConfig } from "@/lib/site-config";
 
+const pageDescription =
+  "Professional experience and career history of Robbie Palmer - Principal Software Engineer specializing in machine learning, computer vision, and data engineering.";
+
 export const metadata: Metadata = {
   title: "Experience",
-  description:
-    "Professional experience and career history of Robbie Palmer - Principal Software Engineer specializing in machine learning, computer vision, and data engineering.",
+  description: pageDescription,
   openGraph: {
     title: "Experience - Robbie Palmer",
-    description:
-      "Professional experience and career history of Robbie Palmer - Principal Software Engineer specializing in machine learning, computer vision, and data engineering.",
+    description: pageDescription,
     url: `${siteConfig.url}/experience`,
   },
   twitter: {
     title: "Experience - Robbie Palmer",
-    description:
-      "Professional experience and career history of Robbie Palmer - Principal Software Engineer specializing in machine learning, computer vision, and data engineering.",
+    description: pageDescription,
   },
   alternates: {
     canonical: `${siteConfig.url}/experience`,

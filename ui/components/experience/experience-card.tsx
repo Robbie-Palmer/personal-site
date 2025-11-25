@@ -29,6 +29,10 @@ interface ExperienceCardProps {
 export function ExperienceCard({ experience }: ExperienceCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const handleToggle = () => {
+    setIsExpanded(!isExpanded);
+  };
+
   return (
     <TooltipProvider>
       <div className="relative">
@@ -40,7 +44,7 @@ export function ExperienceCard({ experience }: ExperienceCardProps) {
         <Card className="transition-all hover:shadow-lg hover:border-primary/50 md:ml-14">
           <CardHeader
             className="space-y-3 cursor-pointer"
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={handleToggle}
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 space-y-3">
@@ -65,14 +69,7 @@ export function ExperienceCard({ experience }: ExperienceCardProps) {
                   <span className="hidden sm:inline text-muted-foreground/50">
                     •
                   </span>
-                  <span
-                    className={`flex items-center gap-1.5 font-medium ${
-                      experience.location === "Pune, India" ||
-                      experience.location === "London, UK"
-                        ? "text-primary"
-                        : "text-foreground/80"
-                    }`}
-                  >
+                  <span className="flex items-center gap-1.5 font-medium text-foreground/80">
                     <MapPin className="w-4 h-4" />
                     {experience.location}
                   </span>
@@ -91,8 +88,10 @@ export function ExperienceCard({ experience }: ExperienceCardProps) {
                 className="shrink-0"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setIsExpanded(!isExpanded);
+                  handleToggle();
                 }}
+                aria-label={isExpanded ? "Collapse details" : "Expand details"}
+                aria-expanded={isExpanded}
               >
                 <ChevronDown
                   className={`w-5 h-5 transition-transform ${
