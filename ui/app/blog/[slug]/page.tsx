@@ -33,15 +33,12 @@ export async function generateMetadata(
   }
 
   const post = getPostBySlug(slug);
-  // Always use production URL for canonical/permanent reference, even in previews
-  const url = `${siteConfig.url}/blog/${slug}`;
-  // Use custom canonical URL if specified in frontmatter, otherwise use this page's URL
-  const canonicalUrl = post.canonicalUrl || url;
-  // Ensure image URLs are absolute for social media metadata
+  // Use custom canonical URL if specified, otherwise use production URL
+  // Canonical URLs should always point to production, even in preview deployments
+  const canonicalUrl = post.canonicalUrl || `${siteConfig.url}/blog/${slug}`;
+  // Use relative URLs - Next.js resolves them via metadataBase (set in layout.tsx)
+  // This allows preview deployments to show their own images
   const imageUrl = post.image || siteConfig.ogImage;
-  const absoluteImageUrl = imageUrl.startsWith("http")
-    ? imageUrl
-    : `${siteConfig.url}${imageUrl}`;
 
   return {
     title: post.title,
@@ -55,7 +52,7 @@ export async function generateMetadata(
     openGraph: {
       title: post.title,
       description: post.description,
-      url,
+      url: `/blog/${slug}`,
       siteName: siteConfig.name,
       type: "article",
       publishedTime: post.date,
@@ -64,7 +61,7 @@ export async function generateMetadata(
       tags: post.tags,
       images: [
         {
-          url: absoluteImageUrl,
+          url: imageUrl,
           width: 1200,
           height: post.image ? 675 : 630,
           alt: post.imageAlt || post.title,
@@ -75,7 +72,7 @@ export async function generateMetadata(
       card: "summary_large_image",
       title: post.title,
       description: post.description,
-      images: [absoluteImageUrl],
+      images: [imageUrl],
     },
   };
 }
