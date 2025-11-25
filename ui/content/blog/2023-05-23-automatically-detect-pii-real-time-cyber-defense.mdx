@@ -4,6 +4,8 @@ description: "Using machine learning-powered PII detection to enable advanced SI
 date: "2023-05-23"
 tags: ["data-governance", "cybersecurity", "machine-learning", "kafka", "pii"]
 canonical: "https://www.confluent.io/blog/pii-detection-real-time-cyber-defense/"
+image: "/blog-images/automatically-detect-pii-real-time-cyber-defense-featured.jpg"
+imageAlt: "A phone locked down with a fingerprint reader and surrounded by shields / padlocks"
 ---
 
 ***
@@ -68,24 +70,24 @@ We built a PII Detection stream processing app to provide entity-level control o
 
 <Mermaid
   chart={`graph LR
-  DataSource[("Data Source")]:::data
-  SensitiveTopic(("Sensitive<br/>Data Topic")):::storage
-  PrivConsumer["Privileged Consumer"]:::app
-  PIIDetector["PII Detector"]:::ml
-  EntityTopic(("Entity Alert<br/>Topic")):::storage
-  AnonTopic(("Anonymized<br/>Data Topic")):::storage
-  Dashboard["Real-time Dashboard"]:::app
-  Email["Email Alert Service"]:::app
-  DataStore[("Data Store")]:::data
+DataSource[("Data Source")]:::data
+SensitiveTopic(("Sensitive<br/>Data Topic")):::storage
+PrivConsumer["Privileged Consumer"]:::app
+PIIDetector["PII Detector"]:::ml
+EntityTopic(("Entity Alert<br/>Topic")):::storage
+AnonTopic(("Anonymized<br/>Data Topic")):::storage
+Dashboard["Real-time Dashboard"]:::app
+Email["Email Alert Service"]:::app
+DataStore[("Data Store")]:::data
 
-  DataSource -->|"Publish"| SensitiveTopic
-  SensitiveTopic -->|"Consume"| PrivConsumer
-  SensitiveTopic -->|"Consume"| PIIDetector
-  PIIDetector -->|"Publish Alerts"| EntityTopic
-  PIIDetector -->|"Publish Redacted"| AnonTopic
-  EntityTopic -->|"Display"| Dashboard
-  EntityTopic -->|"Trigger"| Email
-  AnonTopic -->|"Sink"| DataStore
+DataSource -->|"Publish"| SensitiveTopic
+SensitiveTopic -->|"Consume"| PrivConsumer
+SensitiveTopic -->|"Consume"| PIIDetector
+PIIDetector -->|"Publish Alerts"| EntityTopic
+PIIDetector -->|"Publish Redacted"| AnonTopic
+EntityTopic -->|"Display"| Dashboard
+EntityTopic -->|"Trigger"| Email
+AnonTopic -->|"Sink"| DataStore
 `}
 />
 
