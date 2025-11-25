@@ -1,0 +1,175 @@
+"use client";
+
+import { Calendar, ChevronDown, MapPin } from "lucide-react";
+import Image from "next/image";
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import type { Experience } from "@/lib/experience";
+import { formatDateRange } from "@/lib/experience";
+import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
+
+interface ExperienceCardProps {
+  experience: Experience;
+}
+
+export function ExperienceCard({ experience }: ExperienceCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <TooltipProvider>
+      <div className="relative">
+        {/* Timeline dot */}
+        <div className="absolute left-[11px] top-8 w-6 h-6 rounded-full bg-background border-2 border-primary hidden md:flex items-center justify-center z-10">
+          <div className="w-2 h-2 rounded-full bg-primary" />
+        </div>
+
+        <Card className="transition-all hover:shadow-lg hover:border-primary/50 md:ml-14">
+          <CardHeader
+            className="space-y-3 cursor-pointer"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 space-y-3">
+                <CardTitle className="text-2xl">{experience.title}</CardTitle>
+                <CardDescription className="text-base flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                  <a
+                    href={experience.company_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 font-medium text-foreground/80 hover:text-primary transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Image
+                      src={experience.logo_path}
+                      alt={`${experience.company} logo`}
+                      width={20}
+                      height={20}
+                      className="object-contain"
+                    />
+                    {experience.company}
+                  </a>
+                  <span className="hidden sm:inline text-muted-foreground/50">
+                    •
+                  </span>
+                  <span
+                    className={`flex items-center gap-1.5 font-medium ${
+                      experience.location === "Pune, India" ||
+                      experience.location === "London, UK"
+                        ? "text-primary"
+                        : "text-foreground/80"
+                    }`}
+                  >
+                    <MapPin className="w-4 h-4" />
+                    {experience.location}
+                  </span>
+                  <span className="hidden sm:inline text-muted-foreground/50">
+                    •
+                  </span>
+                  <span className="flex items-center gap-1.5 font-medium text-foreground/80">
+                    <Calendar className="w-4 h-4" />
+                    {formatDateRange(experience.startDate, experience.endDate)}
+                  </span>
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="shrink-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsExpanded(!isExpanded);
+                }}
+              >
+                <ChevronDown
+                  className={`w-5 h-5 transition-transform ${
+                    isExpanded ? "rotate-180" : ""
+                  }`}
+                />
+              </Button>
+            </div>
+
+            {/* Summary - always visible */}
+            {!isExpanded && (
+              <div className="animate-in fade-in duration-100">
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {experience.description}
+                </p>
+                {experience.technologies.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {experience.technologies.slice(0, 10).map((tech) => {
+                      const hasIcon = hasTechIcon(tech);
+                      return hasIcon ? (
+                        <Tooltip key={tech}>
+                          <TooltipTrigger asChild>
+                            <Badge
+                              variant="secondary"
+                              className="cursor-default"
+                            >
+                              <TechIcon name={tech} className="w-4 h-4" />
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{tech}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <Badge key={tech} variant="secondary">
+                          {tech}
+                        </Badge>
+                      );
+                    })}
+                    {experience.technologies.length > 10 && (
+                      <Badge variant="secondary">
+                        +{experience.technologies.length - 10} more
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </CardHeader>
+
+          {/* Expanded details */}
+          {isExpanded && (
+            <CardContent className="space-y-4 pt-0 animate-in fade-in duration-100">
+              <ul className="space-y-1.5 text-sm">
+                {experience.responsibilities.map((responsibility) => (
+                  <li key={responsibility} className="flex gap-2 items-start">
+                    <span className="text-primary shrink-0 leading-snug">
+                      •
+                    </span>
+                    <span className="leading-snug">{responsibility}</span>
+                  </li>
+                ))}
+              </ul>
+              {experience.technologies.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {experience.technologies.map((tech) => (
+                    <Badge key={tech} variant="secondary">
+                      <TechIcon name={tech} />
+                      {tech}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          )}
+        </Card>
+      </div>
+    </TooltipProvider>
+  );
+}
