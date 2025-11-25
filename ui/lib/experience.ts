@@ -76,7 +76,7 @@ export function getAllExperience(): Experience[] {
         "Go",
         "AWS",
         "OpenRouter",
-        "CLoudflare Workers",
+        "Cloudflare Workers",
         "Leaflet",
       ],
     },
