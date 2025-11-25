@@ -2,6 +2,7 @@
 
 import Fuse from "fuse.js";
 import { ArrowDown, ArrowUp, Clock, Search, X } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -183,7 +184,23 @@ export function BlogList({ posts }: BlogListProps) {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {sortedPosts.map((post) => (
-            <Card key={post.slug} className="h-full flex flex-col">
+            <Card
+              key={post.slug}
+              className="h-full flex flex-col overflow-hidden"
+            >
+              {post.image && (
+                <Link href={`/blog/${post.slug}`} className="block">
+                  <div className="relative w-full h-48 bg-muted">
+                    <Image
+                      src={post.image}
+                      alt={post.imageAlt || post.title}
+                      width={1200}
+                      height={675}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </Link>
+              )}
               <CardHeader>
                 <Link href={`/blog/${post.slug}`}>
                   <CardTitle className="hover:text-primary transition-colors">

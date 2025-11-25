@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -36,6 +37,11 @@ export async function generateMetadata(
   const url = `${siteConfig.url}/blog/${slug}`;
   // Use custom canonical URL if specified in frontmatter, otherwise use this page's URL
   const canonicalUrl = post.canonicalUrl || url;
+  // Ensure image URLs are absolute for social media metadata
+  const imageUrl = post.image || siteConfig.ogImage;
+  const absoluteImageUrl = imageUrl.startsWith("http")
+    ? imageUrl
+    : `${siteConfig.url}${imageUrl}`;
 
   return {
     title: post.title,
@@ -58,10 +64,10 @@ export async function generateMetadata(
       tags: post.tags,
       images: [
         {
-          url: siteConfig.ogImage,
+          url: absoluteImageUrl,
           width: 1200,
-          height: 630,
-          alt: post.title,
+          height: post.image ? 675 : 630,
+          alt: post.imageAlt || post.title,
         },
       ],
     },
@@ -69,7 +75,7 @@ export async function generateMetadata(
       card: "summary_large_image",
       title: post.title,
       description: post.description,
-      images: [siteConfig.ogImage],
+      images: [absoluteImageUrl],
     },
   };
 }
@@ -109,6 +115,18 @@ export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
           </div>
         </div>
       </header>
+
+      {post.image && (
+        <div className="relative w-full aspect-video mb-8 rounded-lg overflow-hidden bg-muted">
+          <Image
+            src={post.image}
+            alt={post.imageAlt || post.title}
+            fill
+            priority
+            className="object-cover"
+          />
+        </div>
+      )}
 
       <Separator className="mb-8" />
 
