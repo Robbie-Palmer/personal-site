@@ -88,7 +88,7 @@ importers:
         version: 3.15.0
       simple-icons:
         specifier: ^15.18.0
-        version: 15.18.0
+        version: 15.22.0
       strip-markdown:
         specifier: ^6.0.0
         version: 6.0.0
@@ -2984,8 +2984,8 @@ packages:
   siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
 
-  simple-icons@15.18.0:
-    resolution: {integrity: sha512-lYpvaIuZZr6N50YSdYZQzrKccSSF3dqcgcoz2vMKVQCc/fJWD8nFszJVZz2tCDTSu082rqRYfuYRUPhjdixDAA==}
+  simple-icons@15.22.0:
+    resolution: {integrity: sha512-i/w5Ie4tENfGYbdCo2iJ+oies0vOFd8QXWHopKOUzudfLCvnmeheF2PpHp89Z2azpc+c2su3lMiWO/SpP+429A==}
     engines: {node: '>=0.12.18'}
 
   source-map-js@1.2.1:
@@ -6569,7 +6569,7 @@ snapshots:
 
   siginfo@2.0.0: {}
 
-  simple-icons@15.18.0: {}
+  simple-icons@15.22.0: {}
 
   source-map-js@1.2.1: {}
 
