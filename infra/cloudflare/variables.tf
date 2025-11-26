@@ -24,3 +24,9 @@ variable "github_repo_name" {
   description = "GitHub repository name"
   type        = string
 }
+
+variable "domain_name" {
+  description = "The domain name for the personal site"
+  type        = string
+  default     = "robbiepalmer.me"
+}
