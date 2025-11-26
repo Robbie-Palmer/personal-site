@@ -36,13 +36,13 @@ resource "cloudflare_pages_project" "personal_site" {
 resource "cloudflare_pages_domain" "robbiepalmer_me" {
   account_id   = var.cloudflare_account_id
   project_name = cloudflare_pages_project.personal_site.name
-  name         = var.domain_name
+  domain       = var.domain_name
 }
 
 resource "cloudflare_pages_domain" "robbiepalmer_me_www" {
   account_id   = var.cloudflare_account_id
   project_name = cloudflare_pages_project.personal_site.name
-  name         = "www.${var.domain_name}"
+  domain       = "www.${var.domain_name}"
 }
 
 resource "cloudflare_record" "robbiepalmer_me_apex" {
