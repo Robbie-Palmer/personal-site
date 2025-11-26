@@ -33,12 +33,7 @@ resource "cloudflare_pages_project" "personal_site" {
   }
 
   lifecycle {
-    ignore_changes = [
-      canonical_deployment,
-      latest_deployment,
-      created_on,
-      subdomain,
-    ]
+    ignore_changes = all
   }
 }
 
