@@ -46,18 +46,18 @@ resource "cloudflare_pages_domain" "robbiepalmer_me_www" {
 }
 
 resource "cloudflare_record" "robbiepalmer_me_apex" {
-  zone_id = data.cloudflare_zone.domain.zone_id
+  zone_id = data.cloudflare_zone.domain.id
   name    = "@"
-  value   = cloudflare_pages_project.personal_site.subdomain
+  content = cloudflare_pages_project.personal_site.subdomain
   type    = "CNAME"
   ttl     = 1 # Auto when proxied
   proxied = true
 }
 
 resource "cloudflare_record" "robbiepalmer_me_www" {
-  zone_id = data.cloudflare_zone.domain.zone_id
+  zone_id = data.cloudflare_zone.domain.id
   name    = "www"
-  value   = cloudflare_pages_project.personal_site.subdomain
+  content = cloudflare_pages_project.personal_site.subdomain
   type    = "CNAME"
   ttl     = 1 # Auto when proxied
   proxied = true
