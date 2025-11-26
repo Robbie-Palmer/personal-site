@@ -27,10 +27,6 @@ resource "cloudflare_pages_project" "personal_site" {
       preview_branch_excludes       = []
     }
   }
-
-  lifecycle {
-    ignore_changes = all
-  }
 }
 
 resource "cloudflare_pages_domain" "robbiepalmer_me" {
