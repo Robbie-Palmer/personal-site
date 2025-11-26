@@ -1,7 +1,5 @@
 data "cloudflare_zone" "domain" {
-  filter = {
-    name = var.domain_name
-  }
+  name = var.domain_name
 }
 
 resource "cloudflare_pages_project" "personal_site" {
@@ -9,15 +7,15 @@ resource "cloudflare_pages_project" "personal_site" {
   name              = var.project_name
   production_branch = var.production_branch
 
-  build_config = {
+  build_config {
     build_command   = "curl https://mise.run | sh && export PATH=\"$HOME/.local/bin:$PATH\" && MISE_EXPERIMENTAL=1 mise run //ui:build"
     destination_dir = "ui/out"
     root_dir        = ""
   }
 
-  source = {
+  source {
     type = "github"
-    config = {
+    config {
       owner                          = var.github_repo_owner
       repo_name                      = var.github_repo_name
       production_branch              = var.production_branch
@@ -27,8 +25,6 @@ resource "cloudflare_pages_project" "personal_site" {
       preview_deployment_setting     = "all"
       preview_branch_includes        = ["*"]
       preview_branch_excludes        = []
-      path_includes                  = ["*"]
-      path_excludes                  = []
     }
   }
 
