@@ -16,15 +16,15 @@ resource "cloudflare_pages_project" "personal_site" {
   source {
     type = "github"
     config {
-      owner                          = var.github_repo_owner
-      repo_name                      = var.github_repo_name
-      production_branch              = var.production_branch
-      pr_comments_enabled            = true
-      deployments_enabled            = true
-      production_deployments_enabled = true
-      preview_deployment_setting     = "all"
-      preview_branch_includes        = ["*"]
-      preview_branch_excludes        = []
+      owner                         = var.github_repo_owner
+      repo_name                     = var.github_repo_name
+      production_branch             = var.production_branch
+      pr_comments_enabled           = true
+      deployments_enabled           = true
+      production_deployment_enabled = true
+      preview_deployment_setting    = "all"
+      preview_branch_includes       = ["*"]
+      preview_branch_excludes       = []
     }
   }
 
@@ -45,22 +45,20 @@ resource "cloudflare_pages_domain" "robbiepalmer_me_www" {
   name         = "www.${var.domain_name}"
 }
 
-resource "cloudflare_dns_record" "robbiepalmer_me_apex" {
+resource "cloudflare_record" "robbiepalmer_me_apex" {
   zone_id = data.cloudflare_zone.domain.zone_id
   name    = "@"
-  content = cloudflare_pages_project.personal_site.subdomain
+  value   = cloudflare_pages_project.personal_site.subdomain
   type    = "CNAME"
   ttl     = 1 # Auto when proxied
   proxied = true
-  comment = "Personal site on Cloudflare Pages"
 }
 
-resource "cloudflare_dns_record" "robbiepalmer_me_www" {
+resource "cloudflare_record" "robbiepalmer_me_www" {
   zone_id = data.cloudflare_zone.domain.zone_id
   name    = "www"
-  content = cloudflare_pages_project.personal_site.subdomain
+  value   = cloudflare_pages_project.personal_site.subdomain
   type    = "CNAME"
   ttl     = 1 # Auto when proxied
   proxied = true
-  comment = "Personal site on Cloudflare Pages (www subdomain)"
 }
