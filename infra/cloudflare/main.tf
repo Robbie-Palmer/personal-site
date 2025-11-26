@@ -1,7 +1,5 @@
 data "cloudflare_zone" "domain" {
-  filter = {
-    name = var.domain_name
-  }
+  name = var.domain_name
 }
 
 resource "cloudflare_pages_project" "personal_site" {
@@ -9,62 +7,54 @@ resource "cloudflare_pages_project" "personal_site" {
   name              = var.project_name
   production_branch = var.production_branch
 
-  build_config = {
+  build_config {
     build_command   = "curl https://mise.run | sh && export PATH=\"$HOME/.local/bin:$PATH\" && MISE_EXPERIMENTAL=1 mise run //ui:build"
     destination_dir = "ui/out"
     root_dir        = ""
   }
 
-  source = {
+  source {
     type = "github"
-    config = {
-      owner                          = var.github_repo_owner
-      repo_name                      = var.github_repo_name
-      production_branch              = var.production_branch
-      pr_comments_enabled            = true
-      deployments_enabled            = true
-      production_deployments_enabled = true
-      preview_deployment_setting     = "all"
-      preview_branch_includes        = ["*"]
-      preview_branch_excludes        = []
-      path_includes                  = ["*"]
-      path_excludes                  = []
+    config {
+      owner                         = var.github_repo_owner
+      repo_name                     = var.github_repo_name
+      production_branch             = var.production_branch
+      pr_comments_enabled           = true
+      deployments_enabled           = true
+      production_deployment_enabled = true
+      preview_deployment_setting    = "all"
+      preview_branch_includes       = ["*"]
+      preview_branch_excludes       = []
     }
-  }
-
-  lifecycle {
-    ignore_changes = all
   }
 }
 
 resource "cloudflare_pages_domain" "robbiepalmer_me" {
   account_id   = var.cloudflare_account_id
   project_name = cloudflare_pages_project.personal_site.name
-  name         = var.domain_name
+  domain       = var.domain_name
 }
 
 resource "cloudflare_pages_domain" "robbiepalmer_me_www" {
   account_id   = var.cloudflare_account_id
   project_name = cloudflare_pages_project.personal_site.name
-  name         = "www.${var.domain_name}"
+  domain       = "www.${var.domain_name}"
 }
 
-resource "cloudflare_dns_record" "robbiepalmer_me_apex" {
-  zone_id = data.cloudflare_zone.domain.zone_id
+resource "cloudflare_record" "robbiepalmer_me_apex" {
+  zone_id = data.cloudflare_zone.domain.id
   name    = "@"
   content = cloudflare_pages_project.personal_site.subdomain
   type    = "CNAME"
   ttl     = 1 # Auto when proxied
   proxied = true
-  comment = "Personal site on Cloudflare Pages"
 }
 
-resource "cloudflare_dns_record" "robbiepalmer_me_www" {
-  zone_id = data.cloudflare_zone.domain.zone_id
+resource "cloudflare_record" "robbiepalmer_me_www" {
+  zone_id = data.cloudflare_zone.domain.id
   name    = "www"
   content = cloudflare_pages_project.personal_site.subdomain
   type    = "CNAME"
   ttl     = 1 # Auto when proxied
   proxied = true
-  comment = "Personal site on Cloudflare Pages (www subdomain)"
 }
