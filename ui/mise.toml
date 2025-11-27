@@ -11,7 +11,7 @@ run = "pnpm dev"
 
 [tasks.build]
 description = "Build Next.js application for production"
-depends = ["//ui:install"]
+depends = ["//ui:install", "//:images:copy-to-public"]
 run = "pnpm build"
 sources = ["app/**/*", "components/**/*", "lib/**/*", "public/**/*", "*.ts", "*.tsx", "*.json"]
 outputs = ["out/**/*"]

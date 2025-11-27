@@ -82,6 +82,53 @@ depends = ["//:install"]
 description = "Install all dependencies (root and workspaces)"
 run = "pnpm install"
 
+[tasks."images:copy-to-public"]
+description = "Copy source images to public for deployments"
+run = """
+#!/usr/bin/env bash
+set -e
+
+echo "📋 Copying source images to public/blog-images..."
+
+# Ensure target directory exists
+mkdir -p ui/public/blog-images
+
+# Copy all images from source-images/blog to public/blog-images
+# This ensures preview deployments have images even without CF Images configured
+if [ -d "source-images/blog" ]; then
+  cp -r source-images/blog/* ui/public/blog-images/
+
+  # Generate manifest mapping image IDs to file extensions
+  # This helps the fallback logic find the right file
+  echo "{" > ui/lib/image-manifest.json
+  first=true
+  for file in source-images/blog/*; do
+    if [ -f "$file" ]; then
+      filename=$(basename "$file")
+      id="${filename%.*}"
+      ext="${filename##*.}"
+
+      if [ "$first" = true ]; then
+        first=false
+      else
+        echo "," >> ui/lib/image-manifest.json
+      fi
+
+      echo -n "  \"blog/$id\": \"$ext\"" >> ui/lib/image-manifest.json
+    fi
+  done
+  echo "" >> ui/lib/image-manifest.json
+  echo "}" >> ui/lib/image-manifest.json
+
+  echo "✅ Images copied to ui/public/blog-images/"
+  echo "✅ Generated ui/lib/image-manifest.json"
+else
+  echo "⚠️  No source-images/blog directory found"
+  # Create empty manifest
+  echo "{}" > ui/lib/image-manifest.json
+fi
+"""
+
 [tasks."images:sync"]
 description = "Upload source images to Cloudflare Images"
 run = """

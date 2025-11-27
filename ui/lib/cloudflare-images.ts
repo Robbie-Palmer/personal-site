@@ -7,6 +7,10 @@
  * @see https://developers.cloudflare.com/images/
  */
 
+// Import image manifest for fallback (generated during build)
+// Maps image IDs to file extensions for local fallback
+import imageManifest from './image-manifest.json';
+
 // Cloudflare Images configuration
 // The account hash is publicly visible in image URLs and is not sensitive
 // You can find it in your Cloudflare Dashboard under Images
@@ -75,11 +79,12 @@ export function getImageUrl(
   options?: ImageTransformOptions,
 ): string {
   if (!CF_IMAGES_ACCOUNT_HASH) {
-    // Fallback to local images during development if CF Images not configured
-    console.warn(
-      'NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH not set. Falling back to local images.',
-    );
-    return `/blog-images/${imageId.replace('blog/', '')}.jpg`;
+    // Fallback to local images if CF Images not configured
+    // This allows preview deployments and local dev to work
+    // Use manifest to find the correct file extension
+    const extension = (imageManifest as Record<string, string>)[imageId] || 'jpg';
+    const filename = imageId.replace('blog/', '');
+    return `/blog-images/${filename}.${extension}`;
   }
 
   // Build base URL

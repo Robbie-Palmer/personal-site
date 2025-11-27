@@ -25,6 +25,9 @@ pnpm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Generated files
+ui/lib/image-manifest.json
+
 # Terraform
 **/.terraform/*
 *.tfstate

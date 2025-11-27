@@ -21,6 +21,32 @@ This site uses **Cloudflare Images** for image optimization and delivery, demons
 4. **Cost-Effective**: $5/month flat or pay-per-use (pennies for low traffic)
 5. **Scalable**: Handles 0 to millions of requests seamlessly
 
+### Dual-Mode Architecture
+
+The implementation supports both production and preview deployments:
+
+**Production (main branch):**
+- ✅ CF Images hash configured in environment
+- ✅ Serves optimized images from Cloudflare Images CDN
+- ✅ Automatic WebP/AVIF conversion, resizing, caching
+
+**Preview deployments (feature branches):**
+- ✅ CF Images hash NOT configured
+- ✅ Images copied to `public/blog-images/` during build
+- ✅ Serves from static files (unoptimized but works!)
+- ✅ **Test your blog posts with images before merging**
+
+**Local development:**
+- ✅ Same as preview (no CF Images hash)
+- ✅ Run `mise run images:copy-to-public` to get images
+- ✅ Fallback serves from local files
+
+This architecture ensures:
+- 🚀 Production gets optimized delivery
+- 🧪 Previews work without CF Images setup
+- 💻 Local dev works without extra config
+- 🔒 No risk of breaking production from branches
+
 ## Directory Structure
 
 ```
@@ -28,14 +54,18 @@ personal-site/
 ├── source-images/          # Full-resolution source images (tracked in git)
 │   └── blog/              # Blog post images
 ├── .github/workflows/
-│   └── sync-images.yml    # Automated image upload to CF
+│   └── sync-images.yml    # Automated image upload to CF (main branch only)
 └── ui/
     ├── lib/
-    │   └── cloudflare-images.ts  # Type-safe URL utilities
-    └── public/blog-images/       # Legacy local images (for migration)
+    │   ├── cloudflare-images.ts   # Type-safe URL utilities
+    │   └── image-manifest.json    # Generated: maps image IDs to extensions
+    └── public/blog-images/        # Generated: copied during build for previews
 ```
 
-Note: Cloudflare Images is an account-level service - no Terraform resources needed! Just enable it in your Cloudflare dashboard and use the API.
+**Note:**
+- Cloudflare Images is account-level - no Terraform needed!
+- `ui/public/blog-images/` and `ui/lib/image-manifest.json` are generated during build
+- These are gitignored - the build process creates them automatically
 
 ## Setup Instructions
 
