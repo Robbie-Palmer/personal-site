@@ -82,6 +82,119 @@ depends = ["//:install"]
 description = "Install all dependencies (root and workspaces)"
 run = "pnpm install"
 
+[tasks."images:sync"]
+description = "Upload source images to Cloudflare Images"
+run = """
+#!/usr/bin/env bash
+set -e
+
+# Validate required environment variables
+if [ -z "$CF_ACCOUNT_ID" ]; then
+  echo "❌ CF_ACCOUNT_ID environment variable is required"
+  exit 1
+fi
+
+if [ -z "$CF_API_TOKEN" ]; then
+  echo "❌ CF_API_TOKEN environment variable is required"
+  exit 1
+fi
+
+echo "🚀 Starting image sync to Cloudflare Images..."
+
+# Counter for tracking
+uploaded=0
+skipped=0
+failed=0
+
+# Find all images in source-images directory
+find source-images -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.webp" \) | while read -r filepath; do
+  # Get relative path from source-images directory
+  relative_path="${filepath#source-images/}"
+
+  # Remove file extension to create image ID
+  # e.g., "blog/example.jpg" -> "blog/example"
+  image_id="${relative_path%.*}"
+
+  echo ""
+  echo "📸 Processing: $filepath"
+  echo "   Image ID: $image_id"
+
+  # Upload to Cloudflare Images
+  response=$(curl -s -w "\n%{http_code}" -X POST \
+    "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1" \
+    -H "Authorization: Bearer ${CF_API_TOKEN}" \
+    -F "file=@${filepath}" \
+    -F "id=${image_id}")
+
+  http_code=$(echo "$response" | tail -n1)
+  body=$(echo "$response" | sed '$d')
+
+  if [ "$http_code" = "200" ]; then
+    echo "   ✅ Successfully uploaded"
+    uploaded=$((uploaded + 1))
+  elif [ "$http_code" = "409" ]; then
+    # Image already exists - skip by default
+    echo "   ⏭️  Skipped (already exists)"
+    skipped=$((skipped + 1))
+  else
+    echo "   ❌ Failed to upload (HTTP $http_code)"
+    echo "   Response: $body"
+    failed=$((failed + 1))
+  fi
+done
+
+echo ""
+echo "📊 Summary:"
+echo "   ✅ Uploaded: $uploaded"
+echo "   ⏭️  Skipped: $skipped"
+echo "   ❌ Failed: $failed"
+
+if [ $failed -gt 0 ]; then
+  echo ""
+  echo "⚠️  Some images failed to upload. Check the logs above."
+  exit 1
+fi
+
+echo ""
+echo "🎉 Image sync completed successfully!"
+"""
+
+[tasks."images:verify-variants"]
+description = "Check configured Cloudflare Images variants"
+run = """
+#!/usr/bin/env bash
+set -e
+
+# Validate required environment variables
+if [ -z "$CF_ACCOUNT_ID" ]; then
+  echo "❌ CF_ACCOUNT_ID environment variable is required"
+  exit 1
+fi
+
+if [ -z "$CF_API_TOKEN" ]; then
+  echo "❌ CF_API_TOKEN environment variable is required"
+  exit 1
+fi
+
+echo "🔍 Checking Cloudflare Images variants..."
+
+response=$(curl -s -X GET \
+  "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1/variants" \
+  -H "Authorization: Bearer ${CF_API_TOKEN}")
+
+echo "$response" | jq -r '.result.variants[] | "\(.id): \(.options.width)w"' || echo "No variants configured yet"
+
+echo ""
+echo "ℹ️  Expected variants:"
+echo "   - public: Flexible (accepts URL parameters)"
+echo "   - thumbnail: 600w (blog list)"
+echo "   - hero: 1200w (blog post hero)"
+echo "   - og: 1200x630 (Open Graph)"
+echo ""
+echo "Configure variants in Cloudflare Dashboard:"
+echo "https://dash.cloudflare.com/${CF_ACCOUNT_ID}/images/variants"
+"""
+
 # CCPM tasks
 [tasks."ccpm:prd:new"]
 description = "Validate and setup new PRD"

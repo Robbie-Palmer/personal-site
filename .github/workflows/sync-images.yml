@@ -15,124 +15,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Setup mise
+        uses: jdx/mise-action@v3
+        with:
+          experimental: true
+
       - name: Upload images to Cloudflare Images
         env:
           CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          set -e
-
-          echo "🚀 Starting image sync to Cloudflare Images..."
-
-          # Counter for tracking
-          uploaded=0
-          skipped=0
-          failed=0
-
-          # Find all images in source-images directory
-          find source-images -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.webp" \) | while read -r filepath; do
-            # Get relative path from source-images directory
-            relative_path="${filepath#source-images/}"
-
-            # Remove file extension to create image ID
-            # e.g., "blog/example.jpg" -> "blog/example"
-            image_id="${relative_path%.*}"
-
-            echo ""
-            echo "📸 Processing: $filepath"
-            echo "   Image ID: $image_id"
-
-            # Upload to Cloudflare Images
-            response=$(curl -s -w "\n%{http_code}" -X POST \
-              "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1" \
-              -H "Authorization: Bearer ${CF_API_TOKEN}" \
-              -F "file=@${filepath}" \
-              -F "id=${image_id}")
-
-            http_code=$(echo "$response" | tail -n1)
-            body=$(echo "$response" | sed '$d')
-
-            if [ "$http_code" = "200" ]; then
-              echo "   ✅ Successfully uploaded"
-              uploaded=$((uploaded + 1))
-            elif [ "$http_code" = "409" ]; then
-              # Image already exists - check if we should update it
-              echo "   ⚠️  Image already exists, checking if update needed..."
-
-              # Option 1: Skip existing images (faster, preserves existing)
-              echo "   ⏭️  Skipped (already exists)"
-              skipped=$((skipped + 1))
-
-              # Option 2: Update existing images (uncomment to enable)
-              # This requires deleting and re-uploading
-              # echo "   🔄 Updating existing image..."
-              # delete_response=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
-              #   "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1/${image_id}" \
-              #   -H "Authorization: Bearer ${CF_API_TOKEN}")
-              #
-              # if [ "$delete_response" = "200" ]; then
-              #   # Re-upload
-              #   upload_response=$(curl -s -w "\n%{http_code}" -X POST \
-              #     "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1" \
-              #     -H "Authorization: Bearer ${CF_API_TOKEN}" \
-              #     -F "file=@${filepath}" \
-              #     -F "id=${image_id}")
-              #
-              #   upload_http_code=$(echo "$upload_response" | tail -n1)
-              #   if [ "$upload_http_code" = "200" ]; then
-              #     echo "   ✅ Successfully updated"
-              #     uploaded=$((uploaded + 1))
-              #   else
-              #     echo "   ❌ Failed to re-upload after delete"
-              #     failed=$((failed + 1))
-              #   fi
-              # else
-              #   echo "   ❌ Failed to delete existing image"
-              #   failed=$((failed + 1))
-              # fi
-            else
-              echo "   ❌ Failed to upload (HTTP $http_code)"
-              echo "   Response: $body"
-              failed=$((failed + 1))
-            fi
-          done
-
-          echo ""
-          echo "📊 Summary:"
-          echo "   ✅ Uploaded: $uploaded"
-          echo "   ⏭️  Skipped: $skipped"
-          echo "   ❌ Failed: $failed"
-
-          if [ $failed -gt 0 ]; then
-            echo ""
-            echo "⚠️  Some images failed to upload. Check the logs above."
-            exit 1
-          fi
-
-          echo ""
-          echo "🎉 Image sync completed successfully!"
+        run: mise run images:sync
 
       - name: Verify image variants exist
         env:
           CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          set -e
-
-          echo "🔍 Checking Cloudflare Images variants..."
-
-          response=$(curl -s -X GET \
-            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1/variants" \
-            -H "Authorization: Bearer ${CF_API_TOKEN}")
-
-          echo "$response" | jq -r '.result.variants[] | "\(.id): \(.options.width)w"' || echo "No variants configured yet"
-
-          echo ""
-          echo "ℹ️  Expected variants:"
-          echo "   - public: Flexible (accepts URL parameters)"
-          echo "   - thumbnail: 600w (blog list)"
-          echo "   - hero: 1200w (blog post hero)"
-          echo "   - og: 1200x630 (Open Graph)"
-          echo ""
-          echo "Configure variants in Cloudflare Dashboard:"
-          echo "https://dash.cloudflare.com/${CF_ACCOUNT_ID}/images/variants"
+        run: mise run images:verify-variants

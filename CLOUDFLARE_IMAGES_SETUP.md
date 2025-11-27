@@ -159,7 +159,23 @@ NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH=your-hash-here
 3. GitHub Actions automatically uploads images to Cloudflare Images
 4. Check Actions tab for upload status
 
-#### Manual Upload (if needed)
+#### Manual Upload via Mise
+
+You can also upload images locally using the mise task:
+
+```bash
+# Set environment variables
+export CF_ACCOUNT_ID="your-account-id"
+export CF_API_TOKEN="your-api-token"
+
+# Upload all images
+mise run images:sync
+
+# Verify variants are configured
+mise run images:verify-variants
+```
+
+#### Manual Upload via API
 
 ```bash
 # Upload a single image
@@ -171,12 +187,20 @@ curl -X POST "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/image
 
 ### 8. Trigger Initial Sync
 
-After setup, manually trigger the workflow to upload all existing images:
+After setup, upload all existing images:
 
+**Option A: Via GitHub Actions (Recommended)**
 1. Go to **Actions** tab in GitHub
 2. Select **Sync Images to Cloudflare** workflow
 3. Click **Run workflow** → **Run workflow**
 4. Wait for completion (~30 seconds for 20 images)
+
+**Option B: Via Mise (Local)**
+```bash
+export CF_ACCOUNT_ID="your-account-id"
+export CF_API_TOKEN="your-api-token"
+mise run images:sync
+```
 
 ## Usage
 
