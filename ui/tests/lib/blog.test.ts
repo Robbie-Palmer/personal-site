@@ -348,27 +348,27 @@ Content.`;
       );
     });
 
-    it("should throw error when image file does not exist", () => {
+    it("should accept legacy local image paths during migration", () => {
       const mockContent = `---
 title: "Test Post"
 description: "A test"
 date: "2025-10-19"
 tags: []
-image: "/blog-images/missing.jpg"
-imageAlt: "Missing image"
+image: "/blog-images/legacy.jpg"
+imageAlt: "Legacy image"
 ---
 
 Content.`;
       vi.mocked(path.resolve)
         .mockReturnValueOnce("/mock/content/blog/test.mdx")
-        .mockReturnValueOnce("/mock/content/blog")
-        .mockReturnValueOnce("/mock/public/blog-images/missing.jpg");
+        .mockReturnValueOnce("/mock/content/blog");
       vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
       vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
-      vi.mocked(fs.existsSync).mockReturnValueOnce(false); // image file does not exist
-      expect(() => getPostBySlug("test")).toThrow(
-        "Featured image file not found at /blog-images/missing.jpg",
-      );
+
+      // Legacy local paths are accepted during migration (no file existence check)
+      const result = getPostBySlug("test");
+      expect(result.image).toBe("/blog-images/legacy.jpg");
+      expect(result.title).toBe("Test Post");
     });
   });
 
