@@ -339,13 +339,10 @@ image: "/blog-images/test.jpg"
 Content.`;
       vi.mocked(path.resolve)
         .mockReturnValueOnce("/mock/content/blog/test.mdx")
-        .mockReturnValueOnce("/mock/content/blog")
-        .mockReturnValueOnce("/mock/public/blog-images/test.jpg");
+        .mockReturnValueOnce("/mock/content/blog");
       vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
       vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
-      vi.mocked(fs.existsSync)
-        .mockReturnValueOnce(true) // image file exists
-        .mockReturnValueOnce(true);
+      vi.mocked(fs.existsSync).mockReturnValueOnce(true); // image file exists
       expect(() => getPostBySlug("test")).toThrow(
         "missing required field: imageAlt",
       );
