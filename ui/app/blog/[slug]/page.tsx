@@ -37,9 +37,11 @@ export async function generateMetadata(
   // Use custom canonical URL if specified, otherwise use production URL
   // Canonical URLs should always point to production, even in preview deployments
   const canonicalUrl = post.canonicalUrl || `${siteConfig.url}/blog/${slug}`;
-  // Use relative URLs - Next.js resolves them via metadataBase (set in layout.tsx)
-  // This allows preview deployments to show their own images
-  const imageUrl = post.image || siteConfig.ogImage;
+  // Resolve image to proper URL (handles both CF Images IDs and local paths)
+  // Use hero variant (1200w) for OpenGraph - works well for social sharing
+  const imageUrl = post.image
+    ? resolveImageUrl(post.image, 'hero')
+    : siteConfig.ogImage;
 
   return {
     title: post.title,

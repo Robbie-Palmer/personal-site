@@ -87,8 +87,7 @@ Variants define preset transformations for different use cases.
    | Variant Name | Width | Height | Fit Mode | Use Case |
    |--------------|-------|--------|----------|----------|
    | `thumbnail`  | 600   | -      | scale-down | Blog list cards |
-   | `hero`       | 1200  | -      | scale-down | Blog post hero images |
-   | `og`         | 1200  | 630    | cover    | Open Graph images |
+   | `hero`       | 1200  | -      | scale-down | Blog post hero images and OpenGraph |
 
    Note: `public` variant exists by default and allows flexible URL parameters
 
@@ -116,19 +115,6 @@ curl -X POST "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/image
     "options": {
       "width": 1200,
       "fit": "scale-down"
-    }
-  }'
-
-# Create og variant (1200x630)
-curl -X POST "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/images/v1/variants" \
-  -H "Authorization: Bearer $CF_API_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "id": "og",
-    "options": {
-      "width": 1200,
-      "height": 630,
-      "fit": "cover"
     }
   }'
 ```

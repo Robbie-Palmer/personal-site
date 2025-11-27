@@ -22,8 +22,7 @@ const CF_IMAGES_BASE_URL = 'https://imagedelivery.net';
 export type ImageVariant =
   | 'public'      // Flexible variant - accepts URL parameters for custom transformations
   | 'thumbnail'   // 600w - for blog list cards
-  | 'hero'        // 1200w - for blog post hero images
-  | 'og';         // 1200x630 - for Open Graph social sharing images
+  | 'hero';       // 1200w - for blog post hero images and OpenGraph
 
 /**
  * URL transformation options for the 'public' variant
