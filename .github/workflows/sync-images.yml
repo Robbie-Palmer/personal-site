@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "source-images/**"
+      - "ui/source-images/**"
   workflow_dispatch: # Allow manual triggering
 
 jobs:
@@ -25,10 +25,10 @@ jobs:
           CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           FORCE_UPDATE: true  # CI always updates existing images
-        run: mise run images:sync
+        run: mise run //ui:images:sync
 
       - name: Verify image variants exist
         env:
           CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: mise run images:verify-variants
+        run: mise run //ui:images:verify-variants
