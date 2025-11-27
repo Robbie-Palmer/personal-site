@@ -159,27 +159,31 @@ export function getPostBySlug(slug: string): BlogPost {
     throw new Error(`Post ${slug} is missing required field: image`);
   }
 
-  // Validate image field - supports both CF Images IDs and local paths
-  // CF Images ID format: 'blog/image-name' (no leading slash, no extension)
-  // Local path format: '/blog-images/image-name.jpg' (for backward compatibility)
-  if (data.image.startsWith("/")) {
-    // Local path - validate file exists
-    const imagePath = path.join(
-      process.cwd(),
-      "public",
-      data.image.replace(/^\//, ""),
+  // Validate image field - must be a CF Images ID with CalVer versioning
+  // Format: 'blog/{name}-{YYYYMMDD}' (no extension)
+  // Example: 'blog/hero-image-20251127'
+  const imageIdPattern = /^blog\/[a-z0-9_-]+-\d{8}$/;
+  if (!imageIdPattern.test(data.image)) {
+    throw new Error(
+      `Post ${slug}: Invalid image ID format. ` +
+      `Expected 'blog/{name}-YYYYMMDD' (e.g., 'blog/hero-image-20251127'). ` +
+      `Got: '${data.image}'`,
     );
-    if (!fs.existsSync(imagePath)) {
+  }
+
+  // Extract and validate the date portion
+  const dateMatch = data.image.match(/-(\d{8})$/);
+  if (dateMatch) {
+    const dateStr = dateMatch[1];
+    const year = Number.parseInt(dateStr.substring(0, 4), 10);
+    const month = Number.parseInt(dateStr.substring(4, 6), 10);
+    const day = Number.parseInt(dateStr.substring(6, 8), 10);
+
+    // Basic date validation
+    if (year < 2020 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) {
       throw new Error(
-        `Post ${slug}: Featured image file not found at ${data.image}`,
-      );
-    }
-  } else {
-    // CF Images ID format - validate structure
-    // Should be like 'blog/image-name' (no extension)
-    if (!/^[a-z0-9_-]+\/[a-z0-9_-]+$/.test(data.image)) {
-      throw new Error(
-        `Post ${slug}: Invalid image ID format. Expected 'blog/image-name' (no extension) or '/blog-images/image-name.jpg' (local path)`,
+        `Post ${slug}: Invalid date in image ID '${data.image}'. ` +
+        `Date portion '${dateStr}' is not a valid calendar date.`,
       );
     }
   }

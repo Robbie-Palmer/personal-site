@@ -1,71 +1,78 @@
 # Cloudflare Images Setup Guide
 
-This document explains the Cloudflare Images integration for optimized image delivery across the site.
+This document explains the Cloudflare Images integration with CalVer versioning for production-grade image management.
 
 ## Architecture Overview
 
-This site uses **Cloudflare Images** for image optimization and delivery, demonstrating a production-ready, scalable approach to image management:
+This site uses **Cloudflare Images with CalVer versioning** to demonstrate a scalable, professional approach to image management:
 
 - ✅ **Automatic format conversion** (WebP, AVIF) based on browser support
 - ✅ **On-demand resizing** via URL parameters
 - ✅ **Global CDN delivery** with edge caching
-- ✅ **Version-controlled source images** in git
-- ✅ **Automated deployment** via GitHub Actions
+- ✅ **CalVer versioning** (YYYYMMDD) for rollbacks and version control
+- ✅ **No binary blobs in git** - images stored in Cloudflare
 - ✅ **Type-safe utilities** for URL generation
+- ✅ **Preview deployments use production stack** - test real performance
 
-### Why Cloudflare Images?
+### Why Cloudflare Images + CalVer?
 
-1. **CMS-Ready**: Upload once, request any size/format via URL
-2. **Zero Maintenance**: No build scripts or manual optimization
-3. **Industry Standard**: Same pattern as Cloudinary, imgix, AWS CloudFront
-4. **Cost-Effective**: $5/month flat or pay-per-use (pennies for low traffic)
-5. **Scalable**: Handles 0 to millions of requests seamlessly
+**Business Value:**
+1. **Scalable**: 0 to millions of requests with no architecture changes
+2. **Cost-Effective**: ~$0.16/month for low traffic, predictable at scale
+3. **Zero Maintenance**: No build scripts, no optimization, no storage bloat
+4. **Industry Standard**: Same pattern as Cloudinary, imgix, AWS CloudFront
 
-### Dual-Mode Architecture
+**Technical Benefits:**
+1. **Version Control Without Git**: CalVer naming (e.g., `hero-image-20251127`) enables:
+   - Easy rollbacks (update reference in code)
+   - Clear version history (dates in filenames)
+   - No git repository bloat from binary files
+   - Fast clones (no large binary history)
 
-The implementation supports both production and preview deployments:
+2. **Preview Deployments Match Production**:
+   - Same CF Images URLs in preview and production
+   - Catch image loading issues before merging
+   - Test real CDN performance
+   - No dual-mode fallback complexity
 
-**Production (main branch):**
-- ✅ CF Images hash configured in environment
-- ✅ Serves optimized images from Cloudflare Images CDN
-- ✅ Automatic WebP/AVIF conversion, resizing, caching
+3. **Self-Documenting**:
+   - Image dates visible in filenames
+   - Easy to identify old/unused versions
+   - Simple cleanup of outdated images
 
-**Preview deployments (feature branches):**
-- ✅ CF Images hash NOT configured
-- ✅ Images copied to `public/blog-images/` during build
-- ✅ Serves from static files (unoptimized but works!)
-- ✅ **Test your blog posts with images before merging**
+### Why NOT Store Images in Git?
 
-**Local development:**
-- ✅ Same as preview (no CF Images hash)
-- ✅ Run `mise run images:copy-to-public` to get images
-- ✅ Fallback serves from local files
+Git is not designed for binary files:
+- ❌ Repository size grows forever (even if you delete images later)
+- ❌ Clones download entire image history
+- ❌ Diffs don't work for binary files
+- ❌ LFS adds complexity and cost
 
-This architecture ensures:
-- 🚀 Production gets optimized delivery
-- 🧪 Previews work without CF Images setup
-- 💻 Local dev works without extra config
-- 🔒 No risk of breaking production from branches
+CalVer versioning solves this by:
+- ✅ Version control through naming convention
+- ✅ Storage in Cloudflare (designed for binaries)
+- ✅ Keep git repo lean and fast
+- ✅ Cheap storage ($0.50 per 100K images)
 
 ## Directory Structure
 
 ```
 personal-site/
-├── source-images/          # Full-resolution source images (tracked in git)
-│   └── blog/              # Blog post images
+├── .gitignore             # Excludes ui/source-images/
 ├── .github/workflows/
-│   └── sync-images.yml    # Automated image upload to CF (main branch only)
+│   └── sync-images.yml   # Weekly health check (manual trigger available)
 └── ui/
-    ├── lib/
-    │   ├── cloudflare-images.ts   # Type-safe URL utilities
-    │   └── image-manifest.json    # Generated: maps image IDs to extensions
-    └── public/blog-images/        # Generated: copied during build for previews
+    ├── source-images/     # Local working copy (GITIGNORED)
+    │   └── blog/         # Images with CalVer naming: {name}-YYYYMMDD.{ext}
+    └── lib/
+        └── cloudflare-images.ts   # Type-safe URL generation
 ```
 
-**Note:**
-- Cloudflare Images is account-level - no Terraform needed!
-- `ui/public/blog-images/` and `ui/lib/image-manifest.json` are generated during build
-- These are gitignored - the build process creates them automatically
+**Key Points:**
+- `ui/source-images/` is **gitignored** - not tracked in version control
+- Images are versioned using **CalVer** in the filename
+- Cloudflare Images is the source of truth, not git
+- Upload images manually before pushing code changes
 
 ## Setup Instructions
 
@@ -96,20 +103,34 @@ The account hash is publicly visible in image URLs and is used to construct deli
 6. Click **Continue to Summary** → **Create Token**
 7. **Copy the token immediately** (you won't see it again!)
 
-### 4. Configure GitHub Secrets
+### 4. Configure Environment Variables
 
-Add these secrets to your GitHub repository:
+**Local development** (`.env.local` in `ui/` directory):
+```bash
+NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH=your-hash-here
+CF_ACCOUNT_ID=your-account-id
+CF_API_TOKEN=your-api-token
+```
 
+**Production (Cloudflare Pages):**
+1. Go to Cloudflare Pages → Your Project → **Settings** → **Environment variables**
+2. Add for both Production and Preview environments:
+   - `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH`: Your account hash
+   - `CF_ACCOUNT_ID`: Your account ID (for health checks, optional)
+   - `CF_API_TOKEN`: Your API token (for health checks, optional)
+
+**GitHub Secrets (for health check workflow):**
 1. Go to **Settings** → **Secrets and variables** → **Actions**
-2. Add two **Repository secrets**:
-   - `CLOUDFLARE_ACCOUNT_ID`: Your Cloudflare account ID (found in dashboard)
-   - `CLOUDFLARE_API_TOKEN`: The API token you created above
+2. Add:
+   - `CLOUDFLARE_ACCOUNT_ID`
+   - `CLOUDFLARE_API_TOKEN`
+   - `CF_IMAGES_ACCOUNT_HASH`
 
 ### 5. Configure Image Variants
 
 Variants define preset transformations for different use cases.
 
-#### Option A: Via Cloudflare Dashboard (Recommended)
+#### Via Cloudflare Dashboard (Recommended)
 
 1. Go to Cloudflare Dashboard → **Images** → **Variants**
 2. Create these variants:
@@ -121,7 +142,7 @@ Variants define preset transformations for different use cases.
 
    Note: `public` variant exists by default and allows flexible URL parameters
 
-#### Option B: Via API
+#### Via API
 
 ```bash
 # Create thumbnail variant (600w)
@@ -149,179 +170,190 @@ curl -X POST "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/image
   }'
 ```
 
-### 6. Set Environment Variable
+### 6. Verify Setup
 
-Add the account hash to your Next.js environment:
-
-**For local development:**
-Create `.env.local` in the `ui/` directory:
-```bash
-NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH=your-hash-here
-```
-
-**For production (Cloudflare Pages):**
-1. Go to Cloudflare Pages → Your Project → **Settings** → **Environment variables**
-2. Add:
-   - Variable name: `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH`
-   - Value: Your account hash
-   - Environment: **Production** and **Preview**
-
-### 7. Upload Images
-
-#### Automatic Upload (Recommended)
-
-1. Add images to `source-images/blog/`
-2. Commit and push to `main` branch
-3. GitHub Actions automatically uploads images to Cloudflare Images
-4. Check Actions tab for upload status
-
-**Note:** GitHub Actions uses `FORCE_UPDATE=true`, meaning:
-- ✅ **New images**: Uploaded
-- ✅ **Changed images**: Updated (delete + re-upload)
-- ✅ **Unchanged images**: Still updated (ensures production is fresh)
-
-#### Manual Upload via Mise
-
-**Safe mode (default - skips existing):**
-```bash
-export CF_ACCOUNT_ID="your-account-id"
-export CF_API_TOKEN="your-api-token"
-
-# Upload only new images (skips existing)
-mise run images:sync
-```
-
-**Force update mode (updates all):**
-```bash
-# Update ALL images (delete and re-upload existing)
-FORCE_UPDATE=true mise run images:sync
-```
-
-**Verify setup:**
-```bash
-# Check variants are configured
-mise run images:verify-variants
-
-# Run full health check (recommended after first setup)
-mise run images:health-check
-```
-
-#### Manual Upload via API
+Run the health check to verify configuration:
 
 ```bash
-# Upload a single image
-curl -X POST "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/images/v1" \
-  -H "Authorization: Bearer $CF_API_TOKEN" \
-  -F "file=@source-images/blog/example.jpg" \
-  -F "id=blog/example"
+mise run //ui:images:health-check
 ```
 
-### 8. Trigger Initial Sync
+This validates:
+- ✅ Environment variables are set
+- ✅ API connectivity works
+- ✅ Variants are configured correctly
+- ✅ Can generate test URLs
 
-After setup, upload all existing images:
+## Workflow: Adding or Updating Images
 
-**Option A: Via GitHub Actions (Recommended)**
-1. Go to **Actions** tab in GitHub
-2. Select **Sync Images to Cloudflare** workflow
-3. Click **Run workflow** → **Run workflow**
-4. Wait for completion (~30 seconds for 20 images)
+### Adding a New Image
 
-**Option B: Via Mise (Local)**
-```bash
-export CF_ACCOUNT_ID="your-account-id"
-export CF_API_TOKEN="your-api-token"
-mise run images:sync
+1. **Save image locally** with CalVer naming in `ui/source-images/blog/`:
+   ```
+   Format: {descriptive-name}-YYYYMMDD.{ext}
+   Example: hero-image-20251127.jpg
+   ```
+
+2. **Upload to Cloudflare Images**:
+   ```bash
+   cd ui
+   mise run images:sync
+   ```
+
+   This will:
+   - ✅ Validate CalVer naming format
+   - ✅ Check for duplicates (only one version per image locally)
+   - ✅ Upload only new images
+   - ✅ Validate version ordering (new version must be later than existing)
+
+3. **Update blog post frontmatter**:
+   ```yaml
+   ---
+   title: "My Blog Post"
+   image: "blog/hero-image-20251127"  # No extension, includes date
+   imageAlt: "Description of image"
+   ---
+   ```
+
+4. **Test locally**: Start dev server and verify image loads
+
+5. **Commit and push**: Only code changes are tracked in git (not images!)
+
+### Updating an Existing Image
+
+1. **Save new version** with updated CalVer date:
+   ```
+   Old: ui/source-images/blog/hero-image-20251127.jpg
+   New: ui/source-images/blog/hero-image-20251201.jpg
+   ```
+
+2. **Delete old version** from `ui/source-images/blog/` (keep only latest locally)
+
+3. **Upload new version**:
+   ```bash
+   cd ui
+   mise run images:sync
+   ```
+
+   The sync task will:
+   - ✅ Validate new date is later than existing versions in Cloudflare
+   - ✅ Upload new version
+   - ✅ Keep old version in Cloudflare (for rollback capability)
+
+4. **Update blog post** to reference new version:
+   ```yaml
+   image: "blog/hero-image-20251201"
+   ```
+
+5. **Commit and push code changes**
+
+### Rolling Back to Previous Version
+
+Simply update the blog post frontmatter to reference the older version:
+
+```yaml
+# Rollback
+image: "blog/hero-image-20251127"  # Old version still in Cloudflare
 ```
 
-## Usage
+No need to re-upload - all versions persist in Cloudflare until manually deleted.
 
-### In Blog Posts
+## Naming Convention
 
-Update blog post frontmatter to use CF Images IDs (no extension):
+**Format:** `{descriptive-name}-{YYYYMMDD}.{ext}`
 
-**Before (local path):**
+**Examples:**
+- `hero-image-20251127.jpg`
+- `diagram-architecture-20251130.png`
+- `screenshot-dashboard-20251201.png`
+
+**Rules:**
+- ✅ Lowercase letters, numbers, hyphens only for name
+- ✅ Exactly 8 digits for date (YYYYMMDD)
+- ✅ Valid calendar date (validated by sync task)
+- ❌ Only one version of each image locally (sync task enforces this)
+
+## Usage in Code
+
+### Blog Posts
+
 ```yaml
 ---
 title: "My Blog Post"
-image: "/blog-images/example-featured.jpg"
-imageAlt: "Description of image"
----
-```
-
-**After (CF Images ID):**
-```yaml
----
-title: "My Blog Post"
-image: "blog/example-featured"
+description: "Post description"
+date: "2025-11-27"
+tags: ["example"]
+image: "blog/hero-image-20251127"  # CalVer versioned ID
 imageAlt: "Description of image"
 ---
 ```
 
 The system automatically:
-- Serves thumbnails (600w) on the blog list page
-- Serves hero images (1200w) on individual blog posts
+- Serves thumbnails (600w) on blog list page
+- Serves hero images (1200w) on blog post pages
+- Uses hero variant for OpenGraph images
 - Converts to WebP/AVIF based on browser support
-- Falls back to local images if CF Images not configured
 
-### In Code
+### TypeScript
 
 ```typescript
 import { getImageUrl, resolveImageUrl } from '@/lib/cloudflare-images'
 
 // Get a specific variant
-const thumbnailUrl = getImageUrl('blog/example', 'thumbnail')
-// => https://imagedelivery.net/{hash}/blog/example/thumbnail
+const thumbnailUrl = getImageUrl('blog/hero-image-20251127', 'thumbnail')
+// => https://imagedelivery.net/{hash}/blog/hero-image-20251127/thumbnail
 
 // Get custom size with public variant
-const customUrl = getImageUrl('blog/example', 'public', {
+const customUrl = getImageUrl('blog/hero-image-20251127', 'public', {
   width: 800,
   format: 'webp'
 })
-// => https://imagedelivery.net/{hash}/blog/example/public?width=800&format=webp
+// => https://imagedelivery.net/{hash}/blog/hero-image-20251127/public?width=800&format=webp
 
-// Resolve either CF Images ID or local path (migration helper)
-const url = resolveImageUrl(post.image, 'hero')
-// Works with both 'blog/example' and '/blog-images/example.jpg'
+// Convenience wrapper
+const url = resolveImageUrl('blog/hero-image-20251127', 'hero')
 ```
 
-## Migration Guide
+## Mise Tasks
 
-To migrate existing blog posts from local images to Cloudflare Images:
+All image tasks are in `ui/mise.toml`:
 
-1. **Initial State**: Images in `ui/public/blog-images/`, posts reference `/blog-images/example.jpg`
-2. **Copy to source**: Images copied to `source-images/blog/` (already done ✓)
-3. **Upload**: Run GitHub Actions workflow to upload to CF Images
-4. **Update posts**: Change image references in frontmatter:
-   ```yaml
-   # Before
-   image: "/blog-images/example-featured.jpg"
+### `mise run //ui:images:sync`
 
-   # After
-   image: "blog/example-featured"
-   ```
-5. **Test**: Verify images load correctly on blog list and post pages
-6. **Cleanup**: Eventually remove `ui/public/blog-images/` (optional, kept for backward compatibility)
+Uploads local images to Cloudflare Images with validation:
+- Validates CalVer naming format
+- Checks for duplicate root names locally
+- Validates version ordering against Cloudflare
+- Uploads only new versions
+
+**Usage:**
+```bash
+cd ui
+mise run images:sync
+```
+
+### `mise run //ui:images:health-check`
+
+Comprehensive validation of Cloudflare Images setup:
+- Checks environment variables
+- Tests API connectivity
+- Lists example images
+- Verifies variants are configured
+- Generates test URLs
+
+**Usage:**
+```bash
+mise run //ui:images:health-check
+```
 
 ## Testing & Verification
 
-### Health Check (Recommended)
-
-Run the comprehensive health check to verify your setup:
+### Health Check
 
 ```bash
-export CF_ACCOUNT_ID="your-account-id"
-export CF_API_TOKEN="your-api-token"
-export NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH="your-hash"
-
+cd ui
 mise run images:health-check
 ```
-
-This checks:
-1. ✅ Environment variables are set correctly
-2. ✅ API connectivity works
-3. ✅ At least one test image exists in CF Images
-4. ✅ Required variants (thumbnail, hero) are configured
-5. ✅ Generates a test URL you can open in browser
 
 **Example output:**
 ```
@@ -335,100 +367,172 @@ This checks:
 2️⃣  Testing API connectivity...
    ✅ API connection successful
    📊 Total images in account: 20
+   📋 Example images:
+      - blog/hero-image-20251127
+      - blog/diagram-arch-20251128
+      - blog/screenshot-dashboard-20251129
 
-3️⃣  Checking source images...
-   📊 Source images found: 20
-   🧪 Test image: blog/how-to-build-wealth-featured
-   ✅ Test image exists in Cloudflare Images
-   🌐 Test URL: https://imagedelivery.net/abc123/blog/how-to-build-wealth-featured/hero
+3️⃣  Checking image variants...
+   ✅ thumbnail variant configured (600w for blog list)
+   ✅ hero variant configured (1200w for blog hero & OG)
+
+   💡 Configure variants in Cloudflare Dashboard:
+      https://dash.cloudflare.com/{account}/images/variants
+
+4️⃣  Testing image URL generation...
+   🧪 Test image ID: blog/hero-image-20251127
+   🌐 Test URL: https://imagedelivery.net/{hash}/blog/hero-image-20251127/hero
    💡 Open this URL in browser to verify image loads
-
-4️⃣  Checking image variants...
-   ✅ thumbnail variant configured
-   ✅ hero variant configured
 
 🏁 Health check complete!
 ```
 
-### Check Images Uploaded Successfully
+### Manual API Testing
 
 ```bash
-# List all images in your account
+# List all images
 curl "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/images/v1" \
   -H "Authorization: Bearer $CF_API_TOKEN" | jq '.result.images[].id'
 
 # Get specific image details
-curl "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/images/v1/blog/example" \
+curl "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/images/v1/blog/hero-image-20251127" \
   -H "Authorization: Bearer $CF_API_TOKEN" | jq
+
+# Delete old version (cleanup)
+curl -X DELETE "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/images/v1/blog/hero-image-20251127" \
+  -H "Authorization: Bearer $CF_API_TOKEN"
 ```
 
 ### Test Image URLs
 
-Visit these URLs in your browser (replace `{hash}` with your account hash):
+Visit in browser (replace `{hash}` with your account hash):
 
 ```
 # Thumbnail (600w)
-https://imagedelivery.net/{hash}/blog/just-right-engineering-featured/thumbnail
+https://imagedelivery.net/{hash}/blog/hero-image-20251127/thumbnail
 
 # Hero (1200w)
-https://imagedelivery.net/{hash}/blog/just-right-engineering-featured/hero
+https://imagedelivery.net/{hash}/blog/hero-image-20251127/hero
 
 # Custom size
-https://imagedelivery.net/{hash}/blog/just-right-engineering-featured/public?width=400&format=webp
+https://imagedelivery.net/{hash}/blog/hero-image-20251127/public?width=400&format=webp
 ```
 
 ## Cost Breakdown
 
-### For Essentially Zero Traffic (< 10K page views/month)
+### For Low Traffic (< 10K page views/month)
 
 **Assumptions:**
-- 20 images stored
+- 20 images stored (multiple versions = ~40 total)
 - 5K page views/month
-- 3 images per page view (featured image, potentially some in-content)
+- 3 images per page
 - Total: 15K image requests/month
 
-**Pricing Options:**
+**Pay-per-use pricing:**
+- Storage: $0.50 per 100K images = $0.20/month
+- Delivery: $1 per 100K requests = $0.15/month
+- **Total: ~$0.35/month** (negligible)
 
-**Option 1: Pay-per-use**
-- Storage: $0.50 per 100K images = $0.01/month
-- Delivery: $1 per 100K images = $0.15/month
-- **Total: ~$0.16/month** (negligible)
-
-**Option 2: Flat rate**
-- $5/month for up to 100K images served
-- Unlimited storage included
-- **Total: $5/month** (predictable)
+**Flat rate alternative:**
+- $5/month for up to 100K requests
+- Unlimited storage
+- **Total: $5/month** (predictable, worth it at ~50K+ requests/month)
 
 ### For Growing Traffic (100K+ page views/month)
 
-- Storage: Still negligible ($0.01-0.10/month)
-- Delivery: ~$3-5/month depending on images per page
-- **Still very cost-effective** compared to alternatives
+- Storage: Still negligible ($0.20-1.00/month)
+- Delivery: ~$3-8/month depending on images per page
+- **Still very cost-effective** compared to bandwidth + storage + CDN separately
+
+## Cleanup & Maintenance
+
+### Finding Old Versions
+
+```bash
+# List all images, grouped by root name
+curl "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/images/v1" \
+  -H "Authorization: Bearer $CF_API_TOKEN" \
+  | jq -r '.result.images[].id' \
+  | sort
+```
+
+Example output:
+```
+blog/hero-image-20251101
+blog/hero-image-20251115
+blog/hero-image-20251127  ← Latest version
+blog/other-image-20251120
+```
+
+### Deleting Old Versions
+
+```bash
+# Delete a specific old version
+curl -X DELETE "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/images/v1/blog/hero-image-20251101" \
+  -H "Authorization: Bearer $CF_API_TOKEN"
+```
+
+**When to delete:**
+- After confirming new version works in production
+- When storage costs become a concern (unlikely for most sites)
+- When you have dozens of versions of the same image
+
+**Keep at least:**
+- Current version (referenced in code)
+- Previous 1-2 versions (for quick rollback)
 
 ## Troubleshooting
 
-### Images Not Loading
+### Build Fails: Missing CF_IMAGES_ACCOUNT_HASH
 
-1. **Check environment variable**: Ensure `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH` is set
-2. **Verify upload**: Check GitHub Actions logs for successful upload
-3. **Test direct URL**: Try accessing image URL directly in browser
-4. **Check browser console**: Look for 404 or 403 errors
-
-### Upload Failures
-
-1. **Check GitHub Secrets**: Ensure `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` are set
-2. **Verify API token permissions**: Token must have "Cloudflare Images > Edit" permission
-3. **Check quota**: Ensure you haven't hit account limits
-4. **Review workflow logs**: Check Actions tab for detailed error messages
-
-### Development Fallback
-
-If CF Images not configured locally, the code automatically falls back to local images:
+**Error:**
 ```
-⚠️  NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH not set. Falling back to local images.
+Error: NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH is required
 ```
 
-This allows development without CF Images configured, but you should set it for production.
+**Solution:**
+Set the environment variable in `.env.local` (local) or Cloudflare Pages settings (production)
+
+### Image Not Found (404)
+
+**Possible causes:**
+1. Image not uploaded to Cloudflare Images
+2. Wrong image ID in frontmatter
+3. Image ID doesn't match uploaded ID
+
+**Debug:**
+```bash
+# Check if image exists
+curl "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/images/v1/blog/hero-image-20251127" \
+  -H "Authorization: Bearer $CF_API_TOKEN"
+
+# List all images
+mise run //ui:images:health-check
+```
+
+### Upload Fails: Version Validation Error
+
+**Error:**
+```
+❌ Version validation failed:
+   Latest existing version: 20251130
+   New version: 20251127
+   New version must be later than existing versions
+```
+
+**Solution:**
+Use a date newer than the existing version. If you need to re-upload the same date, delete the existing version first.
+
+### Upload Fails: Invalid Filename
+
+**Error:**
+```
+❌ Invalid filename format: hero-image.jpg
+   Expected: {name}-YYYYMMDD.{ext}
+```
+
+**Solution:**
+Rename file to include CalVer date: `hero-image-20251127.jpg`
 
 ## Additional Resources
 
@@ -439,10 +543,10 @@ This allows development without CF Images configured, but you should set it for 
 
 ## Future Enhancements
 
-Potential improvements to consider:
+Potential improvements:
 
-1. **Automatic OG image generation**: Generate Open Graph images dynamically from post content
-2. **Responsive images**: Use `srcset` for different screen sizes
-3. **Lazy loading**: Implement lazy loading for images below the fold
-4. **Image analytics**: Track which images are most viewed
-5. **Bulk operations**: Scripts to bulk-update frontmatter or delete unused images
+1. **Automated cleanup**: Script to delete versions older than N days (keeping latest)
+2. **Version comparison**: CLI tool to compare image versions visually
+3. **Bulk renaming**: Script to add CalVer dates to existing images
+4. **Image analytics**: Track which versions are most viewed
+5. **Automatic OG image generation**: Generate Open Graph images from post content

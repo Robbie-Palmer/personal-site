@@ -4,17 +4,23 @@
  * This module provides type-safe helpers for generating Cloudflare Images URLs
  * with proper variants and transformations.
  *
+ * Images are versioned using CalVer (YYYYMMDD) in the filename to enable
+ * version control and easy rollbacks without storing binaries in git.
+ *
  * @see https://developers.cloudflare.com/images/
  */
-
-// Import image manifest for fallback (generated during build)
-// Maps image IDs to file extensions for local fallback
-import imageManifest from './image-manifest.json';
 
 // Cloudflare Images configuration
 // The account hash is publicly visible in image URLs and is not sensitive
 // You can find it in your Cloudflare Dashboard under Images
-const CF_IMAGES_ACCOUNT_HASH = process.env.NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH || '';
+const CF_IMAGES_ACCOUNT_HASH = process.env.NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH;
+
+if (!CF_IMAGES_ACCOUNT_HASH) {
+  throw new Error(
+    'NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH is required. ' +
+    'Set it in your .env file. Find it in Cloudflare Dashboard > Images.'
+  );
+}
 
 // Base URL for Cloudflare Images delivery
 const CF_IMAGES_BASE_URL = 'https://imagedelivery.net';
@@ -52,41 +58,32 @@ export interface ImageTransformOptions {
 /**
  * Generates a Cloudflare Images URL for the given image ID and variant
  *
- * @param imageId - Image identifier (e.g., 'blog/just-right-engineering-featured')
- *                  This should match the ID used when uploading to CF Images
+ * @param imageId - Image identifier with CalVer version (e.g., 'blog/hero-image-20251127')
+ *                  Format: blog/{name}-{YYYYMMDD}
  * @param variant - The variant to use (default: 'public')
  * @param options - Transformation options (only applies to 'public' variant)
  * @returns Full Cloudflare Images URL
  *
  * @example
  * // Get thumbnail version
- * getImageUrl('blog/example', 'thumbnail')
- * // => https://imagedelivery.net/{hash}/blog/example/thumbnail
+ * getImageUrl('blog/hero-image-20251127', 'thumbnail')
+ * // => https://imagedelivery.net/{hash}/blog/hero-image-20251127/thumbnail
  *
  * @example
  * // Get custom size with public variant
- * getImageUrl('blog/example', 'public', { width: 800, format: 'webp' })
- * // => https://imagedelivery.net/{hash}/blog/example/public?width=800&format=webp
+ * getImageUrl('blog/example-20251127', 'public', { width: 800, format: 'webp' })
+ * // => https://imagedelivery.net/{hash}/blog/example-20251127/public?width=800&format=webp
  *
  * @example
  * // Get hero image for retina display
- * getImageUrl('blog/example', 'hero')
- * // => https://imagedelivery.net/{hash}/blog/example/hero
+ * getImageUrl('blog/example-20251127', 'hero')
+ * // => https://imagedelivery.net/{hash}/blog/example-20251127/hero
  */
 export function getImageUrl(
   imageId: string,
   variant: ImageVariant = 'public',
   options?: ImageTransformOptions,
 ): string {
-  if (!CF_IMAGES_ACCOUNT_HASH) {
-    // Fallback to local images if CF Images not configured
-    // This allows preview deployments and local dev to work
-    // Use manifest to find the correct file extension
-    const extension = (imageManifest as Record<string, string>)[imageId] || 'jpg';
-    const filename = imageId.replace('blog/', '');
-    return `/blog-images/${filename}.${extension}`;
-  }
-
   // Build base URL
   const baseUrl = `${CF_IMAGES_BASE_URL}/${CF_IMAGES_ACCOUNT_HASH}/${imageId}/${variant}`;
 
@@ -111,15 +108,15 @@ export function getImageUrl(
  * Helper function to get a responsive srcset for an image
  * Useful for <img srcset> or <Image> components
  *
- * @param imageId - Image identifier
+ * @param imageId - Image identifier with CalVer version
  * @param variant - The variant to use
  * @param widths - Array of widths to generate (default: [600, 1200, 2400])
  * @returns srcset string for use in img elements
  *
  * @example
  * <img
- *   src={getImageUrl('blog/example', 'hero')}
- *   srcSet={getImageSrcSet('blog/example', 'public', [600, 1200, 2400])}
+ *   src={getImageUrl('blog/example-20251127', 'hero')}
+ *   srcSet={getImageSrcSet('blog/example-20251127', 'public', [600, 1200, 2400])}
  *   sizes="(max-width: 768px) 100vw, 1200px"
  * />
  */
@@ -142,59 +139,21 @@ export function getImageSrcSet(
 }
 
 /**
- * Helper to convert old local image paths to CF Images IDs
- * Useful during migration from local images to Cloudflare Images
+ * Resolves an image reference to a URL
  *
- * @param localPath - Local image path (e.g., '/blog-images/example.jpg')
- * @returns CF Images ID (e.g., 'blog/example')
- *
- * @example
- * localPathToImageId('/blog-images/just-right-engineering-featured.jpg')
- * // => 'blog/just-right-engineering-featured'
- */
-export function localPathToImageId(localPath: string): string {
-  // Remove /blog-images/ prefix and file extension
-  return localPath
-    .replace(/^\/blog-images\//, 'blog/')
-    .replace(/\.(jpg|jpeg|png|gif|webp)$/, '');
-}
-
-/**
- * Type guard to check if CF Images is configured
- */
-export function isCFImagesConfigured(): boolean {
-  return !!CF_IMAGES_ACCOUNT_HASH;
-}
-
-/**
- * Resolves an image reference to a URL, supporting both CF Images IDs and local paths
- * This is useful during migration when some posts still use local paths
- *
- * @param imageRef - Either a CF Images ID ('blog/example') or local path ('/blog-images/example.jpg')
- * @param variant - The variant to use for CF Images (ignored for local paths)
- * @param options - Transformation options for CF Images (ignored for local paths)
+ * @param imageId - CF Images ID with CalVer version (e.g., 'blog/hero-image-20251127')
+ * @param variant - The variant to use
+ * @param options - Transformation options
  * @returns Image URL
  *
  * @example
- * // CF Images ID
- * resolveImageUrl('blog/example', 'thumbnail')
- * // => https://imagedelivery.net/{hash}/blog/example/thumbnail
- *
- * @example
- * // Local path (fallback during migration)
- * resolveImageUrl('/blog-images/example.jpg')
- * // => /blog-images/example.jpg
+ * resolveImageUrl('blog/example-20251127', 'thumbnail')
+ * // => https://imagedelivery.net/{hash}/blog/example-20251127/thumbnail
  */
 export function resolveImageUrl(
-  imageRef: string,
+  imageId: string,
   variant?: ImageVariant,
   options?: ImageTransformOptions,
 ): string {
-  // If it starts with '/', it's a local path
-  if (imageRef.startsWith('/')) {
-    return imageRef;
-  }
-
-  // Otherwise, treat it as a CF Images ID
-  return getImageUrl(imageRef, variant, options);
+  return getImageUrl(imageId, variant, options);
 }

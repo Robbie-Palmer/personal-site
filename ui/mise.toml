@@ -11,7 +11,7 @@ run = "pnpm dev"
 
 [tasks.build]
 description = "Build Next.js application for production"
-depends = ["//ui:install", "//ui:images:copy-to-public"]
+depends = ["//ui:install"]
 run = "pnpm build"
 sources = ["app/**/*", "components/**/*", "lib/**/*", "public/**/*", "*.ts", "*.tsx", "*.json"]
 outputs = ["out/**/*"]
@@ -64,55 +64,8 @@ description = "Run all checks (lint, format, typecheck, test)"
 depends = ["//ui:lint", "//ui:format:check", "//ui:typecheck", "//ui:test"]
 
 # Image management tasks
-[tasks."images:copy-to-public"]
-description = "Copy source images to public for deployments"
-run = """
-#!/usr/bin/env bash
-set -e
-
-echo "📋 Copying source images to public/blog-images..."
-
-# Ensure target directory exists
-mkdir -p public/blog-images
-
-# Copy all images from source-images/blog to public/blog-images
-# This ensures preview deployments have images even without CF Images configured
-if [ -d "source-images/blog" ]; then
-  cp -r source-images/blog/* public/blog-images/
-
-  # Generate manifest mapping image IDs to file extensions
-  # This helps the fallback logic find the right file
-  echo "{" > lib/image-manifest.json
-  first=true
-  for file in source-images/blog/*; do
-    if [ -f "$file" ]; then
-      filename=$(basename "$file")
-      id="${filename%.*}"
-      ext="${filename##*.}"
-
-      if [ "$first" = true ]; then
-        first=false
-      else
-        echo "," >> lib/image-manifest.json
-      fi
-
-      echo -n "  \"blog/$id\": \"$ext\"" >> lib/image-manifest.json
-    fi
-  done
-  echo "" >> lib/image-manifest.json
-  echo "}" >> lib/image-manifest.json
-
-  echo "✅ Images copied to public/blog-images/"
-  echo "✅ Generated lib/image-manifest.json"
-else
-  echo "⚠️  No source-images/blog directory found"
-  # Create empty manifest
-  echo "{}" > lib/image-manifest.json
-fi
-"""
-
 [tasks."images:sync"]
-description = "Upload source images to Cloudflare Images"
+description = "Upload versioned images to Cloudflare Images with CalVer validation"
 run = """
 #!/usr/bin/env bash
 set -e
@@ -128,35 +81,131 @@ if [ -z "$CF_API_TOKEN" ]; then
   exit 1
 fi
 
-# Check if running in force update mode (CI/GitHub Actions should set this)
-FORCE_UPDATE="${FORCE_UPDATE:-false}"
+echo "🚀 Starting image sync to Cloudflare Images..."
+echo ""
 
-if [ "$FORCE_UPDATE" = "true" ]; then
-  echo "🚀 Starting image sync to Cloudflare Images (FORCE UPDATE MODE)..."
-  echo "   Existing images will be updated"
-else
-  echo "🚀 Starting image sync to Cloudflare Images..."
-  echo "   Existing images will be skipped (set FORCE_UPDATE=true to update)"
+# Check if source-images directory exists
+if [ ! -d "source-images/blog" ]; then
+  echo "⚠️  No source-images/blog directory found"
+  echo "   Create it and add your images with CalVer naming: {name}-YYYYMMDD.{ext}"
+  exit 0
 fi
 
-# Counter for tracking
+# Counters
 uploaded=0
-updated=0
 skipped=0
 failed=0
+validation_errors=0
 
-# Find all images in source-images directory
-find source-images -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.webp" \) | while read -r filepath; do
-  # Get relative path from source-images directory
-  relative_path="${filepath#source-images/}"
+# Step 1: Validate local image naming and detect duplicates
+echo "1️⃣  Validating local image naming..."
+declare -A root_names
+declare -A image_dates
 
-  # Remove file extension to create image ID
-  # e.g., "blog/example.jpg" -> "blog/example"
-  image_id="${relative_path%.*}"
+for filepath in source-images/blog/*; do
+  [ -f "$filepath" ] || continue
+
+  filename=$(basename "$filepath")
+
+  # Check if filename matches pattern: {name}-YYYYMMDD.{ext}
+  if ! [[ "$filename" =~ ^(.+)-([0-9]{8})\.(jpg|jpeg|png|gif|webp)$ ]]; then
+    echo "   ❌ Invalid filename format: $filename"
+    echo "      Expected: {name}-YYYYMMDD.{ext} (e.g., hero-image-20251127.jpg)"
+    validation_errors=$((validation_errors + 1))
+    continue
+  fi
+
+  root_name="${BASH_REMATCH[1]}"
+  date_str="${BASH_REMATCH[2]}"
+  ext="${BASH_REMATCH[3]}"
+
+  # Validate date format
+  if ! date -d "$date_str" >/dev/null 2>&1; then
+    echo "   ❌ Invalid date in filename: $filename (date: $date_str)"
+    validation_errors=$((validation_errors + 1))
+    continue
+  fi
+
+  # Check for duplicate root names
+  if [ -n "${root_names[$root_name]}" ]; then
+    echo "   ❌ Duplicate root name found:"
+    echo "      - ${root_names[$root_name]}"
+    echo "      - $filename"
+    echo "      Only keep the latest version in source-images/"
+    validation_errors=$((validation_errors + 1))
+    continue
+  fi
+
+  root_names[$root_name]="$filename"
+  image_dates[$root_name]="$date_str"
+done
+
+if [ $validation_errors -gt 0 ]; then
+  echo ""
+  echo "❌ Found $validation_errors validation error(s). Fix them before uploading."
+  exit 1
+fi
+
+echo "   ✅ All local images have valid CalVer naming"
+echo ""
+
+# Step 2: Fetch existing images from Cloudflare
+echo "2️⃣  Fetching existing images from Cloudflare..."
+response=$(curl -s -X GET \
+  "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1" \
+  -H "Authorization: Bearer ${CF_API_TOKEN}")
+
+# Extract existing image IDs
+existing_ids=$(echo "$response" | jq -r '.result.images[].id' 2>/dev/null || echo "")
+echo "   📊 Found $(echo "$existing_ids" | grep -c .) existing images in Cloudflare"
+echo ""
+
+# Step 3: Upload images with version validation
+echo "3️⃣  Uploading new images..."
+
+for filepath in source-images/blog/*; do
+  [ -f "$filepath" ] || continue
+
+  filename=$(basename "$filepath")
+  [[ "$filename" =~ ^(.+)-([0-9]{8})\.(jpg|jpeg|png|gif|webp)$ ]] || continue
+
+  root_name="${BASH_REMATCH[1]}"
+  date_str="${BASH_REMATCH[2]}"
+  ext="${BASH_REMATCH[3]}"
+
+  # Image ID without extension: blog/{name}-{date}
+  image_id="blog/${root_name}-${date_str}"
 
   echo ""
-  echo "📸 Processing: $filepath"
+  echo "📸 Processing: $filename"
   echo "   Image ID: $image_id"
+
+  # Check if this exact version already exists
+  if echo "$existing_ids" | grep -qx "$image_id"; then
+    echo "   ⏭️  Skipped (already exists in Cloudflare Images)"
+    skipped=$((skipped + 1))
+    continue
+  fi
+
+  # Check for existing versions of this image
+  existing_versions=$(echo "$existing_ids" | grep "^blog/${root_name}-" || true)
+
+  if [ -n "$existing_versions" ]; then
+    # Find the latest existing version
+    latest_existing=$(echo "$existing_versions" | sed 's/.*-//' | sort -r | head -1)
+
+    # Validate that new version is later than latest existing
+    if [ "$date_str" -le "$latest_existing" ]; then
+      echo "   ❌ Version validation failed:"
+      echo "      Latest existing version: $latest_existing"
+      echo "      New version: $date_str"
+      echo "      New version must be later than existing versions"
+      failed=$((failed + 1))
+      continue
+    fi
+
+    echo "   📅 Newer version detected (latest existing: $latest_existing)"
+  fi
 
   # Upload to Cloudflare Images
   response=$(curl -s -w "\n%{http_code}" -X POST \
@@ -171,40 +220,6 @@ find source-images -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png
   if [ "$http_code" = "200" ]; then
     echo "   ✅ Successfully uploaded"
     uploaded=$((uploaded + 1))
-  elif [ "$http_code" = "409" ]; then
-    # Image already exists
-    if [ "$FORCE_UPDATE" = "true" ]; then
-      echo "   🔄 Image exists, updating..."
-
-      # Delete existing image
-      delete_response=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
-        "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1/${image_id}" \
-        -H "Authorization: Bearer ${CF_API_TOKEN}")
-
-      if [ "$delete_response" = "200" ]; then
-        # Re-upload
-        upload_response=$(curl -s -w "\n%{http_code}" -X POST \
-          "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1" \
-          -H "Authorization: Bearer ${CF_API_TOKEN}" \
-          -F "file=@${filepath}" \
-          -F "id=${image_id}")
-
-        upload_http_code=$(echo "$upload_response" | tail -n1)
-        if [ "$upload_http_code" = "200" ]; then
-          echo "   ✅ Successfully updated"
-          updated=$((updated + 1))
-        else
-          echo "   ❌ Failed to re-upload after delete"
-          failed=$((failed + 1))
-        fi
-      else
-        echo "   ❌ Failed to delete existing image"
-        failed=$((failed + 1))
-      fi
-    else
-      echo "   ⏭️  Skipped (already exists)"
-      skipped=$((skipped + 1))
-    fi
   else
     echo "   ❌ Failed to upload (HTTP $http_code)"
     echo "   Response: $body"
@@ -215,9 +230,6 @@ done
 echo ""
 echo "📊 Summary:"
 echo "   ✅ Uploaded: $uploaded"
-if [ "$FORCE_UPDATE" = "true" ]; then
-  echo "   🔄 Updated: $updated"
-fi
 echo "   ⏭️  Skipped: $skipped"
 echo "   ❌ Failed: $failed"
 
@@ -231,43 +243,8 @@ echo ""
 echo "🎉 Image sync completed successfully!"
 """
 
-[tasks."images:verify-variants"]
-description = "Check configured Cloudflare Images variants"
-run = """
-#!/usr/bin/env bash
-set -e
-
-# Validate required environment variables
-if [ -z "$CF_ACCOUNT_ID" ]; then
-  echo "❌ CF_ACCOUNT_ID environment variable is required"
-  exit 1
-fi
-
-if [ -z "$CF_API_TOKEN" ]; then
-  echo "❌ CF_API_TOKEN environment variable is required"
-  exit 1
-fi
-
-echo "🔍 Checking Cloudflare Images variants..."
-
-response=$(curl -s -X GET \
-  "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1/variants" \
-  -H "Authorization: Bearer ${CF_API_TOKEN}")
-
-echo "$response" | jq -r '.result.variants[] | "\(.id): \(.options.width)w"' || echo "No variants configured yet"
-
-echo ""
-echo "ℹ️  Expected variants:"
-echo "   - public: Flexible (accepts URL parameters)"
-echo "   - thumbnail: 600w (blog list cards)"
-echo "   - hero: 1200w (blog post hero and OpenGraph)"
-echo ""
-echo "Configure variants in Cloudflare Dashboard:"
-echo "https://dash.cloudflare.com/${CF_ACCOUNT_ID}/images/variants"
-"""
-
 [tasks."images:health-check"]
-description = "Test Cloudflare Images integration end-to-end"
+description = "Validate Cloudflare Images configuration and connectivity"
 run = """
 #!/usr/bin/env bash
 set -e
@@ -280,7 +257,8 @@ echo "1️⃣  Checking environment configuration..."
 if [ -n "$NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH" ]; then
   echo "   ✅ NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH is set"
 else
-  echo "   ⚠️  NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH not set (will use local fallback)"
+  echo "   ❌ NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH not set (required for image URLs)"
+  echo "      Set in .env: NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH=your-hash"
 fi
 
 if [ -n "$CF_ACCOUNT_ID" ]; then
@@ -296,7 +274,7 @@ else
 fi
 echo ""
 
-# Check 2: Verify API connectivity (if credentials available)
+# Check 2: Verify API connectivity
 if [ -n "$CF_ACCOUNT_ID" ] && [ -n "$CF_API_TOKEN" ]; then
   echo "2️⃣  Testing API connectivity..."
   response=$(curl -s -w "\n%{http_code}" -X GET \
@@ -312,6 +290,14 @@ if [ -n "$CF_ACCOUNT_ID" ] && [ -n "$CF_API_TOKEN" ]; then
     body=$(echo "$response" | sed '$d')
     image_count=$(echo "$body" | jq -r '.result.images | length' 2>/dev/null || echo "0")
     echo "   📊 Total images in account: $image_count"
+
+    # List first 3 images as examples
+    if [ "$image_count" -gt 0 ]; then
+      echo "   📋 Example images:"
+      echo "$body" | jq -r '.result.images[:3][].id' 2>/dev/null | while read -r id; do
+        echo "      - $id"
+      done
+    fi
   else
     echo "   ❌ API connection failed (HTTP $http_code)"
   fi
@@ -321,49 +307,9 @@ else
   echo ""
 fi
 
-# Check 3: Test a sample image exists (if source images available)
-if [ -d "source-images/blog" ]; then
-  echo "3️⃣  Checking source images..."
-  image_count=$(find source-images/blog -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \) | wc -l)
-  echo "   📊 Source images found: $image_count"
-
-  # Pick first image as test subject
-  first_image=$(find source-images/blog -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \) | head -1)
-  if [ -n "$first_image" ]; then
-    filename=$(basename "$first_image")
-    image_id="blog/${filename%.*}"
-    echo "   🧪 Test image: $image_id"
-
-    # Check if exists in CF Images
-    if [ -n "$CF_ACCOUNT_ID" ] && [ -n "$CF_API_TOKEN" ]; then
-      check_response=$(curl -s -o /dev/null -w "%{http_code}" -X GET \
-        "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1/${image_id}" \
-        -H "Authorization: Bearer ${CF_API_TOKEN}" \
-        --max-time 10)
-
-      if [ "$check_response" = "200" ]; then
-        echo "   ✅ Test image exists in Cloudflare Images"
-
-        # Generate test URL
-        if [ -n "$NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH" ]; then
-          test_url="https://imagedelivery.net/${NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH}/${image_id}/hero"
-          echo "   🌐 Test URL: $test_url"
-          echo "   💡 Open this URL in browser to verify image loads"
-        fi
-      else
-        echo "   ⚠️  Test image not found in CF Images (run 'mise run //ui:images:sync' first)"
-      fi
-    fi
-  fi
-  echo ""
-else
-  echo "3️⃣  No source images found"
-  echo ""
-fi
-
-# Check 4: Verify variants configured
+# Check 3: Verify variants configured
 if [ -n "$CF_ACCOUNT_ID" ] && [ -n "$CF_API_TOKEN" ]; then
-  echo "4️⃣  Checking image variants..."
+  echo "3️⃣  Checking image variants..."
   response=$(curl -s -X GET \
     "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1/variants" \
     -H "Authorization: Bearer ${CF_API_TOKEN}" \
@@ -372,19 +318,46 @@ if [ -n "$CF_ACCOUNT_ID" ] && [ -n "$CF_API_TOKEN" ]; then
   variants=$(echo "$response" | jq -r '.result.variants[].id' 2>/dev/null || echo "")
 
   if echo "$variants" | grep -q "thumbnail"; then
-    echo "   ✅ thumbnail variant configured"
+    echo "   ✅ thumbnail variant configured (600w for blog list)"
   else
     echo "   ❌ thumbnail variant missing"
   fi
 
   if echo "$variants" | grep -q "hero"; then
-    echo "   ✅ hero variant configured"
+    echo "   ✅ hero variant configured (1200w for blog hero & OG)"
   else
     echo "   ❌ hero variant missing"
   fi
+
+  echo ""
+  echo "   💡 Configure variants in Cloudflare Dashboard:"
+  echo "      https://dash.cloudflare.com/${CF_ACCOUNT_ID}/images/variants"
   echo ""
 else
-  echo "4️⃣  Skipping variant check (credentials not set)"
+  echo "3️⃣  Skipping variant check (credentials not set)"
+  echo ""
+fi
+
+# Check 4: Test image URL generation
+if [ -n "$NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH" ] && [ -n "$CF_ACCOUNT_ID" ] && [ -n "$CF_API_TOKEN" ]; then
+  echo "4️⃣  Testing image URL generation..."
+
+  # Fetch first image from account
+  response=$(curl -s -X GET \
+    "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1" \
+    -H "Authorization: Bearer ${CF_API_TOKEN}" \
+    --max-time 10)
+
+  first_image_id=$(echo "$response" | jq -r '.result.images[0].id' 2>/dev/null)
+
+  if [ -n "$first_image_id" ] && [ "$first_image_id" != "null" ]; then
+    echo "   🧪 Test image ID: $first_image_id"
+    test_url="https://imagedelivery.net/${NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH}/${first_image_id}/hero"
+    echo "   🌐 Test URL: $test_url"
+    echo "   💡 Open this URL in browser to verify image loads"
+  else
+    echo "   ⚠️  No images found in account (upload some with 'mise run //ui:images:sync')"
+  fi
   echo ""
 fi
 

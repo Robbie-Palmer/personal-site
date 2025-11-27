@@ -25,8 +25,8 @@ pnpm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Generated files
-ui/lib/image-manifest.json
+# Source images (stored in Cloudflare Images with CalVer versioning)
+ui/source-images/
 
 # Terraform
 **/.terraform/*
