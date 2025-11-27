@@ -306,6 +306,70 @@ Content.`;
         "missing required field: tags (must be an array)",
       );
     });
+
+    it("should throw error when image is missing", () => {
+      const mockContent = `---
+title: "Test Post"
+description: "A test"
+date: "2025-10-19"
+tags: []
+imageAlt: "Test image"
+---
+
+Content.`;
+      vi.mocked(path.resolve)
+        .mockReturnValueOnce("/mock/content/blog/test.mdx")
+        .mockReturnValueOnce("/mock/content/blog");
+      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
+      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
+      expect(() => getPostBySlug("test")).toThrow(
+        "missing required field: image",
+      );
+    });
+
+    it("should throw error when imageAlt is missing", () => {
+      const mockContent = `---
+title: "Test Post"
+description: "A test"
+date: "2025-10-19"
+tags: []
+image: "/blog-images/test.jpg"
+---
+
+Content.`;
+      vi.mocked(path.resolve)
+        .mockReturnValueOnce("/mock/content/blog/test.mdx")
+        .mockReturnValueOnce("/mock/content/blog");
+      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
+      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
+      vi.mocked(fs.existsSync).mockReturnValueOnce(true); // image file exists
+      expect(() => getPostBySlug("test")).toThrow(
+        "missing required field: imageAlt",
+      );
+    });
+
+    it("should throw error when image file does not exist", () => {
+      const mockContent = `---
+title: "Test Post"
+description: "A test"
+date: "2025-10-19"
+tags: []
+image: "/blog-images/missing.jpg"
+imageAlt: "Missing image"
+---
+
+Content.`;
+      vi.mocked(path.resolve)
+        .mockReturnValueOnce("/mock/content/blog/test.mdx")
+        .mockReturnValueOnce("/mock/content/blog")
+        .mockReturnValueOnce("/mock/public/blog-images/missing.jpg");
+      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
+      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
+      vi.mocked(fs.existsSync).mockReturnValueOnce(false); // image file does not exist
+      expect(() => getPostBySlug("test")).toThrow(
+        "Featured image file not found at /blog-images/missing.jpg",
+      );
+    });
   });
 
   describe("getAllPosts", () => {
@@ -449,6 +513,28 @@ describe("Blog content validation (integration)", () => {
       expect(Array.isArray(data.tags), `${slug}: tags must be an array`).toBe(
         true,
       );
+
+      // Validate image fields
+      expect(data.image, `${slug}: image is required`).toBeTruthy();
+      expect(typeof data.image, `${slug}: image must be a string`).toBe(
+        "string",
+      );
+
+      expect(data.imageAlt, `${slug}: imageAlt is required`).toBeTruthy();
+      expect(typeof data.imageAlt, `${slug}: imageAlt must be a string`).toBe(
+        "string",
+      );
+
+      // Validate image file exists
+      const imagePath = realPath.join(
+        process.cwd(),
+        "public",
+        data.image.replace(/^\//, ""),
+      );
+      expect(
+        realFs.existsSync(imagePath),
+        `${slug}: image file not found at ${data.image}`,
+      ).toBe(true);
     }
   });
 });
