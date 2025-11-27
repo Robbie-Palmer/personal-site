@@ -108,7 +108,7 @@ for filepath in source-images/blog/*; do
   filename=$(basename "$filepath")
 
   # Check if filename matches pattern: {name}-YYYYMMDD.{ext}
-  if ! [[ "$filename" =~ ^(.+)-([0-9]{8})\.(jpg|jpeg|png|gif|webp)$ ]]; then
+  if ! [[ "$filename" =~ ^(.+)-([0-9]{8})\\.(jpg|jpeg|png|gif|webp)$ ]]; then
     echo "   ❌ Invalid filename format: $filename"
     echo "      Expected: {name}-YYYYMMDD.{ext} (e.g., hero-image-20251127.jpg)"
     validation_errors=$((validation_errors + 1))
@@ -167,7 +167,7 @@ for filepath in source-images/blog/*; do
   [ -f "$filepath" ] || continue
 
   filename=$(basename "$filepath")
-  [[ "$filename" =~ ^(.+)-([0-9]{8})\.(jpg|jpeg|png|gif|webp)$ ]] || continue
+  [[ "$filename" =~ ^(.+)-([0-9]{8})\\.(jpg|jpeg|png|gif|webp)$ ]] || continue
 
   root_name="${BASH_REMATCH[1]}"
   date_str="${BASH_REMATCH[2]}"
