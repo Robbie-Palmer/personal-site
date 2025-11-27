@@ -159,15 +159,29 @@ export function getPostBySlug(slug: string): BlogPost {
     throw new Error(`Post ${slug} is missing required field: image`);
   }
 
-  const imagePath = path.join(
-    process.cwd(),
-    "public",
-    data.image.replace(/^\//, ""),
-  );
-  if (!fs.existsSync(imagePath)) {
-    throw new Error(
-      `Post ${slug}: Featured image file not found at ${data.image}`,
+  // Validate image field - supports both CF Images IDs and local paths
+  // CF Images ID format: 'blog/image-name' (no leading slash, no extension)
+  // Local path format: '/blog-images/image-name.jpg' (for backward compatibility)
+  if (data.image.startsWith("/")) {
+    // Local path - validate file exists
+    const imagePath = path.join(
+      process.cwd(),
+      "public",
+      data.image.replace(/^\//, ""),
     );
+    if (!fs.existsSync(imagePath)) {
+      throw new Error(
+        `Post ${slug}: Featured image file not found at ${data.image}`,
+      );
+    }
+  } else {
+    // CF Images ID format - validate structure
+    // Should be like 'blog/image-name' (no extension)
+    if (!/^[a-z0-9_-]+\/[a-z0-9_-]+$/.test(data.image)) {
+      throw new Error(
+        `Post ${slug}: Invalid image ID format. Expected 'blog/image-name' (no extension) or '/blog-images/image-name.jpg' (local path)`,
+      );
+    }
   }
 
   if (!data.imageAlt || typeof data.imageAlt !== "string") {

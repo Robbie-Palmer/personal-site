@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { BlogPost } from "@/lib/blog";
+import { resolveImageUrl } from "@/lib/cloudflare-images";
 import { formatDate } from "@/lib/date";
 
 interface BlogListProps {
@@ -192,10 +193,10 @@ export function BlogList({ posts }: BlogListProps) {
                 <Link href={`/blog/${post.slug}`} className="block">
                   <div className="relative w-full h-48 bg-muted">
                     <Image
-                      src={post.image}
+                      src={resolveImageUrl(post.image, 'thumbnail')}
                       alt={post.imageAlt || post.title}
-                      width={1200}
-                      height={675}
+                      width={600}
+                      height={338}
                       className="w-full h-full object-cover"
                     />
                   </div>

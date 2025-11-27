@@ -15,6 +15,7 @@ import { Mermaid } from "@/components/mermaid";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getAllPostSlugs, getPostBySlug } from "@/lib/blog";
+import { resolveImageUrl } from "@/lib/cloudflare-images";
 import { formatDate } from "@/lib/date";
 import { siteConfig } from "@/lib/site-config";
 
@@ -116,7 +117,7 @@ export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
       {post.image && (
         <div className="relative w-full aspect-video mb-8 rounded-lg overflow-hidden bg-muted">
           <Image
-            src={post.image}
+            src={resolveImageUrl(post.image, 'hero')}
             alt={post.imageAlt || post.title}
             fill
             priority
