@@ -146,10 +146,20 @@ if [ -z "$CF_API_TOKEN" ]; then
   exit 1
 fi
 
-echo "🚀 Starting image sync to Cloudflare Images..."
+# Check if running in force update mode (CI/GitHub Actions should set this)
+FORCE_UPDATE="${FORCE_UPDATE:-false}"
+
+if [ "$FORCE_UPDATE" = "true" ]; then
+  echo "🚀 Starting image sync to Cloudflare Images (FORCE UPDATE MODE)..."
+  echo "   Existing images will be updated"
+else
+  echo "🚀 Starting image sync to Cloudflare Images..."
+  echo "   Existing images will be skipped (set FORCE_UPDATE=true to update)"
+fi
 
 # Counter for tracking
 uploaded=0
+updated=0
 skipped=0
 failed=0
 
@@ -180,9 +190,39 @@ find source-images -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png
     echo "   ✅ Successfully uploaded"
     uploaded=$((uploaded + 1))
   elif [ "$http_code" = "409" ]; then
-    # Image already exists - skip by default
-    echo "   ⏭️  Skipped (already exists)"
-    skipped=$((skipped + 1))
+    # Image already exists
+    if [ "$FORCE_UPDATE" = "true" ]; then
+      echo "   🔄 Image exists, updating..."
+
+      # Delete existing image
+      delete_response=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+        "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1/${image_id}" \
+        -H "Authorization: Bearer ${CF_API_TOKEN}")
+
+      if [ "$delete_response" = "200" ]; then
+        # Re-upload
+        upload_response=$(curl -s -w "\n%{http_code}" -X POST \
+          "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1" \
+          -H "Authorization: Bearer ${CF_API_TOKEN}" \
+          -F "file=@${filepath}" \
+          -F "id=${image_id}")
+
+        upload_http_code=$(echo "$upload_response" | tail -n1)
+        if [ "$upload_http_code" = "200" ]; then
+          echo "   ✅ Successfully updated"
+          updated=$((updated + 1))
+        else
+          echo "   ❌ Failed to re-upload after delete"
+          failed=$((failed + 1))
+        fi
+      else
+        echo "   ❌ Failed to delete existing image"
+        failed=$((failed + 1))
+      fi
+    else
+      echo "   ⏭️  Skipped (already exists)"
+      skipped=$((skipped + 1))
+    fi
   else
     echo "   ❌ Failed to upload (HTTP $http_code)"
     echo "   Response: $body"
@@ -193,6 +233,9 @@ done
 echo ""
 echo "📊 Summary:"
 echo "   ✅ Uploaded: $uploaded"
+if [ "$FORCE_UPDATE" = "true" ]; then
+  echo "   🔄 Updated: $updated"
+fi
 echo "   ⏭️  Skipped: $skipped"
 echo "   ❌ Failed: $failed"
 
@@ -239,6 +282,131 @@ echo "   - hero: 1200w (blog post hero and OpenGraph)"
 echo ""
 echo "Configure variants in Cloudflare Dashboard:"
 echo "https://dash.cloudflare.com/${CF_ACCOUNT_ID}/images/variants"
+"""
+
+[tasks."images:health-check"]
+description = "Test Cloudflare Images integration end-to-end"
+run = """
+#!/usr/bin/env bash
+set -e
+
+echo "🏥 Running Cloudflare Images health check..."
+echo ""
+
+# Check 1: Environment variables
+echo "1️⃣  Checking environment configuration..."
+if [ -n "$NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH" ]; then
+  echo "   ✅ NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH is set"
+else
+  echo "   ⚠️  NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH not set (will use local fallback)"
+fi
+
+if [ -n "$CF_ACCOUNT_ID" ]; then
+  echo "   ✅ CF_ACCOUNT_ID is set"
+else
+  echo "   ❌ CF_ACCOUNT_ID not set (required for API operations)"
+fi
+
+if [ -n "$CF_API_TOKEN" ]; then
+  echo "   ✅ CF_API_TOKEN is set"
+else
+  echo "   ❌ CF_API_TOKEN not set (required for API operations)"
+fi
+echo ""
+
+# Check 2: Verify API connectivity (if credentials available)
+if [ -n "$CF_ACCOUNT_ID" ] && [ -n "$CF_API_TOKEN" ]; then
+  echo "2️⃣  Testing API connectivity..."
+  response=$(curl -s -w "\n%{http_code}" -X GET \
+    "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1" \
+    -H "Authorization: Bearer ${CF_API_TOKEN}" \
+    --max-time 10)
+
+  http_code=$(echo "$response" | tail -n1)
+  if [ "$http_code" = "200" ]; then
+    echo "   ✅ API connection successful"
+
+    # Count images
+    body=$(echo "$response" | sed '$d')
+    image_count=$(echo "$body" | jq -r '.result.images | length' 2>/dev/null || echo "0")
+    echo "   📊 Total images in account: $image_count"
+  else
+    echo "   ❌ API connection failed (HTTP $http_code)"
+  fi
+  echo ""
+else
+  echo "2️⃣  Skipping API connectivity test (credentials not set)"
+  echo ""
+fi
+
+# Check 3: Test a sample image exists (if source images available)
+if [ -d "source-images/blog" ]; then
+  echo "3️⃣  Checking source images..."
+  image_count=$(find source-images/blog -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \) | wc -l)
+  echo "   📊 Source images found: $image_count"
+
+  # Pick first image as test subject
+  first_image=$(find source-images/blog -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \) | head -1)
+  if [ -n "$first_image" ]; then
+    filename=$(basename "$first_image")
+    image_id="blog/${filename%.*}"
+    echo "   🧪 Test image: $image_id"
+
+    # Check if exists in CF Images
+    if [ -n "$CF_ACCOUNT_ID" ] && [ -n "$CF_API_TOKEN" ]; then
+      check_response=$(curl -s -o /dev/null -w "%{http_code}" -X GET \
+        "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1/${image_id}" \
+        -H "Authorization: Bearer ${CF_API_TOKEN}" \
+        --max-time 10)
+
+      if [ "$check_response" = "200" ]; then
+        echo "   ✅ Test image exists in Cloudflare Images"
+
+        # Generate test URL
+        if [ -n "$NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH" ]; then
+          test_url="https://imagedelivery.net/${NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH}/${image_id}/hero"
+          echo "   🌐 Test URL: $test_url"
+          echo "   💡 Open this URL in browser to verify image loads"
+        fi
+      else
+        echo "   ⚠️  Test image not found in CF Images (run 'mise run images:sync' first)"
+      fi
+    fi
+  fi
+  echo ""
+else
+  echo "3️⃣  No source images found"
+  echo ""
+fi
+
+# Check 4: Verify variants configured
+if [ -n "$CF_ACCOUNT_ID" ] && [ -n "$CF_API_TOKEN" ]; then
+  echo "4️⃣  Checking image variants..."
+  response=$(curl -s -X GET \
+    "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1/variants" \
+    -H "Authorization: Bearer ${CF_API_TOKEN}" \
+    --max-time 10)
+
+  variants=$(echo "$response" | jq -r '.result.variants[].id' 2>/dev/null || echo "")
+
+  if echo "$variants" | grep -q "thumbnail"; then
+    echo "   ✅ thumbnail variant configured"
+  else
+    echo "   ❌ thumbnail variant missing"
+  fi
+
+  if echo "$variants" | grep -q "hero"; then
+    echo "   ✅ hero variant configured"
+  else
+    echo "   ❌ hero variant missing"
+  fi
+  echo ""
+else
+  echo "4️⃣  Skipping variant check (credentials not set)"
+  echo ""
+fi
+
+echo "🏁 Health check complete!"
 """
 
 # CCPM tasks

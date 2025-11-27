@@ -175,20 +175,35 @@ NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH=your-hash-here
 3. GitHub Actions automatically uploads images to Cloudflare Images
 4. Check Actions tab for upload status
 
+**Note:** GitHub Actions uses `FORCE_UPDATE=true`, meaning:
+- ✅ **New images**: Uploaded
+- ✅ **Changed images**: Updated (delete + re-upload)
+- ✅ **Unchanged images**: Still updated (ensures production is fresh)
+
 #### Manual Upload via Mise
 
-You can also upload images locally using the mise task:
-
+**Safe mode (default - skips existing):**
 ```bash
-# Set environment variables
 export CF_ACCOUNT_ID="your-account-id"
 export CF_API_TOKEN="your-api-token"
 
-# Upload all images
+# Upload only new images (skips existing)
 mise run images:sync
+```
 
-# Verify variants are configured
+**Force update mode (updates all):**
+```bash
+# Update ALL images (delete and re-upload existing)
+FORCE_UPDATE=true mise run images:sync
+```
+
+**Verify setup:**
+```bash
+# Check variants are configured
 mise run images:verify-variants
+
+# Run full health check (recommended after first setup)
+mise run images:health-check
 ```
 
 #### Manual Upload via API
@@ -287,7 +302,53 @@ To migrate existing blog posts from local images to Cloudflare Images:
 5. **Test**: Verify images load correctly on blog list and post pages
 6. **Cleanup**: Eventually remove `ui/public/blog-images/` (optional, kept for backward compatibility)
 
-## Verification
+## Testing & Verification
+
+### Health Check (Recommended)
+
+Run the comprehensive health check to verify your setup:
+
+```bash
+export CF_ACCOUNT_ID="your-account-id"
+export CF_API_TOKEN="your-api-token"
+export NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH="your-hash"
+
+mise run images:health-check
+```
+
+This checks:
+1. ✅ Environment variables are set correctly
+2. ✅ API connectivity works
+3. ✅ At least one test image exists in CF Images
+4. ✅ Required variants (thumbnail, hero) are configured
+5. ✅ Generates a test URL you can open in browser
+
+**Example output:**
+```
+🏥 Running Cloudflare Images health check...
+
+1️⃣  Checking environment configuration...
+   ✅ NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH is set
+   ✅ CF_ACCOUNT_ID is set
+   ✅ CF_API_TOKEN is set
+
+2️⃣  Testing API connectivity...
+   ✅ API connection successful
+   📊 Total images in account: 20
+
+3️⃣  Checking source images...
+   📊 Source images found: 20
+   🧪 Test image: blog/how-to-build-wealth-featured
+   ✅ Test image exists in Cloudflare Images
+   🌐 Test URL: https://imagedelivery.net/abc123/blog/how-to-build-wealth-featured/hero
+   💡 Open this URL in browser to verify image loads
+
+4️⃣  Checking image variants...
+   ✅ thumbnail variant configured
+   ✅ hero variant configured
+
+🏁 Health check complete!
+```
 
 ### Check Images Uploaded Successfully
 
