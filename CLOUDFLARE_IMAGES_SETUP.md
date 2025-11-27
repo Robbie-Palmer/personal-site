@@ -486,7 +486,8 @@ curl -X DELETE "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/ima
 ### Build Fails: Missing CF_IMAGES_ACCOUNT_HASH
 
 **Error:**
-```
+
+```text
 Error: NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH is required
 ```
 
@@ -513,7 +514,8 @@ mise run //ui:images:health-check
 ### Upload Fails: Version Validation Error
 
 **Error:**
-```
+
+```text
 ❌ Version validation failed:
    Latest existing version: 20251130
    New version: 20251127
@@ -526,7 +528,8 @@ Use a date newer than the existing version. If you need to re-upload the same da
 ### Upload Fails: Invalid Filename
 
 **Error:**
-```
+
+```text
 ❌ Invalid filename format: hero-image.jpg
    Expected: {name}-YYYYMMDD.{ext}
 ```
