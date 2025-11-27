@@ -517,7 +517,7 @@ describe("Blog content validation (integration)", () => {
         true,
       );
 
-      // Validate image fields (Task 006: enforced validation)
+      // Validate image fields
       expect(data.image, `${slug}: image is required`).toBeTruthy();
       expect(typeof data.image, `${slug}: image must be a string`).toBe(
         "string",
