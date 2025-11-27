@@ -17,12 +17,14 @@ This site uses **Cloudflare Images with CalVer versioning** to demonstrate a sca
 ### Why Cloudflare Images + CalVer?
 
 **Business Value:**
+
 1. **Scalable**: 0 to millions of requests with no architecture changes
 2. **Cost-Effective**: ~$0.16/month for low traffic, predictable at scale
 3. **Zero Maintenance**: No build scripts, no optimization, no storage bloat
 4. **Industry Standard**: Same pattern as Cloudinary, imgix, AWS CloudFront
 
 **Technical Benefits:**
+
 1. **Version Control Without Git**: CalVer naming (e.g., `hero-image-20251127`) enables:
    - Easy rollbacks (update reference in code)
    - Clear version history (dates in filenames)
@@ -43,12 +45,14 @@ This site uses **Cloudflare Images with CalVer versioning** to demonstrate a sca
 ### Why NOT Store Images in Git?
 
 Git is not designed for binary files:
+
 - ❌ Repository size grows forever (even if you delete images later)
 - ❌ Clones download entire image history
 - ❌ Diffs don't work for binary files
 - ❌ LFS adds complexity and cost
 
 CalVer versioning solves this by:
+
 - ✅ Version control through naming convention
 - ✅ Storage in Cloudflare (designed for binaries)
 - ✅ Keep git repo lean and fast
@@ -56,7 +60,7 @@ CalVer versioning solves this by:
 
 ## Directory Structure
 
-```
+```text
 personal-site/
 ├── .gitignore             # Excludes ui/source-images/
 ├── .github/workflows/
@@ -69,6 +73,7 @@ personal-site/
 ```
 
 **Key Points:**
+
 - `ui/source-images/` is **gitignored** - not tracked in version control
 - Images are versioned using **CalVer** in the filename
 - Cloudflare Images is the source of truth, not git
@@ -106,6 +111,7 @@ The account hash is publicly visible in image URLs and is used to construct deli
 ### 4. Configure Environment Variables
 
 **Local development** (`.env.local` in `ui/` directory):
+
 ```bash
 NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH=your-hash-here
 CF_ACCOUNT_ID=your-account-id
@@ -113,6 +119,7 @@ CF_API_TOKEN=your-api-token
 ```
 
 **Production (Cloudflare Pages):**
+
 1. Go to Cloudflare Pages → Your Project → **Settings** → **Environment variables**
 2. Add for both Production and Preview environments:
    - `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH`: Your account hash
@@ -120,6 +127,7 @@ CF_API_TOKEN=your-api-token
    - `CF_API_TOKEN`: Your API token (for health checks, optional)
 
 **GitHub Secrets (for health check workflow):**
+
 1. Go to **Settings** → **Secrets and variables** → **Actions**
 2. Add:
    - `CLOUDFLARE_ACCOUNT_ID`
@@ -135,10 +143,10 @@ Variants define preset transformations for different use cases.
 1. Go to Cloudflare Dashboard → **Images** → **Variants**
 2. Create these variants:
 
-   | Variant Name | Width | Height | Fit Mode | Use Case |
-   |--------------|-------|--------|----------|----------|
-   | `thumbnail`  | 600   | -      | scale-down | Blog list cards |
-   | `hero`       | 1200  | -      | scale-down | Blog post hero images and OpenGraph |
+   | Variant Name | Width | Height | Fit Mode   | Use Case                               |
+   |--------------|-------|--------|------------|----------------------------------------|
+   | `thumbnail`  | 600   | -      | scale-down | Blog list cards                        |
+   | `hero`       | 1200  | -      | scale-down | Blog post hero images and OpenGraph    |
 
    Note: `public` variant exists by default and allows flexible URL parameters
 
@@ -179,6 +187,7 @@ mise run //ui:images:health-check
 ```
 
 This validates:
+
 - ✅ Environment variables are set
 - ✅ API connectivity works
 - ✅ Variants are configured correctly
@@ -189,24 +198,28 @@ This validates:
 ### Adding a New Image
 
 1. **Save image locally** with CalVer naming in `ui/source-images/blog/`:
-   ```
+
+   ```text
    Format: {descriptive-name}-YYYYMMDD.{ext}
    Example: hero-image-20251127.jpg
    ```
 
 2. **Upload to Cloudflare Images**:
+
    ```bash
    cd ui
    mise run images:sync
    ```
 
    This will:
+
    - ✅ Validate CalVer naming format
    - ✅ Check for duplicates (only one version per image locally)
    - ✅ Upload only new images
    - ✅ Validate version ordering (new version must be later than existing)
 
 3. **Update blog post frontmatter**:
+
    ```yaml
    ---
    title: "My Blog Post"
@@ -222,7 +235,8 @@ This validates:
 ### Updating an Existing Image
 
 1. **Save new version** with updated CalVer date:
-   ```
+
+   ```text
    Old: ui/source-images/blog/hero-image-20251127.jpg
    New: ui/source-images/blog/hero-image-20251201.jpg
    ```
@@ -230,17 +244,20 @@ This validates:
 2. **Delete old version** from `ui/source-images/blog/` (keep only latest locally)
 
 3. **Upload new version**:
+
    ```bash
    cd ui
    mise run images:sync
    ```
 
    The sync task will:
+
    - ✅ Validate new date is later than existing versions in Cloudflare
    - ✅ Upload new version
    - ✅ Keep old version in Cloudflare (for rollback capability)
 
 4. **Update blog post** to reference new version:
+
    ```yaml
    image: "blog/hero-image-20251201"
    ```
@@ -263,11 +280,13 @@ No need to re-upload - all versions persist in Cloudflare until manually deleted
 **Format:** `{descriptive-name}-{YYYYMMDD}.{ext}`
 
 **Examples:**
+
 - `hero-image-20251127.jpg`
 - `diagram-architecture-20251130.png`
 - `screenshot-dashboard-20251201.png`
 
 **Rules:**
+
 - ✅ Lowercase letters, numbers, hyphens only for name
 - ✅ Exactly 8 digits for date (YYYYMMDD)
 - ✅ Valid calendar date (validated by sync task)
@@ -289,6 +308,7 @@ imageAlt: "Description of image"
 ```
 
 The system automatically:
+
 - Serves thumbnails (600w) on blog list page
 - Serves hero images (1200w) on blog post pages
 - Uses hero variant for OpenGraph images
@@ -321,12 +341,14 @@ All image tasks are in `ui/mise.toml`:
 ### `mise run //ui:images:sync`
 
 Uploads local images to Cloudflare Images with validation:
+
 - Validates CalVer naming format
 - Checks for duplicate root names locally
 - Validates version ordering against Cloudflare
 - Uploads only new versions
 
 **Usage:**
+
 ```bash
 cd ui
 mise run images:sync
@@ -335,6 +357,7 @@ mise run images:sync
 ### `mise run //ui:images:health-check`
 
 Comprehensive validation of Cloudflare Images setup:
+
 - Checks environment variables
 - Tests API connectivity
 - Lists example images
@@ -342,6 +365,7 @@ Comprehensive validation of Cloudflare Images setup:
 - Generates test URLs
 
 **Usage:**
+
 ```bash
 mise run //ui:images:health-check
 ```
@@ -356,7 +380,8 @@ mise run images:health-check
 ```
 
 **Example output:**
-```
+
+```text
 🏥 Running Cloudflare Images health check...
 
 1️⃣  Checking environment configuration...
@@ -407,7 +432,7 @@ curl -X DELETE "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/ima
 
 Visit in browser (replace `{hash}` with your account hash):
 
-```
+```text
 # Thumbnail (600w)
 https://imagedelivery.net/{hash}/blog/hero-image-20251127/thumbnail
 
@@ -423,17 +448,20 @@ https://imagedelivery.net/{hash}/blog/hero-image-20251127/public?width=400&forma
 ### For Low Traffic (< 10K page views/month)
 
 **Assumptions:**
+
 - 20 images stored (multiple versions = ~40 total)
 - 5K page views/month
 - 3 images per page
 - Total: 15K image requests/month
 
 **Pay-per-use pricing:**
+
 - Storage: $0.50 per 100K images = $0.20/month
 - Delivery: $1 per 100K requests = $0.15/month
 - **Total: ~$0.35/month** (negligible)
 
 **Flat rate alternative:**
+
 - $5/month for up to 100K requests
 - Unlimited storage
 - **Total: $5/month** (predictable, worth it at ~50K+ requests/month)
@@ -457,7 +485,8 @@ curl "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/images/v1" \
 ```
 
 Example output:
-```
+
+```text
 blog/hero-image-20251101
 blog/hero-image-20251115
 blog/hero-image-20251127  ← Latest version
@@ -473,11 +502,13 @@ curl -X DELETE "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/ima
 ```
 
 **When to delete:**
+
 - After confirming new version works in production
 - When storage costs become a concern (unlikely for most sites)
 - When you have dozens of versions of the same image
 
 **Keep at least:**
+
 - Current version (referenced in code)
 - Previous 1-2 versions (for quick rollback)
 
@@ -497,11 +528,13 @@ Set the environment variable in `.env.local` (local) or Cloudflare Pages setting
 ### Image Not Found (404)
 
 **Possible causes:**
+
 1. Image not uploaded to Cloudflare Images
 2. Wrong image ID in frontmatter
 3. Image ID doesn't match uploaded ID
 
 **Debug:**
+
 ```bash
 # Check if image exists
 curl "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/images/v1/blog/hero-image-20251127" \
