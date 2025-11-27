@@ -21,7 +21,7 @@ const pathMock = vi.hoisted(() => {
       if (arg.startsWith("/")) {
         result = arg;
       } else if (result) {
-        result += "/" + arg;
+        result += `/${arg}`;
       } else {
         result = arg;
       }

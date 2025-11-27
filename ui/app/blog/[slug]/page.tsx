@@ -40,7 +40,7 @@ export async function generateMetadata(
   // Resolve image to proper URL (handles both CF Images IDs and local paths)
   // Use hero variant (1200w) for OpenGraph - works well for social sharing
   const imageUrl = post.image
-    ? resolveImageUrl(post.image, 'hero')
+    ? resolveImageUrl(post.image, "hero")
     : siteConfig.ogImage;
 
   return {
@@ -119,7 +119,7 @@ export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
       {post.image && (
         <div className="relative w-full aspect-video mb-8 rounded-lg overflow-hidden bg-muted">
           <Image
-            src={resolveImageUrl(post.image, 'hero')}
+            src={resolveImageUrl(post.image, "hero")}
             alt={post.imageAlt || post.title}
             fill
             priority

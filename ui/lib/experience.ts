@@ -12,9 +12,9 @@ export interface Experience {
 }
 
 function parseDateString(dateStr: string): Date {
-  const [yearStr, monthStr] = dateStr.split("-");
-  const year = parseInt(yearStr!, 10);
-  const month = parseInt(monthStr!, 10);
+  const parts = dateStr.split("-");
+  const year = Number.parseInt(parts[0] ?? "", 10);
+  const month = Number.parseInt(parts[1] ?? "", 10);
   return new Date(Date.UTC(year, month - 1, 1));
 }
 

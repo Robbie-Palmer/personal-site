@@ -193,7 +193,7 @@ export function BlogList({ posts }: BlogListProps) {
                 <Link href={`/blog/${post.slug}`} className="block">
                   <div className="relative w-full h-48 bg-muted">
                     <Image
-                      src={resolveImageUrl(post.image, 'thumbnail')}
+                      src={resolveImageUrl(post.image, "thumbnail")}
                       alt={post.imageAlt || post.title}
                       width={600}
                       height={338}

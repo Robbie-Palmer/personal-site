@@ -16,16 +16,16 @@
 const CF_IMAGES_ACCOUNT_HASH = process.env.NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH;
 
 // Base URL for Cloudflare Images delivery
-const CF_IMAGES_BASE_URL = 'https://imagedelivery.net';
+const CF_IMAGES_BASE_URL = "https://imagedelivery.net";
 
 /**
  * Predefined image variants configured in Cloudflare Dashboard
  * Each variant has specific transformation settings (width, height, fit, etc.)
  */
 export type ImageVariant =
-  | 'public'      // Flexible variant - accepts URL parameters for custom transformations
-  | 'thumbnail'   // 600w - for blog list cards
-  | 'hero';       // 1200w - for blog post hero images and OpenGraph
+  | "public" // Flexible variant - accepts URL parameters for custom transformations
+  | "thumbnail" // 600w - for blog list cards
+  | "hero"; // 1200w - for blog post hero images and OpenGraph
 
 /**
  * URL transformation options for the 'public' variant
@@ -39,9 +39,9 @@ export interface ImageTransformOptions {
   /** Height in pixels (e.g., 600) */
   height?: number;
   /** Output format (auto, webp, avif, json) - 'auto' serves best format based on browser */
-  format?: 'auto' | 'webp' | 'avif' | 'json';
+  format?: "auto" | "webp" | "avif" | "json";
   /** How to fit image in given dimensions */
-  fit?: 'scale-down' | 'contain' | 'cover' | 'crop' | 'pad';
+  fit?: "scale-down" | "contain" | "cover" | "crop" | "pad";
   /** Image quality (1-100, default 85) */
   quality?: number;
   /** Device pixel ratio (1 or 2 for retina) */
@@ -74,13 +74,13 @@ export interface ImageTransformOptions {
  */
 export function getImageUrl(
   imageId: string,
-  variant: ImageVariant = 'public',
+  variant: ImageVariant = "public",
   options?: ImageTransformOptions,
 ): string {
   if (!CF_IMAGES_ACCOUNT_HASH) {
     throw new Error(
-      'NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH is required. ' +
-      'Set it in your .env file. Find it in Cloudflare Dashboard > Images.'
+      "NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH is required. " +
+        "Set it in your .env file. Find it in Cloudflare Dashboard > Images.",
     );
   }
 
@@ -88,15 +88,15 @@ export function getImageUrl(
   const baseUrl = `${CF_IMAGES_BASE_URL}/${CF_IMAGES_ACCOUNT_HASH}/${imageId}/${variant}`;
 
   // Add transformation options as query parameters (only for 'public' variant)
-  if (variant === 'public' && options && Object.keys(options).length > 0) {
+  if (variant === "public" && options && Object.keys(options).length > 0) {
     const params = new URLSearchParams();
 
-    if (options.width) params.append('width', options.width.toString());
-    if (options.height) params.append('height', options.height.toString());
-    if (options.format) params.append('format', options.format);
-    if (options.fit) params.append('fit', options.fit);
-    if (options.quality) params.append('quality', options.quality.toString());
-    if (options.dpr) params.append('dpr', options.dpr.toString());
+    if (options.width) params.append("width", options.width.toString());
+    if (options.height) params.append("height", options.height.toString());
+    if (options.format) params.append("format", options.format);
+    if (options.fit) params.append("fit", options.fit);
+    if (options.quality) params.append("quality", options.quality.toString());
+    if (options.dpr) params.append("dpr", options.dpr.toString());
 
     return `${baseUrl}?${params.toString()}`;
   }
@@ -122,20 +122,20 @@ export function getImageUrl(
  */
 export function getImageSrcSet(
   imageId: string,
-  variant: ImageVariant = 'public',
+  variant: ImageVariant = "public",
   widths: number[] = [600, 1200, 2400],
 ): string {
-  if (variant !== 'public') {
+  if (variant !== "public") {
     // For named variants, just return the variant URL
     return `${getImageUrl(imageId, variant)} 1x`;
   }
 
   return widths
     .map((width) => {
-      const url = getImageUrl(imageId, 'public', { width, format: 'auto' });
+      const url = getImageUrl(imageId, "public", { width, format: "auto" });
       return `${url} ${width}w`;
     })
-    .join(', ');
+    .join(", ");
 }
 
 /**
@@ -162,7 +162,7 @@ export function resolveImageUrl(
   options?: ImageTransformOptions,
 ): string {
   // Legacy local path support (temporary for migration)
-  if (imageRef.startsWith('/')) {
+  if (imageRef.startsWith("/")) {
     return imageRef;
   }
 
