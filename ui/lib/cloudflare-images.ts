@@ -15,13 +15,6 @@
 // You can find it in your Cloudflare Dashboard under Images
 const CF_IMAGES_ACCOUNT_HASH = process.env.NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH;
 
-if (!CF_IMAGES_ACCOUNT_HASH) {
-  throw new Error(
-    'NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH is required. ' +
-    'Set it in your .env file. Find it in Cloudflare Dashboard > Images.'
-  );
-}
-
 // Base URL for Cloudflare Images delivery
 const CF_IMAGES_BASE_URL = 'https://imagedelivery.net';
 
@@ -84,6 +77,13 @@ export function getImageUrl(
   variant: ImageVariant = 'public',
   options?: ImageTransformOptions,
 ): string {
+  if (!CF_IMAGES_ACCOUNT_HASH) {
+    throw new Error(
+      'NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH is required. ' +
+      'Set it in your .env file. Find it in Cloudflare Dashboard > Images.'
+    );
+  }
+
   // Build base URL
   const baseUrl = `${CF_IMAGES_BASE_URL}/${CF_IMAGES_ACCOUNT_HASH}/${imageId}/${variant}`;
 
@@ -141,19 +141,30 @@ export function getImageSrcSet(
 /**
  * Resolves an image reference to a URL
  *
- * @param imageId - CF Images ID with CalVer version (e.g., 'blog/hero-image-20251127')
- * @param variant - The variant to use
- * @param options - Transformation options
+ * @param imageRef - CF Images ID with CalVer version (e.g., 'blog/hero-image-20251127')
+ *                    or legacy local path (e.g., '/blog-images/image.jpg')
+ * @param variant - The variant to use (ignored for local paths)
+ * @param options - Transformation options (ignored for local paths)
  * @returns Image URL
  *
  * @example
  * resolveImageUrl('blog/example-20251127', 'thumbnail')
  * // => https://imagedelivery.net/{hash}/blog/example-20251127/thumbnail
+ *
+ * @example
+ * // Legacy local path support (temporary migration)
+ * resolveImageUrl('/blog-images/image.jpg')
+ * // => /blog-images/image.jpg
  */
 export function resolveImageUrl(
-  imageId: string,
+  imageRef: string,
   variant?: ImageVariant,
   options?: ImageTransformOptions,
 ): string {
-  return getImageUrl(imageId, variant, options);
+  // Legacy local path support (temporary for migration)
+  if (imageRef.startsWith('/')) {
+    return imageRef;
+  }
+
+  return getImageUrl(imageRef, variant, options);
 }
