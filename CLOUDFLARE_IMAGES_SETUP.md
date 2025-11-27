@@ -27,8 +27,6 @@ This site uses **Cloudflare Images** for image optimization and delivery, demons
 personal-site/
 ├── source-images/          # Full-resolution source images (tracked in git)
 │   └── blog/              # Blog post images
-├── infra/cloudflare/      # Terraform infrastructure config
-│   └── images.tf          # CF Images documentation
 ├── .github/workflows/
 │   └── sync-images.yml    # Automated image upload to CF
 └── ui/
@@ -36,6 +34,8 @@ personal-site/
     │   └── cloudflare-images.ts  # Type-safe URL utilities
     └── public/blog-images/       # Legacy local images (for migration)
 ```
+
+Note: Cloudflare Images is an account-level service - no Terraform resources needed! Just enable it in your Cloudflare dashboard and use the API.
 
 ## Setup Instructions
 
