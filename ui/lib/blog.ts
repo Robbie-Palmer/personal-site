@@ -159,15 +159,44 @@ export function getPostBySlug(slug: string): BlogPost {
     throw new Error(`Post ${slug} is missing required field: image`);
   }
 
-  const imagePath = path.join(
-    process.cwd(),
-    "public",
-    data.image.replace(/^\//, ""),
-  );
-  if (!fs.existsSync(imagePath)) {
+  // Validate image field
+  // Preferred format: CF Images ID with CalVer versioning: 'blog/{name}-{YYYYMMDD}'
+  // Legacy format (temporary): Local path '/blog-images/{filename}'
+  const imageIdPattern = /^blog\/[a-z0-9_-]+-\d{8}$/;
+  const isLocalPath = data.image.startsWith("/");
+
+  if (!isLocalPath && !imageIdPattern.test(data.image)) {
     throw new Error(
-      `Post ${slug}: Featured image file not found at ${data.image}`,
+      `Post ${slug}: Invalid image ID format. ` +
+        `Expected 'blog/{name}-YYYYMMDD' (e.g., 'blog/hero-image-20251127') or legacy local path. ` +
+        `Got: '${data.image}'`,
     );
+  }
+
+  // Validate CalVer date portion if using CF Images format
+  if (!isLocalPath) {
+    const dateMatch = data.image.match(/-(\d{8})$/);
+    if (dateMatch?.[1]) {
+      const dateStr = dateMatch[1];
+      const year = Number.parseInt(dateStr.substring(0, 4), 10);
+      const month = Number.parseInt(dateStr.substring(4, 6), 10);
+      const day = Number.parseInt(dateStr.substring(6, 8), 10);
+
+      // Basic date validation
+      if (
+        year < 2020 ||
+        year > 2100 ||
+        month < 1 ||
+        month > 12 ||
+        day < 1 ||
+        day > 31
+      ) {
+        throw new Error(
+          `Post ${slug}: Invalid date in image ID '${data.image}'. ` +
+            `Date portion '${dateStr}' is not a valid calendar date.`,
+        );
+      }
+    }
   }
 
   if (!data.imageAlt || typeof data.imageAlt !== "string") {

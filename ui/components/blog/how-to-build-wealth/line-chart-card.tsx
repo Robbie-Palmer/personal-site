@@ -32,7 +32,7 @@ interface LineConfig {
 interface LineChartCardProps {
   title: string;
   description: string;
-  chartData: Array<Record<string, any>>;
+  chartData: Array<Record<string, number | string>>;
   chartConfig: ChartConfig;
   xAxisDataKey?: string;
   xAxisLabel?: string;

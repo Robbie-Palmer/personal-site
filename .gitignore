@@ -25,6 +25,9 @@ pnpm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Source images (stored in Cloudflare Images with CalVer versioning)
+ui/source-images/
+
 # Terraform
 **/.terraform/*
 *.tfstate

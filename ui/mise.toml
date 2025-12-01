@@ -62,3 +62,304 @@ rm -rf out
 [tasks.check]
 description = "Run all checks (lint, format, typecheck, test)"
 depends = ["//ui:lint", "//ui:format:check", "//ui:typecheck", "//ui:test"]
+
+# Image management tasks
+[tasks."images:sync"]
+description = "Upload versioned images to Cloudflare Images with CalVer validation"
+run = """
+#!/usr/bin/env bash
+set -e
+
+# Validate required environment variables
+if [ -z "$CF_ACCOUNT_ID" ]; then
+  echo "❌ CF_ACCOUNT_ID environment variable is required"
+  exit 1
+fi
+
+if [ -z "$CF_API_TOKEN" ]; then
+  echo "❌ CF_API_TOKEN environment variable is required"
+  exit 1
+fi
+
+echo "🚀 Starting image sync to Cloudflare Images..."
+echo ""
+
+# Check if source-images directory exists
+if [ ! -d "source-images/blog" ]; then
+  echo "⚠️  No source-images/blog directory found"
+  echo "   Create it and add your images with CalVer naming: {name}-YYYYMMDD.{ext}"
+  exit 0
+fi
+
+# Counters
+uploaded=0
+skipped=0
+failed=0
+validation_errors=0
+
+# Step 1: Validate local image naming and detect duplicates
+echo "1️⃣  Validating local image naming..."
+declare -A root_names
+declare -A image_dates
+
+for filepath in source-images/blog/*; do
+  [ -f "$filepath" ] || continue
+
+  filename=$(basename "$filepath")
+
+  # Check if filename matches pattern: {name}-YYYYMMDD.{ext}
+  if ! [[ "$filename" =~ ^(.+)-([0-9]{8})\\.(jpg|jpeg|png|gif|webp)$ ]]; then
+    echo "   ❌ Invalid filename format: $filename"
+    echo "      Expected: {name}-YYYYMMDD.{ext} (e.g., hero-image-20251127.jpg)"
+    validation_errors=$((validation_errors + 1))
+    continue
+  fi
+
+  root_name="${BASH_REMATCH[1]}"
+  date_str="${BASH_REMATCH[2]}"
+  ext="${BASH_REMATCH[3]}"
+
+  # Validate date format
+  if ! date -d "$date_str" >/dev/null 2>&1; then
+    echo "   ❌ Invalid date in filename: $filename (date: $date_str)"
+    validation_errors=$((validation_errors + 1))
+    continue
+  fi
+
+  # Check for duplicate root names
+  if [ -n "${root_names[$root_name]}" ]; then
+    echo "   ❌ Duplicate root name found:"
+    echo "      - ${root_names[$root_name]}"
+    echo "      - $filename"
+    echo "      Only keep the latest version in source-images/"
+    validation_errors=$((validation_errors + 1))
+    continue
+  fi
+
+  root_names[$root_name]="$filename"
+  image_dates[$root_name]="$date_str"
+done
+
+if [ $validation_errors -gt 0 ]; then
+  echo ""
+  echo "❌ Found $validation_errors validation error(s). Fix them before uploading."
+  exit 1
+fi
+
+echo "   ✅ All local images have valid CalVer naming"
+echo ""
+
+# Step 2: Fetch existing images from Cloudflare
+echo "2️⃣  Fetching existing images from Cloudflare..."
+response=$(curl -s -X GET \
+  "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1" \
+  -H "Authorization: Bearer ${CF_API_TOKEN}")
+
+# Extract existing image IDs
+existing_ids=$(echo "$response" | jq -r '.result.images[].id' 2>/dev/null || echo "")
+echo "   📊 Found $(echo "$existing_ids" | grep -c .) existing images in Cloudflare"
+echo ""
+
+# Step 3: Upload images with version validation
+echo "3️⃣  Uploading new images..."
+
+for filepath in source-images/blog/*; do
+  [ -f "$filepath" ] || continue
+
+  filename=$(basename "$filepath")
+  [[ "$filename" =~ ^(.+)-([0-9]{8})\\.(jpg|jpeg|png|gif|webp)$ ]] || continue
+
+  root_name="${BASH_REMATCH[1]}"
+  date_str="${BASH_REMATCH[2]}"
+  ext="${BASH_REMATCH[3]}"
+
+  # Image ID without extension: blog/{name}-{date}
+  image_id="blog/${root_name}-${date_str}"
+
+  echo ""
+  echo "📸 Processing: $filename"
+  echo "   Image ID: $image_id"
+
+  # Check if this exact version already exists
+  if echo "$existing_ids" | grep -qx "$image_id"; then
+    echo "   ⏭️  Skipped (already exists in Cloudflare Images)"
+    skipped=$((skipped + 1))
+    continue
+  fi
+
+  # Check for existing versions of this image
+  existing_versions=$(echo "$existing_ids" | grep "^blog/${root_name}-" || true)
+
+  if [ -n "$existing_versions" ]; then
+    # Find the latest existing version
+    latest_existing=$(echo "$existing_versions" | sed 's/.*-//' | sort -r | head -1)
+
+    # Validate that new version is later than latest existing
+    if [ "$date_str" -le "$latest_existing" ]; then
+      echo "   ❌ Version validation failed:"
+      echo "      Latest existing version: $latest_existing"
+      echo "      New version: $date_str"
+      echo "      New version must be later than existing versions"
+      failed=$((failed + 1))
+      continue
+    fi
+
+    echo "   📅 Newer version detected (latest existing: $latest_existing)"
+  fi
+
+  # Upload to Cloudflare Images
+  response=$(curl -s -w "\n%{http_code}" -X POST \
+    "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1" \
+    -H "Authorization: Bearer ${CF_API_TOKEN}" \
+    -F "file=@${filepath}" \
+    -F "id=${image_id}")
+
+  http_code=$(echo "$response" | tail -n1)
+  body=$(echo "$response" | sed '$d')
+
+  if [ "$http_code" = "200" ]; then
+    echo "   ✅ Successfully uploaded"
+    uploaded=$((uploaded + 1))
+  else
+    echo "   ❌ Failed to upload (HTTP $http_code)"
+    echo "   Response: $body"
+    failed=$((failed + 1))
+  fi
+done
+
+echo ""
+echo "📊 Summary:"
+echo "   ✅ Uploaded: $uploaded"
+echo "   ⏭️  Skipped: $skipped"
+echo "   ❌ Failed: $failed"
+
+if [ $failed -gt 0 ]; then
+  echo ""
+  echo "⚠️  Some images failed to upload. Check the logs above."
+  exit 1
+fi
+
+echo ""
+echo "🎉 Image sync completed successfully!"
+"""
+
+[tasks."images:health-check"]
+description = "Validate Cloudflare Images configuration and connectivity"
+run = """
+#!/usr/bin/env bash
+set -e
+
+echo "🏥 Running Cloudflare Images health check..."
+echo ""
+
+# Check 1: Environment variables
+echo "1️⃣  Checking environment configuration..."
+if [ -n "$NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH" ]; then
+  echo "   ✅ NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH is set"
+else
+  echo "   ❌ NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH not set (required for image URLs)"
+  echo "      Set in .env: NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH=your-hash"
+fi
+
+if [ -n "$CF_ACCOUNT_ID" ]; then
+  echo "   ✅ CF_ACCOUNT_ID is set"
+else
+  echo "   ❌ CF_ACCOUNT_ID not set (required for API operations)"
+fi
+
+if [ -n "$CF_API_TOKEN" ]; then
+  echo "   ✅ CF_API_TOKEN is set"
+else
+  echo "   ❌ CF_API_TOKEN not set (required for API operations)"
+fi
+echo ""
+
+# Check 2: Verify API connectivity
+if [ -n "$CF_ACCOUNT_ID" ] && [ -n "$CF_API_TOKEN" ]; then
+  echo "2️⃣  Testing API connectivity..."
+  response=$(curl -s -w "\n%{http_code}" -X GET \
+    "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1" \
+    -H "Authorization: Bearer ${CF_API_TOKEN}" \
+    --max-time 10)
+
+  http_code=$(echo "$response" | tail -n1)
+  if [ "$http_code" = "200" ]; then
+    echo "   ✅ API connection successful"
+
+    # Count images
+    body=$(echo "$response" | sed '$d')
+    image_count=$(echo "$body" | jq -r '.result.images | length' 2>/dev/null || echo "0")
+    echo "   📊 Total images in account: $image_count"
+
+    # List first 3 images as examples
+    if [ "$image_count" -gt 0 ]; then
+      echo "   📋 Example images:"
+      echo "$body" | jq -r '.result.images[:3][].id' 2>/dev/null | while read -r id; do
+        echo "      - $id"
+      done
+    fi
+  else
+    echo "   ❌ API connection failed (HTTP $http_code)"
+  fi
+  echo ""
+else
+  echo "2️⃣  Skipping API connectivity test (credentials not set)"
+  echo ""
+fi
+
+# Check 3: Verify variants configured
+if [ -n "$CF_ACCOUNT_ID" ] && [ -n "$CF_API_TOKEN" ]; then
+  echo "3️⃣  Checking image variants..."
+  response=$(curl -s -X GET \
+    "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1/variants" \
+    -H "Authorization: Bearer ${CF_API_TOKEN}" \
+    --max-time 10)
+
+  variants=$(echo "$response" | jq -r '.result.variants[].id' 2>/dev/null || echo "")
+
+  if echo "$variants" | grep -q "thumbnail"; then
+    echo "   ✅ thumbnail variant configured (600w for blog list)"
+  else
+    echo "   ❌ thumbnail variant missing"
+  fi
+
+  if echo "$variants" | grep -q "hero"; then
+    echo "   ✅ hero variant configured (1200w for blog hero & OG)"
+  else
+    echo "   ❌ hero variant missing"
+  fi
+
+  echo ""
+  echo "   💡 Configure variants in Cloudflare Dashboard:"
+  echo "      https://dash.cloudflare.com/${CF_ACCOUNT_ID}/images/variants"
+  echo ""
+else
+  echo "3️⃣  Skipping variant check (credentials not set)"
+  echo ""
+fi
+
+# Check 4: Test image URL generation
+if [ -n "$NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH" ] && [ -n "$CF_ACCOUNT_ID" ] && [ -n "$CF_API_TOKEN" ]; then
+  echo "4️⃣  Testing image URL generation..."
+
+  # Fetch first image from account
+  response=$(curl -s -X GET \
+    "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/images/v1" \
+    -H "Authorization: Bearer ${CF_API_TOKEN}" \
+    --max-time 10)
+
+  first_image_id=$(echo "$response" | jq -r '.result.images[0].id' 2>/dev/null)
+
+  if [ -n "$first_image_id" ] && [ "$first_image_id" != "null" ]; then
+    echo "   🧪 Test image ID: $first_image_id"
+    test_url="https://imagedelivery.net/${NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH}/${first_image_id}/hero"
+    echo "   🌐 Test URL: $test_url"
+    echo "   💡 Open this URL in browser to verify image loads"
+  else
+    echo "   ⚠️  No images found in account (upload some with 'mise run //ui:images:sync')"
+  fi
+  echo ""
+fi
+
+echo "🏁 Health check complete!"
+"""
