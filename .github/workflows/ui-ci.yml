@@ -29,6 +29,9 @@ jobs:
         run: mise run //ui:check
 
       - name: Build
-        run: cd ui && pnpm build
+        run: |
+          echo "Env var is set: ${NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH:+yes}"
+          echo "Env var length: ${#NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH}"
+          cd ui && pnpm build
         env:
           NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: ${{ secrets.CF_IMAGES_ACCOUNT_HASH }}
