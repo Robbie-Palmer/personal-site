@@ -14,11 +14,15 @@ Configure these in GitHub repository settings (Settings → Secrets and variable
      - Account.Cloudflare Pages: Edit
      - Account.Account Settings: Read
      - Zone.DNS: Edit (for domain management)
-
 2. **`TF_API_TOKEN`**
    - Create at: Terraform Cloud → User Settings → Tokens
    - Used for remote state management
    - Note: Stored as `TF_API_TOKEN` in GitHub, but workflows map it to `TF_TOKEN_app_terraform_io` for Terraform CLI
+3. **`CF_IMAGES_ACCOUNT_HASH`**
+   - Find at: Cloudflare Dashboard → Images → Delivery URL
+   - Example: `AbCdEfGh123` (from `https://imagedelivery.net/AbCdEfGh123/...`)
+   - Used to configure Cloudflare Images environment variable for deployments
+   - Note: Not actually sensitive (publicly visible in image URLs), but stored as secret for consistency
 
 ### Required Environment
 

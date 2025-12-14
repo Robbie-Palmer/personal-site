@@ -20,6 +20,7 @@ jobs:
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      TF_VAR_cf_images_account_hash: ${{ secrets.CF_IMAGES_ACCOUNT_HASH }}
     defaults:
       run:
         working-directory: infra/cloudflare
@@ -35,6 +36,7 @@ jobs:
           cat > .env <<EOF
           export CLOUDFLARE_API_TOKEN="${CLOUDFLARE_API_TOKEN}"
           export TF_TOKEN_app_terraform_io="${TF_TOKEN_app_terraform_io}"
+          export TF_VAR_cf_images_account_hash="${TF_VAR_cf_images_account_hash}"
           EOF
 
       - name: Terraform Plan

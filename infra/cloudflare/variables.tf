@@ -30,3 +30,8 @@ variable "domain_name" {
   type        = string
   default     = "robbiepalmer.me"
 }
+
+variable "cf_images_account_hash" {
+  description = "Cloudflare Images account hash"
+  type        = string
+}
