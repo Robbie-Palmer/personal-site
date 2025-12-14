@@ -1,12 +1,17 @@
 #!/usr/bin/env tsx
 
+import { format, isValid, parse } from "date-fns";
 import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { listImages, uploadImage } from "./lib/cloudflare";
 import { env } from "./lib/env";
 export function validateDate(dateStr: string): boolean {
-	const date = new Date(dateStr);
-	return !Number.isNaN(date.getTime());
+	const parsed = parse(dateStr, "yyyy-MM-dd", new Date());
+	if (!isValid(parsed)) {
+		return false;
+	}
+	// Ensure no normalization occurred (e.g., "2025-02-30" → "2025-03-02")
+	return format(parsed, "yyyy-MM-dd") === dateStr;
 }
 
 export interface ImageParts {
@@ -132,7 +137,12 @@ async function main() {
 		);
 		if (existingVersions.length > 0) {
 			const latestExisting = existingVersions
-				.map((id) => id.split("-").pop() || "")
+				.map((id) => {
+				// Extract full YYYY-MM-DD from the end of the ID
+				const match = id.match(/(\d{4}-\d{2}-\d{2})$/);
+				return match ? match[1] : "";
+			})
+			.filter((date) => date !== "")
 				.sort()
 				.reverse()[0];
 			if (latestExisting && dateStr <= latestExisting) {

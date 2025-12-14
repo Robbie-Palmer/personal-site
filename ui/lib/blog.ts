@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { isValid, parse } from "date-fns";
+import { format, isValid, parse } from "date-fns";
 import matter from "gray-matter";
 import type { Root } from "mdast";
 import { toString as mdastToString } from "mdast-util-to-string";
@@ -178,7 +178,7 @@ export function getPostBySlug(slug: string): BlogPost {
     const dateStr = dateMatch[1]; // Format: YYYY-MM-DD
     const parsedDate = parse(dateStr, "yyyy-MM-dd", new Date());
 
-    if (!isValid(parsedDate)) {
+    if (!isValid(parsedDate) || format(parsedDate, "yyyy-MM-dd") !== dateStr) {
       throw new Error(
         `Post ${slug}: Invalid date in image ID '${data.image}'. ` +
           `Date portion '${dateStr}' is not a valid calendar date.`,
@@ -213,8 +213,8 @@ export function getAllPosts(): BlogPost[] {
   const posts = slugs.map((slug) => getPostBySlug(slug));
 
   return posts.sort((a, b) => {
-    const dateA = new Date(a.date).getTime();
-    const dateB = new Date(b.date).getTime();
+    const dateA = parse(a.date, "yyyy-MM-dd", new Date()).getTime();
+    const dateB = parse(b.date, "yyyy-MM-dd", new Date()).getTime();
     return dateB - dateA; // Descending order (newest first)
   });
 }
