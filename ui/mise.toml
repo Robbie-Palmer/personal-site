@@ -1,5 +1,4 @@
 [env]
-NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH = "$NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH"
 VALID_IMAGE_EXTENSIONS = "jpg|jpeg|png|gif|webp"
 
 [tasks.install]

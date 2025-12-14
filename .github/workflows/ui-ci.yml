@@ -29,6 +29,6 @@ jobs:
         run: mise run //ui:check
 
       - name: Build
-        run: mise run //ui:build
+        run: cd ui && pnpm build
         env:
           NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: ${{ secrets.CF_IMAGES_ACCOUNT_HASH }}
