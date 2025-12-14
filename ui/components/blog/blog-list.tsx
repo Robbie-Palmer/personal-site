@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { BlogPost } from "@/lib/blog";
-import { getImageSrcSet, getImageUrl } from "@/lib/cloudflare-images";
+import { getImageUrl } from "@/lib/cloudflare-images";
 import { formatDate } from "@/lib/date";
 
 interface BlogListProps {
@@ -190,21 +190,19 @@ export function BlogList({ posts }: BlogListProps) {
             >
               {post.image && (
                 <Link href={`/blog/${post.slug}`} className="block">
-                  <div className="relative w-full h-48 bg-muted">
+                  <div className="relative w-full h-48 bg-muted overflow-hidden">
                     {/* biome-ignore lint/performance/noImgElement: Need native img for srcset control with SSG */}
                     <img
                       src={getImageUrl(post.image, null, {
                         width: 400,
                         format: "auto",
                       })}
-                      srcSet={getImageSrcSet(post.image, null, [400, 500])}
                       alt={post.imageAlt || post.title}
-                      sizes="(max-width: 640px) min(400px, calc(100vw - 2rem)), (max-width: 1024px) calc(50vw - 2rem), 400px"
                       width={400}
                       height={192}
                       className="w-full h-full object-cover"
-                      loading={index < 3 ? "eager" : "lazy"}
-                      fetchPriority={index === 0 ? "high" : undefined}
+                      loading={index < 6 ? "eager" : "lazy"}
+                      fetchPriority={index < 3 ? "high" : undefined}
                     />
                   </div>
                 </Link>
