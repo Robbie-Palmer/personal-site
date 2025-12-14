@@ -346,6 +346,27 @@ Content.`;
         "missing required field: imageAlt",
       );
     });
+
+    it("should throw error when image ID has invalid CalVer date", () => {
+      const mockContent = `---
+title: "Test Post"
+description: "A test"
+date: "2025-10-19"
+tags: []
+image: "blog/test-2025-02-30"
+imageAlt: "Test image"
+---
+
+Content.`;
+      vi.mocked(path.resolve)
+        .mockReturnValueOnce("/mock/content/blog/test.mdx")
+        .mockReturnValueOnce("/mock/content/blog");
+      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
+      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
+      expect(() => getPostBySlug("test")).toThrow(
+        "Invalid date in image ID 'blog/test-2025-02-30'",
+      );
+    });
   });
 
   describe("getAllPosts", () => {
