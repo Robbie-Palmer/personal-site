@@ -27,6 +27,20 @@ resource "cloudflare_pages_project" "personal_site" {
       preview_branch_excludes       = []
     }
   }
+
+  deployment_configs {
+    production {
+      environment_variables = {
+        NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH = var.cf_images_account_hash
+      }
+    }
+
+    preview {
+      environment_variables = {
+        NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH = var.cf_images_account_hash
+      }
+    }
+  }
 }
 
 resource "cloudflare_pages_domain" "robbiepalmer_me" {
