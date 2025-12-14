@@ -183,7 +183,7 @@ export function BlogList({ posts }: BlogListProps) {
         </p>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {sortedPosts.map((post) => (
+          {sortedPosts.map((post, index) => (
             <Card
               key={post.slug}
               className="h-full flex flex-col overflow-hidden"
@@ -197,11 +197,14 @@ export function BlogList({ posts }: BlogListProps) {
                         width: 400,
                         format: "auto",
                       })}
-                      srcSet={getImageSrcSet(post.image, null, [400, 600, 800])}
+                      srcSet={getImageSrcSet(post.image, null, [400, 500])}
                       alt={post.imageAlt || post.title}
-                      sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 400px"
+                      sizes="(max-width: 640px) min(400px, calc(100vw - 2rem)), (max-width: 1024px) calc(50vw - 2rem), 400px"
+                      width={400}
+                      height={192}
                       className="w-full h-full object-cover"
-                      loading="lazy"
+                      loading={index < 3 ? "eager" : "lazy"}
+                      fetchPriority={index === 0 ? "high" : undefined}
                     />
                   </div>
                 </Link>
