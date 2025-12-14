@@ -1,4 +1,4 @@
-import Cloudflare from "cloudflare";
+import Cloudflare, { APIError } from "cloudflare";
 import type { Image } from "cloudflare/resources/images/v1/v1";
 import { readFileSync } from "node:fs";
 import { toFile } from "cloudflare/uploads";
@@ -35,9 +35,15 @@ export async function uploadImage(
 	} catch (error) {
 		const errorMessage =
 			error instanceof Error ? error.message : "Unknown error";
+		// Extract HTTP status code from Cloudflare APIError (e.g., 409 for duplicate, 401 for auth failure)
+		// Connection errors have status undefined, so default to 500
+		const statusCode =
+			error instanceof APIError && typeof error.status === "number"
+				? error.status
+				: 500;
 		return {
 			success: false,
-			statusCode: 500,
+			statusCode,
 			message: errorMessage,
 		};
 	}
