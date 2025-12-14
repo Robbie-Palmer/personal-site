@@ -194,12 +194,12 @@ export function BlogList({ posts }: BlogListProps) {
                     {/* biome-ignore lint/performance/noImgElement: Need native img for srcset control with SSG */}
                     <img
                       src={getImageUrl(post.image, null, {
-                        width: 600,
+                        width: 400,
                         format: "auto",
                       })}
-                      srcSet={getImageSrcSet(post.image, null, [600, 800])}
+                      srcSet={getImageSrcSet(post.image, null, [400, 600, 800])}
                       alt={post.imageAlt || post.title}
-                      sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 600px"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 400px"
                       className="w-full h-full object-cover"
                       loading="lazy"
                     />
