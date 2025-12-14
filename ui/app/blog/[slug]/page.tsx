@@ -89,11 +89,11 @@ export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
   const processedContent = post.content.replace(
     /src="([a-z0-9_-]+\/[a-z0-9_-]+-\d{4}-\d{2}-\d{2})"/g,
     (_match, imageId) => {
-      const url = getImageUrl(imageId, "public", {
+      const url = getImageUrl(imageId, null, {
         width: 800,
         format: "auto",
       });
-      const srcSet = getImageSrcSet(imageId, "public", [800, 1200, 1600]);
+      const srcSet = getImageSrcSet(imageId, null, [800, 1200, 1600]);
       return `src="${url}" srcSet="${srcSet}" sizes="(max-width: 896px) 100vw, 896px" loading="lazy"`;
     },
   );
@@ -132,11 +132,11 @@ export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
         <div className="relative w-full aspect-video mb-8 rounded-lg overflow-hidden bg-muted">
           {/* biome-ignore lint/performance/noImgElement: Need native img for srcset control with SSG */}
           <img
-            src={getImageUrl(post.image, "public", {
+            src={getImageUrl(post.image, null, {
               width: 800,
               format: "auto",
             })}
-            srcSet={getImageSrcSet(post.image, "public", [800, 1200, 1600])}
+            srcSet={getImageSrcSet(post.image, null, [800, 1200, 1600])}
             alt={post.imageAlt || post.title}
             sizes="(max-width: 896px) 100vw, 896px"
             className="absolute inset-0 w-full h-full object-cover"

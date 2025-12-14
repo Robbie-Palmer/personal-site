@@ -2,9 +2,8 @@ const CF_IMAGES_ACCOUNT_HASH = process.env.NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH;
 
 const CF_IMAGES_BASE_URL = "https://imagedelivery.net";
 
-export type ImageVariant =
-  | "public" // Flexible variant - accepts URL parameters for custom transformations
-  | "og"; // 1200w - for OpenGraph metadata
+// Named variants (null = use flexible transformations without variant name)
+export type ImageVariant = "og" | null;
 
 export interface ImageTransformOptions {
   width?: number;
@@ -17,10 +16,10 @@ export interface ImageTransformOptions {
   dpr?: 1 | 2;
 }
 
-/** Generates a Cloudflare Images URL. Options only apply to 'public' variant. */
+/** Generates a Cloudflare Images URL. Use variant=null for flexible transformations. */
 export function getImageUrl(
   imageId: string,
-  variant: ImageVariant = "public",
+  variant: ImageVariant = null,
   options?: ImageTransformOptions,
 ): string {
   if (!CF_IMAGES_ACCOUNT_HASH) {
@@ -30,17 +29,20 @@ export function getImageUrl(
     );
   }
 
-  const baseUrl = `${CF_IMAGES_BASE_URL}/${CF_IMAGES_ACCOUNT_HASH}/${imageId}/${variant}`;
-  // Add transformation options as query parameters (only for 'public' variant)
-  if (variant === "public" && options && Object.keys(options).length > 0) {
-    const params = new URLSearchParams();
-    if (options.width) params.append("width", options.width.toString());
-    if (options.height) params.append("height", options.height.toString());
-    if (options.format) params.append("format", options.format);
-    if (options.fit) params.append("fit", options.fit);
-    if (options.quality) params.append("quality", options.quality.toString());
-    if (options.dpr) params.append("dpr", options.dpr.toString());
-    return `${baseUrl}?${params.toString()}`;
+  const baseUrl = `${CF_IMAGES_BASE_URL}/${CF_IMAGES_ACCOUNT_HASH}/${imageId}`;
+  // For flexible transformations (no variant), use comma-separated parameters
+  if (variant === null && options && Object.keys(options).length > 0) {
+    const params: string[] = [];
+    if (options.width) params.push(`w=${options.width}`);
+    if (options.height) params.push(`h=${options.height}`);
+    if (options.format) params.push(`f=${options.format}`);
+    if (options.fit) params.push(`fit=${options.fit}`);
+    if (options.quality) params.push(`q=${options.quality}`);
+    if (options.dpr) params.push(`dpr=${options.dpr}`);
+    return `${baseUrl}/${params.join(",")}`;
+  }
+  if (variant) {
+    return `${baseUrl}/${variant}`;
   }
   return baseUrl;
 }
@@ -48,17 +50,22 @@ export function getImageUrl(
 /** Generates a responsive srcset string for the given image. */
 export function getImageSrcSet(
   imageId: string,
-  variant: ImageVariant = "public",
+  variant: ImageVariant = null,
   widths: number[] = [600, 1200, 2400],
+  quality: number = 85,
 ): string {
-  if (variant !== "public") {
+  if (variant !== null) {
     // For named variants, just return the variant URL
     return `${getImageUrl(imageId, variant)} 1x`;
   }
 
   return widths
     .map((width) => {
-      const url = getImageUrl(imageId, "public", { width, format: "auto" });
+      const url = getImageUrl(imageId, null, {
+        width,
+        format: "auto",
+        quality,
+      });
       return `${url} ${width}w`;
     })
     .join(", ");
