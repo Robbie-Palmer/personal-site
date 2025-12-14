@@ -2,7 +2,6 @@
 
 import Fuse from "fuse.js";
 import { ArrowDown, ArrowUp, Clock, Search, X } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -17,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { BlogPost } from "@/lib/blog";
+import { getImageSrcSet, getImageUrl } from "@/lib/cloudflare-images";
 import { formatDate } from "@/lib/date";
 
 interface BlogListProps {
@@ -191,12 +191,21 @@ export function BlogList({ posts }: BlogListProps) {
               {post.image && (
                 <Link href={`/blog/${post.slug}`} className="block">
                   <div className="relative w-full h-48 bg-muted">
-                    <Image
-                      src={post.image}
+                    {/* biome-ignore lint/performance/noImgElement: Need native img for srcset control with SSG */}
+                    <img
+                      src={getImageUrl(post.image, "public", {
+                        width: 600,
+                        format: "auto",
+                      })}
+                      srcSet={getImageSrcSet(
+                        post.image,
+                        "public",
+                        [400, 600, 800],
+                      )}
                       alt={post.imageAlt || post.title}
-                      width={1200}
-                      height={675}
+                      sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       className="w-full h-full object-cover"
+                      loading="lazy"
                     />
                   </div>
                 </Link>

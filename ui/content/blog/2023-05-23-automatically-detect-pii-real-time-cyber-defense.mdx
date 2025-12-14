@@ -4,7 +4,7 @@ description: "Using machine learning-powered PII detection to enable advanced SI
 date: "2023-05-23"
 tags: ["data-governance", "cybersecurity", "machine-learning", "kafka", "pii"]
 canonical: "https://www.confluent.io/blog/pii-detection-real-time-cyber-defense/"
-image: "/blog-images/automatically-detect-pii-real-time-cyber-defense-featured.jpg"
+image: "blog/automatically-detect-pii-real-time-cyber-defense-featured-2025-12-14"
 imageAlt: "A phone locked down with a fingerprint reader and surrounded by shields / padlocks"
 ---
 
@@ -33,7 +33,7 @@ You can maximize your data signal by normalizing and enriching your data in-stre
 Confluent acts as a central nervous system/curation fabric to ingest, aggregate, transform, filter, and clean a broad set of data streams. This enables data scientists, analysts, and engineers to use sophisticated [stream processing](https://www.confluent.io/product/ksql/) and [single message transforms](https://docs.confluent.io/platform/current/connect/transforms/overview.html), and [bring ML/AI models to production](/blog/2023-03-28-uniting-machine-learning-data-streaming-1) faster to aid with richer real-time threat detection.
 
 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '1.5rem 0', gap: '0'}}>
-  <img src="/blog-images/pii-central-nervous-system.png" alt="Diagram showing stream processing and ML augmenting SIEM solutions" style={{margin: '0', display: 'block', maxWidth: '100%'}} />
+  <img src="blog/pii-central-nervous-system-2025-12-14" alt="Diagram showing stream processing and ML augmenting SIEM solutions" style={{margin: '0', display: 'block', maxWidth: '100%'}} />
 
   <p style={{margin: '0.25rem 0 0 0', fontSize: '0.9em'}}>
     <em>Augmenting SIEM solutions with stream processing and machine learning</em>
@@ -124,7 +124,7 @@ recognizers:
 This in-stream solution can be deployed on the edge, on-premises, or in your cloud. If deployed against Confluent Cloud, it can integrate with Stream Catalog and be configured to skip fields with specific tags, which can help reduce false positives.
 
 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '1.5rem 0', gap: '0'}}>
-  <img src="/blog-images/pii-anon-data.png" alt="Screenshot of Confluent Cloud showing redacted PII data stream" style={{margin: '0', display: 'block', maxWidth: '100%'}} />
+  <img src="blog/pii-anon-data-2025-12-14" alt="Screenshot of Confluent Cloud showing redacted PII data stream" style={{margin: '0', display: 'block', maxWidth: '100%'}} />
 
   <p style={{margin: '0.25rem 0 0 0', fontSize: '0.9em'}}>
     <em>Redacted data stream on Confluent Cloud</em>
@@ -142,7 +142,7 @@ EMIT CHANGES;
 ```
 
 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '1.5rem 0', gap: '0'}}>
-  <img src="/blog-images/pii-udfs-1.png" alt="Screenshot showing PII UDF query results with contains_pii and redacted_log columns" style={{margin: '0', display: 'block', maxWidth: '100%'}} />
+  <img src="blog/pii-udfs-1-2025-12-14" alt="Screenshot showing PII UDF query results with contains_pii and redacted_log columns" style={{margin: '0', display: 'block', maxWidth: '100%'}} />
 
   <p style={{margin: '0.25rem 0 0 0', fontSize: '0.9em'}}>
     <em>Using PII UDFs to detect and redact sensitive information in log streams</em>
@@ -156,7 +156,7 @@ EMIT CHANGES;
 ```
 
 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '1.5rem 0', gap: '0'}}>
-  <img src="/blog-images/pii-udfs-2.png" alt="Screenshot showing PII extraction query results with entity types and values" style={{margin: '0', display: 'block', maxWidth: '100%'}} />
+  <img src="blog/pii-udfs-2-2025-12-14" alt="Screenshot showing PII extraction query results with entity types and values" style={{margin: '0', display: 'block', maxWidth: '100%'}} />
 
   <p style={{margin: '0.25rem 0 0 0', fontSize: '0.9em'}}>
     <em>Extracting PII entities and types from unstructured text data</em>
@@ -201,7 +201,7 @@ And the message that reaches the Kafka topic will be:
 These PII Detection solutions support 25 entity types out of the box, including PCI (such as credit card numbers) and country-specific entities (such as U.S. Social Security numbers). The full list of entities is as follows:
 
 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '1.5rem 0', gap: '0'}}>
-  <img src="/blog-images/pii-detection-solutions.jpg" alt="Overview diagram of PII detection solutions: Stream Processing App, ksqlDB UDFs/UDTFs, and Kafka Connect SMT" style={{margin: '0', display: 'block', maxWidth: '100%'}} />
+  <img src="blog/pii-detection-solutions-2025-12-14" alt="Overview diagram of PII detection solutions: Stream Processing App, ksqlDB UDFs/UDTFs, and Kafka Connect SMT" style={{margin: '0', display: 'block', maxWidth: '100%'}} />
 
   <p style={{margin: '0.25rem 0 0 0', fontSize: '0.9em'}}>
     <em>The entities these solutions can detect including names, email addresses, phone numbers etc.</em>

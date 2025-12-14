@@ -21,7 +21,7 @@ const pathMock = vi.hoisted(() => {
       if (arg.startsWith("/")) {
         result = arg;
       } else if (result) {
-        result += "/" + arg;
+        result += `/${arg}`;
       } else {
         result = arg;
       }
@@ -90,7 +90,7 @@ title: "Test Post"
 description: "Test description"
 date: "2025-10-19"
 tags: ["test"]
-image: "/blog-images/test.jpg"
+image: "blog/test-2025-12-14"
 imageAlt: "Test image"
 ---
 
@@ -188,7 +188,7 @@ title: "My Blog Post"
 description: "A great post"
 date: "2025-10-19"
 tags: ["tag1", "tag2"]
-image: "/blog-images/test.jpg"
+image: "blog/test-2025-12-14"
 imageAlt: "Test image"
 ---
 
@@ -208,7 +208,7 @@ This is the content.`;
         description: "A great post",
         date: "2025-10-19",
         tags: ["tag1", "tag2"],
-        image: "/blog-images/test.jpg",
+        image: "blog/test-2025-12-14",
         imageAlt: "Test image",
         content: "\n# Heading\n\nThis is the content.",
         readingTime: "1 min read",
@@ -333,7 +333,7 @@ title: "Test Post"
 description: "A test"
 date: "2025-10-19"
 tags: []
-image: "/blog-images/test.jpg"
+image: "blog/test-2025-12-14"
 ---
 
 Content.`;
@@ -342,32 +342,8 @@ Content.`;
         .mockReturnValueOnce("/mock/content/blog");
       vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
       vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
-      vi.mocked(fs.existsSync).mockReturnValueOnce(true); // image file exists
       expect(() => getPostBySlug("test")).toThrow(
         "missing required field: imageAlt",
-      );
-    });
-
-    it("should throw error when image file does not exist", () => {
-      const mockContent = `---
-title: "Test Post"
-description: "A test"
-date: "2025-10-19"
-tags: []
-image: "/blog-images/missing.jpg"
-imageAlt: "Missing image"
----
-
-Content.`;
-      vi.mocked(path.resolve)
-        .mockReturnValueOnce("/mock/content/blog/test.mdx")
-        .mockReturnValueOnce("/mock/content/blog")
-        .mockReturnValueOnce("/mock/public/blog-images/missing.jpg");
-      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
-      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
-      vi.mocked(fs.existsSync).mockReturnValueOnce(false); // image file does not exist
-      expect(() => getPostBySlug("test")).toThrow(
-        "Featured image file not found at /blog-images/missing.jpg",
       );
     });
   });
@@ -401,7 +377,7 @@ title: "${post?.slug}"
 description: "Description"
 date: "${post?.date}"
 tags: []
-image: "/blog-images/${post?.slug}.jpg"
+image: "blog/${post?.slug}-2025-12-14"
 imageAlt: "Test image"
 ---
 Content`;
@@ -443,7 +419,7 @@ title: "${slug}"
 description: "Description"
 date: "2025-10-19"
 tags: []
-image: "/blog-images/${slug}.jpg"
+image: "blog/${slug}-2025-12-14"
 imageAlt: "Test image"
 ---
 Content`;
@@ -525,15 +501,11 @@ describe("Blog content validation (integration)", () => {
         "string",
       );
 
-      // Validate image file exists
-      const imagePath = realPath.join(
-        process.cwd(),
-        "public",
-        data.image.replace(/^\//, ""),
-      );
+      // Validate image format is Cloudflare Images ID
+      const imageIdPattern = /^blog\/[a-z0-9_-]+-\d{4}-\d{2}-\d{2}$/;
       expect(
-        realFs.existsSync(imagePath),
-        `${slug}: image file not found at ${data.image}`,
+        imageIdPattern.test(data.image),
+        `${slug}: image must be in Cloudflare Images format 'blog/{name}-YYYY-MM-DD', got '${data.image}'`,
       ).toBe(true);
     }
   });

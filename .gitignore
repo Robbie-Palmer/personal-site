@@ -8,6 +8,9 @@ node_modules/
 out/
 build/
 
+# Images
+ui/source-images/
+
 # Testing
 coverage/
 

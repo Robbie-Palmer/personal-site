@@ -1,3 +1,6 @@
+[env]
+VALID_IMAGE_EXTENSIONS = "jpg|jpeg|png|gif|webp"
+
 [tasks.install]
 description = "Install all dependencies"
 run = "pnpm install"
@@ -62,3 +65,12 @@ rm -rf out
 [tasks.check]
 description = "Run all checks (lint, format, typecheck, test)"
 depends = ["//ui:lint", "//ui:format:check", "//ui:typecheck", "//ui:test"]
+
+# Image management tasks
+[tasks."images:sync"]
+description = "Upload versioned images to Cloudflare Images with CalVer validation"
+run = "pnpm images:sync"
+
+[tasks."images:health-check"]
+description = "Validate Cloudflare Images configuration and connectivity"
+run = "pnpm images:health-check"

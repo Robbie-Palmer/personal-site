@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { isValid, parse } from "date-fns";
 import matter from "gray-matter";
 import type { Root } from "mdast";
 import { toString as mdastToString } from "mdast-util-to-string";
@@ -114,8 +115,8 @@ export function getPostBySlug(slug: string): BlogPost {
   }
 
   // Validate date is actually a valid date
-  const dateTimestamp = new Date(data.date).getTime();
-  if (Number.isNaN(dateTimestamp)) {
+  const parsedPostDate = parse(data.date, "yyyy-MM-dd", new Date());
+  if (!isValid(parsedPostDate)) {
     throw new Error(`Post ${slug} has invalid date: ${data.date}`);
   }
 
@@ -132,8 +133,8 @@ export function getPostBySlug(slug: string): BlogPost {
         `Post ${slug} has invalid updated field: must be a string`,
       );
     }
-    const updatedTimestamp = new Date(data.updated).getTime();
-    if (Number.isNaN(updatedTimestamp)) {
+    const parsedUpdatedDate = parse(data.updated, "yyyy-MM-dd", new Date());
+    if (!isValid(parsedUpdatedDate)) {
       throw new Error(`Post ${slug} has invalid updated date: ${data.updated}`);
     }
   }
@@ -159,15 +160,30 @@ export function getPostBySlug(slug: string): BlogPost {
     throw new Error(`Post ${slug} is missing required field: image`);
   }
 
-  const imagePath = path.join(
-    process.cwd(),
-    "public",
-    data.image.replace(/^\//, ""),
-  );
-  if (!fs.existsSync(imagePath)) {
+  // Validate image field
+  // Required format: CF Images ID with CalVer versioning: 'blog/{name}-{YYYY-MM-DD}'
+  const imageIdPattern = /^blog\/[a-z0-9_-]+-\d{4}-\d{2}-\d{2}$/;
+
+  if (!imageIdPattern.test(data.image)) {
     throw new Error(
-      `Post ${slug}: Featured image file not found at ${data.image}`,
+      `Post ${slug}: Invalid image ID format. ` +
+        `Expected 'blog/{name}-YYYY-MM-DD' (e.g., 'blog/hero-image-2025-11-27'). ` +
+        `Got: '${data.image}'`,
     );
+  }
+
+  // Validate CalVer date portion
+  const dateMatch = data.image.match(/-(\d{4}-\d{2}-\d{2})$/);
+  if (dateMatch?.[1]) {
+    const dateStr = dateMatch[1]; // Format: YYYY-MM-DD
+    const parsedDate = parse(dateStr, "yyyy-MM-dd", new Date());
+
+    if (!isValid(parsedDate)) {
+      throw new Error(
+        `Post ${slug}: Invalid date in image ID '${data.image}'. ` +
+          `Date portion '${dateStr}' is not a valid calendar date.`,
+      );
+    }
   }
 
   if (!data.imageAlt || typeof data.imageAlt !== "string") {

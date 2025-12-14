@@ -13,8 +13,13 @@ export interface Experience {
 
 function parseDateString(dateStr: string): Date {
   const [yearStr, monthStr] = dateStr.split("-");
-  const year = parseInt(yearStr!, 10);
-  const month = parseInt(monthStr!, 10);
+  if (!yearStr || !monthStr) {
+    throw new Error(
+      `Invalid date format: ${dateStr}. Expected YYYY-MM format.`,
+    );
+  }
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
   return new Date(Date.UTC(year, month - 1, 1));
 }
 
