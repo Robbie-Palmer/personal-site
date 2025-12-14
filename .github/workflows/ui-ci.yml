@@ -12,6 +12,8 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    environment:
+      name: cloudflare-production
     steps:
       - uses: actions/checkout@v6
 
@@ -30,8 +32,6 @@ jobs:
 
       - name: Build
         run: |
-          echo "Env var is set: ${NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH:+yes}"
-          echo "Env var length: ${#NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH}"
-          cd ui && pnpm build
+          mise run //ui:build
         env:
           NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: ${{ secrets.CF_IMAGES_ACCOUNT_HASH }}
