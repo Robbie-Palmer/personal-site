@@ -113,7 +113,7 @@ export function BlogList({ posts }: BlogListProps) {
   };
 
   return (
-    <div className="container mx-auto px-4 py-12">
+    <div className="container mx-auto px-4 py-12 min-h-screen">
       <div className="flex flex-wrap items-baseline gap-4 mb-6">
         <h1 className="text-4xl font-bold">Blog</h1>
         {currentTag && (

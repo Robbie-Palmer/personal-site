@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { BlogList } from "@/components/blog/blog-list";
 import { getAllPosts } from "@/lib/blog";
+import { getImageUrl } from "@/lib/cloudflare-images";
 import { siteConfig } from "@/lib/site-config";
 
 export const metadata: Metadata = {
@@ -32,11 +33,29 @@ export const metadata: Metadata = {
 
 export default function BlogPage() {
   const allPosts = getAllPosts();
+  const sortedPosts = [...allPosts].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+  );
+  const firstPost = sortedPosts[0];
 
   return (
-    <Suspense fallback={<BlogListFallback />}>
-      <BlogList posts={allPosts} />
-    </Suspense>
+    <>
+      {/* Preload LCP image for fastest discovery */}
+      {firstPost?.image && (
+        <link
+          rel="preload"
+          as="image"
+          href={getImageUrl(firstPost.image, null, {
+            width: 400,
+            format: "auto",
+          })}
+          fetchPriority="high"
+        />
+      )}
+      <Suspense fallback={<BlogListFallback />}>
+        <BlogList posts={allPosts} />
+      </Suspense>
+    </>
   );
 }
 
