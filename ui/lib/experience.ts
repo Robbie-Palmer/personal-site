@@ -69,11 +69,12 @@ export function getAllExperience(): Experience[] {
       location: "Belfast, UK",
       startDate: "2024-05",
       description:
-        "I am building real-time computer vision products for detecting identifiers in complex real-world scenarios across multiple video streams and images. I develop web services, ML pipelines and infrastructure as code, implementing comprehensive observability with Grafana Cloud (Prometheus, Tempo, Loki). I have built benchmarking tools with data version control, document analysis solutions leveraging LLMs, and internal tools in TypeScript and React. I contribute to API servers in Go and have project managed teams, driving planning and development practices.",
+        "Building real-time computer vision products and ML pipelines, while driving engineering practices for a startup transitioning from pre-product to production.",
       responsibilities: [
         "Built real-time computer vision products for multi-stream video and image analysis, for identifier identification in complex environments",
-        "Engineered ML pipelines with data version control, benchmarking infrastructure, and end-to-end observability powered by Grafana Cloud",
+        "Engineered ML pipelines with data version control, benchmarking infrastructure, and end-to-end observability powered by Grafana Cloud (Prometheus, Loki, Tempo)",
         "Developed web services, Terraform managed infrastructure, and LLM-powered document analysis solutions",
+        "Built internal tools in TypeScript and React, and contributed to API servers in Go",
         "Project managed cross-functional teams and drove agile development practices that accelerated time-to-market",
         "Was pivotal in transitioning from pre-product to production, delivering the MVP to market and establishing lean engineering practices for rapid iteration",
       ],
@@ -103,7 +104,7 @@ export function getAllExperience(): Experience[] {
       startDate: "2023-05",
       endDate: "2024-02",
       description:
-        'I led our ML strategy in this pre-product-market-fit, seed-stage start-up. I built ML pipelines for training and evaluating models, experimented with 3rd party services to evaluate "build vs buy", and built PoCs to discover our desired UX. I built web services in both Python and TypeScript and contributed to iOS development. I built CI/CD pipelines and infrastructure as code.',
+        "Led ML strategy at a seed-stage startup, building pipelines, evaluating build-vs-buy decisions, and developing full-stack prototypes.",
       responsibilities: [
         "Led ML strategy and built end-to-end ML pipelines for training, evaluation, and deployment",
         "Optimized, evaluated, and integrated ML models powering semantic search, image similarity search, invoice extraction, product detection, and RAG-based chatbots",
@@ -140,7 +141,7 @@ export function getAllExperience(): Experience[] {
       startDate: "2022-04",
       endDate: "2023-05",
       description:
-        "I designed, architected and engineered machine learning driven data streaming solutions, wearing multiple hats as software engineer, product owner, project manager and technical consultant.",
+        "Designed and built ML-driven data streaming solutions, wearing multiple hats across engineering, product, and customer-facing roles.",
       responsibilities: [
         "Designed and engineered machine-learning-driven data-streaming solutions",
         "Acted as software engineer, product owner, project manager and technical consultant",
@@ -168,12 +169,12 @@ export function getAllExperience(): Experience[] {
       startDate: "2020-03",
       endDate: "2022-04",
       description:
-        "As Sonrai's ninth employee, I was central to establishing its engineering practices. I acted as the technical lead for our Data Science team, making many of our foundational architectural decisions and training our team of junior engineers. I developed computer vision models for semantic segmentation, multiple instance learning and object localisation. I engineered full machine learning pipelines, managing the scope of algorithms, data sampling, modelling, versioning and iteration.",
+        "Technical lead for Data Science at an early-stage health-tech startup, shaping engineering practices and building computer vision pipelines for pathology.",
       responsibilities: [
         "Acted as technical lead for the Data Science team, making foundational architectural decisions and mentoring junior engineers",
         "Developed computer vision models for semantic segmentation, multiple instance learning and object localisation",
         "Engineered full machine learning pipelines, managing algorithms, data sampling, modelling, versioning and iteration",
-        "Drove best practices site-wide, setting direction for MLOps, DevOps, process management and hiring practices",
+        "As the 9th employee, drove best practices site-wide, setting direction for MLOps, DevOps, process management and hiring practices",
         "Developed libraries which massively accelerated development, reducing the development time of a new app from weeks to a day",
         "Led research and engineering for a microsatellite instability classification initiative that secured millions in NHS funding",
       ],
@@ -201,7 +202,7 @@ export function getAllExperience(): Experience[] {
       startDate: "2017-07",
       endDate: "2020-03",
       description:
-        "I led our development of production-grade computer vision solutions, including algorithm conception, data collection and engineering, deep learning model development, developing a scalable runtime environment and integration with web applications.",
+        "Led development of production-grade computer vision for computational pathology, from algorithm design through to scalable deployment.",
       responsibilities: [
         "Led development of production-grade computer vision solutions for computational pathology",
         "Drove algorithm conception, data collection and engineering, and deep learning model development",
@@ -227,7 +228,7 @@ export function getAllExperience(): Experience[] {
       startDate: "2016-07",
       endDate: "2016-09",
       description:
-        "I worked on the SPAAACE project (Self-Properties Autonomic / Apoptotic / Autonomous Computing Environment), using Arduinos to create a prototype of Cubesats implementing university research on self-managing systems.",
+        "Built Arduino-based CubeSat prototypes implementing university research on self-managing autonomous systems.",
       responsibilities: [
         "Worked on SPAAACE project developing self-managing systems for CubeSats",
         "Built Arduino-based prototypes implementing autonomic computing principles",
@@ -244,7 +245,7 @@ export function getAllExperience(): Experience[] {
       startDate: "2015-07",
       endDate: "2016-06",
       description:
-        "I primarily designed, developed and tested C# code which improved auto-suggest across all platforms. I optimised large portions of the stack, carried out in-depth big data analysis on logs, and developed interactive dashboards.",
+        "Improved Bing auto-suggest across all platforms through code optimization, big data analysis, and interactive dashboards.",
       responsibilities: [
         "Designed, developed and tested C# code improving auto-suggest across all platforms",
         "Optimised large portions of the Bing search stack for performance",
@@ -262,7 +263,7 @@ export function getAllExperience(): Experience[] {
       startDate: "2014-06",
       endDate: "2014-09",
       description:
-        "I developed a system which took the results of NLP analysis of web-pages, and generated a graph database to hold semantically related information to the web-page contents.",
+        "Built an NLP-powered system that generated graph databases from semantic analysis of web content.",
       responsibilities: [
         "Developed a system integrating NLP analysis with graph database storage",
         "Built semantic relationship mapping for web-page content analysis",
