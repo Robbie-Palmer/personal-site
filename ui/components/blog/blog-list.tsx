@@ -1,7 +1,7 @@
 "use client";
 
 import Fuse from "fuse.js";
-import { ArrowDown, ArrowUp, Clock, Search, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Clock, Search, Tag, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import type { BlogPost } from "@/lib/blog";
 import { getImageUrl } from "@/lib/cloudflare-images";
 import { formatDate } from "@/lib/date";
+import { cn } from "@/lib/styles";
 
 interface BlogListProps {
   posts: BlogPost[];
@@ -118,13 +119,14 @@ export function BlogList({ posts }: BlogListProps) {
         <h1 className="text-4xl font-bold">Blog</h1>
         {currentTag && (
           <Badge
-            variant="outline"
-            className="flex items-center gap-2 text-base"
+            variant="secondary"
+            className="flex items-center gap-2 text-base px-3 py-1 hover:bg-primary/20 hover:text-primary border border-transparent transition-colors"
           >
+            <Tag className="h-4 w-4" />
             <span>{currentTag}</span>
             <Link
               href="/blog"
-              className="rounded-full hover:bg-muted/50 p-0.5"
+              className="rounded-full hover:bg-background/50 p-0.5 ml-1 transition-colors"
               aria-label={`Remove ${currentTag} filter`}
             >
               <X className="h-3 w-3" />
@@ -217,14 +219,28 @@ export function BlogList({ posts }: BlogListProps) {
               </CardHeader>
               <CardContent className="flex-1 flex flex-col justify-end">
                 <div className="flex flex-wrap gap-2 mb-3">
-                  {post.tags.map((tag) => (
-                    <Link
-                      key={tag}
-                      href={`/blog?tag=${encodeURIComponent(tag)}`}
-                    >
-                      <Badge variant="secondary">{tag}</Badge>
-                    </Link>
-                  ))}
+                  {post.tags.map((tag) => {
+                    const isActive = tag === currentTag;
+                    return (
+                      <Link
+                        key={tag}
+                        href={`/blog?tag=${encodeURIComponent(tag)}`}
+                      >
+                        <Badge
+                          variant={isActive ? "default" : "secondary"}
+                          className={cn(
+                            "gap-1 transition-colors border",
+                            isActive
+                              ? "hover:bg-primary/90 border-transparent"
+                              : "hover:bg-primary/20 hover:text-primary hover:border-primary/30 border-transparent",
+                          )}
+                        >
+                          <Tag className="h-3 w-3" />
+                          {tag}
+                        </Badge>
+                      </Link>
+                    );
+                  })}
                 </div>
                 <div className="text-sm text-muted-foreground">
                   <time>{formatDate(post.date)}</time>
