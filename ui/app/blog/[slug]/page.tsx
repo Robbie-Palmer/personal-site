@@ -1,3 +1,4 @@
+import { Tag } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -121,7 +122,13 @@ export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
           <div className="flex flex-wrap gap-2">
             {post.tags.map((tag) => (
               <Link key={tag} href={`/blog?tag=${encodeURIComponent(tag)}`}>
-                <Badge variant="secondary">{tag}</Badge>
+                <Badge
+                  variant="secondary"
+                  className="gap-1 hover:bg-primary/20 hover:text-primary hover:border-primary/30 border border-transparent transition-colors"
+                >
+                  <Tag className="h-3 w-3" />
+                  {tag}
+                </Badge>
               </Link>
             ))}
           </div>
