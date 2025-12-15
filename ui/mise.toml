@@ -76,3 +76,26 @@ run = "pnpm images:sync"
 description = "Validate Cloudflare Images configuration and connectivity"
 depends = ["//ui:install"]
 run = "pnpm images:health-check"
+
+# Lighthouse performance testing tasks
+[tasks.lighthouse]
+description = "Run Lighthouse against running dev server (start dev server first)"
+depends = ["//ui:install"]
+run = "pnpm lighthouse"
+
+[tasks."lighthouse:serve"]
+description = "Build, serve static export, and run Lighthouse tests (desktop + mobile)"
+depends = ["//ui:build"]
+run = """
+#!/usr/bin/env bash
+set -e
+
+echo "Starting static server on port 3000..."
+pnpm exec serve out -l 3000 &
+SERVER_PID=$!
+sleep 2
+
+pnpm lighthouse || EXIT_CODE=$?
+kill $SERVER_PID 2>/dev/null || true
+exit ${EXIT_CODE:-0}
+"""
