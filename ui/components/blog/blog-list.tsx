@@ -224,7 +224,11 @@ export function BlogList({ posts }: BlogListProps) {
                     return (
                       <Link
                         key={tag}
-                        href={`/blog?tag=${encodeURIComponent(tag)}`}
+                        href={
+                          isActive
+                            ? "/blog"
+                            : `/blog?tag=${encodeURIComponent(tag)}`
+                        }
                       >
                         <Badge
                           variant={isActive ? "default" : "secondary"}
