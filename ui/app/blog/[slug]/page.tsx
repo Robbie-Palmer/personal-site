@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -15,6 +14,7 @@ import { Mermaid } from "@/components/mermaid";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getAllPostSlugs, getPostBySlug } from "@/lib/blog";
+import { getImageSrcSet, getImageUrl } from "@/lib/cloudflare-images";
 import { formatDate } from "@/lib/date";
 import { siteConfig } from "@/lib/site-config";
 
@@ -36,9 +36,10 @@ export async function generateMetadata(
   // Use custom canonical URL if specified, otherwise use production URL
   // Canonical URLs should always point to production, even in preview deployments
   const canonicalUrl = post.canonicalUrl || `${siteConfig.url}/blog/${slug}`;
-  // Use relative URLs - Next.js resolves them via metadataBase (set in layout.tsx)
-  // This allows preview deployments to show their own images
-  const imageUrl = post.image || siteConfig.ogImage;
+  // OG images use the 'og' variant (1200px, optimized for social media)
+  const imageUrl = post.image
+    ? getImageUrl(post.image, "og")
+    : siteConfig.ogImage;
 
   return {
     title: post.title,
@@ -83,6 +84,20 @@ export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
 
   const post = getPostBySlug(slug);
 
+  // Preprocess MDX to convert Cloudflare Images IDs to URLs
+  // Match pattern: {namespace}/{name}-YYYY-MM-DD (e.g., blog/image-2025-12-14)
+  const processedContent = post.content.replace(
+    /src="([a-z0-9_-]+\/[a-z0-9_-]+-\d{4}-\d{2}-\d{2})"/g,
+    (_match, imageId) => {
+      const url = getImageUrl(imageId, null, {
+        width: 800,
+        format: "auto",
+      });
+      const srcSet = getImageSrcSet(imageId, null, [800, 1200, 1600]);
+      return `src="${url}" srcSet="${srcSet}" sizes="(max-width: 896px) 100vw, 896px" loading="lazy"`;
+    },
+  );
+
   return (
     <article className="container mx-auto px-4 py-12 max-w-4xl">
       <Link
@@ -115,12 +130,16 @@ export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
 
       {post.image && (
         <div className="relative w-full aspect-video mb-8 rounded-lg overflow-hidden bg-muted">
-          <Image
-            src={post.image}
+          {/* biome-ignore lint/performance/noImgElement: Need native img for srcset control with SSG */}
+          <img
+            src={getImageUrl(post.image, null, {
+              width: 800,
+              format: "auto",
+            })}
+            srcSet={getImageSrcSet(post.image, null, [800, 1200, 1600])}
             alt={post.imageAlt || post.title}
-            fill
-            priority
-            className="object-cover"
+            sizes="(max-width: 896px) 100vw, 896px"
+            className="absolute inset-0 w-full h-full object-cover"
           />
         </div>
       )}
@@ -129,7 +148,7 @@ export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
 
       <div className="prose prose-zinc dark:prose-invert max-w-none">
         <MDXRemote
-          source={post.content}
+          source={processedContent}
           components={{
             DebtInvestmentChart,
             PensionReturnsChart,

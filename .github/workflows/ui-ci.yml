@@ -12,6 +12,8 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    environment:
+      name: cloudflare-production
     steps:
       - uses: actions/checkout@v6
 
@@ -29,4 +31,7 @@ jobs:
         run: mise run //ui:check
 
       - name: Build
-        run: mise run //ui:build
+        run: |
+          mise run //ui:build
+        env:
+          NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: ${{ secrets.CF_IMAGES_ACCOUNT_HASH }}

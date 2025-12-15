@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { preload } from "react-dom";
 import { BlogList } from "@/components/blog/blog-list";
 import { getAllPosts } from "@/lib/blog";
+import { getImageUrl } from "@/lib/cloudflare-images";
 import { siteConfig } from "@/lib/site-config";
 
 export const metadata: Metadata = {
@@ -32,6 +34,23 @@ export const metadata: Metadata = {
 
 export default function BlogPage() {
   const allPosts = getAllPosts();
+  // getAllPosts() already returns posts sorted by date (newest first)
+  const firstPost = allPosts[0];
+
+  // Preload LCP image for fastest discovery using React 19's resource hint API
+  // This ensures the hint is emitted into the document head
+  if (firstPost?.image) {
+    preload(
+      getImageUrl(firstPost.image, null, {
+        width: 400,
+        format: "auto",
+      }),
+      {
+        as: "image",
+        fetchPriority: "high",
+      },
+    );
+  }
 
   return (
     <Suspense fallback={<BlogListFallback />}>

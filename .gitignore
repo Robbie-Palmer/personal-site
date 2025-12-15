@@ -8,8 +8,13 @@ node_modules/
 out/
 build/
 
+# Images
+ui/source-images/
+
 # Testing
 coverage/
+lighthouse-reports/
+.pnpm-approved-builds.json
 
 # Environment variables
 .env

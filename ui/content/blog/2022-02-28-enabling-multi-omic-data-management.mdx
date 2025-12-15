@@ -4,7 +4,7 @@ description: "Exploring data management structures from Data Warehouses to Data 
 date: "2022-02-28"
 tags: ["data-science", "bioinformatics", "data-management", "data-mesh"]
 canonicalUrl: "https://sonraianalytics.com/how-to-enable-multi-omic-data-management/"
-image: "/blog-images/enabling-multi-omic-data-management-featured.jpg"
+image: "blog/enabling-multi-omic-data-management-featured-2025-12-14"
 imageAlt: "A microscope viewing a DNA helix, connected to computer monitors and desks with various views."
 ---
 
@@ -25,7 +25,7 @@ There has been a [data revolution in medicine](https://www.nature.com/articles/s
 Many [business strategists](https://www.economist.com/leaders/2017/05/06/the-worlds-most-valuable-resource-is-no-longer-oil-but-data) have viewed data as the "new oil" and designed systems to treat it as such. Data is viewed as a precious commodity. It is a commodity that requires a considerable upfront investment to locate, but its value is readily accessible once found. But data is not like oil.
 
 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '1.5rem 0 0 0', gap: '0'}}>
-  <img src="https://www.economist.com/cdn-cgi/image/width=834,quality=80,format=auto/sites/default/files/images/print-edition/20170506_LDD001_0.jpg" alt="The world's most valuable resource is no longer oil, but data" style={{margin: '0', display: 'block'}} />
+  <img src="blog/economist-data-oil-2025-12-14" alt="The world's most valuable resource is no longer oil, but data" style={{margin: '0', display: 'block'}} />
 
   <p style={{margin: '0.25rem 0 0 0', fontSize: '0.9em'}}>
     <em>Image: <a href="https://www.economist.com/leaders/2017/05/06/the-worlds-most-valuable-resource-is-no-longer-oil-but-data">The Economist, 2017</a> - "The world's most valuable resource is no longer oil, but data"</em>
@@ -128,14 +128,14 @@ When organised via modality, each team becomes specialised in a specific domain.
 OrgLeaders[Organisation Leaders]:::person
 
 subgraph ModalityTeam["Modality Team"]
-  ModalityLead[Modality Team Lead]:::person
-  ModalityStaff[Modality Staff]:::person
-  Data((Data)):::data
-  Note[x Number of<br/>Modalities]
+ModalityLead[Modality Team Lead]:::person
+ModalityStaff[Modality Staff]:::person
+Data((Data)):::data
+Note[x Number of<br/>Modalities]
 
-  ModalityLead -->|Existing Information| ModalityStaff
-  ModalityStaff -->|Produce| Data
-  Data -->|Consume| ModalityStaff
+ModalityLead -->|Existing Information| ModalityStaff
+ModalityStaff -->|Produce| Data
+Data -->|Consume| ModalityStaff
 end
 
 OrgLeaders -->|Existing Knowledge| ModalityLead

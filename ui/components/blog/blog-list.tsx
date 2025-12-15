@@ -2,7 +2,6 @@
 
 import Fuse from "fuse.js";
 import { ArrowDown, ArrowUp, Clock, Search, X } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -17,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { BlogPost } from "@/lib/blog";
+import { getImageUrl } from "@/lib/cloudflare-images";
 import { formatDate } from "@/lib/date";
 
 interface BlogListProps {
@@ -113,7 +113,7 @@ export function BlogList({ posts }: BlogListProps) {
   };
 
   return (
-    <div className="container mx-auto px-4 py-12">
+    <div className="container mx-auto px-4 py-12 min-h-screen">
       <div className="flex flex-wrap items-baseline gap-4 mb-6">
         <h1 className="text-4xl font-bold">Blog</h1>
         {currentTag && (
@@ -183,20 +183,26 @@ export function BlogList({ posts }: BlogListProps) {
         </p>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {sortedPosts.map((post) => (
+          {sortedPosts.map((post, index) => (
             <Card
               key={post.slug}
               className="h-full flex flex-col overflow-hidden"
             >
               {post.image && (
                 <Link href={`/blog/${post.slug}`} className="block">
-                  <div className="relative w-full h-48 bg-muted">
-                    <Image
-                      src={post.image}
+                  <div className="relative w-full h-48 bg-muted overflow-hidden">
+                    {/* biome-ignore lint/performance/noImgElement: Need native img for srcset control with SSG */}
+                    <img
+                      src={getImageUrl(post.image, null, {
+                        width: 400,
+                        format: "auto",
+                      })}
                       alt={post.imageAlt || post.title}
-                      width={1200}
-                      height={675}
+                      width={400}
+                      height={192}
                       className="w-full h-full object-cover"
+                      loading={index < 6 ? "eager" : "lazy"}
+                      fetchPriority={index < 3 ? "high" : undefined}
                     />
                   </div>
                 </Link>
