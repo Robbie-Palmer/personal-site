@@ -511,7 +511,7 @@ A: Cloudflare Images (cloud CDN), NOT in git. `ui/source-images/` is your local 
 A: Yes! Just reference the Cloudflare Images ID in your frontmatter: `image: "blog/existing-image-2025-11-20"`
 
 **Q: How do I delete an old image from Cloudflare?**
-A: Manually via Cloudflare Dashboard or API. See `docs/CLOUDFLARE_IMAGES_SETUP.md` for details.
+A: Use the Cloudflare Dashboard (Images section) or the Cloudflare API to delete old image versions.
 
 **Q: What if I don't have images ready when I start writing?**
 A: Use a placeholder in `ui/source-images/blog/`, upload it with `mise //ui:images:sync`, and update later with a new version.
@@ -540,6 +540,5 @@ A: Yes, MDX supports both Markdown and JSX/HTML syntax.
 
 **Internal:**
 
-- [Main README](../../README.md) - Project overview
-- [Cloudflare Images Setup Guide](../../docs/CLOUDFLARE_IMAGES_SETUP.md) - Deep dive on image infrastructure
+- [Main README](../../README.md) - Project overview and tech stack
 - [claude.md](../../claude.md) - AI agent guide (includes build system details)
