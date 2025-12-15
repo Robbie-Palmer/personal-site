@@ -54,7 +54,7 @@ export function ExperienceCard({ experience }: ExperienceCardProps) {
                     href={experience.company_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 font-medium text-foreground/80 hover:text-primary transition-colors"
+                    className="flex items-center gap-2 font-medium text-blue-600 dark:text-blue-400 underline underline-offset-2 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Image
