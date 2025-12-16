@@ -1,0 +1,90 @@
+"use client";
+
+import { useState } from "react";
+import { BlogCarousel } from "@/components/blog/blog-carousel";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { BlogPost } from "@/lib/blog";
+import type { BlogCollectionWithId } from "@/lib/blog-collections";
+import { cn } from "@/lib/styles";
+
+type BlogCollectionTabsProps = {
+  collections: BlogCollectionWithId[];
+  collectionPosts: Record<string, BlogPost[]>;
+  defaultCollectionId?: string;
+};
+
+export function BlogCollectionTabs({
+  collections,
+  collectionPosts,
+  defaultCollectionId,
+}: BlogCollectionTabsProps) {
+  const [activeCollection, setActiveCollection] = useState(
+    defaultCollectionId || collections[0]?.id || "all",
+  );
+  const currentCollection = collections.find((c) => c.id === activeCollection);
+  const currentPosts = collectionPosts[activeCollection] || [];
+  if (!currentCollection) return null;
+  return (
+    <div className="space-y-8">
+      {/* Main title */}
+      <div>
+        <h2 className="text-3xl font-bold mb-6">Explore Posts</h2>
+      </div>
+
+      {/* Mobile dropdown */}
+      <div className="md:hidden">
+        <Select value={activeCollection} onValueChange={setActiveCollection}>
+          <SelectTrigger className="w-full" aria-label="Select blog collection">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            {collections.map((collection) => (
+              <SelectItem key={collection.id} value={collection.id}>
+                {collection.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Desktop tabs */}
+      <div className="hidden md:block border-b border-border">
+        <nav className="flex gap-8" aria-label="Blog collections">
+          {collections.map((collection) => (
+            <button
+              key={collection.id}
+              type="button"
+              onClick={() => setActiveCollection(collection.id)}
+              className={cn(
+                "pb-4 px-1 text-sm font-medium whitespace-nowrap transition-colors border-b-2",
+                activeCollection === collection.id
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
+              )}
+              aria-current={
+                activeCollection === collection.id ? "page" : undefined
+              }
+            >
+              {collection.title}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Carousel */}
+      {currentPosts.length > 0 ? (
+        <BlogCarousel posts={currentPosts} />
+      ) : (
+        <div className="text-center py-12 text-muted-foreground">
+          No posts found in this collection.
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,8 +1,18 @@
 import Link from "next/link";
+import { BlogCollectionTabs } from "@/components/blog/blog-collection-tabs";
 import { Button } from "@/components/ui/button";
+import {
+  getCollectionPosts,
+  getCollectionsWithIds,
+} from "@/lib/blog-collections";
 import { siteConfig } from "@/lib/site-config";
 
 export default function Home() {
+  const collections = getCollectionsWithIds();
+  const collectionPosts = Object.fromEntries(
+    collections.map((c) => [c.id, getCollectionPosts(c.id)]),
+  );
+
   return (
     <div className="container mx-auto px-4">
       <section className="flex min-h-[calc(100vh-5rem)] items-center justify-center">
@@ -22,6 +32,14 @@ export default function Home() {
             </Button>
           </div>
         </div>
+      </section>
+
+      <section className="py-16">
+        <BlogCollectionTabs
+          collections={collections}
+          collectionPosts={collectionPosts}
+          defaultCollectionId="all"
+        />
       </section>
     </div>
   );
