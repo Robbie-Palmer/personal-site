@@ -267,8 +267,6 @@ If you're an AI coding agent (like Claude), read **[claude.md](claude.md)** for:
 
 ## Contributing
 
-This is a personal project, but issues and suggestions are welcome!
-
 ### Quality Gates
 
 All PRs must pass:
