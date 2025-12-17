@@ -1,7 +1,15 @@
 "use client";
 
 import Fuse from "fuse.js";
-import { ArrowDown, ArrowUp, Clock, Search, Tag, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Clock,
+  FileText,
+  Search,
+  Tag,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -169,11 +177,12 @@ export function BlogList({ posts }: BlogListProps) {
         )}
 
         {sortedPosts.length === 0 ? (
-          <p className="text-muted-foreground">
-            No posts found
-            {searchQuery && ` matching "${searchQuery}"`}
-            {currentTag && ` with tag "${currentTag}"`}.
-          </p>
+          <div className="text-center py-12 text-muted-foreground border rounded-lg bg-muted/20">
+            <div className="flex flex-col items-center gap-2">
+              <FileText className="w-10 h-10 text-muted-foreground/50" />
+              <p>No posts found matching your criteria.</p>
+            </div>
+          </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {sortedPosts.map((post, index) => (
