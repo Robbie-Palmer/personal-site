@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     "Showcase of my technical projects, architectural decisions, and experiments.",
 };
 
-export default function ProjectsPage() {
+export default async function ProjectsPage() {
   const projects = getAllProjects();
 
   return (
