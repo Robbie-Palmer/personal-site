@@ -28,6 +28,7 @@ const badgeVariants = cva(
       },
     },
     compoundVariants: [
+      // Default variant interactive states
       {
         interactive: true,
         active: true,
@@ -37,9 +38,50 @@ const badgeVariants = cva(
       {
         interactive: true,
         active: false,
+        variant: "default",
+        className:
+          "hover:bg-primary/20 hover:text-primary hover:border-primary/30 border-transparent",
+      },
+      // Secondary variant interactive states
+      {
+        interactive: true,
+        active: true,
+        variant: "secondary",
+        className: "hover:bg-secondary/90 border-transparent",
+      },
+      {
+        interactive: true,
+        active: false,
         variant: "secondary",
         className:
           "hover:bg-primary/20 hover:text-primary hover:border-primary/30 border-transparent",
+      },
+      // Destructive variant interactive states
+      {
+        interactive: true,
+        active: true,
+        variant: "destructive",
+        className: "hover:bg-destructive/90 border-transparent",
+      },
+      {
+        interactive: true,
+        active: false,
+        variant: "destructive",
+        className:
+          "hover:bg-destructive/20 hover:border-destructive/30 border-transparent",
+      },
+      // Outline variant interactive states
+      {
+        interactive: true,
+        active: true,
+        variant: "outline",
+        className: "hover:bg-accent/90 border-transparent",
+      },
+      {
+        interactive: true,
+        active: false,
+        variant: "outline",
+        className: "hover:bg-accent/50 hover:border-accent border-transparent",
       },
     ],
     defaultVariants: {
