@@ -80,9 +80,7 @@ export function getAllProjects(): Project[] {
 function getProjectADRs(projectSlug: string): ADR[] {
   const adrDir = path.join(projectsDirectory, projectSlug, "adrs");
   if (!fs.existsSync(adrDir)) return [];
-  const files = fs
-    .readdirSync(adrDir)
-    .filter((file) => file.endsWith(".mdx") || file.endsWith(".md"));
+  const files = fs.readdirSync(adrDir).filter((file) => file.endsWith(".mdx"));
   return files
     .map((file) => {
       const filePath = path.join(adrDir, file);

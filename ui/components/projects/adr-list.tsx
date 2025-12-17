@@ -74,13 +74,7 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
                 </span>
                 <Badge
                   variant={
-                    adr.status === "Accepted" ||
-                    adr.status === "Deprecated" ||
-                    adr.status === "Proposed"
-                      ? "default"
-                      : adr.status === "Rejected"
-                        ? "destructive"
-                        : "secondary"
+                    adr.status === "Rejected" ? "destructive" : "default"
                   }
                   className={cn(
                     "shrink-0",
