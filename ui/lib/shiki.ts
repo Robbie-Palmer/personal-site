@@ -33,8 +33,6 @@ async function getShikiHighlighter() {
 export async function highlight(code: string, lang: string) {
   const highlighter = await getShikiHighlighter();
 
-  // Create a dual-theme output
-  if (!highlighter) throw new Error("Highlighter not initialized");
   const html = highlighter.codeToHtml(code, {
     lang,
     themes: {
