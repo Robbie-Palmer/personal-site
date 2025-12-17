@@ -96,9 +96,9 @@ export function ProjectList({ projects }: ProjectListProps) {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-baseline gap-4 mb-6">
-        {currentTech && (
+    <div className="space-y-6">
+      {currentTech && (
+        <div className="flex flex-wrap items-baseline gap-4">
           <Badge
             variant="secondary"
             className="flex items-center gap-2 text-base px-3 py-1 hover:bg-primary/20 hover:text-primary border border-transparent transition-colors"
@@ -115,10 +115,10 @@ export function ProjectList({ projects }: ProjectListProps) {
               <X className="h-3 w-3" />
             </Link>
           </Badge>
-        )}
-      </div>
+        </div>
+      )}
 
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -153,7 +153,7 @@ export function ProjectList({ projects }: ProjectListProps) {
       </div>
 
       {(searchQuery || currentTech) && sortedProjects.length > 0 && (
-        <p className="text-sm text-muted-foreground mb-6">
+        <p className="text-sm text-muted-foreground">
           Showing {sortedProjects.length} of {projects.length} projects
           {searchQuery && ` matching "${searchQuery}"`}
           {currentTech && ` using ${currentTech}`}
