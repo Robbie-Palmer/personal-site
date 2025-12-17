@@ -97,27 +97,6 @@ export function ProjectList({ projects }: ProjectListProps) {
 
   return (
     <div className="space-y-6">
-      {currentTech && (
-        <div className="flex flex-wrap items-baseline gap-4">
-          <Badge
-            variant="secondary"
-            className="flex items-center gap-2 text-base px-3 py-1 hover:bg-primary/20 hover:text-primary border border-transparent transition-colors"
-          >
-            {hasTechIcon(currentTech) && (
-              <TechIcon name={currentTech} className="w-4 h-4" />
-            )}
-            <span>{currentTech}</span>
-            <Link
-              href="/projects"
-              className="rounded-full hover:bg-background/50 p-0.5 ml-1 transition-colors"
-              aria-label={`Remove ${currentTech} filter`}
-            >
-              <X className="h-3 w-3" />
-            </Link>
-          </Badge>
-        </div>
-      )}
-
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -150,6 +129,25 @@ export function ProjectList({ projects }: ProjectListProps) {
         >
           {getSortIcon()}
         </Button>
+
+        {currentTech && (
+          <Badge
+            variant="secondary"
+            className="flex items-center gap-2 px-3 py-1.5 hover:bg-primary/20 hover:text-primary border border-transparent transition-colors"
+          >
+            {hasTechIcon(currentTech) && (
+              <TechIcon name={currentTech} className="w-4 h-4" />
+            )}
+            <span>{currentTech}</span>
+            <Link
+              href="/projects"
+              className="rounded-full hover:bg-background/50 p-0.5 ml-1 transition-colors"
+              aria-label={`Remove ${currentTech} filter`}
+            >
+              <X className="h-3 w-3" />
+            </Link>
+          </Badge>
+        )}
       </div>
 
       {(searchQuery || currentTech) && sortedProjects.length > 0 && (

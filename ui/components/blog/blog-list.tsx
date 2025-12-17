@@ -101,13 +101,51 @@ export function BlogList({ posts }: BlogListProps) {
   return (
     <div className="container mx-auto px-4 py-12 min-h-screen max-w-6xl">
       <div className="mb-8">
-        <div className="flex flex-wrap items-baseline gap-4 mb-4">
-          <h1 className="text-4xl md:text-5xl font-bold">Blog</h1>
+        <h1 className="text-4xl md:text-5xl font-bold mb-4">Blog</h1>
+        <p className="text-xl text-muted-foreground">
+          Thoughts on technology, finance, and whatever else I'm exploring
+        </p>
+      </div>
+
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search posts..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-9"
+              aria-label="Search blog posts"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={cycleSortOrder}
+            title={getSortLabel()}
+            aria-label={`Sort: ${getSortLabel()}. Click to change sort order.`}
+          >
+            {getSortIcon()}
+          </Button>
+
           {currentTag && (
             <Badge
               variant="secondary"
               interactive
-              className="flex items-center gap-2 text-base px-3 py-1"
+              className="flex items-center gap-2 px-3 py-1.5"
             >
               <Tag className="h-4 w-4" />
               <span>{currentTag}</span>
@@ -121,129 +159,92 @@ export function BlogList({ posts }: BlogListProps) {
             </Badge>
           )}
         </div>
-        <p className="text-xl text-muted-foreground">
-          Thoughts on technology, finance, and whatever else I'm exploring
-        </p>
-      </div>
 
-      <div className="flex items-center gap-4 mb-6">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search posts..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 pr-9"
-            aria-label="Search blog posts"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              aria-label="Clear search"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+        {(searchQuery || currentTag) && sortedPosts.length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            Showing {sortedPosts.length} of {posts.length} posts
+            {searchQuery && ` matching "${searchQuery}"`}
+            {currentTag && ` with tag "${currentTag}"`}
+          </p>
+        )}
 
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={cycleSortOrder}
-          title={getSortLabel()}
-          aria-label={`Sort: ${getSortLabel()}. Click to change sort order.`}
-        >
-          {getSortIcon()}
-        </Button>
-      </div>
-
-      {(searchQuery || currentTag) && sortedPosts.length > 0 && (
-        <p className="text-sm text-muted-foreground mb-6">
-          Showing {sortedPosts.length} of {posts.length} posts
-          {searchQuery && ` matching "${searchQuery}"`}
-          {currentTag && ` with tag "${currentTag}"`}
-        </p>
-      )}
-
-      {sortedPosts.length === 0 ? (
-        <p className="text-muted-foreground">
-          No posts found
-          {searchQuery && ` matching "${searchQuery}"`}
-          {currentTag && ` with tag "${currentTag}"`}.
-        </p>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {sortedPosts.map((post, index) => (
-            <Card
-              key={post.slug}
-              className="h-full flex flex-col overflow-hidden"
-            >
-              {post.image && (
-                <Link href={`/blog/${post.slug}`} className="block">
-                  <div className="relative w-full h-48 bg-muted overflow-hidden">
-                    {/* biome-ignore lint/performance/noImgElement: Need native img for srcset control with SSG */}
-                    <img
-                      src={getImageUrl(post.image, null, {
-                        width: 400,
-                        format: "auto",
-                      })}
-                      alt={post.imageAlt || post.title}
-                      width={400}
-                      height={192}
-                      className="w-full h-full object-cover"
-                      loading={index < 6 ? "eager" : "lazy"}
-                      fetchPriority={index < 3 ? "high" : undefined}
-                    />
-                  </div>
-                </Link>
-              )}
-              <CardHeader>
-                <Link href={`/blog/${post.slug}`}>
-                  <CardTitle className="hover:text-primary transition-colors">
-                    {post.title}
-                  </CardTitle>
-                </Link>
-                <CardDescription>{post.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-1 flex flex-col justify-end">
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {post.tags.map((tag) => {
-                    const isActive = tag === currentTag;
-                    return (
-                      <Link
-                        key={tag}
-                        href={
-                          isActive
-                            ? "/blog"
-                            : `/blog?tag=${encodeURIComponent(tag)}`
-                        }
-                      >
-                        <Badge
-                          variant={isActive ? "default" : "secondary"}
-                          interactive
-                          active={isActive}
-                          className="gap-1"
+        {sortedPosts.length === 0 ? (
+          <p className="text-muted-foreground">
+            No posts found
+            {searchQuery && ` matching "${searchQuery}"`}
+            {currentTag && ` with tag "${currentTag}"`}.
+          </p>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {sortedPosts.map((post, index) => (
+              <Card
+                key={post.slug}
+                className="h-full flex flex-col overflow-hidden"
+              >
+                {post.image && (
+                  <Link href={`/blog/${post.slug}`} className="block">
+                    <div className="relative w-full h-48 bg-muted overflow-hidden">
+                      {/* biome-ignore lint/performance/noImgElement: Need native img for srcset control with SSG */}
+                      <img
+                        src={getImageUrl(post.image, null, {
+                          width: 400,
+                          format: "auto",
+                        })}
+                        alt={post.imageAlt || post.title}
+                        width={400}
+                        height={192}
+                        className="w-full h-full object-cover"
+                        loading={index < 6 ? "eager" : "lazy"}
+                        fetchPriority={index < 3 ? "high" : undefined}
+                      />
+                    </div>
+                  </Link>
+                )}
+                <CardHeader>
+                  <Link href={`/blog/${post.slug}`}>
+                    <CardTitle className="hover:text-primary transition-colors">
+                      {post.title}
+                    </CardTitle>
+                  </Link>
+                  <CardDescription>{post.description}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col justify-end">
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {post.tags.map((tag) => {
+                      const isActive = tag === currentTag;
+                      return (
+                        <Link
+                          key={tag}
+                          href={
+                            isActive
+                              ? "/blog"
+                              : `/blog?tag=${encodeURIComponent(tag)}`
+                          }
                         >
-                          <Tag className="h-3 w-3" />
-                          {tag}
-                        </Badge>
-                      </Link>
-                    );
-                  })}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  <time>{formatDate(post.date)}</time>
-                  <span className="mx-2">·</span>
-                  <span>{post.readingTime}</span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                          <Badge
+                            variant={isActive ? "default" : "secondary"}
+                            interactive
+                            active={isActive}
+                            className="gap-1"
+                          >
+                            <Tag className="h-3 w-3" />
+                            {tag}
+                          </Badge>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    <time>{formatDate(post.date)}</time>
+                    <span className="mx-2">·</span>
+                    <span>{post.readingTime}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
