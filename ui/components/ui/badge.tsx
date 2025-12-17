@@ -39,7 +39,8 @@ const badgeVariants = cva(
         interactive: true,
         active: false,
         variant: "default",
-        className: "hover:bg-primary/80 border-transparent",
+        className:
+          "hover:bg-primary/20 hover:text-primary hover:border-primary/30 border-transparent",
       },
       // Secondary variant interactive states
       {
@@ -52,7 +53,8 @@ const badgeVariants = cva(
         interactive: true,
         active: false,
         variant: "secondary",
-        className: "hover:bg-secondary/80 border-transparent",
+        className:
+          "hover:bg-primary/20 hover:text-primary hover:border-primary/30 border-transparent",
       },
       // Destructive variant interactive states
       {
