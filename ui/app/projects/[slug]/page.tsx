@@ -119,7 +119,7 @@ export default async function ProjectPage({ params }: PageProps) {
         <Separator className="my-8" />
 
         {/* Content Tabs */}
-        <Suspense fallback={ProjectTabsSkeleton()}>
+        <Suspense fallback={<ProjectTabsSkeleton />}>
           <ProjectTabs
             adrCount={project.adrs.length}
             overview={<Markdown source={project.content} />}

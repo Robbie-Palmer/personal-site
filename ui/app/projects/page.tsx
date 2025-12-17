@@ -23,7 +23,7 @@ export default function ProjectsPage() {
         </p>
       </div>
 
-      <Suspense fallback={ProjectListSkeleton()}>
+      <Suspense fallback={<ProjectListSkeleton />}>
         <ProjectList projects={projects} />
       </Suspense>
     </div>
