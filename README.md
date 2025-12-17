@@ -18,6 +18,7 @@ Personal website with blog and interactive resume.
 
 - **Format:** MDX with strict frontmatter validation
 - **Blog Posts:** Located in `ui/content/blog/` ([authoring guide](ui/content/blog/README.md))
+- **Projects:** Located in `ui/content/projects/` ([authoring guide](ui/content/projects/README.md))
 - **Images:** Cloudflare Images with CalVer versioning (YYYY-MM-DD)
 
 ### Infrastructure

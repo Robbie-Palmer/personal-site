@@ -23,11 +23,24 @@ export default function Home() {
           <p className="text-xl md:text-2xl text-muted-foreground mb-8">
             {siteConfig.description}
           </p>
-          <div className="flex gap-4 justify-center">
-            <Button size="lg" asChild>
+          <div className="flex gap-4 justify-center flex-wrap">
+            <Button
+              size="lg"
+              variant="outline"
+              asChild
+              className="w-full sm:w-auto"
+            >
               <Link href="/blog">Read Blog</Link>
             </Button>
-            <Button size="lg" variant="outline" asChild>
+            <Button size="lg" asChild className="w-full sm:w-auto">
+              <Link href="/projects">Explore Projects</Link>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              asChild
+              className="w-full sm:w-auto"
+            >
               <Link href="/experience">View Experience</Link>
             </Button>
           </div>
