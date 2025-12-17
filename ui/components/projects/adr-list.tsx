@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { ArrowUpDown } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,14 +33,8 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
   }
 
   const sortedADRs = [...adrs].sort((a, b) => {
-    if (a.slug === b.slug) return 0;
-    return currentSort === "newest"
-      ? a.slug < b.slug
-        ? 1
-        : -1
-      : a.slug > b.slug
-        ? 1
-        : -1;
+    const direction = currentSort === "newest" ? -1 : 1;
+    return a.slug.localeCompare(b.slug) * direction;
   });
 
   return (
@@ -88,13 +82,6 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
                 >
                   {adr.status}
                 </Badge>
-              </div>
-              <div className="text-muted-foreground group-hover:text-primary transition-colors">
-                {currentSort === "newest" ? (
-                  <ArrowDown className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                ) : (
-                  <ArrowUp className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                )}
               </div>
             </CardHeader>
           </Card>
