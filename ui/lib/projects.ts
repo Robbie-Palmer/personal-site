@@ -5,19 +5,23 @@ import { z } from "zod";
 
 const projectsDirectory = path.join(process.cwd(), "content/projects");
 
+const dateString = z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
+  message: "Invalid date format",
+});
+
 const ProjectMetadataSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
-  tech_stack: z.array(z.string()),
+  tech_stack: z.array(z.string()).min(1),
   repo_url: z.url().optional(),
   demo_url: z.url().optional(),
-  date: z.string(),
-  updated: z.string().optional(),
+  date: dateString,
+  updated: dateString.optional(),
 });
 
 const ADRFrontmatterSchema = z.object({
   title: z.string().min(1),
-  date: z.string(),
+  date: dateString,
   status: z.enum(["Accepted", "Rejected", "Deprecated", "Proposed"]),
   superseded_by: z.string().optional(),
 });
@@ -47,11 +51,11 @@ export function getAllProjectSlugs() {
 }
 
 export function getProject(slug: string): Project {
-  const indexRec = path.join(projectsDirectory, slug, "index.mdx");
-  if (!fs.existsSync(indexRec)) {
+  const indexPath = path.join(projectsDirectory, slug, "index.mdx");
+  if (!fs.existsSync(indexPath)) {
     throw new Error(`Project not found: ${slug}`);
   }
-  const fileContent = fs.readFileSync(indexRec, "utf8");
+  const fileContent = fs.readFileSync(indexPath, "utf8");
   const { data, content } = matter(fileContent);
   const parseResult = ProjectMetadataSchema.safeParse(data);
   if (!parseResult.success) {
@@ -106,10 +110,7 @@ function getProjectADRs(projectSlug: string): ADR[] {
 
 export function getProjectADR(projectSlug: string, adrSlug: string): ADR {
   const adrDir = path.join(projectsDirectory, projectSlug, "adrs");
-  let filePath = path.join(adrDir, `${adrSlug}.mdx`);
-  if (!fs.existsSync(filePath)) {
-    filePath = path.join(adrDir, `${adrSlug}.md`);
-  }
+  const filePath = path.join(adrDir, `${adrSlug}.mdx`);
   if (!fs.existsSync(filePath)) {
     throw new Error(`ADR not found: ${projectSlug}/${adrSlug}`);
   }

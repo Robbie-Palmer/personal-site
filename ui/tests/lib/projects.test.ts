@@ -76,7 +76,31 @@ Content here.`;
       const mockContent = `---
 title: "Missing Date"
 description: "Oops"
+tech_stack: ["React"]
+---`;
+      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
+
+      expect(() => getProject("bad-project")).toThrow(/invalid frontmatter/);
+    });
+
+    it("should throw if tech_stack is empty", () => {
+      const mockContent = `---
+title: "Empty Tech Stack"
+description: "Oops"
+date: "2025-01-01"
 tech_stack: []
+---`;
+      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
+
+      expect(() => getProject("bad-project")).toThrow(/invalid frontmatter/);
+    });
+
+    it("should throw if date is invalid", () => {
+      const mockContent = `---
+title: "Invalid Date"
+description: "Oops"
+date: "not-a-date"
+tech_stack: ["React"]
 ---`;
       vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
 
@@ -96,19 +120,19 @@ tech_stack: []
 title: "Old"
 description: "Old"
 date: "2024-01-01"
-tech_stack: []
+tech_stack: ["React"]
 ---`,
         new: `---
 title: "New"
 description: "New"
 date: "2025-01-01"
-tech_stack: []
+tech_stack: ["React"]
 ---`,
         middle: `---
 title: "Middle"
 description: "Middle"
 date: "2024-06-01"
-tech_stack: []
+tech_stack: ["React"]
 ---`,
       };
 
