@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ProjectList } from "@/components/projects/project-list";
+import { ProjectListSkeleton } from "@/components/projects/project-list-skeleton";
 import { getAllProjects } from "@/lib/projects";
 
 export const metadata: Metadata = {
@@ -22,7 +23,7 @@ export default function ProjectsPage() {
         </p>
       </div>
 
-      <Suspense fallback={<div>Loading projects...</div>}>
+      <Suspense fallback={ProjectListSkeleton()}>
         <ProjectList projects={projects} />
       </Suspense>
     </div>

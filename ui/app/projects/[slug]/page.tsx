@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { ADRList } from "@/components/projects/adr-list";
 import { Markdown } from "@/components/projects/markdown";
 import { ProjectTabs } from "@/components/projects/project-tabs";
+import { ProjectTabsSkeleton } from "@/components/projects/project-tabs-skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -118,7 +119,7 @@ export default async function ProjectPage({ params }: PageProps) {
         <Separator className="my-8" />
 
         {/* Content Tabs */}
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={ProjectTabsSkeleton()}>
           <ProjectTabs
             adrCount={project.adrs.length}
             overview={<Markdown source={project.content} />}
