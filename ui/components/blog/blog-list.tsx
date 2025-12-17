@@ -3,7 +3,7 @@
 import Fuse from "fuse.js";
 import { ArrowDown, ArrowUp, Clock, Search, Tag, X } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,20 +18,22 @@ import { Input } from "@/components/ui/input";
 import type { BlogPost } from "@/lib/blog";
 import { getImageUrl } from "@/lib/cloudflare-images";
 import { formatDate } from "@/lib/date";
-import { cn } from "@/lib/styles";
+import { useSortParam } from "@/lib/use-sort-param";
 
 interface BlogListProps {
   posts: BlogPost[];
 }
 
-type SortOption = "newest" | "oldest" | "updated";
+const SORT_OPTIONS = ["newest", "oldest", "updated"] as const;
+type SortOption = (typeof SORT_OPTIONS)[number];
 
 export function BlogList({ posts }: BlogListProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const currentTag = searchParams.get("tag");
-  const sortParam = searchParams.get("sort") as SortOption | null;
-  const currentSort: SortOption = sortParam || "newest";
+  const { currentSort, cycleSortOrder } = useSortParam<SortOption>(
+    SORT_OPTIONS,
+    "newest",
+  );
   const [searchQuery, setSearchQuery] = useState("");
 
   const fuse = useMemo(
@@ -74,23 +76,6 @@ export function BlogList({ posts }: BlogListProps) {
     return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
 
-  const cycleSortOrder = () => {
-    const sortCycle: SortOption[] = ["newest", "oldest", "updated"];
-    const currentIndex = sortCycle.indexOf(currentSort);
-    const nextSort = sortCycle[
-      (currentIndex + 1) % sortCycle.length
-    ] as SortOption;
-
-    const params = new URLSearchParams(searchParams?.toString() || "");
-    if (nextSort === "newest") {
-      params.delete("sort");
-    } else {
-      params.set("sort", nextSort);
-    }
-    const queryString = params.toString();
-    router.push(`/blog${queryString ? `?${queryString}` : ""}`);
-  };
-
   const getSortIcon = () => {
     switch (currentSort) {
       case "oldest":
@@ -114,25 +99,31 @@ export function BlogList({ posts }: BlogListProps) {
   };
 
   return (
-    <div className="container mx-auto px-4 py-12 min-h-screen">
-      <div className="flex flex-wrap items-baseline gap-4 mb-6">
-        <h1 className="text-4xl font-bold">Blog</h1>
-        {currentTag && (
-          <Badge
-            variant="secondary"
-            className="flex items-center gap-2 text-base px-3 py-1 hover:bg-primary/20 hover:text-primary border border-transparent transition-colors"
-          >
-            <Tag className="h-4 w-4" />
-            <span>{currentTag}</span>
-            <Link
-              href="/blog"
-              className="rounded-full hover:bg-background/50 p-0.5 ml-1 transition-colors"
-              aria-label={`Remove ${currentTag} filter`}
+    <div className="container mx-auto px-4 py-12 min-h-screen max-w-6xl">
+      <div className="mb-8">
+        <div className="flex flex-wrap items-baseline gap-4 mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold">Blog</h1>
+          {currentTag && (
+            <Badge
+              variant="secondary"
+              interactive
+              className="flex items-center gap-2 text-base px-3 py-1"
             >
-              <X className="h-3 w-3" />
-            </Link>
-          </Badge>
-        )}
+              <Tag className="h-4 w-4" />
+              <span>{currentTag}</span>
+              <Link
+                href="/blog"
+                className="rounded-full hover:bg-background/50 p-0.5 ml-1 transition-colors"
+                aria-label={`Remove ${currentTag} filter`}
+              >
+                <X className="h-3 w-3" />
+              </Link>
+            </Badge>
+          )}
+        </div>
+        <p className="text-xl text-muted-foreground">
+          Thoughts on technology, finance, and whatever else I'm exploring
+        </p>
       </div>
 
       <div className="flex items-center gap-4 mb-6">
@@ -232,12 +223,9 @@ export function BlogList({ posts }: BlogListProps) {
                       >
                         <Badge
                           variant={isActive ? "default" : "secondary"}
-                          className={cn(
-                            "gap-1 transition-colors border",
-                            isActive
-                              ? "hover:bg-primary/90 border-transparent"
-                              : "hover:bg-primary/20 hover:text-primary hover:border-primary/30 border-transparent",
-                          )}
+                          interactive
+                          active={isActive}
+                          className="gap-1"
                         >
                           <Tag className="h-3 w-3" />
                           {tag}

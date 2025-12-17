@@ -18,9 +18,76 @@ const badgeVariants = cva(
         outline:
           "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
       },
+      interactive: {
+        true: "cursor-pointer transition-colors border",
+        false: "",
+      },
+      active: {
+        true: "",
+        false: "",
+      },
     },
+    compoundVariants: [
+      // Default variant interactive states
+      {
+        interactive: true,
+        active: true,
+        variant: "default",
+        className: "hover:bg-primary/90 border-transparent",
+      },
+      {
+        interactive: true,
+        active: false,
+        variant: "default",
+        className:
+          "hover:bg-primary/20 hover:text-primary hover:border-primary/30 border-transparent",
+      },
+      // Secondary variant interactive states
+      {
+        interactive: true,
+        active: true,
+        variant: "secondary",
+        className: "hover:bg-secondary/90 border-transparent",
+      },
+      {
+        interactive: true,
+        active: false,
+        variant: "secondary",
+        className:
+          "hover:bg-primary/20 hover:text-primary hover:border-primary/30 border-transparent",
+      },
+      // Destructive variant interactive states
+      {
+        interactive: true,
+        active: true,
+        variant: "destructive",
+        className: "hover:bg-destructive/90 border-transparent",
+      },
+      {
+        interactive: true,
+        active: false,
+        variant: "destructive",
+        className:
+          "hover:bg-destructive/20 hover:border-destructive/30 border-transparent",
+      },
+      // Outline variant interactive states
+      {
+        interactive: true,
+        active: true,
+        variant: "outline",
+        className: "hover:bg-accent/90 border-transparent",
+      },
+      {
+        interactive: true,
+        active: false,
+        variant: "outline",
+        className: "hover:bg-accent/50 hover:border-accent border-transparent",
+      },
+    ],
     defaultVariants: {
       variant: "default",
+      interactive: false,
+      active: false,
     },
   },
 );
@@ -28,6 +95,8 @@ const badgeVariants = cva(
 function Badge({
   className,
   variant,
+  interactive,
+  active,
   asChild = false,
   ...props
 }: React.ComponentProps<"span"> &
@@ -37,7 +106,7 @@ function Badge({
   return (
     <Comp
       data-slot="badge"
-      className={cn(badgeVariants({ variant }), className)}
+      className={cn(badgeVariants({ variant, interactive, active }), className)}
       {...props}
     />
   );
