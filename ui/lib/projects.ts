@@ -1,18 +1,28 @@
 import fs from "fs";
 import matter from "gray-matter";
 import path from "path";
+import { z } from "zod";
 
 const projectsDirectory = path.join(process.cwd(), "content/projects");
 
-export interface ProjectMetadata {
-  title: string;
-  description: string;
-  tech_stack: string[];
-  repo_url?: string;
-  demo_url?: string;
-  date: string;
-  updated?: string;
-}
+const ProjectMetadataSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().min(1),
+  tech_stack: z.array(z.string()),
+  repo_url: z.url().optional(),
+  demo_url: z.url().optional(),
+  date: z.string(),
+  updated: z.string().optional(),
+});
+
+const ADRFrontmatterSchema = z.object({
+  title: z.string().min(1),
+  date: z.string(),
+  status: z.enum(["Accepted", "Rejected", "Deprecated", "Proposed"]),
+  superseded_by: z.string().optional(),
+});
+
+export type ProjectMetadata = z.infer<typeof ProjectMetadataSchema>;
 
 export interface Project extends ProjectMetadata {
   slug: string;
@@ -20,12 +30,10 @@ export interface Project extends ProjectMetadata {
   adrs: ADR[];
 }
 
-export interface ADR {
+export type ADRFrontmatter = z.infer<typeof ADRFrontmatterSchema>;
+
+export interface ADR extends ADRFrontmatter {
   slug: string;
-  title: string;
-  date: string;
-  status: "Accepted" | "Rejected" | "Deprecated" | "Proposed";
-  superseded_by?: string;
   content: string;
 }
 
@@ -45,22 +53,16 @@ export function getProject(slug: string): Project {
   }
   const fileContent = fs.readFileSync(indexRec, "utf8");
   const { data, content } = matter(fileContent);
-  if (!data.title || !data.description || !data.date || !data.tech_stack) {
-    throw new Error(`Project ${slug} is missing required frontmatter fields`);
+  const parseResult = ProjectMetadataSchema.safeParse(data);
+  if (!parseResult.success) {
+    throw new Error(
+      `Project ${slug} has invalid frontmatter: ${parseResult.error.message}`,
+    );
   }
-  const metadata: ProjectMetadata = {
-    title: data.title,
-    description: data.description,
-    tech_stack: data.tech_stack,
-    repo_url: data.repo_url,
-    demo_url: data.demo_url,
-    date: data.date,
-    updated: data.updated,
-  };
   const adrs = getProjectADRs(slug);
   return {
     slug,
-    ...metadata,
+    ...parseResult.data,
     content,
     adrs,
   };
@@ -87,12 +89,15 @@ function getProjectADRs(projectSlug: string): ADR[] {
       const fileContent = fs.readFileSync(filePath, "utf8");
       const { data, content } = matter(fileContent);
       const slug = file.replace(/\.mdx?$/, "");
+      const parseResult = ADRFrontmatterSchema.safeParse(data);
+      if (!parseResult.success) {
+        throw new Error(
+          `ADR ${projectSlug}/${slug} has invalid frontmatter: ${parseResult.error.message}`,
+        );
+      }
       return {
         slug,
-        title: data.title,
-        date: data.date,
-        status: data.status,
-        superseded_by: data.superseded_by,
+        ...parseResult.data,
         content,
       };
     })
@@ -110,12 +115,15 @@ export function getProjectADR(projectSlug: string, adrSlug: string): ADR {
   }
   const fileContent = fs.readFileSync(filePath, "utf8");
   const { data, content } = matter(fileContent);
+  const parseResult = ADRFrontmatterSchema.safeParse(data);
+  if (!parseResult.success) {
+    throw new Error(
+      `ADR ${projectSlug}/${adrSlug} has invalid frontmatter: ${parseResult.error.message}`,
+    );
+  }
   return {
     slug: adrSlug,
-    title: data.title,
-    date: data.date,
-    status: data.status,
-    superseded_by: data.superseded_by,
+    ...parseResult.data,
     content,
   };
 }

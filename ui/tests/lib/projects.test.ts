@@ -80,9 +80,7 @@ tech_stack: []
 ---`;
       vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
 
-      expect(() => getProject("bad-project")).toThrow(
-        /missing required frontmatter fields/,
-      );
+      expect(() => getProject("bad-project")).toThrow(/invalid frontmatter/);
     });
   });
 
