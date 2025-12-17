@@ -30,7 +30,7 @@ export default function ExperiencePage() {
   return (
     <div className="container mx-auto px-4 py-12 max-w-6xl">
       <h1 className="text-4xl md:text-5xl font-bold mb-4">Experience</h1>
-      <p className="text-xl text-muted-foreground mb-16">
+      <p className="text-xl text-muted-foreground mb-8">
         Professional experience and career history
       </p>
 

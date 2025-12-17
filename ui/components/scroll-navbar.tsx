@@ -1,5 +1,6 @@
 "use client";
 
+import { cva } from "class-variance-authority";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useMediaQuery } from "react-responsive";
@@ -7,6 +8,21 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { BREAKPOINTS } from "@/lib/breakpoints";
 import { siteConfig } from "@/lib/site-config";
+
+const headerVariants = cva(
+  "sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-transform duration-200 ease-in-out",
+  {
+    variants: {
+      visible: {
+        true: "translate-y-0",
+        false: "-translate-y-full",
+      },
+    },
+    defaultVariants: {
+      visible: true,
+    },
+  },
+);
 
 export function ScrollNavbar() {
   const [isVisible, setIsVisible] = useState(true);
@@ -52,13 +68,7 @@ export function ScrollNavbar() {
   }, [isMobile]);
 
   return (
-    <header
-      className={`
-        sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60
-        transition-transform duration-200 ease-in-out
-        ${isVisible ? "translate-y-0" : "-translate-y-full"}
-      `}
-    >
+    <header className={headerVariants({ visible: isVisible })}>
       <nav className="container mx-auto px-4 py-4 flex items-center justify-between">
         <Link href="/" className="text-xl font-bold hover:text-primary">
           <span className="md:hidden">RP</span>

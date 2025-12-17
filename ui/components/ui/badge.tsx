@@ -18,9 +18,34 @@ const badgeVariants = cva(
         outline:
           "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
       },
+      interactive: {
+        true: "cursor-pointer transition-colors border",
+        false: "",
+      },
+      active: {
+        true: "",
+        false: "",
+      },
     },
+    compoundVariants: [
+      {
+        interactive: true,
+        active: true,
+        variant: "default",
+        className: "hover:bg-primary/90 border-transparent",
+      },
+      {
+        interactive: true,
+        active: false,
+        variant: "secondary",
+        className:
+          "hover:bg-primary/20 hover:text-primary hover:border-primary/30 border-transparent",
+      },
+    ],
     defaultVariants: {
       variant: "default",
+      interactive: false,
+      active: false,
     },
   },
 );
@@ -28,6 +53,8 @@ const badgeVariants = cva(
 function Badge({
   className,
   variant,
+  interactive,
+  active,
   asChild = false,
   ...props
 }: React.ComponentProps<"span"> &
@@ -37,7 +64,7 @@ function Badge({
   return (
     <Comp
       data-slot="badge"
-      className={cn(badgeVariants({ variant }), className)}
+      className={cn(badgeVariants({ variant, interactive, active }), className)}
       {...props}
     />
   );
