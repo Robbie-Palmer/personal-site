@@ -204,7 +204,7 @@ export function BlogList({ posts }: BlogListProps) {
                         height={192}
                         className="w-full h-full object-cover"
                         loading={index < 6 ? "eager" : "lazy"}
-                        fetchPriority={index < 3 ? "high" : undefined}
+                        fetchPriority={index < 3 ? "high" : "auto"}
                       />
                     </div>
                   </Link>
