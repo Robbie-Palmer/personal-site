@@ -92,7 +92,7 @@ function getProjectADRs(projectSlug: string): ADR[] {
       const filePath = path.join(adrDir, file);
       const fileContent = fs.readFileSync(filePath, "utf8");
       const { data, content } = matter(fileContent);
-      const slug = file.replace(/\.mdx?$/, "");
+      const slug = file.replace(/\.mdx$/, "");
       const parseResult = ADRFrontmatterSchema.safeParse(data);
       if (!parseResult.success) {
         throw new Error(
