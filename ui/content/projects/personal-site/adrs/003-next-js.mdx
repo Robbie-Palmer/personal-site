@@ -1,12 +1,21 @@
 ---
-title: "ADR 002: Next.js"
+title: "ADR 003: Next.js"
 date: "2025-10-18"
 status: "Accepted"
 ---
 
 # Context
 
-I need a framework to build the UI for my personal site.
+With **React** selected as the UI library (see [ADR 002](/projects/personal-site/adrs/002-react)), I need a meta-framework to handle routing, building, and rendering.
+While I could use vanilla React (SPA) or a bundler like Vite directly, a meta-framework provides better performance (SSG/SSR), SEO, and developer experience.
+
+My options for a React-based framework include:
+
+* **Next.js**: The industry standard. Massive ecosystem, Vercel backing, and deep integration with React Server Components (RSC).
+* **Remix**: Focuses on web standards and progressive enhancement. Excellent data loading patterns, but slightly smaller ecosystem than Next.js.
+* **Astro**: Excellent for content-heavy sites (like this portfolio). Uses "Island Architecture" to ship zero JS by default. However, complex interactive state management between islands can be trickier than a unified React tree.
+* **TanStack Start**: A specific framework wrapper around TanStack Router. Very promising, but currently too "bleeding edge" for a foundational infrastructure project.
+
 My previous site was built using **[fastpages](https://fastpages.fast.ai/)** (which is built on top of Jekyll/Ruby) to deploy to GitHub Pages. While it served its purpose initially, it has significant drawbacks:
 
 * **Archived Project**: `fastpages` is now archived and no longer maintained.
@@ -23,9 +32,15 @@ I want a modern framework that:
 
 # Decision
 
-I decided to use **Next.js (React)** with **TypeScript**.
+I decided to use **Next.js** with **TypeScript**.
 
-This aligns with the **Choose Boring Technologies** principle. React is the de facto standard for component-based UIs, Next.js is the standard framework for React, and TypeScript is the standard language for modern web development.
+This aligns with the **Choose Boring Technologies** principle.
+
+* **vs Astro**: While Astro is faster for static content, Next.js offers a more seamless path to adding complex application logic (e.g., interactive tools, auth) later. I value the "unified app" model over the "islands" model for this specific project's long-term vision (SaaS incubator).
+* **vs Remix**: Next.js (via App Router) is now the default recommendation from the React team.
+* **vs TanStack Start**: Next.js is mature; TanStack Start is new.
+
+React is the de facto standard for component-based UIs, Next.js is the standard framework for React, and TypeScript is the standard language for modern web development.
 
 # Consequences
 
