@@ -1,0 +1,47 @@
+---
+title: "ADR 008: CodeRabbit"
+date: "2025-10-19"
+status: "Accepted"
+---
+
+# Context
+
+As a solo developer, I face a few challenges regarding code quality and workflow discipline:
+
+1. **Lack of Peer Review**: There is no "second pair of eyes" to catch bugs, ensure consistent standards, or identify potential improvements.
+2. **Workflow Hygiene**: Without a team to review code, it is tempting to push directly to `main`, bypassing the Pull Request (PR) workflow. This results in a poor git history and loss of context for why changes were made.
+3. **Scalability**: I want to maintain collaborative practices that have socio-technical benefits scaling to a team capability, rather than building habits that only work for a solo dev.
+
+I need an automated solution to act as a reviewer, capable of understanding code logic and providing meaningful feedback, to force the discipline of a PR workflow.
+
+# Decision
+
+I will use **[CodeRabbit](https://coderabbit.ai/)** for automated AI code reviews on all Pull Requests.
+
+CodeRabbit integrates directly with GitHub, identifying itself as a reviewer and providing line-by-line comments as well as high-level summaries.
+
+# Alternatives
+
+## Greptile
+
+**[Greptile](https://greptile.com/)** is another emerging player in the AI code understanding and review space.
+
+* **Pros**: Specialized in understanding large codebases.
+* **Cons**: Less established than CodeRabbit. Since I have already used CodeRabbit extensively and derived significant value from it, avoiding the overhead of evaluating a competitor aligns with my goal to focus on shipping.
+
+# Consequences
+
+### Pros
+
+* **Automated "Second Pair of Eyes"**: CodeRabbit catches bugs and suggests logic improvements I typically miss when coding alone.
+* **Enforced PR Workflow**: Having a bot that summarizes and reviews PRs provides a practical reason to open a PR instead of pushing to main, ensuring that a code review step actually happens.
+* **Continuous Learning**: CodeRabbit stores "Learnings" about my coding style, patterns, and architectural reasoning. This personalization means the relevance of feedback improves over time, reducing low-value nitpicks.
+* **Alignment with Principles**:
+  * **Build in Public**: CodeRabbit is free for public repositories. Its reviews are visible on the public GitHub PRs, adding transparency to the development process.
+  * **Minimize Platforms**: CodeRabbit integrates directly into the GitHub PR interface. I do not need to visit a separate dashboard; the feedback comes to where the work is happening.
+* **Documentation**: CodeRabbit automatically generates a summary of the changes in the PR description/comments, improving the history of the project without manual effort.
+
+### Cons
+
+* **Noise**: AI reviews can occasionally produce false positives or nitpick unimportant details. This can slow down the shipping process if I spend too much time evaluating or debating low-value suggestions.
+* **Vendor Lock-in**: While the service itself is easily swapped, the "Learnings" database builds up a personalized context of preferences. Switching providers would mean losing this accumulated data and starting refinement from scratch.

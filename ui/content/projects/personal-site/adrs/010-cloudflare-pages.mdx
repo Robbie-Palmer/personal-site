@@ -1,0 +1,64 @@
+---
+title: "ADR 010: Cloudflare Pages"
+date: "2025-10-19"
+status: "Accepted"
+---
+
+# Context
+
+I need a hosting platform for the personal site that provides:
+
+1. **Global Performance**: Fast static asset delivery via a CDN.
+2. **Developer Experience**: Automated CI/CD, specifically "Preview Deployments" for every Pull Request to facilitate the review workflow \[ADR 008].
+3. **Cost Efficiency**: Predictable pricing, avoiding "bandwidth billing shocks".
+4. **Ecosystem Synergy**: Tight integration with the DNS and security layer.
+
+# Decision
+
+I will use **Cloudflare Pages**.
+
+It offers a "git-ops" style workflow where connecting a repository automatically sets up the build and deploy pipeline, including preview environments.
+
+# Alternatives
+
+## Vercel
+
+Vercel is the creators of Next.js and offers the "gold standard" DX for Next.js apps.
+
+* **Status**: Strong Future Candidate.
+* **Pros**: Best-in-class support for Next.js features (SSR, ISR, Image Optimization) out of the box. Zero configuration.
+* **Cons**:
+* **Architecture**: Vercel's default compute model (Node.js Serverless Functions) is region-centralized (e.g., `us-east-1`), whereas Cloudflare Pages is natively edge-deployed across 275+ cities.
+* **Vendor Lock-in**: Heavy usage of Vercel-specific primitives can make it harder to migrate away.
+* **Cost**: The pricing model can get expensive at scale.
+* **Reasoning**: There is a high chance of migrating to Vercel in the future if I need heavy Server-Side Rendering (SSR). However, "not now" - since I already have Cloudflare configured for DNS/Domains, I want to leverage the synergies of a single platform and the pure edge architecture for this static-first site.
+
+## GitHub Pages
+
+* **Pros**: Completely free, right next to the code.
+* **Cons**:
+* **Basic**: Lacks native "Preview Deployments" on PRs (requires complex custom Actions workflows).
+* **Performance**: Slower propagation and generic CDN performance compared to Cloudflare's enterprise-grade edge.
+
+## AWS S3 + CloudFront
+
+The traditional "Boring Tech" infrastructure approach.
+
+* **Pros**: Maximum control, industry standard, rock-solid stability.
+* **Cons**:
+* **Complexity**: Significantly higher operational overhead. Requires managing certificates, cache invalidation, and bucket policies manually (or via Terraform).
+* **DX**: No out-of-the-box preview deployments. Setting up per-branch infrastructure is a major project in itself.
+
+# Consequences
+
+### Pros
+
+* **Performance**: Deployed to Cloudflare's massive global edge network (275+ cities).
+* **Cost**: Cloudflare Pages offers unlimited bandwidth for static requests on the free tier.
+* **Workflow**: Automatic preview deployments for every PR allow me to verify changes in a real environment before merging, reinforcing the "CodeRabbit" \[ADR 008] review workflow.
+* **Consolidation**: Aligns with the "Minimize Platforms" principle by keeping DNS, Domain, and Hosting under one roof.
+* **Skill Synergy**: I use Cloudflare extensively at work, but not Vercel. Using Cloudflare Pages deepens my expertise with the platform I rely on professionally.
+
+### Cons
+
+* **Next.js Features**: While Next.js works well, using "Edge Runtimes" or specific ISR features requires careful configuration using `@cloudflare/next-on-pages` or reverting to full Static Site Generation (SSG). This helps enforce simplicity but adds a compatibility check step for new Next.js features.

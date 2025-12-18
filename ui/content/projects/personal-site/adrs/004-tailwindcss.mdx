@@ -1,0 +1,36 @@
+---
+title: "ADR 004: Tailwind CSS"
+date: "2025-10-18"
+status: "Accepted"
+---
+
+# Context
+
+I need a system for styling the application.
+Traditional approaches like generic CSS or CSS Modules often lead to:
+
+* **Append-only Stylesheets**: Developers fear breaking existing pages, so they just add new classes, leading to bloat.
+* **Inconsistency**: Without strict enforcement, "slightly different" margins and colors proliferate.
+* **Context Switching**: Jumping between `.tsx` and `.css` files slows down the feedback loop.
+
+I want a solution that prioritizes **velocity** and **consistency** while playing well with the modern React ecosystem.
+
+# Decision
+
+I decided to use **[Tailwind CSS](https://tailwindcss.com/)**.
+
+This aligns with the **Minimize Platforms, Maximize Velocity** principle. It allows styling directly in the markup, enforcing a design system through constrained tokens.
+
+# Consequences
+
+### Pros
+
+* **Velocity**: Styling is significantly faster. I don't need to name classes or switch files.
+* **Locality of Behavior**: Code and style live together. Deleting a component deletes its styles automatically.
+* **AI Compatibility**: LLMs are excellent at writing Tailwind. The text-based nature of utility classes is easier for models to predict than arbitrary CSS class names + separate CSS files.
+* **Consistency**: We are forced to use the design system values (spacing, colors) defined in the config, preventing "magic numbers".
+
+### Cons
+
+* **Markup Bloat**: HTML classes can become very long and harder to scan (mitigated by component extraction and tooling).
+* **Vendor Lock-in**: Hard dependency on the Tailwind compiler and syntax, though it is currently the industry standard.

@@ -1,0 +1,43 @@
+---
+title: "ADR 006: Pnpm"
+date: "2025-10-18"
+status: "Accepted"
+---
+
+# Context
+
+I need a package manager for the JavaScript/TypeScript ecosystem.
+The common options are npm, Yarn, and pnpm. Newer entrants like **Bun** (a runtime with a bundled package manager) are also available.
+The requirements are:
+
+* **Efficiency**: Minimal disk space usage and fast install times not to slow down the agentic workflow.
+* **Monorepo Support**: First-class support for workspaces and managing dependencies across multiple packages.
+* **Correctness**: Strict handling of dependencies to prevent "phantom dependencies" (accessing packages that aren't explicitly declared).
+* **Security**: Mitigation of supply chain attacks and arbitrary code execution vulnerabilities common in other managers.
+
+*Note on alternatives:*
+
+* **Yarn**: Usage has declined since the breaking changes in v2+, creating a fragmented ecosystem.
+* **Bun**: Extremely fast, but primarily a runtime. I prefer to keep the package manager decoupled from the runtime choice at this stage to maintain compatibility with the broader Node.js ecosystem.
+
+# Decision
+
+I decided to use **[pnpm](https://pnpm.io/)**.
+
+It provides the best balance of speed, efficiency, and correctness.
+
+# Consequences
+
+### Pros
+
+* **Disk Efficiency**: pnpm uses a content-addressable store. If 100 projects use the same version of `react`, it is saved to disk only once.
+* **Speed**: Installation is significantly faster than npm and often faster than Yarn due to parallelized and efficient fetching.
+* **Security**: Mitigates risks associated with npm's handling of lifecycle scripts and arbitrary code execution (related to recent CVEs).
+* **Strictness**: pnpm prevents phantom dependencies by creating a non-flat `node_modules`. This forces me to explicitly declare every dependency used, preventing bugs that only appear in CI.
+* **Monorepo Support**: Excellent workspace support that integrates well with tools like `mise` and `Turborepo`.
+
+### Cons
+
+* **Not Default**: Unlike npm, it doesn't come bundled with Node.js, requiring an explicit installation step (handled by `mise`).
+* **Compatibility**: Some older tools or specific packages assume a flat `node_modules` structure and may break (though this is increasingly rare).
+* **Learning Curve**: Commands are slightly different from `npm` (e.g., `pnpm add` vs `npm install`), but the mental model is largely the same.

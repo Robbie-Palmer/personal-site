@@ -1,0 +1,55 @@
+---
+title: "ADR 011: Claude Code"
+date: "2025-10-19"
+status: "Accepted"
+---
+
+# Context
+
+To maintain high velocity as a solo developer ("Maximize Velocity"), I need an intelligent coding partner capable of:
+
+1. **Deep Reasoning**: Solving architectural problems, not just autocompleting lines.
+2. **Breadth**: Executing multi-file refactors and understanding the entire repository context.
+3. **Agentic Behavior**: The ability to run commands, read files, and iterate on errors autonomously.
+
+# Decision
+
+I will use **[Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview)** (Anthropic's agentic coding interface) as my primary autonomous coding tool.
+
+This involves committing to its specific configuration infrastructure:
+
+* `.claude/` directory for tool-specific settings.
+* `claude.md` for providing high-level project context and architectural guidelines specifically formatted for this agent.
+
+# Alternatives
+
+## IDE Agents (Cursor / Windsurf)
+
+* **Pros**: Best-in-class IDE integration.
+* **Cons**: Primarily text-editing interfaces. A CLI-based agent loop is often more efficient for batch tasks or "fire and forget" delegation while I work on something else.
+
+## Other Agents (Juni, Augment Code)
+
+* **Juni**: Focuses on data integration and structured workflows.
+* **Augment Code**: Optimizes for extreme speed and enterprise context.
+* **Reasoning**: While these are strong competitors, **Claude Code** provides the native, unmediated experience with the specific models (Claude 4.5 Sonnet, Opus) that I find most effective for complex reasoning tasks.
+
+## Standardized Config (`agents.md`)
+
+* **Pros**: Open standard for defining agent context, avoiding tool-specific files.
+* **Cons**: Claude Code reads `claude.md` natively and effectively. I am accepting the trade-off of using a tool-specific context file for better immediate results.
+
+*Note: **Antigravity** is not considered in this ADR as it is a newer development than when this decision was originally made.*
+
+# Consequences
+
+### Pros
+
+* **Velocity**: I can ship features significantly faster by delegating implementation details.
+* **Context Management**: Centralizing project knowledge in `claude.md` ensures the agent stays aligned with the project's evolving architecture.
+* **Synergy**: Necessitates robust testing \[ADR 007] and review \[ADR 008] to verify the agent's output.
+
+### Cons
+
+* **Vendor Lock-in**: I am building up project context and "prompt engineering" specifically in `.claude` configuration files. migrating to another agent would require porting this context.
+* **Verification Overhead**: AI writes code fast, but it can also write bugs fast. "Trust but verify" becomes the dominant mode of work.
