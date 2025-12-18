@@ -1,0 +1,46 @@
+---
+title: "ADR 009: Terraform"
+date: "2025-10-19"
+status: "Accepted"
+---
+
+# Context
+
+I need a robust Infrastructure as Code (IaC) tool to manage the underlying services for the personal site (Cloudflare Pages, DNS, Storage, etc.).
+The requirements are:
+
+* **Reproducibility**: Infrastructure should be defined in code, version-controlled, and reproducible.
+* **State Management**: The tool must track the state of deployed resources to detect drift and manage updates safely.
+* **Extensibility**: The solution should support any Cloud Service Provider (AWS, GCP, Azure), not just Cloudflare.
+* **Independence**: The IaC tool should not be tightly coupled to the application's specific language version or runtime (not locked into a TypeScript monorepo forever).
+
+# Decision
+
+I will use **Terraform**.
+
+# Alternatives
+
+## Pulumi
+
+Pulumi is a modern alternative that allows defining infrastructure using general-purpose programming languages (TypeScript, Python, Go, etc.).
+Pre-coding-agents, this would have been my choice.
+
+* **Pros**:
+* **Polyglot / TypeScript**: Allows writing infrastructure in the same language as the application, enabling shared logic.
+* **Conceptual Alignment**: I agree with the core philosophy that "declarative" does not strictly require a configuration language (JSON/YAML/HCL). As argued in [Nobody Knows What Declarative Is](https://leebriggs.co.uk/blog/2022/07/20/nobody-knows-what-declarative-is), general-purpose code can be declarative.
+* **Cons**:
+* **Provider Maturity**: While Pulumi can bridge Terraform providers, there is often a lag or friction compared to using the native Terraform provider directly. My previous experience (circa 2 years ago) involved missing features in the AWS provider, and while the gap has closed, Terraform remains the "source of truth" for provider capabilities.
+
+# Consequences
+
+### Pros
+
+* **Agentic Optimization**: Terraform's HCL is the ubiquitious industry standard. Coding agents understand it extremely well due to the massive volume of public examples. This outweighs the desire for TypeScript-based IaC.
+* **Skill Synergy**: I use Terraform extensively in production systems at work. Using it here reinforces those skills and keeps my personal and professional toolchains aligned ("upskilling feeds both ways").
+* **Stability**: My experience with Pulumi has been limited to side projects, whereas my Terraform experience is battle-tested in production.
+* **Simplicity**: HCL is simple. The true complexity of IaC lies in understanding the cloud provider's resources (e.g., DNS record parameters), which is a constant regardless of the tool.
+
+### Cons
+
+* **Domain Specific Language**: Requires writing HCL instead of TypeScript.
+* **Lower Level**: More verbose than some of Pulumi's high-level abstractions.

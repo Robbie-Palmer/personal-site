@@ -1,0 +1,43 @@
+---
+title: "ADR 003: Mise En Place"
+date: "2025-10-18"
+status: "Accepted"
+---
+
+# Context
+
+Modern projects depend on a plethora of tools: node, python, terraform, go, cloudflare-cli, etc.
+Managing these dependencies presents several challenges:
+
+* **Documentation Rot**: READMEs instructing users to "install Python 3.11" inevitably go out of date or fail to specify patch versions, leading to "it works on my machine" issues.
+* **Inconsistent Environments**: Developers and CI/CD agents need to run in the exact same environment.
+* **Task Sprawl**: Scripts for building, testing, and deploying are often scattered across `package.json`, `Makefile`, shell scripts, or GitHub Actions workflow files.
+
+I need a tool that:
+
+* **Codifies the Environment**: The code itself should document *exactly* what tools and versions are required.
+* **Standardizes Tasks**: A single interface to run common tasks (`build`, `test`, `deploy`) regardless of the underlying language or toolchain.
+* **Simplifies CI/CD**: Reduce CI configuration to "install environment -> run task".
+* **Manages Configuration**: Uniform handling of `.env` files and environment variables across tools.
+
+# Decision
+
+I decided to use **[mise](https://mise.jdx.dev/)** for both tool version management and task running.
+
+Mise replaces tools like `asdf`, `nvm`, `pyenv`, and `Make`. It uses a TOML configuration file to define the exact versions of tools required and the tasks available in the project.
+
+# Consequences
+
+### Pros
+
+* **Code as Documentation**: The `mise.toml` file is the source of truth. Running `mise install` guarantees the correct environment, eliminating stale setup docs.
+* **Standardized Interface**: I can swap out the implementation of a task (e.g., changing from `npm run build` to `turbo build`) without changing the developer command (`mise run build`).
+* **Monorepo Tasks**: Supports [monorepo patterns](https://mise.jdx.dev/tasks/#monorepo-tasks) where tasks can be defined globally and overridden or composed at the directory level.
+* **Environment Management**: Built-in `.env` file support with hierarchical overrides allows for clean separation of secrets and config.
+* **CI/CD Simplification**: Pipelines become generic. Instead of custom actions for every tool, the workflow is simply `mise install && mise run ci`.
+* **Power & Modernity**: It offers features superior to `Make` (better argument handling, parallel execution) and `Taskfile` (integrated tool management).
+
+### Cons
+
+* **Abstraction Layer**: It adds an extra layer. Developers might run `mise run build` without knowing if it's invoking `pnpm`, `cargo`, or a shell script.
+* **Complexity**: It introduces another tool to the stack, whereas `Make` is available almost everywhere by default.
