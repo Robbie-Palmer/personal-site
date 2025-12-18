@@ -1,0 +1,109 @@
+---
+title: "Personal Site"
+description: "My personal portfolio"
+date: "2025-11-02"
+tech_stack:
+  - "Next.js"
+  - "React"
+  - "Tailwind CSS"
+  - "TypeScript"
+  - "MDX"
+repo_url: "https://github.com/Robbie-Palmer/personal-site"
+demo_url: "https://robbiepalmer.me"
+---
+
+# Vision
+
+This site is my personal portfolio—but it's also more than that. It's the infrastructure I use to ship ideas, share knowledge, and incubate future projects. Rather than scattered profiles across platforms, everything lives here: blog posts, professional experience, project documentation, and the thinking behind it all.
+
+# Problem Statement
+
+Most portfolio sites are shallow. They list technologies and link to repos, but they don't demonstrate *how* someone thinks. They don't show the reasoning behind decisions, the tradeoffs considered, or the lessons learned.
+
+I needed something different:
+
+* **Depth over breadth**: A platform that supports long-form writing, diagrams, and interactive content—not just bullet points
+* **Unified presence**: One place for blog, resume, and projects instead of fragmented profiles across LinkedIn, Substack and GitHub
+* **Low context-switching cost**: Self-documenting architecture so I can drop in and out of this codebase without losing momentum
+
+# User Stories
+
+**For the audience:**
+
+* As a friend, I want the highlights from research on topics like personal finance, so I can benefit from his research obsessions
+* As a colleague, I want to understand Robbie's mental models on common engineering challenges, so we can align faster and avoid repeated debates
+* As a developer evaluating this stack, I want to see architectural decisions documented, so I can learn from the tradeoffs
+* As a hiring manager, I want to see evidence of systematic thinking beyond resume bullets, so I can assess seniority and culture fit
+
+**For the author:**
+
+* I want self-documenting projects, so I can context-switch efficiently when returning to the codebase
+* I want a platform that can incubate SaaS ideas, so I have production-ready infrastructure when inspiration strikes
+* I want a forcing function to ship end-to-end
+
+# Platform Capabilities
+
+## Knowledge Sharing & Collaboration
+
+The blog serves multiple audiences with different needs:
+
+* **Colleagues**: Engineering patterns, addressing recurring anti-patterns, reducing repeated debates. I can link to a thoroughly researched post instead of trying to re-establish the case from the ground up
+* **Friends & family**: Personal finance insights, investing principles, life lessons worth sharing
+* **Public**: Thought leadership on topics I care about. Writing publicly forces an extra level of rigor—if it's going to be out there, it needs to be right
+
+## Content Publishing
+
+* Long-form writing with MDX supporting diagrams, code blocks, and interactive components
+* Multi-audience blog serving both technical and non-technical readers
+* SEO-optimized for discoverability
+
+## Professional Presence
+
+* Interactive resume with structured experience data and technology breadth
+* Project showcase with linked PRDs and [ADRs](/projects/personal-site?tab=adrs) demonstrating technical leadership
+* Visual communication and data visualization demos
+
+## Meta-Benefits
+
+* LLM-readable codebase optimized for AI-assisted development workflows
+* Self-documenting architecture reducing context-switching cost
+* Extensible foundation for future ventures and experiments
+
+# Guiding Principles
+
+**Ship Incrementally**
+Continuous delivery over big-bang releases. Every PR should be deployable. Small, frequent changes reduce risk and maintain momentum.
+
+**Lean & Agile**
+Build only what's needed. Validate assumptions early. Inspired by Extreme Programming and lean principles—working software over comprehensive documentation, but documentation where it adds value.
+
+**Choose Boring Technologies**
+Leverage mature ecosystems, strong communities, and deep LLM knowledge bases. Innovate where it matters—where my unique perspective adds value—not on the bleeding edge across multiple fronts simultaneously. The innovation is in the confluence: the whole greater than the sum of its parts.
+
+**Minimize Platforms, Maximize Velocity**
+Reduce context-switching and administrative overhead. Fewer tools, fewer accounts, fewer things to maintain means more time shipping. This site consolidates what would otherwise be scattered across multiple services.
+
+**LLM-Optimized**
+The codebase is structured for AI pair programming: clear naming conventions, documented decisions, predictable patterns. This isn't just about using AI tools—it's about writing code that's readable by any intelligence, human or otherwise.
+
+**Documentation as Product**
+ADRs, PRDs, and inline documentation aren't overhead—they're deliverables. They capture thinking, enable collaboration, and reduce the cost of returning to a project after time away.
+
+**Build in Public**
+Ideas gain value through collaboration. Writing publicly forces rigor and invites feedback. The goal isn't to hoard knowledge but to share it in a way that's useful to others.
+
+# What This Is Not
+
+* **Not a CMS with a GUI**: Content is code, managed via git. This is intentional—it keeps everything in one workflow and makes the site itself a demonstration of development practices
+* **Not a finished product**: It's a living platform that evolves with my needs. The backlog is always longer than the changelog
+* **Not a template for others to fork**: Though you're welcome to learn from it. The decisions here reflect my specific needs and preferences
+* **Not a walled garden**: Content is meant to be shared, referenced, and built upon
+
+# Future Direction
+
+This site is infrastructure, and infrastructure should enable future work:
+
+* **SaaS incubator**: The tech stack and deployment pipeline are production-grade. When an idea is worth pursuing, the foundation is already there
+* **Expanded project documentation**: More PRDs and ADRs as case studies in technical decision-making
+* **Enhanced data visualization**: Richer interactive content and visual communication
+* **Content depth over breadth**: Continued investment in quality writing that's worth someone's time to read

@@ -4,5 +4,6 @@ export default {
     'remark-frontmatter',
     'remark-mdx',
     'remark-preset-lint-recommended',
+    ['remark-lint-list-item-indent', false],
   ],
 };

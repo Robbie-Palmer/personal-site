@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { preload } from "react-dom";
 import { BlogList } from "@/components/blog/blog-list";
+import { CardGridSkeleton } from "@/components/ui/card-grid-skeleton";
 import { getAllPosts } from "@/lib/blog";
 import { getImageUrl } from "@/lib/cloudflare-images";
 import { siteConfig } from "@/lib/site-config";
@@ -53,17 +54,17 @@ export default function BlogPage() {
   }
 
   return (
-    <Suspense fallback={<BlogListFallback />}>
-      <BlogList posts={allPosts} />
-    </Suspense>
-  );
-}
+    <div className="container mx-auto px-4 py-12 min-h-screen max-w-6xl">
+      <div className="mb-8">
+        <h1 className="text-4xl md:text-5xl font-bold mb-4">Blog</h1>
+        <p className="text-xl text-muted-foreground">
+          Thoughts on technology, finance, and whatever else I'm exploring
+        </p>
+      </div>
 
-function BlogListFallback() {
-  return (
-    <div className="container mx-auto px-4 py-12">
-      <h1 className="text-4xl font-bold mb-8">Blog</h1>
-      <p className="text-muted-foreground">Loading posts...</p>
+      <Suspense fallback={<CardGridSkeleton />}>
+        <BlogList posts={allPosts} />
+      </Suspense>
     </div>
   );
 }
