@@ -6,13 +6,13 @@ status: "Accepted"
 
 # Context
 
-With [Static Site Generation](/projects/personal-site/adrs/014-ssg) as the rendering strategy, I need a content format that balances **simplicity for prose** with **power for interactive content**:
+With [Static Site Generation](/projects/personal-site/adrs/015-ssg) as the rendering strategy, I need a content format that balances **simplicity for prose** with **power for interactive content**:
 
 * Rich formatting (code blocks, tables, diagrams)
 * Structured metadata (frontmatter)
 * Embeddable React components for interactive demos
 * Content as code (git-tracked, PR-reviewed)
-* [Claude Code](/projects/personal-site/adrs/011-claude-code) readable and editable
+* [Claude Code](/projects/personal-site/adrs/012-claude-code) readable and editable
 
 # Decision
 
@@ -36,7 +36,7 @@ I will use **MDX (Markdown + JSX)** for all content—blog posts, project docume
 
 * **Pros**: GUI editing, rich media management, preview modes
 * **Cons**: Content in external database (not git), no PR reviews, can't link to article history on GitHub, vendor lock-in (content locked in proprietary formats/APIs), paid services (tried Ghost—costs money)
-* **Why not**: Violates "content as code" from [ADR 014](/projects/personal-site/adrs/014-ssg). Git versioning is superior, free, and avoids vendor lock-in.
+* **Why not**: Violates "content as code" from [ADR 015](/projects/personal-site/adrs/015-ssg). Git versioning is superior, free, and avoids vendor lock-in.
 
 **Notion/Google Docs Export**:
 
@@ -62,7 +62,7 @@ I will use **MDX (Markdown + JSX)** for all content—blog posts, project docume
 
 * **Markdown Simplicity + React Power**: Write prose in Markdown, embed interactive components (demos, visualizations, diagrams) inline without breaking flow
 * **Content as Code**: MDX files in git, reviewed via PRs, versioned alongside code. Can link to full article history on GitHub.
-* **AI-Native Workflow**: [Claude Code](/projects/personal-site/adrs/011-claude-code) reads/edits MDX as easily as TypeScript. [CodeRabbit](/projects/personal-site/adrs/008-coderabbit) reviews for grammar, SEO, broken links, content quality.
+* **AI-Native Workflow**: [Claude Code](/projects/personal-site/adrs/012-claude-code) reads/edits MDX as easily as TypeScript. [CodeRabbit](/projects/personal-site/adrs/009-coderabbit) reviews for grammar, SEO, broken links, content quality.
 * **Reusable Components**: Write once, use everywhere. Consistent design across blog posts, docs, and ADRs.
 * **No External Dependencies**: Local files, fast builds, works offline. Free vs paid CMS services.
 * **Boring Technology**: Standard for technical content in React/Next.js ecosystem. Massive community and LLM knowledge.

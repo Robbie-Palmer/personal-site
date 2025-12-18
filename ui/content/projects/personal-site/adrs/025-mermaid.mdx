@@ -51,6 +51,6 @@ The implementation (`ui/components/mermaid.tsx`) provides:
 ### Cons
 
 * **Aesthetic Limitations**: D2 produces more polished, modern-looking diagrams with better layout algorithms. Mermaid's output is functional but less visually refined, especially for complex cloud architecture diagrams.
-* **Client-Side Bundle**: Adds \~120KB (minified) to the client bundle for the Mermaid library. However, this is acceptable for a blog-focused site where diagrams enhance content value.
+* **Client-Side Bundle**: Adds \~150KB (minified) to the client bundle for the Mermaid library. However, this is acceptable for a blog-focused site where diagrams enhance content value.
 * **Syntax Constraints**: Mermaid's syntax can be verbose for complex diagrams. D2's nested bracket syntax is more intuitive for deeply hierarchical structures.
 * **No Build-Time Optimization**: Since diagrams render client-side, they can't be optimized as static SVGs at build time. However, this tradeoff enables dynamic theme switching without rebuilding.

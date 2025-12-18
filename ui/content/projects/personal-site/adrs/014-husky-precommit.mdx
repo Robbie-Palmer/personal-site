@@ -17,7 +17,7 @@ Without automated checks before commits, several quality issues slip through:
 I need a pre-commit workflow that:
 
 * **Runs Fast**: Only check changed files, not the entire codebase
-* **Integrates with Mise**: Build on top of the task system established in [ADR 003: Mise](/projects/personal-site/adrs/003-mise), not duplicate configuration
+* **Integrates with Mise**: Build on top of the task system established in [ADR 004: Mise](/projects/personal-site/adrs/004-mise), not duplicate configuration
 * **Supports Multiple Languages**: TypeScript, Terraform, Markdown, MDX, YAML across a monorepo
 * **Fails Early**: Catch errors before they enter git history
 * **Stays Simple**: Boring technology with deep LLM knowledge bases for AI-assisted development
@@ -69,7 +69,7 @@ The `lint-staged` configuration in `package.json` maps file patterns to mise tas
 }
 ```
 
-This builds directly on top of mise tasks from ADR 003, avoiding duplication. The tasks in `.mise.toml` accept file arguments, allowing lint-staged to pass only staged files rather than running against the entire codebase.
+This builds directly on top of mise tasks from ADR 004, avoiding duplication. The tasks in `.mise.toml` accept file arguments, allowing lint-staged to pass only staged files rather than running against the entire codebase.
 
 ## Alternatives Considered
 
@@ -82,7 +82,7 @@ This builds directly on top of mise tasks from ADR 003, avoiding duplication. Th
 **[Lefthook](https://github.com/evilmartians/lefthook)** (Go-based alternative):
 
 * **Pros**: Faster than Husky, language-agnostic, supports parallel execution, single binary with no runtime dependencies
-* **Cons**: Less mature ecosystem, fewer npm downloads (\~500K/week vs Husky's 8M/week), less LLM training data for AI-assisted development
+* **Cons**: Less mature ecosystem, fewer npm downloads (\~900K/week vs Husky's 18M/week), less LLM training data for AI-assisted development
 * **Why not chosen**: Speed difference is negligible for this project's pre-commit time (2-5 seconds). The "boring technology" principle favors Husky's wider adoption and better LLM knowledge base.
 
 **Custom shell scripts in `.git/hooks`**:
@@ -114,7 +114,7 @@ This builds directly on top of mise tasks from ADR 003, avoiding duplication. Th
 * **Low Maintenance**: Husky auto-installs hooks via the `prepare` script on `pnpm install`. No manual setup or git hook configuration required.
 * **Boring Technology**: Husky is the industry standard, with excellent documentation and deep LLM training data. Works seamlessly with the LLM-optimized development workflow.
 * **Selective Execution**: lint-staged only processes files that are staged, reducing noise and focusing checks on what's actually changing.
-* **Claude Code Guardrails**: Prevents [Claude Code](/projects/personal-site/adrs/011-claude-code) from drifting too far and committing malformed code. Pre-commit hooks act as an immediate correction signal, keeping the AI agent aligned with project standards without requiring constant human oversight.
+* **Claude Code Guardrails**: Prevents [Claude Code](/projects/personal-site/adrs/012-claude-code) from drifting too far and committing malformed code. Pre-commit hooks act as an immediate correction signal, keeping the AI agent aligned with project standards without requiring constant human oversight.
 
 **Negative:**
 

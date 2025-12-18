@@ -6,7 +6,7 @@ status: "Accepted"
 
 # Context
 
-[Next.js](/projects/personal-site/adrs/002-next-js) supports multiple rendering strategies, each with different trade-offs:
+[Next.js](/projects/personal-site/adrs/003-next-js) supports multiple rendering strategies, each with different trade-offs:
 
 * **SSG (Static Site Generation)**: Pre-render pages at build time, serve static HTML from CDN
 * **SSR (Server-Side Rendering)**: Render pages on-demand per request, requires a Node.js server
@@ -94,7 +94,7 @@ These constraints don't limit capability—they push toward **better solutions**
 * **SEO**: Fully formed HTML at request time. Search engines and social media bots see complete content immediately, no JavaScript execution required.
 * **Security**: No server attack surface. No SQL injection, no RCE vulnerabilities, no runtime exploits. Static files can't be compromised at runtime.
 * **Developer Experience**: Content as code. Blog posts and documentation are MDX files in git, reviewed via pull requests, versioned alongside code. Content changes are code changes.
-* **AI-Native Workflow**: [Claude Code](/projects/personal-site/adrs/011-claude-code) has direct access to all content in the git repository. No need to query databases or fetch from APIs—the AI can read, search, and modify blog posts, project documentation, and ADRs as easily as application code. Content living in MDX files makes the entire site LLM-readable and editable.
+* **AI-Native Workflow**: [Claude Code](/projects/personal-site/adrs/012-claude-code) has direct access to all content in the git repository. No need to query databases or fetch from APIs—the AI can read, search, and modify blog posts, project documentation, and ADRs as easily as application code. Content living in MDX files makes the entire site LLM-readable and editable.
 * **Simple Deployments**: Git push triggers build and deploy. No server provisioning, no container orchestration, no database migrations. Build succeeds or fails atomically.
 * **Forcing Function for Simplicity**: The constraint of no backend forces creative, client-side solutions that often result in better UX. No lazy reaching for a database when localStorage or static JSON suffices. No server-side search when client-side is faster. The limitation breeds innovation.
 * **Offline Capable**: Static sites can be cached aggressively. With service workers, the entire site can work offline. No server means no network dependency after first load.
@@ -102,7 +102,7 @@ These constraints don't limit capability—they push toward **better solutions**
 
 **Negative:**
 
-* **Build Time Scales with Content**: Every content change triggers a full rebuild. As the blog grows (hundreds of posts), build times will increase. Cloudflare Pages currently builds in \~2 minutes; at scale this could become 10+ minutes. Mitigation: ISR or partial builds if this becomes painful.
+* **Build Time Scales with Content**: Every content change triggers a full rebuild. As the blog grows (hundreds of posts), build times will increase. Cloudflare Pages currently builds in \~2 minutes. At scale, this could become 10+ minutes. Mitigation: ISR or partial builds if this becomes painful.
 * **No Dynamic Content**: Can't show user-specific data, personalized recommendations, or real-time information without client-side JavaScript. Everything must be pre-rendered or fetched client-side.
 * **Content Staleness**: Content updates require a full rebuild and deploy. Can't update a single blog post instantly—must wait for the full build pipeline. Acceptable for blog cadence (weekly/monthly posts) but problematic for high-frequency content.
 * **No Auth-Gated Content**: Can't have private pages or member-only content without client-side workarounds. If this site ever needs authentication, SSR becomes necessary, though **Cloudflare Pages Middleware** (Edge Functions) offers a middle-ground solution for basic gating without a full origin server.
