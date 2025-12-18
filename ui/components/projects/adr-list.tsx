@@ -70,6 +70,7 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
                   variant={
                     adr.status === "Rejected" ? "destructive" : "default"
                   }
+                  aria-label={`Status: ${adr.status}`}
                   className={cn(
                     "shrink-0",
                     adr.status === "Accepted" &&
