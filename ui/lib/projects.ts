@@ -5,23 +5,19 @@ import { z } from "zod";
 
 const projectsDirectory = path.join(process.cwd(), "content/projects");
 
-const dateString = z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
-  message: "Invalid date format",
-});
-
 const ProjectMetadataSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
   tech_stack: z.array(z.string()).min(1),
   repo_url: z.url().optional(),
   demo_url: z.url().optional(),
-  date: dateString,
-  updated: dateString.optional(),
+  date: z.iso.date(),
+  updated: z.iso.date().optional(),
 });
 
 const ADRFrontmatterSchema = z.object({
   title: z.string().min(1),
-  date: dateString,
+  date: z.iso.date(),
   status: z.enum(["Accepted", "Rejected", "Deprecated", "Proposed"]),
   superseded_by: z.string().optional(),
 });
