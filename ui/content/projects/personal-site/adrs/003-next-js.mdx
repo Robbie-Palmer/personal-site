@@ -42,6 +42,15 @@ This aligns with the **Choose Boring Technologies** principle.
 
 React is the de facto standard for component-based UIs, Next.js is the standard framework for React, and TypeScript is the standard language for modern web development.
 
+## App Router vs Pages Router
+
+I have chosen to use the modern **App Router** (introduced in Next.js 13) rather than the legacy Pages Router.
+
+* **Server Components (RSC)**: App Router uses React Server Components by default. This creates an architecture similar to "Islands" (like Astro) where components run on the server (or at build time) and only ship zero-bundle-size HTML to the client, unless explicitly marked with `'use client'`.
+* **Performance**: Improved granularity for code splitting and streaming.
+* **Future Proof**: All new Next.js features and ecosystem library updates focus on App Router. Sticking to Pages Router would be adopting legacy tech from day one.
+* **Easy Migration to SSR**: Unlike `getServerSideProps` which forces an entire page to be SSR, App Router allows granular opt-in to dynamic rendering. I can switch a route from Static to Dynamic simply by using a dynamic function (like `cookies()` or `headers()`) without rewriting the component structure.
+
 # Consequences
 
 ### Pros

@@ -1,0 +1,45 @@
+---
+title: "ADR 016: GitHub Actions"
+date: "2025-10-19"
+status: "Accepted"
+---
+
+# Context
+
+I need a Continuous Integration and Continuous Deployment (CI/CD) system to automate testing, linting, and deployment.
+For a personal project, the priority is **zero-maintenance**, **zero-cost** (for public repos), and **tight integration**.
+
+I have previous experience with several alternatives:
+
+* **[Semaphore CI](https://semaphoreci.com/)**: Found it functional but often too restrictive and opinionated in its pipeline definition compared to modern flexible workflows
+* **[Bitbucket Pipelines](https://bitbucket.org/product/features/pipelines)**: I liked the "Docker-container-per-step" model, which ensured a clean environment for every command. However, it is vendor-locked to Bitbucket, and this project is hosted on GitHub to maximize visibility ("Build in Public")
+
+Other potential alternatives include **[CircleCI](https://circleci.com/)**, which is a robust option but requires setting up a separate platform and managing separate users/billing.
+
+I need a solution that minimizes administrative overhead ("Minimize Platforms") while maintaining **local reproducibility**.
+
+# Decision
+
+I decided to use **[GitHub Actions](https://github.com/features/actions)**.
+
+This aligns with:
+
+1. **Minimize Platforms**: The CI is the platform. Code, issues, PRs, and builds live in a single URL namespace. There is no "go to the CI dashboard" step—the logs are right in the Pull Request
+2. **Mise Integration**: Instead of relying on a complex web of third-party Actions (vendor lock-in), I use [Mise](/projects/personal-site/adrs/004-mise) to strictly define the toolchain. The CI workflow becomes a thin wrapper: `mise install && mise run ci`. This ensures that what runs in CI is **exactly** what runs on my laptop
+3. **Cost Efficiency**: It is completely free for public repositories
+4. **Escape Hatches**: The workflow syntax allows for plugging in alternative runners. If I encounter performance bottlenecks or cost issues (on private repos), I can swap the default runners for **[Blacksmith](https://www.blacksmith.sh/)** (faster/cheaper runners) or offload Docker builds to **[Depot](https://depot.dev/)** without rewriting the pipeline logic
+5. **Good Enough**: It is not the most powerful CI in the world, but it is "good enough" for the current scale. The investment in `mise` ensures that if I hit the scaling limits, migrating to CircleCI or others is trivial
+
+# Consequences
+
+### Pros
+
+* **Identity Federation**: supports OIDC (OpenID Connect) natively, allowing me to authenticate with AWS/GCP/Cloudflare without managing long-lived static secret keys
+* **Community Support**: Every issue I encounter has likely been solved and documented widely due to the massive user base
+
+### Cons
+
+* **Debuggability**: Logic in YAML is brittle. Tools like `act` claim to allow local testing of workflows, but in practice, they often fail to reproduce complex environment or networking issues. By leaning on `mise`, I mitigate this—if a script fails in CI, I can run the *script* locally, but debugging the *workflow YAML* itself remains a slow "commit-push-fail-repeat" cycle
+* **Scalability & Analysis**: GitHub Actions lacks deep insights into test flakiness or historical run times compared to dedicated platforms like CircleCI. It creates a "wall of text" logs that are hard to search
+* **Vendor Lock-in**: The workflow syntax (`.github/workflows/*.yml`) is proprietary. Migrating to GitLab CI would require a rewrite of the pipeline wrapper (though the underlying `mise` tasks would remain portable)
+* **Docker Handling**: While robust, it doesn't default to the "clean container per step" model as aggressively as Bitbucket Pipelines, sometimes leading to state pollution in the runner workspace if not careful

@@ -1,0 +1,63 @@
+---
+title: "ADR 021: Shiki"
+date: "2025-10-19"
+status: "Accepted"
+---
+
+# Context
+
+I need syntax highlighting for code blocks in blog posts and documentation. Code snippets should be readable, visually appealing, and support both light and dark themes automatically.
+
+The major syntax highlighting libraries have different tradeoffs:
+
+**Client-Side Highlighters:**
+
+* **Prism.js** (via refractor/rehype-prism): Fastest performance, supports 280+ languages, highly modular and customizable, but uses simpler regex-based highlighting that can miss edge cases (e.g., Python f-strings, SQL nested queries, YAML complex anchors)
+* **Highlight.js** (via rehype-highlight): Supports 192 languages, fast and lightweight, but uses heuristic-based detection that can misidentify code blocks and produce less granular token highlighting
+* **Sugar High**: Extremely fast (\~2KB), but only supports JavaScript/TypeScript and lacks broad language coverage
+
+**Build-Time Highlighters:**
+
+* **Shiki** (via rehype-pretty-code): Uses VS Code's syntax engine with TextMate grammars for token-level accuracy, supports 100+ languages (fewer than Prism/Highlight.js but covers all common ones), but larger bundle (\~250KB) and 7x slower than Prism
+* **Starry Night**: GitHub's highlighter using TextMate grammars, similar accuracy to Shiki but smaller ecosystem and less LLM training data
+
+I want a solution that prioritizes:
+
+* **Accuracy**: Precise syntax highlighting across diverse languages (Python, SQL, YAML, JSON, TypeScript, Bash, etc.) without heuristic guessing
+* **Theme Ecosystem**: Access to popular, production-quality themes without custom CSS
+* **Dual Theme Support**: Automatic light/dark mode switching without rebuilding
+* **Build-Time Rendering**: No client-side highlighting overhead—pre-render at build time for SSG
+* **LLM-Friendly**: Well-documented themes and configuration that AI agents understand
+
+# Decision
+
+I decided to use **[Shiki](https://shiki.style/)** via the **[rehype-pretty-code](https://rehype-pretty.pages.dev/)** plugin.
+
+This aligns with the **Choose Boring Technologies** and **LLM-Optimized** principles. Shiki uses VS Code's battle-tested syntax engine and theme ecosystem, both of which have massive LLM training data. The build-time approach eliminates client-side performance concerns.
+
+The implementation uses:
+
+* **Dual themes**: `github-dark` and `github-light` for automatic theme switching
+* **Build-time rendering**: Code blocks are highlighted during Next.js SSG build, not in the browser
+* **Custom styling**: `keepBackground: false` allows Tailwind-based backgrounds instead of theme defaults
+* **rehype integration**: Runs as a unified pipeline step alongside other MDX transformations
+
+# Consequences
+
+### Pros
+
+* **VS Code-Level Accuracy**: Uses the same TextMate grammars that power VS Code. SQL queries, Python decorators, YAML anchors, JSON schema comments, and Bash parameter expansion are all highlighted with precise token-level granularity. Prism/Highlight.js support these languages too, but use simpler regex patterns that can miss edge cases (e.g., Python f-string expressions, SQL window functions, complex YAML merges).
+* **Language Support**: Supports 100+ languages (same as VS Code). While Prism (280+) and Highlight.js (192) support more total languages, Shiki covers all common languages needed for technical blog posts—Python, SQL, YAML, JSON, Bash, TypeScript, Go, Rust, Terraform, Docker, etc.
+* **Theme Ecosystem**: Access to 100+ VS Code themes out of the box. No need to write custom CSS for syntax colors—just reference a theme name. Themes are maintained by the community and battle-tested in millions of editors.
+* **Dual Theme Support**: Built-in light/dark mode switching. The same code block renders with `github-light` in light mode and `github-dark` in dark mode, automatically synchronized with `next-themes`.
+* **Build-Time Rendering**: Highlighting happens during `next build`, not in the browser. Zero client-side JavaScript overhead for syntax highlighting. Pages load instantly with pre-rendered HTML.
+* **LLM-Native**: Shiki and VS Code themes are extensively documented in LLM training data. AI agents can easily generate rehype-pretty-code configurations and understand theme references.
+* **Maintainability**: VS Code theme updates automatically benefit Shiki users. No need to manually maintain custom syntax CSS as languages evolve.
+* **Unstyled by Default**: rehype-pretty-code provides logical attributes (data-language, data-theme) without opinionated CSS, allowing full control over styling with Tailwind classes.
+
+### Cons
+
+* **Large Bundle**: \~250KB for Shiki + WASM dependencies, significantly larger than Prism (\~5KB). However, this is acceptable because highlighting runs at build-time—the bundle never ships to the client.
+* **Build Performance**: \~7x slower than Prism for highlighting. For large codebases with hundreds of code blocks, build times could increase. Currently acceptable for a personal blog with moderate code block counts.
+* **No Client-Side Highlighting**: Cannot dynamically highlight user-generated code (e.g., live code editors). Highlighting is static, baked into the HTML at build time. Not a concern for static blog posts.
+* **Theme Lock-In**: Switching themes requires rebuilding the site. Cannot offer users theme selection without pre-generating all theme variants.

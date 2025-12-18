@@ -1,0 +1,68 @@
+---
+title: "ADR 022: Fuse.js"
+date: "2025-10-26"
+status: "Accepted"
+---
+
+# Context
+
+I need full-content search functionality for blog posts and projects, allowing users to search across titles, descriptions, tags, and content.
+
+Search architecture options fall into two categories:
+
+**Server-Side Search:**
+
+* **Algolia**: Hosted search-as-a-service with excellent UX, but expensive (pricing escalates with usage) and requires external platform dependency
+* **Elasticsearch**: Enterprise-grade full-text search, but heavyweight infrastructure (JVM, cluster management) overkill for a personal blog
+* **Meilisearch**: Modern self-hosted search engine (\~$30/month cloud or self-host), but requires maintaining server infrastructure
+* **Typesense**: Similar to Meilisearch—powerful but requires backend
+* **Vector Search (Pinecone, Weaviate)**: Semantic search using embeddings, but requires API costs, external platform, and embedding generation pipeline—massive overkill for keyword search
+* **Custom API**: Roll-your-own with database full-text search, but introduces server complexity and hosting costs
+
+**Client-Side Search Libraries:**
+
+* **Fuse.js**: Fuzzy search with typo tolerance (\~25KB gzipped), most popular (4.9M weekly downloads), simple API, works with any framework
+* **FlexSearch**: Faster performance and smaller bundle (\~7KB), but less fuzzy matching capability and less LLM training data
+* **Lunr.js**: Full-text indexing with stemming (3.6M weekly downloads), but requires pre-building search index and lacks fuzzy search
+* **MiniSearch**: Tiny and lightweight, but less feature-rich and smaller community
+
+I want a solution that prioritizes:
+
+* **Zero Server Costs**: No backend infrastructure or hosted services to maintain
+* **Static Site Compatible**: Works with Next.js SSG without requiring a server or API
+* **Fuzzy Matching**: Typo tolerance for better UX (searching "machne" finds "machine")
+* **Simple Integration**: No build-time index generation or complex setup
+* **LLM-Friendly**: Well-documented API that AI agents understand
+
+# Decision
+
+I decided to use **[Fuse.js](https://www.fusejs.io/)** for client-side fuzzy search.
+
+This aligns with the **Minimize Platforms, Maximize Velocity** and **LLM-Optimized** principles. Fuse.js is self-hosted (no external services), has extensive LLM training data, and works seamlessly with static site generation.
+
+The implementation searches across weighted fields:
+
+* **Title** (weight: 3) — Most important
+* **Description & Tags** (weight: 2) — Secondary importance
+* **Full Content** (weight: 1) — Tertiary importance
+
+Configuration uses `threshold: 0.1` for predictable substring matching and `ignoreLocation: true` to find matches anywhere in the text.
+
+# Consequences
+
+### Pros
+
+* **Zero Infrastructure**: No servers, APIs, or external services to maintain. Search runs entirely client-side, eliminating hosting costs ($30-100+/month for Meilisearch/Algolia) and operational complexity.
+* **Platform Independence**: Aligns with **Minimize Platforms, Maximize Velocity**. No external dependencies on Algolia, Pinecone, Elasticsearch clusters, or vector databases. Everything runs in the browser.
+* **Fuzzy Search**: Typo tolerance means "machne leraning" finds "machine learning". Better UX than exact-match search, especially on mobile keyboards.
+* **LLM-Native**: Fuse.js has the highest download count (4.9M/week) among client-side search libraries, meaning extensive LLM training data. AI agents can easily generate and modify Fuse.js code.
+* **Simple API**: Minimal configuration—instantiate Fuse with data and keys, call `.search()`. No index building, no embedding pipelines, no complex configuration files.
+* **SSG-Compatible**: Works with Next.js Static Site Generation. Search index is built in-memory from the pre-rendered post list—no build step required.
+* **Instant Results**: No network latency. Search is as fast as the user's device can process it.
+
+### Cons
+
+* **Larger Bundle**: \~25KB gzipped is larger than FlexSearch (\~7KB). However, this is acceptable for a content-focused site where search significantly improves UX.
+* **Client-Side Performance**: Search runs on the user's device. For very large datasets (thousands of posts), this could be slow on low-end devices. Currently fine for a personal blog with fewer than 100 posts.
+* **No Advanced Features**: Lacks stemming (Lunr's "running" → "run"), language-specific tokenization, or relevance tuning that dedicated search engines provide. Acceptable tradeoff for simplicity.
+* **Search on Every Keystroke**: No built-in debouncing or search-as-you-type optimization. Must implement this separately if needed (currently acceptable for small post counts).

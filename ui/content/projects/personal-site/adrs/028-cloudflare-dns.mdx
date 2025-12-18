@@ -1,0 +1,56 @@
+---
+title: "ADR 028: Cloudflare DNS"
+date: "2025-11-26"
+status: "Accepted"
+---
+
+# Context
+
+I need to manage DNS records for my domain (`robbiepalmer.me`).
+
+**Historical Context**: On my previous project (`robbiepalmer.com`), I used **Dynadot** for both registration and DNS.
+The experience highlighted several pain points with the traditional registrar approach:
+
+1. **Manual Processes**: DNS management was entirely GUI-based ("Click-Ops"), making it error-prone and tedious.
+2. **No Versioning**: There was no history of changes or ability to rollback.
+3. **Platform Sprawl**: DNS was disconnected from the hosting (GitHub Pages at the time) and other infrastructure.
+
+For the new site (`robbiepalmer.me`), I want to avoid these issues and ensure DNS is treated as infrastructure code.
+
+# Decision
+
+I will use **Cloudflare DNS** as the authoritative nameserver for `robbiepalmer.me`.
+I will manage the DNS records via **Terraform** (Infrastructure as Code).
+
+## Alternatives Considered
+
+### Dynadot / Traditional Registrars
+
+* **Pros**: Simple default when buying a domain.
+* **Cons**: Lacks native Infrastructure as Code support. No version history.
+* **Decision**: Rejected based on prior negative experience with `robbiepalmer.com`.
+
+### AWS Route53
+
+* **Pros**: The industry standard for programmatic DNS. Excellent reliability.
+* **Cons**: Costs money ($0.50 per hosted zone per month). Requires an AWS account, introducing significant "Platform Overhead" (IAM, billing, security config) just for DNS.
+* **Decision**: Rejected due to cost and complexity.
+
+### Google Cloud DNS
+
+* **Pros**: Similar to Route53.
+* **Cons**: Similar platform overhead to AWS.
+* **Decision**: Rejected.
+
+# Consequences
+
+### Positive
+
+* **Consolidation**: DNS and Hosting are managed in the same portal (Cloudflare).
+* **Infrastructure as Code**: All DNS records can be defined in `.tf` files, versioned in git, and reviewed via Pull Requests.
+* **Cost**: Cloudflare DNS is free.
+* **Performance & Security**: Access to Cloudflare's fast edge network, free unmetered DDoS protection, and one-click DNSSEC.
+
+### Negative
+
+* **Migration**: None (domain was initialized on Cloudflare).
