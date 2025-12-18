@@ -1,5 +1,5 @@
 ---
-title: "ADR 010: Cloudflare Pages"
+title: "ADR 011: Cloudflare Pages"
 date: "2025-10-19"
 status: "Accepted"
 ---
@@ -9,7 +9,7 @@ status: "Accepted"
 I need a hosting platform for the personal site that provides:
 
 1. **Global Performance**: Fast static asset delivery via a CDN.
-2. **Developer Experience**: Automated CI/CD, specifically "Preview Deployments" for every Pull Request to facilitate the review workflow \[ADR 008].
+2. **Developer Experience**: Automated CI/CD, specifically "Preview Deployments" for every Pull Request to facilitate the review workflow \[ADR 009].
 3. **Cost Efficiency**: Predictable pricing, avoiding "bandwidth billing shocks".
 4. **Ecosystem Synergy**: Tight integration with the DNS and security layer.
 
@@ -55,7 +55,7 @@ The traditional "Boring Tech" infrastructure approach.
 
 * **Performance**: Deployed to Cloudflare's massive global edge network (275+ cities).
 * **Cost**: Cloudflare Pages offers unlimited bandwidth for static requests on the free tier.
-* **Workflow**: Automatic preview deployments for every PR allow me to verify changes in a real environment before merging, reinforcing the "CodeRabbit" \[ADR 008] review workflow.
+* **Workflow**: Automatic preview deployments for every PR allow me to verify changes in a real environment before merging, reinforcing the "CodeRabbit" \[ADR 009] review workflow.
 * **Consolidation**: Aligns with the "Minimize Platforms" principle by keeping DNS, Domain, and Hosting under one roof.
 * **Skill Synergy**: I use Cloudflare extensively at work, but not Vercel. Using Cloudflare Pages deepens my expertise with the platform I rely on professionally.
 

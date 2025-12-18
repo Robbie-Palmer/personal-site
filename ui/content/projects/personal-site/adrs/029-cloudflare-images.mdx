@@ -1,0 +1,55 @@
+---
+title: "ADR 029: Cloudflare Images"
+date: "2025-12-14"
+status: "Accepted"
+---
+
+# Context
+
+I need a way to serve optimized, responsive images for my blog without bloating the git repository.
+
+Using a local `public/` directory for images has significant drawbacks:
+
+1. **Repo Bloat**: Binary assets increase clone times and repository size indefinitely.
+2. **Performance**: Images are served "as is" without dynamic resizing for different device viewports or format conversion (e.g., to AVIF/WebP).
+3. **Manual Work**: Requires manual optimization before committing to avoid serving massive files.
+
+**Trigger**: The recent addition of images to blog post cards caused a noticeable degradation in page load performance, negatively impacting User Experience (UX) and Core Web Vitals (SEO). With plans to introduce a richer, more image-heavy UI, a scalable solution is required immediately.
+
+# Decision
+
+I will use **Cloudflare Images** to host and serve visual assets.
+
+ID Naming Convention: `[namespace]/[name]-[YYYY]-[MM]-[DD]` (CalVer) to ensure uniqueness and sortability.
+
+# Alternatives Considered
+
+### Local `public/` Directory
+
+* **Pros**: Free, simplest local development workflow.
+* **Cons**: Bloats git history. Slow delivery. No responsive sizing.
+* **Decision**: Rejected as the primary storage.
+
+### R2 + Cloudflare Worker (Manual Hosting)
+
+* **Pros**: Cheaper (Pay-As-You-Go) compared to the $5/mo Cloudflare Images subscription. Workers allow for powerful custom transformations.
+* **Cons**: While not technically difficult, setting up a serverless image pipeline is infrastructure work that distracts from the current goal of shipping content and site features.
+* **Decision**: **Rejected for now.** I will start with Cloudflare Images for velocity. If costs scale or requirements become unique, I will migrate to an R2+Worker solution, which is preferred over external SaaS providers.
+
+### Cloudinary / External SaaS
+
+* **Pros**: Feature-rich, mature ecosystem.
+* **Cons**: Most features target "no-code" or marketing teams, which is overkill for this project. Adds an entirely new platform (accounts, billing, tokens) which violates [Minimize Platforms](/projects/personal-site/index.mdx#minimize-platforms-maximize-velocity).
+* **Decision**: Rejected. A custom Worker + R2 is a superior "developer-native" alternative if Cloudflare Images isn't enough.
+
+# Consequences
+
+### Positive
+
+* **Repo Hygiene**: Git repository remains small and text-focused.
+* **Performance**: Automatic delivery of next-gen formats (AVIF/WebP) and resizing based on client hints.
+* **Integration**: Seamlessly integrated with the existing Cloudflare ecosystem.
+
+### Negative
+
+* **Cost**: Fixed cost of \~$5/month (Cloudflare Images standard plan).

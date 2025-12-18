@@ -1,0 +1,54 @@
+---
+title: "ADR 013: Dependabot"
+date: "2025-10-19"
+status: "Deprecated"
+superseded_by: "024-renovate"
+---
+
+# Context
+
+Dependencies across the entire repository require constant maintenance:
+
+1. **Security**: Vulnerabilities are discovered regularly and need to be patched quickly across all languages and tooling (npm packages, GitHub Actions, Terraform providers, etc.).
+2. **Compatibility**: Staying current with framework updates (Next.js, React) and tooling (Terraform, GitHub Actions) reduces technical debt and ensures access to new features.
+3. **Velocity**: Manual dependency updates are tedious and error-prone, slowing down development.
+4. **Breadth**: This isn't just a TypeScript concern—the repository includes multiple ecosystems (npm, Terraform, GitHub Actions) that all need maintenance.
+
+I need an automated solution to keep dependencies up-to-date across all languages and tooling without constant manual intervention.
+
+# Decision
+
+I will use **Dependabot** for automated dependency updates.
+
+Dependabot is GitHub's native dependency update tool. It automatically opens Pull Requests when new versions of dependencies are available.
+
+# Alternatives
+
+## Renovate
+
+Renovate is a more feature-rich alternative with extensive configuration options.
+
+* **Pros**: Highly customizable, supports monorepos well, can batch updates, and has more advanced scheduling.
+* **Cons**: Requires more configuration overhead. For a solo project, the additional complexity is not justified.
+
+## Manual Updates
+
+* **Pros**: Full control over when and what to update.
+* **Cons**: Extremely time-consuming and easy to neglect. Security vulnerabilities can go unpatched for months.
+
+# Consequences
+
+### Pros
+
+* **Minimize Platforms**: Dependabot is built into GitHub—no additional service to sign up for, configure, or maintain. This aligns perfectly with the principle of "Minimize Platforms, Maximize Velocity." Zero external dependencies means one less thing to manage.
+* **Battle-Tested Familiarity**: I've used Dependabot extensively throughout my career across dozens of repositories. The mental model is already internalized—no learning curve, no surprises.
+* **Multi-Ecosystem Support**: Works across all tooling in the repository: npm packages, GitHub Actions, Terraform providers. One tool handles the entire dependency surface area.
+* **Security**: Automated PRs for security vulnerabilities ensure immediate notification across all ecosystems.
+* **Boring Technology**: Dependabot is the default, widely used solution. It "just works." Choosing the obvious, stable tool means less cognitive overhead and more energy for innovation where it actually matters.
+* **PR Workflow Synergy**: Dependabot PRs integrate with the existing review workflow \[ADR 008: CodeRabbit], allowing the AI to review dependency changes for breaking changes or issues.
+
+### Cons
+
+* **Noise**: Dependabot can create many PRs, especially across multiple ecosystems (npm, Actions, Terraform). This can clutter the PR list.
+* **Breaking Changes**: Automated updates can introduce breaking changes. Each PR requires review and testing rather than blind merging (though this is mitigated by automated tests \[ADR 007]).
+* **Limited Semver Awareness**: Dependabot doesn't respect semver ranges in package.json when proposing updates, leading to unwanted major version bumps.

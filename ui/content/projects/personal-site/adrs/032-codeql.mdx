@@ -1,0 +1,51 @@
+---
+title: "ADR 032: CodeQL"
+date: "2025-12-18"
+status: "Accepted"
+---
+
+# Context
+
+I need automated security scanning (SAST) to identify vulnerabilities (e.g., injection attacks, insecure configurations) early in the development lifecycle.
+
+Requirements:
+
+1. **Integration**: Must be tightly integrated with the Pull Request workflow (annotations/checks).
+2. **Minimal Overhead**: Avoid introducing another external dashboard or login (e.g., Snyk, SonarQube) to adhere to [Minimize Platforms](/projects/personal-site/index.mdx#minimize-platforms-maximize-velocity).
+3. **Future Proofing**: Must be robust enough for a production app but simple enough for a solo dev.
+
+# Decision
+
+I will use **GitHub CodeQL** via GitHub Actions for automated code scanning.
+
+# Alternatives Considered
+
+### Trivy
+
+* **Pros**: Fast, excellent for container and IaC scanning.
+* **Cons**: Code scanning requires separate setup/maintenance in CI. Less "native" feeling in GitHub Security tab compared to CodeQL.
+* **Decision**: Rejected for code scanning (may be used later for container scanning).
+
+### Snyk / SonarQube
+
+* **Pros**: Industry-standard dashboards, comprehensive metrics, and broad scope (containers + code + IaC).
+* **Cons**: Requires an external platform/account. Pricing can scale poorly for small teams compared to open-source options.
+* **Decision**: Rejected to minimize platform sprawl.
+
+### Semgrep
+
+* **Context**: A modern, "hot" alternative popular with startups for its extreme speed and lightweight rule customization.
+* **Pros**: significantly faster than CodeQL. Very easy to write custom rules.
+* **Decision**: **Strong Future Candidate**. If CodeQL becomes too slow or config-heavy as the project scales, Semgrep is the logical high-velocity alternative. For now, CodeQL's native zero-config integration wins.
+
+# Consequences
+
+### Positive
+
+* **Native Integration**: Vulnerabilities appear directly in the `Security` tab and as annotations in Pull Requests.
+* **Zero Config**: GitHub's "Default Setup" automatically detects languages (TypeScript/React) and configures the analysis.
+* **Free**: Included free for public repositories.
+
+### Negative
+
+* **Speed**: Deep semantic analysis is slower than lightweight linters or Semgrep, potentially slowing down CI.

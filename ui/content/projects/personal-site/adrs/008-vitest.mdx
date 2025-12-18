@@ -1,5 +1,5 @@
 ---
-title: "ADR 007: Vitest"
+title: "ADR 008: Vitest"
 date: "2025-10-18"
 status: "Accepted"
 ---
@@ -21,9 +21,9 @@ I want a testing tool that brings the same **velocity** benefits as the rest of 
 
 I decided to use **[Vitest](https://vitest.dev/)**.
 
-Vitest is a Vite-native unit test framework. Although we use distinct configurations ([ADR 005: Turbopack](/projects/personal-site/adrs/005-turbopack) for dev, Vitest for test), it aligns with the modern ecosystem and offers superior performance.
+Vitest is a Vite-native unit test framework. Although we use distinct configurations ([ADR 006: Turbopack](/projects/personal-site/adrs/006-turbopack) for dev, Vitest for test), it aligns with the modern ecosystem and offers superior performance.
 
-*Note*: We **cannot** use Vite for the main application build or development server because Next.js ([ADR 002](/projects/personal-site/adrs/002-next-js)) is tightly coupled to its own compiler (Webpack/Turbopack) for features like React Server Components and the App Router. However, we *can* leverage the Vite engine exclusively for running unit tests via Vitest.
+*Note*: We **cannot** use Vite for the main application build or development server because Next.js ([ADR 003](/projects/personal-site/adrs/003-next-js)) is tightly coupled to its own compiler (Webpack/Turbopack) for features like React Server Components and the App Router. However, we *can* leverage the Vite engine exclusively for running unit tests via Vitest.
 
 # Consequences
 

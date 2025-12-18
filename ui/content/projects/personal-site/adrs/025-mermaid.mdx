@@ -1,0 +1,56 @@
+---
+title: "ADR 025: Mermaid"
+date: "2025-11-02"
+status: "Accepted"
+---
+
+# Context
+
+I need a way to create diagrams for blog posts and technical documentation (flowcharts, architecture diagrams, data flow diagrams, etc.).
+
+Traditional approaches present different tradeoffs:
+
+* **D2**: Modern text-to-diagram language with prettier output and better syntax for complex diagrams, but requires server-side rendering (Go binary) or a build step. Less mature LLM training data means AI agents struggle to generate D2 diagrams.
+* **Traditional Tools + Images** (Draw\.io, Lucidcharts, Excalidraw): Full WYSIWYG control with professional output, but diagrams become binary blobs in git (no text diffs), can't be easily updated by AI, and require external tools/platforms.
+* **PlantUML**: Text-based UML diagrams, but syntax is arcane, requires Java runtime, and has limited aesthetic customization.
+* **Graphviz/DOT**: Powerful graph layouts, but low-level syntax, no MDX integration, and requires compilation step.
+
+I want a solution that prioritizes:
+
+* **Text-Based Diagrams**: Version-controllable, reviewable in PRs, diffable in git
+* **LLM-Friendly**: AI agents should be able to generate and modify diagrams using well-known syntax
+* **Client-Side Rendering**: No build step or external services—diagrams render directly in the browser
+* **MDX Integration**: First-class support in blog posts and documentation
+* **Theme-Aware**: Diagrams should adapt to dark/light mode automatically
+* **Self-Hosted**: No external dependencies or platforms required
+
+# Decision
+
+I decided to use **[Mermaid](https://mermaid.js.org/)** with a custom React component for client-side rendering.
+
+This aligns with the **LLM-Optimized** and **Minimize Platforms, Maximize Velocity** principles. Mermaid is JavaScript-native, has extensive LLM training data, and integrates seamlessly with MDX without requiring build-time compilation.
+
+The implementation (`ui/components/mermaid.tsx`) provides:
+
+* Theme-aware rendering that syncs with `next-themes` dark/light mode
+* Custom CSS classes matching Tailwind design tokens for visual consistency
+* Hydration-safe client-side mounting (prevents SSR/CSR mismatches in Next.js)
+
+# Consequences
+
+### Pros
+
+* **LLM-Native**: Mermaid has massive training data in LLM corpuses. AI agents excel at generating and modifying Mermaid diagrams, enabling rapid iteration on visualizations.
+* **Text-Based Workflow**: Diagrams live in `.mdx` files alongside content. Git diffs show diagram changes as text, making reviews meaningful. No binary image files to manage.
+* **Zero Build Step**: Client-side rendering means diagrams appear dynamically without pre-compilation. SSG builds remain fast since rendering happens in the browser.
+* **MDX-Native Integration**: Use `<Mermaid chart={...} />` directly in blog posts. No external tooling, image exports, or upload pipelines required.
+* **Theme Consistency**: The custom component injects theme-aware color variables, ensuring diagrams match the site's dark/light mode automatically. No manual re-exporting for different themes.
+* **Self-Hosted**: No dependency on external services (Mermaid Live Editor, D2 Playground, etc.). Diagrams render entirely client-side from the deployed bundle.
+* **Wide Diagram Coverage**: Supports flowcharts, sequence diagrams, Gantt charts, class diagrams, state diagrams, and more—covering most documentation needs.
+
+### Cons
+
+* **Aesthetic Limitations**: D2 produces more polished, modern-looking diagrams with better layout algorithms. Mermaid's output is functional but less visually refined, especially for complex cloud architecture diagrams.
+* **Client-Side Bundle**: Adds \~150KB (minified) to the client bundle for the Mermaid library. However, this is acceptable for a blog-focused site where diagrams enhance content value.
+* **Syntax Constraints**: Mermaid's syntax can be verbose for complex diagrams. D2's nested bracket syntax is more intuitive for deeply hierarchical structures.
+* **No Build-Time Optimization**: Since diagrams render client-side, they can't be optimized as static SVGs at build time. However, this tradeoff enables dynamic theme switching without rebuilding.

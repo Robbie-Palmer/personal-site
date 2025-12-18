@@ -1,0 +1,49 @@
+---
+title: "ADR 030: Downgrade Cloudflare Terraform Provider"
+date: "2025-11-26"
+status: "Accepted"
+---
+
+# Context
+
+I attempted to use the latest version (v5) of the Cloudflare Terraform Provider, regarding it as "General Availability" (GA).
+However, I encountered significant friction and blockers:
+
+1. **Syntax Churn**: Major changes in resource definitions (block syntax vs assignment) and filter syntax for data sources.
+2. **Missing Features**: v5 removed attributes (like `path_includes` for Pages projects) that are critical for my configuration, with no clear replacements or broken implementations.
+3. **Instability**: The provider behaves inconsistently compared to the mature v4.
+
+**Critical Timeline**: In community discussions, Cloudflare engineers have acknowledged that despite the v5 label, the provider is undergoing a major refactor and is not expected to be fully feature-complete and stable until **\~March 2026**. They also admitted that the upgrade path is currently broken and are building a dedicated migration tool to assist users in the future.
+
+Reference: [Cloudflare Community Discussion](https://community.cloudflare.com/t/cloudflare-fundamentals-terraform-terraform-v5-13-0-now-available/860981)
+
+# Decision
+
+I will downgrade the Cloudflare Terraform Provider to **v4 (\~> 4.0)**.
+I will revert all Terraform configurations to utilize v4 syntax and resources.
+
+# Alternatives Considered
+
+### Stay on v5
+
+* **Pros**: Access to the latest features (theoretically).
+* **Cons**: Unstable API, missing critical attributes, broken upgrade path.
+* **Decision**: Rejected. Feature "completeness" does not verify readiness for production.
+
+### Wait for v5 fixes
+
+* **Pros**: Avoids multiple migration cycles.
+* **Cons**: Blocks immediate development and deployment of the site for an indeterminate amount of time (potentially years).
+* **Decision**: Rejected.
+
+# Consequences
+
+### Positive
+
+* **Stability**: The deployment pipeline works reliably.
+* **Velocity**: I can focus on building the site rather than fighting the infrastructure provider.
+
+### Negative
+
+* **Technical Debt**: I am effectively pinned to an older version of the provider.
+* **Future Migration**: I will eventually need to migrate to v5 (or v6) once it stabilizes and the official migration tools are released (targeting 2026+).
