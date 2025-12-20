@@ -20,6 +20,7 @@ const ADRFrontmatterSchema = z.object({
   date: z.iso.date(),
   status: z.enum(["Accepted", "Rejected", "Deprecated", "Proposed"]),
   superseded_by: z.string().optional(),
+  tech_stack: z.array(z.string()).optional(),
 });
 
 export type ProjectMetadata = z.infer<typeof ProjectMetadataSchema>;
@@ -60,9 +61,16 @@ export function getProject(slug: string): Project {
     );
   }
   const adrs = getProjectADRs(slug);
+  const adrTechStack = adrs
+    .filter((adr) => adr.status === "Accepted" && adr.tech_stack)
+    .flatMap((adr) => adr.tech_stack || []);
+  const mergedTechStack = Array.from(
+    new Set([...parseResult.data.tech_stack, ...adrTechStack]),
+  ).sort();
   return {
     slug,
     ...parseResult.data,
+    tech_stack: mergedTechStack,
     content,
     adrs,
   };
