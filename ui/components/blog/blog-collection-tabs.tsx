@@ -67,9 +67,7 @@ export function BlogCollectionTabs({
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
               )}
-              aria-current={
-                activeCollection === collection.id ? "page" : undefined
-              }
+              aria-pressed={activeCollection === collection.id}
             >
               {collection.title}
             </button>

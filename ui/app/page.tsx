@@ -70,7 +70,7 @@ export default function Home() {
                 <button
                   type="button"
                   className="pb-4 px-1 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-primary text-primary"
-                  aria-current="page"
+                  aria-pressed="true"
                 >
                   All ADRs
                 </button>

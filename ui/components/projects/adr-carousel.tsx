@@ -83,7 +83,7 @@ export function ADRCarousel({
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          title={tech}
+                          aria-label={`Learn more about ${tech}`}
                           onClick={(e) => e.stopPropagation()}
                           className="z-20 relative p-1.5 rounded-md hover:bg-muted/80 hover:scale-110 transition-all -m-1.5"
                         >

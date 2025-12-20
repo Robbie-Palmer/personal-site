@@ -20,7 +20,6 @@ export function extractReadableText(mdxContent: string): string {
           node.type === "mdxjsEsm" ||
           node.type === "mdxFlowExpression" ||
           node.type === "mdxTextExpression" ||
-          // Keep code blocks for reading time as they are text read by developers
           node.type === "code";
 
         if (shouldRemove && parent && typeof index === "number") {

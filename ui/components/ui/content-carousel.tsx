@@ -150,7 +150,7 @@ export function ContentCarousel<T>({
                     : "bg-muted-foreground/30 hover:bg-muted-foreground/50",
                 )}
                 aria-label={`Go to slide ${index + 1}`}
-                aria-current={isActive ? "true" : undefined}
+                aria-current={isActive ? "step" : undefined}
               />
             );
           })}
