@@ -43,72 +43,72 @@ export function ADRCarousel({
       playOnInit={playOnInit}
       startDelay={startDelay}
       renderItem={(adr) => (
-        <Link
-          href={`/projects/${adr.projectSlug}/adrs/${adr.slug}`}
-          className="group block h-full"
-        >
-          <Card className="h-full flex flex-col overflow-hidden transition-all hover:shadow-lg hover:border-primary/50 relative">
-            <div className="absolute top-4 left-4 right-20 z-10">
-              <div
-                className="text-lg font-semibold text-muted-foreground truncate"
-                title={adr.projectTitle}
-              >
-                {adr.projectTitle}
-              </div>
+        <Card className="h-full flex flex-col overflow-hidden transition-all hover:shadow-lg hover:border-primary/50 relative bg-card">
+          <div className="absolute top-4 left-4 right-20 z-10 pointer-events-none">
+            <div
+              className="text-lg font-semibold text-muted-foreground truncate"
+              title={adr.projectTitle}
+            >
+              {adr.projectTitle}
             </div>
-            <div className="absolute top-4 right-4 z-10">
-              <ADRBadge status={adr.status} />
-            </div>
-            <CardHeader className="flex-1 pt-12 mt-2">
-              <div className="flex flex-col gap-1">
-                <div className="flex items-start justify-between gap-4">
-                  <CardTitle className="line-clamp-2 group-hover:text-primary transition-colors text-lg flex-1">
+          </div>
+          <div className="absolute top-4 right-4 z-10 pointer-events-none">
+            <ADRBadge status={adr.status} />
+          </div>
+          <CardHeader className="flex-1 pt-12 mt-2">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-start justify-between gap-4">
+                <CardTitle className="line-clamp-2 group-hover:text-primary transition-colors text-lg flex-1">
+                  <Link
+                    href={`/projects/${adr.projectSlug}/adrs/${adr.slug}`}
+                    className="after:absolute after:inset-0"
+                  >
                     {adr.title}
-                  </CardTitle>
-                  <div className="flex flex-wrap gap-2 flex-shrink-0 pt-0.5">
-                    {adr.tech_stack?.slice(0, 5).map((tech) => {
-                      const url = getTechUrl(tech);
-                      const Icon = (
-                        <TechIcon
-                          name={tech}
-                          className="w-12 h-12 text-foreground transition-all"
-                        />
-                      );
+                  </Link>
+                </CardTitle>
+                <div className="flex flex-wrap gap-2 flex-shrink-0 pt-0.5 pointer-events-auto">
+                  {adr.tech_stack?.slice(0, 5).map((tech) => {
+                    const url = getTechUrl(tech);
+                    const Icon = (
+                      <TechIcon
+                        name={tech}
+                        className="w-12 h-12 text-foreground transition-all"
+                      />
+                    );
 
-                      if (url) {
-                        return (
-                          <a
-                            key={tech}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title={tech}
-                            onClick={(e) => e.stopPropagation()}
-                            className="z-10 relative p-1.5 rounded-md hover:bg-muted transition-colors -m-1.5"
-                          >
-                            {Icon}
-                          </a>
-                        );
-                      }
+                    if (url) {
                       return (
-                        <div key={tech} title={tech} className="p-1.5 -m-1.5">
+                        <a
+                          key={tech}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={tech}
+                          onClick={(e) => e.stopPropagation()}
+                          className="z-20 relative p-1.5 rounded-md hover:bg-muted/80 hover:scale-110 transition-all -m-1.5"
+                        >
                           {Icon}
-                        </div>
+                        </a>
                       );
-                    })}
-                  </div>
+                    }
+                    return (
+                      <div key={tech} title={tech} className="p-1.5 -m-1.5">
+                        {Icon}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xs text-muted-foreground">
-                <time>{formatDate(adr.date)}</time>
-                <span className="mx-2">·</span>
-                <span>{adr.readingTime}</span>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xs text-muted-foreground">
+              <time>{formatDate(adr.date)}</time>
+              <span className="mx-2">·</span>
+              <span>{adr.readingTime}</span>
+            </div>
+          </CardContent>
+        </Card>
       )}
     />
   );
