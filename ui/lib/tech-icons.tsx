@@ -88,3 +88,47 @@ export function hasTechIcon(name: string): boolean {
   const icon = SimpleIcons[iconKey];
   return !!icon && typeof icon === "object" && "path" in icon;
 }
+
+export const TECH_URLS: Record<string, string> = {
+  react: "https://react.dev",
+  "next.js": "https://nextjs.org",
+  "tailwind css": "https://tailwindcss.com",
+  pnpm: "https://pnpm.io",
+  vitest: "https://vitest.dev",
+  "shadcn/ui": "https://ui.shadcn.com",
+  typescript: "https://www.typescriptlang.org",
+  turbopack: "https://turbo.build/pack",
+  "github actions": "https://github.com/features/actions",
+  "github secrets":
+    "https://docs.github.com/en/actions/security-guides/encrypted-secrets",
+  github: "https://github.com",
+  terraform: "https://www.terraform.io",
+  "cloudflare terraform provider":
+    "https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs",
+  "cloudflare pages": "https://pages.cloudflare.com",
+  renovate: "https://docs.renovatebot.com",
+  mdx: "https://mdxjs.com",
+  shiki: "https://shiki.style",
+  "fuse.js": "https://www.fusejs.io",
+  recharts: "https://recharts.org",
+  zod: "https://zod.dev",
+  "lucide react": "https://lucide.dev",
+  mermaid: "https://mermaid.js.org",
+  "embla carousel": "https://www.embla-carousel.com",
+  coderabbit: "https://coderabbit.ai",
+  dependabot: "https://github.com/dependabot",
+  "claude code": "https://claude.ai",
+  mise: "https://mise.jdx.dev",
+  codeql: "https://codeql.github.com",
+  "cloudflare dns": "https://www.cloudflare.com/dns",
+  "cloudflare images": "https://www.cloudflare.com/products/images",
+  "terraform cloud": "https://www.hashicorp.com/products/terraform",
+  husky: "https://typicode.github.io/husky",
+  "tailwind css typography":
+    "https://github.com/tailwindlabs/tailwindcss-typography",
+  ccpm: "https://github.com/automazeio/ccpm/",
+};
+
+export function getTechUrl(name: string): string | undefined {
+  return TECH_URLS[name.toLowerCase()];
+}
