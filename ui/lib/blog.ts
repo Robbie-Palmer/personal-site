@@ -2,52 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { format, isValid, parse } from "date-fns";
 import matter from "gray-matter";
-import type { Root } from "mdast";
-import { toString as mdastToString } from "mdast-util-to-string";
-import readingTime from "reading-time";
-import { remark } from "remark";
-import remarkMdx from "remark-mdx";
-import stripMarkdown from "strip-markdown";
-import { visit } from "unist-util-visit";
+import { calculateReadingTime } from "@/lib/mdx";
 
 const contentDirectory = path.join(process.cwd(), "content/blog");
-
-/**
- * Extracts readable text from MDX content for reading time calculation.
- * Removes JSX components and code blocks to get only prose content.
- */
-function extractReadableText(mdxContent: string): string {
-  function removeJSX() {
-    return (tree: Root) => {
-      visit(tree, (node, index, parent) => {
-        const shouldRemove =
-          node.type === "mdxJsxFlowElement" ||
-          node.type === "mdxJsxTextElement" ||
-          node.type === "mdxjsEsm" ||
-          node.type === "mdxFlowExpression" ||
-          node.type === "mdxTextExpression" ||
-          node.type === "code";
-
-        if (shouldRemove && parent && typeof index === "number") {
-          parent.children.splice(index, 1);
-          return index;
-        }
-      });
-    };
-  }
-
-  try {
-    const processor = remark().use(remarkMdx).use(removeJSX).use(stripMarkdown);
-
-    const tree = processor.parse(mdxContent);
-    const transformedTree = processor.runSync(tree);
-
-    return mdastToString(transformedTree);
-  } catch (error) {
-    console.warn("Failed to parse MDX for reading time:", error);
-    return mdxContent;
-  }
-}
 
 export interface BlogPost {
   title: string;
@@ -190,9 +147,6 @@ export function getPostBySlug(slug: string): BlogPost {
     throw new Error(`Post ${slug} is missing required field: imageAlt`);
   }
 
-  const readableText = extractReadableText(content);
-  const stats = readingTime(readableText);
-
   return {
     slug,
     title: data.title,
@@ -202,7 +156,7 @@ export function getPostBySlug(slug: string): BlogPost {
     tags: data.tags,
     canonicalUrl: data.canonicalUrl,
     content,
-    readingTime: stats.text,
+    readingTime: calculateReadingTime(content),
     image: data.image,
     imageAlt: data.imageAlt,
   };

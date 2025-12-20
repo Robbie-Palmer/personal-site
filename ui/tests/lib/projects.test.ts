@@ -248,6 +248,7 @@ Decided to use monorepo.`;
         date: "2025-11-01",
         status: "Accepted",
         content: "Decided to use monorepo.",
+        readingTime: "1 min read",
       });
     });
 
