@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { ADRList } from "@/components/projects/adr-list";
 import { Markdown } from "@/components/projects/markdown";
+import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { ProjectTabs } from "@/components/projects/project-tabs";
 import { ProjectTabsSkeleton } from "@/components/projects/project-tabs-skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -60,7 +61,15 @@ export default async function ProjectPage({ params }: PageProps) {
         {/* Header */}
         <div className="flex flex-col md:flex-row gap-6 justify-between items-start">
           <div className="space-y-4">
-            <h1 className="text-4xl md:text-5xl font-bold">{project.title}</h1>
+            <div className="flex items-center gap-4">
+              <h1 className="text-4xl md:text-5xl font-bold">
+                {project.title}
+              </h1>
+              <ProjectStatusBadge
+                status={project.status}
+                className="text-sm px-3 py-1"
+              />
+            </div>
             <div className="flex flex-wrap gap-2">
               {project.tech_stack.map((tech) => (
                 <Link

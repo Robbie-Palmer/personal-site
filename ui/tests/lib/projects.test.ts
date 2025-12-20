@@ -45,6 +45,7 @@ describe("Projects functions", () => {
 title: "Test Project"
 description: "A test project"
 date: "2025-01-01"
+status: "in_progress"
 tech_stack: ["Next.js", "React"]
 repo_url: "https://github.com/test/test"
 demo_url: "https://test.com"
@@ -64,6 +65,7 @@ Content here.`;
         description: "A test project",
         date: "2025-01-01",
         updated: undefined,
+        status: "in_progress",
         tech_stack: ["Next.js", "React"],
         repo_url: "https://github.com/test/test",
         demo_url: "https://test.com",
@@ -76,6 +78,7 @@ Content here.`;
       const mockContent = `---
 title: "Missing Date"
 description: "Oops"
+status: "idea"
 tech_stack: ["React"]
 ---`;
       vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
@@ -88,6 +91,7 @@ tech_stack: ["React"]
 title: "Empty Tech Stack"
 description: "Oops"
 date: "2025-01-01"
+status: "live"
 tech_stack: []
 ---`;
       vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
@@ -100,6 +104,7 @@ tech_stack: []
 title: "Invalid Date"
 description: "Oops"
 date: "not-a-date"
+status: "live"
 tech_stack: ["React"]
 ---`;
       vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
@@ -131,6 +136,7 @@ tech_stack: ["React"]
 title: "Test Project"
 description: "A test project"
 date: "2025-01-01"
+status: "in_progress"
 tech_stack: ["Next.js", "React"]
 ---`;
         }
@@ -200,18 +206,21 @@ status: "Accepted"
 title: "Old"
 description: "Old"
 date: "2024-01-01"
+status: "archived"
 tech_stack: ["React"]
 ---`,
         new: `---
 title: "New"
 description: "New"
 date: "2025-01-01"
+status: "in_progress"
 tech_stack: ["React"]
 ---`,
         middle: `---
 title: "Middle"
 description: "Middle"
 date: "2024-06-01"
+status: "live"
 tech_stack: ["React"]
 ---`,
       };
