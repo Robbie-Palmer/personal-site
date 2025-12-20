@@ -21,7 +21,9 @@ I want a testing tool that brings the same **velocity** benefits as the rest of 
 
 I decided to use **[Vitest](https://vitest.dev/)**.
 
-Vitest is a Vite-native unit test framework. Although we use distinct configurations ([ADR 006: Turbopack](/projects/personal-site/adrs/006-turbopack) for dev, Vitest for test), it aligns with the modern ecosystem and offers superior performance.
+Vitest is a Vite-native unit test framework. It might seem intuitive to align the test runner with the bundler (e.g., Jest with Webpack), but modern tooling increasingly decouples these concerns to maximize velocity.
+
+Even within the Vite ecosystem, development uses `esbuild` for unbundled serving while production uses `rollup` for bundling. Similarly here, we use **Turbopack** for the application dev server to handle Next.js specifics, and **Vitest** for the test runner to leverage its instant feedback loop. They are different tools optimized for different "hot" environments (dev server vs. test watch mode), but both avoid the cost of full bundling during development.
 
 *Note*: We **cannot** use Vite for the main application build or development server because Next.js ([ADR 003](/projects/personal-site/adrs/003-next-js)) is tightly coupled to its own compiler (Webpack/Turbopack) for features like React Server Components and the App Router. However, we *can* leverage the Vite engine exclusively for running unit tests via Vitest.
 
