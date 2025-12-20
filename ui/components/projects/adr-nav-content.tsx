@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { getADRStatusBadgeClasses } from "@/lib/adr-styles";
 import type { Project } from "@/lib/projects";
 import { cn } from "@/lib/styles";
+import { ADRBadge } from "./adr-badge";
 
 interface ADRNavContentProps {
   project: Project;
@@ -54,17 +53,10 @@ export function ADRNavContent({
                   <span className="font-mono text-xs opacity-70">
                     {adr.slug}
                   </span>
-                  <Badge
-                    variant={
-                      adr.status === "Rejected" ? "destructive" : "default"
-                    }
-                    className={cn(
-                      "text-[10px] h-5 px-1.5",
-                      getADRStatusBadgeClasses(adr.status),
-                    )}
-                  >
-                    {adr.status}
-                  </Badge>
+                  <ADRBadge
+                    status={adr.status}
+                    className="text-[10px] h-5 px-1.5"
+                  />
                 </div>
                 <div
                   className={cn(

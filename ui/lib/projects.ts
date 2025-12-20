@@ -2,6 +2,8 @@ import fs from "fs";
 import matter from "gray-matter";
 import path from "path";
 import { z } from "zod";
+import { calculateReadingTime } from "@/lib/mdx";
+import { validateSlug } from "@/lib/slugs";
 
 const projectsDirectory = path.join(process.cwd(), "content/projects");
 
@@ -46,6 +48,12 @@ export type ADRFrontmatter = z.infer<typeof ADRFrontmatterSchema>;
 export interface ADR extends ADRFrontmatter {
   slug: string;
   content: string;
+  readingTime: string;
+}
+
+export interface ProjectADR extends ADR {
+  projectSlug: string;
+  projectTitle: string;
 }
 
 export function getAllProjectSlugs() {
@@ -53,8 +61,41 @@ export function getAllProjectSlugs() {
     return [];
   }
   return fs.readdirSync(projectsDirectory).filter((file) => {
-    return fs.statSync(path.join(projectsDirectory, file)).isDirectory();
+    if (fs.statSync(path.join(projectsDirectory, file)).isDirectory()) {
+      validateSlug(file);
+      return true;
+    }
+    return false;
   });
+}
+
+function getProjectADRs(projectSlug: string): ADR[] {
+  const adrDir = path.join(projectsDirectory, projectSlug, "adrs");
+  if (!fs.existsSync(adrDir)) return [];
+  const files = fs.readdirSync(adrDir).filter((file) => file.endsWith(".mdx"));
+  for (const file of files) {
+    validateSlug(file);
+  }
+  return files
+    .map((file) => {
+      const filePath = path.join(adrDir, file);
+      const fileContent = fs.readFileSync(filePath, "utf8");
+      const { data, content } = matter(fileContent);
+      const slug = file.replace(/\.mdx$/, "");
+      const parseResult = ADRFrontmatterSchema.safeParse(data);
+      if (!parseResult.success) {
+        throw new Error(
+          `ADR ${projectSlug}/${slug} has invalid frontmatter: ${parseResult.error.message}`,
+        );
+      }
+      return {
+        slug,
+        ...parseResult.data,
+        content,
+        readingTime: calculateReadingTime(content),
+      };
+    })
+    .sort((a, b) => (a.slug > b.slug ? 1 : -1));
 }
 
 export function getProject(slug: string): Project {
@@ -97,29 +138,21 @@ export function getAllProjects(): Project[] {
   });
 }
 
-function getProjectADRs(projectSlug: string): ADR[] {
-  const adrDir = path.join(projectsDirectory, projectSlug, "adrs");
-  if (!fs.existsSync(adrDir)) return [];
-  const files = fs.readdirSync(adrDir).filter((file) => file.endsWith(".mdx"));
-  return files
-    .map((file) => {
-      const filePath = path.join(adrDir, file);
-      const fileContent = fs.readFileSync(filePath, "utf8");
-      const { data, content } = matter(fileContent);
-      const slug = file.replace(/\.mdx$/, "");
-      const parseResult = ADRFrontmatterSchema.safeParse(data);
-      if (!parseResult.success) {
-        throw new Error(
-          `ADR ${projectSlug}/${slug} has invalid frontmatter: ${parseResult.error.message}`,
-        );
-      }
-      return {
-        slug,
-        ...parseResult.data,
-        content,
-      };
-    })
-    .sort((a, b) => (a.slug > b.slug ? 1 : -1));
+export function getAllADRs(): ProjectADR[] {
+  const projects = getAllProjects();
+  const allADRs = projects.flatMap((project) =>
+    project.adrs.map((adr) => ({
+      ...adr,
+      projectSlug: project.slug,
+      projectTitle: project.title,
+    })),
+  );
+
+  return allADRs.sort((a, b) => {
+    const dateA = new Date(a.date).getTime();
+    const dateB = new Date(b.date).getTime();
+    return dateB - dateA;
+  });
 }
 
 export function getProjectADR(projectSlug: string, adrSlug: string): ADR {
@@ -140,5 +173,6 @@ export function getProjectADR(projectSlug: string, adrSlug: string): ADR {
     slug: adrSlug,
     ...parseResult.data,
     content,
+    readingTime: calculateReadingTime(content),
   };
 }

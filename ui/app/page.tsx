@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { BlogCollectionTabs } from "@/components/blog/blog-collection-tabs";
+import { ADRCarousel } from "@/components/projects/adr-carousel";
 import { Button } from "@/components/ui/button";
 import {
   getCollectionPosts,
   getCollectionsWithIds,
 } from "@/lib/blog-collections";
+import { getAllADRs } from "@/lib/projects";
 import { siteConfig } from "@/lib/site-config";
 
 export default function Home() {
@@ -12,6 +14,7 @@ export default function Home() {
   const collectionPosts = Object.fromEntries(
     collections.map((c) => [c.id, getCollectionPosts(c.id)]),
   );
+  const adrs = getAllADRs();
 
   return (
     <div className="container mx-auto px-4">
@@ -47,12 +50,36 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-16">
+      <section className="py-16 pb-0">
         <BlogCollectionTabs
           collections={collections}
           collectionPosts={collectionPosts}
           defaultCollectionId="all"
         />
+      </section>
+
+      <section className="py-16 pt-8">
+        <div className="container mx-auto px-4">
+          <div className="space-y-8">
+            <div>
+              <h2 className="text-3xl font-bold mb-6">Explore Projects</h2>
+            </div>
+
+            <div className="hidden md:block border-b border-border">
+              <nav className="flex gap-8" aria-label="Project collections">
+                <button
+                  type="button"
+                  className="pb-4 px-1 text-sm font-medium whitespace-nowrap transition-colors border-b-2 border-primary text-primary"
+                  aria-pressed="true"
+                >
+                  All ADRs
+                </button>
+              </nav>
+            </div>
+
+            <ADRCarousel adrs={adrs} />
+          </div>
+        </div>
       </section>
     </div>
   );

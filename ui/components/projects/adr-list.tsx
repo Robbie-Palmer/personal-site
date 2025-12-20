@@ -6,9 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import type { ADR } from "@/lib/projects";
-import { cn } from "@/lib/styles";
 import { getTechUrl, hasTechIcon, TechIcon } from "@/lib/tech-icons";
 import { useSortParam } from "@/lib/use-sort-param";
+import { ADRBadge } from "./adr-badge";
 
 interface ADRListProps {
   projectSlug: string;
@@ -119,21 +119,7 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
                 </>
               )}
 
-              <Badge
-                variant={adr.status === "Rejected" ? "destructive" : "default"}
-                aria-label={`Status: ${adr.status}`}
-                className={cn(
-                  "shrink-0 w-fit",
-                  adr.status === "Accepted" &&
-                    "bg-green-600 text-white hover:bg-green-700",
-                  adr.status === "Proposed" &&
-                    "bg-blue-600 text-white hover:bg-blue-700",
-                  adr.status === "Deprecated" &&
-                    "bg-amber-600 text-white hover:bg-amber-700",
-                )}
-              >
-                {adr.status}
-              </Badge>
+              <ADRBadge status={adr.status} className="shrink-0 w-fit" />
             </div>
           </CardHeader>
         </Card>

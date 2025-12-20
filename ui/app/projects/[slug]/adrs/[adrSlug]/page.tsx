@@ -1,11 +1,11 @@
 import { Calendar, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ADRBadge } from "@/components/projects/adr-badge";
 import { ADRPagination } from "@/components/projects/adr-pagination";
 import { Markdown } from "@/components/projects/markdown";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { getADRStatusBadgeClasses } from "@/lib/adr-styles";
 import {
   type ADR,
   getAllProjects,
@@ -13,7 +13,6 @@ import {
   getProjectADR,
   type Project,
 } from "@/lib/projects";
-import { cn } from "@/lib/styles";
 import { getTechUrl, hasTechIcon, TechIcon } from "@/lib/tech-icons";
 
 // Responsive behavior for the pagination container:
@@ -148,20 +147,7 @@ export default async function ADRPage({ params }: PageProps) {
               </div>
             )}
 
-            <Badge
-              variant={
-                adr.status === "Accepted" ||
-                adr.status === "Deprecated" ||
-                adr.status === "Proposed"
-                  ? "default"
-                  : adr.status === "Rejected"
-                    ? "destructive"
-                    : "secondary"
-              }
-              className={cn("px-3 py-1", getADRStatusBadgeClasses(adr.status))}
-            >
-              {adr.status}
-            </Badge>
+            <ADRBadge status={adr.status} className="px-3 py-1" />
 
             <div className="flex items-center gap-1.5 text-muted-foreground text-sm">
               <Calendar className="w-4 h-4" />
