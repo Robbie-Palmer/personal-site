@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import type { Project } from "@/lib/projects";
 import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
+import { ProjectStatusBadge } from "./project-status-badge";
 
 interface ProjectCardProps {
   project: Project;
@@ -28,14 +29,17 @@ export function ProjectCard({ project, currentTech }: ProjectCardProps) {
 
       <CardHeader>
         <div className="flex justify-between items-start gap-4 pointer-events-none">
-          <CardTitle className="text-xl group-hover:text-primary transition-colors pointer-events-auto">
-            <Link
-              href={`/projects/${project.slug}`}
-              className="hover:underline underline-offset-4"
-            >
-              {project.title}
-            </Link>
-          </CardTitle>
+          <div className="flex flex-col gap-2 pointer-events-auto">
+            <ProjectStatusBadge status={project.status} />
+            <CardTitle className="text-xl group-hover:text-primary transition-colors">
+              <Link
+                href={`/projects/${project.slug}`}
+                className="hover:underline underline-offset-4"
+              >
+                {project.title}
+              </Link>
+            </CardTitle>
+          </div>
           <div className="flex items-center gap-2 pointer-events-auto z-10 text-muted-foreground">
             {project.repo_url && (
               <a

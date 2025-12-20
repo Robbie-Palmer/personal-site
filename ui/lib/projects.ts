@@ -5,6 +5,15 @@ import { z } from "zod";
 
 const projectsDirectory = path.join(process.cwd(), "content/projects");
 
+export const PROJECT_STATUSES = [
+  "idea",
+  "in_progress",
+  "live",
+  "archived",
+] as const;
+
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
 const ProjectMetadataSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
@@ -13,6 +22,7 @@ const ProjectMetadataSchema = z.object({
   demo_url: z.url().optional(),
   date: z.iso.date(),
   updated: z.iso.date().optional(),
+  status: z.enum(PROJECT_STATUSES),
 });
 
 const ADRFrontmatterSchema = z.object({
