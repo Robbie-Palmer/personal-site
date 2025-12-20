@@ -1,4 +1,4 @@
-import { Calendar } from "lucide-react";
+import { Calendar, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Markdown } from "@/components/projects/markdown";
@@ -12,6 +12,7 @@ import {
   type Project,
 } from "@/lib/projects";
 import { cn } from "@/lib/styles";
+import { getTechUrl, hasTechIcon, TechIcon } from "@/lib/tech-icons";
 
 interface PageProps {
   params: Promise<{ slug: string; adrSlug: string }>;
@@ -79,6 +80,50 @@ export default async function ADRPage({ params }: PageProps) {
           <h1 className="text-3xl md:text-4xl font-bold">{adr.title}</h1>
 
           <div className="flex flex-wrap items-center gap-4">
+            {adr.tech_stack && adr.tech_stack.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {adr.tech_stack.map((tech) => {
+                  const url = getTechUrl(tech);
+                  if (url) {
+                    return (
+                      <a
+                        key={tech}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer"
+                        aria-label={`Visit ${tech} website`}
+                      >
+                        <Badge
+                          variant="secondary"
+                          interactive
+                          className="flex items-center gap-1.5"
+                        >
+                          {hasTechIcon(tech) && (
+                            <TechIcon name={tech} className="w-3 h-3" />
+                          )}
+                          <span>{tech}</span>
+                          <ExternalLink className="w-3 h-3 ml-0.5" />
+                        </Badge>
+                      </a>
+                    );
+                  }
+                  return (
+                    <Badge
+                      key={tech}
+                      variant="secondary"
+                      className="flex items-center gap-1.5"
+                    >
+                      {hasTechIcon(tech) && (
+                        <TechIcon name={tech} className="w-3 h-3" />
+                      )}
+                      <span>{tech}</span>
+                    </Badge>
+                  );
+                })}
+              </div>
+            )}
+
             <Badge
               variant={
                 adr.status === "Accepted" ||
