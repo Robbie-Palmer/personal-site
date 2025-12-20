@@ -3,6 +3,7 @@ import matter from "gray-matter";
 import path from "path";
 import { z } from "zod";
 import { calculateReadingTime } from "@/lib/mdx";
+import { validateSlug } from "@/lib/slugs";
 
 const projectsDirectory = path.join(process.cwd(), "content/projects");
 
@@ -50,7 +51,11 @@ export function getAllProjectSlugs() {
     return [];
   }
   return fs.readdirSync(projectsDirectory).filter((file) => {
-    return fs.statSync(path.join(projectsDirectory, file)).isDirectory();
+    if (fs.statSync(path.join(projectsDirectory, file)).isDirectory()) {
+      validateSlug(file);
+      return true;
+    }
+    return false;
   });
 }
 
@@ -58,6 +63,9 @@ function getProjectADRs(projectSlug: string): ADR[] {
   const adrDir = path.join(projectsDirectory, projectSlug, "adrs");
   if (!fs.existsSync(adrDir)) return [];
   const files = fs.readdirSync(adrDir).filter((file) => file.endsWith(".mdx"));
+  for (const file of files) {
+    validateSlug(file);
+  }
   return files
     .map((file) => {
       const filePath = path.join(adrDir, file);

@@ -3,6 +3,7 @@ import path from "node:path";
 import { format, isValid, parse } from "date-fns";
 import matter from "gray-matter";
 import { calculateReadingTime } from "@/lib/mdx";
+import { validateSlug } from "@/lib/slugs";
 
 const contentDirectory = path.join(process.cwd(), "content/blog");
 
@@ -27,7 +28,10 @@ export function getAllPostSlugs(): string[] {
   const files = fs.readdirSync(contentDirectory);
   return files
     .filter((file) => file.endsWith(".mdx") && !file.startsWith("."))
-    .map((file) => file.replace(/\.mdx$/, ""));
+    .map((file) => {
+      validateSlug(file);
+      return file.replace(/\.mdx$/, "");
+    });
 }
 
 export function getPostBySlug(slug: string): BlogPost {
