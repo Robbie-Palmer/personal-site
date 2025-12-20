@@ -106,6 +106,86 @@ tech_stack: ["React"]
 
       expect(() => getProject("bad-project")).toThrow(/invalid frontmatter/);
     });
+    it("should aggregate tech stack from Accepted ADRs", () => {
+      const projectSlug = "test-project";
+
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      vi.mocked(fs.readdirSync).mockImplementation((path) => {
+        if (path.toString().endsWith(pathMock.join(projectSlug, "adrs"))) {
+          return [
+            "001-accepted.mdx",
+            "002-rejected.mdx",
+            "003-proposed.mdx",
+            "004-deprecated.mdx",
+            "005-accepted-no-stack.mdx",
+          ] as any;
+        }
+        return [] as any;
+      });
+
+      vi.mocked(fs.readFileSync).mockImplementation((path) => {
+        const pathStr = path.toString();
+        if (pathStr.endsWith(`${projectSlug}/index.mdx`)) {
+          return `---
+title: "Test Project"
+description: "A test project"
+date: "2025-01-01"
+tech_stack: ["Next.js", "React"]
+---`;
+        }
+        if (pathStr.endsWith("001-accepted.mdx")) {
+          return `---
+title: "Accepted ADR"
+date: "2025-01-01"
+status: "Accepted"
+tech_stack: ["TypeScript", "Next.js"]
+---`;
+        }
+        if (pathStr.endsWith("002-rejected.mdx")) {
+          return `---
+title: "Rejected ADR"
+date: "2025-01-01"
+status: "Rejected"
+tech_stack: ["Rust"]
+---`;
+        }
+        if (pathStr.endsWith("003-proposed.mdx")) {
+          return `---
+title: "Proposed ADR"
+date: "2025-01-01"
+status: "Proposed"
+tech_stack: ["Go"]
+---`;
+        }
+        if (pathStr.endsWith("004-deprecated.mdx")) {
+          return `---
+title: "Deprecated ADR"
+date: "2025-01-01"
+status: "Deprecated"
+tech_stack: ["jQuery"]
+---`;
+        }
+        if (pathStr.endsWith("005-accepted-no-stack.mdx")) {
+          return `---
+title: "Accepted No Stack"
+date: "2025-01-01"
+status: "Accepted"
+---`;
+        }
+        return "";
+      });
+
+      const project = getProject(projectSlug);
+
+      // Should include:
+      // - Next.js (from project & ADR 001 - deduped)
+      // - React (from project)
+      // - TypeScript (from ADR 001)
+      // Should NOT include:
+      // - Rust, Go, jQuery (from non-accepted ADRs)
+      expect(project.tech_stack).toEqual(["Next.js", "React", "TypeScript"]);
+    });
   });
 
   describe("getAllProjects (Sorting)", () => {
