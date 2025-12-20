@@ -8,5 +8,6 @@ export function getADRStatusBadgeClasses(status: ADRStatus) {
     status === "Accepted" && "bg-green-600 text-white",
     status === "Proposed" && "bg-blue-600 text-white",
     status === "Deprecated" && "bg-amber-600 text-white",
+    status === "Rejected" && "bg-red-600 text-white",
   );
 }
