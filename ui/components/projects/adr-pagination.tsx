@@ -36,8 +36,7 @@ export function ADRPagination({
           variant="outline"
           size="sm"
           className={cn(
-            "h-auto py-2 px-3 flex items-center gap-2 min-w-0 flex-1 max-w-none md:max-w-[200px] lg:max-w-none xl:max-w-[200px]",
-            !compact ? "text-left" : "text-left justify-start",
+            "h-auto py-2 px-3 flex items-center gap-2 min-w-0 flex-1 max-w-none md:max-w-[200px] lg:max-w-none xl:max-w-[200px] text-left",
           )}
           asChild
         >
@@ -70,8 +69,7 @@ export function ADRPagination({
           variant="outline"
           size="sm"
           className={cn(
-            "h-auto py-2 px-3 flex items-center gap-2 min-w-0 flex-1 max-w-none md:max-w-[200px] lg:max-w-none xl:max-w-[200px]",
-            !compact ? "text-right ml-auto" : "text-right justify-end ml-auto",
+            "h-auto py-2 px-3 flex items-center gap-2 min-w-0 flex-1 max-w-none md:max-w-[200px] lg:max-w-none xl:max-w-[200px] text-right ml-auto",
           )}
           asChild
         >

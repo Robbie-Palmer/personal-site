@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { ADRMobileNav } from "@/components/projects/adr-mobile-nav";
 import { ADRStickySidebar } from "@/components/projects/adr-sticky-sidebar";
-import { getProject } from "@/lib/projects";
+import { getProject, type Project } from "@/lib/projects";
 
 interface ADRLayoutProps {
   children: React.ReactNode;
@@ -10,7 +10,7 @@ interface ADRLayoutProps {
 
 export default async function ADRLayout({ children, params }: ADRLayoutProps) {
   const { slug } = await params;
-  let project: import("@/lib/projects").Project;
+  let project: Project;
   try {
     project = getProject(slug);
   } catch (_e) {
