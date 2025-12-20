@@ -74,14 +74,14 @@ export function ScrollNavbar() {
           <span className="md:hidden">RP</span>
           <span className="hidden md:inline">{siteConfig.name}</span>
         </Link>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" asChild>
+        <div className="contents md:flex md:items-center md:gap-2">
+          <Button variant="ghost" className="px-2 md:px-4" asChild>
             <Link href="/blog">Blog</Link>
           </Button>
-          <Button variant="ghost" asChild>
+          <Button variant="ghost" className="px-2 md:px-4" asChild>
             <Link href="/projects">Projects</Link>
           </Button>
-          <Button variant="ghost" asChild>
+          <Button variant="ghost" className="px-2 md:px-4" asChild>
             <Link href="/experience">Experience</Link>
           </Button>
           <ThemeToggle />
