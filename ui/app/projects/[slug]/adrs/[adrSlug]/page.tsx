@@ -1,9 +1,11 @@
 import { Calendar, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ADRPagination } from "@/components/projects/adr-pagination";
 import { Markdown } from "@/components/projects/markdown";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { getADRStatusBadgeClasses } from "@/lib/adr-styles";
 import {
   type ADR,
   getAllProjects,
@@ -13,6 +15,14 @@ import {
 } from "@/lib/projects";
 import { cn } from "@/lib/styles";
 import { getTechUrl, hasTechIcon, TechIcon } from "@/lib/tech-icons";
+
+// Responsive behavior for the pagination container:
+// Goal: On desktop, keep buttons on the same row as metadata, shifted right.
+// If forced to a new row (e.g. by nav bar layout shifts), fill the row (flex-grow) rather than leaving whitespace.
+// - Default (Mobile) & lg (Desktop): Full width, flex-grow. (Fills row when layout is constrained/buttons wrap).
+// - md (Tablet) & xl (Wide): Auto width, ml-auto. (Sits inline with metadata).
+const PAGINATION_CONTAINER_CLASSES =
+  "w-full flex-grow min-w-[200px] md:w-auto md:flex-grow-0 md:ml-auto lg:w-full lg:flex-grow lg:ml-0 xl:w-auto xl:flex-grow-0 xl:ml-auto";
 
 interface PageProps {
   params: Promise<{ slug: string; adrSlug: string }>;
@@ -61,12 +71,26 @@ export default async function ADRPage({ params }: PageProps) {
     (a) => a.superseded_by === adr.slug,
   );
 
+  const currentIndex = project.adrs.findIndex((a) => a.slug === adr.slug);
+  const prevAdr = currentIndex > 0 ? project.adrs[currentIndex - 1] : undefined;
+  const nextAdr =
+    currentIndex < project.adrs.length - 1
+      ? project.adrs[currentIndex + 1]
+      : undefined;
+
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="max-w-4xl">
       <div className="space-y-6">
         {/* Header */}
         <div className="space-y-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+            <Link
+              href="/projects"
+              className="hover:underline underline-offset-4"
+            >
+              Projects
+            </Link>
+            <span>/</span>
             <Link
               href={`/projects/${slug}?tab=adrs`}
               className="hover:underline underline-offset-4"
@@ -134,12 +158,7 @@ export default async function ADRPage({ params }: PageProps) {
                     ? "destructive"
                     : "secondary"
               }
-              className={cn(
-                "px-3 py-1",
-                adr.status === "Accepted" && "bg-green-600",
-                adr.status === "Proposed" && "bg-blue-600",
-                adr.status === "Deprecated" && "bg-amber-600",
-              )}
+              className={cn("px-3 py-1", getADRStatusBadgeClasses(adr.status))}
             >
               {adr.status}
             </Badge>
@@ -148,6 +167,14 @@ export default async function ADRPage({ params }: PageProps) {
               <Calendar className="w-4 h-4" />
               {adr.date}
             </div>
+
+            <ADRPagination
+              projectSlug={slug}
+              prevAdr={prevAdr}
+              nextAdr={nextAdr}
+              compact
+              className={PAGINATION_CONTAINER_CLASSES}
+            />
           </div>
 
           {adr.status === "Deprecated" && adr.superseded_by && (

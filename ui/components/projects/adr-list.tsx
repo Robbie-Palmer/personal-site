@@ -125,10 +125,11 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
                 className={cn(
                   "shrink-0 w-fit",
                   adr.status === "Accepted" &&
-                    "bg-green-600 hover:bg-green-700",
-                  adr.status === "Proposed" && "bg-blue-600 hover:bg-blue-700",
+                    "bg-green-600 text-white hover:bg-green-700",
+                  adr.status === "Proposed" &&
+                    "bg-blue-600 text-white hover:bg-blue-700",
                   adr.status === "Deprecated" &&
-                    "bg-amber-600 hover:bg-amber-700",
+                    "bg-amber-600 text-white hover:bg-amber-700",
                 )}
               >
                 {adr.status}
