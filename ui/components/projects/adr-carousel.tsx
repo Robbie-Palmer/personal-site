@@ -60,7 +60,7 @@ export function ADRCarousel({
               <div className="flex items-start justify-between gap-4">
                 <CardTitle className="line-clamp-2 group-hover:text-primary transition-colors text-lg flex-1">
                   <Link
-                    href={`/projects/${adr.projectSlug}/adrs/${adr.slug}`}
+                    href={`/projects/${encodeURIComponent(adr.projectSlug)}/adrs/${encodeURIComponent(adr.slug)}`}
                     className="after:absolute after:inset-0"
                   >
                     {adr.title}
