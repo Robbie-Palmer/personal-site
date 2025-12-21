@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/tooltip";
 import type { Experience } from "@/lib/experience";
 import { formatDateRange } from "@/lib/experience";
+import { smoothScrollTo } from "@/lib/scroll";
 import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
 
 interface ExperienceCardProps {
@@ -37,6 +38,11 @@ export function ExperienceCard({ experience, id }: ExperienceCardProps) {
       window.location.hash === `#${id}`
     ) {
       setIsExpanded(true);
+
+      // Small timeout to allow expansion to render before scrolling
+      setTimeout(() => {
+        smoothScrollTo(`exp-${id}`, { offset: 150, duration: 800 });
+      }, 100);
     }
   }, [id]);
 
@@ -53,7 +59,7 @@ export function ExperienceCard({ experience, id }: ExperienceCardProps) {
         </div>
 
         <Card
-          id={id}
+          id={id ? `exp-${id}` : undefined}
           className="transition-all hover:shadow-lg hover:border-primary/50 md:ml-14 scroll-mt-24"
         >
           <CardHeader
