@@ -23,7 +23,10 @@ function parseDateString(dateStr: string): Date {
   return new Date(Date.UTC(year, month - 1, 1));
 }
 
-export function formatDateRange(startDate: string, endDate?: string): string {
+export function formatExperienceDateRange(
+  startDate: string,
+  endDate?: string,
+): string {
   const start = parseDateString(startDate);
   const end = endDate ? parseDateString(endDate) : new Date();
   const startFormatted = start.toLocaleDateString("en-US", {
@@ -38,8 +41,25 @@ export function formatDateRange(startDate: string, endDate?: string): string {
         timeZone: "UTC",
       })
     : "Present";
-  const duration = formatDuration(start, end);
-  return `${startFormatted} - ${endFormatted} (${duration})`;
+  return `${startFormatted} - ${endFormatted}`;
+}
+
+export function getExperienceDuration(
+  startDate: string,
+  endDate?: string,
+): string {
+  const start = parseDateString(startDate);
+  const end = endDate ? parseDateString(endDate) : new Date();
+  return formatDuration(start, end);
+}
+
+/**
+ * @deprecated Use formatExperienceDateRange and getExperienceDuration separately
+ */
+export function formatDateRange(startDate: string, endDate?: string): string {
+  const range = formatExperienceDateRange(startDate, endDate);
+  const duration = getExperienceDuration(startDate, endDate);
+  return `${range} (${duration})`;
 }
 
 function formatDuration(start: Date, end: Date): string {

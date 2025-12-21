@@ -4,7 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import type { Experience } from "@/lib/experience";
-import { formatDateRange } from "@/lib/experience";
+import {
+  formatExperienceDateRange,
+  getExperienceDuration,
+} from "@/lib/experience";
 
 interface HomeExperienceCardProps {
   experience: Experience;
@@ -35,17 +38,18 @@ export function HomeExperienceCard({ experience }: HomeExperienceCardProps) {
 
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-medium mt-3 leading-relaxed">
               {(() => {
-                const fullDate = formatDateRange(
+                const dateRange = formatExperienceDateRange(
                   experience.startDate,
                   experience.endDate,
                 );
-                const [dateRange, duration] = fullDate.split("(");
+                const duration = getExperienceDuration(
+                  experience.startDate,
+                  experience.endDate,
+                );
                 return (
                   <>
-                    <div className="mb-0.5">{dateRange?.trim()}</div>
-                    {duration && (
-                      <div className="opacity-70">({duration.trim()}</div>
-                    )}
+                    <div className="mb-0.5">{dateRange}</div>
+                    <div className="opacity-70">({duration})</div>
                   </>
                 );
               })()}
