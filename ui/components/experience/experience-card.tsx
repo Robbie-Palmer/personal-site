@@ -32,18 +32,23 @@ export function ExperienceCard({ experience, id }: ExperienceCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
-    if (
-      id &&
-      typeof window !== "undefined" &&
-      window.location.hash === `#${id}`
-    ) {
-      setIsExpanded(true);
+    if (!id || typeof window === "undefined") return;
 
+    const checkAndActivate = () => {
+      if (window.location.hash !== `#${id}`) return;
+
+      setIsExpanded(true);
       // Small timeout to allow expansion to render before scrolling
       setTimeout(() => {
         smoothScrollTo(`exp-${id}`, { offset: 150, duration: 800 });
       }, 100);
-    }
+    };
+
+    // Check on mount
+    checkAndActivate();
+    // Check on hash change
+    window.addEventListener("hashchange", checkAndActivate);
+    return () => window.removeEventListener("hashchange", checkAndActivate);
   }, [id]);
 
   const handleToggle = () => {
