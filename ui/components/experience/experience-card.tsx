@@ -2,7 +2,7 @@
 
 import { Calendar, ChevronDown, MapPin } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,14 +20,52 @@ import {
 } from "@/components/ui/tooltip";
 import type { Experience } from "@/lib/experience";
 import { formatDateRange } from "@/lib/experience";
+import { smoothScrollTo } from "@/lib/scroll";
 import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
 
 interface ExperienceCardProps {
   experience: Experience;
+  id?: string;
 }
 
-export function ExperienceCard({ experience }: ExperienceCardProps) {
+export function ExperienceCard({ experience, id }: ExperienceCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!id || typeof window === "undefined") return;
+
+    let timeoutId: ReturnType<typeof setTimeout>;
+    let scrollCancel: (() => void) | undefined;
+
+    const checkAndActivate = () => {
+      if (window.location.hash !== `#${id}`) return;
+
+      setIsExpanded(true);
+
+      // Clear any existing timeout to avoid race conditions
+      if (timeoutId) clearTimeout(timeoutId);
+      // Cancel any existing scroll
+      if (scrollCancel) scrollCancel();
+      // Small timeout to allow expansion to render before scrolling
+      timeoutId = setTimeout(() => {
+        const { cancel } = smoothScrollTo(`exp-${id}`, {
+          offset: 150,
+          duration: 800,
+        });
+        scrollCancel = cancel;
+      }, 100);
+    };
+
+    // Check on mount
+    checkAndActivate();
+    // Check on hash change
+    window.addEventListener("hashchange", checkAndActivate);
+    return () => {
+      window.removeEventListener("hashchange", checkAndActivate);
+      if (timeoutId) clearTimeout(timeoutId);
+      if (scrollCancel) scrollCancel();
+    };
+  }, [id]);
 
   const handleToggle = () => {
     setIsExpanded(!isExpanded);
@@ -41,7 +79,10 @@ export function ExperienceCard({ experience }: ExperienceCardProps) {
           <div className="w-2 h-2 rounded-full bg-primary" />
         </div>
 
-        <Card className="transition-all hover:shadow-lg hover:border-primary/50 md:ml-14">
+        <Card
+          id={id ? `exp-${id}` : undefined}
+          className="transition-all hover:shadow-lg hover:border-primary/50 md:ml-14 scroll-mt-24"
+        >
           <CardHeader
             className="space-y-3 cursor-pointer"
             onClick={handleToggle}

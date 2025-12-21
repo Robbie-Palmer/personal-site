@@ -5,6 +5,7 @@ import type { Experience } from "@/lib/experience";
 import {
   formatExperienceDateRange,
   getExperienceDuration,
+  getExperienceSlug,
 } from "@/lib/experience";
 
 interface HomeExperienceCardProps {
@@ -13,7 +14,10 @@ interface HomeExperienceCardProps {
 
 export function HomeExperienceCard({ experience }: HomeExperienceCardProps) {
   return (
-    <Link href="/experience" className="block group h-full">
+    <Link
+      href={`/experience#${getExperienceSlug(experience)}`}
+      className="block group h-full"
+    >
       <Card className="h-full md:aspect-square flex flex-col justify-center p-4 md:p-6 transition-all duration-200 hover:shadow-md hover:border-primary/50 group-hover:-translate-y-1">
         <div className="flex flex-col items-center text-center gap-3">
           <div className="relative w-12 h-12 shrink-0 bg-muted rounded-md overflow-hidden border border-border p-1">

@@ -1,7 +1,7 @@
 import { Briefcase } from "lucide-react";
 import type { Metadata } from "next";
 import { ExperienceCard } from "@/components/experience/experience-card";
-import { getAllExperience } from "@/lib/experience";
+import { getAllExperience, getExperienceSlug } from "@/lib/experience";
 import { siteConfig } from "@/lib/site-config";
 
 const pageDescription =
@@ -51,6 +51,7 @@ export default function ExperiencePage() {
               <ExperienceCard
                 key={`${experience.company}-${experience.startDate}`}
                 experience={experience}
+                id={getExperienceSlug(experience)}
               />
             ))}
           </div>
