@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { BlogCollectionTabs } from "@/components/blog/blog-collection-tabs";
+import { HomeExperienceCard } from "@/components/experience/home-experience-card";
 import { ADRCarousel } from "@/components/projects/adr-carousel";
 import { Button } from "@/components/ui/button";
 import {
   getCollectionPosts,
   getCollectionsWithIds,
 } from "@/lib/blog-collections";
+import { getAllExperience } from "@/lib/experience";
 import { getAllADRs } from "@/lib/projects";
 import { siteConfig } from "@/lib/site-config";
 
@@ -78,6 +80,46 @@ export default function Home() {
             </div>
 
             <ADRCarousel adrs={adrs} />
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16 pt-8">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold">Recent Experience</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
+            {getAllExperience()
+              .slice(0, 3)
+              .map((role, i) => (
+                <div
+                  key={`${role.company}-${role.startDate}`}
+                  className={
+                    i === 0
+                      ? "md:order-3"
+                      : i === 2
+                        ? "md:order-1"
+                        : "md:order-2"
+                  }
+                >
+                  <HomeExperienceCard experience={role} />
+                </div>
+              ))}
+          </div>
+
+          <div
+            className="hidden md:block max-w-2xl mx-auto mt-8 px-12"
+            aria-hidden="true"
+          >
+            <div className="relative h-px bg-muted-foreground/40">
+              <div className="absolute -right-1 -top-1 w-2 h-2 border-t-2 border-r-2 border-muted-foreground/40 rotate-45" />
+            </div>
+            <div className="flex justify-between text-[10px] uppercase tracking-widest mt-2 font-medium text-muted-foreground">
+              <span>Past</span>
+              <span>Present</span>
+            </div>
           </div>
         </div>
       </section>
