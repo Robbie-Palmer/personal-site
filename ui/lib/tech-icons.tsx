@@ -12,21 +12,33 @@ const customIcons = new Set([
   "scikit-image",
   "weaviate",
   "openrouter",
+  "claudecode",
+  "shiki",
+  "embla-carousel",
+  "fusejs",
+  "mise",
 ]);
 
 // Map technology names to their slugs for edge cases
 const techSlugOverrides: Record<string, string> = {
-  "C++": "cplusplus",
-  "C#": "csharp",
-  TensorRT: "nvidia",
-  "T-SQL": "tsql",
-  "Stanford NLP": "stanford",
+  "c++": "cplusplus",
+  "c#": "csharp",
+  tensorrt: "nvidia",
+  "t-sql": "tsql",
+  "stanford nlp": "stanford",
   "scikit-image": "scikit-image",
-  "Bitbucket Pipelines": "bitbucket",
+  "bitbucket pipelines": "bitbucket",
+  tailwind: "tailwindcss",
+  ccpm: "claude",
+  codeql: "github",
+  "embla carousel": "embla-carousel",
+  turbopack: "nextdotjs",
+  "fuse.js": "fusejs",
 };
 
 function getTechSlug(name: string): string {
-  const override = techSlugOverrides[name];
+  const override =
+    techSlugOverrides[name] || techSlugOverrides[name.toLowerCase()];
   if (override) {
     return override;
   }
@@ -43,6 +55,16 @@ interface TechIconProps {
   className?: string;
 }
 
+const getSimpleIcon = (iconSlug: string): SimpleIcon | null => {
+  const iconKey =
+    `si${iconSlug.charAt(0).toUpperCase()}${iconSlug.slice(1)}` as keyof typeof SimpleIcons;
+  const icon = SimpleIcons[iconKey];
+  if (!icon || typeof icon !== "object" || !("path" in icon)) {
+    return null;
+  }
+  return icon as SimpleIcon;
+};
+
 export function TechIcon({ name, className = "w-3 h-3" }: TechIconProps) {
   const slug = getTechSlug(name);
   // Check if we have a custom icon
@@ -55,14 +77,19 @@ export function TechIcon({ name, className = "w-3 h-3" }: TechIconProps) {
       />
     );
   }
-  // Fall back to Simple Icons
-  const iconKey =
-    `si${slug.charAt(0).toUpperCase()}${slug.slice(1)}` as keyof typeof SimpleIcons;
-  const icon = SimpleIcons[iconKey];
-  if (!icon || typeof icon !== "object" || !("path" in icon)) {
+  // Fall back to Simple Icons with full slug
+  let simpleIcon = getSimpleIcon(slug);
+  // Try Simple Icons with first word only
+  if (!simpleIcon && name.includes(" ")) {
+    const [firstWord] = name.split(" ");
+    if (firstWord) {
+      const firstWordSlug = getTechSlug(firstWord);
+      simpleIcon = getSimpleIcon(firstWordSlug);
+    }
+  }
+  if (!simpleIcon) {
     return null;
   }
-  const simpleIcon = icon as SimpleIcon;
   return (
     <svg
       role="img"
@@ -86,7 +113,27 @@ export function hasTechIcon(name: string): boolean {
   const iconKey =
     `si${slug.charAt(0).toUpperCase()}${slug.slice(1)}` as keyof typeof SimpleIcons;
   const icon = SimpleIcons[iconKey];
-  return !!icon && typeof icon === "object" && "path" in icon;
+  if (!!icon && typeof icon === "object" && "path" in icon) {
+    return true;
+  }
+  // Fallback: try first word only
+  if (name.includes(" ")) {
+    const [firstWord] = name.split(" ");
+    if (firstWord) {
+      const firstWordSlug = getTechSlug(firstWord);
+      const firstWordKey =
+        `si${firstWordSlug.charAt(0).toUpperCase()}${firstWordSlug.slice(1)}` as keyof typeof SimpleIcons;
+      const firstWordIcon = SimpleIcons[firstWordKey];
+      if (
+        !!firstWordIcon &&
+        typeof firstWordIcon === "object" &&
+        "path" in firstWordIcon
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 export const TECH_URLS: Record<string, string> = {

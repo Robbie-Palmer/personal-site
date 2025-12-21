@@ -1,13 +1,14 @@
 "use client";
 
 import type { EmblaOptionsType } from "embla-carousel";
+import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ContentCarousel } from "@/components/ui/content-carousel";
 import { defaultCarouselConfig } from "@/lib/carousel-config";
 import { formatDate } from "@/lib/date";
 import type { ProjectADR } from "@/lib/projects";
-import { getTechUrl, TechIcon } from "@/lib/tech-icons";
+import { getTechUrl, hasTechIcon, TechIcon } from "@/lib/tech-icons";
 import { ADRBadge } from "./adr-badge";
 
 type ADRCarouselProps = {
@@ -69,11 +70,15 @@ export function ADRCarousel({
                 <div className="flex flex-wrap gap-2 flex-shrink-0 pt-0.5 pointer-events-auto">
                   {adr.tech_stack?.slice(0, 5).map((tech) => {
                     const url = getTechUrl(tech);
-                    const Icon = (
+                    const hasIcon = hasTechIcon(tech);
+                    if (!hasIcon && !url) return null;
+                    const Icon = hasIcon ? (
                       <TechIcon
                         name={tech}
                         className="w-12 h-12 text-foreground transition-all"
                       />
+                    ) : (
+                      <ExternalLink className="w-12 h-12 text-foreground transition-all" />
                     );
 
                     if (url) {
