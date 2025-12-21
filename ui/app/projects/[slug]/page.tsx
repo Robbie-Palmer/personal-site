@@ -7,11 +7,10 @@ import { Markdown } from "@/components/projects/markdown";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { ProjectTabs } from "@/components/projects/project-tabs";
 import { ProjectTabsSkeleton } from "@/components/projects/project-tabs-skeleton";
-import { Badge } from "@/components/ui/badge";
+import { ProjectTechStack } from "@/components/projects/project-tech-stack";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { getAllProjectSlugs, getProject, type Project } from "@/lib/projects";
-import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -70,27 +69,13 @@ export default async function ProjectPage({ params }: PageProps) {
                 className="text-sm px-3 py-1"
               />
             </div>
-            <div className="flex flex-wrap gap-2">
-              {project.tech_stack.map((tech) => (
-                <Link
-                  key={tech}
-                  href={`/projects?tech=${encodeURIComponent(tech)}`}
-                >
-                  <Badge
-                    variant="secondary"
-                    className="text-sm px-3 py-1 gap-1 hover:bg-primary/20 hover:text-primary transition-colors cursor-pointer"
-                  >
-                    {hasTechIcon(tech) && (
-                      <TechIcon name={tech} className="w-3 h-3" />
-                    )}
-                    {tech}
-                  </Badge>
-                </Link>
-              ))}
-            </div>
+
             <p className="text-xl text-muted-foreground max-w-3xl leading-relaxed">
               {project.description}
             </p>
+            <div className="flex flex-wrap gap-2 pt-2">
+              <ProjectTechStack techStack={project.tech_stack} />
+            </div>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">

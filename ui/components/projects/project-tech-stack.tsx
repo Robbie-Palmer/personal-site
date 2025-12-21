@@ -1,0 +1,115 @@
+"use client";
+
+import { ChevronDown } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/styles";
+import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
+
+interface ProjectTechStackProps {
+  techStack: string[];
+  className?: string;
+}
+
+export function ProjectTechStack({
+  techStack,
+  className,
+}: ProjectTechStackProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const itemsWithIcons = techStack.filter(hasTechIcon);
+  const hiddenCount = techStack.length - itemsWithIcons.length;
+  const visibleItems = isExpanded ? techStack : itemsWithIcons;
+
+  return (
+    <TooltipProvider>
+      <div className={cn("space-y-3", className)}>
+        <div className="flex flex-wrap gap-2">
+          {visibleItems.map((tech) => {
+            const hasIcon = hasTechIcon(tech);
+
+            // Render logic:
+            // If Collapsed AND Has Icon: Show Icon Only Badge (with Tooltip)
+            // If Expanded OR No Icon: Show Badge with Text (+ Icon if available)
+            if (isExpanded || !hasIcon) {
+              return (
+                <Link
+                  key={tech}
+                  href={`/projects?tech=${encodeURIComponent(tech)}`}
+                >
+                  <Badge
+                    variant="secondary"
+                    interactive
+                    className="h-6 text-sm px-3 gap-1"
+                  >
+                    {hasIcon && <TechIcon name={tech} className="w-3 h-3" />}
+                    {tech}
+                  </Badge>
+                </Link>
+              );
+            }
+
+            // Collapsed state with icon
+            return (
+              <Tooltip key={tech}>
+                <TooltipTrigger asChild>
+                  <Link href={`/projects?tech=${encodeURIComponent(tech)}`}>
+                    <Badge
+                      variant="secondary"
+                      interactive
+                      className="h-6 text-sm px-2"
+                    >
+                      <TechIcon name={tech} className="w-4 h-4" />
+                      <span className="sr-only">{tech}</span>
+                    </Badge>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{tech}</p>
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+
+          {!isExpanded && hiddenCount > 0 && (
+            <Badge
+              variant="secondary"
+              interactive
+              className="h-6 text-sm px-2 cursor-pointer hover:bg-primary/20 hover:text-primary transition-colors"
+              onClick={() => setIsExpanded(true)}
+            >
+              +{hiddenCount}
+            </Badge>
+          )}
+        </div>
+
+        {techStack.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground gap-2 h-auto py-1 px-2"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            <span className="text-xs font-medium">
+              {isExpanded ? "Show less" : "Show all"}
+            </span>
+            <ChevronDown
+              className={cn(
+                "w-3 h-3 transition-transform duration-200",
+                isExpanded && "rotate-180",
+              )}
+            />
+          </Button>
+        )}
+      </div>
+    </TooltipProvider>
+  );
+}
