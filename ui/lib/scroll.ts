@@ -1,8 +1,10 @@
 export function smoothScrollTo(
   elementId: string,
   options: { offset?: number; duration?: number } = {},
-): Promise<void> {
-  return new Promise((resolve) => {
+): { promise: Promise<void>; cancel: () => void } {
+  let cancel = () => {};
+
+  const promise = new Promise<void>((resolve) => {
     const { offset = 0, duration = 1000 } = options;
     const element = document.getElementById(elementId);
     if (!element) {
@@ -10,20 +12,27 @@ export function smoothScrollTo(
       return;
     }
 
-    const start = window.scrollY;
+    const startY = window.scrollY;
+    const startX = window.scrollX;
     const elementPosition = element.getBoundingClientRect().top;
-    const targetPosition = elementPosition + start - offset;
-    const distance = targetPosition - start;
+    const targetPosition = elementPosition + startY - offset;
+    const distance = targetPosition - startY;
     let startTime: number | null = null;
+    let animationFrameId: number;
+
+    cancel = () => {
+      cancelAnimationFrame(animationFrameId);
+      resolve();
+    };
 
     function animation(currentTime: number) {
       if (startTime === null) startTime = currentTime;
       const timeElapsed = currentTime - startTime;
-      const run = easeInOutQuad(timeElapsed, start, distance, duration);
-      window.scrollTo(0, run);
+      const run = easeInOutQuad(timeElapsed, startY, distance, duration);
+      window.scrollTo(startX, run);
 
       if (timeElapsed < duration) {
-        requestAnimationFrame(animation);
+        animationFrameId = requestAnimationFrame(animation);
       } else {
         resolve();
       }
@@ -36,6 +45,8 @@ export function smoothScrollTo(
       return (-c / 2) * (t * (t - 2) - 1) + b;
     }
 
-    requestAnimationFrame(animation);
+    animationFrameId = requestAnimationFrame(animation);
   });
+
+  return { promise, cancel };
 }

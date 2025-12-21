@@ -35,8 +35,10 @@ describe("Projects functions", () => {
     vi.resetAllMocks();
     // Default mocks
     vi.mocked(fs.existsSync).mockReturnValue(true);
-    vi.mocked(fs.statSync).mockReturnValue({ isDirectory: () => true } as any);
-    vi.mocked(fs.readdirSync).mockReturnValue([] as any);
+    vi.mocked(fs.statSync).mockReturnValue({
+      isDirectory: () => true,
+    } as fs.Stats);
+    vi.mocked(fs.readdirSync).mockReturnValue([]);
   });
 
   describe("getProject", () => {
@@ -225,9 +227,10 @@ tech_stack: ["React"]
 ---`,
       };
 
-      vi.mocked(fs.readFileSync).mockImplementation((path: any) => {
-        const slug = path.split("/").slice(-2, -1)[0]; // naive parsing based on mock join path
-        if (projectsData[slug]) return projectsData[slug];
+      vi.mocked(fs.readFileSync).mockImplementation((path) => {
+        const parts = path.toString().split("/");
+        const slug = parts[parts.length - 2];
+        if (slug && projectsData[slug]) return projectsData[slug];
         return "";
       });
 

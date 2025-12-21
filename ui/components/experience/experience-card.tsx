@@ -34,13 +34,25 @@ export function ExperienceCard({ experience, id }: ExperienceCardProps) {
   useEffect(() => {
     if (!id || typeof window === "undefined") return;
 
+    let timeoutId: ReturnType<typeof setTimeout>;
+    let scrollCancel: (() => void) | undefined;
+
     const checkAndActivate = () => {
       if (window.location.hash !== `#${id}`) return;
 
       setIsExpanded(true);
+
+      // Clear any existing timeout to avoid race conditions
+      if (timeoutId) clearTimeout(timeoutId);
+      // Cancel any existing scroll
+      if (scrollCancel) scrollCancel();
       // Small timeout to allow expansion to render before scrolling
-      setTimeout(() => {
-        smoothScrollTo(`exp-${id}`, { offset: 150, duration: 800 });
+      timeoutId = setTimeout(() => {
+        const { cancel } = smoothScrollTo(`exp-${id}`, {
+          offset: 150,
+          duration: 800,
+        });
+        scrollCancel = cancel;
       }, 100);
     };
 
@@ -48,7 +60,11 @@ export function ExperienceCard({ experience, id }: ExperienceCardProps) {
     checkAndActivate();
     // Check on hash change
     window.addEventListener("hashchange", checkAndActivate);
-    return () => window.removeEventListener("hashchange", checkAndActivate);
+    return () => {
+      window.removeEventListener("hashchange", checkAndActivate);
+      if (timeoutId) clearTimeout(timeoutId);
+      if (scrollCancel) scrollCancel();
+    };
   }, [id]);
 
   const handleToggle = () => {
