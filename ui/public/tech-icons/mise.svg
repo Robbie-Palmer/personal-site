@@ -1,0 +1,27 @@
+<svg width="120" height="120" viewBox="15 25 90 70" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Main terminal window -->
+  <rect x="20" y="30" width="80" height="60" rx="8"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="3"/>
+
+  <!-- Terminal window controls - using currentColor for monochrome -->
+  <circle cx="32" cy="39" r="3" fill="currentColor"/>
+  <circle cx="44" cy="39" r="3" fill="currentColor"/>
+  <circle cx="56" cy="39" r="3" fill="currentColor"/>
+
+  <!-- Command prompt symbol -->
+  <text x="28" y="64"
+        font-family="monospace"
+        font-size="16"
+        font-weight="bold"
+        fill="currentColor">
+    &gt;_
+  </text>
+
+  <!-- Command lines - adjusted spacing, solid currentColor -->
+  <rect x="52" y="56" width="35" height="2.5" fill="currentColor"/>
+  <rect x="28" y="74" width="25" height="2.5" fill="currentColor"/>
+  <rect x="56" y="74" width="18" height="2.5" fill="currentColor"/>
+  <rect x="28" y="82" width="38" height="2.5" fill="currentColor"/>
+</svg>
