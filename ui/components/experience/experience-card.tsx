@@ -2,7 +2,7 @@
 
 import { Calendar, ChevronDown, MapPin } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,10 +24,21 @@ import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
 
 interface ExperienceCardProps {
   experience: Experience;
+  id?: string;
 }
 
-export function ExperienceCard({ experience }: ExperienceCardProps) {
+export function ExperienceCard({ experience, id }: ExperienceCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  useEffect(() => {
+    if (
+      id &&
+      typeof window !== "undefined" &&
+      window.location.hash === `#${id}`
+    ) {
+      setIsExpanded(true);
+    }
+  }, [id]);
 
   const handleToggle = () => {
     setIsExpanded(!isExpanded);
@@ -41,7 +52,10 @@ export function ExperienceCard({ experience }: ExperienceCardProps) {
           <div className="w-2 h-2 rounded-full bg-primary" />
         </div>
 
-        <Card className="transition-all hover:shadow-lg hover:border-primary/50 md:ml-14">
+        <Card
+          id={id}
+          className="transition-all hover:shadow-lg hover:border-primary/50 md:ml-14 scroll-mt-24"
+        >
           <CardHeader
             className="space-y-3 cursor-pointer"
             onClick={handleToggle}

@@ -11,6 +11,12 @@ export interface Experience {
   technologies: string[];
 }
 
+import { normalizeSlug } from "@/lib/slugs";
+
+export function getExperienceSlug(experience: Experience): string {
+  return normalizeSlug(experience.company);
+}
+
 function parseDateString(dateStr: string): Date {
   const [yearStr, monthStr] = dateStr.split("-");
   if (!yearStr || !monthStr) {
