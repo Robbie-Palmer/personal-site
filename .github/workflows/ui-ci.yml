@@ -35,3 +35,7 @@ jobs:
           mise run //ui:build
         env:
           NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: ${{ secrets.CF_IMAGES_ACCOUNT_HASH }}
+
+      # Depends on build output - mise caches the build
+      - name: Run integration tests
+        run: mise run //ui:test:integration
