@@ -24,6 +24,11 @@ description = "Run all tests"
 depends = ["//ui:install"]
 run = "pnpm test"
 
+[tasks."test:integration"]
+description = "Run UI integration tests"
+run = "pnpm test:integration"
+depends = ["//ui:build"]
+
 [tasks."test:watch"]
 description = "Run tests in watch mode"
 depends = ["//ui:install"]
