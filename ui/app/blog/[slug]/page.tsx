@@ -101,13 +101,12 @@ export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
 
   return (
     <article className="container mx-auto px-4 py-12 max-w-4xl">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap mb-8">
-        <Link href="/blog" className="hover:underline underline-offset-4">
-          Blog
-        </Link>
-        <span>/</span>
-        <span>{post.title}</span>
-      </div>
+      <Link
+        href="/blog"
+        className="text-sm text-muted-foreground hover:text-foreground mb-8 inline-block"
+      >
+        ← Back to blog
+      </Link>
 
       <header className="mb-8">
         <h1 className="text-4xl font-bold mb-4">{post.title}</h1>
