@@ -72,52 +72,50 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
                 {adr.title}
               </span>
 
-              {adr.tech_stack && adr.tech_stack.length > 0 && (
-                <>
-                  {adr.tech_stack.map((tech) => {
-                    const url = getTechUrl(tech);
+              {adr.tech_stack &&
+                adr.tech_stack.length > 0 &&
+                adr.tech_stack.map((tech) => {
+                  const url = getTechUrl(tech);
 
-                    if (url) {
-                      return (
-                        <a
-                          key={tech}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="cursor-pointer pointer-events-auto"
-                          onClick={(e) => e.stopPropagation()}
-                          aria-label={`Visit ${tech} website`}
-                        >
-                          <Badge
-                            variant="secondary"
-                            interactive
-                            className="flex items-center gap-1.5"
-                          >
-                            {hasTechIcon(tech) && (
-                              <TechIcon name={tech} className="w-3 h-3" />
-                            )}
-                            <span>{tech}</span>
-                            <ExternalLink className="w-3 h-3 ml-0.5" />
-                          </Badge>
-                        </a>
-                      );
-                    }
-
+                  if (url) {
                     return (
-                      <Badge
+                      <a
                         key={tech}
-                        variant="secondary"
-                        className="flex items-center gap-1.5"
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer pointer-events-auto"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`Visit ${tech} website`}
                       >
-                        {hasTechIcon(tech) && (
-                          <TechIcon name={tech} className="w-3 h-3" />
-                        )}
-                        <span>{tech}</span>
-                      </Badge>
+                        <Badge
+                          variant="secondary"
+                          interactive
+                          className="flex items-center gap-1.5"
+                        >
+                          {hasTechIcon(tech) && (
+                            <TechIcon name={tech} className="w-3 h-3" />
+                          )}
+                          <span>{tech}</span>
+                          <ExternalLink className="w-3 h-3 ml-0.5" />
+                        </Badge>
+                      </a>
                     );
-                  })}
-                </>
-              )}
+                  }
+
+                  return (
+                    <Badge
+                      key={tech}
+                      variant="secondary"
+                      className="flex items-center gap-1.5"
+                    >
+                      {hasTechIcon(tech) && (
+                        <TechIcon name={tech} className="w-3 h-3" />
+                      )}
+                      <span>{tech}</span>
+                    </Badge>
+                  );
+                })}
 
               <ADRBadge status={adr.status} className="shrink-0 w-fit" />
             </div>
