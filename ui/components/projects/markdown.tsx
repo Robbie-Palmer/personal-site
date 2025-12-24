@@ -78,7 +78,7 @@ const baseComponents: MDXComponents = {
   ),
   pre: async ({ children, ...props }: React.HTMLAttributes<HTMLPreElement>) => {
     const codeElement = children as React.ReactElement<any>;
-    if (codeElement?.type === "code") {
+    if (codeElement?.props?.children) {
       const code = codeElement.props.children;
       // Get language from className (format: "language-js")
       const language =
@@ -88,7 +88,7 @@ const baseComponents: MDXComponents = {
 
       return (
         <div
-          className="my-6 rounded-lg overflow-hidden border bg-zinc-950 dark:bg-zinc-900"
+          className="my-6 rounded-lg overflow-hidden border bg-muted"
           // biome-ignore lint/security/noDangerouslySetInnerHtml: Needed for Shiki highlighting
           dangerouslySetInnerHTML={{ __html: html }}
         />

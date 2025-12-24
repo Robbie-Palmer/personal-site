@@ -40,6 +40,17 @@ export async function highlight(code: string, lang: string) {
       dark: "github-dark",
     },
     defaultColor: false,
+    transformers: [
+      {
+        name: "data-language",
+        pre(node) {
+          node.properties["data-language"] = lang;
+        },
+        code(node) {
+          node.properties["data-language"] = lang;
+        },
+      },
+    ],
   });
 
   return html;
