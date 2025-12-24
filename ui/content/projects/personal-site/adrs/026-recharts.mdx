@@ -58,6 +58,66 @@ Recharts is a composable charting library built on React components. It uses SVG
 * **Cons**: Canvas rendering makes CSS styling tricky (everything is inside the canvas). Responsive resizing can sometimes be finicky. The React wrapper is just a thin layer over the imperative Chart.js API.
 * **Why not**: SVG (Recharts) is easier to style with CSS and debug in the DOM. I don't have massive datasets requiring Canvas performance.
 
+# Example
+
+Here's a complete example demonstrating Recharts' composable API for creating a responsive line chart:
+
+```tsx
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+const data = [
+  { month: 'Jan', revenue: 4000, expenses: 2400, profit: 1600 },
+  { month: 'Feb', revenue: 3000, expenses: 1398, profit: 1602 },
+  { month: 'Mar', revenue: 2000, expenses: 9800, profit: -7800 },
+  { month: 'Apr', revenue: 2780, expenses: 3908, profit: -1128 },
+  { month: 'May', revenue: 1890, expenses: 4800, profit: -2910 },
+  { month: 'Jun', revenue: 2390, expenses: 3800, profit: -1410 },
+  { month: 'Jul', revenue: 3490, expenses: 4300, profit: -810 },
+];
+
+function FinancialChart() {
+  return (
+    <ResponsiveContainer width="100%" height={400}>
+      <LineChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="month" />
+        <YAxis />
+        <Tooltip />
+        <Legend />
+        <Line
+          type="monotone"
+          dataKey="revenue"
+          stroke="#10b981"
+          strokeWidth={2}
+          dot={{ r: 4 }}
+        />
+        <Line
+          type="monotone"
+          dataKey="expenses"
+          stroke="#ef4444"
+          strokeWidth={2}
+          dot={{ r: 4 }}
+        />
+        <Line
+          type="monotone"
+          dataKey="profit"
+          stroke="#3b82f6"
+          strokeWidth={2}
+          dot={{ r: 4 }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+```
+
+This example showcases:
+- **Composable components**: `<LineChart>`, `<Line>`, `<XAxis>`, `<YAxis>` compose naturally
+- **Responsiveness**: `<ResponsiveContainer>` handles viewport changes automatically
+- **Multiple data series**: Three lines (revenue, expenses, profit) from a single dataset
+- **Customization**: Tailwind-compatible color values, stroke widths, dot styling
+- **Built-in interactions**: Tooltip and legend with zero configuration
+
 # Consequences
 
 **Positive:**

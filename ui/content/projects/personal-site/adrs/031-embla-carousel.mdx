@@ -38,6 +38,79 @@ This aligns with the **Choose Boring Technologies** and **LLM-Optimized** princi
 
 Notably, Embla provides a [**builder/playground**](https://www.embla-carousel.com/examples/generator/) on their website where you can generate and copy navigation code (buttons, dots, auto-scroll) directly into your codebase—similar to the **shadcn/ui** philosophy ([ADR 019](/projects/personal-site/adrs/019-shadcn)). This gives us ownership of the implementation rather than hiding it behind opaque library abstractions.
 
+# Example
+
+Here's a complete example demonstrating Embla Carousel's headless API with custom navigation:
+
+```tsx
+import useEmblaCarousel from 'embla-carousel-react';
+import AutoScroll from 'embla-carousel-auto-scroll';
+import { useCallback } from 'react';
+
+function ImageCarousel() {
+  const [emblaRef, emblaApi] = useEmblaCarousel(
+    { loop: true, align: 'start' },
+    [AutoScroll({ playOnInit: true, speed: 1 })]
+  );
+
+  const scrollPrev = useCallback(() => {
+    if (emblaApi) emblaApi.scrollPrev();
+  }, [emblaApi]);
+
+  const scrollNext = useCallback(() => {
+    if (emblaApi) emblaApi.scrollNext();
+  }, [emblaApi]);
+
+  const images = [
+    { id: 1, title: 'Mountain Sunset', url: '/images/mountain.jpg' },
+    { id: 2, title: 'Ocean Waves', url: '/images/ocean.jpg' },
+    { id: 3, title: 'Forest Path', url: '/images/forest.jpg' },
+    { id: 4, title: 'Desert Dunes', url: '/images/desert.jpg' },
+  ];
+
+  return (
+    <div className="relative">
+      <div className="overflow-hidden" ref={emblaRef}>
+        <div className="flex gap-4">
+          {images.map((image) => (
+            <div key={image.id} className="flex-[0_0_100%] md:flex-[0_0_50%] lg:flex-[0_0_33.33%]">
+              <img
+                src={image.url}
+                alt={image.title}
+                className="w-full h-64 object-cover rounded-lg"
+              />
+              <h3 className="mt-2 text-center font-medium">{image.title}</h3>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Custom navigation buttons */}
+      <button
+        onClick={scrollPrev}
+        className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 p-2 rounded-full shadow-lg"
+      >
+        ← Prev
+      </button>
+      <button
+        onClick={scrollNext}
+        className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 p-2 rounded-full shadow-lg"
+      >
+        Next →
+      </button>
+    </div>
+  );
+}
+```
+
+This example showcases:
+- **Headless architecture**: No pre-styled components—navigation buttons use custom Tailwind classes
+- **Hook-based API**: `useEmblaCarousel` returns refs and API for carousel control
+- **Plugin integration**: `AutoScroll` plugin enables automatic scrolling without bloating the core
+- **Responsive slides**: CSS classes control slides per view (1 on mobile, 2 on tablet, 3 on desktop)
+- **Full control**: Custom navigation buttons trigger `scrollPrev`/`scrollNext` programmatically
+- **TypeScript-ready**: Fully typed API with `EmblaCarouselType` inference
+
 # Consequences
 
 ### Pros

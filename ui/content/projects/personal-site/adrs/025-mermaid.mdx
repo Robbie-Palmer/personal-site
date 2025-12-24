@@ -37,6 +37,42 @@ The implementation (`ui/components/mermaid.tsx`) provides:
 * Custom CSS classes matching Tailwind design tokens for visual consistency
 * Hydration-safe client-side mounting (prevents SSR/CSR mismatches in Next.js)
 
+# Example
+
+Here's a flowchart demonstrating Mermaid's capabilities for visualizing a software deployment pipeline:
+
+```mermaid
+graph TD
+    A[Developer commits code] --> B{Run tests}
+    B -->|Pass| C[Build application]
+    B -->|Fail| D[Notify developer]
+    D --> E[Fix issues]
+    E --> A
+    C --> F{Security scan}
+    F -->|Vulnerabilities found| D
+    F -->|Clean| G[Deploy to staging]
+    G --> H{QA approval}
+    H -->|Rejected| D
+    H -->|Approved| I[Deploy to production]
+    I --> J[Monitor metrics]
+    J --> K{Performance OK?}
+    K -->|Issues detected| L[Rollback]
+    K -->|All good| M[Success!]
+    L --> D
+
+    style A fill:#e1f5ff
+    style M fill:#d4edda
+    style D fill:#f8d7da
+    style L fill:#f8d7da
+```
+
+This example showcases:
+- Multiple node shapes (rectangles, diamonds for decisions)
+- Directional flow with labeled edges
+- Conditional branches (pass/fail, approved/rejected)
+- Styling individual nodes with colors
+- Complex workflows with feedback loops
+
 # Consequences
 
 ### Pros

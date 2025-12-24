@@ -43,6 +43,87 @@ The implementation uses:
 * **Custom styling**: `keepBackground: false` allows Tailwind-based backgrounds instead of theme defaults
 * **rehype integration**: Runs as a unified pipeline step alongside other MDX transformations
 
+# Example
+
+Here are examples demonstrating Shiki's token-level accuracy across different languages:
+
+## Python with f-strings and decorators
+
+```python
+from functools import lru_cache
+from typing import List, Optional
+
+@lru_cache(maxsize=128)
+def fibonacci(n: int) -> int:
+    """Calculate the nth Fibonacci number with memoization."""
+    if n <= 1:
+        return n
+    return fibonacci(n - 1) + fibonacci(n - 2)
+
+def format_results(numbers: List[int]) -> str:
+    return f"Fibonacci sequence: {', '.join(f'F({i})={fibonacci(i)}' for i in numbers)}"
+
+# Complex f-string with nested expressions
+print(f"Results: {format_results([1, 2, 3, 4, 5])}")
+```
+
+## SQL with window functions
+
+```sql
+-- Calculate running total and rank by department
+SELECT
+    employee_id,
+    department,
+    salary,
+    SUM(salary) OVER (
+        PARTITION BY department
+        ORDER BY hire_date
+        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS running_total,
+    RANK() OVER (PARTITION BY department ORDER BY salary DESC) AS salary_rank,
+    LAG(salary, 1) OVER (PARTITION BY department ORDER BY hire_date) AS previous_salary
+FROM employees
+WHERE hire_date >= '2023-01-01'
+ORDER BY department, salary_rank;
+```
+
+## TypeScript with generics and type inference
+
+```typescript
+interface Repository<T> {
+  findById(id: string): Promise<T | null>;
+  findAll(): Promise<T[]>;
+  save(entity: T): Promise<T>;
+}
+
+class InMemoryRepository<T extends { id: string }> implements Repository<T> {
+  private items = new Map<string, T>();
+
+  async findById(id: string): Promise<T | null> {
+    return this.items.get(id) ?? null;
+  }
+
+  async findAll(): Promise<T[]> {
+    return Array.from(this.items.values());
+  }
+
+  async save(entity: T): Promise<T> {
+    this.items.set(entity.id, entity);
+    return entity;
+  }
+}
+
+// Type inference in action
+const userRepo = new InMemoryRepository<{ id: string; name: string }>();
+const user = await userRepo.findById('123'); // Type: { id: string; name: string } | null
+```
+
+These examples showcase Shiki's precision:
+- **Python**: Decorator syntax (`@lru_cache`), type hints (`List[int]`), nested f-string expressions
+- **SQL**: Window functions (`OVER`, `PARTITION BY`), CTEs, complex aggregations
+- **TypeScript**: Generic constraints (`T extends`), async/await, nullish coalescing (`??`)
+- All tokens are highlighted with VS Code-level accuracy, not just basic keyword matching
+
 # Consequences
 
 ### Pros
