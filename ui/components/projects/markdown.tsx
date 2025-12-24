@@ -5,7 +5,7 @@ import { highlight } from "@/lib/shiki";
 
 type MDXComponents = React.ComponentProps<typeof MDXRemote>["components"];
 
-const components: MDXComponents = {
+const baseComponents: MDXComponents = {
   h1: ({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
     <h1
       className="scroll-m-20 text-3xl font-extrabold tracking-tight mt-8 first:mt-0 mb-4"
@@ -99,10 +99,17 @@ const components: MDXComponents = {
   Image: (props: any) => <Image {...props} className="rounded-md border" />,
 };
 
-export function Markdown({ source }: { source: string }) {
+type MarkdownProps = {
+  source: string;
+  components?: MDXComponents;
+};
+
+export function Markdown({ source, components }: MarkdownProps) {
+  const mergedComponents = { ...baseComponents, ...components };
+
   return (
     <article className="prose prose-zinc dark:prose-invert max-w-none">
-      <MDXRemote source={source} components={components} />
+      <MDXRemote source={source} components={mergedComponents} />
     </article>
   );
 }

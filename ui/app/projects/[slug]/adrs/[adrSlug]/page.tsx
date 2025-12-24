@@ -1,6 +1,7 @@
 import { Calendar, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { EmblaDemoCarousel } from "@/components/adrs/embla-demo-carousel";
 import { ADRBadge } from "@/components/projects/adr-badge";
 import { ADRPagination } from "@/components/projects/adr-pagination";
 import { Markdown } from "@/components/projects/markdown";
@@ -14,6 +15,10 @@ import {
   type Project,
 } from "@/lib/projects";
 import { getTechUrl, hasTechIcon, TechIcon } from "@/lib/tech-icons";
+
+const adrComponents = {
+  EmblaDemoCarousel,
+};
 
 // Responsive behavior for the pagination container:
 // Goal: On desktop, keep buttons on the same row as metadata, shifted right.
@@ -201,7 +206,7 @@ export default async function ADRPage({ params }: PageProps) {
         <Separator className="my-8" />
 
         <div className="prose dark:prose-invert max-w-none">
-          <Markdown source={adr.content} />
+          <Markdown source={adr.content} components={adrComponents} />
         </div>
       </div>
     </div>
