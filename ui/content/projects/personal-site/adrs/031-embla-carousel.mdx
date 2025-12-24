@@ -5,8 +5,6 @@ status: "Accepted"
 tech_stack: ["Embla Carousel"]
 ---
 
-import { ContentCarousel } from "@/components/ui/content-carousel";
-
 # Context
 
 I need a carousel component to showcase blog posts on the landing page with auto-scrolling and responsive behavior (1-3 posts per view across mobile to desktop).
@@ -42,42 +40,50 @@ Notably, Embla provides a [**builder/playground**](https://www.embla-carousel.co
 
 # Example
 
-Here's a live interactive carousel demonstrating Embla's capabilities:
+Here's a code example demonstrating Embla's hook-based API with the auto-scroll plugin:
 
-export const landscapes = [
-  { id: 1, title: 'Mountain Peaks', description: 'Majestic alpine scenery', emoji: '🏔️', color: 'bg-blue-100 dark:bg-blue-950' },
-  { id: 2, title: 'Ocean Waves', description: 'Serene coastal views', emoji: '🌊', color: 'bg-cyan-100 dark:bg-cyan-950' },
-  { id: 3, title: 'Forest Trail', description: 'Lush woodland paths', emoji: '🌲', color: 'bg-green-100 dark:bg-green-950' },
-  { id: 4, title: 'Desert Dunes', description: 'Golden sand formations', emoji: '🏜️', color: 'bg-amber-100 dark:bg-amber-950' },
-  { id: 5, title: 'Northern Lights', description: 'Aurora borealis magic', emoji: '🌌', color: 'bg-purple-100 dark:bg-purple-950' },
-];
+```tsx
+import useEmblaCarousel from 'embla-carousel-react';
+import AutoScroll from 'embla-carousel-auto-scroll';
 
-<ContentCarousel
-  items={landscapes}
-  renderItem={(landscape) => (
-    <div className={`${landscape.color} rounded-lg p-8 h-48 flex flex-col items-center justify-center gap-3 border border-border`}>
-      <div className="text-6xl">{landscape.emoji}</div>
-      <h3 className="text-xl font-semibold">{landscape.title}</h3>
-      <p className="text-sm text-muted-foreground">{landscape.description}</p>
+interface Slide {
+  id: number;
+  title: string;
+  image: string;
+}
+
+function ImageCarousel({ slides }: { slides: Slide[] }) {
+  // Initialize Embla with options and auto-scroll plugin
+  const [emblaRef, emblaApi] = useEmblaCarousel(
+    { loop: true, align: 'start' },
+    [AutoScroll({ playOnInit: true, speed: 1, stopOnMouseEnter: true })]
+  );
+
+  return (
+    <div className="overflow-hidden" ref={emblaRef}>
+      <div className="flex">
+        {slides.map((slide) => (
+          <div
+            key={slide.id}
+            className="flex-[0_0_100%] md:flex-[0_0_50%] lg:flex-[0_0_33.33%] min-w-0"
+          >
+            <img src={slide.image} alt={slide.title} />
+            <h3>{slide.title}</h3>
+          </div>
+        ))}
+      </div>
     </div>
-  )}
-  autoScroll={true}
-  scrollSpeed={1}
-  stopOnMouseEnter={true}
-  playOnInit={true}
-  itemClassName="flex-[0_0_100%] md:flex-[0_0_50%] lg:flex-[0_0_33.33%] min-w-0"
-  getItemKey={(item) => item.id.toString()}
-/>
-
-**Try it yourself:** The carousel auto-scrolls but pauses when you hover. Use the arrow buttons or dots to navigate manually.
+  );
+}
+```
 
 This example showcases:
-- **Headless architecture**: Custom styling with Tailwind classes, no vendor CSS to override
-- **Auto-scroll plugin**: Smooth automatic scrolling that pauses on hover
-- **Responsive slides**: Shows 1 card on mobile, 2 on tablet, 3 on desktop using flex basis
-- **Navigation controls**: Arrow buttons and dot indicators for manual control
-- **TypeScript-ready**: Fully typed API with proper inference for item types
-- **Plugin system**: Auto-scroll plugin loaded only when needed (~2KB)
+- **Hook-based API**: `useEmblaCarousel` hook returns a ref and API instance
+- **Plugin system**: Auto-scroll plugin loaded via the second argument
+- **Headless architecture**: Complete control over markup and styling
+- **Responsive slides**: Flex basis controls slides per view across breakpoints
+- **TypeScript-ready**: Fully typed hook parameters and return values
+- **Auto-scroll behavior**: Configurable speed and pause-on-hover
 
 # Consequences
 

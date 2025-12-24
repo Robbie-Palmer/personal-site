@@ -5,9 +5,6 @@ status: "Accepted"
 tech_stack: ["Recharts"]
 ---
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-
 # Context
 
 I am migrating a "How to Build Wealth" blog post that was originally written as a Jupyter notebook on fastpages with plots generated using Altair. I need a charting library that integrates deeply with my [React](/projects/personal-site/adrs/002-react) and [Next.js](/projects/personal-site/adrs/003-next-js) stack.
@@ -63,9 +60,12 @@ Recharts is a composable charting library built on React components. It uses SVG
 
 # Example
 
-Here's a live interactive chart demonstrating Recharts' composable API:
+Here's a code example demonstrating Recharts' composable component API:
 
-export const financialData = [
+```tsx
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+const financialData = [
   { month: 'Jan', revenue: 4000, expenses: 2400, profit: 1600 },
   { month: 'Feb', revenue: 3000, expenses: 1398, profit: 1602 },
   { month: 'Mar', revenue: 2000, expenses: 9800, profit: -7800 },
@@ -75,54 +75,45 @@ export const financialData = [
   { month: 'Jul', revenue: 3490, expenses: 4300, profit: -810 },
 ];
 
-export const chartConfig = {
-  revenue: { label: "Revenue", color: "#10b981" },
-  expenses: { label: "Expenses", color: "#ef4444" },
-  profit: { label: "Profit", color: "#3b82f6" },
-};
-
-<ChartContainer config={chartConfig} className="h-[400px] w-full">
-  <ResponsiveContainer width="100%" height="100%">
-    <LineChart data={financialData}>
-      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-      <XAxis dataKey="month" className="text-xs" />
-      <YAxis className="text-xs" />
-      <ChartTooltip content={<ChartTooltipContent />} />
-      <Legend />
-      <Line
-        type="monotone"
-        dataKey="revenue"
-        stroke="var(--color-revenue)"
-        strokeWidth={2}
-        dot={{ r: 4 }}
-      />
-      <Line
-        type="monotone"
-        dataKey="expenses"
-        stroke="var(--color-expenses)"
-        strokeWidth={2}
-        dot={{ r: 4 }}
-      />
-      <Line
-        type="monotone"
-        dataKey="profit"
-        stroke="var(--color-profit)"
-        strokeWidth={2}
-        dot={{ r: 4 }}
-      />
-    </LineChart>
-  </ResponsiveContainer>
-</ChartContainer>
-
-**Try it yourself:** Hover over the chart to see interactive tooltips with data values.
+function FinancialChart() {
+  return (
+    <ResponsiveContainer width="100%" height={400}>
+      <LineChart data={financialData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="month" />
+        <YAxis />
+        <Tooltip />
+        <Legend />
+        <Line
+          type="monotone"
+          dataKey="revenue"
+          stroke="#10b981"
+          strokeWidth={2}
+        />
+        <Line
+          type="monotone"
+          dataKey="expenses"
+          stroke="#ef4444"
+          strokeWidth={2}
+        />
+        <Line
+          type="monotone"
+          dataKey="profit"
+          stroke="#3b82f6"
+          strokeWidth={2}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+```
 
 This example showcases:
 - **Composable components**: `<LineChart>`, `<Line>`, `<XAxis>`, `<YAxis>` compose naturally
-- **Responsiveness**: Chart automatically adapts to container size
+- **Responsiveness**: `<ResponsiveContainer>` makes charts adapt to container size
 - **Multiple data series**: Three lines (revenue, expenses, profit) from a single dataset
-- **Customization**: Tailwind-compatible color values, stroke widths, dot styling
-- **Built-in interactions**: Hover tooltips and legend with zero extra configuration
-- **Theme-aware**: Colors adapt to dark/light mode using CSS variables
+- **Customization**: Color values, stroke widths, and other styling options
+- **Built-in interactions**: Hover tooltips and legend with minimal configuration
 
 # Consequences
 
