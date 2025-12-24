@@ -1,4 +1,4 @@
-import { ArrowLeft, ExternalLink, Github } from "lucide-react";
+import { ExternalLink, Github } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -48,13 +48,13 @@ export default async function ProjectPage({ params }: PageProps) {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
-      <Link
-        href="/projects"
-        className="text-sm text-muted-foreground hover:text-foreground mb-8 inline-flex items-center gap-1 group"
-      >
-        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-        Back to projects
-      </Link>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap mb-8">
+        <Link href="/projects" className="hover:underline underline-offset-4">
+          Projects
+        </Link>
+        <span>/</span>
+        <span>{project.title}</span>
+      </div>
 
       <div className="space-y-6">
         {/* Header */}

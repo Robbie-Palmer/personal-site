@@ -1,6 +1,6 @@
-import fs from "fs";
+import fs from "node:fs";
+import path from "node:path";
 import matter from "gray-matter";
-import path from "path";
 import { z } from "zod";
 import { calculateReadingTime } from "@/lib/mdx";
 import { validateSlug } from "@/lib/slugs";
