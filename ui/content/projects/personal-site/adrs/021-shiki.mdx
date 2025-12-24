@@ -45,9 +45,11 @@ The implementation uses:
 
 # Example
 
-Here are examples demonstrating Shiki's token-level accuracy across different languages:
+Below are live examples demonstrating Shiki's VS Code-level syntax highlighting. These code blocks are automatically highlighted at build time with precise token-level accuracy.
 
 ## Python with f-strings and decorators
+
+Notice how decorators, type hints, and nested f-string expressions are all accurately highlighted:
 
 ```python
 from functools import lru_cache
@@ -69,6 +71,8 @@ print(f"Results: {format_results([1, 2, 3, 4, 5])}")
 
 ## SQL with window functions
 
+Observe the precise highlighting of window functions, partitions, and CTEs:
+
 ```sql
 -- Calculate running total and rank by department
 SELECT
@@ -88,6 +92,8 @@ ORDER BY department, salary_rank;
 ```
 
 ## TypeScript with generics and type inference
+
+Generic constraints, async/await, and nullish coalescing are all highlighted correctly:
 
 ```typescript
 interface Repository<T> {
@@ -118,11 +124,12 @@ const userRepo = new InMemoryRepository<{ id: string; name: string }>();
 const user = await userRepo.findById('123'); // Type: { id: string; name: string } | null
 ```
 
-These examples showcase Shiki's precision:
-- **Python**: Decorator syntax (`@lru_cache`), type hints (`List[int]`), nested f-string expressions
-- **SQL**: Window functions (`OVER`, `PARTITION BY`), CTEs, complex aggregations
-- **TypeScript**: Generic constraints (`T extends`), async/await, nullish coalescing (`??`)
-- All tokens are highlighted with VS Code-level accuracy, not just basic keyword matching
+These live examples showcase:
+- **VS Code-level accuracy**: Uses the same TextMate grammars that power VS Code
+- **Complex syntax support**: Python decorators and f-strings, SQL window functions, TypeScript generics
+- **Theme-aware**: Automatically switches between `github-light` and `github-dark` based on your theme
+- **Build-time rendering**: Zero client-side JavaScript overhead—highlighting happens during build
+- **No client-side libraries**: Unlike Prism.js or Highlight.js, Shiki doesn't ship to the browser
 
 # Consequences
 
