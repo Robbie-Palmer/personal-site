@@ -22,7 +22,7 @@ export default function Home() {
     <div className="container mx-auto px-4">
       <section className="flex min-h-[calc(100vh-5rem)] items-center justify-center">
         <div className="text-center max-w-3xl">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-foreground via-foreground to-muted-foreground bg-clip-text text-transparent dark:from-foreground dark:via-primary dark:to-foreground">
+          <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent dark:from-blue-400 dark:via-purple-400 dark:to-pink-400">
             {siteConfig.name}
           </h1>
           <p className="text-xl md:text-2xl text-muted-foreground mb-8">
