@@ -212,7 +212,7 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: shimmer 8s ease-in-out infinite;
+  animation: shimmer 12s ease-in-out infinite;
 }
 
 .dark .text-shimmer {
@@ -225,4 +225,7 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
     oklch(0.985 0 0) 100%
   );
   background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
