@@ -3,7 +3,7 @@ import path from "node:path";
 import { isValid, parse } from "date-fns";
 import matter from "gray-matter";
 import readingTime from "reading-time";
-import { getAllExperience } from "../experience";
+import { getAllExperience, getExperienceSlug } from "../experience";
 import { TECH_URLS } from "../tech-icons";
 import {
   type ADR,
@@ -460,9 +460,8 @@ export function loadJobRoles(): Map<RoleSlug, JobRole> {
 
   const experiences = getAllExperience();
 
-  experiences.forEach((exp, index) => {
-    // Generate slug from company and title
-    const slug = `${exp.company.toLowerCase().replace(/\s+/g, "-")}-${index}`;
+  for (const exp of experiences) {
+    const slug = getExperienceSlug(exp);
 
     // Normalize technology names to slugs
     const technologies: TechnologySlug[] = exp.technologies.map((tech) =>
@@ -495,7 +494,7 @@ export function loadJobRoles(): Map<RoleSlug, JobRole> {
       );
       throw new Error(`Job role ${slug} failed validation`);
     }
-  });
+  }
 
   return roleMap;
 }

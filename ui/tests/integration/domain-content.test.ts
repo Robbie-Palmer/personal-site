@@ -277,8 +277,9 @@ describe("Domain Content Validation (Integration)", () => {
 
       // Verify website is valid URL if present
       if (tech.website) {
+        const website = tech.website;
         expect(
-          () => new URL(tech.website),
+          () => new URL(website),
           `Tech ${slug}: website must be a valid URL`,
         ).not.toThrow();
       }

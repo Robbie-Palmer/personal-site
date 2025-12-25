@@ -345,7 +345,8 @@ type ProjectSlug = string;
 // etc.
 ```
 
-These are plain string types that provide semantic meaning in function signatures and help document the expected content type.
+These are plain string types that provide semantic meaning in function
+signatures and help document the expected content type.
 
 ## 📚 Further Reading
 

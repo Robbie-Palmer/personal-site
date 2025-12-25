@@ -24,6 +24,9 @@ const pathMock = vi.hoisted(() => {
 
 const experienceMock = vi.hoisted(() => ({
   getAllExperience: vi.fn(),
+  getExperienceSlug: vi.fn((exp: { company: string }) =>
+    exp.company.toLowerCase().replace(/\s+/g, "-")
+  ),
 }));
 
 vi.mock("fs", () => fsMock);
@@ -172,8 +175,7 @@ tech_stack: ["TypeScript"]
 ---
 Content`;
 
-      const _callCount = 0;
-      vi.mocked(fs.existsSync).mockImplementation((_path) => {
+      vi.mocked(fs.existsSync).mockImplementation(() => {
         return true;
       });
 
@@ -281,8 +283,9 @@ We decided to use React.`;
 
       expect(roles.size).toBe(1);
       const role = Array.from(roles.values())[0];
-      expect(role.company).toBe("Microsoft");
-      expect(role.relations.technologies).toEqual(["c#", "azure"]);
+      expect(role).toBeDefined();
+      expect(role?.company).toBe("Microsoft");
+      expect(role?.relations.technologies).toEqual(["c#", "azure"]);
     });
   });
 
@@ -512,8 +515,8 @@ Content`;
         );
 
         expect(errors.length).toBeGreaterThan(0);
-        expect(errors[0].type).toBe("missing_reference");
-        expect(errors[0].value).toBe("react");
+        expect(errors[0]?.type).toBe("missing_reference");
+        expect(errors[0]?.value).toBe("react");
       });
 
       it("should detect missing ADR reference", () => {
@@ -548,8 +551,8 @@ Content`;
         );
 
         expect(errors.length).toBeGreaterThan(0);
-        expect(errors[0].type).toBe("missing_reference");
-        expect(errors[0].field).toBe("adrs");
+        expect(errors[0]?.type).toBe("missing_reference");
+        expect(errors[0]?.field).toBe("adrs");
       });
 
       it("should detect missing project reference in ADR", () => {
@@ -584,8 +587,8 @@ Content`;
         );
 
         expect(errors.length).toBeGreaterThan(0);
-        expect(errors[0].type).toBe("missing_reference");
-        expect(errors[0].field).toBe("project");
+        expect(errors[0]?.type).toBe("missing_reference");
+        expect(errors[0]?.field).toBe("project");
       });
     });
 
