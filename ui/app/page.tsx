@@ -22,7 +22,7 @@ export default function Home() {
     <div className="container mx-auto px-4">
       <section className="flex min-h-[calc(100vh-5rem)] items-center justify-center">
         <div className="text-center max-w-3xl">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 text-blue-600 dark:text-blue-400">
+          <h1 className="text-5xl md:text-6xl font-bold mb-6 [text-shadow:_2px_2px_8px_rgb(0_0_0_/_0.3)] dark:[text-shadow:_2px_2px_12px_rgb(255_255_255_/_0.2)]">
             {siteConfig.name}
           </h1>
           <p className="text-xl md:text-2xl text-muted-foreground mb-8">
