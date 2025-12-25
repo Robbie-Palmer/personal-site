@@ -31,20 +31,17 @@ vi.mock("path", () => pathMock);
 vi.mock("@/lib/experience", () => experienceMock);
 
 // Import after mocks are hoisted
-import * as fs from "fs";
+import * as fs from "node:fs";
 import {
-  loadBlogPosts,
-  loadProjects,
+  buildTechnologyRelations,
   loadADRs,
+  loadBlogPosts,
   loadJobRoles,
+  loadProjects,
   loadTechnologies,
   validateBlogPost,
-  validateProject,
-  validateADR,
-  validateJobRole,
-  validateTechnology,
   validateReferentialIntegrity,
-  buildTechnologyRelations,
+  validateTechnology,
 } from "@/lib/domain/repository";
 
 describe("Domain Repository", () => {
@@ -74,6 +71,7 @@ imageAlt: "Test image"
 
 # Content here`;
 
+      // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
       vi.mocked(fs.readdirSync).mockReturnValue(["test-post.mdx"] as any);
       vi.mocked(fs.readFileSync).mockReturnValue(mockBlogContent);
 
@@ -90,6 +88,7 @@ imageAlt: "Test image"
       vi.mocked(fs.readdirSync).mockReturnValue([
         "post.mdx",
         "README.mdx",
+        // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
       ] as any);
 
       const mockContent = `---
@@ -135,11 +134,14 @@ tech_stack: ["React", "TypeScript"]
       vi.mocked(fs.readdirSync).mockImplementation((path) => {
         const pathStr = path.toString();
         if (pathStr.endsWith("projects")) {
+          // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
           return [{ name: "test-project", isDirectory: () => true }] as any;
         }
         if (pathStr.includes("adrs")) {
+          // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
           return [] as any; // No ADRs for this test
         }
+        // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
         return [] as any;
       });
       vi.mocked(fs.readFileSync).mockReturnValue(mockProjectContent);
@@ -171,19 +173,22 @@ tech_stack: ["TypeScript"]
 ---
 Content`;
 
-      let callCount = 0;
-      vi.mocked(fs.existsSync).mockImplementation((path) => {
+      const _callCount = 0;
+      vi.mocked(fs.existsSync).mockImplementation((_path) => {
         return true;
       });
 
       vi.mocked(fs.readdirSync).mockImplementation((path) => {
         const pathStr = path.toString();
         if (pathStr.endsWith("projects")) {
+          // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
           return [{ name: "test-project", isDirectory: () => true }] as any;
         }
         if (pathStr.includes("adrs")) {
+          // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
           return ["001-test.mdx"] as any;
         }
+        // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
         return [] as any;
       });
 
@@ -228,11 +233,14 @@ We decided to use React.`;
       vi.mocked(fs.readdirSync).mockImplementation((path) => {
         const pathStr = path.toString();
         if (pathStr.endsWith("projects")) {
+          // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
           return [{ name: "project-1", isDirectory: () => true }] as any;
         }
         if (pathStr.includes("adrs")) {
+          // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
           return ["001-react.mdx"] as any;
         }
+        // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
         return [] as any;
       });
 
@@ -312,8 +320,10 @@ Content`;
       vi.mocked(fs.readdirSync).mockImplementation((path) => {
         const pathStr = path.toString();
         if (pathStr.endsWith("projects")) {
+          // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
           return [{ name: "test-project", isDirectory: () => true }] as any;
         }
+        // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
         return [] as any;
       });
 

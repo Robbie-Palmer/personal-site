@@ -25,20 +25,25 @@ export const TechnologySchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   website: z.string().url().optional(),
-  brandColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  brandColor: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional(),
   iconSlug: z.string().optional(),
 
-  relations: z.object({
-    blogs: z.array(BlogSlugSchema).default([]),
-    adrs: z.array(ADRSlugSchema).default([]),
-    projects: z.array(ProjectSlugSchema).default([]),
-    roles: z.array(RoleSlugSchema).default([]),
-  }).default({
-    blogs: [],
-    adrs: [],
-    projects: [],
-    roles: [],
-  }),
+  relations: z
+    .object({
+      blogs: z.array(BlogSlugSchema).default([]),
+      adrs: z.array(ADRSlugSchema).default([]),
+      projects: z.array(ProjectSlugSchema).default([]),
+      roles: z.array(RoleSlugSchema).default([]),
+    })
+    .default({
+      blogs: [],
+      adrs: [],
+      projects: [],
+      roles: [],
+    }),
 });
 
 export type Technology = z.infer<typeof TechnologySchema>;
@@ -52,7 +57,10 @@ export const BlogPostSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD format
-  updated: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  updated: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   tags: z.array(z.string()).default([]),
   canonicalUrl: z.string().url().optional(),
   content: z.string(),
@@ -60,11 +68,13 @@ export const BlogPostSchema = z.object({
   image: z.string().regex(/^blog\/[a-z0-9_-]+-\d{4}-\d{2}-\d{2}$/),
   imageAlt: z.string().min(1),
 
-  relations: z.object({
-    technologies: z.array(TechnologySlugSchema).default([]),
-  }).default({
-    technologies: [],
-  }),
+  relations: z
+    .object({
+      technologies: z.array(TechnologySlugSchema).default([]),
+    })
+    .default({
+      technologies: [],
+    }),
 });
 
 export type BlogPost = z.infer<typeof BlogPostSchema>;
@@ -73,7 +83,12 @@ export type BlogPost = z.infer<typeof BlogPostSchema>;
 // ADR (Architecture Decision Record) Domain Model
 // ============================================================================
 
-export const ADRStatusSchema = z.enum(["Accepted", "Rejected", "Deprecated", "Proposed"]);
+export const ADRStatusSchema = z.enum([
+  "Accepted",
+  "Rejected",
+  "Deprecated",
+  "Proposed",
+]);
 export type ADRStatus = z.infer<typeof ADRStatusSchema>;
 
 export const ADRSchema = z.object({
@@ -97,7 +112,12 @@ export type ADR = z.infer<typeof ADRSchema>;
 // Project Domain Model
 // ============================================================================
 
-export const ProjectStatusSchema = z.enum(["idea", "in_progress", "live", "archived"]);
+export const ProjectStatusSchema = z.enum([
+  "idea",
+  "in_progress",
+  "live",
+  "archived",
+]);
 export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
 
 export const ProjectSchema = z.object({
@@ -105,7 +125,10 @@ export const ProjectSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD format
-  updated: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  updated: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   status: ProjectStatusSchema,
   repoUrl: z.string().url().optional(),
   demoUrl: z.string().url().optional(),
@@ -131,15 +154,20 @@ export const JobRoleSchema = z.object({
   title: z.string().min(1),
   location: z.string().min(1),
   startDate: z.string().regex(/^\d{4}-\d{2}$/), // YYYY-MM format
-  endDate: z.string().regex(/^\d{4}-\d{2}$/).optional(), // undefined for current role
+  endDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/)
+    .optional(), // undefined for current role
   description: z.string().min(1),
   responsibilities: z.array(z.string()).min(1),
 
-  relations: z.object({
-    technologies: z.array(TechnologySlugSchema).default([]),
-  }).default({
-    technologies: [],
-  }),
+  relations: z
+    .object({
+      technologies: z.array(TechnologySlugSchema).default([]),
+    })
+    .default({
+      technologies: [],
+    }),
 });
 
 export type JobRole = z.infer<typeof JobRoleSchema>;

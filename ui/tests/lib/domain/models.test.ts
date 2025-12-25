@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  TechnologySchema,
-  BlogPostSchema,
   ADRSchema,
-  ProjectSchema,
-  JobRoleSchema,
   ADRStatusSchema,
+  BlogPostSchema,
+  JobRoleSchema,
+  ProjectSchema,
   ProjectStatusSchema,
+  TechnologySchema,
 } from "@/lib/domain/models";
 
 describe("Domain Model Schemas", () => {
@@ -363,11 +363,7 @@ describe("Domain Model Schemas", () => {
         startDate: "2020-01",
         endDate: "2022-06",
         description: "Worked on cool stuff",
-        responsibilities: [
-          "Built features",
-          "Fixed bugs",
-          "Wrote tests",
-        ],
+        responsibilities: ["Built features", "Fixed bugs", "Wrote tests"],
         relations: {
           technologies: ["csharp", "dotnet", "azure"],
         },

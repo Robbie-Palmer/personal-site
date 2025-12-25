@@ -1,29 +1,29 @@
-import fs from "fs";
-import path from "path";
-import matter from "gray-matter";
 import { isValid, parse } from "date-fns";
+import fs from "fs";
+import matter from "gray-matter";
+import path from "path";
 import readingTime from "reading-time";
-import {
-  Technology,
-  TechnologySchema,
-  BlogPost,
-  BlogPostSchema,
-  ADR,
-  ADRSchema,
-  Project,
-  ProjectSchema,
-  JobRole,
-  JobRoleSchema,
-  TechnologySlug,
-  BlogSlug,
-  ADRSlug,
-  ProjectSlug,
-  RoleSlug,
-  DomainValidationResult,
-  ReferentialIntegrityError,
-} from "./models";
 import { getAllExperience } from "../experience";
 import { TECH_URLS } from "../tech-icons";
+import {
+  type ADR,
+  ADRSchema,
+  type ADRSlug,
+  type BlogPost,
+  BlogPostSchema,
+  type BlogSlug,
+  type DomainValidationResult,
+  type JobRole,
+  JobRoleSchema,
+  type Project,
+  ProjectSchema,
+  type ProjectSlug,
+  type ReferentialIntegrityError,
+  type RoleSlug,
+  type Technology,
+  TechnologySchema,
+  type TechnologySlug,
+} from "./models";
 
 // ============================================================================
 // Configuration
@@ -72,16 +72,17 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
 
   // Scan all content to build tech catalog
   const experiences = getAllExperience();
-  experiences.forEach(exp => {
-    exp.technologies.forEach(tech => addTech(tech));
+  experiences.forEach((exp) => {
+    exp.technologies.forEach((tech) => addTech(tech));
   });
 
   // Scan projects and ADRs
-  const projectDirs = fs.readdirSync(PROJECTS_DIR, { withFileTypes: true })
-    .filter(dirent => dirent.isDirectory())
-    .map(dirent => dirent.name);
+  const projectDirs = fs
+    .readdirSync(PROJECTS_DIR, { withFileTypes: true })
+    .filter((dirent) => dirent.isDirectory())
+    .map((dirent) => dirent.name);
 
-  projectDirs.forEach(projectSlug => {
+  projectDirs.forEach((projectSlug) => {
     const projectPath = path.join(PROJECTS_DIR, projectSlug, "index.mdx");
     if (fs.existsSync(projectPath)) {
       const fileContent = fs.readFileSync(projectPath, "utf-8");
@@ -94,8 +95,10 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
       // Scan ADRs
       const adrsDir = path.join(PROJECTS_DIR, projectSlug, "adrs");
       if (fs.existsSync(adrsDir)) {
-        const adrFiles = fs.readdirSync(adrsDir).filter(f => f.endsWith(".mdx"));
-        adrFiles.forEach(adrFile => {
+        const adrFiles = fs
+          .readdirSync(adrsDir)
+          .filter((f) => f.endsWith(".mdx"));
+        adrFiles.forEach((adrFile) => {
           const adrPath = path.join(adrsDir, adrFile);
           const adrContent = fs.readFileSync(adrPath, "utf-8");
           const { data: adrData } = matter(adrContent);
@@ -114,7 +117,9 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
 /**
  * Validates a Technology against the schema
  */
-export function validateTechnology(tech: unknown): DomainValidationResult<Technology> {
+export function validateTechnology(
+  tech: unknown,
+): DomainValidationResult<Technology> {
   const result = TechnologySchema.safeParse(tech);
 
   if (!result.success) {
@@ -144,10 +149,11 @@ export function loadBlogPosts(): Map<BlogSlug, BlogPost> {
     return blogMap;
   }
 
-  const files = fs.readdirSync(BLOG_DIR)
-    .filter(file => file.endsWith(".mdx") && file !== "README.mdx");
+  const files = fs
+    .readdirSync(BLOG_DIR)
+    .filter((file) => file.endsWith(".mdx") && file !== "README.mdx");
 
-  files.forEach(filename => {
+  files.forEach((filename) => {
     const slug = filename.replace(/\.mdx$/, "");
     const filePath = path.join(BLOG_DIR, filename);
     const fileContent = fs.readFileSync(filePath, "utf-8");
@@ -178,7 +184,10 @@ export function loadBlogPosts(): Map<BlogSlug, BlogPost> {
     if (validation.success) {
       blogMap.set(slug, validation.data);
     } else {
-      console.error(`Failed to validate blog post ${slug}:`, validation.schemaErrors);
+      console.error(
+        `Failed to validate blog post ${slug}:`,
+        validation.schemaErrors,
+      );
       throw new Error(`Blog post ${slug} failed validation`);
     }
   });
@@ -189,7 +198,9 @@ export function loadBlogPosts(): Map<BlogSlug, BlogPost> {
 /**
  * Validates a BlogPost against the schema
  */
-export function validateBlogPost(post: unknown): DomainValidationResult<BlogPost> {
+export function validateBlogPost(
+  post: unknown,
+): DomainValidationResult<BlogPost> {
   const result = BlogPostSchema.safeParse(post);
 
   if (!result.success) {
@@ -204,28 +215,34 @@ export function validateBlogPost(post: unknown): DomainValidationResult<BlogPost
   if (!dateValid) {
     return {
       success: false,
-      referentialErrors: [{
-        type: "invalid_reference",
-        entity: "BlogPost",
-        field: "date",
-        value: result.data.date,
-        message: `Invalid date format: ${result.data.date}`,
-      }],
+      referentialErrors: [
+        {
+          type: "invalid_reference",
+          entity: "BlogPost",
+          field: "date",
+          value: result.data.date,
+          message: `Invalid date format: ${result.data.date}`,
+        },
+      ],
     };
   }
 
   if (result.data.updated) {
-    const updatedValid = isValid(parse(result.data.updated, "yyyy-MM-dd", new Date()));
+    const updatedValid = isValid(
+      parse(result.data.updated, "yyyy-MM-dd", new Date()),
+    );
     if (!updatedValid) {
       return {
         success: false,
-        referentialErrors: [{
-          type: "invalid_reference",
-          entity: "BlogPost",
-          field: "updated",
-          value: result.data.updated,
-          message: `Invalid updated date format: ${result.data.updated}`,
-        }],
+        referentialErrors: [
+          {
+            type: "invalid_reference",
+            entity: "BlogPost",
+            field: "updated",
+            value: result.data.updated,
+            message: `Invalid updated date format: ${result.data.updated}`,
+          },
+        ],
       };
     }
   }
@@ -250,11 +267,12 @@ export function loadProjects(): Map<ProjectSlug, Project> {
     return projectMap;
   }
 
-  const projectDirs = fs.readdirSync(PROJECTS_DIR, { withFileTypes: true })
-    .filter(dirent => dirent.isDirectory())
-    .map(dirent => dirent.name);
+  const projectDirs = fs
+    .readdirSync(PROJECTS_DIR, { withFileTypes: true })
+    .filter((dirent) => dirent.isDirectory())
+    .map((dirent) => dirent.name);
 
-  projectDirs.forEach(projectSlug => {
+  projectDirs.forEach((projectSlug) => {
     const projectPath = path.join(PROJECTS_DIR, projectSlug, "index.mdx");
 
     if (!fs.existsSync(projectPath)) {
@@ -268,19 +286,20 @@ export function loadProjects(): Map<ProjectSlug, Project> {
     const adrSlugs: ADRSlug[] = [];
     const adrsDir = path.join(PROJECTS_DIR, projectSlug, "adrs");
     if (fs.existsSync(adrsDir)) {
-      const adrFiles = fs.readdirSync(adrsDir)
-        .filter(f => f.endsWith(".mdx"))
+      const adrFiles = fs
+        .readdirSync(adrsDir)
+        .filter((f) => f.endsWith(".mdx"))
         .sort();
 
-      adrFiles.forEach(adrFile => {
+      adrFiles.forEach((adrFile) => {
         const adrSlug = adrFile.replace(/\.mdx$/, "");
         adrSlugs.push(adrSlug);
       });
     }
 
     // Normalize tech_stack to technology slugs
-    const technologies: TechnologySlug[] = (data.tech_stack || []).map((tech: string) =>
-      tech.toLowerCase().trim()
+    const technologies: TechnologySlug[] = (data.tech_stack || []).map(
+      (tech: string) => tech.toLowerCase().trim(),
     );
 
     const project: Project = {
@@ -303,7 +322,10 @@ export function loadProjects(): Map<ProjectSlug, Project> {
     if (validation.success) {
       projectMap.set(projectSlug, validation.data);
     } else {
-      console.error(`Failed to validate project ${projectSlug}:`, validation.schemaErrors);
+      console.error(
+        `Failed to validate project ${projectSlug}:`,
+        validation.schemaErrors,
+      );
       throw new Error(`Project ${projectSlug} failed validation`);
     }
   });
@@ -314,7 +336,9 @@ export function loadProjects(): Map<ProjectSlug, Project> {
 /**
  * Validates a Project against the schema
  */
-export function validateProject(project: unknown): DomainValidationResult<Project> {
+export function validateProject(
+  project: unknown,
+): DomainValidationResult<Project> {
   const result = ProjectSchema.safeParse(project);
 
   if (!result.success) {
@@ -340,28 +364,29 @@ export function loadADRs(): Map<ADRSlug, ADR> {
     return adrMap;
   }
 
-  const projectDirs = fs.readdirSync(PROJECTS_DIR, { withFileTypes: true })
-    .filter(dirent => dirent.isDirectory())
-    .map(dirent => dirent.name);
+  const projectDirs = fs
+    .readdirSync(PROJECTS_DIR, { withFileTypes: true })
+    .filter((dirent) => dirent.isDirectory())
+    .map((dirent) => dirent.name);
 
-  projectDirs.forEach(projectSlug => {
+  projectDirs.forEach((projectSlug) => {
     const adrsDir = path.join(PROJECTS_DIR, projectSlug, "adrs");
 
     if (!fs.existsSync(adrsDir)) {
       return;
     }
 
-    const adrFiles = fs.readdirSync(adrsDir).filter(f => f.endsWith(".mdx"));
+    const adrFiles = fs.readdirSync(adrsDir).filter((f) => f.endsWith(".mdx"));
 
-    adrFiles.forEach(adrFile => {
+    adrFiles.forEach((adrFile) => {
       const adrSlug = adrFile.replace(/\.mdx$/, "");
       const adrPath = path.join(adrsDir, adrFile);
       const fileContent = fs.readFileSync(adrPath, "utf-8");
       const { data, content } = matter(fileContent);
 
       // Normalize tech_stack to technology slugs
-      const technologies: TechnologySlug[] = (data.tech_stack || []).map((tech: string) =>
-        tech.toLowerCase().trim()
+      const technologies: TechnologySlug[] = (data.tech_stack || []).map(
+        (tech: string) => tech.toLowerCase().trim(),
       );
 
       const adr: ADR = {
@@ -382,7 +407,10 @@ export function loadADRs(): Map<ADRSlug, ADR> {
       if (validation.success) {
         adrMap.set(adrSlug, validation.data);
       } else {
-        console.error(`Failed to validate ADR ${adrSlug}:`, validation.schemaErrors);
+        console.error(
+          `Failed to validate ADR ${adrSlug}:`,
+          validation.schemaErrors,
+        );
         throw new Error(`ADR ${adrSlug} failed validation`);
       }
     });
@@ -427,8 +455,8 @@ export function loadJobRoles(): Map<RoleSlug, JobRole> {
     const slug = `${exp.company.toLowerCase().replace(/\s+/g, "-")}-${index}`;
 
     // Normalize technology names to slugs
-    const technologies: TechnologySlug[] = exp.technologies.map(tech =>
-      tech.toLowerCase().trim()
+    const technologies: TechnologySlug[] = exp.technologies.map((tech) =>
+      tech.toLowerCase().trim(),
     );
 
     const role: JobRole = {
@@ -451,7 +479,10 @@ export function loadJobRoles(): Map<RoleSlug, JobRole> {
     if (validation.success) {
       roleMap.set(slug, validation.data);
     } else {
-      console.error(`Failed to validate job role ${slug}:`, validation.schemaErrors);
+      console.error(
+        `Failed to validate job role ${slug}:`,
+        validation.schemaErrors,
+      );
       throw new Error(`Job role ${slug} failed validation`);
     }
   });
@@ -462,7 +493,9 @@ export function loadJobRoles(): Map<RoleSlug, JobRole> {
 /**
  * Validates a JobRole against the schema
  */
-export function validateJobRole(role: unknown): DomainValidationResult<JobRole> {
+export function validateJobRole(
+  role: unknown,
+): DomainValidationResult<JobRole> {
   const result = JobRoleSchema.safeParse(role);
 
   if (!result.success) {
@@ -490,7 +523,7 @@ export function validateReferentialIntegrity(
   blogs: Map<BlogSlug, BlogPost>,
   projects: Map<ProjectSlug, Project>,
   adrs: Map<ADRSlug, ADR>,
-  roles: Map<RoleSlug, JobRole>
+  roles: Map<RoleSlug, JobRole>,
 ): ReferentialIntegrityError[] {
   const errors: ReferentialIntegrityError[] = [];
 
@@ -509,7 +542,7 @@ export function validateReferentialIntegrity(
 
   // Validate blog post technology references
   blogs.forEach((blog, blogSlug) => {
-    blog.relations.technologies.forEach(techSlug => {
+    blog.relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `BlogPost[${blogSlug}]`, "technologies");
     });
   });
@@ -517,12 +550,12 @@ export function validateReferentialIntegrity(
   // Validate project references
   projects.forEach((project, projectSlug) => {
     // Check technologies
-    project.relations.technologies.forEach(techSlug => {
+    project.relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `Project[${projectSlug}]`, "technologies");
     });
 
     // Check ADR references
-    project.relations.adrs.forEach(adrSlug => {
+    project.relations.adrs.forEach((adrSlug) => {
       if (!adrs.has(adrSlug)) {
         errors.push({
           type: "missing_reference",
@@ -549,7 +582,7 @@ export function validateReferentialIntegrity(
     }
 
     // Check technologies
-    adr.relations.technologies.forEach(techSlug => {
+    adr.relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `ADR[${adrSlug}]`, "technologies");
     });
 
@@ -567,7 +600,7 @@ export function validateReferentialIntegrity(
 
   // Validate job role technology references
   roles.forEach((role, roleSlug) => {
-    role.relations.technologies.forEach(techSlug => {
+    role.relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `JobRole[${roleSlug}]`, "technologies");
     });
   });
@@ -587,10 +620,10 @@ export function buildTechnologyRelations(
   blogs: Map<BlogSlug, BlogPost>,
   projects: Map<ProjectSlug, Project>,
   adrs: Map<ADRSlug, ADR>,
-  roles: Map<RoleSlug, JobRole>
+  roles: Map<RoleSlug, JobRole>,
 ): void {
   // Reset all relations
-  technologies.forEach(tech => {
+  technologies.forEach((tech) => {
     tech.relations.blogs = [];
     tech.relations.adrs = [];
     tech.relations.projects = [];
@@ -599,7 +632,7 @@ export function buildTechnologyRelations(
 
   // Build blog relations
   blogs.forEach((blog, blogSlug) => {
-    blog.relations.technologies.forEach(techSlug => {
+    blog.relations.technologies.forEach((techSlug) => {
       const tech = technologies.get(techSlug);
       if (tech && !tech.relations.blogs.includes(blogSlug)) {
         tech.relations.blogs.push(blogSlug);
@@ -609,7 +642,7 @@ export function buildTechnologyRelations(
 
   // Build project relations
   projects.forEach((project, projectSlug) => {
-    project.relations.technologies.forEach(techSlug => {
+    project.relations.technologies.forEach((techSlug) => {
       const tech = technologies.get(techSlug);
       if (tech && !tech.relations.projects.includes(projectSlug)) {
         tech.relations.projects.push(projectSlug);
@@ -619,7 +652,7 @@ export function buildTechnologyRelations(
 
   // Build ADR relations
   adrs.forEach((adr, adrSlug) => {
-    adr.relations.technologies.forEach(techSlug => {
+    adr.relations.technologies.forEach((techSlug) => {
       const tech = technologies.get(techSlug);
       if (tech && !tech.relations.adrs.includes(adrSlug)) {
         tech.relations.adrs.push(adrSlug);
@@ -629,7 +662,7 @@ export function buildTechnologyRelations(
 
   // Build role relations
   roles.forEach((role, roleSlug) => {
-    role.relations.technologies.forEach(techSlug => {
+    role.relations.technologies.forEach((techSlug) => {
       const tech = technologies.get(techSlug);
       if (tech && !tech.relations.roles.includes(roleSlug)) {
         tech.relations.roles.push(roleSlug);
@@ -671,16 +704,18 @@ export function loadDomainRepository(): DomainRepository {
     blogs,
     projects,
     adrs,
-    roles
+    roles,
   );
 
   // Throw error if there are integrity violations
   if (referentialIntegrityErrors.length > 0) {
     console.error("Referential integrity errors found:");
-    referentialIntegrityErrors.forEach(err => {
+    referentialIntegrityErrors.forEach((err) => {
       console.error(`  - ${err.message}`);
     });
-    throw new Error(`Found ${referentialIntegrityErrors.length} referential integrity errors`);
+    throw new Error(
+      `Found ${referentialIntegrityErrors.length} referential integrity errors`,
+    );
   }
 
   return {

@@ -216,7 +216,7 @@ type ReferentialIntegrityError = {
 
 ## 📁 File Structure
 
-```
+```text
 ui/lib/domain/
 ├── models.ts          # TypeScript types and Zod schemas
 ├── repository.ts      # Loading and validation logic

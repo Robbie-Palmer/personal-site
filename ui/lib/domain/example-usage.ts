@@ -6,14 +6,14 @@
  */
 
 import {
-  loadDomainRepository,
-  loadTechnologies,
-  loadBlogPosts,
-  loadProjects,
   loadADRs,
+  loadBlogPosts,
+  loadDomainRepository,
   loadJobRoles,
-  validateTechnology,
+  loadProjects,
+  loadTechnologies,
   type Technology,
+  validateTechnology,
 } from "./index";
 
 // ============================================================================
@@ -121,7 +121,7 @@ export function example4_queryBlogs() {
 
   // Sort by date (newest first)
   const sortedBlogs = Array.from(blogs.values()).sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   );
 
   sortedBlogs.forEach((blog) => {
@@ -208,7 +208,7 @@ export function example6_validateCustomData() {
   const result2 = validateTechnology(invalidTech);
   if (!result2.success) {
     console.log(
-      "\n✅ Invalid technology correctly rejected (bad brandColor format)"
+      "\n✅ Invalid technology correctly rejected (bad brandColor format)",
     );
   }
 
@@ -337,7 +337,9 @@ export function example8_getProjectDetails(projectSlug: string) {
   console.log();
 
   // ADRs
-  console.log(`Architecture Decision Records (${project.relations.adrs.length}):`);
+  console.log(
+    `Architecture Decision Records (${project.relations.adrs.length}):`,
+  );
   project.relations.adrs.forEach((adrSlug) => {
     const adr = repo.adrs.get(adrSlug);
     if (adr) {
