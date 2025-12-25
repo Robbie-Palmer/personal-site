@@ -1,7 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
 import { isValid, parse } from "date-fns";
-import fs from "fs";
 import matter from "gray-matter";
-import path from "path";
 import readingTime from "reading-time";
 import { getAllExperience } from "../experience";
 import { TECH_URLS } from "../tech-icons";
@@ -72,11 +72,17 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
 
   // Scan all content to build tech catalog
   const experiences = getAllExperience();
-  experiences.forEach((exp) => {
-    exp.technologies.forEach((tech) => addTech(tech));
-  });
+  for (const exp of experiences) {
+    for (const tech of exp.technologies) {
+      addTech(tech);
+    }
+  }
 
   // Scan projects and ADRs
+  if (!fs.existsSync(PROJECTS_DIR)) {
+    return techMap;
+  }
+
   const projectDirs = fs
     .readdirSync(PROJECTS_DIR, { withFileTypes: true })
     .filter((dirent) => dirent.isDirectory())
@@ -89,7 +95,9 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
       const { data } = matter(fileContent);
 
       if (Array.isArray(data.tech_stack)) {
-        data.tech_stack.forEach((tech: string) => addTech(tech));
+        for (const tech of data.tech_stack) {
+          addTech(tech);
+        }
       }
 
       // Scan ADRs
@@ -104,7 +112,9 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
           const { data: adrData } = matter(adrContent);
 
           if (Array.isArray(adrData.tech_stack)) {
-            adrData.tech_stack.forEach((tech: string) => addTech(tech));
+            for (const tech of adrData.tech_stack) {
+              addTech(tech);
+            }
           }
         });
       }

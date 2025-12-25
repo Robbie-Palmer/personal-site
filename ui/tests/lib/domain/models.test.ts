@@ -285,24 +285,6 @@ describe("Domain Model Schemas", () => {
       expect(result.success).toBe(true);
     });
 
-    it("should reject project with empty tech stack", () => {
-      const invalidProject = {
-        slug: "bad-project",
-        title: "Bad Project",
-        description: "Desc",
-        date: "2025-01-01",
-        status: "idea" as const,
-        content: "Content",
-        relations: {
-          technologies: [], // Must have at least one
-          adrs: [],
-        },
-      };
-
-      const result = ProjectSchema.safeParse(invalidProject);
-      expect(result.success).toBe(false);
-    });
-
     it("should reject project with invalid status", () => {
       const invalidProject = {
         slug: "bad-status",

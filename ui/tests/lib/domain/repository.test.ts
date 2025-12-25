@@ -164,7 +164,6 @@ status: "live"
 tech_stack: ["React"]
 ---
 Content`;
-
       const mockADRContent = `---
 title: "ADR 001"
 date: "2025-01-01"

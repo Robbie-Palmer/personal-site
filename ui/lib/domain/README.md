@@ -336,21 +336,16 @@ test('validates project with missing title', () => {
 
 ## 🔒 Type Safety
 
-All slug types are branded for maximum type safety:
+Slug types are defined as string aliases for better code documentation:
 
 ```typescript
-type TechnologySlug = string;  // Can't mix with BlogSlug
+type TechnologySlug = string;
 type BlogSlug = string;
 type ProjectSlug = string;
 // etc.
 ```
 
-This prevents accidental misuse:
-
-```typescript
-const tech: TechnologySlug = 'react';
-const blog: BlogSlug = tech;  // ❌ Type error!
-```
+These are plain string types that provide semantic meaning in function signatures and help document the expected content type.
 
 ## 📚 Further Reading
 

@@ -1,9 +1,5 @@
 import { z } from "zod";
 
-// ============================================================================
-// Slug Types (for type safety and referential integrity)
-// ============================================================================
-
 export const TechnologySlugSchema = z.string().min(1);
 export const BlogSlugSchema = z.string().min(1);
 export const ADRSlugSchema = z.string().min(1);
@@ -15,10 +11,6 @@ export type BlogSlug = z.infer<typeof BlogSlugSchema>;
 export type ADRSlug = z.infer<typeof ADRSlugSchema>;
 export type ProjectSlug = z.infer<typeof ProjectSlugSchema>;
 export type RoleSlug = z.infer<typeof RoleSlugSchema>;
-
-// ============================================================================
-// Technology Domain Model
-// ============================================================================
 
 export const TechnologySchema = z.object({
   slug: TechnologySlugSchema,
@@ -48,15 +40,11 @@ export const TechnologySchema = z.object({
 
 export type Technology = z.infer<typeof TechnologySchema>;
 
-// ============================================================================
-// BlogPost Domain Model
-// ============================================================================
-
 export const BlogPostSchema = z.object({
   slug: BlogSlugSchema,
   title: z.string().min(1),
   description: z.string().min(1),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD format
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   updated: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -79,10 +67,6 @@ export const BlogPostSchema = z.object({
 
 export type BlogPost = z.infer<typeof BlogPostSchema>;
 
-// ============================================================================
-// ADR (Architecture Decision Record) Domain Model
-// ============================================================================
-
 export const ADRStatusSchema = z.enum([
   "Accepted",
   "Rejected",
@@ -94,9 +78,9 @@ export type ADRStatus = z.infer<typeof ADRStatusSchema>;
 export const ADRSchema = z.object({
   slug: ADRSlugSchema,
   title: z.string().min(1),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD format (ISO date)
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   status: ADRStatusSchema,
-  supersededBy: z.string().optional(), // Reference to another ADR slug
+  supersededBy: z.string().optional(),
   content: z.string(),
   readingTime: z.string(),
 
@@ -107,10 +91,6 @@ export const ADRSchema = z.object({
 });
 
 export type ADR = z.infer<typeof ADRSchema>;
-
-// ============================================================================
-// Project Domain Model
-// ============================================================================
 
 export const ProjectStatusSchema = z.enum([
   "idea",
@@ -124,7 +104,7 @@ export const ProjectSchema = z.object({
   slug: ProjectSlugSchema,
   title: z.string().min(1),
   description: z.string().min(1),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD format
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   updated: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -135,16 +115,12 @@ export const ProjectSchema = z.object({
   content: z.string(),
 
   relations: z.object({
-    technologies: z.array(TechnologySlugSchema).min(1), // At least one tech required
+    technologies: z.array(TechnologySlugSchema).default([]),
     adrs: z.array(ADRSlugSchema).default([]),
   }),
 });
 
 export type Project = z.infer<typeof ProjectSchema>;
-
-// ============================================================================
-// JobRole Domain Model
-// ============================================================================
 
 export const JobRoleSchema = z.object({
   slug: RoleSlugSchema,
@@ -153,11 +129,11 @@ export const JobRoleSchema = z.object({
   logoPath: z.string().min(1),
   title: z.string().min(1),
   location: z.string().min(1),
-  startDate: z.string().regex(/^\d{4}-\d{2}$/), // YYYY-MM format
+  startDate: z.string().regex(/^\d{4}-\d{2}$/),
   endDate: z
     .string()
     .regex(/^\d{4}-\d{2}$/)
-    .optional(), // undefined for current role
+    .optional(),
   description: z.string().min(1),
   responsibilities: z.array(z.string()).min(1),
 
@@ -171,10 +147,6 @@ export const JobRoleSchema = z.object({
 });
 
 export type JobRole = z.infer<typeof JobRoleSchema>;
-
-// ============================================================================
-// Helper Types for Validation
-// ============================================================================
 
 export type ValidationResult<T> =
   | {

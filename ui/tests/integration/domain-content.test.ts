@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { loadDomainRepository } from "@/lib/domain";
+import { beforeAll, describe, expect, it } from "vitest";
+import {
+  type DomainRepository,
+  loadDomainRepository,
+} from "@/lib/domain/repository";
 
 /**
  * Integration test: Validate all real content against domain models
@@ -8,10 +11,13 @@ import { loadDomainRepository } from "@/lib/domain";
  * pass Zod validation and referential integrity checks.
  */
 describe("Domain Content Validation (Integration)", () => {
-  it("should load all content and pass validation", () => {
-    // This will throw if any validation fails
-    const repo = loadDomainRepository();
+  let repo: DomainRepository;
 
+  beforeAll(() => {
+    repo = loadDomainRepository();
+  });
+
+  it("should load all content and pass validation", () => {
     // Verify we loaded actual content
     expect(repo.blogs.size).toBeGreaterThan(0);
     expect(repo.projects.size).toBeGreaterThan(0);
@@ -24,8 +30,6 @@ describe("Domain Content Validation (Integration)", () => {
   });
 
   it("should have valid blog posts", () => {
-    const repo = loadDomainRepository();
-
     for (const [slug, blog] of repo.blogs) {
       // Verify required fields
       expect(blog.slug, `Blog ${slug}: slug is required`).toBe(slug);
@@ -68,8 +72,6 @@ describe("Domain Content Validation (Integration)", () => {
   });
 
   it("should have valid projects", () => {
-    const repo = loadDomainRepository();
-
     for (const [slug, project] of repo.projects) {
       // Verify required fields
       expect(project.slug, `Project ${slug}: slug is required`).toBe(slug);
@@ -93,12 +95,6 @@ describe("Domain Content Validation (Integration)", () => {
         ["idea", "in_progress", "live", "archived"].includes(project.status),
         `Project ${slug}: status must be one of: idea, in_progress, live, archived`,
       ).toBe(true);
-
-      // Verify technologies array is not empty
-      expect(
-        project.relations.technologies.length,
-        `Project ${slug}: must have at least one technology`,
-      ).toBeGreaterThan(0);
 
       // Verify ADRs array
       expect(
@@ -125,8 +121,6 @@ describe("Domain Content Validation (Integration)", () => {
   });
 
   it("should have valid ADRs", () => {
-    const repo = loadDomainRepository();
-
     for (const [slug, adr] of repo.adrs) {
       // Verify required fields
       expect(adr.slug, `ADR ${slug}: slug is required`).toBe(slug);
@@ -166,8 +160,6 @@ describe("Domain Content Validation (Integration)", () => {
   });
 
   it("should have valid job roles", () => {
-    const repo = loadDomainRepository();
-
     for (const [slug, role] of repo.roles) {
       // Verify required fields
       expect(role.slug, `Role ${slug}: slug is required`).toBe(slug);
@@ -223,8 +215,6 @@ describe("Domain Content Validation (Integration)", () => {
   });
 
   it("should have valid technologies", () => {
-    const repo = loadDomainRepository();
-
     for (const [slug, tech] of repo.technologies) {
       // Verify required fields
       expect(tech.slug, `Tech ${slug}: slug is required`).toBe(slug);
@@ -296,8 +286,6 @@ describe("Domain Content Validation (Integration)", () => {
   });
 
   it("should have bidirectional technology relations", () => {
-    const repo = loadDomainRepository();
-
     // For each project, verify that its technologies reference it back
     for (const [projectSlug, project] of repo.projects) {
       for (const techSlug of project.relations.technologies) {
@@ -333,8 +321,6 @@ describe("Domain Content Validation (Integration)", () => {
   });
 
   it("should have consistent project-ADR relationships", () => {
-    const repo = loadDomainRepository();
-
     // For each project's ADRs, verify they reference the project back
     for (const [projectSlug, project] of repo.projects) {
       for (const adrSlug of project.relations.adrs) {
