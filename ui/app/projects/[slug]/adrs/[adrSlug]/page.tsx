@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EmblaDemoCarousel } from "@/components/adrs/embla-demo-carousel";
 import { RechartsDemoChart } from "@/components/adrs/recharts-demo-chart";
+import { Mermaid } from "@/components/mermaid";
 import { ADRBadge } from "@/components/projects/adr-badge";
 import { ADRPagination } from "@/components/projects/adr-pagination";
 import { Markdown } from "@/components/projects/markdown";
@@ -20,6 +21,7 @@ import { getTechUrl, hasTechIcon, TechIcon } from "@/lib/tech-icons";
 const adrComponents = {
   EmblaDemoCarousel,
   RechartsDemoChart,
+  Mermaid,
 };
 
 // Responsive behavior for the pagination container:
