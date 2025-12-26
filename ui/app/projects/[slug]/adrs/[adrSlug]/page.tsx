@@ -107,43 +107,43 @@ export default async function ADRPage({ params }: PageProps) {
               adr.relations.technologies.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {adr.relations.technologies.map((tech) => {
-                  const url = getTechUrl(tech);
-                  if (url) {
-                    return (
-                      <a
-                        key={tech}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="cursor-pointer"
-                        aria-label={`Visit ${tech} website`}
-                      >
-                        <Badge
-                          variant="secondary"
-                          interactive
-                          className="flex items-center gap-1.5"
+                    const url = getTechUrl(tech);
+                    if (url) {
+                      return (
+                        <a
+                          key={tech}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="cursor-pointer"
+                          aria-label={`Visit ${tech} website`}
                         >
-                          {hasTechIcon(tech) && (
-                            <TechIcon name={tech} className="w-3 h-3" />
-                          )}
-                          <span>{tech}</span>
-                          <ExternalLink className="w-3 h-3 ml-0.5" />
-                        </Badge>
-                      </a>
+                          <Badge
+                            variant="secondary"
+                            interactive
+                            className="flex items-center gap-1.5"
+                          >
+                            {hasTechIcon(tech) && (
+                              <TechIcon name={tech} className="w-3 h-3" />
+                            )}
+                            <span>{tech}</span>
+                            <ExternalLink className="w-3 h-3 ml-0.5" />
+                          </Badge>
+                        </a>
+                      );
+                    }
+                    return (
+                      <Badge
+                        key={tech}
+                        variant="secondary"
+                        className="flex items-center gap-1.5"
+                      >
+                        {hasTechIcon(tech) && (
+                          <TechIcon name={tech} className="w-3 h-3" />
+                        )}
+                        <span>{tech}</span>
+                      </Badge>
                     );
-                  }
-                  return (
-                    <Badge
-                      key={tech}
-                      variant="secondary"
-                      className="flex items-center gap-1.5"
-                    >
-                      {hasTechIcon(tech) && (
-                        <TechIcon name={tech} className="w-3 h-3" />
-                      )}
-                      <span>{tech}</span>
-                    </Badge>
-                  );
                   })}
                 </div>
               )}
