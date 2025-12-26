@@ -4,12 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import type { Project } from "@/lib/projects";
+import type { ProjectWithADRs } from "@/lib/projects";
 import { cn } from "@/lib/styles";
 import { ADRBadge } from "./adr-badge";
 
 interface ADRNavContentProps {
-  project: Project;
+  project: ProjectWithADRs;
   className?: string;
   onLinkClick?: () => void;
 }

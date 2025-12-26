@@ -46,7 +46,7 @@ describe("Projects functions", () => {
       expect(project.description.length).toBeGreaterThan(0);
       expect(typeof project.date).toBe("string");
       expect(project.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect(Array.isArray(project.tech_stack)).toBe(true);
+      expect(Array.isArray(project.relations.technologies)).toBe(true);
       expect(typeof project.content).toBe("string");
       expect(Array.isArray(project.adrs)).toBe(true);
       expect(["idea", "in_progress", "live", "archived"]).toContain(
@@ -78,28 +78,27 @@ describe("Projects functions", () => {
       }
     });
 
-    it("should merge tech stack from accepted ADRs", () => {
+    it("should include project technologies", () => {
       const projects = getAllProjects();
 
-      // Find a project with accepted ADRs that have tech_stack
-      const projectWithADRs = projects.find(
-        (p) =>
-          p.adrs.length > 0 &&
-          p.adrs.some((adr) => adr.status === "Accepted" && adr.tech_stack),
+      // Find a project with technologies
+      const projectWithTech = projects.find(
+        (p) => p.relations.technologies.length > 0,
       );
 
-      if (!projectWithADRs) {
+      if (!projectWithTech) {
         // Skip test if no suitable project found
         return;
       }
 
-      // Verify tech_stack includes technologies from accepted ADRs
-      const acceptedADRTechs = projectWithADRs.adrs
-        .filter((adr) => adr.status === "Accepted" && adr.tech_stack)
-        .flatMap((adr) => adr.tech_stack || []);
+      // Verify project has technologies in relations
+      expect(Array.isArray(projectWithTech.relations.technologies)).toBe(true);
+      expect(projectWithTech.relations.technologies.length).toBeGreaterThan(0);
 
-      for (const tech of acceptedADRTechs) {
-        expect(projectWithADRs.tech_stack).toContain(tech);
+      // Verify technologies are strings
+      for (const tech of projectWithTech.relations.technologies) {
+        expect(typeof tech).toBe("string");
+        expect(tech.length).toBeGreaterThan(0);
       }
     });
   });
@@ -188,7 +187,7 @@ describe("Projects functions", () => {
 
       // Try to get project1's ADR using project2's slug
       expect(() =>
-        getProjectADR(project2.slug, project1.adrs[0].slug),
+        getProjectADR(project2.slug, project1.adrs[0]!.slug),
       ).toThrow("does not belong to project");
     });
   });

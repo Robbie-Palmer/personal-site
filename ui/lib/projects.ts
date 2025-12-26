@@ -1,6 +1,8 @@
 import type {
-  ADR as DomainADR,
-  Project as DomainProject,
+  ADR,
+  ADRStatus,
+  Project,
+  ProjectStatus,
 } from "@/lib/domain/models";
 import {
   loadDomainRepository,
@@ -30,7 +32,10 @@ if (validationErrors.length > 0) {
   );
 }
 
-// Re-export types and constants for backward compatibility
+// Re-export types from domain models
+export type { Project, ProjectStatus, ADR, ADRStatus };
+
+// Re-export constants for backward compatibility
 export const PROJECT_STATUSES = [
   "idea",
   "in_progress",
@@ -38,38 +43,11 @@ export const PROJECT_STATUSES = [
   "archived",
 ] as const;
 
-export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
-
 /**
- * Backward-compatible Project type with snake_case fields
- * Maps from domain model (camelCase) to legacy format
+ * Extended Project type with ADRs populated
  */
-export interface Project {
-  slug: string;
-  title: string;
-  description: string;
-  tech_stack: string[];
-  repo_url?: string;
-  demo_url?: string;
-  date: string;
-  updated?: string;
-  status: ProjectStatus;
-  content: string;
+export interface ProjectWithADRs extends Project {
   adrs: ADR[];
-}
-
-/**
- * Backward-compatible ADR type with snake_case fields
- */
-export interface ADR {
-  slug: string;
-  title: string;
-  date: string;
-  status: "Accepted" | "Rejected" | "Deprecated" | "Proposed";
-  superseded_by?: string;
-  tech_stack?: string[];
-  content: string;
-  readingTime: string;
 }
 
 /**
@@ -81,57 +59,6 @@ export interface ProjectADR extends ADR {
 }
 
 /**
- * Adapters to convert domain models to backward-compatible format
- */
-
-function adaptDomainADR(domainADR: DomainADR): ADR {
-  return {
-    slug: domainADR.slug,
-    title: domainADR.title,
-    date: domainADR.date,
-    status: domainADR.status,
-    superseded_by: domainADR.supersededBy,
-    tech_stack:
-      domainADR.relations.technologies.length > 0
-        ? domainADR.relations.technologies
-        : undefined,
-    content: domainADR.content,
-    readingTime: domainADR.readingTime,
-  };
-}
-
-function adaptDomainProject(domainProject: DomainProject): Project {
-  // Get ADRs for this project from the repository
-  const projectAdrs = Array.from(repository.adrs.values())
-    .filter((adr) => adr.relations.project === domainProject.slug)
-    .sort((a, b) => a.slug.localeCompare(b.slug))
-    .map(adaptDomainADR);
-
-  // Merge technologies from project and accepted ADRs
-  const adrTechStack = projectAdrs
-    .filter((adr) => adr.status === "Accepted" && adr.tech_stack)
-    .flatMap((adr) => adr.tech_stack || []);
-
-  const mergedTechStack = Array.from(
-    new Set([...domainProject.relations.technologies, ...adrTechStack]),
-  ).sort();
-
-  return {
-    slug: domainProject.slug,
-    title: domainProject.title,
-    description: domainProject.description,
-    tech_stack: mergedTechStack,
-    repo_url: domainProject.repoUrl,
-    demo_url: domainProject.demoUrl,
-    date: domainProject.date,
-    updated: domainProject.updated,
-    status: domainProject.status,
-    content: domainProject.content,
-    adrs: projectAdrs,
-  };
-}
-
-/**
  * Get all project slugs
  */
 export function getAllProjectSlugs(): string[] {
@@ -139,22 +66,31 @@ export function getAllProjectSlugs(): string[] {
 }
 
 /**
- * Get a project by slug with all its ADRs
+ * Get a project by slug with all its ADRs populated
  */
-export function getProject(slug: string): Project {
+export function getProject(slug: string): ProjectWithADRs {
   const domainProject = repository.projects.get(slug);
   if (!domainProject) {
     throw new Error(`Project not found: ${slug}`);
   }
-  return adaptDomainProject(domainProject);
+
+  // Get ADRs for this project from the repository
+  const projectAdrs = Array.from(repository.adrs.values())
+    .filter((adr) => adr.relations.project === domainProject.slug)
+    .sort((a, b) => a.slug.localeCompare(b.slug));
+
+  return {
+    ...domainProject,
+    adrs: projectAdrs,
+  };
 }
 
 /**
- * Get all projects, sorted by date (newest first)
+ * Get all projects with their ADRs, sorted by date (newest first)
  */
-export function getAllProjects(): Project[] {
+export function getAllProjects(): ProjectWithADRs[] {
   return Array.from(repository.projects.values())
-    .map(adaptDomainProject)
+    .map((project) => getProject(project.slug))
     .sort((a, b) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
@@ -163,7 +99,7 @@ export function getAllProjects(): Project[] {
 }
 
 /**
- * Get all ADRs across all projects
+ * Get all ADRs across all projects with project context
  */
 export function getAllADRs(): ProjectADR[] {
   const projects = getAllProjects();
@@ -193,5 +129,5 @@ export function getProjectADR(projectSlug: string, adrSlug: string): ADR {
   if (domainADR.relations.project !== projectSlug) {
     throw new Error(`ADR ${adrSlug} does not belong to project ${projectSlug}`);
   }
-  return adaptDomainADR(domainADR);
+  return domainADR;
 }
