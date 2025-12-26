@@ -26,23 +26,50 @@ export default function Home() {
             {siteConfig.name}
           </h1>
           <p className="text-xl md:text-2xl text-muted-foreground mb-8">
-            <span className="inline-block animate-fade-in animate-delay-400">
-              ML expert
-            </span>
-            <span className="inline-block animate-fade-in animate-delay-400 mx-2">
+            {"ML expert".split("").map((char, i) => (
+              <span
+                key={`ml-${i}`}
+                className="inline-block animate-fade-in"
+                style={{ animationDelay: `${400 + i * 30}ms` }}
+              >
+                {char === " " ? "\u00A0" : char}
+              </span>
+            ))}
+            <span
+              className="inline-block animate-fade-in mx-2"
+              style={{ animationDelay: "670ms" }}
+            >
               |
             </span>
-            <span className="inline-block animate-fade-in animate-delay-800">
-              Full-stack builder
-            </span>
-            <span className="inline-block animate-fade-in animate-delay-800 mx-2">
+            {"Full-stack builder".split("").map((char, i) => (
+              <span
+                key={`fs-${i}`}
+                className="inline-block animate-fade-in"
+                style={{ animationDelay: `${800 + i * 30}ms` }}
+              >
+                {char === " " ? "\u00A0" : char}
+              </span>
+            ))}
+            <span
+              className="inline-block animate-fade-in mx-2"
+              style={{ animationDelay: "1390ms" }}
+            >
               |
             </span>
-            <span className="inline-block animate-fade-in animate-delay-1200">
-              Team lead who ships
-            </span>
+            {"Team lead who ships".split("").map((char, i) => (
+              <span
+                key={`tl-${i}`}
+                className="inline-block animate-fade-in"
+                style={{ animationDelay: `${1520 + i * 30}ms` }}
+              >
+                {char === " " ? "\u00A0" : char}
+              </span>
+            ))}
           </p>
-          <div className="flex gap-4 justify-center flex-wrap animate-fade-in animate-delay-1700">
+          <div
+            className="flex gap-4 justify-center flex-wrap animate-fade-in"
+            style={{ animationDelay: "2400ms" }}
+          >
             <Button
               size="lg"
               variant="outline"
