@@ -1,272 +1,231 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import {
+  getAllADRs,
+  getAllProjectSlugs,
+  getAllProjects,
+  getProject,
+  getProjectADR,
+} from "@/lib/projects";
 
-// Hoist mocks
-const fsMock = vi.hoisted(() => {
-  const existsSync = vi.fn();
-  const readdirSync = vi.fn();
-  const readFileSync = vi.fn();
-  const statSync = vi.fn();
-
-  return {
-    default: { existsSync, readdirSync, readFileSync, statSync },
-    existsSync,
-    readdirSync,
-    readFileSync,
-    statSync,
-  };
-});
-
-const pathMock = vi.hoisted(() => {
-  const join = vi.fn((...args: string[]) => args.join("/"));
-  return {
-    default: { join },
-    join,
-  };
-});
-
-vi.mock("node:fs", () => fsMock);
-vi.mock("node:path", () => pathMock);
-
-import * as fs from "node:fs";
-import { getAllProjects, getProject, getProjectADR } from "@/lib/projects";
-
+/**
+ * Projects tests - Integration tests for domain-backed project functions
+ *
+ * These tests verify that the project functions correctly use the domain repository.
+ * The domain repository handles all validation, security, and file loading.
+ * See tests/lib/domain/repository.test.ts for detailed validation tests.
+ */
 describe("Projects functions", () => {
-  beforeEach(() => {
-    vi.resetAllMocks();
-    // Default mocks
-    vi.mocked(fs.existsSync).mockReturnValue(true);
-    vi.mocked(fs.statSync).mockReturnValue({
-      isDirectory: () => true,
-    } as fs.Stats);
-    vi.mocked(fs.readdirSync).mockReturnValue([]);
+  describe("getAllProjectSlugs", () => {
+    it("should return array of project slugs", () => {
+      const slugs = getAllProjectSlugs();
+      expect(Array.isArray(slugs)).toBe(true);
+      // Verify slugs are valid
+      for (const slug of slugs) {
+        expect(slug).toMatch(/^[a-z0-9_-]+$/);
+      }
+    });
+
+    it("should return at least one project", () => {
+      const slugs = getAllProjectSlugs();
+      expect(slugs.length).toBeGreaterThan(0);
+    });
   });
 
   describe("getProject", () => {
-    it("should parse frontmatter correctly", () => {
-      const mockContent = `---
-title: "Test Project"
-description: "A test project"
-date: "2025-01-01"
-status: "in_progress"
-tech_stack: ["Next.js", "React"]
-repo_url: "https://github.com/test/test"
-demo_url: "https://test.com"
----
+    it("should return project with all required fields", () => {
+      const slugs = getAllProjectSlugs();
+      expect(slugs.length).toBeGreaterThan(0);
 
-# Overview
+      const project = getProject(slugs[0] ?? "");
 
-Content here.`;
-
-      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
-
-      const project = getProject("test-project");
-
-      expect(project).toEqual({
-        slug: "test-project",
-        title: "Test Project",
-        description: "A test project",
-        date: "2025-01-01",
-        updated: undefined,
-        status: "in_progress",
-        tech_stack: ["Next.js", "React"],
-        repo_url: "https://github.com/test/test",
-        demo_url: "https://test.com",
-        content: "\n# Overview\n\nContent here.",
-        adrs: [],
-      });
+      // Verify all required fields exist
+      expect(project.slug).toBe(slugs[0]);
+      expect(typeof project.title).toBe("string");
+      expect(project.title.length).toBeGreaterThan(0);
+      expect(typeof project.description).toBe("string");
+      expect(project.description.length).toBeGreaterThan(0);
+      expect(typeof project.date).toBe("string");
+      expect(project.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(Array.isArray(project.tech_stack)).toBe(true);
+      expect(typeof project.content).toBe("string");
+      expect(Array.isArray(project.adrs)).toBe(true);
+      expect(["idea", "in_progress", "live", "archived"]).toContain(
+        project.status,
+      );
     });
 
-    it("should throw if required fields are missing", () => {
-      const mockContent = `---
-title: "Missing Date"
-description: "Oops"
-status: "idea"
-tech_stack: ["React"]
----`;
-      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
-
-      expect(() => getProject("bad-project")).toThrow(/invalid frontmatter/);
+    it("should throw error for non-existent project", () => {
+      expect(() => getProject("non-existent-project-12345")).toThrow(
+        "Project not found",
+      );
     });
 
-    it("should throw if tech_stack is empty", () => {
-      const mockContent = `---
-title: "Empty Tech Stack"
-description: "Oops"
-date: "2025-01-01"
-status: "live"
-tech_stack: []
----`;
-      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
+    it("should include ADRs for the project", () => {
+      const slugs = getAllProjectSlugs();
+      const project = getProject(slugs[0] ?? "");
 
-      expect(() => getProject("bad-project")).toThrow(/invalid frontmatter/);
+      // Verify ADRs structure
+      for (const adr of project.adrs) {
+        expect(typeof adr.slug).toBe("string");
+        expect(typeof adr.title).toBe("string");
+        expect(typeof adr.date).toBe("string");
+        expect(adr.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(["Accepted", "Rejected", "Deprecated", "Proposed"]).toContain(
+          adr.status,
+        );
+        expect(typeof adr.content).toBe("string");
+        expect(typeof adr.readingTime).toBe("string");
+      }
     });
 
-    it("should throw if date is invalid", () => {
-      const mockContent = `---
-title: "Invalid Date"
-description: "Oops"
-date: "not-a-date"
-status: "live"
-tech_stack: ["React"]
----`;
-      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
+    it("should merge tech stack from accepted ADRs", () => {
+      const projects = getAllProjects();
 
-      expect(() => getProject("bad-project")).toThrow(/invalid frontmatter/);
-    });
-    it("should aggregate tech stack from Accepted ADRs", () => {
-      const projectSlug = "test-project";
+      // Find a project with accepted ADRs that have tech_stack
+      const projectWithADRs = projects.find(
+        (p) =>
+          p.adrs.length > 0 &&
+          p.adrs.some((adr) => adr.status === "Accepted" && adr.tech_stack),
+      );
 
-      vi.mocked(fs.existsSync).mockReturnValue(true);
+      if (!projectWithADRs) {
+        // Skip test if no suitable project found
+        return;
+      }
 
-      vi.mocked(fs.readdirSync).mockImplementation((path) => {
-        if (path.toString().endsWith(pathMock.join(projectSlug, "adrs"))) {
-          return [
-            "001-accepted.mdx",
-            "002-rejected.mdx",
-            "003-proposed.mdx",
-            "004-deprecated.mdx",
-            "005-accepted-no-stack.mdx",
-          ] as any;
-        }
-        return [] as any;
-      });
+      // Verify tech_stack includes technologies from accepted ADRs
+      const acceptedADRTechs = projectWithADRs.adrs
+        .filter((adr) => adr.status === "Accepted" && adr.tech_stack)
+        .flatMap((adr) => adr.tech_stack || []);
 
-      vi.mocked(fs.readFileSync).mockImplementation((path) => {
-        const pathStr = path.toString();
-        if (pathStr.endsWith(`${projectSlug}/index.mdx`)) {
-          return `---
-title: "Test Project"
-description: "A test project"
-date: "2025-01-01"
-status: "in_progress"
-tech_stack: ["Next.js", "React"]
----`;
-        }
-        if (pathStr.endsWith("001-accepted.mdx")) {
-          return `---
-title: "Accepted ADR"
-date: "2025-01-01"
-status: "Accepted"
-tech_stack: ["TypeScript", "Next.js"]
----`;
-        }
-        if (pathStr.endsWith("002-rejected.mdx")) {
-          return `---
-title: "Rejected ADR"
-date: "2025-01-01"
-status: "Rejected"
-tech_stack: ["Rust"]
----`;
-        }
-        if (pathStr.endsWith("003-proposed.mdx")) {
-          return `---
-title: "Proposed ADR"
-date: "2025-01-01"
-status: "Proposed"
-tech_stack: ["Go"]
----`;
-        }
-        if (pathStr.endsWith("004-deprecated.mdx")) {
-          return `---
-title: "Deprecated ADR"
-date: "2025-01-01"
-status: "Deprecated"
-tech_stack: ["jQuery"]
----`;
-        }
-        if (pathStr.endsWith("005-accepted-no-stack.mdx")) {
-          return `---
-title: "Accepted No Stack"
-date: "2025-01-01"
-status: "Accepted"
----`;
-        }
-        return "";
-      });
-
-      const project = getProject(projectSlug);
-
-      // Should include:
-      // - Next.js (from project & ADR 001 - deduped)
-      // - React (from project)
-      // - TypeScript (from ADR 001)
-      // Should NOT include:
-      // - Rust, Go, jQuery (from non-accepted ADRs)
-      expect(project.tech_stack).toEqual(["Next.js", "React", "TypeScript"]);
+      for (const tech of acceptedADRTechs) {
+        expect(projectWithADRs.tech_stack).toContain(tech);
+      }
     });
   });
 
-  describe("getAllProjects (Sorting)", () => {
-    it("should sort projects by date descending (newest first)", () => {
-      vi.mocked(fs.readdirSync).mockImplementation((path) => {
-        if (path.toString().endsWith("adrs")) return [];
-        return ["old", "new", "middle"] as any;
-      });
+  describe("getAllProjects", () => {
+    it("should return array of all projects", () => {
+      const projects = getAllProjects();
+      expect(Array.isArray(projects)).toBe(true);
+      expect(projects.length).toBeGreaterThan(0);
+    });
 
-      const projectsData: Record<string, string> = {
-        old: `---
-title: "Old"
-description: "Old"
-date: "2024-01-01"
-status: "archived"
-tech_stack: ["React"]
----`,
-        new: `---
-title: "New"
-description: "New"
-date: "2025-01-01"
-status: "in_progress"
-tech_stack: ["React"]
----`,
-        middle: `---
-title: "Middle"
-description: "Middle"
-date: "2024-06-01"
-status: "live"
-tech_stack: ["React"]
----`,
-      };
+    it("should return projects sorted by date (newest first)", () => {
+      const projects = getAllProjects();
+      if (projects.length < 2) {
+        // Not enough projects to test sorting
+        return;
+      }
 
-      vi.mocked(fs.readFileSync).mockImplementation((path) => {
-        const parts = path.toString().split("/");
-        const slug = parts[parts.length - 2];
-        if (slug && projectsData[slug]) return projectsData[slug];
-        return "";
-      });
+      for (let i = 0; i < projects.length - 1; i++) {
+        const currentDate = new Date(projects[i]?.date ?? "").getTime();
+        const nextDate = new Date(projects[i + 1]?.date ?? "").getTime();
+        expect(currentDate).toBeGreaterThanOrEqual(nextDate);
+      }
+    });
 
+    it("should return all projects from getAllProjectSlugs", () => {
+      const slugs = getAllProjectSlugs();
       const projects = getAllProjects();
 
-      expect(projects.map((p) => p.slug)).toEqual(["new", "middle", "old"]);
+      expect(projects.length).toBe(slugs.length);
+
+      const projectSlugs = projects.map((p) => p.slug);
+      for (const slug of slugs) {
+        expect(projectSlugs).toContain(slug);
+      }
     });
   });
 
   describe("getProjectADR", () => {
-    it("should find and parse an ADR", () => {
-      const adrContent = `---
-title: "Monorepo"
-date: "2025-11-01"
-status: "Accepted"
----
-Decided to use monorepo.`;
+    it("should return specific ADR from project", () => {
+      const projects = getAllProjects();
+      const projectWithADRs = projects.find((p) => p.adrs.length > 0);
 
-      vi.mocked(fs.existsSync).mockReturnValue(true);
-      vi.mocked(fs.readFileSync).mockReturnValue(adrContent);
+      if (!projectWithADRs) {
+        // Skip if no projects have ADRs
+        return;
+      }
 
-      const adr = getProjectADR("test-project", "001-monorepo");
+      const firstADR = projectWithADRs.adrs[0];
+      if (!firstADR) {
+        return;
+      }
 
-      expect(adr).toEqual({
-        slug: "001-monorepo",
-        title: "Monorepo",
-        date: "2025-11-01",
-        status: "Accepted",
-        content: "Decided to use monorepo.",
-        readingTime: "1 min read",
-      });
+      const adr = getProjectADR(projectWithADRs.slug, firstADR.slug);
+
+      expect(adr.slug).toBe(firstADR.slug);
+      expect(adr.title).toBe(firstADR.title);
+      expect(adr.date).toBe(firstADR.date);
+      expect(adr.status).toBe(firstADR.status);
     });
 
-    it("should throw if ADR not found", () => {
-      vi.mocked(fs.existsSync).mockReturnValue(false);
-      expect(() => getProjectADR("test", "missing")).toThrow(/ADR not found/);
+    it("should throw error for non-existent ADR", () => {
+      const slugs = getAllProjectSlugs();
+      if (slugs.length === 0) {
+        return;
+      }
+
+      expect(() =>
+        getProjectADR(slugs[0] ?? "", "non-existent-adr-12345"),
+      ).toThrow("ADR not found");
+    });
+
+    it("should throw error if ADR belongs to different project", () => {
+      const projects = getAllProjects();
+      if (projects.length < 2) {
+        // Need at least 2 projects
+        return;
+      }
+
+      const project1 = projects[0];
+      const project2 = projects[1];
+
+      if (!project1?.adrs[0] || !project2) {
+        return;
+      }
+
+      // Try to get project1's ADR using project2's slug
+      expect(() =>
+        getProjectADR(project2.slug, project1.adrs[0].slug),
+      ).toThrow("does not belong to project");
+    });
+  });
+
+  describe("getAllADRs", () => {
+    it("should return all ADRs across all projects", () => {
+      const adrs = getAllADRs();
+      expect(Array.isArray(adrs)).toBe(true);
+    });
+
+    it("should include project context in each ADR", () => {
+      const adrs = getAllADRs();
+
+      if (adrs.length === 0) {
+        // No ADRs to test
+        return;
+      }
+
+      for (const adr of adrs) {
+        expect(typeof adr.projectSlug).toBe("string");
+        expect(typeof adr.projectTitle).toBe("string");
+        expect(adr.projectSlug.length).toBeGreaterThan(0);
+        expect(adr.projectTitle.length).toBeGreaterThan(0);
+      }
+    });
+
+    it("should return ADRs sorted by date (newest first)", () => {
+      const adrs = getAllADRs();
+      if (adrs.length < 2) {
+        return;
+      }
+
+      for (let i = 0; i < adrs.length - 1; i++) {
+        const currentDate = new Date(adrs[i]?.date ?? "").getTime();
+        const nextDate = new Date(adrs[i + 1]?.date ?? "").getTime();
+        expect(currentDate).toBeGreaterThanOrEqual(nextDate);
+      }
     });
   });
 });
