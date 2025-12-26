@@ -78,21 +78,28 @@ const baseComponents: MDXComponents = {
   ),
   pre: async ({ children, ...props }: React.HTMLAttributes<HTMLPreElement>) => {
     const codeElement = children as React.ReactElement<any>;
-    if (codeElement?.props?.children) {
-      const code = codeElement.props.children;
-      // Get language from className (format: "language-js")
-      const language =
-        codeElement.props.className?.replace("language-", "") || "text";
+    const code = codeElement?.props?.children;
 
-      const html = await highlight(code, language);
+    // Only attempt highlighting if we have a string code content
+    if (typeof code === "string") {
+      try {
+        // Get language from className (format: "language-js")
+        const language =
+          codeElement.props.className?.replace("language-", "") || "text";
 
-      return (
-        <div
-          className="my-6 rounded-lg overflow-hidden border bg-muted"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: Needed for Shiki highlighting
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-      );
+        const html = await highlight(code, language);
+
+        return (
+          <div
+            className="my-6 rounded-lg overflow-hidden border bg-muted"
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: Needed for Shiki highlighting
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        );
+      } catch (error) {
+        console.error("Syntax highlighting failed:", error);
+        // Fall through to default pre rendering
+      }
     }
     return <pre {...props}>{children}</pre>;
   },
