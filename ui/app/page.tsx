@@ -22,29 +22,81 @@ export default function Home() {
     <div className="container mx-auto px-4">
       <section className="flex min-h-[calc(100vh-5rem)] items-center justify-center">
         <div className="text-center max-w-3xl">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6">
+          <h1 className="text-5xl md:text-6xl font-bold mb-6 animate-fade-in-up">
             {siteConfig.name}
           </h1>
+          {/* Letter-by-letter animation with prefers-reduced-motion support via CSS */}
           <p className="text-xl md:text-2xl text-muted-foreground mb-8">
-            {siteConfig.description}
+            <span className="inline-block whitespace-nowrap">
+              {"ML expert".split("").map((char, i) => (
+                <span
+                  key={`ml-${i}`}
+                  className="inline-block animate-fade-in"
+                  style={{ animationDelay: `${600 + i * 30}ms` }}
+                >
+                  {char === " " ? "\u00A0" : char}
+                </span>
+              ))}
+            </span>
+            <span
+              className="inline-block animate-fade-in mx-2"
+              style={{ animationDelay: "870ms" }}
+            >
+              |
+            </span>
+            <span className="inline-block whitespace-nowrap">
+              {"Full-stack builder".split("").map((char, i) => (
+                <span
+                  key={`fs-${i}`}
+                  className="inline-block animate-fade-in"
+                  style={{ animationDelay: `${1200 + i * 30}ms` }}
+                >
+                  {char === " " ? "\u00A0" : char}
+                </span>
+              ))}
+            </span>
+            <span
+              className="inline-block animate-fade-in mx-2"
+              style={{ animationDelay: "1740ms" }}
+            >
+              |
+            </span>
+            <span className="inline-block whitespace-nowrap">
+              {"Team lead who ships".split("").map((char, i) => (
+                <span
+                  key={`tl-${i}`}
+                  className="inline-block animate-fade-in"
+                  style={{ animationDelay: `${2100 + i * 30}ms` }}
+                >
+                  {char === " " ? "\u00A0" : char}
+                </span>
+              ))}
+            </span>
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
             <Button
               size="lg"
               variant="outline"
               asChild
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto animate-fade-in"
+              style={{ animationDelay: "2900ms" }}
             >
               <Link href="/blog">Read Blog</Link>
             </Button>
-            <Button size="lg" asChild className="w-full sm:w-auto">
+            <Button
+              size="lg"
+              asChild
+              className="w-full sm:w-auto animate-fade-in"
+              style={{ animationDelay: "3200ms" }}
+            >
               <Link href="/projects">Explore Projects</Link>
             </Button>
             <Button
               size="lg"
               variant="outline"
               asChild
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto animate-fade-in"
+              style={{ animationDelay: "3500ms" }}
             >
               <Link href="/experience">View Experience</Link>
             </Button>
