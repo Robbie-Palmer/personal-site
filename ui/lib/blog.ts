@@ -1,8 +1,8 @@
+import type { BlogPost } from "@/lib/domain/models";
 import {
   loadDomainRepository,
   validateReferentialIntegrity,
 } from "@/lib/domain/repository";
-import type { BlogPost } from "@/lib/domain/models";
 
 // Load repository at module level - this runs during build/SSG
 // and will fail the build if there are validation errors
