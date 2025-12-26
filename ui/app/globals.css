@@ -260,18 +260,18 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
   opacity: 0;
 }
 
-.animate-delay-200 {
-  animation-delay: 200ms;
-}
-
 .animate-delay-400 {
   animation-delay: 400ms;
 }
 
-.animate-delay-600 {
-  animation-delay: 600ms;
-}
-
 .animate-delay-800 {
   animation-delay: 800ms;
+}
+
+.animate-delay-1200 {
+  animation-delay: 1200ms;
+}
+
+.animate-delay-1700 {
+  animation-delay: 1700ms;
 }
