@@ -56,9 +56,9 @@ export function getProject(slug: string): ProjectWithADRs {
   if (!domainProject) {
     throw new Error(`Project not found: ${slug}`);
   }
-  const projectAdrs = domainProject.relations.adrs
-    .map((adrSlug) => repository.adrs.get(adrSlug))
-    .filter((adr) => adr !== undefined);
+  const projectAdrs = domainProject.relations.adrs.map(
+    (adrSlug) => repository.adrs.get(adrSlug)!,
+  );
   // Merge technologies from accepted ADRs into project technologies
   const adrTechnologies = projectAdrs
     .filter((adr) => adr.status === "Accepted")
