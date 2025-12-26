@@ -25,10 +25,24 @@ export default function Home() {
           <h1 className="text-5xl md:text-6xl font-bold mb-6 animate-fade-in-up">
             {siteConfig.name}
           </h1>
-          <p className="text-xl md:text-2xl text-muted-foreground mb-8 animate-fade-in-up">
-            {siteConfig.description}
+          <p className="text-xl md:text-2xl text-muted-foreground mb-8">
+            <span className="inline-block animate-fade-in animate-delay-200">
+              ML expert
+            </span>
+            <span className="inline-block animate-fade-in animate-delay-200 mx-2">
+              |
+            </span>
+            <span className="inline-block animate-fade-in animate-delay-400">
+              Full-stack builder
+            </span>
+            <span className="inline-block animate-fade-in animate-delay-400 mx-2">
+              |
+            </span>
+            <span className="inline-block animate-fade-in animate-delay-600">
+              Team lead who ships
+            </span>
           </p>
-          <div className="flex gap-4 justify-center flex-wrap animate-fade-in-up">
+          <div className="flex gap-4 justify-center flex-wrap animate-fade-in animate-delay-800">
             <Button
               size="lg"
               variant="outline"
