@@ -5,7 +5,7 @@ import { highlight } from "@/lib/shiki";
 
 type MDXComponents = React.ComponentProps<typeof MDXRemote>["components"];
 
-const components: MDXComponents = {
+const baseComponents: MDXComponents = {
   h1: ({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
     <h1
       className="scroll-m-20 text-3xl font-extrabold tracking-tight mt-8 first:mt-0 mb-4"
@@ -78,31 +78,45 @@ const components: MDXComponents = {
   ),
   pre: async ({ children, ...props }: React.HTMLAttributes<HTMLPreElement>) => {
     const codeElement = children as React.ReactElement<any>;
-    if (codeElement?.type === "code") {
-      const code = codeElement.props.children;
-      // Get language from className (format: "language-js")
-      const language =
-        codeElement.props.className?.replace("language-", "") || "text";
+    const code = codeElement?.props?.children;
 
-      const html = await highlight(code, language);
+    // Only attempt highlighting if we have a string code content
+    if (typeof code === "string") {
+      try {
+        // Get language from className (format: "language-js")
+        const language =
+          codeElement.props.className?.replace("language-", "") || "text";
 
-      return (
-        <div
-          className="my-6 rounded-lg overflow-hidden border bg-zinc-950 dark:bg-zinc-900"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: Needed for Shiki highlighting
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-      );
+        const html = await highlight(code, language);
+
+        return (
+          <div
+            className="my-6 rounded-lg overflow-hidden border bg-muted"
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: Needed for Shiki highlighting
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        );
+      } catch (error) {
+        console.error("Syntax highlighting failed:", error);
+        // Fall through to default pre rendering
+      }
     }
     return <pre {...props}>{children}</pre>;
   },
   Image: (props: any) => <Image {...props} className="rounded-md border" />,
 };
 
-export function Markdown({ source }: { source: string }) {
+type MarkdownProps = {
+  source: string;
+  components?: MDXComponents;
+};
+
+export function Markdown({ source, components }: MarkdownProps) {
+  const mergedComponents = { ...baseComponents, ...components };
+
   return (
     <article className="prose prose-zinc dark:prose-invert max-w-none">
-      <MDXRemote source={source} components={components} />
+      <MDXRemote source={source} components={mergedComponents} />
     </article>
   );
 }

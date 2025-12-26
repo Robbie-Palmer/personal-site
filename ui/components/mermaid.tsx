@@ -25,33 +25,45 @@ export function Mermaid({ chart, className = "" }: MermaidProps) {
 
     const renderDiagram = async () => {
       const isDark = resolvedTheme === "dark";
-      const textColor = isDark ? "#f9fafb" : "#0c0a09";
-      const themeClasses = `
-				classDef data fill:${isDark ? "#1e40af" : "#93c5fd"},stroke:${isDark ? "#3b82f6" : "#2563eb"},color:${textColor}
-				classDef storage fill:${isDark ? "#4338ca" : "#a5b4fc"},stroke:${isDark ? "#6366f1" : "#4f46e5"},color:${textColor}
-				classDef person fill:${isDark ? "#5b21b6" : "#ddd6fe"},stroke:${isDark ? "#8b5cf6" : "#7c3aed"},color:${textColor}
-				classDef app fill:${isDark ? "#134e4a" : "#99f6e4"},stroke:${isDark ? "#14b8a6" : "#0d9488"},color:${textColor}
-				classDef ml fill:${isDark ? "#dc2626" : "#ef4444"},stroke:${isDark ? "#991b1b" : "#b91c1c"},color:${textColor}
-				classDef input fill:${isDark ? "#0891b2" : "#22d3ee"},stroke:${isDark ? "#155e75" : "#0891b2"},color:${textColor}
-				linkStyle default stroke:${isDark ? "#78716c" : "#64748b"},stroke-width:2px,color:${isDark ? "#d6d3d1" : "#334155"}
-			`;
-      const diagramWithClasses = `${chart}\n${themeClasses}`;
       mermaid.initialize({
         startOnLoad: false,
-        theme: isDark ? "dark" : "default",
+        theme: "base",
         themeVariables: {
+          // Base colors
           darkMode: isDark,
-          primaryColor: isDark ? "#60a5fa" : "#3b82f6",
-          primaryTextColor: isDark ? "#e5e7eb" : "#1f2937",
-          primaryBorderColor: isDark ? "#374151" : "#d1d5db",
+          background: isDark ? "#0a0a0a" : "#ffffff",
+          primaryColor: isDark ? "#3b82f6" : "#dbeafe",
+          primaryTextColor: isDark ? "#f9fafb" : "#1e3a5f",
+          primaryBorderColor: isDark ? "#60a5fa" : "#3b82f6",
+          secondaryColor: isDark ? "#4c1d95" : "#ede9fe",
+          secondaryTextColor: isDark ? "#f9fafb" : "#4c1d95",
+          secondaryBorderColor: isDark ? "#8b5cf6" : "#7c3aed",
+          tertiaryColor: isDark ? "#065f46" : "#d1fae5",
+          tertiaryTextColor: isDark ? "#f9fafb" : "#065f46",
+          tertiaryBorderColor: isDark ? "#10b981" : "#059669",
+          // Text and lines
+          textColor: isDark ? "#e5e7eb" : "#1f2937",
           lineColor: isDark ? "#6b7280" : "#9ca3af",
-          secondaryColor: isDark ? "#1f2937" : "#f3f4f6",
-          tertiaryColor: isDark ? "#111827" : "#ffffff",
-          background: isDark ? "#111827" : "#ffffff",
+          // Flowchart
+          nodeBkg: isDark ? "#1e3a5f" : "#dbeafe",
+          nodeBorder: isDark ? "#60a5fa" : "#3b82f6",
+          nodeTextColor: isDark ? "#f9fafb" : "#1e3a5f",
           mainBkg: isDark ? "#1f2937" : "#f9fafb",
-          secondBkg: isDark ? "#374151" : "#f3f4f6",
-          clusterBkg: isDark ? "#1f2937" : "#f9fafb",
+          clusterBkg: isDark ? "#1f2937" : "#f3f4f6",
+          clusterBorder: isDark ? "#374151" : "#d1d5db",
           edgeLabelBackground: isDark ? "#1f2937" : "#f9fafb",
+          // Sequence diagram
+          actorBkg: isDark ? "#1e3a5f" : "#dbeafe",
+          actorBorder: isDark ? "#60a5fa" : "#3b82f6",
+          actorTextColor: isDark ? "#f9fafb" : "#1e3a5f",
+          signalColor: isDark ? "#e5e7eb" : "#1f2937",
+          signalTextColor: isDark ? "#e5e7eb" : "#1f2937",
+          activationBkgColor: isDark ? "#374151" : "#e5e7eb",
+          activationBorderColor: isDark ? "#6b7280" : "#9ca3af",
+          // State diagram
+          labelColor: isDark ? "#e5e7eb" : "#1f2937",
+          altBackground: isDark ? "#374151" : "#f3f4f6",
+          // Font
           fontSize: "16px",
         },
         flowchart: {
@@ -68,7 +80,7 @@ export function Mermaid({ chart, className = "" }: MermaidProps) {
 
         // Generate unique ID for this diagram
         const id = `mermaid-${crypto.randomUUID()}`;
-        const { svg } = await mermaid.render(id, diagramWithClasses);
+        const { svg } = await mermaid.render(id, chart);
 
         // Check again after async operation completes
         if (isCancelled || !containerRef.current) return;

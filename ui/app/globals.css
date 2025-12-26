@@ -144,17 +144,19 @@ code {
  */
 code[data-language],
 code[data-language] span {
-  color: var(--shiki-light);
+  color: var(--shiki-light) !important;
 }
 
 html.dark code[data-language],
 html.dark code[data-language] span {
-  color: var(--shiki-dark);
+  color: var(--shiki-dark) !important;
 }
 
 /* Pre element background uses muted color from design system for consistency */
 pre[data-language] {
-  background-color: var(--muted);
+  background-color: transparent !important;
+  margin: 0 !important;
+  padding: 1rem !important;
 }
 
 code[data-line-numbers] > [data-line]::before {
@@ -251,4 +253,284 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
   .animate-delay-1700 {
     animation-delay: 0ms;
   }
+}
+
+/*
+ * Mermaid Diagram Color Classes
+ *
+ * Theme-reactive colors for Mermaid diagram nodes.
+ * Use :::className syntax in diagrams, e.g., A[Start]:::blue
+ */
+
+/* Blue / Data */
+.mermaid-diagram .node.blue rect,
+.mermaid-diagram .node.blue circle,
+.mermaid-diagram .node.blue polygon,
+.mermaid-diagram .node.blue path,
+.mermaid-diagram .node.data rect,
+.mermaid-diagram .node.data circle,
+.mermaid-diagram .node.data polygon,
+.mermaid-diagram .node.data path {
+  fill: var(--color-blue-300) !important;
+  stroke: var(--color-blue-600) !important;
+}
+.mermaid-diagram .node.blue .nodeLabel,
+.mermaid-diagram .node.data .nodeLabel {
+  color: var(--color-blue-950) !important;
+}
+html.dark .mermaid-diagram .node.blue rect,
+html.dark .mermaid-diagram .node.blue circle,
+html.dark .mermaid-diagram .node.blue polygon,
+html.dark .mermaid-diagram .node.blue path,
+html.dark .mermaid-diagram .node.data rect,
+html.dark .mermaid-diagram .node.data circle,
+html.dark .mermaid-diagram .node.data polygon,
+html.dark .mermaid-diagram .node.data path {
+  fill: var(--color-blue-800) !important;
+  stroke: var(--color-blue-400) !important;
+}
+html.dark .mermaid-diagram .node.blue .nodeLabel,
+html.dark .mermaid-diagram .node.data .nodeLabel {
+  color: var(--color-blue-50) !important;
+}
+
+/* Green */
+.mermaid-diagram .node.green rect,
+.mermaid-diagram .node.green circle,
+.mermaid-diagram .node.green polygon,
+.mermaid-diagram .node.green path {
+  fill: var(--color-emerald-200) !important;
+  stroke: var(--color-emerald-500) !important;
+}
+.mermaid-diagram .node.green .nodeLabel {
+  color: var(--color-emerald-900) !important;
+}
+html.dark .mermaid-diagram .node.green rect,
+html.dark .mermaid-diagram .node.green circle,
+html.dark .mermaid-diagram .node.green polygon,
+html.dark .mermaid-diagram .node.green path {
+  fill: var(--color-emerald-800) !important;
+  stroke: var(--color-emerald-400) !important;
+}
+html.dark .mermaid-diagram .node.green .nodeLabel {
+  color: var(--color-emerald-50) !important;
+}
+
+/* Red / ML */
+.mermaid-diagram .node.red rect,
+.mermaid-diagram .node.red circle,
+.mermaid-diagram .node.red polygon,
+.mermaid-diagram .node.red path,
+.mermaid-diagram .node.ml rect,
+.mermaid-diagram .node.ml circle,
+.mermaid-diagram .node.ml polygon,
+.mermaid-diagram .node.ml path {
+  fill: var(--color-red-400) !important;
+  stroke: var(--color-red-700) !important;
+}
+
+.mermaid-diagram .node.red .nodeLabel,
+.mermaid-diagram .node.ml .nodeLabel {
+  color: var(--color-red-950) !important;
+}
+
+html.dark .mermaid-diagram .node.red rect,
+html.dark .mermaid-diagram .node.red circle,
+html.dark .mermaid-diagram .node.red polygon,
+html.dark .mermaid-diagram .node.red path,
+html.dark .mermaid-diagram .node.ml rect,
+html.dark .mermaid-diagram .node.ml circle,
+html.dark .mermaid-diagram .node.ml polygon,
+html.dark .mermaid-diagram .node.ml path {
+  fill: var(--color-red-700) !important;
+  stroke: var(--color-red-400) !important;
+}
+
+html.dark .mermaid-diagram .node.red .nodeLabel,
+html.dark .mermaid-diagram .node.ml .nodeLabel {
+  color: var(--color-red-50) !important;
+}
+
+/* Purple / Person */
+.mermaid-diagram .node.purple rect,
+.mermaid-diagram .node.purple circle,
+.mermaid-diagram .node.purple polygon,
+.mermaid-diagram .node.purple path,
+.mermaid-diagram .node.person rect,
+.mermaid-diagram .node.person circle,
+.mermaid-diagram .node.person polygon,
+.mermaid-diagram .node.person path {
+  fill: var(--color-violet-200) !important;
+  stroke: var(--color-violet-500) !important;
+}
+.mermaid-diagram .node.purple .nodeLabel,
+.mermaid-diagram .node.person .nodeLabel {
+  color: var(--color-violet-900) !important;
+}
+html.dark .mermaid-diagram .node.purple rect,
+html.dark .mermaid-diagram .node.purple circle,
+html.dark .mermaid-diagram .node.purple polygon,
+html.dark .mermaid-diagram .node.purple path,
+html.dark .mermaid-diagram .node.person rect,
+html.dark .mermaid-diagram .node.person circle,
+html.dark .mermaid-diagram .node.person polygon,
+html.dark .mermaid-diagram .node.person path {
+  fill: var(--color-violet-800) !important;
+  stroke: var(--color-violet-400) !important;
+}
+html.dark .mermaid-diagram .node.purple .nodeLabel,
+html.dark .mermaid-diagram .node.person .nodeLabel {
+  color: var(--color-violet-50) !important;
+}
+
+/* Amber */
+.mermaid-diagram .node.amber rect,
+.mermaid-diagram .node.amber circle,
+.mermaid-diagram .node.amber polygon,
+.mermaid-diagram .node.amber path {
+  fill: var(--color-amber-200) !important;
+  stroke: var(--color-amber-500) !important;
+}
+.mermaid-diagram .node.amber .nodeLabel {
+  color: var(--color-amber-900) !important;
+}
+html.dark .mermaid-diagram .node.amber rect,
+html.dark .mermaid-diagram .node.amber circle,
+html.dark .mermaid-diagram .node.amber polygon,
+html.dark .mermaid-diagram .node.amber path {
+  fill: var(--color-amber-800) !important;
+  stroke: var(--color-amber-400) !important;
+}
+html.dark .mermaid-diagram .node.amber .nodeLabel {
+  color: var(--color-amber-50) !important;
+}
+
+/* Indigo / Storage */
+.mermaid-diagram .node.indigo rect,
+.mermaid-diagram .node.indigo circle,
+.mermaid-diagram .node.indigo polygon,
+.mermaid-diagram .node.indigo path,
+.mermaid-diagram .node.storage rect,
+.mermaid-diagram .node.storage circle,
+.mermaid-diagram .node.storage polygon,
+.mermaid-diagram .node.storage path {
+  fill: var(--color-indigo-300) !important;
+  stroke: var(--color-indigo-600) !important;
+}
+
+.mermaid-diagram .node.indigo .nodeLabel,
+.mermaid-diagram .node.storage .nodeLabel {
+  color: var(--color-indigo-950) !important;
+}
+
+html.dark .mermaid-diagram .node.indigo rect,
+html.dark .mermaid-diagram .node.indigo circle,
+html.dark .mermaid-diagram .node.indigo polygon,
+html.dark .mermaid-diagram .node.indigo path,
+html.dark .mermaid-diagram .node.storage rect,
+html.dark .mermaid-diagram .node.storage circle,
+html.dark .mermaid-diagram .node.storage polygon,
+html.dark .mermaid-diagram .node.storage path {
+  fill: var(--color-indigo-700) !important;
+  stroke: var(--color-indigo-400) !important;
+}
+
+html.dark .mermaid-diagram .node.indigo .nodeLabel,
+html.dark .mermaid-diagram .node.storage .nodeLabel {
+  color: var(--color-indigo-50) !important;
+}
+
+/* Teal / App */
+.mermaid-diagram .node.teal rect,
+.mermaid-diagram .node.teal circle,
+.mermaid-diagram .node.teal polygon,
+.mermaid-diagram .node.teal path,
+.mermaid-diagram .node.app rect,
+.mermaid-diagram .node.app circle,
+.mermaid-diagram .node.app polygon,
+.mermaid-diagram .node.app path {
+  fill: var(--color-teal-300) !important;
+  stroke: var(--color-teal-600) !important;
+}
+
+.mermaid-diagram .node.teal .nodeLabel,
+.mermaid-diagram .node.app .nodeLabel {
+  color: var(--color-teal-950) !important;
+}
+
+html.dark .mermaid-diagram .node.teal rect,
+html.dark .mermaid-diagram .node.teal circle,
+html.dark .mermaid-diagram .node.teal polygon,
+html.dark .mermaid-diagram .node.teal path,
+html.dark .mermaid-diagram .node.app rect,
+html.dark .mermaid-diagram .node.app circle,
+html.dark .mermaid-diagram .node.app polygon,
+html.dark .mermaid-diagram .node.app path {
+  fill: var(--color-teal-800) !important;
+  stroke: var(--color-teal-400) !important;
+}
+
+html.dark .mermaid-diagram .node.teal .nodeLabel,
+html.dark .mermaid-diagram .node.app .nodeLabel {
+  color: var(--color-teal-50) !important;
+}
+
+/* Cyan / Input */
+.mermaid-diagram .node.cyan rect,
+.mermaid-diagram .node.cyan circle,
+.mermaid-diagram .node.cyan polygon,
+.mermaid-diagram .node.cyan path,
+.mermaid-diagram .node.input rect,
+.mermaid-diagram .node.input circle,
+.mermaid-diagram .node.input polygon,
+.mermaid-diagram .node.input path {
+  fill: var(--color-cyan-300) !important;
+  stroke: var(--color-cyan-600) !important;
+}
+
+.mermaid-diagram .node.cyan .nodeLabel,
+.mermaid-diagram .node.input .nodeLabel {
+  color: var(--color-cyan-950) !important;
+}
+
+html.dark .mermaid-diagram .node.cyan rect,
+html.dark .mermaid-diagram .node.cyan circle,
+html.dark .mermaid-diagram .node.cyan polygon,
+html.dark .mermaid-diagram .node.cyan path,
+html.dark .mermaid-diagram .node.input rect,
+html.dark .mermaid-diagram .node.input circle,
+html.dark .mermaid-diagram .node.input polygon,
+html.dark .mermaid-diagram .node.input path {
+  fill: var(--color-cyan-700) !important;
+  stroke: var(--color-cyan-400) !important;
+}
+
+html.dark .mermaid-diagram .node.cyan .nodeLabel,
+html.dark .mermaid-diagram .node.input .nodeLabel {
+  color: var(--color-cyan-50) !important;
+}
+
+/* Pink */
+.mermaid-diagram .node.pink rect,
+.mermaid-diagram .node.pink circle,
+.mermaid-diagram .node.pink polygon,
+.mermaid-diagram .node.pink path {
+  fill: var(--color-pink-300) !important;
+  stroke: var(--color-pink-600) !important;
+}
+
+.mermaid-diagram .node.pink .nodeLabel {
+  color: var(--color-pink-950) !important;
+}
+
+html.dark .mermaid-diagram .node.pink rect,
+html.dark .mermaid-diagram .node.pink circle,
+html.dark .mermaid-diagram .node.pink polygon,
+html.dark .mermaid-diagram .node.pink path {
+  fill: var(--color-pink-800) !important;
+  stroke: var(--color-pink-400) !important;
+}
+
+html.dark .mermaid-diagram .node.pink .nodeLabel {
+  color: var(--color-pink-50) !important;
 }

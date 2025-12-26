@@ -37,6 +37,74 @@ The implementation (`ui/components/mermaid.tsx`) provides:
 * Custom CSS classes matching Tailwind design tokens for visual consistency
 * Hydration-safe client-side mounting (prevents SSR/CSR mismatches in Next.js)
 
+## Example
+
+Below are live examples demonstrating Mermaid's diagram capabilities. These diagrams are rendered client-side and automatically adapt to your light/dark theme preference.
+
+### Flowchart
+
+A simple decision flow showing branching logic:
+
+<Mermaid
+  chart={`
+flowchart LR
+  A[Start]:::blue --> B{Is it working?}:::purple
+  B -->|Yes| C[Great!]:::green
+  B -->|No| D[Debug]:::amber
+  D --> E{Found the bug?}:::purple
+  E -->|Yes| F[Fix it]:::amber
+  E -->|No| D
+  F --> B
+  C --> G[Ship it! 🚀]:::green
+`}
+/>
+
+### Sequence Diagram
+
+Interaction between a user, frontend, and API:
+
+<Mermaid
+  chart={`
+sequenceDiagram
+  participant U as User
+  participant F as Frontend
+  participant A as API
+  participant D as Database
+
+  U->>F: Click submit
+  F->>A: POST /api/data
+  A->>D: INSERT record
+  D-->>A: Success
+  A-->>F: 201 Created
+  F-->>U: Show confirmation
+`}
+/>
+
+### State Diagram
+
+A document lifecycle with state transitions:
+
+<Mermaid
+  chart={`
+stateDiagram-v2
+  direction LR
+  [*] --> Draft
+  Draft --> Review: Submit
+  Review --> Draft: Request changes
+  Review --> Approved: Approve
+  Approved --> Published: Publish
+  Published --> Archived: Archive
+  Archived --> [*]
+`}
+/>
+
+These diagrams demonstrate:
+
+* **Theme-aware rendering**: Colors automatically adapt to light/dark mode
+* **Text-based source**: Diagrams are defined inline in MDX, version-controllable in git
+* **Multiple diagram types**: Flowcharts, sequence diagrams, state diagrams, and more
+* **Client-side rendering**: No build step required—diagrams render dynamically
+
 # Consequences
 
 ### Pros
