@@ -31,7 +31,7 @@ export default function Home() {
                 <span
                   key={`ml-${i}`}
                   className="inline-block animate-fade-in"
-                  style={{ animationDelay: `${400 + i * 30}ms` }}
+                  style={{ animationDelay: `${600 + i * 30}ms` }}
                 >
                   {char === " " ? "\u00A0" : char}
                 </span>
@@ -39,7 +39,7 @@ export default function Home() {
             </span>
             <span
               className="inline-block animate-fade-in mx-2"
-              style={{ animationDelay: "670ms" }}
+              style={{ animationDelay: "870ms" }}
             >
               |
             </span>
@@ -48,7 +48,7 @@ export default function Home() {
                 <span
                   key={`fs-${i}`}
                   className="inline-block animate-fade-in"
-                  style={{ animationDelay: `${800 + i * 30}ms` }}
+                  style={{ animationDelay: `${1200 + i * 30}ms` }}
                 >
                   {char === " " ? "\u00A0" : char}
                 </span>
@@ -56,7 +56,7 @@ export default function Home() {
             </span>
             <span
               className="inline-block animate-fade-in mx-2"
-              style={{ animationDelay: "1390ms" }}
+              style={{ animationDelay: "1790ms" }}
             >
               |
             </span>
@@ -65,7 +65,7 @@ export default function Home() {
                 <span
                   key={`tl-${i}`}
                   className="inline-block animate-fade-in"
-                  style={{ animationDelay: `${1520 + i * 30}ms` }}
+                  style={{ animationDelay: `${2100 + i * 30}ms` }}
                 >
                   {char === " " ? "\u00A0" : char}
                 </span>
@@ -78,7 +78,7 @@ export default function Home() {
               variant="outline"
               asChild
               className="w-full sm:w-auto animate-fade-in"
-              style={{ animationDelay: "2400ms" }}
+              style={{ animationDelay: "2900ms" }}
             >
               <Link href="/blog">Read Blog</Link>
             </Button>
@@ -86,7 +86,7 @@ export default function Home() {
               size="lg"
               asChild
               className="w-full sm:w-auto animate-fade-in"
-              style={{ animationDelay: "2600ms" }}
+              style={{ animationDelay: "3200ms" }}
             >
               <Link href="/projects">Explore Projects</Link>
             </Button>
@@ -95,7 +95,7 @@ export default function Home() {
               variant="outline"
               asChild
               className="w-full sm:w-auto animate-fade-in"
-              style={{ animationDelay: "2800ms" }}
+              style={{ animationDelay: "3500ms" }}
             >
               <Link href="/experience">View Experience</Link>
             </Button>
