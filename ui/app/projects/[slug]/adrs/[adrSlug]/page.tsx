@@ -108,41 +108,35 @@ export default async function ADRPage({ params }: PageProps) {
                 <div className="flex flex-wrap gap-2">
                   {adr.relations.technologies.map((tech) => {
                     const url = getTechUrl(tech);
-                    if (url) {
-                      return (
-                        <a
-                          key={tech}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="cursor-pointer"
-                          aria-label={`Visit ${tech} website`}
-                        >
-                          <Badge
-                            variant="secondary"
-                            interactive
-                            className="flex items-center gap-1.5"
-                          >
-                            {hasTechIcon(tech) && (
-                              <TechIcon name={tech} className="w-3 h-3" />
-                            )}
-                            <span>{tech}</span>
-                            <ExternalLink className="w-3 h-3 ml-0.5" />
-                          </Badge>
-                        </a>
-                      );
-                    }
-                    return (
+                    const content = (
                       <Badge
-                        key={tech}
                         variant="secondary"
+                        interactive={!!url}
                         className="flex items-center gap-1.5"
                       >
                         {hasTechIcon(tech) && (
                           <TechIcon name={tech} className="w-3 h-3" />
                         )}
                         <span>{tech}</span>
+                        {url && <ExternalLink className="w-3 h-3 ml-0.5" />}
                       </Badge>
+                    );
+                    return (
+                      <span key={tech}>
+                        {url ? (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="cursor-pointer"
+                            aria-label={`Visit ${tech} website`}
+                          >
+                            {content}
+                          </a>
+                        ) : (
+                          content
+                        )}
+                      </span>
                     );
                   })}
                 </div>
