@@ -1,533 +1,99 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-// Hoist mocks before importing code under test to avoid real FS access
-const fsMock = vi.hoisted(() => {
-  const existsSync = vi.fn();
-  const readdirSync = vi.fn();
-  const readFileSync = vi.fn();
-
-  return {
-    default: { existsSync, readdirSync, readFileSync },
-    existsSync,
-    readdirSync,
-    readFileSync,
-  };
-});
-
-const pathMock = vi.hoisted(() => {
-  const join = vi.fn((...args: string[]) => {
-    let result = "";
-    for (const arg of args) {
-      if (arg.startsWith("/")) {
-        result = arg;
-      } else if (result) {
-        result += `/${arg}`;
-      } else {
-        result = arg;
-      }
-    }
-    return result;
-  });
-  const resolve = vi.fn((...args: string[]) => {
-    const joined = args.join("/");
-    return joined.startsWith("/") ? joined : `/${joined}`;
-  });
-  const relative = vi.fn((from: string, to: string) => {
-    if (to.startsWith(from)) {
-      return to.slice(from.length + 1);
-    }
-    return `../${to.split("/").pop()}`;
-  });
-  const isAbsolute = vi.fn((p: string) => p.startsWith("/"));
-
-  return {
-    default: { join, resolve, relative, isAbsolute },
-    join,
-    resolve,
-    relative,
-    isAbsolute,
-  };
-});
-
-vi.mock("node:fs", () => fsMock);
-vi.mock("node:path", () => pathMock);
-
-// Import after mocks are hoisted
-import * as fs from "node:fs";
-import * as path from "node:path";
+import { describe, expect, it } from "vitest";
 import { getAllPostSlugs, getAllPosts, getPostBySlug } from "@/lib/blog";
 
+/**
+ * Blog tests - Integration tests for domain-backed blog functions
+ *
+ * These tests verify that the blog functions correctly use the domain repository.
+ * The domain repository handles all validation, security, and file loading.
+ * See tests/lib/domain/repository.test.ts for detailed validation tests.
+ */
 describe("Blog functions", () => {
-  beforeEach(() => {
-    vi.resetAllMocks();
-  });
-
   describe("getAllPostSlugs", () => {
-    it("should return empty array when directory does not exist", () => {
-      vi.mocked(fs.existsSync).mockReturnValue(false);
-      const result = getAllPostSlugs();
-      expect(result).toEqual([]);
+    it("should return array of blog post slugs", () => {
+      const slugs = getAllPostSlugs();
+      expect(Array.isArray(slugs)).toBe(true);
+      // Verify slugs are valid (lowercase, alphanumeric, hyphens, underscores)
+      for (const slug of slugs) {
+        expect(slug).toMatch(/^[a-z0-9_-]+$/);
+      }
     });
 
-    it("should return slugs from .mdx files only, excluding hidden files", () => {
-      vi.mocked(fs.existsSync).mockReturnValue(true);
-      vi.mocked(fs.readdirSync).mockReturnValue([
-        "post-one.mdx",
-        "post-two.mdx",
-        "README.md",
-        "draft.txt",
-        ".hidden.mdx",
-        // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
-      ] as any);
-      const result = getAllPostSlugs();
-      expect(result).toEqual(["post-one", "post-two"]);
+    it("should return at least one blog post", () => {
+      const slugs = getAllPostSlugs();
+      expect(slugs.length).toBeGreaterThan(0);
     });
   });
 
-  describe("getPostBySlug - Security", () => {
-    const validFileContent = `---
-title: "Test Post"
-description: "Test description"
-date: "2025-10-19"
-tags: ["test"]
-image: "blog/test-2025-12-14"
-imageAlt: "Test image"
----
+  describe("getPostBySlug", () => {
+    it("should return blog post with all required fields", () => {
+      const slugs = getAllPostSlugs();
+      expect(slugs.length).toBeGreaterThan(0);
 
-# Test Content`;
+      const post = getPostBySlug(slugs[0] ?? "");
 
-    it("should reject slugs with forward slashes (path traversal attempt)", () => {
-      expect(() => getPostBySlug("../etc/passwd")).toThrow("Invalid slug");
-      expect(() => getPostBySlug("foo/bar")).toThrow("Invalid slug");
+      // Verify all required fields exist
+      expect(post.slug).toBe(slugs[0]);
+      expect(typeof post.title).toBe("string");
+      expect(post.title.length).toBeGreaterThan(0);
+      expect(typeof post.description).toBe("string");
+      expect(post.description.length).toBeGreaterThan(0);
+      expect(typeof post.date).toBe("string");
+      expect(post.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(Array.isArray(post.tags)).toBe(true);
+      expect(typeof post.content).toBe("string");
+      expect(typeof post.readingTime).toBe("string");
+      expect(typeof post.image).toBe("string");
+      expect(post.image).toMatch(/^blog\/[a-z0-9_-]+-\d{4}-\d{2}-\d{2}$/);
+      expect(typeof post.imageAlt).toBe("string");
     });
 
-    it("should reject slugs with parent directory references", () => {
-      expect(() => getPostBySlug("..")).toThrow("Invalid slug");
-      expect(() => getPostBySlug("valid..invalid")).toThrow("Invalid slug");
-    });
-
-    it("should reject empty string slug", () => {
-      expect(() => getPostBySlug("")).toThrow("Invalid slug");
-    });
-
-    it("should reject slugs with whitespace", () => {
-      expect(() => getPostBySlug(" valid-slug")).toThrow("Invalid slug");
-      expect(() => getPostBySlug("valid-slug ")).toThrow("Invalid slug");
-      expect(() => getPostBySlug("valid slug")).toThrow("Invalid slug");
-    });
-
-    it("should reject slugs with null bytes", () => {
-      expect(() => getPostBySlug("valid\0post")).toThrow("Invalid slug");
-      expect(() => getPostBySlug("valid-post\0../../etc/passwd")).toThrow(
-        "Invalid slug",
+    it("should throw error for non-existent post", () => {
+      expect(() => getPostBySlug("non-existent-post-12345")).toThrow(
+        "Blog post not found",
       );
     });
 
-    it("should reject slugs with special characters", () => {
-      expect(() => getPostBySlug("valid*post")).toThrow("Invalid slug");
-      expect(() => getPostBySlug("valid?post")).toThrow("Invalid slug");
-      expect(() => getPostBySlug("valid<post>")).toThrow("Invalid slug");
-      expect(() => getPostBySlug("valid|post")).toThrow("Invalid slug");
-      expect(() => getPostBySlug("valid:post")).toThrow("Invalid slug");
-      expect(() => getPostBySlug('valid"post')).toThrow("Invalid slug");
-    });
+    it("should return post with relations field", () => {
+      const slugs = getAllPostSlugs();
+      const post = getPostBySlug(slugs[0] ?? "");
 
-    it("should reject slugs with uppercase letters", () => {
-      expect(() => getPostBySlug("Valid-Post")).toThrow("Invalid slug");
-      expect(() => getPostBySlug("ALLCAPS")).toThrow("Invalid slug");
-    });
-
-    it("should reject slug that resolves outside content directory", () => {
-      // Mock path.resolve to simulate a slug that resolves outside the content dir
-      vi.mocked(path.resolve)
-        .mockReturnValueOnce("/outside/content/blog/malicious.mdx") // fullPath resolution
-        .mockReturnValueOnce("/mock/content/blog"); // contentDirectory resolution
-      expect(() => getPostBySlug("malicious")).toThrow("Invalid slug");
-    });
-
-    it("should reject slug with path that starts with content dir but is outside (prefix bypass)", () => {
-      // This tests the vulnerability: /mock/content/blog-evil/ starts with /mock/content/blog
-      // but is actually outside the intended directory
-      vi.mocked(path.resolve)
-        .mockReturnValueOnce("/mock/content/blog-evil/malicious.mdx") // fullPath - note the "-evil" suffix
-        .mockReturnValueOnce("/mock/content/blog"); // contentDirectory
-      vi.mocked(path.relative).mockReturnValueOnce(
-        "../blog-evil/malicious.mdx",
-      ); // relative path shows it goes outside
-      expect(() => getPostBySlug("malicious")).toThrow("Invalid slug");
-    });
-
-    it("should accept valid simple slugs", () => {
-      vi.mocked(path.resolve)
-        .mockReturnValueOnce("/mock/content/blog/valid-slug.mdx")
-        .mockReturnValueOnce("/mock/content/blog");
-      vi.mocked(path.relative).mockReturnValueOnce("valid-slug.mdx");
-      vi.mocked(fs.readFileSync).mockReturnValue(validFileContent);
-      vi.mocked(fs.existsSync).mockReturnValue(true);
-      const result = getPostBySlug("valid-slug");
-      expect(result.slug).toBe("valid-slug");
-      expect(result.title).toBe("Test Post");
-    });
-
-    it("should accept slugs with hyphens and underscores", () => {
-      vi.mocked(path.resolve)
-        .mockReturnValueOnce("/mock/content/blog/valid-slug_123.mdx")
-        .mockReturnValueOnce("/mock/content/blog");
-      vi.mocked(path.relative).mockReturnValueOnce("valid-slug_123.mdx");
-      vi.mocked(fs.readFileSync).mockReturnValue(validFileContent);
-      vi.mocked(fs.existsSync).mockReturnValue(true);
-      const result = getPostBySlug("valid-slug_123");
-      expect(result.slug).toBe("valid-slug_123");
-    });
-  });
-
-  describe("getPostBySlug - Content Parsing", () => {
-    it("should parse frontmatter and content correctly", () => {
-      const mockContent = `---
-title: "My Blog Post"
-description: "A great post"
-date: "2025-10-19"
-tags: ["tag1", "tag2"]
-image: "blog/test-2025-12-14"
-imageAlt: "Test image"
----
-
-# Heading
-
-This is the content.`;
-      vi.mocked(path.resolve)
-        .mockReturnValueOnce("/mock/content/blog/test.mdx")
-        .mockReturnValueOnce("/mock/content/blog");
-      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
-      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
-      vi.mocked(fs.existsSync).mockReturnValue(true);
-      const result = getPostBySlug("test");
-      expect(result).toEqual({
-        slug: "test",
-        title: "My Blog Post",
-        description: "A great post",
-        date: "2025-10-19",
-        tags: ["tag1", "tag2"],
-        image: "blog/test-2025-12-14",
-        imageAlt: "Test image",
-        content: "\n# Heading\n\nThis is the content.",
-        readingTime: "1 min read",
-      });
-    });
-
-    it("should throw error when title is missing", () => {
-      const mockContent = `---
-description: "No title here"
-date: "2025-10-19"
-tags: []
----
-
-Content.`;
-      vi.mocked(path.resolve)
-        .mockReturnValueOnce("/mock/content/blog/test.mdx")
-        .mockReturnValueOnce("/mock/content/blog");
-      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
-      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
-      expect(() => getPostBySlug("test")).toThrow(
-        "missing required field: title",
-      );
-    });
-
-    it("should throw error when description is missing", () => {
-      const mockContent = `---
-title: "Test Post"
-date: "2025-10-19"
-tags: []
----
-
-Content.`;
-      vi.mocked(path.resolve)
-        .mockReturnValueOnce("/mock/content/blog/test.mdx")
-        .mockReturnValueOnce("/mock/content/blog");
-      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
-      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
-      expect(() => getPostBySlug("test")).toThrow(
-        "missing required field: description",
-      );
-    });
-
-    it("should throw error when date is missing", () => {
-      const mockContent = `---
-title: "Test Post"
-description: "A test"
-tags: []
----
-
-Content.`;
-      vi.mocked(path.resolve)
-        .mockReturnValueOnce("/mock/content/blog/test.mdx")
-        .mockReturnValueOnce("/mock/content/blog");
-      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
-      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
-      expect(() => getPostBySlug("test")).toThrow(
-        "missing required field: date",
-      );
-    });
-
-    it("should throw error when date is invalid", () => {
-      const mockContent = `---
-title: "Test Post"
-description: "A test"
-date: "not-a-real-date"
-tags: []
----
-
-Content.`;
-      vi.mocked(path.resolve)
-        .mockReturnValueOnce("/mock/content/blog/test.mdx")
-        .mockReturnValueOnce("/mock/content/blog");
-      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
-      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
-      expect(() => getPostBySlug("test")).toThrow(
-        "has invalid date: not-a-real-date",
-      );
-    });
-
-    it("should throw error when tags is not an array", () => {
-      const mockContent = `---
-title: "Test Post"
-description: "A test"
-date: "2025-10-19"
-tags: "not-an-array"
----
-
-Content.`;
-      vi.mocked(path.resolve)
-        .mockReturnValueOnce("/mock/content/blog/test.mdx")
-        .mockReturnValueOnce("/mock/content/blog");
-      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
-      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
-      expect(() => getPostBySlug("test")).toThrow(
-        "missing required field: tags (must be an array)",
-      );
-    });
-
-    it("should throw error when image is missing", () => {
-      const mockContent = `---
-title: "Test Post"
-description: "A test"
-date: "2025-10-19"
-tags: []
-imageAlt: "Test image"
----
-
-Content.`;
-      vi.mocked(path.resolve)
-        .mockReturnValueOnce("/mock/content/blog/test.mdx")
-        .mockReturnValueOnce("/mock/content/blog");
-      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
-      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
-      expect(() => getPostBySlug("test")).toThrow(
-        "missing required field: image",
-      );
-    });
-
-    it("should throw error when imageAlt is missing", () => {
-      const mockContent = `---
-title: "Test Post"
-description: "A test"
-date: "2025-10-19"
-tags: []
-image: "blog/test-2025-12-14"
----
-
-Content.`;
-      vi.mocked(path.resolve)
-        .mockReturnValueOnce("/mock/content/blog/test.mdx")
-        .mockReturnValueOnce("/mock/content/blog");
-      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
-      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
-      expect(() => getPostBySlug("test")).toThrow(
-        "missing required field: imageAlt",
-      );
-    });
-
-    it("should throw error when image ID has invalid CalVer date", () => {
-      const mockContent = `---
-title: "Test Post"
-description: "A test"
-date: "2025-10-19"
-tags: []
-image: "blog/test-2025-02-30"
-imageAlt: "Test image"
----
-
-Content.`;
-      vi.mocked(path.resolve)
-        .mockReturnValueOnce("/mock/content/blog/test.mdx")
-        .mockReturnValueOnce("/mock/content/blog");
-      vi.mocked(path.relative).mockReturnValueOnce("test.mdx");
-      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
-      expect(() => getPostBySlug("test")).toThrow(
-        "Invalid date in image ID 'blog/test-2025-02-30'",
-      );
+      expect(post.relations).toBeDefined();
+      expect(Array.isArray(post.relations.technologies)).toBe(true);
     });
   });
 
   describe("getAllPosts", () => {
-    it("should return empty array when no posts exist", () => {
-      vi.mocked(fs.existsSync).mockReturnValue(false);
-      const result = getAllPosts();
-      expect(result).toEqual([]);
+    it("should return array of all blog posts", () => {
+      const posts = getAllPosts();
+      expect(Array.isArray(posts)).toBe(true);
+      expect(posts.length).toBeGreaterThan(0);
     });
 
     it("should return posts sorted by date (newest first)", () => {
-      vi.mocked(fs.existsSync).mockReturnValue(true);
-      vi.mocked(fs.readdirSync).mockReturnValue([
-        "old-post.mdx",
-        "new-post.mdx",
-        "middle-post.mdx",
-        // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
-      ] as any);
-      const posts = [
-        { slug: "old-post", date: "2025-01-15" },
-        { slug: "new-post", date: "2025-10-19" },
-        { slug: "middle-post", date: "2025-06-10" },
-      ];
+      const posts = getAllPosts();
+      if (posts.length < 2) {
+        // Not enough posts to test sorting
+        return;
+      }
 
-      // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
-      vi.mocked(fs.readFileSync).mockImplementation((filePath: any) => {
-        const post = posts.find((p) => filePath.includes(p.slug));
-        return `---
-title: "${post?.slug}"
-description: "Description"
-date: "${post?.date}"
-tags: []
-image: "blog/${post?.slug}-2025-12-14"
-imageAlt: "Test image"
----
-Content`;
-      });
-
-      const result = getAllPosts();
-      expect(result.map((p) => p.slug)).toEqual([
-        "new-post",
-        "middle-post",
-        "old-post",
-      ]);
-
-      // Verify content is included (for search functionality)
-      for (const post of result) {
-        expect(post).toHaveProperty("content");
-        expect(typeof post.content).toBe("string");
+      for (let i = 0; i < posts.length - 1; i++) {
+        const currentDate = new Date(posts[i]?.date ?? "").getTime();
+        const nextDate = new Date(posts[i + 1]?.date ?? "").getTime();
+        expect(currentDate).toBeGreaterThanOrEqual(nextDate);
       }
     });
 
-    it("should handle posts with same date consistently", () => {
-      vi.mocked(fs.existsSync).mockReturnValue(true);
-      vi.mocked(fs.readdirSync).mockReturnValue([
-        "first.mdx",
-        "second.mdx",
-        "third.mdx",
-        // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
-      ] as any);
+    it("should return all posts from getAllPostSlugs", () => {
+      const slugs = getAllPostSlugs();
+      const posts = getAllPosts();
 
-      // All posts have the same date
-      // biome-ignore lint/suspicious/noExplicitAny: Vitest fs mock typing
-      vi.mocked(fs.readFileSync).mockImplementation((filePath: any) => {
-        const slug = filePath.includes("first")
-          ? "first"
-          : filePath.includes("second")
-            ? "second"
-            : "third";
-        return `---
-title: "${slug}"
-description: "Description"
-date: "2025-10-19"
-tags: []
-image: "blog/${slug}-2025-12-14"
-imageAlt: "Test image"
----
-Content`;
-      });
+      expect(posts.length).toBe(slugs.length);
 
-      const result = getAllPosts();
-      // Should maintain file system order when dates are equal
-      expect(result.map((p) => p.slug)).toEqual(["first", "second", "third"]);
+      const postSlugs = posts.map((p) => p.slug);
+      for (const slug of slugs) {
+        expect(postSlugs).toContain(slug);
+      }
     });
-  });
-});
-
-// Integration test: validate all real posts have valid frontmatter
-// This test uses the real filesystem to ensure all blog posts are valid
-describe("Blog content validation (integration)", () => {
-  beforeEach(() => {
-    // Clear mocks to use real fs/path for this test
-    vi.clearAllMocks();
-  });
-
-  it("all posts in content/blog should have valid frontmatter", async () => {
-    // Import the actual unmocked modules
-    const realFs = await vi.importActual<typeof import("node:fs")>("node:fs");
-    const realPath =
-      await vi.importActual<typeof import("node:path")>("node:path");
-
-    const contentDir = realPath.join(process.cwd(), "content/blog");
-    const files = realFs
-      .readdirSync(contentDir)
-      .filter((file) => file.endsWith(".mdx") && !file.startsWith("."));
-
-    // Ensure we actually have posts to test
-    expect(files.length).toBeGreaterThan(0);
-
-    // Validate each post by reading and parsing manually
-    for (const file of files) {
-      const filePath = realPath.join(contentDir, file);
-      const content = realFs.readFileSync(filePath, "utf8");
-      const slug = file.replace(/\.mdx$/, "");
-
-      // Parse frontmatter using gray-matter
-      const matter = await import("gray-matter");
-      const { data } = matter.default(content);
-
-      // Validate required fields exist
-      expect(data.title, `${slug}: title is required`).toBeTruthy();
-      expect(typeof data.title, `${slug}: title must be a string`).toBe(
-        "string",
-      );
-
-      expect(data.description, `${slug}: description is required`).toBeTruthy();
-      expect(
-        typeof data.description,
-        `${slug}: description must be a string`,
-      ).toBe("string");
-
-      expect(data.date, `${slug}: date is required`).toBeTruthy();
-      expect(typeof data.date, `${slug}: date must be a string`).toBe("string");
-
-      // Validate date is actually a valid date
-      const timestamp = new Date(data.date).getTime();
-      expect(
-        Number.isNaN(timestamp),
-        `${slug}: date "${data.date}" is not a valid date`,
-      ).toBe(false);
-
-      expect(Array.isArray(data.tags), `${slug}: tags must be an array`).toBe(
-        true,
-      );
-
-      // Validate image fields
-      expect(data.image, `${slug}: image is required`).toBeTruthy();
-      expect(typeof data.image, `${slug}: image must be a string`).toBe(
-        "string",
-      );
-
-      expect(data.imageAlt, `${slug}: imageAlt is required`).toBeTruthy();
-      expect(typeof data.imageAlt, `${slug}: imageAlt must be a string`).toBe(
-        "string",
-      );
-
-      // Validate image format is Cloudflare Images ID
-      const imageIdPattern = /^blog\/[a-z0-9_-]+-\d{4}-\d{2}-\d{2}$/;
-      expect(
-        imageIdPattern.test(data.image),
-        `${slug}: image must be in Cloudflare Images format 'blog/{name}-YYYY-MM-DD', got '${data.image}'`,
-      ).toBe(true);
-    }
   });
 });

@@ -1,178 +1,65 @@
-import fs from "node:fs";
-import path from "node:path";
-import { format, isValid, parse } from "date-fns";
-import matter from "gray-matter";
-import { calculateReadingTime } from "@/lib/mdx";
-import { validateSlug } from "@/lib/slugs";
+import {
+  loadDomainRepository,
+  validateReferentialIntegrity,
+} from "@/lib/domain/repository";
+import type { BlogPost } from "@/lib/domain/models";
 
-const contentDirectory = path.join(process.cwd(), "content/blog");
+// Load repository at module level - this runs during build/SSG
+// and will fail the build if there are validation errors
+const repository = loadDomainRepository();
 
-export interface BlogPost {
-  title: string;
-  description: string;
-  date: string;
-  updated?: string;
-  tags: string[];
-  canonicalUrl?: string;
-  slug: string;
-  content: string;
-  readingTime: string;
-  image: string;
-  imageAlt: string;
+// Validate referential integrity - fail build if there are errors
+const validationErrors = validateReferentialIntegrity(
+  repository.technologies,
+  repository.blogs,
+  repository.projects,
+  repository.adrs,
+  repository.roles,
+);
+
+if (validationErrors.length > 0) {
+  const errorMessages = validationErrors.map(
+    (err) =>
+      `[${err.type}] ${err.entity}.${err.field} ` +
+      `references missing '${err.value}'`,
+  );
+  throw new Error(
+    `Blog referential integrity validation failed:\n${errorMessages.join("\n")}`,
+  );
 }
 
+// Re-export the domain BlogPost type for backward compatibility
+export type { BlogPost };
+
+/**
+ * Get all blog post slugs
+ * @returns Array of blog post slugs
+ */
 export function getAllPostSlugs(): string[] {
-  if (!fs.existsSync(contentDirectory)) {
-    return [];
-  }
-  const files = fs.readdirSync(contentDirectory);
-  return files
-    .filter((file) => file.endsWith(".mdx") && !file.startsWith("."))
-    .map((file) => {
-      validateSlug(file);
-      return file.replace(/\.mdx$/, "");
-    });
+  return Array.from(repository.blogs.keys());
 }
 
+/**
+ * Get a blog post by slug
+ * @param slug - The blog post slug
+ * @returns The blog post
+ * @throws Error if post not found
+ */
 export function getPostBySlug(slug: string): BlogPost {
-  // Validate slug: only lowercase letters, numbers, hyphens, and underscores
-  if (!slug || !/^[a-z0-9_-]+$/.test(slug)) {
-    throw new Error("Invalid slug");
+  const post = repository.blogs.get(slug);
+  if (!post) {
+    throw new Error(`Blog post not found: ${slug}`);
   }
-
-  const fullPath = path.join(contentDirectory, `${slug}.mdx`);
-
-  // Ensure the resolved path is within contentDirectory using path.relative
-  const normalizedPath = path.resolve(fullPath);
-  const normalizedDir = path.resolve(contentDirectory);
-  const relativePath = path.relative(normalizedDir, normalizedPath);
-
-  // Security checks:
-  // 1. relativePath must not start with '..' (going outside the directory)
-  // 2. relativePath must not be an absolute path (completely outside)
-  // 3. Must have .mdx extension
-  if (
-    relativePath.startsWith("..") ||
-    path.isAbsolute(relativePath) ||
-    !relativePath.endsWith(".mdx")
-  ) {
-    throw new Error("Invalid slug");
-  }
-
-  const fileContents = fs.readFileSync(fullPath, "utf8");
-  const { data, content } = matter(fileContents);
-
-  // Validate required frontmatter fields
-  if (!data.title || typeof data.title !== "string") {
-    throw new Error(`Post ${slug} is missing required field: title`);
-  }
-
-  if (!data.description || typeof data.description !== "string") {
-    throw new Error(`Post ${slug} is missing required field: description`);
-  }
-
-  if (!data.date || typeof data.date !== "string") {
-    throw new Error(`Post ${slug} is missing required field: date`);
-  }
-
-  // Validate date is actually a valid date
-  const parsedPostDate = parse(data.date, "yyyy-MM-dd", new Date());
-  if (!isValid(parsedPostDate)) {
-    throw new Error(`Post ${slug} has invalid date: ${data.date}`);
-  }
-
-  if (!Array.isArray(data.tags)) {
-    throw new Error(
-      `Post ${slug} is missing required field: tags (must be an array)`,
-    );
-  }
-
-  // Validate optional updated field if present
-  if (data.updated !== undefined) {
-    if (typeof data.updated !== "string") {
-      throw new Error(
-        `Post ${slug} has invalid updated field: must be a string`,
-      );
-    }
-    const parsedUpdatedDate = parse(data.updated, "yyyy-MM-dd", new Date());
-    if (!isValid(parsedUpdatedDate)) {
-      throw new Error(`Post ${slug} has invalid updated date: ${data.updated}`);
-    }
-  }
-
-  // Validate optional canonicalUrl field if present
-  if (data.canonicalUrl !== undefined) {
-    if (typeof data.canonicalUrl !== "string") {
-      throw new Error(
-        `Post ${slug} has invalid canonicalUrl field: must be a string`,
-      );
-    }
-    // Basic URL validation
-    try {
-      new URL(data.canonicalUrl);
-    } catch {
-      throw new Error(
-        `Post ${slug} has invalid canonicalUrl: ${data.canonicalUrl}`,
-      );
-    }
-  }
-
-  if (!data.image || typeof data.image !== "string") {
-    throw new Error(`Post ${slug} is missing required field: image`);
-  }
-
-  // Validate image field
-  // Required format: CF Images ID with CalVer versioning: 'blog/{name}-{YYYY-MM-DD}'
-  const imageIdPattern = /^blog\/[a-z0-9_-]+-\d{4}-\d{2}-\d{2}$/;
-
-  if (!imageIdPattern.test(data.image)) {
-    throw new Error(
-      `Post ${slug}: Invalid image ID format. ` +
-        `Expected 'blog/{name}-YYYY-MM-DD' (e.g., 'blog/hero-image-2025-11-27'). ` +
-        `Got: '${data.image}'`,
-    );
-  }
-
-  // Validate CalVer date portion
-  const dateMatch = data.image.match(/-(\d{4}-\d{2}-\d{2})$/);
-  if (dateMatch?.[1]) {
-    const dateStr = dateMatch[1]; // Format: YYYY-MM-DD
-    const parsedDate = parse(dateStr, "yyyy-MM-dd", new Date());
-
-    if (!isValid(parsedDate) || format(parsedDate, "yyyy-MM-dd") !== dateStr) {
-      throw new Error(
-        `Post ${slug}: Invalid date in image ID '${data.image}'. ` +
-          `Date portion '${dateStr}' is not a valid calendar date.`,
-      );
-    }
-  }
-
-  if (!data.imageAlt || typeof data.imageAlt !== "string") {
-    throw new Error(`Post ${slug} is missing required field: imageAlt`);
-  }
-
-  return {
-    slug,
-    title: data.title,
-    description: data.description,
-    date: data.date,
-    updated: data.updated,
-    tags: data.tags,
-    canonicalUrl: data.canonicalUrl,
-    content,
-    readingTime: calculateReadingTime(content),
-    image: data.image,
-    imageAlt: data.imageAlt,
-  };
+  return post;
 }
 
+/**
+ * Get all blog posts, sorted by date (newest first)
+ * @returns Array of blog posts sorted by date descending
+ */
 export function getAllPosts(): BlogPost[] {
-  const slugs = getAllPostSlugs();
-  const posts = slugs.map((slug) => getPostBySlug(slug));
-
-  return posts.sort((a, b) => {
-    const dateA = parse(a.date, "yyyy-MM-dd", new Date()).getTime();
-    const dateB = parse(b.date, "yyyy-MM-dd", new Date()).getTime();
-    return dateB - dateA; // Descending order (newest first)
+  return Array.from(repository.blogs.values()).sort((a, b) => {
+    // Parse dates and sort descending (newest first)
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
 }
