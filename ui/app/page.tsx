@@ -25,10 +25,10 @@ export default function Home() {
           <h1 className="text-5xl md:text-6xl font-bold mb-6 animate-fade-in-up">
             {siteConfig.name}
           </h1>
-          <p className="text-xl md:text-2xl text-muted-foreground mb-8 animate-fade-in-up animate-delay-100">
+          <p className="text-xl md:text-2xl text-muted-foreground mb-8 animate-fade-in-up">
             {siteConfig.description}
           </p>
-          <div className="flex gap-4 justify-center flex-wrap animate-fade-in-up animate-delay-200">
+          <div className="flex gap-4 justify-center flex-wrap animate-fade-in-up">
             <Button
               size="lg"
               variant="outline"
