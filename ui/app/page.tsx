@@ -25,6 +25,7 @@ export default function Home() {
           <h1 className="text-5xl md:text-6xl font-bold mb-6 animate-fade-in-up">
             {siteConfig.name}
           </h1>
+          {/* Letter-by-letter animation with prefers-reduced-motion support via CSS */}
           <p className="text-xl md:text-2xl text-muted-foreground mb-8">
             <span className="inline-block whitespace-nowrap">
               {"ML expert".split("").map((char, i) => (
@@ -56,7 +57,7 @@ export default function Home() {
             </span>
             <span
               className="inline-block animate-fade-in mx-2"
-              style={{ animationDelay: "1790ms" }}
+              style={{ animationDelay: "1740ms" }}
             >
               |
             </span>
