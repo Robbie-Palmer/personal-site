@@ -26,45 +26,51 @@ export default function Home() {
             {siteConfig.name}
           </h1>
           <p className="text-xl md:text-2xl text-muted-foreground mb-8">
-            {"ML expert".split("").map((char, i) => (
-              <span
-                key={`ml-${i}`}
-                className="inline-block animate-fade-in"
-                style={{ animationDelay: `${400 + i * 30}ms` }}
-              >
-                {char === " " ? "\u00A0" : char}
-              </span>
-            ))}
+            <span className="inline-block whitespace-nowrap">
+              {"ML expert".split("").map((char, i) => (
+                <span
+                  key={`ml-${i}`}
+                  className="inline-block animate-fade-in"
+                  style={{ animationDelay: `${400 + i * 30}ms` }}
+                >
+                  {char === " " ? "\u00A0" : char}
+                </span>
+              ))}
+            </span>
             <span
               className="inline-block animate-fade-in mx-2"
               style={{ animationDelay: "670ms" }}
             >
               |
             </span>
-            {"Full-stack builder".split("").map((char, i) => (
-              <span
-                key={`fs-${i}`}
-                className="inline-block animate-fade-in"
-                style={{ animationDelay: `${800 + i * 30}ms` }}
-              >
-                {char === " " ? "\u00A0" : char}
-              </span>
-            ))}
+            <span className="inline-block whitespace-nowrap">
+              {"Full-stack builder".split("").map((char, i) => (
+                <span
+                  key={`fs-${i}`}
+                  className="inline-block animate-fade-in"
+                  style={{ animationDelay: `${800 + i * 30}ms` }}
+                >
+                  {char === " " ? "\u00A0" : char}
+                </span>
+              ))}
+            </span>
             <span
               className="inline-block animate-fade-in mx-2"
               style={{ animationDelay: "1390ms" }}
             >
               |
             </span>
-            {"Team lead who ships".split("").map((char, i) => (
-              <span
-                key={`tl-${i}`}
-                className="inline-block animate-fade-in"
-                style={{ animationDelay: `${1520 + i * 30}ms` }}
-              >
-                {char === " " ? "\u00A0" : char}
-              </span>
-            ))}
+            <span className="inline-block whitespace-nowrap">
+              {"Team lead who ships".split("").map((char, i) => (
+                <span
+                  key={`tl-${i}`}
+                  className="inline-block animate-fade-in"
+                  style={{ animationDelay: `${1520 + i * 30}ms` }}
+                >
+                  {char === " " ? "\u00A0" : char}
+                </span>
+              ))}
+            </span>
           </p>
           <div
             className="flex gap-4 justify-center flex-wrap animate-fade-in"
