@@ -68,7 +68,7 @@ export function ADRCarousel({
                   </Link>
                 </CardTitle>
                 <div className="flex flex-wrap gap-2 flex-shrink-0 pt-0.5 pointer-events-auto">
-                  {adr.tech_stack?.slice(0, 5).map((tech) => {
+                  {adr.relations.technologies?.slice(0, 5).map((tech) => {
                     const url = getTechUrl(tech);
                     const hasIcon = hasTechIcon(tech);
                     if (!hasIcon && !url) return null;

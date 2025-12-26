@@ -10,7 +10,11 @@ import { ProjectTabsSkeleton } from "@/components/projects/project-tabs-skeleton
 import { ProjectTechStack } from "@/components/projects/project-tech-stack";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { getAllProjectSlugs, getProject, type Project } from "@/lib/projects";
+import {
+  getAllProjectSlugs,
+  getProject,
+  type ProjectWithADRs,
+} from "@/lib/projects";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -38,7 +42,7 @@ export async function generateMetadata({ params }: PageProps) {
 
 export default async function ProjectPage({ params }: PageProps) {
   const { slug } = await params;
-  let project: Project;
+  let project: ProjectWithADRs;
 
   try {
     project = getProject(slug);
@@ -74,19 +78,19 @@ export default async function ProjectPage({ params }: PageProps) {
               {project.description}
             </p>
             <div className="flex flex-wrap gap-2 pt-2">
-              <ProjectTechStack techStack={project.tech_stack} />
+              <ProjectTechStack techStack={project.relations.technologies} />
             </div>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-            {project.repo_url && (
+            {project.repoUrl && (
               <Button
                 asChild
                 variant="outline"
                 className="gap-2 w-full sm:w-auto"
               >
                 <a
-                  href={project.repo_url}
+                  href={project.repoUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -95,10 +99,10 @@ export default async function ProjectPage({ params }: PageProps) {
                 </a>
               </Button>
             )}
-            {project.demo_url && (
+            {project.demoUrl && (
               <Button asChild className="gap-2 w-full sm:w-auto">
                 <a
-                  href={project.demo_url}
+                  href={project.demoUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                 >

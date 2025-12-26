@@ -10,11 +10,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import type { Project } from "@/lib/projects";
+import type { ProjectWithADRs } from "@/lib/projects";
 import { ADRNavContent } from "./adr-nav-content";
 
 interface ADRMobileNavProps {
-  project: Project;
+  project: ProjectWithADRs;
 }
 
 export function ADRMobileNav({ project }: ADRMobileNavProps) {

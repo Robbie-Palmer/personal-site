@@ -41,9 +41,9 @@ export function ProjectCard({ project, currentTech }: ProjectCardProps) {
             </CardTitle>
           </div>
           <div className="flex items-center gap-2 pointer-events-auto z-10 text-muted-foreground">
-            {project.repo_url && (
+            {project.repoUrl && (
               <a
-                href={project.repo_url}
+                href={project.repoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-foreground transition-colors"
@@ -52,9 +52,9 @@ export function ProjectCard({ project, currentTech }: ProjectCardProps) {
                 <Github className="w-5 h-5" />
               </a>
             )}
-            {project.demo_url && (
+            {project.demoUrl && (
               <a
-                href={project.demo_url}
+                href={project.demoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-foreground transition-colors"
@@ -74,7 +74,7 @@ export function ProjectCard({ project, currentTech }: ProjectCardProps) {
 
       <CardFooter className="flex flex-col items-start gap-4">
         <div className="flex flex-wrap gap-2 z-10">
-          {project.tech_stack.slice(0, 5).map((tech) => {
+          {project.relations.technologies.slice(0, 5).map((tech) => {
             const isActive = tech === currentTech;
             return (
               <Link
@@ -100,8 +100,10 @@ export function ProjectCard({ project, currentTech }: ProjectCardProps) {
               </Link>
             );
           })}
-          {project.tech_stack.length > 5 && (
-            <Badge variant="secondary">+{project.tech_stack.length - 5}</Badge>
+          {project.relations.technologies.length > 5 && (
+            <Badge variant="secondary">
+              +{project.relations.technologies.length - 5}
+            </Badge>
           )}
         </div>
       </CardFooter>

@@ -72,9 +72,9 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
                 {adr.title}
               </span>
 
-              {adr.tech_stack &&
-                adr.tech_stack.length > 0 &&
-                adr.tech_stack.map((tech) => {
+              {adr.relations.technologies &&
+                adr.relations.technologies.length > 0 &&
+                adr.relations.technologies.map((tech) => {
                   const url = getTechUrl(tech);
 
                   if (url) {

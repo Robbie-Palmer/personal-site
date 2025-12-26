@@ -14,7 +14,7 @@ import {
   getAllProjects,
   getProject,
   getProjectADR,
-  type Project,
+  type ProjectWithADRs,
 } from "@/lib/projects";
 import { getTechUrl, hasTechIcon, TechIcon } from "@/lib/tech-icons";
 
@@ -64,7 +64,7 @@ export async function generateMetadata({ params }: PageProps) {
 
 export default async function ADRPage({ params }: PageProps) {
   const { slug, adrSlug } = await params;
-  let project: Project;
+  let project: ProjectWithADRs;
   let adr: ADR;
 
   try {
@@ -76,7 +76,7 @@ export default async function ADRPage({ params }: PageProps) {
 
   // Find ADRs that this one supersedes (automatic backlinks)
   const supersededAdrs = project.adrs.filter(
-    (a) => a.superseded_by === adr.slug,
+    (a) => a.supersededBy === adr.slug,
   );
 
   const currentIndex = project.adrs.findIndex((a) => a.slug === adr.slug);
@@ -112,49 +112,44 @@ export default async function ADRPage({ params }: PageProps) {
           <h1 className="text-3xl md:text-4xl font-bold">{adr.title}</h1>
 
           <div className="flex flex-wrap items-center gap-4">
-            {adr.tech_stack && adr.tech_stack.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {adr.tech_stack.map((tech) => {
-                  const url = getTechUrl(tech);
-                  if (url) {
-                    return (
-                      <a
-                        key={tech}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="cursor-pointer"
-                        aria-label={`Visit ${tech} website`}
+            {adr.relations.technologies &&
+              adr.relations.technologies.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {adr.relations.technologies.map((tech) => {
+                    const url = getTechUrl(tech);
+                    const content = (
+                      <Badge
+                        variant="secondary"
+                        interactive={!!url}
+                        className="flex items-center gap-1.5"
                       >
-                        <Badge
-                          variant="secondary"
-                          interactive
-                          className="flex items-center gap-1.5"
-                        >
-                          {hasTechIcon(tech) && (
-                            <TechIcon name={tech} className="w-3 h-3" />
-                          )}
-                          <span>{tech}</span>
-                          <ExternalLink className="w-3 h-3 ml-0.5" />
-                        </Badge>
-                      </a>
+                        {hasTechIcon(tech) && (
+                          <TechIcon name={tech} className="w-3 h-3" />
+                        )}
+                        <span>{tech}</span>
+                        {url && <ExternalLink className="w-3 h-3 ml-0.5" />}
+                      </Badge>
                     );
-                  }
-                  return (
-                    <Badge
-                      key={tech}
-                      variant="secondary"
-                      className="flex items-center gap-1.5"
-                    >
-                      {hasTechIcon(tech) && (
-                        <TechIcon name={tech} className="w-3 h-3" />
-                      )}
-                      <span>{tech}</span>
-                    </Badge>
-                  );
-                })}
-              </div>
-            )}
+                    return (
+                      <span key={tech}>
+                        {url ? (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="cursor-pointer"
+                            aria-label={`Visit ${tech} website`}
+                          >
+                            {content}
+                          </a>
+                        ) : (
+                          content
+                        )}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
 
             <ADRBadge status={adr.status} className="px-3 py-1" />
 
@@ -172,16 +167,16 @@ export default async function ADRPage({ params }: PageProps) {
             />
           </div>
 
-          {adr.status === "Deprecated" && adr.superseded_by && (
+          {adr.status === "Deprecated" && adr.supersededBy && (
             <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg p-4">
               <p className="text-sm text-amber-900 dark:text-amber-100">
                 This decision has been superseded by{" "}
                 <Link
-                  href={`/projects/${slug}/adrs/${adr.superseded_by}`}
+                  href={`/projects/${slug}/adrs/${adr.supersededBy}`}
                   className="font-semibold underline underline-offset-4 hover:text-amber-700 dark:hover:text-amber-300"
                 >
-                  {project.adrs.find((a) => a.slug === adr.superseded_by)
-                    ?.title || adr.superseded_by}
+                  {project.adrs.find((a) => a.slug === adr.supersededBy)
+                    ?.title || adr.supersededBy}
                 </Link>
               </p>
             </div>

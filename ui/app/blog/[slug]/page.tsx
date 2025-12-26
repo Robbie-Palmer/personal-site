@@ -19,13 +19,15 @@ import { getImageSrcSet, getImageUrl } from "@/lib/cloudflare-images";
 import { formatDate } from "@/lib/date";
 import { siteConfig } from "@/lib/site-config";
 
+interface PageProps {
+  params: Promise<{ slug: string }>;
+}
+
 export function generateStaticParams() {
   return getAllPostSlugs().map((slug) => ({ slug }));
 }
 
-export async function generateMetadata(
-  props: PageProps<"/blog/[slug]">,
-): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
   const params = await props.params;
   const { slug } = params;
   const validSlugs = getAllPostSlugs();
@@ -79,7 +81,7 @@ export async function generateMetadata(
   };
 }
 
-export default async function BlogPostPage(props: PageProps<"/blog/[slug]">) {
+export default async function BlogPostPage(props: PageProps) {
   const params = await props.params;
   const { slug } = params;
 
