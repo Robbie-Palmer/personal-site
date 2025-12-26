@@ -27,9 +27,7 @@ export function generateStaticParams() {
   return getAllPostSlugs().map((slug) => ({ slug }));
 }
 
-export async function generateMetadata(
-  props: PageProps,
-): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
   const params = await props.params;
   const { slug } = params;
   const validSlugs = getAllPostSlugs();

@@ -25,7 +25,7 @@ const pathMock = vi.hoisted(() => {
 const experienceMock = vi.hoisted(() => ({
   getAllExperience: vi.fn(),
   getExperienceSlug: vi.fn((exp: { company: string }) =>
-    exp.company.toLowerCase().replace(/\s+/g, "-")
+    exp.company.toLowerCase().replace(/\s+/g, "-"),
   ),
 }));
 
