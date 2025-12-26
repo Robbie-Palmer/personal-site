@@ -9,10 +9,7 @@ import {
   validateReferentialIntegrity,
 } from "@/lib/domain/repository";
 
-// Load repository at module level - this runs during build/SSG
 const repository = loadDomainRepository();
-
-// Validate referential integrity - fail build if there are errors
 const validationErrors = validateReferentialIntegrity(
   repository.technologies,
   repository.blogs,
@@ -20,7 +17,6 @@ const validationErrors = validateReferentialIntegrity(
   repository.adrs,
   repository.roles,
 );
-
 if (validationErrors.length > 0) {
   const errorMessages = validationErrors.map(
     (err) =>
@@ -34,7 +30,6 @@ if (validationErrors.length > 0) {
 
 // Re-export types from domain models
 export type { Project, ProjectStatus, ADR, ADRStatus };
-
 // Re-export constants for backward compatibility
 export const PROJECT_STATUSES = [
   "idea",
@@ -43,51 +38,44 @@ export const PROJECT_STATUSES = [
   "archived",
 ] as const;
 
-/**
- * Extended Project type with ADRs populated
- */
 export interface ProjectWithADRs extends Project {
   adrs: ADR[];
 }
 
-/**
- * ADR with project context
- */
 export interface ProjectADR extends ADR {
   projectSlug: string;
   projectTitle: string;
 }
 
-/**
- * Get all project slugs
- */
 export function getAllProjectSlugs(): string[] {
   return Array.from(repository.projects.keys());
 }
 
-/**
- * Get a project by slug with all its ADRs populated
- */
 export function getProject(slug: string): ProjectWithADRs {
   const domainProject = repository.projects.get(slug);
   if (!domainProject) {
     throw new Error(`Project not found: ${slug}`);
   }
-
-  // Get ADRs for this project from the repository
-  const projectAdrs = Array.from(repository.adrs.values())
-    .filter((adr) => adr.relations.project === domainProject.slug)
-    .sort((a, b) => a.slug.localeCompare(b.slug));
-
+  const projectAdrs = domainProject.relations.adrs
+    .map((adrSlug) => repository.adrs.get(adrSlug))
+    .filter((adr) => adr !== undefined);
+  // Merge technologies from accepted ADRs into project technologies
+  const adrTechnologies = projectAdrs
+    .filter((adr) => adr.status === "Accepted")
+    .flatMap((adr) => adr.relations.technologies);
+  const mergedTechnologies = Array.from(
+    new Set([...domainProject.relations.technologies, ...adrTechnologies]),
+  ).sort();
   return {
     ...domainProject,
+    relations: {
+      ...domainProject.relations,
+      technologies: mergedTechnologies,
+    },
     adrs: projectAdrs,
   };
 }
 
-/**
- * Get all projects with their ADRs, sorted by date (newest first)
- */
 export function getAllProjects(): ProjectWithADRs[] {
   return Array.from(repository.projects.values())
     .map((project) => getProject(project.slug))
@@ -98,9 +86,6 @@ export function getAllProjects(): ProjectWithADRs[] {
     });
 }
 
-/**
- * Get all ADRs across all projects with project context
- */
 export function getAllADRs(): ProjectADR[] {
   const projects = getAllProjects();
   const allADRs = projects.flatMap((project) =>
@@ -110,7 +95,6 @@ export function getAllADRs(): ProjectADR[] {
       projectTitle: project.title,
     })),
   );
-
   return allADRs.sort((a, b) => {
     const dateA = new Date(a.date).getTime();
     const dateB = new Date(b.date).getTime();
@@ -118,9 +102,6 @@ export function getAllADRs(): ProjectADR[] {
   });
 }
 
-/**
- * Get a specific ADR from a project
- */
 export function getProjectADR(projectSlug: string, adrSlug: string): ADR {
   const domainADR = repository.adrs.get(adrSlug);
   if (!domainADR) {

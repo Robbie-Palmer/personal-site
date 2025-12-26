@@ -25,31 +25,17 @@ import {
   type TechnologySlug,
 } from "./models";
 
-// ============================================================================
-// Configuration
-// ============================================================================
-
 const CONTENT_DIR = path.join(process.cwd(), "content");
 const BLOG_DIR = path.join(CONTENT_DIR, "blog");
 const PROJECTS_DIR = path.join(CONTENT_DIR, "projects");
 
-// ============================================================================
-// Technology Repository
-// ============================================================================
-
-/**
- * Builds a canonical Technology catalog by scanning all content types
- * and extracting technology references.
- */
 export function loadTechnologies(): Map<TechnologySlug, Technology> {
   const techMap = new Map<TechnologySlug, Technology>();
 
-  // Helper to normalize technology names to slugs
   const normalizeSlug = (name: string): string => {
     return name.toLowerCase().trim();
   };
 
-  // Helper to add or update technology
   const addTech = (name: string) => {
     const slug = normalizeSlug(name);
     if (!techMap.has(slug)) {
@@ -69,38 +55,29 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
       });
     }
   };
-
-  // Scan all content to build tech catalog
   const experiences = getAllExperience();
   for (const exp of experiences) {
     for (const tech of exp.technologies) {
       addTech(tech);
     }
   }
-
-  // Scan projects and ADRs
   if (!fs.existsSync(PROJECTS_DIR)) {
     return techMap;
   }
-
   const projectDirs = fs
     .readdirSync(PROJECTS_DIR, { withFileTypes: true })
     .filter((dirent) => dirent.isDirectory())
     .map((dirent) => dirent.name);
-
   projectDirs.forEach((projectSlug) => {
     const projectPath = path.join(PROJECTS_DIR, projectSlug, "index.mdx");
     if (fs.existsSync(projectPath)) {
       const fileContent = fs.readFileSync(projectPath, "utf-8");
       const { data } = matter(fileContent);
-
       if (Array.isArray(data.tech_stack)) {
         for (const tech of data.tech_stack) {
           addTech(tech);
         }
       }
-
-      // Scan ADRs
       const adrsDir = path.join(PROJECTS_DIR, projectSlug, "adrs");
       if (fs.existsSync(adrsDir)) {
         const adrFiles = fs
@@ -110,7 +87,6 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
           const adrPath = path.join(adrsDir, adrFile);
           const adrContent = fs.readFileSync(adrPath, "utf-8");
           const { data: adrData } = matter(adrContent);
-
           if (Array.isArray(adrData.tech_stack)) {
             for (const tech of adrData.tech_stack) {
               addTech(tech);
@@ -120,59 +96,39 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
       }
     }
   });
-
   return techMap;
 }
 
-/**
- * Validates a Technology against the schema
- */
 export function validateTechnology(
   tech: unknown,
 ): DomainValidationResult<Technology> {
   const result = TechnologySchema.safeParse(tech);
-
   if (!result.success) {
     return {
       success: false,
       schemaErrors: result.error,
     };
   }
-
   return {
     success: true,
     data: result.data,
   };
 }
 
-// ============================================================================
-// BlogPost Repository
-// ============================================================================
-
-/**
- * Loads all blog posts from the content directory
- */
 export function loadBlogPosts(): Map<BlogSlug, BlogPost> {
   const blogMap = new Map<BlogSlug, BlogPost>();
-
   if (!fs.existsSync(BLOG_DIR)) {
     return blogMap;
   }
-
   const files = fs
     .readdirSync(BLOG_DIR)
     .filter((file) => file.endsWith(".mdx") && file !== "README.mdx");
-
   files.forEach((filename) => {
     const slug = filename.replace(/\.mdx$/, "");
     const filePath = path.join(BLOG_DIR, filename);
     const fileContent = fs.readFileSync(filePath, "utf-8");
     const { data, content } = matter(fileContent);
-
-    // Extract technologies from tags (basic inference)
     const technologies: TechnologySlug[] = [];
-    // Could enhance this with more sophisticated tech extraction from content/tags
-
     const post: BlogPost = {
       slug,
       title: data.title,
@@ -189,7 +145,6 @@ export function loadBlogPosts(): Map<BlogSlug, BlogPost> {
         technologies,
       },
     };
-
     const validation = validateBlogPost(post);
     if (validation.success) {
       blogMap.set(slug, validation.data);
@@ -201,26 +156,19 @@ export function loadBlogPosts(): Map<BlogSlug, BlogPost> {
       throw new Error(`Blog post ${slug} failed validation`);
     }
   });
-
   return blogMap;
 }
 
-/**
- * Validates a BlogPost against the schema
- */
 export function validateBlogPost(
   post: unknown,
 ): DomainValidationResult<BlogPost> {
   const result = BlogPostSchema.safeParse(post);
-
   if (!result.success) {
     return {
       success: false,
       schemaErrors: result.error,
     };
   }
-
-  // Additional validation for dates
   const dateValid = isValid(parse(result.data.date, "yyyy-MM-dd", new Date()));
   if (!dateValid) {
     return {
@@ -263,36 +211,22 @@ export function validateBlogPost(
   };
 }
 
-// ============================================================================
-// Project & ADR Repository
-// ============================================================================
-
-/**
- * Loads all projects from the content directory
- */
 export function loadProjects(): Map<ProjectSlug, Project> {
   const projectMap = new Map<ProjectSlug, Project>();
-
   if (!fs.existsSync(PROJECTS_DIR)) {
     return projectMap;
   }
-
   const projectDirs = fs
     .readdirSync(PROJECTS_DIR, { withFileTypes: true })
     .filter((dirent) => dirent.isDirectory())
     .map((dirent) => dirent.name);
-
   projectDirs.forEach((projectSlug) => {
     const projectPath = path.join(PROJECTS_DIR, projectSlug, "index.mdx");
-
     if (!fs.existsSync(projectPath)) {
       return;
     }
-
     const fileContent = fs.readFileSync(projectPath, "utf-8");
     const { data, content } = matter(fileContent);
-
-    // Load ADRs for this project
     const adrSlugs: ADRSlug[] = [];
     const adrsDir = path.join(PROJECTS_DIR, projectSlug, "adrs");
     if (fs.existsSync(adrsDir)) {
@@ -300,18 +234,14 @@ export function loadProjects(): Map<ProjectSlug, Project> {
         .readdirSync(adrsDir)
         .filter((f) => f.endsWith(".mdx"))
         .sort();
-
       adrFiles.forEach((adrFile) => {
         const adrSlug = adrFile.replace(/\.mdx$/, "");
         adrSlugs.push(adrSlug);
       });
     }
-
-    // Normalize tech_stack to technology slugs
     const technologies: TechnologySlug[] = (data.tech_stack || []).map(
       (tech: string) => tech.toLowerCase().trim(),
     );
-
     const project: Project = {
       slug: projectSlug,
       title: data.title,
@@ -327,7 +257,6 @@ export function loadProjects(): Map<ProjectSlug, Project> {
         adrs: adrSlugs,
       },
     };
-
     const validation = validateProject(project);
     if (validation.success) {
       projectMap.set(projectSlug, validation.data);
@@ -339,66 +268,48 @@ export function loadProjects(): Map<ProjectSlug, Project> {
       throw new Error(`Project ${projectSlug} failed validation`);
     }
   });
-
   return projectMap;
 }
 
-/**
- * Validates a Project against the schema
- */
 export function validateProject(
   project: unknown,
 ): DomainValidationResult<Project> {
   const result = ProjectSchema.safeParse(project);
-
   if (!result.success) {
     return {
       success: false,
       schemaErrors: result.error,
     };
   }
-
   return {
     success: true,
     data: result.data,
   };
 }
 
-/**
- * Loads all ADRs from all projects
- */
 export function loadADRs(): Map<ADRSlug, ADR> {
   const adrMap = new Map<ADRSlug, ADR>();
-
   if (!fs.existsSync(PROJECTS_DIR)) {
     return adrMap;
   }
-
   const projectDirs = fs
     .readdirSync(PROJECTS_DIR, { withFileTypes: true })
     .filter((dirent) => dirent.isDirectory())
     .map((dirent) => dirent.name);
-
   projectDirs.forEach((projectSlug) => {
     const adrsDir = path.join(PROJECTS_DIR, projectSlug, "adrs");
-
     if (!fs.existsSync(adrsDir)) {
       return;
     }
-
     const adrFiles = fs.readdirSync(adrsDir).filter((f) => f.endsWith(".mdx"));
-
     adrFiles.forEach((adrFile) => {
       const adrSlug = adrFile.replace(/\.mdx$/, "");
       const adrPath = path.join(adrsDir, adrFile);
       const fileContent = fs.readFileSync(adrPath, "utf-8");
       const { data, content } = matter(fileContent);
-
-      // Normalize tech_stack to technology slugs
       const technologies: TechnologySlug[] = (data.tech_stack || []).map(
         (tech: string) => tech.toLowerCase().trim(),
       );
-
       const adr: ADR = {
         slug: adrSlug,
         title: data.title,
@@ -412,7 +323,6 @@ export function loadADRs(): Map<ADRSlug, ADR> {
           technologies,
         },
       };
-
       const validation = validateADR(adr);
       if (validation.success) {
         adrMap.set(adrSlug, validation.data);
@@ -425,49 +335,31 @@ export function loadADRs(): Map<ADRSlug, ADR> {
       }
     });
   });
-
   return adrMap;
 }
 
-/**
- * Validates an ADR against the schema
- */
 export function validateADR(adr: unknown): DomainValidationResult<ADR> {
   const result = ADRSchema.safeParse(adr);
-
   if (!result.success) {
     return {
       success: false,
       schemaErrors: result.error,
     };
   }
-
   return {
     success: true,
     data: result.data,
   };
 }
 
-// ============================================================================
-// JobRole Repository
-// ============================================================================
-
-/**
- * Loads all job roles (currently from hardcoded experience data)
- */
 export function loadJobRoles(): Map<RoleSlug, JobRole> {
   const roleMap = new Map<RoleSlug, JobRole>();
-
   const experiences = getAllExperience();
-
   for (const exp of experiences) {
     const slug = getExperienceSlug(exp);
-
-    // Normalize technology names to slugs
     const technologies: TechnologySlug[] = exp.technologies.map((tech) =>
       tech.toLowerCase().trim(),
     );
-
     const role: JobRole = {
       slug,
       company: exp.company,
@@ -483,7 +375,6 @@ export function loadJobRoles(): Map<RoleSlug, JobRole> {
         technologies,
       },
     };
-
     const validation = validateJobRole(role);
     if (validation.success) {
       roleMap.set(slug, validation.data);
@@ -495,38 +386,25 @@ export function loadJobRoles(): Map<RoleSlug, JobRole> {
       throw new Error(`Job role ${slug} failed validation`);
     }
   }
-
   return roleMap;
 }
 
-/**
- * Validates a JobRole against the schema
- */
 export function validateJobRole(
   role: unknown,
 ): DomainValidationResult<JobRole> {
   const result = JobRoleSchema.safeParse(role);
-
   if (!result.success) {
     return {
       success: false,
       schemaErrors: result.error,
     };
   }
-
   return {
     success: true,
     data: result.data,
   };
 }
 
-// ============================================================================
-// Referential Integrity Validation
-// ============================================================================
-
-/**
- * Validates referential integrity across all domain models
- */
 export function validateReferentialIntegrity(
   technologies: Map<TechnologySlug, Technology>,
   blogs: Map<BlogSlug, BlogPost>,
@@ -536,7 +414,6 @@ export function validateReferentialIntegrity(
 ): ReferentialIntegrityError[] {
   const errors: ReferentialIntegrityError[] = [];
 
-  // Helper to check if technology exists
   const checkTech = (slug: TechnologySlug, entity: string, field: string) => {
     if (!technologies.has(slug)) {
       errors.push({
@@ -549,21 +426,15 @@ export function validateReferentialIntegrity(
     }
   };
 
-  // Validate blog post technology references
   blogs.forEach((blog, blogSlug) => {
     blog.relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `BlogPost[${blogSlug}]`, "technologies");
     });
   });
-
-  // Validate project references
   projects.forEach((project, projectSlug) => {
-    // Check technologies
     project.relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `Project[${projectSlug}]`, "technologies");
     });
-
-    // Check ADR references
     project.relations.adrs.forEach((adrSlug) => {
       if (!adrs.has(adrSlug)) {
         errors.push({
@@ -576,10 +447,7 @@ export function validateReferentialIntegrity(
       }
     });
   });
-
-  // Validate ADR references
   adrs.forEach((adr, adrSlug) => {
-    // Check project reference
     if (!projects.has(adr.relations.project)) {
       errors.push({
         type: "missing_reference",
@@ -589,13 +457,9 @@ export function validateReferentialIntegrity(
         message: `Project '${adr.relations.project}' referenced by ADR '${adrSlug}' does not exist`,
       });
     }
-
-    // Check technologies
     adr.relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `ADR[${adrSlug}]`, "technologies");
     });
-
-    // Check superseded_by reference (if it exists)
     if (adr.supersededBy && !adrs.has(adr.supersededBy)) {
       errors.push({
         type: "missing_reference",
@@ -606,24 +470,14 @@ export function validateReferentialIntegrity(
       });
     }
   });
-
-  // Validate job role technology references
   roles.forEach((role, roleSlug) => {
     role.relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `JobRole[${roleSlug}]`, "technologies");
     });
   });
-
   return errors;
 }
 
-// ============================================================================
-// Build Technology Relations
-// ============================================================================
-
-/**
- * Builds bidirectional relationships between technologies and other entities
- */
 export function buildTechnologyRelations(
   technologies: Map<TechnologySlug, Technology>,
   blogs: Map<BlogSlug, BlogPost>,
@@ -638,8 +492,6 @@ export function buildTechnologyRelations(
     tech.relations.projects = [];
     tech.relations.roles = [];
   });
-
-  // Build blog relations
   blogs.forEach((blog, blogSlug) => {
     blog.relations.technologies.forEach((techSlug) => {
       const tech = technologies.get(techSlug);
@@ -648,8 +500,6 @@ export function buildTechnologyRelations(
       }
     });
   });
-
-  // Build project relations
   projects.forEach((project, projectSlug) => {
     project.relations.technologies.forEach((techSlug) => {
       const tech = technologies.get(techSlug);
@@ -658,8 +508,6 @@ export function buildTechnologyRelations(
       }
     });
   });
-
-  // Build ADR relations
   adrs.forEach((adr, adrSlug) => {
     adr.relations.technologies.forEach((techSlug) => {
       const tech = technologies.get(techSlug);
@@ -668,8 +516,6 @@ export function buildTechnologyRelations(
       }
     });
   });
-
-  // Build role relations
   roles.forEach((role, roleSlug) => {
     role.relations.technologies.forEach((techSlug) => {
       const tech = technologies.get(techSlug);
@@ -680,10 +526,6 @@ export function buildTechnologyRelations(
   });
 }
 
-// ============================================================================
-// Master Repository Loader
-// ============================================================================
-
 export interface DomainRepository {
   technologies: Map<TechnologySlug, Technology>;
   blogs: Map<BlogSlug, BlogPost>;
@@ -693,21 +535,15 @@ export interface DomainRepository {
   referentialIntegrityErrors: ReferentialIntegrityError[];
 }
 
-/**
- * Loads all domain models and validates referential integrity
- */
 export function loadDomainRepository(): DomainRepository {
-  // Load all content
   const technologies = loadTechnologies();
   const blogs = loadBlogPosts();
   const projects = loadProjects();
   const adrs = loadADRs();
   const roles = loadJobRoles();
 
-  // Build bidirectional relations
   buildTechnologyRelations(technologies, blogs, projects, adrs, roles);
 
-  // Validate referential integrity
   const referentialIntegrityErrors = validateReferentialIntegrity(
     technologies,
     blogs,
@@ -715,8 +551,6 @@ export function loadDomainRepository(): DomainRepository {
     adrs,
     roles,
   );
-
-  // Throw error if there are integrity violations
   if (referentialIntegrityErrors.length > 0) {
     console.error("Referential integrity errors found:");
     referentialIntegrityErrors.forEach((err) => {
@@ -726,7 +560,6 @@ export function loadDomainRepository(): DomainRepository {
       `Found ${referentialIntegrityErrors.length} referential integrity errors`,
     );
   }
-
   return {
     technologies,
     blogs,

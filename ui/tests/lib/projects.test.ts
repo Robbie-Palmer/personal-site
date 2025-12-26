@@ -80,25 +80,29 @@ describe("Projects functions", () => {
 
     it("should include project technologies", () => {
       const projects = getAllProjects();
-
-      // Find a project with technologies
       const projectWithTech = projects.find(
         (p) => p.relations.technologies.length > 0,
       );
-
-      if (!projectWithTech) {
-        // Skip test if no suitable project found
-        return;
-      }
-
-      // Verify project has technologies in relations
-      expect(Array.isArray(projectWithTech.relations.technologies)).toBe(true);
-      expect(projectWithTech.relations.technologies.length).toBeGreaterThan(0);
-
-      // Verify technologies are strings
-      for (const tech of projectWithTech.relations.technologies) {
+      expect(projectWithTech).toBeDefined();
+      expect(projectWithTech!.relations.technologies.length).toBeGreaterThan(0);
+      for (const tech of projectWithTech!.relations.technologies) {
         expect(typeof tech).toBe("string");
         expect(tech.length).toBeGreaterThan(0);
+      }
+    });
+
+    it("should include technologies from accepted ADRs", () => {
+      const project = getProject("personal-site");
+      const acceptedADRs = project.adrs.filter(
+        (adr) => adr.status === "Accepted",
+      );
+      expect(acceptedADRs.length).toBeGreaterThan(0);
+      const adrTechnologies = acceptedADRs.flatMap(
+        (adr) => adr.relations.technologies,
+      );
+      expect(adrTechnologies.length).toBeGreaterThan(0);
+      for (const tech of adrTechnologies) {
+        expect(project.relations.technologies).toContain(tech);
       }
     });
   });
