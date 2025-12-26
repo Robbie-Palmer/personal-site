@@ -72,26 +72,30 @@ export default function Home() {
               ))}
             </span>
           </p>
-          <div
-            className="flex gap-4 justify-center flex-wrap animate-fade-in"
-            style={{ animationDelay: "2400ms" }}
-          >
+          <div className="flex gap-4 justify-center flex-wrap">
             <Button
               size="lg"
               variant="outline"
               asChild
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto animate-fade-in"
+              style={{ animationDelay: "2400ms" }}
             >
               <Link href="/blog">Read Blog</Link>
             </Button>
-            <Button size="lg" asChild className="w-full sm:w-auto">
+            <Button
+              size="lg"
+              asChild
+              className="w-full sm:w-auto animate-fade-in"
+              style={{ animationDelay: "2600ms" }}
+            >
               <Link href="/projects">Explore Projects</Link>
             </Button>
             <Button
               size="lg"
               variant="outline"
               asChild
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto animate-fade-in"
+              style={{ animationDelay: "2800ms" }}
             >
               <Link href="/experience">View Experience</Link>
             </Button>
