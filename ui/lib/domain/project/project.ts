@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { ADRSlugSchema } from "../adr/adr";
+import { TechnologySlugSchema } from "../technology/technology";
 
 export const ProjectSlugSchema = z.string().min(1);
 export type ProjectSlug = z.infer<typeof ProjectSlugSchema>;
@@ -27,8 +29,8 @@ export const ProjectSchema = z.object({
 
   relations: z
     .object({
-      technologies: z.array(z.string()).default([]),
-      adrs: z.array(z.string()).default([]),
+      technologies: z.array(TechnologySlugSchema).default([]),
+      adrs: z.array(ADRSlugSchema).default([]),
     })
     .default({
       technologies: [],
