@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -17,6 +18,20 @@ export function ProjectsPageTabs({
   const pathname = usePathname();
 
   const currentTab = searchParams.get("tab") || "projects";
+
+  // Handle hash fragment scrolling after tab content is rendered
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash) {
+      // Wait for the tab content to render before scrolling
+      setTimeout(() => {
+        const element = document.querySelector(hash);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 100);
+    }
+  }, [currentTab]);
 
   const onTabChange = (value: string) => {
     const params = new URLSearchParams(searchParams.toString());
