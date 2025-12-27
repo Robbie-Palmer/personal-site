@@ -43,6 +43,10 @@ export interface ReferentialIntegrityError {
 const CONTENT_DIR = path.join(process.cwd(), "content");
 const BLOG_DIR = path.join(CONTENT_DIR, "blog");
 const PROJECTS_DIR = path.join(CONTENT_DIR, "projects");
+const BUILDING_PHILOSOPHY_PATH = path.join(
+  PROJECTS_DIR,
+  "building-philosophy.mdx",
+);
 
 export function loadTechnologies(): Map<TechnologySlug, Technology> {
   const techMap = new Map<TechnologySlug, Technology>();
@@ -420,6 +424,15 @@ export function validateJobRole(
   };
 }
 
+export function loadBuildingPhilosophy(): string {
+  if (!fs.existsSync(BUILDING_PHILOSOPHY_PATH)) {
+    return "";
+  }
+  const fileContent = fs.readFileSync(BUILDING_PHILOSOPHY_PATH, "utf-8");
+  const { content } = matter(fileContent);
+  return content;
+}
+
 export function validateReferentialIntegrity(
   technologies: Map<TechnologySlug, Technology>,
   blogs: Map<BlogSlug, BlogPost>,
@@ -547,6 +560,7 @@ export interface DomainRepository {
   projects: Map<ProjectSlug, Project>;
   adrs: Map<ADRSlug, ADR>;
   roles: Map<RoleSlug, JobRole>;
+  buildingPhilosophy: string;
   referentialIntegrityErrors: ReferentialIntegrityError[];
 }
 
@@ -556,6 +570,7 @@ export function loadDomainRepository(): DomainRepository {
   const projects = loadProjects();
   const adrs = loadADRs();
   const roles = loadJobRoles();
+  const buildingPhilosophy = loadBuildingPhilosophy();
 
   buildTechnologyRelations(technologies, blogs, projects, adrs, roles);
 
@@ -581,6 +596,7 @@ export function loadDomainRepository(): DomainRepository {
     projects,
     adrs,
     roles,
+    buildingPhilosophy,
     referentialIntegrityErrors,
   };
 }
