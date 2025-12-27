@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
+import rehypeAutolinkHeadings from "rehype-autolink-headings";
+import rehypeSlug from "rehype-slug";
 import { highlight } from "@/lib/shiki";
 
 type MDXComponents = React.ComponentProps<typeof MDXRemote>["components"];
@@ -116,7 +118,15 @@ export function Markdown({ source, components }: MarkdownProps) {
 
   return (
     <article className="prose prose-zinc dark:prose-invert max-w-none">
-      <MDXRemote source={source} components={mergedComponents} />
+      <MDXRemote
+        source={source}
+        components={mergedComponents}
+        options={{
+          mdxOptions: {
+            rehypePlugins: [rehypeSlug, rehypeAutolinkHeadings],
+          },
+        }}
+      />
     </article>
   );
 }
