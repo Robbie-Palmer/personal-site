@@ -42,14 +42,12 @@ export default async function ProjectsPage() {
         </p>
       </div>
 
-      <ProjectsPageTabs
-        projects={
-          <Suspense fallback={<CardGridSkeleton />}>
-            <ProjectList projects={projects} />
-          </Suspense>
-        }
-        philosophy={<Markdown source={philosophyContent} />}
-      />
+      <Suspense fallback={<CardGridSkeleton />}>
+        <ProjectsPageTabs
+          projects={<ProjectList projects={projects} />}
+          philosophy={<Markdown source={philosophyContent} />}
+        />
+      </Suspense>
     </div>
   );
 }
