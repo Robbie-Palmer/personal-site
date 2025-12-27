@@ -1,26 +1,36 @@
-import type { BlogPost } from "@/lib/domain/models";
-import { loadDomainRepository } from "@/lib/domain/repository";
+import {
+  loadDomainRepository,
+  getBlogDetail,
+  getAllBlogCards,
+  type BlogDetailView,
+  type BlogCardView,
+} from "@/lib/domain";
 
 const repository = loadDomainRepository();
 
-// Re-export the domain BlogPost type for backward compatibility
-export type { BlogPost };
+// Re-export view types for backward compatibility
+export type BlogPost = BlogDetailView;
+export type { BlogCardView };
 
 export function getAllPostSlugs(): string[] {
   return Array.from(repository.blogs.keys());
 }
 
-export function getPostBySlug(slug: string): BlogPost {
-  const post = repository.blogs.get(slug);
+export function getPostBySlug(slug: string): BlogDetailView {
+  const post = getBlogDetail(repository, slug);
   if (!post) {
     throw new Error(`Blog post not found: ${slug}`);
   }
   return post;
 }
 
-export function getAllPosts(): BlogPost[] {
-  return Array.from(repository.blogs.values()).sort((a, b) => {
-    // Parse dates and sort descending (newest first)
-    return new Date(b.date).getTime() - new Date(a.date).getTime();
-  });
+export function getAllPosts(): BlogDetailView[] {
+  // Return detail views for backward compatibility
+  return Array.from(repository.blogs.keys())
+    .map((slug) => getBlogDetail(repository, slug))
+    .filter((post): post is BlogDetailView => post !== null)
+    .sort((a, b) => {
+      // Parse dates and sort descending (newest first)
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
 }

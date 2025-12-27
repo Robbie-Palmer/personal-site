@@ -1,15 +1,24 @@
-import type {
-  ADR,
-  ADRStatus,
-  Project,
-  ProjectStatus,
-} from "@/lib/domain/models";
-import { loadDomainRepository } from "@/lib/domain/repository";
+import {
+  loadDomainRepository,
+  type ProjectDetailView,
+  getProjectDetail,
+  type ADRCardView,
+  getAllADRCards,
+  getADRDetail,
+  getADRsForProject,
+  type ProjectStatus,
+  type ADRStatus,
+} from "@/lib/domain";
 
 const repository = loadDomainRepository();
 
-// Re-export types from domain models
-export type { Project, ProjectStatus, ADR, ADRStatus };
+// Re-export types
+export type { ProjectStatus, ADRStatus };
+
+// Re-export view types for backward compatibility
+export type Project = ProjectDetailView;
+export type ADR = ADRCardView;
+
 // Re-export constants for backward compatibility
 export const PROJECT_STATUSES = [
   "idea",
@@ -18,11 +27,17 @@ export const PROJECT_STATUSES = [
   "archived",
 ] as const;
 
-export interface ProjectWithADRs extends Project {
-  adrs: ADR[];
+/**
+ * Extended project view with ADRs included
+ */
+export interface ProjectWithADRs extends ProjectDetailView {
+  adrs: ADRCardView[];
 }
 
-export interface ProjectADR extends ADR {
+/**
+ * ADR view with project context
+ */
+export interface ProjectADR extends ADRCardView {
   projectSlug: string;
   projectTitle: string;
 }
@@ -32,34 +47,37 @@ export function getAllProjectSlugs(): string[] {
 }
 
 export function getProject(slug: string): ProjectWithADRs {
-  const domainProject = repository.projects.get(slug);
-  if (!domainProject) {
+  const projectView = getProjectDetail(repository, slug);
+  if (!projectView) {
     throw new Error(`Project not found: ${slug}`);
   }
-  const projectAdrs = domainProject.relations.adrs.flatMap((adrSlug) => {
-    const adr = repository.adrs.get(adrSlug);
-    return adr ? [adr] : [];
-  });
+
+  // Get ADRs for this project using the query function
+  const projectAdrs = getADRsForProject(repository, slug);
+
   // Merge technologies from accepted ADRs into project technologies
   const adrTechnologies = projectAdrs
     .filter((adr) => adr.status === "Accepted")
-    .flatMap((adr) => adr.relations.technologies);
-  const mergedTechnologies = Array.from(
-    new Set([...domainProject.relations.technologies, ...adrTechnologies]),
-  ).sort();
+    .flatMap((adr) => adr.technologies);
+
+  const mergedTechnologies = [
+    ...projectView.technologies,
+    ...adrTechnologies.filter(
+      (adrTech) =>
+        !projectView.technologies.some((t) => t.slug === adrTech.slug),
+    ),
+  ];
+
   return {
-    ...domainProject,
-    relations: {
-      ...domainProject.relations,
-      technologies: mergedTechnologies,
-    },
+    ...projectView,
+    technologies: mergedTechnologies,
     adrs: projectAdrs,
   };
 }
 
 export function getAllProjects(): ProjectWithADRs[] {
-  return Array.from(repository.projects.values())
-    .map((project) => getProject(project.slug))
+  return Array.from(repository.projects.keys())
+    .map((slug) => getProject(slug))
     .sort((a, b) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
@@ -68,14 +86,15 @@ export function getAllProjects(): ProjectWithADRs[] {
 }
 
 export function getAllADRs(): ProjectADR[] {
-  const projects = getAllProjects();
-  const allADRs = projects.flatMap((project) =>
-    project.adrs.map((adr) => ({
+  const allADRCards = getAllADRCards(repository);
+  const allADRs = allADRCards.map((adr) => {
+    const project = repository.projects.get(adr.projectSlug);
+    return {
       ...adr,
-      projectSlug: project.slug,
-      projectTitle: project.title,
-    })),
-  );
+      projectSlug: adr.projectSlug,
+      projectTitle: project?.title || "",
+    };
+  });
   return allADRs.sort((a, b) => {
     const dateA = new Date(a.date).getTime();
     const dateB = new Date(b.date).getTime();
@@ -83,13 +102,13 @@ export function getAllADRs(): ProjectADR[] {
   });
 }
 
-export function getProjectADR(projectSlug: string, adrSlug: string): ADR {
-  const domainADR = repository.adrs.get(adrSlug);
-  if (!domainADR) {
+export function getProjectADR(projectSlug: string, adrSlug: string) {
+  const adrView = getADRDetail(repository, adrSlug);
+  if (!adrView) {
     throw new Error(`ADR not found: ${projectSlug}/${adrSlug}`);
   }
-  if (domainADR.relations.project !== projectSlug) {
+  if (adrView.projectSlug !== projectSlug) {
     throw new Error(`ADR ${adrSlug} does not belong to project ${projectSlug}`);
   }
-  return domainADR;
+  return adrView;
 }

@@ -5,25 +5,40 @@ import matter from "gray-matter";
 import readingTime from "reading-time";
 import { getAllExperience, getExperienceSlug } from "../experience";
 import { TECH_URLS } from "../tech-icons";
+// Domain models
 import {
-  type ADR,
-  ADRSchema,
-  type ADRSlug,
-  type BlogPost,
-  BlogPostSchema,
-  type BlogSlug,
-  type DomainValidationResult,
-  type JobRole,
-  JobRoleSchema,
-  type Project,
-  ProjectSchema,
-  type ProjectSlug,
-  type ReferentialIntegrityError,
-  type RoleSlug,
   type Technology,
   TechnologySchema,
   type TechnologySlug,
-} from "./models";
+} from "./technology/Technology";
+import {
+  type BlogPost,
+  BlogPostSchema,
+  type BlogSlug,
+} from "./blog/BlogPost";
+import { type Project, ProjectSchema, type ProjectSlug } from "./project/Project";
+import { type ADR, ADRSchema, type ADRSlug } from "./adr/ADR";
+import { type JobRole, JobRoleSchema, type RoleSlug } from "./role/JobRole";
+
+// Validation types
+export type DomainValidationResult<T> =
+  | {
+      success: true;
+      data: T;
+    }
+  | {
+      success: false;
+      schemaErrors?: import("zod").ZodError;
+      referentialErrors?: ReferentialIntegrityError[];
+    };
+
+export interface ReferentialIntegrityError {
+  type: "missing_reference" | "invalid_reference" | "circular_reference";
+  entity: string;
+  field: string;
+  value: string;
+  message: string;
+}
 
 const CONTENT_DIR = path.join(process.cwd(), "content");
 const BLOG_DIR = path.join(CONTENT_DIR, "blog");
