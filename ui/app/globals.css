@@ -259,7 +259,7 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
 .hero-gradient-bg {
   background: radial-gradient(
     ellipse 600px 500px at 50% 50%,
-    oklch(0.5 0.22 280 / 0.18),
+    oklch(0.55 0.15 245 / 0.15),
     transparent 60%
   );
   pointer-events: none;
