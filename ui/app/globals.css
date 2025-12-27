@@ -255,22 +255,29 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
   }
 }
 
-/* Hero section radial gradient background */
+/* Hero section radial gradient background - dark mode only */
 .hero-gradient-bg {
-  background: radial-gradient(
-    ellipse 600px 500px at 50% 50%,
-    oklch(0.55 0.15 245 / 0.15),
-    transparent 60%
-  );
   pointer-events: none;
 }
 
+/* Mobile: smaller gradient to avoid rectangle effect */
 .dark .hero-gradient-bg {
   background: radial-gradient(
-    ellipse 600px 500px at 50% 50%,
+    ellipse 400px 350px at 50% 50%,
     oklch(0.5 0.18 280 / 0.1),
-    transparent 60%
+    transparent 55%
   );
+}
+
+/* Tablet and larger: increase gradient size */
+@media (min-width: 768px) {
+  .dark .hero-gradient-bg {
+    background: radial-gradient(
+      ellipse 600px 500px at 50% 50%,
+      oklch(0.5 0.18 280 / 0.1),
+      transparent 60%
+    );
+  }
 }
 
 /*
