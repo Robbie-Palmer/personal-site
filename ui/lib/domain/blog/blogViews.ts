@@ -1,5 +1,5 @@
-import type { BlogPost } from "./BlogPost";
 import type { TechnologyBadgeView } from "../technology/technologyViews";
+import type { BlogPost } from "./BlogPost";
 
 /**
  * View types for BlogPost

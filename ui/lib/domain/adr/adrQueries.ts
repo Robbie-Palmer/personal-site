@@ -1,17 +1,17 @@
 import type { DomainRepository } from "../repository";
+import {
+  toTechnologyBadgeView,
+  toTechnologyLabelView,
+} from "../technology/technologyViews";
 import type { ADRSlug } from "./ADR";
 import {
-  toADRCardView,
-  toADRDetailView,
-  toADRListItemView,
   type ADRCardView,
   type ADRDetailView,
   type ADRListItemView,
+  toADRCardView,
+  toADRDetailView,
+  toADRListItemView,
 } from "./adrViews";
-import {
-  toTechnologyLabelView,
-  toTechnologyBadgeView,
-} from "../technology/technologyViews";
 
 /**
  * Query functions - the ONLY gateway for UI code to access ADR data

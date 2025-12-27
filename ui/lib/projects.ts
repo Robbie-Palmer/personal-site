@@ -1,19 +1,20 @@
 import {
-  loadDomainRepository,
-  type ProjectDetailView,
-  getProjectDetail,
   type ADRCardView,
-  getAllADRCards,
+  type ADRDetailView,
+  type ADRStatus,
   getADRDetail,
   getADRsForProject,
+  getAllADRCards,
+  getProjectDetail,
+  loadDomainRepository,
+  type ProjectDetailView,
   type ProjectStatus,
-  type ADRStatus,
 } from "@/lib/domain";
 
 const repository = loadDomainRepository();
 
 // Re-export types
-export type { ProjectStatus, ADRStatus };
+export type { ProjectStatus, ADRStatus, ADRDetailView };
 
 // Re-export view types for backward compatibility
 export type Project = ProjectDetailView;

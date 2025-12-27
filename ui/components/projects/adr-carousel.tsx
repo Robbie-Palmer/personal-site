@@ -68,13 +68,13 @@ export function ADRCarousel({
                   </Link>
                 </CardTitle>
                 <div className="flex flex-wrap gap-2 flex-shrink-0 pt-0.5 pointer-events-auto">
-                  {adr.relations.technologies?.slice(0, 5).map((tech) => {
-                    const url = getTechUrl(tech);
-                    const hasIcon = hasTechIcon(tech);
+                  {adr.technologies?.slice(0, 5).map((tech) => {
+                    const url = getTechUrl(tech.name);
+                    const hasIcon = hasTechIcon(tech.name);
                     if (!hasIcon && !url) return null;
                     const Icon = hasIcon ? (
                       <TechIcon
-                        name={tech}
+                        name={tech.name}
                         className="w-12 h-12 text-foreground transition-all"
                       />
                     ) : (
@@ -84,11 +84,11 @@ export function ADRCarousel({
                     if (url) {
                       return (
                         <a
-                          key={tech}
+                          key={tech.name}
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          aria-label={`Learn more about ${tech}`}
+                          aria-label={`Learn more about ${tech.name}`}
                           onClick={(e) => e.stopPropagation()}
                           className="z-20 relative p-1.5 rounded-md hover:bg-muted/80 hover:scale-110 transition-all -m-1.5"
                         >
@@ -97,7 +97,11 @@ export function ADRCarousel({
                       );
                     }
                     return (
-                      <div key={tech} title={tech} className="p-1.5 -m-1.5">
+                      <div
+                        key={tech.name}
+                        title={tech.name}
+                        className="p-1.5 -m-1.5"
+                      >
                         {Icon}
                       </div>
                     );

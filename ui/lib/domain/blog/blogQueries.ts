@@ -1,14 +1,14 @@
 import type { DomainRepository } from "../repository";
+import { toTechnologyBadgeView } from "../technology/technologyViews";
 import type { BlogSlug } from "./BlogPost";
 import {
-  toBlogCardView,
-  toBlogDetailView,
-  toBlogListItemView,
   type BlogCardView,
   type BlogDetailView,
   type BlogListItemView,
+  toBlogCardView,
+  toBlogDetailView,
+  toBlogListItemView,
 } from "./blogViews";
-import { toTechnologyBadgeView } from "../technology/technologyViews";
 
 /**
  * Query functions - the ONLY gateway for UI code to access blog data
@@ -66,9 +66,7 @@ export function getBlogListItem(
 /**
  * Get all blog posts as card views
  */
-export function getAllBlogCards(
-  repository: DomainRepository,
-): BlogCardView[] {
+export function getAllBlogCards(repository: DomainRepository): BlogCardView[] {
   return Array.from(repository.blogs.values()).map((blog) => {
     const technologies = blog.relations.technologies
       .map((techSlug) => repository.technologies.get(techSlug))

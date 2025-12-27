@@ -1,5 +1,5 @@
-import type { Technology } from "./Technology";
 import { hasTechIcon } from "../../tech-icons";
+import type { Technology } from "./Technology";
 
 /**
  * View types for Technology
@@ -86,9 +86,7 @@ export function toTechnologyLinkView(tech: Technology): TechnologyLinkView {
   };
 }
 
-export function toTechnologyDetailView(
-  tech: Technology,
-): TechnologyDetailView {
+export function toTechnologyDetailView(tech: Technology): TechnologyDetailView {
   return {
     slug: tech.slug,
     name: tech.name,

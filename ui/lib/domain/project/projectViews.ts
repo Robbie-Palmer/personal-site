@@ -1,5 +1,5 @@
-import type { Project, ProjectStatus } from "./Project";
 import type { TechnologyBadgeView } from "../technology/technologyViews";
+import type { Project, ProjectStatus } from "./Project";
 
 /**
  * View types for Project

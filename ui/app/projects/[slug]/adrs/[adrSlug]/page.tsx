@@ -10,7 +10,7 @@ import { Markdown } from "@/components/projects/markdown";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
-  type ADR,
+  type ADRDetailView,
   getAllProjects,
   getProject,
   getProjectADR,
@@ -65,7 +65,7 @@ export async function generateMetadata({ params }: PageProps) {
 export default async function ADRPage({ params }: PageProps) {
   const { slug, adrSlug } = await params;
   let project: ProjectWithADRs;
-  let adr: ADR;
+  let adr: ADRDetailView;
 
   try {
     project = getProject(slug);
@@ -112,44 +112,43 @@ export default async function ADRPage({ params }: PageProps) {
           <h1 className="text-3xl md:text-4xl font-bold">{adr.title}</h1>
 
           <div className="flex flex-wrap items-center gap-4">
-            {adr.relations.technologies &&
-              adr.relations.technologies.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {adr.relations.technologies.map((tech) => {
-                    const url = getTechUrl(tech);
-                    const content = (
-                      <Badge
-                        variant="secondary"
-                        interactive={!!url}
-                        className="flex items-center gap-1.5"
-                      >
-                        {hasTechIcon(tech) && (
-                          <TechIcon name={tech} className="w-3 h-3" />
-                        )}
-                        <span>{tech}</span>
-                        {url && <ExternalLink className="w-3 h-3 ml-0.5" />}
-                      </Badge>
-                    );
-                    return (
-                      <span key={tech}>
-                        {url ? (
-                          <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="cursor-pointer"
-                            aria-label={`Visit ${tech} website`}
-                          >
-                            {content}
-                          </a>
-                        ) : (
-                          content
-                        )}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
+            {adr.technologies && adr.technologies.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {adr.technologies.map((tech) => {
+                  const url = getTechUrl(tech.name);
+                  const content = (
+                    <Badge
+                      variant="secondary"
+                      interactive={!!url}
+                      className="flex items-center gap-1.5"
+                    >
+                      {hasTechIcon(tech.name) && (
+                        <TechIcon name={tech.name} className="w-3 h-3" />
+                      )}
+                      <span>{tech.name}</span>
+                      {url && <ExternalLink className="w-3 h-3 ml-0.5" />}
+                    </Badge>
+                  );
+                  return (
+                    <span key={tech.name}>
+                      {url ? (
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="cursor-pointer"
+                          aria-label={`Visit ${tech.name} website`}
+                        >
+                          {content}
+                        </a>
+                      ) : (
+                        content
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
 
             <ADRBadge status={adr.status} className="px-3 py-1" />
 

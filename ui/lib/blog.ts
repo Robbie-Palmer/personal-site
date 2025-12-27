@@ -1,9 +1,8 @@
 import {
-  loadDomainRepository,
-  getBlogDetail,
-  getAllBlogCards,
-  type BlogDetailView,
   type BlogCardView,
+  type BlogDetailView,
+  getBlogDetail,
+  loadDomainRepository,
 } from "@/lib/domain";
 
 const repository = loadDomainRepository();

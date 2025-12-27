@@ -1,14 +1,14 @@
 import type { DomainRepository } from "../repository";
+import { toTechnologyBadgeView } from "../technology/technologyViews";
 import type { ProjectSlug } from "./Project";
 import {
-  toProjectCardView,
-  toProjectDetailView,
-  toProjectListItemView,
   type ProjectCardView,
   type ProjectDetailView,
   type ProjectListItemView,
+  toProjectCardView,
+  toProjectDetailView,
+  toProjectListItemView,
 } from "./projectViews";
-import { toTechnologyBadgeView } from "../technology/technologyViews";
 
 /**
  * Query functions - the ONLY gateway for UI code to access project data

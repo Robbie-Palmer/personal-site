@@ -54,12 +54,12 @@ describe("Blog functions", () => {
       );
     });
 
-    it("should return post with relations field", () => {
+    it("should return post with technologies field", () => {
       const slugs = getAllPostSlugs();
       const post = getPostBySlug(slugs[0] ?? "");
 
-      expect(post.relations).toBeDefined();
-      expect(Array.isArray(post.relations.technologies)).toBe(true);
+      expect(post.technologies).toBeDefined();
+      expect(Array.isArray(post.technologies)).toBe(true);
     });
   });
 

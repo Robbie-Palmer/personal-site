@@ -1,8 +1,8 @@
-import type { ADR, ADRStatus } from "./ADR";
 import type {
-  TechnologyLabelView,
   TechnologyBadgeView,
+  TechnologyLabelView,
 } from "../technology/technologyViews";
+import type { ADR, ADRStatus } from "./ADR";
 
 /**
  * View types for ADR (Architecture Decision Record)

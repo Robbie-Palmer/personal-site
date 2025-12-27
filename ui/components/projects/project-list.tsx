@@ -25,14 +25,14 @@ export function ProjectList({ projects }: ProjectListProps) {
         keys: [
           { name: "title", weight: 3 },
           { name: "description", weight: 2 },
-          { name: "relations.technologies", weight: 2 },
+          { name: "technologies.name", weight: 2 },
           { name: "content", weight: 1 },
         ],
         threshold: 0.3,
       }}
       filterConfig={{
         paramName: "tech",
-        getItemValues: (project) => project.relations.technologies,
+        getItemValues: (project) => project.technologies.map((t) => t.name),
         icon:
           currentTech && hasTechIcon(currentTech) ? (
             <TechIcon name={currentTech} className="w-4 h-4" />

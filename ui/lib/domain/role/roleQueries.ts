@@ -1,12 +1,12 @@
 import type { DomainRepository } from "../repository";
+import { toTechnologyBadgeView } from "../technology/technologyViews";
 import type { RoleSlug } from "./JobRole";
 import {
-  toRoleCardView,
-  toRoleListItemView,
   type RoleCardView,
   type RoleListItemView,
+  toRoleCardView,
+  toRoleListItemView,
 } from "./roleViews";
-import { toTechnologyBadgeView } from "../technology/technologyViews";
 
 /**
  * Query functions - the ONLY gateway for UI code to access role data

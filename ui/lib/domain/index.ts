@@ -5,12 +5,11 @@
  * NEVER import directly from domain models (Technology.ts, Project.ts, etc.)
  */
 
+export * from "./adr";
+export * from "./blog";
+export * from "./project";
+// Repository interface and loading function
+export { type DomainRepository, loadDomainRepository } from "./repository";
+export * from "./role";
 // Views and queries - the public API
 export * from "./technology";
-export * from "./project";
-export * from "./blog";
-export * from "./adr";
-export * from "./role";
-
-// Repository interface and loading function
-export { loadDomainRepository, type DomainRepository } from "./repository";

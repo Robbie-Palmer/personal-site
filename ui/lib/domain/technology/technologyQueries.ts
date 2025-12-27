@@ -1,14 +1,14 @@
 import type { DomainRepository } from "../repository";
 import type { TechnologySlug } from "./Technology";
 import {
-  toTechnologyBadgeView,
-  toTechnologyDetailView,
-  toTechnologyLabelView,
-  toTechnologyLinkView,
   type TechnologyBadgeView,
   type TechnologyDetailView,
   type TechnologyLabelView,
   type TechnologyLinkView,
+  toTechnologyBadgeView,
+  toTechnologyDetailView,
+  toTechnologyLabelView,
+  toTechnologyLinkView,
 } from "./technologyViews";
 
 /**
@@ -70,7 +70,9 @@ export function getTechnologyDetail(
 export function getAllTechnologyBadges(
   repository: DomainRepository,
 ): TechnologyBadgeView[] {
-  return Array.from(repository.technologies.values()).map(toTechnologyBadgeView);
+  return Array.from(repository.technologies.values()).map(
+    toTechnologyBadgeView,
+  );
 }
 
 /**
@@ -79,7 +81,9 @@ export function getAllTechnologyBadges(
 export function getAllTechnologyLabels(
   repository: DomainRepository,
 ): TechnologyLabelView[] {
-  return Array.from(repository.technologies.values()).map(toTechnologyLabelView);
+  return Array.from(repository.technologies.values()).map(
+    toTechnologyLabelView,
+  );
 }
 
 /**

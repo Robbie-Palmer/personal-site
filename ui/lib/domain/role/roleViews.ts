@@ -1,5 +1,5 @@
-import type { JobRole } from "./JobRole";
 import type { TechnologyBadgeView } from "../technology/technologyViews";
+import type { JobRole } from "./JobRole";
 
 /**
  * View types for JobRole
