@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ProjectsPageTabsProps {
@@ -18,21 +17,6 @@ export function ProjectsPageTabs({
   const pathname = usePathname();
 
   const currentTab = searchParams.get("tab") || "projects";
-
-  // Handle hash fragment scrolling after tab content is rendered
-  // biome-ignore lint/correctness/useExhaustiveDependencies: currentTab intentionally triggers re-scroll on tab change
-  useEffect(() => {
-    const hash = window.location.hash;
-    if (hash) {
-      // Wait for the tab content to render before scrolling
-      setTimeout(() => {
-        const element = document.querySelector(hash);
-        if (element) {
-          element.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }, 100);
-    }
-  }, [currentTab]);
 
   const onTabChange = (value: string) => {
     const params = new URLSearchParams(searchParams.toString());
