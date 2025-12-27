@@ -3,24 +3,21 @@ import {
   type ADRDetailView,
   type ADRStatus,
   getADRDetail,
-  getADRsForProject,
   getAllADRCards,
-  getProjectDetail,
+  getProjectWithADRs,
   loadDomainRepository,
-  type ProjectDetailView,
   type ProjectStatus,
+  type ProjectWithADRsView,
 } from "@/lib/domain";
 
 const repository = loadDomainRepository();
 
-// Re-export types
 export type { ProjectStatus, ADRStatus, ADRDetailView };
 
-// Re-export view types for backward compatibility
-export type Project = ProjectDetailView;
+export type Project = ProjectWithADRsView;
 export type ADR = ADRCardView;
+export type ProjectWithADRs = ProjectWithADRsView;
 
-// Re-export constants for backward compatibility
 export const PROJECT_STATUSES = [
   "idea",
   "in_progress",
@@ -28,16 +25,6 @@ export const PROJECT_STATUSES = [
   "archived",
 ] as const;
 
-/**
- * Extended project view with ADRs included
- */
-export interface ProjectWithADRs extends ProjectDetailView {
-  adrs: ADRCardView[];
-}
-
-/**
- * ADR view with project context
- */
 export interface ProjectADR extends ADRCardView {
   projectSlug: string;
   projectTitle: string;
@@ -48,32 +35,11 @@ export function getAllProjectSlugs(): string[] {
 }
 
 export function getProject(slug: string): ProjectWithADRs {
-  const projectView = getProjectDetail(repository, slug);
-  if (!projectView) {
+  const project = getProjectWithADRs(repository, slug);
+  if (!project) {
     throw new Error(`Project not found: ${slug}`);
   }
-
-  // Get ADRs for this project using the query function
-  const projectAdrs = getADRsForProject(repository, slug);
-
-  // Merge technologies from accepted ADRs into project technologies
-  const adrTechnologies = projectAdrs
-    .filter((adr) => adr.status === "Accepted")
-    .flatMap((adr) => adr.technologies);
-
-  const mergedTechnologies = [
-    ...projectView.technologies,
-    ...adrTechnologies.filter(
-      (adrTech) =>
-        !projectView.technologies.some((t) => t.slug === adrTech.slug),
-    ),
-  ];
-
-  return {
-    ...projectView,
-    technologies: mergedTechnologies,
-    adrs: projectAdrs,
-  };
+  return project;
 }
 
 export function getAllProjects(): ProjectWithADRs[] {
@@ -89,11 +55,11 @@ export function getAllProjects(): ProjectWithADRs[] {
 export function getAllADRs(): ProjectADR[] {
   const allADRCards = getAllADRCards(repository);
   const allADRs = allADRCards.map((adr) => {
-    const project = repository.projects.get(adr.projectSlug);
+    const project = repository.projects.get(adr.projectSlug)!;
     return {
       ...adr,
       projectSlug: adr.projectSlug,
-      projectTitle: project?.title || "",
+      projectTitle: project.title,
     };
   });
   return allADRs.sort((a, b) => {

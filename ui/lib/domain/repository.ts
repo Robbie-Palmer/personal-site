@@ -5,20 +5,20 @@ import matter from "gray-matter";
 import readingTime from "reading-time";
 import { getAllExperience, getExperienceSlug } from "../experience";
 import { TECH_URLS } from "../tech-icons";
-import { type ADR, ADRSchema, type ADRSlug } from "./adr/ADR";
-import { type BlogPost, BlogPostSchema, type BlogSlug } from "./blog/BlogPost";
+import { type ADR, ADRSchema, type ADRSlug } from "./adr/adr";
+import { type BlogPost, BlogPostSchema, type BlogSlug } from "./blog/blogPost";
 import {
   type Project,
   ProjectSchema,
   type ProjectSlug,
-} from "./project/Project";
-import { type JobRole, JobRoleSchema, type RoleSlug } from "./role/JobRole";
+} from "./project/project";
+import { type JobRole, JobRoleSchema, type RoleSlug } from "./role/jobRole";
 // Domain models
 import {
   type Technology,
   TechnologySchema,
   type TechnologySlug,
-} from "./technology/Technology";
+} from "./technology/technology";
 
 // Validation types
 export type DomainValidationResult<T> =

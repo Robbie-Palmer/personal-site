@@ -1,15 +1,7 @@
 import type { TechnologyBadgeView } from "../technology/technologyViews";
-import type { Project, ProjectStatus } from "./Project";
+import type { ADRCardView } from "../adr/adrViews";
+import type { Project, ProjectStatus } from "./project";
 
-/**
- * View types for Project
- * These are the ONLY types that UI components should use
- */
-
-/**
- * Card view - for project listings and grids
- * Use for: project cards, project lists, search results
- */
 export type ProjectCardView = {
   slug: string;
   title: string;
@@ -23,10 +15,6 @@ export type ProjectCardView = {
   adrCount: number;
 };
 
-/**
- * Detail view - full project information
- * Use for: project detail pages
- */
 export type ProjectDetailView = {
   slug: string;
   title: string;
@@ -41,20 +29,26 @@ export type ProjectDetailView = {
   adrSlugs: string[];
 };
 
-/**
- * List item view - minimal info for simple lists
- * Use for: navigation, related projects, breadcrumbs
- */
 export type ProjectListItemView = {
   slug: string;
   title: string;
   status: ProjectStatus;
 };
 
-/**
- * Transformers - pure functions to convert domain models to views
- * Note: Technologies need to be resolved separately via query functions
- */
+export type ProjectWithADRsView = {
+  slug: string;
+  title: string;
+  description: string;
+  date: string;
+  updated?: string;
+  status: ProjectStatus;
+  repoUrl?: string;
+  demoUrl?: string;
+  content: string;
+  technologies: TechnologyBadgeView[];
+  adrSlugs: string[];
+  adrs: ADRCardView[];
+};
 
 export function toProjectCardView(
   project: Project,

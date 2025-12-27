@@ -1,16 +1,7 @@
 import type { TechnologyBadgeView } from "../technology/technologyViews";
-import type { BlogPost } from "./BlogPost";
+import type { BlogPost } from "./blogPost";
 
-/**
- * View types for BlogPost
- * These are the ONLY types that UI components should use
- */
-
-/**
- * Card view - for blog listings and grids
- * Use for: blog cards, blog lists, search results
- */
-export type BlogCardView = {
+type BaseBlogView = {
   slug: string;
   title: string;
   description: string;
@@ -23,39 +14,19 @@ export type BlogCardView = {
   technologies: TechnologyBadgeView[];
 };
 
-/**
- * Detail view - full blog post information
- * Use for: blog post pages
- */
-export type BlogDetailView = {
-  slug: string;
-  title: string;
-  description: string;
-  date: string;
-  updated?: string;
-  tags: string[];
+export type BlogCardView = BaseBlogView;
+
+export type BlogDetailView = BaseBlogView & {
   canonicalUrl?: string;
   content: string;
-  readingTime: string;
-  image: string;
-  imageAlt: string;
-  technologies: TechnologyBadgeView[];
 };
 
-/**
- * List item view - minimal info for simple lists
- * Use for: navigation, related posts, recent posts
- */
 export type BlogListItemView = {
   slug: string;
   title: string;
   date: string;
   readingTime: string;
 };
-
-/**
- * Transformers - pure functions to convert domain models to views
- */
 
 export function toBlogCardView(
   blog: BlogPost,

@@ -11,10 +11,6 @@ export const ProjectStatusSchema = z.enum([
 ]);
 export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
 
-/**
- * Project domain model - internal representation
- * Should not be imported by UI code directly
- */
 export const ProjectSchema = z.object({
   slug: ProjectSlugSchema,
   title: z.string().min(1),

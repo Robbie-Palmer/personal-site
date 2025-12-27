@@ -435,5 +435,51 @@ describe("Domain Model Schemas", () => {
       const result = JobRoleSchema.safeParse(invalidRole);
       expect(result.success).toBe(false);
     });
+
+    it("should apply default empty technologies when relations is omitted", () => {
+      const roleWithoutRelations = {
+        slug: "test-role",
+        company: "Test Co",
+        companyUrl: "https://test.com",
+        logoPath: "/logo.png",
+        title: "Engineer",
+        location: "Remote",
+        startDate: "2020-01",
+        description: "Test description",
+        responsibilities: ["Test responsibility"],
+        // relations field is completely omitted
+      };
+
+      const result = JobRoleSchema.safeParse(roleWithoutRelations);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.relations).toEqual({
+          technologies: [],
+        });
+      }
+    });
+
+    it("should apply default empty technologies when relations is empty object", () => {
+      const roleWithEmptyRelations = {
+        slug: "test-role-2",
+        company: "Test Co 2",
+        companyUrl: "https://test2.com",
+        logoPath: "/logo2.png",
+        title: "Senior Engineer",
+        location: "Remote",
+        startDate: "2021-01",
+        description: "Test description 2",
+        responsibilities: ["Test responsibility 2"],
+        relations: {}, // Empty object provided
+      };
+
+      const result = JobRoleSchema.safeParse(roleWithEmptyRelations);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.relations).toEqual({
+          technologies: [],
+        });
+      }
+    });
   });
 });

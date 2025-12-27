@@ -3,10 +3,6 @@ import { z } from "zod";
 export const BlogSlugSchema = z.string().min(1);
 export type BlogSlug = z.infer<typeof BlogSlugSchema>;
 
-/**
- * BlogPost domain model - internal representation
- * Should not be imported by UI code directly
- */
 export const BlogPostSchema = z.object({
   slug: BlogSlugSchema,
   title: z.string().min(1),

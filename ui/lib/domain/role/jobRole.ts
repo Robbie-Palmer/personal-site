@@ -3,10 +3,6 @@ import { z } from "zod";
 export const RoleSlugSchema = z.string().min(1);
 export type RoleSlug = z.infer<typeof RoleSlugSchema>;
 
-/**
- * JobRole domain model - internal representation
- * Should not be imported by UI code directly
- */
 export const JobRoleSchema = z.object({
   slug: RoleSlugSchema,
   company: z.string().min(1),

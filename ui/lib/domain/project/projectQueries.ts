@@ -1,23 +1,17 @@
 import type { DomainRepository } from "../repository";
-import { toTechnologyBadgeView } from "../technology/technologyViews";
-import type { ProjectSlug } from "./Project";
+import { resolveTechnologiesToBadgeViews } from "../technology/technologyHelpers";
+import { getADRsForProject } from "../adr/adrQueries";
+import type { ProjectSlug } from "./project";
 import {
   type ProjectCardView,
   type ProjectDetailView,
   type ProjectListItemView,
+  type ProjectWithADRsView,
   toProjectCardView,
   toProjectDetailView,
   toProjectListItemView,
 } from "./projectViews";
 
-/**
- * Query functions - the ONLY gateway for UI code to access project data
- * These functions return views, never domain models
- */
-
-/**
- * Get a single project as a card view
- */
 export function getProjectCard(
   repository: DomainRepository,
   slug: ProjectSlug,
@@ -25,17 +19,14 @@ export function getProjectCard(
   const project = repository.projects.get(slug);
   if (!project) return null;
 
-  const technologies = project.relations.technologies
-    .map((techSlug) => repository.technologies.get(techSlug))
-    .filter((tech): tech is NonNullable<typeof tech> => tech !== undefined)
-    .map(toTechnologyBadgeView);
+  const technologies = resolveTechnologiesToBadgeViews(
+    repository,
+    project.relations.technologies,
+  );
 
   return toProjectCardView(project, technologies);
 }
 
-/**
- * Get a single project as a detail view
- */
 export function getProjectDetail(
   repository: DomainRepository,
   slug: ProjectSlug,
@@ -43,17 +34,14 @@ export function getProjectDetail(
   const project = repository.projects.get(slug);
   if (!project) return null;
 
-  const technologies = project.relations.technologies
-    .map((techSlug) => repository.technologies.get(techSlug))
-    .filter((tech): tech is NonNullable<typeof tech> => tech !== undefined)
-    .map(toTechnologyBadgeView);
+  const technologies = resolveTechnologiesToBadgeViews(
+    repository,
+    project.relations.technologies,
+  );
 
   return toProjectDetailView(project, technologies);
 }
 
-/**
- * Get a single project as a list item view
- */
 export function getProjectListItem(
   repository: DomainRepository,
   slug: ProjectSlug,
@@ -63,34 +51,25 @@ export function getProjectListItem(
   return toProjectListItemView(project);
 }
 
-/**
- * Get all projects as card views
- */
 export function getAllProjectCards(
   repository: DomainRepository,
 ): ProjectCardView[] {
   return Array.from(repository.projects.values()).map((project) => {
-    const technologies = project.relations.technologies
-      .map((techSlug) => repository.technologies.get(techSlug))
-      .filter((tech): tech is NonNullable<typeof tech> => tech !== undefined)
-      .map(toTechnologyBadgeView);
+    const technologies = resolveTechnologiesToBadgeViews(
+      repository,
+      project.relations.technologies,
+    );
 
     return toProjectCardView(project, technologies);
   });
 }
 
-/**
- * Get all projects as list item views
- */
 export function getAllProjectListItems(
   repository: DomainRepository,
 ): ProjectListItemView[] {
   return Array.from(repository.projects.values()).map(toProjectListItemView);
 }
 
-/**
- * Get projects that use a specific technology
- */
 export function getProjectsUsingTechnology(
   repository: DomainRepository,
   technologySlug: string,
@@ -100,11 +79,52 @@ export function getProjectsUsingTechnology(
       project.relations.technologies.includes(technologySlug),
     )
     .map((project) => {
-      const technologies = project.relations.technologies
-        .map((techSlug) => repository.technologies.get(techSlug))
-        .filter((tech): tech is NonNullable<typeof tech> => tech !== undefined)
-        .map(toTechnologyBadgeView);
+      const technologies = resolveTechnologiesToBadgeViews(
+        repository,
+        project.relations.technologies,
+      );
 
       return toProjectCardView(project, technologies);
     });
+}
+
+export function getProjectWithADRs(
+  repository: DomainRepository,
+  slug: ProjectSlug,
+): ProjectWithADRsView | null {
+  const project = repository.projects.get(slug);
+  if (!project) return null;
+
+  const projectTechnologies = resolveTechnologiesToBadgeViews(
+    repository,
+    project.relations.technologies,
+  );
+
+  const adrs = getADRsForProject(repository, slug);
+
+  const adrTechnologies = adrs
+    .filter((adr) => adr.status === "Accepted")
+    .flatMap((adr) => adr.technologies);
+
+  const mergedTechnologies = [
+    ...projectTechnologies,
+    ...adrTechnologies.filter(
+      (adrTech) => !projectTechnologies.some((t) => t.slug === adrTech.slug),
+    ),
+  ];
+
+  return {
+    slug: project.slug,
+    title: project.title,
+    description: project.description,
+    date: project.date,
+    updated: project.updated,
+    status: project.status,
+    repoUrl: project.repoUrl,
+    demoUrl: project.demoUrl,
+    content: project.content,
+    technologies: mergedTechnologies,
+    adrSlugs: project.relations.adrs,
+    adrs,
+  };
 }

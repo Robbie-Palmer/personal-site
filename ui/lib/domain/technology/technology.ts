@@ -1,13 +1,8 @@
 import { z } from "zod";
 
-// Slug type for Technology
 export const TechnologySlugSchema = z.string().min(1);
 export type TechnologySlug = z.infer<typeof TechnologySlugSchema>;
 
-/**
- * Technology domain model - internal representation
- * Should not be imported by UI code directly
- */
 export const TechnologySchema = z.object({
   slug: TechnologySlugSchema,
   name: z.string().min(1),

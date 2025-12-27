@@ -1,24 +1,11 @@
 import { hasTechIcon } from "../../tech-icons";
-import type { Technology } from "./Technology";
+import type { Technology } from "./technology";
 
-/**
- * View types for Technology
- * These are the ONLY types that UI components should use
- */
-
-/**
- * Minimal view - just slug and name
- * Use for: simple lists, tags, breadcrumbs
- */
 export type TechnologyLabelView = {
   slug: string;
   name: string;
 };
 
-/**
- * Badge view - for rendering visual badges with icons
- * Use for: project cards, tech stacks, experience cards
- */
 export type TechnologyBadgeView = {
   slug: string;
   name: string;
@@ -27,20 +14,12 @@ export type TechnologyBadgeView = {
   brandColor?: string;
 };
 
-/**
- * Link view - includes website URL for linking
- * Use for: clickable technology references
- */
 export type TechnologyLinkView = {
   slug: string;
   name: string;
   website?: string;
 };
 
-/**
- * Detail view - full information for technology pages
- * Use for: technology detail pages, filters
- */
 export type TechnologyDetailView = {
   slug: string;
   name: string;
@@ -56,10 +35,6 @@ export type TechnologyDetailView = {
     rolesCount: number;
   };
 };
-
-/**
- * Transformers - pure functions to convert domain models to views
- */
 
 export function toTechnologyLabelView(tech: Technology): TechnologyLabelView {
   return {

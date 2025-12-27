@@ -2,17 +2,8 @@ import type {
   TechnologyBadgeView,
   TechnologyLabelView,
 } from "../technology/technologyViews";
-import type { ADR, ADRStatus } from "./ADR";
+import type { ADR, ADRStatus } from "./adr";
 
-/**
- * View types for ADR (Architecture Decision Record)
- * These are the ONLY types that UI components should use
- */
-
-/**
- * Card view - for ADR listings
- * Use for: ADR cards, ADR lists within projects
- */
 export type ADRCardView = {
   slug: string;
   title: string;
@@ -24,10 +15,6 @@ export type ADRCardView = {
   technologies: TechnologyBadgeView[];
 };
 
-/**
- * Detail view - full ADR information
- * Use for: ADR detail pages
- */
 export type ADRDetailView = {
   slug: string;
   title: string;
@@ -40,19 +27,11 @@ export type ADRDetailView = {
   technologies: TechnologyLabelView[];
 };
 
-/**
- * List item view - minimal info for simple lists
- * Use for: navigation, related ADRs, TOC
- */
 export type ADRListItemView = {
   slug: string;
   title: string;
   status: ADRStatus;
 };
-
-/**
- * Transformers - pure functions to convert domain models to views
- */
 
 export function toADRCardView(
   adr: ADR,

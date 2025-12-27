@@ -1,15 +1,6 @@
 import type { TechnologyBadgeView } from "../technology/technologyViews";
-import type { JobRole } from "./JobRole";
+import type { JobRole } from "./jobRole";
 
-/**
- * View types for JobRole
- * These are the ONLY types that UI components should use
- */
-
-/**
- * Card view - for experience/role listings
- * Use for: experience cards, timeline entries
- */
 export type RoleCardView = {
   slug: string;
   company: string;
@@ -24,10 +15,6 @@ export type RoleCardView = {
   technologies: TechnologyBadgeView[];
 };
 
-/**
- * List item view - minimal info for simple lists
- * Use for: navigation, role summaries
- */
 export type RoleListItemView = {
   slug: string;
   company: string;
@@ -35,10 +22,6 @@ export type RoleListItemView = {
   startDate: string;
   endDate?: string;
 };
-
-/**
- * Transformers - pure functions to convert domain models to views
- */
 
 export function toRoleCardView(
   role: JobRole,

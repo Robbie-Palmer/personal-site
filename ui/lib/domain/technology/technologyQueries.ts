@@ -1,5 +1,5 @@
 import type { DomainRepository } from "../repository";
-import type { TechnologySlug } from "./Technology";
+import type { TechnologySlug } from "./technology";
 import {
   type TechnologyBadgeView,
   type TechnologyDetailView,
@@ -11,14 +11,6 @@ import {
   toTechnologyLinkView,
 } from "./technologyViews";
 
-/**
- * Query functions - the ONLY gateway for UI code to access technology data
- * These functions return views, never domain models
- */
-
-/**
- * Get a single technology as a label view
- */
 export function getTechnologyLabel(
   repository: DomainRepository,
   slug: TechnologySlug,
@@ -28,9 +20,6 @@ export function getTechnologyLabel(
   return toTechnologyLabelView(tech);
 }
 
-/**
- * Get a single technology as a badge view
- */
 export function getTechnologyBadge(
   repository: DomainRepository,
   slug: TechnologySlug,
@@ -40,9 +29,6 @@ export function getTechnologyBadge(
   return toTechnologyBadgeView(tech);
 }
 
-/**
- * Get a single technology as a link view
- */
 export function getTechnologyLink(
   repository: DomainRepository,
   slug: TechnologySlug,
@@ -52,9 +38,6 @@ export function getTechnologyLink(
   return toTechnologyLinkView(tech);
 }
 
-/**
- * Get a single technology as a detail view
- */
 export function getTechnologyDetail(
   repository: DomainRepository,
   slug: TechnologySlug,
@@ -64,9 +47,6 @@ export function getTechnologyDetail(
   return toTechnologyDetailView(tech);
 }
 
-/**
- * Get all technologies as badge views
- */
 export function getAllTechnologyBadges(
   repository: DomainRepository,
 ): TechnologyBadgeView[] {
@@ -75,9 +55,6 @@ export function getAllTechnologyBadges(
   );
 }
 
-/**
- * Get all technologies as label views
- */
 export function getAllTechnologyLabels(
   repository: DomainRepository,
 ): TechnologyLabelView[] {
@@ -86,9 +63,6 @@ export function getAllTechnologyLabels(
   );
 }
 
-/**
- * Get technology badges for a specific project
- */
 export function getTechnologyBadgesForProject(
   repository: DomainRepository,
   projectSlug: string,
@@ -102,9 +76,6 @@ export function getTechnologyBadgesForProject(
     .map(toTechnologyBadgeView);
 }
 
-/**
- * Get technology badges for a specific blog post
- */
 export function getTechnologyBadgesForBlog(
   repository: DomainRepository,
   blogSlug: string,
@@ -118,9 +89,6 @@ export function getTechnologyBadgesForBlog(
     .map(toTechnologyBadgeView);
 }
 
-/**
- * Get technology badges for a specific job role
- */
 export function getTechnologyBadgesForRole(
   repository: DomainRepository,
   roleSlug: string,
@@ -134,9 +102,6 @@ export function getTechnologyBadgesForRole(
     .map(toTechnologyBadgeView);
 }
 
-/**
- * Get technology labels for a specific ADR
- */
 export function getTechnologyLabelsForADR(
   repository: DomainRepository,
   adrSlug: string,
