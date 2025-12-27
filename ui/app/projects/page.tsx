@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Markdown } from "@/components/projects/markdown";
 import { ProjectList } from "@/components/projects/project-list";
+import { ProjectTabsSkeleton } from "@/components/projects/project-tabs-skeleton";
 import { ProjectsPageTabs } from "@/components/projects/projects-page-tabs";
-import { CardGridSkeleton } from "@/components/ui/card-grid-skeleton";
 import { getAllProjects, getBuildingPhilosophy } from "@/lib/projects";
 
 export const metadata: Metadata = {
@@ -27,7 +27,7 @@ export default async function ProjectsPage() {
         </p>
       </div>
 
-      <Suspense fallback={<CardGridSkeleton />}>
+      <Suspense fallback={<ProjectTabsSkeleton />}>
         <ProjectsPageTabs
           projects={<ProjectList projects={projects} />}
           philosophy={<Markdown source={philosophyContent} />}
