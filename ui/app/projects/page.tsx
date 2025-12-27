@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
+import matter from "gray-matter";
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import matter from "gray-matter";
 import { Markdown } from "@/components/projects/markdown";
 import { ProjectList } from "@/components/projects/project-list";
 import { ProjectsPageTabs } from "@/components/projects/projects-page-tabs";
