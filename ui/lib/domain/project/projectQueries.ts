@@ -1,6 +1,6 @@
+import { getADRsForProject } from "../adr/adrQueries";
 import type { DomainRepository } from "../repository";
 import { resolveTechnologiesToBadgeViews } from "../technology/technologyHelpers";
-import { getADRsForProject } from "../adr/adrQueries";
 import type { ProjectSlug } from "./project";
 import {
   type ProjectCardView,

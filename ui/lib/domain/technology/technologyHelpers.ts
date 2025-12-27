@@ -1,6 +1,9 @@
 import type { DomainRepository } from "../repository";
 import type { TechnologySlug } from "./technology";
-import { toTechnologyBadgeView, toTechnologyLabelView } from "./technologyViews";
+import {
+  toTechnologyBadgeView,
+  toTechnologyLabelView,
+} from "./technologyViews";
 
 export function resolveTechnologiesToBadgeViews(
   repository: DomainRepository,

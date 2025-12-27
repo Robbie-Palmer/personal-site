@@ -1,5 +1,5 @@
-import type { TechnologyBadgeView } from "../technology/technologyViews";
 import type { ADRCardView } from "../adr/adrViews";
+import type { TechnologyBadgeView } from "../technology/technologyViews";
 import type { Project, ProjectStatus } from "./project";
 
 export type ProjectCardView = {
