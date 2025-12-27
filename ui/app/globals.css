@@ -255,6 +255,51 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
   }
 }
 
+/* Hero section radial gradient background */
+.hero-gradient-bg {
+  pointer-events: none;
+}
+
+/* Light mode: subtle cool center glow */
+.hero-gradient-bg {
+  background: radial-gradient(
+    ellipse 400px 350px at 50% 50%,
+    oklch(0.92 0.04 280 / 0.6),
+    transparent 55%
+  );
+}
+
+@media (min-width: 768px) {
+  .hero-gradient-bg {
+    background: radial-gradient(
+      ellipse 600px 500px at 50% 50%,
+      oklch(0.92 0.04 280 / 0.6),
+      transparent 60%
+    );
+  }
+}
+
+/* Dark mode: center glow effect */
+/* Mobile: smaller gradient to avoid rectangle effect */
+.dark .hero-gradient-bg {
+  background: radial-gradient(
+    ellipse 400px 350px at 50% 50%,
+    oklch(0.5 0.18 280 / 0.1),
+    transparent 55%
+  );
+}
+
+/* Tablet and larger: increase gradient size */
+@media (min-width: 768px) {
+  .dark .hero-gradient-bg {
+    background: radial-gradient(
+      ellipse 600px 500px at 50% 50%,
+      oklch(0.5 0.18 280 / 0.1),
+      transparent 60%
+    );
+  }
+}
+
 /*
  * Mermaid Diagram Color Classes
  *
