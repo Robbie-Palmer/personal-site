@@ -1,6 +1,8 @@
 import type { DomainRepository } from "../repository";
 import type { TechnologySlug } from "./technology";
 import {
+  resolveTechnologiesToBadgeViews,
+  resolveTechnologiesToLabelViews,
   type TechnologyBadgeView,
   type TechnologyDetailView,
   type TechnologyLabelView,
@@ -70,10 +72,10 @@ export function getTechnologyBadgesForProject(
   const project = repository.projects.get(projectSlug);
   if (!project) return [];
 
-  return project.relations.technologies
-    .map((techSlug) => repository.technologies.get(techSlug))
-    .filter((tech): tech is NonNullable<typeof tech> => tech !== undefined)
-    .map(toTechnologyBadgeView);
+  return resolveTechnologiesToBadgeViews(
+    repository,
+    project.relations.technologies,
+  );
 }
 
 export function getTechnologyBadgesForBlog(
@@ -83,10 +85,10 @@ export function getTechnologyBadgesForBlog(
   const blog = repository.blogs.get(blogSlug);
   if (!blog) return [];
 
-  return blog.relations.technologies
-    .map((techSlug) => repository.technologies.get(techSlug))
-    .filter((tech): tech is NonNullable<typeof tech> => tech !== undefined)
-    .map(toTechnologyBadgeView);
+  return resolveTechnologiesToBadgeViews(
+    repository,
+    blog.relations.technologies,
+  );
 }
 
 export function getTechnologyBadgesForRole(
@@ -96,10 +98,10 @@ export function getTechnologyBadgesForRole(
   const role = repository.roles.get(roleSlug);
   if (!role) return [];
 
-  return role.relations.technologies
-    .map((techSlug) => repository.technologies.get(techSlug))
-    .filter((tech): tech is NonNullable<typeof tech> => tech !== undefined)
-    .map(toTechnologyBadgeView);
+  return resolveTechnologiesToBadgeViews(
+    repository,
+    role.relations.technologies,
+  );
 }
 
 export function getTechnologyLabelsForADR(
@@ -109,8 +111,8 @@ export function getTechnologyLabelsForADR(
   const adr = repository.adrs.get(adrSlug);
   if (!adr) return [];
 
-  return adr.relations.technologies
-    .map((techSlug) => repository.technologies.get(techSlug))
-    .filter((tech): tech is NonNullable<typeof tech> => tech !== undefined)
-    .map(toTechnologyLabelView);
+  return resolveTechnologiesToLabelViews(
+    repository,
+    adr.relations.technologies,
+  );
 }
