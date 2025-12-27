@@ -255,6 +255,25 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
   }
 }
 
+/* Hero section dot grid background */
+.hero-dot-grid {
+  background-image: radial-gradient(
+    circle,
+    oklch(0.552 0.016 285.938 / 0.04) 1px,
+    transparent 1px
+  );
+  background-size: 40px 40px;
+  background-position: 0 0;
+}
+
+.dark .hero-dot-grid {
+  background-image: radial-gradient(
+    circle,
+    oklch(0.705 0.015 286.067 / 0.05) 1px,
+    transparent 1px
+  );
+}
+
 /*
  * Mermaid Diagram Color Classes
  *
