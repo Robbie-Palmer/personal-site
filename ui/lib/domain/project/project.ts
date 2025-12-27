@@ -25,10 +25,15 @@ export const ProjectSchema = z.object({
   demoUrl: z.string().url().optional(),
   content: z.string(),
 
-  relations: z.object({
-    technologies: z.array(z.string()).default([]),
-    adrs: z.array(z.string()).default([]),
-  }),
+  relations: z
+    .object({
+      technologies: z.array(z.string()).default([]),
+      adrs: z.array(z.string()).default([]),
+    })
+    .default({
+      technologies: [],
+      adrs: [],
+    }),
 });
 
 export type Project = z.infer<typeof ProjectSchema>;

@@ -331,6 +331,48 @@ describe("Domain Model Schemas", () => {
       const result = ProjectSchema.safeParse(invalidProject);
       expect(result.success).toBe(false);
     });
+
+    it("should apply default empty arrays when relations is omitted", () => {
+      const projectWithoutRelations = {
+        slug: "test-project",
+        title: "Test Project",
+        description: "Test description",
+        date: "2025-01-01",
+        status: "live" as const,
+        content: "# Test content",
+        // relations field is completely omitted
+      };
+
+      const result = ProjectSchema.safeParse(projectWithoutRelations);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.relations).toEqual({
+          technologies: [],
+          adrs: [],
+        });
+      }
+    });
+
+    it("should apply default empty arrays when relations is empty object", () => {
+      const projectWithEmptyRelations = {
+        slug: "test-project-2",
+        title: "Test Project 2",
+        description: "Test description 2",
+        date: "2025-01-02",
+        status: "idea" as const,
+        content: "# Test content 2",
+        relations: {}, // Empty object provided
+      };
+
+      const result = ProjectSchema.safeParse(projectWithEmptyRelations);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.relations).toEqual({
+          technologies: [],
+          adrs: [],
+        });
+      }
+    });
   });
 
   describe("JobRoleSchema", () => {
