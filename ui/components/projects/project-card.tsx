@@ -74,15 +74,15 @@ export function ProjectCard({ project, currentTech }: ProjectCardProps) {
 
       <CardFooter className="flex flex-col items-start gap-4">
         <div className="flex flex-wrap gap-2 z-10">
-          {project.relations.technologies.slice(0, 5).map((tech) => {
-            const isActive = tech === currentTech;
+          {project.technologies.slice(0, 5).map((tech) => {
+            const isActive = tech.name === currentTech;
             return (
               <Link
-                key={tech}
+                key={tech.name}
                 href={
                   isActive
                     ? "/projects"
-                    : `/projects?tech=${encodeURIComponent(tech)}`
+                    : `/projects?tech=${encodeURIComponent(tech.name)}`
                 }
                 onClick={(e) => e.stopPropagation()}
               >
@@ -92,17 +92,17 @@ export function ProjectCard({ project, currentTech }: ProjectCardProps) {
                   active={isActive}
                   className="flex items-center gap-1"
                 >
-                  {hasTechIcon(tech) && (
-                    <TechIcon name={tech} className="w-3 h-3" />
+                  {hasTechIcon(tech.name) && (
+                    <TechIcon name={tech.name} className="w-3 h-3" />
                   )}
-                  {tech}
+                  {tech.name}
                 </Badge>
               </Link>
             );
           })}
-          {project.relations.technologies.length > 5 && (
+          {project.technologies.length > 5 && (
             <Badge variant="secondary">
-              +{project.relations.technologies.length - 5}
+              +{project.technologies.length - 5}
             </Badge>
           )}
         </div>
