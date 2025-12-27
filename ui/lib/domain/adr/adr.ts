@@ -1,7 +1,8 @@
 import { z } from "zod";
+import { ADRSlugSchema, ProjectSlugSchema, TechnologySlugSchema } from "../slugs";
+import type { ADRSlug } from "../slugs";
 
-export const ADRSlugSchema = z.string().min(1);
-export type ADRSlug = z.infer<typeof ADRSlugSchema>;
+export type { ADRSlug };
 
 export const ADRStatusSchema = z.enum([
   "Accepted",
@@ -21,8 +22,8 @@ export const ADRSchema = z.object({
   readingTime: z.string(),
 
   relations: z.object({
-    project: z.string(),
-    technologies: z.array(z.string()).default([]),
+    project: ProjectSlugSchema,
+    technologies: z.array(TechnologySlugSchema).default([]),
   }),
 });
 

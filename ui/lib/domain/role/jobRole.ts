@@ -1,7 +1,8 @@
 import { z } from "zod";
+import { RoleSlugSchema, TechnologySlugSchema } from "../slugs";
+import type { RoleSlug } from "../slugs";
 
-export const RoleSlugSchema = z.string().min(1);
-export type RoleSlug = z.infer<typeof RoleSlugSchema>;
+export type { RoleSlug };
 
 export const JobRoleSchema = z.object({
   slug: RoleSlugSchema,
@@ -20,7 +21,7 @@ export const JobRoleSchema = z.object({
 
   relations: z
     .object({
-      technologies: z.array(z.string()).default([]),
+      technologies: z.array(TechnologySlugSchema).default([]),
     })
     .default({
       technologies: [],

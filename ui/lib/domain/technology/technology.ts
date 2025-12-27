@@ -1,7 +1,14 @@
 import { z } from "zod";
+import {
+  ADRSlugSchema,
+  BlogSlugSchema,
+  ProjectSlugSchema,
+  RoleSlugSchema,
+  TechnologySlugSchema,
+} from "../slugs";
+import type { TechnologySlug } from "../slugs";
 
-export const TechnologySlugSchema = z.string().min(1);
-export type TechnologySlug = z.infer<typeof TechnologySlugSchema>;
+export type { TechnologySlug };
 
 export const TechnologySchema = z.object({
   slug: TechnologySlugSchema,
@@ -16,10 +23,10 @@ export const TechnologySchema = z.object({
 
   relations: z
     .object({
-      blogs: z.array(z.string()).default([]),
-      adrs: z.array(z.string()).default([]),
-      projects: z.array(z.string()).default([]),
-      roles: z.array(z.string()).default([]),
+      blogs: z.array(BlogSlugSchema).default([]),
+      adrs: z.array(ADRSlugSchema).default([]),
+      projects: z.array(ProjectSlugSchema).default([]),
+      roles: z.array(RoleSlugSchema).default([]),
     })
     .default({
       blogs: [],

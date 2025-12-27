@@ -1,9 +1,8 @@
 import { z } from "zod";
-import { ADRSlugSchema } from "../adr/adr";
-import { TechnologySlugSchema } from "../technology/technology";
+import { ADRSlugSchema, ProjectSlugSchema, TechnologySlugSchema } from "../slugs";
+import type { ProjectSlug } from "../slugs";
 
-export const ProjectSlugSchema = z.string().min(1);
-export type ProjectSlug = z.infer<typeof ProjectSlugSchema>;
+export type { ProjectSlug };
 
 export const ProjectStatusSchema = z.enum([
   "idea",
