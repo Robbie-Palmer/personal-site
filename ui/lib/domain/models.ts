@@ -80,7 +80,7 @@ export const ADRSchema = z.object({
   title: z.string().min(1),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   status: ADRStatusSchema,
-  supersededBy: z.string().optional(),
+  supersededBy: ADRSlugSchema.optional(),
   content: z.string(),
   readingTime: z.string(),
 
@@ -114,10 +114,15 @@ export const ProjectSchema = z.object({
   demoUrl: z.string().url().optional(),
   content: z.string(),
 
-  relations: z.object({
-    technologies: z.array(TechnologySlugSchema).default([]),
-    adrs: z.array(ADRSlugSchema).default([]),
-  }),
+  relations: z
+    .object({
+      technologies: z.array(TechnologySlugSchema).default([]),
+      adrs: z.array(ADRSlugSchema).default([]),
+    })
+    .default({
+      technologies: [],
+      adrs: [],
+    }),
 });
 
 export type Project = z.infer<typeof ProjectSchema>;

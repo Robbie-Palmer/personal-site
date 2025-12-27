@@ -46,7 +46,7 @@ describe("Projects functions", () => {
       expect(project.description.length).toBeGreaterThan(0);
       expect(typeof project.date).toBe("string");
       expect(project.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect(Array.isArray(project.relations.technologies)).toBe(true);
+      expect(Array.isArray(project.technologies)).toBe(true);
       expect(typeof project.content).toBe("string");
       expect(Array.isArray(project.adrs)).toBe(true);
       expect(["idea", "in_progress", "live", "archived"]).toContain(
@@ -64,7 +64,7 @@ describe("Projects functions", () => {
       const slugs = getAllProjectSlugs();
       const project = getProject(slugs[0] ?? "");
 
-      // Verify ADRs structure
+      // Verify ADRs structure (card views don't have content)
       for (const adr of project.adrs) {
         expect(typeof adr.slug).toBe("string");
         expect(typeof adr.title).toBe("string");
@@ -73,21 +73,19 @@ describe("Projects functions", () => {
         expect(["Accepted", "Rejected", "Deprecated", "Proposed"]).toContain(
           adr.status,
         );
-        expect(typeof adr.content).toBe("string");
         expect(typeof adr.readingTime).toBe("string");
+        expect(Array.isArray(adr.technologies)).toBe(true);
       }
     });
 
     it("should include project technologies", () => {
       const projects = getAllProjects();
-      const projectWithTech = projects.find(
-        (p) => p.relations.technologies.length > 0,
-      );
+      const projectWithTech = projects.find((p) => p.technologies.length > 0);
       expect(projectWithTech).toBeDefined();
-      expect(projectWithTech!.relations.technologies.length).toBeGreaterThan(0);
-      for (const tech of projectWithTech!.relations.technologies) {
-        expect(typeof tech).toBe("string");
-        expect(tech.length).toBeGreaterThan(0);
+      expect(projectWithTech!.technologies.length).toBeGreaterThan(0);
+      for (const tech of projectWithTech!.technologies) {
+        expect(typeof tech.name).toBe("string");
+        expect(tech.name.length).toBeGreaterThan(0);
       }
     });
 
@@ -97,12 +95,13 @@ describe("Projects functions", () => {
         (adr) => adr.status === "Accepted",
       );
       expect(acceptedADRs.length).toBeGreaterThan(0);
-      const adrTechnologies = acceptedADRs.flatMap(
-        (adr) => adr.relations.technologies,
+      const adrTechnologies = acceptedADRs.flatMap((adr) =>
+        adr.technologies.map((t) => t.name),
       );
       expect(adrTechnologies.length).toBeGreaterThan(0);
+      const projectTechNames = project.technologies.map((t) => t.name);
       for (const tech of adrTechnologies) {
-        expect(project.relations.technologies).toContain(tech);
+        expect(projectTechNames).toContain(tech);
       }
     });
   });

@@ -72,31 +72,31 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
                 {adr.title}
               </span>
 
-              {adr.relations.technologies &&
-                adr.relations.technologies.length > 0 &&
-                adr.relations.technologies.map((tech) => {
-                  const url = getTechUrl(tech);
+              {adr.technologies &&
+                adr.technologies.length > 0 &&
+                adr.technologies.map((tech) => {
+                  const url = getTechUrl(tech.name);
 
                   if (url) {
                     return (
                       <a
-                        key={tech}
+                        key={tech.name}
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="cursor-pointer pointer-events-auto"
                         onClick={(e) => e.stopPropagation()}
-                        aria-label={`Visit ${tech} website`}
+                        aria-label={`Visit ${tech.name} website`}
                       >
                         <Badge
                           variant="secondary"
                           interactive
                           className="flex items-center gap-1.5"
                         >
-                          {hasTechIcon(tech) && (
-                            <TechIcon name={tech} className="w-3 h-3" />
+                          {hasTechIcon(tech.name) && (
+                            <TechIcon name={tech.name} className="w-3 h-3" />
                           )}
-                          <span>{tech}</span>
+                          <span>{tech.name}</span>
                           <ExternalLink className="w-3 h-3 ml-0.5" />
                         </Badge>
                       </a>
@@ -105,14 +105,14 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
 
                   return (
                     <Badge
-                      key={tech}
+                      key={tech.name}
                       variant="secondary"
                       className="flex items-center gap-1.5"
                     >
-                      {hasTechIcon(tech) && (
-                        <TechIcon name={tech} className="w-3 h-3" />
+                      {hasTechIcon(tech.name) && (
+                        <TechIcon name={tech.name} className="w-3 h-3" />
                       )}
-                      <span>{tech}</span>
+                      <span>{tech.name}</span>
                     </Badge>
                   );
                 })}
