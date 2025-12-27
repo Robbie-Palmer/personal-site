@@ -21,8 +21,12 @@ export default function Home() {
   return (
     <div className="container mx-auto px-4">
       <section className="relative flex min-h-[calc(100vh-5rem)] items-center justify-center overflow-hidden">
-        {/* Subtle dot grid background */}
-        <div className="absolute inset-0 hero-dot-grid" aria-hidden="true" />
+        {/* Floating gradient orbs */}
+        <div className="absolute inset-0" aria-hidden="true">
+          <div className="hero-orb hero-orb-1" />
+          <div className="hero-orb hero-orb-2" />
+          <div className="hero-orb hero-orb-3" />
+        </div>
         <div className="text-center max-w-3xl relative z-10">
           <h1 className="text-5xl md:text-6xl font-bold mb-6 animate-fade-in-up">
             {siteConfig.name}

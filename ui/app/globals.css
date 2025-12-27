@@ -255,23 +255,126 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
   }
 }
 
-/* Hero section dot grid background */
-.hero-dot-grid {
-  background-image: radial-gradient(
-    circle,
-    oklch(0.552 0.016 285.938 / 0.15) 1.5px,
-    transparent 1.5px
-  );
-  background-size: 40px 40px;
-  background-position: 0 0;
+/* Hero section floating gradient orbs */
+@keyframes float-1 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -30px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
 }
 
-.dark .hero-dot-grid {
-  background-image: radial-gradient(
+@keyframes float-2 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(-40px, 30px) scale(0.95);
+  }
+  66% {
+    transform: translate(25px, -25px) scale(1.05);
+  }
+}
+
+@keyframes float-3 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(20px, 40px) scale(1.08);
+  }
+  66% {
+    transform: translate(-30px, -20px) scale(0.92);
+  }
+}
+
+.hero-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.hero-orb-1 {
+  width: 500px;
+  height: 500px;
+  top: -10%;
+  right: -5%;
+  background: radial-gradient(
     circle,
-    oklch(0.705 0.015 286.067 / 0.18) 1.5px,
-    transparent 1.5px
+    oklch(0.7 0.15 280),
+    oklch(0.6 0.2 260)
   );
+  animation: float-1 25s ease-in-out infinite;
+}
+
+.hero-orb-2 {
+  width: 400px;
+  height: 400px;
+  bottom: -15%;
+  left: -10%;
+  background: radial-gradient(
+    circle,
+    oklch(0.65 0.18 290),
+    oklch(0.55 0.22 270)
+  );
+  animation: float-2 30s ease-in-out infinite;
+}
+
+.hero-orb-3 {
+  width: 350px;
+  height: 350px;
+  top: 40%;
+  left: 50%;
+  background: radial-gradient(
+    circle,
+    oklch(0.68 0.12 285),
+    oklch(0.58 0.16 265)
+  );
+  animation: float-3 20s ease-in-out infinite;
+}
+
+.dark .hero-orb {
+  opacity: 0.12;
+}
+
+.dark .hero-orb-1 {
+  background: radial-gradient(
+    circle,
+    oklch(0.5 0.2 280),
+    oklch(0.4 0.25 260)
+  );
+}
+
+.dark .hero-orb-2 {
+  background: radial-gradient(
+    circle,
+    oklch(0.48 0.22 290),
+    oklch(0.38 0.28 270)
+  );
+}
+
+.dark .hero-orb-3 {
+  background: radial-gradient(
+    circle,
+    oklch(0.52 0.18 285),
+    oklch(0.42 0.22 265)
+  );
+}
+
+/* Accessibility: Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .hero-orb {
+    animation: none;
+  }
 }
 
 /*
