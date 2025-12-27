@@ -1,5 +1,5 @@
 import type { DomainRepository } from "../repository";
-import { resolveTechnologiesToBadgeViews } from "../technology/technologyHelpers";
+import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
 import type { BlogSlug } from "./blogPost";
 import {
   type BlogCardView,

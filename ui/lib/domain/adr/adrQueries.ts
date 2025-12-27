@@ -2,7 +2,7 @@ import type { DomainRepository } from "../repository";
 import {
   resolveTechnologiesToBadgeViews,
   resolveTechnologiesToLabelViews,
-} from "../technology/technologyHelpers";
+} from "../technology/technologyViews";
 import type { ADRSlug } from "./adr";
 import {
   type ADRCardView,

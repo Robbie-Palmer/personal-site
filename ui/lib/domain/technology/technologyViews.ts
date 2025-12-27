@@ -1,5 +1,6 @@
 import { hasTechIcon } from "../../tech-icons";
-import type { Technology } from "./technology";
+import type { DomainRepository } from "../repository";
+import type { Technology, TechnologySlug } from "./technology";
 
 export type TechnologyLabelView = {
   slug: string;
@@ -77,4 +78,24 @@ export function toTechnologyDetailView(tech: Technology): TechnologyDetailView {
       rolesCount: tech.relations.roles.length,
     },
   };
+}
+
+export function resolveTechnologiesToBadgeViews(
+  repository: DomainRepository,
+  techSlugs: TechnologySlug[],
+) {
+  return techSlugs
+    .map((slug) => repository.technologies.get(slug))
+    .filter((tech): tech is NonNullable<typeof tech> => tech !== undefined)
+    .map(toTechnologyBadgeView);
+}
+
+export function resolveTechnologiesToLabelViews(
+  repository: DomainRepository,
+  techSlugs: TechnologySlug[],
+) {
+  return techSlugs
+    .map((slug) => repository.technologies.get(slug))
+    .filter((tech): tech is NonNullable<typeof tech> => tech !== undefined)
+    .map(toTechnologyLabelView);
 }

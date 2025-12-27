@@ -1,5 +1,5 @@
 import type { DomainRepository } from "../repository";
-import { resolveTechnologiesToBadgeViews } from "../technology/technologyHelpers";
+import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
 import type { RoleSlug } from "./jobRole";
 import {
   type RoleCardView,
