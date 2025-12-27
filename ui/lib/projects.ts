@@ -4,6 +4,7 @@ import {
   type ADRStatus,
   getADRDetail,
   getAllADRCards,
+  getBuildingPhilosophy as getBuildingPhilosophyQuery,
   getProjectWithADRs,
   loadDomainRepository,
   type ProjectStatus,
@@ -78,4 +79,8 @@ export function getProjectADR(projectSlug: string, adrSlug: string) {
     throw new Error(`ADR ${adrSlug} does not belong to project ${projectSlug}`);
   }
   return adrView;
+}
+
+export function getBuildingPhilosophy(): string {
+  return getBuildingPhilosophyQuery(repository);
 }

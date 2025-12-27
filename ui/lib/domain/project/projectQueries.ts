@@ -88,6 +88,10 @@ export function getProjectsUsingTechnology(
     });
 }
 
+export function getBuildingPhilosophy(repository: DomainRepository): string {
+  return repository.buildingPhilosophy;
+}
+
 export function getProjectWithADRs(
   repository: DomainRepository,
   slug: ProjectSlug,

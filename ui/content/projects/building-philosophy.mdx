@@ -5,7 +5,8 @@ description: "Engineering principles that guide architectural decisions and tech
 
 # Building Philosophy
 
-These principles guide how I approach all my projects—from architecture decisions to technology choices to development practices. They represent hard-won lessons and deliberate trade-offs that optimize for shipping quality software sustainably.
+These principles guide how I approach all my projects—from architecture decisions to technology choices to development practices.
+They represent deliberate trade-offs that optimize for shipping quality software sustainably.
 
 ## Ship Incrementally
 
@@ -17,7 +18,7 @@ Working software beats comprehensive planning. Ship the smallest valuable increm
 
 Build only what's needed. Validate assumptions early. Inspired by Extreme Programming and lean principles—working software over comprehensive documentation, but documentation where it adds value.
 
-Avoid speculative features. Don't build for hypothetical future requirements. YAGNI (You Aren't Gonna Need It) saves time and complexity. When requirements change—and they will—simpler code is easier to modify.
+Avoid speculative features. Don't build for hypothetical future requirements. YAGNI (You Ain't Gonna Need It) saves time and complexity. When requirements change (and they will) simpler code is easier to modify.
 
 ## Choose Boring Technologies
 
@@ -46,19 +47,20 @@ ADRs, PRDs, and inline documentation aren't overhead—they're deliverables. The
 Write documentation for your future self. In six months, you won't remember why you chose PostgreSQL over MongoDB, or why you structured state management this way. ADRs capture context and rationale. Good docs enable you to context-switch efficiently and onboard collaborators (human or AI) quickly.
 
 Documentation doesn't mean comprehensive comments on every line. It means:
-- ADRs for significant architectural decisions
-- README files that explain how to run the project
-- Inline comments for non-obvious logic (not what the code does, but why)
-- Type signatures and tests as executable documentation
+
+* ADRs for significant architectural decisions
+* README files that explain how to run the project
+* Inline comments for non-obvious logic (not what the code does, but why)
+* Type signatures and tests as executable documentation
 
 ## Build in Public
 
 Ideas gain value through collaboration. Writing publicly forces rigor and invites feedback. The goal isn't to hoard knowledge but to share it in a way that's useful to others.
 
-Public building creates accountability. It's harder to cut corners when your work is visible. Sharing knowledge early—even incomplete ideas—invites feedback and refinement. The best ideas improve through iteration and collaboration.
+Public building creates accountability. It's harder to cut corners when your work is visible. Sharing knowledge early (even incomplete ideas) invites feedback and refinement. The best ideas improve through iteration and collaboration.
 
-Open source isn't just about code—it's about sharing thinking. Blog posts explaining decisions, ADRs documenting trade-offs, and public repos demonstrating implementations all contribute to the collective knowledge base.
+Open source isn't just about code - it's about sharing thinking. Blog posts explaining decisions, ADRs documenting trade-offs, and public repos demonstrating implementations all contribute to the collective knowledge base.
 
----
+***
 
 These principles aren't dogma—they're heuristics. Every project brings unique constraints. But when in doubt, default to these patterns. They optimize for sustainable velocity, quality outcomes, and maintainable systems.
