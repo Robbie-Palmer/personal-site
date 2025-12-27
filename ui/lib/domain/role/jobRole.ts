@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { RoleSlugSchema, TechnologySlugSchema } from "../slugs";
 import type { RoleSlug } from "../slugs";
+import { RoleSlugSchema, TechnologySlugSchema } from "../slugs";
 
 export type { RoleSlug };
 

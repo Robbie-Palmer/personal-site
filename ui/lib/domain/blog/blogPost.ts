@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { BlogSlugSchema, TechnologySlugSchema } from "../slugs";
 import type { BlogSlug } from "../slugs";
+import { BlogSlugSchema, TechnologySlugSchema } from "../slugs";
 
 export type { BlogSlug };
 

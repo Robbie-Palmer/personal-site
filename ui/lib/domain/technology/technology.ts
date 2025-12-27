@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { TechnologySlug } from "../slugs";
 import {
   ADRSlugSchema,
   BlogSlugSchema,
@@ -6,7 +7,6 @@ import {
   RoleSlugSchema,
   TechnologySlugSchema,
 } from "../slugs";
-import type { TechnologySlug } from "../slugs";
 
 export type { TechnologySlug };
 

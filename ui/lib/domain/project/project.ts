@@ -1,6 +1,10 @@
 import { z } from "zod";
-import { ADRSlugSchema, ProjectSlugSchema, TechnologySlugSchema } from "../slugs";
 import type { ProjectSlug } from "../slugs";
+import {
+  ADRSlugSchema,
+  ProjectSlugSchema,
+  TechnologySlugSchema,
+} from "../slugs";
 
 export type { ProjectSlug };
 
