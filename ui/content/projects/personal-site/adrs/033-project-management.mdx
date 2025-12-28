@@ -26,7 +26,7 @@ Key requirements:
 
 Tasks were scattered across multiple locations:
 
-* Local markdown files spread across git worktrees (via CCPM [ADR 027])
+* Local markdown files spread across git worktrees (via CCPM \[ADR 027])
 * Easily lost during git stashing or when switching between worktrees
 * No access when away from development computer
 * Couldn't use mobile coding agents (e.g., Claude Code mobile) as they didn't have access to task lists
@@ -36,7 +36,7 @@ Tasks were scattered across multiple locations:
 
 This fragmentation created constant context switching, lost tasks, and made it impossible to work effectively from mobile devices.
 
-**CCPM Limitations**: While CCPM [ADR 027] provided local markdown task files that synced to GitHub Issues, it relied on GitHub Projects for the project management UI layer. GitHub Projects has critical mobile limitations (see alternatives section below), making the overall solution inadequate for mobile-first workflow.
+**CCPM Limitations**: While CCPM \[ADR 027] provided local markdown task files that synced to GitHub Issues, it relied on GitHub Projects for the project management UI layer. GitHub Projects has critical mobile limitations (see alternatives section below), making the overall solution inadequate for mobile-first workflow.
 
 # Decision
 
@@ -54,7 +54,21 @@ Shortcut provides:
 * **Quick Capture**: Fast story creation from any device, including mobile
 * **Lightweight**: Focused feature set without the bloat of enterprise tools
 
-This decision supersedes **ADR 027 (CCPM)** as the primary project management approach.
+This decision supersedes **\[ADR 027] (CCPM)** as the primary project management approach.
+
+## Alignment with Building Philosophy
+
+This decision aligns with several [building philosophy](/projects/building-philosophy) principles:
+
+* **Ship Incrementally**: Shortcut's continuous flow model (no forced sprints) enables rapid iteration and deployment without artificial sprint boundaries
+* **Lean & Agile**: Lightweight, focused feature set avoids bloat and speculative features - builds only what's needed for solo developer workflow
+* **Choose Boring Technologies**: Shortcut is a mature, well-established platform with proven track record and extensive documentation
+
+However, it **diverges** from one key principle:
+
+* **Minimize Platforms, Maximize Velocity**: Adding Shortcut introduces another platform beyond GitHub, increasing context-switching overhead
+
+This divergence is **intentional and justified**: The velocity gains from superior mobile experience and stack-ranking outweigh the platform consolidation cost. GitHub Projects' mobile limitations would create more friction (unable to capture tasks on-the-go) than the overhead of managing one additional platform.
 
 # Alternatives Considered
 
@@ -179,7 +193,7 @@ This decision supersedes **ADR 027 (CCPM)** as the primary project management ap
 
 ## Notes
 
-* This decision **supersedes ADR 027 (CCPM)**, which relied on GitHub Projects as the UI layer
+* This decision **supersedes \[ADR 027] (CCPM)**, which relied on GitHub Projects as the UI layer
 * The mobile limitations of GitHub Projects made the CCPM approach unworkable for a mobile-first workflow
 * Zenhub was the closest alternative but was rejected due to browser extension requirement and forced sprint methodology
 * The trade-off of adding another platform (Shortcut) is worthwhile for the superior mobile experience
