@@ -8,6 +8,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import type { ValueType } from "recharts/types/component/DefaultTooltipContent";
 import {
   Card,
   CardContent,
@@ -32,14 +33,14 @@ interface LineConfig {
 interface LineChartCardProps {
   title: string;
   description: string;
-  chartData: Array<Record<string, any>>;
+  chartData: Array<Record<string, number | string>>;
   chartConfig: ChartConfig;
   xAxisDataKey?: string;
   xAxisLabel?: string;
   yAxisLabel: string;
   lines: LineConfig[];
   yAxisTickFormatter?: (value: number) => string;
-  tooltipFormatter?: (value: number) => string;
+  tooltipFormatter?: (value: ValueType | undefined) => string;
 }
 
 export function LineChartCard({

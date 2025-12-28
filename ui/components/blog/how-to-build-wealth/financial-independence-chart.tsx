@@ -69,7 +69,9 @@ export function FinancialIndependenceChart() {
       chartConfig={chartConfig}
       yAxisLabel="Balance (£)"
       yAxisTickFormatter={(value) => `£${(value / 1000).toFixed(0)}k`}
-      tooltipFormatter={(value: number) => `£${value.toLocaleString()}`}
+      tooltipFormatter={(value) =>
+        typeof value === "number" ? `£${value.toLocaleString()}` : ""
+      }
       lines={[
         { dataKey: "uninvested" },
         { dataKey: "invested" },
