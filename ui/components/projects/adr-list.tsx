@@ -144,7 +144,7 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="cursor-pointer pointer-events-auto"
+                          className="cursor-pointer pointer-events-auto w-fit shrink-0"
                           onClick={(e) => e.stopPropagation()}
                           aria-label={`Visit ${tech.name} website`}
                         >
