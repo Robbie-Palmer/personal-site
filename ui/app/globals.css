@@ -382,7 +382,8 @@ html.dark .mermaid-diagram .node.green .nodeLabel {
 .mermaid-diagram .node.ml circle,
 .mermaid-diagram .node.ml polygon,
 .mermaid-diagram .node.ml path {
-  fill: var(--color-red-400);
+  /* biome-ignore lint/complexity/noImportantStyles: Required to override Mermaid's inline styles */
+  fill: var(--color-red-400) !important;
   /* biome-ignore lint/complexity/noImportantStyles: Required to override Mermaid's inline styles */
   stroke: var(--color-red-700) !important;
 }
