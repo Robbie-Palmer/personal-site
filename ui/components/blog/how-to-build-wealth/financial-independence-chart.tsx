@@ -70,7 +70,7 @@ export function FinancialIndependenceChart() {
       yAxisLabel="Balance (£)"
       yAxisTickFormatter={(value) => `£${(value / 1000).toFixed(0)}k`}
       tooltipFormatter={(value) =>
-        value !== undefined ? `£${value.toLocaleString()}` : ""
+        typeof value === "number" ? `£${value.toLocaleString()}` : ""
       }
       lines={[
         { dataKey: "uninvested" },
