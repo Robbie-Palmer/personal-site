@@ -1,4 +1,3 @@
-import Image from "next/image";
 import type { SimpleIcon } from "simple-icons";
 import * as SimpleIcons from "simple-icons";
 
@@ -72,11 +71,10 @@ export function TechIcon({ name, className = "w-3 h-3" }: TechIconProps) {
   // Check if we have a custom icon
   if (customIcons.has(slug)) {
     return (
-      <Image
+      // biome-ignore lint/performance/noImgElement: SSG site uses Cloudflare Images CDN, not Next.js Image
+      <img
         src={`/tech-icons/${slug}.svg`}
         alt={name}
-        width={12}
-        height={12}
         className={`${className} brightness-0 dark:invert`}
       />
     );
