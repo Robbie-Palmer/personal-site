@@ -2,7 +2,7 @@
 title: "ADR 033: Project Management Platform"
 date: "2025-12-28"
 status: "Accepted"
-tech_stack: ["GitHub Projects", "GitHub Issues"]
+tech_stack: ["Shortcut"]
 ---
 
 # Context
@@ -26,7 +26,7 @@ Key requirements:
 
 Tasks were scattered across multiple locations:
 
-* Local markdown files spread across git worktrees
+* Local markdown files spread across git worktrees (via CCPM [ADR 027])
 * Easily lost during git stashing or when switching between worktrees
 * No access when away from development computer
 * Couldn't use mobile coding agents (e.g., Claude Code mobile) as they didn't have access to task lists
@@ -36,31 +36,57 @@ Tasks were scattered across multiple locations:
 
 This fragmentation created constant context switching, lost tasks, and made it impossible to work effectively from mobile devices.
 
+**CCPM Limitations**: While CCPM [ADR 027] provided local markdown task files that synced to GitHub Issues, it relied on GitHub Projects for the project management UI layer. GitHub Projects has critical mobile limitations (see alternatives section below), making the overall solution inadequate for mobile-first workflow.
+
 # Decision
 
-I will use **GitHub Issues** and **GitHub Projects** as my primary project management platform.
+I will use **[Shortcut](https://shortcut.com/)** (formerly Clubhouse) as my primary project management platform.
 
-GitHub Issues provides:
+Shortcut provides:
 
-* Native integration with code repositories (single platform for code and tasks)
-* Free for public and private repositories
-* Accessible from mobile web (responsive design)
-* Support for labels, milestones, and assignees
-* GitHub sub-issues for epic/task hierarchy
-* Rich markdown support for task descriptions
-* GitHub CLI (`gh`) for programmatic access and AI agent integration
+* **Excellent Mobile Support**: Responsive web interface that works flawlessly on mobile, supports full task creation and editing including descriptions
+* **Epic/Story Hierarchy**: Native support for Epics → Stories → Tasks with proper nesting
+* **Stack Ranking**: Built-in priority management and backlog ordering
+* **GitHub Integration**: Automatic linking between stories and GitHub PRs/commits via branch naming patterns
+* **Continuous Flow**: No forced sprint methodology - supports Kanban-style continuous delivery
+* **Solo-Friendly**: Works well for individual developers without team ceremony overhead
+* **Cost-Effective**: Free tier for up to 10 users (more than sufficient for solo use)
+* **Quick Capture**: Fast story creation from any device, including mobile
+* **Lightweight**: Focused feature set without the bloat of enterprise tools
 
-GitHub Projects provides:
-
-* Kanban boards for visual workflow management
-* Custom fields for priority/stack ranking
-* Backlog views and filtering
-* No forced sprint methodology (continuous flow support)
-* Zero additional cost (included with GitHub)
-
-This decision establishes the platform layer that **CCPM** [ADR 027] builds upon, enabling local markdown task files to sync bidirectionally with GitHub Issues for remote access.
+This decision supersedes **ADR 027 (CCPM)** as the primary project management approach.
 
 # Alternatives Considered
+
+## GitHub Issues + GitHub Projects
+
+* **Pros**:
+  * Native GitHub integration (single platform)
+  * Free for all repositories
+  * GitHub CLI for programmatic access
+  * Sub-issues for hierarchy
+* **Cons**:
+  * **Critical**: GitHub mobile app and mobile website don't properly support GitHub Projects
+  * **Cannot edit issue descriptions from mobile**
+  * **Cannot create new issues with Projects metadata from mobile**
+  * Projects UI is clunky even on desktop
+  * Limited priority/ranking features
+  * Query language less powerful than dedicated tools
+* **Decision**: Rejected - mobile experience is inadequate for on-the-go workflow
+
+## Zenhub
+
+* **Pros**:
+  * Built directly on GitHub Issues
+  * Adds powerful sprint/epic features
+  * Good estimation and reporting
+  * Strong GitHub integration (native)
+* **Cons**:
+  * Requires browser extension for full experience (limits mobile)
+  * Forces sprint-based workflows (estimates, burndown charts)
+  * Paid product ($8.33/user/month)
+  * Mobile experience via web is limited without extension
+* **Decision**: Rejected - close second, but mobile limitations and forced sprint methodology were dealbreakers
 
 ## Jira
 
@@ -68,7 +94,7 @@ This decision establishes the platform layer that **CCPM** [ADR 027] builds upon
 * **Cons**:
   * Massive platform bloat for solo developer
   * Slow, complex UI
-  * Would create account conflicts with work Jira instance
+  * **Would create account conflicts with work Jira instance**
   * Expensive for personal use
   * Overly process-heavy for solo work
 * **Decision**: Rejected - too heavyweight and would conflict with work account
@@ -87,31 +113,6 @@ This decision establishes the platform layer that **CCPM** [ADR 027] builds upon
   * Expensive ($8-10/user/month even for solo use)
   * Forces certain workflows
 * **Decision**: Rejected - too opinionated and costly for solo developer
-
-## Shortcut (formerly Clubhouse)
-
-* **Pros**:
-  * Good balance of features
-  * Epic/story hierarchy
-  * Reasonable pricing
-* **Cons**:
-  * Another platform to manage
-  * Less tight GitHub integration than native solution
-  * Mobile experience not as polished
-* **Decision**: Rejected - GitHub-native solution preferred
-
-## Zenhub
-
-* **Pros**:
-  * Built on top of GitHub Issues
-  * Adds burndown charts, sprints, estimates
-  * Browser extension integrates directly into GitHub UI
-* **Cons**:
-  * Adds sprint-based workflows I want to avoid
-  * Requires browser extension (limits mobile access)
-  * Paid product ($8.33/user/month)
-  * Adds complexity on top of GitHub
-* **Decision**: Rejected - forces sprint methodology and costs money
 
 ## Asana
 
@@ -158,26 +159,27 @@ This decision establishes the platform layer that **CCPM** [ADR 027] builds upon
 
 ## Positive
 
-* **Platform Consolidation**: All code and tasks live in GitHub (single platform principle)
-* **Zero Additional Cost**: No subscription fees for project management tooling
-* **Mobile Access**: GitHub's responsive web interface enables task review and creation from any device
-* **AI Agent Integration**: GitHub CLI enables CCPM and other tools to programmatically manage tasks
-* **Future-Proof**: GitHub is foundational infrastructure unlikely to disappear or break compatibility
-* **No Account Conflicts**: Separate from work Jira, uses existing GitHub account
-* **Flexible Workflow**: No forced sprint methodology - supports continuous flow
-* **Quick Capture**: Can create issues quickly via mobile web or GitHub mobile app
-* **Single Source of Truth**: Stack-ranked backlog in GitHub Projects provides definitive prioritization
+* **Excellent Mobile Experience**: Full-featured mobile web interface enables task creation, editing, and review from any device
+* **Quick Capture**: Can rapidly create and organize tasks when inspiration strikes, from anywhere
+* **Stack-Ranked Backlog**: Single source of truth for prioritized work
+* **GitHub Integration**: Automatic linking between Shortcut stories and GitHub PRs/commits keeps work connected to code
+* **Flexible Workflow**: No forced sprint methodology - supports continuous flow and Kanban-style delivery
+* **Hierarchy Support**: Epic → Story → Task structure organizes complex features clearly
+* **Cost-Effective**: Free tier supports solo developer workflow indefinitely
+* **Lightweight**: Focused feature set without enterprise bloat
+* **No Account Conflicts**: Separate from work Jira, dedicated personal account
 
 ## Negative
 
-* **Limited Features**: GitHub Projects lacks advanced features like time tracking, burndown charts, velocity metrics
-* **No Native Offline**: Requires internet connection (though git itself works offline)
-* **UI Limitations**: GitHub's project management UI is less polished than dedicated tools like Linear
-* **Query Limitations**: GitHub Projects query language is less powerful than dedicated PM tools
-* **Learning Curve**: GitHub Projects V2 has different patterns than traditional PM tools
+* **Another Platform**: Not GitHub-native - adds another service to the workflow (violates "single platform" principle)
+* **Vendor Dependency**: Reliant on Shortcut's continued free tier and service availability
+* **Less AI-Friendly**: No local markdown files for AI agents to read/edit directly (unlike CCPM approach)
+* **Migration Risk**: If Shortcut changes pricing or shuts down, would need to migrate to another platform
+* **Limited CLI**: No robust CLI for programmatic access (unlike GitHub CLI)
 
 ## Notes
 
-* This decision is complementary to **ADR 027 (CCPM)**, which provides the local-markdown-to-GitHub-Issues sync layer
-* Together, these ADRs establish a "GitHub-native, AI-friendly" project management workflow
-* The combination enables both local markdown task files (for AI agents) and remote GitHub Issues (for mobile access)
+* This decision **supersedes ADR 027 (CCPM)**, which relied on GitHub Projects as the UI layer
+* The mobile limitations of GitHub Projects made the CCPM approach unworkable for a mobile-first workflow
+* Zenhub was the closest alternative but was rejected due to browser extension requirement and forced sprint methodology
+* The trade-off of adding another platform (Shortcut) is worthwhile for the superior mobile experience
