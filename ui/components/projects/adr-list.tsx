@@ -1,10 +1,13 @@
 "use client";
 
-import { ArrowUpDown, ExternalLink } from "lucide-react";
+import Fuse, { type FuseResult } from "fuse.js";
+import { ArrowUpDown, ExternalLink, Search, X } from "lucide-react";
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import type { ADR } from "@/lib/projects";
 import { getTechUrl, hasTechIcon, TechIcon } from "@/lib/tech-icons";
 import { useSortParam } from "@/lib/use-sort-param";
@@ -24,6 +27,24 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
     SORT_OPTIONS,
     "newest",
   );
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const fuse = useMemo(
+    () =>
+      new Fuse(adrs, {
+        keys: ["title", "slug"],
+        threshold: 0.3,
+        ignoreLocation: true,
+      }),
+    [adrs],
+  );
+
+  const filteredADRs = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return adrs;
+    }
+    return fuse.search(searchQuery).map((result: FuseResult<ADR>) => result.item);
+  }, [fuse, searchQuery, adrs]);
 
   if (adrs.length === 0) {
     return (
@@ -33,26 +54,62 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
     );
   }
 
-  const sortedADRs = [...adrs].sort((a, b) => {
+  const sortedADRs = [...filteredADRs].sort((a, b) => {
     const direction = currentSort === "newest" ? -1 : 1;
     return a.slug.localeCompare(b.slug) * direction;
   });
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6">
+      <div className="flex flex-col gap-4 mb-6">
         <div className="flex-1">{description}</div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={cycleSortOrder}
-          className="gap-2 shrink-0"
-        >
-          <ArrowUpDown className="w-4 h-4" />
-          {currentSort === "newest" ? "Newest First" : "Oldest First"}
-        </Button>
+
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search decisions..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-9"
+              aria-label="Search architecture decisions"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="default"
+            onClick={cycleSortOrder}
+            className="gap-2 shrink-0"
+          >
+            <ArrowUpDown className="w-4 h-4" />
+            {currentSort === "newest" ? "Newest First" : "Oldest First"}
+          </Button>
+        </div>
+
+        {searchQuery && (
+          <p className="text-sm text-muted-foreground">
+            Showing {sortedADRs.length} of {adrs.length} records matching "{searchQuery}"
+          </p>
+        )}
       </div>
-      {sortedADRs.map((adr) => (
+
+      {sortedADRs.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground border rounded-lg bg-muted/20">
+          <p>No decisions match &quot;{searchQuery}&quot;</p>
+        </div>
+      ) : (
+        sortedADRs.map((adr) => (
         <Card
           key={adr.slug}
           className="hover:border-primary/50 transition-colors relative group overflow-hidden"
@@ -121,7 +178,8 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
             </div>
           </CardHeader>
         </Card>
-      ))}
+        ))
+      )}
     </div>
   );
 }
