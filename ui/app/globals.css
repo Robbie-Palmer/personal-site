@@ -423,7 +423,8 @@ html.dark .mermaid-diagram .node.ml .nodeLabel {
 .mermaid-diagram .node.person circle,
 .mermaid-diagram .node.person polygon,
 .mermaid-diagram .node.person path {
-  fill: var(--color-violet-200);
+  /* biome-ignore lint/complexity/noImportantStyles: Required to override Mermaid's inline styles */
+  fill: var(--color-violet-200) !important;
   /* biome-ignore lint/complexity/noImportantStyles: Required to override Mermaid's inline styles */
   stroke: var(--color-violet-500) !important;
 }
@@ -456,7 +457,8 @@ html.dark .mermaid-diagram .node.person .nodeLabel {
 .mermaid-diagram .node.amber circle,
 .mermaid-diagram .node.amber polygon,
 .mermaid-diagram .node.amber path {
-  fill: var(--color-amber-200);
+  /* biome-ignore lint/complexity/noImportantStyles: Required to override Mermaid's inline styles */
+  fill: var(--color-amber-200) !important;
   /* biome-ignore lint/complexity/noImportantStyles: Required to override Mermaid's inline styles */
   stroke: var(--color-amber-500) !important;
 }
@@ -487,7 +489,8 @@ html.dark .mermaid-diagram .node.amber .nodeLabel {
 .mermaid-diagram .node.storage circle,
 .mermaid-diagram .node.storage polygon,
 .mermaid-diagram .node.storage path {
-  fill: var(--color-indigo-300);
+  /* biome-ignore lint/complexity/noImportantStyles: Required to override Mermaid's inline styles */
+  fill: var(--color-indigo-300) !important;
   /* biome-ignore lint/complexity/noImportantStyles: Required to override Mermaid's inline styles */
   stroke: var(--color-indigo-600) !important;
 }
@@ -527,7 +530,8 @@ html.dark .mermaid-diagram .node.storage .nodeLabel {
 .mermaid-diagram .node.app circle,
 .mermaid-diagram .node.app polygon,
 .mermaid-diagram .node.app path {
-  fill: var(--color-teal-300);
+  /* biome-ignore lint/complexity/noImportantStyles: Required to override Mermaid's inline styles */
+  fill: var(--color-teal-300) !important;
   /* biome-ignore lint/complexity/noImportantStyles: Required to override Mermaid's inline styles */
   stroke: var(--color-teal-600) !important;
 }
@@ -567,7 +571,8 @@ html.dark .mermaid-diagram .node.app .nodeLabel {
 .mermaid-diagram .node.input circle,
 .mermaid-diagram .node.input polygon,
 .mermaid-diagram .node.input path {
-  fill: var(--color-cyan-300);
+  /* biome-ignore lint/complexity/noImportantStyles: Required to override Mermaid's inline styles */
+  fill: var(--color-cyan-300) !important;
   /* biome-ignore lint/complexity/noImportantStyles: Required to override Mermaid's inline styles */
   stroke: var(--color-cyan-600) !important;
 }
@@ -603,7 +608,8 @@ html.dark .mermaid-diagram .node.input .nodeLabel {
 .mermaid-diagram .node.pink circle,
 .mermaid-diagram .node.pink polygon,
 .mermaid-diagram .node.pink path {
-  fill: var(--color-pink-300);
+  /* biome-ignore lint/complexity/noImportantStyles: Required to override Mermaid's inline styles */
+  fill: var(--color-pink-300) !important;
   /* biome-ignore lint/complexity/noImportantStyles: Required to override Mermaid's inline styles */
   stroke: var(--color-pink-600) !important;
 }
