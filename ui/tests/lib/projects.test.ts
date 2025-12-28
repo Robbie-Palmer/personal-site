@@ -184,15 +184,16 @@ describe("Projects functions", () => {
 
       const project1 = projects[0];
       const project2 = projects[1];
+      const adr = project1?.adrs[0];
 
-      if (!project1?.adrs[0] || !project2) {
+      if (!adr || !project2) {
         return;
       }
 
       // Try to get project1's ADR using project2's slug
-      expect(() =>
-        getProjectADR(project2.slug, project1.adrs[0]?.slug),
-      ).toThrow("does not belong to project");
+      expect(() => getProjectADR(project2.slug, adr.slug)).toThrow(
+        "does not belong to project",
+      );
     });
   });
 

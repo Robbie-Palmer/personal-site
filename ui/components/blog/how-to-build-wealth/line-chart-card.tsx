@@ -39,7 +39,7 @@ interface LineChartCardProps {
   yAxisLabel: string;
   lines: LineConfig[];
   yAxisTickFormatter?: (value: number) => string;
-  tooltipFormatter?: (value: number) => string;
+  tooltipFormatter?: (value: number | undefined) => string;
 }
 
 export function LineChartCard({
