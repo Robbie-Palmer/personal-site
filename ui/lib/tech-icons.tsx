@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { SimpleIcon } from "simple-icons";
 import * as SimpleIcons from "simple-icons";
 
@@ -58,6 +59,7 @@ interface TechIconProps {
 const getSimpleIcon = (iconSlug: string): SimpleIcon | null => {
   const iconKey =
     `si${iconSlug.charAt(0).toUpperCase()}${iconSlug.slice(1)}` as keyof typeof SimpleIcons;
+  // biome-ignore lint/performance/noDynamicNamespaceImportAccess: Dynamic lookup is necessary for icon mapping
   const icon = SimpleIcons[iconKey];
   if (!icon || typeof icon !== "object" || !("path" in icon)) {
     return null;
@@ -70,9 +72,11 @@ export function TechIcon({ name, className = "w-3 h-3" }: TechIconProps) {
   // Check if we have a custom icon
   if (customIcons.has(slug)) {
     return (
-      <img
+      <Image
         src={`/tech-icons/${slug}.svg`}
         alt={name}
+        width={12}
+        height={12}
         className={`${className} brightness-0 dark:invert`}
       />
     );
@@ -112,6 +116,7 @@ export function hasTechIcon(name: string): boolean {
   // Check if it exists in Simple Icons
   const iconKey =
     `si${slug.charAt(0).toUpperCase()}${slug.slice(1)}` as keyof typeof SimpleIcons;
+  // biome-ignore lint/performance/noDynamicNamespaceImportAccess: Dynamic lookup is necessary for icon mapping
   const icon = SimpleIcons[iconKey];
   if (!!icon && typeof icon === "object" && "path" in icon) {
     return true;
@@ -123,6 +128,7 @@ export function hasTechIcon(name: string): boolean {
       const firstWordSlug = getTechSlug(firstWord);
       const firstWordKey =
         `si${firstWordSlug.charAt(0).toUpperCase()}${firstWordSlug.slice(1)}` as keyof typeof SimpleIcons;
+      // biome-ignore lint/performance/noDynamicNamespaceImportAccess: Dynamic lookup is necessary for icon mapping
       const firstWordIcon = SimpleIcons[firstWordKey];
       if (
         !!firstWordIcon &&

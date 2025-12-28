@@ -97,7 +97,6 @@ export function ContentCarousel<T>({
         <div className="flex -ml-4">
           {items.map((item, index) => (
             <div
-              // biome-ignore lint/suspicious/noArrayIndexKey: Fallback if no key provided
               key={getItemKey ? getItemKey(item, index) : index}
               className={cn(
                 "flex-[0_0_100%] min-w-0 pl-4 md:flex-[0_0_50%] lg:flex-[0_0_33.333%]",

@@ -16,7 +16,11 @@ export function useSortParam<T extends string>(
 
   const cycleSortOrder = () => {
     const currentIndex = options.indexOf(currentSort);
-    const nextSort = options[(currentIndex + 1) % options.length]!;
+    const nextIndex = (currentIndex + 1) % options.length;
+    const nextSort = options[nextIndex];
+    if (!nextSort) {
+      throw new Error("Invalid sort option");
+    }
     const params = new URLSearchParams(searchParams.toString());
     if (nextSort === defaultOption) {
       params.delete("sort");

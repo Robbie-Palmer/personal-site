@@ -82,8 +82,9 @@ describe("Projects functions", () => {
       const projects = getAllProjects();
       const projectWithTech = projects.find((p) => p.technologies.length > 0);
       expect(projectWithTech).toBeDefined();
-      expect(projectWithTech!.technologies.length).toBeGreaterThan(0);
-      for (const tech of projectWithTech!.technologies) {
+      if (!projectWithTech) return;
+      expect(projectWithTech.technologies.length).toBeGreaterThan(0);
+      for (const tech of projectWithTech.technologies) {
         expect(typeof tech.name).toBe("string");
         expect(tech.name.length).toBeGreaterThan(0);
       }
@@ -190,7 +191,7 @@ describe("Projects functions", () => {
 
       // Try to get project1's ADR using project2's slug
       expect(() =>
-        getProjectADR(project2.slug, project1.adrs[0]!.slug),
+        getProjectADR(project2.slug, project1.adrs[0]?.slug),
       ).toThrow("does not belong to project");
     });
   });
