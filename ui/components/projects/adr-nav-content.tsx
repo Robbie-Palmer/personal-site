@@ -79,7 +79,7 @@ export function ADRNavContent({
       </div>
 
       <ScrollArea className="flex-1 basis-0 min-h-0 -mx-2">
-        <div className="px-2 space-y-3 pb-2">
+        <div className="px-2 space-y-3 pb-6">
           {filteredADRs.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
               <p>No decisions match &quot;{searchQuery}&quot;</p>
