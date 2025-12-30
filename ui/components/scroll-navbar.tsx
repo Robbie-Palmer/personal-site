@@ -43,7 +43,10 @@ export function ScrollNavbar() {
             <Link href="/projects">Projects</Link>
           </Button>
           <Button variant="ghost" className="px-1.5 sm:px-2 md:px-4" asChild>
-            <Link href="/experience">Experience</Link>
+            <Link href="/experience">
+              <span className="sm:hidden">Exp</span>
+              <span className="hidden sm:inline">Experience</span>
+            </Link>
           </Button>
           <ThemeToggle />
         </div>
