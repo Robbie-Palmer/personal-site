@@ -30,7 +30,7 @@ const adrComponents = {
 // - Default (Mobile) & lg (Desktop): Full width, flex-grow. (Fills row when layout is constrained/buttons wrap).
 // - md (Tablet) & xl (Wide): Auto width, ml-auto. (Sits inline with metadata).
 const PAGINATION_CONTAINER_CLASSES =
-  "w-full flex-grow min-w-[200px] md:w-auto md:flex-grow-0 md:ml-auto lg:w-full lg:flex-grow lg:ml-0 xl:w-auto xl:flex-grow-0 xl:ml-auto";
+  "w-full flex-grow md:w-auto md:flex-grow-0 md:ml-auto lg:w-full lg:flex-grow lg:ml-0 xl:w-auto xl:flex-grow-0 xl:ml-auto";
 
 interface PageProps {
   params: Promise<{ slug: string; adrSlug: string }>;
