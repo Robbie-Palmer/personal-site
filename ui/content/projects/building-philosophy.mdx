@@ -5,46 +5,121 @@ description: "Engineering principles that guide architectural decisions and tech
 
 # Building Philosophy
 
-These principles guide how I approach all my projects—from architecture decisions to technology choices to development practices.
+These principles guide how I approach all my projects - from architecture decisions to development practices.
 They represent deliberate trade-offs that optimize for shipping quality software sustainably.
 
-## Ship Incrementally
+## Velocity & Iteration
 
-Continuous delivery over big-bang releases. Every PR should be deployable. Small, frequent changes reduce risk and maintain momentum.
+### Fast Feedback Loops
 
-Working software beats comprehensive planning. Ship the smallest valuable increment, gather feedback, iterate. Long-running feature branches accumulate merge conflicts and delay value delivery. Deploy often, behind feature flags if needed.
+Optimize for rapid signal at every level: type checking catches errors as you type,
+unit tests validate logic in seconds, hot reload shows changes instantly, monitoring surfaces issues in production,
+and user analytics reveal what's actually working.
 
-## Lean & Agile
+The faster you learn, the faster you improve.
+Tight feedback loops reduce the cost of experimentation and make iteration sustainable.
 
-Build only what's needed. Validate assumptions early. Inspired by Extreme Programming and lean principles—working software over comprehensive documentation, but documentation where it adds value.
+### Ship Incrementally
 
-Avoid speculative features. Don't build for hypothetical future requirements. YAGNI (You Ain't Gonna Need It) saves time and complexity. When requirements change (and they will) simpler code is easier to modify.
+Continuous delivery over big-bang releases. Every PR should be deployable.
+Small, frequent changes reduce risk and maintain momentum.
 
-## Choose Boring Technologies
+Working software beats comprehensive planning. Ship the smallest valuable increment, gather feedback, iterate.
+Long-running feature branches accumulate merge conflicts and delay value delivery.
+Deploy often, behind feature flags if needed.
 
-Leverage mature ecosystems, strong communities, and deep LLM knowledge bases. Innovate where it matters—where my unique perspective adds value—not on the bleeding edge across multiple fronts simultaneously. The innovation is in the confluence: the whole greater than the sum of its parts.
+**The optimal amount of tech debt is not zero** — Like startup funding, some debt is enabling.
+You *can* bootstrap and avoid all debt, but it restricts what problems are feasible to tackle.
+Strategic debt doesn't just make you faster—it makes things possible at all.
+And doing breeds better ideation than thinking alone; shipping something imperfect reveals what to build next more clearly than planning ever could.
 
-Use battle-tested tools with known failure modes. Bleeding-edge tech brings excitement but also undocumented edge cases, breaking changes, and sparse Stack Overflow answers. Boring technologies let you focus on solving domain problems instead of fighting your tools.
+### Shorten the Critical Path
 
-When adopting new tech, do it deliberately and one at a time. Don't compound risk by going bleeding-edge on multiple fronts simultaneously.
+Identify what's blocking progress and focus there. Parallelize where possible.
+Don't let one slow task hold up everything else.
+Ruthlessly prioritize the path to done.
 
-## Minimize Platforms, Maximize Velocity
+## Technology Choices
 
-Reduce context-switching and administrative overhead. Fewer tools, fewer accounts, fewer things to maintain means more time shipping. This site consolidates what would otherwise be scattered across multiple services.
+### Choose Boring Technologies
 
-Every additional platform has a cost: another login to remember, another UI to learn, another bill to pay, another integration to maintain. Centralize where possible. Use monorepos over polyrepos. Prefer platforms that solve multiple problems (GitHub for code, CI/CD, and project management) over specialized single-purpose tools.
+Leverage mature ecosystems with strong communities and deep knowledge bases.
+Innovate where it matters - where your unique perspective adds value -
+not on the bleeding edge across multiple fronts simultaneously.
 
-## LLM-Optimized
+Use battle-tested tools with known failure modes.
+Bleeding-edge tech brings excitement but also undocumented edge cases, breaking changes,
+and sparse Stack Overflow answers.
+Boring technologies let you focus on solving domain problems instead of fighting your tools.
 
-The codebase is structured for AI pair programming: clear naming conventions, documented decisions, predictable patterns. This isn't just about using AI tools—it's about writing code that's readable by any intelligence, human or otherwise.
+**Selection criteria:**
 
-Code optimized for LLMs is also optimized for human collaboration: clear file structure, consistent patterns, well-named functions, documented architectural decisions. AI coding assistants are most effective with popular frameworks (more training data), clear abstractions (easier to reason about), and comprehensive tests (catch hallucinations).
+* **High floor, high ceiling** — Pick tools where it's hard to write bad code (high floor) but that scale to complex needs (high ceiling). Raise the baseline.
+* **Shallow ramp** — Easy onboarding for yourself and collaborators. Quick to get started, deep when you need it.
+* **Rising tides** — Build on platforms that are themselves growing and improving. Their momentum becomes yours.
+* **Late early adopter** — Adopt technology after it's proven but before it's stale. Let others find the sharp edges.
 
-## Documentation as Product
+When adopting new tech, do it deliberately and one at a time.
+Don't compound risk by going bleeding-edge on multiple fronts simultaneously.
 
-ADRs, PRDs, and inline documentation aren't overhead—they're deliverables. They capture thinking, enable collaboration, and reduce the cost of returning to a project after time away.
+## Sustainability & Focus
 
-Write documentation for your future self. In six months, you won't remember why you chose PostgreSQL over MongoDB, or why you structured state management this way. ADRs capture context and rationale. Good docs enable you to context-switch efficiently and onboard collaborators (human or AI) quickly.
+### Lean & Agile
+
+Build only what's needed. Validate assumptions early.
+Working software over comprehensive documentation, but documentation where it adds value.
+
+Avoid speculative features. Don't build for hypothetical future requirements.
+YAGNI (You Ain't Gonna Need It) saves time and complexity.
+When requirements change (and they will), simpler code is easier to modify.
+
+**Don't push past learning rate** — Respect cognitive limits.
+Adopting too many new technologies or concepts at once leads to shallow understanding and fragile implementations.
+Go deep on one thing before adding another. Sustainable learning compounds; cramming doesn't.
+
+### Minimize Platforms
+
+Reduce context-switching and administrative overhead. Fewer tools, fewer accounts,
+fewer things to maintain means more time shipping.
+
+Every additional platform has a cost: another login to remember, another UI to learn, another bill to pay,
+another integration to maintain. Centralize where possible. Use monorepos over polyrepos.
+Prefer platforms that solve multiple problems (GitHub for code, CI/CD, and project management)
+over specialized single-purpose tools.
+
+## Compounding & Collaboration
+
+### Build Flywheels
+
+Invest in things that pay increasing dividends over time.
+Skills, tools, and patterns that compound.
+Design self-reinforcing systems.
+
+Documentation attracts contributors who improve documentation.
+Open source builds reputation that opens doors that create opportunities.
+Each investment should create the conditions for the next.
+
+### LLM-Optimized
+
+Structure codebases for AI pair programming: clear naming conventions, documented decisions, predictable patterns.
+This isn't just about using AI tools—it's about writing code that's readable by any intelligence, human or otherwise.
+
+Code optimized for LLMs is also optimized for human collaboration: clear file structure, consistent patterns,
+well-named functions, documented architectural decisions.
+AI coding assistants are most effective with popular frameworks (more training data),
+clear abstractions (easier to reason about), and comprehensive tests (catch hallucinations).
+
+This investment compounds as AI tools improve. The more legible your codebase,
+the more leverage you get from each generation of tooling.
+
+### Documentation as Product
+
+ADRs, PRDs, and inline documentation aren't overhead—they're deliverables.
+They capture thinking, enable collaboration, and reduce the cost of returning to a project after time away.
+
+Write documentation for your future self. In six months, you won't remember why you chose PostgreSQL over MongoDB,
+or why you structured state management this way. ADRs capture context and rationale.
+Good docs enable you to context-switch efficiently and onboard collaborators (human or AI) quickly.
 
 Documentation doesn't mean comprehensive comments on every line. It means:
 
@@ -53,14 +128,21 @@ Documentation doesn't mean comprehensive comments on every line. It means:
 * Inline comments for non-obvious logic (not what the code does, but why)
 * Type signatures and tests as executable documentation
 
-## Build in Public
+### Build in Public
 
-Ideas gain value through collaboration. Writing publicly forces rigor and invites feedback. The goal isn't to hoard knowledge but to share it in a way that's useful to others.
+Ideas gain value through collaboration. Writing publicly forces rigor and invites feedback.
+The goal isn't to hoard knowledge but to share it in a way that's useful to others.
 
-Public building creates accountability. It's harder to cut corners when your work is visible. Sharing knowledge early (even incomplete ideas) invites feedback and refinement. The best ideas improve through iteration and collaboration.
+Public building creates accountability. It's harder to cut corners when your work is visible.
+Sharing knowledge early (even incomplete ideas) invites feedback and refinement.
+The best ideas improve through iteration and collaboration.
 
-Open source isn't just about code - it's about sharing thinking. Blog posts explaining decisions, ADRs documenting trade-offs, and public repos demonstrating implementations all contribute to the collective knowledge base.
+Open source isn't just about code—it's about sharing thinking.
+Blog posts explaining decisions, ADRs documenting trade-offs, and public repos demonstrating implementations
+all contribute to the collective knowledge base.
 
 ***
 
-These principles aren't dogma—they're heuristics. Every project brings unique constraints. But when in doubt, default to these patterns. They optimize for sustainable velocity, quality outcomes, and maintainable systems.
+These principles aren't dogma—they're heuristics. Every project brings unique constraints.
+But when in doubt, default to these patterns.
+They optimize for sustainable velocity, quality outcomes, and maintainable systems.
