@@ -27,8 +27,8 @@ export function ScrollNavbar() {
 
   return (
     <header className={headerVariants({ visible: isVisible })}>
-      <nav className="container mx-auto px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2 md:gap-4">
+      <nav className="container mx-auto px-2 sm:px-4 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-1 sm:gap-2 md:gap-4">
           <div id="navbar-actions" className="lg:hidden flex items-center" />
           <Link href="/" className="text-xl font-bold hover:text-primary">
             <span className="md:hidden">RP</span>
@@ -36,13 +36,13 @@ export function ScrollNavbar() {
           </Link>
         </div>
         <div className="contents md:flex md:items-center md:gap-2">
-          <Button variant="ghost" className="px-2 md:px-4" asChild>
+          <Button variant="ghost" className="px-1.5 sm:px-2 md:px-4" asChild>
             <Link href="/blog">Blog</Link>
           </Button>
-          <Button variant="ghost" className="px-2 md:px-4" asChild>
+          <Button variant="ghost" className="px-1.5 sm:px-2 md:px-4" asChild>
             <Link href="/projects">Projects</Link>
           </Button>
-          <Button variant="ghost" className="px-2 md:px-4" asChild>
+          <Button variant="ghost" className="px-1.5 sm:px-2 md:px-4" asChild>
             <Link href="/experience">Experience</Link>
           </Button>
           <ThemeToggle />
