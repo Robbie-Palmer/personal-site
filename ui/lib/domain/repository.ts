@@ -7,6 +7,7 @@ import { getAllExperience, getExperienceSlug } from "../experience";
 import { TECH_URLS } from "../tech-icons";
 import { type ADR, ADRSchema, type ADRSlug } from "./adr/adr";
 import { type BlogPost, BlogPostSchema, type BlogSlug } from "./blog/blogPost";
+import { buildContentGraph, type ContentGraph } from "./graph";
 import {
   type Project,
   ProjectSchema,
@@ -560,6 +561,7 @@ export interface DomainRepository {
   projects: Map<ProjectSlug, Project>;
   adrs: Map<ADRSlug, ADR>;
   roles: Map<RoleSlug, JobRole>;
+  graph: ContentGraph;
   buildingPhilosophy: string;
   referentialIntegrityErrors: ReferentialIntegrityError[];
 }
@@ -590,12 +592,22 @@ export function loadDomainRepository(): DomainRepository {
       `Found ${referentialIntegrityErrors.length} referential integrity errors`,
     );
   }
+
+  const graph = buildContentGraph({
+    technologies,
+    blogs,
+    projects,
+    adrs,
+    roles,
+  });
+
   return {
     technologies,
     blogs,
     projects,
     adrs,
     roles,
+    graph,
     buildingPhilosophy,
     referentialIntegrityErrors,
   };
