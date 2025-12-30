@@ -1,4 +1,5 @@
 import { getADRsForProject } from "../adr/adrQueries";
+import { getContentUsingTechnologyByType } from "../graph/queries";
 import type { DomainRepository } from "../repository";
 import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
 import type { ProjectSlug } from "./project";
@@ -74,16 +75,22 @@ export function getProjectsUsingTechnology(
   repository: DomainRepository,
   technologySlug: string,
 ): ProjectCardView[] {
-  return Array.from(repository.projects.values())
-    .filter((project) =>
-      project.relations.technologies.includes(technologySlug),
+  const { projects: projectSlugs } = getContentUsingTechnologyByType(
+    repository.graph,
+    technologySlug,
+  );
+
+  return projectSlugs
+    .map((slug) => repository.projects.get(slug))
+    .filter(
+      (project): project is NonNullable<typeof project> =>
+        project !== undefined,
     )
     .map((project) => {
       const technologies = resolveTechnologiesToBadgeViews(
         repository,
         project.relations.technologies,
       );
-
       return toProjectCardView(project, technologies);
     });
 }

@@ -1,3 +1,4 @@
+import { getContentUsingTechnologyByType } from "../graph/queries";
 import type { DomainRepository } from "../repository";
 import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
 import type { RoleSlug } from "./jobRole";
@@ -53,14 +54,19 @@ export function getRolesUsingTechnology(
   repository: DomainRepository,
   technologySlug: string,
 ): RoleCardView[] {
-  return Array.from(repository.roles.values())
-    .filter((role) => role.relations.technologies.includes(technologySlug))
+  const { roles: roleSlugs } = getContentUsingTechnologyByType(
+    repository.graph,
+    technologySlug,
+  );
+
+  return roleSlugs
+    .map((slug) => repository.roles.get(slug))
+    .filter((role): role is NonNullable<typeof role> => role !== undefined)
     .map((role) => {
       const technologies = resolveTechnologiesToBadgeViews(
         repository,
         role.relations.technologies,
       );
-
       return toRoleCardView(role, technologies);
     });
 }

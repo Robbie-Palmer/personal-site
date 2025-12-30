@@ -77,16 +77,16 @@ const createBlog = (slug: string, technologies: string[]): BlogPost => ({
   canonicalUrl: undefined,
   content: "",
   readingTime: "1 min",
-  image: undefined,
-  imageAlt: undefined,
+  image: `blog/${slug}-2025-01-01`,
+  imageAlt: "Test image",
   relations: { technologies },
 });
 
 const createRole = (slug: string, technologies: string[]): JobRole => ({
   slug,
   company: "Test Co",
-  companyUrl: undefined,
-  logoPath: undefined,
+  companyUrl: "https://example.com",
+  logoPath: "/logos/test.png",
   title: "Engineer",
   location: "Remote",
   startDate: "2025-01",

@@ -1,3 +1,4 @@
+import { getContentUsingTechnologyByType } from "../graph/queries";
 import type { DomainRepository } from "../repository";
 import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
 import type { BlogSlug } from "./blogPost";
@@ -70,14 +71,19 @@ export function getBlogsUsingTechnology(
   repository: DomainRepository,
   technologySlug: string,
 ): BlogCardView[] {
-  return Array.from(repository.blogs.values())
-    .filter((blog) => blog.relations.technologies.includes(technologySlug))
+  const { blogs: blogSlugs } = getContentUsingTechnologyByType(
+    repository.graph,
+    technologySlug,
+  );
+
+  return blogSlugs
+    .map((slug) => repository.blogs.get(slug))
+    .filter((blog): blog is NonNullable<typeof blog> => blog !== undefined)
     .map((blog) => {
       const technologies = resolveTechnologiesToBadgeViews(
         repository,
         blog.relations.technologies,
       );
-
       return toBlogCardView(blog, technologies);
     });
 }
