@@ -96,7 +96,7 @@ const baseComponents: MDXComponents = {
 
         return (
           <div
-            className="my-6 rounded-lg overflow-hidden border bg-muted"
+            className="my-6 rounded-lg overflow-x-auto border bg-muted"
             // biome-ignore lint/security/noDangerouslySetInnerHtml: Needed for Shiki highlighting
             dangerouslySetInnerHTML={{ __html: html }}
           />

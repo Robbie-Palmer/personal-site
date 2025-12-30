@@ -17,7 +17,7 @@ export default async function ADRLayout({ children, params }: ADRLayoutProps) {
     notFound();
   }
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="container mx-auto px-4 py-8 max-w-7xl overflow-x-hidden">
       <div className="lg:grid lg:grid-cols-[280px_1fr] list-none gap-8 items-start">
         {/* Mobile Navigation Trigger - Renders via Portal */}
         <ADRMobileNav project={project} />
@@ -26,7 +26,7 @@ export default async function ADRLayout({ children, params }: ADRLayoutProps) {
         <ADRStickySidebar project={project} />
 
         {/* Main Content */}
-        <main className="min-w-0">{children}</main>
+        <main className="min-w-0 max-w-full">{children}</main>
       </div>
     </div>
   );
