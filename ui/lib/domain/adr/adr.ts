@@ -24,11 +24,13 @@ export const ADRSchema = z.object({
   supersededBy: ADRSlugSchema.optional(),
   content: z.string(),
   readingTime: z.string(),
-
-  relations: z.object({
-    project: ProjectSlugSchema,
-    technologies: z.array(TechnologySlugSchema).default([]),
-  }),
 });
 
 export type ADR = z.infer<typeof ADRSchema>;
+
+export const ADRRelationsSchema = z.object({
+  project: ProjectSlugSchema,
+  technologies: z.array(TechnologySlugSchema).default([]),
+});
+
+export type ADRRelations = z.infer<typeof ADRRelationsSchema>;

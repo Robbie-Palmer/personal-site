@@ -1,4 +1,10 @@
-import { getContentUsingTechnologyByType } from "../graph/queries";
+import {
+  getContentForTag,
+  getContentUsingTechnologyByType,
+  getTagsForContent,
+  getTechnologiesForBlog,
+} from "../graph/queries";
+import { makeNodeId } from "../graph/types";
 import type { DomainRepository } from "../repository";
 import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
 import type { BlogSlug } from "./blogPost";
@@ -18,12 +24,13 @@ export function getBlogCard(
   const blog = repository.blogs.get(slug);
   if (!blog) return null;
 
-  const technologies = resolveTechnologiesToBadgeViews(
-    repository,
-    blog.relations.technologies,
-  );
+  const techSlugs = getTechnologiesForBlog(repository.graph, slug);
+  const technologies = resolveTechnologiesToBadgeViews(repository, [
+    ...techSlugs,
+  ]);
+  const tags = getTagsForContent(repository.graph, makeNodeId("blog", slug));
 
-  return toBlogCardView(blog, technologies);
+  return toBlogCardView(blog, technologies, [...tags]);
 }
 
 export function getBlogDetail(
@@ -33,12 +40,13 @@ export function getBlogDetail(
   const blog = repository.blogs.get(slug);
   if (!blog) return null;
 
-  const technologies = resolveTechnologiesToBadgeViews(
-    repository,
-    blog.relations.technologies,
-  );
+  const techSlugs = getTechnologiesForBlog(repository.graph, slug);
+  const technologies = resolveTechnologiesToBadgeViews(repository, [
+    ...techSlugs,
+  ]);
+  const tags = getTagsForContent(repository.graph, makeNodeId("blog", slug));
 
-  return toBlogDetailView(blog, technologies);
+  return toBlogDetailView(blog, technologies, [...tags]);
 }
 
 export function getBlogListItem(
@@ -52,12 +60,16 @@ export function getBlogListItem(
 
 export function getAllBlogCards(repository: DomainRepository): BlogCardView[] {
   return Array.from(repository.blogs.values()).map((blog) => {
-    const technologies = resolveTechnologiesToBadgeViews(
-      repository,
-      blog.relations.technologies,
+    const techSlugs = getTechnologiesForBlog(repository.graph, blog.slug);
+    const technologies = resolveTechnologiesToBadgeViews(repository, [
+      ...techSlugs,
+    ]);
+    const tags = getTagsForContent(
+      repository.graph,
+      makeNodeId("blog", blog.slug),
     );
 
-    return toBlogCardView(blog, technologies);
+    return toBlogCardView(blog, technologies, [...tags]);
   });
 }
 
@@ -80,11 +92,15 @@ export function getBlogsUsingTechnology(
     .map((slug) => repository.blogs.get(slug))
     .filter((blog): blog is NonNullable<typeof blog> => blog !== undefined)
     .map((blog) => {
-      const technologies = resolveTechnologiesToBadgeViews(
-        repository,
-        blog.relations.technologies,
+      const techSlugs = getTechnologiesForBlog(repository.graph, blog.slug);
+      const technologies = resolveTechnologiesToBadgeViews(repository, [
+        ...techSlugs,
+      ]);
+      const tags = getTagsForContent(
+        repository.graph,
+        makeNodeId("blog", blog.slug),
       );
-      return toBlogCardView(blog, technologies);
+      return toBlogCardView(blog, technologies, [...tags]);
     });
 }
 
@@ -92,14 +108,23 @@ export function getBlogsByTag(
   repository: DomainRepository,
   tag: string,
 ): BlogCardView[] {
-  return Array.from(repository.blogs.values())
-    .filter((blog) => blog.tags.includes(tag))
+  const nodeIds = getContentForTag(repository.graph, tag);
+
+  return Array.from(nodeIds)
+    .filter((nodeId) => nodeId.startsWith("blog:"))
+    .map((nodeId) => nodeId.slice(5) as BlogSlug)
+    .map((slug) => repository.blogs.get(slug))
+    .filter((blog): blog is NonNullable<typeof blog> => blog !== undefined)
     .map((blog) => {
-      const technologies = resolveTechnologiesToBadgeViews(
-        repository,
-        blog.relations.technologies,
+      const techSlugs = getTechnologiesForBlog(repository.graph, blog.slug);
+      const technologies = resolveTechnologiesToBadgeViews(repository, [
+        ...techSlugs,
+      ]);
+      const tags = getTagsForContent(
+        repository.graph,
+        makeNodeId("blog", blog.slug),
       );
 
-      return toBlogCardView(blog, technologies);
+      return toBlogCardView(blog, technologies, [...tags]);
     });
 }

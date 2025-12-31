@@ -13,7 +13,11 @@ export type NodeId =
   | `role:${string}`
   | `technology:${string}`;
 
-export type EdgeType = "USES_TECHNOLOGY" | "PART_OF_PROJECT" | "SUPERSEDES";
+export type EdgeType =
+  | "USES_TECHNOLOGY"
+  | "PART_OF_PROJECT"
+  | "SUPERSEDES"
+  | "HAS_TAG";
 
 export type EdgeDefinition =
   | {
@@ -22,19 +26,22 @@ export type EdgeDefinition =
       to: TechnologySlug;
     }
   | { type: "PART_OF_PROJECT"; from: ADRSlug; to: ProjectSlug }
-  | { type: "SUPERSEDES"; from: ADRSlug; to: ADRSlug };
+  | { type: "SUPERSEDES"; from: ADRSlug; to: ADRSlug }
+  | { type: "HAS_TAG"; from: NodeId; to: string };
 
 export interface ContentGraph {
   edges: {
     usesTechnology: Map<NodeId, Set<TechnologySlug>>;
     partOfProject: Map<ADRSlug, ProjectSlug>;
     supersedes: Map<ADRSlug, ADRSlug>;
+    hasTag: Map<NodeId, Set<string>>;
   };
 
   reverse: {
     technologyUsedBy: Map<TechnologySlug, Set<NodeId>>;
     projectADRs: Map<ProjectSlug, Set<ADRSlug>>;
     supersededBy: Map<ADRSlug, ADRSlug>;
+    tagUsedBy: Map<string, Set<NodeId>>;
   };
 }
 

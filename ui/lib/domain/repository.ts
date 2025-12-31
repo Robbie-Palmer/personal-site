@@ -5,15 +5,36 @@ import matter from "gray-matter";
 import readingTime from "reading-time";
 import { getAllExperience, getExperienceSlug } from "../experience";
 import { TECH_URLS } from "../tech-icons";
-import { type ADR, ADRSchema, type ADRSlug } from "./adr/adr";
-import { type BlogPost, BlogPostSchema, type BlogSlug } from "./blog/blogPost";
-import { buildContentGraph, type ContentGraph } from "./graph";
+import {
+  type ADR,
+  type ADRRelations,
+  ADRSchema,
+  type ADRSlug,
+} from "./adr/adr";
+import {
+  type BlogPost,
+  BlogPostSchema,
+  type BlogRelations,
+  type BlogSlug,
+} from "./blog/blogPost";
+import {
+  buildContentGraph,
+  type ContentGraph,
+  createEmptyRelationData,
+  type RelationData,
+} from "./graph";
 import {
   type Project,
+  type ProjectRelations,
   ProjectSchema,
   type ProjectSlug,
 } from "./project/project";
-import { type JobRole, JobRoleSchema, type RoleSlug } from "./role/jobRole";
+import {
+  type JobRole,
+  JobRoleSchema,
+  type RoleRelations,
+  type RoleSlug,
+} from "./role/jobRole";
 // Domain models
 import {
   type Technology,
@@ -129,39 +150,50 @@ export function validateTechnology(
   };
 }
 
-export function loadBlogPosts(): Map<BlogSlug, BlogPost> {
-  const blogMap = new Map<BlogSlug, BlogPost>();
+interface BlogLoadResult {
+  entities: Map<BlogSlug, BlogPost>;
+  relations: Map<BlogSlug, BlogRelations>;
+}
+
+export function loadBlogPosts(): BlogLoadResult {
+  const entities = new Map<BlogSlug, BlogPost>();
+  const relations = new Map<BlogSlug, BlogRelations>();
+
   if (!fs.existsSync(BLOG_DIR)) {
-    return blogMap;
+    return { entities, relations };
   }
   const files = fs
     .readdirSync(BLOG_DIR)
     .filter((file) => file.endsWith(".mdx") && file !== "README.mdx");
+
   files.forEach((filename) => {
     const slug = filename.replace(/\.mdx$/, "");
     const filePath = path.join(BLOG_DIR, filename);
     const fileContent = fs.readFileSync(filePath, "utf-8");
     const { data, content } = matter(fileContent);
-    const technologies: TechnologySlug[] = [];
+
     const post: BlogPost = {
       slug,
       title: data.title,
       description: data.description,
       date: data.date,
       updated: data.updated,
-      tags: data.tags || [],
       canonicalUrl: data.canonical,
       content,
       readingTime: readingTime(content).text,
       image: data.image,
       imageAlt: data.imageAlt,
-      relations: {
-        technologies,
-      },
     };
+
+    const blogRelations: BlogRelations = {
+      technologies: [],
+      tags: data.tags || [],
+    };
+
     const validation = validateBlogPost(post);
     if (validation.success) {
-      blogMap.set(slug, validation.data);
+      entities.set(slug, validation.data);
+      relations.set(slug, blogRelations);
     } else {
       console.error(
         `Failed to validate blog post ${slug}:`,
@@ -170,7 +202,8 @@ export function loadBlogPosts(): Map<BlogSlug, BlogPost> {
       throw new Error(`Blog post ${slug} failed validation`);
     }
   });
-  return blogMap;
+
+  return { entities, relations };
 }
 
 export function validateBlogPost(
@@ -225,15 +258,23 @@ export function validateBlogPost(
   };
 }
 
-export function loadProjects(): Map<ProjectSlug, Project> {
-  const projectMap = new Map<ProjectSlug, Project>();
+interface ProjectLoadResult {
+  entities: Map<ProjectSlug, Project>;
+  relations: Map<ProjectSlug, ProjectRelations>;
+}
+
+export function loadProjects(): ProjectLoadResult {
+  const entities = new Map<ProjectSlug, Project>();
+  const relations = new Map<ProjectSlug, ProjectRelations>();
+
   if (!fs.existsSync(PROJECTS_DIR)) {
-    return projectMap;
+    return { entities, relations };
   }
   const projectDirs = fs
     .readdirSync(PROJECTS_DIR, { withFileTypes: true })
     .filter((dirent) => dirent.isDirectory())
     .map((dirent) => dirent.name);
+
   projectDirs.forEach((projectSlug) => {
     const projectPath = path.join(PROJECTS_DIR, projectSlug, "index.mdx");
     if (!fs.existsSync(projectPath)) {
@@ -241,6 +282,7 @@ export function loadProjects(): Map<ProjectSlug, Project> {
     }
     const fileContent = fs.readFileSync(projectPath, "utf-8");
     const { data, content } = matter(fileContent);
+
     const adrSlugs: ADRSlug[] = [];
     const adrsDir = path.join(PROJECTS_DIR, projectSlug, "adrs");
     if (fs.existsSync(adrsDir)) {
@@ -253,9 +295,11 @@ export function loadProjects(): Map<ProjectSlug, Project> {
         adrSlugs.push(adrSlug);
       });
     }
+
     const technologies: TechnologySlug[] = (data.tech_stack || []).map(
       (tech: string) => tech.toLowerCase().trim(),
     );
+
     const project: Project = {
       slug: projectSlug,
       title: data.title,
@@ -266,14 +310,17 @@ export function loadProjects(): Map<ProjectSlug, Project> {
       repoUrl: data.repo_url,
       demoUrl: data.demo_url,
       content,
-      relations: {
-        technologies,
-        adrs: adrSlugs,
-      },
     };
+
+    const projectRelations: ProjectRelations = {
+      technologies,
+      adrs: adrSlugs,
+    };
+
     const validation = validateProject(project);
     if (validation.success) {
-      projectMap.set(projectSlug, validation.data);
+      entities.set(projectSlug, validation.data);
+      relations.set(projectSlug, projectRelations);
     } else {
       console.error(
         `Failed to validate project ${projectSlug}:`,
@@ -282,7 +329,8 @@ export function loadProjects(): Map<ProjectSlug, Project> {
       throw new Error(`Project ${projectSlug} failed validation`);
     }
   });
-  return projectMap;
+
+  return { entities, relations };
 }
 
 export function validateProject(
@@ -301,15 +349,23 @@ export function validateProject(
   };
 }
 
-export function loadADRs(): Map<ADRSlug, ADR> {
-  const adrMap = new Map<ADRSlug, ADR>();
+interface ADRLoadResult {
+  entities: Map<ADRSlug, ADR>;
+  relations: Map<ADRSlug, ADRRelations>;
+}
+
+export function loadADRs(): ADRLoadResult {
+  const entities = new Map<ADRSlug, ADR>();
+  const relations = new Map<ADRSlug, ADRRelations>();
+
   if (!fs.existsSync(PROJECTS_DIR)) {
-    return adrMap;
+    return { entities, relations };
   }
   const projectDirs = fs
     .readdirSync(PROJECTS_DIR, { withFileTypes: true })
     .filter((dirent) => dirent.isDirectory())
     .map((dirent) => dirent.name);
+
   projectDirs.forEach((projectSlug) => {
     const adrsDir = path.join(PROJECTS_DIR, projectSlug, "adrs");
     if (!fs.existsSync(adrsDir)) {
@@ -321,9 +377,11 @@ export function loadADRs(): Map<ADRSlug, ADR> {
       const adrPath = path.join(adrsDir, adrFile);
       const fileContent = fs.readFileSync(adrPath, "utf-8");
       const { data, content } = matter(fileContent);
+
       const technologies: TechnologySlug[] = (data.tech_stack || []).map(
         (tech: string) => tech.toLowerCase().trim(),
       );
+
       const adr: ADR = {
         slug: adrSlug,
         title: data.title,
@@ -332,14 +390,17 @@ export function loadADRs(): Map<ADRSlug, ADR> {
         supersededBy: data.superseded_by,
         content,
         readingTime: readingTime(content).text,
-        relations: {
-          project: projectSlug,
-          technologies,
-        },
       };
+
+      const adrRelations: ADRRelations = {
+        project: projectSlug,
+        technologies,
+      };
+
       const validation = validateADR(adr);
       if (validation.success) {
-        adrMap.set(adrSlug, validation.data);
+        entities.set(adrSlug, validation.data);
+        relations.set(adrSlug, adrRelations);
       } else {
         console.error(
           `Failed to validate ADR ${adrSlug}:`,
@@ -349,7 +410,8 @@ export function loadADRs(): Map<ADRSlug, ADR> {
       }
     });
   });
-  return adrMap;
+
+  return { entities, relations };
 }
 
 export function validateADR(adr: unknown): DomainValidationResult<ADR> {
@@ -366,14 +428,22 @@ export function validateADR(adr: unknown): DomainValidationResult<ADR> {
   };
 }
 
-export function loadJobRoles(): Map<RoleSlug, JobRole> {
-  const roleMap = new Map<RoleSlug, JobRole>();
+interface RoleLoadResult {
+  entities: Map<RoleSlug, JobRole>;
+  relations: Map<RoleSlug, RoleRelations>;
+}
+
+export function loadJobRoles(): RoleLoadResult {
+  const entities = new Map<RoleSlug, JobRole>();
+  const relations = new Map<RoleSlug, RoleRelations>();
+
   const experiences = getAllExperience();
   for (const exp of experiences) {
     const slug = getExperienceSlug(exp);
     const technologies: TechnologySlug[] = exp.technologies.map((tech) =>
       tech.toLowerCase().trim(),
     );
+
     const role: JobRole = {
       slug,
       company: exp.company,
@@ -385,13 +455,16 @@ export function loadJobRoles(): Map<RoleSlug, JobRole> {
       endDate: exp.endDate,
       description: exp.description,
       responsibilities: exp.responsibilities,
-      relations: {
-        technologies,
-      },
     };
+
+    const roleRelations: RoleRelations = {
+      technologies,
+    };
+
     const validation = validateJobRole(role);
     if (validation.success) {
-      roleMap.set(slug, validation.data);
+      entities.set(slug, validation.data);
+      relations.set(slug, roleRelations);
     } else {
       console.error(
         `Failed to validate job role ${slug}:`,
@@ -400,7 +473,8 @@ export function loadJobRoles(): Map<RoleSlug, JobRole> {
       throw new Error(`Job role ${slug} failed validation`);
     }
   }
-  return roleMap;
+
+  return { entities, relations };
 }
 
 export function validateJobRole(
@@ -428,17 +502,23 @@ export function loadBuildingPhilosophy(): string {
   return content;
 }
 
+interface ValidationInput {
+  technologies: Map<TechnologySlug, Technology>;
+  adrs: Map<ADRSlug, ADR>;
+  projects: Map<ProjectSlug, Project>;
+  blogRelations: Map<BlogSlug, BlogRelations>;
+  projectRelations: Map<ProjectSlug, ProjectRelations>;
+  adrRelations: Map<ADRSlug, ADRRelations>;
+  roleRelations: Map<RoleSlug, RoleRelations>;
+}
+
 export function validateReferentialIntegrity(
-  technologies: Map<TechnologySlug, Technology>,
-  blogs: Map<BlogSlug, BlogPost>,
-  projects: Map<ProjectSlug, Project>,
-  adrs: Map<ADRSlug, ADR>,
-  roles: Map<RoleSlug, JobRole>,
+  input: ValidationInput,
 ): ReferentialIntegrityError[] {
   const errors: ReferentialIntegrityError[] = [];
 
   const checkTech = (slug: TechnologySlug, entity: string, field: string) => {
-    if (!technologies.has(slug)) {
+    if (!input.technologies.has(slug)) {
       errors.push({
         type: "missing_reference",
         entity,
@@ -449,17 +529,18 @@ export function validateReferentialIntegrity(
     }
   };
 
-  blogs.forEach((blog, blogSlug) => {
-    blog.relations.technologies.forEach((techSlug) => {
+  input.blogRelations.forEach((relations, blogSlug) => {
+    relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `BlogPost[${blogSlug}]`, "technologies");
     });
   });
-  projects.forEach((project, projectSlug) => {
-    project.relations.technologies.forEach((techSlug) => {
+
+  input.projectRelations.forEach((relations, projectSlug) => {
+    relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `Project[${projectSlug}]`, "technologies");
     });
-    project.relations.adrs.forEach((adrSlug) => {
-      if (!adrs.has(adrSlug)) {
+    relations.adrs.forEach((adrSlug) => {
+      if (!input.adrs.has(adrSlug)) {
         errors.push({
           type: "missing_reference",
           entity: `Project[${projectSlug}]`,
@@ -470,20 +551,22 @@ export function validateReferentialIntegrity(
       }
     });
   });
-  adrs.forEach((adr, adrSlug) => {
-    if (!projects.has(adr.relations.project)) {
+
+  input.adrRelations.forEach((relations, adrSlug) => {
+    if (!input.projects.has(relations.project)) {
       errors.push({
         type: "missing_reference",
         entity: `ADR[${adrSlug}]`,
         field: "project",
-        value: adr.relations.project,
-        message: `Project '${adr.relations.project}' referenced by ADR '${adrSlug}' does not exist`,
+        value: relations.project,
+        message: `Project '${relations.project}' referenced by ADR '${adrSlug}' does not exist`,
       });
     }
-    adr.relations.technologies.forEach((techSlug) => {
+    relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `ADR[${adrSlug}]`, "technologies");
     });
-    if (adr.supersededBy && !adrs.has(adr.supersededBy)) {
+    const adr = input.adrs.get(adrSlug);
+    if (adr?.supersededBy && !input.adrs.has(adr.supersededBy)) {
       errors.push({
         type: "missing_reference",
         entity: `ADR[${adrSlug}]`,
@@ -493,11 +576,13 @@ export function validateReferentialIntegrity(
       });
     }
   });
-  roles.forEach((role, roleSlug) => {
-    role.relations.technologies.forEach((techSlug) => {
+
+  input.roleRelations.forEach((relations, roleSlug) => {
+    relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `JobRole[${roleSlug}]`, "technologies");
     });
   });
+
   return errors;
 }
 
@@ -512,21 +597,63 @@ export interface DomainRepository {
   referentialIntegrityErrors: ReferentialIntegrityError[];
 }
 
+interface LoaderResults {
+  blogs: BlogLoadResult;
+  projects: ProjectLoadResult;
+  adrs: ADRLoadResult;
+  roles: RoleLoadResult;
+}
+
+function buildRelationDataFromLoaders(loaders: LoaderResults): RelationData {
+  const relations = createEmptyRelationData();
+
+  for (const [slug, projectRels] of loaders.projects.relations) {
+    relations.projectTechnologies.set(slug, projectRels.technologies);
+    relations.projectADRs.set(slug, projectRels.adrs);
+  }
+
+  for (const [slug, blogRels] of loaders.blogs.relations) {
+    relations.blogTechnologies.set(slug, blogRels.technologies);
+    relations.blogTags.set(slug, blogRels.tags);
+  }
+
+  for (const [slug, adrRels] of loaders.adrs.relations) {
+    relations.adrTechnologies.set(slug, adrRels.technologies);
+    relations.adrProject.set(slug, adrRels.project);
+  }
+
+  // Handle supersededBy from ADR entities
+  for (const [slug, adr] of loaders.adrs.entities) {
+    if (adr.supersededBy) {
+      relations.adrSupersededBy.set(adr.supersededBy, slug);
+    }
+  }
+
+  for (const [slug, roleRels] of loaders.roles.relations) {
+    relations.roleTechnologies.set(slug, roleRels.technologies);
+  }
+
+  return relations;
+}
+
 export function loadDomainRepository(): DomainRepository {
   const technologies = loadTechnologies();
-  const blogs = loadBlogPosts();
-  const projects = loadProjects();
-  const adrs = loadADRs();
-  const roles = loadJobRoles();
+  const blogsResult = loadBlogPosts();
+  const projectsResult = loadProjects();
+  const adrsResult = loadADRs();
+  const rolesResult = loadJobRoles();
   const buildingPhilosophy = loadBuildingPhilosophy();
 
-  const referentialIntegrityErrors = validateReferentialIntegrity(
+  const referentialIntegrityErrors = validateReferentialIntegrity({
     technologies,
-    blogs,
-    projects,
-    adrs,
-    roles,
-  );
+    adrs: adrsResult.entities,
+    projects: projectsResult.entities,
+    blogRelations: blogsResult.relations,
+    projectRelations: projectsResult.relations,
+    adrRelations: adrsResult.relations,
+    roleRelations: rolesResult.relations,
+  });
+
   if (referentialIntegrityErrors.length > 0) {
     console.error("Referential integrity errors found:");
     referentialIntegrityErrors.forEach((err) => {
@@ -537,20 +664,26 @@ export function loadDomainRepository(): DomainRepository {
     );
   }
 
+  const loaders: LoaderResults = {
+    blogs: blogsResult,
+    projects: projectsResult,
+    adrs: adrsResult,
+    roles: rolesResult,
+  };
+
+  const relations = buildRelationDataFromLoaders(loaders);
   const graph = buildContentGraph({
-    technologies,
-    blogs,
-    projects,
-    adrs,
-    roles,
+    technologySlugs: technologies.keys(),
+    projectSlugs: projectsResult.entities.keys(),
+    relations,
   });
 
   return {
     technologies,
-    blogs,
-    projects,
-    adrs,
-    roles,
+    blogs: blogsResult.entities,
+    projects: projectsResult.entities,
+    adrs: adrsResult.entities,
+    roles: rolesResult.entities,
     graph,
     buildingPhilosophy,
     referentialIntegrityErrors,

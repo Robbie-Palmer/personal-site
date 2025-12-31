@@ -36,6 +36,7 @@ export type ADRListItemView = {
 export function toADRCardView(
   adr: ADR,
   technologies: TechnologyBadgeView[],
+  projectSlug: string,
 ): ADRCardView {
   return {
     slug: adr.slug,
@@ -44,7 +45,7 @@ export function toADRCardView(
     status: adr.status,
     supersededBy: adr.supersededBy,
     readingTime: adr.readingTime,
-    projectSlug: adr.relations.project,
+    projectSlug,
     technologies,
   };
 }
@@ -52,6 +53,7 @@ export function toADRCardView(
 export function toADRDetailView(
   adr: ADR,
   technologies: TechnologyLabelView[],
+  projectSlug: string,
 ): ADRDetailView {
   return {
     slug: adr.slug,
@@ -61,7 +63,7 @@ export function toADRDetailView(
     supersededBy: adr.supersededBy,
     content: adr.content,
     readingTime: adr.readingTime,
-    projectSlug: adr.relations.project,
+    projectSlug,
     technologies,
   };
 }

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { ADR } from "@/lib/domain/adr/adr";
-import type { BlogPost } from "@/lib/domain/blog/blogPost";
-import { buildContentGraph } from "@/lib/domain/graph/builder";
+import {
+  buildContentGraph,
+  createEmptyRelationData,
+} from "@/lib/domain/graph/builder";
 import {
   getContentUsingTechnology,
   getContentUsingTechnologyByType,
@@ -20,80 +21,6 @@ import {
   makeNodeId,
   parseNodeId,
 } from "@/lib/domain/graph/types";
-import type { Project } from "@/lib/domain/project/project";
-import type { JobRole } from "@/lib/domain/role/jobRole";
-import type { Technology } from "@/lib/domain/technology/technology";
-
-const createTechnology = (slug: string): Technology => ({
-  slug,
-  name: slug.charAt(0).toUpperCase() + slug.slice(1),
-  description: undefined,
-  website: undefined,
-  brandColor: undefined,
-  iconSlug: undefined,
-});
-
-const createProject = (
-  slug: string,
-  technologies: string[],
-  adrs: string[] = [],
-): Project => ({
-  slug,
-  title: slug,
-  description: "Test project",
-  date: "2025-01-01",
-  updated: undefined,
-  status: "live",
-  repoUrl: undefined,
-  demoUrl: undefined,
-  content: "",
-  relations: { technologies, adrs },
-});
-
-const createADR = (
-  slug: string,
-  project: string,
-  technologies: string[],
-  supersededBy?: string,
-): ADR => ({
-  slug,
-  title: slug,
-  date: "2025-01-01",
-  status: "Accepted",
-  supersededBy,
-  content: "",
-  readingTime: "1 min",
-  relations: { project, technologies },
-});
-
-const createBlog = (slug: string, technologies: string[]): BlogPost => ({
-  slug,
-  title: slug,
-  description: "Test blog",
-  date: "2025-01-01",
-  updated: undefined,
-  tags: [],
-  canonicalUrl: undefined,
-  content: "",
-  readingTime: "1 min",
-  image: `blog/${slug}-2025-01-01`,
-  imageAlt: "Test image",
-  relations: { technologies },
-});
-
-const createRole = (slug: string, technologies: string[]): JobRole => ({
-  slug,
-  company: "Test Co",
-  companyUrl: "https://example.com",
-  logoPath: "/logos/test.png",
-  title: "Engineer",
-  location: "Remote",
-  startDate: "2025-01",
-  endDate: undefined,
-  description: "Test role",
-  responsibilities: [],
-  relations: { technologies },
-});
 
 describe("NodeId utilities", () => {
   it("makeNodeId creates correct format", () => {
@@ -135,20 +62,14 @@ describe("NodeId utilities", () => {
 
 describe("buildContentGraph", () => {
   it("builds technology edges for projects", () => {
-    const entities = {
-      technologies: new Map([
-        ["typescript", createTechnology("typescript")],
-        ["react", createTechnology("react")],
-      ]),
-      projects: new Map([
-        ["site", createProject("site", ["typescript", "react"])],
-      ]),
-      adrs: new Map(),
-      blogs: new Map(),
-      roles: new Map(),
-    };
+    const relations = createEmptyRelationData();
+    relations.projectTechnologies.set("site", ["typescript", "react"]);
 
-    const graph = buildContentGraph(entities);
+    const graph = buildContentGraph({
+      technologySlugs: ["typescript", "react"],
+      projectSlugs: ["site"],
+      relations,
+    });
 
     const techs = graph.edges.usesTechnology.get("project:site");
     expect(techs).toBeDefined();
@@ -157,15 +78,18 @@ describe("buildContentGraph", () => {
   });
 
   it("builds reverse edges for technologies", () => {
-    const entities = {
-      technologies: new Map([["typescript", createTechnology("typescript")]]),
-      projects: new Map([["site", createProject("site", ["typescript"])]]),
-      adrs: new Map([["001", createADR("001", "site", ["typescript"])]]),
-      blogs: new Map([["post", createBlog("post", ["typescript"])]]),
-      roles: new Map([["eng", createRole("eng", ["typescript"])]]),
-    };
+    const relations = createEmptyRelationData();
+    relations.projectTechnologies.set("site", ["typescript"]);
+    relations.adrTechnologies.set("001", ["typescript"]);
+    relations.adrProject.set("001", "site");
+    relations.blogTechnologies.set("post", ["typescript"]);
+    relations.roleTechnologies.set("eng", ["typescript"]);
 
-    const graph = buildContentGraph(entities);
+    const graph = buildContentGraph({
+      technologySlugs: ["typescript"],
+      projectSlugs: ["site"],
+      relations,
+    });
 
     const usedBy = graph.reverse.technologyUsedBy.get("typescript");
     expect(usedBy).toBeDefined();
@@ -176,18 +100,16 @@ describe("buildContentGraph", () => {
   });
 
   it("builds ADR-project edges", () => {
-    const entities = {
-      technologies: new Map(),
-      projects: new Map([["site", createProject("site", [], ["001", "002"])]]),
-      adrs: new Map([
-        ["001", createADR("001", "site", [])],
-        ["002", createADR("002", "site", [])],
-      ]),
-      blogs: new Map(),
-      roles: new Map(),
-    };
+    const relations = createEmptyRelationData();
+    relations.projectADRs.set("site", ["001", "002"]);
+    relations.adrProject.set("001", "site");
+    relations.adrProject.set("002", "site");
 
-    const graph = buildContentGraph(entities);
+    const graph = buildContentGraph({
+      technologySlugs: [],
+      projectSlugs: ["site"],
+      relations,
+    });
 
     expect(graph.edges.partOfProject.get("001")).toBe("site");
     expect(graph.edges.partOfProject.get("002")).toBe("site");
@@ -196,39 +118,52 @@ describe("buildContentGraph", () => {
   });
 
   it("builds supersedes edges", () => {
-    const entities = {
-      technologies: new Map(),
-      projects: new Map([["site", createProject("site", [])]]),
-      adrs: new Map([
-        ["001", createADR("001", "site", [], "002")],
-        ["002", createADR("002", "site", [])],
-      ]),
-      blogs: new Map(),
-      roles: new Map(),
-    };
+    const relations = createEmptyRelationData();
+    relations.adrProject.set("001", "site");
+    relations.adrProject.set("002", "site");
+    relations.adrSupersededBy.set("002", "001");
 
-    const graph = buildContentGraph(entities);
+    const graph = buildContentGraph({
+      technologySlugs: [],
+      projectSlugs: ["site"],
+      relations,
+    });
 
     expect(graph.edges.supersedes.get("002")).toBe("001");
     expect(graph.reverse.supersededBy.get("001")).toBe("002");
   });
+
+  it("builds tag edges for blogs", () => {
+    const relations = createEmptyRelationData();
+    relations.blogTags.set("post", ["javascript", "react"]);
+
+    const graph = buildContentGraph({
+      technologySlugs: [],
+      projectSlugs: [],
+      relations,
+    });
+
+    expect(graph.edges.hasTag.get("blog:post")?.has("javascript")).toBe(true);
+    expect(graph.edges.hasTag.get("blog:post")?.has("react")).toBe(true);
+    expect(graph.reverse.tagUsedBy.get("javascript")?.has("blog:post")).toBe(
+      true,
+    );
+  });
 });
 
 describe("graph queries", () => {
-  const entities = {
-    technologies: new Map([
-      ["typescript", createTechnology("typescript")],
-      ["react", createTechnology("react")],
-    ]),
-    projects: new Map([
-      ["site", createProject("site", ["typescript", "react"])],
-    ]),
-    adrs: new Map([["001", createADR("001", "site", ["typescript"])]]),
-    blogs: new Map([["post", createBlog("post", ["react"])]]),
-    roles: new Map([["eng", createRole("eng", ["typescript", "react"])]]),
-  };
+  const relations = createEmptyRelationData();
+  relations.projectTechnologies.set("site", ["typescript", "react"]);
+  relations.adrTechnologies.set("001", ["typescript"]);
+  relations.adrProject.set("001", "site");
+  relations.blogTechnologies.set("post", ["react"]);
+  relations.roleTechnologies.set("eng", ["typescript", "react"]);
 
-  const graph = buildContentGraph(entities);
+  const graph = buildContentGraph({
+    technologySlugs: ["typescript", "react"],
+    projectSlugs: ["site"],
+    relations,
+  });
 
   it("getTechnologiesForProject returns correct technologies", () => {
     const techs = getTechnologiesForProject(graph, "site");
@@ -275,14 +210,16 @@ describe("graph queries", () => {
   });
 
   it("supersedes queries work correctly", () => {
-    const entities2 = {
-      ...entities,
-      adrs: new Map([
-        ["001", createADR("001", "site", [], "002")],
-        ["002", createADR("002", "site", [])],
-      ]),
-    };
-    const graph2 = buildContentGraph(entities2);
+    const relations2 = createEmptyRelationData();
+    relations2.adrProject.set("001", "site");
+    relations2.adrProject.set("002", "site");
+    relations2.adrSupersededBy.set("002", "001");
+
+    const graph2 = buildContentGraph({
+      technologySlugs: [],
+      projectSlugs: ["site"],
+      relations: relations2,
+    });
 
     expect(getSupersedingADR(graph2, "001")).toBe("002");
     expect(getSupersededADR(graph2, "002")).toBe("001");

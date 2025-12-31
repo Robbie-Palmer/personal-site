@@ -1,4 +1,8 @@
-import { getContentUsingTechnologyByType } from "../graph/queries";
+import {
+  getContentUsingTechnologyByType,
+  getProjectForADR,
+  getTechnologiesForADR,
+} from "../graph/queries";
 import type { DomainRepository } from "../repository";
 import {
   resolveTechnologiesToBadgeViews,
@@ -21,12 +25,14 @@ export function getADRCard(
   const adr = repository.adrs.get(slug);
   if (!adr) return null;
 
-  const technologies = resolveTechnologiesToBadgeViews(
-    repository,
-    adr.relations.technologies,
-  );
+  const techSlugs = getTechnologiesForADR(repository.graph, slug);
+  const technologies = resolveTechnologiesToBadgeViews(repository, [
+    ...techSlugs,
+  ]);
+  const projectSlug = getProjectForADR(repository.graph, slug);
+  if (!projectSlug) return null;
 
-  return toADRCardView(adr, technologies);
+  return toADRCardView(adr, technologies, projectSlug);
 }
 
 export function getADRDetail(
@@ -36,12 +42,14 @@ export function getADRDetail(
   const adr = repository.adrs.get(slug);
   if (!adr) return null;
 
-  const technologies = resolveTechnologiesToLabelViews(
-    repository,
-    adr.relations.technologies,
-  );
+  const techSlugs = getTechnologiesForADR(repository.graph, slug);
+  const technologies = resolveTechnologiesToLabelViews(repository, [
+    ...techSlugs,
+  ]);
+  const projectSlug = getProjectForADR(repository.graph, slug);
+  if (!projectSlug) return null;
 
-  return toADRDetailView(adr, technologies);
+  return toADRDetailView(adr, technologies, projectSlug);
 }
 
 export function getADRListItem(
@@ -54,14 +62,18 @@ export function getADRListItem(
 }
 
 export function getAllADRCards(repository: DomainRepository): ADRCardView[] {
-  return Array.from(repository.adrs.values()).map((adr) => {
-    const technologies = resolveTechnologiesToBadgeViews(
-      repository,
-      adr.relations.technologies,
-    );
+  return Array.from(repository.adrs.values())
+    .map((adr) => {
+      const techSlugs = getTechnologiesForADR(repository.graph, adr.slug);
+      const technologies = resolveTechnologiesToBadgeViews(repository, [
+        ...techSlugs,
+      ]);
+      const projectSlug = getProjectForADR(repository.graph, adr.slug);
+      if (!projectSlug) return null;
 
-    return toADRCardView(adr, technologies);
-  });
+      return toADRCardView(adr, technologies, projectSlug);
+    })
+    .filter((view): view is ADRCardView => view !== null);
 }
 
 export function getAllADRListItems(
@@ -81,11 +93,11 @@ export function getADRsForProject(
     .map((slug) => repository.adrs.get(slug))
     .filter((adr): adr is NonNullable<typeof adr> => adr !== undefined)
     .map((adr) => {
-      const technologies = resolveTechnologiesToBadgeViews(
-        repository,
-        adr.relations.technologies,
-      );
-      return toADRCardView(adr, technologies);
+      const techSlugs = getTechnologiesForADR(repository.graph, adr.slug);
+      const technologies = resolveTechnologiesToBadgeViews(repository, [
+        ...techSlugs,
+      ]);
+      return toADRCardView(adr, technologies, projectSlug);
     });
 }
 
@@ -102,10 +114,13 @@ export function getADRsUsingTechnology(
     .map((slug) => repository.adrs.get(slug))
     .filter((adr): adr is NonNullable<typeof adr> => adr !== undefined)
     .map((adr) => {
-      const technologies = resolveTechnologiesToBadgeViews(
-        repository,
-        adr.relations.technologies,
-      );
-      return toADRCardView(adr, technologies);
-    });
+      const techSlugs = getTechnologiesForADR(repository.graph, adr.slug);
+      const technologies = resolveTechnologiesToBadgeViews(repository, [
+        ...techSlugs,
+      ]);
+      const projectSlug = getProjectForADR(repository.graph, adr.slug);
+      if (!projectSlug) return null;
+      return toADRCardView(adr, technologies, projectSlug);
+    })
+    .filter((view): view is ADRCardView => view !== null);
 }

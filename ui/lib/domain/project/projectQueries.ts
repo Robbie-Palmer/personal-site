@@ -1,5 +1,10 @@
 import { getADRsForProject } from "../adr/adrQueries";
-import { getContentUsingTechnologyByType } from "../graph/queries";
+import {
+  getADRCountForProject,
+  getADRSlugsForProject,
+  getContentUsingTechnologyByType,
+  getTechnologiesForProject,
+} from "../graph/queries";
 import type { DomainRepository } from "../repository";
 import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
 import type { ProjectSlug } from "./project";
@@ -20,12 +25,13 @@ export function getProjectCard(
   const project = repository.projects.get(slug);
   if (!project) return null;
 
-  const technologies = resolveTechnologiesToBadgeViews(
-    repository,
-    project.relations.technologies,
-  );
+  const technologySlugs = getTechnologiesForProject(repository.graph, slug);
+  const technologies = resolveTechnologiesToBadgeViews(repository, [
+    ...technologySlugs,
+  ]);
+  const adrCount = getADRCountForProject(repository.graph, slug);
 
-  return toProjectCardView(project, technologies);
+  return toProjectCardView(project, technologies, adrCount);
 }
 
 export function getProjectDetail(
@@ -35,12 +41,13 @@ export function getProjectDetail(
   const project = repository.projects.get(slug);
   if (!project) return null;
 
-  const technologies = resolveTechnologiesToBadgeViews(
-    repository,
-    project.relations.technologies,
-  );
+  const technologySlugs = getTechnologiesForProject(repository.graph, slug);
+  const technologies = resolveTechnologiesToBadgeViews(repository, [
+    ...technologySlugs,
+  ]);
+  const adrSlugs = getADRSlugsForProject(repository.graph, slug);
 
-  return toProjectDetailView(project, technologies);
+  return toProjectDetailView(project, technologies, adrSlugs);
 }
 
 export function getProjectListItem(
@@ -56,12 +63,16 @@ export function getAllProjectCards(
   repository: DomainRepository,
 ): ProjectCardView[] {
   return Array.from(repository.projects.values()).map((project) => {
-    const technologies = resolveTechnologiesToBadgeViews(
-      repository,
-      project.relations.technologies,
+    const technologySlugs = getTechnologiesForProject(
+      repository.graph,
+      project.slug,
     );
+    const technologies = resolveTechnologiesToBadgeViews(repository, [
+      ...technologySlugs,
+    ]);
+    const adrCount = getADRCountForProject(repository.graph, project.slug);
 
-    return toProjectCardView(project, technologies);
+    return toProjectCardView(project, technologies, adrCount);
   });
 }
 
@@ -87,11 +98,15 @@ export function getProjectsUsingTechnology(
         project !== undefined,
     )
     .map((project) => {
-      const technologies = resolveTechnologiesToBadgeViews(
-        repository,
-        project.relations.technologies,
+      const techSlugs = getTechnologiesForProject(
+        repository.graph,
+        project.slug,
       );
-      return toProjectCardView(project, technologies);
+      const technologies = resolveTechnologiesToBadgeViews(repository, [
+        ...techSlugs,
+      ]);
+      const adrCount = getADRCountForProject(repository.graph, project.slug);
+      return toProjectCardView(project, technologies, adrCount);
     });
 }
 
@@ -106,10 +121,10 @@ export function getProjectWithADRs(
   const project = repository.projects.get(slug);
   if (!project) return null;
 
-  const projectTechnologies = resolveTechnologiesToBadgeViews(
-    repository,
-    project.relations.technologies,
-  );
+  const projectTechSlugs = getTechnologiesForProject(repository.graph, slug);
+  const projectTechnologies = resolveTechnologiesToBadgeViews(repository, [
+    ...projectTechSlugs,
+  ]);
 
   const adrs = getADRsForProject(repository, slug);
 
@@ -124,6 +139,8 @@ export function getProjectWithADRs(
     ),
   ];
 
+  const adrSlugs = getADRSlugsForProject(repository.graph, slug);
+
   return {
     slug: project.slug,
     title: project.title,
@@ -135,7 +152,7 @@ export function getProjectWithADRs(
     demoUrl: project.demoUrl,
     content: project.content,
     technologies: mergedTechnologies,
-    adrSlugs: project.relations.adrs,
+    adrSlugs,
     adrs,
   };
 }

@@ -118,3 +118,35 @@ export function filterNodesByType<T extends NodeType>(
   }
   return result;
 }
+
+export function getADRCountForProject(
+  graph: ContentGraph,
+  slug: ProjectSlug,
+): number {
+  return graph.reverse.projectADRs.get(slug)?.size ?? 0;
+}
+
+export function getADRSlugsForProject(
+  graph: ContentGraph,
+  slug: ProjectSlug,
+): ADRSlug[] {
+  return Array.from(graph.reverse.projectADRs.get(slug) ?? []);
+}
+
+export function getTagsForContent(
+  graph: ContentGraph,
+  nodeId: NodeId,
+): Set<string> {
+  return graph.edges.hasTag.get(nodeId) ?? new Set();
+}
+
+export function getContentForTag(
+  graph: ContentGraph,
+  tag: string,
+): Set<NodeId> {
+  return graph.reverse.tagUsedBy.get(tag) ?? new Set();
+}
+
+export function getAllTags(graph: ContentGraph): string[] {
+  return Array.from(graph.reverse.tagUsedBy.keys());
+}

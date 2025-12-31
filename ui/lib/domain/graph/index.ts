@@ -1,11 +1,20 @@
-export { buildContentGraph } from "./builder";
+export {
+  buildContentGraph,
+  createEmptyRelationData,
+  type RelationData,
+} from "./builder";
 export {
   filterNodesByType,
+  getADRCountForProject,
+  getADRSlugsForProject,
+  getAllTags,
+  getContentForTag,
   getContentUsingTechnology,
   getContentUsingTechnologyByType,
   getProjectForADR,
   getSupersededADR,
   getSupersedingADR,
+  getTagsForContent,
   getTechnologiesForADR,
   getTechnologiesForBlog,
   getTechnologiesForProject,
@@ -14,4 +23,4 @@ export {
 export * from "./types";
 
 // Note: getADRsForProject not exported here to avoid conflict with adr/adrQueries
-// Use graph.reverse.projectADRs directly or import from "./graph/queries" explicitly
+// Import from "./graph/queries" explicitly if needed

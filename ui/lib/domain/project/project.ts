@@ -29,16 +29,13 @@ export const ProjectSchema = z.object({
   repoUrl: z.string().url().optional(),
   demoUrl: z.string().url().optional(),
   content: z.string(),
-
-  relations: z
-    .object({
-      technologies: z.array(TechnologySlugSchema).default([]),
-      adrs: z.array(ADRSlugSchema).default([]),
-    })
-    .default({
-      technologies: [],
-      adrs: [],
-    }),
 });
 
 export type Project = z.infer<typeof ProjectSchema>;
+
+export const ProjectRelationsSchema = z.object({
+  technologies: z.array(TechnologySlugSchema).default([]),
+  adrs: z.array(ADRSlugSchema).default([]),
+});
+
+export type ProjectRelations = z.infer<typeof ProjectRelationsSchema>;

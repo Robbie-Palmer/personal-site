@@ -1,4 +1,7 @@
-import { getContentUsingTechnologyByType } from "../graph/queries";
+import {
+  getContentUsingTechnologyByType,
+  getTechnologiesForRole,
+} from "../graph/queries";
 import type { DomainRepository } from "../repository";
 import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
 import type { RoleSlug } from "./jobRole";
@@ -16,10 +19,10 @@ export function getRoleCard(
   const role = repository.roles.get(slug);
   if (!role) return null;
 
-  const technologies = resolveTechnologiesToBadgeViews(
-    repository,
-    role.relations.technologies,
-  );
+  const techSlugs = getTechnologiesForRole(repository.graph, slug);
+  const technologies = resolveTechnologiesToBadgeViews(repository, [
+    ...techSlugs,
+  ]);
 
   return toRoleCardView(role, technologies);
 }
@@ -35,10 +38,10 @@ export function getRoleListItem(
 
 export function getAllRoleCards(repository: DomainRepository): RoleCardView[] {
   return Array.from(repository.roles.values()).map((role) => {
-    const technologies = resolveTechnologiesToBadgeViews(
-      repository,
-      role.relations.technologies,
-    );
+    const techSlugs = getTechnologiesForRole(repository.graph, role.slug);
+    const technologies = resolveTechnologiesToBadgeViews(repository, [
+      ...techSlugs,
+    ]);
 
     return toRoleCardView(role, technologies);
   });
@@ -63,10 +66,10 @@ export function getRolesUsingTechnology(
     .map((slug) => repository.roles.get(slug))
     .filter((role): role is NonNullable<typeof role> => role !== undefined)
     .map((role) => {
-      const technologies = resolveTechnologiesToBadgeViews(
-        repository,
-        role.relations.technologies,
-      );
+      const techSlugs = getTechnologiesForRole(repository.graph, role.slug);
+      const technologies = resolveTechnologiesToBadgeViews(repository, [
+        ...techSlugs,
+      ]);
       return toRoleCardView(role, technologies);
     });
 }
