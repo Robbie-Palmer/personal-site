@@ -17,6 +17,7 @@ const customIcons = new Set([
   "embla-carousel",
   "fusejs",
   "mise",
+  "doppler",
 ]);
 
 // Map technology names to their slugs for edge cases
@@ -179,6 +180,7 @@ export const TECH_URLS: Record<string, string> = {
     "https://github.com/tailwindlabs/tailwindcss-typography",
   ccpm: "https://github.com/automazeio/ccpm/",
   shortcut: "https://shortcut.com",
+  doppler: "https://www.doppler.com",
 };
 
 export function getTechUrl(name: string): string | undefined {
