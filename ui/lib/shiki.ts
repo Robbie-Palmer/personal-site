@@ -1,11 +1,13 @@
 import { createHighlighter, type Highlighter } from "shiki";
 
-// Reuse highlighter instance
-let highlighter: Highlighter | null = null;
+// Store highlighter on globalThis to survive HMR in development
+const globalForShiki = globalThis as unknown as {
+  shikiHighlighter: Highlighter | undefined;
+};
 
 async function getShikiHighlighter() {
-  if (!highlighter) {
-    highlighter = await createHighlighter({
+  if (!globalForShiki.shikiHighlighter) {
+    globalForShiki.shikiHighlighter = await createHighlighter({
       themes: ["github-dark", "github-light"],
       langs: [
         "javascript",
@@ -28,7 +30,7 @@ async function getShikiHighlighter() {
       ],
     });
   }
-  return highlighter;
+  return globalForShiki.shikiHighlighter;
 }
 
 export async function highlight(code: string, lang: string) {
