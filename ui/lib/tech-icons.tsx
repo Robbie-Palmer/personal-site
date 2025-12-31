@@ -178,6 +178,7 @@ export const TECH_URLS: Record<string, string> = {
   "tailwind css typography":
     "https://github.com/tailwindlabs/tailwindcss-typography",
   ccpm: "https://github.com/automazeio/ccpm/",
+  shortcut: "https://shortcut.com",
 };
 
 export function getTechUrl(name: string): string | undefined {
