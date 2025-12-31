@@ -61,18 +61,8 @@ export function getBlogListItem(
 }
 
 export function getAllBlogCards(repository: DomainRepository): BlogCardView[] {
-  return Array.from(repository.blogs.values()).map((blog) => {
-    const techSlugs = getTechnologiesForBlog(repository.graph, blog.slug);
-    const technologies = resolveTechnologiesToBadgeViews(repository, [
-      ...techSlugs,
-    ]);
-    const tags = getTagsForContent(
-      repository.graph,
-      makeNodeId("blog", blog.slug),
-    );
-
-    return toBlogCardView(blog, technologies, [...tags]);
-  });
+  const blogSlugs = Array.from(repository.blogs.keys()) as BlogSlug[];
+  return mapBlogsToBlogCardViews(repository, blogSlugs);
 }
 
 export function getAllBlogListItems(
