@@ -57,25 +57,25 @@ GitHub's native integration provides the trust anchor, while Doppler handles the
 * **Cons**: Limited visibility once saved, poor UX for managing many secrets, no local development story, manual rotation process
 * **Decision**: **Keep for Secret Zero**, use alongside Doppler
 
-## HashiCorp Vault
+## [HashiCorp Vault](https://www.vaultproject.io/)
 
 * **Pros**: Enterprise-grade, extremely powerful policy engine, supports dynamic secrets
 * **Cons**: Requires dedicated infrastructure, suffers from the same Secret Zero problem, massive operational overhead for a solo developer
 * **Decision**: **Rejected** due to operational complexity
 
-## AWS Secrets Manager / GCP Secret Manager
+## [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/) / [GCP Secret Manager](https://cloud.google.com/secret-manager)
 
 * **Pros**: Native cloud integration, good security model
 * **Cons**: Requires committing to a Cloud Service Provider, introduces massive overhead (IAM, billing, org structure) just to store strings, conflicts with Minimize Platforms
 * **Decision**: **Rejected** to avoid cloud lock-in for a cross-cutting concern
 
-## Infisical
+## [Infisical](https://infisical.com/)
 
 * **Pros**: Open-source Doppler alternative, can self-host
 * **Cons**: Self-hosting adds operational burden, smaller community/ecosystem than Doppler
 * **Decision**: **Rejected** in favor of managed solution (Doppler's free tier eliminates cost concern)
 
-## 1Password Secrets Automation
+## [1Password Secrets Automation](https://developer.1password.com/docs/service-accounts/)
 
 * **Pros**: Integrates with existing 1Password subscription, good developer experience
 * **Cons**: Primarily designed for human-to-app secrets rather than app-to-app, less specialized for CI/CD workflows than Doppler
