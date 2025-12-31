@@ -43,7 +43,6 @@ vi.mock("@/lib/experience", () => experienceMock);
 // Import after mocks are hoisted
 import * as fs from "node:fs";
 import {
-  buildTechnologyRelations,
   loadADRs,
   loadBlogPosts,
   loadJobRoles,
@@ -52,7 +51,7 @@ import {
   validateBlogPost,
   validateReferentialIntegrity,
   validateTechnology,
-} from "@/lib/domain/repository";
+} from "@/lib/repository";
 
 describe("Domain Repository", () => {
   beforeEach(() => {
@@ -64,9 +63,9 @@ describe("Domain Repository", () => {
     it("should return empty map when blog directory does not exist", () => {
       vi.mocked(fs.existsSync).mockReturnValue(false);
 
-      const blogs = loadBlogPosts();
+      const result = loadBlogPosts();
 
-      expect(blogs.size).toBe(0);
+      expect(result.entities.size).toBe(0);
     });
 
     it("should load and validate blog posts", () => {
@@ -86,10 +85,10 @@ imageAlt: "Test image"
       ] as unknown as ReaddirResult);
       vi.mocked(fs.readFileSync).mockReturnValue(mockBlogContent);
 
-      const blogs = loadBlogPosts();
+      const result = loadBlogPosts();
 
-      expect(blogs.size).toBe(1);
-      const post = blogs.get("test-post");
+      expect(result.entities.size).toBe(1);
+      const post = result.entities.get("test-post");
       expect(post).toBeDefined();
       expect(post?.title).toBe("Test Post");
       expect(post?.slug).toBe("test-post");
@@ -113,11 +112,11 @@ Content`;
 
       vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
 
-      const blogs = loadBlogPosts();
+      const result = loadBlogPosts();
 
-      expect(blogs.size).toBe(1);
-      expect(blogs.has("post")).toBe(true);
-      expect(blogs.has("README")).toBe(false);
+      expect(result.entities.size).toBe(1);
+      expect(result.entities.has("post")).toBe(true);
+      expect(result.entities.has("README")).toBe(false);
     });
   });
 
@@ -125,9 +124,9 @@ Content`;
     it("should return empty map when projects directory does not exist", () => {
       vi.mocked(fs.existsSync).mockReturnValue(false);
 
-      const projects = loadProjects();
+      const result = loadProjects();
 
-      expect(projects.size).toBe(0);
+      expect(result.entities.size).toBe(0);
     });
 
     it("should load and validate projects", () => {
@@ -147,13 +146,16 @@ tech_stack: ["React", "TypeScript"]
       }) as unknown as typeof fs.readdirSync);
       vi.mocked(fs.readFileSync).mockReturnValue(mockProjectContent);
 
-      const projects = loadProjects();
+      const result = loadProjects();
 
-      expect(projects.size).toBe(1);
-      const project = projects.get("test-project");
+      expect(result.entities.size).toBe(1);
+      const project = result.entities.get("test-project");
       expect(project).toBeDefined();
       expect(project?.title).toBe("Test Project");
-      expect(project?.relations.technologies).toEqual(["react", "typescript"]);
+      expect(result.relations.get("test-project")?.technologies).toEqual([
+        "react",
+        "typescript",
+      ]);
     });
 
     it("should load ADRs for each project", () => {
@@ -194,11 +196,10 @@ Content`;
         return "";
       });
 
-      const projects = loadProjects();
+      const result = loadProjects();
 
-      expect(projects.size).toBe(1);
-      const project = projects.get("test-project");
-      expect(project?.relations.adrs).toEqual(["001-test"]);
+      expect(result.entities.size).toBe(1);
+      expect(result.relations.get("test-project")?.adrs).toEqual(["001-test"]);
     });
   });
 
@@ -206,9 +207,9 @@ Content`;
     it("should return empty map when projects directory does not exist", () => {
       vi.mocked(fs.existsSync).mockReturnValue(false);
 
-      const adrs = loadADRs();
+      const result = loadADRs();
 
-      expect(adrs.size).toBe(0);
+      expect(result.entities.size).toBe(0);
     });
 
     it("should load ADRs from all projects", () => {
@@ -229,14 +230,16 @@ We decided to use React.`;
 
       vi.mocked(fs.readFileSync).mockReturnValue(mockADRContent);
 
-      const adrs = loadADRs();
+      const result = loadADRs();
 
-      expect(adrs.size).toBe(1);
-      const adr = adrs.get("001-react");
+      expect(result.entities.size).toBe(1);
+      const adr = result.entities.get("001-react");
       expect(adr).toBeDefined();
       expect(adr?.title).toBe("ADR 001: Use React");
-      expect(adr?.relations.project).toBe("project-1");
-      expect(adr?.relations.technologies).toEqual(["react"]);
+      expect(result.relations.get("001-react")?.project).toBe("project-1");
+      expect(result.relations.get("001-react")?.technologies).toEqual([
+        "react",
+      ]);
     });
   });
 
@@ -261,13 +264,17 @@ We decided to use React.`;
         mockExperiences,
       );
 
-      const roles = loadJobRoles();
+      const result = loadJobRoles();
 
-      expect(roles.size).toBe(1);
-      const role = Array.from(roles.values())[0];
+      expect(result.entities.size).toBe(1);
+      const role = Array.from(result.entities.values())[0];
       expect(role).toBeDefined();
       expect(role?.company).toBe("Microsoft");
-      expect(role?.relations.technologies).toEqual(["c#", "azure"]);
+      const roleSlug = Array.from(result.entities.keys())[0];
+      expect(result.relations.get(roleSlug!)?.technologies).toEqual([
+        "c#",
+        "azure",
+      ]);
     });
   });
 
@@ -357,14 +364,10 @@ Content`;
           title: "Test",
           description: "Desc",
           date: "2025-10-19",
-          tags: [],
           content: "Content",
           readingTime: "1 min read",
           image: "blog/test-2025-10-19",
           imageAlt: "Image",
-          relations: {
-            technologies: [],
-          },
         };
 
         const result = validateBlogPost(validPost);
@@ -378,14 +381,10 @@ Content`;
           title: "Test",
           description: "Desc",
           date: "2025-02-30", // Invalid date
-          tags: [],
           content: "Content",
           readingTime: "1 min read",
           image: "blog/test-2025-02-30",
           imageAlt: "Image",
-          relations: {
-            technologies: [],
-          },
         };
 
         const result = validateBlogPost(invalidPost);
@@ -399,12 +398,6 @@ Content`;
         const validTech = {
           slug: "react",
           name: "React",
-          relations: {
-            blogs: [],
-            adrs: [],
-            projects: [],
-            roles: [],
-          },
         };
 
         const result = validateTechnology(validTech);
@@ -423,12 +416,10 @@ Content`;
             {
               slug: "react",
               name: "React",
-              relations: { blogs: [], adrs: [], projects: [], roles: [] },
             },
           ],
         ]);
 
-        const blogs = new Map();
         const projects = new Map([
           [
             "test-project",
@@ -439,30 +430,35 @@ Content`;
               date: "2025-01-01",
               status: "live" as const,
               content: "Content",
-              relations: {
-                technologies: ["react"],
-                adrs: [],
-              },
             },
           ],
         ]);
-        const adrs = new Map();
-        const roles = new Map();
 
-        const errors = validateReferentialIntegrity(
+        const projectRelations = new Map([
+          [
+            "test-project",
+            {
+              technologies: ["react"],
+              adrs: [],
+            },
+          ],
+        ]);
+
+        const errors = validateReferentialIntegrity({
           technologies,
-          blogs,
+          adrs: new Map(),
           projects,
-          adrs,
-          roles,
-        );
+          blogRelations: new Map(),
+          projectRelations,
+          adrRelations: new Map(),
+          roleRelations: new Map(),
+        });
 
         expect(errors).toEqual([]);
       });
 
       it("should detect missing technology reference", () => {
         const technologies = new Map();
-        const blogs = new Map();
         const projects = new Map([
           [
             "test-project",
@@ -473,23 +469,29 @@ Content`;
               date: "2025-01-01",
               status: "live" as const,
               content: "Content",
-              relations: {
-                technologies: ["react"], // react doesn't exist
-                adrs: [],
-              },
             },
           ],
         ]);
-        const adrs = new Map();
-        const roles = new Map();
 
-        const errors = validateReferentialIntegrity(
+        const projectRelations = new Map([
+          [
+            "test-project",
+            {
+              technologies: ["react"], // react doesn't exist
+              adrs: [],
+            },
+          ],
+        ]);
+
+        const errors = validateReferentialIntegrity({
           technologies,
-          blogs,
+          adrs: new Map(),
           projects,
-          adrs,
-          roles,
-        );
+          blogRelations: new Map(),
+          projectRelations,
+          adrRelations: new Map(),
+          roleRelations: new Map(),
+        });
 
         expect(errors.length).toBeGreaterThan(0);
         expect(errors[0]?.type).toBe("missing_reference");
@@ -498,7 +500,6 @@ Content`;
 
       it("should detect missing ADR reference", () => {
         const technologies = new Map();
-        const blogs = new Map();
         const projects = new Map([
           [
             "test-project",
@@ -509,23 +510,29 @@ Content`;
               date: "2025-01-01",
               status: "live" as const,
               content: "Content",
-              relations: {
-                technologies: [],
-                adrs: ["001-missing"], // ADR doesn't exist
-              },
             },
           ],
         ]);
-        const adrs = new Map();
-        const roles = new Map();
 
-        const errors = validateReferentialIntegrity(
+        const projectRelations = new Map([
+          [
+            "test-project",
+            {
+              technologies: [],
+              adrs: ["001-missing"], // ADR doesn't exist
+            },
+          ],
+        ]);
+
+        const errors = validateReferentialIntegrity({
           technologies,
-          blogs,
+          adrs: new Map(),
           projects,
-          adrs,
-          roles,
-        );
+          blogRelations: new Map(),
+          projectRelations,
+          adrRelations: new Map(),
+          roleRelations: new Map(),
+        });
 
         expect(errors.length).toBeGreaterThan(0);
         expect(errors[0]?.type).toBe("missing_reference");
@@ -534,7 +541,6 @@ Content`;
 
       it("should detect missing project reference in ADR", () => {
         const technologies = new Map();
-        const blogs = new Map();
         const projects = new Map();
         const adrs = new Map([
           [
@@ -546,122 +552,33 @@ Content`;
               status: "Accepted" as const,
               content: "Content",
               readingTime: "1 min",
-              relations: {
-                project: "missing-project", // Project doesn't exist
-                technologies: [],
-              },
             },
           ],
         ]);
-        const roles = new Map();
 
-        const errors = validateReferentialIntegrity(
+        const adrRelations = new Map([
+          [
+            "001-test",
+            {
+              project: "missing-project", // Project doesn't exist
+              technologies: [],
+            },
+          ],
+        ]);
+
+        const errors = validateReferentialIntegrity({
           technologies,
-          blogs,
-          projects,
           adrs,
-          roles,
-        );
+          projects,
+          blogRelations: new Map(),
+          projectRelations: new Map(),
+          adrRelations,
+          roleRelations: new Map(),
+        });
 
         expect(errors.length).toBeGreaterThan(0);
         expect(errors[0]?.type).toBe("missing_reference");
         expect(errors[0]?.field).toBe("project");
-      });
-    });
-
-    describe("buildTechnologyRelations", () => {
-      it("should build bidirectional relations", () => {
-        const technologies = new Map([
-          [
-            "react",
-            {
-              slug: "react",
-              name: "React",
-              relations: { blogs: [], adrs: [], projects: [], roles: [] },
-            },
-          ],
-        ]);
-
-        const blogs = new Map();
-        const projects = new Map([
-          [
-            "test-project",
-            {
-              slug: "test-project",
-              title: "Test",
-              description: "Desc",
-              date: "2025-01-01",
-              status: "live" as const,
-              content: "Content",
-              relations: {
-                technologies: ["react"],
-                adrs: [],
-              },
-            },
-          ],
-        ]);
-        const adrs = new Map();
-        const roles = new Map();
-
-        buildTechnologyRelations(technologies, blogs, projects, adrs, roles);
-
-        const react = technologies.get("react");
-        expect(react?.relations.projects).toEqual(["test-project"]);
-      });
-
-      it("should not create duplicate relations", () => {
-        const technologies = new Map([
-          [
-            "react",
-            {
-              slug: "react",
-              name: "React",
-              relations: { blogs: [], adrs: [], projects: [], roles: [] },
-            },
-          ],
-        ]);
-
-        const blogs = new Map();
-        const projects = new Map([
-          [
-            "project-1",
-            {
-              slug: "project-1",
-              title: "Project 1",
-              description: "Desc",
-              date: "2025-01-01",
-              status: "live" as const,
-              content: "Content",
-              relations: {
-                technologies: ["react"],
-                adrs: [],
-              },
-            },
-          ],
-          [
-            "project-2",
-            {
-              slug: "project-2",
-              title: "Project 2",
-              description: "Desc",
-              date: "2025-01-01",
-              status: "live" as const,
-              content: "Content",
-              relations: {
-                technologies: ["react"],
-                adrs: [],
-              },
-            },
-          ],
-        ]);
-        const adrs = new Map();
-        const roles = new Map();
-
-        buildTechnologyRelations(technologies, blogs, projects, adrs, roles);
-
-        const react = technologies.get("react");
-        expect(react?.relations.projects).toEqual(["project-1", "project-2"]);
-        expect(react?.relations.projects.length).toBe(2);
       });
     });
   });

@@ -18,14 +18,12 @@ export const JobRoleSchema = z.object({
     .optional(),
   description: z.string().min(1),
   responsibilities: z.array(z.string()).min(1),
-
-  relations: z
-    .object({
-      technologies: z.array(TechnologySlugSchema).default([]),
-    })
-    .default({
-      technologies: [],
-    }),
 });
 
 export type JobRole = z.infer<typeof JobRoleSchema>;
+
+export const RoleRelationsSchema = z.object({
+  technologies: z.array(TechnologySlugSchema).default([]),
+});
+
+export type RoleRelations = z.infer<typeof RoleRelationsSchema>;

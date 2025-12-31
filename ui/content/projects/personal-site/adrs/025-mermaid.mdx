@@ -29,7 +29,7 @@ I want a solution that prioritizes:
 
 I decided to use **[Mermaid](https://mermaid.js.org/)** with a custom React component for client-side rendering.
 
-This aligns with the **LLM-Optimized** and **Minimize Platforms, Maximize Velocity** principles. Mermaid is JavaScript-native, has extensive LLM training data, and integrates seamlessly with MDX without requiring build-time compilation.
+This aligns with [LLM-Optimized](/projects?tab=philosophy#llm-optimized) and [Minimize Platforms](/projects?tab=philosophy#minimize-platforms). Mermaid is JavaScript-native, has extensive LLM training data, and integrates seamlessly with MDX without requiring build-time compilation.
 
 The implementation (`ui/components/mermaid.tsx`) provides:
 
@@ -48,14 +48,14 @@ A simple decision flow showing branching logic:
 <Mermaid
   chart={`
 flowchart LR
-  A[Start]:::blue --> B{Is it working?}:::purple
-  B -->|Yes| C[Great!]:::green
-  B -->|No| D[Debug]:::amber
-  D --> E{Found the bug?}:::purple
-  E -->|Yes| F[Fix it]:::amber
-  E -->|No| D
-  F --> B
-  C --> G[Ship it! 🚀]:::green
+A[Start]:::blue --> B{Is it working?}:::purple
+B -->|Yes| C[Great!]:::green
+B -->|No| D[Debug]:::amber
+D --> E{Found the bug?}:::purple
+E -->|Yes| F[Fix it]:::amber
+E -->|No| D
+F --> B
+C --> G[Ship it! 🚀]:::green
 `}
 />
 
@@ -66,17 +66,17 @@ Interaction between a user, frontend, and API:
 <Mermaid
   chart={`
 sequenceDiagram
-  participant U as User
-  participant F as Frontend
-  participant A as API
-  participant D as Database
+participant U as User
+participant F as Frontend
+participant A as API
+participant D as Database
 
-  U->>F: Click submit
-  F->>A: POST /api/data
-  A->>D: INSERT record
-  D-->>A: Success
-  A-->>F: 201 Created
-  F-->>U: Show confirmation
+U->>F: Click submit
+F->>A: POST /api/data
+A->>D: INSERT record
+D-->>A: Success
+A-->>F: 201 Created
+F-->>U: Show confirmation
 `}
 />
 
@@ -87,14 +87,14 @@ A document lifecycle with state transitions:
 <Mermaid
   chart={`
 stateDiagram-v2
-  direction LR
-  [*] --> Draft
-  Draft --> Review: Submit
-  Review --> Draft: Request changes
-  Review --> Approved: Approve
-  Approved --> Published: Publish
-  Published --> Archived: Archive
-  Archived --> [*]
+direction LR
+[*] --> Draft
+Draft --> Review: Submit
+Review --> Draft: Request changes
+Review --> Approved: Approve
+Approved --> Published: Publish
+Published --> Archived: Archive
+Archived --> [*]
 `}
 />
 

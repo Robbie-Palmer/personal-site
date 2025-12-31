@@ -13,20 +13,18 @@ export const BlogPostSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
-  tags: z.array(z.string()).default([]),
   canonicalUrl: z.string().url().optional(),
   content: z.string(),
   readingTime: z.string(),
   image: z.string().regex(/^blog\/[a-z0-9_-]+-\d{4}-\d{2}-\d{2}$/),
   imageAlt: z.string().min(1),
-
-  relations: z
-    .object({
-      technologies: z.array(TechnologySlugSchema).default([]),
-    })
-    .default({
-      technologies: [],
-    }),
 });
 
 export type BlogPost = z.infer<typeof BlogPostSchema>;
+
+export const BlogRelationsSchema = z.object({
+  technologies: z.array(TechnologySlugSchema).default([]),
+  tags: z.array(z.string()).default([]),
+});
+
+export type BlogRelations = z.infer<typeof BlogRelationsSchema>;

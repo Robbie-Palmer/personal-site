@@ -1,8 +1,13 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   type DomainRepository,
+  getADRSlugsForProject,
+  getProjectForADR,
+  getTechnologiesForADR,
+  getTechnologiesForProject,
+  getTechnologiesForRole,
   loadDomainRepository,
-} from "@/lib/domain/repository";
+} from "@/lib/repository";
 
 /**
  * Integration test: Validate all real content against domain models
@@ -29,36 +34,39 @@ describe("Domain Content Validation (Integration)", () => {
     expect(repo.referentialIntegrityErrors).toEqual([]);
   });
 
-  it("should have bidirectional technology relations", () => {
-    // For each project, verify that its technologies reference it back
-    for (const [projectSlug, project] of repo.projects) {
-      for (const techSlug of project.relations.technologies) {
-        const tech = repo.technologies.get(techSlug);
+  it("should have bidirectional technology relations in graph", () => {
+    // For each project, verify that the graph has reverse references
+    for (const [projectSlug] of repo.projects) {
+      const techSlugs = getTechnologiesForProject(repo.graph, projectSlug);
+      for (const techSlug of techSlugs) {
+        const usedBy = repo.graph.reverse.technologyUsedBy.get(techSlug);
         expect(
-          tech?.relations.projects.includes(projectSlug),
-          `Tech ${techSlug} should reference project ${projectSlug}`,
+          usedBy?.has(`project:${projectSlug}`),
+          `Tech ${techSlug} should reference project ${projectSlug} in graph`,
         ).toBe(true);
       }
     }
 
-    // For each ADR, verify that its technologies reference it back
-    for (const [adrSlug, adr] of repo.adrs) {
-      for (const techSlug of adr.relations.technologies) {
-        const tech = repo.technologies.get(techSlug);
+    // For each ADR, verify that the graph has reverse references
+    for (const [adrSlug] of repo.adrs) {
+      const techSlugs = getTechnologiesForADR(repo.graph, adrSlug);
+      for (const techSlug of techSlugs) {
+        const usedBy = repo.graph.reverse.technologyUsedBy.get(techSlug);
         expect(
-          tech?.relations.adrs.includes(adrSlug),
-          `Tech ${techSlug} should reference ADR ${adrSlug}`,
+          usedBy?.has(`adr:${adrSlug}`),
+          `Tech ${techSlug} should reference ADR ${adrSlug} in graph`,
         ).toBe(true);
       }
     }
 
-    // For each role, verify that its technologies reference it back
-    for (const [roleSlug, role] of repo.roles) {
-      for (const techSlug of role.relations.technologies) {
-        const tech = repo.technologies.get(techSlug);
+    // For each role, verify that the graph has reverse references
+    for (const [roleSlug] of repo.roles) {
+      const techSlugs = getTechnologiesForRole(repo.graph, roleSlug);
+      for (const techSlug of techSlugs) {
+        const usedBy = repo.graph.reverse.technologyUsedBy.get(techSlug);
         expect(
-          tech?.relations.roles.includes(roleSlug),
-          `Tech ${techSlug} should reference role ${roleSlug}`,
+          usedBy?.has(`role:${roleSlug}`),
+          `Tech ${techSlug} should reference role ${roleSlug} in graph`,
         ).toBe(true);
       }
     }
@@ -66,22 +74,25 @@ describe("Domain Content Validation (Integration)", () => {
 
   it("should have consistent project-ADR relationships", () => {
     // For each project's ADRs, verify they reference the project back
-    for (const [projectSlug, project] of repo.projects) {
-      for (const adrSlug of project.relations.adrs) {
-        const adr = repo.adrs.get(adrSlug);
+    for (const [projectSlug] of repo.projects) {
+      const adrSlugs = getADRSlugsForProject(repo.graph, projectSlug);
+      for (const adrSlug of adrSlugs) {
+        const adrProject = getProjectForADR(repo.graph, adrSlug);
         expect(
-          adr?.relations.project,
+          adrProject,
           `ADR ${adrSlug} should reference project ${projectSlug}`,
         ).toBe(projectSlug);
       }
     }
 
     // For each ADR, verify its project lists it
-    for (const [adrSlug, adr] of repo.adrs) {
-      const project = repo.projects.get(adr.relations.project);
+    for (const [adrSlug] of repo.adrs) {
+      const projectSlug = getProjectForADR(repo.graph, adrSlug);
+      expect(projectSlug).toBeDefined();
+      const projectADRs = getADRSlugsForProject(repo.graph, projectSlug!);
       expect(
-        project?.relations.adrs.includes(adrSlug),
-        `Project ${adr.relations.project} should reference ADR ${adrSlug}`,
+        projectADRs.includes(adrSlug),
+        `Project ${projectSlug} should reference ADR ${adrSlug}`,
       ).toBe(true);
     }
   });
