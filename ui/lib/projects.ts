@@ -56,7 +56,10 @@ export function getAllProjects(): ProjectWithADRs[] {
 export function getAllADRs(): ProjectADR[] {
   const allADRCards = getAllADRCards(repository);
   const allADRs = allADRCards.map((adr) => {
-    const project = repository.projects.get(adr.projectSlug)!;
+    const project = repository.projects.get(adr.projectSlug);
+    if (!project) {
+      throw new Error(`Project not found: ${adr.projectSlug}`);
+    }
     return {
       ...adr,
       projectSlug: adr.projectSlug,

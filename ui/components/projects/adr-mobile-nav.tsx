@@ -32,9 +32,14 @@ export function ADRMobileNav({ project }: ADRMobileNavProps) {
   return createPortal(
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="lg:hidden gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          className="lg:hidden h-8 w-8 min-[380px]:w-auto min-[380px]:px-3 min-[380px]:gap-2"
+        >
           <Menu className="h-4 w-4" />
-          <span>ADRs</span>
+          <span className="hidden min-[380px]:inline">ADRs</span>
+          <span className="sr-only min-[380px]:hidden">ADRs Menu</span>
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="w-[300px] sm:w-[350px] pr-0">

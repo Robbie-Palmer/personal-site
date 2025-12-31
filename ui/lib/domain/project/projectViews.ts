@@ -53,6 +53,7 @@ export type ProjectWithADRsView = {
 export function toProjectCardView(
   project: Project,
   technologies: TechnologyBadgeView[],
+  adrCount: number,
 ): ProjectCardView {
   return {
     slug: project.slug,
@@ -64,13 +65,14 @@ export function toProjectCardView(
     repoUrl: project.repoUrl,
     demoUrl: project.demoUrl,
     technologies,
-    adrCount: project.relations.adrs.length,
+    adrCount,
   };
 }
 
 export function toProjectDetailView(
   project: Project,
   technologies: TechnologyBadgeView[],
+  adrSlugs: string[],
 ): ProjectDetailView {
   return {
     slug: project.slug,
@@ -83,7 +85,7 @@ export function toProjectDetailView(
     demoUrl: project.demoUrl,
     content: project.content,
     technologies,
-    adrSlugs: project.relations.adrs,
+    adrSlugs,
   };
 }
 

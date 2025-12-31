@@ -79,7 +79,10 @@ const baseComponents: MDXComponents = {
     />
   ),
   pre: async ({ children, ...props }: React.HTMLAttributes<HTMLPreElement>) => {
-    const codeElement = children as React.ReactElement<any>;
+    const codeElement = children as React.ReactElement<{
+      className?: string;
+      children: string;
+    }>;
     const code = codeElement?.props?.children;
 
     // Only attempt highlighting if we have a string code content
@@ -105,7 +108,9 @@ const baseComponents: MDXComponents = {
     }
     return <pre {...props}>{children}</pre>;
   },
-  Image: (props: any) => <Image {...props} className="rounded-md border" />,
+  Image: (props: React.ComponentProps<typeof Image>) => (
+    <Image {...props} className="rounded-md border" />
+  ),
 };
 
 type MarkdownProps = {

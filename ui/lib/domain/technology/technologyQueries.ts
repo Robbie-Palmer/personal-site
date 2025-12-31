@@ -1,4 +1,10 @@
-import type { DomainRepository } from "../repository";
+import {
+  type DomainRepository,
+  getTechnologiesForADR,
+  getTechnologiesForBlog,
+  getTechnologiesForProject,
+  getTechnologiesForRole,
+} from "@/lib/repository";
 import type { TechnologySlug } from "./technology";
 import {
   resolveTechnologiesToBadgeViews,
@@ -46,7 +52,7 @@ export function getTechnologyDetail(
 ): TechnologyDetailView | null {
   const tech = repository.technologies.get(slug);
   if (!tech) return null;
-  return toTechnologyDetailView(tech);
+  return toTechnologyDetailView(tech, repository);
 }
 
 export function getAllTechnologyBadges(
@@ -69,50 +75,30 @@ export function getTechnologyBadgesForProject(
   repository: DomainRepository,
   projectSlug: string,
 ): TechnologyBadgeView[] {
-  const project = repository.projects.get(projectSlug);
-  if (!project) return [];
-
-  return resolveTechnologiesToBadgeViews(
-    repository,
-    project.relations.technologies,
-  );
+  const techSlugs = getTechnologiesForProject(repository.graph, projectSlug);
+  return resolveTechnologiesToBadgeViews(repository, [...techSlugs]);
 }
 
 export function getTechnologyBadgesForBlog(
   repository: DomainRepository,
   blogSlug: string,
 ): TechnologyBadgeView[] {
-  const blog = repository.blogs.get(blogSlug);
-  if (!blog) return [];
-
-  return resolveTechnologiesToBadgeViews(
-    repository,
-    blog.relations.technologies,
-  );
+  const techSlugs = getTechnologiesForBlog(repository.graph, blogSlug);
+  return resolveTechnologiesToBadgeViews(repository, [...techSlugs]);
 }
 
 export function getTechnologyBadgesForRole(
   repository: DomainRepository,
   roleSlug: string,
 ): TechnologyBadgeView[] {
-  const role = repository.roles.get(roleSlug);
-  if (!role) return [];
-
-  return resolveTechnologiesToBadgeViews(
-    repository,
-    role.relations.technologies,
-  );
+  const techSlugs = getTechnologiesForRole(repository.graph, roleSlug);
+  return resolveTechnologiesToBadgeViews(repository, [...techSlugs]);
 }
 
 export function getTechnologyLabelsForADR(
   repository: DomainRepository,
   adrSlug: string,
 ): TechnologyLabelView[] {
-  const adr = repository.adrs.get(adrSlug);
-  if (!adr) return [];
-
-  return resolveTechnologiesToLabelViews(
-    repository,
-    adr.relations.technologies,
-  );
+  const techSlugs = getTechnologiesForADR(repository.graph, adrSlug);
+  return resolveTechnologiesToLabelViews(repository, [...techSlugs]);
 }

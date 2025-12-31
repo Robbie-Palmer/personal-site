@@ -31,6 +31,7 @@ export type BlogListItemView = {
 export function toBlogCardView(
   blog: BlogPost,
   technologies: TechnologyBadgeView[],
+  tags: string[],
 ): BlogCardView {
   return {
     slug: blog.slug,
@@ -38,7 +39,7 @@ export function toBlogCardView(
     description: blog.description,
     date: blog.date,
     updated: blog.updated,
-    tags: blog.tags,
+    tags,
     image: blog.image,
     imageAlt: blog.imageAlt,
     readingTime: blog.readingTime,
@@ -49,6 +50,7 @@ export function toBlogCardView(
 export function toBlogDetailView(
   blog: BlogPost,
   technologies: TechnologyBadgeView[],
+  tags: string[],
 ): BlogDetailView {
   return {
     slug: blog.slug,
@@ -56,7 +58,7 @@ export function toBlogDetailView(
     description: blog.description,
     date: blog.date,
     updated: blog.updated,
-    tags: blog.tags,
+    tags,
     canonicalUrl: blog.canonicalUrl,
     content: blog.content,
     readingTime: blog.readingTime,
