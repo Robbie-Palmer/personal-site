@@ -25,7 +25,7 @@ I decided to use **[GitHub Actions](https://github.com/features/actions)**.
 
 This aligns with:
 
-1. **Minimize Platforms**: The CI is the platform. Code, issues, PRs, and builds live in a single URL namespace. There is no "go to the CI dashboard" step—the logs are right in the Pull Request
+1. **[Minimize Platforms](/projects?tab=philosophy#minimize-platforms)**: The CI is the platform. Code, issues, PRs, and builds live in a single URL namespace. There is no "go to the CI dashboard" step—the logs are right in the Pull Request
 2. **Mise Integration**: Instead of relying on a complex web of third-party Actions (vendor lock-in), I use [Mise](/projects/personal-site/adrs/004-mise) to strictly define the toolchain. The CI workflow becomes a thin wrapper: `mise install && mise run ci`. This ensures that what runs in CI is **exactly** what runs on my laptop
 3. **Cost Efficiency**: It is completely free for public repositories
 4. **Escape Hatches**: The workflow syntax allows for plugging in alternative runners. If I encounter performance bottlenecks or cost issues (on private repos), I can swap the default runners for **[Blacksmith](https://www.blacksmith.sh/)** (faster/cheaper runners) or offload Docker builds to **[Depot](https://depot.dev/)** without rewriting the pipeline logic
