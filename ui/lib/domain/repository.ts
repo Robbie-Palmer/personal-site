@@ -66,12 +66,6 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
         website: TECH_URLS[slug] || TECH_URLS[name],
         brandColor: undefined,
         iconSlug: undefined,
-        relations: {
-          blogs: [],
-          adrs: [],
-          projects: [],
-          roles: [],
-        },
       });
     }
   };
@@ -507,54 +501,6 @@ export function validateReferentialIntegrity(
   return errors;
 }
 
-export function buildTechnologyRelations(
-  technologies: Map<TechnologySlug, Technology>,
-  blogs: Map<BlogSlug, BlogPost>,
-  projects: Map<ProjectSlug, Project>,
-  adrs: Map<ADRSlug, ADR>,
-  roles: Map<RoleSlug, JobRole>,
-): void {
-  // Reset all relations
-  technologies.forEach((tech) => {
-    tech.relations.blogs = [];
-    tech.relations.adrs = [];
-    tech.relations.projects = [];
-    tech.relations.roles = [];
-  });
-  blogs.forEach((blog, blogSlug) => {
-    blog.relations.technologies.forEach((techSlug) => {
-      const tech = technologies.get(techSlug);
-      if (tech && !tech.relations.blogs.includes(blogSlug)) {
-        tech.relations.blogs.push(blogSlug);
-      }
-    });
-  });
-  projects.forEach((project, projectSlug) => {
-    project.relations.technologies.forEach((techSlug) => {
-      const tech = technologies.get(techSlug);
-      if (tech && !tech.relations.projects.includes(projectSlug)) {
-        tech.relations.projects.push(projectSlug);
-      }
-    });
-  });
-  adrs.forEach((adr, adrSlug) => {
-    adr.relations.technologies.forEach((techSlug) => {
-      const tech = technologies.get(techSlug);
-      if (tech && !tech.relations.adrs.includes(adrSlug)) {
-        tech.relations.adrs.push(adrSlug);
-      }
-    });
-  });
-  roles.forEach((role, roleSlug) => {
-    role.relations.technologies.forEach((techSlug) => {
-      const tech = technologies.get(techSlug);
-      if (tech && !tech.relations.roles.includes(roleSlug)) {
-        tech.relations.roles.push(roleSlug);
-      }
-    });
-  });
-}
-
 export interface DomainRepository {
   technologies: Map<TechnologySlug, Technology>;
   blogs: Map<BlogSlug, BlogPost>;
@@ -573,8 +519,6 @@ export function loadDomainRepository(): DomainRepository {
   const adrs = loadADRs();
   const roles = loadJobRoles();
   const buildingPhilosophy = loadBuildingPhilosophy();
-
-  buildTechnologyRelations(technologies, blogs, projects, adrs, roles);
 
   const referentialIntegrityErrors = validateReferentialIntegrity(
     technologies,

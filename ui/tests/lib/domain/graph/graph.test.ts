@@ -31,7 +31,6 @@ const createTechnology = (slug: string): Technology => ({
   website: undefined,
   brandColor: undefined,
   iconSlug: undefined,
-  relations: { blogs: [], adrs: [], projects: [], roles: [] },
 });
 
 const createProject = (

@@ -43,7 +43,6 @@ vi.mock("@/lib/experience", () => experienceMock);
 // Import after mocks are hoisted
 import * as fs from "node:fs";
 import {
-  buildTechnologyRelations,
   loadADRs,
   loadBlogPosts,
   loadJobRoles,
@@ -399,12 +398,6 @@ Content`;
         const validTech = {
           slug: "react",
           name: "React",
-          relations: {
-            blogs: [],
-            adrs: [],
-            projects: [],
-            roles: [],
-          },
         };
 
         const result = validateTechnology(validTech);
@@ -423,7 +416,6 @@ Content`;
             {
               slug: "react",
               name: "React",
-              relations: { blogs: [], adrs: [], projects: [], roles: [] },
             },
           ],
         ]);
@@ -566,102 +558,6 @@ Content`;
         expect(errors.length).toBeGreaterThan(0);
         expect(errors[0]?.type).toBe("missing_reference");
         expect(errors[0]?.field).toBe("project");
-      });
-    });
-
-    describe("buildTechnologyRelations", () => {
-      it("should build bidirectional relations", () => {
-        const technologies = new Map([
-          [
-            "react",
-            {
-              slug: "react",
-              name: "React",
-              relations: { blogs: [], adrs: [], projects: [], roles: [] },
-            },
-          ],
-        ]);
-
-        const blogs = new Map();
-        const projects = new Map([
-          [
-            "test-project",
-            {
-              slug: "test-project",
-              title: "Test",
-              description: "Desc",
-              date: "2025-01-01",
-              status: "live" as const,
-              content: "Content",
-              relations: {
-                technologies: ["react"],
-                adrs: [],
-              },
-            },
-          ],
-        ]);
-        const adrs = new Map();
-        const roles = new Map();
-
-        buildTechnologyRelations(technologies, blogs, projects, adrs, roles);
-
-        const react = technologies.get("react");
-        expect(react?.relations.projects).toEqual(["test-project"]);
-      });
-
-      it("should not create duplicate relations", () => {
-        const technologies = new Map([
-          [
-            "react",
-            {
-              slug: "react",
-              name: "React",
-              relations: { blogs: [], adrs: [], projects: [], roles: [] },
-            },
-          ],
-        ]);
-
-        const blogs = new Map();
-        const projects = new Map([
-          [
-            "project-1",
-            {
-              slug: "project-1",
-              title: "Project 1",
-              description: "Desc",
-              date: "2025-01-01",
-              status: "live" as const,
-              content: "Content",
-              relations: {
-                technologies: ["react"],
-                adrs: [],
-              },
-            },
-          ],
-          [
-            "project-2",
-            {
-              slug: "project-2",
-              title: "Project 2",
-              description: "Desc",
-              date: "2025-01-01",
-              status: "live" as const,
-              content: "Content",
-              relations: {
-                technologies: ["react"],
-                adrs: [],
-              },
-            },
-          ],
-        ]);
-        const adrs = new Map();
-        const roles = new Map();
-
-        buildTechnologyRelations(technologies, blogs, projects, adrs, roles);
-
-        const react = technologies.get("react");
-        expect(react?.relations.projects).toEqual(["project-1", "project-2"]);
-        expect(react?.relations.projects.length).toBe(2);
       });
     });
   });

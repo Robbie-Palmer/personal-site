@@ -29,36 +29,36 @@ describe("Domain Content Validation (Integration)", () => {
     expect(repo.referentialIntegrityErrors).toEqual([]);
   });
 
-  it("should have bidirectional technology relations", () => {
-    // For each project, verify that its technologies reference it back
+  it("should have bidirectional technology relations in graph", () => {
+    // For each project, verify that the graph has reverse references
     for (const [projectSlug, project] of repo.projects) {
       for (const techSlug of project.relations.technologies) {
-        const tech = repo.technologies.get(techSlug);
+        const usedBy = repo.graph.reverse.technologyUsedBy.get(techSlug);
         expect(
-          tech?.relations.projects.includes(projectSlug),
-          `Tech ${techSlug} should reference project ${projectSlug}`,
+          usedBy?.has(`project:${projectSlug}`),
+          `Tech ${techSlug} should reference project ${projectSlug} in graph`,
         ).toBe(true);
       }
     }
 
-    // For each ADR, verify that its technologies reference it back
+    // For each ADR, verify that the graph has reverse references
     for (const [adrSlug, adr] of repo.adrs) {
       for (const techSlug of adr.relations.technologies) {
-        const tech = repo.technologies.get(techSlug);
+        const usedBy = repo.graph.reverse.technologyUsedBy.get(techSlug);
         expect(
-          tech?.relations.adrs.includes(adrSlug),
-          `Tech ${techSlug} should reference ADR ${adrSlug}`,
+          usedBy?.has(`adr:${adrSlug}`),
+          `Tech ${techSlug} should reference ADR ${adrSlug} in graph`,
         ).toBe(true);
       }
     }
 
-    // For each role, verify that its technologies reference it back
+    // For each role, verify that the graph has reverse references
     for (const [roleSlug, role] of repo.roles) {
       for (const techSlug of role.relations.technologies) {
-        const tech = repo.technologies.get(techSlug);
+        const usedBy = repo.graph.reverse.technologyUsedBy.get(techSlug);
         expect(
-          tech?.relations.roles.includes(roleSlug),
-          `Tech ${techSlug} should reference role ${roleSlug}`,
+          usedBy?.has(`role:${roleSlug}`),
+          `Tech ${techSlug} should reference role ${roleSlug} in graph`,
         ).toBe(true);
       }
     }

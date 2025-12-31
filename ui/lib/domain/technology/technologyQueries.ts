@@ -46,7 +46,7 @@ export function getTechnologyDetail(
 ): TechnologyDetailView | null {
   const tech = repository.technologies.get(slug);
   if (!tech) return null;
-  return toTechnologyDetailView(tech);
+  return toTechnologyDetailView(tech, repository);
 }
 
 export function getAllTechnologyBadges(
