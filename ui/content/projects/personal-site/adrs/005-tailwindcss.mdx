@@ -20,7 +20,7 @@ I want a solution that prioritizes **velocity** and **consistency** while playin
 
 I decided to use **[Tailwind CSS](https://tailwindcss.com/)**.
 
-This aligns with the **Minimize Platforms, Maximize Velocity** principle. It allows styling directly in the markup, enforcing a design system through constrained tokens.
+Styling directly in the markup eliminates context switching—tighter [Fast Feedback Loops](/projects?tab=philosophy#fast-feedback-loops). Constrained tokens enforce a design system.
 
 # Consequences
 
@@ -28,7 +28,7 @@ This aligns with the **Minimize Platforms, Maximize Velocity** principle. It all
 
 * **Velocity**: Styling is significantly faster. I don't need to name classes or switch files.
 * **Locality of Behavior**: Code and style live together. Deleting a component deletes its styles automatically.
-* **AI Compatibility**: LLMs are excellent at writing Tailwind. The text-based nature of utility classes is easier for models to predict than arbitrary CSS class names + separate CSS files.
+* **AI Compatibility**: LLMs are excellent at writing Tailwind—[LLM-Optimized](/projects?tab=philosophy#llm-optimized). The text-based nature of utility classes is easier for models to predict than arbitrary CSS class names + separate CSS files.
 * **Consistency**: We are forced to use the design system values (spacing, colors) defined in the config, preventing "magic numbers".
 
 ### Cons
