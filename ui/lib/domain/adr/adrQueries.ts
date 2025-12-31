@@ -83,13 +83,11 @@ export function getAllADRListItems(
   return Array.from(repository.adrs.values()).map(toADRListItemView);
 }
 
-export function getADRsForProject(
+function mapADRsToADRCardViews(
   repository: DomainRepository,
-  projectSlug: string,
+  adrSlugs: string[],
+  projectSlugOverride?: string,
 ): ADRCardView[] {
-  const adrSlugs = getADRSlugsForProject(repository.graph, projectSlug);
-  if (adrSlugs.length === 0) return [];
-
   return adrSlugs
     .map((slug) => repository.adrs.get(slug))
     .filter((adr): adr is NonNullable<typeof adr> => adr !== undefined)
@@ -98,8 +96,22 @@ export function getADRsForProject(
       const technologies = resolveTechnologiesToBadgeViews(repository, [
         ...techSlugs,
       ]);
+      const projectSlug =
+        projectSlugOverride ?? getProjectForADR(repository.graph, adr.slug);
+      if (!projectSlug) return null;
       return toADRCardView(adr, technologies, projectSlug);
-    });
+    })
+    .filter((view): view is ADRCardView => view !== null);
+}
+
+export function getADRsForProject(
+  repository: DomainRepository,
+  projectSlug: string,
+): ADRCardView[] {
+  const adrSlugs = getADRSlugsForProject(repository.graph, projectSlug);
+  if (adrSlugs.length === 0) return [];
+
+  return mapADRsToADRCardViews(repository, adrSlugs, projectSlug);
 }
 
 export function getADRsUsingTechnology(
@@ -111,17 +123,5 @@ export function getADRsUsingTechnology(
     technologySlug,
   );
 
-  return adrSlugs
-    .map((slug) => repository.adrs.get(slug))
-    .filter((adr): adr is NonNullable<typeof adr> => adr !== undefined)
-    .map((adr) => {
-      const techSlugs = getTechnologiesForADR(repository.graph, adr.slug);
-      const technologies = resolveTechnologiesToBadgeViews(repository, [
-        ...techSlugs,
-      ]);
-      const projectSlug = getProjectForADR(repository.graph, adr.slug);
-      if (!projectSlug) return null;
-      return toADRCardView(adr, technologies, projectSlug);
-    })
-    .filter((view): view is ADRCardView => view !== null);
+  return mapADRsToADRCardViews(repository, adrSlugs);
 }

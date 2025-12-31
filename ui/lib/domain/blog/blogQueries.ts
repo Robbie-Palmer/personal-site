@@ -81,15 +81,10 @@ export function getAllBlogListItems(
   return Array.from(repository.blogs.values()).map(toBlogListItemView);
 }
 
-export function getBlogsUsingTechnology(
+function mapBlogsToBlogCardViews(
   repository: DomainRepository,
-  technologySlug: string,
+  blogSlugs: BlogSlug[],
 ): BlogCardView[] {
-  const { blogs: blogSlugs } = getContentUsingTechnologyByType(
-    repository.graph,
-    technologySlug,
-  );
-
   return blogSlugs
     .map((slug) => repository.blogs.get(slug))
     .filter((blog): blog is NonNullable<typeof blog> => blog !== undefined)
@@ -106,27 +101,27 @@ export function getBlogsUsingTechnology(
     });
 }
 
+export function getBlogsUsingTechnology(
+  repository: DomainRepository,
+  technologySlug: string,
+): BlogCardView[] {
+  const { blogs: blogSlugs } = getContentUsingTechnologyByType(
+    repository.graph,
+    technologySlug,
+  );
+
+  return mapBlogsToBlogCardViews(repository, blogSlugs);
+}
+
 export function getBlogsByTag(
   repository: DomainRepository,
   tag: string,
 ): BlogCardView[] {
   const nodeIds = getContentForTag(repository.graph, tag);
 
-  return Array.from(nodeIds)
+  const blogSlugs = Array.from(nodeIds)
     .filter((nodeId) => isNodeType(nodeId, "blog"))
-    .map((nodeId) => getNodeSlug(nodeId) as BlogSlug)
-    .map((slug) => repository.blogs.get(slug))
-    .filter((blog): blog is NonNullable<typeof blog> => blog !== undefined)
-    .map((blog) => {
-      const techSlugs = getTechnologiesForBlog(repository.graph, blog.slug);
-      const technologies = resolveTechnologiesToBadgeViews(repository, [
-        ...techSlugs,
-      ]);
-      const tags = getTagsForContent(
-        repository.graph,
-        makeNodeId("blog", blog.slug),
-      );
+    .map((nodeId) => getNodeSlug(nodeId) as BlogSlug);
 
-      return toBlogCardView(blog, technologies, [...tags]);
-    });
+  return mapBlogsToBlogCardViews(repository, blogSlugs);
 }
