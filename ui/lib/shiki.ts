@@ -24,6 +24,7 @@ async function getShikiHighlighter() {
         "java",
         "csharp",
         "rust",
+        "cypher",
       ],
     });
   }
@@ -33,8 +34,12 @@ async function getShikiHighlighter() {
 export async function highlight(code: string, lang: string) {
   const highlighter = await getShikiHighlighter();
 
+  // Graceful fallback to plain text for unknown languages
+  const loadedLangs = highlighter.getLoadedLanguages();
+  const safeLang = loadedLangs.includes(lang) ? lang : "text";
+
   const html = highlighter.codeToHtml(code, {
-    lang,
+    lang: safeLang,
     themes: {
       light: "github-light",
       dark: "github-dark",
