@@ -8,6 +8,7 @@ import {
   isNodeType,
   makeNodeId,
 } from "@/lib/repository";
+import type { TechnologySlug } from "../technology/technology";
 import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
 import type { BlogSlug } from "./blogPost";
 import {
@@ -93,7 +94,7 @@ function mapBlogsToBlogCardViews(
 
 export function getBlogsUsingTechnology(
   repository: DomainRepository,
-  technologySlug: string,
+  technologySlug: TechnologySlug,
 ): BlogCardView[] {
   const { blogs: blogSlugs } = getContentUsingTechnologyByType(
     repository.graph,
