@@ -1,5 +1,6 @@
 import {
   type DomainRepository,
+  getADRSlugsForProject,
   getContentUsingTechnologyByType,
   getProjectForADR,
   getTechnologiesForADR,
@@ -86,10 +87,10 @@ export function getADRsForProject(
   repository: DomainRepository,
   projectSlug: string,
 ): ADRCardView[] {
-  const adrSlugs = repository.graph.reverse.projectADRs.get(projectSlug);
-  if (!adrSlugs) return [];
+  const adrSlugs = getADRSlugsForProject(repository.graph, projectSlug);
+  if (adrSlugs.length === 0) return [];
 
-  return Array.from(adrSlugs)
+  return adrSlugs
     .map((slug) => repository.adrs.get(slug))
     .filter((adr): adr is NonNullable<typeof adr> => adr !== undefined)
     .map((adr) => {

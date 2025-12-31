@@ -97,7 +97,6 @@ describe("buildContentGraph", () => {
 
   it("builds ADR-project edges", () => {
     const relations = createEmptyRelationData();
-    relations.projectADRs.set("site", ["001", "002"]);
     relations.adrProject.set("001", "site");
     relations.adrProject.set("002", "site");
 

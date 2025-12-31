@@ -1,7 +1,5 @@
 import type { ADRSlug } from "@/lib/domain/adr/adr";
-import type { BlogSlug } from "@/lib/domain/blog/blogPost";
 import type { ProjectSlug } from "@/lib/domain/project/project";
-import type { RoleSlug } from "@/lib/domain/role/jobRole";
 import type { TechnologySlug } from "@/lib/domain/technology/technology";
 
 export type NodeType = "project" | "adr" | "blog" | "role" | "technology";
@@ -18,16 +16,6 @@ export type EdgeType =
   | "PART_OF_PROJECT"
   | "SUPERSEDES"
   | "HAS_TAG";
-
-export type EdgeDefinition =
-  | {
-      type: "USES_TECHNOLOGY";
-      from: ProjectSlug | ADRSlug | BlogSlug | RoleSlug;
-      to: TechnologySlug;
-    }
-  | { type: "PART_OF_PROJECT"; from: ADRSlug; to: ProjectSlug }
-  | { type: "SUPERSEDES"; from: ADRSlug; to: ADRSlug }
-  | { type: "HAS_TAG"; from: NodeId; to: string };
 
 export interface ContentGraph {
   edges: {

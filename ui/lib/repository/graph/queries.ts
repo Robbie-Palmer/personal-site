@@ -12,34 +12,40 @@ import {
   type NodeType,
 } from "./types";
 
+function getTechnologiesFor(
+  graph: ContentGraph,
+  type: NodeType,
+  slug: string,
+): Set<TechnologySlug> {
+  return graph.edges.usesTechnology.get(makeNodeId(type, slug)) ?? new Set();
+}
+
 export function getTechnologiesForProject(
   graph: ContentGraph,
   slug: ProjectSlug,
 ): Set<TechnologySlug> {
-  return (
-    graph.edges.usesTechnology.get(makeNodeId("project", slug)) ?? new Set()
-  );
+  return getTechnologiesFor(graph, "project", slug);
 }
 
 export function getTechnologiesForADR(
   graph: ContentGraph,
   slug: ADRSlug,
 ): Set<TechnologySlug> {
-  return graph.edges.usesTechnology.get(makeNodeId("adr", slug)) ?? new Set();
+  return getTechnologiesFor(graph, "adr", slug);
 }
 
 export function getTechnologiesForBlog(
   graph: ContentGraph,
   slug: BlogSlug,
 ): Set<TechnologySlug> {
-  return graph.edges.usesTechnology.get(makeNodeId("blog", slug)) ?? new Set();
+  return getTechnologiesFor(graph, "blog", slug);
 }
 
 export function getTechnologiesForRole(
   graph: ContentGraph,
   slug: RoleSlug,
 ): Set<TechnologySlug> {
-  return graph.edges.usesTechnology.get(makeNodeId("role", slug)) ?? new Set();
+  return getTechnologiesFor(graph, "role", slug);
 }
 
 export function getContentUsingTechnology(

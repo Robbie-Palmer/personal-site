@@ -2,8 +2,10 @@ import {
   type DomainRepository,
   getContentForTag,
   getContentUsingTechnologyByType,
+  getNodeSlug,
   getTagsForContent,
   getTechnologiesForBlog,
+  isNodeType,
   makeNodeId,
 } from "@/lib/repository";
 import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
@@ -111,8 +113,8 @@ export function getBlogsByTag(
   const nodeIds = getContentForTag(repository.graph, tag);
 
   return Array.from(nodeIds)
-    .filter((nodeId) => nodeId.startsWith("blog:"))
-    .map((nodeId) => nodeId.slice(5) as BlogSlug)
+    .filter((nodeId) => isNodeType(nodeId, "blog"))
+    .map((nodeId) => getNodeSlug(nodeId) as BlogSlug)
     .map((slug) => repository.blogs.get(slug))
     .filter((blog): blog is NonNullable<typeof blog> => blog !== undefined)
     .map((blog) => {
