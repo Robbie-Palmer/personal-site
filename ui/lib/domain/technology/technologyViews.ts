@@ -1,6 +1,8 @@
+import {
+  type DomainRepository,
+  getContentUsingTechnologyByType,
+} from "@/lib/repository";
 import { hasTechIcon } from "../../tech-icons";
-import { getContentUsingTechnologyByType } from "../graph/queries";
-import type { DomainRepository } from "../repository";
 import type { Technology, TechnologySlug } from "./technology";
 
 export type TechnologyLabelView = {

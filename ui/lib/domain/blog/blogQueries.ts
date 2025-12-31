@@ -1,11 +1,11 @@
 import {
+  type DomainRepository,
   getContentForTag,
   getContentUsingTechnologyByType,
   getTagsForContent,
   getTechnologiesForBlog,
-} from "../graph/queries";
-import { makeNodeId } from "../graph/types";
-import type { DomainRepository } from "../repository";
+  makeNodeId,
+} from "@/lib/repository";
 import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
 import type { BlogSlug } from "./blogPost";
 import {

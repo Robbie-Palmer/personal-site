@@ -3,44 +3,43 @@ import path from "node:path";
 import { isValid, parse } from "date-fns";
 import matter from "gray-matter";
 import readingTime from "reading-time";
-import { getAllExperience, getExperienceSlug } from "../experience";
-import { TECH_URLS } from "../tech-icons";
 import {
   type ADR,
   type ADRRelations,
   ADRSchema,
   type ADRSlug,
-} from "./adr/adr";
+} from "../domain/adr/adr";
 import {
   type BlogPost,
   BlogPostSchema,
   type BlogRelations,
   type BlogSlug,
-} from "./blog/blogPost";
+} from "../domain/blog/blogPost";
+import {
+  type Project,
+  type ProjectRelations,
+  ProjectSchema,
+  type ProjectSlug,
+} from "../domain/project/project";
+import {
+  type JobRole,
+  JobRoleSchema,
+  type RoleRelations,
+  type RoleSlug,
+} from "../domain/role/jobRole";
+import {
+  type Technology,
+  TechnologySchema,
+  type TechnologySlug,
+} from "../domain/technology/technology";
+import { getAllExperience, getExperienceSlug } from "../experience";
+import { TECH_URLS } from "../tech-icons";
 import {
   buildContentGraph,
   type ContentGraph,
   createEmptyRelationData,
   type RelationData,
 } from "./graph";
-import {
-  type Project,
-  type ProjectRelations,
-  ProjectSchema,
-  type ProjectSlug,
-} from "./project/project";
-import {
-  type JobRole,
-  JobRoleSchema,
-  type RoleRelations,
-  type RoleSlug,
-} from "./role/jobRole";
-// Domain models
-import {
-  type Technology,
-  TechnologySchema,
-  type TechnologySlug,
-} from "./technology/technology";
 
 // Validation types
 export type DomainValidationResult<T> =

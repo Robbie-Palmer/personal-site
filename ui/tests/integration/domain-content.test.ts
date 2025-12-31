@@ -1,15 +1,13 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import {
+  type DomainRepository,
   getADRSlugsForProject,
   getProjectForADR,
   getTechnologiesForADR,
   getTechnologiesForProject,
   getTechnologiesForRole,
-} from "@/lib/domain/graph/queries";
-import {
-  type DomainRepository,
   loadDomainRepository,
-} from "@/lib/domain/repository";
+} from "@/lib/repository";
 
 /**
  * Integration test: Validate all real content against domain models

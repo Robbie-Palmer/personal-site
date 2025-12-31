@@ -1,8 +1,8 @@
 import {
+  type DomainRepository,
   getContentUsingTechnologyByType,
   getTechnologiesForRole,
-} from "../graph/queries";
-import type { DomainRepository } from "../repository";
+} from "@/lib/repository";
 import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
 import type { RoleSlug } from "./jobRole";
 import {

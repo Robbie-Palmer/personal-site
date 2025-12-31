@@ -1,8 +1,8 @@
-import type { ADRSlug } from "../adr/adr";
-import type { BlogSlug } from "../blog/blogPost";
-import type { ProjectSlug } from "../project/project";
-import type { RoleSlug } from "../role/jobRole";
-import type { TechnologySlug } from "../technology/technology";
+import type { ADRSlug } from "@/lib/domain/adr/adr";
+import type { BlogSlug } from "@/lib/domain/blog/blogPost";
+import type { ProjectSlug } from "@/lib/domain/project/project";
+import type { RoleSlug } from "@/lib/domain/role/jobRole";
+import type { TechnologySlug } from "@/lib/domain/technology/technology";
 
 export type NodeType = "project" | "adr" | "blog" | "role" | "technology";
 

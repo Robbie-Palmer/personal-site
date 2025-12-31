@@ -1,11 +1,11 @@
-import { getADRsForProject } from "../adr/adrQueries";
 import {
+  type DomainRepository,
   getADRCountForProject,
   getADRSlugsForProject,
   getContentUsingTechnologyByType,
   getTechnologiesForProject,
-} from "../graph/queries";
-import type { DomainRepository } from "../repository";
+} from "@/lib/repository";
+import { getADRsForProject } from "../adr/adrQueries";
 import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
 import type { ProjectSlug } from "./project";
 import {

@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   buildContentGraph,
   createEmptyRelationData,
-} from "@/lib/domain/graph/builder";
-import {
   getContentUsingTechnology,
   getContentUsingTechnologyByType,
+  getNodeSlug,
+  getNodeType,
   getProjectForADR,
   getSupersededADR,
   getSupersedingADR,
@@ -13,14 +13,10 @@ import {
   getTechnologiesForBlog,
   getTechnologiesForProject,
   getTechnologiesForRole,
-} from "@/lib/domain/graph/queries";
-import {
-  getNodeSlug,
-  getNodeType,
   isNodeType,
   makeNodeId,
   parseNodeId,
-} from "@/lib/domain/graph/types";
+} from "@/lib/repository";
 
 describe("NodeId utilities", () => {
   it("makeNodeId creates correct format", () => {

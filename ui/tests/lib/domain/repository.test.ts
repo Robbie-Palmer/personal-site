@@ -51,7 +51,7 @@ import {
   validateBlogPost,
   validateReferentialIntegrity,
   validateTechnology,
-} from "@/lib/domain/repository";
+} from "@/lib/repository";
 
 describe("Domain Repository", () => {
   beforeEach(() => {

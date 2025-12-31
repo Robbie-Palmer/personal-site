@@ -1,9 +1,9 @@
 import {
+  type DomainRepository,
   getContentUsingTechnologyByType,
   getProjectForADR,
   getTechnologiesForADR,
-} from "../graph/queries";
-import type { DomainRepository } from "../repository";
+} from "@/lib/repository";
 import {
   resolveTechnologiesToBadgeViews,
   resolveTechnologiesToLabelViews,

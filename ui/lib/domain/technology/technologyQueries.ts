@@ -1,10 +1,10 @@
 import {
+  type DomainRepository,
   getTechnologiesForADR,
   getTechnologiesForBlog,
   getTechnologiesForProject,
   getTechnologiesForRole,
-} from "../graph/queries";
-import type { DomainRepository } from "../repository";
+} from "@/lib/repository";
 import type { TechnologySlug } from "./technology";
 import {
   resolveTechnologiesToBadgeViews,
