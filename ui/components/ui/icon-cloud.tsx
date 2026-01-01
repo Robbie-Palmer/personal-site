@@ -363,9 +363,10 @@ export function IconCloud({
       const deltaY = touch.clientY - lastMousePos.y
 
       // Increased sensitivity for touch (0.004 vs 0.002)
+      // Invert deltaX to make swipe direction intuitive
       rotationRef.current = {
         x: rotationRef.current.x + deltaY * 0.004,
-        y: rotationRef.current.y + deltaX * 0.004,
+        y: rotationRef.current.y - deltaX * 0.004,
       }
 
       setLastMousePos({ x: touch.clientX, y: touch.clientY })

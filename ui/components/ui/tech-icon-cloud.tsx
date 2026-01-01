@@ -33,6 +33,7 @@ export function TechIconCloud({
   const [centeredTech, setCenteredTech] = useState<{
     name: string;
     url?: string;
+    iconIndex: number;
   } | null>(null);
 
   // Create weighted icon array using image URLs and track which tech each icon belongs to
@@ -66,8 +67,8 @@ export function TechIconCloud({
 
     // If centered and navigation is enabled
     if (isCentered && enableNavigation && tech.url) {
-      // Check if this is the same tech that was already centered
-      if (centeredTech?.name === tech.name) {
+      // Check if this is the exact same icon that was already centered
+      if (centeredTech?.iconIndex === iconIndex) {
         // Second tap - navigate
         if (tech.url.startsWith("http")) {
           window.open(tech.url, "_blank", "noopener,noreferrer");
@@ -77,7 +78,7 @@ export function TechIconCloud({
         setCenteredTech(null);
       } else {
         // First tap - show prompt
-        setCenteredTech({ name: tech.name, url: tech.url });
+        setCenteredTech({ name: tech.name, url: tech.url, iconIndex });
       }
     } else {
       // Clear centered tech if clicking a non-centered icon
