@@ -1,8 +1,8 @@
 "use client";
 
-import { getTechIconUrl } from "@/lib/tech-icons";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { getTechIconUrl } from "@/lib/tech-icons";
 import { IconCloud } from "./icon-cloud";
 
 export interface TechIconCloudItem {
@@ -36,8 +36,9 @@ export function TechIconCloud({
     iconIndex: number;
   } | null>(null);
 
-  // Create weighted icon array using image URLs and track which tech each icon belongs to
+  // Create icon array using image URLs and track weights
   const imageUrls: string[] = [];
+  const iconWeights: number[] = [];
   const indexToTechMap: number[] = [];
 
   technologies.forEach((tech, techIndex) => {
@@ -46,11 +47,10 @@ export function TechIconCloud({
 
     if (!iconUrl) return;
 
-    // Repeat based on weight (1x, 2x, or 3x)
-    for (let i = 0; i < Math.round(weight); i++) {
-      imageUrls.push(iconUrl);
-      indexToTechMap.push(techIndex);
-    }
+    // Add once with its weight (affects size, not quantity)
+    imageUrls.push(iconUrl);
+    iconWeights.push(weight);
+    indexToTechMap.push(techIndex);
   });
 
   const handleIconClick = (iconIndex: number, isCentered: boolean) => {
@@ -102,6 +102,7 @@ export function TechIconCloud({
     <div className={className}>
       <IconCloud
         images={imageUrls}
+        iconWeights={iconWeights}
         size={size}
         onIconClick={handleIconClick}
         onIconHover={handleIconHover}

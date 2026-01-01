@@ -1,144 +1,147 @@
-"use client"
+"use client";
 
-import React, { useEffect, useRef, useState } from "react"
-import { renderToString } from "react-dom/server"
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
+import { renderToString } from "react-dom/server";
 
 interface Icon {
-  x: number
-  y: number
-  z: number
-  scale: number
-  opacity: number
-  id: number
+  x: number;
+  y: number;
+  z: number;
+  scale: number;
+  opacity: number;
+  id: number;
 }
 
 interface IconCloudProps {
-  icons?: React.ReactNode[]
-  images?: string[]
-  size?: number
-  onIconClick?: (index: number, isCentered: boolean) => void
-  onIconHover?: (index: number | null) => void
+  icons?: React.ReactNode[];
+  images?: string[];
+  iconWeights?: number[];
+  size?: number;
+  onIconClick?: (index: number, isCentered: boolean) => void;
+  onIconHover?: (index: number | null) => void;
 }
 
 function easeOutCubic(t: number): number {
-  return 1 - Math.pow(1 - t, 3)
+  return 1 - (1 - t) ** 3;
 }
 
 export function IconCloud({
   icons,
   images,
+  iconWeights,
   size = 400,
   onIconClick,
   onIconHover,
 }: IconCloudProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [iconPositions, setIconPositions] = useState<Icon[]>([])
-  const [isDragging, setIsDragging] = useState(false)
-  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 })
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
-  const [hoveredIconIndex, setHoveredIconIndex] = useState<number | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [iconPositions, setIconPositions] = useState<Icon[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [hoveredIconIndex, setHoveredIconIndex] = useState<number | null>(null);
   const [targetRotation, setTargetRotation] = useState<{
-    x: number
-    y: number
-    startX: number
-    startY: number
-    distance: number
-    startTime: number
-    duration: number
-  } | null>(null)
-  const animationFrameRef = useRef<number>(0)
-  const rotationRef = useRef({ x: 0, y: 0 })
-  const iconCanvasesRef = useRef<HTMLCanvasElement[]>([])
-  const imagesLoadedRef = useRef<boolean[]>([])
-  const [isDarkMode, setIsDarkMode] = useState(false)
+    x: number;
+    y: number;
+    startX: number;
+    startY: number;
+    distance: number;
+    startTime: number;
+    duration: number;
+  } | null>(null);
+  const animationFrameRef = useRef<number>(0);
+  const rotationRef = useRef({ x: 0, y: 0 });
+  const iconCanvasesRef = useRef<HTMLCanvasElement[]>([]);
+  const imagesLoadedRef = useRef<boolean[]>([]);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Detect theme changes
   useEffect(() => {
     const checkTheme = () => {
-      setIsDarkMode(document.documentElement.classList.contains('dark'))
-    }
+      setIsDarkMode(document.documentElement.classList.contains("dark"));
+    };
 
-    checkTheme()
+    checkTheme();
 
     // Watch for theme changes
-    const observer = new MutationObserver(checkTheme)
+    const observer = new MutationObserver(checkTheme);
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['class'],
-    })
+      attributeFilter: ["class"],
+    });
 
-    return () => observer.disconnect()
-  }, [])
+    return () => observer.disconnect();
+  }, []);
 
   // Create icon canvases once when icons/images change
   useEffect(() => {
-    if (!icons && !images) return
+    if (!icons && !images) return;
 
-    const items = icons || images || []
-    imagesLoadedRef.current = new Array(items.length).fill(false)
+    const items = icons || images || [];
+    imagesLoadedRef.current = new Array(items.length).fill(false);
 
     const newIconCanvases = items.map((item, index) => {
-      const offscreen = document.createElement("canvas")
-      offscreen.width = 40
-      offscreen.height = 40
-      const offCtx = offscreen.getContext("2d")
+      const offscreen = document.createElement("canvas");
+      offscreen.width = 40;
+      offscreen.height = 40;
+      const offCtx = offscreen.getContext("2d");
 
       if (offCtx) {
         if (images) {
           // Handle image URLs directly
-          const img = new Image()
-          img.crossOrigin = "anonymous"
-          img.src = items[index] as string
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.src = items[index] as string;
           img.onload = () => {
-            offCtx.clearRect(0, 0, offscreen.width, offscreen.height)
+            offCtx.clearRect(0, 0, offscreen.width, offscreen.height);
 
             // Create circular clipping path
-            offCtx.beginPath()
-            offCtx.arc(20, 20, 20, 0, Math.PI * 2)
-            offCtx.closePath()
-            offCtx.clip()
+            offCtx.beginPath();
+            offCtx.arc(20, 20, 20, 0, Math.PI * 2);
+            offCtx.closePath();
+            offCtx.clip();
 
             // Draw the image
-            offCtx.drawImage(img, 0, 0, 40, 40)
+            offCtx.drawImage(img, 0, 0, 40, 40);
 
-            imagesLoadedRef.current[index] = true
-          }
+            imagesLoadedRef.current[index] = true;
+          };
         } else {
           // Handle SVG icons
-          offCtx.scale(0.4, 0.4)
-          const svgString = renderToString(item as React.ReactElement)
-          const img = new Image()
-          img.src = "data:image/svg+xml;base64," + btoa(svgString)
+          offCtx.scale(0.4, 0.4);
+          const svgString = renderToString(item as React.ReactElement);
+          const img = new Image();
+          img.src = "data:image/svg+xml;base64," + btoa(svgString);
           img.onload = () => {
-            offCtx.clearRect(0, 0, offscreen.width, offscreen.height)
-            offCtx.drawImage(img, 0, 0)
-            imagesLoadedRef.current[index] = true
-          }
+            offCtx.clearRect(0, 0, offscreen.width, offscreen.height);
+            offCtx.drawImage(img, 0, 0);
+            imagesLoadedRef.current[index] = true;
+          };
         }
       }
-      return offscreen
-    })
+      return offscreen;
+    });
 
-    iconCanvasesRef.current = newIconCanvases
-  }, [icons, images])
+    iconCanvasesRef.current = newIconCanvases;
+  }, [icons, images]);
 
   // Generate initial icon positions on a sphere
   useEffect(() => {
-    const items = icons || images || []
-    const newIcons: Icon[] = []
-    const numIcons = items.length || 20
+    const items = icons || images || [];
+    const newIcons: Icon[] = [];
+    const numIcons = items.length || 20;
 
     // Fibonacci sphere parameters
-    const offset = 2 / numIcons
-    const increment = Math.PI * (3 - Math.sqrt(5))
+    const offset = 2 / numIcons;
+    const increment = Math.PI * (3 - Math.sqrt(5));
 
     for (let i = 0; i < numIcons; i++) {
-      const y = i * offset - 1 + offset / 2
-      const r = Math.sqrt(1 - y * y)
-      const phi = i * increment
+      const y = i * offset - 1 + offset / 2;
+      const r = Math.sqrt(1 - y * y);
+      const phi = i * increment;
 
-      const x = Math.cos(phi) * r
-      const z = Math.sin(phi) * r
+      const x = Math.cos(phi) * r;
+      const z = Math.sin(phi) * r;
 
       newIcons.push({
         x: x * 100,
@@ -147,65 +150,67 @@ export function IconCloud({
         scale: 1,
         opacity: 1,
         id: i,
-      })
+      });
     }
-    setIconPositions(newIcons)
-  }, [icons, images])
+    setIconPositions(newIcons);
+  }, [icons, images]);
 
   // Handle mouse events
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = canvasRef.current?.getBoundingClientRect()
-    if (!rect || !canvasRef.current) return
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect || !canvasRef.current) return;
 
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
-    const ctx = canvasRef.current.getContext("2d")
-    if (!ctx) return
+    const ctx = canvasRef.current.getContext("2d");
+    if (!ctx) return;
 
     iconPositions.forEach((icon) => {
-      const cosX = Math.cos(rotationRef.current.x)
-      const sinX = Math.sin(rotationRef.current.x)
-      const cosY = Math.cos(rotationRef.current.y)
-      const sinY = Math.sin(rotationRef.current.y)
+      const cosX = Math.cos(rotationRef.current.x);
+      const sinX = Math.sin(rotationRef.current.x);
+      const cosY = Math.cos(rotationRef.current.y);
+      const sinY = Math.sin(rotationRef.current.y);
 
-      const rotatedX = icon.x * cosY - icon.z * sinY
-      const rotatedZ = icon.x * sinY + icon.z * cosY
-      const rotatedY = icon.y * cosX + rotatedZ * sinX
+      const rotatedX = icon.x * cosY - icon.z * sinY;
+      const rotatedZ = icon.x * sinY + icon.z * cosY;
+      const rotatedY = icon.y * cosX + rotatedZ * sinX;
 
-      const screenX = canvasRef.current!.width / 2 + rotatedX
-      const screenY = canvasRef.current!.height / 2 + rotatedY
+      const screenX = canvasRef.current!.width / 2 + rotatedX;
+      const screenY = canvasRef.current!.height / 2 + rotatedY;
 
-      const scale = (rotatedZ + 200) / 300
-      const radius = 20 * scale
-      const dx = x - screenX
-      const dy = y - screenY
+      const baseScale = (rotatedZ + 200) / 300;
+      const weight = iconWeights?.[icon.id] || 1;
+      const scale = baseScale * weight;
+      const radius = 20 * scale;
+      const dx = x - screenX;
+      const dy = y - screenY;
 
       if (dx * dx + dy * dy < radius * radius) {
         // Check if icon is already in front (centered)
         // Icons at the front have high positive rotatedZ values
-        const isCentered = rotatedZ > 50
+        const isCentered = rotatedZ > 50;
 
         // Call click handler if provided
         if (onIconClick) {
-          onIconClick(icon.id, isCentered)
+          onIconClick(icon.id, isCentered);
         }
 
         // Only animate to center if not already centered
         if (!isCentered) {
           const targetX = -Math.atan2(
             icon.y,
-            Math.sqrt(icon.x * icon.x + icon.z * icon.z)
-          )
-          const targetY = Math.atan2(icon.x, icon.z)
+            Math.sqrt(icon.x * icon.x + icon.z * icon.z),
+          );
+          const targetY = Math.atan2(icon.x, icon.z);
 
-          const currentX = rotationRef.current.x
-          const currentY = rotationRef.current.y
+          const currentX = rotationRef.current.x;
+          const currentY = rotationRef.current.y;
           const distance = Math.sqrt(
-            Math.pow(targetX - currentX, 2) + Math.pow(targetY - currentY, 2)
-          )
+            (targetX - currentX) ** 2 + (targetY - currentY) ** 2,
+          );
 
-          const duration = Math.min(2000, Math.max(800, distance * 1000))
+          const duration = Math.min(2000, Math.max(800, distance * 1000));
 
           setTargetRotation({
             x: targetX,
@@ -215,136 +220,140 @@ export function IconCloud({
             distance,
             startTime: performance.now(),
             duration,
-          })
+          });
         }
-        return
+        return;
       }
-    })
+    });
 
-    setIsDragging(true)
-    setLastMousePos({ x: e.clientX, y: e.clientY })
-  }
+    setIsDragging(true);
+    setLastMousePos({ x: e.clientX, y: e.clientY });
+  };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = canvasRef.current?.getBoundingClientRect()
-    if (!rect) return
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
 
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-    setMousePos({ x, y })
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setMousePos({ x, y });
 
     // Check for hovered icon
     if (onIconHover && !isDragging) {
-      let foundHover = false
+      let foundHover = false;
       for (const icon of iconPositions) {
-        const cosX = Math.cos(rotationRef.current.x)
-        const sinX = Math.sin(rotationRef.current.x)
-        const cosY = Math.cos(rotationRef.current.y)
-        const sinY = Math.sin(rotationRef.current.y)
+        const cosX = Math.cos(rotationRef.current.x);
+        const sinX = Math.sin(rotationRef.current.x);
+        const cosY = Math.cos(rotationRef.current.y);
+        const sinY = Math.sin(rotationRef.current.y);
 
-        const rotatedX = icon.x * cosY - icon.z * sinY
-        const rotatedZ = icon.x * sinY + icon.z * cosY
-        const rotatedY = icon.y * cosX + rotatedZ * sinX
+        const rotatedX = icon.x * cosY - icon.z * sinY;
+        const rotatedZ = icon.x * sinY + icon.z * cosY;
+        const rotatedY = icon.y * cosX + rotatedZ * sinX;
 
-        const screenX = canvasRef.current!.width / 2 + rotatedX
-        const screenY = canvasRef.current!.height / 2 + rotatedY
+        const screenX = canvasRef.current!.width / 2 + rotatedX;
+        const screenY = canvasRef.current!.height / 2 + rotatedY;
 
-        const scale = (rotatedZ + 200) / 300
-        const radius = 20 * scale
-        const dx = x - screenX
-        const dy = y - screenY
+        const baseScale = (rotatedZ + 200) / 300;
+        const weight = iconWeights?.[icon.id] || 1;
+        const scale = baseScale * weight;
+        const radius = 20 * scale;
+        const dx = x - screenX;
+        const dy = y - screenY;
 
         if (dx * dx + dy * dy < radius * radius) {
           if (hoveredIconIndex !== icon.id) {
-            setHoveredIconIndex(icon.id)
-            onIconHover(icon.id)
+            setHoveredIconIndex(icon.id);
+            onIconHover(icon.id);
           }
-          foundHover = true
-          break
+          foundHover = true;
+          break;
         }
       }
 
       if (!foundHover && hoveredIconIndex !== null) {
-        setHoveredIconIndex(null)
-        onIconHover(null)
+        setHoveredIconIndex(null);
+        onIconHover(null);
       }
     }
 
     if (isDragging) {
-      const deltaX = e.clientX - lastMousePos.x
-      const deltaY = e.clientY - lastMousePos.y
+      const deltaX = e.clientX - lastMousePos.x;
+      const deltaY = e.clientY - lastMousePos.y;
 
       rotationRef.current = {
         x: rotationRef.current.x + deltaY * 0.002,
         y: rotationRef.current.y + deltaX * 0.002,
-      }
+      };
 
-      setLastMousePos({ x: e.clientX, y: e.clientY })
+      setLastMousePos({ x: e.clientX, y: e.clientY });
     }
-  }
+  };
 
   const handleMouseUp = () => {
-    setIsDragging(false)
-  }
+    setIsDragging(false);
+  };
 
   // Touch event handlers for mobile
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (e.touches.length !== 1) return
+    if (e.touches.length !== 1) return;
 
-    const touch = e.touches[0]
-    if (!touch || !canvasRef.current) return
+    const touch = e.touches[0];
+    if (!touch || !canvasRef.current) return;
 
-    const rect = canvasRef.current.getBoundingClientRect()
-    const x = touch.clientX - rect.left
-    const y = touch.clientY - rect.top
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
 
     // Check if touching an icon (same logic as mouse)
-    const ctx = canvasRef.current.getContext("2d")
-    if (!ctx) return
+    const ctx = canvasRef.current.getContext("2d");
+    if (!ctx) return;
 
     iconPositions.forEach((icon) => {
-      const cosX = Math.cos(rotationRef.current.x)
-      const sinX = Math.sin(rotationRef.current.x)
-      const cosY = Math.cos(rotationRef.current.y)
-      const sinY = Math.sin(rotationRef.current.y)
+      const cosX = Math.cos(rotationRef.current.x);
+      const sinX = Math.sin(rotationRef.current.x);
+      const cosY = Math.cos(rotationRef.current.y);
+      const sinY = Math.sin(rotationRef.current.y);
 
-      const rotatedX = icon.x * cosY - icon.z * sinY
-      const rotatedZ = icon.x * sinY + icon.z * cosY
-      const rotatedY = icon.y * cosX + rotatedZ * sinX
+      const rotatedX = icon.x * cosY - icon.z * sinY;
+      const rotatedZ = icon.x * sinY + icon.z * cosY;
+      const rotatedY = icon.y * cosX + rotatedZ * sinX;
 
-      const screenX = canvasRef.current!.width / 2 + rotatedX
-      const screenY = canvasRef.current!.height / 2 + rotatedY
+      const screenX = canvasRef.current!.width / 2 + rotatedX;
+      const screenY = canvasRef.current!.height / 2 + rotatedY;
 
-      const scale = (rotatedZ + 200) / 300
-      const radius = 20 * scale
-      const dx = x - screenX
-      const dy = y - screenY
+      const baseScale = (rotatedZ + 200) / 300;
+      const weight = iconWeights?.[icon.id] || 1;
+      const scale = baseScale * weight;
+      const radius = 20 * scale;
+      const dx = x - screenX;
+      const dy = y - screenY;
 
       if (dx * dx + dy * dy < radius * radius) {
         // Check if icon is already in front (centered)
         // Icons at the front have high positive rotatedZ values
-        const isCentered = rotatedZ > 50
+        const isCentered = rotatedZ > 50;
 
         // Call click handler if provided
         if (onIconClick) {
-          onIconClick(icon.id, isCentered)
+          onIconClick(icon.id, isCentered);
         }
 
         // Only animate to center if not already centered
         if (!isCentered) {
           const targetX = -Math.atan2(
             icon.y,
-            Math.sqrt(icon.x * icon.x + icon.z * icon.z)
-          )
-          const targetY = Math.atan2(icon.x, icon.z)
+            Math.sqrt(icon.x * icon.x + icon.z * icon.z),
+          );
+          const targetY = Math.atan2(icon.x, icon.z);
 
-          const currentX = rotationRef.current.x
-          const currentY = rotationRef.current.y
+          const currentX = rotationRef.current.x;
+          const currentY = rotationRef.current.y;
           const distance = Math.sqrt(
-            Math.pow(targetX - currentX, 2) + Math.pow(targetY - currentY, 2)
-          )
+            (targetX - currentX) ** 2 + (targetY - currentY) ** 2,
+          );
 
-          const duration = Math.min(2000, Math.max(800, distance * 1000))
+          const duration = Math.min(2000, Math.max(800, distance * 1000));
 
           setTargetRotation({
             x: targetX,
@@ -354,69 +363,69 @@ export function IconCloud({
             distance,
             startTime: performance.now(),
             duration,
-          })
+          });
         }
-        return
+        return;
       }
-    })
+    });
 
-    setIsDragging(true)
-    setLastMousePos({ x: touch.clientX, y: touch.clientY })
-  }
+    setIsDragging(true);
+    setLastMousePos({ x: touch.clientX, y: touch.clientY });
+  };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (e.touches.length !== 1) return
+    if (e.touches.length !== 1) return;
 
-    const touch = e.touches[0]
-    if (!touch || !canvasRef.current) return
+    const touch = e.touches[0];
+    if (!touch || !canvasRef.current) return;
 
-    const rect = canvasRef.current.getBoundingClientRect()
-    const x = touch.clientX - rect.left
-    const y = touch.clientY - rect.top
-    setMousePos({ x, y })
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    setMousePos({ x, y });
 
     if (isDragging) {
-      e.preventDefault() // Prevent scrolling while dragging
+      e.preventDefault(); // Prevent scrolling while dragging
 
-      const deltaX = touch.clientX - lastMousePos.x
-      const deltaY = touch.clientY - lastMousePos.y
+      const deltaX = touch.clientX - lastMousePos.x;
+      const deltaY = touch.clientY - lastMousePos.y;
 
       // Increased sensitivity for touch (0.004 vs 0.002)
       // Invert deltaX to make swipe direction intuitive
       rotationRef.current = {
         x: rotationRef.current.x + deltaY * 0.004,
         y: rotationRef.current.y - deltaX * 0.004,
-      }
+      };
 
-      setLastMousePos({ x: touch.clientX, y: touch.clientY })
+      setLastMousePos({ x: touch.clientX, y: touch.clientY });
     }
-  }
+  };
 
   const handleTouchEnd = () => {
-    setIsDragging(false)
-  }
+    setIsDragging(false);
+  };
 
   // Animation and rendering
   useEffect(() => {
-    const canvas = canvasRef.current
-    const ctx = canvas?.getContext("2d")
-    if (!canvas || !ctx) return
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
 
     const animate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const centerX = canvas.width / 2
-      const centerY = canvas.height / 2
-      const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY)
-      const dx = mousePos.x - centerX
-      const dy = mousePos.y - centerY
-      const distance = Math.sqrt(dx * dx + dy * dy)
-      const speed = 0.003 + (distance / maxDistance) * 0.01
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
+      const dx = mousePos.x - centerX;
+      const dy = mousePos.y - centerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const speed = 0.003 + (distance / maxDistance) * 0.01;
 
       if (targetRotation) {
-        const elapsed = performance.now() - targetRotation.startTime
-        const progress = Math.min(1, elapsed / targetRotation.duration)
-        const easedProgress = easeOutCubic(progress)
+        const elapsed = performance.now() - targetRotation.startTime;
+        const progress = Math.min(1, elapsed / targetRotation.duration);
+        const easedProgress = easeOutCubic(progress);
 
         rotationRef.current = {
           x:
@@ -425,47 +434,55 @@ export function IconCloud({
           y:
             targetRotation.startY +
             (targetRotation.y - targetRotation.startY) * easedProgress,
-        }
+        };
 
         if (progress >= 1) {
-          setTargetRotation(null)
+          setTargetRotation(null);
         }
       } else if (!isDragging) {
         rotationRef.current = {
           x: rotationRef.current.x + (dy / canvas.height) * speed,
           y: rotationRef.current.y + (dx / canvas.width) * speed,
-        }
+        };
       }
 
       iconPositions.forEach((icon, index) => {
-        const cosX = Math.cos(rotationRef.current.x)
-        const sinX = Math.sin(rotationRef.current.x)
-        const cosY = Math.cos(rotationRef.current.y)
-        const sinY = Math.sin(rotationRef.current.y)
+        const cosX = Math.cos(rotationRef.current.x);
+        const sinX = Math.sin(rotationRef.current.x);
+        const cosY = Math.cos(rotationRef.current.y);
+        const sinY = Math.sin(rotationRef.current.y);
 
-        const rotatedX = icon.x * cosY - icon.z * sinY
-        const rotatedZ = icon.x * sinY + icon.z * cosY
-        const rotatedY = icon.y * cosX + rotatedZ * sinX
+        const rotatedX = icon.x * cosY - icon.z * sinY;
+        const rotatedZ = icon.x * sinY + icon.z * cosY;
+        const rotatedY = icon.y * cosX + rotatedZ * sinX;
 
-        const isHovered = hoveredIconIndex === icon.id
-        const baseScale = (rotatedZ + 200) / 300
-        const scale = isHovered ? baseScale * 1.2 : baseScale
-        const opacity = Math.max(0.2, Math.min(1, (rotatedZ + 150) / 200))
+        const isHovered = hoveredIconIndex === icon.id;
+        const baseScale = (rotatedZ + 200) / 300;
 
-        ctx.save()
-        ctx.translate(canvas.width / 2 + rotatedX, canvas.height / 2 + rotatedY)
-        ctx.scale(scale, scale)
-        ctx.globalAlpha = opacity
+        // Apply weight-based scaling (1x, 2x, or 3x size)
+        const weight = iconWeights?.[index] || 1;
+        const weightedScale = baseScale * weight;
+        const scale = isHovered ? weightedScale * 1.2 : weightedScale;
+
+        const opacity = Math.max(0.2, Math.min(1, (rotatedZ + 150) / 200));
+
+        ctx.save();
+        ctx.translate(
+          canvas.width / 2 + rotatedX,
+          canvas.height / 2 + rotatedY,
+        );
+        ctx.scale(scale, scale);
+        ctx.globalAlpha = opacity;
 
         // Add glow effect for hovered icons
         if (isHovered) {
-          ctx.shadowBlur = 15
-          ctx.shadowColor = "rgba(59, 130, 246, 0.8)"
+          ctx.shadowBlur = 15;
+          ctx.shadowColor = "rgba(59, 130, 246, 0.8)";
         }
 
         // Apply theme-aware filter for icons (black in light mode, white in dark mode)
         if (icons || images) {
-          ctx.filter = isDarkMode ? 'brightness(0) invert(1)' : 'brightness(0)'
+          ctx.filter = isDarkMode ? "brightness(0) invert(1)" : "brightness(0)";
         }
 
         if (icons || images) {
@@ -474,33 +491,33 @@ export function IconCloud({
             iconCanvasesRef.current[index] &&
             imagesLoadedRef.current[index]
           ) {
-            ctx.drawImage(iconCanvasesRef.current[index], -20, -20, 40, 40)
+            ctx.drawImage(iconCanvasesRef.current[index], -20, -20, 40, 40);
           }
         } else {
           // Show numbered circles if no icons/images are provided
-          ctx.beginPath()
-          ctx.arc(0, 0, 20, 0, Math.PI * 2)
-          ctx.fillStyle = isHovered ? "#6688ff" : "#4444ff"
-          ctx.fill()
-          ctx.fillStyle = "white"
-          ctx.textAlign = "center"
-          ctx.textBaseline = "middle"
-          ctx.font = "16px Arial"
-          ctx.fillText(`${icon.id + 1}`, 0, 0)
+          ctx.beginPath();
+          ctx.arc(0, 0, 20, 0, Math.PI * 2);
+          ctx.fillStyle = isHovered ? "#6688ff" : "#4444ff";
+          ctx.fill();
+          ctx.fillStyle = "white";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.font = "16px Arial";
+          ctx.fillText(`${icon.id + 1}`, 0, 0);
         }
 
-        ctx.restore()
-      })
-      animationFrameRef.current = requestAnimationFrame(animate)
-    }
+        ctx.restore();
+      });
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
 
-    animate()
+    animate();
 
     return () => {
       if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
+        cancelAnimationFrame(animationFrameRef.current);
       }
-    }
+    };
   }, [
     icons,
     images,
@@ -510,7 +527,8 @@ export function IconCloud({
     targetRotation,
     hoveredIconIndex,
     isDarkMode,
-  ])
+    iconWeights,
+  ]);
 
   return (
     <canvas
@@ -529,5 +547,5 @@ export function IconCloud({
       aria-label="Interactive 3D Icon Cloud"
       role="img"
     />
-  )
+  );
 }
