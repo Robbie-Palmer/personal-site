@@ -64,6 +64,3 @@ Thumbs.db
 
 # Misc
 *.pem
-
-# CCPM - Working copies (GitHub Issues is source of truth)
-.claude/epics/
