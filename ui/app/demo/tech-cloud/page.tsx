@@ -5,8 +5,29 @@ import {
   type TechIconCloudItem,
 } from "@/components/ui/tech-icon-cloud";
 import { getTechUrl } from "@/lib/tech-icons";
+import { useEffect, useState } from "react";
 
 export default function TechCloudDemoPage() {
+  const [canvasSize, setCanvasSize] = useState(600);
+
+  useEffect(() => {
+    const updateSize = () => {
+      // Responsive canvas size: 600px on desktop, smaller on mobile
+      const width = window.innerWidth;
+      if (width < 640) {
+        setCanvasSize(Math.min(width - 32, 400)); // Mobile: smaller, with padding
+      } else if (width < 1024) {
+        setCanvasSize(500); // Tablet
+      } else {
+        setCanvasSize(600); // Desktop
+      }
+    };
+
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, []);
+
   const technologies: TechIconCloudItem[] = [
     { name: "React", weight: 3, url: getTechUrl("React") },
     { name: "Next.js", weight: 3, url: getTechUrl("Next.js") },
@@ -31,20 +52,25 @@ export default function TechCloudDemoPage() {
   ];
 
   return (
-    <main className="container mx-auto px-4 py-16">
+    <main className="container mx-auto px-4 py-8 sm:py-16">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold mb-4 text-center">
+        <h1 className="text-3xl sm:text-4xl font-bold mb-4 text-center">
           Interactive Tech Stack Cloud
         </h1>
-        <p className="text-muted-foreground text-center mb-12">
-          Hover over icons to see their names. Click to visit their websites.
-          Drag to rotate the cloud.
+        <p className="text-muted-foreground text-center mb-8 sm:mb-12 text-sm sm:text-base">
+          <span className="hidden sm:inline">
+            Hover over icons to see their names. Click to visit their websites.
+            Drag to rotate the cloud.
+          </span>
+          <span className="sm:hidden">
+            Tap icons to visit websites. Drag to rotate the cloud.
+          </span>
         </p>
 
         <div className="flex justify-center">
           <TechIconCloud
             technologies={technologies}
-            size={600}
+            size={canvasSize}
             enableNavigation={true}
             className="w-full max-w-2xl"
             onIconClick={(tech) => {
@@ -53,12 +79,16 @@ export default function TechCloudDemoPage() {
           />
         </div>
 
-        <div className="mt-16 space-y-4">
-          <h2 className="text-2xl font-semibold">Features</h2>
-          <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+        <div className="mt-12 sm:mt-16 space-y-4">
+          <h2 className="text-xl sm:text-2xl font-semibold">Features</h2>
+          <ul className="list-disc list-inside space-y-2 text-muted-foreground text-sm sm:text-base">
             <li>
               <strong>Interactive 3D rotation</strong> - Drag to rotate the
-              sphere
+              sphere (works with touch on mobile!)
+            </li>
+            <li>
+              <strong>Mobile & Desktop support</strong> - Full touch support
+              with responsive sizing
             </li>
             <li>
               <strong>Weighted sizing</strong> - Technologies are sized based on
@@ -69,16 +99,16 @@ export default function TechCloudDemoPage() {
               hovered
             </li>
             <li>
-              <strong>Click to navigate</strong> - Click icons to visit their
-              official websites
+              <strong>Tap/Click to navigate</strong> - Tap or click icons to
+              visit their official websites
             </li>
             <li>
               <strong>Auto-rotation</strong> - Cloud rotates slowly based on
-              mouse position
+              cursor/touch position
             </li>
             <li>
-              <strong>Click to center</strong> - Click an icon to smoothly
-              rotate it to the front
+              <strong>Tap/Click to center</strong> - Tap or click an icon to
+              smoothly rotate it to the front
             </li>
           </ul>
         </div>
