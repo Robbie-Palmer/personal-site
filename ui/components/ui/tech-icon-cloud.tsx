@@ -30,6 +30,10 @@ export function TechIconCloud({
 }: TechIconCloudProps) {
   const router = useRouter();
   const [hoveredTech, setHoveredTech] = useState<string | null>(null);
+  const [centeredTech, setCenteredTech] = useState<{
+    name: string;
+    url?: string;
+  } | null>(null);
 
   // Create weighted icon array using image URLs and track which tech each icon belongs to
   const imageUrls: string[] = [];
@@ -48,7 +52,7 @@ export function TechIconCloud({
     }
   });
 
-  const handleIconClick = (iconIndex: number) => {
+  const handleIconClick = (iconIndex: number, isCentered: boolean) => {
     const techIndex = indexToTechMap[iconIndex];
     if (techIndex === undefined) return;
 
@@ -60,13 +64,24 @@ export function TechIconCloud({
       onIconClick(tech, techIndex);
     }
 
-    // Navigate if enabled and URL exists
-    if (enableNavigation && tech.url) {
-      if (tech.url.startsWith("http")) {
-        window.open(tech.url, "_blank", "noopener,noreferrer");
+    // If centered and navigation is enabled
+    if (isCentered && enableNavigation && tech.url) {
+      // Check if this is the same tech that was already centered
+      if (centeredTech?.name === tech.name) {
+        // Second tap - navigate
+        if (tech.url.startsWith("http")) {
+          window.open(tech.url, "_blank", "noopener,noreferrer");
+        } else {
+          router.push(tech.url);
+        }
+        setCenteredTech(null);
       } else {
-        router.push(tech.url);
+        // First tap - show prompt
+        setCenteredTech({ name: tech.name, url: tech.url });
       }
+    } else {
+      // Clear centered tech if clicking a non-centered icon
+      setCenteredTech(null);
     }
   };
 
@@ -90,11 +105,23 @@ export function TechIconCloud({
         onIconClick={handleIconClick}
         onIconHover={handleIconHover}
       />
-      {hoveredTech && (
-        <div className="mt-4 text-center text-sm text-muted-foreground">
-          {hoveredTech}
-        </div>
-      )}
+      <div className="mt-4 text-center min-h-8">
+        {centeredTech ? (
+          <div className="text-sm">
+            <span className="font-medium">{centeredTech.name}</span>
+            <br />
+            <span className="text-xs text-muted-foreground">
+              Tap again to visit website
+            </span>
+          </div>
+        ) : hoveredTech ? (
+          <div className="text-sm text-muted-foreground">{hoveredTech}</div>
+        ) : (
+          <div className="text-xs text-muted-foreground">
+            Tap an icon to center it
+          </div>
+        )}
+      </div>
     </div>
   );
 }

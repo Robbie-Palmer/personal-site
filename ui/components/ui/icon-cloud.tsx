@@ -16,7 +16,7 @@ interface IconCloudProps {
   icons?: React.ReactNode[]
   images?: string[]
   size?: number
-  onIconClick?: (index: number) => void
+  onIconClick?: (index: number, isCentered: boolean) => void
   onIconHover?: (index: number | null) => void
 }
 
@@ -163,34 +163,41 @@ export function IconCloud({
       const dy = y - screenY
 
       if (dx * dx + dy * dy < radius * radius) {
+        // Check if icon is already in front (centered)
+        // Icons at the front have high positive rotatedZ values
+        const isCentered = rotatedZ > 50
+
         // Call click handler if provided
         if (onIconClick) {
-          onIconClick(icon.id)
+          onIconClick(icon.id, isCentered)
         }
 
-        const targetX = -Math.atan2(
-          icon.y,
-          Math.sqrt(icon.x * icon.x + icon.z * icon.z)
-        )
-        const targetY = Math.atan2(icon.x, icon.z)
+        // Only animate to center if not already centered
+        if (!isCentered) {
+          const targetX = -Math.atan2(
+            icon.y,
+            Math.sqrt(icon.x * icon.x + icon.z * icon.z)
+          )
+          const targetY = Math.atan2(icon.x, icon.z)
 
-        const currentX = rotationRef.current.x
-        const currentY = rotationRef.current.y
-        const distance = Math.sqrt(
-          Math.pow(targetX - currentX, 2) + Math.pow(targetY - currentY, 2)
-        )
+          const currentX = rotationRef.current.x
+          const currentY = rotationRef.current.y
+          const distance = Math.sqrt(
+            Math.pow(targetX - currentX, 2) + Math.pow(targetY - currentY, 2)
+          )
 
-        const duration = Math.min(2000, Math.max(800, distance * 1000))
+          const duration = Math.min(2000, Math.max(800, distance * 1000))
 
-        setTargetRotation({
-          x: targetX,
-          y: targetY,
-          startX: currentX,
-          startY: currentY,
-          distance,
-          startTime: performance.now(),
-          duration,
-        })
+          setTargetRotation({
+            x: targetX,
+            y: targetY,
+            startX: currentX,
+            startY: currentY,
+            distance,
+            startTime: performance.now(),
+            duration,
+          })
+        }
         return
       }
     })
@@ -295,34 +302,41 @@ export function IconCloud({
       const dy = y - screenY
 
       if (dx * dx + dy * dy < radius * radius) {
+        // Check if icon is already in front (centered)
+        // Icons at the front have high positive rotatedZ values
+        const isCentered = rotatedZ > 50
+
         // Call click handler if provided
         if (onIconClick) {
-          onIconClick(icon.id)
+          onIconClick(icon.id, isCentered)
         }
 
-        const targetX = -Math.atan2(
-          icon.y,
-          Math.sqrt(icon.x * icon.x + icon.z * icon.z)
-        )
-        const targetY = Math.atan2(icon.x, icon.z)
+        // Only animate to center if not already centered
+        if (!isCentered) {
+          const targetX = -Math.atan2(
+            icon.y,
+            Math.sqrt(icon.x * icon.x + icon.z * icon.z)
+          )
+          const targetY = Math.atan2(icon.x, icon.z)
 
-        const currentX = rotationRef.current.x
-        const currentY = rotationRef.current.y
-        const distance = Math.sqrt(
-          Math.pow(targetX - currentX, 2) + Math.pow(targetY - currentY, 2)
-        )
+          const currentX = rotationRef.current.x
+          const currentY = rotationRef.current.y
+          const distance = Math.sqrt(
+            Math.pow(targetX - currentX, 2) + Math.pow(targetY - currentY, 2)
+          )
 
-        const duration = Math.min(2000, Math.max(800, distance * 1000))
+          const duration = Math.min(2000, Math.max(800, distance * 1000))
 
-        setTargetRotation({
-          x: targetX,
-          y: targetY,
-          startX: currentX,
-          startY: currentY,
-          distance,
-          startTime: performance.now(),
-          duration,
-        })
+          setTargetRotation({
+            x: targetX,
+            y: targetY,
+            startX: currentX,
+            startY: currentY,
+            distance,
+            startTime: performance.now(),
+            duration,
+          })
+        }
         return
       }
     })
@@ -348,9 +362,10 @@ export function IconCloud({
       const deltaX = touch.clientX - lastMousePos.x
       const deltaY = touch.clientY - lastMousePos.y
 
+      // Increased sensitivity for touch (0.004 vs 0.002)
       rotationRef.current = {
-        x: rotationRef.current.x + deltaY * 0.002,
-        y: rotationRef.current.y + deltaX * 0.002,
+        x: rotationRef.current.x + deltaY * 0.004,
+        y: rotationRef.current.y + deltaX * 0.004,
       }
 
       setLastMousePos({ x: touch.clientX, y: touch.clientY })

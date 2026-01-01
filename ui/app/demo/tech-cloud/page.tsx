@@ -15,7 +15,8 @@ export default function TechCloudDemoPage() {
       // Responsive canvas size: 600px on desktop, smaller on mobile
       const width = window.innerWidth;
       if (width < 640) {
-        setCanvasSize(Math.min(width - 32, 400)); // Mobile: smaller, with padding
+        // Mobile: use 85% of screen width, max 350px
+        setCanvasSize(Math.min(Math.floor(width * 0.85), 350));
       } else if (width < 1024) {
         setCanvasSize(500); // Tablet
       } else {
@@ -59,11 +60,11 @@ export default function TechCloudDemoPage() {
         </h1>
         <p className="text-muted-foreground text-center mb-8 sm:mb-12 text-sm sm:text-base">
           <span className="hidden sm:inline">
-            Hover over icons to see their names. Click to visit their websites.
-            Drag to rotate the cloud.
+            Hover over icons to see their names. Click to center, click again to
+            visit. Drag to rotate the cloud.
           </span>
           <span className="sm:hidden">
-            Tap icons to visit websites. Drag to rotate the cloud.
+            Tap icons to center them, tap again to visit website. Swipe to rotate.
           </span>
         </p>
 
@@ -99,16 +100,16 @@ export default function TechCloudDemoPage() {
               hovered
             </li>
             <li>
-              <strong>Tap/Click to navigate</strong> - Tap or click icons to
-              visit their official websites
+              <strong>Double tap/click to navigate</strong> - First tap centers
+              the icon, second tap visits the website (prevents accidental clicks)
             </li>
             <li>
               <strong>Auto-rotation</strong> - Cloud rotates slowly based on
               cursor/touch position
             </li>
             <li>
-              <strong>Tap/Click to center</strong> - Tap or click an icon to
-              smoothly rotate it to the front
+              <strong>Visual feedback</strong> - Shows which icon is centered and
+              prompts you to tap again
             </li>
           </ul>
         </div>
