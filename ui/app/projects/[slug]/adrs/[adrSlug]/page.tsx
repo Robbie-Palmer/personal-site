@@ -3,10 +3,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EmblaDemoCarousel } from "@/components/adrs/embla-demo-carousel";
 import { RechartsDemoChart } from "@/components/adrs/recharts-demo-chart";
+import { Markdown } from "@/components/markdown";
 import { Mermaid } from "@/components/mermaid";
 import { ADRBadge } from "@/components/projects/adr-badge";
 import { ADRPagination } from "@/components/projects/adr-pagination";
-import { Markdown } from "@/components/projects/markdown";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -203,9 +203,11 @@ export default async function ADRPage({ params }: PageProps) {
 
         <Separator className="my-8" />
 
-        <div className="prose dark:prose-invert max-w-none">
-          <Markdown source={adr.content} components={adrComponents} />
-        </div>
+        <Markdown
+          source={adr.content}
+          components={adrComponents}
+          className="prose prose-zinc dark:prose-invert max-w-none"
+        />
       </div>
     </div>
   );

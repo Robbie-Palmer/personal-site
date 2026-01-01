@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Markdown } from "@/components/projects/markdown";
+import { Markdown } from "@/components/markdown";
 import { ProjectList } from "@/components/projects/project-list";
 import { ProjectTabsSkeleton } from "@/components/projects/project-tabs-skeleton";
 import { ProjectsPageTabs } from "@/components/projects/projects-page-tabs";
@@ -30,7 +30,12 @@ export default async function ProjectsPage() {
       <Suspense fallback={<ProjectTabsSkeleton />}>
         <ProjectsPageTabs
           projects={<ProjectList projects={projects} />}
-          philosophy={<Markdown source={philosophyContent} />}
+          philosophy={
+            <Markdown
+              source={philosophyContent}
+              className="prose prose-zinc dark:prose-invert max-w-none"
+            />
+          }
         />
       </Suspense>
     </div>

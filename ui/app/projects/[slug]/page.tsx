@@ -2,8 +2,8 @@ import { ExternalLink, Github } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { Markdown } from "@/components/markdown";
 import { ADRList } from "@/components/projects/adr-list";
-import { Markdown } from "@/components/projects/markdown";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { ProjectTabs } from "@/components/projects/project-tabs";
 import { ProjectTabsSkeleton } from "@/components/projects/project-tabs-skeleton";
@@ -122,7 +122,12 @@ export default async function ProjectPage({ params }: PageProps) {
         <Suspense fallback={<ProjectTabsSkeleton />}>
           <ProjectTabs
             adrCount={project.adrs.length}
-            overview={<Markdown source={project.content} />}
+            overview={
+              <Markdown
+                source={project.content}
+                className="prose prose-zinc dark:prose-invert max-w-none"
+              />
+            }
             adrs={
               <ADRList
                 projectSlug={project.slug}
