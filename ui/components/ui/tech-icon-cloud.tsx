@@ -1,6 +1,6 @@
 "use client";
 
-import { TechIcon } from "@/lib/tech-icons";
+import { getTechIconUrl } from "@/lib/tech-icons";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { IconCloud } from "./icon-cloud";
@@ -30,34 +30,34 @@ export function TechIconCloud({
 }: TechIconCloudProps) {
   const router = useRouter();
   const [hoveredTech, setHoveredTech] = useState<string | null>(null);
-  // Create weighted icon array (repeat icons based on weight)
-  const weightedIcons = technologies.flatMap((tech) => {
+
+  // Create weighted icon array using image URLs and track which tech each icon belongs to
+  const imageUrls: string[] = [];
+  const indexToTechMap: number[] = [];
+
+  technologies.forEach((tech, techIndex) => {
     const weight = Math.max(1, Math.min(3, tech.weight || 1));
-    const iconElement = (
-      <div
-        key={tech.slug || tech.name}
-        className="flex items-center justify-center"
-        style={{
-          width: "100px",
-          height: "100px",
-          color: tech.brandColor || "currentColor",
-        }}
-      >
-        <TechIcon name={tech.name} className="w-16 h-16" />
-      </div>
-    );
+    const iconUrl = getTechIconUrl(tech.name);
+
+    if (!iconUrl) return;
 
     // Repeat based on weight (1x, 2x, or 3x)
-    return Array(Math.round(weight)).fill(iconElement);
+    for (let i = 0; i < Math.round(weight); i++) {
+      imageUrls.push(iconUrl);
+      indexToTechMap.push(techIndex);
+    }
   });
 
-  const handleIconClick = (index: number) => {
-    const tech = technologies[index];
+  const handleIconClick = (iconIndex: number) => {
+    const techIndex = indexToTechMap[iconIndex];
+    if (techIndex === undefined) return;
+
+    const tech = technologies[techIndex];
     if (!tech) return;
 
     // Call custom handler if provided
     if (onIconClick) {
-      onIconClick(tech, index);
+      onIconClick(tech, techIndex);
     }
 
     // Navigate if enabled and URL exists
@@ -70,11 +70,14 @@ export function TechIconCloud({
     }
   };
 
-  const handleIconHover = (index: number | null) => {
-    if (index === null) {
+  const handleIconHover = (iconIndex: number | null) => {
+    if (iconIndex === null) {
       setHoveredTech(null);
     } else {
-      const tech = technologies[index];
+      const techIndex = indexToTechMap[iconIndex];
+      if (techIndex === undefined) return;
+
+      const tech = technologies[techIndex];
       setHoveredTech(tech?.name || null);
     }
   };
@@ -82,7 +85,7 @@ export function TechIconCloud({
   return (
     <div className={className}>
       <IconCloud
-        icons={weightedIcons}
+        images={imageUrls}
         size={size}
         onIconClick={handleIconClick}
         onIconHover={handleIconHover}

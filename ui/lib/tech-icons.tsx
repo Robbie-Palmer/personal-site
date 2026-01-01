@@ -186,3 +186,27 @@ export const TECH_URLS: Record<string, string> = {
 export function getTechUrl(name: string): string | undefined {
   return TECH_URLS[name.toLowerCase()];
 }
+
+export function getTechIconUrl(name: string): string | null {
+  const slug = getTechSlug(name);
+  // Check if we have a custom icon
+  if (customIcons.has(slug)) {
+    return `/tech-icons/${slug}.svg`;
+  }
+  // Try to get Simple Icon and convert to data URL
+  let simpleIcon = getSimpleIcon(slug);
+  // Try Simple Icons with first word only
+  if (!simpleIcon && name.includes(" ")) {
+    const [firstWord] = name.split(" ");
+    if (firstWord) {
+      const firstWordSlug = getTechSlug(firstWord);
+      simpleIcon = getSimpleIcon(firstWordSlug);
+    }
+  }
+  if (simpleIcon) {
+    // Convert Simple Icon to data URL SVG
+    const svg = `<svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>${simpleIcon.title}</title><path fill="currentColor" d="${simpleIcon.path}"/></svg>`;
+    return `data:image/svg+xml;base64,${btoa(svg)}`;
+  }
+  return null;
+}
