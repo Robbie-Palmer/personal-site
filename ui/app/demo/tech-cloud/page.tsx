@@ -1,11 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   TechIconCloud,
   type TechIconCloudItem,
 } from "@/components/ui/tech-icon-cloud";
 import { getTechUrl } from "@/lib/tech-icons";
-import { useEffect, useState } from "react";
 
 export default function TechCloudDemoPage() {
   const [canvasSize, setCanvasSize] = useState(600);
@@ -46,7 +46,11 @@ export default function TechCloudDemoPage() {
     { name: "Mermaid", weight: 1, url: getTechUrl("Mermaid") },
     { name: "GitHub Actions", weight: 1, url: getTechUrl("GitHub Actions") },
     { name: "Terraform", weight: 1, url: getTechUrl("Terraform") },
-    { name: "Cloudflare Pages", weight: 1, url: getTechUrl("Cloudflare Pages") },
+    {
+      name: "Cloudflare Pages",
+      weight: 1,
+      url: getTechUrl("Cloudflare Pages"),
+    },
     { name: "Doppler", weight: 1, url: getTechUrl("Doppler") },
     { name: "Mise", weight: 1, url: getTechUrl("Mise") },
     { name: "Claude Code", weight: 1, url: getTechUrl("Claude Code") },
@@ -60,11 +64,12 @@ export default function TechCloudDemoPage() {
         </h1>
         <p className="text-muted-foreground text-center mb-8 sm:mb-12 text-sm sm:text-base">
           <span className="hidden sm:inline">
-            Hover over icons to see their names. Click to center, click again to
-            visit. Drag to rotate the cloud.
+            Hover over icons to see their names. Click to center, then click the
+            name below to visit. Drag to rotate the cloud.
           </span>
           <span className="sm:hidden">
-            Tap icons to center them, tap again to visit website. Swipe to rotate.
+            Tap icons to center them, then tap the name below to visit. Swipe to
+            rotate.
           </span>
         </p>
 
@@ -100,16 +105,16 @@ export default function TechCloudDemoPage() {
               hovered
             </li>
             <li>
-              <strong>Double tap/click to navigate</strong> - First tap centers
-              the icon, second tap visits the website (prevents accidental clicks)
+              <strong>Click-to-navigate</strong> - Tap an icon to center it,
+              then tap the name below to visit the website
             </li>
             <li>
               <strong>Auto-rotation</strong> - Cloud rotates slowly based on
               cursor/touch position
             </li>
             <li>
-              <strong>Visual feedback</strong> - Shows which icon is centered and
-              prompts you to tap again
+              <strong>Visual feedback</strong> - Shows which icon is centered
+              and prompts you to tap again
             </li>
           </ul>
         </div>

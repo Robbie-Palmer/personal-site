@@ -65,24 +65,22 @@ export function TechIconCloud({
       onIconClick(tech, techIndex);
     }
 
-    // If centered and navigation is enabled
-    if (isCentered && enableNavigation && tech.url) {
-      // Check if this is the exact same icon that was already centered
-      if (centeredTech?.iconIndex === iconIndex) {
-        // Second tap - navigate
-        if (tech.url.startsWith("http")) {
-          window.open(tech.url, "_blank", "noopener,noreferrer");
-        } else {
-          router.push(tech.url);
-        }
-        setCenteredTech(null);
-      } else {
-        // First tap - show prompt
-        setCenteredTech({ name: tech.name, url: tech.url, iconIndex });
-      }
+    // If centered, show the tech info (removed double-tap navigation)
+    if (isCentered) {
+      setCenteredTech({ name: tech.name, url: tech.url, iconIndex });
     } else {
       // Clear centered tech if clicking a non-centered icon
       setCenteredTech(null);
+    }
+  };
+
+  const handleCenteredClick = () => {
+    if (!centeredTech?.url || !enableNavigation) return;
+
+    if (centeredTech.url.startsWith("http")) {
+      window.open(centeredTech.url, "_blank", "noopener,noreferrer");
+    } else {
+      router.push(centeredTech.url);
     }
   };
 
@@ -109,13 +107,19 @@ export function TechIconCloud({
       />
       <div className="mt-4 text-center min-h-8">
         {centeredTech ? (
-          <div className="text-sm">
+          <button
+            type="button"
+            onClick={handleCenteredClick}
+            className="text-sm hover:opacity-80 transition-opacity"
+          >
             <span className="font-medium">{centeredTech.name}</span>
             <br />
-            <span className="text-xs text-muted-foreground">
-              Tap again to visit website
-            </span>
-          </div>
+            {centeredTech.url && enableNavigation && (
+              <span className="text-xs text-muted-foreground underline">
+                Click to visit website
+              </span>
+            )}
+          </button>
         ) : hoveredTech ? (
           <div className="text-sm text-muted-foreground">{hoveredTech}</div>
         ) : (
