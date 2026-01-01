@@ -50,6 +50,25 @@ export function IconCloud({
   const rotationRef = useRef({ x: 0, y: 0 })
   const iconCanvasesRef = useRef<HTMLCanvasElement[]>([])
   const imagesLoadedRef = useRef<boolean[]>([])
+  const [isDarkMode, setIsDarkMode] = useState(false)
+
+  // Detect theme changes
+  useEffect(() => {
+    const checkTheme = () => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'))
+    }
+
+    checkTheme()
+
+    // Watch for theme changes
+    const observer = new MutationObserver(checkTheme)
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    })
+
+    return () => observer.disconnect()
+  }, [])
 
   // Create icon canvases once when icons/images change
   useEffect(() => {
@@ -444,6 +463,11 @@ export function IconCloud({
           ctx.shadowColor = "rgba(59, 130, 246, 0.8)"
         }
 
+        // Apply theme-aware filter for icons (black in light mode, white in dark mode)
+        if (icons || images) {
+          ctx.filter = isDarkMode ? 'brightness(0) invert(1)' : 'brightness(0)'
+        }
+
         if (icons || images) {
           // Only try to render icons/images if they exist
           if (
@@ -485,6 +509,7 @@ export function IconCloud({
     mousePos,
     targetRotation,
     hoveredIconIndex,
+    isDarkMode,
   ])
 
   return (
