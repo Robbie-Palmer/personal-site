@@ -38,7 +38,7 @@ Personal website with blog and interactive resume.
 - **Performance QA:** [Lighthouse](https://developer.chrome.com/docs/lighthouse) (via `mise //ui:lighthouse:serve`)
 - **Dependency Management:** Renovate (automated PRs)
 - **Code Review:** [CodeRabbit](https://coderabbit.ai/) (AI-powered PR reviews)
-- **Project Management:** CCPM (local markdown files synced to GitHub Issues)
+- **Project Management:** Shortcut (see [ADR 034](ui/content/projects/personal-site/adrs/034-shortcut.mdx))
 - **AI Pair Programming:** Claude (see [claude.md](claude.md) for agent guide)
 
 ## Setup
@@ -82,10 +82,8 @@ Visit [http://localhost:3000](http://localhost:3000)
 personal-site/
 ├── .github/          # CI/CD workflows, issue templates
 │   └── workflows/    # UI CI, Infra CI/CD
-├── .claude/          # AI agent config and CCPM project management
-│   ├── commands/     # Custom Claude slash commands
-│   ├── epics/        # CCPM epic and task definitions
-│   └── prds/         # Product requirement documents
+├── .claude/          # AI agent config
+│   └── commands/     # Custom Claude slash commands
 ├── infra/            # Infrastructure as Code
 │   └── cloudflare/   # Terraform configs for Cloudflare Pages, DNS
 ├── ui/               # Next.js application
@@ -173,25 +171,6 @@ New blog post authors should read the **[Blog Authoring Guide](ui/content/blog/R
 - How to sync images to Cloudflare Images
 - Alt text best practices
 - Local testing workflow
-
-## Project Management
-
-This project uses **CCPM** (Claude Code Project Management) to organize work:
-
-- **PRDs** (Product Requirements Documents) committed to git as documentation
-- **Epics and Tasks** synced to GitHub Issues (source of truth)
-- Local markdown files in `.claude/epics/` for offline work (gitignored)
-- 9 commands for managing the full workflow: create PRDs, decompose into tasks, sync, merge
-
-**Quick example:**
-
-```bash
-mise run ccpm:prd:new feature-name     # Create PRD
-mise run ccpm:epic:decompose feature-name  # Break into tasks
-mise run ccpm:epic:sync feature-name    # Sync to GitHub Issues
-```
-
-**Learn more:** [CCPM Guide](.claude/ccpm/README.md) - Complete workflow, commands, and examples
 
 ## Deployment
 
