@@ -95,6 +95,24 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
       addTech(tech);
     }
   }
+
+  // Load technologies from blog posts
+  if (fs.existsSync(BLOG_DIR)) {
+    const blogFiles = fs
+      .readdirSync(BLOG_DIR)
+      .filter((file) => file.endsWith(".mdx") && file !== "README.mdx");
+    blogFiles.forEach((filename) => {
+      const filePath = path.join(BLOG_DIR, filename);
+      const fileContent = fs.readFileSync(filePath, "utf-8");
+      const { data } = matter(fileContent);
+      if (Array.isArray(data.technologies)) {
+        for (const tech of data.technologies) {
+          addTech(tech);
+        }
+      }
+    });
+  }
+
   if (!fs.existsSync(PROJECTS_DIR)) {
     return techMap;
   }
@@ -184,8 +202,12 @@ export function loadBlogPosts(): BlogLoadResult {
       imageAlt: data.imageAlt,
     };
 
+    const technologies: TechnologySlug[] = (data.technologies || []).map(
+      (tech: string) => tech.toLowerCase().trim(),
+    );
+
     const blogRelations: BlogRelations = {
-      technologies: [],
+      technologies,
       tags: data.tags || [],
     };
 
