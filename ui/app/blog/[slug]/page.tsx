@@ -146,10 +146,6 @@ export default async function BlogPostPage(props: PageProps) {
           FinancialIndependenceChart,
           Mermaid,
         }}
-        options={{
-          preprocessCloudflareImages: true,
-        }}
-        className="prose prose-zinc dark:prose-invert max-w-none"
       />
     </article>
   );

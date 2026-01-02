@@ -203,11 +203,7 @@ export default async function ADRPage({ params }: PageProps) {
 
         <Separator className="my-8" />
 
-        <Markdown
-          source={adr.content}
-          components={adrComponents}
-          className="prose prose-zinc dark:prose-invert max-w-none"
-        />
+        <Markdown source={adr.content} components={adrComponents} />
       </div>
     </div>
   );

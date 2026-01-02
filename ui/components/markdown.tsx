@@ -55,7 +55,13 @@ const baseComponents: MDXComponents = {
  * />
  * ```
  */
-export function Markdown({ source, components, className }: MarkdownProps) {
+const defaultClassName = "prose prose-zinc dark:prose-invert max-w-none";
+
+export function Markdown({
+  source,
+  components,
+  className = defaultClassName,
+}: MarkdownProps) {
   // Preprocess MDX to convert Cloudflare Images IDs to URLs with srcset
   // Match pattern: {namespace}/{name}-YYYY-MM-DD (e.g., blog/image-2025-12-14)
   const processedContent = source.replace(

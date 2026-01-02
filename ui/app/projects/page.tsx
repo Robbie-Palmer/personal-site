@@ -30,12 +30,7 @@ export default async function ProjectsPage() {
       <Suspense fallback={<ProjectTabsSkeleton />}>
         <ProjectsPageTabs
           projects={<ProjectList projects={projects} />}
-          philosophy={
-            <Markdown
-              source={philosophyContent}
-              className="prose prose-zinc dark:prose-invert max-w-none"
-            />
-          }
+          philosophy={<Markdown source={philosophyContent} />}
         />
       </Suspense>
     </div>

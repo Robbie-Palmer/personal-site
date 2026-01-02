@@ -122,12 +122,7 @@ export default async function ProjectPage({ params }: PageProps) {
         <Suspense fallback={<ProjectTabsSkeleton />}>
           <ProjectTabs
             adrCount={project.adrs.length}
-            overview={
-              <Markdown
-                source={project.content}
-                className="prose prose-zinc dark:prose-invert max-w-none"
-              />
-            }
+            overview={<Markdown source={project.content} />}
             adrs={
               <ADRList
                 projectSlug={project.slug}
