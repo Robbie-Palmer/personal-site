@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Markdown } from "@/components/projects/markdown";
+import { Markdown } from "@/components/markdown";
 import { ProjectList } from "@/components/projects/project-list";
 import { ProjectTabsSkeleton } from "@/components/projects/project-tabs-skeleton";
 import { ProjectsPageTabs } from "@/components/projects/projects-page-tabs";

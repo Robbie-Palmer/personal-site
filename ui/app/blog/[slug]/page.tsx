@@ -2,15 +2,11 @@ import { Tag } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MDXRemote } from "next-mdx-remote/rsc";
-import rehypeAutolinkHeadings from "rehype-autolink-headings";
-import rehypePrettyCode from "rehype-pretty-code";
-import rehypeSlug from "rehype-slug";
-import remarkGfm from "remark-gfm";
 import { DebtInvestmentChart } from "@/components/blog/how-to-build-wealth/debt-investment-chart";
 import { FinancialIndependenceChart } from "@/components/blog/how-to-build-wealth/financial-independence-chart";
 import { LisaComparisonChart } from "@/components/blog/how-to-build-wealth/lisa-comparison-chart";
 import { PensionReturnsChart } from "@/components/blog/how-to-build-wealth/pension-returns-chart";
+import { Markdown } from "@/components/markdown";
 import { Mermaid } from "@/components/mermaid";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -87,20 +83,6 @@ export default async function BlogPostPage(props: PageProps) {
 
   const post = getPostBySlug(slug);
 
-  // Preprocess MDX to convert Cloudflare Images IDs to URLs
-  // Match pattern: {namespace}/{name}-YYYY-MM-DD (e.g., blog/image-2025-12-14)
-  const processedContent = post.content.replace(
-    /src="([a-z0-9_-]+\/[a-z0-9_-]+-\d{4}-\d{2}-\d{2})"/g,
-    (_match, imageId) => {
-      const url = getImageUrl(imageId, null, {
-        width: 800,
-        format: "auto",
-      });
-      const srcSet = getImageSrcSet(imageId, null, [800, 1200, 1600]);
-      return `src="${url}" srcSet="${srcSet}" sizes="(max-width: 896px) 100vw, 896px" loading="lazy"`;
-    },
-  );
-
   return (
     <article className="container mx-auto px-4 py-12 max-w-4xl">
       <Link
@@ -155,62 +137,16 @@ export default async function BlogPostPage(props: PageProps) {
 
       <Separator className="mb-8" />
 
-      <div className="prose prose-zinc dark:prose-invert max-w-none">
-        <MDXRemote
-          source={processedContent}
-          components={{
-            DebtInvestmentChart,
-            PensionReturnsChart,
-            LisaComparisonChart,
-            FinancialIndependenceChart,
-            Mermaid,
-            a: ({ href, children, ...props }) => {
-              // Check if the link is external (starts with http:// or https://)
-              const isExternal =
-                href?.startsWith("http://") || href?.startsWith("https://");
-
-              if (isExternal) {
-                return (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    {...props}
-                  >
-                    {children}
-                  </a>
-                );
-              }
-
-              // For internal links, use Next.js Link component
-              return (
-                <Link href={href || ""} {...props}>
-                  {children}
-                </Link>
-              );
-            },
-          }}
-          options={{
-            mdxOptions: {
-              remarkPlugins: [remarkGfm],
-              rehypePlugins: [
-                rehypeSlug,
-                rehypeAutolinkHeadings,
-                [
-                  rehypePrettyCode,
-                  {
-                    theme: {
-                      dark: "github-dark",
-                      light: "github-light",
-                    },
-                    keepBackground: false,
-                  },
-                ],
-              ],
-            },
-          }}
-        />
-      </div>
+      <Markdown
+        source={post.content}
+        components={{
+          DebtInvestmentChart,
+          PensionReturnsChart,
+          LisaComparisonChart,
+          FinancialIndependenceChart,
+          Mermaid,
+        }}
+      />
     </article>
   );
 }
