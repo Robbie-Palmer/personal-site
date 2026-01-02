@@ -139,12 +139,6 @@ mise //ui:images:sync         # Upload blog images to Cloudflare Images
 mise //ui:images:health-check # Validate Cloudflare Images setup
 ```
 
-### Quality Assurance
-
-```bash
-mise //ui:lighthouse:serve    # Build, serve, and run Lighthouse (desktop + mobile)
-```
-
 **List all tasks:**
 
 ```bash
@@ -152,6 +146,70 @@ mise tasks --all
 ```
 
 **Learn more:** [mise monorepo tasks documentation](https://mise.jdx.dev/tasks/monorepo.html)
+
+## Testing & QA Workflow
+
+This project has multiple levels of testing, from local development to production-like previews:
+
+### 1. Local Development (Browser)
+
+Run the dev server with hot module replacement for rapid iteration:
+
+```bash
+mise //ui:dev
+```
+
+Visit [http://localhost:3000](http://localhost:3000) in your browser. Changes to code will hot-reload automatically.
+
+### 2. Mobile Device Testing (Local Network)
+
+Test on real mobile devices connected to the same network:
+
+```bash
+mise //ui:dev:qr
+```
+
+This displays a QR code you can scan with your phone to open the dev server. Useful for testing
+responsive layouts, touch interactions, and mobile-specific behavior on actual devices.
+
+### 3. Automated Checks (CI)
+
+When you open a pull request, GitHub Actions automatically runs:
+
+- **Build:** `next build` - ensures the static export compiles
+- **Lint:** Biome, markdownlint, remark, yamllint
+- **Type Check:** TypeScript strict mode
+- **Tests:** Vitest unit and integration tests
+
+All checks must pass before merging.
+
+### 4. Preview Deployments (Cloudflare)
+
+Every PR automatically gets a preview deployment on Cloudflare Pages. This lets you test on real
+production infrastructure before merging:
+
+- Full static build deployed to Cloudflare's edge network
+- Production-like environment (CDN, headers, routing)
+- Shareable URL for team review
+
+Preview URLs appear as a comment on the PR once the deployment completes.
+
+### 5. Performance Testing (Lighthouse)
+
+Run Lighthouse audits to catch performance regressions:
+
+```bash
+# Against local build (builds, serves, and runs Lighthouse)
+mise //ui:lighthouse:serve
+
+# Against preview deployment
+LIGHTHOUSE_URL=https://preview-abc123.personal-site.pages.dev mise //ui:lighthouse
+
+# Against production (as baseline for comparison)
+LIGHTHOUSE_URL=https://robbiepalmer.me mise //ui:lighthouse
+```
+
+Compare scores across environments to catch regressions before they reach production.
 
 ## Pre-commit Hooks
 
