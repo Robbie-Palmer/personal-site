@@ -8,50 +8,15 @@ import { getImageSrcSet, getImageUrl } from "@/lib/cloudflare-images";
 
 type MDXComponents = React.ComponentProps<typeof MDXRemote>["components"];
 
-/**
- * Options for the Markdown component
- */
-export interface MarkdownOptions {
-  /**
-   * Whether to preprocess Cloudflare Image IDs to URLs with srcset
-   * Converts patterns like {namespace}/{name}-YYYY-MM-DD to full URLs
-   * @default false
-   */
-  preprocessCloudflareImages?: boolean;
-}
-
-/**
- * Props for the Markdown component
- */
 export interface MarkdownProps {
-  /**
-   * The markdown/MDX source content to render
-   */
   source: string;
-  /**
-   * Custom MDX components to override default rendering
-   * These will be merged with the base components
-   */
-  components?: MDXComponents;
-  /**
-   * Additional options for markdown processing
-   */
-  options?: MarkdownOptions;
-  /**
-   * Optional className to apply to the wrapper article element
-   */
-  className?: string;
+  components?: MDXComponents; // Custom MDX components to override default rendering
+  className?: string; // Optional className to apply to the wrapper article element
 }
 
-/**
- * Base MDX components providing smart link handling
- * - Internal links (starting with / or #) use Next.js Link
- * - External links open in new tab with security attributes
- */
 const baseComponents: MDXComponents = {
   a: ({ href, children, ...props }) => {
     const isInternal = href?.startsWith("/") || href?.startsWith("#");
-
     if (isInternal) {
       return (
         <Link href={href as string} {...props}>
@@ -59,8 +24,6 @@ const baseComponents: MDXComponents = {
         </Link>
       );
     }
-
-    // External link
     return (
       <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
         {children}
@@ -78,7 +41,7 @@ const baseComponents: MDXComponents = {
  * - Automatic heading IDs and anchor links
  * - Tailwind Typography styling
  * - Smart internal/external link handling
- * - Optional Cloudflare Images preprocessing with responsive srcset
+ * - Cloudflare Images preprocessing with responsive srcset
  * - Custom component support (e.g., Mermaid, custom charts)
  *
  * @example
@@ -89,37 +52,24 @@ const baseComponents: MDXComponents = {
  * <Markdown
  *   source={content}
  *   components={{ Mermaid }}
- *   options={{ preprocessCloudflareImages: true }}
  * />
  * ```
  */
-export function Markdown({
-  source,
-  components,
-  options = {},
-  className,
-}: MarkdownProps) {
-  const { preprocessCloudflareImages = false } = options;
-
+export function Markdown({ source, components, className }: MarkdownProps) {
   // Preprocess MDX to convert Cloudflare Images IDs to URLs with srcset
   // Match pattern: {namespace}/{name}-YYYY-MM-DD (e.g., blog/image-2025-12-14)
-  const processedContent = preprocessCloudflareImages
-    ? source.replace(
-        /src="([a-z0-9_-]+\/[a-z0-9_-]+-\d{4}-\d{2}-\d{2})"/g,
-        (_match, imageId) => {
-          const url = getImageUrl(imageId, null, {
-            width: 800,
-            format: "auto",
-          });
-          const srcSet = getImageSrcSet(imageId, null, [800, 1200, 1600]);
-          return `src="${url}" srcSet="${srcSet}" sizes="(max-width: 896px) 100vw, 896px" loading="lazy"`;
-        },
-      )
-    : source;
-
-  // Merge custom components with base components
+  const processedContent = source.replace(
+    /src="([a-z0-9_-]+\/[a-z0-9_-]+-\d{4}-\d{2}-\d{2})"/g,
+    (_match, imageId) => {
+      const url = getImageUrl(imageId, null, {
+        width: 800,
+        format: "auto",
+      });
+      const srcSet = getImageSrcSet(imageId, null, [800, 1200, 1600]);
+      return `src="${url}" srcSet="${srcSet}" sizes="(max-width: 896px) 100vw, 896px" loading="lazy"`;
+    },
+  );
   const mergedComponents = { ...baseComponents, ...components };
-
   return (
     <article className={className}>
       <MDXRemote
@@ -140,7 +90,7 @@ export function Markdown({
                     dark: "github-dark",
                     light: "github-light",
                   },
-                  keepBackground: false, // Use site's background colors
+                  keepBackground: false,
                 },
               ],
             ],
