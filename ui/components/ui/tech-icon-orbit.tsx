@@ -185,7 +185,7 @@ export function TechOrbit({
         }}
         ref={containerRef}
         style={{ height: `${orbitHeight}px` }}
-        className="relative flex w-full flex-col items-center justify-center overflow-hidden rounded-lg bg-background"
+        className="relative flex w-full flex-col items-center justify-center overflow-hidden rounded-lg"
       >
         {/* Show selected tech in center on desktop only */}
         {!isMobile && activeTech ? (

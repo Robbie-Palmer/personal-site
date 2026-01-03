@@ -3,6 +3,7 @@ import { BlogCollectionTabs } from "@/components/blog/blog-collection-tabs";
 import { HomeExperienceCard } from "@/components/experience/home-experience-card";
 import { ADRCarousel } from "@/components/projects/adr-carousel";
 import { Button } from "@/components/ui/button";
+import { LightRays } from "@/components/ui/light-rays";
 import { TechOrbit } from "@/components/ui/tech-icon-orbit";
 import {
   getCollectionPosts,
@@ -44,9 +45,13 @@ export default function Home() {
 
   return (
     <div className="container mx-auto px-4">
+      <div
+        className="pointer-events-none fixed inset-0 overflow-hidden"
+        aria-hidden="true"
+      >
+        <LightRays length="150vh" />
+      </div>
       <section className="relative flex min-h-[calc(100vh-5rem)] items-center justify-center">
-        {/* Subtle radial gradient background */}
-        <div className="absolute inset-0 hero-gradient-bg" aria-hidden="true" />
         <div className="text-center max-w-3xl relative z-10">
           <h1 className="text-5xl md:text-6xl font-bold mb-6 animate-fade-in-up">
             {siteConfig.name}
@@ -58,7 +63,7 @@ export default function Home() {
                 <span
                   key={`ml-${i}`}
                   className="inline-block animate-fade-in"
-                  style={{ animationDelay: `${600 + i * 30}ms` }}
+                  style={{ animationDelay: `${400 + i * 20}ms` }}
                 >
                   {char === " " ? "\u00A0" : char}
                 </span>
@@ -66,7 +71,7 @@ export default function Home() {
             </span>
             <span
               className="inline-block animate-fade-in mx-2"
-              style={{ animationDelay: "870ms" }}
+              style={{ animationDelay: "580ms" }}
             >
               |
             </span>
@@ -75,7 +80,7 @@ export default function Home() {
                 <span
                   key={`fs-${i}`}
                   className="inline-block animate-fade-in"
-                  style={{ animationDelay: `${1200 + i * 30}ms` }}
+                  style={{ animationDelay: `${850 + i * 20}ms` }}
                 >
                   {char === " " ? "\u00A0" : char}
                 </span>
@@ -83,7 +88,7 @@ export default function Home() {
             </span>
             <span
               className="inline-block animate-fade-in mx-2"
-              style={{ animationDelay: "1740ms" }}
+              style={{ animationDelay: "1210ms" }}
             >
               |
             </span>
@@ -92,7 +97,7 @@ export default function Home() {
                 <span
                   key={`tl-${i}`}
                   className="inline-block animate-fade-in"
-                  style={{ animationDelay: `${2100 + i * 30}ms` }}
+                  style={{ animationDelay: `${1480 + i * 20}ms` }}
                 >
                   {char === " " ? "\u00A0" : char}
                 </span>
@@ -104,16 +109,16 @@ export default function Home() {
               size="lg"
               variant="outline"
               asChild
-              className="w-full sm:w-auto animate-fade-in"
-              style={{ animationDelay: "2900ms" }}
+              className="w-full sm:w-auto animate-in fade-in zoom-in duration-300"
+              style={{ animationDelay: "2100ms", animationFillMode: "both" }}
             >
               <Link href="/blog">Read Blog</Link>
             </Button>
             <Button
               size="lg"
               asChild
-              className="w-full sm:w-auto animate-fade-in"
-              style={{ animationDelay: "3200ms" }}
+              className="w-full sm:w-auto animate-in fade-in zoom-in duration-300"
+              style={{ animationDelay: "2400ms", animationFillMode: "both" }}
             >
               <Link href="/projects">Explore Projects</Link>
             </Button>
@@ -121,8 +126,8 @@ export default function Home() {
               size="lg"
               variant="outline"
               asChild
-              className="w-full sm:w-auto animate-fade-in"
-              style={{ animationDelay: "3500ms" }}
+              className="w-full sm:w-auto animate-in fade-in zoom-in duration-300"
+              style={{ animationDelay: "2700ms", animationFillMode: "both" }}
             >
               <Link href="/experience">View Experience</Link>
             </Button>

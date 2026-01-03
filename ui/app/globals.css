@@ -78,6 +78,7 @@
   --highlight-bg: oklch(0.7 0.1 264 / 0.15);
   --highlight-border: oklch(0.7 0.1 264);
   --highlight-chars-bg: oklch(0.7 0.1 264 / 0.25);
+  --light-rays-color: oklch(0.5 0.01 270 / 0.15);
 }
 
 .dark {
@@ -115,6 +116,7 @@
   --highlight-bg: oklch(0.5 0.15 264 / 0.2);
   --highlight-border: oklch(0.6 0.2 264);
   --highlight-chars-bg: oklch(0.5 0.15 264 / 0.3);
+  --light-rays-color: rgba(160, 210, 255, 0.12);
 }
 
 @layer base {
@@ -655,4 +657,10 @@ html.dark .mermaid-diagram .node.pink path {
 html.dark .mermaid-diagram .node.pink .nodeLabel {
   /* biome-ignore lint/complexity/noImportantStyles: Required to override Mermaid's inline styles */
   color: var(--color-pink-50) !important;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
 }
