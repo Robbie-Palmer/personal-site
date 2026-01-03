@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { OrbitingCircles } from "@/components/ui/orbiting-circles";
 import { cn } from "@/lib/styles";
 import { getTechIconUrl } from "@/lib/tech-icons";
@@ -45,14 +45,19 @@ export function TechOrbit({
     return () => window.removeEventListener("resize", updateWidth);
   }, []);
 
-  const validTechs = technologies.filter((tech) => getTechIconUrl(tech.name));
+  // Cache icon URLs upfront to avoid redundant lookups
+  const techsWithIcons = useMemo(() => {
+    return technologies
+      .map((tech) => ({ ...tech, iconUrl: getTechIconUrl(tech.name) }))
+      .filter(
+        (tech): tech is TechOrbitItem & { iconUrl: string } =>
+          tech.iconUrl !== null,
+      )
+      .sort((a, b) => (b.weight || 1) - (a.weight || 1));
+  }, [technologies]);
 
-  const sortedTechs = [...validTechs].sort(
-    (a, b) => (b.weight || 1) - (a.weight || 1),
-  );
-
-  const rings: TechOrbitItem[][] = [];
-  let remaining = [...sortedTechs];
+  const rings: (TechOrbitItem & { iconUrl: string })[][] = [];
+  let remaining = [...techsWithIcons];
   let ringNum = 1;
   while (remaining.length > 0) {
     const capacity = 8 * ringNum;
@@ -77,10 +82,10 @@ export function TechOrbit({
   const orbitSize = Math.round(40 * scale);
   const isMobile = containerWidth < 500;
 
-  const renderIcon = (tech: TechOrbitItem, size: number) => {
-    const iconUrl = getTechIconUrl(tech.name);
-    if (!iconUrl) return null;
-
+  const renderIcon = (
+    tech: TechOrbitItem & { iconUrl: string },
+    size: number,
+  ) => {
     const content = (
       <div
         className={cn(
@@ -90,7 +95,7 @@ export function TechOrbit({
         title={tech.name}
       >
         <Image
-          src={iconUrl}
+          src={tech.iconUrl}
           alt={tech.name}
           fill
           className={cn(
