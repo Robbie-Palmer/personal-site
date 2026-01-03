@@ -2,7 +2,9 @@
 
 import { motion } from "motion/react";
 import { type CSSProperties, useEffect, useState } from "react";
+import { useMediaQuery } from "react-responsive";
 
+import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { cn } from "@/lib/styles";
 
 interface LightRaysProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -96,11 +98,14 @@ export function LightRays({
   ...props
 }: LightRaysProps) {
   const [rays, setRays] = useState<LightRay[]>([]);
+  const isMobile = useMediaQuery({ maxWidth: MOBILE_BREAKPOINT - 1 });
+  const effectiveCount = isMobile ? Math.min(count, 4) : count;
+  const effectiveLength = isMobile ? "80vh" : length;
   const cycleDuration = Math.max(speed, 0.1);
 
   useEffect(() => {
-    setRays(createRays(count, cycleDuration));
-  }, [count, cycleDuration]);
+    setRays(createRays(effectiveCount, cycleDuration));
+  }, [effectiveCount, cycleDuration]);
 
   return (
     <div
@@ -113,7 +118,7 @@ export function LightRays({
         {
           ...(color && { "--light-rays-color": color }),
           "--light-rays-blur": `${blur}px`,
-          "--light-rays-length": length,
+          "--light-rays-length": effectiveLength,
           ...style,
         } as CSSProperties
       }
