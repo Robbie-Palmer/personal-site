@@ -179,17 +179,10 @@ export function TechOrbit({
           if (e.key === "Escape") {
             setActiveTech(null);
           }
-          if (
-            e.target === e.currentTarget &&
-            (e.key === "Enter" || e.key === " ")
-          ) {
-            e.preventDefault();
-            setActiveTech(null);
-          }
         }}
         ref={containerRef}
         style={{ height: `${orbitHeight}px` }}
-        className="relative flex w-full flex-col items-center justify-center overflow-hidden rounded-lg bg-background outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded-lg"
+        className="relative flex w-full flex-col items-center justify-center overflow-hidden rounded-lg bg-background"
       >
         {/* Show selected tech in center on desktop only */}
         {!isMobile && activeTech ? (
