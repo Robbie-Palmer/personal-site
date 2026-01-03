@@ -3,12 +3,15 @@ import { BlogCollectionTabs } from "@/components/blog/blog-collection-tabs";
 import { HomeExperienceCard } from "@/components/experience/home-experience-card";
 import { ADRCarousel } from "@/components/projects/adr-carousel";
 import { Button } from "@/components/ui/button";
+import { TechOrbit } from "@/components/ui/tech-icon-orbit";
 import {
   getCollectionPosts,
   getCollectionsWithIds,
 } from "@/lib/blog-collections";
+import { loadDomainRepository } from "@/lib/domain";
 import { getAllExperience } from "@/lib/experience";
 import { getAllADRs } from "@/lib/projects";
+import { getContentUsingTechnologyByType } from "@/lib/repository";
 import { siteConfig } from "@/lib/site-config";
 
 export default function Home() {
@@ -17,6 +20,27 @@ export default function Home() {
     collections.map((c) => [c.id, getCollectionPosts(c.id)]),
   );
   const adrs = getAllADRs();
+  const repository = loadDomainRepository();
+  const technologies = Array.from(repository.technologies.values()).map(
+    (tech) => {
+      const usage = getContentUsingTechnologyByType(
+        repository.graph,
+        tech.slug,
+      );
+      const edgeCount =
+        usage.projects.length +
+        usage.blogs.length +
+        usage.adrs.length +
+        usage.roles.length;
+      return {
+        name: tech.name,
+        slug: tech.slug,
+        brandColor: tech.brandColor,
+        url: tech.website,
+        weight: edgeCount,
+      };
+    },
+  );
 
   return (
     <div className="container mx-auto px-4">
@@ -136,6 +160,10 @@ export default function Home() {
             <ADRCarousel adrs={adrs} />
           </div>
         </div>
+      </section>
+
+      <section className="pb-8">
+        <TechOrbit technologies={technologies} />
       </section>
 
       <section className="py-16 pt-8">

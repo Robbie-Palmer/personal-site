@@ -1,0 +1,245 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { OrbitingCircles } from "@/components/ui/orbiting-circles";
+import { cn } from "@/lib/styles";
+import { getTechIconUrl } from "@/lib/tech-icons";
+
+export interface TechOrbitItem {
+  name: string;
+  slug?: string;
+  weight?: number; // Higher weight = prioritized in inner circles
+  brandColor?: string;
+  url?: string;
+}
+
+interface TechOrbitProps {
+  technologies: TechOrbitItem[];
+  className?: string;
+  centerImage?: string;
+  centerText?: string;
+  centerContent?: React.ReactNode;
+}
+
+export function TechOrbit({
+  technologies,
+  className,
+  centerImage,
+  centerText,
+  centerContent,
+}: TechOrbitProps) {
+  const [activeTech, setActiveTech] = useState<TechOrbitItem | null>(null);
+  const [containerWidth, setContainerWidth] = useState(600);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.offsetWidth);
+      }
+    };
+    updateWidth();
+    window.addEventListener("resize", updateWidth);
+    return () => window.removeEventListener("resize", updateWidth);
+  }, []);
+
+  const validTechs = technologies.filter((tech) => getTechIconUrl(tech.name));
+
+  const sortedTechs = [...validTechs].sort(
+    (a, b) => (b.weight || 1) - (a.weight || 1),
+  );
+
+  const rings: TechOrbitItem[][] = [];
+  let remaining = [...sortedTechs];
+  let ringNum = 1;
+  while (remaining.length > 0) {
+    const capacity = 8 * ringNum;
+    rings.push(remaining.slice(0, capacity));
+    remaining = remaining.slice(capacity);
+    ringNum++;
+  }
+
+  const baseOutermostRadius =
+    rings.length > 0 ? 80 + (rings.length - 1) * 70 : 80;
+  // Scale factor: ensure outermost ring fits within container
+  // Use less padding on mobile vs desktop
+  const padding = containerWidth < 500 ? 20 : 80;
+  const maxRadius = (containerWidth - padding) / 2;
+  const scale = Math.min(1, maxRadius / baseOutermostRadius);
+
+  // Apply scale to radii and icon sizes
+  const getRadius = (ringIndex: number) => (80 + ringIndex * 70) * scale;
+  const outermostRadius = baseOutermostRadius * scale;
+  const orbitHeight = 2 * outermostRadius + 40;
+  const iconSize = Math.round(30 * scale);
+  const orbitSize = Math.round(40 * scale);
+  const isMobile = containerWidth < 500;
+
+  const renderIcon = (tech: TechOrbitItem, size: number) => {
+    const iconUrl = getTechIconUrl(tech.name);
+    if (!iconUrl) return null;
+
+    const content = (
+      <div
+        className={cn(
+          "relative flex items-center justify-center rounded-full bg-background p-1.5 shadow-sm border border-border/40 hover:scale-110 transition-transform cursor-pointer",
+        )}
+        style={{ width: size, height: size }}
+        title={tech.name}
+      >
+        <Image
+          src={iconUrl}
+          alt={tech.name}
+          fill
+          className={cn(
+            "object-contain pointer-events-none select-none",
+            "brightness-0 dark:invert",
+          )}
+        />
+      </div>
+    );
+
+    const isSelected = activeTech?.name === tech.name;
+    return (
+      <button
+        type="button"
+        className={cn(
+          "cursor-pointer transition-transform duration-200 outline-none focus-visible:scale-125 focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded-full bg-transparent border-none p-0",
+          isSelected ? "scale-125 z-20" : "hover:scale-110",
+        )}
+        onClick={(e) => {
+          e.stopPropagation();
+          setActiveTech(tech);
+        }}
+      >
+        {content}
+      </button>
+    );
+  };
+
+  const selectedTechContent = activeTech && (
+    <div
+      key={activeTech.name}
+      className="flex flex-col items-center justify-center p-2 text-center z-10 animate-in fade-in zoom-in duration-300"
+    >
+      <span className="text-xl font-bold bg-gradient-to-b from-black to-gray-500 bg-clip-text text-transparent dark:from-white dark:to-gray-400">
+        {activeTech.name}
+      </span>
+      {activeTech.url && (
+        <Link
+          href={activeTech.url}
+          target={activeTech.url.startsWith("http") ? "_blank" : undefined}
+          rel={
+            activeTech.url.startsWith("http")
+              ? "noopener noreferrer"
+              : undefined
+          }
+          className="text-xs text-muted-foreground mt-1 flex items-center gap-1 hover:text-foreground transition-colors group/link"
+        >
+          Visit Website
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="lucide lucide-external-link"
+          >
+            <title>External Link</title>
+            <path d="M15 3h6v6" />
+            <path d="M10 14 21 3" />
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+          </svg>
+        </Link>
+      )}
+    </div>
+  );
+
+  return (
+    <div className={cn("flex flex-col items-center", className)}>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: Background click handler for clearing selection */}
+      <div
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setActiveTech(null);
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            setActiveTech(null);
+          }
+          if (
+            e.target === e.currentTarget &&
+            (e.key === "Enter" || e.key === " ")
+          ) {
+            e.preventDefault();
+            setActiveTech(null);
+          }
+        }}
+        ref={containerRef}
+        style={{ height: `${orbitHeight}px` }}
+        className="relative flex w-full flex-col items-center justify-center overflow-hidden rounded-lg bg-background outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded-lg"
+      >
+        {/* Show selected tech in center on desktop only */}
+        {!isMobile && activeTech ? (
+          selectedTechContent
+        ) : centerContent ? (
+          <div className="z-10 relative">{centerContent}</div>
+        ) : centerImage ? (
+          <div className="z-10 relative size-20 rounded-full border border-border bg-background p-1 shadow-lg">
+            <Image
+              src={centerImage}
+              alt="Center"
+              fill
+              className="rounded-full object-cover"
+            />
+          </div>
+        ) : (
+          <span
+            key="default-center"
+            className="pointer-events-none text-center font-semibold text-foreground whitespace-pre-wrap animate-in fade-in zoom-in duration-300"
+            style={{ fontSize: `${Math.max(16, Math.round(24 * scale))}px` }}
+          >
+            {centerText || "Tech\nStack"}
+          </span>
+        )}
+
+        {/* Dynamic rings */}
+        {rings.map((ring, ringIndex) =>
+          ring.map((tech, idx) => {
+            const radius = getRadius(ringIndex);
+            const duration = 30 + ringIndex * 10;
+            const reverse = ringIndex % 2 === 0;
+            return (
+              <OrbitingCircles
+                key={tech.name}
+                className="border-none bg-transparent"
+                style={{ width: orbitSize, height: orbitSize }}
+                radius={radius}
+                duration={duration}
+                delay={idx * (duration / ring.length)}
+                reverse={reverse}
+                path={idx === 0}
+              >
+                {renderIcon(tech, iconSize)}
+              </OrbitingCircles>
+            );
+          }),
+        )}
+      </div>
+
+      {/* Reserve space for selected tech below orbit on mobile */}
+      {isMobile && (
+        <div className="h-12 flex items-center justify-center">
+          {activeTech && selectedTechContent}
+        </div>
+      )}
+    </div>
+  );
+}
