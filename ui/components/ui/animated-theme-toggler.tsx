@@ -38,14 +38,21 @@ export const AnimatedThemeToggler = ({
   const toggleTheme = useCallback(async () => {
     if (!buttonRef.current) return;
 
-    await document.startViewTransition(() => {
+    const updateDOM = () => {
       flushSync(() => {
         const newTheme = !isDark;
         setIsDark(newTheme);
         document.documentElement.classList.toggle("dark");
         localStorage.setItem("theme", newTheme ? "dark" : "light");
       });
-    }).ready;
+    };
+
+    if (!document.startViewTransition) {
+      updateDOM();
+      return;
+    }
+
+    await document.startViewTransition(updateDOM).ready;
 
     const { top, left, width, height } =
       buttonRef.current.getBoundingClientRect();
