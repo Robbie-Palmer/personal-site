@@ -35,14 +35,17 @@ export function TechOrbit({
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const updateWidth = () => {
-      if (containerRef.current) {
-        setContainerWidth(containerRef.current.offsetWidth);
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setContainerWidth(entry.contentRect.width);
       }
-    };
-    updateWidth();
-    window.addEventListener("resize", updateWidth);
-    return () => window.removeEventListener("resize", updateWidth);
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
   }, []);
 
   // Cache icon URLs upfront to avoid redundant lookups
