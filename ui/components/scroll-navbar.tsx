@@ -2,10 +2,10 @@
 
 import { cva } from "class-variance-authority";
 import Link from "next/link";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { useNavbarVisibility } from "@/hooks/use-navbar-visibility";
 import { siteConfig } from "@/lib/site-config";
+import { AnimatedThemeToggler } from "./ui/animated-theme-toggler";
 
 const headerVariants = cva(
   "sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-transform duration-200 ease-in-out",
@@ -48,7 +48,7 @@ export function ScrollNavbar() {
               <span className="hidden min-[500px]:inline">Experience</span>
             </Link>
           </Button>
-          <ThemeToggle />
+          <AnimatedThemeToggler />
         </div>
       </nav>
     </header>
