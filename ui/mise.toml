@@ -12,6 +12,11 @@ description = "Start Next.js development server"
 depends = ["//ui:install"]
 run = "pnpm dev"
 
+[tasks."dev:qr"]
+description = "Start dev server and show QR code for mobile testing"
+depends = ["//ui:install"]
+run = "pnpm dev:qr"
+
 [tasks.build]
 description = "Build Next.js application for production"
 depends = ["//ui:install"]
