@@ -177,5 +177,5 @@ export function getTechIconUrl(name: string): string | null {
   }
 
   const svg = `<svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>${iconData.icon.title}</title><path fill="currentColor" d="${iconData.icon.path}"/></svg>`;
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
