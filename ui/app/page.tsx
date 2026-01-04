@@ -10,9 +10,9 @@ import {
   getCollectionsWithIds,
 } from "@/lib/blog-collections";
 import { loadDomainRepository } from "@/lib/domain";
+import { getTechnologiesWithConnectionWeights } from "@/lib/domain/technology";
 import { getAllExperience } from "@/lib/experience";
 import { getAllADRs } from "@/lib/projects";
-import { getContentUsingTechnologyByType } from "@/lib/repository";
 import { siteConfig } from "@/lib/site-config";
 
 export default function Home() {
@@ -22,24 +22,10 @@ export default function Home() {
   );
   const adrs = getAllADRs();
   const repository = loadDomainRepository();
-  const technologies = Array.from(repository.technologies.values()).map(
-    (tech) => {
-      const usage = getContentUsingTechnologyByType(
-        repository.graph,
-        tech.slug,
-      );
-      const edgeCount =
-        usage.projects.length +
-        usage.blogs.length +
-        usage.adrs.length +
-        usage.roles.length;
-      return {
-        name: tech.name,
-        slug: tech.slug,
-        url: tech.website,
-        weight: edgeCount,
-      };
-    },
+  const allTechnologies = Array.from(repository.technologies.values());
+  const technologies = getTechnologiesWithConnectionWeights(
+    repository,
+    allTechnologies,
   );
 
   return (

@@ -9,7 +9,7 @@ const TechnologyContentSchema = z.object({
   name: z.string().min(1),
   slug: TechnologySlugSchema.optional(),
   description: z.string().optional(),
-  website: z.string().url().optional(),
+  website: z.string().url(),
   iconSlug: z.string().optional(), // Only when icon slug differs from what's derived from name
 });
 

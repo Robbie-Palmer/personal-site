@@ -1,6 +1,12 @@
-import { Briefcase } from "lucide-react";
+import { Briefcase, Layers } from "lucide-react";
 import type { Metadata } from "next";
 import { ExperienceCard } from "@/components/experience/experience-card";
+import { TechnologyCard } from "@/components/technology/technology-card";
+import { loadDomainRepository } from "@/lib/domain";
+import {
+  getAllTechnologyBadges,
+  rankTechnologiesByConnections,
+} from "@/lib/domain/technology";
 import { getAllExperience, getExperienceSlug } from "@/lib/experience";
 import { siteConfig } from "@/lib/site-config";
 
@@ -26,6 +32,14 @@ export const metadata: Metadata = {
 
 export default function ExperiencePage() {
   const experiences = getAllExperience();
+  const repository = loadDomainRepository();
+  const technologyBadges = getAllTechnologyBadges(repository);
+
+  // Rank technologies by knowledge graph connections
+  const rankedTechnologies = rankTechnologiesByConnections(
+    repository,
+    technologyBadges,
+  );
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-6xl">
@@ -55,6 +69,22 @@ export default function ExperiencePage() {
               />
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="mb-16">
+        <h2 className="text-3xl font-semibold mb-8 flex items-center gap-2">
+          <Layers className="w-7 h-7 text-primary" />
+          Technologies
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          {rankedTechnologies.map(({ badge, description }) => (
+            <TechnologyCard
+              key={badge.slug}
+              technology={badge}
+              description={description}
+            />
+          ))}
         </div>
       </section>
     </div>
