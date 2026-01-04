@@ -25,7 +25,7 @@ export function ProjectTechStack({
 }: ProjectTechStackProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const itemsWithIcons = techStack.filter(hasTechIcon);
+  const itemsWithIcons = techStack.filter((name) => hasTechIcon(name));
   const hiddenCount = techStack.length - itemsWithIcons.length;
   const visibleItems = isExpanded ? techStack : itemsWithIcons;
 

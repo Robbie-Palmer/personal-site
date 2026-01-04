@@ -1,5 +1,4 @@
 import type { Technology } from "@/lib/domain/technology/technology";
-
 export const technologies: Technology[] = [
   {
     slug: "react",
@@ -7,7 +6,6 @@ export const technologies: Technology[] = [
     description: "A JavaScript library for building user interfaces",
     website: "https://react.dev",
     brandColor: "#61DAFB",
-    hasCustomIcon: false,
   },
   {
     slug: "next.js",
@@ -15,7 +13,6 @@ export const technologies: Technology[] = [
     description: "The React Framework for the Web",
     website: "https://nextjs.org",
     brandColor: "#000000",
-    hasCustomIcon: false,
   },
   {
     slug: "typescript",
@@ -23,7 +20,6 @@ export const technologies: Technology[] = [
     description: "TypeScript is JavaScript with syntax for types",
     website: "https://www.typescriptlang.org",
     brandColor: "#3178C6",
-    hasCustomIcon: false,
   },
   {
     slug: "tailwind css",
@@ -32,7 +28,6 @@ export const technologies: Technology[] = [
     website: "https://tailwindcss.com",
     brandColor: "#06B6D4",
     iconSlug: "tailwindcss",
-    hasCustomIcon: false,
   },
   {
     slug: "aws",
@@ -40,25 +35,18 @@ export const technologies: Technology[] = [
     description: "Amazon Web Services - Cloud computing platform",
     website: "https://aws.amazon.com",
     brandColor: "#FF9900",
-    hasCustomIcon: true,
-    customIconName: "aws",
   },
   {
     slug: "java",
     name: "Java",
-    description: "Object-oriented programming language",
     website: "https://www.java.com",
     brandColor: "#007396",
-    hasCustomIcon: true,
-    customIconName: "java",
   },
   {
     slug: "python",
     name: "Python",
-    description: "High-level programming language",
     website: "https://www.python.org",
     brandColor: "#3776AB",
-    hasCustomIcon: false,
   },
   {
     slug: "pnpm",
@@ -66,7 +54,6 @@ export const technologies: Technology[] = [
     description: "Fast, disk space efficient package manager",
     website: "https://pnpm.io",
     brandColor: "#F69220",
-    hasCustomIcon: false,
   },
   {
     slug: "vitest",
@@ -74,7 +61,6 @@ export const technologies: Technology[] = [
     description: "Next generation testing framework",
     website: "https://vitest.dev",
     brandColor: "#6E9F18",
-    hasCustomIcon: false,
   },
   {
     slug: "shadcn/ui",
@@ -83,7 +69,6 @@ export const technologies: Technology[] = [
     website: "https://ui.shadcn.com",
     brandColor: "#000000",
     iconSlug: "shadcnui",
-    hasCustomIcon: false,
   },
   {
     slug: "github",
@@ -91,7 +76,6 @@ export const technologies: Technology[] = [
     description: "Development platform for version control and collaboration",
     website: "https://github.com",
     brandColor: "#181717",
-    hasCustomIcon: false,
   },
   {
     slug: "github actions",
@@ -100,7 +84,6 @@ export const technologies: Technology[] = [
     website: "https://github.com/features/actions",
     brandColor: "#2088FF",
     iconSlug: "githubactions",
-    hasCustomIcon: false,
   },
   {
     slug: "terraform",
@@ -108,7 +91,6 @@ export const technologies: Technology[] = [
     description: "Infrastructure as Code tool",
     website: "https://www.terraform.io",
     brandColor: "#7B42BC",
-    hasCustomIcon: false,
   },
   {
     slug: "cloudflare pages",
@@ -117,7 +99,6 @@ export const technologies: Technology[] = [
     website: "https://pages.cloudflare.com",
     brandColor: "#F38020",
     iconSlug: "cloudflarepages",
-    hasCustomIcon: false,
   },
   {
     slug: "mdx",
@@ -125,7 +106,6 @@ export const technologies: Technology[] = [
     description: "Markdown for the component era",
     website: "https://mdxjs.com",
     brandColor: "#1B1F24",
-    hasCustomIcon: false,
   },
   {
     slug: "shiki",
@@ -133,16 +113,12 @@ export const technologies: Technology[] = [
     description: "A beautiful and powerful syntax highlighter",
     website: "https://shiki.style",
     brandColor: "#3C3C3C",
-    hasCustomIcon: true,
-    customIconName: "shiki",
   },
   {
     slug: "fuse.js",
     name: "Fuse.js",
     description: "Lightweight fuzzy-search library",
     website: "https://www.fusejs.io",
-    hasCustomIcon: true,
-    customIconName: "fusejs",
   },
   {
     slug: "zod",
@@ -150,7 +126,6 @@ export const technologies: Technology[] = [
     description: "TypeScript-first schema validation",
     website: "https://zod.dev",
     brandColor: "#3E67B1",
-    hasCustomIcon: false,
   },
   {
     slug: "neo4j",
@@ -158,32 +133,24 @@ export const technologies: Technology[] = [
     description: "Graph database management system",
     website: "https://neo4j.com",
     brandColor: "#008CC1",
-    hasCustomIcon: true,
-    customIconName: "neo4j",
   },
   {
     slug: "embla carousel",
     name: "Embla Carousel",
     description: "A lightweight carousel library with fluid motion",
     website: "https://www.embla-carousel.com",
-    hasCustomIcon: true,
-    customIconName: "embla-carousel",
   },
   {
     slug: "claude code",
     name: "Claude Code",
     description: "AI-powered coding assistant",
     website: "https://claude.ai",
-    hasCustomIcon: true,
-    customIconName: "claudecode",
   },
   {
     slug: "mise",
     name: "Mise",
     description: "Development environment manager",
     website: "https://mise.jdx.dev",
-    hasCustomIcon: true,
-    customIconName: "mise",
   },
   {
     slug: "c#",
@@ -192,16 +159,12 @@ export const technologies: Technology[] = [
     website: "https://docs.microsoft.com/en-us/dotnet/csharp/",
     brandColor: "#239120",
     iconSlug: "csharp",
-    hasCustomIcon: true,
-    customIconName: "csharp",
   },
   {
     slug: "weaviate",
     name: "Weaviate",
     description: "Open-source vector database",
     website: "https://weaviate.io",
-    hasCustomIcon: true,
-    customIconName: "weaviate",
   },
   {
     slug: "doppler",
@@ -209,8 +172,6 @@ export const technologies: Technology[] = [
     description: "SecretOps platform for managing environment variables",
     website: "https://www.doppler.com",
     brandColor: "#5729CE",
-    hasCustomIcon: true,
-    customIconName: "doppler",
   },
   {
     slug: "recharts",
@@ -218,7 +179,6 @@ export const technologies: Technology[] = [
     description: "A composable charting library built on React components",
     website: "https://recharts.org",
     brandColor: "#22B5BF",
-    hasCustomIcon: false,
   },
   {
     slug: "mermaid",
@@ -226,7 +186,6 @@ export const technologies: Technology[] = [
     description: "JavaScript based diagramming and charting tool",
     website: "https://mermaid.js.org",
     brandColor: "#FF3670",
-    hasCustomIcon: false,
   },
   {
     slug: "lucide react",
@@ -234,7 +193,6 @@ export const technologies: Technology[] = [
     description: "Beautiful & consistent icon toolkit",
     website: "https://lucide.dev",
     iconSlug: "lucide",
-    hasCustomIcon: false,
   },
   {
     slug: "renovate",
@@ -242,14 +200,12 @@ export const technologies: Technology[] = [
     description: "Automated dependency updates",
     website: "https://docs.renovatebot.com",
     brandColor: "#1A1F6C",
-    hasCustomIcon: false,
   },
   {
     slug: "coderabbit",
     name: "CodeRabbit",
     description: "AI-powered code review assistant",
     website: "https://coderabbit.ai",
-    hasCustomIcon: false,
   },
   {
     slug: "dependabot",
@@ -257,7 +213,6 @@ export const technologies: Technology[] = [
     description: "Automated dependency updates for GitHub",
     website: "https://github.com/dependabot",
     iconSlug: "dependabot",
-    hasCustomIcon: false,
   },
   {
     slug: "codeql",
@@ -265,14 +220,12 @@ export const technologies: Technology[] = [
     description: "Semantic code analysis engine",
     website: "https://codeql.github.com",
     iconSlug: "github",
-    hasCustomIcon: false,
   },
   {
     slug: "husky",
     name: "Husky",
     description: "Git hooks made easy",
     website: "https://typicode.github.io/husky",
-    hasCustomIcon: false,
   },
   {
     slug: "turbopack",
@@ -280,7 +233,6 @@ export const technologies: Technology[] = [
     description: "Incremental bundler optimized for JavaScript and TypeScript",
     website: "https://turbo.build/pack",
     iconSlug: "nextdotjs",
-    hasCustomIcon: false,
   },
   {
     slug: "ccpm",
@@ -288,7 +240,6 @@ export const technologies: Technology[] = [
     description: "Claude Code Package Manager",
     website: "https://github.com/automazeio/ccpm/",
     iconSlug: "claude",
-    hasCustomIcon: false,
   },
   {
     slug: "shortcut",
@@ -296,7 +247,6 @@ export const technologies: Technology[] = [
     description: "Project management platform for software teams",
     website: "https://shortcut.com",
     brandColor: "#5A67D8",
-    hasCustomIcon: false,
   },
   {
     slug: "github secrets",
@@ -304,7 +254,6 @@ export const technologies: Technology[] = [
     description: "Encrypted environment variables for GitHub Actions",
     website: "https://docs.github.com/en/actions/security-guides/encrypted-secrets",
     iconSlug: "github",
-    hasCustomIcon: false,
   },
   {
     slug: "cloudflare terraform provider",
@@ -312,7 +261,6 @@ export const technologies: Technology[] = [
     description: "Terraform provider for Cloudflare",
     website: "https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs",
     iconSlug: "cloudflare",
-    hasCustomIcon: false,
   },
   {
     slug: "cloudflare dns",
@@ -320,7 +268,6 @@ export const technologies: Technology[] = [
     description: "Fast and secure DNS service",
     website: "https://www.cloudflare.com/dns",
     iconSlug: "cloudflare",
-    hasCustomIcon: false,
   },
   {
     slug: "cloudflare images",
@@ -328,7 +275,6 @@ export const technologies: Technology[] = [
     description: "Image optimization and delivery service",
     website: "https://www.cloudflare.com/products/images",
     iconSlug: "cloudflare",
-    hasCustomIcon: false,
   },
   {
     slug: "terraform cloud",
@@ -336,7 +282,6 @@ export const technologies: Technology[] = [
     description: "Collaborative infrastructure automation platform",
     website: "https://www.hashicorp.com/products/terraform",
     iconSlug: "terraform",
-    hasCustomIcon: false,
   },
   {
     slug: "tailwind css typography",
@@ -344,15 +289,12 @@ export const technologies: Technology[] = [
     description: "Beautiful typographic defaults for HTML you don't control",
     website: "https://github.com/tailwindlabs/tailwindcss-typography",
     iconSlug: "tailwindcss",
-    hasCustomIcon: false,
   },
   {
     slug: ".net",
     name: ".NET",
-    description: "Free, open-source, cross-platform framework",
     website: "https://dotnet.microsoft.com",
     brandColor: "#512BD4",
-    hasCustomIcon: false,
   },
   {
     slug: "ansible",
@@ -360,7 +302,6 @@ export const technologies: Technology[] = [
     description: "IT automation platform",
     website: "https://www.ansible.com",
     brandColor: "#EE0000",
-    hasCustomIcon: false,
   },
   {
     slug: "apache kafka",
@@ -369,7 +310,6 @@ export const technologies: Technology[] = [
     website: "https://kafka.apache.org",
     brandColor: "#231F20",
     iconSlug: "apachekafka",
-    hasCustomIcon: false,
   },
   {
     slug: "kafka",
@@ -378,7 +318,6 @@ export const technologies: Technology[] = [
     website: "https://kafka.apache.org",
     brandColor: "#231F20",
     iconSlug: "apachekafka",
-    hasCustomIcon: false,
   },
   {
     slug: "arduino",
@@ -386,7 +325,6 @@ export const technologies: Technology[] = [
     description: "Open-source electronics platform",
     website: "https://www.arduino.cc",
     brandColor: "#00979D",
-    hasCustomIcon: false,
   },
   {
     slug: "bitbucket pipelines",
@@ -394,16 +332,13 @@ export const technologies: Technology[] = [
     description: "CI/CD service built into Bitbucket",
     website: "https://bitbucket.org/product/features/pipelines",
     iconSlug: "bitbucket",
-    hasCustomIcon: false,
   },
   {
     slug: "c++",
     name: "C++",
-    description: "General-purpose programming language",
     website: "https://isocpp.org",
     brandColor: "#00599C",
     iconSlug: "cplusplus",
-    hasCustomIcon: false,
   },
   {
     slug: "cloudflare workers",
@@ -412,7 +347,6 @@ export const technologies: Technology[] = [
     website: "https://workers.cloudflare.com",
     brandColor: "#F38020",
     iconSlug: "cloudflareworkers",
-    hasCustomIcon: false,
   },
   {
     slug: "dvc",
@@ -420,7 +354,6 @@ export const technologies: Technology[] = [
     description: "Data Version Control for machine learning projects",
     website: "https://dvc.org",
     brandColor: "#13ADC7",
-    hasCustomIcon: false,
   },
   {
     slug: "docker",
@@ -428,7 +361,6 @@ export const technologies: Technology[] = [
     description: "Platform for developing, shipping, and running applications",
     website: "https://www.docker.com",
     brandColor: "#2496ED",
-    hasCustomIcon: false,
   },
   {
     slug: "fastapi",
@@ -436,7 +368,6 @@ export const technologies: Technology[] = [
     description: "Modern, fast web framework for building APIs with Python",
     website: "https://fastapi.tiangolo.com",
     brandColor: "#009688",
-    hasCustomIcon: false,
   },
   {
     slug: "fastify",
@@ -444,7 +375,6 @@ export const technologies: Technology[] = [
     description: "Fast and low overhead web framework for Node.js",
     website: "https://www.fastify.io",
     brandColor: "#000000",
-    hasCustomIcon: false,
   },
   {
     slug: "flink",
@@ -453,22 +383,18 @@ export const technologies: Technology[] = [
     website: "https://flink.apache.org",
     brandColor: "#E6526F",
     iconSlug: "apacheflink",
-    hasCustomIcon: false,
   },
   {
     slug: "geopandas",
     name: "GeoPandas",
     description: "Python library for working with geospatial data",
     website: "https://geopandas.org",
-    hasCustomIcon: false,
   },
   {
     slug: "go",
     name: "Go",
-    description: "Open source programming language",
     website: "https://go.dev",
     brandColor: "#00ADD8",
-    hasCustomIcon: false,
   },
   {
     slug: "google bigquery",
@@ -476,7 +402,6 @@ export const technologies: Technology[] = [
     description: "Serverless, highly scalable data warehouse",
     website: "https://cloud.google.com/bigquery",
     iconSlug: "googlebigquery",
-    hasCustomIcon: false,
   },
   {
     slug: "google gemini",
@@ -484,7 +409,6 @@ export const technologies: Technology[] = [
     description: "Google's multimodal AI model",
     website: "https://deepmind.google/technologies/gemini/",
     iconSlug: "googlegemini",
-    hasCustomIcon: false,
   },
   {
     slug: "grafana",
@@ -492,7 +416,6 @@ export const technologies: Technology[] = [
     description: "Open source analytics and monitoring platform",
     website: "https://grafana.com",
     brandColor: "#F46800",
-    hasCustomIcon: false,
   },
   {
     slug: "hugging face",
@@ -500,7 +423,6 @@ export const technologies: Technology[] = [
     description: "AI community and model hub",
     website: "https://huggingface.co",
     iconSlug: "huggingface",
-    hasCustomIcon: false,
   },
   {
     slug: "jenkins",
@@ -508,7 +430,6 @@ export const technologies: Technology[] = [
     description: "Open source automation server",
     website: "https://www.jenkins.io",
     brandColor: "#D24939",
-    hasCustomIcon: false,
   },
   {
     slug: "keras",
@@ -516,15 +437,12 @@ export const technologies: Technology[] = [
     description: "Deep learning API written in Python",
     website: "https://keras.io",
     brandColor: "#D00000",
-    hasCustomIcon: false,
   },
   {
     slug: "kotlin",
     name: "Kotlin",
-    description: "Modern programming language for JVM and Android",
     website: "https://kotlinlang.org",
     brandColor: "#7F52FF",
-    hasCustomIcon: false,
   },
   {
     slug: "leaflet",
@@ -532,7 +450,6 @@ export const technologies: Technology[] = [
     description: "Open-source JavaScript library for mobile-friendly maps",
     website: "https://leafletjs.com",
     brandColor: "#199900",
-    hasCustomIcon: false,
   },
   {
     slug: "node.js",
@@ -541,15 +458,12 @@ export const technologies: Technology[] = [
     website: "https://nodejs.org",
     brandColor: "#339933",
     iconSlug: "nodedotjs",
-    hasCustomIcon: false,
   },
   {
     slug: "openai",
     name: "OpenAI",
-    description: "AI research and deployment company",
     website: "https://openai.com",
     brandColor: "#412991",
-    hasCustomIcon: false,
   },
   {
     slug: "opencv",
@@ -557,15 +471,12 @@ export const technologies: Technology[] = [
     description: "Open source computer vision library",
     website: "https://opencv.org",
     brandColor: "#5C3EE8",
-    hasCustomIcon: false,
   },
   {
     slug: "openrouter",
     name: "OpenRouter",
     description: "Unified API for LLM inference",
     website: "https://openrouter.ai",
-    hasCustomIcon: true,
-    customIconName: "openrouter",
   },
   {
     slug: "plotly",
@@ -573,15 +484,12 @@ export const technologies: Technology[] = [
     description: "Interactive graphing library",
     website: "https://plotly.com",
     brandColor: "#3F4F75",
-    hasCustomIcon: false,
   },
   {
     slug: "postgresql",
     name: "PostgreSQL",
-    description: "Advanced open source database",
     website: "https://www.postgresql.org",
     brandColor: "#4169E1",
-    hasCustomIcon: false,
   },
   {
     slug: "prisma",
@@ -589,7 +497,6 @@ export const technologies: Technology[] = [
     description: "Next-generation ORM for Node.js and TypeScript",
     website: "https://www.prisma.io",
     brandColor: "#2D3748",
-    hasCustomIcon: false,
   },
   {
     slug: "prometheus",
@@ -597,7 +504,6 @@ export const technologies: Technology[] = [
     description: "Systems monitoring and alerting toolkit",
     website: "https://prometheus.io",
     brandColor: "#E6522C",
-    hasCustomIcon: false,
   },
   {
     slug: "pulumi",
@@ -605,7 +511,6 @@ export const technologies: Technology[] = [
     description: "Modern infrastructure as code",
     website: "https://www.pulumi.com",
     brandColor: "#8A3391",
-    hasCustomIcon: false,
   },
   {
     slug: "pytorch",
@@ -613,7 +518,6 @@ export const technologies: Technology[] = [
     description: "Machine learning framework",
     website: "https://pytorch.org",
     brandColor: "#EE4C2C",
-    hasCustomIcon: false,
   },
   {
     slug: "rabbitmq",
@@ -621,14 +525,12 @@ export const technologies: Technology[] = [
     description: "Open source message broker",
     website: "https://www.rabbitmq.com",
     brandColor: "#FF6600",
-    hasCustomIcon: false,
   },
   {
     slug: "sql",
     name: "SQL",
     description: "Domain-specific language for managing relational databases",
     website: "https://en.wikipedia.org/wiki/SQL",
-    hasCustomIcon: false,
   },
   {
     slug: "semaphoreci",
@@ -636,31 +538,24 @@ export const technologies: Technology[] = [
     description: "Continuous integration and delivery platform",
     website: "https://semaphoreci.com",
     iconSlug: "semaphore",
-    hasCustomIcon: false,
   },
   {
     slug: "stanford nlp",
     name: "Stanford NLP",
     description: "Natural language processing toolkit",
     website: "https://nlp.stanford.edu/software/",
-    hasCustomIcon: true,
-    customIconName: "stanford",
   },
   {
     slug: "swift",
     name: "Swift",
-    description: "Powerful and intuitive programming language for Apple platforms",
     website: "https://www.swift.org",
     brandColor: "#F05138",
-    hasCustomIcon: false,
   },
   {
     slug: "t-sql",
     name: "T-SQL",
     description: "Microsoft's extension of SQL",
     website: "https://docs.microsoft.com/en-us/sql/t-sql/",
-    hasCustomIcon: true,
-    customIconName: "tsql",
   },
   {
     slug: "tensorrt",
@@ -669,14 +564,12 @@ export const technologies: Technology[] = [
     website: "https://developer.nvidia.com/tensorrt",
     brandColor: "#76B900",
     iconSlug: "nvidia",
-    hasCustomIcon: false,
   },
   {
     slug: "ksqldb",
     name: "ksqlDB",
     description: "Database purpose-built for stream processing",
     website: "https://ksqldb.io",
-    hasCustomIcon: false,
   },
   {
     slug: "spacy",
@@ -684,6 +577,5 @@ export const technologies: Technology[] = [
     description: "Industrial-strength natural language processing",
     website: "https://spacy.io",
     brandColor: "#09A3D5",
-    hasCustomIcon: false,
   },
 ];

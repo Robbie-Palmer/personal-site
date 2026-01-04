@@ -49,11 +49,12 @@ export function toTechnologyLabelView(tech: Technology): TechnologyLabelView {
 }
 
 export function toTechnologyBadgeView(tech: Technology): TechnologyBadgeView {
+  const iconSlug = tech.iconSlug || tech.slug;
   return {
     slug: tech.slug,
     name: tech.name,
-    iconSlug: tech.iconSlug || tech.slug,
-    hasIcon: hasTechIcon(tech.name),
+    iconSlug,
+    hasIcon: hasTechIcon(tech.name, iconSlug),
     brandColor: tech.brandColor,
     website: tech.website,
   };
@@ -72,6 +73,7 @@ export function toTechnologyDetailView(
   repository: DomainRepository,
 ): TechnologyDetailView {
   const content = getContentUsingTechnologyByType(repository.graph, tech.slug);
+  const iconSlug = tech.iconSlug || tech.slug;
   return {
     slug: tech.slug,
     name: tech.name,
@@ -79,7 +81,7 @@ export function toTechnologyDetailView(
     website: tech.website,
     brandColor: tech.brandColor,
     iconSlug: tech.iconSlug,
-    hasIcon: hasTechIcon(tech.name),
+    hasIcon: hasTechIcon(tech.name, iconSlug),
     usedIn: {
       projectsCount: content.projects.length,
       blogsCount: content.blogs.length,

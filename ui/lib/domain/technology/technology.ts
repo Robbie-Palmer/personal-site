@@ -13,9 +13,7 @@ export const TechnologySchema = z.object({
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/)
     .optional(),
-  iconSlug: z.string().optional(),
-  hasCustomIcon: z.boolean().default(false),
-  customIconName: z.string().optional(),
+  iconSlug: z.string().optional(), // Only when icon slug differs from normalized name
 });
 
 export type Technology = z.infer<typeof TechnologySchema>;

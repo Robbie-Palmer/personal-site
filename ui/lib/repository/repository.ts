@@ -77,73 +77,72 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
     techMap.set(tech.slug, tech);
   }
 
+  return techMap;
+}
+
+// Validate that all referenced technologies are defined
+export function validateTechnologyReferences(
+  technologies: Map<TechnologySlug, Technology>,
+): void {
   const normalizeSlug = (name: string): string => {
     return name.toLowerCase().trim();
   };
 
-  // Auto-discover technologies from other content sources (for backward compatibility)
-  // Only add if not already defined in technologies content file
-  const addTech = (name: string) => {
+  const missingTechs = new Set<string>();
+  const collectMissingTech = (name: string, source: string) => {
     const slug = normalizeSlug(name);
-    if (!techMap.has(slug)) {
-      techMap.set(slug, {
-        slug,
-        name,
-        description: undefined,
-        website: undefined,
-        brandColor: undefined,
-        iconSlug: undefined,
-        hasCustomIcon: false,
-        customIconName: undefined,
-      });
+    if (!technologies.has(slug)) {
+      missingTechs.add(`"${name}" (referenced in ${source})`);
     }
   };
 
+  // Check experience technologies
   const experiences = getAllExperience();
   for (const exp of experiences) {
     for (const tech of exp.technologies) {
-      addTech(tech);
+      collectMissingTech(tech, `experience: ${exp.company}`);
     }
   }
 
-  if (!fs.existsSync(PROJECTS_DIR)) {
-    return techMap;
-  }
+  // Check project and ADR technologies
+  if (fs.existsSync(PROJECTS_DIR)) {
+    const projectDirs = fs
+      .readdirSync(PROJECTS_DIR, { withFileTypes: true })
+      .filter((dirent) => dirent.isDirectory())
+      .map((dirent) => dirent.name);
 
-  const projectDirs = fs
-    .readdirSync(PROJECTS_DIR, { withFileTypes: true })
-    .filter((dirent) => dirent.isDirectory())
-    .map((dirent) => dirent.name);
-  projectDirs.forEach((projectSlug) => {
-    const projectPath = path.join(PROJECTS_DIR, projectSlug, "index.mdx");
-    if (fs.existsSync(projectPath)) {
-      const fileContent = fs.readFileSync(projectPath, "utf-8");
-      const { data } = matter(fileContent);
-      if (Array.isArray(data.tech_stack)) {
-        for (const tech of data.tech_stack) {
-          addTech(tech);
+    projectDirs.forEach((projectSlug) => {
+      const projectPath = path.join(PROJECTS_DIR, projectSlug, "index.mdx");
+      if (fs.existsSync(projectPath)) {
+        const fileContent = fs.readFileSync(projectPath, "utf-8");
+        const { data } = matter(fileContent);
+        if (Array.isArray(data.tech_stack)) {
+          for (const tech of data.tech_stack) {
+            collectMissingTech(tech, `project: ${projectSlug}`);
+          }
+        }
+
+        const adrsDir = path.join(PROJECTS_DIR, projectSlug, "adrs");
+        if (fs.existsSync(adrsDir)) {
+          const adrFiles = fs
+            .readdirSync(adrsDir)
+            .filter((f) => f.endsWith(".mdx"));
+          adrFiles.forEach((adrFile) => {
+            const adrPath = path.join(adrsDir, adrFile);
+            const adrContent = fs.readFileSync(adrPath, "utf-8");
+            const { data: adrData } = matter(adrContent);
+            if (Array.isArray(adrData.tech_stack)) {
+              for (const tech of adrData.tech_stack) {
+                collectMissingTech(tech, `ADR: ${projectSlug}/${adrFile}`);
+              }
+            }
+          });
         }
       }
-      const adrsDir = path.join(PROJECTS_DIR, projectSlug, "adrs");
-      if (fs.existsSync(adrsDir)) {
-        const adrFiles = fs
-          .readdirSync(adrsDir)
-          .filter((f) => f.endsWith(".mdx"));
-        adrFiles.forEach((adrFile) => {
-          const adrPath = path.join(adrsDir, adrFile);
-          const adrContent = fs.readFileSync(adrPath, "utf-8");
-          const { data: adrData } = matter(adrContent);
-          if (Array.isArray(adrData.tech_stack)) {
-            for (const tech of adrData.tech_stack) {
-              addTech(tech);
-            }
-          }
-        });
-      }
-    }
-  });
+    });
+  }
 
-  // Load technologies from blog posts
+  // Check blog technologies
   if (fs.existsSync(BLOG_DIR)) {
     const blogFiles = fs
       .readdirSync(BLOG_DIR)
@@ -154,13 +153,23 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
       const { data: blogData } = matter(blogContent);
       if (Array.isArray(blogData.technologies)) {
         for (const tech of blogData.technologies) {
-          addTech(tech);
+          collectMissingTech(tech, `blog: ${blogFile}`);
         }
       }
     });
   }
 
-  return techMap;
+  if (missingTechs.size > 0) {
+    const errorMessage = [
+      "\n❌ ERROR: The following technologies are referenced but not defined in content/technologies.ts:",
+      "",
+      ...Array.from(missingTechs).sort().map((tech) => `  - ${tech}`),
+      "",
+      "Please add these technologies to content/technologies.ts",
+      "",
+    ].join("\n");
+    throw new Error(errorMessage);
+  }
 }
 
 export function validateTechnology(
@@ -669,6 +678,7 @@ function buildRelationDataFromLoaders(loaders: LoaderResults): RelationData {
 
 export function loadDomainRepository(): DomainRepository {
   const technologies = loadTechnologies();
+  validateTechnologyReferences(technologies);
   const blogsResult = loadBlogPosts();
   const projectsResult = loadProjects();
   const adrsResult = loadADRs();

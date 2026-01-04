@@ -53,6 +53,7 @@ function getTechSlug(name: string): string {
 
 interface TechIconProps {
   name: string;
+  iconSlug?: string; // Optional: use this slug instead of deriving from name
   className?: string;
 }
 
@@ -71,8 +72,8 @@ type IconData =
   | { type: "custom"; slug: string }
   | { type: "simple"; icon: SimpleIcon };
 
-function resolveIconData(name: string): IconData | null {
-  const slug = getTechSlug(name);
+function resolveIconData(name: string, iconSlug?: string): IconData | null {
+  const slug = iconSlug || getTechSlug(name);
   if (customIcons.has(slug)) {
     return { type: "custom", slug };
   }
@@ -89,8 +90,8 @@ function resolveIconData(name: string): IconData | null {
   return null;
 }
 
-export function TechIcon({ name, className = "w-3 h-3" }: TechIconProps) {
-  const iconData = resolveIconData(name);
+export function TechIcon({ name, iconSlug, className = "w-3 h-3" }: TechIconProps) {
+  const iconData = resolveIconData(name, iconSlug);
   if (!iconData) return null;
 
   if (iconData.type === "custom") {
@@ -118,12 +119,12 @@ export function TechIcon({ name, className = "w-3 h-3" }: TechIconProps) {
   );
 }
 
-export function hasTechIcon(name: string): boolean {
-  return resolveIconData(name) !== null;
+export function hasTechIcon(name: string, iconSlug?: string): boolean {
+  return resolveIconData(name, iconSlug) !== null;
 }
 
-export function getTechIconUrl(name: string): string | null {
-  const iconData = resolveIconData(name);
+export function getTechIconUrl(name: string, iconSlug?: string): string | null {
+  const iconData = resolveIconData(name, iconSlug);
   if (!iconData) return null;
 
   if (iconData.type === "custom") {
