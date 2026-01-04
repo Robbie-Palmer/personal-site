@@ -11,7 +11,6 @@ export interface TechOrbitItem {
   name: string;
   slug?: string;
   weight?: number; // Higher weight = prioritized in inner circles
-  brandColor?: string;
   url?: string;
 }
 

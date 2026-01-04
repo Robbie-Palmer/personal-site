@@ -16,7 +16,7 @@ import {
   getProjectADR,
   type ProjectWithADRs,
 } from "@/lib/projects";
-import { getTechUrl, hasTechIcon, TechIcon } from "@/lib/tech-icons";
+import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
 
 const adrComponents = {
   EmblaDemoCarousel,
@@ -115,7 +115,7 @@ export default async function ADRPage({ params }: PageProps) {
             {adr.technologies && adr.technologies.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {adr.technologies.map((tech) => {
-                  const url = getTechUrl(tech.name);
+                  const url = tech.website;
                   const content = (
                     <Badge
                       variant="secondary"

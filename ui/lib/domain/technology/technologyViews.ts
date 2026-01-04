@@ -15,7 +15,7 @@ export type TechnologyBadgeView = {
   name: string;
   iconSlug: string;
   hasIcon: boolean;
-  brandColor?: string;
+  website?: string;
 };
 
 export type TechnologyLinkView = {
@@ -29,7 +29,6 @@ export type TechnologyDetailView = {
   name: string;
   description?: string;
   website?: string;
-  brandColor?: string;
   iconSlug?: string;
   hasIcon: boolean;
   usedIn: {
@@ -48,12 +47,13 @@ export function toTechnologyLabelView(tech: Technology): TechnologyLabelView {
 }
 
 export function toTechnologyBadgeView(tech: Technology): TechnologyBadgeView {
+  const iconSlug = tech.iconSlug || tech.slug;
   return {
     slug: tech.slug,
     name: tech.name,
-    iconSlug: tech.iconSlug || tech.slug,
-    hasIcon: hasTechIcon(tech.name),
-    brandColor: tech.brandColor,
+    iconSlug,
+    hasIcon: hasTechIcon(tech.name, iconSlug),
+    website: tech.website,
   };
 }
 
@@ -70,14 +70,14 @@ export function toTechnologyDetailView(
   repository: DomainRepository,
 ): TechnologyDetailView {
   const content = getContentUsingTechnologyByType(repository.graph, tech.slug);
+  const iconSlug = tech.iconSlug || tech.slug;
   return {
     slug: tech.slug,
     name: tech.name,
     description: tech.description,
     website: tech.website,
-    brandColor: tech.brandColor,
-    iconSlug: tech.iconSlug,
-    hasIcon: hasTechIcon(tech.name),
+    iconSlug,
+    hasIcon: hasTechIcon(tech.name, iconSlug),
     usedIn: {
       projectsCount: content.projects.length,
       blogsCount: content.blogs.length,

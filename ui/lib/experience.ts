@@ -177,7 +177,7 @@ export function getAllExperience(): Experience[] {
         "Aided pre-sales and marketing momentum via customer discovery calls, blog posts, and conference booth representation",
       ],
       technologies: [
-        "Apache Kafka",
+        "Kafka",
         "Kotlin",
         "Python",
         "Google BigQuery",

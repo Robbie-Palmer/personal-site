@@ -1,7 +1,4 @@
-import type {
-  TechnologyBadgeView,
-  TechnologyLabelView,
-} from "../technology/technologyViews";
+import type { TechnologyBadgeView } from "../technology/technologyViews";
 import type { ADR, ADRStatus } from "./adr";
 
 export type ADRCardView = {
@@ -24,7 +21,7 @@ export type ADRDetailView = {
   content: string;
   readingTime: string;
   projectSlug: string;
-  technologies: TechnologyLabelView[];
+  technologies: TechnologyBadgeView[];
 };
 
 export type ADRListItemView = {
@@ -52,7 +49,7 @@ export function toADRCardView(
 
 export function toADRDetailView(
   adr: ADR,
-  technologies: TechnologyLabelView[],
+  technologies: TechnologyBadgeView[],
   projectSlug: string,
 ): ADRDetailView {
   return {

@@ -2,7 +2,11 @@ export function normalizeSlug(text: string): string {
   if (!text) return "";
   return text
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-") // Replace non-alphanumeric chars with hyphens
+    .replace(/\+\+/g, "plusplus")
+    .replace(/#/g, "sharp")
+    .replace(/\./g, "dot")
+    .replace(/\s+/g, "-") // Spaces to hyphens
+    .replace(/[^a-z0-9-]+/g, "") // Remove remaining special chars
     .replace(/(^-|-$)/g, ""); // Remove leading/trailing hyphens
 }
 

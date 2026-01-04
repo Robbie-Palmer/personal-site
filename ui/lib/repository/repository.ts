@@ -3,6 +3,7 @@ import path from "node:path";
 import { isValid, parse } from "date-fns";
 import matter from "gray-matter";
 import readingTime from "reading-time";
+import { technologies as definedTechnologies } from "../../content/technologies";
 import {
   type ADR,
   type ADRRelations,
@@ -33,7 +34,7 @@ import {
   type TechnologySlug,
 } from "../domain/technology/technology";
 import { getAllExperience, getExperienceSlug } from "../experience";
-import { TECH_URLS } from "../tech-icons";
+import { normalizeSlug } from "../slugs";
 import {
   buildContentGraph,
   type ContentGraph,
@@ -72,66 +73,78 @@ const BUILDING_PHILOSOPHY_PATH = path.join(
 export function loadTechnologies(): Map<TechnologySlug, Technology> {
   const techMap = new Map<TechnologySlug, Technology>();
 
-  const normalizeSlug = (name: string): string => {
-    return name.toLowerCase().trim();
-  };
+  for (const techContent of definedTechnologies) {
+    const slug = (techContent.slug ||
+      normalizeSlug(techContent.name)) as TechnologySlug;
+    const tech: Technology = {
+      ...techContent,
+      slug,
+    };
+    techMap.set(slug, tech);
+  }
 
-  const addTech = (name: string) => {
+  return techMap;
+}
+
+// Validate that all referenced technologies are defined
+export function validateTechnologyReferences(
+  technologies: Map<TechnologySlug, Technology>,
+): void {
+  const missingTechs = new Set<string>();
+  const collectMissingTech = (name: string, source: string) => {
     const slug = normalizeSlug(name);
-    if (!techMap.has(slug)) {
-      techMap.set(slug, {
-        slug,
-        name,
-        description: undefined,
-        website: TECH_URLS[slug] || TECH_URLS[name],
-        brandColor: undefined,
-        iconSlug: undefined,
-      });
+    if (!technologies.has(slug)) {
+      missingTechs.add(`"${name}" (referenced in ${source})`);
     }
   };
+
+  // Check experience technologies
   const experiences = getAllExperience();
   for (const exp of experiences) {
     for (const tech of exp.technologies) {
-      addTech(tech);
+      collectMissingTech(tech, `experience: ${exp.company}`);
     }
   }
-  if (!fs.existsSync(PROJECTS_DIR)) {
-    return techMap;
-  }
-  const projectDirs = fs
-    .readdirSync(PROJECTS_DIR, { withFileTypes: true })
-    .filter((dirent) => dirent.isDirectory())
-    .map((dirent) => dirent.name);
-  projectDirs.forEach((projectSlug) => {
-    const projectPath = path.join(PROJECTS_DIR, projectSlug, "index.mdx");
-    if (fs.existsSync(projectPath)) {
-      const fileContent = fs.readFileSync(projectPath, "utf-8");
-      const { data } = matter(fileContent);
-      if (Array.isArray(data.tech_stack)) {
-        for (const tech of data.tech_stack) {
-          addTech(tech);
+
+  // Check project and ADR technologies
+  if (fs.existsSync(PROJECTS_DIR)) {
+    const projectDirs = fs
+      .readdirSync(PROJECTS_DIR, { withFileTypes: true })
+      .filter((dirent) => dirent.isDirectory())
+      .map((dirent) => dirent.name);
+
+    projectDirs.forEach((projectSlug) => {
+      const projectPath = path.join(PROJECTS_DIR, projectSlug, "index.mdx");
+      if (fs.existsSync(projectPath)) {
+        const fileContent = fs.readFileSync(projectPath, "utf-8");
+        const { data } = matter(fileContent);
+        if (Array.isArray(data.tech_stack)) {
+          for (const tech of data.tech_stack) {
+            collectMissingTech(tech, `project: ${projectSlug}`);
+          }
+        }
+
+        const adrsDir = path.join(PROJECTS_DIR, projectSlug, "adrs");
+        if (fs.existsSync(adrsDir)) {
+          const adrFiles = fs
+            .readdirSync(adrsDir)
+            .filter((f) => f.endsWith(".mdx"));
+          adrFiles.forEach((adrFile) => {
+            const adrPath = path.join(adrsDir, adrFile);
+            const adrContent = fs.readFileSync(adrPath, "utf-8");
+            const { data: adrData } = matter(adrContent);
+            if (Array.isArray(adrData.tech_stack)) {
+              for (const tech of adrData.tech_stack) {
+                collectMissingTech(tech, `ADR: ${projectSlug}/${adrFile}`);
+              }
+            }
+          });
         }
       }
-      const adrsDir = path.join(PROJECTS_DIR, projectSlug, "adrs");
-      if (fs.existsSync(adrsDir)) {
-        const adrFiles = fs
-          .readdirSync(adrsDir)
-          .filter((f) => f.endsWith(".mdx"));
-        adrFiles.forEach((adrFile) => {
-          const adrPath = path.join(adrsDir, adrFile);
-          const adrContent = fs.readFileSync(adrPath, "utf-8");
-          const { data: adrData } = matter(adrContent);
-          if (Array.isArray(adrData.tech_stack)) {
-            for (const tech of adrData.tech_stack) {
-              addTech(tech);
-            }
-          }
-        });
-      }
-    }
-  });
+    });
+  }
 
-  // Load technologies from blog posts
+  // Check blog technologies
   if (fs.existsSync(BLOG_DIR)) {
     const blogFiles = fs
       .readdirSync(BLOG_DIR)
@@ -142,13 +155,25 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
       const { data: blogData } = matter(blogContent);
       if (Array.isArray(blogData.technologies)) {
         for (const tech of blogData.technologies) {
-          addTech(tech);
+          collectMissingTech(tech, `blog: ${blogFile}`);
         }
       }
     });
   }
 
-  return techMap;
+  if (missingTechs.size > 0) {
+    const errorMessage = [
+      "\n❌ ERROR: The following technologies are referenced but not defined in content/technologies.ts:",
+      "",
+      ...Array.from(missingTechs)
+        .sort()
+        .map((tech) => `  - ${tech}`),
+      "",
+      "Please add these technologies to content/technologies.ts",
+      "",
+    ].join("\n");
+    throw new Error(errorMessage);
+  }
 }
 
 export function validateTechnology(
@@ -161,9 +186,15 @@ export function validateTechnology(
       schemaErrors: result.error,
     };
   }
+  // Derive slug if not provided
+  const slug = (result.data.slug ||
+    normalizeSlug(result.data.name)) as TechnologySlug;
   return {
     success: true,
-    data: result.data,
+    data: {
+      ...result.data,
+      slug,
+    },
   };
 }
 
@@ -204,7 +235,7 @@ export function loadBlogPosts(): BlogLoadResult {
 
     const blogRelations: BlogRelations = {
       technologies: (data.technologies || []).map((tech: string) =>
-        tech.toLowerCase().trim(),
+        normalizeSlug(tech),
       ),
       tags: data.tags || [],
     };
@@ -316,7 +347,7 @@ export function loadProjects(): ProjectLoadResult {
     }
 
     const technologies: TechnologySlug[] = (data.tech_stack || []).map(
-      (tech: string) => tech.toLowerCase().trim(),
+      (tech: string) => normalizeSlug(tech),
     );
 
     const project: Project = {
@@ -398,7 +429,7 @@ export function loadADRs(): ADRLoadResult {
       const { data, content } = matter(fileContent);
 
       const technologies: TechnologySlug[] = (data.tech_stack || []).map(
-        (tech: string) => tech.toLowerCase().trim(),
+        (tech: string) => normalizeSlug(tech),
       );
 
       const adr: ADR = {
@@ -460,7 +491,7 @@ export function loadJobRoles(): RoleLoadResult {
   for (const exp of experiences) {
     const slug = getExperienceSlug(exp);
     const technologies: TechnologySlug[] = exp.technologies.map((tech) =>
-      tech.toLowerCase().trim(),
+      normalizeSlug(tech),
     );
 
     const role: JobRole = {
@@ -657,6 +688,7 @@ function buildRelationDataFromLoaders(loaders: LoaderResults): RelationData {
 
 export function loadDomainRepository(): DomainRepository {
   const technologies = loadTechnologies();
+  validateTechnologyReferences(technologies);
   const blogsResult = loadBlogPosts();
   const projectsResult = loadProjects();
   const adrsResult = loadADRs();

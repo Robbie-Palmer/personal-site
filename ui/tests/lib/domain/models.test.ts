@@ -13,11 +13,9 @@ describe("Domain Model Schemas", () => {
   describe("TechnologySchema", () => {
     it("should validate a complete technology object", () => {
       const validTech = {
-        slug: "react",
         name: "React",
         description: "A JavaScript library for building user interfaces",
         website: "https://react.dev",
-        brandColor: "#61DAFB",
         iconSlug: "react",
         relations: {
           blogs: ["my-blog"],
@@ -33,7 +31,6 @@ describe("Domain Model Schemas", () => {
 
     it("should validate minimal technology object with defaults", () => {
       const minimalTech = {
-        slug: "typescript",
         name: "TypeScript",
       };
 
@@ -49,26 +46,8 @@ describe("Domain Model Schemas", () => {
       }
     });
 
-    it("should reject technology with invalid brandColor format", () => {
-      const invalidTech = {
-        slug: "react",
-        name: "React",
-        brandColor: "red", // Should be hex format
-        relations: {
-          blogs: [],
-          adrs: [],
-          projects: [],
-          roles: [],
-        },
-      };
-
-      const result = TechnologySchema.safeParse(invalidTech);
-      expect(result.success).toBe(false);
-    });
-
     it("should reject technology with invalid website URL", () => {
       const invalidTech = {
-        slug: "react",
         name: "React",
         website: "not-a-valid-url",
         relations: {
@@ -83,19 +62,8 @@ describe("Domain Model Schemas", () => {
       expect(result.success).toBe(false);
     });
 
-    it("should reject technology with empty slug", () => {
-      const invalidTech = {
-        slug: "",
-        name: "React",
-      };
-
-      const result = TechnologySchema.safeParse(invalidTech);
-      expect(result.success).toBe(false);
-    });
-
     it("should reject technology with empty name", () => {
       const invalidTech = {
-        slug: "react",
         name: "",
       };
 

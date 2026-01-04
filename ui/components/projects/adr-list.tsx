@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { ADR } from "@/lib/projects";
-import { getTechUrl, hasTechIcon, TechIcon } from "@/lib/tech-icons";
+import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
 import { useSortParam } from "@/lib/use-sort-param";
 import { ADRBadge } from "./adr-badge";
 
@@ -135,7 +135,7 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
                 {adr.technologies &&
                   adr.technologies.length > 0 &&
                   adr.technologies.map((tech) => {
-                    const url = getTechUrl(tech.name);
+                    const url = tech.website;
 
                     if (url) {
                       return (

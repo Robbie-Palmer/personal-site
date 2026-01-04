@@ -53,6 +53,7 @@ function getTechSlug(name: string): string {
 
 interface TechIconProps {
   name: string;
+  iconSlug?: string; // Optional: use this slug instead of deriving from name
   className?: string;
 }
 
@@ -71,8 +72,8 @@ type IconData =
   | { type: "custom"; slug: string }
   | { type: "simple"; icon: SimpleIcon };
 
-function resolveIconData(name: string): IconData | null {
-  const slug = getTechSlug(name);
+function resolveIconData(name: string, iconSlug?: string): IconData | null {
+  const slug = iconSlug || getTechSlug(name);
   if (customIcons.has(slug)) {
     return { type: "custom", slug };
   }
@@ -89,8 +90,12 @@ function resolveIconData(name: string): IconData | null {
   return null;
 }
 
-export function TechIcon({ name, className = "w-3 h-3" }: TechIconProps) {
-  const iconData = resolveIconData(name);
+export function TechIcon({
+  name,
+  iconSlug,
+  className = "w-3 h-3",
+}: TechIconProps) {
+  const iconData = resolveIconData(name, iconSlug);
   if (!iconData) return null;
 
   if (iconData.type === "custom") {
@@ -118,58 +123,12 @@ export function TechIcon({ name, className = "w-3 h-3" }: TechIconProps) {
   );
 }
 
-export function hasTechIcon(name: string): boolean {
-  return resolveIconData(name) !== null;
+export function hasTechIcon(name: string, iconSlug?: string): boolean {
+  return resolveIconData(name, iconSlug) !== null;
 }
 
-export const TECH_URLS: Record<string, string> = {
-  react: "https://react.dev",
-  "next.js": "https://nextjs.org",
-  "tailwind css": "https://tailwindcss.com",
-  pnpm: "https://pnpm.io",
-  vitest: "https://vitest.dev",
-  "shadcn/ui": "https://ui.shadcn.com",
-  typescript: "https://www.typescriptlang.org",
-  turbopack: "https://turbo.build/pack",
-  "github actions": "https://github.com/features/actions",
-  "github secrets":
-    "https://docs.github.com/en/actions/security-guides/encrypted-secrets",
-  github: "https://github.com",
-  terraform: "https://www.terraform.io",
-  "cloudflare terraform provider":
-    "https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs",
-  "cloudflare pages": "https://pages.cloudflare.com",
-  renovate: "https://docs.renovatebot.com",
-  mdx: "https://mdxjs.com",
-  shiki: "https://shiki.style",
-  "fuse.js": "https://www.fusejs.io",
-  recharts: "https://recharts.org",
-  zod: "https://zod.dev",
-  "lucide react": "https://lucide.dev",
-  mermaid: "https://mermaid.js.org",
-  "embla carousel": "https://www.embla-carousel.com",
-  coderabbit: "https://coderabbit.ai",
-  dependabot: "https://github.com/dependabot",
-  "claude code": "https://claude.ai",
-  mise: "https://mise.jdx.dev",
-  codeql: "https://codeql.github.com",
-  "cloudflare dns": "https://www.cloudflare.com/dns",
-  "cloudflare images": "https://www.cloudflare.com/products/images",
-  "terraform cloud": "https://www.hashicorp.com/products/terraform",
-  husky: "https://typicode.github.io/husky",
-  "tailwind css typography":
-    "https://github.com/tailwindlabs/tailwindcss-typography",
-  ccpm: "https://github.com/automazeio/ccpm/",
-  shortcut: "https://shortcut.com",
-  doppler: "https://www.doppler.com",
-};
-
-export function getTechUrl(name: string): string | undefined {
-  return TECH_URLS[name.toLowerCase()];
-}
-
-export function getTechIconUrl(name: string): string | null {
-  const iconData = resolveIconData(name);
+export function getTechIconUrl(name: string, iconSlug?: string): string | null {
+  const iconData = resolveIconData(name, iconSlug);
   if (!iconData) return null;
 
   if (iconData.type === "custom") {

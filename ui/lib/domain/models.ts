@@ -13,14 +13,10 @@ export type ProjectSlug = z.infer<typeof ProjectSlugSchema>;
 export type RoleSlug = z.infer<typeof RoleSlugSchema>;
 
 export const TechnologySchema = z.object({
-  slug: TechnologySlugSchema,
   name: z.string().min(1),
+  slug: TechnologySlugSchema.optional(),
   description: z.string().optional(),
   website: z.string().url().optional(),
-  brandColor: z
-    .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/)
-    .optional(),
   iconSlug: z.string().optional(),
 
   relations: z
