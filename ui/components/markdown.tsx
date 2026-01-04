@@ -25,7 +25,13 @@ const baseComponents: MDXComponents = {
       );
     }
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="break-words"
+        {...props}
+      >
         {children}
       </a>
     );
