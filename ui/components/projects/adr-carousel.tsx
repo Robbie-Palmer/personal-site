@@ -18,8 +18,6 @@ type ADRCarouselProps = {
   scrollSpeed?: number;
   stopOnInteraction?: boolean;
   stopOnMouseEnter?: boolean;
-  playOnInit?: boolean;
-  startDelay?: number;
 };
 
 export function ADRCarousel({
@@ -29,8 +27,6 @@ export function ADRCarousel({
   scrollSpeed = defaultCarouselConfig.scrollSpeed,
   stopOnInteraction = defaultCarouselConfig.stopOnInteraction,
   stopOnMouseEnter = defaultCarouselConfig.stopOnMouseEnter,
-  playOnInit = defaultCarouselConfig.playOnInit,
-  startDelay = defaultCarouselConfig.startDelay,
 }: ADRCarouselProps) {
   return (
     <ContentCarousel
@@ -41,8 +37,6 @@ export function ADRCarousel({
       scrollSpeed={scrollSpeed}
       stopOnInteraction={stopOnInteraction}
       stopOnMouseEnter={stopOnMouseEnter}
-      playOnInit={playOnInit}
-      startDelay={startDelay}
       renderItem={(adr) => (
         <Card className="h-full flex flex-col overflow-hidden transition-all hover:shadow-lg hover:border-primary/50 relative bg-card">
           <div className="absolute top-4 left-4 right-20 z-10 pointer-events-none">

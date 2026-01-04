@@ -22,8 +22,6 @@ export type ContentCarouselProps<T> = {
   scrollSpeed?: number;
   stopOnInteraction?: boolean;
   stopOnMouseEnter?: boolean;
-  playOnInit?: boolean;
-  startDelay?: number;
   className?: string;
   itemClassName?: string;
   getItemKey?: (item: T, index: number) => string;

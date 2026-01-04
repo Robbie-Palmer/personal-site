@@ -32,7 +32,7 @@ export function TechOrbit({
 }: TechOrbitProps) {
   const [activeTech, setActiveTech] = useState<TechOrbitItem | null>(null);
   const [containerWidth, setContainerWidth] = useState(600);
-  const [isVisible, setIsVisible] = useState(true);
+  const [isVisible, setIsVisible] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Track container width for responsive scaling
