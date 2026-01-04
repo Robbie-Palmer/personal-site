@@ -1,3 +1,5 @@
+import { ExternalLink } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import {
@@ -7,7 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { TechnologyBadgeView } from "@/lib/domain/technology/technologyViews";
-import { TechIcon } from "@/lib/tech-icons";
+import { getTechIconUrl } from "@/lib/tech-icons";
 
 interface TechnologyCardProps {
   technology: TechnologyBadgeView;
@@ -18,15 +20,27 @@ export function TechnologyCard({
   technology,
   description,
 }: TechnologyCardProps) {
+  const iconUrl = getTechIconUrl(technology.name, technology.iconSlug);
+  const hasExternalLink = !!technology.website;
+
   const cardContent = (
     <Card
       id={`tech-${technology.slug}`}
-      className="transition-all hover:shadow-lg hover:border-primary/50 h-full group cursor-pointer aspect-square flex items-center justify-center p-3 scroll-mt-24"
+      className="transition-all hover:shadow-lg hover:border-primary/50 h-full group cursor-pointer aspect-square flex items-center justify-center p-3 scroll-mt-24 relative"
     >
+      {hasExternalLink && (
+        <ExternalLink className="absolute top-2 right-2 w-3 h-3 text-muted-foreground opacity-60 md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+      )}
       <div className="flex flex-col items-center justify-center gap-2 w-full">
-        {technology.hasIcon && (
-          <div className="shrink-0 w-10 h-10 flex items-center justify-center">
-            <TechIcon name={technology.name} className="w-10 h-10" />
+        {iconUrl && (
+          <div className="shrink-0 w-10 h-10 flex items-center justify-center relative">
+            <Image
+              src={iconUrl}
+              alt={technology.name}
+              width={40}
+              height={40}
+              className="object-contain brightness-0 dark:invert"
+            />
           </div>
         )}
         <div className="text-center text-sm font-medium line-clamp-2 w-full px-1">
@@ -36,8 +50,8 @@ export function TechnologyCard({
     </Card>
   );
 
-  const wrappedCard = technology.website ? (
-    <Link href={technology.website} target="_blank" rel="noopener noreferrer">
+  const wrappedCard = hasExternalLink ? (
+    <Link href={technology.website!} target="_blank" rel="noopener noreferrer">
       {cardContent}
     </Link>
   ) : (

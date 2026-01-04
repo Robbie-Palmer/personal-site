@@ -5,6 +5,7 @@ import { TechnologyCard } from "@/components/technology/technology-card";
 import { loadDomainRepository } from "@/lib/domain";
 import { getAllTechnologyBadges } from "@/lib/domain/technology";
 import { getAllExperience, getExperienceSlug } from "@/lib/experience";
+import { getContentUsingTechnologyByType } from "@/lib/repository";
 import { siteConfig } from "@/lib/site-config";
 
 const pageDescription =
@@ -32,14 +33,26 @@ export default function ExperiencePage() {
   const repository = loadDomainRepository();
   const technologyBadges = getAllTechnologyBadges(repository);
 
-  // Get descriptions from repository
-  const technologiesWithDescriptions = technologyBadges.map((badge) => {
-    const tech = repository.technologies.get(badge.slug);
-    return {
-      badge,
-      description: tech?.description,
-    };
-  });
+  // Get descriptions and sort by knowledge graph connections (like home page)
+  const technologiesWithDescriptions = technologyBadges
+    .map((badge) => {
+      const tech = repository.technologies.get(badge.slug);
+      const usage = getContentUsingTechnologyByType(
+        repository.graph,
+        badge.slug,
+      );
+      const edgeCount =
+        usage.projects.length +
+        usage.blogs.length +
+        usage.adrs.length +
+        usage.roles.length;
+      return {
+        badge,
+        description: tech?.description,
+        edgeCount,
+      };
+    })
+    .sort((a, b) => b.edgeCount - a.edgeCount);
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-6xl">
