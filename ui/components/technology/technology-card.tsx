@@ -59,7 +59,7 @@ export function TechnologyCard({
         <Tooltip>
           <TooltipTrigger asChild>{wrappedCard}</TooltipTrigger>
           <TooltipContent className="max-w-[250px]">
-            <p className="text-sm leading-relaxed">{description}</p>
+            <p className="text-sm leading-relaxed text-center">{description}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
