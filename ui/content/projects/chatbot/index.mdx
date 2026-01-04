@@ -1,0 +1,38 @@
+---
+title: "AI Shopping Assistant"
+description: "A conversational agent using RAG, hybrid search, and SSE streaming"
+date: "2023-09-01"
+tech_stack:
+  - "TypeScript"
+  - "Python"
+  - "OpenRouter"
+  - "Weaviate"
+  - "PostgreSQL"
+  - "Swift"
+status: "completed"
+---
+
+# Vision
+
+The goal at Bestomer was to combine our commercial data and product search capabilities into a unified, conversational interface. We wanted a chatbot that could understand a user's intent and retrieve relevant products or past purchase history to answer specific questions.
+
+# Problem Statement
+
+* **Context Window Limits**: We couldn't feed a user's entire history or the product catalog into an LLM context window.
+* **Latency**: Conversational interfaces need to feel instantaneous, but fetching data and running inference is slow.
+* **Accuracy**: Users need reliable product information, but early LLMs required extensive grounding to avoid hallucinations.
+
+# Methodology
+
+I architected and built the real-time RAG infrastructure:
+
+* **Hybrid Search**: Leveraged **Weaviate's** native hybrid search to combine vector embeddings with BM25 keyword scoring, ensuring precise product retrieval.
+* **Data Orchestration**: Integrated structured user data from **PostgreSQL** with unstructured product embeddings from Weaviate to dynamically construct the LLM context.
+* **Real-time Streaming**: Built Server-Sent Events (SSE) pipelines in **Python** and **TypeScript** to stream LLM tokens directly to the **Android** and **Swift** mobile apps, minimizing perceived latency.
+* **Model Evaluation**: Leveraged **OpenRouter** to iterate on different models and prompting strategies, optimizing for response quality and speed.
+
+# Impact
+
+* **Scalable Architecture**: Established a robust streaming RAG pipeline that successfully bridged disparate data sources (Postgres, Weaviate) with mobile experiences.
+* **Improved Retrieval**: Hybrid search implementation significantly outperformed naive vector-only approaches for specific product queries.
+* **Strategic Direction**: The implementation provided critical insights into the capabilities of LLMs for high-trust commercial tasks, shaping the platform's future interaction models.

@@ -11,6 +11,7 @@ export type ProjectCardView = {
   status: ProjectStatus;
   repoUrl?: string;
   demoUrl?: string;
+  productUrl?: string;
   technologies: TechnologyBadgeView[];
   adrCount: number;
 };
@@ -24,6 +25,7 @@ export type ProjectDetailView = {
   status: ProjectStatus;
   repoUrl?: string;
   demoUrl?: string;
+  productUrl?: string;
   content: string;
   technologies: TechnologyBadgeView[];
   adrSlugs: string[];
@@ -44,6 +46,7 @@ export type ProjectWithADRsView = {
   status: ProjectStatus;
   repoUrl?: string;
   demoUrl?: string;
+  productUrl?: string;
   content: string;
   technologies: TechnologyBadgeView[];
   adrSlugs: string[];
@@ -64,6 +67,7 @@ export function toProjectCardView(
     status: project.status,
     repoUrl: project.repoUrl,
     demoUrl: project.demoUrl,
+    productUrl: project.productUrl,
     technologies,
     adrCount,
   };
@@ -83,6 +87,7 @@ export function toProjectDetailView(
     status: project.status,
     repoUrl: project.repoUrl,
     demoUrl: project.demoUrl,
+    productUrl: project.productUrl,
     content: project.content,
     technologies,
     adrSlugs,

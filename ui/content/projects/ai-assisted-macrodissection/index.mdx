@@ -1,0 +1,30 @@
+---
+title: "AI-Assisted Macrodissection Runtime"
+description: "A platform for scaling AI models to accelerate manual tissue macrodissection"
+date: "2017-07-04"
+tech_stack:
+  - "Python"
+  - "Keras"
+  - "RabbitMQ"
+product_url: "https://www.philips.co.uk/healthcare/diagnostic-and-clinical-informatics/digital-pathology"
+status: "completed"
+---
+
+# Vision
+
+The goal was to accelerate the manual review process for tissue macrodissection by providing pathologists with AI-generated suggestions. Unlike later projects focused on full automation, this system was designed to augment human workflows, identifying regions of interest on H\&E stained Whole Slide Images (WSIs) for manual extraction.
+
+# Problem Statement
+
+Pathologists spend significant time manually scanning slides to identify viable tumor regions for genetic analysis. This process is slow and repetitive. We needed a system that could pre-screen slides using an ensemble of Deep Learning models and present the results to the pathologist for rapid verification, specifically working with the proprietary Philips file format.
+
+# Methodology
+
+* **Platform Engineering**: I was responsible for the infrastructure to run, scale, and integrate the data science team's models.
+* **Ensemble Orchestration**: Built the pipeline to aggregate predictions from multiple models (tumor detection, necrosis avoidance, etc.) into a cohesive overlay.
+* **Proprietary Format Support**: Engineered the ingestion layer to performantly read and process Philips' proprietary WSI format.
+* **Human-in-the-Loop**: Designed the workflow to present AI suggestions as a starting point, essentially using DL to "pre-fill" the pathologist's task, drastically reducing the time required per slide.
+
+# Impact
+
+This project proved that Deep Learning could be effectively integrated into existing enterprise pathology workflows. It laid the groundwork for understanding the complexities of WSI analysis—scale, formats, and artifacts—which informed my later work on fully automated dissection systems.

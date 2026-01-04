@@ -1,0 +1,40 @@
+---
+title: "Pathology Viewer"
+description: "A web app for interacting with digital pathology slides"
+date: "2021-11-01"
+tech_stack:
+  - "Python"
+  - "Leaflet"
+  - "Plotly"
+  - "OpenSlide"
+  - "Shapely"
+  - "GeoPandas"
+status: "completed"
+product_url: "https://sonraianalytics.com/biomarker-platform-features/imaging-ai/"
+---
+
+# Vision
+
+The goal of this project was to evolve Sonrai's bioinformatics platform from a tabular-data-focused tool into a truly multi-modal and [multi-omic](/blog/2022-02-28-enabling-multi-omic-data-management) system. The platform needed to move beyond simple datasets to handle the complexity of biological imagery.
+
+# Problem Statement
+
+"Whole Slide Images" (WSI) in digital pathology represent a massive engineering challenge:
+
+* **Geospatial Complexity**: Similar to maps, these are multi-resolution, pyramidal images that are gigabytes in size.
+* **Fragmentation**: Unlike radiology (which has the DICOM standard), digital pathology is fragmented. Every scanner manufacturer (Leica, Aperio, Philips, etc.) uses their own proprietary format.
+* **Data integration**: We needed to treat these images not just as pictures, but as data sources for geospatial aggregations and feature extraction.
+
+# User Stories
+
+* **As a pathologist**, I want to view and interact with slides from any scanner vendor without worrying about file formats.
+* **As a researcher**, I need to draw precise regions of interest (polygons, points) and overlay analysis results directly onto the tissue image.
+* **As a platform user**, I want an app that seamlessly exchanges data in pipelines with other bioinformatics tools in the ecosystem.
+
+# Platform Capabilities
+
+* **Multi-Format Support**: proprietary format ingestion for major vendors (Leica, Aperio, Philips).
+* **Responsive High-Resolution Viewer**: Efficient handling of multi-gigabyte files using tiling and pyramidal resolution strategies.
+* **Interactive Annotations**: Support for drawing and editing regions of interest (polygons, points) overlaid on the slide.
+* **Geospatial Analysis**: Performing aggregations and feature extraction on image data, treating biological structures with the same logic as geospatial features.
+* **Pipeline Integration**: Full compatibility with Sonrai's no-code GUI ecosystem for multi-omic workflows.

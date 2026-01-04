@@ -99,7 +99,7 @@ export function ProjectTechStack({
             onClick={() => setIsExpanded(!isExpanded)}
           >
             <span className="text-xs font-medium">
-              {isExpanded ? "Show less" : "Show all"}
+              {isExpanded ? "Show less" : "Show details"}
             </span>
             <ChevronDown
               className={cn(

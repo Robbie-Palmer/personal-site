@@ -24,6 +24,7 @@ export const PROJECT_STATUSES = [
   "in_progress",
   "live",
   "archived",
+  "completed",
 ] as const;
 
 export interface ProjectADR extends ADRCardView {

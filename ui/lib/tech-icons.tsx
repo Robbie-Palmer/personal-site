@@ -37,7 +37,7 @@ const techSlugOverrides: Record<string, string> = {
   "fuse.js": "fusejs",
 };
 
-function getTechSlug(name: string): string {
+export function getTechSlug(name: string): string {
   const override =
     techSlugOverrides[name] || techSlugOverrides[name.toLowerCase()];
   if (override) {
@@ -72,7 +72,10 @@ type IconData =
   | { type: "custom"; slug: string }
   | { type: "simple"; icon: SimpleIcon };
 
-function resolveIconData(name: string, iconSlug?: string): IconData | null {
+export function resolveIconData(
+  name: string,
+  iconSlug?: string,
+): IconData | null {
   const slug = iconSlug || getTechSlug(name);
   if (customIcons.has(slug)) {
     return { type: "custom", slug };

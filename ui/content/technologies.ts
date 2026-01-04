@@ -432,4 +432,37 @@ export const technologies: TechnologyContent[] = [
     description: "Industrial-strength natural language processing",
     website: "https://spacy.io",
   },
+  {
+    name: "Shapely",
+    description: "An SDK for embedded geospatial operations",
+    website: "https://shapely.readthedocs.io/en/latest/",
+  },
+  {
+    name: "OpenSlide",
+    description: "An SDK for reading pathology image formats",
+    website: "https://github.com/openslide/openslide-python",
+  },
+  {
+    name: "R",
+    website: "https://www.r-project.org/",
+  },
+  {
+    name: "Shiny",
+    website: "https://shiny.posit.co/",
+  },
+  {
+    name: "HuggingFace",
+    website: "https://huggingface.co/",
+  },
+  {
+    name: "AWS Textract",
+    description:
+      "Machine learning service that automatically extracts text, handwriting, and data from scanned documents",
+    website: "https://aws.amazon.com/textract/",
+  },
+  {
+    name: "PyPika",
+    description: "A Python SQL query builder",
+    website: "https://github.com/kayak/pypika",
+  },
 ];

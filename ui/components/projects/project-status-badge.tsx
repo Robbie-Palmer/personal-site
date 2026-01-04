@@ -12,6 +12,7 @@ export const STATUS_COLORS: Record<ProjectStatus, string> = {
   in_progress: "bg-amber-500 hover:bg-amber-600 border-transparent text-white",
   live: "bg-green-500 hover:bg-green-600 border-transparent text-white",
   archived: "bg-red-500 hover:bg-red-600 border-transparent text-white",
+  completed: "bg-purple-500 hover:bg-purple-600 border-transparent text-white",
 };
 
 export const STATUS_LABELS: Record<ProjectStatus, string> = {
@@ -19,6 +20,7 @@ export const STATUS_LABELS: Record<ProjectStatus, string> = {
   in_progress: "In Progress",
   live: "Live",
   archived: "Archived",
+  completed: "Completed",
 };
 
 export function ProjectStatusBadge({

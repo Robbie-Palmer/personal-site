@@ -1,0 +1,44 @@
+---
+title: "Genomic Prediction from Histology"
+description: "Predicting genomic status (MSI/MSS) from standard H&E pathology slides using Deep Learning"
+date: "2020-03-30"
+tech_stack:
+  - "Python"
+  - "PyTorch"
+  - "DVC"
+  - "Shapely"
+  - "GeoPandas"
+product_url: "https://sonraianalytics.com/wp-content/uploads/2024/02/S003-019-003-Rev-0-Sonrai-Diagnostics-MSI-IFU_EN.pdf"
+status: "completed"
+---
+
+# Vision
+
+The goal was to democratize access to personalized medicine by proving it is feasible to predict genomic biomarkers
+directly from standard, low-cost pathology images.
+
+# Problem Statement
+
+Personalized medicine relies on knowing a patient's genomic status (e.g., Microsatellite Instable (MSI) vs
+Microsatellite Stable (MSS)), but genomic testing is expensive, slow, and often inaccessible.
+However, standard H\&E stained biopsies are routinely taken for almost every cancer patient.
+
+If we could predict genomic status from these standard images, we could significantly reduce the cost and time required
+to determine the correct treatment plan, effectively screening every patient for eligibility
+for advanced immunotherapies.
+
+# Methodology
+
+I worked to recreate and industrialize the results of a prominent
+[Nature Medicine paper](https://pubmed.ncbi.nlm.nih.gov/31160815/) (Kather et al.)
+which proposed using Deep Learning for this task.
+
+* **Multiple Instance Learning (MIL)**: Implemented a weakly-supervised deep learning approach because slide labels are known (MSI/MSS) but the specific regions of the tumor causing that status are not.
+* **Geospatial Processing**: Used `Shapely` and `GeoPandas` to handle the geometry of tissue regions and tile management at a massive scale.
+* **MLOps**: Established best practices for reproducibility using DVC (Data Version Control) to track experiments, data lineage, and model versions.
+
+# Outcomes
+
+* **Identified Critical Flaws**: During reproduction, I discovered foundational mistakes in the original paper's methodology concerning data leakage across slide tiles. Fixing this led to more realistic and robust performance estimates.
+* **Commercial Success**: The successful proof-of-concept and rigorous validation unlocked a **£2M grant** for Sonrai Analytics to further develop the technology.
+* **Feasibility Proven**: Demonstrated that high-accuracy classification is possible using only standard H\&E images, without requiring expensive immunofluorescence staining.
