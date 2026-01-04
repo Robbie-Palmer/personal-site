@@ -3,6 +3,7 @@
 import { cva } from "class-variance-authority";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useNavbarActions } from "@/context/navbar-actions-context";
 import { useNavbarVisibility } from "@/hooks/use-navbar-visibility";
 import { siteConfig } from "@/lib/site-config";
 import { AnimatedThemeToggler } from "./ui/animated-theme-toggler";
@@ -24,6 +25,7 @@ const headerVariants = cva(
 
 export function ScrollNavbar() {
   const isVisible = useNavbarVisibility();
+  const { hasActions } = useNavbarActions();
 
   return (
     <header className={headerVariants({ visible: isVisible })}>
@@ -44,8 +46,14 @@ export function ScrollNavbar() {
           </Button>
           <Button variant="ghost" className="px-2 md:px-4" asChild>
             <Link href="/experience">
-              <span className="min-[500px]:hidden">Exp</span>
-              <span className="hidden min-[500px]:inline">Experience</span>
+              {hasActions ? (
+                <>
+                  <span className="min-[500px]:hidden">Exp</span>
+                  <span className="hidden min-[500px]:inline">Experience</span>
+                </>
+              ) : (
+                <span>Experience</span>
+              )}
             </Link>
           </Button>
           <AnimatedThemeToggler />
