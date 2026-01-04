@@ -34,6 +34,7 @@ import {
   type TechnologySlug,
 } from "../domain/technology/technology";
 import { getAllExperience, getExperienceSlug } from "../experience";
+import { normalizeSlug } from "../slugs";
 import {
   buildContentGraph,
   type ContentGraph,
@@ -75,7 +76,7 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
   // Load technologies from content file and derive slugs if not provided
   for (const techContent of definedTechnologies) {
     const slug = (techContent.slug ||
-      techContent.name.toLowerCase().trim()) as TechnologySlug;
+      normalizeSlug(techContent.name)) as TechnologySlug;
     const tech: Technology = {
       ...techContent,
       slug,
@@ -90,10 +91,6 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
 export function validateTechnologyReferences(
   technologies: Map<TechnologySlug, Technology>,
 ): void {
-  const normalizeSlug = (name: string): string => {
-    return name.toLowerCase().trim();
-  };
-
   const missingTechs = new Set<string>();
   const collectMissingTech = (name: string, source: string) => {
     const slug = normalizeSlug(name);
@@ -192,7 +189,7 @@ export function validateTechnology(
   }
   // Derive slug if not provided
   const slug = (result.data.slug ||
-    result.data.name.toLowerCase().trim()) as TechnologySlug;
+    normalizeSlug(result.data.name)) as TechnologySlug;
   return {
     success: true,
     data: {
@@ -239,7 +236,7 @@ export function loadBlogPosts(): BlogLoadResult {
 
     const blogRelations: BlogRelations = {
       technologies: (data.technologies || []).map((tech: string) =>
-        tech.toLowerCase().trim(),
+        normalizeSlug(tech),
       ),
       tags: data.tags || [],
     };
@@ -351,7 +348,7 @@ export function loadProjects(): ProjectLoadResult {
     }
 
     const technologies: TechnologySlug[] = (data.tech_stack || []).map(
-      (tech: string) => tech.toLowerCase().trim(),
+      (tech: string) => normalizeSlug(tech),
     );
 
     const project: Project = {
@@ -433,7 +430,7 @@ export function loadADRs(): ADRLoadResult {
       const { data, content } = matter(fileContent);
 
       const technologies: TechnologySlug[] = (data.tech_stack || []).map(
-        (tech: string) => tech.toLowerCase().trim(),
+        (tech: string) => normalizeSlug(tech),
       );
 
       const adr: ADR = {
@@ -495,7 +492,7 @@ export function loadJobRoles(): RoleLoadResult {
   for (const exp of experiences) {
     const slug = getExperienceSlug(exp);
     const technologies: TechnologySlug[] = exp.technologies.map((tech) =>
-      tech.toLowerCase().trim(),
+      normalizeSlug(tech),
     );
 
     const role: JobRole = {

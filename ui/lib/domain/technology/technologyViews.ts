@@ -76,7 +76,7 @@ export function toTechnologyDetailView(
     name: tech.name,
     description: tech.description,
     website: tech.website,
-    iconSlug: tech.iconSlug,
+    iconSlug,
     hasIcon: hasTechIcon(tech.name, iconSlug),
     usedIn: {
       projectsCount: content.projects.length,

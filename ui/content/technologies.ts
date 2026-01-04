@@ -232,11 +232,6 @@ export const technologies: TechnologyContent[] = [
     website: "https://www.ansible.com",
   },
   {
-    name: "Apache Kafka",
-    description: "Distributed event streaming platform",
-    website: "https://kafka.apache.org",
-  },
-  {
     name: "Kafka",
     description: "Distributed event streaming platform",
     website: "https://kafka.apache.org",
