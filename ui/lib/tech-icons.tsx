@@ -90,7 +90,11 @@ function resolveIconData(name: string, iconSlug?: string): IconData | null {
   return null;
 }
 
-export function TechIcon({ name, iconSlug, className = "w-3 h-3" }: TechIconProps) {
+export function TechIcon({
+  name,
+  iconSlug,
+  className = "w-3 h-3",
+}: TechIconProps) {
   const iconData = resolveIconData(name, iconSlug);
   if (!iconData) return null;
 

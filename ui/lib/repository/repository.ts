@@ -3,6 +3,7 @@ import path from "node:path";
 import { isValid, parse } from "date-fns";
 import matter from "gray-matter";
 import readingTime from "reading-time";
+import { technologies as definedTechnologies } from "../../content/technologies";
 import {
   type ADR,
   type ADRRelations,
@@ -39,7 +40,6 @@ import {
   createEmptyRelationData,
   type RelationData,
 } from "./graph";
-import { technologies as definedTechnologies } from "../../content/technologies";
 
 // Validation types
 export type DomainValidationResult<T> =
@@ -163,7 +163,9 @@ export function validateTechnologyReferences(
     const errorMessage = [
       "\n❌ ERROR: The following technologies are referenced but not defined in content/technologies.ts:",
       "",
-      ...Array.from(missingTechs).sort().map((tech) => `  - ${tech}`),
+      ...Array.from(missingTechs)
+        .sort()
+        .map((tech) => `  - ${tech}`),
       "",
       "Please add these technologies to content/technologies.ts",
       "",
