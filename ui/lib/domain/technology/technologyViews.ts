@@ -15,7 +15,6 @@ export type TechnologyBadgeView = {
   name: string;
   iconSlug: string;
   hasIcon: boolean;
-  brandColor?: string;
   website?: string;
 };
 
@@ -30,7 +29,6 @@ export type TechnologyDetailView = {
   name: string;
   description?: string;
   website?: string;
-  brandColor?: string;
   iconSlug?: string;
   hasIcon: boolean;
   usedIn: {
@@ -55,7 +53,6 @@ export function toTechnologyBadgeView(tech: Technology): TechnologyBadgeView {
     name: tech.name,
     iconSlug,
     hasIcon: hasTechIcon(tech.name, iconSlug),
-    brandColor: tech.brandColor,
     website: tech.website,
   };
 }
@@ -79,7 +76,6 @@ export function toTechnologyDetailView(
     name: tech.name,
     description: tech.description,
     website: tech.website,
-    brandColor: tech.brandColor,
     iconSlug: tech.iconSlug,
     hasIcon: hasTechIcon(tech.name, iconSlug),
     usedIn: {

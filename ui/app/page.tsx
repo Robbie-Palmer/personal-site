@@ -36,7 +36,6 @@ export default function Home() {
       return {
         name: tech.name,
         slug: tech.slug,
-        brandColor: tech.brandColor,
         url: tech.website,
         weight: edgeCount,
       };

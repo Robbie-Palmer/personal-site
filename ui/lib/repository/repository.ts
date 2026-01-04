@@ -72,9 +72,15 @@ const BUILDING_PHILOSOPHY_PATH = path.join(
 export function loadTechnologies(): Map<TechnologySlug, Technology> {
   const techMap = new Map<TechnologySlug, Technology>();
 
-  // Load technologies from content file
-  for (const tech of definedTechnologies) {
-    techMap.set(tech.slug, tech);
+  // Load technologies from content file and derive slugs if not provided
+  for (const techContent of definedTechnologies) {
+    const slug = (techContent.slug ||
+      techContent.name.toLowerCase().trim()) as TechnologySlug;
+    const tech: Technology = {
+      ...techContent,
+      slug,
+    };
+    techMap.set(slug, tech);
   }
 
   return techMap;
@@ -184,9 +190,14 @@ export function validateTechnology(
       schemaErrors: result.error,
     };
   }
+  // Derive slug if not provided
+  const slug = (result.data.slug || result.data.name.toLowerCase().trim()) as TechnologySlug;
   return {
     success: true,
-    data: result.data,
+    data: {
+      ...result.data,
+      slug,
+    },
   };
 }
 

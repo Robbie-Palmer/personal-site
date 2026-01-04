@@ -4,16 +4,20 @@ import { TechnologySlugSchema } from "../slugs";
 
 export type { TechnologySlug };
 
-export const TechnologySchema = z.object({
-  slug: TechnologySlugSchema,
+// Content definition schema (slug is optional, will be derived from name if not provided)
+const TechnologyContentSchema = z.object({
   name: z.string().min(1),
+  slug: TechnologySlugSchema.optional(),
   description: z.string().optional(),
   website: z.string().url().optional(),
-  brandColor: z
-    .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/)
-    .optional(),
-  iconSlug: z.string().optional(), // Only when icon slug differs from normalized name
+  iconSlug: z.string().optional(), // Only when icon slug differs from what's derived from name
 });
 
-export type Technology = z.infer<typeof TechnologySchema>;
+export type TechnologyContent = z.infer<typeof TechnologyContentSchema>;
+
+// Runtime Technology type always has a slug
+export type Technology = Omit<TechnologyContent, "slug"> & {
+  slug: TechnologySlug;
+};
+
+export const TechnologySchema = TechnologyContentSchema;
