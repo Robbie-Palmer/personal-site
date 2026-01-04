@@ -3,28 +3,19 @@ import { getContentUsingTechnologyByType } from "@/lib/repository";
 import type { Technology } from "./technology";
 import type { TechnologyBadgeView } from "./technologyViews";
 
-/**
- * Result of enriching a technology badge with ranking metadata
- */
 export type EnrichedTechnologyBadge = {
   badge: TechnologyBadgeView;
   description?: string;
   edgeCount: number;
 };
 
-/**
- * Technology with connection weight for visualization components (e.g., TechOrbit)
- */
 export type WeightedTechnology = {
   name: string;
   slug?: string;
   weight: number;
-  url?: string;
+  url: string;
 };
 
-/**
- * Calculate connection weight for a technology based on knowledge graph edges
- */
 function calculateConnectionWeight(
   repository: DomainRepository,
   techSlug: string,
@@ -38,13 +29,6 @@ function calculateConnectionWeight(
   );
 }
 
-/**
- * Ranking algorithm that sorts technologies by their knowledge graph connections.
- * Technologies with more connections (projects, blogs, ADRs, roles) rank higher.
- *
- * This algorithm can be swapped out for alternative ranking strategies
- * (e.g., by recent usage, by category, alphabetically, etc.)
- */
 export function rankTechnologiesByConnections(
   repository: DomainRepository,
   badges: TechnologyBadgeView[],
@@ -63,10 +47,6 @@ export function rankTechnologiesByConnections(
     .sort((a, b) => b.edgeCount - a.edgeCount);
 }
 
-/**
- * Get all technologies with connection-based weights for visualization components.
- * Uses the same ranking algorithm as rankTechnologiesByConnections.
- */
 export function getTechnologiesWithConnectionWeights(
   repository: DomainRepository,
   technologies: Technology[],
@@ -78,11 +58,3 @@ export function getTechnologiesWithConnectionWeights(
     weight: calculateConnectionWeight(repository, tech.slug),
   }));
 }
-
-/**
- * Alternative ranking algorithms can be added here:
- *
- * export function rankTechnologiesAlphabetically(...)
- * export function rankTechnologiesByRecency(...)
- * export function rankTechnologiesByCategory(...)
- */
