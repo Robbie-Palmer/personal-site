@@ -278,6 +278,10 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
   .animate-delay-1700 {
     animation-delay: 0ms;
   }
+
+  .animate-orbit {
+    animation: none;
+  }
 }
 
 /* Hero section radial gradient background */
