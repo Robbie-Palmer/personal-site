@@ -16,6 +16,7 @@ export type TechnologyBadgeView = {
   iconSlug: string;
   hasIcon: boolean;
   brandColor?: string;
+  website?: string;
 };
 
 export type TechnologyLinkView = {
@@ -54,6 +55,7 @@ export function toTechnologyBadgeView(tech: Technology): TechnologyBadgeView {
     iconSlug: tech.iconSlug || tech.slug,
     hasIcon: hasTechIcon(tech.name),
     brandColor: tech.brandColor,
+    website: tech.website,
   };
 }
 

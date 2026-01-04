@@ -5,10 +5,7 @@ import {
   getProjectForADR,
   getTechnologiesForADR,
 } from "@/lib/repository";
-import {
-  resolveTechnologiesToBadgeViews,
-  resolveTechnologiesToLabelViews,
-} from "../technology/technologyViews";
+import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
 import type { ADRSlug } from "./adr";
 import {
   type ADRCardView,
@@ -44,7 +41,7 @@ export function getADRDetail(
   if (!adr) return null;
 
   const techSlugs = getTechnologiesForADR(repository.graph, slug);
-  const technologies = resolveTechnologiesToLabelViews(repository, [
+  const technologies = resolveTechnologiesToBadgeViews(repository, [
     ...techSlugs,
   ]);
   const projectSlug = getProjectForADR(repository.graph, slug);

@@ -14,6 +14,8 @@ export const TechnologySchema = z.object({
     .regex(/^#[0-9A-Fa-f]{6}$/)
     .optional(),
   iconSlug: z.string().optional(),
+  hasCustomIcon: z.boolean().default(false),
+  customIconName: z.string().optional(),
 });
 
 export type Technology = z.infer<typeof TechnologySchema>;

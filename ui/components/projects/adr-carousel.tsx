@@ -8,7 +8,7 @@ import { ContentCarousel } from "@/components/ui/content-carousel";
 import { defaultCarouselConfig } from "@/lib/carousel-config";
 import { formatDate } from "@/lib/date";
 import type { ProjectADR } from "@/lib/projects";
-import { getTechUrl, hasTechIcon, TechIcon } from "@/lib/tech-icons";
+import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
 import { ADRBadge } from "./adr-badge";
 
 type ADRCarouselProps = {
@@ -69,7 +69,7 @@ export function ADRCarousel({
                 </CardTitle>
                 <div className="flex flex-wrap gap-2 flex-shrink-0 pt-0.5 pointer-events-auto">
                   {adr.technologies?.slice(0, 5).map((tech) => {
-                    const url = getTechUrl(tech.name);
+                    const url = tech.website;
                     const hasIcon = hasTechIcon(tech.name);
                     if (!hasIcon && !url) return null;
                     const Icon = hasIcon ? (

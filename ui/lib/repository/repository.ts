@@ -33,13 +33,13 @@ import {
   type TechnologySlug,
 } from "../domain/technology/technology";
 import { getAllExperience, getExperienceSlug } from "../experience";
-import { TECH_URLS } from "../tech-icons";
 import {
   buildContentGraph,
   type ContentGraph,
   createEmptyRelationData,
   type RelationData,
 } from "./graph";
+import { technologies as definedTechnologies } from "../../content/technologies";
 
 // Validation types
 export type DomainValidationResult<T> =
@@ -72,10 +72,17 @@ const BUILDING_PHILOSOPHY_PATH = path.join(
 export function loadTechnologies(): Map<TechnologySlug, Technology> {
   const techMap = new Map<TechnologySlug, Technology>();
 
+  // Load technologies from content file
+  for (const tech of definedTechnologies) {
+    techMap.set(tech.slug, tech);
+  }
+
   const normalizeSlug = (name: string): string => {
     return name.toLowerCase().trim();
   };
 
+  // Auto-discover technologies from other content sources (for backward compatibility)
+  // Only add if not already defined in technologies content file
   const addTech = (name: string) => {
     const slug = normalizeSlug(name);
     if (!techMap.has(slug)) {
@@ -83,21 +90,26 @@ export function loadTechnologies(): Map<TechnologySlug, Technology> {
         slug,
         name,
         description: undefined,
-        website: TECH_URLS[slug] || TECH_URLS[name],
+        website: undefined,
         brandColor: undefined,
         iconSlug: undefined,
+        hasCustomIcon: false,
+        customIconName: undefined,
       });
     }
   };
+
   const experiences = getAllExperience();
   for (const exp of experiences) {
     for (const tech of exp.technologies) {
       addTech(tech);
     }
   }
+
   if (!fs.existsSync(PROJECTS_DIR)) {
     return techMap;
   }
+
   const projectDirs = fs
     .readdirSync(PROJECTS_DIR, { withFileTypes: true })
     .filter((dirent) => dirent.isDirectory())
