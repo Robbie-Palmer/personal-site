@@ -10,6 +10,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { useNavbarActions } from "@/context/navbar-actions-context";
 import type { ProjectWithADRs } from "@/lib/projects";
 import { ADRNavContent } from "./adr-nav-content";
 
@@ -19,11 +20,14 @@ interface ADRMobileNavProps {
 
 export function ADRMobileNav({ project }: ADRMobileNavProps) {
   const [open, setOpen] = useState(false);
+  const { setHasActions } = useNavbarActions();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    setHasActions(true);
+    return () => setHasActions(false);
+  }, [setHasActions]);
 
   if (!mounted) return null;
   const navbarActions = document.getElementById("navbar-actions");
