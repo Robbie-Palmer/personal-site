@@ -49,9 +49,13 @@ describe("Projects functions", () => {
       expect(Array.isArray(project.technologies)).toBe(true);
       expect(typeof project.content).toBe("string");
       expect(Array.isArray(project.adrs)).toBe(true);
-      expect(["idea", "in_progress", "live", "archived"]).toContain(
-        project.status,
-      );
+      expect([
+        "idea",
+        "in_progress",
+        "live",
+        "archived",
+        "completed",
+      ]).toContain(project.status);
     });
 
     it("should throw error for non-existent project", () => {
