@@ -1,12 +1,11 @@
-import { ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { Card } from "@/components/ui/card";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { TechnologyBadgeView } from "@/lib/domain/technology/technologyViews";
 import { TechIcon } from "@/lib/tech-icons";
 
@@ -20,41 +19,43 @@ export function TechnologyCard({
   description,
 }: TechnologyCardProps) {
   const cardContent = (
-    <Card className="transition-all hover:shadow-lg hover:border-primary/50 h-full group cursor-pointer">
-      <CardHeader className="space-y-3 pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            {technology.hasIcon && (
-              <div className="shrink-0 w-8 h-8 flex items-center justify-center">
-                <TechIcon name={technology.name} className="w-8 h-8" />
-              </div>
-            )}
-            <CardTitle className="text-lg truncate">
-              {technology.name}
-            </CardTitle>
+    <Card
+      id={`tech-${technology.slug}`}
+      className="transition-all hover:shadow-lg hover:border-primary/50 h-full group cursor-pointer aspect-square flex items-center justify-center p-3 scroll-mt-24"
+    >
+      <div className="flex flex-col items-center justify-center gap-2 w-full">
+        {technology.hasIcon && (
+          <div className="shrink-0 w-10 h-10 flex items-center justify-center">
+            <TechIcon name={technology.name} className="w-10 h-10" />
           </div>
-          {technology.website && (
-            <ExternalLink className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
-          )}
+        )}
+        <div className="text-center text-sm font-medium line-clamp-2 w-full px-1">
+          {technology.name}
         </div>
-      </CardHeader>
-      {description && (
-        <CardContent className="pt-0">
-          <CardDescription className="text-sm line-clamp-2">
-            {description}
-          </CardDescription>
-        </CardContent>
-      )}
+      </div>
     </Card>
   );
 
-  if (technology.website) {
+  const wrappedCard = technology.website ? (
+    <Link href={technology.website} target="_blank" rel="noopener noreferrer">
+      {cardContent}
+    </Link>
+  ) : (
+    cardContent
+  );
+
+  if (description) {
     return (
-      <Link href={technology.website} target="_blank" rel="noopener noreferrer">
-        {cardContent}
-      </Link>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>{wrappedCard}</TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <p className="text-sm">{description}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   }
 
-  return cardContent;
+  return wrappedCard;
 }
