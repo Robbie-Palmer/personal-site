@@ -3,9 +3,11 @@ import type { Metadata } from "next";
 import { ExperienceCard } from "@/components/experience/experience-card";
 import { TechnologyCard } from "@/components/technology/technology-card";
 import { loadDomainRepository } from "@/lib/domain";
-import { getAllTechnologyBadges } from "@/lib/domain/technology";
+import {
+  getAllTechnologyBadges,
+  rankTechnologiesByConnections,
+} from "@/lib/domain/technology";
 import { getAllExperience, getExperienceSlug } from "@/lib/experience";
-import { getContentUsingTechnologyByType } from "@/lib/repository";
 import { siteConfig } from "@/lib/site-config";
 
 const pageDescription =
@@ -33,26 +35,11 @@ export default function ExperiencePage() {
   const repository = loadDomainRepository();
   const technologyBadges = getAllTechnologyBadges(repository);
 
-  // Get descriptions and sort by knowledge graph connections (like home page)
-  const technologiesWithDescriptions = technologyBadges
-    .map((badge) => {
-      const tech = repository.technologies.get(badge.slug);
-      const usage = getContentUsingTechnologyByType(
-        repository.graph,
-        badge.slug,
-      );
-      const edgeCount =
-        usage.projects.length +
-        usage.blogs.length +
-        usage.adrs.length +
-        usage.roles.length;
-      return {
-        badge,
-        description: tech?.description,
-        edgeCount,
-      };
-    })
-    .sort((a, b) => b.edgeCount - a.edgeCount);
+  // Rank technologies by knowledge graph connections
+  const rankedTechnologies = rankTechnologiesByConnections(
+    repository,
+    technologyBadges,
+  );
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-6xl">
@@ -91,7 +78,7 @@ export default function ExperiencePage() {
           Technologies
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-          {technologiesWithDescriptions.map(({ badge, description }) => (
+          {rankedTechnologies.map(({ badge, description }) => (
             <TechnologyCard
               key={badge.slug}
               technology={badge}

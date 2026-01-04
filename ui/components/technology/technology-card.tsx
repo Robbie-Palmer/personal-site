@@ -25,7 +25,7 @@ export function TechnologyCard({
   const cardContent = (
     <Card
       id={`tech-${technology.slug}`}
-      className="transition-all hover:shadow-lg hover:border-primary/50 h-full group cursor-pointer aspect-square flex items-center justify-center p-3 scroll-mt-24 relative"
+      className="transition-all hover:shadow-lg hover:border-primary/50 h-full group aspect-square flex items-center justify-center p-3 scroll-mt-24 relative"
     >
       <ExternalLink className="absolute top-2 right-2 w-3 h-3 text-muted-foreground opacity-60 md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
       <div className="flex flex-col items-center justify-center gap-2 w-full">
