@@ -1,0 +1,37 @@
+---
+title: "Multi-Modal Product Search"
+description: "Enabling 'snap-to-search' for finding best deals using a visual vector database"
+date: "2023-07-01"
+tech_stack:
+  - "TypeScript"
+  - "Python"
+  - "Weaviate"
+  - "DVC"
+  - "Swift"
+status: "completed"
+---
+
+# Vision
+
+We wanted to bridge the gap between physical retail and online deals. The goal was to empower users to walk into a store, take a photo of a product (or "circle to search" on their screen), and immediately find the best online price in real-time with minimal data entry.
+
+# Problem Statement
+
+* **Friction**: Traditional search requires users to type product names or scan barcodes, which is slow and error-prone in a physical store environment.
+* **Visual Complexity**: Products often have visual distinctiveness that is hard to describe in text keywords.
+* **Real-time Demand**: Users need instant feedback to make a purchasing decision while standing in the aisle.
+
+# Methodology
+
+I architected a multi-modal search engine using **Weaviate** as the core vector database:
+
+* **Multi-Modal Embeddings**: Configured Weaviate to index both product text descriptions and product images into a shared vector space.
+* **Visual Querying**: Allowed users to use an input image (from camera or screenshot) as the search query.
+* **ML Pipeline**: Built a **Python** pipeline managed by **DVC** to evaluate different embedding models and iterate on search relevance.
+* **Integration**: Built the search integration in **TypeScript**, and implemented the native iOS experience using **Swift** to render results.
+
+# Impact
+
+* **Zero-Shot Discovery**: Users could find products they didn't know the name of, purely by visual similarity.
+* **Seamless UX**: Removed the friction of text entry, making deal-finding accessible in seconds.
+* **Mobile First**: The native iOS app integration made the "snap-to-search" flow feel like a built-in OS feature.

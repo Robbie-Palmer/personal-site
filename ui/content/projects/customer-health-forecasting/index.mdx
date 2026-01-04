@@ -1,0 +1,36 @@
+---
+title: "Customer Health Forecasting"
+description: "Investigation into predictive analytics for Net Revenue Retention (NRR) and customer churn"
+date: "2022-09-01"
+tech_stack:
+  - "Python"
+  - "Google BigQuery"
+  - "PyPika"
+status: "completed"
+---
+
+# Vision
+
+The goal was to shift the Account Executive (AE) and Solution Architect (SA) teams from a reactive to a proactive engagement model. Instead of waiting for a customer to complain or churn, we wanted to predict their "health" score in advance, allowing the team to intervene early, reduce churn, and identify upsell opportunities.
+
+# Problem Statement
+
+* **Lagging Indicators**: Traditional metrics like support tickets or NPS are lagging indicators—by the time they are bad, the customer is already at risk.
+* **Manual Analysis**: AEs were manually trawling through dashboards to guess which customers needed attention.
+* **Unknown Predictors**: It was unclear if our telemetry data actually contained identifying signals for churn or expansion.
+
+# Methodology
+
+I conducted a part-time pilot to assess the feasibility of automated health scoring:
+
+* **Data Exploration**: Leveraged the existing **Google BigQuery** data warehouse to analyze historical usage logs, billing data, and CRM records.
+* **Feature Engineering**: Used **Python** and **PyPika** to programmatically build complex SQL queries, extracted behavioral features (e.g., "active users trend", "feature adoption rate") from raw event logs.
+* **Correlation Analysis**: Modeled relationships between these usage features and historical NRR/churn events.
+
+# Outcome
+
+The project was ultimately concluded after the pilot phase:
+
+* **Weak Signals**: We discovered that purely usage-based metrics had a low correlation with enterprise buying decisions, which are often driven by external factors (budget, champions) not captured in telemetry.
+* **Data Sparsity**: The available data was too sparse to build a reliable forecasting model with high confidence.
+* **Strategic Pivot**: The investigation saved the company from investing in a costly "Customer Health" platform build-out, redirecting focus towards improving data collection fidelity first.

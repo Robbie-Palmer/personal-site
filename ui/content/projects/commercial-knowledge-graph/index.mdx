@@ -1,0 +1,39 @@
+---
+title: "Commercial Knowledge Graph"
+description: "Building a commercial knowledge graph from unstructured email history and receipt photos using computer vision and LLMs"
+date: "2023-05-01"
+tech_stack:
+  - "TypeScript"
+  - "Python"
+  - "PyTorch"
+  - "AWS Textract"
+  - "OpenRouter"
+  - "DVC"
+status: "completed"
+---
+
+# Vision
+
+At Bestomer, we aimed to facilitate better commercial transactions by building a comprehensive Knowledge Graph of a user's commercial history and interests. The richest sources of this data were their email history (invoices, receipts, marketing offers) and physical receipts from daily life. The goal was to automatically "slurp" up this unstructured history and transform it into structured nodes in a graph.
+
+# Problem Statement
+
+* **Unstructured Chaos**: Emails are a mess of HTML, CSS, and images. Standard text extraction often fails to capture the *visual* context (e.g., distinguishing a "Total" line in an invoice from a marketing banner).
+* **Physical Complexity**: Photos of receipts taken with camera phones introduce new challenges—variable lighting, angles, rotation, and background noise.
+* **Scale**: Manually encoding commercial history is impossible given the volume of data.
+* **Variety**: We needed to distinguish between a digital receipt, a physical receipt photo, a newsletter, and a shipping notification, each requiring different extraction logic.
+
+# Methodology
+
+I built a pipeline to treat both emails and physical photos as "documents":
+
+* **Visual Rendering**: For emails, we rendered raw HTML into images to preserve spatial layout. For receipts, we processed camera images directly.
+* **Visual Classification**: Trained a PyTorch model to classify the document type (Email vs. Receipt vs. Spam) based on its visual appearance and text content.
+* **Intelligent Document Processing (IDP)**: For transactional documents, we utilized **AWS Textract** to extract key-value pairs and tables despite layout variations.
+* **LLM Enrichment**: Leveraged **OpenRouter** to access diverse LLMs for semantic extraction and entity resolution (e.g., mapping "Starbucks" on a receipt to the same node as a Starbucks email offer), populating the Knowledge Graph.
+
+# Impact
+
+* **Automated Knowledge Base**: Successfully turned a messy stream of emails and photos into a structured database of commercial intent and history.
+* **Unified Pipeline**: Created a single ingestion engine capable of handling both digital and physical commercial artifacts.
+* **High Precision**: The visual-first approach significantly outperformed text-only classifiers for distinguishing complex document types.

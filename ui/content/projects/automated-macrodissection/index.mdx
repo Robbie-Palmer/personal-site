@@ -1,0 +1,40 @@
+---
+title: "Automated Tumor Macrodissection"
+description: "AI-driven tissue selection for precise downstream genetic analysis"
+date: "2020-07-01"
+tech_stack:
+  - "Python"
+  - "PyTorch"
+  - "DVC"
+  - "Shapely"
+  - "GeoPandas"
+product_url: "https://www.qub.ac.uk/schools/mdbs/News/Queenspartof7millionconsortiumtoimproveoutcomesforpatientswithearlystagecancer.html"
+status: "completed"
+---
+
+# Vision
+
+The goal was to automate the physical extraction of tumor tissue to drive operational efficiency, higher throughput, and faster clinical turnaround times. By preparing Deep Learning workflows for robotic dissection hardware, we aimed to standardize input quality for genetic testing and ultimately improve patient outcomes.
+
+# Problem Statement
+
+Genetic testing requires high-quality tissue samples. Manual dissection is subjective and high-variance; pathologists cannot feasibly count and classify millions of individual cells across a slide. This leads to "failed" tests due to insufficient tumor content or contamination.
+
+The consequences of failure are severe: a wasted biopsy often means the patient must return for another invasive surgical procedure to acquire more tissue. The challenge was to match the nuance of human judgment with the quantitative precision of AI, satisfying complex physical and biological constraints to prevent this.
+
+# Methodology
+
+* **Deep Pathological Ontology**: Developed a comprehensive tissue ontology beyond just "tumor vs. normal," training an ensemble of models to distinguish nuances like immune infiltration, necrosis, and lymph nodes.
+* **Robust Artifact Handling**: Engineered the system to handle common real-world noise, such as pen marks, stickers, and tissue artifacts (folds, freezing damage) which confuse standard models.
+* **Hardware Readiness**: Designed the path generation system to translate model inference into physical cutting coordinates, preparing for future integration with dissection hardware (e.g. Roche).
+* **Constraint Optimization**: The AI didn't just segment regions; it solved an optimization problem to find regions that met multiple competing constraints:
+  * **Machine Precision**: Respecting the minimum physical resolution the standard hardware could cut.
+  * **Tissue Quantity**: Ensuring the total area extracted met the minimum mass required for the assay.
+  * **Tumor Purity**: guaranteeing a minimum percentage of tumor cells within the extracted region.
+  * **Contamination Avoidance**: strictly avoiding necrosis (which degrades DNA quality) and non-tumor structures like lymph nodes.
+
+# Impact
+
+* **Foundation for Future AI**: Established a library of composable deep learning models for H\&E WSI analysis, along with a robust data annotation platform and MLOps workflows that generalized to future projects.
+* **Strategic Partnership**: The success of this work solidified a continued **\~£1M partnership** between Sonrai Analytics, Roche, and Queen's University Belfast.
+* **Proof of Control**: Demonstrated that AI could move beyond digital diagnostics into controlling physical laboratory workflows, closing the loop between digital pathology and precision medicine.

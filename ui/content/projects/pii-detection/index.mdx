@@ -1,0 +1,39 @@
+---
+title: "Automated PII Detection"
+description: "Real-time PII detection and redaction for cyber defense using NLP and Kafka"
+date: "2022-05-01"
+tech_stack:
+  - "Python"
+  - "spaCy"
+  - "Huggingface"
+  - "Kafka"
+status: "completed"
+---
+
+# Vision
+
+The goal was to enable "Real-Time Cyber Defense" by moving security observability from post-hoc batch analysis to
+real-time stream processing. By augmenting legacy SIEM/SOAR tools with a "central nervous system" based on Confluent
+and Kafka, I aimed to enable detecting and responding to threats in milliseconds, not hours.
+
+# Problem Statement
+
+* **Latency**: Traditional SIEMs are optimized for historical reports, not real-time understanding.
+* **Unstructured Data Risk**: 80-90% of organizational data is unstructured (emails, logs, chat). Because this data *might* contain Personally Identifiable Information (PII), it is often indiscriminately locked down, making it unusable for analytics.
+* **Siloed Security**: Security responsibility is often fragmented across widely varying tools and teams.
+
+# Methodology
+
+I built a suite of stream-processing accelerators to provide granular, entity-level control over unstructured data in motion:
+
+* **PII Detector App**: A stream-processing application using cutting-edge NLP models (spaCy/Huggingface) to inspect messages, detect 25+ entity types (names, credit cards, SSNs), and redact them in real-time.
+* **Granular Governance**: Instead of locking down entire datasets, I enabled "entity-level" governance—redacting only the sensitive PII while letting the rest of the valuable data flow to downstream analytics.
+* **Ecosystem Integration**: Developed components for the entire Kafka ecosystem:
+  * **ksqlDB UDFs**: SQL functions for ad-hoc PII queries.
+  * **Kafka Connect SMTs**: Single Message Transforms to redact data *before* it even hits the broker.
+
+# Impact
+
+* **Unlocked Data Utility**: Allowed organizations to safely use previously "dark" unstructured data for analytics without compromising privacy.
+* **Real-Time Response**: Enabled immediate alerting on data leaks or policy violations.
+* **Commercial Asset**: This solution was packaged as an accelerator for Confluent's Professional Services, driving enterprise adoption of real-time data governance.

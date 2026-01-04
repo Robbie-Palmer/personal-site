@@ -1,0 +1,37 @@
+---
+title: "Python UDFs for Confluent Platform"
+description: "Bringing the Python Machine Learning ecosystem to Kafka via UDFs for ksqlDB and Kafka Connect"
+date: "2022-09-01"
+tech_stack:
+  - "Python"
+  - "Kotlin"
+  - "Kafka"
+status: "completed"
+---
+
+# Vision
+
+The goal was to break down the barrier between the Java-based Data Streaming ecosystem (Kafka) and
+the Python-based Machine Learning ecosystem. By enabling Python User Defined Functions (UDFs) within Confluent Platform,
+I aimed to empower ML Engineers to bring their models directly to the data stream,
+without needing to learn Java or manage complex microservices.
+
+# Problem Statement
+
+* **Ecosystem Gap**: Kafka, ksqlDB, and Kafka Connect run on the JVM, while the richest ecosystem for ML and Data Science is in Python.
+* **Fundamental Incompatibility**: Existing solutions like GraalVM or Jython couldn't support the C-extensions required by critical Python libraries (NumPy, pandas, TensorFlow, PyTorch).
+* **Accessibility**: ML Engineers and Data Scientists were effectively locked out of the powerful data management tooling in Confluent Platform because they didn't know Java.
+
+# Methodology
+
+Inspired by Apache Flink's architecture, I developed a bridge to unite these two worlds:
+
+* **JNI Bridge**: Used the Java Native Interface (JNI) to allow the JVM-based ksqlDB and Connect workers to communicate directly with a sidecar Python process. This avoided the limitations of running Python *inside* the JVM.
+* **Meta-programming**: Built a Python library that used meta-programming to dynamically generate the required Kotlin bindings. This meant users could write pure Python functions, and the library would automatically handle the complex glue code needed to interface with the Java backend.
+* **Rich Ecosystem Support**: Because it used a real C-based Python interpreter, the solution supported the full breadth of the Python ecosystem, including all major ML libraries.
+
+# Impact
+
+* **Democratization**: Opened the Confluent ecosystem to a massive new audience of Python developers and ML engineers.
+* **New Capabilities**: Enabled ML-driven functions (like real-time inference or complex data transformations) directly within SQL queries and Connect pipelines, which were previously impossible or impractical in pure Java.
+* **Commercial Strategy**: Positioned as a key differentiator for Confluent Platform, directly addressing the "Python gap" in the Enterprise data streaming market.
