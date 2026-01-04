@@ -1,4 +1,4 @@
-import { ExternalLink, Github } from "lucide-react";
+import { ExternalLink, Github, Globe } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -113,34 +113,50 @@ export default async function ProjectPage({ params }: PageProps) {
                 </a>
               </Button>
             )}
+            {project.productUrl && (
+              <Button asChild className="gap-2 w-full sm:w-auto">
+                <a
+                  href={project.productUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Globe className="w-4 h-4" />
+                  Product Page
+                </a>
+              </Button>
+            )}
           </div>
         </div>
 
         <Separator className="my-8" />
 
         {/* Content Tabs */}
-        <Suspense fallback={<ProjectTabsSkeleton />}>
-          <ProjectTabs
-            adrCount={project.adrs.length}
-            overview={<Markdown source={project.content} />}
-            adrs={
-              <ADRList
-                projectSlug={project.slug}
-                adrs={project.adrs}
-                description={
-                  <div className="prose dark:prose-invert max-w-none">
-                    <p className="text-lg text-muted-foreground m-0">
-                      Architecture Decision Records (ADRs) document the
-                      important architectural choices made during the
-                      development of this project, along with the context and
-                      consequences of those decisions.
-                    </p>
-                  </div>
-                }
-              />
-            }
-          />
-        </Suspense>
+        {project.adrs.length > 0 ? (
+          <Suspense fallback={<ProjectTabsSkeleton />}>
+            <ProjectTabs
+              adrCount={project.adrs.length}
+              overview={<Markdown source={project.content} />}
+              adrs={
+                <ADRList
+                  projectSlug={project.slug}
+                  adrs={project.adrs}
+                  description={
+                    <div className="prose dark:prose-invert max-w-none">
+                      <p className="text-lg text-muted-foreground m-0">
+                        Architecture Decision Records (ADRs) document the
+                        important architectural choices made during the
+                        development of this project, along with the context and
+                        consequences of those decisions.
+                      </p>
+                    </div>
+                  }
+                />
+              }
+            />
+          </Suspense>
+        ) : (
+          <Markdown source={project.content} />
+        )}
       </div>
     </div>
   );

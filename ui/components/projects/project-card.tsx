@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Github } from "lucide-react";
+import { ExternalLink, Github, Globe } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -61,6 +61,17 @@ export function ProjectCard({ project, currentTech }: ProjectCardProps) {
                 aria-label="Live Demo"
               >
                 <ExternalLink className="w-5 h-5" />
+              </a>
+            )}
+            {project.productUrl && (
+              <a
+                href={project.productUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-foreground transition-colors"
+                aria-label="Product Page"
+              >
+                <Globe className="w-5 h-5" />
               </a>
             )}
           </div>

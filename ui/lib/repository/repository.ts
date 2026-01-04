@@ -359,6 +359,7 @@ export function loadProjects(): ProjectLoadResult {
       status: data.status,
       repoUrl: data.repo_url,
       demoUrl: data.demo_url,
+      productUrl: data.product_url,
       content,
     };
 

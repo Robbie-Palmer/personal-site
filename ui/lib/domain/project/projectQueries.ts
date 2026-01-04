@@ -150,6 +150,7 @@ export function getProjectWithADRs(
     status: project.status,
     repoUrl: project.repoUrl,
     demoUrl: project.demoUrl,
+    productUrl: project.productUrl,
     content: project.content,
     technologies: mergedTechnologies,
     adrSlugs,

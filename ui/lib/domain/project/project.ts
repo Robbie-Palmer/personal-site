@@ -13,7 +13,9 @@ export const ProjectStatusSchema = z.enum([
   "in_progress",
   "live",
   "archived",
+  "completed",
 ]);
+
 export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
 
 export const ProjectSchema = z.object({
@@ -28,6 +30,7 @@ export const ProjectSchema = z.object({
   status: ProjectStatusSchema,
   repoUrl: z.string().url().optional(),
   demoUrl: z.string().url().optional(),
+  productUrl: z.string().url().optional(),
   content: z.string(),
 });
 
