@@ -15,20 +15,20 @@ export type TechnologyBadgeView = {
   name: string;
   iconSlug: string;
   hasIcon: boolean;
-  website?: string;
+  website: string;
 };
 
 export type TechnologyLinkView = {
   slug: string;
   name: string;
-  website?: string;
+  website: string;
 };
 
 export type TechnologyDetailView = {
   slug: string;
   name: string;
   description?: string;
-  website?: string;
+  website: string;
   iconSlug?: string;
   hasIcon: boolean;
   usedIn: {

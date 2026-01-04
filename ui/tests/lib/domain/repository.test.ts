@@ -398,6 +398,7 @@ Content`;
         const validTech = {
           slug: "react",
           name: "React",
+          website: "https://react.dev",
         };
 
         const result = validateTechnology(validTech);
@@ -416,6 +417,7 @@ Content`;
             {
               slug: "react",
               name: "React",
+              website: "https://react.dev",
             },
           ],
         ]);

@@ -21,16 +21,13 @@ export function TechnologyCard({
   description,
 }: TechnologyCardProps) {
   const iconUrl = getTechIconUrl(technology.name, technology.iconSlug);
-  const hasExternalLink = !!technology.website;
 
   const cardContent = (
     <Card
       id={`tech-${technology.slug}`}
       className="transition-all hover:shadow-lg hover:border-primary/50 h-full group cursor-pointer aspect-square flex items-center justify-center p-3 scroll-mt-24 relative"
     >
-      {hasExternalLink && (
-        <ExternalLink className="absolute top-2 right-2 w-3 h-3 text-muted-foreground opacity-60 md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
-      )}
+      <ExternalLink className="absolute top-2 right-2 w-3 h-3 text-muted-foreground opacity-60 md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
       <div className="flex flex-col items-center justify-center gap-2 w-full">
         {iconUrl && (
           <div className="shrink-0 w-10 h-10 flex items-center justify-center relative">
@@ -50,12 +47,10 @@ export function TechnologyCard({
     </Card>
   );
 
-  const wrappedCard = hasExternalLink ? (
-    <Link href={technology.website!} target="_blank" rel="noopener noreferrer">
+  const wrappedCard = (
+    <Link href={technology.website} target="_blank" rel="noopener noreferrer">
       {cardContent}
     </Link>
-  ) : (
-    cardContent
   );
 
   if (description) {
