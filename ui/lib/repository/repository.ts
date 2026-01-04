@@ -191,7 +191,8 @@ export function validateTechnology(
     };
   }
   // Derive slug if not provided
-  const slug = (result.data.slug || result.data.name.toLowerCase().trim()) as TechnologySlug;
+  const slug = (result.data.slug ||
+    result.data.name.toLowerCase().trim()) as TechnologySlug;
   return {
     success: true,
     data: {
