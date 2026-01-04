@@ -272,7 +272,7 @@ We decided to use React.`;
       expect(role?.company).toBe("Microsoft");
       const roleSlug = Array.from(result.entities.keys())[0];
       expect(result.relations.get(roleSlug!)?.technologies).toEqual([
-        "c#",
+        "csharp",
         "azure",
       ]);
     });
@@ -320,7 +320,7 @@ Content`;
       expect(technologies.size).toBeGreaterThan(0);
       expect(technologies.has("react")).toBe(true);
       expect(technologies.has("typescript")).toBe(true);
-      expect(technologies.has("next.js")).toBe(true);
+      expect(technologies.has("nextdotjs")).toBe(true);
     });
 
     it("should normalize technology names to lowercase slugs", () => {
@@ -345,10 +345,10 @@ Content`;
 
       const technologies = loadTechnologies();
 
-      // All should be lowercase
+      // All should be normalized (special chars mapped to words)
       expect(technologies.has("react")).toBe(true);
       expect(technologies.has("typescript")).toBe(true);
-      expect(technologies.has("next.js")).toBe(true);
+      expect(technologies.has("nextdotjs")).toBe(true);
 
       // Original casing preserved in name
       const react = technologies.get("react");

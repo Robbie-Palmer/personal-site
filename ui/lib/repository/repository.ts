@@ -73,7 +73,6 @@ const BUILDING_PHILOSOPHY_PATH = path.join(
 export function loadTechnologies(): Map<TechnologySlug, Technology> {
   const techMap = new Map<TechnologySlug, Technology>();
 
-  // Load technologies from content file and derive slugs if not provided
   for (const techContent of definedTechnologies) {
     const slug = (techContent.slug ||
       normalizeSlug(techContent.name)) as TechnologySlug;
