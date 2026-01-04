@@ -23,8 +23,6 @@ type BlogCarouselProps = {
   scrollSpeed?: number;
   stopOnInteraction?: boolean;
   stopOnMouseEnter?: boolean;
-  playOnInit?: boolean;
-  startDelay?: number;
 };
 
 export function BlogCarousel({
@@ -34,8 +32,6 @@ export function BlogCarousel({
   scrollSpeed = defaultCarouselConfig.scrollSpeed,
   stopOnInteraction = defaultCarouselConfig.stopOnInteraction,
   stopOnMouseEnter = defaultCarouselConfig.stopOnMouseEnter,
-  playOnInit = defaultCarouselConfig.playOnInit,
-  startDelay = defaultCarouselConfig.startDelay,
 }: BlogCarouselProps) {
   return (
     <ContentCarousel
@@ -46,8 +42,6 @@ export function BlogCarousel({
       scrollSpeed={scrollSpeed}
       stopOnInteraction={stopOnInteraction}
       stopOnMouseEnter={stopOnMouseEnter}
-      playOnInit={playOnInit}
-      startDelay={startDelay}
       renderItem={(post, index) => (
         <Link href={`/blog/${post.slug}`} className="group block h-full">
           <Card className="h-full flex flex-col overflow-hidden transition-all hover:shadow-lg hover:border-primary/50">

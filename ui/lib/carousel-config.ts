@@ -3,8 +3,6 @@ export type CarouselConfig = {
   scrollSpeed: number;
   stopOnInteraction: boolean;
   stopOnMouseEnter: boolean;
-  playOnInit: boolean;
-  startDelay: number;
 };
 
 export const defaultCarouselConfig: CarouselConfig = {
@@ -12,6 +10,4 @@ export const defaultCarouselConfig: CarouselConfig = {
   scrollSpeed: 2,
   stopOnInteraction: false,
   stopOnMouseEnter: true,
-  playOnInit: true,
-  startDelay: 300,
 } as const;

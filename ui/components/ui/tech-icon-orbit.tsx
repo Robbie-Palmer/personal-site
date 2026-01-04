@@ -32,8 +32,10 @@ export function TechOrbit({
 }: TechOrbitProps) {
   const [activeTech, setActiveTech] = useState<TechOrbitItem | null>(null);
   const [containerWidth, setContainerWidth] = useState(600);
+  const [isVisible, setIsVisible] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Track container width for responsive scaling
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -44,6 +46,21 @@ export function TechOrbit({
         setContainerWidth(entry.contentRect.width);
       }
     });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  // Pause animations when not visible (with margin to start early)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry?.isIntersecting ?? false);
+      },
+      { rootMargin: "300px", threshold: 0 },
+    );
     observer.observe(container);
     return () => observer.disconnect();
   }, []);
@@ -59,21 +76,26 @@ export function TechOrbit({
       .sort((a, b) => (b.weight || 1) - (a.weight || 1));
   }, [technologies]);
 
-  const rings: (TechOrbitItem & { iconUrl: string })[][] = [];
+  const allRings: (TechOrbitItem & { iconUrl: string })[][] = [];
   let remaining = [...techsWithIcons];
   let ringNum = 1;
   while (remaining.length > 0) {
     const capacity = 8 * ringNum;
-    rings.push(remaining.slice(0, capacity));
+    allRings.push(remaining.slice(0, capacity));
     remaining = remaining.slice(capacity);
     ringNum++;
   }
+
+  const isMobile = containerWidth < 500;
+  // Limit rings on mobile for performance (4 rings = 80 icons max)
+  const maxRings = isMobile ? 4 : allRings.length;
+  const rings = allRings.slice(0, maxRings);
 
   const baseOutermostRadius =
     rings.length > 0 ? 80 + (rings.length - 1) * 70 : 80;
   // Scale factor: ensure outermost ring fits within container
   // Use less padding on mobile vs desktop
-  const padding = containerWidth < 500 ? 20 : 80;
+  const padding = isMobile ? 20 : 80;
   const maxRadius = (containerWidth - padding) / 2;
   const scale = Math.min(1, maxRadius / baseOutermostRadius);
 
@@ -83,7 +105,6 @@ export function TechOrbit({
   const orbitHeight = 2 * outermostRadius + 40;
   const iconSize = Math.round(30 * scale);
   const orbitSize = Math.round(40 * scale);
-  const isMobile = containerWidth < 500;
 
   const renderIcon = (
     tech: TechOrbitItem & { iconUrl: string },
@@ -227,6 +248,7 @@ export function TechOrbit({
                 delay={idx * (duration / ring.length)}
                 reverse={reverse}
                 path={idx === 0}
+                paused={!isVisible}
               >
                 {renderIcon(tech, iconSize)}
               </OrbitingCircles>

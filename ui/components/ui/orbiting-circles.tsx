@@ -12,6 +12,7 @@ interface OrbitingCirclesProps {
   path?: boolean;
   iconSize?: number;
   style?: React.CSSProperties;
+  paused?: boolean;
 }
 
 export function OrbitingCircles({
@@ -24,6 +25,7 @@ export function OrbitingCircles({
   path = true,
   iconSize = 30,
   style,
+  paused = false,
 }: OrbitingCirclesProps) {
   return (
     <>
@@ -53,6 +55,8 @@ export function OrbitingCircles({
             "--icon-size": `${iconSize}px`,
             animationDelay: `calc(var(--delay) * 1000ms)`,
             animationDirection: reverse ? "reverse" : "normal",
+            animationPlayState: paused ? "paused" : "running",
+            willChange: paused ? "auto" : "transform",
             ...style,
           } as React.CSSProperties
         }

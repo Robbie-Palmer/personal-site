@@ -4,7 +4,7 @@ import type { EmblaCarouselType, EmblaOptionsType } from "embla-carousel";
 import AutoScroll from "embla-carousel-auto-scroll";
 import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DotButton,
@@ -22,8 +22,6 @@ export type ContentCarouselProps<T> = {
   scrollSpeed?: number;
   stopOnInteraction?: boolean;
   stopOnMouseEnter?: boolean;
-  playOnInit?: boolean;
-  startDelay?: number;
   className?: string;
   itemClassName?: string;
   getItemKey?: (item: T, index: number) => string;
@@ -37,20 +35,20 @@ export function ContentCarousel<T>({
   scrollSpeed = defaultCarouselConfig.scrollSpeed,
   stopOnInteraction = defaultCarouselConfig.stopOnInteraction,
   stopOnMouseEnter = defaultCarouselConfig.stopOnMouseEnter,
-  playOnInit = defaultCarouselConfig.playOnInit,
-  startDelay = defaultCarouselConfig.startDelay,
   className,
   itemClassName,
   getItemKey,
 }: ContentCarouselProps<T>) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const plugins = autoScroll
     ? [
         AutoScroll({
           speed: scrollSpeed,
           stopOnInteraction,
           stopOnMouseEnter,
-          playOnInit,
-          startDelay,
+          playOnInit: false,
+          startDelay: 0,
         }),
       ]
     : [];
@@ -82,17 +80,34 @@ export function ContentCarousel<T>({
     onNextButtonClick,
   } = usePrevNextButtons(emblaApi, onNavButtonClick);
 
-  // Start auto-scroll immediately when carousel is ready
+  // Start/stop auto-scroll based on visibility with margin
+  // This starts the carousel before it comes into view so it's already animating
   useEffect(() => {
-    if (!emblaApi || !autoScroll) return;
-    const autoScrollPlugin = emblaApi.plugins()?.autoScroll;
-    if (autoScrollPlugin) {
-      autoScrollPlugin.play();
-    }
+    const container = containerRef.current;
+    if (!container || !emblaApi || !autoScroll) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const autoScrollPlugin = emblaApi.plugins()?.autoScroll;
+        if (!autoScrollPlugin) return;
+        if (entry?.isIntersecting) {
+          autoScrollPlugin.play();
+        } else {
+          autoScrollPlugin.stop();
+        }
+      },
+      {
+        // Start 300px before entering viewport, stop 300px after leaving
+        rootMargin: "300px",
+        threshold: 0,
+      },
+    );
+    observer.observe(container);
+    return () => observer.disconnect();
   }, [emblaApi, autoScroll]);
 
   return (
-    <div className={cn("relative", className)}>
+    <div ref={containerRef} className={cn("relative", className)}>
       <div className="overflow-hidden" ref={emblaRef}>
         <div className="flex -ml-4">
           {items.map((item, index) => (
