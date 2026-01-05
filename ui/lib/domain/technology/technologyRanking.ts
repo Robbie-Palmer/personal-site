@@ -12,6 +12,7 @@ export type EnrichedTechnologyBadge = {
 export type WeightedTechnology = {
   name: string;
   slug?: string;
+  iconSlug?: string;
   weight: number;
   url: string;
 };
@@ -54,6 +55,7 @@ export function getTechnologiesWithConnectionWeights(
   return technologies.map((tech) => ({
     name: tech.name,
     slug: tech.slug,
+    iconSlug: tech.iconSlug,
     url: tech.website,
     weight: calculateConnectionWeight(repository, tech.slug),
   }));
