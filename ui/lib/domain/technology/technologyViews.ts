@@ -2,7 +2,7 @@ import {
   type DomainRepository,
   getContentUsingTechnologyByType,
 } from "@/lib/repository";
-import { hasTechIcon } from "../../tech-icons";
+import { getTechSlug, hasTechIcon } from "../../tech-icons";
 import type { Technology, TechnologySlug } from "./technology";
 
 export type TechnologyLabelView = {
@@ -47,7 +47,7 @@ export function toTechnologyLabelView(tech: Technology): TechnologyLabelView {
 }
 
 export function toTechnologyBadgeView(tech: Technology): TechnologyBadgeView {
-  const iconSlug = tech.iconSlug || tech.slug;
+  const iconSlug = tech.iconSlug || getTechSlug(tech.name);
   return {
     slug: tech.slug,
     name: tech.name,
@@ -70,7 +70,7 @@ export function toTechnologyDetailView(
   repository: DomainRepository,
 ): TechnologyDetailView {
   const content = getContentUsingTechnologyByType(repository.graph, tech.slug);
-  const iconSlug = tech.iconSlug || tech.slug;
+  const iconSlug = tech.iconSlug || getTechSlug(tech.name);
   return {
     slug: tech.slug,
     name: tech.name,

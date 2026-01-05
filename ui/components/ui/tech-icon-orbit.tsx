@@ -10,6 +10,7 @@ import { getTechIconUrl } from "@/lib/tech-icons";
 export interface TechOrbitItem {
   name: string;
   slug?: string;
+  iconSlug?: string;
   weight?: number; // Higher weight = prioritized in inner circles
   url?: string;
 }
@@ -67,7 +68,10 @@ export function TechOrbit({
   // Cache icon URLs upfront to avoid redundant lookups
   const techsWithIcons = useMemo(() => {
     return technologies
-      .map((tech) => ({ ...tech, iconUrl: getTechIconUrl(tech.name) }))
+      .map((tech) => ({
+        ...tech,
+        iconUrl: getTechIconUrl(tech.name, tech.iconSlug),
+      }))
       .filter(
         (tech): tech is TechOrbitItem & { iconUrl: string } =>
           tech.iconUrl !== null,
