@@ -68,7 +68,10 @@ export function TechOrbit({
   // Cache icon URLs upfront to avoid redundant lookups
   const techsWithIcons = useMemo(() => {
     return technologies
-      .map((tech) => ({ ...tech, iconUrl: getTechIconUrl(tech.name, tech.iconSlug) }))
+      .map((tech) => ({
+        ...tech,
+        iconUrl: getTechIconUrl(tech.name, tech.iconSlug),
+      }))
       .filter(
         (tech): tech is TechOrbitItem & { iconUrl: string } =>
           tech.iconUrl !== null,
