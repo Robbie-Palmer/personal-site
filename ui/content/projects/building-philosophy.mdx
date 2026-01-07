@@ -5,144 +5,130 @@ description: "Engineering principles that guide architectural decisions and tech
 
 # Building Philosophy
 
-These principles guide how I approach all my projects - from architecture decisions to development practices.
-They represent deliberate trade-offs that optimize for shipping quality software sustainably.
+## Short Feedback Loops
 
-## Velocity & Iteration
+Shorten the path from idea to production.
+People add process constantly - release managers, approval gates, "safety" mechanisms.
+Decades of evidence says this kills velocity, increases the rate of incidents and leads to building the wrong thing.
 
-### Fast Feedback Loops
+Real users are the best test you'll ever have. Ship first.
+Get to production to learn what actually matters. Then shift the burden left.
+Actual problems teach more than any tutorial.
 
-Optimize for rapid signal at every level: type checking catches errors as you type,
-unit tests validate logic in seconds, hot reload shows changes instantly, monitoring surfaces issues in production,
-and user analytics reveal what's actually working.
+## Stack Rank, Don't Sprint
 
-The faster you learn, the faster you improve.
-Tight feedback loops reduce the cost of experimentation and make iteration sustainable.
+Story points are fiction. Sprint commitments are theater.
 
-### Ship Incrementally
+What works: a stack-ranked list at multiple levels of abstraction - tasks, epics, initiatives. Always know what's most important right now. Reprioritize constantly as you learn.
 
-Continuous delivery over big-bang releases. Every PR should be deployable.
-Small, frequent changes reduce risk and maintain momentum.
+Planning should clarify priority, not predict the future.
 
-Working software beats comprehensive planning. Ship the smallest valuable increment, gather feedback, iterate.
-Long-running feature branches accumulate merge conflicts and delay value delivery.
-Deploy often, behind feature flags if needed.
+## Build Flywheels
 
-**The optimal amount of tech debt is not zero** — Like startup funding, some debt is enabling.
-You *can* bootstrap and avoid all debt, but it restricts what problems are feasible to tackle.
-Strategic debt doesn't just make you faster—it makes things possible at all.
-And doing breeds better ideation than thinking alone; shipping something imperfect reveals what to build next more clearly than planning ever could.
+Build self-reinforcing systems - make small investments that compound.
+Linear effort, exponential payoff.
+Don't make flashy, one-off wins.
+If the work doesn't compound, don't do it.
+Flywheels should spin fast and stay light.
 
-### Shorten the Critical Path
+Feedback loops catch mistakes. Flywheels compound wins.
 
-Identify what's blocking progress and focus there. Parallelize where possible.
-Don't let one slow task hold up everything else.
-Ruthlessly prioritize the path to done.
+## The Goldilocks Zone
 
-## Technology Choices
-
-### Choose Boring Technologies
-
-Leverage mature ecosystems with strong communities and deep knowledge bases.
-Innovate where it matters - where your unique perspective adds value -
-not on the bleeding edge across multiple fronts simultaneously.
-
-Use battle-tested tools with known failure modes.
-Bleeding-edge tech brings excitement but also undocumented edge cases, breaking changes,
-and sparse Stack Overflow answers.
-Boring technologies let you focus on solving domain problems instead of fighting your tools.
+Pick technologies old enough to be reliable and well-documented, but not so old they're unsupported or talent-scarce.
+Early adopters pay the cost of missing documentation, unpatched bugs, and shifting APIs.
+Late adopters pay the cost of shrinking community and looming deprecation.
+The window in between is where you want to be.
 
 **Selection criteria:**
 
 * **High floor, high ceiling** — Pick tools where it's hard to write bad code (high floor) but that scale to complex needs (high ceiling). Raise the baseline.
 * **Shallow ramp** — Easy onboarding for yourself and collaborators. Quick to get started, deep when you need it.
 * **Rising tides** — Build on platforms that are themselves growing and improving. Their momentum becomes yours.
-* **Late early adopter** — Adopt technology after it's proven but before it's stale. Let others find the sharp edges.
 
 When adopting new tech, do it deliberately and one at a time.
+People often don't respect learning rate - the capacity of a team to absorb new domain knowledge,
+tooling, and process at once.
 Don't compound risk by going bleeding-edge on multiple fronts simultaneously.
 
-## Sustainability & Focus
+## Split By Constraint, Not Dogma
 
-### Lean & Agile
+Don't split services because "microservices are best practice." Split when you hit a real constraint - GPU workloads need different infrastructure than CPU. Different deployment targets need different artifacts. Different scaling characteristics need different resources.
 
-Build only what's needed. Validate assumptions early.
-Working software over comprehensive documentation, but documentation where it adds value.
+Start as a monolith. Let actual constraints drive the architecture, not org charts or resume-driven development.
 
-Avoid speculative features. Don't build for hypothetical future requirements.
-YAGNI (You Ain't Gonna Need It) saves time and complexity.
-When requirements change (and they will), simpler code is easier to modify.
+## Leverage Tech Debt
 
-**Don't push past learning rate** — Respect cognitive limits.
-Adopting too many new technologies or concepts at once leads to shallow understanding and fragile implementations.
-Go deep on one thing before adding another. Sustainable learning compounds; cramming doesn't.
+The optimal amount of tech debt is not zero. It is a tool, not a sin.
+Strategic debt doesn't just make you faster - it makes things possible at all.
 
-### Minimize Platforms
+Friction is a resource allocation problem.
+Where friction sits should reflect current priorities.
+Not hiring? Optimizing onboarding is a waste.
+Pre-product-market fit? Incomplete test coverage is fine - ship and learn.
 
-Reduce context-switching and administrative overhead. Fewer tools, fewer accounts,
-fewer things to maintain means more time shipping.
+But high friction in the path from idea to production is never acceptable.
 
-Every additional platform has a cost: another login to remember, another UI to learn, another bill to pay,
-another integration to maintain. Centralize where possible. Use monorepos over polyrepos.
-Prefer platforms that solve multiple problems (GitHub for code, CI/CD, and project management)
-over specialized single-purpose tools.
+## Less Is More
 
-## Compounding & Collaboration
+Every platform is overhead: another login, another UI, another bill, another integration point.
+Consolidate where possible. Prefer tools that solve multiple problems over specialized single-purpose services.
 
-### Build Flywheels
+Only build what makes you unique. Rent the rest.
+If it's not your core business, buying is almost always cheaper than building and maintaining.
 
-Invest in things that pay increasing dividends over time.
-Skills, tools, and patterns that compound.
-Design self-reinforcing systems.
+Fewer moving parts means more time shipping.
 
-Documentation attracts contributors who improve documentation.
-Open source builds reputation that opens doors that create opportunities.
-Each investment should create the conditions for the next.
+## LLM-Optimized
 
-### LLM-Optimized
+Every architectural decision needs to account for AI collaboration.
+AI feeds on context. If it isn't in the repo, it doesn't exist.
+Everything as code - content, infrastructure, database.
 
-Structure codebases for AI pair programming: clear naming conventions, documented decisions, predictable patterns.
-This isn't just about using AI tools—it's about writing code that's readable by any intelligence, human or otherwise.
+It also pushes towards general good practice for collaboration with team-mates, such as clear naming conventions
+and predictable patterns. But now with stronger justification when trade-offs arise.
 
-Code optimized for LLMs is also optimized for human collaboration: clear file structure, consistent patterns,
-well-named functions, documented architectural decisions.
-AI coding assistants are most effective with popular frameworks (more training data),
-clear abstractions (easier to reason about), and comprehensive tests (catch hallucinations).
+Boring tech is AI-readable tech. The model has seen `React` a billion times; it's hallucinating your bespoke framework.
 
-This investment compounds as AI tools improve. The more legible your codebase,
-the more leverage you get from each generation of tooling.
+## Documentation Rots
 
-### Documentation as Product
+Writing documentation has immense value at the time.
+It forces clarity of thinking, captures nuance that gets lost verbally, and synchronizes teams.
 
-ADRs, PRDs, and inline documentation aren't overhead—they're deliverables.
-They capture thinking, enable collaboration, and reduce the cost of returning to a project after time away.
+But that value has a short shelf life. Documentation is not connected to self-reinforcing feedback loops the way code is.
+Code gets run by users, consumed by tests, validated constantly.
+It gets continually rewritten and replaced as understanding of the product evolves.
+But documentation just grows.
+Trust the code, not the comment.
 
-Write documentation for your future self. In six months, you won't remember why you chose PostgreSQL over MongoDB,
-or why you structured state management this way. ADRs capture context and rationale.
-Good docs enable you to context-switch efficiently and onboard collaborators (human or AI) quickly.
+This site works through interconnected content and external readers who create a feedback loop.
+ADRs work when the team actually references them during decisions.
+READMEs work when new contributors use them to onboard.
 
-Documentation doesn't mean comprehensive comments on every line. It means:
+Write for the moment. Don't expect it to last.
 
-* ADRs for significant architectural decisions
-* README files that explain how to run the project
-* Inline comments for non-obvious logic (not what the code does, but why)
-* Type signatures and tests as executable documentation
+## Build in Public
 
-### Build in Public
+Building in private has costs people rarely account for.
+Security, access control, tooling to manage it all - energy not going into the product.
 
-Ideas gain value through collaboration. Writing publicly forces rigor and invites feedback.
-The goal isn't to hoard knowledge but to share it in a way that's useful to others.
+Public repositories are also just cheaper. GitHub Actions runs free. CodeRabbit reviews are free.
 
-Public building creates accountability. It's harder to cut corners when your work is visible.
-Sharing knowledge early (even incomplete ideas) invites feedback and refinement.
-The best ideas improve through iteration and collaboration.
+Showing mistakes matters as much as showing wins.
+Fast feedback and incremental shipping mean things will be imperfect in public.
+That's fine - visibility forces focus on what is truly important.
 
-Open source isn't just about code—it's about sharing thinking.
-Blog posts explaining decisions, ADRs documenting trade-offs, and public repos demonstrating implementations
-all contribute to the collective knowledge base.
+## Generalists Over Specialists
 
-***
+Specialists become bottlenecks. They create queues, handoffs, and artificial boundaries.
 
-These principles aren't dogma—they're heuristics. Every project brings unique constraints.
-But when in doubt, default to these patterns.
-They optimize for sustainable velocity, quality outcomes, and maintainable systems.
+T-shaped engineers - broad knowledge, deep in one or two areas - move faster and see the whole picture.
+They can unblock themselves. They don't wait for "the database person" or "the frontend person."
+
+## Goodhart's and Conway's Laws
+
+Goodhart's Law: when a measure becomes a target, it ceases to be a good measure.
+Measure things, but don't make them targets.
+
+Conway's Law: systems mirror the communication structures of the organizations that build them.
+Structure your teams to get the architecture you want.
