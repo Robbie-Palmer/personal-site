@@ -12,6 +12,8 @@ export {
   getContentUsingTechnology,
   getContentUsingTechnologyByType,
   getProjectForADR,
+  getProjectsForRole,
+  getRoleForProject,
   getSupersededADR,
   getSupersedingADR,
   getTagsForContent,

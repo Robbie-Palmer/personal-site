@@ -15,7 +15,8 @@ export type EdgeType =
   | "USES_TECHNOLOGY"
   | "PART_OF_PROJECT"
   | "SUPERSEDES"
-  | "HAS_TAG";
+  | "HAS_TAG"
+  | "CREATED_AT_ROLE";
 
 export interface ContentGraph {
   edges: {
@@ -23,6 +24,7 @@ export interface ContentGraph {
     partOfProject: Map<ADRSlug, ProjectSlug>;
     supersedes: Map<ADRSlug, ADRSlug>;
     hasTag: Map<NodeId, Set<string>>;
+    createdAtRole: Map<ProjectSlug, string>;
   };
 
   reverse: {
@@ -30,6 +32,7 @@ export interface ContentGraph {
     projectADRs: Map<ProjectSlug, Set<ADRSlug>>;
     supersededBy: Map<ADRSlug, ADRSlug>;
     tagUsedBy: Map<string, Set<NodeId>>;
+    roleProjects: Map<string, Set<ProjectSlug>>;
   };
 }
 

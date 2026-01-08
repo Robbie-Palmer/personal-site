@@ -30,12 +30,27 @@ export function ProjectCard({ project, currentTech }: ProjectCardProps) {
       <CardHeader>
         <div className="flex justify-between items-start gap-4 pointer-events-none">
           <div className="flex flex-col gap-2 pointer-events-auto">
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <ProjectStatusBadge status={project.status} />
               <Badge variant="secondary" className="bg-muted-foreground/10">
                 {project.adrs.length}{" "}
                 {project.adrs.length === 1 ? "ADR" : "ADRs"}
               </Badge>
+              {project.role && (
+                <Link
+                  href="/experience"
+                  className="z-10"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Badge
+                    variant="outline"
+                    interactive
+                    className="hover:bg-primary/10"
+                  >
+                    {project.role.company}
+                  </Badge>
+                </Link>
+              )}
             </div>
             <CardTitle className="text-xl group-hover:text-primary transition-colors">
               <Link

@@ -36,12 +36,23 @@ tech_stack:
   - "Tailwind CSS"
 repo_url: "https://github.com/..." # Optional
 demo_url: "https://demo..." # Optional
+role: "terminal-industries" # Optional - link to job role slug
 ---
 
 # Overview
 
 Write your project overview here using MDX...
 ```
+
+### Role Field
+
+The `role` field is optional and links a project to a job role where it was created. The value should be the slug of the job role (normalized company name). For example:
+
+- `"terminal-industries"` for Terminal Industries
+- `"bestomer"` for Bestomer
+- `"confluent"` for Confluent
+
+When specified, the role will be displayed as a badge on the project card and detail page, linking to the experience page.
 
 ## ADR Format
 

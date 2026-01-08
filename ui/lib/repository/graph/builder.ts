@@ -8,6 +8,7 @@ import { type ContentGraph, makeNodeId, type NodeId } from "./types";
 export interface RelationData {
   projectTechnologies: Map<ProjectSlug, TechnologySlug[]>;
   projectADRs: Map<ProjectSlug, ADRSlug[]>;
+  projectRole: Map<ProjectSlug, RoleSlug>;
   blogTechnologies: Map<BlogSlug, TechnologySlug[]>;
   blogTags: Map<BlogSlug, string[]>;
   adrTechnologies: Map<ADRSlug, TechnologySlug[]>;
@@ -20,6 +21,7 @@ export function createEmptyRelationData(): RelationData {
   return {
     projectTechnologies: new Map(),
     projectADRs: new Map(),
+    projectRole: new Map(),
     blogTechnologies: new Map(),
     blogTags: new Map(),
     adrTechnologies: new Map(),
@@ -44,12 +46,14 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
       partOfProject: new Map(),
       supersedes: new Map(),
       hasTag: new Map(),
+      createdAtRole: new Map(),
     },
     reverse: {
       technologyUsedBy: new Map(),
       projectADRs: new Map(),
       supersededBy: new Map(),
       tagUsedBy: new Map(),
+      roleProjects: new Map(),
     },
   };
 
@@ -85,6 +89,14 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
 
   for (const [slug, technologies] of relations.roleTechnologies) {
     addTechnologyEdges(graph, makeNodeId("role", slug), technologies);
+  }
+
+  for (const [projectSlug, roleSlug] of relations.projectRole) {
+    graph.edges.createdAtRole.set(projectSlug, roleSlug);
+    if (!graph.reverse.roleProjects.has(roleSlug)) {
+      graph.reverse.roleProjects.set(roleSlug, new Set());
+    }
+    graph.reverse.roleProjects.get(roleSlug)?.add(projectSlug);
   }
 
   return graph;

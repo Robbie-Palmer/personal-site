@@ -3,9 +3,11 @@ import {
   getADRCountForProject,
   getADRSlugsForProject,
   getContentUsingTechnologyByType,
+  getRoleForProject,
   getTechnologiesForProject,
 } from "@/lib/repository";
 import { getADRsForProject } from "../adr/adrQueries";
+import { toRoleListItemView } from "../role/roleViews";
 import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
 import type { ProjectSlug } from "./project";
 import {
@@ -31,7 +33,17 @@ export function getProjectCard(
   ]);
   const adrCount = getADRCountForProject(repository.graph, slug);
 
-  return toProjectCardView(project, technologies, adrCount);
+  const roleSlug = getRoleForProject(repository.graph, slug);
+  const role = roleSlug
+    ? repository.roles.get(roleSlug)
+    : undefined;
+
+  return toProjectCardView(
+    project,
+    technologies,
+    adrCount,
+    role ? toRoleListItemView(role) : undefined,
+  );
 }
 
 export function getProjectDetail(
@@ -47,7 +59,17 @@ export function getProjectDetail(
   ]);
   const adrSlugs = getADRSlugsForProject(repository.graph, slug);
 
-  return toProjectDetailView(project, technologies, adrSlugs);
+  const roleSlug = getRoleForProject(repository.graph, slug);
+  const role = roleSlug
+    ? repository.roles.get(roleSlug)
+    : undefined;
+
+  return toProjectDetailView(
+    project,
+    technologies,
+    adrSlugs,
+    role ? toRoleListItemView(role) : undefined,
+  );
 }
 
 export function getProjectListItem(
@@ -72,7 +94,17 @@ export function getAllProjectCards(
     ]);
     const adrCount = getADRCountForProject(repository.graph, project.slug);
 
-    return toProjectCardView(project, technologies, adrCount);
+    const roleSlug = getRoleForProject(repository.graph, project.slug);
+    const role = roleSlug
+      ? repository.roles.get(roleSlug)
+      : undefined;
+
+    return toProjectCardView(
+      project,
+      technologies,
+      adrCount,
+      role ? toRoleListItemView(role) : undefined,
+    );
   });
 }
 
@@ -106,7 +138,18 @@ export function getProjectsUsingTechnology(
         ...techSlugs,
       ]);
       const adrCount = getADRCountForProject(repository.graph, project.slug);
-      return toProjectCardView(project, technologies, adrCount);
+
+      const roleSlug = getRoleForProject(repository.graph, project.slug);
+      const role = roleSlug
+        ? repository.roles.get(roleSlug)
+        : undefined;
+
+      return toProjectCardView(
+        project,
+        technologies,
+        adrCount,
+        role ? toRoleListItemView(role) : undefined,
+      );
     });
 }
 
@@ -141,6 +184,11 @@ export function getProjectWithADRs(
 
   const adrSlugs = getADRSlugsForProject(repository.graph, slug);
 
+  const roleSlug = getRoleForProject(repository.graph, slug);
+  const role = roleSlug
+    ? repository.roles.get(roleSlug)
+    : undefined;
+
   return {
     slug: project.slug,
     title: project.title,
@@ -155,5 +203,6 @@ export function getProjectWithADRs(
     technologies: mergedTechnologies,
     adrSlugs,
     adrs,
+    role: role ? toRoleListItemView(role) : undefined,
   };
 }
