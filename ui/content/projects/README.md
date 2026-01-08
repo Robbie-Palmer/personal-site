@@ -46,13 +46,15 @@ Write your project overview here using MDX...
 
 ### Role Field
 
-The `role` field is optional and links a project to a job role where it was created. The value should be the slug of the job role (normalized company name). For example:
+The `role` field is optional and links a project to a job role where it was created. The value should be the
+slug of the job role (normalized company name). For example:
 
 - `"terminal-industries"` for Terminal Industries
 - `"bestomer"` for Bestomer
 - `"confluent"` for Confluent
 
-When specified, the role will be displayed as a badge on the project card and detail page, linking to the experience page.
+When specified, the role will be displayed as a badge on the project card and detail page, linking to the
+specific job role on the experience page.
 
 ## ADR Format
 

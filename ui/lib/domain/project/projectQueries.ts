@@ -34,9 +34,7 @@ export function getProjectCard(
   const adrCount = getADRCountForProject(repository.graph, slug);
 
   const roleSlug = getRoleForProject(repository.graph, slug);
-  const role = roleSlug
-    ? repository.roles.get(roleSlug)
-    : undefined;
+  const role = roleSlug ? repository.roles.get(roleSlug) : undefined;
 
   return toProjectCardView(
     project,
@@ -60,9 +58,7 @@ export function getProjectDetail(
   const adrSlugs = getADRSlugsForProject(repository.graph, slug);
 
   const roleSlug = getRoleForProject(repository.graph, slug);
-  const role = roleSlug
-    ? repository.roles.get(roleSlug)
-    : undefined;
+  const role = roleSlug ? repository.roles.get(roleSlug) : undefined;
 
   return toProjectDetailView(
     project,
@@ -95,9 +91,7 @@ export function getAllProjectCards(
     const adrCount = getADRCountForProject(repository.graph, project.slug);
 
     const roleSlug = getRoleForProject(repository.graph, project.slug);
-    const role = roleSlug
-      ? repository.roles.get(roleSlug)
-      : undefined;
+    const role = roleSlug ? repository.roles.get(roleSlug) : undefined;
 
     return toProjectCardView(
       project,
@@ -140,9 +134,7 @@ export function getProjectsUsingTechnology(
       const adrCount = getADRCountForProject(repository.graph, project.slug);
 
       const roleSlug = getRoleForProject(repository.graph, project.slug);
-      const role = roleSlug
-        ? repository.roles.get(roleSlug)
-        : undefined;
+      const role = roleSlug ? repository.roles.get(roleSlug) : undefined;
 
       return toProjectCardView(
         project,
@@ -185,9 +177,7 @@ export function getProjectWithADRs(
   const adrSlugs = getADRSlugsForProject(repository.graph, slug);
 
   const roleSlug = getRoleForProject(repository.graph, slug);
-  const role = roleSlug
-    ? repository.roles.get(roleSlug)
-    : undefined;
+  const role = roleSlug ? repository.roles.get(roleSlug) : undefined;
 
   return {
     slug: project.slug,
