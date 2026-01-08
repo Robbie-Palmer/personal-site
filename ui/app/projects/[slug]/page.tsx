@@ -76,9 +76,9 @@ export default async function ProjectPage({ params }: PageProps) {
               {project.role && (
                 <Link href={`/experience#${project.role.slug}`}>
                   <Badge
-                    variant="outline"
+                    variant="secondary"
                     interactive
-                    className="hover:bg-primary/10 text-sm px-3 py-1"
+                    className="bg-muted-foreground/10 text-sm px-3 py-1"
                   >
                     {project.role.company}
                   </Badge>

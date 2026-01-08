@@ -43,9 +43,9 @@ export function ProjectCard({ project, currentTech }: ProjectCardProps) {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <Badge
-                    variant="outline"
+                    variant="secondary"
                     interactive
-                    className="hover:bg-primary/10"
+                    className="bg-muted-foreground/10"
                   >
                     {project.role.company}
                   </Badge>
