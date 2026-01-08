@@ -1,7 +1,7 @@
 import { Briefcase, Layers } from "lucide-react";
 import type { Metadata } from "next";
 import { ExperienceCard } from "@/components/experience/experience-card";
-import { TechnologyCard } from "@/components/technology/technology-card";
+import { SearchableTechnologyGrid } from "@/components/experience/searchable-technology-grid";
 import { loadDomainRepository } from "@/lib/domain";
 import {
   getAllTechnologyBadges,
@@ -77,15 +77,7 @@ export default function ExperiencePage() {
           <Layers className="w-7 h-7 text-primary" />
           Technologies
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-          {rankedTechnologies.map(({ badge, description }) => (
-            <TechnologyCard
-              key={badge.slug}
-              technology={badge}
-              description={description}
-            />
-          ))}
-        </div>
+        <SearchableTechnologyGrid technologies={rankedTechnologies} />
       </section>
     </div>
   );
