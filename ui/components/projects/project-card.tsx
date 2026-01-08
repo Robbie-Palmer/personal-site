@@ -38,7 +38,7 @@ export function ProjectCard({ project, currentTech }: ProjectCardProps) {
               </Badge>
               {project.role && (
                 <Link
-                  href="/experience"
+                  href={`/experience#${project.role.slug}`}
                   className="z-10"
                   onClick={(e) => e.stopPropagation()}
                 >
