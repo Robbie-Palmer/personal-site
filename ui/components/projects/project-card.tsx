@@ -38,9 +38,7 @@ export function ProjectCard({ project, currentTech }: ProjectCardProps) {
                 {project.adrs.length === 1 ? "ADR" : "ADRs"}
               </Badge>
               {project.role && (
-                <div className="z-10" onClick={(e) => e.stopPropagation()}>
-                  <ProjectRoleBadge role={project.role} />
-                </div>
+                <ProjectRoleBadge role={project.role} className="z-10" />
               )}
             </div>
             <CardTitle className="text-xl group-hover:text-primary transition-colors">

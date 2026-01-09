@@ -74,7 +74,10 @@ export default async function ProjectPage({ params }: PageProps) {
                 className="text-sm px-3 py-1"
               />
               {project.role && (
-                <ProjectRoleBadge role={project.role} className="text-sm px-3 py-1" />
+                <ProjectRoleBadge
+                  role={project.role}
+                  className="text-sm px-3 py-1"
+                />
               )}
             </div>
 

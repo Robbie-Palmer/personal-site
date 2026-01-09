@@ -9,7 +9,10 @@ interface ProjectRoleBadgeProps {
 
 export function ProjectRoleBadge({ role, className }: ProjectRoleBadgeProps) {
   return (
-    <Link href={`/experience#${role.slug}`}>
+    <Link
+      href={`/experience#${role.slug}`}
+      onClick={(e) => e.stopPropagation()}
+    >
       <Badge
         variant="secondary"
         interactive
