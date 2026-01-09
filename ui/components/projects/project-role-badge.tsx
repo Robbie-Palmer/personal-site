@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import type { RoleListItemView } from "@/lib/domain/role/roleViews";
