@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import type { Project } from "@/lib/projects";
 import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
+import { ProjectRoleBadge } from "./project-role-badge";
 import { ProjectStatusBadge } from "./project-status-badge";
 
 interface ProjectCardProps {
@@ -37,19 +38,9 @@ export function ProjectCard({ project, currentTech }: ProjectCardProps) {
                 {project.adrs.length === 1 ? "ADR" : "ADRs"}
               </Badge>
               {project.role && (
-                <Link
-                  href={`/experience#${project.role.slug}`}
-                  className="z-10"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Badge
-                    variant="secondary"
-                    interactive
-                    className="bg-muted-foreground/10"
-                  >
-                    {project.role.company}
-                  </Badge>
-                </Link>
+                <div className="z-10" onClick={(e) => e.stopPropagation()}>
+                  <ProjectRoleBadge role={project.role} />
+                </div>
               )}
             </div>
             <CardTitle className="text-xl group-hover:text-primary transition-colors">

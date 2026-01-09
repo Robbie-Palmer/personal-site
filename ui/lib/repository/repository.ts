@@ -602,17 +602,14 @@ export function validateReferentialIntegrity(
         });
       }
     });
-    if (relations.role) {
-      const roles = Array.from(input.roleRelations.keys());
-      if (!roles.includes(relations.role)) {
-        errors.push({
-          type: "missing_reference",
-          entity: `Project[${projectSlug}]`,
-          field: "role",
-          value: relations.role,
-          message: `Role '${relations.role}' referenced by project '${projectSlug}' does not exist`,
-        });
-      }
+    if (relations.role && !input.roleRelations.has(relations.role)) {
+      errors.push({
+        type: "missing_reference",
+        entity: `Project[${projectSlug}]`,
+        field: "role",
+        value: relations.role,
+        message: `Role '${relations.role}' referenced by project '${projectSlug}' does not exist`,
+      });
     }
   });
 

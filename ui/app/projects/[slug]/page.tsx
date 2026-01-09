@@ -4,11 +4,11 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Markdown } from "@/components/markdown";
 import { ADRList } from "@/components/projects/adr-list";
+import { ProjectRoleBadge } from "@/components/projects/project-role-badge";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { ProjectTabs } from "@/components/projects/project-tabs";
 import { ProjectTabsSkeleton } from "@/components/projects/project-tabs-skeleton";
 import { ProjectTechStack } from "@/components/projects/project-tech-stack";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -74,15 +74,7 @@ export default async function ProjectPage({ params }: PageProps) {
                 className="text-sm px-3 py-1"
               />
               {project.role && (
-                <Link href={`/experience#${project.role.slug}`}>
-                  <Badge
-                    variant="secondary"
-                    interactive
-                    className="bg-muted-foreground/10 text-sm px-3 py-1"
-                  >
-                    {project.role.company}
-                  </Badge>
-                </Link>
+                <ProjectRoleBadge role={project.role} className="text-sm px-3 py-1" />
               )}
             </div>
 
