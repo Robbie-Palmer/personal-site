@@ -33,10 +33,12 @@ export function ProjectCard({ project, currentTech }: ProjectCardProps) {
           <div className="flex flex-col gap-2 pointer-events-auto">
             <div className="flex gap-2 flex-wrap">
               <ProjectStatusBadge status={project.status} />
-              <Badge variant="secondary" className="bg-muted-foreground/10">
-                {project.adrs.length}{" "}
-                {project.adrs.length === 1 ? "ADR" : "ADRs"}
-              </Badge>
+              {project.adrs.length > 0 && (
+                <Badge variant="secondary" className="bg-muted-foreground/10">
+                  {project.adrs.length}{" "}
+                  {project.adrs.length === 1 ? "ADR" : "ADRs"}
+                </Badge>
+              )}
               {project.role && (
                 <ProjectRoleBadge role={project.role} className="z-10" />
               )}
