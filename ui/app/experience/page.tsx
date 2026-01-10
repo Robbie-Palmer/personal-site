@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ExperienceCard } from "@/components/experience/experience-card";
 import { SearchableTechnologyGrid } from "@/components/experience/searchable-technology-grid";
 import { loadDomainRepository } from "@/lib/domain";
+import { getRoleProjects } from "@/lib/domain/project/projectQueries";
 import {
   getAllTechnologyBadges,
   rankTechnologiesByConnections,
@@ -61,13 +62,18 @@ export default function ExperiencePage() {
           />
 
           <div className="space-y-6">
-            {experiences.map((experience) => (
-              <ExperienceCard
-                key={`${experience.company}-${experience.startDate}`}
-                experience={experience}
-                id={getExperienceSlug(experience)}
-              />
-            ))}
+            {experiences.map((experience) => {
+              const roleSlug = getExperienceSlug(experience);
+              const projects = getRoleProjects(repository, roleSlug);
+              return (
+                <ExperienceCard
+                  key={`${experience.company}-${experience.startDate}`}
+                  experience={experience}
+                  id={roleSlug}
+                  projects={projects}
+                />
+              );
+            })}
           </div>
         </div>
       </section>

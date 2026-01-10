@@ -3,10 +3,12 @@ import {
   getADRCountForProject,
   getADRSlugsForProject,
   getContentUsingTechnologyByType,
+  getProjectsForRole,
   getRoleForProject,
   getTechnologiesForProject,
 } from "@/lib/repository";
 import { getADRsForProject } from "../adr/adrQueries";
+import type { RoleSlug } from "../role/jobRole";
 import type { RoleListItemView } from "../role/roleViews";
 import { toRoleListItemView } from "../role/roleViews";
 import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
@@ -175,4 +177,19 @@ export function getProjectWithADRs(
     adrs,
     role,
   };
+}
+
+export function getRoleProjects(
+  repository: DomainRepository,
+  roleSlug: RoleSlug,
+): ProjectListItemView[] {
+  const projectSlugs = getProjectsForRole(repository.graph, roleSlug);
+
+  return Array.from(projectSlugs)
+    .map((slug) => repository.projects.get(slug))
+    .filter(
+      (project): project is NonNullable<typeof project> =>
+        project !== undefined,
+    )
+    .map(toProjectListItemView);
 }

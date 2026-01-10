@@ -18,17 +18,24 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import type { ProjectListItemView } from "@/lib/domain/project/projectViews";
 import type { Experience } from "@/lib/experience";
 import { formatDateRange } from "@/lib/experience";
 import { smoothScrollTo } from "@/lib/scroll";
 import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
+import { ProjectBadge } from "./project-badge";
 
 interface ExperienceCardProps {
   experience: Experience;
   id?: string;
+  projects?: ProjectListItemView[];
 }
 
-export function ExperienceCard({ experience, id }: ExperienceCardProps) {
+export function ExperienceCard({
+  experience,
+  id,
+  projects = [],
+}: ExperienceCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
@@ -148,6 +155,13 @@ export function ExperienceCard({ experience, id }: ExperienceCardProps) {
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {experience.description}
                 </p>
+                {projects.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-3">
+                    {projects.map((project) => (
+                      <ProjectBadge key={project.slug} project={project} />
+                    ))}
+                  </div>
+                )}
                 {experience.technologies.length > 0 && (
                   <div className="flex flex-wrap gap-2 pt-2">
                     {experience.technologies.slice(0, 10).map((tech) => {
@@ -196,6 +210,13 @@ export function ExperienceCard({ experience, id }: ExperienceCardProps) {
                   </li>
                 ))}
               </ul>
+              {projects.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {projects.map((project) => (
+                    <ProjectBadge key={project.slug} project={project} />
+                  ))}
+                </div>
+              )}
               {experience.technologies.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {experience.technologies.map((tech) => (
