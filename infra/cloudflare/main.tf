@@ -8,9 +8,9 @@ resource "cloudflare_pages_project" "personal_site" {
   production_branch = var.production_branch
 
   build_config {
-    build_command   = "npx @cloudflare/next-on-pages@1"
-    destination_dir = "ui/.vercel/output/static"
-    root_dir        = "ui"
+    build_command   = "curl https://mise.run | sh && export PATH=\"$HOME/.local/bin:$PATH\" && MISE_EXPERIMENTAL=1 mise run //ui:build"
+    destination_dir = "ui/out"
+    root_dir        = ""
   }
 
   source {
@@ -86,4 +86,27 @@ resource "cloudflare_record" "robbiepalmer_me_assettracker" {
   type    = "CNAME"
   ttl     = 1 # Auto when proxied
   proxied = true
+}
+
+# Transform Rule to rewrite assettracker subdomain requests
+resource "cloudflare_ruleset" "assettracker_rewrite" {
+  zone_id     = data.cloudflare_zone.domain.id
+  name        = "Assettracker subdomain rewrite"
+  description = "Rewrite requests from assettracker subdomain to /assettracker path"
+  kind        = "zone"
+  phase       = "http_request_transform"
+
+  rules {
+    action = "rewrite"
+    expression = "(http.host eq \"assettracker.${var.domain_name}\")"
+    description = "Rewrite assettracker subdomain to /assettracker path"
+
+    action_parameters {
+      uri {
+        path {
+          expression = "concat(\"/assettracker\", http.request.uri.path)"
+        }
+      }
+    }
+  }
 }
