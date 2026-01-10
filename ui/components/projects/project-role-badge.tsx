@@ -15,6 +15,7 @@ export function ProjectRoleBadge({ role, className }: ProjectRoleBadgeProps) {
     <Link
       href={`/experience#${role.slug}`}
       onClick={(e) => e.stopPropagation()}
+      aria-label={`View experience at ${role.company}`}
     >
       <Badge
         variant="secondary"
