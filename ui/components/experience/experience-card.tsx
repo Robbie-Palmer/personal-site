@@ -156,10 +156,15 @@ export function ExperienceCard({
                   {experience.description}
                 </p>
                 {projects.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pt-3">
-                    {projects.map((project) => (
-                      <ProjectBadge key={project.slug} project={project} />
-                    ))}
+                  <div className="pt-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                      Projects
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {projects.map((project) => (
+                        <ProjectBadge key={project.slug} project={project} />
+                      ))}
+                    </div>
                   </div>
                 )}
                 {experience.technologies.length > 0 && (
@@ -211,10 +216,15 @@ export function ExperienceCard({
                 ))}
               </ul>
               {projects.length > 0 && (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {projects.map((project) => (
-                    <ProjectBadge key={project.slug} project={project} />
-                  ))}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                    Projects
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {projects.map((project) => (
+                      <ProjectBadge key={project.slug} project={project} />
+                    ))}
+                  </div>
                 </div>
               )}
               {experience.technologies.length > 0 && (

@@ -17,11 +17,7 @@ export function ProjectBadge({ project, className }: ProjectBadgeProps) {
       onClick={(e) => e.stopPropagation()}
       aria-label={`View project ${project.title}`}
     >
-      <Badge
-        variant="secondary"
-        interactive
-        className={cn("bg-muted-foreground/10", className)}
-      >
+      <Badge variant="outline" interactive className={cn(className)}>
         {project.title}
       </Badge>
     </Link>
