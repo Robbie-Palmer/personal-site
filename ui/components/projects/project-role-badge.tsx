@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import type { RoleListItemView } from "@/lib/domain/role/roleViews";
+import { cn } from "@/lib/styles";
 
 interface ProjectRoleBadgeProps {
   role: RoleListItemView;
@@ -18,7 +19,7 @@ export function ProjectRoleBadge({ role, className }: ProjectRoleBadgeProps) {
       <Badge
         variant="secondary"
         interactive
-        className={`bg-muted-foreground/10 ${className || ""}`}
+        className={cn("bg-muted-foreground/10", className)}
       >
         {role.company}
       </Badge>
