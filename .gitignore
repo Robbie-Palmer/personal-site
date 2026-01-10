@@ -7,6 +7,7 @@ node_modules/
 .next/
 out/
 build/
+.vercel/
 
 # Images
 ui/source-images/
