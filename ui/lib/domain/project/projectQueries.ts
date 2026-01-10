@@ -3,9 +3,12 @@ import {
   getADRCountForProject,
   getADRSlugsForProject,
   getContentUsingTechnologyByType,
+  getRoleForProject,
   getTechnologiesForProject,
 } from "@/lib/repository";
 import { getADRsForProject } from "../adr/adrQueries";
+import type { RoleListItemView } from "../role/roleViews";
+import { toRoleListItemView } from "../role/roleViews";
 import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
 import type { ProjectSlug } from "./project";
 import {
@@ -17,6 +20,15 @@ import {
   toProjectDetailView,
   toProjectListItemView,
 } from "./projectViews";
+
+function getRoleView(
+  repository: DomainRepository,
+  slug: ProjectSlug,
+): RoleListItemView | undefined {
+  const roleSlug = getRoleForProject(repository.graph, slug);
+  const role = roleSlug ? repository.roles.get(roleSlug) : undefined;
+  return role ? toRoleListItemView(role) : undefined;
+}
 
 export function getProjectCard(
   repository: DomainRepository,
@@ -30,8 +42,9 @@ export function getProjectCard(
     ...technologySlugs,
   ]);
   const adrCount = getADRCountForProject(repository.graph, slug);
+  const role = getRoleView(repository, slug);
 
-  return toProjectCardView(project, technologies, adrCount);
+  return toProjectCardView(project, technologies, adrCount, role);
 }
 
 export function getProjectDetail(
@@ -46,8 +59,9 @@ export function getProjectDetail(
     ...technologySlugs,
   ]);
   const adrSlugs = getADRSlugsForProject(repository.graph, slug);
+  const role = getRoleView(repository, slug);
 
-  return toProjectDetailView(project, technologies, adrSlugs);
+  return toProjectDetailView(project, technologies, adrSlugs, role);
 }
 
 export function getProjectListItem(
@@ -71,8 +85,9 @@ export function getAllProjectCards(
       ...technologySlugs,
     ]);
     const adrCount = getADRCountForProject(repository.graph, project.slug);
+    const role = getRoleView(repository, project.slug);
 
-    return toProjectCardView(project, technologies, adrCount);
+    return toProjectCardView(project, technologies, adrCount, role);
   });
 }
 
@@ -106,7 +121,9 @@ export function getProjectsUsingTechnology(
         ...techSlugs,
       ]);
       const adrCount = getADRCountForProject(repository.graph, project.slug);
-      return toProjectCardView(project, technologies, adrCount);
+      const role = getRoleView(repository, project.slug);
+
+      return toProjectCardView(project, technologies, adrCount, role);
     });
 }
 
@@ -140,6 +157,7 @@ export function getProjectWithADRs(
   ];
 
   const adrSlugs = getADRSlugsForProject(repository.graph, slug);
+  const role = getRoleView(repository, slug);
 
   return {
     slug: project.slug,
@@ -155,5 +173,6 @@ export function getProjectWithADRs(
     technologies: mergedTechnologies,
     adrSlugs,
     adrs,
+    role,
   };
 }

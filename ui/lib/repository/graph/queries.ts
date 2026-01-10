@@ -156,3 +156,17 @@ export function getContentForTag(
 export function getAllTags(graph: ContentGraph): string[] {
   return Array.from(graph.reverse.tagUsedBy.keys());
 }
+
+export function getRoleForProject(
+  graph: ContentGraph,
+  slug: ProjectSlug,
+): RoleSlug | undefined {
+  return graph.edges.createdAtRole.get(slug);
+}
+
+export function getProjectsForRole(
+  graph: ContentGraph,
+  slug: RoleSlug,
+): Set<ProjectSlug> {
+  return graph.reverse.roleProjects.get(slug) ?? new Set();
+}

@@ -3,6 +3,7 @@ import type { ProjectSlug } from "../slugs";
 import {
   ADRSlugSchema,
   ProjectSlugSchema,
+  RoleSlugSchema,
   TechnologySlugSchema,
 } from "../slugs";
 
@@ -39,6 +40,7 @@ export type Project = z.infer<typeof ProjectSchema>;
 export const ProjectRelationsSchema = z.object({
   technologies: z.array(TechnologySlugSchema).default([]),
   adrs: z.array(ADRSlugSchema).default([]),
+  role: RoleSlugSchema.optional(),
 });
 
 export type ProjectRelations = z.infer<typeof ProjectRelationsSchema>;

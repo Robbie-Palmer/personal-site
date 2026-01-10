@@ -366,6 +366,7 @@ export function loadProjects(): ProjectLoadResult {
     const projectRelations: ProjectRelations = {
       technologies,
       adrs: adrSlugs,
+      role: data.role ? normalizeSlug(data.role) : undefined,
     };
 
     const validation = validateProject(project);
@@ -601,6 +602,15 @@ export function validateReferentialIntegrity(
         });
       }
     });
+    if (relations.role && !input.roleRelations.has(relations.role)) {
+      errors.push({
+        type: "missing_reference",
+        entity: `Project[${projectSlug}]`,
+        field: "role",
+        value: relations.role,
+        message: `Role '${relations.role}' referenced by project '${projectSlug}' does not exist`,
+      });
+    }
   });
 
   input.adrRelations.forEach((relations, adrSlug) => {
@@ -661,6 +671,9 @@ function buildRelationDataFromLoaders(loaders: LoaderResults): RelationData {
   for (const [slug, projectRels] of loaders.projects.relations) {
     relations.projectTechnologies.set(slug, projectRels.technologies);
     relations.projectADRs.set(slug, projectRels.adrs);
+    if (projectRels.role) {
+      relations.projectRole.set(slug, projectRels.role);
+    }
   }
 
   for (const [slug, blogRels] of loaders.blogs.relations) {

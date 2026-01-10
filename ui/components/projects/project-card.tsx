@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import type { Project } from "@/lib/projects";
 import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
+import { ProjectRoleBadge } from "./project-role-badge";
 import { ProjectStatusBadge } from "./project-status-badge";
 
 interface ProjectCardProps {
@@ -30,12 +31,15 @@ export function ProjectCard({ project, currentTech }: ProjectCardProps) {
       <CardHeader>
         <div className="flex justify-between items-start gap-4 pointer-events-none">
           <div className="flex flex-col gap-2 pointer-events-auto">
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <ProjectStatusBadge status={project.status} />
               <Badge variant="secondary" className="bg-muted-foreground/10">
                 {project.adrs.length}{" "}
                 {project.adrs.length === 1 ? "ADR" : "ADRs"}
               </Badge>
+              {project.role && (
+                <ProjectRoleBadge role={project.role} className="z-10" />
+              )}
             </div>
             <CardTitle className="text-xl group-hover:text-primary transition-colors">
               <Link

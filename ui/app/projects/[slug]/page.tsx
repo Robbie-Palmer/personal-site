@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Markdown } from "@/components/markdown";
 import { ADRList } from "@/components/projects/adr-list";
+import { ProjectRoleBadge } from "@/components/projects/project-role-badge";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { ProjectTabs } from "@/components/projects/project-tabs";
 import { ProjectTabsSkeleton } from "@/components/projects/project-tabs-skeleton";
@@ -64,7 +65,7 @@ export default async function ProjectPage({ params }: PageProps) {
         {/* Header */}
         <div className="flex flex-col md:flex-row gap-6 justify-between items-start">
           <div className="space-y-4">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <h1 className="text-4xl md:text-5xl font-bold">
                 {project.title}
               </h1>
@@ -72,6 +73,12 @@ export default async function ProjectPage({ params }: PageProps) {
                 status={project.status}
                 className="text-sm px-3 py-1"
               />
+              {project.role && (
+                <ProjectRoleBadge
+                  role={project.role}
+                  className="text-sm px-3 py-1"
+                />
+              )}
             </div>
 
             <p className="text-xl text-muted-foreground max-w-3xl leading-relaxed">
