@@ -97,8 +97,8 @@ resource "cloudflare_ruleset" "assettracker_rewrite" {
   phase       = "http_request_transform"
 
   rules {
-    action = "rewrite"
-    expression = "(http.host eq \"assettracker.${var.domain_name}\")"
+    action      = "rewrite"
+    expression  = "(http.host eq \"assettracker.${var.domain_name}\")"
     description = "Rewrite assettracker subdomain to /assettracker path"
 
     action_parameters {
