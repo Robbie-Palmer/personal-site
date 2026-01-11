@@ -6,7 +6,7 @@ const OUT_DIR = path.resolve(__dirname, "../../out");
 const SITEMAP_PATH = path.join(OUT_DIR, "sitemap.xml");
 
 // Subdomain projects that have their own routing and should not be in main sitemap
-const SUBDOMAIN_PROJECTS = new Set(["assettracker"] as const);
+const SUBDOMAIN_PROJECTS = new Set(["assettracker"]);
 
 describe("Sitemap Integration Test", () => {
   it("should have a sitemap.xml that includes all generated pages", () => {
@@ -32,9 +32,10 @@ describe("Sitemap Integration Test", () => {
 
       // Skip subdomain project paths
       const topLevelSegment = normalizedPath.split("/")[0];
+      const fileNameWithoutExt = normalizedPath.replace(/\.html$/, "");
       const isSubdomainProject =
-        SUBDOMAIN_PROJECTS.has(topLevelSegment) ||
-        SUBDOMAIN_PROJECTS.has(normalizedPath.replace(/\.html$/, ""));
+        (topLevelSegment && SUBDOMAIN_PROJECTS.has(topLevelSegment)) ||
+        SUBDOMAIN_PROJECTS.has(fileNameWithoutExt);
       if (isSubdomainProject) {
         return;
       }
