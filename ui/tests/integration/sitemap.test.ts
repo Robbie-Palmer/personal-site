@@ -5,6 +5,9 @@ import { describe, it } from "vitest";
 const OUT_DIR = path.resolve(__dirname, "../../out");
 const SITEMAP_PATH = path.join(OUT_DIR, "sitemap.xml");
 
+// Subdomain projects that have their own routing and should not be in main sitemap
+const SUBDOMAIN_PROJECTS = ["assettracker"];
+
 describe("Sitemap Integration Test", () => {
   it("should have a sitemap.xml that includes all generated pages", () => {
     if (!fs.existsSync(SITEMAP_PATH)) {
@@ -24,6 +27,15 @@ describe("Sitemap Integration Test", () => {
     const missingUrls: string[] = [];
     htmlFiles.forEach((file) => {
       let relativePath = path.relative(OUT_DIR, file);
+
+      // Skip subdomain project paths
+      const isSubdomainProject = SUBDOMAIN_PROJECTS.some((project) =>
+        relativePath.startsWith(`${project}/`) || relativePath.startsWith(`${project}\\`) || relativePath === `${project}.html`
+      );
+      if (isSubdomainProject) {
+        return;
+      }
+
       if (relativePath.endsWith("index.html")) {
         relativePath = relativePath.replace("index.html", "");
       }
