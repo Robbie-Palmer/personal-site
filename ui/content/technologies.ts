@@ -206,6 +206,12 @@ export const technologies: TechnologyContent[] = [
     iconSlug: "cloudflare",
   },
   {
+    name: "Cloudflare Rulesets",
+    description: "Rules for transforming and routing HTTP requests at the edge",
+    website: "https://developers.cloudflare.com/ruleset-engine/",
+    iconSlug: "cloudflare",
+  },
+  {
     name: "Cloudflare Images",
     description: "Image optimization and delivery service",
     website: "https://www.cloudflare.com/products/images",
