@@ -158,6 +158,11 @@ export const technologies: TechnologyContent[] = [
     website: "https://coderabbit.ai",
   },
   {
+    name: "CLA Assistant",
+    description: "Contributor License Agreement automation for GitHub",
+    website: "https://cla-assistant.io",
+  },
+  {
     name: "Dependabot",
     description: "Automated dependency updates for GitHub",
     website: "https://github.com/dependabot",
