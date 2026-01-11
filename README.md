@@ -283,6 +283,8 @@ These require manual testing since preview generation happens on external platfo
 - [Cloudflare DNS](https://dash.cloudflare.com/) → Websites → robbiepalmer.me → DNS
 - [Terraform Cloud Workspace](https://app.terraform.io/app/robbie-palmer/workspaces/personal-site)
 - [GitHub Repository](https://github.com/RobbiePalmer/personal-site)
+- [Renovate Dashboard](https://developer.mend.io/github/Robbie-Palmer/personal-site)
+- [CLA Assistant](https://cla-assistant.io/)
 
 ### Documentation
 
