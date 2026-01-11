@@ -29,8 +29,11 @@ describe("Sitemap Integration Test", () => {
       let relativePath = path.relative(OUT_DIR, file);
 
       // Skip subdomain project paths
-      const isSubdomainProject = SUBDOMAIN_PROJECTS.some((project) =>
-        relativePath.startsWith(`${project}/`) || relativePath.startsWith(`${project}\\`) || relativePath === `${project}.html`
+      const isSubdomainProject = SUBDOMAIN_PROJECTS.some(
+        (project) =>
+          relativePath.startsWith(`${project}/`) ||
+          relativePath.startsWith(`${project}\\`) ||
+          relativePath === `${project}.html`,
       );
       if (isSubdomainProject) {
         return;
