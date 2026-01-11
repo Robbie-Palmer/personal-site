@@ -88,7 +88,6 @@ resource "cloudflare_record" "robbiepalmer_me_assettracker" {
   proxied = true
 }
 
-# Transform Rule to rewrite assettracker subdomain requests
 resource "cloudflare_ruleset" "assettracker_rewrite" {
   zone_id     = data.cloudflare_zone.domain.id
   name        = "Assettracker subdomain rewrite"
@@ -104,7 +103,7 @@ resource "cloudflare_ruleset" "assettracker_rewrite" {
     action_parameters {
       uri {
         path {
-          expression = "concat(\"/assettracker\", regex_replace(http.request.uri.path, \"^/assettracker\", \"\"))"
+          expression = "concat(\"/assettracker\", http.request.uri.path)"
         }
       }
     }
