@@ -104,7 +104,7 @@ resource "cloudflare_ruleset" "assettracker_rewrite" {
     action_parameters {
       uri {
         path {
-          expression = "concat(\"/assettracker\", http.request.uri.path)"
+          expression = "concat(\"/assettracker\", regex_replace(http.request.uri.path, \"^/assettracker\", \"\"))"
         }
       }
     }
