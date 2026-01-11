@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Footer } from "@/components/footer";
-import { ScrollNavbar } from "@/components/scroll-navbar";
 import { ThemeProvider } from "@/components/theme-provider";
-import { NavbarActionsProvider } from "@/context/navbar-actions-context";
 import { siteConfig } from "@/lib/site-config";
 
 // Use Cloudflare Pages URL for preview deployments, fallback to production URL
@@ -59,13 +56,7 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          <NavbarActionsProvider>
-            <div className="antialiased flex flex-col min-h-screen">
-              <ScrollNavbar />
-              <main className="flex-1 flex flex-col">{children}</main>
-              <Footer />
-            </div>
-          </NavbarActionsProvider>
+          {children}
         </ThemeProvider>
       </body>
     </html>
