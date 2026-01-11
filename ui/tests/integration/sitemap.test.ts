@@ -6,7 +6,7 @@ const OUT_DIR = path.resolve(__dirname, "../../out");
 const SITEMAP_PATH = path.join(OUT_DIR, "sitemap.xml");
 
 // Subdomain projects that have their own routing and should not be in main sitemap
-const SUBDOMAIN_PROJECTS = ["assettracker"];
+const SUBDOMAIN_PROJECTS = new Set(["assettracker"] as const);
 
 describe("Sitemap Integration Test", () => {
   it("should have a sitemap.xml that includes all generated pages", () => {
@@ -27,17 +27,19 @@ describe("Sitemap Integration Test", () => {
     const missingUrls: string[] = [];
     htmlFiles.forEach((file) => {
       let relativePath = path.relative(OUT_DIR, file);
+      // Normalize path separators to forward slashes
+      const normalizedPath = relativePath.replace(/\\/g, "/");
 
       // Skip subdomain project paths
-      const isSubdomainProject = SUBDOMAIN_PROJECTS.some(
-        (project) =>
-          relativePath.startsWith(`${project}/`) ||
-          relativePath.startsWith(`${project}\\`) ||
-          relativePath === `${project}.html`,
-      );
+      const topLevelSegment = normalizedPath.split("/")[0];
+      const isSubdomainProject =
+        SUBDOMAIN_PROJECTS.has(topLevelSegment) ||
+        SUBDOMAIN_PROJECTS.has(normalizedPath.replace(/\.html$/, ""));
       if (isSubdomainProject) {
         return;
       }
+
+      relativePath = normalizedPath;
 
       if (relativePath.endsWith("index.html")) {
         relativePath = relativePath.replace("index.html", "");
