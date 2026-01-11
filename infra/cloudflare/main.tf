@@ -55,12 +55,6 @@ resource "cloudflare_pages_domain" "robbiepalmer_me_www" {
   domain       = "www.${var.domain_name}"
 }
 
-resource "cloudflare_pages_domain" "robbiepalmer_me_assettracker" {
-  account_id   = var.cloudflare_account_id
-  project_name = cloudflare_pages_project.personal_site.name
-  domain       = "assettracker.${var.domain_name}"
-}
-
 resource "cloudflare_record" "robbiepalmer_me_apex" {
   zone_id = data.cloudflare_zone.domain.id
   name    = "@"
@@ -79,33 +73,3 @@ resource "cloudflare_record" "robbiepalmer_me_www" {
   proxied = true
 }
 
-resource "cloudflare_record" "robbiepalmer_me_assettracker" {
-  zone_id = data.cloudflare_zone.domain.id
-  name    = "assettracker"
-  content = cloudflare_pages_project.personal_site.subdomain
-  type    = "CNAME"
-  ttl     = 1 # Auto when proxied
-  proxied = true
-}
-
-resource "cloudflare_ruleset" "assettracker_rewrite" {
-  zone_id     = data.cloudflare_zone.domain.id
-  name        = "Assettracker subdomain rewrite"
-  description = "Rewrite requests from assettracker subdomain to /assettracker path"
-  kind        = "zone"
-  phase       = "http_request_transform"
-
-  rules {
-    action      = "rewrite"
-    expression  = "(http.host eq \"assettracker.${var.domain_name}\")"
-    description = "Rewrite assettracker subdomain to /assettracker path"
-
-    action_parameters {
-      uri {
-        path {
-          expression = "concat(\"/assettracker\", http.request.uri.path)"
-        }
-      }
-    }
-  }
-}
