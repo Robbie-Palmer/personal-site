@@ -3,8 +3,8 @@
 import { cva } from "class-variance-authority";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useNavbarActions } from "@/lib/navbar-actions-context";
 import { useNavbarVisibility } from "@/hooks/use-navbar-visibility";
+import { useNavbarActions } from "@/lib/navbar-actions-context";
 import { siteConfig } from "@/lib/site-config";
 import { AnimatedThemeToggler } from "./ui/animated-theme-toggler";
 

@@ -1,32 +1,32 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, type ReactNode, useContext, useState } from "react";
 
 interface NavbarActionsContextType {
-    hasActions: boolean;
-    setHasActions: (hasActions: boolean) => void;
+  hasActions: boolean;
+  setHasActions: (hasActions: boolean) => void;
 }
 
-const NavbarActionsContext = createContext<NavbarActionsContextType | undefined>(
-    undefined,
-);
+const NavbarActionsContext = createContext<
+  NavbarActionsContextType | undefined
+>(undefined);
 
 export function NavbarActionsProvider({ children }: { children: ReactNode }) {
-    const [hasActions, setHasActions] = useState(false);
+  const [hasActions, setHasActions] = useState(false);
 
-    return (
-        <NavbarActionsContext.Provider value={{ hasActions, setHasActions }}>
-            {children}
-        </NavbarActionsContext.Provider>
-    );
+  return (
+    <NavbarActionsContext.Provider value={{ hasActions, setHasActions }}>
+      {children}
+    </NavbarActionsContext.Provider>
+  );
 }
 
 export function useNavbarActions() {
-    const context = useContext(NavbarActionsContext);
-    if (context === undefined) {
-        throw new Error(
-            "useNavbarActions must be used within a NavbarActionsProvider",
-        );
-    }
-    return context;
+  const context = useContext(NavbarActionsContext);
+  if (context === undefined) {
+    throw new Error(
+      "useNavbarActions must be used within a NavbarActionsProvider",
+    );
+  }
+  return context;
 }
