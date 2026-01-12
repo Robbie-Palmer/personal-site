@@ -1,8 +1,8 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import type { ADR } from "@/lib/projects";
-import { cn } from "@/lib/styles";
+import type { ADR } from "@/lib/api/projects";
+import { cn } from "@/lib/generic/styles";
 
 interface ADRPaginationProps {
   projectSlug: string;

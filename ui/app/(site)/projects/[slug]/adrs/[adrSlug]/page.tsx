@@ -15,8 +15,8 @@ import {
   getProject,
   getProjectADR,
   type ProjectWithADRs,
-} from "@/lib/projects";
-import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
+} from "@/lib/api/projects";
+import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 
 const adrComponents = {
   EmblaDemoCarousel,

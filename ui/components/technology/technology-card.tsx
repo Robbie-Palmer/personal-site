@@ -8,8 +8,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { getTechIconUrl } from "@/lib/api/tech-icons";
 import type { TechnologyBadgeView } from "@/lib/domain/technology/technologyViews";
-import { getTechIconUrl } from "@/lib/tech-icons";
 
 interface TechnologyCardProps {
   technology: TechnologyBadgeView;

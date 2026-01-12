@@ -4,7 +4,10 @@ import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import rehypePrettyCode from "rehype-pretty-code";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
-import { getImageSrcSet, getImageUrl } from "@/lib/cloudflare-images";
+import {
+  getImageSrcSet,
+  getImageUrl,
+} from "@/lib/integrations/cloudflare-images";
 
 type MDXComponents = React.ComponentProps<typeof MDXRemote>["components"];
 

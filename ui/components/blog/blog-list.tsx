@@ -12,9 +12,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { FilterableCardGrid } from "@/components/ui/filterable-card-grid";
-import type { BlogPost } from "@/lib/blog";
-import { getImageUrl } from "@/lib/cloudflare-images";
-import { formatDate } from "@/lib/date";
+import type { BlogPost } from "@/lib/api/blog";
+import { formatDate } from "@/lib/generic/date";
+import { getImageUrl } from "@/lib/integrations/cloudflare-images";
 
 interface BlogListProps {
   posts: BlogPost[];

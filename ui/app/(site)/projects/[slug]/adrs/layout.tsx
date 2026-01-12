@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { ADRMobileNav } from "@/components/projects/adr-mobile-nav";
 import { ADRStickySidebar } from "@/components/projects/adr-sticky-sidebar";
-import { getProject, type ProjectWithADRs } from "@/lib/projects";
+import { getProject, type ProjectWithADRs } from "@/lib/api/projects";
 
 interface ADRLayoutProps {
   children: React.ReactNode;

@@ -15,7 +15,7 @@ import {
   getAllProjectSlugs,
   getProject,
   type ProjectWithADRs,
-} from "@/lib/projects";
+} from "@/lib/api/projects";
 
 interface PageProps {
   params: Promise<{ slug: string }>;

@@ -18,11 +18,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import type { Experience } from "@/lib/api/experience";
+import { formatDateRange } from "@/lib/api/experience";
+import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 import type { ProjectListItemView } from "@/lib/domain/project/projectViews";
-import type { Experience } from "@/lib/experience";
-import { formatDateRange } from "@/lib/experience";
-import { smoothScrollTo } from "@/lib/scroll";
-import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
+import { smoothScrollTo } from "@/lib/generic/scroll";
 import { ProjectBadge } from "./project-badge";
 
 interface ExperienceCardProps {

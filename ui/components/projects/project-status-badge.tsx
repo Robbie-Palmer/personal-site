@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
-import type { ProjectStatus } from "@/lib/projects";
-import { cn } from "@/lib/styles";
+import type { ProjectStatus } from "@/lib/api/projects";
+import { cn } from "@/lib/generic/styles";
 
 interface ProjectStatusBadgeProps {
   status: ProjectStatus;

@@ -11,7 +11,7 @@ export interface Experience {
   technologies: string[];
 }
 
-import { normalizeSlug } from "@/lib/slugs";
+import { normalizeSlug } from "@/lib/generic/slugs";
 
 export function getExperienceSlug(experience: Experience): string {
   return normalizeSlug(experience.company);

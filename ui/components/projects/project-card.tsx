@@ -10,8 +10,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { Project } from "@/lib/projects";
-import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
+import type { Project } from "@/lib/api/projects";
+import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 import { ProjectRoleBadge } from "./project-role-badge";
 import { ProjectStatusBadge } from "./project-status-badge";
 

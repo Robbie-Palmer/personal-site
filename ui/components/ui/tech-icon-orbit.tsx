@@ -4,8 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { OrbitingCircles } from "@/components/ui/orbiting-circles";
-import { cn } from "@/lib/styles";
-import { getTechIconUrl } from "@/lib/tech-icons";
+import { getTechIconUrl } from "@/lib/api/tech-icons";
+import { cn } from "@/lib/generic/styles";
 
 export interface TechOrbitItem {
   name: string;

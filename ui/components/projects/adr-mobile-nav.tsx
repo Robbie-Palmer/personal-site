@@ -10,8 +10,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { useNavbarActions } from "@/lib/navbar-actions-context";
-import type { ProjectWithADRs } from "@/lib/projects";
+import { useNavbarActions } from "@/contexts/navbar-actions-context";
+import type { ProjectWithADRs } from "@/lib/api/projects";
 import { ADRNavContent } from "./adr-nav-content";
 
 interface ADRMobileNavProps {

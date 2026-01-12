@@ -9,9 +9,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { BlogPost } from "@/lib/blog";
-import type { BlogCollectionWithId } from "@/lib/blog-collections";
-import { cn } from "@/lib/styles";
+import type { BlogPost } from "@/lib/api/blog";
+import type { BlogCollectionWithId } from "@/lib/api/blog-collections";
+import { cn } from "@/lib/generic/styles";
 
 type BlogCollectionTabsProps = {
   collections: BlogCollectionWithId[];

@@ -1,6 +1,6 @@
 import { Footer } from "@/components/footer";
 import { ScrollNavbar } from "@/components/scroll-navbar";
-import { NavbarActionsProvider } from "@/lib/navbar-actions-context";
+import { NavbarActionsProvider } from "@/contexts/navbar-actions-context";
 
 export default function SiteLayout({
   children,

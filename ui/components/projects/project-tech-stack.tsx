@@ -11,8 +11,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/styles";
-import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
+import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
+import { cn } from "@/lib/generic/styles";
 
 interface ProjectTechStackProps {
   techStack: string[];

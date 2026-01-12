@@ -8,12 +8,12 @@ import { TechOrbit } from "@/components/ui/tech-icon-orbit";
 import {
   getCollectionPosts,
   getCollectionsWithIds,
-} from "@/lib/blog-collections";
+} from "@/lib/api/blog-collections";
+import { getAllExperience } from "@/lib/api/experience";
+import { getAllADRs } from "@/lib/api/projects";
+import { siteConfig } from "@/lib/config/site-config";
 import { loadDomainRepository } from "@/lib/domain";
 import { getTechnologiesWithConnectionWeights } from "@/lib/domain/technology";
-import { getAllExperience } from "@/lib/experience";
-import { getAllADRs } from "@/lib/projects";
-import { siteConfig } from "@/lib/site-config";
 
 export default function Home() {
   const collections = getCollectionsWithIds();
