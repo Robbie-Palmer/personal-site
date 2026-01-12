@@ -5,7 +5,7 @@ import {
   getAllProjects,
   getProject,
   getProjectADR,
-} from "@/lib/projects";
+} from "@/lib/api/projects";
 
 /**
  * Projects tests - Integration tests for domain-backed project functions

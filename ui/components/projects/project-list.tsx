@@ -3,8 +3,8 @@
 import { FolderGit2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { FilterableCardGrid } from "@/components/ui/filterable-card-grid";
-import type { Project } from "@/lib/projects";
-import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
+import type { Project } from "@/lib/api/projects";
+import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 import { ProjectCard } from "./project-card";
 
 interface ProjectListProps {

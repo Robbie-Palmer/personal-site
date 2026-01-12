@@ -2,7 +2,7 @@ import {
   type DomainRepository,
   getContentUsingTechnologyByType,
 } from "@/lib/repository";
-import { getTechSlug, hasTechIcon } from "../../tech-icons";
+import { getTechSlug, hasTechIcon } from "../../api/tech-icons";
 import type { Technology, TechnologySlug } from "./technology";
 
 export type TechnologyLabelView = {

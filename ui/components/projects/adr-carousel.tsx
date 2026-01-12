@@ -5,10 +5,10 @@ import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ContentCarousel } from "@/components/ui/content-carousel";
-import { defaultCarouselConfig } from "@/lib/carousel-config";
-import { formatDate } from "@/lib/date";
-import type { ProjectADR } from "@/lib/projects";
-import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
+import type { ProjectADR } from "@/lib/api/projects";
+import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
+import { defaultCarouselConfig } from "@/lib/config/carousel-config";
+import { formatDate } from "@/lib/generic/date";
 import { ADRBadge } from "./adr-badge";
 
 type ADRCarouselProps = {

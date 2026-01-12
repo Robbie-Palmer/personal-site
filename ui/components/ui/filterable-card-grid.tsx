@@ -9,7 +9,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useSortParam } from "@/lib/use-sort-param";
+import { useSortParam } from "@/hooks/use-sort-param";
 
 const SORT_OPTIONS = ["newest", "oldest", "updated"] as const;
 type SortOption = (typeof SORT_OPTIONS)[number];

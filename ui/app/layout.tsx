@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import { siteConfig } from "@/lib/site-config";
+import { siteConfig } from "@/lib/config/site-config";
 
 // Use Cloudflare Pages URL for preview deployments, fallback to production URL
 const baseUrl = process.env.CF_PAGES_URL || siteConfig.url;

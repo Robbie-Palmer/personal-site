@@ -4,7 +4,7 @@ import { Markdown } from "@/components/markdown";
 import { ProjectList } from "@/components/projects/project-list";
 import { ProjectTabsSkeleton } from "@/components/projects/project-tabs-skeleton";
 import { ProjectsPageTabs } from "@/components/projects/projects-page-tabs";
-import { getAllProjects, getBuildingPhilosophy } from "@/lib/projects";
+import { getAllProjects, getBuildingPhilosophy } from "@/lib/api/projects";
 
 export const metadata: Metadata = {
   title: "Projects",

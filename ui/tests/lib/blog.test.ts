@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getAllPostSlugs, getAllPosts, getPostBySlug } from "@/lib/blog";
+import { getAllPostSlugs, getAllPosts, getPostBySlug } from "@/lib/api/blog";
 
 /**
  * Blog tests - Integration tests for domain-backed blog functions

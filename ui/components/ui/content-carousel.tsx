@@ -11,8 +11,8 @@ import {
   useDotButton,
   usePrevNextButtons,
 } from "@/components/ui/carousel";
-import { defaultCarouselConfig } from "@/lib/carousel-config";
-import { cn } from "@/lib/styles";
+import { defaultCarouselConfig } from "@/lib/config/carousel-config";
+import { cn } from "@/lib/generic/styles";
 
 export type ContentCarouselProps<T> = {
   items: T[];

@@ -3,9 +3,9 @@ import { Suspense } from "react";
 import { preload } from "react-dom";
 import { BlogList } from "@/components/blog/blog-list";
 import { CardGridSkeleton } from "@/components/ui/card-grid-skeleton";
-import { getAllPosts } from "@/lib/blog";
-import { getImageUrl } from "@/lib/cloudflare-images";
-import { siteConfig } from "@/lib/site-config";
+import { getAllPosts } from "@/lib/api/blog";
+import { siteConfig } from "@/lib/config/site-config";
+import { getImageUrl } from "@/lib/integrations/cloudflare-images";
 
 export const metadata: Metadata = {
   title: siteConfig.blog.title,

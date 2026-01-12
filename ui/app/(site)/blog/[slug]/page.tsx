@@ -10,10 +10,13 @@ import { Markdown } from "@/components/markdown";
 import { Mermaid } from "@/components/mermaid";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { getAllPostSlugs, getPostBySlug } from "@/lib/blog";
-import { getImageSrcSet, getImageUrl } from "@/lib/cloudflare-images";
-import { formatDate } from "@/lib/date";
-import { siteConfig } from "@/lib/site-config";
+import { getAllPostSlugs, getPostBySlug } from "@/lib/api/blog";
+import { siteConfig } from "@/lib/config/site-config";
+import { formatDate } from "@/lib/generic/date";
+import {
+  getImageSrcSet,
+  getImageUrl,
+} from "@/lib/integrations/cloudflare-images";
 
 interface PageProps {
   params: Promise<{ slug: string }>;

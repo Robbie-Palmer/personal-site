@@ -2,14 +2,14 @@ import { Briefcase, Layers } from "lucide-react";
 import type { Metadata } from "next";
 import { ExperienceCard } from "@/components/experience/experience-card";
 import { SearchableTechnologyGrid } from "@/components/experience/searchable-technology-grid";
+import { getAllExperience, getExperienceSlug } from "@/lib/api/experience";
+import { siteConfig } from "@/lib/config/site-config";
 import { loadDomainRepository } from "@/lib/domain";
 import { getRoleProjects } from "@/lib/domain/project/projectQueries";
 import {
   getAllTechnologyBadges,
   rankTechnologiesByConnections,
 } from "@/lib/domain/technology";
-import { getAllExperience, getExperienceSlug } from "@/lib/experience";
-import { siteConfig } from "@/lib/site-config";
 
 const pageDescription =
   "Professional experience and career history of Robbie Palmer - Principal Software Engineer specializing in machine learning, computer vision, and data engineering.";

@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
-import { getAllPosts } from "@/lib/blog";
-import { getAllProjects } from "@/lib/projects";
-import { siteConfig } from "@/lib/site-config";
+import { getAllPosts } from "@/lib/api/blog";
+import { getAllProjects } from "@/lib/api/projects";
+import { siteConfig } from "@/lib/config/site-config";
 
 export const dynamic = "force-static";
 

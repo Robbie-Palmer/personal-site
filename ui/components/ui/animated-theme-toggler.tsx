@@ -4,7 +4,7 @@ import { Moon, Sun } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/styles";
+import { cn } from "@/lib/generic/styles";
 
 interface AnimatedThemeTogglerProps
   extends React.ComponentPropsWithoutRef<"button"> {
