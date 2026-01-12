@@ -10,7 +10,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { useNavbarActions } from "@/context/navbar-actions-context";
+import { useNavbarActions } from "@/lib/navbar-actions-context";
 import type { ProjectWithADRs } from "@/lib/projects";
 import { ADRNavContent } from "./adr-nav-content";
 
