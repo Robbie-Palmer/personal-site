@@ -38,7 +38,7 @@ const experienceMock = vi.hoisted(() => ({
 
 vi.mock("fs", () => fsMock);
 vi.mock("path", () => pathMock);
-vi.mock("@/lib/experience", () => experienceMock);
+vi.mock("@/lib/api/experience", () => experienceMock);
 
 // Import after mocks are hoisted
 import * as fs from "node:fs";

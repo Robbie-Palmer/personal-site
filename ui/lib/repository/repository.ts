@@ -4,6 +4,7 @@ import { isValid, parse } from "date-fns";
 import matter from "gray-matter";
 import readingTime from "reading-time";
 import { technologies as definedTechnologies } from "../../content/technologies";
+import { getAllExperience, getExperienceSlug } from "../api/experience";
 import {
   type ADR,
   type ADRRelations,
@@ -33,8 +34,7 @@ import {
   TechnologySchema,
   type TechnologySlug,
 } from "../domain/technology/technology";
-import { getAllExperience, getExperienceSlug } from "../experience";
-import { normalizeSlug } from "../slugs";
+import { normalizeSlug } from "../generic/slugs";
 import {
   buildContentGraph,
   type ContentGraph,
@@ -492,8 +492,8 @@ export function loadJobRoles(): RoleLoadResult {
   const experiences = getAllExperience();
   for (const exp of experiences) {
     const slug = getExperienceSlug(exp);
-    const technologies: TechnologySlug[] = exp.technologies.map((tech) =>
-      normalizeSlug(tech),
+    const technologies: TechnologySlug[] = exp.technologies.map(
+      (tech: string) => normalizeSlug(tech),
     );
 
     const role: JobRole = {
