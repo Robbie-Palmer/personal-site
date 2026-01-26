@@ -6,6 +6,9 @@ on:
     # Run weekly on Mondays at 9am UTC
     - cron: '0 9 * * 1'
 
+permissions:
+  issues: write
+
 jobs:
   health-check:
     runs-on: ubuntu-latest
@@ -25,3 +28,21 @@ jobs:
           CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: ${{ secrets.CF_IMAGES_ACCOUNT_HASH }}
         run: mise run //ui:images:health-check
+
+      - name: Create issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          existing=$(gh issue list --search "Cloudflare Images health check failed in:title" --state open --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            echo "Issue #$existing already exists, skipping"
+          else
+            gh issue create \
+              --title "Cloudflare Images health check failed" \
+              --body "The weekly Cloudflare Images health check failed.
+
+          **Workflow run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Please investigate and resolve the issue."
+          fi
