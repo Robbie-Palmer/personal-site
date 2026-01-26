@@ -1,5 +1,12 @@
 experimental_monorepo_root = true
 
+[monorepo]
+config_roots = [
+    "ui",
+    "infra",
+    "infra/cloudflare",
+]
+
 [settings]
 color = true
 verbose = false
