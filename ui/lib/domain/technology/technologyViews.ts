@@ -24,6 +24,13 @@ export type TechnologyLinkView = {
   website: string;
 };
 
+export type TechnologyUsageView = {
+  projects: string[];
+  blogs: string[];
+  adrs: string[];
+  roles: string[];
+};
+
 export type TechnologyDetailView = {
   slug: string;
   name: string;
@@ -31,12 +38,7 @@ export type TechnologyDetailView = {
   website: string;
   iconSlug?: string;
   hasIcon: boolean;
-  usedIn: {
-    projectsCount: number;
-    blogsCount: number;
-    adrsCount: number;
-    rolesCount: number;
-  };
+  usedIn: TechnologyUsageView;
 };
 
 export function toTechnologyLabelView(tech: Technology): TechnologyLabelView {
@@ -79,10 +81,10 @@ export function toTechnologyDetailView(
     iconSlug,
     hasIcon: hasTechIcon(tech.name, iconSlug),
     usedIn: {
-      projectsCount: content.projects.length,
-      blogsCount: content.blogs.length,
-      adrsCount: content.adrs.length,
-      rolesCount: content.roles.length,
+      projects: content.projects,
+      blogs: content.blogs,
+      adrs: content.adrs,
+      roles: content.roles,
     },
   };
 }
