@@ -78,7 +78,7 @@ export default function ExperiencePage() {
         </div>
       </section>
 
-      <section className="mb-16">
+      <section id="technologies" className="mb-16 scroll-mt-24">
         <h2 className="text-3xl font-semibold mb-8 flex items-center gap-2">
           <Layers className="w-7 h-7 text-primary" />
           Technologies
