@@ -31,7 +31,9 @@ export async function generateStaticParams() {
   return slugs.map((slug) => ({ slug }));
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const repository = loadDomainRepository();
   const technology = getTechnologyDetail(repository, slug);
@@ -109,7 +111,9 @@ export default async function TechnologyPage({ params }: PageProps) {
             </div>
           )}
           <div className="space-y-3 flex-1">
-            <h1 className="text-4xl md:text-5xl font-bold">{technology.name}</h1>
+            <h1 className="text-4xl md:text-5xl font-bold">
+              {technology.name}
+            </h1>
             {technology.description && (
               <p className="text-xl text-muted-foreground leading-relaxed">
                 {technology.description}
@@ -142,7 +146,10 @@ export default async function TechnologyPage({ params }: PageProps) {
                   </h2>
                   <div className="grid gap-3">
                     {relatedContent.projects.map((project) => (
-                      <Link key={project.slug} href={`/projects/${project.slug}`}>
+                      <Link
+                        key={project.slug}
+                        href={`/projects/${project.slug}`}
+                      >
                         <Card className="p-4 hover:shadow-md hover:border-primary/50 transition-all">
                           <div className="flex items-center justify-between gap-4">
                             <div>
@@ -196,10 +203,7 @@ export default async function TechnologyPage({ params }: PageProps) {
                   </h2>
                   <div className="grid gap-3">
                     {relatedContent.roles.map((role) => (
-                      <Link
-                        key={role.slug}
-                        href={`/experience#${role.slug}`}
-                      >
+                      <Link key={role.slug} href={`/experience#${role.slug}`}>
                         <Card className="p-4 hover:shadow-md hover:border-primary/50 transition-all">
                           <div className="flex items-center justify-between gap-4">
                             <div>

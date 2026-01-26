@@ -6,13 +6,13 @@ import {
   getTechnologiesForProject,
   getTechnologiesForRole,
 } from "@/lib/repository";
-import { toADRListItemView, type ADRListItemView } from "../adr/adrViews";
-import { toBlogListItemView, type BlogListItemView } from "../blog/blogViews";
+import { type ADRListItemView, toADRListItemView } from "../adr/adrViews";
+import { type BlogListItemView, toBlogListItemView } from "../blog/blogViews";
 import {
-  toProjectListItemView,
   type ProjectListItemView,
+  toProjectListItemView,
 } from "../project/projectViews";
-import { toRoleListItemView, type RoleListItemView } from "../role/roleViews";
+import { type RoleListItemView, toRoleListItemView } from "../role/roleViews";
 import type { TechnologySlug } from "./technology";
 import {
   resolveTechnologiesToBadgeViews,
@@ -60,7 +60,7 @@ export function getTechnologyDetail(
 ): TechnologyDetailView | null {
   const tech = repository.technologies.get(slug);
   if (!tech) return null;
-  return toTechnologyDetailView(tech, repository);
+  return toTechnologyDetailView(tech);
 }
 
 export function getAllTechnologySlugs(repository: DomainRepository): string[] {
