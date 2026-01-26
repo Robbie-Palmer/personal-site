@@ -1,6 +1,7 @@
 import {
   type DomainRepository,
   getContentUsingTechnologyByType,
+  getProjectForADR,
   getTechnologiesForADR,
   getTechnologiesForBlog,
   getTechnologiesForProject,
@@ -132,8 +133,19 @@ export function getRelatedContentForTechnology(
 ): TechnologyRelatedContentView {
   const usage = getContentUsingTechnologyByType(repository.graph, slug);
 
+  // Get projects directly using the technology
+  const directProjectSlugs = new Set(usage.projects);
+
+  // Also include projects that have ADRs using this technology
+  for (const adrSlug of usage.adrs) {
+    const projectSlug = getProjectForADR(repository.graph, adrSlug);
+    if (projectSlug) {
+      directProjectSlugs.add(projectSlug);
+    }
+  }
+
   return {
-    projects: usage.projects
+    projects: Array.from(directProjectSlugs)
       .map((projectSlug) => repository.projects.get(projectSlug))
       .filter((p): p is NonNullable<typeof p> => p !== undefined)
       .map(toProjectListItemView),
