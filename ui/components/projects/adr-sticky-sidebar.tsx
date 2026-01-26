@@ -1,8 +1,8 @@
 "use client";
 
 import { useNavbarVisibility } from "@/hooks/use-navbar-visibility";
-import type { ProjectWithADRs } from "@/lib/projects";
-import { cn } from "@/lib/styles";
+import type { ProjectWithADRs } from "@/lib/api/projects";
+import { cn } from "@/lib/generic/styles";
 import { ADRNavContent } from "./adr-nav-content";
 
 interface ADRStickySidebarProps {

@@ -8,8 +8,8 @@ import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import type { ProjectWithADRs } from "@/lib/projects";
-import { cn } from "@/lib/styles";
+import type { ProjectWithADRs } from "@/lib/api/projects";
+import { cn } from "@/lib/generic/styles";
 import { ADRBadge } from "./adr-badge";
 
 interface ADRNavContentProps {

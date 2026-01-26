@@ -1,12 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
-import type { Experience } from "@/lib/experience";
+import type { Experience } from "@/lib/api/experience";
 import {
   formatExperienceDateRange,
   getExperienceDuration,
   getExperienceSlug,
-} from "@/lib/experience";
+} from "@/lib/api/experience";
 
 interface HomeExperienceCardProps {
   experience: Experience;

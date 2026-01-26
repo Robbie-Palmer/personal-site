@@ -1,3 +1,5 @@
+import { normalizeSlug } from "@/lib/generic/slugs";
+
 export interface Experience {
   company: string;
   company_url: string;
@@ -10,8 +12,6 @@ export interface Experience {
   responsibilities: string[];
   technologies: string[];
 }
-
-import { normalizeSlug } from "@/lib/slugs";
 
 export function getExperienceSlug(experience: Experience): string {
   return normalizeSlug(experience.company);

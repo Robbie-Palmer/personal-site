@@ -8,9 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import type { ADR } from "@/lib/projects";
-import { hasTechIcon, TechIcon } from "@/lib/tech-icons";
-import { useSortParam } from "@/lib/use-sort-param";
+import { useSortParam } from "@/hooks/use-sort-param";
+import type { ADR } from "@/lib/api/projects";
+import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 import { ADRBadge } from "./adr-badge";
 
 interface ADRListProps {

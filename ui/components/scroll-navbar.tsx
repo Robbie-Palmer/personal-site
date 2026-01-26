@@ -3,9 +3,9 @@
 import { cva } from "class-variance-authority";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useNavbarActions } from "@/context/navbar-actions-context";
+import { useNavbarActions } from "@/contexts/navbar-actions-context";
 import { useNavbarVisibility } from "@/hooks/use-navbar-visibility";
-import { siteConfig } from "@/lib/site-config";
+import { siteConfig } from "@/lib/config/site-config";
 import { AnimatedThemeToggler } from "./ui/animated-theme-toggler";
 
 const headerVariants = cva(

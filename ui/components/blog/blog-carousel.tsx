@@ -11,10 +11,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ContentCarousel } from "@/components/ui/content-carousel";
-import type { BlogPost } from "@/lib/blog";
-import { defaultCarouselConfig } from "@/lib/carousel-config";
-import { getImageUrl } from "@/lib/cloudflare-images";
-import { formatDate } from "@/lib/date";
+import type { BlogPost } from "@/lib/api/blog";
+import { defaultCarouselConfig } from "@/lib/config/carousel-config";
+import { formatDate } from "@/lib/generic/date";
+import { getImageUrl } from "@/lib/integrations/cloudflare-images";
 
 type BlogCarouselProps = {
   posts: BlogPost[];
