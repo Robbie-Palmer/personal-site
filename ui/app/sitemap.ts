@@ -2,12 +2,15 @@ import type { MetadataRoute } from "next";
 import { getAllPosts } from "@/lib/api/blog";
 import { getAllProjects } from "@/lib/api/projects";
 import { siteConfig } from "@/lib/config/site-config";
+import { getAllTechnologySlugs, loadDomainRepository } from "@/lib/domain";
 
 export const dynamic = "force-static";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const posts = getAllPosts();
   const projects = getAllProjects();
+  const repository = loadDomainRepository();
+  const technologySlugs = getAllTechnologySlugs(repository);
 
   const blogPosts = posts.map((post) => ({
     url: `${siteConfig.url}/blog/${post.slug}`,
@@ -28,6 +31,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     })),
   );
+
+  const technologyPages = technologySlugs.map((slug) => ({
+    url: `${siteConfig.url}/technologies/${slug}`,
+    lastModified: new Date().toISOString(),
+    priority: 0.6,
+  }));
 
   const latestPostDate = posts.reduce((latest, post) => {
     const postDate = new Date(post.updated || post.date);
@@ -63,5 +72,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...blogPosts,
     ...projectPages,
     ...adrPages,
+    ...technologyPages,
   ];
 }
