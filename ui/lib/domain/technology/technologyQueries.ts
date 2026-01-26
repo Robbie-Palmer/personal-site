@@ -63,6 +63,10 @@ export function getTechnologyDetail(
   return toTechnologyDetailView(tech, repository);
 }
 
+export function getAllTechnologySlugs(repository: DomainRepository): string[] {
+  return Array.from(repository.technologies.keys());
+}
+
 export function getAllTechnologyBadges(
   repository: DomainRepository,
 ): TechnologyBadgeView[] {
