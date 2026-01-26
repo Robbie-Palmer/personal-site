@@ -4,6 +4,7 @@
     "config:recommended"
   ],
   "dependencyDashboard": true,
+  "minimumReleaseAge": "7 days",
   "lockFileMaintenance": {
     "enabled": true,
     "automerge": true
@@ -17,6 +18,13 @@
       "description": "Auto-merge devDependencies (non-major)",
       "matchDepTypes": ["devDependencies"],
       "matchUpdateTypes": ["minor", "patch"],
+      "minimumReleaseAge": "3 days",
+      "automerge": true
+    },
+    {
+      "description": "Auto-merge production patches",
+      "matchDepTypes": ["dependencies"],
+      "matchUpdateTypes": ["patch"],
       "automerge": true
     },
     {
