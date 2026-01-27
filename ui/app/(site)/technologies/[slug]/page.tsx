@@ -144,7 +144,7 @@ export default async function TechnologyPage({ params }: PageProps) {
                     <FolderKanban className="w-5 h-5 text-primary" />
                     Projects
                   </h2>
-                  <div className="grid gap-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {relatedContent.projects.map((project) => (
                       <Link
                         key={project.slug}
@@ -174,7 +174,7 @@ export default async function TechnologyPage({ params }: PageProps) {
                     <FileText className="w-5 h-5 text-primary" />
                     Blog Posts
                   </h2>
-                  <div className="grid gap-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {relatedContent.blogs.map((blog) => (
                       <Link key={blog.slug} href={`/blog/${blog.slug}`}>
                         <Card className="p-4 hover:shadow-md hover:border-primary/50 transition-all">
@@ -201,7 +201,7 @@ export default async function TechnologyPage({ params }: PageProps) {
                     <Briefcase className="w-5 h-5 text-primary" />
                     Experience
                   </h2>
-                  <div className="grid gap-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {relatedContent.roles.map((role) => (
                       <Link key={role.slug} href={`/experience#${role.slug}`}>
                         <Card className="p-4 hover:shadow-md hover:border-primary/50 transition-all">
