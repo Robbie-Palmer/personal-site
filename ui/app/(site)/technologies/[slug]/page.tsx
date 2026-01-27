@@ -3,12 +3,13 @@ import {
   ExternalLink,
   FileText,
   FolderKanban,
-  Layers,
+  type LucideIcon,
 } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -20,6 +21,50 @@ import {
   getRelatedContentForTechnology,
   getTechnologyDetail,
 } from "@/lib/domain/technology";
+
+interface RelatedItem {
+  key: string;
+  href: string;
+  title: string;
+  subtitle: ReactNode;
+}
+
+function RelatedContentSection({
+  icon: Icon,
+  heading,
+  items,
+}: {
+  icon: LucideIcon;
+  heading: string;
+  items: RelatedItem[];
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section>
+      <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+        <Icon className="w-5 h-5 text-primary" />
+        {heading}
+      </h2>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {items.map((item) => (
+          <Link key={item.key} href={item.href} className="h-full">
+            <Card className="h-full p-4 hover:shadow-md hover:border-primary/50 transition-all">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-medium">{item.title}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {item.subtitle}
+                  </p>
+                </div>
+                <Icon className="w-4 h-4 shrink-0 text-muted-foreground" />
+              </div>
+            </Card>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -137,100 +182,40 @@ export default async function TechnologyPage({ params }: PageProps) {
             <Separator />
 
             <div className="space-y-8">
-              {/* Projects */}
-              {relatedContent.projects.length > 0 && (
-                <section>
-                  <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                    <FolderKanban className="w-5 h-5 text-primary" />
-                    Projects
-                  </h2>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {relatedContent.projects.map((project) => (
-                      <Link
-                        key={project.slug}
-                        href={`/projects/${project.slug}`}
-                        className="h-full"
-                      >
-                        <Card className="h-full p-4 hover:shadow-md hover:border-primary/50 transition-all">
-                          <div className="flex items-center justify-between gap-4">
-                            <div>
-                              <h3 className="font-medium">{project.title}</h3>
-                              <p className="text-sm text-muted-foreground capitalize">
-                                {project.status.replace("_", " ")}
-                              </p>
-                            </div>
-                            <Layers className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                        </Card>
-                      </Link>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* Blog Posts */}
-              {relatedContent.blogs.length > 0 && (
-                <section>
-                  <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-primary" />
-                    Blog Posts
-                  </h2>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {relatedContent.blogs.map((blog) => (
-                      <Link
-                        key={blog.slug}
-                        href={`/blog/${blog.slug}`}
-                        className="h-full"
-                      >
-                        <Card className="h-full p-4 hover:shadow-md hover:border-primary/50 transition-all">
-                          <div className="flex items-center justify-between gap-4">
-                            <div>
-                              <h3 className="font-medium">{blog.title}</h3>
-                              <p className="text-sm text-muted-foreground">
-                                {blog.date} &middot; {blog.readingTime}
-                              </p>
-                            </div>
-                            <FileText className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                        </Card>
-                      </Link>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* Roles */}
-              {relatedContent.roles.length > 0 && (
-                <section>
-                  <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                    <Briefcase className="w-5 h-5 text-primary" />
-                    Experience
-                  </h2>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {relatedContent.roles.map((role) => (
-                      <Link
-                        key={role.slug}
-                        href={`/experience#${role.slug}`}
-                        className="h-full"
-                      >
-                        <Card className="h-full p-4 hover:shadow-md hover:border-primary/50 transition-all">
-                          <div className="flex items-center justify-between gap-4">
-                            <div>
-                              <h3 className="font-medium">
-                                {role.title} at {role.company}
-                              </h3>
-                              <p className="text-sm text-muted-foreground">
-                                {role.startDate} - {role.endDate || "Present"}
-                              </p>
-                            </div>
-                            <Briefcase className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                        </Card>
-                      </Link>
-                    ))}
-                  </div>
-                </section>
-              )}
+              <RelatedContentSection
+                icon={FolderKanban}
+                heading="Projects"
+                items={relatedContent.projects.map((project) => ({
+                  key: project.slug,
+                  href: `/projects/${project.slug}`,
+                  title: project.title,
+                  subtitle: (
+                    <span className="capitalize">
+                      {project.status.replace("_", " ")}
+                    </span>
+                  ),
+                }))}
+              />
+              <RelatedContentSection
+                icon={FileText}
+                heading="Blog Posts"
+                items={relatedContent.blogs.map((blog) => ({
+                  key: blog.slug,
+                  href: `/blog/${blog.slug}`,
+                  title: blog.title,
+                  subtitle: `${blog.date} \u00b7 ${blog.readingTime}`,
+                }))}
+              />
+              <RelatedContentSection
+                icon={Briefcase}
+                heading="Experience"
+                items={relatedContent.roles.map((role) => ({
+                  key: role.slug,
+                  href: `/experience#${role.slug}`,
+                  title: `${role.title} at ${role.company}`,
+                  subtitle: `${role.startDate} - ${role.endDate || "Present"}`,
+                }))}
+              />
             </div>
           </>
         )}
