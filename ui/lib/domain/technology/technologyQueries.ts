@@ -116,10 +116,6 @@ export function getTechnologyLabelsForADR(
   return resolveTechnologiesToLabelViews(repository, [...techSlugs]);
 }
 
-/**
- * Get related content for a technology with rich views.
- * Returns list item views for projects, blogs, roles, and ADRs that use this technology.
- */
 export type TechnologyRelatedContentView = {
   projects: ProjectListItemView[];
   blogs: BlogListItemView[];
@@ -132,18 +128,13 @@ export function getRelatedContentForTechnology(
   slug: TechnologySlug,
 ): TechnologyRelatedContentView {
   const usage = getContentUsingTechnologyByType(repository.graph, slug);
-
-  // Get projects directly using the technology
   const directProjectSlugs = new Set(usage.projects);
-
-  // Also include projects that have ADRs using this technology
   for (const adrSlug of usage.adrs) {
     const projectSlug = getProjectForADR(repository.graph, adrSlug);
     if (projectSlug) {
       directProjectSlugs.add(projectSlug);
     }
   }
-
   return {
     projects: Array.from(directProjectSlugs)
       .map((projectSlug) => repository.projects.get(projectSlug))
