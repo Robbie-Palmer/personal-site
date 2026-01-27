@@ -462,10 +462,6 @@ export const technologies: TechnologyContent[] = [
     website: "https://shiny.posit.co/",
   },
   {
-    name: "HuggingFace",
-    website: "https://huggingface.co/",
-  },
-  {
     name: "AWS Textract",
     description:
       "Machine learning service that automatically extracts text, handwriting, and data from scanned documents",

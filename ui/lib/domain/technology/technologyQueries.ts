@@ -1,10 +1,19 @@
 import {
   type DomainRepository,
+  getContentUsingTechnologyByType,
+  getProjectForADR,
   getTechnologiesForADR,
   getTechnologiesForBlog,
   getTechnologiesForProject,
   getTechnologiesForRole,
 } from "@/lib/repository";
+import { type ADRListItemView, toADRListItemView } from "../adr/adrViews";
+import { type BlogListItemView, toBlogListItemView } from "../blog/blogViews";
+import {
+  type ProjectListItemView,
+  toProjectListItemView,
+} from "../project/projectViews";
+import { type RoleListItemView, toRoleListItemView } from "../role/roleViews";
 import type { TechnologySlug } from "./technology";
 import {
   resolveTechnologiesToBadgeViews,
@@ -52,7 +61,11 @@ export function getTechnologyDetail(
 ): TechnologyDetailView | null {
   const tech = repository.technologies.get(slug);
   if (!tech) return null;
-  return toTechnologyDetailView(tech, repository);
+  return toTechnologyDetailView(tech);
+}
+
+export function getAllTechnologySlugs(repository: DomainRepository): string[] {
+  return Array.from(repository.technologies.keys());
 }
 
 export function getAllTechnologyBadges(
@@ -101,4 +114,43 @@ export function getTechnologyLabelsForADR(
 ): TechnologyLabelView[] {
   const techSlugs = getTechnologiesForADR(repository.graph, adrSlug);
   return resolveTechnologiesToLabelViews(repository, [...techSlugs]);
+}
+
+export type TechnologyRelatedContentView = {
+  projects: ProjectListItemView[];
+  blogs: BlogListItemView[];
+  roles: RoleListItemView[];
+  adrs: ADRListItemView[];
+};
+
+export function getRelatedContentForTechnology(
+  repository: DomainRepository,
+  slug: TechnologySlug,
+): TechnologyRelatedContentView {
+  const usage = getContentUsingTechnologyByType(repository.graph, slug);
+  const directProjectSlugs = new Set(usage.projects);
+  for (const adrSlug of usage.adrs) {
+    const projectSlug = getProjectForADR(repository.graph, adrSlug);
+    if (projectSlug) {
+      directProjectSlugs.add(projectSlug);
+    }
+  }
+  return {
+    projects: Array.from(directProjectSlugs)
+      .map((projectSlug) => repository.projects.get(projectSlug))
+      .filter((p): p is NonNullable<typeof p> => p !== undefined)
+      .map(toProjectListItemView),
+    blogs: usage.blogs
+      .map((blogSlug) => repository.blogs.get(blogSlug))
+      .filter((b): b is NonNullable<typeof b> => b !== undefined)
+      .map(toBlogListItemView),
+    roles: usage.roles
+      .map((roleSlug) => repository.roles.get(roleSlug))
+      .filter((r): r is NonNullable<typeof r> => r !== undefined)
+      .map(toRoleListItemView),
+    adrs: usage.adrs
+      .map((adrSlug) => repository.adrs.get(adrSlug))
+      .filter((a): a is NonNullable<typeof a> => a !== undefined)
+      .map(toADRListItemView),
+  };
 }

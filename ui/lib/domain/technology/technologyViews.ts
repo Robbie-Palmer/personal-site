@@ -1,7 +1,4 @@
-import {
-  type DomainRepository,
-  getContentUsingTechnologyByType,
-} from "@/lib/repository";
+import type { DomainRepository } from "@/lib/repository";
 import { getTechSlug, hasTechIcon } from "../../api/tech-icons";
 import type { Technology, TechnologySlug } from "./technology";
 
@@ -31,12 +28,6 @@ export type TechnologyDetailView = {
   website: string;
   iconSlug?: string;
   hasIcon: boolean;
-  usedIn: {
-    projectsCount: number;
-    blogsCount: number;
-    adrsCount: number;
-    rolesCount: number;
-  };
 };
 
 export function toTechnologyLabelView(tech: Technology): TechnologyLabelView {
@@ -65,11 +56,7 @@ export function toTechnologyLinkView(tech: Technology): TechnologyLinkView {
   };
 }
 
-export function toTechnologyDetailView(
-  tech: Technology,
-  repository: DomainRepository,
-): TechnologyDetailView {
-  const content = getContentUsingTechnologyByType(repository.graph, tech.slug);
+export function toTechnologyDetailView(tech: Technology): TechnologyDetailView {
   const iconSlug = tech.iconSlug || getTechSlug(tech.name);
   return {
     slug: tech.slug,
@@ -78,12 +65,6 @@ export function toTechnologyDetailView(
     website: tech.website,
     iconSlug,
     hasIcon: hasTechIcon(tech.name, iconSlug),
-    usedIn: {
-      projectsCount: content.projects.length,
-      blogsCount: content.blogs.length,
-      adrsCount: content.adrs.length,
-      rolesCount: content.roles.length,
-    },
   };
 }
 
