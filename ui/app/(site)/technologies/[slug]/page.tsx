@@ -100,10 +100,12 @@ export async function generateMetadata({
       title: `${technology.name} - Robbie Palmer`,
       description,
       url: `${siteConfig.url}/technologies/${slug}`,
+      type: "website",
     },
     twitter: {
       title: `${technology.name} - Robbie Palmer`,
       description,
+      card: "summary",
     },
     alternates: {
       canonical: `${siteConfig.url}/technologies/${slug}`,
