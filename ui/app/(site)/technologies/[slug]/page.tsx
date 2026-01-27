@@ -149,8 +149,9 @@ export default async function TechnologyPage({ params }: PageProps) {
                       <Link
                         key={project.slug}
                         href={`/projects/${project.slug}`}
+                        className="h-full"
                       >
-                        <Card className="p-4 hover:shadow-md hover:border-primary/50 transition-all">
+                        <Card className="h-full p-4 hover:shadow-md hover:border-primary/50 transition-all">
                           <div className="flex items-center justify-between gap-4">
                             <div>
                               <h3 className="font-medium">{project.title}</h3>
@@ -176,8 +177,12 @@ export default async function TechnologyPage({ params }: PageProps) {
                   </h2>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {relatedContent.blogs.map((blog) => (
-                      <Link key={blog.slug} href={`/blog/${blog.slug}`}>
-                        <Card className="p-4 hover:shadow-md hover:border-primary/50 transition-all">
+                      <Link
+                        key={blog.slug}
+                        href={`/blog/${blog.slug}`}
+                        className="h-full"
+                      >
+                        <Card className="h-full p-4 hover:shadow-md hover:border-primary/50 transition-all">
                           <div className="flex items-center justify-between gap-4">
                             <div>
                               <h3 className="font-medium">{blog.title}</h3>
@@ -203,8 +208,12 @@ export default async function TechnologyPage({ params }: PageProps) {
                   </h2>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {relatedContent.roles.map((role) => (
-                      <Link key={role.slug} href={`/experience#${role.slug}`}>
-                        <Card className="p-4 hover:shadow-md hover:border-primary/50 transition-all">
+                      <Link
+                        key={role.slug}
+                        href={`/experience#${role.slug}`}
+                        className="h-full"
+                      >
+                        <Card className="h-full p-4 hover:shadow-md hover:border-primary/50 transition-all">
                           <div className="flex items-center justify-between gap-4">
                             <div>
                               <h3 className="font-medium">
