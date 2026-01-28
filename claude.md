@@ -33,3 +33,36 @@ This is a mono-repo containing:
 - **Content**: MDX for blog posts
 - **Infrastructure**: Cloudflare Pages
 - **Tooling**: Biome (linting/formatting), Husky (pre-commit hooks)
+
+## When Mise Is Not Available
+
+If mise is not installed in your environment, run equivalent commands directly from the `ui/` directory:
+
+```bash
+cd ui
+pnpm install                  # Install dependencies
+pnpm typecheck                # Type checking (run after install)
+pnpm lint                     # Lint with Biome
+pnpm format                   # Format with Biome
+pnpm test                     # Run unit tests
+```
+
+For the **build command**, you must set an environment variable (see below):
+
+```bash
+NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH=placeholder pnpm build
+```
+
+## Environment Variables
+
+### Required for Build: `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH`
+
+The build requires this env var for Cloudflare Images URL construction. It's validated at build time.
+
+- **For verification builds** (just checking the build works): Use any non-empty value
+- **For production/CI**: Must be the real Cloudflare account hash
+
+```bash
+# Quick build verification (any value works)
+NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH=placeholder pnpm build
+```
