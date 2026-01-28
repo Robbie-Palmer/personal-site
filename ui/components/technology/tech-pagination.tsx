@@ -32,12 +32,14 @@ export function TechPagination({
         <Button
           variant="outline"
           size="sm"
-          className="h-auto py-2 px-3 flex items-center gap-2 max-w-[calc(50%-0.5rem)] text-left"
+          className={cn(
+            "h-auto py-2 px-3 flex items-center gap-2 min-w-0 flex-1 max-w-none md:max-w-[200px] lg:max-w-none xl:max-w-[200px] text-left",
+          )}
           asChild
         >
           <Link href={`/technologies/${prevTech.slug}`}>
             <ArrowLeft className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-            <div className="min-w-0">
+            <div className="truncate flex-1">
               <div
                 className={cn(
                   "text-muted-foreground",
@@ -63,11 +65,13 @@ export function TechPagination({
         <Button
           variant="outline"
           size="sm"
-          className="h-auto py-2 px-3 flex items-center gap-2 max-w-[calc(50%-0.5rem)] text-right ml-auto"
+          className={cn(
+            "h-auto py-2 px-3 flex items-center gap-2 min-w-0 flex-1 max-w-none md:max-w-[200px] lg:max-w-none xl:max-w-[200px] text-right ml-auto",
+          )}
           asChild
         >
           <Link href={`/technologies/${nextTech.slug}`}>
-            <div className="min-w-0">
+            <div className="truncate flex-1">
               <div
                 className={cn(
                   "text-muted-foreground",
