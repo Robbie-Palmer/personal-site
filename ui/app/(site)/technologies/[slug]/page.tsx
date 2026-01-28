@@ -10,6 +10,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import { TechPagination } from "@/components/technology/tech-pagination";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -17,6 +18,7 @@ import { getTechIconUrl } from "@/lib/api/tech-icons";
 import { siteConfig } from "@/lib/config/site-config";
 import { loadDomainRepository } from "@/lib/domain";
 import {
+  getAllTechnologyBadgesSorted,
   getAllTechnologySlugs,
   getRelatedContentForTechnology,
   getTechnologyDetail,
@@ -113,6 +115,9 @@ export async function generateMetadata({
   };
 }
 
+// Pagination container: full width on mobile, auto-sized and right-aligned on desktop
+const PAGINATION_CONTAINER_CLASSES = "w-full md:w-auto md:ml-auto";
+
 export default async function TechnologyPage({ params }: PageProps) {
   const { slug } = await params;
   const repository = loadDomainRepository();
@@ -125,13 +130,22 @@ export default async function TechnologyPage({ params }: PageProps) {
   const relatedContent = getRelatedContentForTechnology(repository, slug);
   const iconUrl = getTechIconUrl(technology.name, technology.iconSlug);
 
+  const allTechnologies = getAllTechnologyBadgesSorted(repository);
+  const currentIndex = allTechnologies.findIndex((t) => t.slug === slug);
+  const prevTech =
+    currentIndex > 0 ? allTechnologies[currentIndex - 1] : undefined;
+  const nextTech =
+    currentIndex < allTechnologies.length - 1
+      ? allTechnologies[currentIndex + 1]
+      : undefined;
+
   const hasRelatedContent =
     relatedContent.projects.length > 0 ||
     relatedContent.blogs.length > 0 ||
     relatedContent.roles.length > 0;
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="max-w-4xl">
       <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap mb-8">
         <Link
           href="/experience#technologies"
@@ -143,7 +157,7 @@ export default async function TechnologyPage({ params }: PageProps) {
         <span>{technology.name}</span>
       </div>
 
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row gap-6 items-start">
           {iconUrl && (
@@ -166,17 +180,27 @@ export default async function TechnologyPage({ params }: PageProps) {
                 {technology.description}
               </p>
             )}
-            <Button asChild variant="outline" className="gap-2">
-              <a
-                href={technology.website}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Official Website
-              </a>
-            </Button>
           </div>
+        </div>
+
+        {/* Actions row - outside the icon flex to get full width */}
+        <div className="flex flex-wrap items-center gap-4">
+          <Button asChild variant="outline" className="gap-2">
+            <a
+              href={technology.website}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Official Website
+            </a>
+          </Button>
+          <TechPagination
+            prevTech={prevTech}
+            nextTech={nextTech}
+            compact
+            className={PAGINATION_CONTAINER_CLASSES}
+          />
         </div>
 
         {hasRelatedContent && (

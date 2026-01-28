@@ -76,6 +76,14 @@ export function getAllTechnologyBadges(
   );
 }
 
+export function getAllTechnologyBadgesSorted(
+  repository: DomainRepository,
+): TechnologyBadgeView[] {
+  return Array.from(repository.technologies.values())
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(toTechnologyBadgeView);
+}
+
 export function getAllTechnologyLabels(
   repository: DomainRepository,
 ): TechnologyLabelView[] {
