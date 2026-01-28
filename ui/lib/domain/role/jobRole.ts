@@ -4,7 +4,6 @@ import { RoleSlugSchema, TechnologySlugSchema } from "../slugs";
 
 export type { RoleSlug };
 
-// Content definition schema (used in content/experience.ts)
 export const JobRoleContentSchema = z.object({
   company: z.string().min(1),
   companyUrl: z.string().url(),
