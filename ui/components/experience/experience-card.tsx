@@ -2,6 +2,7 @@
 
 import { Calendar, ChevronDown, MapPin } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import type { Experience } from "@/lib/api/experience";
 import { formatDateRange } from "@/lib/api/experience";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 import type { ProjectListItemView } from "@/lib/domain/project/projectViews";
+import { normalizeSlug } from "@/lib/generic/slugs";
 import { smoothScrollTo } from "@/lib/generic/scroll";
 import { ProjectBadge } from "./project-badge";
 
@@ -230,10 +232,15 @@ export function ExperienceCard({
               {experience.technologies.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {experience.technologies.map((tech) => (
-                    <Badge key={tech} variant="secondary">
-                      <TechIcon name={tech} />
-                      {tech}
-                    </Badge>
+                    <Link
+                      key={normalizeSlug(tech)}
+                      href={`/technologies/${normalizeSlug(tech)}`}
+                    >
+                      <Badge variant="secondary" interactive>
+                        <TechIcon name={tech} />
+                        {tech}
+                      </Badge>
+                    </Link>
                   ))}
                 </div>
               )}
