@@ -162,7 +162,7 @@ export default async function TechnologyPage({ params }: PageProps) {
         <span>{technology.name}</span>
       </div>
 
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row gap-6 items-start">
           {iconUrl && (
@@ -185,25 +185,27 @@ export default async function TechnologyPage({ params }: PageProps) {
                 {technology.description}
               </p>
             )}
-            <div className="flex flex-wrap items-center gap-4">
-              <Button asChild variant="outline" className="gap-2">
-                <a
-                  href={technology.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Official Website
-                </a>
-              </Button>
-              <TechPagination
-                prevTech={prevTech}
-                nextTech={nextTech}
-                compact
-                className={PAGINATION_CONTAINER_CLASSES}
-              />
-            </div>
           </div>
+        </div>
+
+        {/* Actions row - outside the icon flex to get full width */}
+        <div className="flex flex-wrap items-center gap-4">
+          <Button asChild variant="outline" className="gap-2">
+            <a
+              href={technology.website}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Official Website
+            </a>
+          </Button>
+          <TechPagination
+            prevTech={prevTech}
+            nextTech={nextTech}
+            compact
+            className={PAGINATION_CONTAINER_CLASSES}
+          />
         </div>
 
         {hasRelatedContent && (

@@ -32,12 +32,12 @@ export function TechPagination({
         <Button
           variant="outline"
           size="sm"
-          className="h-auto py-2 px-3 flex items-center gap-2 min-w-0 flex-1 text-left"
+          className="h-auto py-2 px-3 flex items-center gap-2 min-w-0 flex-1 max-w-none md:max-w-[250px] lg:max-w-none xl:max-w-[250px] text-left"
           asChild
         >
           <Link href={`/technologies/${prevTech.slug}`}>
             <ArrowLeft className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-            <div className="flex-1">
+            <div className="truncate flex-1">
               <div
                 className={cn(
                   "text-muted-foreground",
@@ -48,7 +48,7 @@ export function TechPagination({
                 Previous
               </div>
               {variant === "full" && (
-                <div className="text-xs sm:text-sm font-medium">
+                <div className="text-xs sm:text-sm font-medium truncate">
                   {prevTech.name}
                 </div>
               )}
@@ -63,11 +63,11 @@ export function TechPagination({
         <Button
           variant="outline"
           size="sm"
-          className="h-auto py-2 px-3 flex items-center gap-2 min-w-0 flex-1 text-right ml-auto"
+          className="h-auto py-2 px-3 flex items-center gap-2 min-w-0 flex-1 max-w-none md:max-w-[250px] lg:max-w-none xl:max-w-[250px] text-right ml-auto"
           asChild
         >
           <Link href={`/technologies/${nextTech.slug}`}>
-            <div className="flex-1">
+            <div className="truncate flex-1">
               <div
                 className={cn(
                   "text-muted-foreground",
@@ -78,7 +78,7 @@ export function TechPagination({
                 Next
               </div>
               {variant === "full" && (
-                <div className="text-xs sm:text-sm font-medium">
+                <div className="text-xs sm:text-sm font-medium truncate">
                   {nextTech.name}
                 </div>
               )}
