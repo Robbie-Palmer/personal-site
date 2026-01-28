@@ -1,7 +1,6 @@
 "use client";
 
 import type { EmblaOptionsType } from "embla-carousel";
-import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ContentCarousel } from "@/components/ui/content-carousel";
@@ -63,41 +62,21 @@ export function ADRCarousel({
                 </CardTitle>
                 <div className="flex flex-wrap gap-2 flex-shrink-0 pt-0.5 pointer-events-auto">
                   {adr.technologies?.slice(0, 5).map((tech) => {
-                    const url = tech.website;
                     const hasIcon = hasTechIcon(tech.name);
-                    if (!hasIcon && !url) return null;
-                    const Icon = hasIcon ? (
-                      <TechIcon
-                        name={tech.name}
-                        className="w-12 h-12 text-foreground transition-all"
-                      />
-                    ) : (
-                      <ExternalLink className="w-12 h-12 text-foreground transition-all" />
-                    );
-
-                    if (url) {
-                      return (
-                        <a
-                          key={tech.name}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={`Learn more about ${tech.name}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="z-20 relative p-1.5 rounded-md hover:bg-muted/80 hover:scale-110 transition-all -m-1.5"
-                        >
-                          {Icon}
-                        </a>
-                      );
-                    }
+                    if (!hasIcon) return null;
                     return (
-                      <div
-                        key={tech.name}
-                        title={tech.name}
-                        className="p-1.5 -m-1.5"
+                      <Link
+                        key={tech.slug}
+                        href={`/technologies/${tech.slug}`}
+                        aria-label={`View ${tech.name} technology`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="z-20 relative p-1.5 rounded-md hover:bg-muted/80 hover:scale-110 transition-all -m-1.5"
                       >
-                        {Icon}
-                      </div>
+                        <TechIcon
+                          name={tech.name}
+                          className="w-12 h-12 text-foreground transition-all"
+                        />
+                      </Link>
                     );
                   })}
                 </div>

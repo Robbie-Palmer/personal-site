@@ -86,7 +86,10 @@ export default async function ProjectPage({ params }: PageProps) {
             </p>
             <div className="flex flex-wrap gap-2 pt-2">
               <ProjectTechStack
-                techStack={project.technologies.map((t) => t.name)}
+                techStack={project.technologies.map((t) => ({
+                  name: t.name,
+                  slug: t.slug,
+                }))}
               />
             </div>
           </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Fuse, { type FuseResult } from "fuse.js";
-import { ArrowUpDown, ExternalLink, Search, X } from "lucide-react";
+import { ArrowUpDown, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -134,39 +134,17 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
 
                 {adr.technologies &&
                   adr.technologies.length > 0 &&
-                  adr.technologies.map((tech) => {
-                    const url = tech.website;
-
-                    if (url) {
-                      return (
-                        <a
-                          key={tech.name}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="cursor-pointer pointer-events-auto w-fit shrink-0"
-                          onClick={(e) => e.stopPropagation()}
-                          aria-label={`Visit ${tech.name} website`}
-                        >
-                          <Badge
-                            variant="secondary"
-                            interactive
-                            className="flex items-center gap-1.5"
-                          >
-                            {hasTechIcon(tech.name) && (
-                              <TechIcon name={tech.name} className="w-3 h-3" />
-                            )}
-                            <span>{tech.name}</span>
-                            <ExternalLink className="w-3 h-3 ml-0.5" />
-                          </Badge>
-                        </a>
-                      );
-                    }
-
-                    return (
+                  adr.technologies.map((tech) => (
+                    <Link
+                      key={tech.slug}
+                      href={`/technologies/${tech.slug}`}
+                      className="cursor-pointer pointer-events-auto w-fit shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`View ${tech.name} technology`}
+                    >
                       <Badge
-                        key={tech.name}
                         variant="secondary"
+                        interactive
                         className="flex items-center gap-1.5"
                       >
                         {hasTechIcon(tech.name) && (
@@ -174,8 +152,8 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
                         )}
                         <span>{tech.name}</span>
                       </Badge>
-                    );
-                  })}
+                    </Link>
+                  ))}
 
                 <ADRBadge status={adr.status} className="shrink-0 w-fit" />
               </div>
