@@ -115,13 +115,8 @@ export async function generateMetadata({
   };
 }
 
-// Responsive behavior for the pagination container:
-// Goal: On desktop, keep buttons on the same row as metadata, shifted right.
-// If forced to a new row (e.g. by nav bar layout shifts), fill the row (flex-grow) rather than leaving whitespace.
-// - Default (Mobile) & lg (Desktop): Full width, flex-grow. (Fills row when layout is constrained/buttons wrap).
-// - md (Tablet) & xl (Wide): Auto width, ml-auto. (Sits inline with metadata).
-const PAGINATION_CONTAINER_CLASSES =
-  "w-full flex-grow min-w-[200px] md:w-auto md:flex-grow-0 md:ml-auto lg:w-full lg:flex-grow lg:ml-0 xl:w-auto xl:flex-grow-0 xl:ml-auto";
+// Pagination container: full width on mobile, auto-sized and right-aligned on desktop
+const PAGINATION_CONTAINER_CLASSES = "w-full md:w-auto md:ml-auto";
 
 export default async function TechnologyPage({ params }: PageProps) {
   const { slug } = await params;

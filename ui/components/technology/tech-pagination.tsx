@@ -32,9 +32,7 @@ export function TechPagination({
         <Button
           variant="outline"
           size="sm"
-          className={cn(
-            "h-auto py-2 px-3 flex items-center gap-2 min-w-0 flex-1 max-w-none md:max-w-[200px] lg:max-w-none xl:max-w-[200px] text-left",
-          )}
+          className="h-auto py-2 px-3 flex items-center gap-2 min-w-0 flex-1 md:flex-none md:max-w-[200px] text-left"
           asChild
         >
           <Link href={`/technologies/${prevTech.slug}`}>
@@ -65,9 +63,7 @@ export function TechPagination({
         <Button
           variant="outline"
           size="sm"
-          className={cn(
-            "h-auto py-2 px-3 flex items-center gap-2 min-w-0 flex-1 max-w-none md:max-w-[200px] lg:max-w-none xl:max-w-[200px] text-right ml-auto",
-          )}
+          className="h-auto py-2 px-3 flex items-center gap-2 min-w-0 flex-1 md:flex-none md:max-w-[200px] text-right"
           asChild
         >
           <Link href={`/technologies/${nextTech.slug}`}>
