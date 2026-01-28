@@ -136,7 +136,7 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
                   adr.technologies.length > 0 &&
                   adr.technologies.map((tech) => (
                     <Link
-                      key={tech.name}
+                      key={tech.slug}
                       href={`/technologies/${tech.slug}`}
                       className="cursor-pointer pointer-events-auto w-fit shrink-0"
                       onClick={(e) => e.stopPropagation()}

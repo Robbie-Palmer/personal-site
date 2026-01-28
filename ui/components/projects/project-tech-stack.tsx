@@ -47,7 +47,7 @@ export function ProjectTechStack({
             if (isExpanded || !hasIcon) {
               return (
                 <Link
-                  key={tech.name}
+                  key={tech.slug}
                   href={`/technologies/${tech.slug}`}
                 >
                   <Badge
@@ -64,7 +64,7 @@ export function ProjectTechStack({
 
             // Collapsed state with icon
             return (
-              <Tooltip key={tech.name}>
+              <Tooltip key={tech.slug}>
                 <TooltipTrigger asChild>
                   <Link href={`/technologies/${tech.slug}`}>
                     <Badge

@@ -116,7 +116,7 @@ export default async function ADRPage({ params }: PageProps) {
               <div className="flex flex-wrap gap-2">
                 {adr.technologies.map((tech) => (
                   <Link
-                    key={tech.name}
+                    key={tech.slug}
                     href={`/technologies/${tech.slug}`}
                     aria-label={`View ${tech.name} technology`}
                   >

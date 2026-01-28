@@ -66,7 +66,7 @@ export function ADRCarousel({
                     if (!hasIcon) return null;
                     return (
                       <Link
-                        key={tech.name}
+                        key={tech.slug}
                         href={`/technologies/${tech.slug}`}
                         aria-label={`View ${tech.name} technology`}
                         onClick={(e) => e.stopPropagation()}
