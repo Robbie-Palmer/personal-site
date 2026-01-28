@@ -231,17 +231,20 @@ export function ExperienceCard({
               )}
               {experience.technologies.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-1">
-                  {experience.technologies.map((tech) => (
-                    <Link
-                      key={normalizeSlug(tech)}
-                      href={`/technologies/${normalizeSlug(tech)}`}
-                    >
-                      <Badge variant="secondary" interactive>
-                        <TechIcon name={tech} />
-                        {tech}
-                      </Badge>
-                    </Link>
-                  ))}
+                  {experience.technologies.map((tech) => {
+                    const slug = normalizeSlug(tech);
+                    return (
+                      <Link
+                        key={slug}
+                        href={`/technologies/${encodeURIComponent(slug)}`}
+                      >
+                        <Badge variant="secondary" interactive>
+                          <TechIcon name={tech} />
+                          {tech}
+                        </Badge>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
