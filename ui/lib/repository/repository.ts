@@ -3,8 +3,8 @@ import path from "node:path";
 import { isValid, parse } from "date-fns";
 import matter from "gray-matter";
 import readingTime from "reading-time";
+import { experiences as definedExperiences } from "../../content/experience";
 import { technologies as definedTechnologies } from "../../content/technologies";
-import { getAllExperience, getExperienceSlug } from "../api/experience";
 import {
   type ADR,
   type ADRRelations,
@@ -99,8 +99,7 @@ export function validateTechnologyReferences(
   };
 
   // Check experience technologies
-  const experiences = getAllExperience();
-  for (const exp of experiences) {
+  for (const exp of definedExperiences) {
     for (const tech of exp.technologies) {
       collectMissingTech(tech, `experience: ${exp.company}`);
     }
@@ -489,9 +488,8 @@ export function loadJobRoles(): RoleLoadResult {
   const entities = new Map<RoleSlug, JobRole>();
   const relations = new Map<RoleSlug, RoleRelations>();
 
-  const experiences = getAllExperience();
-  for (const exp of experiences) {
-    const slug = getExperienceSlug(exp);
+  for (const exp of definedExperiences) {
+    const slug = normalizeSlug(exp.company);
     const technologies: TechnologySlug[] = exp.technologies.map(
       (tech: string) => normalizeSlug(tech),
     );
@@ -499,8 +497,8 @@ export function loadJobRoles(): RoleLoadResult {
     const role: JobRole = {
       slug,
       company: exp.company,
-      companyUrl: exp.company_url,
-      logoPath: exp.logo_path,
+      companyUrl: exp.companyUrl,
+      logoPath: exp.logoPath,
       title: exp.title,
       location: exp.location,
       startDate: exp.startDate,
