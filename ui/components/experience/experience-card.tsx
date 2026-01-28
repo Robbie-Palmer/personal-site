@@ -23,8 +23,8 @@ import type { Experience } from "@/lib/api/experience";
 import { formatDateRange } from "@/lib/api/experience";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 import type { ProjectListItemView } from "@/lib/domain/project/projectViews";
-import { normalizeSlug } from "@/lib/generic/slugs";
 import { smoothScrollTo } from "@/lib/generic/scroll";
+import { normalizeSlug } from "@/lib/generic/slugs";
 import { ProjectBadge } from "./project-badge";
 
 interface ExperienceCardProps {
