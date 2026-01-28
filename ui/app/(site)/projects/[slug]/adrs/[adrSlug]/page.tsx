@@ -1,4 +1,4 @@
-import { Calendar, ExternalLink } from "lucide-react";
+import { Calendar } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EmblaDemoCarousel } from "@/components/adrs/embla-demo-carousel";
@@ -114,39 +114,24 @@ export default async function ADRPage({ params }: PageProps) {
           <div className="flex flex-wrap items-center gap-4">
             {adr.technologies && adr.technologies.length > 0 && (
               <div className="flex flex-wrap gap-2">
-                {adr.technologies.map((tech) => {
-                  const url = tech.website;
-                  const content = (
+                {adr.technologies.map((tech) => (
+                  <Link
+                    key={tech.name}
+                    href={`/technologies/${tech.slug}`}
+                    aria-label={`View ${tech.name} technology`}
+                  >
                     <Badge
                       variant="secondary"
-                      interactive={!!url}
+                      interactive
                       className="flex items-center gap-1.5"
                     >
                       {hasTechIcon(tech.name) && (
                         <TechIcon name={tech.name} className="w-3 h-3" />
                       )}
                       <span>{tech.name}</span>
-                      {url && <ExternalLink className="w-3 h-3 ml-0.5" />}
                     </Badge>
-                  );
-                  return (
-                    <span key={tech.name}>
-                      {url ? (
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="cursor-pointer"
-                          aria-label={`Visit ${tech.name} website`}
-                        >
-                          {content}
-                        </a>
-                      ) : (
-                        content
-                      )}
-                    </span>
-                  );
-                })}
+                  </Link>
+                ))}
               </div>
             )}
 

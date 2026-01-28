@@ -14,8 +14,13 @@ import {
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 import { cn } from "@/lib/generic/styles";
 
+interface TechStackItem {
+  name: string;
+  slug: string;
+}
+
 interface ProjectTechStackProps {
-  techStack: string[];
+  techStack: TechStackItem[];
   className?: string;
 }
 
@@ -25,7 +30,7 @@ export function ProjectTechStack({
 }: ProjectTechStackProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const itemsWithIcons = techStack.filter((name) => hasTechIcon(name));
+  const itemsWithIcons = techStack.filter((tech) => hasTechIcon(tech.name));
   const hiddenCount = techStack.length - itemsWithIcons.length;
   const visibleItems = isExpanded ? techStack : itemsWithIcons;
 
@@ -34,7 +39,7 @@ export function ProjectTechStack({
       <div className={cn("space-y-3", className)}>
         <div className="flex flex-wrap gap-2">
           {visibleItems.map((tech) => {
-            const hasIcon = hasTechIcon(tech);
+            const hasIcon = hasTechIcon(tech.name);
 
             // Render logic:
             // If Collapsed AND Has Icon: Show Icon Only Badge (with Tooltip)
@@ -42,16 +47,16 @@ export function ProjectTechStack({
             if (isExpanded || !hasIcon) {
               return (
                 <Link
-                  key={tech}
-                  href={`/projects?tech=${encodeURIComponent(tech)}`}
+                  key={tech.name}
+                  href={`/technologies/${tech.slug}`}
                 >
                   <Badge
                     variant="secondary"
                     interactive
                     className="h-6 text-sm px-3 gap-1"
                   >
-                    {hasIcon && <TechIcon name={tech} className="w-3 h-3" />}
-                    {tech}
+                    {hasIcon && <TechIcon name={tech.name} className="w-3 h-3" />}
+                    {tech.name}
                   </Badge>
                 </Link>
               );
@@ -59,21 +64,21 @@ export function ProjectTechStack({
 
             // Collapsed state with icon
             return (
-              <Tooltip key={tech}>
+              <Tooltip key={tech.name}>
                 <TooltipTrigger asChild>
-                  <Link href={`/projects?tech=${encodeURIComponent(tech)}`}>
+                  <Link href={`/technologies/${tech.slug}`}>
                     <Badge
                       variant="secondary"
                       interactive
                       className="h-6 text-sm px-2"
                     >
-                      <TechIcon name={tech} className="w-4 h-4" />
-                      <span className="sr-only">{tech}</span>
+                      <TechIcon name={tech.name} className="w-4 h-4" />
+                      <span className="sr-only">{tech.name}</span>
                     </Badge>
                   </Link>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{tech}</p>
+                  <p>{tech.name}</p>
                 </TooltipContent>
               </Tooltip>
             );

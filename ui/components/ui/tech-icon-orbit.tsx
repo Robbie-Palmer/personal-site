@@ -162,32 +162,9 @@ export function TechOrbit({
       {activeTech.url && (
         <Link
           href={activeTech.url}
-          target={activeTech.url.startsWith("http") ? "_blank" : undefined}
-          rel={
-            activeTech.url.startsWith("http")
-              ? "noopener noreferrer"
-              : undefined
-          }
           className="text-xs text-muted-foreground mt-1 flex items-center gap-1 hover:text-foreground transition-colors group/link"
         >
-          Visit Website
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="lucide lucide-external-link"
-          >
-            <title>External Link</title>
-            <path d="M15 3h6v6" />
-            <path d="M10 14 21 3" />
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-          </svg>
+          View Technology
         </Link>
       )}
     </div>

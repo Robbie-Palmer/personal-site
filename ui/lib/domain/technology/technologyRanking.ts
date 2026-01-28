@@ -56,7 +56,7 @@ export function getTechnologiesWithConnectionWeights(
     name: tech.name,
     slug: tech.slug,
     iconSlug: tech.iconSlug,
-    url: tech.website,
+    url: `/technologies/${tech.slug}`,
     weight: calculateConnectionWeight(repository, tech.slug),
   }));
 }
