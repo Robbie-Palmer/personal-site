@@ -80,7 +80,7 @@ export function TechNavContent({
       </div>
 
       <ScrollArea className="flex-1 basis-0 min-h-0 -mx-2">
-        <div className="px-2 space-y-1.5 pb-6">
+        <div className="px-2 space-y-3 pb-6">
           {filteredTechnologies.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
               <p>No technologies match &quot;{searchQuery}&quot;</p>
@@ -98,26 +98,26 @@ export function TechNavContent({
                   scroll={false}
                   onClick={onLinkClick}
                   className={cn(
-                    "flex items-center gap-3 p-2.5 rounded-lg text-sm transition-all border",
+                    "flex items-center gap-3 p-3 rounded-lg text-sm transition-all border",
                     isActive
                       ? "bg-accent text-accent-foreground border-accent-foreground/20 shadow-sm"
-                      : "text-muted-foreground border-transparent hover:bg-accent/50 hover:text-accent-foreground hover:border-accent",
+                      : "text-muted-foreground border-border hover:bg-accent/50 hover:text-accent-foreground hover:border-accent",
                   )}
                 >
                   {iconUrl && (
-                    <div className="shrink-0 w-6 h-6 flex items-center justify-center">
+                    <div className="shrink-0 w-8 h-8 flex items-center justify-center bg-muted/50 rounded-md p-1">
                       <Image
                         src={iconUrl}
                         alt=""
-                        width={20}
-                        height={20}
+                        width={24}
+                        height={24}
                         className="object-contain brightness-0 dark:invert"
                       />
                     </div>
                   )}
                   <span
                     className={cn(
-                      "font-medium leading-tight truncate",
+                      "font-medium leading-tight",
                       isActive && "text-foreground",
                     )}
                   >
