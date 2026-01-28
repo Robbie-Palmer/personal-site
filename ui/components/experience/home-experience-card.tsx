@@ -22,7 +22,7 @@ export function HomeExperienceCard({ experience }: HomeExperienceCardProps) {
         <div className="flex flex-col items-center text-center gap-3">
           <div className="relative w-12 h-12 shrink-0 bg-muted rounded-md overflow-hidden border border-border p-1">
             <Image
-              src={experience.logo_path}
+              src={experience.logoPath}
               alt={`${experience.company} logo`}
               fill
               className="object-contain p-1"

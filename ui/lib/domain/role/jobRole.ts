@@ -4,6 +4,25 @@ import { RoleSlugSchema, TechnologySlugSchema } from "../slugs";
 
 export type { RoleSlug };
 
+export const JobRoleContentSchema = z.object({
+  company: z.string().min(1),
+  companyUrl: z.string().url(),
+  logoPath: z.string().min(1),
+  title: z.string().min(1),
+  location: z.string().min(1),
+  startDate: z.string().regex(/^\d{4}-\d{2}$/),
+  endDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/)
+    .optional(),
+  description: z.string().min(1),
+  responsibilities: z.array(z.string()).min(1),
+  technologies: z.array(z.string()).default([]),
+});
+
+export type JobRoleContent = z.infer<typeof JobRoleContentSchema>;
+
+// Runtime JobRole type always has a slug and no technologies (those are in relations)
 export const JobRoleSchema = z.object({
   slug: RoleSlugSchema,
   company: z.string().min(1),

@@ -99,14 +99,14 @@ export function ExperienceCard({
                 <CardTitle className="text-2xl">{experience.title}</CardTitle>
                 <CardDescription className="text-base flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                   <a
-                    href={experience.company_url}
+                    href={experience.companyUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 font-medium text-blue-600 dark:text-blue-400 underline underline-offset-2 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Image
-                      src={experience.logo_path}
+                      src={experience.logoPath}
                       alt={`${experience.company} logo`}
                       width={20}
                       height={20}

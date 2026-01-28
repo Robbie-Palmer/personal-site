@@ -29,16 +29,24 @@ const pathMock = vi.hoisted(() => {
   };
 });
 
-const experienceMock = vi.hoisted(() => ({
-  getAllExperience: vi.fn(),
-  getExperienceSlug: vi.fn((exp: { company: string }) =>
-    exp.company.toLowerCase().replace(/\s+/g, "-"),
-  ),
+const experienceContentMock = vi.hoisted(() => ({
+  experiences: [] as Array<{
+    company: string;
+    companyUrl: string;
+    logoPath: string;
+    title: string;
+    location: string;
+    startDate: string;
+    endDate?: string;
+    description: string;
+    responsibilities: string[];
+    technologies: string[];
+  }>,
 }));
 
 vi.mock("fs", () => fsMock);
 vi.mock("path", () => pathMock);
-vi.mock("@/lib/api/experience", () => experienceMock);
+vi.mock("@/content/experience", () => experienceContentMock);
 
 // Import after mocks are hoisted
 import * as fs from "node:fs";
@@ -244,12 +252,12 @@ We decided to use React.`;
   });
 
   describe("loadJobRoles", () => {
-    it("should load roles from getAllExperience", () => {
-      const mockExperiences = [
+    it("should load roles from content experiences", () => {
+      experienceContentMock.experiences = [
         {
           company: "Microsoft",
-          company_url: "https://microsoft.com",
-          logo_path: "/logos/microsoft.png",
+          companyUrl: "https://microsoft.com",
+          logoPath: "/logos/microsoft.png",
           title: "Software Engineer",
           location: "Seattle, WA",
           startDate: "2020-01",
@@ -259,10 +267,6 @@ We decided to use React.`;
           technologies: ["C#", "Azure"],
         },
       ];
-
-      vi.mocked(experienceMock.getAllExperience).mockReturnValue(
-        mockExperiences,
-      );
 
       const result = loadJobRoles();
 
@@ -280,11 +284,11 @@ We decided to use React.`;
 
   describe("loadTechnologies", () => {
     it("should build technology catalog from all content", () => {
-      const mockExperiences = [
+      experienceContentMock.experiences = [
         {
           company: "Test Co",
-          company_url: "https://test.com",
-          logo_path: "/logo.png",
+          companyUrl: "https://test.com",
+          logoPath: "/logo.png",
           title: "Engineer",
           location: "Remote",
           startDate: "2020-01",
@@ -304,10 +308,6 @@ tech_stack: ["Next.js", "React"]
 ---
 Content`;
 
-      vi.mocked(experienceMock.getAllExperience).mockReturnValue(
-        mockExperiences,
-      );
-
       vi.mocked(fs.readdirSync).mockImplementation(((path: string) => {
         if (path.endsWith("projects")) return [mockDirent("test-project")];
         return [];
@@ -324,11 +324,11 @@ Content`;
     });
 
     it("should normalize technology names to lowercase slugs", () => {
-      const mockExperiences = [
+      experienceContentMock.experiences = [
         {
           company: "Test Co",
-          company_url: "https://test.com",
-          logo_path: "/logo.png",
+          companyUrl: "https://test.com",
+          logoPath: "/logo.png",
           title: "Engineer",
           location: "Remote",
           startDate: "2020-01",
@@ -338,9 +338,6 @@ Content`;
         },
       ];
 
-      vi.mocked(experienceMock.getAllExperience).mockReturnValue(
-        mockExperiences,
-      );
       vi.mocked(fs.readdirSync).mockReturnValue([]);
 
       const technologies = loadTechnologies();
