@@ -95,6 +95,7 @@ export function TechNavContent({
                 <Link
                   key={tech.slug}
                   href={href}
+                  scroll={false}
                   onClick={onLinkClick}
                   className={cn(
                     "flex items-center gap-3 p-2.5 rounded-lg text-sm transition-all border",
