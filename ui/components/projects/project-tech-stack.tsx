@@ -46,16 +46,15 @@ export function ProjectTechStack({
             // If Expanded OR No Icon: Show Badge with Text (+ Icon if available)
             if (isExpanded || !hasIcon) {
               return (
-                <Link
-                  key={tech.slug}
-                  href={`/technologies/${tech.slug}`}
-                >
+                <Link key={tech.slug} href={`/technologies/${tech.slug}`}>
                   <Badge
                     variant="secondary"
                     interactive
                     className="h-6 text-sm px-3 gap-1"
                   >
-                    {hasIcon && <TechIcon name={tech.name} className="w-3 h-3" />}
+                    {hasIcon && (
+                      <TechIcon name={tech.name} className="w-3 h-3" />
+                    )}
                     {tech.name}
                   </Badge>
                 </Link>
