@@ -253,7 +253,11 @@ export function FilterableCardGrid<T>({
         paramName: fc.paramName,
         label: fc.label,
         options: Array.from(uniqueValues.entries())
-          .map(([value, label]) => ({ value, label, icon: fc.icon }))
+          .map(([value, label]) => ({
+            value,
+            label,
+            icon: fc.getOptionIcon?.(value) ?? fc.icon,
+          }))
           .sort((a, b) => a.label.localeCompare(b.label)),
         selectedValues: getValues(fc.paramName),
         onToggle: (value: string) => toggleValue(fc.paramName, value),

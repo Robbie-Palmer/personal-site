@@ -446,3 +446,15 @@ export function createStatusFilterOptions(
     paramName,
   }));
 }
+
+export function createRoleFilterOptions(
+  roles: Array<{ slug: string; company: string }>,
+): FilterOption[] {
+  return roles.map((role) => ({
+    value: role.slug,
+    label: role.company,
+    icon: <Briefcase className="size-3" />,
+    group: "Role",
+    paramName: "role",
+  }));
+}

@@ -3,6 +3,7 @@
 import { Briefcase, Circle, FolderGit2 } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import {
+  createRoleFilterOptions,
   createStatusFilterOptions,
   createTechFilterOptions,
   useCommandPalette,
@@ -65,6 +66,7 @@ export function ProjectList({ projects }: ProjectListProps) {
   useEffect(() => {
     const filters = [
       ...createTechFilterOptions(allTechnologies),
+      ...createRoleFilterOptions(allRoles),
       ...createStatusFilterOptions(
         Object.entries(PROJECT_STATUS_CONFIG).map(([value, config]) => ({
           value,
@@ -74,7 +76,7 @@ export function ProjectList({ projects }: ProjectListProps) {
     ];
     registerFilters(filters);
     return () => unregisterFilters();
-  }, [allTechnologies, registerFilters, unregisterFilters]);
+  }, [allTechnologies, allRoles, registerFilters, unregisterFilters]);
 
   return (
     <FilterableCardGrid
