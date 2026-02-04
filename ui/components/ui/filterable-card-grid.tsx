@@ -1,73 +1,70 @@
 "use client";
 
 import Fuse, { type FuseResult, type IFuseOptions } from "fuse.js";
-import { ArrowDown, ArrowUp, Clock, Search, X } from "lucide-react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { ArrowDown, ArrowUp, Clock } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DateRangeFilter } from "@/components/ui/date-range-filter";
+import {
+  FilterBar,
+  type MobileFilterSection,
+} from "@/components/ui/filter-bar";
+import {
+  MultiSelect,
+  type MultiSelectOption,
+} from "@/components/ui/multi-select";
+import {
+  type FilterParamConfig,
+  useFilterParams,
+} from "@/hooks/use-filter-params";
 import { useSortParam } from "@/hooks/use-sort-param";
 
 const SORT_OPTIONS = ["newest", "oldest", "updated"] as const;
 type SortOption = (typeof SORT_OPTIONS)[number];
 
-interface FilterConfig<T> {
-  /** URL param name (e.g., "tag" or "tech") */
+interface MultiFilterConfig<T> {
   paramName: string;
-  /** Function to get filterable values from an item */
+  isMulti: boolean;
+  label: string;
   getItemValues: (item: T) => string[];
-  /** Icon to show in the filter badge */
-  icon: ReactNode;
-  /** URL to navigate to when clearing the filter */
-  clearUrl: string;
-  /** Text prefix for results count (e.g., "with tag" or "using") */
-  labelPrefix: string;
+  icon?: ReactNode;
+  getValueLabel?: (value: string) => string;
+  getOptionIcon?: (value: string) => ReactNode;
 }
 
 interface SearchConfig<T> {
-  /** Placeholder text for search input */
   placeholder: string;
-  /** Aria label for search input */
   ariaLabel: string;
-  /** Fuse.js search keys */
   keys: IFuseOptions<T>["keys"];
   /** Fuse.js threshold (default: 0.3) */
   threshold?: number;
 }
 
 interface SortConfig<T> {
-  /** Function to get the date string from an item */
   getDate: (item: T) => string;
-  /** Function to get the updated date string from an item (optional) */
   getUpdated?: (item: T) => string | undefined;
 }
 
 interface EmptyStateConfig {
-  /** Icon to show when no results */
   icon: ReactNode;
-  /** Message to show when no results */
   message: string;
 }
 
+interface DateRangeConfig<T> {
+  getDate: (item: T) => string;
+}
+
 interface FilterableCardGridProps<T> {
-  /** Items to display */
   items: T[];
-  /** Function to render each card */
   renderCard: (item: T, index: number) => ReactNode;
-  /** Function to get a unique key for each item */
   getItemKey: (item: T) => string;
-  /** Search configuration */
   searchConfig: SearchConfig<T>;
-  /** Filter configuration (optional) */
-  filterConfig?: FilterConfig<T>;
-  /** Sort configuration */
+  filterConfigs?: MultiFilterConfig<T>[];
+  filterBarContent?: ReactNode;
+  dateRangeConfig?: DateRangeConfig<T>;
   sortConfig: SortConfig<T>;
-  /** Empty state configuration */
   emptyState: EmptyStateConfig;
-  /** Name of items for results count (e.g., "posts" or "projects") */
   itemName: string;
 }
 
@@ -76,20 +73,40 @@ export function FilterableCardGrid<T>({
   renderCard,
   getItemKey,
   searchConfig,
-  filterConfig,
+  filterConfigs,
+  filterBarContent,
+  dateRangeConfig,
   sortConfig,
   emptyState,
   itemName,
 }: FilterableCardGridProps<T>) {
-  const searchParams = useSearchParams();
-  const currentFilter = filterConfig
-    ? searchParams.get(filterConfig.paramName)
-    : null;
   const { currentSort, cycleSortOrder } = useSortParam<SortOption>(
     SORT_OPTIONS,
     "newest",
   );
   const [searchQuery, setSearchQuery] = useState("");
+
+  const filterParamConfigs: FilterParamConfig[] = useMemo(() => {
+    if (filterConfigs) {
+      return filterConfigs.map((fc) => ({
+        paramName: fc.paramName,
+        isMulti: fc.isMulti,
+      }));
+    }
+    return [];
+  }, [filterConfigs]);
+
+  const {
+    getValues,
+    setValues,
+    toggleValue,
+    clearFilter,
+    clearAllFilters,
+    hasActiveFilters,
+    activeFilterCount,
+    getDateRange,
+    setDateRange,
+  } = useFilterParams({ filters: filterParamConfigs });
 
   const fuse = useMemo(
     () =>
@@ -101,21 +118,52 @@ export function FilterableCardGrid<T>({
     [items, searchConfig.keys, searchConfig.threshold],
   );
 
-  // Filter items
   const filteredItems = useMemo(() => {
     let filtered = searchQuery.trim()
       ? fuse.search(searchQuery).map((result: FuseResult<T>) => result.item)
       : items;
 
-    if (currentFilter && filterConfig) {
-      filtered = filtered.filter((item: T) =>
-        filterConfig.getItemValues(item).includes(currentFilter),
-      );
+    // Apply multi-filters (AND between different filters, OR within same filter)
+    if (filterConfigs) {
+      for (const fc of filterConfigs) {
+        const selectedValues = getValues(fc.paramName);
+        if (selectedValues.length > 0) {
+          filtered = filtered.filter((item: T) => {
+            const itemValues = fc.getItemValues(item);
+            return selectedValues.some((v) => itemValues.includes(v));
+          });
+        }
+      }
     }
-    return filtered;
-  }, [fuse, searchQuery, items, currentFilter, filterConfig]);
 
-  // Sort items
+    if (dateRangeConfig) {
+      const { from, to } = getDateRange();
+      if (from) {
+        const fromDate = new Date(from);
+        filtered = filtered.filter(
+          (item: T) => new Date(dateRangeConfig.getDate(item)) >= fromDate,
+        );
+      }
+      if (to) {
+        const toDate = new Date(to);
+        toDate.setHours(23, 59, 59, 999); // Include the entire "to" day
+        filtered = filtered.filter(
+          (item: T) => new Date(dateRangeConfig.getDate(item)) <= toDate,
+        );
+      }
+    }
+
+    return filtered;
+  }, [
+    fuse,
+    searchQuery,
+    items,
+    filterConfigs,
+    getValues,
+    dateRangeConfig,
+    getDateRange,
+  ]);
+
   const sortedItems = useMemo(() => {
     return [...filteredItems].sort((a: T, b: T) => {
       if (currentSort === "oldest") {
@@ -162,69 +210,157 @@ export function FilterableCardGrid<T>({
     }
   };
 
-  const isFiltering = searchQuery || currentFilter;
+  const activeFilters = useMemo(() => {
+    const filters: Array<{
+      paramName: string;
+      label: string;
+      value: string;
+      displayValue: string;
+      icon?: ReactNode;
+    }> = [];
+
+    if (filterConfigs) {
+      for (const fc of filterConfigs) {
+        const values = getValues(fc.paramName);
+        for (const value of values) {
+          filters.push({
+            paramName: fc.paramName,
+            label: fc.label,
+            value,
+            displayValue: fc.getValueLabel?.(value) ?? value,
+            icon: fc.icon,
+          });
+        }
+      }
+    }
+
+    return filters;
+  }, [filterConfigs, getValues]);
+
+  const mobileFilterSections: MobileFilterSection[] = useMemo(() => {
+    if (!filterConfigs) return [];
+    return filterConfigs.map((fc) => {
+      const uniqueValues = new Map<string, string>();
+      for (const item of items) {
+        const itemValues = fc.getItemValues(item);
+        for (const value of itemValues) {
+          if (!uniqueValues.has(value)) {
+            uniqueValues.set(value, fc.getValueLabel?.(value) ?? value);
+          }
+        }
+      }
+      return {
+        paramName: fc.paramName,
+        label: fc.label,
+        options: Array.from(uniqueValues.entries())
+          .map(([value, label]) => ({ value, label, icon: fc.icon }))
+          .sort((a, b) => a.label.localeCompare(b.label)),
+        selectedValues: getValues(fc.paramName),
+        onToggle: (value: string) => toggleValue(fc.paramName, value),
+      };
+    });
+  }, [filterConfigs, items, getValues, toggleValue]);
+
+  const handleRemoveFilter = (paramName: string, value: string) => {
+    if (filterConfigs) {
+      toggleValue(paramName, value);
+    } else {
+      clearFilter(paramName);
+    }
+  };
+
+  const isFiltering = searchQuery || hasActiveFilters;
+  const sortButton = (
+    <Button
+      variant="outline"
+      size="icon"
+      onClick={cycleSortOrder}
+      title={getSortLabel()}
+      aria-label={`Sort: ${getSortLabel()}. Click to change sort order.`}
+    >
+      {getSortIcon()}
+    </Button>
+  );
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder={searchConfig.placeholder}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 pr-9"
-            aria-label={searchConfig.ariaLabel}
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              aria-label="Clear search"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+      <FilterBar
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder={searchConfig.placeholder}
+        activeFilters={activeFilters}
+        onRemoveFilter={handleRemoveFilter}
+        onClearAll={clearAllFilters}
+        hasActiveFilters={hasActiveFilters}
+        activeFilterCount={activeFilterCount}
+        sortButton={sortButton}
+        mobileFilterSections={mobileFilterSections}
+      >
+        {filterBarContent ? (
+          filterBarContent
+        ) : (
+          <>
+            {/* Auto-generated desktop filters */}
+            {filterConfigs?.map((fc) => {
+              // Generate options from unique values in items
+              const uniqueValues = new Map<string, string>();
+              for (const item of items) {
+                const itemValues = fc.getItemValues(item);
+                for (const value of itemValues) {
+                  if (!uniqueValues.has(value)) {
+                    uniqueValues.set(value, fc.getValueLabel?.(value) ?? value);
+                  }
+                }
+              }
 
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={cycleSortOrder}
-          title={getSortLabel()}
-          aria-label={`Sort: ${getSortLabel()}. Click to change sort order.`}
-        >
-          {getSortIcon()}
-        </Button>
+              const options: MultiSelectOption[] = Array.from(
+                uniqueValues.entries(),
+              )
+                .map(([value, label]) => ({
+                  value,
+                  label,
+                  icon: fc.getOptionIcon?.(value),
+                }))
+                .sort((a, b) => a.label.localeCompare(b.label));
 
-        {currentFilter && filterConfig && (
-          <Badge
-            variant="secondary"
-            interactive
-            className="flex items-center gap-2 px-3 py-1.5"
-          >
-            {filterConfig.icon}
-            <span>{currentFilter}</span>
-            <Link
-              href={filterConfig.clearUrl}
-              className="rounded-full hover:bg-background/50 p-0.5 ml-1 transition-colors"
-              aria-label={`Remove ${currentFilter} filter`}
-            >
-              <X className="h-3 w-3" />
-            </Link>
-          </Badge>
+              return (
+                <MultiSelect
+                  key={fc.paramName}
+                  options={options}
+                  value={getValues(fc.paramName)}
+                  onChange={(v) => {
+                    if (fc.isMulti) {
+                      setValues(fc.paramName, v);
+                    } else {
+                      setValues(fc.paramName, v);
+                    }
+                  }}
+                  label={fc.label}
+                  placeholder={`All ${fc.label.toLowerCase()}`}
+                  icon={fc.icon}
+                  size="sm"
+                  searchable={options.length > 5}
+                  searchPlaceholder={`Search ${fc.label.toLowerCase()}...`}
+                />
+              );
+            })}
+
+            {dateRangeConfig && (
+              <DateRangeFilter
+                from={getDateRange().from}
+                to={getDateRange().to}
+                onChange={(from, to) => setDateRange(from, to)}
+                size="sm"
+              />
+            )}
+          </>
         )}
-      </div>
+      </FilterBar>
 
       {isFiltering && sortedItems.length > 0 && (
         <p className="text-sm text-muted-foreground">
           Showing {sortedItems.length} of {items.length} {itemName}
           {searchQuery && ` matching "${searchQuery}"`}
-          {currentFilter &&
-            filterConfig &&
-            ` ${filterConfig.labelPrefix} "${currentFilter}"`}
         </p>
       )}
 

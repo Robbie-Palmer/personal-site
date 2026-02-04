@@ -19,6 +19,19 @@ export const ProjectStatusSchema = z.enum([
 
 export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
 
+export const PROJECT_STATUSES = ProjectStatusSchema.options;
+
+export const PROJECT_STATUS_CONFIG: Record<
+  ProjectStatus,
+  { label: string; color: string }
+> = {
+  idea: { label: "Idea", color: "text-purple-500" },
+  in_progress: { label: "In Progress", color: "text-blue-500" },
+  live: { label: "Live", color: "text-green-500" },
+  archived: { label: "Archived", color: "text-muted-foreground" },
+  completed: { label: "Completed", color: "text-purple-500" },
+};
+
 export const ProjectSchema = z.object({
   slug: ProjectSlugSchema,
   title: z.string().min(1),

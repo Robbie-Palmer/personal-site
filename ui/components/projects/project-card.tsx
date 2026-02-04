@@ -17,10 +17,15 @@ import { ProjectStatusBadge } from "./project-status-badge";
 
 interface ProjectCardProps {
   project: Project;
-  currentTech?: string | null;
+  selectedTech?: string[];
+  onTechClick: (techSlug: string) => void;
 }
 
-export function ProjectCard({ project, currentTech }: ProjectCardProps) {
+export function ProjectCard({
+  project,
+  selectedTech = [],
+  onTechClick,
+}: ProjectCardProps) {
   return (
     <Card className="flex flex-col h-full hover:shadow-lg transition-all hover:border-primary/50 group relative overflow-hidden">
       {/* Clickable Area for the whole card */}
@@ -98,29 +103,29 @@ export function ProjectCard({ project, currentTech }: ProjectCardProps) {
       <CardFooter className="flex flex-col items-start gap-4">
         <div className="flex flex-wrap gap-2 z-10">
           {project.technologies.slice(0, 5).map((tech) => {
-            const isActive = tech.name === currentTech;
+            const isActive = selectedTech.includes(tech.slug);
+
             return (
-              <Link
-                key={tech.name}
-                href={
-                  isActive
-                    ? "/projects"
-                    : `/projects?tech=${encodeURIComponent(tech.name)}`
-                }
-                onClick={(e) => e.stopPropagation()}
+              <Badge
+                key={tech.slug}
+                variant={isActive ? "default" : "secondary"}
+                interactive
+                active={isActive}
+                className="flex items-center gap-1 cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTechClick(tech.slug);
+                }}
               >
-                <Badge
-                  variant={isActive ? "default" : "secondary"}
-                  interactive
-                  active={isActive}
-                  className="flex items-center gap-1"
-                >
-                  {hasTechIcon(tech.name) && (
-                    <TechIcon name={tech.name} className="w-3 h-3" />
-                  )}
-                  {tech.name}
-                </Badge>
-              </Link>
+                {hasTechIcon(tech.name, tech.iconSlug) && (
+                  <TechIcon
+                    name={tech.name}
+                    iconSlug={tech.iconSlug}
+                    className="w-3 h-3"
+                  />
+                )}
+                {tech.name}
+              </Badge>
             );
           })}
           {project.technologies.length > 5 && (
