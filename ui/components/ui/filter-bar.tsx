@@ -144,7 +144,7 @@ export function FilterBar({
             </SheetHeader>
 
             {/* Mobile filter sections - inline tappable chips */}
-            {mobileFilterSections ? (
+            {mobileFilterSections?.length ? (
               <div className="overflow-y-auto max-h-[calc(70vh-100px)] px-1">
                 <div className="space-y-4">
                   {mobileExtraContent && (
