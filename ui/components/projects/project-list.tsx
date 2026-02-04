@@ -1,10 +1,18 @@
 "use client";
 
-import { FolderGit2 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { Briefcase, Circle, FolderGit2 } from "lucide-react";
+import { useEffect, useMemo } from "react";
+import {
+  createRoleFilterOptions,
+  createStatusFilterOptions,
+  createTechFilterOptions,
+  useCommandPalette,
+} from "@/components/command-palette";
 import { FilterableCardGrid } from "@/components/ui/filterable-card-grid";
-import type { Project } from "@/lib/api/projects";
+import { useFilterParams } from "@/hooks/use-filter-params";
+import type { Project, ProjectStatus } from "@/lib/api/projects";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
+import { PROJECT_STATUS_CONFIG } from "@/lib/domain/project/project";
 import { ProjectCard } from "./project-card";
 
 interface ProjectListProps {
@@ -12,8 +20,63 @@ interface ProjectListProps {
 }
 
 export function ProjectList({ projects }: ProjectListProps) {
-  const searchParams = useSearchParams();
-  const currentTech = searchParams.get("tech");
+  const allTechnologies = useMemo(() => {
+    const techMap = new Map<
+      string,
+      { slug: string; name: string; iconSlug?: string }
+    >();
+    for (const project of projects) {
+      for (const tech of project.technologies) {
+        if (!techMap.has(tech.slug)) {
+          techMap.set(tech.slug, tech);
+        }
+      }
+    }
+    return Array.from(techMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  }, [projects]);
+
+  const allRoles = useMemo(() => {
+    const roleMap = new Map<
+      string,
+      { slug: string; company: string; title: string }
+    >();
+    for (const project of projects) {
+      if (project.role && !roleMap.has(project.role.slug)) {
+        roleMap.set(project.role.slug, project.role);
+      }
+    }
+    return Array.from(roleMap.values()).sort((a, b) =>
+      a.company.localeCompare(b.company),
+    );
+  }, [projects]);
+
+  const filterParams = useFilterParams({
+    filters: [
+      { paramName: "tech", isMulti: true },
+      { paramName: "status", isMulti: true },
+      { paramName: "role", isMulti: true },
+    ],
+  });
+
+  const selectedTech = filterParams.getValues("tech");
+  const { registerFilters, unregisterFilters } = useCommandPalette();
+
+  useEffect(() => {
+    const filters = [
+      ...createTechFilterOptions(allTechnologies),
+      ...createRoleFilterOptions(allRoles),
+      ...createStatusFilterOptions(
+        Object.entries(PROJECT_STATUS_CONFIG).map(([value, config]) => ({
+          value,
+          label: config.label,
+        })),
+      ),
+    ];
+    registerFilters(filters);
+    return () => unregisterFilters();
+  }, [allTechnologies, allRoles, registerFilters, unregisterFilters]);
 
   return (
     <FilterableCardGrid
@@ -30,15 +93,57 @@ export function ProjectList({ projects }: ProjectListProps) {
         ],
         threshold: 0.3,
       }}
-      filterConfig={{
-        paramName: "tech",
-        getItemValues: (project) => project.technologies.map((t) => t.name),
-        icon:
-          currentTech && hasTechIcon(currentTech) ? (
-            <TechIcon name={currentTech} className="w-4 h-4" />
-          ) : null,
-        clearUrl: "/projects",
-        labelPrefix: "using",
+      filterConfigs={[
+        {
+          paramName: "status",
+          isMulti: true,
+          label: "Status",
+          getItemValues: (project) => [project.status],
+          getValueLabel: (value) =>
+            PROJECT_STATUS_CONFIG[value as ProjectStatus]?.label ?? value,
+          getOptionIcon: (value) => {
+            const config = PROJECT_STATUS_CONFIG[value as ProjectStatus];
+            if (!config) return null;
+            return (
+              <Circle className={`w-2 h-2 fill-current ${config.color}`} />
+            );
+          },
+        },
+        {
+          paramName: "role",
+          isMulti: true,
+          label: "Role",
+          getItemValues: (project) => (project.role ? [project.role.slug] : []),
+          getValueLabel: (value) => {
+            const role = allRoles.find((r) => r.slug === value);
+            return role?.company ?? value;
+          },
+          getOptionIcon: () => <Briefcase className="w-3 h-3" />,
+        },
+        {
+          paramName: "tech",
+          isMulti: true,
+          label: "Tech",
+          getItemValues: (project) => project.technologies.map((t) => t.slug),
+          getValueLabel: (value) => {
+            const tech = allTechnologies.find((t) => t.slug === value);
+            return tech?.name ?? value;
+          },
+          getOptionIcon: (value) => {
+            const tech = allTechnologies.find((t) => t.slug === value);
+            if (!tech || !hasTechIcon(tech.name, tech.iconSlug)) return null;
+            return (
+              <TechIcon
+                name={tech.name}
+                iconSlug={tech.iconSlug}
+                className="w-3 h-3 grayscale"
+              />
+            );
+          },
+        },
+      ]}
+      dateRangeConfig={{
+        getDate: (project) => project.date,
       }}
       sortConfig={{
         getDate: (project) => project.date,
@@ -50,7 +155,11 @@ export function ProjectList({ projects }: ProjectListProps) {
       }}
       itemName="projects"
       renderCard={(project) => (
-        <ProjectCard project={project} currentTech={currentTech} />
+        <ProjectCard
+          project={project}
+          selectedTech={selectedTech}
+          onTechClick={(tech) => filterParams.toggleValue("tech", tech)}
+        />
       )}
     />
   );

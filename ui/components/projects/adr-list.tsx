@@ -1,16 +1,23 @@
 "use client";
 
 import Fuse, { type FuseResult } from "fuse.js";
-import { ArrowUpDown, Search, X } from "lucide-react";
+import { ArrowUpDown } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { StatusFilter } from "@/components/filters/status-filter";
+import { TechnologyFilter } from "@/components/filters/technology-filter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import {
+  FilterBar,
+  type MobileFilterSection,
+} from "@/components/ui/filter-bar";
+import { useFilterParams } from "@/hooks/use-filter-params";
 import { useSortParam } from "@/hooks/use-sort-param";
 import type { ADR } from "@/lib/api/projects";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
+import { ADR_STATUS_CONFIG, ADR_STATUSES } from "@/lib/domain/adr/adr";
 import { ADRBadge } from "./adr-badge";
 
 interface ADRListProps {
@@ -29,6 +36,34 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
   );
   const [searchQuery, setSearchQuery] = useState("");
 
+  const allTechnologies = useMemo(() => {
+    const techMap = new Map<
+      string,
+      { slug: string; name: string; iconSlug?: string }
+    >();
+    for (const adr of adrs) {
+      if (adr.technologies) {
+        for (const tech of adr.technologies) {
+          if (!techMap.has(tech.slug)) {
+            techMap.set(tech.slug, tech);
+          }
+        }
+      }
+    }
+    return Array.from(techMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  }, [adrs]);
+
+  const filterParams = useFilterParams({
+    filters: [
+      { paramName: "status", isMulti: true },
+      { paramName: "tech", isMulti: true },
+    ],
+  });
+  const selectedStatus = filterParams.getValues("status");
+  const selectedTech = filterParams.getValues("tech");
+
   const fuse = useMemo(
     () =>
       new Fuse(adrs, {
@@ -40,13 +75,117 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
   );
 
   const filteredADRs = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return adrs;
+    let filtered = searchQuery.trim()
+      ? fuse.search(searchQuery).map((result: FuseResult<ADR>) => result.item)
+      : adrs;
+    if (selectedStatus.length > 0) {
+      filtered = filtered.filter((adr) => selectedStatus.includes(adr.status));
     }
-    return fuse
-      .search(searchQuery)
-      .map((result: FuseResult<ADR>) => result.item);
-  }, [fuse, searchQuery, adrs]);
+    if (selectedTech.length > 0) {
+      filtered = filtered.filter((adr) =>
+        adr.technologies?.some((tech) => selectedTech.includes(tech.slug)),
+      );
+    }
+    return filtered;
+  }, [fuse, searchQuery, adrs, selectedStatus, selectedTech]);
+
+  const sortedADRs = [...filteredADRs].sort((a, b) => {
+    const direction = currentSort === "newest" ? -1 : 1;
+    return a.slug.localeCompare(b.slug) * direction;
+  });
+
+  const activeFilters = useMemo(() => {
+    const filters: Array<{
+      paramName: string;
+      label: string;
+      value: string;
+      displayValue: string;
+    }> = [];
+
+    for (const status of selectedStatus) {
+      filters.push({
+        paramName: "status",
+        label: "Status",
+        value: status,
+        displayValue: status,
+      });
+    }
+    for (const tech of selectedTech) {
+      const techObj = allTechnologies.find((t) => t.slug === tech);
+      filters.push({
+        paramName: "tech",
+        label: "Tech",
+        value: tech,
+        displayValue: techObj?.name ?? tech,
+      });
+    }
+    return filters;
+  }, [selectedStatus, selectedTech, allTechnologies]);
+
+  const handleRemoveFilter = (paramName: string, value: string) => {
+    filterParams.toggleValue(paramName, value);
+  };
+  const isFiltering =
+    searchQuery || selectedStatus.length > 0 || selectedTech.length > 0;
+  const sortButton = (
+    <Button
+      variant="outline"
+      size="default"
+      onClick={cycleSortOrder}
+      className="gap-2 shrink-0"
+    >
+      <ArrowUpDown className="w-4 h-4" />
+      {currentSort === "newest" ? "Newest First" : "Oldest First"}
+    </Button>
+  );
+
+  const filterBarContent = (
+    <>
+      <StatusFilter
+        type="adr"
+        value={selectedStatus}
+        onChange={(v) => filterParams.setValues("status", v)}
+        size="sm"
+      />
+      {allTechnologies.length > 0 && (
+        <TechnologyFilter
+          technologies={allTechnologies}
+          value={selectedTech}
+          onChange={(v) => filterParams.setValues("tech", v)}
+          size="sm"
+        />
+      )}
+    </>
+  );
+
+  const mobileFilterSections: MobileFilterSection[] = useMemo(() => {
+    const statusOptions = ADR_STATUSES.map((status) => ({
+      value: status,
+      label: ADR_STATUS_CONFIG[status].label,
+    }));
+    const sections: MobileFilterSection[] = [
+      {
+        paramName: "status",
+        label: "Status",
+        options: statusOptions,
+        selectedValues: selectedStatus,
+        onToggle: (value: string) => filterParams.toggleValue("status", value),
+      },
+    ];
+    if (allTechnologies.length > 0) {
+      sections.push({
+        paramName: "tech",
+        label: "Technology",
+        options: allTechnologies.map((t) => ({
+          value: t.slug,
+          label: t.name,
+        })),
+        selectedValues: selectedTech,
+        onToggle: (value: string) => filterParams.toggleValue("tech", value),
+      });
+    }
+    return sections;
+  }, [selectedStatus, selectedTech, allTechnologies, filterParams]);
 
   if (adrs.length === 0) {
     return (
@@ -56,53 +195,30 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
     );
   }
 
-  const sortedADRs = [...filteredADRs].sort((a, b) => {
-    const direction = currentSort === "newest" ? -1 : 1;
-    return a.slug.localeCompare(b.slug) * direction;
-  });
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 mb-6">
         <div className="flex-1">{description}</div>
 
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search decisions..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-9"
-              aria-label="Search architecture decisions"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label="Clear search"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-          <Button
-            variant="outline"
-            size="default"
-            onClick={cycleSortOrder}
-            className="gap-2 shrink-0"
-          >
-            <ArrowUpDown className="w-4 h-4" />
-            {currentSort === "newest" ? "Newest First" : "Oldest First"}
-          </Button>
-        </div>
+        <FilterBar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search decisions..."
+          activeFilters={activeFilters}
+          onRemoveFilter={handleRemoveFilter}
+          onClearAll={filterParams.clearAllFilters}
+          hasActiveFilters={filterParams.hasActiveFilters}
+          activeFilterCount={filterParams.activeFilterCount}
+          sortButton={sortButton}
+          mobileFilterSections={mobileFilterSections}
+        >
+          {filterBarContent}
+        </FilterBar>
 
-        {searchQuery && (
+        {isFiltering && sortedADRs.length > 0 && (
           <p className="text-sm text-muted-foreground">
-            Showing {sortedADRs.length} of {adrs.length} records matching "
-            {searchQuery}"
+            Showing {sortedADRs.length} of {adrs.length} records
+            {searchQuery && ` matching "${searchQuery}"`}
           </p>
         )}
       </div>
@@ -144,8 +260,7 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
                     >
                       <Badge
                         variant="secondary"
-                        interactive
-                        className="flex items-center gap-1.5"
+                        className="flex items-center gap-1.5 hover:bg-secondary/80"
                       >
                         {hasTechIcon(tech.name) && (
                           <TechIcon name={tech.name} className="w-3 h-3" />

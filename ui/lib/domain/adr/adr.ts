@@ -16,6 +16,34 @@ export const ADRStatusSchema = z.enum([
 ]);
 export type ADRStatus = z.infer<typeof ADRStatusSchema>;
 
+export const ADR_STATUSES = ADRStatusSchema.options;
+
+export const ADR_STATUS_CONFIG: Record<
+  ADRStatus,
+  { label: string; color: string; badgeClass: string }
+> = {
+  Accepted: {
+    label: "Accepted",
+    color: "text-green-500",
+    badgeClass: "bg-green-600 text-white hover:bg-green-700 border-transparent",
+  },
+  Rejected: {
+    label: "Rejected",
+    color: "text-red-500",
+    badgeClass: "bg-red-600 text-white hover:bg-red-700 border-transparent",
+  },
+  Deprecated: {
+    label: "Deprecated",
+    color: "text-amber-600",
+    badgeClass: "bg-amber-600 text-white hover:bg-amber-700 border-transparent",
+  },
+  Proposed: {
+    label: "Proposed",
+    color: "text-blue-600",
+    badgeClass: "bg-blue-600 text-white hover:bg-blue-700 border-transparent",
+  },
+};
+
 export const ADRSchema = z.object({
   slug: ADRSlugSchema,
   title: z.string().min(1),

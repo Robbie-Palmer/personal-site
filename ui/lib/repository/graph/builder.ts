@@ -125,6 +125,6 @@ function addTagEdges(
     if (!graph.reverse.tagUsedBy.has(tag)) {
       graph.reverse.tagUsedBy.set(tag, new Set());
     }
-    graph.reverse.tagUsedBy.get(tag)!.add(nodeId);
+    graph.reverse.tagUsedBy.get(tag)?.add(nodeId);
   }
 }

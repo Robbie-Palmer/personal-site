@@ -16,7 +16,7 @@ const badgeVariants = cva(
         destructive:
           "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:
-          "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+          "text-foreground bg-secondary border-secondary-foreground/20 [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
       },
       interactive: {
         true: "cursor-pointer transition-colors border",
@@ -99,13 +99,14 @@ function Badge({
   active,
   asChild = false,
   ...props
-}: React.ComponentProps<"span"> &
+}: React.HTMLAttributes<HTMLElement> &
   VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot : "span";
+  const Comp = asChild ? Slot : props.onClick ? "button" : "span";
 
   return (
     <Comp
       data-slot="badge"
+      type={Comp === "button" ? "button" : undefined}
       className={cn(badgeVariants({ variant, interactive, active }), className)}
       {...props}
     />

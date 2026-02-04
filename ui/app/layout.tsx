@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { CommandPaletteProvider } from "@/components/command-palette";
 import { ThemeProvider } from "@/components/theme-provider";
 import { siteConfig } from "@/lib/config/site-config";
 
@@ -56,7 +57,7 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          {children}
+          <CommandPaletteProvider>{children}</CommandPaletteProvider>
         </ThemeProvider>
       </body>
     </html>
