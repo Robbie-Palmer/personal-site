@@ -37,7 +37,7 @@ export function BlogList({ posts }: BlogListProps) {
     }
     return Array.from(tags).sort();
   }, [posts]);
-  const allTechnologies = useMemo(() => {
+  const { allTechnologies, allTechnologiesMap } = useMemo(() => {
     const techMap = new Map<
       string,
       { slug: string; name: string; iconSlug?: string }
@@ -49,9 +49,12 @@ export function BlogList({ posts }: BlogListProps) {
         }
       }
     }
-    return Array.from(techMap.values()).sort((a, b) =>
-      a.name.localeCompare(b.name),
-    );
+    return {
+      allTechnologies: Array.from(techMap.values()).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
+      allTechnologiesMap: techMap,
+    };
   }, [posts]);
   const filterParams = useFilterParams({
     filters: [
@@ -104,11 +107,11 @@ export function BlogList({ posts }: BlogListProps) {
           label: "Tech",
           getItemValues: (post) => post.technologies.map((t) => t.slug),
           getValueLabel: (value) => {
-            const tech = allTechnologies.find((t) => t.slug === value);
+            const tech = allTechnologiesMap.get(value);
             return tech?.name ?? value;
           },
           getOptionIcon: (value) => {
-            const tech = allTechnologies.find((t) => t.slug === value);
+            const tech = allTechnologiesMap.get(value);
             if (!tech || !hasTechIcon(tech.name, tech.iconSlug)) return null;
             return (
               <TechIcon

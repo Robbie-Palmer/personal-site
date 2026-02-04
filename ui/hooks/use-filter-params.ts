@@ -11,8 +11,8 @@ export interface FilterParamConfig {
 export interface UseFilterParamsOptions {
   filters: FilterParamConfig[];
   delimiter?: string;
-  /** Whether to use shallow routing (default: true) */
-  shallow?: boolean;
+  /** Whether to preserve scroll position on URL updates (default: true) */
+  preserveScroll?: boolean;
 }
 
 export interface UseFilterParamsReturn {
@@ -36,7 +36,7 @@ export function useFilterParams(
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const { filters, delimiter = ",", shallow = true } = options;
+  const { filters, delimiter = ",", preserveScroll = true } = options;
   const filterParamNames = useMemo(
     () => new Set(filters.map((f) => f.paramName)),
     [filters],
@@ -50,9 +50,9 @@ export function useFilterParams(
     (newParams: URLSearchParams) => {
       const queryString = newParams.toString();
       const newUrl = `${pathname}${queryString ? `?${queryString}` : ""}`;
-      router.replace(newUrl, { scroll: !shallow });
+      router.replace(newUrl, { scroll: !preserveScroll });
     },
-    [pathname, router, shallow],
+    [pathname, router, preserveScroll],
   );
 
   const getValue = useCallback(

@@ -1,6 +1,7 @@
 "use client";
 
 import { Tag } from "lucide-react";
+import { useMemo } from "react";
 import {
   MultiSelect,
   type MultiSelectOption,
@@ -16,7 +17,6 @@ interface TagFilterProps {
   disabled?: boolean;
   size?: "sm" | "default";
 }
-
 export function TagFilter({
   tags,
   value,
@@ -27,10 +27,14 @@ export function TagFilter({
   disabled = false,
   size = "default",
 }: TagFilterProps) {
-  const options: MultiSelectOption[] = tags.map((tag) => ({
-    value: tag,
-    label: tag,
-  }));
+  const options: MultiSelectOption[] = useMemo(
+    () =>
+      tags.map((tag) => ({
+        value: tag,
+        label: tag,
+      })),
+    [tags],
+  );
 
   return (
     <MultiSelect
