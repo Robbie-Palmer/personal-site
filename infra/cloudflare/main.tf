@@ -8,6 +8,7 @@ resource "cloudflare_pages_project" "personal_site" {
   production_branch = var.production_branch
 
   build_config {
+    build_caching   = true
     build_command   = "curl https://mise.run | sh && export PATH=\"$HOME/.local/bin:$PATH\" && MISE_IGNORED_CONFIG_PATHS=~/.tool-versions MISE_EXPERIMENTAL=1 mise run //ui:build"
     destination_dir = "ui/out"
     root_dir        = ""
