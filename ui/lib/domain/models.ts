@@ -88,13 +88,10 @@ export const ADRSchema = z.object({
 
 export type ADR = z.infer<typeof ADRSchema>;
 
-export const ProjectStatusSchema = z.enum([
-  "idea",
-  "in_progress",
-  "live",
-  "archived",
-]);
-export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
+import { type ProjectStatus, ProjectStatusSchema } from "./project/project";
+
+export { ProjectStatusSchema };
+export type { ProjectStatus };
 
 export const ProjectSchema = z.object({
   slug: ProjectSlugSchema,

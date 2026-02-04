@@ -272,7 +272,7 @@ describe("Domain Model Schemas", () => {
     });
 
     it("should validate all valid project statuses", () => {
-      const statuses = ["idea", "in_progress", "live", "archived"];
+      const statuses = ["idea", "in_progress", "live", "archived", "completed"];
 
       for (const status of statuses) {
         const result = ProjectStatusSchema.safeParse(status);
