@@ -25,10 +25,10 @@ export const PROJECT_STATUS_CONFIG: Record<
   ProjectStatus,
   { label: string; color: string }
 > = {
-  idea: { label: "Idea", color: "text-purple-500" },
-  in_progress: { label: "In Progress", color: "text-blue-500" },
+  idea: { label: "Idea", color: "text-blue-500" },
+  in_progress: { label: "In Progress", color: "text-amber-500" },
   live: { label: "Live", color: "text-green-500" },
-  archived: { label: "Archived", color: "text-muted-foreground" },
+  archived: { label: "Archived", color: "text-red-500" },
   completed: { label: "Completed", color: "text-purple-500" },
 };
 
