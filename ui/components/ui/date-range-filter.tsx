@@ -130,41 +130,46 @@ export function DateRangeFilter({
 
   return (
     <PopoverPrimitive.Root open={open} onOpenChange={handleOpenChange}>
-      <PopoverPrimitive.Trigger
-        data-slot="date-range-filter-trigger"
-        disabled={disabled}
-        className={cn(
-          "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex w-fit items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-          size === "default" && "h-9",
-          size === "sm" && "h-8 text-xs px-2",
-          className,
-        )}
-      >
-        <span className="flex items-center gap-2 min-w-0">
-          <CalendarIcon className="size-4" />
-          {label && (
-            <span className="text-muted-foreground shrink-0">{label}:</span>
+      <PopoverPrimitive.Trigger asChild>
+        {/* biome-ignore lint/a11y/useSemanticElements: usage of div is intentional to avoid nested buttons */}
+        <div
+          role="button"
+          tabIndex={disabled ? -1 : 0}
+          data-slot="date-range-filter-trigger"
+          aria-disabled={disabled}
+          className={cn(
+            "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex w-fit items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] aria-disabled:cursor-not-allowed aria-disabled:opacity-50 cursor-pointer [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+            size === "default" && "h-9",
+            size === "sm" && "h-8 text-xs px-2",
+            className,
           )}
-          <span className="truncate">{displayValue}</span>
-        </span>
-        <span className="flex items-center gap-1 shrink-0">
-          {hasValue && (
-            <button
-              type="button"
-              onClick={handleClear}
-              className="rounded-full p-0.5 hover:bg-muted transition-colors"
-              aria-label="Clear date range"
-            >
-              <X className="size-3" />
-            </button>
-          )}
-          <ChevronDownIcon
-            className={cn(
-              "size-4 opacity-50 transition-transform",
-              open && "rotate-180",
+        >
+          <span className="flex items-center gap-2 min-w-0">
+            <CalendarIcon className="size-4" />
+            {label && (
+              <span className="text-muted-foreground shrink-0">{label}:</span>
             )}
-          />
-        </span>
+            <span className="truncate">{displayValue}</span>
+          </span>
+          <span className="flex items-center gap-1 shrink-0">
+            {hasValue && (
+              <button
+                type="button"
+                onClick={handleClear}
+                className="rounded-full p-0.5 hover:bg-muted transition-colors"
+                aria-label="Clear date range"
+              >
+                <X className="size-3" />
+              </button>
+            )}
+            <ChevronDownIcon
+              className={cn(
+                "size-4 opacity-50 transition-transform",
+                open && "rotate-180",
+              )}
+            />
+          </span>
+        </div>
       </PopoverPrimitive.Trigger>
 
       <PopoverPrimitive.Portal>

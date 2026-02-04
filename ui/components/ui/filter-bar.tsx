@@ -53,6 +53,7 @@ interface FilterBarProps {
   showSearch?: boolean;
   sortButton?: React.ReactNode;
   mobileFilterSections?: MobileFilterSection[];
+  mobileExtraContent?: React.ReactNode;
 }
 
 export function FilterBar({
@@ -69,6 +70,7 @@ export function FilterBar({
   showSearch = true,
   sortButton,
   mobileFilterSections,
+  mobileExtraContent,
 }: FilterBarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -145,6 +147,14 @@ export function FilterBar({
             {mobileFilterSections ? (
               <div className="overflow-y-auto max-h-[calc(70vh-100px)] px-1">
                 <div className="space-y-4">
+                  {mobileExtraContent && (
+                    <div className="mb-4 pb-4 border-b">
+                      <h4 className="text-sm font-medium mb-2 px-1">
+                        Date Range
+                      </h4>
+                      {mobileExtraContent}
+                    </div>
+                  )}
                   {mobileFilterSections.map((section) => (
                     <div key={section.paramName}>
                       <h4 className="text-sm font-medium mb-2 px-1">

@@ -299,6 +299,17 @@ export function FilterableCardGrid<T>({
         activeFilterCount={activeFilterCount}
         sortButton={sortButton}
         mobileFilterSections={mobileFilterSections}
+        mobileExtraContent={
+          dateRangeConfig ? (
+            <DateRangeFilter
+              from={getDateRange().from}
+              to={getDateRange().to}
+              onChange={(from, to) => setDateRange(from, to)}
+              size="default"
+              className="w-full"
+            />
+          ) : undefined
+        }
       >
         {filterBarContent ? (
           filterBarContent
