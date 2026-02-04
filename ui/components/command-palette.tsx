@@ -373,6 +373,7 @@ function CommandPaletteDialog({
                     window.open(
                       "https://github.com/Robbie-Palmer/personal-site",
                       "_blank",
+                      "noopener,noreferrer",
                     ),
                   )
                 }
