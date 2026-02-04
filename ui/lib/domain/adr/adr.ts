@@ -24,8 +24,8 @@ export const ADR_STATUS_CONFIG: Record<
 > = {
   Accepted: { label: "Accepted", color: "text-green-500" },
   Rejected: { label: "Rejected", color: "text-red-500" },
-  Deprecated: { label: "Deprecated", color: "text-muted-foreground" },
-  Proposed: { label: "Proposed", color: "text-yellow-500" },
+  Deprecated: { label: "Deprecated", color: "text-amber-600" },
+  Proposed: { label: "Proposed", color: "text-blue-600" },
 };
 
 export const ADRSchema = z.object({
