@@ -82,8 +82,8 @@ function BottomSheetContent({
         <motion.div
           style={{ y }}
           drag="y"
-          dragConstraints={{ top: 0, bottom: 0 }}
-          dragElastic={{ top: 0, bottom: 0.5 }}
+          dragConstraints={{ top: 0, bottom: 500 }}
+          dragElastic={{ top: 0, bottom: 0 }}
           onDragEnd={handleDragEnd}
         >
           {/* Drag handle indicator */}
