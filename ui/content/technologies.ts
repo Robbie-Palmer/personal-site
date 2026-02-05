@@ -48,6 +48,7 @@ export const technologies: TechnologyContent[] = [
     name: "pnpm",
     description: "Fast, disk space efficient package manager",
     website: "https://pnpm.io",
+    type: "tool",
   },
   {
     name: "Vitest",
@@ -80,6 +81,7 @@ export const technologies: TechnologyContent[] = [
     description:
       "Infrastructure as code for building, changing, and versioning cloud resources",
     website: "https://www.terraform.io",
+    type: "language",
   },
   {
     name: "Cloudflare Pages",
@@ -127,12 +129,14 @@ export const technologies: TechnologyContent[] = [
     name: "Claude Code",
     description: "AI-powered coding assistant",
     website: "https://claude.ai",
+    type: "tool",
   },
   {
     name: "Mise",
     description:
       "Tool version management, env var automation, and task execution for projects",
     website: "https://mise.jdx.dev",
+    type: "tool",
   },
   {
     name: "C#",
@@ -175,41 +179,49 @@ export const technologies: TechnologyContent[] = [
     name: "Renovate",
     description: "Automated dependency updates",
     website: "https://docs.renovatebot.com",
+    type: "tool",
   },
   {
     name: "CodeRabbit",
     description: "AI-powered code review assistant",
     website: "https://coderabbit.ai",
+    type: "tool",
   },
   {
     name: "CLA Assistant",
     description: "Contributor License Agreement automation for GitHub",
     website: "https://cla-assistant.io",
+    type: "tool",
   },
   {
     name: "Dependabot",
     description: "Automated dependency updates for GitHub",
     website: "https://github.com/dependabot",
+    type: "tool",
   },
   {
     name: "CodeQL",
     description: "Semantic code analysis engine",
     website: "https://codeql.github.com",
+    type: "tool",
   },
   {
     name: "Husky",
     description: "Git hooks made easy",
     website: "https://typicode.github.io/husky",
+    type: "tool",
   },
   {
     name: "Turbopack",
     description: "Incremental bundler optimized for JavaScript and TypeScript",
     website: "https://turbo.build/pack",
+    type: "tool",
   },
   {
     name: "CCPM",
     description: "Claude Code Project Management",
     website: "https://github.com/automazeio/ccpm/",
+    type: "tool",
   },
   {
     name: "Shortcut",
@@ -229,6 +241,7 @@ export const technologies: TechnologyContent[] = [
     website:
       "https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs",
     iconSlug: "cloudflare",
+    type: "library",
   },
   {
     name: "Cloudflare DNS",
@@ -271,6 +284,7 @@ export const technologies: TechnologyContent[] = [
     description:
       "A tool for automating configuration, deployment, and orchestration",
     website: "https://www.ansible.com",
+    type: "tool",
   },
   {
     name: "Kafka",
@@ -284,6 +298,7 @@ export const technologies: TechnologyContent[] = [
     description:
       "Microcontroller boards and tools for building interactive electronic projects",
     website: "https://www.arduino.cc",
+    type: "platform",
   },
   {
     name: "Bitbucket Pipelines",
@@ -302,12 +317,14 @@ export const technologies: TechnologyContent[] = [
     name: "DVC",
     description: "Data Version Control for machine learning projects",
     website: "https://dvc.org",
+    type: "tool",
   },
   {
     name: "Docker",
     description:
       "A platform for packaging, distributing, and running applications in containers",
     website: "https://www.docker.com",
+    type: "tool",
   },
   {
     name: "FastAPI",

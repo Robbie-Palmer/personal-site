@@ -4,7 +4,12 @@ import { TechnologySlugSchema } from "../slugs";
 
 export type { TechnologySlug };
 
-export const TechnologyTypeSchema = z.enum(["language", "platform", "library"]);
+export const TechnologyTypeSchema = z.enum([
+  "language",
+  "platform",
+  "library",
+  "tool",
+]);
 
 export type TechnologyType = z.infer<typeof TechnologyTypeSchema>;
 
@@ -25,6 +30,10 @@ export const TECHNOLOGY_TYPE_CONFIG: Record<
   library: {
     label: "Library",
     color: "text-purple-500",
+  },
+  tool: {
+    label: "Tool",
+    color: "text-orange-500",
   },
 };
 
