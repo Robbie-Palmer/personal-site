@@ -6,15 +6,15 @@ import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { Input } from "@/components/ui/input";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { cn } from "@/lib/generic/styles";
 
 interface ActiveFilter {
@@ -108,8 +108,8 @@ export function FilterBar({
         </div>
 
         {/* Mobile filter trigger */}
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetTrigger asChild>
+        <Drawer open={mobileOpen} onOpenChange={setMobileOpen}>
+          <DrawerTrigger asChild>
             <Button
               variant="outline"
               size="sm"
@@ -123,10 +123,10 @@ export function FilterBar({
                 </span>
               )}
             </Button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="h-auto max-h-[70vh] pb-8">
-            <SheetHeader className="pb-2">
-              <SheetTitle className="flex items-center justify-between">
+          </DrawerTrigger>
+          <DrawerContent className="max-h-[70vh] pb-8">
+            <DrawerHeader className="pb-2">
+              <DrawerTitle className="flex items-center justify-between">
                 <span>Filters</span>
                 {hasActiveFilters && onClearAll && (
                   <Button
@@ -140,8 +140,8 @@ export function FilterBar({
                     Clear all
                   </Button>
                 )}
-              </SheetTitle>
-            </SheetHeader>
+              </DrawerTitle>
+            </DrawerHeader>
 
             {/* Mobile filter sections - inline tappable chips */}
             {mobileFilterSections?.length ? (
@@ -191,8 +191,8 @@ export function FilterBar({
               /* Fallback to children if no mobile sections provided */
               <div className="flex flex-col gap-3 py-4">{children}</div>
             )}
-          </SheetContent>
-        </Sheet>
+          </DrawerContent>
+        </Drawer>
 
         {sortButton}
 

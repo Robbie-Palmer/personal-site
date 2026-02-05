@@ -3,7 +3,6 @@
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { XIcon } from "lucide-react";
 import type * as React from "react";
-import { useRef } from "react";
 
 import { cn } from "@/lib/generic/styles";
 
@@ -45,72 +44,6 @@ function SheetOverlay({
   );
 }
 
-function BottomSheetContent({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<typeof SheetPrimitive.Content>) {
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const touchStartY = useRef<number | null>(null);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    if (touch) {
-      touchStartY.current = touch.clientY;
-    }
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartY.current === null) return;
-
-    const touch = e.changedTouches[0];
-    if (!touch) return;
-
-    const touchEndY = touch.clientY;
-    const deltaY = touchEndY - touchStartY.current;
-
-    // Close if swiped down more than 50px
-    if (deltaY > 50) {
-      closeButtonRef.current?.click();
-    }
-
-    touchStartY.current = null;
-  };
-
-  return (
-    <SheetPortal>
-      <SheetOverlay />
-      <SheetPrimitive.Content
-        data-slot="sheet-content"
-        className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom fixed z-50 flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 inset-x-0 bottom-0 h-auto border-t rounded-t-xl",
-          className,
-        )}
-        {...props}
-      >
-        {/* Drag handle - swipe down to dismiss */}
-        <div
-          aria-hidden="true"
-          className="flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing touch-none"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
-          <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
-        </div>
-        {children}
-        <SheetPrimitive.Close
-          ref={closeButtonRef}
-          data-slot="sheet-close"
-          className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
-        >
-          <XIcon className="size-4" />
-          <span className="sr-only">Close</span>
-        </SheetPrimitive.Close>
-      </SheetPrimitive.Content>
-    </SheetPortal>
-  );
-}
-
 function SheetContent({
   className,
   children,
@@ -119,14 +52,6 @@ function SheetContent({
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left";
 }) {
-  if (side === "bottom") {
-    return (
-      <BottomSheetContent className={className} {...props}>
-        {children}
-      </BottomSheetContent>
-    );
-  }
-
   return (
     <SheetPortal>
       <SheetOverlay />
