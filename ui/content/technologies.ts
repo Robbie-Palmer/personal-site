@@ -4,11 +4,13 @@ export const technologies: TechnologyContent[] = [
     name: "React",
     description: "Component-based UI development for JS/TS",
     website: "https://react.dev",
+    type: "library",
   },
   {
     name: "Next.js",
     description: "Full-stack web development built on React",
     website: "https://nextjs.org",
+    type: "library",
   },
   {
     name: "TypeScript",
@@ -20,6 +22,7 @@ export const technologies: TechnologyContent[] = [
     name: "Tailwind CSS",
     description: "A utility-first CSS framework",
     website: "https://tailwindcss.com",
+    type: "library",
   },
   {
     name: "AWS",
@@ -50,12 +53,14 @@ export const technologies: TechnologyContent[] = [
     name: "Vitest",
     description: "Modern unit testing for JS/TS with a familiar Jest-style API",
     website: "https://vitest.dev",
+    type: "library",
   },
   {
     name: "shadcn/ui",
     description:
       "Beautifully designed components built with Radix UI and Tailwind CSS",
     website: "https://ui.shadcn.com",
+    type: "library",
   },
   {
     name: "GitHub",
@@ -86,16 +91,19 @@ export const technologies: TechnologyContent[] = [
     name: "MDX",
     description: "Markdown for the component era",
     website: "https://mdxjs.com",
+    type: "library",
   },
   {
     name: "Shiki",
     description: "A beautiful and powerful code syntax highlighter",
     website: "https://shiki.style",
+    type: "library",
   },
   {
     name: "Fuse.js",
     description: "Lightweight, client-side, fuzzy-search library",
     website: "https://www.fusejs.io",
+    type: "library",
   },
   {
     name: "Zod",
@@ -113,6 +121,7 @@ export const technologies: TechnologyContent[] = [
     name: "Embla Carousel",
     description: "A lightweight carousel library with fluid motion",
     website: "https://www.embla-carousel.com",
+    type: "library",
   },
   {
     name: "Claude Code",
@@ -147,17 +156,20 @@ export const technologies: TechnologyContent[] = [
     name: "Recharts",
     description: "A composable charting library built on React components",
     website: "https://recharts.org",
+    type: "library",
   },
   {
     name: "Mermaid",
     description: "JavaScript based diagramming and charting tool",
     website: "https://mermaid.js.org",
+    type: "library",
   },
   {
     name: "Lucide React",
     description: "Beautiful & consistent icon toolkit",
     website: "https://lucide.dev",
     iconSlug: "lucide",
+    type: "library",
   },
   {
     name: "Renovate",
@@ -251,6 +263,7 @@ export const technologies: TechnologyContent[] = [
     description: "Beautiful typographic defaults for HTML you don't control",
     website: "https://github.com/tailwindlabs/tailwindcss-typography",
     iconSlug: "tailwindcss",
+    type: "library",
   },
   { name: ".NET", website: "https://dotnet.microsoft.com", type: "platform" },
   {
@@ -300,11 +313,13 @@ export const technologies: TechnologyContent[] = [
     name: "FastAPI",
     description: "Modern, fast web framework for building APIs with Python",
     website: "https://fastapi.tiangolo.com",
+    type: "library",
   },
   {
     name: "Fastify",
     description: "Fast and low overhead web framework for Node.js",
     website: "https://www.fastify.io",
+    type: "library",
   },
   {
     name: "Flink",
@@ -318,6 +333,7 @@ export const technologies: TechnologyContent[] = [
     name: "GeoPandas",
     description: "Python library for working with geospatial data",
     website: "https://geopandas.org",
+    type: "library",
   },
   {
     name: "Go",
@@ -361,6 +377,7 @@ export const technologies: TechnologyContent[] = [
     name: "Keras",
     description: "A Python library for designing and training neural networks",
     website: "https://keras.io",
+    type: "library",
   },
   {
     name: "Kotlin",
@@ -373,6 +390,7 @@ export const technologies: TechnologyContent[] = [
     name: "Leaflet",
     description: "A JavaScript library for interactive maps on the web",
     website: "https://leafletjs.com",
+    type: "library",
   },
   {
     name: "Node.js",
@@ -385,6 +403,7 @@ export const technologies: TechnologyContent[] = [
     name: "OpenCV",
     description: "Open source computer vision library",
     website: "https://opencv.org",
+    type: "library",
   },
   {
     name: "OpenRouter",
@@ -397,6 +416,7 @@ export const technologies: TechnologyContent[] = [
     description:
       "A Python (and JS) library for building interactive charts and dashboards",
     website: "https://plotly.com",
+    type: "library",
   },
   {
     name: "PostgreSQL",
@@ -409,6 +429,7 @@ export const technologies: TechnologyContent[] = [
     name: "Prisma",
     description: "A TypeScript and Node.js ORM",
     website: "https://www.prisma.io",
+    type: "library",
   },
   {
     name: "Prometheus",
@@ -426,6 +447,7 @@ export const technologies: TechnologyContent[] = [
     description:
       "A Python library for designing, training, and running neural networks",
     website: "https://pytorch.org",
+    type: "library",
   },
   {
     name: "RabbitMQ",
@@ -451,6 +473,7 @@ export const technologies: TechnologyContent[] = [
     name: "Stanford NLP",
     description: "Natural language processing toolkit",
     website: "https://nlp.stanford.edu/software/",
+    type: "library",
   },
   {
     name: "Swift",
@@ -469,6 +492,7 @@ export const technologies: TechnologyContent[] = [
     name: "TensorRT",
     description: "SDK for high-performance deep learning inference",
     website: "https://developer.nvidia.com/tensorrt",
+    type: "library",
   },
   {
     name: "ksqlDB",
@@ -480,16 +504,19 @@ export const technologies: TechnologyContent[] = [
     name: "spaCy",
     description: "Industrial-strength natural language processing",
     website: "https://spacy.io",
+    type: "library",
   },
   {
     name: "Shapely",
     description: "An SDK for embedded geospatial operations",
     website: "https://shapely.readthedocs.io/en/latest/",
+    type: "library",
   },
   {
     name: "OpenSlide",
     description: "An SDK for reading pathology image formats",
     website: "https://github.com/openslide/openslide-python",
+    type: "library",
   },
   {
     name: "R",
@@ -499,6 +526,7 @@ export const technologies: TechnologyContent[] = [
   {
     name: "Shiny",
     website: "https://shiny.posit.co/",
+    type: "library",
   },
   {
     name: "AWS Textract",
@@ -511,5 +539,6 @@ export const technologies: TechnologyContent[] = [
     name: "PyPika",
     description: "A Python SQL query builder",
     website: "https://github.com/kayak/pypika",
+    type: "library",
   },
 ];
