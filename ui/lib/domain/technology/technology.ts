@@ -9,6 +9,7 @@ export const TechnologyTypeSchema = z.enum([
   "platform",
   "library",
   "tool",
+  "database",
 ]);
 
 export type TechnologyType = z.infer<typeof TechnologyTypeSchema>;
@@ -34,6 +35,10 @@ export const TECHNOLOGY_TYPE_CONFIG: Record<
   tool: {
     label: "Tool",
     color: "text-orange-500",
+  },
+  database: {
+    label: "Database",
+    color: "text-cyan-500",
   },
 };
 

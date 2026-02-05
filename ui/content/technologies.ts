@@ -74,7 +74,7 @@ export const technologies: TechnologyContent[] = [
     description:
       "A workflow automation platform integrated with GitHub repositories",
     website: "https://github.com/features/actions",
-    type: "platform",
+    type: "tool",
   },
   {
     name: "Terraform",
@@ -117,7 +117,7 @@ export const technologies: TechnologyContent[] = [
     name: "Neo4j",
     description: "Graph database management system",
     website: "https://neo4j.com",
-    type: "platform",
+    type: "database",
   },
   {
     name: "Embla Carousel",
@@ -148,13 +148,13 @@ export const technologies: TechnologyContent[] = [
     name: "Weaviate",
     description: "Open-source vector database",
     website: "https://weaviate.io",
-    type: "platform",
+    type: "database",
   },
   {
     name: "Doppler",
     description: "SecretOps platform for managing environment variables",
     website: "https://www.doppler.com",
-    type: "platform",
+    type: "tool",
   },
   {
     name: "Recharts",
@@ -227,7 +227,7 @@ export const technologies: TechnologyContent[] = [
     name: "Shortcut",
     description: "Project management platform",
     website: "https://shortcut.com",
-    type: "platform",
+    type: "tool",
   },
   {
     name: "GitHub Secrets",
@@ -235,6 +235,7 @@ export const technologies: TechnologyContent[] = [
     website:
       "https://docs.github.com/en/actions/security-guides/encrypted-secrets",
     iconSlug: "github",
+    type: "tool",
   },
   {
     name: "Cloudflare Terraform Provider",
@@ -363,7 +364,7 @@ export const technologies: TechnologyContent[] = [
     name: "Google BigQuery",
     description: "Serverless, highly scalable data warehouse",
     website: "https://cloud.google.com/bigquery",
-    type: "platform",
+    type: "database",
   },
   {
     name: "Google Gemini",
@@ -381,14 +382,14 @@ export const technologies: TechnologyContent[] = [
     name: "Hugging Face",
     description: "AI community and model hub",
     website: "https://huggingface.co",
-    type: "platform",
+    type: "library",
   },
   {
     name: "Jenkins",
     description:
       "A CI/CD platform for automating software development workflows",
     website: "https://www.jenkins.io",
-    type: "platform",
+    type: "tool",
   },
   {
     name: "Keras",
@@ -415,7 +416,7 @@ export const technologies: TechnologyContent[] = [
     website: "https://nodejs.org",
     type: "platform",
   },
-  { name: "OpenAI", website: "https://openai.com", type: "platform" },
+  { name: "OpenAI", website: "https://openai.com", type: "tool" },
   {
     name: "OpenCV",
     description: "Open source computer vision library",
@@ -426,7 +427,7 @@ export const technologies: TechnologyContent[] = [
     name: "OpenRouter",
     description: "Unified API for LLM inference",
     website: "https://openrouter.ai",
-    type: "platform",
+    type: "tool",
   },
   {
     name: "Plotly",
@@ -440,7 +441,7 @@ export const technologies: TechnologyContent[] = [
     description:
       "A relational database optimized for extensibility and advanced data management",
     website: "https://www.postgresql.org",
-    type: "platform",
+    type: "database",
   },
   {
     name: "Prisma",
@@ -452,12 +453,13 @@ export const technologies: TechnologyContent[] = [
     name: "Prometheus",
     description: "A time-series database for collecting and querying metrics",
     website: "https://prometheus.io",
-    type: "platform",
+    type: "database",
   },
   {
     name: "Pulumi",
     description: "Infrastructure as code using general-purpose languages",
     website: "https://www.pulumi.com",
+    type: "library",
   },
   {
     name: "PyTorch",
@@ -484,7 +486,7 @@ export const technologies: TechnologyContent[] = [
       "A cloud-based CI/CD platform for automating software development workflows",
     website: "https://semaphoreci.com",
     iconSlug: "semaphore",
-    type: "platform",
+    type: "tool",
   },
   {
     name: "Stanford NLP",
@@ -515,7 +517,7 @@ export const technologies: TechnologyContent[] = [
     name: "ksqlDB",
     description: "Database purpose-built for stream processing",
     website: "https://ksqldb.io",
-    type: "platform",
+    type: "database",
   },
   {
     name: "spaCy",
