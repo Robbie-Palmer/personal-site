@@ -82,7 +82,7 @@ function SheetContent({
         <SheetPrimitive.Content
           data-slot="sheet-content"
           className={cn(
-            "bg-background fixed z-50 flex flex-col gap-4 shadow-lg inset-x-0 bottom-0 h-auto border-t rounded-t-xl",
+            "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom fixed z-50 flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 inset-x-0 bottom-0 h-auto border-t rounded-t-xl",
             className,
           )}
           asChild
