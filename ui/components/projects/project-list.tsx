@@ -1,10 +1,11 @@
 "use client";
 
-import { Briefcase, Circle, FolderGit2 } from "lucide-react";
+import { Briefcase, Circle, FolderGit2, Tag } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import {
   createRoleFilterOptions,
   createStatusFilterOptions,
+  createTagFilterOptions,
   createTechFilterOptions,
   useCommandPalette,
 } from "@/components/command-palette";
@@ -52,15 +53,27 @@ export function ProjectList({ projects }: ProjectListProps) {
     );
   }, [projects]);
 
+  const allTags = useMemo(() => {
+    const tags = new Set<string>();
+    for (const project of projects) {
+      for (const tag of project.tags) {
+        tags.add(tag);
+      }
+    }
+    return Array.from(tags).sort();
+  }, [projects]);
+
   const filterParams = useFilterParams({
     filters: [
       { paramName: "tech", isMulti: true },
       { paramName: "status", isMulti: true },
       { paramName: "role", isMulti: true },
+      { paramName: "tags", isMulti: true },
     ],
   });
 
   const selectedTech = filterParams.getValues("tech");
+  const selectedTags = filterParams.getValues("tags");
   const { registerFilters, unregisterFilters } = useCommandPalette();
 
   useEffect(() => {
@@ -73,10 +86,11 @@ export function ProjectList({ projects }: ProjectListProps) {
           label: config.label,
         })),
       ),
+      ...createTagFilterOptions(allTags),
     ];
     registerFilters(filters);
     return () => unregisterFilters();
-  }, [allTechnologies, allRoles, registerFilters, unregisterFilters]);
+  }, [allTechnologies, allRoles, allTags, registerFilters, unregisterFilters]);
 
   return (
     <FilterableCardGrid
@@ -89,6 +103,7 @@ export function ProjectList({ projects }: ProjectListProps) {
           { name: "title", weight: 3 },
           { name: "description", weight: 2 },
           { name: "technologies.name", weight: 2 },
+          { name: "tags", weight: 2 },
           { name: "content", weight: 1 },
         ],
         threshold: 0.3,
@@ -141,6 +156,15 @@ export function ProjectList({ projects }: ProjectListProps) {
             );
           },
         },
+        {
+          paramName: "tags",
+          isMulti: true,
+          label: "Tags",
+          getItemValues: (project) => project.tags,
+          icon: <Tag className="h-4 w-4" />,
+          getValueLabel: (value) => value,
+          getOptionIcon: () => <Tag className="h-3 w-3" />,
+        },
       ]}
       dateRangeConfig={{
         getDate: (project) => project.date,
@@ -159,6 +183,8 @@ export function ProjectList({ projects }: ProjectListProps) {
           project={project}
           selectedTech={selectedTech}
           onTechClick={(tech) => filterParams.toggleValue("tech", tech)}
+          selectedTags={selectedTags}
+          onTagClick={(tag) => filterParams.toggleValue("tags", tag)}
         />
       )}
     />

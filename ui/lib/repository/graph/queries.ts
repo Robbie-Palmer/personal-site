@@ -146,6 +146,13 @@ export function getTagsForContent(
   return graph.edges.hasTag.get(nodeId) ?? new Set();
 }
 
+export function getTagsForProject(
+  graph: ContentGraph,
+  slug: ProjectSlug,
+): Set<string> {
+  return getTagsForContent(graph, makeNodeId("project", slug));
+}
+
 export function getContentForTag(
   graph: ContentGraph,
   tag: string,

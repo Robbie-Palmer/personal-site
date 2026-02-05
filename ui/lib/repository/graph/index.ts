@@ -17,6 +17,7 @@ export {
   getSupersededADR,
   getSupersedingADR,
   getTagsForContent,
+  getTagsForProject,
   getTechnologiesForADR,
   getTechnologiesForBlog,
   getTechnologiesForProject,

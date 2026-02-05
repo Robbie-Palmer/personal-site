@@ -16,6 +16,7 @@ export type ProjectCardView = {
   technologies: TechnologyBadgeView[];
   adrCount: number;
   role?: RoleListItemView;
+  tags: string[];
 };
 
 export type ProjectDetailView = {
@@ -32,6 +33,7 @@ export type ProjectDetailView = {
   technologies: TechnologyBadgeView[];
   adrSlugs: string[];
   role?: RoleListItemView;
+  tags: string[];
 };
 
 export type ProjectListItemView = {
@@ -55,13 +57,15 @@ export type ProjectWithADRsView = {
   adrSlugs: string[];
   adrs: ADRCardView[];
   role?: RoleListItemView;
+  tags: string[];
 };
 
 export function toProjectCardView(
   project: Project,
   technologies: TechnologyBadgeView[],
   adrCount: number,
-  role?: RoleListItemView,
+  role: RoleListItemView | undefined,
+  tags: string[],
 ): ProjectCardView {
   return {
     slug: project.slug,
@@ -76,6 +80,7 @@ export function toProjectCardView(
     technologies,
     adrCount,
     role,
+    tags,
   };
 }
 
@@ -83,7 +88,8 @@ export function toProjectDetailView(
   project: Project,
   technologies: TechnologyBadgeView[],
   adrSlugs: string[],
-  role?: RoleListItemView,
+  role: RoleListItemView | undefined,
+  tags: string[],
 ): ProjectDetailView {
   return {
     slug: project.slug,
@@ -99,6 +105,7 @@ export function toProjectDetailView(
     technologies,
     adrSlugs,
     role,
+    tags,
   };
 }
 

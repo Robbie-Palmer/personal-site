@@ -75,6 +75,7 @@ export const ProjectRelationsSchema = z.object({
   technologies: z.array(TechnologySlugSchema).default([]),
   adrs: z.array(ADRSlugSchema).default([]),
   role: RoleSlugSchema.optional(),
+  tags: z.array(z.string()).default([]),
 });
 
 export type ProjectRelations = z.infer<typeof ProjectRelationsSchema>;

@@ -9,6 +9,7 @@ export interface RelationData {
   projectTechnologies: Map<ProjectSlug, TechnologySlug[]>;
   projectADRs: Map<ProjectSlug, ADRSlug[]>;
   projectRole: Map<ProjectSlug, RoleSlug>;
+  projectTags: Map<ProjectSlug, string[]>;
   blogTechnologies: Map<BlogSlug, TechnologySlug[]>;
   blogTags: Map<BlogSlug, string[]>;
   adrTechnologies: Map<ADRSlug, TechnologySlug[]>;
@@ -22,6 +23,7 @@ export function createEmptyRelationData(): RelationData {
     projectTechnologies: new Map(),
     projectADRs: new Map(),
     projectRole: new Map(),
+    projectTags: new Map(),
     blogTechnologies: new Map(),
     blogTags: new Map(),
     adrTechnologies: new Map(),
@@ -66,6 +68,9 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
 
   for (const [slug, technologies] of relations.projectTechnologies) {
     addTechnologyEdges(graph, makeNodeId("project", slug), technologies);
+  }
+  for (const [slug, tags] of relations.projectTags) {
+    addTagEdges(graph, makeNodeId("project", slug), tags);
   }
 
   for (const [slug, technologies] of relations.adrTechnologies) {
