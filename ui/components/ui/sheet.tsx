@@ -4,6 +4,7 @@ import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { XIcon } from "lucide-react";
 import { animate, motion, useMotionValue } from "motion/react";
 import type * as React from "react";
+import { useRef } from "react";
 
 import { cn } from "@/lib/generic/styles";
 
@@ -54,6 +55,7 @@ function SheetContent({
   side?: "top" | "right" | "bottom" | "left";
 }) {
   const y = useMotionValue(0);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleDragEnd = (
     _: unknown,
@@ -61,13 +63,7 @@ function SheetContent({
   ) => {
     // Close if dragged down more than 100px or with high velocity
     if (info.offset.y > 100 || info.velocity.y > 500) {
-      // Find and click the close button to properly close via Radix
-      const closeButton = document.querySelector(
-        '[data-slot="sheet-content"] [data-slot="sheet-close"]',
-      );
-      if (closeButton instanceof HTMLElement) {
-        closeButton.click();
-      }
+      closeButtonRef.current?.click();
     } else {
       // Snap back to original position
       animate(y, 0, { type: "spring", stiffness: 300, damping: 30 });
@@ -101,6 +97,7 @@ function SheetContent({
             </div>
             {children}
             <SheetPrimitive.Close
+              ref={closeButtonRef}
               data-slot="sheet-close"
               className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
             >
