@@ -305,7 +305,7 @@ export const technologies: TechnologyContent[] = [
     name: "Bitbucket Pipelines",
     description: "CI/CD service built into Bitbucket",
     website: "https://bitbucket.org/product/features/pipelines",
-    type: "platform",
+    type: "tool",
   },
   { name: "C++", website: "https://isocpp.org", type: "language" },
   {
@@ -370,13 +370,13 @@ export const technologies: TechnologyContent[] = [
     name: "Google Gemini",
     description: "A cloud-based multimodal large language model",
     website: "https://deepmind.google/technologies/gemini/",
-    type: "platform",
+    type: "tool",
   },
   {
     name: "Grafana",
     description: "Open source analytics and monitoring platform",
     website: "https://grafana.com",
-    type: "platform",
+    type: "tool",
   },
   {
     name: "Hugging Face",
@@ -517,7 +517,7 @@ export const technologies: TechnologyContent[] = [
     name: "ksqlDB",
     description: "Database purpose-built for stream processing",
     website: "https://ksqldb.io",
-    type: "database",
+    type: "tool",
   },
   {
     name: "spaCy",
@@ -552,7 +552,7 @@ export const technologies: TechnologyContent[] = [
     description:
       "Machine learning service that automatically extracts text, handwriting, and data from scanned documents",
     website: "https://aws.amazon.com/textract/",
-    type: "platform",
+    type: "tool",
   },
   {
     name: "PyPika",
