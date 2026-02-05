@@ -3,8 +3,10 @@
 import Fuse, { type FuseResult } from "fuse.js";
 import { Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { TechnologyTypeFilter } from "@/components/filters/technology-type-filter";
 import { TechnologyCard } from "@/components/technology/technology-card";
 import { Input } from "@/components/ui/input";
+import type { TechnologyType } from "@/lib/domain/technology/technology";
 import type { TechnologyBadgeView } from "@/lib/domain/technology/technologyViews";
 
 interface RankedTechnology {
@@ -20,6 +22,7 @@ export function SearchableTechnologyGrid({
   technologies,
 }: SearchableTechnologyGridProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
 
   const fuse = useMemo(
     () =>
@@ -32,13 +35,26 @@ export function SearchableTechnologyGrid({
   );
 
   const filteredTechnologies = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return technologies;
+    let results = technologies;
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      results = fuse
+        .search(searchQuery)
+        .map((result: FuseResult<RankedTechnology>) => result.item);
     }
-    return fuse
-      .search(searchQuery)
-      .map((result: FuseResult<RankedTechnology>) => result.item);
-  }, [fuse, searchQuery, technologies]);
+
+    // Apply type filter
+    if (selectedTypes.length > 0) {
+      results = results.filter((tech) =>
+        selectedTypes.includes(tech.badge.type as TechnologyType),
+      );
+    }
+
+    return results;
+  }, [fuse, searchQuery, selectedTypes, technologies]);
+
+  const hasActiveFilters = selectedTypes.length > 0;
 
   return (
     <div className="space-y-6">
@@ -64,12 +80,27 @@ export function SearchableTechnologyGrid({
             </button>
           )}
         </div>
+        <TechnologyTypeFilter
+          value={selectedTypes}
+          onChange={setSelectedTypes}
+          size="sm"
+        />
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={() => setSelectedTypes([])}
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            Clear filters
+          </button>
+        )}
       </div>
 
-      {searchQuery && filteredTechnologies.length > 0 && (
+      {(searchQuery || hasActiveFilters) && filteredTechnologies.length > 0 && (
         <p className="text-sm text-muted-foreground">
           Showing {filteredTechnologies.length} of {technologies.length}{" "}
-          technologies matching &quot;{searchQuery}&quot;
+          technologies
+          {searchQuery && <> matching &quot;{searchQuery}&quot;</>}
         </p>
       )}
 
@@ -77,7 +108,11 @@ export function SearchableTechnologyGrid({
         <div className="text-center py-12 text-muted-foreground border rounded-lg bg-muted/20">
           <div className="flex flex-col items-center gap-2">
             <Search className="w-10 h-10 text-muted-foreground/50" />
-            <p>No technologies found matching &quot;{searchQuery}&quot;</p>
+            <p>
+              No technologies found
+              {searchQuery && <> matching &quot;{searchQuery}&quot;</>}
+              {hasActiveFilters && <> with the selected filters</>}
+            </p>
           </div>
         </div>
       ) : (

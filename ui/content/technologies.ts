@@ -24,6 +24,7 @@ export const technologies: TechnologyContent[] = [
     name: "AWS",
     description: "Amazon Web Services - Cloud computing platform",
     website: "https://aws.amazon.com",
+    type: "platform",
   },
   {
     name: "Java",
@@ -36,6 +37,7 @@ export const technologies: TechnologyContent[] = [
     description:
       "A dynamically typed language widely used for ML, data, and automation",
     website: "https://www.python.org",
+    type: "language",
   },
   {
     name: "pnpm",
@@ -94,6 +96,7 @@ export const technologies: TechnologyContent[] = [
     name: "Zod",
     description: "TypeScript-first schema validation",
     website: "https://zod.dev",
+    type: "library",
   },
   {
     name: "Neo4j",

@@ -1,6 +1,6 @@
 import type { DomainRepository } from "@/lib/repository";
 import { getTechSlug, hasTechIcon } from "../../api/tech-icons";
-import type { Technology, TechnologySlug } from "./technology";
+import type { Technology, TechnologySlug, TechnologyType } from "./technology";
 
 export type TechnologyLabelView = {
   slug: string;
@@ -13,6 +13,7 @@ export type TechnologyBadgeView = {
   iconSlug: string;
   hasIcon: boolean;
   website: string;
+  type?: TechnologyType;
 };
 
 export type TechnologyLinkView = {
@@ -45,6 +46,7 @@ export function toTechnologyBadgeView(tech: Technology): TechnologyBadgeView {
     iconSlug,
     hasIcon: hasTechIcon(tech.name, iconSlug),
     website: tech.website,
+    type: tech.type,
   };
 }
 
