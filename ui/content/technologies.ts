@@ -14,6 +14,7 @@ export const technologies: TechnologyContent[] = [
     name: "TypeScript",
     description: "TypeScript is JavaScript with syntax for types",
     website: "https://www.typescriptlang.org",
+    type: "language",
   },
   {
     name: "Tailwind CSS",
@@ -31,6 +32,7 @@ export const technologies: TechnologyContent[] = [
     description:
       "A statically typed, object-oriented language running on the JVM",
     website: "https://www.java.com",
+    type: "language",
   },
   {
     name: "Python",
@@ -59,12 +61,14 @@ export const technologies: TechnologyContent[] = [
     name: "GitHub",
     description: "Development platform for version control and collaboration",
     website: "https://github.com",
+    type: "platform",
   },
   {
     name: "GitHub Actions",
     description:
       "A workflow automation platform integrated with GitHub repositories",
     website: "https://github.com/features/actions",
+    type: "platform",
   },
   {
     name: "Terraform",
@@ -76,6 +80,7 @@ export const technologies: TechnologyContent[] = [
     name: "Cloudflare Pages",
     description: "JAMstack platform for frontend developers",
     website: "https://pages.cloudflare.com",
+    type: "platform",
   },
   {
     name: "MDX",
@@ -102,6 +107,7 @@ export const technologies: TechnologyContent[] = [
     name: "Neo4j",
     description: "Graph database management system",
     website: "https://neo4j.com",
+    type: "platform",
   },
   {
     name: "Embla Carousel",
@@ -123,16 +129,19 @@ export const technologies: TechnologyContent[] = [
     name: "C#",
     description: "A statically typed, object-oriented language running on .NET",
     website: "https://docs.microsoft.com/en-us/dotnet/csharp/",
+    type: "language",
   },
   {
     name: "Weaviate",
     description: "Open-source vector database",
     website: "https://weaviate.io",
+    type: "platform",
   },
   {
     name: "Doppler",
     description: "SecretOps platform for managing environment variables",
     website: "https://www.doppler.com",
+    type: "platform",
   },
   {
     name: "Recharts",
@@ -194,6 +203,7 @@ export const technologies: TechnologyContent[] = [
     name: "Shortcut",
     description: "Project management platform",
     website: "https://shortcut.com",
+    type: "platform",
   },
   {
     name: "GitHub Secrets",
@@ -212,18 +222,21 @@ export const technologies: TechnologyContent[] = [
     name: "Cloudflare DNS",
     website: "https://www.cloudflare.com/dns",
     iconSlug: "cloudflare",
+    type: "platform",
   },
   {
     name: "Cloudflare Rulesets",
     description: "Rules for transforming and routing HTTP requests at the edge",
     website: "https://developers.cloudflare.com/ruleset-engine/",
     iconSlug: "cloudflare",
+    type: "platform",
   },
   {
     name: "Cloudflare Images",
     description: "Image optimization and delivery service",
     website: "https://www.cloudflare.com/products/images",
     iconSlug: "cloudflare",
+    type: "platform",
   },
   {
     name: "Terraform Cloud",
@@ -231,6 +244,7 @@ export const technologies: TechnologyContent[] = [
       "A SaaS platform for running Terraform and managing infrastructure state",
     website: "https://www.hashicorp.com/products/terraform",
     iconSlug: "terraform",
+    type: "platform",
   },
   {
     name: "Tailwind CSS Typography",
@@ -238,7 +252,7 @@ export const technologies: TechnologyContent[] = [
     website: "https://github.com/tailwindlabs/tailwindcss-typography",
     iconSlug: "tailwindcss",
   },
-  { name: ".NET", website: "https://dotnet.microsoft.com" },
+  { name: ".NET", website: "https://dotnet.microsoft.com", type: "platform" },
   {
     name: "Ansible",
     description:
@@ -250,6 +264,7 @@ export const technologies: TechnologyContent[] = [
     description: "Distributed event streaming platform",
     website: "https://kafka.apache.org",
     iconSlug: "apachekafka",
+    type: "platform",
   },
   {
     name: "Arduino",
@@ -261,12 +276,14 @@ export const technologies: TechnologyContent[] = [
     name: "Bitbucket Pipelines",
     description: "CI/CD service built into Bitbucket",
     website: "https://bitbucket.org/product/features/pipelines",
+    type: "platform",
   },
-  { name: "C++", website: "https://isocpp.org" },
+  { name: "C++", website: "https://isocpp.org", type: "language" },
   {
     name: "Cloudflare Workers",
     description: "Serverless execution environment",
     website: "https://workers.cloudflare.com",
+    type: "platform",
   },
   {
     name: "DVC",
@@ -295,6 +312,7 @@ export const technologies: TechnologyContent[] = [
       "A distributed system for stateful, high-throughput, low-latency data processing",
     website: "https://flink.apache.org",
     iconSlug: "apacheflink",
+    type: "platform",
   },
   {
     name: "GeoPandas",
@@ -306,32 +324,38 @@ export const technologies: TechnologyContent[] = [
     description:
       "A statically typed, compiled language designed for simplicity and concurrency",
     website: "https://go.dev",
+    type: "language",
   },
   {
     name: "Google BigQuery",
     description: "Serverless, highly scalable data warehouse",
     website: "https://cloud.google.com/bigquery",
+    type: "platform",
   },
   {
     name: "Google Gemini",
     description: "A cloud-based multimodal large language model",
     website: "https://deepmind.google/technologies/gemini/",
+    type: "platform",
   },
   {
     name: "Grafana",
     description: "Open source analytics and monitoring platform",
     website: "https://grafana.com",
+    type: "platform",
   },
   {
     name: "Hugging Face",
     description: "AI community and model hub",
     website: "https://huggingface.co",
+    type: "platform",
   },
   {
     name: "Jenkins",
     description:
       "A CI/CD platform for automating software development workflows",
     website: "https://www.jenkins.io",
+    type: "platform",
   },
   {
     name: "Keras",
@@ -343,6 +367,7 @@ export const technologies: TechnologyContent[] = [
     description:
       "A modern JVM language blending OOP and functional programming",
     website: "https://kotlinlang.org",
+    type: "language",
   },
   {
     name: "Leaflet",
@@ -353,8 +378,9 @@ export const technologies: TechnologyContent[] = [
     name: "Node.js",
     description: "JavaScript runtime built on Chrome's V8 engine",
     website: "https://nodejs.org",
+    type: "platform",
   },
-  { name: "OpenAI", website: "https://openai.com" },
+  { name: "OpenAI", website: "https://openai.com", type: "platform" },
   {
     name: "OpenCV",
     description: "Open source computer vision library",
@@ -364,6 +390,7 @@ export const technologies: TechnologyContent[] = [
     name: "OpenRouter",
     description: "Unified API for LLM inference",
     website: "https://openrouter.ai",
+    type: "platform",
   },
   {
     name: "Plotly",
@@ -376,6 +403,7 @@ export const technologies: TechnologyContent[] = [
     description:
       "A relational database optimized for extensibility and advanced data management",
     website: "https://www.postgresql.org",
+    type: "platform",
   },
   {
     name: "Prisma",
@@ -386,6 +414,7 @@ export const technologies: TechnologyContent[] = [
     name: "Prometheus",
     description: "A time-series database for collecting and querying metrics",
     website: "https://prometheus.io",
+    type: "platform",
   },
   {
     name: "Pulumi",
@@ -402,11 +431,13 @@ export const technologies: TechnologyContent[] = [
     name: "RabbitMQ",
     description: "A broker for asynchronous messaging and task distribution",
     website: "https://www.rabbitmq.com",
+    type: "platform",
   },
   {
     name: "SQL",
     description: "Domain-specific language for managing relational databases",
     website: "https://en.wikipedia.org/wiki/SQL",
+    type: "language",
   },
   {
     name: "SemaphoreCI",
@@ -414,6 +445,7 @@ export const technologies: TechnologyContent[] = [
       "A cloud-based CI/CD platform for automating software development workflows",
     website: "https://semaphoreci.com",
     iconSlug: "semaphore",
+    type: "platform",
   },
   {
     name: "Stanford NLP",
@@ -425,11 +457,13 @@ export const technologies: TechnologyContent[] = [
     description:
       "A compiled, type-safe language for developing applications across Apple platforms",
     website: "https://www.swift.org",
+    type: "language",
   },
   {
     name: "T-SQL",
     description: "Microsoft's extension of SQL",
     website: "https://docs.microsoft.com/en-us/sql/t-sql/",
+    type: "language",
   },
   {
     name: "TensorRT",
@@ -440,6 +474,7 @@ export const technologies: TechnologyContent[] = [
     name: "ksqlDB",
     description: "Database purpose-built for stream processing",
     website: "https://ksqldb.io",
+    type: "platform",
   },
   {
     name: "spaCy",
@@ -459,6 +494,7 @@ export const technologies: TechnologyContent[] = [
   {
     name: "R",
     website: "https://www.r-project.org/",
+    type: "language",
   },
   {
     name: "Shiny",
@@ -469,6 +505,7 @@ export const technologies: TechnologyContent[] = [
     description:
       "Machine learning service that automatically extracts text, handwriting, and data from scanned documents",
     website: "https://aws.amazon.com/textract/",
+    type: "platform",
   },
   {
     name: "PyPika",
