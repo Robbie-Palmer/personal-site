@@ -2,6 +2,7 @@
 
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { XIcon } from "lucide-react";
+import { animate, motion, useMotionValue } from "motion/react";
 import type * as React from "react";
 
 import { cn } from "@/lib/generic/styles";
@@ -52,6 +53,66 @@ function SheetContent({
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left";
 }) {
+  const y = useMotionValue(0);
+
+  const handleDragEnd = (
+    _: unknown,
+    info: { offset: { y: number }; velocity: { y: number } },
+  ) => {
+    // Close if dragged down more than 100px or with high velocity
+    if (info.offset.y > 100 || info.velocity.y > 500) {
+      // Find and click the close button to properly close via Radix
+      const closeButton = document.querySelector(
+        '[data-slot="sheet-content"] [data-slot="sheet-close"]',
+      );
+      if (closeButton instanceof HTMLElement) {
+        closeButton.click();
+      }
+    } else {
+      // Snap back to original position
+      animate(y, 0, { type: "spring", stiffness: 300, damping: 30 });
+    }
+  };
+
+  // For bottom sheets, wrap content in motion.div for drag handling
+  if (side === "bottom") {
+    return (
+      <SheetPortal>
+        <SheetOverlay />
+        <SheetPrimitive.Content
+          data-slot="sheet-content"
+          className={cn(
+            "bg-background fixed z-50 flex flex-col gap-4 shadow-lg inset-x-0 bottom-0 h-auto border-t rounded-t-xl",
+            className,
+          )}
+          asChild
+          {...props}
+        >
+          <motion.div
+            style={{ y }}
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.5 }}
+            onDragEnd={handleDragEnd}
+          >
+            {/* Drag handle indicator */}
+            <div className="flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing touch-none">
+              <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+            </div>
+            {children}
+            <SheetPrimitive.Close
+              data-slot="sheet-close"
+              className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
+            >
+              <XIcon className="size-4" />
+              <span className="sr-only">Close</span>
+            </SheetPrimitive.Close>
+          </motion.div>
+        </SheetPrimitive.Content>
+      </SheetPortal>
+    );
+  }
+
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -65,8 +126,6 @@ function SheetContent({
             "data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm",
           side === "top" &&
             "data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top inset-x-0 top-0 h-auto border-b",
-          side === "bottom" &&
-            "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t",
           className,
         )}
         {...props}
