@@ -4,12 +4,14 @@ import {
   FileText,
   FolderKanban,
   type LucideIcon,
+  Map,
 } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import { LazyLeafletMapDemo } from "@/components/technology/lazy-leaflet-map-demo";
 import { TechPagination } from "@/components/technology/tech-pagination";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -202,6 +204,19 @@ export default async function TechnologyPage({ params }: PageProps) {
             className={PAGINATION_CONTAINER_CLASSES}
           />
         </div>
+
+        {slug === "leaflet" && (
+          <>
+            <Separator />
+            <section>
+              <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+                <Map className="w-5 h-5 text-primary" />
+                Demo
+              </h2>
+              <LazyLeafletMapDemo />
+            </section>
+          </>
+        )}
 
         {hasRelatedContent && (
           <>
