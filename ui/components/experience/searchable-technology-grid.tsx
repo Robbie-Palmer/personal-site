@@ -1,10 +1,19 @@
 "use client";
 
 import Fuse, { type FuseResult } from "fuse.js";
-import { Search, X } from "lucide-react";
+import { Circle, Search } from "lucide-react";
 import { useMemo, useState } from "react";
+import { TechnologyTypeFilter } from "@/components/filters/technology-type-filter";
 import { TechnologyCard } from "@/components/technology/technology-card";
-import { Input } from "@/components/ui/input";
+import {
+  FilterBar,
+  type MobileFilterSection,
+} from "@/components/ui/filter-bar";
+import {
+  TECHNOLOGY_TYPE_CONFIG,
+  TECHNOLOGY_TYPES,
+  type TechnologyType,
+} from "@/lib/domain/technology/technology";
 import type { TechnologyBadgeView } from "@/lib/domain/technology/technologyViews";
 
 interface RankedTechnology {
@@ -20,6 +29,7 @@ export function SearchableTechnologyGrid({
   technologies,
 }: SearchableTechnologyGridProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
 
   const fuse = useMemo(
     () =>
@@ -32,44 +42,91 @@ export function SearchableTechnologyGrid({
   );
 
   const filteredTechnologies = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return technologies;
+    let results = technologies;
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      results = fuse
+        .search(searchQuery)
+        .map((result: FuseResult<RankedTechnology>) => result.item);
     }
-    return fuse
-      .search(searchQuery)
-      .map((result: FuseResult<RankedTechnology>) => result.item);
-  }, [fuse, searchQuery, technologies]);
+
+    // Apply type filter
+    if (selectedTypes.length > 0) {
+      results = results.filter((tech) =>
+        selectedTypes.includes(tech.badge.type as TechnologyType),
+      );
+    }
+
+    return results;
+  }, [fuse, searchQuery, selectedTypes, technologies]);
+
+  const hasActiveFilters = selectedTypes.length > 0;
+
+  const activeFilters = selectedTypes.map((type) => {
+    const config = TECHNOLOGY_TYPE_CONFIG[type as TechnologyType];
+    return {
+      paramName: "type",
+      label: "Type",
+      value: type,
+      displayValue: config.label,
+      icon: <Circle className={`size-2 fill-current ${config.color}`} />,
+    };
+  });
+
+  const handleRemoveFilter = (_paramName: string, value: string) => {
+    setSelectedTypes((prev) => prev.filter((t) => t !== value));
+  };
+
+  const handleToggleType = (value: string) => {
+    setSelectedTypes((prev) =>
+      prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value],
+    );
+  };
+
+  const mobileFilterSections: MobileFilterSection[] = [
+    {
+      paramName: "type",
+      label: "Type",
+      options: TECHNOLOGY_TYPES.map((type) => ({
+        value: type,
+        label: TECHNOLOGY_TYPE_CONFIG[type].label,
+        icon: (
+          <Circle
+            className={`size-2 fill-current ${TECHNOLOGY_TYPE_CONFIG[type].color}`}
+          />
+        ),
+      })),
+      selectedValues: selectedTypes,
+      onToggle: handleToggleType,
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search technologies..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 pr-9"
-            aria-label="Search technologies"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              aria-label="Clear search"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      </div>
+      <FilterBar
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search technologies..."
+        activeFilters={activeFilters}
+        onRemoveFilter={handleRemoveFilter}
+        onClearAll={() => setSelectedTypes([])}
+        hasActiveFilters={hasActiveFilters}
+        activeFilterCount={selectedTypes.length}
+        mobileFilterSections={mobileFilterSections}
+      >
+        <TechnologyTypeFilter
+          value={selectedTypes}
+          onChange={setSelectedTypes}
+          size="sm"
+        />
+      </FilterBar>
 
-      {searchQuery && filteredTechnologies.length > 0 && (
+      {(searchQuery || hasActiveFilters) && filteredTechnologies.length > 0 && (
         <p className="text-sm text-muted-foreground">
           Showing {filteredTechnologies.length} of {technologies.length}{" "}
-          technologies matching &quot;{searchQuery}&quot;
+          technologies
+          {searchQuery && <> matching &quot;{searchQuery}&quot;</>}
         </p>
       )}
 
@@ -77,7 +134,11 @@ export function SearchableTechnologyGrid({
         <div className="text-center py-12 text-muted-foreground border rounded-lg bg-muted/20">
           <div className="flex flex-col items-center gap-2">
             <Search className="w-10 h-10 text-muted-foreground/50" />
-            <p>No technologies found matching &quot;{searchQuery}&quot;</p>
+            <p>
+              No technologies found
+              {searchQuery && <> matching &quot;{searchQuery}&quot;</>}
+              {hasActiveFilters && <> with the selected filters</>}
+            </p>
           </div>
         </div>
       ) : (
