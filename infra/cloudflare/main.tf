@@ -77,7 +77,7 @@ resource "cloudflare_record" "robbiepalmer_me_www" {
 resource "cloudflare_r2_bucket" "map_tiles" {
   account_id = var.cloudflare_account_id
   name       = var.r2_map_tiles_bucket_name
-  location   = "ENAM" # Eastern North America - closest to most users
+  location   = "WEUR"
 }
 
 resource "cloudflare_ruleset" "map_tiles_cache" {
