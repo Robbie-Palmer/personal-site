@@ -269,34 +269,38 @@ export function BlogList({ posts }: BlogListProps) {
                 <span className="mx-2">&middot;</span>
                 <span>{post.readingTime}</span>
               </div>
-              {post.role && (
-                <>
-                  <span>&middot;</span>
-                  <Badge
-                    variant={
-                      selectedRoles.includes(post.role.slug)
-                        ? "default"
-                        : "outline"
-                    }
-                    interactive
-                    active={selectedRoles.includes(post.role.slug)}
-                    className="gap-1 text-xs cursor-pointer"
-                    onClick={() =>
-                      filterParams.toggleValue("role", post.role.slug)
-                    }
-                  >
-                    {/* biome-ignore lint/performance/noImgElement: Small icon, no need for next/image */}
-                    <img
-                      src={post.role.logoPath}
-                      alt={`${post.role.company} logo`}
-                      width={12}
-                      height={12}
-                      className="size-3 object-contain"
-                    />
-                    {post.role.company}
-                  </Badge>
-                </>
-              )}
+              {post.role &&
+                (() => {
+                  const role = post.role;
+                  return (
+                    <>
+                      <span>&middot;</span>
+                      <Badge
+                        variant={
+                          selectedRoles.includes(role.slug)
+                            ? "default"
+                            : "outline"
+                        }
+                        interactive
+                        active={selectedRoles.includes(role.slug)}
+                        className="gap-1 text-xs cursor-pointer"
+                        onClick={() =>
+                          filterParams.toggleValue("role", role.slug)
+                        }
+                      >
+                        {/* biome-ignore lint/performance/noImgElement: Small icon, no need for next/image */}
+                        <img
+                          src={role.logoPath}
+                          alt={`${role.company} logo`}
+                          width={12}
+                          height={12}
+                          className="size-3 object-contain"
+                        />
+                        {role.company}
+                      </Badge>
+                    </>
+                  );
+                })()}
             </div>
           </CardContent>
         </Card>
