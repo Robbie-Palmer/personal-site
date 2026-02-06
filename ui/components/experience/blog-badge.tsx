@@ -17,7 +17,11 @@ export function BlogBadge({ blog, className }: BlogBadgeProps) {
       onClick={(e) => e.stopPropagation()}
       aria-label={`View blog post ${blog.title}`}
     >
-      <Badge variant="outline" interactive className={cn(className)}>
+      <Badge
+        variant="outline"
+        interactive
+        className={cn("max-w-64 truncate", className)}
+      >
         {blog.title}
       </Badge>
     </Link>
