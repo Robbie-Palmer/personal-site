@@ -177,3 +177,17 @@ export function getProjectsForRole(
 ): Set<ProjectSlug> {
   return graph.reverse.roleProjects.get(slug) ?? new Set();
 }
+
+export function getRoleForBlog(
+  graph: ContentGraph,
+  slug: BlogSlug,
+): RoleSlug | undefined {
+  return graph.edges.writtenAtRole.get(slug);
+}
+
+export function getBlogsForRole(
+  graph: ContentGraph,
+  slug: RoleSlug,
+): Set<BlogSlug> {
+  return graph.reverse.roleBlogs.get(slug) ?? new Set();
+}
