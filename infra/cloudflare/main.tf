@@ -74,3 +74,34 @@ resource "cloudflare_record" "robbiepalmer_me_www" {
   proxied = true
 }
 
+resource "cloudflare_r2_bucket" "map_tiles" {
+  account_id = var.cloudflare_account_id
+  name       = var.r2_map_tiles_bucket_name
+  location   = "ENAM" # Eastern North America - closest to most users
+}
+
+resource "cloudflare_ruleset" "map_tiles_cache" {
+  zone_id     = data.cloudflare_zone.domain.id
+  name        = "Map tiles cache settings"
+  description = "Aggressive caching for immutable map tile images"
+  kind        = "zone"
+  phase       = "http_request_cache_settings"
+
+  rules {
+    ref         = "map_tiles_edge_cache"
+    description = "Cache map tiles at edge for 1 year"
+    expression  = "(http.host eq \"${var.r2_map_tiles_subdomain}.${var.domain_name}\")"
+    action      = "set_cache_settings"
+    action_parameters {
+      edge_ttl {
+        mode    = "override_origin"
+        default = 365 * 24 * 60 * 60 # 1 year in seconds  
+      }
+      browser_ttl {
+        mode    = "override_origin"
+        default = 24 * 60 * 60 # 1 day - allows cache busting if tiles are re-generated  
+      }
+    }
+  }
+}
+
