@@ -282,7 +282,7 @@ export function BlogList({ posts }: BlogListProps) {
                     active={selectedRoles.includes(post.role.slug)}
                     className="gap-1 text-xs cursor-pointer"
                     onClick={() =>
-                      filterParams.toggleValue("role", post.role?.slug ?? "")
+                      filterParams.toggleValue("role", post.role.slug)
                     }
                   >
                     {/* biome-ignore lint/performance/noImgElement: Small icon, no need for next/image */}
