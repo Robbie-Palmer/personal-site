@@ -53,15 +53,10 @@ export function ProjectList({ projects }: ProjectListProps) {
     );
   }, [projects]);
 
-  const allTags = useMemo(() => {
-    const tags = new Set<string>();
-    for (const project of projects) {
-      for (const tag of project.tags) {
-        tags.add(tag);
-      }
-    }
-    return Array.from(tags).sort();
-  }, [projects]);
+  const allTags = useMemo(
+    () => Array.from(new Set(projects.flatMap((p) => p.tags))).sort(),
+    [projects],
+  );
 
   const filterParams = useFilterParams({
     filters: [
