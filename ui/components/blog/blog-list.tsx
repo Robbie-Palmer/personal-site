@@ -21,8 +21,42 @@ import { FilterableCardGrid } from "@/components/ui/filterable-card-grid";
 import { useFilterParams } from "@/hooks/use-filter-params";
 import type { BlogPost } from "@/lib/api/blog";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
+import type { BlogRoleView } from "@/lib/domain/blog/blogViews";
 import { formatDate } from "@/lib/generic/date";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
+
+function RoleBadge({
+  role,
+  isActive,
+  onToggle,
+}: {
+  role: BlogRoleView;
+  isActive: boolean;
+  onToggle: (slug: string) => void;
+}) {
+  return (
+    <>
+      <span>&middot;</span>
+      <Badge
+        variant={isActive ? "default" : "outline"}
+        interactive
+        active={isActive}
+        className="gap-1 text-xs cursor-pointer"
+        onClick={() => onToggle(role.slug)}
+      >
+        {/* biome-ignore lint/performance/noImgElement: Small icon, no need for next/image */}
+        <img
+          src={role.logoPath}
+          alt={`${role.company} logo`}
+          width={12}
+          height={12}
+          className="size-3 object-contain"
+        />
+        {role.company}
+      </Badge>
+    </>
+  );
+}
 
 interface BlogListProps {
   posts: BlogPost[];
@@ -269,38 +303,13 @@ export function BlogList({ posts }: BlogListProps) {
                 <span className="mx-2">&middot;</span>
                 <span>{post.readingTime}</span>
               </div>
-              {post.role &&
-                (() => {
-                  const role = post.role;
-                  return (
-                    <>
-                      <span>&middot;</span>
-                      <Badge
-                        variant={
-                          selectedRoles.includes(role.slug)
-                            ? "default"
-                            : "outline"
-                        }
-                        interactive
-                        active={selectedRoles.includes(role.slug)}
-                        className="gap-1 text-xs cursor-pointer"
-                        onClick={() =>
-                          filterParams.toggleValue("role", role.slug)
-                        }
-                      >
-                        {/* biome-ignore lint/performance/noImgElement: Small icon, no need for next/image */}
-                        <img
-                          src={role.logoPath}
-                          alt={`${role.company} logo`}
-                          width={12}
-                          height={12}
-                          className="size-3 object-contain"
-                        />
-                        {role.company}
-                      </Badge>
-                    </>
-                  );
-                })()}
+              {post.role && (
+                <RoleBadge
+                  role={post.role}
+                  isActive={selectedRoles.includes(post.role.slug)}
+                  onToggle={(slug) => filterParams.toggleValue("role", slug)}
+                />
+              )}
             </div>
           </CardContent>
         </Card>

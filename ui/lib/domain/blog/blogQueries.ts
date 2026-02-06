@@ -139,17 +139,6 @@ export function getBlogsByTag(
   return mapBlogsToBlogCardViews(repository, blogSlugs);
 }
 
-export function getBlogsForJobRole(
-  repository: DomainRepository,
-  roleSlug: RoleSlug,
-): BlogCardView[] {
-  const blogSlugs = Array.from(
-    getBlogsForRole(repository.graph, roleSlug),
-  ) as BlogSlug[];
-
-  return mapBlogsToBlogCardViews(repository, blogSlugs);
-}
-
 export function getRoleBlogs(
   repository: DomainRepository,
   roleSlug: RoleSlug,
