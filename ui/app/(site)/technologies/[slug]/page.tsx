@@ -4,7 +4,7 @@ import {
   FileText,
   FolderKanban,
   type LucideIcon,
-  Map,
+  Map as MapIcon,
 } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -210,7 +210,7 @@ export default async function TechnologyPage({ params }: PageProps) {
             <Separator />
             <section>
               <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                <Map className="w-5 h-5 text-primary" />
+                <MapIcon className="w-5 h-5 text-primary" />
                 Demo
               </h2>
               <LazyLeafletMapDemo />

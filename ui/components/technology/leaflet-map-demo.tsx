@@ -68,8 +68,7 @@ export function LeafletMapDemo() {
       L.Icon.Default.mergeOptions({
         iconRetinaUrl:
           "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-        iconUrl:
-          "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
         shadowUrl:
           "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
       });
@@ -125,8 +124,8 @@ export function LeafletMapDemo() {
       <div className="p-4 pb-3 space-y-3">
         <h3 className="text-lg font-semibold">Interactive Map Demo</h3>
         <p className="text-sm text-muted-foreground">
-          Explore different open tile providers by switching layers below.
-          Pan, zoom, and interact with the map.
+          Explore different open tile providers by switching layers below. Pan,
+          zoom, and interact with the map.
         </p>
         <div className="flex flex-wrap gap-2">
           {TILE_LAYERS.map((layer, i) => (
