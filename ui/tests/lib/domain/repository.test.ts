@@ -439,6 +439,7 @@ Content`;
             {
               technologies: ["react"],
               adrs: [],
+              tags: [],
             },
           ],
         ]);
@@ -478,6 +479,7 @@ Content`;
             {
               technologies: ["react"], // react doesn't exist
               adrs: [],
+              tags: [],
             },
           ],
         ]);
@@ -519,6 +521,7 @@ Content`;
             {
               technologies: [],
               adrs: ["001-missing"], // ADR doesn't exist
+              tags: [],
             },
           ],
         ]);
