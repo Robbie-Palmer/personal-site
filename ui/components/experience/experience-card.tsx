@@ -22,21 +22,25 @@ import {
 import type { Experience } from "@/lib/api/experience";
 import { formatDateRange } from "@/lib/api/experience";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
+import type { BlogListItemView } from "@/lib/domain/blog/blogViews";
 import type { ProjectListItemView } from "@/lib/domain/project/projectViews";
 import { smoothScrollTo } from "@/lib/generic/scroll";
 import { normalizeSlug } from "@/lib/generic/slugs";
+import { BlogBadge } from "./blog-badge";
 import { ProjectBadge } from "./project-badge";
 
 interface ExperienceCardProps {
   experience: Experience;
   id?: string;
   projects?: ProjectListItemView[];
+  blogs?: BlogListItemView[];
 }
 
 export function ExperienceCard({
   experience,
   id,
   projects = [],
+  blogs = [],
 }: ExperienceCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -169,6 +173,18 @@ export function ExperienceCard({
                     </div>
                   </div>
                 )}
+                {blogs.length > 0 && (
+                  <div className="pt-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                      Blog Posts
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {blogs.map((blog) => (
+                        <BlogBadge key={blog.slug} blog={blog} />
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {experience.technologies.length > 0 && (
                   <div className="flex flex-wrap gap-2 pt-2">
                     {experience.technologies.slice(0, 10).map((tech) => {
@@ -225,6 +241,18 @@ export function ExperienceCard({
                   <div className="flex flex-wrap gap-2">
                     {projects.map((project) => (
                       <ProjectBadge key={project.slug} project={project} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {blogs.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                    Blog Posts
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {blogs.map((blog) => (
+                      <BlogBadge key={blog.slug} blog={blog} />
                     ))}
                   </div>
                 </div>

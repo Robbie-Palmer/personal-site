@@ -5,6 +5,7 @@ import { SearchableTechnologyGrid } from "@/components/experience/searchable-tec
 import { getAllExperience, getExperienceSlug } from "@/lib/api/experience";
 import { siteConfig } from "@/lib/config/site-config";
 import { loadDomainRepository } from "@/lib/domain";
+import { getRoleBlogs } from "@/lib/domain/blog/blogQueries";
 import { getRoleProjects } from "@/lib/domain/project/projectQueries";
 import {
   getAllTechnologyBadges,
@@ -65,12 +66,14 @@ export default function ExperiencePage() {
             {experiences.map((experience) => {
               const roleSlug = getExperienceSlug(experience);
               const projects = getRoleProjects(repository, roleSlug);
+              const blogs = getRoleBlogs(repository, roleSlug);
               return (
                 <ExperienceCard
                   key={`${experience.company}-${experience.startDate}`}
                   experience={experience}
                   id={roleSlug}
                   projects={projects}
+                  blogs={blogs}
                 />
               );
             })}

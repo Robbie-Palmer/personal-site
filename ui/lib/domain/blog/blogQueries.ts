@@ -149,3 +149,15 @@ export function getBlogsForJobRole(
 
   return mapBlogsToBlogCardViews(repository, blogSlugs);
 }
+
+export function getRoleBlogs(
+  repository: DomainRepository,
+  roleSlug: RoleSlug,
+): BlogListItemView[] {
+  const blogSlugs = getBlogsForRole(repository.graph, roleSlug);
+
+  return Array.from(blogSlugs)
+    .map((slug) => repository.blogs.get(slug))
+    .filter((blog): blog is NonNullable<typeof blog> => blog !== undefined)
+    .map(toBlogListItemView);
+}
