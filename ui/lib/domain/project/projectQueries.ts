@@ -5,6 +5,7 @@ import {
   getContentUsingTechnologyByType,
   getProjectsForRole,
   getRoleForProject,
+  getTagsForProject,
   getTechnologiesForProject,
 } from "@/lib/repository";
 import { getADRsForProject } from "../adr/adrQueries";
@@ -45,8 +46,9 @@ export function getProjectCard(
   ]);
   const adrCount = getADRCountForProject(repository.graph, slug);
   const role = getRoleView(repository, slug);
+  const tags = Array.from(getTagsForProject(repository.graph, slug));
 
-  return toProjectCardView(project, technologies, adrCount, role);
+  return toProjectCardView(project, technologies, adrCount, role, tags);
 }
 
 export function getProjectDetail(
@@ -62,8 +64,9 @@ export function getProjectDetail(
   ]);
   const adrSlugs = getADRSlugsForProject(repository.graph, slug);
   const role = getRoleView(repository, slug);
+  const tags = Array.from(getTagsForProject(repository.graph, slug));
 
-  return toProjectDetailView(project, technologies, adrSlugs, role);
+  return toProjectDetailView(project, technologies, adrSlugs, role, tags);
 }
 
 export function getProjectListItem(
@@ -88,8 +91,9 @@ export function getAllProjectCards(
     ]);
     const adrCount = getADRCountForProject(repository.graph, project.slug);
     const role = getRoleView(repository, project.slug);
+    const tags = Array.from(getTagsForProject(repository.graph, project.slug));
 
-    return toProjectCardView(project, technologies, adrCount, role);
+    return toProjectCardView(project, technologies, adrCount, role, tags);
   });
 }
 
@@ -124,8 +128,11 @@ export function getProjectsUsingTechnology(
       ]);
       const adrCount = getADRCountForProject(repository.graph, project.slug);
       const role = getRoleView(repository, project.slug);
+      const tags = Array.from(
+        getTagsForProject(repository.graph, project.slug),
+      );
 
-      return toProjectCardView(project, technologies, adrCount, role);
+      return toProjectCardView(project, technologies, adrCount, role, tags);
     });
 }
 
@@ -160,6 +167,7 @@ export function getProjectWithADRs(
 
   const adrSlugs = getADRSlugsForProject(repository.graph, slug);
   const role = getRoleView(repository, slug);
+  const tags = Array.from(getTagsForProject(repository.graph, slug));
 
   return {
     slug: project.slug,
@@ -176,6 +184,7 @@ export function getProjectWithADRs(
     adrSlugs,
     adrs,
     role,
+    tags,
   };
 }
 

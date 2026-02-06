@@ -366,6 +366,7 @@ export function loadProjects(): ProjectLoadResult {
       technologies,
       adrs: adrSlugs,
       role: data.role ? normalizeSlug(data.role) : undefined,
+      tags: data.tags || [],
     };
 
     const validation = validateProject(project);
@@ -672,6 +673,7 @@ function buildRelationDataFromLoaders(loaders: LoaderResults): RelationData {
     if (projectRels.role) {
       relations.projectRole.set(slug, projectRels.role);
     }
+    relations.projectTags.set(slug, projectRels.tags);
   }
 
   for (const [slug, blogRels] of loaders.blogs.relations) {

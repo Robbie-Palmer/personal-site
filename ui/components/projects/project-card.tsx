@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Github, Globe } from "lucide-react";
+import { ExternalLink, Github, Globe, Tag } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -19,12 +19,16 @@ interface ProjectCardProps {
   project: Project;
   selectedTech?: string[];
   onTechClick: (techSlug: string) => void;
+  selectedTags?: string[];
+  onTagClick: (tag: string) => void;
 }
 
 export function ProjectCard({
   project,
   selectedTech = [],
   onTechClick,
+  selectedTags = [],
+  onTagClick,
 }: ProjectCardProps) {
   return (
     <Card className="flex flex-col h-full hover:shadow-lg transition-all hover:border-primary/50 group relative overflow-hidden">
@@ -101,6 +105,29 @@ export function ProjectCard({
       <div className="flex-grow" />
 
       <CardFooter className="flex flex-col items-start gap-4">
+        {project.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2 z-10">
+            {project.tags.map((tag) => {
+              const isActive = selectedTags.includes(tag);
+              return (
+                <Badge
+                  key={tag}
+                  variant={isActive ? "default" : "secondary"}
+                  interactive
+                  active={isActive}
+                  className="gap-1 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onTagClick(tag);
+                  }}
+                >
+                  <Tag className="h-3 w-3" />
+                  {tag}
+                </Badge>
+              );
+            })}
+          </div>
+        )}
         <div className="flex flex-wrap gap-2 z-10">
           {project.technologies.slice(0, 5).map((tech) => {
             const isActive = selectedTech.includes(tech.slug);
