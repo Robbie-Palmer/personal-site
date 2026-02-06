@@ -35,3 +35,15 @@ variable "cf_images_account_hash" {
   description = "Cloudflare Images account hash"
   type        = string
 }
+
+variable "r2_map_tiles_bucket_name" {
+  description = "Name of the R2 bucket for map tiles"
+  type        = string
+  default     = "map-tiles"
+}
+
+variable "r2_map_tiles_subdomain" {
+  description = "Subdomain for serving map tiles (e.g. 'tiles' for tiles.robbiepalmer.me)"
+  type        = string
+  default     = "tiles"
+}

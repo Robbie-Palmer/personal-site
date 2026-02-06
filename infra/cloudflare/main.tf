@@ -74,3 +74,29 @@ resource "cloudflare_record" "robbiepalmer_me_www" {
   proxied = true
 }
 
+# --- R2 Map Tiles ---
+
+resource "cloudflare_r2_bucket" "map_tiles" {
+  account_id = var.cloudflare_account_id
+  name       = var.r2_map_tiles_bucket_name
+  location   = "ENAM" # Eastern North America - closest to most users
+}
+
+# NOTE: cloudflare_r2_custom_domain requires Cloudflare Terraform provider v5.
+# The project currently uses v4 (~> 4.0). A v4 → v5 migration involves breaking
+# changes (resource renames, state surgery) and should be done as a separate effort.
+# Until then, configure the custom domain manually:
+#   1. In the Cloudflare dashboard: R2 > map-tiles > Settings > Custom Domains
+#   2. Add "tiles.robbiepalmer.me" (DNS is auto-configured since the zone is managed)
+#
+# After upgrading to v5, uncomment and import existing state:
+#   terraform import cloudflare_r2_custom_domain.map_tiles <account_id>/map-tiles/tiles.robbiepalmer.me
+#
+# resource "cloudflare_r2_custom_domain" "map_tiles" {
+#   account_id  = var.cloudflare_account_id
+#   bucket_name = cloudflare_r2_bucket.map_tiles.name
+#   domain      = "${var.r2_map_tiles_subdomain}.${var.domain_name}"
+#   zone_id     = data.cloudflare_zone.domain.id
+#   enabled     = true
+# }
+
