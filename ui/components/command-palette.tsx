@@ -449,12 +449,21 @@ export function createStatusFilterOptions(
 }
 
 export function createRoleFilterOptions(
-  roles: Array<{ slug: string; company: string }>,
+  roles: Array<{ slug: string; company: string; logoPath: string }>,
 ): FilterOption[] {
   return roles.map((role) => ({
     value: role.slug,
     label: role.company,
-    icon: <Briefcase className="size-3" />,
+    icon: (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={role.logoPath}
+        alt={`${role.company} logo`}
+        width={12}
+        height={12}
+        className="size-3 object-contain"
+      />
+    ),
     group: "Role",
     paramName: "role",
   }));

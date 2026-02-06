@@ -1,6 +1,7 @@
 "use client";
 
 import { Briefcase } from "lucide-react";
+import Image from "next/image";
 import { useMemo } from "react";
 import {
   MultiSelect,
@@ -11,6 +12,7 @@ import { cn } from "@/lib/generic/styles";
 interface FilterableRole {
   slug: string;
   company: string;
+  logoPath: string;
   title: string;
 }
 
@@ -39,7 +41,15 @@ export function RoleFilter({
     return roles.map((role) => ({
       value: role.slug,
       label: `${role.company} (${role.title})`,
-      icon: <Briefcase className="size-3 text-muted-foreground" />,
+      icon: (
+        <Image
+          src={role.logoPath}
+          alt={`${role.company} logo`}
+          width={12}
+          height={12}
+          className="size-3 object-contain"
+        />
+      ),
     }));
   }, [roles]);
 

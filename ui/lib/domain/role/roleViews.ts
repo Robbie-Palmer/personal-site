@@ -18,6 +18,7 @@ export type RoleCardView = {
 export type RoleListItemView = {
   slug: string;
   company: string;
+  logoPath: string;
   title: string;
   startDate: string;
   endDate?: string;
@@ -46,6 +47,7 @@ export function toRoleListItemView(role: JobRole): RoleListItemView {
   return {
     slug: role.slug,
     company: role.company,
+    logoPath: role.logoPath,
     title: role.title,
     startDate: role.startDate,
     endDate: role.endDate,
