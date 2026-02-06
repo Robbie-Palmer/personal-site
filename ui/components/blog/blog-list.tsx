@@ -1,9 +1,10 @@
 "use client";
 
-import { FileText, Tag } from "lucide-react";
+import { Briefcase, FileText, Tag } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import {
+  createRoleFilterOptions,
   createTagFilterOptions,
   createTechFilterOptions,
   useCommandPalette,
@@ -20,8 +21,42 @@ import { FilterableCardGrid } from "@/components/ui/filterable-card-grid";
 import { useFilterParams } from "@/hooks/use-filter-params";
 import type { BlogPost } from "@/lib/api/blog";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
+import type { BlogRoleView } from "@/lib/domain/blog/blogViews";
 import { formatDate } from "@/lib/generic/date";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
+
+function RoleBadge({
+  role,
+  isActive,
+  onToggle,
+}: {
+  role: BlogRoleView;
+  isActive: boolean;
+  onToggle: (slug: string) => void;
+}) {
+  return (
+    <>
+      <span>&middot;</span>
+      <Badge
+        variant={isActive ? "default" : "outline"}
+        interactive
+        active={isActive}
+        className="gap-1 text-xs cursor-pointer"
+        onClick={() => onToggle(role.slug)}
+      >
+        {/* biome-ignore lint/performance/noImgElement: Small icon, no need for next/image */}
+        <img
+          src={role.logoPath}
+          alt={`${role.company} logo`}
+          width={12}
+          height={12}
+          className="size-3 object-contain"
+        />
+        {role.company}
+      </Badge>
+    </>
+  );
+}
 
 interface BlogListProps {
   posts: BlogPost[];
@@ -56,24 +91,44 @@ export function BlogList({ posts }: BlogListProps) {
       allTechnologiesMap: techMap,
     };
   }, [posts]);
+  const { allRoles, allRolesMap } = useMemo(() => {
+    const roleMap = new Map<
+      string,
+      { slug: string; company: string; logoPath: string }
+    >();
+    for (const post of posts) {
+      if (post.role && !roleMap.has(post.role.slug)) {
+        roleMap.set(post.role.slug, post.role);
+      }
+    }
+    return {
+      allRoles: Array.from(roleMap.values()).sort((a, b) =>
+        a.company.localeCompare(b.company),
+      ),
+      allRolesMap: roleMap,
+    };
+  }, [posts]);
   const filterParams = useFilterParams({
     filters: [
       { paramName: "tags", isMulti: true },
       { paramName: "tech", isMulti: true },
+      { paramName: "role", isMulti: true },
     ],
   });
   const selectedTags = filterParams.getValues("tags");
   const selectedTech = filterParams.getValues("tech");
+  const selectedRoles = filterParams.getValues("role");
   const { registerFilters, unregisterFilters } = useCommandPalette();
 
   useEffect(() => {
     const filters = [
       ...createTagFilterOptions(allTags),
       ...createTechFilterOptions(allTechnologies),
+      ...createRoleFilterOptions(allRoles),
     ];
     registerFilters(filters);
     return () => unregisterFilters();
-  }, [allTags, allTechnologies, registerFilters, unregisterFilters]);
+  }, [allTags, allTechnologies, allRoles, registerFilters, unregisterFilters]);
 
   return (
     <FilterableCardGrid
@@ -87,6 +142,7 @@ export function BlogList({ posts }: BlogListProps) {
           { name: "description", weight: 2 },
           { name: "tags", weight: 2 },
           { name: "technologies.name", weight: 2 },
+          { name: "role.company", weight: 2 },
           { name: "content", weight: 1 },
         ],
         threshold: 0.1,
@@ -118,6 +174,31 @@ export function BlogList({ posts }: BlogListProps) {
                 name={tech.name}
                 iconSlug={tech.iconSlug}
                 className="w-3 h-3 grayscale"
+              />
+            );
+          },
+        },
+        {
+          paramName: "role",
+          isMulti: true,
+          label: "Role",
+          getItemValues: (post) => (post.role ? [post.role.slug] : []),
+          icon: <Briefcase className="h-4 w-4" />,
+          getValueLabel: (value) => {
+            const role = allRolesMap.get(value);
+            return role?.company ?? value;
+          },
+          getOptionIcon: (value) => {
+            const role = allRolesMap.get(value);
+            if (!role) return null;
+            return (
+              // biome-ignore lint/performance/noImgElement: Small icon, no need for next/image
+              <img
+                src={role.logoPath}
+                alt={`${role.company} logo`}
+                width={12}
+                height={12}
+                className="size-3 object-contain"
               />
             );
           },
@@ -216,10 +297,19 @@ export function BlogList({ posts }: BlogListProps) {
                 )}
               </div>
             )}
-            <div className="text-sm text-muted-foreground">
-              <time>{formatDate(post.date)}</time>
-              <span className="mx-2">·</span>
-              <span>{post.readingTime}</span>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div>
+                <time>{formatDate(post.date)}</time>
+                <span className="mx-2">&middot;</span>
+                <span>{post.readingTime}</span>
+              </div>
+              {post.role && (
+                <RoleBadge
+                  role={post.role}
+                  isActive={selectedRoles.includes(post.role.slug)}
+                  onToggle={(slug) => filterParams.toggleValue("role", slug)}
+                />
+              )}
             </div>
           </CardContent>
         </Card>

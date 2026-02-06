@@ -16,6 +16,7 @@ export interface RelationData {
   adrProject: Map<ADRSlug, ProjectSlug>;
   adrSupersededBy: Map<ADRSlug, ADRSlug>;
   roleTechnologies: Map<RoleSlug, TechnologySlug[]>;
+  blogRole: Map<BlogSlug, RoleSlug>;
 }
 
 export function createEmptyRelationData(): RelationData {
@@ -30,6 +31,7 @@ export function createEmptyRelationData(): RelationData {
     adrProject: new Map(),
     adrSupersededBy: new Map(),
     roleTechnologies: new Map(),
+    blogRole: new Map(),
   };
 }
 
@@ -49,6 +51,7 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
       supersedes: new Map(),
       hasTag: new Map(),
       createdAtRole: new Map(),
+      writtenAtRole: new Map(),
     },
     reverse: {
       technologyUsedBy: new Map(),
@@ -56,6 +59,7 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
       supersededBy: new Map(),
       tagUsedBy: new Map(),
       roleProjects: new Map(),
+      roleBlogs: new Map(),
     },
   };
 
@@ -102,6 +106,14 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
       graph.reverse.roleProjects.set(roleSlug, new Set());
     }
     graph.reverse.roleProjects.get(roleSlug)?.add(projectSlug);
+  }
+
+  for (const [blogSlug, roleSlug] of relations.blogRole) {
+    graph.edges.writtenAtRole.set(blogSlug, roleSlug);
+    if (!graph.reverse.roleBlogs.has(roleSlug)) {
+      graph.reverse.roleBlogs.set(roleSlug, new Set());
+    }
+    graph.reverse.roleBlogs.get(roleSlug)?.add(blogSlug);
   }
 
   return graph;

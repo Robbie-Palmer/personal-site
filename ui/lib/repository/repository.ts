@@ -237,6 +237,7 @@ export function loadBlogPosts(): BlogLoadResult {
         normalizeSlug(tech),
       ),
       tags: data.tags || [],
+      role: data.role ? normalizeSlug(data.role) : undefined,
     };
 
     const validation = validateBlogPost(post);
@@ -584,6 +585,15 @@ export function validateReferentialIntegrity(
     relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `BlogPost[${blogSlug}]`, "technologies");
     });
+    if (relations.role && !input.roleRelations.has(relations.role)) {
+      errors.push({
+        type: "missing_reference",
+        entity: `BlogPost[${blogSlug}]`,
+        field: "role",
+        value: relations.role,
+        message: `Role '${relations.role}' referenced by blog '${blogSlug}' does not exist`,
+      });
+    }
   });
 
   input.projectRelations.forEach((relations, projectSlug) => {
@@ -679,6 +689,9 @@ function buildRelationDataFromLoaders(loaders: LoaderResults): RelationData {
   for (const [slug, blogRels] of loaders.blogs.relations) {
     relations.blogTechnologies.set(slug, blogRels.technologies);
     relations.blogTags.set(slug, blogRels.tags);
+    if (blogRels.role) {
+      relations.blogRole.set(slug, blogRels.role);
+    }
   }
 
   for (const [slug, adrRels] of loaders.adrs.relations) {

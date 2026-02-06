@@ -1,13 +1,16 @@
 import {
   type DomainRepository,
+  getBlogsForRole,
   getContentForTag,
   getContentUsingTechnologyByType,
   getNodeSlug,
+  getRoleForBlog,
   getTagsForContent,
   getTechnologiesForBlog,
   isNodeType,
   makeNodeId,
 } from "@/lib/repository";
+import type { RoleSlug } from "../role/jobRole";
 import type { TechnologySlug } from "../technology/technology";
 import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
 import type { BlogSlug } from "./blogPost";
@@ -15,10 +18,26 @@ import {
   type BlogCardView,
   type BlogDetailView,
   type BlogListItemView,
+  type BlogRoleView,
   toBlogCardView,
   toBlogDetailView,
   toBlogListItemView,
 } from "./blogViews";
+
+function resolveRoleView(
+  repository: DomainRepository,
+  blogSlug: BlogSlug,
+): BlogRoleView | undefined {
+  const roleSlug = getRoleForBlog(repository.graph, blogSlug);
+  if (!roleSlug) return undefined;
+  const role = repository.roles.get(roleSlug);
+  if (!role) return undefined;
+  return {
+    slug: role.slug,
+    company: role.company,
+    logoPath: role.logoPath,
+  };
+}
 
 export function getBlogCard(
   repository: DomainRepository,
@@ -32,8 +51,9 @@ export function getBlogCard(
     ...techSlugs,
   ]);
   const tags = getTagsForContent(repository.graph, makeNodeId("blog", slug));
+  const role = resolveRoleView(repository, slug);
 
-  return toBlogCardView(blog, technologies, [...tags]);
+  return toBlogCardView(blog, technologies, [...tags], role);
 }
 
 export function getBlogDetail(
@@ -48,8 +68,9 @@ export function getBlogDetail(
     ...techSlugs,
   ]);
   const tags = getTagsForContent(repository.graph, makeNodeId("blog", slug));
+  const role = resolveRoleView(repository, slug);
 
-  return toBlogDetailView(blog, technologies, [...tags]);
+  return toBlogDetailView(blog, technologies, [...tags], role);
 }
 
 export function getBlogListItem(
@@ -88,7 +109,8 @@ function mapBlogsToBlogCardViews(
         repository.graph,
         makeNodeId("blog", blog.slug),
       );
-      return toBlogCardView(blog, technologies, [...tags]);
+      const role = resolveRoleView(repository, blog.slug);
+      return toBlogCardView(blog, technologies, [...tags], role);
     });
 }
 
@@ -115,4 +137,16 @@ export function getBlogsByTag(
     .map((nodeId) => getNodeSlug(nodeId) as BlogSlug);
 
   return mapBlogsToBlogCardViews(repository, blogSlugs);
+}
+
+export function getRoleBlogs(
+  repository: DomainRepository,
+  roleSlug: RoleSlug,
+): BlogListItemView[] {
+  const blogSlugs = getBlogsForRole(repository.graph, roleSlug);
+
+  return Array.from(blogSlugs)
+    .map((slug) => repository.blogs.get(slug))
+    .filter((blog): blog is NonNullable<typeof blog> => blog !== undefined)
+    .map(toBlogListItemView);
 }

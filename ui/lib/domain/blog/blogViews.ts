@@ -1,6 +1,12 @@
 import type { TechnologyBadgeView } from "../technology/technologyViews";
 import type { BlogPost } from "./blogPost";
 
+export type BlogRoleView = {
+  slug: string;
+  company: string;
+  logoPath: string;
+};
+
 type BaseBlogView = {
   slug: string;
   title: string;
@@ -12,6 +18,7 @@ type BaseBlogView = {
   imageAlt: string;
   readingTime: string;
   technologies: TechnologyBadgeView[];
+  role?: BlogRoleView;
 };
 
 export type BlogCardView = BaseBlogView;
@@ -32,6 +39,7 @@ export function toBlogCardView(
   blog: BlogPost,
   technologies: TechnologyBadgeView[],
   tags: string[],
+  role?: BlogRoleView,
 ): BlogCardView {
   return {
     slug: blog.slug,
@@ -44,6 +52,7 @@ export function toBlogCardView(
     imageAlt: blog.imageAlt,
     readingTime: blog.readingTime,
     technologies,
+    role,
   };
 }
 
@@ -51,6 +60,7 @@ export function toBlogDetailView(
   blog: BlogPost,
   technologies: TechnologyBadgeView[],
   tags: string[],
+  role?: BlogRoleView,
 ): BlogDetailView {
   return {
     slug: blog.slug,
@@ -65,6 +75,7 @@ export function toBlogDetailView(
     image: blog.image,
     imageAlt: blog.imageAlt,
     technologies,
+    role,
   };
 }
 
