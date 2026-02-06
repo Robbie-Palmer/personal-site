@@ -1,6 +1,7 @@
 "use client";
 
-import { Briefcase, Circle, FolderGit2, Tag } from "lucide-react";
+import { Circle, FolderGit2, Tag } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useMemo } from "react";
 import {
   createRoleFilterOptions,
@@ -41,7 +42,7 @@ export function ProjectList({ projects }: ProjectListProps) {
   const allRoles = useMemo(() => {
     const roleMap = new Map<
       string,
-      { slug: string; company: string; title: string }
+      { slug: string; company: string; logoPath: string; title: string }
     >();
     for (const project of projects) {
       if (project.role && !roleMap.has(project.role.slug)) {
@@ -128,7 +129,19 @@ export function ProjectList({ projects }: ProjectListProps) {
             const role = allRoles.find((r) => r.slug === value);
             return role?.company ?? value;
           },
-          getOptionIcon: () => <Briefcase className="w-3 h-3" />,
+          getOptionIcon: (value) => {
+            const role = allRoles.find((r) => r.slug === value);
+            if (!role) return null;
+            return (
+              <Image
+                src={role.logoPath}
+                alt={`${role.company} logo`}
+                width={12}
+                height={12}
+                className="w-3 h-3 object-contain"
+              />
+            );
+          },
         },
         {
           paramName: "tech",
