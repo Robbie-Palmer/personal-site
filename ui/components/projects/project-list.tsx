@@ -39,7 +39,7 @@ export function ProjectList({ projects }: ProjectListProps) {
     );
   }, [projects]);
 
-  const allRoles = useMemo(() => {
+  const allRolesMap = useMemo(() => {
     const roleMap = new Map<
       string,
       { slug: string; company: string; logoPath: string; title: string }
@@ -49,10 +49,16 @@ export function ProjectList({ projects }: ProjectListProps) {
         roleMap.set(project.role.slug, project.role);
       }
     }
-    return Array.from(roleMap.values()).sort((a, b) =>
-      a.company.localeCompare(b.company),
-    );
+    return roleMap;
   }, [projects]);
+
+  const allRoles = useMemo(
+    () =>
+      Array.from(allRolesMap.values()).sort((a, b) =>
+        a.company.localeCompare(b.company),
+      ),
+    [allRolesMap],
+  );
 
   const allTags = useMemo(
     () => Array.from(new Set(projects.flatMap((p) => p.tags))).sort(),
@@ -126,11 +132,11 @@ export function ProjectList({ projects }: ProjectListProps) {
           label: "Role",
           getItemValues: (project) => (project.role ? [project.role.slug] : []),
           getValueLabel: (value) => {
-            const role = allRoles.find((r) => r.slug === value);
+            const role = allRolesMap.get(value);
             return role?.company ?? value;
           },
           getOptionIcon: (value) => {
-            const role = allRoles.find((r) => r.slug === value);
+            const role = allRolesMap.get(value);
             if (!role) return null;
             return (
               <Image
