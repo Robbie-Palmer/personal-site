@@ -31,8 +31,8 @@ const TILE_LAYERS = [
   },
 ] as const;
 
-// Default center: London
-const DEFAULT_CENTER = { lat: 51.505, lng: -0.09 };
+// Default center: Belfast, Northern Ireland
+const DEFAULT_CENTER = { lat: 54.5973, lng: -5.9301 };
 const DEFAULT_ZOOM = 13;
 
 export function LeafletMapDemo() {
@@ -75,7 +75,7 @@ export function LeafletMapDemo() {
 
       L.marker([DEFAULT_CENTER.lat, DEFAULT_CENTER.lng])
         .addTo(map)
-        .bindPopup("London, UK")
+        .bindPopup("Belfast, Northern Ireland")
         .openPopup();
 
       leafletMapRef.current = map;
