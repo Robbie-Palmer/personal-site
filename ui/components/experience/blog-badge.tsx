@@ -20,12 +20,9 @@ export function BlogBadge({ blog, className }: BlogBadgeProps) {
       <Badge
         variant="outline"
         interactive
-        className={cn(
-          "max-w-48 sm:max-w-none truncate justify-start",
-          className,
-        )}
+        className={cn("max-w-48 sm:max-w-none justify-start", className)}
       >
-        {blog.title}
+        <span className="truncate">{blog.title}</span>
       </Badge>
     </Link>
   );
