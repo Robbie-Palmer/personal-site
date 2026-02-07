@@ -194,8 +194,11 @@ export function ForceGraphClient({ data }: ForceGraphClientProps) {
     [hoveredNode],
   );
 
+  const hasZoomedToFit = useRef(false);
+
   const handleEngineStop = useCallback(() => {
-    if (graphRef.current) {
+    if (graphRef.current && !hasZoomedToFit.current) {
+      hasZoomedToFit.current = true;
       graphRef.current.zoomToFit(400, 40);
     }
   }, []);
