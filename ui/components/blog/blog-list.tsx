@@ -25,6 +25,18 @@ import type { BlogRoleView } from "@/lib/domain/blog/blogViews";
 import { formatDate } from "@/lib/generic/date";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
 
+function sortTechnologies<T extends { slug: string }>(
+  technologies: T[],
+  selectedSlugs: string[],
+): T[] {
+  if (selectedSlugs.length === 0) return technologies;
+  const selected = technologies.filter((t) => selectedSlugs.includes(t.slug));
+  const unselected = technologies.filter(
+    (t) => !selectedSlugs.includes(t.slug),
+  );
+  return [...selected, ...unselected];
+}
+
 function RoleBadge({
   role,
   isActive,
@@ -266,30 +278,32 @@ export function BlogList({ posts }: BlogListProps) {
             </div>
             {post.technologies.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-3">
-                {post.technologies.slice(0, 4).map((tech) => {
-                  const isActive = selectedTech.includes(tech.slug);
-                  return (
-                    <Badge
-                      key={tech.slug}
-                      variant={isActive ? "default" : "outline"}
-                      interactive
-                      active={isActive}
-                      className="gap-1 text-xs cursor-pointer"
-                      onClick={() =>
-                        filterParams.toggleValue("tech", tech.slug)
-                      }
-                    >
-                      {hasTechIcon(tech.name, tech.iconSlug) && (
-                        <TechIcon
-                          name={tech.name}
-                          iconSlug={tech.iconSlug}
-                          className="h-3 w-3"
-                        />
-                      )}
-                      {tech.name}
-                    </Badge>
-                  );
-                })}
+                {sortTechnologies(post.technologies, selectedTech)
+                  .slice(0, 4)
+                  .map((tech) => {
+                    const isActive = selectedTech.includes(tech.slug);
+                    return (
+                      <Badge
+                        key={tech.slug}
+                        variant={isActive ? "default" : "outline"}
+                        interactive
+                        active={isActive}
+                        className="gap-1 text-xs cursor-pointer"
+                        onClick={() =>
+                          filterParams.toggleValue("tech", tech.slug)
+                        }
+                      >
+                        {hasTechIcon(tech.name, tech.iconSlug) && (
+                          <TechIcon
+                            name={tech.name}
+                            iconSlug={tech.iconSlug}
+                            className="h-3 w-3"
+                          />
+                        )}
+                        {tech.name}
+                      </Badge>
+                    );
+                  })}
                 {post.technologies.length > 4 && (
                   <Badge variant="outline" className="text-xs">
                     +{post.technologies.length - 4}

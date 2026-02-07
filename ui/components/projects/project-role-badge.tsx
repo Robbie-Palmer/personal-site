@@ -22,12 +22,20 @@ export function ProjectRoleBadge({
 }: ProjectRoleBadgeProps) {
   const badge = (
     <Badge
-      variant={active ? "default" : "secondary"}
+      variant={active ? "default" : "outline"}
       interactive={interactiveProp ?? true}
       active={active}
-      className={cn("bg-muted-foreground/10 cursor-pointer", className)}
+      className={cn("gap-1 text-xs cursor-pointer", className)}
       onClick={onClick}
     >
+      {/* biome-ignore lint/performance/noImgElement: Small icon, no need for next/image */}
+      <img
+        src={role.logoPath}
+        alt={`${role.company} logo`}
+        width={12}
+        height={12}
+        className="size-3 object-contain"
+      />
       {role.company}
     </Badge>
   );
