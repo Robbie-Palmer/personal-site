@@ -1,0 +1,77 @@
+import type { IngredientContent } from "@/lib/domain/recipe/ingredient";
+
+export const ingredients: IngredientContent[] = [
+  // Proteins
+  { name: "chicken breast", category: "protein" },
+  { name: "turkey mince", category: "protein" },
+  { name: "chorizo", category: "protein" },
+  { name: "bacon", category: "protein" },
+
+  // Vegetables
+  { name: "white onion", category: "vegetable" },
+  { name: "red onion", category: "vegetable" },
+  { name: "onion", category: "vegetable" },
+  { name: "bell pepper", category: "vegetable" },
+  { name: "red pepper", category: "vegetable" },
+  { name: "garlic clove", category: "vegetable" },
+  { name: "garlic", category: "vegetable" },
+  { name: "peas", category: "vegetable" },
+  { name: "chopped tomatoes", category: "vegetable" },
+  { name: "tomato passata", category: "vegetable" },
+
+  // Dairy
+  { name: "butter", category: "dairy" },
+  { name: "single cream", category: "dairy" },
+  { name: "creme fraiche", category: "dairy" },
+  { name: "mascarpone", category: "dairy" },
+  { name: "milk", category: "dairy" },
+  { name: "cheddar cheese", category: "dairy" },
+  { name: "parmesan", category: "dairy" },
+  { name: "grana padano", category: "dairy" },
+  { name: "coconut milk", category: "dairy" },
+
+  // Grains & Pasta
+  { name: "rice", category: "grain" },
+  { name: "arborio rice", category: "grain" },
+  { name: "macaroni", category: "grain" },
+  { name: "penne pasta", category: "grain" },
+  { name: "large pasta shells", category: "grain" },
+
+  // Spices & Seasonings
+  { name: "curry powder", category: "spice" },
+  { name: "hot chilli powder", category: "spice" },
+  { name: "ground coriander", category: "spice" },
+  { name: "cayenne pepper", category: "spice" },
+  { name: "paprika", category: "spice" },
+  { name: "smoked paprika", category: "spice" },
+  { name: "chilli", category: "spice" },
+  { name: "tikka curry powder", category: "spice" },
+  { name: "italian seasoning", category: "spice" },
+  { name: "salt", category: "spice" },
+  { name: "black pepper", category: "spice" },
+  { name: "oregano", category: "spice" },
+  { name: "basil pesto", category: "spice" },
+  { name: "peri peri salt", category: "spice" },
+
+  // Condiments & Sauces
+  { name: "soy sauce", category: "condiment" },
+  { name: "lime juice", category: "condiment" },
+  { name: "peanut butter", category: "condiment" },
+  { name: "honey", category: "condiment" },
+  { name: "sweet chilli sauce", category: "condiment" },
+  { name: "chipotle paste", category: "condiment" },
+
+  // Oils & Fats
+  { name: "olive oil", category: "oil-fat" },
+
+  // Liquids
+  { name: "chicken stock", category: "liquid" },
+  { name: "vegetable stock", category: "liquid" },
+  { name: "chicken stock cube", category: "liquid" },
+
+  // Other
+  { name: "plain flour", category: "other" },
+  { name: "brown sugar", category: "other" },
+  { name: "prawn crackers", category: "other" },
+  { name: "garlic bread", category: "other" },
+];

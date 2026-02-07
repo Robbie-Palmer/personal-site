@@ -4,19 +4,14 @@ import type { ProjectSlug } from "@/lib/domain/project/project";
 import type { RoleSlug } from "@/lib/domain/role/jobRole";
 import type { TechnologySlug } from "@/lib/domain/technology/technology";
 
-export type NodeType =
-  | "project"
-  | "adr"
-  | "blog"
-  | "recipe"
-  | "role"
-  | "technology";
+// Recipe types live in the separate RecipeRepository - see @/lib/domain/recipe/recipeGraph
+
+export type NodeType = "project" | "adr" | "blog" | "role" | "technology";
 
 export type NodeId =
   | `project:${string}`
   | `adr:${string}`
   | `blog:${string}`
-  | `recipe:${string}`
   | `role:${string}`
   | `technology:${string}`;
 
