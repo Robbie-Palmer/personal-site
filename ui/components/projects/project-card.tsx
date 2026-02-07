@@ -71,18 +71,22 @@ export function ProjectCard({
                   {project.adrs.length === 1 ? "ADR" : "ADRs"}
                 </Badge>
               )}
-              {project.role && (
-                <ProjectRoleBadge
-                  role={project.role}
-                  className="z-10"
-                  interactive
-                  active={selectedRoles.includes(project.role.slug)}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRoleClick(project.role.slug);
-                  }}
-                />
-              )}
+              {(() => {
+                const { role } = project;
+                if (!role) return null;
+                return (
+                  <ProjectRoleBadge
+                    role={role}
+                    className="z-10"
+                    interactive
+                    active={selectedRoles.includes(role.slug)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRoleClick(role.slug);
+                    }}
+                  />
+                );
+              })()}
             </div>
             <CardTitle className="text-xl group-hover:text-primary transition-colors">
               <Link
