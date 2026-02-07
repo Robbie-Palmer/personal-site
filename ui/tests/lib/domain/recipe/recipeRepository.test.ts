@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
+import type { IngredientContent } from "@/lib/domain/recipe/ingredient";
+import type { RecipeContent } from "@/lib/domain/recipe/recipe";
 
 const ingredientsMock = vi.hoisted(() => ({
   ingredients: [
-    { name: "chicken breast", category: "protein" as const },
-    { name: "rice", category: "grain" as const },
-    { name: "onion", category: "vegetable" as const },
-  ],
+    { name: "chicken breast", category: "protein" },
+    { name: "rice", category: "grain" },
+    { name: "onion", category: "vegetable" },
+  ] as IngredientContent[],
 }));
 
 const recipesMock = vi.hoisted(() => ({
@@ -22,15 +24,15 @@ const recipesMock = vi.hoisted(() => ({
       ingredientGroups: [
         {
           items: [
-            { ingredient: "chicken-breast", amount: 3, unit: "piece" as const },
-            { ingredient: "rice", amount: 300, unit: "g" as const },
-            { ingredient: "onion", amount: 2, unit: "piece" as const },
+            { ingredient: "chicken-breast", amount: 3, unit: "piece" },
+            { ingredient: "rice", amount: 300, unit: "g" },
+            { ingredient: "onion", amount: 2, unit: "piece" },
           ],
         },
       ],
       instructions: ["Cook the curry"],
     },
-  ],
+  ] as RecipeContent[],
 }));
 
 vi.mock("@/content/recipes/ingredients", () => ingredientsMock);
@@ -108,7 +110,7 @@ describe("RecipeRepository", () => {
                 {
                   ingredient: "unicorn-tears",
                   amount: 1,
-                  unit: "tbsp" as const,
+                  unit: "tbsp",
                 },
               ],
             },
