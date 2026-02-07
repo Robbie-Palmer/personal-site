@@ -2,6 +2,7 @@
 
 import { ExternalLink, Github, Globe, Tag } from "lucide-react";
 import Link from "next/link";
+import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -21,6 +22,10 @@ interface ProjectCardProps {
   onTechClick: (techSlug: string) => void;
   selectedTags?: string[];
   onTagClick: (tag: string) => void;
+  selectedStatuses?: string[];
+  onStatusClick: (status: string) => void;
+  selectedRoles?: string[];
+  onRoleClick: (roleSlug: string) => void;
 }
 
 export function ProjectCard({
@@ -29,7 +34,22 @@ export function ProjectCard({
   onTechClick,
   selectedTags = [],
   onTagClick,
+  selectedStatuses = [],
+  onStatusClick,
+  selectedRoles = [],
+  onRoleClick,
 }: ProjectCardProps) {
+  // Reorder technologies so selected ones appear first, ensuring they're visible
+  const sortedTechnologies = useMemo(() => {
+    if (selectedTech.length === 0) return project.technologies;
+    const selected = project.technologies.filter((t) =>
+      selectedTech.includes(t.slug),
+    );
+    const unselected = project.technologies.filter(
+      (t) => !selectedTech.includes(t.slug),
+    );
+    return [...selected, ...unselected];
+  }, [project.technologies, selectedTech]);
   return (
     <Card className="flex flex-col h-full hover:shadow-lg transition-all hover:border-primary/50 group relative overflow-hidden">
       {/* Clickable Area for the whole card */}
@@ -41,7 +61,15 @@ export function ProjectCard({
         <div className="flex justify-between items-start gap-4 pointer-events-none">
           <div className="flex flex-col gap-2 pointer-events-auto">
             <div className="flex gap-2 flex-wrap">
-              <ProjectStatusBadge status={project.status} />
+              <ProjectStatusBadge
+                status={project.status}
+                interactive
+                active={selectedStatuses.includes(project.status)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStatusClick(project.status);
+                }}
+              />
               {project.adrs.length > 0 && (
                 <Badge variant="secondary" className="bg-muted-foreground/10">
                   {project.adrs.length}{" "}
@@ -49,7 +77,16 @@ export function ProjectCard({
                 </Badge>
               )}
               {project.role && (
-                <ProjectRoleBadge role={project.role} className="z-10" />
+                <ProjectRoleBadge
+                  role={project.role}
+                  className="z-10"
+                  interactive
+                  active={selectedRoles.includes(project.role.slug)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRoleClick(project.role?.slug ?? "");
+                  }}
+                />
               )}
             </div>
             <CardTitle className="text-xl group-hover:text-primary transition-colors">
@@ -129,7 +166,7 @@ export function ProjectCard({
           </div>
         )}
         <div className="flex flex-wrap gap-2 z-10">
-          {project.technologies.slice(0, 5).map((tech) => {
+          {sortedTechnologies.slice(0, 5).map((tech) => {
             const isActive = selectedTech.includes(tech.slug);
 
             return (
@@ -155,10 +192,8 @@ export function ProjectCard({
               </Badge>
             );
           })}
-          {project.technologies.length > 5 && (
-            <Badge variant="secondary">
-              +{project.technologies.length - 5}
-            </Badge>
+          {sortedTechnologies.length > 5 && (
+            <Badge variant="secondary">+{sortedTechnologies.length - 5}</Badge>
           )}
         </div>
       </CardFooter>

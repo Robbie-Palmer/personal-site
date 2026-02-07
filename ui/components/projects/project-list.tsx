@@ -76,6 +76,8 @@ export function ProjectList({ projects }: ProjectListProps) {
 
   const selectedTech = filterParams.getValues("tech");
   const selectedTags = filterParams.getValues("tags");
+  const selectedStatuses = filterParams.getValues("status");
+  const selectedRoles = filterParams.getValues("role");
   const { registerFilters, unregisterFilters } = useCommandPalette();
 
   useEffect(() => {
@@ -199,6 +201,10 @@ export function ProjectList({ projects }: ProjectListProps) {
           onTechClick={(tech) => filterParams.toggleValue("tech", tech)}
           selectedTags={selectedTags}
           onTagClick={(tag) => filterParams.toggleValue("tags", tag)}
+          selectedStatuses={selectedStatuses}
+          onStatusClick={(status) => filterParams.toggleValue("status", status)}
+          selectedRoles={selectedRoles}
+          onRoleClick={(role) => filterParams.toggleValue("role", role)}
         />
       )}
     />
