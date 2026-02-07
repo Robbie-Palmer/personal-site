@@ -24,6 +24,12 @@ import {
   type ProjectSlug,
 } from "../domain/project/project";
 import {
+  type Recipe,
+  type RecipeRelations,
+  RecipeSchema,
+  type RecipeSlug,
+} from "../domain/recipe/recipe";
+import {
   type JobRole,
   JobRoleSchema,
   type RoleRelations,
@@ -64,6 +70,7 @@ export interface ReferentialIntegrityError {
 
 const CONTENT_DIR = path.join(process.cwd(), "content");
 const BLOG_DIR = path.join(CONTENT_DIR, "blog");
+const RECIPES_DIR = path.join(CONTENT_DIR, "recipes");
 const PROJECTS_DIR = path.join(CONTENT_DIR, "projects");
 const BUILDING_PHILOSOPHY_PATH = path.join(
   PROJECTS_DIR,
@@ -300,6 +307,90 @@ export function validateBlogPost(
         ],
       };
     }
+  }
+
+  return {
+    success: true,
+    data: result.data,
+  };
+}
+
+interface RecipeLoadResult {
+  entities: Map<RecipeSlug, Recipe>;
+  relations: Map<RecipeSlug, RecipeRelations>;
+}
+
+export function loadRecipes(): RecipeLoadResult {
+  const entities = new Map<RecipeSlug, Recipe>();
+  const relations = new Map<RecipeSlug, RecipeRelations>();
+
+  if (!fs.existsSync(RECIPES_DIR)) {
+    return { entities, relations };
+  }
+  const files = fs
+    .readdirSync(RECIPES_DIR)
+    .filter((file) => file.endsWith(".mdx") && file !== "README.mdx");
+
+  files.forEach((filename) => {
+    const slug = filename.replace(/\.mdx$/, "");
+    const filePath = path.join(RECIPES_DIR, filename);
+    const fileContent = fs.readFileSync(filePath, "utf-8");
+    const { data, content } = matter(fileContent);
+
+    const recipe: Recipe = {
+      slug,
+      title: data.title,
+      description: data.description,
+      date: data.date,
+      content,
+      image: data.image,
+      imageAlt: data.imageAlt,
+    };
+
+    const recipeRelations: RecipeRelations = {
+      tags: data.tags || [],
+    };
+
+    const validation = validateRecipe(recipe);
+    if (validation.success) {
+      entities.set(slug, validation.data);
+      relations.set(slug, recipeRelations);
+    } else {
+      console.error(
+        `Failed to validate recipe ${slug}:`,
+        validation.schemaErrors,
+      );
+      throw new Error(`Recipe ${slug} failed validation`);
+    }
+  });
+
+  return { entities, relations };
+}
+
+export function validateRecipe(
+  recipe: unknown,
+): DomainValidationResult<Recipe> {
+  const result = RecipeSchema.safeParse(recipe);
+  if (!result.success) {
+    return {
+      success: false,
+      schemaErrors: result.error,
+    };
+  }
+  const dateValid = isValid(parse(result.data.date, "yyyy-MM-dd", new Date()));
+  if (!dateValid) {
+    return {
+      success: false,
+      referentialErrors: [
+        {
+          type: "invalid_reference",
+          entity: "Recipe",
+          field: "date",
+          value: result.data.date,
+          message: `Invalid date format: ${result.data.date}`,
+        },
+      ],
+    };
   }
 
   return {
@@ -659,6 +750,7 @@ export function validateReferentialIntegrity(
 export interface DomainRepository {
   technologies: Map<TechnologySlug, Technology>;
   blogs: Map<BlogSlug, BlogPost>;
+  recipes: Map<RecipeSlug, Recipe>;
   projects: Map<ProjectSlug, Project>;
   adrs: Map<ADRSlug, ADR>;
   roles: Map<RoleSlug, JobRole>;
@@ -669,6 +761,7 @@ export interface DomainRepository {
 
 interface LoaderResults {
   blogs: BlogLoadResult;
+  recipes: RecipeLoadResult;
   projects: ProjectLoadResult;
   adrs: ADRLoadResult;
   roles: RoleLoadResult;
@@ -694,6 +787,10 @@ function buildRelationDataFromLoaders(loaders: LoaderResults): RelationData {
     }
   }
 
+  for (const [slug, recipeRels] of loaders.recipes.relations) {
+    relations.recipeTags.set(slug, recipeRels.tags);
+  }
+
   for (const [slug, adrRels] of loaders.adrs.relations) {
     relations.adrTechnologies.set(slug, adrRels.technologies);
     relations.adrProject.set(slug, adrRels.project);
@@ -717,6 +814,7 @@ export function loadDomainRepository(): DomainRepository {
   const technologies = loadTechnologies();
   validateTechnologyReferences(technologies);
   const blogsResult = loadBlogPosts();
+  const recipesResult = loadRecipes();
   const projectsResult = loadProjects();
   const adrsResult = loadADRs();
   const rolesResult = loadJobRoles();
@@ -744,6 +842,7 @@ export function loadDomainRepository(): DomainRepository {
 
   const loaders: LoaderResults = {
     blogs: blogsResult,
+    recipes: recipesResult,
     projects: projectsResult,
     adrs: adrsResult,
     roles: rolesResult,
@@ -759,6 +858,7 @@ export function loadDomainRepository(): DomainRepository {
   return {
     technologies,
     blogs: blogsResult.entities,
+    recipes: recipesResult.entities,
     projects: projectsResult.entities,
     adrs: adrsResult.entities,
     roles: rolesResult.entities,
