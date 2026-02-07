@@ -562,8 +562,7 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "react-force-graph",
-    description:
-      "React component for 2D/3D force-directed graph visualization",
+    description: "React component for 2D/3D force-directed graph visualization",
     website: "https://github.com/vasturiano/react-force-graph",
     type: "library",
   },
