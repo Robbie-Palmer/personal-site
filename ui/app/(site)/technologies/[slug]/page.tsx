@@ -1,17 +1,23 @@
 import {
+  BarChart3,
   Briefcase,
   ExternalLink,
   FileText,
   FolderKanban,
   type LucideIcon,
   Map as MapIcon,
+  Play,
 } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import { EmblaDemoCarousel } from "@/components/adrs/embla-demo-carousel";
+import { RechartsDemoChart } from "@/components/adrs/recharts-demo-chart";
 import { LazyLeafletMapDemo } from "@/components/technology/lazy-leaflet-map-demo";
+import { MermaidDemo } from "@/components/technology/mermaid-demo";
+import { ShikiDemo } from "@/components/technology/shiki-demo";
 import { TechPagination } from "@/components/technology/tech-pagination";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -214,6 +220,58 @@ export default async function TechnologyPage({ params }: PageProps) {
                 Demo
               </h2>
               <LazyLeafletMapDemo />
+            </section>
+          </>
+        )}
+
+        {slug === "embla-carousel" && (
+          <>
+            <Separator />
+            <section>
+              <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+                <Play className="w-5 h-5 text-primary" />
+                Demo
+              </h2>
+              <EmblaDemoCarousel />
+            </section>
+          </>
+        )}
+
+        {slug === "recharts" && (
+          <>
+            <Separator />
+            <section>
+              <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-primary" />
+                Demo
+              </h2>
+              <RechartsDemoChart />
+            </section>
+          </>
+        )}
+
+        {slug === "mermaid" && (
+          <>
+            <Separator />
+            <section>
+              <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+                <Play className="w-5 h-5 text-primary" />
+                Demo
+              </h2>
+              <MermaidDemo />
+            </section>
+          </>
+        )}
+
+        {slug === "shiki" && (
+          <>
+            <Separator />
+            <section>
+              <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+                <Play className="w-5 h-5 text-primary" />
+                Demo
+              </h2>
+              <ShikiDemo />
             </section>
           </>
         )}
