@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import type { Project } from "@/lib/api/projects";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
+import { prioritiseSelected } from "@/lib/generic/array";
 import { ProjectRoleBadge } from "./project-role-badge";
 import { ProjectStatusBadge } from "./project-status-badge";
 
@@ -39,17 +40,10 @@ export function ProjectCard({
   selectedRoles = [],
   onRoleClick,
 }: ProjectCardProps) {
-  // Reorder technologies so selected ones appear first, ensuring they're visible
-  const sortedTechnologies = useMemo(() => {
-    if (selectedTech.length === 0) return project.technologies;
-    const selected = project.technologies.filter((t) =>
-      selectedTech.includes(t.slug),
-    );
-    const unselected = project.technologies.filter(
-      (t) => !selectedTech.includes(t.slug),
-    );
-    return [...selected, ...unselected];
-  }, [project.technologies, selectedTech]);
+  const sortedTechnologies = useMemo(
+    () => prioritiseSelected(project.technologies, selectedTech),
+    [project.technologies, selectedTech],
+  );
   return (
     <Card className="flex flex-col h-full hover:shadow-lg transition-all hover:border-primary/50 group relative overflow-hidden">
       {/* Clickable Area for the whole card */}

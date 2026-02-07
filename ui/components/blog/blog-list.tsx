@@ -22,20 +22,9 @@ import { useFilterParams } from "@/hooks/use-filter-params";
 import type { BlogPost } from "@/lib/api/blog";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 import type { BlogRoleView } from "@/lib/domain/blog/blogViews";
+import { prioritiseSelected } from "@/lib/generic/array";
 import { formatDate } from "@/lib/generic/date";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
-
-function sortTechnologies<T extends { slug: string }>(
-  technologies: T[],
-  selectedSlugs: string[],
-): T[] {
-  if (selectedSlugs.length === 0) return technologies;
-  const selected = technologies.filter((t) => selectedSlugs.includes(t.slug));
-  const unselected = technologies.filter(
-    (t) => !selectedSlugs.includes(t.slug),
-  );
-  return [...selected, ...unselected];
-}
 
 function RoleBadge({
   role,
@@ -278,7 +267,7 @@ export function BlogList({ posts }: BlogListProps) {
             </div>
             {post.technologies.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-3">
-                {sortTechnologies(post.technologies, selectedTech)
+                {prioritiseSelected(post.technologies, selectedTech)
                   .slice(0, 4)
                   .map((tech) => {
                     const isActive = selectedTech.includes(tech.slug);
