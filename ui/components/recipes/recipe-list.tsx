@@ -111,7 +111,7 @@ export function RecipeList({ recipes }: RecipeListProps) {
               })}
             </div>
             <div className="text-sm text-muted-foreground">
-              <time>{formatDate(recipe.date)}</time>
+              <time dateTime={recipe.date}>{formatDate(recipe.date)}</time>
             </div>
           </CardContent>
         </Card>
