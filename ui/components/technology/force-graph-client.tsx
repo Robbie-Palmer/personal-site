@@ -49,9 +49,9 @@ export function ForceGraphClient({ data }: ForceGraphClientProps) {
   const graphRef = useRef<ForceGraph2DInstance | null>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
   const [hoveredNode, setHoveredNode] = useState<ForceGraphNode | null>(null);
-  const [ForceGraph2D, setForceGraph2D] =
-    useState<React.ComponentType<// biome-ignore lint/suspicious/noExplicitAny: third-party component with complex prop types
-    any> | null>(null);
+  // biome-ignore lint/suspicious/noExplicitAny: third-party component with complex prop types
+  type AnyComponent = React.ComponentType<any>;
+  const [ForceGraph2D, setForceGraph2D] = useState<AnyComponent | null>(null);
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
 
   // Dynamically import react-force-graph-2d (needs window)
