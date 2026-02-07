@@ -98,22 +98,94 @@ export function ForceGraphClient({ data }: ForceGraphClientProps) {
         ? data.nodes
         : data.nodes.filter((n) => !hiddenTypes.has(n.type));
     const typeFilteredIds = new Set(typeFilteredNodes.map((n) => n.id));
-    const typeFilteredLinks = data.links.filter(
-      (l) =>
-        typeFilteredIds.has(getLinkEndpointId(l.source)) &&
-        typeFilteredIds.has(getLinkEndpointId(l.target)),
+    const hiddenNodeIds = new Set(
+      data.nodes.filter((n) => !typeFilteredIds.has(n.id)).map((n) => n.id),
     );
 
-    // Step 2: compute connection counts within the type-filtered graph
-    const connectionCounts = new Map<string, number>();
-    for (const link of typeFilteredLinks) {
-      const src = getLinkEndpointId(link.source);
-      const tgt = getLinkEndpointId(link.target);
-      connectionCounts.set(src, (connectionCounts.get(src) ?? 0) + 1);
-      connectionCounts.set(tgt, (connectionCounts.get(tgt) ?? 0) + 1);
+    // Step 2: keep direct links between visible nodes
+    const linkSet = new Set<string>(); // dedup key: "source|target"
+    const resultLinks: { source: string; target: string; type: string }[] = [];
+
+    function addLink(source: string, target: string, type: string) {
+      // Deduplicate and prevent self-links
+      if (source === target) return;
+      const key = source < target ? `${source}|${target}` : `${target}|${source}`;
+      if (linkSet.has(key)) return;
+      linkSet.add(key);
+      resultLinks.push({ source, target, type });
     }
 
-    // Step 3: filter by minimum connections
+    for (const l of data.links) {
+      const src = getLinkEndpointId(l.source);
+      const tgt = getLinkEndpointId(l.target);
+      if (typeFilteredIds.has(src) && typeFilteredIds.has(tgt)) {
+        addLink(src, tgt, l.type);
+      }
+    }
+
+    // Step 3: synthesize transitive technology links through hidden nodes.
+    // Technologies are "sticky" — when intermediary nodes (ADRs, projects,
+    // blogs) are filtered out, their technology connections should be
+    // preserved on the remaining visible nodes they connect to.
+    if (hiddenNodeIds.size > 0 && !hiddenTypes.has("technology")) {
+      // Build adjacency from ALL links (including hidden nodes)
+      const neighbors = new Map<string, Set<string>>();
+      for (const l of data.links) {
+        const src = getLinkEndpointId(l.source);
+        const tgt = getLinkEndpointId(l.target);
+        if (!neighbors.has(src)) neighbors.set(src, new Set());
+        if (!neighbors.has(tgt)) neighbors.set(tgt, new Set());
+        neighbors.get(src)?.add(tgt);
+        neighbors.get(tgt)?.add(src);
+      }
+
+      // For each visible non-technology node, BFS through hidden nodes to
+      // find reachable technology nodes
+      const techPrefix = "technology:";
+      for (const node of typeFilteredNodes) {
+        if (node.id.startsWith(techPrefix)) continue;
+
+        const visited = new Set<string>();
+        const queue = [node.id];
+        visited.add(node.id);
+
+        while (queue.length > 0) {
+          const current = queue.shift()!;
+          for (const neighbor of neighbors.get(current) ?? []) {
+            if (visited.has(neighbor)) continue;
+            visited.add(neighbor);
+
+            if (
+              neighbor.startsWith(techPrefix) &&
+              typeFilteredIds.has(neighbor)
+            ) {
+              // Found a reachable technology — add synthetic link
+              addLink(node.id, neighbor, "USES_TECHNOLOGY");
+            } else if (hiddenNodeIds.has(neighbor)) {
+              // Hidden intermediary — keep traversing through it
+              queue.push(neighbor);
+            }
+            // Visible non-tech node — don't traverse through it (it has
+            // its own links already)
+          }
+        }
+      }
+    }
+
+    // Step 4: compute connection counts
+    const connectionCounts = new Map<string, number>();
+    for (const link of resultLinks) {
+      connectionCounts.set(
+        link.source,
+        (connectionCounts.get(link.source) ?? 0) + 1,
+      );
+      connectionCounts.set(
+        link.target,
+        (connectionCounts.get(link.target) ?? 0) + 1,
+      );
+    }
+
+    // Step 5: filter by minimum connections
     const finalNodeIds = new Set(
       typeFilteredNodes
         .filter((n) => (connectionCounts.get(n.id) ?? 0) >= minConnections)
@@ -127,17 +199,9 @@ export function ForceGraphClient({ data }: ForceGraphClientProps) {
           ...n,
           connections: connectionCounts.get(n.id) ?? 0,
         })),
-      links: typeFilteredLinks
-        .filter(
-          (l) =>
-            finalNodeIds.has(getLinkEndpointId(l.source)) &&
-            finalNodeIds.has(getLinkEndpointId(l.target)),
-        )
-        .map((l) => ({
-          source: getLinkEndpointId(l.source),
-          target: getLinkEndpointId(l.target),
-          type: l.type,
-        })),
+      links: resultLinks.filter(
+        (l) => finalNodeIds.has(l.source) && finalNodeIds.has(l.target),
+      ),
     };
   }, [data, hiddenTypes, minConnections]);
 
