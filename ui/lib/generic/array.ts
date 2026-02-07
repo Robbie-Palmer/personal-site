@@ -1,13 +1,16 @@
 /**
- * Reorders items so that those matching the selected slugs appear first,
+ * Reorders items so that those whose key is in `selectedKeys` appear first,
  * preserving relative order within each group.
  */
-export function prioritiseSelected<T extends { slug: string }>(
+export function prioritiseSelected<T>(
   items: T[],
-  selectedSlugs: string[],
+  selectedKeys: string[],
+  getKey: (item: T) => string,
 ): T[] {
-  if (selectedSlugs.length === 0) return items;
-  const selected = items.filter((t) => selectedSlugs.includes(t.slug));
-  const unselected = items.filter((t) => !selectedSlugs.includes(t.slug));
+  if (selectedKeys.length === 0) return items;
+  const selected = items.filter((item) => selectedKeys.includes(getKey(item)));
+  const unselected = items.filter(
+    (item) => !selectedKeys.includes(getKey(item)),
+  );
   return [...selected, ...unselected];
 }

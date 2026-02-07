@@ -267,7 +267,11 @@ export function BlogList({ posts }: BlogListProps) {
             </div>
             {post.technologies.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-3">
-                {prioritiseSelected(post.technologies, selectedTech)
+                {prioritiseSelected(
+                  post.technologies,
+                  selectedTech,
+                  (t) => t.slug,
+                )
                   .slice(0, 4)
                   .map((tech) => {
                     const isActive = selectedTech.includes(tech.slug);

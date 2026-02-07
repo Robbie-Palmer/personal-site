@@ -41,7 +41,7 @@ export function ProjectCard({
   onRoleClick,
 }: ProjectCardProps) {
   const sortedTechnologies = useMemo(
-    () => prioritiseSelected(project.technologies, selectedTech),
+    () => prioritiseSelected(project.technologies, selectedTech, (t) => t.slug),
     [project.technologies, selectedTech],
   );
   return (
