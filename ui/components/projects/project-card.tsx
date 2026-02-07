@@ -79,7 +79,7 @@ export function ProjectCard({
                   active={selectedRoles.includes(project.role.slug)}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onRoleClick(project.role?.slug ?? "");
+                    onRoleClick(project.role.slug);
                   }}
                 />
               )}
