@@ -62,6 +62,7 @@ export function ForceGraphClient({ data }: ForceGraphClientProps) {
   type AnyComponent = React.ComponentType<any>;
   const [ForceGraph2D, setForceGraph2D] = useState<AnyComponent | null>(null);
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
+  const [minConnections, setMinConnections] = useState(0);
 
   // Dynamically import react-force-graph-2d (needs window)
   useEffect(() => {
@@ -91,44 +92,63 @@ export function ForceGraphClient({ data }: ForceGraphClientProps) {
   // and replacing link source/target strings with node object refs), so we
   // must produce new objects each time to avoid corrupting our source data.
   const filteredData = useMemo(() => {
-    const visibleNodes =
+    // Step 1: filter by node type
+    const typeFilteredNodes =
       hiddenTypes.size === 0
         ? data.nodes
         : data.nodes.filter((n) => !hiddenTypes.has(n.type));
-    const visibleNodeIds = new Set(visibleNodes.map((n) => n.id));
-    const visibleLinks = data.links
-      .filter(
-        (l) =>
-          visibleNodeIds.has(getLinkEndpointId(l.source)) &&
-          visibleNodeIds.has(getLinkEndpointId(l.target)),
-      )
-      .map((l) => ({
-        source: getLinkEndpointId(l.source),
-        target: getLinkEndpointId(l.target),
-        type: l.type,
-      }));
+    const typeFilteredIds = new Set(typeFilteredNodes.map((n) => n.id));
+    const typeFilteredLinks = data.links.filter(
+      (l) =>
+        typeFilteredIds.has(getLinkEndpointId(l.source)) &&
+        typeFilteredIds.has(getLinkEndpointId(l.target)),
+    );
 
-    // Recompute connection counts based on visible links only
+    // Step 2: compute connection counts within the type-filtered graph
     const connectionCounts = new Map<string, number>();
-    for (const link of visibleLinks) {
-      connectionCounts.set(
-        link.source,
-        (connectionCounts.get(link.source) ?? 0) + 1,
-      );
-      connectionCounts.set(
-        link.target,
-        (connectionCounts.get(link.target) ?? 0) + 1,
-      );
+    for (const link of typeFilteredLinks) {
+      const src = getLinkEndpointId(link.source);
+      const tgt = getLinkEndpointId(link.target);
+      connectionCounts.set(src, (connectionCounts.get(src) ?? 0) + 1);
+      connectionCounts.set(tgt, (connectionCounts.get(tgt) ?? 0) + 1);
     }
 
+    // Step 3: filter by minimum connections
+    const finalNodeIds = new Set(
+      typeFilteredNodes
+        .filter((n) => (connectionCounts.get(n.id) ?? 0) >= minConnections)
+        .map((n) => n.id),
+    );
+
     return {
-      nodes: visibleNodes.map((n) => ({
-        ...n,
-        connections: connectionCounts.get(n.id) ?? 0,
-      })),
-      links: visibleLinks,
+      nodes: typeFilteredNodes
+        .filter((n) => finalNodeIds.has(n.id))
+        .map((n) => ({
+          ...n,
+          connections: connectionCounts.get(n.id) ?? 0,
+        })),
+      links: typeFilteredLinks
+        .filter(
+          (l) =>
+            finalNodeIds.has(getLinkEndpointId(l.source)) &&
+            finalNodeIds.has(getLinkEndpointId(l.target)),
+        )
+        .map((l) => ({
+          source: getLinkEndpointId(l.source),
+          target: getLinkEndpointId(l.target),
+          type: l.type,
+        })),
     };
-  }, [data, hiddenTypes]);
+  }, [data, hiddenTypes, minConnections]);
+
+  // Max connections in the current type-filtered graph (for slider range)
+  const maxConnections = useMemo(() => {
+    let max = 0;
+    for (const node of filteredData.nodes) {
+      if (node.connections > max) max = node.connections;
+    }
+    return max;
+  }, [filteredData]);
 
   const toggleType = useCallback((type: string) => {
     setHiddenTypes((prev) => {
@@ -237,6 +257,26 @@ export function ForceGraphClient({ data }: ForceGraphClientProps) {
               </button>
             );
           })}
+        </div>
+        <div className="flex items-center gap-3">
+          <label
+            htmlFor="min-connections"
+            className="text-xs text-muted-foreground whitespace-nowrap"
+          >
+            Min connections
+          </label>
+          <input
+            id="min-connections"
+            type="range"
+            min={0}
+            max={Math.max(maxConnections, 1)}
+            value={minConnections}
+            onChange={(e) => setMinConnections(Number(e.target.value))}
+            className="flex-1 h-1.5 accent-primary"
+          />
+          <span className="text-xs font-medium tabular-nums w-4 text-right">
+            {minConnections}
+          </span>
         </div>
       </div>
       <div ref={containerRef} className="relative w-full">
