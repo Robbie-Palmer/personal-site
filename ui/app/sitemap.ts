@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getAllPosts } from "@/lib/api/blog";
 import { getAllProjects } from "@/lib/api/projects";
+import { getAllRecipes } from "@/lib/api/recipes";
 import { siteConfig } from "@/lib/config/site-config";
 import { getAllTechnologySlugs, loadDomainRepository } from "@/lib/domain";
 
@@ -9,6 +10,7 @@ export const dynamic = "force-static";
 export default function sitemap(): MetadataRoute.Sitemap {
   const posts = getAllPosts();
   const projects = getAllProjects();
+  const recipes = getAllRecipes();
   const repository = loadDomainRepository();
   const technologySlugs = getAllTechnologySlugs(repository);
 
@@ -32,6 +34,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     })),
   );
 
+  const recipePages = recipes.map((recipe) => ({
+    url: `${siteConfig.url}/recipes/${recipe.slug}`,
+    lastModified: recipe.date,
+    priority: 0.4,
+  }));
+
   const technologyPages = technologySlugs.map((slug) => ({
     url: `${siteConfig.url}/technologies/${slug}`,
     lastModified: new Date().toISOString(),
@@ -46,6 +54,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const latestProjectDate = projects.reduce((latest, project) => {
     const projectDate = new Date(project.updated || project.date);
     return projectDate > latest ? projectDate : latest;
+  }, new Date(0));
+
+  const latestRecipeDate = recipes.reduce((latest, recipe) => {
+    const recipeDate = new Date(recipe.date);
+    return recipeDate > latest ? recipeDate : latest;
   }, new Date(0));
 
   return [
@@ -69,9 +82,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: latestProjectDate.toISOString(),
       priority: 0.7,
     },
+    {
+      url: `${siteConfig.url}/recipes`,
+      lastModified: latestRecipeDate.toISOString(),
+      priority: 0.4,
+    },
     ...blogPosts,
     ...projectPages,
     ...adrPages,
+    ...recipePages,
     ...technologyPages,
   ];
 }
