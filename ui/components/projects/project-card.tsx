@@ -63,6 +63,7 @@ export function ProjectCard({
             <div className="flex gap-2 flex-wrap">
               <ProjectStatusBadge
                 status={project.status}
+                className="z-10"
                 interactive
                 active={selectedStatuses.includes(project.status)}
                 onClick={(e) => {
