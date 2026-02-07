@@ -23,6 +23,28 @@ def format_results(numbers: List[int]) -> str:
 print(f"Results: {format_results([1, 2, 3, 4, 5])}")
 \`\`\`
 
+### SQL with window functions
+
+Observe the precise highlighting of window functions, partitions, and CTEs:
+
+\`\`\`sql
+-- Calculate running total and rank by department
+SELECT
+    employee_id,
+    department,
+    salary,
+    SUM(salary) OVER (
+        PARTITION BY department
+        ORDER BY hire_date
+        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS running_total,
+    RANK() OVER (PARTITION BY department ORDER BY salary DESC) AS salary_rank,
+    LAG(salary, 1) OVER (PARTITION BY department ORDER BY hire_date) AS previous_salary
+FROM employees
+WHERE hire_date >= '2023-01-01'
+ORDER BY department, salary_rank;
+\`\`\`
+
 ### TypeScript with generics and type inference
 
 Generic constraints, async/await, and nullish coalescing are all highlighted correctly:
@@ -54,6 +76,27 @@ class InMemoryRepository<T extends { id: string }> implements Repository<T> {
 // Type inference in action
 const userRepo = new InMemoryRepository<{ id: string; name: string }>();
 const user = await userRepo.findById('123'); // Type: { id: string; name: string } | null
+\`\`\`
+
+### YAML with anchors and merge keys
+
+Complex YAML features like anchors, aliases, and merge keys are precisely tokenized:
+
+\`\`\`yaml
+defaults: &defaults
+  adapter: postgres
+  host: localhost
+  pool: 5
+
+development:
+  <<: *defaults
+  database: myapp_dev
+
+production:
+  <<: *defaults
+  host: \${DATABASE_HOST}
+  database: myapp_prod
+  pool: 25
 \`\`\`
 
 ### Bash with parameter expansion

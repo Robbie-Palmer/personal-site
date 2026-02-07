@@ -6,7 +6,9 @@ import { Mermaid } from "@/components/mermaid";
 import { ADRBadge } from "@/components/projects/adr-badge";
 import { ADRPagination } from "@/components/projects/adr-pagination";
 import { EmblaDemoCarousel } from "@/components/technology/embla-demo-carousel";
+import { MermaidDemo } from "@/components/technology/mermaid-demo";
 import { RechartsDemoChart } from "@/components/technology/recharts-demo-chart";
+import { ShikiDemo } from "@/components/technology/shiki-demo";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -20,8 +22,10 @@ import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 
 const adrComponents = {
   EmblaDemoCarousel,
-  RechartsDemoChart,
   Mermaid,
+  MermaidDemo,
+  RechartsDemoChart,
+  ShikiDemo,
 };
 
 // Responsive behavior for the pagination container:
