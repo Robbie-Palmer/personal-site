@@ -10,8 +10,10 @@ export interface ForceGraphNode {
 }
 
 export interface ForceGraphLink {
-  source: string;
-  target: string;
+  // react-force-graph mutates these from strings to node object references
+  // after the first render, so both types must be handled at runtime
+  source: string | ForceGraphNode;
+  target: string | ForceGraphNode;
   type: string;
 }
 

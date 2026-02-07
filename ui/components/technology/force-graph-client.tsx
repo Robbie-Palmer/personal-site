@@ -13,6 +13,15 @@ type ForceGraph2DInstance = {
   zoomToFit: (ms?: number, padding?: number) => void;
 };
 
+// react-force-graph mutates link objects, replacing source/target strings
+// with references to the actual node objects. This helper extracts the ID
+// regardless of whether the value is still a string or has been replaced.
+function getLinkEndpointId(
+  endpoint: string | { id: string } | ForceGraphNode,
+): string {
+  return typeof endpoint === "string" ? endpoint : endpoint.id;
+}
+
 const NODE_COLORS: Record<string, string> = {
   project: "#3b82f6", // blue-500
   blog: "#f97316", // orange-500
@@ -77,17 +86,29 @@ export function ForceGraphClient({ data }: ForceGraphClientProps) {
     return () => observer.disconnect();
   }, []);
 
-  // Filter data based on hidden types
+  // Build fresh graph data each time filters change.
+  // react-force-graph mutates node/link objects in place (adding x/y/vx/vy
+  // and replacing link source/target strings with node object refs), so we
+  // must produce new objects each time to avoid corrupting our source data.
   const filteredData = useMemo(() => {
-    if (hiddenTypes.size === 0) return data;
-    const visibleNodeIds = new Set(
-      data.nodes.filter((n) => !hiddenTypes.has(n.type)).map((n) => n.id),
-    );
+    const visibleNodes =
+      hiddenTypes.size === 0
+        ? data.nodes
+        : data.nodes.filter((n) => !hiddenTypes.has(n.type));
+    const visibleNodeIds = new Set(visibleNodes.map((n) => n.id));
     return {
-      nodes: data.nodes.filter((n) => visibleNodeIds.has(n.id)),
-      links: data.links.filter(
-        (l) => visibleNodeIds.has(l.source) && visibleNodeIds.has(l.target),
-      ),
+      nodes: visibleNodes.map((n) => ({ ...n })),
+      links: data.links
+        .filter(
+          (l) =>
+            visibleNodeIds.has(getLinkEndpointId(l.source)) &&
+            visibleNodeIds.has(getLinkEndpointId(l.target)),
+        )
+        .map((l) => ({
+          source: getLinkEndpointId(l.source),
+          target: getLinkEndpointId(l.target),
+          type: l.type,
+        })),
     };
   }, [data, hiddenTypes]);
 
