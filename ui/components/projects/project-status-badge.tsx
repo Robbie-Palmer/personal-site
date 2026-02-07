@@ -6,14 +6,28 @@ import { cn } from "@/lib/generic/styles";
 interface ProjectStatusBadgeProps {
   status: ProjectStatus;
   className?: string;
+  interactive?: boolean;
+  active?: boolean;
+  onClick?: (e: React.MouseEvent) => void;
 }
 
 export function ProjectStatusBadge({
   status,
   className,
+  interactive,
+  active,
+  onClick,
 }: ProjectStatusBadgeProps) {
   return (
-    <Badge className={cn(PROJECT_STATUS_CONFIG[status].badgeClass, className)}>
+    <Badge
+      className={cn(
+        PROJECT_STATUS_CONFIG[status].badgeClass,
+        interactive && "cursor-pointer",
+        interactive && active && "ring-2 ring-offset-1 ring-current",
+        className,
+      )}
+      onClick={onClick}
+    >
       {PROJECT_STATUS_CONFIG[status].label}
     </Badge>
   );

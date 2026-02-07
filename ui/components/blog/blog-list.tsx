@@ -22,6 +22,7 @@ import { useFilterParams } from "@/hooks/use-filter-params";
 import type { BlogPost } from "@/lib/api/blog";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 import type { BlogRoleView } from "@/lib/domain/blog/blogViews";
+import { prioritiseSelected } from "@/lib/generic/array";
 import { formatDate } from "@/lib/generic/date";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
 
@@ -266,30 +267,36 @@ export function BlogList({ posts }: BlogListProps) {
             </div>
             {post.technologies.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-3">
-                {post.technologies.slice(0, 4).map((tech) => {
-                  const isActive = selectedTech.includes(tech.slug);
-                  return (
-                    <Badge
-                      key={tech.slug}
-                      variant={isActive ? "default" : "outline"}
-                      interactive
-                      active={isActive}
-                      className="gap-1 text-xs cursor-pointer"
-                      onClick={() =>
-                        filterParams.toggleValue("tech", tech.slug)
-                      }
-                    >
-                      {hasTechIcon(tech.name, tech.iconSlug) && (
-                        <TechIcon
-                          name={tech.name}
-                          iconSlug={tech.iconSlug}
-                          className="h-3 w-3"
-                        />
-                      )}
-                      {tech.name}
-                    </Badge>
-                  );
-                })}
+                {prioritiseSelected(
+                  post.technologies,
+                  selectedTech,
+                  (t) => t.slug,
+                )
+                  .slice(0, 4)
+                  .map((tech) => {
+                    const isActive = selectedTech.includes(tech.slug);
+                    return (
+                      <Badge
+                        key={tech.slug}
+                        variant={isActive ? "default" : "outline"}
+                        interactive
+                        active={isActive}
+                        className="gap-1 text-xs cursor-pointer"
+                        onClick={() =>
+                          filterParams.toggleValue("tech", tech.slug)
+                        }
+                      >
+                        {hasTechIcon(tech.name, tech.iconSlug) && (
+                          <TechIcon
+                            name={tech.name}
+                            iconSlug={tech.iconSlug}
+                            className="h-3 w-3"
+                          />
+                        )}
+                        {tech.name}
+                      </Badge>
+                    );
+                  })}
                 {post.technologies.length > 4 && (
                   <Badge variant="outline" className="text-xs">
                     +{post.technologies.length - 4}
