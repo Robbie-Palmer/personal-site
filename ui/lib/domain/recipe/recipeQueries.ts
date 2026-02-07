@@ -1,12 +1,6 @@
-import {
-  type DomainRepository,
-  getContentForTag,
-  getNodeSlug,
-  getTagsForContent,
-  isNodeType,
-  makeNodeId,
-} from "@/lib/repository";
+import type { IngredientSlug } from "./ingredient";
 import type { RecipeSlug } from "./recipe";
+import type { RecipeRepository } from "./recipeRepository";
 import {
   type RecipeCardView,
   type RecipeDetailView,
@@ -15,63 +9,64 @@ import {
 } from "./recipeViews";
 
 export function getRecipeCard(
-  repository: DomainRepository,
+  repository: RecipeRepository,
   slug: RecipeSlug,
 ): RecipeCardView | null {
   const recipe = repository.recipes.get(slug);
   if (!recipe) return null;
-
-  const tags = getTagsForContent(repository.graph, makeNodeId("recipe", slug));
-
-  return toRecipeCardView(recipe, [...tags]);
+  return toRecipeCardView(recipe);
 }
 
 export function getRecipeDetail(
-  repository: DomainRepository,
+  repository: RecipeRepository,
   slug: RecipeSlug,
 ): RecipeDetailView | null {
   const recipe = repository.recipes.get(slug);
   if (!recipe) return null;
-
-  const tags = getTagsForContent(repository.graph, makeNodeId("recipe", slug));
-
-  return toRecipeDetailView(recipe, [...tags]);
+  return toRecipeDetailView(recipe, repository);
 }
 
 export function getAllRecipeCards(
-  repository: DomainRepository,
+  repository: RecipeRepository,
 ): RecipeCardView[] {
-  const recipeSlugs = Array.from(repository.recipes.keys()) as RecipeSlug[];
-  return mapRecipesToRecipeCardViews(repository, recipeSlugs);
-}
-
-function mapRecipesToRecipeCardViews(
-  repository: DomainRepository,
-  recipeSlugs: RecipeSlug[],
-): RecipeCardView[] {
-  return recipeSlugs
-    .map((slug) => repository.recipes.get(slug))
-    .filter(
-      (recipe): recipe is NonNullable<typeof recipe> => recipe !== undefined,
-    )
-    .map((recipe) => {
-      const tags = getTagsForContent(
-        repository.graph,
-        makeNodeId("recipe", recipe.slug),
-      );
-      return toRecipeCardView(recipe, [...tags]);
-    });
+  return Array.from(repository.recipes.values()).map(toRecipeCardView);
 }
 
 export function getRecipesByTag(
-  repository: DomainRepository,
+  repository: RecipeRepository,
   tag: string,
 ): RecipeCardView[] {
-  const nodeIds = getContentForTag(repository.graph, tag);
+  const recipeSlugs = repository.graph.reverse.tagUsedBy.get(tag);
+  if (!recipeSlugs) return [];
 
-  const recipeSlugs = Array.from(nodeIds)
-    .filter((nodeId) => isNodeType(nodeId, "recipe"))
-    .map((nodeId) => getNodeSlug(nodeId) as RecipeSlug);
+  return Array.from(recipeSlugs)
+    .map((slug) => repository.recipes.get(slug))
+    .filter((recipe): recipe is NonNullable<typeof recipe> => recipe != null)
+    .map(toRecipeCardView);
+}
 
-  return mapRecipesToRecipeCardViews(repository, recipeSlugs);
+export function getRecipesByIngredient(
+  repository: RecipeRepository,
+  ingredientSlug: IngredientSlug,
+): RecipeCardView[] {
+  const recipeSlugs =
+    repository.graph.reverse.ingredientUsedBy.get(ingredientSlug);
+  if (!recipeSlugs) return [];
+
+  return Array.from(recipeSlugs)
+    .map((slug) => repository.recipes.get(slug))
+    .filter((recipe): recipe is NonNullable<typeof recipe> => recipe != null)
+    .map(toRecipeCardView);
+}
+
+export function getAllRecipeTags(repository: RecipeRepository): string[] {
+  return Array.from(repository.graph.reverse.tagUsedBy.keys());
+}
+
+export function getAllUsedIngredientSlugs(
+  repository: RecipeRepository,
+): IngredientSlug[] {
+  return Array.from(repository.graph.reverse.ingredientUsedBy.entries())
+    .filter(([_, recipes]) => recipes.size > 0)
+    .map(([slug]) => slug);
 }
