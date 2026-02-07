@@ -560,4 +560,11 @@ export const technologies: TechnologyContent[] = [
     website: "https://github.com/kayak/pypika",
     type: "library",
   },
+  {
+    name: "react-force-graph",
+    description:
+      "React component for 2D/3D force-directed graph visualization",
+    website: "https://github.com/vasturiano/react-force-graph",
+    type: "library",
+  },
 ];
