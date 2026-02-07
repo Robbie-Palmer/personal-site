@@ -2,16 +2,11 @@
 
 import { Mermaid } from "@/components/mermaid";
 
-export function MermaidDemo() {
-  return (
-    <div className="space-y-8">
-      <div>
-        <h3 className="text-lg font-medium mb-3">Flowchart</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          A simple decision flow showing branching logic:
-        </p>
-        <Mermaid
-          chart={`
+const DIAGRAMS = [
+  {
+    title: "Flowchart",
+    description: "A simple decision flow showing branching logic:",
+    chart: `
 flowchart LR
 A[Start]:::blue --> B{Is it working?}:::purple
 B -->|Yes| C[Great!]:::green
@@ -21,17 +16,12 @@ E -->|Yes| F[Fix it]:::amber
 E -->|No| D
 F --> B
 C --> G[Ship it! 🚀]:::green
-`}
-        />
-      </div>
-
-      <div>
-        <h3 className="text-lg font-medium mb-3">Sequence Diagram</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Interaction between a user, frontend, and API:
-        </p>
-        <Mermaid
-          chart={`
+`,
+  },
+  {
+    title: "Sequence Diagram",
+    description: "Interaction between a user, frontend, and API:",
+    chart: `
 sequenceDiagram
 participant U as User
 participant F as Frontend
@@ -44,17 +34,12 @@ A->>D: INSERT record
 D-->>A: Success
 A-->>F: 201 Created
 F-->>U: Show confirmation
-`}
-        />
-      </div>
-
-      <div>
-        <h3 className="text-lg font-medium mb-3">State Diagram</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          A document lifecycle with state transitions:
-        </p>
-        <Mermaid
-          chart={`
+`,
+  },
+  {
+    title: "State Diagram",
+    description: "A document lifecycle with state transitions:",
+    chart: `
 stateDiagram-v2
 direction LR
 [*] --> Draft
@@ -64,9 +49,22 @@ Review --> Approved: Approve
 Approved --> Published: Publish
 Published --> Archived: Archive
 Archived --> [*]
-`}
-        />
-      </div>
+`,
+  },
+];
+
+export function MermaidDemo() {
+  return (
+    <div className="space-y-8">
+      {DIAGRAMS.map((diagram) => (
+        <div key={diagram.title}>
+          <h3 className="text-lg font-medium mb-3">{diagram.title}</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            {diagram.description}
+          </p>
+          <Mermaid chart={diagram.chart} />
+        </div>
+      ))}
     </div>
   );
 }

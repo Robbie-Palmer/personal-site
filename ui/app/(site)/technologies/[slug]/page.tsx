@@ -13,10 +13,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-import { EmblaDemoCarousel } from "@/components/adrs/embla-demo-carousel";
-import { RechartsDemoChart } from "@/components/adrs/recharts-demo-chart";
+import { EmblaDemoCarousel } from "@/components/technology/embla-demo-carousel";
 import { LazyLeafletMapDemo } from "@/components/technology/lazy-leaflet-map-demo";
 import { MermaidDemo } from "@/components/technology/mermaid-demo";
+import { RechartsDemoChart } from "@/components/technology/recharts-demo-chart";
 import { ShikiDemo } from "@/components/technology/shiki-demo";
 import { TechPagination } from "@/components/technology/tech-pagination";
 import { Button } from "@/components/ui/button";
@@ -126,6 +126,17 @@ export async function generateMetadata({
 // Pagination container: full width on mobile, auto-sized and right-aligned on desktop
 const PAGINATION_CONTAINER_CLASSES = "w-full md:w-auto md:ml-auto";
 
+const TECHNOLOGY_DEMOS: Record<
+  string,
+  { icon: LucideIcon; component: ReactNode }
+> = {
+  leaflet: { icon: MapIcon, component: <LazyLeafletMapDemo /> },
+  "embla-carousel": { icon: Play, component: <EmblaDemoCarousel /> },
+  recharts: { icon: BarChart3, component: <RechartsDemoChart /> },
+  mermaid: { icon: Play, component: <MermaidDemo /> },
+  shiki: { icon: Play, component: <ShikiDemo /> },
+};
+
 export default async function TechnologyPage({ params }: PageProps) {
   const { slug } = await params;
   const repository = loadDomainRepository();
@@ -211,70 +222,23 @@ export default async function TechnologyPage({ params }: PageProps) {
           />
         </div>
 
-        {slug === "leaflet" && (
-          <>
-            <Separator />
-            <section>
-              <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                <MapIcon className="w-5 h-5 text-primary" />
-                Demo
-              </h2>
-              <LazyLeafletMapDemo />
-            </section>
-          </>
-        )}
-
-        {slug === "embla-carousel" && (
-          <>
-            <Separator />
-            <section>
-              <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                <Play className="w-5 h-5 text-primary" />
-                Demo
-              </h2>
-              <EmblaDemoCarousel />
-            </section>
-          </>
-        )}
-
-        {slug === "recharts" && (
-          <>
-            <Separator />
-            <section>
-              <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-primary" />
-                Demo
-              </h2>
-              <RechartsDemoChart />
-            </section>
-          </>
-        )}
-
-        {slug === "mermaid" && (
-          <>
-            <Separator />
-            <section>
-              <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                <Play className="w-5 h-5 text-primary" />
-                Demo
-              </h2>
-              <MermaidDemo />
-            </section>
-          </>
-        )}
-
-        {slug === "shiki" && (
-          <>
-            <Separator />
-            <section>
-              <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                <Play className="w-5 h-5 text-primary" />
-                Demo
-              </h2>
-              <ShikiDemo />
-            </section>
-          </>
-        )}
+        {(() => {
+          const demo = TECHNOLOGY_DEMOS[slug];
+          if (!demo) return null;
+          const DemoIcon = demo.icon;
+          return (
+            <>
+              <Separator />
+              <section>
+                <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+                  <DemoIcon className="w-5 h-5 text-primary" />
+                  Demo
+                </h2>
+                {demo.component}
+              </section>
+            </>
+          );
+        })()}
 
         {hasRelatedContent && (
           <>
