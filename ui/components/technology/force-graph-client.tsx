@@ -96,19 +96,37 @@ export function ForceGraphClient({ data }: ForceGraphClientProps) {
         ? data.nodes
         : data.nodes.filter((n) => !hiddenTypes.has(n.type));
     const visibleNodeIds = new Set(visibleNodes.map((n) => n.id));
+    const visibleLinks = data.links
+      .filter(
+        (l) =>
+          visibleNodeIds.has(getLinkEndpointId(l.source)) &&
+          visibleNodeIds.has(getLinkEndpointId(l.target)),
+      )
+      .map((l) => ({
+        source: getLinkEndpointId(l.source),
+        target: getLinkEndpointId(l.target),
+        type: l.type,
+      }));
+
+    // Recompute connection counts based on visible links only
+    const connectionCounts = new Map<string, number>();
+    for (const link of visibleLinks) {
+      connectionCounts.set(
+        link.source,
+        (connectionCounts.get(link.source) ?? 0) + 1,
+      );
+      connectionCounts.set(
+        link.target,
+        (connectionCounts.get(link.target) ?? 0) + 1,
+      );
+    }
+
     return {
-      nodes: visibleNodes.map((n) => ({ ...n })),
-      links: data.links
-        .filter(
-          (l) =>
-            visibleNodeIds.has(getLinkEndpointId(l.source)) &&
-            visibleNodeIds.has(getLinkEndpointId(l.target)),
-        )
-        .map((l) => ({
-          source: getLinkEndpointId(l.source),
-          target: getLinkEndpointId(l.target),
-          type: l.type,
-        })),
+      nodes: visibleNodes.map((n) => ({
+        ...n,
+        connections: connectionCounts.get(n.id) ?? 0,
+      })),
+      links: visibleLinks,
     };
   }, [data, hiddenTypes]);
 
