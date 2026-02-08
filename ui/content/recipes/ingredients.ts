@@ -28,7 +28,7 @@ export const ingredients: IngredientContent[] = [
   { name: "cheddar cheese", category: "dairy" },
   { name: "parmesan", category: "dairy" },
   { name: "grana padano", category: "dairy" },
-  { name: "coconut milk", category: "dairy" },
+  { name: "coconut milk", category: "oil-fat" },
 
   // Grains & Pasta
   { name: "rice", category: "grain" },

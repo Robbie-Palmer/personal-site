@@ -22,6 +22,12 @@ function loadIngredients(): Map<IngredientSlug, Ingredient> {
   const map = new Map<IngredientSlug, Ingredient>();
   for (const content of definedIngredients) {
     const slug = resolveIngredientSlug(content);
+    if (map.has(slug)) {
+      const existing = map.get(slug)!;
+      throw new Error(
+        `Duplicate ingredient slug "${slug}": "${existing.name}" and "${content.name}" both resolve to the same slug`,
+      );
+    }
     map.set(slug, { ...content, slug });
   }
   return map;
@@ -31,6 +37,12 @@ function loadRecipes(): Map<RecipeSlug, Recipe> {
   const map = new Map<RecipeSlug, Recipe>();
   for (const content of definedRecipes) {
     const slug = (content.slug || normalizeSlug(content.title)) as RecipeSlug;
+    if (map.has(slug)) {
+      const existing = map.get(slug)!;
+      throw new Error(
+        `Duplicate recipe slug "${slug}": "${existing.title}" and "${content.title}" both resolve to the same slug`,
+      );
+    }
     const recipe: Recipe = { ...content, slug };
     map.set(slug, recipe);
   }

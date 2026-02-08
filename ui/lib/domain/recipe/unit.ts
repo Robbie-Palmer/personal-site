@@ -34,7 +34,7 @@ export const UNIT_LABELS: Record<Unit, { singular: string; plural: string }> = {
   cup: { singular: "cup", plural: "cups" },
   pinch: { singular: "pinch", plural: "pinches" },
   handful: { singular: "handful", plural: "handfuls" },
-  piece: { singular: "", plural: "" },
+  piece: { singular: "piece", plural: "pieces" },
   slice: { singular: "slice", plural: "slices" },
   clove: { singular: "clove", plural: "cloves" },
   tin: { singular: "tin", plural: "tins" },

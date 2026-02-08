@@ -59,7 +59,7 @@ function formatAmount(item: RecipeIngredientView): string {
     }
   }
 
-  return parts.join("");
+  return parts.join(" ");
 }
 
 function formatIngredient(item: RecipeIngredientView): string {
