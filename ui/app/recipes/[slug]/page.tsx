@@ -53,7 +53,11 @@ function formatAmount(item: RecipeIngredientView): string {
           ? labels.plural
           : labels.singular;
       if (label) {
-        parts.push(label);
+        if (labels.noSpace && parts.length > 0) {
+          parts[parts.length - 1] += label;
+        } else {
+          parts.push(label);
+        }
       }
     }
   }
