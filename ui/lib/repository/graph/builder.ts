@@ -1,7 +1,6 @@
 import type { ADRSlug } from "@/lib/domain/adr/adr";
 import type { BlogSlug } from "@/lib/domain/blog/blogPost";
 import type { ProjectSlug } from "@/lib/domain/project/project";
-import type { RecipeSlug } from "@/lib/domain/recipe/recipe";
 import type { RoleSlug } from "@/lib/domain/role/jobRole";
 import type { TechnologySlug } from "@/lib/domain/technology/technology";
 import { type ContentGraph, makeNodeId, type NodeId } from "./types";
@@ -13,7 +12,6 @@ export interface RelationData {
   projectTags: Map<ProjectSlug, string[]>;
   blogTechnologies: Map<BlogSlug, TechnologySlug[]>;
   blogTags: Map<BlogSlug, string[]>;
-  recipeTags: Map<RecipeSlug, string[]>;
   adrTechnologies: Map<ADRSlug, TechnologySlug[]>;
   adrProject: Map<ADRSlug, ProjectSlug>;
   adrSupersededBy: Map<ADRSlug, ADRSlug>;
@@ -29,7 +27,6 @@ export function createEmptyRelationData(): RelationData {
     projectTags: new Map(),
     blogTechnologies: new Map(),
     blogTags: new Map(),
-    recipeTags: new Map(),
     adrTechnologies: new Map(),
     adrProject: new Map(),
     adrSupersededBy: new Map(),
@@ -97,10 +94,6 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
   }
   for (const [slug, tags] of relations.blogTags) {
     addTagEdges(graph, makeNodeId("blog", slug), tags);
-  }
-
-  for (const [slug, tags] of relations.recipeTags) {
-    addTagEdges(graph, makeNodeId("recipe", slug), tags);
   }
 
   for (const [slug, technologies] of relations.roleTechnologies) {

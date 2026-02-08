@@ -1,11 +1,12 @@
 import {
+  getAllRecipeCards,
   getRecipeDetail,
-  loadDomainRepository,
+  loadRecipeRepository,
   type RecipeCardView,
   type RecipeDetailView,
-} from "@/lib/domain";
+} from "@/lib/domain/recipe";
 
-const repository = loadDomainRepository();
+const repository = loadRecipeRepository();
 
 export type { RecipeCardView, RecipeDetailView };
 
@@ -21,11 +22,8 @@ export function getRecipeBySlug(slug: string): RecipeDetailView {
   return recipe;
 }
 
-export function getAllRecipes(): RecipeDetailView[] {
-  return Array.from(repository.recipes.keys())
-    .map((slug) => getRecipeDetail(repository, slug))
-    .filter((recipe): recipe is RecipeDetailView => recipe !== null)
-    .sort((a, b) => {
-      return new Date(b.date).getTime() - new Date(a.date).getTime();
-    });
+export function getAllRecipes(): RecipeCardView[] {
+  return getAllRecipeCards(repository).sort((a, b) => {
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
 }

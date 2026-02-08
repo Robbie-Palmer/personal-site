@@ -12,12 +12,12 @@ import {
 } from "@/components/ui/card";
 import { FilterableCardGrid } from "@/components/ui/filterable-card-grid";
 import { useFilterParams } from "@/hooks/use-filter-params";
-import type { RecipeDetailView } from "@/lib/api/recipes";
+import type { RecipeCardView } from "@/lib/api/recipes";
 import { formatDate } from "@/lib/generic/date";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
 
 interface RecipeListProps {
-  recipes: RecipeDetailView[];
+  recipes: RecipeCardView[];
 }
 
 export function RecipeList({ recipes }: RecipeListProps) {
@@ -37,7 +37,6 @@ export function RecipeList({ recipes }: RecipeListProps) {
           { name: "title", weight: 3 },
           { name: "description", weight: 2 },
           { name: "tags", weight: 2 },
-          { name: "content", weight: 1 },
         ],
         threshold: 0.1,
       }}

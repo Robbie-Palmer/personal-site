@@ -14,6 +14,3 @@ export type ProjectSlug = z.infer<typeof ProjectSlugSchema>;
 
 export const RoleSlugSchema = z.string().min(1);
 export type RoleSlug = z.infer<typeof RoleSlugSchema>;
-
-export const RecipeSlugSchema = z.string().min(1);
-export type RecipeSlug = z.infer<typeof RecipeSlugSchema>;
