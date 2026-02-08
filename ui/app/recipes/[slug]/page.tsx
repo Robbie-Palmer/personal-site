@@ -67,7 +67,9 @@ function formatIngredient(item: RecipeIngredientView): string {
 
   if (amount) {
     parts.push(amount);
-    parts.push("of");
+    if (item.unit) {
+      parts.push("of");
+    }
   }
 
   parts.push(item.name);
