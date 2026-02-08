@@ -36,7 +36,13 @@ export function buildRecipeContentGraph(input: {
     if (ingredientSlugs.length === 0) continue;
     graph.edges.usesIngredient.set(recipeSlug, new Set(ingredientSlugs));
     for (const ingredientSlug of ingredientSlugs) {
-      graph.reverse.ingredientUsedBy.get(ingredientSlug)?.add(recipeSlug);
+      const reverseSet = graph.reverse.ingredientUsedBy.get(ingredientSlug);
+      if (!reverseSet) {
+        throw new Error(
+          `Unknown ingredient "${ingredientSlug}" referenced by recipe "${recipeSlug}" was not registered via ingredientSlugs`,
+        );
+      }
+      reverseSet.add(recipeSlug);
     }
   }
 

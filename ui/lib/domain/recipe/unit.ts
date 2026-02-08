@@ -24,17 +24,24 @@ export const UnitSchema = z.enum([
 
 export type Unit = z.infer<typeof UnitSchema>;
 
-export const UNIT_LABELS: Record<Unit, { singular: string; plural: string }> = {
-  g: { singular: "g", plural: "g" },
-  kg: { singular: "kg", plural: "kg" },
-  ml: { singular: "ml", plural: "ml" },
-  l: { singular: "l", plural: "l" },
+export type UnitLabel = {
+  singular: string;
+  plural: string;
+  /** When true, no space between number and label (e.g. "400g" not "400 g") */
+  noSpace?: boolean;
+};
+
+export const UNIT_LABELS: Record<Unit, UnitLabel> = {
+  g: { singular: "g", plural: "g", noSpace: true },
+  kg: { singular: "kg", plural: "kg", noSpace: true },
+  ml: { singular: "ml", plural: "ml", noSpace: true },
+  l: { singular: "l", plural: "l", noSpace: true },
   tsp: { singular: "tsp", plural: "tsp" },
   tbsp: { singular: "tbsp", plural: "tbsp" },
   cup: { singular: "cup", plural: "cups" },
   pinch: { singular: "pinch", plural: "pinches" },
   handful: { singular: "handful", plural: "handfuls" },
-  piece: { singular: "", plural: "" },
+  piece: { singular: "piece", plural: "pieces" },
   slice: { singular: "slice", plural: "slices" },
   clove: { singular: "clove", plural: "cloves" },
   tin: { singular: "tin", plural: "tins" },

@@ -11,7 +11,6 @@ import {
 import type {
   IngredientGroupView,
   RecipeIngredientView,
-  Unit,
 } from "@/lib/domain/recipe";
 import { UNIT_LABELS } from "@/lib/domain/recipe";
 
@@ -47,30 +46,44 @@ function formatAmount(item: RecipeIngredientView): string {
   }
 
   if (item.unit) {
-    const labels = UNIT_LABELS[item.unit as Unit];
+    const labels = UNIT_LABELS[item.unit];
     if (labels) {
       const label =
         item.amount != null && item.amount !== 1
           ? labels.plural
           : labels.singular;
       if (label) {
-        parts.push(label);
+        if (labels.noSpace && parts.length > 0) {
+          parts[parts.length - 1] += label;
+        } else {
+          parts.push(label);
+        }
       }
     }
   }
 
-  return parts.join("");
+  return parts.join(" ");
+}
+
+function pluralizeName(item: RecipeIngredientView): string {
+  if (item.pluralName) return item.pluralName;
+  return `${item.name}s`;
 }
 
 function formatIngredient(item: RecipeIngredientView): string {
-  const amount = formatAmount(item);
+  const isPiece = item.unit === "piece";
+  const amount = isPiece ? (item.amount?.toString() ?? "") : formatAmount(item);
   const parts: string[] = [];
 
   if (amount) {
     parts.push(amount);
+    if (item.unit && !isPiece) {
+      parts.push("of");
+    }
   }
 
-  parts.push(item.name);
+  const needsPlural = isPiece && item.amount != null && item.amount !== 1;
+  parts.push(needsPlural ? pluralizeName(item) : item.name);
 
   if (item.preparation) {
     parts.push(`(${item.preparation})`);

@@ -1,13 +1,15 @@
 import type { Ingredient, IngredientSlug } from "./ingredient";
 import type { IngredientGroup, Recipe, RecipeIngredient } from "./recipe";
 import type { RecipeRepository } from "./recipeRepository";
+import type { Unit } from "./unit";
 
 export type RecipeIngredientView = {
   ingredient: IngredientSlug;
   name: string;
+  pluralName?: string;
   category?: string;
   amount?: number;
-  unit?: string;
+  unit?: Unit;
   preparation?: string;
   note?: string;
 };
@@ -46,6 +48,7 @@ function toIngredientView(
   return {
     ingredient: item.ingredient,
     name: ingredient?.name ?? item.ingredient,
+    pluralName: ingredient?.pluralName,
     category: ingredient?.category,
     amount: item.amount,
     unit: item.unit,
