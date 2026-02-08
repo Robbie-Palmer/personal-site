@@ -24,21 +24,28 @@ export const UnitSchema = z.enum([
 
 export type Unit = z.infer<typeof UnitSchema>;
 
-export const UNIT_LABELS: Record<Unit, { singular: string; plural: string }> = {
+export type UnitLabel = {
+  singular: string;
+  plural: string;
+  /** Word inserted between the unit and ingredient name, e.g. "of" → "3 cloves of garlic" */
+  connector?: string;
+};
+
+export const UNIT_LABELS: Record<Unit, UnitLabel> = {
   g: { singular: "g", plural: "g" },
   kg: { singular: "kg", plural: "kg" },
   ml: { singular: "ml", plural: "ml" },
   l: { singular: "l", plural: "l" },
   tsp: { singular: "tsp", plural: "tsp" },
   tbsp: { singular: "tbsp", plural: "tbsp" },
-  cup: { singular: "cup", plural: "cups" },
-  pinch: { singular: "pinch", plural: "pinches" },
-  handful: { singular: "handful", plural: "handfuls" },
-  piece: { singular: "piece", plural: "pieces" },
-  slice: { singular: "slice", plural: "slices" },
-  clove: { singular: "clove", plural: "cloves" },
-  tin: { singular: "tin", plural: "tins" },
-  cube: { singular: "cube", plural: "cubes" },
+  cup: { singular: "cup", plural: "cups", connector: "of" },
+  pinch: { singular: "pinch", plural: "pinches", connector: "of" },
+  handful: { singular: "handful", plural: "handfuls", connector: "of" },
+  piece: { singular: "piece", plural: "pieces", connector: "of" },
+  slice: { singular: "slice", plural: "slices", connector: "of" },
+  clove: { singular: "clove", plural: "cloves", connector: "of" },
+  tin: { singular: "tin", plural: "tins", connector: "of" },
+  cube: { singular: "cube", plural: "cubes", connector: "of" },
 };
 
 export type UnitCategory = "weight" | "volume" | "spoon" | "discrete";

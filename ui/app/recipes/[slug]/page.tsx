@@ -67,6 +67,10 @@ function formatIngredient(item: RecipeIngredientView): string {
 
   if (amount) {
     parts.push(amount);
+    const connector = item.unit ? UNIT_LABELS[item.unit]?.connector : undefined;
+    if (connector) {
+      parts.push(connector);
+    }
   }
 
   parts.push(item.name);
