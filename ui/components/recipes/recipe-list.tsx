@@ -2,6 +2,7 @@
 
 import { Clock, Globe, Leaf, Timer, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
+import type React from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -63,6 +64,34 @@ function CuisineBadge({
   );
 }
 
+function TimeBadge({
+  label,
+  minutes,
+  icon,
+  isActive,
+  onToggle,
+}: {
+  label: string;
+  minutes: number;
+  icon: React.ReactNode;
+  isActive: boolean;
+  onToggle: (rangeLabel: string) => void;
+}) {
+  const rangeLabel = getTimeRangeLabel(minutes);
+  return (
+    <Badge
+      variant={isActive ? "default" : "secondary"}
+      interactive
+      active={isActive}
+      className="gap-1 cursor-pointer"
+      onClick={() => onToggle(rangeLabel)}
+    >
+      {icon}
+      {label}: {formatTime(minutes)}
+    </Badge>
+  );
+}
+
 interface RecipeListProps {
   recipes: RecipeCardView[];
 }
@@ -77,6 +106,8 @@ export function RecipeList({ recipes }: RecipeListProps) {
     ],
   });
   const selectedCuisines = filterParams.getValues("cuisine");
+  const selectedPrepTimes = filterParams.getValues("prepTime");
+  const selectedTotalTimes = filterParams.getValues("totalTime");
 
   return (
     <FilterableCardGrid
@@ -185,16 +216,30 @@ export function RecipeList({ recipes }: RecipeListProps) {
                 />
               )}
               {recipe.prepTime != null && (
-                <Badge variant="outline" className="gap-1">
-                  <Timer className="h-3 w-3" />
-                  Prep: {formatTime(recipe.prepTime)}
-                </Badge>
+                <TimeBadge
+                  label="Prep"
+                  minutes={recipe.prepTime}
+                  icon={<Timer className="h-3 w-3" />}
+                  isActive={selectedPrepTimes.includes(
+                    getTimeRangeLabel(recipe.prepTime),
+                  )}
+                  onToggle={(rangeLabel) =>
+                    filterParams.toggleValue("prepTime", rangeLabel)
+                  }
+                />
               )}
               {recipe.totalTime != null && (
-                <Badge variant="outline" className="gap-1">
-                  <Clock className="h-3 w-3" />
-                  Total: {formatTime(recipe.totalTime)}
-                </Badge>
+                <TimeBadge
+                  label="Total"
+                  minutes={recipe.totalTime}
+                  icon={<Clock className="h-3 w-3" />}
+                  isActive={selectedTotalTimes.includes(
+                    getTimeRangeLabel(recipe.totalTime),
+                  )}
+                  onToggle={(rangeLabel) =>
+                    filterParams.toggleValue("totalTime", rangeLabel)
+                  }
+                />
               )}
             </div>
             <div className="text-sm text-muted-foreground">
