@@ -43,9 +43,7 @@ function formatAmount(item: RecipeIngredientView): string {
   const parts: string[] = [];
 
   if (item.amount != null) {
-    const formatted =
-      item.amount % 1 === 0 ? item.amount.toString() : item.amount.toString();
-    parts.push(formatted);
+    parts.push(item.amount.toString());
   }
 
   if (item.unit) {
