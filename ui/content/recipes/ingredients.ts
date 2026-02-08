@@ -13,7 +13,6 @@ export const ingredients: IngredientContent[] = [
   { name: "onion", category: "vegetable" },
   { name: "bell pepper", category: "vegetable" },
   { name: "red pepper", category: "vegetable" },
-  { name: "garlic clove", category: "vegetable" },
   { name: "garlic", category: "vegetable" },
   { name: "peas", category: "vegetable" },
   { name: "chopped tomatoes", category: "vegetable" },
@@ -28,7 +27,6 @@ export const ingredients: IngredientContent[] = [
   { name: "cheddar cheese", category: "dairy" },
   { name: "parmesan", category: "dairy" },
   { name: "grana padano", category: "dairy" },
-  { name: "coconut milk", category: "oil-fat" },
 
   // Grains & Pasta
   { name: "rice", category: "grain" },
@@ -50,10 +48,10 @@ export const ingredients: IngredientContent[] = [
   { name: "salt", category: "spice" },
   { name: "black pepper", category: "spice" },
   { name: "oregano", category: "spice" },
-  { name: "basil pesto", category: "spice" },
   { name: "peri peri salt", category: "spice" },
 
   // Condiments & Sauces
+  { name: "basil pesto", category: "condiment" },
   { name: "soy sauce", category: "condiment" },
   { name: "lime juice", category: "condiment" },
   { name: "peanut butter", category: "condiment" },
@@ -63,11 +61,11 @@ export const ingredients: IngredientContent[] = [
 
   // Oils & Fats
   { name: "olive oil", category: "oil-fat" },
+  { name: "coconut milk", category: "oil-fat" },
 
   // Liquids
   { name: "chicken stock", category: "liquid" },
   { name: "vegetable stock", category: "liquid" },
-  { name: "chicken stock cube", category: "liquid" },
 
   // Other
   { name: "plain flour", category: "other" },

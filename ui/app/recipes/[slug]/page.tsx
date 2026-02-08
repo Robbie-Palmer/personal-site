@@ -11,7 +11,6 @@ import {
 import type {
   IngredientGroupView,
   RecipeIngredientView,
-  Unit,
 } from "@/lib/domain/recipe";
 import { UNIT_LABELS } from "@/lib/domain/recipe";
 
@@ -47,7 +46,7 @@ function formatAmount(item: RecipeIngredientView): string {
   }
 
   if (item.unit) {
-    const labels = UNIT_LABELS[item.unit as Unit];
+    const labels = UNIT_LABELS[item.unit];
     if (labels) {
       const label =
         item.amount != null && item.amount !== 1

@@ -207,7 +207,7 @@ export const recipes: RecipeContent[] = [
           { ingredient: "peanut-butter", amount: 3, unit: "tbsp" },
           { ingredient: "honey", amount: 3, unit: "tbsp" },
           { ingredient: "tikka-curry-powder", amount: 1.5, unit: "tbsp" },
-          { ingredient: "garlic-clove", amount: 3, unit: "clove" },
+          { ingredient: "garlic", amount: 3, unit: "clove" },
           {
             ingredient: "coconut-milk",
             amount: 400,
@@ -364,13 +364,13 @@ export const recipes: RecipeContent[] = [
             preparation: "chopped",
           },
           {
-            ingredient: "garlic-clove",
+            ingredient: "garlic",
             amount: 3,
             unit: "clove",
             preparation: "crushed",
           },
           { ingredient: "chopped-tomatoes", amount: 1, unit: "tin" },
-          { ingredient: "chicken-stock-cube", amount: 1, unit: "cube" },
+          { ingredient: "chicken-stock", amount: 1, unit: "cube" },
           { ingredient: "mascarpone", amount: 250, unit: "g" },
           {
             ingredient: "cheddar-cheese",
