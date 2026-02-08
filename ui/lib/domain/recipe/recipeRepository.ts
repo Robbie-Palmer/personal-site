@@ -1,5 +1,6 @@
 import { ingredients as definedIngredients } from "../../../content/recipes/ingredients";
 import { recipes as definedRecipes } from "../../../content/recipes/recipes";
+import { normalizeSlug } from "../../generic/slugs";
 import {
   type Ingredient,
   type IngredientSlug,
@@ -29,11 +30,7 @@ function loadIngredients(): Map<IngredientSlug, Ingredient> {
 function loadRecipes(): Map<RecipeSlug, Recipe> {
   const map = new Map<RecipeSlug, Recipe>();
   for (const content of definedRecipes) {
-    const slug = (content.slug ||
-      content.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "")) as RecipeSlug;
+    const slug = (content.slug || normalizeSlug(content.title)) as RecipeSlug;
     const recipe: Recipe = { ...content, slug };
     map.set(slug, recipe);
   }
