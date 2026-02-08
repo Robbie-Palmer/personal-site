@@ -72,7 +72,7 @@ function pluralizeName(item: RecipeIngredientView): string {
 
 function formatIngredient(item: RecipeIngredientView): string {
   const isPiece = item.unit === "piece";
-  const amount = isPiece ? item.amount?.toString() ?? "" : formatAmount(item);
+  const amount = isPiece ? (item.amount?.toString() ?? "") : formatAmount(item);
   const parts: string[] = [];
 
   if (amount) {
