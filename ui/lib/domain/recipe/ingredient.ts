@@ -20,6 +20,7 @@ export type IngredientCategory = z.infer<typeof IngredientCategorySchema>;
 
 export const IngredientSchema = z.object({
   name: z.string().min(1),
+  pluralName: z.string().min(1).optional(),
   slug: IngredientSlugSchema.optional(),
   category: IngredientCategorySchema.optional(),
 });

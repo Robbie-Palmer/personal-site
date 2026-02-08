@@ -65,18 +65,25 @@ function formatAmount(item: RecipeIngredientView): string {
   return parts.join(" ");
 }
 
+function pluralizeName(item: RecipeIngredientView): string {
+  if (item.pluralName) return item.pluralName;
+  return `${item.name}s`;
+}
+
 function formatIngredient(item: RecipeIngredientView): string {
-  const amount = formatAmount(item);
+  const isPiece = item.unit === "piece";
+  const amount = isPiece ? item.amount?.toString() ?? "" : formatAmount(item);
   const parts: string[] = [];
 
   if (amount) {
     parts.push(amount);
-    if (item.unit) {
+    if (item.unit && !isPiece) {
       parts.push("of");
     }
   }
 
-  parts.push(item.name);
+  const needsPlural = isPiece && item.amount != null && item.amount !== 1;
+  parts.push(needsPlural ? pluralizeName(item) : item.name);
 
   if (item.preparation) {
     parts.push(`(${item.preparation})`);
