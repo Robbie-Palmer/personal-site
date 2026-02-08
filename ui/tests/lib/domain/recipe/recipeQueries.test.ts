@@ -6,13 +6,13 @@ import type {
 import type { Recipe, RecipeSlug } from "@/lib/domain/recipe/recipe";
 import { buildRecipeContentGraph } from "@/lib/domain/recipe/recipeGraph";
 import {
+  getAllCuisines,
   getAllRecipeCards,
-  getAllRecipeTags,
   getAllUsedIngredientSlugs,
   getRecipeCard,
   getRecipeDetail,
+  getRecipesByCuisine,
   getRecipesByIngredient,
-  getRecipesByTag,
 } from "@/lib/domain/recipe/recipeQueries";
 import type { RecipeRepository } from "@/lib/domain/recipe/recipeRepository";
 
@@ -49,7 +49,7 @@ function buildTestRepository(
   const ingredientMap = new Map<IngredientSlug, Ingredient>(ingredientEntries);
 
   const recipeIngredients = new Map<RecipeSlug, IngredientSlug[]>();
-  const recipeTags = new Map<RecipeSlug, string[]>();
+  const recipeCuisines = new Map<RecipeSlug, string>();
 
   for (const recipe of recipes) {
     recipeMap.set(recipe.slug, recipe);
@@ -60,13 +60,15 @@ function buildTestRepository(
       }
     }
     recipeIngredients.set(recipe.slug, Array.from(slugs));
-    recipeTags.set(recipe.slug, recipe.tags);
+    if (recipe.cuisine) {
+      recipeCuisines.set(recipe.slug, recipe.cuisine);
+    }
   }
 
   const graph = buildRecipeContentGraph({
     ingredientSlugs: ingredientMap.keys(),
     recipeIngredients,
-    recipeTags,
+    recipeCuisines,
   });
 
   return { recipes: recipeMap, ingredients: ingredientMap, graph };
@@ -83,7 +85,7 @@ const ingredients: [IngredientSlug, Ingredient][] = [
 const curryRecipe = makeRecipe({
   slug: "curry",
   title: "Chicken Curry",
-  tags: ["asian", "spicy"],
+  cuisine: "Asian",
   ingredientGroups: [
     {
       items: [
@@ -98,7 +100,7 @@ const curryRecipe = makeRecipe({
 const risottoRecipe = makeRecipe({
   slug: "risotto",
   title: "Chorizo Risotto",
-  tags: ["italian"],
+  cuisine: "Italian",
   ingredientGroups: [
     {
       items: [
@@ -118,7 +120,7 @@ describe("recipe queries", () => {
       const card = getRecipeCard(repo, "curry");
       expect(card).not.toBeNull();
       expect(card?.title).toBe("Chicken Curry");
-      expect(card?.tags).toEqual(["asian", "spicy"]);
+      expect(card?.cuisine).toBe("Asian");
       expect(card?.servings).toBe(4);
     });
 
@@ -161,15 +163,15 @@ describe("recipe queries", () => {
     });
   });
 
-  describe("getRecipesByTag", () => {
-    it("returns recipes matching a tag", () => {
-      const asian = getRecipesByTag(repo, "asian");
+  describe("getRecipesByCuisine", () => {
+    it("returns recipes matching a cuisine", () => {
+      const asian = getRecipesByCuisine(repo, "Asian");
       expect(asian).toHaveLength(1);
       expect(asian[0]?.slug).toBe("curry");
     });
 
-    it("returns empty array for non-existent tag", () => {
-      expect(getRecipesByTag(repo, "mexican")).toEqual([]);
+    it("returns empty array for non-existent cuisine", () => {
+      expect(getRecipesByCuisine(repo, "mexican")).toEqual([]);
     });
   });
 
@@ -193,13 +195,12 @@ describe("recipe queries", () => {
     });
   });
 
-  describe("getAllRecipeTags", () => {
-    it("returns all unique tags", () => {
-      const tags = getAllRecipeTags(repo);
-      expect(tags).toContain("asian");
-      expect(tags).toContain("spicy");
-      expect(tags).toContain("italian");
-      expect(tags).toHaveLength(3);
+  describe("getAllCuisines", () => {
+    it("returns all unique cuisines", () => {
+      const cuisines = getAllCuisines(repo);
+      expect(cuisines).toContain("Asian");
+      expect(cuisines).toContain("Italian");
+      expect(cuisines).toHaveLength(2);
     });
   });
 

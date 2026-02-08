@@ -18,6 +18,7 @@ const recipesMock = vi.hoisted(() => ({
       description: "A test curry",
       date: "2024-01-01",
       tags: ["asian"],
+      cuisine: "asian",
       servings: 4,
       prepTime: 10,
       cookTime: 30,
@@ -77,11 +78,11 @@ describe("RecipeRepository", () => {
       expect(edges?.has("onion")).toBe(true);
     });
 
-    it("builds graph with tag edges", () => {
+    it("builds graph with cuisine edges", () => {
       const repo = loadRecipeRepository();
 
-      const tags = repo.graph.edges.hasTag.get("test-curry");
-      expect(tags?.has("asian")).toBe(true);
+      const cuisine = repo.graph.edges.hasCuisine.get("test-curry");
+      expect(cuisine).toBe("asian");
     });
 
     it("builds reverse ingredient lookup", () => {

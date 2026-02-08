@@ -24,7 +24,7 @@ type BaseRecipeView = {
   title: string;
   description: string;
   date: string;
-  tags: string[];
+  cuisine?: string;
   servings: number;
   prepTime?: number;
   cookTime?: number;
@@ -33,7 +33,9 @@ type BaseRecipeView = {
   imageAlt?: string;
 };
 
-export type RecipeCardView = BaseRecipeView;
+export type RecipeCardView = BaseRecipeView & {
+  ingredientNames: string[];
+};
 
 export type RecipeDetailView = BaseRecipeView & {
   ingredientGroups: IngredientGroupView[];
@@ -74,19 +76,39 @@ function computeTotalTime(recipe: Recipe): number | undefined {
   return recipe.prepTime ?? recipe.cookTime;
 }
 
-export function toRecipeCardView(recipe: Recipe): RecipeCardView {
+function extractIngredientNames(
+  recipe: Recipe,
+  ingredients: Map<IngredientSlug, Ingredient>,
+): string[] {
+  const names = new Set<string>();
+  for (const group of recipe.ingredientGroups) {
+    for (const item of group.items) {
+      const ingredient = ingredients.get(item.ingredient);
+      if (ingredient) {
+        names.add(ingredient.name);
+      }
+    }
+  }
+  return Array.from(names).sort();
+}
+
+export function toRecipeCardView(
+  recipe: Recipe,
+  ingredients: Map<IngredientSlug, Ingredient>,
+): RecipeCardView {
   return {
     slug: recipe.slug,
     title: recipe.title,
     description: recipe.description,
     date: recipe.date,
-    tags: recipe.tags,
+    cuisine: recipe.cuisine,
     servings: recipe.servings,
     prepTime: recipe.prepTime,
     cookTime: recipe.cookTime,
     totalTime: computeTotalTime(recipe),
     image: recipe.image,
     imageAlt: recipe.imageAlt,
+    ingredientNames: extractIngredientNames(recipe, ingredients),
   };
 }
 
@@ -95,7 +117,7 @@ export function toRecipeDetailView(
   repository: RecipeRepository,
 ): RecipeDetailView {
   return {
-    ...toRecipeCardView(recipe),
+    ...toRecipeCardView(recipe, repository.ingredients),
     ingredientGroups: recipe.ingredientGroups.map((group) =>
       toIngredientGroupView(group, repository.ingredients),
     ),

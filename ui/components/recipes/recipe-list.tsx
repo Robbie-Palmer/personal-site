@@ -1,7 +1,8 @@
 "use client";
 
-import { Tag, UtensilsCrossed } from "lucide-react";
+import { Clock, Globe, Leaf, Timer, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
+import type React from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -16,15 +17,97 @@ import type { RecipeCardView } from "@/lib/api/recipes";
 import { formatDate } from "@/lib/generic/date";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
 
+const TIME_RANGES = [
+  { label: "Under 15 min", max: 14 },
+  { label: "15–30 min", min: 15, max: 30 },
+  { label: "30–60 min", min: 31, max: 60 },
+  { label: "Over 60 min", min: 61 },
+] as const;
+
+function getTimeRangeLabel(minutes: number): string {
+  for (const range of TIME_RANGES) {
+    const aboveMin = !("min" in range) || minutes >= range.min;
+    const belowMax = !("max" in range) || minutes <= range.max;
+    if (aboveMin && belowMax) return range.label;
+  }
+  // Fallback to last range (should never reach here given the ranges cover all values)
+  return TIME_RANGES[TIME_RANGES.length - 1]!.label;
+}
+
+function formatTime(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+}
+
+function CuisineBadge({
+  cuisine,
+  isActive,
+  onToggle,
+}: {
+  cuisine: string;
+  isActive: boolean;
+  onToggle: (cuisine: string) => void;
+}) {
+  return (
+    <Badge
+      variant={isActive ? "default" : "secondary"}
+      interactive
+      active={isActive}
+      className="gap-1 cursor-pointer"
+      onClick={() => onToggle(cuisine)}
+    >
+      <Globe className="h-3 w-3" />
+      {cuisine}
+    </Badge>
+  );
+}
+
+function TimeBadge({
+  label,
+  minutes,
+  icon,
+  isActive,
+  onToggle,
+}: {
+  label: string;
+  minutes: number;
+  icon: React.ReactNode;
+  isActive: boolean;
+  onToggle: (rangeLabel: string) => void;
+}) {
+  const rangeLabel = getTimeRangeLabel(minutes);
+  return (
+    <Badge
+      variant={isActive ? "default" : "secondary"}
+      interactive
+      active={isActive}
+      className="gap-1 cursor-pointer"
+      onClick={() => onToggle(rangeLabel)}
+    >
+      {icon}
+      {label}: {formatTime(minutes)}
+    </Badge>
+  );
+}
+
 interface RecipeListProps {
   recipes: RecipeCardView[];
 }
 
 export function RecipeList({ recipes }: RecipeListProps) {
   const filterParams = useFilterParams({
-    filters: [{ paramName: "tags", isMulti: true }],
+    filters: [
+      { paramName: "cuisine", isMulti: true },
+      { paramName: "ingredient", isMulti: true },
+      { paramName: "prepTime", isMulti: true },
+      { paramName: "totalTime", isMulti: true },
+    ],
   });
-  const selectedTags = filterParams.getValues("tags");
+  const selectedCuisines = filterParams.getValues("cuisine");
+  const selectedPrepTimes = filterParams.getValues("prepTime");
+  const selectedTotalTimes = filterParams.getValues("totalTime");
 
   return (
     <FilterableCardGrid
@@ -36,19 +119,50 @@ export function RecipeList({ recipes }: RecipeListProps) {
         keys: [
           { name: "title", weight: 3 },
           { name: "description", weight: 2 },
-          { name: "tags", weight: 2 },
+          { name: "cuisine", weight: 2 },
+          { name: "ingredientNames", weight: 1 },
         ],
         threshold: 0.1,
       }}
       filterConfigs={[
         {
-          paramName: "tags",
+          paramName: "cuisine",
           isMulti: true,
-          label: "Tags",
-          getItemValues: (recipe) => recipe.tags,
-          icon: <Tag className="h-4 w-4" />,
+          label: "Cuisines",
+          getItemValues: (recipe) => (recipe.cuisine ? [recipe.cuisine] : []),
+          icon: <Globe className="h-4 w-4" />,
           getValueLabel: (value) => value,
-          getOptionIcon: () => <Tag className="h-3 w-3" />,
+          getOptionIcon: () => <Globe className="h-3 w-3" />,
+        },
+        {
+          paramName: "ingredient",
+          isMulti: true,
+          label: "Ingredients",
+          getItemValues: (recipe) => recipe.ingredientNames,
+          icon: <Leaf className="h-4 w-4" />,
+          getValueLabel: (value) => value,
+          getOptionIcon: () => <Leaf className="h-3 w-3" />,
+        },
+        {
+          paramName: "prepTime",
+          isMulti: true,
+          label: "Prep Time",
+          getItemValues: (recipe) =>
+            recipe.prepTime != null ? [getTimeRangeLabel(recipe.prepTime)] : [],
+          icon: <Timer className="h-4 w-4" />,
+          getValueLabel: (value) => value,
+          getOptionIcon: () => <Timer className="h-3 w-3" />,
+        },
+        {
+          paramName: "totalTime",
+          isMulti: true,
+          label: "Total Time",
+          getItemValues: (recipe) =>
+            recipe.totalTime != null
+              ? [getTimeRangeLabel(recipe.totalTime)]
+              : [],
+          icon: <Clock className="h-4 w-4" />,
+          getOptionIcon: () => <Clock className="h-3 w-3" />,
         },
       ]}
       sortConfig={{
@@ -92,22 +206,41 @@ export function RecipeList({ recipes }: RecipeListProps) {
           </CardHeader>
           <CardContent className="flex-1 flex flex-col justify-end">
             <div className="flex flex-wrap gap-2 mb-3">
-              {recipe.tags.map((tag) => {
-                const isActive = selectedTags.includes(tag);
-                return (
-                  <Badge
-                    key={tag}
-                    variant={isActive ? "default" : "secondary"}
-                    interactive
-                    active={isActive}
-                    className="gap-1 cursor-pointer"
-                    onClick={() => filterParams.toggleValue("tags", tag)}
-                  >
-                    <Tag className="h-3 w-3" />
-                    {tag}
-                  </Badge>
-                );
-              })}
+              {recipe.cuisine && (
+                <CuisineBadge
+                  cuisine={recipe.cuisine}
+                  isActive={selectedCuisines.includes(recipe.cuisine)}
+                  onToggle={(cuisine) =>
+                    filterParams.toggleValue("cuisine", cuisine)
+                  }
+                />
+              )}
+              {recipe.prepTime != null && (
+                <TimeBadge
+                  label="Prep"
+                  minutes={recipe.prepTime}
+                  icon={<Timer className="h-3 w-3" />}
+                  isActive={selectedPrepTimes.includes(
+                    getTimeRangeLabel(recipe.prepTime),
+                  )}
+                  onToggle={(rangeLabel) =>
+                    filterParams.toggleValue("prepTime", rangeLabel)
+                  }
+                />
+              )}
+              {recipe.totalTime != null && (
+                <TimeBadge
+                  label="Total"
+                  minutes={recipe.totalTime}
+                  icon={<Clock className="h-3 w-3" />}
+                  isActive={selectedTotalTimes.includes(
+                    getTimeRangeLabel(recipe.totalTime),
+                  )}
+                  onToggle={(rangeLabel) =>
+                    filterParams.toggleValue("totalTime", rangeLabel)
+                  }
+                />
+              )}
             </div>
             <div className="text-sm text-muted-foreground">
               <time dateTime={recipe.date}>{formatDate(recipe.date)}</time>
