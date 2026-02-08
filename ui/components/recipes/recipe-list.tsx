@@ -40,6 +40,29 @@ function formatTime(minutes: number): string {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
 
+function CuisineBadge({
+  cuisine,
+  isActive,
+  onToggle,
+}: {
+  cuisine: string;
+  isActive: boolean;
+  onToggle: (cuisine: string) => void;
+}) {
+  return (
+    <Badge
+      variant={isActive ? "default" : "secondary"}
+      interactive
+      active={isActive}
+      className="gap-1 cursor-pointer"
+      onClick={() => onToggle(cuisine)}
+    >
+      <Globe className="h-3 w-3" />
+      {cuisine}
+    </Badge>
+  );
+}
+
 interface RecipeListProps {
   recipes: RecipeCardView[];
 }
@@ -153,22 +176,13 @@ export function RecipeList({ recipes }: RecipeListProps) {
           <CardContent className="flex-1 flex flex-col justify-end">
             <div className="flex flex-wrap gap-2 mb-3">
               {recipe.cuisine && (
-                <Badge
-                  variant={
-                    selectedCuisines.includes(recipe.cuisine)
-                      ? "default"
-                      : "secondary"
+                <CuisineBadge
+                  cuisine={recipe.cuisine}
+                  isActive={selectedCuisines.includes(recipe.cuisine)}
+                  onToggle={(cuisine) =>
+                    filterParams.toggleValue("cuisine", cuisine)
                   }
-                  interactive
-                  active={selectedCuisines.includes(recipe.cuisine)}
-                  className="gap-1 cursor-pointer"
-                  onClick={() =>
-                    filterParams.toggleValue("cuisine", recipe.cuisine!)
-                  }
-                >
-                  <Globe className="h-3 w-3" />
-                  {recipe.cuisine}
-                </Badge>
+                />
               )}
               {recipe.prepTime != null && (
                 <Badge variant="outline" className="gap-1">
