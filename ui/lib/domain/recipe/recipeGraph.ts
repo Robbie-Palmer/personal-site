@@ -4,27 +4,27 @@ import type { RecipeSlug } from "./recipe";
 export interface RecipeContentGraph {
   edges: {
     usesIngredient: Map<RecipeSlug, Set<IngredientSlug>>;
-    hasTag: Map<RecipeSlug, Set<string>>;
+    hasCuisine: Map<RecipeSlug, string>;
   };
   reverse: {
     ingredientUsedBy: Map<IngredientSlug, Set<RecipeSlug>>;
-    tagUsedBy: Map<string, Set<RecipeSlug>>;
+    cuisineUsedBy: Map<string, Set<RecipeSlug>>;
   };
 }
 
 export function buildRecipeContentGraph(input: {
   ingredientSlugs: Iterable<IngredientSlug>;
   recipeIngredients: Map<RecipeSlug, IngredientSlug[]>;
-  recipeTags: Map<RecipeSlug, string[]>;
+  recipeCuisines: Map<RecipeSlug, string>;
 }): RecipeContentGraph {
   const graph: RecipeContentGraph = {
     edges: {
       usesIngredient: new Map(),
-      hasTag: new Map(),
+      hasCuisine: new Map(),
     },
     reverse: {
       ingredientUsedBy: new Map(),
-      tagUsedBy: new Map(),
+      cuisineUsedBy: new Map(),
     },
   };
 
@@ -46,15 +46,12 @@ export function buildRecipeContentGraph(input: {
     }
   }
 
-  for (const [recipeSlug, tags] of input.recipeTags) {
-    if (tags.length === 0) continue;
-    graph.edges.hasTag.set(recipeSlug, new Set(tags));
-    for (const tag of tags) {
-      if (!graph.reverse.tagUsedBy.has(tag)) {
-        graph.reverse.tagUsedBy.set(tag, new Set());
-      }
-      graph.reverse.tagUsedBy.get(tag)?.add(recipeSlug);
+  for (const [recipeSlug, cuisine] of input.recipeCuisines) {
+    graph.edges.hasCuisine.set(recipeSlug, cuisine);
+    if (!graph.reverse.cuisineUsedBy.has(cuisine)) {
+      graph.reverse.cuisineUsedBy.set(cuisine, new Set());
     }
+    graph.reverse.cuisineUsedBy.get(cuisine)?.add(recipeSlug);
   }
 
   return graph;

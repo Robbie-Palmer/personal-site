@@ -14,7 +14,7 @@ export function getRecipeCard(
 ): RecipeCardView | null {
   const recipe = repository.recipes.get(slug);
   if (!recipe) return null;
-  return toRecipeCardView(recipe);
+  return toRecipeCardView(recipe, repository.ingredients);
 }
 
 export function getRecipeDetail(
@@ -29,20 +29,22 @@ export function getRecipeDetail(
 export function getAllRecipeCards(
   repository: RecipeRepository,
 ): RecipeCardView[] {
-  return Array.from(repository.recipes.values()).map(toRecipeCardView);
+  return Array.from(repository.recipes.values()).map((recipe) =>
+    toRecipeCardView(recipe, repository.ingredients),
+  );
 }
 
-export function getRecipesByTag(
+export function getRecipesByCuisine(
   repository: RecipeRepository,
-  tag: string,
+  cuisine: string,
 ): RecipeCardView[] {
-  const recipeSlugs = repository.graph.reverse.tagUsedBy.get(tag);
+  const recipeSlugs = repository.graph.reverse.cuisineUsedBy.get(cuisine);
   if (!recipeSlugs) return [];
 
   return Array.from(recipeSlugs)
     .map((slug) => repository.recipes.get(slug))
     .filter((recipe): recipe is NonNullable<typeof recipe> => recipe != null)
-    .map(toRecipeCardView);
+    .map((recipe) => toRecipeCardView(recipe, repository.ingredients));
 }
 
 export function getRecipesByIngredient(
@@ -56,11 +58,11 @@ export function getRecipesByIngredient(
   return Array.from(recipeSlugs)
     .map((slug) => repository.recipes.get(slug))
     .filter((recipe): recipe is NonNullable<typeof recipe> => recipe != null)
-    .map(toRecipeCardView);
+    .map((recipe) => toRecipeCardView(recipe, repository.ingredients));
 }
 
-export function getAllRecipeTags(repository: RecipeRepository): string[] {
-  return Array.from(repository.graph.reverse.tagUsedBy.keys());
+export function getAllCuisines(repository: RecipeRepository): string[] {
+  return Array.from(repository.graph.reverse.cuisineUsedBy.keys()).sort();
 }
 
 export function getAllUsedIngredientSlugs(

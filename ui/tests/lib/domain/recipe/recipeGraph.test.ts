@@ -8,7 +8,7 @@ describe("buildRecipeContentGraph", () => {
       recipeIngredients: new Map([
         ["curry", ["chicken-breast", "rice", "onion"]],
       ]),
-      recipeTags: new Map(),
+      recipeCuisines: new Map(),
     });
 
     const ingredients = graph.edges.usesIngredient.get("curry");
@@ -25,7 +25,7 @@ describe("buildRecipeContentGraph", () => {
         ["curry", ["chicken-breast", "rice"]],
         ["risotto", ["chicken-breast"]],
       ]),
-      recipeTags: new Map(),
+      recipeCuisines: new Map(),
     });
 
     const chickenRecipes = graph.reverse.ingredientUsedBy.get("chicken-breast");
@@ -38,33 +38,32 @@ describe("buildRecipeContentGraph", () => {
     expect(riceRecipes?.has("risotto")).toBe(false);
   });
 
-  it("builds tag edges for recipes", () => {
+  it("builds cuisine edges for recipes", () => {
     const graph = buildRecipeContentGraph({
       ingredientSlugs: [],
       recipeIngredients: new Map(),
-      recipeTags: new Map([
-        ["curry", ["asian", "spicy"]],
-        ["risotto", ["italian"]],
+      recipeCuisines: new Map([
+        ["curry", "Asian"],
+        ["risotto", "Italian"],
       ]),
     });
 
-    expect(graph.edges.hasTag.get("curry")?.has("asian")).toBe(true);
-    expect(graph.edges.hasTag.get("curry")?.has("spicy")).toBe(true);
-    expect(graph.edges.hasTag.get("risotto")?.has("italian")).toBe(true);
+    expect(graph.edges.hasCuisine.get("curry")).toBe("Asian");
+    expect(graph.edges.hasCuisine.get("risotto")).toBe("Italian");
   });
 
-  it("builds reverse tag edges", () => {
+  it("builds reverse cuisine edges", () => {
     const graph = buildRecipeContentGraph({
       ingredientSlugs: [],
       recipeIngredients: new Map(),
-      recipeTags: new Map([
-        ["curry", ["asian"]],
-        ["satay", ["asian"]],
-        ["risotto", ["italian"]],
+      recipeCuisines: new Map([
+        ["curry", "Asian"],
+        ["satay", "Asian"],
+        ["risotto", "Italian"],
       ]),
     });
 
-    const asianRecipes = graph.reverse.tagUsedBy.get("asian");
+    const asianRecipes = graph.reverse.cuisineUsedBy.get("Asian");
     expect(asianRecipes?.has("curry")).toBe(true);
     expect(asianRecipes?.has("satay")).toBe(true);
     expect(asianRecipes?.has("risotto")).toBe(false);
@@ -74,7 +73,7 @@ describe("buildRecipeContentGraph", () => {
     const graph = buildRecipeContentGraph({
       ingredientSlugs: ["chicken-breast", "unused-spice"],
       recipeIngredients: new Map([["curry", ["chicken-breast"]]]),
-      recipeTags: new Map(),
+      recipeCuisines: new Map(),
     });
 
     expect(graph.reverse.ingredientUsedBy.get("unused-spice")).toBeDefined();
@@ -85,19 +84,9 @@ describe("buildRecipeContentGraph", () => {
     const graph = buildRecipeContentGraph({
       ingredientSlugs: [],
       recipeIngredients: new Map([["empty-recipe", []]]),
-      recipeTags: new Map(),
+      recipeCuisines: new Map(),
     });
 
     expect(graph.edges.usesIngredient.has("empty-recipe")).toBe(false);
-  });
-
-  it("skips recipes with empty tag lists", () => {
-    const graph = buildRecipeContentGraph({
-      ingredientSlugs: [],
-      recipeIngredients: new Map(),
-      recipeTags: new Map([["untagged", []]]),
-    });
-
-    expect(graph.edges.hasTag.has("untagged")).toBe(false);
   });
 });

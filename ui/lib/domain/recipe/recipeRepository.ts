@@ -103,17 +103,19 @@ export function loadRecipeRepository(): RecipeRepository {
   validateIngredientReferences(recipes, ingredients);
 
   const recipeIngredients = new Map<RecipeSlug, IngredientSlug[]>();
-  const recipeTags = new Map<RecipeSlug, string[]>();
+  const recipeCuisines = new Map<RecipeSlug, string>();
 
   for (const [slug, recipe] of recipes) {
     recipeIngredients.set(slug, extractIngredientSlugs(recipe));
-    recipeTags.set(slug, recipe.tags);
+    if (recipe.cuisine) {
+      recipeCuisines.set(slug, recipe.cuisine);
+    }
   }
 
   const graph = buildRecipeContentGraph({
     ingredientSlugs: ingredients.keys(),
     recipeIngredients,
-    recipeTags,
+    recipeCuisines,
   });
 
   cachedRepository = { recipes, ingredients, graph };

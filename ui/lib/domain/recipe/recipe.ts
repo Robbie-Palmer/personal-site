@@ -28,6 +28,7 @@ export const RecipeContentSchema = z.object({
   description: z.string().min(1),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   tags: z.array(z.string()).default([]),
+  cuisine: z.string().optional(),
   servings: z.number().int().positive(),
   prepTime: z.number().int().nonnegative().optional(),
   cookTime: z.number().int().nonnegative().optional(),

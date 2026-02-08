@@ -172,13 +172,9 @@ export default async function RecipePage(props: PageProps) {
           )}
         </div>
 
-        {recipe.tags.length > 0 && (
+        {recipe.cuisine && (
           <div className="flex flex-wrap gap-2 mt-4">
-            {recipe.tags.map((tag) => (
-              <Badge key={tag} variant="secondary">
-                {tag}
-              </Badge>
-            ))}
+            <Badge variant="secondary">{recipe.cuisine}</Badge>
           </div>
         )}
       </header>
