@@ -513,7 +513,7 @@ export const recipes: RecipeContent[] = [
           },
           { ingredient: "tomato-puree", amount: 2, unit: "tbsp" },
           {
-            ingredient: "cheddar",
+            ingredient: "cheddar-cheese",
             amount: 80,
             unit: "g",
             preparation: "grated",
