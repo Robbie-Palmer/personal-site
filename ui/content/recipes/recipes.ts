@@ -2,6 +2,99 @@ import type { RecipeContent } from "@/lib/domain/recipe/recipe";
 
 export const recipes: RecipeContent[] = [
   {
+    title: "Chicken and Chorizo Paella",
+    slug: "chicken-and-chorizo-paella",
+    description:
+      "A vibrant and flavorful Spanish classic combining tender chicken, smoky chorizo, and saffron-infused rice.",
+    date: "2026-02-12",
+    tags: [],
+    cuisine: "Spanish",
+    servings: 4,
+    prepTime: 15,
+    cookTime: 40,
+    ingredientGroups: [
+      {
+        items: [
+          {
+            ingredient: "olive oil",
+            amount: 1,
+            unit: "tbsp",
+          },
+          {
+            ingredient: "chicken breast",
+            amount: 2,
+            note: "fillets, cut into chunks",
+          },
+          {
+            ingredient: "onion",
+            amount: 2,
+            note: "small, cut into chunks",
+          },
+          {
+            ingredient: "garlic",
+            amount: 1,
+            unit: "clove",
+            note: "crushed",
+          },
+          {
+            ingredient: "chorizo",
+            amount: 140,
+            unit: "g",
+            note: "sliced",
+          },
+          {
+            ingredient: "turmeric",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "saffron",
+            amount: 1,
+            unit: "pinch",
+          },
+          {
+            ingredient: "paprika",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "paella rice",
+            amount: 300,
+            unit: "g",
+          },
+          {
+            ingredient: "chicken stock",
+            amount: 850,
+            unit: "ml",
+          },
+          {
+            ingredient: "frozen peas",
+            amount: 100,
+            unit: "g",
+          },
+          {
+            ingredient: "fresh parsley",
+            note: "to serve (optional)",
+          },
+        ],
+      },
+    ],
+    instructions: [
+      "Heat the olive oil in a deep frying pan over a high heat.",
+      "Add the chicken chunks and brown all over (don't cook completely), then transfer to a plate.",
+      "Reduce the heat to low, add the sliced onions and cook slowly for about 10 minutes.",
+      "Add the crushed garlic and cook for 1 minute.",
+      "Add the sliced chorizo and cook until it releases its oils.",
+      "Stir in the turmeric, saffron, and paprika.",
+      "Add the paella rice, stirring to coat the rice in the oil and spices for 2 minutes.",
+      "Pour in the chicken stock and bring to a boil.",
+      "Return the chicken to the pan, and simmer for 20 minutes.",
+      "Add the frozen peas and cook for a further 5 minutes.",
+      "Season well and sprinkle with fresh parsley if using.",
+    ],
+  },
+
+  {
     title: "Simple Creamy Chicken Curry",
     slug: "creamy-chicken-curry",
     description:
@@ -316,7 +409,11 @@ export const recipes: RecipeContent[] = [
             unit: "piece",
             preparation: "chopped",
           },
-          { ingredient: "penne-pasta"", amount: 320, unit: "g"  },
+          {
+            ingredient: "penne-pasta",
+            amount: 320,
+            unit: "g",
+          },
           {
             ingredient: "red-pepper",
             amount: 1,

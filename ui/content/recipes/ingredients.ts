@@ -22,6 +22,8 @@ export const ingredients: IngredientContent[] = [
   { name: "fresh tomatoes", category: "vegetable" },
   { name: "garlic puree", category: "vegetable" },
   { name: "tomato puree", category: "vegetable" },
+  { name: "frozen peas", category: "vegetable" },
+  { name: "fresh parsley", category: "vegetable" },
 
   // Dairy
   { name: "butter", category: "dairy" },
@@ -42,6 +44,7 @@ export const ingredients: IngredientContent[] = [
   { name: "large pasta shells", category: "grain" },
   { name: "pasta", category: "grain" },
   { name: "long grain rice", category: "grain" },
+  { name: "paella rice", category: "grain" },
 
   // Spices & Seasonings
   { name: "curry powder", category: "spice" },
@@ -59,6 +62,8 @@ export const ingredients: IngredientContent[] = [
   { name: "peri peri salt", category: "spice" },
   { name: "cajun seasoning", category: "spice" },
   { name: "dried parsley", category: "spice" },
+  { name: "turmeric", category: "spice" },
+  { name: "saffron", category: "spice" },
 
   // Condiments & Sauces
   { name: "basil pesto", category: "condiment" },
