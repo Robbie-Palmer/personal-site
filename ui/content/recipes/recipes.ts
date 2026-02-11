@@ -2,6 +2,181 @@ import type { RecipeContent } from "@/lib/domain/recipe/recipe";
 
 export const recipes: RecipeContent[] = [
   {
+    title: "Chicken Alfredo Pasta",
+    slug: "chicken-alfredo-pasta",
+    description:
+      "A creamy and comforting pasta dish with chicken, crispy bacon, spinach, and a rich parmesan sauce.",
+    date: "2024-02-12",
+    tags: [],
+    cuisine: "Italian",
+    servings: 3,
+    prepTime: 15,
+    cookTime: 20,
+    ingredientGroups: [
+      {
+        items: [
+          {
+            ingredient: "olive-oil",
+            amount: 1,
+            unit: "tbsp",
+          },
+          {
+            ingredient: "chicken-breast",
+            amount: 2,
+            unit: "piece",
+            preparation: "chopped",
+          },
+          {
+            ingredient: "garlic",
+            amount: 4,
+            unit: "clove",
+            note: "crushed",
+          },
+          {
+            ingredient: "bacon",
+            amount: 4,
+            unit: "slice",
+          },
+          {
+            ingredient: "spinach",
+            amount: 2,
+            unit: "handful",
+          },
+          {
+            ingredient: "salt",
+            amount: 2,
+            unit: "tsp",
+          },
+          {
+            ingredient: "black-pepper",
+            amount: 2,
+            unit: "tsp",
+          },
+          {
+            ingredient: "double-cream",
+            amount: 300,
+            unit: "ml",
+            note: "small carton",
+          },
+          {
+            ingredient: "pasta",
+            amount: 250,
+            unit: "g",
+          },
+          {
+            ingredient: "parmesan",
+            amount: 70,
+            unit: "g",
+            note: "grated",
+          },
+        ],
+      },
+    ],
+    instructions: [
+      "Start cooking the pasta according to package instructions.",
+      "Heat the olive oil in a large pan and cook the chicken until no pink is showing.",
+      "Add the bacon and cook for a few minutes.",
+      "Add the garlic, spinach, salt and pepper. Cook until spinach is wilted.",
+      "Pour in the double cream and bring to a boil.",
+      "Add in the cooked pasta and grated cheese. Stir until the cheese is melted and the pasta is evenly coated.",
+    ],
+  },
+  {
+    title: "Chicken and Chorizo Paella",
+    slug: "chicken-and-chorizo-paella",
+    description:
+      "A vibrant and flavorful Spanish classic combining tender chicken, smoky chorizo, and saffron-infused rice.",
+    date: "2022-02-11",
+    tags: [],
+    cuisine: "Spanish",
+    servings: 4,
+    prepTime: 15,
+    cookTime: 40,
+    ingredientGroups: [
+      {
+        items: [
+          {
+            ingredient: "olive-oil",
+            amount: 1,
+            unit: "tbsp",
+          },
+          {
+            ingredient: "chicken-breast",
+            amount: 2,
+            preparation: "cut into chunks",
+          },
+          {
+            ingredient: "onion",
+            amount: 2,
+            unit: "piece",
+            preparation: "cut into chunks",
+            note: "small",
+          },
+          {
+            ingredient: "garlic",
+            amount: 1,
+            unit: "clove",
+            note: "crushed",
+          },
+          {
+            ingredient: "chorizo",
+            amount: 140,
+            unit: "g",
+            note: "sliced",
+          },
+          {
+            ingredient: "turmeric",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "saffron",
+            amount: 1,
+            unit: "pinch",
+          },
+          {
+            ingredient: "paprika",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "paella-rice",
+            amount: 300,
+            unit: "g",
+          },
+          {
+            ingredient: "chicken-stock",
+            amount: 850,
+            unit: "ml",
+          },
+          {
+            ingredient: "frozen-peas",
+            amount: 100,
+            unit: "g",
+          },
+          {
+            ingredient: "fresh-parsley",
+            note: "to serve (optional)",
+          },
+        ],
+      },
+    ],
+    instructions: [
+      "Heat the olive oil in a deep frying pan over a high heat.",
+      "Add the chicken chunks and brown all over (don't cook completely), then transfer to a plate.",
+      "Reduce the heat to low, add the sliced onions and cook slowly for about 10 minutes.",
+      "Add the crushed garlic and cook for 1 minute.",
+      "Add the sliced chorizo and cook until it releases its oils.",
+      "Stir in the turmeric, saffron, and paprika.",
+      "Add the paella rice, stirring to coat the rice in the oil and spices for 2 minutes.",
+      "Pour in the chicken stock and bring to a boil.",
+      "Return the chicken to the pan, and simmer for 20 minutes.",
+      "Add the frozen peas and cook for a further 5 minutes.",
+      "Season well and sprinkle with fresh parsley if using.",
+    ],
+  },
+
+  {
     title: "Simple Creamy Chicken Curry",
     slug: "creamy-chicken-curry",
     description:
@@ -316,7 +491,11 @@ export const recipes: RecipeContent[] = [
             unit: "piece",
             preparation: "chopped",
           },
-          { ingredient: "penne-pasta"", amount: 320, unit: "g"  },
+          {
+            ingredient: "penne-pasta",
+            amount: 320,
+            unit: "g",
+          },
           {
             ingredient: "red-pepper",
             amount: 1,
