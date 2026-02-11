@@ -6,6 +6,8 @@ export const ingredients: IngredientContent[] = [
   { name: "turkey mince", category: "protein" },
   { name: "chorizo", category: "protein" },
   { name: "bacon", category: "protein" },
+  { name: "pork sausages", category: "protein" },
+  { name: "sausages", category: "protein" },
 
   // Vegetables
   { name: "white onion", category: "vegetable" },
@@ -17,6 +19,10 @@ export const ingredients: IngredientContent[] = [
   { name: "peas", category: "vegetable" },
   { name: "chopped tomatoes", category: "vegetable" },
   { name: "tomato passata", category: "vegetable" },
+  { name: "frozen vegetables", category: "vegetable" },
+  { name: "fresh tomatoes", category: "vegetable" },
+  { name: "garlic puree", category: "vegetable" },
+  { name: "tomato puree", category: "vegetable" },
 
   // Dairy
   { name: "butter", category: "dairy" },
@@ -27,6 +33,7 @@ export const ingredients: IngredientContent[] = [
   { name: "cheddar cheese", category: "dairy" },
   { name: "parmesan", category: "dairy" },
   { name: "grana padano", category: "dairy" },
+  { name: "cream cheese", category: "dairy" },
 
   // Grains & Pasta
   { name: "rice", category: "grain" },
@@ -34,6 +41,8 @@ export const ingredients: IngredientContent[] = [
   { name: "macaroni", category: "grain" },
   { name: "penne pasta", category: "grain" },
   { name: "large pasta shells", category: "grain" },
+  { name: "pasta", category: "grain" },
+  { name: "long grain rice", category: "grain" },
 
   // Spices & Seasonings
   { name: "curry powder", category: "spice" },
@@ -49,6 +58,8 @@ export const ingredients: IngredientContent[] = [
   { name: "black pepper", category: "spice" },
   { name: "oregano", category: "spice" },
   { name: "peri peri salt", category: "spice" },
+  { name: "cajun seasoning", category: "spice" },
+  { name: "dried parsley", category: "spice" },
 
   // Condiments & Sauces
   { name: "basil pesto", category: "condiment" },
@@ -66,6 +77,7 @@ export const ingredients: IngredientContent[] = [
   // Liquids
   { name: "chicken stock", category: "liquid" },
   { name: "vegetable stock", category: "liquid" },
+  { name: "water", category: "liquid" },
 
   // Other
   { name: "plain flour", category: "other" },
