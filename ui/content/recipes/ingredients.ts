@@ -24,9 +24,11 @@ export const ingredients: IngredientContent[] = [
   { name: "tomato puree", category: "vegetable" },
   { name: "frozen peas", category: "vegetable" },
   { name: "fresh parsley", category: "vegetable" },
+  { name: "spinach", category: "vegetable" },
 
   // Dairy
   { name: "butter", category: "dairy" },
+  { name: "double cream", category: "dairy" },
   { name: "single cream", category: "dairy" },
   { name: "creme fraiche", category: "dairy" },
   { name: "mascarpone", category: "dairy" },

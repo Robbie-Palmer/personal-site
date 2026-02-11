@@ -2,11 +2,91 @@ import type { RecipeContent } from "@/lib/domain/recipe/recipe";
 
 export const recipes: RecipeContent[] = [
   {
+    title: "Chicken Alfredo Pasta",
+    slug: "chicken-alfredo-pasta",
+    description:
+      "A creamy and comforting pasta dish with chicken, crispy bacon, spinach, and a rich parmesan sauce.",
+    date: "2024-02-12",
+    tags: [],
+    cuisine: "Italian",
+    servings: 3,
+    prepTime: 15,
+    cookTime: 20,
+    ingredientGroups: [
+      {
+        items: [
+          {
+            ingredient: "olive-oil",
+            amount: 1,
+            unit: "tbsp",
+          },
+          {
+            ingredient: "chicken-breast",
+            amount: 2,
+            unit: "piece",
+            preparation: "chopped",
+          },
+          {
+            ingredient: "garlic",
+            amount: 4,
+            unit: "clove",
+            note: "crushed",
+          },
+          {
+            ingredient: "bacon",
+            amount: 4,
+            unit: "slice",
+          },
+          {
+            ingredient: "spinach",
+            amount: 2,
+            unit: "handful",
+          },
+          {
+            ingredient: "salt",
+            amount: 2,
+            unit: "tsp",
+          },
+          {
+            ingredient: "black-pepper",
+            amount: 2,
+            unit: "tsp",
+          },
+          {
+            ingredient: "double-cream",
+            amount: 300,
+            unit: "ml",
+            note: "small carton",
+          },
+          {
+            ingredient: "pasta",
+            amount: 250,
+            unit: "g",
+          },
+          {
+            ingredient: "parmesan",
+            amount: 70,
+            unit: "g",
+            note: "grated",
+          },
+        ],
+      },
+    ],
+    instructions: [
+      "Start cooking the pasta according to package instructions.",
+      "Heat the olive oil in a large pan and cook the chicken until no pink is showing.",
+      "Add the bacon and cook for a few minutes.",
+      "Add the garlic, spinach, salt and pepper. Cook until spinach is wilted.",
+      "Pour in the double cream and bring to a boil.",
+      "Add in the cooked pasta and grated cheese. Stir until the cheese is melted and the pasta is evenly coated.",
+    ],
+  },
+  {
     title: "Chicken and Chorizo Paella",
     slug: "chicken-and-chorizo-paella",
     description:
       "A vibrant and flavorful Spanish classic combining tender chicken, smoky chorizo, and saffron-infused rice.",
-    date: "2026-02-12",
+    date: "2022-02-11",
     tags: [],
     cuisine: "Spanish",
     servings: 4,
@@ -16,19 +96,21 @@ export const recipes: RecipeContent[] = [
       {
         items: [
           {
-            ingredient: "olive oil",
+            ingredient: "olive-oil",
             amount: 1,
             unit: "tbsp",
           },
           {
-            ingredient: "chicken breast",
+            ingredient: "chicken-breast",
             amount: 2,
-            note: "fillets, cut into chunks",
+            preparation: "cut into chunks",
           },
           {
             ingredient: "onion",
             amount: 2,
-            note: "small, cut into chunks",
+            unit: "piece",
+            preparation: "cut into chunks",
+            note: "small",
           },
           {
             ingredient: "garlic",
@@ -58,22 +140,22 @@ export const recipes: RecipeContent[] = [
             unit: "tsp",
           },
           {
-            ingredient: "paella rice",
+            ingredient: "paella-rice",
             amount: 300,
             unit: "g",
           },
           {
-            ingredient: "chicken stock",
+            ingredient: "chicken-stock",
             amount: 850,
             unit: "ml",
           },
           {
-            ingredient: "frozen peas",
+            ingredient: "frozen-peas",
             amount: 100,
             unit: "g",
           },
           {
-            ingredient: "fresh parsley",
+            ingredient: "fresh-parsley",
             note: "to serve (optional)",
           },
         ],
