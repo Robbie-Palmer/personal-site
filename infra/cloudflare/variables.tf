@@ -47,3 +47,14 @@ variable "r2_map_tiles_subdomain" {
   type        = string
   default     = "tiles"
 }
+
+variable "posthog_key" {
+  description = "PostHog project API key"
+  type        = string
+}
+
+variable "posthog_host" {
+  description = "PostHog host URL"
+  type        = string
+  default     = "https://eu.posthog.com"
+}

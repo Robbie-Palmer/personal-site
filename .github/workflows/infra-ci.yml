@@ -19,6 +19,7 @@ jobs:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       TF_VAR_cf_images_account_hash: ${{ secrets.CF_IMAGES_ACCOUNT_HASH }}
+      TF_VAR_posthog_key: ${{ secrets.POSTHOG_KEY }}
     defaults:
       run:
         working-directory: infra/cloudflare
@@ -35,6 +36,7 @@ jobs:
           export CLOUDFLARE_API_TOKEN="${CLOUDFLARE_API_TOKEN}"
           export TF_TOKEN_app_terraform_io="${TF_TOKEN_app_terraform_io}"
           export TF_VAR_cf_images_account_hash="${TF_VAR_cf_images_account_hash}"
+          export TF_VAR_posthog_key="${TF_VAR_posthog_key}"
           EOF
 
       - name: Check Terraform formatting
