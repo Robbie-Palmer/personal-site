@@ -16,9 +16,5 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     ? `${assetsHost}${pathname}${search}`
     : `${apiHost}${pathname}${search}`;
 
-  return fetch(destination, {
-    method: context.request.method,
-    headers: context.request.headers,
-    body: context.request.body,
-  });
+  return fetch(new Request(destination, context.request));
 };

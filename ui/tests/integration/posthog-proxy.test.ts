@@ -100,7 +100,7 @@ describe("PostHog Proxy Integration Test", () => {
       }
     });
 
-    await waitForServer(BASE_URL, 30000);
+    await waitForServer(wranglerProcess, 30000);
   }, 60000);
 
   afterAll(async () => {
@@ -174,15 +174,28 @@ describe("PostHog Proxy Integration Test", () => {
   });
 });
 
-async function waitForServer(url: string, timeout: number): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < timeout) {
-    try {
-      await fetch(url);
-      return;
-    } catch {
-      await new Promise((r) => setTimeout(r, 500));
-    }
-  }
-  throw new Error(`Server at ${url} did not start within ${timeout}ms`);
+async function waitForServer(
+  proc: ChildProcess,
+  timeout: number,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      proc.kill();
+      reject(new Error(`Server did not start within ${timeout}ms`));
+    }, timeout);
+
+    proc.stdout?.on("data", (data: Buffer) => {
+      if (data.toString().includes("Ready on")) {
+        clearTimeout(timer);
+        resolve();
+      }
+    });
+
+    proc.on("exit", (code) => {
+      clearTimeout(timer);
+      if (code !== 0 && code !== null) {
+        reject(new Error(`Wrangler process exited with code ${code}`));
+      }
+    });
+  });
 }
