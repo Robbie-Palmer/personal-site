@@ -466,7 +466,7 @@ export const recipes: RecipeContent[] = [
       "Heat the oil in a large pan and brown the sausages for a few minutes",
       "Stir in the Cajun seasoning and onion; cook for 2 minutes",
       "Add the rice and cook for 30 seconds, then pour in the chopped tomatoes and 400ml water",
-      "Bring to the boil, lower the heat and add extra herbs and spices",
+      "Bring to the boil, lower the heat and add optional herbs and spices (chilli, garlic, paprika) to taste",
       "Cover with a lid and simmer for 10 minutes",
       "Stir in frozen vegetables and cook for another 10 minutes",
       "Season well",
