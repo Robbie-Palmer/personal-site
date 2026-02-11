@@ -316,7 +316,7 @@ export const recipes: RecipeContent[] = [
             unit: "piece",
             preparation: "chopped",
           },
-          { ingredient: "penne-pasta" },
+          { ingredient: "penne-pasta"", amount: 320, unit: "g"  },
           {
             ingredient: "red-pepper",
             amount: 1,
