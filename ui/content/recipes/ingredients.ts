@@ -7,7 +7,6 @@ export const ingredients: IngredientContent[] = [
   { name: "chorizo", category: "protein" },
   { name: "bacon", category: "protein" },
   { name: "pork sausages", category: "protein" },
-  { name: "sausages", category: "protein" },
 
   // Vegetables
   { name: "white onion", category: "vegetable" },
