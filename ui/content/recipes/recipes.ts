@@ -527,7 +527,7 @@ export const recipes: RecipeContent[] = [
       "Cook pasta according to package instructions, ensuring to save a few ladles of pasta water before draining.",
       "While pasta is cooking, heat some oil in a separate pan on medium heat.",
       "Add the deskinned sausages, red onion, cajun seasoning and paprika and cook for 5 minutes, breaking up the sausages as they cook.",
-      "Add in the garlic, parsley, tomatoes and tomato puree and cook for a few more minutes.",
+      "Add in the garlic puree, dried parsley, tomatoes and tomato puree and cook for a few more minutes.",
       "Stir in cream cheese and some pasta water. Add a little at a time to get desired consistency.",
       "Bring to a simmer.",
       "Add in grated cheese and cooked pasta ensuring it's all coated and melted.",
