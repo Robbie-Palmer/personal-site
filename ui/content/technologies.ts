@@ -561,9 +561,9 @@ export const technologies: TechnologyContent[] = [
     type: "library",
   },
   {
-    name: "react-force-graph",
-    description: "React component for 2D/3D force-directed graph visualization",
-    website: "https://github.com/vasturiano/react-force-graph",
+    name: "Sigma.js",
+    description: "WebGL-powered graph visualization for the web",
+    website: "https://www.sigmajs.org",
     type: "library",
   },
 ];

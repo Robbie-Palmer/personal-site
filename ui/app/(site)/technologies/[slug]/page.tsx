@@ -14,7 +14,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { EmblaDemoCarousel } from "@/components/technology/embla-demo-carousel";
-import { ForceGraphDemo } from "@/components/technology/force-graph-demo";
+import { KnowledgeGraph } from "@/components/technology/knowledge-graph";
 import { LazyLeafletMapDemo } from "@/components/technology/lazy-leaflet-map-demo";
 import { MermaidDemo } from "@/components/technology/mermaid-demo";
 import { RechartsDemoChart } from "@/components/technology/recharts-demo-chart";
@@ -131,7 +131,7 @@ const TECHNOLOGY_DEMOS: Record<
   string,
   { icon: LucideIcon; component: ReactNode }
 > = {
-  "react-force-graph": { icon: Play, component: <ForceGraphDemo /> },
+  sigmadotjs: { icon: Play, component: <KnowledgeGraph /> },
   leaflet: { icon: MapIcon, component: <LazyLeafletMapDemo /> },
   "embla-carousel": { icon: Play, component: <EmblaDemoCarousel /> },
   recharts: { icon: BarChart3, component: <RechartsDemoChart /> },

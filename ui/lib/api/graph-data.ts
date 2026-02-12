@@ -1,7 +1,7 @@
 import type { DomainRepository } from "@/lib/domain";
 import type { NodeType } from "@/lib/repository/graph";
 
-export interface ForceGraphNode {
+export interface GraphNode {
   id: string;
   name: string;
   type: NodeType | "tag";
@@ -9,32 +9,27 @@ export interface ForceGraphNode {
   connections: number;
 }
 
-export interface ForceGraphLink {
-  // react-force-graph mutates these from strings to node object references
-  // after the first render, so both types must be handled at runtime
-  source: string | ForceGraphNode;
-  target: string | ForceGraphNode;
+export interface GraphEdge {
+  source: string;
+  target: string;
   type: string;
 }
 
-export interface ForceGraphData {
-  nodes: ForceGraphNode[];
-  links: ForceGraphLink[];
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
 }
 
-export function extractForceGraphData(
-  repository: DomainRepository,
-): ForceGraphData {
+export function extractGraphData(repository: DomainRepository): GraphData {
   const { graph, technologies, projects, blogs, adrs, roles } = repository;
-  const nodes: ForceGraphNode[] = [];
-  const links: ForceGraphLink[] = [];
+  const nodes: GraphNode[] = [];
+  const edges: GraphEdge[] = [];
   const connectionCounts = new Map<string, number>();
 
   function addConnection(id: string) {
     connectionCounts.set(id, (connectionCounts.get(id) ?? 0) + 1);
   }
 
-  // Add project nodes
   for (const [slug, project] of projects) {
     nodes.push({
       id: `project:${slug}`,
@@ -44,8 +39,6 @@ export function extractForceGraphData(
       connections: 0,
     });
   }
-
-  // Add blog nodes
   for (const [slug, blog] of blogs) {
     nodes.push({
       id: `blog:${slug}`,
@@ -55,8 +48,6 @@ export function extractForceGraphData(
       connections: 0,
     });
   }
-
-  // Add role nodes
   for (const [slug, role] of roles) {
     nodes.push({
       id: `role:${slug}`,
@@ -66,8 +57,6 @@ export function extractForceGraphData(
       connections: 0,
     });
   }
-
-  // Add ADR nodes
   for (const [slug, adr] of adrs) {
     const projectSlug = graph.edges.partOfProject.get(slug);
     nodes.push({
@@ -80,8 +69,6 @@ export function extractForceGraphData(
       connections: 0,
     });
   }
-
-  // Add technology nodes (only those with connections)
   const connectedTechs = new Set<string>();
   for (const [techSlug, usedBy] of graph.reverse.technologyUsedBy) {
     if (usedBy.size > 0) {
@@ -98,8 +85,6 @@ export function extractForceGraphData(
       }
     }
   }
-
-  // Add tag nodes (only those with connections)
   for (const [tag, usedBy] of graph.reverse.tagUsedBy) {
     if (usedBy.size > 0) {
       nodes.push({
@@ -111,12 +96,10 @@ export function extractForceGraphData(
       });
     }
   }
-
-  // USES_TECHNOLOGY edges
   for (const [nodeId, techSlugs] of graph.edges.usesTechnology) {
     for (const techSlug of techSlugs) {
       if (connectedTechs.has(techSlug)) {
-        links.push({
+        edges.push({
           source: nodeId,
           target: `technology:${techSlug}`,
           type: "USES_TECHNOLOGY",
@@ -126,10 +109,8 @@ export function extractForceGraphData(
       }
     }
   }
-
-  // PART_OF_PROJECT edges
   for (const [adrSlug, projectSlug] of graph.edges.partOfProject) {
-    links.push({
+    edges.push({
       source: `adr:${adrSlug}`,
       target: `project:${projectSlug}`,
       type: "PART_OF_PROJECT",
@@ -137,10 +118,8 @@ export function extractForceGraphData(
     addConnection(`adr:${adrSlug}`);
     addConnection(`project:${projectSlug}`);
   }
-
-  // SUPERSEDES edges
   for (const [supersedingSlug, supersededSlug] of graph.edges.supersedes) {
-    links.push({
+    edges.push({
       source: `adr:${supersedingSlug}`,
       target: `adr:${supersededSlug}`,
       type: "SUPERSEDES",
@@ -148,10 +127,8 @@ export function extractForceGraphData(
     addConnection(`adr:${supersedingSlug}`);
     addConnection(`adr:${supersededSlug}`);
   }
-
-  // CREATED_AT_ROLE edges
   for (const [projectSlug, roleSlug] of graph.edges.createdAtRole) {
-    links.push({
+    edges.push({
       source: `project:${projectSlug}`,
       target: `role:${roleSlug}`,
       type: "CREATED_AT_ROLE",
@@ -159,10 +136,8 @@ export function extractForceGraphData(
     addConnection(`project:${projectSlug}`);
     addConnection(`role:${roleSlug}`);
   }
-
-  // WRITTEN_AT_ROLE edges
   for (const [blogSlug, roleSlug] of graph.edges.writtenAtRole) {
-    links.push({
+    edges.push({
       source: `blog:${blogSlug}`,
       target: `role:${roleSlug}`,
       type: "WRITTEN_AT_ROLE",
@@ -170,11 +145,9 @@ export function extractForceGraphData(
     addConnection(`blog:${blogSlug}`);
     addConnection(`role:${roleSlug}`);
   }
-
-  // HAS_TAG edges
   for (const [nodeId, tags] of graph.edges.hasTag) {
     for (const tag of tags) {
-      links.push({
+      edges.push({
         source: nodeId,
         target: `tag:${tag}`,
         type: "HAS_TAG",
@@ -183,11 +156,8 @@ export function extractForceGraphData(
       addConnection(`tag:${tag}`);
     }
   }
-
-  // Set connection counts on nodes
   for (const node of nodes) {
     node.connections = connectionCounts.get(node.id) ?? 0;
   }
-
-  return { nodes, links };
+  return { nodes, edges };
 }

@@ -1,12 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { ForceGraphData } from "@/lib/api/force-graph-data";
+import type { GraphData } from "@/lib/api/graph-data";
 
-const ForceGraphClient = dynamic(
+const SigmaGraphClient = dynamic(
   () =>
-    import("@/components/technology/force-graph-client").then(
-      (mod) => mod.ForceGraphClient,
+    import("@/components/technology/sigma-graph-client").then(
+      (mod) => mod.SigmaGraphClient,
     ),
   {
     ssr: false,
@@ -18,6 +18,6 @@ const ForceGraphClient = dynamic(
   },
 );
 
-export function LazyForceGraphClient({ data }: { data: ForceGraphData }) {
-  return <ForceGraphClient data={data} />;
+export function LazyKnowledgeGraph({ data }: { data: GraphData }) {
+  return <SigmaGraphClient data={data} />;
 }
