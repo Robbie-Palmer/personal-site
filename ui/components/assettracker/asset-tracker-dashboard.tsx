@@ -5,6 +5,7 @@ import type {
   NetWorthDataPoint,
 } from "@/lib/api/assettracker";
 import type { AssetType } from "@/lib/domain/assettracker";
+import { computeTotalBalance, formatCurrency } from "@/lib/domain/assettracker";
 import { AccountBalanceChart } from "./account-balance-chart";
 import { AccountsTable } from "./accounts-table";
 import { AssetAllocationChart } from "./asset-allocation-chart";
@@ -23,10 +24,7 @@ export function AssetTrackerDashboard({
   netWorthData,
   assetAllocation,
 }: AssetTrackerDashboardProps) {
-  const totalBalance = accounts.reduce(
-    (sum, a) => sum + (a.latestBalance ?? 0),
-    0,
-  );
+  const totalBalance = computeTotalBalance(accounts);
   const openAccounts = accounts.filter((a) => a.isOpen);
   const accountNames = accounts.map((a) => a.name);
   return (
@@ -41,7 +39,7 @@ export function AssetTrackerDashboard({
         <div className="border rounded-lg p-6">
           <p className="text-sm text-muted-foreground">Total Net Worth</p>
           <p className="text-3xl font-bold mt-1">
-            £{totalBalance.toLocaleString()}
+            {formatCurrency(totalBalance)}
           </p>
         </div>
         <div className="border rounded-lg p-6">

@@ -23,19 +23,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { NetWorthDataPoint } from "@/lib/api/assettracker";
-
-const ACCOUNT_COLORS = [
-  "hsl(220, 70%, 50%)",
-  "hsl(160, 60%, 45%)",
-  "hsl(30, 80%, 55%)",
-  "hsl(280, 65%, 55%)",
-  "hsl(350, 65%, 55%)",
-  "hsl(190, 70%, 45%)",
-];
-
-function formatCurrency(value: number): string {
-  return `£${value.toLocaleString()}`;
-}
+import { ACCOUNT_COLORS, formatCurrency } from "@/lib/domain/assettracker";
 
 interface NetWorthChartProps {
   data: NetWorthDataPoint[];

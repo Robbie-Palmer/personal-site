@@ -16,6 +16,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { AssetType } from "@/lib/domain/assettracker";
+import { formatCurrency } from "@/lib/domain/assettracker";
 
 const ASSET_TYPE_COLORS: Record<AssetType, string> = {
   cash: "hsl(220, 70%, 50%)",
@@ -80,7 +81,7 @@ export function AssetAllocationChart({ data }: AssetAllocationChartProps) {
               </Pie>
               <ChartTooltip
                 content={<ChartTooltipContent />}
-                formatter={(value) => `£${(value as number).toLocaleString()}`}
+                formatter={(value) => formatCurrency(value as number)}
               />
               <ChartLegend content={<ChartLegendContent />} />
             </PieChart>

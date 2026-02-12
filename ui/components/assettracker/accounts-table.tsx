@@ -1,22 +1,32 @@
 import { Badge } from "@/components/ui/badge";
 import type { AccountSummaryView } from "@/lib/api/assettracker";
+import type { AssetType, Currency } from "@/lib/domain/assettracker";
+import { computeTotalBalance } from "@/lib/domain/assettracker";
 
-const ASSET_TYPE_VARIANT: Record<string, "default" | "secondary" | "outline"> =
-  {
-    cash: "default",
-    stocks: "secondary",
-    crypto: "outline",
-  };
+const ASSET_TYPE_VARIANT: Record<
+  AssetType,
+  "default" | "secondary" | "outline"
+> = {
+  cash: "default",
+  stocks: "secondary",
+  crypto: "outline",
+};
+
+function formatAccountCurrency(amount: number, currency: Currency): string {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency,
+  }).format(amount);
+}
 
 interface AccountsTableProps {
   accounts: AccountSummaryView[];
 }
 
 export function AccountsTable({ accounts }: AccountsTableProps) {
-  const totalBalance = accounts.reduce(
-    (sum, a) => sum + (a.latestBalance ?? 0),
-    0,
-  );
+  const totalBalance = computeTotalBalance(accounts);
+  // Use first account's currency for total (assumes homogeneous currency)
+  const totalCurrency = accounts[0]?.currency ?? "GBP";
   return (
     <div className="border rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
@@ -45,7 +55,10 @@ export function AccountsTable({ accounts }: AccountsTableProps) {
                 </td>
                 <td className="p-3 text-right font-mono">
                   {account.latestBalance != null
-                    ? `£${account.latestBalance.toLocaleString()}`
+                    ? formatAccountCurrency(
+                        account.latestBalance,
+                        account.currency,
+                      )
                     : "-"}
                 </td>
                 <td className="p-3 text-right font-mono">
@@ -65,7 +78,7 @@ export function AccountsTable({ accounts }: AccountsTableProps) {
                 Total
               </td>
               <td className="p-3 text-right font-mono font-semibold">
-                £{totalBalance.toLocaleString()}
+                {formatAccountCurrency(totalBalance, totalCurrency)}
               </td>
               <td colSpan={2} />
             </tr>

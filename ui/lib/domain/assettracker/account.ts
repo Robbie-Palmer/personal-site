@@ -16,11 +16,8 @@ export const AccountContentSchema = z.object({
   currency: CurrencySchema,
   assetType: AssetTypeSchema,
   expectedAnnualReturn: z.number(),
-  createdAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  closedAt: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
+  createdAt: z.iso.date(),
+  closedAt: z.iso.date().optional(),
 });
 
 export type AccountContent = z.infer<typeof AccountContentSchema>;

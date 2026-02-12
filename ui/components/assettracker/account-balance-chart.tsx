@@ -21,15 +21,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { AccountDetailView } from "@/lib/api/assettracker";
-
-const ACCOUNT_COLORS = [
-  "hsl(220, 70%, 50%)",
-  "hsl(160, 60%, 45%)",
-  "hsl(30, 80%, 55%)",
-  "hsl(280, 65%, 55%)",
-  "hsl(350, 65%, 55%)",
-  "hsl(190, 70%, 45%)",
-];
+import { ACCOUNT_COLORS, formatCurrency } from "@/lib/domain/assettracker";
 
 interface AccountBalanceChartProps {
   accounts: AccountDetailView[];
@@ -79,7 +71,7 @@ export function AccountBalanceChart({ accounts }: AccountBalanceChartProps) {
               />
               <ChartTooltip
                 content={<ChartTooltipContent />}
-                formatter={(value) => `£${(value as number).toLocaleString()}`}
+                formatter={(value) => formatCurrency(value as number)}
               />
               {accounts.map((account, i) => (
                 <Line

@@ -1,7 +1,7 @@
 import { accounts as definedAccounts } from "../../../content/assettracker/accounts";
 import { snapshots as definedSnapshots } from "../../../content/assettracker/snapshots";
-import type { Account, AccountId } from "./account";
-import type { BalanceSnapshot } from "./balanceSnapshot";
+import { type Account, AccountContentSchema, type AccountId } from "./account";
+import { type BalanceSnapshot, BalanceSnapshotSchema } from "./balanceSnapshot";
 
 export interface AssetTrackerRepository {
   accounts: Map<AccountId, Account>;
@@ -10,7 +10,8 @@ export interface AssetTrackerRepository {
 
 function loadAccounts(): Map<AccountId, Account> {
   const map = new Map<AccountId, Account>();
-  for (const account of definedAccounts) {
+  for (const raw of definedAccounts) {
+    const account = AccountContentSchema.parse(raw);
     const existing = map.get(account.id);
     if (existing) {
       throw new Error(
@@ -23,7 +24,9 @@ function loadAccounts(): Map<AccountId, Account> {
 }
 
 function loadSnapshots(accounts: Map<AccountId, Account>): BalanceSnapshot[] {
-  const allSnapshots = [...definedSnapshots];
+  const allSnapshots = definedSnapshots.map((raw) =>
+    BalanceSnapshotSchema.parse(raw),
+  );
   for (const snapshot of allSnapshots) {
     if (!accounts.has(snapshot.accountId)) {
       throw new Error(
@@ -44,4 +47,12 @@ export function loadAssetTrackerRepository(): AssetTrackerRepository {
   const snapshots = loadSnapshots(accounts);
   cachedRepository = { accounts, snapshots };
   return cachedRepository;
+}
+
+export function resetRepositoryCache(): void {
+  if (process.env.NODE_ENV !== "test") {
+    throw new Error("resetRepositoryCache is only available in test env");
+  }
+
+  cachedRepository = null;
 }
