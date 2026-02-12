@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, Clock } from "lucide-react";
 import { usePathname } from "next/navigation";
 import posthog from "posthog-js";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DateRangeFilter } from "@/components/ui/date-range-filter";
 import {
@@ -16,6 +16,7 @@ import {
   MultiSelect,
   type MultiSelectOption,
 } from "@/components/ui/multi-select";
+import { useDebouncedSearchTracking } from "@/hooks/use-debounced-search-tracking";
 import {
   type FilterParamConfig,
   useFilterParams,
@@ -88,7 +89,6 @@ export function FilterableCardGrid<T>({
   );
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState("");
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filterParamConfigs: FilterParamConfig[] = useMemo(() => {
     if (filterConfigs) {
@@ -111,6 +111,19 @@ export function FilterableCardGrid<T>({
     getDateRange,
     setDateRange,
   } = useFilterParams({ filters: filterParamConfigs });
+
+  const handleDateRangeChange = useCallback(
+    (from: string | undefined, to: string | undefined) => {
+      posthog.capture("filter_applied", {
+        page: pathname,
+        filter_type: "date_range",
+        filter_value: `${from || "any"} to ${to || "any"}`,
+        action: "changed",
+      });
+      setDateRange(from, to);
+    },
+    [pathname, setDateRange],
+  );
 
   const fuse = useMemo(
     () =>
@@ -168,21 +181,11 @@ export function FilterableCardGrid<T>({
     getDateRange,
   ]);
 
-  // Debounced search tracking
-  useEffect(() => {
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    if (!searchQuery.trim()) return;
-    searchTimerRef.current = setTimeout(() => {
-      posthog.capture("search_used", {
-        query: searchQuery,
-        result_count: filteredItems.length,
-        location: itemName,
-      });
-    }, 1000);
-    return () => {
-      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    };
-  }, [searchQuery, filteredItems.length, itemName]);
+  useDebouncedSearchTracking({
+    searchQuery,
+    resultCount: filteredItems.length,
+    location: itemName,
+  });
 
   const sortedItems = useMemo(() => {
     return [...filteredItems].sort((a: T, b: T) => {
@@ -339,15 +342,7 @@ export function FilterableCardGrid<T>({
             <DateRangeFilter
               from={getDateRange().from}
               to={getDateRange().to}
-              onChange={(from, to) => {
-                posthog.capture("filter_applied", {
-                  page: pathname,
-                  filter_type: "date_range",
-                  filter_value: `${from || "any"} to ${to || "any"}`,
-                  action: "changed",
-                });
-                setDateRange(from, to);
-              }}
+              onChange={handleDateRangeChange}
               size="default"
               className="w-full"
             />
@@ -422,15 +417,7 @@ export function FilterableCardGrid<T>({
               <DateRangeFilter
                 from={getDateRange().from}
                 to={getDateRange().to}
-                onChange={(from, to) => {
-                  posthog.capture("filter_applied", {
-                    page: pathname,
-                    filter_type: "date_range",
-                    filter_value: `${from || "any"} to ${to || "any"}`,
-                    action: "changed",
-                  });
-                  setDateRange(from, to);
-                }}
+                onChange={handleDateRangeChange}
                 size="sm"
               />
             )}
