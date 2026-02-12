@@ -9,16 +9,21 @@ import { cn } from "@/lib/generic/styles";
 interface ProjectBadgeProps {
   project: ProjectListItemView;
   className?: string;
+  source_type?: string;
 }
 
-export function ProjectBadge({ project, className }: ProjectBadgeProps) {
+export function ProjectBadge({
+  project,
+  className,
+  source_type = "experience",
+}: ProjectBadgeProps) {
   return (
     <Link
       href={`/projects/${project.slug}`}
       onClick={(e) => {
         e.stopPropagation();
         posthog.capture("cross_reference_clicked", {
-          source_type: "experience",
+          source_type,
           target_type: "project",
           target_slug: project.slug,
         });

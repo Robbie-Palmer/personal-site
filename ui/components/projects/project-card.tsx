@@ -2,6 +2,7 @@
 
 import { ExternalLink, Github, Globe, Tag } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import posthog from "posthog-js";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +46,7 @@ export function ProjectCard({
     () => prioritiseSelected(project.technologies, selectedTech, (t) => t.slug),
     [project.technologies, selectedTech],
   );
+  const pathname = usePathname();
   return (
     <Card className="flex flex-col h-full hover:shadow-lg transition-all hover:border-primary/50 group relative overflow-hidden">
       {/* Clickable Area for the whole card */}
@@ -64,7 +66,7 @@ export function ProjectCard({
                 onClick={(e) => {
                   e.stopPropagation();
                   posthog.capture("filter_applied", {
-                    page: window.location.pathname,
+                    page: pathname,
                     filter_type: "status",
                     filter_value: project.status,
                     action: selectedStatuses.includes(project.status)
@@ -92,7 +94,7 @@ export function ProjectCard({
                     onClick={(e) => {
                       e.stopPropagation();
                       posthog.capture("filter_applied", {
-                        page: window.location.pathname,
+                        page: pathname,
                         filter_type: "role",
                         filter_value: role.slug,
                         action: selectedRoles.includes(role.slug)
@@ -193,7 +195,7 @@ export function ProjectCard({
                   onClick={(e) => {
                     e.stopPropagation();
                     posthog.capture("filter_applied", {
-                      page: window.location.pathname,
+                      page: pathname,
                       filter_type: "tag",
                       filter_value: tag,
                       action: isActive ? "removed" : "added",
@@ -222,7 +224,7 @@ export function ProjectCard({
                 onClick={(e) => {
                   e.stopPropagation();
                   posthog.capture("filter_applied", {
-                    page: window.location.pathname,
+                    page: pathname,
                     filter_type: "tech",
                     filter_value: tech.slug,
                     action: isActive ? "removed" : "added",

@@ -26,6 +26,7 @@ import {
   useState,
 } from "react";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
+import { siteConfig } from "@/lib/config/site-config";
 import { cn } from "@/lib/generic/styles";
 
 interface FilterOption {
@@ -383,15 +384,19 @@ function CommandPaletteDialog({
             >
               <Command.Item
                 value="view source code github"
-                onSelect={() =>
+                onSelect={() => {
+                  posthog.capture("command_palette_action", {
+                    action_type: "view_source",
+                    value: siteConfig.author.sourceRepo,
+                  });
                   handleSelect(() =>
                     window.open(
-                      "https://github.com/Robbie-Palmer/personal-site",
+                      siteConfig.author.sourceRepo,
                       "_blank",
                       "noopener,noreferrer",
                     ),
-                  )
-                }
+                  );
+                }}
                 className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer aria-selected:bg-accent aria-selected:text-accent-foreground"
               >
                 <Code2 className="size-4" />

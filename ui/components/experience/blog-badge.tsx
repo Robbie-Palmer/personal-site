@@ -9,16 +9,21 @@ import { cn } from "@/lib/generic/styles";
 interface BlogBadgeProps {
   blog: BlogListItemView;
   className?: string;
+  source_type?: string;
 }
 
-export function BlogBadge({ blog, className }: BlogBadgeProps) {
+export function BlogBadge({
+  blog,
+  className,
+  source_type = "experience",
+}: BlogBadgeProps) {
   return (
     <Link
       href={`/blog/${blog.slug}`}
       onClick={(e) => {
         e.stopPropagation();
         posthog.capture("cross_reference_clicked", {
-          source_type: "experience",
+          source_type,
           target_type: "blog",
           target_slug: blog.slug,
         });

@@ -40,14 +40,14 @@ export const AnimatedThemeToggler = ({
     if (!buttonRef.current) return;
 
     const updateDOM = () => {
+      const newTheme = !isDark;
       flushSync(() => {
-        const newTheme = !isDark;
         setIsDark(newTheme);
         document.documentElement.classList.toggle("dark");
         localStorage.setItem("theme", newTheme ? "dark" : "light");
-        posthog.capture("theme_toggled", {
-          new_theme: newTheme ? "dark" : "light",
-        });
+      });
+      posthog.capture("theme_toggled", {
+        new_theme: newTheme ? "dark" : "light",
       });
     };
 

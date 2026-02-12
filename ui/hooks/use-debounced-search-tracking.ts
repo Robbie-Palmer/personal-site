@@ -13,6 +13,12 @@ export function useDebouncedSearchTracking({
     delay?: number;
 }) {
     const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const resultCountRef = useRef(resultCount);
+
+    // Sync ref with latest resultCount without triggering effects
+    useEffect(() => {
+        resultCountRef.current = resultCount;
+    }, [resultCount]);
 
     useEffect(() => {
         if (searchTimerRef.current) {
@@ -26,7 +32,7 @@ export function useDebouncedSearchTracking({
         searchTimerRef.current = setTimeout(() => {
             posthog.capture("search_used", {
                 query: searchQuery,
-                result_count: resultCount,
+                result_count: resultCountRef.current,
                 location,
             });
         }, delay);
@@ -36,5 +42,5 @@ export function useDebouncedSearchTracking({
                 clearTimeout(searchTimerRef.current);
             }
         };
-    }, [searchQuery, resultCount, location, delay]);
+    }, [searchQuery, location, delay]);
 }

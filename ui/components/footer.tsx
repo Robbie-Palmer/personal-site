@@ -9,9 +9,9 @@ export function Footer() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col items-center gap-4">
           <FooterLinks
-            githubUrl="https://github.com/Robbie-Palmer"
+            githubUrl={siteConfig.author.github}
             linkedInUrl={siteConfig.author.linkedin}
-            sourceUrl="https://github.com/Robbie-Palmer/personal-site"
+            sourceUrl={siteConfig.author.sourceRepo}
           />
 
           <p className="text-sm text-muted-foreground">
