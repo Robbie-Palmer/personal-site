@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import posthog from "posthog-js";
 import { Badge } from "@/components/ui/badge";
 import type { BlogListItemView } from "@/lib/domain/blog/blogViews";
 import { cn } from "@/lib/generic/styles";
@@ -14,7 +15,14 @@ export function BlogBadge({ blog, className }: BlogBadgeProps) {
   return (
     <Link
       href={`/blog/${blog.slug}`}
-      onClick={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        posthog.capture("cross_reference_clicked", {
+          source_type: "experience",
+          target_type: "blog",
+          target_slug: blog.slug,
+        });
+      }}
       aria-label={`View blog post ${blog.title}`}
     >
       <Badge

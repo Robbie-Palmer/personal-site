@@ -10,6 +10,7 @@ import "@react-sigma/core/lib/style.css";
 import Graph from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import { ExternalLink, X } from "lucide-react";
+import posthog from "posthog-js";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -166,6 +167,11 @@ function GraphEventsController({
       clickNode: (event) => {
         const graph = sigma.getGraph();
         const attrs = graph.getNodeAttributes(event.node);
+        posthog.capture("graph_node_clicked", {
+          node_id: event.node,
+          node_type: attrs.nodeType as string,
+          node_label: attrs.label as string,
+        });
         setSelectedNode({
           id: event.node,
           name: attrs.label as string,

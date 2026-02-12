@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import posthog from "posthog-js";
 import {
   createContext,
   type ReactNode,
@@ -24,7 +25,6 @@ import {
   useRef,
   useState,
 } from "react";
-
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 import { cn } from "@/lib/generic/styles";
 
@@ -122,7 +122,14 @@ export function CommandPaletteProvider({
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setOpen((prev) => !prev);
+        setOpen((prev) => {
+          if (!prev) {
+            posthog.capture("command_palette_opened", {
+              trigger: "keyboard",
+            });
+          }
+          return !prev;
+        });
       }
       if (e.key === "Escape" && open) {
         setOpen(false);
@@ -205,6 +212,10 @@ function CommandPaletteDialog({
 
   const handleNavigation = useCallback(
     (href: string) => {
+      posthog.capture("command_palette_action", {
+        action_type: "navigation",
+        value: href,
+      });
       handleSelect(() => router.push(href));
     },
     [router, handleSelect],
@@ -212,6 +223,10 @@ function CommandPaletteDialog({
 
   const handleFilter = useCallback(
     (paramName: string, value: string) => {
+      posthog.capture("command_palette_action", {
+        action_type: "filter",
+        value: `${paramName}:${value}`,
+      });
       handleSelect(() => {
         const params = new URLSearchParams(searchParams.toString());
         const currentValues = params.get(paramName)?.split(",") ?? [];

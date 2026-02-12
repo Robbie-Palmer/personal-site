@@ -1,5 +1,6 @@
 "use client";
 
+import posthog from "posthog-js";
 import { useState } from "react";
 import { BlogCarousel } from "@/components/blog/blog-carousel";
 import {
@@ -39,7 +40,17 @@ export function BlogCollectionTabs({
 
       {/* Mobile dropdown */}
       <div className="md:hidden">
-        <Select value={activeCollection} onValueChange={setActiveCollection}>
+        <Select
+          value={activeCollection}
+          onValueChange={(id) => {
+            setActiveCollection(id);
+            const collection = collections.find((c) => c.id === id);
+            posthog.capture("blog_collection_selected", {
+              collection_id: id,
+              collection_title: collection?.title,
+            });
+          }}
+        >
           <SelectTrigger className="w-full" aria-label="Select blog collection">
             <SelectValue />
           </SelectTrigger>
@@ -60,7 +71,13 @@ export function BlogCollectionTabs({
             <button
               key={collection.id}
               type="button"
-              onClick={() => setActiveCollection(collection.id)}
+              onClick={() => {
+                setActiveCollection(collection.id);
+                posthog.capture("blog_collection_selected", {
+                  collection_id: collection.id,
+                  collection_title: collection.title,
+                });
+              }}
               className={cn(
                 "pb-4 px-1 text-sm font-medium whitespace-nowrap transition-colors border-b-2",
                 activeCollection === collection.id

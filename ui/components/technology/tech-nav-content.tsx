@@ -5,7 +5,8 @@ import { Search, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useState } from "react";
+import posthog from "posthog-js";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -45,6 +46,23 @@ export function TechNavContent({
       .search(searchQuery)
       .map((result: FuseResult<(typeof technologies)[number]>) => result.item);
   }, [fuse, searchQuery, technologies]);
+
+  // Debounced search tracking
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!searchQuery.trim()) return;
+    searchTimerRef.current = setTimeout(() => {
+      posthog.capture("search_used", {
+        query: searchQuery,
+        result_count: filteredTechnologies.length,
+        location: "technology_sidebar",
+      });
+    }, 1000);
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, [searchQuery, filteredTechnologies.length]);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>

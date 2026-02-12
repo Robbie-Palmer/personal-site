@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import posthog from "posthog-js";
 import { Badge } from "@/components/ui/badge";
 import type { ProjectListItemView } from "@/lib/domain/project/projectViews";
 import { cn } from "@/lib/generic/styles";
@@ -14,7 +15,14 @@ export function ProjectBadge({ project, className }: ProjectBadgeProps) {
   return (
     <Link
       href={`/projects/${project.slug}`}
-      onClick={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        posthog.capture("cross_reference_clicked", {
+          source_type: "experience",
+          target_type: "project",
+          target_slug: project.slug,
+        });
+      }}
       aria-label={`View project ${project.title}`}
     >
       <Badge variant="outline" interactive className={cn(className)}>

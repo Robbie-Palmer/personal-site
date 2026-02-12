@@ -1,12 +1,6 @@
-import Link from "next/link";
 import { Footer } from "@/components/footer";
+import { NotFoundLinks } from "@/components/not-found-links";
 import { ScrollNavbar } from "@/components/scroll-navbar";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { NavbarActionsProvider } from "@/contexts/navbar-actions-context";
 
 const sections = [
@@ -56,18 +50,7 @@ export default function NotFound() {
             </p>
 
             <div className="mt-12 w-full max-w-4xl">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {sections.map((section) => (
-                  <Link key={section.href} href={section.href}>
-                    <Card className="h-full hover:border-primary transition-colors p-2">
-                      <CardHeader>
-                        <CardTitle>{section.title}</CardTitle>
-                        <CardDescription>{section.description}</CardDescription>
-                      </CardHeader>
-                    </Card>
-                  </Link>
-                ))}
-              </div>
+              <NotFoundLinks sections={sections} />
             </div>
           </div>
         </main>

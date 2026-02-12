@@ -2,6 +2,7 @@
 
 import { ExternalLink, Github, Globe, Tag } from "lucide-react";
 import Link from "next/link";
+import posthog from "posthog-js";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -62,6 +63,14 @@ export function ProjectCard({
                 active={selectedStatuses.includes(project.status)}
                 onClick={(e) => {
                   e.stopPropagation();
+                  posthog.capture("filter_applied", {
+                    page: window.location.pathname,
+                    filter_type: "status",
+                    filter_value: project.status,
+                    action: selectedStatuses.includes(project.status)
+                      ? "removed"
+                      : "added",
+                  });
                   onStatusClick(project.status);
                 }}
               />
@@ -82,6 +91,14 @@ export function ProjectCard({
                     active={selectedRoles.includes(role.slug)}
                     onClick={(e) => {
                       e.stopPropagation();
+                      posthog.capture("filter_applied", {
+                        page: window.location.pathname,
+                        filter_type: "role",
+                        filter_value: role.slug,
+                        action: selectedRoles.includes(role.slug)
+                          ? "removed"
+                          : "added",
+                      });
                       onRoleClick(role.slug);
                     }}
                   />
@@ -105,6 +122,13 @@ export function ProjectCard({
                 rel="noopener noreferrer"
                 className="hover:text-foreground transition-colors"
                 aria-label="View Source"
+                onClick={() =>
+                  posthog.capture("project_external_link_clicked", {
+                    project_slug: project.slug,
+                    link_type: "github",
+                    url: project.repoUrl,
+                  })
+                }
               >
                 <Github className="w-5 h-5" />
               </a>
@@ -116,6 +140,13 @@ export function ProjectCard({
                 rel="noopener noreferrer"
                 className="hover:text-foreground transition-colors"
                 aria-label="Live Demo"
+                onClick={() =>
+                  posthog.capture("project_external_link_clicked", {
+                    project_slug: project.slug,
+                    link_type: "demo",
+                    url: project.demoUrl,
+                  })
+                }
               >
                 <ExternalLink className="w-5 h-5" />
               </a>
@@ -127,6 +158,13 @@ export function ProjectCard({
                 rel="noopener noreferrer"
                 className="hover:text-foreground transition-colors"
                 aria-label="Product Page"
+                onClick={() =>
+                  posthog.capture("project_external_link_clicked", {
+                    project_slug: project.slug,
+                    link_type: "product",
+                    url: project.productUrl,
+                  })
+                }
               >
                 <Globe className="w-5 h-5" />
               </a>
@@ -154,6 +192,12 @@ export function ProjectCard({
                   className="gap-1 cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
+                    posthog.capture("filter_applied", {
+                      page: window.location.pathname,
+                      filter_type: "tag",
+                      filter_value: tag,
+                      action: isActive ? "removed" : "added",
+                    });
                     onTagClick(tag);
                   }}
                 >
@@ -177,6 +221,12 @@ export function ProjectCard({
                 className="flex items-center gap-1 cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation();
+                  posthog.capture("filter_applied", {
+                    page: window.location.pathname,
+                    filter_type: "tech",
+                    filter_value: tech.slug,
+                    action: isActive ? "removed" : "added",
+                  });
                   onTechClick(tech.slug);
                 }}
               >
