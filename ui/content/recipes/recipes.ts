@@ -716,4 +716,193 @@ export const recipes: RecipeContent[] = [
       "Season with black pepper.",
     ],
   },
+  {
+    title: "Creamy Chilli Tomato Pasta",
+    slug: "creamy-chilli-tomato-pasta",
+    description: "A spicy and creamy tomato pasta dish with bacon and onion.",
+    date: "2026-02-11",
+    tags: [],
+    cuisine: "Italian",
+    servings: 4,
+    prepTime: 10,
+    cookTime: 20,
+    ingredientGroups: [
+      {
+        items: [
+          {
+            ingredient: "white-onion",
+            amount: 1,
+            unit: "piece",
+            preparation: "thinly sliced",
+          },
+          {
+            ingredient: "bacon",
+            amount: 4,
+            unit: "slice",
+            preparation: "cut",
+          },
+          {
+            ingredient: "garlic",
+            amount: 3,
+            unit: "clove",
+            preparation: "crushed",
+          },
+          {
+            ingredient: "pasta",
+            amount: 320,
+            unit: "g",
+          },
+          {
+            ingredient: "chilli-flakes",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "chopped-tomatoes",
+            amount: 1,
+            unit: "tin",
+            note: "400g",
+          },
+          {
+            ingredient: "tomato-puree",
+            amount: 2,
+            unit: "tbsp",
+          },
+          {
+            ingredient: "double-cream",
+            amount: 100,
+            unit: "ml",
+          },
+          {
+            ingredient: "oregano",
+            amount: 1,
+            unit: "tsp",
+            note: "dried",
+          },
+          {
+            ingredient: "salt",
+            note: "to taste",
+          },
+          {
+            ingredient: "black-pepper",
+            note: "to taste",
+          },
+          {
+            ingredient: "olive-oil",
+            note: "for frying",
+          },
+        ],
+      },
+    ],
+    instructions: [
+      "Heat oil in a large frying pan over a medium heat.",
+      "Add the onion and bacon and fry for 5-6 mins, or until softened.",
+      "Add the garlic and fry for 1 minute.",
+      "Start cooking pasta according to package instructions.",
+      "Stir in chilli flakes to onion and bacon mixture.",
+      "Add the tinned tomatoes, tomato puree and oregano.",
+      "Season with salt and pepper.",
+      "Simmer for 10 minutes, stirring regularly until thickened.",
+      "Stir in cream and return to a gentle simmer.",
+      "Mix in pasta.",
+    ],
+  },
+  {
+    title: "Slow Cooker Mexican Chicken",
+    slug: "slow-cooker-mexican-chicken",
+    description:
+      "An easy slow cooker Mexican chicken dish, perfect for tacos or burritos.",
+    date: "2026-02-12",
+    tags: [],
+    cuisine: "Mexican",
+    servings: 4,
+    prepTime: 15,
+    cookTime: 240,
+    ingredientGroups: [
+      {
+        items: [
+          {
+            ingredient: "white-onion",
+            amount: 1,
+            unit: "piece",
+            preparation: "diced",
+          },
+          {
+            ingredient: "chicken-breast",
+            amount: 650,
+            unit: "g",
+          },
+          {
+            ingredient: "hot-chilli-powder",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "paprika",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "cayenne-pepper",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "cumin",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "garlic-granules",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "onion-salt",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "bell-pepper",
+            amount: 2,
+            unit: "piece",
+            preparation: "sliced",
+            note: "red and yellow",
+          },
+          {
+            ingredient: "chipotle-paste",
+            amount: 2,
+            unit: "tbsp",
+          },
+          {
+            ingredient: "mixed-beans",
+            amount: 1,
+            unit: "tin",
+            note: "400g",
+          },
+          {
+            ingredient: "tomato-passata",
+            amount: 500,
+            unit: "g",
+          },
+          {
+            ingredient: "tortilla-wraps",
+            note: "to serve",
+          },
+          {
+            ingredient: "cheddar-cheese",
+            note: "to serve",
+          },
+        ],
+      },
+    ],
+    instructions: [
+      "Add the onion, chicken, spices, peppers, chipotle paste, mixed beans and passata to the slow cooker.",
+      "Mix well.",
+      "Cook on High for 4 hours or Low for 8 hours.",
+      "Once cooked, shred the chicken.",
+      "Add the shredded chicken to wraps or boats.",
+      "Cover with grated cheese and melt in the oven.",
+    ],
+  },
 ];
