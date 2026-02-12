@@ -745,6 +745,7 @@ export const recipes: RecipeContent[] = [
             ingredient: "garlic",
             amount: 3,
             unit: "clove",
+            preparation: "crushed",
           },
           {
             ingredient: "pasta",
@@ -804,6 +805,104 @@ export const recipes: RecipeContent[] = [
       "Simmer for 10 minutes, stirring regularly until thickened.",
       "Stir in cream and return to a gentle simmer.",
       "Mix in pasta.",
+    ],
+  },
+  {
+    title: "Slow Cooker Mexican Chicken",
+    slug: "slow-cooker-mexican-chicken",
+    description:
+      "A easy slow cooker Mexican chicken dish, perfect for tacos or burritos.",
+    date: "2026-02-12",
+    tags: [],
+    cuisine: "Mexican",
+    servings: 4,
+    prepTime: 15,
+    cookTime: 240,
+    ingredientGroups: [
+      {
+        items: [
+          {
+            ingredient: "white-onion",
+            amount: 1,
+            unit: "piece",
+            preparation: "diced",
+          },
+          {
+            ingredient: "chicken-breast",
+            amount: 650,
+            unit: "g",
+          },
+          {
+            ingredient: "hot-chilli-powder",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "paprika",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "cayenne-pepper",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "cumin",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "garlic-granules",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "onion-salt",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "bell-pepper",
+            amount: 2,
+            unit: "piece",
+            preparation: "sliced",
+            note: "red and yellow",
+          },
+          {
+            ingredient: "chipotle-paste",
+            amount: 2,
+            unit: "tbsp",
+          },
+          {
+            ingredient: "mixed-beans",
+            amount: 1,
+            unit: "tin",
+            note: "400g",
+          },
+          {
+            ingredient: "tomato-passata",
+            amount: 500,
+            unit: "g",
+          },
+          {
+            ingredient: "tortilla-wraps",
+            note: "to serve",
+          },
+          {
+            ingredient: "cheddar-cheese",
+            note: "to serve",
+          },
+        ],
+      },
+    ],
+    instructions: [
+      "Add the onion, chicken, spices, peppers, chipotle paste, mixed beans and passata to the slow cooker.",
+      "Mix well.",
+      "Cook on High for 4 hours or Low for 8 hours.",
+      "Once cooked, shred the chicken.",
+      "Add the shredded chicken to wraps or boats.",
+      "Cover with grated cheese and melt in the oven.",
     ],
   },
 ];

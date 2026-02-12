@@ -25,6 +25,7 @@ export const ingredients: IngredientContent[] = [
   { name: "frozen peas", category: "vegetable" },
   { name: "fresh parsley", category: "vegetable" },
   { name: "spinach", category: "vegetable" },
+  { name: "mixed beans", category: "vegetable" },
 
   // Dairy
   { name: "butter", category: "dairy" },
@@ -47,6 +48,7 @@ export const ingredients: IngredientContent[] = [
   { name: "pasta", category: "grain" },
   { name: "long grain rice", category: "grain" },
   { name: "paella rice", category: "grain" },
+  { name: "tortilla wraps", category: "grain" },
 
   // Spices & Seasonings
   { name: "curry powder", category: "spice" },
@@ -67,6 +69,9 @@ export const ingredients: IngredientContent[] = [
   { name: "dried parsley", category: "spice" },
   { name: "turmeric", category: "spice" },
   { name: "saffron", category: "spice" },
+  { name: "cumin", category: "spice" },
+  { name: "garlic granules", category: "spice" },
+  { name: "onion salt", category: "spice" },
 
   // Condiments & Sauces
   { name: "basil pesto", category: "condiment" },
