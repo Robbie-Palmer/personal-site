@@ -680,7 +680,7 @@ export const recipes: RecipeContent[] = [
             amount: 1,
             unit: "piece",
             preparation: "finely chopped",
-            note: "1 large or 2 small",
+            note: "large",
           },
           { ingredient: "cajun-seasoning", amount: 4, unit: "tsp" },
           { ingredient: "smoked-paprika", amount: 2, unit: "tsp" },
