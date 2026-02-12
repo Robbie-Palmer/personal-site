@@ -983,7 +983,6 @@ export const recipes: RecipeContent[] = [
             amount: 300,
             unit: "g",
             preparation: "shredded",
-            note: "baked in the oven",
           },
           {
             ingredient: "tortilla-wraps",
