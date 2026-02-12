@@ -1,18 +1,12 @@
-import { Clock, Timer, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
+import { RecipeContent } from "@/components/recipes/recipe-content";
 import {
   getAllRecipeSlugs,
   getRecipeBySlug,
   type RecipeDetailView,
 } from "@/lib/api/recipes";
-import type {
-  IngredientGroupView,
-  RecipeIngredientView,
-} from "@/lib/domain/recipe";
-import { UNIT_LABELS } from "@/lib/domain/recipe";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -38,89 +32,6 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   }
 }
 
-function formatAmount(item: RecipeIngredientView): string {
-  const parts: string[] = [];
-
-  if (item.amount != null) {
-    parts.push(item.amount.toString());
-  }
-
-  if (item.unit) {
-    const labels = UNIT_LABELS[item.unit];
-    if (labels) {
-      const label =
-        item.amount != null && item.amount !== 1
-          ? labels.plural
-          : labels.singular;
-      if (label) {
-        if (labels.noSpace && parts.length > 0) {
-          parts[parts.length - 1] += label;
-        } else {
-          parts.push(label);
-        }
-      }
-    }
-  }
-
-  return parts.join(" ");
-}
-
-function pluralizeName(item: RecipeIngredientView): string {
-  if (item.pluralName) return item.pluralName;
-  return `${item.name}s`;
-}
-
-function formatIngredient(item: RecipeIngredientView): string {
-  const isPiece = item.unit === "piece";
-  const amount = isPiece ? (item.amount?.toString() ?? "") : formatAmount(item);
-  const parts: string[] = [];
-
-  if (amount) {
-    parts.push(amount);
-    if (item.unit && !isPiece) {
-      parts.push("of");
-    }
-  }
-
-  const needsPlural = isPiece && item.amount != null && item.amount !== 1;
-  parts.push(needsPlural ? pluralizeName(item) : item.name);
-
-  if (item.preparation) {
-    parts.push(`(${item.preparation})`);
-  }
-
-  if (item.note) {
-    parts.push(`\u2013 ${item.note}`);
-  }
-
-  return parts.join(" ");
-}
-
-function formatTime(minutes: number): string {
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-}
-
-function IngredientGroup({ group }: { group: IngredientGroupView }) {
-  return (
-    <div>
-      {group.name && (
-        <h3 className="font-semibold text-lg mb-2">{group.name}</h3>
-      )}
-      <ul className="space-y-1">
-        {group.items.map((item) => (
-          <li key={item.ingredient} className="flex items-start gap-2">
-            <span className="text-muted-foreground mt-1.5 h-1.5 w-1.5 rounded-full bg-current flex-shrink-0" />
-            <span>{formatIngredient(item)}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 export default async function RecipePage(props: PageProps) {
   const params = await props.params;
   const { slug } = params;
@@ -141,63 +52,7 @@ export default async function RecipePage(props: PageProps) {
         &larr; Back to recipes
       </Link>
 
-      <header className="mb-8">
-        <h1 className="text-4xl font-bold mb-4">{recipe.title}</h1>
-        <p className="text-xl text-muted-foreground mb-4">
-          {recipe.description}
-        </p>
-
-        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <Users className="h-4 w-4" />
-            <span>{recipe.servings} servings</span>
-          </div>
-          {recipe.prepTime != null && (
-            <div className="flex items-center gap-1">
-              <Timer className="h-4 w-4" />
-              <span>Prep: {formatTime(recipe.prepTime)}</span>
-            </div>
-          )}
-          {recipe.cookTime != null && (
-            <div className="flex items-center gap-1">
-              <Clock className="h-4 w-4" />
-              <span>Cook: {formatTime(recipe.cookTime)}</span>
-            </div>
-          )}
-          {recipe.totalTime != null && (
-            <div className="flex items-center gap-1">
-              <Clock className="h-4 w-4" />
-              <span>Total: {formatTime(recipe.totalTime)}</span>
-            </div>
-          )}
-        </div>
-
-        {recipe.cuisine && (
-          <div className="flex flex-wrap gap-2 mt-4">
-            <Badge variant="secondary">{recipe.cuisine}</Badge>
-          </div>
-        )}
-      </header>
-
-      <section className="mb-8">
-        <h2 className="text-2xl font-bold mb-4">Ingredients</h2>
-        <div className="space-y-4">
-          {recipe.ingredientGroups.map((group, i) => (
-            <IngredientGroup key={group.name ?? i} group={group} />
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <h2 className="text-2xl font-bold mb-4">Instructions</h2>
-        <ol className="space-y-3 list-decimal list-inside">
-          {recipe.instructions.map((step, i) => (
-            <li key={i} className="leading-relaxed pl-2">
-              {step}
-            </li>
-          ))}
-        </ol>
-      </section>
+      <RecipeContent recipe={recipe} />
     </article>
   );
 }
