@@ -7,7 +7,6 @@ export const ingredients: IngredientContent[] = [
   { name: "chorizo", category: "protein" },
   { name: "bacon", category: "protein" },
   { name: "pork sausages", category: "protein" },
-  { name: "shredded chicken", category: "protein" },
 
   // Vegetables
   { name: "white onion", category: "vegetable" },
@@ -43,7 +42,6 @@ export const ingredients: IngredientContent[] = [
   { name: "parmesan", category: "dairy" },
   { name: "grana padano", category: "dairy" },
   { name: "cream cheese", category: "dairy" },
-  { name: "gouda", category: "dairy" },
 
   // Grains & Pasta
   { name: "rice", category: "grain" },
@@ -55,7 +53,6 @@ export const ingredients: IngredientContent[] = [
   { name: "long grain rice", category: "grain" },
   { name: "paella rice", category: "grain" },
   { name: "tortilla wraps", category: "grain" },
-  { name: "burrito wraps", category: "grain" },
 
   // Spices & Seasonings
   { name: "curry powder", category: "spice" },

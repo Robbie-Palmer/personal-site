@@ -980,13 +980,14 @@ export const recipes: RecipeContent[] = [
         name: "Quesadilla",
         items: [
           {
-            ingredient: "shredded-chicken",
+            ingredient: "chicken-breast",
             amount: 300,
             unit: "g",
+            preparation: "shredded",
             note: "poached or leftover rotisserie chicken",
           },
           {
-            ingredient: "burrito-wraps",
+            ingredient: "tortilla-wraps",
             amount: 4,
             unit: "piece",
             note: "Gran Luchito",
@@ -996,7 +997,6 @@ export const recipes: RecipeContent[] = [
             amount: 150,
             unit: "g",
             preparation: "grated",
-            note: "or gouda",
           },
           {
             ingredient: "spring-onions",
