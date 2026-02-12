@@ -910,7 +910,7 @@ export const recipes: RecipeContent[] = [
     cuisine: "Mexican",
     servings: 2,
     prepTime: 10,
-    cookTime: 15,
+    cookTime: 40,
     ingredientGroups: [
       {
         name: "Pico De Gallo",
