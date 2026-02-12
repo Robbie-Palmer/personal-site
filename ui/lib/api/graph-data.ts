@@ -1,6 +1,8 @@
 import type { DomainRepository } from "@/lib/domain";
 import type { NodeType } from "@/lib/repository/graph";
 
+export const NON_NAVIGABLE_HREF = "#";
+
 export interface GraphNode {
   id: string;
   name: string;
@@ -63,18 +65,16 @@ export function extractGraphData(repository: DomainRepository): GraphData {
       id: `adr:${slug}`,
       name: adr.title,
       type: "adr",
-      href: projectSlug
-        ? `/projects/${projectSlug}/adrs/${slug}`
-        : `/projects/personal-site/adrs/${slug}`,
+      href: `/projects/${projectSlug}/adrs/${slug}`,
       connections: 0,
     });
   }
   const connectedTechs = new Set<string>();
   for (const [techSlug, usedBy] of graph.reverse.technologyUsedBy) {
     if (usedBy.size > 0) {
-      connectedTechs.add(techSlug);
       const tech = technologies.get(techSlug);
       if (tech) {
+        connectedTechs.add(techSlug);
         nodes.push({
           id: `technology:${techSlug}`,
           name: tech.name,
@@ -91,7 +91,7 @@ export function extractGraphData(repository: DomainRepository): GraphData {
         id: `tag:${tag}`,
         name: `#${tag}`,
         type: "tag",
-        href: "#",
+        href: NON_NAVIGABLE_HREF,
         connections: 0,
       });
     }
@@ -109,41 +109,38 @@ export function extractGraphData(repository: DomainRepository): GraphData {
       }
     }
   }
+  const nodeIds = new Set(nodes.map((n) => n.id));
   for (const [adrSlug, projectSlug] of graph.edges.partOfProject) {
-    edges.push({
-      source: `adr:${adrSlug}`,
-      target: `project:${projectSlug}`,
-      type: "PART_OF_PROJECT",
-    });
-    addConnection(`adr:${adrSlug}`);
-    addConnection(`project:${projectSlug}`);
+    const source = `adr:${adrSlug}`;
+    const target = `project:${projectSlug}`;
+    if (!nodeIds.has(source) || !nodeIds.has(target)) continue;
+    edges.push({ source, target, type: "PART_OF_PROJECT" });
+    addConnection(source);
+    addConnection(target);
   }
   for (const [supersedingSlug, supersededSlug] of graph.edges.supersedes) {
-    edges.push({
-      source: `adr:${supersedingSlug}`,
-      target: `adr:${supersededSlug}`,
-      type: "SUPERSEDES",
-    });
-    addConnection(`adr:${supersedingSlug}`);
-    addConnection(`adr:${supersededSlug}`);
+    const source = `adr:${supersedingSlug}`;
+    const target = `adr:${supersededSlug}`;
+    if (!nodeIds.has(source) || !nodeIds.has(target)) continue;
+    edges.push({ source, target, type: "SUPERSEDES" });
+    addConnection(source);
+    addConnection(target);
   }
   for (const [projectSlug, roleSlug] of graph.edges.createdAtRole) {
-    edges.push({
-      source: `project:${projectSlug}`,
-      target: `role:${roleSlug}`,
-      type: "CREATED_AT_ROLE",
-    });
-    addConnection(`project:${projectSlug}`);
-    addConnection(`role:${roleSlug}`);
+    const source = `project:${projectSlug}`;
+    const target = `role:${roleSlug}`;
+    if (!nodeIds.has(source) || !nodeIds.has(target)) continue;
+    edges.push({ source, target, type: "CREATED_AT_ROLE" });
+    addConnection(source);
+    addConnection(target);
   }
   for (const [blogSlug, roleSlug] of graph.edges.writtenAtRole) {
-    edges.push({
-      source: `blog:${blogSlug}`,
-      target: `role:${roleSlug}`,
-      type: "WRITTEN_AT_ROLE",
-    });
-    addConnection(`blog:${blogSlug}`);
-    addConnection(`role:${roleSlug}`);
+    const source = `blog:${blogSlug}`;
+    const target = `role:${roleSlug}`;
+    if (!nodeIds.has(source) || !nodeIds.has(target)) continue;
+    edges.push({ source, target, type: "WRITTEN_AT_ROLE" });
+    addConnection(source);
+    addConnection(target);
   }
   for (const [nodeId, tags] of graph.edges.hasTag) {
     for (const tag of tags) {

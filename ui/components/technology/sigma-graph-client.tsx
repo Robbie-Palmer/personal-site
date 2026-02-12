@@ -13,7 +13,11 @@ import { ExternalLink, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import type { GraphData, GraphNode } from "@/lib/api/graph-data";
+import {
+  type GraphData,
+  type GraphNode,
+  NON_NAVIGABLE_HREF,
+} from "@/lib/api/graph-data";
 
 const NODE_COLORS: Record<string, string> = {
   project: "#3b82f6", // blue-500
@@ -366,8 +370,12 @@ export function SigmaGraphClient({ data }: SigmaGraphClientProps) {
   }, []);
 
   // Stabilize data prop to prevent re-renders on hover (due to parent passing new object references)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally using JSON fingerprint instead of object identity for deep equality
-  const stableData = useMemo(() => data, [JSON.stringify(data)]);
+  const dataFingerprint = `${data.nodes.length}|${data.edges.length}|${data.nodes
+    .map((n) => n.id)
+    .sort()
+    .join(",")}`;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally using lightweight fingerprint instead of object identity for deep equality
+  const stableData = useMemo(() => data, [dataFingerprint]);
 
   // Filter graph data — same algorithm as the old component
   const filteredData = useMemo(() => {
@@ -696,14 +704,19 @@ export function SigmaGraphClient({ data }: SigmaGraphClientProps) {
                   ` (${selectedNode.totalConnections} total)`}
               </p>
 
-              {selectedNode.href && selectedNode.href !== "#" && (
-                <Button asChild className="w-full gap-2" size="sm">
-                  <a href={selectedNode.href} target="_blank" rel="noreferrer">
-                    Visit Page
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                </Button>
-              )}
+              {selectedNode.href &&
+                selectedNode.href !== NON_NAVIGABLE_HREF && (
+                  <Button asChild className="w-full gap-2" size="sm">
+                    <a
+                      href={selectedNode.href}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Visit Page
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </Button>
+                )}
             </Card>
           </div>
         )}
