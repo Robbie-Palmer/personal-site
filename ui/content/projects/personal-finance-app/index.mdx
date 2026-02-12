@@ -1,0 +1,426 @@
+---
+title: "Personal Finance App"
+description: "Bringing the tooling and practices of financial advisors to casual users"
+date: "2026-01-11"
+status: "idea"
+---
+
+# Problem
+
+Financially savvy individuals and startup founders face a fundamental gap in personal finance tooling.
+The market offers two inadequate extremes:
+
+* **Consumer budgeting apps** (Monarch, YNAB, Emma) focus on expense categorisation and week-to-week budgeting, missing the strategic view entirely
+* **Financial advisor tools** (Voyant, eMoney, RightCapital) provide proper modelling but are B2B, require certification, and cost thousands per year
+
+The result: power users default to spreadsheets. But spreadsheets are fundamentally broken for this use case:
+
+* Fragile formulas that silently break when rows are inserted or cells are copy-pasted
+* No documentation, version control, or testing infrastructure
+* Zero compounding returns: every model starts from scratch
+* Difficult to maintain multi-entity models (individual + partner + household)
+* No support for multi-currency, tax jurisdiction complexity, or inter-linked accounts
+
+This creates a painful irony: a tool for modelling compounding returns offers zero compounding returns itself.
+
+**What this actually looks like:** You buy a house with a partner. You've each contributed different amounts to the deposit, have a joint mortgage at a fixed rate that's about to expire, and need to track equity over time.
+
+Meanwhile, you have RSUs from a previous employer priced in USD, which you converted to GBP and put into index funds that are themselves mostly US-centric. You want to record a large purchase without rescanning every account you own just to keep the graphs accurate.
+
+You've closed some old accounts but don't want to lose the historical trend data, so you're entering rows of zeros. And you want a rough sense of monthly expenditure based on income minus current account balance — not the soul-crushing exercise of categorising every coffee and receipt.
+
+In a spreadsheet, each of these is a separate tab with its own formula logic, its own currency assumptions, and its own way of breaking when you touch anything else. It's impossible to maintain, and a complete time sink.
+
+# Proposal
+
+A web application designed for wealth trajectory tracking and financial forecasting,
+optimised for data entry and casual recording rather than model-first complexity.
+
+## Core Principles
+
+1. **Data-entry first:** UX optimised for quickly and flexibly recording financial reality on mobile — not forcing users into rigid models. Open Banking integration comes later as an accelerant, not a dependency
+2. **Multi-entity by default:** Support for individual users, partners, and shared household entities with ownership percentages
+3. **Multi-currency native:** Track accounts in different currencies with historical exchange rate handling
+4. **Forecast vs. reality reconciliation:** Highlight when forecasts diverge from actuals as new data is entered
+5. **Beautiful, glanceable output:** Plots that answer "am I on track?" rather than tables that require interpretation
+6. **UK-first, internationally minded:** Launch with GBP defaults and first-class UK tax modelling — an area where competitors like ProjectionLab remain shallow — with architecture that supports expansion to other jurisdictions
+7. **Free until proven:** Ship free with full functionality — introduce paid tiers only after real usage reveals which features command willingness to pay
+
+## Key Features
+
+### v1: Track and understand
+
+* Asset/liability tracking over time with CAGR calculations
+* Stock tracking by units — to enable tracking independent of currency swings
+* Recurring transfers and loan tracking
+* Inter-linked accounts
+* Multiple income stream tracking with trend analysis
+* UK tax impact modelling (income tax, CGT, ISA/pension allowances)
+
+### Later: Automate and forecast
+
+* Open Banking integration for automated imports
+* Tax modelling for additional jurisdictions
+* Scenario-based forecasting (what-if modelling)
+* Actionable insights: ready to invest, need emergency fund, should pay down debt
+
+# Competitor Analysis
+
+## [ProjectionLab](https://projectionlab.com)
+
+**Overview:** Bootstrapped financial planning tool founded in 2021 by Kyle Nolan (Boston).
+Self-funded via subscriptions, no VC backing. Targets the FIRE community and sophisticated DIY planners.
+
+**Pricing:** [$130/year (Premium) or $550/year (Pro for advisors). Lifetime option available for $1200.](https://projectionlab.com/pricing)
+
+### Strengths
+
+* Excellent forecasting and Monte Carlo simulations
+* Strong international tax presets (UK, Canada, Australia, Germany, Netherlands)
+* Beautiful Sankey cash flow visualisations
+* Privacy-first: no account linking required
+* Active community and transparent development (#buildinpublic)
+* Historical backtesting against real market data
+* Self-hosting option for lifetime customers
+
+### Gaps (Opportunities)
+
+* Model-first design: not optimised for casual data entry
+* No multi-currency account support
+* Limited to single user + spouse (no extended household/entity modelling)
+  * No support for inter-linked user accounts (spouse and user come under single account)
+* No recurring transfer or inter-linked account tracking
+* Stocks must be entered as prices, not units (no automatic CAGR)
+* No mobile app
+* Key features paywalled with no true freemium tier (data doesn't persist without subscription)
+
+## [Monarch Money](https://www.monarchmoney.com)
+
+**Overview:** VC-backed personal finance app ([$95M total funding](https://www.crunchbase.com/organization/monarch-money-inc)).
+Positioned as the Mint replacement after Intuit shut down Mint in early 2024. Founded 2018 in San Francisco.
+
+**Pricing:** [$100/year or $15/month. 7-day free trial.](https://www.monarchmoney.com/pricing)
+
+### Strengths
+
+* Excellent Open Banking integration (13,000+ institutions via Plaid, MX, Finicity)
+* Strong couples/collaboration features
+* Net worth tracking and investment monitoring
+* Slick UI with cross-platform sync (web, iOS, Android)
+* Credit score monitoring included
+* 20x user growth post-Mint shutdown
+
+### Gaps (Opportunities)
+
+* Budgeting-focused: lacks sophisticated forecasting and scenario modelling
+* No retirement/goal projections
+* US-centric: limited international tax support
+* VC-backed: potential for feature bloat or pivot pressure
+* Requires account linking (privacy concerns for some users)
+
+## Other Competitors
+
+| Tool                                 | Price/yr   | Focus       | Forecasting | Data Entry | Multi-currency |
+| ------------------------------------ | ---------- | ----------- | ----------- | ---------- | -------------- |
+| [YNAB](https://www.ynab.com)         | $109       | Budgeting   | None        | Manual     | No             |
+| [Copilot](https://copilot.money)     | $95        | Tracking    | Basic       | Auto-sync  | No             |
+| [Empower](https://www.empower.com)   | Free\*     | Investments | Retirement  | Auto-sync  | No             |
+| [Kubera](https://www.kubera.com)     | $150       | Net worth   | Limited     | Both       | Yes            |
+| [Ghostfolio](https://ghostfolio.dev) | Free (OSS) | Investments | None        | Manual     | Yes            |
+
+\*Empower upsells advisory services (0.89%+ AUM)
+
+## Positioning map
+
+|                            | Rigid / model-first                         | Flexible / entry-first         |
+| -------------------------- | ------------------------------------------- | ------------------------------ |
+| **Forecasting & planning** | ProjectionLab, Voyant, eMoney, RightCapital | **← The gap**                  |
+| **Budgeting & tracking**   | YNAB                                        | Monarch, Copilot, Spreadsheets |
+
+Every competitor sits in one of three quadrants. The top-right — sophisticated financial planning with flexible, low-friction data entry — is empty. That's the target.
+
+# Market Opportunity
+
+## The prosumer gap
+
+The personal finance market has a structural gap. Consumer apps (YNAB, Monarch) top out at \~$100/year
+and focus on budgeting — expense categorisation, envelope allocation, week-to-week tracking.
+Professional advisor tools (Voyant, NaviPlan, eMoney) offer proper modelling but are B2B,
+cost $2,000–10,000+/year per seat, and often require CFP certification.
+
+No product today combines flexible data capture with advisor-grade forecasting at prosumer pricing —
+particularly with multi-currency, multi-entity, and UK-first positioning.
+
+## Spreadsheet users are the market
+
+Among people who actively budget, [\~40% use spreadsheets](https://wallethub.com/edu/budgeting-statistics/146387). Only 14% use a dedicated budgeting app.
+Higher-income and 30–44 age demographics skew even more heavily toward spreadsheets.
+These users have self-selected as "too sophisticated for consumer apps" — they want control
+and flexibility, but are stuck with fragile formulas, no version control, and models that
+start from scratch every time.
+
+This is the target user: someone already doing the work, but with broken tools.
+
+## Proven demand
+
+ProjectionLab is the clearest proof point. A solo founder, building nights and weekends,
+[reached $1M ARR in 4 years](https://projectionlab.com/blog/we-reached-1m-arr-with-zero-funding) with zero funding. 100,000+ households on the platform.
+The growth curve inflected sharply once the founder went full-time — roughly 3.5x in 19 months
+(Nov 2023: $23K MRR → Jun 2025: $83K MRR). This demonstrates strong product-market fit
+in the FIRE/prosumer segment.
+
+Monarch Money, meanwhile, proves the broader personal finance market is growing explosively —
+[$95M total funding](https://www.crunchbase.com/organization/monarch-money-inc), 20x user growth after Mint's shutdown. But it stays in the budgeting lane.
+
+| Company       | Capital                | Target                   | Validation Signal                                                                                                                                                        |
+| :------------ | :--------------------- | :----------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ProjectionLab | Bootstrapped           | FIRE / prosumer planners | [\~$1M ARR](https://projectionlab.com/blog/we-reached-1m-arr-with-zero-funding) (Open Startup)                                                                           |
+| Monarch Money | $95M Raised (Series B) | Post-Mint budgeters      | [Top-tier VC Backing](https://www.pymnts.com/news/investment-tracker/2025/monarch-money-raises-75-million-to-grow-financial-wellness-platform/) (Series B Co-Led by FPV) |
+| YNAB          | Bootstrapped           | Budget-focused           | [Category Pioneer (Founded 2004)](https://www.ynab.com/about-us) (Classic "Envelope" App)                                                                                |
+
+## UK structural advantage
+
+The UK offers a unique entry point:
+
+* **Open Banking maturity:** The UK pioneered Open Banking (2018) and now has [15.16M active users](https://www.openbanking.org.uk/news/open-banking-surges-to-15-million-uk-users-as-july-marks-record-adoption/) (\~33% of adults as of July 2025). Free API access — no per-connection fees like Plaid in the US
+* **Underserved market:** UK personal finance software market is [\~$50M](https://www.imarcgroup.com/uk-personal-finance-software-market) within a [\~$1.5B global market](https://www.fortunebusinessinsights.com/personal-finance-software-market-112683) that is overwhelmingly US-centric. Most competitors build for US users first and bolt on international support as an afterthought
+* **Regulatory tailwinds:** FCA's Open Finance roadmap favours data portability and consumer empowerment
+* **Tax complexity:** UK tax has enough nuance (ISAs, SIPPs, CGT allowances, dividend allowances, Scottish rates) to reward purpose-built modelling, yet competitors' UK tax support remains shallow
+* **Gateway to other underserved markets:** A UK-first approach builds the multi-currency, multi-jurisdiction architecture from day one. Open Banking is not UK-specific — the EU mandates it via PSD2, Australia has CDR (2020), Canada is implementing a federal framework, and Brazil/India have their own schemes. The natural expansion path is UK → other English-speaking markets (Canada, Australia) → EU, each following the same pattern: local tax complexity that US-built tools handle poorly, and Open Banking infrastructure ready to plug into
+
+## Market size
+
+The global personal finance software market is [\~$1.5B](https://www.fortunebusinessinsights.com/personal-finance-software-market-112683) (2025), split roughly:
+[US \~$285M](https://www.researchandmarkets.com/reports/6172669/united-states-personal-finance-software-market), [UK \~$50M](https://www.imarcgroup.com/uk-personal-finance-software-market), rest of world \~$1.15B. The US is the largest single market but
+represents only \~19% of the global total — the majority sits in markets poorly served
+by US-centric tools.
+
+The more relevant adjacent market is financial planning software (advisor tools):
+[$3.7B growing to $16.9B by 2031](https://www.alliedmarketresearch.com/financial-planning-software-market-A16422) (16.6% CAGR). A prosumer tool that bridges consumer
+and advisor categories doesn't compete for share of the $1.5B consumer market — it
+expands into the gap between consumer and advisor.
+
+Even capturing a fraction of ProjectionLab's trajectory (100K households at \~$10/month average)
+validates a meaningful indie business.
+
+## Future expansion: startup finance
+
+Startup founders have a uniquely blurred line between personal and business finance — tracking
+personal burn rate alongside company burn rate, equity compensation, multiple income streams,
+and runway for both their company and their personal savings.
+
+This is not a v1 concern, but the same modelling engine that handles "when can I retire?"
+handles "how long is my personal runway if my startup fails?" The architecture should
+support this concentric expansion.
+
+Validation: Pry Financials (10-person team, $4.2M raised) was [acquired by Brex for $90M](https://techcrunch.com/2022/04/19/brex-just-paid-90m-for-pry-financials-a-10-person-financial-planning-software-startup-and-heres-why/)
+for exactly this "founder spreadsheet replacement" use case. [Runway](https://tracxn.com/d/companies/runway/__vhBnElE1V7XdbRzVmmpiHoTvQnjiEeEjFcQvmRbIttw) and [Jirav](https://techcrunch.com/2023/07/11/jirav-a-startup-developing-financial-planning-software-for-businesses-raises-20m/) have each
+raised $30M+ for startup FP\&A.
+
+# Why Now
+
+## Market timing
+
+* **Post-Mint vacuum:** Mint's shutdown in early 2024 displaced millions of users. Monarch captured many, but its budgeting focus leaves the prosumer segment underserved. The market is actively looking for alternatives
+* **Open Banking at critical mass:** The UK has 15M+ active Open Banking users, projected to reach 60% of adults by 2026. The infrastructure for automated data ingestion is mature just as a v2 would need it — building v1 on manual entry now means Open Banking integration lands when adoption is at its peak
+* **Early innings for prosumer tools:** ProjectionLab only hit $1M ARR in mid-2025. 100K households out of millions of spreadsheet-based financial planners is less than 1% penetration. The category is proven but far from saturated
+* **Financial planning feels urgent:** Cost of living pressures and volatile interest rates have made active financial management feel necessary rather than optional. More people are tracking than ever, and the FIRE movement continues to grow (2.4M+ on r/financialindependence)
+
+## Personal timing
+
+* **Agentic coding as a force multiplier:** AI-assisted development enables a solo developer to build at team scale — ramping up on unfamiliar stacks orders of magnitude faster than before
+* **Right intersection of skills:** Deep experience in startups and project management, combined with genuine personal interest in finance and a track record of building products
+* **Runway to commit:** Personal financial position allows full commitment to this — versus 6 years ago when the idea first emerged but the skillset and runway weren't there
+
+# Architectural Focus
+
+## Cloudflare-native stack
+
+Built on Cloudflare's platform to align with the existing personal site infrastructure
+and optimise for edge-first performance:
+
+* **Compute:** Cloudflare Workers — serverless, globally distributed, minimal cold starts
+* **Database:** D1 (SQLite-based) — relational modelling for entities, accounts, and time-series entries
+* **Static hosting:** Cloudflare Pages for the frontend
+* **Storage:** R2 for any asset/document storage (receipts, statements)
+
+### Why Cloudflare
+
+* Already the stack for this site — reduces operational surface area
+* Generous free tier aligns with the freemium model economics (low cost to serve free users)
+* D1's SQLite foundation opens a path to future local-first/offline support if desired
+* Edge-first means low latency globally without infrastructure management
+
+## Data model
+
+Multi-entity by design:
+
+* **Users** → own one or more **Entities** (self, partner, household, business)
+* **Entities** → own one or more **Accounts** (bank, investment, pension, liability)
+* **Accounts** → have a currency and a series of **Entries** (balance snapshots, transactions)
+* **Exchange rates** stored as a time-series for multi-currency reconciliation
+
+Optimised for the core query: "what was the value of X on date Y in currency Z?"
+
+## Frontend
+
+Mobile-first responsive web app — not a native app. Optimised for the primary use case:
+quickly recording a balance or transaction on a phone. Progressive Web App (PWA) for
+home screen installation and offline data entry queuing.
+
+## API design
+
+REST or tRPC API layer, designed so the same core engine could power a future
+startup-finance product without rewriting the backend. The entity/account/entry
+abstraction maps naturally to both personal and business financial tracking.
+
+## Privacy and security
+
+* No third-party data sharing in v1 (manual entry means no Open Banking provider dependencies)
+* Encryption at rest via D1/Cloudflare defaults
+* Authentication via Cloudflare Access or a lightweight auth layer (e.g. Lucia, Auth.js)
+* Users own their data — export to CSV/JSON as a first-class feature
+
+# Target Persona
+
+The target user expands in concentric rings, where each ring validates features needed by the next:
+
+1. **The founder** — building for own pain points. Currently uses spreadsheets to track multi-currency assets, UK tax obligations, and long-term wealth trajectory. The app needs to be better than the spreadsheet for this one user before anything else matters
+2. **Partner** — validates multi-entity modelling, shared household views, and the UX for someone who wants visibility without building their own spreadsheet
+3. **Friends, family, colleagues** — invite-only. Diverse financial situations stress-test assumptions: different income structures, different countries, different levels of financial sophistication
+4. **General market** — only after the core product is proven through real usage by real people with real money
+
+This is a deliberate strategy, not a compromise. Each ring generates genuine usage data and unfiltered feedback faster than any survey or market research. The product ships when it's good enough for the next ring, not on a calendar.
+
+## What PMF looks like
+
+This is not a daily-use product. A healthy user opens it a few times a month to log balances, check their trajectory, or run a scenario. Visit frequency is a misleading metric.
+
+**The real signal is data depth** — how much of their financial life a user has committed to the app:
+
+* Number of accounts tracked
+* Volume of balance entries over time
+* Complexity of setup: recurring transfers, inter-linked accounts, connections with other users' accounts, multi-entity configurations
+
+A user who has 15 accounts, 6 months of balance history, a joint mortgage linked to their partner's entity, and 3 standing orders modelled is unlikely to leave. That depth of committed data is both the PMF signal and the retention mechanism.
+
+**Per ring:**
+
+* **Ring 1:** The founder has deleted their spreadsheet
+* **Ring 2:** Partner actively logs their own data without being asked
+* **Ring 3:** Invited users return unprompted and add accounts beyond the first one
+
+# Go-to-Market
+
+## Phase 1: Invite-only validation
+
+Build for self, then expand to partner and inner circle. The product must earn regular usage — not just sign-ups — before any public launch. No marketing spend, no landing page optimisation. Just a tool that's genuinely better than the spreadsheet it replaces.
+
+## Phase 2: Community-driven growth
+
+Once the product is solid, go where the target users already are:
+
+* **FIRE communities** — r/financialindependence (2.4M subscribers), r/UKPersonalFinance, Bogleheads
+* **Hacker News** — ProjectionLab's first traction came from an HN post; the "Show HN" audience is exactly the power-user persona
+* **Podcasts and creators** — ChooseFI drove a major inflection for ProjectionLab; UK equivalents like Meaningful Money and The FIRE Starter exist
+* **Build in public** — document the journey, share the architecture decisions, attract users who value transparency
+
+## Phase 3: Content and SEO
+
+Blog content, social media, comparison pages. Only after the product is proven through real usage. Content should be genuinely useful (UK tax guides, financial planning frameworks) rather than pure marketing.
+
+# Risks
+
+## Generalisability
+
+Building for yourself risks over-fitting to your own financial situation. A tool that perfectly models one person's multi-currency ISA/SIPP/GIA setup might be confusing to someone with a simpler portfolio.
+
+**Mitigation:** Each concentric ring of users stress-tests this. A partner has different priorities. Friends have different income structures. Colleagues in different countries expose jurisdiction assumptions. The architecture must be flexible enough that simplicity is the default, not complexity.
+
+## Solo execution
+
+Competing against funded teams (Monarch: $95M raised) and established bootstrappers (ProjectionLab: 4 years of momentum, growing team).
+
+**Mitigation:** ProjectionLab proved a solo founder can reach $1M ARR. Scope discipline matters more than headcount. The Cloudflare stack minimises ops overhead. And the positioning is deliberately different — not competing head-to-head but serving a different persona.
+
+## Platform risk
+
+D1 is Cloudflare's production-ready SQLite database (General Availability on April 1, 2024). Betting the architecture on Cloudflare's platform creates dependency.
+
+**Mitigation:** D1 is SQLite-based, which means the data layer is portable. Migration to Turso, LiteFS, or even Postgres is feasible without rewriting the application logic. The architecture should keep the Cloudflare-specific surface area thin.
+
+## Incumbent ecosystem
+
+ProjectionLab has 100K households, an active Discord community, and 4 years of feature development. Their users are unlikely to switch.
+
+**Mitigation:** Not targeting their existing users. Targeting the people who tried ProjectionLab and bounced because it was too model-heavy, or who never found it because they weren't looking for a "financial planner" — they were looking for a better spreadsheet. Different positioning (data-entry first vs model-first) attracts different personas.
+
+## Lessons from Mint and other failures
+
+The personal finance app graveyard is instructive. [Mint](https://en.wikipedia.org/wiki/Intuit_Mint) (shut down 2024), [Tally](https://techcrunch.com/2024/08/06/debt-management-app-tally-abruptly-shuts-down/) ($172M raised, shut down 2024), Simple (acquired for $117M, shut down 2021), and Level Money (acquired by Capital One, shut down 2017) all share the same fatal pattern:
+
+1. **Free consumer model** with no clear path to subscription revenue
+2. **Referral/ad-based monetisation** that misaligned incentives — the highest-commission products were rarely best for users
+3. **Expensive data aggregation** — Plaid/Yodlee costs [$0.60–0.90/user/month](https://www.getmonetizely.com/articles/plaid-vs-yodlee-how-much-will-financial-data-apis-cost-your-fintech) at scale, creating negative unit economics on every free user
+4. **Never profitable** — Mint ran for 15 years without meaningful profitability
+
+The contrast is stark: YNAB and Monarch Money (both subscription-based) are thriving. The lesson is not "don't be free" — it's "never monetise through referrals, and don't let free become a permanent identity."
+
+**How this app avoids each trap:**
+
+* **Data cost trap:** UK Open Banking is free at the API level — no per-connection fees like Plaid. And v1 is manual-only, so data aggregation cost is zero
+* **Referral revenue trap:** Subscription or nothing. Never recommend financial products for commission
+* **"Free forever" trap:** "Free until proven" is a deliberate pre-PMF strategy, not a business model. Early adopters get lifetime free access as a reward for providing the PMF signals that matter more than their subscription revenue. New users post-PMF pay subscriptions. The transition is planned and honest, not a bait-and-switch
+* **Acquisition trap:** Maintaining control over product direction. Simple and Level Money were killed by big-bank acquirers who couldn't justify a non-revenue product internally
+
+# Defensibility
+
+There is no moat at v1. The code is open source. There is no proprietary IP. This is true of every early-stage product — some just delude themselves otherwise.
+
+**Pre-PMF:** Product vision and relentless execution are the only advantages. PMF itself, and the momentum that follows, are the moat.
+
+**Post-PMF, moats build naturally:**
+
+* **Data gravity** — users accumulate years of financial history. Exporting is possible (and should be), but rebuilding context, categories, and entity relationships is painful enough to create retention
+* **Jurisdiction depth** — deep, accurate UK tax modelling is tedious and time-consuming to replicate. Each additional jurisdiction compounds this advantage
+* **Multi-entity complexity** — household configurations, ownership percentages, and inter-linked accounts become switching costs as users build out their financial picture
+* **Community and trust** — financial data is intimate. Users who trust a product with their full financial picture don't switch lightly
+
+# Revenue Model
+
+## Near-term: personal finance
+
+The core product is free. No artificial limits, no "you've reached 5 accounts" gates. The goal is genuine usage and PMF, not premature monetisation.
+
+**Early adopter pricing:** Users from rings 1–3 (invite-only phase) get lifetime free access. Their value is in PMF signals, feedback, and early traction — worth far more than any subscription revenue. When paid tiers launch, they apply to new users only. This rewards early believers, avoids the bait-and-switch resentment that poisons trust, and is the right thing to do.
+
+Paid features will emerge from usage data, but the likely candidates are:
+
+* **Complex tax modelling** — automated UK tax calculations, allowance optimisation, scenario analysis for tax-efficient withdrawals
+* **Advanced forecasting** — Monte Carlo simulations, what-if scenarios, retirement projections
+* **Priority support and early access** to new features
+
+The pitch to paying users: stop spending hours maintaining fragile spreadsheets every budget cycle. This app keeps your financial model up to date so you can focus on higher-level analysis and decisions that actually move the needle.
+
+## Long-term: startup finance
+
+The "whale" opportunity. Business financial planning commands higher willingness to pay than personal:
+
+* **Burn rate and runway tracking** for startups — the same modelling engine, different framing
+* **Equity tracking** for employees — vesting schedules, dilution scenarios, exercise planning. Sold to companies as a benefit, used by employees for personal financial planning
+* **Financial planning as a benefit** — companies offer it alongside pension matching and health insurance
+
+This edges toward Carta and HR tooling territory without getting sucked into that scope. The key is that the same entity/account/entry architecture powers both personal and business use cases — it's a concentric expansion, not a pivot.
+
+## Funding approach
+
+The immediate priority is building the alpha and validating with real usage. Funding decisions come after PMF signals, not before — the lesson from the Mint graveyard is not that external funding is dangerous, but that a free product without subscription revenue is. Monarch Money raised $95M and is thriving because it charges users. Mint had Intuit's backing and died because it never did.
+
+Several paths are worth exploring once there's something to fund:
+
+* **Grants (non-dilutive):** Invest NI programmes for Northern Ireland-based startups, Innovate UK grants (the Open Banking / fintech innovation angle may qualify)
+* **Incubators/accelerators:** Entrepreneur First, Techstars, or fintech-specific programmes — mentorship, network, and early capital
+* **VC:** Early-stage or fintech-specialist investors who understand that this category rewards patience over blitzscaling. The right investor accelerates without distorting the product
+* **Bootstrapped:** ProjectionLab's $0-to-$1M-ARR trajectory proves this works. Lower growth rate, full control
+
+No commitment to any path yet. The alpha comes first.
