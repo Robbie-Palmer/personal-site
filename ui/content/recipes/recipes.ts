@@ -900,4 +900,41 @@ export const recipes: RecipeContent[] = [
       "Cover with grated cheese and melt in the oven.",
     ],
   },
+  {
+    title: "Banana Overnight Oats",
+    slug: "banana-overnight-oats",
+    description:
+      "A quick and healthy no-cook breakfast with creamy oats, banana, and chia seeds, prepared the night before.",
+    date: "2026-02-12",
+    tags: [],
+    servings: 2,
+    prepTime: 5,
+    ingredientGroups: [
+      {
+        items: [
+          { ingredient: "rolled-oats", amount: 80, unit: "g" },
+          { ingredient: "milk", amount: 200, unit: "ml", note: "any milk" },
+          { ingredient: "greek-yoghurt", amount: 100, unit: "g" },
+          {
+            ingredient: "banana",
+            amount: 1,
+            unit: "piece",
+            preparation: "mashed",
+          },
+          { ingredient: "chia-seeds", amount: 2, unit: "tbsp" },
+          { ingredient: "honey", amount: 1, unit: "tbsp" },
+          { ingredient: "cinnamon", amount: 0.5, unit: "tsp" },
+          { ingredient: "vanilla-extract", amount: 1, unit: "tsp" },
+        ],
+      },
+    ],
+    instructions: [
+      "Mash the banana in a large bowl or container.",
+      "Add the oats, milk, yoghurt, chia seeds, honey, cinnamon and vanilla extract.",
+      "Mix everything together until well combined.",
+      "Cover and place in the fridge overnight (or at least 4-6 hours).",
+      "Give it a stir in the morning.",
+      "Serve topped with sliced banana, berries, nuts, or your favourite toppings.",
+    ],
+  },
 ];

@@ -38,6 +38,7 @@ export const ingredients: IngredientContent[] = [
   { name: "parmesan", category: "dairy" },
   { name: "grana padano", category: "dairy" },
   { name: "cream cheese", category: "dairy" },
+  { name: "greek yoghurt", category: "dairy" },
 
   // Grains & Pasta
   { name: "rice", category: "grain" },
@@ -49,6 +50,7 @@ export const ingredients: IngredientContent[] = [
   { name: "long grain rice", category: "grain" },
   { name: "paella rice", category: "grain" },
   { name: "tortilla wraps", category: "grain" },
+  { name: "rolled oats", category: "grain" },
 
   // Spices & Seasonings
   { name: "curry powder", category: "spice" },
@@ -72,6 +74,7 @@ export const ingredients: IngredientContent[] = [
   { name: "cumin", category: "spice" },
   { name: "garlic granules", category: "spice" },
   { name: "onion salt", category: "spice" },
+  { name: "cinnamon", category: "spice" },
 
   // Condiments & Sauces
   { name: "basil pesto", category: "condiment" },
@@ -81,6 +84,7 @@ export const ingredients: IngredientContent[] = [
   { name: "honey", category: "condiment" },
   { name: "sweet chilli sauce", category: "condiment" },
   { name: "chipotle paste", category: "condiment" },
+  { name: "vanilla extract", category: "condiment" },
 
   // Oils & Fats
   { name: "olive oil", category: "oil-fat" },
@@ -91,9 +95,13 @@ export const ingredients: IngredientContent[] = [
   { name: "vegetable stock", category: "liquid" },
   { name: "water", category: "liquid" },
 
+  // Fruit
+  { name: "banana", category: "fruit" },
+
   // Other
   { name: "plain flour", category: "other" },
   { name: "brown sugar", category: "other" },
   { name: "prawn crackers", category: "other" },
   { name: "garlic bread", category: "other" },
+  { name: "chia seeds", category: "other" },
 ];
