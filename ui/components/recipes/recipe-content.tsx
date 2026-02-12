@@ -11,15 +11,15 @@ import type {
 } from "@/lib/domain/recipe";
 import { UNIT_LABELS } from "@/lib/domain/recipe";
 
+function formatScaled(value: number): string {
+  return parseFloat(value.toPrecision(2)).toString();
+}
+
 function formatAmount(item: RecipeIngredientView, scale: number): string {
   const parts: string[] = [];
 
   if (item.amount != null) {
-    const scaled = item.amount * scale;
-    const display = Number.isInteger(scaled)
-      ? scaled.toString()
-      : parseFloat(scaled.toFixed(2)).toString();
-    parts.push(display);
+    parts.push(formatScaled(item.amount * scale));
   }
 
   if (item.unit) {
@@ -53,7 +53,7 @@ function formatIngredient(item: RecipeIngredientView, scale: number): string {
   const isPiece = item.unit === "piece";
   const amount = isPiece
     ? item.amount != null
-      ? parseFloat((item.amount * scale).toFixed(2)).toString()
+      ? formatScaled(item.amount * scale)
       : ""
     : formatAmount(item, scale);
   const parts: string[] = [];
