@@ -31,6 +31,8 @@ export const ingredients: IngredientContent[] = [
   { name: "spring onions", category: "vegetable" },
   { name: "avocado", category: "fruit" },
   { name: "lime", category: "fruit" },
+  { name: "cherry tomatoes", category: "vegetable" },
+  { name: "fresh basil", category: "vegetable" },
 
   // Dairy
   { name: "butter", category: "dairy" },
@@ -43,6 +45,8 @@ export const ingredients: IngredientContent[] = [
   { name: "parmesan", category: "dairy" },
   { name: "grana padano", category: "dairy" },
   { name: "cream cheese", category: "dairy" },
+  { name: "light soft cheese", category: "dairy" },
+  { name: "mozzarella", category: "dairy" },
 
   // Grains & Pasta
   { name: "rice", category: "grain" },
@@ -54,6 +58,7 @@ export const ingredients: IngredientContent[] = [
   { name: "long grain rice", category: "grain" },
   { name: "paella rice", category: "grain" },
   { name: "tortilla wraps", category: "grain" },
+  { name: "farfalle", category: "grain" },
 
   // Spices & Seasonings
   { name: "curry powder", category: "spice" },

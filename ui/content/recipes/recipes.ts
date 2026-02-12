@@ -1029,4 +1029,94 @@ export const recipes: RecipeContent[] = [
       "Repeat for each quesadilla.",
     ],
   },
+  {
+    title: "Chicken and Chorizo Pasta Bake",
+    slug: "chicken-and-chorizo-pasta-bake",
+    description:
+      "A creamy and flavorful pasta bake with chicken, chorizo, and cherry tomatoes.",
+    date: "2026-02-12",
+    tags: [],
+    cuisine: "Italian",
+    servings: 4,
+    prepTime: 15,
+    cookTime: 40,
+    ingredientGroups: [
+      {
+        items: [
+          {
+            ingredient: "farfalle",
+            amount: 300,
+            unit: "g",
+            note: "or penne pasta",
+          },
+          {
+            ingredient: "chorizo",
+            amount: 1,
+            unit: "piece",
+            preparation: "chopped",
+          },
+          {
+            ingredient: "garlic",
+            amount: 3,
+            unit: "clove",
+            preparation: "crushed",
+          },
+          {
+            ingredient: "chicken-breast",
+            amount: 600,
+            unit: "g",
+            preparation: "cut into chunks",
+          },
+          {
+            ingredient: "cherry-tomatoes",
+            amount: 1,
+            unit: "tin",
+            note: "400g",
+          },
+          {
+            ingredient: "chopped-tomatoes",
+            amount: 1,
+            unit: "tin",
+            note: "400g",
+          },
+          {
+            ingredient: "oregano",
+            amount: 2,
+            unit: "tsp",
+            note: "dried",
+          },
+          {
+            ingredient: "fresh-basil",
+            preparation: "torn",
+          },
+          {
+            ingredient: "light-soft-cheese",
+            amount: 75,
+            unit: "g",
+          },
+          {
+            ingredient: "parmesan",
+            preparation: "grated",
+          },
+          {
+            ingredient: "mozzarella",
+            amount: 150,
+            unit: "g",
+            preparation: "finely chopped",
+          },
+        ],
+      },
+    ],
+    instructions: [
+      "Preheat oven to 200°C and begin to cook pasta.",
+      "Heat frying pan over a high heat and cook chicken for 5 mins.",
+      "Add the chorizo and garlic and cook for 3-4 mins until the oils are released.",
+      "Tip in both cans of tomatoes and bring to a simmer",
+      "Add the basil, 3/4 oregano, soft cheese and some seasoning.",
+      "Stir until cheese has melted.",
+      "Add the pasta and mix well.",
+      "Transfer to oven dish and scatter on mozzarella, parmesan & oregano.",
+      "Bake for 20-25 mins.",
+    ],
+  },
 ];
