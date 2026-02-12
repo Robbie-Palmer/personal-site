@@ -101,6 +101,7 @@ export const ingredients: IngredientContent[] = [
   { name: "chipotle paste", category: "condiment" },
   { name: "mayo", category: "condiment" },
   { name: "guacamole mix", category: "condiment" },
+  { name: "sun-dried tomato pesto", category: "condiment" },
 
   // Oils & Fats
   { name: "olive oil", category: "oil-fat" },
@@ -110,6 +111,7 @@ export const ingredients: IngredientContent[] = [
   // Liquids
   { name: "chicken stock", category: "liquid" },
   { name: "vegetable stock", category: "liquid" },
+  { name: "white wine", category: "liquid" },
   { name: "water", category: "liquid" },
 
   // Other
