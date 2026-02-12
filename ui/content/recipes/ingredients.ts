@@ -30,6 +30,7 @@ export const ingredients: IngredientContent[] = [
   { name: "coriander", category: "vegetable" },
   { name: "spring onions", category: "vegetable" },
   { name: "avocado", category: "fruit" },
+  { name: "lime", category: "fruit" },
 
   // Dairy
   { name: "butter", category: "dairy" },

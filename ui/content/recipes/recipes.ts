@@ -935,9 +935,9 @@ export const recipes: RecipeContent[] = [
             note: "small",
           },
           {
-            ingredient: "lime-juice",
+            ingredient: "lime",
             amount: 1,
-            unit: "tbsp",
+            unit: "piece",
           },
           {
             ingredient: "extra-virgin-olive-oil",
@@ -1022,7 +1022,7 @@ export const recipes: RecipeContent[] = [
     ],
     instructions: [
       "Preheat the oven to 200\u00baC. Place the chicken breasts on a baking tray, drizzle with olive oil, and bake for 25\u201330 minutes until cooked through. Allow to cool slightly, then shred with two forks.",
-      "Make the pico de gallo: In a bowl add the tomatoes, onion, coriander, lime juice, extra virgin olive oil, fajita and taco mix, and a pinch of salt and pepper. Combine everything with a spoon.",
+      "Make the pico de gallo: In a bowl add the tomatoes, onion, coriander, the juice of the lime, extra virgin olive oil, fajita and taco mix, and a pinch of salt and pepper. Combine everything with a spoon.",
       "Prepare the guacamole: Cut the avocado in half and remove the stone. Scoop out the flesh with a spoon and roughly mash in a bowl with a fork. Stir in the guacamole mix.",
       "In a small bowl combine the mayo with the chipotle paste to make chipotle mayo.",
       "Make your quesadillas: Add half of the shredded chicken on top of a burrito wrap, then top with the grated cheese and spring onions. Add a few spoonfuls of the chipotle mayo scattered on top and cover with another burrito wrap.",
