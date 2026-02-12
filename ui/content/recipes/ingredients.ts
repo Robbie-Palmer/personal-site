@@ -26,10 +26,10 @@ export const ingredients: IngredientContent[] = [
   { name: "spinach", category: "vegetable" },
   { name: "mixed beans", category: "vegetable" },
   { name: "vine tomato", category: "vegetable" },
-  { name: "spring onions", category: "vegetable" },
-  { name: "leeks", category: "vegetable" },
-  { name: "potatoes", category: "vegetable" },
-  { name: "cherry tomatoes", category: "vegetable" },
+  { name: "spring onion", category: "vegetable" },
+  { name: "leek", category: "vegetable" },
+  { name: "potato", category: "vegetable" },
+  { name: "cherry tomato", category: "vegetable" },
 
   // Fruit
   { name: "avocado", category: "fruit" },
@@ -83,6 +83,9 @@ export const ingredients: IngredientContent[] = [
   { name: "oregano", category: "spice" },
   { name: "peri peri salt", category: "spice" },
   { name: "cajun seasoning", category: "spice" },
+  { name: "MSG", category: "spice" },
+  { name: "five spice", category: "spice" },
+  { name: "white pepper", category: "spice" },
   { name: "dried parsley", category: "spice" },
   { name: "turmeric", category: "spice" },
   { name: "saffron", category: "spice" },
@@ -104,6 +107,7 @@ export const ingredients: IngredientContent[] = [
   { name: "sun-dried tomato pesto", category: "condiment" },
 
   // Oils & Fats
+  { name: "vegetable oil", category: "oil-fat" },
   { name: "olive oil", category: "oil-fat" },
   { name: "extra virgin olive oil", category: "oil-fat" },
   { name: "coconut milk", category: "oil-fat" },
@@ -116,7 +120,9 @@ export const ingredients: IngredientContent[] = [
 
   // Other
   { name: "plain flour", category: "other" },
+  { name: "sugar", category: "other" },
   { name: "brown sugar", category: "other" },
   { name: "prawn crackers", category: "other" },
   { name: "garlic bread", category: "other" },
+  { name: "chips", category: "other" },
 ];
