@@ -56,6 +56,7 @@ export const ingredients: IngredientContent[] = [
   { name: "paprika", category: "spice" },
   { name: "smoked paprika", category: "spice" },
   { name: "chilli", category: "spice" },
+  { name: "chilli flakes", category: "spice" },
   { name: "tikka curry powder", category: "spice" },
   { name: "italian seasoning", category: "spice" },
   { name: "salt", category: "spice" },

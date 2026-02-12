@@ -716,4 +716,94 @@ export const recipes: RecipeContent[] = [
       "Season with black pepper.",
     ],
   },
+  {
+    title: "Creamy Chilli Tomato Pasta",
+    slug: "creamy-chilli-tomato-pasta",
+    description: "A spicy and creamy tomato pasta dish with bacon and onion.",
+    date: "2026-02-11",
+    tags: [],
+    cuisine: "Italian",
+    servings: 4,
+    prepTime: 10,
+    cookTime: 20,
+    ingredientGroups: [
+      {
+        items: [
+          {
+            ingredient: "white-onion",
+            amount: 1,
+            unit: "piece",
+            preparation: "thinly sliced",
+          },
+          {
+            ingredient: "bacon",
+            amount: 4,
+            unit: "slice",
+            preparation: "cut",
+          },
+          {
+            ingredient: "garlic",
+            amount: 3,
+            unit: "clove",
+          },
+          {
+            ingredient: "pasta",
+            amount: 320,
+            unit: "g",
+          },
+          {
+            ingredient: "chilli-flakes",
+            amount: 1,
+            unit: "tsp",
+          },
+          {
+            ingredient: "chopped-tomatoes",
+            amount: 1,
+            unit: "tin",
+            note: "400g",
+          },
+          {
+            ingredient: "tomato-puree",
+            amount: 2,
+            unit: "tbsp",
+          },
+          {
+            ingredient: "double-cream",
+            amount: 100,
+            unit: "ml",
+          },
+          {
+            ingredient: "oregano",
+            amount: 1,
+            unit: "tsp",
+            note: "dried",
+          },
+          {
+            ingredient: "salt",
+            note: "to taste",
+          },
+          {
+            ingredient: "black-pepper",
+            note: "to taste",
+          },
+          {
+            ingredient: "olive-oil",
+            note: "for frying",
+          },
+        ],
+      },
+    ],
+    instructions: [
+      "Heat oil in a large frying pan over a medium heat.",
+      "Add the onion and bacon and fry for 5-6 mins, or until softened.",
+      "Add the garlic and fry for 1 minute.",
+      "Start cooking pasta according to package instructions.",
+      "Stir in chilli flakes to onion and bacon mixture.",
+      "Add the tinned tomatoes, tomato puree and oregano.",
+      "Season with salt and pepper.",
+      "Simmer for 10 minutes, stirring regularly until thickened.",
+      "Stir in cream and return to a gentle simmer.",
+      "Mix in pasta.",
+    ],
+  },
 ];
