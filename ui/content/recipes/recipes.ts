@@ -900,4 +900,133 @@ export const recipes: RecipeContent[] = [
       "Cover with grated cheese and melt in the oven.",
     ],
   },
+  {
+    title: "Chicken Quesadillas",
+    slug: "chicken-quesadillas",
+    description:
+      "Crispy toasted quesadillas filled with shredded chicken and melted cheese, served with fresh pico de gallo, guacamole, and chipotle mayo.",
+    date: "2026-02-12",
+    tags: [],
+    cuisine: "Mexican",
+    servings: 2,
+    prepTime: 10,
+    cookTime: 40,
+    ingredientGroups: [
+      {
+        name: "Pico De Gallo",
+        items: [
+          {
+            ingredient: "vine-tomato",
+            amount: 2,
+            unit: "piece",
+            preparation: "diced",
+          },
+          {
+            ingredient: "white-onion",
+            amount: 0.5,
+            unit: "piece",
+            preparation: "finely diced",
+          },
+          {
+            ingredient: "fresh-coriander",
+            amount: 1,
+            unit: "handful",
+            preparation: "finely chopped",
+            note: "small",
+          },
+          {
+            ingredient: "lime",
+            amount: 1,
+            unit: "piece",
+          },
+          {
+            ingredient: "extra-virgin-olive-oil",
+            amount: 1,
+            unit: "tbsp",
+          },
+          {
+            ingredient: "fajita-and-taco-mix",
+            amount: 1,
+            unit: "tsp",
+            note: "Gran Luchito Smoky Chipotle",
+          },
+          {
+            ingredient: "salt",
+            note: "to taste",
+          },
+          {
+            ingredient: "black-pepper",
+            note: "to taste",
+          },
+        ],
+      },
+      {
+        name: "Guacamole",
+        items: [
+          {
+            ingredient: "avocado",
+            amount: 1,
+            unit: "piece",
+            note: "large, ripe",
+          },
+          {
+            ingredient: "guacamole-mix",
+            note: "Capsicana with Chillies & Garlic",
+          },
+        ],
+      },
+      {
+        name: "Quesadilla",
+        items: [
+          {
+            ingredient: "chicken-breast",
+            amount: 300,
+            unit: "g",
+          },
+          {
+            ingredient: "tortilla-wraps",
+            amount: 4,
+            unit: "piece",
+          },
+          {
+            ingredient: "cheddar-cheese",
+            amount: 150,
+            unit: "g",
+            preparation: "grated",
+          },
+          {
+            ingredient: "spring-onions",
+            amount: 3,
+            unit: "piece",
+            preparation: "finely chopped",
+          },
+          {
+            ingredient: "mayo",
+            amount: 0.5,
+            unit: "cup",
+          },
+          {
+            ingredient: "chipotle-paste",
+            amount: 2,
+            unit: "tbsp",
+            note: "Gran Luchito",
+          },
+          {
+            ingredient: "olive-oil",
+            amount: 2,
+            unit: "tbsp",
+          },
+        ],
+      },
+    ],
+    instructions: [
+      "Preheat the oven to 200\u00baC. Place the chicken breasts on a baking tray, drizzle with olive oil, and bake for 25\u201330 minutes until cooked through. Allow to cool slightly, then shred with two forks.",
+      "Make the pico de gallo: In a bowl add the tomatoes, onion, coriander, the juice of the lime, extra virgin olive oil, fajita and taco mix, and a pinch of salt and pepper. Combine everything with a spoon.",
+      "Prepare the guacamole: Cut the avocado in half and remove the stone. Scoop out the flesh with a spoon and roughly mash in a bowl with a fork. Stir in the guacamole mix.",
+      "In a small bowl combine the mayo with the chipotle paste to make chipotle mayo.",
+      "Make your quesadillas: Add half of the shredded chicken on top of a tortilla wrap, then top with the grated cheese and spring onions. Add a few spoonfuls of the chipotle mayo scattered on top and cover with another tortilla wrap.",
+      "Heat up a pan, brush your quesadilla with a little olive oil and warm it up in the pan, allow the cheese to melt and the wraps to get toasted on both sides.",
+      "Repeat for each quesadilla.",
+    ],
+  },
 ];

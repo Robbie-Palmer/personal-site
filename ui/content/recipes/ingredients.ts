@@ -26,6 +26,11 @@ export const ingredients: IngredientContent[] = [
   { name: "fresh parsley", category: "vegetable" },
   { name: "spinach", category: "vegetable" },
   { name: "mixed beans", category: "vegetable" },
+  { name: "vine tomato", category: "vegetable" },
+  { name: "fresh coriander", category: "vegetable" },
+  { name: "spring onions", category: "vegetable" },
+  { name: "avocado", category: "fruit" },
+  { name: "lime", category: "fruit" },
 
   // Dairy
   { name: "butter", category: "dairy" },
@@ -72,6 +77,7 @@ export const ingredients: IngredientContent[] = [
   { name: "cumin", category: "spice" },
   { name: "garlic granules", category: "spice" },
   { name: "onion salt", category: "spice" },
+  { name: "fajita and taco mix", category: "spice" },
 
   // Condiments & Sauces
   { name: "basil pesto", category: "condiment" },
@@ -81,9 +87,12 @@ export const ingredients: IngredientContent[] = [
   { name: "honey", category: "condiment" },
   { name: "sweet chilli sauce", category: "condiment" },
   { name: "chipotle paste", category: "condiment" },
+  { name: "mayo", category: "condiment" },
+  { name: "guacamole mix", category: "condiment" },
 
   // Oils & Fats
   { name: "olive oil", category: "oil-fat" },
+  { name: "extra virgin olive oil", category: "oil-fat" },
   { name: "coconut milk", category: "oil-fat" },
 
   // Liquids
