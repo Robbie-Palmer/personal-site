@@ -924,17 +924,25 @@ export const recipes: RecipeContent[] = [
           { ingredient: "chia-seeds", amount: 2, unit: "tbsp" },
           { ingredient: "honey", amount: 1, unit: "tbsp" },
           { ingredient: "cinnamon", amount: 0.5, unit: "tsp" },
-          { ingredient: "vanilla-extract", amount: 1, unit: "tsp" },
+        ],
+      },
+      {
+        name: "Toppings",
+        items: [
+          { ingredient: "strawberries", preparation: "sliced" },
+          { ingredient: "raspberries" },
+          { ingredient: "mixed-nuts" },
+          { ingredient: "almond-butter", amount: 1, unit: "tbsp" },
         ],
       },
     ],
     instructions: [
       "Mash the banana in a large bowl or container.",
-      "Add the oats, milk, yoghurt, chia seeds, honey, cinnamon and vanilla extract.",
+      "Add the oats, milk, yoghurt, chia seeds, honey and cinnamon.",
       "Mix everything together until well combined.",
       "Cover and place in the fridge overnight (or at least 4-6 hours).",
       "Give it a stir in the morning.",
-      "Serve topped with sliced banana, berries, nuts, or your favourite toppings.",
+      "Serve topped with sliced strawberries, raspberries, mixed nuts and a drizzle of almond butter.",
     ],
   },
 ];

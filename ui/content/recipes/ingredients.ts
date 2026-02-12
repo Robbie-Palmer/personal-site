@@ -84,7 +84,7 @@ export const ingredients: IngredientContent[] = [
   { name: "honey", category: "condiment" },
   { name: "sweet chilli sauce", category: "condiment" },
   { name: "chipotle paste", category: "condiment" },
-  { name: "vanilla extract", category: "condiment" },
+  { name: "almond butter", category: "condiment" },
 
   // Oils & Fats
   { name: "olive oil", category: "oil-fat" },
@@ -97,6 +97,8 @@ export const ingredients: IngredientContent[] = [
 
   // Fruit
   { name: "banana", category: "fruit" },
+  { name: "strawberries", category: "fruit" },
+  { name: "raspberries", category: "fruit" },
 
   // Other
   { name: "plain flour", category: "other" },
@@ -104,4 +106,5 @@ export const ingredients: IngredientContent[] = [
   { name: "prawn crackers", category: "other" },
   { name: "garlic bread", category: "other" },
   { name: "chia seeds", category: "other" },
+  { name: "mixed nuts", category: "other" },
 ];
