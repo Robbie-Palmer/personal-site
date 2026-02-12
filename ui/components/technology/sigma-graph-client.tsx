@@ -20,12 +20,12 @@ import {
 } from "@/lib/api/graph-data";
 
 const NODE_COLORS: Record<string, string> = {
-  project: "#3b82f6", // blue-500
-  blog: "#f97316", // orange-500
-  role: "#a855f7", // purple-500
-  adr: "#6b7280", // gray-500
-  technology: "#22c55e", // green-500
-  tag: "#eab308", // yellow-500
+  project: "#3b82f6",
+  blog: "#f97316",
+  role: "#a855f7",
+  adr: "#6b7280",
+  technology: "#22c55e",
+  tag: "#eab308",
 };
 
 const EDGE_COLORS: Record<string, string> = {
@@ -60,16 +60,13 @@ interface GraphDataControllerProps {
   };
 }
 
-// Handles graph data loading and layout
 const GraphDataController = memo(function GraphDataController({
   filteredData,
 }: GraphDataControllerProps) {
   const loadGraph = useLoadGraph();
-  // layoutRef is no longer needed for synchronous layout
   const loadedFingerprintRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Generate a fingerprint for the current data to check if we actually need to reload
     const fingerprint = JSON.stringify({
       nodeCount: filteredData.nodes.length,
       edgeCount: filteredData.edges.length,
@@ -82,31 +79,22 @@ const GraphDataController = memo(function GraphDataController({
         .sort()
         .join(","),
     });
-
     // If data hasn't meaningfully changed, skipping reload prevents layout reset
     if (loadedFingerprintRef.current === fingerprint) {
       return;
     }
     loadedFingerprintRef.current = fingerprint;
 
-    // Kill previous layout - NO LONGER NEEDED as we are synchronous
-    // if (layoutRef.current) {
-    //   layoutRef.current.kill();
-    //   layoutRef.current = null;
-    // }
-
     const graph = new Graph();
-
     // Simple string hash function for deterministic positioning
     const hash = (str: string) => {
       let h = 0;
       for (let i = 0; i < str.length; i++) {
-        h = Math.imul(31, h) + str.charCodeAt(i) || 0;
+        h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
       }
       return h;
     };
 
-    // Deterministic random generator seeded by node ID
     const getDeterministicPos = (id: string) => {
       const h = hash(id);
       // Map hash to 0-100 range to reduce collisions
@@ -117,14 +105,11 @@ const GraphDataController = memo(function GraphDataController({
 
     for (const node of filteredData.nodes) {
       const baseSize = Math.sqrt(Math.max(node.connections, 1)) * 3;
-
-      // Always use deterministic start position for strict validation
       const { x, y } = getDeterministicPos(node.id);
 
       // If the node was previously hidden (not in currentPositions) but now appears,
       // it might be cleaner to spawn it near a neighbor rather than random/hash?
       // For now, deterministic hash is a safe fallback.
-
       graph.addNode(node.id, {
         x,
         y,
@@ -141,11 +126,8 @@ const GraphDataController = memo(function GraphDataController({
     }
 
     for (const edge of filteredData.edges) {
-      // Skip edges where either endpoint is missing (filtered out)
       if (!graph.hasNode(edge.source) || !graph.hasNode(edge.target)) continue;
-      // Skip self-loops
       if (edge.source === edge.target) continue;
-      // Skip duplicate edges
       if (graph.hasEdge(edge.source, edge.target)) continue;
       graph.addEdge(edge.source, edge.target, {
         color: EDGE_COLORS[edge.type] ?? "#55555540",
@@ -153,10 +135,9 @@ const GraphDataController = memo(function GraphDataController({
       });
     }
 
-    // Run synchronous ForceAtlas2 layout
     if (graph.order > 0) {
       forceAtlas2.assign(graph, {
-        iterations: 100, // Sufficient for static layout
+        iterations: 100,
         settings: {
           gravity: 1, // Stronger gravity for hubs
           scalingRatio: 1, // Controls repulsion/attraction balance
@@ -172,7 +153,6 @@ const GraphDataController = memo(function GraphDataController({
   return null;
 });
 
-// Handles interactions (hover, click)
 function GraphEventsController({
   setSelectedNode,
 }: {
@@ -212,7 +192,6 @@ function GraphEventsController({
   return null;
 }
 
-// Handles visual updates based on state (highlighting)
 function GraphSettingsController({
   selectedNode,
 }: {
@@ -228,12 +207,18 @@ function GraphSettingsController({
   }, [selectedNode, graph]);
 
   useEffect(() => {
+    if (!selectedNode) {
+      sigma.setSetting("nodeReducer", null);
+      sigma.setSetting("edgeReducer", null);
+      return;
+    }
+
     sigma.setSetting(
       "nodeReducer",
       (node: string, data: Record<string, unknown>) => {
         const res = { ...data };
-        const isSelected = selectedNode && node === selectedNode.id;
-        const isNeighbor = selectedNode && neighbors.has(node);
+        const isSelected = node === selectedNode.id;
+        const isNeighbor = neighbors.has(node);
 
         if (isSelected) {
           res.highlighted = true;
@@ -243,7 +228,7 @@ function GraphSettingsController({
           // Keep neighbor visible and show label
           res.highlighted = true;
           res.zIndex = 1;
-        } else if (selectedNode) {
+        } else {
           // Dim other nodes when one is selected
           res.color = "#e5e7eb"; // gray-200
           res.label = ""; // Hide label
@@ -254,20 +239,16 @@ function GraphSettingsController({
       },
     );
 
-    // Also dim edges when a node is selected
     sigma.setSetting(
       "edgeReducer",
       (edge: string, data: Record<string, unknown>) => {
         const res = { ...data };
-        if (selectedNode) {
-          const endpoints = graph.extremities(edge);
-          const isConnected =
-            endpoints[0] === selectedNode.id ||
-            endpoints[1] === selectedNode.id;
+        const endpoints = graph.extremities(edge);
+        const isConnected =
+          endpoints[0] === selectedNode.id || endpoints[1] === selectedNode.id;
 
-          if (!isConnected) {
-            res.hidden = true;
-          }
+        if (!isConnected) {
+          res.hidden = true;
         }
         return res;
       },
@@ -292,13 +273,8 @@ function drawHover(
   const isDark = settings.theme === "dark";
 
   context.font = `${weight} ${size}px ${font}`;
-
-  // Label background
-  // Dark Mode: Black background (to contrast with White text)
-  // Light Mode: White background (to contrast with Black text)
   context.fillStyle = isDark ? "#000" : "#FFF";
 
-  // Shadow
   // Dark Mode: White shadow (outer glow)
   // Light Mode: Black shadow
   context.shadowOffsetX = 0;
@@ -335,7 +311,6 @@ function drawHover(
   context.shadowOffsetY = 0;
   context.shadowBlur = 0;
 
-  // Draw the label
   if (!data.label) return;
 
   const color = settings.labelColor.color || "#000";
@@ -353,7 +328,6 @@ export function SigmaGraphClient({ data }: SigmaGraphClientProps) {
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
   const [minConnections, setMinConnections] = useState(0);
 
-  // Measure container size
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -364,7 +338,6 @@ export function SigmaGraphClient({ data }: SigmaGraphClientProps) {
         setDimensions({ width, height: Math.min(width * 0.75, 600) });
       }
     });
-
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
@@ -373,13 +346,14 @@ export function SigmaGraphClient({ data }: SigmaGraphClientProps) {
   const dataFingerprint = `${data.nodes.length}|${data.edges.length}|${data.nodes
     .map((n) => n.id)
     .sort()
+    .join(",")}|${data.edges
+    .map((e) => `${e.source}>${e.target}`)
+    .sort()
     .join(",")}`;
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally using lightweight fingerprint instead of object identity for deep equality
   const stableData = useMemo(() => data, [dataFingerprint]);
 
-  // Filter graph data — same algorithm as the old component
   const filteredData = useMemo(() => {
-    // Step 1: filter by node type
     const typeFilteredNodes =
       hiddenTypes.size === 0
         ? stableData.nodes
@@ -391,7 +365,6 @@ export function SigmaGraphClient({ data }: SigmaGraphClientProps) {
         .map((n) => n.id),
     );
 
-    // Step 2: keep direct edges between visible nodes
     const edgeSet = new Set<string>();
     const resultEdges: { source: string; target: string; type: string }[] = [];
 
@@ -410,7 +383,7 @@ export function SigmaGraphClient({ data }: SigmaGraphClientProps) {
       }
     }
 
-    // Step 3: synthesize transitive technology links through hidden nodes
+    // Synthesize transitive technology links through hidden nodes
     if (hiddenNodeIds.size > 0 && !hiddenTypes.has("technology")) {
       const neighbors = new Map<
         string,
@@ -487,7 +460,6 @@ export function SigmaGraphClient({ data }: SigmaGraphClientProps) {
       }
     }
 
-    // Step 4: compute connection counts
     const connectionCounts = new Map<string, number>();
     for (const edge of resultEdges) {
       connectionCounts.set(
@@ -563,11 +535,9 @@ export function SigmaGraphClient({ data }: SigmaGraphClientProps) {
       setIsDark(document.documentElement.classList.contains("dark"));
     };
 
-    // Initial check
     checkIsDark();
-
-    // Observe changes to the class attribute on the html element
     const observer = new MutationObserver(checkIsDark);
+
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["class"],
@@ -592,7 +562,6 @@ export function SigmaGraphClient({ data }: SigmaGraphClientProps) {
     [isDark],
   );
 
-  // Memoize style object
   const sigmaStyle = useMemo(
     () => ({ width: "100%", height: "100%", background: "transparent" }),
     [],
