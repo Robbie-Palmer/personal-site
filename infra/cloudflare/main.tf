@@ -2,6 +2,14 @@ data "cloudflare_zone" "domain" {
   name = var.domain_name
 }
 
+locals {
+  pages_environment_variables = {
+    NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH = var.cf_images_account_hash
+    NEXT_PUBLIC_POSTHOG_KEY            = var.posthog_key
+    NEXT_PUBLIC_POSTHOG_HOST           = var.posthog_host
+  }
+}
+
 resource "cloudflare_pages_project" "personal_site" {
   account_id        = var.cloudflare_account_id
   name              = var.project_name
@@ -31,15 +39,11 @@ resource "cloudflare_pages_project" "personal_site" {
 
   deployment_configs {
     production {
-      environment_variables = {
-        NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH = var.cf_images_account_hash
-      }
+      environment_variables = local.pages_environment_variables
     }
 
     preview {
-      environment_variables = {
-        NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH = var.cf_images_account_hash
-      }
+      environment_variables = local.pages_environment_variables
     }
   }
 }
