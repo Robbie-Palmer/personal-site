@@ -210,7 +210,7 @@ export const recipes: RecipeContent[] = [
             note: "double strength",
           },
           { ingredient: "butter", note: "for frying" },
-          { ingredient: "rice", amount: 80, unit: "g", note: "per portion" },
+          { ingredient: "rice", amount: 400, unit: "g" },
         ],
       },
       {
