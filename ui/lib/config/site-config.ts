@@ -10,6 +10,8 @@ export const siteConfig = {
   author: {
     name: "Robbie Palmer",
     linkedin: "https://www.linkedin.com/in/robertjohnpalmer/",
+    github: "https://github.com/Robbie-Palmer",
+    sourceRepo: "https://github.com/Robbie-Palmer/personal-site",
     // Add Twitter handle when available
     // twitter: "@yourusername",
   },

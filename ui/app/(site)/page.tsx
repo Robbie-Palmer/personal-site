@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { BlogCollectionTabs } from "@/components/blog/blog-collection-tabs";
 import { HomeExperienceCard } from "@/components/experience/home-experience-card";
+import { HomeCTAButtons } from "@/components/home-cta-buttons";
 import { ADRCarousel } from "@/components/projects/adr-carousel";
-import { Button } from "@/components/ui/button";
 import { LightRays } from "@/components/ui/light-rays";
 import { TechOrbit } from "@/components/ui/tech-icon-orbit";
 import {
@@ -89,34 +88,7 @@ export default function Home() {
               ))}
             </span>
           </p>
-          <div className="flex gap-4 justify-center flex-wrap">
-            <Button
-              size="lg"
-              variant="outline"
-              asChild
-              className="w-full sm:w-auto animate-in fade-in zoom-in duration-300"
-              style={{ animationDelay: "2100ms", animationFillMode: "both" }}
-            >
-              <Link href="/blog">Read Blog</Link>
-            </Button>
-            <Button
-              size="lg"
-              asChild
-              className="w-full sm:w-auto animate-in fade-in zoom-in duration-300"
-              style={{ animationDelay: "2400ms", animationFillMode: "both" }}
-            >
-              <Link href="/projects">Explore Projects</Link>
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              asChild
-              className="w-full sm:w-auto animate-in fade-in zoom-in duration-300"
-              style={{ animationDelay: "2700ms", animationFillMode: "both" }}
-            >
-              <Link href="/experience">View Experience</Link>
-            </Button>
-          </div>
+          <HomeCTAButtons />
         </div>
       </section>
 

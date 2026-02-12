@@ -2,8 +2,10 @@
 
 import Fuse, { type FuseResult, type IFuseOptions } from "fuse.js";
 import { ArrowDown, ArrowUp, Clock } from "lucide-react";
+import { usePathname } from "next/navigation";
+import posthog from "posthog-js";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DateRangeFilter } from "@/components/ui/date-range-filter";
 import {
@@ -14,6 +16,7 @@ import {
   MultiSelect,
   type MultiSelectOption,
 } from "@/components/ui/multi-select";
+import { useDebouncedSearchTracking } from "@/hooks/use-debounced-search-tracking";
 import {
   type FilterParamConfig,
   useFilterParams,
@@ -84,6 +87,7 @@ export function FilterableCardGrid<T>({
     SORT_OPTIONS,
     "newest",
   );
+  const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState("");
 
   const filterParamConfigs: FilterParamConfig[] = useMemo(() => {
@@ -107,6 +111,19 @@ export function FilterableCardGrid<T>({
     getDateRange,
     setDateRange,
   } = useFilterParams({ filters: filterParamConfigs });
+
+  const handleDateRangeChange = useCallback(
+    (from: string | undefined, to: string | undefined) => {
+      posthog.capture("filter_applied", {
+        page: pathname,
+        filter_type: "date_range",
+        filter_value: `${from || "any"} to ${to || "any"}`,
+        action: "changed",
+      });
+      setDateRange(from, to);
+    },
+    [pathname, setDateRange],
+  );
 
   const fuse = useMemo(
     () =>
@@ -163,6 +180,12 @@ export function FilterableCardGrid<T>({
     dateRangeConfig,
     getDateRange,
   ]);
+
+  useDebouncedSearchTracking({
+    searchQuery,
+    resultCount: filteredItems.length,
+    location: itemName,
+  });
 
   const sortedItems = useMemo(() => {
     return [...filteredItems].sort((a: T, b: T) => {
@@ -260,12 +283,27 @@ export function FilterableCardGrid<T>({
           }))
           .sort((a, b) => a.label.localeCompare(b.label)),
         selectedValues: getValues(fc.paramName),
-        onToggle: (value: string) => toggleValue(fc.paramName, value),
+        onToggle: (value: string) => {
+          const isSelected = getValues(fc.paramName).includes(value);
+          posthog.capture("filter_applied", {
+            page: pathname,
+            filter_type: fc.paramName,
+            filter_value: value,
+            action: isSelected ? "removed" : "added",
+          });
+          toggleValue(fc.paramName, value);
+        },
       };
     });
-  }, [filterConfigs, items, getValues, toggleValue]);
+  }, [filterConfigs, items, getValues, toggleValue, pathname]);
 
   const handleRemoveFilter = (paramName: string, value: string) => {
+    posthog.capture("filter_applied", {
+      page: pathname,
+      filter_type: paramName,
+      filter_value: value,
+      action: "removed",
+    });
     if (filterConfigs) {
       toggleValue(paramName, value);
     } else {
@@ -304,7 +342,7 @@ export function FilterableCardGrid<T>({
             <DateRangeFilter
               from={getDateRange().from}
               to={getDateRange().to}
-              onChange={(from, to) => setDateRange(from, to)}
+              onChange={handleDateRangeChange}
               size="default"
               className="w-full"
             />
@@ -344,11 +382,26 @@ export function FilterableCardGrid<T>({
                   options={options}
                   value={getValues(fc.paramName)}
                   onChange={(v) => {
-                    if (fc.isMulti) {
-                      setValues(fc.paramName, v);
-                    } else {
-                      setValues(fc.paramName, v);
+                    const prev = getValues(fc.paramName);
+                    const added = v.filter((val) => !prev.includes(val));
+                    const removed = prev.filter((val) => !v.includes(val));
+                    for (const val of added) {
+                      posthog.capture("filter_applied", {
+                        page: pathname,
+                        filter_type: fc.paramName,
+                        filter_value: val,
+                        action: "added",
+                      });
                     }
+                    for (const val of removed) {
+                      posthog.capture("filter_applied", {
+                        page: pathname,
+                        filter_type: fc.paramName,
+                        filter_value: val,
+                        action: "removed",
+                      });
+                    }
+                    setValues(fc.paramName, v);
                   }}
                   label={fc.label}
                   placeholder={`All ${fc.label.toLowerCase()}`}
@@ -364,7 +417,7 @@ export function FilterableCardGrid<T>({
               <DateRangeFilter
                 from={getDateRange().from}
                 to={getDateRange().to}
-                onChange={(from, to) => setDateRange(from, to)}
+                onChange={handleDateRangeChange}
                 size="sm"
               />
             )}

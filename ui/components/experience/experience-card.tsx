@@ -3,6 +3,7 @@
 import { Calendar, ChevronDown, MapPin } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import posthog from "posthog-js";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -81,6 +82,12 @@ export function ExperienceCard({
   }, [id]);
 
   const handleToggle = () => {
+    if (!isExpanded) {
+      posthog.capture("experience_card_expanded", {
+        company: experience.company,
+        role_title: experience.title,
+      });
+    }
     setIsExpanded(!isExpanded);
   };
 

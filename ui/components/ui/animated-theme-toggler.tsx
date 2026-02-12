@@ -1,6 +1,7 @@
 "use client";
 
 import { Moon, Sun } from "lucide-react";
+import posthog from "posthog-js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { buttonVariants } from "@/components/ui/button";
@@ -39,11 +40,14 @@ export const AnimatedThemeToggler = ({
     if (!buttonRef.current) return;
 
     const updateDOM = () => {
+      const newTheme = !isDark;
       flushSync(() => {
-        const newTheme = !isDark;
         setIsDark(newTheme);
         document.documentElement.classList.toggle("dark");
         localStorage.setItem("theme", newTheme ? "dark" : "light");
+      });
+      posthog.capture("theme_toggled", {
+        new_theme: newTheme ? "dark" : "light",
       });
     };
 

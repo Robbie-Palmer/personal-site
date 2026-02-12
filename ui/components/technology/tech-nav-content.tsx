@@ -9,6 +9,7 @@ import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useDebouncedSearchTracking } from "@/hooks/use-debounced-search-tracking";
 import { getTechIconUrl } from "@/lib/api/tech-icons";
 import type { TechnologyBadgeView } from "@/lib/domain/technology/technologyViews";
 import { cn } from "@/lib/generic/styles";
@@ -45,6 +46,12 @@ export function TechNavContent({
       .search(searchQuery)
       .map((result: FuseResult<(typeof technologies)[number]>) => result.item);
   }, [fuse, searchQuery, technologies]);
+
+  useDebouncedSearchTracking({
+    searchQuery,
+    resultCount: filteredTechnologies.length,
+    location: "technology_sidebar",
+  });
 
   return (
     <div className={cn("flex flex-col h-full", className)}>

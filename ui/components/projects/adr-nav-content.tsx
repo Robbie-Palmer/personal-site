@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useDebouncedSearchTracking } from "@/hooks/use-debounced-search-tracking";
 import type { ProjectWithADRs } from "@/lib/api/projects";
 import { cn } from "@/lib/generic/styles";
 import { ADRBadge } from "./adr-badge";
@@ -44,6 +45,12 @@ export function ADRNavContent({
       .search(searchQuery)
       .map((result: FuseResult<(typeof project.adrs)[number]>) => result.item);
   }, [fuse, searchQuery, project.adrs]);
+
+  useDebouncedSearchTracking({
+    searchQuery,
+    resultCount: filteredADRs.length,
+    location: "adr_sidebar",
+  });
 
   return (
     <div className={cn("flex flex-col h-full", className)}>

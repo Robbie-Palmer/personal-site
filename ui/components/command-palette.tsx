@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import posthog from "posthog-js";
 import {
   createContext,
   type ReactNode,
@@ -24,8 +25,8 @@ import {
   useRef,
   useState,
 } from "react";
-
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
+import { siteConfig } from "@/lib/config/site-config";
 import { cn } from "@/lib/generic/styles";
 
 interface FilterOption {
@@ -122,7 +123,14 @@ export function CommandPaletteProvider({
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setOpen((prev) => !prev);
+        setOpen((prev) => {
+          if (!prev) {
+            posthog.capture("command_palette_opened", {
+              trigger: "keyboard",
+            });
+          }
+          return !prev;
+        });
       }
       if (e.key === "Escape" && open) {
         setOpen(false);
@@ -205,6 +213,10 @@ function CommandPaletteDialog({
 
   const handleNavigation = useCallback(
     (href: string) => {
+      posthog.capture("command_palette_action", {
+        action_type: "navigation",
+        value: href,
+      });
       handleSelect(() => router.push(href));
     },
     [router, handleSelect],
@@ -212,6 +224,10 @@ function CommandPaletteDialog({
 
   const handleFilter = useCallback(
     (paramName: string, value: string) => {
+      posthog.capture("command_palette_action", {
+        action_type: "filter",
+        value: `${paramName}:${value}`,
+      });
       handleSelect(() => {
         const params = new URLSearchParams(searchParams.toString());
         const currentValues = params.get(paramName)?.split(",") ?? [];
@@ -368,15 +384,19 @@ function CommandPaletteDialog({
             >
               <Command.Item
                 value="view source code github"
-                onSelect={() =>
+                onSelect={() => {
+                  posthog.capture("command_palette_action", {
+                    action_type: "view_source",
+                    value: siteConfig.author.sourceRepo,
+                  });
                   handleSelect(() =>
                     window.open(
-                      "https://github.com/Robbie-Palmer/personal-site",
+                      siteConfig.author.sourceRepo,
                       "_blank",
                       "noopener,noreferrer",
                     ),
-                  )
-                }
+                  );
+                }}
                 className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer aria-selected:bg-accent aria-selected:text-accent-foreground"
               >
                 <Code2 className="size-4" />
