@@ -112,8 +112,9 @@ function IngredientGroup({
 }
 
 export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
-  const [portions, setPortions] = useState(recipe.servings);
-  const scale = portions / recipe.servings;
+  const baseServings = Math.max(1, recipe.servings);
+  const [portions, setPortions] = useState(baseServings);
+  const scale = portions / baseServings;
 
   return (
     <>
