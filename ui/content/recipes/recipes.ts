@@ -916,7 +916,7 @@ export const recipes: RecipeContent[] = [
         name: "Pico De Gallo",
         items: [
           {
-            ingredient: "vine-tomatoes",
+            ingredient: "vine-tomato",
             amount: 2,
             unit: "piece",
             preparation: "diced",
@@ -982,7 +982,6 @@ export const recipes: RecipeContent[] = [
             ingredient: "chicken-breast",
             amount: 300,
             unit: "g",
-            preparation: "shredded",
           },
           {
             ingredient: "tortilla-wraps",

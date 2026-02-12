@@ -26,7 +26,7 @@ export const ingredients: IngredientContent[] = [
   { name: "fresh parsley", category: "vegetable" },
   { name: "spinach", category: "vegetable" },
   { name: "mixed beans", category: "vegetable" },
-  { name: "vine tomatoes", category: "vegetable" },
+  { name: "vine tomato", category: "vegetable" },
   { name: "fresh coriander", category: "vegetable" },
   { name: "spring onions", category: "vegetable" },
   { name: "avocado", category: "fruit" },
