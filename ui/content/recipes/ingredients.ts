@@ -23,12 +23,15 @@ export const ingredients: IngredientContent[] = [
   { name: "garlic puree", category: "vegetable" },
   { name: "tomato puree", category: "vegetable" },
   { name: "frozen peas", category: "vegetable" },
-  { name: "fresh parsley", category: "vegetable" },
   { name: "spinach", category: "vegetable" },
   { name: "mixed beans", category: "vegetable" },
   { name: "vine tomato", category: "vegetable" },
-  { name: "fresh coriander", category: "vegetable" },
-  { name: "spring onions", category: "vegetable" },
+  { name: "spring onion", category: "vegetable" },
+  { name: "leek", category: "vegetable" },
+  { name: "potato", category: "vegetable" },
+  { name: "cherry tomato", category: "vegetable" },
+
+  // Fruit
   { name: "avocado", category: "fruit" },
   { name: "lime", category: "fruit" },
 
@@ -43,6 +46,8 @@ export const ingredients: IngredientContent[] = [
   { name: "parmesan", category: "dairy" },
   { name: "grana padano", category: "dairy" },
   { name: "cream cheese", category: "dairy" },
+  { name: "light soft cheese", category: "dairy" },
+  { name: "mozzarella", category: "dairy" },
 
   // Grains & Pasta
   { name: "rice", category: "grain" },
@@ -54,6 +59,13 @@ export const ingredients: IngredientContent[] = [
   { name: "long grain rice", category: "grain" },
   { name: "paella rice", category: "grain" },
   { name: "tortilla wraps", category: "grain" },
+  { name: "farfalle", category: "grain" },
+
+  // Herbs
+  { name: "fresh basil", category: "herb" },
+  { name: "fresh rosemary", category: "herb" },
+  { name: "fresh parsley", category: "herb" },
+  { name: "fresh coriander", category: "herb" },
 
   // Spices & Seasonings
   { name: "curry powder", category: "spice" },
@@ -71,6 +83,9 @@ export const ingredients: IngredientContent[] = [
   { name: "oregano", category: "spice" },
   { name: "peri peri salt", category: "spice" },
   { name: "cajun seasoning", category: "spice" },
+  { name: "MSG", category: "spice" },
+  { name: "five spice", category: "spice" },
+  { name: "white pepper", category: "spice" },
   { name: "dried parsley", category: "spice" },
   { name: "turmeric", category: "spice" },
   { name: "saffron", category: "spice" },
@@ -89,8 +104,10 @@ export const ingredients: IngredientContent[] = [
   { name: "chipotle paste", category: "condiment" },
   { name: "mayo", category: "condiment" },
   { name: "guacamole mix", category: "condiment" },
+  { name: "sun-dried tomato pesto", category: "condiment" },
 
   // Oils & Fats
+  { name: "vegetable oil", category: "oil-fat" },
   { name: "olive oil", category: "oil-fat" },
   { name: "extra virgin olive oil", category: "oil-fat" },
   { name: "coconut milk", category: "oil-fat" },
@@ -98,11 +115,14 @@ export const ingredients: IngredientContent[] = [
   // Liquids
   { name: "chicken stock", category: "liquid" },
   { name: "vegetable stock", category: "liquid" },
+  { name: "white wine", category: "liquid" },
   { name: "water", category: "liquid" },
 
   // Other
   { name: "plain flour", category: "other" },
+  { name: "sugar", category: "other" },
   { name: "brown sugar", category: "other" },
   { name: "prawn crackers", category: "other" },
   { name: "garlic bread", category: "other" },
+  { name: "chips", category: "other" },
 ];

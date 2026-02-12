@@ -8,6 +8,7 @@ export const IngredientCategorySchema = z.enum([
   "protein",
   "vegetable",
   "fruit",
+  "herb",
   "dairy",
   "grain",
   "spice",
