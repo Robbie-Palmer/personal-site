@@ -56,7 +56,6 @@ export const recipes: RecipeContent[] = [
             ingredient: "double-cream",
             amount: 300,
             unit: "ml",
-            note: "small carton",
           },
           {
             ingredient: "pasta",
