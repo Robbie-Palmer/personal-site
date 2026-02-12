@@ -391,7 +391,6 @@ export const recipes: RecipeContent[] = [
             ingredient: "coconut-milk",
             amount: 400,
             unit: "ml",
-            note: "1 tin",
           },
           { ingredient: "rice", amount: 320, unit: "g" },
         ],
@@ -625,7 +624,6 @@ export const recipes: RecipeContent[] = [
             ingredient: "chopped-tomatoes",
             amount: 1,
             unit: "tin",
-            note: "400g",
           },
           { ingredient: "water", amount: 400, unit: "ml" },
           {
@@ -761,7 +759,6 @@ export const recipes: RecipeContent[] = [
             ingredient: "chopped-tomatoes",
             amount: 1,
             unit: "tin",
-            note: "400g",
           },
           {
             ingredient: "tomato-puree",
@@ -878,7 +875,6 @@ export const recipes: RecipeContent[] = [
             ingredient: "mixed-beans",
             amount: 1,
             unit: "tin",
-            note: "400g",
           },
           {
             ingredient: "tomato-passata",
