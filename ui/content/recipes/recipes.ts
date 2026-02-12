@@ -1119,4 +1119,75 @@ export const recipes: RecipeContent[] = [
       "Bake for 20-25 mins.",
     ],
   },
+  {
+    title: "Potato, Leek and Rosemary Soup",
+    slug: "potato-leek-rosemary-soup",
+    description: "Classic warming soup with fresh rosemary and cream.",
+    date: "2026-02-11",
+    tags: ["soup"],
+    cuisine: "British",
+    servings: 4,
+    prepTime: 15,
+    cookTime: 35,
+    ingredientGroups: [
+      {
+        items: [
+          {
+            ingredient: "butter",
+            amount: 50,
+            unit: "g",
+          },
+          {
+            ingredient: "white-onion",
+            amount: 1,
+            unit: "piece",
+            preparation: "roughly chopped",
+            note: "small",
+          },
+          {
+            ingredient: "fresh-rosemary",
+            amount: 2,
+            unit: "tbsp",
+            preparation: "finely chopped",
+          },
+          {
+            ingredient: "leeks",
+            amount: 3,
+            unit: "piece",
+            preparation: "finely chopped",
+          },
+          {
+            ingredient: "garlic",
+            amount: 3,
+            unit: "clove",
+            preparation: "crushed",
+          },
+          {
+            ingredient: "potatoes",
+            amount: 550,
+            unit: "g",
+            preparation: "peeled and cubed",
+          },
+          {
+            ingredient: "chicken-stock",
+            amount: 800,
+            unit: "ml",
+          },
+          {
+            ingredient: "milk",
+            amount: 200,
+            unit: "ml",
+            note: "semi skimmed",
+          },
+        ],
+      },
+    ],
+    instructions: [
+      "Melt the butter in a large heavy-bottomed saucepan over a medium heat.",
+      "Reduce the heat to LOW and add onion, rosemary, leeks, garlic and potatoes, stirring gently.",
+      "Season well, cover with a lid and allow the vegetables to soften for about 12 minutes. Give the pan a good shake halfway through to prevent sticking.",
+      "Add the stock and milk to the pan, stir thoroughly and continue to cook for a further 20-25 mins.",
+      "Blend soup and season.",
+    ],
+  },
 ];

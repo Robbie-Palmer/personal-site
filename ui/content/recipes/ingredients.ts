@@ -23,16 +23,17 @@ export const ingredients: IngredientContent[] = [
   { name: "garlic puree", category: "vegetable" },
   { name: "tomato puree", category: "vegetable" },
   { name: "frozen peas", category: "vegetable" },
-  { name: "fresh parsley", category: "vegetable" },
   { name: "spinach", category: "vegetable" },
   { name: "mixed beans", category: "vegetable" },
   { name: "vine tomato", category: "vegetable" },
-  { name: "fresh coriander", category: "vegetable" },
   { name: "spring onions", category: "vegetable" },
+  { name: "leeks", category: "vegetable" },
+  { name: "potatoes", category: "vegetable" },
+  { name: "cherry tomatoes", category: "vegetable" },
+
+  // Fruit
   { name: "avocado", category: "fruit" },
   { name: "lime", category: "fruit" },
-  { name: "cherry tomatoes", category: "vegetable" },
-  { name: "fresh basil", category: "vegetable" },
 
   // Dairy
   { name: "butter", category: "dairy" },
@@ -59,6 +60,12 @@ export const ingredients: IngredientContent[] = [
   { name: "paella rice", category: "grain" },
   { name: "tortilla wraps", category: "grain" },
   { name: "farfalle", category: "grain" },
+
+  // Herbs
+  { name: "fresh basil", category: "herb" },
+  { name: "fresh rosemary", category: "herb" },
+  { name: "fresh parsley", category: "herb" },
+  { name: "fresh coriander", category: "herb" },
 
   // Spices & Seasonings
   { name: "curry powder", category: "spice" },
