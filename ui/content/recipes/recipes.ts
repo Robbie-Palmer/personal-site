@@ -937,8 +937,7 @@ export const recipes: RecipeContent[] = [
           {
             ingredient: "lime-juice",
             amount: 1,
-            unit: "piece",
-            note: "juice of 1 lime",
+            unit: "tbsp",
           },
           {
             ingredient: "extra-virgin-olive-oil",
@@ -984,13 +983,12 @@ export const recipes: RecipeContent[] = [
             amount: 300,
             unit: "g",
             preparation: "shredded",
-            note: "poached or leftover rotisserie chicken",
+            note: "baked in the oven",
           },
           {
             ingredient: "tortilla-wraps",
             amount: 4,
             unit: "piece",
-            note: "Gran Luchito",
           },
           {
             ingredient: "cheddar-cheese",
@@ -1024,6 +1022,7 @@ export const recipes: RecipeContent[] = [
       },
     ],
     instructions: [
+      "Preheat the oven to 200\u00baC. Place the chicken breasts on a baking tray, drizzle with olive oil, and bake for 25\u201330 minutes until cooked through. Allow to cool slightly, then shred with two forks.",
       "Make the pico de gallo: In a bowl add the tomatoes, onion, coriander, lime juice, extra virgin olive oil, fajita and taco mix, and a pinch of salt and pepper. Combine everything with a spoon.",
       "Prepare the guacamole: Cut the avocado in half and remove the stone. Scoop out the flesh with a spoon and roughly mash in a bowl with a fork. Stir in the guacamole mix.",
       "In a small bowl combine the mayo with the chipotle paste to make chipotle mayo.",
