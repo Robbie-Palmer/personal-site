@@ -928,7 +928,7 @@ export const recipes: RecipeContent[] = [
             preparation: "finely diced",
           },
           {
-            ingredient: "coriander",
+            ingredient: "fresh-coriander",
             amount: 1,
             unit: "handful",
             preparation: "finely chopped",
