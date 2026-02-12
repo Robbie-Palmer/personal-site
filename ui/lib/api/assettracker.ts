@@ -4,6 +4,7 @@ import {
   type AssetType,
   getAccountDetail,
   getAccountsByAssetType,
+  getAllAccountDetails as getAllAccountDetailsQuery,
   getAllAccountSummaries,
   getNetWorthTimeSeries,
   getTotalByAssetType,
@@ -25,6 +26,10 @@ export function getAccount(accountId: string): AccountDetailView {
     throw new Error(`Account not found: ${accountId}`);
   }
   return account;
+}
+
+export function getAllAccountDetails(): AccountDetailView[] {
+  return getAllAccountDetailsQuery(repository);
 }
 
 export function getAccountsForAssetType(

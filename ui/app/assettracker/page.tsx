@@ -1,6 +1,6 @@
 import { AssetTrackerDashboard } from "@/components/assettracker/asset-tracker-dashboard";
 import {
-  getAccount,
+  getAllAccountDetails,
   getAllAccounts,
   getAssetAllocation,
   getNetWorthData,
@@ -8,7 +8,7 @@ import {
 
 export default function AssetTrackerPage() {
   const accounts = getAllAccounts();
-  const accountDetails = accounts.map((a) => getAccount(a.id));
+  const accountDetails = getAllAccountDetails();
   const netWorthData = getNetWorthData();
   const assetAllocation = getAssetAllocation();
   return (

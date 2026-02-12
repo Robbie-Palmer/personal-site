@@ -55,17 +55,32 @@ export function toAccountDetailView(
   account: Account,
   snapshots: BalanceSnapshot[],
 ): AccountDetailView {
+  // Single filter and sort (descending for latest first)
   const accountSnapshots = snapshots
     .filter((s) => s.accountId === account.id)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const latest = accountSnapshots[0] ?? null;
+
   return {
-    ...toAccountSummaryView(account, snapshots),
+    id: account.id,
+    name: account.name,
+    provider: account.provider,
+    currency: account.currency,
+    assetType: account.assetType,
+    expectedAnnualReturn: account.expectedAnnualReturn,
+    isOpen: !account.closedAt,
+    latestBalance: latest?.balance ?? null,
+    latestSnapshotDate: latest?.date ?? null,
     createdAt: account.createdAt,
     closedAt: account.closedAt,
-    snapshots: accountSnapshots.map((s) => ({
-      date: s.date,
-      balance: s.balance,
-    })),
+    // Reverse for ascending order for charts
+    snapshots: accountSnapshots
+      .map((s) => ({
+        date: s.date,
+        balance: s.balance,
+      }))
+      .reverse(),
   };
 }
 
@@ -75,19 +90,27 @@ export function toNetWorthTimeSeries(
 ): NetWorthDataPoint[] {
   const dateSet = new Set(snapshots.map((s) => s.date));
   const sortedDates = Array.from(dateSet).sort();
-  const latestByAccountAndDate = new Map<string, number>();
+
   const sortedSnapshots = [...snapshots].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
   );
+
+  // Two-pointer approach: process each snapshot only once
+  const latestByAccount = new Map<string, number>();
+  let snapshotIndex = 0;
+
   return sortedDates.map((date) => {
-    for (const snapshot of sortedSnapshots) {
-      if (new Date(snapshot.date) <= new Date(date)) {
-        latestByAccountAndDate.set(snapshot.accountId, snapshot.balance);
-      }
+    // Advance pointer through snapshots up to current date
+    let snapshot = sortedSnapshots[snapshotIndex];
+    while (snapshot && new Date(snapshot.date) <= new Date(date)) {
+      latestByAccount.set(snapshot.accountId, snapshot.balance);
+      snapshotIndex++;
+      snapshot = sortedSnapshots[snapshotIndex];
     }
+
     const point: NetWorthDataPoint = { date, total: 0 };
     for (const account of accounts) {
-      const balance = latestByAccountAndDate.get(account.id) ?? 0;
+      const balance = latestByAccount.get(account.id) ?? 0;
       point[account.name] = balance;
       point.total += balance;
     }

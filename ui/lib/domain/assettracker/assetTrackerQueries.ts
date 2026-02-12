@@ -8,6 +8,7 @@ import {
   toAccountSummaryView,
   toNetWorthTimeSeries,
 } from "./assetTrackerViews";
+import type { BalanceSnapshot } from "./balanceSnapshot";
 
 export function getAllAccountSummaries(
   repository: AssetTrackerRepository,
@@ -24,6 +25,14 @@ export function getAccountDetail(
   const account = repository.accounts.get(accountId);
   if (!account) return null;
   return toAccountDetailView(account, repository.snapshots);
+}
+
+export function getAllAccountDetails(
+  repository: AssetTrackerRepository,
+): AccountDetailView[] {
+  return Array.from(repository.accounts.values()).map((account) =>
+    toAccountDetailView(account, repository.snapshots),
+  );
 }
 
 export function getAccountsByAssetType(
@@ -48,13 +57,25 @@ export function getTotalByAssetType(
   repository: AssetTrackerRepository,
 ): { assetType: AssetType; total: number }[] {
   const totals = new Map<AssetType, number>();
-  const summaries = getAllAccountSummaries(repository);
-  for (const summary of summaries) {
-    if (summary.latestBalance != null) {
-      const current = totals.get(summary.assetType) ?? 0;
-      totals.set(summary.assetType, current + summary.latestBalance);
+
+  // Find latest snapshot for each account in single pass
+  const latestSnapshots = new Map<AccountId, BalanceSnapshot>();
+  for (const snapshot of repository.snapshots) {
+    const existing = latestSnapshots.get(snapshot.accountId);
+    if (!existing || new Date(snapshot.date) > new Date(existing.date)) {
+      latestSnapshots.set(snapshot.accountId, snapshot);
     }
   }
+
+  // Sum by asset type
+  for (const account of repository.accounts.values()) {
+    const latestSnapshot = latestSnapshots.get(account.id);
+    if (latestSnapshot) {
+      const currentTotal = totals.get(account.assetType) ?? 0;
+      totals.set(account.assetType, currentTotal + latestSnapshot.balance);
+    }
+  }
+
   return Array.from(totals.entries()).map(([assetType, total]) => ({
     assetType,
     total,

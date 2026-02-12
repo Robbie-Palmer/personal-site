@@ -36,23 +36,21 @@ interface AccountBalanceChartProps {
 }
 
 export function AccountBalanceChart({ accounts }: AccountBalanceChartProps) {
-  const dateSet = new Set<string>();
+  // Build chart data in single pass through all snapshots
+  const chartDataMap = new Map<string, Record<string, string | number>>();
   for (const account of accounts) {
     for (const snapshot of account.snapshots) {
-      dateSet.add(snapshot.date);
+      let point = chartDataMap.get(snapshot.date);
+      if (!point) {
+        point = { date: snapshot.date };
+        chartDataMap.set(snapshot.date, point);
+      }
+      point[account.name] = snapshot.balance;
     }
   }
-  const sortedDates = Array.from(dateSet).sort();
-  const chartData = sortedDates.map((date) => {
-    const point: Record<string, string | number> = { date };
-    for (const account of accounts) {
-      const snapshot = account.snapshots.find((s) => s.date === date);
-      if (snapshot) {
-        point[account.name] = snapshot.balance;
-      }
-    }
-    return point;
-  });
+  const chartData = Array.from(chartDataMap.values()).sort((a, b) =>
+    (a.date as string).localeCompare(b.date as string),
+  );
   const chartConfig: ChartConfig = {};
   for (const [i, account] of accounts.entries()) {
     chartConfig[account.name] = {
