@@ -1,7 +1,6 @@
 import {
   type AccountDetailView,
   type AccountSummaryView,
-  type AssetTrackerRepository,
   type AssetType,
   getAccountDetail,
   getAccountsByAssetType,
@@ -12,23 +11,14 @@ import {
   type NetWorthDataPoint,
 } from "@/lib/domain/assettracker";
 
-let repository: AssetTrackerRepository | null = null;
-
-function getRepository(): AssetTrackerRepository {
-  if (!repository) {
-    repository = loadAssetTrackerRepository();
-  }
-  return repository;
-}
-
 export type { AccountDetailView, AccountSummaryView, NetWorthDataPoint };
 
 export function getAllAccounts(): AccountSummaryView[] {
-  return getAllAccountSummaries(getRepository());
+  return getAllAccountSummaries(loadAssetTrackerRepository());
 }
 
 export function getAccount(accountId: string): AccountDetailView {
-  const account = getAccountDetail(getRepository(), accountId);
+  const account = getAccountDetail(loadAssetTrackerRepository(), accountId);
   if (!account) {
     throw new Error(`Account not found: ${accountId}`);
   }
@@ -36,7 +26,7 @@ export function getAccount(accountId: string): AccountDetailView {
 }
 
 export function getAllAccountDetails(): AccountDetailView[] {
-  const repo = getRepository();
+  const repo = loadAssetTrackerRepository();
   const details: AccountDetailView[] = [];
   for (const account of repo.accounts.values()) {
     try {
@@ -53,16 +43,16 @@ export function getAllAccountDetails(): AccountDetailView[] {
 export function getAccountsForAssetType(
   assetType: AssetType,
 ): AccountSummaryView[] {
-  return getAccountsByAssetType(getRepository(), assetType);
+  return getAccountsByAssetType(loadAssetTrackerRepository(), assetType);
 }
 
 export function getNetWorthData(): NetWorthDataPoint[] {
-  return getNetWorthTimeSeries(getRepository());
+  return getNetWorthTimeSeries(loadAssetTrackerRepository());
 }
 
 export function getAssetAllocation(): {
   assetType: AssetType;
   total: number;
 }[] {
-  return getTotalByAssetType(getRepository());
+  return getTotalByAssetType(loadAssetTrackerRepository());
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccountContent } from "@/lib/domain/assettracker/account";
 import type { BalanceSnapshot } from "@/lib/domain/assettracker/balanceSnapshot";
 
@@ -27,10 +27,11 @@ const accountsMock = vi.hoisted(() => ({
 
 const snapshotsMock = vi.hoisted(() => ({
   snapshots: [
-    { accountId: "isa-1", date: "2024-01-01", balance: 10000 },
     { accountId: "isa-1", date: "2024-06-01", balance: 12000 },
-    { accountId: "savings-1", date: "2024-01-01", balance: 5000 },
+    { accountId: "isa-1", date: "2024-01-01", balance: 10000 },
     { accountId: "savings-1", date: "2024-06-01", balance: 5200 },
+    { accountId: "savings-1", date: "2024-03-15", balance: 5100 },
+    { accountId: "savings-1", date: "2024-01-01", balance: 5000 },
   ] as BalanceSnapshot[],
 }));
 
@@ -42,14 +43,22 @@ import {
   resetRepositoryCache,
 } from "@/lib/domain/assettracker/assetTrackerRepository";
 
+const originalAccounts = [...accountsMock.accounts];
+const originalSnapshots = [...snapshotsMock.snapshots];
+
 describe("AssetTrackerRepository", () => {
+  beforeEach(() => {
+    accountsMock.accounts = [...originalAccounts];
+    snapshotsMock.snapshots = [...originalSnapshots];
+  });
+
   describe("loadAssetTrackerRepository", () => {
     it("loads accounts and snapshots", () => {
       resetRepositoryCache();
       const repo = loadAssetTrackerRepository();
 
       expect(repo.accounts.size).toBe(2);
-      expect(repo.snapshots).toHaveLength(4);
+      expect(repo.snapshots).toHaveLength(5);
       expect(repo.accounts.has("isa-1")).toBe(true);
       expect(repo.accounts.has("savings-1")).toBe(true);
     });
