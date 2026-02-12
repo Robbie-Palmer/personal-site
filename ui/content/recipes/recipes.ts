@@ -1024,7 +1024,7 @@ export const recipes: RecipeContent[] = [
       "Make the pico de gallo: In a bowl add the tomatoes, onion, coriander, the juice of the lime, extra virgin olive oil, fajita and taco mix, and a pinch of salt and pepper. Combine everything with a spoon.",
       "Prepare the guacamole: Cut the avocado in half and remove the stone. Scoop out the flesh with a spoon and roughly mash in a bowl with a fork. Stir in the guacamole mix.",
       "In a small bowl combine the mayo with the chipotle paste to make chipotle mayo.",
-      "Make your quesadillas: Add half of the shredded chicken on top of a burrito wrap, then top with the grated cheese and spring onions. Add a few spoonfuls of the chipotle mayo scattered on top and cover with another burrito wrap.",
+      "Make your quesadillas: Add half of the shredded chicken on top of a tortilla wrap, then top with the grated cheese and spring onions. Add a few spoonfuls of the chipotle mayo scattered on top and cover with another tortilla wrap.",
       "Heat up a pan, brush your quesadilla with a little olive oil and warm it up in the pan, allow the cheese to melt and the wraps to get toasted on both sides.",
       "Repeat for each quesadilla.",
     ],
