@@ -811,7 +811,7 @@ export const recipes: RecipeContent[] = [
     title: "Slow Cooker Mexican Chicken",
     slug: "slow-cooker-mexican-chicken",
     description:
-      "A easy slow cooker Mexican chicken dish, perfect for tacos or burritos.",
+      "An easy slow cooker Mexican chicken dish, perfect for tacos or burritos.",
     date: "2026-02-12",
     tags: [],
     cuisine: "Mexican",
