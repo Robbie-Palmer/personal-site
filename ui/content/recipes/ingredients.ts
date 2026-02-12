@@ -7,6 +7,7 @@ export const ingredients: IngredientContent[] = [
   { name: "chorizo", category: "protein" },
   { name: "bacon", category: "protein" },
   { name: "pork sausages", category: "protein" },
+  { name: "shredded chicken", category: "protein" },
 
   // Vegetables
   { name: "white onion", category: "vegetable" },
@@ -26,6 +27,10 @@ export const ingredients: IngredientContent[] = [
   { name: "fresh parsley", category: "vegetable" },
   { name: "spinach", category: "vegetable" },
   { name: "mixed beans", category: "vegetable" },
+  { name: "vine tomatoes", category: "vegetable" },
+  { name: "fresh coriander", category: "vegetable" },
+  { name: "spring onions", category: "vegetable" },
+  { name: "avocado", category: "fruit" },
 
   // Dairy
   { name: "butter", category: "dairy" },
@@ -38,6 +43,7 @@ export const ingredients: IngredientContent[] = [
   { name: "parmesan", category: "dairy" },
   { name: "grana padano", category: "dairy" },
   { name: "cream cheese", category: "dairy" },
+  { name: "gouda", category: "dairy" },
 
   // Grains & Pasta
   { name: "rice", category: "grain" },
@@ -49,6 +55,7 @@ export const ingredients: IngredientContent[] = [
   { name: "long grain rice", category: "grain" },
   { name: "paella rice", category: "grain" },
   { name: "tortilla wraps", category: "grain" },
+  { name: "burrito wraps", category: "grain" },
 
   // Spices & Seasonings
   { name: "curry powder", category: "spice" },
@@ -72,6 +79,7 @@ export const ingredients: IngredientContent[] = [
   { name: "cumin", category: "spice" },
   { name: "garlic granules", category: "spice" },
   { name: "onion salt", category: "spice" },
+  { name: "fajita and taco mix", category: "spice" },
 
   // Condiments & Sauces
   { name: "basil pesto", category: "condiment" },
@@ -81,9 +89,12 @@ export const ingredients: IngredientContent[] = [
   { name: "honey", category: "condiment" },
   { name: "sweet chilli sauce", category: "condiment" },
   { name: "chipotle paste", category: "condiment" },
+  { name: "mayo", category: "condiment" },
+  { name: "guacamole mix", category: "condiment" },
 
   // Oils & Fats
   { name: "olive oil", category: "oil-fat" },
+  { name: "extra virgin olive oil", category: "oil-fat" },
   { name: "coconut milk", category: "oil-fat" },
 
   // Liquids
