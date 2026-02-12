@@ -53,7 +53,7 @@ function formatIngredient(item: RecipeIngredientView, scale: number): string {
   const isPiece = item.unit === "piece";
   const amount = isPiece
     ? item.amount != null
-      ? (item.amount * scale).toString()
+      ? parseFloat((item.amount * scale).toFixed(2)).toString()
       : ""
     : formatAmount(item, scale);
   const parts: string[] = [];
