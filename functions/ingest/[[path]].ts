@@ -10,11 +10,14 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
   const url = new URL(context.request.url);
   const pathname = url.pathname.replace(/^\/ingest/, "");
-  const search = url.search; // Preserve query string
+  const search = url.search;
 
   const destination = pathname.startsWith("/static/")
     ? `${assetsHost}${pathname}${search}`
     : `${apiHost}${pathname}${search}`;
 
-  return fetch(new Request(destination, context.request));
+  console.log(`[PostHog Proxy] ${context.request.method} ${pathname}${search} -> ${destination}`);
+  const response = await fetch(new Request(destination, context.request));
+  console.log(`[PostHog Proxy] Response: ${response.status}`);
+  return response;
 };
