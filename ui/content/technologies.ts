@@ -560,4 +560,10 @@ export const technologies: TechnologyContent[] = [
     website: "https://github.com/kayak/pypika",
     type: "library",
   },
+  {
+    name: "Sigma.js",
+    description: "WebGL-powered graph visualization for the web",
+    website: "https://www.sigmajs.org",
+    type: "library",
+  },
 ];

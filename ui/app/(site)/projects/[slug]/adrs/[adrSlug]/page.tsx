@@ -6,6 +6,7 @@ import { Mermaid } from "@/components/mermaid";
 import { ADRBadge } from "@/components/projects/adr-badge";
 import { ADRPagination } from "@/components/projects/adr-pagination";
 import { EmblaDemoCarousel } from "@/components/technology/embla-demo-carousel";
+import { KnowledgeGraph } from "@/components/technology/knowledge-graph";
 import { MermaidDemo } from "@/components/technology/mermaid-demo";
 import { RechartsDemoChart } from "@/components/technology/recharts-demo-chart";
 import { ShikiDemo } from "@/components/technology/shiki-demo";
@@ -22,6 +23,7 @@ import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 
 const adrComponents = {
   EmblaDemoCarousel,
+  KnowledgeGraph,
   Mermaid,
   MermaidDemo,
   RechartsDemoChart,

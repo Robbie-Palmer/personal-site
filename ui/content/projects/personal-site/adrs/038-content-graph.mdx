@@ -1,0 +1,67 @@
+---
+title: "ADR 038: Content Knowledge Graph Visualization"
+date: "2026-02-07"
+status: "Proposed"
+tech_stack: ["Sigma.js"]
+---
+
+# Context
+
+The site's content is structured as a knowledge graph with \~150 nodes
+(projects, blog posts, ADRs, technologies, roles, tags) and hundreds of edges representing relationships like
+`USES_TECHNOLOGY`, `PART_OF_PROJECT`, `CREATED_AT_ROLE`, and `HAS_TAG`.
+This graph already powers backlinks, connected filters, and content discovery throughout the site.
+
+However, there is currently no way to visually see the graph itself. A visualization would:
+
+* Reveal the structure and interconnectedness of the content at a glance
+* Enable exploration by clicking through nodes to discover related content
+* Showcase the depth of the knowledge graph to visitors
+* Help identify clusters, central nodes, and isolated content during authoring
+
+The main libraries for interactive graph visualization in the browser are:
+
+* **D3.js** (`d3-force`): The foundational force simulation library. Maximum flexibility but low-level — requires manual rendering, zoom/pan, and React integration. Fights React's declarative model over DOM ownership.
+* **react-force-graph**: React wrapper around `force-graph` (which uses `d3-force` internally). Provides 2D (Canvas) and 3D (WebGL/Three.js) variants with zoom, pan, drag, hover, and click built in. However, incompatible with React 19 due to a [breaking change in ref handling](https://github.com/facebook/react/issues/31613).
+* **Sigma.js** (`@react-sigma/core`): WebGL-based, purpose-built for graph visualization. Uses `graphology` for the graph data model and provides React hooks for events, layout, and rendering.
+* **Cytoscape.js** (`react-cytoscapejs`): Mature graph library with many layout algorithms (hierarchical, circular, force). More complex API, better suited for analytical/research use cases.
+
+# Decision
+
+Use **[Sigma.js](https://www.sigmajs.org)** with `@react-sigma/core` for an interactive knowledge graph visualization.
+
+This extracts the site's real `ContentGraph` data at build time, serializes it as `{nodes, edges}`,
+and renders it client-side using a **deterministic, seed-based layout**.
+The implementation:
+
+* **Color-codes nodes by type**: projects (blue), blogs (orange), roles (purple), ADRs (grey), technologies (green), tags (yellow)
+* **Sizes nodes by connection count**: more-connected nodes appear larger
+* **Supports filtering**: toggle node types on/off to reduce visual density
+* **Links to content**: clicking a node opens its page and highlights connections
+* **Shows labels on zoom**: node names appear when zoomed in, avoiding clutter at overview level
+* **Stable Layout**: Uses a synchronous force-directed algorithm (ForceAtlas2) to calculate positions once, ensuring the graph looks identical on every load avoiding jerking on filtering/interactivity etc.
+* **Loads lazily**: uses `next/dynamic` with `ssr: false` since the WebGL API requires the browser
+
+## Demo
+
+<KnowledgeGraph />
+
+# Consequences
+
+### Pros
+
+* **React 19 compatible**: Sigma.js with `@react-sigma/core` works with React 19's ref handling.
+* **WebGL rendering**: Performant for \~150 nodes with hardware-accelerated rendering.
+* **graphology ecosystem**: The `graphology` data model provides a clean API for graph manipulation.
+* **SSG-compatible**: Data extraction happens at build time in a server component.
+* **Filterable**: Node type toggles let users focus on specific content types.
+* **Deterministic**: The layout is calculated with a fixed seed, ensuring the graph always looks the same to every visitor.
+
+### Cons
+
+* **No SSR**: The WebGL-based renderer requires the browser. The graph shows a loading placeholder during hydration.
+* **Bundle size**: sigma + graphology + layout worker add client-side JavaScript.
+* **Fixed Layout**: Users cannot drag nodes to rearrange them manually, which is a trade-off for guaranteed layout stability without "jitter".
+* **Information density**: With all node types visible, the graph can feel busy.
+* **Accessibility**: WebGL-based rendering is not accessible to screen readers.
+* **Mobile experience**: Interaction is optimized for mouse/trackpad (hover for details). Touch works for pan/zoom but lacks hover states.
