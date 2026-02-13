@@ -48,6 +48,9 @@ override.tf.json
 # mise
 .mise.local.toml
 
+# Cloudflare
+.wrangler/*
+
 # IDE
 .vscode/*
 !.vscode/settings.json
