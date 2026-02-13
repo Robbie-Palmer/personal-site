@@ -1,0 +1,38 @@
+name: ML Pipelines CI
+
+on:
+  pull_request:
+    paths:
+      - "ml-pipelines/**"
+      - ".github/workflows/ml-pipelines-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  dvc-pull:
+    runs-on: ubuntu-latest
+    environment:
+      name: cloudflare-production
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    strategy:
+      matrix:
+        pipeline:
+          - recipe-parsing
+    defaults:
+      run:
+        working-directory: ml-pipelines/${{ matrix.pipeline }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install DVC
+        run: pip install 'dvc[s3]'
+
+      - name: Validate DVC remote
+        run: dvc pull

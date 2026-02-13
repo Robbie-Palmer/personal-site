@@ -5,6 +5,7 @@ config_roots = [
     "ui",
     "infra",
     "infra/cloudflare",
+    "ml-pipelines",
 ]
 
 [settings]
