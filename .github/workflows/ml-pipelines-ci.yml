@@ -41,13 +41,15 @@ jobs:
       - name: Validate DVC remote
         run: dvc pull
 
-      - name: Comment metrics diff on PR
+      - name: Comment metrics on PR
         run: |
-          METRICS_DIFF=$(dvc metrics diff --md main)
-          if [ -z "$METRICS_DIFF" ]; then
-            BODY="## ${{ matrix.pipeline }} metrics"$'\n\n'"No metrics changes."
+          DIFF=$(dvc metrics diff --md main 2>/dev/null || true)
+          DATA_ROWS=$(echo "$DIFF" | grep -c '^|' || true)
+          if [ "$DATA_ROWS" -gt 2 ]; then
+            BODY="## ${{ matrix.pipeline }} metrics diff"$'\n\n'"$DIFF"
           else
-            BODY="## ${{ matrix.pipeline }} metrics"$'\n\n'"$METRICS_DIFF"
+            SHOW=$(dvc metrics show --md 2>/dev/null || echo "No metrics available.")
+            BODY="## ${{ matrix.pipeline }} metrics"$'\n\n'"$SHOW"
           fi
           gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY" --edit-last \
             || gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY"
