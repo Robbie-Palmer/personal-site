@@ -1,0 +1,19 @@
+{
+  "name": "recipe-domain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ingredient": "./src/ingredient.ts",
+    "./recipe": "./src/recipe.ts",
+    "./unit": "./src/unit.ts",
+    "./slugs": "./src/slugs.ts"
+  },
+  "dependencies": {
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}
