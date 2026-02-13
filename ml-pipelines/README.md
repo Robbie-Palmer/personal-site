@@ -30,48 +30,48 @@ Manage R2 API Tokens to create one.
 2. Specify bucket: `dvc`
 3. Add the credentials as `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` secrets in the `cloudflare-production` GitHub environment
 
-**Configure local credentials** using one of these methods:
+**Configure local credentials:**
 
-### Option A: Environment Variables (recommended)
-
-Add to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.):
+Copy the `.env.example` in this directory and fill in your values:
 
 ```bash
-export CLOUDFLARE_ACCOUNT_ID='your-cloudflare-account-id'
-export AWS_ACCESS_KEY_ID='your-access-key-id'
-export AWS_SECRET_ACCESS_KEY='your-secret-access-key'
+cp .env.example .env
 ```
 
-### Option B: Local DVC Config
-
-Run from within a project directory:
+The `.env` file is loaded by mise. Run DVC commands via `mise x --`
+so the environment is available:
 
 ```bash
-dvc remote modify --local r2 access_key_id 'your-access-key-id'
-dvc remote modify --local r2 secret_access_key 'your-secret-access-key'
+mise x -- dvc pull
+mise x -- dvc push
 ```
 
-This creates `.dvc/config.local` which is git-ignored.
+`.env` is git-ignored.
+
+Note: The R2 endpoint URL is hardcoded in each project's `.dvc/config`
+since DVC doesn't support environment variable substitution in config files.
 
 ## Common DVC Workflows
 
+Run all commands from within a project directory.
+
 ### Pull data
 
-After cloning or checking out a branch, run from within a project directory:
+After cloning or checking out a branch:
 
 ```bash
-dvc pull
+mise x -- dvc pull
 ```
 
 ### Add new data
 
 ```bash
 # Track new files with DVC
-dvc add data/my-dataset
+mise x -- dvc add data/my-dataset
 
 # Commit the .dvc tracking file (autostage is enabled, so it's already staged)
 git commit -m "Add dataset"
 
 # Push data to R2
-dvc push
+mise x -- dvc push
 ```

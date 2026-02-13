@@ -71,7 +71,8 @@ Has DNS records, cache rules, and proxied access configured in Terraform.
 
 Private bucket for ML pipeline data versioned with [DVC](https://dvc.org/).
 Accessed only via S3-compatible API with credentials — no public access.
-Used by `ml-pipelines/` projects each under their own prefix.
+Used by `ml-pipelines/` projects, each under their own prefix
+(e.g. `s3://dvc/recipe-parsing`).
 
 To create an API token for access:
 [Cloudflare R2](https://dash.cloudflare.com/?to=/:account/r2/overview) →

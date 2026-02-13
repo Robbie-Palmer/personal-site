@@ -9,8 +9,8 @@ See the [ml-pipelines README](../README.md) for DVC setup and credentials.
 Recipe images are tracked by DVC in `data/recipe-images/`. After setting up credentials:
 
 ```bash
-dvc pull    # download data
-dvc push    # upload after adding new images
+mise x -- dvc pull    # download data
+mise x -- dvc push    # upload after adding new images
 ```
 
 ## Project Structure
