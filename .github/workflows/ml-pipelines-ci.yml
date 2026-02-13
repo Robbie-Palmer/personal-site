@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   dvc-pull:
@@ -17,6 +18,7 @@ jobs:
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      GH_TOKEN: ${{ github.token }}
     strategy:
       matrix:
         pipeline:
@@ -26,6 +28,8 @@ jobs:
         working-directory: ml-pipelines/${{ matrix.pipeline }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -36,3 +40,14 @@ jobs:
 
       - name: Validate DVC remote
         run: dvc pull
+
+      - name: Comment metrics diff on PR
+        run: |
+          METRICS_DIFF=$(dvc metrics diff --md main)
+          if [ -z "$METRICS_DIFF" ]; then
+            BODY="## ${{ matrix.pipeline }} metrics"$'\n\n'"No metrics changes."
+          else
+            BODY="## ${{ matrix.pipeline }} metrics"$'\n\n'"$METRICS_DIFF"
+          fi
+          gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY" --edit-last \
+            || gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY"

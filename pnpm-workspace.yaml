@@ -1,2 +1,4 @@
 packages:
   - 'ui'
+  - 'packages/*'
+  - 'ml-pipelines/recipe-parsing'

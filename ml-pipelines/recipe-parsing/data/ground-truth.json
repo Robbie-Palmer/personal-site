@@ -1,0 +1,1555 @@
+{
+  "entries": [
+    {
+      "images": [
+        "PXL_20260211_135357425.jpg"
+      ],
+      "expected": {
+        "title": "Sausage Jambalaya",
+        "description": "A hearty Cajun-spiced one-pot rice dish with sausages and vegetables",
+        "cuisine": "Cajun",
+        "servings": 4,
+        "prepTime": 10,
+        "cookTime": 25,
+        "ingredientGroups": [
+          {
+            "items": [
+              {
+                "ingredient": "olive-oil",
+                "amount": 1,
+                "unit": "tbsp"
+              },
+              {
+                "ingredient": "pork-sausages",
+                "amount": 8,
+                "unit": "piece",
+                "preparation": "cut into pieces"
+              },
+              {
+                "ingredient": "cajun-seasoning",
+                "amount": 1.5,
+                "unit": "tbsp"
+              },
+              {
+                "ingredient": "white-onion",
+                "amount": 1,
+                "unit": "piece",
+                "preparation": "finely chopped"
+              },
+              {
+                "ingredient": "long-grain-rice",
+                "amount": 200,
+                "unit": "g"
+              },
+              {
+                "ingredient": "chopped-tomatoes",
+                "amount": 1,
+                "unit": "tin"
+              },
+              {
+                "ingredient": "water",
+                "amount": 400,
+                "unit": "ml"
+              },
+              {
+                "ingredient": "frozen-vegetables",
+                "amount": 150,
+                "unit": "g",
+                "note": "peas and peppers"
+              },
+              {
+                "ingredient": "chilli",
+                "note": "optional, to taste"
+              },
+              {
+                "ingredient": "garlic",
+                "note": "optional, to taste"
+              },
+              {
+                "ingredient": "paprika",
+                "note": "optional, to taste"
+              },
+              {
+                "ingredient": "salt",
+                "note": "to taste"
+              },
+              {
+                "ingredient": "black-pepper",
+                "note": "to taste"
+              }
+            ]
+          }
+        ],
+        "instructions": [
+          "Put the rice in a sieve and rinse thoroughly",
+          "Heat the oil in a large pan and brown the sausages for a few minutes",
+          "Stir in the Cajun seasoning and onion; cook for 2 minutes",
+          "Add the rice and cook for 30 seconds, then pour in the chopped tomatoes and 400ml water",
+          "Bring to the boil, lower the heat and add optional herbs and spices (chilli, garlic, paprika) to taste",
+          "Cover with a lid and simmer for 10 minutes",
+          "Stir in frozen vegetables and cook for another 10 minutes",
+          "Season with salt and pepper to taste"
+        ]
+      },
+      "knownIngredients": [
+        {
+          "slug": "olive-oil",
+          "name": "olive oil",
+          "category": "oil-fat"
+        },
+        {
+          "slug": "pork-sausages",
+          "name": "pork sausages",
+          "category": "protein"
+        },
+        {
+          "slug": "cajun-seasoning",
+          "name": "cajun seasoning",
+          "category": "spice"
+        },
+        {
+          "slug": "white-onion",
+          "name": "white onion",
+          "category": "vegetable"
+        },
+        {
+          "slug": "long-grain-rice",
+          "name": "long grain rice",
+          "category": "grain"
+        },
+        {
+          "slug": "chopped-tomatoes",
+          "name": "chopped tomatoes",
+          "category": "vegetable"
+        },
+        {
+          "slug": "water",
+          "name": "water",
+          "category": "liquid"
+        },
+        {
+          "slug": "frozen-vegetables",
+          "name": "frozen vegetables",
+          "category": "vegetable"
+        },
+        {
+          "slug": "chilli",
+          "name": "chilli",
+          "category": "spice"
+        },
+        {
+          "slug": "garlic",
+          "name": "garlic",
+          "category": "vegetable"
+        },
+        {
+          "slug": "paprika",
+          "name": "paprika",
+          "category": "spice"
+        },
+        {
+          "slug": "salt",
+          "name": "salt",
+          "category": "spice"
+        },
+        {
+          "slug": "black-pepper",
+          "name": "black pepper",
+          "category": "spice"
+        }
+      ]
+    },
+    {
+      "images": [
+        "PXL_20260211_135411222.jpg",
+        "PXL_20260211_135416266.jpg"
+      ],
+      "expected": {
+        "title": "Chicken and Chorizo Paella",
+        "description": "A vibrant and flavorful Spanish classic combining tender chicken, smoky chorizo, and saffron-infused rice.",
+        "cuisine": "Spanish",
+        "servings": 4,
+        "prepTime": 15,
+        "cookTime": 40,
+        "ingredientGroups": [
+          {
+            "items": [
+              {
+                "ingredient": "olive-oil",
+                "amount": 1,
+                "unit": "tbsp"
+              },
+              {
+                "ingredient": "chicken-breast",
+                "amount": 2,
+                "preparation": "cut into chunks"
+              },
+              {
+                "ingredient": "onion",
+                "amount": 2,
+                "unit": "piece",
+                "preparation": "cut into chunks",
+                "note": "small"
+              },
+              {
+                "ingredient": "garlic",
+                "amount": 1,
+                "unit": "clove",
+                "note": "crushed"
+              },
+              {
+                "ingredient": "chorizo",
+                "amount": 140,
+                "unit": "g",
+                "note": "sliced"
+              },
+              {
+                "ingredient": "turmeric",
+                "amount": 1,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "saffron",
+                "amount": 1,
+                "unit": "pinch"
+              },
+              {
+                "ingredient": "paprika",
+                "amount": 1,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "paella-rice",
+                "amount": 300,
+                "unit": "g"
+              },
+              {
+                "ingredient": "chicken-stock",
+                "amount": 850,
+                "unit": "ml"
+              },
+              {
+                "ingredient": "frozen-peas",
+                "amount": 100,
+                "unit": "g"
+              },
+              {
+                "ingredient": "fresh-parsley",
+                "note": "to serve (optional)"
+              }
+            ]
+          }
+        ],
+        "instructions": [
+          "Heat the olive oil in a deep frying pan over a high heat.",
+          "Add the chicken chunks and brown all over (don't cook completely), then transfer to a plate.",
+          "Reduce the heat to low, add the sliced onions and cook slowly for about 10 minutes.",
+          "Add the crushed garlic and cook for 1 minute.",
+          "Add the sliced chorizo and cook until it releases its oils.",
+          "Stir in the turmeric, saffron, and paprika.",
+          "Add the paella rice, stirring to coat the rice in the oil and spices for 2 minutes.",
+          "Pour in the chicken stock and bring to a boil.",
+          "Return the chicken to the pan, and simmer for 20 minutes.",
+          "Add the frozen peas and cook for a further 5 minutes.",
+          "Season well and sprinkle with fresh parsley if using."
+        ]
+      },
+      "knownIngredients": [
+        {
+          "slug": "olive-oil",
+          "name": "olive oil",
+          "category": "oil-fat"
+        },
+        {
+          "slug": "chicken-breast",
+          "name": "chicken breast",
+          "category": "protein"
+        },
+        {
+          "slug": "onion",
+          "name": "onion",
+          "category": "vegetable"
+        },
+        {
+          "slug": "garlic",
+          "name": "garlic",
+          "category": "vegetable"
+        },
+        {
+          "slug": "chorizo",
+          "name": "chorizo",
+          "category": "protein"
+        },
+        {
+          "slug": "turmeric",
+          "name": "turmeric",
+          "category": "spice"
+        },
+        {
+          "slug": "saffron",
+          "name": "saffron",
+          "category": "spice"
+        },
+        {
+          "slug": "paprika",
+          "name": "paprika",
+          "category": "spice"
+        },
+        {
+          "slug": "paella-rice",
+          "name": "paella rice",
+          "category": "grain"
+        },
+        {
+          "slug": "chicken-stock",
+          "name": "chicken stock",
+          "category": "liquid"
+        },
+        {
+          "slug": "frozen-peas",
+          "name": "frozen peas",
+          "category": "vegetable"
+        },
+        {
+          "slug": "fresh-parsley",
+          "name": "fresh parsley",
+          "category": "herb"
+        }
+      ]
+    },
+    {
+      "images": [
+        "PXL_20260211_135650412.jpg"
+      ],
+      "expected": {
+        "title": "Chicken Alfredo Pasta",
+        "description": "A creamy and comforting pasta dish with chicken, crispy bacon, spinach, and a rich parmesan sauce.",
+        "cuisine": "Italian",
+        "servings": 3,
+        "prepTime": 15,
+        "cookTime": 20,
+        "ingredientGroups": [
+          {
+            "items": [
+              {
+                "ingredient": "olive-oil",
+                "amount": 1,
+                "unit": "tbsp"
+              },
+              {
+                "ingredient": "chicken-breast",
+                "amount": 2,
+                "unit": "piece",
+                "preparation": "chopped"
+              },
+              {
+                "ingredient": "garlic",
+                "amount": 4,
+                "unit": "clove",
+                "note": "crushed"
+              },
+              {
+                "ingredient": "bacon",
+                "amount": 4,
+                "unit": "slice"
+              },
+              {
+                "ingredient": "spinach",
+                "amount": 2,
+                "unit": "handful"
+              },
+              {
+                "ingredient": "salt",
+                "amount": 2,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "black-pepper",
+                "amount": 2,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "double-cream",
+                "amount": 300,
+                "unit": "ml"
+              },
+              {
+                "ingredient": "pasta",
+                "amount": 250,
+                "unit": "g"
+              },
+              {
+                "ingredient": "parmesan",
+                "amount": 70,
+                "unit": "g",
+                "note": "grated"
+              }
+            ]
+          }
+        ],
+        "instructions": [
+          "Start cooking the pasta according to package instructions.",
+          "Heat the olive oil in a large pan and cook the chicken until no pink is showing.",
+          "Add the bacon and cook for a few minutes.",
+          "Add the garlic, spinach, salt and pepper. Cook until spinach is wilted.",
+          "Pour in the double cream and bring to a boil.",
+          "Add in the cooked pasta and grated cheese. Stir until the cheese is melted and the pasta is evenly coated."
+        ]
+      },
+      "knownIngredients": [
+        {
+          "slug": "olive-oil",
+          "name": "olive oil",
+          "category": "oil-fat"
+        },
+        {
+          "slug": "chicken-breast",
+          "name": "chicken breast",
+          "category": "protein"
+        },
+        {
+          "slug": "garlic",
+          "name": "garlic",
+          "category": "vegetable"
+        },
+        {
+          "slug": "bacon",
+          "name": "bacon",
+          "category": "protein"
+        },
+        {
+          "slug": "spinach",
+          "name": "spinach",
+          "category": "vegetable"
+        },
+        {
+          "slug": "salt",
+          "name": "salt",
+          "category": "spice"
+        },
+        {
+          "slug": "black-pepper",
+          "name": "black pepper",
+          "category": "spice"
+        },
+        {
+          "slug": "double-cream",
+          "name": "double cream",
+          "category": "dairy"
+        },
+        {
+          "slug": "pasta",
+          "name": "pasta",
+          "category": "grain"
+        },
+        {
+          "slug": "parmesan",
+          "name": "parmesan",
+          "category": "dairy"
+        }
+      ]
+    },
+    {
+      "images": [
+        "PXL_20260211_135656599.jpg"
+      ],
+      "expected": {
+        "title": "Creamy Chilli Tomato Pasta",
+        "description": "A spicy and creamy tomato pasta dish with bacon and onion.",
+        "cuisine": "Italian",
+        "servings": 4,
+        "prepTime": 10,
+        "cookTime": 20,
+        "ingredientGroups": [
+          {
+            "items": [
+              {
+                "ingredient": "white-onion",
+                "amount": 1,
+                "unit": "piece",
+                "preparation": "thinly sliced"
+              },
+              {
+                "ingredient": "bacon",
+                "amount": 4,
+                "unit": "slice",
+                "preparation": "cut"
+              },
+              {
+                "ingredient": "garlic",
+                "amount": 3,
+                "unit": "clove",
+                "preparation": "crushed"
+              },
+              {
+                "ingredient": "pasta",
+                "amount": 320,
+                "unit": "g"
+              },
+              {
+                "ingredient": "chilli-flakes",
+                "amount": 1,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "chopped-tomatoes",
+                "amount": 1,
+                "unit": "tin"
+              },
+              {
+                "ingredient": "tomato-puree",
+                "amount": 2,
+                "unit": "tbsp"
+              },
+              {
+                "ingredient": "double-cream",
+                "amount": 100,
+                "unit": "ml"
+              },
+              {
+                "ingredient": "oregano",
+                "amount": 1,
+                "unit": "tsp",
+                "note": "dried"
+              },
+              {
+                "ingredient": "salt",
+                "note": "to taste"
+              },
+              {
+                "ingredient": "black-pepper",
+                "note": "to taste"
+              },
+              {
+                "ingredient": "olive-oil",
+                "note": "for frying"
+              }
+            ]
+          }
+        ],
+        "instructions": [
+          "Heat oil in a large frying pan over a medium heat.",
+          "Add the onion and bacon and fry for 5-6 mins, or until softened.",
+          "Add the garlic and fry for 1 minute.",
+          "Start cooking pasta according to package instructions.",
+          "Stir in chilli flakes to onion and bacon mixture.",
+          "Add the tinned tomatoes, tomato puree and oregano.",
+          "Season with salt and pepper.",
+          "Simmer for 10 minutes, stirring regularly until thickened.",
+          "Stir in cream and return to a gentle simmer.",
+          "Mix in pasta."
+        ]
+      },
+      "knownIngredients": [
+        {
+          "slug": "white-onion",
+          "name": "white onion",
+          "category": "vegetable"
+        },
+        {
+          "slug": "bacon",
+          "name": "bacon",
+          "category": "protein"
+        },
+        {
+          "slug": "garlic",
+          "name": "garlic",
+          "category": "vegetable"
+        },
+        {
+          "slug": "pasta",
+          "name": "pasta",
+          "category": "grain"
+        },
+        {
+          "slug": "chilli-flakes",
+          "name": "chilli flakes",
+          "category": "spice"
+        },
+        {
+          "slug": "chopped-tomatoes",
+          "name": "chopped tomatoes",
+          "category": "vegetable"
+        },
+        {
+          "slug": "tomato-puree",
+          "name": "tomato puree",
+          "category": "vegetable"
+        },
+        {
+          "slug": "double-cream",
+          "name": "double cream",
+          "category": "dairy"
+        },
+        {
+          "slug": "oregano",
+          "name": "oregano",
+          "category": "spice"
+        },
+        {
+          "slug": "salt",
+          "name": "salt",
+          "category": "spice"
+        },
+        {
+          "slug": "black-pepper",
+          "name": "black pepper",
+          "category": "spice"
+        },
+        {
+          "slug": "olive-oil",
+          "name": "olive oil",
+          "category": "oil-fat"
+        }
+      ]
+    },
+    {
+      "images": [
+        "PXL_20260211_135702542.jpg",
+        "PXL_20260211_135707599.jpg"
+      ],
+      "expected": {
+        "title": "Slow Cooker Mexican Chicken",
+        "description": "An easy slow cooker Mexican chicken dish, perfect for tacos or burritos.",
+        "cuisine": "Mexican",
+        "servings": 4,
+        "prepTime": 15,
+        "cookTime": 240,
+        "ingredientGroups": [
+          {
+            "items": [
+              {
+                "ingredient": "white-onion",
+                "amount": 1,
+                "unit": "piece",
+                "preparation": "diced"
+              },
+              {
+                "ingredient": "chicken-breast",
+                "amount": 650,
+                "unit": "g"
+              },
+              {
+                "ingredient": "hot-chilli-powder",
+                "amount": 1,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "paprika",
+                "amount": 1,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "cayenne-pepper",
+                "amount": 1,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "cumin",
+                "amount": 1,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "garlic-granules",
+                "amount": 1,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "onion-salt",
+                "amount": 1,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "bell-pepper",
+                "amount": 2,
+                "unit": "piece",
+                "preparation": "sliced",
+                "note": "red and yellow"
+              },
+              {
+                "ingredient": "chipotle-paste",
+                "amount": 2,
+                "unit": "tbsp"
+              },
+              {
+                "ingredient": "mixed-beans",
+                "amount": 1,
+                "unit": "tin"
+              },
+              {
+                "ingredient": "tomato-passata",
+                "amount": 500,
+                "unit": "g"
+              },
+              {
+                "ingredient": "tortilla-wraps",
+                "note": "to serve"
+              },
+              {
+                "ingredient": "cheddar-cheese",
+                "note": "to serve"
+              }
+            ]
+          }
+        ],
+        "instructions": [
+          "Add the onion, chicken, spices, peppers, chipotle paste, mixed beans and passata to the slow cooker.",
+          "Mix well.",
+          "Cook on High for 4 hours or Low for 8 hours.",
+          "Once cooked, shred the chicken.",
+          "Add the shredded chicken to wraps or boats.",
+          "Cover with grated cheese and melt in the oven."
+        ]
+      },
+      "knownIngredients": [
+        {
+          "slug": "white-onion",
+          "name": "white onion",
+          "category": "vegetable"
+        },
+        {
+          "slug": "chicken-breast",
+          "name": "chicken breast",
+          "category": "protein"
+        },
+        {
+          "slug": "hot-chilli-powder",
+          "name": "hot chilli powder",
+          "category": "spice"
+        },
+        {
+          "slug": "paprika",
+          "name": "paprika",
+          "category": "spice"
+        },
+        {
+          "slug": "cayenne-pepper",
+          "name": "cayenne pepper",
+          "category": "spice"
+        },
+        {
+          "slug": "cumin",
+          "name": "cumin",
+          "category": "spice"
+        },
+        {
+          "slug": "garlic-granules",
+          "name": "garlic granules",
+          "category": "spice"
+        },
+        {
+          "slug": "onion-salt",
+          "name": "onion salt",
+          "category": "spice"
+        },
+        {
+          "slug": "bell-pepper",
+          "name": "bell pepper",
+          "category": "vegetable"
+        },
+        {
+          "slug": "chipotle-paste",
+          "name": "chipotle paste",
+          "category": "condiment"
+        },
+        {
+          "slug": "mixed-beans",
+          "name": "mixed beans",
+          "category": "vegetable"
+        },
+        {
+          "slug": "tomato-passata",
+          "name": "tomato passata",
+          "category": "vegetable"
+        },
+        {
+          "slug": "tortilla-wraps",
+          "name": "tortilla wraps",
+          "category": "grain"
+        },
+        {
+          "slug": "cheddar-cheese",
+          "name": "cheddar cheese",
+          "category": "dairy"
+        }
+      ]
+    },
+    {
+      "images": [
+        "PXL_20260211_135712154.jpg"
+      ],
+      "expected": {
+        "title": "Chicken and Chorizo Pasta Bake",
+        "description": "A creamy and flavorful pasta bake with chicken, chorizo, and cherry tomatoes.",
+        "cuisine": "Italian",
+        "servings": 4,
+        "prepTime": 15,
+        "cookTime": 40,
+        "ingredientGroups": [
+          {
+            "items": [
+              {
+                "ingredient": "farfalle",
+                "amount": 300,
+                "unit": "g",
+                "note": "or penne pasta"
+              },
+              {
+                "ingredient": "chorizo",
+                "amount": 1,
+                "unit": "piece",
+                "preparation": "chopped"
+              },
+              {
+                "ingredient": "garlic",
+                "amount": 3,
+                "unit": "clove",
+                "preparation": "crushed"
+              },
+              {
+                "ingredient": "chicken-breast",
+                "amount": 600,
+                "unit": "g",
+                "preparation": "cut into chunks"
+              },
+              {
+                "ingredient": "cherry-tomato",
+                "amount": 1,
+                "unit": "tin",
+                "note": "400g"
+              },
+              {
+                "ingredient": "chopped-tomatoes",
+                "amount": 1,
+                "unit": "tin",
+                "note": "400g"
+              },
+              {
+                "ingredient": "oregano",
+                "amount": 2,
+                "unit": "tsp",
+                "note": "dried"
+              },
+              {
+                "ingredient": "fresh-basil",
+                "preparation": "torn"
+              },
+              {
+                "ingredient": "light-soft-cheese",
+                "amount": 75,
+                "unit": "g"
+              },
+              {
+                "ingredient": "parmesan",
+                "preparation": "grated"
+              },
+              {
+                "ingredient": "mozzarella",
+                "amount": 150,
+                "unit": "g",
+                "preparation": "finely chopped"
+              }
+            ]
+          }
+        ],
+        "instructions": [
+          "Preheat oven to 200°C and begin to cook pasta.",
+          "Heat frying pan over a high heat and cook chicken for 5 mins.",
+          "Add the chorizo and garlic and cook for 3-4 mins until the oils are released.",
+          "Tip in both cans of tomatoes and bring to a simmer",
+          "Add the basil, 3/4 oregano, soft cheese and some seasoning.",
+          "Stir until cheese has melted.",
+          "Add the pasta and mix well.",
+          "Transfer to oven dish and scatter on mozzarella, parmesan & oregano.",
+          "Bake for 20-25 mins."
+        ]
+      },
+      "knownIngredients": [
+        {
+          "slug": "farfalle",
+          "name": "farfalle",
+          "category": "grain"
+        },
+        {
+          "slug": "chorizo",
+          "name": "chorizo",
+          "category": "protein"
+        },
+        {
+          "slug": "garlic",
+          "name": "garlic",
+          "category": "vegetable"
+        },
+        {
+          "slug": "chicken-breast",
+          "name": "chicken breast",
+          "category": "protein"
+        },
+        {
+          "slug": "cherry-tomato",
+          "name": "cherry tomato",
+          "category": "vegetable"
+        },
+        {
+          "slug": "chopped-tomatoes",
+          "name": "chopped tomatoes",
+          "category": "vegetable"
+        },
+        {
+          "slug": "oregano",
+          "name": "oregano",
+          "category": "spice"
+        },
+        {
+          "slug": "fresh-basil",
+          "name": "fresh basil",
+          "category": "herb"
+        },
+        {
+          "slug": "light-soft-cheese",
+          "name": "light soft cheese",
+          "category": "dairy"
+        },
+        {
+          "slug": "parmesan",
+          "name": "parmesan",
+          "category": "dairy"
+        },
+        {
+          "slug": "mozzarella",
+          "name": "mozzarella",
+          "category": "dairy"
+        }
+      ]
+    },
+    {
+      "images": [
+        "PXL_20260211_135717889.jpg"
+      ],
+      "expected": {
+        "title": "Potato, Leek and Rosemary Soup",
+        "description": "Classic warming soup with fresh rosemary and cream.",
+        "cuisine": "British",
+        "servings": 4,
+        "prepTime": 15,
+        "cookTime": 35,
+        "ingredientGroups": [
+          {
+            "items": [
+              {
+                "ingredient": "butter",
+                "amount": 50,
+                "unit": "g"
+              },
+              {
+                "ingredient": "white-onion",
+                "amount": 1,
+                "unit": "piece",
+                "preparation": "roughly chopped",
+                "note": "small"
+              },
+              {
+                "ingredient": "fresh-rosemary",
+                "amount": 2,
+                "unit": "tbsp",
+                "preparation": "finely chopped"
+              },
+              {
+                "ingredient": "leek",
+                "amount": 3,
+                "unit": "piece",
+                "preparation": "finely chopped"
+              },
+              {
+                "ingredient": "garlic",
+                "amount": 3,
+                "unit": "clove",
+                "preparation": "crushed"
+              },
+              {
+                "ingredient": "potato",
+                "amount": 550,
+                "unit": "g",
+                "preparation": "peeled and cubed"
+              },
+              {
+                "ingredient": "chicken-stock",
+                "amount": 800,
+                "unit": "ml"
+              },
+              {
+                "ingredient": "milk",
+                "amount": 200,
+                "unit": "ml",
+                "note": "semi skimmed"
+              }
+            ]
+          }
+        ],
+        "instructions": [
+          "Melt the butter in a large heavy-bottomed saucepan over a medium heat.",
+          "Reduce the heat to LOW and add onion, rosemary, leeks, garlic and potatoes, stirring gently.",
+          "Season well, cover with a lid and allow the vegetables to soften for about 12 minutes. Give the pan a good shake halfway through to prevent sticking.",
+          "Add the stock and milk to the pan, stir thoroughly and continue to cook for a further 20-25 mins.",
+          "Blend soup and season."
+        ]
+      },
+      "knownIngredients": [
+        {
+          "slug": "butter",
+          "name": "butter",
+          "category": "dairy"
+        },
+        {
+          "slug": "white-onion",
+          "name": "white onion",
+          "category": "vegetable"
+        },
+        {
+          "slug": "fresh-rosemary",
+          "name": "fresh rosemary",
+          "category": "herb"
+        },
+        {
+          "slug": "leek",
+          "name": "leek",
+          "category": "vegetable"
+        },
+        {
+          "slug": "garlic",
+          "name": "garlic",
+          "category": "vegetable"
+        },
+        {
+          "slug": "potato",
+          "name": "potato",
+          "category": "vegetable"
+        },
+        {
+          "slug": "chicken-stock",
+          "name": "chicken stock",
+          "category": "liquid"
+        },
+        {
+          "slug": "milk",
+          "name": "milk",
+          "category": "dairy"
+        }
+      ]
+    },
+    {
+      "images": [
+        "PXL_20260211_135724889.jpg",
+        "PXL_20260211_135732869.jpg"
+      ],
+      "expected": {
+        "title": "Chicken Risotto with Red Pesto & Rosemary",
+        "description": "A warming and rich dish that perfectly balances savoury sun-dried tomatoes with aromatic herbs.",
+        "cuisine": "Italian",
+        "servings": 4,
+        "prepTime": 10,
+        "cookTime": 30,
+        "ingredientGroups": [
+          {
+            "items": [
+              {
+                "ingredient": "olive-oil",
+                "amount": 8,
+                "unit": "tbsp"
+              },
+              {
+                "ingredient": "red-onion",
+                "amount": 1,
+                "unit": "piece",
+                "note": "large",
+                "preparation": "finely chopped"
+              },
+              {
+                "ingredient": "chicken-breast",
+                "amount": 250,
+                "unit": "g",
+                "preparation": "diced"
+              },
+              {
+                "ingredient": "fresh-rosemary",
+                "amount": 1,
+                "unit": "tbsp",
+                "preparation": "chopped"
+              },
+              {
+                "ingredient": "arborio-rice",
+                "amount": 400,
+                "unit": "g"
+              },
+              {
+                "ingredient": "white-wine",
+                "amount": 150,
+                "unit": "ml",
+                "note": "dry"
+              },
+              {
+                "ingredient": "vegetable-stock",
+                "amount": 1.3,
+                "unit": "l"
+              },
+              {
+                "ingredient": "butter",
+                "amount": 50,
+                "unit": "g"
+              },
+              {
+                "ingredient": "sun-dried-tomato-pesto",
+                "amount": 2,
+                "unit": "tbsp"
+              },
+              {
+                "ingredient": "parmesan",
+                "amount": 100,
+                "unit": "g",
+                "note": "half grated, half shavings"
+              },
+              {
+                "ingredient": "salt",
+                "amount": 1,
+                "unit": "pinch",
+                "note": "to taste"
+              },
+              {
+                "ingredient": "black-pepper",
+                "amount": 1,
+                "unit": "pinch",
+                "note": "to taste"
+              }
+            ]
+          }
+        ],
+        "instructions": [
+          "Heat 4 tbsp of the oil in a large, heavy based saucepan over a medium heat.",
+          "Add the onion and fry for 5 mins until softened but not browned.",
+          "Add the chicken and rosemary and fry for a further 5 mins, stirring occasionally.",
+          "Using a slotted spoon, transfer the chicken and onion to a plate. Cover with foil and set aside.",
+          "Heat the remaining 4 tbsp of oil in the same pan. When hot, add the rice and fry for 3 mins, stirring continuously until the rice is well coated in the oil.",
+          "Pour in the wine and let it simmer for 1 min or until it has evaporated.",
+          "Pour in 2 ladlesful of stock and bring to a simmer. Stir continuously until the liquid has been absorbed.",
+          "Continue adding the rest of the stock in the same way, cooking for 18-20 mins.",
+          "Take the pan off the heat.",
+          "Return the chicken and onion to the pan.",
+          "Stir in the butter, red pesto and grated parmesan, gently for 30 secs.",
+          "Season with salt & pepper.",
+          "Scatter parmesan shavings over the top.",
+          "Drizzle over some olive oil."
+        ]
+      },
+      "knownIngredients": [
+        {
+          "slug": "olive-oil",
+          "name": "olive oil",
+          "category": "oil-fat"
+        },
+        {
+          "slug": "red-onion",
+          "name": "red onion",
+          "category": "vegetable"
+        },
+        {
+          "slug": "chicken-breast",
+          "name": "chicken breast",
+          "category": "protein"
+        },
+        {
+          "slug": "fresh-rosemary",
+          "name": "fresh rosemary",
+          "category": "herb"
+        },
+        {
+          "slug": "arborio-rice",
+          "name": "arborio rice",
+          "category": "grain"
+        },
+        {
+          "slug": "white-wine",
+          "name": "white wine",
+          "category": "liquid"
+        },
+        {
+          "slug": "vegetable-stock",
+          "name": "vegetable stock",
+          "category": "liquid"
+        },
+        {
+          "slug": "butter",
+          "name": "butter",
+          "category": "dairy"
+        },
+        {
+          "slug": "sun-dried-tomato-pesto",
+          "name": "sun-dried tomato pesto",
+          "category": "condiment"
+        },
+        {
+          "slug": "parmesan",
+          "name": "parmesan",
+          "category": "dairy"
+        },
+        {
+          "slug": "salt",
+          "name": "salt",
+          "category": "spice"
+        },
+        {
+          "slug": "black-pepper",
+          "name": "black pepper",
+          "category": "spice"
+        }
+      ]
+    },
+    {
+      "images": [
+        "PXL_20260211_135736704.jpg"
+      ],
+      "expected": {
+        "title": "Salt and Chilli Chips",
+        "description": "Chinese takeaway style salt and chilli chips.",
+        "cuisine": "Chinese",
+        "servings": 2,
+        "prepTime": 10,
+        "cookTime": 20,
+        "ingredientGroups": [
+          {
+            "name": "Spice Mix",
+            "items": [
+              {
+                "ingredient": "msg",
+                "amount": 1,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "five-spice",
+                "amount": 1,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "white-pepper",
+                "amount": 1,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "cayenne-pepper",
+                "amount": 0.5,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "hot-chilli-powder",
+                "amount": 0.5,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "chilli-flakes",
+                "amount": 0.5,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "sugar",
+                "amount": 1,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "salt",
+                "amount": 0.5,
+                "unit": "tsp"
+              }
+            ]
+          },
+          {
+            "name": "Main",
+            "items": [
+              {
+                "ingredient": "chips",
+                "amount": 500,
+                "unit": "g"
+              },
+              {
+                "ingredient": "onion",
+                "amount": 1,
+                "unit": "piece",
+                "note": "large",
+                "preparation": "sliced"
+              },
+              {
+                "ingredient": "bell-pepper",
+                "amount": 1,
+                "unit": "piece",
+                "note": "green or red",
+                "preparation": "sliced"
+              },
+              {
+                "ingredient": "chilli",
+                "amount": 1,
+                "unit": "piece",
+                "preparation": "finely chopped"
+              },
+              {
+                "ingredient": "garlic",
+                "amount": 2,
+                "unit": "clove",
+                "preparation": "minced"
+              },
+              {
+                "ingredient": "vegetable-oil",
+                "amount": 1,
+                "unit": "tbsp"
+              }
+            ]
+          }
+        ],
+        "instructions": [
+          "Mix all the spices, sugar, and salt together in a small bowl.",
+          "Cook the chips according to package instructions (air fryer recommended for crispiness).",
+          "While chips are cooking, heat oil in a wok or large frying pan over high heat.",
+          "Stir-fry the onion, peppers, fresh chilli, and garlic for 2-3 minutes until softened but still crisp.",
+          "Add the cooked chips to the wok.",
+          "Sprinkle the spice mix over the chips and veg, tossing vigorously to coat everything evenly.",
+          "Serve immediately."
+        ]
+      },
+      "knownIngredients": [
+        {
+          "slug": "msg",
+          "name": "MSG",
+          "category": "spice"
+        },
+        {
+          "slug": "five-spice",
+          "name": "five spice",
+          "category": "spice"
+        },
+        {
+          "slug": "white-pepper",
+          "name": "white pepper",
+          "category": "spice"
+        },
+        {
+          "slug": "cayenne-pepper",
+          "name": "cayenne pepper",
+          "category": "spice"
+        },
+        {
+          "slug": "hot-chilli-powder",
+          "name": "hot chilli powder",
+          "category": "spice"
+        },
+        {
+          "slug": "chilli-flakes",
+          "name": "chilli flakes",
+          "category": "spice"
+        },
+        {
+          "slug": "sugar",
+          "name": "sugar",
+          "category": "other"
+        },
+        {
+          "slug": "salt",
+          "name": "salt",
+          "category": "spice"
+        },
+        {
+          "slug": "chips",
+          "name": "chips",
+          "category": "other"
+        },
+        {
+          "slug": "onion",
+          "name": "onion",
+          "category": "vegetable"
+        },
+        {
+          "slug": "bell-pepper",
+          "name": "bell pepper",
+          "category": "vegetable"
+        },
+        {
+          "slug": "chilli",
+          "name": "chilli",
+          "category": "spice"
+        },
+        {
+          "slug": "garlic",
+          "name": "garlic",
+          "category": "vegetable"
+        },
+        {
+          "slug": "vegetable-oil",
+          "name": "vegetable oil",
+          "category": "oil-fat"
+        }
+      ]
+    },
+    {
+      "images": [
+        "PXL_20260211_140114669.jpg",
+        "PXL_20260211_140119235.jpg"
+      ],
+      "expected": {
+        "title": "Cajun Sausage Pasta",
+        "description": "A hearty and creamy pasta dish with spicy Cajun sausage, fresh tomatoes, and a cheesy sauce.",
+        "cuisine": "Cajun",
+        "servings": 4,
+        "prepTime": 10,
+        "cookTime": 20,
+        "ingredientGroups": [
+          {
+            "items": [
+              {
+                "ingredient": "pasta",
+                "amount": 320,
+                "unit": "g"
+              },
+              {
+                "ingredient": "pork-sausages",
+                "amount": 6,
+                "unit": "piece",
+                "preparation": "deskinned",
+                "note": "Tesco finest work best"
+              },
+              {
+                "ingredient": "red-onion",
+                "amount": 1,
+                "unit": "piece",
+                "preparation": "finely chopped",
+                "note": "large"
+              },
+              {
+                "ingredient": "cajun-seasoning",
+                "amount": 4,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "smoked-paprika",
+                "amount": 2,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "dried-parsley",
+                "amount": 4,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "garlic-puree",
+                "amount": 4,
+                "unit": "tsp"
+              },
+              {
+                "ingredient": "fresh-tomatoes",
+                "amount": 4,
+                "unit": "piece",
+                "preparation": "diced"
+              },
+              {
+                "ingredient": "tomato-puree",
+                "amount": 2,
+                "unit": "tbsp"
+              },
+              {
+                "ingredient": "cheddar-cheese",
+                "amount": 80,
+                "unit": "g",
+                "preparation": "grated"
+              },
+              {
+                "ingredient": "cream-cheese",
+                "amount": 4,
+                "unit": "tbsp"
+              },
+              {
+                "ingredient": "black-pepper",
+                "note": "to season"
+              },
+              {
+                "ingredient": "olive-oil",
+                "note": "for frying"
+              }
+            ]
+          }
+        ],
+        "instructions": [
+          "Cook pasta according to package instructions, ensuring to save a few ladles of pasta water before draining.",
+          "While pasta is cooking, heat some oil in a separate pan on medium heat.",
+          "Add the deskinned sausages, red onion, cajun seasoning and paprika and cook for 5 minutes, breaking up the sausages as they cook.",
+          "Add in the garlic puree, dried parsley, tomatoes and tomato puree and cook for a few more minutes.",
+          "Stir in cream cheese and some pasta water. Add a little at a time to get desired consistency.",
+          "Bring to a simmer.",
+          "Add in grated cheese and cooked pasta ensuring it's all coated and melted.",
+          "Season with black pepper."
+        ]
+      },
+      "knownIngredients": [
+        {
+          "slug": "pasta",
+          "name": "pasta",
+          "category": "grain"
+        },
+        {
+          "slug": "pork-sausages",
+          "name": "pork sausages",
+          "category": "protein"
+        },
+        {
+          "slug": "red-onion",
+          "name": "red onion",
+          "category": "vegetable"
+        },
+        {
+          "slug": "cajun-seasoning",
+          "name": "cajun seasoning",
+          "category": "spice"
+        },
+        {
+          "slug": "smoked-paprika",
+          "name": "smoked paprika",
+          "category": "spice"
+        },
+        {
+          "slug": "dried-parsley",
+          "name": "dried parsley",
+          "category": "spice"
+        },
+        {
+          "slug": "garlic-puree",
+          "name": "garlic puree",
+          "category": "vegetable"
+        },
+        {
+          "slug": "fresh-tomatoes",
+          "name": "fresh tomatoes",
+          "category": "vegetable"
+        },
+        {
+          "slug": "tomato-puree",
+          "name": "tomato puree",
+          "category": "vegetable"
+        },
+        {
+          "slug": "cheddar-cheese",
+          "name": "cheddar cheese",
+          "category": "dairy"
+        },
+        {
+          "slug": "cream-cheese",
+          "name": "cream cheese",
+          "category": "dairy"
+        },
+        {
+          "slug": "black-pepper",
+          "name": "black pepper",
+          "category": "spice"
+        },
+        {
+          "slug": "olive-oil",
+          "name": "olive oil",
+          "category": "oil-fat"
+        }
+      ]
+    }
+  ]
+}
