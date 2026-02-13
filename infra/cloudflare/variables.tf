@@ -58,3 +58,9 @@ variable "posthog_host" {
   type        = string
   default     = "https://eu.posthog.com"
 }
+
+variable "r2_dvc_bucket_name" {
+  description = "Name of the R2 bucket for DVC data storage"
+  type        = string
+  default     = "dvc"
+}
