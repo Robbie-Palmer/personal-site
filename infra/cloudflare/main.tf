@@ -84,6 +84,12 @@ resource "cloudflare_r2_bucket" "map_tiles" {
   location   = "ENAM" # Eastern North America - closest to most users
 }
 
+resource "cloudflare_r2_bucket" "dvc" {
+  account_id = var.cloudflare_account_id
+  name       = var.r2_dvc_bucket_name
+  location   = "ENAM"
+}
+
 resource "cloudflare_ruleset" "map_tiles_cache" {
   zone_id     = data.cloudflare_zone.domain.id
   name        = "Map tiles cache settings"
@@ -108,4 +114,3 @@ resource "cloudflare_ruleset" "map_tiles_cache" {
     }
   }
 }
-

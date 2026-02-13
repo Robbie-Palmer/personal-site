@@ -22,3 +22,13 @@ output "r2_map_tiles_url" {
   description = "URL where map tiles will be served (requires custom domain setup)"
   value       = "https://${var.r2_map_tiles_subdomain}.${var.domain_name}"
 }
+
+output "r2_dvc_bucket_name" {
+  description = "Name of the R2 bucket for DVC storage"
+  value       = cloudflare_r2_bucket.dvc.name
+}
+
+output "r2_dvc_endpoint_url" {
+  description = "S3-compatible endpoint URL for DVC storage"
+  value       = "https://${var.cloudflare_account_id}.r2.cloudflarestorage.com"
+}
