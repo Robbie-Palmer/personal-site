@@ -59,3 +59,23 @@ Create a workspace in Terraform Cloud for remote state:
 The `.env` file is automatically loaded by mise when running tasks.
 
 See `mise.toml` for all available tasks.
+
+## R2 Buckets
+
+### `map-tiles`
+
+Public bucket serving map tile images via `tiles.robbiepalmer.me`.
+Has DNS records, cache rules, and proxied access configured in Terraform.
+
+### `dvc`
+
+Private bucket for ML pipeline data versioned with [DVC](https://dvc.org/).
+Accessed only via S3-compatible API with credentials — no public access.
+Used by `ml-pipelines/` projects each under their own prefix.
+
+To create an API token for access:
+[Cloudflare R2](https://dash.cloudflare.com/?to=/:account/r2/overview) →
+Manage R2 API Tokens → Create User API Token
+(Object Read & Write, scoped to `dvc` bucket).
+
+See [`ml-pipelines/README.md`](/ml-pipelines/README.md) for developer setup.

@@ -1,0 +1,6 @@
+outs:
+- md5: c016e91ef929d55fd41a2fb90521e92b.dir
+  size: 84063465
+  nfiles: 14
+  hash: md5
+  path: recipe-images
