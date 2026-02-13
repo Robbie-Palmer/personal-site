@@ -37,6 +37,7 @@ Manage R2 API Tokens to create one.
 Add to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.):
 
 ```bash
+export CLOUDFLARE_ACCOUNT_ID='your-cloudflare-account-id'
 export AWS_ACCESS_KEY_ID='your-access-key-id'
 export AWS_SECRET_ACCESS_KEY='your-secret-access-key'
 ```
