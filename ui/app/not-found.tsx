@@ -27,7 +27,8 @@ const sections = [
   },
   {
     title: "Recipes",
-    description: "Searchable digital recipe book with filtering and portion scaling",
+    description:
+      "Searchable digital recipe book with filtering and portion scaling",
     href: "/recipes",
   },
   {
