@@ -575,7 +575,8 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "PostHog",
-    description: "Open source product analytics, session replay, and experimentation",
+    description:
+      "Open source product analytics, session replay, and experimentation",
     website: "https://posthog.com",
     type: "platform",
   },
