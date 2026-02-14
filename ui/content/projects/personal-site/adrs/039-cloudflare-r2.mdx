@@ -18,7 +18,7 @@ Beyond these, there are several natural extensions for a project-oriented person
 * **Build Artifacts & Datasets**: Storing processed outputs from data pipelines, notebook exports, or generated reports that are too large for git but need to be referenced from content.
 * **User-Uploaded Content**: If sub-projects (e.g. Asset Tracker) ever accept user input, R2 provides a natural home for uploaded files without provisioning a separate storage service.
 * **Backup & Archival**: Snapshots of external data sources, API responses, or scraped datasets used in blog posts—ensuring reproducibility even if the original source disappears.
-* **Image Hosting via R2 + Worker**: As noted in [ADR 029], Cloudflare Images costs \~$5/month. A Cloudflare Pages Function or Worker sitting in front of an R2 bucket could serve and resize images on-the-fly using the [Cloudflare Image Resizing](https://developers.cloudflare.com/images/transform-images/) API, eliminating the fixed subscription cost entirely. The Worker adds a thin transformation layer while R2 handles storage at pay-as-you-go rates—a cheaper alternative once the number of stored images is modest but the traffic is high.
+* **Image Hosting via R2 + Worker**: As noted in \[ADR 029], Cloudflare Images costs \~$5/month. A Cloudflare Pages Function or Worker sitting in front of an R2 bucket could serve and resize images on-the-fly using the [Cloudflare Image Resizing](https://developers.cloudflare.com/images/transform-images/) API, eliminating the fixed subscription cost entirely. The Worker adds a thin transformation layer while R2 handles storage at pay-as-you-go rates—a cheaper alternative once the number of stored images is modest but the traffic is high.
 
 # Decision
 
@@ -39,7 +39,7 @@ This makes cost predictable and effectively zero at personal-project scale.
 
 ### Platform Consolidation
 
-The site already runs on Cloudflare: Pages for hosting [ADR 011], DNS [ADR 028], Images [ADR 029], and Terraform for IaC [ADR 017].
+The site already runs on Cloudflare: Pages for hosting \[ADR 011], DNS \[ADR 028], Images \[ADR 029], and Terraform for IaC \[ADR 017].
 Adding R2 keeps everything under one account, one billing relationship, and one set of API tokens—[Less Is More](/projects?tab=philosophy#less-is-more).
 There is no new platform to sign up for, no new IAM model to learn, and no cross-cloud networking to configure.
 
@@ -86,7 +86,7 @@ No separate CDN configuration is needed—Cloudflare's edge network sits in fron
 
 * **Zero Egress**: Serving map tiles, datasets, and images to users costs nothing beyond storage and operations—ideal for a site where traffic is unpredictable.
 * **Consolidation**: All infrastructure remains under one Cloudflare account, managed via Terraform—[Less Is More](/projects?tab=philosophy#less-is-more).
-* **Scalable Image Strategy**: R2 + a Pages Function/Worker provides a path to replace or supplement Cloudflare Images [ADR 029] with a pay-as-you-go model, eliminating the fixed \$5/month cost.
+* **Scalable Image Strategy**: R2 + a Pages Function/Worker provides a path to replace or supplement Cloudflare Images \[ADR 029] with a pay-as-you-go model, eliminating the fixed \$5/month cost.
 * **Tooling Compatibility**: S3-compatible API means DVC, AWS CLI, and any S3 SDK work out of the box with no custom integration.
 * **IaC**: Buckets, access controls, and caching rules are all defined in Terraform, versioned in git, and reviewed via Pull Requests.
 * **Edge Performance**: Public R2 buckets served via custom domains benefit from Cloudflare's global edge network automatically—no separate CDN setup required.

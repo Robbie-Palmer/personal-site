@@ -265,6 +265,13 @@ export const technologies: TechnologyContent[] = [
     type: "platform",
   },
   {
+    name: "Cloudflare R2",
+    description: "S3-compatible object storage with zero egress fees",
+    website: "https://www.cloudflare.com/products/r2",
+    iconSlug: "cloudflare",
+    type: "platform",
+  },
+  {
     name: "Terraform Cloud",
     description:
       "A SaaS platform for running Terraform and managing infrastructure state",
