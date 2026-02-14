@@ -573,4 +573,10 @@ export const technologies: TechnologyContent[] = [
     website: "https://www.sigmajs.org",
     type: "library",
   },
+  {
+    name: "PostHog",
+    description: "Open source product analytics, session replay, and experimentation",
+    website: "https://posthog.com",
+    type: "platform",
+  },
 ];
