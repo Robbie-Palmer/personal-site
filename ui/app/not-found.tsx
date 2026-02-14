@@ -26,6 +26,12 @@ const sections = [
     href: "/experience",
   },
   {
+    title: "Recipes",
+    description:
+      "Searchable digital recipe book with filtering and portion scaling",
+    href: "/recipes",
+  },
+  {
     title: "Asset Tracker",
     description: "Track and manage your assets",
     href: "/assettracker",

@@ -1,0 +1,317 @@
+---
+title: "Recipe Site"
+description: "A digital recipe book that replaces handwritten collections with powerful search, filtering, and kitchen-friendly features"
+date: "2026-02-14"
+repo_url: "https://github.com/Robbie-Palmer/personal-site"
+demo_url: "https://robbiepalmer.me/recipes"
+status: "live"
+---
+
+# Vision
+
+A digital recipe book that replaces our handwritten collection with a searchable, editable, shareable platform
+that works better in every scenario — especially the kitchen.
+
+We have used a handwritten recipe book for years. It has genuine UX strengths: no lock screens, no risk of water
+or food damage to an expensive device, easy to prop open on a counter. But the limitations are severe enough
+that we lose recipes, avoid making changes, and work around the format constantly. A digital version should
+preserve what works about the physical book (glanceable, kitchen-friendly) while eliminating everything that
+doesn't.
+
+# Problem Statement
+
+A handwritten recipe book creates friction at every stage of the recipe lifecycle:
+
+**Collecting recipes is inconvenient.** Adding a recipe requires being physically with the book and having time
+to transcribe by hand. Recipes discovered online, from friends, or from social media (saved Instagram videos,
+bookmarked websites, Facebook posts) pile up across different platforms and many are lost. The barrier to entry
+is too high for casual additions.
+
+**Editing is destructive.** Adapting a recipe often means destroying the original page and rewriting entirely —
+there's no room for new instructions, and scoring out old text makes the page illegible. This discourages
+experimentation. Recipes need multiple attempts before settling on a final form, but the cost of each iteration
+is a full page rewrite.
+
+**Finding recipes is slow.** Locating a specific recipe means flicking through every page. There's no search,
+no filtering by cuisine or cooking time, no way to answer "what can I make in under 30 minutes?" without
+reading every entry.
+
+**Shopping is manual transcription.** To shop for a recipe, we manually copy ingredients from the book into
+a notes app on our phones to use as a checklist in the supermarket. This is tedious, error-prone, and
+completely unnecessary with digital data.
+
+**Portioning is error-prone.** Scaling recipes up or down requires mentally converting every ingredient amount.
+When ingredients appear mid-recipe in the instructions, it's easy to forget to convert them and use the
+amount on the page — resulting in failed dishes. The page should display the truth of what you want, not
+require mental arithmetic.
+
+**Unit confusion.** We collect recipes from different countries with different measurement systems — cups,
+Fahrenheit, metric. These often don't match our measuring utensils and cause confusion during cooking.
+
+**The book can be lost.** A single physical copy with no backup. If it's lost, damaged, or destroyed,
+years of collected recipes are gone.
+
+# User Stories
+
+**For the cooks (us):**
+
+* I want to search and filter recipes by cuisine, ingredient, or cooking time, so I can quickly decide what to make without flicking through every page
+* I want to adjust portion sizes and see all ingredient quantities update automatically, so I never miscalculate when scaling a recipe
+* I want to convert between measurement units (metric, imperial, cups), so recipes from any country work with my utensils
+* I want a cooking mode with large text and step-by-step progression, so I can follow a recipe in the kitchen without fiddling with a device
+* I want inline timers in recipe steps, so I don't need to context-switch to a separate timer app or shout at a voice assistant
+* I want to save recipes as drafts without worrying about perfection, so I actually capture recipes when I find them instead of losing them
+* I want to edit recipes non-destructively, so I can iterate and improve without losing the original
+* I want to generate shopping lists from one or more recipes, so I never have to manually transcribe ingredients again
+* I want to access my recipes from any device, anywhere, so I'm not dependent on being physically near a book
+
+**For friends and family:**
+
+* I want to browse their recipes on a shared website, so I can try dishes they've recommended
+* I want to share a link to a specific recipe, so I can send it to someone who asks "how do you make that?"
+
+**For future users (with accounts):**
+
+* I want to add recommended recipes to my own collection, so I can personalize and adapt them
+* I want to favorite and rank recipes, so my most-loved dishes are easy to find
+* I want to track what I've cooked and when, so I can identify popular vs neglected recipes and avoid repeating meals too frequently
+
+# Features
+
+## Core (MVP)
+
+### Recipe Browsing & Discovery
+
+* **Full-text fuzzy search** across recipe titles, descriptions, cuisines, and ingredients
+* **Multi-filter system** — filter by cuisine, ingredient, prep time, total cooking time
+* **Recipe cards** with images, cuisine badges, and time estimates
+
+### Recipe Detail & Cooking
+
+* **Serving size adjustment** — increase or decrease portions with all ingredient quantities scaling automatically
+* **Unit conversion** — global preference toggle (e.g., "show everything in metric") and per-ingredient inline conversion (tap to toggle between metric/imperial/cups)
+* **Structured ingredients** — grouped by category (e.g., "Spice Mix", "Sauce"), with quantities, units, and preparation notes
+* **Step-by-step instructions** — numbered, clear, scannable
+
+### Content Management
+
+* **Recipes as code** — type-safe TypeScript definitions with Zod schema validation
+* **Draft status** — `draft | published` workflow so recipes can be captured immediately and refined later
+* **Attribution** — track recipe origin (e.g., "Grandma's book", "BBC Good Food", "Instagram @chef")
+* **Git-backed** — full version history, non-destructive edits, impossible to lose
+
+## Phase 2: Kitchen Experience
+
+### Cooking Mode
+
+A simplified, large-font, step-by-step view optimized for kitchen use. One step at a time with large tap
+targets to move forward and back. Designed for messy hands and quick glances — the digital equivalent
+of a propped-open book, but better.
+
+### Inline Timers
+
+Recipe steps that mention durations (e.g., "simmer for 20 minutes") get a tap-to-start countdown timer.
+Multiple timers can run simultaneously for complex recipes. Eliminates the need to context-switch to a
+separate app or shout at a voice assistant.
+
+### Progressive Web App (PWA)
+
+Service worker for offline access — recipes load even with poor signal, critical for kitchens and
+supermarkets where connectivity is unreliable. Home screen installation for app-like experience
+without app store friction.
+
+## Phase 3: Shopping & Meal Planning
+
+### Smart Shopping Lists
+
+* Generate a shopping list from a single recipe or aggregate across multiple recipes for meal planning
+* Deduplicate and merge ingredients (e.g., two recipes both needing onions combines into one entry)
+* Checkbox interface for ticking off items while shopping
+* Works offline (PWA) for use in supermarkets with poor signal
+
+### Meal Planning Calendar
+
+* Drag recipes onto days of the week
+* Auto-generate aggregated shopping lists for the planned period
+* Visual overview of the week's meals
+
+## Phase 4: Recipe Ingestion Pipeline
+
+### Photo-to-Recipe (Physical Book Digitization)
+
+ML pipeline to photograph handwritten or printed recipe pages and extract structured recipe data.
+Enables batch digitization of existing physical recipe collections.
+
+### Website Import
+
+Parse recipes from URLs using schema.org `Recipe` structured data markup. Many recipe websites
+already publish structured data — this enables one-click import rather than manual transcription.
+Fall back to ML-based extraction for sites without structured markup.
+
+### PR-Based Workflow
+
+Ingested recipes (from photos or URLs) create pull requests for review before merging into the
+recipe collection. Maintains quality control and the git-backed audit trail. Longer term,
+the ingestion pipeline likely moves to writing directly to a database.
+
+## Phase 5: Personalization & Social
+
+### User Accounts
+
+Accounts for personalization, not privacy — all recipes remain publicly accessible. Accounts enable:
+
+* **Favorites** — bookmark recipes for quick access
+* **Personal rankings** — rate and sort by preference
+* **Cooking log** — tap to record what was cooked and when
+* **Recipe recommendations** — suggest recipes to friends, who can add them to "their recipe book"
+* **Personalized variations** — fork a recipe with edits, maintaining lineage to the original
+
+### Usage Analytics
+
+* Identify popular vs rarely-cooked recipes
+* Sort by "haven't made in a while" to encourage variety
+* Track cooking frequency over time
+
+## Phase 6: Nutrition & Intelligence
+
+### Nutritional Analysis
+
+Structured digital ingredient data enables:
+
+* Per-recipe nutritional breakdown (calories, macros, micronutrients)
+* Dietary pattern analysis — what ingredients appear most, what gaps exist
+* Cooking log integration — what nutrients were consumed over time, similar to aspects of Zoe
+  but with different emphasis (recipe-centric rather than food-logging-centric)
+
+### Portion Adjustment Memory
+
+Remember the last portion size used per recipe — if the pasta bake is always made for 6, default to
+6 instead of the base recipe's 4.
+
+## Future Ideas
+
+### "What Can I Make?"
+
+Enter ingredients on hand, find matching recipes. The ingredient graph already supports reverse
+lookups — this is primarily a UI feature.
+
+### Seasonal Suggestions
+
+Tag ingredients as seasonal, surface relevant recipes by time of year.
+
+### Recipe Versioning
+
+Git-like history per recipe. Show a diff of what changed between versions — directly addresses
+the destructive editing pain point.
+
+### Printed Recipe Book
+
+Partner with a hardback book printing company to let users print their own physical recipe book
+from their account as a gift. Emphasis on this being a novelty souvenir/gift — a complement to
+the digital experience, not a replacement for it.
+
+### Open Standard Data
+
+Consider adopting [schema.org Recipe](https://schema.org/Recipe) markup for our own recipe data.
+Using open standards enables interoperability — recipes can be consumed by search engines,
+imported by other tools, and exported without vendor lock-in.
+
+# Why Digital Beats Physical
+
+| Dimension | Physical Book | Recipe Site |
+| --- | --- | --- |
+| **Access** | Must be near the book | Any device, anywhere |
+| **Search** | Flick through every page | Instant full-text search |
+| **Filter** | Read every recipe's details | One-click by cuisine, time, ingredient |
+| **Edit** | Destructive — rewrite entire page | Non-destructive — full version history |
+| **Share** | Physically hand over the book | Send a link |
+| **Backup** | Single copy, can be lost | Git + Cloudflare artifacts |
+| **Shopping** | Manual transcription to phone | Auto-generated checklist |
+| **Portioning** | Mental arithmetic, easy to forget mid-recipe | Click a button, page shows the truth |
+| **Units** | Whatever the source used | Converted to your preference |
+| **Adding recipes** | Must be with book, manual handwriting | Paste, import, or photograph from anywhere |
+| **Kitchen UX** | Easy to prop open, no lock screen | Cooking mode: large text, step-by-step, timers |
+
+# What This Preserves From the Physical Book
+
+The physical book isn't all bad. The recipe site should preserve its strengths:
+
+* **Glanceability** — cooking mode replicates the "propped open book" experience with large, readable text
+* **No fiddling** — large tap targets, no tiny buttons, no accidental navigation
+* **Resilience** — PWA works offline; no "phone died mid-recipe" failure mode
+* **Tangibility** — the printed recipe book feature lets users create physical artifacts when the occasion calls for it
+
+# Architecture
+
+## Current: Static Site
+
+The recipe site is a section of the personal site — a Next.js 15 static export deployed to
+Cloudflare Pages. Recipes are TypeScript objects with Zod schema validation, stored in git.
+
+This architecture is intentionally simple:
+
+* **No backend** — no servers, no database, no auth
+* **No cost** — Cloudflare Pages free tier
+* **No ops** — static files served from a CDN
+* **Type-safe** — Zod schemas catch errors at build time
+* **Version-controlled** — every change is a git commit
+
+## Future: Dynamic Features
+
+Features like user accounts, cooking logs, shopping list state, and favorites require persistent
+user state. The natural evolution:
+
+* **Cloudflare D1** (SQLite at the edge) for structured user data
+* **Cloudflare KV** for session/preference storage
+* **Cloudflare Workers** for API endpoints
+
+Recipes themselves may stay as static content (git-backed, type-safe) while user-specific data
+lives in D1. This hybrid approach preserves the benefits of static generation for the core
+content while adding dynamic capabilities only where needed.
+
+## Recipe Ingestion
+
+Short/medium term: an ingestion pipeline (photo parsing, website import) that creates PRs for
+review. Longer term: likely moves to writing directly to a database as the content management
+needs outgrow git-based workflows.
+
+# Building Philosophy
+
+This project follows my [building philosophy](/projects?tab=philosophy).
+
+The recipe site is a textbook case for several principles:
+
+* **Short feedback loops** — ship the static recipe list first, learn from real kitchen use, then build features
+* **Build flywheels** — every recipe added makes the site more valuable. The ingredient graph, search index, and filtering all improve with more content. Structured data compounds into nutritional analysis, shopping lists, and meal planning
+* **Leverage tech debt** — start with recipes as TypeScript objects in git. It's not scalable for non-technical users, but it's perfect for two people who can commit code. Move to a database when the constraint actually bites
+* **Less is more** — built on the existing personal site infrastructure. No new deployment pipeline, no new hosting, no new CI/CD. The recipe site is a route, not a separate application
+
+# Risks
+
+## Adoption friction
+
+The primary users (us) need to actually use this instead of the physical book. If the digital
+experience is worse in the kitchen — too small, too fiddly, too many taps — we'll default back
+to the book. Cooking mode is the critical feature that determines whether this replaces or merely
+supplements the physical book.
+
+**Mitigation:** Build cooking mode early (Phase 2, not Phase 6). Test in actual cooking sessions.
+Optimize for the messiest, most stressful moments — hands covered in flour, timer going off,
+three things on the stove.
+
+## Content migration effort
+
+18 recipes are already digitized, but the physical book likely contains many more. Batch
+digitization requires the ML parsing pipeline to work well enough to be faster than manual entry.
+
+**Mitigation:** The photo-to-recipe pipeline is already in development (`ml-pipelines/recipe-parsing/`).
+Even imperfect parsing that requires manual correction is faster than transcribing from scratch.
+And the draft workflow means partially-parsed recipes can be saved immediately and refined later.
+
+## Feature creep
+
+The feature list above is ambitious. Building everything before shipping anything would violate
+every principle in the building philosophy.
+
+**Mitigation:** Strict phasing. MVP is already live. Each phase ships independently and delivers
+value on its own. No phase depends on a later phase being built.
