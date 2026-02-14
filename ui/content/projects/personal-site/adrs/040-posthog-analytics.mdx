@@ -74,19 +74,19 @@ PostHog is built for engineers. The SDK is straightforward, the documentation is
 ### Plausible Analytics
 
 * **Pros**: Privacy-first. Simple, clean dashboard. No cookies required. Open source. EU-hosted.
-* **Cons**: Intentionally minimal—covers only tier 1 (basic analytics). No custom events beyond simple goals. No user flow analysis, no A/B testing, no session replay, no feature flags. Would require adding a second platform as soon as needs go beyond page views. Paid only (no free tier for cloud-hosted).
+* **Cons**: Intentionally minimal—covers only tier 1 (basic analytics). While it supports custom events and funnels, its user analysis capabilities are limited. No built-in A/B testing, session replay, or feature flags. Would require adding a second platform as soon as needs go beyond page views. Paid only (no free tier for cloud-hosted).
 * **Decision**: Rejected. Too narrow. Solves the immediate problem but creates the same platform proliferation issue it was meant to avoid.
 
 ### Mixpanel
 
 * **Pros**: Strong product analytics. Good funnel and cohort analysis. Generous free tier (20M events/month).
-* **Cons**: Focused on product analytics rather than web analytics—less suited for content-heavy sites. No built-in A/B testing, feature flags, or session replay. Would still require additional platforms for experimentation. More complex setup for what starts as a simple analytics need.
+* **Cons**: Focused on product analytics rather than web analytics—less suited for content-heavy sites. No built-in session replay and limited feature flags compared to PostHog. Would still require additional platforms for a complete toolset. More complex setup for what starts as a simple analytics need.
 * **Decision**: Rejected. Better suited for SaaS products than a personal site with growing sub-projects.
 
 ### Amplitude
 
 * **Pros**: Powerful behavioural analytics. Good visualisation tools. Free tier available.
-* **Cons**: Similar to Mixpanel in scope—strong on product analytics, weak on the broader platform features (no feature flags, no A/B testing, no session replay). Enterprise-oriented UX that is heavyweight for a personal project.
+* **Cons**: Similar to Mixpanel in scope—strong on product analytics, but weaker on broader platform features compared to PostHog (e.g., feature flags are less integrated). While it offers A/B testing and session replay, its enterprise-oriented UX is heavyweight for a personal project.
 * **Decision**: Rejected. Overkill for analytics alone, yet still incomplete as a platform.
 
 # Consequences
