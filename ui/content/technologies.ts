@@ -265,6 +265,13 @@ export const technologies: TechnologyContent[] = [
     type: "platform",
   },
   {
+    name: "Cloudflare R2",
+    description: "S3-compatible object storage with zero egress fees",
+    website: "https://www.cloudflare.com/products/r2",
+    iconSlug: "cloudflare",
+    type: "platform",
+  },
+  {
     name: "Terraform Cloud",
     description:
       "A SaaS platform for running Terraform and managing infrastructure state",
@@ -565,5 +572,12 @@ export const technologies: TechnologyContent[] = [
     description: "WebGL-powered graph visualization for the web",
     website: "https://www.sigmajs.org",
     type: "library",
+  },
+  {
+    name: "PostHog",
+    description:
+      "Open source product analytics, session replay, and experimentation",
+    website: "https://posthog.com",
+    type: "platform",
   },
 ];
