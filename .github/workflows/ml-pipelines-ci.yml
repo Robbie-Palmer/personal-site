@@ -41,6 +41,16 @@ jobs:
       - name: Validate DVC remote
         run: dvc pull
 
+      - uses: jdx/mise-action@v2
+        with:
+          experimental: true
+
+      - name: Install dependencies
+        run: mise run //:install
+
+      - name: Run tests
+        run: mise :test
+
       - name: Comment metrics on PR
         run: |
           # Fetch main to ensure we have a reference for diff

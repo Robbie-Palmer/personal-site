@@ -1,0 +1,3 @@
+[tasks.test]
+description = "Run tests for recipe-parsing"
+run = "pnpm test"
