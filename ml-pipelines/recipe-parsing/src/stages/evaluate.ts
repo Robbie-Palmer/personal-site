@@ -10,8 +10,10 @@ import { aggregateMetrics } from "../evaluation/metrics";
 async function main() {
   console.log("Loading prepared data and predictions...");
 
-  const prepared = await loadPreparedData();
-  const predictions = await loadPredictions();
+  const [prepared, predictions] = await Promise.all([
+    loadPreparedData(),
+    loadPredictions(),
+  ]);
 
   if (predictions.entries.length !== prepared.entries.length) {
     throw new Error(
@@ -36,8 +38,10 @@ async function main() {
     prepared.entries,
   );
 
-  await writeJson(METRICS_PATH, metrics);
-  await writeJson(PER_IMAGE_SCORES_PATH, perEntry);
+  await Promise.all([
+    writeJson(METRICS_PATH, metrics),
+    writeJson(PER_IMAGE_SCORES_PATH, perEntry),
+  ]);
 
   console.log(`\nResults (${metrics.entryCount} entries):`);
   console.log(`  Overall Score:           ${metrics.overall.score.toFixed(3)}`);
