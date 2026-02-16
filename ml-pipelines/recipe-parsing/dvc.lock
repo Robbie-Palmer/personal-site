@@ -71,8 +71,8 @@ stages:
       size: 43979
     - path: src/evaluation/metrics.ts
       hash: md5
-      md5: 64b14dffb923ae68d2e0f71bd385e5a3
-      size: 12236
+      md5: 98985d598717ea7c7d6b7c73426def89
+      size: 14699
     - path: src/lib/io.ts
       hash: md5
       md5: aa0435990efa125ba8df4d2a5adb7436
@@ -84,9 +84,9 @@ stages:
     outs:
     - path: outputs/metrics.json
       hash: md5
-      md5: f6089fb4b4124c88a6fdd894155115b5
-      size: 2225
+      md5: 590f379de8c303a75adedc300ed54a68
+      size: 2239
     - path: outputs/per-image-scores.json
       hash: md5
-      md5: 175084954126fa2331f0830bb38bfcde
-      size: 2777
+      md5: dd8fbe3abf84ab05551d0daac77070c5
+      size: 2803
