@@ -1,0 +1,92 @@
+schema: '2.0'
+stages:
+  prepare:
+    cmd: pnpm exec tsx src/stages/prepare.ts
+    deps:
+    - path: data/ground-truth.json
+      hash: md5
+      md5: ecfea59f037f715563a1536885d7a318
+      size: 43979
+    - path: data/recipe-images
+      hash: md5
+      md5: c016e91ef929d55fd41a2fb90521e92b.dir
+      size: 84063465
+      nfiles: 14
+    - path: src/lib/io.ts
+      hash: md5
+      md5: aa0435990efa125ba8df4d2a5adb7436
+      size: 1802
+    - path: src/schemas/ground-truth.ts
+      hash: md5
+      md5: 3719b427c4e651040d0f72eb95a1357b
+      size: 1351
+    - path: src/stages/prepare.ts
+      hash: md5
+      md5: c065734c2c84c5539d937071f33952f8
+      size: 1128
+    outs:
+    - path: outputs/prepared.json
+      hash: md5
+      md5: a7717f55be5e97d00a719c3281133cad
+      size: 43979
+  infer:
+    cmd: pnpm exec tsx src/stages/infer.ts
+    deps:
+    - path: data/recipe-images
+      hash: md5
+      md5: c016e91ef929d55fd41a2fb90521e92b.dir
+      size: 84063465
+      nfiles: 14
+    - path: outputs/prepared.json
+      hash: md5
+      md5: a7717f55be5e97d00a719c3281133cad
+      size: 43979
+    - path: src/lib/io.ts
+      hash: md5
+      md5: aa0435990efa125ba8df4d2a5adb7436
+      size: 1802
+    - path: src/schemas/ground-truth.ts
+      hash: md5
+      md5: 3719b427c4e651040d0f72eb95a1357b
+      size: 1351
+    - path: src/stages/infer.ts
+      hash: md5
+      md5: 1145c27a2f8c512c60e1a5d14e39586a
+      size: 2048
+    outs:
+    - path: outputs/predictions.json
+      hash: md5
+      md5: 74cbfe529c8cc8391c67e22e5703af88
+      size: 15673
+  evaluate:
+    cmd: pnpm exec tsx src/stages/evaluate.ts
+    deps:
+    - path: outputs/predictions.json
+      hash: md5
+      md5: 74cbfe529c8cc8391c67e22e5703af88
+      size: 15673
+    - path: outputs/prepared.json
+      hash: md5
+      md5: a7717f55be5e97d00a719c3281133cad
+      size: 43979
+    - path: src/evaluation/metrics.ts
+      hash: md5
+      md5: 98985d598717ea7c7d6b7c73426def89
+      size: 14699
+    - path: src/lib/io.ts
+      hash: md5
+      md5: aa0435990efa125ba8df4d2a5adb7436
+      size: 1802
+    - path: src/stages/evaluate.ts
+      hash: md5
+      md5: 1174162e20a21347c1bc80ccfb5a3b53
+      size: 2130
+    outs:
+    - path: outputs/metrics.json
+      hash: md5
+      md5: 590f379de8c303a75adedc300ed54a68
+      size: 2239
+    - path: outputs/per-image-scores.json
+      hash: md5
+      md5: dd8fbe3abf84ab05551d0daac77070c5
+      size: 2803

@@ -8,15 +8,17 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
-  dvc-pull:
+  dvc-validate-and-report:
     runs-on: ubuntu-latest
     environment:
       name: cloudflare-production
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      GH_TOKEN: ${{ github.token }}
     strategy:
       matrix:
         pipeline:
@@ -26,6 +28,8 @@ jobs:
         working-directory: ml-pipelines/${{ matrix.pipeline }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -36,3 +40,46 @@ jobs:
 
       - name: Validate DVC remote
         run: dvc pull
+
+      - uses: jdx/mise-action@v2
+        with:
+          experimental: true
+
+      - name: Install dependencies
+        run: mise run //:install
+
+      - name: Run tests
+        run: mise :test
+
+      - name: Comment metrics on PR
+        run: |
+          # Fetch main to ensure we have a reference for diff
+          git fetch origin main:refs/remotes/origin/main || echo "Failed to fetch origin/main"
+          
+          echo "Debug: Running dvc metrics diff..."
+          DIFF=$(dvc metrics diff --md origin/main || echo "DVC diff failed")
+          echo "Debug: DIFF Content:"
+          echo "$DIFF"
+          
+          DATA_ROWS=$(echo "$DIFF" | grep -c '^|' || true)
+          echo "Debug: Data rows count: $DATA_ROWS"
+          
+          if [ "$DATA_ROWS" -gt 2 ]; then
+             BODY="## ${{ matrix.pipeline }} metrics diff"$'\n\n'"$DIFF"
+          else
+             echo "Debug: Running dvc metrics show..."
+             # Note: --all is not valid for 'show', removing it.
+             SHOW=$(dvc metrics show --md || echo "DVC show failed")
+             echo "Debug: SHOW Content:"
+             echo "$SHOW"
+             BODY="## ${{ matrix.pipeline }} metrics"$'\n\n'"$SHOW"
+          fi
+          
+          # Write body to a temporary file to handle special characters robustly
+          BODY_FILE=$(mktemp)
+          echo "$BODY" > "$BODY_FILE"
+          
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file "$BODY_FILE" --edit-last \
+            || gh pr comment "${{ github.event.pull_request.number }}" --body-file "$BODY_FILE"
+          
+          rm -f "$BODY_FILE"

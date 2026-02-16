@@ -1,0 +1,35 @@
+stages:
+  prepare:
+    cmd: pnpm exec tsx src/stages/prepare.ts
+    deps:
+      - data/ground-truth.json
+      - data/recipe-images
+      - src/stages/prepare.ts
+      - src/schemas/ground-truth.ts
+      - src/lib/io.ts
+    outs:
+      - outputs/prepared.json
+
+  infer:
+    cmd: pnpm exec tsx src/stages/infer.ts
+    deps:
+      - outputs/prepared.json
+      - data/recipe-images
+      - src/stages/infer.ts
+      - src/schemas/ground-truth.ts
+      - src/lib/io.ts
+    outs:
+      - outputs/predictions.json
+
+  evaluate:
+    cmd: pnpm exec tsx src/stages/evaluate.ts
+    deps:
+      - outputs/prepared.json
+      - outputs/predictions.json
+      - src/stages/evaluate.ts
+      - src/evaluation/metrics.ts
+      - src/lib/io.ts
+    metrics:
+      - outputs/metrics.json
+    plots:
+      - outputs/per-image-scores.json
