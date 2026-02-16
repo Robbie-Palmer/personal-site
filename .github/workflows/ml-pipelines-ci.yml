@@ -44,7 +44,7 @@ jobs:
       - name: Comment metrics on PR
         run: |
           # Fetch main to ensure we have a reference for diff
-          git fetch origin main:refs/remotes/origin/main --depth=1 || echo "Failed to fetch origin/main"
+          git fetch origin main:refs/remotes/origin/main || echo "Failed to fetch origin/main"
           
           echo "Debug: Running dvc metrics diff..."
           DIFF=$(dvc metrics diff --md origin/main || echo "DVC diff failed")
@@ -65,5 +65,11 @@ jobs:
              BODY="## ${{ matrix.pipeline }} metrics"$'\n\n'"$SHOW"
           fi
           
-          gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY" --edit-last \
-            || gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY"
+          # Write body to a temporary file to handle special characters robustly
+          BODY_FILE=$(mktemp)
+          echo "$BODY" > "$BODY_FILE"
+          
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file "$BODY_FILE" --edit-last \
+            || gh pr comment "${{ github.event.pull_request.number }}" --body-file "$BODY_FILE"
+          
+          rm -f "$BODY_FILE"

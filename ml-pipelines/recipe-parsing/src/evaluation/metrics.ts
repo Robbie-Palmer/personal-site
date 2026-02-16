@@ -57,10 +57,10 @@ export interface AggregateMetrics {
   entryCount: number;
 }
 
-function splitWords(text: string): string[] {
+export function splitWords(text: string): string[] {
   return text
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .split(/\s+/)
     .filter((t) => t.length > 0);
 }
@@ -266,7 +266,17 @@ export function evaluateIngredientCategorization(
   const expectedCategories = new Map<string, string>();
   for (const ing of expectedIngredients) {
     if (ing.category) {
-      expectedCategories.set(ing.slug ?? normalizeSlug(ing.name), ing.category);
+      const slug = ing.slug ?? normalizeSlug(ing.name);
+      if (expectedCategories.has(slug)) {
+        const existing = expectedCategories.get(slug);
+        if (existing !== ing.category) {
+          console.warn(
+            `Duplicate slug in expected ingredients: ${slug}. keeping ${existing}, ignoring ${ing.category} for ${ing.name}`,
+          );
+        }
+      } else {
+        expectedCategories.set(slug, ing.category);
+      }
     }
   }
 
@@ -274,7 +284,17 @@ export function evaluateIngredientCategorization(
   if (predictedIngredients) {
     for (const ing of predictedIngredients) {
       if (ing.category) {
-        predictedCategories.set(ing.slug ?? normalizeSlug(ing.name), ing.category);
+        const slug = ing.slug ?? normalizeSlug(ing.name);
+        if (predictedCategories.has(slug)) {
+          const existing = predictedCategories.get(slug);
+          if (existing !== ing.category) {
+            console.warn(
+              `Duplicate slug in predicted ingredients: ${slug}. keeping ${existing}, ignoring ${ing.category} for ${ing.name}`,
+            );
+          }
+        } else {
+          predictedCategories.set(slug, ing.category);
+        }
       }
     }
   }
@@ -408,6 +428,12 @@ export function aggregateMetrics(
   predictions: PredictionEntry[],
   groundTruth: GroundTruthEntry[],
 ): { metrics: AggregateMetrics; perEntry: EntryScores[] } {
+  if (predictions.length !== groundTruth.length) {
+    throw new Error(
+      `Length mismatch: predictions (${predictions.length}) vs groundTruth (${groundTruth.length})`,
+    );
+  }
+
   const allScalar: ScalarFieldScores[] = [];
   const allIngredients: IngredientParsingScores[] = [];
   const allCategorization: IngredientCategorizationScores[] = [];

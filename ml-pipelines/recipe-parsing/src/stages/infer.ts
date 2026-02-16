@@ -21,6 +21,9 @@ const DUMMY_UNITS = ["g", "ml", "piece", "tsp", "tbsp"] as const;
 const DUMMY_CUISINES = ["Italian", "Asian", "Spanish", "British"] as const;
 
 function randomFrom<T>(arr: readonly T[]): T {
+  if (arr.length === 0) {
+    throw new Error("randomFrom called with empty array");
+  }
   return arr[Math.floor(Math.random() * arr.length)]!;
 }
 
