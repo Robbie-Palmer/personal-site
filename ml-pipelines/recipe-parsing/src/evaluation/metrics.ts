@@ -47,7 +47,7 @@ export interface EntryScores {
 }
 
 export interface AggregateMetrics {
-  overall: F1Scores;
+  overall: { score: number };
   byCategory: {
     scalarFields: ScalarFieldScores;
     ingredientParsing: IngredientParsingScores;
@@ -397,10 +397,8 @@ export function aggregateMetrics(
     perCategory,
   };
   const instructions = avgF1(allInstructions);
-  const overall: F1Scores = {
-    precision: avg(perEntry.map((e) => e.scores.overall)),
-    recall: avg(perEntry.map((e) => e.scores.overall)),
-    f1: avg(perEntry.map((e) => e.scores.overall)),
+  const overall: { score: number } = {
+    score: avg(perEntry.map((e) => e.scores.overall)),
   };
   return {
     metrics: {

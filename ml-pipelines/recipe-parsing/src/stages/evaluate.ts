@@ -47,7 +47,7 @@ async function main() {
   writeFileSync(PER_IMAGE_PATH, JSON.stringify(perEntry, null, 2));
 
   console.log(`\nResults (${metrics.entryCount} entries):`);
-  console.log(`  Overall F1:              ${metrics.overall.f1.toFixed(3)}`);
+  console.log(`  Overall Score:           ${metrics.overall.score.toFixed(3)}`);
   console.log(
     `  Ingredient Parsing F1:   ${metrics.byCategory.ingredientParsing.f1.toFixed(3)}`,
   );
