@@ -83,6 +83,12 @@ export function computeSetF1(
   return { precision, recall, f1 };
 }
 
+/**
+ * Compute F1 score based on word overlap.
+ *
+ * Note: uses Set semantics, so duplicate words are collapsed.
+ * A "bag of words" approach would be needed to account for word frequency.
+ */
 export function computeWordOverlapF1(
   predicted: string,
   expected: string,
@@ -282,6 +288,36 @@ export function evaluateInstructions(
   );
 }
 
+export function computeEntryScores(
+  scalar: ScalarFieldScores,
+  ingredients: IngredientParsingScores,
+  categorization: IngredientCategorizationScores,
+  instructions: F1Scores,
+): EntryScores["scores"] {
+  const scalarScore = avg([
+    scalar.title.f1,
+    scalar.description.f1,
+    scalar.cuisine.accuracy,
+    scalar.servings.accuracy,
+    scalar.prepTime.accuracy,
+    scalar.cookTime.accuracy,
+  ]);
+  // Overall: weighted average of category scores
+  const overall = avg([
+    scalarScore,
+    ingredients.f1,
+    categorization.accuracy,
+    instructions.f1,
+  ]);
+  return {
+    overall,
+    scalarFields: scalarScore,
+    ingredientParsing: ingredients.f1,
+    ingredientCategorization: categorization.accuracy,
+    instructions: instructions.f1,
+  };
+}
+
 export function evaluateEntry(
   prediction: PredictionEntry,
   expected: GroundTruthEntry,
@@ -299,30 +335,15 @@ export function evaluateEntry(
     prediction.predicted,
     expected.expected,
   );
-  const scalarScore = avg([
-    scalar.title.f1,
-    scalar.description.f1,
-    scalar.cuisine.accuracy,
-    scalar.servings.accuracy,
-    scalar.prepTime.accuracy,
-    scalar.cookTime.accuracy,
-  ]);
-  // Overall: weighted average of category scores
-  const overall = avg([
-    scalarScore,
-    ingredients.f1,
-    categorization.accuracy,
-    instructions.f1,
-  ]);
+  const scores = computeEntryScores(
+    scalar,
+    ingredients,
+    categorization,
+    instructions,
+  );
   return {
     images: prediction.images,
-    scores: {
-      overall,
-      scalarFields: scalarScore,
-      ingredientParsing: ingredients.f1,
-      ingredientCategorization: categorization.accuracy,
-      instructions: instructions.f1,
-    },
+    scores,
   };
 }
 
@@ -353,7 +374,16 @@ export function aggregateMetrics(
     allCategorization.push(categorization);
     allInstructions.push(instructions);
 
-    perEntry.push(evaluateEntry(pred, gt));
+    const scores = computeEntryScores(
+      scalar,
+      ingredients,
+      categorization,
+      instructions,
+    );
+    perEntry.push({
+      images: pred.images,
+      scores,
+    });
   }
 
   const scalarFields: ScalarFieldScores = {

@@ -11,7 +11,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  dvc-pull:
+  dvc-validate-and-report:
     runs-on: ubuntu-latest
     environment:
       name: cloudflare-production
