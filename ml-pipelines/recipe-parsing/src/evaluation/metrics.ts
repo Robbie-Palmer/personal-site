@@ -116,6 +116,40 @@ function avgF1(scores: F1Scores[]): F1Scores {
   };
 }
 
+export function computeBagF1(
+  predicted: string[],
+  expected: string[],
+): F1Scores {
+  if (predicted.length === 0 && expected.length === 0) {
+    return { precision: 1, recall: 1, f1: 1 };
+  }
+
+  const predCounts = new Map<string, number>();
+  for (const p of predicted) {
+    predCounts.set(p, (predCounts.get(p) ?? 0) + 1);
+  }
+
+  const expCounts = new Map<string, number>();
+  for (const e of expected) {
+    expCounts.set(e, (expCounts.get(e) ?? 0) + 1);
+  }
+
+  let truePositives = 0;
+  for (const [item, pCount] of predCounts) {
+    const eCount = expCounts.get(item) ?? 0;
+    truePositives += Math.min(pCount, eCount);
+  }
+
+  const precision =
+    predicted.length === 0 ? 0 : truePositives / predicted.length;
+  const recall = expected.length === 0 ? 0 : truePositives / expected.length;
+  const f1 =
+    precision + recall === 0
+      ? 0
+      : (2 * precision * recall) / (precision + recall);
+  return { precision, recall, f1 };
+}
+
 export function evaluateScalarFields(
   predicted: Recipe,
   expected: Recipe,
@@ -138,18 +172,20 @@ export function evaluateScalarFields(
 /** Flatten all ingredients from ingredient groups into a map keyed by slug. */
 function flattenIngredients(
   groups: Recipe["ingredientGroups"],
-): Map<string, { amount?: number; unit?: string; preparation?: string }> {
+): Map<string, { amount?: number; unit?: string; preparation?: string }[]> {
   const map = new Map<
     string,
-    { amount?: number; unit?: string; preparation?: string }
+    { amount?: number; unit?: string; preparation?: string }[]
   >();
   for (const group of groups) {
     for (const item of group.items) {
-      map.set(item.ingredient, {
+      const existing = map.get(item.ingredient) ?? [];
+      existing.push({
         amount: item.amount,
         unit: item.unit,
         preparation: item.preparation,
       });
+      map.set(item.ingredient, existing);
     }
   }
   return map;
@@ -162,33 +198,54 @@ export function evaluateIngredientParsing(
   const predIngredients = flattenIngredients(predicted.ingredientGroups);
   const expIngredients = flattenIngredients(expected.ingredientGroups);
 
-  // Set-level F1 for ingredient identification
-  const predSlugs = new Set(predIngredients.keys());
-  const expSlugs = new Set(expIngredients.keys());
-  const setF1 = computeSetF1(predSlugs, expSlugs);
+  // Bag-level F1 for ingredient identification (counting duplicates)
+  const predSlugs: string[] = [];
+  for (const [slug, items] of predIngredients) {
+    for (let i = 0; i < items.length; i++) predSlugs.push(slug);
+  }
+  const expSlugs: string[] = [];
+  for (const [slug, items] of expIngredients) {
+    for (let i = 0; i < items.length; i++) expSlugs.push(slug);
+  }
+
+  const idF1 = computeBagF1(predSlugs, expSlugs);
 
   // Per-field scores for matched ingredients
-  const matchedSlugs = [...predSlugs].filter((s) => expSlugs.has(s));
+  // We iterate over the unique slugs that appear in both.
+  // For each slug, we pair up the Nth predicted item with the Nth expected item.
+  // Any extra items (unpaired) are ignored for field accuracy, as they are implicitly
+  // penalized by the Bag F1 identification score.
+  const commonSlugs = new Set(
+    [...predIngredients.keys()].filter((k) => expIngredients.has(k)),
+  );
 
   const nameScores: F1Scores[] = [];
   const amountAccuracies: number[] = [];
   const unitAccuracies: number[] = [];
   const prepScores: F1Scores[] = [];
 
-  for (const slug of matchedSlugs) {
-    const pred = predIngredients.get(slug)!;
-    const exp = expIngredients.get(slug)!;
+  for (const slug of commonSlugs) {
+    const preds = predIngredients.get(slug)!;
+    const exps = expIngredients.get(slug)!;
 
-    // Name: since we matched by slug, this is always 1.0
-    nameScores.push({ precision: 1, recall: 1, f1: 1 });
-    amountAccuracies.push(exactMatch(pred.amount, exp.amount));
-    unitAccuracies.push(exactMatch(pred.unit, exp.unit));
-    prepScores.push(
-      computeWordOverlapF1(pred.preparation ?? "", exp.preparation ?? ""),
-    );
+    // Pair up items. Assume order matters / is consistent enough.
+    const pairCount = Math.min(preds.length, exps.length);
+    for (let i = 0; i < pairCount; i++) {
+      const pred = preds[i]!;
+      const exp = exps[i]!;
+
+      // Name: matched by slug, so this is 1.0
+      nameScores.push({ precision: 1, recall: 1, f1: 1 });
+      amountAccuracies.push(exactMatch(pred.amount, exp.amount));
+      unitAccuracies.push(exactMatch(pred.unit, exp.unit));
+      prepScores.push(
+        computeWordOverlapF1(pred.preparation ?? "", exp.preparation ?? ""),
+      );
+    }
   }
+
   return {
-    ...setF1,
+    ...idF1,
     fieldScores: {
       name: avgF1(nameScores),
       amount: { accuracy: avg(amountAccuracies) },
