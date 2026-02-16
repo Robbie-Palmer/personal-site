@@ -1,9 +1,9 @@
-import { readFileSync, writeFileSync } from "node:fs";
-import { GroundTruthDatasetSchema } from "../schemas/ground-truth";
+import {
+  loadPreparedData,
+  writeJson,
+  PREDICTIONS_PATH,
+} from "../lib/io";
 import type { Recipe, PredictionsDataset } from "../schemas/ground-truth";
-
-const PREPARED_PATH = "outputs/prepared.json";
-const OUTPUT_PATH = "outputs/predictions.json";
 
 const DUMMY_INGREDIENTS = [
   "chicken-breast",
@@ -50,19 +50,26 @@ function generateDummyPrediction(_imageFiles: string[]): Recipe {
   };
 }
 
-console.log("Loading prepared data...");
-const prepared = GroundTruthDatasetSchema.parse(
-  JSON.parse(readFileSync(PREPARED_PATH, "utf-8")),
-);
+async function main() {
+  console.log("Loading prepared data...");
+  const prepared = await loadPreparedData();
 
-console.log(`Running dummy inference on ${prepared.entries.length} entries...`);
+  console.log(`Running dummy inference on ${prepared.entries.length} entries...`);
 
-const predictions: PredictionsDataset = {
-  entries: prepared.entries.map((entry) => ({
-    images: entry.images,
-    predicted: generateDummyPrediction(entry.images),
-  })),
-};
+  const predictions: PredictionsDataset = {
+    entries: prepared.entries.map((entry) => ({
+      images: entry.images,
+      predicted: generateDummyPrediction(entry.images),
+    })),
+  };
 
-writeFileSync(OUTPUT_PATH, JSON.stringify(predictions, null, 2));
-console.log(`Generated ${predictions.entries.length} dummy predictions → ${OUTPUT_PATH}`);
+  await writeJson(PREDICTIONS_PATH, predictions);
+  console.log(
+    `Generated ${predictions.entries.length} dummy predictions → ${PREDICTIONS_PATH}`,
+  );
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

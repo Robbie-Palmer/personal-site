@@ -1,24 +1,17 @@
-import { readFileSync, writeFileSync } from "node:fs";
 import {
-  GroundTruthDatasetSchema,
-  PredictionsDatasetSchema,
-} from "../schemas/ground-truth";
+  loadPreparedData,
+  loadPredictions,
+  writeJson,
+  METRICS_PATH,
+  PER_IMAGE_SCORES_PATH,
+} from "../lib/io";
 import { aggregateMetrics } from "../evaluation/metrics";
-
-const PREPARED_PATH = "outputs/prepared.json";
-const PREDICTIONS_PATH = "outputs/predictions.json";
-const METRICS_PATH = "outputs/metrics.json";
-const PER_IMAGE_PATH = "outputs/per-image-scores.json";
 
 async function main() {
   console.log("Loading prepared data and predictions...");
 
-  const prepared = GroundTruthDatasetSchema.parse(
-    JSON.parse(readFileSync(PREPARED_PATH, "utf-8")),
-  );
-  const predictions = PredictionsDatasetSchema.parse(
-    JSON.parse(readFileSync(PREDICTIONS_PATH, "utf-8")),
-  );
+  const prepared = await loadPreparedData();
+  const predictions = await loadPredictions();
 
   if (predictions.entries.length !== prepared.entries.length) {
     throw new Error(
@@ -43,8 +36,8 @@ async function main() {
     prepared.entries,
   );
 
-  writeFileSync(METRICS_PATH, JSON.stringify(metrics, null, 2));
-  writeFileSync(PER_IMAGE_PATH, JSON.stringify(perEntry, null, 2));
+  await writeJson(METRICS_PATH, metrics);
+  await writeJson(PER_IMAGE_SCORES_PATH, perEntry);
 
   console.log(`\nResults (${metrics.entryCount} entries):`);
   console.log(`  Overall Score:           ${metrics.overall.score.toFixed(3)}`);
@@ -64,7 +57,7 @@ async function main() {
     `  Servings Match:          ${(metrics.byCategory.scalarFields.servings.accuracy * 100).toFixed(1)}%`,
   );
   console.log(`\nMetrics written to ${METRICS_PATH}`);
-  console.log(`Per-entry scores written to ${PER_IMAGE_PATH}`);
+  console.log(`Per-entry scores written to ${PER_IMAGE_SCORES_PATH}`);
 }
 
 main().catch((err) => {

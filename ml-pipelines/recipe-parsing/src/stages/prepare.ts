@@ -1,21 +1,19 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
-import { GroundTruthDatasetSchema } from "../schemas/ground-truth";
-
-const GROUND_TRUTH_PATH = "data/ground-truth.json";
-const IMAGES_DIR = "data/recipe-images";
-const OUTPUT_PATH = "outputs/prepared.json";
+import {
+  loadGroundTruth,
+  listImageFiles,
+  writeJson,
+  PREPARED_PATH,
+  IMAGES_DIR,
+} from "../lib/io";
 
 async function main() {
   console.log("Loading ground truth data...");
-  const raw = JSON.parse(readFileSync(GROUND_TRUTH_PATH, "utf-8"));
-  const dataset = GroundTruthDatasetSchema.parse(raw);
+  const dataset = await loadGroundTruth();
   console.log(`Validated ${dataset.entries.length} ground truth entries`);
 
-  const availableImages = existsSync(IMAGES_DIR)
-    ? new Set(readdirSync(IMAGES_DIR).filter(
-        (f) => f.endsWith(".jpg") || f.endsWith(".jpeg") || f.endsWith(".png"),
-      ))
-    : new Set<string>();
+  const files = await listImageFiles();
+  const availableImages = new Set(files);
+
   const missingImages: string[] = [];
   for (const entry of dataset.entries) {
     for (const img of entry.images) {
@@ -37,9 +35,8 @@ async function main() {
     console.log(`All referenced images found in ${IMAGES_DIR}.`);
   }
 
-  mkdirSync("outputs", { recursive: true });
-  writeFileSync(OUTPUT_PATH, JSON.stringify(dataset, null, 2));
-  console.log(`Prepared data written to ${OUTPUT_PATH}`);
+  await writeJson(PREPARED_PATH, dataset);
+  console.log(`Prepared data written to ${PREPARED_PATH}`);
 }
 
 main().catch((err) => {
