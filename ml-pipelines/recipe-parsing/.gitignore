@@ -1,3 +1,4 @@
 /outputs/
+!/outputs/metrics.json
 /dvc_plots/
 /node_modules/
