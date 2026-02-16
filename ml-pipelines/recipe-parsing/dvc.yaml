@@ -30,8 +30,6 @@ stages:
       - src/evaluation/metrics.ts
       - src/lib/io.ts
     metrics:
-      - outputs/metrics.json:
-          cache: true
+      - outputs/metrics.json
     plots:
-      - outputs/per-image-scores.json:
-          cache: false
+      - outputs/per-image-scores.json
