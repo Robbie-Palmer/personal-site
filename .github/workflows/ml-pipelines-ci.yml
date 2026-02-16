@@ -43,12 +43,12 @@ jobs:
 
       - name: Comment metrics on PR
         run: |
-          DIFF=$(dvc metrics diff --md origin/main 2>/dev/null || true)
+          DIFF=$(dvc metrics diff --md --all origin/main 2>/dev/null || true)
           DATA_ROWS=$(echo "$DIFF" | grep -c '^|' || true)
           if [ "$DATA_ROWS" -gt 2 ]; then
             BODY="## ${{ matrix.pipeline }} metrics diff"$'\n\n'"$DIFF"
           else
-            SHOW=$(dvc metrics show --md 2>/dev/null || echo "No metrics available.")
+            SHOW=$(dvc metrics show --md --all 2>/dev/null || echo "No metrics available.")
             BODY="## ${{ matrix.pipeline }} metrics"$'\n\n'"$SHOW"
           fi
           gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY" --edit-last \
