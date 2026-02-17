@@ -5,14 +5,22 @@ import "leaflet/dist/leaflet.css";
 import "leaflet-fullscreen";
 import "leaflet-fullscreen/dist/leaflet.fullscreen.css";
 import { useEffect, useState } from "react";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import {
+  AttributionControl,
+  MapContainer,
+  Marker,
+  Popup,
+  TileLayer,
+  useMap,
+} from "react-leaflet";
 import { Card } from "@/components/ui/card";
 
 const TILE_LAYERS = [
   {
     name: "CPTAC-COAD Slide",
     url: "https://tiles.robbiepalmer.me/cptac_coad/01CO001/1dd2f639-19f0-4e0f-ae0a-316c8544ee73/{z}/{x}/{y}.png?2026-02",
-    attribution: "CPTAC-COAD",
+    attribution:
+      "Clunie et al. (2024), <a href=https://doi.org/10.5281/ZENODO.12666784>Zenodo</a> | License: <a href=https://creativecommons.org/licenses/by/3.0/>CC BY 3.0</a>",
     crs: L.CRS.Simple,
     minZoom: 0,
     maxZoom: 8,
@@ -25,31 +33,6 @@ const TILE_LAYERS = [
       [-256, 256],
     ],
     maxBoundsViscosity: 1.0,
-
-    customAttribution: (
-      <div className="leaflet-bottom leaflet-right">
-        <div className="leaflet-control-attribution leaflet-control !m-0 !p-1 bg-white/70 hover:bg-white px-2 py-0.5 text-xs text-neutral-800 backdrop-blur-sm rounded-tl">
-          Clunie et al. (2024){" "}
-          <a
-            href="https://doi.org/10.5281/ZENODO.12666784"
-            target="_blank"
-            rel="noreferrer"
-            className="hover:underline text-blue-700"
-          >
-            Zenodo
-          </a>{" "}
-          | License:{" "}
-          <a
-            href="https://creativecommons.org/licenses/by/3.0/"
-            target="_blank"
-            rel="noreferrer"
-            className="hover:underline text-blue-700"
-          >
-            CC BY 3.0
-          </a>
-        </div>
-      </div>
-    ),
   },
   {
     name: "OpenStreetMap",
@@ -97,10 +80,8 @@ function FullscreenControl() {
   const map = useMap();
 
   useEffect(() => {
-    // @ts-expect-error
-    if (!L.Control.Fullscreen) return;
-    // @ts-expect-error
-    const fullscreenControl = new L.Control.Fullscreen({
+    if ((!L.Control as any).Fullscreen) return;
+    const fullscreenControl = new (L.Control as any).Fullscreen({
       position: "topleft",
       title: {
         false: "Enter Fullscreen",
@@ -111,14 +92,12 @@ function FullscreenControl() {
     map.addControl(fullscreenControl);
 
     const handleFullscreenChange = () => {
+      const doc = document as any;
       const isFullscreen =
-        document.fullscreenElement ||
-        // @ts-expect-error
-        document.mozFullScreenElement ||
-        // @ts-expect-error
-        document.webkitFullscreenElement ||
-        // @ts-expect-error
-        document.msFullscreenElement;
+        doc.fullscreenElement ||
+        doc.mozFullScreenElement ||
+        doc.webkitFullscreenElement ||
+        doc.msFullscreenElement;
 
       if (fullscreenControl.link) {
         fullscreenControl.link.title = isFullscreen
@@ -189,7 +168,6 @@ export function LeafletMapDemo() {
             crs={selectedLayer.crs}
             scrollWheelZoom={true}
             className="h-full w-full"
-            attributionControl={false}
             maxBounds={
               "maxBounds" in selectedLayer
                 ? (selectedLayer.maxBounds as any)
@@ -201,6 +179,7 @@ export function LeafletMapDemo() {
                 : 1.0
             }
             bounceAtZoomLimits={false}
+            attributionControl={false}
           >
             <TileLayer
               key={selectedLayer.name}
@@ -215,6 +194,7 @@ export function LeafletMapDemo() {
               keepBuffer={8}
               updateInterval={200}
             />
+            <AttributionControl prefix={false} />
             {selectedLayer.crs === L.CRS.EPSG3857 && (
               <Marker position={DEFAULT_CENTER}>
                 <Popup>Belfast, Northern Ireland</Popup>
@@ -223,9 +203,6 @@ export function LeafletMapDemo() {
             <FullscreenControl />
           </MapContainer>
         )}
-        {selectedLayer &&
-          "customAttribution" in selectedLayer &&
-          selectedLayer.customAttribution}
       </div>
     </Card>
   );
