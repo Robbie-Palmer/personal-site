@@ -80,7 +80,7 @@ function FullscreenControl() {
   const map = useMap();
 
   useEffect(() => {
-    if ((!L.Control as any).Fullscreen) return;
+    if (!(L.Control as any).Fullscreen) return;
     const fullscreenControl = new (L.Control as any).Fullscreen({
       position: "topleft",
       title: {
