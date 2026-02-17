@@ -91,37 +91,11 @@ function FullscreenControl() {
 
     map.addControl(fullscreenControl);
 
-    const handleFullscreenChange = () => {
-      const doc = document as any;
-      const isFullscreen =
-        doc.fullscreenElement ||
-        doc.mozFullScreenElement ||
-        doc.webkitFullscreenElement ||
-        doc.msFullscreenElement;
-
-      if (fullscreenControl.link) {
-        fullscreenControl.link.title = isFullscreen
-          ? "Exit Fullscreen"
-          : "Enter Fullscreen";
-      }
-    };
-
-    const events = [
-      "fullscreenchange",
-      "mozfullscreenchange",
-      "webkitfullscreenchange",
-      "MSFullscreenChange",
-    ];
-
-    events.forEach((event) => {
-      document.addEventListener(event, handleFullscreenChange);
-    });
-
     return () => {
+      // leaflet-fullscreen doesn't detach its fullscreenchange listener on remove,
+      // so clear listeners bound with this control as context before removing.
+      map.off("fullscreenchange", undefined, fullscreenControl);
       map.removeControl(fullscreenControl);
-      events.forEach((event) => {
-        document.removeEventListener(event, handleFullscreenChange);
-      });
     };
   }, [map]);
 
