@@ -20,7 +20,7 @@ const TILE_LAYERS = [
     name: "CPTAC-COAD Slide",
     url: "https://tiles.robbiepalmer.me/cptac_coad/01CO001/1dd2f639-19f0-4e0f-ae0a-316c8544ee73/{z}/{x}/{y}.png?2026-02",
     attribution:
-      "Clunie et al. (2024), <a href=https://doi.org/10.5281/ZENODO.12666784>Zenodo</a> | License: <a href=https://creativecommons.org/licenses/by/3.0/>CC BY 3.0</a>",
+      'Clunie et al. (2024), <a href="https://doi.org/10.5281/ZENODO.12666784">Zenodo</a> | License: <a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>',
     crs: L.CRS.Simple,
     minZoom: 0,
     maxZoom: 8,
