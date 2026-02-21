@@ -1,0 +1,243 @@
+---
+title: "ADR 029: DVC for ML Pipeline Data and Experiment Versioning"
+date: "2026-02-21"
+status: "Accepted"
+tech_stack: ["DVC"]
+---
+
+# Context
+
+Phase 4 of the recipe site roadmap introduces an ML-powered ingestion pipeline: photographing physical
+recipe book pages and extracting structured recipe data. The pipeline lives in `ml-pipelines/recipe-parsing/`
+and has three stages — `prepare`, `infer`, and `evaluate` — each consuming the outputs of the previous.
+
+Two distinct but related problems arise immediately:
+
+**Dataset versioning.** The pipeline operates on a dataset of recipe images paired with ground-truth
+annotations (`data/recipe-images/` and `data/ground-truth.json`). These assets are too large and too
+binary to track in git: storing 14 images totalling ~80 MB directly in the repository would bloat every
+clone and make git operations slow. Yet the dataset must be versioned — pinned to a specific hash — so
+that every experiment can reproduce its exact inputs and results.
+
+**ML pipeline orchestration and experiment tracking.** The `prepare → infer → evaluate` pipeline has
+deterministic, cacheable stages. Re-running the full pipeline on every code change is wasteful; only
+stages whose dependencies have changed need to execute. Beyond caching, the project needs to run
+experiments (varying prompts, models, or preprocessing logic), compare their outputs quantitatively,
+surface metric changes on pull requests, and merge improvements through the normal code review process.
+This is the "GitOps for ML" problem.
+
+The two problems are related: both require linking versioned artifacts (data, model weights, pipeline
+outputs) to specific git commits. A tool that solves one without the other forces a second tool into
+the stack, violating [Less Is More](/projects?tab=philosophy#less-is-more).
+
+Additional constraints:
+
+- Storage is already on **Cloudflare R2** ([ADR 039](/projects/personal-site/adrs/039-cloudflare-r2))
+  via its S3-compatible API. Any versioning tool must integrate with S3-compatible storage without
+  requiring a proprietary backend.
+- The project uses **GitHub Actions** for CI and pull requests as the review mechanism. Experiment
+  comparison must be surfaced there without a mandatory separate platform.
+- The pipeline itself is TypeScript (tsx), not Python — the tooling must not impose a Python-only
+  runtime constraint on pipeline code.
+
+# Decision
+
+Use **DVC (Data Version Control)** for dataset versioning, pipeline stage caching, and experiment
+tracking across the recipe-parsing ML pipeline.
+
+DVC tracks large files and directories by storing their MD5 hashes in lightweight `.dvc` pointer files
+committed to git, while pushing the actual content to Cloudflare R2 via its S3-compatible API. The
+pipeline is declared in `dvc.yaml`, which specifies stage commands, dependencies, outputs, metrics, and
+plots. GitHub Actions runs `dvc repro --pull` on each PR, compares metrics and plots against `main`
+using `dvc metrics diff` and `dvc plots diff`, and posts the results as PR comments.
+
+The workflow this enables:
+
+1. **Dataset changes**: a new batch of recipe images is added to `data/recipe-images/`, pushed to R2,
+   and the updated `recipe-images.dvc` pointer is committed to git. Any commit can reproduce its exact
+   dataset by running `dvc pull`.
+2. **Pipeline execution**: `dvc repro` runs only the stages whose inputs have changed. Unchanged stage
+   outputs are retrieved from cache rather than re-computed.
+3. **Experiments**: `dvc exp run` executes a pipeline variant (e.g., a different LLM prompt or model),
+   logging metrics and plots without polluting the main git branch. `dvc exp diff` compares results
+   across experiments in a table. The best experiment is promoted to a branch and opens a PR.
+4. **PR review**: CI posts a `dvc metrics diff` table and `dvc plots diff` graphs to the PR, making
+   the quantitative improvement visible to reviewers in the same flow as code review.
+
+# Alternatives Considered
+
+### Weights & Biases (W&B)
+
+- **Pros**: Industry-leading experiment tracking UI. Rich dashboards, media logging (images, audio,
+  video), hyperparameter sweeps, artefact versioning, and a model registry. Free tier is generous
+  (unlimited runs for personal use). Well-documented Python SDK and growing JavaScript/TypeScript
+  support. Strong community and ecosystem.
+- **Cons**: Experiment metadata is stored on W&B's cloud servers, not in git — git history and W&B
+  history are separate artefacts that drift apart unless carefully linked. Dataset versioning requires
+  W&B Artifacts, a separate concept from the pipeline definition. Pipeline stages are not defined
+  declaratively; there is no equivalent of `dvc.yaml` for specifying a cached DAG. Surfacing metrics
+  on PRs requires a custom GitHub Actions integration (W&B provides a GitHub App, but it is less
+  composable than plain CLI output). Closed source and proprietary: no self-hosted option without
+  the enterprise tier, deepening vendor dependency.
+- **Decision**: Rejected. Excellent for experiment dashboards but does not solve the pipeline caching
+  or dataset versioning problems. Would require DVC or a custom solution alongside it, adding platform
+  sprawl.
+
+### MLflow
+
+- **Pros**: Open source (Apache 2.0). Self-hostable. Experiment tracking, model registry, and an
+  MLflow Projects concept for packaging pipeline code. Free to run locally or on any server. Large
+  community. Cloud-hosted option via Databricks (paid).
+- **Cons**: Primarily a Python ecosystem — the TypeScript pipeline code would need a Python wrapper
+  or a REST API call to log metrics, adding friction. Pipeline definitions are imperative (Python
+  `mlflow.start_run()` blocks), not declarative DAGs; there is no stage caching equivalent to
+  `dvc repro`. Dataset versioning is not a first-class concept — large files still need a separate
+  solution (Git LFS, DVC, or manual S3 management). Surfacing diffs on PRs requires custom tooling.
+  Self-hosting the tracking server adds operational overhead for what is currently a personal project.
+- **Decision**: Rejected. Strong on experiment tracking but leaves the pipeline caching and dataset
+  versioning gaps open, requiring additional tools.
+
+### Weights & Biases + DVC (Combined)
+
+- **Pros**: Each tool does what it is best at: DVC handles pipeline caching, dataset versioning, and
+  git integration; W&B provides the rich experiment dashboard UI.
+- **Cons**: Two platforms, two integrations, two sets of API tokens, two places to look for results.
+  Violates [Less Is More](/projects?tab=philosophy#less-is-more). DVC's native `dvc metrics diff` and
+  `dvc plots diff` in CI are sufficient for the current evaluation complexity — a rich interactive
+  dashboard is not yet needed.
+- **Decision**: Rejected at this stage. DVC alone is sufficient. If the evaluation suite grows to
+  require session replay, image logging, or custom dashboards, W&B can be added incrementally.
+
+### ClearML
+
+- **Pros**: Open source core (Apache 2.0). Combines experiment tracking, dataset versioning, pipeline
+  orchestration, and model registry in a single platform. Self-hostable. Generous free cloud tier.
+  Built-in data management with ClearML Data (similar to DVC).
+- **Cons**: Less widely adopted than DVC or MLflow — smaller community and fewer Stack Overflow
+  answers. The pipeline DSL is Python-centric (ClearML PipelineDecorator). Self-hosting adds
+  operational overhead for a personal project. The all-in-one nature means migrating away later
+  involves replacing more surface area.
+- **Decision**: Rejected. DVC has a larger community, is more composable, and integrates more directly
+  with git without requiring a running tracking server.
+
+### Neptune.ai
+
+- **Pros**: Clean experiment tracking UI. Good Python SDK. Artefact tracking capability.
+- **Cons**: Closed source and paid beyond the free tier. No pipeline caching or declarative DAG.
+  Dataset versioning is not a first-class feature. Same gaps as W&B but with less community momentum.
+- **Decision**: Rejected. Paid-first model and missing pipeline features make this a poor fit.
+
+### Comet ML
+
+- **Pros**: Established experiment tracking platform. Free tier for personal projects. Integrates
+  with popular ML frameworks. Offers dataset versioning via Comet Artifacts.
+- **Cons**: Closed source and proprietary. No pipeline caching. Artifacts are a separate concept from
+  experiment tracking, requiring explicit SDK calls rather than a declarative pipeline definition.
+  Weaker git integration than DVC.
+- **Decision**: Rejected. Same fundamental gaps as W&B and Neptune.ai.
+
+### DagsHub (DVC + MLflow hosted)
+
+- **Pros**: Hosts DVC remote storage and an MLflow tracking server as a managed service, removing
+  the need to provision storage separately. Free for public repositories. Provides a GitHub-like UI
+  for DVC data and MLflow experiments.
+- **Cons**: Adds DagsHub as a platform dependency for storage that is already solved by Cloudflare
+  R2 ([ADR 039](/projects/personal-site/adrs/039-cloudflare-r2)). The recipe-parsing pipeline data
+  is private; using DagsHub for public-only free storage does not fit. Introduces a second storage
+  backend alongside R2 for no gain. DagsHub is a thin layer over DVC + MLflow — the underlying tools
+  can be used directly.
+- **Decision**: Rejected. Platform consolidation is already achieved by using DVC directly against R2.
+  DagsHub would add a platform layer without adding capability.
+
+### Pachyderm
+
+- **Pros**: Git-native ML pipeline orchestration with built-in data versioning. Strong reproducibility
+  guarantees. Open source community edition.
+- **Cons**: Requires Kubernetes to run — substantial operational overhead for a personal project.
+  Designed for large-scale distributed pipelines; heavyweight for a single-stage ML task running on a
+  developer machine or a GitHub Actions runner. Steep learning curve relative to the problem size.
+- **Decision**: Rejected. Operationally disproportionate to the current pipeline complexity.
+
+### GitHub Actions + Custom Scripts (No Dedicated MLOps Tool)
+
+- **Pros**: No new tool. CI already runs on GitHub Actions. Metrics could be computed in a script and
+  posted to PRs via the GitHub API. Data could be stored in R2 manually with AWS CLI.
+- **Cons**: Reproduces a subset of DVC's functionality at the cost of significant custom glue code:
+  manual cache invalidation logic, ad-hoc metric comparison scripts, custom PR comment formatting, and
+  handwritten data manifest files instead of `.dvc` pointers. Every new pipeline stage adds more bespoke
+  maintenance surface. The result would be a worse version of DVC without the community, documentation,
+  or ecosystem.
+- **Decision**: Rejected. The bespoke approach trades tool adoption cost for indefinite maintenance
+  cost. DVC is the right abstraction.
+
+# Pros and Cons of DVC
+
+### Pros
+
+- **Git-native**: DVC pointer files (`.dvc`, `dvc.yaml`, `dvc.lock`) are plain text committed to git.
+  Every dataset version and pipeline run is traceable to a specific git commit, giving a single source
+  of truth for code and data lineage without a separate tracking server.
+- **S3-compatible storage**: Works with any S3-compatible remote, including Cloudflare R2. No new
+  storage platform required — R2 is already provisioned ([ADR 039](/projects/personal-site/adrs/039-cloudflare-r2)).
+- **Declarative pipeline with stage caching**: `dvc.yaml` defines the pipeline DAG declaratively.
+  `dvc repro` skips stages whose inputs and code are unchanged, using cached outputs. This is correct
+  by construction — no custom cache-invalidation logic to maintain.
+- **Language-agnostic stage commands**: Each stage is a shell command (`cmd:`). The recipe-parsing
+  pipeline uses `pnpm exec tsx ...` — DVC does not care that the runtime is TypeScript rather than Python.
+- **Built-in experiment comparison**: `dvc exp run`, `dvc exp diff`, `dvc metrics diff`, and
+  `dvc plots diff` provide structured, machine-readable experiment comparisons. PR comments can be
+  generated from these outputs with a few lines of bash in GitHub Actions.
+- **Offline-capable**: Experiments can be run and compared locally without a network connection or
+  a running tracking server. The remote (R2) is only contacted for push/pull operations.
+- **Open source**: MIT licensed. No proprietary lock-in. The community edition is identical to the
+  paid offering — there is no feature-gated paywall.
+- **Established ecosystem**: DVC has a large community, extensive documentation, and is already used
+  across multiple other projects in this portfolio (genomic prediction, automated macrodissection).
+  Prior familiarity reduces adoption cost to near zero.
+
+### Cons
+
+- **CLI-first UX**: DVC's primary interface is the command line. There is no built-in rich dashboard
+  for browsing experiments visually. `dvc exp show` renders a terminal table; `dvc plots diff`
+  generates static HTML. If the evaluation suite grows to require interactive exploration (e.g., browsing
+  per-image prediction overlays), a supplementary UI (W&B, custom tooling) would be needed.
+- **Eventual consistency in remote**: DVC's cache is content-addressed, but there is no built-in
+  locking for concurrent pushes to the same remote. In a team setting, simultaneous `dvc push` operations
+  from different machines can race. Not a concern for a solo project; worth noting for future scale.
+- **Learning curve for the DAG model**: The dependency graph in `dvc.yaml` must be declared explicitly.
+  If a dependency is omitted, DVC will not detect that a stage's output is stale. Correct pipeline
+  definitions require discipline — forgetting a `deps:` entry leads to stale cache hits. Mitigated by
+  treating `dvc repro` output in CI as the canonical run rather than developer-local runs.
+- **No built-in model registry**: DVC does not include a model registry (cataloguing production-ready
+  model versions, approval workflows, deployment hooks). If the pipeline produces model weights that
+  need formal lifecycle management, a separate registry would be required. Not a current requirement
+  for the recipe-parsing pipeline.
+
+# Consequences
+
+### Positive
+
+- **Reproducible experiments**: Any git commit can reproduce its exact pipeline outputs by running
+  `dvc pull && dvc repro`. Dataset hash, pipeline code, and stage outputs are all pinned to the commit.
+- **Git-MLOps workflow**: Experiments are proposed as pull requests. CI posts metric diffs and plot
+  comparisons automatically. Reviewers see quantitative improvement alongside code changes in the same
+  GitHub interface — no context switching to an external dashboard.
+- **Faster iteration**: Stage caching means the evaluate stage does not re-run the expensive inference
+  stage when only the evaluation metric logic changes. Local and CI runs are faster as the pipeline grows.
+- **Zero additional infrastructure**: DVC uses Cloudflare R2 as its remote. No new servers, no
+  tracking service, no additional Terraform resources beyond the `dvc` R2 bucket already provisioned.
+- **Portfolio consistency**: DVC is used across multiple projects in this portfolio. Tooling knowledge
+  and CI patterns transfer directly.
+
+### Negative
+
+- **No interactive dashboard**: Experiment results are visible as CLI tables and static HTML plots in
+  PR comments, not an interactive web UI. Acceptable for the current evaluation scale; may become
+  limiting as the evaluation suite grows.
+- **Pipeline definition discipline**: `dvc.yaml` must be kept accurate. Adding a new dependency to a
+  stage's code without updating `dvc.yaml` will cause stale cache hits in CI. Code review of pipeline
+  definition changes becomes part of the ML development workflow.
+- **R2 storage costs**: DVC pushes pipeline outputs (predictions, metrics, plots) to R2 in addition
+  to the dataset. At current scale (~80 MB dataset, small JSON outputs), R2 costs are negligible. As
+  the dataset grows, storage costs scale linearly — acceptable given R2's zero egress model
+  ([ADR 039](/projects/personal-site/adrs/039-cloudflare-r2)).
