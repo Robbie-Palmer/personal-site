@@ -33,6 +33,7 @@ const EDGE_COLORS: Record<string, string> = {
   USES_TECHNOLOGY: "#22c55eA0",
   PART_OF_PROJECT: "#3b82f6A0",
   SUPERSEDES: "#ef4444A0",
+  INHERITS_FROM: "#06b6d4A0",
   CREATED_AT_ROLE: "#a855f7A0",
   WRITTEN_AT_ROLE: "#f97316A0",
   HAS_TAG: "#eab308A0",

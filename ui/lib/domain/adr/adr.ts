@@ -71,6 +71,14 @@ export function makeADRRef(projectSlug: ProjectSlug, adrSlug: ADRSlug): ADRRef {
   return `${projectSlug}:${adrSlug}`;
 }
 
+export function formatADRIndex(index: number): string {
+  return String(Math.max(0, index)).padStart(3, "0");
+}
+
+export function normalizeADRTitle(title: string): string {
+  return title.replace(/^ADR\s+\d+\s*:\s*/i, "");
+}
+
 export function parseADRRef(adrRef: ADRRef): {
   projectSlug: ProjectSlug;
   adrSlug: ADRSlug;

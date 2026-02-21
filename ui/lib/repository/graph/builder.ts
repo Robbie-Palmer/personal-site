@@ -15,6 +15,7 @@ export interface RelationData {
   adrTechnologies: Map<ADRRef, TechnologySlug[]>;
   adrProject: Map<ADRRef, ProjectSlug>;
   adrSupersededBy: Map<ADRRef, ADRRef>;
+  adrInheritsFrom: Map<ADRRef, ADRRef>;
   roleTechnologies: Map<RoleSlug, TechnologySlug[]>;
   blogRole: Map<BlogSlug, RoleSlug>;
 }
@@ -30,6 +31,7 @@ export function createEmptyRelationData(): RelationData {
     adrTechnologies: new Map(),
     adrProject: new Map(),
     adrSupersededBy: new Map(),
+    adrInheritsFrom: new Map(),
     roleTechnologies: new Map(),
     blogRole: new Map(),
   };
@@ -49,6 +51,7 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
       usesTechnology: new Map(),
       partOfProject: new Map(),
       supersedes: new Map(),
+      inheritsFrom: new Map(),
       hasTag: new Map(),
       createdAtRole: new Map(),
       writtenAtRole: new Map(),
@@ -57,6 +60,7 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
       technologyUsedBy: new Map(),
       projectADRs: new Map(),
       supersededBy: new Map(),
+      inheritedBy: new Map(),
       tagUsedBy: new Map(),
       roleProjects: new Map(),
       roleBlogs: new Map(),
@@ -92,6 +96,13 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
   for (const [supersedingSlug, supersededSlug] of relations.adrSupersededBy) {
     graph.edges.supersedes.set(supersedingSlug, supersededSlug);
     graph.reverse.supersededBy.set(supersededSlug, supersedingSlug);
+  }
+  for (const [childAdrRef, parentAdrRef] of relations.adrInheritsFrom) {
+    graph.edges.inheritsFrom.set(childAdrRef, parentAdrRef);
+    if (!graph.reverse.inheritedBy.has(parentAdrRef)) {
+      graph.reverse.inheritedBy.set(parentAdrRef, new Set());
+    }
+    graph.reverse.inheritedBy.get(parentAdrRef)?.add(childAdrRef);
   }
 
   for (const [slug, technologies] of relations.blogTechnologies) {

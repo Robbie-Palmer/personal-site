@@ -1,9 +1,15 @@
 import { z } from "zod";
+import {
+  ADRRelationsSchema,
+  ADRStatusSchema,
+  ADRSchema as BaseADRSchema,
+} from "./adr/adr";
+import { ADRRefSchema as CanonicalADRRefSchema } from "./slugs";
 
 export const TechnologySlugSchema = z.string().min(1);
 export const BlogSlugSchema = z.string().min(1);
 export const ADRSlugSchema = z.string().min(1);
-export const ADRRefSchema = z.string().regex(/^[^:]+:[^:]+$/);
+export const ADRRefSchema = CanonicalADRRefSchema;
 export const ProjectSlugSchema = z.string().min(1);
 export const RoleSlugSchema = z.string().min(1);
 
@@ -65,30 +71,11 @@ export const BlogPostSchema = z.object({
 
 export type BlogPost = z.infer<typeof BlogPostSchema>;
 
-export const ADRStatusSchema = z.enum([
-  "Accepted",
-  "Rejected",
-  "Deprecated",
-  "Proposed",
-]);
+export { ADRStatusSchema };
 export type ADRStatus = z.infer<typeof ADRStatusSchema>;
 
-export const ADRSchema = z.object({
-  adrRef: ADRRefSchema,
-  slug: ADRSlugSchema,
-  projectSlug: ProjectSlugSchema,
-  title: z.string().min(1),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  status: ADRStatusSchema,
-  inheritsFrom: ADRRefSchema.optional(),
-  supersedes: ADRRefSchema.optional(),
-  content: z.string(),
-  readingTime: z.string(),
-
-  relations: z.object({
-    project: ProjectSlugSchema,
-    technologies: z.array(TechnologySlugSchema).default([]),
-  }),
+export const ADRSchema = BaseADRSchema.extend({
+  relations: ADRRelationsSchema,
 });
 
 export type ADR = z.infer<typeof ADRSchema>;

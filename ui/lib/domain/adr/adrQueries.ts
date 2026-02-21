@@ -17,14 +17,26 @@ import {
   toADRListItemView,
 } from "./adrViews";
 
-function summarizeMarkdown(markdown: string): string {
+function stripMarkdown(markdown: string): string {
+  return markdown
+    .replace(/!\[[^\]]*]\([^)]+\)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^>\s?/gm, "")
+    .replace(/(^|\s)>\s?/g, "$1")
+    .replace(/[*_~]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function summarizeMarkdown(markdown: string): string {
   const paragraphs = markdown
     .split(/\n\s*\n/)
     .map((chunk) => chunk.trim())
     .filter(Boolean)
     .filter((chunk) => !chunk.startsWith("#"));
   if (paragraphs.length === 0) return "";
-  const first = paragraphs[0] ?? "";
+  const first = stripMarkdown(paragraphs[0] ?? "");
   return first.length > 280 ? `${first.slice(0, 277)}...` : first;
 }
 

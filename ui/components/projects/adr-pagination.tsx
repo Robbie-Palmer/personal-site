@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { ADR } from "@/lib/api/projects";
+import { formatADRIndex, normalizeADRTitle } from "@/lib/domain/adr/adr";
 import { cn } from "@/lib/generic/styles";
 
 interface ADRPaginationProps {
@@ -25,10 +26,6 @@ export function ADRPagination({
   compact = false,
   className,
 }: ADRPaginationProps) {
-  const formatIndex = (value: number) => String(value).padStart(3, "0");
-  const normalizeADRTitle = (title: string) =>
-    title.replace(/^ADR\s+\d+\s*:\s*/i, "");
-
   // If no nav is possible, render nothing
   if (!prevAdr && !nextAdr) return null;
   return (
@@ -64,7 +61,7 @@ export function ADRPagination({
                 <div className="text-xs sm:text-sm font-medium truncate">
                   {prevIndex !== undefined && (
                     <span className="font-mono mr-1">
-                      ADR {formatIndex(prevIndex)}:
+                      ADR {formatADRIndex(prevIndex)}:
                     </span>
                   )}
                   {normalizeADRTitle(prevAdr.title)}
@@ -101,7 +98,7 @@ export function ADRPagination({
                 <div className="text-xs sm:text-sm font-medium truncate">
                   {nextIndex !== undefined && (
                     <span className="font-mono mr-1">
-                      ADR {formatIndex(nextIndex)}:
+                      ADR {formatADRIndex(nextIndex)}:
                     </span>
                   )}
                   {normalizeADRTitle(nextAdr.title)}

@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useDebouncedSearchTracking } from "@/hooks/use-debounced-search-tracking";
 import type { ProjectWithADRs } from "@/lib/api/projects";
+import { formatADRIndex, normalizeADRTitle } from "@/lib/domain/adr/adr";
 import { cn } from "@/lib/generic/styles";
 import { ADRBadge } from "./adr-badge";
 
@@ -49,10 +50,6 @@ export function ADRNavContent({
   const contextualIndexByRef = useMemo(() => {
     return new Map(project.adrs.map((adr, index) => [adr.adrRef, index]));
   }, [project.adrs]);
-
-  const formatContextIndex = (value: number) => String(value).padStart(3, "0");
-  const normalizeADRTitle = (title: string) =>
-    title.replace(/^ADR\s+\d+\s*:\s*/i, "");
 
   useDebouncedSearchTracking({
     searchQuery,
@@ -119,7 +116,7 @@ export function ADRNavContent({
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs opacity-70">
                       ADR{" "}
-                      {formatContextIndex(
+                      {formatADRIndex(
                         contextualIndexByRef.get(adr.adrRef) ?? index,
                       )}
                     </span>

@@ -62,10 +62,13 @@ export function extractGraphData(repository: DomainRepository): GraphData {
   }
   for (const [adrRef, adr] of adrs) {
     const projectSlug = graph.edges.partOfProject.get(adrRef);
+    if (!projectSlug) continue;
     const { adrSlug } = parseADRRef(adrRef);
+    const displayTitle = adr.title.replace(/^ADR\s+\d+\s*:\s*/i, "");
+    const localIndex = adrSlug.match(/^(\d+)/)?.[1];
     nodes.push({
       id: `adr:${adrRef}`,
-      name: adr.title,
+      name: localIndex ? `ADR ${localIndex}: ${displayTitle}` : adr.title,
       type: "adr",
       href: `/projects/${projectSlug}/adrs/${adrSlug}`,
       connections: 0,
@@ -125,6 +128,14 @@ export function extractGraphData(repository: DomainRepository): GraphData {
     const target = `adr:${supersededRef}`;
     if (!nodeIds.has(source) || !nodeIds.has(target)) continue;
     edges.push({ source, target, type: "SUPERSEDES" });
+    addConnection(source);
+    addConnection(target);
+  }
+  for (const [childRef, parentRef] of graph.edges.inheritsFrom) {
+    const source = `adr:${childRef}`;
+    const target = `adr:${parentRef}`;
+    if (!nodeIds.has(source) || !nodeIds.has(target)) continue;
+    edges.push({ source, target, type: "INHERITS_FROM" });
     addConnection(source);
     addConnection(target);
   }

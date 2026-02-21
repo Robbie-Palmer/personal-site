@@ -128,6 +128,24 @@ describe("buildContentGraph", () => {
     expect(graph.reverse.supersededBy.get("001")).toBe("002");
   });
 
+  it("builds inherits-from edges", () => {
+    const relations = createEmptyRelationData();
+    relations.adrProject.set("site:014-ssg", "site");
+    relations.adrProject.set("recipe:014-ssg", "recipe");
+    relations.adrInheritsFrom.set("recipe:014-ssg", "site:014-ssg");
+
+    const graph = buildContentGraph({
+      technologySlugs: [],
+      projectSlugs: ["site", "recipe"],
+      relations,
+    });
+
+    expect(graph.edges.inheritsFrom.get("recipe:014-ssg")).toBe("site:014-ssg");
+    expect(
+      graph.reverse.inheritedBy.get("site:014-ssg")?.has("recipe:014-ssg"),
+    ).toBe(true);
+  });
+
   it("builds tag edges for blogs", () => {
     const relations = createEmptyRelationData();
     relations.blogTags.set("post", ["javascript", "react"]);

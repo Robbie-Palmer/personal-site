@@ -858,6 +858,9 @@ function buildRelationDataFromLoaders(loaders: LoaderResults): RelationData {
     if (adr.supersedes) {
       relations.adrSupersededBy.set(adrRef, adr.supersedes);
     }
+    if (adr.inheritsFrom) {
+      relations.adrInheritsFrom.set(adrRef, adr.inheritsFrom);
+    }
   }
 
   for (const [slug, roleRels] of loaders.roles.relations) {

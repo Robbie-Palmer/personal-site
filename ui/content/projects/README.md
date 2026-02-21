@@ -73,7 +73,7 @@ Rules:
 
 - Inherited stubs are derived from source ADR content and metadata.
 - Inherited stubs may include markdown body content as project-specific notes.
-- `inherits_adrs` in project frontmatter is deprecated and forbidden.
+- `inherits_adrs` in project frontmatter is deprecated, and forbidden.
 - Use ADR-level `supersedes` only when replacing an inherited decision.
 - `supersedes` should reference ADRs in the current project's ADR context.
 

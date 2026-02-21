@@ -20,7 +20,11 @@ import {
   type ProjectWithADRs,
 } from "@/lib/api/projects";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
-import { parseADRRef } from "@/lib/domain/adr/adr";
+import {
+  formatADRIndex,
+  normalizeADRTitle,
+  parseADRRef,
+} from "@/lib/domain/adr/adr";
 
 const adrComponents = {
   EmblaDemoCarousel,
@@ -92,13 +96,8 @@ export default async function ADRPage({ params }: PageProps) {
     currentIndex < project.adrs.length - 1
       ? project.adrs[currentIndex + 1]
       : undefined;
-  const contextualIndex = project.adrs.findIndex(
-    (a) => a.adrRef === adr.adrRef,
-  );
-  const displayIndex = String(
-    contextualIndex >= 0 ? contextualIndex : 0,
-  ).padStart(3, "0");
-  const displayTitle = adr.title.replace(/^ADR\s+\d+\s*:\s*/i, "");
+  const displayIndex = formatADRIndex(currentIndex >= 0 ? currentIndex : 0);
+  const displayTitle = normalizeADRTitle(adr.title);
 
   return (
     <div className="max-w-4xl">
@@ -196,12 +195,12 @@ export default async function ADRPage({ params }: PageProps) {
           )}
 
           {adr.supersedes && (
-            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg p-4">
-              <p className="text-sm text-amber-900 dark:text-amber-100">
+            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
+              <p className="text-sm text-blue-900 dark:text-blue-100">
                 This decision supersedes{" "}
                 <Link
                   href={`/projects/${parseADRRef(adr.supersedes).projectSlug}/adrs/${parseADRRef(adr.supersedes).adrSlug}`}
-                  className="font-semibold underline underline-offset-4 hover:text-amber-700 dark:hover:text-amber-300"
+                  className="font-semibold underline underline-offset-4 hover:text-blue-700 dark:hover:text-blue-300"
                 >
                   {project.adrs.find((a) => a.adrRef === adr.supersedes)
                     ?.title || adr.supersedes}
@@ -211,14 +210,14 @@ export default async function ADRPage({ params }: PageProps) {
           )}
 
           {supersededAdrs.length > 0 && (
-            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
-              <p className="text-sm text-blue-900 dark:text-blue-100">
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg p-4">
+              <p className="text-sm text-amber-900 dark:text-amber-100">
                 This decision is superseded by:{" "}
                 {supersededAdrs.map((superseded, index) => (
                   <span key={superseded.slug}>
                     <Link
                       href={`/projects/${slug}/adrs/${superseded.slug}`}
-                      className="font-semibold underline underline-offset-4 hover:text-blue-700 dark:hover:text-blue-300"
+                      className="font-semibold underline underline-offset-4 hover:text-amber-700 dark:hover:text-amber-300"
                     >
                       {superseded.title}
                     </Link>

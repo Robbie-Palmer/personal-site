@@ -19,6 +19,7 @@ export type EdgeType =
   | "USES_TECHNOLOGY"
   | "PART_OF_PROJECT"
   | "SUPERSEDES"
+  | "INHERITS_FROM"
   | "HAS_TAG"
   | "CREATED_AT_ROLE"
   | "WRITTEN_AT_ROLE";
@@ -28,6 +29,7 @@ export interface ContentGraph {
     usesTechnology: Map<NodeId, Set<TechnologySlug>>;
     partOfProject: Map<ADRRef, ProjectSlug>;
     supersedes: Map<ADRRef, ADRRef>;
+    inheritsFrom: Map<ADRRef, ADRRef>;
     hasTag: Map<NodeId, Set<string>>;
     createdAtRole: Map<ProjectSlug, RoleSlug>;
     writtenAtRole: Map<BlogSlug, RoleSlug>;
@@ -37,6 +39,7 @@ export interface ContentGraph {
     technologyUsedBy: Map<TechnologySlug, Set<NodeId>>;
     projectADRs: Map<ProjectSlug, Set<ADRRef>>;
     supersededBy: Map<ADRRef, ADRRef>;
+    inheritedBy: Map<ADRRef, Set<ADRRef>>;
     tagUsedBy: Map<string, Set<NodeId>>;
     roleProjects: Map<RoleSlug, Set<ProjectSlug>>;
     roleBlogs: Map<RoleSlug, Set<BlogSlug>>;

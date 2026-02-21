@@ -17,7 +17,12 @@ import { useFilterParams } from "@/hooks/use-filter-params";
 import { useSortParam } from "@/hooks/use-sort-param";
 import type { ADR } from "@/lib/api/projects";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
-import { ADR_STATUS_CONFIG, ADR_STATUSES } from "@/lib/domain/adr/adr";
+import {
+  ADR_STATUS_CONFIG,
+  ADR_STATUSES,
+  formatADRIndex,
+  normalizeADRTitle,
+} from "@/lib/domain/adr/adr";
 import { ADRBadge } from "./adr-badge";
 
 interface ADRListProps {
@@ -97,10 +102,6 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
   const contextualIndexByRef = useMemo(() => {
     return new Map(adrs.map((adr, index) => [adr.adrRef, index]));
   }, [adrs]);
-
-  const formatContextIndex = (value: number) => String(value).padStart(3, "0");
-  const normalizeADRTitle = (title: string) =>
-    title.replace(/^ADR\s+\d+\s*:\s*/i, "");
 
   const activeFilters = useMemo(() => {
     const filters: Array<{
@@ -251,7 +252,7 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 min-w-0 pointer-events-none z-10 flex-wrap">
                 <span className="font-mono text-sm text-muted-foreground shrink-0 w-24">
                   ADR{" "}
-                  {formatContextIndex(
+                  {formatADRIndex(
                     contextualIndexByRef.get(adr.adrRef) ?? index,
                   )}
                 </span>
