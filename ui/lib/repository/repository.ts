@@ -740,24 +740,6 @@ export function validateReferentialIntegrity(
       checkTech(techSlug, `ADR[${adrRef}]`, "technologies");
     });
     const adr = input.adrs.get(adrRef);
-    if (adr?.inheritsFrom && !input.adrs.has(adr.inheritsFrom)) {
-      errors.push({
-        type: "missing_reference",
-        entity: `ADR[${adrRef}]`,
-        field: "inheritsFrom",
-        value: adr.inheritsFrom,
-        message: `ADR '${adr.inheritsFrom}' referenced by inheritsFrom does not exist`,
-      });
-    }
-    if (adr?.inheritsFrom && input.adrs.get(adr.inheritsFrom)?.inheritsFrom) {
-      errors.push({
-        type: "invalid_reference",
-        entity: `ADR[${adrRef}]`,
-        field: "inheritsFrom",
-        value: adr.inheritsFrom,
-        message: `ADR '${adrRef}' cannot inherit from inherited ADR '${adr.inheritsFrom}'`,
-      });
-    }
     if (adr?.supersedes && !input.adrs.has(adr.supersedes)) {
       errors.push({
         type: "missing_reference",
