@@ -19,7 +19,7 @@ describe("Domain Model Schemas", () => {
         iconSlug: "react",
         relations: {
           blogs: ["my-blog"],
-          adrs: ["001-react"],
+          adrs: ["personal-site:001-react"],
           projects: ["my-project"],
           roles: ["microsoft-0"],
         },

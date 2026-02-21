@@ -7,7 +7,13 @@ import {
   getTechnologiesForADR,
 } from "@/lib/repository";
 import { resolveTechnologiesToBadgeViews } from "../technology/technologyViews";
-import { type ADRRef, type ADRSlug, makeADRRef, parseADRRef } from "./adr";
+import {
+  type ADR,
+  type ADRRef,
+  type ADRSlug,
+  makeADRRef,
+  parseADRRef,
+} from "./adr";
 import {
   type ADRCardView,
   type ADRDetailView,
@@ -44,37 +50,110 @@ function getADRByRef(repository: DomainRepository, adrRef: ADRRef) {
   return repository.adrs.get(adrRef);
 }
 
-function mapADRRefToCardView(
+interface ADRViewMetadata {
+  adr: ADR;
+  originRef: ADRRef;
+  originProjectSlug: string;
+  originAdrSlug: string;
+  ownerProjectSlug: string;
+  targetProjectSlug: string;
+  isInherited: boolean;
+  supersededInProject: boolean;
+}
+
+function computeADRViewMetadata(
   repository: DomainRepository,
   adrRef: ADRRef,
   projectSlugOverride?: string,
-): ADRCardView | null {
+): ADRViewMetadata | null {
   const adr = getADRByRef(repository, adrRef);
   if (!adr) return null;
+
+  const ownerProjectSlug = getProjectForADR(repository.graph, adrRef);
+  if (!ownerProjectSlug) return null;
+
+  const targetProjectSlug = projectSlugOverride ?? ownerProjectSlug;
+  const originRef = adr.inheritsFrom ?? adrRef;
+  const { projectSlug: originProjectSlug, adrSlug: originAdrSlug } =
+    parseADRRef(originRef);
+  const supersedingRef = getSupersedingADR(repository.graph, adrRef);
+  const supersededInProject =
+    supersedingRef !== undefined &&
+    parseADRRef(supersedingRef).projectSlug === targetProjectSlug;
+  const isInherited =
+    Boolean(adr.inheritsFrom) || ownerProjectSlug !== targetProjectSlug;
+
+  return {
+    adr,
+    originRef,
+    originProjectSlug,
+    originAdrSlug,
+    ownerProjectSlug,
+    targetProjectSlug,
+    isInherited,
+    supersededInProject,
+  };
+}
+
+function buildADRDetailView(
+  repository: DomainRepository,
+  adrRef: ADRRef,
+  projectSlugOverride?: string,
+): ADRDetailView | null {
+  const metadata = computeADRViewMetadata(
+    repository,
+    adrRef,
+    projectSlugOverride,
+  );
+  if (!metadata) return null;
 
   const techSlugs = getTechnologiesForADR(repository.graph, adrRef);
   const technologies = resolveTechnologiesToBadgeViews(repository, [
     ...techSlugs,
   ]);
-  const ownerProjectSlug = getProjectForADR(repository.graph, adrRef);
-  if (!ownerProjectSlug) return null;
-  const originRef = adr.inheritsFrom ?? adrRef;
-  const { projectSlug: originProjectSlug, adrSlug: originAdrSlug } =
-    parseADRRef(originRef);
 
-  const projectSlug = projectSlugOverride ?? ownerProjectSlug;
-  const supersedingRef = getSupersedingADR(repository.graph, adrRef);
-  const supersededInProject =
-    supersedingRef !== undefined &&
-    parseADRRef(supersedingRef).projectSlug === projectSlug;
-  const isInherited =
-    Boolean(adr.inheritsFrom) || ownerProjectSlug !== projectSlug;
+  return toADRDetailView(
+    metadata.adr,
+    technologies,
+    metadata.targetProjectSlug,
+    {
+      isInherited: metadata.isInherited,
+      supersededInProject: metadata.supersededInProject,
+      originProjectSlug: metadata.originProjectSlug,
+      originAdrSlug: metadata.originAdrSlug,
+      inheritedSourceSummary: metadata.adr.inheritsFrom
+        ? summarizeMarkdown(
+            repository.adrs.get(metadata.originRef)?.content ?? "",
+          )
+        : undefined,
+      inheritedProjectNotes: metadata.adr.inheritsFrom
+        ? metadata.adr.content.trim()
+        : undefined,
+    },
+  );
+}
 
-  return toADRCardView(adr, technologies, projectSlug, {
-    isInherited,
-    supersededInProject,
-    originProjectSlug,
-    originAdrSlug,
+function mapADRRefToCardView(
+  repository: DomainRepository,
+  adrRef: ADRRef,
+  projectSlugOverride?: string,
+): ADRCardView | null {
+  const metadata = computeADRViewMetadata(
+    repository,
+    adrRef,
+    projectSlugOverride,
+  );
+  if (!metadata) return null;
+
+  const techSlugs = getTechnologiesForADR(repository.graph, adrRef);
+  const technologies = resolveTechnologiesToBadgeViews(repository, [
+    ...techSlugs,
+  ]);
+  return toADRCardView(metadata.adr, technologies, metadata.targetProjectSlug, {
+    isInherited: metadata.isInherited,
+    supersededInProject: metadata.supersededInProject,
+    originProjectSlug: metadata.originProjectSlug,
+    originAdrSlug: metadata.originAdrSlug,
   });
 }
 
@@ -89,35 +168,7 @@ export function getADRDetail(
   repository: DomainRepository,
   adrRef: ADRRef,
 ): ADRDetailView | null {
-  const adr = repository.adrs.get(adrRef);
-  if (!adr) return null;
-
-  const techSlugs = getTechnologiesForADR(repository.graph, adrRef);
-  const technologies = resolveTechnologiesToBadgeViews(repository, [
-    ...techSlugs,
-  ]);
-  const ownerProjectSlug = getProjectForADR(repository.graph, adrRef);
-  if (!ownerProjectSlug) return null;
-  const originRef = adr.inheritsFrom ?? adrRef;
-  const { projectSlug: originProjectSlug, adrSlug: originAdrSlug } =
-    parseADRRef(originRef);
-
-  const supersedingRef = getSupersedingADR(repository.graph, adrRef);
-  const supersededInProject =
-    supersedingRef !== undefined &&
-    parseADRRef(supersedingRef).projectSlug === ownerProjectSlug;
-  const isInherited = Boolean(adr.inheritsFrom);
-
-  return toADRDetailView(adr, technologies, ownerProjectSlug, {
-    isInherited,
-    supersededInProject,
-    originProjectSlug,
-    originAdrSlug,
-    inheritedSourceSummary: adr.inheritsFrom
-      ? summarizeMarkdown(repository.adrs.get(originRef)?.content ?? "")
-      : undefined,
-    inheritedProjectNotes: adr.inheritsFrom ? adr.content.trim() : undefined,
-  });
+  return buildADRDetailView(repository, adrRef);
 }
 
 export function getADRDetailForProject(
@@ -130,37 +181,7 @@ export function getADRDetailForProject(
     (ref) => parseADRRef(ref).adrSlug === adrSlug,
   );
   if (!matchingRef) return null;
-
-  const adr = repository.adrs.get(matchingRef);
-  if (!adr) return null;
-
-  const techSlugs = getTechnologiesForADR(repository.graph, matchingRef);
-  const technologies = resolveTechnologiesToBadgeViews(repository, [
-    ...techSlugs,
-  ]);
-  const ownerProjectSlug = getProjectForADR(repository.graph, matchingRef);
-  if (!ownerProjectSlug) return null;
-  const originRef = adr.inheritsFrom ?? matchingRef;
-  const { projectSlug: originProjectSlug, adrSlug: originAdrSlug } =
-    parseADRRef(originRef);
-
-  const supersedingRef = getSupersedingADR(repository.graph, matchingRef);
-  const supersededInProject =
-    supersedingRef !== undefined &&
-    parseADRRef(supersedingRef).projectSlug === projectSlug;
-  const isInherited =
-    Boolean(adr.inheritsFrom) || ownerProjectSlug !== projectSlug;
-
-  return toADRDetailView(adr, technologies, projectSlug, {
-    isInherited,
-    supersededInProject,
-    originProjectSlug,
-    originAdrSlug,
-    inheritedSourceSummary: adr.inheritsFrom
-      ? summarizeMarkdown(repository.adrs.get(originRef)?.content ?? "")
-      : undefined,
-    inheritedProjectNotes: adr.inheritsFrom ? adr.content.trim() : undefined,
-  });
+  return buildADRDetailView(repository, matchingRef, projectSlug);
 }
 
 export function getADRListItem(

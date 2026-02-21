@@ -14,7 +14,7 @@ export interface RelationData {
   blogTags: Map<BlogSlug, string[]>;
   adrTechnologies: Map<ADRRef, TechnologySlug[]>;
   adrProject: Map<ADRRef, ProjectSlug>;
-  adrSupersededBy: Map<ADRRef, ADRRef>;
+  adrSupersedes: Map<ADRRef, ADRRef>;
   adrInheritsFrom: Map<ADRRef, ADRRef>;
   roleTechnologies: Map<RoleSlug, TechnologySlug[]>;
   blogRole: Map<BlogSlug, RoleSlug>;
@@ -30,7 +30,7 @@ export function createEmptyRelationData(): RelationData {
     blogTags: new Map(),
     adrTechnologies: new Map(),
     adrProject: new Map(),
-    adrSupersededBy: new Map(),
+    adrSupersedes: new Map(),
     adrInheritsFrom: new Map(),
     roleTechnologies: new Map(),
     blogRole: new Map(),
@@ -93,7 +93,7 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
     graph.edges.partOfProject.set(slug, projectSlug);
     graph.reverse.projectADRs.get(projectSlug)?.add(slug);
   }
-  for (const [supersedingSlug, supersededSlug] of relations.adrSupersededBy) {
+  for (const [supersedingSlug, supersededSlug] of relations.adrSupersedes) {
     graph.edges.supersedes.set(supersedingSlug, supersededSlug);
     graph.reverse.supersededBy.set(supersededSlug, supersedingSlug);
   }

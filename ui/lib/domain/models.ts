@@ -30,7 +30,7 @@ export const TechnologySchema = z.object({
   relations: z
     .object({
       blogs: z.array(BlogSlugSchema).default([]),
-      adrs: z.array(ADRSlugSchema).default([]),
+      adrs: z.array(ADRRefSchema).default([]),
       projects: z.array(ProjectSlugSchema).default([]),
       roles: z.array(RoleSlugSchema).default([]),
     })

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { formatADRIndex, normalizeADRTitle } from "@/lib/domain/adr/adr";
+import {
+  formatADRIndex,
+  normalizeADRTitle,
+  parseADRRef,
+} from "@/lib/domain/adr/adr";
 import { summarizeMarkdown } from "@/lib/domain/adr/adrQueries";
 
 describe("ADR utilities", () => {
@@ -15,6 +19,23 @@ describe("ADR utilities", () => {
       "Content Graph Indexes",
     );
     expect(normalizeADRTitle("Use React")).toBe("Use React");
+  });
+
+  it("parses ADRRef with a single separator", () => {
+    const parsed = parseADRRef("personal-site:014-ssg");
+    expect(parsed).toEqual({
+      projectSlug: "personal-site",
+      adrSlug: "014-ssg",
+    });
+  });
+
+  it("throws for invalid ADRRef shapes", () => {
+    expect(() => parseADRRef("bad:ref:shape" as never)).toThrow(
+      "Invalid ADRRef format",
+    );
+    expect(() => parseADRRef("missing-separator" as never)).toThrow(
+      "Invalid ADRRef format",
+    );
   });
 
   it("summarizes markdown to clean plain text", () => {

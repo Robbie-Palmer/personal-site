@@ -116,7 +116,7 @@ describe("buildContentGraph", () => {
     const relations = createEmptyRelationData();
     relations.adrProject.set("001", "site");
     relations.adrProject.set("002", "site");
-    relations.adrSupersededBy.set("002", "001");
+    relations.adrSupersedes.set("002", "001");
 
     const graph = buildContentGraph({
       technologySlugs: [],
@@ -226,7 +226,7 @@ describe("graph queries", () => {
     const relations2 = createEmptyRelationData();
     relations2.adrProject.set("001", "site");
     relations2.adrProject.set("002", "site");
-    relations2.adrSupersededBy.set("002", "001");
+    relations2.adrSupersedes.set("002", "001");
 
     const graph2 = buildContentGraph({
       technologySlugs: [],

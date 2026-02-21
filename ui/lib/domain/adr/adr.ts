@@ -83,9 +83,18 @@ export function parseADRRef(adrRef: ADRRef): {
   projectSlug: ProjectSlug;
   adrSlug: ADRSlug;
 } {
-  const [projectSlug, ...rest] = adrRef.split(":");
+  const separatorIndex = adrRef.indexOf(":");
+  if (separatorIndex <= 0 || separatorIndex === adrRef.length - 1) {
+    throw new Error(`Invalid ADRRef format: '${adrRef}'`);
+  }
+  if (adrRef.indexOf(":", separatorIndex + 1) !== -1) {
+    throw new Error(`Invalid ADRRef format: '${adrRef}'`);
+  }
+
+  const projectSlug = adrRef.slice(0, separatorIndex);
+  const adrSlug = adrRef.slice(separatorIndex + 1);
   return {
-    projectSlug: (projectSlug ?? "") as ProjectSlug,
-    adrSlug: rest.join(":") as ADRSlug,
+    projectSlug: projectSlug as ProjectSlug,
+    adrSlug: adrSlug as ADRSlug,
   };
 }

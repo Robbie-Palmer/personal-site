@@ -98,6 +98,7 @@ export default async function ADRPage({ params }: PageProps) {
       : undefined;
   const displayIndex = formatADRIndex(currentIndex >= 0 ? currentIndex : 0);
   const displayTitle = normalizeADRTitle(adr.title);
+  const supersedesRef = adr.supersedes ? parseADRRef(adr.supersedes) : null;
 
   return (
     <div className="max-w-4xl">
@@ -199,7 +200,7 @@ export default async function ADRPage({ params }: PageProps) {
               <p className="text-sm text-blue-900 dark:text-blue-100">
                 This decision supersedes{" "}
                 <Link
-                  href={`/projects/${parseADRRef(adr.supersedes).projectSlug}/adrs/${parseADRRef(adr.supersedes).adrSlug}`}
+                  href={`/projects/${supersedesRef?.projectSlug}/adrs/${supersedesRef?.adrSlug}`}
                   className="font-semibold underline underline-offset-4 hover:text-blue-700 dark:hover:text-blue-300"
                 >
                   {project.adrs.find((a) => a.adrRef === adr.supersedes)
