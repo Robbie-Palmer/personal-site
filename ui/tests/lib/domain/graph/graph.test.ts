@@ -116,7 +116,7 @@ describe("buildContentGraph", () => {
     const relations = createEmptyRelationData();
     relations.adrProject.set("001", "site");
     relations.adrProject.set("002", "site");
-    relations.adrSupersededBy.set("002", "001");
+    relations.adrSupersedes.set("002", "001");
 
     const graph = buildContentGraph({
       technologySlugs: [],
@@ -126,6 +126,24 @@ describe("buildContentGraph", () => {
 
     expect(graph.edges.supersedes.get("002")).toBe("001");
     expect(graph.reverse.supersededBy.get("001")).toBe("002");
+  });
+
+  it("builds inherits-from edges", () => {
+    const relations = createEmptyRelationData();
+    relations.adrProject.set("site:014-ssg", "site");
+    relations.adrProject.set("recipe:014-ssg", "recipe");
+    relations.adrInheritsFrom.set("recipe:014-ssg", "site:014-ssg");
+
+    const graph = buildContentGraph({
+      technologySlugs: [],
+      projectSlugs: ["site", "recipe"],
+      relations,
+    });
+
+    expect(graph.edges.inheritsFrom.get("recipe:014-ssg")).toBe("site:014-ssg");
+    expect(
+      graph.reverse.inheritedBy.get("site:014-ssg")?.has("recipe:014-ssg"),
+    ).toBe(true);
   });
 
   it("builds tag edges for blogs", () => {
@@ -208,7 +226,7 @@ describe("graph queries", () => {
     const relations2 = createEmptyRelationData();
     relations2.adrProject.set("001", "site");
     relations2.adrProject.set("002", "site");
-    relations2.adrSupersededBy.set("002", "001");
+    relations2.adrSupersedes.set("002", "001");
 
     const graph2 = buildContentGraph({
       technologySlugs: [],

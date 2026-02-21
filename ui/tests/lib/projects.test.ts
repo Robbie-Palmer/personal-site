@@ -148,19 +148,23 @@ describe("Projects functions", () => {
   describe("getProjectADR", () => {
     it("should return specific ADR from project", () => {
       const projects = getAllProjects();
-      const projectWithADRs = projects.find((p) => p.adrs.length > 0);
+      const projectWithLocalADRs = projects.find((p) =>
+        p.adrs.some((adr) => adr.originProjectSlug === p.slug),
+      );
 
-      if (!projectWithADRs) {
+      if (!projectWithLocalADRs) {
         // Skip if no projects have ADRs
         return;
       }
 
-      const firstADR = projectWithADRs.adrs[0];
+      const firstADR = projectWithLocalADRs.adrs.find(
+        (adr) => adr.originProjectSlug === projectWithLocalADRs.slug,
+      );
       if (!firstADR) {
         return;
       }
 
-      const adr = getProjectADR(projectWithADRs.slug, firstADR.slug);
+      const adr = getProjectADR(projectWithLocalADRs.slug, firstADR.slug);
 
       expect(adr.slug).toBe(firstADR.slug);
       expect(adr.title).toBe(firstADR.title);
@@ -179,7 +183,7 @@ describe("Projects functions", () => {
       ).toThrow("ADR not found");
     });
 
-    it("should throw error if ADR belongs to different project", () => {
+    it("should throw error if ADR is requested from a different project route", () => {
       const projects = getAllProjects();
       if (projects.length < 2) {
         // Need at least 2 projects
@@ -196,8 +200,32 @@ describe("Projects functions", () => {
 
       // Try to get project1's ADR using project2's slug
       expect(() => getProjectADR(project2.slug, adr.slug)).toThrow(
-        "does not belong to project",
+        "ADR not found",
       );
+    });
+
+    it("should resolve inherited ADR in child project context", () => {
+      const projects = getAllProjects();
+      const projectWithInherited = projects.find((p) =>
+        p.adrs.some((adr) => adr.isInherited),
+      );
+
+      if (!projectWithInherited) {
+        return;
+      }
+
+      const inheritedADR = projectWithInherited.adrs.find(
+        (adr) => adr.isInherited,
+      );
+      if (!inheritedADR) {
+        return;
+      }
+
+      const adr = getProjectADR(projectWithInherited.slug, inheritedADR.slug);
+      expect(adr.isInherited).toBe(true);
+      expect(adr.projectSlug).toBe(projectWithInherited.slug);
+      expect(adr.originProjectSlug).not.toBe(projectWithInherited.slug);
+      expect(typeof adr.inheritedSourceSummary).toBe("string");
     });
   });
 

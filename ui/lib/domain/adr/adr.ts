@@ -1,12 +1,13 @@
 import { z } from "zod";
-import type { ADRSlug } from "../slugs";
+import type { ADRRef, ADRSlug, ProjectSlug } from "../slugs";
 import {
+  ADRRefSchema,
   ADRSlugSchema,
   ProjectSlugSchema,
   TechnologySlugSchema,
 } from "../slugs";
 
-export type { ADRSlug };
+export type { ADRRef, ADRSlug };
 
 export const ADRStatusSchema = z.enum([
   "Accepted",
@@ -45,11 +46,14 @@ export const ADR_STATUS_CONFIG: Record<
 };
 
 export const ADRSchema = z.object({
+  adrRef: ADRRefSchema,
   slug: ADRSlugSchema,
+  projectSlug: ProjectSlugSchema,
   title: z.string().min(1),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   status: ADRStatusSchema,
-  supersededBy: ADRSlugSchema.optional(),
+  inheritsFrom: ADRRefSchema.optional(),
+  supersedes: ADRRefSchema.optional(),
   content: z.string(),
   readingTime: z.string(),
 });
@@ -62,3 +66,35 @@ export const ADRRelationsSchema = z.object({
 });
 
 export type ADRRelations = z.infer<typeof ADRRelationsSchema>;
+
+export function makeADRRef(projectSlug: ProjectSlug, adrSlug: ADRSlug): ADRRef {
+  return `${projectSlug}:${adrSlug}`;
+}
+
+export function formatADRIndex(index: number): string {
+  return String(Math.max(0, index)).padStart(3, "0");
+}
+
+export function normalizeADRTitle(title: string): string {
+  return title.replace(/^ADR\s+\d+\s*:\s*/i, "");
+}
+
+export function parseADRRef(adrRef: ADRRef): {
+  projectSlug: ProjectSlug;
+  adrSlug: ADRSlug;
+} {
+  const separatorIndex = adrRef.indexOf(":");
+  if (separatorIndex <= 0 || separatorIndex === adrRef.length - 1) {
+    throw new Error(`Invalid ADRRef format: '${adrRef}'`);
+  }
+  if (adrRef.indexOf(":", separatorIndex + 1) !== -1) {
+    throw new Error(`Invalid ADRRef format: '${adrRef}'`);
+  }
+
+  const projectSlug = adrRef.slice(0, separatorIndex);
+  const adrSlug = adrRef.slice(separatorIndex + 1);
+  return {
+    projectSlug: projectSlug as ProjectSlug,
+    adrSlug: adrSlug as ADRSlug,
+  };
+}

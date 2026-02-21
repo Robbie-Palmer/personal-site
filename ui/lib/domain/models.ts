@@ -1,14 +1,22 @@
 import { z } from "zod";
+import {
+  ADRRelationsSchema,
+  ADRStatusSchema,
+  ADRSchema as BaseADRSchema,
+} from "./adr/adr";
+import { ADRRefSchema as CanonicalADRRefSchema } from "./slugs";
 
 export const TechnologySlugSchema = z.string().min(1);
 export const BlogSlugSchema = z.string().min(1);
 export const ADRSlugSchema = z.string().min(1);
+export const ADRRefSchema = CanonicalADRRefSchema;
 export const ProjectSlugSchema = z.string().min(1);
 export const RoleSlugSchema = z.string().min(1);
 
 export type TechnologySlug = z.infer<typeof TechnologySlugSchema>;
 export type BlogSlug = z.infer<typeof BlogSlugSchema>;
 export type ADRSlug = z.infer<typeof ADRSlugSchema>;
+export type ADRRef = z.infer<typeof ADRRefSchema>;
 export type ProjectSlug = z.infer<typeof ProjectSlugSchema>;
 export type RoleSlug = z.infer<typeof RoleSlugSchema>;
 
@@ -22,7 +30,7 @@ export const TechnologySchema = z.object({
   relations: z
     .object({
       blogs: z.array(BlogSlugSchema).default([]),
-      adrs: z.array(ADRSlugSchema).default([]),
+      adrs: z.array(ADRRefSchema).default([]),
       projects: z.array(ProjectSlugSchema).default([]),
       roles: z.array(RoleSlugSchema).default([]),
     })
@@ -63,27 +71,11 @@ export const BlogPostSchema = z.object({
 
 export type BlogPost = z.infer<typeof BlogPostSchema>;
 
-export const ADRStatusSchema = z.enum([
-  "Accepted",
-  "Rejected",
-  "Deprecated",
-  "Proposed",
-]);
+export { ADRStatusSchema };
 export type ADRStatus = z.infer<typeof ADRStatusSchema>;
 
-export const ADRSchema = z.object({
-  slug: ADRSlugSchema,
-  title: z.string().min(1),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  status: ADRStatusSchema,
-  supersededBy: ADRSlugSchema.optional(),
-  content: z.string(),
-  readingTime: z.string(),
-
-  relations: z.object({
-    project: ProjectSlugSchema,
-    technologies: z.array(TechnologySlugSchema).default([]),
-  }),
+export const ADRSchema = BaseADRSchema.extend({
+  relations: ADRRelationsSchema,
 });
 
 export type ADR = z.infer<typeof ADRSchema>;
@@ -110,7 +102,7 @@ export const ProjectSchema = z.object({
   relations: z
     .object({
       technologies: z.array(TechnologySlugSchema).default([]),
-      adrs: z.array(ADRSlugSchema).default([]),
+      adrs: z.array(ADRRefSchema).default([]),
     })
     .default({
       technologies: [],

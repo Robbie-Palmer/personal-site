@@ -9,6 +9,9 @@ export type BlogSlug = z.infer<typeof BlogSlugSchema>;
 export const ADRSlugSchema = z.string().min(1);
 export type ADRSlug = z.infer<typeof ADRSlugSchema>;
 
+export const ADRRefSchema = z.string().regex(/^[^:]+:[^:]+$/);
+export type ADRRef = z.infer<typeof ADRRefSchema>;
+
 export const ProjectSlugSchema = z.string().min(1);
 export type ProjectSlug = z.infer<typeof ProjectSlugSchema>;
 

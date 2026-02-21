@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useDebouncedSearchTracking } from "@/hooks/use-debounced-search-tracking";
 import type { ProjectWithADRs } from "@/lib/api/projects";
+import { formatADRIndex, normalizeADRTitle } from "@/lib/domain/adr/adr";
 import { cn } from "@/lib/generic/styles";
 import { ADRBadge } from "./adr-badge";
 
@@ -45,6 +46,10 @@ export function ADRNavContent({
       .search(searchQuery)
       .map((result: FuseResult<(typeof project.adrs)[number]>) => result.item);
   }, [fuse, searchQuery, project.adrs]);
+
+  const contextualIndexByRef = useMemo(() => {
+    return new Map(project.adrs.map((adr, index) => [adr.adrRef, index]));
+  }, [project.adrs]);
 
   useDebouncedSearchTracking({
     searchQuery,
@@ -92,13 +97,13 @@ export function ADRNavContent({
               <p>No decisions match &quot;{searchQuery}&quot;</p>
             </div>
           ) : (
-            filteredADRs.map((adr) => {
+            filteredADRs.map((adr, index) => {
               const href = `/projects/${project.slug}/adrs/${adr.slug}`;
               const isActive = pathname === href;
 
               return (
                 <Link
-                  key={adr.slug}
+                  key={adr.adrRef}
                   href={href}
                   onClick={onLinkClick}
                   className={cn(
@@ -110,7 +115,10 @@ export function ADRNavContent({
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs opacity-70">
-                      {adr.slug}
+                      ADR{" "}
+                      {formatADRIndex(
+                        contextualIndexByRef.get(adr.adrRef) ?? index,
+                      )}
                     </span>
                     <ADRBadge
                       status={adr.status}
@@ -123,8 +131,13 @@ export function ADRNavContent({
                       isActive && "text-foreground",
                     )}
                   >
-                    {adr.title}
+                    {normalizeADRTitle(adr.title)}
                   </div>
+                  {adr.isInherited && (
+                    <div className="text-[11px] opacity-80">
+                      Inherited from {adr.originProjectSlug}
+                    </div>
+                  )}
                 </Link>
               );
             })

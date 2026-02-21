@@ -207,7 +207,30 @@ Content`;
       const result = loadProjects();
 
       expect(result.entities.size).toBe(1);
-      expect(result.relations.get("test-project")?.adrs).toEqual(["001-test"]);
+      expect(result.relations.get("test-project")?.adrs).toEqual([
+        "test-project:001-test",
+      ]);
+    });
+
+    it("should reject deprecated inherits_adrs in project frontmatter", () => {
+      const mockProjectContent = `---
+title: "Test Project"
+description: "A test project"
+date: "2025-01-01"
+status: "live"
+inherits_adrs:
+  - "personal-site:002-react"
+---
+Content`;
+
+      vi.mocked(fs.existsSync).mockImplementation(() => true);
+      vi.mocked(fs.readdirSync).mockImplementation(((path: string) => {
+        if (path.endsWith("projects")) return [mockDirent("test-project")];
+        return [];
+      }) as unknown as typeof fs.readdirSync);
+      vi.mocked(fs.readFileSync).mockReturnValue(mockProjectContent);
+
+      expect(() => loadProjects()).toThrow("deprecated 'inherits_adrs'");
     });
   });
 
@@ -241,13 +264,63 @@ We decided to use React.`;
       const result = loadADRs();
 
       expect(result.entities.size).toBe(1);
-      const adr = result.entities.get("001-react");
+      const adr = result.entities.get("project-1:001-react");
       expect(adr).toBeDefined();
       expect(adr?.title).toBe("ADR 001: Use React");
-      expect(result.relations.get("001-react")?.project).toBe("project-1");
-      expect(result.relations.get("001-react")?.technologies).toEqual([
-        "react",
-      ]);
+      expect(result.relations.get("project-1:001-react")?.project).toBe(
+        "project-1",
+      );
+      expect(result.relations.get("project-1:001-react")?.technologies).toEqual(
+        ["react"],
+      );
+    });
+
+    it("should derive inherited ADR stub content from source ADR", () => {
+      const sourceADR = `---
+title: "ADR 002: React"
+date: "2025-10-18"
+status: "Accepted"
+tech_stack: ["React"]
+---
+
+Canonical source content.`;
+      const inheritedStub = `---
+inherits_from: "personal-site:002-react"
+---
+
+Recipe-site note: this is adopted as-is for now.
+`;
+
+      vi.mocked(fs.existsSync).mockImplementation(() => true);
+      vi.mocked(fs.readdirSync).mockImplementation(((path: string) => {
+        if (path.endsWith("projects")) {
+          return [mockDirent("personal-site"), mockDirent("recipe-site")];
+        }
+        if (path.includes("personal-site/adrs")) return ["002-react.mdx"];
+        if (path.includes("recipe-site/adrs")) return ["000-react.mdx"];
+        return [];
+      }) as unknown as typeof fs.readdirSync);
+
+      vi.mocked(fs.readFileSync).mockImplementation((path) => {
+        const pathStr = path.toString();
+        if (pathStr.includes("personal-site/adrs/002-react.mdx")) {
+          return sourceADR;
+        }
+        if (pathStr.includes("recipe-site/adrs/000-react.mdx")) {
+          return inheritedStub;
+        }
+        return "";
+      });
+
+      const result = loadADRs();
+      const inherited = result.entities.get("recipe-site:000-react");
+      expect(inherited).toBeDefined();
+      expect(inherited?.inheritsFrom).toBe("personal-site:002-react");
+      expect(inherited?.title).toBe("ADR 002: React");
+      expect(inherited?.content).toContain("Recipe-site note:");
+      expect(
+        result.relations.get("recipe-site:000-react")?.technologies,
+      ).toEqual(["react"]);
     });
   });
 
@@ -541,14 +614,102 @@ Content`;
         expect(errors[0]?.field).toBe("adrs");
       });
 
+      it("should detect duplicate ADR slugs in project context", () => {
+        const technologies = new Map();
+        const projects = new Map([
+          [
+            "recipe-site",
+            {
+              slug: "recipe-site",
+              title: "Recipe Site",
+              description: "Desc",
+              date: "2025-01-01",
+              status: "live" as const,
+              content: "Content",
+            },
+          ],
+          [
+            "personal-site",
+            {
+              slug: "personal-site",
+              title: "Personal Site",
+              description: "Desc",
+              date: "2025-01-01",
+              status: "live" as const,
+              content: "Content",
+            },
+          ],
+        ]);
+        const adrs = new Map([
+          [
+            "recipe-site:001-react",
+            {
+              adrRef: "recipe-site:001-react",
+              slug: "001-react",
+              projectSlug: "recipe-site",
+              title: "Recipe ADR",
+              date: "2025-01-01",
+              status: "Accepted" as const,
+              content: "Content",
+              readingTime: "1 min",
+            },
+          ],
+          [
+            "personal-site:001-react",
+            {
+              adrRef: "personal-site:001-react",
+              slug: "001-react",
+              projectSlug: "personal-site",
+              title: "Personal ADR",
+              date: "2025-01-01",
+              status: "Accepted" as const,
+              content: "Content",
+              readingTime: "1 min",
+            },
+          ],
+        ]);
+
+        const projectRelations = new Map([
+          [
+            "recipe-site",
+            {
+              technologies: [],
+              adrs: ["recipe-site:001-react", "personal-site:001-react"],
+              tags: [],
+            },
+          ],
+        ]);
+
+        const errors = validateReferentialIntegrity({
+          technologies,
+          adrs,
+          projects,
+          blogRelations: new Map(),
+          projectRelations,
+          adrRelations: new Map(),
+          roleRelations: new Map(),
+        });
+
+        expect(
+          errors.some(
+            (error) =>
+              error.type === "invalid_reference" &&
+              error.field === "adrs" &&
+              error.message.includes("Duplicate ADR slug"),
+          ),
+        ).toBe(true);
+      });
+
       it("should detect missing project reference in ADR", () => {
         const technologies = new Map();
         const projects = new Map();
         const adrs = new Map([
           [
-            "001-test",
+            "test-project:001-test",
             {
+              adrRef: "test-project:001-test",
               slug: "001-test",
+              projectSlug: "test-project",
               title: "Test ADR",
               date: "2025-01-01",
               status: "Accepted" as const,
@@ -560,7 +721,7 @@ Content`;
 
         const adrRelations = new Map([
           [
-            "001-test",
+            "test-project:001-test",
             {
               project: "missing-project", // Project doesn't exist
               technologies: [],

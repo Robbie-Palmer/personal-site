@@ -17,7 +17,12 @@ import { useFilterParams } from "@/hooks/use-filter-params";
 import { useSortParam } from "@/hooks/use-sort-param";
 import type { ADR } from "@/lib/api/projects";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
-import { ADR_STATUS_CONFIG, ADR_STATUSES } from "@/lib/domain/adr/adr";
+import {
+  ADR_STATUS_CONFIG,
+  ADR_STATUSES,
+  formatADRIndex,
+  normalizeADRTitle,
+} from "@/lib/domain/adr/adr";
 import { ADRBadge } from "./adr-badge";
 
 interface ADRListProps {
@@ -93,6 +98,10 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
     const direction = currentSort === "newest" ? -1 : 1;
     return a.slug.localeCompare(b.slug) * direction;
   });
+
+  const contextualIndexByRef = useMemo(() => {
+    return new Map(adrs.map((adr, index) => [adr.adrRef, index]));
+  }, [adrs]);
 
   const activeFilters = useMemo(() => {
     const filters: Array<{
@@ -228,53 +237,64 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
           <p>No decisions match &quot;{searchQuery}&quot;</p>
         </div>
       ) : (
-        sortedADRs.map((adr) => (
-          <Card
-            key={adr.slug}
-            className="hover:border-primary/50 transition-colors relative group overflow-hidden"
-          >
-            <Link
-              href={`/projects/${projectSlug}/adrs/${adr.slug}`}
-              className="absolute inset-0 z-0"
+        sortedADRs.map((adr) => {
+          const contextualIndex = contextualIndexByRef.get(adr.adrRef);
+          return (
+            <Card
+              key={adr.adrRef}
+              className="hover:border-primary/50 transition-colors relative group overflow-hidden"
             >
-              <span className="sr-only">View {adr.title}</span>
-            </Link>
-            <CardHeader className="py-4">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 min-w-0 pointer-events-none z-10 flex-wrap">
-                <span className="font-mono text-sm text-muted-foreground shrink-0 w-24">
-                  {adr.date}
-                </span>
-                <span className="font-semibold text-lg group-hover:text-primary transition-colors">
-                  {adr.title}
-                </span>
+              <Link
+                href={`/projects/${projectSlug}/adrs/${adr.slug}`}
+                className="absolute inset-0 z-0"
+              >
+                <span className="sr-only">View {adr.title}</span>
+              </Link>
+              <CardHeader className="py-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 min-w-0 pointer-events-none z-10 flex-wrap">
+                  <span className="font-mono text-sm text-muted-foreground shrink-0 w-24">
+                    ADR{" "}
+                    {contextualIndex !== undefined
+                      ? formatADRIndex(contextualIndex)
+                      : "---"}
+                  </span>
+                  <span className="font-semibold text-lg group-hover:text-primary transition-colors">
+                    {normalizeADRTitle(adr.title)}
+                  </span>
 
-                {adr.technologies &&
-                  adr.technologies.length > 0 &&
-                  adr.technologies.map((tech) => (
-                    <Link
-                      key={tech.slug}
-                      href={`/technologies/${tech.slug}`}
-                      className="cursor-pointer pointer-events-auto w-fit shrink-0"
-                      onClick={(e) => e.stopPropagation()}
-                      aria-label={`View ${tech.name} technology`}
-                    >
-                      <Badge
-                        variant="secondary"
-                        className="flex items-center gap-1.5 hover:bg-secondary/80"
+                  {adr.technologies &&
+                    adr.technologies.length > 0 &&
+                    adr.technologies.map((tech) => (
+                      <Link
+                        key={tech.slug}
+                        href={`/technologies/${tech.slug}`}
+                        className="cursor-pointer pointer-events-auto w-fit shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`View ${tech.name} technology`}
                       >
-                        {hasTechIcon(tech.name) && (
-                          <TechIcon name={tech.name} className="w-3 h-3" />
-                        )}
-                        <span>{tech.name}</span>
-                      </Badge>
-                    </Link>
-                  ))}
+                        <Badge
+                          variant="secondary"
+                          className="flex items-center gap-1.5 hover:bg-secondary/80"
+                        >
+                          {hasTechIcon(tech.name) && (
+                            <TechIcon name={tech.name} className="w-3 h-3" />
+                          )}
+                          <span>{tech.name}</span>
+                        </Badge>
+                      </Link>
+                    ))}
 
-                <ADRBadge status={adr.status} className="shrink-0 w-fit" />
-              </div>
-            </CardHeader>
-          </Card>
-        ))
+                  <ADRBadge status={adr.status} className="shrink-0 w-fit" />
+                  {adr.isInherited && (
+                    <span className="text-xs text-muted-foreground">
+                      Inherited from {adr.originProjectSlug}
+                    </span>
+                  )}
+                </div>
+              </CardHeader>
+            </Card>
+          );
+        })
       )}
     </div>
   );
