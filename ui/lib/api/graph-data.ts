@@ -1,5 +1,5 @@
 import type { DomainRepository } from "@/lib/domain";
-import { parseADRRef } from "@/lib/domain/adr/adr";
+import { normalizeADRTitle, parseADRRef } from "@/lib/domain/adr/adr";
 import type { NodeType } from "@/lib/repository/graph";
 
 export const NON_NAVIGABLE_HREF = "#";
@@ -64,7 +64,7 @@ export function extractGraphData(repository: DomainRepository): GraphData {
     const projectSlug = graph.edges.partOfProject.get(adrRef);
     if (!projectSlug) continue;
     const { adrSlug } = parseADRRef(adrRef);
-    const displayTitle = adr.title.replace(/^ADR\s+\d+\s*:\s*/i, "");
+    const displayTitle = normalizeADRTitle(adr.title);
     const localIndex = adrSlug.match(/^(\d+)/)?.[1];
     nodes.push({
       id: `adr:${adrRef}`,

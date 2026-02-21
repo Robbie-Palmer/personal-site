@@ -492,7 +492,16 @@ export function loadADRs(): ADRLoadResult {
   });
 
   for (const record of inheritedStubRecords) {
-    const inheritsFrom = record.data.inherits_from as ADRRef;
+    const inheritsFromValue = record.data.inherits_from;
+    if (
+      typeof inheritsFromValue !== "string" ||
+      !/^[^:]+:[^:]+$/.test(inheritsFromValue)
+    ) {
+      throw new Error(
+        `Inherited ADR stub ${record.adrRef} has invalid inherits_from '${String(inheritsFromValue)}'. Expected format 'project:adr-slug'`,
+      );
+    }
+    const inheritsFrom = inheritsFromValue as ADRRef;
     const sourceADR = entities.get(inheritsFrom);
     if (!sourceADR) {
       throw new Error(
