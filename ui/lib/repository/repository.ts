@@ -7,9 +7,10 @@ import { experiences as definedExperiences } from "../../content/experience";
 import { technologies as definedTechnologies } from "../../content/technologies";
 import {
   type ADR,
+  type ADRRef,
   type ADRRelations,
   ADRSchema,
-  type ADRSlug,
+  makeADRRef,
 } from "../domain/adr/adr";
 import {
   type BlogPost,
@@ -333,7 +334,7 @@ export function loadProjects(): ProjectLoadResult {
     const fileContent = fs.readFileSync(projectPath, "utf-8");
     const { data, content } = matter(fileContent);
 
-    const adrSlugs: ADRSlug[] = [];
+    const adrRefs: ADRRef[] = [];
     const adrsDir = path.join(PROJECTS_DIR, projectSlug, "adrs");
     if (fs.existsSync(adrsDir)) {
       const adrFiles = fs
@@ -342,8 +343,13 @@ export function loadProjects(): ProjectLoadResult {
         .sort();
       adrFiles.forEach((adrFile) => {
         const adrSlug = adrFile.replace(/\.mdx$/, "");
-        adrSlugs.push(adrSlug);
+        adrRefs.push(makeADRRef(projectSlug, adrSlug));
       });
+    }
+    if (Array.isArray(data.inherits_adrs) && data.inherits_adrs.length > 0) {
+      throw new Error(
+        `Project ${projectSlug} uses deprecated 'inherits_adrs'. Use inherited ADR stub files in ${projectSlug}/adrs/ with 'inherits_from' instead.`,
+      );
     }
 
     const technologies: TechnologySlug[] = (data.tech_stack || []).map(
@@ -365,7 +371,7 @@ export function loadProjects(): ProjectLoadResult {
 
     const projectRelations: ProjectRelations = {
       technologies,
-      adrs: adrSlugs,
+      adrs: adrRefs,
       role: data.role ? normalizeSlug(data.role) : undefined,
       tags: data.tags || [],
     };
@@ -403,13 +409,20 @@ export function validateProject(
 }
 
 interface ADRLoadResult {
-  entities: Map<ADRSlug, ADR>;
-  relations: Map<ADRSlug, ADRRelations>;
+  entities: Map<ADRRef, ADR>;
+  relations: Map<ADRRef, ADRRelations>;
 }
 
 export function loadADRs(): ADRLoadResult {
-  const entities = new Map<ADRSlug, ADR>();
-  const relations = new Map<ADRSlug, ADRRelations>();
+  const entities = new Map<ADRRef, ADR>();
+  const relations = new Map<ADRRef, ADRRelations>();
+  const inheritedStubRecords: Array<{
+    adrRef: ADRRef;
+    slug: string;
+    projectSlug: ProjectSlug;
+    data: Record<string, unknown>;
+    content: string;
+  }> = [];
 
   if (!fs.existsSync(PROJECTS_DIR)) {
     return { entities, relations };
@@ -427,20 +440,35 @@ export function loadADRs(): ADRLoadResult {
     const adrFiles = fs.readdirSync(adrsDir).filter((f) => f.endsWith(".mdx"));
     adrFiles.forEach((adrFile) => {
       const adrSlug = adrFile.replace(/\.mdx$/, "");
+      const adrRef = makeADRRef(projectSlug, adrSlug);
       const adrPath = path.join(adrsDir, adrFile);
       const fileContent = fs.readFileSync(adrPath, "utf-8");
       const { data, content } = matter(fileContent);
+
+      if (typeof data.inherits_from === "string") {
+        inheritedStubRecords.push({
+          adrRef,
+          slug: adrSlug,
+          projectSlug,
+          data: data as Record<string, unknown>,
+          content,
+        });
+        return;
+      }
 
       const technologies: TechnologySlug[] = (data.tech_stack || []).map(
         (tech: string) => normalizeSlug(tech),
       );
 
       const adr: ADR = {
+        adrRef,
         slug: adrSlug,
-        title: data.title,
-        date: data.date,
-        status: data.status,
-        supersededBy: data.superseded_by,
+        projectSlug,
+        title: data.title as string,
+        date: data.date as string,
+        status: data.status as ADR["status"],
+        inheritsFrom: undefined,
+        supersedes: data.supersedes as ADRRef | undefined,
         content,
         readingTime: readingTime(content).text,
       };
@@ -451,18 +479,69 @@ export function loadADRs(): ADRLoadResult {
       };
 
       const validation = validateADR(adr);
-      if (validation.success) {
-        entities.set(adrSlug, validation.data);
-        relations.set(adrSlug, adrRelations);
-      } else {
+      if (!validation.success) {
         console.error(
-          `Failed to validate ADR ${adrSlug}:`,
+          `Failed to validate ADR ${adrRef}:`,
           validation.schemaErrors,
         );
-        throw new Error(`ADR ${adrSlug} failed validation`);
+        throw new Error(`ADR ${adrRef} failed validation`);
       }
+      entities.set(adrRef, validation.data);
+      relations.set(adrRef, adrRelations);
     });
   });
+
+  for (const record of inheritedStubRecords) {
+    const inheritsFrom = record.data.inherits_from as ADRRef;
+    const sourceADR = entities.get(inheritsFrom);
+    if (!sourceADR) {
+      throw new Error(
+        `Inherited ADR stub ${record.adrRef} references missing source ADR '${inheritsFrom}'`,
+      );
+    }
+    if (sourceADR.inheritsFrom) {
+      throw new Error(
+        `Inherited ADR stub ${record.adrRef} cannot inherit from another inherited stub '${inheritsFrom}'`,
+      );
+    }
+    if (
+      Array.isArray(record.data.tech_stack) &&
+      record.data.tech_stack.length > 0
+    ) {
+      throw new Error(
+        `Inherited ADR stub ${record.adrRef} must not define tech_stack; technologies are derived from '${inheritsFrom}'`,
+      );
+    }
+
+    const sourceRelations = relations.get(inheritsFrom);
+    const adr: ADR = {
+      adrRef: record.adrRef,
+      slug: record.slug,
+      projectSlug: record.projectSlug,
+      title: sourceADR.title,
+      date: sourceADR.date,
+      status: sourceADR.status,
+      inheritsFrom,
+      supersedes: record.data.supersedes as ADRRef | undefined,
+      content: record.content,
+      readingTime: readingTime(record.content).text,
+    };
+    const adrRelations: ADRRelations = {
+      project: record.projectSlug,
+      technologies: sourceRelations?.technologies ?? [],
+    };
+
+    const validation = validateADR(adr);
+    if (!validation.success) {
+      console.error(
+        `Failed to validate inherited ADR stub ${record.adrRef}:`,
+        validation.schemaErrors,
+      );
+      throw new Error(`ADR ${record.adrRef} failed validation`);
+    }
+    entities.set(record.adrRef, validation.data);
+    relations.set(record.adrRef, adrRelations);
+  }
 
   return { entities, relations };
 }
@@ -556,11 +635,11 @@ export function loadBuildingPhilosophy(): string {
 
 interface ValidationInput {
   technologies: Map<TechnologySlug, Technology>;
-  adrs: Map<ADRSlug, ADR>;
+  adrs: Map<ADRRef, ADR>;
   projects: Map<ProjectSlug, Project>;
   blogRelations: Map<BlogSlug, BlogRelations>;
   projectRelations: Map<ProjectSlug, ProjectRelations>;
-  adrRelations: Map<ADRSlug, ADRRelations>;
+  adrRelations: Map<ADRRef, ADRRelations>;
   roleRelations: Map<RoleSlug, RoleRelations>;
 }
 
@@ -600,17 +679,33 @@ export function validateReferentialIntegrity(
     relations.technologies.forEach((techSlug) => {
       checkTech(techSlug, `Project[${projectSlug}]`, "technologies");
     });
-    relations.adrs.forEach((adrSlug) => {
-      if (!input.adrs.has(adrSlug)) {
+    relations.adrs.forEach((adrRef) => {
+      if (!input.adrs.has(adrRef)) {
         errors.push({
           type: "missing_reference",
           entity: `Project[${projectSlug}]`,
           field: "adrs",
-          value: adrSlug,
-          message: `ADR '${adrSlug}' referenced by project '${projectSlug}' does not exist`,
+          value: adrRef,
+          message: `ADR '${adrRef}' referenced by project '${projectSlug}' does not exist`,
         });
       }
     });
+    const adrSlugSet = new Set<string>();
+    for (const adrRef of relations.adrs) {
+      const adr = input.adrs.get(adrRef);
+      if (!adr) continue;
+      if (adrSlugSet.has(adr.slug)) {
+        errors.push({
+          type: "invalid_reference",
+          entity: `Project[${projectSlug}]`,
+          field: "adrs",
+          value: adr.slug,
+          message: `Duplicate ADR slug '${adr.slug}' in project '${projectSlug}' context (local + inherited ADRs must be unique)`,
+        });
+      } else {
+        adrSlugSet.add(adr.slug);
+      }
+    }
     if (relations.role && !input.roleRelations.has(relations.role)) {
       errors.push({
         type: "missing_reference",
@@ -622,28 +717,88 @@ export function validateReferentialIntegrity(
     }
   });
 
-  input.adrRelations.forEach((relations, adrSlug) => {
+  input.adrRelations.forEach((relations, adrRef) => {
     if (!input.projects.has(relations.project)) {
       errors.push({
         type: "missing_reference",
-        entity: `ADR[${adrSlug}]`,
+        entity: `ADR[${adrRef}]`,
         field: "project",
         value: relations.project,
-        message: `Project '${relations.project}' referenced by ADR '${adrSlug}' does not exist`,
+        message: `Project '${relations.project}' referenced by ADR '${adrRef}' does not exist`,
       });
     }
     relations.technologies.forEach((techSlug) => {
-      checkTech(techSlug, `ADR[${adrSlug}]`, "technologies");
+      checkTech(techSlug, `ADR[${adrRef}]`, "technologies");
     });
-    const adr = input.adrs.get(adrSlug);
-    if (adr?.supersededBy && !input.adrs.has(adr.supersededBy)) {
+    const adr = input.adrs.get(adrRef);
+    if (adr?.inheritsFrom && !input.adrs.has(adr.inheritsFrom)) {
       errors.push({
         type: "missing_reference",
-        entity: `ADR[${adrSlug}]`,
-        field: "supersededBy",
-        value: adr.supersededBy,
-        message: `ADR '${adr.supersededBy}' referenced by supersededBy does not exist`,
+        entity: `ADR[${adrRef}]`,
+        field: "inheritsFrom",
+        value: adr.inheritsFrom,
+        message: `ADR '${adr.inheritsFrom}' referenced by inheritsFrom does not exist`,
       });
+    }
+    if (adr?.inheritsFrom && input.adrs.get(adr.inheritsFrom)?.inheritsFrom) {
+      errors.push({
+        type: "invalid_reference",
+        entity: `ADR[${adrRef}]`,
+        field: "inheritsFrom",
+        value: adr.inheritsFrom,
+        message: `ADR '${adrRef}' cannot inherit from inherited ADR '${adr.inheritsFrom}'`,
+      });
+    }
+    if (adr?.supersedes && !input.adrs.has(adr.supersedes)) {
+      errors.push({
+        type: "missing_reference",
+        entity: `ADR[${adrRef}]`,
+        field: "supersedes",
+        value: adr.supersedes,
+        message: `ADR '${adr.supersedes}' referenced by supersedes does not exist`,
+      });
+    }
+    if (adr?.supersedes) {
+      const allowedTargets = input.projectRelations.get(
+        relations.project,
+      )?.adrs;
+      if (!allowedTargets?.includes(adr.supersedes)) {
+        errors.push({
+          type: "invalid_reference",
+          entity: `ADR[${adrRef}]`,
+          field: "supersedes",
+          value: adr.supersedes,
+          message: `ADR '${adrRef}' cannot supersede '${adr.supersedes}' because it is not local or inherited in project '${relations.project}'`,
+        });
+      }
+    }
+    if (adr?.supersedes === adrRef) {
+      errors.push({
+        type: "circular_reference",
+        entity: `ADR[${adrRef}]`,
+        field: "supersedes",
+        value: adrRef,
+        message: `ADR '${adrRef}' cannot supersede itself`,
+      });
+    }
+  });
+
+  input.adrs.forEach((adr, startRef) => {
+    const seen = new Set<ADRRef>([startRef]);
+    let current = adr.supersedes;
+    while (current) {
+      if (seen.has(current)) {
+        errors.push({
+          type: "circular_reference",
+          entity: `ADR[${startRef}]`,
+          field: "supersedes",
+          value: current,
+          message: `Circular supersedes chain detected starting at '${startRef}'`,
+        });
+        break;
+      }
+      seen.add(current);
+      current = input.adrs.get(current)?.supersedes;
     }
   });
 
@@ -660,7 +815,7 @@ export interface DomainRepository {
   technologies: Map<TechnologySlug, Technology>;
   blogs: Map<BlogSlug, BlogPost>;
   projects: Map<ProjectSlug, Project>;
-  adrs: Map<ADRSlug, ADR>;
+  adrs: Map<ADRRef, ADR>;
   roles: Map<RoleSlug, JobRole>;
   graph: ContentGraph;
   buildingPhilosophy: string;
@@ -694,15 +849,14 @@ function buildRelationDataFromLoaders(loaders: LoaderResults): RelationData {
     }
   }
 
-  for (const [slug, adrRels] of loaders.adrs.relations) {
-    relations.adrTechnologies.set(slug, adrRels.technologies);
-    relations.adrProject.set(slug, adrRels.project);
+  for (const [adrRef, adrRels] of loaders.adrs.relations) {
+    relations.adrTechnologies.set(adrRef, adrRels.technologies);
+    relations.adrProject.set(adrRef, adrRels.project);
   }
 
-  // Handle supersededBy from ADR entities
-  for (const [slug, adr] of loaders.adrs.entities) {
-    if (adr.supersededBy) {
-      relations.adrSupersededBy.set(adr.supersededBy, slug);
+  for (const [adrRef, adr] of loaders.adrs.entities) {
+    if (adr.supersedes) {
+      relations.adrSupersededBy.set(adrRef, adr.supersedes);
     }
   }
 

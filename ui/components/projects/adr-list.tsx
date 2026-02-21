@@ -94,6 +94,14 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
     return a.slug.localeCompare(b.slug) * direction;
   });
 
+  const contextualIndexByRef = useMemo(() => {
+    return new Map(adrs.map((adr, index) => [adr.adrRef, index]));
+  }, [adrs]);
+
+  const formatContextIndex = (value: number) => String(value).padStart(3, "0");
+  const normalizeADRTitle = (title: string) =>
+    title.replace(/^ADR\s+\d+\s*:\s*/i, "");
+
   const activeFilters = useMemo(() => {
     const filters: Array<{
       paramName: string;
@@ -228,9 +236,9 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
           <p>No decisions match &quot;{searchQuery}&quot;</p>
         </div>
       ) : (
-        sortedADRs.map((adr) => (
+        sortedADRs.map((adr, index) => (
           <Card
-            key={adr.slug}
+            key={adr.adrRef}
             className="hover:border-primary/50 transition-colors relative group overflow-hidden"
           >
             <Link
@@ -242,10 +250,13 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
             <CardHeader className="py-4">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 min-w-0 pointer-events-none z-10 flex-wrap">
                 <span className="font-mono text-sm text-muted-foreground shrink-0 w-24">
-                  {adr.date}
+                  ADR{" "}
+                  {formatContextIndex(
+                    contextualIndexByRef.get(adr.adrRef) ?? index,
+                  )}
                 </span>
                 <span className="font-semibold text-lg group-hover:text-primary transition-colors">
-                  {adr.title}
+                  {normalizeADRTitle(adr.title)}
                 </span>
 
                 {adr.technologies &&
@@ -271,6 +282,11 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
                   ))}
 
                 <ADRBadge status={adr.status} className="shrink-0 w-fit" />
+                {adr.isInherited && (
+                  <span className="text-xs text-muted-foreground">
+                    Inherited from {adr.originProjectSlug}
+                  </span>
+                )}
               </div>
             </CardHeader>
           </Card>

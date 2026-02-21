@@ -1,4 +1,4 @@
-import type { ADRSlug } from "@/lib/domain/adr/adr";
+import type { ADRRef } from "@/lib/domain/adr/adr";
 import type { BlogSlug } from "@/lib/domain/blog/blogPost";
 import type { ProjectSlug } from "@/lib/domain/project/project";
 import type { RoleSlug } from "@/lib/domain/role/jobRole";
@@ -7,14 +7,14 @@ import { type ContentGraph, makeNodeId, type NodeId } from "./types";
 
 export interface RelationData {
   projectTechnologies: Map<ProjectSlug, TechnologySlug[]>;
-  projectADRs: Map<ProjectSlug, ADRSlug[]>;
+  projectADRs: Map<ProjectSlug, ADRRef[]>;
   projectRole: Map<ProjectSlug, RoleSlug>;
   projectTags: Map<ProjectSlug, string[]>;
   blogTechnologies: Map<BlogSlug, TechnologySlug[]>;
   blogTags: Map<BlogSlug, string[]>;
-  adrTechnologies: Map<ADRSlug, TechnologySlug[]>;
-  adrProject: Map<ADRSlug, ProjectSlug>;
-  adrSupersededBy: Map<ADRSlug, ADRSlug>;
+  adrTechnologies: Map<ADRRef, TechnologySlug[]>;
+  adrProject: Map<ADRRef, ProjectSlug>;
+  adrSupersededBy: Map<ADRRef, ADRRef>;
   roleTechnologies: Map<RoleSlug, TechnologySlug[]>;
   blogRole: Map<BlogSlug, RoleSlug>;
 }
@@ -75,6 +75,11 @@ export function buildContentGraph(input: BuildGraphInput): ContentGraph {
   }
   for (const [slug, tags] of relations.projectTags) {
     addTagEdges(graph, makeNodeId("project", slug), tags);
+  }
+  for (const [projectSlug, adrRefs] of relations.projectADRs) {
+    for (const adrRef of adrRefs) {
+      graph.reverse.projectADRs.get(projectSlug)?.add(adrRef);
+    }
   }
 
   for (const [slug, technologies] of relations.adrTechnologies) {

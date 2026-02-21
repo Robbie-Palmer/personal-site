@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { ProjectSlug } from "../slugs";
 import {
-  ADRSlugSchema,
+  ADRRefSchema,
   ProjectSlugSchema,
   RoleSlugSchema,
   TechnologySlugSchema,
@@ -73,7 +73,7 @@ export type Project = z.infer<typeof ProjectSchema>;
 
 export const ProjectRelationsSchema = z.object({
   technologies: z.array(TechnologySlugSchema).default([]),
-  adrs: z.array(ADRSlugSchema).default([]),
+  adrs: z.array(ADRRefSchema).default([]),
   role: RoleSlugSchema.optional(),
   tags: z.array(z.string()).default([]),
 });

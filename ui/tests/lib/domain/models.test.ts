@@ -168,11 +168,13 @@ describe("Domain Model Schemas", () => {
   describe("ADRSchema", () => {
     it("should validate a complete ADR", () => {
       const validADR = {
+        adrRef: "personal-site:001-next-js",
         slug: "001-next-js",
+        projectSlug: "personal-site",
         title: "ADR 001: Next.js",
         date: "2025-10-18",
         status: "Accepted" as const,
-        supersededBy: "002-remix",
+        supersedes: "personal-site:002-remix",
         content: "We decided to use Next.js",
         readingTime: "3 min read",
         relations: {
@@ -187,7 +189,9 @@ describe("Domain Model Schemas", () => {
 
     it("should validate ADR with minimal fields", () => {
       const minimalADR = {
+        adrRef: "test-project:001-minimal",
         slug: "001-minimal",
+        projectSlug: "test-project",
         title: "Minimal ADR",
         date: "2025-01-01",
         status: "Proposed" as const,
@@ -205,7 +209,9 @@ describe("Domain Model Schemas", () => {
 
     it("should reject ADR with invalid status", () => {
       const invalidADR = {
+        adrRef: "test:001-bad",
         slug: "001-bad",
+        projectSlug: "test",
         title: "Bad ADR",
         date: "2025-01-01",
         status: "Invalid", // Not a valid status
@@ -245,7 +251,7 @@ describe("Domain Model Schemas", () => {
         content: "# Overview",
         relations: {
           technologies: ["nextjs", "react", "typescript"],
-          adrs: ["001-next-js", "002-react"],
+          adrs: ["personal-site:001-next-js", "personal-site:002-react"],
         },
       };
 

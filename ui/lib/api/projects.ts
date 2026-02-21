@@ -2,7 +2,7 @@ import {
   type ADRCardView,
   type ADRDetailView,
   type ADRStatus,
-  getADRDetail,
+  getADRDetailForProject,
   getAllADRCards,
   getBuildingPhilosophy as getBuildingPhilosophyQuery,
   getProjectWithADRs,
@@ -75,12 +75,9 @@ export function getAllADRs(): ProjectADR[] {
 }
 
 export function getProjectADR(projectSlug: string, adrSlug: string) {
-  const adrView = getADRDetail(repository, adrSlug);
+  const adrView = getADRDetailForProject(repository, projectSlug, adrSlug);
   if (!adrView) {
     throw new Error(`ADR not found: ${projectSlug}/${adrSlug}`);
-  }
-  if (adrView.projectSlug !== projectSlug) {
-    throw new Error(`ADR ${adrSlug} does not belong to project ${projectSlug}`);
   }
   return adrView;
 }

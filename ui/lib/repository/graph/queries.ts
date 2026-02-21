@@ -1,4 +1,4 @@
-import type { ADRSlug } from "@/lib/domain/adr/adr";
+import type { ADRRef } from "@/lib/domain/adr/adr";
 import type { BlogSlug } from "@/lib/domain/blog/blogPost";
 import type { ProjectSlug } from "@/lib/domain/project/project";
 import type { RoleSlug } from "@/lib/domain/role/jobRole";
@@ -29,9 +29,9 @@ export function getTechnologiesForProject(
 
 export function getTechnologiesForADR(
   graph: ContentGraph,
-  slug: ADRSlug,
+  adrRef: ADRRef,
 ): Set<TechnologySlug> {
-  return getTechnologiesFor(graph, "adr", slug);
+  return getTechnologiesFor(graph, "adr", adrRef);
 }
 
 export function getTechnologiesForBlog(
@@ -60,7 +60,7 @@ export function getContentUsingTechnologyByType(
   slug: TechnologySlug,
 ): {
   projects: ProjectSlug[];
-  adrs: ADRSlug[];
+  adrs: ADRRef[];
   blogs: BlogSlug[];
   roles: RoleSlug[];
 } {
@@ -68,7 +68,7 @@ export function getContentUsingTechnologyByType(
 
   const result = {
     projects: [] as ProjectSlug[],
-    adrs: [] as ADRSlug[],
+    adrs: [] as ADRRef[],
     blogs: [] as BlogSlug[],
     roles: [] as RoleSlug[],
   };
@@ -87,29 +87,29 @@ export function getContentUsingTechnologyByType(
 export function getADRsForProject(
   graph: ContentGraph,
   slug: ProjectSlug,
-): Set<ADRSlug> {
+): Set<ADRRef> {
   return graph.reverse.projectADRs.get(slug) ?? new Set();
 }
 
 export function getProjectForADR(
   graph: ContentGraph,
-  slug: ADRSlug,
+  adrRef: ADRRef,
 ): ProjectSlug | undefined {
-  return graph.edges.partOfProject.get(slug);
+  return graph.edges.partOfProject.get(adrRef);
 }
 
 export function getSupersedingADR(
   graph: ContentGraph,
-  slug: ADRSlug,
-): ADRSlug | undefined {
-  return graph.reverse.supersededBy.get(slug);
+  adrRef: ADRRef,
+): ADRRef | undefined {
+  return graph.reverse.supersededBy.get(adrRef);
 }
 
 export function getSupersededADR(
   graph: ContentGraph,
-  slug: ADRSlug,
-): ADRSlug | undefined {
-  return graph.edges.supersedes.get(slug);
+  adrRef: ADRRef,
+): ADRRef | undefined {
+  return graph.edges.supersedes.get(adrRef);
 }
 
 export function filterNodesByType<T extends NodeType>(
@@ -135,7 +135,7 @@ export function getADRCountForProject(
 export function getADRSlugsForProject(
   graph: ContentGraph,
   slug: ProjectSlug,
-): ADRSlug[] {
+): ADRRef[] {
   return Array.from(graph.reverse.projectADRs.get(slug) ?? []);
 }
 

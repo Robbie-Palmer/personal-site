@@ -8,6 +8,7 @@ import {
   getTagsForProject,
   getTechnologiesForProject,
 } from "@/lib/repository";
+import { parseADRRef } from "../adr/adr";
 import { getADRsForProject } from "../adr/adrQueries";
 import type { RoleSlug } from "../role/jobRole";
 import type { RoleListItemView } from "../role/roleViews";
@@ -66,7 +67,13 @@ export function getProjectDetail(
   const role = getRoleView(repository, slug);
   const tags = Array.from(getTagsForProject(repository.graph, slug));
 
-  return toProjectDetailView(project, technologies, adrSlugs, role, tags);
+  return toProjectDetailView(
+    project,
+    technologies,
+    adrSlugs.map((adrRef) => parseADRRef(adrRef).adrSlug),
+    role,
+    tags,
+  );
 }
 
 export function getProjectListItem(
@@ -181,7 +188,7 @@ export function getProjectWithADRs(
     productUrl: project.productUrl,
     content: project.content,
     technologies: mergedTechnologies,
-    adrSlugs,
+    adrSlugs: adrSlugs.map((adrRef) => parseADRRef(adrRef).adrSlug),
     adrs,
     role,
     tags,

@@ -1,4 +1,4 @@
-import type { ADRSlug } from "@/lib/domain/adr/adr";
+import type { ADRRef } from "@/lib/domain/adr/adr";
 import type { BlogSlug } from "@/lib/domain/blog/blogPost";
 import type { ProjectSlug } from "@/lib/domain/project/project";
 import type { RoleSlug } from "@/lib/domain/role/jobRole";
@@ -26,8 +26,8 @@ export type EdgeType =
 export interface ContentGraph {
   edges: {
     usesTechnology: Map<NodeId, Set<TechnologySlug>>;
-    partOfProject: Map<ADRSlug, ProjectSlug>;
-    supersedes: Map<ADRSlug, ADRSlug>;
+    partOfProject: Map<ADRRef, ProjectSlug>;
+    supersedes: Map<ADRRef, ADRRef>;
     hasTag: Map<NodeId, Set<string>>;
     createdAtRole: Map<ProjectSlug, RoleSlug>;
     writtenAtRole: Map<BlogSlug, RoleSlug>;
@@ -35,8 +35,8 @@ export interface ContentGraph {
 
   reverse: {
     technologyUsedBy: Map<TechnologySlug, Set<NodeId>>;
-    projectADRs: Map<ProjectSlug, Set<ADRSlug>>;
-    supersededBy: Map<ADRSlug, ADRSlug>;
+    projectADRs: Map<ProjectSlug, Set<ADRRef>>;
+    supersededBy: Map<ADRRef, ADRRef>;
     tagUsedBy: Map<string, Set<NodeId>>;
     roleProjects: Map<RoleSlug, Set<ProjectSlug>>;
     roleBlogs: Map<RoleSlug, Set<BlogSlug>>;

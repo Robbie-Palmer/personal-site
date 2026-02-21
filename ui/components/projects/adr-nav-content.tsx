@@ -46,6 +46,14 @@ export function ADRNavContent({
       .map((result: FuseResult<(typeof project.adrs)[number]>) => result.item);
   }, [fuse, searchQuery, project.adrs]);
 
+  const contextualIndexByRef = useMemo(() => {
+    return new Map(project.adrs.map((adr, index) => [adr.adrRef, index]));
+  }, [project.adrs]);
+
+  const formatContextIndex = (value: number) => String(value).padStart(3, "0");
+  const normalizeADRTitle = (title: string) =>
+    title.replace(/^ADR\s+\d+\s*:\s*/i, "");
+
   useDebouncedSearchTracking({
     searchQuery,
     resultCount: filteredADRs.length,
@@ -92,13 +100,13 @@ export function ADRNavContent({
               <p>No decisions match &quot;{searchQuery}&quot;</p>
             </div>
           ) : (
-            filteredADRs.map((adr) => {
+            filteredADRs.map((adr, index) => {
               const href = `/projects/${project.slug}/adrs/${adr.slug}`;
               const isActive = pathname === href;
 
               return (
                 <Link
-                  key={adr.slug}
+                  key={adr.adrRef}
                   href={href}
                   onClick={onLinkClick}
                   className={cn(
@@ -110,7 +118,10 @@ export function ADRNavContent({
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs opacity-70">
-                      {adr.slug}
+                      ADR{" "}
+                      {formatContextIndex(
+                        contextualIndexByRef.get(adr.adrRef) ?? index,
+                      )}
                     </span>
                     <ADRBadge
                       status={adr.status}
@@ -123,8 +134,13 @@ export function ADRNavContent({
                       isActive && "text-foreground",
                     )}
                   >
-                    {adr.title}
+                    {normalizeADRTitle(adr.title)}
                   </div>
+                  {adr.isInherited && (
+                    <div className="text-[11px] opacity-80">
+                      Inherited from {adr.originProjectSlug}
+                    </div>
+                  )}
                 </Link>
               );
             })

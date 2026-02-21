@@ -1,4 +1,5 @@
 import type { DomainRepository } from "@/lib/domain";
+import { parseADRRef } from "@/lib/domain/adr/adr";
 import type { NodeType } from "@/lib/repository/graph";
 
 export const NON_NAVIGABLE_HREF = "#";
@@ -59,13 +60,14 @@ export function extractGraphData(repository: DomainRepository): GraphData {
       connections: 0,
     });
   }
-  for (const [slug, adr] of adrs) {
-    const projectSlug = graph.edges.partOfProject.get(slug);
+  for (const [adrRef, adr] of adrs) {
+    const projectSlug = graph.edges.partOfProject.get(adrRef);
+    const { adrSlug } = parseADRRef(adrRef);
     nodes.push({
-      id: `adr:${slug}`,
+      id: `adr:${adrRef}`,
       name: adr.title,
       type: "adr",
-      href: `/projects/${projectSlug}/adrs/${slug}`,
+      href: `/projects/${projectSlug}/adrs/${adrSlug}`,
       connections: 0,
     });
   }
@@ -110,17 +112,17 @@ export function extractGraphData(repository: DomainRepository): GraphData {
     }
   }
   const nodeIds = new Set(nodes.map((n) => n.id));
-  for (const [adrSlug, projectSlug] of graph.edges.partOfProject) {
-    const source = `adr:${adrSlug}`;
+  for (const [adrRef, projectSlug] of graph.edges.partOfProject) {
+    const source = `adr:${adrRef}`;
     const target = `project:${projectSlug}`;
     if (!nodeIds.has(source) || !nodeIds.has(target)) continue;
     edges.push({ source, target, type: "PART_OF_PROJECT" });
     addConnection(source);
     addConnection(target);
   }
-  for (const [supersedingSlug, supersededSlug] of graph.edges.supersedes) {
-    const source = `adr:${supersedingSlug}`;
-    const target = `adr:${supersededSlug}`;
+  for (const [supersedingRef, supersededRef] of graph.edges.supersedes) {
+    const source = `adr:${supersedingRef}`;
+    const target = `adr:${supersededRef}`;
     if (!nodeIds.has(source) || !nodeIds.has(target)) continue;
     edges.push({ source, target, type: "SUPERSEDES" });
     addConnection(source);

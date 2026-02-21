@@ -56,6 +56,34 @@ slug of the job role (normalized company name). For example:
 When specified, the role will be displayed as a badge on the project card and detail page, linking to the
 specific job role on the experience page.
 
+### Inheriting ADRs
+
+Projects inherit ADRs by creating explicit stub files inside the project's `adrs/` directory.
+This keeps inherited and local decisions interleaved in the same ordered index space.
+
+Example inherited stub:
+
+```yaml
+---
+inherits_from: "personal-site:002-react"
+---
+```
+
+Rules:
+
+- Inherited stubs are derived from source ADR content and metadata.
+- Inherited stubs may include markdown body content as project-specific notes.
+- `inherits_adrs` in project frontmatter is deprecated and forbidden.
+- Use ADR-level `supersedes` only when replacing an inherited decision.
+- `supersedes` should reference ADRs in the current project's ADR context.
+
+Inherited ADRs are rendered inside the child project's ADR routes (`/projects/{child}/adrs/{slug}`) with
+child-context numbering. The detail page shows source-project attribution, a summary of the source ADR,
+and any project-specific notes from the stub file body.
+
+Note: ADR slugs must be unique within a project's effective ADR context (local + inherited). Duplicate slugs
+in a single project context fail validation.
+
 ## ADR Format
 
 ADRs are standard MDX files in the `adrs/` subdirectory. The filename should be numbered (e.g., `001-decision-name.mdx`).
@@ -67,5 +95,6 @@ ADRs are standard MDX files in the `adrs/` subdirectory. The filename should be 
 title: "ADR Title"
 status: "Accepted" # "Proposed" | "Accepted" | "Rejected" | "Deprecated"
 date: "YYYY-MM-DD"
+supersedes: "project-slug:adr-slug" # Optional, e.g. "personal-site:013-dependabot"
 ---
 ```

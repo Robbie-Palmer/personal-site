@@ -3,12 +3,14 @@ import { z } from "zod";
 export const TechnologySlugSchema = z.string().min(1);
 export const BlogSlugSchema = z.string().min(1);
 export const ADRSlugSchema = z.string().min(1);
+export const ADRRefSchema = z.string().regex(/^[^:]+:[^:]+$/);
 export const ProjectSlugSchema = z.string().min(1);
 export const RoleSlugSchema = z.string().min(1);
 
 export type TechnologySlug = z.infer<typeof TechnologySlugSchema>;
 export type BlogSlug = z.infer<typeof BlogSlugSchema>;
 export type ADRSlug = z.infer<typeof ADRSlugSchema>;
+export type ADRRef = z.infer<typeof ADRRefSchema>;
 export type ProjectSlug = z.infer<typeof ProjectSlugSchema>;
 export type RoleSlug = z.infer<typeof RoleSlugSchema>;
 
@@ -72,11 +74,14 @@ export const ADRStatusSchema = z.enum([
 export type ADRStatus = z.infer<typeof ADRStatusSchema>;
 
 export const ADRSchema = z.object({
+  adrRef: ADRRefSchema,
   slug: ADRSlugSchema,
+  projectSlug: ProjectSlugSchema,
   title: z.string().min(1),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   status: ADRStatusSchema,
-  supersededBy: ADRSlugSchema.optional(),
+  inheritsFrom: ADRRefSchema.optional(),
+  supersedes: ADRRefSchema.optional(),
   content: z.string(),
   readingTime: z.string(),
 
@@ -110,7 +115,7 @@ export const ProjectSchema = z.object({
   relations: z
     .object({
       technologies: z.array(TechnologySlugSchema).default([]),
-      adrs: z.array(ADRSlugSchema).default([]),
+      adrs: z.array(ADRRefSchema).default([]),
     })
     .default({
       technologies: [],

@@ -20,6 +20,7 @@ import {
   type ProjectWithADRs,
 } from "@/lib/api/projects";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
+import { parseADRRef } from "@/lib/domain/adr/adr";
 
 const adrComponents = {
   EmblaDemoCarousel,
@@ -80,17 +81,24 @@ export default async function ADRPage({ params }: PageProps) {
     notFound();
   }
 
-  // Find ADRs that this one supersedes (automatic backlinks)
+  // Find ADRs that supersede this one (automatic backlinks)
   const supersededAdrs = project.adrs.filter(
-    (a) => a.supersededBy === adr.slug,
+    (a) => a.supersedes === adr.adrRef,
   );
 
-  const currentIndex = project.adrs.findIndex((a) => a.slug === adr.slug);
+  const currentIndex = project.adrs.findIndex((a) => a.adrRef === adr.adrRef);
   const prevAdr = currentIndex > 0 ? project.adrs[currentIndex - 1] : undefined;
   const nextAdr =
     currentIndex < project.adrs.length - 1
       ? project.adrs[currentIndex + 1]
       : undefined;
+  const contextualIndex = project.adrs.findIndex(
+    (a) => a.adrRef === adr.adrRef,
+  );
+  const displayIndex = String(
+    contextualIndex >= 0 ? contextualIndex : 0,
+  ).padStart(3, "0");
+  const displayTitle = adr.title.replace(/^ADR\s+\d+\s*:\s*/i, "");
 
   return (
     <div className="max-w-4xl">
@@ -115,7 +123,9 @@ export default async function ADRPage({ params }: PageProps) {
             <span>Architecture Decisions</span>
           </div>
 
-          <h1 className="text-3xl md:text-4xl font-bold">{adr.title}</h1>
+          <h1 className="text-3xl md:text-4xl font-bold">
+            ADR {displayIndex}: {displayTitle}
+          </h1>
 
           <div className="flex flex-wrap items-center gap-4">
             {adr.technologies && adr.technologies.length > 0 && (
@@ -151,22 +161,50 @@ export default async function ADRPage({ params }: PageProps) {
             <ADRPagination
               projectSlug={slug}
               prevAdr={prevAdr}
+              prevIndex={currentIndex > 0 ? currentIndex - 1 : undefined}
               nextAdr={nextAdr}
+              nextIndex={
+                currentIndex < project.adrs.length - 1
+                  ? currentIndex + 1
+                  : undefined
+              }
               compact
               className={PAGINATION_CONTAINER_CLASSES}
             />
           </div>
 
-          {adr.status === "Deprecated" && adr.supersededBy && (
+          {adr.isInherited && (
+            <div className="bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-900 rounded-lg p-4">
+              <p className="text-sm text-sky-900 dark:text-sky-100">
+                This ADR is inherited from{" "}
+                <span className="font-semibold">{adr.originProjectSlug}</span>.{" "}
+                <Link
+                  href={`/projects/${adr.originProjectSlug}/adrs/${adr.originAdrSlug}`}
+                  className="font-semibold underline underline-offset-4 hover:text-sky-700 dark:hover:text-sky-300"
+                >
+                  Read the canonical source ADR
+                </Link>
+                .
+              </p>
+              {adr.inheritedSourceSummary && (
+                <p className="text-sm text-sky-900 dark:text-sky-100 mt-2">
+                  <span className="font-semibold">Source summary:</span>{" "}
+                  {adr.inheritedSourceSummary}
+                </p>
+              )}
+            </div>
+          )}
+
+          {adr.supersedes && (
             <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg p-4">
               <p className="text-sm text-amber-900 dark:text-amber-100">
-                This decision has been superseded by{" "}
+                This decision supersedes{" "}
                 <Link
-                  href={`/projects/${slug}/adrs/${adr.supersededBy}`}
+                  href={`/projects/${parseADRRef(adr.supersedes).projectSlug}/adrs/${parseADRRef(adr.supersedes).adrSlug}`}
                   className="font-semibold underline underline-offset-4 hover:text-amber-700 dark:hover:text-amber-300"
                 >
-                  {project.adrs.find((a) => a.slug === adr.supersededBy)
-                    ?.title || adr.supersededBy}
+                  {project.adrs.find((a) => a.adrRef === adr.supersedes)
+                    ?.title || adr.supersedes}
                 </Link>
               </p>
             </div>
@@ -175,7 +213,7 @@ export default async function ADRPage({ params }: PageProps) {
           {supersededAdrs.length > 0 && (
             <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
               <p className="text-sm text-blue-900 dark:text-blue-100">
-                This decision supersedes:{" "}
+                This decision is superseded by:{" "}
                 {supersededAdrs.map((superseded, index) => (
                   <span key={superseded.slug}>
                     <Link
@@ -194,7 +232,23 @@ export default async function ADRPage({ params }: PageProps) {
 
         <Separator className="my-8" />
 
-        <Markdown source={adr.content} components={adrComponents} />
+        {adr.isInherited ? (
+          adr.inheritedProjectNotes ? (
+            <div className="space-y-3">
+              <h2 className="text-xl font-semibold">Project Notes</h2>
+              <Markdown
+                source={adr.inheritedProjectNotes}
+                components={adrComponents}
+              />
+            </div>
+          ) : (
+            <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+              No project-specific notes have been added for this inherited ADR.
+            </div>
+          )
+        ) : (
+          <Markdown source={adr.content} components={adrComponents} />
+        )}
       </div>
     </div>
   );

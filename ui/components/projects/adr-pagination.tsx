@@ -7,7 +7,9 @@ import { cn } from "@/lib/generic/styles";
 interface ADRPaginationProps {
   projectSlug: string;
   prevAdr?: ADR;
+  prevIndex?: number;
   nextAdr?: ADR;
+  nextIndex?: number;
   variant?: "full" | "minimal";
   compact?: boolean;
   className?: string;
@@ -16,11 +18,17 @@ interface ADRPaginationProps {
 export function ADRPagination({
   projectSlug,
   prevAdr,
+  prevIndex,
   nextAdr,
+  nextIndex,
   variant = "full",
   compact = false,
   className,
 }: ADRPaginationProps) {
+  const formatIndex = (value: number) => String(value).padStart(3, "0");
+  const normalizeADRTitle = (title: string) =>
+    title.replace(/^ADR\s+\d+\s*:\s*/i, "");
+
   // If no nav is possible, render nothing
   if (!prevAdr && !nextAdr) return null;
   return (
@@ -54,7 +62,12 @@ export function ADRPagination({
               </div>
               {variant === "full" && (
                 <div className="text-xs sm:text-sm font-medium truncate">
-                  {prevAdr.title}
+                  {prevIndex !== undefined && (
+                    <span className="font-mono mr-1">
+                      ADR {formatIndex(prevIndex)}:
+                    </span>
+                  )}
+                  {normalizeADRTitle(prevAdr.title)}
                 </div>
               )}
             </div>
@@ -86,7 +99,12 @@ export function ADRPagination({
               </div>
               {variant === "full" && (
                 <div className="text-xs sm:text-sm font-medium truncate">
-                  {nextAdr.title}
+                  {nextIndex !== undefined && (
+                    <span className="font-mono mr-1">
+                      ADR {formatIndex(nextIndex)}:
+                    </span>
+                  )}
+                  {normalizeADRTitle(nextAdr.title)}
                 </div>
               )}
             </div>
