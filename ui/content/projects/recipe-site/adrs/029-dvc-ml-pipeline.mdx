@@ -120,8 +120,7 @@ The workflow this enables:
   beyond a thin coordination layer between the user and a cloud storage provider (AWS, GCS, etc.) —
   it does not eliminate the need to provision and pay for that underlying storage. Its dashboard
   offering is similarly modest: experiment visualisations are essentially static Plotly plots hosted
-  on ClearML's servers rather than a purpose-built interactive UI. The all-in-one nature means
-  migrating away later involves replacing more surface area.
+  on ClearML's servers rather than a purpose-built interactive UI.
 - **Decision**: Rejected. DVC has a larger community, is more composable, and integrates more directly
   with git without requiring a running tracking server.
 
@@ -149,15 +148,15 @@ The workflow this enables:
   DagsHub integrates Label Studio for labelling image datasets directly alongside the pipeline that
   consumes them, which is a genuinely valuable feature for a computer vision project. Actively
   developed with a growing ecosystem.
-- **Cons**: The free plan does not permit private repositories for commercial use, which is a hard
-  blocker for this project's private data. The paid plan that lifts this restriction starts at
-  ~$119/month — disproportionate for a personal project. Storage would also be duplicated: DagsHub
-  hosts its own DVC remote, which would sit alongside the existing Cloudflare R2 bucket rather
-  than replacing it.
-- **Decision**: Rejected on cost grounds. The platform is genuinely well-suited to DVC-based CV
-  workflows and worth reconsidering if the project becomes commercial and the annotation/model
-  management features become necessary. At personal-project scale, DVC directly against R2 achieves
-  the same core workflow at zero additional cost.
+- **Cons**: The free plan restricts private repositories for commercial use — not a current blocker
+  given the project is public and primarily a personal tool and portfolio piece, but a meaningful
+  risk if it ever moves toward a commercial product, at which point the jump to the paid plan at
+  ~$119/month is steep. Switching to DagsHub as the DVC remote would also mean migrating storage
+  away from Cloudflare R2 and accepting DagsHub's storage pricing in its place.
+- **Decision**: A strong candidate and genuinely well-suited to DVC-based CV workflows, but overkill
+  for the current stage. The annotation and model management features become more compelling if the
+  project scales up. Revisit if the evaluation workflow grows to need visual image review or a richer
+  experiment UI.
 
 ### Pachyderm
 
