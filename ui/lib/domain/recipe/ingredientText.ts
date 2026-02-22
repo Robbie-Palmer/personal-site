@@ -17,11 +17,14 @@ const UNCOUNTABLE_INGREDIENTS = [
   "msg",
 ];
 
-// We add UNCOUNTABLE_INGREDIENTS to pluralize at module load so ingredient
-// wording stays consistent across the app. Avoid calling pluralize directly
-// elsewhere unless you set up the same rules.
-for (const ingredient of UNCOUNTABLE_INGREDIENTS) {
-  pluralize.addUncountableRule(ingredient);
+let hasInitializedIngredientPluralizeRules = false;
+
+export function initIngredientPluralizeRules(): void {
+  if (hasInitializedIngredientPluralizeRules) return;
+  for (const ingredient of UNCOUNTABLE_INGREDIENTS) {
+    pluralize.addUncountableRule(ingredient);
+  }
+  hasInitializedIngredientPluralizeRules = true;
 }
 
 type IngredientNameFields = Pick<RecipeIngredientView, "name" | "pluralName">;
@@ -31,12 +34,14 @@ type IngredientPluralizationFields = Pick<
 >;
 
 export function pluralizeIngredientName(item: IngredientNameFields): string {
+  initIngredientPluralizeRules();
   if (item.pluralName) return item.pluralName;
   return pluralize(item.name);
 }
 
 // pluralName is a plural-only override, so singularization uses item.name.
 function singularizeIngredientName(item: IngredientNameFields): string {
+  initIngredientPluralizeRules();
   return pluralize.singular(item.name);
 }
 
