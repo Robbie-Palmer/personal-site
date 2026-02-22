@@ -48,7 +48,7 @@ tracking across the recipe-parsing ML pipeline.
 DVC tracks large files and directories by storing their MD5 hashes in lightweight `.dvc` pointer files
 committed to git, while pushing the actual content to Cloudflare R2 via its S3-compatible API. The
 pipeline is declared in `dvc.yaml`, which specifies stage commands, dependencies, outputs, metrics, and
-plots. GitHub Actions runs `dvc repro --pull` on each PR, compares metrics and plots against `main`
+plots. GitHub Actions runs `dvc pull && dvc repro` on each PR, compares metrics and plots against `main`
 using `dvc metrics diff` and `dvc plots diff`, and posts the results as PR comments.
 
 The workflow this enables:
@@ -189,7 +189,7 @@ The workflow this enables:
   generated from these outputs with a few lines of bash in GitHub Actions.
 - **Offline-capable**: Experiments can be run and compared locally without a network connection or
   a running tracking server. The remote (R2) is only contacted for push/pull operations.
-- **Open source**: MIT licensed. No proprietary lock-in. The community edition is identical to the
+- **Open source**: Apache 2.0 licensed. No proprietary lock-in. The community edition is identical to the
   paid offering — there is no feature-gated paywall.
 - **Established ecosystem**: DVC has a large community, extensive documentation, and is already used
   across multiple other projects in this portfolio (genomic prediction, automated macrodissection).
