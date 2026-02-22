@@ -10,6 +10,7 @@ import type {
   RecipeIngredientView,
 } from "@/lib/domain/recipe";
 import { UNIT_LABELS } from "@/lib/domain/recipe";
+import { formatIngredientName } from "@/lib/domain/recipe/ingredientText";
 
 function formatScaled(value: number): string {
   return parseFloat(value.toPrecision(2)).toString();
@@ -44,11 +45,6 @@ function formatAmount(item: RecipeIngredientView, scale: number): string {
   return parts.join(" ");
 }
 
-function pluralizeName(item: RecipeIngredientView): string {
-  if (item.pluralName) return item.pluralName;
-  return `${item.name}s`;
-}
-
 function formatIngredient(item: RecipeIngredientView, scale: number): string {
   const isPiece = item.unit === "piece";
   const amount = isPiece
@@ -65,9 +61,7 @@ function formatIngredient(item: RecipeIngredientView, scale: number): string {
     }
   }
 
-  const scaledAmount = item.amount != null ? item.amount * scale : undefined;
-  const needsPlural = isPiece && scaledAmount != null && scaledAmount !== 1;
-  parts.push(needsPlural ? pluralizeName(item) : item.name);
+  parts.push(formatIngredientName(item, scale));
 
   if (item.preparation) {
     parts.push(`(${item.preparation})`);
