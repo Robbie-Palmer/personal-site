@@ -17,6 +17,9 @@ const UNCOUNTABLE_INGREDIENTS = [
   "msg",
 ];
 
+// We add UNCOUNTABLE_INGREDIENTS to pluralize at module load so ingredient
+// wording stays consistent across the app. Avoid calling pluralize directly
+// elsewhere unless you set up the same rules.
 for (const ingredient of UNCOUNTABLE_INGREDIENTS) {
   pluralize.addUncountableRule(ingredient);
 }
@@ -32,19 +35,29 @@ export function pluralizeIngredientName(item: IngredientNameFields): string {
   return pluralize(item.name);
 }
 
+// pluralName is a plural-only override, so singularization uses item.name.
 function singularizeIngredientName(item: IngredientNameFields): string {
   return pluralize.singular(item.name);
 }
+
+const SINGULAR_EPSILON = 1e-9;
 
 export function formatIngredientName(
   item: IngredientPluralizationFields,
   scale: number,
 ): string {
-  const scaledAmount = item.amount != null ? item.amount * scale : undefined;
-  const isPiece = item.unit === "piece";
-  if (isPiece && scaledAmount === 1) {
+  if (item.unit !== "piece" || item.amount == null) {
+    return item.name;
+  }
+
+  const scaledAmount = item.amount * scale;
+  if (!Number.isFinite(scaledAmount)) {
+    return item.name;
+  }
+
+  if (Math.abs(scaledAmount - 1) < SINGULAR_EPSILON) {
     return singularizeIngredientName(item);
   }
-  const needsPlural = isPiece && scaledAmount != null && scaledAmount !== 1;
-  return needsPlural ? pluralizeIngredientName(item) : item.name;
+
+  return pluralizeIngredientName(item);
 }

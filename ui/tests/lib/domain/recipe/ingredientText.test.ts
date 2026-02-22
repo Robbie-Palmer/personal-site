@@ -41,6 +41,31 @@ describe("ingredientText", () => {
   });
 
   describe("formatIngredientName", () => {
+    it("returns name unchanged for non-piece units", () => {
+      expect(
+        formatIngredientName(
+          {
+            name: "white onion",
+            unit: "g",
+            amount: 200,
+          },
+          1,
+        ),
+      ).toBe("white onion");
+    });
+
+    it("returns name unchanged for piece unit with undefined amount", () => {
+      expect(
+        formatIngredientName(
+          {
+            name: "white onion",
+            unit: "piece",
+          },
+          1,
+        ),
+      ).toBe("white onion");
+    });
+
     it("keeps singular form at exactly one piece", () => {
       expect(
         formatIngredientName(
@@ -65,6 +90,20 @@ describe("ingredientText", () => {
           1,
         ),
       ).toBe("pork sausage");
+    });
+
+    it("uses pluralName override for plural piece amounts", () => {
+      expect(
+        formatIngredientName(
+          {
+            name: "pork sausage",
+            pluralName: "pork sausages (custom)",
+            unit: "piece",
+            amount: 2,
+          },
+          1,
+        ),
+      ).toBe("pork sausages (custom)");
     });
 
     it("pluralizes for fractional piece amounts", () => {
