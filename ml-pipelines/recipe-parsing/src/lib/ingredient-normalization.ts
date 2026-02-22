@@ -64,7 +64,6 @@ const NOISE_TOKENS = new Set([
   "slice",
   "slices",
   "cooked",
-  "extra",
 ]);
 
 const EXACT_ALIASES: Record<string, string> = {
@@ -213,9 +212,47 @@ function topFuzzyCandidates(
   scope: MatchScope,
   ontology: Set<string>,
 ): CandidateScore[] {
+  if (ontology.size === 0 || candidates.length === 0) {
+    return [];
+  }
+
+  const ontologyByLength = new Map<number, string[]>();
+  const ontologyByToken = new Map<string, Set<string>>();
+  for (const slug of ontology) {
+    const len = slug.length;
+    const sameLen = ontologyByLength.get(len) ?? [];
+    sameLen.push(slug);
+    ontologyByLength.set(len, sameLen);
+
+    for (const token of tokenize(slug)) {
+      const slugs = ontologyByToken.get(token) ?? new Set<string>();
+      slugs.add(slug);
+      ontologyByToken.set(token, slugs);
+    }
+  }
+
   const scored: CandidateScore[] = [];
   for (const candidate of candidates) {
-    for (const slug of ontology) {
+    const shortlist = new Set<string>();
+    for (const token of tokenize(candidate)) {
+      for (const slug of ontologyByToken.get(token) ?? []) {
+        shortlist.add(slug);
+      }
+    }
+    if (shortlist.size === 0) {
+      for (let len = candidate.length - 2; len <= candidate.length + 2; len++) {
+        for (const slug of ontologyByLength.get(len) ?? []) {
+          shortlist.add(slug);
+        }
+      }
+    }
+    if (shortlist.size === 0) {
+      for (const slug of ontology) {
+        shortlist.add(slug);
+      }
+    }
+
+    for (const slug of shortlist) {
       scored.push({
         slug,
         score: scoreSimilarity(candidate, slug),
@@ -383,6 +420,15 @@ function normalizeCuisineLabel(cuisine: string | undefined): string | undefined 
   if (cuisine === undefined) return undefined;
   const trimmed = cuisine.trim();
   if (!trimmed) return "";
+
+  const compoundCuisines = new Set([
+    "indo-chinese",
+    "tex-mex",
+    "italian-american",
+  ]);
+  if (compoundCuisines.has(trimmed.toLowerCase())) {
+    return trimmed;
+  }
 
   const firstSegment = trimmed.split("-")[0]?.trim() ?? "";
   return firstSegment || "";

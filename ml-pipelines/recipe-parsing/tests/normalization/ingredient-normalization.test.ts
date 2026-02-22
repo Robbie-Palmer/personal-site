@@ -34,63 +34,66 @@ describe("canonicalizeIngredientSlug", () => {
     expect(decision.normalizedSlug).toBe("salt-and-pepper");
   });
 
-  it("should apply safe deterministic cleanup rules", () => {
-    const baconDecision = canonicalizeIngredientSlug({
+  it.each([
+    {
       rawSlug: "slices-of-bacon",
       localOntology: new Set(["bacon"]),
       globalOntology: new Set(["bacon"]),
-    });
-    expect(baconDecision.normalizedSlug).toBe("bacon");
-
-    const milkDecision = canonicalizeIngredientSlug({
+      expected: "bacon",
+    },
+    {
       rawSlug: "semi-skimmed-milk",
       localOntology: new Set(["milk"]),
       globalOntology: new Set(["milk"]),
-    });
-    expect(milkDecision.normalizedSlug).toBe("milk");
-
-    const redPepperDecision = canonicalizeIngredientSlug({
+      expected: "milk",
+    },
+    {
       rawSlug: "red-pepper",
       localOntology: new Set(["bell-pepper"]),
       globalOntology: new Set(["bell-pepper"]),
-    });
-    expect(redPepperDecision.normalizedSlug).toBe("bell-pepper");
-
-    const yellowPepperDecision = canonicalizeIngredientSlug({
+      expected: "bell-pepper",
+    },
+    {
       rawSlug: "yellow-pepper",
       localOntology: new Set(["bell-pepper"]),
       globalOntology: new Set(["bell-pepper"]),
-    });
-    expect(yellowPepperDecision.normalizedSlug).toBe("bell-pepper");
-
-    const greenPepperDecision = canonicalizeIngredientSlug({
+      expected: "bell-pepper",
+    },
+    {
       rawSlug: "green-pepper",
       localOntology: new Set(["bell-pepper"]),
       globalOntology: new Set(["bell-pepper"]),
-    });
-    expect(greenPepperDecision.normalizedSlug).toBe("bell-pepper");
-
-    const sausageDecision = canonicalizeIngredientSlug({
+      expected: "bell-pepper",
+    },
+    {
       rawSlug: "sausages",
       localOntology: new Set(["pork-sausage"]),
       globalOntology: new Set(["pork-sausage"]),
-    });
-    expect(sausageDecision.normalizedSlug).toBe("pork-sausage");
-
-    const onionDecision = canonicalizeIngredientSlug({
+      expected: "pork-sausage",
+    },
+    {
       rawSlug: "onion",
       localOntology: new Set(["white-onion"]),
       globalOntology: new Set(["white-onion"]),
-    });
-    expect(onionDecision.normalizedSlug).toBe("white-onion");
-
-    const mediumOnionDecision = canonicalizeIngredientSlug({
+      expected: "white-onion",
+    },
+    {
       rawSlug: "medium-onion",
       localOntology: new Set(["white-onion"]),
       globalOntology: new Set(["white-onion"]),
-    });
-    expect(mediumOnionDecision.normalizedSlug).toBe("white-onion");
-  });
+      expected: "white-onion",
+    },
+  ])(
+    "should apply safe deterministic cleanup rules for $rawSlug",
+    ({ rawSlug, localOntology, globalOntology, expected }) => {
+      const decision = canonicalizeIngredientSlug({
+        rawSlug,
+        localOntology,
+        globalOntology,
+      });
+      expect(decision.normalizedSlug).toBe(expected);
+    },
+  );
 
   it("should use pluralization normalization when ontology has singular form", () => {
     const onionDecision = canonicalizeIngredientSlug({
@@ -135,15 +138,29 @@ describe("normalizePredictionEntry", () => {
     expect(
       normalized.entry.predicted.ingredientGroups[0]?.items.map((i) => i.ingredient),
     ).toEqual(["chicken-breast", "garlic"]);
+    expect(normalized.decisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          originalSlug: "chicken-fillets",
+          normalizedSlug: "chicken-breast",
+          method: "exact-local",
+        }),
+        expect.objectContaining({
+          originalSlug: "garlic-clove",
+          normalizedSlug: "garlic",
+          method: "exact-local",
+        }),
+      ]),
+    );
   });
 
-  it("should normalize cuisine labels by stripping trailing hyphen qualifiers", () => {
+  it("should preserve allowlisted compound cuisine labels", () => {
     const normalized = normalizePredictionEntry({
       images: ["a.jpg"],
       predicted: {
         title: "x",
         description: "y",
-        cuisine: "Italian-American",
+        cuisine: "Tex-Mex",
         servings: 2,
         ingredientGroups: [{ items: [{ ingredient: "garlic", amount: 1 }] }],
         instructions: ["step"],
@@ -153,6 +170,25 @@ describe("normalizePredictionEntry", () => {
       global: new Set(["garlic"]),
     });
 
-    expect(normalized.entry.predicted.cuisine).toBe("Italian");
+    expect(normalized.entry.predicted.cuisine).toBe("Tex-Mex");
+  });
+
+  it("should normalize non-allowlisted hyphenated cuisine labels", () => {
+    const normalized = normalizePredictionEntry({
+      images: ["a.jpg"],
+      predicted: {
+        title: "x",
+        description: "y",
+        cuisine: "French-Style",
+        servings: 2,
+        ingredientGroups: [{ items: [{ ingredient: "garlic", amount: 1 }] }],
+        instructions: ["step"],
+      },
+    }, {
+      local: new Set(["garlic"]),
+      global: new Set(["garlic"]),
+    });
+
+    expect(normalized.entry.predicted.cuisine).toBe("French");
   });
 });

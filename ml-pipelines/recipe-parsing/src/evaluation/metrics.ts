@@ -3,6 +3,7 @@ import type {
   Recipe,
   PredictionEntry,
 } from "../schemas/ground-truth";
+import { imageSetKey } from "../lib/image-key.js";
 
 export interface F1Scores {
   precision: number;
@@ -280,7 +281,7 @@ export function aggregateMetrics(
 ): { metrics: AggregateMetrics; perEntry: EntryScores[] } {
   const predictionsByImageKey = new Map<string, PredictionEntry>();
   for (const prediction of predictions) {
-    predictionsByImageKey.set(prediction.images.join(","), prediction);
+    predictionsByImageKey.set(imageSetKey(prediction.images), prediction);
   }
 
   const allScalar: ScalarFieldScores[] = [];
@@ -289,9 +290,11 @@ export function aggregateMetrics(
   const perEntry: EntryScores[] = [];
 
   for (const gt of groundTruth) {
-    const key = gt.images.join(",");
+    const key = imageSetKey(gt.images);
     const pred = predictionsByImageKey.get(key);
     if (!pred) {
+      // By-category aggregates exclude missing predictions by design; overall/per-entry
+      // still include them via explicit zero scores to reflect completeness penalties.
       perEntry.push(makeMissingEntryScores(gt.images));
       continue;
     }

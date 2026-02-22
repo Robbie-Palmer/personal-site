@@ -22,7 +22,7 @@ function errorText(error: unknown): string {
   const candidate = error as OpenAIStyleError;
   const message = error.message ?? "";
   const providerErrorText =
-    candidate.error === undefined ? "" : stringifyProviderErrorBody(candidate.error) ?? "";
+    candidate.error === undefined ? "" : stringifyProviderErrorBody(candidate.error);
   return `${message}\n${providerErrorText}`.toLowerCase();
 }
 
@@ -50,5 +50,8 @@ export function isRetryableInferError(error: unknown): boolean {
     }
     return maybeStatus === 429 || (maybeStatus >= 500 && maybeStatus < 600);
   }
+  // Fail-open for transport-level failures (e.g. ECONNRESET/ETIMEDOUT) that
+  // often lack HTTP status codes. isTransientProvider400Error handles the known
+  // provider-side 400 nesting-depth glitch separately above.
   return true;
 }

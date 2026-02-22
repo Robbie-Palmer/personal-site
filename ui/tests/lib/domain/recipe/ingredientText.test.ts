@@ -34,9 +34,9 @@ describe("ingredientText", () => {
     it("keeps configured uncountable names unchanged", () => {
       expect(
         pluralizeIngredientName({
-          name: "milk",
+          name: "rice",
         }),
-      ).toBe("milk");
+      ).toBe("rice");
     });
 
     it("does not over-pluralize already plural ingredient names", () => {

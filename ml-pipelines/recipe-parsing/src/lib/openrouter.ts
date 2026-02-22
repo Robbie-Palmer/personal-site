@@ -10,18 +10,29 @@ import { RecipeSchema, type Recipe } from "../schemas/ground-truth.js";
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 const RECIPE_JSON_SCHEMA = z.toJSONSchema(RecipeSchema);
+const openRouterClients = new Map<string, OpenAI>();
 
-export async function inferRecipeFromImages(params: {
-  imageFiles: string[];
-  model: string;
-  maxImageDimension: number;
-  jpegQuality: number;
-}): Promise<Recipe> {
-  const apiKey = requiredEnv("OPENROUTER_API_KEY");
+function getOrCreateOpenRouterClient(apiKey: string): OpenAI {
+  const existing = openRouterClients.get(apiKey);
+  if (existing) return existing;
+
   const client = new OpenAI({
     apiKey,
     baseURL: OPENROUTER_BASE_URL,
   });
+  openRouterClients.set(apiKey, client);
+  return client;
+}
+
+export async function inferRecipeFromImages(params: {
+  imageFiles: string[];
+  model: string;
+  requestTimeoutMs: number;
+  maxImageDimension: number;
+  jpegQuality: number;
+}): Promise<Recipe> {
+  const apiKey = requiredEnv("OPENROUTER_API_KEY");
+  const client = getOrCreateOpenRouterClient(apiKey);
 
   const imageDataUrls = await Promise.all(
     params.imageFiles.map((imageFile) =>
@@ -33,7 +44,7 @@ export async function inferRecipeFromImages(params: {
     ),
   );
 
-  const content: Array<Record<string, unknown>> = [
+  const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
     {
       type: "text",
       text:
@@ -41,24 +52,31 @@ export async function inferRecipeFromImages(params: {
         "Ingredient grouping matters, so preserve distinct groups (for example sauce/base) " +
         "when present. Ingredient identifiers should be normalized slugs such as 'olive-oil'.",
     },
-    ...imageDataUrls.map((url) => ({
-      type: "image_url",
-      image_url: { url },
-    })),
+    ...imageDataUrls.map(
+      (url): OpenAI.Chat.Completions.ChatCompletionContentPartImage => ({
+        type: "image_url",
+        image_url: { url },
+      }),
+    ),
   ];
 
-  const completion = await client.chat.completions.create({
-    model: params.model,
-    messages: [{ role: "user", content: content as any }],
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "parsed_recipe",
-        strict: true,
-        schema: RECIPE_JSON_SCHEMA,
+  const completion = await client.chat.completions.create(
+    {
+      model: params.model,
+      messages: [{ role: "user", content }],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "parsed_recipe",
+          strict: true,
+          schema: RECIPE_JSON_SCHEMA,
+        },
       },
     },
-  } as any);
+    {
+      timeout: params.requestTimeoutMs,
+    },
+  );
 
   return parseRecipeJsonFromText(completion.choices[0]?.message?.content);
 }

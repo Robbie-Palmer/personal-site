@@ -36,6 +36,7 @@ Required environment variables:
 Optional environment variables:
 
 - `OPENROUTER_MODEL` (default: `google/gemini-3-flash-preview`)
+- `INFER_REQUEST_TIMEOUT_MS` (default: `30000`)
 - `INFER_MAX_RETRIES` (default: `2`)
 - `INFER_CONCURRENCY` (default: `8`)
 - `INFER_RETRY_BASE_DELAY_MS` (default: `500`)
@@ -51,7 +52,15 @@ Outputs:
 
 - `outputs/predictions.json`: successful, schema-valid predictions
 - `outputs/infer-failures.json`: skipped entry diagnostics after retry exhaustion
+
+## Normalization
+
+`normalize` post-processes model output against known ingredient ontology.
+
+Outputs:
+
 - `outputs/predictions-normalized.json`: post-processed predictions used for evaluation
+- `outputs/normalization-decisions.json`: per-ingredient normalization decisions
 
 ## Running the Pipeline
 

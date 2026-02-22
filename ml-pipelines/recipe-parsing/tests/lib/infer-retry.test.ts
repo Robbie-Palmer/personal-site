@@ -38,4 +38,9 @@ describe("isRetryableInferError", () => {
     expect(isRetryableInferError(rateLimit)).toBe(true);
     expect(isRetryableInferError(serverError)).toBe(true);
   });
+
+  it("retries errors without a numeric status (e.g. network errors)", () => {
+    const networkError = new Error("ECONNRESET");
+    expect(isRetryableInferError(networkError)).toBe(true);
+  });
 });

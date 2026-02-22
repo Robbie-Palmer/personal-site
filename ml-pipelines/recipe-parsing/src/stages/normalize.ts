@@ -5,6 +5,7 @@ import {
   NORMALIZED_PREDICTIONS_PATH,
   writeJson,
 } from "../lib/io.js";
+import { imageSetKey } from "../lib/image-key.js";
 import { normalizePredictionEntry } from "../lib/ingredient-normalization.js";
 
 async function main() {
@@ -29,14 +30,13 @@ async function main() {
         globalOntology.add(item.ingredient);
       }
     }
-    localOntologyByKey.set(entry.images.join(","), local);
+    localOntologyByKey.set(imageSetKey(entry.images), local);
   }
 
   const normalized = {
     entries: [] as typeof predictions.entries,
   };
   const decisions = {
-    generatedAt: new Date().toISOString(),
     entries: [] as Array<{
       images: string[];
       decisions: ReturnType<typeof normalizePredictionEntry>["decisions"];
@@ -44,7 +44,7 @@ async function main() {
   };
 
   for (const entry of predictions.entries) {
-    const key = entry.images.join(",");
+    const key = imageSetKey(entry.images);
     const localOntology = localOntologyByKey.get(key) ?? new Set<string>();
     const normalizedEntry = normalizePredictionEntry(entry, {
       local: localOntology,

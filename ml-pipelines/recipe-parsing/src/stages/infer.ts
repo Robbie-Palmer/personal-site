@@ -8,6 +8,7 @@ import {
   writeJson,
 } from "../lib/io";
 import { isRetryableInferError } from "../lib/infer-retry.js";
+import { imageSetKey } from "../lib/image-key.js";
 import { inferRecipeFromImages } from "../lib/openrouter.js";
 import type {
   PredictionEntry,
@@ -31,24 +32,27 @@ type AttemptErrorDetail = NonNullable<
   InferFailuresDataset["entries"][number]["attemptErrors"]
 >[number];
 
-function parsePositiveIntegerEnv(name: string, fallback: number): number {
+function parseIntegerEnv(
+  name: string,
+  fallback: number,
+  minValue: number,
+  errorMessage: string,
+): number {
   const raw = process.env[name];
   if (!raw) return fallback;
   const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error(`${name} must be a positive integer`);
+  if (!Number.isFinite(parsed) || parsed < minValue) {
+    throw new Error(errorMessage);
   }
   return parsed;
 }
 
+function parsePositiveIntegerEnv(name: string, fallback: number): number {
+  return parseIntegerEnv(name, fallback, 1, `${name} must be a positive integer`);
+}
+
 function parseNonNegativeIntegerEnv(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (!raw) return fallback;
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    throw new Error(`${name} must be a non-negative integer`);
-  }
-  return parsed;
+  return parseIntegerEnv(name, fallback, 0, `${name} must be a non-negative integer`);
 }
 
 function parseCsvEnv(name: string): string[] | undefined {
@@ -98,23 +102,28 @@ function extractAttemptErrorDetail(
     errorMessage: error instanceof Error ? error.message : String(error),
   };
 
-  const candidate = error as OpenAIStyleError;
-  if (typeof candidate.status === "number") {
+  const candidate = isOpenAIStyleError(error) ? error : undefined;
+  if (candidate && typeof candidate.status === "number") {
     base.statusCode = candidate.status;
   }
-  if (typeof candidate.requestID === "string" && candidate.requestID.length > 0) {
+  if (
+    candidate &&
+    typeof candidate.requestID === "string" &&
+    candidate.requestID.length > 0
+  ) {
     base.requestId = candidate.requestID;
   }
-  if (typeof candidate.code === "string" && candidate.code.length > 0) {
+  if (candidate && typeof candidate.code === "string" && candidate.code.length > 0) {
     base.providerErrorCode = candidate.code;
   }
-  if (typeof candidate.type === "string" && candidate.type.length > 0) {
+  if (candidate && typeof candidate.type === "string" && candidate.type.length > 0) {
     base.providerErrorType = candidate.type;
   }
-  if (typeof candidate.param === "string" && candidate.param.length > 0) {
+  if (candidate && typeof candidate.param === "string" && candidate.param.length > 0) {
     base.providerErrorParam = candidate.param;
   }
   if (
+    candidate &&
     typeof candidate.cause === "object" &&
     candidate.cause !== null &&
     "message" in candidate.cause &&
@@ -126,6 +135,20 @@ function extractAttemptErrorDetail(
   return base;
 }
 
+function isOpenAIStyleError(error: unknown): error is OpenAIStyleError {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  return (
+    "status" in error ||
+    "requestID" in error ||
+    "error" in error ||
+    "code" in error ||
+    "type" in error ||
+    "param" in error
+  );
+}
+
 type InferResult =
   | { ok: true; prediction: PredictionEntry }
   | { ok: false; failure: InferFailuresDataset["entries"][number] };
@@ -133,6 +156,7 @@ type InferResult =
 async function inferEntryWithRetries(params: {
   images: string[];
   model: string;
+  requestTimeoutMs: number;
   maxRetries: number;
   maxImageDimension: number;
   jpegQuality: number;
@@ -148,6 +172,7 @@ async function inferEntryWithRetries(params: {
       const predicted = await inferRecipeFromImages({
         imageFiles: params.images,
         model: params.model,
+        requestTimeoutMs: params.requestTimeoutMs,
         maxImageDimension: params.maxImageDimension,
         jpegQuality: params.jpegQuality,
       });
@@ -184,18 +209,23 @@ async function inferEntryWithRetries(params: {
         );
         await sleep(delayMs);
       }
+      if (hasNextAttempt && !detail.retryable) {
+        break;
+      }
     }
   }
 
+  const attemptCount = attemptErrors.length;
   const lastDetail =
-    attemptErrors[attemptErrors.length - 1] ?? extractAttemptErrorDetail(lastError, attempts);
-  const candidate = lastError as OpenAIStyleError;
+    attemptErrors[attemptErrors.length - 1] ??
+    extractAttemptErrorDetail(lastError, attemptCount || attempts);
+  const candidate = isOpenAIStyleError(lastError) ? lastError : undefined;
 
   return {
     ok: false,
     failure: {
       images: params.images,
-      attemptCount: attempts,
+      attemptCount,
       model: params.model,
       errorType: lastDetail.errorType,
       errorMessage: lastDetail.errorMessage,
@@ -213,6 +243,7 @@ async function inferEntryWithRetries(params: {
 
 async function main() {
   const model = process.env.OPENROUTER_MODEL ?? "google/gemini-3-flash-preview";
+  const requestTimeoutMs = parsePositiveIntegerEnv("INFER_REQUEST_TIMEOUT_MS", 30_000);
   const maxRetries = parseNonNegativeIntegerEnv("INFER_MAX_RETRIES", 2);
   const concurrency = parsePositiveIntegerEnv("INFER_CONCURRENCY", 8);
   const maxImageDimension = parsePositiveIntegerEnv("INFER_IMAGE_MAX_DIM", 1600);
@@ -230,6 +261,7 @@ async function main() {
 
   console.log("Inference config:");
   console.log(`  OPENROUTER_MODEL:        ${model}`);
+  console.log(`  INFER_REQUEST_TIMEOUT_MS:${requestTimeoutMs}`);
   console.log(`  INFER_MAX_RETRIES:       ${maxRetries}`);
   console.log(`  INFER_CONCURRENCY:       ${concurrency}`);
   console.log(`  INFER_RETRY_BASE_DELAY_MS:${backoffBaseDelayMs}`);
@@ -262,7 +294,7 @@ async function main() {
       );
     }
     entriesToProcess = matches;
-    targetEntryKeys = new Set(matches.map((entry) => entry.images.join(",")));
+    targetEntryKeys = new Set(matches.map((entry) => imageSetKey(entry.images)));
   }
 
   console.log(
@@ -283,6 +315,7 @@ async function main() {
       results[currentIndex] = await inferEntryWithRetries({
         images: entry.images,
         model,
+        requestTimeoutMs,
         maxRetries,
         maxImageDimension,
         jpegQuality,
@@ -311,24 +344,32 @@ async function main() {
     let existingFailures: InferFailuresDataset = { entries: [] };
     try {
       existingPredictions = await loadPredictions();
-    } catch {
-      existingPredictions = { entries: [] };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
+        existingPredictions = { entries: [] };
+      } else {
+        throw error;
+      }
     }
     try {
       existingFailures = await loadInferFailures();
-    } catch {
-      existingFailures = { entries: [] };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
+        existingFailures = { entries: [] };
+      } else {
+        throw error;
+      }
     }
 
     predictions.entries = [
       ...existingPredictions.entries.filter(
-        (entry) => !targetEntryKeys.has(entry.images.join(",")),
+        (entry) => !targetEntryKeys.has(imageSetKey(entry.images)),
       ),
       ...predictions.entries,
     ];
     failures.entries = [
       ...existingFailures.entries.filter(
-        (entry) => !targetEntryKeys.has(entry.images.join(",")),
+        (entry) => !targetEntryKeys.has(imageSetKey(entry.images)),
       ),
       ...failures.entries,
     ];

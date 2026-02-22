@@ -20,8 +20,10 @@ stages:
       - src/lib/openrouter.ts
       - src/lib/images.ts
       - src/lib/env.ts
+      - src/lib/image-key.ts
       - src/lib/recipe-output.ts
       - src/schemas/ground-truth.ts
+      - src/schemas/infer-failures.ts
       - src/lib/io.ts
     outs:
       - outputs/predictions.json
@@ -33,6 +35,7 @@ stages:
       - outputs/predictions.json
       - src/stages/normalize.ts
       - src/lib/ingredient-normalization.ts
+      - src/lib/image-key.ts
       - src/lib/io.ts
       - src/schemas/ground-truth.ts
       - outputs/prepared.json
@@ -47,6 +50,7 @@ stages:
       - outputs/predictions-normalized.json
       - src/stages/evaluate.ts
       - src/evaluation/metrics.ts
+      - src/lib/image-key.ts
       - src/lib/io.ts
     metrics:
       - outputs/metrics.json
