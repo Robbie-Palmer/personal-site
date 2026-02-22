@@ -147,16 +147,19 @@ The workflow this enables:
   experiment history. Extends naturally into model management and data annotation workflows —
   DagsHub integrates Label Studio for labelling image datasets directly alongside the pipeline that
   consumes them, which is a genuinely valuable feature for a computer vision project. Actively
-  developed with a growing ecosystem.
-- **Cons**: The free plan restricts private repositories for commercial use — not a current blocker
-  given the project is public and primarily a personal tool and portfolio piece, but a meaningful
-  risk if it ever moves toward a commercial product, at which point the jump to the paid plan at
-  ~$119/month is steep. Switching to DagsHub as the DVC remote would also mean migrating storage
-  away from Cloudflare R2 and accepting DagsHub's storage pricing in its place.
-- **Decision**: A strong candidate and genuinely well-suited to DVC-based CV workflows, but overkill
-  for the current stage. The annotation and model management features become more compelling if the
-  project scales up. Revisit if the evaluation workflow grows to need visual image review or a richer
-  experiment UI.
+  developed with a growing ecosystem. The free Individual plan includes 200 GB of managed storage
+  and unlimited experiment runs on public repositories, which comfortably covers a recipe image
+  dataset growing into the hundreds of images.
+- **Cons**: The 100 experiment run limit on the free plan applies to private repositories — since
+  this repository is public, it is likely not a blocker in practice, but worth confirming. Private
+  repositories are permitted on the free plan for non-commercial use only; if the project moves
+  toward a commercial product and needs to go private, the jump to the Team plan at $99–$119/month
+  is steep with no intermediate tier. Switching to DagsHub as the DVC remote would also mean
+  migrating away from Cloudflare R2 and accepting DagsHub's storage pricing in its place.
+- **Decision**: A strong candidate for the current setup — the free plan's limits are not blockers
+  for a public non-commercial project. Deferred in favour of plain DVC against R2 for now, primarily
+  because the annotation and model management features are not yet needed. Revisit if the evaluation
+  workflow grows to require visual image review, dataset annotation, or a richer experiment UI.
 
 ### Pachyderm
 
