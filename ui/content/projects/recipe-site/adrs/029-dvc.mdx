@@ -1,5 +1,5 @@
 ---
-title: "ADR 029: DVC for ML Pipeline Data and Experiment Versioning"
+title: "ADR 029: DVC"
 date: "2026-02-21"
 status: "Accepted"
 tech_stack: ["DVC"]
@@ -7,21 +7,21 @@ tech_stack: ["DVC"]
 
 # Context
 
-Phase 4 of the recipe site roadmap introduces an ML-powered ingestion pipeline: photographing physical
-recipe book pages and extracting structured recipe data. The pipeline lives in `ml-pipelines/recipe-parsing/`
-and has three stages — `prepare`, `infer`, and `evaluate` — each consuming the outputs of the previous.
-
-Two distinct but related problems arise immediately:
+We want to build out an ML-powered ingestion pipeline: photographing physical recipe book pages and extracting
+structured recipe data.
+This requires dataset versioning and ML pipeline orchestration and experiment tracking.
+I want a tool that enables high velocity for iterating on models, targets, domain-discovery and success measurement.
 
 **Dataset versioning.** The pipeline operates on a dataset of recipe images paired with ground-truth
-annotations (`data/recipe-images/` and `data/ground-truth.json`). These assets are too large and too
-binary to track in git: even a modest initial batch of images at several megabytes each would bloat
-every clone and make git operations slow, and the dataset is expected to grow to hundreds of images as
-more of the physical recipe book is digitised. The dataset must be versioned — pinned to a specific
-hash — so that every experiment can reproduce its exact inputs and results.
+annotations. These assets are too large and too binary to track in git: even a modest initial batch of images at
+several megabytes each would bloat every clone and make git operations slow,
+and the dataset is expected to grow to hundreds of images as more of the physical recipe book is digitised.
+The target schema will also evolve as we build new features, find new edge cases etc.
+The dataset must be versioned — pinned to a specific hash — so that every experiment can reproduce its exact
+inputs and results, and we can reasonably compare different solutions to each other.
 
-**ML pipeline orchestration and experiment tracking.** The `prepare → infer → evaluate` pipeline has
-deterministic, cacheable stages. Re-running the full pipeline on every code change is wasteful; only
+**ML pipeline orchestration and experiment tracking.** ML pipelines have deterministic, cacheable stages.
+Re-running the full pipeline on every code change is wasteful; only
 stages whose dependencies have changed need to execute. Beyond caching, the project needs to run
 experiments (varying prompts, models, or preprocessing logic), compare their outputs quantitatively,
 surface metric changes on pull requests, and merge improvements through the normal code review process.
@@ -35,9 +35,11 @@ Additional requirements:
 
 * Object storage for large files should be S3-compatible to avoid proprietary lock-in and to keep
   costs predictable — egress fees are a known trap with traditional cloud providers.
-* The project uses **GitHub Actions** for CI and pull requests as the review mechanism. Experiment
-  comparison must be surfaced there without a mandatory separate platform.
-* The pipeline itself is TypeScript (tsx), not Python — the tooling must not impose a Python-only
+* The project uses [GitHub Actions](/projects/recipe-site/adrs/015-github-actions) for CI and
+  pull requests as the review mechanism. Experiment comparison must be surfaced there without a
+  mandatory separate platform.
+* I want to be able to build pipeline itself is TypeScript (tsx), not Python,
+  to enable code re-use between production and experimentation — the tooling must not impose a Python-only
   runtime constraint on pipeline code.
 
 # Decision
@@ -225,6 +227,9 @@ The workflow this enables:
 * **Built-in experiment comparison**: `dvc exp run`, `dvc exp diff`, `dvc metrics diff`, and
   `dvc plots diff` provide structured, machine-readable experiment comparisons. PR comments can be
   generated from these outputs with a few lines of bash in GitHub Actions.
+* **Optional interactive interfaces**: While the core workflow is CLI-first, DVC can surface
+  experiments and plots in interactive UIs via DVC Studio and the DVC VS Code extension, so teams can
+  choose terminal-only or GUI-assisted workflows as needed.
 * **Model versioning and lifecycle traceability**: DVC 3.x includes model versioning and registry
   capabilities, including GTO-based promotion tracking in git. Combined with DVC's artifact tracking
   and stage lineage, this provides strong reproducibility and auditability for model evolution without
@@ -242,12 +247,11 @@ The workflow this enables:
 
 ### Cons
 
-* **No GUI for human review**: DVC has no built-in interface for visually browsing prediction
-  outputs. `dvc exp show` renders a terminal table; `dvc plots diff` generates static HTML charts.
-  For a computer vision problem — where reviewing model outputs means looking at images with
-  overlaid annotations — the absence of a visual browser is a meaningful gap. If per-image
-  inspection becomes a routine part of the evaluation workflow, a supplementary UI (W\&B, DagsHub,
-  or a bespoke viewer) would be needed.
+* **Core workflow is CLI-first and image review UX is basic**: DVC's default review path is terminal
+  tables (`dvc exp show`) and generated plot artifacts (`dvc plots diff`). DVC Studio and the VS Code
+  extension provide interactive views, but for computer vision workflows requiring high-volume
+  per-image inspection with rich annotation/review tooling, dedicated platforms can still offer a
+  stronger out-of-the-box experience.
 * **Learning curve for the DAG model**: The dependency graph in `dvc.yaml` must be declared explicitly.
   If a dependency is omitted, DVC will not detect that a stage's output is stale. Correct pipeline
   definitions require discipline — forgetting a `deps:` entry leads to stale cache hits. Mitigated by
@@ -278,9 +282,10 @@ The workflow this enables:
 
 ### Negative
 
-* **No interactive dashboard**: Experiment results are visible as CLI tables and static HTML plots in
-  PR comments, not an interactive web UI. Acceptable for the current evaluation scale; may become
-  limiting as the evaluation suite grows.
+* **CLI-first review remains the default in CI**: In this repository, experiment outputs are primarily
+  consumed as CLI-derived tables and generated plot artifacts in PR comments. Interactive exploration is
+  available via DVC Studio and the VS Code extension, but introducing them into the core team workflow
+  may become desirable as evaluation complexity grows.
 * **Pipeline definition discipline**: `dvc.yaml` must be kept accurate. Adding a new dependency to a
   stage's code without updating `dvc.yaml` will cause stale cache hits in CI. Code review of pipeline
   definition changes becomes part of the ML development workflow.
