@@ -1,6 +1,6 @@
 import {
   loadPreparedData,
-  loadPredictions,
+  loadNormalizedPredictions,
   writeJson,
   METRICS_PATH,
   PER_IMAGE_SCORES_PATH,
@@ -12,31 +12,18 @@ async function main() {
 
   const [prepared, predictions] = await Promise.all([
     loadPreparedData(),
-    loadPredictions(),
+    loadNormalizedPredictions(),
   ]);
 
-  if (predictions.entries.length !== prepared.entries.length) {
-    throw new Error(
-      `Entry count mismatch: ground truth has ${prepared.entries.length}, predictions has ${predictions.entries.length}`,
-    );
-  }
-
-  for (let i = 0; i < prepared.entries.length; i++) {
-    const gtKey = prepared.entries[i]!.images.join(",");
-    const predKey = predictions.entries[i]!.images.join(",");
-    if (gtKey !== predKey) {
-      throw new Error(
-        `Image mismatch at entry ${i}: expected [${gtKey}], got [${predKey}]`,
-      );
-    }
-  }
-
-  console.log(`Evaluating ${predictions.entries.length} entries...`);
+  console.log(
+    `Evaluating ${prepared.entries.length} entries with ${predictions.entries.length} predictions...`,
+  );
 
   const { metrics, perEntry } = aggregateMetrics(
     predictions.entries,
     prepared.entries,
   );
+  const missingCount = perEntry.filter((entry) => entry.missingPrediction).length;
 
   await Promise.all([
     writeJson(METRICS_PATH, metrics),
@@ -44,12 +31,10 @@ async function main() {
   ]);
 
   console.log(`\nResults (${metrics.entryCount} entries):`);
+  console.log(`  Missing Predictions:     ${missingCount}`);
   console.log(`  Overall Score:           ${metrics.overall.score.toFixed(3)}`);
   console.log(
     `  Ingredient Parsing F1:   ${metrics.byCategory.ingredientParsing.f1.toFixed(3)}`,
-  );
-  console.log(
-    `  Ingredient Categories:   ${metrics.byCategory.ingredientCategorization.accuracy.toFixed(3)}`,
   );
   console.log(
     `  Instructions F1:         ${metrics.byCategory.instructions.f1.toFixed(3)}`,

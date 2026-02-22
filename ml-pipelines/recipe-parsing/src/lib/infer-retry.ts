@@ -1,0 +1,54 @@
+const MAX_PROVIDER_ERROR_BODY_CHARS = 3_000;
+
+type OpenAIStyleError = Error & {
+  status?: number;
+  error?: unknown;
+};
+
+function stringifyProviderErrorBody(errorBody: unknown): string | undefined {
+  if (errorBody === undefined) return undefined;
+  const raw =
+    typeof errorBody === "string"
+      ? errorBody
+      : JSON.stringify(errorBody, null, 2);
+  if (raw.length <= MAX_PROVIDER_ERROR_BODY_CHARS) {
+    return raw;
+  }
+  return `${raw.slice(0, MAX_PROVIDER_ERROR_BODY_CHARS)}...`;
+}
+
+function errorText(error: unknown): string {
+  if (!(error instanceof Error)) return String(error).toLowerCase();
+  const candidate = error as OpenAIStyleError;
+  const message = error.message ?? "";
+  const providerErrorText =
+    candidate.error === undefined ? "" : stringifyProviderErrorBody(candidate.error) ?? "";
+  return `${message}\n${providerErrorText}`.toLowerCase();
+}
+
+function isTransientProvider400Error(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const maybeStatus = (error as { status?: unknown }).status;
+  if (maybeStatus !== 400) return false;
+
+  const text = errorText(error);
+  // Observed intermittent provider-side validator glitch via OpenRouter/Google.
+  return (
+    text.includes("provider returned error") &&
+    text.includes("maximum allowed nesting depth")
+  );
+}
+
+export function isRetryableInferError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const maybeStatus = (error as { status?: unknown }).status;
+  if (typeof maybeStatus === "number") {
+    if (isTransientProvider400Error(error)) {
+      return true;
+    }
+    return maybeStatus === 429 || (maybeStatus >= 500 && maybeStatus < 600);
+  }
+  return true;
+}

@@ -1,4 +1,3 @@
-import { normalizeSlug } from "recipe-domain/slugs";
 import type {
   GroundTruthEntry,
   Recipe,
@@ -21,7 +20,6 @@ export interface ScalarFieldScores {
 }
 
 export interface IngredientParsingScores extends F1Scores {
-  /** Per-field scores averaged across matched ingredients. */
   fieldScores: {
     name: F1Scores;
     amount: { accuracy: number };
@@ -30,18 +28,13 @@ export interface IngredientParsingScores extends F1Scores {
   };
 }
 
-export interface IngredientCategorizationScores {
-  accuracy: number;
-  perCategory: Record<string, F1Scores>;
-}
-
 export interface EntryScores {
   images: string[];
+  missingPrediction?: boolean;
   scores: {
     overall: number;
     scalarFields: number;
     ingredientParsing: number;
-    ingredientCategorization: number;
     instructions: number;
   };
 }
@@ -51,7 +44,6 @@ export interface AggregateMetrics {
   byCategory: {
     scalarFields: ScalarFieldScores;
     ingredientParsing: IngredientParsingScores;
-    ingredientCategorization: IngredientCategorizationScores;
     instructions: F1Scores;
   };
   entryCount: number;
@@ -83,12 +75,6 @@ export function computeSetF1(
   return { precision, recall, f1 };
 }
 
-/**
- * Compute F1 score based on word overlap.
- *
- * Note: uses Set semantics, so duplicate words are collapsed.
- * A "bag of words" approach would be needed to account for word frequency.
- */
 export function computeWordOverlapF1(
   predicted: string,
   expected: string,
@@ -169,7 +155,6 @@ export function evaluateScalarFields(
   };
 }
 
-/** Flatten all ingredients from ingredient groups into a map keyed by slug. */
 function flattenIngredients(
   groups: Recipe["ingredientGroups"],
 ): Map<string, { amount?: number; unit?: string; preparation?: string }[]> {
@@ -198,7 +183,6 @@ export function evaluateIngredientParsing(
   const predIngredients = flattenIngredients(predicted.ingredientGroups);
   const expIngredients = flattenIngredients(expected.ingredientGroups);
 
-  // Bag-level F1 for ingredient identification (counting duplicates)
   const predSlugs: string[] = [];
   for (const [slug, items] of predIngredients) {
     for (let i = 0; i < items.length; i++) predSlugs.push(slug);
@@ -209,12 +193,6 @@ export function evaluateIngredientParsing(
   }
 
   const idF1 = computeBagF1(predSlugs, expSlugs);
-
-  // Per-field scores for matched ingredients
-  // We iterate over the unique slugs that appear in both.
-  // For each slug, we pair up the Nth predicted item with the Nth expected item.
-  // Any extra items (unpaired) are ignored for field accuracy, as they are implicitly
-  // penalized by the Bag F1 identification score.
   const commonSlugs = new Set(
     [...predIngredients.keys()].filter((k) => expIngredients.has(k)),
   );
@@ -227,14 +205,10 @@ export function evaluateIngredientParsing(
   for (const slug of commonSlugs) {
     const preds = predIngredients.get(slug)!;
     const exps = expIngredients.get(slug)!;
-
-    // Pair up items. Assume order matters / is consistent enough.
     const pairCount = Math.min(preds.length, exps.length);
     for (let i = 0; i < pairCount; i++) {
       const pred = preds[i]!;
       const exp = exps[i]!;
-
-      // Name: matched by slug, so this is 1.0
       nameScores.push({ precision: 1, recall: 1, f1: 1 });
       amountAccuracies.push(exactMatch(pred.amount, exp.amount));
       unitAccuracies.push(exactMatch(pred.unit, exp.unit));
@@ -255,106 +229,6 @@ export function evaluateIngredientParsing(
   };
 }
 
-export function evaluateIngredientCategorization(
-  predictedIngredients?: GroundTruthEntry["knownIngredients"],
-  expectedIngredients?: GroundTruthEntry["knownIngredients"],
-): IngredientCategorizationScores {
-  if (!expectedIngredients || expectedIngredients.length === 0) {
-    return { accuracy: 0, perCategory: {} };
-  }
-
-  const expectedCategories = new Map<string, string>();
-  for (const ing of expectedIngredients) {
-    if (ing.category) {
-      const slug = ing.slug ?? normalizeSlug(ing.name);
-      if (expectedCategories.has(slug)) {
-        const existing = expectedCategories.get(slug);
-        if (existing !== ing.category) {
-          console.warn(
-            `Duplicate slug in expected ingredients: ${slug}. keeping ${existing}, ignoring ${ing.category} for ${ing.name}`,
-          );
-        }
-      } else {
-        expectedCategories.set(slug, ing.category);
-      }
-    }
-  }
-
-  const predictedCategories = new Map<string, string>();
-  if (predictedIngredients) {
-    for (const ing of predictedIngredients) {
-      if (ing.category) {
-        const slug = ing.slug ?? normalizeSlug(ing.name);
-        if (predictedCategories.has(slug)) {
-          const existing = predictedCategories.get(slug);
-          if (existing !== ing.category) {
-            console.warn(
-              `Duplicate slug in predicted ingredients: ${slug}. keeping ${existing}, ignoring ${ing.category} for ${ing.name}`,
-            );
-          }
-        } else {
-          predictedCategories.set(slug, ing.category);
-        }
-      }
-    }
-  }
-
-  const allCategories = new Set([
-    ...expectedCategories.values(),
-    ...predictedCategories.values(),
-  ]);
-  const perCategory: Record<string, { tp: number; fp: number; fn: number }> =
-    {};
-  for (const cat of allCategories) {
-    perCategory[cat] = { tp: 0, fp: 0, fn: 0 };
-  }
-
-  // Score each expected ingredient
-  for (const [slug, expectedCat] of expectedCategories) {
-    const predictedCat = predictedCategories.get(slug);
-    if (predictedCat === expectedCat) {
-      perCategory[expectedCat]!.tp++;
-    } else {
-      perCategory[expectedCat]!.fn++;
-      if (predictedCat) {
-        perCategory[predictedCat]!.fp++;
-      }
-    }
-  }
-
-  // Count predicted categories for slugs not in expected (all false positives)
-  for (const [slug, predictedCat] of predictedCategories) {
-    if (!expectedCategories.has(slug)) {
-      perCategory[predictedCat]!.fp++;
-    }
-  }
-
-  const perCategoryF1: Record<string, F1Scores> = {};
-  let totalCorrect = 0;
-  let totalCount = 0;
-  for (const [cat, counts] of Object.entries(perCategory)) {
-    const precision =
-      counts.tp + counts.fp === 0
-        ? 0
-        : counts.tp / (counts.tp + counts.fp);
-    const recall =
-      counts.tp + counts.fn === 0
-        ? 0
-        : counts.tp / (counts.tp + counts.fn);
-    const f1 =
-      precision + recall === 0
-        ? 0
-        : (2 * precision * recall) / (precision + recall);
-    perCategoryF1[cat] = { precision, recall, f1 };
-    totalCorrect += counts.tp;
-    totalCount += counts.tp + counts.fn;
-  }
-  return {
-    accuracy: totalCount === 0 ? 0 : totalCorrect / totalCount,
-    perCategory: perCategoryF1,
-  };
-}
-
 export function evaluateInstructions(
   predicted: Recipe,
   expected: Recipe,
@@ -368,7 +242,6 @@ export function evaluateInstructions(
 export function computeEntryScores(
   scalar: ScalarFieldScores,
   ingredients: IngredientParsingScores,
-  categorization: IngredientCategorizationScores,
   instructions: F1Scores,
 ): EntryScores["scores"] {
   const scalarScore = avg([
@@ -379,48 +252,25 @@ export function computeEntryScores(
     scalar.prepTime.accuracy,
     scalar.cookTime.accuracy,
   ]);
-  // Overall: weighted average of category scores
-  const overall = avg([
-    scalarScore,
-    ingredients.f1,
-    categorization.accuracy,
-    instructions.f1,
-  ]);
+  const overall = avg([scalarScore, ingredients.f1, instructions.f1]);
   return {
     overall,
     scalarFields: scalarScore,
     ingredientParsing: ingredients.f1,
-    ingredientCategorization: categorization.accuracy,
     instructions: instructions.f1,
   };
 }
 
-export function evaluateEntry(
-  prediction: PredictionEntry,
-  expected: GroundTruthEntry,
-): EntryScores {
-  const scalar = evaluateScalarFields(prediction.predicted, expected.expected);
-  const ingredients = evaluateIngredientParsing(
-    prediction.predicted,
-    expected.expected,
-  );
-  const categorization = evaluateIngredientCategorization(
-    prediction.predictedIngredients,
-    expected.knownIngredients,
-  );
-  const instructions = evaluateInstructions(
-    prediction.predicted,
-    expected.expected,
-  );
-  const scores = computeEntryScores(
-    scalar,
-    ingredients,
-    categorization,
-    instructions,
-  );
+export function makeMissingEntryScores(images: string[]): EntryScores {
   return {
-    images: prediction.images,
-    scores,
+    images,
+    missingPrediction: true,
+    scores: {
+      overall: 0,
+      scalarFields: 0,
+      ingredientParsing: 0,
+      instructions: 0,
+    },
   };
 }
 
@@ -428,41 +278,33 @@ export function aggregateMetrics(
   predictions: PredictionEntry[],
   groundTruth: GroundTruthEntry[],
 ): { metrics: AggregateMetrics; perEntry: EntryScores[] } {
-  if (predictions.length !== groundTruth.length) {
-    throw new Error(
-      `Length mismatch: predictions (${predictions.length}) vs groundTruth (${groundTruth.length})`,
-    );
+  const predictionsByImageKey = new Map<string, PredictionEntry>();
+  for (const prediction of predictions) {
+    predictionsByImageKey.set(prediction.images.join(","), prediction);
   }
 
   const allScalar: ScalarFieldScores[] = [];
   const allIngredients: IngredientParsingScores[] = [];
-  const allCategorization: IngredientCategorizationScores[] = [];
   const allInstructions: F1Scores[] = [];
   const perEntry: EntryScores[] = [];
 
-  for (let i = 0; i < predictions.length; i++) {
-    const pred = predictions[i]!;
-    const gt = groundTruth[i]!;
+  for (const gt of groundTruth) {
+    const key = gt.images.join(",");
+    const pred = predictionsByImageKey.get(key);
+    if (!pred) {
+      perEntry.push(makeMissingEntryScores(gt.images));
+      continue;
+    }
 
     const scalar = evaluateScalarFields(pred.predicted, gt.expected);
     const ingredients = evaluateIngredientParsing(pred.predicted, gt.expected);
-    const categorization = evaluateIngredientCategorization(
-      pred.predictedIngredients,
-      gt.knownIngredients,
-    );
     const instructions = evaluateInstructions(pred.predicted, gt.expected);
 
     allScalar.push(scalar);
     allIngredients.push(ingredients);
-    allCategorization.push(categorization);
     allInstructions.push(instructions);
 
-    const scores = computeEntryScores(
-      scalar,
-      ingredients,
-      categorization,
-      instructions,
-    );
+    const scores = computeEntryScores(scalar, ingredients, instructions);
     perEntry.push({
       images: pred.images,
       scores,
@@ -494,35 +336,20 @@ export function aggregateMetrics(
     },
   };
 
-  const allCategoryKeys = new Set(
-    allCategorization.flatMap((c) => Object.keys(c.perCategory)),
-  );
-  const perCategory: Record<string, F1Scores> = {};
-  for (const key of allCategoryKeys) {
-    const categoryScores = allCategorization
-      .map((c) => c.perCategory[key])
-      .filter((s): s is F1Scores => s !== undefined);
-    perCategory[key] = avgF1(categoryScores);
-  }
-
-  const ingredientCategorization: IngredientCategorizationScores = {
-    accuracy: avg(allCategorization.map((c) => c.accuracy)),
-    perCategory,
-  };
   const instructions = avgF1(allInstructions);
   const overall: { score: number } = {
     score: avg(perEntry.map((e) => e.scores.overall)),
   };
+
   return {
     metrics: {
       overall,
       byCategory: {
         scalarFields,
         ingredientParsing,
-        ingredientCategorization,
         instructions,
       },
-      entryCount: predictions.length,
+      entryCount: groundTruth.length,
     },
     perEntry,
   };

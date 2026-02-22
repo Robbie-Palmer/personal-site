@@ -1,15 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   formatIngredientName,
-  initIngredientPluralizeRules,
   pluralizeIngredientName,
 } from "@/lib/domain/recipe/ingredientText";
 
 describe("ingredientText", () => {
   describe("pluralizeIngredientName", () => {
-    it("initialization is idempotent", () => {
-      expect(() => initIngredientPluralizeRules()).not.toThrow();
-      expect(() => initIngredientPluralizeRules()).not.toThrow();
+    it("pluralizes without explicit initialization", () => {
       expect(
         pluralizeIngredientName({
           name: "milk",
