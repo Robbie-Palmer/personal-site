@@ -51,6 +51,11 @@ Fahrenheit, metric. These often don't match our measuring utensils and cause con
 **The book can be lost.** A single physical copy with no backup. If it's lost, damaged, or destroyed,
 years of collected recipes are gone.
 
+These aren't just our problems. The [competitor analysis](#competitor-analysis) below reveals a fragmented
+market where no product combines AI-powered recipe capture with a polished cooking experience — and
+accelerator backing for apps like Flavorish validates that the gap is widely felt. We're building for
+ourselves first, but the pain points are universal.
+
 # User Stories
 
 **For the cooks (us):**
@@ -95,10 +100,14 @@ years of collected recipes are gone.
 
 ### Content Management
 
-* **Recipes as code** — type-safe TypeScript definitions with Zod schema validation
 * **Draft status** — `draft | published` workflow so recipes can be captured immediately and refined later
 * **Attribution** — track recipe origin (e.g., "Grandma's book", "BBC Good Food", "Instagram @chef")
-* **Git-backed** — full version history, non-destructive edits, impossible to lose
+
+*Current implementation: Recipes are TypeScript objects with Zod schema validation, stored in git.
+This gives us type safety, build-time error checking, and version history as architectural properties —
+not user-facing features, but enablers for fast iteration. The recipe data format is an open decision
+longer term — Cooklang's `.cook` markup and database-backed models are both under consideration
+(see [Architecture](#architecture)).*
 
 ## Phase 2: Kitchen Experience
 
@@ -137,10 +146,16 @@ without app store friction.
 
 ## Phase 4: Recipe Ingestion Pipeline
 
-### Photo-to-Recipe (Physical Book Digitization)
+> The ML pipeline (`ml-pipelines/recipe-parsing/`) is being developed in parallel with Phases 2-3,
+> not sequentially after them. Pipeline infrastructure (DVC stages, evaluation framework, ground-truth
+> dataset) is already built. The phasing here reflects when ingestion features ship to users, not when
+> development begins.
 
-ML pipeline to photograph handwritten or printed recipe pages and extract structured recipe data.
-Enables batch digitization of existing physical recipe collections.
+### Photo-to-Recipe
+
+ML pipeline to extract structured recipe data from images — handwritten recipe pages, printed
+cookbook photos, recipe cards. Enables batch digitization of existing physical recipe collections
+and one-tap capture of any recipe image.
 
 ### Website Import
 
@@ -148,11 +163,26 @@ Parse recipes from URLs using schema.org `Recipe` structured data markup. Many r
 already publish structured data — this enables one-click import rather than manual transcription.
 Fall back to ML-based extraction for sites without structured markup.
 
+### Social Media Import
+
+Extract recipes from Instagram posts/reels, TikTok videos, YouTube cooking videos, and Facebook
+posts. This addresses the core pain point of recipes scattered across platforms and is the headline
+feature of the AI-capture segment (Flavorish, Honeydew, Recify). Likely requires LLM-based
+video/image analysis — distinct from both photo OCR and schema.org parsing.
+
 ### PR-Based Workflow
 
-Ingested recipes (from photos or URLs) create pull requests for review before merging into the
-recipe collection. Maintains quality control and the git-backed audit trail. Longer term,
-the ingestion pipeline likely moves to writing directly to a database.
+Ingested recipes (from photos, URLs, or social media) create pull requests for review before
+merging into the recipe collection. Maintains quality control and the git-backed audit trail.
+Longer term, the ingestion pipeline likely moves to writing directly to a database.
+
+### Open Standard Data
+
+Adopt [schema.org Recipe](https://schema.org/Recipe) as the canonical output format alongside the
+internal TypeScript schema. schema.org is already the import source for website parsing — emitting
+it for our own recipes enables SEO (search engines consume it), interoperability (other tools can
+import our recipes), and export without vendor lock-in. Mealie already uses schema.org Recipe as its
+core data model, confirming it's the lingua franca of the space.
 
 ## Phase 5: Personalization & Social
 
@@ -165,6 +195,16 @@ Accounts for personalization, not privacy — all recipes remain publicly access
 * **Cooking log** — tap to record what was cooked and when
 * **Recipe recommendations** — suggest recipes to friends, who can add them to "their recipe book"
 * **Personalized variations** — fork a recipe with edits, maintaining lineage to the original
+
+### Recipe Reviews & Collaboration
+
+Multi-user comments and adaptations on shared recipes. The complexity is modelling reviews on forked
+recipe variants — when users personalise a base recipe, the review system needs to handle both the
+original and its derivatives. A
+[Cooklang blog post](https://cooklang.org/blog/09-cooklang-vs-paprika-vs-mealie/) describes a family
+in Italy using Mealie to preserve a 100-year-old recipe collection across three generations who
+contribute, comment, and adapt recipes — this multi-generational collaboration model is a direct
+reference for how this should work.
 
 ### Usage Analytics
 
@@ -193,16 +233,20 @@ Remember the last portion size used per recipe — if the pasta bake is always m
 ### "What Can I Make?"
 
 Enter ingredients on hand, find matching recipes. The ingredient graph already supports reverse
-lookups — this is primarily a UI feature.
+lookups — this is primarily a UI feature. Photo-based pantry scanning (Honeydew's "Pantry Mode")
+is [out of scope](#out-of-scope) due to reliability concerns — this will be manual input only.
+Cooklang's CLI already implements this pattern (pantry management with recipe matching) and could
+serve as a reference.
 
 ### Seasonal Suggestions
 
 Tag ingredients as seasonal, surface relevant recipes by time of year.
 
-### Recipe Versioning
+### Voice / Hands-Free Navigation
 
-Git-like history per recipe. Show a diff of what changed between versions — directly addresses
-the destructive editing pain point.
+Web Speech API for voice-controlled step navigation during cooking mode. Eliminates the need to
+touch the screen with messy hands — directly preserving the physical book's "no fiddling" advantage.
+Requires cooking mode (Phase 2) as a prerequisite.
 
 ### Printed Recipe Book
 
@@ -210,27 +254,21 @@ Partner with a hardback book printing company to let users print their own physi
 from their account as a gift. Emphasis on this being a novelty souvenir/gift — a complement to
 the digital experience, not a replacement for it.
 
-### Open Standard Data
-
-Consider adopting [schema.org Recipe](https://schema.org/Recipe) markup for our own recipe data.
-Using open standards enables interoperability — recipes can be consumed by search engines,
-imported by other tools, and exported without vendor lock-in.
-
 # Why Digital Beats Physical
 
-| Dimension | Physical Book | Recipe Site |
-| --- | --- | --- |
-| **Access** | Must be near the book | Any device, anywhere |
-| **Search** | Flick through every page | Instant full-text search |
-| **Filter** | Read every recipe's details | One-click by cuisine, time, ingredient |
-| **Edit** | Destructive — rewrite entire page | Non-destructive — full version history |
-| **Share** | Physically hand over the book | Send a link |
-| **Backup** | Single copy, can be lost | Git + Cloudflare artifacts |
-| **Shopping** | Manual transcription to phone | Auto-generated checklist |
-| **Portioning** | Mental arithmetic, easy to forget mid-recipe | Click a button, page shows the truth |
-| **Units** | Whatever the source used | Converted to your preference |
-| **Adding recipes** | Must be with book, manual handwriting | Paste, import, or photograph from anywhere |
-| **Kitchen UX** | Easy to prop open, no lock screen | Cooking mode: large text, step-by-step, timers |
+| Dimension          | Physical Book                                | Recipe Site                                    |
+| ------------------ | -------------------------------------------- | ---------------------------------------------- |
+| **Access**         | Must be near the book                        | Any device, anywhere                           |
+| **Search**         | Flick through every page                     | Instant full-text search                       |
+| **Filter**         | Read every recipe's details                  | One-click by cuisine, time, ingredient         |
+| **Edit**           | Destructive — rewrite entire page            | Non-destructive — full version history         |
+| **Share**          | Physically hand over the book                | Send a link                                    |
+| **Backup**         | Single copy, can be lost                     | Git + Cloudflare artifacts                     |
+| **Shopping**       | Manual transcription to phone                | Auto-generated checklist                       |
+| **Portioning**     | Mental arithmetic, easy to forget mid-recipe | Click a button, page shows the truth           |
+| **Units**          | Whatever the source used                     | Converted to your preference                   |
+| **Adding recipes** | Must be with book, manual handwriting        | Paste, import, or photograph from anywhere     |
+| **Kitchen UX**     | Easy to prop open, no lock screen            | Cooking mode: large text, step-by-step, timers |
 
 # What This Preserves From the Physical Book
 
@@ -240,6 +278,230 @@ The physical book isn't all bad. The recipe site should preserve its strengths:
 * **No fiddling** — large tap targets, no tiny buttons, no accidental navigation
 * **Resilience** — PWA works offline; no "phone died mid-recipe" failure mode
 * **Tangibility** — the printed recipe book feature lets users create physical artifacts when the occasion calls for it
+
+# Competitor Analysis
+
+The recipe app market is fragmented. No single product does everything well, and most users cobble together
+2-3 tools. As the Cooklang team
+[put it](https://cooklang.org/blog/09-cooklang-vs-paprika-vs-mealie/): "every step between 'I want to
+make that' and 'I'm cooking' is a chance to order takeout instead." The best cooking experiences are locked
+to Apple's ecosystem. The 2024-2026 wave of AI-powered import apps can capture recipes from anywhere but
+lack kitchen UX. The self-hosted tools have the right data philosophy but no polish. Nobody combines a
+great cooking experience with intelligent recipe ingestion on a platform that enables rapid iteration.
+
+There's external validation that this space has legs: Flavorish has secured backing from Google Cloud for
+Startups, YSpace, and Treefrog Accelerator — investors see a gap worth funding in AI-powered recipe
+management. But even the funded competitors are solving only half the problem (capture without kitchen UX),
+leaving the full-stack opportunity open.
+
+## Market Landscape
+
+| Segment                       | Examples                                           | Core focus                                     |
+| ----------------------------- | -------------------------------------------------- | ---------------------------------------------- |
+| **Recipe managers**           | Paprika, Crouton, Mela, Copy Me That, AnyList      | Store, organise, and cook your own collection  |
+| **Self-hosted / open-source** | Mealie, Tandoor, RecipeSage, Nextcloud Cookbook    | Privacy, data ownership, developer audience    |
+| **AI-powered capture**        | Flavorish, Honeydew, Recify, Recipe One, Preplo    | Import from social media, photos, URLs with AI |
+| **Meal planning / diet**      | Ollie, Zoe, Mealime, Samsung Food                  | Weekly plans, grocery delivery, nutrition      |
+| **Editorial platforms**       | NYT Cooking, BBC Good Food, AllRecipes, Epicurious | Discovery, community reviews, curated content  |
+
+We span segments 1, 2, and 3 — personal library, open-source data ownership, and AI-powered capture.
+An ML pipeline for photo-to-recipe extraction is scaffolded (`ml-pipelines/recipe-parsing/` — DVC stages,
+evaluation framework, and ground-truth dataset built; model in development). The roadmap extends into meal
+planning and nutrition. The editorial platforms and pure diet apps are adjacent — they solve different
+problems for different audiences.
+
+## Key Competitors
+
+**[Paprika Recipe Manager 3](https://www.paprikaapp.com/)** — The incumbent. iOS, Android, Mac, Windows
+(one-time \~$5 per platform). Mature feature set: built-in web browser for recipe capture, auto-detected
+timers, full-screen cook mode, ingredient scaling, offline access. But no web version, dated UI, and
+per-platform purchase model is annoying.
+([2026 review](https://flavor365.com/paprika-3-recipe-manager-our-honest-2026-review/))
+
+**[Crouton](https://crouton.app/)** — Best-in-class cooking UX. Apple Design Award winner. One step at a
+time with large font, highlights ingredients in the current step, wink-to-advance navigation, multi-recipe
+cooking mode. Beautiful design. But Apple-only (iOS/macOS), $3 one-time, no web, no Android.
+([MacStories review](https://www.macstories.net/reviews/crouton-review-an-elegant-modern-recipe-manager-and-cooking-aid/))
+
+**[Mealie](https://mealie.io/)** — Self-hosted, open source (Vue + Python), REST API, schema.org Recipe
+format, ML-powered ingredient parsing. Multi-user with granular permissions and comment threads — the
+Cooklang blog [describes](https://cooklang.org/blog/09-cooklang-vs-paprika-vs-mealie/) a family in Italy
+using Mealie to preserve a 100-year-old recipe collection across three generations who contribute, comment,
+and adapt recipes. This multi-generational collaboration model is directly relevant to our recipe forking
+and personalisation roadmap (Phase 5). But zero kitchen UX investment — no cooking mode, no timers, no
+wake lock, no PWA. Shows the gap between "recipe database" and "cooking tool."
+([GitHub](https://github.com/mealie-recipes/mealie))
+
+**[RecipeSage](https://recipesage.com/)** — Open source, web-based, with meal planning, shopping lists,
+and fuzzy search with synonym mapping. Notable for being one of the few apps that
+[scales instruction text quantities](https://docs.recipesage.com/docs/tutorials/recipes/edit-recipe/)
+using curly-brace markup — though it requires manual annotation.
+
+**[Recify](https://www.recify.app/)** — AI import from YouTube, Instagram, TikTok, Pinterest, and blogs.
+Distraction-free cooking mode with swipe navigation, voice commands, timers, and screen wake lock. 4.9/5 app
+store rating. But critical limitations: recipes are saved to device only with no cloud sync — meaning a lost
+or replaced phone means losing your entire collection. No sharing or social features. Only 6 free AI imports,
+then requires a subscription (pricing unclear — reports range from $4.99/week to $5.99/month). Native app
+only (iOS/Android), no web version. Combines AI capture with cooking UX on mobile, but the device-only
+storage is a dealbreaker for anyone building a long-term recipe collection.
+
+**[Flavorish](https://www.flavorish.ai/)** — The most credible AI-import-first competitor, and notable for
+its accelerator backing: [Google Cloud for Startups](https://cloud.google.com/startup),
+[YSpace](https://yspace.yorku.ca/) (York University), and
+[Treefrog Accelerator](https://treefrog.com/) — validating investor interest in the recipe app
+space. Toronto-based, 1M+ recipes saved, 4.7+ stars. Imports from Instagram, TikTok, YouTube, Facebook, and
+photos of handwritten recipes. Grocery lists by aisle, serving scaling, cross-platform (iOS, Android, web).
+Free with unlimited storage; Premium $4.99/month removes AI import limits. "No ads. No data-selling." But no
+cooking mode — strong on capture, weak on the kitchen experience.
+
+**[Honeydew](https://honeydewcook.com/)** — AI extraction from social media and websites, AI meal planner,
+family sharing (up to 6 members), Instacart integration, works offline, metric/imperial support. Free with
+10 AI imports/month; Plus $4-7/month for unlimited. No cooking mode. "Pantry Mode" lets you photograph
+your pantry for recipe suggestions — an interesting concept, though the reliability of photo-based pantry
+recognition is questionable.
+
+**[Copy Me That](https://www.copymethat.com/)** — The closest to a web-based personal recipe manager. iOS,
+Android, and web. Free for 40 recipes, $1/month unlimited. Web clipper, meal planner, shopping list sorted
+by aisle. But minimal cooking experience — no true step-by-step mode, no timers, dated UI.
+
+**[Cooklang](https://cooklang.org/)** — The closest philosophical match and a potential architectural
+building block. We share many of the same pain points and motivations — their
+[comparison post](https://cooklang.org/blog/09-cooklang-vs-paprika-vs-mealie/) articulates the same
+friction we identified with physical recipe books, and their conclusion — "the best recipe manager isn't
+the one with the most features, it's the one that removes barriers between you and cooking" — aligns
+directly with our building philosophy. Recipes are plain-text `.cook` files stored in git, with inline
+annotations for
+ingredients (`@flour{200%g}`), cookware (`#pot{}`), and timers (`~{25%minutes}`). The core
+[`cooklang-rs`](https://github.com/cooklang/cooklang-rs) Rust crate (MIT licensed, actively maintained)
+provides a clean parse → scale → convert pipeline with WASM/TypeScript bindings, meaning it can run
+in-browser. The [CLI](https://github.com/cooklang/cookcli) (Rust/Axum) includes a local web server,
+shopping list generation with ingredient aggregation across recipes, pantry management (find recipes
+makeable from what you have), AI-powered import from URLs using multiple providers (OpenAI, Claude, Gemini,
+Ollama), and full-text search. The ecosystem includes parsers in 12+ languages, editor support (VS Code,
+[Obsidian plugin](https://github.com/cooklang/cooklang-obsidian) with 308 stars, LSP), and a community
+recipe index.
+
+Because ingredients are inline-annotated in the markup, the parser inherently knows which quantities in
+instructions to scale. It also supports fixed quantities (`@salt{=1%tsp}` — the `=` prefix prevents
+scaling for things like baking powder that shouldn't change with servings), recipe references
+(`@./Shakshuka sauce{100%g}` — sub-recipes as composable ingredients), and named timers
+(`~eggs{3%minutes}`).
+
+The ecosystem is broader than just the CLI — there are native iOS and Android apps with iCloud/CookCloud
+sync, offline support, shopping lists grouped by store section, and recently-added timer support. But the
+UX maturity is limited: the iOS app has a
+[3.8/5 rating](https://apps.apple.com/us/app/cook-cooklang-recipe-app/id1598799259) with only 4 reviews
+and reports of bugs (accidental recipe deletion, crashes). Their own
+[blog](https://cooklang.org/blog/09-cooklang-vs-paprika-vs-mealie/) positions it honestly — Cooklang
+removes friction "through simplicity" while Paprika does it "through polish" — and the audience is
+primarily developers and data scientists. There's no dedicated cooking mode optimised for kitchen use
+(large text, step-by-step, wake lock). The data model and parsing infrastructure are strong — worth
+evaluating as a foundation to build a polished kitchen experience on top of, rather than reimplementing
+from scratch.
+
+**[Zoe](https://zoe.com/)** — Adjacent, not competitive. Personalised nutrition based on gut microbiome
+testing ($10-25/month plus \~$350 test kit). Has recipes and meal planning, but
+[recipe UX is buggy](https://www.trustpilot.com/review/zoe.com) per user reports, adding homemade food
+is laborious, and the recipe submission experience is poor. Recipes are a byproduct of the nutrition
+platform, not a core focus.
+
+## Feature Comparison
+
+| Feature                | Paprika       | Crouton      | Mealie    | Flavorish | Recify                | Honeydew | **Recipe Site**    |
+| ---------------------- | ------------- | ------------ | --------- | --------- | --------------------- | -------- | ------------------ |
+| **Web-based**          | No            | No           | Self-host | Yes       | No                    | No       | **Yes (PWA)**      |
+| **Cooking mode**       | Yes           | Excellent    | No        | No        | Yes                   | No       | **Planned (P2)**   |
+| **Ingredient scaling** | Yes           | Yes          | Yes       | Yes       | Yes                   | Yes      | **Yes (MVP)**      |
+| **Inline timers**      | Auto-detect   | Tap-to-start | No        | No        | Yes                   | No       | **Planned (P2)**   |
+| **Unit conversion**    | Basic         | Basic        | No        | No        | No                    | Yes      | **Yes (MVP)**      |
+| **Offline / PWA**      | Native app    | Native app   | No        | No        | Device-only (no sync) | Yes      | **Planned (P2)**   |
+| **AI URL import**      | Browser       | Yes          | Yes       | AI        | AI                    | AI       | **Planned (P4)**   |
+| **AI photo import**    | No            | No           | No        | AI        | AI                    | AI       | **Scaffolded**     |
+| **Shopping list**      | Yes           | No           | Yes       | Yes       | No                    | Yes      | **Planned (P3)**   |
+| **Voice / hands-free** | No            | Wink         | No        | No        | Yes                   | No       | **Future**         |
+| **Version history**    | No            | No           | No        | No        | No                    | No       | **Yes (git → DB)** |
+| **Free (no sub)**      | \~$5/platform | $3           | Free      | Freemium  | Sub (6 free imports)  | Freemium | **Free**           |
+
+## Where We Differentiate
+
+**Iteration velocity.** The current developer tooling — TypeScript + Zod schemas, git-backed content,
+static site on Cloudflare Pages, CI/CD pipeline — is not a user-facing competitive edge. It's an enabler.
+Type-safe schemas and build-time validation mean we catch errors before deployment. PR-based workflows mean
+every change is reviewed. Zero-ops infrastructure means we spend time on features, not servers. The
+competitive edge this drives is speed: we can ship and iterate faster than competitors burdened with heavier
+infrastructure, app store review cycles, or database migrations. The specific data format may evolve (e.g.
+Cooklang markup, database-backed models), but the velocity principles remain.
+
+**PWA-based cooking experience.** The premium cooking UX
+([Pestle](https://9to5mac.com/2022/01/21/pestle-cooking-app-for-ios-release/), Crouton, Mela) is
+exclusively Apple native apps. The web-based options (Copy Me That, Samsung Food) have minimal cooking
+investment. No competitor offers a high-quality PWA cooking experience that works offline, installs to the
+home screen, and rivals native app UX. A web-based approach means cross-platform by default, URL-shareable
+recipes, no app store overhead, and no per-platform purchase. The Web Wake Lock API enables screen-on.
+Service workers enable offline. Structured recipe data also enables full-text portion scaling — where
+quantities in instructions update alongside the ingredient list, not just the ingredient list alone (a
+[documented limitation](https://help.anylist.com/articles/scale-recipe/) in virtually every competitor
+including [AnyList](https://www.anylist.com/)).
+
+**AI-powered recipe ingestion.** The 2024-2026 wave of AI-import apps (Flavorish, Honeydew, Recify)
+validates the market demand for intelligent recipe capture — from social media, URLs, and photos. But most
+of these apps treat capture as their *only* feature, without pairing it with a strong cooking experience.
+Meanwhile, the established recipe managers (Paprika, Crouton) rely on basic web clipping or manual entry.
+An ML pipeline for photo-to-recipe extraction is scaffolded (`ml-pipelines/recipe-parsing/` — DVC-managed
+with prepare → infer → evaluate stages, evaluation framework and ground-truth dataset built, model in
+development). Handwritten recipe OCR remains an
+[unsolved problem industry-wide](https://flavor365.com/how-to-scan-recipes-the-definitive-2026-guide/) —
+no app reliably handles older cursive handwriting — making this a genuine technical differentiator if we
+can solve it well.
+
+**Zero cost, no vendor lock-in.** Most competitors charge $4-10/month or require per-platform purchase.
+Self-hosted options need server infrastructure. We're free, deployed on Cloudflare Pages free tier. No
+account required to browse. No data silo. Recipes are portable structured data that we own.
+
+**Version history per recipe.** No competitor surfaces version history. Edits are overwrite-in-place or
+untracked. Git-backed content means every edit is already a commit with a full diff. The user-facing
+version history UI (browsing past versions, comparing changes) is planned for a future phase. Longer
+term, version history moves to a proper database as content management needs outgrow git workflows.
+Either way, this directly addresses the physical book's "destructive editing" problem in a way nobody
+else does.
+
+**The physical book replacement angle.** No competitor explicitly positions as "your handwritten recipe
+book, but better in every way." The Cooklang blog
+[captures this instinct](https://cooklang.org/blog/09-cooklang-vs-paprika-vs-mealie/) through a user who
+photographed her grandmother's recipe cards "just to have a backup" — then found the digital version
+became the primary. The emotional story of replacing a treasured physical book — preserving glanceability,
+resilience, and tangibility while eliminating the limitations — is under-exploited in the market.
+
+## Where Competitors Are Ahead
+
+### On our roadmap
+
+| Capability                     | Market leader                                                                                                                   | Our timeline                                                                                                                                                |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **AI recipe import**           | [Flavorish](https://www.flavorish.ai/), [Honeydew](https://honeydewcook.com/), [Recify](https://www.recify.app/)                | Pipeline scaffolded, model in development                                                                                                                   |
+| **Voice / hands-free cooking** | [Pestle](https://9to5mac.com/2022/01/21/pestle-cooking-app-for-ios-release/) (voice + wink), SideChef (voice + narrator)        | Future (post-cooking-mode, via Web Speech API)                                                                                                              |
+| **Recipe reviews**             | [NYT Cooking](https://cooking.nytimes.com/) (community notes), [Mealie](https://mealie.io/) (multi-user comments + adaptations) | Future (complex — needs to handle forked recipe variants where users personalise a base recipe, similar to Mealie's multi-generational collaboration model) |
+
+### Out of scope
+
+**Grocery delivery integration** ([Honeydew](https://honeydewcook.com/)/Instacart,
+[Ollie](https://ollie.ai/)/Amazon Fresh/Walmart) — integrating with delivery APIs that change frequently
+is a maintenance nightmare. Not a strong enough differentiator to justify the ongoing cost.
+
+**Smart appliance integration** ([Samsung Food](https://samsungfood.com/), SideChef/Home Connect) — same
+maintenance concerns, fragmented smart home ecosystem. A feature that sounds impressive on a feature list
+but rarely works well in practice.
+
+**Pantry photo scanning** ([Honeydew](https://honeydewcook.com/)'s "Pantry Mode") — the "What Can I Make?"
+concept is genuinely interesting, but photo-based pantry recognition is technically unreliable. We'd rather
+approach this via manual ingredient input (already planned as a future feature) than invest in computer
+vision we can't trust.
+
+### Future consideration
+
+**AI meal planning** ([Ollie](https://ollie.ai/), Honeydew, Samsung Food) — worth evaluating once
+shopping lists and meal planning are built. The infrastructure for this (structured recipes, ingredient
+data, user preferences) will already exist.
 
 # Architecture
 
@@ -267,13 +529,16 @@ user state. The natural evolution:
 
 Recipes themselves may stay as static content (git-backed, type-safe) while user-specific data
 lives in D1. This hybrid approach preserves the benefits of static generation for the core
-content while adding dynamic capabilities only where needed.
+content while adding dynamic capabilities only where needed. The recipe data format itself is
+an open decision — the current TypeScript + Zod approach works well for the static site, but
+Cooklang's `.cook` markup (with its WASM parser and inline ingredient/timer annotations) and
+database-backed models are both worth evaluating as the project matures.
 
 ## Recipe Ingestion
 
-Short/medium term: an ingestion pipeline (photo parsing, website import) that creates PRs for
-review. Longer term: likely moves to writing directly to a database as the content management
-needs outgrow git-based workflows.
+Short/medium term: an ingestion pipeline (photo parsing, website import, social media extraction)
+that creates PRs for review. Longer term: likely moves to writing directly to a database as the
+content management needs outgrow git-based workflows.
 
 # Building Philosophy
 
@@ -304,9 +569,10 @@ three things on the stove.
 18 recipes are already digitized, but the physical book likely contains many more. Batch
 digitization requires the ML parsing pipeline to work well enough to be faster than manual entry.
 
-**Mitigation:** The photo-to-recipe pipeline is already in development (`ml-pipelines/recipe-parsing/`).
-Even imperfect parsing that requires manual correction is faster than transcribing from scratch.
-And the draft workflow means partially-parsed recipes can be saved immediately and refined later.
+**Mitigation:** The photo-to-recipe pipeline infrastructure is built (`ml-pipelines/recipe-parsing/` —
+DVC stages, evaluation framework, ground-truth dataset). The model itself is in development. Even
+imperfect parsing that requires manual correction is faster than transcribing from scratch. And the
+draft workflow means partially-parsed recipes can be saved immediately and refined later.
 
 ## Feature creep
 
