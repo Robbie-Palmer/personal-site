@@ -79,6 +79,16 @@ const EXACT_ALIASES: Record<string, string> = {
 const LOCAL_FUZZY_THRESHOLD = 0.7;
 const GLOBAL_FUZZY_THRESHOLD = 0.85;
 const FUZZY_MARGIN = 0.04;
+const COMPOUND_CUISINES = new Set([
+  "indo-chinese",
+  "tex-mex",
+]);
+
+type OntologyIndex = {
+  ontology: Set<string>;
+  byLength: Map<number, string[]>;
+  byToken: Map<string, Set<string>>;
+};
 
 export function normalizeIngredientSlug(slug: string): string {
   return normalizeSlug(slug);
@@ -207,47 +217,50 @@ function exactCandidate(
   return undefined;
 }
 
+function buildOntologyIndex(ontology: Set<string>): OntologyIndex {
+  const byLength = new Map<number, string[]>();
+  const byToken = new Map<string, Set<string>>();
+  for (const slug of ontology) {
+    const len = slug.length;
+    const sameLen = byLength.get(len) ?? [];
+    sameLen.push(slug);
+    byLength.set(len, sameLen);
+
+    for (const token of tokenize(slug)) {
+      const slugs = byToken.get(token) ?? new Set<string>();
+      slugs.add(slug);
+      byToken.set(token, slugs);
+    }
+  }
+  return { ontology, byLength, byToken };
+}
+
 function topFuzzyCandidates(
   candidates: string[],
   scope: MatchScope,
-  ontology: Set<string>,
+  ontologyIndex: OntologyIndex,
 ): CandidateScore[] {
-  if (ontology.size === 0 || candidates.length === 0) {
+  if (ontologyIndex.ontology.size === 0 || candidates.length === 0) {
     return [];
-  }
-
-  const ontologyByLength = new Map<number, string[]>();
-  const ontologyByToken = new Map<string, Set<string>>();
-  for (const slug of ontology) {
-    const len = slug.length;
-    const sameLen = ontologyByLength.get(len) ?? [];
-    sameLen.push(slug);
-    ontologyByLength.set(len, sameLen);
-
-    for (const token of tokenize(slug)) {
-      const slugs = ontologyByToken.get(token) ?? new Set<string>();
-      slugs.add(slug);
-      ontologyByToken.set(token, slugs);
-    }
   }
 
   const scored: CandidateScore[] = [];
   for (const candidate of candidates) {
     const shortlist = new Set<string>();
     for (const token of tokenize(candidate)) {
-      for (const slug of ontologyByToken.get(token) ?? []) {
+      for (const slug of ontologyIndex.byToken.get(token) ?? []) {
         shortlist.add(slug);
       }
     }
     if (shortlist.size === 0) {
       for (let len = candidate.length - 2; len <= candidate.length + 2; len++) {
-        for (const slug of ontologyByLength.get(len) ?? []) {
+        for (const slug of ontologyIndex.byLength.get(len) ?? []) {
           shortlist.add(slug);
         }
       }
     }
     if (shortlist.size === 0) {
-      for (const slug of ontology) {
+      for (const slug of ontologyIndex.ontology) {
         shortlist.add(slug);
       }
     }
@@ -277,6 +290,8 @@ export function canonicalizeIngredientSlug(params: {
 }): IngredientNormalizationDecision {
   const baseSlug = normalizeSlug(params.rawSlug);
   const ruleCandidates = generateDeterministicCandidates(params.rawSlug);
+  const localOntologyIndex = buildOntologyIndex(params.localOntology);
+  const globalOntologyIndex = buildOntologyIndex(params.globalOntology);
 
   const exactLocal = exactCandidate(ruleCandidates, "local", params.localOntology, "exact-local");
   if (exactLocal) {
@@ -309,8 +324,8 @@ export function canonicalizeIngredientSlug(params: {
     };
   }
 
-  const localFuzzy = topFuzzyCandidates(ruleCandidates, "local", params.localOntology);
-  const globalFuzzy = topFuzzyCandidates(ruleCandidates, "global", params.globalOntology);
+  const localFuzzy = topFuzzyCandidates(ruleCandidates, "local", localOntologyIndex);
+  const globalFuzzy = topFuzzyCandidates(ruleCandidates, "global", globalOntologyIndex);
 
   const allCandidates = [...localFuzzy, ...globalFuzzy]
     .sort((a, b) => b.score - a.score || a.slug.localeCompare(b.slug))
@@ -420,13 +435,7 @@ function normalizeCuisineLabel(cuisine: string | undefined): string | undefined 
   if (cuisine === undefined) return undefined;
   const trimmed = cuisine.trim();
   if (!trimmed) return "";
-
-  const compoundCuisines = new Set([
-    "indo-chinese",
-    "tex-mex",
-    "italian-american",
-  ]);
-  if (compoundCuisines.has(trimmed.toLowerCase())) {
+  if (COMPOUND_CUISINES.has(trimmed.toLowerCase())) {
     return trimmed;
   }
 

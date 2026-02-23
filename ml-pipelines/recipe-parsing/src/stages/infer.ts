@@ -7,7 +7,11 @@ import {
   PREDICTIONS_PATH,
   writeJson,
 } from "../lib/io";
-import { isRetryableInferError } from "../lib/infer-retry.js";
+import {
+  type OpenAIStyleError,
+  isRetryableInferError,
+  stringifyProviderErrorBody,
+} from "../lib/infer-retry.js";
 import { imageSetKey } from "../lib/image-key.js";
 import { inferRecipeFromImages } from "../lib/openrouter.js";
 import type {
@@ -15,18 +19,6 @@ import type {
   PredictionsDataset,
 } from "../schemas/ground-truth";
 import type { InferFailuresDataset } from "../schemas/infer-failures.js";
-
-const MAX_PROVIDER_ERROR_BODY_CHARS = 3_000;
-
-type OpenAIStyleError = Error & {
-  status?: number;
-  requestID?: string | null;
-  code?: string | null;
-  type?: string;
-  param?: string | null;
-  error?: unknown;
-  cause?: unknown;
-};
 
 type AttemptErrorDetail = NonNullable<
   InferFailuresDataset["entries"][number]["attemptErrors"]
@@ -77,18 +69,6 @@ function computeBackoffDelayMs(
   const expDelay = Math.min(baseDelayMs * 2 ** Math.max(0, attempt - 1), maxDelayMs);
   const jitterMultiplier = 0.5 + Math.random();
   return Math.floor(expDelay * jitterMultiplier);
-}
-
-function stringifyProviderErrorBody(errorBody: unknown): string | undefined {
-  if (errorBody === undefined) return undefined;
-  const raw =
-    typeof errorBody === "string"
-      ? errorBody
-      : JSON.stringify(errorBody, null, 2);
-  if (raw.length <= MAX_PROVIDER_ERROR_BODY_CHARS) {
-    return raw;
-  }
-  return `${raw.slice(0, MAX_PROVIDER_ERROR_BODY_CHARS)}...`;
 }
 
 function extractAttemptErrorDetail(

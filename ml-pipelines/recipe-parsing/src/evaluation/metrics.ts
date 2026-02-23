@@ -281,7 +281,15 @@ export function aggregateMetrics(
 ): { metrics: AggregateMetrics; perEntry: EntryScores[] } {
   const predictionsByImageKey = new Map<string, PredictionEntry>();
   for (const prediction of predictions) {
-    predictionsByImageKey.set(imageSetKey(prediction.images), prediction);
+    const key = imageSetKey(prediction.images);
+    const existing = predictionsByImageKey.get(key);
+    if (existing) {
+      throw new Error(
+        `Duplicate prediction key encountered for images [${prediction.images.join(", ")}]. ` +
+          `existingTitle="${existing.predicted.title}" duplicateTitle="${prediction.predicted.title}"`,
+      );
+    }
+    predictionsByImageKey.set(key, prediction);
   }
 
   const allScalar: ScalarFieldScores[] = [];
@@ -312,6 +320,17 @@ export function aggregateMetrics(
       images: pred.images,
       scores,
     });
+  }
+
+  const groundTruthKeys = new Set(groundTruth.map((entry) => imageSetKey(entry.images)));
+  const unmatchedPredictionKeys = [...predictionsByImageKey.keys()].filter(
+    (key) => !groundTruthKeys.has(key),
+  );
+  if (unmatchedPredictionKeys.length > 0) {
+    const sampleKeys = unmatchedPredictionKeys.slice(0, 3).join(", ");
+    console.warn(
+      `Found ${unmatchedPredictionKeys.length} prediction(s) without matching ground truth entries. Sample keys: ${sampleKeys}`,
+    );
   }
 
   const scalarFields: ScalarFieldScores = {

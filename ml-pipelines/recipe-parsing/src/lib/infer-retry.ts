@@ -1,11 +1,16 @@
-const MAX_PROVIDER_ERROR_BODY_CHARS = 3_000;
+export const MAX_PROVIDER_ERROR_BODY_CHARS = 3_000;
 
-type OpenAIStyleError = Error & {
+export type OpenAIStyleError = Error & {
   status?: number;
+  requestID?: string | null;
+  code?: string | null;
+  type?: string;
+  param?: string | null;
   error?: unknown;
+  cause?: unknown;
 };
 
-function stringifyProviderErrorBody(errorBody: unknown): string | undefined {
+export function stringifyProviderErrorBody(errorBody: unknown): string | undefined {
   if (errorBody === undefined) return undefined;
   const raw =
     typeof errorBody === "string"
@@ -22,7 +27,9 @@ function errorText(error: unknown): string {
   const candidate = error as OpenAIStyleError;
   const message = error.message ?? "";
   const providerErrorText =
-    candidate.error === undefined ? "" : stringifyProviderErrorBody(candidate.error);
+    candidate.error === undefined
+      ? ""
+      : (stringifyProviderErrorBody(candidate.error) ?? "");
   return `${message}\n${providerErrorText}`.toLowerCase();
 }
 
