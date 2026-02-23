@@ -6,12 +6,16 @@
   "scripts": {
     "prepare-data": "tsx src/stages/prepare.ts",
     "infer": "tsx src/stages/infer.ts",
+    "normalize": "tsx src/stages/normalize.ts",
     "evaluate": "tsx src/stages/evaluate.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
+    "openai": "^6.6.0",
     "recipe-domain": "workspace:*",
+    "sharp": "^0.34.4",
     "zod": "^4.2.1"
   },
   "devDependencies": {

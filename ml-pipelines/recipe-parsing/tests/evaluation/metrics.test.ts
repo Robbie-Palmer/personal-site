@@ -18,7 +18,26 @@ describe("splitWords", () => {
 });
 
 describe("aggregateMetrics", () => {
-    it("should throw error when input lengths differ", () => {
-        expect(() => aggregateMetrics([], [{ expected: {} } as any])).toThrow(/Length mismatch/);
+    it("should treat missing predictions as failed entries", () => {
+        const expectedRecipe = {
+            title: "Test",
+            description: "Test recipe",
+            servings: 2,
+            ingredientGroups: [{ items: [{ ingredient: "olive-oil", amount: 1, unit: "tbsp" }] }],
+            instructions: ["Mix well"],
+        };
+
+        const { metrics, perEntry } = aggregateMetrics([], [
+            {
+                images: ["img-1.jpg"],
+                expected: expectedRecipe,
+            } as any,
+        ]);
+
+        expect(metrics.entryCount).toBe(1);
+        expect(metrics.overall.score).toBe(0);
+        expect(perEntry).toHaveLength(1);
+        expect(perEntry[0]!.missingPrediction).toBe(true);
+        expect(perEntry[0]!.scores.overall).toBe(0);
     });
 });

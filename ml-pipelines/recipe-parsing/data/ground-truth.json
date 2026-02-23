@@ -20,7 +20,7 @@
                 "unit": "tbsp"
               },
               {
-                "ingredient": "pork-sausages",
+                "ingredient": "pork-sausage",
                 "amount": 8,
                 "unit": "piece",
                 "preparation": "cut into pieces"
@@ -98,8 +98,8 @@
           "category": "oil-fat"
         },
         {
-          "slug": "pork-sausages",
-          "name": "pork sausages",
+          "slug": "pork-sausage",
+          "name": "pork sausage",
           "category": "protein"
         },
         {
@@ -185,7 +185,7 @@
                 "preparation": "cut into chunks"
               },
               {
-                "ingredient": "onion",
+                "ingredient": "white-onion",
                 "amount": 2,
                 "unit": "piece",
                 "preparation": "cut into chunks",
@@ -266,8 +266,8 @@
           "category": "protein"
         },
         {
-          "slug": "onion",
-          "name": "onion",
+          "slug": "white-onion",
+          "name": "white onion",
           "category": "vegetable"
         },
         {
@@ -1269,7 +1269,7 @@
                 "unit": "g"
               },
               {
-                "ingredient": "onion",
+                "ingredient": "white-onion",
                 "amount": 1,
                 "unit": "piece",
                 "note": "large",
@@ -1359,8 +1359,8 @@
           "category": "other"
         },
         {
-          "slug": "onion",
-          "name": "onion",
+          "slug": "white-onion",
+          "name": "white onion",
           "category": "vegetable"
         },
         {
@@ -1406,7 +1406,7 @@
                 "unit": "g"
               },
               {
-                "ingredient": "pork-sausages",
+                "ingredient": "pork-sausage",
                 "amount": 6,
                 "unit": "piece",
                 "preparation": "deskinned",
@@ -1440,7 +1440,7 @@
                 "unit": "tsp"
               },
               {
-                "ingredient": "fresh-tomatoes",
+                "ingredient": "tomato",
                 "amount": 4,
                 "unit": "piece",
                 "preparation": "diced"
@@ -1490,8 +1490,8 @@
           "category": "grain"
         },
         {
-          "slug": "pork-sausages",
-          "name": "pork sausages",
+          "slug": "pork-sausage",
+          "name": "pork sausage",
           "category": "protein"
         },
         {
@@ -1520,8 +1520,8 @@
           "category": "vegetable"
         },
         {
-          "slug": "fresh-tomatoes",
-          "name": "fresh tomatoes",
+          "slug": "tomato",
+          "name": "tomato",
           "category": "vegetable"
         },
         {

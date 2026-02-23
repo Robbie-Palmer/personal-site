@@ -1,31 +1,8 @@
-import pluralize from "pluralize";
+import {
+  pluralizeIngredientTerm,
+  singularizeIngredientTerm,
+} from "recipe-domain/pluralization";
 import type { RecipeIngredientView } from "./recipeViews";
-
-const UNCOUNTABLE_INGREDIENTS = [
-  "butter",
-  "water",
-  "milk",
-  "rice",
-  "pasta",
-  "flour",
-  "sugar",
-  "salt",
-  "pepper",
-  "garlic",
-  "spinach",
-  "cheese",
-  "msg",
-];
-
-let hasInitializedIngredientPluralizeRules = false;
-
-export function initIngredientPluralizeRules(): void {
-  if (hasInitializedIngredientPluralizeRules) return;
-  for (const ingredient of UNCOUNTABLE_INGREDIENTS) {
-    pluralize.addUncountableRule(ingredient);
-  }
-  hasInitializedIngredientPluralizeRules = true;
-}
 
 type IngredientNameFields = Pick<RecipeIngredientView, "name" | "pluralName">;
 type IngredientPluralizationFields = Pick<
@@ -34,15 +11,13 @@ type IngredientPluralizationFields = Pick<
 >;
 
 export function pluralizeIngredientName(item: IngredientNameFields): string {
-  initIngredientPluralizeRules();
   if (item.pluralName) return item.pluralName;
-  return pluralize(item.name);
+  return pluralizeIngredientTerm(item.name);
 }
 
 // pluralName is a plural-only override, so singularization uses item.name.
 function singularizeIngredientName(item: IngredientNameFields): string {
-  initIngredientPluralizeRules();
-  return pluralize.singular(item.name);
+  return singularizeIngredientTerm(item.name);
 }
 
 const SINGULAR_EPSILON = 1e-9;

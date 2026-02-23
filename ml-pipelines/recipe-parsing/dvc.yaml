@@ -16,18 +16,41 @@ stages:
       - outputs/prepared.json
       - data/recipe-images
       - src/stages/infer.ts
+      - src/lib/infer-retry.ts
+      - src/lib/openrouter.ts
+      - src/lib/images.ts
+      - src/lib/env.ts
+      - src/lib/image-key.ts
+      - src/lib/recipe-output.ts
       - src/schemas/ground-truth.ts
+      - src/schemas/infer-failures.ts
       - src/lib/io.ts
     outs:
       - outputs/predictions.json
+      - outputs/infer-failures.json
+
+  normalize:
+    cmd: pnpm exec tsx src/stages/normalize.ts
+    deps:
+      - outputs/predictions.json
+      - src/stages/normalize.ts
+      - src/lib/ingredient-normalization.ts
+      - src/lib/image-key.ts
+      - src/lib/io.ts
+      - src/schemas/ground-truth.ts
+      - outputs/prepared.json
+    outs:
+      - outputs/predictions-normalized.json
+      - outputs/normalization-decisions.json
 
   evaluate:
     cmd: pnpm exec tsx src/stages/evaluate.ts
     deps:
       - outputs/prepared.json
-      - outputs/predictions.json
+      - outputs/predictions-normalized.json
       - src/stages/evaluate.ts
       - src/evaluation/metrics.ts
+      - src/lib/image-key.ts
       - src/lib/io.ts
     metrics:
       - outputs/metrics.json

@@ -41,9 +41,18 @@ importers:
 
   ml-pipelines/recipe-parsing:
     dependencies:
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.3.1
+      openai:
+        specifier: ^6.6.0
+        version: 6.22.0(ws@8.19.0)(zod@4.3.6)
       recipe-domain:
         specifier: workspace:*
         version: link:../../packages/recipe-domain
+      sharp:
+        specifier: ^0.34.4
+        version: 0.34.5
       zod:
         specifier: ^4.2.1
         version: 4.3.6
@@ -66,10 +75,16 @@ importers:
 
   packages/recipe-domain:
     dependencies:
+      pluralize:
+        specifier: ^8.0.0
+        version: 8.0.0
       zod:
         specifier: ^4.2.1
         version: 4.3.6
     devDependencies:
+      '@types/pluralize':
+        specifier: ^0.0.33
+        version: 0.0.33
       typescript:
         specifier: ^5
         version: 5.9.3
@@ -172,9 +187,6 @@ importers:
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      pluralize:
-        specifier: ^8.0.0
-        version: 8.0.0
       posthog-js:
         specifier: ^1.343.0
         version: 1.352.0
@@ -275,9 +287,6 @@ importers:
       '@types/node':
         specifier: ^24
         version: 24.10.13
-      '@types/pluralize':
-        specifier: ^0.0.33
-        version: 0.0.33
       '@types/react':
         specifier: ^19
         version: 19.2.14
@@ -3241,6 +3250,10 @@ packages:
     resolution: {integrity: sha512-1gxPBJpI/pcjQhKgIU91II6Wkay+dLcN3M6rf2uwP8hRur3HtQXjVrdAK3sjC0piaEuxzMwjXChcETiJl47lAQ==}
     engines: {node: '>=18'}
 
+  dotenv@17.3.1:
+    resolution: {integrity: sha512-IO8C/dzEb6O3F9/twg6ZLXz164a2fhTnEWb95H23Dm4OuN+92NmEAlTrupP9VW6Jm3sO26tQlqyvyi4CsnY9GA==}
+    engines: {node: '>=12'}
+
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
     engines: {node: '>= 0.4'}
@@ -4632,6 +4645,18 @@ packages:
   open@8.4.2:
     resolution: {integrity: sha512-7x81NCL719oNbsq/3mh+hVrAWmFuEYUqrq/Iw3kUzH8ReypT9QQ0BLoJS7/G9k6N81XjW4qHWtjWwe/9eLy1EQ==}
     engines: {node: '>=12'}
+
+  openai@6.22.0:
+    resolution: {integrity: sha512-7Yvy17F33Bi9RutWbsaYt5hJEEJ/krRPOrwan+f9aCPuMat1WVsb2VNSII5W1EksKT6fF69TG/xj4XzodK3JZw==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
 
   p-finally@1.0.0:
     resolution: {integrity: sha512-LICb2p9CB7FS+0eR1oqWnHhp0FljGLZCWBE9aix0Uye9W8LTQPwMTYVGWQWIw9RdQiDg4+epXQODwIYJtSJaow==}
@@ -8970,6 +8995,8 @@ snapshots:
     dependencies:
       type-fest: 4.41.0
 
+  dotenv@17.3.1: {}
+
   dunder-proto@1.0.1:
     dependencies:
       call-bind-apply-helpers: 1.0.2
@@ -10758,6 +10785,11 @@ snapshots:
       define-lazy-prop: 2.0.0
       is-docker: 2.2.1
       is-wsl: 2.2.0
+
+  openai@6.22.0(ws@8.19.0)(zod@4.3.6):
+    optionalDependencies:
+      ws: 8.19.0
+      zod: 4.3.6
 
   p-finally@1.0.0: {}
 
