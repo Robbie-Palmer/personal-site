@@ -287,11 +287,15 @@ export function canonicalizeIngredientSlug(params: {
   rawSlug: string;
   localOntology: Set<string>;
   globalOntology: Set<string>;
+  localOntologyIndex?: OntologyIndex;
+  globalOntologyIndex?: OntologyIndex;
 }): IngredientNormalizationDecision {
   const baseSlug = normalizeSlug(params.rawSlug);
   const ruleCandidates = generateDeterministicCandidates(params.rawSlug);
-  const localOntologyIndex = buildOntologyIndex(params.localOntology);
-  const globalOntologyIndex = buildOntologyIndex(params.globalOntology);
+  const localOntologyIndex =
+    params.localOntologyIndex ?? buildOntologyIndex(params.localOntology);
+  const globalOntologyIndex =
+    params.globalOntologyIndex ?? buildOntologyIndex(params.globalOntology);
 
   const exactLocal = exactCandidate(ruleCandidates, "local", params.localOntology, "exact-local");
   if (exactLocal) {
@@ -408,6 +412,8 @@ export function normalizeRecipeIngredients(
   ontology: { local: Set<string>; global: Set<string> },
 ): { recipe: Recipe; decisions: IngredientNormalizationDecision[] } {
   const decisions: IngredientNormalizationDecision[] = [];
+  const localOntologyIndex = buildOntologyIndex(ontology.local);
+  const globalOntologyIndex = buildOntologyIndex(ontology.global);
 
   const normalizedRecipe: Recipe = {
     ...recipe,
@@ -418,6 +424,8 @@ export function normalizeRecipeIngredients(
           rawSlug: item.ingredient,
           localOntology: ontology.local,
           globalOntology: ontology.global,
+          localOntologyIndex,
+          globalOntologyIndex,
         });
         decisions.push(decision);
         return {
@@ -434,13 +442,13 @@ export function normalizeRecipeIngredients(
 function normalizeCuisineLabel(cuisine: string | undefined): string | undefined {
   if (cuisine === undefined) return undefined;
   const trimmed = cuisine.trim();
-  if (!trimmed) return "";
+  if (!trimmed) return undefined;
   if (COMPOUND_CUISINES.has(trimmed.toLowerCase())) {
     return trimmed;
   }
 
   const firstSegment = trimmed.split("-")[0]?.trim() ?? "";
-  return firstSegment || "";
+  return firstSegment || undefined;
 }
 
 export function normalizePredictionEntry(

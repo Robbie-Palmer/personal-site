@@ -228,6 +228,9 @@ async function main() {
   const concurrency = parsePositiveIntegerEnv("INFER_CONCURRENCY", 8);
   const maxImageDimension = parsePositiveIntegerEnv("INFER_IMAGE_MAX_DIM", 1600);
   const jpegQuality = parsePositiveIntegerEnv("INFER_IMAGE_JPEG_QUALITY", 80);
+  if (jpegQuality > 100) {
+    throw new Error("INFER_IMAGE_JPEG_QUALITY must be <= 100");
+  }
   const backoffBaseDelayMs = parsePositiveIntegerEnv(
     "INFER_RETRY_BASE_DELAY_MS",
     500,
@@ -240,18 +243,18 @@ async function main() {
   const hasApiKey = Boolean(process.env.OPENROUTER_API_KEY);
 
   console.log("Inference config:");
-  console.log(`  OPENROUTER_MODEL:        ${model}`);
-  console.log(`  INFER_REQUEST_TIMEOUT_MS:${requestTimeoutMs}`);
-  console.log(`  INFER_MAX_RETRIES:       ${maxRetries}`);
-  console.log(`  INFER_CONCURRENCY:       ${concurrency}`);
-  console.log(`  INFER_RETRY_BASE_DELAY_MS:${backoffBaseDelayMs}`);
-  console.log(`  INFER_RETRY_MAX_DELAY_MS:${backoffMaxDelayMs}`);
-  console.log(`  INFER_IMAGE_MAX_DIM:     ${maxImageDimension}`);
-  console.log(`  INFER_IMAGE_JPEG_QUALITY:${jpegQuality}`);
+  console.log(`  OPENROUTER_MODEL:         ${model}`);
+  console.log(`  INFER_REQUEST_TIMEOUT_MS: ${requestTimeoutMs}`);
+  console.log(`  INFER_MAX_RETRIES:        ${maxRetries}`);
+  console.log(`  INFER_CONCURRENCY:        ${concurrency}`);
+  console.log(`  INFER_RETRY_BASE_DELAY_MS: ${backoffBaseDelayMs}`);
+  console.log(`  INFER_RETRY_MAX_DELAY_MS: ${backoffMaxDelayMs}`);
+  console.log(`  INFER_IMAGE_MAX_DIM:      ${maxImageDimension}`);
+  console.log(`  INFER_IMAGE_JPEG_QUALITY: ${jpegQuality}`);
   console.log(
-    `  INFER_TARGET_IMAGES:     ${targetImages ? targetImages.join(", ") : "(all entries)"}`,
+    `  INFER_TARGET_IMAGES:      ${targetImages ? targetImages.join(", ") : "(all entries)"}`,
   );
-  console.log(`  OPENROUTER_API_KEY:      ${hasApiKey ? "set" : "missing"}`);
+  console.log(`  OPENROUTER_API_KEY:       ${hasApiKey ? "set" : "missing"}`);
 
   console.log("Loading prepared data...");
   const prepared = await loadPreparedData();
@@ -321,7 +324,7 @@ async function main() {
 
   if (targetImages) {
     let existingPredictions: PredictionsDataset = { entries: [] };
-    let existingFailures: InferFailuresDataset = { entries: [] };
+    let existingFailures: InferFailuresDataset;
     try {
       existingPredictions = await loadPredictions();
     } catch (error) {
@@ -331,15 +334,7 @@ async function main() {
         throw error;
       }
     }
-    try {
-      existingFailures = await loadInferFailures();
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
-        existingFailures = { entries: [] };
-      } else {
-        throw error;
-      }
-    }
+    existingFailures = await loadInferFailures();
 
     predictions.entries = [
       ...existingPredictions.entries.filter(

@@ -12,10 +12,16 @@ export type OpenAIStyleError = Error & {
 
 export function stringifyProviderErrorBody(errorBody: unknown): string | undefined {
   if (errorBody === undefined) return undefined;
-  const raw =
-    typeof errorBody === "string"
-      ? errorBody
-      : JSON.stringify(errorBody, null, 2);
+  let raw: string;
+  if (typeof errorBody === "string") {
+    raw = errorBody;
+  } else {
+    try {
+      raw = JSON.stringify(errorBody, null, 2);
+    } catch {
+      raw = "[unserializable error body]";
+    }
+  }
   if (raw.length <= MAX_PROVIDER_ERROR_BODY_CHARS) {
     return raw;
   }

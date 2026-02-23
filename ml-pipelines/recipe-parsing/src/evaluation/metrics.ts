@@ -296,9 +296,17 @@ export function aggregateMetrics(
   const allIngredients: IngredientParsingScores[] = [];
   const allInstructions: F1Scores[] = [];
   const perEntry: EntryScores[] = [];
+  const seenGroundTruthKeys = new Set<string>();
 
   for (const gt of groundTruth) {
     const key = imageSetKey(gt.images);
+    if (seenGroundTruthKeys.has(key)) {
+      throw new Error(
+        `Duplicate ground-truth key encountered for images [${gt.images.join(", ")}]`,
+      );
+    }
+    seenGroundTruthKeys.add(key);
+
     const pred = predictionsByImageKey.get(key);
     if (!pred) {
       // By-category aggregates exclude missing predictions by design; overall/per-entry
