@@ -44,7 +44,7 @@
     "gray-matter": "^4.0.3",
     "leaflet": "^1.9.4",
     "leaflet-fullscreen": "^1.0.2",
-    "lucide-react": "^0.563.0",
+    "lucide-react": "^0.575.0",
     "mdast-util-to-string": "^4.0.0",
     "mermaid": "^11.12.1",
     "motion": "^12.23.26",
