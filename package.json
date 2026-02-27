@@ -1,7 +1,7 @@
 {
   "name": "personal-site",
   "version": "0.1.0",
-  "packageManager": "pnpm@10.30.0",
+  "packageManager": "pnpm@10.30.1",
   "private": true,
   "type": "module",
   "description": "Personal website mono-repo - root package for repo-wide tooling",
