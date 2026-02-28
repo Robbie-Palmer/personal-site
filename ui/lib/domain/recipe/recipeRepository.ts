@@ -1,5 +1,5 @@
 import { ingredients as definedIngredients } from "../../../content/recipes/ingredients";
-import { recipes as definedRecipes } from "../../../content/recipes/recipes";
+import { loadRecipesFromCookFiles } from "../../content/cooklang";
 import { normalizeSlug } from "../../generic/slugs";
 import {
   type Ingredient,
@@ -35,7 +35,7 @@ function loadIngredients(): Map<IngredientSlug, Ingredient> {
 
 function loadRecipes(): Map<RecipeSlug, Recipe> {
   const map = new Map<RecipeSlug, Recipe>();
-  for (const content of definedRecipes) {
+  for (const content of loadRecipesFromCookFiles()) {
     const slug = (content.slug || normalizeSlug(content.title)) as RecipeSlug;
     const existing = map.get(slug);
     if (existing) {

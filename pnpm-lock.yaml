@@ -91,6 +91,9 @@ importers:
 
   ui:
     dependencies:
+      '@cooklang/cooklang':
+        specifier: ^0.17.2
+        version: 0.17.2
       '@radix-ui/react-accordion':
         specifier: ^1.2.12
         version: 1.2.12(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -567,6 +570,9 @@ packages:
 
   '@cloudflare/workers-types@4.20260228.1':
     resolution: {integrity: sha512-gTpLuST3b1gdQfp+u1yiMavoE+n1g1CXuHeiDtlChOePVje+R/V92k6JeEY+6o9qVmQpHzluMe9j/OwvRJuCUg==}
+
+  '@cooklang/cooklang@0.17.2':
+    resolution: {integrity: sha512-Mn11VFOh+3OC91tPjyqwmKUeZ3VXqKU3UEOUFbJPiX4O5gWaFYfsUNazcKv+mZMobSm36GcKXvJ+lGpSZMEf4Q==}
 
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
@@ -2654,6 +2660,7 @@ packages:
   basic-ftp@5.2.0:
     resolution: {integrity: sha512-VoMINM2rqJwJgfdHq6RiUudKt2BV+FY5ZFezP/ypmwayk68+NzzAQy4XXLlqsGD4MCzq3DrmNFD/uUmBJuGoXw==}
     engines: {node: '>=10.0.0'}
+    deprecated: Security vulnerability fixed in 5.2.0, please upgrade
 
   bidi-js@1.0.3:
     resolution: {integrity: sha512-RKshQI1R3YQ+n9YJz2QQ147P66ELpa1FQEg20Dk8oW9t2KgLbpDLLp9aGZ7y8WHSshDknG0bknqGw5/tyCs5tw==}
@@ -6338,6 +6345,8 @@ snapshots:
     optional: true
 
   '@cloudflare/workers-types@4.20260228.1': {}
+
+  '@cooklang/cooklang@0.17.2': {}
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:

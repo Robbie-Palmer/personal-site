@@ -37,7 +37,9 @@ const recipesMock = vi.hoisted(() => ({
 }));
 
 vi.mock("@/content/recipes/ingredients", () => ingredientsMock);
-vi.mock("@/content/recipes/recipes", () => recipesMock);
+vi.mock("@/lib/content/cooklang", () => ({
+  loadRecipesFromCookFiles: () => recipesMock.recipes,
+}));
 
 // Must import after mocks
 import { loadRecipeRepository } from "@/lib/domain/recipe/recipeRepository";
@@ -123,7 +125,9 @@ describe("RecipeRepository", () => {
       // Need to bust the cache by re-importing
       vi.resetModules();
       vi.mock("@/content/recipes/ingredients", () => ingredientsMock);
-      vi.mock("@/content/recipes/recipes", () => recipesMock);
+      vi.mock("@/lib/content/cooklang", () => ({
+        loadRecipesFromCookFiles: () => recipesMock.recipes,
+      }));
 
       // Dynamic import to get fresh module with reset cache
       return import("@/lib/domain/recipe/recipeRepository").then(
