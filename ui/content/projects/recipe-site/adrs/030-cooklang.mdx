@@ -55,11 +55,14 @@ Cooklang has a small but established community across:
 - [YouTube](https://www.youtube.com/channel/UCOZg3EJ1QsE_DqO-ZcMWblw)
 - [RSS feed](https://cooklang.org/blog/index.xml)
 
-The spec is openly developed on GitHub with community-driven discussions, e.g.
-[#41](https://github.com/cooklang/spec/discussions/41) which proposes ingredient aliasing/grouping
-so complex spice mixes can be named and reused across steps. There are 20+ community-built tools —
-custom Telegram bots, nutrition calculators for dietary management, VS Code extension, and parsers
-in 12+ languages.
+The spec is openly developed on GitHub with community-driven discussions. Highly engaged open
+proposals include temperature syntax ([#67](https://github.com/cooklang/spec/discussions/67),
+12 upvotes, 20 replies) for inline annotations like `180°C` alongside timers; ingredient
+substitutions ([#68](https://github.com/cooklang/spec/discussions/68), 15 upvotes) for dietary
+alternatives and availability fallbacks; and dual-unit / range quantities
+([#84](https://github.com/cooklang/spec/discussions/84), 10 upvotes) for simultaneous metric and
+imperial display. There are 20+ community-built tools — custom Telegram bots, nutrition calculators
+for dietary management, VS Code extension, and parsers in 12+ languages.
 
 # Decision
 
@@ -142,10 +145,14 @@ developer-only. The recipe editor UI is required regardless of format choice.
    new constraint: both formats equally require a recipe editor UI to onboard non-developers. `.cook`
    files are at least human-readable and writable without a build step.
 
-3. **Ingredient aliasing not yet in spec** — [Discussion #41](https://github.com/cooklang/spec/discussions/41)
-   proposes grouping named ingredient collections (e.g. a spice mix referenced multiple times across
-   steps), but this has not landed in the spec yet. Recipes with complex multi-use preparations cannot
-   express this cleanly today.
+3. **Several useful features still in community proposal** — The most-upvoted open discussions
+   surface real gaps: temperature has no first-class annotation (e.g. inline `180°C` alongside
+   timers) per [#67](https://github.com/cooklang/spec/discussions/67); ingredient substitutions for
+   dietary restrictions or availability have no agreed syntax per
+   [#68](https://github.com/cooklang/spec/discussions/68); and dual-unit / range quantities (e.g.
+   both `200g` and `7oz`, or `6–8 wings`) remain unspecified per
+   [#84](https://github.com/cooklang/spec/discussions/84). None of these block adoption today, but
+   we may need to handle them in our own parsing layer before they land in the spec.
 
 4. **Unit conversion tables are ours to maintain** — `cooklang-rs` handles quantity scaling. The
    metric↔imperial↔cups mapping table (knowing that 200g ≈ 7oz, or that 1 cup = 240ml) is our
@@ -204,7 +211,7 @@ These are the capabilities Cooklang explicitly does not provide, and where we di
 | **Nutritional analysis** | Integrating a nutrition API on top of `cooklang-rs`'s structured ingredient output. Community tools have proven the pattern; we connect the data. |
 | **schema.org emission** | Deriving schema.org Recipe from `.cook` at build time for SEO rich results. Bridges Cooklang's format with the web standard for search engine interoperability. |
 | **Beautiful printed cookbook** | Cooklang's CLI outputs PDF/LaTeX, but a curated, typographically designed printed recipe book is a premium product feature. |
-| **Spec contributions** | Actively participating in the open spec (e.g. ingredient aliasing in [discussion #41](https://github.com/cooklang/spec/discussions/41)) shapes the format in our interest and builds community presence. |
+| **Spec contributions** | Actively participating in open spec discussions shapes the format in our interest and builds community presence. High-value open proposals to track or contribute to: temperature syntax ([#67](https://github.com/cooklang/spec/discussions/67)), ingredient substitutions ([#68](https://github.com/cooklang/spec/discussions/68)), and dual-unit quantities ([#84](https://github.com/cooklang/spec/discussions/84)). |
 
 # Alternatives Considered
 
@@ -300,5 +307,7 @@ Storing recipes directly in D1 enables dynamic features earlier but at cost:
 - **Ecosystem maturity risk** — the core library (`cooklang-rs`, WASM bindings) is solid. The wider
   ecosystem (some language parsers, CookCLI feature stability, federated index) is thinner. Evaluate
   each open-source component individually before depending on it.
-- **Spec evolution lag** — features in community discussion (ingredient aliasing) may take time to
-  land. We accept some forward-looking risk on spec maturity for those features.
+- **Spec evolution lag** — features in active community discussion (temperature syntax, ingredient
+  substitutions, range quantities) may take time to land in the official spec. We accept some
+  forward-looking risk and may need to extend our parsing layer for these before they become
+  official.
