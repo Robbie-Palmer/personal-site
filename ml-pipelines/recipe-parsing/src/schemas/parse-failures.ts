@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const InferAttemptErrorSchema = z.object({
+export const ParseAttemptErrorSchema = z.object({
   attempt: z.number().int().positive(),
   retryable: z.boolean().optional(),
   errorType: z.string().min(1),
@@ -14,7 +14,7 @@ export const InferAttemptErrorSchema = z.object({
   causeMessage: z.string().optional(),
 });
 
-export const InferFailureEntrySchema = z.object({
+export const ParseFailureEntrySchema = z.object({
   images: z.array(z.string().min(1)).min(1),
   attemptCount: z.number().int().positive(),
   model: z.string().optional(),
@@ -27,11 +27,11 @@ export const InferFailureEntrySchema = z.object({
   providerErrorCode: z.string().optional(),
   providerErrorParam: z.string().optional(),
   providerErrorBody: z.unknown().optional(),
-  attemptErrors: z.array(InferAttemptErrorSchema).optional(),
+  attemptErrors: z.array(ParseAttemptErrorSchema).optional(),
 });
 
-export const InferFailuresDatasetSchema = z.object({
-  entries: z.array(InferFailureEntrySchema),
+export const ParseFailuresDatasetSchema = z.object({
+  entries: z.array(ParseFailureEntrySchema),
 });
 
-export type InferFailuresDataset = z.infer<typeof InferFailuresDatasetSchema>;
+export type ParseFailuresDataset = z.infer<typeof ParseFailuresDatasetSchema>;

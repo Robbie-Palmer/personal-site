@@ -90,74 +90,7 @@
           "Stir in frozen vegetables and cook for another 10 minutes",
           "Season with salt and pepper to taste"
         ]
-      },
-      "knownIngredients": [
-        {
-          "slug": "olive-oil",
-          "name": "olive oil",
-          "category": "oil-fat"
-        },
-        {
-          "slug": "pork-sausage",
-          "name": "pork sausage",
-          "category": "protein"
-        },
-        {
-          "slug": "cajun-seasoning",
-          "name": "cajun seasoning",
-          "category": "spice"
-        },
-        {
-          "slug": "white-onion",
-          "name": "white onion",
-          "category": "vegetable"
-        },
-        {
-          "slug": "long-grain-rice",
-          "name": "long grain rice",
-          "category": "grain"
-        },
-        {
-          "slug": "chopped-tomatoes",
-          "name": "chopped tomatoes",
-          "category": "vegetable"
-        },
-        {
-          "slug": "water",
-          "name": "water",
-          "category": "liquid"
-        },
-        {
-          "slug": "frozen-vegetables",
-          "name": "frozen vegetables",
-          "category": "vegetable"
-        },
-        {
-          "slug": "chilli",
-          "name": "chilli",
-          "category": "spice"
-        },
-        {
-          "slug": "garlic",
-          "name": "garlic",
-          "category": "vegetable"
-        },
-        {
-          "slug": "paprika",
-          "name": "paprika",
-          "category": "spice"
-        },
-        {
-          "slug": "salt",
-          "name": "salt",
-          "category": "spice"
-        },
-        {
-          "slug": "black-pepper",
-          "name": "black pepper",
-          "category": "spice"
-        }
-      ]
+      }
     },
     {
       "images": [
@@ -253,69 +186,7 @@
           "Add the frozen peas and cook for a further 5 minutes.",
           "Season well and sprinkle with fresh parsley if using."
         ]
-      },
-      "knownIngredients": [
-        {
-          "slug": "olive-oil",
-          "name": "olive oil",
-          "category": "oil-fat"
-        },
-        {
-          "slug": "chicken-breast",
-          "name": "chicken breast",
-          "category": "protein"
-        },
-        {
-          "slug": "white-onion",
-          "name": "white onion",
-          "category": "vegetable"
-        },
-        {
-          "slug": "garlic",
-          "name": "garlic",
-          "category": "vegetable"
-        },
-        {
-          "slug": "chorizo",
-          "name": "chorizo",
-          "category": "protein"
-        },
-        {
-          "slug": "turmeric",
-          "name": "turmeric",
-          "category": "spice"
-        },
-        {
-          "slug": "saffron",
-          "name": "saffron",
-          "category": "spice"
-        },
-        {
-          "slug": "paprika",
-          "name": "paprika",
-          "category": "spice"
-        },
-        {
-          "slug": "paella-rice",
-          "name": "paella rice",
-          "category": "grain"
-        },
-        {
-          "slug": "chicken-stock",
-          "name": "chicken stock",
-          "category": "liquid"
-        },
-        {
-          "slug": "frozen-peas",
-          "name": "frozen peas",
-          "category": "vegetable"
-        },
-        {
-          "slug": "fresh-parsley",
-          "name": "fresh parsley",
-          "category": "herb"
-        }
-      ]
+      }
     },
     {
       "images": [
@@ -395,59 +266,7 @@
           "Pour in the double cream and bring to a boil.",
           "Add in the cooked pasta and grated cheese. Stir until the cheese is melted and the pasta is evenly coated."
         ]
-      },
-      "knownIngredients": [
-        {
-          "slug": "olive-oil",
-          "name": "olive oil",
-          "category": "oil-fat"
-        },
-        {
-          "slug": "chicken-breast",
-          "name": "chicken breast",
-          "category": "protein"
-        },
-        {
-          "slug": "garlic",
-          "name": "garlic",
-          "category": "vegetable"
-        },
-        {
-          "slug": "bacon",
-          "name": "bacon",
-          "category": "protein"
-        },
-        {
-          "slug": "spinach",
-          "name": "spinach",
-          "category": "vegetable"
-        },
-        {
-          "slug": "salt",
-          "name": "salt",
-          "category": "spice"
-        },
-        {
-          "slug": "black-pepper",
-          "name": "black pepper",
-          "category": "spice"
-        },
-        {
-          "slug": "double-cream",
-          "name": "double cream",
-          "category": "dairy"
-        },
-        {
-          "slug": "pasta",
-          "name": "pasta",
-          "category": "grain"
-        },
-        {
-          "slug": "parmesan",
-          "name": "parmesan",
-          "category": "dairy"
-        }
-      ]
+      }
     },
     {
       "images": [
@@ -539,69 +358,7 @@
           "Stir in cream and return to a gentle simmer.",
           "Mix in pasta."
         ]
-      },
-      "knownIngredients": [
-        {
-          "slug": "white-onion",
-          "name": "white onion",
-          "category": "vegetable"
-        },
-        {
-          "slug": "bacon",
-          "name": "bacon",
-          "category": "protein"
-        },
-        {
-          "slug": "garlic",
-          "name": "garlic",
-          "category": "vegetable"
-        },
-        {
-          "slug": "pasta",
-          "name": "pasta",
-          "category": "grain"
-        },
-        {
-          "slug": "chilli-flakes",
-          "name": "chilli flakes",
-          "category": "spice"
-        },
-        {
-          "slug": "chopped-tomatoes",
-          "name": "chopped tomatoes",
-          "category": "vegetable"
-        },
-        {
-          "slug": "tomato-puree",
-          "name": "tomato puree",
-          "category": "vegetable"
-        },
-        {
-          "slug": "double-cream",
-          "name": "double cream",
-          "category": "dairy"
-        },
-        {
-          "slug": "oregano",
-          "name": "oregano",
-          "category": "spice"
-        },
-        {
-          "slug": "salt",
-          "name": "salt",
-          "category": "spice"
-        },
-        {
-          "slug": "black-pepper",
-          "name": "black pepper",
-          "category": "spice"
-        },
-        {
-          "slug": "olive-oil",
-          "name": "olive oil",
-          "category": "oil-fat"
-        }
-      ]
+      }
     },
     {
       "images": [
@@ -700,79 +457,7 @@
           "Add the shredded chicken to wraps or boats.",
           "Cover with grated cheese and melt in the oven."
         ]
-      },
-      "knownIngredients": [
-        {
-          "slug": "white-onion",
-          "name": "white onion",
-          "category": "vegetable"
-        },
-        {
-          "slug": "chicken-breast",
-          "name": "chicken breast",
-          "category": "protein"
-        },
-        {
-          "slug": "hot-chilli-powder",
-          "name": "hot chilli powder",
-          "category": "spice"
-        },
-        {
-          "slug": "paprika",
-          "name": "paprika",
-          "category": "spice"
-        },
-        {
-          "slug": "cayenne-pepper",
-          "name": "cayenne pepper",
-          "category": "spice"
-        },
-        {
-          "slug": "cumin",
-          "name": "cumin",
-          "category": "spice"
-        },
-        {
-          "slug": "garlic-granules",
-          "name": "garlic granules",
-          "category": "spice"
-        },
-        {
-          "slug": "onion-salt",
-          "name": "onion salt",
-          "category": "spice"
-        },
-        {
-          "slug": "bell-pepper",
-          "name": "bell pepper",
-          "category": "vegetable"
-        },
-        {
-          "slug": "chipotle-paste",
-          "name": "chipotle paste",
-          "category": "condiment"
-        },
-        {
-          "slug": "mixed-beans",
-          "name": "mixed beans",
-          "category": "vegetable"
-        },
-        {
-          "slug": "tomato-passata",
-          "name": "tomato passata",
-          "category": "vegetable"
-        },
-        {
-          "slug": "tortilla-wraps",
-          "name": "tortilla wraps",
-          "category": "grain"
-        },
-        {
-          "slug": "cheddar-cheese",
-          "name": "cheddar cheese",
-          "category": "dairy"
-        }
-      ]
+      }
     },
     {
       "images": [
@@ -853,7 +538,7 @@
           }
         ],
         "instructions": [
-          "Preheat oven to 200°C and begin to cook pasta.",
+          "Preheat oven to 200\u00b0C and begin to cook pasta.",
           "Heat frying pan over a high heat and cook chicken for 5 mins.",
           "Add the chorizo and garlic and cook for 3-4 mins until the oils are released.",
           "Tip in both cans of tomatoes and bring to a simmer",
@@ -863,64 +548,7 @@
           "Transfer to oven dish and scatter on mozzarella, parmesan & oregano.",
           "Bake for 20-25 mins."
         ]
-      },
-      "knownIngredients": [
-        {
-          "slug": "farfalle",
-          "name": "farfalle",
-          "category": "grain"
-        },
-        {
-          "slug": "chorizo",
-          "name": "chorizo",
-          "category": "protein"
-        },
-        {
-          "slug": "garlic",
-          "name": "garlic",
-          "category": "vegetable"
-        },
-        {
-          "slug": "chicken-breast",
-          "name": "chicken breast",
-          "category": "protein"
-        },
-        {
-          "slug": "cherry-tomato",
-          "name": "cherry tomato",
-          "category": "vegetable"
-        },
-        {
-          "slug": "chopped-tomatoes",
-          "name": "chopped tomatoes",
-          "category": "vegetable"
-        },
-        {
-          "slug": "oregano",
-          "name": "oregano",
-          "category": "spice"
-        },
-        {
-          "slug": "fresh-basil",
-          "name": "fresh basil",
-          "category": "herb"
-        },
-        {
-          "slug": "light-soft-cheese",
-          "name": "light soft cheese",
-          "category": "dairy"
-        },
-        {
-          "slug": "parmesan",
-          "name": "parmesan",
-          "category": "dairy"
-        },
-        {
-          "slug": "mozzarella",
-          "name": "mozzarella",
-          "category": "dairy"
-        }
-      ]
+      }
     },
     {
       "images": [
@@ -993,49 +621,7 @@
           "Add the stock and milk to the pan, stir thoroughly and continue to cook for a further 20-25 mins.",
           "Blend soup and season."
         ]
-      },
-      "knownIngredients": [
-        {
-          "slug": "butter",
-          "name": "butter",
-          "category": "dairy"
-        },
-        {
-          "slug": "white-onion",
-          "name": "white onion",
-          "category": "vegetable"
-        },
-        {
-          "slug": "fresh-rosemary",
-          "name": "fresh rosemary",
-          "category": "herb"
-        },
-        {
-          "slug": "leek",
-          "name": "leek",
-          "category": "vegetable"
-        },
-        {
-          "slug": "garlic",
-          "name": "garlic",
-          "category": "vegetable"
-        },
-        {
-          "slug": "potato",
-          "name": "potato",
-          "category": "vegetable"
-        },
-        {
-          "slug": "chicken-stock",
-          "name": "chicken stock",
-          "category": "liquid"
-        },
-        {
-          "slug": "milk",
-          "name": "milk",
-          "category": "dairy"
-        }
-      ]
+      }
     },
     {
       "images": [
@@ -1139,69 +725,7 @@
           "Scatter parmesan shavings over the top.",
           "Drizzle over some olive oil."
         ]
-      },
-      "knownIngredients": [
-        {
-          "slug": "olive-oil",
-          "name": "olive oil",
-          "category": "oil-fat"
-        },
-        {
-          "slug": "red-onion",
-          "name": "red onion",
-          "category": "vegetable"
-        },
-        {
-          "slug": "chicken-breast",
-          "name": "chicken breast",
-          "category": "protein"
-        },
-        {
-          "slug": "fresh-rosemary",
-          "name": "fresh rosemary",
-          "category": "herb"
-        },
-        {
-          "slug": "arborio-rice",
-          "name": "arborio rice",
-          "category": "grain"
-        },
-        {
-          "slug": "white-wine",
-          "name": "white wine",
-          "category": "liquid"
-        },
-        {
-          "slug": "vegetable-stock",
-          "name": "vegetable stock",
-          "category": "liquid"
-        },
-        {
-          "slug": "butter",
-          "name": "butter",
-          "category": "dairy"
-        },
-        {
-          "slug": "sun-dried-tomato-pesto",
-          "name": "sun-dried tomato pesto",
-          "category": "condiment"
-        },
-        {
-          "slug": "parmesan",
-          "name": "parmesan",
-          "category": "dairy"
-        },
-        {
-          "slug": "salt",
-          "name": "salt",
-          "category": "spice"
-        },
-        {
-          "slug": "black-pepper",
-          "name": "black pepper",
-          "category": "spice"
-        }
-      ]
+      }
     },
     {
       "images": [
@@ -1311,79 +835,7 @@
           "Sprinkle the spice mix over the chips and veg, tossing vigorously to coat everything evenly.",
           "Serve immediately."
         ]
-      },
-      "knownIngredients": [
-        {
-          "slug": "msg",
-          "name": "MSG",
-          "category": "spice"
-        },
-        {
-          "slug": "five-spice",
-          "name": "five spice",
-          "category": "spice"
-        },
-        {
-          "slug": "white-pepper",
-          "name": "white pepper",
-          "category": "spice"
-        },
-        {
-          "slug": "cayenne-pepper",
-          "name": "cayenne pepper",
-          "category": "spice"
-        },
-        {
-          "slug": "hot-chilli-powder",
-          "name": "hot chilli powder",
-          "category": "spice"
-        },
-        {
-          "slug": "chilli-flakes",
-          "name": "chilli flakes",
-          "category": "spice"
-        },
-        {
-          "slug": "sugar",
-          "name": "sugar",
-          "category": "other"
-        },
-        {
-          "slug": "salt",
-          "name": "salt",
-          "category": "spice"
-        },
-        {
-          "slug": "chips",
-          "name": "chips",
-          "category": "other"
-        },
-        {
-          "slug": "white-onion",
-          "name": "white onion",
-          "category": "vegetable"
-        },
-        {
-          "slug": "bell-pepper",
-          "name": "bell pepper",
-          "category": "vegetable"
-        },
-        {
-          "slug": "chilli",
-          "name": "chilli",
-          "category": "spice"
-        },
-        {
-          "slug": "garlic",
-          "name": "garlic",
-          "category": "vegetable"
-        },
-        {
-          "slug": "vegetable-oil",
-          "name": "vegetable oil",
-          "category": "oil-fat"
-        }
-      ]
+      }
     },
     {
       "images": [
@@ -1482,74 +934,7 @@
           "Add in grated cheese and cooked pasta ensuring it's all coated and melted.",
           "Season with black pepper."
         ]
-      },
-      "knownIngredients": [
-        {
-          "slug": "pasta",
-          "name": "pasta",
-          "category": "grain"
-        },
-        {
-          "slug": "pork-sausage",
-          "name": "pork sausage",
-          "category": "protein"
-        },
-        {
-          "slug": "red-onion",
-          "name": "red onion",
-          "category": "vegetable"
-        },
-        {
-          "slug": "cajun-seasoning",
-          "name": "cajun seasoning",
-          "category": "spice"
-        },
-        {
-          "slug": "smoked-paprika",
-          "name": "smoked paprika",
-          "category": "spice"
-        },
-        {
-          "slug": "dried-parsley",
-          "name": "dried parsley",
-          "category": "spice"
-        },
-        {
-          "slug": "garlic-puree",
-          "name": "garlic puree",
-          "category": "vegetable"
-        },
-        {
-          "slug": "tomato",
-          "name": "tomato",
-          "category": "vegetable"
-        },
-        {
-          "slug": "tomato-puree",
-          "name": "tomato puree",
-          "category": "vegetable"
-        },
-        {
-          "slug": "cheddar-cheese",
-          "name": "cheddar cheese",
-          "category": "dairy"
-        },
-        {
-          "slug": "cream-cheese",
-          "name": "cream cheese",
-          "category": "dairy"
-        },
-        {
-          "slug": "black-pepper",
-          "name": "black pepper",
-          "category": "spice"
-        },
-        {
-          "slug": "olive-oil",
-          "name": "olive oil",
-          "category": "oil-fat"
-        }
-      ]
+      }
     }
   ]
 }

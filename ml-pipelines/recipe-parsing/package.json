@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "prepare-data": "tsx src/stages/prepare.ts",
-    "infer": "tsx src/stages/infer.ts",
-    "normalize": "tsx src/stages/normalize.ts",
+    "parse": "tsx src/stages/parse.ts",
+    "canonicalize": "tsx src/stages/canonicalize.ts",
+    "evaluate-extraction": "tsx src/stages/evaluate-extraction.ts",
     "evaluate": "tsx src/stages/evaluate.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
