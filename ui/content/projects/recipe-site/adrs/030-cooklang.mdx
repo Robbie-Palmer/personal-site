@@ -159,14 +159,15 @@ developer-only. The recipe editor UI is required regardless of format choice.
 6. **No social or collaboration platform** — Cooklang is a file format, not a platform. User
    accounts, favorites, cooking logs, and recipe fork tracking are entirely outside scope.
 
-7. **Ecosystem maturity is mixed** — The spec and `cooklang-rs` are solid and actively maintained,
-   which is what we actually depend on. The project is broad for an indie team and parts are spread
-   thin: parsers in less common languages may be incomplete, the CookCLI is useful as a reference
-   but warrants evaluation before hard-depending on specific features, and the federated index is
-   nascent. Cooklang also ships a native iOS/Android app, but that is irrelevant to us — we
-   wouldn't depend on it, and it actively contradicts our web-first/PWA rationale for
-   cross-platform reach without app store overhead. Evaluate each open-source component
-   individually; don't treat the brand as a monolith.
+7. **Ecosystem breadth is a signal of traction, not a dependency** — The existence of parsers in
+   12+ languages, community nutrition calculators, Obsidian plugins, and custom bots is a positive
+   signal: real people found the format useful enough to build on. We don't depend on any of these
+   directly, and their quality varies. What we actually depend on is `cooklang-rs` and its WASM
+   bindings — both solid and actively maintained. CookCLI is useful as a reference implementation
+   but warrants evaluation before hard-depending on specific features. The federated index is
+   nascent. Treat community extensions as validation of format fit, not as production infrastructure.
+   Cooklang also ships a native iOS/Android app, but that is irrelevant to us — we wouldn't depend
+   on it, and it actively contradicts our web-first/PWA rationale.
 
 8. **Federated search is emerging, not production** — The community recipe index is actively
    discussed but not a polished discovery mechanism yet.
