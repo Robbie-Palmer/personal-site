@@ -580,4 +580,11 @@ export const technologies: TechnologyContent[] = [
     website: "https://posthog.com",
     type: "platform",
   },
+  {
+    name: "cooklang-rs",
+    description:
+      "Rust parser and scaling engine for the Cooklang recipe format, with WASM/TypeScript bindings for in-browser use",
+    website: "https://github.com/cooklang/cooklang-rs",
+    type: "library",
+  },
 ];
