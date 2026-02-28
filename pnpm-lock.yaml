@@ -91,9 +91,9 @@ importers:
 
   ui:
     dependencies:
-      '@cooklang/cooklang-ts':
-        specifier: ^1.2.8
-        version: 1.2.8
+      '@cooklang/cooklang':
+        specifier: ^0.17.2
+        version: 0.17.2
       '@radix-ui/react-accordion':
         specifier: ^1.2.12
         version: 1.2.12(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -571,9 +571,8 @@ packages:
   '@cloudflare/workers-types@4.20260228.0':
     resolution: {integrity: sha512-9LfRg93ncQq6Oc4MFpqGSs+PmPhqWvg8TspXwbiYNR201IhXB4WqHR/aTSudPI0ujsf/NLc8E9fF3C+aA2g8KQ==}
 
-  '@cooklang/cooklang-ts@1.2.8':
-    resolution: {integrity: sha512-8E5fFADxf43LN7RpuXwp/lI6PcB2Fa3hqh7C+NKH/S+B/hObJLaj82ASSgtAzrDhGcxdgrWNqkirxqv5ptN3yA==}
-    deprecated: 'This package is deprecated. Please use @cooklang/cooklang instead for better performance and active maintenance. Migration guide: https://github.com/cooklang/cooklang-rs/blob/main/typescript/MIGRATION.md'
+  '@cooklang/cooklang@0.17.2':
+    resolution: {integrity: sha512-Mn11VFOh+3OC91tPjyqwmKUeZ3VXqKU3UEOUFbJPiX4O5gWaFYfsUNazcKv+mZMobSm36GcKXvJ+lGpSZMEf4Q==}
 
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
@@ -6347,7 +6346,7 @@ snapshots:
 
   '@cloudflare/workers-types@4.20260228.0': {}
 
-  '@cooklang/cooklang-ts@1.2.8': {}
+  '@cooklang/cooklang@0.17.2': {}
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:

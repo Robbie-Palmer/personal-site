@@ -1,5 +1,5 @@
-import type { Ingredient, Step, Text } from "@cooklang/cooklang-ts";
-import { Recipe } from "@cooklang/cooklang-ts";
+import type { Ingredient, Step, Timer } from "@cooklang/cooklang";
+import { getQuantityUnit, getQuantityValue, Parser } from "@cooklang/cooklang";
 import { readdirSync, readFileSync } from "fs";
 import matter from "gray-matter";
 import { join } from "path";
@@ -30,26 +30,7 @@ interface CookFrontmatter {
   >;
 }
 
-// ── Section detection ─────────────────────────────────────────────────────────
-
-const SECTION_RE = /^==\s*(.+?)\s*==\s*$/;
-
-/**
- * If the step is a Cooklang section header (`== Name ==`), returns the section
- * name; otherwise returns null.
- *
- * @cooklang/cooklang-ts does not natively parse section markers, so they come
- * through as text-only steps whose full text matches the pattern.
- */
-function extractSectionName(step: Step): string | null {
-  if (!step.every((item) => item.type === "text")) return null;
-  const fullText = (step as Text[])
-    .map((t) => t.value)
-    .join("")
-    .trim();
-  const m = SECTION_RE.exec(fullText);
-  return m ? (m[1] ?? null) : null;
-}
+const _parser = new Parser();
 
 // ── Ingredient-only step detection ───────────────────────────────────────────
 
@@ -63,13 +44,13 @@ const PUNCTUATION_RE = /^[\s,;.]+$/;
  */
 function isIngredientOnlyStep(step: Step): boolean {
   let hasIngredient = false;
-  for (const item of step) {
+  for (const item of step.items) {
     if (item.type === "ingredient") {
       hasIngredient = true;
     } else if (item.type === "text") {
-      if (!PUNCTUATION_RE.test((item as Text).value)) return false;
+      if (!PUNCTUATION_RE.test(item.value)) return false;
     } else {
-      // cookware / timer → not an ingredient-only step
+      // cookware / timer / inlineQuantity → not an ingredient-only step
       return false;
     }
   }
@@ -83,21 +64,26 @@ function isIngredientOnlyStep(step: Step): boolean {
  * `@ingredient{…}` annotations with the ingredient's plain name, and `~timer`
  * annotations with `quantity units`.
  */
-function stepToText(step: Step): string {
-  return step
+function stepToText(
+  step: Step,
+  ingredients: Ingredient[],
+  timers: Timer[],
+): string {
+  return step.items
     .map((item) => {
       switch (item.type) {
         case "text":
-          return (item as Text).value;
+          return item.value;
         case "ingredient":
-          return (item as Ingredient).name;
+          return ingredients[item.index]!.name;
         case "timer": {
-          const t = item as {
-            name?: string;
-            quantity: string | number;
-            units: string;
-          };
-          return `${t.quantity} ${t.units}`.trim();
+          const timer = timers[item.index]!;
+          const qty = getQuantityValue(timer.quantity);
+          const unit = getQuantityUnit(timer.quantity);
+          return [qty !== null ? String(qty) : null, unit]
+            .filter(Boolean)
+            .join(" ")
+            .trim();
         }
         default:
           return "";
@@ -143,13 +129,15 @@ export function parseCookFile(
   const fm = data as CookFrontmatter;
   const annotations = fm.ingredientAnnotations ?? {};
 
-  const recipe = new Recipe(body);
+  const { recipe } = _parser.parse(body);
+  const { sections, ingredients, timers } = recipe;
 
   // ── Build ingredientGroups ────────────────────────────────────────────────
   //
   // Strategy:
-  //  - Iterate recipe.steps in order.
-  //  - A step matching `== Name ==` starts a new group with that name.
+  //  - Iterate sections in order. Each section's name (from `== Name ==`)
+  //    starts a new named group; the first unnamed section uses the default
+  //    unnamed group.
   //  - An ingredient-only step (no meaningful text, only @annotations and
   //    punctuation) populates the current group's ingredient list.
   //  - All other steps contribute to the instruction list.
@@ -169,52 +157,52 @@ export function parseCookFile(
   const groups: GroupAccumulator[] = [currentGroup];
   const instructions: string[] = [];
 
-  for (const step of recipe.steps) {
-    // Check for section header
-    const sectionName = extractSectionName(step);
-    if (sectionName !== null) {
-      currentGroup = { name: sectionName, items: [] };
+  for (const section of sections) {
+    // Named sections (from `== Name ==`) start a new ingredient group
+    if (section.name !== null) {
+      currentGroup = { name: section.name, items: [] };
       groups.push(currentGroup);
-      continue;
     }
 
-    // Ingredient-only step — populate the current group
-    if (isIngredientOnlyStep(step)) {
-      for (const item of step) {
-        if (item.type !== "ingredient") continue;
-        const ing = item as Ingredient;
-        const ingSlug = normalizeSlug(ing.name) as IngredientSlug;
-        const ann = annotations[ingSlug];
+    for (const content of section.content) {
+      // Plain text blocks between steps — skip
+      if (content.type === "text") continue;
 
-        const rawQty = ing.quantity;
-        const amount =
-          rawQty !== "" && rawQty !== undefined
-            ? typeof rawQty === "number"
-              ? rawQty
-              : parseFloat(String(rawQty))
-            : undefined;
-        const validAmount =
-          amount !== undefined && !isNaN(amount) ? amount : undefined;
+      const step = content.value;
 
-        const unitResult = ing.units
-          ? UnitSchema.safeParse(ing.units)
-          : { success: false as const };
-        const unit = unitResult.success ? unitResult.data : undefined;
+      // Ingredient-only step — populate the current group
+      if (isIngredientOnlyStep(step)) {
+        for (const item of step.items) {
+          if (item.type !== "ingredient") continue;
+          const ing = ingredients[item.index]!;
+          const ingSlug = normalizeSlug(ing.name) as IngredientSlug;
+          const ann = annotations[ingSlug];
 
-        currentGroup.items.push({
-          ingredient: ingSlug,
-          ...(validAmount !== undefined && { amount: validAmount }),
-          ...(unit !== undefined && { unit }),
-          ...(ann?.preparation && { preparation: ann.preparation }),
-          ...(ann?.note && { note: ann.note }),
-        });
+          const amount = getQuantityValue(ing.quantity);
+          const validAmount =
+            amount !== null && !isNaN(amount) ? amount : undefined;
+
+          const unitStr = getQuantityUnit(ing.quantity);
+          const unitResult = unitStr
+            ? UnitSchema.safeParse(unitStr)
+            : { success: false as const };
+          const unit = unitResult.success ? unitResult.data : undefined;
+
+          currentGroup.items.push({
+            ingredient: ingSlug,
+            ...(validAmount !== undefined && { amount: validAmount }),
+            ...(unit !== undefined && { unit }),
+            ...(ann?.preparation && { preparation: ann.preparation }),
+            ...(ann?.note && { note: ann.note }),
+          });
+        }
+        continue;
       }
-      continue;
-    }
 
-    // Normal instruction step
-    const text = stepToText(step);
-    if (text) instructions.push(text);
+      // Normal instruction step
+      const text = stepToText(step, ingredients, timers);
+      if (text) instructions.push(text);
+    }
   }
 
   // Drop leading unnamed empty group (can happen if file starts with a section)
