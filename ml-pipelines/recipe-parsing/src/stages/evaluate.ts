@@ -1,6 +1,6 @@
 import {
   loadPreparedData,
-  loadNormalizedPredictions,
+  loadCanonicalizedPredictions,
   writeJson,
   METRICS_PATH,
   PER_IMAGE_SCORES_PATH,
@@ -8,11 +8,11 @@ import {
 import { aggregateMetrics } from "../evaluation/metrics";
 
 async function main() {
-  console.log("Loading prepared data and predictions...");
+  console.log("Loading prepared data and canonicalized predictions...");
 
   const [prepared, predictions] = await Promise.all([
     loadPreparedData(),
-    loadNormalizedPredictions(),
+    loadCanonicalizedPredictions(),
   ]);
 
   console.log(

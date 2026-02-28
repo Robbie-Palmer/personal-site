@@ -1,7 +1,7 @@
 import "dotenv/config";
 import {
-  INFER_FAILURES_PATH,
-  loadInferFailures,
+  PARSE_FAILURES_PATH,
+  loadParseFailures,
   loadPredictions,
   loadPreparedData,
   PREDICTIONS_PATH,
@@ -9,19 +9,19 @@ import {
 } from "../lib/io";
 import {
   type OpenAIStyleError,
-  isRetryableInferError,
+  isRetryableParseError,
   stringifyProviderErrorBody,
-} from "../lib/infer-retry.js";
+} from "../lib/parse-retry.js";
 import { imageSetKey } from "../lib/image-key.js";
-import { inferRecipeFromImages } from "../lib/openrouter.js";
+import { parseRecipeFromImages } from "../lib/openrouter.js";
 import type {
   PredictionEntry,
   PredictionsDataset,
 } from "../schemas/ground-truth";
-import type { InferFailuresDataset } from "../schemas/infer-failures.js";
+import type { ParseFailuresDataset } from "../schemas/parse-failures.js";
 
 type AttemptErrorDetail = NonNullable<
-  InferFailuresDataset["entries"][number]["attemptErrors"]
+  ParseFailuresDataset["entries"][number]["attemptErrors"]
 >[number];
 
 function parseIntegerEnv(
@@ -77,8 +77,8 @@ function extractAttemptErrorDetail(
 ): AttemptErrorDetail {
   const base: AttemptErrorDetail = {
     attempt,
-    retryable: isRetryableInferError(error),
-    errorType: error instanceof Error && error.name ? error.name : "InferenceError",
+    retryable: isRetryableParseError(error),
+    errorType: error instanceof Error && error.name ? error.name : "ParseError",
     errorMessage: error instanceof Error ? error.message : String(error),
   };
 
@@ -129,11 +129,11 @@ function isOpenAIStyleError(error: unknown): error is OpenAIStyleError {
   );
 }
 
-type InferResult =
+type ParseResult =
   | { ok: true; prediction: PredictionEntry }
-  | { ok: false; failure: InferFailuresDataset["entries"][number] };
+  | { ok: false; failure: ParseFailuresDataset["entries"][number] };
 
-async function inferEntryWithRetries(params: {
+async function parseEntryWithRetries(params: {
   images: string[];
   model: string;
   requestTimeoutMs: number;
@@ -142,14 +142,14 @@ async function inferEntryWithRetries(params: {
   jpegQuality: number;
   backoffBaseDelayMs: number;
   backoffMaxDelayMs: number;
-}): Promise<InferResult> {
+}): Promise<ParseResult> {
   const attempts = params.maxRetries + 1;
   let lastError: unknown;
   const attemptErrors: AttemptErrorDetail[] = [];
 
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      const predicted = await inferRecipeFromImages({
+      const predicted = await parseRecipeFromImages({
         imageFiles: params.images,
         model: params.model,
         requestTimeoutMs: params.requestTimeoutMs,
@@ -175,7 +175,7 @@ async function inferEntryWithRetries(params: {
       const diagnosticSuffix =
         diagnostics.length > 0 ? ` (${diagnostics.join(", ")})` : "";
       console.warn(
-        `Inference failed for [${params.images.join(", ")}] attempt ${attempt}/${attempts}: ${detail.errorMessage}${diagnosticSuffix}`,
+        `Parsing failed for [${params.images.join(", ")}] attempt ${attempt}/${attempts}: ${detail.errorMessage}${diagnosticSuffix}`,
       );
       const hasNextAttempt = attempt < attempts;
       if (hasNextAttempt && detail.retryable) {
@@ -223,38 +223,38 @@ async function inferEntryWithRetries(params: {
 
 async function main() {
   const model = process.env.OPENROUTER_MODEL ?? "google/gemini-3-flash-preview";
-  const requestTimeoutMs = parsePositiveIntegerEnv("INFER_REQUEST_TIMEOUT_MS", 30_000);
-  const maxRetries = parseNonNegativeIntegerEnv("INFER_MAX_RETRIES", 2);
-  const concurrency = parsePositiveIntegerEnv("INFER_CONCURRENCY", 8);
-  const maxImageDimension = parsePositiveIntegerEnv("INFER_IMAGE_MAX_DIM", 1600);
-  const jpegQuality = parsePositiveIntegerEnv("INFER_IMAGE_JPEG_QUALITY", 80);
+  const requestTimeoutMs = parsePositiveIntegerEnv("PARSE_REQUEST_TIMEOUT_MS", 30_000);
+  const maxRetries = parseNonNegativeIntegerEnv("PARSE_MAX_RETRIES", 2);
+  const concurrency = parsePositiveIntegerEnv("PARSE_CONCURRENCY", 8);
+  const maxImageDimension = parsePositiveIntegerEnv("PARSE_IMAGE_MAX_DIM", 1600);
+  const jpegQuality = parsePositiveIntegerEnv("PARSE_IMAGE_JPEG_QUALITY", 80);
   if (jpegQuality > 100) {
-    throw new Error("INFER_IMAGE_JPEG_QUALITY must be <= 100");
+    throw new Error("PARSE_IMAGE_JPEG_QUALITY must be <= 100");
   }
   const backoffBaseDelayMs = parsePositiveIntegerEnv(
-    "INFER_RETRY_BASE_DELAY_MS",
+    "PARSE_RETRY_BASE_DELAY_MS",
     500,
   );
   const backoffMaxDelayMs = parsePositiveIntegerEnv(
-    "INFER_RETRY_MAX_DELAY_MS",
+    "PARSE_RETRY_MAX_DELAY_MS",
     8_000,
   );
-  const targetImages = parseCsvEnv("INFER_TARGET_IMAGES");
+  const targetImages = parseCsvEnv("PARSE_TARGET_IMAGES");
   const hasApiKey = Boolean(process.env.OPENROUTER_API_KEY);
 
-  console.log("Inference config:");
-  console.log(`  OPENROUTER_MODEL:         ${model}`);
-  console.log(`  INFER_REQUEST_TIMEOUT_MS: ${requestTimeoutMs}`);
-  console.log(`  INFER_MAX_RETRIES:        ${maxRetries}`);
-  console.log(`  INFER_CONCURRENCY:        ${concurrency}`);
-  console.log(`  INFER_RETRY_BASE_DELAY_MS: ${backoffBaseDelayMs}`);
-  console.log(`  INFER_RETRY_MAX_DELAY_MS: ${backoffMaxDelayMs}`);
-  console.log(`  INFER_IMAGE_MAX_DIM:      ${maxImageDimension}`);
-  console.log(`  INFER_IMAGE_JPEG_QUALITY: ${jpegQuality}`);
+  console.log("Parse config:");
+  console.log(`  OPENROUTER_MODEL:          ${model}`);
+  console.log(`  PARSE_REQUEST_TIMEOUT_MS:  ${requestTimeoutMs}`);
+  console.log(`  PARSE_MAX_RETRIES:         ${maxRetries}`);
+  console.log(`  PARSE_CONCURRENCY:         ${concurrency}`);
+  console.log(`  PARSE_RETRY_BASE_DELAY_MS: ${backoffBaseDelayMs}`);
+  console.log(`  PARSE_RETRY_MAX_DELAY_MS:  ${backoffMaxDelayMs}`);
+  console.log(`  PARSE_IMAGE_MAX_DIM:       ${maxImageDimension}`);
+  console.log(`  PARSE_IMAGE_JPEG_QUALITY:  ${jpegQuality}`);
   console.log(
-    `  INFER_TARGET_IMAGES:      ${targetImages ? targetImages.join(", ") : "(all entries)"}`,
+    `  PARSE_TARGET_IMAGES:       ${targetImages ? targetImages.join(", ") : "(all entries)"}`,
   );
-  console.log(`  OPENROUTER_API_KEY:       ${hasApiKey ? "set" : "missing"}`);
+  console.log(`  OPENROUTER_API_KEY:        ${hasApiKey ? "set" : "missing"}`);
 
   console.log("Loading prepared data...");
   const prepared = await loadPreparedData();
@@ -273,7 +273,7 @@ async function main() {
         .sort()
         .join("\n  - ");
       throw new Error(
-        `No prepared entry matched INFER_TARGET_IMAGES=${targetImages.join(", ")}.\nAvailable image sets:\n  - ${available}`,
+        `No prepared entry matched PARSE_TARGET_IMAGES=${targetImages.join(", ")}.\nAvailable image sets:\n  - ${available}`,
       );
     }
     entriesToProcess = matches;
@@ -281,10 +281,10 @@ async function main() {
   }
 
   console.log(
-    `Running OpenRouter inference with model '${model}' on ${entriesToProcess.length} entries...`,
+    `Running OpenRouter parsing with model '${model}' on ${entriesToProcess.length} entries...`,
   );
 
-  const results = new Array<InferResult | undefined>(entriesToProcess.length);
+  const results = new Array<ParseResult | undefined>(entriesToProcess.length);
   let nextIndex = 0;
 
   const worker = async () => {
@@ -295,7 +295,7 @@ async function main() {
         return;
       }
       const entry = entriesToProcess[currentIndex]!;
-      results[currentIndex] = await inferEntryWithRetries({
+      results[currentIndex] = await parseEntryWithRetries({
         images: entry.images,
         model,
         requestTimeoutMs,
@@ -312,7 +312,7 @@ async function main() {
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
   const predictions: PredictionsDataset = { entries: [] };
-  const failures: InferFailuresDataset = { entries: [] };
+  const failures: ParseFailuresDataset = { entries: [] };
   for (const result of results) {
     if (!result) continue;
     if (result.ok) {
@@ -324,7 +324,7 @@ async function main() {
 
   if (targetImages) {
     let existingPredictions: PredictionsDataset = { entries: [] };
-    let existingFailures: InferFailuresDataset;
+    let existingFailures: ParseFailuresDataset;
     try {
       existingPredictions = await loadPredictions();
     } catch (error) {
@@ -334,7 +334,7 @@ async function main() {
         throw error;
       }
     }
-    existingFailures = await loadInferFailures();
+    existingFailures = await loadParseFailures();
 
     predictions.entries = [
       ...existingPredictions.entries.filter(
@@ -352,12 +352,12 @@ async function main() {
 
   await Promise.all([
     writeJson(PREDICTIONS_PATH, predictions),
-    writeJson(INFER_FAILURES_PATH, failures),
+    writeJson(PARSE_FAILURES_PATH, failures),
   ]);
   console.log(
     `Generated ${predictions.entries.length} predictions, ${failures.entries.length} failures → ${PREDICTIONS_PATH}`,
   );
-  console.log(`Inference failures written to ${INFER_FAILURES_PATH}`);
+  console.log(`Parse failures written to ${PARSE_FAILURES_PATH}`);
 }
 
 main().catch((err) => {

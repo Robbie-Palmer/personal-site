@@ -24,7 +24,7 @@ function getOrCreateOpenRouterClient(apiKey: string): OpenAI {
   return client;
 }
 
-export async function inferRecipeFromImages(params: {
+export async function parseRecipeFromImages(params: {
   imageFiles: string[];
   model: string;
   requestTimeoutMs: number;

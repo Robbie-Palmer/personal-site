@@ -1,0 +1,519 @@
+{
+  "ingredients": [
+    {
+      "slug": "chicken-breast",
+      "name": "chicken breast",
+      "category": "protein"
+    },
+    {
+      "slug": "turkey-mince",
+      "name": "turkey mince",
+      "category": "protein"
+    },
+    {
+      "slug": "chorizo",
+      "name": "chorizo",
+      "category": "protein"
+    },
+    {
+      "slug": "bacon",
+      "name": "bacon",
+      "category": "protein"
+    },
+    {
+      "slug": "pork-sausages",
+      "name": "pork sausages",
+      "category": "protein"
+    },
+    {
+      "slug": "white-onion",
+      "name": "white onion",
+      "category": "vegetable"
+    },
+    {
+      "slug": "red-onion",
+      "name": "red onion",
+      "category": "vegetable"
+    },
+    {
+      "slug": "onion",
+      "name": "onion",
+      "category": "vegetable"
+    },
+    {
+      "slug": "bell-pepper",
+      "name": "bell pepper",
+      "category": "vegetable"
+    },
+    {
+      "slug": "red-pepper",
+      "name": "red pepper",
+      "category": "vegetable"
+    },
+    {
+      "slug": "garlic",
+      "name": "garlic",
+      "category": "vegetable"
+    },
+    {
+      "slug": "peas",
+      "name": "peas",
+      "category": "vegetable"
+    },
+    {
+      "slug": "chopped-tomatoes",
+      "name": "chopped tomatoes",
+      "category": "vegetable"
+    },
+    {
+      "slug": "tomato-passata",
+      "name": "tomato passata",
+      "category": "vegetable"
+    },
+    {
+      "slug": "frozen-vegetables",
+      "name": "frozen vegetables",
+      "category": "vegetable"
+    },
+    {
+      "slug": "fresh-tomatoes",
+      "name": "fresh tomatoes",
+      "category": "vegetable"
+    },
+    {
+      "slug": "garlic-puree",
+      "name": "garlic puree",
+      "category": "vegetable"
+    },
+    {
+      "slug": "tomato-puree",
+      "name": "tomato puree",
+      "category": "vegetable"
+    },
+    {
+      "slug": "frozen-peas",
+      "name": "frozen peas",
+      "category": "vegetable"
+    },
+    {
+      "slug": "spinach",
+      "name": "spinach",
+      "category": "vegetable"
+    },
+    {
+      "slug": "mixed-beans",
+      "name": "mixed beans",
+      "category": "vegetable"
+    },
+    {
+      "slug": "vine-tomato",
+      "name": "vine tomato",
+      "category": "vegetable"
+    },
+    {
+      "slug": "spring-onion",
+      "name": "spring onion",
+      "category": "vegetable"
+    },
+    {
+      "slug": "leek",
+      "name": "leek",
+      "category": "vegetable"
+    },
+    {
+      "slug": "potato",
+      "name": "potato",
+      "category": "vegetable"
+    },
+    {
+      "slug": "cherry-tomato",
+      "name": "cherry tomato",
+      "category": "vegetable"
+    },
+    {
+      "slug": "avocado",
+      "name": "avocado",
+      "category": "fruit"
+    },
+    {
+      "slug": "lime",
+      "name": "lime",
+      "category": "fruit"
+    },
+    {
+      "slug": "butter",
+      "name": "butter",
+      "category": "dairy"
+    },
+    {
+      "slug": "double-cream",
+      "name": "double cream",
+      "category": "dairy"
+    },
+    {
+      "slug": "single-cream",
+      "name": "single cream",
+      "category": "dairy"
+    },
+    {
+      "slug": "creme-fraiche",
+      "name": "creme fraiche",
+      "category": "dairy"
+    },
+    {
+      "slug": "mascarpone",
+      "name": "mascarpone",
+      "category": "dairy"
+    },
+    {
+      "slug": "milk",
+      "name": "milk",
+      "category": "dairy"
+    },
+    {
+      "slug": "cheddar-cheese",
+      "name": "cheddar cheese",
+      "category": "dairy"
+    },
+    {
+      "slug": "parmesan",
+      "name": "parmesan",
+      "category": "dairy"
+    },
+    {
+      "slug": "grana-padano",
+      "name": "grana padano",
+      "category": "dairy"
+    },
+    {
+      "slug": "cream-cheese",
+      "name": "cream cheese",
+      "category": "dairy"
+    },
+    {
+      "slug": "light-soft-cheese",
+      "name": "light soft cheese",
+      "category": "dairy"
+    },
+    {
+      "slug": "mozzarella",
+      "name": "mozzarella",
+      "category": "dairy"
+    },
+    {
+      "slug": "rice",
+      "name": "rice",
+      "category": "grain"
+    },
+    {
+      "slug": "arborio-rice",
+      "name": "arborio rice",
+      "category": "grain"
+    },
+    {
+      "slug": "macaroni",
+      "name": "macaroni",
+      "category": "grain"
+    },
+    {
+      "slug": "penne-pasta",
+      "name": "penne pasta",
+      "category": "grain"
+    },
+    {
+      "slug": "large-pasta-shells",
+      "name": "large pasta shells",
+      "category": "grain"
+    },
+    {
+      "slug": "pasta",
+      "name": "pasta",
+      "category": "grain"
+    },
+    {
+      "slug": "long-grain-rice",
+      "name": "long grain rice",
+      "category": "grain"
+    },
+    {
+      "slug": "paella-rice",
+      "name": "paella rice",
+      "category": "grain"
+    },
+    {
+      "slug": "tortilla-wraps",
+      "name": "tortilla wraps",
+      "category": "grain"
+    },
+    {
+      "slug": "farfalle",
+      "name": "farfalle",
+      "category": "grain"
+    },
+    {
+      "slug": "fresh-basil",
+      "name": "fresh basil",
+      "category": "herb"
+    },
+    {
+      "slug": "fresh-rosemary",
+      "name": "fresh rosemary",
+      "category": "herb"
+    },
+    {
+      "slug": "fresh-parsley",
+      "name": "fresh parsley",
+      "category": "herb"
+    },
+    {
+      "slug": "fresh-coriander",
+      "name": "fresh coriander",
+      "category": "herb"
+    },
+    {
+      "slug": "curry-powder",
+      "name": "curry powder",
+      "category": "spice"
+    },
+    {
+      "slug": "hot-chilli-powder",
+      "name": "hot chilli powder",
+      "category": "spice"
+    },
+    {
+      "slug": "ground-coriander",
+      "name": "ground coriander",
+      "category": "spice"
+    },
+    {
+      "slug": "cayenne-pepper",
+      "name": "cayenne pepper",
+      "category": "spice"
+    },
+    {
+      "slug": "paprika",
+      "name": "paprika",
+      "category": "spice"
+    },
+    {
+      "slug": "smoked-paprika",
+      "name": "smoked paprika",
+      "category": "spice"
+    },
+    {
+      "slug": "chilli",
+      "name": "chilli",
+      "category": "spice"
+    },
+    {
+      "slug": "chilli-flakes",
+      "name": "chilli flakes",
+      "category": "spice"
+    },
+    {
+      "slug": "tikka-curry-powder",
+      "name": "tikka curry powder",
+      "category": "spice"
+    },
+    {
+      "slug": "italian-seasoning",
+      "name": "italian seasoning",
+      "category": "spice"
+    },
+    {
+      "slug": "salt",
+      "name": "salt",
+      "category": "spice"
+    },
+    {
+      "slug": "black-pepper",
+      "name": "black pepper",
+      "category": "spice"
+    },
+    {
+      "slug": "oregano",
+      "name": "oregano",
+      "category": "spice"
+    },
+    {
+      "slug": "peri-peri-salt",
+      "name": "peri peri salt",
+      "category": "spice"
+    },
+    {
+      "slug": "cajun-seasoning",
+      "name": "cajun seasoning",
+      "category": "spice"
+    },
+    {
+      "slug": "msg",
+      "name": "MSG",
+      "category": "spice"
+    },
+    {
+      "slug": "five-spice",
+      "name": "five spice",
+      "category": "spice"
+    },
+    {
+      "slug": "white-pepper",
+      "name": "white pepper",
+      "category": "spice"
+    },
+    {
+      "slug": "dried-parsley",
+      "name": "dried parsley",
+      "category": "spice"
+    },
+    {
+      "slug": "turmeric",
+      "name": "turmeric",
+      "category": "spice"
+    },
+    {
+      "slug": "saffron",
+      "name": "saffron",
+      "category": "spice"
+    },
+    {
+      "slug": "cumin",
+      "name": "cumin",
+      "category": "spice"
+    },
+    {
+      "slug": "garlic-granules",
+      "name": "garlic granules",
+      "category": "spice"
+    },
+    {
+      "slug": "onion-salt",
+      "name": "onion salt",
+      "category": "spice"
+    },
+    {
+      "slug": "fajita-and-taco-mix",
+      "name": "fajita and taco mix",
+      "category": "spice"
+    },
+    {
+      "slug": "basil-pesto",
+      "name": "basil pesto",
+      "category": "condiment"
+    },
+    {
+      "slug": "soy-sauce",
+      "name": "soy sauce",
+      "category": "condiment"
+    },
+    {
+      "slug": "lime-juice",
+      "name": "lime juice",
+      "category": "condiment"
+    },
+    {
+      "slug": "peanut-butter",
+      "name": "peanut butter",
+      "category": "condiment"
+    },
+    {
+      "slug": "honey",
+      "name": "honey",
+      "category": "condiment"
+    },
+    {
+      "slug": "sweet-chilli-sauce",
+      "name": "sweet chilli sauce",
+      "category": "condiment"
+    },
+    {
+      "slug": "chipotle-paste",
+      "name": "chipotle paste",
+      "category": "condiment"
+    },
+    {
+      "slug": "mayo",
+      "name": "mayo",
+      "category": "condiment"
+    },
+    {
+      "slug": "guacamole-mix",
+      "name": "guacamole mix",
+      "category": "condiment"
+    },
+    {
+      "slug": "sun-dried-tomato-pesto",
+      "name": "sun-dried tomato pesto",
+      "category": "condiment"
+    },
+    {
+      "slug": "vegetable-oil",
+      "name": "vegetable oil",
+      "category": "oil-fat"
+    },
+    {
+      "slug": "olive-oil",
+      "name": "olive oil",
+      "category": "oil-fat"
+    },
+    {
+      "slug": "extra-virgin-olive-oil",
+      "name": "extra virgin olive oil",
+      "category": "oil-fat"
+    },
+    {
+      "slug": "coconut-milk",
+      "name": "coconut milk",
+      "category": "oil-fat"
+    },
+    {
+      "slug": "chicken-stock",
+      "name": "chicken stock",
+      "category": "liquid"
+    },
+    {
+      "slug": "vegetable-stock",
+      "name": "vegetable stock",
+      "category": "liquid"
+    },
+    {
+      "slug": "white-wine",
+      "name": "white wine",
+      "category": "liquid"
+    },
+    {
+      "slug": "water",
+      "name": "water",
+      "category": "liquid"
+    },
+    {
+      "slug": "plain-flour",
+      "name": "plain flour",
+      "category": "other"
+    },
+    {
+      "slug": "sugar",
+      "name": "sugar",
+      "category": "other"
+    },
+    {
+      "slug": "brown-sugar",
+      "name": "brown sugar",
+      "category": "other"
+    },
+    {
+      "slug": "prawn-crackers",
+      "name": "prawn crackers",
+      "category": "other"
+    },
+    {
+      "slug": "garlic-bread",
+      "name": "garlic bread",
+      "category": "other"
+    },
+    {
+      "slug": "chips",
+      "name": "chips",
+      "category": "other"
+    }
+  ]
+}
