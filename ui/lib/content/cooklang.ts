@@ -2,15 +2,14 @@ import type { Ingredient, Step, Timer } from "@cooklang/cooklang";
 import { getQuantityUnit, getQuantityValue, Parser } from "@cooklang/cooklang";
 import { readdirSync, readFileSync } from "fs";
 import matter from "gray-matter";
-import { join } from "path";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
 import type { RecipeContent } from "@/lib/domain/recipe/recipe";
 import { RecipeContentSchema } from "@/lib/domain/recipe/recipe";
 import { UnitSchema } from "@/lib/domain/recipe/unit";
 import { normalizeSlug } from "@/lib/generic/slugs";
 
-// Frontmatter shape for .cook files.
-// Fields not standardised by Cooklang are stored here.
 interface CookFrontmatter {
   title: string;
   description: string;
@@ -22,8 +21,7 @@ interface CookFrontmatter {
   tags?: string[];
   image?: string;
   imageAlt?: string;
-  /** Per-ingredient overrides for `preparation` and `note` fields,
-   *  keyed by ingredient slug, since Cooklang has no standard annotation. */
+  // Cooklang has no annotation syntax, so these live in frontmatter.
   ingredientAnnotations?: Record<
     string,
     { preparation?: string; note?: string }
@@ -32,16 +30,34 @@ interface CookFrontmatter {
 
 const _parser = new Parser();
 
-// ── Ingredient-only step detection ───────────────────────────────────────────
+// getQuantityValue returns NaN for fractions — resolve them from the raw structure.
+function resolveQuantityValue(
+  quantity: Ingredient["quantity"],
+): number | undefined {
+  const value = getQuantityValue(quantity);
+  if (value !== null && !isNaN(value)) return value;
 
-/** Text that is only whitespace or punctuation between ingredient annotations. */
+  const inner = (quantity as Record<string, unknown> | null)?.value;
+  if (inner && typeof inner === "object" && "type" in inner) {
+    const numObj = inner as { type: string; value: unknown };
+    if (
+      numObj.type === "number" &&
+      numObj.value &&
+      typeof numObj.value === "object"
+    ) {
+      const v = numObj.value as { type: string; value?: unknown };
+      if (v.type === "fraction" && v.value && typeof v.value === "object") {
+        const f = v.value as { whole: number; num: number; den: number };
+        if (f.den !== 0) return f.whole + f.num / f.den;
+      }
+    }
+  }
+
+  return undefined;
+}
+
 const PUNCTUATION_RE = /^[\s,;.]+$/;
 
-/**
- * Returns true when a step consists only of ingredient annotations and
- * connecting punctuation.  Such steps define the ingredient group's contents
- * but should NOT be added to the recipe's instruction list.
- */
 function isIngredientOnlyStep(step: Step): boolean {
   let hasIngredient = false;
   for (const item of step.items) {
@@ -50,20 +66,12 @@ function isIngredientOnlyStep(step: Step): boolean {
     } else if (item.type === "text") {
       if (!PUNCTUATION_RE.test(item.value)) return false;
     } else {
-      // cookware / timer / inlineQuantity → not an ingredient-only step
       return false;
     }
   }
   return hasIngredient;
 }
 
-// ── Step-text reconstruction ──────────────────────────────────────────────────
-
-/**
- * Rebuilds the human-readable instruction text from a parsed step, replacing
- * `@ingredient{…}` annotations with the ingredient's plain name, and `~timer`
- * annotations with `quantity units`.
- */
 function stepToText(
   step: Step,
   ingredients: Ingredient[],
@@ -93,34 +101,6 @@ function stepToText(
     .trim();
 }
 
-// ── Core parser ───────────────────────────────────────────────────────────────
-
-/**
- * Parses a `.cook` file (frontmatter + Cooklang body) and returns a validated
- * `RecipeContent` object that matches the existing Zod schema exactly.
- *
- * File layout expected:
- * ```
- * ---
- * title: …
- * date: "YYYY-MM-DD"
- * servings: N
- * ingredientAnnotations:
- *   chicken-breast:
- *     preparation: chopped
- * ---
- *
- * @olive oil{1%tbsp}, @chicken breast{2%piece}.
- *
- * First instruction step.
- *
- * Second instruction step.
- *
- * == Extras ==
- *
- * @garlic bread{}.
- * ```
- */
 export function parseCookFile(
   fileContent: string,
   slug: string,
@@ -131,16 +111,6 @@ export function parseCookFile(
 
   const { recipe } = _parser.parse(body);
   const { sections, ingredients, timers } = recipe;
-
-  // ── Build ingredientGroups ────────────────────────────────────────────────
-  //
-  // Strategy:
-  //  - Iterate sections in order. Each section's name (from `== Name ==`)
-  //    starts a new named group; the first unnamed section uses the default
-  //    unnamed group.
-  //  - An ingredient-only step (no meaningful text, only @annotations and
-  //    punctuation) populates the current group's ingredient list.
-  //  - All other steps contribute to the instruction list.
 
   type GroupAccumulator = {
     name: string | undefined;
@@ -158,19 +128,17 @@ export function parseCookFile(
   const instructions: string[] = [];
 
   for (const section of sections) {
-    // Named sections (from `== Name ==`) start a new ingredient group
+    // Cooklang `== Name ==` sections map to ingredient groups
     if (section.name !== null) {
       currentGroup = { name: section.name, items: [] };
       groups.push(currentGroup);
     }
 
     for (const content of section.content) {
-      // Plain text blocks between steps — skip
       if (content.type === "text") continue;
 
       const step = content.value;
 
-      // Ingredient-only step — populate the current group
       if (isIngredientOnlyStep(step)) {
         for (const item of step.items) {
           if (item.type !== "ingredient") continue;
@@ -178,9 +146,7 @@ export function parseCookFile(
           const ingSlug = normalizeSlug(ing.name) as IngredientSlug;
           const ann = annotations[ingSlug];
 
-          const amount = getQuantityValue(ing.quantity);
-          const validAmount =
-            amount !== null && !isNaN(amount) ? amount : undefined;
+          const validAmount = resolveQuantityValue(ing.quantity);
 
           const unitStr = getQuantityUnit(ing.quantity);
           const unitResult = unitStr
@@ -199,7 +165,6 @@ export function parseCookFile(
         continue;
       }
 
-      // Normal instruction step
       const text = stepToText(step, ingredients, timers);
       if (text) instructions.push(text);
     }
@@ -225,14 +190,9 @@ export function parseCookFile(
   });
 }
 
-// ── Repository loader ─────────────────────────────────────────────────────────
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const RECIPES_DIR = join(__dirname, "..", "..", "content", "recipes");
 
-const RECIPES_DIR = join(process.cwd(), "content", "recipes");
-
-/**
- * Reads all `.cook` files from `content/recipes/` and returns an array of
- * validated `RecipeContent` objects, preserving filename-derived slugs.
- */
 export function loadRecipesFromCookFiles(): RecipeContent[] {
   const files = readdirSync(RECIPES_DIR).filter((f) => f.endsWith(".cook"));
   return files.map((file) => {
