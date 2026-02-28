@@ -93,7 +93,7 @@ developer-only. The recipe editor UI is required regardless of format choice.
 | ------- | ------ |
 | **Inline timers** | ✅ **Exceeds** — `~{25%minutes}` and named timers `~eggs{3%minutes}` are first-class syntax. Timers are explicit anchors we can attach tap-to-start UI affordances to. The timer is inline in the step where it occurs, keeping context intact rather than separating it into a parallel data structure. |
 | **Cookware tracking** | ✅ **Exceeds (not in current proposal)** — `#slow cooker{}`, `#cast iron pan{}` are first-class syntax parsed into a structured equipment list per recipe. This unlocks equipment-based filtering ("show only slow cooker recipes", "exclude recipes requiring a stand mixer") — a capability no competitor offers. |
-| **Cooking mode** | 🔧 Not provided — Cooklang has no polished kitchen UX. The iOS app is rated 3.8/5 with 4 reviews and crash reports; the CLI web server targets developers. Our large-text, step-by-step, wake-lock cooking mode remains entirely our responsibility and is our primary USP. |
+| **Cooking mode** | 🔧 Not provided — Cooklang has no polished kitchen UX. The CLI web server targets developers; the spec has no concept of a cooking view. Our large-text, step-by-step, wake-lock, PWA cooking mode remains entirely our responsibility and is our primary USP. |
 
 ### Phase 3: Shopping & Meal Planning
 
@@ -159,11 +159,14 @@ developer-only. The recipe editor UI is required regardless of format choice.
 6. **No social or collaboration platform** — Cooklang is a file format, not a platform. User
    accounts, favorites, cooking logs, and recipe fork tracking are entirely outside scope.
 
-7. **Ecosystem maturity is mixed** — The spec and `cooklang-rs` are solid and actively maintained.
-   However, the project is broad for an indie team and parts are spread thin: the iOS app has a
-   3.8/5 rating with crash reports, some parsers in less common languages may be incomplete, and
-   the federated index is nascent. We should treat the core Rust library and WASM bindings as
-   production-ready; everything else warrants evaluation before depending on it.
+7. **Ecosystem maturity is mixed** — The spec and `cooklang-rs` are solid and actively maintained,
+   which is what we actually depend on. The project is broad for an indie team and parts are spread
+   thin: parsers in less common languages may be incomplete, the CookCLI is useful as a reference
+   but warrants evaluation before hard-depending on specific features, and the federated index is
+   nascent. Cooklang also ships a native iOS/Android app, but that is irrelevant to us — we
+   wouldn't depend on it, and it actively contradicts our web-first/PWA rationale for
+   cross-platform reach without app store overhead. Evaluate each open-source component
+   individually; don't treat the brand as a monolith.
 
 8. **Federated search is emerging, not production** — The community recipe index is actively
    discussed but not a polished discovery mechanism yet.
@@ -294,7 +297,7 @@ Storing recipes directly in D1 enables dynamic features earlier but at cost:
 - **Metadata schema is ours to own** — cuisine, tags, attribution, draft status in frontmatter are
   our schema. Community tooling won't handle custom metadata automatically.
 - **Ecosystem maturity risk** — the core library (`cooklang-rs`, WASM bindings) is solid. The wider
-  ecosystem (iOS app, some language parsers, federated index) is thinner. Evaluate each component
-  individually before depending on it.
+  ecosystem (some language parsers, CookCLI feature stability, federated index) is thinner. Evaluate
+  each open-source component individually before depending on it.
 - **Spec evolution lag** — features in community discussion (ingredient aliasing) may take time to
   land. We accept some forward-looking risk on spec maturity for those features.
