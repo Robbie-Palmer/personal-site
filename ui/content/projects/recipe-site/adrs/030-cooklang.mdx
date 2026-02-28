@@ -2,33 +2,41 @@
 title: "ADR 030: Cooklang as Recipe Data Format"
 date: "2026-02-28"
 status: "Proposed"
-tech_stack: ["Cooklang", "cooklang-rs"]
+tech_stack: ["cooklang-rs"]
 ---
 
 # Context
 
-The recipe site currently stores recipes as TypeScript objects validated with Zod schemas. This delivers
-type safety, build-time validation, and git-backed version history, but the format is bespoke to this
-project. As the roadmap grows, several capabilities require explicit machine-readable structure in the
-recipe content itself:
+Our building philosophy is to ride rising tides — adopt open standards that are already gaining
+community momentum rather than authoring bespoke formats that we must maintain, document, and
+evangelise alone. Lean and Agile principles reinforce this: eliminate undifferentiated work so
+development concentrates on genuine USPs — the cooking mode UX, AI-powered ingestion, the social
+layer, and the experiences no competitor offers. We do not want to build a competing standard or
+cultivate a new community around a proprietary recipe schema; we want to join the one that already
+exists.
 
-- **Scaling quantities in instruction text**: The current schema separates ingredients from instructions,
-  so scaling only updates the ingredient list — the same documented limitation that
-  [virtually every competitor](https://help.anylist.com/articles/scale-recipe/) has, including AnyList,
-  Paprika, and Copy Me That.
-- **Inline timers**: Step text containing "simmer for 20 minutes" is unstructured prose. A structured
-  schema can associate timers with steps, but inline annotation keeps the timer contextual — where it
-  actually occurs in the flow of the recipe.
+The recipe site currently stores recipes as TypeScript objects validated with Zod schemas. The
+format is entirely proprietary: no parser ecosystem, no community tooling, no portability outside
+this codebase. It also has concrete structural gaps that grow more costly to paper over as the
+roadmap advances:
+
+- **Scaling quantities in instruction text**: The current schema separates ingredients from
+  instructions, so scaling only updates the ingredient list — the same documented limitation that
+  [virtually every competitor](https://help.anylist.com/articles/scale-recipe/) has, including
+  AnyList, Paprika, and Copy Me That.
+- **Inline timers**: Step text containing "simmer for 20 minutes" is unstructured prose. A
+  structured schema can associate timers with steps, but inline annotation keeps the timer
+  contextual — where it actually occurs in the flow of the recipe.
 - **Shopping list aggregation**: Ingredient data is structured per-recipe but there is no standard
   mechanism for merging quantities across recipes for meal planning.
 - **Cookware tracking**: Equipment mentioned in recipes has no structured representation, making
   equipment-based filtering impossible.
-- **Sub-recipe composition**: Recipes that share components (a sauce, a dough) have no first-class way
-  to express the dependency.
+- **Sub-recipe composition**: Recipes that share components (a sauce, a dough) have no first-class
+  way to express the dependency.
 
-The project proposal explicitly lists Cooklang alongside database-backed models as candidates for the
-recipe data format. This ADR evaluates adopting Cooklang's `.cook` format as the canonical recipe
-content format.
+The project proposal explicitly lists Cooklang alongside database-backed models as candidates for
+the recipe data format. This ADR evaluates adopting Cooklang's `.cook` format — an open,
+community-maintained standard with a growing ecosystem — as the canonical recipe content format.
 
 **What is Cooklang?**
 
@@ -109,7 +117,7 @@ developer-only. The recipe editor UI is required regardless of format choice.
 
 | Feature | Status |
 | ------- | ------ |
-| **AI URL import** | ✅ **Exceeds** — CookCLI includes AI-powered import from URLs supporting OpenAI, Claude, Gemini, and Ollama as providers. We can adopt or adapt this tooling rather than building from scratch. |
+| **AI URL import** | ✅ **Exceeds** — CookCLI includes AI-powered import from URLs supporting OpenAI, Claude, Gemini, and Ollama as providers. CookCLI is a reference implementation demonstrating the approach; we implement our own equivalent using AI APIs directly with `.cook` as the target output format. |
 | **Photo-to-recipe (OCR)** | 🔧 Not provided — CookCLI handles URL import but not image-to-recipe extraction. Our ML pipeline (`ml-pipelines/recipe-parsing/`) remains essential and is a genuine USP — handwritten cursive OCR is [unsolved industry-wide](https://flavor365.com/how-to-scan-recipes-the-definitive-2026-guide/). The target output format is `.cook`, giving ML a well-defined schema to generate. |
 | **Open standard / SEO** | 🔁 Derived view — Cooklang's `.cook` format is open but not schema.org Recipe. We emit schema.org at build time from `cooklang-rs` parsed output. `.cook` and schema.org coexist: one is the content format, the other is the SEO/interoperability view. |
 
@@ -132,7 +140,7 @@ developer-only. The recipe editor UI is required regardless of format choice.
 | Feature | Status |
 | ------- | ------ |
 | **"What Can I Make?"** | ✅ Already solved — CookCLI implements pantry management (available ingredients → matching recipes). This is a direct reference implementation for our future feature. |
-| **Cookbook / printed recipe book** | ✅ **Exceeds** — CookCLI includes PDF and LaTeX cookbook generation. Our printed recipe book future feature can build on this rather than starting from scratch. |
+| **Cookbook / printed recipe book** | 🌱 Reference pattern — CookCLI includes PDF and LaTeX cookbook generation as a reference implementation. Our printed recipe book is a typographically designed premium product feature; we build our own version rather than depending on the CLI. |
 | **Federated recipe discovery** | 🌱 Emerging — Cooklang's community recipe index exists but is not production-ready as a federated search system. We can contribute to and consume from it as it matures. |
 
 ## Limitations
@@ -210,7 +218,7 @@ These are the capabilities Cooklang explicitly does not provide, and where we di
 | **Version history UI** | Surfacing recipe history in a polished changelog UI. No competitor exposes this at all. |
 | **Nutritional analysis** | Integrating a nutrition API on top of `cooklang-rs`'s structured ingredient output. Community tools have proven the pattern; we connect the data. |
 | **schema.org emission** | Deriving schema.org Recipe from `.cook` at build time for SEO rich results. Bridges Cooklang's format with the web standard for search engine interoperability. |
-| **Beautiful printed cookbook** | Cooklang's CLI outputs PDF/LaTeX, but a curated, typographically designed printed recipe book is a premium product feature. |
+| **Beautiful printed cookbook** | CookCLI's PDF/LaTeX output is a reference implementation; we build our own typographically designed version rather than depending on the CLI binary. |
 | **Spec contributions** | Actively participating in open spec discussions shapes the format in our interest and builds community presence. High-value open proposals to track or contribute to: temperature syntax ([#67](https://github.com/cooklang/spec/discussions/67)), ingredient substitutions ([#68](https://github.com/cooklang/spec/discussions/68)), and dual-unit quantities ([#84](https://github.com/cooklang/spec/discussions/84)). |
 
 # Alternatives Considered
@@ -223,7 +231,10 @@ These are the capabilities Cooklang explicitly does not provide, and where we di
   alternatives, both of which are less ergonomic than inline annotation. The format is proprietary
   to this project with no ecosystem.
 - **Decision**: Rejected as the long-term content format. The instruction-text scaling gap is a
-  correctness problem, and Cooklang's inline annotation solves it cleanly.
+  real correctness problem, but the deeper issue is that a bespoke proprietary format means owning
+  a standard rather than joining one. There is no parser ecosystem to leverage, no community to
+  share the maintenance burden, and no portability for users. Cooklang solves the structural gaps
+  and comes with the community; we should ride that tide rather than paddle against it.
 
 ## Structured Schema with Timer/Cookware Fields
 
@@ -287,7 +298,7 @@ Storing recipes directly in D1 enables dynamic features earlier but at cost:
   required for parse/scale.
 - **Community ecosystem** — 20+ tools, 12+ language parsers, Obsidian plugin (308 stars), VS Code
   support, nutrition calculators. Tooling investment benefits from community maintenance.
-- **AI URL import** — CookCLI's URL-to-recipe AI import reduces Phase 4's implementation scope.
+- **AI URL import** — CookCLI's URL-to-recipe AI import is a proven reference implementation for Phase 4; the approach is de-risked and the target format (`.cook`) is defined.
 - **Open interchange format** — `.cook` files are human-readable plain text. Users own their data;
   recipes are portable to any Cooklang-compatible tool. Storage model can evolve independently.
 - **ML target format** — the photo-to-recipe pipeline has a well-defined structured output format
