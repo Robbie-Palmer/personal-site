@@ -182,13 +182,13 @@ export default async function TechnologyPage({ params }: PageProps) {
         {/* Header */}
         <div className="flex flex-col sm:flex-row gap-6 items-start">
           {iconUrl && (
-            <div className="shrink-0 w-20 h-20 flex items-center justify-center bg-muted rounded-lg p-4">
+            <div className="shrink-0 w-20 h-20 flex items-center justify-center bg-muted rounded-lg p-3">
               <Image
                 src={iconUrl}
                 alt={technology.name}
                 width={64}
                 height={64}
-                className="object-contain brightness-0 dark:invert"
+                className="block w-full h-full object-contain brightness-0 dark:invert"
               />
             </div>
           )}

@@ -34,7 +34,7 @@ export function TechnologyCard({
               alt={technology.name}
               width={40}
               height={40}
-              className="object-contain brightness-0 dark:invert"
+              className="block object-contain brightness-0 dark:invert"
             />
           </div>
         )}

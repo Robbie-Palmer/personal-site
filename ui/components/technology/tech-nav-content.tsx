@@ -118,7 +118,7 @@ export function TechNavContent({
                         alt=""
                         width={24}
                         height={24}
-                        className="object-contain brightness-0 dark:invert"
+                        className="block object-contain brightness-0 dark:invert"
                       />
                     </div>
                   )}
