@@ -18,6 +18,7 @@ const customIcons = new Set([
   "fusejs",
   "mise",
   "doppler",
+  "ksqldb",
 ]);
 
 // Map technology names to their slugs for edge cases
@@ -107,7 +108,7 @@ export function TechIcon({
       <img
         src={`/tech-icons/${iconData.slug}.svg`}
         alt={name}
-        className={`${className} brightness-0 dark:invert`}
+        className={`${className} block object-contain brightness-0 dark:invert`}
       />
     );
   }
