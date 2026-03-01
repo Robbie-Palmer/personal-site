@@ -4,13 +4,13 @@ import { Clock, Minus, Plus, Timer, Users } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatIngredientName } from "@/lib/domain/recipe/ingredientText";
 import type {
   IngredientGroupView,
   RecipeDetailView,
   RecipeIngredientView,
-} from "@/lib/domain/recipe";
-import { UNIT_LABELS } from "@/lib/domain/recipe";
-import { formatIngredientName } from "@/lib/domain/recipe/ingredientText";
+} from "@/lib/domain/recipe/recipeViews";
+import { UNIT_LABELS } from "@/lib/domain/recipe/unit";
 
 function formatScaled(value: number): string {
   return parseFloat(value.toPrecision(2)).toString();

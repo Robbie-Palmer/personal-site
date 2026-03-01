@@ -20,6 +20,7 @@ export const UnitSchema = z.enum([
   "clove",
   "tin",
   "cube",
+  "sachet",
 ]);
 
 export type Unit = z.infer<typeof UnitSchema>;
@@ -46,6 +47,7 @@ export const UNIT_LABELS: Record<Unit, UnitLabel> = {
   clove: { singular: "clove", plural: "cloves" },
   tin: { singular: "tin", plural: "tins" },
   cube: { singular: "cube", plural: "cubes" },
+  sachet: { singular: "sachet", plural: "sachets" },
 };
 
 export type UnitCategory = "weight" | "volume" | "spoon" | "discrete";
@@ -65,6 +67,7 @@ export const UNIT_CATEGORIES: Record<Unit, UnitCategory> = {
   clove: "discrete",
   tin: "discrete",
   cube: "discrete",
+  sachet: "discrete",
 };
 
 // Conversion factors to base unit within each category
