@@ -18,6 +18,7 @@ const customIcons = new Set([
   "fusejs",
   "mise",
   "doppler",
+  "ksqldb",
 ]);
 
 // Map technology names to their slugs for edge cases
