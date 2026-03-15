@@ -5,28 +5,22 @@ import {
 } from "recipe-domain/pluralization";
 import type { PredictionEntry, Recipe } from "../schemas/ground-truth.js";
 
-export type MatchScope = "local" | "global";
-
-export type NormalizationMethod =
-  | "exact-local"
-  | "exact-global"
-  | "rule-local"
-  | "rule-global"
-  | "fuzzy-local"
-  | "fuzzy-global"
+export type CanonicalizationMethod =
+  | "exact"
+  | "rule"
+  | "fuzzy"
   | "none";
 
 export interface CandidateScore {
   slug: string;
   score: number;
-  scope: MatchScope;
 }
 
-export interface IngredientNormalizationDecision {
+export interface IngredientCanonicalizationDecision {
   originalSlug: string;
   baseSlug: string;
-  normalizedSlug: string;
-  method: NormalizationMethod;
+  canonicalSlug: string;
+  method: CanonicalizationMethod;
   reason?: "below-threshold" | "ambiguous" | "no-candidates";
   score?: number;
   threshold?: number;
@@ -34,9 +28,9 @@ export interface IngredientNormalizationDecision {
   candidates: CandidateScore[];
 }
 
-export interface EntryNormalizationDecisions {
+export interface EntryCanonicalizationDecisions {
   images: string[];
-  decisions: IngredientNormalizationDecision[];
+  decisions: IngredientCanonicalizationDecision[];
 }
 
 const TOKEN_FIXUPS: Record<string, string> = {
@@ -76,8 +70,7 @@ const EXACT_ALIASES: Record<string, string> = {
   sausage: "pork-sausage",
 };
 
-const LOCAL_FUZZY_THRESHOLD = 0.7;
-const GLOBAL_FUZZY_THRESHOLD = 0.85;
+const FUZZY_THRESHOLD = 0.85;
 const FUZZY_MARGIN = 0.04;
 const COMPOUND_CUISINES = new Set([
   "indo-chinese",
@@ -205,19 +198,17 @@ function scoreSimilarity(left: string, right: string): number {
 
 function exactCandidate(
   candidates: string[],
-  scope: MatchScope,
   ontology: Set<string>,
-  method: NormalizationMethod,
-): { slug: string; method: NormalizationMethod; scope: MatchScope } | undefined {
+): string | undefined {
   for (const candidate of candidates) {
     if (ontology.has(candidate)) {
-      return { slug: candidate, method, scope };
+      return candidate;
     }
   }
   return undefined;
 }
 
-function buildOntologyIndex(ontology: Set<string>): OntologyIndex {
+export function buildOntologyIndex(ontology: Set<string>): OntologyIndex {
   const byLength = new Map<number, string[]>();
   const byToken = new Map<string, Set<string>>();
   for (const slug of ontology) {
@@ -237,7 +228,6 @@ function buildOntologyIndex(ontology: Set<string>): OntologyIndex {
 
 function topFuzzyCandidates(
   candidates: string[],
-  scope: MatchScope,
   ontologyIndex: OntologyIndex,
 ): CandidateScore[] {
   if (ontologyIndex.ontology.size === 0 || candidates.length === 0) {
@@ -269,174 +259,110 @@ function topFuzzyCandidates(
       scored.push({
         slug,
         score: scoreSimilarity(candidate, slug),
-        scope,
       });
     }
   }
 
   scored.sort((a, b) => b.score - a.score || a.slug.localeCompare(b.slug));
-  return unique(scored.map((row) => `${row.scope}:${row.slug}`))
-    .map((key) => {
-      const [scopeValue, slug] = key.split(":");
-      return scored.find((row) => row.scope === scopeValue && row.slug === slug)!;
-    })
+  return unique(scored.map((row) => row.slug))
+    .map((slug) => scored.find((row) => row.slug === slug)!)
     .slice(0, 5);
 }
 
 export function canonicalizeIngredientSlug(params: {
   rawSlug: string;
-  localOntology: Set<string>;
-  globalOntology: Set<string>;
-  localOntologyIndex?: OntologyIndex;
-  globalOntologyIndex?: OntologyIndex;
-}): IngredientNormalizationDecision {
+  ontology: Set<string>;
+  ontologyIndex?: OntologyIndex;
+}): IngredientCanonicalizationDecision {
   const baseSlug = normalizeSlug(params.rawSlug);
   const ruleCandidates = generateDeterministicCandidates(params.rawSlug);
-  const localOntologyIndex =
-    params.localOntologyIndex ?? buildOntologyIndex(params.localOntology);
-  const globalOntologyIndex =
-    params.globalOntologyIndex ?? buildOntologyIndex(params.globalOntology);
+  const ontologyIndex =
+    params.ontologyIndex ?? buildOntologyIndex(params.ontology);
 
-  const exactLocal = exactCandidate(ruleCandidates, "local", params.localOntology, "exact-local");
-  if (exactLocal) {
+  const exact = exactCandidate(ruleCandidates, params.ontology);
+  if (exact) {
     return {
       originalSlug: params.rawSlug,
       baseSlug,
-      normalizedSlug: exactLocal.slug,
-      method: exactLocal.method,
+      canonicalSlug: exact,
+      method: "exact",
       score: 1,
       threshold: 1,
-      candidates: [{ slug: exactLocal.slug, score: 1, scope: "local" }],
+      candidates: [{ slug: exact, score: 1 }],
     };
   }
 
-  const exactGlobal = exactCandidate(
-    ruleCandidates,
-    "global",
-    params.globalOntology,
-    "exact-global",
-  );
-  if (exactGlobal) {
-    return {
-      originalSlug: params.rawSlug,
-      baseSlug,
-      normalizedSlug: exactGlobal.slug,
-      method: exactGlobal.method,
-      score: 1,
-      threshold: 1,
-      candidates: [{ slug: exactGlobal.slug, score: 1, scope: "global" }],
-    };
-  }
-
-  const localFuzzy = topFuzzyCandidates(ruleCandidates, "local", localOntologyIndex);
-  const globalFuzzy = topFuzzyCandidates(ruleCandidates, "global", globalOntologyIndex);
-
-  const allCandidates = [...localFuzzy, ...globalFuzzy]
-    .sort((a, b) => b.score - a.score || a.slug.localeCompare(b.slug))
-    .slice(0, 5);
-
-  const bestLocal = localFuzzy[0];
-  if (bestLocal && bestLocal.score >= LOCAL_FUZZY_THRESHOLD) {
-    const second = localFuzzy[1];
-    const margin = second ? bestLocal.score - second.score : 1;
+  const fuzzy = topFuzzyCandidates(ruleCandidates, ontologyIndex);
+  const best = fuzzy[0];
+  if (best && best.score >= FUZZY_THRESHOLD) {
+    const second = fuzzy[1];
+    const margin = second ? best.score - second.score : 1;
     if (margin >= FUZZY_MARGIN) {
       return {
         originalSlug: params.rawSlug,
         baseSlug,
-        normalizedSlug: bestLocal.slug,
-        method: "fuzzy-local",
-        score: bestLocal.score,
-        threshold: LOCAL_FUZZY_THRESHOLD,
+        canonicalSlug: best.slug,
+        method: "fuzzy",
+        score: best.score,
+        threshold: FUZZY_THRESHOLD,
         margin,
-        candidates: allCandidates,
+        candidates: fuzzy,
       };
     }
     return {
       originalSlug: params.rawSlug,
       baseSlug,
-      normalizedSlug: baseSlug,
+      canonicalSlug: baseSlug,
       method: "none",
       reason: "ambiguous",
-      score: bestLocal.score,
-      threshold: LOCAL_FUZZY_THRESHOLD,
+      score: best.score,
+      threshold: FUZZY_THRESHOLD,
       margin,
-      candidates: allCandidates,
-    };
-  }
-
-  const bestGlobal = globalFuzzy[0];
-  if (bestGlobal && bestGlobal.score >= GLOBAL_FUZZY_THRESHOLD) {
-    const second = globalFuzzy[1];
-    const margin = second ? bestGlobal.score - second.score : 1;
-    if (margin >= FUZZY_MARGIN) {
-      return {
-        originalSlug: params.rawSlug,
-        baseSlug,
-        normalizedSlug: bestGlobal.slug,
-        method: "fuzzy-global",
-        score: bestGlobal.score,
-        threshold: GLOBAL_FUZZY_THRESHOLD,
-        margin,
-        candidates: allCandidates,
-      };
-    }
-    return {
-      originalSlug: params.rawSlug,
-      baseSlug,
-      normalizedSlug: baseSlug,
-      method: "none",
-      reason: "ambiguous",
-      score: bestGlobal.score,
-      threshold: GLOBAL_FUZZY_THRESHOLD,
-      margin,
-      candidates: allCandidates,
+      candidates: fuzzy,
     };
   }
 
   return {
     originalSlug: params.rawSlug,
     baseSlug,
-    normalizedSlug: baseSlug,
+    canonicalSlug: baseSlug,
     method: "none",
-    reason: allCandidates.length > 0 ? "below-threshold" : "no-candidates",
-    score: allCandidates[0]?.score,
-    threshold: GLOBAL_FUZZY_THRESHOLD,
+    reason: fuzzy.length > 0 ? "below-threshold" : "no-candidates",
+    score: fuzzy[0]?.score,
+    threshold: FUZZY_THRESHOLD,
     margin:
-      allCandidates.length > 1 ? allCandidates[0]!.score - allCandidates[1]!.score : undefined,
-    candidates: allCandidates,
+      fuzzy.length > 1 ? fuzzy[0]!.score - fuzzy[1]!.score : undefined,
+    candidates: fuzzy,
   };
 }
 
-export function normalizeRecipeIngredients(
+export function canonicalizeRecipeIngredients(
   recipe: Recipe,
-  ontology: { local: Set<string>; global: Set<string> },
-): { recipe: Recipe; decisions: IngredientNormalizationDecision[] } {
-  const decisions: IngredientNormalizationDecision[] = [];
-  const localOntologyIndex = buildOntologyIndex(ontology.local);
-  const globalOntologyIndex = buildOntologyIndex(ontology.global);
+  ontology: Set<string>,
+): { recipe: Recipe; decisions: IngredientCanonicalizationDecision[] } {
+  const decisions: IngredientCanonicalizationDecision[] = [];
+  const ontologyIndex = buildOntologyIndex(ontology);
 
-  const normalizedRecipe: Recipe = {
+  const canonicalizedRecipe: Recipe = {
     ...recipe,
     ingredientGroups: recipe.ingredientGroups.map((group) => ({
       ...group,
       items: group.items.map((item) => {
         const decision = canonicalizeIngredientSlug({
           rawSlug: item.ingredient,
-          localOntology: ontology.local,
-          globalOntology: ontology.global,
-          localOntologyIndex,
-          globalOntologyIndex,
+          ontology,
+          ontologyIndex,
         });
         decisions.push(decision);
         return {
           ...item,
-          ingredient: decision.normalizedSlug,
+          ingredient: decision.canonicalSlug,
         };
       }),
     })),
   };
 
-  return { recipe: normalizedRecipe, decisions };
+  return { recipe: canonicalizedRecipe, decisions };
 }
 
 function normalizeCuisineLabel(cuisine: string | undefined): string | undefined {
@@ -451,19 +377,19 @@ function normalizeCuisineLabel(cuisine: string | undefined): string | undefined 
   return firstSegment || undefined;
 }
 
-export function normalizePredictionEntry(
+export function canonicalizePredictionEntry(
   entry: PredictionEntry,
-  ontology: { local: Set<string>; global: Set<string> },
-): { entry: PredictionEntry; decisions: IngredientNormalizationDecision[] } {
-  const normalized = normalizeRecipeIngredients(entry.predicted, ontology);
+  ontology: Set<string>,
+): { entry: PredictionEntry; decisions: IngredientCanonicalizationDecision[] } {
+  const canonicalized = canonicalizeRecipeIngredients(entry.predicted, ontology);
   return {
     entry: {
       ...entry,
       predicted: {
-        ...normalized.recipe,
-        cuisine: normalizeCuisineLabel(normalized.recipe.cuisine),
+        ...canonicalized.recipe,
+        cuisine: normalizeCuisineLabel(canonicalized.recipe.cuisine),
       },
     },
-    decisions: normalized.decisions,
+    decisions: canonicalized.decisions,
   };
 }

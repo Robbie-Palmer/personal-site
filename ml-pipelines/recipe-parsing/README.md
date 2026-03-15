@@ -21,13 +21,17 @@ recipe-parsing/
 │   ├── config          # Remote configuration (committed)
 │   └── config.local    # Credentials (git-ignored)
 ├── data/
-│   └── recipe-images/  # Image data (tracked by DVC, not git)
+│   ├── recipe-images/              # Image data (tracked by DVC, not git)
+│   ├── ground-truth.json           # Ground truth annotations
+│   └── canonical-ingredients.json  # Canonical ingredient registry
 └── README.md
 ```
 
-## Inference
+## Pipeline Stages
 
-`infer` runs multimodal recipe extraction through OpenRouter using the OpenAI SDK.
+### 1. Parse
+
+`parse` runs multimodal recipe extraction through OpenRouter using the OpenAI SDK.
 
 Required environment variables:
 
@@ -36,31 +40,53 @@ Required environment variables:
 Optional environment variables:
 
 - `OPENROUTER_MODEL` (default: `google/gemini-3-flash-preview`)
-- `INFER_REQUEST_TIMEOUT_MS` (default: `30000`)
-- `INFER_MAX_RETRIES` (default: `2`)
-- `INFER_CONCURRENCY` (default: `8`)
-- `INFER_RETRY_BASE_DELAY_MS` (default: `500`)
-- `INFER_RETRY_MAX_DELAY_MS` (default: `8000`)
-- `INFER_IMAGE_MAX_DIM` (default: `1600`)
-- `INFER_IMAGE_JPEG_QUALITY` (default: `80`)
+- `PARSE_REQUEST_TIMEOUT_MS` (default: `30000`)
+- `PARSE_MAX_RETRIES` (default: `2`)
+- `PARSE_CONCURRENCY` (default: `8`)
+- `PARSE_RETRY_BASE_DELAY_MS` (default: `500`)
+- `PARSE_RETRY_MAX_DELAY_MS` (default: `8000`)
+- `PARSE_IMAGE_MAX_DIM` (default: `1600`)
+- `PARSE_IMAGE_JPEG_QUALITY` (default: `80`)
 
-`infer.ts` loads environment variables from a local `.env` file automatically
+`parse.ts` loads environment variables from a local `.env` file automatically
 (using `dotenv`), so project-specific settings can live in
 `ml-pipelines/recipe-parsing/.env`.
 
 Outputs:
 
 - `outputs/predictions.json`: successful, schema-valid predictions
-- `outputs/infer-failures.json`: skipped entry diagnostics after retry exhaustion
+- `outputs/parse-failures.json`: skipped entry diagnostics after retry exhaustion
 
-## Normalization
+### 2. Evaluate Extraction
 
-`normalize` post-processes model output against known ingredient ontology.
+`evaluate_extraction` compares raw parser output against `rawExpected` ground
+truth annotations. This measures how well the parser reads recipe images before
+any canonicalization. Entries without `rawExpected` are skipped.
 
 Outputs:
 
-- `outputs/predictions-normalized.json`: post-processed predictions used for evaluation
-- `outputs/normalization-decisions.json`: per-ingredient normalization decisions
+- `outputs/extraction-metrics.json`: aggregate extraction quality metrics
+- `outputs/extraction-per-image-scores.json`: per-entry extraction scores
+
+### 3. Canonicalize
+
+`canonicalize` maps parsed ingredient slugs to the canonical ingredient registry
+in `data/canonical-ingredients.json`.
+
+Outputs:
+
+- `outputs/predictions-canonicalized.json`: predictions with canonical ingredient slugs
+- `outputs/canonicalization-decisions.json`: per-ingredient canonicalization decisions
+
+### 4. Evaluate
+
+`evaluate` compares canonicalized predictions against `expected` (canonical)
+ground truth. This is the end-to-end metric.
+
+Outputs:
+
+- `outputs/metrics.json`: aggregate end-to-end metrics
+- `outputs/per-image-scores.json`: per-entry end-to-end scores
 
 ## Running the Pipeline
 
@@ -69,11 +95,11 @@ Prefer DVC orchestration over manually chaining every script.
 Run the core pipeline end-to-end:
 
 ```bash
-dvc repro prepare infer normalize evaluate
+dvc repro prepare parse evaluate_extraction canonicalize evaluate
 ```
 
 Run an individual stage:
 
 ```bash
-dvc repro infer
+dvc repro parse
 ```
