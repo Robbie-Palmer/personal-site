@@ -92,7 +92,7 @@
     "@vitejs/plugin-react": "^5.1.0",
     "chrome-launcher": "^1.2.1",
     "cloudflare": "^5.2.0",
-    "jsdom": "^27.1.0",
+    "jsdom": "^29.0.0",
     "lighthouse": "^13.0.1",
     "puppeteer": "^24.33.0",
     "qrip": "^2.0.2",
