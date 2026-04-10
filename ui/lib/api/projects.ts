@@ -13,7 +13,7 @@ import {
 
 const repository = loadDomainRepository();
 
-export type { ProjectStatus, ADRStatus, ADRDetailView };
+export type { ADRDetailView, ADRStatus, ProjectStatus };
 
 export type Project = ProjectWithADRsView;
 export type ADR = ADRCardView;
