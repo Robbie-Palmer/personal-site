@@ -41,7 +41,7 @@ jobs:
       - name: Validate DVC remote
         run: dvc pull
 
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v4
         with:
           experimental: true
 
