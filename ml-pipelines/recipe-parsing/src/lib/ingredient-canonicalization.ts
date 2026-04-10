@@ -7,7 +7,6 @@ import type { PredictionEntry, Recipe } from "../schemas/ground-truth.js";
 
 export type CanonicalizationMethod =
   | "exact"
-  | "rule"
   | "fuzzy"
   | "none";
 
@@ -37,7 +36,7 @@ const TOKEN_FIXUPS: Record<string, string> = {
   clov: "clove",
   flak: "flakes",
   sausag: "sausages",
-  veg: "vegetables",
+  veg: "vegetable",
 };
 
 const MODIFIER_TOKENS = new Set([
@@ -51,6 +50,8 @@ const MODIFIER_TOKENS = new Set([
   "semi",
   "skimmed",
   "hot",
+  "small",
+  "fat",
 ]);
 
 const NOISE_TOKENS = new Set([
@@ -68,6 +69,10 @@ const EXACT_ALIASES: Record<string, string> = {
   "yellow-pepper": "bell-pepper",
   "green-pepper": "bell-pepper",
   sausage: "pork-sausage",
+  tomato: "fresh-tomatoes",
+  tomatoes: "fresh-tomatoes",
+  parsley: "fresh-parsley",
+  cheese: "cheddar-cheese",
 };
 
 const FUZZY_THRESHOLD = 0.85;
@@ -264,9 +269,16 @@ function topFuzzyCandidates(
   }
 
   scored.sort((a, b) => b.score - a.score || a.slug.localeCompare(b.slug));
-  return unique(scored.map((row) => row.slug))
-    .map((slug) => scored.find((row) => row.slug === slug)!)
-    .slice(0, 5);
+  const seen = new Set<string>();
+  const result: CandidateScore[] = [];
+  for (const row of scored) {
+    if (!seen.has(row.slug)) {
+      seen.add(row.slug);
+      result.push(row);
+      if (result.length === 5) break;
+    }
+  }
+  return result;
 }
 
 export function canonicalizeIngredientSlug(params: {

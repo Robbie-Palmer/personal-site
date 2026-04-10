@@ -14,7 +14,13 @@ async function main() {
     loadCanonicalIngredients(),
   ]);
 
-  const ontology = new Set(canonicalData.ingredients.map((i) => i.slug));
+  const ontology = new Set<string>();
+  for (const { slug } of canonicalData.ingredients) {
+    if (ontology.has(slug)) {
+      throw new Error(`Duplicate canonical ingredient slug: ${slug}`);
+    }
+    ontology.add(slug);
+  }
   console.log(`Canonical ingredient registry: ${ontology.size} ingredients`);
 
   const canonicalized = {

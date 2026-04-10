@@ -3,7 +3,6 @@ import { IngredientCategorySchema } from "recipe-domain";
 
 export const CanonicalIngredientSchema = z.object({
   slug: z.string().min(1),
-  name: z.string().min(1),
   category: IngredientCategorySchema,
 });
 
