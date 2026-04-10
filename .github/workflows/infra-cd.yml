@@ -45,7 +45,7 @@ jobs:
         run: mise run //infra/cloudflare:plan
 
       - name: Add Terraform Plan to Summary
-        uses: borchero/terraform-plan-comment@v2
+        uses: borchero/terraform-plan-comment@v3
         with:
           token: ${{ github.token }}
           planfile: .planfile
