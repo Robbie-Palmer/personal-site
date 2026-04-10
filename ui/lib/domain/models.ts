@@ -82,8 +82,8 @@ export type ADR = z.infer<typeof ADRSchema>;
 
 import { type ProjectStatus, ProjectStatusSchema } from "./project/project";
 
-export { ProjectStatusSchema };
 export type { ProjectStatus };
+export { ProjectStatusSchema };
 
 export const ProjectSchema = z.object({
   slug: ProjectSlugSchema,

@@ -117,13 +117,13 @@ function DrawerDescription({
 
 export {
   Drawer,
-  DrawerTrigger,
-  DrawerPortal,
   DrawerClose,
-  DrawerOverlay,
   DrawerContent,
-  DrawerHeader,
-  DrawerFooter,
-  DrawerTitle,
   DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerOverlay,
+  DrawerPortal,
+  DrawerTitle,
+  DrawerTrigger,
 };

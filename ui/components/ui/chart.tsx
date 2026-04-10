@@ -158,10 +158,10 @@ const ChartLegendContent = React.forwardRef<
 ChartLegendContent.displayName = "ChartLegendContent";
 
 export {
+  type ChartConfig,
   ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
-  type ChartConfig,
+  ChartTooltip,
+  ChartTooltipContent,
 };
