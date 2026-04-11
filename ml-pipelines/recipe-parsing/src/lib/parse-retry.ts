@@ -52,7 +52,7 @@ function isTransientProvider400Error(error: unknown): boolean {
   );
 }
 
-export function isRetryableInferError(error: unknown): boolean {
+export function isRetryableParseError(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
   }

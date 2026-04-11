@@ -1,24 +1,13 @@
 import { z } from "zod";
-import {
-  IngredientCategorySchema,
-  ParsedRecipeSchema,
-} from "recipe-domain";
+import { ParsedRecipeSchema } from "recipe-domain";
 
 export const RecipeSchema = ParsedRecipeSchema;
 export type Recipe = z.infer<typeof RecipeSchema>;
 
-export const GroundTruthIngredientSchema = z.object({
-  slug: z.string().min(1),
-  name: z.string().min(1),
-  category: IngredientCategorySchema.optional(),
-});
-
-export type GroundTruthIngredient = z.infer<typeof GroundTruthIngredientSchema>;
-
 export const GroundTruthEntrySchema = z.object({
   images: z.array(z.string().min(1)).min(1),
+  rawExpected: RecipeSchema.optional(),
   expected: RecipeSchema,
-  knownIngredients: z.array(GroundTruthIngredientSchema).optional(),
 });
 
 export type GroundTruthEntry = z.infer<typeof GroundTruthEntrySchema>;
@@ -32,7 +21,6 @@ export type GroundTruthDataset = z.infer<typeof GroundTruthDatasetSchema>;
 export const PredictionEntrySchema = z.object({
   images: z.array(z.string().min(1)).min(1),
   predicted: RecipeSchema,
-  predictedIngredients: z.array(GroundTruthIngredientSchema).optional(),
 });
 
 export type PredictionEntry = z.infer<typeof PredictionEntrySchema>;

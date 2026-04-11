@@ -10,44 +10,57 @@ stages:
     outs:
       - outputs/prepared.json
 
-  infer:
-    cmd: pnpm exec tsx src/stages/infer.ts
+  parse:
+    cmd: pnpm exec tsx src/stages/parse.ts
     deps:
       - outputs/prepared.json
       - data/recipe-images
-      - src/stages/infer.ts
-      - src/lib/infer-retry.ts
+      - src/stages/parse.ts
+      - src/lib/parse-retry.ts
       - src/lib/openrouter.ts
       - src/lib/images.ts
       - src/lib/env.ts
       - src/lib/image-key.ts
       - src/lib/recipe-output.ts
       - src/schemas/ground-truth.ts
-      - src/schemas/infer-failures.ts
+      - src/schemas/parse-failures.ts
       - src/lib/io.ts
     outs:
       - outputs/predictions.json
-      - outputs/infer-failures.json
+      - outputs/parse-failures.json
 
-  normalize:
-    cmd: pnpm exec tsx src/stages/normalize.ts
+  evaluate_extraction:
+    cmd: pnpm exec tsx src/stages/evaluate-extraction.ts
     deps:
+      - outputs/prepared.json
       - outputs/predictions.json
-      - src/stages/normalize.ts
-      - src/lib/ingredient-normalization.ts
+      - src/stages/evaluate-extraction.ts
+      - src/evaluation/metrics.ts
       - src/lib/image-key.ts
       - src/lib/io.ts
-      - src/schemas/ground-truth.ts
-      - outputs/prepared.json
     outs:
-      - outputs/predictions-normalized.json
-      - outputs/normalization-decisions.json
+      - outputs/extraction-metrics.json
+      - outputs/extraction-per-image-scores.json
+
+  canonicalize:
+    cmd: pnpm exec tsx src/stages/canonicalize.ts
+    deps:
+      - outputs/predictions.json
+      - data/canonical-ingredients.json
+      - src/stages/canonicalize.ts
+      - src/lib/ingredient-canonicalization.ts
+      - src/lib/io.ts
+      - src/schemas/ground-truth.ts
+      - src/schemas/canonical-ingredients.ts
+    outs:
+      - outputs/predictions-canonicalized.json
+      - outputs/canonicalization-decisions.json
 
   evaluate:
     cmd: pnpm exec tsx src/stages/evaluate.ts
     deps:
       - outputs/prepared.json
-      - outputs/predictions-normalized.json
+      - outputs/predictions-canonicalized.json
       - src/stages/evaluate.ts
       - src/evaluation/metrics.ts
       - src/lib/image-key.ts

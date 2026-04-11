@@ -8,9 +8,13 @@ import {
   type PredictionsDataset,
 } from "../schemas/ground-truth.js";
 import {
-  InferFailuresDatasetSchema,
-  type InferFailuresDataset,
-} from "../schemas/infer-failures.js";
+  ParseFailuresDatasetSchema,
+  type ParseFailuresDataset,
+} from "../schemas/parse-failures.js";
+import {
+  CanonicalIngredientsDataSchema,
+  type CanonicalIngredientsData,
+} from "../schemas/canonical-ingredients.js";
 
 const DATA_DIR = "data";
 const OUTPUTS_DIR = "outputs";
@@ -19,11 +23,14 @@ export const GROUND_TRUTH_PATH = join(DATA_DIR, "ground-truth.json");
 export const IMAGES_DIR = join(DATA_DIR, "recipe-images");
 export const PREPARED_PATH = join(OUTPUTS_DIR, "prepared.json");
 export const PREDICTIONS_PATH = join(OUTPUTS_DIR, "predictions.json");
-export const NORMALIZED_PREDICTIONS_PATH = join(OUTPUTS_DIR, "predictions-normalized.json");
-export const NORMALIZATION_DECISIONS_PATH = join(OUTPUTS_DIR, "normalization-decisions.json");
+export const CANONICALIZED_PREDICTIONS_PATH = join(OUTPUTS_DIR, "predictions-canonicalized.json");
+export const CANONICALIZATION_DECISIONS_PATH = join(OUTPUTS_DIR, "canonicalization-decisions.json");
+export const EXTRACTION_METRICS_PATH = join(OUTPUTS_DIR, "extraction-metrics.json");
+export const EXTRACTION_PER_IMAGE_SCORES_PATH = join(OUTPUTS_DIR, "extraction-per-image-scores.json");
 export const METRICS_PATH = join(OUTPUTS_DIR, "metrics.json");
 export const PER_IMAGE_SCORES_PATH = join(OUTPUTS_DIR, "per-image-scores.json");
-export const INFER_FAILURES_PATH = join(OUTPUTS_DIR, "infer-failures.json");
+export const PARSE_FAILURES_PATH = join(OUTPUTS_DIR, "parse-failures.json");
+export const CANONICAL_INGREDIENTS_PATH = join(DATA_DIR, "canonical-ingredients.json");
 
 export async function loadGroundTruth(): Promise<GroundTruthDataset> {
   const raw = JSON.parse(await readFile(GROUND_TRUTH_PATH, "utf-8"));
@@ -40,17 +47,22 @@ export async function loadPredictions(): Promise<PredictionsDataset> {
   return PredictionsDatasetSchema.parse(raw);
 }
 
-export async function loadNormalizedPredictions(): Promise<PredictionsDataset> {
-  const raw = JSON.parse(await readFile(NORMALIZED_PREDICTIONS_PATH, "utf-8"));
+export async function loadCanonicalizedPredictions(): Promise<PredictionsDataset> {
+  const raw = JSON.parse(await readFile(CANONICALIZED_PREDICTIONS_PATH, "utf-8"));
   return PredictionsDatasetSchema.parse(raw);
 }
 
-export async function loadInferFailures(): Promise<InferFailuresDataset> {
-  if (!existsSync(INFER_FAILURES_PATH)) {
+export async function loadParseFailures(): Promise<ParseFailuresDataset> {
+  if (!existsSync(PARSE_FAILURES_PATH)) {
     return { entries: [] };
   }
-  const raw = JSON.parse(await readFile(INFER_FAILURES_PATH, "utf-8"));
-  return InferFailuresDatasetSchema.parse(raw);
+  const raw = JSON.parse(await readFile(PARSE_FAILURES_PATH, "utf-8"));
+  return ParseFailuresDatasetSchema.parse(raw);
+}
+
+export async function loadCanonicalIngredients(): Promise<CanonicalIngredientsData> {
+  const raw = JSON.parse(await readFile(CANONICAL_INGREDIENTS_PATH, "utf-8"));
+  return CanonicalIngredientsDataSchema.parse(raw);
 }
 
 export async function listImageFiles(): Promise<string[]> {
