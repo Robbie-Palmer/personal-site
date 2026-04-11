@@ -91,6 +91,8 @@ export function Markdown({
         source={processedContent}
         components={mergedComponents}
         options={{
+          parseFrontmatter: true,
+          blockJS: false,
           mdxOptions: {
             remarkPlugins: [
               remarkGfm, // GitHub Flavored Markdown: tables, task lists, strikethrough, etc.
