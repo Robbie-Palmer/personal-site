@@ -351,9 +351,10 @@ export function canonicalizeIngredientSlug(params: {
 export function canonicalizeRecipeIngredients(
   recipe: Recipe,
   ontology: Set<string>,
+  ontologyIndex?: OntologyIndex,
 ): { recipe: Recipe; decisions: IngredientCanonicalizationDecision[] } {
   const decisions: IngredientCanonicalizationDecision[] = [];
-  const ontologyIndex = buildOntologyIndex(ontology);
+  const index = ontologyIndex ?? buildOntologyIndex(ontology);
 
   const canonicalizedRecipe: Recipe = {
     ...recipe,
@@ -363,7 +364,7 @@ export function canonicalizeRecipeIngredients(
         const decision = canonicalizeIngredientSlug({
           rawSlug: item.ingredient,
           ontology,
-          ontologyIndex,
+          ontologyIndex: index,
         });
         decisions.push(decision);
         return {
@@ -392,8 +393,9 @@ function normalizeCuisineLabel(cuisine: string | undefined): string | undefined 
 export function canonicalizePredictionEntry(
   entry: PredictionEntry,
   ontology: Set<string>,
+  ontologyIndex?: OntologyIndex,
 ): { entry: PredictionEntry; decisions: IngredientCanonicalizationDecision[] } {
-  const canonicalized = canonicalizeRecipeIngredients(entry.predicted, ontology);
+  const canonicalized = canonicalizeRecipeIngredients(entry.predicted, ontology, ontologyIndex);
   return {
     entry: {
       ...entry,

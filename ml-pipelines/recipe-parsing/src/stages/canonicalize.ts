@@ -5,7 +5,10 @@ import {
   CANONICALIZED_PREDICTIONS_PATH,
   writeJson,
 } from "../lib/io.js";
-import { canonicalizePredictionEntry } from "../lib/ingredient-canonicalization.js";
+import {
+  canonicalizePredictionEntry,
+  buildOntologyIndex
+} from "../lib/ingredient-canonicalization.js";
 
 async function main() {
   console.log("Loading predictions and canonical ingredients...");
@@ -23,6 +26,8 @@ async function main() {
   }
   console.log(`Canonical ingredient registry: ${ontology.size} ingredients`);
 
+  const ontologyIndex = buildOntologyIndex(ontology);
+
   const canonicalized = {
     entries: [] as typeof predictions.entries,
   };
@@ -34,7 +39,7 @@ async function main() {
   };
 
   for (const entry of predictions.entries) {
-    const result = canonicalizePredictionEntry(entry, ontology);
+    const result = canonicalizePredictionEntry(entry, ontology, ontologyIndex);
     canonicalized.entries.push(result.entry);
     decisions.entries.push({
       images: entry.images,

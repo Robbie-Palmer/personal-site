@@ -7,6 +7,11 @@ import {
 } from "../lib/io";
 import { aggregateMetrics } from "../evaluation/metrics";
 import { imageSetKey } from "../lib/image-key.js";
+import type { GroundTruthEntry, Recipe } from "../schemas/ground-truth.js";
+
+function hasRawExpected(entry: GroundTruthEntry): entry is GroundTruthEntry & { rawExpected: Recipe } {
+  return entry.rawExpected !== undefined;
+}
 
 async function main() {
   console.log("Loading prepared data and raw predictions...");
@@ -16,9 +21,7 @@ async function main() {
     loadPredictions(),
   ]);
 
-  const entriesWithRawExpected = prepared.entries.filter(
-    (entry) => entry.rawExpected !== undefined,
-  );
+  const entriesWithRawExpected = prepared.entries.filter(hasRawExpected);
 
   if (entriesWithRawExpected.length === 0) {
     console.log(
@@ -48,7 +51,7 @@ async function main() {
 
   const groundTruthForEval = entriesWithRawExpected.map((entry) => ({
     ...entry,
-    expected: entry.rawExpected!,
+    expected: entry.rawExpected,
   }));
 
   console.log(
