@@ -44,8 +44,8 @@ const experienceContentMock = vi.hoisted(() => ({
   }>,
 }));
 
-vi.mock("fs", () => fsMock);
-vi.mock("path", () => pathMock);
+vi.mock("node:fs", () => fsMock);
+vi.mock("node:path", () => pathMock);
 vi.mock("@/content/experience", () => experienceContentMock);
 
 // Import after mocks are hoisted
