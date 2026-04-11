@@ -125,8 +125,8 @@ async function main() {
                 imageCounts.length
               ).toFixed(2),
             ),
-      maxPerRecipe: imageCounts.length === 0 ? 0 : Math.max(...imageCounts),
-      minPerRecipe: imageCounts.length === 0 ? 0 : Math.min(...imageCounts),
+      maxPerRecipe: imageCounts.reduce((max, c) => (c > max ? c : max), 0),
+      minPerRecipe: imageCounts.length === 0 ? 0 : imageCounts.reduce((min, c) => (c < min ? c : min)),
     },
     cuisines: {
       distinctCount: cuisineCounts.size,
