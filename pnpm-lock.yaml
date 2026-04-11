@@ -239,8 +239,8 @@ importers:
         specifier: ^3.0.2
         version: 3.0.2(graphology-types@0.24.8)
       simple-icons:
-        specifier: ^15.18.0
-        version: 15.22.0
+        specifier: ^16.0.0
+        version: 16.15.0
       strip-markdown:
         specifier: ^6.0.0
         version: 6.0.0
@@ -5474,8 +5474,8 @@ packages:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
 
-  simple-icons@15.22.0:
-    resolution: {integrity: sha512-i/w5Ie4tENfGYbdCo2iJ+oies0vOFd8QXWHopKOUzudfLCvnmeheF2PpHp89Z2azpc+c2su3lMiWO/SpP+429A==}
+  simple-icons@16.15.0:
+    resolution: {integrity: sha512-hOyY4Cdvh1D/FJa1Qx4nTvypCT2BoI3jpc4xjxVgwVh1Hmd9mnqBqBTziDytCj2f5UOAXCfdnwODiNv710aqkQ==}
     engines: {node: '>=0.12.18'}
 
   slash@3.0.0:
@@ -12003,7 +12003,7 @@ snapshots:
 
   signal-exit@4.1.0: {}
 
-  simple-icons@15.22.0: {}
+  simple-icons@16.15.0: {}
 
   slash@3.0.0: {}
 

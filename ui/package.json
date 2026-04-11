@@ -68,7 +68,7 @@
     "remark-mdx": "^3.1.1",
     "shiki": "^3.14.0",
     "sigma": "^3.0.2",
-    "simple-icons": "^15.18.0",
+    "simple-icons": "^16.0.0",
     "strip-markdown": "^6.0.0",
     "tailwind-merge": "^3.3.1",
     "unist-util-visit": "^5.0.0",
