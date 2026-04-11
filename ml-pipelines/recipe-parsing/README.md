@@ -68,7 +68,19 @@ Outputs:
 - `outputs/extraction-metrics.json`: aggregate extraction quality metrics
 - `outputs/extraction-per-image-scores.json`: per-entry extraction scores
 
-### 3. Canonicalize
+### 3. Dataset Stats
+
+`dataset_stats` summarizes the prepared dataset for reporting through DVC
+metrics and plots.
+
+Outputs:
+
+- `outputs/dataset-stats.json`: headline dataset counts and top categories
+- `outputs/images-per-recipe-histogram.json`: plot data for recipe frequency by image count
+- `outputs/cuisine-distribution.json`: plot data for cuisine frequency
+- `outputs/top-ingredients.json`: plot data for most common ingredients
+
+### 4. Canonicalize
 
 `canonicalize` maps parsed ingredient slugs to the canonical ingredient registry
 in `data/canonical-ingredients.json`.
@@ -78,7 +90,7 @@ Outputs:
 - `outputs/predictions-canonicalized.json`: predictions with canonical ingredient slugs
 - `outputs/canonicalization-decisions.json`: per-ingredient canonicalization decisions
 
-### 4. Evaluate
+### 5. Evaluate
 
 `evaluate` compares canonicalized predictions against `expected` (canonical)
 ground truth. This is the end-to-end metric.
@@ -87,6 +99,7 @@ Outputs:
 
 - `outputs/metrics.json`: aggregate end-to-end metrics
 - `outputs/per-image-scores.json`: per-entry end-to-end scores
+- `outputs/per-entry-score-plot.json`: flat plot data for DVC score charts
 
 ## Running the Pipeline
 
@@ -95,7 +108,7 @@ Prefer DVC orchestration over manually chaining every script.
 Run the core pipeline end-to-end:
 
 ```bash
-dvc repro prepare parse evaluate_extraction canonicalize evaluate
+dvc repro prepare dataset_stats parse evaluate_extraction canonicalize evaluate
 ```
 
 Run an individual stage:
