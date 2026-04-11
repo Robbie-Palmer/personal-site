@@ -146,8 +146,7 @@ async function main() {
   await Promise.all([
     writeJson(DATASET_STATS_PATH, stats),
     writeJson(IMAGES_PER_RECIPE_HISTOGRAM_PATH, imageCountHistogram),
-    writeJson(CUISINE_DISTRIBUTION_PLOT_PATH, cuisineDistribution),
-    writeJson(TOP_INGREDIENTS_PLOT_PATH, topIngredients),
+    writeJson(CUISINE_DISTRIBUTION_PLOT_PATH, cuisineDistribution.slice(0, 20)),
   ]);
 
   console.log(`\nDataset stats (${stats.recipes.count} recipes):`);
