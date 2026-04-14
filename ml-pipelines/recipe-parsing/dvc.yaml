@@ -10,6 +10,39 @@ stages:
     outs:
       - outputs/prepared.json
 
+  dataset_stats:
+    cmd: pnpm exec tsx src/stages/dataset-stats.ts
+    deps:
+      - outputs/prepared.json
+      - data/recipe-images
+      - src/stages/dataset-stats.ts
+      - src/schemas/ground-truth.ts
+      - src/lib/io.ts
+    metrics:
+      - outputs/dataset-stats.json
+    plots:
+      - outputs/images-per-recipe-histogram.json:
+          template: bar_horizontal_sorted
+          x: recipe_count
+          y: image_count
+          title: Recipes by image count
+          x_label: Recipes
+          y_label: Images per recipe
+      - outputs/cuisine-distribution.json:
+          template: bar_horizontal_sorted
+          x: count
+          y: cuisine
+          title: Cuisine distribution
+          x_label: Recipes
+          y_label: Cuisine
+      - outputs/top-ingredients.json:
+          template: bar_horizontal_sorted
+          x: count
+          y: ingredient
+          title: Top ingredients
+          x_label: Mentions
+          y_label: Ingredient
+
   parse:
     cmd: pnpm exec tsx src/stages/parse.ts
     deps:
@@ -68,4 +101,10 @@ stages:
     metrics:
       - outputs/metrics.json
     plots:
-      - outputs/per-image-scores.json
+      - outputs/per-entry-score-plot.json:
+          template: bar_horizontal_sorted
+          x: overall_score
+          y: recipe_title
+          title: Overall score by entry
+          x_label: Overall score
+          y_label: Entry
