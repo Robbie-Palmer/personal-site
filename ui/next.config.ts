@@ -3,6 +3,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 
+type WebpackCompiler = {
+  outputPath: string;
+  hooks: {
+    afterEmit: {
+      tap: (pluginName: string, callback: () => void) => void;
+    };
+  };
+};
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
@@ -25,9 +34,9 @@ const nextConfig: NextConfig = {
     if (isServer) {
       config.plugins = config.plugins ?? [];
       config.plugins.push({
-        apply(compiler: any) {
+        apply(compiler: WebpackCompiler) {
           compiler.hooks.afterEmit.tap("CooklangServerWasmPathPlugin", () => {
-            const outputPath = compiler.outputPath as string;
+            const outputPath = compiler.outputPath;
             const sourceDir = path.join(outputPath, "chunks/static/wasm");
             const targetDir = path.join(outputPath, "static/wasm");
             const staticExportWasmDir = path.join(
