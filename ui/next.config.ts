@@ -45,10 +45,7 @@ const nextConfig: NextConfig = {
             for (const filename of fs.readdirSync(sourceDir)) {
               if (filename.endsWith(".wasm")) {
                 const sourceFile = path.join(sourceDir, filename);
-                fs.copyFileSync(
-                  sourceFile,
-                  path.join(targetDir, filename),
-                );
+                fs.copyFileSync(sourceFile, path.join(targetDir, filename));
                 fs.copyFileSync(
                   sourceFile,
                   path.join(staticExportWasmDir, filename),

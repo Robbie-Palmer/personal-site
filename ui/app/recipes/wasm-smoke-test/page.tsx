@@ -37,7 +37,9 @@ export default function RecipeWasmSmokeTestPage() {
       );
     } catch (caughtError) {
       const message =
-        caughtError instanceof Error ? caughtError.message : String(caughtError);
+        caughtError instanceof Error
+          ? caughtError.message
+          : String(caughtError);
       setError(message);
     } finally {
       setIsParsing(false);
