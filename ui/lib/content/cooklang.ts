@@ -175,6 +175,7 @@ export function parseCookFile(
 
   return RecipeContentSchema.parse({
     slug: slug,
+    cookBody: body,
     title: fm.title,
     description: fm.description,
     date: fm.date,
