@@ -29,6 +29,7 @@ function makeRecipe(overrides: Partial<Recipe> & { slug: string }): Recipe {
     title: overrides.slug,
     description: "Test recipe",
     date: "2024-01-01",
+    cookBody: ">> chicken breast\nStep 1",
     tags: [],
     servings: 4,
     ingredientGroups: [
