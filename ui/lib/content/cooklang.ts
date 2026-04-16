@@ -126,6 +126,15 @@ export function parseCookFile(
   let currentGroup: GroupAccumulator = { name: undefined, items: [] };
   const groups: GroupAccumulator[] = [currentGroup];
   const instructions: string[] = [];
+  const ingredientNames = ingredients.map((ingredient) => ingredient.name);
+  const timerDisplayValues = timers.map((timer) => {
+    const qty = getQuantityValue(timer.quantity);
+    const unit = getQuantityUnit(timer.quantity);
+    return [qty !== null ? String(qty) : null, unit]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+  });
 
   for (const section of sections) {
     // Cooklang `== Name ==` sections map to ingredient groups
@@ -188,6 +197,11 @@ export function parseCookFile(
     imageAlt: fm.imageAlt,
     ingredientGroups,
     instructions,
+    instructionSdk: {
+      sections,
+      ingredientNames,
+      timerDisplayValues,
+    },
   });
 }
 

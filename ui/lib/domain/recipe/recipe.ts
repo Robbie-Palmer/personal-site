@@ -4,6 +4,11 @@ export type {
   Recipe,
   RecipeContent,
   RecipeIngredient,
+  RecipeInstructionItem,
+  RecipeInstructionSdk,
+  RecipeInstructionSection,
+  RecipeInstructionSectionContent,
+  RecipeInstructionStep,
   RecipeSlug,
 } from "recipe-domain";
 export {
@@ -11,5 +16,10 @@ export {
   ParsedRecipeSchema,
   RecipeContentSchema,
   RecipeIngredientSchema,
+  RecipeInstructionItemSchema,
+  RecipeInstructionSdkSchema,
+  RecipeInstructionSectionContentSchema,
+  RecipeInstructionSectionSchema,
+  RecipeInstructionStepSchema,
   RecipeSlugSchema,
 } from "recipe-domain";
