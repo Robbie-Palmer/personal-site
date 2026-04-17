@@ -1,5 +1,10 @@
 import type { Ingredient, IngredientSlug } from "./ingredient";
-import type { IngredientGroup, Recipe, RecipeIngredient } from "./recipe";
+import type {
+  IngredientGroup,
+  Recipe,
+  RecipeIngredient,
+  RecipeInstructionSdk,
+} from "./recipe";
 import type { RecipeRepository } from "./recipeRepository";
 import type { Unit } from "./unit";
 
@@ -41,6 +46,7 @@ export type RecipeDetailView = BaseRecipeView & {
   cookBody: string;
   ingredientGroups: IngredientGroupView[];
   instructions: string[];
+  instructionSdk?: RecipeInstructionSdk;
 };
 
 function toIngredientView(
@@ -124,5 +130,6 @@ export function toRecipeDetailView(
       toIngredientGroupView(group, repository.ingredients),
     ),
     instructions: recipe.instructions,
+    instructionSdk: recipe.instructionSdk,
   };
 }

@@ -1,10 +1,11 @@
 "use client";
 
 import { Clock, Minus, Plus, Timer, Users } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatIngredientName } from "@/lib/domain/recipe/ingredientText";
+import { tokenizeInstructionSdk } from "@/lib/domain/recipe/instructionTokens";
 import type {
   IngredientGroupView,
   RecipeDetailView,
@@ -176,6 +177,27 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
     [recipe.ingredientGroups],
   );
 
+  const instructionTokenization = useMemo(
+    () =>
+      recipe.instructionSdk
+        ? tokenizeInstructionSdk(recipe.instructionSdk)
+        : null,
+    [recipe.instructionSdk],
+  );
+  const shouldUseSdkInstructions = instructionTokenization?.ok === true;
+
+  useEffect(() => {
+    if (
+      process.env.NODE_ENV !== "production" &&
+      recipe.instructionSdk &&
+      instructionTokenization?.ok === false
+    ) {
+      console.debug(
+        `[RecipeContent] Falling back to canonical instructions for "${recipe.slug}": ${instructionTokenization.reason}`,
+      );
+    }
+  }, [recipe.instructionSdk, recipe.slug, instructionTokenization]);
+
   return (
     <>
       <header className="mb-8">
@@ -254,11 +276,19 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
       <section>
         <h2 className="text-2xl font-bold mb-4">Instructions</h2>
         <ol className="space-y-3 list-decimal list-inside">
-          {recipe.instructions.map((step, i) => (
-            <li key={i} className="leading-relaxed pl-2">
-              {step}
-            </li>
-          ))}
+          {shouldUseSdkInstructions
+            ? instructionTokenization.steps.map((tokens, i) => (
+                <li key={i} className="leading-relaxed pl-2">
+                  {tokens.map((token, tokenIndex) => (
+                    <span key={tokenIndex}>{token.value}</span>
+                  ))}
+                </li>
+              ))
+            : recipe.instructions.map((step, i) => (
+                <li key={i} className="leading-relaxed pl-2">
+                  {step}
+                </li>
+              ))}
         </ol>
       </section>
     </>

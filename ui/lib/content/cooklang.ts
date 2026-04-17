@@ -72,6 +72,15 @@ function isIngredientOnlyStep(step: Step): boolean {
   return hasIngredient;
 }
 
+function formatTimerDisplay(timer: Timer): string {
+  const qty = resolveQuantityValue(timer.quantity);
+  const unit = getQuantityUnit(timer.quantity);
+  return [qty !== undefined ? String(qty) : null, unit]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+}
+
 function stepToText(
   step: Step,
   ingredients: Ingredient[],
@@ -84,15 +93,8 @@ function stepToText(
           return item.value;
         case "ingredient":
           return ingredients[item.index]!.name;
-        case "timer": {
-          const timer = timers[item.index]!;
-          const qty = getQuantityValue(timer.quantity);
-          const unit = getQuantityUnit(timer.quantity);
-          return [qty !== null ? String(qty) : null, unit]
-            .filter(Boolean)
-            .join(" ")
-            .trim();
-        }
+        case "timer":
+          return formatTimerDisplay(timers[item.index]!);
         default:
           return "";
       }
@@ -126,6 +128,8 @@ export function parseCookFile(
   let currentGroup: GroupAccumulator = { name: undefined, items: [] };
   const groups: GroupAccumulator[] = [currentGroup];
   const instructions: string[] = [];
+  const ingredientNames = ingredients.map((ingredient) => ingredient.name);
+  const timerDisplayValues = timers.map(formatTimerDisplay);
 
   for (const section of sections) {
     // Cooklang `== Name ==` sections map to ingredient groups
@@ -188,6 +192,16 @@ export function parseCookFile(
     imageAlt: fm.imageAlt,
     ingredientGroups,
     instructions,
+    instructionSdk: {
+      sections: sections.map((s) => ({
+        ...s,
+        content: s.content.filter(
+          (c) => c.type !== "step" || !isIngredientOnlyStep(c.value),
+        ),
+      })),
+      ingredientNames,
+      timerDisplayValues,
+    },
   });
 }
 

@@ -22,6 +22,55 @@ export const IngredientGroupSchema = z.object({
 
 export type IngredientGroup = z.infer<typeof IngredientGroupSchema>;
 
+export const RecipeInstructionItemSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("text"), value: z.string() }),
+  z.object({ type: z.literal("ingredient"), index: z.number().int().nonnegative() }),
+  z.object({ type: z.literal("timer"), index: z.number().int().nonnegative() }),
+  z.object({ type: z.literal("cookware"), index: z.number().int().nonnegative() }),
+  z.object({
+    type: z.literal("inlineQuantity"),
+    index: z.number().int().nonnegative(),
+  }),
+]);
+
+export type RecipeInstructionItem = z.infer<typeof RecipeInstructionItemSchema>;
+
+export const RecipeInstructionStepSchema = z.object({
+  number: z.number().int().positive().optional(),
+  items: z.array(RecipeInstructionItemSchema),
+});
+
+export type RecipeInstructionStep = z.infer<typeof RecipeInstructionStepSchema>;
+
+export const RecipeInstructionSectionContentSchema = z.discriminatedUnion(
+  "type",
+  [
+    z.object({ type: z.literal("text"), value: z.string() }),
+    z.object({ type: z.literal("step"), value: RecipeInstructionStepSchema }),
+  ],
+);
+
+export type RecipeInstructionSectionContent = z.infer<
+  typeof RecipeInstructionSectionContentSchema
+>;
+
+export const RecipeInstructionSectionSchema = z.object({
+  name: z.string().nullable(),
+  content: z.array(RecipeInstructionSectionContentSchema),
+});
+
+export type RecipeInstructionSection = z.infer<
+  typeof RecipeInstructionSectionSchema
+>;
+
+export const RecipeInstructionSdkSchema = z.object({
+  sections: z.array(RecipeInstructionSectionSchema),
+  ingredientNames: z.array(z.string()),
+  timerDisplayValues: z.array(z.string()),
+});
+
+export type RecipeInstructionSdk = z.infer<typeof RecipeInstructionSdkSchema>;
+
 export const ParsedRecipeSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
@@ -38,6 +87,7 @@ export type ParsedRecipe = z.infer<typeof ParsedRecipeSchema>;
 export const RecipeContentSchema = ParsedRecipeSchema.extend({
   slug: RecipeSlugSchema.optional(),
   cookBody: z.string().min(1),
+  instructionSdk: RecipeInstructionSdkSchema.optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   tags: z.array(z.string()).default([]),
   image: z
