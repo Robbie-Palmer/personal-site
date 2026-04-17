@@ -11,6 +11,7 @@
       "app/**",
       "components/**",
       "content/**",
+      "hooks/**",
       "lib/**",
       "tests/**",
       "*.ts",
