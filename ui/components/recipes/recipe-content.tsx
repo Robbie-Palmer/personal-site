@@ -1,7 +1,7 @@
 "use client";
 
 import { Clock, Minus, Plus, Timer, Users } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatIngredientName } from "@/lib/domain/recipe/ingredientText";
@@ -11,6 +11,53 @@ import type {
   RecipeIngredientView,
 } from "@/lib/domain/recipe/recipeViews";
 import { UNIT_LABELS } from "@/lib/domain/recipe/unit";
+import { normalizeSlug } from "@/lib/generic/slugs";
+
+type IngredientAnnotation = Pick<RecipeIngredientView, "preparation" | "note">;
+
+function buildIngredientAnnotationMap(
+  ingredientGroups: IngredientGroupView[],
+): Map<string, IngredientAnnotation> {
+  const annotations = new Map<string, IngredientAnnotation>();
+
+  for (const group of ingredientGroups) {
+    for (const item of group.items) {
+      const annotation = {
+        preparation: item.preparation,
+        note: item.note,
+      };
+      annotations.set(item.ingredient, annotation);
+      const normalized = normalizeSlug(item.name);
+      if (normalized && normalized !== item.ingredient) {
+        annotations.set(normalized, annotation);
+      }
+    }
+  }
+
+  return annotations;
+}
+
+function hasAnnotation(a: IngredientAnnotation): boolean {
+  return a.preparation != null || a.note != null;
+}
+
+function resolveIngredientAnnotation(
+  item: RecipeIngredientView,
+  annotations: Map<string, IngredientAnnotation>,
+): IngredientAnnotation {
+  const fromIngredientSlug = annotations.get(item.ingredient);
+  if (fromIngredientSlug && hasAnnotation(fromIngredientSlug)) {
+    return fromIngredientSlug;
+  }
+
+  const parsedNameSlug = normalizeSlug(item.name);
+  const fromParsedName = annotations.get(parsedNameSlug);
+  if (fromParsedName && hasAnnotation(fromParsedName)) {
+    return fromParsedName;
+  }
+
+  return {};
+}
 
 function formatScaled(value: number): string {
   return parseFloat(value.toPrecision(2)).toString();
@@ -45,7 +92,11 @@ function formatAmount(item: RecipeIngredientView, scale: number): string {
   return parts.join(" ");
 }
 
-function formatIngredient(item: RecipeIngredientView, scale: number): string {
+function formatIngredient(
+  item: RecipeIngredientView,
+  scale: number,
+  annotation?: IngredientAnnotation,
+): string {
   const isPiece = item.unit === "piece";
   const amount = isPiece
     ? item.amount != null
@@ -63,12 +114,15 @@ function formatIngredient(item: RecipeIngredientView, scale: number): string {
 
   parts.push(formatIngredientName(item, scale));
 
-  if (item.preparation) {
-    parts.push(`(${item.preparation})`);
+  const effectivePreparation = item.preparation ?? annotation?.preparation;
+  const effectiveNote = item.note ?? annotation?.note;
+
+  if (effectivePreparation) {
+    parts.push(`(${effectivePreparation})`);
   }
 
-  if (item.note) {
-    parts.push(`\u2013 ${item.note}`);
+  if (effectiveNote) {
+    parts.push(`\u2013 ${effectiveNote}`);
   }
 
   return parts.join(" ");
@@ -84,9 +138,11 @@ function formatTime(minutes: number): string {
 function IngredientGroup({
   group,
   scale,
+  annotations,
 }: {
   group: IngredientGroupView;
   scale: number;
+  annotations: Map<string, IngredientAnnotation>;
 }) {
   return (
     <div>
@@ -97,7 +153,13 @@ function IngredientGroup({
         {group.items.map((item) => (
           <li key={item.ingredient} className="flex items-start gap-2">
             <span className="text-muted-foreground mt-1.5 h-1.5 w-1.5 rounded-full bg-current flex-shrink-0" />
-            <span>{formatIngredient(item, scale)}</span>
+            <span>
+              {formatIngredient(
+                item,
+                scale,
+                resolveIngredientAnnotation(item, annotations),
+              )}
+            </span>
           </li>
         ))}
       </ul>
@@ -109,6 +171,10 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
   const baseServings = Math.max(1, recipe.servings);
   const [portions, setPortions] = useState(baseServings);
   const scale = portions / baseServings;
+  const ingredientAnnotations = useMemo(
+    () => buildIngredientAnnotationMap(recipe.ingredientGroups),
+    [recipe.ingredientGroups],
+  );
 
   return (
     <>
@@ -179,6 +245,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
               key={group.name ?? i}
               group={group}
               scale={scale}
+              annotations={ingredientAnnotations}
             />
           ))}
         </div>
