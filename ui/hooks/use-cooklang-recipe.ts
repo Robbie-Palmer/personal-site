@@ -12,6 +12,7 @@ export interface UseCooklangRecipeState {
 }
 
 let parserPromise: Promise<Parser> | null = null;
+const MAX_PARSE_CACHE_SIZE = 50;
 const parsePromiseCache = new Map<string, Promise<ParsedRecipe>>();
 
 function getCacheKey(cookBody: string, scale?: number): string {
@@ -58,6 +59,9 @@ function getMemoizedParsePromise(
   })();
 
   parsePromiseCache.set(cacheKey, parsePromise);
+  if (parsePromiseCache.size > MAX_PARSE_CACHE_SIZE) {
+    parsePromiseCache.delete(parsePromiseCache.keys().next().value!);
+  }
   return parsePromise;
 }
 
@@ -78,7 +82,7 @@ export function useCooklangRecipe(
     }
 
     let isActive = true;
-    setState({ recipe: null, loading: true, error: null });
+    setState((prev) => ({ ...prev, loading: true, error: null }));
 
     (async () => {
       try {
