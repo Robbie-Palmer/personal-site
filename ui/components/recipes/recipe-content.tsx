@@ -1,7 +1,7 @@
 "use client";
 
 import { Clock, Minus, Plus, Timer, Users } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatIngredientName } from "@/lib/domain/recipe/ingredientText";
@@ -32,22 +32,25 @@ function buildIngredientAnnotationMap(
   return annotations;
 }
 
+function hasAnnotation(a: IngredientAnnotation): boolean {
+  return a.preparation != null || a.note != null;
+}
+
 function resolveIngredientAnnotation(
   item: RecipeIngredientView,
   annotations: Map<string, IngredientAnnotation>,
 ): IngredientAnnotation {
   const fromIngredientSlug = annotations.get(item.ingredient);
-  if (fromIngredientSlug) {
+  if (fromIngredientSlug && hasAnnotation(fromIngredientSlug)) {
     return fromIngredientSlug;
   }
 
   const parsedNameSlug = normalizeSlug(item.name);
   const fromParsedName = annotations.get(parsedNameSlug);
-  if (fromParsedName) {
+  if (fromParsedName && hasAnnotation(fromParsedName)) {
     return fromParsedName;
   }
 
-  // Deterministic fallback: no matching annotation means plain ingredient text.
   return {};
 }
 
@@ -106,12 +109,15 @@ function formatIngredient(
 
   parts.push(formatIngredientName(item, scale));
 
-  if (annotation?.preparation) {
-    parts.push(`(${annotation.preparation})`);
+  const effectivePreparation = item.preparation ?? annotation?.preparation;
+  const effectiveNote = item.note ?? annotation?.note;
+
+  if (effectivePreparation) {
+    parts.push(`(${effectivePreparation})`);
   }
 
-  if (annotation?.note) {
-    parts.push(`\u2013 ${annotation.note}`);
+  if (effectiveNote) {
+    parts.push(`\u2013 ${effectiveNote}`);
   }
 
   return parts.join(" ");
@@ -160,8 +166,9 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
   const baseServings = Math.max(1, recipe.servings);
   const [portions, setPortions] = useState(baseServings);
   const scale = portions / baseServings;
-  const ingredientAnnotations = buildIngredientAnnotationMap(
-    recipe.ingredientGroups,
+  const ingredientAnnotations = useMemo(
+    () => buildIngredientAnnotationMap(recipe.ingredientGroups),
+    [recipe.ingredientGroups],
   );
 
   return (
