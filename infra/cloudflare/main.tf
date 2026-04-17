@@ -7,6 +7,7 @@ locals {
     NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH = var.cf_images_account_hash
     NEXT_PUBLIC_POSTHOG_KEY            = var.posthog_key
     NEXT_PUBLIC_POSTHOG_HOST           = var.posthog_host
+    GITHUB_TOKEN                       = var.github_token
   }
 }
 
