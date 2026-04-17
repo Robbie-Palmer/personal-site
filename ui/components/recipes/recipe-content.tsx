@@ -1,7 +1,7 @@
 "use client";
 
 import { Clock, Minus, Plus, Timer, Users } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatIngredientName } from "@/lib/domain/recipe/ingredientText";
@@ -182,15 +182,17 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
     : null;
   const shouldUseSdkInstructions = instructionTokenization?.ok === true;
 
-  if (
-    process.env.NODE_ENV !== "production" &&
-    recipe.instructionSdk &&
-    instructionTokenization?.ok === false
-  ) {
-    console.debug(
-      `[RecipeContent] Falling back to canonical instructions for "${recipe.slug}": ${instructionTokenization.reason}`,
-    );
-  }
+  useEffect(() => {
+    if (
+      process.env.NODE_ENV !== "production" &&
+      recipe.instructionSdk &&
+      instructionTokenization?.ok === false
+    ) {
+      console.debug(
+        `[RecipeContent] Falling back to canonical instructions for "${recipe.slug}": ${instructionTokenization.reason}`,
+      );
+    }
+  }, [recipe.instructionSdk, recipe.slug, instructionTokenization]);
 
   return (
     <>

@@ -45,7 +45,7 @@ export function tokenizeInstructionSdk(
             instructionSdk.ingredientNames,
             item.index,
           );
-          if (!ingredient) {
+          if (ingredient === null) {
             return {
               ok: false,
               reason: `Malformed ingredient item index: ${item.index}`,
@@ -60,7 +60,7 @@ export function tokenizeInstructionSdk(
             instructionSdk.timerDisplayValues,
             item.index,
           );
-          if (!timer) {
+          if (timer === null) {
             return {
               ok: false,
               reason: `Malformed timer item index: ${item.index}`,
