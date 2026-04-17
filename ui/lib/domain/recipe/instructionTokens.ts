@@ -76,11 +76,29 @@ export function tokenizeInstructionSdk(
         };
       }
 
-      const rendered = tokens
-        .map((token) => token.value)
-        .join("")
-        .trim();
-      if (rendered.length === 0) {
+      // Trim leading/trailing whitespace from boundary text tokens
+      // to match the canonical stepToText output
+      let first = tokens[0];
+      while (first?.type === "text" && first.value.trimStart() === "") {
+        tokens.shift();
+        first = tokens[0];
+      }
+      if (first?.type === "text") {
+        tokens[0] = { type: "text", value: first.value.trimStart() };
+      }
+      let last = tokens[tokens.length - 1];
+      while (last?.type === "text" && last.value.trimEnd() === "") {
+        tokens.pop();
+        last = tokens[tokens.length - 1];
+      }
+      if (last?.type === "text") {
+        tokens[tokens.length - 1] = {
+          type: "text",
+          value: last.value.trimEnd(),
+        };
+      }
+
+      if (tokens.length === 0) {
         continue;
       }
 

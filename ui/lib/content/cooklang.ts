@@ -73,9 +73,9 @@ function isIngredientOnlyStep(step: Step): boolean {
 }
 
 function formatTimerDisplay(timer: Timer): string {
-  const qty = getQuantityValue(timer.quantity);
+  const qty = resolveQuantityValue(timer.quantity);
   const unit = getQuantityUnit(timer.quantity);
-  return [qty !== null ? String(qty) : null, unit]
+  return [qty !== undefined ? String(qty) : null, unit]
     .filter(Boolean)
     .join(" ")
     .trim();

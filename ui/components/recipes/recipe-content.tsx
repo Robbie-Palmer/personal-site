@@ -177,9 +177,13 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
     [recipe.ingredientGroups],
   );
 
-  const instructionTokenization = recipe.instructionSdk
-    ? tokenizeInstructionSdk(recipe.instructionSdk)
-    : null;
+  const instructionTokenization = useMemo(
+    () =>
+      recipe.instructionSdk
+        ? tokenizeInstructionSdk(recipe.instructionSdk)
+        : null,
+    [recipe.instructionSdk],
+  );
   const shouldUseSdkInstructions = instructionTokenization?.ok === true;
 
   useEffect(() => {
