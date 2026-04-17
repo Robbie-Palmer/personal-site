@@ -80,7 +80,6 @@ export const ParsedRecipeSchema = z.object({
   cookTime: z.number().int().nonnegative().optional(),
   ingredientGroups: z.array(IngredientGroupSchema).min(1),
   instructions: z.array(z.string().min(1)).min(1),
-  instructionSdk: RecipeInstructionSdkSchema.optional(),
 });
 
 export type ParsedRecipe = z.infer<typeof ParsedRecipeSchema>;
@@ -88,6 +87,7 @@ export type ParsedRecipe = z.infer<typeof ParsedRecipeSchema>;
 export const RecipeContentSchema = ParsedRecipeSchema.extend({
   slug: RecipeSlugSchema.optional(),
   cookBody: z.string().min(1),
+  instructionSdk: RecipeInstructionSdkSchema.optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   tags: z.array(z.string()).default([]),
   image: z
