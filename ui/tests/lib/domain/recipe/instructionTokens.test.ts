@@ -7,6 +7,8 @@ function makeSdk(
 ): RecipeInstructionSdk {
   return {
     ingredientNames: ["onion"],
+    ingredientDisplayValues: ["red onion"],
+    cookwareDisplayValues: ["oven"],
     timerDisplayValues: ["10 min"],
     sections: [
       {
@@ -40,15 +42,19 @@ describe("tokenizeInstructionSdk", () => {
       expect(result.steps).toEqual([
         [
           { type: "text", value: "Cook " },
-          { type: "text", value: "onion" },
+          {
+            type: "ingredient",
+            value: "red onion",
+            canonicalName: "onion",
+          },
           { type: "text", value: " for " },
-          { type: "text", value: "10 min" },
+          { type: "timer", value: "10 min" },
         ],
       ]);
     }
   });
 
-  it("fails for unknown item types so caller can fallback", () => {
+  it("tokenizes cookware step items", () => {
     const sdk = makeSdk({
       sections: [
         {
@@ -58,7 +64,10 @@ describe("tokenizeInstructionSdk", () => {
               type: "step",
               value: {
                 number: 1,
-                items: [{ type: "cookware", index: 0 }],
+                items: [
+                  { type: "text", value: "Preheat the " },
+                  { type: "cookware", index: 0 },
+                ],
               },
             },
           ],
@@ -68,8 +77,13 @@ describe("tokenizeInstructionSdk", () => {
 
     const result = tokenizeInstructionSdk(sdk);
     expect(result).toEqual({
-      ok: false,
-      reason: "Unknown step item type: cookware",
+      ok: true,
+      steps: [
+        [
+          { type: "text", value: "Preheat the " },
+          { type: "cookware", value: "oven" },
+        ],
+      ],
     });
   });
 

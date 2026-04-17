@@ -1,5 +1,10 @@
-import type { Ingredient, Step, Timer } from "@cooklang/cooklang";
-import { getQuantityUnit, getQuantityValue, Parser } from "@cooklang/cooklang";
+import type { Cookware, Ingredient, Step, Timer } from "@cooklang/cooklang";
+import {
+  getQuantityUnit,
+  getQuantityValue,
+  ingredient_display_name,
+  Parser,
+} from "@cooklang/cooklang";
 import { readdirSync, readFileSync } from "fs";
 import matter from "gray-matter";
 import { dirname, join } from "path";
@@ -81,9 +86,18 @@ function formatTimerDisplay(timer: Timer): string {
     .trim();
 }
 
+function formatCookwareDisplay(cookware: Cookware): string {
+  return cookware.name;
+}
+
+function formatIngredientDisplay(ingredient: Ingredient): string {
+  return ingredient_display_name(ingredient);
+}
+
 function stepToText(
   step: Step,
   ingredients: Ingredient[],
+  cookware: Cookware[],
   timers: Timer[],
 ): string {
   return step.items
@@ -92,7 +106,9 @@ function stepToText(
         case "text":
           return item.value;
         case "ingredient":
-          return ingredients[item.index]!.name;
+          return formatIngredientDisplay(ingredients[item.index]!);
+        case "cookware":
+          return formatCookwareDisplay(cookware[item.index]!);
         case "timer":
           return formatTimerDisplay(timers[item.index]!);
         default:
@@ -112,7 +128,7 @@ export function parseCookFile(
   const annotations = fm.ingredientAnnotations ?? {};
 
   const { recipe } = _parser.parse(body);
-  const { sections, ingredients, timers } = recipe;
+  const { sections, ingredients, cookware, timers } = recipe;
 
   type GroupAccumulator = {
     name: string | undefined;
@@ -123,59 +139,88 @@ export function parseCookFile(
       preparation?: string;
       note?: string;
     }>;
+    seen: Set<IngredientSlug>;
   };
 
-  let currentGroup: GroupAccumulator = { name: undefined, items: [] };
+  const getOrCreateNamedGroup = (
+    name: string | undefined,
+    groups: GroupAccumulator[],
+    namedGroups: Map<string, GroupAccumulator>,
+  ): GroupAccumulator => {
+    if (name == null) {
+      return groups[0]!;
+    }
+
+    const existing = namedGroups.get(name);
+    if (existing) return existing;
+
+    const group: GroupAccumulator = { name, items: [], seen: new Set() };
+    groups.push(group);
+    namedGroups.set(name, group);
+    return group;
+  };
+
+  let currentGroup: GroupAccumulator = {
+    name: undefined,
+    items: [],
+    seen: new Set(),
+  };
   const groups: GroupAccumulator[] = [currentGroup];
+  const namedGroups = new Map<string, GroupAccumulator>();
   const instructions: string[] = [];
   const ingredientNames = ingredients.map((ingredient) => ingredient.name);
+  const ingredientDisplayValues = ingredients.map(formatIngredientDisplay);
+  const cookwareDisplayValues = cookware.map(formatCookwareDisplay);
   const timerDisplayValues = timers.map(formatTimerDisplay);
 
   for (const section of sections) {
     // Cooklang `== Name ==` sections map to ingredient groups
     if (section.name !== null) {
-      currentGroup = { name: section.name, items: [] };
-      groups.push(currentGroup);
+      currentGroup = getOrCreateNamedGroup(section.name, groups, namedGroups);
     }
 
     for (const content of section.content) {
       if (content.type === "text") continue;
 
       const step = content.value;
+      for (const item of step.items) {
+        if (item.type !== "ingredient") continue;
+
+        const ing = ingredients[item.index]!;
+        const ingSlug = normalizeSlug(ing.name) as IngredientSlug;
+        if (currentGroup.seen.has(ingSlug)) continue;
+
+        const ann = annotations[ingSlug];
+        const validAmount = resolveQuantityValue(ing.quantity);
+        const unitStr = getQuantityUnit(ing.quantity);
+        const unitResult = unitStr
+          ? UnitSchema.safeParse(unitStr)
+          : { success: false as const };
+        const unit = unitResult.success ? unitResult.data : undefined;
+
+        currentGroup.items.push({
+          ingredient: ingSlug,
+          ...(validAmount !== undefined && { amount: validAmount }),
+          ...(unit !== undefined && { unit }),
+          ...(ann?.preparation && { preparation: ann.preparation }),
+          ...(ann?.note && { note: ann.note }),
+        });
+        currentGroup.seen.add(ingSlug);
+      }
 
       if (isIngredientOnlyStep(step)) {
-        for (const item of step.items) {
-          if (item.type !== "ingredient") continue;
-          const ing = ingredients[item.index]!;
-          const ingSlug = normalizeSlug(ing.name) as IngredientSlug;
-          const ann = annotations[ingSlug];
-
-          const validAmount = resolveQuantityValue(ing.quantity);
-
-          const unitStr = getQuantityUnit(ing.quantity);
-          const unitResult = unitStr
-            ? UnitSchema.safeParse(unitStr)
-            : { success: false as const };
-          const unit = unitResult.success ? unitResult.data : undefined;
-
-          currentGroup.items.push({
-            ingredient: ingSlug,
-            ...(validAmount !== undefined && { amount: validAmount }),
-            ...(unit !== undefined && { unit }),
-            ...(ann?.preparation && { preparation: ann.preparation }),
-            ...(ann?.note && { note: ann.note }),
-          });
-        }
         continue;
       }
 
-      const text = stepToText(step, ingredients, timers);
+      const text = stepToText(step, ingredients, cookware, timers);
       if (text) instructions.push(text);
     }
   }
 
   // Drop leading unnamed empty group (can happen if file starts with a section)
-  const ingredientGroups = groups.filter((g) => g.items.length > 0);
+  const ingredientGroups = groups
+    .filter((g) => g.items.length > 0)
+    .map(({ seen: _seen, ...group }) => group);
 
   return RecipeContentSchema.parse({
     slug: slug,
@@ -200,6 +245,8 @@ export function parseCookFile(
         ),
       })),
       ingredientNames,
+      ingredientDisplayValues,
+      cookwareDisplayValues,
       timerDisplayValues,
     },
   });
