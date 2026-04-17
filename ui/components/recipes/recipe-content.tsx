@@ -22,10 +22,15 @@ function buildIngredientAnnotationMap(
 
   for (const group of ingredientGroups) {
     for (const item of group.items) {
-      annotations.set(item.ingredient, {
+      const annotation = {
         preparation: item.preparation,
         note: item.note,
-      });
+      };
+      annotations.set(item.ingredient, annotation);
+      const normalized = normalizeSlug(item.name);
+      if (normalized && normalized !== item.ingredient) {
+        annotations.set(normalized, annotation);
+      }
     }
   }
 
