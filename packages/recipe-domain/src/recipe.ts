@@ -36,7 +36,7 @@ export const RecipeInstructionItemSchema = z.discriminatedUnion("type", [
 export type RecipeInstructionItem = z.infer<typeof RecipeInstructionItemSchema>;
 
 export const RecipeInstructionStepSchema = z.object({
-  number: z.number().int().positive(),
+  number: z.number().int().positive().optional(),
   items: z.array(RecipeInstructionItemSchema),
 });
 
