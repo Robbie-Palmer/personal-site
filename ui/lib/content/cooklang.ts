@@ -1,5 +1,6 @@
 import type { Cookware, Ingredient, Step, Timer } from "@cooklang/cooklang";
 import {
+  cookware_display_name,
   getQuantityUnit,
   getQuantityValue,
   ingredient_display_name,
@@ -87,7 +88,7 @@ function formatTimerDisplay(timer: Timer): string {
 }
 
 function formatCookwareDisplay(cookware: Cookware): string {
-  return cookware.name;
+  return cookware_display_name(cookware);
 }
 
 function formatIngredientDisplay(ingredient: Ingredient): string {

@@ -49,4 +49,19 @@ Brush with a little @olive oil{}.
       },
     ]);
   });
+
+  it("uses cookware display aliases in rendered instructions", () => {
+    const recipe = parseCookFile(
+      makeCookFile(`== Main ==
+
+Heat #frying pan|pan{} over a medium heat with @olive oil{1%tbsp}.
+`),
+      "test-recipe",
+    );
+
+    expect(recipe.instructions).toEqual([
+      "Heat pan over a medium heat with olive oil.",
+    ]);
+    expect(recipe.instructionSdk?.cookwareDisplayValues).toEqual(["pan"]);
+  });
 });
