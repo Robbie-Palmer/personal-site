@@ -34,6 +34,20 @@ interface CookFrontmatter {
   >;
 }
 
+type IngredientGroupItem = {
+  ingredient: IngredientSlug;
+  amount?: number;
+  unit?: string;
+  preparation?: string;
+  note?: string;
+};
+
+type GroupAccumulator = {
+  name: string | undefined;
+  items: IngredientGroupItem[];
+  itemIndexByIngredient: Map<IngredientSlug, number>;
+};
+
 const _parser = new Parser();
 
 // getQuantityValue returns NaN for fractions — resolve them from the raw structure.
@@ -95,6 +109,83 @@ function formatIngredientDisplay(ingredient: Ingredient): string {
   return ingredient_display_name(ingredient);
 }
 
+function buildIngredientGroupItem(
+  ingredient: Ingredient,
+  annotations: CookFrontmatter["ingredientAnnotations"],
+): IngredientGroupItem {
+  const ingSlug = normalizeSlug(ingredient.name) as IngredientSlug;
+  const ann = annotations?.[ingSlug];
+  const validAmount = resolveQuantityValue(ingredient.quantity);
+  const unitStr = getQuantityUnit(ingredient.quantity);
+  const unitResult = unitStr
+    ? UnitSchema.safeParse(unitStr)
+    : { success: false as const };
+  const unit = unitResult.success ? unitResult.data : undefined;
+
+  return {
+    ingredient: ingSlug,
+    ...(validAmount !== undefined && { amount: validAmount }),
+    ...(unit !== undefined && { unit }),
+    ...(ann?.preparation && { preparation: ann.preparation }),
+    ...(ann?.note && { note: ann.note }),
+  };
+}
+
+function mergeIngredientIntoGroup(
+  group: GroupAccumulator,
+  nextItem: IngredientGroupItem,
+): void {
+  const existingIndex = group.itemIndexByIngredient.get(nextItem.ingredient);
+  if (existingIndex === undefined) {
+    group.items.push(nextItem);
+    group.itemIndexByIngredient.set(
+      nextItem.ingredient,
+      group.items.length - 1,
+    );
+    return;
+  }
+
+  const existing = group.items[existingIndex]!;
+  if (
+    existing.unit === nextItem.unit &&
+    existing.amount !== undefined &&
+    nextItem.amount !== undefined
+  ) {
+    existing.amount += nextItem.amount;
+    return;
+  }
+
+  if (existing.amount === undefined && nextItem.amount !== undefined) {
+    existing.amount = nextItem.amount;
+    existing.unit = nextItem.unit;
+  }
+}
+
+function collectStepIngredients(
+  step: Step,
+  ingredients: Ingredient[],
+  currentGroup: GroupAccumulator,
+  annotations: CookFrontmatter["ingredientAnnotations"],
+): void {
+  for (const item of step.items) {
+    if (item.type !== "ingredient") continue;
+
+    const ingredient = ingredients[item.index]!;
+    mergeIngredientIntoGroup(
+      currentGroup,
+      buildIngredientGroupItem(ingredient, annotations),
+    );
+  }
+}
+
+function createGroupAccumulator(name?: string): GroupAccumulator {
+  return {
+    name,
+    items: [],
+    itemIndexByIngredient: new Map(),
+  };
+}
+
 function stepToText(
   step: Step,
   ingredients: Ingredient[],
@@ -131,83 +222,6 @@ export function parseCookFile(
   const { recipe } = _parser.parse(body);
   const { sections, ingredients, cookware, timers } = recipe;
 
-  type GroupAccumulator = {
-    name: string | undefined;
-    items: Array<{
-      ingredient: IngredientSlug;
-      amount?: number;
-      unit?: string;
-      preparation?: string;
-      note?: string;
-    }>;
-    itemIndexByIngredient: Map<IngredientSlug, number>;
-  };
-
-  function buildIngredientGroupItem(
-    ingredient: Ingredient,
-    annotations: CookFrontmatter["ingredientAnnotations"],
-  ): {
-    ingredient: IngredientSlug;
-    amount?: number;
-    unit?: string;
-    preparation?: string;
-    note?: string;
-  } {
-    const ingSlug = normalizeSlug(ingredient.name) as IngredientSlug;
-    const ann = annotations?.[ingSlug];
-    const validAmount = resolveQuantityValue(ingredient.quantity);
-    const unitStr = getQuantityUnit(ingredient.quantity);
-    const unitResult = unitStr
-      ? UnitSchema.safeParse(unitStr)
-      : { success: false as const };
-    const unit = unitResult.success ? unitResult.data : undefined;
-
-    return {
-      ingredient: ingSlug,
-      ...(validAmount !== undefined && { amount: validAmount }),
-      ...(unit !== undefined && { unit }),
-      ...(ann?.preparation && { preparation: ann.preparation }),
-      ...(ann?.note && { note: ann.note }),
-    };
-  }
-
-  function mergeIngredientIntoGroup(
-    group: GroupAccumulator,
-    nextItem: {
-      ingredient: IngredientSlug;
-      amount?: number;
-      unit?: string;
-      preparation?: string;
-      note?: string;
-    },
-  ): void {
-    const existingIndex = group.itemIndexByIngredient.get(nextItem.ingredient);
-    if (existingIndex === undefined) {
-      group.items.push(nextItem);
-      group.itemIndexByIngredient.set(
-        nextItem.ingredient,
-        group.items.length - 1,
-      );
-      return;
-    }
-
-    const existing = group.items[existingIndex]!;
-    if (
-      existing.unit === nextItem.unit &&
-      existing.amount !== undefined &&
-      nextItem.amount !== undefined
-    ) {
-      existing.amount += nextItem.amount;
-      return;
-    }
-
-    if (existing.amount === undefined && nextItem.amount !== undefined) {
-      existing.amount = nextItem.amount;
-      existing.unit = nextItem.unit;
-      return;
-    }
-  }
-
   const getOrCreateNamedGroup = (
     name: string | undefined,
     groups: GroupAccumulator[],
@@ -220,21 +234,13 @@ export function parseCookFile(
     const existing = namedGroups.get(name);
     if (existing) return existing;
 
-    const group: GroupAccumulator = {
-      name,
-      items: [],
-      itemIndexByIngredient: new Map(),
-    };
+    const group = createGroupAccumulator(name);
     groups.push(group);
     namedGroups.set(name, group);
     return group;
   };
 
-  let currentGroup: GroupAccumulator = {
-    name: undefined,
-    items: [],
-    itemIndexByIngredient: new Map(),
-  };
+  let currentGroup: GroupAccumulator = createGroupAccumulator();
   const groups: GroupAccumulator[] = [currentGroup];
   const namedGroups = new Map<string, GroupAccumulator>();
   const instructions: string[] = [];
@@ -253,15 +259,7 @@ export function parseCookFile(
       if (content.type === "text") continue;
 
       const step = content.value;
-      for (const item of step.items) {
-        if (item.type !== "ingredient") continue;
-
-        const ing = ingredients[item.index]!;
-        mergeIngredientIntoGroup(
-          currentGroup,
-          buildIngredientGroupItem(ing, annotations),
-        );
-      }
+      collectStepIngredients(step, ingredients, currentGroup, annotations);
 
       if (isIngredientOnlyStep(step)) {
         continue;
