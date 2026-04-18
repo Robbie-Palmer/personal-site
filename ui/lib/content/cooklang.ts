@@ -223,14 +223,10 @@ export function parseCookFile(
   const { sections, ingredients, cookware, timers } = recipe;
 
   const getOrCreateNamedGroup = (
-    name: string | undefined,
+    name: string,
     groups: GroupAccumulator[],
     namedGroups: Map<string, GroupAccumulator>,
   ): GroupAccumulator => {
-    if (name == null) {
-      return groups[0]!;
-    }
-
     const existing = namedGroups.get(name);
     if (existing) return existing;
 
