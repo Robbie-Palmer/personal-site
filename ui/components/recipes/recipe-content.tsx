@@ -5,7 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatIngredientName } from "@/lib/domain/recipe/ingredientText";
-import { tokenizeInstructionSdk } from "@/lib/domain/recipe/instructionTokens";
+import {
+  type InstructionDisplayToken,
+  tokenizeInstructionSdk,
+} from "@/lib/domain/recipe/instructionTokens";
 import type {
   IngredientGroupView,
   RecipeDetailView,
@@ -129,6 +132,35 @@ function formatIngredient(
   return parts.join(" ");
 }
 
+function formatInstructionIngredientToken(
+  token: Extract<InstructionDisplayToken, { type: "ingredient" }>,
+  scale: number,
+): string {
+  const item = {
+    ingredient: token.canonicalName,
+    name: token.value,
+    unit: token.unit as RecipeIngredientView["unit"],
+    amount: token.amount ?? undefined,
+  } satisfies RecipeIngredientView;
+  const isPiece = item.unit === "piece";
+  const amount = isPiece
+    ? item.amount != null
+      ? formatScaled(item.amount * scale)
+      : ""
+    : formatAmount(item, scale);
+  const parts: string[] = [];
+
+  if (amount) {
+    parts.push(amount);
+    if (item.unit && !isPiece) {
+      parts.push("of");
+    }
+  }
+
+  parts.push(formatIngredientName(item, scale));
+  return parts.join(" ");
+}
+
 function formatTime(minutes: number): string {
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
@@ -185,6 +217,26 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
     [recipe.instructionSdk],
   );
   const shouldUseSdkInstructions = instructionTokenization?.ok === true;
+  const repeatedInstructionIngredients = useMemo(() => {
+    if (!shouldUseSdkInstructions) return new Set<string>();
+
+    const counts = new Map<string, number>();
+    for (const step of instructionTokenization.steps) {
+      for (const token of step) {
+        if (token.type !== "ingredient") continue;
+        counts.set(
+          token.canonicalName,
+          (counts.get(token.canonicalName) ?? 0) + 1,
+        );
+      }
+    }
+
+    return new Set(
+      Array.from(counts.entries())
+        .filter(([, count]) => count > 1)
+        .map(([name]) => name),
+    );
+  }, [instructionTokenization, shouldUseSdkInstructions]);
 
   useEffect(() => {
     if (
@@ -280,7 +332,12 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
             ? instructionTokenization.steps.map((tokens, i) => (
                 <li key={i} className="leading-relaxed pl-2">
                   {tokens.map((token, tokenIndex) => (
-                    <span key={tokenIndex}>{token.value}</span>
+                    <span key={tokenIndex}>
+                      {token.type === "ingredient" &&
+                      repeatedInstructionIngredients.has(token.canonicalName)
+                        ? formatInstructionIngredientToken(token, scale)
+                        : token.value}
+                    </span>
                   ))}
                 </li>
               ))

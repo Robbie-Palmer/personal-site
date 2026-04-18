@@ -7,6 +7,11 @@ function makeSdk(
 ): RecipeInstructionSdk {
   return {
     ingredientNames: ["onion"],
+    ingredientDisplayValues: ["red onion"],
+    ingredientAmounts: [2],
+    ingredientUnits: ["piece"],
+    cookwareDisplayValues: ["oven"],
+    inlineQuantityDisplayValues: ["200°C"],
     timerDisplayValues: ["10 min"],
     sections: [
       {
@@ -40,15 +45,21 @@ describe("tokenizeInstructionSdk", () => {
       expect(result.steps).toEqual([
         [
           { type: "text", value: "Cook " },
-          { type: "text", value: "onion" },
+          {
+            type: "ingredient",
+            value: "red onion",
+            canonicalName: "onion",
+            amount: 2,
+            unit: "piece",
+          },
           { type: "text", value: " for " },
-          { type: "text", value: "10 min" },
+          { type: "timer", value: "10 min" },
         ],
       ]);
     }
   });
 
-  it("fails for unknown item types so caller can fallback", () => {
+  it("tokenizes cookware step items", () => {
     const sdk = makeSdk({
       sections: [
         {
@@ -58,7 +69,10 @@ describe("tokenizeInstructionSdk", () => {
               type: "step",
               value: {
                 number: 1,
-                items: [{ type: "cookware", index: 0 }],
+                items: [
+                  { type: "text", value: "Preheat the " },
+                  { type: "cookware", index: 0 },
+                ],
               },
             },
           ],
@@ -68,8 +82,46 @@ describe("tokenizeInstructionSdk", () => {
 
     const result = tokenizeInstructionSdk(sdk);
     expect(result).toEqual({
-      ok: false,
-      reason: "Unknown step item type: cookware",
+      ok: true,
+      steps: [
+        [
+          { type: "text", value: "Preheat the " },
+          { type: "cookware", value: "oven" },
+        ],
+      ],
+    });
+  });
+
+  it("tokenizes inline quantity step items", () => {
+    const sdk = makeSdk({
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: "step",
+              value: {
+                number: 1,
+                items: [
+                  { type: "text", value: "Preheat to " },
+                  { type: "inlineQuantity", index: 0 },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = tokenizeInstructionSdk(sdk);
+    expect(result).toEqual({
+      ok: true,
+      steps: [
+        [
+          { type: "text", value: "Preheat to " },
+          { type: "inlineQuantity", value: "200°C" },
+        ],
+      ],
     });
   });
 
@@ -95,6 +147,56 @@ describe("tokenizeInstructionSdk", () => {
     expect(result).toEqual({
       ok: false,
       reason: "Malformed ingredient item index: 4",
+    });
+  });
+
+  it("fails for malformed cookware indexes so caller can fallback", () => {
+    const sdk = makeSdk({
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: "step",
+              value: {
+                number: 1,
+                items: [{ type: "cookware", index: 4 }],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = tokenizeInstructionSdk(sdk);
+    expect(result).toEqual({
+      ok: false,
+      reason: "Malformed cookware item index: 4",
+    });
+  });
+
+  it("fails for malformed inline quantity indexes so caller can fallback", () => {
+    const sdk = makeSdk({
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: "step",
+              value: {
+                number: 1,
+                items: [{ type: "inlineQuantity", index: 4 }],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = tokenizeInstructionSdk(sdk);
+    expect(result).toEqual({
+      ok: false,
+      reason: "Malformed inline quantity item index: 4",
     });
   });
 });
