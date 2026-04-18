@@ -64,4 +64,17 @@ Heat #frying pan|pan{} over a medium heat with @olive oil{1%tbsp}.
     ]);
     expect(recipe.instructionSdk?.cookwareDisplayValues).toEqual(["pan"]);
   });
+
+  it("throws for incompatible duplicate ingredient units", () => {
+    expect(() =>
+      parseCookFile(
+        makeCookFile(`== Main ==
+
+Heat @olive oil{4%tbsp} in a #pan{}.
+Heat the remaining @olive oil{30%ml} in the same #pan{}.
+`),
+        "test-recipe",
+      ),
+    ).toThrow(/Conflicting duplicate ingredient "olive-oil"/);
+  });
 });
