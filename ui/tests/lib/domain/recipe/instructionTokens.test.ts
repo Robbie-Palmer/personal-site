@@ -111,4 +111,29 @@ describe("tokenizeInstructionSdk", () => {
       reason: "Malformed ingredient item index: 4",
     });
   });
+
+  it("fails for malformed cookware indexes so caller can fallback", () => {
+    const sdk = makeSdk({
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: "step",
+              value: {
+                number: 1,
+                items: [{ type: "cookware", index: 4 }],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = tokenizeInstructionSdk(sdk);
+    expect(result).toEqual({
+      ok: false,
+      reason: "Malformed cookware item index: 4",
+    });
+  });
 });
