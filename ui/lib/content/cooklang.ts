@@ -110,6 +110,22 @@ function formatIngredientDisplay(ingredient: Ingredient): string {
   return ingredient_display_name(ingredient);
 }
 
+function formatInstructionIngredient(
+  ingredient: Ingredient,
+  displayValue: string,
+): string {
+  const amount = resolveQuantityValue(ingredient.quantity);
+  const unit = getQuantityUnit(ingredient.quantity);
+  const prefix = [amount !== undefined ? String(amount) : null, unit]
+    .filter(Boolean)
+    .join(unit === "piece" ? " " : "");
+
+  if (!prefix) return displayValue;
+  return unit === "piece"
+    ? `${prefix} ${displayValue}`
+    : `${prefix} of ${displayValue}`;
+}
+
 function formatInlineQuantityDisplay(quantity: unknown): string {
   return quantity_display(quantity as Parameters<typeof quantity_display>[0]);
 }
@@ -242,7 +258,10 @@ function stepToText(
         case "text":
           return item.value;
         case "ingredient":
-          return formatIngredientDisplay(ingredients[item.index]!);
+          return formatInstructionIngredient(
+            ingredients[item.index]!,
+            formatIngredientDisplay(ingredients[item.index]!),
+          );
         case "cookware":
           return formatCookwareDisplay(cookware[item.index]!);
         case "inlineQuantity":
@@ -291,6 +310,12 @@ export function parseCookFile(
   const instructions: string[] = [];
   const ingredientNames = ingredients.map((ingredient) => ingredient.name);
   const ingredientDisplayValues = ingredients.map(formatIngredientDisplay);
+  const ingredientAmounts = ingredients.map(
+    (ingredient) => resolveQuantityValue(ingredient.quantity) ?? null,
+  );
+  const ingredientUnits = ingredients.map(
+    (ingredient) => getQuantityUnit(ingredient.quantity) ?? null,
+  );
   const cookwareDisplayValues = cookware.map(formatCookwareDisplay);
   const inlineQuantityDisplayValues = inlineQuantities;
   const timerDisplayValues = timers.map(formatTimerDisplay);
@@ -353,6 +378,8 @@ export function parseCookFile(
       })),
       ingredientNames,
       ingredientDisplayValues,
+      ingredientAmounts,
+      ingredientUnits,
       cookwareDisplayValues,
       inlineQuantityDisplayValues,
       timerDisplayValues,

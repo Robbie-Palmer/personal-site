@@ -9,6 +9,8 @@ export type InstructionDisplayToken =
       type: "ingredient";
       value: string;
       canonicalName: string;
+      amount: number | null;
+      unit: string | null;
     }
   | {
       type: "cookware";
@@ -67,6 +69,8 @@ export function tokenizeInstructionSdk(
             instructionSdk.ingredientDisplayValues,
             item.index,
           );
+          const amount = instructionSdk.ingredientAmounts[item.index] ?? null;
+          const unit = instructionSdk.ingredientUnits[item.index] ?? null;
           if (canonicalName === null) {
             return {
               ok: false,
@@ -83,6 +87,8 @@ export function tokenizeInstructionSdk(
             type: "ingredient",
             value: displayValue,
             canonicalName,
+            amount,
+            unit,
           });
           continue;
         }

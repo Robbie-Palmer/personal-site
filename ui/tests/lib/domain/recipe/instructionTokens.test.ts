@@ -8,6 +8,8 @@ function makeSdk(
   return {
     ingredientNames: ["onion"],
     ingredientDisplayValues: ["red onion"],
+    ingredientAmounts: [2],
+    ingredientUnits: ["piece"],
     cookwareDisplayValues: ["oven"],
     inlineQuantityDisplayValues: ["200°C"],
     timerDisplayValues: ["10 min"],
@@ -47,6 +49,8 @@ describe("tokenizeInstructionSdk", () => {
             type: "ingredient",
             value: "red onion",
             canonicalName: "onion",
+            amount: 2,
+            unit: "piece",
           },
           { type: "text", value: " for " },
           { type: "timer", value: "10 min" },
