@@ -15,6 +15,10 @@ export type InstructionDisplayToken =
       value: string;
     }
   | {
+      type: "inlineQuantity";
+      value: string;
+    }
+  | {
       type: "timer";
       value: string;
     };
@@ -95,6 +99,21 @@ export function tokenizeInstructionSdk(
             };
           }
           tokens.push({ type: "cookware", value: cookware });
+          continue;
+        }
+
+        if (item.type === "inlineQuantity") {
+          const inlineQuantity = fromIndex(
+            instructionSdk.inlineQuantityDisplayValues,
+            item.index,
+          );
+          if (inlineQuantity === null) {
+            return {
+              ok: false,
+              reason: `Malformed inline quantity item index: ${item.index}`,
+            };
+          }
+          tokens.push({ type: "inlineQuantity", value: inlineQuantity });
           continue;
         }
 

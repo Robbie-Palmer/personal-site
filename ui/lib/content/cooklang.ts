@@ -5,6 +5,7 @@ import {
   getQuantityValue,
   ingredient_display_name,
   Parser,
+  quantity_display,
 } from "@cooklang/cooklang";
 import { readdirSync, readFileSync } from "fs";
 import matter from "gray-matter";
@@ -107,6 +108,10 @@ function formatCookwareDisplay(cookware: Cookware): string {
 
 function formatIngredientDisplay(ingredient: Ingredient): string {
   return ingredient_display_name(ingredient);
+}
+
+function formatInlineQuantityDisplay(quantity: unknown): string {
+  return quantity_display(quantity as Parameters<typeof quantity_display>[0]);
 }
 
 function buildIngredientGroupItem(
@@ -228,6 +233,7 @@ function stepToText(
   step: Step,
   ingredients: Ingredient[],
   cookware: Cookware[],
+  inlineQuantities: string[],
   timers: Timer[],
 ): string {
   return step.items
@@ -239,6 +245,8 @@ function stepToText(
           return formatIngredientDisplay(ingredients[item.index]!);
         case "cookware":
           return formatCookwareDisplay(cookware[item.index]!);
+        case "inlineQuantity":
+          return inlineQuantities[item.index] ?? "";
         case "timer":
           return formatTimerDisplay(timers[item.index]!);
         default:
@@ -258,6 +266,9 @@ export function parseCookFile(
   const annotations = fm.ingredientAnnotations ?? {};
 
   const { recipe } = _parser.parse(body);
+  const inlineQuantities = (
+    (recipe as { inline_quantities?: unknown[] }).inline_quantities ?? []
+  ).map(formatInlineQuantityDisplay);
   const { sections, ingredients, cookware, timers } = recipe;
 
   const getOrCreateNamedGroup = (
@@ -281,6 +292,7 @@ export function parseCookFile(
   const ingredientNames = ingredients.map((ingredient) => ingredient.name);
   const ingredientDisplayValues = ingredients.map(formatIngredientDisplay);
   const cookwareDisplayValues = cookware.map(formatCookwareDisplay);
+  const inlineQuantityDisplayValues = inlineQuantities;
   const timerDisplayValues = timers.map(formatTimerDisplay);
 
   for (const section of sections) {
@@ -299,7 +311,13 @@ export function parseCookFile(
         continue;
       }
 
-      const text = stepToText(step, ingredients, cookware, timers);
+      const text = stepToText(
+        step,
+        ingredients,
+        cookware,
+        inlineQuantities,
+        timers,
+      );
       if (text) instructions.push(text);
     }
   }
@@ -336,6 +354,7 @@ export function parseCookFile(
       ingredientNames,
       ingredientDisplayValues,
       cookwareDisplayValues,
+      inlineQuantityDisplayValues,
       timerDisplayValues,
     },
   });

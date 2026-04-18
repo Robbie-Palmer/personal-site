@@ -9,6 +9,7 @@ function makeSdk(
     ingredientNames: ["onion"],
     ingredientDisplayValues: ["red onion"],
     cookwareDisplayValues: ["oven"],
+    inlineQuantityDisplayValues: ["200°C"],
     timerDisplayValues: ["10 min"],
     sections: [
       {
@@ -87,6 +88,39 @@ describe("tokenizeInstructionSdk", () => {
     });
   });
 
+  it("tokenizes inline quantity step items", () => {
+    const sdk = makeSdk({
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: "step",
+              value: {
+                number: 1,
+                items: [
+                  { type: "text", value: "Preheat to " },
+                  { type: "inlineQuantity", index: 0 },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = tokenizeInstructionSdk(sdk);
+    expect(result).toEqual({
+      ok: true,
+      steps: [
+        [
+          { type: "text", value: "Preheat to " },
+          { type: "inlineQuantity", value: "200°C" },
+        ],
+      ],
+    });
+  });
+
   it("fails for malformed indexes so caller can fallback", () => {
     const sdk = makeSdk({
       sections: [
@@ -134,6 +168,31 @@ describe("tokenizeInstructionSdk", () => {
     expect(result).toEqual({
       ok: false,
       reason: "Malformed cookware item index: 4",
+    });
+  });
+
+  it("fails for malformed inline quantity indexes so caller can fallback", () => {
+    const sdk = makeSdk({
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: "step",
+              value: {
+                number: 1,
+                items: [{ type: "inlineQuantity", index: 4 }],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = tokenizeInstructionSdk(sdk);
+    expect(result).toEqual({
+      ok: false,
+      reason: "Malformed inline quantity item index: 4",
     });
   });
 });

@@ -68,6 +68,7 @@ export const RecipeInstructionSdkSchema = z.object({
   ingredientNames: z.array(z.string()),
   ingredientDisplayValues: z.array(z.string()),
   cookwareDisplayValues: z.array(z.string()),
+  inlineQuantityDisplayValues: z.array(z.string()),
   timerDisplayValues: z.array(z.string()),
 });
 
