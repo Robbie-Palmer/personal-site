@@ -139,8 +139,73 @@ export function parseCookFile(
       preparation?: string;
       note?: string;
     }>;
-    seen: Set<IngredientSlug>;
+    itemIndexByIngredient: Map<IngredientSlug, number>;
   };
+
+  function buildIngredientGroupItem(
+    ingredient: Ingredient,
+    annotations: CookFrontmatter["ingredientAnnotations"],
+  ): {
+    ingredient: IngredientSlug;
+    amount?: number;
+    unit?: string;
+    preparation?: string;
+    note?: string;
+  } {
+    const ingSlug = normalizeSlug(ingredient.name) as IngredientSlug;
+    const ann = annotations?.[ingSlug];
+    const validAmount = resolveQuantityValue(ingredient.quantity);
+    const unitStr = getQuantityUnit(ingredient.quantity);
+    const unitResult = unitStr
+      ? UnitSchema.safeParse(unitStr)
+      : { success: false as const };
+    const unit = unitResult.success ? unitResult.data : undefined;
+
+    return {
+      ingredient: ingSlug,
+      ...(validAmount !== undefined && { amount: validAmount }),
+      ...(unit !== undefined && { unit }),
+      ...(ann?.preparation && { preparation: ann.preparation }),
+      ...(ann?.note && { note: ann.note }),
+    };
+  }
+
+  function mergeIngredientIntoGroup(
+    group: GroupAccumulator,
+    nextItem: {
+      ingredient: IngredientSlug;
+      amount?: number;
+      unit?: string;
+      preparation?: string;
+      note?: string;
+    },
+  ): void {
+    const existingIndex = group.itemIndexByIngredient.get(nextItem.ingredient);
+    if (existingIndex === undefined) {
+      group.items.push(nextItem);
+      group.itemIndexByIngredient.set(
+        nextItem.ingredient,
+        group.items.length - 1,
+      );
+      return;
+    }
+
+    const existing = group.items[existingIndex]!;
+    if (
+      existing.unit === nextItem.unit &&
+      existing.amount !== undefined &&
+      nextItem.amount !== undefined
+    ) {
+      existing.amount += nextItem.amount;
+      return;
+    }
+
+    if (existing.amount === undefined && nextItem.amount !== undefined) {
+      existing.amount = nextItem.amount;
+      existing.unit = nextItem.unit;
+      return;
+    }
+  }
 
   const getOrCreateNamedGroup = (
     name: string | undefined,
@@ -154,7 +219,11 @@ export function parseCookFile(
     const existing = namedGroups.get(name);
     if (existing) return existing;
 
-    const group: GroupAccumulator = { name, items: [], seen: new Set() };
+    const group: GroupAccumulator = {
+      name,
+      items: [],
+      itemIndexByIngredient: new Map(),
+    };
     groups.push(group);
     namedGroups.set(name, group);
     return group;
@@ -163,7 +232,7 @@ export function parseCookFile(
   let currentGroup: GroupAccumulator = {
     name: undefined,
     items: [],
-    seen: new Set(),
+    itemIndexByIngredient: new Map(),
   };
   const groups: GroupAccumulator[] = [currentGroup];
   const namedGroups = new Map<string, GroupAccumulator>();
@@ -187,25 +256,10 @@ export function parseCookFile(
         if (item.type !== "ingredient") continue;
 
         const ing = ingredients[item.index]!;
-        const ingSlug = normalizeSlug(ing.name) as IngredientSlug;
-        if (currentGroup.seen.has(ingSlug)) continue;
-
-        const ann = annotations[ingSlug];
-        const validAmount = resolveQuantityValue(ing.quantity);
-        const unitStr = getQuantityUnit(ing.quantity);
-        const unitResult = unitStr
-          ? UnitSchema.safeParse(unitStr)
-          : { success: false as const };
-        const unit = unitResult.success ? unitResult.data : undefined;
-
-        currentGroup.items.push({
-          ingredient: ingSlug,
-          ...(validAmount !== undefined && { amount: validAmount }),
-          ...(unit !== undefined && { unit }),
-          ...(ann?.preparation && { preparation: ann.preparation }),
-          ...(ann?.note && { note: ann.note }),
-        });
-        currentGroup.seen.add(ingSlug);
+        mergeIngredientIntoGroup(
+          currentGroup,
+          buildIngredientGroupItem(ing, annotations),
+        );
       }
 
       if (isIngredientOnlyStep(step)) {
@@ -220,7 +274,9 @@ export function parseCookFile(
   // Drop leading unnamed empty group (can happen if file starts with a section)
   const ingredientGroups = groups
     .filter((g) => g.items.length > 0)
-    .map(({ seen: _seen, ...group }) => group);
+    .map(
+      ({ itemIndexByIngredient: _itemIndexByIngredient, ...group }) => group,
+    );
 
   return RecipeContentSchema.parse({
     slug: slug,
