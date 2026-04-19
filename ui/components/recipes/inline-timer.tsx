@@ -48,6 +48,7 @@ export function InlineTimer({
   remainingRef.current = remaining;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const wakeLockEpochRef = useRef(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   const clearTimer = useCallback(() => {
@@ -58,17 +59,23 @@ export function InlineTimer({
   }, []);
 
   const releaseWakeLock = useCallback(() => {
+    wakeLockEpochRef.current += 1;
     wakeLockRef.current?.release().catch(() => {});
     wakeLockRef.current = null;
   }, []);
 
   const requestWakeLock = useCallback(async () => {
-    if ("wakeLock" in navigator) {
-      try {
-        wakeLockRef.current = await navigator.wakeLock.request("screen");
-      } catch {
-        // Wake lock not available (e.g., tab not visible)
+    if (!("wakeLock" in navigator)) return;
+    const epoch = ++wakeLockEpochRef.current;
+    try {
+      const sentinel = await navigator.wakeLock.request("screen");
+      if (wakeLockEpochRef.current !== epoch) {
+        sentinel.release().catch(() => {});
+        return;
       }
+      wakeLockRef.current = sentinel;
+    } catch {
+      // Wake lock not available (e.g., tab not visible)
     }
   }, []);
 
