@@ -6,6 +6,7 @@ import type {
 import type { Recipe, RecipeSlug } from "@/lib/domain/recipe/recipe";
 import { buildRecipeContentGraph } from "@/lib/domain/recipe/recipeGraph";
 import {
+  compareRecipesByDateAndSlug,
   getAllCuisines,
   getAllRecipeCards,
   getAllUsedIngredientSlugs,
@@ -274,6 +275,53 @@ describe("recipe queries", () => {
 
       expect(neighbors.prevRecipe?.date).toBe("2026-02-12");
       expect(neighbors.nextRecipe?.date).toBe("2026-02-08");
+    });
+
+    it("uses slug as a deterministic tie-breaker for recipes on the same date", () => {
+      const sameDateA = makeRecipe({
+        slug: "alpha",
+        title: "Alpha",
+        date: "2026-02-10",
+      });
+      const sameDateB = makeRecipe({
+        slug: "beta",
+        title: "Beta",
+        date: "2026-02-10",
+      });
+
+      const tiedRepo = buildTestRepository(
+        [sameDateB, curryRecipe, sameDateA],
+        ingredients,
+      );
+
+      const neighbors = getRecipeNeighbors(tiedRepo, "alpha");
+
+      expect(neighbors.prevRecipe).toBeUndefined();
+      expect(neighbors.nextRecipe?.slug).toBe("beta");
+    });
+  });
+
+  describe("compareRecipesByDateAndSlug", () => {
+    it("orders newer recipes first", () => {
+      const recipes = [
+        { slug: "older", date: "2026-02-08" },
+        { slug: "newer", date: "2026-02-10" },
+      ];
+
+      recipes.sort(compareRecipesByDateAndSlug);
+
+      expect(recipes.map((recipe) => recipe.slug)).toEqual(["newer", "older"]);
+    });
+
+    it("falls back to slug ordering when dates match", () => {
+      const recipes = [
+        { slug: "beta", date: "2026-02-10" },
+        { slug: "alpha", date: "2026-02-10" },
+      ];
+
+      recipes.sort(compareRecipesByDateAndSlug);
+
+      expect(recipes.map((recipe) => recipe.slug)).toEqual(["alpha", "beta"]);
     });
   });
 });

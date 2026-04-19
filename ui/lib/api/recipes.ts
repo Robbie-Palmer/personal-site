@@ -1,4 +1,5 @@
 import {
+  compareRecipesByDateAndSlug,
   getAllRecipeCards,
   getRecipeDetail,
   getRecipeNeighbors,
@@ -24,9 +25,7 @@ export function getRecipeBySlug(slug: string): RecipeDetailView {
 }
 
 export function getAllRecipes(): RecipeCardView[] {
-  return getAllRecipeCards(repository).sort((a, b) => {
-    return new Date(b.date).getTime() - new Date(a.date).getTime();
-  });
+  return getAllRecipeCards(repository).sort(compareRecipesByDateAndSlug);
 }
 
 export function getRecipeNavigation(slug: string): {
