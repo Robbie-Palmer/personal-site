@@ -328,7 +328,14 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
       {recipe.cookware.length > 0 && (
         <section className="mb-8">
           <h2 className="text-2xl font-bold mb-4">Equipment</h2>
-          <p className="text-muted-foreground">{recipe.cookware.join(", ")}</p>
+          <ul className="space-y-1">
+            {recipe.cookware.map((item) => (
+              <li key={item} className="flex items-start gap-2">
+                <span className="text-muted-foreground mt-1.5 h-1.5 w-1.5 rounded-full bg-current flex-shrink-0" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
