@@ -34,6 +34,29 @@ export function getAllRecipeCards(
   );
 }
 
+export function getRecipeNeighbors(
+  repository: RecipeRepository,
+  slug: RecipeSlug,
+): {
+  prevRecipe?: RecipeCardView;
+  nextRecipe?: RecipeCardView;
+} {
+  const recipes = getAllRecipeCards(repository).sort((a, b) => {
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
+
+  const currentIndex = recipes.findIndex((recipe) => recipe.slug === slug);
+  if (currentIndex === -1) {
+    return {};
+  }
+
+  return {
+    prevRecipe: currentIndex > 0 ? recipes[currentIndex - 1] : undefined,
+    nextRecipe:
+      currentIndex < recipes.length - 1 ? recipes[currentIndex + 1] : undefined,
+  };
+}
+
 export function getRecipesByCuisine(
   repository: RecipeRepository,
   cuisine: string,
