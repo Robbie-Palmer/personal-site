@@ -109,16 +109,19 @@ function timerDurationSeconds(timer: Timer): number | null {
   switch (unit) {
     case "s":
     case "sec":
+    case "secs":
     case "second":
     case "seconds":
       return qty;
     case "m":
     case "min":
+    case "mins":
     case "minute":
     case "minutes":
       return qty * 60;
     case "h":
     case "hr":
+    case "hrs":
     case "hour":
     case "hours":
       return qty * 3600;
