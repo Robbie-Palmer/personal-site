@@ -4,7 +4,10 @@ import { Clock, Minus, Plus, Timer, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatIngredientName } from "@/lib/domain/recipe/ingredientText";
+import {
+  formatIngredientName,
+  getDisplayedScaledAmount,
+} from "@/lib/domain/recipe/ingredientText";
 import {
   type InstructionDisplayToken,
   tokenizeInstructionSdk,
@@ -64,7 +67,28 @@ function resolveIngredientAnnotation(
 }
 
 function formatScaled(value: number): string {
-  return parseFloat(value.toPrecision(2)).toString();
+  return getDisplayedScaledAmount(value, 1)?.toString() ?? "";
+}
+
+const SINGULAR_EPSILON = 1e-9;
+
+function selectUnitLabel(
+  item: Pick<RecipeIngredientView, "amount" | "unit">,
+  scale: number,
+): string | undefined {
+  if (!item.unit) {
+    return undefined;
+  }
+
+  const labels = UNIT_LABELS[item.unit];
+  if (!labels) {
+    return undefined;
+  }
+
+  const scaledAmount = getDisplayedScaledAmount(item.amount, scale);
+  const isPlural =
+    scaledAmount != null && Math.abs(scaledAmount - 1) >= SINGULAR_EPSILON;
+  return isPlural ? labels.plural : labels.singular;
 }
 
 function formatAmount(item: RecipeIngredientView, scale: number): string {
@@ -77,12 +101,7 @@ function formatAmount(item: RecipeIngredientView, scale: number): string {
   if (item.unit) {
     const labels = UNIT_LABELS[item.unit];
     if (labels) {
-      const scaledAmount =
-        item.amount != null ? item.amount * scale : undefined;
-      const label =
-        scaledAmount != null && scaledAmount !== 1
-          ? labels.plural
-          : labels.singular;
+      const label = selectUnitLabel(item, scale);
       if (label) {
         if (labels.noSpace && parts.length > 0) {
           parts[parts.length - 1] += label;
@@ -94,6 +113,22 @@ function formatAmount(item: RecipeIngredientView, scale: number): string {
   }
 
   return parts.join(" ");
+}
+
+function hasRenderedUnitLabel(
+  item: Pick<RecipeIngredientView, "amount" | "unit">,
+  scale: number,
+): boolean {
+  if (!item.unit || item.unit === "piece") {
+    return false;
+  }
+
+  const labels = UNIT_LABELS[item.unit];
+  if (!labels) {
+    return false;
+  }
+
+  return Boolean(selectUnitLabel(item, scale));
 }
 
 function formatIngredient(
@@ -111,7 +146,7 @@ function formatIngredient(
 
   if (amount) {
     parts.push(amount);
-    if (item.unit && !isPiece) {
+    if (hasRenderedUnitLabel(item, scale)) {
       parts.push("of");
     }
   }
@@ -152,7 +187,7 @@ function formatInstructionIngredientToken(
 
   if (amount) {
     parts.push(amount);
-    if (item.unit && !isPiece) {
+    if (hasRenderedUnitLabel(item, scale)) {
       parts.push("of");
     }
   }

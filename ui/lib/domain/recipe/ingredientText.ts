@@ -10,6 +10,22 @@ type IngredientPluralizationFields = Pick<
   "name" | "pluralName" | "unit" | "amount"
 >;
 
+export function getDisplayedScaledAmount(
+  amount: number | undefined,
+  scale: number,
+): number | undefined {
+  if (amount == null) {
+    return undefined;
+  }
+
+  const scaledAmount = amount * scale;
+  if (!Number.isFinite(scaledAmount)) {
+    return undefined;
+  }
+
+  return parseFloat(scaledAmount.toPrecision(2));
+}
+
 export function pluralizeIngredientName(item: IngredientNameFields): string {
   if (item.pluralName) return item.pluralName;
   return pluralizeIngredientTerm(item.name);
@@ -30,8 +46,8 @@ export function formatIngredientName(
     return item.name;
   }
 
-  const scaledAmount = item.amount * scale;
-  if (!Number.isFinite(scaledAmount)) {
+  const scaledAmount = getDisplayedScaledAmount(item.amount, scale);
+  if (scaledAmount == null) {
     return item.name;
   }
 
