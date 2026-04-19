@@ -15,28 +15,23 @@ function formatCountdown(seconds: number): string {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-function playAlertTone() {
-  try {
-    const ctx = new AudioContext();
-    const beep = (startTime: number, freq: number, duration: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = freq;
-      osc.type = "sine";
-      gain.gain.setValueAtTime(0.3, startTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
-      osc.start(startTime);
-      osc.stop(startTime + duration);
-    };
-    const now = ctx.currentTime;
-    beep(now, 880, 0.15);
-    beep(now + 0.2, 880, 0.15);
-    beep(now + 0.4, 1100, 0.3);
-  } catch {
-    // Audio not available
-  }
+function playAlertTone(ctx: AudioContext) {
+  const beep = (startTime: number, freq: number, duration: number) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = freq;
+    osc.type = "sine";
+    gain.gain.setValueAtTime(0.3, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+  };
+  const now = ctx.currentTime;
+  beep(now, 880, 0.15);
+  beep(now + 0.2, 880, 0.15);
+  beep(now + 0.4, 1100, 0.3);
 }
 
 export function InlineTimer({
@@ -52,6 +47,7 @@ export function InlineTimer({
   remainingRef.current = remaining;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   const clearTimer = useCallback(() => {
     if (intervalRef.current !== null) {
@@ -79,6 +75,8 @@ export function InlineTimer({
     return () => {
       clearTimer();
       releaseWakeLock();
+      audioCtxRef.current?.close().catch(() => {});
+      audioCtxRef.current = null;
     };
   }, [clearTimer, releaseWakeLock]);
 
@@ -87,7 +85,9 @@ export function InlineTimer({
       clearTimer();
       releaseWakeLock();
       setState("completed");
-      playAlertTone();
+      if (audioCtxRef.current) {
+        playAlertTone(audioCtxRef.current);
+      }
     }
   }, [remaining, state, clearTimer, releaseWakeLock]);
 
@@ -105,8 +105,22 @@ export function InlineTimer({
     setState("idle");
   }, [clearTimer, releaseWakeLock, durationSeconds]);
 
+  const ensureAudioContext = useCallback(() => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new AudioContext();
+      }
+      if (audioCtxRef.current.state === "suspended") {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+    } catch {
+      // Web Audio not available
+    }
+  }, []);
+
   const handleClick = useCallback(() => {
     if (durationSeconds === null) return;
+    ensureAudioContext();
 
     switch (state) {
       case "idle":
@@ -134,6 +148,7 @@ export function InlineTimer({
     clearTimer,
     requestWakeLock,
     reset,
+    ensureAudioContext,
   ]);
 
   if (durationSeconds === null) {
