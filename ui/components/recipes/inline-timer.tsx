@@ -48,6 +48,8 @@ export function InlineTimer({
 }) {
   const [state, setState] = useState<TimerState>("idle");
   const [remaining, setRemaining] = useState(durationSeconds ?? 0);
+  const remainingRef = useRef(remaining);
+  remainingRef.current = remaining;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
@@ -80,21 +82,21 @@ export function InlineTimer({
     };
   }, [clearTimer, releaseWakeLock]);
 
+  useEffect(() => {
+    if (state === "running" && remaining <= 0) {
+      clearTimer();
+      releaseWakeLock();
+      setState("completed");
+      playAlertTone();
+    }
+  }, [remaining, state, clearTimer, releaseWakeLock]);
+
   const startCountdown = useCallback(() => {
     clearTimer();
     intervalRef.current = setInterval(() => {
-      setRemaining((prev) => {
-        if (prev <= 1) {
-          clearTimer();
-          releaseWakeLock();
-          setState("completed");
-          playAlertTone();
-          return 0;
-        }
-        return prev - 1;
-      });
+      setRemaining(remainingRef.current - 1);
     }, 1000);
-  }, [clearTimer, releaseWakeLock]);
+  }, [clearTimer]);
 
   const reset = useCallback(() => {
     clearTimer();
