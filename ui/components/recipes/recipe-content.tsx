@@ -67,6 +67,27 @@ function formatScaled(value: number): string {
   return parseFloat(value.toPrecision(2)).toString();
 }
 
+const SINGULAR_EPSILON = 1e-9;
+
+function selectUnitLabel(
+  item: Pick<RecipeIngredientView, "amount" | "unit">,
+  scale: number,
+): string | undefined {
+  if (!item.unit) {
+    return undefined;
+  }
+
+  const labels = UNIT_LABELS[item.unit];
+  if (!labels) {
+    return undefined;
+  }
+
+  const scaledAmount = item.amount != null ? item.amount * scale : undefined;
+  const isPlural =
+    scaledAmount != null && Math.abs(scaledAmount - 1) >= SINGULAR_EPSILON;
+  return isPlural ? labels.plural : labels.singular;
+}
+
 function formatAmount(item: RecipeIngredientView, scale: number): string {
   const parts: string[] = [];
 
@@ -77,12 +98,7 @@ function formatAmount(item: RecipeIngredientView, scale: number): string {
   if (item.unit) {
     const labels = UNIT_LABELS[item.unit];
     if (labels) {
-      const scaledAmount =
-        item.amount != null ? item.amount * scale : undefined;
-      const label =
-        scaledAmount != null && scaledAmount !== 1
-          ? labels.plural
-          : labels.singular;
+      const label = selectUnitLabel(item, scale);
       if (label) {
         if (labels.noSpace && parts.length > 0) {
           parts[parts.length - 1] += label;
@@ -109,12 +125,7 @@ function hasRenderedUnitLabel(
     return false;
   }
 
-  const scaledAmount = item.amount != null ? item.amount * scale : undefined;
-  const label =
-    scaledAmount != null && scaledAmount !== 1
-      ? labels.plural
-      : labels.singular;
-  return Boolean(label);
+  return Boolean(selectUnitLabel(item, scale));
 }
 
 function formatIngredient(
