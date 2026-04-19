@@ -325,6 +325,13 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
         </div>
       </section>
 
+      {recipe.cookware.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-2xl font-bold mb-4">Equipment</h2>
+          <p className="text-muted-foreground">{recipe.cookware.join(", ")}</p>
+        </section>
+      )}
+
       <section>
         <h2 className="text-2xl font-bold mb-4">Instructions</h2>
         <ol className="space-y-3 list-decimal list-inside">

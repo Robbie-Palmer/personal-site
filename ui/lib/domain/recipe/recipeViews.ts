@@ -44,6 +44,7 @@ export type RecipeCardView = BaseRecipeView & {
 
 export type RecipeDetailView = BaseRecipeView & {
   cookBody: string;
+  cookware: string[];
   ingredientGroups: IngredientGroupView[];
   instructions: string[];
   instructionSdk?: RecipeInstructionSdk;
@@ -126,6 +127,7 @@ export function toRecipeDetailView(
   return {
     ...toRecipeCardView(recipe, repository.ingredients),
     cookBody: recipe.cookBody,
+    cookware: recipe.cookware,
     ingredientGroups: recipe.ingredientGroups.map((group) =>
       toIngredientGroupView(group, repository.ingredients),
     ),
