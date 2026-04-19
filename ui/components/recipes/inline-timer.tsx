@@ -44,8 +44,7 @@ export function InlineTimer({
 }) {
   const [state, setState] = useState<TimerState>("idle");
   const [remaining, setRemaining] = useState(durationSeconds ?? 0);
-  const remainingRef = useRef(remaining);
-  remainingRef.current = remaining;
+  const endTimeMsRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const wakeLockEpochRef = useRef(0);
@@ -88,10 +87,17 @@ export function InlineTimer({
     };
   }, [clearTimer, releaseWakeLock]);
 
+  const syncRemaining = useCallback(() => {
+    setRemaining(
+      Math.max(0, Math.ceil((endTimeMsRef.current - Date.now()) / 1000)),
+    );
+  }, []);
+
   useEffect(() => {
     if (state !== "running") return;
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") {
+        syncRemaining();
         requestWakeLock();
       }
     };
@@ -99,7 +105,7 @@ export function InlineTimer({
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [state, requestWakeLock]);
+  }, [state, requestWakeLock, syncRemaining]);
 
   useEffect(() => {
     if (state === "running" && remaining <= 0) {
@@ -112,12 +118,14 @@ export function InlineTimer({
     }
   }, [remaining, state, clearTimer, releaseWakeLock]);
 
-  const startCountdown = useCallback(() => {
-    clearTimer();
-    intervalRef.current = setInterval(() => {
-      setRemaining(remainingRef.current - 1);
-    }, 1000);
-  }, [clearTimer]);
+  const startCountdown = useCallback(
+    (seconds: number) => {
+      clearTimer();
+      endTimeMsRef.current = Date.now() + seconds * 1000;
+      intervalRef.current = setInterval(syncRemaining, 1000);
+    },
+    [clearTimer, syncRemaining],
+  );
 
   const reset = useCallback(() => {
     clearTimer();
@@ -147,7 +155,7 @@ export function InlineTimer({
       case "idle":
         setRemaining(durationSeconds);
         setState("running");
-        startCountdown();
+        startCountdown(durationSeconds);
         requestWakeLock();
         break;
       case "running":
@@ -157,7 +165,7 @@ export function InlineTimer({
         break;
       case "paused":
         setState("running");
-        startCountdown();
+        startCountdown(remaining);
         requestWakeLock();
         break;
       case "completed":
@@ -166,6 +174,7 @@ export function InlineTimer({
     }
   }, [
     state,
+    remaining,
     durationSeconds,
     startCountdown,
     clearTimer,
