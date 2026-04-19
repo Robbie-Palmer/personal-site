@@ -72,6 +72,7 @@ export const RecipeInstructionSdkSchema = z.object({
   cookwareDisplayValues: z.array(z.string()),
   inlineQuantityDisplayValues: z.array(z.string()),
   timerDisplayValues: z.array(z.string()),
+  timerDurationSeconds: z.array(z.number().nullable()),
 });
 
 export type RecipeInstructionSdk = z.infer<typeof RecipeInstructionSdkSchema>;

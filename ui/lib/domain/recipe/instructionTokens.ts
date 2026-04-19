@@ -23,6 +23,7 @@ export type InstructionDisplayToken =
   | {
       type: "timer";
       value: string;
+      durationSeconds: number | null;
     };
 
 export type InstructionTokenizationResult =
@@ -134,7 +135,9 @@ export function tokenizeInstructionSdk(
               reason: `Malformed timer item index: ${item.index}`,
             };
           }
-          tokens.push({ type: "timer", value: timer });
+          const durationSeconds =
+            instructionSdk.timerDurationSeconds[item.index] ?? null;
+          tokens.push({ type: "timer", value: timer, durationSeconds });
           continue;
         }
 
