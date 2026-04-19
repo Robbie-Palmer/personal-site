@@ -66,6 +66,11 @@ export type RecipeInstructionSection = z.infer<
 export const RecipeInstructionSdkSchema = z.object({
   sections: z.array(RecipeInstructionSectionSchema),
   ingredientNames: z.array(z.string()),
+  ingredientDisplayValues: z.array(z.string()),
+  ingredientAmounts: z.array(z.number().nullable()),
+  ingredientUnits: z.array(z.string().nullable()),
+  cookwareDisplayValues: z.array(z.string()),
+  inlineQuantityDisplayValues: z.array(z.string()),
   timerDisplayValues: z.array(z.string()),
 });
 

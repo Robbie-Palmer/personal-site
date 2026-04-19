@@ -1,9 +1,29 @@
 import type { RecipeInstructionSdk } from "@/lib/domain/recipe/recipe";
 
-export type InstructionDisplayToken = {
-  type: "text";
-  value: string;
-};
+export type InstructionDisplayToken =
+  | {
+      type: "text";
+      value: string;
+    }
+  | {
+      type: "ingredient";
+      value: string;
+      canonicalName: string;
+      amount: number | null;
+      unit: string | null;
+    }
+  | {
+      type: "cookware";
+      value: string;
+    }
+  | {
+      type: "inlineQuantity";
+      value: string;
+    }
+  | {
+      type: "timer";
+      value: string;
+    };
 
 export type InstructionTokenizationResult =
   | { ok: true; steps: InstructionDisplayToken[][] }
@@ -41,17 +61,65 @@ export function tokenizeInstructionSdk(
         }
 
         if (item.type === "ingredient") {
-          const ingredient = fromIndex(
+          const canonicalName = fromIndex(
             instructionSdk.ingredientNames,
             item.index,
           );
-          if (ingredient === null) {
+          const displayValue = fromIndex(
+            instructionSdk.ingredientDisplayValues,
+            item.index,
+          );
+          const amount = instructionSdk.ingredientAmounts[item.index] ?? null;
+          const unit = instructionSdk.ingredientUnits[item.index] ?? null;
+          if (canonicalName === null) {
             return {
               ok: false,
               reason: `Malformed ingredient item index: ${item.index}`,
             };
           }
-          tokens.push({ type: "text", value: ingredient });
+          if (displayValue === null) {
+            return {
+              ok: false,
+              reason: `Malformed ingredient display item index: ${item.index}`,
+            };
+          }
+          tokens.push({
+            type: "ingredient",
+            value: displayValue,
+            canonicalName,
+            amount,
+            unit,
+          });
+          continue;
+        }
+
+        if (item.type === "cookware") {
+          const cookware = fromIndex(
+            instructionSdk.cookwareDisplayValues,
+            item.index,
+          );
+          if (cookware === null) {
+            return {
+              ok: false,
+              reason: `Malformed cookware item index: ${item.index}`,
+            };
+          }
+          tokens.push({ type: "cookware", value: cookware });
+          continue;
+        }
+
+        if (item.type === "inlineQuantity") {
+          const inlineQuantity = fromIndex(
+            instructionSdk.inlineQuantityDisplayValues,
+            item.index,
+          );
+          if (inlineQuantity === null) {
+            return {
+              ok: false,
+              reason: `Malformed inline quantity item index: ${item.index}`,
+            };
+          }
+          tokens.push({ type: "inlineQuantity", value: inlineQuantity });
           continue;
         }
 
@@ -66,7 +134,7 @@ export function tokenizeInstructionSdk(
               reason: `Malformed timer item index: ${item.index}`,
             };
           }
-          tokens.push({ type: "text", value: timer });
+          tokens.push({ type: "timer", value: timer });
           continue;
         }
 
