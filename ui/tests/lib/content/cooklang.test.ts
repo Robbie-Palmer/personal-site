@@ -60,7 +60,7 @@ Heat #frying pan|pan{} over a medium heat with @olive oil{1%tbsp}.
     );
 
     expect(recipe.instructions).toEqual([
-      "Heat pan over a medium heat with 1tbsp of olive oil.",
+      "Heat pan over a medium heat with 1 tbsp of olive oil.",
     ]);
     expect(recipe.instructionSdk?.cookwareDisplayValues).toEqual(["pan"]);
   });
