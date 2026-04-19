@@ -132,11 +132,13 @@ export function InlineTimer({
         break;
       case "running":
         clearTimer();
+        releaseWakeLock();
         setState("paused");
         break;
       case "paused":
         setState("running");
         startCountdown();
+        requestWakeLock();
         break;
       case "completed":
         reset();
@@ -147,6 +149,7 @@ export function InlineTimer({
     durationSeconds,
     startCountdown,
     clearTimer,
+    releaseWakeLock,
     requestWakeLock,
     reset,
     ensureAudioContext,
