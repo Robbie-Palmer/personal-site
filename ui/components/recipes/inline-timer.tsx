@@ -2,7 +2,8 @@
 
 import { Pause, RotateCcw, Timer, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { badgeVariants } from "@/components/ui/badge";
+import { cn } from "@/lib/generic/styles";
 
 type TimerState = "idle" | "running" | "paused" | "completed";
 
@@ -153,10 +154,12 @@ export function InlineTimer({
 
   if (durationSeconds === null) {
     return (
-      <Badge variant="outline" className="align-baseline">
+      <span
+        className={cn(badgeVariants({ variant: "outline" }), "align-baseline")}
+      >
         <Timer className="size-3" />
         {label}
-      </Badge>
+      </span>
     );
   }
 
@@ -167,44 +170,53 @@ export function InlineTimer({
         ? "default"
         : "outline";
 
+  const showReset = state === "running" || state === "paused";
+
   return (
-    <Badge
-      variant={variant}
-      interactive
-      active={state === "running"}
-      onClick={handleClick}
-      className={`align-baseline ${state === "completed" ? "animate-pulse" : ""}`}
-      aria-label={
-        state === "idle"
-          ? `Start ${label} timer`
-          : state === "running"
-            ? `Pause timer, ${formatCountdown(remaining)} remaining`
-            : state === "paused"
-              ? `Resume timer, ${formatCountdown(remaining)} remaining`
-              : "Timer complete, click to reset"
-      }
-    >
-      {state === "paused" ? (
-        <Pause className="size-3" />
-      ) : state === "completed" ? (
-        <RotateCcw className="size-3" />
-      ) : (
-        <Timer className="size-3" />
+    <span
+      className={cn(
+        badgeVariants({
+          variant,
+          interactive: true,
+          active: state === "running",
+        }),
+        "align-baseline",
+        state === "completed" && "animate-pulse",
       )}
-      {state === "idle" ? label : formatCountdown(remaining)}
-      {(state === "running" || state === "paused") && (
+    >
+      <button
+        type="button"
+        onClick={handleClick}
+        className="inline-flex items-center gap-1"
+        aria-label={
+          state === "idle"
+            ? `Start ${label} timer`
+            : state === "running"
+              ? `Pause timer, ${formatCountdown(remaining)} remaining`
+              : state === "paused"
+                ? `Resume timer, ${formatCountdown(remaining)} remaining`
+                : "Timer complete, click to reset"
+        }
+      >
+        {state === "paused" ? (
+          <Pause className="size-3" />
+        ) : state === "completed" ? (
+          <RotateCcw className="size-3" />
+        ) : (
+          <Timer className="size-3" />
+        )}
+        {state === "idle" ? label : formatCountdown(remaining)}
+      </button>
+      {showReset && (
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            reset();
-          }}
+          onClick={reset}
           className="ml-0.5 rounded-sm opacity-60 hover:opacity-100"
           aria-label="Reset timer"
         >
           <X className="size-3" />
         </button>
       )}
-    </Badge>
+    </span>
   );
 }
