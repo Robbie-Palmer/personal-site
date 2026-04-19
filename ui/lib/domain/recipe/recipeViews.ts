@@ -40,6 +40,7 @@ type BaseRecipeView = {
 
 export type RecipeCardView = BaseRecipeView & {
   ingredientNames: string[];
+  cookware: string[];
 };
 
 export type RecipeDetailView = BaseRecipeView & {
@@ -117,6 +118,7 @@ export function toRecipeCardView(
     image: recipe.image,
     imageAlt: recipe.imageAlt,
     ingredientNames: extractIngredientNames(recipe, ingredients),
+    cookware: recipe.cookware,
   };
 }
 

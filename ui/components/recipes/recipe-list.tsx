@@ -1,6 +1,13 @@
 "use client";
 
-import { Clock, Globe, Leaf, Timer, UtensilsCrossed } from "lucide-react";
+import {
+  ChefHat,
+  Clock,
+  Globe,
+  Leaf,
+  Timer,
+  UtensilsCrossed,
+} from "lucide-react";
 import Link from "next/link";
 import type React from "react";
 import { Badge } from "@/components/ui/badge";
@@ -101,6 +108,7 @@ export function RecipeList({ recipes }: RecipeListProps) {
     filters: [
       { paramName: "cuisine", isMulti: true },
       { paramName: "ingredient", isMulti: true },
+      { paramName: "equipment", isMulti: true },
       { paramName: "prepTime", isMulti: true },
       { paramName: "totalTime", isMulti: true },
     ],
@@ -121,6 +129,7 @@ export function RecipeList({ recipes }: RecipeListProps) {
           { name: "description", weight: 2 },
           { name: "cuisine", weight: 2 },
           { name: "ingredientNames", weight: 1 },
+          { name: "cookware", weight: 1 },
         ],
         threshold: 0.1,
       }}
@@ -142,6 +151,15 @@ export function RecipeList({ recipes }: RecipeListProps) {
           icon: <Leaf className="h-4 w-4" />,
           getValueLabel: (value) => value,
           getOptionIcon: () => <Leaf className="h-3 w-3" />,
+        },
+        {
+          paramName: "equipment",
+          isMulti: true,
+          label: "Equipment",
+          getItemValues: (recipe) => recipe.cookware,
+          icon: <ChefHat className="h-4 w-4" />,
+          getValueLabel: (value) => value,
+          getOptionIcon: () => <ChefHat className="h-3 w-3" />,
         },
         {
           paramName: "prepTime",

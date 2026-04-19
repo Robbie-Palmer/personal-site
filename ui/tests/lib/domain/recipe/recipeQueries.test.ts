@@ -88,6 +88,7 @@ const curryRecipe = makeRecipe({
   slug: "curry",
   title: "Chicken Curry",
   cuisine: "Asian",
+  cookware: ["frying pan", "saucepan"],
   ingredientGroups: [
     {
       items: [
@@ -103,6 +104,7 @@ const risottoRecipe = makeRecipe({
   slug: "risotto",
   title: "Chorizo Risotto",
   cuisine: "Italian",
+  cookware: ["bowl", "saucepan"],
   ingredientGroups: [
     {
       items: [
@@ -124,6 +126,7 @@ describe("recipe queries", () => {
       expect(card?.title).toBe("Chicken Curry");
       expect(card?.cuisine).toBe("Asian");
       expect(card?.servings).toBe(4);
+      expect(card?.cookware).toEqual(["frying pan", "saucepan"]);
     });
 
     it("returns null for a non-existent recipe", () => {
@@ -162,6 +165,7 @@ describe("recipe queries", () => {
       const slugs = cards.map((c) => c.slug);
       expect(slugs).toContain("curry");
       expect(slugs).toContain("risotto");
+      expect(cards[0]?.cookware.length).toBeGreaterThan(0);
     });
   });
 
