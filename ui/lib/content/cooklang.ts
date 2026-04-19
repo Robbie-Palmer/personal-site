@@ -381,6 +381,9 @@ export function parseCookFile(
     prepTime: fm.prepTime,
     cookTime: fm.cookTime,
     tags: fm.tags ?? [],
+    cookware: [
+      ...new Set(cookwareDisplayValues.map((v) => v.trim().toLowerCase())),
+    ],
     image: fm.image,
     imageAlt: fm.imageAlt,
     ingredientGroups,

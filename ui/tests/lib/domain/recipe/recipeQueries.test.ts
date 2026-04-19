@@ -31,6 +31,7 @@ function makeRecipe(overrides: Partial<Recipe> & { slug: string }): Recipe {
     date: "2024-01-01",
     cookBody: ">> chicken breast\nStep 1",
     tags: [],
+    cookware: [],
     servings: 4,
     ingredientGroups: [
       {

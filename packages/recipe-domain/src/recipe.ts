@@ -95,6 +95,7 @@ export const RecipeContentSchema = ParsedRecipeSchema.extend({
   instructionSdk: RecipeInstructionSdkSchema.optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   tags: z.array(z.string()).default([]),
+  cookware: z.array(z.string()).default([]),
   image: z
     .string()
     .regex(/^recipes\/[a-z0-9_-]+-\d{4}-\d{2}-\d{2}$/)
