@@ -96,6 +96,27 @@ function formatAmount(item: RecipeIngredientView, scale: number): string {
   return parts.join(" ");
 }
 
+function hasRenderedUnitLabel(
+  item: Pick<RecipeIngredientView, "amount" | "unit">,
+  scale: number,
+): boolean {
+  if (!item.unit || item.unit === "piece") {
+    return false;
+  }
+
+  const labels = UNIT_LABELS[item.unit];
+  if (!labels) {
+    return false;
+  }
+
+  const scaledAmount = item.amount != null ? item.amount * scale : undefined;
+  const label =
+    scaledAmount != null && scaledAmount !== 1
+      ? labels.plural
+      : labels.singular;
+  return Boolean(label);
+}
+
 function formatIngredient(
   item: RecipeIngredientView,
   scale: number,
@@ -111,7 +132,7 @@ function formatIngredient(
 
   if (amount) {
     parts.push(amount);
-    if (item.unit && !isPiece) {
+    if (hasRenderedUnitLabel(item, scale)) {
       parts.push("of");
     }
   }
@@ -152,7 +173,7 @@ function formatInstructionIngredientToken(
 
   if (amount) {
     parts.push(amount);
-    if (item.unit && !isPiece) {
+    if (hasRenderedUnitLabel(item, scale)) {
       parts.push("of");
     }
   }
