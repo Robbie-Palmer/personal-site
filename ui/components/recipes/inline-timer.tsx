@@ -82,6 +82,19 @@ export function InlineTimer({
   }, [clearTimer, releaseWakeLock]);
 
   useEffect(() => {
+    if (state !== "running") return;
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        requestWakeLock();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [state, requestWakeLock]);
+
+  useEffect(() => {
     if (state === "running" && remaining <= 0) {
       clearTimer();
       releaseWakeLock();
