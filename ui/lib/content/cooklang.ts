@@ -14,7 +14,7 @@ import { fileURLToPath } from "url";
 import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
 import type { RecipeContent } from "@/lib/domain/recipe/recipe";
 import { RecipeContentSchema } from "@/lib/domain/recipe/recipe";
-import { UnitSchema } from "@/lib/domain/recipe/unit";
+import { UNIT_LABELS, UnitSchema } from "@/lib/domain/recipe/unit";
 import { normalizeSlug } from "@/lib/generic/slugs";
 
 interface CookFrontmatter {
@@ -115,15 +115,31 @@ function formatInstructionIngredient(
   displayValue: string,
 ): string {
   const amount = resolveQuantityValue(ingredient.quantity);
-  const unit = getQuantityUnit(ingredient.quantity);
-  const prefix = [amount !== undefined ? String(amount) : null, unit]
-    .filter(Boolean)
-    .join(unit === "piece" ? " " : "");
 
-  if (!prefix) return displayValue;
-  return unit === "piece"
-    ? `${prefix} ${displayValue}`
-    : `${prefix} of ${displayValue}`;
+  // When amount is undefined, simply return displayValue
+  if (amount === undefined) return displayValue;
+
+  const rawUnit = getQuantityUnit(ingredient.quantity);
+
+  // Skip emitting any unit when it's "piece"
+  if (rawUnit === "piece") {
+    return `${amount} ${displayValue}`;
+  }
+
+  // For non-piece units, use UNIT_LABELS to get the proper label
+  if (rawUnit) {
+    const unitResult = UnitSchema.safeParse(rawUnit);
+    if (unitResult.success) {
+      const unit = unitResult.data;
+      const unitLabel = UNIT_LABELS[unit];
+      const label = amount === 1 ? unitLabel.singular : unitLabel.plural;
+      const separator = unitLabel.noSpace ? "" : " ";
+      return `${amount}${separator}${label} of ${displayValue}`;
+    }
+  }
+
+  // Fallback for unknown units (shouldn't normally happen)
+  return `${amount} ${displayValue}`;
 }
 
 function formatInlineQuantityDisplay(quantity: unknown): string {
