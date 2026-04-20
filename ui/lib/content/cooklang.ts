@@ -102,6 +102,34 @@ function formatTimerDisplay(timer: Timer): string {
     .trim();
 }
 
+function timerDurationSeconds(timer: Timer): number | null {
+  const qty = resolveQuantityValue(timer.quantity);
+  if (qty === undefined) return null;
+  const unit = getQuantityUnit(timer.quantity)?.toLowerCase();
+  switch (unit) {
+    case "s":
+    case "sec":
+    case "secs":
+    case "second":
+    case "seconds":
+      return qty;
+    case "m":
+    case "min":
+    case "mins":
+    case "minute":
+    case "minutes":
+      return qty * 60;
+    case "h":
+    case "hr":
+    case "hrs":
+    case "hour":
+    case "hours":
+      return qty * 3600;
+    default:
+      return null;
+  }
+}
+
 function formatCookwareDisplay(cookware: Cookware): string {
   return cookware_display_name(cookware);
 }
@@ -335,6 +363,7 @@ export function parseCookFile(
   const cookwareDisplayValues = cookware.map(formatCookwareDisplay);
   const inlineQuantityDisplayValues = inlineQuantities;
   const timerDisplayValues = timers.map(formatTimerDisplay);
+  const timerDurations = timers.map(timerDurationSeconds);
 
   for (const section of sections) {
     // Cooklang `== Name ==` sections map to ingredient groups
@@ -402,6 +431,7 @@ export function parseCookFile(
       cookwareDisplayValues,
       inlineQuantityDisplayValues,
       timerDisplayValues,
+      timerDurationSeconds: timerDurations,
     },
   });
 }

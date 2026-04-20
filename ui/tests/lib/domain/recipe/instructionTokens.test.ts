@@ -13,6 +13,7 @@ function makeSdk(
     cookwareDisplayValues: ["oven"],
     inlineQuantityDisplayValues: ["200°C"],
     timerDisplayValues: ["10 min"],
+    timerDurationSeconds: [600],
     sections: [
       {
         name: null,
@@ -53,7 +54,7 @@ describe("tokenizeInstructionSdk", () => {
             unit: "piece",
           },
           { type: "text", value: " for " },
-          { type: "timer", value: "10 min" },
+          { type: "timer", value: "10 min", durationSeconds: 600 },
         ],
       ]);
     }

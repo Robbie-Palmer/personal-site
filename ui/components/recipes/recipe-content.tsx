@@ -2,6 +2,7 @@
 
 import { Clock, Minus, Plus, Timer, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { InlineTimer } from "@/components/recipes/inline-timer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -382,10 +383,19 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                 <li key={i} className="leading-relaxed pl-2">
                   {tokens.map((token, tokenIndex) => (
                     <span key={tokenIndex}>
-                      {token.type === "ingredient" &&
-                      repeatedInstructionIngredients.has(token.canonicalName)
-                        ? formatInstructionIngredientToken(token, scale)
-                        : token.value}
+                      {token.type === "timer" ? (
+                        <InlineTimer
+                          durationSeconds={token.durationSeconds}
+                          label={token.value}
+                        />
+                      ) : token.type === "ingredient" &&
+                        repeatedInstructionIngredients.has(
+                          token.canonicalName,
+                        ) ? (
+                        formatInstructionIngredientToken(token, scale)
+                      ) : (
+                        token.value
+                      )}
                     </span>
                   ))}
                 </li>
