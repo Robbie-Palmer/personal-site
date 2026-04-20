@@ -1,10 +1,16 @@
-import type { Cookware, Ingredient, Step, Timer } from "@cooklang/cooklang";
+import type {
+  Cookware,
+  Ingredient,
+  Quantity,
+  Step,
+  Timer,
+} from "@cooklang/cooklang";
 import {
+  CooklangParser,
   cookware_display_name,
   getQuantityUnit,
   getQuantityValue,
   ingredient_display_name,
-  Parser,
   quantity_display,
 } from "@cooklang/cooklang";
 import { readdirSync, readFileSync } from "fs";
@@ -49,7 +55,7 @@ type GroupAccumulator = {
   itemIndexByIngredient: Map<IngredientSlug, number>;
 };
 
-const _parser = new Parser();
+const _parser = new CooklangParser();
 
 // getQuantityValue returns NaN for fractions — resolve them from the raw structure.
 function resolveQuantityValue(
@@ -170,8 +176,8 @@ function formatInstructionIngredient(
   return `${amount} ${displayValue}`;
 }
 
-function formatInlineQuantityDisplay(quantity: unknown): string {
-  return quantity_display(quantity as Parameters<typeof quantity_display>[0]);
+function formatInlineQuantityDisplay(quantity: Quantity): string {
+  return quantity_display(quantity);
 }
 
 function buildIngredientGroupItem(
@@ -328,10 +334,10 @@ export function parseCookFile(
   const fm = data as CookFrontmatter;
   const annotations = fm.ingredientAnnotations ?? {};
 
-  const { recipe } = _parser.parse(body);
-  const inlineQuantities = (
-    (recipe as { inline_quantities?: unknown[] }).inline_quantities ?? []
-  ).map(formatInlineQuantityDisplay);
+  const [recipe] = _parser.parse(body);
+  const inlineQuantities = recipe.inlineQuantities.map(
+    formatInlineQuantityDisplay,
+  );
   const { sections, ingredients, cookware, timers } = recipe;
 
   const getOrCreateNamedGroup = (
