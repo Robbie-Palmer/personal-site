@@ -36,7 +36,10 @@ export function RecipePagination({
         {prevRecipe ? (
           <Link href={`/recipes/${prevRecipe.slug}`} className="block min-w-0">
             <div className="flex h-full min-w-0 items-center gap-3 rounded-lg border border-border/60 bg-muted/20 px-4 py-3 transition-colors hover:bg-muted/40">
-              <ArrowLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <ArrowLeft
+                aria-hidden="true"
+                className="h-4 w-4 shrink-0 text-muted-foreground"
+              />
               <div className="min-w-0 flex-1">
                 <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
                   Previous
@@ -52,7 +55,10 @@ export function RecipePagination({
         {nextRecipe ? (
           <Link href={`/recipes/${nextRecipe.slug}`} className="block min-w-0">
             <div className="flex h-full min-w-0 items-center gap-3 rounded-lg border border-border/60 bg-muted/20 px-4 py-3 transition-colors hover:bg-muted/40">
-              <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground sm:order-2" />
+              <ArrowRight
+                aria-hidden="true"
+                className="h-4 w-4 shrink-0 text-muted-foreground sm:order-2"
+              />
               <div className="min-w-0 flex-1 sm:text-right">
                 <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
                   Next
