@@ -47,6 +47,21 @@ describe("RecipePagination", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders only the available navigation control at the end of the list", () => {
+    render(
+      <RecipePagination
+        prevRecipe={makeRecipe("previous-recipe", "Previous Recipe")}
+      />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: /previous previous recipe/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /next/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders nothing when there are no neighbors", () => {
     const { container } = render(<RecipePagination />);
 
