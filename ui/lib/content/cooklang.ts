@@ -5,28 +5,16 @@ import matter from "gray-matter";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
-import type { RecipeContent } from "@/lib/domain/recipe/recipe";
-import { RecipeContentSchema } from "@/lib/domain/recipe/recipe";
+import type {
+  RecipeContent,
+  RecipeFrontmatter,
+} from "@/lib/domain/recipe/recipe";
+import {
+  RecipeContentSchema,
+  RecipeFrontmatterSchema,
+} from "@/lib/domain/recipe/recipe";
 import { UnitSchema } from "@/lib/domain/recipe/unit";
 import { normalizeSlug } from "@/lib/generic/slugs";
-
-interface CookFrontmatter {
-  title: string;
-  description: string;
-  date: string;
-  servings: number;
-  cuisine?: string;
-  prepTime?: number;
-  cookTime?: number;
-  tags?: string[];
-  image?: string;
-  imageAlt?: string;
-  // Cooklang has no annotation syntax, so these live in frontmatter.
-  ingredientAnnotations?: Record<
-    string,
-    { preparation?: string; note?: string }
-  >;
-}
 
 const _parser = new Parser();
 
@@ -106,7 +94,7 @@ export function parseCookFile(
   slug: string,
 ): RecipeContent {
   const { data, content: body } = matter(fileContent);
-  const fm = data as CookFrontmatter;
+  const fm = RecipeFrontmatterSchema.parse(data) as RecipeFrontmatter;
   const annotations = fm.ingredientAnnotations ?? {};
 
   const { recipe } = _parser.parse(body);

@@ -1,28 +1,65 @@
 import "dotenv/config";
 import {
+  COOKLANG_PREDICTIONS_PATH,
   PARSE_FAILURES_PATH,
+  PREDICTIONS_PATH,
+  STRUCTURED_TEXT_PREDICTIONS_PATH,
+  loadCooklangPredictions,
+  loadImageEntries,
   loadParseFailures,
   loadPredictions,
-  loadPreparedData,
-  PREDICTIONS_PATH,
+  loadStructuredTextPredictions,
   writeJson,
 } from "../lib/io";
+import {
+  buildCooklangDraftFromStructuredText,
+  deriveRecipeFromCooklang,
+  deriveRecipeFromStructuredText,
+} from "../lib/cooklang.js";
 import {
   type OpenAIStyleError,
   isRetryableParseError,
   stringifyProviderErrorBody,
 } from "../lib/parse-retry.js";
 import { imageSetKey } from "../lib/image-key.js";
-import { parseRecipeFromImages } from "../lib/openrouter.js";
+import {
+  extractStructuredTextFromImages,
+  generateCooklangFromStructuredText,
+} from "../lib/openrouter.js";
 import type {
   PredictionEntry,
   PredictionsDataset,
-} from "../schemas/ground-truth";
+} from "../schemas/ground-truth.js";
 import type { ParseFailuresDataset } from "../schemas/parse-failures.js";
+import type {
+  CooklangPredictionEntry,
+  CooklangPredictionsDataset,
+  StructuredTextPredictionEntry,
+  StructuredTextPredictionsDataset,
+} from "../schemas/stage-artifacts.js";
 
 type AttemptErrorDetail = NonNullable<
   ParseFailuresDataset["entries"][number]["attemptErrors"]
 >[number];
+
+type ParseStage = "extract-structured" | "generate-cooklang" | "derive-recipe";
+
+type ParseSuccess = {
+  ok: true;
+  prediction?: PredictionEntry;
+  structured: StructuredTextPredictionEntry;
+  cooklang: CooklangPredictionEntry;
+};
+
+type ParseFailure = {
+  ok: false;
+  prediction?: PredictionEntry;
+  structured?: StructuredTextPredictionEntry;
+  cooklang?: CooklangPredictionEntry;
+  failure: ParseFailuresDataset["entries"][number];
+};
+
+type ParseResult = ParseSuccess | ParseFailure;
 
 function parseIntegerEnv(
   name: string,
@@ -71,6 +108,20 @@ function computeBackoffDelayMs(
   return Math.floor(expDelay * jitterMultiplier);
 }
 
+function isOpenAIStyleError(error: unknown): error is OpenAIStyleError {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  return (
+    "status" in error ||
+    "requestID" in error ||
+    "error" in error ||
+    "code" in error ||
+    "type" in error ||
+    "param" in error
+  );
+}
+
 function extractAttemptErrorDetail(
   error: unknown,
   attempt: number,
@@ -115,96 +166,30 @@ function extractAttemptErrorDetail(
   return base;
 }
 
-function isOpenAIStyleError(error: unknown): error is OpenAIStyleError {
-  if (!error || typeof error !== "object") {
-    return false;
-  }
-  return (
-    "status" in error ||
-    "requestID" in error ||
-    "error" in error ||
-    "code" in error ||
-    "type" in error ||
-    "param" in error
-  );
-}
-
-type ParseResult =
-  | { ok: true; prediction: PredictionEntry }
-  | { ok: false; failure: ParseFailuresDataset["entries"][number] };
-
-async function parseEntryWithRetries(params: {
+function buildFailure(params: {
   images: string[];
-  model: string;
-  requestTimeoutMs: number;
-  maxRetries: number;
-  maxImageDimension: number;
-  jpegQuality: number;
-  backoffBaseDelayMs: number;
-  backoffMaxDelayMs: number;
-}): Promise<ParseResult> {
-  const attempts = params.maxRetries + 1;
-  let lastError: unknown;
-  const attemptErrors: AttemptErrorDetail[] = [];
-
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    try {
-      const predicted = await parseRecipeFromImages({
-        imageFiles: params.images,
-        model: params.model,
-        requestTimeoutMs: params.requestTimeoutMs,
-        maxImageDimension: params.maxImageDimension,
-        jpegQuality: params.jpegQuality,
-      });
-      return {
-        ok: true,
-        prediction: {
-          images: params.images,
-          predicted,
-        },
-      };
-    } catch (error) {
-      lastError = error;
-      const detail = extractAttemptErrorDetail(error, attempt);
-      attemptErrors.push(detail);
-      const diagnostics: string[] = [];
-      if (detail.statusCode !== undefined) diagnostics.push(`status=${detail.statusCode}`);
-      if (detail.requestId) diagnostics.push(`request_id=${detail.requestId}`);
-      if (detail.providerErrorCode) diagnostics.push(`code=${detail.providerErrorCode}`);
-      if (detail.providerErrorType) diagnostics.push(`type=${detail.providerErrorType}`);
-      const diagnosticSuffix =
-        diagnostics.length > 0 ? ` (${diagnostics.join(", ")})` : "";
-      console.warn(
-        `Parsing failed for [${params.images.join(", ")}] attempt ${attempt}/${attempts}: ${detail.errorMessage}${diagnosticSuffix}`,
-      );
-      const hasNextAttempt = attempt < attempts;
-      if (hasNextAttempt && detail.retryable) {
-        const delayMs = computeBackoffDelayMs(
-          attempt,
-          params.backoffBaseDelayMs,
-          params.backoffMaxDelayMs,
-        );
-        console.log(
-          `Retrying [${params.images.join(", ")}] in ${delayMs}ms...`,
-        );
-        await sleep(delayMs);
-      }
-      if (hasNextAttempt && !detail.retryable) {
-        break;
-      }
-    }
-  }
-
-  const attemptCount = attemptErrors.length;
+  stage: ParseStage;
+  model?: string;
+  lastError: unknown;
+  attemptErrors: AttemptErrorDetail[];
+  prediction?: PredictionEntry;
+  structured?: StructuredTextPredictionEntry;
+  cooklang?: CooklangPredictionEntry;
+}): ParseFailure {
+  const attemptCount = params.attemptErrors.length;
   const lastDetail =
-    attemptErrors[attemptErrors.length - 1] ??
-    extractAttemptErrorDetail(lastError, attemptCount || attempts);
-  const candidate = isOpenAIStyleError(lastError) ? lastError : undefined;
+    params.attemptErrors[params.attemptErrors.length - 1] ??
+    extractAttemptErrorDetail(params.lastError, attemptCount || 1);
+  const candidate = isOpenAIStyleError(params.lastError) ? params.lastError : undefined;
 
   return {
     ok: false,
+    prediction: params.prediction,
+    structured: params.structured,
+    cooklang: params.cooklang,
     failure: {
       images: params.images,
+      stage: params.stage,
       attemptCount,
       model: params.model,
       errorType: lastDetail.errorType,
@@ -216,13 +201,161 @@ async function parseEntryWithRetries(params: {
       providerErrorParam: lastDetail.providerErrorParam,
       providerErrorBody: stringifyProviderErrorBody(candidate?.error),
       causeMessage: lastDetail.causeMessage,
-      attemptErrors,
+      attemptErrors: params.attemptErrors,
     },
   };
 }
 
+async function parseEntryWithRetries(params: {
+  images: string[];
+  extractModel: string;
+  cooklangModel: string;
+  requestTimeoutMs: number;
+  maxRetries: number;
+  maxImageDimension: number;
+  jpegQuality: number;
+  backoffBaseDelayMs: number;
+  backoffMaxDelayMs: number;
+}): Promise<ParseResult> {
+  const attempts = params.maxRetries + 1;
+  let extractionError: unknown;
+  const extractionAttemptErrors: AttemptErrorDetail[] = [];
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const extracted = await extractStructuredTextFromImages({
+        imageFiles: params.images,
+        model: params.extractModel,
+        requestTimeoutMs: params.requestTimeoutMs,
+        maxImageDimension: params.maxImageDimension,
+        jpegQuality: params.jpegQuality,
+      });
+
+      const cooklangDraft = buildCooklangDraftFromStructuredText(extracted);
+      let cooklang = cooklangDraft;
+      try {
+        cooklang = await generateCooklangFromStructuredText({
+          extracted,
+          model: params.cooklangModel,
+          requestTimeoutMs: params.requestTimeoutMs,
+        });
+      } catch (error) {
+        cooklang = {
+          ...cooklangDraft,
+          diagnostics: [
+            ...cooklangDraft.diagnostics,
+            `Cooklang model refinement failed; keeping deterministic draft: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          ],
+          derived: cooklangDraft.derived,
+        };
+      }
+
+      const derivedCooklang = deriveRecipeFromCooklang(cooklang);
+      const structuredFallback = deriveRecipeFromStructuredText(extracted);
+      if (!derivedCooklang.derived) {
+        const fallbackPrediction = structuredFallback.recipe
+          ? {
+              images: params.images,
+              predicted: structuredFallback.recipe,
+            }
+          : undefined;
+        const fallbackCooklang = {
+          ...derivedCooklang,
+          diagnostics: [
+            ...derivedCooklang.diagnostics,
+            ...structuredFallback.diagnostics,
+          ],
+        };
+        return buildFailure({
+          images: params.images,
+          stage: "derive-recipe",
+          model: params.cooklangModel,
+          lastError: new Error(
+            [...derivedCooklang.diagnostics, ...structuredFallback.diagnostics].join(" | "),
+          ),
+          prediction: fallbackPrediction,
+          structured: {
+            images: params.images,
+            extracted,
+          },
+          cooklang: {
+            images: params.images,
+            cooklang: fallbackCooklang,
+          },
+          attemptErrors: [
+            extractAttemptErrorDetail(
+              new Error(
+                [...derivedCooklang.diagnostics, ...structuredFallback.diagnostics].join(
+                  " | ",
+                ),
+              ),
+              1,
+            ),
+          ],
+        });
+      }
+
+      return {
+        ok: true,
+        prediction: derivedCooklang.derived
+          ? {
+              images: params.images,
+              predicted: derivedCooklang.derived,
+            }
+          : undefined,
+        structured: {
+          images: params.images,
+          extracted,
+        },
+        cooklang: {
+          images: params.images,
+          cooklang: derivedCooklang,
+        },
+      };
+    } catch (error) {
+      extractionError = error;
+      const detail = extractAttemptErrorDetail(error, attempt);
+      extractionAttemptErrors.push(detail);
+      const diagnostics: string[] = [];
+      if (detail.statusCode !== undefined) diagnostics.push(`status=${detail.statusCode}`);
+      if (detail.requestId) diagnostics.push(`request_id=${detail.requestId}`);
+      if (detail.providerErrorCode) diagnostics.push(`code=${detail.providerErrorCode}`);
+      if (detail.providerErrorType) diagnostics.push(`type=${detail.providerErrorType}`);
+      const diagnosticSuffix =
+        diagnostics.length > 0 ? ` (${diagnostics.join(", ")})` : "";
+      console.warn(
+        `Structured extraction failed for [${params.images.join(", ")}] attempt ${attempt}/${attempts}: ${detail.errorMessage}${diagnosticSuffix}`,
+      );
+      const hasNextAttempt = attempt < attempts;
+      if (hasNextAttempt && detail.retryable) {
+        const delayMs = computeBackoffDelayMs(
+          attempt,
+          params.backoffBaseDelayMs,
+          params.backoffMaxDelayMs,
+        );
+        console.log(`Retrying [${params.images.join(", ")}] in ${delayMs}ms...`);
+        await sleep(delayMs);
+      }
+      if (hasNextAttempt && !detail.retryable) {
+        break;
+      }
+    }
+  }
+
+  return buildFailure({
+    images: params.images,
+    stage: "extract-structured",
+    model: params.extractModel,
+    lastError: extractionError,
+    attemptErrors: extractionAttemptErrors,
+  });
+}
+
 async function main() {
-  const model = process.env.OPENROUTER_MODEL ?? "google/gemini-3-flash-preview";
+  const extractModel = process.env.OPENROUTER_MODEL ?? "google/gemini-3-flash-preview";
+  const cooklangModel = process.env.COOKLANG_MODEL ?? extractModel;
   const requestTimeoutMs = parsePositiveIntegerEnv("PARSE_REQUEST_TIMEOUT_MS", 30_000);
   const maxRetries = parseNonNegativeIntegerEnv("PARSE_MAX_RETRIES", 2);
   const concurrency = parsePositiveIntegerEnv("PARSE_CONCURRENCY", 8);
@@ -243,7 +376,8 @@ async function main() {
   const hasApiKey = Boolean(process.env.OPENROUTER_API_KEY);
 
   console.log("Parse config:");
-  console.log(`  OPENROUTER_MODEL:          ${model}`);
+  console.log(`  OPENROUTER_MODEL:          ${extractModel}`);
+  console.log(`  COOKLANG_MODEL:            ${cooklangModel}`);
   console.log(`  PARSE_REQUEST_TIMEOUT_MS:  ${requestTimeoutMs}`);
   console.log(`  PARSE_MAX_RETRIES:         ${maxRetries}`);
   console.log(`  PARSE_CONCURRENCY:         ${concurrency}`);
@@ -256,24 +390,24 @@ async function main() {
   );
   console.log(`  OPENROUTER_API_KEY:        ${hasApiKey ? "set" : "missing"}`);
 
-  console.log("Loading prepared data...");
-  const prepared = await loadPreparedData();
-  let entriesToProcess = prepared.entries;
+  console.log("Loading image entries...");
+  const imageEntries = await loadImageEntries();
+  let entriesToProcess = imageEntries.entries;
   let targetEntryKeys = new Set<string>();
 
   if (targetImages) {
     const targetSet = new Set(targetImages);
-    const matches = prepared.entries.filter((entry) => {
+    const matches = imageEntries.entries.filter((entry) => {
       if (entry.images.length !== targetImages.length) return false;
       return entry.images.every((image) => targetSet.has(image));
     });
     if (matches.length === 0) {
-      const available = prepared.entries
+      const available = imageEntries.entries
         .map((entry) => entry.images.join(", "))
         .sort()
         .join("\n  - ");
       throw new Error(
-        `No prepared entry matched PARSE_TARGET_IMAGES=${targetImages.join(", ")}.\nAvailable image sets:\n  - ${available}`,
+        `No entry matched PARSE_TARGET_IMAGES=${targetImages.join(", ")}.\nAvailable image sets:\n  - ${available}`,
       );
     }
     entriesToProcess = matches;
@@ -281,7 +415,7 @@ async function main() {
   }
 
   console.log(
-    `Running OpenRouter parsing with model '${model}' on ${entriesToProcess.length} entries...`,
+    `Running extraction and Cooklang generation on ${entriesToProcess.length} entries...`,
   );
 
   const results = new Array<ParseResult | undefined>(entriesToProcess.length);
@@ -297,7 +431,8 @@ async function main() {
       const entry = entriesToProcess[currentIndex]!;
       results[currentIndex] = await parseEntryWithRetries({
         images: entry.images,
-        model,
+        extractModel,
+        cooklangModel,
         requestTimeoutMs,
         maxRetries,
         maxImageDimension,
@@ -312,52 +447,79 @@ async function main() {
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
   const predictions: PredictionsDataset = { entries: [] };
+  const structuredPredictions: StructuredTextPredictionsDataset = { entries: [] };
+  const cooklangPredictions: CooklangPredictionsDataset = { entries: [] };
   const failures: ParseFailuresDataset = { entries: [] };
+
   for (const result of results) {
     if (!result) continue;
     if (result.ok) {
-      predictions.entries.push(result.prediction);
+      if (result.prediction) {
+        predictions.entries.push(result.prediction);
+      }
+      structuredPredictions.entries.push(result.structured);
+      cooklangPredictions.entries.push(result.cooklang);
     } else {
+      if (result.prediction) {
+        predictions.entries.push(result.prediction);
+      }
+      if (result.structured) {
+        structuredPredictions.entries.push(result.structured);
+      }
+      if (result.cooklang) {
+        cooklangPredictions.entries.push(result.cooklang);
+      }
       failures.entries.push(result.failure);
     }
   }
 
-  if (targetImages) {
-    let existingPredictions: PredictionsDataset = { entries: [] };
-    let existingFailures: ParseFailuresDataset;
-    try {
-      existingPredictions = await loadPredictions();
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
-        existingPredictions = { entries: [] };
-      } else {
-        throw error;
-      }
-    }
-    existingFailures = await loadParseFailures();
+  if (targetEntryKeys.size > 0) {
+    const [existingPredictions, existingFailures, existingStructured, existingCooklang] =
+      await Promise.all([
+        loadPredictions().catch(() => ({ entries: [] })),
+        loadParseFailures().catch(() => ({ entries: [] })),
+        loadStructuredTextPredictions().catch(() => ({ entries: [] })),
+        loadCooklangPredictions().catch(() => ({ entries: [] })),
+      ]);
 
-    predictions.entries = [
-      ...existingPredictions.entries.filter(
-        (entry) => !targetEntryKeys.has(imageSetKey(entry.images)),
-      ),
-      ...predictions.entries,
-    ];
-    failures.entries = [
-      ...existingFailures.entries.filter(
-        (entry) => !targetEntryKeys.has(imageSetKey(entry.images)),
-      ),
-      ...failures.entries,
-    ];
+    const mergedPredictions = existingPredictions.entries.filter(
+      (entry) => !targetEntryKeys.has(imageSetKey(entry.images)),
+    );
+    mergedPredictions.push(...predictions.entries);
+    predictions.entries = mergedPredictions;
+
+    const mergedStructured = existingStructured.entries.filter(
+      (entry) => !targetEntryKeys.has(imageSetKey(entry.images)),
+    );
+    mergedStructured.push(...structuredPredictions.entries);
+    structuredPredictions.entries = mergedStructured;
+
+    const mergedCooklang = existingCooklang.entries.filter(
+      (entry) => !targetEntryKeys.has(imageSetKey(entry.images)),
+    );
+    mergedCooklang.push(...cooklangPredictions.entries);
+    cooklangPredictions.entries = mergedCooklang;
+
+    const mergedFailures = existingFailures.entries.filter(
+      (entry) => !targetEntryKeys.has(imageSetKey(entry.images)),
+    );
+    mergedFailures.push(...failures.entries);
+    failures.entries = mergedFailures;
   }
 
   await Promise.all([
     writeJson(PREDICTIONS_PATH, predictions),
+    writeJson(STRUCTURED_TEXT_PREDICTIONS_PATH, structuredPredictions),
+    writeJson(COOKLANG_PREDICTIONS_PATH, cooklangPredictions),
     writeJson(PARSE_FAILURES_PATH, failures),
   ]);
+
+  console.log(`Parsed ${predictions.entries.length} entries -> ${PREDICTIONS_PATH}`);
   console.log(
-    `Generated ${predictions.entries.length} predictions, ${failures.entries.length} failures → ${PREDICTIONS_PATH}`,
+    `Structured extraction artifacts written to ${STRUCTURED_TEXT_PREDICTIONS_PATH}`,
   );
-  console.log(`Parse failures written to ${PARSE_FAILURES_PATH}`);
+  console.log(`Cooklang artifacts written to ${COOKLANG_PREDICTIONS_PATH}`);
+  console.log(`Failures written to ${PARSE_FAILURES_PATH}`);
 }
 
 main().catch((err) => {

@@ -54,14 +54,25 @@ Optional environment variables:
 
 Outputs:
 
-- `outputs/predictions.json`: successful, schema-valid predictions
+- `outputs/structured-extractions.json`: image -> structured text extraction artifacts
+- `outputs/cooklang-recipes.json`: generated Cooklang artifacts plus derived previews
+- `outputs/predictions.json`: successful derived normalized recipes for downstream compatibility
 - `outputs/parse-failures.json`: skipped entry diagnostics after retry exhaustion
+
+The parse stage now runs as a staged ingestion flow:
+
+1. image -> structured extraction artifact
+2. structured extraction -> Cooklang artifact
+3. Cooklang artifact -> derived normalized recipe
+
+`predictions.json` is retained as the downstream-compatible derived view, not the canonical
+intermediate artifact.
 
 ### 2. Evaluate Extraction
 
-`evaluate_extraction` compares raw parser output against `rawExpected` ground
+`evaluate_extraction` compares raw parser output against `expectedExtraction` ground
 truth annotations. This measures how well the parser reads recipe images before
-any canonicalization. Entries without `rawExpected` are skipped.
+any canonicalization. Entries without `expectedExtraction` are skipped.
 
 Outputs:
 
