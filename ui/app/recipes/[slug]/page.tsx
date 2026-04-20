@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RecipeContent } from "@/components/recipes/recipe-content";
+import { RecipePagination } from "@/components/recipes/recipe-pagination";
 import {
   getAllRecipeSlugs,
   getRecipeBySlug,
+  getRecipeNavigation,
   type RecipeDetailView,
 } from "@/lib/api/recipes";
 
@@ -43,6 +45,8 @@ export default async function RecipePage(props: PageProps) {
     notFound();
   }
 
+  const { prevRecipe, nextRecipe } = getRecipeNavigation(slug);
+
   return (
     <article className="container mx-auto px-4 py-12 max-w-4xl">
       <Link
@@ -53,6 +57,12 @@ export default async function RecipePage(props: PageProps) {
       </Link>
 
       <RecipeContent recipe={recipe} />
+
+      <RecipePagination
+        prevRecipe={prevRecipe}
+        nextRecipe={nextRecipe}
+        className="mt-12"
+      />
     </article>
   );
 }
