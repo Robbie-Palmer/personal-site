@@ -69,17 +69,3 @@ export const UNIT_CATEGORIES: Record<Unit, UnitCategory> = {
   cube: "discrete",
   sachet: "discrete",
 };
-
-// Conversion factors to base unit within each category
-// Weight base: g, Volume base: ml, Spoon base: tsp
-export const UNIT_CONVERSIONS: Partial<
-  Record<Unit, { baseUnit: Unit; factor: number }>
-> = {
-  g: { baseUnit: "g", factor: 1 },
-  kg: { baseUnit: "g", factor: 1000 },
-  ml: { baseUnit: "ml", factor: 1 },
-  l: { baseUnit: "ml", factor: 1000 },
-  tsp: { baseUnit: "tsp", factor: 1 },
-  tbsp: { baseUnit: "tsp", factor: 3 },
-  cup: { baseUnit: "ml", factor: 250 },
-};
