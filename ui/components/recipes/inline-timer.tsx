@@ -159,6 +159,7 @@ export function InlineTimer({
         requestWakeLock();
         break;
       case "running":
+        syncRemaining();
         clearTimer();
         releaseWakeLock();
         setState("paused");
@@ -177,6 +178,7 @@ export function InlineTimer({
     remaining,
     durationSeconds,
     startCountdown,
+    syncRemaining,
     clearTimer,
     releaseWakeLock,
     requestWakeLock,
