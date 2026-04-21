@@ -2,6 +2,7 @@ import {
   loadGroundTruth,
   listImageFiles,
   writeJson,
+  IMAGE_ENTRIES_PATH,
   PREPARED_PATH,
   IMAGES_DIR,
 } from "../lib/io";
@@ -35,8 +36,18 @@ async function main() {
     console.log(`All referenced images found in ${IMAGES_DIR}.`);
   }
 
-  await writeJson(PREPARED_PATH, dataset);
+  const imageEntries = {
+    entries: dataset.entries.map((entry) => ({
+      images: entry.images,
+    })),
+  };
+
+  await Promise.all([
+    writeJson(PREPARED_PATH, dataset),
+    writeJson(IMAGE_ENTRIES_PATH, imageEntries),
+  ]);
   console.log(`Prepared data written to ${PREPARED_PATH}`);
+  console.log(`Image entries written to ${IMAGE_ENTRIES_PATH}`);
 }
 
 main().catch((err) => {

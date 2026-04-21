@@ -51,6 +51,13 @@ variable "r2_map_tiles_subdomain" {
 variable "posthog_key" {
   description = "PostHog project API key"
   type        = string
+  sensitive   = true
+}
+
+variable "github_token" {
+  description = "GitHub personal access token for mise tool downloads in Cloudflare Pages builds"
+  type        = string
+  sensitive   = true
 }
 
 variable "posthog_host" {

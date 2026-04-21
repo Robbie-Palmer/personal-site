@@ -6,6 +6,11 @@ export type {
   RecipeContent,
   RecipeFrontmatter,
   RecipeIngredient,
+  RecipeInstructionItem,
+  RecipeInstructionSdk,
+  RecipeInstructionSection,
+  RecipeInstructionSectionContent,
+  RecipeInstructionStep,
   RecipeSlug,
 } from "recipe-domain";
 export {
@@ -15,5 +20,10 @@ export {
   RecipeContentSchema,
   RecipeFrontmatterSchema,
   RecipeIngredientSchema,
+  RecipeInstructionItemSchema,
+  RecipeInstructionSdkSchema,
+  RecipeInstructionSectionContentSchema,
+  RecipeInstructionSectionSchema,
+  RecipeInstructionStepSchema,
   RecipeSlugSchema,
 } from "recipe-domain";

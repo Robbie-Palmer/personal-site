@@ -6,11 +6,13 @@ import type {
 import type { Recipe, RecipeSlug } from "@/lib/domain/recipe/recipe";
 import { buildRecipeContentGraph } from "@/lib/domain/recipe/recipeGraph";
 import {
+  compareRecipesByDateAndSlug,
   getAllCuisines,
   getAllRecipeCards,
   getAllUsedIngredientSlugs,
   getRecipeCard,
   getRecipeDetail,
+  getRecipeNeighbors,
   getRecipesByCuisine,
   getRecipesByIngredient,
 } from "@/lib/domain/recipe/recipeQueries";
@@ -29,7 +31,9 @@ function makeRecipe(overrides: Partial<Recipe> & { slug: string }): Recipe {
     title: overrides.slug,
     description: "Test recipe",
     date: "2024-01-01",
+    cookBody: ">> chicken breast\nStep 1",
     tags: [],
+    cookware: [],
     servings: 4,
     ingredientGroups: [
       {
@@ -85,7 +89,9 @@ const ingredients: [IngredientSlug, Ingredient][] = [
 const curryRecipe = makeRecipe({
   slug: "curry",
   title: "Chicken Curry",
+  date: "2026-02-10",
   cuisine: "Asian",
+  cookware: ["frying pan", "saucepan"],
   ingredientGroups: [
     {
       items: [
@@ -100,7 +106,9 @@ const curryRecipe = makeRecipe({
 const risottoRecipe = makeRecipe({
   slug: "risotto",
   title: "Chorizo Risotto",
+  date: "2026-02-08",
   cuisine: "Italian",
+  cookware: ["bowl", "saucepan"],
   ingredientGroups: [
     {
       items: [
@@ -122,6 +130,7 @@ describe("recipe queries", () => {
       expect(card?.title).toBe("Chicken Curry");
       expect(card?.cuisine).toBe("Asian");
       expect(card?.servings).toBe(4);
+      expect(card?.cookware).toEqual(["frying pan", "saucepan"]);
     });
 
     it("returns null for a non-existent recipe", () => {
@@ -160,6 +169,7 @@ describe("recipe queries", () => {
       const slugs = cards.map((c) => c.slug);
       expect(slugs).toContain("curry");
       expect(slugs).toContain("risotto");
+      expect(cards[0]?.cookware.length).toBeGreaterThan(0);
     });
   });
 
@@ -224,6 +234,94 @@ describe("recipe queries", () => {
       );
       const used = getAllUsedIngredientSlugs(repoWithUnused);
       expect(used).not.toContain("saffron");
+    });
+  });
+
+  describe("getRecipeNeighbors", () => {
+    const newestRecipe = makeRecipe({
+      slug: "jambalaya",
+      title: "Sausage Jambalaya",
+      date: "2026-02-12",
+    });
+
+    const orderedRepo = buildTestRepository(
+      [newestRecipe, curryRecipe, risottoRecipe],
+      ingredients,
+    );
+
+    it("returns both previous and next recipes for a middle recipe", () => {
+      const neighbors = getRecipeNeighbors(orderedRepo, "curry");
+
+      expect(neighbors.prevRecipe?.slug).toBe("jambalaya");
+      expect(neighbors.nextRecipe?.slug).toBe("risotto");
+    });
+
+    it("omits the previous recipe for the first recipe in canonical order", () => {
+      const neighbors = getRecipeNeighbors(orderedRepo, "jambalaya");
+
+      expect(neighbors.prevRecipe).toBeUndefined();
+      expect(neighbors.nextRecipe?.slug).toBe("curry");
+    });
+
+    it("omits the next recipe for the last recipe in canonical order", () => {
+      const neighbors = getRecipeNeighbors(orderedRepo, "risotto");
+
+      expect(neighbors.prevRecipe?.slug).toBe("curry");
+      expect(neighbors.nextRecipe).toBeUndefined();
+    });
+
+    it("uses newest-first date ordering to compute neighbors", () => {
+      const neighbors = getRecipeNeighbors(orderedRepo, "curry");
+
+      expect(neighbors.prevRecipe?.date).toBe("2026-02-12");
+      expect(neighbors.nextRecipe?.date).toBe("2026-02-08");
+    });
+
+    it("uses slug as a deterministic tie-breaker for recipes on the same date", () => {
+      const sameDateA = makeRecipe({
+        slug: "alpha",
+        title: "Alpha",
+        date: "2026-02-10",
+      });
+      const sameDateB = makeRecipe({
+        slug: "beta",
+        title: "Beta",
+        date: "2026-02-10",
+      });
+
+      const tiedRepo = buildTestRepository(
+        [sameDateB, curryRecipe, sameDateA],
+        ingredients,
+      );
+
+      const neighbors = getRecipeNeighbors(tiedRepo, "alpha");
+
+      expect(neighbors.prevRecipe).toBeUndefined();
+      expect(neighbors.nextRecipe?.slug).toBe("beta");
+    });
+  });
+
+  describe("compareRecipesByDateAndSlug", () => {
+    it("orders newer recipes first", () => {
+      const recipes = [
+        { slug: "older", date: "2026-02-08" },
+        { slug: "newer", date: "2026-02-10" },
+      ];
+
+      recipes.sort(compareRecipesByDateAndSlug);
+
+      expect(recipes.map((recipe) => recipe.slug)).toEqual(["newer", "older"]);
+    });
+
+    it("falls back to slug ordering when dates match", () => {
+      const recipes = [
+        { slug: "beta", date: "2026-02-10" },
+        { slug: "alpha", date: "2026-02-10" },
+      ];
+
+      recipes.sort(compareRecipesByDateAndSlug);
+
+      expect(recipes.map((recipe) => recipe.slug)).toEqual(["alpha", "beta"]);
     });
   });
 });

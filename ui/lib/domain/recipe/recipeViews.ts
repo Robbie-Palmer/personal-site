@@ -1,5 +1,10 @@
 import type { Ingredient, IngredientSlug } from "./ingredient";
-import type { IngredientGroup, Recipe, RecipeIngredient } from "./recipe";
+import type {
+  IngredientGroup,
+  Recipe,
+  RecipeIngredient,
+  RecipeInstructionSdk,
+} from "./recipe";
 import type { RecipeRepository } from "./recipeRepository";
 import type { Unit } from "./unit";
 
@@ -35,11 +40,15 @@ type BaseRecipeView = {
 
 export type RecipeCardView = BaseRecipeView & {
   ingredientNames: string[];
+  cookware: string[];
 };
 
 export type RecipeDetailView = BaseRecipeView & {
+  cookBody: string;
+  cookware: string[];
   ingredientGroups: IngredientGroupView[];
   instructions: string[];
+  instructionSdk?: RecipeInstructionSdk;
 };
 
 function toIngredientView(
@@ -109,6 +118,7 @@ export function toRecipeCardView(
     image: recipe.image,
     imageAlt: recipe.imageAlt,
     ingredientNames: extractIngredientNames(recipe, ingredients),
+    cookware: recipe.cookware,
   };
 }
 
@@ -118,9 +128,12 @@ export function toRecipeDetailView(
 ): RecipeDetailView {
   return {
     ...toRecipeCardView(recipe, repository.ingredients),
+    cookBody: recipe.cookBody,
+    cookware: recipe.cookware,
     ingredientGroups: recipe.ingredientGroups.map((group) =>
       toIngredientGroupView(group, repository.ingredients),
     ),
     instructions: recipe.instructions,
+    instructionSdk: recipe.instructionSdk,
   };
 }

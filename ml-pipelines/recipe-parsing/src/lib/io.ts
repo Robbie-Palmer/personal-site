@@ -45,6 +45,11 @@ export const EXTRACTION_PER_IMAGE_SCORES_PATH = join(OUTPUTS_DIR, "extraction-pe
 export const METRICS_PATH = join(OUTPUTS_DIR, "metrics.json");
 export const PER_IMAGE_SCORES_PATH = join(OUTPUTS_DIR, "per-image-scores.json");
 export const PARSE_FAILURES_PATH = join(OUTPUTS_DIR, "parse-failures.json");
+export const DATASET_STATS_PATH = join(OUTPUTS_DIR, "dataset-stats.json");
+export const IMAGES_PER_RECIPE_HISTOGRAM_PATH = join(OUTPUTS_DIR, "images-per-recipe-histogram.json");
+export const CUISINE_DISTRIBUTION_PLOT_PATH = join(OUTPUTS_DIR, "cuisine-distribution.json");
+export const TOP_INGREDIENTS_PLOT_PATH = join(OUTPUTS_DIR, "top-ingredients.json");
+export const PER_ENTRY_SCORE_PLOT_PATH = join(OUTPUTS_DIR, "per-entry-score-plot.json");
 export const CANONICAL_INGREDIENTS_PATH = join(DATA_DIR, "canonical-ingredients.json");
 
 export async function loadGroundTruth(): Promise<GroundTruthDataset> {
