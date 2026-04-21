@@ -8,6 +8,12 @@ import {
   type PredictionsDataset,
 } from "../schemas/ground-truth.js";
 import {
+  CooklangPredictionsDatasetSchema,
+  StructuredTextPredictionsDatasetSchema,
+  type CooklangPredictionsDataset,
+  type StructuredTextPredictionsDataset,
+} from "../schemas/stage-artifacts.js";
+import {
   ParseFailuresDatasetSchema,
   type ParseFailuresDataset,
 } from "../schemas/parse-failures.js";
@@ -22,7 +28,16 @@ const OUTPUTS_DIR = "outputs";
 export const GROUND_TRUTH_PATH = join(DATA_DIR, "ground-truth.json");
 export const IMAGES_DIR = join(DATA_DIR, "recipe-images");
 export const PREPARED_PATH = join(OUTPUTS_DIR, "prepared.json");
+export const IMAGE_ENTRIES_PATH = join(OUTPUTS_DIR, "image-entries.json");
 export const PREDICTIONS_PATH = join(OUTPUTS_DIR, "predictions.json");
+export const STRUCTURED_TEXT_PREDICTIONS_PATH = join(
+  OUTPUTS_DIR,
+  "structured-extractions.json",
+);
+export const COOKLANG_PREDICTIONS_PATH = join(
+  OUTPUTS_DIR,
+  "cooklang-recipes.json",
+);
 export const CANONICALIZED_PREDICTIONS_PATH = join(OUTPUTS_DIR, "predictions-canonicalized.json");
 export const CANONICALIZATION_DECISIONS_PATH = join(OUTPUTS_DIR, "canonicalization-decisions.json");
 export const EXTRACTION_METRICS_PATH = join(OUTPUTS_DIR, "extraction-metrics.json");
@@ -47,9 +62,28 @@ export async function loadPreparedData(): Promise<GroundTruthDataset> {
   return GroundTruthDatasetSchema.parse(raw);
 }
 
+export interface ImageEntries {
+  entries: { images: string[] }[];
+}
+
+export async function loadImageEntries(): Promise<ImageEntries> {
+  const raw = JSON.parse(await readFile(IMAGE_ENTRIES_PATH, "utf-8"));
+  return raw as ImageEntries;
+}
+
 export async function loadPredictions(): Promise<PredictionsDataset> {
   const raw = JSON.parse(await readFile(PREDICTIONS_PATH, "utf-8"));
   return PredictionsDatasetSchema.parse(raw);
+}
+
+export async function loadStructuredTextPredictions(): Promise<StructuredTextPredictionsDataset> {
+  const raw = JSON.parse(await readFile(STRUCTURED_TEXT_PREDICTIONS_PATH, "utf-8"));
+  return StructuredTextPredictionsDatasetSchema.parse(raw);
+}
+
+export async function loadCooklangPredictions(): Promise<CooklangPredictionsDataset> {
+  const raw = JSON.parse(await readFile(COOKLANG_PREDICTIONS_PATH, "utf-8"));
+  return CooklangPredictionsDatasetSchema.parse(raw);
 }
 
 export async function loadCanonicalizedPredictions(): Promise<PredictionsDataset> {

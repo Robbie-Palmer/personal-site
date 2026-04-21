@@ -106,6 +106,28 @@ export const RecipeContentSchema = ParsedRecipeSchema.extend({
 
 export type RecipeContent = z.infer<typeof RecipeContentSchema>;
 
+export const IngredientAnnotationSchema = z.object({
+  preparation: z.string().min(1).optional(),
+  note: z.string().min(1).optional(),
+});
+
+export type IngredientAnnotation = z.infer<typeof IngredientAnnotationSchema>;
+
+export const RecipeFrontmatterSchema = RecipeContentSchema.omit({
+  slug: true,
+  cookBody: true,
+  instructionSdk: true,
+  cookware: true,
+  ingredientGroups: true,
+  instructions: true,
+}).extend({
+  ingredientAnnotations: z
+    .record(IngredientSlugSchema, IngredientAnnotationSchema)
+    .optional(),
+});
+
+export type RecipeFrontmatter = z.infer<typeof RecipeFrontmatterSchema>;
+
 export type Recipe = RecipeContent & {
   slug: RecipeSlug;
 };

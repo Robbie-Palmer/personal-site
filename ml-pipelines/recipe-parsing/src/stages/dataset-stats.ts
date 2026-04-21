@@ -33,9 +33,13 @@ interface DatasetStats {
   };
 }
 
-function toCountRows(counts: Map<string, number>, key: string) {
+function toCountRows<K extends string>(counts: Map<string, number>, key: K): Array<{
+  [P in K]: string;
+} & { count: number }> {
   return [...counts.entries()]
-    .map(([label, count]) => ({ [key]: label, count }))
+    .map(([label, count]) => ({ [key]: label, count }) as {
+      [P in K]: string;
+    } & { count: number })
     .sort((a, b) => {
       const countDiff = b.count - a.count;
       if (countDiff !== 0) return countDiff;
@@ -147,6 +151,7 @@ async function main() {
     writeJson(DATASET_STATS_PATH, stats),
     writeJson(IMAGES_PER_RECIPE_HISTOGRAM_PATH, imageCountHistogram),
     writeJson(CUISINE_DISTRIBUTION_PLOT_PATH, cuisineDistribution.slice(0, 20)),
+    writeJson(TOP_INGREDIENTS_PLOT_PATH, topIngredients),
   ]);
 
   console.log(`\nDataset stats (${stats.recipes.count} recipes):`);

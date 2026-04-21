@@ -9,6 +9,7 @@ stages:
       - src/lib/io.ts
     outs:
       - outputs/prepared.json
+      - outputs/image-entries.json
 
   dataset_stats:
     cmd: pnpm exec tsx src/stages/dataset-stats.ts
@@ -46,9 +47,10 @@ stages:
   parse:
     cmd: pnpm exec tsx src/stages/parse.ts
     deps:
-      - outputs/prepared.json
+      - outputs/image-entries.json
       - data/recipe-images
       - src/stages/parse.ts
+      - src/lib/cooklang.ts
       - src/lib/parse-retry.ts
       - src/lib/openrouter.ts
       - src/lib/images.ts
@@ -56,10 +58,13 @@ stages:
       - src/lib/image-key.ts
       - src/lib/recipe-output.ts
       - src/schemas/ground-truth.ts
+      - src/schemas/stage-artifacts.ts
       - src/schemas/parse-failures.ts
       - src/lib/io.ts
     outs:
       - outputs/predictions.json
+      - outputs/structured-extractions.json
+      - outputs/cooklang-recipes.json
       - outputs/parse-failures.json
 
   evaluate_extraction:
