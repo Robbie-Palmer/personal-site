@@ -112,17 +112,17 @@ export function ExperienceCard({
               <div className="flex-1 space-y-3">
                 <div className="space-y-1">
                   <CardTitle className="text-2xl">{experience.title}</CardTitle>
-                  {experience.previousTitles &&
-                    experience.previousTitles.length > 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        <span className="text-muted-foreground/60">
-                          previously{" "}
-                        </span>
-                        {experience.previousTitles
-                          .map((prev) => prev.title)
-                          .join(" · ")}
-                      </p>
-                    )}
+                  {titleTimeline && titleTimeline.length > 1 && (
+                    <p className="text-sm text-muted-foreground">
+                      <span className="text-muted-foreground/60">
+                        previously{" "}
+                      </span>
+                      {titleTimeline
+                        .slice(1)
+                        .map((entry) => entry.title)
+                        .join(" · ")}
+                    </p>
+                  )}
                 </div>
                 <CardDescription className="text-base flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                   <a
