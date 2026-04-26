@@ -62,7 +62,7 @@ function inferCooklangIngredientLine(line: string): string {
     /^(?<name>.+?)(?:\s*[-:,]\s*|\s+)(?<amount>\d+(?:\.\d+)?(?:\/\d+)?)\s*(?<unit>[A-Za-z]+)?(?:\s+(?<rest>.*))?$/u,
   );
   if (!match?.groups?.name) {
-    return `@${toCooklangToken(trimmed)}`;
+    return `@${toCooklangToken(trimmed)}{}`;
   }
 
   const name = toCooklangToken(match.groups.name);
