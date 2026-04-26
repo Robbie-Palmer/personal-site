@@ -7,10 +7,10 @@ import {
 } from "../lib/io";
 import { aggregateMetrics } from "../evaluation/metrics";
 import { imageSetKey } from "../lib/image-key.js";
-import type { GroundTruthEntry, Recipe } from "../schemas/ground-truth.js";
+import type { GroundTruthEntry, ExtractionRecipe } from "../schemas/ground-truth.js";
 
-function hasRawExpected(entry: GroundTruthEntry): entry is GroundTruthEntry & { rawExpected: Recipe } {
-  return entry.rawExpected !== undefined;
+function hasExpectedExtraction(entry: GroundTruthEntry): entry is GroundTruthEntry & { expectedExtraction: ExtractionRecipe } {
+  return entry.expectedExtraction !== undefined;
 }
 
 async function main() {
@@ -21,41 +21,44 @@ async function main() {
     loadPredictions(),
   ]);
 
-  const entriesWithRawExpected = prepared.entries.filter(hasRawExpected);
+  const entriesWithExtraction = prepared.entries.filter(hasExpectedExtraction);
 
-  if (entriesWithRawExpected.length === 0) {
+  if (entriesWithExtraction.length === 0) {
     console.log(
-      "No entries have rawExpected annotations yet — skipping extraction evaluation.",
+      "No entries have expectedExtraction annotations yet — skipping extraction evaluation.",
     );
     console.log(
-      "Add rawExpected to ground-truth.json entries to enable extraction evaluation.",
+      "Add expectedExtraction to ground-truth.json entries to enable extraction evaluation.",
     );
 
     await Promise.all([
-      writeJson(EXTRACTION_METRICS_PATH, { skipped: true, reason: "no-raw-expected-annotations" }),
+      writeJson(EXTRACTION_METRICS_PATH, { skipped: true, reason: "no-expected-extraction-annotations" }),
       writeJson(EXTRACTION_PER_IMAGE_SCORES_PATH, []),
     ]);
     return;
   }
 
-  const rawExpectedByKey = new Map(
-    entriesWithRawExpected.map((entry) => [
+  const extractionByKey = new Map(
+    entriesWithExtraction.map((entry) => [
       imageSetKey(entry.images),
       entry,
     ]),
   );
 
   const matchedPredictions = predictions.entries.filter((entry) =>
-    rawExpectedByKey.has(imageSetKey(entry.images)),
+    extractionByKey.has(imageSetKey(entry.images)),
   );
 
-  const groundTruthForEval = entriesWithRawExpected.map((entry) => ({
+  const groundTruthForEval = entriesWithExtraction.map((entry) => ({
     ...entry,
-    expected: entry.rawExpected,
+    expected: {
+      ...entry.expected,
+      ...entry.expectedExtraction,
+    },
   }));
 
   console.log(
-    `Evaluating extraction quality: ${groundTruthForEval.length} entries with rawExpected, ` +
+    `Evaluating extraction quality: ${groundTruthForEval.length} entries with expectedExtraction, ` +
       `${matchedPredictions.length} matching predictions...`,
   );
 
