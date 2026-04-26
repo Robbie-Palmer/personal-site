@@ -2,8 +2,10 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, type Plugin } from "vite";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const pipelineRoot = path.resolve(__dirname, "../..");
 
 function collectBody(req: import("node:http").IncomingMessage): Promise<string> {

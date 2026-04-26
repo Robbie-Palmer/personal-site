@@ -87,8 +87,26 @@ export function ExtractionDetailView({
     }
   }, [entryIndex, gtEntry]);
 
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   const handleSave = useCallback(async () => {
     if (!groundTruth) return;
+    setSaveError(null);
+    if (edited) {
+      const emptyIngredients = edited.ingredientSections.some((s) =>
+        s.lines.some((l) => l.trim().length === 0),
+      );
+      const emptyInstructions = edited.instructionLines.some(
+        (l) => l.trim().length === 0,
+      );
+      if (emptyIngredients || emptyInstructions) {
+        setSaveError(
+          "Cannot save: ingredient lines and instruction lines must be non-empty.",
+        );
+        setSaveStatus("error");
+        return;
+      }
+    }
     setSaveStatus("saving");
     try {
       const updated = structuredClone(groundTruth);
@@ -226,6 +244,12 @@ export function ExtractionDetailView({
           </button>
         </div>
       </div>
+
+      {saveError && (
+        <div className="bg-red-50 border border-red-200 rounded px-3 py-2 text-sm text-red-700">
+          {saveError}
+        </div>
+      )}
 
       {viewerIndex != null && (
         <ImageViewer

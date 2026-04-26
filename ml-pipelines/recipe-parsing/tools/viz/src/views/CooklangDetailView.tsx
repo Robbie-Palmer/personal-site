@@ -71,7 +71,11 @@ export function CooklangDetailView({
     try {
       const updated = structuredClone(groundTruth);
       if (edited) {
-        updated.entries[entryIndex].expectedCooklang = edited;
+        const { derived: _derived, ...cleanEdited } = edited;
+        updated.entries[entryIndex].expectedCooklang = {
+          ...cleanEdited,
+          diagnostics: [],
+        };
       } else {
         delete updated.entries[entryIndex].expectedCooklang;
       }
