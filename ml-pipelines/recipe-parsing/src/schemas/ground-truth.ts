@@ -9,9 +9,9 @@ export const RecipeSchema = ParsedRecipeSchema;
 export type Recipe = z.infer<typeof RecipeSchema>;
 
 /** Looser schema for extraction ground truth — description and servings are optional */
-export const ExtractionRecipeSchema = ParsedRecipeSchema.extend({
-  description: z.string().optional(),
-  servings: z.number().int().positive().optional(),
+export const ExtractionRecipeSchema = ParsedRecipeSchema.partial({
+  description: true,
+  servings: true,
 });
 export type ExtractionRecipe = z.infer<typeof ExtractionRecipeSchema>;
 

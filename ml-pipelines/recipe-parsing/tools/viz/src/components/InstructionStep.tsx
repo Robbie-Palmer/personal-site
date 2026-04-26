@@ -14,7 +14,7 @@ function highlightText(
 ): ReactNode {
   if (words.length === 0) return text;
 
-  const lowerWords = new Set(words.map((w) => w.toLowerCase()));
+  const lowerWords = new Set(words.map((w) => w.trim().toLowerCase()).filter(Boolean));
   const tokens = text.split(/(\s+)/);
 
   return tokens.map((token, i) => {

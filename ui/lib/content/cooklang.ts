@@ -319,7 +319,7 @@ export function parseCookFile(
   slug: string,
 ): RecipeContent {
   const { data, content: body } = matter(fileContent);
-  const fm = RecipeFrontmatterSchema.parse(data) as RecipeFrontmatter;
+  const fm = RecipeFrontmatterSchema.parse(data);
   const annotations = fm.ingredientAnnotations ?? {};
 
   const [recipe] = _parser.parse(body);

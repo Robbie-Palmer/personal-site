@@ -14,8 +14,7 @@ export function ExtractionEntryCard({
   const title =
     entry.predictedStructuredText?.title ??
     entry.predicted?.title ??
-    entry.expected.title ??
-    entry.images[0];
+    entry.expected.title;
 
   return (
     <button

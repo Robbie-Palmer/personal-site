@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { readFile, writeFile, readdir, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -62,13 +63,15 @@ export async function loadPreparedData(): Promise<GroundTruthDataset> {
   return GroundTruthDatasetSchema.parse(raw);
 }
 
-export interface ImageEntries {
-  entries: { images: string[] }[];
-}
+const ImageEntriesSchema = z.object({
+  entries: z.array(z.object({ images: z.array(z.string().min(1)).min(1) })),
+});
+
+export type ImageEntries = z.infer<typeof ImageEntriesSchema>;
 
 export async function loadImageEntries(): Promise<ImageEntries> {
   const raw = JSON.parse(await readFile(IMAGE_ENTRIES_PATH, "utf-8"));
-  return raw as ImageEntries;
+  return ImageEntriesSchema.parse(raw);
 }
 
 export async function loadPredictions(): Promise<PredictionsDataset> {
