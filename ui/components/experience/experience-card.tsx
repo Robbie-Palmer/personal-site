@@ -44,6 +44,7 @@ export function ExperienceCard({
   blogs = [],
 }: ExperienceCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const titleTimeline = getTitleTimeline(experience);
 
   useEffect(() => {
     if (!id || typeof window === "undefined") return;
@@ -243,35 +244,31 @@ export function ExperienceCard({
           {/* Expanded details */}
           {isExpanded && (
             <CardContent className="space-y-4 pt-0 animate-in fade-in duration-100">
-              {(() => {
-                const timeline = getTitleTimeline(experience);
-                if (!timeline) return null;
-                return (
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      Title History
-                    </p>
-                    <div className="space-y-1">
-                      {timeline.map((entry) => (
-                        <div key={entry.title}>
-                          <p
-                            className={`text-sm ${
-                              entry.isCurrent
-                                ? "font-medium"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            {entry.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground/60">
-                            {entry.dateRange}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
+              {titleTimeline && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Title History
+                  </p>
+                  <div className="space-y-1">
+                    {titleTimeline.map((entry) => (
+                      <div key={`${entry.title}-${entry.dateRange}`}>
+                        <p
+                          className={`text-sm ${
+                            entry.isCurrent
+                              ? "font-medium"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {entry.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground/60">
+                          {entry.dateRange}
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                );
-              })()}
+                </div>
+              )}
               <ul className="space-y-1.5 text-sm">
                 {experience.responsibilities.map((responsibility) => (
                   <li key={responsibility} className="flex gap-2 items-start">

@@ -86,10 +86,14 @@ export function getTitleTimeline(
   experience: Experience,
 ): TitleWithDateRange[] | undefined {
   const { previousTitles } = experience;
-  const mostRecentPrevious = previousTitles?.[0];
-  if (!previousTitles || !mostRecentPrevious) return undefined;
+  if (!previousTitles || previousTitles.length === 0) return undefined;
 
-  const currentTitleStart = mostRecentPrevious.endDate;
+  // Sort by endDate descending so most-recent previous title is first
+  const sorted = [...previousTitles].sort((a, b) =>
+    b.endDate.localeCompare(a.endDate),
+  );
+
+  const currentTitleStart = sorted[0]!.endDate;
   return [
     {
       title: experience.title,
@@ -99,7 +103,7 @@ export function getTitleTimeline(
       ),
       isCurrent: !experience.endDate,
     },
-    ...previousTitles.map((prev) => ({
+    ...sorted.map((prev) => ({
       title: prev.title,
       dateRange: formatExperienceDateRange(prev.startDate, prev.endDate),
       isCurrent: false,
