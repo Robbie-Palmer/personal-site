@@ -23,10 +23,10 @@ function parseHash(): View {
   if (hash.startsWith("entry/")) {
     return { kind: "detail", entryId: hash.slice(6) };
   }
-  if (hash.startsWith("extraction/")) {
+  if (hash.startsWith("extraction/") && /^\d+$/.test(hash.slice(11))) {
     return { kind: "extraction-detail", entryIndex: Number(hash.slice(11)) };
   }
-  if (hash.startsWith("cooklang/")) {
+  if (hash.startsWith("cooklang/") && /^\d+$/.test(hash.slice(9))) {
     return { kind: "cooklang-detail", entryIndex: Number(hash.slice(9)) };
   }
   if (hash === "canonicalization") {

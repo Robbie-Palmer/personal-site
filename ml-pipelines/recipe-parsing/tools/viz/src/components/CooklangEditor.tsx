@@ -63,12 +63,13 @@ export function CooklangEditor({
             type="number"
             min="1"
             value={value.frontmatter.servings ?? ""}
-            onChange={(e) =>
+            onChange={(e) => {
+              const n = Number(e.target.value);
               updateFrontmatter(
                 "servings",
-                e.target.value ? Number(e.target.value) : undefined,
-              )
-            }
+                e.target.value && Number.isFinite(n) ? n : undefined,
+              );
+            }}
             className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-200 rounded outline-none focus:border-blue-400"
           />
         </label>
@@ -78,12 +79,13 @@ export function CooklangEditor({
             type="number"
             min="0"
             value={value.frontmatter.prepTime ?? ""}
-            onChange={(e) =>
+            onChange={(e) => {
+              const n = Number(e.target.value);
               updateFrontmatter(
                 "prepTime",
-                e.target.value ? Number(e.target.value) : undefined,
-              )
-            }
+                e.target.value && Number.isFinite(n) ? n : undefined,
+              );
+            }}
             className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-200 rounded outline-none focus:border-blue-400"
           />
         </label>
@@ -93,12 +95,13 @@ export function CooklangEditor({
             type="number"
             min="0"
             value={value.frontmatter.cookTime ?? ""}
-            onChange={(e) =>
+            onChange={(e) => {
+              const n = Number(e.target.value);
               updateFrontmatter(
                 "cookTime",
-                e.target.value ? Number(e.target.value) : undefined,
-              )
-            }
+                e.target.value && Number.isFinite(n) ? n : undefined,
+              );
+            }}
             className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-200 rounded outline-none focus:border-blue-400"
           />
         </label>

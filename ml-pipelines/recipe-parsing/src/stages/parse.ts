@@ -42,7 +42,7 @@ type AttemptErrorDetail = NonNullable<
   ParseFailuresDataset["entries"][number]["attemptErrors"]
 >[number];
 
-type ParseStage = "extract-structured" | "generate-cooklang" | "derive-recipe";
+type ParseStage = "extract-structured" | "derive-recipe";
 
 type ParseSuccess = {
   ok: true;
@@ -252,7 +252,9 @@ async function parseEntryWithRetries(params: {
         };
       }
 
-      const derivedCooklang = deriveRecipeFromCooklang(cooklang);
+      const derivedCooklang = cooklang.derived
+        ? cooklang
+        : deriveRecipeFromCooklang(cooklang);
       const structuredFallback = deriveRecipeFromStructuredText(extracted);
       if (!derivedCooklang.derived) {
         const fallbackPrediction = structuredFallback.recipe

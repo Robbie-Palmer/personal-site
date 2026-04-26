@@ -51,10 +51,10 @@ export function CanonicalizationTable({
   }, [data, imageToEntryId]);
 
   const filtered = useMemo(() => {
-    let items = flatDecisions;
-    if (methodFilter !== "all") {
-      items = items.filter((d) => d.method === methodFilter);
-    }
+    let items =
+      methodFilter !== "all"
+        ? flatDecisions.filter((d) => d.method === methodFilter)
+        : [...flatDecisions];
     items.sort((a, b) => {
       let cmp = 0;
       if (sortField === "score") cmp = (a.score ?? 0) - (b.score ?? 0);
