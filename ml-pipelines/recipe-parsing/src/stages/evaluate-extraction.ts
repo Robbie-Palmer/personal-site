@@ -52,8 +52,7 @@ async function main() {
   const groundTruthForEval = entriesWithExtraction.map((entry) => ({
     ...entry,
     expected: {
-      description: "",
-      servings: 1,
+      ...entry.expected,
       ...entry.expectedExtraction,
     },
   }));

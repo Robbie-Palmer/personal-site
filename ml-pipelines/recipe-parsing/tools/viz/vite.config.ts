@@ -54,7 +54,7 @@ function servePipelineFiles(): Plugin {
         const filePath = path.join(pipelineRoot, req.url ?? "");
         const resolved = path.resolve(filePath);
         // Security: only serve files under pipelineRoot
-        if (!resolved.startsWith(pipelineRoot)) {
+        if (resolved !== pipelineRoot && !resolved.startsWith(pipelineRoot + path.sep)) {
           res.statusCode = 403;
           res.end("Forbidden");
           return;

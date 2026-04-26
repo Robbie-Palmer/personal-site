@@ -474,12 +474,19 @@ async function main() {
   }
 
   if (targetEntryKeys.size > 0) {
+    const catchMissingFile = <T,>(fallback: T) => (err: unknown): T => {
+      if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
+        return fallback;
+      }
+      throw err;
+    };
+
     const [existingPredictions, existingFailures, existingStructured, existingCooklang] =
       await Promise.all([
-        loadPredictions().catch(() => ({ entries: [] })),
-        loadParseFailures().catch(() => ({ entries: [] })),
-        loadStructuredTextPredictions().catch(() => ({ entries: [] })),
-        loadCooklangPredictions().catch(() => ({ entries: [] })),
+        loadPredictions().catch(catchMissingFile({ entries: [] } as PredictionsDataset)),
+        loadParseFailures().catch(catchMissingFile({ entries: [] } as ParseFailuresDataset)),
+        loadStructuredTextPredictions().catch(catchMissingFile({ entries: [] } as StructuredTextPredictionsDataset)),
+        loadCooklangPredictions().catch(catchMissingFile({ entries: [] } as CooklangPredictionsDataset)),
       ]);
 
     const mergedPredictions = existingPredictions.entries.filter(

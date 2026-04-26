@@ -44,6 +44,9 @@ importers:
       dotenv:
         specifier: ^17.2.3
         version: 17.4.2
+      numeric-quantity:
+        specifier: ^3.2.1
+        version: 3.2.1
       openai:
         specifier: ^6.6.0
         version: 6.34.0(ws@8.20.0)(zod@4.3.6)
@@ -210,7 +213,7 @@ importers:
         version: 1.5.0
       recharts:
         specifier: ^3.3.0
-        version: 3.8.1(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react-is@16.13.1)(react@19.2.5)(redux@5.0.1)
+        version: 3.8.1(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react-is@17.0.2)(react@19.2.5)(redux@5.0.1)
       recipe-domain:
         specifier: workspace:*
         version: link:../packages/recipe-domain
@@ -4669,6 +4672,10 @@ packages:
   npm-run-path@4.0.1:
     resolution: {integrity: sha512-S48WzZW777zhNIrn7gxOlISNAqi9ZC/uQFnRdbeIHhZhCA6UqpkOT8T1G7BvfdgP4Er8gF4sUbaS0i7QvIfCWw==}
     engines: {node: '>=8'}
+
+  numeric-quantity@3.2.1:
+    resolution: {integrity: sha512-VxyUyUAMWGcQcOVrsH7KzrrFZTrN875eDte0lY4pSj1FDtHjnDkVKgk6Q3lcjJwJSRWcMtSaNAuZlfdh7NtFIw==}
+    engines: {node: '>=16'}
 
   object-assign@4.1.1:
     resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
@@ -10728,6 +10735,8 @@ snapshots:
     dependencies:
       path-key: 3.1.1
 
+  numeric-quantity@3.2.1: {}
+
   object-assign@4.1.1: {}
 
   obug@2.1.1: {}
@@ -11144,7 +11153,7 @@ snapshots:
 
   reading-time@1.5.0: {}
 
-  recharts@3.8.1(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react-is@16.13.1)(react@19.2.5)(redux@5.0.1):
+  recharts@3.8.1(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react-is@17.0.2)(react@19.2.5)(redux@5.0.1):
     dependencies:
       '@reduxjs/toolkit': 2.11.2(react-redux@9.2.0(@types/react@19.2.14)(react@19.2.5)(redux@5.0.1))(react@19.2.5)
       clsx: 2.1.1
@@ -11154,7 +11163,7 @@ snapshots:
       immer: 10.2.0
       react: 19.2.5
       react-dom: 19.2.5(react@19.2.5)
-      react-is: 16.13.1
+      react-is: 17.0.2
       react-redux: 9.2.0(@types/react@19.2.14)(react@19.2.5)(redux@5.0.1)
       reselect: 5.1.1
       tiny-invariant: 1.3.3

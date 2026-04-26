@@ -24,11 +24,13 @@ export function EntryDetailView({
   const manifestEntry = manifest.entries.find((e) => e.entryId === entryId);
 
   useEffect(() => {
+    let cancelled = false;
     setEntry(null);
     setError(null);
     loadEntry(entryId)
-      .then(setEntry)
-      .catch((e) => setError(String(e)));
+      .then((e) => { if (!cancelled) setEntry(e); })
+      .catch((e) => { if (!cancelled) setError(String(e)); });
+    return () => { cancelled = true; };
   }, [entryId]);
 
   // Keyboard navigation: Escape to go back, arrow keys for prev/next

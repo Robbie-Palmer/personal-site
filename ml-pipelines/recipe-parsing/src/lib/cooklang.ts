@@ -1,3 +1,4 @@
+import { numericQuantity } from "numeric-quantity";
 import type { Recipe } from "../schemas/ground-truth.js";
 import { UnitSchema, type RecipeIngredient } from "recipe-domain";
 import type {
@@ -16,6 +17,11 @@ const TIMER_RE =
 const COOKWARE_RE =
   /#(?<name>[^@#~\{\}\n]+?)(?:\{[^}]*\})?(?=[\s.,;:()!?]|$)/g;
 
+function parseFractionOrNumber(value: string): number | undefined {
+  const result = numericQuantity(value);
+  return Number.isFinite(result) ? result : undefined;
+}
+
 function normalizeIngredientName(name: string): string {
   return name.trim().replace(/\s+/g, "-").toLowerCase();
 }
@@ -30,11 +36,19 @@ function inferCooklangIngredientLine(line: string): string {
   if (trimmed.includes("@")) return trimmed;
 
   const prefixedAmountWithUnit = trimmed.match(
-    /^(?<amount>\d+(?:\.\d+)?)(?<unit>[A-Za-z]+)\s+(?<name>.+)$/u,
+    /^(?<amount>\d+(?:\.\d+)?(?:\/\d+)?)(?<unit>[A-Za-z]+)\s+(?<name>.+)$/u,
   );
   if (prefixedAmountWithUnit?.groups?.name) {
     const unit = normalizeUnitToken(prefixedAmountWithUnit.groups.unit);
     return `@${toCooklangToken(prefixedAmountWithUnit.groups.name)}{${prefixedAmountWithUnit.groups.amount}${unit ? `%${unit}` : ""}}`;
+  }
+
+  const prefixedAmountWithSpacedUnit = trimmed.match(
+    /^(?<amount>\d+(?:\.\d+)?(?:\/\d+)?)\s+(?<unit>[A-Za-z]+)\s+(?<name>.+)$/u,
+  );
+  if (prefixedAmountWithSpacedUnit?.groups?.name) {
+    const unit = normalizeUnitToken(prefixedAmountWithSpacedUnit.groups.unit);
+    return `@${toCooklangToken(prefixedAmountWithSpacedUnit.groups.name)}{${prefixedAmountWithSpacedUnit.groups.amount}${unit ? `%${unit}` : ""}}`;
   }
 
   const prefixedAmount = trimmed.match(
@@ -65,8 +79,10 @@ function parseScalarTextNumber(value: string | undefined): number | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
   if (!trimmed) return undefined;
-  const parsed = Number(trimmed);
-  return Number.isFinite(parsed) ? parsed : undefined;
+  const direct = Number(trimmed);
+  if (Number.isFinite(direct)) return Math.round(direct);
+  const match = trimmed.match(/^\d+/);
+  return match ? Number.parseInt(match[0], 10) : undefined;
 }
 
 function normalizeInstructionLine(line: string): string {
@@ -272,8 +288,8 @@ function parseIngredientLine(line: string): RecipeIngredient[] {
     if (!name) continue;
     const amountRaw = match.groups?.amount;
     const amount =
-      amountRaw && amountRaw.trim().length > 0 && Number.isFinite(Number(amountRaw.trim()))
-        ? Number(amountRaw.trim())
+      amountRaw && amountRaw.trim().length > 0
+        ? parseFractionOrNumber(amountRaw)
         : undefined;
     const unit = normalizeUnitToken(match.groups?.unit?.trim());
     seenNames.add(name);
@@ -353,9 +369,9 @@ export function deriveRecipeFromCooklang(cooklang: CooklangRecipe): CooklangReci
           title: cooklang.frontmatter.title,
           description: cooklang.frontmatter.description,
           cuisine: cooklang.frontmatter.cuisine,
-          servings: cooklang.frontmatter.servings,
-          prepTime: cooklang.frontmatter.prepTime,
-          cookTime: cooklang.frontmatter.cookTime,
+          servings: Math.round(cooklang.frontmatter.servings),
+          prepTime: cooklang.frontmatter.prepTime != null ? Math.round(cooklang.frontmatter.prepTime) : undefined,
+          cookTime: cooklang.frontmatter.cookTime != null ? Math.round(cooklang.frontmatter.cookTime) : undefined,
           ingredientGroups,
           instructions,
         }

@@ -1,3 +1,4 @@
+import { numericQuantity } from "numeric-quantity";
 import type { ParsedRecipe, RecipeIngredient } from "recipe-domain";
 import type { CooklangRecipe } from "../types/extraction";
 
@@ -13,8 +14,8 @@ const COOKWARE_RE =
 
 function parseNumber(value: string | undefined): number | undefined {
   if (!value) return undefined;
-  const parsed = Number(value.trim());
-  return Number.isFinite(parsed) ? parsed : undefined;
+  const result = numericQuantity(value);
+  return Number.isFinite(result) ? result : undefined;
 }
 
 function normalizeIngredientName(name: string): string {

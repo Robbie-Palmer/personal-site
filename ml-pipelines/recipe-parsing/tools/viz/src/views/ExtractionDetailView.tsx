@@ -27,8 +27,8 @@ interface ExtractionDetailViewProps {
 }
 
 const EMPTY_STRUCTURED_TEXT: StructuredTextRecipe = {
-  ingredientSections: [{ lines: [""] }],
-  instructionLines: [""],
+  ingredientSections: [{ lines: ["ingredient"] }],
+  instructionLines: ["instruction"],
   notes: [],
   equipment: [],
   timers: [],
