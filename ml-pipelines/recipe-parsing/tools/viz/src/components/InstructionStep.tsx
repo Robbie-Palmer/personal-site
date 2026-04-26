@@ -14,11 +14,13 @@ function highlightText(
 ): ReactNode {
   if (words.length === 0) return text;
 
-  const lowerWords = new Set(words.map((w) => w.trim().toLowerCase()).filter(Boolean));
+  const normalizeToken = (value: string) =>
+    value.trim().replace(/[.,;:!?'"()]/g, "").toLowerCase();
+  const lowerWords = new Set(words.map(normalizeToken).filter(Boolean));
   const tokens = text.split(/(\s+)/);
 
   return tokens.map((token, i) => {
-    const cleaned = token.replace(/[.,;:!?'"()]/g, "").toLowerCase();
+    const cleaned = normalizeToken(token);
     if (lowerWords.has(cleaned)) {
       return (
         <mark key={i} className={className}>

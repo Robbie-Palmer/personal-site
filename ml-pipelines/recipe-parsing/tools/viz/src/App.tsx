@@ -54,6 +54,10 @@ function isWideReviewView(view: View) {
   );
 }
 
+function assertNever(value: never): never {
+  throw new Error(`Unhandled view kind: ${JSON.stringify(value)}`);
+}
+
 export function App() {
   const [view, setView] = useState<View>(parseHash);
   const [manifest, setManifest] = useState<ReviewManifest | null>(null);
@@ -70,15 +74,31 @@ export function App() {
   }, []);
 
   function navigate(v: View) {
-    if (v.kind === "dashboard") window.location.hash = "";
-    else if (v.kind === "detail") window.location.hash = `entry/${v.entryId}`;
-    else if (v.kind === "extraction") window.location.hash = "extraction";
-    else if (v.kind === "extraction-detail")
-      window.location.hash = `extraction/${v.entryIndex}`;
-    else if (v.kind === "cooklang") window.location.hash = "cooklang";
-    else if (v.kind === "cooklang-detail")
-      window.location.hash = `cooklang/${v.entryIndex}`;
-    else window.location.hash = "canonicalization";
+    switch (v.kind) {
+      case "dashboard":
+        window.location.hash = "";
+        break;
+      case "detail":
+        window.location.hash = `entry/${v.entryId}`;
+        break;
+      case "canonicalization":
+        window.location.hash = "canonicalization";
+        break;
+      case "extraction":
+        window.location.hash = "extraction";
+        break;
+      case "extraction-detail":
+        window.location.hash = `extraction/${v.entryIndex}`;
+        break;
+      case "cooklang":
+        window.location.hash = "cooklang";
+        break;
+      case "cooklang-detail":
+        window.location.hash = `cooklang/${v.entryIndex}`;
+        break;
+      default:
+        assertNever(v);
+    }
     setView(v);
   }
 
@@ -170,6 +190,7 @@ export function App() {
             entryId={view.entryId}
             manifest={manifest}
             onBack={() => navigate({ kind: "dashboard" })}
+            onNavigate={(id) => navigate({ kind: "detail", entryId: id })}
           />
         )}
         {view.kind === "canonicalization" && manifest && (

@@ -9,6 +9,11 @@ import type {
 
 const PIPELINE_BASE = "/pipeline";
 
+export interface SaveGroundTruthResponse {
+  ok: boolean;
+  message?: string;
+}
+
 async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(`${PIPELINE_BASE}${path}`);
   if (!res.ok) throw new Error(`Failed to fetch ${path}: ${res.status}`);
@@ -43,7 +48,9 @@ export function loadCooklangPredictions(): Promise<CooklangPredictionsDataset> {
   return fetchJson("/outputs/cooklang-recipes.json");
 }
 
-export async function saveGroundTruth(data: GroundTruthDataset): Promise<void> {
+export async function saveGroundTruth(
+  data: GroundTruthDataset,
+): Promise<SaveGroundTruthResponse> {
   const res = await fetch(`${PIPELINE_BASE}/api/ground-truth`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -53,6 +60,7 @@ export async function saveGroundTruth(data: GroundTruthDataset): Promise<void> {
     const text = await res.text();
     throw new Error(`Failed to save ground truth: ${res.status} ${text}`);
   }
+  return res.json();
 }
 
 export function imageUrl(imagePath: string): string {

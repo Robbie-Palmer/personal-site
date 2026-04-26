@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, ArrowLeft, Check, Copy, Save } from "lucide-react";
 import {
   imageUrl,
@@ -42,7 +42,9 @@ export function CooklangDetailView({
   const [edited, setEdited] = useState<CooklangRecipe | null>(null);
   const [dirty, setDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const resetEntryKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     loadGroundTruth().then(setGroundTruth).catch((e) => setError(String(e)));
@@ -58,16 +60,20 @@ export function CooklangDetailView({
           ?.cooklang ?? null;
 
   useEffect(() => {
-    if (gtEntry) {
-      setEdited(gtEntry.expectedCooklang ?? null);
-      setDirty(false);
-      setSaveStatus("idle");
+    if (!gtEntry || !predictionKey || resetEntryKeyRef.current === predictionKey) {
+      return;
     }
-  }, [entryIndex, gtEntry]);
+    resetEntryKeyRef.current = predictionKey;
+    setEdited(gtEntry.expectedCooklang ?? null);
+    setDirty(false);
+    setSaveStatus("idle");
+    setSaveMessage(null);
+  }, [gtEntry, predictionKey]);
 
   const handleSave = useCallback(async () => {
     if (!groundTruth) return;
     setSaveStatus("saving");
+    setSaveMessage(null);
     try {
       const updated = structuredClone(groundTruth);
       if (edited) {
@@ -79,10 +85,11 @@ export function CooklangDetailView({
       } else {
         delete updated.entries[entryIndex].expectedCooklang;
       }
-      await saveGroundTruth(updated);
+      const result = await saveGroundTruth(updated);
       setGroundTruth(updated);
       setDirty(false);
       setSaveStatus("saved");
+      setSaveMessage(result.message ?? null);
     } catch (e) {
       console.error("Save failed:", e);
       setSaveStatus("error");
@@ -174,6 +181,7 @@ export function CooklangDetailView({
                 setEdited(structuredClone(predictedCooklang));
                 setDirty(true);
                 setSaveStatus("idle");
+                setSaveMessage(null);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white border border-gray-200 rounded hover:bg-gray-50"
             >
@@ -187,6 +195,7 @@ export function CooklangDetailView({
               setEdited(structuredClone(EMPTY_COOKLANG));
               setDirty(true);
               setSaveStatus("idle");
+              setSaveMessage(null);
             }}
             className="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded hover:bg-gray-50"
           >
@@ -221,6 +230,12 @@ export function CooklangDetailView({
         </div>
       </div>
 
+      {saveMessage && (
+        <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 text-sm text-amber-800">
+          {saveMessage}
+        </div>
+      )}
+
       {viewerIndex != null && (
         <ImageViewer
           sources={gtEntry.images.map((img) => imageUrl(`data/recipe-images/${img}`))}
@@ -248,6 +263,7 @@ export function CooklangDetailView({
                 setEdited(next);
                 setDirty(true);
                 setSaveStatus("idle");
+                setSaveMessage(null);
               }}
             />
           ) : (

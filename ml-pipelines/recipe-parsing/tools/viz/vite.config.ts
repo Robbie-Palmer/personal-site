@@ -7,12 +7,39 @@ import fs from "node:fs";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const pipelineRoot = path.resolve(__dirname, "../..");
+const MAX_REQUEST_BODY_BYTES = 5 * 1024 * 1024;
+const DVC_SAVE_MESSAGE =
+  "Saved data/ground-truth.json. Run `dvc add data/ground-truth.json` and commit the updated DVC metadata when you intend to persist this dataset change.";
+
+class RequestBodyTooLargeError extends Error {
+  constructor() {
+    super(`Request body exceeds ${MAX_REQUEST_BODY_BYTES} bytes`);
+    this.name = "RequestBodyTooLargeError";
+  }
+}
 
 function collectBody(req: import("node:http").IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on("data", (c: Buffer) => chunks.push(c));
-    req.on("end", () => resolve(Buffer.concat(chunks).toString()));
+    let received = 0;
+    let settled = false;
+    req.on("data", (c: Buffer) => {
+      if (settled) return;
+      received += c.length;
+      if (received > MAX_REQUEST_BODY_BYTES) {
+        settled = true;
+        reject(new RequestBodyTooLargeError());
+        req.destroy();
+        return;
+      }
+      chunks.push(c);
+    });
+    req.on("end", () => {
+      if (!settled) {
+        settled = true;
+        resolve(Buffer.concat(chunks).toString());
+      }
+    });
     req.on("error", reject);
   });
 }
@@ -40,12 +67,12 @@ function servePipelineFiles(): Plugin {
             return;
           }
           const target = path.join(pipelineRoot, "data/ground-truth.json");
-          fs.writeFileSync(target, JSON.stringify(json, null, 2) + "\n");
+          await fs.promises.writeFile(target, JSON.stringify(json, null, 2) + "\n");
           res.statusCode = 200;
           res.setHeader("Content-Type", "application/json");
-          res.end(JSON.stringify({ ok: true }));
+          res.end(JSON.stringify({ ok: true, message: DVC_SAVE_MESSAGE }));
         } catch (e) {
-          res.statusCode = 500;
+          res.statusCode = e instanceof RequestBodyTooLargeError ? 413 : 500;
           res.setHeader("Content-Type", "application/json");
           res.end(JSON.stringify({ error: String(e) }));
         }
@@ -72,7 +99,36 @@ function servePipelineFiles(): Plugin {
                   ? "image/png"
                   : "application/octet-stream",
           );
-          fs.createReadStream(resolved).pipe(res);
+          const stream = fs.createReadStream(resolved);
+          function cleanup() {
+            stream.off("error", onStreamError);
+            res.off("error", onResponseError);
+            res.off("finish", cleanup);
+            res.off("close", onResponseClose);
+          }
+          function onStreamError(error: NodeJS.ErrnoException) {
+            cleanup();
+            stream.destroy();
+            if (!res.headersSent) {
+              res.statusCode = error.code === "ENOENT" ? 404 : 500;
+              res.end(error.code === "ENOENT" ? "Not found" : "Failed to read file");
+            } else {
+              res.destroy(error);
+            }
+          }
+          function onResponseError() {
+            cleanup();
+            stream.destroy();
+          }
+          function onResponseClose() {
+            cleanup();
+            stream.destroy();
+          }
+          stream.on("error", onStreamError);
+          res.on("error", onResponseError);
+          res.on("finish", cleanup);
+          res.on("close", onResponseClose);
+          stream.pipe(res);
         } else {
           next();
         }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, Copy, Save, AlertCircle } from "lucide-react";
 import {
   imageUrl,
@@ -52,7 +52,9 @@ export function ExtractionDetailView({
   const [edited, setEdited] = useState<StructuredTextRecipe | null>(null);
   const [dirty, setDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const resetEntryKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     loadGroundTruth().then(setGroundTruth).catch((e) => setError(String(e)));
@@ -80,18 +82,22 @@ export function ExtractionDetailView({
           ?.cooklang ?? null;
 
   useEffect(() => {
-    if (gtEntry) {
-      setEdited(gtEntry.expectedStructuredText ?? null);
-      setDirty(false);
-      setSaveStatus("idle");
+    if (!gtEntry || !predictionKey || resetEntryKeyRef.current === predictionKey) {
+      return;
     }
-  }, [entryIndex, gtEntry]);
+    resetEntryKeyRef.current = predictionKey;
+    setEdited(gtEntry.expectedStructuredText ?? null);
+    setDirty(false);
+    setSaveStatus("idle");
+    setSaveMessage(null);
+  }, [gtEntry, predictionKey]);
 
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const handleSave = useCallback(async () => {
     if (!groundTruth) return;
     setSaveError(null);
+    setSaveMessage(null);
     if (edited) {
       const emptyIngredients = edited.ingredientSections.some((s) =>
         s.lines.length === 0 || s.lines.some((l) => l.trim().length === 0),
@@ -115,10 +121,11 @@ export function ExtractionDetailView({
       } else {
         delete updated.entries[entryIndex].expectedStructuredText;
       }
-      await saveGroundTruth(updated);
+      const result = await saveGroundTruth(updated);
       setGroundTruth(updated);
       setDirty(false);
       setSaveStatus("saved");
+      setSaveMessage(result.message ?? null);
     } catch (e) {
       console.error("Save failed:", e);
       setSaveStatus("error");
@@ -198,6 +205,7 @@ export function ExtractionDetailView({
                 setEdited(structuredClone(predictedStructured));
                 setDirty(true);
                 setSaveStatus("idle");
+                setSaveMessage(null);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white border border-gray-200 rounded hover:bg-gray-50"
             >
@@ -211,6 +219,7 @@ export function ExtractionDetailView({
               setEdited(structuredClone(EMPTY_STRUCTURED_TEXT));
               setDirty(true);
               setSaveStatus("idle");
+              setSaveMessage(null);
             }}
             className="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded hover:bg-gray-50"
           >
@@ -248,6 +257,12 @@ export function ExtractionDetailView({
       {saveError && (
         <div className="bg-red-50 border border-red-200 rounded px-3 py-2 text-sm text-red-700">
           {saveError}
+        </div>
+      )}
+
+      {saveMessage && (
+        <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 text-sm text-amber-800">
+          {saveMessage}
         </div>
       )}
 
@@ -290,6 +305,7 @@ export function ExtractionDetailView({
                 setEdited(next);
                 setDirty(true);
                 setSaveStatus("idle");
+                setSaveMessage(null);
               }}
             />
           ) : (

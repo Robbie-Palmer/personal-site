@@ -16,6 +16,7 @@ const TIMER_RE =
   /~(?<name>[^@#~\{\}\n%]+)?\{(?<amount>[^%{}]+)?(?:%(?<unit>[^{}]+))?\}(?=[\s.,;:()!?]|$)/g;
 const COOKWARE_RE =
   /#(?<name>[^@#~\{\}\n]+?)(?:\{[^}]*\})?(?=[\s.,;:()!?]|$)/g;
+const DEFAULT_INFERRED_SERVINGS = 1;
 
 function parseFractionOrNumber(value: string): number | undefined {
   const result = numericQuantity(value);
@@ -48,7 +49,9 @@ function inferCooklangIngredientLine(line: string): string {
   );
   if (prefixedAmountWithSpacedUnit?.groups?.name) {
     const unit = normalizeUnitToken(prefixedAmountWithSpacedUnit.groups.unit);
-    return `@${toCooklangToken(prefixedAmountWithSpacedUnit.groups.name)}{${prefixedAmountWithSpacedUnit.groups.amount}${unit ? `%${unit}` : ""}}`;
+    if (unit) {
+      return `@${toCooklangToken(prefixedAmountWithSpacedUnit.groups.name)}{${prefixedAmountWithSpacedUnit.groups.amount}%${unit}}`;
+    }
   }
 
   const prefixedAmount = trimmed.match(
@@ -87,6 +90,22 @@ function parseScalarTextNumber(value: string | undefined): number | undefined {
 
 function normalizeInstructionLine(line: string): string {
   return line.replace(/^\s*\d+[.)]\s*/, "").trim();
+}
+
+function inferStructuredTextServings(
+  value: string | undefined,
+): { servings: number; diagnostic?: string } {
+  const parsed = parseScalarTextNumber(value);
+  if (parsed && parsed > 0) {
+    return { servings: Math.floor(parsed) };
+  }
+  return {
+    servings: DEFAULT_INFERRED_SERVINGS,
+    diagnostic:
+      value && value.trim().length > 0
+        ? `Structured extraction inferred unparseable servings as ${DEFAULT_INFERRED_SERVINGS}.`
+        : `Structured extraction inferred missing servings as ${DEFAULT_INFERRED_SERVINGS}.`,
+  };
 }
 
 function normalizeUnitToken(unit: string | undefined): RecipeIngredient["unit"] | undefined {
@@ -179,7 +198,7 @@ export function buildCooklangDraftFromStructuredText(
     bodyLines.push("");
   }
 
-  bodyLines.push(...extracted.instructionLines);
+  bodyLines.push(...extracted.instructionLines.map(normalizeInstructionLine));
 
   const cooklang: CooklangRecipe = {
     frontmatter,
@@ -227,7 +246,7 @@ export function deriveRecipeFromStructuredText(extracted: StructuredTextRecipe):
     diagnostics.push("No instruction lines could be derived from structured extraction.");
   }
 
-  const servings = parseScalarTextNumber(extracted.servingsText);
+  const inferredServings = inferStructuredTextServings(extracted.servingsText);
   const recipe: Recipe | null =
     extracted.title &&
     ingredientGroups.length > 0 &&
@@ -238,7 +257,7 @@ export function deriveRecipeFromStructuredText(extracted: StructuredTextRecipe):
             extracted.description ??
             `Recipe imported from structured extraction for ${extracted.title}.`,
           cuisine: extracted.cuisine,
-          servings: servings && servings > 0 ? Math.floor(servings) : 1,
+          servings: inferredServings.servings,
           prepTime: parseScalarTextNumber(extracted.prepTimeText),
           cookTime: parseScalarTextNumber(extracted.cookTimeText),
           ingredientGroups,
@@ -250,8 +269,8 @@ export function deriveRecipeFromStructuredText(extracted: StructuredTextRecipe):
     diagnostics.push(
       "Structured extraction fallback could not produce a normalized recipe.",
     );
-  } else if (!(servings && servings > 0)) {
-    diagnostics.push("Structured extraction fallback defaulted servings to 1.");
+  } else if (inferredServings.diagnostic) {
+    diagnostics.push(inferredServings.diagnostic);
   }
 
   return { recipe, diagnostics };
@@ -292,18 +311,21 @@ function parseIngredientLine(line: string): RecipeIngredient[] {
         ? parseFractionOrNumber(amountRaw)
         : undefined;
     const unit = normalizeUnitToken(match.groups?.unit?.trim());
-    seenNames.add(name);
+    const normalized = normalizeIngredientName(name);
+    seenNames.add(normalized);
     items.push({
-      ingredient: normalizeIngredientName(name),
+      ingredient: normalized,
       ...(amount !== undefined ? { amount } : {}),
       ...(unit ? { unit } : {}),
     });
   }
   for (const match of remainder.matchAll(INGREDIENT_BARE_RE)) {
     const name = match.groups?.name?.trim();
-    if (!name || seenNames.has(name)) continue;
+    if (!name) continue;
+    const normalized = normalizeIngredientName(name);
+    if (seenNames.has(normalized)) continue;
     items.push({
-      ingredient: normalizeIngredientName(name),
+      ingredient: normalized,
     });
   }
   return items;

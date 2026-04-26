@@ -1,4 +1,4 @@
-import type { RecipeIngredient, Unit } from "recipe-domain";
+import type { RecipeIngredient } from "recipe-domain";
 import { UNIT_LABELS } from "recipe-domain";
 
 function formatScaled(value: number): string {
@@ -18,12 +18,14 @@ export function formatAmount(item: RecipeIngredient, scale = 1): string {
   }
 
   if (item.unit) {
-    const labels = UNIT_LABELS[item.unit as Unit];
+    const labels = UNIT_LABELS[item.unit];
     if (labels) {
       const scaledAmount =
         item.amount != null ? item.amount * scale : undefined;
+      const displayedAmount =
+        scaledAmount != null ? Number(formatScaled(scaledAmount)) : undefined;
       const label =
-        scaledAmount != null && scaledAmount !== 1
+        displayedAmount != null && displayedAmount !== 1
           ? labels.plural
           : labels.singular;
       if (label) {

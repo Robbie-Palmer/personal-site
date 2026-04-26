@@ -32,8 +32,10 @@ import type {
 } from "../schemas/ground-truth.js";
 import type { ParseFailuresDataset } from "../schemas/parse-failures.js";
 import type {
+  CooklangRecipe,
   CooklangPredictionEntry,
   CooklangPredictionsDataset,
+  StructuredTextRecipe,
   StructuredTextPredictionEntry,
   StructuredTextPredictionsDataset,
 } from "../schemas/stage-artifacts.js";
@@ -42,11 +44,11 @@ type AttemptErrorDetail = NonNullable<
   ParseFailuresDataset["entries"][number]["attemptErrors"]
 >[number];
 
-type ParseStage = "extract-structured" | "derive-recipe";
+type ParseStage = "extract-structured" | "generate-cooklang" | "derive-recipe";
 
 type ParseSuccess = {
   ok: true;
-  prediction?: PredictionEntry;
+  prediction: PredictionEntry;
   structured: StructuredTextPredictionEntry;
   cooklang: CooklangPredictionEntry;
 };
@@ -179,7 +181,7 @@ function buildFailure(params: {
   const attemptCount = params.attemptErrors.length;
   const lastDetail =
     params.attemptErrors[params.attemptErrors.length - 1] ??
-    extractAttemptErrorDetail(params.lastError, attemptCount || 1);
+    extractAttemptErrorDetail(params.lastError, attemptCount);
   const candidate = isOpenAIStyleError(params.lastError) ? params.lastError : undefined;
 
   return {
@@ -204,6 +206,70 @@ function buildFailure(params: {
       attemptErrors: params.attemptErrors,
     },
   };
+}
+
+async function generateCooklangWithRetries(params: {
+  extracted: StructuredTextRecipe;
+  cooklangDraft: CooklangRecipe;
+  images: string[];
+  model: string;
+  requestTimeoutMs: number;
+  maxRetries: number;
+  backoffBaseDelayMs: number;
+  backoffMaxDelayMs: number;
+}): Promise<{ cooklang: CooklangRecipe; attemptErrors: AttemptErrorDetail[] }> {
+  const attempts = params.maxRetries + 1;
+  const attemptErrors: AttemptErrorDetail[] = [];
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return {
+        cooklang: await generateCooklangFromStructuredText({
+          extracted: params.extracted,
+          model: params.model,
+          requestTimeoutMs: params.requestTimeoutMs,
+        }),
+        attemptErrors,
+      };
+    } catch (error) {
+      const detail = extractAttemptErrorDetail(error, attempt);
+      attemptErrors.push(detail);
+      const hasNextAttempt = attempt < attempts;
+      const canRetry = hasNextAttempt && detail.retryable;
+      console.warn(
+        `Cooklang refinement failed for [${params.images.join(", ")}] attempt ${attempt}/${attempts}: ${detail.errorMessage}`,
+      );
+      if (canRetry) {
+        const delayMs = computeBackoffDelayMs(
+          attempt,
+          params.backoffBaseDelayMs,
+          params.backoffMaxDelayMs,
+        );
+        console.log(
+          `Retrying Cooklang refinement for [${params.images.join(", ")}] in ${delayMs}ms...`,
+        );
+        await sleep(delayMs);
+        continue;
+      }
+
+      const reason = detail.retryable
+        ? "after retry exhaustion"
+        : "after non-retryable failure";
+      return {
+        cooklang: {
+          ...params.cooklangDraft,
+          diagnostics: [
+            ...params.cooklangDraft.diagnostics,
+            `Cooklang model refinement failed ${reason}; keeping deterministic draft: ${detail.errorMessage}`,
+          ],
+          derived: params.cooklangDraft.derived,
+        },
+        attemptErrors,
+      };
+    }
+  }
+
+  return { cooklang: params.cooklangDraft, attemptErrors };
 }
 
 async function parseEntryWithRetries(params: {
@@ -232,31 +298,29 @@ async function parseEntryWithRetries(params: {
       });
 
       const cooklangDraft = buildCooklangDraftFromStructuredText(extracted);
-      let cooklang = cooklangDraft;
-      try {
-        cooklang = await generateCooklangFromStructuredText({
-          extracted,
-          model: params.cooklangModel,
-          requestTimeoutMs: params.requestTimeoutMs,
-        });
-      } catch (error) {
-        cooklang = {
-          ...cooklangDraft,
-          diagnostics: [
-            ...cooklangDraft.diagnostics,
-            `Cooklang model refinement failed; keeping deterministic draft: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          ],
-          derived: cooklangDraft.derived,
-        };
-      }
+      const {
+        cooklang,
+        attemptErrors: cooklangAttemptErrors,
+      } = await generateCooklangWithRetries({
+        extracted,
+        cooklangDraft,
+        images: params.images,
+        model: params.cooklangModel,
+        requestTimeoutMs: params.requestTimeoutMs,
+        maxRetries: params.maxRetries,
+        backoffBaseDelayMs: params.backoffBaseDelayMs,
+        backoffMaxDelayMs: params.backoffMaxDelayMs,
+      });
 
       const derivedCooklang = cooklang.derived
         ? cooklang
         : deriveRecipeFromCooklang(cooklang);
       const structuredFallback = deriveRecipeFromStructuredText(extracted);
       if (!derivedCooklang.derived) {
+        const message = [
+          ...derivedCooklang.diagnostics,
+          ...structuredFallback.diagnostics,
+        ].join(" | ");
         const fallbackPrediction = structuredFallback.recipe
           ? {
               images: params.images,
@@ -274,9 +338,7 @@ async function parseEntryWithRetries(params: {
           images: params.images,
           stage: "derive-recipe",
           model: params.cooklangModel,
-          lastError: new Error(
-            [...derivedCooklang.diagnostics, ...structuredFallback.diagnostics].join(" | "),
-          ),
+          lastError: new Error(message),
           prediction: fallbackPrediction,
           structured: {
             images: params.images,
@@ -286,27 +348,16 @@ async function parseEntryWithRetries(params: {
             images: params.images,
             cooklang: fallbackCooklang,
           },
-          attemptErrors: [
-            extractAttemptErrorDetail(
-              new Error(
-                [...derivedCooklang.diagnostics, ...structuredFallback.diagnostics].join(
-                  " | ",
-                ),
-              ),
-              1,
-            ),
-          ],
+          attemptErrors: [...extractionAttemptErrors, ...cooklangAttemptErrors],
         });
       }
 
       return {
         ok: true,
-        prediction: derivedCooklang.derived
-          ? {
-              images: params.images,
-              predicted: derivedCooklang.derived,
-            }
-          : undefined,
+        prediction: {
+          images: params.images,
+          predicted: derivedCooklang.derived,
+        },
         structured: {
           images: params.images,
           extracted,
@@ -353,6 +404,17 @@ async function parseEntryWithRetries(params: {
     lastError: extractionError,
     attemptErrors: extractionAttemptErrors,
   });
+}
+
+function mergeByImageSet<T extends { images: string[] }>(
+  existing: T[],
+  fresh: T[],
+  targetEntryKeys: Set<string>,
+): T[] {
+  return [
+    ...existing.filter((entry) => !targetEntryKeys.has(imageSetKey(entry.images))),
+    ...fresh,
+  ];
 }
 
 async function main() {
@@ -491,30 +553,29 @@ async function main() {
         loadCooklangPredictions().catch(catchMissingFile({ entries: [] } as CooklangPredictionsDataset)),
       ]);
 
-    const mergedPredictions = existingPredictions.entries.filter(
-      (entry) => !targetEntryKeys.has(imageSetKey(entry.images)),
+    predictions.entries = mergeByImageSet(
+      existingPredictions.entries,
+      predictions.entries,
+      targetEntryKeys,
     );
-    mergedPredictions.push(...predictions.entries);
-    predictions.entries = mergedPredictions;
-
-    const mergedStructured = existingStructured.entries.filter(
-      (entry) => !targetEntryKeys.has(imageSetKey(entry.images)),
+    structuredPredictions.entries = mergeByImageSet(
+      existingStructured.entries,
+      structuredPredictions.entries,
+      targetEntryKeys,
     );
-    mergedStructured.push(...structuredPredictions.entries);
-    structuredPredictions.entries = mergedStructured;
-
-    const mergedCooklang = existingCooklang.entries.filter(
-      (entry) => !targetEntryKeys.has(imageSetKey(entry.images)),
+    cooklangPredictions.entries = mergeByImageSet(
+      existingCooklang.entries,
+      cooklangPredictions.entries,
+      targetEntryKeys,
     );
-    mergedCooklang.push(...cooklangPredictions.entries);
-    cooklangPredictions.entries = mergedCooklang;
-
-    const mergedFailures = existingFailures.entries.filter(
-      (entry) => !targetEntryKeys.has(imageSetKey(entry.images)),
+    failures.entries = mergeByImageSet(
+      existingFailures.entries,
+      failures.entries,
+      targetEntryKeys,
     );
-    mergedFailures.push(...failures.entries);
-    failures.entries = mergedFailures;
   }
+  // Full runs intentionally overwrite all parse artifacts. Targeted runs merge
+  // into existing artifacts above so unrelated entries are preserved.
 
   await Promise.all([
     writeJson(PREDICTIONS_PATH, predictions),

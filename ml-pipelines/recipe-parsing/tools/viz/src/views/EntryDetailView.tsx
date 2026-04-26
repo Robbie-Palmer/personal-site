@@ -11,12 +11,14 @@ interface EntryDetailViewProps {
   entryId: string;
   manifest: ReviewManifest;
   onBack: () => void;
+  onNavigate: (entryId: string) => void;
 }
 
 export function EntryDetailView({
   entryId,
   manifest,
   onBack,
+  onNavigate,
 }: EntryDetailViewProps) {
   const [entry, setEntry] = useState<ReviewEntry | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,18 +46,18 @@ export function EntryDetailView({
       if (e.key === "Escape") {
         onBack();
       } else if (e.key === "ArrowLeft" && currentIdx > 0) {
-        window.location.hash = `entry/${sortedEntries[currentIdx - 1].entryId}`;
+        onNavigate(sortedEntries[currentIdx - 1]!.entryId);
       } else if (
         e.key === "ArrowRight" &&
         currentIdx < sortedEntries.length - 1
       ) {
-        window.location.hash = `entry/${sortedEntries[currentIdx + 1].entryId}`;
+        onNavigate(sortedEntries[currentIdx + 1]!.entryId);
       }
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [entryId, manifest, onBack]);
+  }, [entryId, manifest, onBack, onNavigate]);
 
   if (error) {
     return (
@@ -83,7 +85,7 @@ export function EntryDetailView({
           <p className="text-xs text-gray-400">
             {entryId}
             <span className="ml-2 text-gray-300">
-              Use \u2190 \u2192 arrows to navigate, Esc to go back
+              Use ← → arrows to navigate, Esc to go back
             </span>
           </p>
         </div>

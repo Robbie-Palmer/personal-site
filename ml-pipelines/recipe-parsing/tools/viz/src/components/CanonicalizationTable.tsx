@@ -41,7 +41,8 @@ export function CanonicalizationTable({
   const flatDecisions = useMemo(() => {
     const result: FlatDecision[] = [];
     for (const entry of data.entries) {
-      const image = entry.images[0];
+      if (!entry.images || entry.images.length === 0) continue;
+      const image = entry.images[0]!;
       const entryId = imageToEntryId.get(image);
       for (const d of entry.decisions) {
         result.push({ ...d, image, entryId });
@@ -57,8 +58,14 @@ export function CanonicalizationTable({
         : [...flatDecisions];
     items.sort((a, b) => {
       let cmp = 0;
-      if (sortField === "score") cmp = (a.score ?? 0) - (b.score ?? 0);
-      else if (sortField === "method") cmp = a.method.localeCompare(b.method);
+      if (sortField === "score") {
+        if (a.score === undefined && b.score === undefined) cmp = 0;
+        else if (a.score === undefined) cmp = 1;
+        else if (b.score === undefined) cmp = -1;
+        else cmp = sortAsc ? a.score - b.score : b.score - a.score;
+        return cmp;
+      }
+      if (sortField === "method") cmp = a.method.localeCompare(b.method);
       else cmp = a.originalSlug.localeCompare(b.originalSlug);
       return sortAsc ? cmp : -cmp;
     });
@@ -75,6 +82,9 @@ export function CanonicalizationTable({
 
   const sortIndicator = (field: SortField) =>
     sortField === field ? (sortAsc ? " \u25B2" : " \u25BC") : "";
+
+  const ariaSort = (field: SortField) =>
+    sortField === field ? (sortAsc ? "ascending" : "descending") : "none";
 
   return (
     <div className="space-y-3">
@@ -108,25 +118,43 @@ export function CanonicalizationTable({
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">
               <th
-                className="text-left px-4 py-2 font-medium text-gray-600 cursor-pointer select-none"
-                onClick={() => toggleSort("slug")}
+                className="text-left px-4 py-2 font-medium text-gray-600"
+                aria-sort={ariaSort("slug")}
               >
-                Original{sortIndicator("slug")}
+                <button
+                  type="button"
+                  onClick={() => toggleSort("slug")}
+                  className="font-medium text-gray-600 hover:text-gray-900"
+                >
+                  Original{sortIndicator("slug")}
+                </button>
               </th>
               <th className="text-left px-4 py-2 font-medium text-gray-600">
                 Canonical
               </th>
               <th
-                className="text-left px-4 py-2 font-medium text-gray-600 cursor-pointer select-none"
-                onClick={() => toggleSort("method")}
+                className="text-left px-4 py-2 font-medium text-gray-600"
+                aria-sort={ariaSort("method")}
               >
-                Method{sortIndicator("method")}
+                <button
+                  type="button"
+                  onClick={() => toggleSort("method")}
+                  className="font-medium text-gray-600 hover:text-gray-900"
+                >
+                  Method{sortIndicator("method")}
+                </button>
               </th>
               <th
-                className="text-right px-4 py-2 font-medium text-gray-600 cursor-pointer select-none"
-                onClick={() => toggleSort("score")}
+                className="text-right px-4 py-2 font-medium text-gray-600"
+                aria-sort={ariaSort("score")}
               >
-                Score{sortIndicator("score")}
+                <button
+                  type="button"
+                  onClick={() => toggleSort("score")}
+                  className="font-medium text-gray-600 hover:text-gray-900"
+                >
+                  Score{sortIndicator("score")}
+                </button>
               </th>
               <th className="text-left px-4 py-2 font-medium text-gray-600">
                 Entry

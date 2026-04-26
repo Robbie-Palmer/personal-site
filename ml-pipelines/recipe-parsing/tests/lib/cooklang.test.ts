@@ -58,7 +58,7 @@ describe("cooklang helpers", () => {
           lines: ["@chicken thighs{4%piece}", "@potatoes{600%g}"],
         },
       ],
-      instructionLines: ["Roast the tray for ~{45%minutes}."],
+      instructionLines: ["1. Roast the tray for ~{45%minutes}."],
       notes: [],
       equipment: ["tray"],
       timers: [],
@@ -69,6 +69,41 @@ describe("cooklang helpers", () => {
       "chicken-thighs",
     );
     expect(cooklang.derived?.instructions[0]).toBe("Roast the tray for 45 minutes.");
+  });
+
+  it("keeps invalid spaced units as ingredient descriptors", () => {
+    const cooklang = buildCooklangDraftFromStructuredText({
+      title: "Omelette",
+      description: "Simple eggs.",
+      servingsText: "1",
+      ingredientSections: [{ lines: ["2 large eggs"] }],
+      instructionLines: ["Whisk eggs."],
+      notes: [],
+      equipment: [],
+      timers: [],
+    });
+
+    expect(cooklang.derived?.ingredientGroups[0]?.items[0]).toEqual({
+      ingredient: "large-eggs",
+      amount: 2,
+    });
+  });
+
+  it("dedupes quantified and bare Cooklang ingredients by normalized name", () => {
+    const derived = deriveRecipeFromCooklang({
+      frontmatter: {
+        title: "Toast",
+        description: "Buttered toast.",
+        servings: 1,
+        tags: [],
+      },
+      body: "@olive oil{1%tbsp} @olive-oil\nServe.",
+      diagnostics: [],
+    });
+
+    expect(derived.derived?.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "olive-oil", amount: 1, unit: "tbsp" },
+    ]);
   });
 
   it("can derive a best-effort normalized recipe directly from structured text", () => {
@@ -98,7 +133,24 @@ describe("cooklang helpers", () => {
     expect(derived.recipe?.ingredientGroups[0]?.items[0]?.ingredient).toBe("pasta");
     expect(derived.recipe?.instructions[0]).toBe("Cook pasta.");
     expect(derived.diagnostics).toContain(
-      "Structured extraction fallback defaulted servings to 1.",
+      "Structured extraction inferred missing servings as 1.",
+    );
+  });
+
+  it("diagnoses explicit serving inference for unparseable structured servings", () => {
+    const derived = deriveRecipeFromStructuredText({
+      title: "Soup",
+      servingsText: "many",
+      ingredientSections: [{ lines: ["1 onion"] }],
+      instructionLines: ["Cook onion."],
+      notes: [],
+      equipment: [],
+      timers: [],
+    });
+
+    expect(derived.recipe?.servings).toBe(1);
+    expect(derived.diagnostics).toContain(
+      "Structured extraction inferred unparseable servings as 1.",
     );
   });
 });
