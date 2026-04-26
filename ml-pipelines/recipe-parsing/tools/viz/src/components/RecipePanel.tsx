@@ -22,7 +22,7 @@ export function RecipePanel({ recipe, label }: RecipePanelProps) {
             {recipe.cuisine}
           </span>
         )}
-        <span>{recipe.servings} servings</span>
+        <span>{recipe.servings} {recipe.servings === 1 ? "serving" : "servings"}</span>
         {recipe.prepTime != null && <span>Prep: {formatTime(recipe.prepTime)}</span>}
         {recipe.cookTime != null && <span>Cook: {formatTime(recipe.cookTime)}</span>}
       </div>

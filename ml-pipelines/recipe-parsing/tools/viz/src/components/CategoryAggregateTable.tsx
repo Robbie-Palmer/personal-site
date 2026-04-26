@@ -47,11 +47,11 @@ export function CategoryAggregateTable({
             const precision =
               cat.truePositive + cat.falsePositive > 0
                 ? cat.truePositive / (cat.truePositive + cat.falsePositive)
-                : 0;
+                : null;
             const recall =
               cat.truePositive + cat.falseNegative > 0
                 ? cat.truePositive / (cat.truePositive + cat.falseNegative)
-                : 0;
+                : null;
 
             return (
               <tr
@@ -75,10 +75,10 @@ export function CategoryAggregateTable({
                   {cat.falseNegative || ""}
                 </td>
                 <td className="px-4 py-2 text-right tabular-nums">
-                  {precision > 0 ? `${Math.round(precision * 100)}%` : "\u2014"}
+                  {precision != null ? `${Math.round(precision * 100)}%` : "\u2014"}
                 </td>
                 <td className="px-4 py-2 text-right tabular-nums">
-                  {recall > 0 ? `${Math.round(recall * 100)}%` : "\u2014"}
+                  {recall != null ? `${Math.round(recall * 100)}%` : "\u2014"}
                 </td>
               </tr>
             );
