@@ -4,11 +4,20 @@ import { RoleSlugSchema, TechnologySlugSchema } from "../slugs";
 
 export type { RoleSlug };
 
+const PreviousTitleSchema = z.object({
+  title: z.string().min(1),
+  startDate: z.string().regex(/^\d{4}-\d{2}$/),
+  endDate: z.string().regex(/^\d{4}-\d{2}$/),
+});
+
+export type PreviousTitle = z.infer<typeof PreviousTitleSchema>;
+
 export const JobRoleContentSchema = z.object({
   company: z.string().min(1),
   companyUrl: z.string().url(),
   logoPath: z.string().min(1),
   title: z.string().min(1),
+  previousTitles: z.array(PreviousTitleSchema).optional(),
   location: z.string().min(1),
   startDate: z.string().regex(/^\d{4}-\d{2}$/),
   endDate: z
@@ -29,6 +38,7 @@ export const JobRoleSchema = z.object({
   companyUrl: z.string().url(),
   logoPath: z.string().min(1),
   title: z.string().min(1),
+  previousTitles: z.array(PreviousTitleSchema).optional(),
   location: z.string().min(1),
   startDate: z.string().regex(/^\d{4}-\d{2}$/),
   endDate: z

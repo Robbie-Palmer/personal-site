@@ -590,6 +590,7 @@ export function loadJobRoles(): RoleLoadResult {
       companyUrl: exp.companyUrl,
       logoPath: exp.logoPath,
       title: exp.title,
+      previousTitles: exp.previousTitles,
       location: exp.location,
       startDate: exp.startDate,
       endDate: exp.endDate,

@@ -5,7 +5,14 @@ export const experiences: JobRoleContent[] = [
     company: "Terminal Industries",
     companyUrl: "https://terminal-industries.com/",
     logoPath: "/company-logos/terminal-industries.png",
-    title: "Principal Software Engineer",
+    title: "Engineering Manager",
+    previousTitles: [
+      {
+        title: "Principal Software Engineer",
+        startDate: "2024-05",
+        endDate: "2026-03",
+      },
+    ],
     location: "Belfast, UK",
     startDate: "2024-05",
     description:
@@ -136,8 +143,19 @@ export const experiences: JobRoleContent[] = [
     companyUrl:
       "https://www.philips.co.uk/healthcare/specialty/health-informatics",
     logoPath: "/company-logos/philips.png",
-    title:
-      "Graduate Software Engineer → Software Engineer → Senior Software Engineer",
+    title: "Senior Software Engineer",
+    previousTitles: [
+      {
+        title: "Software Engineer",
+        startDate: "2018-04",
+        endDate: "2019-09",
+      },
+      {
+        title: "Graduate Software Engineer",
+        startDate: "2017-07",
+        endDate: "2018-04",
+      },
+    ],
     location: "Belfast, UK",
     startDate: "2017-07",
     endDate: "2020-03",

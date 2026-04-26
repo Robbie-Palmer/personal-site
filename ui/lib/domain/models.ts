@@ -112,12 +112,19 @@ export const ProjectSchema = z.object({
 
 export type Project = z.infer<typeof ProjectSchema>;
 
+const PreviousTitleSchema = z.object({
+  title: z.string().min(1),
+  startDate: z.string().regex(/^\d{4}-\d{2}$/),
+  endDate: z.string().regex(/^\d{4}-\d{2}$/),
+});
+
 export const JobRoleSchema = z.object({
   slug: RoleSlugSchema,
   company: z.string().min(1),
   companyUrl: z.string().url(),
   logoPath: z.string().min(1),
   title: z.string().min(1),
+  previousTitles: z.array(PreviousTitleSchema).optional(),
   location: z.string().min(1),
   startDate: z.string().regex(/^\d{4}-\d{2}$/),
   endDate: z

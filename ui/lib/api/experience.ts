@@ -76,6 +76,37 @@ function formatDuration(start: Date, end: Date): string {
   return `${years} ${years === 1 ? "year" : "years"}, ${remainingMonths} ${remainingMonths === 1 ? "month" : "months"}`;
 }
 
+export type TitleWithDateRange = {
+  title: string;
+  dateRange: string;
+  isCurrent: boolean;
+};
+
+export function getTitleTimeline(
+  experience: Experience,
+): TitleWithDateRange[] | undefined {
+  const { previousTitles } = experience;
+  const mostRecentPrevious = previousTitles?.[0];
+  if (!previousTitles || !mostRecentPrevious) return undefined;
+
+  const currentTitleStart = mostRecentPrevious.endDate;
+  return [
+    {
+      title: experience.title,
+      dateRange: formatExperienceDateRange(
+        currentTitleStart,
+        experience.endDate,
+      ),
+      isCurrent: !experience.endDate,
+    },
+    ...previousTitles.map((prev) => ({
+      title: prev.title,
+      dateRange: formatExperienceDateRange(prev.startDate, prev.endDate),
+      isCurrent: false,
+    })),
+  ];
+}
+
 export function getAllExperience(): Experience[] {
   return experiences;
 }
