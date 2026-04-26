@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "lucide-react": "^0.563.0",
-    "numeric-quantity": "3.2.1",
     "react": "^19",
     "react-dom": "^19",
     "recipe-domain": "workspace:*"
