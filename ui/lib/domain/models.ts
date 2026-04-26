@@ -4,6 +4,7 @@ import {
   ADRStatusSchema,
   ADRSchema as BaseADRSchema,
 } from "./adr/adr";
+import { PreviousTitleSchema } from "./role/jobRole";
 import { ADRRefSchema as CanonicalADRRefSchema } from "./slugs";
 
 export const TechnologySlugSchema = z.string().min(1);
@@ -118,6 +119,7 @@ export const JobRoleSchema = z.object({
   companyUrl: z.string().url(),
   logoPath: z.string().min(1),
   title: z.string().min(1),
+  previousTitles: z.array(PreviousTitleSchema).optional(),
   location: z.string().min(1),
   startDate: z.string().regex(/^\d{4}-\d{2}$/),
   endDate: z

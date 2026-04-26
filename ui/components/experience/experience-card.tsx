@@ -21,7 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { Experience } from "@/lib/api/experience";
-import { formatDateRange } from "@/lib/api/experience";
+import { formatDateRange, getTitleTimeline } from "@/lib/api/experience";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 import type { BlogListItemView } from "@/lib/domain/blog/blogViews";
 import type { ProjectListItemView } from "@/lib/domain/project/projectViews";
@@ -44,6 +44,7 @@ export function ExperienceCard({
   blogs = [],
 }: ExperienceCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const titleTimeline = getTitleTimeline(experience);
 
   useEffect(() => {
     if (!id || typeof window === "undefined") return;
@@ -109,7 +110,20 @@ export function ExperienceCard({
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 space-y-3">
-                <CardTitle className="text-2xl">{experience.title}</CardTitle>
+                <div className="space-y-1">
+                  <CardTitle className="text-2xl">{experience.title}</CardTitle>
+                  {titleTimeline && titleTimeline.length > 1 && (
+                    <p className="text-sm text-muted-foreground">
+                      <span className="text-muted-foreground/60">
+                        previously{" "}
+                      </span>
+                      {titleTimeline
+                        .slice(1)
+                        .map((entry) => entry.title)
+                        .join(" · ")}
+                    </p>
+                  )}
+                </div>
                 <CardDescription className="text-base flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                   <a
                     href={experience.companyUrl}
@@ -230,6 +244,31 @@ export function ExperienceCard({
           {/* Expanded details */}
           {isExpanded && (
             <CardContent className="space-y-4 pt-0 animate-in fade-in duration-100">
+              {titleTimeline && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Title History
+                  </p>
+                  <div className="space-y-1">
+                    {titleTimeline.map((entry) => (
+                      <div key={`${entry.title}-${entry.dateRange}`}>
+                        <p
+                          className={`text-sm ${
+                            entry.isCurrent
+                              ? "font-medium"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {entry.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground/60">
+                          {entry.dateRange}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <ul className="space-y-1.5 text-sm">
                 {experience.responsibilities.map((responsibility) => (
                   <li key={responsibility} className="flex gap-2 items-start">

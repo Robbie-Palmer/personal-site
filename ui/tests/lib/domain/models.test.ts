@@ -497,5 +497,82 @@ describe("Domain Model Schemas", () => {
         });
       }
     });
+
+    it("should validate a role with previousTitles", () => {
+      const roleWithProgression = {
+        slug: "philips",
+        company: "Philips",
+        companyUrl: "https://philips.com",
+        logoPath: "/logo.png",
+        title: "Senior Software Engineer",
+        previousTitles: [
+          {
+            title: "Software Engineer",
+            startDate: "2018-04",
+            endDate: "2019-09",
+          },
+          {
+            title: "Graduate Software Engineer",
+            startDate: "2017-07",
+            endDate: "2018-04",
+          },
+        ],
+        location: "Belfast, UK",
+        startDate: "2017-07",
+        endDate: "2020-03",
+        description: "Led development",
+        responsibilities: ["Built stuff"],
+        relations: { technologies: ["python"] },
+      };
+
+      const result = JobRoleSchema.safeParse(roleWithProgression);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.previousTitles).toHaveLength(2);
+      }
+    });
+
+    it("should validate a role without previousTitles (backward compatible)", () => {
+      const singleTitleRole = {
+        slug: "bestomer",
+        company: "Bestomer",
+        companyUrl: "https://bestomer.com",
+        logoPath: "/logo.png",
+        title: "ML Lead",
+        location: "Remote",
+        startDate: "2023-05",
+        endDate: "2024-02",
+        description: "Led ML",
+        responsibilities: ["ML stuff"],
+        relations: { technologies: [] },
+      };
+
+      const result = JobRoleSchema.safeParse(singleTitleRole);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.previousTitles).toBeUndefined();
+      }
+    });
+
+    it("should reject previousTitles with invalid date format", () => {
+      const invalidRole = {
+        slug: "bad",
+        company: "Bad Co",
+        companyUrl: "https://bad.com",
+        logoPath: "/logo.png",
+        title: "Engineer",
+        previousTitles: [
+          { title: "Junior", startDate: "2020-01-01", endDate: "2021-01" },
+        ],
+        location: "Remote",
+        startDate: "2020-01",
+        description: "Desc",
+        responsibilities: ["Work"],
+        relations: { technologies: [] },
+      };
+
+      const result = JobRoleSchema.safeParse(invalidRole);
+      expect(result.success).toBe(false);
+    });
   });
 });

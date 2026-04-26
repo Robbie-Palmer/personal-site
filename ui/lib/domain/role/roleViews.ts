@@ -1,5 +1,5 @@
 import type { TechnologyBadgeView } from "../technology/technologyViews";
-import type { JobRole } from "./jobRole";
+import type { JobRole, PreviousTitle } from "./jobRole";
 
 export type RoleCardView = {
   slug: string;
@@ -7,6 +7,7 @@ export type RoleCardView = {
   companyUrl: string;
   logoPath: string;
   title: string;
+  previousTitles?: PreviousTitle[];
   location: string;
   startDate: string;
   endDate?: string;
@@ -34,6 +35,7 @@ export function toRoleCardView(
     companyUrl: role.companyUrl,
     logoPath: role.logoPath,
     title: role.title,
+    previousTitles: role.previousTitles,
     location: role.location,
     startDate: role.startDate,
     endDate: role.endDate,
