@@ -94,14 +94,14 @@ export function ExtractionDetailView({
     setSaveError(null);
     if (edited) {
       const emptyIngredients = edited.ingredientSections.some((s) =>
-        s.lines.some((l) => l.trim().length === 0),
+        s.lines.length === 0 || s.lines.some((l) => l.trim().length === 0),
       );
-      const emptyInstructions = edited.instructionLines.some(
-        (l) => l.trim().length === 0,
-      );
+      const emptyInstructions =
+        edited.instructionLines.length === 0 ||
+        edited.instructionLines.some((l) => l.trim().length === 0);
       if (emptyIngredients || emptyInstructions) {
         setSaveError(
-          "Cannot save: ingredient lines and instruction lines must be non-empty.",
+          "Cannot save: ingredient and instruction arrays must be non-empty with no blank lines.",
         );
         setSaveStatus("error");
         return;

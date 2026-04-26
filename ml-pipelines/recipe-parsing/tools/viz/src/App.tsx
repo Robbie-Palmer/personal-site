@@ -85,23 +85,16 @@ export function App() {
   // Review workbench views don't need the manifest — show them regardless
   const needsManifest = !isWideReviewView(view);
 
-  if (needsManifest && error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-8">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-lg">
-          <h2 className="text-red-800 font-semibold text-lg mb-2">
-            Failed to load data
-          </h2>
-          <p className="text-red-700 text-sm">{error}</p>
-          <p className="text-red-600 text-xs mt-2">
-            Make sure the pipeline has been run and outputs/review/ exists.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // If a manifest-dependent view is active but the manifest can't load,
+  // redirect to extraction (which doesn't need the manifest) so the nav is
+  // always reachable.
+  useEffect(() => {
+    if (needsManifest && error) {
+      navigate({ kind: "extraction" });
+    }
+  }, [needsManifest, error]);
 
-  if (needsManifest && !manifest) {
+  if (needsManifest && !manifest && !error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <p className="text-gray-500">Loading...</p>
