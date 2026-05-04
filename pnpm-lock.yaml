@@ -313,7 +313,7 @@ importers:
         version: 29.1.1
       lighthouse:
         specifier: ^13.0.1
-        version: 13.1.0
+        version: 13.2.0
       puppeteer:
         specifier: ^24.33.0
         version: 24.42.0(typescript@6.0.3)
@@ -1458,8 +1458,8 @@ packages:
   '@oxc-project/types@0.127.0':
     resolution: {integrity: sha512-aIYXQBo4lCbO4z0R3FHeucQHpF46l2LbMdxRvqvuRuW2OxdnSkcng5B8+K12spgLDj93rtN3+J2Vac/TIO+ciQ==}
 
-  '@paulirish/trace_engine@0.0.61':
-    resolution: {integrity: sha512-/O08DwmUqIlJjUSPSZbNF8lWnlxaMsIOV6sS+uDKCxBd5i1psAmjEoG3JAqR6+nHD8X+YY474NW7SxUH/K+/kQ==}
+  '@paulirish/trace_engine@0.0.64':
+    resolution: {integrity: sha512-M1krpfOXJcIQPb6TI6iA+9hHRPv3AxFNHPp/iewzUqbfPL5VnTAqkt6xyqwVGmsuQrko7nV1O3MvLZ3SXfPxbA==}
 
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -2677,8 +2677,8 @@ packages:
   atomically@2.1.1:
     resolution: {integrity: sha512-P4w9o2dqARji6P7MHprklbfiArZAWvo07yW7qs3pdljb3BWr12FIB7W+p0zJiuiVsUpRO0iZn1kFFcpPegg0tQ==}
 
-  axe-core@4.11.3:
-    resolution: {integrity: sha512-zBQouZixDTbo3jMGqHKyePxYxr1e5W8UdTmBQ7sNtaA9M2bE32daxxPLS/jojhKOHxQ7LWwPjfiwf/fhaJWzlg==}
+  axe-core@4.11.4:
+    resolution: {integrity: sha512-KunSNx+TVpkAw/6ULfhnx+HWRecjqZGTOyquAoWHYLRSdK1tB5Ihce1ZW+UY3fj33bYAFWPu7W/GRSmmrCGuxA==}
     engines: {node: '>=4'}
 
   b4a@1.8.0:
@@ -3295,8 +3295,8 @@ packages:
   devtools-protocol@0.0.1595872:
     resolution: {integrity: sha512-kRfgp8vWVjBu/fbYCiVFiOqsCk3CrMKEo3WbgGT2NXK2dG7vawWPBljixajVgGK9II8rDO9G0oD0zLt3I1daRg==}
 
-  devtools-protocol@0.0.1608973:
-    resolution: {integrity: sha512-Tpm17fxYzt+J7VrGdc1k8YdRqS3YV7se/M6KeemEqvUbq/n7At1rWVuXMxQgpWkdwSdIEKYbU//Bve+Shm4YNQ==}
+  devtools-protocol@0.0.1621552:
+    resolution: {integrity: sha512-uaHF17cjNtGKOVZUoh8W0PGuEwR3pWzY5kz3sj7PK8N/SyBKG3cPnQIehVDDJkSdph6Omv+GlP7GdM/b4DTgJQ==}
 
   dir-glob@3.0.1:
     resolution: {integrity: sha512-WkrWp9GR4KXfKGYzOLmTuGVi1UWFfws377n9cc55/tb6DuqyF6pcQ5AbiHEshaDpY9v6oaSr2XCDidGmMwdzIA==}
@@ -4098,8 +4098,8 @@ packages:
   lighthouse-stack-packs@1.12.3:
     resolution: {integrity: sha512-d8IsOpE83kbANgnM+Tp8+x6HcMpX9o2ITBiUERssgzAIFdZCQzs/f4k6D0DLQTE59enml9mbAOU52Wu35exWtg==}
 
-  lighthouse@13.1.0:
-    resolution: {integrity: sha512-H3Qi4fJBXbaCTdE3XzdONq6kH5wMoG4v5sv+1BgG4H+0nivSo35eTp/yryHEU7G4xepUJmmlvjS10OWGHFwU+Q==}
+  lighthouse@13.2.0:
+    resolution: {integrity: sha512-Ra4GsuF+iPRMPUUAARD+zqFMLatr8lI9U3FnFaftsTAcIsi++oAXszlgrcFTpkJk7HYdYQRnhn57EuYUPgQCkQ==}
     engines: {node: '>=22.19'}
     hasBin: true
 
@@ -5603,14 +5603,11 @@ packages:
     resolution: {integrity: sha512-Bf+ILmBgretUrdJxzXM0SgXLZ3XfiaUuOj/IKQHuTXip+05Xn+uyEYdVg0kYDipTBcLrCVyUzAPz7QmArb0mmw==}
     engines: {node: '>=14.0.0'}
 
-  tldts-core@7.0.28:
-    resolution: {integrity: sha512-7W5Efjhsc3chVdFhqtaU0KtK32J37Zcr9RKtID54nG+tIpcY79CQK/veYPODxtD/LJ4Lue66jvrQzIX2Z2/pUQ==}
-
   tldts-core@7.0.30:
     resolution: {integrity: sha512-uiHN8PIB1VmWyS98eZYja4xzlYqeFZVjb4OuYlJQnZAuJhMw4PbKQOKgHKhBdJR3FE/t5mUQ1Kd80++B+qhD1Q==}
 
-  tldts-icann@7.0.28:
-    resolution: {integrity: sha512-brkN3yIgYTzBpSxB71XYBwUMDgutmKmA+6TWzgGD/EPcvCc6LHMTRaYj9ik1u3BxhSW53qIK/7cgjA2rF7BgbA==}
+  tldts-icann@7.0.30:
+    resolution: {integrity: sha512-o+sKcCCZQOh78GHfpmlcKoef0c+UVfltkqmgKmUHWiMiUhSfer8k5mEkQL2RBqwuC90fluI7ZN50H7+I2bJ1jw==}
 
   tldts@7.0.30:
     resolution: {integrity: sha512-ELrFxuqsDdHUwoh0XxDbxuLD3Wnz49Z57IFvTtvWy1hJdcMZjXLIuonjilCiWHlT2GbE4Wlv1wKVTzDFnXH1aw==}
@@ -5943,8 +5940,8 @@ packages:
   walk-up-path@3.0.1:
     resolution: {integrity: sha512-9YlCL/ynK3CTlrSRrDxZvUauLzAswPCrsaCgilqFevUYpeEW0/3ScEjaa3kbW/T0ghhkEr7mv+fpjqn1Y1YuTA==}
 
-  web-features@3.24.0:
-    resolution: {integrity: sha512-D/e/FlTPpbTbSHwwS+8qgwP6E6TTlYnTJnSk/y80GKqlUVrtq69fpXZrcDy6GhNGgqUYtG8nOoiXj+Fh/a1dBQ==}
+  web-features@3.26.0:
+    resolution: {integrity: sha512-1qXkBvgi2H1uZ3AmP9GOOF5+LrlO94bJxgh6Kh12yW6wYQQtjXv7ou3ADo3dIuHB98WlHtGp8bjd/w8UQI6tHw==}
 
   web-namespaces@2.0.1:
     resolution: {integrity: sha512-bKr1DkiNa2krS7qxNtdrtHAmzuYGFQLiQ13TsorsdT6ULTkPLKuu5+GsFpDlg6JFjUTwX2DyhMPG2be8uPrqsQ==}
@@ -7104,7 +7101,7 @@ snapshots:
 
   '@oxc-project/types@0.127.0': {}
 
-  '@paulirish/trace_engine@0.0.61':
+  '@paulirish/trace_engine@0.0.64':
     dependencies:
       legacy-javascript: 0.0.1
       third-party-web: 0.29.0
@@ -7914,7 +7911,7 @@ snapshots:
 
   '@types/concat-stream@2.0.3':
     dependencies:
-      '@types/node': 24.12.2
+      '@types/node': 22.19.17
 
   '@types/connect@3.4.38':
     dependencies:
@@ -8308,7 +8305,7 @@ snapshots:
       stubborn-fs: 2.0.0
       when-exit: 2.1.5
 
-  axe-core@4.11.3: {}
+  axe-core@4.11.4: {}
 
   b4a@1.8.0: {}
 
@@ -8933,7 +8930,7 @@ snapshots:
 
   devtools-protocol@0.0.1595872: {}
 
-  devtools-protocol@0.0.1608973: {}
+  devtools-protocol@0.0.1621552: {}
 
   dir-glob@3.0.1:
     dependencies:
@@ -9811,15 +9808,15 @@ snapshots:
 
   lighthouse-stack-packs@1.12.3: {}
 
-  lighthouse@13.1.0:
+  lighthouse@13.2.0:
     dependencies:
-      '@paulirish/trace_engine': 0.0.61
+      '@paulirish/trace_engine': 0.0.64
       '@sentry/node': 9.47.1
-      axe-core: 4.11.3
+      axe-core: 4.11.4
       chrome-launcher: 1.2.1
       configstore: 7.1.0
       csp_evaluator: 1.1.5
-      devtools-protocol: 0.0.1608973
+      devtools-protocol: 0.0.1621552
       enquirer: 2.4.1
       http-link-header: 1.1.3
       intl-messageformat: 10.7.18
@@ -9834,8 +9831,8 @@ snapshots:
       robots-parser: 3.0.1
       speedline-core: 1.4.3
       third-party-web: 0.29.0
-      tldts-icann: 7.0.28
-      web-features: 3.24.0
+      tldts-icann: 7.0.30
+      web-features: 3.26.0
       ws: 7.5.10
       yargs: 17.7.2
       yargs-parser: 21.1.1
@@ -11952,13 +11949,11 @@ snapshots:
 
   tinyrainbow@3.1.0: {}
 
-  tldts-core@7.0.28: {}
-
   tldts-core@7.0.30: {}
 
-  tldts-icann@7.0.28:
+  tldts-icann@7.0.30:
     dependencies:
-      tldts-core: 7.0.28
+      tldts-core: 7.0.30
 
   tldts@7.0.30:
     dependencies:
@@ -12326,7 +12321,7 @@ snapshots:
 
   walk-up-path@3.0.1: {}
 
-  web-features@3.24.0: {}
+  web-features@3.26.0: {}
 
   web-namespaces@2.0.1: {}
 
