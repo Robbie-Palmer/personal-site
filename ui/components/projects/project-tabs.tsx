@@ -1,8 +1,8 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useTabParam } from "@/hooks/use-tab-param";
 
 interface ProjectTabsProps {
   overview: React.ReactNode;
@@ -11,19 +11,7 @@ interface ProjectTabsProps {
 }
 
 export function ProjectTabs({ overview, adrs, adrCount }: ProjectTabsProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
-
-  const currentTab = searchParams.get("tab") || "overview";
-
-  const onTabChange = (value: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", value);
-    // Use replace to avoid filling history stack with tab changes,
-    // scroll: false to maintain scroll position when switching tabs
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  };
+  const { currentTab, onTabChange } = useTabParam("overview");
 
   return (
     <Tabs value={currentTab} onValueChange={onTabChange} className="w-full">
