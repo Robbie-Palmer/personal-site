@@ -213,7 +213,7 @@ importers:
         version: 1.5.0
       recharts:
         specifier: ^3.3.0
-        version: 3.8.1(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react-is@16.13.1)(react@19.2.6)(redux@5.0.1)
+        version: 3.8.1(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react-is@17.0.2)(react@19.2.6)(redux@5.0.1)
       recipe-domain:
         specifier: workspace:*
         version: link:../packages/recipe-domain
@@ -265,7 +265,7 @@ importers:
         version: 2.4.14
       '@cloudflare/workers-types':
         specifier: ^4
-        version: 4.20260506.1
+        version: 4.20260507.1
       '@t3-oss/env-core':
         specifier: ^0.13.8
         version: 0.13.11(typescript@6.0.3)(zod@4.4.3)
@@ -343,7 +343,7 @@ importers:
         version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.12.2)(jsdom@29.1.1)(vite@8.0.10(@types/node@24.12.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.8.4))
       wrangler:
         specifier: ^4
-        version: 4.88.0(@cloudflare/workers-types@4.20260506.1)
+        version: 4.88.0(@cloudflare/workers-types@4.20260507.1)
 
 packages:
 
@@ -506,8 +506,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@cloudflare/workers-types@4.20260506.1':
-    resolution: {integrity: sha512-IKv/C08utEbAqEu2zr0/3CMf1MbYrl7x0Z1UsrnMs4xxfIN81vtGTRduCZb7xJQpaICQPe0Sa6fhHlZmUXrMjw==}
+  '@cloudflare/workers-types@4.20260507.1':
+    resolution: {integrity: sha512-QChtMFu8EeVKaL4dW5r5wfZzlbH5CUnZU5Ef6E1cPjXzqryQuCwmEDNr+Oj2obbKR9jsVIUHPF/pkFaKWdYl2g==}
 
   '@cooklang/cooklang@0.17.2':
     resolution: {integrity: sha512-Mn11VFOh+3OC91tPjyqwmKUeZ3VXqKU3UEOUFbJPiX4O5gWaFYfsUNazcKv+mZMobSm36GcKXvJ+lGpSZMEf4Q==}
@@ -6250,7 +6250,7 @@ snapshots:
   '@cloudflare/workerd-windows-64@1.20260504.1':
     optional: true
 
-  '@cloudflare/workers-types@4.20260506.1': {}
+  '@cloudflare/workers-types@4.20260507.1': {}
 
   '@cooklang/cooklang@0.17.2': {}
 
@@ -11120,7 +11120,7 @@ snapshots:
 
   reading-time@1.5.0: {}
 
-  recharts@3.8.1(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react-is@16.13.1)(react@19.2.6)(redux@5.0.1):
+  recharts@3.8.1(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react-is@17.0.2)(react@19.2.6)(redux@5.0.1):
     dependencies:
       '@reduxjs/toolkit': 2.11.2(react-redux@9.2.0(@types/react@19.2.14)(react@19.2.6)(redux@5.0.1))(react@19.2.6)
       clsx: 2.1.1
@@ -11130,7 +11130,7 @@ snapshots:
       immer: 10.2.0
       react: 19.2.6
       react-dom: 19.2.6(react@19.2.6)
-      react-is: 16.13.1
+      react-is: 17.0.2
       react-redux: 9.2.0(@types/react@19.2.14)(react@19.2.6)(redux@5.0.1)
       reselect: 5.1.1
       tiny-invariant: 1.3.3
@@ -12356,7 +12356,7 @@ snapshots:
       '@cloudflare/workerd-linux-arm64': 1.20260504.1
       '@cloudflare/workerd-windows-64': 1.20260504.1
 
-  wrangler@4.88.0(@cloudflare/workers-types@4.20260506.1):
+  wrangler@4.88.0(@cloudflare/workers-types@4.20260507.1):
     dependencies:
       '@cloudflare/kv-asset-handler': 0.5.0
       '@cloudflare/unenv-preset': 2.16.1(unenv@2.0.0-rc.24)(workerd@1.20260504.1)
@@ -12367,7 +12367,7 @@ snapshots:
       unenv: 2.0.0-rc.24
       workerd: 1.20260504.1
     optionalDependencies:
-      '@cloudflare/workers-types': 4.20260506.1
+      '@cloudflare/workers-types': 4.20260507.1
       fsevents: 2.3.3
     transitivePeerDependencies:
       - bufferutil
