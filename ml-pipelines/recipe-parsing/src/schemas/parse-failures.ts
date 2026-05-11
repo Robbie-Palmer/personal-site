@@ -16,7 +16,7 @@ export const ParseAttemptErrorSchema = z.object({
 
 export const ParseFailureEntrySchema = z.object({
   images: z.array(z.string().min(1)).min(1),
-  stage: z.enum(["extract-structured", "generate-cooklang", "derive-recipe"]).optional(),
+  stage: z.enum(["extraction", "normalize", "extract-structured", "generate-cooklang", "derive-recipe"]).optional(),
   attemptCount: z.number().int().nonnegative(),
   model: z.string().optional(),
   errorType: z.string().min(1),

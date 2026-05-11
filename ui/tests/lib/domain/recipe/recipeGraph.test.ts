@@ -43,13 +43,13 @@ describe("buildRecipeContentGraph", () => {
       ingredientSlugs: [],
       recipeIngredients: new Map(),
       recipeCuisines: new Map([
-        ["curry", "Asian"],
-        ["risotto", "Italian"],
+        ["curry", ["Asian"]],
+        ["risotto", ["Italian"]],
       ]),
     });
 
-    expect(graph.edges.hasCuisine.get("curry")).toBe("Asian");
-    expect(graph.edges.hasCuisine.get("risotto")).toBe("Italian");
+    expect(graph.edges.hasCuisine.get("curry")).toEqual(["Asian"]);
+    expect(graph.edges.hasCuisine.get("risotto")).toEqual(["Italian"]);
   });
 
   it("builds reverse cuisine edges", () => {
@@ -57,9 +57,9 @@ describe("buildRecipeContentGraph", () => {
       ingredientSlugs: [],
       recipeIngredients: new Map(),
       recipeCuisines: new Map([
-        ["curry", "Asian"],
-        ["satay", "Asian"],
-        ["risotto", "Italian"],
+        ["curry", ["Asian"]],
+        ["satay", ["Asian"]],
+        ["risotto", ["Italian"]],
       ]),
     });
 

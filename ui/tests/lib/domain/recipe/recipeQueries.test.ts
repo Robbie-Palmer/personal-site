@@ -34,6 +34,7 @@ function makeRecipe(overrides: Partial<Recipe> & { slug: string }): Recipe {
     cookBody: ">> chicken breast\nStep 1",
     tags: [],
     cookware: [],
+    cuisine: [],
     servings: 4,
     ingredientGroups: [
       {
@@ -53,7 +54,7 @@ function buildTestRepository(
   const ingredientMap = new Map<IngredientSlug, Ingredient>(ingredientEntries);
 
   const recipeIngredients = new Map<RecipeSlug, IngredientSlug[]>();
-  const recipeCuisines = new Map<RecipeSlug, string>();
+  const recipeCuisines = new Map<RecipeSlug, string[]>();
 
   for (const recipe of recipes) {
     recipeMap.set(recipe.slug, recipe);
@@ -64,7 +65,7 @@ function buildTestRepository(
       }
     }
     recipeIngredients.set(recipe.slug, Array.from(slugs));
-    if (recipe.cuisine) {
+    if (recipe.cuisine.length > 0) {
       recipeCuisines.set(recipe.slug, recipe.cuisine);
     }
   }
@@ -90,7 +91,7 @@ const curryRecipe = makeRecipe({
   slug: "curry",
   title: "Chicken Curry",
   date: "2026-02-10",
-  cuisine: "Asian",
+  cuisine: ["Asian"],
   cookware: ["frying pan", "saucepan"],
   ingredientGroups: [
     {
@@ -107,7 +108,7 @@ const risottoRecipe = makeRecipe({
   slug: "risotto",
   title: "Chorizo Risotto",
   date: "2026-02-08",
-  cuisine: "Italian",
+  cuisine: ["Italian"],
   cookware: ["bowl", "saucepan"],
   ingredientGroups: [
     {
@@ -128,7 +129,7 @@ describe("recipe queries", () => {
       const card = getRecipeCard(repo, "curry");
       expect(card).not.toBeNull();
       expect(card?.title).toBe("Chicken Curry");
-      expect(card?.cuisine).toBe("Asian");
+      expect(card?.cuisine).toEqual(["Asian"]);
       expect(card?.servings).toBe(4);
       expect(card?.cookware).toEqual(["frying pan", "saucepan"]);
     });

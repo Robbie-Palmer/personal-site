@@ -15,6 +15,9 @@ export function EntryCard({ entry, onClick }: EntryCardProps) {
     { key: "scalar", value: scores.scalarFields, label: "Scalar" },
     { key: "ingredients", value: scores.ingredientParsing, label: "Ingredients" },
     { key: "instructions", value: scores.instructions, label: "Instructions" },
+    ...(scores.equipmentParsing != null
+      ? [{ key: "equipment", value: scores.equipmentParsing, label: "Equipment" }]
+      : []),
   ];
 
   return (
@@ -36,7 +39,7 @@ export function EntryCard({ entry, onClick }: EntryCardProps) {
           <span className="text-xs text-gray-500 truncate max-w-[60%]">
             {images[0]}
           </span>
-          <ScoreBadge score={scores.overall} />
+          <ScoreBadge score={scores.overall} label="Structured" />
         </div>
 
         <div className="space-y-1.5">

@@ -1,21 +1,21 @@
-import type { ExtractionEntry } from "../types/extraction";
 import { imageUrl } from "../lib/data";
+import { ScoreBadge } from "./ScoreBadge";
 
-interface ExtractionEntryCardProps {
-  entry: ExtractionEntry;
+interface StageEntryCardProps {
+  images: string[];
+  title: string;
+  score: number | null;
+  annotated: boolean;
   onClick: () => void;
 }
 
-export function ExtractionEntryCard({
-  entry,
+export function StageEntryCard({
+  images,
+  title,
+  score,
+  annotated,
   onClick,
-}: ExtractionEntryCardProps) {
-  const annotated = entry.expectedStructuredText != null;
-  const title =
-    entry.predictedStructuredText?.title ??
-    entry.predicted?.title ??
-    entry.expected.title;
-
+}: StageEntryCardProps) {
   return (
     <button
       type="button"
@@ -24,7 +24,7 @@ export function ExtractionEntryCard({
     >
       <div className="aspect-[4/3] bg-gray-100 overflow-hidden">
         <img
-          src={imageUrl(`data/recipe-images/${entry.images[0]}`)}
+          src={imageUrl(`data/recipe-images/${images[0]}`)}
           alt=""
           className="w-full h-full object-cover group-hover:scale-105 transition-transform"
           loading="lazy"
@@ -35,9 +35,11 @@ export function ExtractionEntryCard({
           {title}
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-400 truncate max-w-[60%]">
-            {entry.images.length} image{entry.images.length > 1 ? "s" : ""}
-          </span>
+          {score != null ? (
+            <ScoreBadge score={score} />
+          ) : (
+            <span className="text-xs text-gray-400">No score</span>
+          )}
           <span
             className={`text-xs font-medium px-2 py-0.5 rounded-full ${
               annotated
@@ -47,9 +49,6 @@ export function ExtractionEntryCard({
           >
             {annotated ? "Annotated" : "Unannotated"}
           </span>
-        </div>
-        <div className="mt-2 text-xs text-gray-500">
-          {entry.predictedCooklang?.derived ? "Cooklang preview ready" : "No Cooklang preview"}
         </div>
       </div>
     </button>

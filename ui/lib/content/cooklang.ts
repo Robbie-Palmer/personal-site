@@ -17,10 +17,18 @@ import { readdirSync, readFileSync } from "fs";
 import matter from "gray-matter";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
-import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
+import type {
+  IngredientGroupAccumulator,
+  IngredientSlug,
+} from "@/lib/domain/recipe/ingredient";
+import {
+  createIngredientGroupAccumulator,
+  mergeIngredientIntoGroup,
+} from "@/lib/domain/recipe/ingredient";
 import type {
   RecipeContent,
   RecipeFrontmatter,
+  RecipeIngredient,
 } from "@/lib/domain/recipe/recipe";
 import {
   RecipeContentSchema,
@@ -29,19 +37,7 @@ import {
 import { UNIT_LABELS, UnitSchema } from "@/lib/domain/recipe/unit";
 import { normalizeSlug } from "@/lib/generic/slugs";
 
-type IngredientGroupItem = {
-  ingredient: IngredientSlug;
-  amount?: number;
-  unit?: string;
-  preparation?: string;
-  note?: string;
-};
-
-type GroupAccumulator = {
-  name: string | undefined;
-  items: IngredientGroupItem[];
-  itemIndexByIngredient: Map<IngredientSlug, number>;
-};
+type GroupAccumulator = IngredientGroupAccumulator;
 
 const _parser = new CooklangParser();
 
@@ -171,7 +167,7 @@ function formatInlineQuantityDisplay(quantity: Quantity): string {
 function buildIngredientGroupItem(
   ingredient: Ingredient,
   annotations: RecipeFrontmatter["ingredientAnnotations"],
-): IngredientGroupItem {
+): RecipeIngredient {
   const ingSlug = normalizeSlug(ingredient.name) as IngredientSlug;
   const ann = annotations?.[ingSlug];
   const validAmount = resolveQuantityValue(ingredient.quantity);
@@ -188,74 +184,6 @@ function buildIngredientGroupItem(
     ...(ann?.preparation && { preparation: ann.preparation }),
     ...(ann?.note && { note: ann.note }),
   };
-}
-
-function mergeIngredientIntoGroup(
-  group: GroupAccumulator,
-  nextItem: IngredientGroupItem,
-): void {
-  const existingIndex = group.itemIndexByIngredient.get(nextItem.ingredient);
-  if (existingIndex === undefined) {
-    group.items.push(nextItem);
-    group.itemIndexByIngredient.set(
-      nextItem.ingredient,
-      group.items.length - 1,
-    );
-    return;
-  }
-
-  const existing = group.items[existingIndex]!;
-  const duplicateConflict = (reason: string): never => {
-    throw new Error(
-      `Conflicting duplicate ingredient "${nextItem.ingredient}" in group "${group.name ?? "unnamed"}": ${reason}`,
-    );
-  };
-
-  if (existing.preparation !== nextItem.preparation) {
-    duplicateConflict("preparation annotations differ");
-  }
-
-  if (existing.note !== nextItem.note) {
-    duplicateConflict("notes differ");
-  }
-
-  // Repeated inline tags for the same ingredient within a group are allowed
-  // when they reinforce the same ingredient or contribute an additional
-  // compatible quantity we can safely sum.
-  if (
-    existing.unit === nextItem.unit &&
-    existing.amount !== undefined &&
-    nextItem.amount !== undefined
-  ) {
-    existing.amount += nextItem.amount;
-    return;
-  }
-
-  if (existing.amount === undefined && nextItem.amount !== undefined) {
-    existing.amount = nextItem.amount;
-    existing.unit = nextItem.unit;
-    return;
-  }
-
-  if (existing.amount !== undefined && nextItem.amount === undefined) {
-    if (nextItem.unit !== undefined && nextItem.unit !== existing.unit) {
-      duplicateConflict("unit differs from the existing quantified entry");
-    }
-    return;
-  }
-
-  if (existing.amount === undefined && nextItem.amount === undefined) {
-    if (existing.unit !== nextItem.unit) {
-      duplicateConflict("unit differs between unquantified duplicate entries");
-    }
-    return;
-  }
-
-  if (existing.unit !== nextItem.unit) {
-    duplicateConflict("units differ");
-  }
-
-  duplicateConflict("duplicate quantities could not be merged safely");
 }
 
 function collectStepIngredients(
@@ -275,13 +203,7 @@ function collectStepIngredients(
   }
 }
 
-function createGroupAccumulator(name?: string): GroupAccumulator {
-  return {
-    name,
-    items: [],
-    itemIndexByIngredient: new Map(),
-  };
-}
+const createGroupAccumulator = createIngredientGroupAccumulator;
 
 function stepToText(
   step: Step,

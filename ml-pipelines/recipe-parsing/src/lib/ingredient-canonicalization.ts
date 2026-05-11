@@ -4,10 +4,20 @@ import {
   singularizeIngredientTerm,
 } from "recipe-domain/pluralization";
 import type { PredictionEntry, Recipe } from "../schemas/ground-truth.js";
+import {
+  applyIngredientTokenFixups,
+  EXACT_ALIASES,
+} from "./ingredient-normalization-rules.js";
+import { normalizeCuisineLabels } from "./cuisine-normalization.js";
+import {
+  canonicalizeCookwareList,
+  type EquipmentCanonicalizationDecision,
+} from "./equipment-canonicalization.js";
 
 export type CanonicalizationMethod =
   | "exact"
   | "fuzzy"
+  | "llm"
   | "none";
 
 export interface CandidateScore {
@@ -30,14 +40,8 @@ export interface IngredientCanonicalizationDecision {
 export interface EntryCanonicalizationDecisions {
   images: string[];
   decisions: IngredientCanonicalizationDecision[];
+  cookwareDecisions?: EquipmentCanonicalizationDecision[];
 }
-
-const TOKEN_FIXUPS: Record<string, string> = {
-  clov: "clove",
-  flak: "flakes",
-  sausag: "sausages",
-  veg: "vegetable",
-};
 
 const MODIFIER_TOKENS = new Set([
   "fresh",
@@ -61,27 +65,8 @@ const NOISE_TOKENS = new Set([
   "cooked",
 ]);
 
-const EXACT_ALIASES: Record<string, string> = {
-  onion: "white-onion",
-  "chicken-fillet": "chicken-breast",
-  "garlic-clove": "garlic",
-  "red-pepper": "bell-pepper",
-  "yellow-pepper": "bell-pepper",
-  "green-pepper": "bell-pepper",
-  sausage: "pork-sausage",
-  tomato: "fresh-tomatoes",
-  tomatoes: "fresh-tomatoes",
-  parsley: "fresh-parsley",
-  cheese: "cheddar-cheese",
-};
-
 const FUZZY_THRESHOLD = 0.85;
 const FUZZY_MARGIN = 0.04;
-const COMPOUND_CUISINES = new Set([
-  "indo-chinese",
-  "tex-mex",
-]);
-
 type OntologyIndex = {
   ontology: Set<string>;
   byLength: Map<number, string[]>;
@@ -104,16 +89,12 @@ function detokenize(tokens: string[]): string {
   return tokens.join("-");
 }
 
-function applyTokenFixups(tokens: string[]): string[] {
-  return tokens.map((token) => TOKEN_FIXUPS[token] ?? token);
-}
-
 function generateDeterministicCandidates(slug: string): string[] {
   const base = normalizeSlug(slug);
   const out = new Set<string>([base]);
   const tokens = tokenize(base);
 
-  const fixedTokens = applyTokenFixups(tokens);
+  const fixedTokens = applyIngredientTokenFixups(tokens);
   out.add(detokenize(fixedTokens));
 
   if (fixedTokens.length === 2) {
@@ -138,11 +119,10 @@ function generateDeterministicCandidates(slug: string): string[] {
     out.add(detokenize(withoutNoise.filter((token) => token !== "and")));
   }
 
-  if (base.endsWith("-cheese")) {
-    out.add(base.replace(/-cheese$/, ""));
-  }
-  if (base.endsWith("-powder")) {
-    out.add(base.replace(/-powder$/, ""));
+  for (const candidate of [...out]) {
+    if (candidate.endsWith("-cheese")) {
+      out.add(candidate.replace(/-cheese$/, ""));
+    }
   }
 
   for (const candidate of [...out]) {
@@ -378,32 +358,33 @@ export function canonicalizeRecipeIngredients(
   return { recipe: canonicalizedRecipe, decisions };
 }
 
-function normalizeCuisineLabel(cuisine: string | undefined): string | undefined {
-  if (cuisine === undefined) return undefined;
-  const trimmed = cuisine.trim();
-  if (!trimmed) return undefined;
-  if (COMPOUND_CUISINES.has(trimmed.toLowerCase())) {
-    return trimmed;
-  }
-
-  const firstSegment = trimmed.split("-")[0]?.trim() ?? "";
-  return firstSegment || undefined;
-}
-
 export function canonicalizePredictionEntry(
   entry: PredictionEntry,
   ontology: Set<string>,
   ontologyIndex?: OntologyIndex,
-): { entry: PredictionEntry; decisions: IngredientCanonicalizationDecision[] } {
-  const canonicalized = canonicalizeRecipeIngredients(entry.predicted, ontology, ontologyIndex);
+): {
+  entry: PredictionEntry;
+  decisions: IngredientCanonicalizationDecision[];
+  cookwareDecisions: EquipmentCanonicalizationDecision[];
+} {
+  const canonicalized = canonicalizeRecipeIngredients(
+    entry.predicted,
+    ontology,
+    ontologyIndex,
+  );
+  const canonicalizedCookware = canonicalizeCookwareList(
+    canonicalized.recipe.cookware,
+  );
   return {
     entry: {
       ...entry,
       predicted: {
         ...canonicalized.recipe,
-        cuisine: normalizeCuisineLabel(canonicalized.recipe.cuisine),
+        cuisine: normalizeCuisineLabels(canonicalized.recipe.cuisine),
+        cookware: canonicalizedCookware.cookware,
       },
     },
     decisions: canonicalized.decisions,
+    cookwareDecisions: canonicalizedCookware.decisions,
   };
 }

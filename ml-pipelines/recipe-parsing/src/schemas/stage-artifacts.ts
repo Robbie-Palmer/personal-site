@@ -1,6 +1,25 @@
 import { z } from "zod";
 import { ParsedRecipeSchema, RecipeFrontmatterSchema } from "recipe-domain";
 
+/** Text-based extraction schema — captures what the image literally says, no parsing/normalization */
+export const ExtractionRecipeSchema = z.object({
+  title: z.string(),
+  description: z.string().optional(),
+  cuisine: z.string().optional(),
+  servings: z.string().optional(),
+  prepTime: z.string().optional(),
+  cookTime: z.string().optional(),
+  ingredientGroups: z.array(
+    z.object({
+      name: z.string().optional(),
+      lines: z.array(z.string()),
+    }),
+  ),
+  instructions: z.array(z.string()),
+  equipment: z.array(z.string().min(1)).default([]),
+});
+export type ExtractionRecipe = z.infer<typeof ExtractionRecipeSchema>;
+
 export const StructuredIngredientSectionSchema = z.object({
   name: z.string().min(1).optional(),
   lines: z.array(z.string().min(1)).default([]),
@@ -41,6 +60,10 @@ export const CooklangFrontmatterSchema = RecipeFrontmatterSchema.partial({
   imageAlt: true,
   ingredientAnnotations: true,
 }).extend({
+  // Override int() constraint: LLM-generated frontmatter may have fractional
+  // minutes (e.g. 22.5). Rounding happens downstream in deriveRecipeFromCooklang.
+  prepTime: z.number().nonnegative().optional(),
+  cookTime: z.number().nonnegative().optional(),
   tags: z.array(z.string().min(1)).default([]),
 });
 
@@ -87,4 +110,21 @@ export const CooklangPredictionsDatasetSchema = z.object({
 
 export type CooklangPredictionsDataset = z.infer<
   typeof CooklangPredictionsDatasetSchema
+>;
+
+export const ExtractionPredictionEntrySchema = z.object({
+  images: z.array(z.string().min(1)).min(1),
+  extracted: ExtractionRecipeSchema,
+});
+
+export type ExtractionPredictionEntry = z.infer<
+  typeof ExtractionPredictionEntrySchema
+>;
+
+export const ExtractionPredictionsDatasetSchema = z.object({
+  entries: z.array(ExtractionPredictionEntrySchema),
+});
+
+export type ExtractionPredictionsDataset = z.infer<
+  typeof ExtractionPredictionsDatasetSchema
 >;

@@ -1,5 +1,6 @@
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import wasm from "vite-plugin-wasm";
 import { defineConfig, type Plugin } from "vite";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -78,6 +79,31 @@ function servePipelineFiles(): Plugin {
         }
       });
 
+      // Write endpoint for canonical ingredients
+      server.middlewares.use("/pipeline/api/canonical-ingredients", async (req, res, next) => {
+        if (req.method !== "POST") return next();
+
+        try {
+          const body = await collectBody(req);
+          const json = JSON.parse(body);
+          if (!json?.ingredients || !Array.isArray(json.ingredients)) {
+            res.statusCode = 400;
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify({ error: "Expected { ingredients: [...] }" }));
+            return;
+          }
+          const target = path.join(pipelineRoot, "data/canonical-ingredients.json");
+          await fs.promises.writeFile(target, JSON.stringify(json, null, 2) + "\n");
+          res.statusCode = 200;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ ok: true, message: "Saved data/canonical-ingredients.json." }));
+        } catch (e) {
+          res.statusCode = e instanceof RequestBodyTooLargeError ? 413 : 500;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: String(e) }));
+        }
+      });
+
       // Read endpoint for pipeline files
       server.middlewares.use("/pipeline", (req, res, next) => {
         const filePath = path.join(pipelineRoot, req.url ?? "");
@@ -138,7 +164,10 @@ function servePipelineFiles(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), servePipelineFiles()],
+  plugins: [react(), tailwindcss(), wasm(), servePipelineFiles()],
+  build: {
+    target: "esnext",
+  },
   server: {
     fs: {
       allow: [pipelineRoot, path.resolve(__dirname, "../../..")],

@@ -43,6 +43,15 @@ describe("canonicalizeIngredientSlug", () => {
     expect(decision.canonicalSlug).toBe("salt-and-pepper");
   });
 
+  it("should not collapse garlic-powder to garlic", () => {
+    const decision = canonicalizeIngredientSlug({
+      rawSlug: "garlic-powder",
+      ontology: new Set(["garlic"]),
+    });
+    expect(decision.method).toBe("none");
+    expect(decision.canonicalSlug).toBe("garlic-powder");
+  });
+
   it.each([
     {
       rawSlug: "slices-of-bacon",
@@ -76,13 +85,23 @@ describe("canonicalizeIngredientSlug", () => {
     },
     {
       rawSlug: "onion",
-      ontology: new Set(["white-onion"]),
-      expected: "white-onion",
+      ontology: new Set(["onion"]),
+      expected: "onion",
     },
     {
       rawSlug: "medium-onion",
-      ontology: new Set(["white-onion"]),
-      expected: "white-onion",
+      ontology: new Set(["onion"]),
+      expected: "onion",
+    },
+    {
+      rawSlug: "chili-powder",
+      ontology: new Set(["chilli-powder"]),
+      expected: "chilli-powder",
+    },
+    {
+      rawSlug: "cheddar",
+      ontology: new Set(["cheddar-cheese"]),
+      expected: "cheddar-cheese",
     },
   ])(
     "should apply safe deterministic cleanup rules for $rawSlug",
@@ -117,6 +136,7 @@ describe("canonicalizePredictionEntry", () => {
       predicted: {
         title: "x",
         description: "y",
+        cuisine: [],
         servings: 2,
         ingredientGroups: [
           {
@@ -127,12 +147,14 @@ describe("canonicalizePredictionEntry", () => {
           },
         ],
         instructions: ["step"],
+        cookware: ["large skillet", "strainer", "frying pan"],
       },
     }, new Set(["chicken-breast", "garlic"]));
 
     expect(
       result.entry.predicted.ingredientGroups[0]?.items.map((i) => i.ingredient),
     ).toEqual(["chicken-breast", "garlic"]);
+    expect(result.entry.predicted.cookware).toEqual(["frying pan", "sieve"]);
     expect(result.decisions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -147,6 +169,20 @@ describe("canonicalizePredictionEntry", () => {
         }),
       ]),
     );
+    expect(result.cookwareDecisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          originalName: "large skillet",
+          canonicalName: "frying pan",
+          method: "exact",
+        }),
+        expect.objectContaining({
+          originalName: "strainer",
+          canonicalName: "sieve",
+          method: "exact",
+        }),
+      ]),
+    );
   });
 
   it("should preserve allowlisted compound cuisine labels", () => {
@@ -155,29 +191,31 @@ describe("canonicalizePredictionEntry", () => {
       predicted: {
         title: "x",
         description: "y",
-        cuisine: "Tex-Mex",
+        cuisine: ["Tex-Mex"],
         servings: 2,
         ingredientGroups: [{ items: [{ ingredient: "garlic", amount: 1 }] }],
         instructions: ["step"],
+        cookware: [],
       },
     }, new Set(["garlic"]));
 
-    expect(result.entry.predicted.cuisine).toBe("Tex-Mex");
+    expect(result.entry.predicted.cuisine).toEqual(["Tex-Mex"]);
   });
 
-  it("should normalize non-allowlisted hyphenated cuisine labels", () => {
+  it("should split non-allowlisted hyphenated cuisine labels", () => {
     const result = canonicalizePredictionEntry({
       images: ["a.jpg"],
       predicted: {
         title: "x",
         description: "y",
-        cuisine: "French-Style",
+        cuisine: ["Italian-American"],
         servings: 2,
         ingredientGroups: [{ items: [{ ingredient: "garlic", amount: 1 }] }],
         instructions: ["step"],
+        cookware: [],
       },
     }, new Set(["garlic"]));
 
-    expect(result.entry.predicted.cuisine).toBe("French");
+    expect(result.entry.predicted.cuisine).toEqual(["Italian", "American"]);
   });
 });

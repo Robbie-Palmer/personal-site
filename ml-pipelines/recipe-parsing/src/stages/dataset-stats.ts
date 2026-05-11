@@ -90,9 +90,13 @@ async function main() {
   let unknownCuisineCount = 0;
 
   for (const entry of prepared.entries) {
-    const cuisine = entry.expected.cuisine?.trim();
-    if (cuisine) {
-      cuisineCounts.set(cuisine, (cuisineCounts.get(cuisine) ?? 0) + 1);
+    if (entry.expected.cuisine.length > 0) {
+      for (const cuisine of entry.expected.cuisine) {
+        const trimmed = cuisine.trim();
+        if (trimmed) {
+          cuisineCounts.set(trimmed, (cuisineCounts.get(trimmed) ?? 0) + 1);
+        }
+      }
     } else {
       unknownCuisineCount += 1;
     }

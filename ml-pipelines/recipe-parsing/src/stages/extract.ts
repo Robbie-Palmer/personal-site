@@ -1,0 +1,275 @@
+import "dotenv/config";
+import {
+  EXTRACTION_PREDICTIONS_PATH,
+  EXTRACTION_FAILURES_PATH,
+  loadImageEntries,
+  loadExtractionPredictions,
+  loadExtractionFailures,
+  loadParams,
+  writeJson,
+} from "../lib/io";
+import { extractRecipeFromImages } from "../lib/openrouter.js";
+import { imageSetKey } from "../lib/image-key.js";
+import { stringifyProviderErrorBody } from "../lib/parse-retry.js";
+import {
+  type AttemptErrorDetail,
+  parseCsvEnv,
+  sleep,
+  computeBackoffDelayMs,
+  isOpenAIStyleError,
+  extractAttemptErrorDetail,
+  mergeByImageSet,
+  catchMissingFile,
+} from "../lib/stage-runner.js";
+import type {
+  ExtractionPredictionEntry,
+  ExtractionPredictionsDataset,
+} from "../schemas/stage-artifacts.js";
+import type { ParseFailuresDataset } from "../schemas/parse-failures.js";
+
+type ExtractSuccess = {
+  ok: true;
+  prediction: ExtractionPredictionEntry;
+};
+
+type ExtractFailure = {
+  ok: false;
+  failure: ParseFailuresDataset["entries"][number];
+};
+
+type ExtractResult = ExtractSuccess | ExtractFailure;
+
+function buildFailure(params: {
+  images: string[];
+  model?: string;
+  lastError: unknown;
+  attemptErrors: AttemptErrorDetail[];
+}): ExtractFailure {
+  const attemptCount = params.attemptErrors.length;
+  const lastDetail =
+    params.attemptErrors[params.attemptErrors.length - 1] ??
+    extractAttemptErrorDetail(params.lastError, attemptCount);
+  const candidate = isOpenAIStyleError(params.lastError) ? params.lastError : undefined;
+
+  return {
+    ok: false,
+    failure: {
+      images: params.images,
+      stage: "extraction",
+      attemptCount,
+      model: params.model,
+      errorType: lastDetail.errorType,
+      errorMessage: lastDetail.errorMessage,
+      statusCode: lastDetail.statusCode,
+      requestId: lastDetail.requestId,
+      providerErrorCode: lastDetail.providerErrorCode,
+      providerErrorType: lastDetail.providerErrorType,
+      providerErrorParam: lastDetail.providerErrorParam,
+      providerErrorBody: stringifyProviderErrorBody(candidate?.error),
+      causeMessage: lastDetail.causeMessage,
+      attemptErrors: params.attemptErrors,
+    },
+  };
+}
+
+async function extractEntryWithRetries(params: {
+  images: string[];
+  model: string;
+  requestTimeoutMs: number;
+  maxRetries: number;
+  maxImageDimension: number;
+  jpegQuality: number;
+  backoffBaseDelayMs: number;
+  backoffMaxDelayMs: number;
+}): Promise<ExtractResult> {
+  const attempts = params.maxRetries + 1;
+  let lastError: unknown;
+  const attemptErrors: AttemptErrorDetail[] = [];
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const extracted = await extractRecipeFromImages({
+        imageFiles: params.images,
+        model: params.model,
+        requestTimeoutMs: params.requestTimeoutMs,
+        maxImageDimension: params.maxImageDimension,
+        jpegQuality: params.jpegQuality,
+      });
+
+      return {
+        ok: true,
+        prediction: {
+          images: params.images,
+          extracted,
+        },
+      };
+    } catch (error) {
+      lastError = error;
+      const detail = extractAttemptErrorDetail(error, attempt);
+      attemptErrors.push(detail);
+      const diagnostics: string[] = [];
+      if (detail.statusCode !== undefined) diagnostics.push(`status=${detail.statusCode}`);
+      if (detail.requestId) diagnostics.push(`request_id=${detail.requestId}`);
+      if (detail.providerErrorCode) diagnostics.push(`code=${detail.providerErrorCode}`);
+      if (detail.providerErrorType) diagnostics.push(`type=${detail.providerErrorType}`);
+      const diagnosticSuffix =
+        diagnostics.length > 0 ? ` (${diagnostics.join(", ")})` : "";
+      console.warn(
+        `Extraction failed for [${params.images.join(", ")}] attempt ${attempt}/${attempts}: ${detail.errorMessage}${diagnosticSuffix}`,
+      );
+      const hasNextAttempt = attempt < attempts;
+      if (hasNextAttempt && detail.retryable) {
+        const delayMs = computeBackoffDelayMs(
+          attempt,
+          params.backoffBaseDelayMs,
+          params.backoffMaxDelayMs,
+        );
+        console.log(`Retrying [${params.images.join(", ")}] in ${delayMs}ms...`);
+        await sleep(delayMs);
+      }
+      if (hasNextAttempt && !detail.retryable) {
+        break;
+      }
+    }
+  }
+
+  return buildFailure({
+    images: params.images,
+    model: params.model,
+    lastError,
+    attemptErrors,
+  });
+}
+
+async function main() {
+  const {
+    model,
+    request_timeout_ms: requestTimeoutMs,
+    max_retries: maxRetries,
+    concurrency,
+    image_max_dim: maxImageDimension,
+    image_jpeg_quality: jpegQuality,
+    retry_base_delay_ms: backoffBaseDelayMs,
+    retry_max_delay_ms: backoffMaxDelayMs,
+  } = (await loadParams()).extract;
+  const targetImages = parseCsvEnv("EXTRACT_TARGET_IMAGES");
+  const hasApiKey = Boolean(process.env.OPENROUTER_API_KEY);
+
+  console.log("Extract config:");
+  console.log(`  model:              ${model}`);
+  console.log(`  request_timeout_ms: ${requestTimeoutMs}`);
+  console.log(`  max_retries:        ${maxRetries}`);
+  console.log(`  concurrency:        ${concurrency}`);
+  console.log(`  retry_base_delay_ms: ${backoffBaseDelayMs}`);
+  console.log(`  retry_max_delay_ms: ${backoffMaxDelayMs}`);
+  console.log(`  image_max_dim:      ${maxImageDimension}`);
+  console.log(`  image_jpeg_quality: ${jpegQuality}`);
+  console.log(
+    `  target_images:      ${targetImages ? targetImages.join(", ") : "(all entries)"}`,
+  );
+  console.log(`  OPENROUTER_API_KEY: ${hasApiKey ? "set" : "missing"}`);
+
+  console.log("Loading image entries...");
+  const imageEntries = await loadImageEntries();
+  let entriesToProcess = imageEntries.entries;
+  let targetEntryKeys = new Set<string>();
+
+  if (targetImages) {
+    const targetSet = new Set(targetImages);
+    const matches = imageEntries.entries.filter((entry) => {
+      if (entry.images.length !== targetImages.length) return false;
+      return entry.images.every((image) => targetSet.has(image));
+    });
+    if (matches.length === 0) {
+      const available = imageEntries.entries
+        .map((entry) => entry.images.join(", "))
+        .sort()
+        .join("\n  - ");
+      throw new Error(
+        `No entry matched EXTRACT_TARGET_IMAGES=${targetImages.join(", ")}.\nAvailable image sets:\n  - ${available}`,
+      );
+    }
+    entriesToProcess = matches;
+    targetEntryKeys = new Set(matches.map((entry) => imageSetKey(entry.images)));
+  }
+
+  console.log(
+    `Running OCR extraction on ${entriesToProcess.length} entries...`,
+  );
+
+  const results = new Array<ExtractResult | undefined>(entriesToProcess.length);
+  let nextIndex = 0;
+
+  const worker = async () => {
+    while (true) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      if (currentIndex >= entriesToProcess.length) {
+        return;
+      }
+      const entry = entriesToProcess[currentIndex]!;
+      results[currentIndex] = await extractEntryWithRetries({
+        images: entry.images,
+        model,
+        requestTimeoutMs,
+        maxRetries,
+        maxImageDimension,
+        jpegQuality,
+        backoffBaseDelayMs,
+        backoffMaxDelayMs,
+      });
+    }
+  };
+
+  const workerCount = Math.min(concurrency, Math.max(entriesToProcess.length, 1));
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+  const predictions: ExtractionPredictionsDataset = { entries: [] };
+  const failures: ParseFailuresDataset = { entries: [] };
+
+  for (const result of results) {
+    if (!result) continue;
+    if (result.ok) {
+      predictions.entries.push(result.prediction);
+    } else {
+      failures.entries.push(result.failure);
+    }
+  }
+
+  if (targetEntryKeys.size > 0) {
+    const [existingPredictions, existingFailures] = await Promise.all([
+      loadExtractionPredictions().catch(
+        catchMissingFile({ entries: [] } as ExtractionPredictionsDataset),
+      ),
+      loadExtractionFailures().catch(
+        catchMissingFile({ entries: [] } as ParseFailuresDataset),
+      ),
+    ]);
+
+    predictions.entries = mergeByImageSet(
+      existingPredictions.entries,
+      predictions.entries,
+      targetEntryKeys,
+    );
+    failures.entries = mergeByImageSet(
+      existingFailures.entries,
+      failures.entries,
+      targetEntryKeys,
+    );
+  }
+
+  await Promise.all([
+    writeJson(EXTRACTION_PREDICTIONS_PATH, predictions),
+    writeJson(EXTRACTION_FAILURES_PATH, failures),
+  ]);
+
+  console.log(
+    `Extracted ${predictions.entries.length} entries -> ${EXTRACTION_PREDICTIONS_PATH}`,
+  );
+  console.log(`Failures written to ${EXTRACTION_FAILURES_PATH}`);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

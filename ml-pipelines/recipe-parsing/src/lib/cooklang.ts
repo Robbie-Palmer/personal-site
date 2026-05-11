@@ -1,21 +1,37 @@
 import { numericQuantity } from "numeric-quantity";
-import type { Recipe } from "../schemas/ground-truth.js";
+import {
+  CooklangParser,
+  getQuantityValue,
+  getQuantityUnit,
+  ingredient_display_name,
+  cookware_display_name,
+  quantity_display,
+} from "@cooklang/cooklang";
+import type {
+  Step,
+  Ingredient as CkIngredient,
+  CooklangRecipe as CkParsedRecipe,
+} from "@cooklang/cooklang";
+import {
+  createIngredientGroupAccumulator,
+  mergeIngredientIntoGroup,
+} from "recipe-domain";
+import type { ExtractionRecipe, Recipe } from "../schemas/ground-truth.js";
 import { UnitSchema, type RecipeIngredient } from "recipe-domain";
 import type {
   CooklangFrontmatter,
   CooklangRecipe,
   StructuredTextRecipe,
 } from "../schemas/stage-artifacts.js";
+import { postprocessRecipeOutput } from "./recipe-postprocess.js";
 
-const SECTION_HEADER_RE = /^==\s*(.+?)\s*==$/;
+const _cooklangParser = new CooklangParser();
+
+// Regex patterns still used by parseIngredientLine (for structured text → cooklang conversion)
 const INGREDIENT_WITH_QUANTITY_RE =
   /@(?<name>[^@#~\{\}\n]+?)\{(?<amount>[^%{}]+)?(?:%(?<unit>[^{}]+))?\}/g;
 const INGREDIENT_BARE_RE =
   /@(?<name>[^@#~\{\}\n]+?)(?=[\s.,;:()!?]|$)/g;
-const TIMER_RE =
-  /~(?<name>[^@#~\{\}\n%]+)?\{(?<amount>[^%{}]+)?(?:%(?<unit>[^{}]+))?\}(?=[\s.,;:()!?]|$)/g;
-const COOKWARE_RE =
-  /#(?<name>[^@#~\{\}\n]+?)(?:\{[^}]*\})?(?=[\s.,;:()!?]|$)/g;
 const DEFAULT_INFERRED_SERVINGS = 1;
 
 function parseFractionOrNumber(value: string): number | undefined {
@@ -31,7 +47,7 @@ function toCooklangToken(name: string): string {
   return name.trim().replace(/\s+/g, " ");
 }
 
-function inferCooklangIngredientLine(line: string): string {
+export function inferCooklangIngredientLine(line: string): string {
   const trimmed = line.trim();
   if (!trimmed) return trimmed;
   if (trimmed.includes("@")) return trimmed;
@@ -78,7 +94,7 @@ function inferCooklangIngredientLine(line: string): string {
   return `@${name}${quantity}${suffix}`.trim();
 }
 
-function parseScalarTextNumber(value: string | undefined): number | undefined {
+export function parseScalarTextNumber(value: string | undefined): number | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
   if (!trimmed) return undefined;
@@ -90,6 +106,21 @@ function parseScalarTextNumber(value: string | undefined): number | undefined {
 
 function normalizeInstructionLine(line: string): string {
   return line.replace(/^\s*\d+[.)]\s*/, "").trim();
+}
+
+function normalizeCookwareList(values: string[] | undefined): string[] {
+  if (!values) return [];
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const value of values) {
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(trimmed);
+  }
+  return normalized;
 }
 
 function inferStructuredTextServings(
@@ -153,6 +184,19 @@ function groupToCooklangLines(recipe: Recipe): string[] {
 }
 
 export function recipeToCooklang(recipe: Recipe): CooklangRecipe {
+  // Build ingredientAnnotations from items that have preparation or note
+  const ingredientAnnotations: Record<string, { preparation?: string; note?: string }> = {};
+  for (const group of recipe.ingredientGroups) {
+    for (const item of group.items) {
+      if (item.preparation || item.note) {
+        ingredientAnnotations[item.ingredient] = {
+          ...(item.preparation ? { preparation: item.preparation } : {}),
+          ...(item.note ? { note: item.note } : {}),
+        };
+      }
+    }
+  }
+
   const frontmatter: CooklangFrontmatter = {
     title: recipe.title,
     description: recipe.description,
@@ -161,16 +205,71 @@ export function recipeToCooklang(recipe: Recipe): CooklangRecipe {
     prepTime: recipe.prepTime,
     cookTime: recipe.cookTime,
     tags: [],
+    ...(Object.keys(ingredientAnnotations).length > 0
+      ? { ingredientAnnotations }
+      : {}),
   };
+  // Separate instructions with blank lines so each becomes its own Cooklang step
+  const instructionLines: string[] = [];
+  for (let i = 0; i < recipe.instructions.length; i++) {
+    if (i > 0) instructionLines.push("");
+    instructionLines.push(recipe.instructions[i]!);
+  }
   const bodyLines = [
     ...groupToCooklangLines(recipe),
-    ...recipe.instructions,
+    ...instructionLines,
   ];
   return {
     frontmatter,
     body: bodyLines.join("\n").trim(),
     diagnostics: [],
-    derived: recipe,
+    derived: {
+      ...postprocessRecipeOutput(recipe),
+      cookware: normalizeCookwareList(recipe.cookware),
+    },
+  };
+}
+
+export function buildCooklangDraftFromExtraction(
+  extracted: ExtractionRecipe,
+): CooklangRecipe {
+  const frontmatter: CooklangFrontmatter = {
+    title: extracted.title,
+    description:
+      extracted.description ??
+      `Recipe for ${extracted.title}.`,
+    cuisine: extracted.cuisine ? [extracted.cuisine] : [],
+    servings: parseScalarTextNumber(extracted.servings) ?? DEFAULT_INFERRED_SERVINGS,
+    prepTime: parseScalarTextNumber(extracted.prepTime),
+    cookTime: parseScalarTextNumber(extracted.cookTime),
+    tags: [],
+  };
+
+  const bodyLines: string[] = [];
+  for (const group of extracted.ingredientGroups) {
+    if (group.name) {
+      bodyLines.push(`== ${group.name} ==`);
+    }
+    for (const line of group.lines) {
+      bodyLines.push(inferCooklangIngredientLine(line));
+    }
+    bodyLines.push("");
+  }
+  bodyLines.push(...extracted.instructions.map(normalizeInstructionLine));
+
+  const cooklang: CooklangRecipe = {
+    frontmatter,
+    body: bodyLines.join("\n").trim(),
+    diagnostics: [],
+  };
+  const derived = deriveRecipeFromCooklang(cooklang);
+  if (!derived.derived) return derived;
+  return {
+    ...derived,
+    derived: postprocessRecipeOutput({
+      ...derived.derived,
+      cookware: normalizeCookwareList(extracted.equipment),
+    }),
   };
 }
 
@@ -180,7 +279,7 @@ export function buildCooklangDraftFromStructuredText(
   const frontmatter: CooklangFrontmatter = {
     title: extracted.title,
     description: extracted.description,
-    cuisine: extracted.cuisine,
+    cuisine: extracted.cuisine ? [extracted.cuisine] : [],
     servings: parseScalarTextNumber(extracted.servingsText),
     prepTime: parseScalarTextNumber(extracted.prepTimeText),
     cookTime: parseScalarTextNumber(extracted.cookTimeText),
@@ -207,7 +306,14 @@ export function buildCooklangDraftFromStructuredText(
   };
 
   const derived = deriveRecipeFromCooklang(cooklang);
-  return derived;
+  if (!derived.derived) return derived;
+  return {
+    ...derived,
+    derived: postprocessRecipeOutput({
+      ...derived.derived,
+      cookware: normalizeCookwareList(extracted.equipment),
+    }),
+  };
 }
 
 export function deriveRecipeFromStructuredText(extracted: StructuredTextRecipe): {
@@ -256,12 +362,13 @@ export function deriveRecipeFromStructuredText(extracted: StructuredTextRecipe):
           description:
             extracted.description ??
             `Recipe imported from structured extraction for ${extracted.title}.`,
-          cuisine: extracted.cuisine,
+          cuisine: extracted.cuisine ? [extracted.cuisine] : [],
           servings: inferredServings.servings,
           prepTime: parseScalarTextNumber(extracted.prepTimeText),
           cookTime: parseScalarTextNumber(extracted.cookTimeText),
           ingredientGroups,
           instructions,
+          cookware: normalizeCookwareList(extracted.equipment),
         }
       : null;
 
@@ -273,31 +380,10 @@ export function deriveRecipeFromStructuredText(extracted: StructuredTextRecipe):
     diagnostics.push(inferredServings.diagnostic);
   }
 
-  return { recipe, diagnostics };
-}
-function replaceTokensForPreview(line: string): string {
-  const withQuantities = line.replaceAll(
-    INGREDIENT_WITH_QUANTITY_RE,
-    (_full, name: string, amount?: string, unit?: string) => {
-      const quantity = [amount?.trim(), unit?.trim()].filter(Boolean).join(" ");
-      return [name.trim(), quantity].filter(Boolean).join(" ");
-    },
-  );
-  const ingredients = withQuantities.replaceAll(
-    INGREDIENT_BARE_RE,
-    (_full, name: string) => name.trim(),
-  );
-  const timers = ingredients.replaceAll(
-    TIMER_RE,
-    (_full, name?: string, amount?: string, unit?: string) => {
-      const pieces = [name?.trim(), amount?.trim(), unit?.trim()].filter(Boolean);
-      return pieces.join(" ");
-    },
-  );
-  return timers.replaceAll(COOKWARE_RE, (_full, name: string) => name.trim());
+  return { recipe: recipe ? postprocessRecipeOutput(recipe) : null, diagnostics };
 }
 
-function parseIngredientLine(line: string): RecipeIngredient[] {
+export function parseIngredientLine(line: string): RecipeIngredient[] {
   const items: RecipeIngredient[] = [];
   const seenNames = new Set<string>();
   const remainder = line.replaceAll(INGREDIENT_WITH_QUANTITY_RE, "");
@@ -331,48 +417,157 @@ function parseIngredientLine(line: string): RecipeIngredient[] {
   return items;
 }
 
-function isIngredientOnlyLine(line: string): boolean {
-  const withoutIngredients = line
-    .replaceAll(INGREDIENT_WITH_QUANTITY_RE, "")
-    .replaceAll(INGREDIENT_BARE_RE, "")
-    .replace(/[,\s.;:()-]/g, "");
-  return withoutIngredients.length === 0 && line.includes("@");
+// ── Cooklang parser-based derivation ─────────────────────────────────────────
+
+const STEP_PUNCTUATION_RE = /^[\s,;.]+$/;
+
+function isIngredientOnlyStep(step: Step): boolean {
+  let hasIngredient = false;
+  for (const item of step.items) {
+    if (item.type === "ingredient") {
+      hasIngredient = true;
+    } else if (item.type === "text") {
+      if (!STEP_PUNCTUATION_RE.test(item.value)) return false;
+    } else {
+      return false;
+    }
+  }
+  return hasIngredient;
+}
+
+function resolveQuantityValue(ingredient: CkIngredient): number | undefined {
+  const value = getQuantityValue(ingredient.quantity);
+  if (value !== null && !isNaN(value)) return value;
+  // Fallback for fractions (getQuantityValue returns NaN for them)
+  const inner = (ingredient.quantity as Record<string, unknown> | null)?.value;
+  if (inner && typeof inner === "object" && "type" in inner) {
+    const numObj = inner as { type: string; value: unknown };
+    if (numObj.type === "number" && numObj.value && typeof numObj.value === "object") {
+      const v = numObj.value as { type: string; value?: unknown };
+      if (v.type === "fraction" && v.value && typeof v.value === "object") {
+        const f = v.value as { whole: number; num: number; den: number };
+        if (f.den !== 0) return f.whole + f.num / f.den;
+      }
+    }
+  }
+  return undefined;
+}
+
+function stepToInstructionText(step: Step, parsed: CkParsedRecipe): string {
+  return step.items
+    .map((item) => {
+      switch (item.type) {
+        case "text":
+          return item.value;
+        case "ingredient":
+          return ingredient_display_name(parsed.ingredients[item.index]!);
+        case "cookware":
+          return cookware_display_name(parsed.cookware[item.index]!);
+        case "timer": {
+          const timer = parsed.timers[item.index]!;
+          const amount = getQuantityValue(timer.quantity);
+          const unit = getQuantityUnit(timer.quantity);
+          return [amount != null ? String(amount) : null, unit]
+            .filter(Boolean)
+            .join(" ");
+        }
+        case "inlineQuantity": {
+          const qty = parsed.inlineQuantities[item.index];
+          return qty ? quantity_display(qty) : "";
+        }
+        default:
+          return "";
+      }
+    })
+    .join("")
+    .trim();
+}
+
+/**
+ * Fix bare multi-word `@ingredient` references that are missing braces.
+ * The cooklang parser only captures a single word for `@name` without braces,
+ * so `@long grain rice` is parsed as just `@long`. We detect known multi-word
+ * ingredients (those already defined with braces earlier in the body) and add
+ * empty braces to bare back-references.
+ */
+function fixBareMultiWordIngredients(body: string): string {
+  // Collect multi-word ingredient names defined with braces: @name{...}
+  const definedNames = new Set<string>();
+  for (const m of body.matchAll(/@([^@#~{}\n]{2,}?)\{/g)) {
+    const name = m[1]!.trimEnd();
+    if (name.includes(" ")) definedNames.add(name);
+  }
+  if (definedNames.size === 0) return body;
+
+  // Sort longest-first so we match "long grain rice" before "long grain"
+  const sorted = [...definedNames].sort((a, b) => b.length - a.length);
+  const pattern = new RegExp(
+    `@(${sorted.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?=\\s|[.,;:()!?]|$)`,
+    "g",
+  );
+  return body.replace(pattern, "@$1{}");
 }
 
 export function deriveRecipeFromCooklang(cooklang: CooklangRecipe): CooklangRecipe {
   const diagnostics = [...cooklang.diagnostics];
-  const lines = cooklang.body.split(/\r?\n/);
-  const ingredientGroups: Recipe["ingredientGroups"] = [];
+  const fixedBody = fixBareMultiWordIngredients(cooklang.body);
+  const [parsed] = _cooklangParser.parse(fixedBody);
+
+  const groups: ReturnType<typeof createIngredientGroupAccumulator>[] = [];
   const instructions: string[] = [];
-  let currentGroup: Recipe["ingredientGroups"][number] | null = null;
+  let currentGroup: ReturnType<typeof createIngredientGroupAccumulator> | null = null;
+  const annotations = cooklang.frontmatter.ingredientAnnotations;
+  const cookware = normalizeCookwareList(
+    parsed.cookware.map((item) => cookware_display_name(item)),
+  );
 
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line) continue;
-
-    const section = SECTION_HEADER_RE.exec(line);
-    if (section) {
-      currentGroup = { name: section[1]!.trim(), items: [] };
-      ingredientGroups.push(currentGroup);
-      continue;
+  for (const section of parsed.sections) {
+    if (section.name !== null) {
+      currentGroup = createIngredientGroupAccumulator(section.name);
+      groups.push(currentGroup);
     }
 
-    if (isIngredientOnlyLine(line)) {
-      const items = parseIngredientLine(line);
-      if (items.length === 0) {
-        diagnostics.push(`Could not parse ingredient line: ${line}`);
-        continue;
-      }
-      if (!currentGroup) {
-        currentGroup = { items: [] };
-        ingredientGroups.push(currentGroup);
-      }
-      currentGroup.items.push(...items);
-      continue;
-    }
+    for (const content of section.content) {
+      if (content.type === "text") continue;
+      const step = content.value;
 
-    instructions.push(replaceTokensForPreview(line));
+      // Collect ingredients from this step
+      for (const item of step.items) {
+        if (item.type !== "ingredient") continue;
+        const ingredient = parsed.ingredients[item.index]!;
+        const slug = normalizeIngredientName(ingredient.name);
+
+        if (!currentGroup) {
+          currentGroup = createIngredientGroupAccumulator();
+          groups.push(currentGroup);
+        }
+
+        const amount = resolveQuantityValue(ingredient);
+        const unit = normalizeUnitToken(
+          getQuantityUnit(ingredient.quantity) ?? undefined,
+        );
+        const ann = annotations?.[slug];
+        mergeIngredientIntoGroup(currentGroup, {
+          ingredient: slug,
+          ...(amount !== undefined ? { amount } : {}),
+          ...(unit ? { unit } : {}),
+          ...(ann?.preparation ? { preparation: ann.preparation } : {}),
+          ...(ann?.note ? { note: ann.note } : {}),
+        });
+      }
+
+      // Add instruction text for non-ingredient-only steps
+      if (!isIngredientOnlyStep(step)) {
+        const text = stepToInstructionText(step, parsed);
+        if (text) instructions.push(text);
+      }
+    }
   }
+
+  const ingredientGroups: Recipe["ingredientGroups"] = groups.map((g) => ({
+    ...(g.name ? { name: g.name } : {}),
+    items: g.items,
+  }));
 
   if (ingredientGroups.length === 0) {
     diagnostics.push("No ingredient groups detected in Cooklang body.");
@@ -381,33 +576,54 @@ export function deriveRecipeFromCooklang(cooklang: CooklangRecipe): CooklangReci
     diagnostics.push("No instruction lines detected in Cooklang body.");
   }
 
-  const derived =
+  const derivedRecipe =
     cooklang.frontmatter.title &&
-    cooklang.frontmatter.description &&
+    cooklang.frontmatter.description != null &&
     cooklang.frontmatter.servings &&
     ingredientGroups.length > 0 &&
     instructions.length > 0
       ? {
           title: cooklang.frontmatter.title,
           description: cooklang.frontmatter.description,
-          cuisine: cooklang.frontmatter.cuisine,
+          cuisine: cooklang.frontmatter.cuisine ?? [],
           servings: Math.round(cooklang.frontmatter.servings),
           prepTime: cooklang.frontmatter.prepTime != null ? Math.round(cooklang.frontmatter.prepTime) : undefined,
           cookTime: cooklang.frontmatter.cookTime != null ? Math.round(cooklang.frontmatter.cookTime) : undefined,
           ingredientGroups,
           instructions,
+          cookware,
         }
       : undefined;
 
-  if (!derived) {
+  if (!derivedRecipe) {
     diagnostics.push(
       "Derived normalized recipe is incomplete; title, description, servings, ingredients, and instructions are required.",
     );
   }
+
+  const derived = derivedRecipe
+    ? postprocessRecipeOutput(derivedRecipe)
+    : undefined;
 
   return {
     ...cooklang,
     diagnostics,
     ...(derived ? { derived } : {}),
   };
+}
+
+/**
+ * Extract unique ingredient slugs from a Cooklang body string.
+ */
+export function extractIngredientSlugsFromBody(body: string): string[] {
+  const [parsed] = _cooklangParser.parse(body);
+  return [...new Set(parsed.ingredients.map((i) => normalizeIngredientName(i.name)))];
+}
+
+/**
+ * Extract unique cookware names from a Cooklang body string.
+ */
+export function extractCookwareFromBody(body: string): string[] {
+  const [parsed] = _cooklangParser.parse(body);
+  return [...new Set(parsed.cookware.map((c) => c.name))];
 }

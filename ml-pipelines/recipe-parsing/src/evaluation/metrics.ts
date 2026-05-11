@@ -4,6 +4,7 @@ import type {
   PredictionEntry,
 } from "../schemas/ground-truth";
 import { imageSetKey } from "../lib/image-key.js";
+import { splitComparableWords } from "../lib/comparable-text.js";
 
 export interface F1Scores {
   precision: number;
@@ -11,10 +12,16 @@ export interface F1Scores {
   f1: number;
 }
 
+export interface TextFidelityMetrics {
+  wordErrorRate: number;
+  charErrorRate: number;
+  rougeL: F1Scores;
+}
+
 export interface ScalarFieldScores {
   title: F1Scores;
   description: F1Scores;
-  cuisine: { accuracy: number };
+  cuisine: F1Scores;
   servings: { accuracy: number };
   prepTime: { accuracy: number };
   cookTime: { accuracy: number };
@@ -37,7 +44,9 @@ export interface EntryScores {
     scalarFields: number;
     ingredientParsing: number;
     instructions: number;
+    equipmentParsing: number;
   };
+  textFidelity?: TextFidelityMetrics;
 }
 
 export interface AggregateMetrics {
@@ -46,9 +55,53 @@ export interface AggregateMetrics {
     scalarFields: ScalarFieldScores;
     ingredientParsing: IngredientParsingScores;
     instructions: F1Scores;
+    equipmentParsing: F1Scores;
+  };
+  diagnostics?: {
+    extractionText?: TextFidelityMetrics;
   };
   entryCount: number;
 }
+
+export type ScoreComponentKey =
+  | "title"
+  | "description"
+  | "cuisine"
+  | "servings"
+  | "prepTime"
+  | "cookTime"
+  | "ingredientParsing"
+  | "instructions"
+  | "equipmentParsing";
+
+export interface ScoringProfile {
+  name: string;
+  weights: Partial<Record<ScoreComponentKey, number>>;
+}
+
+export const FULL_RECIPE_SCORING_PROFILE: ScoringProfile = {
+  name: "full-recipe",
+  weights: {
+    title: 1,
+    description: 1,
+    cuisine: 1,
+    servings: 1,
+    prepTime: 1,
+    cookTime: 1,
+    ingredientParsing: 6,
+    instructions: 6,
+    equipmentParsing: 6,
+  },
+};
+
+export const CANONICALIZATION_SCORING_PROFILE: ScoringProfile = {
+  name: "canonicalization",
+  weights: {
+    cuisine: 1,
+    ingredientParsing: 6,
+    equipmentParsing: 3,
+  },
+};
 
 export function splitWords(text: string): string[] {
   return text
@@ -76,12 +129,22 @@ export function computeSetF1(
   return { precision, recall, f1 };
 }
 
+const TIMER_UNIT_CANONICAL: Record<string, string> = {
+  s: "seconds", sec: "seconds", secs: "seconds", second: "seconds",
+  m: "minutes", min: "minutes", mins: "minutes", minute: "minutes",
+  h: "hours", hr: "hours", hrs: "hours", hour: "hours",
+};
+
+export function normalizeTimerUnits(words: string[]): string[] {
+  return words.map((w) => TIMER_UNIT_CANONICAL[w] ?? w);
+}
+
 export function computeWordOverlapF1(
   predicted: string,
   expected: string,
 ): F1Scores {
-  const predWords = new Set(splitWords(predicted));
-  const expWords = new Set(splitWords(expected));
+  const predWords = new Set(splitComparableWords(predicted));
+  const expWords = new Set(splitComparableWords(expected));
   return computeSetF1(predWords, expWords);
 }
 
@@ -94,6 +157,61 @@ function avg(values: number[]): number {
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
+function weightedAverage(values: Array<{ value: number; weight: number }>): number {
+  const active = values.filter(({ weight }) => weight > 0);
+  if (active.length === 0) return 0;
+  const totalWeight = active.reduce((sum, { weight }) => sum + weight, 0);
+  if (totalWeight === 0) return 0;
+  return active.reduce((sum, { value, weight }) => sum + value * weight, 0) / totalWeight;
+}
+
+function editDistance<T>(predicted: T[], expected: T[]): number {
+  const dp = Array.from({ length: predicted.length + 1 }, () =>
+    Array<number>(expected.length + 1).fill(0),
+  );
+
+  for (let i = 0; i <= predicted.length; i++) dp[i]![0] = i;
+  for (let j = 0; j <= expected.length; j++) dp[0]![j] = j;
+
+  for (let i = 1; i <= predicted.length; i++) {
+    for (let j = 1; j <= expected.length; j++) {
+      const substitutionCost = predicted[i - 1] === expected[j - 1] ? 0 : 1;
+      dp[i]![j] = Math.min(
+        dp[i - 1]![j]! + 1,
+        dp[i]![j - 1]! + 1,
+        dp[i - 1]![j - 1]! + substitutionCost,
+      );
+    }
+  }
+
+  return dp[predicted.length]![expected.length]!;
+}
+
+function longestCommonSubsequenceLength<T>(predicted: T[], expected: T[]): number {
+  const dp = Array.from({ length: predicted.length + 1 }, () =>
+    Array<number>(expected.length + 1).fill(0),
+  );
+
+  for (let i = 1; i <= predicted.length; i++) {
+    for (let j = 1; j <= expected.length; j++) {
+      dp[i]![j] =
+        predicted[i - 1] === expected[j - 1]
+          ? dp[i - 1]![j - 1]! + 1
+          : Math.max(dp[i - 1]![j]!, dp[i]![j - 1]!);
+    }
+  }
+
+  return dp[predicted.length]![expected.length]!;
+}
+
+function normalizeLooseText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[\u2012-\u2015\u2212]/g, "-") // normalize dashes (en/em/figure/etc) to hyphen
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 function avgF1(scores: F1Scores[]): F1Scores {
   if (scores.length === 0) return { precision: 0, recall: 0, f1: 0 };
   return {
@@ -101,6 +219,38 @@ function avgF1(scores: F1Scores[]): F1Scores {
     recall: avg(scores.map((s) => s.recall)),
     f1: avg(scores.map((s) => s.f1)),
   };
+}
+
+export function computeWordErrorRate(predicted: string, expected: string): number {
+  const predWords = splitWords(predicted);
+  const expWords = splitWords(expected);
+  if (predWords.length === 0 && expWords.length === 0) return 0;
+  return editDistance(predWords, expWords) / Math.max(expWords.length, 1);
+}
+
+export function computeCharErrorRate(predicted: string, expected: string): number {
+  const predChars = [...normalizeLooseText(predicted)];
+  const expChars = [...normalizeLooseText(expected)];
+  if (predChars.length === 0 && expChars.length === 0) return 0;
+  return editDistance(predChars, expChars) / Math.max(expChars.length, 1);
+}
+
+export function computeRougeL(predicted: string, expected: string): F1Scores {
+  const predWords = splitWords(predicted);
+  const expWords = splitWords(expected);
+  if (predWords.length === 0 && expWords.length === 0) {
+    return { precision: 1, recall: 1, f1: 1 };
+  }
+
+  const lcs = longestCommonSubsequenceLength(predWords, expWords);
+  const precision = predWords.length === 0 ? 0 : lcs / predWords.length;
+  const recall = expWords.length === 0 ? 0 : lcs / expWords.length;
+  const f1 =
+    precision + recall === 0
+      ? 0
+      : (2 * precision * recall) / (precision + recall);
+
+  return { precision, recall, f1 };
 }
 
 export function computeBagF1(
@@ -137,19 +287,23 @@ export function computeBagF1(
   return { precision, recall, f1 };
 }
 
+function normalizeEquipmentName(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 export function evaluateScalarFields(
   predicted: Recipe,
   expected: Recipe,
 ): ScalarFieldScores {
   return {
     title: computeWordOverlapF1(predicted.title, expected.title),
-    description: computeWordOverlapF1(predicted.description, expected.description),
-    cuisine: {
-      accuracy: exactMatch(
-        predicted.cuisine?.toLowerCase(),
-        expected.cuisine?.toLowerCase(),
-      ),
-    },
+    description: expected.description === ""
+      ? { precision: 1, recall: 1, f1: 1 }
+      : computeWordOverlapF1(predicted.description, expected.description),
+    cuisine: computeSetF1(
+      new Set(predicted.cuisine.map((c) => c.toLowerCase())),
+      new Set(expected.cuisine.map((c) => c.toLowerCase())),
+    ),
     servings: { accuracy: exactMatch(predicted.servings, expected.servings) },
     prepTime: { accuracy: exactMatch(predicted.prepTime, expected.prepTime) },
     cookTime: { accuracy: exactMatch(predicted.cookTime, expected.cookTime) },
@@ -230,13 +384,44 @@ export function evaluateIngredientParsing(
   };
 }
 
+const STEP_COUNT_PENALTY_WEIGHT = 0.15;
+
 export function evaluateInstructions(
   predicted: Recipe,
   expected: Recipe,
 ): F1Scores {
-  return computeWordOverlapF1(
-    predicted.instructions.join(" "),
-    expected.instructions.join(" "),
+  const predWords = new Set(
+    normalizeTimerUnits(splitComparableWords(predicted.instructions.join(" "))),
+  );
+  const expWords = new Set(
+    normalizeTimerUnits(splitComparableWords(expected.instructions.join(" "))),
+  );
+  const content = computeSetF1(predWords, expWords);
+
+  const predCount = predicted.instructions.length;
+  const expCount = expected.instructions.length;
+  const stepRatio =
+    predCount === 0 && expCount === 0
+      ? 1
+      : predCount === 0 || expCount === 0
+        ? 0
+        : Math.min(predCount, expCount) / Math.max(predCount, expCount);
+
+  const scale = 1 - STEP_COUNT_PENALTY_WEIGHT * (1 - stepRatio);
+  return {
+    precision: content.precision * scale,
+    recall: content.recall * scale,
+    f1: content.f1 * scale,
+  };
+}
+
+export function evaluateEquipmentParsing(
+  predicted: Recipe,
+  expected: Recipe,
+): F1Scores {
+  return computeBagF1(
+    predicted.cookware.map(normalizeEquipmentName),
+    expected.cookware.map(normalizeEquipmentName),
   );
 }
 
@@ -244,21 +429,34 @@ export function computeEntryScores(
   scalar: ScalarFieldScores,
   ingredients: IngredientParsingScores,
   instructions: F1Scores,
+  equipment: F1Scores,
+  profile: ScoringProfile = FULL_RECIPE_SCORING_PROFILE,
 ): EntryScores["scores"] {
   const scalarScore = avg([
     scalar.title.f1,
     scalar.description.f1,
-    scalar.cuisine.accuracy,
+    scalar.cuisine.f1,
     scalar.servings.accuracy,
     scalar.prepTime.accuracy,
     scalar.cookTime.accuracy,
   ]);
-  const overall = avg([scalarScore, ingredients.f1, instructions.f1]);
+  const overall = weightedAverage([
+    { value: scalar.title.f1, weight: profile.weights.title ?? 0 },
+    { value: scalar.description.f1, weight: profile.weights.description ?? 0 },
+    { value: scalar.cuisine.f1, weight: profile.weights.cuisine ?? 0 },
+    { value: scalar.servings.accuracy, weight: profile.weights.servings ?? 0 },
+    { value: scalar.prepTime.accuracy, weight: profile.weights.prepTime ?? 0 },
+    { value: scalar.cookTime.accuracy, weight: profile.weights.cookTime ?? 0 },
+    { value: ingredients.f1, weight: profile.weights.ingredientParsing ?? 0 },
+    { value: instructions.f1, weight: profile.weights.instructions ?? 0 },
+    { value: equipment.f1, weight: profile.weights.equipmentParsing ?? 0 },
+  ]);
   return {
     overall,
     scalarFields: scalarScore,
     ingredientParsing: ingredients.f1,
     instructions: instructions.f1,
+    equipmentParsing: equipment.f1,
   };
 }
 
@@ -271,6 +469,7 @@ export function makeMissingEntryScores(images: string[]): EntryScores {
       scalarFields: 0,
       ingredientParsing: 0,
       instructions: 0,
+      equipmentParsing: 0,
     },
   };
 }
@@ -278,6 +477,7 @@ export function makeMissingEntryScores(images: string[]): EntryScores {
 export function aggregateMetrics(
   predictions: PredictionEntry[],
   groundTruth: GroundTruthEntry[],
+  profile: ScoringProfile = FULL_RECIPE_SCORING_PROFILE,
 ): { metrics: AggregateMetrics; perEntry: EntryScores[] } {
   const predictionsByImageKey = new Map<string, PredictionEntry>();
   for (const prediction of predictions) {
@@ -295,6 +495,7 @@ export function aggregateMetrics(
   const allScalar: ScalarFieldScores[] = [];
   const allIngredients: IngredientParsingScores[] = [];
   const allInstructions: F1Scores[] = [];
+  const allEquipment: F1Scores[] = [];
   const perEntry: EntryScores[] = [];
   const seenGroundTruthKeys = new Set<string>();
 
@@ -318,12 +519,20 @@ export function aggregateMetrics(
     const scalar = evaluateScalarFields(pred.predicted, gt.expected);
     const ingredients = evaluateIngredientParsing(pred.predicted, gt.expected);
     const instructions = evaluateInstructions(pred.predicted, gt.expected);
+    const equipment = evaluateEquipmentParsing(pred.predicted, gt.expected);
 
     allScalar.push(scalar);
     allIngredients.push(ingredients);
     allInstructions.push(instructions);
+    allEquipment.push(equipment);
 
-    const scores = computeEntryScores(scalar, ingredients, instructions);
+    const scores = computeEntryScores(
+      scalar,
+      ingredients,
+      instructions,
+      equipment,
+      profile,
+    );
     perEntry.push({
       images: pred.images,
       scores,
@@ -344,7 +553,7 @@ export function aggregateMetrics(
   const scalarFields: ScalarFieldScores = {
     title: avgF1(allScalar.map((s) => s.title)),
     description: avgF1(allScalar.map((s) => s.description)),
-    cuisine: { accuracy: avg(allScalar.map((s) => s.cuisine.accuracy)) },
+    cuisine: avgF1(allScalar.map((s) => s.cuisine)),
     servings: { accuracy: avg(allScalar.map((s) => s.servings.accuracy)) },
     prepTime: { accuracy: avg(allScalar.map((s) => s.prepTime.accuracy)) },
     cookTime: { accuracy: avg(allScalar.map((s) => s.cookTime.accuracy)) },
@@ -367,6 +576,7 @@ export function aggregateMetrics(
   };
 
   const instructions = avgF1(allInstructions);
+  const equipmentParsing = avgF1(allEquipment);
   const overall: { score: number } = {
     score: avg(perEntry.map((e) => e.scores.overall)),
   };
@@ -378,6 +588,7 @@ export function aggregateMetrics(
         scalarFields,
         ingredientParsing,
         instructions,
+        equipmentParsing,
       },
       entryCount: groundTruth.length,
     },

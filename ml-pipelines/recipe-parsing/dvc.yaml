@@ -44,49 +44,91 @@ stages:
           x_label: Mentions
           y_label: Ingredient
 
-  parse:
-    cmd: pnpm exec tsx src/stages/parse.ts
+  extract:
+    cmd: pnpm exec tsx src/stages/extract.ts
+    params:
+      - extract
     deps:
       - outputs/image-entries.json
       - data/recipe-images
-      - src/stages/parse.ts
-      - src/lib/cooklang.ts
-      - src/lib/parse-retry.ts
+      - src/stages/extract.ts
       - src/lib/openrouter.ts
+      - src/lib/stage-runner.ts
+      - src/lib/parse-retry.ts
       - src/lib/images.ts
       - src/lib/env.ts
       - src/lib/image-key.ts
-      - src/lib/recipe-output.ts
+      - src/schemas/ground-truth.ts
+      - src/schemas/stage-artifacts.ts
+      - src/schemas/parse-failures.ts
+      - src/lib/io.ts
+    outs:
+      - outputs/extraction-predictions.json
+      - outputs/extraction-failures.json
+
+  normalize:
+    cmd: pnpm exec tsx src/stages/normalize.ts
+    params:
+      - normalize
+    deps:
+      - outputs/extraction-predictions.json
+      - src/stages/normalize.ts
+      - src/lib/cooklang.ts
+      - src/lib/stage-runner.ts
+      - src/lib/parse-retry.ts
+      - src/lib/openrouter.ts
+      - src/lib/env.ts
+      - src/lib/image-key.ts
       - src/schemas/ground-truth.ts
       - src/schemas/stage-artifacts.ts
       - src/schemas/parse-failures.ts
       - src/lib/io.ts
     outs:
       - outputs/predictions.json
-      - outputs/structured-extractions.json
       - outputs/cooklang-recipes.json
-      - outputs/parse-failures.json
+      - outputs/normalize-failures.json
 
   evaluate_extraction:
     cmd: pnpm exec tsx src/stages/evaluate-extraction.ts
     deps:
       - outputs/prepared.json
-      - outputs/predictions.json
+      - outputs/extraction-predictions.json
       - src/stages/evaluate-extraction.ts
       - src/evaluation/metrics.ts
       - src/lib/image-key.ts
+      - src/schemas/ground-truth.ts
+      - src/schemas/stage-artifacts.ts
       - src/lib/io.ts
     outs:
       - outputs/extraction-metrics.json
       - outputs/extraction-per-image-scores.json
 
+  evaluate_normalization:
+    cmd: pnpm exec tsx src/stages/evaluate-normalization.ts
+    deps:
+      - outputs/prepared.json
+      - outputs/predictions.json
+      - src/stages/evaluate-normalization.ts
+      - src/evaluation/metrics.ts
+      - src/lib/image-key.ts
+      - src/schemas/ground-truth.ts
+      - src/lib/io.ts
+    outs:
+      - outputs/normalization-metrics.json
+      - outputs/normalization-per-image-scores.json
+
   canonicalize:
     cmd: pnpm exec tsx src/stages/canonicalize.ts
+    params:
+      - canonicalize
     deps:
       - outputs/predictions.json
       - data/canonical-ingredients.json
       - src/stages/canonicalize.ts
       - src/lib/ingredient-canonicalization.ts
+      - src/lib/openrouter.ts
+      - src/lib/stage-runner.ts
+      - src/lib/env.ts
       - src/lib/io.ts
       - src/schemas/ground-truth.ts
       - src/schemas/canonical-ingredients.ts

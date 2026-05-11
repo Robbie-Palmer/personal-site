@@ -12,6 +12,18 @@ function sanitizeOptionalFiniteNumber(
   delete obj[key];
 }
 
+function sanitizeOptionalPositiveNumber(
+  obj: Record<string, unknown>,
+  key: string,
+  warnings: string[],
+): void {
+  const value = obj[key];
+  if (value === undefined || value === null) return;
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return;
+  warnings.push(`${key}=${String(value)}`);
+  delete obj[key];
+}
+
 export function sanitizeParsedRecipe(raw: unknown): unknown {
   if (!raw || typeof raw !== "object") {
     return raw;
@@ -19,8 +31,8 @@ export function sanitizeParsedRecipe(raw: unknown): unknown {
   const root = raw as Record<string, unknown>;
   const warnings: string[] = [];
 
-  sanitizeOptionalFiniteNumber(root, "prepTime", warnings);
-  sanitizeOptionalFiniteNumber(root, "cookTime", warnings);
+  sanitizeOptionalPositiveNumber(root, "prepTime", warnings);
+  sanitizeOptionalPositiveNumber(root, "cookTime", warnings);
 
   const ingredientGroups = root.ingredientGroups;
   if (Array.isArray(ingredientGroups)) {

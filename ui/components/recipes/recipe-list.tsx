@@ -138,7 +138,7 @@ export function RecipeList({ recipes }: RecipeListProps) {
           paramName: "cuisine",
           isMulti: true,
           label: "Cuisines",
-          getItemValues: (recipe) => (recipe.cuisine ? [recipe.cuisine] : []),
+          getItemValues: (recipe) => recipe.cuisine,
           icon: <Globe className="h-4 w-4" />,
           getValueLabel: (value) => value,
           getOptionIcon: () => <Globe className="h-3 w-3" />,
@@ -224,15 +224,16 @@ export function RecipeList({ recipes }: RecipeListProps) {
           </CardHeader>
           <CardContent className="flex-1 flex flex-col justify-end">
             <div className="flex flex-wrap gap-2 mb-3">
-              {recipe.cuisine && (
+              {recipe.cuisine.map((c) => (
                 <CuisineBadge
-                  cuisine={recipe.cuisine}
-                  isActive={selectedCuisines.includes(recipe.cuisine)}
+                  key={c}
+                  cuisine={c}
+                  isActive={selectedCuisines.includes(c)}
                   onToggle={(cuisine) =>
                     filterParams.toggleValue("cuisine", cuisine)
                   }
                 />
-              )}
+              ))}
               {recipe.prepTime != null && (
                 <TimeBadge
                   label="Prep"
