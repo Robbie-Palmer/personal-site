@@ -97,7 +97,8 @@ export function canonicalizeCookwareList(
   cookware: string[];
   decisions: EquipmentCanonicalizationDecision[];
 } {
-  const decisions = cookware.map((name) => canonicalizeEquipmentName(name));
+  const filtered = cookware.map((s) => s.trim()).filter((s) => s !== "");
+  const decisions = filtered.map((name) => canonicalizeEquipmentName(name));
   const canonicalized = decisions.map((decision) => decision.canonicalName);
   return {
     cookware: [...new Set(canonicalized)],

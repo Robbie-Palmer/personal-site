@@ -619,7 +619,7 @@ export function deriveRecipeFromCooklang(cooklang: CooklangRecipe): CooklangReci
  * Extract unique ingredient slugs from a Cooklang body string.
  */
 export function extractIngredientSlugsFromBody(body: string): string[] {
-  const [parsed] = _cooklangParser.parse(body);
+  const [parsed] = _cooklangParser.parse(fixBareMultiWordIngredients(body));
   return [...new Set(parsed.ingredients.map((i) => normalizeIngredientName(i.name)))];
 }
 
@@ -627,6 +627,6 @@ export function extractIngredientSlugsFromBody(body: string): string[] {
  * Extract unique cookware names from a Cooklang body string.
  */
 export function extractCookwareFromBody(body: string): string[] {
-  const [parsed] = _cooklangParser.parse(body);
+  const [parsed] = _cooklangParser.parse(fixBareMultiWordIngredients(body));
   return [...new Set(parsed.cookware.map((c) => c.name))];
 }

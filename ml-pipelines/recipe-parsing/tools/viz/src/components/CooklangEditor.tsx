@@ -46,17 +46,6 @@ export function CooklangEditor({
         }
       }
 
-      // Migrate orphaned annotations to unannotated body slugs with matching values
-      for (const { ann } of orphaned) {
-        if (!ann.preparation && !ann.note) continue;
-        for (const bodySlug of nextSlugs) {
-          if (!kept[bodySlug]) {
-            kept[bodySlug] = ann;
-            break;
-          }
-        }
-      }
-
       return Object.keys(kept).length > 0 ? kept : undefined;
     },
     [value.frontmatter.ingredientAnnotations],
@@ -64,8 +53,11 @@ export function CooklangEditor({
 
   const allSlugs = useMemo(() => {
     const set = new Set(bodySlugs);
+    for (const key of Object.keys(value.frontmatter.ingredientAnnotations ?? {})) {
+      set.add(key);
+    }
     return [...set].sort();
-  }, [bodySlugs]);
+  }, [bodySlugs, value.frontmatter.ingredientAnnotations]);
 
   function updateAnnotation(
     slug: string,

@@ -87,11 +87,14 @@ export function CanonicalizeDetailView({
   const handleAddCanonicalIngredient = useCallback(
     async (slug: string, category: string) => {
       if (!canonicalData) return;
+      const existing = canonicalData.ingredients.find((e) => e.slug === slug);
+      const ingredients = existing
+        ? canonicalData.ingredients.map((e) =>
+            e.slug === slug ? { slug, category } : e,
+          )
+        : [...canonicalData.ingredients, { slug, category }];
       const updated: CanonicalIngredientsData = {
-        ingredients: [
-          ...canonicalData.ingredients,
-          { slug, category },
-        ].sort((a, b) => a.slug.localeCompare(b.slug)),
+        ingredients: ingredients.sort((a, b) => a.slug.localeCompare(b.slug)),
       };
       try {
         await saveCanonicalIngredients(updated);

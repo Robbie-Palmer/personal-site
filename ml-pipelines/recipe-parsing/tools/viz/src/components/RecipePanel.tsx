@@ -17,8 +17,8 @@ export function RecipePanel({ recipe, label }: RecipePanelProps) {
       <p className="text-sm text-gray-600 mb-3">{recipe.description}</p>
 
       <div className="flex flex-wrap gap-3 text-xs text-gray-500 mb-4">
-        {recipe.cuisine.map((c) => (
-          <span key={c} className="px-2 py-0.5 rounded bg-gray-100 font-medium">
+        {recipe.cuisine.map((c, i) => (
+          <span key={`${c}-${i}`} className="px-2 py-0.5 rounded bg-gray-100 font-medium">
             {c}
           </span>
         ))}

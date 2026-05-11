@@ -96,7 +96,7 @@ export function ParsedRecipeEditor({
   canonicalization,
 }: ParsedRecipeEditorProps) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [addingSlug, setAddingSlug] = useState<string | null>(null);
+  const [addingRowKey, setAddingRowKey] = useState<string | null>(null);
 
   function toggleRow(key: string) {
     setExpandedRows((prev) => {
@@ -355,7 +355,7 @@ export function ParsedRecipeEditor({
                             {item.ingredient && !isInOntology && (
                               <button
                                 type="button"
-                                onClick={() => setAddingSlug(item.ingredient)}
+                                onClick={() => setAddingRowKey(rowKey)}
                                 className="shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded hover:bg-amber-100"
                                 title="Add to canonical ontology"
                               >
@@ -392,14 +392,14 @@ export function ParsedRecipeEditor({
                             </div>
                           )}
                           {/* Add to ontology inline form */}
-                          {addingSlug === item.ingredient && canonicalization && (
+                          {addingRowKey === rowKey && canonicalization && (
                             <AddToOntologyForm
                               slug={item.ingredient}
                               onAdd={(slug, cat) => {
                                 canonicalization.onAddCanonicalIngredient(slug, cat);
-                                setAddingSlug(null);
+                                setAddingRowKey(null);
                               }}
-                              onCancel={() => setAddingSlug(null)}
+                              onCancel={() => setAddingRowKey(null)}
                             />
                           )}
                         </div>

@@ -66,8 +66,17 @@ export function mergeIngredientIntoGroup(
   }
 
   if (existing.amount === undefined && nextItem.amount !== undefined) {
+    if (
+      existing.unit !== undefined &&
+      nextItem.unit !== undefined &&
+      existing.unit !== nextItem.unit
+    ) {
+      duplicateConflict("unit differs from the existing entry");
+    }
     existing.amount = nextItem.amount;
-    existing.unit = nextItem.unit;
+    if (nextItem.unit !== undefined) {
+      existing.unit = nextItem.unit;
+    }
     return;
   }
 

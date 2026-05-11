@@ -255,5 +255,5 @@ export function normalizeComparableText(text: string): string {
 
 export function splitComparableWords(text: string): string[] {
   const normalized = normalizeComparableText(text);
-  return normalized.match(/\p{N}+(?:\.\p{N}+)?|\p{L}+/gu) ?? [];
+  return normalized.match(/[+-]?\p{N}+(?:\.\p{N}+)?|\p{L}+/gu) ?? [];
 }

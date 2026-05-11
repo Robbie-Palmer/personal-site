@@ -53,7 +53,7 @@ function extractionToRecipe(extraction: ExtractionRecipe): Recipe {
     cookTime: parseScalarTextNumber(extraction.cookTime),
     ingredientGroups,
     instructions: extraction.instructions,
-    cookware: [],
+    cookware: extraction.equipment ?? [],
   };
 }
 
