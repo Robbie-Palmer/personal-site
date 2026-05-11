@@ -96,6 +96,8 @@ stages:
       - src/stages/evaluate-extraction.ts
       - src/evaluation/metrics.ts
       - src/lib/image-key.ts
+      - src/lib/cooklang.ts
+      - src/lib/extraction-text.ts
       - src/schemas/ground-truth.ts
       - src/schemas/stage-artifacts.ts
       - src/lib/io.ts
