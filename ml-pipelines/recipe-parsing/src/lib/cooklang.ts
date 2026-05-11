@@ -223,10 +223,13 @@ export function recipeToCooklang(recipe: Recipe): CooklangRecipe {
     frontmatter,
     body: bodyLines.join("\n").trim(),
     diagnostics: [],
-    derived: {
-      ...postprocessRecipeOutput(recipe),
-      cookware: normalizeCookwareList(recipe.cookware),
-    },
+    derived: (() => {
+      const processed = postprocessRecipeOutput(recipe);
+      return {
+        ...processed,
+        cookware: normalizeCookwareList(processed.cookware),
+      };
+    })(),
   };
 }
 
