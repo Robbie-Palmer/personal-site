@@ -23,12 +23,18 @@ export function StageEntryCard({
       className="bg-white rounded-lg border border-gray-200 overflow-hidden text-left hover:border-gray-400 hover:shadow-sm transition-all cursor-pointer group"
     >
       <div className="aspect-[4/3] bg-gray-100 overflow-hidden">
-        <img
-          src={imageUrl(`data/recipe-images/${images[0]}`)}
-          alt=""
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-          loading="lazy"
-        />
+        {images.length > 0 ? (
+          <img
+            src={imageUrl(`data/recipe-images/${images[0]}`)}
+            alt=""
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+            No image
+          </div>
+        )}
       </div>
       <div className="p-3">
         <div className="text-sm font-medium text-gray-900 truncate mb-1">

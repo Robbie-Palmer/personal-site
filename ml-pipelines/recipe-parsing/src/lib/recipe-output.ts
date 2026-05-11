@@ -50,7 +50,7 @@ export function sanitizeParsedRecipe(raw: unknown): unknown {
 
   if (warnings.length > 0) {
     console.warn(
-      `Sanitized non-finite optional numeric fields from model output: ${warnings.join(", ")}`,
+      `Sanitized non-finite or non-positive optional numeric fields (e.g. prepTime/cookTime) from model output: ${warnings.join(", ")}`,
     );
   }
   return root;
