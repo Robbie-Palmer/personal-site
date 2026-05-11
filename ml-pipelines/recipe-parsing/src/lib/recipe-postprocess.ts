@@ -44,7 +44,10 @@ export function postprocessRecipeOutput(recipe: Recipe): Recipe {
           mergeIngredientIntoGroup(acc, item);
         } catch {
           // Irreconcilable conflict (e.g. different preparations) — keep both.
+          // Update the index so subsequent occurrences merge against this item
+          // rather than the earlier conflicting one.
           acc.items.push(item);
+          acc.itemIndexByIngredient.set(item.ingredient, acc.items.length - 1);
         }
       }
       return {
