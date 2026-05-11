@@ -36,15 +36,10 @@ import {
   evaluateInstructions,
   evaluateScalarFields,
 } from "../../../../src/evaluation/metrics.js";
-import {
-  inferCooklangIngredientLine,
-  parseIngredientLine,
-  parseScalarTextNumber,
-} from "../../../../src/lib/cooklang.js";
+import { extractionToRecipe } from "../../../../src/lib/extraction-to-recipe.js";
 import { flattenExtractionText } from "../../../../src/lib/extraction-text.js";
 import type {
   CooklangPredictionsDataset,
-  ExtractionRecipe,
   ExtractionPredictionsDataset,
   GroundTruthDataset,
   PerImageScoreEntry,
@@ -196,34 +191,6 @@ function truncateLabel(value: string, max = 26): string {
   if (value.length <= max) return value;
   return `${value.slice(0, max - 1)}…`;
 }
-
-/**
- * Convert a text-based ExtractionRecipe to a ParsedRecipe-compatible object
- * for use with aggregateMetrics.  Mirrors the pipeline's extractionToRecipe()
- * in evaluate-extraction.ts so the client produces identical structured scores.
- */
-function extractionToRecipe(extraction: ExtractionRecipe) {
-  const ingredientGroups = extraction.ingredientGroups.map((group) => ({
-    ...(group.name ? { name: group.name } : {}),
-    items: group.lines.flatMap((line) =>
-      parseIngredientLine(inferCooklangIngredientLine(line)),
-    ),
-  }));
-
-  return {
-    title: extraction.title,
-    description: extraction.description ?? "",
-    cuisine: extraction.cuisine ? [extraction.cuisine] : [],
-    servings: parseScalarTextNumber(extraction.servings) ?? 0,
-    prepTime: parseScalarTextNumber(extraction.prepTime),
-    cookTime: parseScalarTextNumber(extraction.cookTime),
-    ingredientGroups,
-    instructions: extraction.instructions,
-    cookware: [] as string[],
-  };
-}
-
-
 
 function MetricValue({
   label,

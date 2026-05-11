@@ -11,41 +11,13 @@ import {
   evaluateInstructions,
   evaluateScalarFields,
 } from "../../../../src/evaluation/metrics.js";
-import {
-  inferCooklangIngredientLine,
-  parseIngredientLine,
-  parseScalarTextNumber,
-} from "../../../../src/lib/cooklang.js";
+import { extractionToRecipe } from "../../../../src/lib/extraction-to-recipe.js";
 import type {
   ExtractionPredictionsDataset,
-  ExtractionRecipe,
   GroundTruthDataset,
   PerImageScoreEntry,
 } from "../types/extraction";
 import { StageEntryCard } from "../components/StageEntryCard";
-
-/**
- * Convert ExtractionRecipe → ParsedRecipe-compatible object for scoring.
- * Mirrors the pipeline's extractionToRecipe() in evaluate-extraction.ts.
- */
-function extractionToRecipe(extraction: ExtractionRecipe) {
-  return {
-    title: extraction.title,
-    description: extraction.description ?? "",
-    cuisine: extraction.cuisine ? [extraction.cuisine] : [],
-    servings: parseScalarTextNumber(extraction.servings) ?? 0,
-    prepTime: parseScalarTextNumber(extraction.prepTime),
-    cookTime: parseScalarTextNumber(extraction.cookTime),
-    ingredientGroups: extraction.ingredientGroups.map((group) => ({
-      ...(group.name ? { name: group.name } : {}),
-      items: group.lines.flatMap((line) =>
-        parseIngredientLine(inferCooklangIngredientLine(line)),
-      ),
-    })),
-    instructions: extraction.instructions,
-    cookware: [] as string[],
-  };
-}
 
 interface ExtractionListViewProps {
   onSelectEntry: (index: number) => void;

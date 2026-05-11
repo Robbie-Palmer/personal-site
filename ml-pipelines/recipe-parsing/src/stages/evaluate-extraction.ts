@@ -12,49 +12,16 @@ import {
   computeWordErrorRate,
 } from "../evaluation/metrics";
 import { imageSetKey } from "../lib/image-key.js";
-import {
-  inferCooklangIngredientLine,
-  parseIngredientLine,
-  parseScalarTextNumber,
-} from "../lib/cooklang.js";
 import { flattenExtractionText } from "../lib/extraction-text.js";
+import { extractionToRecipe } from "../lib/extraction-to-recipe.js";
 import type {
   GroundTruthEntry,
   ExtractionRecipe,
-  Recipe,
   PredictionEntry,
 } from "../schemas/ground-truth.js";
 
 function hasExpectedExtraction(entry: GroundTruthEntry): entry is GroundTruthEntry & { expectedExtraction: ExtractionRecipe } {
   return entry.expectedExtraction !== undefined;
-}
-
-/**
- * Convert a text-based ExtractionRecipe to a full Recipe for aggregateMetrics
- * compatibility. Parses ingredient text lines into structured RecipeIngredient
- * objects via the Cooklang line-inference heuristic. Both prediction and
- * ground-truth sides go through the same conversion so parsing noise is
- * symmetric.
- */
-function extractionToRecipe(extraction: ExtractionRecipe): Recipe {
-  const ingredientGroups = extraction.ingredientGroups.map((group) => ({
-    ...(group.name ? { name: group.name } : {}),
-    items: group.lines.flatMap((line) =>
-      parseIngredientLine(inferCooklangIngredientLine(line)),
-    ),
-  }));
-
-  return {
-    title: extraction.title,
-    description: extraction.description ?? "",
-    cuisine: extraction.cuisine ? [extraction.cuisine] : [],
-    servings: parseScalarTextNumber(extraction.servings) ?? 0,
-    prepTime: parseScalarTextNumber(extraction.prepTime),
-    cookTime: parseScalarTextNumber(extraction.cookTime),
-    ingredientGroups,
-    instructions: extraction.instructions,
-    cookware: extraction.equipment ?? [],
-  };
 }
 
 async function main() {
