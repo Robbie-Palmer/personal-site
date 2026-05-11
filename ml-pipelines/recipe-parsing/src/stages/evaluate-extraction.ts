@@ -112,12 +112,13 @@ async function main() {
   );
 
   // Attach per-entry text fidelity scores
+  const predictionByKey = new Map(
+    extractionPredictions.entries.map((e) => [imageSetKey(e.images), e.extracted]),
+  );
   for (const entry of perEntry) {
     if (entry.missingPrediction) continue;
     const gt = extractionByKey.get(imageSetKey(entry.images));
-    const predicted = extractionPredictions.entries.find(
-      (candidate) => imageSetKey(candidate.images) === imageSetKey(entry.images),
-    )?.extracted;
+    const predicted = predictionByKey.get(imageSetKey(entry.images));
     if (!gt || !predicted) continue;
 
     const predictedText = flattenExtractionText(predicted);

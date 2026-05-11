@@ -123,6 +123,7 @@ interface RecipeDeltaDatum {
 }
 
 const MAX_RECIPES_IN_CHART = 12;
+const SIGNIFICANT_DELTA = 0.005;
 const CANONICALIZATION_WEIGHT_TOTAL =
   (CANONICALIZATION_SCORING_PROFILE.weights.ingredientParsing ?? 0) +
   (CANONICALIZATION_SCORING_PROFILE.weights.equipmentParsing ?? 0) +
@@ -180,8 +181,8 @@ function formatMetricPercent(
 
 function deltaClasses(delta: number | null): string {
   if (delta == null) return "bg-gray-100 text-gray-500";
-  if (delta > 0.005) return "bg-green-100 text-green-700";
-  if (delta < -0.005) return "bg-red-100 text-red-700";
+  if (delta > SIGNIFICANT_DELTA) return "bg-green-100 text-green-700";
+  if (delta < -SIGNIFICANT_DELTA) return "bg-red-100 text-red-700";
   return "bg-gray-100 text-gray-700";
 }
 
@@ -1337,8 +1338,8 @@ export function StatsView({ onSelectCanonicalizeEntry }: StatsViewProps) {
     [entryDeltaRows],
   );
 
-  const improvedCount = entryDeltaRows.filter((entry) => entry.delta > 0.005).length;
-  const regressedCount = entryDeltaRows.filter((entry) => entry.delta < -0.005).length;
+  const improvedCount = entryDeltaRows.filter((entry) => entry.delta > SIGNIFICANT_DELTA).length;
+  const regressedCount = entryDeltaRows.filter((entry) => entry.delta < -SIGNIFICANT_DELTA).length;
   const canonicalizationDelta =
     canonicalizationBaselineMetricsResolved && finalMetricsResolved
       ? finalMetricsResolved.overall.score -
@@ -1466,9 +1467,9 @@ export function StatsView({ onSelectCanonicalizeEntry }: StatsViewProps) {
                 label="Canonicalization uplift"
                 value={formatDeltaPoints(canonicalizationDelta)}
                 tone={
-                  (canonicalizationDelta ?? 0) > 0.005
+                  (canonicalizationDelta ?? 0) > SIGNIFICANT_DELTA
                     ? "positive"
-                    : (canonicalizationDelta ?? 0) < -0.005
+                    : (canonicalizationDelta ?? 0) < -SIGNIFICANT_DELTA
                       ? "negative"
                       : "neutral"
                 }
