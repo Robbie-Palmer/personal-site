@@ -131,6 +131,9 @@ stages:
       - data/canonical-ingredients.json
       - src/stages/canonicalize.ts
       - src/lib/ingredient-canonicalization.ts
+      - src/lib/ingredient-normalization-rules.ts
+      - src/lib/cuisine-normalization.ts
+      - src/lib/equipment-canonicalization.ts
       - src/lib/openrouter.ts
       - src/lib/stage-runner.ts
       - src/lib/env.ts
