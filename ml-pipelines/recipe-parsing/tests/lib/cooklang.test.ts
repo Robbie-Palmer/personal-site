@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildCooklangDraftFromExtraction,
   buildCooklangDraftFromStructuredText,
   deriveRecipeFromCooklang,
   deriveRecipeFromStructuredText,
@@ -81,6 +82,33 @@ describe("cooklang helpers", () => {
     );
     expect(cooklang.derived?.instructions[0]).toBe("Roast the tray for 45 minutes.");
     expect(cooklang.derived?.cookware).toEqual(["tray"]);
+  });
+
+  it("separates fallback extraction instructions into distinct Cooklang steps", () => {
+    const cooklang = buildCooklangDraftFromExtraction({
+      title: "Traybake",
+      description: "Roast everything together.",
+      cuisine: [],
+      servings: "4",
+      prepTime: "15",
+      cookTime: "45",
+      ingredientGroups: [
+        {
+          name: "Main",
+          lines: ["4 chicken thighs", "600g potatoes"],
+        },
+      ],
+      instructions: [
+        "1. Roast the tray for 45 minutes.",
+        "2. Rest before serving.",
+      ],
+      equipment: ["tray"],
+    });
+
+    expect(cooklang.derived?.instructions).toEqual([
+      "Roast the tray for 45 minutes.",
+      "Rest before serving.",
+    ]);
   });
 
   it("keeps invalid spaced units as ingredient descriptors", () => {

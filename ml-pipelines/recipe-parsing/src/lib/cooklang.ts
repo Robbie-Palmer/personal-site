@@ -171,6 +171,16 @@ function ingredientToCooklang(item: RecipeIngredient): string {
   return `@${name}${quantity}`;
 }
 
+function appendCooklangInstructionLines(
+  bodyLines: string[],
+  instructions: string[],
+): void {
+  for (let i = 0; i < instructions.length; i++) {
+    if (i > 0) bodyLines.push("");
+    bodyLines.push(instructions[i]!);
+  }
+}
+
 function groupToCooklangLines(recipe: Recipe): string[] {
   const lines: string[] = [];
   for (const group of recipe.ingredientGroups) {
@@ -211,12 +221,9 @@ export function recipeToCooklang(recipe: Recipe): CooklangRecipe {
       ? { ingredientAnnotations }
       : {}),
   };
-  // Separate instructions with blank lines so each becomes its own Cooklang step
   const instructionLines: string[] = [];
-  for (let i = 0; i < recipe.instructions.length; i++) {
-    if (i > 0) instructionLines.push("");
-    instructionLines.push(recipe.instructions[i]!);
-  }
+  // Separate instructions with blank lines so each becomes its own Cooklang step
+  appendCooklangInstructionLines(instructionLines, recipe.instructions);
   const bodyLines = [
     ...groupToCooklangLines(recipe),
     ...instructionLines,
@@ -260,7 +267,10 @@ export function buildCooklangDraftFromExtraction(
     }
     bodyLines.push("");
   }
-  bodyLines.push(...extracted.instructions.map(normalizeInstructionLine));
+  appendCooklangInstructionLines(
+    bodyLines,
+    extracted.instructions.map(normalizeInstructionLine),
+  );
 
   const cooklang: CooklangRecipe = {
     frontmatter,
