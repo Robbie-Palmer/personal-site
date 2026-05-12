@@ -1,23 +1,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, ArrowLeft, Check, Copy, Save } from "lucide-react";
+import { AlertCircle, ArrowLeft, Check, ChevronLeft, ChevronRight, Copy, Save } from "lucide-react";
 import {
   imageUrl,
   loadCooklangPredictions,
+  loadExtractionPredictions,
   loadGroundTruth,
+  loadPredictions,
   saveGroundTruth,
 } from "../lib/data";
 import { deriveNormalizedRecipe } from "../lib/cooklang";
+import { extractCookwareFromBody } from "../../../../src/lib/cooklang.js";
 import type {
   CooklangPredictionsDataset,
   CooklangRecipe,
+  ExtractionPredictionsDataset,
+  ExtractionRecipe,
   GroundTruthDataset,
+  PredictionsDataset,
 } from "../types/extraction";
 import { CooklangEditor } from "../components/CooklangEditor";
-import { ImagePanel } from "../components/ImagePanel";
 import { ImageViewer } from "../components/ImageViewer";
+import { ParsedRecipeDiff } from "../components/ParsedRecipeDiff";
 import { RecipePanel } from "../components/RecipePanel";
 
-interface CooklangDetailViewProps {
+interface NormalizationDetailViewProps {
   entryIndex: number;
   onBack: () => void;
   onNavigate: (index: number) => void;
@@ -31,13 +37,82 @@ const EMPTY_COOKLANG: CooklangRecipe = {
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
-export function CooklangDetailView({
+function ExtractionContextPanel({
+  extraction,
+}: {
+  extraction: ExtractionRecipe;
+}) {
+  const cuisineText = extraction.cuisine?.join(", ");
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-5">
+      <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">
+        Extraction Input (Context)
+      </div>
+
+      <h3 className="text-lg font-bold mb-1">{extraction.title}</h3>
+      {extraction.description && (
+        <p className="text-sm text-gray-600 mb-3">{extraction.description}</p>
+      )}
+
+      <div className="flex flex-wrap gap-3 text-xs text-gray-500 mb-4">
+        {cuisineText && (
+          <span className="px-2 py-0.5 rounded bg-gray-100 font-medium">
+            {cuisineText}
+          </span>
+        )}
+        {extraction.servings && <span>Servings: {extraction.servings}</span>}
+        {extraction.prepTime && <span>Prep: {extraction.prepTime}</span>}
+        {extraction.cookTime && <span>Cook: {extraction.cookTime}</span>}
+      </div>
+
+      <div className="mb-4">
+        <h4 className="font-semibold text-sm mb-2">Ingredients</h4>
+        {extraction.ingredientGroups.map((group, gi) => (
+          <div key={gi} className="mb-2">
+            {group.name && (
+              <div className="text-sm font-medium text-gray-700 mb-1">
+                {group.name}
+              </div>
+            )}
+            <ul className="space-y-0.5">
+              {(group.lines ?? []).map((line, li) => (
+                <li
+                  key={`${gi}-${li}`}
+                  className="text-sm flex items-start gap-1.5"
+                >
+                  <span className="text-gray-300 mt-1.5 h-1 w-1 rounded-full bg-current shrink-0" />
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <h4 className="font-semibold text-sm mb-2">Instructions</h4>
+        <ol className="space-y-1.5 list-decimal list-inside">
+          {extraction.instructions.map((step, i) => (
+            <li key={i} className="text-sm leading-relaxed pl-1">
+              {step}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
+  );
+}
+
+export function NormalizationDetailView({
   entryIndex,
   onBack,
   onNavigate,
-}: CooklangDetailViewProps) {
+}: NormalizationDetailViewProps) {
   const [groundTruth, setGroundTruth] = useState<GroundTruthDataset | null>(null);
-  const [predictions, setPredictions] = useState<CooklangPredictionsDataset | null>(null);
+  const [predictions, setPredictions] = useState<PredictionsDataset | null>(null);
+  const [extractions, setExtractions] = useState<ExtractionPredictionsDataset | null>(null);
+  const [cooklangPredictions, setCooklangPredictions] = useState<CooklangPredictionsDataset | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [edited, setEdited] = useState<CooklangRecipe | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -48,23 +123,43 @@ export function CooklangDetailView({
 
   useEffect(() => {
     loadGroundTruth().then(setGroundTruth).catch((e) => setError(String(e)));
-    loadCooklangPredictions().then(setPredictions).catch(() => {});
+    loadPredictions().then(setPredictions).catch(() => {});
+    loadExtractionPredictions().then(setExtractions).catch(() => {});
+    loadCooklangPredictions().then(setCooklangPredictions).catch(() => {});
   }, []);
 
   const gtEntry = groundTruth?.entries[entryIndex];
   const predictionKey = gtEntry?.images.join("\0");
+  const predictedNormalizationFallback =
+    predictionKey == null
+      ? null
+      : predictions?.entries.find((e) => e.images.join("\0") === predictionKey)
+          ?.predicted ?? null;
+  const predictedExtraction =
+    predictionKey == null
+      ? null
+      : extractions?.entries.find((e) => e.images.join("\0") === predictionKey)
+          ?.extracted ?? null;
   const predictedCooklang =
     predictionKey == null
       ? null
-      : predictions?.entries.find((entry) => entry.images.join("\0") === predictionKey)
+      : cooklangPredictions?.entries.find((e) => e.images.join("\0") === predictionKey)
           ?.cooklang ?? null;
 
+  const predictedNormalization = useMemo(() => {
+    if (predictedCooklang) {
+      return deriveNormalizedRecipe(predictedCooklang).recipe;
+    }
+    return predictedNormalizationFallback;
+  }, [predictedCooklang, predictedNormalizationFallback]);
+
+  // Initialize editor when navigating to a new entry
   useEffect(() => {
     if (!gtEntry || !predictionKey || resetEntryKeyRef.current === predictionKey) {
       return;
     }
     resetEntryKeyRef.current = predictionKey;
-    setEdited(gtEntry.expectedCooklang ?? null);
+    setEdited(gtEntry.expectedNormalization ?? null);
     setDirty(false);
     setSaveStatus("idle");
     setSaveMessage(null);
@@ -78,12 +173,12 @@ export function CooklangDetailView({
       const updated = structuredClone(groundTruth);
       if (edited) {
         const { derived: _derived, ...cleanEdited } = edited;
-        updated.entries[entryIndex].expectedCooklang = {
+        updated.entries[entryIndex].expectedNormalization = {
           ...cleanEdited,
           diagnostics: [],
         };
       } else {
-        delete updated.entries[entryIndex].expectedCooklang;
+        delete updated.entries[entryIndex].expectedNormalization;
       }
       const result = await saveGroundTruth(updated);
       setGroundTruth(updated);
@@ -125,24 +220,18 @@ export function CooklangDetailView({
 
   const livePreview = useMemo(() => {
     if (!edited) return null;
-    // Recompute preview from the current editor value rather than trusting
-    // stale embedded `derived`/`diagnostics` copied from a prior artifact.
-    return deriveNormalizedRecipe({
-      ...edited,
-      derived: undefined,
-      diagnostics: [],
-    });
+    return deriveNormalizedRecipe(edited);
   }, [edited]);
 
-  const preview = useMemo(() => {
-    if (!edited) return predictedCooklang?.derived ?? gtEntry?.expected ?? null;
+  const expectedNormalized = useMemo(() => {
+    if (!edited) return gtEntry?.expectedNormalization?.derived ?? null;
     return livePreview?.recipe ?? null;
-  }, [edited, gtEntry?.expected, livePreview?.recipe, predictedCooklang?.derived]);
+  }, [edited, gtEntry?.expectedNormalization?.derived, livePreview?.recipe]);
 
   const previewDiagnostics = useMemo(() => {
-    if (!edited) return predictedCooklang?.diagnostics ?? [];
+    if (!edited) return [];
     return livePreview?.diagnostics ?? [];
-  }, [edited, livePreview?.diagnostics, predictedCooklang?.diagnostics]);
+  }, [edited, livePreview?.diagnostics]);
 
   if (error) {
     return (
@@ -156,8 +245,11 @@ export function CooklangDetailView({
     return <div className="text-gray-400 py-12 text-center">Loading...</div>;
   }
 
+  const totalEntries = groundTruth.entries.length;
+
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center gap-4">
         <button
           type="button"
@@ -170,7 +262,7 @@ export function CooklangDetailView({
         <div className="flex-1">
           <h2 className="font-semibold">{gtEntry.expected.title}</h2>
           <p className="text-xs text-gray-400">
-            Entry {entryIndex + 1} of {groundTruth.entries.length}
+            Entry {entryIndex + 1} of {totalEntries}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -227,6 +319,24 @@ export function CooklangDetailView({
               </>
             )}
           </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onNavigate(entryIndex - 1)}
+              disabled={entryIndex === 0}
+              className="p-1 rounded text-gray-500 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate(entryIndex + 1)}
+              disabled={entryIndex >= totalEntries - 1}
+              className="p-1 rounded text-gray-500 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -244,16 +354,20 @@ export function CooklangDetailView({
         />
       )}
 
+      {/* 3-column layout */}
       <div className="grid grid-cols-[1fr_1.25fr_1.1fr] gap-4 items-start">
-        <div className="sticky top-4 self-start">
-          <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-            Input Images
-          </div>
-          <ImagePanel
-            imagePaths={gtEntry.images.map((img) => `data/recipe-images/${img}`)}
-            onClickImage={setViewerIndex}
-          />
+        {/* Left: predicted extraction context */}
+        <div className="sticky top-4 self-start space-y-4">
+          {predictedExtraction ? (
+            <ExtractionContextPanel extraction={predictedExtraction} />
+          ) : (
+            <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">
+              No extraction prediction available.
+            </div>
+          )}
         </div>
+
+        {/* Middle: CooklangEditor (editing) or predicted normalization (read-only) */}
         <div>
           {edited ? (
             <CooklangEditor
@@ -266,18 +380,33 @@ export function CooklangDetailView({
                 setSaveMessage(null);
               }}
             />
+          ) : predictedNormalization ? (
+            <RecipePanel recipe={predictedNormalization} label="Predicted Normalization" />
           ) : (
             <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">
-              No Cooklang annotation yet.
+              No normalization prediction available.
             </div>
           )}
         </div>
+
+        {/* Right: diff (when editing) or empty prompt */}
         <div className="space-y-4">
-          {preview ? (
-            <RecipePanel recipe={preview} label="Derived Normalized Preview" />
-          ) : (
+          {edited && expectedNormalized && predictedNormalization ? (
+            <ParsedRecipeDiff
+              expected={expectedNormalized}
+              predicted={predictedNormalization}
+              expectedCookware={edited.body ? extractCookwareFromBody(edited.body) : []}
+              predictedCookware={predictedCooklang?.body ? extractCookwareFromBody(predictedCooklang.body) : []}
+            />
+          ) : edited ? (
             <div className="bg-white rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
-              Preview unavailable.
+              {!expectedNormalized
+                ? "Cooklang cannot be derived yet — check for diagnostics."
+                : "No normalization prediction to diff against."}
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">
+              Click "Copy Prediction" or "Init Empty" to start annotating ground truth.
             </div>
           )}
           {previewDiagnostics.length > 0 && (

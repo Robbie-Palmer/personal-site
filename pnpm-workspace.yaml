@@ -2,3 +2,4 @@ packages:
   - 'ui'
   - 'packages/*'
   - 'ml-pipelines/recipe-parsing'
+  - 'ml-pipelines/recipe-parsing/tools/viz'

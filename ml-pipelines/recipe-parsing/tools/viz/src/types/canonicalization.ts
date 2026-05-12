@@ -5,6 +5,7 @@ export interface CanonicalizationFile {
 export interface CanonicalizationEntry {
   images: string[];
   decisions: CanonicalizationDecision[];
+  cookwareDecisions?: CookwareCanonicalizationDecision[];
 }
 
 export interface CanonicalizationDecision {
@@ -24,4 +25,24 @@ export type CanonicalizationMethod = "exact" | "fuzzy" | "none";
 export interface CanonicalizationCandidate {
   slug: string;
   score: number;
+}
+
+export interface CookwareCanonicalizationDecision {
+  originalName: string;
+  baseName: string;
+  canonicalName: string;
+  method: "exact" | "none";
+  candidates: Array<{
+    name: string;
+    score: number;
+  }>;
+}
+
+export interface CanonicalIngredient {
+  slug: string;
+  category: string;
+}
+
+export interface CanonicalIngredientsData {
+  ingredients: CanonicalIngredient[];
 }

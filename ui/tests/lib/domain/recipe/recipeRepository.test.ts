@@ -20,7 +20,7 @@ const recipesMock = vi.hoisted(() => ({
       cookBody: ">> chicken breast\nCook the curry",
       tags: ["asian"],
       cookware: [],
-      cuisine: "asian",
+      cuisine: ["asian"],
       servings: 4,
       prepTime: 10,
       cookTime: 30,
@@ -86,7 +86,7 @@ describe("RecipeRepository", () => {
       const repo = loadRecipeRepository();
 
       const cuisine = repo.graph.edges.hasCuisine.get("test-curry");
-      expect(cuisine).toBe("asian");
+      expect(cuisine).toEqual(["asian"]);
     });
 
     it("builds reverse ingredient lookup", () => {
@@ -108,6 +108,7 @@ describe("RecipeRepository", () => {
           cookBody: ">> unicorn tears\nCry",
           tags: [],
           cookware: [],
+          cuisine: [],
           servings: 2,
           prepTime: 5,
           cookTime: 10,

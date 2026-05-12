@@ -1,24 +1,25 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, Copy, Save, AlertCircle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Copy } from "lucide-react";
 import {
   imageUrl,
-  loadCooklangPredictions,
+  loadExtractionPredictions,
   loadGroundTruth,
-  loadPredictions,
-  loadStructuredTextPredictions,
   saveGroundTruth,
 } from "../lib/data";
+import {
+  computeCharErrorRate,
+  computeRougeL,
+  computeWordErrorRate,
+} from "../../../../src/evaluation/metrics.js";
+import { flattenExtractionText } from "../../../../src/lib/extraction-text.js";
 import type {
-  CooklangPredictionsDataset,
+  ExtractionPredictionsDataset,
+  ExtractionRecipe,
   GroundTruthDataset,
-  PredictionsDataset,
-  StructuredTextPredictionsDataset,
-  StructuredTextRecipe,
 } from "../types/extraction";
 import { ImagePanel } from "../components/ImagePanel";
 import { ImageViewer } from "../components/ImageViewer";
-import { RecipePanel } from "../components/RecipePanel";
-import { StructuredTextEditor } from "../components/StructuredTextEditor";
+import { ExtractionDiff } from "../components/ExtractionDiff";
 
 interface ExtractionDetailViewProps {
   entryIndex: number;
@@ -26,15 +27,119 @@ interface ExtractionDetailViewProps {
   onNavigate: (index: number) => void;
 }
 
-const EMPTY_STRUCTURED_TEXT: StructuredTextRecipe = {
-  ingredientSections: [{ lines: ["ingredient"] }],
-  instructionLines: ["instruction"],
-  notes: [],
-  equipment: [],
-  timers: [],
-};
+function TextFidelityCard({
+  rougeLF1,
+  wordErrorRate,
+  charErrorRate,
+}: {
+  rougeLF1: number;
+  wordErrorRate: number;
+  charErrorRate: number;
+}) {
+  function formatPrecisePercent(value: number): string {
+    return `${(value * 100).toFixed(1)}%`;
+  }
 
-type SaveStatus = "idle" | "saving" | "saved" | "error";
+  const items = [
+    { label: "ROUGE-L", value: formatPrecisePercent(rougeLF1), note: "text overlap, higher is better" },
+    { label: "WER", value: formatPrecisePercent(wordErrorRate), note: "word edit rate, lower is better" },
+    { label: "CER", value: formatPrecisePercent(charErrorRate), note: "char edit rate, lower is better" },
+  ];
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-4">
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold text-gray-900">Text Fidelity</h3>
+        <p className="mt-1 text-xs text-gray-500">
+          Text-similarity diagnostics for this recipe. These do not equal the
+          structured extraction score.
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {items.map((item) => (
+          <div key={item.label} className="rounded-lg border border-gray-200 p-3">
+            <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-gray-500">
+              {item.label}
+            </div>
+            <div className="mt-1 text-2xl font-semibold tabular-nums text-gray-950">
+              {item.value}
+            </div>
+            <div className="mt-1 text-xs text-gray-500">{item.note}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ExtractionPanel({
+  extraction,
+  label,
+}: {
+  extraction: ExtractionRecipe;
+  label: string;
+}) {
+  const cuisineText = extraction.cuisine?.join(", ");
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-5">
+      <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">
+        {label}
+      </div>
+
+      <h3 className="text-xl font-bold mb-1">{extraction.title}</h3>
+      {extraction.description && (
+        <p className="text-sm text-gray-600 mb-3">{extraction.description}</p>
+      )}
+
+      <div className="flex flex-wrap gap-3 text-xs text-gray-500 mb-4">
+        {cuisineText && (
+          <span className="px-2 py-0.5 rounded bg-gray-100 font-medium">
+            {cuisineText}
+          </span>
+        )}
+        {extraction.servings && <span>Servings: {extraction.servings}</span>}
+        {extraction.prepTime && <span>Prep: {extraction.prepTime}</span>}
+        {extraction.cookTime && <span>Cook: {extraction.cookTime}</span>}
+      </div>
+
+      <div className="mb-4">
+        <h4 className="font-semibold text-sm mb-2">Ingredients</h4>
+        {extraction.ingredientGroups.map((group, gi) => (
+          <div key={gi} className="mb-2">
+            {group.name && (
+              <div className="text-sm font-medium text-gray-700 mb-1">
+                {group.name}
+              </div>
+            )}
+            <ul className="space-y-0.5">
+              {(group.lines ?? []).map((line, li) => (
+                <li
+                  key={`${gi}-${li}`}
+                  className="text-sm flex items-start gap-1.5"
+                >
+                  <span className="text-gray-300 mt-1.5 h-1 w-1 rounded-full bg-current shrink-0" />
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <h4 className="font-semibold text-sm mb-2">Instructions</h4>
+        <ul className="space-y-1.5">
+          {extraction.instructions.map((step, i) => (
+            <li key={i} className="text-sm leading-relaxed">
+              {step}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
 
 export function ExtractionDetailView({
   entryIndex,
@@ -42,104 +147,50 @@ export function ExtractionDetailView({
   onNavigate,
 }: ExtractionDetailViewProps) {
   const [groundTruth, setGroundTruth] = useState<GroundTruthDataset | null>(null);
-  const [predictions, setPredictions] = useState<PredictionsDataset | null>(null);
-  const [structured, setStructured] = useState<StructuredTextPredictionsDataset | null>(
+  const [extractions, setExtractions] = useState<ExtractionPredictionsDataset | null>(
     null,
   );
-  const [cooklang, setCooklang] = useState<CooklangPredictionsDataset | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const [edited, setEdited] = useState<StructuredTextRecipe | null>(null);
-  const [dirty, setDirty] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
-  const resetEntryKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     loadGroundTruth().then(setGroundTruth).catch((e) => setError(String(e)));
-    loadPredictions().then(setPredictions).catch(() => {});
-    loadStructuredTextPredictions().then(setStructured).catch(() => {});
-    loadCooklangPredictions().then(setCooklang).catch(() => {});
+    loadExtractionPredictions().then(setExtractions).catch(() => {});
   }, []);
 
   const gtEntry = groundTruth?.entries[entryIndex];
   const predictionKey = gtEntry?.images.join("\0");
-  const predictedRecipe =
+  const predictedExtraction =
     predictionKey == null
       ? null
-      : predictions?.entries.find((entry) => entry.images.join("\0") === predictionKey)
-          ?.predicted ?? null;
-  const predictedStructured =
-    predictionKey == null
-      ? null
-      : structured?.entries.find((entry) => entry.images.join("\0") === predictionKey)
+      : extractions?.entries.find((entry) => entry.images.join("\0") === predictionKey)
           ?.extracted ?? null;
-  const predictedCooklang =
-    predictionKey == null
-      ? null
-      : cooklang?.entries.find((entry) => entry.images.join("\0") === predictionKey)
-          ?.cooklang ?? null;
 
-  useEffect(() => {
-    if (!gtEntry || !predictionKey || resetEntryKeyRef.current === predictionKey) {
-      return;
-    }
-    resetEntryKeyRef.current = predictionKey;
-    setEdited(gtEntry.expectedStructuredText ?? null);
-    setDirty(false);
-    setSaveStatus("idle");
-    setSaveMessage(null);
-  }, [gtEntry, predictionKey]);
-
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  const handleSave = useCallback(async () => {
-    if (!groundTruth) return;
-    setSaveError(null);
-    setSaveMessage(null);
-    if (edited) {
-      const emptyIngredients = edited.ingredientSections.some((s) =>
-        s.lines.length === 0 || s.lines.some((l) => l.trim().length === 0),
-      );
-      const emptyInstructions =
-        edited.instructionLines.length === 0 ||
-        edited.instructionLines.some((l) => l.trim().length === 0);
-      if (emptyIngredients || emptyInstructions) {
-        setSaveError(
-          "Cannot save: ingredient and instruction arrays must be non-empty with no blank lines.",
-        );
-        setSaveStatus("error");
-        return;
-      }
-    }
-    setSaveStatus("saving");
+  const handleCopyPrediction = useCallback(async () => {
+    if (!groundTruth || !predictedExtraction) return;
+    setSaving(true);
     try {
-      const updated = structuredClone(groundTruth);
-      if (edited) {
-        updated.entries[entryIndex].expectedStructuredText = edited;
-      } else {
-        delete updated.entries[entryIndex].expectedStructuredText;
-      }
-      const result = await saveGroundTruth(updated);
+      const updated: GroundTruthDataset = {
+        ...groundTruth,
+        entries: groundTruth.entries.map((entry, i) =>
+          i === entryIndex
+            ? { ...entry, expectedExtraction: predictedExtraction }
+            : entry,
+        ),
+      };
+      await saveGroundTruth(updated);
       setGroundTruth(updated);
-      setDirty(false);
-      setSaveStatus("saved");
-      setSaveMessage(result.message ?? null);
     } catch (e) {
-      console.error("Save failed:", e);
-      setSaveStatus("error");
+      setError(String(e));
+    } finally {
+      setSaving(false);
     }
-  }, [edited, entryIndex, groundTruth]);
+  }, [groundTruth, predictedExtraction, entryIndex]);
 
-  useEffect(() => {
-    const totalEntries = groundTruth?.entries.length ?? 0;
-    function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
-        e.preventDefault();
-        if (dirty) handleSave();
-        return;
-      }
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      const totalEntries = groundTruth?.entries.length ?? 0;
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
@@ -154,15 +205,25 @@ export function ExtractionDetailView({
       } else if (e.key === "ArrowRight" && entryIndex < totalEntries - 1) {
         onNavigate(entryIndex + 1);
       }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [dirty, entryIndex, groundTruth, handleSave, onBack, onNavigate]);
-
-  const previewRecipe = useMemo(
-    () => predictedCooklang?.derived ?? predictedRecipe ?? gtEntry?.expected ?? null,
-    [gtEntry?.expected, predictedCooklang?.derived, predictedRecipe],
+    },
+    [entryIndex, groundTruth, onBack, onNavigate],
   );
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
+  const textFidelity = useMemo(() => {
+    if (!predictedExtraction || !gtEntry?.expectedExtraction) return null;
+    const predictedText = flattenExtractionText(predictedExtraction);
+    const expectedText = flattenExtractionText(gtEntry.expectedExtraction);
+    return {
+      wordErrorRate: computeWordErrorRate(predictedText, expectedText),
+      charErrorRate: computeCharErrorRate(predictedText, expectedText),
+      rougeLF1: computeRougeL(predictedText, expectedText).f1,
+    };
+  }, [gtEntry?.expectedExtraction, predictedExtraction]);
 
   if (error) {
     return (
@@ -177,8 +238,10 @@ export function ExtractionDetailView({
   }
 
   const title =
-    predictedStructured?.title ?? predictedRecipe?.title ?? gtEntry.expected.title;
+    predictedExtraction?.title ?? gtEntry.expected.title;
   const totalEntries = groundTruth.entries.length;
+
+  const hasBothSides = predictedExtraction && gtEntry.expectedExtraction;
 
   return (
     <div className="space-y-4">
@@ -198,73 +261,37 @@ export function ExtractionDetailView({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {predictedStructured && (
+          {predictedExtraction && (
             <button
               type="button"
-              onClick={() => {
-                setEdited(structuredClone(predictedStructured));
-                setDirty(true);
-                setSaveStatus("idle");
-                setSaveMessage(null);
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white border border-gray-200 rounded hover:bg-gray-50"
+              onClick={handleCopyPrediction}
+              disabled={saving}
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-50"
             >
-              <Copy className="h-3.5 w-3.5" />
-              Copy Prediction
+              <Copy className="h-3 w-3" />
+              {saving ? "Saving..." : "Use as Expected"}
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => {
-              setEdited(structuredClone(EMPTY_STRUCTURED_TEXT));
-              setDirty(true);
-              setSaveStatus("idle");
-              setSaveMessage(null);
-            }}
-            className="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded hover:bg-gray-50"
-          >
-            Init Empty
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!dirty || saveStatus === "saving"}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded font-medium ${
-              dirty
-                ? "bg-blue-600 text-white hover:bg-blue-700"
-                : "bg-gray-100 text-gray-400 cursor-not-allowed"
-            }`}
-          >
-            {saveStatus === "saving" ? (
-              "Saving..."
-            ) : saveStatus === "saved" ? (
-              <>
-                <Check className="h-3.5 w-3.5" /> Saved
-              </>
-            ) : saveStatus === "error" ? (
-              <>
-                <AlertCircle className="h-3.5 w-3.5" /> Error
-              </>
-            ) : (
-              <>
-                <Save className="h-3.5 w-3.5" /> Save
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onNavigate(entryIndex - 1)}
+              disabled={entryIndex === 0}
+              className="p-1 rounded text-gray-500 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate(entryIndex + 1)}
+              disabled={entryIndex >= totalEntries - 1}
+              className="p-1 rounded text-gray-500 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </div>
-
-      {saveError && (
-        <div className="bg-red-50 border border-red-200 rounded px-3 py-2 text-sm text-red-700">
-          {saveError}
-        </div>
-      )}
-
-      {saveMessage && (
-        <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 text-sm text-amber-800">
-          {saveMessage}
-        </div>
-      )}
 
       {viewerIndex != null && (
         <ImageViewer
@@ -274,63 +301,56 @@ export function ExtractionDetailView({
         />
       )}
 
-      <div className="grid grid-cols-[1fr_1.25fr_1.1fr] gap-4 items-start">
-        <div className="sticky top-4 self-start space-y-4">
-          <div>
-            <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-              Input Images
-            </div>
-            <ImagePanel
-              imagePaths={gtEntry.images.map((img) => `data/recipe-images/${img}`)}
-              onClickImage={setViewerIndex}
-            />
+      <div className="grid grid-cols-[auto_1fr] gap-4 items-start">
+        {/* Left: source images */}
+        <div className="sticky top-4 self-start w-64">
+          <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+            Input Images
           </div>
-          {predictedStructured && (
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                Model Extraction Snapshot
-              </div>
-              <pre className="text-xs text-gray-700 whitespace-pre-wrap">
-                {JSON.stringify(predictedStructured, null, 2)}
-              </pre>
-            </div>
-          )}
+          <ImagePanel
+            imagePaths={gtEntry.images.map((img) => `data/recipe-images/${img}`)}
+            onClickImage={setViewerIndex}
+          />
         </div>
 
+        {/* Right: diff or individual panels */}
         <div>
-          {edited ? (
-            <StructuredTextEditor
-              value={edited}
-              onChange={(next) => {
-                setEdited(next);
-                setDirty(true);
-                setSaveStatus("idle");
-                setSaveMessage(null);
-              }}
+          {textFidelity && (
+            <div className="mb-4">
+              <TextFidelityCard
+                rougeLF1={textFidelity.rougeLF1}
+                wordErrorRate={textFidelity.wordErrorRate}
+                charErrorRate={textFidelity.charErrorRate}
+              />
+            </div>
+          )}
+          {hasBothSides ? (
+            <ExtractionDiff
+              expected={gtEntry.expectedExtraction!}
+              predicted={predictedExtraction!}
             />
           ) : (
-            <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">
-              No structured extraction annotation yet.
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-4">
-          {previewRecipe ? (
-            <RecipePanel recipe={previewRecipe} label="Derived Preview" />
-          ) : (
-            <div className="bg-white rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
-              No derived preview available yet.
-            </div>
-          )}
-          {predictedCooklang && (
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                Linked Cooklang Body
-              </div>
-              <pre className="text-xs text-gray-700 whitespace-pre-wrap">
-                {predictedCooklang.body}
-              </pre>
+            <div className="grid grid-cols-2 gap-4">
+              {predictedExtraction ? (
+                <ExtractionPanel
+                  extraction={predictedExtraction}
+                  label="OCR Extraction (Predicted)"
+                />
+              ) : (
+                <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">
+                  No extraction prediction available.
+                </div>
+              )}
+              {gtEntry.expectedExtraction ? (
+                <ExtractionPanel
+                  extraction={gtEntry.expectedExtraction}
+                  label="Expected Extraction (Ground Truth)"
+                />
+              ) : (
+                <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">
+                  No expected extraction annotated.
+                </div>
+              )}
             </div>
           )}
         </div>

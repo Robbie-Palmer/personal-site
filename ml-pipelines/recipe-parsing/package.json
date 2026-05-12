@@ -5,19 +5,23 @@
   "type": "module",
   "scripts": {
     "prepare-data": "tsx src/stages/prepare.ts",
-    "parse": "tsx src/stages/parse.ts",
+    "extract": "tsx src/stages/extract.ts",
+    "normalize": "tsx src/stages/normalize.ts",
     "canonicalize": "tsx src/stages/canonicalize.ts",
     "evaluate-extraction": "tsx src/stages/evaluate-extraction.ts",
+    "evaluate-normalization": "tsx src/stages/evaluate-normalization.ts",
     "evaluate": "tsx src/stages/evaluate.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
+    "@cooklang/cooklang": "^0.17.2",
     "dotenv": "^17.2.3",
     "numeric-quantity": "^3.2.1",
     "openai": "^6.6.0",
     "recipe-domain": "workspace:*",
     "sharp": "^0.34.4",
+    "yaml": "^2.8.3",
     "zod": "^4.2.1"
   },
   "devDependencies": {

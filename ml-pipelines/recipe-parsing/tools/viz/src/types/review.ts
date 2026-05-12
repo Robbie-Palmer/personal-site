@@ -15,7 +15,7 @@ export interface HeadlineMetrics {
   overallScore: number;
   ingredientParsingF1: number;
   instructionsF1: number;
-  cuisineAccuracy: number;
+  cuisineF1: number;
   servingsAccuracy: number;
 }
 
@@ -54,6 +54,7 @@ export interface EntryScores {
   scalarFields: number;
   ingredientParsing: number;
   instructions: number;
+  equipmentParsing?: number;
 }
 
 // --- Detail entry (loaded per-entry) ---

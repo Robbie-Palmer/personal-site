@@ -340,9 +340,13 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
           )}
         </div>
 
-        {recipe.cuisine && (
+        {recipe.cuisine.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-4">
-            <Badge variant="secondary">{recipe.cuisine}</Badge>
+            {recipe.cuisine.map((c) => (
+              <Badge key={c} variant="secondary">
+                {c}
+              </Badge>
+            ))}
           </div>
         )}
       </header>

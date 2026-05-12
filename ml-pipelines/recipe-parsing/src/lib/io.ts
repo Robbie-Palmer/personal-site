@@ -2,6 +2,7 @@ import { z } from "zod";
 import { readFile, writeFile, readdir, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
+import { parse as parseYaml } from "yaml";
 import {
   GroundTruthDatasetSchema,
   PredictionsDatasetSchema,
@@ -10,8 +11,10 @@ import {
 } from "../schemas/ground-truth.js";
 import {
   CooklangPredictionsDatasetSchema,
+  ExtractionPredictionsDatasetSchema,
   StructuredTextPredictionsDatasetSchema,
   type CooklangPredictionsDataset,
+  type ExtractionPredictionsDataset,
   type StructuredTextPredictionsDataset,
 } from "../schemas/stage-artifacts.js";
 import {
@@ -41,6 +44,11 @@ export const COOKLANG_PREDICTIONS_PATH = join(
 );
 export const CANONICALIZED_PREDICTIONS_PATH = join(OUTPUTS_DIR, "predictions-canonicalized.json");
 export const CANONICALIZATION_DECISIONS_PATH = join(OUTPUTS_DIR, "canonicalization-decisions.json");
+export const EXTRACTION_PREDICTIONS_PATH = join(OUTPUTS_DIR, "extraction-predictions.json");
+export const EXTRACTION_FAILURES_PATH = join(OUTPUTS_DIR, "extraction-failures.json");
+export const NORMALIZE_FAILURES_PATH = join(OUTPUTS_DIR, "normalize-failures.json");
+export const NORMALIZATION_METRICS_PATH = join(OUTPUTS_DIR, "normalization-metrics.json");
+export const NORMALIZATION_PER_IMAGE_SCORES_PATH = join(OUTPUTS_DIR, "normalization-per-image-scores.json");
 export const EXTRACTION_METRICS_PATH = join(OUTPUTS_DIR, "extraction-metrics.json");
 export const EXTRACTION_PER_IMAGE_SCORES_PATH = join(OUTPUTS_DIR, "extraction-per-image-scores.json");
 export const METRICS_PATH = join(OUTPUTS_DIR, "metrics.json");
@@ -52,6 +60,7 @@ export const CUISINE_DISTRIBUTION_PLOT_PATH = join(OUTPUTS_DIR, "cuisine-distrib
 export const TOP_INGREDIENTS_PLOT_PATH = join(OUTPUTS_DIR, "top-ingredients.json");
 export const PER_ENTRY_SCORE_PLOT_PATH = join(OUTPUTS_DIR, "per-entry-score-plot.json");
 export const CANONICAL_INGREDIENTS_PATH = join(DATA_DIR, "canonical-ingredients.json");
+export const PARAMS_PATH = "params.yaml";
 
 export async function loadGroundTruth(): Promise<GroundTruthDataset> {
   const raw = JSON.parse(await readFile(GROUND_TRUTH_PATH, "utf-8"));
@@ -94,6 +103,27 @@ export async function loadCanonicalizedPredictions(): Promise<PredictionsDataset
   return PredictionsDatasetSchema.parse(raw);
 }
 
+export async function loadExtractionPredictions(): Promise<ExtractionPredictionsDataset> {
+  const raw = JSON.parse(await readFile(EXTRACTION_PREDICTIONS_PATH, "utf-8"));
+  return ExtractionPredictionsDatasetSchema.parse(raw);
+}
+
+export async function loadExtractionFailures(): Promise<ParseFailuresDataset> {
+  if (!existsSync(EXTRACTION_FAILURES_PATH)) {
+    return { entries: [] };
+  }
+  const raw = JSON.parse(await readFile(EXTRACTION_FAILURES_PATH, "utf-8"));
+  return ParseFailuresDatasetSchema.parse(raw);
+}
+
+export async function loadNormalizeFailures(): Promise<ParseFailuresDataset> {
+  if (!existsSync(NORMALIZE_FAILURES_PATH)) {
+    return { entries: [] };
+  }
+  const raw = JSON.parse(await readFile(NORMALIZE_FAILURES_PATH, "utf-8"));
+  return ParseFailuresDatasetSchema.parse(raw);
+}
+
 export async function loadParseFailures(): Promise<ParseFailuresDataset> {
   if (!existsSync(PARSE_FAILURES_PATH)) {
     return { entries: [] };
@@ -114,6 +144,47 @@ export async function listImageFiles(): Promise<string[]> {
     (f) =>
       f.endsWith(".jpg") || f.endsWith(".jpeg") || f.endsWith(".png"),
   );
+}
+
+const StageRetryParamsSchema = z.object({
+  request_timeout_ms: z.number().int().positive(),
+  max_retries: z.number().int().nonnegative(),
+  concurrency: z.number().int().positive(),
+  retry_base_delay_ms: z.number().int().positive(),
+  retry_max_delay_ms: z.number().int().positive(),
+});
+
+const ImageParamsSchema = z.object({
+  image_max_dim: z.number().int().positive(),
+  image_jpeg_quality: z.number().int().min(1).max(100),
+});
+
+const ExtractParamsSchema = StageRetryParamsSchema.merge(ImageParamsSchema).extend({
+  model: z.string().min(1),
+});
+
+const NormalizeParamsSchema = StageRetryParamsSchema.extend({
+  model: z.string().min(1),
+});
+
+const CanonicalizationParamsSchema = StageRetryParamsSchema.extend({
+  model: z.string().min(1),
+});
+
+const PipelineParamsSchema = z.object({
+  extract: ExtractParamsSchema,
+  normalize: NormalizeParamsSchema,
+  canonicalize: CanonicalizationParamsSchema.optional(),
+});
+
+export type ExtractParams = z.infer<typeof ExtractParamsSchema>;
+export type NormalizeParams = z.infer<typeof NormalizeParamsSchema>;
+export type CanonicalizationParams = z.infer<typeof CanonicalizationParamsSchema>;
+export type PipelineParams = z.infer<typeof PipelineParamsSchema>;
+
+export async function loadParams(): Promise<PipelineParams> {
+  const raw = parseYaml(await readFile(PARAMS_PATH, "utf-8"));
+  return PipelineParamsSchema.parse(raw);
 }
 
 export async function writeJson(

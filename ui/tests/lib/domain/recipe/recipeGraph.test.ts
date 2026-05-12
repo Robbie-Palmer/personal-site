@@ -43,13 +43,18 @@ describe("buildRecipeContentGraph", () => {
       ingredientSlugs: [],
       recipeIngredients: new Map(),
       recipeCuisines: new Map([
-        ["curry", "Asian"],
-        ["risotto", "Italian"],
+        ["curry", ["Asian"]],
+        ["risotto", ["Italian"]],
+        ["paella", ["Spanish", "Seafood"]],
       ]),
     });
 
-    expect(graph.edges.hasCuisine.get("curry")).toBe("Asian");
-    expect(graph.edges.hasCuisine.get("risotto")).toBe("Italian");
+    expect(graph.edges.hasCuisine.get("curry")).toEqual(["Asian"]);
+    expect(graph.edges.hasCuisine.get("risotto")).toEqual(["Italian"]);
+    expect(graph.edges.hasCuisine.get("paella")).toEqual([
+      "Spanish",
+      "Seafood",
+    ]);
   });
 
   it("builds reverse cuisine edges", () => {
@@ -57,9 +62,10 @@ describe("buildRecipeContentGraph", () => {
       ingredientSlugs: [],
       recipeIngredients: new Map(),
       recipeCuisines: new Map([
-        ["curry", "Asian"],
-        ["satay", "Asian"],
-        ["risotto", "Italian"],
+        ["curry", ["Asian"]],
+        ["satay", ["Asian"]],
+        ["risotto", ["Italian"]],
+        ["paella", ["Spanish", "Seafood"]],
       ]),
     });
 
@@ -67,6 +73,11 @@ describe("buildRecipeContentGraph", () => {
     expect(asianRecipes?.has("curry")).toBe(true);
     expect(asianRecipes?.has("satay")).toBe(true);
     expect(asianRecipes?.has("risotto")).toBe(false);
+
+    const spanishRecipes = graph.reverse.cuisineUsedBy.get("Spanish");
+    expect(spanishRecipes?.has("paella")).toBe(true);
+    const seafoodRecipes = graph.reverse.cuisineUsedBy.get("Seafood");
+    expect(seafoodRecipes?.has("paella")).toBe(true);
   });
 
   it("initialises empty sets for all registered ingredients", () => {

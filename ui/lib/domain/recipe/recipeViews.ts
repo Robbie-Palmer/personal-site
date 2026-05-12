@@ -29,7 +29,7 @@ type BaseRecipeView = {
   title: string;
   description: string;
   date: string;
-  cuisine?: string;
+  cuisine: string[];
   servings: number;
   prepTime?: number;
   cookTime?: number;

@@ -12,10 +12,10 @@ export function MetricsSummaryBar({
   inferFailuresCount,
 }: MetricsSummaryBarProps) {
   const items = [
-    { label: "Overall", value: metrics.overallScore },
+    { label: "Structured Score", value: metrics.overallScore },
     { label: "Ingredients F1", value: metrics.ingredientParsingF1 },
     { label: "Instructions F1", value: metrics.instructionsF1 },
-    { label: "Cuisine", value: metrics.cuisineAccuracy },
+    { label: "Cuisine F1", value: metrics.cuisineF1 },
     { label: "Servings", value: metrics.servingsAccuracy },
   ];
 

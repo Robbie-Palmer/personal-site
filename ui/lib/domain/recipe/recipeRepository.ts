@@ -103,11 +103,11 @@ export function loadRecipeRepository(): RecipeRepository {
   validateIngredientReferences(recipes, ingredients);
 
   const recipeIngredients = new Map<RecipeSlug, IngredientSlug[]>();
-  const recipeCuisines = new Map<RecipeSlug, string>();
+  const recipeCuisines = new Map<RecipeSlug, string[]>();
 
   for (const [slug, recipe] of recipes) {
     recipeIngredients.set(slug, extractIngredientSlugs(recipe));
-    if (recipe.cuisine) {
+    if (recipe.cuisine.length > 0) {
       recipeCuisines.set(slug, recipe.cuisine);
     }
   }

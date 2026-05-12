@@ -8,15 +8,21 @@ interface ScoresPanelProps {
 
 export function ScoresPanel({ scores }: ScoresPanelProps) {
   const items = [
-    { label: "Overall", value: scores.overall },
+    { label: "Structured Score", value: scores.overall },
     { label: "Scalar Fields", value: scores.scalarFields },
     { label: "Ingredients", value: scores.ingredientParsing },
     { label: "Instructions", value: scores.instructions },
+    ...(scores.equipmentParsing != null
+      ? [{ label: "Equipment", value: scores.equipmentParsing }]
+      : []),
   ];
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <h3 className="text-sm font-semibold mb-3">Scores</h3>
+      <h3 className="text-sm font-semibold mb-1">Structured Score</h3>
+      <p className="mb-3 text-xs text-gray-500">
+        Composite over scalar fields, ingredients, equipment, and instructions.
+      </p>
       <div className="space-y-2">
         {items.map((item) => (
           <div key={item.label} className="flex items-center gap-3">

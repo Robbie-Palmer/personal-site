@@ -17,11 +17,11 @@ export function RecipePanel({ recipe, label }: RecipePanelProps) {
       <p className="text-sm text-gray-600 mb-3">{recipe.description}</p>
 
       <div className="flex flex-wrap gap-3 text-xs text-gray-500 mb-4">
-        {recipe.cuisine && (
-          <span className="px-2 py-0.5 rounded bg-gray-100 font-medium">
-            {recipe.cuisine}
+        {recipe.cuisine.map((c, i) => (
+          <span key={`${c}-${i}`} className="px-2 py-0.5 rounded bg-gray-100 font-medium">
+            {c}
           </span>
-        )}
+        ))}
         <span>{recipe.servings} {recipe.servings === 1 ? "serving" : "servings"}</span>
         {recipe.prepTime != null && <span>Prep: {formatTime(recipe.prepTime)}</span>}
         {recipe.cookTime != null && <span>Cook: {formatTime(recipe.cookTime)}</span>}
@@ -50,6 +50,23 @@ export function RecipePanel({ recipe, label }: RecipePanelProps) {
           </div>
         ))}
       </div>
+
+      {recipe.cookware.length > 0 && (
+        <div className="mb-4">
+          <h4 className="font-semibold text-sm mb-2">Equipment</h4>
+          <ul className="space-y-0.5">
+            {recipe.cookware.map((item, i) => (
+              <li
+                key={`${item}-${i}`}
+                className="text-sm flex items-start gap-1.5"
+              >
+                <span className="text-gray-300 mt-1.5 h-1 w-1 rounded-full bg-current shrink-0" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div>
         <h4 className="font-semibold text-sm mb-2">Instructions</h4>

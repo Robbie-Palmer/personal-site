@@ -11,6 +11,24 @@ describe("sanitizeParsedRecipe", () => {
       cookTime: Number.NaN,
       ingredientGroups: [{ items: [{ ingredient: "salt", amount: 1, unit: "tsp" }] }],
       instructions: ["x"],
+      cookware: [],
+    };
+
+    const out = sanitizeParsedRecipe(input) as any;
+    expect(out.prepTime).toBeUndefined();
+    expect(out.cookTime).toBeUndefined();
+  });
+
+  it("drops zero-valued optional time fields", () => {
+    const input = {
+      title: "T",
+      description: "D",
+      servings: 2,
+      prepTime: 0,
+      cookTime: 0,
+      ingredientGroups: [{ items: [{ ingredient: "salt", amount: 1, unit: "tsp" }] }],
+      instructions: ["x"],
+      cookware: [],
     };
 
     const out = sanitizeParsedRecipe(input) as any;
@@ -32,6 +50,7 @@ describe("sanitizeParsedRecipe", () => {
         },
       ],
       instructions: ["x"],
+      cookware: [],
     };
 
     const out = sanitizeParsedRecipe(input) as any;

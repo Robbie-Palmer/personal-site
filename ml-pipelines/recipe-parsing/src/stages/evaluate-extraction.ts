@@ -1,24 +1,35 @@
 import {
   loadPreparedData,
-  loadPredictions,
+  loadExtractionPredictions,
   writeJson,
   EXTRACTION_METRICS_PATH,
   EXTRACTION_PER_IMAGE_SCORES_PATH,
 } from "../lib/io";
-import { aggregateMetrics } from "../evaluation/metrics";
+import {
+  aggregateMetrics,
+  computeCharErrorRate,
+  computeRougeL,
+  computeWordErrorRate,
+} from "../evaluation/metrics";
 import { imageSetKey } from "../lib/image-key.js";
-import type { GroundTruthEntry, ExtractionRecipe } from "../schemas/ground-truth.js";
+import { flattenExtractionText } from "../lib/extraction-text.js";
+import { extractionToRecipe } from "../lib/extraction-to-recipe.js";
+import type {
+  GroundTruthEntry,
+  ExtractionRecipe,
+  PredictionEntry,
+} from "../schemas/ground-truth.js";
 
 function hasExpectedExtraction(entry: GroundTruthEntry): entry is GroundTruthEntry & { expectedExtraction: ExtractionRecipe } {
   return entry.expectedExtraction !== undefined;
 }
 
 async function main() {
-  console.log("Loading prepared data and raw predictions...");
+  console.log("Loading prepared data and extraction predictions...");
 
-  const [prepared, predictions] = await Promise.all([
+  const [prepared, extractionPredictions] = await Promise.all([
     loadPreparedData(),
-    loadPredictions(),
+    loadExtractionPredictions(),
   ]);
 
   const entriesWithExtraction = prepared.entries.filter(hasExpectedExtraction);
@@ -45,16 +56,16 @@ async function main() {
     ]),
   );
 
-  const matchedPredictions = predictions.entries.filter((entry) =>
-    extractionByKey.has(imageSetKey(entry.images)),
-  );
+  const matchedPredictions: PredictionEntry[] = extractionPredictions.entries
+    .filter((entry) => extractionByKey.has(imageSetKey(entry.images)))
+    .map((entry) => ({
+      images: entry.images,
+      predicted: extractionToRecipe(entry.extracted),
+    }));
 
   const groundTruthForEval = entriesWithExtraction.map((entry) => ({
-    ...entry,
-    expected: {
-      ...entry.expected,
-      ...entry.expectedExtraction,
-    },
+    images: entry.images,
+    expected: extractionToRecipe(entry.expectedExtraction),
   }));
 
   console.log(
@@ -66,10 +77,69 @@ async function main() {
     matchedPredictions,
     groundTruthForEval,
   );
+
+  // Attach per-entry text fidelity scores
+  const predictionByKey = new Map(
+    extractionPredictions.entries.map((e) => [imageSetKey(e.images), e.extracted]),
+  );
+  for (const entry of perEntry) {
+    if (entry.missingPrediction) continue;
+    const gt = extractionByKey.get(imageSetKey(entry.images));
+    const predicted = predictionByKey.get(imageSetKey(entry.images));
+    if (!gt || !predicted) continue;
+
+    const predictedText = flattenExtractionText(predicted);
+    const expectedText = flattenExtractionText(gt.expectedExtraction);
+    const rougeL = computeRougeL(predictedText, expectedText);
+    entry.textFidelity = {
+      wordErrorRate: computeWordErrorRate(predictedText, expectedText),
+      charErrorRate: computeCharErrorRate(predictedText, expectedText),
+      rougeL,
+    };
+  }
+
+  const textFidelityEntries = perEntry
+    .filter((e) => e.textFidelity != null)
+    .map((e) => e.textFidelity!);
+  const textFidelityTotals = textFidelityEntries.reduce(
+    (totals, entry) => {
+      totals.wordErrorRate += entry.wordErrorRate;
+      totals.charErrorRate += entry.charErrorRate;
+      totals.rougePrecision += entry.rougeL.precision;
+      totals.rougeRecall += entry.rougeL.recall;
+      totals.rougeF1 += entry.rougeL.f1;
+      return totals;
+    },
+    {
+      wordErrorRate: 0,
+      charErrorRate: 0,
+      rougePrecision: 0,
+      rougeRecall: 0,
+      rougeF1: 0,
+    },
+  );
+
   const missingCount = perEntry.filter((entry) => entry.missingPrediction).length;
+  const metricsWithDiagnostics = {
+    ...metrics,
+    diagnostics:
+      textFidelityEntries.length === 0
+        ? undefined
+        : {
+            extractionText: {
+              wordErrorRate: textFidelityTotals.wordErrorRate / textFidelityEntries.length,
+              charErrorRate: textFidelityTotals.charErrorRate / textFidelityEntries.length,
+              rougeL: {
+                precision: textFidelityTotals.rougePrecision / textFidelityEntries.length,
+                recall: textFidelityTotals.rougeRecall / textFidelityEntries.length,
+                f1: textFidelityTotals.rougeF1 / textFidelityEntries.length,
+              },
+            },
+          },
+  };
 
   await Promise.all([
-    writeJson(EXTRACTION_METRICS_PATH, metrics),
+    writeJson(EXTRACTION_METRICS_PATH, metricsWithDiagnostics),
     writeJson(EXTRACTION_PER_IMAGE_SCORES_PATH, perEntry),
   ]);
 
@@ -82,6 +152,16 @@ async function main() {
   console.log(
     `  Instructions F1:         ${metrics.byCategory.instructions.f1.toFixed(3)}`,
   );
+  console.log(
+    `  Equipment F1:            ${metrics.byCategory.equipmentParsing.f1.toFixed(3)}`,
+  );
+  if (metricsWithDiagnostics.diagnostics?.extractionText) {
+    console.log(
+      `  WER / CER / ROUGE-L:     ${metricsWithDiagnostics.diagnostics.extractionText.wordErrorRate.toFixed(3)} / ` +
+        `${metricsWithDiagnostics.diagnostics.extractionText.charErrorRate.toFixed(3)} / ` +
+        `${metricsWithDiagnostics.diagnostics.extractionText.rougeL.f1.toFixed(3)}`,
+    );
+  }
   console.log(`\nExtraction metrics written to ${EXTRACTION_METRICS_PATH}`);
   console.log(`Per-entry scores written to ${EXTRACTION_PER_IMAGE_SCORES_PATH}`);
 }

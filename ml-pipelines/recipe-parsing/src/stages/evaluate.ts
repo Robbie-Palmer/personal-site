@@ -6,7 +6,10 @@ import {
   PER_ENTRY_SCORE_PLOT_PATH,
   PER_IMAGE_SCORES_PATH,
 } from "../lib/io";
-import { aggregateMetrics } from "../evaluation/metrics";
+import {
+  aggregateMetrics,
+  CANONICALIZATION_SCORING_PROFILE,
+} from "../evaluation/metrics";
 import { imageSetKey } from "../lib/image-key.js";
 
 async function main() {
@@ -24,6 +27,7 @@ async function main() {
   const { metrics, perEntry } = aggregateMetrics(
     predictions.entries,
     prepared.entries,
+    CANONICALIZATION_SCORING_PROFILE,
   );
   const missingCount = perEntry.filter((entry) => entry.missingPrediction).length;
   const preparedByImageKey = new Map(
@@ -40,6 +44,7 @@ async function main() {
     scalar_fields_score: entry.scores.scalarFields,
     ingredient_parsing_score: entry.scores.ingredientParsing,
     instructions_score: entry.scores.instructions,
+    equipment_parsing_score: entry.scores.equipmentParsing,
     missing_prediction: Boolean(entry.missingPrediction),
   }));
 
@@ -51,7 +56,7 @@ async function main() {
 
   console.log(`\nResults (${metrics.entryCount} entries):`);
   console.log(`  Missing Predictions:     ${missingCount}`);
-  console.log(`  Overall Score:           ${metrics.overall.score.toFixed(3)}`);
+  console.log(`  Canonicalization Score:  ${metrics.overall.score.toFixed(3)}`);
   console.log(
     `  Ingredient Parsing F1:   ${metrics.byCategory.ingredientParsing.f1.toFixed(3)}`,
   );
@@ -59,7 +64,10 @@ async function main() {
     `  Instructions F1:         ${metrics.byCategory.instructions.f1.toFixed(3)}`,
   );
   console.log(
-    `  Cuisine Match:           ${(metrics.byCategory.scalarFields.cuisine.accuracy * 100).toFixed(1)}%`,
+    `  Equipment F1:            ${metrics.byCategory.equipmentParsing.f1.toFixed(3)}`,
+  );
+  console.log(
+    `  Cuisine F1:              ${metrics.byCategory.scalarFields.cuisine.f1.toFixed(3)}`,
   );
   console.log(
     `  Servings Match:          ${(metrics.byCategory.scalarFields.servings.accuracy * 100).toFixed(1)}%`,

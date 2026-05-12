@@ -1,18 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  loadCooklangPredictions,
+  loadExtractionPredictions,
+  loadExtractionScores,
   loadGroundTruth,
-  loadPredictions,
-  loadStructuredTextPredictions,
 } from "../lib/data";
+import {
+  computeEntryScores,
+  evaluateEquipmentParsing,
+  evaluateIngredientParsing,
+  evaluateInstructions,
+  evaluateScalarFields,
+} from "../../../../src/evaluation/metrics.js";
+import { extractionToRecipe } from "../../../../src/lib/extraction-to-recipe.js";
 import type {
-  CooklangPredictionsDataset,
-  ExtractionEntry,
+  ExtractionPredictionsDataset,
   GroundTruthDataset,
-  PredictionsDataset,
-  StructuredTextPredictionsDataset,
+  PerImageScoreEntry,
 } from "../types/extraction";
-import { ExtractionEntryCard } from "../components/ExtractionEntryCard";
+import { StageEntryCard } from "../components/StageEntryCard";
 
 interface ExtractionListViewProps {
   onSelectEntry: (index: number) => void;
@@ -22,45 +27,67 @@ export function ExtractionListView({
   onSelectEntry,
 }: ExtractionListViewProps) {
   const [groundTruth, setGroundTruth] = useState<GroundTruthDataset | null>(null);
-  const [predictions, setPredictions] = useState<PredictionsDataset | null>(null);
-  const [structured, setStructured] = useState<StructuredTextPredictionsDataset | null>(
-    null,
-  );
-  const [cooklang, setCooklang] = useState<CooklangPredictionsDataset | null>(null);
+  const [extractions, setExtractions] = useState<ExtractionPredictionsDataset | null>(null);
+  const [scores, setScores] = useState<PerImageScoreEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadGroundTruth().then(setGroundTruth).catch((e) => setError(String(e)));
-    loadPredictions().then(setPredictions).catch(() => {});
-    loadStructuredTextPredictions().then(setStructured).catch(() => {});
-    loadCooklangPredictions().then(setCooklang).catch(() => {});
+    loadExtractionPredictions().then(setExtractions).catch(() => {});
+    loadExtractionScores().then(setScores).catch(() => {});
   }, []);
 
-  const entries: ExtractionEntry[] = useMemo(() => {
+  const scoreMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of scores) {
+      map.set(s.images.join("\0"), s.scores.overall);
+    }
+    return map;
+  }, [scores]);
+
+  const extractionMap = useMemo(() => {
+    const map = new Map<string, NonNullable<ExtractionPredictionsDataset["entries"][number]["extracted"]>>();
+    for (const entry of extractions?.entries ?? []) {
+      map.set(entry.images.join("\0"), entry.extracted);
+    }
+    return map;
+  }, [extractions]);
+
+  const entries = useMemo(() => {
     if (!groundTruth) return [];
     return groundTruth.entries.map((gt, index) => {
       const key = gt.images.join("\0");
+      const predicted = extractionMap.get(key) ?? null;
+      const annotated = gt.expectedExtraction != null;
+      const pipelineScore = annotated ? (scoreMap.get(key) ?? null) : null;
+
+      // Compute a client-side structured score using the same methodology as
+      // the pipeline (extractionToRecipe → field-level evaluation) so scores
+      // stay current when ground truth is updated via "Use as Expected".
+      let score: number | null;
+      if (predicted != null && gt.expectedExtraction != null) {
+        const predRecipe = extractionToRecipe(predicted);
+        const expRecipe = extractionToRecipe(gt.expectedExtraction);
+        const scalar = evaluateScalarFields(predRecipe as never, expRecipe as never);
+        const ingredients = evaluateIngredientParsing(predRecipe as never, expRecipe as never);
+        const instructions = evaluateInstructions(predRecipe as never, expRecipe as never);
+        const equipment = evaluateEquipmentParsing(predRecipe as never, expRecipe as never);
+        score = computeEntryScores(scalar, ingredients, instructions, equipment).overall;
+      } else {
+        score = pipelineScore;
+      }
+
       return {
         index,
         images: gt.images,
-        expected: gt.expected,
-        predicted:
-          predictions?.entries.find((entry) => entry.images.join("\0") === key)?.predicted ??
-          null,
-        predictedStructuredText:
-          structured?.entries.find((entry) => entry.images.join("\0") === key)?.extracted ??
-          null,
-        expectedStructuredText: gt.expectedStructuredText ?? null,
-        predictedCooklang:
-          cooklang?.entries.find((entry) => entry.images.join("\0") === key)?.cooklang ??
-          null,
+        title: predicted?.title ?? gt.expected.title,
+        score,
+        annotated,
       };
     });
-  }, [cooklang, groundTruth, predictions, structured]);
+  }, [extractionMap, groundTruth, scoreMap]);
 
-  const annotatedCount = entries.filter(
-    (entry) => entry.expectedStructuredText != null,
-  ).length;
+  const annotatedCount = entries.filter((e) => e.annotated).length;
 
   if (error) {
     return (
@@ -78,9 +105,9 @@ export function ExtractionListView({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-semibold text-lg">Structured Extraction Review</h2>
+          <h2 className="font-semibold text-lg">Extraction Review</h2>
           <p className="text-sm text-gray-500">
-            Image to structured text artifact with derived preview support
+            OCR extraction output with ground truth comparison
           </p>
         </div>
         <span className="text-sm text-gray-500">
@@ -90,9 +117,12 @@ export function ExtractionListView({
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {entries.map((entry) => (
-          <ExtractionEntryCard
+          <StageEntryCard
             key={entry.index}
-            entry={entry}
+            images={entry.images}
+            title={entry.title}
+            score={entry.score}
+            annotated={entry.annotated}
             onClick={() => onSelectEntry(entry.index)}
           />
         ))}

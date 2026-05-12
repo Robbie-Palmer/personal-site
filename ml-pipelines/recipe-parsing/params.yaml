@@ -1,0 +1,25 @@
+extract:
+  model: "google/gemini-3-flash-preview"
+  request_timeout_ms: 30000
+  max_retries: 2
+  concurrency: 8
+  image_max_dim: 1600
+  image_jpeg_quality: 80
+  retry_base_delay_ms: 500
+  retry_max_delay_ms: 8000
+
+normalize:
+  model: "google/gemini-3-flash-preview"
+  request_timeout_ms: 30000
+  max_retries: 2
+  concurrency: 8
+  retry_base_delay_ms: 500
+  retry_max_delay_ms: 8000
+
+canonicalize:
+  model: "google/gemini-2.5-flash"
+  request_timeout_ms: 15000
+  max_retries: 1
+  concurrency: 4
+  retry_base_delay_ms: 500
+  retry_max_delay_ms: 4000

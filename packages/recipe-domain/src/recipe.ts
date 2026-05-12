@@ -79,13 +79,17 @@ export type RecipeInstructionSdk = z.infer<typeof RecipeInstructionSdkSchema>;
 
 export const ParsedRecipeSchema = z.object({
   title: z.string().min(1),
-  description: z.string().min(1),
-  cuisine: z.string().optional(),
+  description: z.string(),
+  cuisine: z.preprocess(
+    (val) => (typeof val === "string" ? [val] : val),
+    z.array(z.string().min(1)).default([]),
+  ),
   servings: z.number().int().positive(),
   prepTime: z.number().int().nonnegative().optional(),
   cookTime: z.number().int().nonnegative().optional(),
   ingredientGroups: z.array(IngredientGroupSchema).min(1),
   instructions: z.array(z.string().min(1)).min(1),
+  cookware: z.array(z.string().min(1)).default([]),
 });
 
 export type ParsedRecipe = z.infer<typeof ParsedRecipeSchema>;
@@ -96,7 +100,6 @@ export const RecipeContentSchema = ParsedRecipeSchema.extend({
   instructionSdk: RecipeInstructionSdkSchema.optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   tags: z.array(z.string()).default([]),
-  cookware: z.array(z.string()).default([]),
   image: z
     .string()
     .regex(/^recipes\/[a-z0-9_-]+-\d{4}-\d{2}-\d{2}$/)
