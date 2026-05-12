@@ -28,25 +28,13 @@ export function CooklangEditor({
     [value.body],
   );
 
-  /** When the cooklang body changes, drop annotation keys that no longer appear
-   *  in the body and migrate their values to unannotated body slugs. */
+  /** Preserve existing annotations across body edits so orphaned entries remain
+   *  visible until the user explicitly clears them. */
   const reconcileAnnotations = useCallback(
-    (nextBody: string): CooklangFrontmatter["ingredientAnnotations"] => {
+    (_nextBody: string): CooklangFrontmatter["ingredientAnnotations"] => {
       const annotations = value.frontmatter.ingredientAnnotations;
       if (!annotations) return undefined;
-      const nextSlugs = new Set(extractIngredientSlugsFromBody(nextBody));
-      const kept: NonNullable<CooklangFrontmatter["ingredientAnnotations"]> = {};
-      const orphaned: { slug: string; ann: { preparation?: string; note?: string } }[] = [];
-
-      for (const [slug, ann] of Object.entries(annotations)) {
-        if (nextSlugs.has(slug)) {
-          kept[slug] = ann;
-        } else {
-          orphaned.push({ slug, ann });
-        }
-      }
-
-      return Object.keys(kept).length > 0 ? kept : undefined;
+      return Object.keys(annotations).length > 0 ? { ...annotations } : undefined;
     },
     [value.frontmatter.ingredientAnnotations],
   );
