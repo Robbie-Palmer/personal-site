@@ -57,7 +57,9 @@ export function inferCooklangIngredientLine(line: string): string {
   );
   if (prefixedAmountWithUnit?.groups?.name) {
     const unit = normalizeUnitToken(prefixedAmountWithUnit.groups.unit);
-    return `@${toCooklangToken(prefixedAmountWithUnit.groups.name)}{${prefixedAmountWithUnit.groups.amount}${unit ? `%${unit}` : ""}}`;
+    if (unit) {
+      return `@${toCooklangToken(prefixedAmountWithUnit.groups.name)}{${prefixedAmountWithUnit.groups.amount}%${unit}}`;
+    }
   }
 
   const prefixedAmountWithSpacedUnit = trimmed.match(

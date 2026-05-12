@@ -45,12 +45,19 @@ export function ExtractionListView({
     return map;
   }, [scores]);
 
+  const extractionMap = useMemo(() => {
+    const map = new Map<string, NonNullable<ExtractionPredictionsDataset["entries"][number]["extracted"]>>();
+    for (const entry of extractions?.entries ?? []) {
+      map.set(entry.images.join("\0"), entry.extracted);
+    }
+    return map;
+  }, [extractions]);
+
   const entries = useMemo(() => {
     if (!groundTruth) return [];
     return groundTruth.entries.map((gt, index) => {
       const key = gt.images.join("\0");
-      const predicted =
-        extractions?.entries.find((e) => e.images.join("\0") === key)?.extracted ?? null;
+      const predicted = extractionMap.get(key) ?? null;
       const annotated = gt.expectedExtraction != null;
       const pipelineScore = annotated ? (scoreMap.get(key) ?? null) : null;
 
@@ -78,7 +85,7 @@ export function ExtractionListView({
         annotated,
       };
     });
-  }, [extractions, groundTruth, scoreMap]);
+  }, [extractionMap, groundTruth, scoreMap]);
 
   const annotatedCount = entries.filter((e) => e.annotated).length;
 

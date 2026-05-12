@@ -101,6 +101,23 @@ async function main() {
   const textFidelityEntries = perEntry
     .filter((e) => e.textFidelity != null)
     .map((e) => e.textFidelity!);
+  const textFidelityTotals = textFidelityEntries.reduce(
+    (totals, entry) => {
+      totals.wordErrorRate += entry.wordErrorRate;
+      totals.charErrorRate += entry.charErrorRate;
+      totals.rougePrecision += entry.rougeL.precision;
+      totals.rougeRecall += entry.rougeL.recall;
+      totals.rougeF1 += entry.rougeL.f1;
+      return totals;
+    },
+    {
+      wordErrorRate: 0,
+      charErrorRate: 0,
+      rougePrecision: 0,
+      rougeRecall: 0,
+      rougeF1: 0,
+    },
+  );
 
   const missingCount = perEntry.filter((entry) => entry.missingPrediction).length;
   const metricsWithDiagnostics = {
@@ -110,22 +127,12 @@ async function main() {
         ? undefined
         : {
             extractionText: {
-              wordErrorRate:
-                textFidelityEntries.reduce((sum, item) => sum + item.wordErrorRate, 0) /
-                textFidelityEntries.length,
-              charErrorRate:
-                textFidelityEntries.reduce((sum, item) => sum + item.charErrorRate, 0) /
-                textFidelityEntries.length,
+              wordErrorRate: textFidelityTotals.wordErrorRate / textFidelityEntries.length,
+              charErrorRate: textFidelityTotals.charErrorRate / textFidelityEntries.length,
               rougeL: {
-                precision:
-                  textFidelityEntries.reduce((sum, item) => sum + item.rougeL.precision, 0) /
-                  textFidelityEntries.length,
-                recall:
-                  textFidelityEntries.reduce((sum, item) => sum + item.rougeL.recall, 0) /
-                  textFidelityEntries.length,
-                f1:
-                  textFidelityEntries.reduce((sum, item) => sum + item.rougeL.f1, 0) /
-                  textFidelityEntries.length,
+                precision: textFidelityTotals.rougePrecision / textFidelityEntries.length,
+                recall: textFidelityTotals.rougeRecall / textFidelityEntries.length,
+                f1: textFidelityTotals.rougeF1 / textFidelityEntries.length,
               },
             },
           },
