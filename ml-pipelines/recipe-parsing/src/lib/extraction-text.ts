@@ -1,7 +1,7 @@
 interface ExtractionTextShape {
   title: string;
   description?: string;
-  cuisine?: string;
+  cuisine?: string[];
   servings?: string;
   prepTime?: string;
   cookTime?: string;
@@ -16,10 +16,11 @@ interface ExtractionTextShape {
  */
 export function flattenExtractionText(extraction: ExtractionTextShape): string {
   const lines: string[] = [];
+  const cuisineText = extraction.cuisine?.join(", ");
 
   lines.push(extraction.title);
   if (extraction.description) lines.push(extraction.description);
-  if (extraction.cuisine) lines.push(`Cuisine ${extraction.cuisine}`);
+  if (cuisineText) lines.push(`Cuisine ${cuisineText}`);
   if (extraction.servings) lines.push(`Servings ${extraction.servings}`);
   if (extraction.prepTime) lines.push(`Prep time ${extraction.prepTime}`);
   if (extraction.cookTime) lines.push(`Cook time ${extraction.cookTime}`);

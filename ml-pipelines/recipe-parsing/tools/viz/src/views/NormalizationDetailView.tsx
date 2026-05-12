@@ -42,6 +42,8 @@ function ExtractionContextPanel({
 }: {
   extraction: ExtractionRecipe;
 }) {
+  const cuisineText = extraction.cuisine?.join(", ");
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-5">
       <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">
@@ -54,9 +56,9 @@ function ExtractionContextPanel({
       )}
 
       <div className="flex flex-wrap gap-3 text-xs text-gray-500 mb-4">
-        {extraction.cuisine && (
+        {cuisineText && (
           <span className="px-2 py-0.5 rounded bg-gray-100 font-medium">
-            {extraction.cuisine}
+            {cuisineText}
           </span>
         )}
         {extraction.servings && <span>Servings: {extraction.servings}</span>}

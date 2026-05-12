@@ -241,7 +241,7 @@ export function buildCooklangDraftFromExtraction(
     description:
       extracted.description ??
       `Recipe for ${extracted.title}.`,
-    cuisine: extracted.cuisine ? [extracted.cuisine] : [],
+    cuisine: extracted.cuisine ?? [],
     servings: parseScalarTextNumber(extracted.servings) ?? DEFAULT_INFERRED_SERVINGS,
     prepTime: parseScalarTextNumber(extracted.prepTime),
     cookTime: parseScalarTextNumber(extracted.cookTime),

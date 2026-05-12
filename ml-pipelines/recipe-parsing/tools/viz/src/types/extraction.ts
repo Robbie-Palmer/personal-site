@@ -4,7 +4,7 @@ import type { ParsedRecipe } from "recipe-domain";
 export interface ExtractionRecipe {
   title: string;
   description?: string;
-  cuisine?: string;
+  cuisine?: string[];
   servings?: string;
   prepTime?: string;
   cookTime?: string;

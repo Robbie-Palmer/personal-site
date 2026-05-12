@@ -9,7 +9,7 @@ import type { Recipe } from "../schemas/ground-truth.js";
 interface ExtractionInput {
   title: string;
   description?: string;
-  cuisine?: string;
+  cuisine?: string[];
   servings?: string;
   prepTime?: string;
   cookTime?: string;
@@ -36,7 +36,7 @@ export function extractionToRecipe(extraction: ExtractionInput): Recipe {
   return {
     title: extraction.title,
     description: extraction.description ?? "",
-    cuisine: extraction.cuisine ? [extraction.cuisine] : [],
+    cuisine: extraction.cuisine ?? [],
     servings: parseScalarTextNumber(extraction.servings) ?? 0,
     prepTime: parseScalarTextNumber(extraction.prepTime),
     cookTime: parseScalarTextNumber(extraction.cookTime),

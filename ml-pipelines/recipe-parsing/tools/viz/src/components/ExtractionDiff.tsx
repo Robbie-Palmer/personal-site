@@ -18,6 +18,13 @@ const SCALAR_FIELDS: { key: keyof ExtractionRecipe; label: string }[] = [
   { key: "cookTime", label: "Cook Time" },
 ];
 
+function formatScalarValue(value: ExtractionRecipe[keyof ExtractionRecipe]): string | undefined {
+  if (Array.isArray(value)) {
+    return value.length > 0 ? value.join(", ") : undefined;
+  }
+  return typeof value === "string" ? value : undefined;
+}
+
 function ScalarRow({
   label,
   expected,
@@ -181,8 +188,8 @@ export function ExtractionDiff({
             <ScalarRow
               key={key}
               label={label}
-              expected={expected[key] as string | undefined}
-              predicted={predicted[key] as string | undefined}
+              expected={formatScalarValue(expected[key])}
+              predicted={formatScalarValue(predicted[key])}
             />
           ))}
         </div>

@@ -5,7 +5,7 @@ import { ParsedRecipeSchema, RecipeFrontmatterSchema } from "recipe-domain";
 export const ExtractionRecipeSchema = z.object({
   title: z.string(),
   description: z.string().optional(),
-  cuisine: z.string().optional(),
+  cuisine: z.array(z.string().min(1)).optional(),
   servings: z.string().optional(),
   prepTime: z.string().optional(),
   cookTime: z.string().optional(),
