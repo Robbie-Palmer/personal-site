@@ -74,6 +74,9 @@ stages:
       - outputs/extraction-predictions.json
       - src/stages/normalize.ts
       - src/lib/cooklang.ts
+      - src/lib/recipe-postprocess.ts
+      - src/lib/cuisine-normalization.ts
+      - src/lib/ingredient-normalization-rules.ts
       - src/lib/stage-runner.ts
       - src/lib/parse-retry.ts
       - src/lib/openrouter.ts
