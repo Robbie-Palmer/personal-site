@@ -13,7 +13,6 @@ import {
 } from "recharts";
 import {
   loadCanonicalizedPredictions,
-  loadCooklangPredictions,
   loadExtractionMetrics,
   loadExtractionPredictions,
   loadFinalMetrics,
@@ -39,7 +38,6 @@ import type {
 import { extractionToRecipe } from "../../../../src/lib/extraction-to-recipe.js";
 import { flattenExtractionText } from "../../../../src/lib/extraction-text.js";
 import type {
-  CooklangPredictionsDataset,
   ExtractionPredictionsDataset,
   GroundTruthDataset,
   PerImageScoreEntry,
@@ -785,7 +783,7 @@ function RecipeDeltaChart({
 export function StatsView({ onSelectCanonicalizeEntry }: StatsViewProps) {
   const [groundTruth, setGroundTruth] = useState<GroundTruthDataset | null>(null);
   const [extractionPredictions, setExtractionPredictions] = useState<ExtractionPredictionsDataset | null>(null);
-  const [cooklangPredictions, setCooklangPredictions] = useState<CooklangPredictionsDataset | null>(null);
+
   const [normalizedPredictions, setNormalizedPredictions] = useState<PredictionsDataset | null>(null);
   const [canonicalizedPredictions, setCanonicalizedPredictions] = useState<PredictionsDataset | null>(null);
   const [extractionMetrics, setExtractionMetrics] = useState<StageMetrics | { skipped: true } | null>(null);
@@ -798,7 +796,7 @@ export function StatsView({ onSelectCanonicalizeEntry }: StatsViewProps) {
   useEffect(() => {
     loadGroundTruth().then(setGroundTruth).catch(() => {});
     loadExtractionPredictions().then(setExtractionPredictions).catch(() => {});
-    loadCooklangPredictions().then(setCooklangPredictions).catch(() => {});
+
     loadPredictions().then(setNormalizedPredictions).catch(() => {});
     loadCanonicalizedPredictions().then(setCanonicalizedPredictions).catch(() => {});
     loadExtractionMetrics().then(setExtractionMetrics).catch(() => {});
@@ -900,15 +898,11 @@ export function StatsView({ onSelectCanonicalizeEntry }: StatsViewProps) {
 
     if (groundTruthForEval.length === 0) return null;
 
-    try {
-      const { metrics } = aggregateMetrics(
-        normalizedPredictions.entries as MetricsPredictionEntry[],
-        groundTruthForEval,
-      );
-      return metrics as unknown as StageMetrics;
-    } catch {
-      return null;
-    }
+    const { metrics } = aggregateMetrics(
+      normalizedPredictions.entries as MetricsPredictionEntry[],
+      groundTruthForEval,
+    );
+    return metrics as unknown as StageMetrics;
   }, [groundTruth, normalizedPredictions]);
 
   const pipelineNormalizationSkipped =
