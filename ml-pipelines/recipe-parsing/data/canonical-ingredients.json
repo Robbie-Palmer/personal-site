@@ -29,6 +29,10 @@
       "category": "other"
     },
     {
+      "slug": "burrito-wrap",
+      "category": "grain"
+    },
+    {
       "slug": "butter",
       "category": "dairy"
     },
@@ -373,6 +377,10 @@
       "category": "condiment"
     },
     {
+      "slug": "taco-seasoning",
+      "category": "spice"
+    },
+    {
       "slug": "tikka-curry-powder",
       "category": "spice"
     },
@@ -406,6 +414,10 @@
     },
     {
       "slug": "vine-tomato",
+      "category": "vegetable"
+    },
+    {
+      "slug": "vine-tomatoes",
       "category": "vegetable"
     },
     {
