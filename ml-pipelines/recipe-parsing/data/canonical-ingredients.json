@@ -29,10 +29,6 @@
       "category": "other"
     },
     {
-      "slug": "burrito-wrap",
-      "category": "grain"
-    },
-    {
       "slug": "butter",
       "category": "dairy"
     },
@@ -393,7 +389,7 @@
       "category": "vegetable"
     },
     {
-      "slug": "tortilla-wraps",
+      "slug": "tortilla-wrap",
       "category": "grain"
     },
     {
@@ -414,10 +410,6 @@
     },
     {
       "slug": "vine-tomato",
-      "category": "vegetable"
-    },
-    {
-      "slug": "vine-tomatoes",
       "category": "vegetable"
     },
     {
