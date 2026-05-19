@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  loadCooklangPredictions,
   loadGroundTruth,
   loadPredictions,
 } from "../lib/data";
@@ -13,7 +12,6 @@ import {
   evaluateScalarFields,
 } from "../../../../src/evaluation/metrics.js";
 import type {
-  CooklangPredictionsDataset,
   GroundTruthDataset,
   PredictionsDataset,
 } from "../types/extraction";
@@ -28,13 +26,11 @@ export function NormalizationListView({
 }: NormalizationListViewProps) {
   const [groundTruth, setGroundTruth] = useState<GroundTruthDataset | null>(null);
   const [predictions, setPredictions] = useState<PredictionsDataset | null>(null);
-  const [cooklangPredictions, setCooklangPredictions] = useState<CooklangPredictionsDataset | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadGroundTruth().then(setGroundTruth).catch((e) => setError(String(e)));
     loadPredictions().then(setPredictions).catch(() => {});
-    loadCooklangPredictions().then(setCooklangPredictions).catch(() => {});
   }, []);
 
   const entries = useMemo(() => {
@@ -43,26 +39,23 @@ export function NormalizationListView({
       const key = gt.images.join("\0");
       const predicted =
         predictions?.entries.find((e) => e.images.join("\0") === key)?.predicted ?? null;
-      const cooklangPred =
-        cooklangPredictions?.entries.find((e) => e.images.join("\0") === key)?.cooklang ?? null;
-      const annotated = gt.expectedNormalization != null;
+      const expDerived = gt.expectedNormalization
+        ? deriveNormalizedRecipe(gt.expectedNormalization).recipe
+        : null;
+      const annotated = expDerived != null;
 
       let score: number | null = null;
-      if (annotated && cooklangPred) {
-        const predDerived = deriveNormalizedRecipe(cooklangPred).recipe;
-        const expDerived = deriveNormalizedRecipe(gt.expectedNormalization!).recipe;
-        if (predDerived && expDerived) {
-          const scalar = evaluateScalarFields(predDerived, expDerived);
-          const ingredients = evaluateIngredientParsing(predDerived, expDerived);
-          const instructions = evaluateInstructions(predDerived, expDerived);
-          const equipment = evaluateEquipmentParsing(predDerived, expDerived);
-          score = computeEntryScores(
-            scalar,
-            ingredients,
-            instructions,
-            equipment,
-          ).overall;
-        }
+      if (annotated && predicted) {
+        const scalar = evaluateScalarFields(predicted, expDerived);
+        const ingredients = evaluateIngredientParsing(predicted, expDerived);
+        const instructions = evaluateInstructions(predicted, expDerived);
+        const equipment = evaluateEquipmentParsing(predicted, expDerived);
+        score = computeEntryScores(
+          scalar,
+          ingredients,
+          instructions,
+          equipment,
+        ).overall;
       }
 
       return {
@@ -73,7 +66,7 @@ export function NormalizationListView({
         annotated,
       };
     });
-  }, [groundTruth, predictions, cooklangPredictions]);
+  }, [groundTruth, predictions]);
 
   const annotatedCount = entries.filter((e) => e.annotated).length;
 

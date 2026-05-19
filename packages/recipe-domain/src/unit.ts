@@ -7,6 +7,7 @@ export const UnitSchema = z.enum([
   // Volume
   "ml",
   "l",
+  "pint",
   // Spoon measures
   "tsp",
   "tbsp",
@@ -37,6 +38,7 @@ export const UNIT_LABELS: Record<Unit, UnitLabel> = {
   kg: { singular: "kg", plural: "kg", noSpace: true },
   ml: { singular: "ml", plural: "ml", noSpace: true },
   l: { singular: "l", plural: "l", noSpace: true },
+  pint: { singular: "pint", plural: "pints" },
   tsp: { singular: "tsp", plural: "tsp" },
   tbsp: { singular: "tbsp", plural: "tbsp" },
   cup: { singular: "cup", plural: "cups" },
@@ -57,6 +59,7 @@ export const UNIT_CATEGORIES: Record<Unit, UnitCategory> = {
   kg: "weight",
   ml: "volume",
   l: "volume",
+  pint: "volume",
   tsp: "spoon",
   tbsp: "spoon",
   cup: "volume",

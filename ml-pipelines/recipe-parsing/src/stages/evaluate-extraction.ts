@@ -10,6 +10,7 @@ import {
   computeCharErrorRate,
   computeRougeL,
   computeWordErrorRate,
+  EXTRACTION_SCORING_PROFILE,
 } from "../evaluation/metrics";
 import { imageSetKey } from "../lib/image-key.js";
 import { flattenExtractionText } from "../lib/extraction-text.js";
@@ -76,6 +77,7 @@ async function main() {
   const { metrics, perEntry } = aggregateMetrics(
     matchedPredictions,
     groundTruthForEval,
+    EXTRACTION_SCORING_PROFILE,
   );
 
   // Attach per-entry text fidelity scores
@@ -151,9 +153,6 @@ async function main() {
   );
   console.log(
     `  Instructions F1:         ${metrics.byCategory.instructions.f1.toFixed(3)}`,
-  );
-  console.log(
-    `  Equipment F1:            ${metrics.byCategory.equipmentParsing.f1.toFixed(3)}`,
   );
   if (metricsWithDiagnostics.diagnostics?.extractionText) {
     console.log(

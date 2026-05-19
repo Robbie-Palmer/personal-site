@@ -285,6 +285,10 @@
       "category": "grain"
     },
     {
+      "slug": "pasta-water",
+      "category": "liquid"
+    },
+    {
       "slug": "peanut-butter",
       "category": "condiment"
     },
