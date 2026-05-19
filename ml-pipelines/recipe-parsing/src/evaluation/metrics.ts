@@ -372,12 +372,29 @@ export function evaluateIngredientParsing(
   const prepScores: F1Scores[] = [];
 
   for (const slug of commonSlugs) {
-    const preds = predIngredients.get(slug)!;
+    const preds = [...predIngredients.get(slug)!];
     const exps = expIngredients.get(slug)!;
     const pairCount = Math.min(preds.length, exps.length);
-    for (let i = 0; i < pairCount; i++) {
-      const pred = preds[i]!;
-      const exp = exps[i]!;
+
+    // Greedy best-match pairing: for each expected entry, find the predicted
+    // entry with the highest field similarity to avoid order-sensitive mismatches
+    // when a slug appears more than once.
+    for (let e = 0; e < pairCount; e++) {
+      const exp = exps[e]!;
+      let bestIdx = 0;
+      let bestScore = -1;
+      for (let p = 0; p < preds.length; p++) {
+        const pred = preds[p]!;
+        const score =
+          exactMatch(pred.amount, exp.amount) +
+          exactMatch(pred.unit, exp.unit) +
+          computeWordOverlapF1(pred.preparation ?? "", exp.preparation ?? "").f1;
+        if (score > bestScore) {
+          bestScore = score;
+          bestIdx = p;
+        }
+      }
+      const pred = preds.splice(bestIdx, 1)[0]!;
       nameScores.push({ precision: 1, recall: 1, f1: 1 });
       amountAccuracies.push(exactMatch(pred.amount, exp.amount));
       unitAccuracies.push(exactMatch(pred.unit, exp.unit));
@@ -398,7 +415,7 @@ export function evaluateIngredientParsing(
   // and preparation text penalise the overall ingredient score.  Field quality
   // can reduce the score by up to half (FIELD_QUALITY_WEIGHT = 0.5).
   const FIELD_QUALITY_WEIGHT = 0.5;
-  const fieldQuality = nameScores.length > 0
+  const fieldQuality = commonSlugs.size > 0
     ? avg([fieldScores.amount.accuracy, fieldScores.unit.accuracy, fieldScores.preparation.f1])
     : 1;
   const fieldScale = 1 - FIELD_QUALITY_WEIGHT + FIELD_QUALITY_WEIGHT * fieldQuality;

@@ -39,23 +39,23 @@ export function NormalizationListView({
       const key = gt.images.join("\0");
       const predicted =
         predictions?.entries.find((e) => e.images.join("\0") === key)?.predicted ?? null;
-      const annotated = gt.expectedNormalization != null;
+      const expDerived = gt.expectedNormalization
+        ? deriveNormalizedRecipe(gt.expectedNormalization).recipe
+        : null;
+      const annotated = expDerived != null;
 
       let score: number | null = null;
       if (annotated && predicted) {
-        const expDerived = deriveNormalizedRecipe(gt.expectedNormalization!).recipe;
-        if (expDerived) {
-          const scalar = evaluateScalarFields(predicted, expDerived);
-          const ingredients = evaluateIngredientParsing(predicted, expDerived);
-          const instructions = evaluateInstructions(predicted, expDerived);
-          const equipment = evaluateEquipmentParsing(predicted, expDerived);
-          score = computeEntryScores(
-            scalar,
-            ingredients,
-            instructions,
-            equipment,
-          ).overall;
-        }
+        const scalar = evaluateScalarFields(predicted, expDerived);
+        const ingredients = evaluateIngredientParsing(predicted, expDerived);
+        const instructions = evaluateInstructions(predicted, expDerived);
+        const equipment = evaluateEquipmentParsing(predicted, expDerived);
+        score = computeEntryScores(
+          scalar,
+          ingredients,
+          instructions,
+          equipment,
+        ).overall;
       }
 
       return {
