@@ -32,6 +32,10 @@ import {
   computeRougeL,
   computeWordErrorRate,
 } from "../../../../src/evaluation/metrics.js";
+import type {
+  GroundTruthEntry as MetricsGroundTruthEntry,
+  PredictionEntry as MetricsPredictionEntry,
+} from "../../../../src/schemas/ground-truth.js";
 import { extractionToRecipe } from "../../../../src/lib/extraction-to-recipe.js";
 import { flattenExtractionText } from "../../../../src/lib/extraction-text.js";
 import type {
@@ -832,8 +836,8 @@ export function StatsView({ onSelectCanonicalizeEntry }: StatsViewProps) {
 
     try {
       const { metrics } = aggregateMetrics(
-        predictions as never,
-        gtForEval as never,
+        predictions as MetricsPredictionEntry[],
+        gtForEval as MetricsGroundTruthEntry[],
         EXTRACTION_SCORING_PROFILE,
       );
 
@@ -886,7 +890,7 @@ export function StatsView({ onSelectCanonicalizeEntry }: StatsViewProps) {
 
     // Build ground truth with expected derived from expectedNormalization,
     // matching the pipeline's evaluate-normalization stage.
-    const groundTruthForEval: { images: string[]; expected: ReturnType<typeof deriveNormalizedRecipe>["recipe"] }[] = [];
+    const groundTruthForEval: MetricsGroundTruthEntry[] = [];
     for (const gt of groundTruth.entries) {
       if (!gt.expectedNormalization) continue;
       const expDerived = deriveNormalizedRecipe(gt.expectedNormalization).recipe;
@@ -898,8 +902,8 @@ export function StatsView({ onSelectCanonicalizeEntry }: StatsViewProps) {
 
     try {
       const { metrics } = aggregateMetrics(
-        normalizedPredictions.entries as never,
-        groundTruthForEval as never,
+        normalizedPredictions.entries as MetricsPredictionEntry[],
+        groundTruthForEval,
       );
       return metrics as unknown as StageMetrics;
     } catch {
