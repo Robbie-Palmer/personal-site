@@ -227,6 +227,10 @@ export async function normalizeExtractionToCooklang(params: {
     "- If multiple actions are crammed into one step, split them into separate steps.\n" +
     "- Each instruction step MUST be separated by a blank line (two newlines: \\n\\n) in the body. " +
     "Consecutive lines without a blank line between them are treated as a single step by the Cooklang parser.\n" +
+    "- If the extraction contains multiple named ingredient groups, preserve them as Cooklang section headers " +
+    "using == Group Name == syntax. Place each header on its own line before that group's ingredient lines. " +
+    "Strip leading 'For the' / 'For The' prefixes from group names. " +
+    "If there is only one unnamed group, do not add a section header.\n" +
     "- In the body, use Cooklang annotations: @ingredient name{amount%unit}, #cookware{}, and ~{duration%unit} for timers.\n" +
     "  Timers MUST use the format ~{duration%unit} with the number and unit inside braces separated by %. " +
     "Write ~{5%minutes}, ~{1%hour}, ~{30%seconds}. " +
@@ -299,6 +303,10 @@ export async function generateCooklangFromStructuredText(params: {
     "Equipment names in #cookware{} must be generic base nouns — no size or material adjectives. " +
     "Write 'in a large #saucepan{}' not '#large saucepan{}'. Keep adjectives in the prose. " +
     "Each instruction step MUST be separated by a blank line (\\n\\n) in the body — consecutive lines without a blank line are a single step. " +
+    "If the extraction contains multiple named ingredient sections, preserve them as Cooklang section headers " +
+    "using == Group Name == syntax. Place each header on its own line before that group's ingredient lines. " +
+    "Strip leading 'For the' / 'For The' prefixes from group names. " +
+    "If there is only one unnamed section, do not add a section header. " +
     "In frontmatter ingredientAnnotations, use lowercase-hyphenated slugs as keys (e.g. 'olive-oil'). " +
     "Cuisine must be a JSON array of strings, e.g. [\"British\", \"Chinese\"]. Do not fuse cuisines with hyphens. For example, write [\"Italian\", \"American\"] not [\"Italian-American\"]. " +
     "Infer missing cuisine only when there is strong evidence. " +

@@ -373,6 +373,10 @@
       "category": "condiment"
     },
     {
+      "slug": "taco-seasoning",
+      "category": "spice"
+    },
+    {
       "slug": "tikka-curry-powder",
       "category": "spice"
     },
@@ -385,7 +389,7 @@
       "category": "vegetable"
     },
     {
-      "slug": "tortilla-wraps",
+      "slug": "tortilla-wrap",
       "category": "grain"
     },
     {

@@ -21,6 +21,7 @@ export const EXACT_ALIASES: Record<string, string> = {
   parsley: "fresh-parsley",
   cheese: "cheddar-cheese",
   cheddar: "cheddar-cheese",
+  "burrito-wrap": "tortilla-wrap",
 };
 
 function tokenize(slug: string): string[] {
