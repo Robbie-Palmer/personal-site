@@ -321,7 +321,9 @@ describe("aggregateMetrics", () => {
         );
 
         expect(defaultScores.overall).toBeLessThan(1);
-        expect(canonicalizationScores.overall).toBe(1);
+        // Ingredient name matches but amount (100 vs 250) and unit (g vs cup)
+        // differ, so field quality penalises the canonicalization score.
+        expect(canonicalizationScores.overall).toBeCloseTo(0.8, 5);
         expect(canonicalizationScores.instructions).toBeLessThan(1);
         expect(canonicalizationScores.equipmentParsing).toBe(1);
     });
@@ -381,9 +383,11 @@ describe("aggregateMetrics", () => {
             CANONICALIZATION_SCORING_PROFILE,
         );
 
-        expect(aggregate.metrics.byCategory.ingredientParsing.f1).toBe(1);
+        // Ingredient name matches but amount (100 vs 999) and unit (g vs cup)
+        // differ, so field quality reduces ingredient F1 from 1.0.
+        expect(aggregate.metrics.byCategory.ingredientParsing.f1).toBeCloseTo(0.667, 2);
         expect(aggregate.metrics.byCategory.scalarFields.cuisine.f1).toBe(1);
         expect(aggregate.metrics.byCategory.equipmentParsing.f1).toBe(0);
-        expect(aggregate.metrics.overall.score).toBeCloseTo(0.7);
+        expect(aggregate.metrics.overall.score).toBeCloseTo(0.5, 1);
     });
 });

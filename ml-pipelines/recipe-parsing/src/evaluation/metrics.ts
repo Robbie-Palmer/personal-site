@@ -94,6 +94,20 @@ export const FULL_RECIPE_SCORING_PROFILE: ScoringProfile = {
   },
 };
 
+export const EXTRACTION_SCORING_PROFILE: ScoringProfile = {
+  name: "extraction",
+  weights: {
+    title: 1,
+    description: 1,
+    cuisine: 1,
+    servings: 1,
+    prepTime: 1,
+    cookTime: 1,
+    ingredientParsing: 6,
+    instructions: 6,
+  },
+};
+
 export const CANONICALIZATION_SCORING_PROFILE: ScoringProfile = {
   name: "canonicalization",
   weights: {
@@ -373,14 +387,27 @@ export function evaluateIngredientParsing(
     }
   }
 
+  const fieldScores = {
+    name: avgF1(nameScores),
+    amount: { accuracy: avg(amountAccuracies) },
+    unit: { accuracy: avg(unitAccuracies) },
+    preparation: avgF1(prepScores),
+  };
+
+  // Scale the identity F1 by field quality so that incorrect amounts, units,
+  // and preparation text penalise the overall ingredient score.  Field quality
+  // can reduce the score by up to half (FIELD_QUALITY_WEIGHT = 0.5).
+  const FIELD_QUALITY_WEIGHT = 0.5;
+  const fieldQuality = nameScores.length > 0
+    ? avg([fieldScores.amount.accuracy, fieldScores.unit.accuracy, fieldScores.preparation.f1])
+    : 1;
+  const fieldScale = 1 - FIELD_QUALITY_WEIGHT + FIELD_QUALITY_WEIGHT * fieldQuality;
+
   return {
-    ...idF1,
-    fieldScores: {
-      name: avgF1(nameScores),
-      amount: { accuracy: avg(amountAccuracies) },
-      unit: { accuracy: avg(unitAccuracies) },
-      preparation: avgF1(prepScores),
-    },
+    precision: idF1.precision * fieldScale,
+    recall: idF1.recall * fieldScale,
+    f1: idF1.f1 * fieldScale,
+    fieldScores,
   };
 }
 

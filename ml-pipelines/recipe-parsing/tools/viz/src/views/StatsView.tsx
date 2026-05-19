@@ -27,14 +27,10 @@ import { deriveNormalizedRecipe } from "../lib/cooklang";
 import {
   aggregateMetrics,
   CANONICALIZATION_SCORING_PROFILE,
+  EXTRACTION_SCORING_PROFILE,
   computeCharErrorRate,
-  computeEntryScores,
   computeRougeL,
   computeWordErrorRate,
-  evaluateEquipmentParsing,
-  evaluateIngredientParsing,
-  evaluateInstructions,
-  evaluateScalarFields,
 } from "../../../../src/evaluation/metrics.js";
 import { extractionToRecipe } from "../../../../src/lib/extraction-to-recipe.js";
 import { flattenExtractionText } from "../../../../src/lib/extraction-text.js";
@@ -838,6 +834,7 @@ export function StatsView({ onSelectCanonicalizeEntry }: StatsViewProps) {
       const { metrics } = aggregateMetrics(
         predictions as never,
         gtForEval as never,
+        EXTRACTION_SCORING_PROFILE,
       );
 
       // Attach text-fidelity diagnostics
@@ -885,68 +882,30 @@ export function StatsView({ onSelectCanonicalizeEntry }: StatsViewProps) {
   }, [groundTruth, extractionPredictions]);
 
   const normalizationClientMetrics: StageMetrics | null = useMemo(() => {
-    if (!groundTruth || !cooklangPredictions) return null;
-    const predMap = new Map(
-      cooklangPredictions.entries.map((e) => [e.images.join("\0"), e.cooklang]),
-    );
-    const allScalar: ReturnType<typeof evaluateScalarFields>[] = [];
-    const allIngredients: ReturnType<typeof evaluateIngredientParsing>[] = [];
-    const allInstructions: ReturnType<typeof evaluateInstructions>[] = [];
-    const allEquipment: ReturnType<typeof evaluateEquipmentParsing>[] = [];
-    const allOverall: number[] = [];
+    if (!groundTruth || !normalizedPredictions) return null;
 
+    // Build ground truth with expected derived from expectedNormalization,
+    // matching the pipeline's evaluate-normalization stage.
+    const groundTruthForEval: { images: string[]; expected: ReturnType<typeof deriveNormalizedRecipe>["recipe"] }[] = [];
     for (const gt of groundTruth.entries) {
       if (!gt.expectedNormalization) continue;
-      const pred = predMap.get(gt.images.join("\0"));
-      if (!pred) continue;
-      const predDerived = deriveNormalizedRecipe(pred).recipe;
       const expDerived = deriveNormalizedRecipe(gt.expectedNormalization).recipe;
-      if (!predDerived || !expDerived) continue;
-
-      const scalar = evaluateScalarFields(predDerived, expDerived);
-      const ingredients = evaluateIngredientParsing(predDerived, expDerived);
-      const instructions = evaluateInstructions(predDerived, expDerived);
-      const equipment = evaluateEquipmentParsing(predDerived, expDerived);
-      const scores = computeEntryScores(
-        scalar,
-        ingredients,
-        instructions,
-        equipment,
-      );
-
-      allScalar.push(scalar);
-      allIngredients.push(ingredients);
-      allInstructions.push(instructions);
-      allEquipment.push(equipment);
-      allOverall.push(scores.overall);
+      if (!expDerived) continue;
+      groundTruthForEval.push({ images: gt.images, expected: expDerived });
     }
 
-    if (allOverall.length === 0) return null;
-    const avg = (vals: number[]) => vals.reduce((a, b) => a + b, 0) / vals.length;
-    const avgF1 = (vals: { f1: number; precision: number; recall: number }[]) => ({
-      f1: avg(vals.map((v) => v.f1)),
-      precision: avg(vals.map((v) => v.precision)),
-      recall: avg(vals.map((v) => v.recall)),
-    });
+    if (groundTruthForEval.length === 0) return null;
 
-    return {
-      overall: { score: avg(allOverall) },
-      byCategory: {
-        scalarFields: {
-          title: avgF1(allScalar.map((s) => s.title)),
-          description: avgF1(allScalar.map((s) => s.description)),
-          cuisine: avgF1(allScalar.map((s) => s.cuisine)),
-          servings: { accuracy: avg(allScalar.map((s) => s.servings.accuracy)) },
-          prepTime: { accuracy: avg(allScalar.map((s) => s.prepTime.accuracy)) },
-          cookTime: { accuracy: avg(allScalar.map((s) => s.cookTime.accuracy)) },
-        },
-        ingredientParsing: avgF1(allIngredients),
-        equipmentParsing: avgF1(allEquipment),
-        instructions: avgF1(allInstructions),
-      },
-      entryCount: allOverall.length,
-    };
-  }, [groundTruth, cooklangPredictions]);
+    try {
+      const { metrics } = aggregateMetrics(
+        normalizedPredictions.entries as never,
+        groundTruthForEval as never,
+      );
+      return metrics as unknown as StageMetrics;
+    } catch {
+      return null;
+    }
+  }, [groundTruth, normalizedPredictions]);
 
   const pipelineNormalizationSkipped =
     normalizationMetrics != null && "skipped" in normalizationMetrics;
