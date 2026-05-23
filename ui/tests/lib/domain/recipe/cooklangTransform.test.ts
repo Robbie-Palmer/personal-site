@@ -67,4 +67,17 @@ describe("buildScaledRecipeParts", () => {
       },
     ]);
   });
+
+  it("maps cooklang-rs short unit forms back to UnitSchema names when scaling", () => {
+    // cooklang-rs normalises `cup` to `c` whenever a scale parameter is
+    // supplied to parse() — even at scale=1. Without aliasing, UnitSchema
+    // would reject "c" and the unit would be dropped from the rendered
+    // ingredient list.
+    const parts = buildScaledRecipeParts(parsedAt(`@mayo{0.5%cup}\n`, 1));
+
+    expect(parts.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "mayo", amount: 0.5, unit: "cup" },
+    ]);
+    expect(parts.instructionSdk.ingredientUnits).toEqual(["cup"]);
+  });
 });

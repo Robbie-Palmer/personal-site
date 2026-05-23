@@ -44,6 +44,18 @@ export type ScaledRecipeParts = {
   cookware: string[];
 };
 
+// cooklang-rs normalises units to canonical short forms whenever a scale
+// parameter is supplied to parse(). Map those back to the names our UnitSchema
+// expects so post-scaling units survive UnitSchema.safeParse().
+const UNIT_ALIASES: Record<string, string> = {
+  c: "cup",
+};
+
+function normalizeCookUnit(raw: string | null | undefined): string | undefined {
+  if (!raw) return undefined;
+  return UNIT_ALIASES[raw] ?? raw;
+}
+
 // getQuantityValue returns NaN for fractions — resolve them from the raw structure.
 function resolveQuantityValue(
   quantity: Ingredient["quantity"],
@@ -139,7 +151,7 @@ function formatInstructionIngredient(
 
   if (amount === undefined) return displayValue;
 
-  const rawUnit = getQuantityUnit(ingredient.quantity);
+  const rawUnit = normalizeCookUnit(getQuantityUnit(ingredient.quantity));
 
   if (rawUnit === "piece") {
     return `${amount} ${displayValue}`;
@@ -170,7 +182,7 @@ function buildIngredientGroupItem(
   const ingSlug = normalizeSlug(ingredient.name) as IngredientSlug;
   const ann = annotations[ingSlug];
   const validAmount = resolveQuantityValue(ingredient.quantity);
-  const unitStr = getQuantityUnit(ingredient.quantity);
+  const unitStr = normalizeCookUnit(getQuantityUnit(ingredient.quantity));
   const unitResult = unitStr
     ? UnitSchema.safeParse(unitStr)
     : { success: false as const };
@@ -273,7 +285,8 @@ export function buildScaledRecipeParts(
     (ingredient) => resolveQuantityValue(ingredient.quantity) ?? null,
   );
   const ingredientUnits = ingredients.map(
-    (ingredient) => getQuantityUnit(ingredient.quantity) ?? null,
+    (ingredient) =>
+      normalizeCookUnit(getQuantityUnit(ingredient.quantity)) ?? null,
   );
   const cookwareDisplayValues = cookware.map(formatCookwareDisplay);
   const timerDisplayValues = timers.map(formatTimerDisplay);
