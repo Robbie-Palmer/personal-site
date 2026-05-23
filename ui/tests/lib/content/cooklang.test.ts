@@ -82,7 +82,7 @@ Heat the remaining @olive oil{30%ml} in the same #pan{}.
     const recipe = parseCookFile(
       makeCookFile(`== Main ==
 
-Add @garlic{2%cloves}, @bread{3%slices}, @stock{2%litres}, and @milk{1%pints}.
+Add @garlic{2%cloves}, @bread{3%slices}, @stock{2%litres}, @milk{1%pints}, @sugar{2%tbsps}, and @salt{3%tsps}.
 `),
       "test-recipe",
     );
@@ -95,6 +95,8 @@ Add @garlic{2%cloves}, @bread{3%slices}, @stock{2%litres}, and @milk{1%pints}.
           { ingredient: "bread", amount: 3, unit: "slice" },
           { ingredient: "stock", amount: 2, unit: "l" },
           { ingredient: "milk", amount: 1, unit: "pint" },
+          { ingredient: "sugar", amount: 2, unit: "tbsp" },
+          { ingredient: "salt", amount: 3, unit: "tsp" },
         ],
       },
     ]);
@@ -103,9 +105,11 @@ Add @garlic{2%cloves}, @bread{3%slices}, @stock{2%litres}, and @milk{1%pints}.
       "slice",
       "l",
       "pint",
+      "tbsp",
+      "tsp",
     ]);
     expect(recipe.instructions).toEqual([
-      "Add 2 cloves of garlic, 3 slices of bread, 2l of stock, and 1 pint of milk.",
+      "Add 2 cloves of garlic, 3 slices of bread, 2l of stock, 1 pint of milk, 2 tbsp of sugar, and 3 tsp of salt.",
     ]);
   });
 });

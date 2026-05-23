@@ -186,6 +186,8 @@ describe("cooklang helpers", () => {
             "2 kilograms potatoes",
             "3 litres stock",
             "2 pints milk",
+            "2 tbsps sugar",
+            "3 tsps salt",
             "4 cloves garlic",
             "3 slices bread",
           ],
@@ -200,6 +202,8 @@ describe("cooklang helpers", () => {
       { ingredient: "potatoes", amount: 2, unit: "kg" },
       { ingredient: "stock", amount: 3, unit: "l" },
       { ingredient: "milk", amount: 2, unit: "pint" },
+      { ingredient: "sugar", amount: 2, unit: "tbsp" },
+      { ingredient: "salt", amount: 3, unit: "tsp" },
       { ingredient: "garlic", amount: 4, unit: "clove" },
       { ingredient: "bread", amount: 3, unit: "slice" },
     ]);
