@@ -6,7 +6,12 @@ export const ingredients: IngredientContent[] = [
   { name: "turkey mince", category: "protein" },
   { name: "chorizo", category: "protein" },
   { name: "bacon", category: "protein" },
-  { name: "pork sausages", category: "protein" },
+  {
+    name: "pork sausage",
+    pluralName: "pork sausages",
+    slug: "pork-sausage",
+    category: "protein",
+  },
 
   // Vegetables
   { name: "white onion", category: "vegetable" },
@@ -23,12 +28,16 @@ export const ingredients: IngredientContent[] = [
   { name: "garlic puree", category: "vegetable" },
   { name: "tomato puree", category: "vegetable" },
   { name: "frozen peas", category: "vegetable" },
+  { name: "frozen peppers", category: "vegetable" },
   { name: "spinach", category: "vegetable" },
   { name: "vine tomato", category: "vegetable" },
   { name: "spring onion", category: "vegetable" },
   { name: "leek", category: "vegetable" },
   { name: "potato", category: "vegetable" },
   { name: "cherry tomato", category: "vegetable" },
+  { name: "carrot", category: "vegetable" },
+  { name: "sweet potato", category: "vegetable" },
+  { name: "lettuce", category: "vegetable" },
 
   // Legumes
   { name: "mixed beans", category: "legume" },
@@ -41,6 +50,7 @@ export const ingredients: IngredientContent[] = [
 
   // Dairy
   { name: "butter", category: "dairy" },
+  { name: "unsalted butter", category: "dairy" },
   { name: "double cream", category: "dairy" },
   { name: "single cream", category: "dairy" },
   { name: "creme fraiche", category: "dairy" },
@@ -62,12 +72,26 @@ export const ingredients: IngredientContent[] = [
   { name: "pasta", category: "grain" },
   { name: "long grain rice", category: "grain" },
   { name: "paella rice", category: "grain" },
-  { name: "tortilla wraps", category: "grain" },
+  {
+    name: "tortilla wrap",
+    pluralName: "tortilla wraps",
+    slug: "tortilla-wrap",
+    category: "grain",
+  },
   { name: "farfalle", category: "grain" },
   { name: "plain flour", category: "grain" },
   { name: "bread flour", category: "grain" },
   { name: "cornflour", category: "grain" },
   { name: "semolina", category: "grain" },
+  { name: "bread", category: "grain" },
+  { name: "noodles", category: "grain" },
+  {
+    name: "burger bap",
+    pluralName: "burger baps",
+    slug: "bap",
+    category: "grain",
+  },
+  { name: "rolled oats", category: "grain" },
 
   // Herbs
   { name: "fresh basil", category: "herb" },
@@ -75,6 +99,8 @@ export const ingredients: IngredientContent[] = [
   { name: "fresh parsley", category: "herb" },
   { name: "fresh coriander", category: "herb" },
   { name: "oregano", category: "herb" },
+  { name: "thyme", category: "herb" },
+  { name: "italian herbs", category: "herb" },
 
   // Spices & Seasonings
   { name: "curry powder", category: "spice" },
@@ -87,10 +113,13 @@ export const ingredients: IngredientContent[] = [
   { name: "chilli flakes", category: "spice" },
   { name: "tikka curry powder", category: "spice" },
   { name: "italian seasoning", category: "spice" },
+  { name: "red chilli powder", category: "spice" },
   { name: "salt", category: "spice" },
+  { name: "sea salt", category: "spice" },
   { name: "black pepper", category: "spice" },
   { name: "peri peri salt", category: "spice" },
   { name: "cajun seasoning", category: "spice" },
+  { name: "taco seasoning", category: "spice" },
   { name: "MSG", category: "spice" },
   { name: "five spice", category: "spice" },
   { name: "white pepper", category: "spice" },
@@ -99,8 +128,11 @@ export const ingredients: IngredientContent[] = [
   { name: "saffron", category: "spice" },
   { name: "cumin", category: "spice" },
   { name: "garlic granules", category: "spice" },
+  { name: "garlic powder", category: "spice" },
   { name: "onion salt", category: "spice" },
   { name: "fajita and taco mix", category: "spice" },
+  { name: "chilli powder", category: "spice" },
+  { name: "ginger", category: "spice" },
 
   // Condiments & Sauces
   { name: "basil pesto", category: "condiment" },
@@ -113,6 +145,12 @@ export const ingredients: IngredientContent[] = [
   { name: "mayonnaise", category: "condiment" },
   { name: "guacamole mix", category: "condiment" },
   { name: "sun-dried tomato pesto", category: "condiment" },
+  { name: "hoisin sauce", category: "condiment" },
+  { name: "dark soy sauce", category: "condiment" },
+  { name: "light soy sauce", category: "condiment" },
+  { name: "rice wine vinegar", category: "condiment" },
+  { name: "peri peri sauce", category: "condiment" },
+  { name: "harissa paste", category: "condiment" },
 
   // Sweets
   { name: "sugar", category: "sweets" },
@@ -128,12 +166,15 @@ export const ingredients: IngredientContent[] = [
   { name: "olive oil", category: "oil-fat" },
   { name: "extra virgin olive oil", category: "oil-fat" },
   { name: "coconut milk", category: "oil-fat" },
+  { name: "margarine", category: "oil-fat" },
 
   // Liquids
   { name: "chicken stock", category: "liquid" },
   { name: "vegetable stock", category: "liquid" },
+  { name: "pasta water", category: "liquid" },
   { name: "white wine", category: "liquid" },
   { name: "water", category: "liquid" },
+  { name: "orange juice", category: "liquid" },
 
   // Other
   { name: "dry yeast", category: "other" },
