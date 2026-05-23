@@ -1,10 +1,11 @@
 "use client";
 
-import { Clock, Minus, Plus, Timer, Users } from "lucide-react";
+import { Clock, Loader2, Minus, Plus, Timer, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { InlineTimer } from "@/components/recipes/inline-timer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useScaledRecipe } from "@/hooks/use-scaled-recipe";
 import {
   formatIngredientName,
   getDisplayedScaledAmount,
@@ -239,18 +240,23 @@ function IngredientGroup({
 export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
   const baseServings = Math.max(1, recipe.servings);
   const [portions, setPortions] = useState(baseServings);
-  const scale = portions / baseServings;
+  const requestedScale = portions / baseServings;
+  const {
+    view: effectiveRecipe,
+    scaleMultiplier: scale,
+    isScaling,
+  } = useScaledRecipe(recipe, requestedScale);
   const ingredientAnnotations = useMemo(
-    () => buildIngredientAnnotationMap(recipe.ingredientGroups),
-    [recipe.ingredientGroups],
+    () => buildIngredientAnnotationMap(effectiveRecipe.ingredientGroups),
+    [effectiveRecipe.ingredientGroups],
   );
 
   const instructionTokenization = useMemo(
     () =>
-      recipe.instructionSdk
-        ? tokenizeInstructionSdk(recipe.instructionSdk)
+      effectiveRecipe.instructionSdk
+        ? tokenizeInstructionSdk(effectiveRecipe.instructionSdk)
         : null,
-    [recipe.instructionSdk],
+    [effectiveRecipe.instructionSdk],
   );
   const shouldUseSdkInstructions = instructionTokenization?.ok === true;
   const repeatedInstructionIngredients = useMemo(() => {
@@ -277,14 +283,18 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
   useEffect(() => {
     if (
       process.env.NODE_ENV !== "production" &&
-      recipe.instructionSdk &&
+      effectiveRecipe.instructionSdk &&
       instructionTokenization?.ok === false
     ) {
       console.debug(
-        `[RecipeContent] Falling back to canonical instructions for "${recipe.slug}": ${instructionTokenization.reason}`,
+        `[RecipeContent] Falling back to canonical instructions for "${effectiveRecipe.slug}": ${instructionTokenization.reason}`,
       );
     }
-  }, [recipe.instructionSdk, recipe.slug, instructionTokenization]);
+  }, [
+    effectiveRecipe.instructionSdk,
+    effectiveRecipe.slug,
+    instructionTokenization,
+  ]);
 
   return (
     <>
@@ -318,6 +328,12 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
               >
                 <Plus className="h-3 w-3" />
               </Button>
+              {isScaling && (
+                <Loader2
+                  className="h-3 w-3 animate-spin text-muted-foreground"
+                  aria-label="Scaling recipe"
+                />
+              )}
             </div>
           </div>
           {recipe.prepTime != null && (
@@ -354,7 +370,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
       <section className="mb-8">
         <h2 className="text-2xl font-bold mb-4">Ingredients</h2>
         <div className="space-y-4">
-          {recipe.ingredientGroups.map((group, i) => (
+          {effectiveRecipe.ingredientGroups.map((group, i) => (
             <IngredientGroup
               key={group.name ?? i}
               group={group}
@@ -365,11 +381,11 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
         </div>
       </section>
 
-      {recipe.cookware.length > 0 && (
+      {effectiveRecipe.cookware.length > 0 && (
         <section className="mb-8">
           <h2 className="text-2xl font-bold mb-4">Equipment</h2>
           <ul className="space-y-1">
-            {recipe.cookware.map((item) => (
+            {effectiveRecipe.cookware.map((item) => (
               <li key={item} className="flex items-start gap-2">
                 <span className="text-muted-foreground mt-1.5 h-1.5 w-1.5 rounded-full bg-current flex-shrink-0" />
                 <span>{item}</span>
@@ -404,7 +420,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                   ))}
                 </li>
               ))
-            : recipe.instructions.map((step, i) => (
+            : effectiveRecipe.instructions.map((step, i) => (
                 <li key={i} className="leading-relaxed pl-2">
                   {step}
                 </li>
