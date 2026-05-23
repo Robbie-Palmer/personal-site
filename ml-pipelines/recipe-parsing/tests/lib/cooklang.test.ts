@@ -172,6 +172,39 @@ describe("cooklang helpers", () => {
     ]);
   });
 
+  it("normalizes plural and full-word units from structured ingredient lines", () => {
+    const cooklang = buildCooklangDraftFromExtraction({
+      title: "Pantry Mix",
+      description: "Unit coverage.",
+      cuisine: [],
+      servings: "2",
+      ingredientGroups: [
+        {
+          name: "Main",
+          lines: [
+            "200 grams flour",
+            "2 kilograms potatoes",
+            "3 litres stock",
+            "2 pints milk",
+            "4 cloves garlic",
+            "3 slices bread",
+          ],
+        },
+      ],
+      instructions: ["Cook everything together."],
+      equipment: [],
+    });
+
+    expect(cooklang.derived?.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "flour", amount: 200, unit: "g" },
+      { ingredient: "potatoes", amount: 2, unit: "kg" },
+      { ingredient: "stock", amount: 3, unit: "l" },
+      { ingredient: "milk", amount: 2, unit: "pint" },
+      { ingredient: "garlic", amount: 4, unit: "clove" },
+      { ingredient: "bread", amount: 3, unit: "slice" },
+    ]);
+  });
+
   it("dedupes quantified and bare Cooklang ingredients by normalized name", () => {
     const derived = deriveRecipeFromCooklang({
       frontmatter: {

@@ -16,8 +16,9 @@ import {
   createIngredientGroupAccumulator,
   mergeIngredientIntoGroup,
 } from "recipe-domain";
+import { normalizeUnitToken } from "recipe-domain";
 import type { ExtractionRecipe, Recipe } from "../schemas/ground-truth.js";
-import { UnitSchema, type RecipeIngredient } from "recipe-domain";
+import type { RecipeIngredient } from "recipe-domain";
 import type {
   CooklangFrontmatter,
   CooklangRecipe,
@@ -139,34 +140,6 @@ function inferStructuredTextServings(
         ? `Structured extraction inferred unparseable servings as ${DEFAULT_INFERRED_SERVINGS}.`
         : `Structured extraction inferred missing servings as ${DEFAULT_INFERRED_SERVINGS}.`,
   };
-}
-
-function normalizeUnitToken(unit: string | undefined): RecipeIngredient["unit"] | undefined {
-  if (!unit) return undefined;
-  const normalized = unit.trim().toLowerCase();
-  const aliases: Record<string, string> = {
-    oz: "oz",
-    ounce: "oz",
-    ounces: "oz",
-    can: "tin",
-    cans: "tin",
-    tbsp: "tbsp",
-    tbsps: "tbsp",
-    tablespoon: "tbsp",
-    tablespoons: "tbsp",
-    tsp: "tsp",
-    tsps: "tsp",
-    teaspoon: "tsp",
-    teaspoons: "tsp",
-    bag: "bag",
-    bags: "bag",
-    pk: "piece",
-    pack: "piece",
-    packs: "piece",
-  };
-  const candidate = aliases[normalized] ?? normalized;
-  const parsed = UnitSchema.safeParse(candidate);
-  return parsed.success ? parsed.data : undefined;
 }
 
 function ingredientToCooklang(item: RecipeIngredient): string {

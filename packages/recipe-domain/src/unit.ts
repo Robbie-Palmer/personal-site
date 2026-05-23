@@ -56,6 +56,57 @@ export const UNIT_LABELS: Record<Unit, UnitLabel> = {
   bag: { singular: "bag", plural: "bags" },
 };
 
+const EXPLICIT_UNIT_ALIASES: Partial<Record<string, Unit>> = {
+  c: "cup",
+  gram: "g",
+  grams: "g",
+  kilogram: "kg",
+  kilograms: "kg",
+  millilitre: "ml",
+  millilitres: "ml",
+  milliliter: "ml",
+  milliliters: "ml",
+  litre: "l",
+  litres: "l",
+  liter: "l",
+  liters: "l",
+  ounce: "oz",
+  ounces: "oz",
+  tablespoon: "tbsp",
+  tablespoons: "tbsp",
+  teaspoon: "tsp",
+  teaspoons: "tsp",
+  can: "tin",
+  cans: "tin",
+  pk: "piece",
+  pack: "piece",
+  packs: "piece",
+};
+
+const NORMALIZED_UNIT_ALIASES: Record<string, Unit> = (() => {
+  const aliases: Record<string, Unit> = { ...EXPLICIT_UNIT_ALIASES } as Record<
+    string,
+    Unit
+  >;
+
+  for (const [unit, labels] of Object.entries(UNIT_LABELS) as Array<
+    [Unit, UnitLabel]
+  >) {
+    aliases[unit] = unit;
+    aliases[labels.singular.toLowerCase()] = unit;
+    aliases[labels.plural.toLowerCase()] = unit;
+  }
+
+  return aliases;
+})();
+
+export function normalizeUnitToken(token: string | undefined): Unit | undefined {
+  if (!token) return undefined;
+  const normalized = token.trim().toLowerCase();
+  if (!normalized) return undefined;
+  return NORMALIZED_UNIT_ALIASES[normalized];
+}
+
 export type UnitCategory = "weight" | "volume" | "spoon" | "discrete";
 
 export const UNIT_CATEGORIES: Record<Unit, UnitCategory> = {
