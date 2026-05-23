@@ -111,9 +111,9 @@ async function normalizeEntryWithRetries(params: {
         requestTimeoutMs: params.requestTimeoutMs,
       });
 
-      const derived = cooklang.derived
-        ? cooklang
-        : deriveRecipeFromCooklang(cooklang);
+      // Always re-derive from the body to ensure slug normalization is applied.
+      // The LLM may include a `derived` field but it won't have normalized slugs.
+      const derived = deriveRecipeFromCooklang({ ...cooklang, derived: undefined });
 
       if (!derived.derived) {
         // LLM produced cooklang but derivation failed — use draft fallback

@@ -397,6 +397,7 @@ export function NormalizationDetailView({
               predicted={predictedNormalization}
               expectedCookware={edited.body ? extractCookwareFromBody(edited.body) : []}
               predictedCookware={predictedCooklang?.body ? extractCookwareFromBody(predictedCooklang.body) : []}
+              scalarFields={["title", "cuisine", "servings", "prepTime", "cookTime"]}
             />
           ) : edited ? (
             <div className="bg-white rounded-lg border border-gray-200 p-5 text-sm text-gray-500">

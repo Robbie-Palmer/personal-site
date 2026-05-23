@@ -10,6 +10,7 @@ import {
   evaluateIngredientParsing,
   evaluateInstructions,
   evaluateScalarFields,
+  EXTRACTION_SCORING_PROFILE,
 } from "../../../../src/evaluation/metrics.js";
 import { extractionToRecipe } from "../../../../src/lib/extraction-to-recipe.js";
 import type {
@@ -72,7 +73,7 @@ export function ExtractionListView({
         const ingredients = evaluateIngredientParsing(predRecipe as never, expRecipe as never);
         const instructions = evaluateInstructions(predRecipe as never, expRecipe as never);
         const equipment = evaluateEquipmentParsing(predRecipe as never, expRecipe as never);
-        score = computeEntryScores(scalar, ingredients, instructions, equipment).overall;
+        score = computeEntryScores(scalar, ingredients, instructions, equipment, EXTRACTION_SCORING_PROFILE).overall;
       } else {
         score = pipelineScore;
       }

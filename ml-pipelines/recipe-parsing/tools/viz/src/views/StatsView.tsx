@@ -27,6 +27,7 @@ import {
   aggregateMetrics,
   CANONICALIZATION_SCORING_PROFILE,
   EXTRACTION_SCORING_PROFILE,
+  NORMALIZATION_SCORING_PROFILE,
   computeCharErrorRate,
   computeRougeL,
   computeWordErrorRate,
@@ -901,6 +902,7 @@ export function StatsView({ onSelectCanonicalizeEntry }: StatsViewProps) {
     const { metrics } = aggregateMetrics(
       normalizedPredictions.entries as MetricsPredictionEntry[],
       groundTruthForEval,
+      NORMALIZATION_SCORING_PROFILE,
     );
     return metrics as unknown as StageMetrics;
   }, [groundTruth, normalizedPredictions]);

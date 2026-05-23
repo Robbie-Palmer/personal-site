@@ -108,6 +108,20 @@ export const EXTRACTION_SCORING_PROFILE: ScoringProfile = {
   },
 };
 
+export const NORMALIZATION_SCORING_PROFILE: ScoringProfile = {
+  name: "normalization",
+  weights: {
+    title: 1,
+    cuisine: 1,
+    servings: 1,
+    prepTime: 1,
+    cookTime: 1,
+    ingredientParsing: 6,
+    instructions: 6,
+    equipmentParsing: 6,
+  },
+};
+
 export const CANONICALIZATION_SCORING_PROFILE: ScoringProfile = {
   name: "canonicalization",
   weights: {
