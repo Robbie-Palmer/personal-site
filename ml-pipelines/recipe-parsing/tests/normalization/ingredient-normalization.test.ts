@@ -103,6 +103,16 @@ describe("canonicalizeIngredientSlug", () => {
       ontology: new Set(["cheddar-cheese"]),
       expected: "cheddar-cheese",
     },
+    {
+      rawSlug: "scallion",
+      ontology: new Set(["spring-onion"]),
+      expected: "spring-onion",
+    },
+    {
+      rawSlug: "scallions",
+      ontology: new Set(["spring-onion"]),
+      expected: "spring-onion",
+    },
   ])(
     "should apply safe deterministic cleanup rules for $rawSlug",
     ({ rawSlug, ontology, expected }) => {

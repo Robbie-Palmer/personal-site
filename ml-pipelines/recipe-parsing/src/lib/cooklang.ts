@@ -148,6 +148,8 @@ function normalizeUnitToken(unit: string | undefined): RecipeIngredient["unit"] 
     oz: "oz",
     ounce: "oz",
     ounces: "oz",
+    can: "tin",
+    cans: "tin",
     tbsp: "tbsp",
     tbsps: "tbsp",
     tablespoon: "tbsp",

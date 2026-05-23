@@ -151,6 +151,27 @@ describe("cooklang helpers", () => {
     ]);
   });
 
+  it("normalizes can units to tin from structured ingredient lines", () => {
+    const cooklang = buildCooklangDraftFromExtraction({
+      title: "Tomato Soup",
+      description: "Pantry version.",
+      cuisine: [],
+      servings: "2",
+      ingredientGroups: [
+        {
+          name: "Main",
+          lines: ["1 can chopped tomatoes"],
+        },
+      ],
+      instructions: ["Cook everything together."],
+      equipment: [],
+    });
+
+    expect(cooklang.derived?.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "chopped-tomatoes", amount: 1, unit: "tin" },
+    ]);
+  });
+
   it("dedupes quantified and bare Cooklang ingredients by normalized name", () => {
     const derived = deriveRecipeFromCooklang({
       frontmatter: {
