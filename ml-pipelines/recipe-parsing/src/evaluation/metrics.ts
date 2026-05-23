@@ -94,6 +94,9 @@ export const FULL_RECIPE_SCORING_PROFILE: ScoringProfile = {
   },
 };
 
+// Profiles are intentionally stage-specific. Overall scores should only be
+// compared within the same stage, because each stage is responsible for a
+// different subset of recipe quality.
 export const EXTRACTION_SCORING_PROFILE: ScoringProfile = {
   name: "extraction",
   weights: {
@@ -108,6 +111,27 @@ export const EXTRACTION_SCORING_PROFILE: ScoringProfile = {
   },
 };
 
+// Normalization evaluates the fully derived recipe structure, including
+// cookware extracted from Cooklang/body. It intentionally omits description,
+// which is treated as part of extraction/frontmatter capture rather than a
+// normalization concern.
+export const NORMALIZATION_SCORING_PROFILE: ScoringProfile = {
+  name: "normalization",
+  weights: {
+    title: 1,
+    cuisine: 1,
+    servings: 1,
+    prepTime: 1,
+    cookTime: 1,
+    ingredientParsing: 6,
+    instructions: 6,
+    equipmentParsing: 6,
+  },
+};
+
+// Canonicalization only scores the fields that this stage is expected to
+// change, so its overall score is intentionally not comparable to extraction
+// or normalization overall scores.
 export const CANONICALIZATION_SCORING_PROFILE: ScoringProfile = {
   name: "canonicalization",
   weights: {

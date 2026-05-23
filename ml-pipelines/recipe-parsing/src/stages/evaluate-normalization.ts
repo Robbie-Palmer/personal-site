@@ -5,7 +5,7 @@ import {
   NORMALIZATION_METRICS_PATH,
   NORMALIZATION_PER_IMAGE_SCORES_PATH,
 } from "../lib/io";
-import { aggregateMetrics } from "../evaluation/metrics";
+import { aggregateMetrics, NORMALIZATION_SCORING_PROFILE } from "../evaluation/metrics";
 import { imageSetKey } from "../lib/image-key.js";
 import { deriveRecipeFromCooklang } from "../lib/cooklang.js";
 import type {
@@ -80,6 +80,7 @@ async function main() {
   const { metrics, perEntry } = aggregateMetrics(
     matchedPredictions,
     groundTruthForEval,
+    NORMALIZATION_SCORING_PROFILE,
   );
   const missingCount = perEntry.filter((entry) => entry.missingPrediction).length;
 

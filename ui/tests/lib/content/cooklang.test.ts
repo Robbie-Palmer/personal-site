@@ -77,4 +77,39 @@ Heat the remaining @olive oil{30%ml} in the same #pan{}.
       ),
     ).toThrow(/Conflicting duplicate ingredient "olive-oil"/);
   });
+
+  it("normalizes plural and full-word ingredient units from cooklang content", () => {
+    const recipe = parseCookFile(
+      makeCookFile(`== Main ==
+
+Add @garlic{2%cloves}, @bread{3%slices}, @stock{2%litres}, @milk{1%pints}, @sugar{2%tbsps}, and @salt{3%tsps}.
+`),
+      "test-recipe",
+    );
+
+    expect(recipe.ingredientGroups).toEqual([
+      {
+        name: "Main",
+        items: [
+          { ingredient: "garlic", amount: 2, unit: "clove" },
+          { ingredient: "bread", amount: 3, unit: "slice" },
+          { ingredient: "stock", amount: 2, unit: "l" },
+          { ingredient: "milk", amount: 1, unit: "pint" },
+          { ingredient: "sugar", amount: 2, unit: "tbsp" },
+          { ingredient: "salt", amount: 3, unit: "tsp" },
+        ],
+      },
+    ]);
+    expect(recipe.instructionSdk?.ingredientUnits).toEqual([
+      "clove",
+      "slice",
+      "l",
+      "pint",
+      "tbsp",
+      "tsp",
+    ]);
+    expect(recipe.instructions).toEqual([
+      "Add 2 cloves of garlic, 3 slices of bread, 2l of stock, 1 pint of milk, 2 tbsp of sugar, and 3 tsp of salt.",
+    ]);
+  });
 });

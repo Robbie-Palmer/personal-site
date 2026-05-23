@@ -10,6 +10,7 @@ import {
   evaluateIngredientParsing,
   evaluateInstructions,
   evaluateScalarFields,
+  NORMALIZATION_SCORING_PROFILE,
 } from "../../../../src/evaluation/metrics.js";
 import type {
   GroundTruthDataset,
@@ -55,6 +56,7 @@ export function NormalizationListView({
           ingredients,
           instructions,
           equipment,
+          NORMALIZATION_SCORING_PROFILE,
         ).overall;
       }
 

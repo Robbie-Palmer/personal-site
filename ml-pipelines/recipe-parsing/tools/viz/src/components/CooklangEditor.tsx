@@ -47,6 +47,16 @@ export function CooklangEditor({
     return [...set].sort();
   }, [bodySlugs, value.frontmatter.ingredientAnnotations]);
 
+  function renameAnnotation(oldSlug: string, newSlug: string) {
+    const current = value.frontmatter.ingredientAnnotations ?? {};
+    const entry = current[oldSlug];
+    if (!entry) return;
+    const next = { ...current };
+    delete next[oldSlug];
+    next[newSlug] = entry;
+    updateFrontmatter("ingredientAnnotations", next);
+  }
+
   function updateAnnotation(
     slug: string,
     field: "preparation" | "note",
@@ -200,14 +210,34 @@ export function CooklangEditor({
                       isOrphaned ? "bg-amber-50" : ""
                     }`}
                   >
-                    <span
-                      className={`text-xs font-mono truncate ${
-                        isOrphaned ? "text-amber-600 italic" : "text-gray-700"
-                      }`}
-                      title={isOrphaned ? "Not found in body" : slug}
-                    >
-                      {slug}
-                    </span>
+                    {ann ? (
+                      <input
+                        type="text"
+                        defaultValue={slug}
+                        onBlur={(e) => {
+                          const newSlug = e.target.value.trim();
+                          if (newSlug && newSlug !== slug) {
+                            renameAnnotation(slug, newSlug);
+                          } else {
+                            e.target.value = slug;
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") e.currentTarget.blur();
+                        }}
+                        className={`w-full px-1.5 py-1 text-xs font-mono border border-gray-200 rounded outline-none focus:border-blue-400 ${
+                          isOrphaned ? "text-amber-600 italic" : "text-gray-700"
+                        }`}
+                        title={isOrphaned ? "Not found in body — rename to match" : slug}
+                      />
+                    ) : (
+                      <span
+                        className="text-xs font-mono truncate text-gray-700"
+                        title={slug}
+                      >
+                        {slug}
+                      </span>
+                    )}
                     <input
                       type="text"
                       value={ann?.preparation ?? ""}

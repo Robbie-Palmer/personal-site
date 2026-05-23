@@ -23,7 +23,8 @@ const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 const RECIPE_JSON_SCHEMA = z.toJSONSchema(RecipeSchema);
 const EXTRACTION_RECIPE_JSON_SCHEMA = z.toJSONSchema(ExtractionRecipeSchema);
 const STRUCTURED_TEXT_JSON_SCHEMA = z.toJSONSchema(StructuredTextRecipeSchema);
-const COOKLANG_JSON_SCHEMA = z.toJSONSchema(CooklangRecipeSchema);
+// Omit `derived` — that field is computed by deriveRecipeFromCooklang, not authored by the LLM.
+const COOKLANG_JSON_SCHEMA = z.toJSONSchema(CooklangRecipeSchema.omit({ derived: true }));
 const openRouterClients = new Map<string, OpenAI>();
 
 function getOrCreateOpenRouterClient(apiKey: string): OpenAI {

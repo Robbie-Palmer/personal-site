@@ -129,6 +129,86 @@ describe("cooklang helpers", () => {
     });
   });
 
+  it("normalizes oz and bag units from structured ingredient lines", () => {
+    const cooklang = buildCooklangDraftFromExtraction({
+      title: "Mac and Cheese",
+      description: "Quick stovetop version.",
+      cuisine: [],
+      servings: "2",
+      ingredientGroups: [
+        {
+          name: "Main",
+          lines: ["8oz cheddar cheese", "2 bags spinach"],
+        },
+      ],
+      instructions: ["Cook everything together."],
+      equipment: [],
+    });
+
+    expect(cooklang.derived?.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "cheddar-cheese", amount: 8, unit: "oz" },
+      { ingredient: "spinach", amount: 2, unit: "bag" },
+    ]);
+  });
+
+  it("normalizes can units to tin from structured ingredient lines", () => {
+    const cooklang = buildCooklangDraftFromExtraction({
+      title: "Tomato Soup",
+      description: "Pantry version.",
+      cuisine: [],
+      servings: "2",
+      ingredientGroups: [
+        {
+          name: "Main",
+          lines: ["1 can chopped tomatoes"],
+        },
+      ],
+      instructions: ["Cook everything together."],
+      equipment: [],
+    });
+
+    expect(cooklang.derived?.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "chopped-tomatoes", amount: 1, unit: "tin" },
+    ]);
+  });
+
+  it("normalizes plural and full-word units from structured ingredient lines", () => {
+    const cooklang = buildCooklangDraftFromExtraction({
+      title: "Pantry Mix",
+      description: "Unit coverage.",
+      cuisine: [],
+      servings: "2",
+      ingredientGroups: [
+        {
+          name: "Main",
+          lines: [
+            "200 grams flour",
+            "2 kilograms potatoes",
+            "3 litres stock",
+            "2 pints milk",
+            "2 tbsps sugar",
+            "3 tsps salt",
+            "4 cloves garlic",
+            "3 slices bread",
+          ],
+        },
+      ],
+      instructions: ["Cook everything together."],
+      equipment: [],
+    });
+
+    expect(cooklang.derived?.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "flour", amount: 200, unit: "g" },
+      { ingredient: "potatoes", amount: 2, unit: "kg" },
+      { ingredient: "stock", amount: 3, unit: "l" },
+      { ingredient: "milk", amount: 2, unit: "pint" },
+      { ingredient: "sugar", amount: 2, unit: "tbsp" },
+      { ingredient: "salt", amount: 3, unit: "tsp" },
+      { ingredient: "garlic", amount: 4, unit: "clove" },
+      { ingredient: "bread", amount: 3, unit: "slice" },
+    ]);
+  });
+
   it("dedupes quantified and bare Cooklang ingredients by normalized name", () => {
     const derived = deriveRecipeFromCooklang({
       frontmatter: {

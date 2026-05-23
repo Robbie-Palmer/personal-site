@@ -4,6 +4,7 @@ export const UnitSchema = z.enum([
   // Weight
   "g",
   "kg",
+  "oz",
   // Volume
   "ml",
   "l",
@@ -22,6 +23,7 @@ export const UnitSchema = z.enum([
   "tin",
   "cube",
   "sachet",
+  "bag",
 ]);
 
 export type Unit = z.infer<typeof UnitSchema>;
@@ -36,6 +38,7 @@ export type UnitLabel = {
 export const UNIT_LABELS: Record<Unit, UnitLabel> = {
   g: { singular: "g", plural: "g", noSpace: true },
   kg: { singular: "kg", plural: "kg", noSpace: true },
+  oz: { singular: "oz", plural: "oz" },
   ml: { singular: "ml", plural: "ml", noSpace: true },
   l: { singular: "l", plural: "l", noSpace: true },
   pint: { singular: "pint", plural: "pints" },
@@ -50,13 +53,68 @@ export const UNIT_LABELS: Record<Unit, UnitLabel> = {
   tin: { singular: "tin", plural: "tins" },
   cube: { singular: "cube", plural: "cubes" },
   sachet: { singular: "sachet", plural: "sachets" },
+  bag: { singular: "bag", plural: "bags" },
 };
+
+const EXPLICIT_UNIT_ALIASES: Partial<Record<string, Unit>> = {
+  c: "cup",
+  gram: "g",
+  grams: "g",
+  kilogram: "kg",
+  kilograms: "kg",
+  millilitre: "ml",
+  millilitres: "ml",
+  milliliter: "ml",
+  milliliters: "ml",
+  litre: "l",
+  litres: "l",
+  liter: "l",
+  liters: "l",
+  ounce: "oz",
+  ounces: "oz",
+  tsps: "tsp",
+  tablespoon: "tbsp",
+  tablespoons: "tbsp",
+  tbsps: "tbsp",
+  teaspoon: "tsp",
+  teaspoons: "tsp",
+  can: "tin",
+  cans: "tin",
+  pk: "piece",
+  pack: "piece",
+  packs: "piece",
+};
+
+const NORMALIZED_UNIT_ALIASES: Record<string, Unit> = (() => {
+  const aliases: Record<string, Unit> = { ...EXPLICIT_UNIT_ALIASES } as Record<
+    string,
+    Unit
+  >;
+
+  for (const [unit, labels] of Object.entries(UNIT_LABELS) as Array<
+    [Unit, UnitLabel]
+  >) {
+    aliases[unit] = unit;
+    aliases[labels.singular.toLowerCase()] = unit;
+    aliases[labels.plural.toLowerCase()] = unit;
+  }
+
+  return aliases;
+})();
+
+export function normalizeUnitToken(token: string | undefined): Unit | undefined {
+  if (!token) return undefined;
+  const normalized = token.trim().toLowerCase();
+  if (!normalized) return undefined;
+  return NORMALIZED_UNIT_ALIASES[normalized];
+}
 
 export type UnitCategory = "weight" | "volume" | "spoon" | "discrete";
 
 export const UNIT_CATEGORIES: Record<Unit, UnitCategory> = {
   g: "weight",
   kg: "weight",
+  oz: "weight",
   ml: "volume",
   l: "volume",
   pint: "volume",
@@ -71,4 +129,5 @@ export const UNIT_CATEGORIES: Record<Unit, UnitCategory> = {
   tin: "discrete",
   cube: "discrete",
   sachet: "discrete",
+  bag: "discrete",
 };

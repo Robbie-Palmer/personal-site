@@ -29,7 +29,11 @@ import type {
   RecipeInstructionSdk,
 } from "@/lib/domain/recipe/recipe";
 import { RecipeContentSchema } from "@/lib/domain/recipe/recipe";
-import { UNIT_LABELS, UnitSchema } from "@/lib/domain/recipe/unit";
+import {
+  normalizeUnitToken,
+  UNIT_LABELS,
+  type Unit,
+} from "@/lib/domain/recipe/unit";
 import { normalizeSlug } from "@/lib/generic/slugs";
 
 type GroupAccumulator = IngredientGroupAccumulator;
@@ -51,7 +55,7 @@ export type ScaledRecipeParts = {
  */
 type ResolvedIngredient = {
   amount: number | undefined;
-  unit: string | undefined;
+  unit: Unit | undefined;
 };
 
 export type UnitRecovery = {
@@ -61,17 +65,6 @@ export type UnitRecovery = {
   parsedOriginal: ParsedCooklangRecipe;
   scale: number;
 };
-
-// cooklang-rs returns canonical short forms ("c") whenever parse() is called
-// with a scale; UnitSchema only accepts the long forms.
-const UNIT_ALIASES: Record<string, string> = {
-  c: "cup",
-};
-
-function normalizeCookUnit(raw: string | null | undefined): string | undefined {
-  if (!raw) return undefined;
-  return UNIT_ALIASES[raw] ?? raw;
-}
 
 /**
  * Resolve the (amount, unit) that should actually be displayed for a scaled
@@ -87,7 +80,9 @@ function resolveScaledIngredient(
   scaledIng: Ingredient,
   recovery: { written: Ingredient | undefined; scale: number } | undefined,
 ): ResolvedIngredient {
-  const emittedUnit = normalizeCookUnit(getQuantityUnit(scaledIng.quantity));
+  const emittedUnit = normalizeUnitToken(
+    getQuantityUnit(scaledIng.quantity) ?? undefined,
+  );
   const scaledAmount = resolveQuantityValue(scaledIng.quantity);
 
   if (!recovery || !recovery.written) {
@@ -105,7 +100,7 @@ function resolveScaledIngredient(
   }
   return {
     amount: writtenAmount * recovery.scale,
-    unit: normalizeCookUnit(writtenUnit) ?? writtenUnit,
+    unit: normalizeUnitToken(writtenUnit) ?? emittedUnit,
   };
 }
 
@@ -200,22 +195,18 @@ function formatInstructionIngredient(
   resolved: ResolvedIngredient,
   displayValue: string,
 ): string {
-  const { amount, unit: rawUnit } = resolved;
+  const { amount, unit } = resolved;
   if (amount === undefined) return displayValue;
 
-  if (rawUnit === "piece") {
+  if (unit === "piece") {
     return `${amount} ${displayValue}`;
   }
 
-  if (rawUnit) {
-    const unitResult = UnitSchema.safeParse(rawUnit);
-    if (unitResult.success) {
-      const unit = unitResult.data;
-      const unitLabel = UNIT_LABELS[unit];
-      const label = amount === 1 ? unitLabel.singular : unitLabel.plural;
-      const separator = unitLabel.noSpace ? "" : " ";
-      return `${amount}${separator}${label} of ${displayValue}`;
-    }
+  if (unit) {
+    const unitLabel = UNIT_LABELS[unit];
+    const label = amount === 1 ? unitLabel.singular : unitLabel.plural;
+    const separator = unitLabel.noSpace ? "" : " ";
+    return `${amount}${separator}${label} of ${displayValue}`;
   }
 
   return `${amount} ${displayValue}`;
@@ -232,15 +223,11 @@ function buildIngredientGroupItem(
 ): RecipeIngredient {
   const ingSlug = normalizeSlug(ingredient.name) as IngredientSlug;
   const ann = annotations[ingSlug];
-  const unitResult = resolved.unit
-    ? UnitSchema.safeParse(resolved.unit)
-    : { success: false as const };
-  const unit = unitResult.success ? unitResult.data : undefined;
 
   return {
     ingredient: ingSlug,
     ...(resolved.amount !== undefined && { amount: resolved.amount }),
-    ...(unit !== undefined && { unit }),
+    ...(resolved.unit !== undefined && { unit: resolved.unit }),
     ...(ann?.preparation && { preparation: ann.preparation }),
     ...(ann?.note && { note: ann.note }),
   };
