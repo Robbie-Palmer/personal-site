@@ -24,6 +24,8 @@ export const EXACT_ALIASES: Record<string, string> = {
   "burrito-wrap": "tortilla-wrap",
   scallion: "spring-onion",
   scallions: "spring-onion",
+  mayo: "mayonnaise",
+  mayonaise: "mayonnaise",
 };
 
 function tokenize(slug: string): string[] {

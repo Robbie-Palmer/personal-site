@@ -110,7 +110,7 @@ export const ingredients: IngredientContent[] = [
   { name: "honey", category: "condiment" },
   { name: "sweet chilli sauce", category: "condiment" },
   { name: "chipotle paste", category: "condiment" },
-  { name: "mayo", category: "condiment" },
+  { name: "mayonnaise", category: "condiment" },
   { name: "guacamole mix", category: "condiment" },
   { name: "sun-dried tomato pesto", category: "condiment" },
 
