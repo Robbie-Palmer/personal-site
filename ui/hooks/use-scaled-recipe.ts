@@ -115,6 +115,17 @@ export function useScaledRecipe(
     isIdentity ? undefined : scale,
   );
 
+  // Reference parse without a scale parameter — this is the only way to get
+  // back the units the user originally wrote, since cooklang-rs converts
+  // pints to cups (etc.) the moment any scale is supplied. Used by the
+  // transform to restore the written unit after scaling. Cached by cookBody
+  // alone, so this fires once per recipe, not per scale change.
+  const {
+    recipe: parsedOriginal,
+    source: parsedOriginalSource,
+    error: originalError,
+  } = useCooklangRecipe(isIdentity ? "" : view.cookBody, undefined);
+
   const annotations = useMemo(
     () => reconstructAnnotations(view.ingredientGroups),
     [view.ingredientGroups],
@@ -132,13 +143,18 @@ export function useScaledRecipe(
       ? parsedRecipe
       : null;
 
+  const freshParsedOriginal =
+    parsedOriginal && parsedOriginalSource?.cookBody === view.cookBody
+      ? parsedOriginal
+      : null;
+
   const [scaledParts, setScaledParts] = useState<ScaledPartsRecord | null>(
     null,
   );
   const [transformError, setTransformError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (isIdentity || !freshParsedRecipe) return;
+    if (isIdentity || !freshParsedRecipe || !freshParsedOriginal) return;
 
     let isActive = true;
     const targetCookBody = view.cookBody;
@@ -149,7 +165,10 @@ export function useScaledRecipe(
         setScaledParts({
           cookBody: targetCookBody,
           scale: targetScale,
-          parts: buildScaledRecipeParts(freshParsedRecipe, annotations),
+          parts: buildScaledRecipeParts(freshParsedRecipe, annotations, {
+            parsedOriginal: freshParsedOriginal,
+            scale: targetScale,
+          }),
         });
         setTransformError(null);
       })
@@ -165,7 +184,14 @@ export function useScaledRecipe(
     return () => {
       isActive = false;
     };
-  }, [isIdentity, freshParsedRecipe, annotations, view.cookBody, scale]);
+  }, [
+    isIdentity,
+    freshParsedRecipe,
+    freshParsedOriginal,
+    annotations,
+    view.cookBody,
+    scale,
+  ]);
 
   const freshScaledParts =
     scaledParts?.cookBody === view.cookBody && scaledParts?.scale === scale
@@ -187,7 +213,7 @@ export function useScaledRecipe(
       view: scaledView,
       scaleMultiplier: 1,
       isScaling: false,
-      error: error ?? transformError,
+      error: error ?? originalError ?? transformError,
     };
   }
 
@@ -198,6 +224,6 @@ export function useScaledRecipe(
     view,
     scaleMultiplier: scale,
     isScaling: !transformError,
-    error: error ?? transformError,
+    error: error ?? originalError ?? transformError,
   };
 }

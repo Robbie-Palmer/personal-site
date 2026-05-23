@@ -80,4 +80,75 @@ describe("buildScaledRecipeParts", () => {
     ]);
     expect(parts.instructionSdk.ingredientUnits).toEqual(["cup"]);
   });
+
+  it("preserves the user's written unit when cooklang-rs converts it", () => {
+    // cooklang-rs converts pint → c using US ratios (1 pint = 2 cups) the
+    // moment any scale is passed. With the unit-recovery reference parse the
+    // transform restores the written unit instead.
+    const body = `@milk{1%pint}\n`;
+    const parsedOriginal = parsedAt(body);
+    const parts = buildScaledRecipeParts(
+      parsedAt(body, 3),
+      {},
+      {
+        parsedOriginal,
+        scale: 3,
+      },
+    );
+
+    expect(parts.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "milk", amount: 3, unit: "pint" },
+    ]);
+    expect(parts.instructionSdk.ingredientUnits).toEqual(["pint"]);
+    expect(parts.instructionSdk.ingredientAmounts).toEqual([3]);
+  });
+
+  it("preserves tsp when cooklang-rs would consolidate it into tbsp at scale", () => {
+    // cooklang-rs leaves tsp alone at small scales but consolidates to tbsp
+    // once the value gets large enough. Without the unit-recovery reference
+    // parse, the same recipe would render in tsp at one scale and tbsp at
+    // the next, which is confusing across recipe iterations.
+    const body = `Add @cajun seasoning{4%tsp}.\n`;
+    const parsedOriginal = parsedAt(body);
+    const parts = buildScaledRecipeParts(
+      parsedAt(body, 1.5),
+      {},
+      {
+        parsedOriginal,
+        scale: 1.5,
+      },
+    );
+
+    expect(parts.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "cajun-seasoning", amount: 6, unit: "tsp" },
+    ]);
+    expect(parts.instructions).toEqual(["Add 6 tsp of cajun seasoning."]);
+  });
+
+  it("trusts cooklang for fixed-quantity ingredients (= prefix is no-op for unit conversion)", () => {
+    // The recovery branch only fires when units differ; cooklang preserves
+    // both unit and amount for `=` ingredients, so we should pass them through.
+    const body = `Mix @flour{200%g} with @salt{=1%pint}.\n`;
+    const parsedOriginal = parsedAt(body);
+    const parts = buildScaledRecipeParts(
+      parsedAt(body, 3),
+      {},
+      {
+        parsedOriginal,
+        scale: 3,
+      },
+    );
+
+    const items = parts.ingredientGroups[0]?.items ?? [];
+    expect(items.find((i) => i.ingredient === "flour")).toEqual({
+      ingredient: "flour",
+      amount: 600,
+      unit: "g",
+    });
+    expect(items.find((i) => i.ingredient === "salt")).toEqual({
+      ingredient: "salt",
+      amount: 1,
+      unit: "pint",
+    });
+  });
 });

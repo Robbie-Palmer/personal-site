@@ -44,6 +44,24 @@ export type ScaledRecipeParts = {
   cookware: string[];
 };
 
+/**
+ * Per-ingredient amount/unit after unit-conversion recovery (see
+ * resolveScaledIngredient). Threaded through the formatting helpers so the
+ * recovery happens in one place.
+ */
+type ResolvedIngredient = {
+  amount: number | undefined;
+  unit: string | undefined;
+};
+
+export type UnitRecovery = {
+  /** Result of parser.parse(body) — no scale — so we can read the unit the
+   * user originally wrote. cooklang-rs only preserves user-written units when
+   * no scale parameter is passed. */
+  parsedOriginal: ParsedCooklangRecipe;
+  scale: number;
+};
+
 // cooklang-rs returns canonical short forms ("c") whenever parse() is called
 // with a scale; UnitSchema only accepts the long forms.
 const UNIT_ALIASES: Record<string, string> = {
@@ -53,6 +71,42 @@ const UNIT_ALIASES: Record<string, string> = {
 function normalizeCookUnit(raw: string | null | undefined): string | undefined {
   if (!raw) return undefined;
   return UNIT_ALIASES[raw] ?? raw;
+}
+
+/**
+ * Resolve the (amount, unit) that should actually be displayed for a scaled
+ * ingredient. When cooklang-rs has converted the user's written unit (e.g.
+ * pint → c, tsp → tbsp), this restores the written unit using the equivalent
+ * `writtenAmount * scale` value.
+ *
+ * Safe for `=` (fixed-quantity) ingredients: cooklang preserves both the
+ * unit and the amount in that case, so the written/emitted units match and
+ * the recovery branch is skipped — we trust cooklang's value.
+ */
+function resolveScaledIngredient(
+  scaledIng: Ingredient,
+  recovery: { written: Ingredient | undefined; scale: number } | undefined,
+): ResolvedIngredient {
+  const emittedUnit = normalizeCookUnit(getQuantityUnit(scaledIng.quantity));
+  const scaledAmount = resolveQuantityValue(scaledIng.quantity);
+
+  if (!recovery || !recovery.written) {
+    return { amount: scaledAmount, unit: emittedUnit };
+  }
+
+  const writtenUnit = getQuantityUnit(recovery.written.quantity);
+  if (!writtenUnit || writtenUnit === emittedUnit) {
+    return { amount: scaledAmount, unit: emittedUnit };
+  }
+
+  const writtenAmount = resolveQuantityValue(recovery.written.quantity);
+  if (writtenAmount === undefined) {
+    return { amount: scaledAmount, unit: emittedUnit };
+  }
+  return {
+    amount: writtenAmount * recovery.scale,
+    unit: normalizeCookUnit(writtenUnit) ?? writtenUnit,
+  };
 }
 
 // getQuantityValue returns NaN for fractions — resolve them from the raw structure.
@@ -143,14 +197,11 @@ function formatIngredientDisplay(ingredient: Ingredient): string {
 }
 
 function formatInstructionIngredient(
-  ingredient: Ingredient,
+  resolved: ResolvedIngredient,
   displayValue: string,
 ): string {
-  const amount = resolveQuantityValue(ingredient.quantity);
-
+  const { amount, unit: rawUnit } = resolved;
   if (amount === undefined) return displayValue;
-
-  const rawUnit = normalizeCookUnit(getQuantityUnit(ingredient.quantity));
 
   if (rawUnit === "piece") {
     return `${amount} ${displayValue}`;
@@ -176,20 +227,19 @@ function formatInlineQuantityDisplay(quantity: Quantity): string {
 
 function buildIngredientGroupItem(
   ingredient: Ingredient,
+  resolved: ResolvedIngredient,
   annotations: IngredientAnnotations,
 ): RecipeIngredient {
   const ingSlug = normalizeSlug(ingredient.name) as IngredientSlug;
   const ann = annotations[ingSlug];
-  const validAmount = resolveQuantityValue(ingredient.quantity);
-  const unitStr = normalizeCookUnit(getQuantityUnit(ingredient.quantity));
-  const unitResult = unitStr
-    ? UnitSchema.safeParse(unitStr)
+  const unitResult = resolved.unit
+    ? UnitSchema.safeParse(resolved.unit)
     : { success: false as const };
   const unit = unitResult.success ? unitResult.data : undefined;
 
   return {
     ingredient: ingSlug,
-    ...(validAmount !== undefined && { amount: validAmount }),
+    ...(resolved.amount !== undefined && { amount: resolved.amount }),
     ...(unit !== undefined && { unit }),
     ...(ann?.preparation && { preparation: ann.preparation }),
     ...(ann?.note && { note: ann.note }),
@@ -199,6 +249,7 @@ function buildIngredientGroupItem(
 function collectStepIngredients(
   step: Step,
   ingredients: Ingredient[],
+  resolved: ResolvedIngredient[],
   currentGroup: GroupAccumulator,
   annotations: IngredientAnnotations,
 ): void {
@@ -208,7 +259,7 @@ function collectStepIngredients(
     const ingredient = ingredients[item.index]!;
     mergeIngredientIntoGroup(
       currentGroup,
-      buildIngredientGroupItem(ingredient, annotations),
+      buildIngredientGroupItem(ingredient, resolved[item.index]!, annotations),
     );
   }
 }
@@ -216,6 +267,7 @@ function collectStepIngredients(
 function stepToText(
   step: Step,
   ingredients: Ingredient[],
+  resolved: ResolvedIngredient[],
   cookware: Cookware[],
   inlineQuantities: string[],
   timers: Timer[],
@@ -227,7 +279,7 @@ function stepToText(
           return item.value;
         case "ingredient":
           return formatInstructionIngredient(
-            ingredients[item.index]!,
+            resolved[item.index]!,
             formatIngredientDisplay(ingredients[item.index]!),
           );
         case "cookware":
@@ -249,11 +301,25 @@ function stepToText(
 export function buildScaledRecipeParts(
   parsed: ParsedCooklangRecipe,
   annotations: IngredientAnnotations = {},
+  unitRecovery?: UnitRecovery,
 ): ScaledRecipeParts {
   const inlineQuantities = parsed.inlineQuantities.map(
     formatInlineQuantityDisplay,
   );
   const { sections, ingredients, cookware, timers } = parsed;
+
+  const resolvedIngredients: ResolvedIngredient[] = ingredients.map(
+    (ingredient, i) =>
+      resolveScaledIngredient(
+        ingredient,
+        unitRecovery
+          ? {
+              written: unitRecovery.parsedOriginal.ingredients[i],
+              scale: unitRecovery.scale,
+            }
+          : undefined,
+      ),
+  );
 
   const getOrCreateNamedGroup = (
     name: string,
@@ -275,13 +341,8 @@ export function buildScaledRecipeParts(
   const instructions: string[] = [];
   const ingredientNames = ingredients.map((ingredient) => ingredient.name);
   const ingredientDisplayValues = ingredients.map(formatIngredientDisplay);
-  const ingredientAmounts = ingredients.map(
-    (ingredient) => resolveQuantityValue(ingredient.quantity) ?? null,
-  );
-  const ingredientUnits = ingredients.map(
-    (ingredient) =>
-      normalizeCookUnit(getQuantityUnit(ingredient.quantity)) ?? null,
-  );
+  const ingredientAmounts = resolvedIngredients.map((r) => r.amount ?? null);
+  const ingredientUnits = resolvedIngredients.map((r) => r.unit ?? null);
   const cookwareDisplayValues = cookware.map(formatCookwareDisplay);
   const timerDisplayValues = timers.map(formatTimerDisplay);
   const timerDurations = timers.map(timerDurationSeconds);
@@ -295,7 +356,13 @@ export function buildScaledRecipeParts(
       if (content.type === "text") continue;
 
       const step = content.value;
-      collectStepIngredients(step, ingredients, currentGroup, annotations);
+      collectStepIngredients(
+        step,
+        ingredients,
+        resolvedIngredients,
+        currentGroup,
+        annotations,
+      );
 
       if (isIngredientOnlyStep(step)) {
         continue;
@@ -304,6 +371,7 @@ export function buildScaledRecipeParts(
       const text = stepToText(
         step,
         ingredients,
+        resolvedIngredients,
         cookware,
         inlineQuantities,
         timers,
