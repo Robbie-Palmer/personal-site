@@ -4,6 +4,7 @@ export const UnitSchema = z.enum([
   // Weight
   "g",
   "kg",
+  "oz",
   // Volume
   "ml",
   "l",
@@ -22,6 +23,7 @@ export const UnitSchema = z.enum([
   "tin",
   "cube",
   "sachet",
+  "bag",
 ]);
 
 export type Unit = z.infer<typeof UnitSchema>;
@@ -36,6 +38,7 @@ export type UnitLabel = {
 export const UNIT_LABELS: Record<Unit, UnitLabel> = {
   g: { singular: "g", plural: "g", noSpace: true },
   kg: { singular: "kg", plural: "kg", noSpace: true },
+  oz: { singular: "oz", plural: "oz" },
   ml: { singular: "ml", plural: "ml", noSpace: true },
   l: { singular: "l", plural: "l", noSpace: true },
   pint: { singular: "pint", plural: "pints" },
@@ -50,6 +53,7 @@ export const UNIT_LABELS: Record<Unit, UnitLabel> = {
   tin: { singular: "tin", plural: "tins" },
   cube: { singular: "cube", plural: "cubes" },
   sachet: { singular: "sachet", plural: "sachets" },
+  bag: { singular: "bag", plural: "bags" },
 };
 
 export type UnitCategory = "weight" | "volume" | "spoon" | "discrete";
@@ -57,6 +61,7 @@ export type UnitCategory = "weight" | "volume" | "spoon" | "discrete";
 export const UNIT_CATEGORIES: Record<Unit, UnitCategory> = {
   g: "weight",
   kg: "weight",
+  oz: "weight",
   ml: "volume",
   l: "volume",
   pint: "volume",
@@ -71,4 +76,5 @@ export const UNIT_CATEGORIES: Record<Unit, UnitCategory> = {
   tin: "discrete",
   cube: "discrete",
   sachet: "discrete",
+  bag: "discrete",
 };

@@ -145,6 +145,9 @@ function normalizeUnitToken(unit: string | undefined): RecipeIngredient["unit"] 
   if (!unit) return undefined;
   const normalized = unit.trim().toLowerCase();
   const aliases: Record<string, string> = {
+    oz: "oz",
+    ounce: "oz",
+    ounces: "oz",
     tbsp: "tbsp",
     tbsps: "tbsp",
     tablespoon: "tbsp",
@@ -153,6 +156,8 @@ function normalizeUnitToken(unit: string | undefined): RecipeIngredient["unit"] 
     tsps: "tsp",
     teaspoon: "tsp",
     teaspoons: "tsp",
+    bag: "bag",
+    bags: "bag",
     pk: "piece",
     pack: "piece",
     packs: "piece",

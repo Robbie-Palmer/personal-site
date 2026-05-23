@@ -129,6 +129,28 @@ describe("cooklang helpers", () => {
     });
   });
 
+  it("normalizes oz and bag units from structured ingredient lines", () => {
+    const cooklang = buildCooklangDraftFromExtraction({
+      title: "Mac and Cheese",
+      description: "Quick stovetop version.",
+      cuisine: [],
+      servings: "2",
+      ingredientGroups: [
+        {
+          name: "Main",
+          lines: ["8oz cheddar cheese", "2 bags spinach"],
+        },
+      ],
+      instructions: ["Cook everything together."],
+      equipment: [],
+    });
+
+    expect(cooklang.derived?.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "cheddar-cheese", amount: 8, unit: "oz" },
+      { ingredient: "spinach", amount: 2, unit: "bag" },
+    ]);
+  });
+
   it("dedupes quantified and bare Cooklang ingredients by normalized name", () => {
     const derived = deriveRecipeFromCooklang({
       frontmatter: {
