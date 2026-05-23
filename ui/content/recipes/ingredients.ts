@@ -6,12 +6,7 @@ export const ingredients: IngredientContent[] = [
   { name: "turkey mince", category: "protein" },
   { name: "chorizo", category: "protein" },
   { name: "bacon", category: "protein" },
-  {
-    name: "pork sausage",
-    pluralName: "pork sausages",
-    slug: "pork-sausage",
-    category: "protein",
-  },
+  { name: "pork sausage", category: "protein" },
 
   // Vegetables
   { name: "white onion", category: "vegetable" },
@@ -72,12 +67,7 @@ export const ingredients: IngredientContent[] = [
   { name: "pasta", category: "grain" },
   { name: "long grain rice", category: "grain" },
   { name: "paella rice", category: "grain" },
-  {
-    name: "tortilla wrap",
-    pluralName: "tortilla wraps",
-    slug: "tortilla-wrap",
-    category: "grain",
-  },
+  { name: "tortilla wrap", category: "grain" },
   { name: "farfalle", category: "grain" },
   { name: "plain flour", category: "grain" },
   { name: "bread flour", category: "grain" },
@@ -85,12 +75,7 @@ export const ingredients: IngredientContent[] = [
   { name: "semolina", category: "grain" },
   { name: "bread", category: "grain" },
   { name: "noodles", category: "grain" },
-  {
-    name: "burger bap",
-    pluralName: "burger baps",
-    slug: "bap",
-    category: "grain",
-  },
+  { name: "bap", category: "grain" },
   { name: "rolled oats", category: "grain" },
 
   // Herbs
