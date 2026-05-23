@@ -13,6 +13,10 @@
       "category": "protein"
     },
     {
+      "slug": "bap",
+      "category": "grain"
+    },
+    {
       "slug": "basil-pesto",
       "category": "condiment"
     },
@@ -25,8 +29,16 @@
       "category": "spice"
     },
     {
+      "slug": "bread",
+      "category": "grain"
+    },
+    {
+      "slug": "bread-flour",
+      "category": "grain"
+    },
+    {
       "slug": "brown-sugar",
-      "category": "other"
+      "category": "sweets"
     },
     {
       "slug": "butter",
@@ -35,6 +47,14 @@
     {
       "slug": "cajun-seasoning",
       "category": "spice"
+    },
+    {
+      "slug": "carrot",
+      "category": "vegetable"
+    },
+    {
+      "slug": "caramel",
+      "category": "sweets"
     },
     {
       "slug": "cayenne-pepper",
@@ -55,6 +75,10 @@
     {
       "slug": "chicken-stock",
       "category": "liquid"
+    },
+    {
+      "slug": "chickpeas",
+      "category": "legume"
     },
     {
       "slug": "chilli",
@@ -85,6 +109,10 @@
       "category": "protein"
     },
     {
+      "slug": "cornflour",
+      "category": "grain"
+    },
+    {
       "slug": "coconut-milk",
       "category": "oil-fat"
     },
@@ -105,8 +133,20 @@
       "category": "spice"
     },
     {
+      "slug": "dark-chocolate",
+      "category": "sweets"
+    },
+    {
       "slug": "double-cream",
       "category": "dairy"
+    },
+    {
+      "slug": "dry-yeast",
+      "category": "other"
+    },
+    {
+      "slug": "dulce-de-leche",
+      "category": "sweets"
     },
     {
       "slug": "dried-parsley",
@@ -181,6 +221,10 @@
       "category": "vegetable"
     },
     {
+      "slug": "ginger",
+      "category": "spice"
+    },
+    {
       "slug": "grana-padano",
       "category": "dairy"
     },
@@ -193,12 +237,28 @@
       "category": "condiment"
     },
     {
+      "slug": "harissa-paste",
+      "category": "condiment"
+    },
+    {
+      "slug": "hoisin-sauce",
+      "category": "condiment"
+    },
+    {
       "slug": "honey",
       "category": "condiment"
     },
     {
       "slug": "hot-chilli-powder",
       "category": "spice"
+    },
+    {
+      "slug": "icing-sugar",
+      "category": "sweets"
+    },
+    {
+      "slug": "italian-herbs",
+      "category": "herb"
     },
     {
       "slug": "italian-seasoning",
@@ -210,6 +270,10 @@
     },
     {
       "slug": "leek",
+      "category": "vegetable"
+    },
+    {
+      "slug": "lettuce",
       "category": "vegetable"
     },
     {
@@ -233,6 +297,10 @@
       "category": "grain"
     },
     {
+      "slug": "margarine",
+      "category": "oil-fat"
+    },
+    {
       "slug": "mascarpone",
       "category": "dairy"
     },
@@ -241,12 +309,20 @@
       "category": "condiment"
     },
     {
+      "slug": "mayonnaise",
+      "category": "condiment"
+    },
+    {
       "slug": "milk",
       "category": "dairy"
     },
     {
       "slug": "mixed-beans",
-      "category": "vegetable"
+      "category": "legume"
+    },
+    {
+      "slug": "milk-chocolate",
+      "category": "sweets"
     },
     {
       "slug": "mozzarella",
@@ -257,12 +333,20 @@
       "category": "spice"
     },
     {
+      "slug": "noodles",
+      "category": "grain"
+    },
+    {
       "slug": "olive-oil",
       "category": "oil-fat"
     },
     {
       "slug": "onion-salt",
       "category": "spice"
+    },
+    {
+      "slug": "orange-juice",
+      "category": "liquid"
     },
     {
       "slug": "oregano",
@@ -305,8 +389,12 @@
       "category": "spice"
     },
     {
+      "slug": "peri-peri-sauce",
+      "category": "condiment"
+    },
+    {
       "slug": "plain-flour",
-      "category": "other"
+      "category": "grain"
     },
     {
       "slug": "pork-sausage",
@@ -329,7 +417,19 @@
       "category": "vegetable"
     },
     {
+      "slug": "red-lentils",
+      "category": "legume"
+    },
+    {
       "slug": "rice",
+      "category": "grain"
+    },
+    {
+      "slug": "rice-wine-vinegar",
+      "category": "condiment"
+    },
+    {
+      "slug": "rolled-oats",
       "category": "grain"
     },
     {
@@ -339,6 +439,14 @@
     {
       "slug": "salt",
       "category": "spice"
+    },
+    {
+      "slug": "sea-salt",
+      "category": "spice"
+    },
+    {
+      "slug": "semolina",
+      "category": "grain"
     },
     {
       "slug": "single-cream",
@@ -362,7 +470,7 @@
     },
     {
       "slug": "sugar",
-      "category": "other"
+      "category": "sweets"
     },
     {
       "slug": "sun-dried-tomato-pesto",
@@ -373,8 +481,16 @@
       "category": "condiment"
     },
     {
+      "slug": "sweet-potato",
+      "category": "vegetable"
+    },
+    {
       "slug": "taco-seasoning",
       "category": "spice"
+    },
+    {
+      "slug": "thyme",
+      "category": "herb"
     },
     {
       "slug": "tikka-curry-powder",
@@ -399,6 +515,10 @@
     {
       "slug": "turmeric",
       "category": "spice"
+    },
+    {
+      "slug": "unsalted-butter",
+      "category": "dairy"
     },
     {
       "slug": "vegetable-oil",

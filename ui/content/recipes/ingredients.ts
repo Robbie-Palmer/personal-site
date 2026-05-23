@@ -24,12 +24,16 @@ export const ingredients: IngredientContent[] = [
   { name: "tomato puree", category: "vegetable" },
   { name: "frozen peas", category: "vegetable" },
   { name: "spinach", category: "vegetable" },
-  { name: "mixed beans", category: "vegetable" },
   { name: "vine tomato", category: "vegetable" },
   { name: "spring onion", category: "vegetable" },
   { name: "leek", category: "vegetable" },
   { name: "potato", category: "vegetable" },
   { name: "cherry tomato", category: "vegetable" },
+
+  // Legumes
+  { name: "mixed beans", category: "legume" },
+  { name: "chickpeas", category: "legume" },
+  { name: "red lentils", category: "legume" },
 
   // Fruit
   { name: "avocado", category: "fruit" },
@@ -60,12 +64,17 @@ export const ingredients: IngredientContent[] = [
   { name: "paella rice", category: "grain" },
   { name: "tortilla wraps", category: "grain" },
   { name: "farfalle", category: "grain" },
+  { name: "plain flour", category: "grain" },
+  { name: "bread flour", category: "grain" },
+  { name: "cornflour", category: "grain" },
+  { name: "semolina", category: "grain" },
 
   // Herbs
   { name: "fresh basil", category: "herb" },
   { name: "fresh rosemary", category: "herb" },
   { name: "fresh parsley", category: "herb" },
   { name: "fresh coriander", category: "herb" },
+  { name: "oregano", category: "herb" },
 
   // Spices & Seasonings
   { name: "curry powder", category: "spice" },
@@ -80,7 +89,6 @@ export const ingredients: IngredientContent[] = [
   { name: "italian seasoning", category: "spice" },
   { name: "salt", category: "spice" },
   { name: "black pepper", category: "spice" },
-  { name: "oregano", category: "spice" },
   { name: "peri peri salt", category: "spice" },
   { name: "cajun seasoning", category: "spice" },
   { name: "MSG", category: "spice" },
@@ -106,6 +114,15 @@ export const ingredients: IngredientContent[] = [
   { name: "guacamole mix", category: "condiment" },
   { name: "sun-dried tomato pesto", category: "condiment" },
 
+  // Sweets
+  { name: "sugar", category: "sweets" },
+  { name: "brown sugar", category: "sweets" },
+  { name: "icing sugar", category: "sweets" },
+  { name: "milk chocolate", category: "sweets" },
+  { name: "dark chocolate", category: "sweets" },
+  { name: "caramel", category: "sweets" },
+  { name: "dulce de leche", category: "sweets" },
+
   // Oils & Fats
   { name: "vegetable oil", category: "oil-fat" },
   { name: "olive oil", category: "oil-fat" },
@@ -119,9 +136,7 @@ export const ingredients: IngredientContent[] = [
   { name: "water", category: "liquid" },
 
   // Other
-  { name: "plain flour", category: "other" },
-  { name: "sugar", category: "other" },
-  { name: "brown sugar", category: "other" },
+  { name: "dry yeast", category: "other" },
   { name: "prawn crackers", category: "other" },
   { name: "garlic bread", category: "other" },
   { name: "chips", category: "other" },
