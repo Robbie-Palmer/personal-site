@@ -1,6 +1,14 @@
 "use client";
 
-import { Clock, Loader2, Minus, Plus, Timer, Users } from "lucide-react";
+import {
+  AlertTriangle,
+  Clock,
+  Loader2,
+  Minus,
+  Plus,
+  Timer,
+  Users,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { InlineTimer } from "@/components/recipes/inline-timer";
 import { Badge } from "@/components/ui/badge";
@@ -245,7 +253,16 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
     view: effectiveRecipe,
     scaleMultiplier: scale,
     isScaling,
+    error: scalingError,
   } = useScaledRecipe(recipe, requestedScale);
+  useEffect(() => {
+    if (scalingError) {
+      console.error(
+        `[RecipeContent] cooklang-rs scaling failed for "${recipe.slug}" at ${requestedScale}x; falling back to JS scaling.`,
+        scalingError,
+      );
+    }
+  }, [scalingError, recipe.slug, requestedScale]);
   const ingredientAnnotations = useMemo(
     () => buildIngredientAnnotationMap(effectiveRecipe.ingredientGroups),
     [effectiveRecipe.ingredientGroups],
@@ -328,12 +345,17 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
               >
                 <Plus className="h-3 w-3" />
               </Button>
-              {isScaling && (
+              {scalingError ? (
+                <AlertTriangle
+                  className="h-3 w-3 text-destructive"
+                  aria-label="Precise scaling unavailable; showing an approximation"
+                />
+              ) : isScaling ? (
                 <Loader2
                   className="h-3 w-3 animate-spin text-muted-foreground"
                   aria-label="Scaling recipe"
                 />
-              )}
+              ) : null}
             </div>
           </div>
           {recipe.prepTime != null && (

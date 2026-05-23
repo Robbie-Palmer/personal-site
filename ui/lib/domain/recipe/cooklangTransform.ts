@@ -44,9 +44,8 @@ export type ScaledRecipeParts = {
   cookware: string[];
 };
 
-// cooklang-rs normalises units to canonical short forms whenever a scale
-// parameter is supplied to parse(). Map those back to the names our UnitSchema
-// expects so post-scaling units survive UnitSchema.safeParse().
+// cooklang-rs returns canonical short forms ("c") whenever parse() is called
+// with a scale; UnitSchema only accepts the long forms.
 const UNIT_ALIASES: Record<string, string> = {
   c: "cup",
 };
@@ -245,13 +244,8 @@ function stepToText(
     .trim();
 }
 
-/**
- * Pure transform from a cooklang-rs parsed recipe into the parts of
- * RecipeContent that depend on parser output (ingredient groups, instruction
- * text, cookware list, and the instruction SDK).
- *
- * Runs in both Node (build time) and the browser (after WASM scaling).
- */
+// Runs in both Node (build time) and the browser (after WASM scaling), so
+// keep the module free of fs / gray-matter / other Node-only imports.
 export function buildScaledRecipeParts(
   parsed: ParsedCooklangRecipe,
   annotations: IngredientAnnotations = {},
@@ -349,10 +343,6 @@ export function buildScaledRecipeParts(
   };
 }
 
-/**
- * Build-time composition of a complete RecipeContent from a parsed recipe and
- * its frontmatter. Used by the Node-side .cook file loader.
- */
 export function buildRecipeContentFromParsed(
   parsed: ParsedCooklangRecipe,
   frontmatter: RecipeFrontmatter,

@@ -10,11 +10,9 @@ import type {
 
 export interface UseScaledRecipeState {
   view: RecipeDetailView;
-  /** Multiplier the caller should apply when rendering amounts. 1 when amounts
-   * are already scaled by cooklang-rs; the requested scale otherwise. */
+  /** 1 when the returned view's amounts are already scaled by cooklang-rs;
+   * the requested scale when caller is responsible for multiplying. */
   scaleMultiplier: number;
-  /** True while WASM is parsing the requested scale. The returned view may be
-   * the base SSG view or a previously-resolved scale during this window. */
   isScaling: boolean;
   error: Error | null;
 }
@@ -90,22 +88,6 @@ function overlayScaledParts(
   };
 }
 
-/**
- * Returns a recipe view whose amounts reflect the requested scale, using
- * cooklang-rs (via WASM) as the source of truth for scaling semantics
- * — including the `=` fixed-quantity prefix.
- *
- * At scale === 1 this is a pass-through (no WASM, no re-render); the SSG view
- * shipped with the page is returned verbatim. At other scales the hook parses
- * `cookBody` with the requested scale, rebuilds the ingredient groups and
- * instruction SDK via the shared transform, and overlays them onto the base
- * view so name/pluralName/category enrichment is preserved.
- *
- * While the first WASM parse is in flight the caller can keep rendering the
- * base view with `scaleMultiplier === scale` — but this is a JS multiplication
- * that does not honour `=` semantics. Callers that need strict correctness
- * during the load window should gate rendering on `isScaling`.
- */
 export function useScaledRecipe(
   view: RecipeDetailView,
   scale: number,
