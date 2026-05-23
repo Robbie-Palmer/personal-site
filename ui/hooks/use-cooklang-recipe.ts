@@ -5,8 +5,17 @@ import { useEffect, useState } from "react";
 
 type ParsedRecipe = CooklangRecipe;
 
+export interface ParsedRecipeSource {
+  cookBody: string;
+  scale: number | undefined;
+}
+
 export interface UseCooklangRecipeState {
   recipe: ParsedRecipe | null;
+  /** Inputs that produced `recipe`. May lag behind the current request while a
+   * new parse is in flight — callers that overlay results onto downstream
+   * state must check this before using `recipe`. */
+  source: ParsedRecipeSource | null;
   loading: boolean;
   error: Error | null;
 }
@@ -71,13 +80,14 @@ export function useCooklangRecipe(
 ): UseCooklangRecipeState {
   const [state, setState] = useState<UseCooklangRecipeState>({
     recipe: null,
+    source: null,
     loading: Boolean(cookBody),
     error: null,
   });
 
   useEffect(() => {
     if (!cookBody) {
-      setState({ recipe: null, loading: false, error: null });
+      setState({ recipe: null, source: null, loading: false, error: null });
       return;
     }
 
@@ -91,7 +101,12 @@ export function useCooklangRecipe(
           return;
         }
 
-        setState({ recipe, loading: false, error: null });
+        setState({
+          recipe,
+          source: { cookBody, scale },
+          loading: false,
+          error: null,
+        });
       } catch (error) {
         if (!isActive) {
           return;
@@ -99,6 +114,7 @@ export function useCooklangRecipe(
 
         setState({
           recipe: null,
+          source: null,
           loading: false,
           error:
             error instanceof Error

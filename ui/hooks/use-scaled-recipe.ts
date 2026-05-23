@@ -7,6 +7,7 @@ import type {
   IngredientGroupView,
   RecipeDetailView,
 } from "@/lib/domain/recipe/recipeViews";
+import { normalizeSlug } from "@/lib/generic/slugs";
 
 export interface UseScaledRecipeState {
   view: RecipeDetailView;
@@ -32,6 +33,11 @@ function loadTransformModule(): Promise<TransformModule> {
   return transformModulePromise;
 }
 
+// Mirror buildIngredientAnnotationMap in recipe-content.tsx: index by both the
+// registry slug and the name-derived slug, since buildScaledRecipeParts emits
+// items keyed by normalizeSlug(ingredient.name) which can diverge from the
+// registry-resolved slug stored on the SSG view (e.g. "pork-sausages" vs
+// "pork-sausage").
 function reconstructAnnotations(
   ingredientGroups: IngredientGroupView[],
 ): Record<string, { preparation?: string; note?: string }> {
@@ -39,11 +45,12 @@ function reconstructAnnotations(
     {};
   for (const group of ingredientGroups) {
     for (const item of group.items) {
-      if (item.preparation || item.note) {
-        annotations[item.ingredient] = {
-          preparation: item.preparation,
-          note: item.note,
-        };
+      if (!item.preparation && !item.note) continue;
+      const ann = { preparation: item.preparation, note: item.note };
+      annotations[item.ingredient] = ann;
+      const normalized = normalizeSlug(item.name);
+      if (normalized && normalized !== item.ingredient) {
+        annotations[normalized] = ann;
       }
     }
   }
@@ -88,6 +95,12 @@ function overlayScaledParts(
   };
 }
 
+type ScaledPartsRecord = {
+  cookBody: string;
+  scale: number;
+  parts: ScaledRecipeParts;
+};
+
 export function useScaledRecipe(
   view: RecipeDetailView,
   scale: number,
@@ -95,7 +108,7 @@ export function useScaledRecipe(
   const isIdentity = scale === 1;
   const {
     recipe: parsedRecipe,
-    loading,
+    source: parsedSource,
     error,
   } = useCooklangRecipe(
     isIdentity ? "" : view.cookBody,
@@ -107,22 +120,37 @@ export function useScaledRecipe(
     [view.ingredientGroups],
   );
 
-  const [scaledParts, setScaledParts] = useState<ScaledRecipeParts | null>(
+  // Only trust the resolved recipe if it was parsed from the current request.
+  // useCooklangRecipe keeps the previous resolved recipe while a new parse is
+  // in flight, so without this check we'd build scaled parts from stale input
+  // and overlay them onto the new view (P1 reviewer finding: soft navigation
+  // between recipes, or a scale change from one non-1 value to another).
+  const freshParsedRecipe =
+    parsedRecipe &&
+    parsedSource?.cookBody === view.cookBody &&
+    parsedSource.scale === scale
+      ? parsedRecipe
+      : null;
+
+  const [scaledParts, setScaledParts] = useState<ScaledPartsRecord | null>(
     null,
   );
   const [transformError, setTransformError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (isIdentity || !parsedRecipe) {
-      setScaledParts(null);
-      return;
-    }
+    if (isIdentity || !freshParsedRecipe) return;
 
     let isActive = true;
+    const targetCookBody = view.cookBody;
+    const targetScale = scale;
     loadTransformModule()
       .then(({ buildScaledRecipeParts }) => {
         if (!isActive) return;
-        setScaledParts(buildScaledRecipeParts(parsedRecipe, annotations));
+        setScaledParts({
+          cookBody: targetCookBody,
+          scale: targetScale,
+          parts: buildScaledRecipeParts(freshParsedRecipe, annotations),
+        });
         setTransformError(null);
       })
       .catch((err: unknown) => {
@@ -132,17 +160,22 @@ export function useScaledRecipe(
             ? err
             : new Error("Failed to load cooklang transform"),
         );
-        setScaledParts(null);
       });
 
     return () => {
       isActive = false;
     };
-  }, [isIdentity, parsedRecipe, annotations]);
+  }, [isIdentity, freshParsedRecipe, annotations, view.cookBody, scale]);
+
+  const freshScaledParts =
+    scaledParts?.cookBody === view.cookBody && scaledParts?.scale === scale
+      ? scaledParts.parts
+      : null;
 
   const scaledView = useMemo(
-    () => (scaledParts ? overlayScaledParts(view, scaledParts) : null),
-    [scaledParts, view],
+    () =>
+      freshScaledParts ? overlayScaledParts(view, freshScaledParts) : null,
+    [freshScaledParts, view],
   );
 
   if (isIdentity) {
@@ -153,15 +186,18 @@ export function useScaledRecipe(
     return {
       view: scaledView,
       scaleMultiplier: 1,
-      isScaling: loading,
+      isScaling: false,
       error: error ?? transformError,
     };
   }
 
+  // No fresh scaled parts yet. We're still scaling unless the transform module
+  // failed to load — in which case isScaling=false lets the caller render the
+  // error indicator instead of an indefinite spinner.
   return {
     view,
     scaleMultiplier: scale,
-    isScaling: loading || (parsedRecipe !== null && scaledParts === null),
+    isScaling: !transformError,
     error: error ?? transformError,
   };
 }
