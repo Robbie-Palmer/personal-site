@@ -136,7 +136,12 @@ This aligns with:
   Already used in `openrouter.ts` for every stage.
 * **Multimodal in one API** — text, images, and PDFs (URL or base64). The photo-to-recipe stage
   already passes images this way (see `parseRecipeFromImages` / `runImagePrompt` in
-  `openrouter.ts`).
+  `openrouter.ts`). Audio (STT + TTS) is also covered via dedicated
+  `/audio/transcriptions` (Whisper, Whisper Large V3 Turbo, GPT-4o Transcribe, Google Chirp 3,
+  Groq's fast Whisper) and `/audio/speech` (OpenAI, Google Gemini Flash, Mistral Voxtral, xAI
+  Grok Voice) endpoints — relevant if cooking mode's voice navigation
+  (see the recipe-site roadmap's *Voice / Hands-Free Navigation* section) ever outgrows the browser-native Web Speech
+  API and needs server-side STT/TTS for accuracy or language coverage.
 * **Per-model latency and throughput visibility** — the OpenRouter dashboard surfaces TTFT and
   tokens-per-second per provider per model, useful when picking models for latency-sensitive
   features like onboarding.
@@ -296,15 +301,24 @@ spend monitoring.
 ### [Eden AI](https://www.edenai.co/)
 
 A multimodal aggregator with \~30 provider integrations across text, OCR, document parsing,
-speech, translation, and image analysis. Unified billing on a credit balance with a 5.5%
-platform fee on credit top-up — effectively the same cost model as OpenRouter, so no price
-advantage either way. GDPR-native, EU data residency by default, headquartered in France.
+speech, translation, and image analysis — leaning on specialist providers per modality (Mindee
+for OCR, DeepL for translation, Deepgram for speech, etc.) rather than the LLM/VLM
+generalists. Unified billing on a credit balance with a 5.5% platform fee on credit top-up —
+effectively the same cost model as OpenRouter, so no price advantage either way. GDPR-native,
+EU data residency by default, headquartered in France.
 
-* **Decision**: **Rejected.** Compelling for projects that need multiple AI modalities under
-  one contract (OCR + LLM + speech), but for our pure LLM/VLM use case the multimodal breadth
-  beyond OCR is not on our roadmap, the LLM-specific routing controls are less granular than
-  OpenRouter's, and the catalogue is smaller (\~30 providers vs OpenRouter's 60+). Worth a
-  second look only if we wanted GDPR/EU data residency as a hard requirement.
+* **Decision**: **Rejected.** The "multi-modality under one contract" angle would be
+  compelling if OpenRouter only did text — but it doesn't. OpenRouter covers a superset of the
+  modalities we need: LLMs, VLMs, embeddings, image generation, and (since the
+  [2025 audio APIs launch](https://openrouter.ai/announcements/announcing-audio-apis)) STT and
+  TTS via Whisper, Chirp 3, GPT-4o Transcribe, Groq Whisper, and similar TTS providers. Eden
+  AI's specialist providers (DeepL, Mindee, Deepgram) are higher-quality on their narrow
+  domains but we don't need them — our document parsing is already VLM-based, voice navigation
+  in cooking mode uses the browser-native Web Speech API
+  (see the recipe-site roadmap's *Voice / Hands-Free Navigation* section), and translation isn't on the roadmap. The
+  remaining real differences are smaller LLM catalogue (\~30 vs OpenRouter's 60+), less
+  granular routing controls, and EU data residency — only the last is a sometimes-real reason
+  to revisit.
 
 ### [AI/ML API](https://aimlapi.com/)
 
