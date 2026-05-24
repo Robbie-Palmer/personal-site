@@ -352,24 +352,26 @@ Gateways do not remove per-provider account or billing sprawl. They add observab
   ([Aug 2025](https://developers.cloudflare.com/changelog/post/2025-08-25-secrets-store-ai-gateway/))
   centralises API key storage. Adds capabilities OpenRouter does not, notably
   [Guardrails](https://developers.cloudflare.com/ai-gateway/features/guardrails/) (content-safety
-  inspection on prompts and responses) and logs/analytics held in our own Cloudflare account
-  rather than OpenRouter's.
+  inspection on prompts and responses) and request data that stays within our Cloudflare
+  account (relevant for regulatory data residency, not as a general observability win — see
+  cons).
 * **Cons**: To use Claude via Bedrock through AI Gateway, the project still needs an AWS account,
   IAM user, SigV4 setup, and a Bedrock billing relationship; AI Gateway signs requests with
   credentials we provide. Vertex AI similarly requires a Google service account JSON. Every
   provider needs to be onboarded individually. No first-party cross-provider model catalogue and
-  no fallback to alternative providers for the same model. Caching and analytics overlap
-  heavily with what OpenRouter already provides
-  ([response caching](https://openrouter.ai/docs/guides/features/response-caching),
-  [activity dashboard](https://openrouter.ai/docs/api-reference/analytics/get-activity),
-  [I/O logging](https://openrouter.ai/docs/guides/features/input-output-logging)) — semantic
-  caching, which would be a real differentiator, is on Cloudflare's roadmap but
-  [not yet shipped](https://developers.cloudflare.com/ai-gateway/features/caching/).
+  no fallback to alternative providers for the same model. Caching overlaps heavily with what
+  OpenRouter already provides ([response caching](https://openrouter.ai/docs/guides/features/response-caching),
+  prompt-cache pass-through) — semantic caching, which would be a real differentiator, is on
+  Cloudflare's roadmap but [not yet shipped](https://developers.cloudflare.com/ai-gateway/features/caching/).
+  And the Cloudflare dashboard is not a particularly strong general-purpose observability tool;
+  if we wanted a single pane of glass across the whole product (Workers, D1, AI, business
+  metrics) we'd more likely introduce a dedicated platform like Grafana Cloud — a separate ADR.
 * **Decision**: **Rejected as the primary access layer.** Worth layering in front of OpenRouter
   *later* specifically if (a) guardrails become load-bearing for user-facing AI features, or
-  (b) data residency / owning request logs in our own Cloudflare account becomes a requirement.
-  Pure caching/observability is not on its own reason enough — OpenRouter already covers both.
-  The SDK doesn't change either way.
+  (b) regulatory data residency requires request data to stay within our own infrastructure.
+  Pure caching is not on its own reason enough — OpenRouter already covers it. General
+  observability is *not* a reason to reach for AI Gateway; that's a separate decision about
+  observability tooling. The SDK doesn't change either way.
 
 ### [LiteLLM](https://github.com/BerriAI/litellm)
 
@@ -464,18 +466,20 @@ A typed `LLMClient` interface in the domain layer with adapters per provider, sw
   but it isn't a per-user quota engine. At product scale, enforcing "free tier gets N
   ingestions/month, premium tier unlimited", detecting prompt injection / abuse, and
   per-user budget caps live in our Workers + D1 backend. OpenRouter is the inference layer;
-  the metering and access-control layer is ours to build. Layering Cloudflare AI Gateway in
-  front later is one path to richer per-key budgets and guardrails if our backend logic
-  hits its limits.
+  the metering and access-control layer is ours to build. If our backend logic isn't enough,
+  Cloudflare AI Gateway specifically offers Guardrails (content-safety inspection) as a
+  layered option — but per-user budgets, abuse heuristics, and product-shaped rate limits
+  remain ours to own either way.
 
-* **Data flows through OpenRouter and audit trail lives there, not on our infrastructure.**
+* **Data flows through OpenRouter and the audit trail lives there, not on our infrastructure.**
   For GDPR data subject access / deletion requests, we coordinate with OpenRouter rather than
   self-serving from our own logs. `provider.zdr: true` and `provider.data_collection: "deny"`
   mitigate retention/training concerns where the provider supports them, but the request
-  still transits OpenRouter's infrastructure. If full data residency control becomes a hard
-  requirement (regulatory, enterprise customer demand), Cloudflare AI Gateway in front (BYOK +
-  Cloudflare Secrets Store + logs in our own Cloudflare account) is the migration path
-  without changing SDK code.
+  still transits OpenRouter's infrastructure. If regulatory data residency becomes a hard
+  requirement (e.g. an enterprise customer needs all inference data to stay within
+  infrastructure we control), Cloudflare AI Gateway in front (BYOK + Cloudflare Secrets
+  Store + request data within our Cloudflare account) is the migration path without changing
+  SDK code — purely as a data residency answer, not as an observability one.
 
 * **Added latency on every request.** OpenRouter is one extra hop between our backend and the
   upstream provider. Inconsequential for async features (batch ingestion, AI URL import,
@@ -514,15 +518,18 @@ This decision should be revisited if any of the following become true:
   setting up direct accounts.** The first response is selective BYOK on OpenRouter (Anthropic /
   OpenAI / Google AI Studio direct keys, fallback unchanged), not switching access layer. Only
   if BYOK on OpenRouter doesn't close the gap should switching come into scope.
-* **Spend grows large on providers we can't BYOK cheaply** (Bedrock, Vertex), and the 5.8%
+* **Spend grows large on providers we can't BYOK cheaply** (Bedrock, Vertex), and the \~5.8%
   markup on that subset becomes a meaningful absolute number. At that point a head-to-head with
-  Vercel AI Gateway is warranted — they're 0% across the board and the operational delta vs
-  OpenRouter is small once we're on a marketplace gateway either way.
+  Vercel AI Gateway is warranted — they run at \~2.5% effective (Stripe passthrough) so the
+  \~3pp gap on that traffic could justify accepting the catalogue/depth trade-offs.
 * Prompt caching across providers (Anthropic-style cache control, OpenAI cached input pricing)
   becomes load-bearing for a feature and OpenRouter's pass-through coverage lags. At that point
-  layering Cloudflare AI Gateway or going direct for one specific stage is reasonable.
-* The project moves from a personal/portfolio context into a commercial product where
-  first-party contracts with model providers become a procurement or compliance requirement.
+  going direct for one specific stage via BYOK is reasonable.
+* **Regulatory data residency or enterprise procurement requires first-party provider
+  contracts** — e.g. an enterprise customer mandates all inference data stays within our
+  infrastructure, or a compliance framework requires direct contracts with model providers.
+  Layering Cloudflare AI Gateway in front, or going BYOK direct for the affected providers,
+  is the response.
 * An outage pattern on OpenRouter itself proves more disruptive than first-party APIs.
 
 Until then, OpenRouter is the right point on the curve: maximum model agility, minimum platform
