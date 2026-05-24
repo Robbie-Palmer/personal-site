@@ -154,7 +154,24 @@ with no minimum commitment per provider.
 
 # Alternatives Considered
 
-## Direct Per-Provider SDKs (`@anthropic-ai/sdk`, `@google/genai`, `openai`, AWS SDK for Bedrock, etc.)
+The cross-provider LLM access market splits cleanly into two categories with very different
+operating models:
+
+* **LLM Aggregators** own a model catalogue *and* the billing relationship with each upstream
+  provider. You sign up to the aggregator, pay it, and it pays the providers. Examples:
+  OpenRouter, Vercel AI Gateway (despite the "Gateway" branding), Eden AI, AI/ML API.
+* **LLM Gateways** sit in front of providers as a proxy. They centralise observability, key
+  management, guardrails, and routing — but you bring your own provider keys and own the
+  provider billing relationships. Examples: Cloudflare AI Gateway, LiteLLM, Portkey, Kong AI
+  Gateway.
+
+These are not interchangeable. An aggregator eliminates per-provider account sprawl; a gateway
+adds policy and observability *on top of* that sprawl. The two can also compose — a gateway can
+sit in front of an aggregator. The decision framing below first considers the baseline (no
+intermediary), then the aggregator peers of OpenRouter, then the BYOK gateways (which solve a
+different half of the problem).
+
+## Baseline: Direct Per-Provider SDKs (`@anthropic-ai/sdk`, `@google/genai`, `openai`, AWS SDK for Bedrock, etc.)
 
 * **Pros**: First-party, full feature coverage on the day of launch (e.g., Anthropic's prompt
   caching, OpenAI's Responses API), no third-party dependency in the inference path.
@@ -168,46 +185,21 @@ with no minimum commitment per provider.
 * **Decision**: **Rejected.** The friction is incompatible with the iteration cadence the
   ingestion pipeline and future AI features need.
 
-## [Cloudflare AI Gateway](https://developers.cloudflare.com/ai-gateway/)
+## LLM Aggregators (real peers to OpenRouter)
 
-* **Pros**: Sits inline with the rest of the Cloudflare estate ([ADR 011](/projects/personal-site/adrs/011-cloudflare-pages),
-  [ADR 029](/projects/personal-site/adrs/029-cloudflare-images), [ADR 039](/projects/personal-site/adrs/039-cloudflare-r2)).
-  Free tier. Recent Secrets Store integration
-  ([Aug 2025](https://developers.cloudflare.com/changelog/post/2025-08-25-secrets-store-ai-gateway/))
-  centralises API key storage. Adds capabilities OpenRouter does not, notably
-  [Guardrails](https://developers.cloudflare.com/ai-gateway/features/guardrails/) (content-safety
-  inspection on prompts and responses) and logs/analytics held in our own Cloudflare account
-  rather than OpenRouter's.
-* **Cons**: **Cloudflare AI Gateway is BYOK** — it does not provide its own catalogue or billing
-  relationship with model providers. To use Claude via Bedrock through AI Gateway, the project
-  still needs an AWS account, IAM user, SigV4 setup, and a Bedrock billing relationship; AI Gateway
-  signs requests with credentials we provide. Vertex AI similarly requires a Google service
-  account JSON. The administrative overhead AI Gateway is designed to *complement*, not
-  *replace* — every provider needs to be onboarded individually. There is also no first-party
-  cross-provider model catalogue and no fallback to alternative providers for the same model.
-  Its caching and analytics overlap heavily with what OpenRouter already provides
-  ([response caching](https://openrouter.ai/docs/guides/features/response-caching),
-  [activity dashboard](https://openrouter.ai/docs/api-reference/analytics/get-activity),
-  [I/O logging](https://openrouter.ai/docs/guides/features/input-output-logging)) — semantic
-  caching, which would be a real differentiator, is on Cloudflare's roadmap but
-  [not yet shipped](https://developers.cloudflare.com/ai-gateway/features/caching/).
-* **Decision**: **Rejected as the primary access layer.** AI Gateway and OpenRouter solve
-  different halves of the problem. If OpenRouter ever felt like the wrong choice, the OpenAI
-  endpoint flavour of AI Gateway could front it — but adding AI Gateway today would not remove
-  any platform setup. Worth layering in front of OpenRouter *later* specifically if (a) guardrails
-  become load-bearing for user-facing AI features, or (b) data residency / owning request logs in
-  our own Cloudflare account becomes a requirement. Pure caching/observability is not on its own
-  reason enough — OpenRouter already covers both. The SDK doesn't change either way.
+Aggregators own the upstream provider relationships, so a single account, key, and bill replace
+N per-provider integrations. The relevant axes to compare them on are catalogue breadth,
+routing controls, pricing model, platform coupling, and maturity.
 
-## [Vercel AI Gateway](https://vercel.com/ai-gateway)
+### [Vercel AI Gateway](https://vercel.com/ai-gateway)
 
 The closest peer to OpenRouter — a unified API to hundreds of models with no per-token markup,
 optional BYOK, OpenAI- and Anthropic-compatible endpoints, automatic cross-provider retry, and
 spend monitoring.
 
-* **Pros**: Genuine OpenRouter-class product (catalogue + unified billing + retry), not a
-  BYOK-only proxy. Pay-as-you-go with zero markup matches OpenRouter's economics. Native
-  integration with the Vercel AI SDK if we ever adopt that client library.
+* **Pros**: Genuine OpenRouter-class product (catalogue + unified billing + retry). Pay-as-you-go
+  with zero markup matches OpenRouter's economics. Native integration with the Vercel AI SDK if
+  we ever adopt that client library.
 * **Cons**: Smaller model catalogue than OpenRouter (hundreds vs OpenRouter's 400+/60+ providers)
   — narrower selection of open-weight providers (Together, DeepInfra, Fireworks, Replicate
   variants) where most of our per-stage price/throughput optimisation lives. The product is
@@ -232,16 +224,96 @@ spend monitoring.
 > (`@openrouter/ai-sdk-provider`). If we build a streaming chat UI, the Vercel AI SDK on top of
 > OpenRouter is the natural fit — the two compose, they don't compete.
 
-## [LiteLLM](https://github.com/BerriAI/litellm) (Self-Hosted Proxy)
+### [Eden AI](https://www.edenai.co/)
 
-* **Pros**: Open source, self-hostable, MIT licensed. Same provider-abstraction value proposition
-  as OpenRouter. No third-party dependency on the inference path.
-* **Cons**: Self-hosting a proxy is a platform we'd have to run, scale, and pay for — almost
-  certainly on a Worker or a Container with a per-provider key vault attached. Doesn't solve the
-  underlying per-provider account/billing problem — we'd still need accounts and keys for every
-  provider we want to use. It's a *router*, not a *marketplace*.
+A multimodal aggregator with \~30 provider integrations across text, OCR, document parsing,
+speech, translation, and image analysis. Unified billing on a credit balance with a 5.5%
+platform fee on top of provider pass-through pricing. GDPR-native, EU data residency by
+default, headquartered in France.
+
+* **Decision**: **Rejected.** Compelling for projects that need multiple AI modalities under one
+  contract (OCR + LLM + speech), but for our pure LLM/VLM use case the 5.5% markup makes
+  OpenRouter cheaper, the LLM-specific routing controls are less granular, and the multimodal
+  breadth beyond OCR is not on our roadmap. Worth a second look only if we wanted GDPR/EU data
+  residency as a hard requirement.
+
+### [AI/ML API](https://aimlapi.com/)
+
+OpenAI-compatible aggregator with its own catalogue and unified billing. Positioned as a
+lower-cost OpenRouter alternative.
+
+* **Decision**: **Rejected.** Smaller catalogue and ecosystem than OpenRouter, with no clear
+  feature advantage for our workload. OpenRouter's incumbency, integration in the existing
+  pipeline, and routing-control surface area outweigh any marginal price difference.
+
+## LLM Gateways (BYOK — solve a different half of the problem)
+
+Gateways do not remove per-provider account or billing sprawl. They add observability, policy
+(rate limits, budgets, guardrails), key management, and routing on top of provider relationships
+*we* still have to set up and own. Useful as a complement to an aggregator, not as a replacement.
+
+### [Cloudflare AI Gateway](https://developers.cloudflare.com/ai-gateway/)
+
+* **Pros**: Sits inline with the rest of the Cloudflare estate ([ADR 011](/projects/personal-site/adrs/011-cloudflare-pages),
+  [ADR 029](/projects/personal-site/adrs/029-cloudflare-images), [ADR 039](/projects/personal-site/adrs/039-cloudflare-r2)).
+  Free tier. Recent Secrets Store integration
+  ([Aug 2025](https://developers.cloudflare.com/changelog/post/2025-08-25-secrets-store-ai-gateway/))
+  centralises API key storage. Adds capabilities OpenRouter does not, notably
+  [Guardrails](https://developers.cloudflare.com/ai-gateway/features/guardrails/) (content-safety
+  inspection on prompts and responses) and logs/analytics held in our own Cloudflare account
+  rather than OpenRouter's.
+* **Cons**: To use Claude via Bedrock through AI Gateway, the project still needs an AWS account,
+  IAM user, SigV4 setup, and a Bedrock billing relationship; AI Gateway signs requests with
+  credentials we provide. Vertex AI similarly requires a Google service account JSON. Every
+  provider needs to be onboarded individually. No first-party cross-provider model catalogue and
+  no fallback to alternative providers for the same model. Caching and analytics overlap
+  heavily with what OpenRouter already provides
+  ([response caching](https://openrouter.ai/docs/guides/features/response-caching),
+  [activity dashboard](https://openrouter.ai/docs/api-reference/analytics/get-activity),
+  [I/O logging](https://openrouter.ai/docs/guides/features/input-output-logging)) — semantic
+  caching, which would be a real differentiator, is on Cloudflare's roadmap but
+  [not yet shipped](https://developers.cloudflare.com/ai-gateway/features/caching/).
+* **Decision**: **Rejected as the primary access layer.** Worth layering in front of OpenRouter
+  *later* specifically if (a) guardrails become load-bearing for user-facing AI features, or
+  (b) data residency / owning request logs in our own Cloudflare account becomes a requirement.
+  Pure caching/observability is not on its own reason enough — OpenRouter already covers both.
+  The SDK doesn't change either way.
+
+### [LiteLLM](https://github.com/BerriAI/litellm)
+
+Open-source (MIT) proxy. Self-hosted or via the managed LiteLLM Cloud offering — both BYOK at
+the inference layer.
+
+* **Pros**: Same provider-abstraction surface as the aggregators. No third-party dependency on
+  the inference path if self-hosted. Strong observability and routing primitives.
+* **Cons**: Self-hosting is a platform we'd have to run, scale, and pay for; the managed cloud
+  removes that but is still BYOK so the per-provider account/billing problem persists either
+  way. It's a *router*, not a *marketplace*.
 * **Decision**: **Rejected.** Buys flexibility we don't need at the cost of platforms and
   per-provider admin we explicitly want to avoid.
+
+### [Portkey](https://portkey.ai/)
+
+Production-focused BYOK gateway with Virtual Keys / Model Catalog for centralised key
+management, budgets, guardrails, and routing across 1,600+ models. Pricing is per-log
+(\~$49/mo for 100K logs at the time of writing). Palo Alto Networks announced intent to
+acquire in May 2026.
+
+* **Decision**: **Rejected.** Strong enterprise feature set we don't need, BYOK at the
+  inference layer so doesn't remove provider sprawl, log-based pricing scales unfavourably for
+  a project where individual feature usage may be high-volume (every recipe ingestion is a
+  request).
+
+### [Kong AI Gateway](https://konghq.com/products/kong-ai-gateway)
+
+The AI extension of Kong's enterprise API gateway. Adds semantic caching, semantic routing,
+PII redaction, model lifecycle management, and governance on top of BYOK provider
+relationships. Enterprise licensing, typically $50K+/year.
+
+* **Decision**: **Rejected.** Enterprise governance platform aimed at organisations
+  standardising agentic AI across many teams — operationally and commercially disproportionate
+  to a personal/portfolio project. BYOK at the inference layer; same provider-sprawl story as
+  the other gateways.
 
 ## Custom Internal Abstraction over Provider SDKs
 
