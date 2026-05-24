@@ -391,9 +391,12 @@ the inference layer.
 ### [Portkey](https://portkey.ai/)
 
 Production-focused BYOK gateway with Virtual Keys / Model Catalog for centralised key
-management, budgets, guardrails, and routing across 1,600+ models. Pricing is per-log
-(\~$49/mo for 100K logs at the time of writing). Palo Alto Networks announced intent to
-acquire in May 2026.
+management, budgets, guardrails, and routing. Markets "1,600+ models" — note this is the
+aggregate across upstream providers Portkey can proxy to (Together alone exposes hundreds of
+open-weight variants), not a Portkey-curated catalogue comparable to OpenRouter's 358 or
+Vercel's 275. Portkey is a pure router, not a marketplace. Pricing is per-log (\~$49/mo for
+100K logs at the time of writing). Palo Alto Networks announced intent to acquire in May
+2026\.
 
 * **Decision**: **Rejected.** Strong enterprise feature set we don't need, BYOK at the
   inference layer so doesn't remove provider sprawl, log-based pricing scales unfavourably for
