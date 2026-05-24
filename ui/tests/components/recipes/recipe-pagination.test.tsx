@@ -10,6 +10,7 @@ function makeRecipe(slug: string, title: string): RecipeCardView {
     description: "Test recipe",
     date: "2026-02-10",
     cuisine: [],
+    tags: [],
     servings: 4,
     ingredientNames: [],
     cookware: [],

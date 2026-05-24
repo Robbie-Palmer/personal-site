@@ -3,12 +3,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RecipeContent } from "@/components/recipes/recipe-content";
 import { RecipePagination } from "@/components/recipes/recipe-pagination";
+import { JsonLdScript } from "@/components/seo/json-ld-script";
 import {
   getAllRecipeSlugs,
   getRecipeBySlug,
   getRecipeNavigation,
   type RecipeDetailView,
 } from "@/lib/api/recipes";
+import { siteConfig } from "@/lib/config/site-config";
+import { buildRecipeJsonLd } from "@/lib/seo/recipe-jsonld";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -46,9 +49,11 @@ export default async function RecipePage(props: PageProps) {
   }
 
   const { prevRecipe, nextRecipe } = getRecipeNavigation(slug);
+  const jsonLd = buildRecipeJsonLd(recipe, siteConfig.author.name);
 
   return (
     <article className="container mx-auto px-4 py-12 max-w-4xl">
+      <JsonLdScript data={jsonLd} />
       <Link
         href="/recipes"
         className="text-sm text-muted-foreground hover:text-foreground mb-8 inline-block"

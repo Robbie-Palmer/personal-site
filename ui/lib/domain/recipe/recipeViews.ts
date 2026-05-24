@@ -30,6 +30,7 @@ type BaseRecipeView = {
   description: string;
   date: string;
   cuisine: string[];
+  tags: string[];
   servings: number;
   prepTime?: number;
   cookTime?: number;
@@ -111,6 +112,7 @@ export function toRecipeCardView(
     description: recipe.description,
     date: recipe.date,
     cuisine: recipe.cuisine,
+    tags: recipe.tags,
     servings: recipe.servings,
     prepTime: recipe.prepTime,
     cookTime: recipe.cookTime,
