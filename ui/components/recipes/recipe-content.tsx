@@ -321,6 +321,21 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
           {recipe.description}
         </p>
 
+        {recipe.canonical && (
+          <p className="text-sm text-muted-foreground italic mb-4">
+            Adapted from{" "}
+            <a
+              href={recipe.canonical}
+              target="_blank"
+              rel="noopener"
+              className="underline hover:text-foreground"
+            >
+              the original recipe
+            </a>
+            .
+          </p>
+        )}
+
         <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-1">
             <Users className="h-4 w-4" />

@@ -15,6 +15,11 @@ export type SchemaOrgHowToStep = {
   text: string;
 };
 
+export type SchemaOrgCreativeWorkRef = {
+  "@type": "Recipe";
+  url: string;
+};
+
 export type SchemaOrgRecipe = {
   "@context": "https://schema.org";
   "@type": "Recipe";
@@ -31,6 +36,7 @@ export type SchemaOrgRecipe = {
   keywords?: string;
   recipeIngredient: string[];
   recipeInstructions: SchemaOrgHowToStep[];
+  isBasedOn?: SchemaOrgCreativeWorkRef;
 };
 
 export type SchemaOrgListItem = {
@@ -165,6 +171,9 @@ export function buildRecipeJsonLd(
   const keywordParts = [...recipe.tags, ...recipe.cuisine];
   if (keywordParts.length > 0) {
     jsonLd.keywords = keywordParts.join(", ");
+  }
+  if (recipe.canonical) {
+    jsonLd.isBasedOn = { "@type": "Recipe", url: recipe.canonical };
   }
 
   return jsonLd;

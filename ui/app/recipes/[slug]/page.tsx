@@ -26,9 +26,14 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   const { slug } = params;
   try {
     const recipe = getRecipeBySlug(slug);
+    const canonicalUrl =
+      recipe.canonical || `${siteConfig.url}/recipes/${slug}`;
     return {
       title: recipe.title,
       description: recipe.description,
+      alternates: {
+        canonical: canonicalUrl,
+      },
     };
   } catch (_e) {
     return {

@@ -37,6 +37,7 @@ type BaseRecipeView = {
   totalTime?: number;
   image?: string;
   imageAlt?: string;
+  canonical?: string;
 };
 
 export type RecipeCardView = BaseRecipeView & {
@@ -119,6 +120,7 @@ export function toRecipeCardView(
     totalTime: computeTotalTime(recipe),
     image: recipe.image,
     imageAlt: recipe.imageAlt,
+    canonical: recipe.canonical,
     ingredientNames: extractIngredientNames(recipe, ingredients),
     cookware: recipe.cookware,
   };
