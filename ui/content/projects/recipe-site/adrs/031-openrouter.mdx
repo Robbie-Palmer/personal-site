@@ -11,8 +11,9 @@ The recipe site already depends on Large Language Models for the photo-to-recipe
 ([ADR 029: DVC](/projects/recipe-site/adrs/029-dvc), [ADR 030: Cooklang](/projects/recipe-site/adrs/030-cooklang)).
 The pipeline has three distinct LLM stages — OCR extraction from page images (VLM), normalisation
 of raw extraction into Cooklang (LLM), and ingredient disambiguation (cheaper LLM) — each with
-different price/performance trade-offs. The current `params.yaml` already mixes Gemini 3 Flash
-Preview and Gemini 2.5 Flash across these stages.
+different price/performance trade-offs. The current
+[`params.yaml`](https://github.com/Robbie-Palmer/personal-site/blob/main/ml-pipelines/recipe-parsing/params.yaml)
+already mixes Gemini 3 Flash Preview and Gemini 2.5 Flash across these stages.
 
 Beyond ingestion, the [recipe-site roadmap](/projects/recipe-site) lists several
 AI-powered user-facing features in Phases 2–6: AI URL import, AI photo import for smooth
@@ -22,7 +23,8 @@ models the moment they ship — without a code change, a new SDK, a new key, a n
 relationship, or a new platform to learn.
 
 Today the ML pipeline talks to OpenRouter via the OpenAI SDK
-(`ml-pipelines/recipe-parsing/src/lib/openrouter.ts`). This ADR formalises that as the strategic
+([`ml-pipelines/recipe-parsing/src/lib/openrouter.ts`](https://github.com/Robbie-Palmer/personal-site/blob/main/ml-pipelines/recipe-parsing/src/lib/openrouter.ts)).
+This ADR formalises that as the strategic
 choice for **all** LLM/VLM access across the recipe site — pipeline, future Worker-based features,
 and any client-side experimentation — and documents why the alternatives (direct provider SDKs,
 Cloudflare AI Gateway, Vercel AI Gateway, custom abstraction layers) are not a better fit.
@@ -113,8 +115,9 @@ This aligns with:
 ## What Specifically OpenRouter Provides
 
 * **OpenAI-compatible REST API** — drop-in replacement for the OpenAI SDK by changing `baseURL`.
-  Already in use at `ml-pipelines/recipe-parsing/src/lib/openrouter.ts` (see
-  `getOrCreateOpenRouterClient`). First-party SDKs also exist if we ever want them: an
+  Already in use at
+  [`ml-pipelines/recipe-parsing/src/lib/openrouter.ts`](https://github.com/Robbie-Palmer/personal-site/blob/main/ml-pipelines/recipe-parsing/src/lib/openrouter.ts)
+  (see `getOrCreateOpenRouterClient`). First-party SDKs also exist if we ever want them: an
   [official Python SDK](https://github.com/OpenRouterTeam/python-sdk) (currently beta) and an
   [official Vercel AI SDK provider](https://github.com/OpenRouterTeam/ai-sdk-provider)
   (`@openrouter/ai-sdk-provider`) for TypeScript apps that want the Vercel AI SDK's React hooks.
