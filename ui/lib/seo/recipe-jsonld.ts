@@ -5,10 +5,6 @@ import type {
 } from "@/lib/domain/recipe/recipeViews";
 import { UNIT_LABELS } from "@/lib/domain/recipe/unit";
 
-// ---------------------------------------------------------------------------
-// schema.org types — Recipe-specific subset of the spec
-// ---------------------------------------------------------------------------
-
 export type SchemaOrgPerson = {
   "@type": "Person";
   name: string;
@@ -50,10 +46,6 @@ export type SchemaOrgItemList = {
   itemListElement: SchemaOrgListItem[];
 };
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
 /** Convert integer minutes → ISO 8601 duration, e.g. 75 → "PT1H15M". */
 export function minutesToIsoDuration(minutes: number): string {
   const h = Math.floor(minutes / 60);
@@ -83,7 +75,6 @@ function formatAmount(amount: number): string {
   return amount.toFixed(1);
 }
 
-/** Format a RecipeIngredientView as a human-readable string, e.g. "250g butter (melted)". */
 function formatRecipeIngredient(item: RecipeIngredientView): string {
   const parts: string[] = [];
 
@@ -96,7 +87,6 @@ function formatRecipeIngredient(item: RecipeIngredientView): string {
     const isPlural = item.amount != null && item.amount > 1;
     const unitStr = isPlural ? label.plural : label.singular;
     if (label.noSpace && parts.length > 0) {
-      // Metric units attach directly to the number: "250g" not "250 g"
       parts[parts.length - 1] += unitStr;
     } else {
       parts.push(unitStr);
@@ -116,10 +106,7 @@ function formatRecipeIngredient(item: RecipeIngredientView): string {
   return parts.join(" ").trim();
 }
 
-/**
- * Build a Cloudflare Images URL wide enough for Google (≥1200 px) in JPEG.
- * Returns undefined when the env var is absent (e.g. local dev without credentials).
- */
+// Returns undefined when the env var is absent (e.g. local dev without credentials).
 function buildSchemaImageUrl(imageId: string): string | undefined {
   const accountHash = process.env.NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH;
   if (!accountHash) return undefined;
@@ -132,16 +119,6 @@ function warnMissing(slug: string, field: string): void {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-/**
- * Build a schema.org Recipe JSON-LD object for a single recipe page.
- *
- * Emits build-time console warnings for fields that Google requires for
- * rich results (name is always present; image is the common missing one).
- */
 export function buildRecipeJsonLd(
   recipe: RecipeDetailView,
   authorName: string,
@@ -194,10 +171,6 @@ export function buildRecipeJsonLd(
   return jsonLd;
 }
 
-/**
- * Build a schema.org ItemList JSON-LD for the recipe index page.
- * This is what unlocks the host recipe carousel in Google Search.
- */
 export function buildRecipeListJsonLd(
   recipes: RecipeCardView[],
   siteUrl: string,
