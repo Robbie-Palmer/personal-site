@@ -152,11 +152,42 @@ provider, with no markup on inference itself. The platform monetises via a
 (5% for crypto, $0.80 minimum), so a $100 top-up funds \~$94.50 of inference. Effective markup
 works out to roughly 5.8%, which is in line with Eden AI (5.5%) and higher than
 [Vercel AI Gateway](https://vercel.com/docs/ai-gateway/pricing) (0% — provider list price flat,
-recouped via Vercel platform plan tiers). BYOK is available with a 5% fee on what the same
-model would have cost on OpenRouter, after the first 1M BYOK requests per month free —
-useful as a fallback if we ever want to use existing provider credits, but unnecessary for our
-current scale. Spend stays predictable and pay-as-you-go, with no minimum commitment per
-provider.
+recouped via Vercel platform plan tiers). Spend stays predictable and pay-as-you-go, with no
+minimum commitment per provider.
+
+### Cost Over the Lifecycle
+
+The 5.8% effective markup is a knob we can turn down over time rather than a fixed cost.
+OpenRouter's BYOK terms make the cost story phase-dependent:
+
+* **First 1M BYOK requests per month: free** — 0% markup on top of whatever the provider charges
+  you directly ([announcement](https://openrouter.ai/announcements/1-million-free-byok-requests-per-month)).
+* **Above 1M BYOK requests per month**: 5% of the equivalent OpenRouter pay-as-you-go cost on the
+  surplus.
+* **BYOK is per-provider, not all-or-nothing** — you can BYOK Anthropic while staying on
+  pay-as-you-go for Google, or vice versa, and switch any one of them independently.
+* **Fallback still works under BYOK** — by default, if BYOK keys rate-limit or fail, OpenRouter
+  falls back to its own shared endpoints. The availability story doesn't change.
+
+That enables a natural lifecycle:
+
+1. **Today (broad experimentation, low absolute spend).** Stay on pay-as-you-go across the
+   board. Catalogue breadth matters more than 5.8% on pocket-change spend. New model
+   experiments don't justify creating a provider account.
+2. **As user-facing AI scales.** Selectively BYOK the providers carrying the most volume *and*
+   that are operationally cheap to onboard — Anthropic direct, OpenAI direct, Google AI Studio.
+   Those drop to 0% markup (under 1M req/month) or 5% (above) while the rest of the catalogue
+   stays one config flip away.
+3. **Long tail stays pay-as-you-go.** Painful providers (AWS Bedrock SigV4, Vertex service
+   accounts) — keep them on OpenRouter's relationship; the 5.8% buys us out of IAM. Open-weight
+   experimentation providers (Together, DeepInfra, Fireworks) — same story; no account for a
+   one-week test.
+
+Net: the effective markup converges toward 0% on the volume that matters as the product scales,
+without sacrificing catalogue breadth, routing controls, or the one-key/one-bill story for the
+long tail. Vercel AI Gateway is already 0% across the board, but OpenRouter's BYOK path closes
+most of the cost gap while keeping the catalogue and routing edges that drove the original
+decision.
 
 # Alternatives Considered
 
@@ -394,14 +425,20 @@ A typed `LLMClient` interface in the domain layer with adapters per provider, sw
 
 This decision should be revisited if any of the following become true:
 
-* A single AI feature dominates spend such that direct provider pricing — combined with reserved
-  capacity or prompt caching — would meaningfully reduce cost.
+* **Spend on easy-to-BYOK providers grows large enough to justify the operational cost of
+  setting up direct accounts.** The first response is selective BYOK on OpenRouter (Anthropic /
+  OpenAI / Google AI Studio direct keys, fallback unchanged), not switching access layer. Only
+  if BYOK on OpenRouter doesn't close the gap should switching come into scope.
+* **Spend grows large on providers we can't BYOK cheaply** (Bedrock, Vertex), and the 5.8%
+  markup on that subset becomes a meaningful absolute number. At that point a head-to-head with
+  Vercel AI Gateway is warranted — they're 0% across the board and the operational delta vs
+  OpenRouter is small once we're on a marketplace gateway either way.
 * Prompt caching across providers (Anthropic-style cache control, OpenAI cached input pricing)
   becomes load-bearing for a feature and OpenRouter's pass-through coverage lags. At that point
-  layering AI Gateway or going direct for one specific stage is reasonable.
+  layering Cloudflare AI Gateway or going direct for one specific stage is reasonable.
 * The project moves from a personal/portfolio context into a commercial product where
   first-party contracts with model providers become a procurement or compliance requirement.
 * An outage pattern on OpenRouter itself proves more disruptive than first-party APIs.
 
 Until then, OpenRouter is the right point on the curve: maximum model agility, minimum platform
-sprawl.
+sprawl, and a clean BYOK migration path as scale arrives.
