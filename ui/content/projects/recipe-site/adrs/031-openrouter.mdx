@@ -146,11 +146,17 @@ This aligns with:
 
 ## Cost Model
 
-OpenRouter charges provider list price plus a small payment-processing fee on credit purchase;
-there is no markup on per-token pricing. BYOK is available with a small percentage fee after
-\~1,000 monthly requests — useful as a fallback if we ever want to use existing provider credits,
-but unnecessary for our current scale and roadmap. Spend stays predictable and pay-as-you-go,
-with no minimum commitment per provider.
+Per-token pricing is pass-through — OpenRouter charges the same per-token rate as the underlying
+provider, with no markup on inference itself. The platform monetises via a
+[5.5% fee on credit top-up](https://openrouter.ai/announcements/simplifying-our-platform-fee)
+(5% for crypto, $0.80 minimum), so a $100 top-up funds \~$94.50 of inference. Effective markup
+works out to roughly 5.8%, which is in line with Eden AI (5.5%) and higher than
+[Vercel AI Gateway](https://vercel.com/docs/ai-gateway/pricing) (0% — provider list price flat,
+recouped via Vercel platform plan tiers). BYOK is available with a 5% fee on what the same
+model would have cost on OpenRouter, after the first 1M BYOK requests per month free —
+useful as a fallback if we ever want to use existing provider credits, but unnecessary for our
+current scale. Spend stays predictable and pay-as-you-go, with no minimum commitment per
+provider.
 
 # Alternatives Considered
 
@@ -197,9 +203,10 @@ The closest peer to OpenRouter — a unified API to hundreds of models with no p
 optional BYOK, OpenAI- and Anthropic-compatible endpoints, automatic cross-provider retry, and
 spend monitoring.
 
-* **Pros**: Genuine OpenRouter-class product (catalogue + unified billing + retry). Pay-as-you-go
-  with zero markup matches OpenRouter's economics. Native integration with the Vercel AI SDK if
-  we ever adopt that client library.
+* **Pros**: Genuine OpenRouter-class product (catalogue + unified billing + retry). **Cheaper on
+  tokens than OpenRouter** — Vercel charges 0% markup on per-token pricing and recoups via
+  platform plan tiers, where OpenRouter applies a \~5.5% fee on credit top-up. Native integration
+  with the Vercel AI SDK if we ever adopt that client library.
 * **Cons**: Smaller model catalogue than OpenRouter (hundreds vs OpenRouter's 400+/60+ providers)
   — narrower selection of open-weight providers (Together, DeepInfra, Fireworks, Replicate
   variants) where most of our per-stage price/throughput optimisation lives. The product is
@@ -228,14 +235,14 @@ spend monitoring.
 
 A multimodal aggregator with \~30 provider integrations across text, OCR, document parsing,
 speech, translation, and image analysis. Unified billing on a credit balance with a 5.5%
-platform fee on top of provider pass-through pricing. GDPR-native, EU data residency by
-default, headquartered in France.
+platform fee on credit top-up — effectively the same cost model as OpenRouter, so no price
+advantage either way. GDPR-native, EU data residency by default, headquartered in France.
 
-* **Decision**: **Rejected.** Compelling for projects that need multiple AI modalities under one
-  contract (OCR + LLM + speech), but for our pure LLM/VLM use case the 5.5% markup makes
-  OpenRouter cheaper, the LLM-specific routing controls are less granular, and the multimodal
-  breadth beyond OCR is not on our roadmap. Worth a second look only if we wanted GDPR/EU data
-  residency as a hard requirement.
+* **Decision**: **Rejected.** Compelling for projects that need multiple AI modalities under
+  one contract (OCR + LLM + speech), but for our pure LLM/VLM use case the multimodal breadth
+  beyond OCR is not on our roadmap, the LLM-specific routing controls are less granular than
+  OpenRouter's, and the catalogue is smaller (\~30 providers vs OpenRouter's 60+). Worth a
+  second look only if we wanted GDPR/EU data residency as a hard requirement.
 
 ### [AI/ML API](https://aimlapi.com/)
 
