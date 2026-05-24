@@ -159,10 +159,29 @@ provider, with no markup on inference itself. The platform monetises via a
 [5.5% fee on credit top-up](https://openrouter.ai/announcements/simplifying-our-platform-fee)
 (5% for crypto, $0.80 minimum), so a $100 top-up funds \~$94.50 of inference. Effective markup
 works out to roughly 5.8% — the same as Eden AI, which uses an identical 5.5%-on-credit-top-up
-structure — and higher than
-[Vercel AI Gateway](https://vercel.com/docs/ai-gateway/pricing) (0% — provider list price flat,
-recouped via Vercel platform plan tiers). Spend stays predictable and pay-as-you-go, with no
-minimum commitment per provider.
+structure. Spend stays predictable and pay-as-you-go, with no minimum commitment per provider.
+
+[Vercel AI Gateway](https://vercel.com/docs/ai-gateway/pricing) is the cheaper aggregator on
+paper — 0% Vercel markup on tokens, $5/month free credit, no paid Vercel plan required (Hobby
+team accounts work). Vercel monetises elsewhere: hosting/deployment is the core business and
+AI Gateway is a loss leader for it, plus optional add-on capabilities (Custom Reporting,
+team-wide allowlists, team-wide ZDR) carry per-request surcharges if turned on. Vercel's docs
+also disclaim "you're responsible for any payment processing fees that may apply" on credit
+top-ups, which in practice translates to Stripe-style card processing (\~2.5%) passed through.
+The effective gap between the two is therefore \~3 percentage points at meaningful scale, not
+the full 5.8%:
+
+| Monthly inference spend | OpenRouter overhead             | Vercel overhead                 | Gap     |
+| ----------------------- | ------------------------------- | ------------------------------- | ------- |
+| **$5**                  | \~16% ($0.80 minimum dominates) | 0% (free $5 credit)             | \~16pp  |
+| **$50**                 | 5.8%                            | \~0% (free credit absorbs most) | \~5.8pp |
+| **$500**                | 5.8%                            | \~1.5%                          | \~4.3pp |
+| **$5,000**              | 5.8%                            | \~2.5%                          | \~3.3pp |
+| **$50,000**             | 5.8%                            | \~2.5%                          | \~3.3pp |
+
+The Stripe-style passthrough is an estimate based on Vercel's "may apply" language — actual
+could be lower (Vercel's own merchant rate) or zero (absorbed). Even taking the worst case,
+the OpenRouter cost premium stabilises at roughly 3pp once spend grows past the $5 free credit.
 
 ### Cost Over the Lifecycle
 
@@ -194,9 +213,10 @@ That enables a natural lifecycle:
 
 Net: the effective markup converges toward 0% on the volume that matters as the product scales,
 without sacrificing catalogue breadth, routing controls, or the one-key/one-bill story for the
-long tail. Vercel AI Gateway is already 0% across the board, but OpenRouter's BYOK path closes
-most of the cost gap while keeping the catalogue and routing edges that drove the original
-decision.
+long tail. Vercel AI Gateway runs at \~2.5% overhead in practice (Stripe passthrough), so the
+\~3pp cost gap to OpenRouter doesn't close fully via BYOK — but it does narrow to the point where
+the catalogue breadth and routing controls that drove the original decision comfortably outweigh
+the residual saving.
 
 # Alternatives Considered
 
@@ -243,10 +263,12 @@ The closest peer to OpenRouter — a unified API to hundreds of models with no p
 optional BYOK, OpenAI- and Anthropic-compatible endpoints, automatic cross-provider retry, and
 spend monitoring.
 
-* **Pros**: Genuine OpenRouter-class product (catalogue + unified billing + retry). **Cheaper on
-  tokens than OpenRouter** — Vercel charges 0% markup on per-token pricing and recoups via
-  platform plan tiers, where OpenRouter applies a \~5.5% fee on credit top-up. Native integration
-  with the Vercel AI SDK if we ever adopt that client library.
+* **Pros**: Genuine OpenRouter-class product (catalogue + unified billing + retry). **Cheaper
+  on tokens than OpenRouter** — Vercel charges 0% markup on per-token pricing (AI Gateway is a
+  loss leader for hosting; optional add-on capabilities and Stripe-passthrough card processing
+  carry the cost), where OpenRouter applies \~5.8% effective via its credit-top-up fee. See
+  the Cost Model table above for the \~3pp effective gap at meaningful scale. Native
+  integration with the Vercel AI SDK if we ever adopt that client library.
 * **Cons**: Smaller model catalogue than OpenRouter (hundreds vs OpenRouter's 400+/60+ providers)
   — narrower selection of open-weight providers (Together, DeepInfra, Fireworks, Replicate
   variants) where most of our per-stage price/throughput optimisation lives. The product is
