@@ -325,9 +325,9 @@ EU data residency by default, headquartered in France.
   domains but we don't need them — our document parsing is already VLM-based, voice navigation
   in cooking mode uses the browser-native Web Speech API
   (see the recipe-site roadmap's *Voice / Hands-Free Navigation* section), and translation isn't on the roadmap. The
-  remaining real differences are smaller LLM catalogue (\~30 vs OpenRouter's 60+), less
-  granular routing controls, and EU data residency — only the last is a sometimes-real reason
-  to revisit.
+  remaining real differences are smaller LLM catalogue (\~30 vs OpenRouter's 60+) and less
+  granular routing controls. Eden AI's EU data residency posture is nice but isn't a trigger
+  for a B2C consumer product without that as an explicit positioning claim.
 
 ### [AI/ML API](https://aimlapi.com/)
 
@@ -350,11 +350,10 @@ Gateways do not remove per-provider account or billing sprawl. They add observab
   [ADR 029](/projects/personal-site/adrs/029-cloudflare-images), [ADR 039](/projects/personal-site/adrs/039-cloudflare-r2)).
   Free tier. Recent Secrets Store integration
   ([Aug 2025](https://developers.cloudflare.com/changelog/post/2025-08-25-secrets-store-ai-gateway/))
-  centralises API key storage. Adds capabilities OpenRouter does not, notably
-  [Guardrails](https://developers.cloudflare.com/ai-gateway/features/guardrails/) (content-safety
-  inspection on prompts and responses) and request data that stays within our Cloudflare
-  account (relevant for regulatory data residency, not as a general observability win — see
-  cons).
+  centralises API key storage. Adds [Guardrails](https://developers.cloudflare.com/ai-gateway/features/guardrails/)
+  (content-safety inspection on prompts and responses), which OpenRouter does not — the one
+  capability that could realistically pull us toward layering AI Gateway later, if
+  user-facing AI inputs become an abuse vector.
 * **Cons**: To use Claude via Bedrock through AI Gateway, the project still needs an AWS account,
   IAM user, SigV4 setup, and a Bedrock billing relationship; AI Gateway signs requests with
   credentials we provide. Vertex AI similarly requires a Google service account JSON. Every
@@ -367,11 +366,11 @@ Gateways do not remove per-provider account or billing sprawl. They add observab
   if we wanted a single pane of glass across the whole product (Workers, D1, AI, business
   metrics) we'd more likely introduce a dedicated platform like Grafana Cloud — a separate ADR.
 * **Decision**: **Rejected as the primary access layer.** Worth layering in front of OpenRouter
-  *later* specifically if (a) guardrails become load-bearing for user-facing AI features, or
-  (b) regulatory data residency requires request data to stay within our own infrastructure.
-  Pure caching is not on its own reason enough — OpenRouter already covers it. General
-  observability is *not* a reason to reach for AI Gateway; that's a separate decision about
-  observability tooling. The SDK doesn't change either way.
+  *later* if guardrails become load-bearing for user-facing AI features — the one realistic
+  trigger for a B2C consumer recipe product — and accepting the per-provider onboarding cost
+  that comes with it. Pure caching is not on its own reason enough (OpenRouter already covers
+  it), and general observability is *not* a reason to reach for AI Gateway either — that's a
+  separate decision about observability tooling. The SDK doesn't change either way.
 
 ### [LiteLLM](https://github.com/BerriAI/litellm)
 
@@ -471,15 +470,15 @@ A typed `LLMClient` interface in the domain layer with adapters per provider, sw
   layered option — but per-user budgets, abuse heuristics, and product-shaped rate limits
   remain ours to own either way.
 
-* **Data flows through OpenRouter and the audit trail lives there, not on our infrastructure.**
-  For GDPR data subject access / deletion requests, we coordinate with OpenRouter rather than
-  self-serving from our own logs. `provider.zdr: true` and `provider.data_collection: "deny"`
-  mitigate retention/training concerns where the provider supports them, but the request
-  still transits OpenRouter's infrastructure. If regulatory data residency becomes a hard
-  requirement (e.g. an enterprise customer needs all inference data to stay within
-  infrastructure we control), Cloudflare AI Gateway in front (BYOK + Cloudflare Secrets
-  Store + request data within our Cloudflare account) is the migration path without changing
-  SDK code — purely as a data residency answer, not as an observability one.
+* **Data flows through OpenRouter and the AI-side audit trail lives there, not on our
+  infrastructure.** For GDPR data subject access / deletion requests on AI-related data, we
+  coordinate with OpenRouter as a sub-processor rather than self-serving from our own logs.
+  `provider.zdr: true` and `provider.data_collection: "deny"` mitigate retention/training
+  concerns where the provider supports them, but the request still transits OpenRouter's
+  infrastructure. For a B2C consumer product this is a normal sub-processor relationship and
+  the right trade-off; if the product ever takes on a partner or use case that demands
+  in-house data flow, Cloudflare AI Gateway as a BYOK proxy is the documented escape hatch
+  (with its own per-provider onboarding cost).
 
 * **Added latency on every request.** OpenRouter is one extra hop between our backend and the
   upstream provider. Inconsequential for async features (batch ingestion, AI URL import,
@@ -525,14 +524,12 @@ This decision should be revisited if any of the following become true:
 * Prompt caching across providers (Anthropic-style cache control, OpenAI cached input pricing)
   becomes load-bearing for a feature and OpenRouter's pass-through coverage lags. At that point
   going direct for one specific stage via BYOK is reasonable.
-* **Data residency becomes a hard requirement.** E.g. an enterprise customer or partner
-  contract mandates that all inference request data stays within infrastructure we control
-  (rather than transiting OpenRouter), or expanded operations require data to stay within a
-  specific jurisdiction. Standard compliance frameworks (SOC 2, ISO 27001, GDPR) handle
-  OpenRouter fine as a sub-processor with appropriate DPAs and vendor management — this
-  bullet is specifically about residency, not generic compliance. Layering Cloudflare AI
-  Gateway in front (BYOK + request data within our own account) or going BYOK direct for the
-  affected providers is the response.
+* **User-facing AI features become abuse vectors.** If a Phase 3+ cooking-assistant chat,
+  AI URL import, or AI photo import accepts freeform user input that ends up at a model, the
+  surface area for prompt injection, jailbreak attempts, or generating harmful content grows.
+  At that point [Cloudflare AI Gateway's Guardrails](https://developers.cloudflare.com/ai-gateway/features/guardrails/)
+  layered in front of OpenRouter — without changing SDK code — is a reasonable response,
+  accepting the per-provider onboarding cost that comes with it.
 * An outage pattern on OpenRouter itself proves more disruptive than first-party APIs.
 
 Until then, OpenRouter is the right point on the curve: maximum model agility, minimum platform
