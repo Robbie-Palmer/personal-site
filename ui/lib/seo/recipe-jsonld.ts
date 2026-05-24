@@ -31,7 +31,6 @@ export type SchemaOrgRecipe = {
   cookTime?: string;
   totalTime?: string;
   recipeYield: string;
-  recipeCategory?: string;
   recipeCuisine?: string | string[];
   keywords?: string;
   recipeIngredient: string[];
@@ -187,9 +186,9 @@ export function buildRecipeJsonLd(
     jsonLd.recipeCuisine =
       recipe.cuisine.length === 1 ? recipe.cuisine[0] : recipe.cuisine;
   }
-  if (recipe.tags.length > 0) {
-    jsonLd.recipeCategory = recipe.tags[0];
-    jsonLd.keywords = recipe.tags.join(", ");
+  const keywordParts = [...recipe.tags, ...recipe.cuisine];
+  if (keywordParts.length > 0) {
+    jsonLd.keywords = keywordParts.join(", ");
   }
 
   return jsonLd;
