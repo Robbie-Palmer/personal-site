@@ -57,7 +57,7 @@ for all AI-powered features in the recipe site — the ML ingestion pipeline tod
 user-facing AI features (recipe URL import, smooth-onboarding photo capture, meal planning,
 nutrition) as they ship.
 
-OpenRouter is an OpenAI-compatible gateway that routes one API to 400+ models across 60+ providers,
+OpenRouter is an OpenAI-compatible gateway that routes one API to 350+ models across 60+ providers,
 with one account, one key, one bill, and one SDK. A model swap is a string change:
 
 ```ts
@@ -77,9 +77,10 @@ filtering are all set in the request body, not in platform config. This means:
 * **Capacity from Bedrock/Vertex when the model author's first-party API is saturated**, with no
   IAM or SigV4 setup on our side — OpenRouter handles provider authentication on behalf of all
   routes.
-* **Cost optimisation per stage** — disambiguation can use `:floor` (cheapest provider for the
-  selected model) while photo OCR uses `:nitro` (highest throughput), both without code changes
-  beyond the model slug.
+* **Per-stage model choice** — the pipeline already mixes a cheaper text model
+  (`google/gemini-2.5-flash`) for disambiguation with a vision-capable model
+  (`google/gemini-3-flash-preview`) for OCR via `params.yaml`. Swapping any stage is a one-line
+  change with no SDK or platform work.
 
 The existing `openrouter.ts` helper already uses the OpenAI SDK pointed at
 `https://openrouter.ai/api/v1`. Future Workers can do the same with the same SDK.
@@ -103,7 +104,7 @@ This aligns with:
 | Feature                                 | Phase | What OpenRouter Gives Us                                                                                                                                              |
 | --------------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Photo-to-recipe (VLM)**               | P1/P4 | Multimodal models from multiple providers — Gemini, GPT-4o, Claude vision, open VLMs via Together/DeepInfra — all reachable through the same `chat.completions` call. |
-| **AI URL import (LLM)**                 | P4    | A cheap, fast text model to clean scraped HTML/JSON-LD into Cooklang. Provider sort `:floor` keeps unit cost negligible.                                              |
+| **AI URL import (LLM)**                 | P4    | A cheap, fast text model to clean scraped HTML/JSON-LD into Cooklang; pick the cheapest capable model per request.                                                    |
 | **Smooth onboarding (mixed VLM + LLM)** | P4    | One key for the photograph-then-normalise loop. Latency-sorted routing on the OCR step makes onboarding feel snappy.                                                  |
 | **Meal planning (LLM)**                 | P5    | Quality vs. cost trade-off per user request — frontier model for "plan my week", cheap model for "swap one meal".                                                     |
 | **Nutritional analysis (LLM)**          | P6    | Structured output (`response_format: json_schema`) against our nutrition schema, with the freedom to pick the cheapest model that hits accuracy targets.              |
@@ -117,9 +118,12 @@ This aligns with:
   [official Python SDK](https://github.com/OpenRouterTeam/python-sdk) (currently beta) and an
   [official Vercel AI SDK provider](https://github.com/OpenRouterTeam/ai-sdk-provider)
   (`@openrouter/ai-sdk-provider`) for TypeScript apps that want the Vercel AI SDK's React hooks.
-* **400+ models across 60+ providers** — Anthropic, OpenAI, Google (AI Studio + Vertex), Mistral,
-  Meta, DeepSeek, Qwen, Together, DeepInfra, Fireworks, AWS Bedrock and more, behind one
-  catalogue and one billing relationship.
+* **358 models across 60+ providers** (live count, May 2026) — Anthropic, OpenAI, Google (AI
+  Studio + Vertex), Mistral, Meta, DeepSeek, Qwen, Together, DeepInfra, Fireworks, AWS Bedrock
+  and more, behind one catalogue and one billing relationship. Crucially, deep coverage of the
+  *open-weight long tail* (Together, DeepInfra, Fireworks, Groq, Cerebras, Nebius, AkashML,
+  Parasail, Friendli, etc.) means popular models like Llama 3.3 70B Instruct route across
+  \~15 providers — load balancing and price arbitrage are real, not hypothetical.
 * **Better availability than first-party APIs** — for models that ship on multiple clouds
   (Claude on Anthropic + Bedrock + Vertex, Llama on Together + DeepInfra + Fireworks + Bedrock),
   OpenRouter load-balances and falls back across providers. When the model author's own API is
@@ -130,7 +134,8 @@ This aligns with:
   `provider.data_collection: "deny"`, `provider.zdr: true`, and quantisation filters
   (`int4`, `int8`, `fp8`, `bf16`) — all set in the request body.
 * **Sort shortcuts in the model slug** — `:nitro` for highest throughput, `:floor` for lowest
-  price. Useful for stage-by-stage tuning in `params.yaml` without changing parsing code.
+  price. Syntactic sugar for the `provider.sort` parameter; useful as a one-line knob if
+  experimentation later wants it, but not load-bearing.
 * **Structured outputs** — `response_format: { type: "json_schema", strict: true, ... }` is
   honoured across providers that support it, with automatic filtering to capable providers.
   Already used in `openrouter.ts` for every stage.
@@ -274,18 +279,22 @@ spend monitoring.
   carry the cost), where OpenRouter applies \~5.8% effective via its credit-top-up fee. See
   the Cost Model table above for the \~3pp effective gap at meaningful scale. Native
   integration with the Vercel AI SDK if we ever adopt that client library.
-* **Cons**: Smaller model catalogue than OpenRouter (hundreds vs OpenRouter's 400+/60+ providers)
-  — narrower selection of open-weight providers (Together, DeepInfra, Fireworks, Replicate
-  variants) where most of our per-stage price/throughput optimisation lives. The product is
-  Vercel-platform tilted: free credits and plan tiers are scoped to a Vercel account, app
-  attribution and observability assume a Vercel deployment. We are on
-  [Cloudflare Pages (ADR 011)](/projects/personal-site/adrs/011-cloudflare-pages) with no Vercel
-  account, so adopting it pulls in an entire platform relationship for the LLM layer alone.
-  Fewer granular routing knobs than OpenRouter's provider object — no published equivalent of
-  `provider.zdr`, `provider.data_collection: "deny"`, `provider.quantizations`,
-  `provider.preferred_min_throughput`, or the `:nitro` / `:floor` model-slug shortcuts that the
-  pipeline already relies on. Newer product (GA 2025) with a thinner public track record than
-  OpenRouter, which has been the de facto cross-provider LLM marketplace since 2023.
+* **Cons**: Smaller catalogue (275 vs OpenRouter's 358 models, live counts May 2026) and
+  meaningfully thinner provider depth on popular open-weight models. Hard examples from
+  querying both APIs: Llama 3.3 70B Instruct is **not in Vercel's catalogue at all**
+  (OpenRouter has 15 providers for it); Claude Sonnet 4.6 has 3 endpoints on Vercel vs 8 on
+  OpenRouter; the long-tail open-weight providers (Groq, Cerebras, Nebius, AkashML, Parasail,
+  Friendli) are largely missing. For closed frontier models the depth is comparable (GPT-5.5:
+  2 vs 2; DeepSeek V3.1: 6 vs 7), and Vercel occasionally has more depth (Qwen 3 235B: 4 vs 1)
+  — but the open-weight long tail is where cost arbitrage lives and OpenRouter is clearly
+  ahead. Fewer published granular routing knobs (no documented equivalent of `provider.zdr`,
+  `provider.data_collection: "deny"`, `provider.quantizations`, or
+  `provider.preferred_min_throughput`). The product is Vercel-platform tilted: free credits
+  and dashboard tooling are scoped to a Vercel account, app attribution assumes a Vercel
+  deployment. We are on [Cloudflare Pages (ADR 011)](/projects/personal-site/adrs/011-cloudflare-pages)
+  with no Vercel account, so adopting it pulls in an entire platform relationship for the LLM
+  layer alone. Newer product (GA 2025) with a thinner public track record than OpenRouter,
+  which has been the de facto cross-provider LLM marketplace since 2023.
 * **Decision**: **Rejected.** Real alternative, but adopting it would mean taking on Vercel as a
   platform purely for inference while losing routing controls we already use. If a future
   feature ever needs Vercel-only capabilities (a Next.js-on-Vercel deployment, Vercel's app
@@ -434,8 +443,10 @@ A typed `LLMClient` interface in the domain layer with adapters per provider, sw
   a new VLM or LLM is changing one string and rerunning `dvc repro`
   ([ADR 029](/projects/recipe-site/adrs/029-dvc)). Stage caching means only the affected stages
   re-execute.
-* **Per-stage cost/perf tuning.** `:floor` for disambiguation, `:nitro` for OCR, default for
-  normalisation — without writing routing code.
+* **Per-stage cost/perf tuning via model choice.** `params.yaml` already mixes Gemini 3 Flash
+  Preview (vision-heavy stages) with Gemini 2.5 Flash (cheaper text stage). Future tuning can
+  swap any stage's model on a one-line edit, or reach for `provider.sort` / `:nitro` / `:floor`
+  if provider-level optimisation ever proves worth it.
 * **Structured outputs already wired in.** `response_format: json_schema, strict: true` is
   already used for every pipeline stage, and Cooklang's frontmatter schema is a perfect fit for
   it.
