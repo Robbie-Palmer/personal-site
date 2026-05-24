@@ -449,25 +449,62 @@ A typed `LLMClient` interface in the domain layer with adapters per provider, sw
 
 ## Negative
 
-* **Third-party dependency on the inference path.** If OpenRouter has an outage, the pipeline
-  and any AI features degrade. Mitigated by the fact that the ingestion pipeline is offline
-  (DVC re-runs locally or in CI) and the user-facing AI surfaces don't exist yet; for those, the
-  BYOK escape hatch lets us point the OpenAI SDK at a direct provider in an incident with a
-  config change. The static site itself ([ADR 014: SSG](/projects/recipe-site/adrs/014-ssg))
-  doesn't depend on OpenRouter being up.
-* **Feature-launch lag for provider-specific capabilities.** OpenRouter usually exposes new
-  provider features quickly (vision, structured outputs, prompt caching as they roll out), but
-  there is occasionally a gap between Anthropic/OpenAI shipping something and OpenRouter
-  surfacing it. Frontier-only features can still be reached via BYOK or a temporary direct
-  integration if needed.
-* **Spend is on OpenRouter's credit balance, not the model provider's.** Existing provider
-  credits (e.g., AWS Bedrock free tier, Google AI Studio quota) aren't drawn down unless BYOK
-  is used. Negligible for this project's scale, but worth noting.
-* **Not eligible for some enterprise compliance regimes** that mandate first-party provider
-  contracts. Not in scope for a personal/portfolio project.
-* **Observability is OpenRouter's dashboard, not ours.** If richer per-request analytics are
-  needed later, Cloudflare AI Gateway can be layered in front (OpenAI endpoint flavour) without
-  changing SDK code — a low-effort migration if it ever becomes worthwhile.
+* **Third-party dependency on the live inference path.** Once user-facing AI features ship
+  (recipe ingestion at onboarding, cooking-mode voice navigation, AI URL import, meal
+  planning, nutritional analysis), OpenRouter availability becomes load-bearing for product
+  UX. An OpenRouter outage degrades onboarding, blocks live transcription, breaks meal
+  planning. The BYOK fallback isn't an instant escape hatch — it requires us to have already
+  onboarded the affected provider directly, which is itself a planning decision we'd need to
+  have made in advance for the heavy-traffic paths. Mitigation: BYOK pre-configured for the
+  top traffic providers as scale grows, status monitoring, and accepting that long-tail
+  experimentation features will be down during an OpenRouter outage.
+
+* **Per-user quotas, metering, and abuse protection are our responsibility, not OpenRouter's.**
+  OpenRouter has account-level rate limits and the `user` parameter for activity tracking,
+  but it isn't a per-user quota engine. At product scale, enforcing "free tier gets N
+  ingestions/month, premium tier unlimited", detecting prompt injection / abuse, and
+  per-user budget caps live in our Workers + D1 backend. OpenRouter is the inference layer;
+  the metering and access-control layer is ours to build. Layering Cloudflare AI Gateway in
+  front later is one path to richer per-key budgets and guardrails if our backend logic
+  hits its limits.
+
+* **Data flows through OpenRouter and audit trail lives there, not on our infrastructure.**
+  For GDPR data subject access / deletion requests, we coordinate with OpenRouter rather than
+  self-serving from our own logs. `provider.zdr: true` and `provider.data_collection: "deny"`
+  mitigate retention/training concerns where the provider supports them, but the request
+  still transits OpenRouter's infrastructure. If full data residency control becomes a hard
+  requirement (regulatory, enterprise customer demand), Cloudflare AI Gateway in front (BYOK +
+  Cloudflare Secrets Store + logs in our own Cloudflare account) is the migration path
+  without changing SDK code.
+
+* **Added latency on every request.** OpenRouter is one extra hop between our backend and the
+  upstream provider. Inconsequential for async features (batch ingestion, AI URL import,
+  meal planning generation); potentially meaningful for low-latency interactive features —
+  most notably server-side voice transcription in cooking mode if we move off the
+  browser-native Web Speech API. Per-request TTFT is visible in OpenRouter's dashboard so we
+  can measure rather than guess.
+
+* **Spend goes through OpenRouter, not directly to the model provider.** We can't draw down
+  provider startup credits (AWS Activate, Google Cloud credits, Anthropic / OpenAI startup
+  programmes) unless we BYOK that specific provider — which reintroduces the per-provider
+  account/billing setup we're trying to avoid for the long tail. At meaningful product spend
+  the \~5.8% effective markup is a real cost; the [Cost Over the Lifecycle](#cost-over-the-lifecycle)
+  BYOK path is the mitigation, but only closes the gap for providers we onboard directly.
+
+* **Feature-launch lag for provider-native capabilities.** When Anthropic ships a new prompt
+  caching mode, OpenAI ships the Responses API, or Google ships new safety controls, there
+  can be a gap before OpenRouter exposes them through the unified API. BYOK direct or a
+  temporary direct-SDK integration for one stage is the escape hatch if a feature is
+  genuinely blocking a release.
+
+* **Commercial single point of failure.** OpenRouter is a venture-backed startup with no
+  acquisition or IPO history. Pricing changes, an unfavourable acquisition (rug-pull risk),
+  or worst-case business failure are live risks for any AI feature in critical path. Bounded
+  by the OpenAI-compatible thin-integration shape — migrating to another aggregator (Vercel
+  AI Gateway, Eden AI), to a BYOK gateway with full provider sprawl (Cloudflare AI Gateway,
+  Portkey), or to provider-direct is a baseURL change plus provider re-onboarding, not a
+  code rewrite. Keep the integration on the OpenAI-compatible surface and treat
+  vendor-specific OpenRouter features as nice-to-have, not load-bearing.
 
 ## When to Revisit
 
