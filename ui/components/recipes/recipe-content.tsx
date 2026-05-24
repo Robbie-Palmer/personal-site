@@ -326,6 +326,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
             Adapted from{" "}
             <a
               href={recipe.canonical}
+              target="_blank"
               rel="noopener"
               className="underline hover:text-foreground"
             >
