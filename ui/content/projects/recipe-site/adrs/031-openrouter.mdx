@@ -395,13 +395,22 @@ management, budgets, guardrails, and routing. Markets "1,600+ models" — note t
 aggregate across upstream providers Portkey can proxy to (Together alone exposes hundreds of
 open-weight variants), not a Portkey-curated catalogue comparable to OpenRouter's 358 or
 Vercel's 275. Portkey is a pure router, not a marketplace. Pricing is per-log (\~$49/mo for
-100K logs at the time of writing). Palo Alto Networks announced intent to acquire in May
-2026\.
+100K logs at the time of writing).
+
+In May 2026, [Palo Alto Networks](https://www.paloaltonetworks.com/) — one of the largest
+pure-play cybersecurity vendors, known for premium enterprise pricing — announced intent to
+acquire Portkey. PANW acquisitions typically de-prioritise self-serve / SMB tiers in favour of
+enterprise SKUs sold to security teams, push pricing up, and shift the roadmap toward audit /
+compliance / DLP features rather than developer ergonomics. The open-source Portkey gateway
+could stagnate or be re-licensed. This is a yellow flag for any project planning to use
+Portkey self-serve at SMB scale, even though existing customers usually keep service on
+grandfathered terms for 12–24 months post-acquisition.
 
 * **Decision**: **Rejected.** Strong enterprise feature set we don't need, BYOK at the
-  inference layer so doesn't remove provider sprawl, log-based pricing scales unfavourably for
-  a project where individual feature usage may be high-volume (every recipe ingestion is a
-  request).
+  inference layer so doesn't remove provider sprawl, and log-based pricing scales unfavourably
+  for a project where individual feature usage may be high-volume (every recipe ingestion is a
+  request). The PANW acquisition reinforces the rejection — the product is heading further
+  away from the self-serve developer use case, not toward it.
 
 ### [Kong AI Gateway](https://konghq.com/products/kong-ai-gateway)
 
