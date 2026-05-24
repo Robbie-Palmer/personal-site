@@ -421,6 +421,7 @@ export function buildRecipeContentFromParsed(
     cookware: parts.cookware,
     image: frontmatter.image,
     imageAlt: frontmatter.imageAlt,
+    canonical: frontmatter.canonical,
     ingredientGroups: parts.ingredientGroups,
     instructions: parts.instructions,
     instructionSdk: parts.instructionSdk,
