@@ -199,23 +199,38 @@ with no minimum commitment per provider.
   our own Cloudflare account becomes a requirement. Pure caching/observability is not on its own
   reason enough — OpenRouter already covers both. The SDK doesn't change either way.
 
-## [Vercel AI SDK](https://ai-sdk.dev/) + Provider Plugins
+## [Vercel AI Gateway](https://vercel.com/ai-gateway)
 
-* **Pros**: Polished TypeScript ergonomics — `useChat()`, `useCompletion()`, and `useObject()`
-  React hooks handle streaming, message state, input state, loading/error state, and abort out of
-  the box. Provider plugins exist for OpenAI, Anthropic, Google, Mistral, many open-weight
-  providers, and an [official OpenRouter provider](https://github.com/OpenRouterTeam/ai-sdk-provider)
-  (`@openrouter/ai-sdk-provider`). Genuinely better DX than hand-rolling a streaming chat UI on
-  top of the OpenAI SDK.
-* **Cons**: For the pipeline today and any non-streaming Worker calls, the OpenAI SDK is smaller
-  surface area and already in use — the Vercel AI SDK's wins are concentrated on streaming React
-  UIs we haven't built yet. Vercel also operates its own AI Gateway, which is BYOK and
-  Vercel-platform-flavoured; we are not on Vercel ([Cloudflare Pages, ADR 011](/projects/personal-site/adrs/011-cloudflare-pages))
-  and adopting that piece would add platform coupling. The Vercel AI SDK itself is
-  framework-agnostic and works fine on Cloudflare.
-* **Decision**: **Rejected as the access layer**, but explicitly kept open as a future
-  client-side helper if a streaming chat UI is built — at which point we'd consume it via the
-  `@openrouter/ai-sdk-provider` plugin so the transport remains OpenRouter.
+The closest peer to OpenRouter — a unified API to hundreds of models with no per-token markup,
+optional BYOK, OpenAI- and Anthropic-compatible endpoints, automatic cross-provider retry, and
+spend monitoring.
+
+* **Pros**: Genuine OpenRouter-class product (catalogue + unified billing + retry), not a
+  BYOK-only proxy. Pay-as-you-go with zero markup matches OpenRouter's economics. Native
+  integration with the Vercel AI SDK if we ever adopt that client library.
+* **Cons**: Smaller model catalogue than OpenRouter (hundreds vs OpenRouter's 400+/60+ providers)
+  — narrower selection of open-weight providers (Together, DeepInfra, Fireworks, Replicate
+  variants) where most of our per-stage price/throughput optimisation lives. The product is
+  Vercel-platform tilted: free credits and plan tiers are scoped to a Vercel account, app
+  attribution and observability assume a Vercel deployment. We are on
+  [Cloudflare Pages (ADR 011)](/projects/personal-site/adrs/011-cloudflare-pages) with no Vercel
+  account, so adopting it pulls in an entire platform relationship for the LLM layer alone.
+  Fewer granular routing knobs than OpenRouter's provider object — no published equivalent of
+  `provider.zdr`, `provider.data_collection: "deny"`, `provider.quantizations`,
+  `provider.preferred_min_throughput`, or the `:nitro` / `:floor` model-slug shortcuts that the
+  pipeline already relies on. Newer product (GA 2025) with a thinner public track record than
+  OpenRouter, which has been the de facto cross-provider LLM marketplace since 2023.
+* **Decision**: **Rejected.** Real alternative, but adopting it would mean taking on Vercel as a
+  platform purely for inference while losing routing controls we already use. If a future
+  feature ever needs Vercel-only capabilities (a Next.js-on-Vercel deployment, Vercel's app
+  attribution), this is worth revisiting.
+
+> **Not an alternative — composable.** The [Vercel AI SDK](https://ai-sdk.dev/) (the
+> client/server *library* — `useChat`, `useCompletion`, `useObject`, streaming primitives) is a
+> separate product from the Vercel AI Gateway. It is framework-agnostic, runs fine on
+> Cloudflare, and has an [official OpenRouter provider](https://github.com/OpenRouterTeam/ai-sdk-provider)
+> (`@openrouter/ai-sdk-provider`). If we build a streaming chat UI, the Vercel AI SDK on top of
+> OpenRouter is the natural fit — the two compose, they don't compete.
 
 ## [LiteLLM](https://github.com/BerriAI/litellm) (Self-Hosted Proxy)
 
