@@ -14,7 +14,7 @@ of raw extraction into Cooklang (LLM), and ingredient disambiguation (cheaper LL
 different price/performance trade-offs. The current `params.yaml` already mixes Gemini 3 Flash
 Preview and Gemini 2.5 Flash across these stages.
 
-Beyond ingestion, the roadmap (`ui/content/projects/recipe-site/index.mdx`) lists several
+Beyond ingestion, the [recipe-site roadmap](/projects/recipe-site) lists several
 AI-powered user-facing features in Phases 2–6: AI URL import, AI photo import for smooth
 onboarding, AI meal planning, and nutritional analysis. Each will benefit from being able to
 pick the right model for the job, swap providers as price/quality moves, and try new frontier
@@ -64,7 +64,7 @@ with one account, one key, one bill, and one SDK. A model swap is a string chang
 // before
 model: "google/gemini-2.5-flash"
 // after
-model: "anthropic/claude-sonnet-4-6"
+model: "anthropic/claude-sonnet-4.6"
 ```
 
 Provider-level routing is configurable per request — fallbacks, sort-by-price, sort-by-throughput,
