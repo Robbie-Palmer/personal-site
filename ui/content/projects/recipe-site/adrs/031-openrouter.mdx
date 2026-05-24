@@ -43,9 +43,12 @@ The recipe site is governed by a small set of strong constraints:
 4. **Mixed-modality workloads.** Photo-to-recipe needs a vision-capable model; normalisation needs
    a cheap, fast text model; disambiguation can run on a tiny one. The same gateway must serve
    all three.
-5. **`.cook` is the lingua franca.** Whatever model is in the loop, the output format is
-   Cooklang ([ADR 030](/projects/recipe-site/adrs/030-cooklang)). The structured-output enforcement
-   the gateway provides is part of the integration surface, not an afterthought.
+5. **Cooklang is the canonical output.** Whatever model is in the loop, the result lands in
+   Cooklang ([ADR 030](/projects/recipe-site/adrs/030-cooklang)). The model returns a JSON
+   envelope (`{ frontmatter, body }`) that the gateway constrains via structured outputs; the
+   Cooklang text inside `body` is plain text, validated post-hoc by `cooklang-rs`. So
+   structured-output support across providers is load-bearing for the envelope, even though the
+   format inside it is not JSON.
 
 # Decision
 
