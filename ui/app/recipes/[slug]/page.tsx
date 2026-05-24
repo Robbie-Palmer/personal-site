@@ -26,9 +26,6 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   const { slug } = params;
   try {
     const recipe = getRecipeBySlug(slug);
-    // Use external canonical URL if specified (derived content), otherwise
-    // production URL. Canonical URLs always point to production, even in
-    // preview deployments.
     const canonicalUrl =
       recipe.canonical || `${siteConfig.url}/recipes/${slug}`;
     return {
