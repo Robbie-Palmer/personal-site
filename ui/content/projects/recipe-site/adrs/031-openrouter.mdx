@@ -90,8 +90,13 @@ This aligns with:
   one SDK replaces N integrations per provider.
 * **[Short Feedback Loops](/projects?tab=philosophy#short-feedback-loops)** — trying a new model
   is a one-line change in `params.yaml` or a request body, not a platform onboarding exercise.
-* **[Stack Rank, Don't Sprint](/projects?tab=philosophy#stack-rank-dont-sprint)** — keeps AI
-  features composable so they can be picked up in any phase order without re-platforming.
+* **[The Goldilocks Zone](/projects?tab=philosophy#the-goldilocks-zone)** — OpenRouter has been
+  the de facto cross-provider LLM gateway since 2023: battle-tested API surface, large
+  catalogue, good docs, and personal production use from Bestomer's
+  [AI Shopping Assistant](/projects/chatbot) chatbot since 2023. Vercel AI Gateway is GA 2025
+  (early-adopter cost), Eden AI and AI/ML API are smaller and less proven, and Cloudflare AI
+  Gateway is a different category of product. OpenRouter sits squarely in the "old enough to be
+  reliable, not so old it's stagnant" sweet spot.
 
 ## What Underlying Features It Enables
 
@@ -153,7 +158,8 @@ Per-token pricing is pass-through — OpenRouter charges the same per-token rate
 provider, with no markup on inference itself. The platform monetises via a
 [5.5% fee on credit top-up](https://openrouter.ai/announcements/simplifying-our-platform-fee)
 (5% for crypto, $0.80 minimum), so a $100 top-up funds \~$94.50 of inference. Effective markup
-works out to roughly 5.8%, which is in line with Eden AI (5.5%) and higher than
+works out to roughly 5.8% — the same as Eden AI, which uses an identical 5.5%-on-credit-top-up
+structure — and higher than
 [Vercel AI Gateway](https://vercel.com/docs/ai-gateway/pricing) (0% — provider list price flat,
 recouped via Vercel platform plan tiers). Spend stays predictable and pay-as-you-go, with no
 minimum commitment per provider.
