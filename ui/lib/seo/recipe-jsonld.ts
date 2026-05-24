@@ -106,7 +106,6 @@ function formatRecipeIngredient(item: RecipeIngredientView): string {
   return parts.join(" ").trim();
 }
 
-// Returns undefined when the env var is absent (e.g. local dev without credentials).
 function buildSchemaImageUrl(imageId: string): string | undefined {
   const accountHash = process.env.NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH;
   if (!accountHash) return undefined;
