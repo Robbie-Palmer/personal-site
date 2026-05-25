@@ -87,12 +87,15 @@ self-hosted authentication library — as the identity layer for the recipe site
 
 Auth config lives in a TypeScript file in this repository. The user/session/account schema is
 generated from that config into our database schema (Drizzle / Prisma / Kysely, to be picked in
-a future backend ADR). Social OAuth credentials are injected via environment variables managed
-by Workers secrets and provisioned by
-[Terraform Cloud (ADR 016)](/projects/recipe-site/adrs/016-terraform-cloud) — the same shape
-already used for every other secret in the project. There is no SaaS control plane to fight,
-no dashboard that drifts from the code, and no vendor that can change pricing on a free
-account.
+a future backend ADR). Social OAuth credentials live in [Doppler](https://www.doppler.com/) —
+proposed in the
+[personal-site Doppler ADR](/projects/personal-site/adrs/035-doppler) as the cross-project
+secrets layer, with
+[Terraform Cloud (ADR 016)](/projects/recipe-site/adrs/016-terraform-cloud) provisioning the
+Doppler bootstrap token. The runtime injection mechanism — Workers secret bindings, Node
+`process.env`, or otherwise — belongs in the future backend ADR. There is no SaaS control
+plane to fight, no dashboard that drifts from the code, and no vendor that can change pricing
+on a free account.
 
 ```ts
 // auth.ts — single source of truth for auth config
@@ -127,7 +130,7 @@ This aligns with:
 * **[Less Is More](/projects?tab=philosophy#less-is-more)** — one TypeScript file plus
   generated schema. No vendor, no dashboard, no per-MAU billing curve to plan around. Apple
   JWT rotation does land on us as ongoing maintenance (see
-  [Consequences → Negative](#negative)) but it's a single Workers Cron Trigger.
+  [Consequences → Negative](#negative)) but it's a single scheduled job.
 * **[The Goldilocks Zone](/projects?tab=philosophy#the-goldilocks-zone)** — the landscape
   consolidation covered in the [Summary](#summary) places Better Auth in early-majority
   territory on raw market-share signals (28.4k GitHub stars, $5M Peak XV seed, weekly minor
@@ -209,7 +212,7 @@ The library itself is free (MIT). The full cost surface for the project is:
 | --- | --- |
 | **Better Auth library** | $0 (MIT OSS) |
 | **Database** | Whatever the backend ADR picks. D1 is free up to 5GB / 5M rows / 25B reads + 50M writes per month — covers a recipe site for years. |
-| **Session storage (KV)** | Cloudflare KV free tier: 100k reads/day, 1k writes/day, 1GB stored. Free at MVP scale. |
+| **Session storage** | Whatever the backend ADR picks. If KV, the Cloudflare free tier (100k reads/day, 1k writes/day, 1GB stored) is comfortably enough at MVP scale. |
 | **Apple Developer Program** | $99/yr — already justified by the broader [PWA + iOS roadmap](/projects/recipe-site#progressive-web-app-pwa). Apple Sign In also requires a paid Apple Developer membership, so this cost is shared rather than additive. |
 | **Google / GitHub OAuth** | Free. |
 | **Email provider (Resend / Postmark / SES)** | $0 at MVP scale (Resend's free tier is 3k emails/month). Only relevant once magic links / invites ship. |
@@ -460,12 +463,14 @@ records in D1.
   [6-month maximum JWT expiry](https://developer.apple.com/documentation/accountorganizationaldatasharing/creating-a-client-secret)
   is non-configurable; Better Auth's
   [Apple docs](https://better-auth.com/docs/authentication/apple) explicitly call out
-  regeneration as a manual responsibility. **Mitigation:** a
-  [Workers Cron Trigger](https://developers.cloudflare.com/workers/configuration/cron-triggers/)
-  that regenerates the JWT every ~5 months from the stored `.p8` key and writes the new
-  client secret to Workers secrets via the Cloudflare API. This is one small Worker — but
-  it's a Worker we have to write and monitor. SaaS options (Clerk, Auth0, Kinde, WorkOS,
-  Supabase) absorb this rotation server-side; we do not.
+  regeneration as a manual responsibility. **Mitigation:** a scheduled job that regenerates
+  the JWT every ~5 months from the stored `.p8` key and writes the new client secret back to
+  [Doppler](https://www.doppler.com/), which then propagates to whatever runtime the backend
+  ADR picks. The scheduler itself — Cloudflare
+  [Workers Cron Triggers](https://developers.cloudflare.com/workers/configuration/cron-triggers/),
+  a Node cron, or a GitHub Actions schedule — is a backend-ADR concern. Either way it's one
+  small job to write and monitor. SaaS options (Clerk, Auth0, Kinde, WorkOS, Supabase) absorb
+  this rotation server-side; we do not.
 * **We own the runtime.** Database, session storage, rate limiting, abuse mitigation,
   account lockout, audit logs, GDPR data subject access / deletion flows — all live in
   our backend, not a vendor's. Better Auth provides primitives for each of these but the
