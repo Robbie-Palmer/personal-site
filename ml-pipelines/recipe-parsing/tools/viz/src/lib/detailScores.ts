@@ -1,4 +1,3 @@
-import type { ParsedRecipe } from "recipe-domain";
 import {
   CANONICALIZATION_SCORING_PROFILE,
   EXTRACTION_SCORING_PROFILE,
@@ -12,6 +11,7 @@ import {
   evaluateScalarFields,
 } from "../../../../src/evaluation/metrics.js";
 import { extractionToRecipe } from "../../../../src/lib/extraction-to-recipe.js";
+import type { Recipe } from "../../../../src/schemas/ground-truth.js";
 import type { ExtractionRecipe } from "../types/extraction";
 
 export interface DetailScoreBreakdown {
@@ -45,14 +45,14 @@ function scoreActiveScalarFields(
 }
 
 function scoreRecipes(
-  predicted: ParsedRecipe,
-  expected: ParsedRecipe,
+  predicted: Recipe,
+  expected: Recipe,
   profile: ScoringProfile,
 ): DetailScoreBreakdown {
-  const scalar = evaluateScalarFields(predicted as never, expected as never);
-  const ingredients = evaluateIngredientParsing(predicted as never, expected as never);
-  const instructions = evaluateInstructions(predicted as never, expected as never);
-  const equipment = evaluateEquipmentParsing(predicted as never, expected as never);
+  const scalar = evaluateScalarFields(predicted, expected);
+  const ingredients = evaluateIngredientParsing(predicted, expected);
+  const instructions = evaluateInstructions(predicted, expected);
+  const equipment = evaluateEquipmentParsing(predicted, expected);
   const scores = computeEntryScores(scalar, ingredients, instructions, equipment, profile);
   return {
     overall: scores.overall,
@@ -71,22 +71,22 @@ export function computeExtractionDetailScores(
   expected: ExtractionRecipe,
 ): DetailScoreBreakdown {
   return scoreRecipes(
-    extractionToRecipe(predicted) as never,
-    extractionToRecipe(expected) as never,
+    extractionToRecipe(predicted),
+    extractionToRecipe(expected),
     EXTRACTION_SCORING_PROFILE,
   );
 }
 
 export function computeNormalizationDetailScores(
-  predicted: ParsedRecipe,
-  expected: ParsedRecipe,
+  predicted: Recipe,
+  expected: Recipe,
 ): DetailScoreBreakdown {
   return scoreRecipes(predicted, expected, NORMALIZATION_SCORING_PROFILE);
 }
 
 export function computeCanonicalizationDetailScores(
-  predicted: ParsedRecipe,
-  expected: ParsedRecipe,
+  predicted: Recipe,
+  expected: Recipe,
 ): DetailScoreBreakdown {
   return scoreRecipes(predicted, expected, CANONICALIZATION_SCORING_PROFILE);
 }
