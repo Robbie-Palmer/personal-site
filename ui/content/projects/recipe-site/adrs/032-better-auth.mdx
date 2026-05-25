@@ -354,6 +354,17 @@ documented Cloudflare support via OpenNext.
   * **All operational obligations absorbed server-side** — Apple JWT client secret rotation,
     session management, rate limiting, abuse mitigation, audit logs, GDPR compliance machinery.
     A Better Auth deployment lands all of these on us; Clerk lands them on Clerk.
+  * **Built-in admin / user-management dashboard** — Clerk's own UI shows every user, lets
+    you ban / impersonate / delete / inspect sessions. Better Auth has an
+    [`admin` plugin](https://better-auth.com/docs/plugins/admin) with the primitives but you
+    build the dashboard UI.
+  * **Built-in bot / abuse detection** — behavioural heuristics on signup attempts plus
+    automatic device fingerprinting. Better Auth has auth-endpoint rate limiting and
+    Turnstile CAPTCHA via plugin, but no equivalent behavioural detection.
+  * **Webhook system** — `user.created`, `session.created`, `email.created`, etc. fire to
+    HTTP endpoints you supply, so downstream services (analytics, billing, CRM) get auth
+    events without polling. Better Auth has hooks at the in-process boundary but no
+    out-of-process webhook delivery.
   * 50k monthly retained users on the free tier (raised from 10k in their
     [Feb 2026 pricing change](https://saasprices.net/blog/clerk-free-plan-changes)).
   * Production-grade passkeys, MFA, organisations. Publishes `llms.txt` and an MCP server.
@@ -574,13 +585,76 @@ records in D1.
   Migrating to Auth0 (the documented escape hatch) is a schema migration and a Terraform
   PR, not a code rewrite. Migrating to a different OSS library is even smaller — the
   user/session/account schema shape is industry-standard.
-* **Per-user quotas, metering, and abuse protection are app-level.** Better Auth has a
-  built-in rate limiter (KV-backed on Workers, with the
-  [known minimum-TTL gotcha](https://github.com/better-auth/better-auth/issues/7124)
-  worth being aware of), but per-user budget caps, CAPTCHA on signup, prompt-injection
-  defence on any AI-touching paths, and product-shaped rate limits are ours to build.
-  The [Cloudflare Turnstile plugin](https://better-auth.com/docs/plugins/captcha) covers
-  signup CAPTCHA when the time comes; everything else is a future concern.
+* **Most abuse protection is app-level regardless of auth choice — but Clerk has a real
+  edge at the auth endpoints themselves.** Of the abuse-protection surface, three pieces
+  sit at the auth boundary and the rest sit in the app:
+  * **Sign-in / signup rate limiting** — Better Auth has a built-in rate limiter (KV-backed
+    on Workers, with the
+    [known minimum-TTL gotcha](https://github.com/better-auth/better-auth/issues/7124)
+    worth being aware of). Clerk and Auth0 have equivalent or richer rate limiters
+    server-side. Roughly comparable across all three.
+  * **CAPTCHA on signup** — Better Auth via
+    [Cloudflare Turnstile plugin](https://better-auth.com/docs/plugins/captcha); Clerk and
+    Auth0 have built-in CAPTCHA. Roughly comparable.
+  * **Bot detection / behavioural anti-abuse** — **Clerk has a real advantage here**:
+    behavioural heuristics on signup attempts plus device fingerprinting, all server-side.
+    Better Auth has nothing equivalent — you'd add Turnstile, layer your own heuristics, or
+    pay for a third-party (Castle, Stytch Fraud) on top.
+
+  Everything else — per-user budget caps, product-shaped rate limits (recipe-create per user,
+  AI-route invocations per user), prompt-injection defence on AI-touching paths, content
+  moderation — sits in our app code and looks the same regardless of which auth solution we
+  pick. So the auth-side gap is narrow (mostly bot detection); the bigger anti-abuse story
+  is ours to build either way.
+
+## Data Protection & GDPR
+
+The developer is UK-based and first users will be too, so UK GDPR (substantively similar to
+EU GDPR) applies regardless of auth choice. A note on what the auth decision actually
+affects vs what stays the same:
+
+**What GDPR actually requires** (in plain terms, for a small consumer site):
+
+* A lawful basis for processing personal data (account creation = consent + contract for
+  service delivery).
+* A privacy policy explaining what we collect, why, how long, and who else sees it.
+* Honour requests for data access, export, and deletion — within ~30 days, free of charge.
+* "Adequate protection" for personal data, which in 2026 means storage within the
+  EEA/UK *or* an adequacy decision (e.g. the US-EU/UK Data Privacy Framework) *or* Standard
+  Contractual Clauses. Cloudflare has SCCs in place, so US/global D1 storage is compliant
+  for UK user data — residency-in-EEA is one valid path but not the only one.
+* List sub-processors (third parties handling the data on our behalf) in the privacy
+  policy.
+
+**What the auth choice changes:**
+
+* **Where user records live.** With Better Auth, user records sit in our database, so EU
+  residency = whatever DB we pick (D1 is US/global today; if explicit EU residency ever
+  matters, [Turso](https://turso.tech/) regional groups or [Neon](https://neon.tech) EU
+  regions are the move). With Clerk or Auth0, user records sit in the vendor's database;
+  both offer EU-region instances. *For UK first users with Cloudflare SCCs covering
+  transfer-out, this is not a current concern.*
+* **Sub-processor count.** Better Auth in-process means the OAuth issuers (Google, GitHub)
+  are the only third parties touching auth data — no separate auth vendor to list. Clerk or
+  Auth0 add themselves as a sub-processor.
+* **Deletion / export primitives.** Better Auth ships GDPR-shaped delete-user flows; Clerk
+  and Auth0 do too. Table stakes everywhere. Either way, we own the cascade across our
+  *recipe* data (favourites, household membership, etc.) — the auth layer can only delete
+  what the auth layer stores.
+
+**What the auth choice does *not* change:**
+
+* Writing and maintaining the privacy policy.
+* Building the data-export and data-deletion UI in the app.
+* Handling deletion of associated recipe-side data when a user closes their account.
+* The substance of UK/EU GDPR obligations for the data the *app* stores beyond auth.
+
+**Practical translation for this project**: the GDPR work is privacy policy + delete-user
+flow + data-export flow, all of which are app-layer regardless of auth choice. Data
+residency is genuinely a DB question, not an auth one — and for a UK-first inner-circle
+MVP with Cloudflare's SCCs covering transfer-out, it's not a current concern at all. If the
+user base ever materially skews EU and explicit residency becomes a positioning claim, the
+fix is a DB-layer change (move to Turso/Neon EU regions), not an auth-layer one.
 
 ## When to Revisit
 
