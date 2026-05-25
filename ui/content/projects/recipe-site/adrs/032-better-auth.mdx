@@ -160,7 +160,6 @@ This aligns with:
 | --- | --- |
 | **Stable user identity** | Long-lived user ID survives provider changes — a user who signed up with Google can later link a second provider without losing their associated data. |
 | **Household model** | The [`organization` plugin](https://better-auth.com/docs/plugins/organization) provides teams, roles, invites, custom fields, and multi-tenant isolation. "Household" is a renamed organisation. The authz ADR may still own per-recipe ACLs, but membership is solved here. |
-| **Friend invites** | Email invitations are a first-class organisation primitive — easily re-used for "share recipe with friend" once authz lands. |
 | **Public recipes** | A boolean flag on the recipe row; no auth dependency. |
 | **Account deletion** | Better Auth ships GDPR-shaped delete-user flows; we own the cascade across our recipe data, but the auth half is library-provided. |
 
