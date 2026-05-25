@@ -11,9 +11,10 @@ I propose **[Better Auth](https://better-auth.com)** — MIT-licensed, TypeScrip
 self-hosted — as the identity layer for user profiles on the recipe site.
 
 **Why now.** The recipe site is approaching the point where user profiles need to land —
-earlier iterations could ship usefully without accounts; the next set of features (favourites,
-cooking logs, household sharing) cannot. The ADR is being written because the project has
-reached that point, not because the auth landscape was waiting on clarity.
+earlier iterations shipped a single shared collection with no notion of who's looking at it,
+and household sharing (and later friend sharing) needs the concept of a logged-in user. The
+ADR is being written because the project has reached that point, not because the auth
+landscape was waiting on clarity.
 
 **The landscape consolidation is the central context for reading the rest.** It happens to
 have shifted dramatically in the run-up to needing this decision, which is what makes the
@@ -50,10 +51,11 @@ in a future ADR.
 
 # Context
 
-The recipe site needs user profiles — favourites, cooking logs, eventually household sharing.
-There is no backend today; adding accounts means adding one. The shape of that backend
-(Workers + D1 + KV is the natural extension of the current stack, but not committed here)
-belongs in a separate ADR. The auth choice should remain portable across plausible backends.
+The recipe site needs user profiles — household sharing of the recipe collection, eventually
+friend sharing too. There is no backend today; adding accounts means adding one. The shape
+of that backend (Workers + D1 + KV is the natural extension of the current stack, but not
+committed here) belongs in a separate ADR. The auth choice should remain portable across
+plausible backends.
 
 The constraints driving the decision are sharp:
 
@@ -124,8 +126,7 @@ This aligns with:
 * **[LLM-Optimized](/projects?tab=philosophy#llm-optimized)** — auth config IS the repo. Coding
   agents read `auth.ts`, modify it, regenerate the schema, and ship. No "go to the Clerk
   dashboard and toggle X" handoff. Better Auth additionally publishes
-  [`llms.txt`](https://better-auth.com/llms.txt),
-  [`llms-full.txt`](https://better-auth.com/llms-full.txt), a documentation MCP server, and
+  [`llms.txt`](https://better-auth.com/llms.txt), a documentation MCP server, and
   Claude/Cursor skills — best-in-class for AI-agent consumption.
 * **[Less Is More](/projects?tab=philosophy#less-is-more)** — one TypeScript file plus
   generated schema. No vendor, no dashboard, no per-MAU billing curve to plan around. Apple
@@ -155,11 +156,10 @@ This aligns with:
 
 ## What This Enables
 
-| Phase 5+ feature | What Better Auth provides directly |
+| Feature | What Better Auth provides directly |
 | --- | --- |
-| **Stable user identity** | Long-lived user ID survives provider changes (a user who signed up with Google can later add Apple without losing favourites/cooking-log history). |
+| **Stable user identity** | Long-lived user ID survives provider changes — a user who signed up with Google can later link a second provider without losing their associated data. |
 | **Household model** | The [`organization` plugin](https://better-auth.com/docs/plugins/organization) provides teams, roles, invites, custom fields, and multi-tenant isolation. "Household" is a renamed organisation. The authz ADR may still own per-recipe ACLs, but membership is solved here. |
-| **Cooking log / favourites / rankings** | Just user-scoped rows in our database keyed on the Better Auth user ID. |
 | **Friend invites** | Email invitations are a first-class organisation primitive — easily re-used for "share recipe with friend" once authz lands. |
 | **Public recipes** | A boolean flag on the recipe row; no auth dependency. |
 | **Account deletion** | Better Auth ships GDPR-shaped delete-user flows; we own the cascade across our recipe data, but the auth half is library-provided. |
@@ -197,7 +197,7 @@ This aligns with:
   the config. No runtime-only "user.id is a string, trust me" footguns.
 * **Built on Web standards.** Uses `fetch`, `Request`, `Response`, `Web Crypto` — the same
   runtime contract the Workers V8 isolate provides. No Node-specific imports in the hot path.
-* **Documentation engineered for coding agents.** `llms.txt`, `llms-full.txt`, an MCP server
+* **Documentation engineered for coding agents.** `llms.txt`, an MCP server
   documented at [`/docs/ai-resources`](https://better-auth.com/docs/ai-resources), an
   in-docs "Ask AI" search, and installable Claude/Cursor skills. This is the criterion that
   most directly distinguishes Better Auth from every SaaS-managed alternative — agents can
@@ -479,8 +479,8 @@ records in D1.
   changelogs becomes part of the workflow. Renovate already covers this — the cost is
   one more grouped dep to read carefully.
 * **VC funding overhang on a free OSS library.** Better Auth raised
-  [$5M from Peak XV in June 2025](https://better-auth.com/blog/series-seed). HN
-  [raised concern](https://news.ycombinator.com/item?id=45393726) that VC pressure on a
+  [$5M from Peak XV in June 2025](https://better-auth.com/blog/seed-round). HN
+  [raised concern](https://news.ycombinator.com/item?id=44380185) that VC pressure on a
   free library typically pushes toward a paid managed service — i.e. "Better Auth Cloud"
   — which is fine for *us* (we don't have to use it) but could de-prioritise OSS-only
   improvements. **Bounded by:** the integration shape is OAuth/OIDC + a database schema.
