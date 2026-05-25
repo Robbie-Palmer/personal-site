@@ -5,69 +5,75 @@ status: "Proposed"
 tech_stack: ["Better Auth"]
 ---
 
+# Summary
+
+I propose **[Better Auth](https://better-auth.com)** — MIT-licensed, TypeScript-first,
+self-hosted — as the identity layer for user profiles on the recipe site.
+
+**Why this is straightforward in May 2026 but would have been an edgy call a year ago.** This
+is the central thing to know before reading the rest. Before September 2025, Better Auth was
+a ~14k-star library competing with Auth.js (then NextAuth, the assumed default for Next.js
+projects) and Lucia. Adopting it then would have been an early-adopter bet against a known
+incumbent. In the months that followed the landscape collapsed: Auth.js's primary maintainer
+[departed in January 2025](https://github.com/nextauthjs/next-auth/discussions/13382), the
+project [was absorbed by Better Auth in September 2025](https://better-auth.com/blog/authjs-joins-better-auth),
+[Lucia sunset in March 2025](https://github.com/lucia-auth/lucia/discussions/1714), and
+[Stytch was acquired by Twilio in November](https://www.twilio.com/). The OSS TypeScript auth
+space consolidated around Better Auth — Better Auth's own
+[migration guide for Auth.js users](https://authjs.dev/getting-started/migrate-to-better-auth)
+is the official onward path for the incumbent. It is now the gravitational centre, not the
+contrarian pick.
+
+**Why the SaaS shortlist is short.** The hard constraint is **anti-dashboard configuration** —
+auth setup must live in version control, not a vendor UI. That disqualifies Clerk, Kinde,
+WorkOS AuthKit, and Supabase Auth: each has either no Terraform provider, a community one too
+thin to be the source of truth, or a dashboard-only configuration surface. **Auth0 is the only
+SaaS option that passes**, by virtue of an unusually mature first-party Terraform provider —
+the decision below treats it as the documented escape hatch if the OSS path ever stalls.
+
+**Why Better Auth specifically fits this project.** D1 is supported natively in core as of
+[v1.5 (Feb 2026)](https://better-auth.com/blog/1-5); the auth config is a TypeScript file that
+coding agents can read and edit directly (Better Auth ships `llms.txt`, an MCP server, and
+Claude/Cursor skills purpose-built for this); there is no per-MAU pricing curve; and the
+`organization` plugin provides a ready-made primitive for the future household model without
+inventing membership semantics.
+
+This ADR scopes to **authentication only**. The authorization model — how household membership,
+friend sharing, and per-recipe visibility are expressed and enforced — is a separate decision
+in a future ADR.
+
 # Context
 
-The [recipe-site roadmap](/projects/recipe-site) lists user accounts as a Phase 5 deliverable.
-The original framing — "accounts for personalisation, not privacy" — has since broadened during
-deeper design work: the long-term model is four visibility tiers (**private**, **household**,
-**friends**, **public**), with the MVP starting at a small inner circle (≤50 accounts) and the
-expectation of scaling toward open public signup over time.
-
-This ADR scopes to **authentication only** — picking the identity provider that issues stable
-user IDs and handles sign-in. The authorization model — how household membership, friend
-sharing, and per-recipe ACLs are expressed and enforced — is a separate decision and will be
-its own ADR. The two are independent in practice: any authn choice here is compatible with
-either an app-level authz model in our database or a dedicated authz tool
-([OpenFGA](https://openfga.dev/), [Oso](https://www.osohq.com/), [Cedar](https://www.cedarpolicy.com/),
-[Permit.io](https://www.permit.io/)) layered on top later.
-
-The current site is a Next.js 15 static export on
-[Cloudflare Pages (ADR 011)](/projects/recipe-site/adrs/011-cloudflare-pages) — there is no
-backend today. Shipping accounts means adding one. The exact shape of that backend is open:
-Cloudflare Workers + D1 + KV is the most natural extension of the current stack, but the auth
-choice should remain portable across plausible backends (Workers + any SQL DB, or Next.js on
-Workers via [OpenNext](https://opennext.js.org/), or a separate Node service if that ever
-becomes necessary). This ADR explicitly avoids coupling to a specific backend ADR.
+The recipe site needs user profiles — favourites, cooking logs, eventually household sharing.
+There is no backend today; adding accounts means adding one. The shape of that backend
+(Workers + D1 + KV is the natural extension of the current stack, but not committed here)
+belongs in a separate ADR. The auth choice should remain portable across plausible backends.
 
 The constraints driving the decision are sharp:
 
 1. **Anti-dashboard config.** Auth provider configuration — OAuth client IDs, callback URLs,
-   branding, MFA rules, organisation shape, email templates — should live in version control,
-   not in a vendor UI. Manual dashboard config is a velocity tax and an account-management
-   tax, both of which the [Building Philosophy](/projects?tab=philosophy) calls out explicitly.
+   branding, organisation shape, email templates — lives in version control, not a vendor UI.
    IaC coverage (Terraform / OpenTofu, *or* config-as-code by construction) is a first-class
-   evaluation criterion, not a tiebreaker.
-2. **AI-coding-agent friendliness as a real lever.** Coding agents are now central to all
-   tech work. A solution where auth config lives in TypeScript files an agent can read, edit,
-   and reason about is materially better than one where the agent has to instruct a human to
-   click through a SaaS dashboard. This is significant enough that it can tip the
-   [Goldilocks Zone](/projects?tab=philosophy#the-goldilocks-zone) calibration from
-   "early majority" toward "early adopter" for a solution that gets it right.
-3. **Cloudflare-compatible runtime.** Whatever backend ADR lands, Cloudflare Workers is the
-   most likely target. The auth library has to run on the V8 isolate runtime — not just claim
-   to, but actually have a working integration without Node-specific dependencies smuggled in.
-4. **Cost discipline.** A personal recipe site cannot justify $4-20/month/MAU pricing curves
-   that some SaaS auth vendors apply at growth thresholds. Free at MVP scale is mandatory;
-   linear, predictable cost growth is required.
-5. **Apple Sign In is a hard requirement** for any inner-circle / household model — Apple
-   users will not create separate accounts. Whatever is chosen has to support
-   [Sign in with Apple](https://developer.apple.com/sign-in-with-apple/) competently. The
-   gotcha here is Apple's 6-month JWT client secret expiry; some libraries automate rotation,
-   others leave it as the project's responsibility.
-6. **Social OAuth is the anchor sign-in method.** Email + password is explicitly out of
-   scope — the operational cost of breach monitoring, reset flows, and password hygiene is
-   not worth it for this audience. Magic links and passkeys are open questions addressed
-   in the [Sign-In Methods at MVP](#sign-in-methods-at-mvp) section.
-
-**Why this is an ADR worth writing now.** The auth landscape shifted materially in September
-2025 when **[Auth.js (formerly NextAuth) was absorbed by Better Auth](https://better-auth.com/blog/authjs-joins-better-auth)**.
-Auth.js's primary maintainer departed in January 2025, v5 stalled in beta for three years, and
-the project explicitly redirects new users to Better Auth. Combined with
-[Lucia's sunset (March 2025)](https://github.com/lucia-auth/lucia/discussions/1714) and
-[Stytch's acquisition by Twilio (November 2025)](https://www.twilio.com/), the OSS
-TypeScript auth space has consolidated around Better Auth in a way it had not a year ago. This
-re-calibrates where Better Auth sits in the Goldilocks Zone — it is no longer the edgy outlier;
-it is the new gravitational centre.
+   evaluation criterion, not a tiebreaker. See the
+   [Building Philosophy](/projects?tab=philosophy) for why this is hard rather than soft.
+2. **AI-coding-agent friendliness as a real lever.** A solution where auth config lives in
+   TypeScript files an agent can read, edit, and reason about is materially better than one
+   where the agent has to instruct a human to click through a SaaS dashboard. Significant
+   enough to influence the
+   [Goldilocks Zone](/projects?tab=philosophy#the-goldilocks-zone) calibration for a solution
+   that gets it right.
+3. **Runtime portability.** Built on web standards (`fetch` / `Request` / `Response` /
+   `Web Crypto`), not locked to a single Node-specific environment. This keeps options open
+   across modern Node, V8 isolates, and Bun — whichever the future backend ADR picks.
+4. **Cost discipline.** No $4-20/month/MAU pricing curves. Free at MVP scale; linear,
+   predictable growth.
+5. **Apple Sign In is a hard requirement** — iPhone users in the household won't create
+   separate accounts. Apple's 6-month JWT client secret expiry is a known gotcha that some
+   libraries automate and some leave to the project.
+6. **Social OAuth as the anchor.** Email + password is explicitly out of scope — the
+   operational cost (resets, breach monitoring, password hygiene) is not worth it for this
+   audience. Magic links and passkeys are addressed in the
+   [Sign-In Methods at MVP](#sign-in-methods-at-mvp) section.
 
 # Decision
 
@@ -117,12 +123,12 @@ This aligns with:
   generated schema. No vendor, no dashboard, no per-MAU billing curve to plan around. Apple
   JWT rotation does land on us as ongoing maintenance (see
   [Consequences → Negative](#negative)) but it's a single Workers Cron Trigger.
-* **[The Goldilocks Zone](/projects?tab=philosophy#the-goldilocks-zone)** — post-Auth.js-merger,
-  Better Auth is the consolidating point of the OSS TypeScript auth space, not an early-adopter
-  bet. The Auth.js absorption + Lucia sunset + 28.4k GitHub stars + $5M Peak XV seed put it in
-  early-majority territory on raw market-share signals. The agent-friendliness story
-  (`llms.txt` + MCP + Skills) is what specifically tips this decision from "lateral peer of
-  Clerk/Auth0" toward "structurally better for our priorities."
+* **[The Goldilocks Zone](/projects?tab=philosophy#the-goldilocks-zone)** — the landscape
+  consolidation covered in the [Summary](#summary) places Better Auth in early-majority
+  territory on raw market-share signals (28.4k GitHub stars, $5M Peak XV seed, weekly minor
+  releases). The agent-friendliness story (`llms.txt` + MCP + Skills) is what specifically
+  tips this decision from "lateral peer of Clerk/Auth0" toward "structurally better for our
+  priorities."
 * **[Short Feedback Loops](/projects?tab=philosophy#short-feedback-loops)** — adding a new
   social provider or org-plugin role is a one-PR change that the CI pipeline validates.
   No webhook setup in a vendor UI. No "save and republish" step. No drift between dashboard
