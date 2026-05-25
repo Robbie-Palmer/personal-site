@@ -31,15 +31,20 @@ space consolidated around Better Auth — Better Auth's own
 is the official onward path for the incumbent. It is now the gravitational centre, not the
 contrarian pick.
 
-**Why the SaaS shortlist is short.** The hard constraint is **anti-dashboard configuration** —
-auth setup must live in version control, not a vendor UI. That disqualifies Clerk, Kinde, and
-WorkOS AuthKit (each has either no Terraform provider, a community one too thin to be the
-source of truth, or a dashboard-only configuration surface). Supabase Auth is rejected
-separately on **platform lock-in** — adopting it couples auth to the rest of the Supabase
-platform (Postgres, hosted control plane), pre-empting the future backend ADR rather than
-leaving it open. **Auth0 is the only SaaS option that passes**, by virtue of an unusually
-mature first-party Terraform provider — the decision below treats it as the documented escape
-hatch if the OSS path ever stalls.
+**Why the SaaS shortlist is short.** The bet underpinning this decision is that
+**config-as-code produces higher future velocity than vendor-managed DX** — coding agents can
+read and edit auth state directly without dashboard handoffs, the auth surface is reviewed
+the same way as the rest of the codebase, and there's no operational dependency on a vendor's
+uptime. That bet disqualifies the dashboard-first SaaS class (Clerk, Kinde, WorkOS AuthKit)
+*for this project*, though Clerk in particular has genuinely strong drop-in DX (prebuilt React
+components, hosted sign-in pages, vendor-side operations) that would tilt the velocity bet the
+other way for many other projects. Supabase Auth is rejected separately on **platform
+lock-in** — adopting it couples auth to the rest of the Supabase platform (Postgres, hosted
+control plane), pre-empting the future backend ADR rather than leaving it open. **Auth0 is
+the only SaaS option that passes the velocity bet**, by virtue of an unusually mature
+first-party Terraform provider that keeps the auth surface in code while still absorbing
+vendor-side operations — the decision below treats it as the documented escape hatch if the
+OSS path ever stalls.
 
 **Why Better Auth specifically fits this project.** D1 is supported natively in core as of
 [v1.5 (Feb 2026)](https://better-auth.com/blog/1-5); the auth config is a TypeScript file that
@@ -62,11 +67,15 @@ plausible backends.
 
 The constraints driving the decision are sharp:
 
-1. **Anti-dashboard config.** Auth provider configuration — OAuth client IDs, callback URLs,
-   branding, organisation shape, email templates — lives in version control, not a vendor UI.
-   IaC coverage (Terraform / OpenTofu, *or* config-as-code by construction) is a first-class
-   evaluation criterion, not a tiebreaker. See the
-   [Building Philosophy](/projects?tab=philosophy) for why this is hard rather than soft.
+1. **Config-as-code as a velocity bet.** Auth provider configuration — OAuth client IDs,
+   callback URLs, branding, organisation shape, email templates — should live in version
+   control rather than a vendor UI, because that lets coding agents read and edit auth state
+   directly and keeps auth review on the same workflow as the rest of the codebase. This
+   isn't an axiom; it's a bet (rooted in the
+   [Building Philosophy](/projects?tab=philosophy)) that for this project the velocity
+   compound from agent-assisted iteration outweighs what vendors give up in prebuilt
+   components and hosted UI. The bet could be wrong; Auth0 is the documented escape hatch
+   precisely because it keeps the auth surface in code while still being a managed service.
 2. **AI-coding-agent friendliness as a real lever.** A solution where auth config lives in
    TypeScript files an agent can read, edit, and reason about is materially better than one
    where the agent has to instruct a human to click through a SaaS dashboard. Significant
@@ -251,12 +260,15 @@ limiting, abuse mitigation, audit logs, JWT rotation, email delivery) is yours t
 service is hosted by the vendor. Your app calls their API; users live in their database;
 signup/signin happens on their UI (or a customised version of it). They own the runtime —
 including all the operational obligations a library would push onto you — but you don't own
-the user data, and config typically lives in their dashboard. Within this bucket, **Auth0 is
-the outlier** with an unusually mature first-party Terraform provider that pulls almost the
-entire configuration surface into code; the others (Clerk, Kinde, WorkOS, Supabase Auth) are
-dashboard-first.
+the user data, config typically lives in their dashboard, and **their uptime becomes part of
+yours**: a vendor outage means your users can't sign in even if your app is fine. SaaS auth
+vendors generally publish strong SLAs (99.9%+ is table stakes), so this dependency is more
+shape than recurring pain, but it's real and not present with a self-hosted library. Within
+the SaaS bucket, **Auth0 is the outlier** with an unusually mature first-party Terraform
+provider that pulls almost the entire configuration surface into code; the others (Clerk,
+Kinde, WorkOS, Supabase Auth) are dashboard-first.
 
-This split drives the project-fit story. The anti-dashboard constraint disqualifies the
+This split drives the project-fit story. The config-as-code velocity bet disqualifies the
 dashboard-first SaaS bucket as a class; Supabase Auth has the extra problem of coupling auth
 to the rest of the Supabase platform. Self-hosted libraries pass the IaC test by
 construction, leaving the choice between them on adoption, agent-friendliness, and runtime
@@ -307,10 +319,11 @@ OSS competitor to Better Auth, MIT/AGPL dual-licensed.
 ## SaaS, Dashboard-First (Fail the IaC Constraint)
 
 These products are real auth platforms with strong managed-service value — Apple JWT
-rotation handled, passkeys polished, audit logs out of the box, SOC2 reports available. But
-each one's source of truth lives in a vendor dashboard with no credible IaC alternative. That
-single property is enough to disqualify them against the
-[anti-dashboard constraint](#context).
+rotation handled, passkeys polished, audit logs out of the box, email delivery and abuse
+mitigation absorbed server-side. But each one's source of truth lives in a vendor dashboard
+with no credible IaC alternative, which loses the
+[config-as-code velocity bet](#context) for this project. (SOC 2 reports are also commonly
+offered; they're not relevant for a personal recipe site but listed for completeness.)
 
 ### [Clerk](https://clerk.com)
 
@@ -329,15 +342,15 @@ documented Cloudflare support via OpenNext.
     links all sent from Clerk's infrastructure. No transactional provider (Resend / Postmark
     / SES) to wire up; no SPF/DKIM/DMARC to maintain.
   * **All operational obligations absorbed server-side** — Apple JWT client secret rotation,
-    session management, rate limiting, abuse mitigation, audit logs, SOC 2 / GDPR compliance.
+    session management, rate limiting, abuse mitigation, audit logs, GDPR compliance machinery.
     A Better Auth deployment lands all of these on us; Clerk lands them on Clerk.
   * 50k monthly retained users on the free tier (raised from 10k in their
     [Feb 2026 pricing change](https://saasprices.net/blog/clerk-free-plan-changes)).
   * Production-grade passkeys, MFA, organisations. Publishes `llms.txt` and an MCP server.
 
   For most projects, Clerk genuinely wins on overall developer experience. It loses here
-  specifically because the [anti-dashboard constraint](#context) is a hard property of this
-  project, not because the product is weak.
+  because this project specifically bets on
+  [config-as-code velocity](#context) over vendor DX, not because the product is weak.
 * **Cons**: **Terraform story is fundamentally a dead end.** The only Terraform provider is
   the community-maintained [`buildwithdeck/clerk`](https://github.com/buildwithdeck/terraform-provider-clerk)
   — 2 GitHub stars, effectively a one-person side project. Supported resources are limited
@@ -347,9 +360,14 @@ documented Cloudflare support via OpenNext.
   webhooks, and most session settings are **not** manageable via Terraform — the dashboard
   remains the source of truth. This is the precise mode of operation the project's
   building philosophy is set up to avoid.
-* **Decision**: **Rejected.** The product is excellent; the IaC story is not. If
-  anti-dashboard config softened later and SaaS DX became the priority, Clerk is the
-  natural revisit.
+* **Decision**: **Rejected — but it's close, and the trade-off is real.** Clerk's prebuilt
+  components and vendor-side operational handling are genuine velocity wins; we'd ship MVP
+  sign-in *faster* with Clerk than with Better Auth. The bet against it is that **agent-
+  assisted iteration on config-in-repo compounds faster over the project's lifetime than
+  Clerk's prebuilt components compound** — which depends on (a) how strong the AI tooling
+  story gets, and (b) how much custom auth UI we'd end up building either way. If either
+  assumption breaks, Clerk is the natural revisit; the cost of switching from Better Auth
+  later is bounded by the user/session/account schema being industry-standard.
 
 ### [Kinde](https://kinde.com)
 
@@ -379,7 +397,7 @@ B2B-leaning auth provider with a striking consumer free tier.
   hosted UI, not a custom one — a UX constraint. "Magic Auth" is OTP codes, not true magic
   links (WorkOS deprecated true magic links because of the email-scanner GET-burn problem —
   a reasonable design call but worth knowing).
-* **Decision**: **Rejected** on the anti-dashboard constraint. The 1M MAU free tier is
+* **Decision**: **Rejected** on the config-as-code velocity bet. The 1M MAU free tier is
   genuinely striking and worth flagging for any *future* project where the IaC constraint
   doesn't bite.
 
@@ -408,7 +426,7 @@ Auth as one feature of the broader Supabase platform (Postgres + storage + edge 
 ## SaaS, Terraform-First — Auth0
 
 The only SaaS option with a code-first config story that holds up against the
-anti-dashboard constraint, by virtue of an unusually mature Terraform provider.
+config-as-code velocity bet, by virtue of an unusually mature Terraform provider.
 
 ### [Auth0](https://auth0.com) (Okta CIC)
 
@@ -437,7 +455,7 @@ anti-dashboard constraint, by virtue of an unusually mature Terraform provider.
   Okta-owned vendor relationship for a personal project where every other tier of the
   stack is OSS or Cloudflare-first.
 * **Decision**: **Rejected, with the closest second-place positioning.** Auth0 is the
-  *only* SaaS option that passes the anti-dashboard constraint, and on raw IaC coverage
+  *only* SaaS option that passes the config-as-code velocity bet, and on raw IaC coverage
   it is strictly better than Better Auth (Better Auth doesn't have a SaaS control plane
   *to* manage with Terraform — different shape of "config in code"). The decision against
   Auth0 is driven by (1) the pricing-curve risk for a project that explicitly plans to
@@ -504,8 +522,12 @@ records in D1.
   site's "browsing is public, accounts unlock personalisation" shape exactly.
 * **No vendor account proliferation.** No Clerk / Auth0 / WorkOS account to onboard,
   bill, audit, or revoke. The only external accounts are the OAuth issuers themselves
-  (Google Cloud Console, Apple Developer, GitHub OAuth Apps) — which would be needed by
-  *any* auth solution.
+  (Google Cloud Console, GitHub OAuth Apps) — which would be needed by *any* auth solution.
+* **Auth availability stays bounded by app availability.** With Better Auth running in our
+  process, the sign-in path is up iff our app is up. SaaS options would add a separate
+  service whose outage breaks sign-in even when our app is fine. Vendor uptime in this space
+  is generally very good (99.9%+ SLAs), but the shape is meaningfully different: one
+  dependency vs two.
 
 ## Negative
 
