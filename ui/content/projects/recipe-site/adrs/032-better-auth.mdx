@@ -442,7 +442,13 @@ documented Cloudflare support via OpenNext.
     100k verifications/mo on free tier. Better Auth provides M2M via its free
     [OAuth 2.1 Provider plugin](https://better-auth.com/docs/plugins/oauth-provider) or
     the simpler [API Key plugin](https://better-auth.com/docs/plugins/api-key) — no caps.
-    Not relevant for a recipe site (no API consumers), but listed for completeness.
+    Relevance depends on architecture: a pure Cloudflare-Workers backend handles
+    service-to-service identity via
+    [service bindings](https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/)
+    (no tokens needed, platform-level guarantee), so M2M is mostly only needed for
+    background workers outside Workers, external integrations (e.g. a Telegram bot or
+    calendar sync adding recipes), or a future third-party API. Worth knowing that
+    Better Auth has both flavours uncapped if/when those cases appear.
   * Publishes `llms.txt` and an MCP server.
 
   Clerk's strengths are real and worth listing in full — the rejection below isn't a
@@ -574,11 +580,14 @@ ever falters.
     (previously enterprise-only). Most mature product in the entire auth landscape.
   * **MFA and M2M paywall details** — *worth knowing*: MFA on the free tier is a paid
     add-on (Auth0 calls this "Pro MFA"); it's included starting at the Essentials plan
-    ($35/mo B2C, $150/mo B2B) and Enterprise MFA is included from Professional ($240/mo
+    ($35/mo B2C, $150/mo B2B), and Enterprise MFA is included from Professional ($240/mo
     B2C). M2M tokens: 1k/month included on free tier, 5k on Professional+, additional
-    M2M as a separately-priced add-on. Better Auth provides both MFA and M2M
-    (via OAuth 2.1 Provider or API Key plugins) at no cost in the library — these are
-    real Better Auth advantages for projects that need the features.
+    M2M as a separately-priced add-on. Better Auth provides both MFA and M2M (via
+    OAuth 2.1 Provider or API Key plugins) at no cost in the library, uncapped — real
+    advantages whenever those features are needed (MFA: if first-party MFA is ever wanted
+    on top of social OAuth; M2M: for background workers, external integrations, or any
+    backend service that lives outside the Workers runtime where service bindings cover
+    internal calls).
 
   The durable advantages under agentic coding are the **Terraform IaC story** (the only
   SaaS option that pays off here) and the **operational handoff** (Better Auth pushes JWT
