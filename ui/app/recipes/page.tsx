@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default function RecipesPage() {
   const recipes = getAllRecipes();
   const jsonLd = buildRecipeListJsonLd(recipes, siteConfig.url);
-  const recipeCountLabel = recipes.length.toLocaleString() + " " + (recipes.length === 1 ? "recipe" : "recipes");
+  const recipeCountLabel = `${recipes.length.toLocaleString()} ${recipes.length === 1 ? "recipe" : "recipes"}`;
 
   return (
     <div className="container mx-auto px-4 py-12 min-h-screen max-w-6xl">
