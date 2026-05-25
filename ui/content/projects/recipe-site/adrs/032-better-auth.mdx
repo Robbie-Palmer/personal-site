@@ -32,11 +32,14 @@ is the official onward path for the incumbent. It is now the gravitational centr
 contrarian pick.
 
 **Why the SaaS shortlist is short.** The hard constraint is **anti-dashboard configuration** —
-auth setup must live in version control, not a vendor UI. That disqualifies Clerk, Kinde,
-WorkOS AuthKit, and Supabase Auth: each has either no Terraform provider, a community one too
-thin to be the source of truth, or a dashboard-only configuration surface. **Auth0 is the only
-SaaS option that passes**, by virtue of an unusually mature first-party Terraform provider —
-the decision below treats it as the documented escape hatch if the OSS path ever stalls.
+auth setup must live in version control, not a vendor UI. That disqualifies Clerk, Kinde, and
+WorkOS AuthKit (each has either no Terraform provider, a community one too thin to be the
+source of truth, or a dashboard-only configuration surface). Supabase Auth is rejected
+separately on **platform lock-in** — adopting it couples auth to the rest of the Supabase
+platform (Postgres, hosted control plane), pre-empting the future backend ADR rather than
+leaving it open. **Auth0 is the only SaaS option that passes**, by virtue of an unusually
+mature first-party Terraform provider — the decision below treats it as the documented escape
+hatch if the OSS path ever stalls.
 
 **Why Better Auth specifically fits this project.** D1 is supported natively in core as of
 [v1.5 (Feb 2026)](https://better-auth.com/blog/1-5); the auth config is a TypeScript file that
@@ -231,7 +234,9 @@ The auth space sorts naturally into three operating models with different IaC st
 * **OSS, config-as-code-by-construction** — Better Auth, Auth.js v5, Stack Auth, Lucia.
   No SaaS control plane to fight; config lives in the repo by design.
 * **SaaS, dashboard-first** — Clerk, Kinde, WorkOS AuthKit, Supabase Auth. Auth config is
-  vendor-owned; IaC coverage ranges from "weak" to "absent."
+  vendor-owned; IaC coverage ranges from "weak" to "absent." Supabase Auth additionally
+  couples the auth layer to the rest of the Supabase platform — a second, independent
+  disqualifier covered in its section below.
 * **SaaS, Terraform-first** — Auth0. The only SaaS option with a credible code-first
   configuration story.
 
@@ -344,14 +349,19 @@ Auth as one feature of the broader Supabase platform (Postgres + storage + edge 
 * **Pros**: 50k MAU free tier. Apple JWT rotation handled. Decent Cloudflare Workers
   support after their
   [May 2026 `@supabase/server` release](https://supabase.com/blog/introducing-supabase-server).
-* **Cons**: Adopting Supabase Auth means adopting Supabase as the **backend platform**, not
-  just an auth layer. The cost is taking on a much bigger platform decision than this ADR
-  is sized for, with D1 sitting unused (or paying for both). Auth provider config is mostly
-  dashboard-managed; the [official Terraform provider](https://registry.terraform.io/providers/supabase/supabase/latest)
+* **Cons**: **Platform lock-in.** Adopting Supabase Auth couples the auth layer to Supabase
+  as the broader platform — Postgres-only, hosted control plane, with the user table and
+  session state living in Supabase's database. The future backend ADR is effectively pre-
+  decided as "Supabase or rip out the auth layer too." Separately, auth provider config is
+  mostly dashboard-managed; the
+  [official Terraform provider](https://registry.terraform.io/providers/supabase/supabase/latest)
   covers projects/branches/settings but not OAuth client configuration.
-* **Decision**: **Rejected.** A Supabase decision is a backend-platform decision that
-  belongs in the future backend ADR, not auth. If that ADR ever picks Supabase, Supabase
-  Auth comes with it — but the auth choice does not lead the platform choice.
+* **Decision**: **Rejected** on platform lock-in. The
+  [Context](#context) makes portability across plausible backends an explicit property of the
+  auth choice; Supabase Auth + any non-Supabase backend is not really viable, so adopting it
+  here would pre-empt the future backend ADR rather than leave the door open. Every other
+  option in this comparison (Better Auth, Auth.js, Stack Auth, Clerk, Auth0, Kinde, WorkOS)
+  keeps auth and database choices independent.
 
 ## SaaS, Terraform-First — Auth0
 
