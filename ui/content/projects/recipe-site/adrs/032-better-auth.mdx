@@ -472,45 +472,96 @@ config-as-code velocity bet, by virtue of an unusually mature Terraform provider
 
 ### [Auth0](https://auth0.com) (Okta CIC)
 
-* **Pros**: The
-  [`auth0/terraform-provider-auth0`](https://github.com/auth0/terraform-provider-auth0)
-  is the gold standard among auth provider Terraform integrations. **v1.47.0 released May
-  22, 2026**, with roughly 30 releases per year. Resources cover essentially the entire
-  surface — `auth0_client`, `auth0_connection`, `auth0_tenant`, `auth0_role`,
-  `auth0_organization`, `auth0_action`, `auth0_branding`, `auth0_email_provider`,
-  `auth0_email_template`, `auth0_custom_domain`, `auth0_log_stream`,
-  `auth0_attack_protection`, `auth0_prompt`, `auth0_prompt_custom_text`, more — meaning
-  configuration genuinely can live in
-  [Terraform Cloud (ADR 016)](/projects/recipe-site/adrs/016-terraform-cloud) and the
-  dashboard is reduced to a log-browser. Apple JWT rotation handled. Free tier expanded to
-  25k MAU in 2026, with Self-Service SSO + SCIM bundled
-  (previously enterprise-only). Most mature product in the entire landscape.
-* **Cons**: Even with the expanded free tier, Auth0's commercial reputation post-Okta
-  acquisition is rough. [Reports of 4x+ renewal multipliers at growth
-  thresholds](https://securityboulevard.com/2025/09/auth0-pricing-explained-and-why-startups-call-it-a-growth-penalty/)
-  mean that even if MVP scale is free, "the recipe site goes viral" becomes a pricing
-  liability we can't underwrite. The product's mental model (Rules vs Actions vs Flows
-  vs Hooks, with multiple migrations between them over the years) is heavier than the
-  problem we're solving needs. The agent-friendliness story exists
-  ([llms-full.txt](https://auth0.com/ai/docs/llms-full.txt)) but the docs are
-  marketing-heavy and the surface area is large. Adopting Auth0 also pulls in an
-  Okta-owned vendor relationship for a personal project where every other tier of the
-  stack is OSS or Cloudflare-first.
-* **Decision**: **Rejected, with the closest second-place positioning.** Auth0 is the
-  *only* SaaS option that passes the config-as-code velocity bet, and on raw IaC coverage
-  it is strictly better than Better Auth (Better Auth doesn't have a SaaS control plane
-  *to* manage with Terraform — different shape of "config in code"). The decision against
-  Auth0 is driven by (1) the pricing-curve risk for a project that explicitly plans to
-  scale public over time, (2) the product mental-model overhead being disproportionate to
-  the problem, and (3) Better Auth being meaningfully more agent-friendly. **If Better
-  Auth ever stalls or the OSS path becomes untenable, Auth0 is the documented escape
-  hatch — and the documented escape hatch is in code (Terraform), not vendor lock-in.**
+The only SaaS option that holds up under the agentic-coding shift — its Terraform provider
+keeps configuration surface in code while still absorbing vendor-side operations. Genuinely
+the second-place pick for this project, and the documented escape hatch if the OSS path
+ever falters.
+
+* **Pros**: The combination of mature IaC + managed-service operations that no other SaaS
+  pulls off. Specifically:
+  * **The most complete first-party Terraform provider in the auth space.**
+    [`auth0/terraform-provider-auth0`](https://github.com/auth0/terraform-provider-auth0),
+    v1.47.0 released May 22, 2026, ~30 releases per year. Resources cover essentially the
+    entire configuration surface — `auth0_client`, `auth0_connection`, `auth0_tenant`,
+    `auth0_role`, `auth0_organization`, `auth0_action`, `auth0_branding`,
+    `auth0_email_provider`, `auth0_email_template`, `auth0_custom_domain`,
+    `auth0_log_stream`, `auth0_attack_protection`, `auth0_prompt`, `auth0_prompt_custom_text`,
+    and more. Configuration genuinely lives in
+    [Terraform Cloud (ADR 016)](/projects/recipe-site/adrs/016-terraform-cloud); the
+    dashboard becomes a log-browser. *This is the differentiator agentic coding actively
+    rewards* — agents can read and edit Terraform exactly the way they can read and edit
+    TypeScript.
+  * **All operational obligations absorbed server-side** — Apple JWT client secret
+    rotation, session management, rate limiting, abuse mitigation, audit logs, GDPR
+    compliance machinery, email delivery (verification, MFA codes, password reset). Same
+    shape as Clerk on this front. Agentic coding does not make any of these cheaper to own.
+  * **Proprietary attack protection** — Adaptive MFA, breached password detection
+    (powered by cross-customer data), anomaly detection, suspicious-IP filtering, brute-
+    force protection. These benefit from seeing attacks across Auth0's entire customer
+    base, so they're hard to replicate at the application layer. More substantial than
+    either Clerk's behavioural detection or Cloudflare's edge filtering.
+  * **Identity provider federation built in** — SAML, OIDC, LDAP, WS-Federation,
+    enterprise SSO connections. Better Auth has OAuth but not native SAML. Not relevant
+    for a personal recipe site, but listed because it's a genuine library-vs-platform gap.
+  * **Universal Login** — Auth0's hosted sign-in pages. Same shape as Clerk's hosted UI.
+    *Narrows under agentic coding* — building equivalent UI from primitives is now cheap.
+  * **Compliance certifications** — SOC 2, ISO 27001, HIPAA, FedRAMP. Not relevant for a
+    personal recipe site (per the [GDPR section](#data-protection--gdpr) above), but
+    real value for projects where compliance is a procurement requirement.
+  * Free tier expanded to 25k MAU in 2026, with Self-Service SSO + SCIM bundled
+    (previously enterprise-only). Most mature product in the entire auth landscape.
+
+  The durable advantages under agentic coding are the **Terraform IaC story** (the only
+  SaaS option that pays off here) and the **operational handoff** (Better Auth pushes JWT
+  rotation, abuse mitigation, email delivery onto us; Auth0 absorbs them). Universal
+  Login is ~free to replicate from primitives; SAML and compliance are real but not
+  project-relevant.
+
+* **Cons**:
+  * **Pricing-curve risk at growth.** Even with the expanded free tier, Auth0's post-Okta
+    commercial reputation is rough.
+    [Reports of 4x+ renewal multipliers at growth thresholds](https://securityboulevard.com/2025/09/auth0-pricing-explained-and-why-startups-call-it-a-growth-penalty/)
+    mean "the recipe site goes viral" becomes a pricing liability that's hard to
+    underwrite. Better Auth has zero per-MAU pricing.
+  * **Product mental-model overhead.** Rules vs Actions vs Flows vs Hooks, with multiple
+    migrations between them over the years. The configuration surface is large because
+    the product is large; for a recipe site we'd use a small fraction of it. Better Auth's
+    surface area is smaller and shaped closer to what this project needs.
+  * **Agent-friendliness exists but lags.** Auth0 publishes
+    [llms-full.txt](https://auth0.com/ai/docs/llms-full.txt), but the documentation is
+    marketing-heavy and sprawling — the surface area an agent has to navigate is much
+    larger than Better Auth's. Better Auth's docs are deliberately engineered for agentic
+    consumption (`llms.txt`, MCP server, Claude/Cursor skills); Auth0's predate that
+    engineering pattern.
+  * **Okta-owned vendor relationship** for a personal project where every other tier of
+    the stack is OSS or Cloudflare-first. Adds a vendor we'd otherwise not have.
+  * **Uptime dependency.** Same shape as any SaaS option — Auth0's uptime becomes ours.
+    Auth0 publishes 99.99% SLA on paid tiers, but the dependency is structural.
+
+* **Decision**: **Rejected, with the closest second-place positioning.** This rejection
+  is meaningfully closer than the dashboard-first ones. Auth0's IaC story is the only
+  SaaS approach the agentic-coding shift actually rewards, and on raw IaC coverage it's
+  strictly better than Better Auth (which doesn't have a SaaS control plane *to* manage
+  with Terraform — different shape of "config in code"). The decision against Auth0 is
+  driven by:
+  1. **Pricing curve** at scale if the recipe site ever opens to public signup — Better
+     Auth has none.
+  2. **Product mental-model overhead** disproportionate to the problem.
+  3. **Better Auth being meaningfully more engineered-for-agents** on documentation
+     (`llms.txt`, MCP server, dedicated Claude/Cursor skills).
+  4. **Okta-owned vendor relationship** for an otherwise non-vendor stack.
+
+  **If Better Auth ever stalls or the OSS library path becomes untenable, Auth0 is the
+  documented escape hatch — and that escape hatch is in code (Terraform), not vendor
+  lock-in.** The migration cost is bounded: the user/session/account schema is
+  industry-standard, and the Terraform config replaces `auth.ts` as the source of truth.
 
 The "outdated" perception of Auth0 is **partially fair, partially not**. On Terraform /
-config-as-code: unfair — they have the best story in the SaaS space. On product mental
-model and pricing posture: fair — the post-Okta tilt toward enterprise CIAM has made the
-product heavier and less developer-friendly than it was in 2019. For this project, the
-weight is the deal-breaker, not the perception.
+config-as-code: unfair — they have the best story in the SaaS space, and it's the only
+SaaS story the agentic-coding shift actively rewards. On product mental model and pricing
+posture: fair — the post-Okta tilt toward enterprise CIAM has made the product heavier and
+less developer-friendly than it was in 2019. For this project, the weight is the
+deal-breaker, not the perception.
 
 ## Roll Your Own
 
