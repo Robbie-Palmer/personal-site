@@ -75,9 +75,9 @@ The constraints driving the decision are sharp:
    predictable growth.
 5. **Social OAuth as the anchor.** Email + password is explicitly out of scope — the
    operational cost (resets, breach monitoring, password hygiene) is not worth it for this
-   audience. Google is the expected primary; Apple, GitHub, and any later additions are
-   cheap to wire in since the social-providers config is a literal list in `auth.ts`. Magic
-   links and passkeys are addressed in the
+   audience. Google is the expected primary; GitHub covers the technical-friends subset.
+   The social-providers config is a literal list in `auth.ts`, so additions later are a
+   few-line change. Apple Sign In, magic links, and passkeys are addressed in the
    [Sign-In Methods at MVP](#sign-in-methods-at-mvp) section.
 
 # Decision
@@ -147,7 +147,7 @@ This aligns with:
 | Method | MVP? | Rationale |
 | --- | --- | --- |
 | **Google OAuth** | **Yes** | Largest single account population; first-class in Better Auth; zero rotation cost. Expected primary sign-in path for most users. |
-| **Apple OAuth** | **Yes** | Cheap to wire in (a few lines in `auth.ts`) and covers the subset of iPhone users who'd prefer Apple's hide-my-email + privacy story. Cost surface is real but bounded: $99/yr Apple Developer Program (already justified by other roadmap items) plus Apple's 6-month JWT client secret rotation (mitigation in [Consequences → Negative](#negative)). Becomes mandatory only if/when the site is ever packaged as a native iOS app (App Store guideline 4.8). |
+| **Apple OAuth** | **No (deferred)** | No iPhone users in the inner circle currently, and the $99/yr Apple Developer Program isn't justified by anything else on the roadmap (no native iOS plans; PWA works on Android without an Apple developer account). Easy to add later if an iPhone user joins and prefers it — a few-line config change in `auth.ts` plus the Developer Program signup. The 6-month JWT client secret rotation gotcha (covered in [Consequences → Negative](#negative)) becomes relevant at the same point. |
 | **GitHub OAuth** | **Yes** | Trivial to add; covers the technical-friends subset who'd find Google sign-in surprising on a code-adjacent project. |
 | **Email + password** | **No** | Operational cost (resets, breach monitoring, password hygiene) not worth it for this audience. Workers CPU budget for scrypt is also marginal — a [real reported issue](https://github.com/better-auth/better-auth/issues/8860) on Better Auth that doesn't apply when we don't use passwords. |
 | **Magic links** | **No (deferred)** | OAuth is the primary path; magic links add deliverability concerns (SPF/DKIM/DMARC, a transactional provider like [Resend](https://resend.com), the [email-scanner GET-burn problem](https://workos.com/blog/why-magic-links-are-broken)) for a path most users won't take. Reasonable to add later if a real user reports a meaningful gap. |
@@ -213,7 +213,6 @@ The library itself is free (MIT). The full cost surface for the project is:
 | **Better Auth library** | $0 (MIT OSS) |
 | **Database** | Whatever the backend ADR picks. D1 is free up to 5GB / 5M rows / 25B reads + 50M writes per month — covers a recipe site for years. |
 | **Session storage** | Whatever the backend ADR picks. If KV, the Cloudflare free tier (100k reads/day, 1k writes/day, 1GB stored) is comfortably enough at MVP scale. |
-| **Apple Developer Program** | $99/yr — already justified by the broader [PWA + iOS roadmap](/projects/recipe-site#progressive-web-app-pwa). Apple Sign In also requires a paid Apple Developer membership, so this cost is shared rather than additive. |
 | **Google / GitHub OAuth** | Free. |
 | **Email provider (Resend / Postmark / SES)** | $0 at MVP scale (Resend's free tier is 3k emails/month). Only relevant once magic links / invites ship. |
 | **Per-MAU pricing** | None. Linear in our DB cost, not in MAU count. |
@@ -459,18 +458,15 @@ records in D1.
 
 ## Negative
 
-* **Apple JWT client secret rotation is our responsibility.** Apple's
-  [6-month maximum JWT expiry](https://developer.apple.com/documentation/accountorganizationaldatasharing/creating-a-client-secret)
+* **Apple JWT client secret rotation would land on us if/when Apple Sign In is added.**
+  Apple's [6-month maximum JWT expiry](https://developer.apple.com/documentation/accountorganizationaldatasharing/creating-a-client-secret)
   is non-configurable; Better Auth's
-  [Apple docs](https://better-auth.com/docs/authentication/apple) explicitly call out
-  regeneration as a manual responsibility. **Mitigation:** a scheduled job that regenerates
-  the JWT every ~5 months from the stored `.p8` key and writes the new client secret back to
-  [Doppler](https://www.doppler.com/), which then propagates to whatever runtime the backend
-  ADR picks. The scheduler itself — Cloudflare
-  [Workers Cron Triggers](https://developers.cloudflare.com/workers/configuration/cron-triggers/),
-  a Node cron, or a GitHub Actions schedule — is a backend-ADR concern. Either way it's one
-  small job to write and monitor. SaaS options (Clerk, Auth0, Kinde, WorkOS, Supabase) absorb
-  this rotation server-side; we do not.
+  [Apple docs](https://better-auth.com/docs/authentication/apple) call out regeneration as a
+  manual responsibility. Apple Sign In is deferred at MVP, so this isn't immediate — but
+  worth flagging now: SaaS options (Clerk, Auth0, Kinde, WorkOS, Supabase) absorb this
+  rotation server-side; Better Auth would leave us with a scheduled job (writing the rotated
+  client secret back to [Doppler](https://www.doppler.com/), then propagating to whatever
+  runtime the backend ADR picks) as our responsibility.
 * **We own the runtime.** Database, session storage, rate limiting, abuse mitigation,
   account lockout, audit logs, GDPR data subject access / deletion flows — all live in
   our backend, not a vendor's. Better Auth provides primitives for each of these but the
@@ -503,10 +499,11 @@ records in D1.
 
 This decision should be revisited if any of the following become true:
 
-* **Apple JWT rotation becomes operationally painful.** If the rotation Cron Trigger
-  itself becomes a maintenance burden (it shouldn't, but if it does), Auth0 / Clerk /
-  WorkOS / Kinde / Supabase all handle Apple JWT rotation server-side. Switching for
-  this reason alone is hard to justify, but the option is there.
+* **Apple Sign In gets added and JWT rotation becomes operationally painful.** Two things
+  need to be true for this to bite: an inner-circle user has to want Apple Sign In, and the
+  resulting rotation job has to become a maintenance burden. If both happen, Auth0 / Clerk /
+  WorkOS / Kinde / Supabase all handle Apple JWT rotation server-side. Switching for this
+  reason alone is hard to justify, but the option is there.
 * **Better Auth velocity meaningfully slows, or community signals deteriorate.** Watch:
   the [release cadence](https://github.com/better-auth/better-auth/releases) (currently
   weekly), the [open issue ratio](https://github.com/better-auth/better-auth/issues),
