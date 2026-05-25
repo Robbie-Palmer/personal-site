@@ -31,20 +31,28 @@ space consolidated around Better Auth — Better Auth's own
 is the official onward path for the incumbent. It is now the gravitational centre, not the
 contrarian pick.
 
-**Why the SaaS shortlist is short.** The bet underpinning this decision is that
-**config-as-code produces higher future velocity than vendor-managed DX** — coding agents can
-read and edit auth state directly without dashboard handoffs, the auth surface is reviewed
-the same way as the rest of the codebase, and there's no operational dependency on a vendor's
-uptime. That bet disqualifies the dashboard-first SaaS class (Clerk, Kinde, WorkOS AuthKit)
-*for this project*, though Clerk in particular has genuinely strong drop-in DX (prebuilt React
-components, hosted sign-in pages, vendor-side operations) that would tilt the velocity bet the
-other way for many other projects. Supabase Auth is rejected separately on **platform
-lock-in** — adopting it couples auth to the rest of the Supabase platform (Postgres, hosted
-control plane), pre-empting the future backend ADR rather than leaving it open. **Auth0 is
-the only SaaS option that passes the velocity bet**, by virtue of an unusually mature
-first-party Terraform provider that keeps the auth surface in code while still absorbing
-vendor-side operations — the decision below treats it as the documented escape hatch if the
-OSS path ever stalls.
+**Why the SaaS shortlist is short.** This decision turns on a shift in what costs what.
+**Agentic coding has dramatically reduced the cost of building UI from primitives** —
+prebuilt React components and hosted sign-in pages (Clerk's traditional advantage) save
+hours of human work that a coding agent now produces in minutes from a Better Auth primitive.
+What agentic coding has *not* solved is **SaaS dashboard navigation, platform provisioning,
+and in-browser configuration** — these stay slow, manual, agent-unfriendly handoffs. The net
+effect: the velocity gain from config-as-code (everything an agent can edit directly) is
+bigger in 2026 than it was a few years ago, and the velocity gain from prebuilt vendor
+components is smaller. That moves the calculus decisively toward self-hosted libraries with
+strong agent docs — particularly for a project leaning into agentic flows as the primary
+mode of work.
+
+That tilt disqualifies the dashboard-first SaaS class (Clerk, Kinde, WorkOS AuthKit) — not
+because the products are weak (Clerk especially is genuinely excellent), but because the
+share of their value an agent can access (auth UI, session handling) has shrunk while the
+share it can't (dashboard config, operational toggles, billing/audit UIs) has stayed put.
+Supabase Auth is rejected separately on **platform lock-in** — adopting it couples auth to
+the rest of the Supabase platform (Postgres, hosted control plane), pre-empting the future
+backend ADR rather than leaving it open. **Auth0 holds up under the new calculus** because
+its mature first-party Terraform provider keeps the configuration surface in code while still
+absorbing vendor-side operations — the decision below treats it as the documented escape
+hatch if the OSS library path ever stalls.
 
 **Why Better Auth specifically fits this project.** D1 is supported natively in core as of
 [v1.5 (Feb 2026)](https://better-auth.com/blog/1-5); the auth config is a TypeScript file that
@@ -67,15 +75,17 @@ plausible backends.
 
 The constraints driving the decision are sharp:
 
-1. **Config-as-code as a velocity bet.** Auth provider configuration — OAuth client IDs,
-   callback URLs, branding, organisation shape, email templates — should live in version
-   control rather than a vendor UI, because that lets coding agents read and edit auth state
-   directly and keeps auth review on the same workflow as the rest of the codebase. This
-   isn't an axiom; it's a bet (rooted in the
-   [Building Philosophy](/projects?tab=philosophy)) that for this project the velocity
-   compound from agent-assisted iteration outweighs what vendors give up in prebuilt
-   components and hosted UI. The bet could be wrong; Auth0 is the documented escape hatch
-   precisely because it keeps the auth surface in code while still being a managed service.
+1. **Config-as-code as a first-class velocity factor.** Auth provider configuration — OAuth
+   client IDs, callback URLs, branding, organisation shape, email templates — lives in
+   version control rather than a vendor UI. The reason is concrete, not philosophical:
+   coding agents can read, edit, and reason about TypeScript and Terraform; they cannot
+   navigate a SaaS dashboard or click through an in-browser onboarding flow. As more of the
+   day-to-day work shifts to agentic flows, the relative cost of dashboard-only
+   configuration grows. Auth surfaces that live in the repo are reviewed, diffed, and
+   iterated on the same workflow as the rest of the codebase; auth surfaces behind a
+   dashboard become a permanent manual handoff the agent has to ask a human to perform.
+   This is part of the [Building Philosophy](/projects?tab=philosophy), but it's anchored
+   in current 2026 economics, not a preference.
 2. **AI-coding-agent friendliness as a real lever.** A solution where auth config lives in
    TypeScript files an agent can read, edit, and reason about is materially better than one
    where the agent has to instruct a human to click through a SaaS dashboard. Significant
@@ -348,9 +358,9 @@ documented Cloudflare support via OpenNext.
     [Feb 2026 pricing change](https://saasprices.net/blog/clerk-free-plan-changes)).
   * Production-grade passkeys, MFA, organisations. Publishes `llms.txt` and an MCP server.
 
-  For most projects, Clerk genuinely wins on overall developer experience. It loses here
-  because this project specifically bets on
-  [config-as-code velocity](#context) over vendor DX, not because the product is weak.
+  Clerk's strengths are real and worth listing in full — the rejection below isn't a
+  product critique. It's about which of these strengths still pay off in a 2026 agentic
+  workflow, and which now solve a problem that costs less than it used to.
 * **Cons**: **Terraform story is fundamentally a dead end.** The only Terraform provider is
   the community-maintained [`buildwithdeck/clerk`](https://github.com/buildwithdeck/terraform-provider-clerk)
   — 2 GitHub stars, effectively a one-person side project. Supported resources are limited
@@ -360,14 +370,18 @@ documented Cloudflare support via OpenNext.
   webhooks, and most session settings are **not** manageable via Terraform — the dashboard
   remains the source of truth. This is the precise mode of operation the project's
   building philosophy is set up to avoid.
-* **Decision**: **Rejected — but it's close, and the trade-off is real.** Clerk's prebuilt
-  components and vendor-side operational handling are genuine velocity wins; we'd ship MVP
-  sign-in *faster* with Clerk than with Better Auth. The bet against it is that **agent-
-  assisted iteration on config-in-repo compounds faster over the project's lifetime than
-  Clerk's prebuilt components compound** — which depends on (a) how strong the AI tooling
-  story gets, and (b) how much custom auth UI we'd end up building either way. If either
-  assumption breaks, Clerk is the natural revisit; the cost of switching from Better Auth
-  later is bounded by the user/session/account schema being industry-standard.
+* **Decision**: **Rejected.** Most of what makes Clerk strong — prebuilt React components,
+  hosted sign-in pages, polished auth UI — solves a problem that agentic coding has made
+  much cheaper to solve from primitives. The remaining strengths (operational handling,
+  email delivery, the managed service shape) come tied to a dashboard-first configuration
+  surface that adds friction *specifically* to the work pattern this project leans into.
+  The Clerk strength most asymmetric with how we'd actually work — vendor-side ops absorbing
+  Apple JWT rotation, abuse mitigation, etc. — is also offered by Auth0, which keeps
+  configuration in code. That makes Auth0, not Clerk, the SaaS option to escape to if the
+  OSS library path ever falters. Clerk would be a strong revisit only if (a) agentic
+  workflows materially regress, or (b) we discover we need vendor-hosted auth UI for some
+  reason that ends up not being agent-buildable; the schema is industry-standard so the
+  migration cost is bounded if either happens.
 
 ### [Kinde](https://kinde.com)
 
