@@ -96,11 +96,14 @@ export const auth = betterAuth({
 });
 ```
 
-A second package — [`better-auth-cloudflare`](https://www.npmjs.com/package/better-auth-cloudflare) —
-provides first-party adapters for D1 (primary store), KV (secondary / session cache),
-[Hyperdrive](https://developers.cloudflare.com/hyperdrive/), and R2. If the backend ADR lands
-on Workers + D1, this is a drop-in. If it lands somewhere else, Better Auth has adapters for
-every mainstream Node DB.
+D1 itself is supported in core as of
+[Better Auth v1.5 (Feb 2026)](https://better-auth.com/blog/1-5) — the D1 binding is passed
+directly in the config, with no separate adapter package required. For the surrounding
+Cloudflare primitives (KV as a secondary session/rate-limit store,
+[Hyperdrive](https://developers.cloudflare.com/hyperdrive/), R2), the community-maintained
+[`better-auth-cloudflare`](https://github.com/zpg6/better-auth-cloudflare) package by `zpg6`
+provides drop-in adapters. If the backend ADR lands on Workers + D1, this is a drop-in. If it
+lands somewhere else, Better Auth has adapters for every mainstream Node DB.
 
 This aligns with:
 
@@ -152,10 +155,15 @@ This aligns with:
 * **34+ social providers** built-in — Google, Apple, GitHub, Discord, Microsoft, Facebook,
   TikTok, Twitch, X, LinkedIn, and more. Adding a new one is a few-line `socialProviders.X`
   block in the config file.
-* **First-party Cloudflare integration package**
-  ([`better-auth-cloudflare`](https://www.npmjs.com/package/better-auth-cloudflare)) covering
-  D1, KV (as the secondary store for sessions and rate-limit state), Hyperdrive, and R2.
-  This is what makes the Workers-runtime story real, not aspirational.
+* **Native Cloudflare D1 support in core** as of
+  [v1.5 (Feb 2026)](https://better-auth.com/blog/1-5) — the D1 binding is passed directly
+  in the config, with the built-in dialect handling query execution, batch operations
+  (D1 doesn't support interactive transactions, so atomicity is via `batch()`), and
+  introspection through D1's native API. This is what makes the Workers-runtime story
+  real, not aspirational. The community-maintained
+  [`better-auth-cloudflare`](https://github.com/zpg6/better-auth-cloudflare) companion
+  package by `zpg6` covers the surrounding Cloudflare primitives — KV, Hyperdrive, R2 —
+  which are not in core.
 * **Production-grade plugins** including
   [`organization`](https://better-auth.com/docs/plugins/organization) (teams, roles, invites,
   custom fields), [`passkey`](https://better-auth.com/docs/plugins/passkey) (SimpleWebAuthn
@@ -416,9 +424,10 @@ records in D1.
 * **No SaaS pricing curve.** Free at MVP scale, free at inner-circle scale (under 50 users),
   free at small-public scale, and *still free* if the recipe site ever has a viral
   moment. Cost grows linearly with infrastructure we already pay for, not with MAU.
-* **Cloudflare-native runtime story.** `better-auth-cloudflare` covers D1, KV, Hyperdrive,
-  R2 directly. If the backend ADR picks Workers + D1, this is a drop-in. If it picks
-  something else, Better Auth's wide adapter coverage keeps it portable.
+* **Cloudflare-native runtime story.** D1 is supported in core as of v1.5; the community
+  `better-auth-cloudflare` package covers KV, Hyperdrive, and R2 on top of that. If the
+  backend ADR picks Workers + D1, this is a drop-in. If it picks something else, Better
+  Auth's wide adapter coverage keeps it portable.
 * **Auth.js merger validates the Goldilocks position.** Adopting Better Auth in May 2026
   is not an early-adopter bet — it is the consolidating point of OSS TypeScript auth
   after the September 2025 absorption of Auth.js and the March 2025 sunset of Lucia.

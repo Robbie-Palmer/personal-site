@@ -590,7 +590,7 @@ export const technologies: TechnologyContent[] = [
   {
     name: "Better Auth",
     description:
-      "TypeScript-first, self-hosted authentication library with config-as-code and first-party Cloudflare Workers integration",
+      "TypeScript-first, self-hosted authentication library with config-as-code and native Cloudflare Workers + D1 support",
     website: "https://better-auth.com",
     type: "library",
   },
