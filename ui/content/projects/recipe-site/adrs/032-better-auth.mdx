@@ -211,7 +211,15 @@ This aligns with:
 | **GitHub OAuth** | **Yes** | Trivial to add; covers the technical-friends subset who'd find Google sign-in surprising on a code-adjacent project. |
 | **Email + password** | **No** | Operational cost (resets, breach monitoring, password hygiene) not worth it for this audience. Workers CPU budget for scrypt is also marginal — a [real reported issue](https://github.com/better-auth/better-auth/issues/8860) on Better Auth that doesn't apply when we don't use passwords. |
 | **Magic links** | **No (deferred)** | OAuth is the primary path; magic links add deliverability concerns (SPF/DKIM/DMARC, a transactional provider like [Resend](https://resend.com), and the [email-scanner GET-burn problem](https://github.com/supabase/auth/issues/1214) where corporate link scanners follow the link and consume the one-time token before the user does) for a path most users won't take. Reasonable to add later if a real user reports a meaningful gap. |
-| **Passkeys** | **No (post-MVP)** | Browser/OS support is essentially solved per [Corbado's 2026 benchmark](https://www.corbado.com/passkey-benchmark-2026) (Safari ~99%, Android ~97%, macOS ~91%), and Better Auth's [passkey plugin](https://better-auth.com/docs/plugins/passkey) is production-grade. But the UX cost for non-technical household users is real, and recovery is naturally covered by social OAuth as primary. Add as an opt-in "secure your account" enhancement once Phase 5 has real users to learn from. |
+| **Passkeys** | **No (post-MVP)** | Browser/OS support is essentially solved per [Corbado's 2026 benchmark](https://www.corbado.com/passkey-benchmark-2026) (Safari ~99%, Android ~97%, macOS ~91%), and Better Auth's [passkey plugin](https://better-auth.com/docs/plugins/passkey) is production-grade. But the UX cost for non-technical household users is real, and recovery is naturally covered by social OAuth as primary. Add as an opt-in "secure your account" enhancement once we have real users to learn from. |
+
+**MFA / 2FA as an enhancement layer** (not a sign-in method, so noted separately): not needed at
+MVP — social OAuth providers (Google, GitHub) handle their own MFA, so the second factor is
+already happening at the identity-provider layer. If we ever offer first-party MFA on top
+(once any direct-credentials sign-in path exists, or if household data sensitivity grows),
+Better Auth's [`two-factor` plugin](https://better-auth.com/docs/plugins/2fa) covers TOTP at
+no cost in the library. Worth flagging because Clerk and Auth0 paywall MFA off their free
+tiers ($20/mo Pro on Clerk, $35/mo Essentials on Auth0).
 
 ## What This Enables
 
@@ -423,7 +431,19 @@ documented Cloudflare support via OpenNext.
     self-hosted setup with its own event-propagation layer.
   * 50k monthly retained users on the free tier (raised from 10k in their
     [Feb 2026 pricing change](https://saasprices.net/blog/clerk-free-plan-changes)).
-  * Production-grade passkeys, MFA, organisations. Publishes `llms.txt` and an MCP server.
+  * **Production-grade passkeys, MFA, organisations** — *but with a paywall to know about*:
+    MFA is **not on Clerk's free Hobby tier** (50k MRUs free) as of 2026; it requires Pro
+    at $20/mo billed annually ($25 monthly). The old $100/mo Enhanced Authentication
+    add-on was folded into Pro in a Feb 2026 pricing change, so it's much cheaper than it
+    used to be, but MFA is still gated. Passkeys and organisations are included from free
+    tier. Better Auth provides MFA as a [free plugin](https://better-auth.com/docs/plugins/2fa)
+    in the library — no equivalent gating.
+  * **Machine-to-machine auth (client credentials)** — Clerk includes 2.5k creations +
+    100k verifications/mo on free tier. Better Auth provides M2M via its free
+    [OAuth 2.1 Provider plugin](https://better-auth.com/docs/plugins/oauth-provider) or
+    the simpler [API Key plugin](https://better-auth.com/docs/plugins/api-key) — no caps.
+    Not relevant for a recipe site (no API consumers), but listed for completeness.
+  * Publishes `llms.txt` and an MCP server.
 
   Clerk's strengths are real and worth listing in full — the rejection below isn't a
   product critique. It's about which of these strengths still pay off in a 2026 agentic
@@ -552,6 +572,13 @@ ever falters.
     real value for projects where compliance is a procurement requirement.
   * Free tier expanded to 25k MAU in 2026, with Self-Service SSO + SCIM bundled
     (previously enterprise-only). Most mature product in the entire auth landscape.
+  * **MFA and M2M paywall details** — *worth knowing*: MFA on the free tier is a paid
+    add-on (Auth0 calls this "Pro MFA"); it's included starting at the Essentials plan
+    ($35/mo B2C, $150/mo B2B) and Enterprise MFA is included from Professional ($240/mo
+    B2C). M2M tokens: 1k/month included on free tier, 5k on Professional+, additional
+    M2M as a separately-priced add-on. Better Auth provides both MFA and M2M
+    (via OAuth 2.1 Provider or API Key plugins) at no cost in the library — these are
+    real Better Auth advantages for projects that need the features.
 
   The durable advantages under agentic coding are the **Terraform IaC story** (the only
   SaaS option that pays off here) and the **operational handoff** (Better Auth pushes JWT
