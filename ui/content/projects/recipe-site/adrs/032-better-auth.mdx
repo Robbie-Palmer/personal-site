@@ -57,9 +57,13 @@ hatch if the OSS library path ever stalls.
 **Why Better Auth specifically fits this project.** D1 is supported natively in core as of
 [v1.5 (Feb 2026)](https://better-auth.com/blog/1-5); the auth config is a TypeScript file that
 coding agents can read and edit directly (Better Auth ships `llms.txt`, an MCP server, and
-Claude/Cursor skills purpose-built for this); there is no per-MAU pricing curve; and the
+Claude/Cursor skills purpose-built for this); there is no per-MAU pricing curve; the
 `organization` plugin provides a ready-made primitive for the future household model without
-inventing membership semantics.
+inventing membership semantics; and the team's
+[Agent Auth Protocol](https://agent-auth-protocol.com/) + MCP-ready
+[OAuth 2.1 Provider plugin](https://better-auth.com/docs/plugins/oauth-provider) cover the
+planned multi-runtime cases (GPU VPS, third-party APIs, MCP servers / agents) with no
+per-token cap or paid tier — the layer above generic M2M that OAuth wasn't designed for.
 
 This ADR scopes to **authentication only**. The authorization model — how household membership,
 friend sharing, and per-recipe visibility are expressed and enforced — is a separate decision
@@ -230,6 +234,7 @@ tiers ($20/mo Pro on Clerk, $35/mo Essentials on Auth0).
 | **Public recipes** | A boolean flag on the recipe row; no auth dependency. |
 | **Account deletion** | Better Auth ships GDPR-shaped delete-user flows; we own the cascade across our recipe data, but the auth half is library-provided. |
 | **Cross-runtime service identity (M2M)** | The free [OAuth 2.1 Provider plugin](https://better-auth.com/docs/plugins/oauth-provider) issues access tokens via `client_credentials` grant, MCP-ready with dynamic client registration. Covers planned future cases: a GPU VPS calling the main API for AI inference, third-party developers integrating with the recipe API, MCP tools / agents authenticating on behalf of users. The simpler [API Key plugin](https://better-auth.com/docs/plugins/api-key) covers the lower-ceremony cases (background workers, internal scripts). No per-token cost. |
+| **Agent-era identity (Agent Auth Protocol)** | The Better Auth team is creating and maintaining [Agent Auth Protocol](https://agent-auth-protocol.com/) — an open standard for AI agent authentication, authorization, and service discovery. Treats agents as first-class principals with scoped capabilities (e.g. `transfer:funds≤500`), distinct identities per agent (so three agents calling the same API are distinguishable), and a well-known discovery endpoint. Better Auth ships the reference [server-side plugin](https://better-auth.com/docs/plugins/agent-auth). Spec is v1.0 published, v2.0 in design. Forward-aligned with planned third-party-developer / MCP / agent use cases in a way no SaaS competitor matches at this layer. |
 
 ## What Specifically Better Auth Provides
 
@@ -267,6 +272,17 @@ tiers ($20/mo Pro on Clerk, $35/mo Essentials on Auth0).
   [`api-key`](https://better-auth.com/docs/plugins/api-key) plugin covers low-ceremony
   cases (background workers in a GPU VPS calling back to the API, internal scripts).
   Forward-looking strength given planned multi-runtime architecture.
+* **Leading the agent-auth standard.** Beyond shipping plugins, the Better Auth team is
+  creating and maintaining [Agent Auth Protocol](https://agent-auth-protocol.com/), an
+  open standard for AI agent authentication, authorization, and service discovery — the
+  layer above generic M2M that OAuth wasn't designed for. The protocol treats agents as
+  first-class principals (per-agent identity, scoped capabilities, well-known discovery),
+  with v1.0 spec published and v2.0 in active design. The
+  [Better Auth `agent-auth` plugin](https://better-auth.com/docs/plugins/agent-auth) is
+  the reference server implementation. Auth0 has "Auth0 for AI Agents" as a paid add-on
+  (50% of base price, proprietary); Better Auth's bet is on the open-standard layer
+  instead. Worth flagging because the project's planned third-party-developer / MCP /
+  agent use cases sit exactly in this space.
 * **Schema generation via CLI** — `better-auth generate` produces Drizzle/Prisma/Kysely
   schema fragments that get committed alongside the rest of the database schema. The auth
   schema is reviewed and migrated through the same workflow as recipe data.
