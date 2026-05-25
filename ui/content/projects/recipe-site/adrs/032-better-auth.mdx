@@ -375,11 +375,13 @@ documented Cloudflare support via OpenNext.
     behavioural patterns Clerk learns over time) matters more once public signup is open
     than at inner-circle scale.
   * **Webhook system** — `user.created`, `session.created`, `email.created`, etc. fire to
-    HTTP endpoints you supply. Useful when downstream services need auth events without
-    polling and you don't own the auth database. With Better Auth + our own DB, change data
-    capture (CDC) over the user/session tables covers the same ground without the vendor
-    webhook indirection — so this advantage largely evaporates for a setup where the auth
-    data lives in our database anyway.
+    HTTP endpoints you supply. Most useful when you don't own the auth runtime: the vendor
+    is the only place that *sees* these events happen, so a webhook is the only way to fan
+    them out. With Better Auth running in our process, auth events happen inside our app and
+    can be published to a generic databus (Cloudflare Queues, NATS, Kafka, or any pub/sub
+    fabric the broader architecture picks) — downstream consumers subscribe to that bus
+    rather than to Clerk's webhook contract. So this advantage largely evaporates for any
+    self-hosted setup with its own event-propagation layer.
   * 50k monthly retained users on the free tier (raised from 10k in their
     [Feb 2026 pricing change](https://saasprices.net/blog/clerk-free-plan-changes)).
   * Production-grade passkeys, MFA, organisations. Publishes `llms.txt` and an MCP server.
