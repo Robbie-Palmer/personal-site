@@ -155,10 +155,13 @@ hosted Infrastructure tier. The reasoning:
   different tradeoff shapes; bundling them obscures both.
 * At inner-circle scale the operational burden the library leaves on us (build admin UI when
   we want one, wire Turnstile for CAPTCHA, accept Cloudflare-edge level bot protection) is
-  small. The Starter tier is genuinely tempting at $0 but trades vendor-dep for dashboard
-  convenience we don't yet need — and "free tier with vendor-dep" is still a vendor-dep,
-  with sub-processor disclosure in our privacy policy, auth event data flowing to Better
-  Auth Infrastructure servers, and a slim business-risk exposure to a $5M-seed startup.
+  small. The Starter tier is genuinely tempting at $0 but the cost isn't dollars — it's a
+  synchronous dependency in the auth request path (the `dash()` and `sentinel()` plugins
+  call out to Better Auth Infrastructure during sign-in flows, fail-open on outage, see
+  [Hosted Better Auth Infrastructure as a Later Add-On](#hosted-better-auth-infrastructure-as-a-later-add-on)),
+  sub-processor disclosure in our privacy policy, auth event data flowing to Better Auth
+  Infrastructure servers, and a slim business-risk exposure to a $5M-seed startup. Worth it
+  if/when the operational features matter; not worth it just for "dashboard convenience."
 * Migration is a few-line change in `auth.ts`: add the `dash()` and `sentinel()` plugins,
   point them at our Better Auth Infrastructure project. We can opt in later if and when the
   ops features become valuable, with clear triggers documented in
@@ -293,9 +296,11 @@ that config is necessarily code-in-repo, the downside is that everything operati
 limiting, abuse mitigation, audit logs, JWT rotation, email delivery) is yours too. *Better
 Auth specifically offers an optional [hosted infrastructure platform](https://better-auth.com/pricing)*
 ($0 Starter, $20/mo Pro) that takes back some of those operational obligations (dashboard,
-Sentinel behavioural detection, audit logs, transactional comms) without pulling the auth
-runtime out of our process — a slider between pure self-host and pure SaaS that none of the
-other libraries here offer.
+Sentinel behavioural detection, audit logs, transactional comms). Enabling its plugins adds
+a synchronous dependency in the auth request path (fail-open on outage — see
+[Hosted Better Auth Infrastructure as a Later Add-On](#hosted-better-auth-infrastructure-as-a-later-add-on)
+for the architecture), so the slider between pure self-host and pure SaaS is real but not
+free — and unique to Better Auth among the libraries here.
 
 **SaaS auth services** — Clerk, Kinde, WorkOS AuthKit, Auth0, Supabase Auth. The auth
 service is hosted by the vendor. Your app calls their API; users live in their database;
@@ -801,15 +806,27 @@ alone*, for the eventual decision of whether to adopt it.
   * **Enterprise**: custom pricing, custom retention, log drain, Slack support.
 
 * **SaaS-style cons we'd be opting into** (the reason this is a *separable* decision):
-  * **Vendor dependency for the ops slice.** The auth runtime stays in-process, but the
-    hosted dashboard, Sentinel verdicts, and audit log accumulation all depend on Better
-    Auth Infrastructure being up. Sign-in survives an outage; admin operations don't.
+  * **Synchronous dependency in the auth request path.** This is the important one. The
+    `dash()` and `sentinel()` plugins aren't side-channel syncs — they make blocking calls
+    to Better Auth Infrastructure during auth flows (3000ms API timeout, 1000ms KV
+    timeout per their docs). Sentinel specifically gates sign-in: it returns
+    `log`/`challenge`/`block` verdicts that the plugin acts on before completing the
+    request. On failure the plugin falls back to allow-mode — auth keeps working but
+    security checks are bypassed (docs: *"Security checks may fall back to allow mode."*).
+    This is standard for hosted bot detection (Clerk and Auth0 work the same way and
+    fail-open similarly) but it's a real architectural commitment, not opt-in observation.
+    Each auth call also adds the timeout budget as worst-case latency during Infrastructure
+    slow periods.
+  * **Vendor dependency for the ops slice.** Hosted dashboard, Sentinel verdicts, and
+    audit log accumulation all depend on Better Auth Infrastructure being up. Sign-in
+    survives an outage (fail-open); admin operations, security enforcement, and audit
+    capture don't.
   * **Sub-processor disclosure.** Adding Better Auth Inc as a sub-processor in our privacy
     policy. Real cost: one more disclosure to maintain.
   * **Auth event data leaves our process.** Sentinel and audit logging hook into auth
-    events and emit them to Better Auth Infrastructure. Where those events are stored, how
-    long, and under what residency rules is a question we'd need to nail down before
-    adopting.
+    events and emit them to Better Auth Infrastructure synchronously. Where those events
+    are stored, how long, and under what residency rules is a question we'd need to nail
+    down before adopting.
   * **Business risk on a young company.** Better Auth Inc is post-seed ($5M, June 2025).
     Pricing can change; the company can change direction. This is much smaller risk than
     Clerk/Auth0 (years of established pricing curves to manage) but it's not nothing.
