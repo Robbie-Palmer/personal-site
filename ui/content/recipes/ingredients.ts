@@ -7,6 +7,7 @@ export const ingredients: IngredientContent[] = [
   { name: "chorizo", category: "protein" },
   { name: "bacon", category: "protein" },
   { name: "pork sausage", category: "protein" },
+  { name: "eggs", category: "protein" },
 
   // Vegetables
   { name: "white onion", category: "vegetable" },
@@ -118,6 +119,7 @@ export const ingredients: IngredientContent[] = [
   { name: "fajita and taco mix", category: "spice" },
   { name: "chilli powder", category: "spice" },
   { name: "ginger", category: "spice" },
+  { name: "avocado topping", category: "spice" },
 
   // Condiments & Sauces
   { name: "basil pesto", category: "condiment" },
@@ -136,6 +138,7 @@ export const ingredients: IngredientContent[] = [
   { name: "rice wine vinegar", category: "condiment" },
   { name: "peri peri sauce", category: "condiment" },
   { name: "harissa paste", category: "condiment" },
+  { name: "ballymaloe relish", category: "condiment" },
 
   // Sweets
   { name: "sugar", category: "sweets" },
