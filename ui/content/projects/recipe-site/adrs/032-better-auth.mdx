@@ -115,6 +115,15 @@ export const auth = betterAuth({
 });
 ```
 
+**There's no separate Better Auth service to host.** The package is imported by whatever
+backend the future ADR picks; the snippet above runs in that same process. User identities,
+sessions, OAuth state, and the `organization` plugin's membership data all live in our
+database — there is no Better Auth control plane, no auth API to call, no vendor-owned user
+table. The trade-off is that we own the runtime: rate limiting, abuse mitigation, audit
+logging, account-deletion cascades. This is the opposite shape from SaaS options like Clerk
+or Auth0, where the auth service is hosted by the vendor and our app makes API calls into it
+(covered in detail in [Alternatives Considered](#alternatives-considered)).
+
 D1 itself is supported in core as of
 [Better Auth v1.5 (Feb 2026)](https://better-auth.com/blog/1-5) — the D1 binding is passed
 directly in the config, with no separate adapter package required. For the surrounding
@@ -229,20 +238,30 @@ has a reputation for 4x+ renewal multipliers at growth thresholds).
 
 # Alternatives Considered
 
-The auth space sorts naturally into three operating models with different IaC stories:
+The auth space splits first on **operational shape**, then on **how config is managed**:
 
-* **OSS, config-as-code-by-construction** — Better Auth, Auth.js v5, Stack Auth, Lucia.
-  No SaaS control plane to fight; config lives in the repo by design.
-* **SaaS, dashboard-first** — Clerk, Kinde, WorkOS AuthKit, Supabase Auth. Auth config is
-  vendor-owned; IaC coverage ranges from "weak" to "absent." Supabase Auth additionally
-  couples the auth layer to the rest of the Supabase platform — a second, independent
-  disqualifier covered in its section below.
-* **SaaS, Terraform-first** — Auth0. The only SaaS option with a credible code-first
-  configuration story.
+**Self-hosted libraries** — Better Auth, Auth.js v5, Stack Auth, Lucia. TypeScript packages
+you `npm install` and import into your own backend. There's nothing separate to host: the
+library runs inside whatever process your app already runs, user/session state lives in your
+database, and OAuth callbacks hit your existing routes. You own the runtime; the upside is
+that config is necessarily code-in-repo, the downside is that everything operational (rate
+limiting, abuse mitigation, audit logs, JWT rotation, email delivery) is yours too.
 
-The decision framing below walks the OSS peers first (real alternatives to Better Auth), then
-the SaaS alternatives sorted by whether their IaC story holds up against the anti-dashboard
-constraint.
+**SaaS auth services** — Clerk, Kinde, WorkOS AuthKit, Auth0, Supabase Auth. The auth
+service is hosted by the vendor. Your app calls their API; users live in their database;
+signup/signin happens on their UI (or a customised version of it). They own the runtime —
+including all the operational obligations a library would push onto you — but you don't own
+the user data, and config typically lives in their dashboard. Within this bucket, **Auth0 is
+the outlier** with an unusually mature first-party Terraform provider that pulls almost the
+entire configuration surface into code; the others (Clerk, Kinde, WorkOS, Supabase Auth) are
+dashboard-first.
+
+This split drives the project-fit story. The anti-dashboard constraint disqualifies the
+dashboard-first SaaS bucket as a class; Supabase Auth has the extra problem of coupling auth
+to the rest of the Supabase platform. Self-hosted libraries pass the IaC test by
+construction, leaving the choice between them on adoption, agent-friendliness, and runtime
+support. The framing below walks the library bucket first, then the dashboard-first SaaS, and
+finishes with Auth0 as the documented escape hatch.
 
 ## OSS Code-First Peers
 
@@ -298,10 +317,27 @@ single property is enough to disqualify them against the
 The most popular drop-in auth SaaS for Next.js apps, with excellent React components and
 documented Cloudflare support via OpenNext.
 
-* **Pros**: Best DX among SaaS options. 50k monthly retained users on the free tier (raised
-  from 10k in their [Feb 2026 pricing change](https://saasprices.net/blog/clerk-free-plan-changes)).
-  Apple JWT rotation handled. Production-grade passkeys, MFA, organisations.
-  Publishes `llms.txt` and an MCP server.
+* **Pros**: The most polished drop-in DX in the entire landscape. Specifically:
+  * **Prebuilt React components** — `<SignIn />`, `<SignUp />`, `<UserButton />`,
+    `<UserProfile />`, `<OrganizationProfile />` and more. Fully styled, accessible, with the
+    verification / password-reset / MFA enrolment / account-settings flows wired in. Building
+    equivalent UI from Better Auth's primitives is real, non-trivial work — Clerk eliminates
+    it.
+  * **Optional hosted sign-in pages** — users redirect to Clerk-hosted URLs and never see
+    your auth UI at all if you don't want to build one.
+  * **Email delivery is theirs** — verification emails, MFA codes, password resets, magic
+    links all sent from Clerk's infrastructure. No transactional provider (Resend / Postmark
+    / SES) to wire up; no SPF/DKIM/DMARC to maintain.
+  * **All operational obligations absorbed server-side** — Apple JWT client secret rotation,
+    session management, rate limiting, abuse mitigation, audit logs, SOC 2 / GDPR compliance.
+    A Better Auth deployment lands all of these on us; Clerk lands them on Clerk.
+  * 50k monthly retained users on the free tier (raised from 10k in their
+    [Feb 2026 pricing change](https://saasprices.net/blog/clerk-free-plan-changes)).
+  * Production-grade passkeys, MFA, organisations. Publishes `llms.txt` and an MCP server.
+
+  For most projects, Clerk genuinely wins on overall developer experience. It loses here
+  specifically because the [anti-dashboard constraint](#context) is a hard property of this
+  project, not because the product is weak.
 * **Cons**: **Terraform story is fundamentally a dead end.** The only Terraform provider is
   the community-maintained [`buildwithdeck/clerk`](https://github.com/buildwithdeck/terraform-provider-clerk)
   — 2 GitHub stars, effectively a one-person side project. Supported resources are limited
@@ -319,8 +355,11 @@ documented Cloudflare support via OpenNext.
 
 Newer SaaS competitor positioned between Clerk and Auth0.
 
-* **Pros**: Pleasant free tier (10.5k MAU + 5 organisations + 2 environments). Apple JWT
-  rotation handled. Organisations are first-class.
+* **Pros**: Built for SaaS shape from day one — billing (Stripe integration), feature flags,
+  M2M tokens, and organisations all bundled, so you wire fewer separate tools together.
+  Prebuilt React components and hosted sign-in pages, similar to Clerk. All the operational
+  obligations (Apple JWT rotation, audit logs, abuse mitigation, email delivery) absorbed
+  server-side. Pleasant free tier (10.5k MAU + 5 organisations + 2 environments).
 * **Cons**: **No Terraform provider at all.** **Passkeys still on the roadmap, not GA**
   ([feature board](https://updates.kinde.com/board/secure-passkey-authentication)).
   **Magic links explicitly not supported** (Kinde chose OTP codes citing security). That's
@@ -332,7 +371,10 @@ Newer SaaS competitor positioned between Clerk and Auth0.
 B2B-leaning auth provider with a striking consumer free tier.
 
 * **Pros**: **1M MAU free** — by far the most generous free tier in the entire landscape.
-  Apple JWT rotation handled. Organisations are core to the product. Passkeys supported.
+  Enterprise SSO (SAML, OIDC) and SCIM directory sync are core to the product, ready out of
+  the box — this is WorkOS's original B2B pitch and it shows. Prebuilt AuthKit React
+  components and hosted sign-in pages similar to Clerk. All the operational obligations
+  (Apple JWT rotation, audit logs, abuse mitigation, email delivery) absorbed server-side.
 * **Cons**: **No Terraform provider.** Passkeys are currently only available via WorkOS's
   hosted UI, not a custom one — a UX constraint. "Magic Auth" is OTP codes, not true magic
   links (WorkOS deprecated true magic links because of the email-scanner GET-burn problem —
