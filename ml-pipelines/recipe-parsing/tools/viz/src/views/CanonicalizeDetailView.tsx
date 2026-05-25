@@ -17,6 +17,8 @@ import { ImageViewer } from "../components/ImageViewer";
 import { ParsedRecipeEditor } from "../components/ParsedRecipeEditor";
 import { RecipePanel } from "../components/RecipePanel";
 import { ParsedRecipeDiff } from "../components/ParsedRecipeDiff";
+import { ScoresPanel } from "../components/ScoresPanel";
+import { computeCanonicalizationDetailScores } from "../lib/detailScores";
 
 interface CanonicalizeDetailViewProps {
   entryIndex: number;
@@ -131,6 +133,14 @@ export function CanonicalizeDetailView({
   }, [validationResult]);
 
   const expectedCanonicalized = validationResult?.success ? validationResult.data : null;
+
+  const scoreBreakdown = useMemo(() => {
+    if (!expectedCanonicalized || !predictedCanonicalized) return null;
+    return computeCanonicalizationDetailScores(
+      predictedCanonicalized,
+      expectedCanonicalized,
+    );
+  }, [expectedCanonicalized, predictedCanonicalized]);
 
   const handleSave = useCallback(async () => {
     if (!groundTruth || !edited) return;
@@ -373,6 +383,7 @@ export function CanonicalizeDetailView({
 
         {/* Right: diff */}
         <div className="space-y-4">
+          {scoreBreakdown && <ScoresPanel scores={scoreBreakdown} />}
           {expectedCanonicalized && predictedCanonicalized ? (
             <ParsedRecipeDiff
               expected={expectedCanonicalized}

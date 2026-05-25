@@ -22,6 +22,8 @@ import { CooklangEditor } from "../components/CooklangEditor";
 import { ImageViewer } from "../components/ImageViewer";
 import { ParsedRecipeDiff } from "../components/ParsedRecipeDiff";
 import { RecipePanel } from "../components/RecipePanel";
+import { ScoresPanel } from "../components/ScoresPanel";
+import { computeNormalizationDetailScores } from "../lib/detailScores";
 
 interface NormalizationDetailViewProps {
   entryIndex: number;
@@ -233,6 +235,11 @@ export function NormalizationDetailView({
     return livePreview?.diagnostics ?? [];
   }, [edited, livePreview?.diagnostics]);
 
+  const scoreBreakdown = useMemo(() => {
+    if (!expectedNormalized || !predictedNormalization) return null;
+    return computeNormalizationDetailScores(predictedNormalization, expectedNormalized);
+  }, [expectedNormalized, predictedNormalization]);
+
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-6">
@@ -391,6 +398,7 @@ export function NormalizationDetailView({
 
         {/* Right: diff (when editing) or empty prompt */}
         <div className="space-y-4">
+          {scoreBreakdown && <ScoresPanel scores={scoreBreakdown} />}
           {edited && expectedNormalized && predictedNormalization ? (
             <ParsedRecipeDiff
               expected={expectedNormalized}

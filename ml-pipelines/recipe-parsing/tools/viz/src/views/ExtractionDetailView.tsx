@@ -12,6 +12,8 @@ import {
   computeWordErrorRate,
 } from "../../../../src/evaluation/metrics.js";
 import { flattenExtractionText } from "../../../../src/lib/extraction-text.js";
+import { ScoresPanel } from "../components/ScoresPanel";
+import { computeExtractionDetailScores } from "../lib/detailScores";
 import type {
   ExtractionPredictionsDataset,
   ExtractionRecipe,
@@ -225,6 +227,11 @@ export function ExtractionDetailView({
     };
   }, [gtEntry?.expectedExtraction, predictedExtraction]);
 
+  const scoreBreakdown = useMemo(() => {
+    if (!predictedExtraction || !gtEntry?.expectedExtraction) return null;
+    return computeExtractionDetailScores(predictedExtraction, gtEntry.expectedExtraction);
+  }, [gtEntry?.expectedExtraction, predictedExtraction]);
+
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-6">
@@ -315,6 +322,11 @@ export function ExtractionDetailView({
 
         {/* Right: diff or individual panels */}
         <div>
+          {scoreBreakdown && (
+            <div className="mb-4">
+              <ScoresPanel scores={scoreBreakdown} />
+            </div>
+          )}
           {textFidelity && (
             <div className="mb-4">
               <TextFidelityCard
