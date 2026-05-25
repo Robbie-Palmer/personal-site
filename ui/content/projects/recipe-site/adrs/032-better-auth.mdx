@@ -143,16 +143,30 @@ options like Clerk or Auth0, where the auth service itself is hosted by the vend
 app makes API calls into it (covered in detail in
 [Alternatives Considered](#alternatives-considered)).
 
-**Operational add-ons are optional, not required.** Better Auth separately offers a managed
-infrastructure platform ([dash.better-auth.com](https://better-auth.com/pricing) — free
-Starter, $20/mo Pro flat, Enterprise on request) that adds a hosted dashboard,
+**Operational add-ons are a separable, later decision.** Better Auth offers a managed
+infrastructure platform ([Better Auth Infrastructure](https://better-auth.com/pricing) —
+$0 Starter, $20/mo Pro flat, Enterprise on request) that adds a hosted dashboard,
 [Sentinel](https://better-auth.com/pricing) behavioural threat detection (Bot Detection,
-Brute Force, Breached Passwords, Impossible Travel, Suspicious IPs), audit logs with SIEM
-log drain, and SSO/SCIM. Using it adds a vendor dependency on Better Auth's hosted
-infrastructure *for those operational features only* — sign-in keeps working if it's down,
-since the auth library is still in-process. This is a slider, not a binary: at MVP we'd
-likely use just the library (zero vendor dependency); if public scale or operational
-maturity arrives, Sentinel-and-dashboard is a $20/mo add-on rather than a re-architecture.
+Brute Force, Breached Passwords, Impossible Travel, Suspicious IPs, etc.), audit logs with
+SIEM log drain, and SSO/SCIM. This ADR proposes the **library alone** at MVP — not the
+hosted Infrastructure tier. The reasoning:
+
+* The auth-library decision and the hosted-ops decision are different decisions with
+  different tradeoff shapes; bundling them obscures both.
+* At inner-circle scale the operational burden the library leaves on us (build admin UI when
+  we want one, wire Turnstile for CAPTCHA, accept Cloudflare-edge level bot protection) is
+  small. The Starter tier is genuinely tempting at $0 but trades vendor-dep for dashboard
+  convenience we don't yet need — and "free tier with vendor-dep" is still a vendor-dep,
+  with sub-processor disclosure in our privacy policy, auth event data flowing to Better
+  Auth Infrastructure servers, and a slim business-risk exposure to a $5M-seed startup.
+* Migration is a few-line change in `auth.ts`: add the `dash()` and `sentinel()` plugins,
+  point them at our Better Auth Infrastructure project. We can opt in later if and when the
+  ops features become valuable, with clear triggers documented in
+  [When to Revisit](#when-to-revisit).
+
+Hosted Better Auth has its own pros and cons distinct from the library — they're listed in
+[Hosted Better Auth Infrastructure as a Later Add-On](#hosted-better-auth-infrastructure-as-a-later-add-on)
+near the end of this ADR for completeness.
 
 D1 itself is supported in core as of
 [Better Auth v1.5 (Feb 2026)](https://better-auth.com/blog/1-5) — the D1 binding is passed
@@ -252,7 +266,7 @@ The library itself is free (MIT). The full cost surface for the project is:
 | Component | Cost |
 | --- | --- |
 | **Better Auth library** | $0 (MIT OSS). |
-| **Better Auth Infrastructure (optional)** | $0 Starter (1 dashboard seat, 10k audit logs/month, 1k Sentinel detections/month) → $20/mo Pro (unlimited seats, 20k audit logs then $0.0001/event, 10k detections then $0.001/event, transactional comms, abuse protection). Skippable entirely at MVP; add later if operational features matter. |
+| **Better Auth Infrastructure** | $0 at MVP — we don't adopt this tier under this ADR. If/when we do, the price is $0 Starter (1 seat, 10k audit logs, 1k Sentinel detections) → $20/mo Pro (unlimited seats, 20k logs then $0.0001/event, 10k detections then $0.001/event) → custom Enterprise. See [Hosted Better Auth Infrastructure as a Later Add-On](#hosted-better-auth-infrastructure-as-a-later-add-on). |
 | **Database** | Whatever the backend ADR picks. D1 is free up to 5GB / 5M rows / 25B reads + 50M writes per month — covers a recipe site for years. |
 | **Session storage** | Whatever the backend ADR picks. If KV, the Cloudflare free tier (100k reads/day, 1k writes/day, 1GB stored) is comfortably enough at MVP scale. |
 | **Google / GitHub OAuth** | Free. |
@@ -656,15 +670,15 @@ records in D1.
   rotation server-side; Better Auth would leave us with a scheduled job (writing the rotated
   client secret back to [Doppler](https://www.doppler.com/), then propagating to whatever
   runtime the backend ADR picks) as our responsibility.
-* **We own the runtime by default.** Database, session storage, rate limiting, abuse
+* **We own the operational runtime.** Database, session storage, rate limiting, abuse
   mitigation, account lockout, audit logs, GDPR data-subject access / deletion flows — all
   live in our backend, not a vendor's. Better Auth provides primitives for each but the
-  operational responsibility lands on us unless we opt into Better Auth Infrastructure
-  ($20/mo Pro) for the dashboard / Sentinel / audit-log slice. So this con is sized by
-  which features matter when: for an inner-circle MVP the cost is low and we ignore
-  Infrastructure entirely; for public scale we either build out the operational primitives
-  ourselves, pay $20/mo for the Better Auth managed slice, or revisit toward Auth0 — see
-  [When to Revisit](#when-to-revisit).
+  operational responsibility lands on us. For an inner-circle MVP the cost is low. As that
+  scales up, the options for absorbing this back are documented in
+  [Hosted Better Auth Infrastructure as a Later Add-On](#hosted-better-auth-infrastructure-as-a-later-add-on)
+  (Sentinel / hosted dashboard / audit logs for $0-$20/mo, opt-in per-feature) or, if those
+  prove insufficient, migration to Auth0 via the [escape-hatch path](#auth0auth0com-okta-cic)
+  documented above.
 * **Library moves fast.** Better Auth ships minor releases roughly weekly. That's good
   for fixes and features but means staying current matters; pinning to an exact version
   in [Renovate (ADR 020)](/projects/recipe-site/adrs/020-renovate) and reviewing
@@ -759,6 +773,64 @@ is mostly a B2B procurement concern; for a consumer recipe site it's unlikely to
 become a real requirement. If it ever did, the fix is a DB-layer change (Turso/Neon EU
 regions), not an auth-layer one.
 
+## Hosted Better Auth Infrastructure as a Later Add-On
+
+This ADR's recommendation is the Better Auth library only. The hosted infrastructure tier is
+a separable later decision — here are its pros and cons as evaluated *against the library
+alone*, for the eventual decision of whether to adopt it.
+
+* **What it adds**:
+  * **Hosted dashboard** at dash.better-auth.com — user management, session monitoring,
+    organization oversight, analytics. Removes the "build admin UI" task.
+  * **[Sentinel](https://better-auth.com/pricing) behavioural threat detection** — Bot
+    Detection, Brute Force, Breached Passwords, Impossible Travel, Rate Limiting,
+    Geo Blocking, Suspicious IPs, Disposable Emails, Email Abuse, Free Trial Abuse.
+    Comparable footprint to Auth0's Adaptive MFA / breached password detection (though
+    Auth0 still benefits from a larger customer base for cross-customer signal).
+  * **Audit logs** with configurable retention and SIEM log drain.
+  * **Enterprise features** — SSO, SCIM, Directory sync, RBAC.
+  * **Transactional comms** at the Pro tier and above.
+
+* **What it costs**:
+  * **Starter ($0/month)**: 1 dashboard seat, 10k audit logs/month (1-day retention), 1k
+    Sentinel detections/month, community support. Realistically covers inner-circle scale.
+  * **Pro ($20/month flat)**: unlimited seats, 20k audit logs/month then $0.0001/event,
+    10k detections/month then $0.001/event, email support, transactional comms. The first
+    real upgrade trigger is "more than one person needs dashboard access" or "Sentinel
+    detections approaching 1k/month."
+  * **Enterprise**: custom pricing, custom retention, log drain, Slack support.
+
+* **SaaS-style cons we'd be opting into** (the reason this is a *separable* decision):
+  * **Vendor dependency for the ops slice.** The auth runtime stays in-process, but the
+    hosted dashboard, Sentinel verdicts, and audit log accumulation all depend on Better
+    Auth Infrastructure being up. Sign-in survives an outage; admin operations don't.
+  * **Sub-processor disclosure.** Adding Better Auth Inc as a sub-processor in our privacy
+    policy. Real cost: one more disclosure to maintain.
+  * **Auth event data leaves our process.** Sentinel and audit logging hook into auth
+    events and emit them to Better Auth Infrastructure. Where those events are stored, how
+    long, and under what residency rules is a question we'd need to nail down before
+    adopting.
+  * **Business risk on a young company.** Better Auth Inc is post-seed ($5M, June 2025).
+    Pricing can change; the company can change direction. This is much smaller risk than
+    Clerk/Auth0 (years of established pricing curves to manage) but it's not nothing.
+  * **Per-event pricing curve.** Pro tier's "10k detections free then $0.001/event" is
+    gentle vs Clerk/Auth0's per-MAU curves, but it is a curve — high-attack-volume periods
+    will cost more than baseline.
+
+* **When to adopt** (concrete triggers, not abstract maturity):
+  * Public signup opens and Sentinel detections start exceeding what Cloudflare edge
+    protections + Better Auth library rate limiting + Turnstile can comfortably handle.
+  * Building admin UI from primitives becomes a real time sink (more likely if multiple
+    people end up needing dashboard access).
+  * Audit log requirements appear that the app-level event log can't satisfy (regulatory,
+    forensic, or just operational clarity).
+  * Better Auth Infrastructure adds a feature that's genuinely hard to replicate (e.g. the
+    SAML / SCIM / Directory sync layer if a federated identity case ever appears).
+
+  None of these triggers fire at inner-circle MVP scale. The right shape is to ship without
+  Infrastructure, watch where the operational pain actually lands, and add the appropriate
+  tier when the trigger is concrete rather than speculative.
+
 ## When to Revisit
 
 This decision should be revisited if any of the following become true:
@@ -773,12 +845,13 @@ This decision should be revisited if any of the following become true:
   weekly), the [open issue ratio](https://github.com/better-auth/better-auth/issues),
   and the relationship with Auth.js (whose users continue to migrate in). If the project
   stalls, the migration path is to Auth0 (documented escape hatch, code-first).
-* **Better Auth Cloud (a managed control plane on top of Better Auth) ships and the
-  trade-off shifts.** This would be the natural VC-monetisation path. If it ships with
-  a meaningful free tier and a credible Terraform-resource story for what was previously
-  config-in-repo, it could be worth evaluating as a way to offload the runtime
-  responsibilities (Apple JWT rotation, rate-limit state, audit logs) while keeping the
-  code-first integration shape.
+* **Operational pain crosses one of the Better Auth Infrastructure adoption triggers.** The
+  hosted Infrastructure tier is the natural first add-on; concrete triggers (more dashboard
+  seats, Sentinel detections exceeding free tier, audit retention requirements) are
+  documented in
+  [Hosted Better Auth Infrastructure as a Later Add-On](#hosted-better-auth-infrastructure-as-a-later-add-on).
+  Adding Infrastructure is a few-line change in `auth.ts`; revisiting is the explicit
+  signal to make that change.
 * **The household / friends / public authz model exceeds what the `organization` plugin
   can cleanly express.** The future authz ADR may pick a dedicated authz tool (OpenFGA,
   Oso, Cedar, Permit.io) regardless of this auth decision. If it does, the Better Auth
