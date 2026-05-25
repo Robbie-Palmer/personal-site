@@ -10,11 +10,17 @@ tech_stack: ["Better Auth"]
 I propose **[Better Auth](https://better-auth.com)** — MIT-licensed, TypeScript-first,
 self-hosted — as the identity layer for user profiles on the recipe site.
 
-**Why this is straightforward in May 2026 but would have been an edgy call a year ago.** This
-is the central thing to know before reading the rest. Before September 2025, Better Auth was
-a ~14k-star library competing with Auth.js (then NextAuth, the assumed default for Next.js
-projects) and Lucia. Adopting it then would have been an early-adopter bet against a known
-incumbent. In the months that followed the landscape collapsed: Auth.js's primary maintainer
+**Why now.** The recipe site is approaching the point where user profiles need to land —
+earlier iterations could ship usefully without accounts; the next set of features (favourites,
+cooking logs, household sharing) cannot. The ADR is being written because the project has
+reached that point, not because the auth landscape was waiting on clarity.
+
+**The landscape consolidation is the central context for reading the rest.** It happens to
+have shifted dramatically in the run-up to needing this decision, which is what makes the
+choice feel uncontroversial rather than tentative. Before September 2025, Better Auth was a
+~14k-star library competing with Auth.js (then NextAuth, the assumed default for Next.js
+projects) and Lucia — adopting it then would have been an early-adopter bet against a known
+incumbent. In the months that followed: Auth.js's primary maintainer
 [departed in January 2025](https://github.com/nextauthjs/next-auth/discussions/13382), the
 project [was absorbed by Better Auth in September 2025](https://better-auth.com/blog/authjs-joins-better-auth),
 [Lucia sunset in March 2025](https://github.com/lucia-auth/lucia/discussions/1714), and
@@ -321,16 +327,13 @@ B2B-leaning auth provider with a striking consumer free tier.
 
 * **Pros**: **1M MAU free** — by far the most generous free tier in the entire landscape.
   Apple JWT rotation handled. Organisations are core to the product. Passkeys supported.
-* **Cons**: **No Terraform provider.** **No EU data residency** as of May 2026; subscriber
-  data stored in the US. The announced "Vault" EU hosting product
-  [is not yet GA](https://workos.com/legal/data-processing-addendum). Passkeys are
-  currently only available via WorkOS's hosted UI, not a custom one — a UX constraint.
-  "Magic Auth" is OTP codes, not true magic links (WorkOS deprecated true magic links
-  because of the email-scanner GET-burn problem — a reasonable design call but worth
-  knowing).
-* **Decision**: **Rejected.** The 1M MAU free tier is genuinely striking and worth flagging
-  for any *future* project where the IaC constraint and EU residency don't bite. Here both
-  bite.
+* **Cons**: **No Terraform provider.** Passkeys are currently only available via WorkOS's
+  hosted UI, not a custom one — a UX constraint. "Magic Auth" is OTP codes, not true magic
+  links (WorkOS deprecated true magic links because of the email-scanner GET-burn problem —
+  a reasonable design call but worth knowing).
+* **Decision**: **Rejected** on the anti-dashboard constraint. The 1M MAU free tier is
+  genuinely striking and worth flagging for any *future* project where the IaC constraint
+  doesn't bite.
 
 ### [Supabase Auth](https://supabase.com/auth)
 
@@ -340,7 +343,6 @@ Auth as one feature of the broader Supabase platform (Postgres + storage + edge 
 * **Pros**: 50k MAU free tier. Apple JWT rotation handled. Decent Cloudflare Workers
   support after their
   [May 2026 `@supabase/server` release](https://supabase.com/blog/introducing-supabase-server).
-  EU project regions available.
 * **Cons**: Adopting Supabase Auth means adopting Supabase as the **backend platform**, not
   just an auth layer. The cost is taking on a much bigger platform decision than this ADR
   is sized for, with D1 sitting unused (or paying for both). Auth provider config is mostly
@@ -367,8 +369,8 @@ anti-dashboard constraint, by virtue of an unusually mature Terraform provider.
   `auth0_attack_protection`, `auth0_prompt`, `auth0_prompt_custom_text`, more — meaning
   configuration genuinely can live in
   [Terraform Cloud (ADR 016)](/projects/recipe-site/adrs/016-terraform-cloud) and the
-  dashboard is reduced to a log-browser. Apple JWT rotation handled. Multi-region EU/US/AU/JP/UK
-  tenants. Free tier expanded to 25k MAU in 2026, with Self-Service SSO + SCIM bundled
+  dashboard is reduced to a log-browser. Apple JWT rotation handled. Free tier expanded to
+  25k MAU in 2026, with Self-Service SSO + SCIM bundled
   (previously enterprise-only). Most mature product in the entire landscape.
 * **Cons**: Even with the expanded free tier, Auth0's commercial reputation post-Okta
   acquisition is rough. [Reports of 4x+ renewal multipliers at growth
@@ -484,15 +486,6 @@ records in D1.
   Migrating to Auth0 (the documented escape hatch) is a schema migration and a Terraform
   PR, not a code rewrite. Migrating to a different OSS library is even smaller — the
   user/session/account schema shape is industry-standard.
-* **No native EU data residency story.** With Better Auth, residency is whatever our
-  database's residency is. Cloudflare D1 is currently US/global; D1's regional placement
-  story is improving but not at the point where "EU users' data stays in EU" is a
-  guaranteed property. **Mitigation:** for an inner-circle MVP this doesn't bite. If
-  the user base ever skews materially EU and explicit residency becomes a positioning
-  claim, the choice is to either move the DB to a true EU-resident store
-  ([Turso](https://turso.tech/) regional groups,
-  [Neon](https://neon.tech) EU regions) or switch to a SaaS auth provider with EU regions
-  (Auth0 EU tenant, Supabase EU project).
 * **Per-user quotas, metering, and abuse protection are app-level.** Better Auth has a
   built-in rate limiter (KV-backed on Workers, with the
   [known minimum-TTL gotcha](https://github.com/better-auth/better-auth/issues/7124)
@@ -505,11 +498,6 @@ records in D1.
 
 This decision should be revisited if any of the following become true:
 
-* **EU data residency becomes a positioning claim or a hard requirement.** First response:
-  move the DB to an EU-resident store, keep Better Auth. Only if that doesn't work,
-  switch to Auth0 EU tenant or Supabase EU project — at which point the Terraform
-  config from this project translates ~1:1 to Auth0's Terraform resources, so the
-  switching cost is the schema migration, not a re-think.
 * **Apple JWT rotation becomes operationally painful.** If the rotation Cron Trigger
   itself becomes a maintenance burden (it shouldn't, but if it does), Auth0 / Clerk /
   WorkOS / Kinde / Supabase all handle Apple JWT rotation server-side. Switching for
@@ -529,10 +517,9 @@ This decision should be revisited if any of the following become true:
   can cleanly express.** The future authz ADR may pick a dedicated authz tool (OpenFGA,
   Oso, Cedar, Permit.io) regardless of this auth decision. If it does, the Better Auth
   user ID stays stable across that change.
-* **WorkOS AuthKit ships an EU region AND a Terraform provider.** Both are plausible in
-  the 12-24 month timeframe based on their public roadmap. The 1M-MAU free tier would
-  make this materially worth re-evaluating for a public-scale recipe site if both gaps
-  close.
+* **WorkOS AuthKit ships a Terraform provider.** Plausible in the 12-24 month timeframe
+  based on their public roadmap. The 1M-MAU free tier would make this materially worth
+  re-evaluating for a public-scale recipe site if the IaC gap closes.
 
 Until then, Better Auth is the right point on the curve: the only solution that combines
 config-in-repo by construction, best-in-class agent friendliness, Cloudflare-native runtime,
