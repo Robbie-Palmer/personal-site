@@ -354,17 +354,32 @@ documented Cloudflare support via OpenNext.
   * **All operational obligations absorbed server-side** — Apple JWT client secret rotation,
     session management, rate limiting, abuse mitigation, audit logs, GDPR compliance machinery.
     A Better Auth deployment lands all of these on us; Clerk lands them on Clerk.
-  * **Built-in admin / user-management dashboard** — Clerk's own UI shows every user, lets
-    you ban / impersonate / delete / inspect sessions. Better Auth has an
-    [`admin` plugin](https://better-auth.com/docs/plugins/admin) with the primitives but you
-    build the dashboard UI.
+  * **Polished user-management dashboard out of the box** — Clerk's own UI shows every
+    user, lets you ban / impersonate / delete / inspect sessions, no integration work. Better
+    Auth has the [`admin` plugin](https://better-auth.com/docs/plugins/admin) primitives, an
+    emerging [`dash()` plugin](https://better-auth.com/docs/infrastructure/plugins/dashboard)
+    that connects to Better Auth Infrastructure (their hosted dashboard, pricing model still
+    forming), and starter templates that bundle admin UI
+    ([zexa-starter](https://github.com/zexahq/better-auth-starter),
+    [Supastarter](https://supastarter.dev/better-auth-ui-components)) — but no polished
+    standalone community drop-in. The most popular dedicated one
+    ([ping-maxwell/better-auth-dashboard](https://github.com/ping-maxwell/better-auth-dashboard))
+    was archived in September 2025 as "not ready." So this is a real Clerk advantage,
+    narrowed by working starter templates.
   * **Built-in bot / abuse detection** — behavioural heuristics on signup attempts plus
     automatic device fingerprinting. Better Auth has auth-endpoint rate limiting and
-    Turnstile CAPTCHA via plugin, but no equivalent behavioural detection.
+    Turnstile CAPTCHA via plugin, but no equivalent in-library behavioural detection. *On a
+    Cloudflare-hosted site* most of this gap closes at the edge: Bot Fight Mode, Turnstile,
+    WAF rules, and rate-limiting rules together catch most of what Clerk's behavioural layer
+    would catch, *before* the request hits the origin at all. The residual gap (per-account
+    behavioural patterns Clerk learns over time) matters more once public signup is open
+    than at inner-circle scale.
   * **Webhook system** — `user.created`, `session.created`, `email.created`, etc. fire to
-    HTTP endpoints you supply, so downstream services (analytics, billing, CRM) get auth
-    events without polling. Better Auth has hooks at the in-process boundary but no
-    out-of-process webhook delivery.
+    HTTP endpoints you supply. Useful when downstream services need auth events without
+    polling and you don't own the auth database. With Better Auth + our own DB, change data
+    capture (CDC) over the user/session tables covers the same ground without the vendor
+    webhook indirection — so this advantage largely evaporates for a setup where the auth
+    data lives in our database anyway.
   * 50k monthly retained users on the free tier (raised from 10k in their
     [Feb 2026 pricing change](https://saasprices.net/blog/clerk-free-plan-changes)).
   * Production-grade passkeys, MFA, organisations. Publishes `llms.txt` and an MCP server.
@@ -596,10 +611,13 @@ records in D1.
   * **CAPTCHA on signup** — Better Auth via
     [Cloudflare Turnstile plugin](https://better-auth.com/docs/plugins/captcha); Clerk and
     Auth0 have built-in CAPTCHA. Roughly comparable.
-  * **Bot detection / behavioural anti-abuse** — **Clerk has a real advantage here**:
-    behavioural heuristics on signup attempts plus device fingerprinting, all server-side.
-    Better Auth has nothing equivalent — you'd add Turnstile, layer your own heuristics, or
-    pay for a third-party (Castle, Stytch Fraud) on top.
+  * **Bot detection / behavioural anti-abuse** — Clerk has an in-library advantage here
+    (behavioural heuristics on signup attempts plus device fingerprinting server-side), but
+    much of the gap is covered by Cloudflare's edge protections we already have: Bot Fight
+    Mode, Turnstile, WAF rules, and edge rate-limiting filter most bot traffic before it
+    reaches the origin. Better Auth has no equivalent in-library behavioural layer; for
+    public-scale per-account anti-abuse (slow-burn credential stuffing, etc.) Cloudflare's
+    coverage starts to leave gaps that Clerk would catch.
 
   Everything else — per-user budget caps, product-shaped rate limits (recipe-create per user,
   AI-route invocations per user), prompt-injection defence on AI-touching paths, content
@@ -620,9 +638,12 @@ affects vs what stays the same:
 * A privacy policy explaining what we collect, why, how long, and who else sees it.
 * Honour requests for data access, export, and deletion — within ~30 days, free of charge.
 * "Adequate protection" for personal data, which in 2026 means storage within the
-  EEA/UK *or* an adequacy decision (e.g. the US-EU/UK Data Privacy Framework) *or* Standard
-  Contractual Clauses. Cloudflare has SCCs in place, so US/global D1 storage is compliant
-  for UK user data — residency-in-EEA is one valid path but not the only one.
+  EEA/UK *or* an adequacy decision (e.g. the US-EU/UK Data Privacy Framework) *or*
+  **Standard Contractual Clauses (SCCs)** — EU-approved contract terms a US-based processor
+  signs to commit to GDPR-equivalent protections for data it handles, the primary legal
+  bridge for EU/UK→US data transfer since the 2020 Schrems II ruling. Cloudflare signs SCCs
+  as part of their standard data processing agreement, so US/global D1 storage is
+  compliant for UK user data — residency-in-EEA is one valid path but not the only one.
 * List sub-processors (third parties handling the data on our behalf) in the privacy
   policy.
 
@@ -651,10 +672,11 @@ affects vs what stays the same:
 
 **Practical translation for this project**: the GDPR work is privacy policy + delete-user
 flow + data-export flow, all of which are app-layer regardless of auth choice. Data
-residency is genuinely a DB question, not an auth one — and for a UK-first inner-circle
-MVP with Cloudflare's SCCs covering transfer-out, it's not a current concern at all. If the
-user base ever materially skews EU and explicit residency becomes a positioning claim, the
-fix is a DB-layer change (move to Turso/Neon EU regions), not an auth-layer one.
+residency is genuinely a DB question, not an auth one — and Cloudflare's SCCs covering
+transfer-out mean US/global D1 storage is compliant for UK and EU users. EU-only residency
+is mostly a B2B procurement concern; for a consumer recipe site it's unlikely to ever
+become a real requirement. If it ever did, the fix is a DB-layer change (Turso/Neon EU
+regions), not an auth-layer one.
 
 ## When to Revisit
 
