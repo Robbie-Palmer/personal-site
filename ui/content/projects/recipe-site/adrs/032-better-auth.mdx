@@ -22,7 +22,7 @@ either an app-level authz model in our database or a dedicated authz tool
 [Permit.io](https://www.permit.io/)) layered on top later.
 
 The current site is a Next.js 15 static export on
-[Cloudflare Pages (ADR 011)](/projects/personal-site/adrs/011-cloudflare-pages) — there is no
+[Cloudflare Pages (ADR 011)](/projects/recipe-site/adrs/011-cloudflare-pages) — there is no
 backend today. Shipping accounts means adding one. The exact shape of that backend is open:
 Cloudflare Workers + D1 + KV is the most natural extension of the current stack, but the auth
 choice should remain portable across plausible backends (Workers + any SQL DB, or Next.js on
@@ -78,7 +78,7 @@ Auth config lives in a TypeScript file in this repository. The user/session/acco
 generated from that config into our database schema (Drizzle / Prisma / Kysely, to be picked in
 a future backend ADR). Social OAuth credentials are injected via environment variables managed
 by Workers secrets and provisioned by
-[Terraform Cloud (ADR 016)](/projects/personal-site/adrs/016-terraform-cloud) — the same shape
+[Terraform Cloud (ADR 016)](/projects/recipe-site/adrs/016-terraform-cloud) — the same shape
 already used for every other secret in the project. There is no SaaS control plane to fight,
 no dashboard that drifts from the code, and no vendor that can change pricing on a free
 account.
@@ -353,7 +353,7 @@ anti-dashboard constraint, by virtue of an unusually mature Terraform provider.
   `auth0_email_template`, `auth0_custom_domain`, `auth0_log_stream`,
   `auth0_attack_protection`, `auth0_prompt`, `auth0_prompt_custom_text`, more — meaning
   configuration genuinely can live in
-  [Terraform Cloud (ADR 016)](/projects/personal-site/adrs/016-terraform-cloud) and the
+  [Terraform Cloud (ADR 016)](/projects/recipe-site/adrs/016-terraform-cloud) and the
   dashboard is reduced to a log-browser. Apple JWT rotation handled. Multi-region EU/US/AU/JP/UK
   tenants. Free tier expanded to 25k MAU in 2026, with Self-Service SSO + SCIM bundled
   (previously enterprise-only). Most mature product in the entire landscape.
@@ -458,7 +458,7 @@ records in D1.
   is a real possibility — see [When to Revisit](#when-to-revisit).
 * **Library moves fast.** Better Auth ships minor releases roughly weekly. That's good
   for fixes and features but means staying current matters; pinning to an exact version
-  in [Renovate (ADR 020)](/projects/personal-site/adrs/020-renovate) and reviewing
+  in [Renovate (ADR 020)](/projects/recipe-site/adrs/020-renovate) and reviewing
   changelogs becomes part of the workflow. Renovate already covers this — the cost is
   one more grouped dep to read carefully.
 * **VC funding overhang on a free OSS library.** Better Auth raised
