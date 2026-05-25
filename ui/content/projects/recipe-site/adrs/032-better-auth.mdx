@@ -126,15 +126,19 @@ plane to fight, no dashboard that drifts from the code, and no vendor that can c
 on a free account.
 
 ```ts
-// auth.ts — single source of truth for auth config
+// auth.ts — single source of truth for auth config (MVP shape).
+// Apple OAuth, passkey, two-factor, and the OAuth 2.1 provider for agents/MCP
+// are all deferred per the matrix in "Sign-In Methods at MVP" — they're a
+// few-line config addition each, applied when the trigger for that feature fires.
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "sqlite" }),
   socialProviders: {
-    google:  { clientId: env.GOOGLE_CLIENT_ID,  clientSecret: env.GOOGLE_CLIENT_SECRET  },
-    apple:   { clientId: env.APPLE_CLIENT_ID,   clientSecret: env.APPLE_CLIENT_SECRET   },
-    github:  { clientId: env.GITHUB_CLIENT_ID,  clientSecret: env.GITHUB_CLIENT_SECRET  },
+    google: { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET },
+    github: { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET },
   },
-  plugins: [organization(), passkey()], // organisation for "household" later; passkey post-MVP
+  plugins: [
+    organization(), // household model — see "What This Enables"
+  ],
 });
 ```
 
@@ -743,7 +747,7 @@ records in D1.
   scales up, the options for absorbing this back are documented in
   [Hosted Better Auth Infrastructure as a Later Add-On](#hosted-better-auth-infrastructure-as-a-later-add-on)
   (Sentinel / hosted dashboard / audit logs for $0-$20/mo, opt-in per-feature) or, if those
-  prove insufficient, migration to Auth0 via the [escape-hatch path](#auth0auth0com-okta-cic)
+  prove insufficient, migration to Auth0 via the [escape-hatch path](#auth0-okta-cic)
   documented above.
 * **Library moves fast.** Better Auth ships minor releases roughly weekly. That's good
   for fixes and features but means staying current matters; pinning to an exact version
