@@ -3,6 +3,7 @@ import {
   CANONICALIZATION_SCORING_PROFILE,
   EXTRACTION_SCORING_PROFILE,
   NORMALIZATION_SCORING_PROFILE,
+  type ScalarFieldScores,
   type ScoringProfile,
   computeEntryScores,
   evaluateEquipmentParsing,
@@ -12,26 +13,63 @@ import {
 } from "../../../../src/evaluation/metrics.js";
 import { extractionToRecipe } from "../../../../src/lib/extraction-to-recipe.js";
 import type { ExtractionRecipe } from "../types/extraction";
-import type { EntryScores as ReviewEntryScores } from "../types/review";
 
-type ScoreBreakdown = ReviewEntryScores;
+export interface DetailScoreBreakdown {
+  overall: number;
+  scalarFields?: number;
+  ingredientParsing?: number;
+  instructions?: number;
+  equipmentParsing?: number;
+}
+
+function weightedAverage(values: Array<{ value: number; weight: number }>): number | undefined {
+  const active = values.filter(({ weight }) => weight > 0);
+  if (active.length === 0) return undefined;
+  const totalWeight = active.reduce((sum, { weight }) => sum + weight, 0);
+  if (totalWeight === 0) return undefined;
+  return active.reduce((sum, { value, weight }) => sum + value * weight, 0) / totalWeight;
+}
+
+function scoreActiveScalarFields(
+  scalar: ScalarFieldScores,
+  profile: ScoringProfile,
+): number | undefined {
+  return weightedAverage([
+    { value: scalar.title.f1, weight: profile.weights.title ?? 0 },
+    { value: scalar.description.f1, weight: profile.weights.description ?? 0 },
+    { value: scalar.cuisine.f1, weight: profile.weights.cuisine ?? 0 },
+    { value: scalar.servings.accuracy, weight: profile.weights.servings ?? 0 },
+    { value: scalar.prepTime.accuracy, weight: profile.weights.prepTime ?? 0 },
+    { value: scalar.cookTime.accuracy, weight: profile.weights.cookTime ?? 0 },
+  ]);
+}
 
 function scoreRecipes(
   predicted: ParsedRecipe,
   expected: ParsedRecipe,
   profile: ScoringProfile,
-): ScoreBreakdown {
+): DetailScoreBreakdown {
   const scalar = evaluateScalarFields(predicted as never, expected as never);
   const ingredients = evaluateIngredientParsing(predicted as never, expected as never);
   const instructions = evaluateInstructions(predicted as never, expected as never);
   const equipment = evaluateEquipmentParsing(predicted as never, expected as never);
-  return computeEntryScores(scalar, ingredients, instructions, equipment, profile);
+  const scores = computeEntryScores(scalar, ingredients, instructions, equipment, profile);
+  return {
+    overall: scores.overall,
+    scalarFields: scoreActiveScalarFields(scalar, profile),
+    ingredientParsing:
+      (profile.weights.ingredientParsing ?? 0) > 0 ? scores.ingredientParsing : undefined,
+    instructions:
+      (profile.weights.instructions ?? 0) > 0 ? scores.instructions : undefined,
+    equipmentParsing:
+      (profile.weights.equipmentParsing ?? 0) > 0 ? scores.equipmentParsing : undefined,
+  };
 }
 
 export function computeExtractionDetailScores(
   predicted: ExtractionRecipe,
   expected: ExtractionRecipe,
-): ScoreBreakdown {
+): DetailScoreBreakdown {
   return scoreRecipes(
     extractionToRecipe(predicted) as never,
     extractionToRecipe(expected) as never,
@@ -42,13 +80,13 @@ export function computeExtractionDetailScores(
 export function computeNormalizationDetailScores(
   predicted: ParsedRecipe,
   expected: ParsedRecipe,
-): ScoreBreakdown {
+): DetailScoreBreakdown {
   return scoreRecipes(predicted, expected, NORMALIZATION_SCORING_PROFILE);
 }
 
 export function computeCanonicalizationDetailScores(
   predicted: ParsedRecipe,
   expected: ParsedRecipe,
-): ScoreBreakdown {
+): DetailScoreBreakdown {
   return scoreRecipes(predicted, expected, CANONICALIZATION_SCORING_PROFILE);
 }

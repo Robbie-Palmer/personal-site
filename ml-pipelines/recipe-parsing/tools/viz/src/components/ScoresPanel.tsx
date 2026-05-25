@@ -1,27 +1,40 @@
-import type { EntryScores } from "../types/review";
+import type { DetailScoreBreakdown } from "../lib/detailScores";
 import { ScoreBadge } from "./ScoreBadge";
 import { scoreBarColor } from "../lib/scores";
 
 interface ScoresPanelProps {
-  scores: EntryScores;
+  scores: DetailScoreBreakdown;
 }
 
 export function ScoresPanel({ scores }: ScoresPanelProps) {
   const items = [
     { label: "Structured Score", value: scores.overall },
-    { label: "Scalar Fields", value: scores.scalarFields },
-    { label: "Ingredients", value: scores.ingredientParsing },
-    { label: "Instructions", value: scores.instructions },
+    ...(scores.scalarFields != null
+      ? [{ label: "Scalar Fields", value: scores.scalarFields }]
+      : []),
+    ...(scores.ingredientParsing != null
+      ? [{ label: "Ingredients", value: scores.ingredientParsing }]
+      : []),
+    ...(scores.instructions != null
+      ? [{ label: "Instructions", value: scores.instructions }]
+      : []),
     ...(scores.equipmentParsing != null
       ? [{ label: "Equipment", value: scores.equipmentParsing }]
       : []),
   ];
 
+  const componentLabels = items
+    .slice(1)
+    .map((item) => item.label.toLowerCase())
+    .join(", ");
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
       <h3 className="text-sm font-semibold mb-1">Structured Score</h3>
       <p className="mb-3 text-xs text-gray-500">
-        Composite over scalar fields, ingredients, equipment, and instructions.
+        {componentLabels
+          ? `Composite over this stage's active metrics: ${componentLabels}.`
+          : "Composite over this stage's active metrics."}
       </p>
       <div className="space-y-2">
         {items.map((item) => (
