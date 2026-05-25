@@ -67,12 +67,11 @@ The constraints driving the decision are sharp:
    across modern Node, V8 isolates, and Bun — whichever the future backend ADR picks.
 4. **Cost discipline.** No $4-20/month/MAU pricing curves. Free at MVP scale; linear,
    predictable growth.
-5. **Apple Sign In is a hard requirement** — iPhone users in the household won't create
-   separate accounts. Apple's 6-month JWT client secret expiry is a known gotcha that some
-   libraries automate and some leave to the project.
-6. **Social OAuth as the anchor.** Email + password is explicitly out of scope — the
+5. **Social OAuth as the anchor.** Email + password is explicitly out of scope — the
    operational cost (resets, breach monitoring, password hygiene) is not worth it for this
-   audience. Magic links and passkeys are addressed in the
+   audience. Google is the expected primary; Apple, GitHub, and any later additions are
+   cheap to wire in since the social-providers config is a literal list in `auth.ts`. Magic
+   links and passkeys are addressed in the
    [Sign-In Methods at MVP](#sign-in-methods-at-mvp) section.
 
 # Decision
@@ -138,8 +137,8 @@ This aligns with:
 
 | Method | MVP? | Rationale |
 | --- | --- | --- |
-| **Google OAuth** | **Yes** | Largest single account population; first-class in Better Auth; zero rotation cost. |
-| **Apple OAuth** | **Yes** | Required for iPhone users in the household. $99/yr Apple Developer Program already justified by other roadmap items (PWA, native consideration). |
+| **Google OAuth** | **Yes** | Largest single account population; first-class in Better Auth; zero rotation cost. Expected primary sign-in path for most users. |
+| **Apple OAuth** | **Yes** | Cheap to wire in (a few lines in `auth.ts`) and covers the subset of iPhone users who'd prefer Apple's hide-my-email + privacy story. Cost surface is real but bounded: $99/yr Apple Developer Program (already justified by other roadmap items) plus Apple's 6-month JWT client secret rotation (mitigation in [Consequences → Negative](#negative)). Becomes mandatory only if/when the site is ever packaged as a native iOS app (App Store guideline 4.8). |
 | **GitHub OAuth** | **Yes** | Trivial to add; covers the technical-friends subset who'd find Google sign-in surprising on a code-adjacent project. |
 | **Email + password** | **No** | Operational cost (resets, breach monitoring, password hygiene) not worth it for this audience. Workers CPU budget for scrypt is also marginal — a [real reported issue](https://github.com/better-auth/better-auth/issues/8860) on Better Auth that doesn't apply when we don't use passwords. |
 | **Magic links** | **No (deferred)** | OAuth is the primary path; magic links add deliverability concerns (SPF/DKIM/DMARC, a transactional provider like [Resend](https://resend.com), the [email-scanner GET-burn problem](https://workos.com/blog/why-magic-links-are-broken)) for a path most users won't take. Reasonable to add later if a real user reports a meaningful gap. |
@@ -205,7 +204,7 @@ The library itself is free (MIT). The full cost surface for the project is:
 | **Better Auth library** | $0 (MIT OSS) |
 | **Database** | Whatever the backend ADR picks. D1 is free up to 5GB / 5M rows / 25B reads + 50M writes per month — covers a recipe site for years. |
 | **Session storage (KV)** | Cloudflare KV free tier: 100k reads/day, 1k writes/day, 1GB stored. Free at MVP scale. |
-| **Apple Developer Program** | $99/yr — already justified by the broader [PWA + iOS roadmap](/projects/recipe-site#progressive-web-app-pwa). Apple Sign In requires it; no path around it. |
+| **Apple Developer Program** | $99/yr — already justified by the broader [PWA + iOS roadmap](/projects/recipe-site#progressive-web-app-pwa). Apple Sign In also requires a paid Apple Developer membership, so this cost is shared rather than additive. |
 | **Google / GitHub OAuth** | Free. |
 | **Email provider (Resend / Postmark / SES)** | $0 at MVP scale (Resend's free tier is 3k emails/month). Only relevant once magic links / invites ship. |
 | **Per-MAU pricing** | None. Linear in our DB cost, not in MAU count. |
