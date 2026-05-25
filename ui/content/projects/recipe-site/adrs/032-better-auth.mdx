@@ -134,14 +134,25 @@ export const auth = betterAuth({
 });
 ```
 
-**There's no separate Better Auth service to host.** The package is imported by whatever
-backend the future ADR picks; the snippet above runs in that same process. User identities,
-sessions, OAuth state, and the `organization` plugin's membership data all live in our
-database — there is no Better Auth control plane, no auth API to call, no vendor-owned user
-table. The trade-off is that we own the runtime: rate limiting, abuse mitigation, audit
-logging, account-deletion cascades. This is the opposite shape from SaaS options like Clerk
-or Auth0, where the auth service is hosted by the vendor and our app makes API calls into it
-(covered in detail in [Alternatives Considered](#alternatives-considered)).
+**There's no separate Better Auth service to host for the auth runtime.** The package is
+imported by whatever backend the future ADR picks; the snippet above runs in that same
+process. User identities, sessions, OAuth state, and the `organization` plugin's membership
+data all live in our database — there is no Better Auth control plane on the request path,
+no auth API to call, no vendor-owned user table. This is the opposite shape from SaaS
+options like Clerk or Auth0, where the auth service itself is hosted by the vendor and our
+app makes API calls into it (covered in detail in
+[Alternatives Considered](#alternatives-considered)).
+
+**Operational add-ons are optional, not required.** Better Auth separately offers a managed
+infrastructure platform ([dash.better-auth.com](https://better-auth.com/pricing) — free
+Starter, $20/mo Pro flat, Enterprise on request) that adds a hosted dashboard,
+[Sentinel](https://better-auth.com/pricing) behavioural threat detection (Bot Detection,
+Brute Force, Breached Passwords, Impossible Travel, Suspicious IPs), audit logs with SIEM
+log drain, and SSO/SCIM. Using it adds a vendor dependency on Better Auth's hosted
+infrastructure *for those operational features only* — sign-in keeps working if it's down,
+since the auth library is still in-process. This is a slider, not a binary: at MVP we'd
+likely use just the library (zero vendor dependency); if public scale or operational
+maturity arrives, Sentinel-and-dashboard is a $20/mo add-on rather than a re-architecture.
 
 D1 itself is supported in core as of
 [Better Auth v1.5 (Feb 2026)](https://better-auth.com/blog/1-5) — the D1 binding is passed
@@ -240,7 +251,8 @@ The library itself is free (MIT). The full cost surface for the project is:
 
 | Component | Cost |
 | --- | --- |
-| **Better Auth library** | $0 (MIT OSS) |
+| **Better Auth library** | $0 (MIT OSS). |
+| **Better Auth Infrastructure (optional)** | $0 Starter (1 dashboard seat, 10k audit logs/month, 1k Sentinel detections/month) → $20/mo Pro (unlimited seats, 20k audit logs then $0.0001/event, 10k detections then $0.001/event, transactional comms, abuse protection). Skippable entirely at MVP; add later if operational features matter. |
 | **Database** | Whatever the backend ADR picks. D1 is free up to 5GB / 5M rows / 25B reads + 50M writes per month — covers a recipe site for years. |
 | **Session storage** | Whatever the backend ADR picks. If KV, the Cloudflare free tier (100k reads/day, 1k writes/day, 1GB stored) is comfortably enough at MVP scale. |
 | **Google / GitHub OAuth** | Free. |
@@ -264,7 +276,12 @@ you `npm install` and import into your own backend. There's nothing separate to 
 library runs inside whatever process your app already runs, user/session state lives in your
 database, and OAuth callbacks hit your existing routes. You own the runtime; the upside is
 that config is necessarily code-in-repo, the downside is that everything operational (rate
-limiting, abuse mitigation, audit logs, JWT rotation, email delivery) is yours too.
+limiting, abuse mitigation, audit logs, JWT rotation, email delivery) is yours too. *Better
+Auth specifically offers an optional [hosted infrastructure platform](https://better-auth.com/pricing)*
+($0 Starter, $20/mo Pro) that takes back some of those operational obligations (dashboard,
+Sentinel behavioural detection, audit logs, transactional comms) without pulling the auth
+runtime out of our process — a slider between pure self-host and pure SaaS that none of the
+other libraries here offer.
 
 **SaaS auth services** — Clerk, Kinde, WorkOS AuthKit, Auth0, Supabase Auth. The auth
 service is hosted by the vendor. Your app calls their API; users live in their database;
@@ -355,25 +372,28 @@ documented Cloudflare support via OpenNext.
     session management, rate limiting, abuse mitigation, audit logs, GDPR compliance machinery.
     A Better Auth deployment lands all of these on us; Clerk lands them on Clerk.
   * **Polished user-management dashboard out of the box** — Clerk's own UI shows every
-    user, lets you ban / impersonate / delete / inspect sessions, no integration work. Better
-    Auth has the [`admin` plugin](https://better-auth.com/docs/plugins/admin) primitives, an
-    emerging [`dash()` plugin](https://better-auth.com/docs/infrastructure/plugins/dashboard)
-    that connects to Better Auth Infrastructure (their hosted dashboard, pricing model still
-    forming), and starter templates that bundle admin UI
+    user, lets you ban / impersonate / delete / inspect sessions, no integration work.
+    Better Auth now has its own hosted dashboard via [Better Auth
+    Infrastructure](https://better-auth.com/pricing) — connects via the `dash()` plugin to
+    dash.better-auth.com, free tier covers 1 seat, Pro at $20/mo flat covers unlimited
+    seats. Plus the [`admin` plugin](https://better-auth.com/docs/plugins/admin) primitives
+    for fully-self-hosted UI work, and starter templates that bundle one
     ([zexa-starter](https://github.com/zexahq/better-auth-starter),
-    [Supastarter](https://supastarter.dev/better-auth-ui-components)) — but no polished
-    standalone community drop-in. The most popular dedicated one
-    ([ping-maxwell/better-auth-dashboard](https://github.com/ping-maxwell/better-auth-dashboard))
-    was archived in September 2025 as "not ready." So this is a real Clerk advantage,
-    narrowed by working starter templates.
+    [Supastarter](https://supastarter.dev/better-auth-ui-components)). So the actual Clerk
+    advantage here is "no separate hosted service to plug in" — Better Auth's hosted
+    dashboard is genuinely competitive feature-wise but is an opt-in vendor dependency on
+    top of an otherwise self-hosted library.
   * **Built-in bot / abuse detection** — behavioural heuristics on signup attempts plus
-    automatic device fingerprinting. Better Auth has auth-endpoint rate limiting and
-    Turnstile CAPTCHA via plugin, but no equivalent in-library behavioural detection. *On a
-    Cloudflare-hosted site* most of this gap closes at the edge: Bot Fight Mode, Turnstile,
-    WAF rules, and rate-limiting rules together catch most of what Clerk's behavioural layer
-    would catch, *before* the request hits the origin at all. The residual gap (per-account
-    behavioural patterns Clerk learns over time) matters more once public signup is open
-    than at inner-circle scale.
+    automatic device fingerprinting. Better Auth has its own competitor here too —
+    [Sentinel](https://better-auth.com/pricing), part of Better Auth Infrastructure,
+    covers Bot Detection, Brute Force, Breached Passwords, Impossible Travel, Rate
+    Limiting, Geo Blocking, Suspicious IPs, Disposable Emails, Email Abuse, and Free
+    Trial Abuse. Free tier covers 1k security detections/month; Pro tier covers 10k then
+    $0.001/event. Combined with Cloudflare edge protections we'd already have (Bot Fight
+    Mode, Turnstile, WAF, edge rate limiting filtering most traffic before it reaches the
+    origin), the residual Clerk advantage is mostly down to "all of this is on by default
+    in Clerk, without provisioning Sentinel separately" — a real onboarding ease win, but
+    a much smaller capability gap than I'd suggest if Sentinel weren't an option.
   * **Webhook system** — `user.created`, `session.created`, `email.created`, etc. fire to
     HTTP endpoints you supply. Most useful when you don't own the auth runtime: the vendor
     is the only place that *sees* these events happen, so a webhook is the only way to fan
@@ -496,10 +516,13 @@ ever falters.
     compliance machinery, email delivery (verification, MFA codes, password reset). Same
     shape as Clerk on this front. Agentic coding does not make any of these cheaper to own.
   * **Proprietary attack protection** — Adaptive MFA, breached password detection
-    (powered by cross-customer data), anomaly detection, suspicious-IP filtering, brute-
-    force protection. These benefit from seeing attacks across Auth0's entire customer
-    base, so they're hard to replicate at the application layer. More substantial than
-    either Clerk's behavioural detection or Cloudflare's edge filtering.
+    (powered by cross-customer data), anomaly detection, suspicious-IP filtering,
+    brute-force protection. These benefit from seeing attacks across Auth0's entire
+    customer base. Better Auth's [Sentinel](https://better-auth.com/pricing) (part of
+    Better Auth Infrastructure, $20/mo Pro tier) is the closest competitor — overlapping
+    coverage on Bot Detection, Brute Force, Breached Passwords, Impossible Travel,
+    Suspicious IPs. Auth0's product is more mature and benefits from a larger customer
+    base, but Sentinel is now a real Better-Auth-side answer, not a gap.
   * **Identity provider federation built in** — SAML, OIDC, LDAP, WS-Federation,
     enterprise SSO connections. Better Auth has OAuth but not native SAML. Not relevant
     for a personal recipe site, but listed because it's a genuine library-vs-platform gap.
@@ -633,12 +656,15 @@ records in D1.
   rotation server-side; Better Auth would leave us with a scheduled job (writing the rotated
   client secret back to [Doppler](https://www.doppler.com/), then propagating to whatever
   runtime the backend ADR picks) as our responsibility.
-* **We own the runtime.** Database, session storage, rate limiting, abuse mitigation,
-  account lockout, audit logs, GDPR data subject access / deletion flows — all live in
-  our backend, not a vendor's. Better Auth provides primitives for each of these but the
-  operational responsibility is ours. For an inner-circle MVP this cost is low. For
-  public scale it grows, and a future "we want a managed control plane after all" pivot
-  is a real possibility — see [When to Revisit](#when-to-revisit).
+* **We own the runtime by default.** Database, session storage, rate limiting, abuse
+  mitigation, account lockout, audit logs, GDPR data-subject access / deletion flows — all
+  live in our backend, not a vendor's. Better Auth provides primitives for each but the
+  operational responsibility lands on us unless we opt into Better Auth Infrastructure
+  ($20/mo Pro) for the dashboard / Sentinel / audit-log slice. So this con is sized by
+  which features matter when: for an inner-circle MVP the cost is low and we ignore
+  Infrastructure entirely; for public scale we either build out the operational primitives
+  ourselves, pay $20/mo for the Better Auth managed slice, or revisit toward Auth0 — see
+  [When to Revisit](#when-to-revisit).
 * **Library moves fast.** Better Auth ships minor releases roughly weekly. That's good
   for fixes and features but means staying current matters; pinning to an exact version
   in [Renovate (ADR 020)](/projects/recipe-site/adrs/020-renovate) and reviewing
@@ -664,13 +690,15 @@ records in D1.
   * **CAPTCHA on signup** — Better Auth via
     [Cloudflare Turnstile plugin](https://better-auth.com/docs/plugins/captcha); Clerk and
     Auth0 have built-in CAPTCHA. Roughly comparable.
-  * **Bot detection / behavioural anti-abuse** — Clerk has an in-library advantage here
-    (behavioural heuristics on signup attempts plus device fingerprinting server-side), but
-    much of the gap is covered by Cloudflare's edge protections we already have: Bot Fight
-    Mode, Turnstile, WAF rules, and edge rate-limiting filter most bot traffic before it
-    reaches the origin. Better Auth has no equivalent in-library behavioural layer; for
-    public-scale per-account anti-abuse (slow-burn credential stuffing, etc.) Cloudflare's
-    coverage starts to leave gaps that Clerk would catch.
+  * **Bot detection / behavioural anti-abuse** — three layers cover this:
+    [Cloudflare's edge protections](https://www.cloudflare.com/application-services/products/bot-management/)
+    (Bot Fight Mode, Turnstile, WAF rules, edge rate-limiting — filter most bot traffic
+    before it reaches the origin), Better Auth Infrastructure's
+    [Sentinel](https://better-auth.com/pricing) (Bot Detection, Brute Force, Breached
+    Passwords, Impossible Travel, Suspicious IPs at $20/mo Pro tier), and the auth
+    library's own rate limiting + Turnstile CAPTCHA. Clerk and Auth0 ship behavioural
+    detection on by default — the operational ease win is real, but the capability gap
+    is much narrower than "Clerk has it, Better Auth doesn't" suggests.
 
   Everything else — per-user budget caps, product-shaped rate limits (recipe-create per user,
   AI-route invocations per user), prompt-injection defence on AI-touching paths, content
