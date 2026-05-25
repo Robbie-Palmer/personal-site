@@ -794,19 +794,44 @@ affects vs what stays the same:
 
 **What GDPR actually requires** (in plain terms, for a small consumer site):
 
-* A lawful basis for processing personal data (account creation = consent + contract for
-  service delivery).
-* A privacy policy explaining what we collect, why, how long, and who else sees it.
-* Honour requests for data access, export, and deletion — within ~30 days, free of charge.
-* "Adequate protection" for personal data, which in 2026 means storage within the
-  EEA/UK *or* an adequacy decision (e.g. the US-EU/UK Data Privacy Framework) *or*
-  **Standard Contractual Clauses (SCCs)** — EU-approved contract terms a US-based processor
-  signs to commit to GDPR-equivalent protections for data it handles, the primary legal
-  bridge for EU/UK→US data transfer since the 2020 Schrems II ruling. Cloudflare signs SCCs
-  as part of their standard data processing agreement, so US/global D1 storage is
-  compliant for UK user data — residency-in-EEA is one valid path but not the only one.
-* List sub-processors (third parties handling the data on our behalf) in the privacy
-  policy.
+* **A lawful basis for each processing purpose**, chosen from the six UK GDPR options
+  (consent, contract, legal obligation, vital interests, public task, legitimate interests).
+  The right basis depends on what we're doing with the data, not a single label that covers
+  everything. For creating and operating a user account,
+  [**"performance of a contract"**](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/lawful-basis/a-guide-to-lawful-basis/contract/)
+  typically applies — the user requested an account, and processing identity / session /
+  membership data is necessary to deliver the service they asked for. Optional add-ons
+  (marketing emails, non-essential analytics, sharing data with third parties beyond what
+  the service requires) each need their own basis — usually consent, gathered separately.
+  These are alternative bases per purpose, not additive labels.
+* **A privacy policy** explaining what we collect, why, how long we keep it, and who else
+  sees it.
+* **Data subject rights** — honour requests for access, export, rectification, and
+  deletion, within roughly 30 days and free of charge.
+* **A lawful mechanism for international transfers** of personal data outside the UK.
+  UK GDPR restricts transfers except where covered by:
+  * An [adequacy decision](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/international-transfers/)
+    — the US-UK "Data Bridge" extension of the EU-US Data Privacy Framework covers
+    transfers to DPF-certified US recipients, for example.
+  * **Standard Contractual Clauses (SCCs) plus a Transfer Risk Assessment (TRA)** — SCCs
+    are EU-approved contract terms a non-EEA recipient signs to commit to
+    GDPR-equivalent protections, but post-Schrems II they're not an automatic compliance
+    pass on their own. The controller (us) must also conduct a
+    [TRA](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/international-transfers/completing-a-transfer-risk-assessment/)
+    confirming that the SCC protections actually hold in practice for the specific
+    destination — accounting for local surveillance laws, redress mechanisms, and so on.
+    The ICO publishes a
+    [US-specific TRA analysis](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/international-transfers/completing-a-transfer-risk-assessment/completing-a-tra-using-the-uk-government-s-analysis-us/)
+    that controllers can rely on rather than building one from scratch.
+  * Other mechanisms (Binding Corporate Rules, Article 49 derogations) — niche for a
+    consumer recipe site.
+
+  Cloudflare signs the EU-approved SCCs as part of their standard data processing
+  agreement, and their D1 / Workers infrastructure spans US/global regions. SCCs in the
+  DPA are necessary but not sufficient on their own — we'd rely on the ICO's published US
+  TRA analysis to complete the picture before treating the transfer as lawful.
+* **Sub-processor disclosure** — list third parties handling the data on our behalf in the
+  privacy policy.
 
 **What the auth choice changes:**
 
@@ -820,9 +845,9 @@ affects vs what stays the same:
   are the only third parties touching auth data — no separate auth vendor to list. Clerk or
   Auth0 add themselves as a sub-processor.
 * **Deletion / export primitives.** Better Auth ships GDPR-shaped delete-user flows; Clerk
-  and Auth0 do too. Table stakes everywhere. Either way, we own the cascade across our
-  *recipe* data (favourites, household membership, etc.) — the auth layer can only delete
-  what the auth layer stores.
+  and Auth0 do too. Table stakes everywhere. Either way, we own the cascade across the rest
+  of our data (household membership, recipe ownership, etc.) — the auth layer can only
+  delete what the auth layer stores.
 
 **What the auth choice does *not* change:**
 
@@ -831,13 +856,15 @@ affects vs what stays the same:
 * Handling deletion of associated recipe-side data when a user closes their account.
 * The substance of UK/EU GDPR obligations for the data the *app* stores beyond auth.
 
-**Practical translation for this project**: the GDPR work is privacy policy + delete-user
-flow + data-export flow, all of which are app-layer regardless of auth choice. Data
-residency is genuinely a DB question, not an auth one — and Cloudflare's SCCs covering
-transfer-out mean US/global D1 storage is compliant for UK and EU users. EU-only residency
-is mostly a B2B procurement concern; for a consumer recipe site it's unlikely to ever
-become a real requirement. If it ever did, the fix is a DB-layer change (Turso/Neon EU
-regions), not an auth-layer one.
+**Practical translation for this project**: the GDPR work is privacy policy +
+delete-user flow + data-export flow + an international transfer story (SCCs in the
+processor DPA + reliance on the ICO's published US TRA analysis), all of which are
+app-layer or contract-layer regardless of auth choice. Data residency is a DB question,
+not an auth one — and the US/global D1 default is workable for UK and EU users via the
+SCC-plus-TRA path, not because SCCs are a compliance shortcut on their own. EU-only
+residency is mostly a B2B procurement concern; for a consumer recipe site it's unlikely
+to ever become a real requirement. If it ever did, the fix is a DB-layer change
+(Turso / Neon EU regions), not an auth-layer one.
 
 ## Hosted Better Auth Infrastructure as a Later Add-On
 
