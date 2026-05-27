@@ -7,969 +7,211 @@ tech_stack: ["Better Auth"]
 
 # Summary
 
-I propose **[Better Auth](https://better-auth.com)** — MIT-licensed, TypeScript-first,
-self-hosted — as the identity layer for user profiles on the recipe site.
+This ADR proposes **[Better Auth](https://better-auth.com)** as the authentication layer for the
+recipe site.
 
-**Why now.** The recipe site is approaching the point where user profiles need to land —
-earlier iterations shipped a single shared collection with no notion of who's looking at it,
-and household sharing (and later friend sharing) needs the concept of a logged-in user. The
-ADR is being written because the project has reached that point, not because the auth
-landscape was waiting on clarity.
+This is a decision about **authentication**, not the full backend or authorization model. It covers
+how users sign in and how account identity is represented. It does **not** decide:
 
-**The landscape consolidation is the central context for reading the rest.** It happens to
-have shifted dramatically in the run-up to needing this decision, which is what makes the
-choice feel uncontroversial rather than tentative. Before September 2025, Better Auth was a
-~14k-star library competing with Auth.js (then NextAuth, the assumed default for Next.js
-projects) and Lucia — adopting it then would have been an early-adopter bet against a known
-incumbent. In the months that followed: Auth.js's primary maintainer
-[departed in January 2025](https://github.com/nextauthjs/next-auth/discussions/13382), the
-project [was absorbed by Better Auth in September 2025](https://better-auth.com/blog/authjs-joins-better-auth),
-[Lucia sunset in March 2025](https://github.com/lucia-auth/lucia/discussions/1714), and
-[Stytch was acquired by Twilio in November](https://www.twilio.com/). The OSS TypeScript auth
-space consolidated around Better Auth — Better Auth's own
-[migration guide for Auth.js users](https://authjs.dev/getting-started/migrate-to-better-auth)
-is the official onward path for the incumbent. It is now the gravitational centre, not the
-contrarian pick.
-
-**Why the SaaS shortlist is short.** This decision turns on a shift in what costs what.
-**Agentic coding has dramatically reduced the cost of building UI from primitives** —
-prebuilt React components and hosted sign-in pages (Clerk's traditional advantage) save
-hours of human work that a coding agent now produces in minutes from a Better Auth primitive.
-What agentic coding has *not* solved is **SaaS dashboard navigation, platform provisioning,
-and in-browser configuration** — these stay slow, manual, agent-unfriendly handoffs. The net
-effect: the velocity gain from config-as-code (everything an agent can edit directly) is
-bigger in 2026 than it was a few years ago, and the velocity gain from prebuilt vendor
-components is smaller. That moves the calculus decisively toward self-hosted libraries with
-strong agent docs — particularly for a project leaning into agentic flows as the primary
-mode of work.
-
-That tilt disqualifies the dashboard-first SaaS class (Clerk, Kinde, WorkOS AuthKit) — not
-because the products are weak (Clerk especially is genuinely excellent), but because the
-share of their value an agent can access (auth UI, session handling) has shrunk while the
-share it can't (dashboard config, operational toggles, billing/audit UIs) has stayed put.
-Supabase Auth is rejected separately on **platform lock-in** — adopting it couples auth to
-the rest of the Supabase platform (Postgres, hosted control plane), pre-empting the future
-backend ADR rather than leaving it open. **Auth0 holds up under the new calculus** because
-its mature first-party Terraform provider keeps the configuration surface in code while still
-absorbing vendor-side operations — the decision below treats it as the documented escape
-hatch if the OSS library path ever stalls.
-
-**Why Better Auth specifically fits this project.** D1 is supported natively in core as of
-[v1.5 (Feb 2026)](https://better-auth.com/blog/1-5); the auth config is a TypeScript file that
-coding agents can read and edit directly (Better Auth ships `llms.txt`, an MCP server, and
-Claude/Cursor skills purpose-built for this); there is no per-MAU pricing curve; the
-`organization` plugin provides a ready-made primitive for the future household model without
-inventing membership semantics; and the team's
-[Agent Auth Protocol](https://agent-auth-protocol.com/) + MCP-ready
-[OAuth 2.1 Provider plugin](https://better-auth.com/docs/plugins/oauth-provider) cover the
-planned multi-runtime cases (GPU VPS, third-party APIs, MCP servers / agents) with no
-per-token cap or paid tier — the layer above generic M2M that OAuth wasn't designed for.
-
-This ADR scopes to **authentication only**. The authorization model — how household membership,
-friend sharing, and per-recipe visibility are expressed and enforced — is a separate decision
-in a future ADR.
+* the eventual backend runtime or database
+* the household / friend-sharing permission model
+* whether any hosted auth operations platform is adopted later
 
 # Context
 
-The recipe site needs user profiles — household sharing of the recipe collection, eventually
-friend sharing too. There is no backend today; adding accounts means adding one. The shape
-of that backend (Workers + D1 + KV is the natural extension of the current stack, but not
-committed here) belongs in a separate ADR. The auth choice should remain portable across
-plausible backends.
+The recipe site is moving from a shared public collection toward user-specific features:
+favorites, cooking history, household sharing, and eventually friend sharing. That requires a
+real notion of user identity.
 
-The constraints driving the decision are sharp:
+The auth choice needs to satisfy a small number of constraints:
 
-1. **Config-as-code as a first-class velocity factor.** Auth provider configuration — OAuth
-   client IDs, callback URLs, branding, organisation shape, email templates — lives in
-   version control rather than a vendor UI. The reason is concrete, not philosophical:
-   coding agents can read, edit, and reason about TypeScript and Terraform; they cannot
-   navigate a SaaS dashboard or click through an in-browser onboarding flow. As more of the
-   day-to-day work shifts to agentic flows, the relative cost of dashboard-only
-   configuration grows. Auth surfaces that live in the repo are reviewed, diffed, and
-   iterated on the same workflow as the rest of the codebase; auth surfaces behind a
-   dashboard become a permanent manual handoff the agent has to ask a human to perform.
-   This is part of the [Building Philosophy](/projects?tab=philosophy), but it's anchored
-   in current 2026 economics, not a preference.
-2. **AI-coding-agent friendliness as a real lever.** A solution where auth config lives in
-   TypeScript files an agent can read, edit, and reason about is materially better than one
-   where the agent has to instruct a human to click through a SaaS dashboard. Significant
-   enough to influence the
-   [Goldilocks Zone](/projects?tab=philosophy#the-goldilocks-zone) calibration for a solution
-   that gets it right.
-3. **Runtime portability.** Built on web standards (`fetch` / `Request` / `Response` /
-   `Web Crypto`), not locked to a single Node-specific environment. This keeps options open
-   across modern Node, V8 isolates, and Bun — whichever the future backend ADR picks.
-4. **Cost discipline.** No $4-20/month/MAU pricing curves. Free at MVP scale; linear,
-   predictable growth.
-5. **Social OAuth as the anchor.** Email + password is explicitly out of scope — the
-   operational cost (resets, breach monitoring, password hygiene) is not worth it for this
-   audience. Google is the expected primary; GitHub covers the technical-friends subset.
-   The social-providers config is a literal list in `auth.ts`, so additions later are a
-   few-line change. Apple Sign In, magic links, and passkeys are addressed in the
-   [Sign-In Methods at MVP](#sign-in-methods-at-mvp) section.
+1. **Config should live in code.** This project leans heavily on agent-assisted workflows. Agents
+   can read and edit TypeScript or Terraform; they cannot reliably own a SaaS dashboard.
+2. **The choice should stay portable.** Auth should not pre-decide the future backend ADR.
+3. **Costs should stay predictable.** A personal project does not need per-MAU pricing pressure.
+4. **Social OAuth is the primary sign-in model.** Google is the default path; GitHub is a useful
+   secondary provider. Email/password is out of scope.
+5. **MVP can tolerate some operational ownership.** At inner-circle scale, owning the runtime is
+   acceptable if it keeps the system simpler and more portable.
+
+The market context matters mainly because it reduces decision risk. In 2025, the OSS TypeScript
+auth space consolidated around Better Auth: Lucia was sunset in March 2025, and Auth.js's official
+migration path now points to Better Auth after the September 2025 merger. In 2026, Better Auth is
+not an experimental contrarian pick; it is the main code-first OSS option in this category.
 
 # Decision
 
-I **propose** using **[Better Auth](https://better-auth.com)** — an MIT-licensed, TypeScript-first,
-self-hosted authentication library — as the identity layer for the recipe site.
+Use **[Better Auth](https://better-auth.com)** as the recipe site's authentication library.
 
-Auth config lives in a TypeScript file in this repository. The user/session/account schema is
-generated from that config into our database schema (Drizzle / Prisma / Kysely, to be picked in
-a future backend ADR). Social OAuth credentials live in [Doppler](https://www.doppler.com/) —
-proposed in the
-[personal-site Doppler ADR](/projects/personal-site/adrs/035-doppler) as the cross-project
-secrets layer, with
-[Terraform Cloud (ADR 016)](/projects/recipe-site/adrs/016-terraform-cloud) provisioning the
-Doppler bootstrap token. The runtime injection mechanism — Workers secret bindings, Node
-`process.env`, or otherwise — belongs in the future backend ADR. There is no SaaS control
-plane to fight, no dashboard that drifts from the code, and no vendor that can change pricing
-on a free account.
+Auth configuration should live in repository code. Social OAuth credentials should live in the
+project's secrets layer. The exact runtime, database, and deployment target remain deferred to a
+future backend ADR.
+
+At MVP, the intended scope is:
+
+| Method               | MVP?         | Notes                                                       |
+| -------------------- | ------------ | ----------------------------------------------------------- |
+| **Google OAuth**     | **Yes**      | Expected primary sign-in path.                              |
+| **GitHub OAuth**     | **Yes**      | Useful secondary path for technical friends.                |
+| **Apple OAuth**      | **Deferred** | Add only if a real user need appears.                       |
+| **Email + password** | **No**       | Not worth the support and security overhead.                |
+| **Magic links**      | **Deferred** | Adds email-delivery and link-consumption edge cases.        |
+| **Passkeys**         | **Deferred** | Worth revisiting later, not necessary for MVP.              |
+| **First-party MFA**  | **Deferred** | Social providers handle MFA at the identity-provider layer. |
+
+The initial shape is intentionally small:
 
 ```ts
-// auth.ts — single source of truth for auth config (MVP shape).
-// Apple OAuth, passkey, two-factor, and the OAuth 2.1 provider for agents/MCP
-// are all deferred per the matrix in "Sign-In Methods at MVP" — they're a
-// few-line config addition each, applied when the trigger for that feature fires.
 export const auth = betterAuth({
-  database: drizzleAdapter(db, { provider: "sqlite" }),
+  database: adapter(db),
   socialProviders: {
-    google: { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET },
-    github: { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET },
+    google: {
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+    },
+    github: {
+      clientId: env.GITHUB_CLIENT_ID,
+      clientSecret: env.GITHUB_CLIENT_SECRET,
+    },
   },
-  plugins: [
-    organization(), // household model — see "What This Enables"
-  ],
+  plugins: [organization()],
 });
 ```
 
-**There's no separate Better Auth service to host for the auth runtime.** The package is
-imported by whatever backend the future ADR picks; the snippet above runs in that same
-process. User identities, sessions, OAuth state, and the `organization` plugin's membership
-data all live in our database — there is no Better Auth control plane on the request path,
-no auth API to call, no vendor-owned user table. This is the opposite shape from SaaS
-options like Clerk or Auth0, where the auth service itself is hosted by the vendor and our
-app makes API calls into it (covered in detail in
-[Alternatives Considered](#alternatives-considered)).
+Better Auth's hosted **Infrastructure** product is explicitly **out of scope** for MVP. This ADR
+chooses the library, not a hosted control plane. Hosted dashboards, audit logs, or extra abuse
+protection can be a later operational decision if usage justifies them.
 
-**Operational add-ons are a separable, later decision.** Better Auth offers a managed
-infrastructure platform ([Better Auth Infrastructure](https://better-auth.com/pricing) —
-$0 Starter, $20/mo Pro flat, Enterprise on request) that adds a hosted dashboard,
-[Sentinel](https://better-auth.com/pricing) behavioural threat detection (Bot Detection,
-Brute Force, Breached Passwords, Impossible Travel, Suspicious IPs, etc.), audit logs with
-SIEM log drain, and SSO/SCIM. This ADR proposes the **library alone** at MVP — not the
-hosted Infrastructure tier. The reasoning:
+The authorization model remains a separate future ADR. Better Auth gives us stable identity and a
+household membership primitive; it does not settle how recipe visibility and sharing rules should
+work.
 
-* The auth-library decision and the hosted-ops decision are different decisions with
-  different tradeoff shapes; bundling them obscures both.
-* At inner-circle scale the operational burden the library leaves on us (build admin UI when
-  we want one, wire Turnstile for CAPTCHA, accept Cloudflare-edge level bot protection) is
-  small. The Starter tier is genuinely tempting at $0 but the cost isn't dollars — it's a
-  synchronous dependency in the auth request path (the `dash()` and `sentinel()` plugins
-  call out to Better Auth Infrastructure during sign-in flows, fail-open on outage, see
-  [Hosted Better Auth Infrastructure as a Later Add-On](#hosted-better-auth-infrastructure-as-a-later-add-on)),
-  sub-processor disclosure in our privacy policy, auth event data flowing to Better Auth
-  Infrastructure servers, and a slim business-risk exposure to a $5M-seed startup. Worth it
-  if/when the operational features matter; not worth it just for "dashboard convenience."
-* Migration is a few-line change in `auth.ts`: add the `dash()` and `sentinel()` plugins,
-  point them at our Better Auth Infrastructure project. We can opt in later if and when the
-  ops features become valuable, with clear triggers documented in
-  [When to Revisit](#when-to-revisit).
+# Why Better Auth
 
-Hosted Better Auth has its own pros and cons distinct from the library — they're listed in
-[Hosted Better Auth Infrastructure as a Later Add-On](#hosted-better-auth-infrastructure-as-a-later-add-on)
-near the end of this ADR for completeness.
+| Need                             | Better Auth fit                                                                                                                                                                                                         |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Code-first configuration**     | Auth is configured in TypeScript in the repo, which fits the project's agent-assisted workflow.                                                                                                                         |
+| **Portability**                  | Built around modern web runtime primitives rather than a single framework or hosted platform.                                                                                                                           |
+| **Predictable cost**             | Self-hosted library, no per-MAU pricing curve.                                                                                                                                                                          |
+| **Household sharing foundation** | The [`organization` plugin](https://better-auth.com/docs/plugins/organization) provides a ready-made membership primitive.                                                                                              |
+| **Future service / agent auth**  | Optional [`oauth-provider`](https://better-auth.com/docs/plugins/oauth-provider) and [`api-key`](https://better-auth.com/docs/plugins/api-key) plugins exist if the project later exposes APIs or agent-facing tooling. |
+| **Maturity**                     | The broader OSS TypeScript auth market has consolidated around it rather than away from it.                                                                                                                             |
 
-D1 itself is supported in core as of
-[Better Auth v1.5 (Feb 2026)](https://better-auth.com/blog/1-5) — the D1 binding is passed
-directly in the config, with no separate adapter package required. For the surrounding
-Cloudflare primitives (KV as a secondary session/rate-limit store,
-[Hyperdrive](https://developers.cloudflare.com/hyperdrive/), R2), the community-maintained
-[`better-auth-cloudflare`](https://github.com/zpg6/better-auth-cloudflare) package by `zpg6`
-provides drop-in adapters. If the backend ADR lands on Workers + D1, this is a drop-in. If it
-lands somewhere else, Better Auth has adapters for every mainstream Node DB.
+Two points matter most:
 
-This aligns with:
+1. **The source of truth is code.** That makes the auth layer reviewable, diffable, and compatible
+   with how the rest of the project is built.
+2. **The operational shape matches the project.** At MVP scale, a small self-hosted library is a
+   better fit than paying for a large hosted auth platform before the problem actually demands one.
 
-* **[LLM-Optimized](/projects?tab=philosophy#llm-optimized)** — auth config IS the repo. Coding
-  agents read `auth.ts`, modify it, regenerate the schema, and ship. No "go to the Clerk
-  dashboard and toggle X" handoff. Better Auth additionally publishes
-  [`llms.txt`](https://better-auth.com/llms.txt), a documentation MCP server, and
-  Claude/Cursor skills — best-in-class for AI-agent consumption.
-* **[Less Is More](/projects?tab=philosophy#less-is-more)** — one TypeScript file plus
-  generated schema. No vendor, no dashboard, no per-MAU billing curve to plan around. Apple
-  JWT rotation does land on us as ongoing maintenance (see
-  [Consequences → Negative](#negative)) but it's a single scheduled job.
-* **[The Goldilocks Zone](/projects?tab=philosophy#the-goldilocks-zone)** — the landscape
-  consolidation covered in the [Summary](#summary) places Better Auth in early-majority
-  territory on raw market-share signals (28.4k GitHub stars, $5M Peak XV seed, weekly minor
-  releases). The agent-friendliness story (`llms.txt` + MCP + Skills) is what specifically
-  tips this decision from "lateral peer of Clerk/Auth0" toward "structurally better for our
-  priorities."
-* **[Short Feedback Loops](/projects?tab=philosophy#short-feedback-loops)** — adding a new
-  social provider or org-plugin role is a one-PR change that the CI pipeline validates.
-  No webhook setup in a vendor UI. No "save and republish" step. No drift between dashboard
-  and code.
+# Cost Model
 
-## Sign-In Methods at MVP
+As of **May 27, 2026**, the cost picture is straightforward:
 
-| Method | MVP? | Rationale |
-| --- | --- | --- |
-| **Google OAuth** | **Yes** | Largest single account population; first-class in Better Auth; zero rotation cost. Expected primary sign-in path for most users. |
-| **Apple OAuth** | **No (deferred)** | No iPhone users in the inner circle currently, and the $99/yr Apple Developer Program isn't justified by anything else on the roadmap (no native iOS plans; PWA works on Android without an Apple developer account). Easy to add later if an iPhone user joins and prefers it — a few-line config change in `auth.ts` plus the Developer Program signup. The 6-month JWT client secret rotation gotcha (covered in [Consequences → Negative](#negative)) becomes relevant at the same point. |
-| **GitHub OAuth** | **Yes** | Trivial to add; covers the technical-friends subset who'd find Google sign-in surprising on a code-adjacent project. |
-| **Email + password** | **No** | Operational cost (resets, breach monitoring, password hygiene) not worth it for this audience. Workers CPU budget for scrypt is also marginal — a [real reported issue](https://github.com/better-auth/better-auth/issues/8860) on Better Auth that doesn't apply when we don't use passwords. |
-| **Magic links** | **No (deferred)** | OAuth is the primary path; magic links add deliverability concerns (SPF/DKIM/DMARC, a transactional provider like [Resend](https://resend.com), and the [email-scanner GET-burn problem](https://github.com/supabase/auth/issues/1214) where corporate link scanners follow the link and consume the one-time token before the user does) for a path most users won't take. Reasonable to add later if a real user reports a meaningful gap. |
-| **Passkeys** | **No (post-MVP)** | Browser/OS support is essentially solved per [Corbado's 2026 benchmark](https://www.corbado.com/passkey-benchmark-2026) (Safari ~99%, Android ~97%, macOS ~91%), and Better Auth's [passkey plugin](https://better-auth.com/docs/plugins/passkey) is production-grade. But the UX cost for non-technical household users is real, and recovery is naturally covered by social OAuth as primary. Add as an opt-in "secure your account" enhancement once we have real users to learn from. |
+| Component                            | Cost                                                                                                                                                                                                                               |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Better Auth library**              | **$0**. The framework itself is free and open source.                                                                                                                                                                              |
+| **Better Auth Infrastructure**       | **Out of scope for MVP.** If adopted later: Starter is **$0/month**; Pro is **$20/month**; Enterprise is custom-priced.                                                                                                            |
+| **Better Auth Infrastructure usage** | Starter includes 1 dashboard seat, 10,000 audit logs/month, and 1,000 security detections/month. Pro includes unlimited seats, 20,000 audit logs/month then $0.0001/event, and 10,000 security detections/month then $0.001/event. |
+| **Google / GitHub OAuth**            | **$0** at the auth-provider layer for normal use.                                                                                                                                                                                  |
+| **Email / SMS**                      | **$0 at MVP** because email/password, magic links, and first-party MFA are deferred. If Better Auth Infrastructure Pro is adopted later, its pricing page lists $0.001/email and $0.09/SMS.                                        |
+| **Database / session storage**       | Deferred to the backend ADR. This ADR does not pre-decide those costs.                                                                                                                                                             |
 
-**MFA / 2FA as an enhancement layer** (not a sign-in method, so noted separately): not needed at
-MVP — social OAuth providers (Google, GitHub) handle their own MFA, so the second factor is
-already happening at the identity-provider layer. If we ever offer first-party MFA on top
-(once any direct-credentials sign-in path exists, or if household data sensitivity grows),
-Better Auth's [`two-factor` plugin](https://better-auth.com/docs/plugins/2fa) covers TOTP at
-no cost in the library. Worth flagging because Clerk and Auth0 paywall MFA off their free
-tiers ($20/mo Pro on Clerk, $35/mo Essentials on Auth0).
+The practical implication is that the MVP auth decision does **not** add a mandatory monthly SaaS
+line item. The first real paid cost only appears if the project later chooses hosted operational
+features rather than staying with the library alone.
 
-## What This Enables
+## Cost Shape Of SaaS Alternatives
 
-| Feature | What Better Auth provides directly |
-| --- | --- |
-| **Stable user identity** | Long-lived user ID survives provider changes — a user who signed up with Google can later link a second provider without losing their associated data. |
-| **Household model** | The [`organization` plugin](https://better-auth.com/docs/plugins/organization) provides teams, roles, invites, custom fields, and multi-tenant isolation. "Household" is a renamed organisation. The authz ADR may still own per-recipe ACLs, but membership is solved here. |
-| **Public recipes** | A boolean flag on the recipe row; no auth dependency. |
-| **Account deletion** | Better Auth ships GDPR-shaped delete-user flows; we own the cascade across our recipe data, but the auth half is library-provided. |
-| **Cross-runtime service identity (M2M)** | The free [OAuth 2.1 Provider plugin](https://better-auth.com/docs/plugins/oauth-provider) issues access tokens via `client_credentials` grant, MCP-ready with dynamic client registration. Covers planned future cases: a GPU VPS calling the main API for AI inference, third-party developers integrating with the recipe API, MCP tools / agents authenticating on behalf of users. The simpler [API Key plugin](https://better-auth.com/docs/plugins/api-key) covers the lower-ceremony cases (background workers, internal scripts). No per-token cost. |
-| **Agent-era identity (Agent Auth Protocol)** | The Better Auth team is creating and maintaining [Agent Auth Protocol](https://agent-auth-protocol.com/) — an open standard for AI agent authentication, authorization, and service discovery. Treats agents as first-class principals with scoped capabilities (e.g. `transfer:funds≤500`), distinct identities per agent (so three agents calling the same API are distinguishable), and a well-known discovery endpoint. Better Auth ships the reference [server-side plugin](https://better-auth.com/docs/plugins/agent-auth). Spec is v1.0 published, v2.0 in design. Forward-aligned with planned third-party-developer / MCP / agent use cases in a way no SaaS competitor matches at this layer. |
+The reason pricing still weighs against the hosted options is not just "they cost money." It is
+that several of them introduce **usage dimensions that map directly to the roadmap**: monthly
+active users, machine-to-machine traffic, abuse checks, or paid operational add-ons.
 
-## What Specifically Better Auth Provides
+As of **May 27, 2026**, the most decision-relevant cost signals are:
 
-* **34+ social providers** built-in — Google, Apple, GitHub, Discord, Microsoft, Facebook,
-  TikTok, Twitch, X, LinkedIn, and more. Adding a new one is a few-line `socialProviders.X`
-  block in the config file.
-* **Native Cloudflare D1 support in core** as of
-  [v1.5 (Feb 2026)](https://better-auth.com/blog/1-5) — the D1 binding is passed directly
-  in the config, with the built-in dialect handling query execution, batch operations
-  (D1 doesn't support interactive transactions, so atomicity is via `batch()`), and
-  introspection through D1's native API. This is what makes the Workers-runtime story
-  real, not aspirational. The community-maintained
-  [`better-auth-cloudflare`](https://github.com/zpg6/better-auth-cloudflare) companion
-  package by `zpg6` covers the surrounding Cloudflare primitives — KV, Hyperdrive, R2 —
-  which are not in core.
-* **Production-grade plugins** including
-  [`organization`](https://better-auth.com/docs/plugins/organization) (teams, roles, invites,
-  custom fields), [`passkey`](https://better-auth.com/docs/plugins/passkey) (SimpleWebAuthn
-  under the hood, conditional UI, PRF extension, cross-platform + platform authenticators),
-  [`magic-link`](https://better-auth.com/docs/plugins/magic-link),
-  [`two-factor`](https://better-auth.com/docs/plugins/2fa) (TOTP),
-  [`admin`](https://better-auth.com/docs/plugins/admin) (basic admin UI we can mount),
-  [`anonymous`](https://better-auth.com/docs/plugins/anonymous) (browse-without-account,
-  later upgrade), [`rate-limiter`](https://better-auth.com/docs/concepts/rate-limit), and
-  [`captcha`](https://better-auth.com/docs/plugins/captcha) (Cloudflare Turnstile fits in
-  via the [captcha plugin](https://better-auth.com/docs/plugins/captcha) when public signup
-  arrives).
-* **First-class M2M / agent / MCP support** — the
-  [`oauth-provider`](https://better-auth.com/docs/plugins/oauth-provider) plugin turns the
-  Better Auth instance into a full OAuth 2.1 authorization server with
-  `authorization_code`, `refresh_token`, and `client_credentials` grants. **MCP-ready by
-  design** with dynamic client registration for public and confidential clients — third-
-  party developers, AI agents, and MCP tools can authenticate against the recipe API
-  without per-integration custom code. The simpler
-  [`api-key`](https://better-auth.com/docs/plugins/api-key) plugin covers low-ceremony
-  cases (background workers in a GPU VPS calling back to the API, internal scripts).
-  Forward-looking strength given planned multi-runtime architecture.
-* **Leading the agent-auth standard.** Beyond shipping plugins, the Better Auth team is
-  creating and maintaining [Agent Auth Protocol](https://agent-auth-protocol.com/), an
-  open standard for AI agent authentication, authorization, and service discovery — the
-  layer above generic M2M that OAuth wasn't designed for. The protocol treats agents as
-  first-class principals (per-agent identity, scoped capabilities, well-known discovery),
-  with v1.0 spec published and v2.0 in active design. The
-  [Better Auth `agent-auth` plugin](https://better-auth.com/docs/plugins/agent-auth) is
-  the reference server implementation. Auth0 has "Auth0 for AI Agents" as a paid add-on
-  (50% of base price, proprietary); Better Auth's bet is on the open-standard layer
-  instead. Worth flagging because the project's planned third-party-developer / MCP /
-  agent use cases sit exactly in this space.
-* **Schema generation via CLI** — `better-auth generate` produces Drizzle/Prisma/Kysely
-  schema fragments that get committed alongside the rest of the database schema. The auth
-  schema is reviewed and migrated through the same workflow as recipe data.
-* **TypeScript types end-to-end** — auth state, session, and user shapes are inferred from
-  the config. No runtime-only "user.id is a string, trust me" footguns.
-* **Built on Web standards.** Uses `fetch`, `Request`, `Response`, `Web Crypto` — the same
-  runtime contract the Workers V8 isolate provides. No Node-specific imports in the hot path.
-* **Documentation engineered for coding agents.** `llms.txt`, an MCP server
-  documented at [`/docs/ai-resources`](https://better-auth.com/docs/ai-resources), an
-  in-docs "Ask AI" search, and installable Claude/Cursor skills. This is the criterion that
-  most directly distinguishes Better Auth from every SaaS-managed alternative — agents can
-  read the actual config to know the truth, instead of having to ask which boxes are ticked
-  in a dashboard.
+| Provider          | Public pricing signal                                                                                                                                                                                                                                                                                                                                             | Why it matters here                                                                                                                |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **Clerk**         | Free up to **50,000 MRU**. Pro starts at **$20/month** billed annually. M2M tokens are priced by usage after free monthly allowances: **$0.001** per token creation after 2,500/month and **$0.00001** per verification after 100,000/month.                                                                                                                      | Human-user auth is inexpensive early, but machine traffic introduces a separate metered cost axis.                                 |
+| **Auth0**         | Free up to **25,000 external active users**. Pricing page shows **1,000** M2M authentications on Free and Essentials, **5,000** on Professional and Enterprise, with M2M add-ons on paid tiers. Essentials starts at **$35/month**.                                                                                                                               | The cost shape is more sensitive to API and agent usage because M2M is explicitly quota-based.                                     |
+| **Kinde**         | Free includes **10,500 MAU**. Pro starts at **$25/month**. Extra MAU are billed above the included tier. Free includes M2M applications; Pro advertises **uncapped M2M tokens**.                                                                                                                                                                                  | More favorable than Clerk/Auth0 on M2M cost, but still introduces a MAU-based pricing curve once usage grows past the free tier.   |
+| **WorkOS**        | AuthKit is free up to **1 million monthly active users**. Separate add-ons are priced independently, for example **Radar** starts free for 1,000 checks then **$100 per 50,000 checks**, and **custom domains** are **$99/month**. WorkOS Connect supports M2M, but the public pricing page does not expose token-based M2M pricing as clearly as Clerk or Auth0. | End-user auth cost is generous, but the overall price surface becomes more modular as more platform capabilities are turned on.    |
+| **Supabase Auth** | Free includes **50,000 MAU**. Pro starts at **$25/month** with **100,000 MAU** included, then **$0.00325 per MAU**.                                                                                                                                                                                                                                               | Straightforward MAU pricing with predictable early cost, but still a per-user growth curve rather than infrastructure-shaped cost. |
 
-## Cost Model
-
-The library itself is free (MIT). The full cost surface for the project is:
-
-| Component | Cost |
-| --- | --- |
-| **Better Auth library** | $0 (MIT OSS). |
-| **Better Auth Infrastructure** | $0 at MVP — we don't adopt this tier under this ADR. If/when we do, the price is $0 Starter (1 seat, 10k audit logs, 1k Sentinel detections) → $20/mo Pro (unlimited seats, 20k logs then $0.0001/event, 10k detections then $0.001/event) → custom Enterprise. See [Hosted Better Auth Infrastructure as a Later Add-On](#hosted-better-auth-infrastructure-as-a-later-add-on). |
-| **Database** | Whatever the backend ADR picks. D1 is free up to 5GB / 5M rows / 25B reads + 50M writes per month — covers a recipe site for years. |
-| **Session storage** | Whatever the backend ADR picks. If KV, the Cloudflare free tier (100k reads/day, 1k writes/day, 1GB stored) is comfortably enough at MVP scale. |
-| **Google / GitHub OAuth** | Free. |
-| **Email provider (Resend / Postmark / SES)** | $0 at MVP scale (Resend's free tier is 3k emails/month). Only relevant once magic links / invites ship. |
-| **Per-MAU pricing** | None. Linear in our DB cost, not in MAU count. |
-
-For comparison, the SaaS alternatives below begin at \~$0 at free-tier scale (50k MAU for Clerk
-and Supabase, 25k MAU for Auth0, 1M MAU for WorkOS) and step to $20-300+ /month at the first
-paid tier. The cost story matters less in absolute terms than in *shape*: Better Auth costs
-scale linearly with infrastructure we already pay for; SaaS auth costs scale with user count
-plus per-vendor minimums and renewal multipliers
-([Auth0 specifically](https://securityboulevard.com/2025/09/auth0-pricing-explained-and-why-startups-call-it-a-growth-penalty/)
-has a reputation for 4x+ renewal multipliers at growth thresholds).
+The comparison is less about who has the lowest sticker price and more about **which pricing axis
+becomes load-bearing if the roadmap succeeds**. Better Auth's library avoids both a per-MAU curve
+and a separate M2M token meter. That matters because the planned future shape includes not just
+human users, but potentially agents, MCP tooling, background services, and third-party API access.
 
 # Alternatives Considered
 
-The auth space splits first on **operational shape**, then on **how config is managed**:
+## Dashboard-First SaaS: Clerk, Kinde, WorkOS, Supabase Auth
 
-**Self-hosted libraries** — Better Auth, Auth.js v5, Stack Auth, Lucia. TypeScript packages
-you `npm install` and import into your own backend. There's nothing separate to host: the
-library runs inside whatever process your app already runs, user/session state lives in your
-database, and OAuth callbacks hit your existing routes. You own the runtime; the upside is
-that config is necessarily code-in-repo, the downside is that everything operational (rate
-limiting, abuse mitigation, audit logs, JWT rotation, email delivery) is yours too. *Better
-Auth specifically offers an optional [hosted infrastructure platform](https://better-auth.com/pricing)*
-($0 Starter, $20/mo Pro) that takes back some of those operational obligations (dashboard,
-Sentinel behavioural detection, audit logs, transactional comms). Enabling its plugins adds
-a synchronous dependency in the auth request path (fail-open on outage — see
-[Hosted Better Auth Infrastructure as a Later Add-On](#hosted-better-auth-infrastructure-as-a-later-add-on)
-for the architecture), so the slider between pure self-host and pure SaaS is real but not
-free — and unique to Better Auth among the libraries here.
+These products offer polished managed auth, prebuilt UI, and vendor-owned operations. Those are
+real advantages.
 
-**SaaS auth services** — Clerk, Kinde, WorkOS AuthKit, Auth0, Supabase Auth. The auth
-service is hosted by the vendor. Your app calls their API; users live in their database;
-signup/signin happens on their UI (or a customised version of it). They own the runtime —
-including all the operational obligations a library would push onto you — but you don't own
-the user data, config typically lives in their dashboard, and **their uptime becomes part of
-yours**: a vendor outage means your users can't sign in even if your app is fine. SaaS auth
-vendors generally publish strong SLAs (99.9%+ is table stakes), so this dependency is more
-shape than recurring pain, but it's real and not present with a self-hosted library. Within
-the SaaS bucket, **Auth0 is the outlier** with an unusually mature first-party Terraform
-provider that pulls almost the entire configuration surface into code; the others (Clerk,
-Kinde, WorkOS, Supabase Auth) are dashboard-first.
+They are rejected because their configuration surface mostly lives in vendor dashboards. That is
+the wrong fit for a project that wants auth to behave like the rest of the codebase. Supabase Auth
+is an even worse fit because it effectively pre-decides the wider backend platform.
 
-This split drives the project-fit story. The config-as-code velocity bet disqualifies the
-dashboard-first SaaS bucket as a class; Supabase Auth has the extra problem of coupling auth
-to the rest of the Supabase platform. Self-hosted libraries pass the IaC test by
-construction, leaving the choice between them on adoption, agent-friendliness, and runtime
-support. The framing below walks the library bucket first, then the dashboard-first SaaS, and
-finishes with Auth0 as the documented escape hatch.
+## Auth0
 
-## OSS Code-First Peers
+Auth0 is the strongest SaaS alternative and the clearest **escape hatch** if the self-hosted path
+stops being worth it.
 
-### [Auth.js v5](https://authjs.dev/) (formerly NextAuth)
+Its first-party Terraform provider gives it the only serious code-first configuration story in the
+SaaS auth category. If a hosted platform becomes necessary, Auth0 is the most credible option
+because configuration can still live in code.
 
-The former Next.js default; now strategically deprecated by its own maintainers.
+It is rejected for now because:
 
-* **Pros**: Three-year head start on adoption. 80+ providers. Has a
-  [D1 adapter](https://authjs.dev/getting-started/adapters/d1) that works on Cloudflare.
-  Genuinely OSS, config-in-repo, no SaaS control plane.
-* **Cons**: v5 has been in beta for ~3 years with no GA. Primary maintainer Balázs Orbán
-  [departed in January 2025](https://github.com/nextauthjs/next-auth/discussions/13382). On
-  September 22, 2025 the project
-  [joined Better Auth](https://better-auth.com/blog/authjs-joins-better-auth) and now
-  redirects new users to it via an
-  [official migration guide](https://authjs.dev/getting-started/migrate-to-better-auth).
-  Security patches continue; new features do not. Apple JWT client secret rotation is
-  manual (same as Better Auth).
-* **Decision**: **Rejected.** The chosen replacement by its own maintainers is Better Auth.
-  Adopting Auth.js for a greenfield decision in 2026 buys a migration to Better Auth as a
-  guaranteed future task.
+* the product is heavier than this project needs
+* pricing at growth is less predictable; as of May 27, 2026 the pricing page shows a free tier
+  up to 25,000 external active users, plus a separate M2M quota of 1,000 on Free/Essentials and
+  5,000 on Professional/Enterprise
+* it adds a vendor relationship and platform surface area we do not currently need
 
-### [Stack Auth](https://stack-auth.com/)
+## Other OSS Libraries
 
-OSS competitor to Better Auth, MIT/AGPL dual-licensed.
-
-* **Pros**: Similar shape — code-first config, organisations primitive ("teams") with
-  flexible permission graphs, supports passkeys and magic links. Self-hostable.
-* **Cons**: ~[6.8k GitHub stars](https://github.com/stack-auth/stack-auth) (vs Better Auth's
-  28.4k — 4x less adoption). No documented Cloudflare Workers integration story; primarily
-  Next.js + Node 20-targeted. No Auth.js merger tailwind. No `llms.txt` / MCP / Skills
-  push. Apple Sign In support is less prominent than Better Auth's; JWT rotation story
-  unclear.
-* **Decision**: **Rejected.** Dominated on every meaningful dimension by Better Auth.
-
-### [Lucia](https://lucia-auth.com/)
-
-* **Decision**: **Rejected — sunset.** Officially deprecated
-  [March 2025](https://github.com/lucia-auth/lucia/discussions/1714); now repositioned as a
-  "learning resource" for implementing sessions from scratch. The npm package will not
-  receive new features.
-
-## SaaS, Dashboard-First (Fail the IaC Constraint)
-
-These products are real auth platforms with strong managed-service value — Apple JWT
-rotation handled, passkeys polished, audit logs out of the box, email delivery and abuse
-mitigation absorbed server-side. But each one's source of truth lives in a vendor dashboard
-with no credible IaC alternative, which loses the
-[config-as-code velocity bet](#context) for this project. (SOC 2 reports are also commonly
-offered; they're not relevant for a personal recipe site but listed for completeness.)
-
-### [Clerk](https://clerk.com)
-
-The most popular drop-in auth SaaS for Next.js apps, with excellent React components and
-documented Cloudflare support via OpenNext.
-
-* **Pros**: The most polished drop-in DX in the entire landscape. Specifically:
-  * **Prebuilt React components** — `<SignIn />`, `<SignUp />`, `<UserButton />`,
-    `<UserProfile />`, `<OrganizationProfile />` and more. Fully styled, accessible, with the
-    verification / password-reset / MFA enrolment / account-settings flows wired in. Building
-    equivalent UI from Better Auth's primitives is real, non-trivial work — Clerk eliminates
-    it.
-  * **Optional hosted sign-in pages** — users redirect to Clerk-hosted URLs and never see
-    your auth UI at all if you don't want to build one.
-  * **Email delivery is theirs** — verification emails, MFA codes, password resets, magic
-    links all sent from Clerk's infrastructure. No transactional provider (Resend / Postmark
-    / SES) to wire up; no SPF/DKIM/DMARC to maintain.
-  * **All operational obligations absorbed server-side** — Apple JWT client secret rotation,
-    session management, rate limiting, abuse mitigation, audit logs, GDPR compliance machinery.
-    A Better Auth deployment lands all of these on us; Clerk lands them on Clerk.
-  * **Polished user-management dashboard out of the box** — Clerk's own UI shows every
-    user, lets you ban / impersonate / delete / inspect sessions, no integration work.
-    Better Auth now has its own hosted dashboard via [Better Auth
-    Infrastructure](https://better-auth.com/pricing) — connects via the `dash()` plugin to
-    dash.better-auth.com, free tier covers 1 seat, Pro at $20/mo flat covers unlimited
-    seats. Plus the [`admin` plugin](https://better-auth.com/docs/plugins/admin) primitives
-    for fully-self-hosted UI work, and starter templates that bundle one
-    ([zexa-starter](https://github.com/zexahq/better-auth-starter),
-    [Supastarter](https://supastarter.dev/better-auth-ui-components)). So the actual Clerk
-    advantage here is "no separate hosted service to plug in" — Better Auth's hosted
-    dashboard is genuinely competitive feature-wise but is an opt-in vendor dependency on
-    top of an otherwise self-hosted library.
-  * **Built-in bot / abuse detection** — behavioural heuristics on signup attempts plus
-    automatic device fingerprinting. Better Auth has its own competitor here too —
-    [Sentinel](https://better-auth.com/pricing), part of Better Auth Infrastructure,
-    covers Bot Detection, Brute Force, Breached Passwords, Impossible Travel, Rate
-    Limiting, Geo Blocking, Suspicious IPs, Disposable Emails, Email Abuse, and Free
-    Trial Abuse. Free tier covers 1k security detections/month; Pro tier covers 10k then
-    $0.001/event. Combined with Cloudflare edge protections we'd already have (Bot Fight
-    Mode, Turnstile, WAF, edge rate limiting filtering most traffic before it reaches the
-    origin), the residual Clerk advantage is mostly down to "all of this is on by default
-    in Clerk, without provisioning Sentinel separately" — a real onboarding ease win, but
-    a much smaller capability gap than I'd suggest if Sentinel weren't an option.
-  * **Webhook system** — `user.created`, `session.created`, `email.created`, etc. fire to
-    HTTP endpoints you supply. Most useful when you don't own the auth runtime: the vendor
-    is the only place that *sees* these events happen, so a webhook is the only way to fan
-    them out. With Better Auth running in our process, auth events happen inside our app and
-    can be published to a generic databus (Cloudflare Queues, NATS, Kafka, or any pub/sub
-    fabric the broader architecture picks) — downstream consumers subscribe to that bus
-    rather than to Clerk's webhook contract. So this advantage largely evaporates for any
-    self-hosted setup with its own event-propagation layer.
-  * 50k monthly retained users on the free tier (raised from 10k in their
-    [Feb 2026 pricing change](https://saasprices.net/blog/clerk-free-plan-changes)).
-  * **Production-grade passkeys, MFA, organisations** — *but with a paywall to know about*:
-    MFA is **not on Clerk's free Hobby tier** (50k MRUs free) as of 2026; it requires Pro
-    at $20/mo billed annually ($25 monthly). The old $100/mo Enhanced Authentication
-    add-on was folded into Pro in a Feb 2026 pricing change, so it's much cheaper than it
-    used to be, but MFA is still gated. Passkeys and organisations are included from free
-    tier. Better Auth provides MFA as a [free plugin](https://better-auth.com/docs/plugins/2fa)
-    in the library — no equivalent gating.
-  * **Machine-to-machine auth (client credentials)** — Clerk includes 2.5k creations +
-    100k verifications/mo on free tier. Better Auth provides M2M via its free
-    [OAuth 2.1 Provider plugin](https://better-auth.com/docs/plugins/oauth-provider)
-    (MCP-ready) or the simpler [API Key plugin](https://better-auth.com/docs/plugins/api-key)
-    — both uncapped. **Concretely relevant here**: the planned architecture spans runtimes
-    (GPU VPS for AI inference, possible third-party integrations, MCP servers / agents)
-    where Cloudflare service bindings can't reach. Clerk's caps are generous but real;
-    Better Auth's no-cap, MCP-ready model is forward-aligned with these use cases without
-    a tier upgrade.
-  * Publishes `llms.txt` and an MCP server.
-
-  Clerk's strengths are real and worth listing in full — the rejection below isn't a
-  product critique. It's about which of these strengths still pay off in a 2026 agentic
-  workflow, and which now solve a problem that costs less than it used to.
-* **Cons**: **Terraform story is fundamentally a dead end.** The only Terraform provider is
-  the community-maintained [`buildwithdeck/clerk`](https://github.com/buildwithdeck/terraform-provider-clerk)
-  — 2 GitHub stars, effectively a one-person side project. Supported resources are limited
-  (JWT templates, organisations, application settings via Instance API); the Platform API
-  needed for application/domain provisioning is still in beta and requires Clerk Support to
-  enable. Social provider credentials, branding, email templates, custom domains (fully),
-  webhooks, and most session settings are **not** manageable via Terraform — the dashboard
-  remains the source of truth. This is the precise mode of operation the project's
-  building philosophy is set up to avoid.
-* **Decision**: **Rejected.** Most of what makes Clerk strong — prebuilt React components,
-  hosted sign-in pages, polished auth UI — solves a problem that agentic coding has made
-  much cheaper to solve from primitives. The remaining strengths (operational handling,
-  email delivery, the managed service shape) come tied to a dashboard-first configuration
-  surface that adds friction *specifically* to the work pattern this project leans into.
-  The Clerk strength most asymmetric with how we'd actually work — vendor-side ops absorbing
-  Apple JWT rotation, abuse mitigation, etc. — is also offered by Auth0, which keeps
-  configuration in code. That makes Auth0, not Clerk, the SaaS option to escape to if the
-  OSS library path ever falters. Clerk would be a strong revisit only if (a) agentic
-  workflows materially regress, or (b) we discover we need vendor-hosted auth UI for some
-  reason that ends up not being agent-buildable; the schema is industry-standard so the
-  migration cost is bounded if either happens.
-
-### [Kinde](https://kinde.com)
-
-Newer SaaS competitor positioned between Clerk and Auth0.
-
-* **Pros**: Built for SaaS shape from day one — billing (Stripe integration), feature flags,
-  M2M tokens, and organisations all bundled, so you wire fewer separate tools together.
-  Prebuilt React components and hosted sign-in pages, similar to Clerk. All the operational
-  obligations (Apple JWT rotation, audit logs, abuse mitigation, email delivery) absorbed
-  server-side. Pleasant free tier (10.5k MAU + 5 organisations + 2 environments).
-* **Cons**: **No Terraform provider at all.** **Passkeys still on the roadmap, not GA**
-  ([feature board](https://updates.kinde.com/board/secure-passkey-authentication)).
-  **Magic links explicitly not supported** (Kinde chose OTP codes citing security). That's
-  three of the evaluation criteria failed.
-* **Decision**: **Rejected.**
-
-### [WorkOS AuthKit](https://workos.com)
-
-B2B-leaning auth provider with a striking consumer free tier.
-
-* **Pros**: **1M MAU free** — by far the most generous free tier in the entire landscape.
-  Enterprise SSO (SAML, OIDC) and SCIM directory sync are core to the product, ready out of
-  the box — this is WorkOS's original B2B pitch and it shows. Prebuilt AuthKit React
-  components and hosted sign-in pages similar to Clerk. All the operational obligations
-  (Apple JWT rotation, audit logs, abuse mitigation, email delivery) absorbed server-side.
-* **Cons**: **No Terraform provider.** Passkeys are currently only available via WorkOS's
-  hosted UI, not a custom one — a UX constraint. "Magic Auth" is OTP codes, not true magic
-  links (WorkOS deprecated true magic links because of the email-scanner GET-burn problem —
-  a reasonable design call but worth knowing).
-* **Decision**: **Rejected** on the config-as-code velocity bet. The 1M MAU free tier is
-  genuinely striking and worth flagging for any *future* project where the IaC constraint
-  doesn't bite.
-
-### [Supabase Auth](https://supabase.com/auth)
-
-Auth as one feature of the broader Supabase platform (Postgres, storage, edge functions,
-auth).
-
-* **Pros**: 50k MAU free tier. Apple JWT rotation handled. Decent Cloudflare Workers
-  support after their
-  [May 2026 `@supabase/server` release](https://supabase.com/blog/introducing-supabase-server).
-* **Cons**: **Platform lock-in.** Adopting Supabase Auth couples the auth layer to Supabase
-  as the broader platform — Postgres-only, hosted control plane, with the user table and
-  session state living in Supabase's database. The future backend ADR is effectively pre-
-  decided as "Supabase or rip out the auth layer too." Separately, auth provider config is
-  mostly dashboard-managed; the
-  [official Terraform provider](https://registry.terraform.io/providers/supabase/supabase/latest)
-  covers projects/branches/settings but not OAuth client configuration.
-* **Decision**: **Rejected** on platform lock-in. The
-  [Context](#context) makes portability across plausible backends an explicit property of the
-  auth choice; Supabase Auth + any non-Supabase backend is not really viable, so adopting it
-  here would pre-empt the future backend ADR rather than leave the door open. Every other
-  option in this comparison (Better Auth, Auth.js, Stack Auth, Clerk, Auth0, Kinde, WorkOS)
-  keeps auth and database choices independent.
-
-## SaaS, Terraform-First — Auth0
-
-The only SaaS option with a code-first config story that holds up against the
-config-as-code velocity bet, by virtue of an unusually mature Terraform provider.
-
-### [Auth0](https://auth0.com) (Okta CIC)
-
-The only SaaS option that holds up under the agentic-coding shift — its Terraform provider
-keeps configuration surface in code while still absorbing vendor-side operations. Genuinely
-the second-place pick for this project, and the documented escape hatch if the OSS path
-ever falters.
-
-* **Pros**: The combination of mature IaC + managed-service operations that no other SaaS
-  pulls off. Specifically:
-  * **The most complete first-party Terraform provider in the auth space.**
-    [`auth0/terraform-provider-auth0`](https://github.com/auth0/terraform-provider-auth0),
-    v1.47.0 released May 22, 2026, ~30 releases per year. Resources cover essentially the
-    entire configuration surface — `auth0_client`, `auth0_connection`, `auth0_tenant`,
-    `auth0_role`, `auth0_organization`, `auth0_action`, `auth0_branding`,
-    `auth0_email_provider`, `auth0_email_template`, `auth0_custom_domain`,
-    `auth0_log_stream`, `auth0_attack_protection`, `auth0_prompt`, `auth0_prompt_custom_text`,
-    and more. Configuration genuinely lives in
-    [Terraform Cloud (ADR 016)](/projects/recipe-site/adrs/016-terraform-cloud); the
-    dashboard becomes a log-browser. *This is the differentiator agentic coding actively
-    rewards* — agents can read and edit Terraform exactly the way they can read and edit
-    TypeScript.
-  * **All operational obligations absorbed server-side** — Apple JWT client secret
-    rotation, session management, rate limiting, abuse mitigation, audit logs, GDPR
-    compliance machinery, email delivery (verification, MFA codes, password reset). Same
-    shape as Clerk on this front. Agentic coding does not make any of these cheaper to own.
-  * **Proprietary attack protection** — Adaptive MFA, breached password detection
-    (powered by cross-customer data), anomaly detection, suspicious-IP filtering,
-    brute-force protection. These benefit from seeing attacks across Auth0's entire
-    customer base. Better Auth's [Sentinel](https://better-auth.com/pricing) (part of
-    Better Auth Infrastructure, $20/mo Pro tier) is the closest competitor — overlapping
-    coverage on Bot Detection, Brute Force, Breached Passwords, Impossible Travel,
-    Suspicious IPs. Auth0's product is more mature and benefits from a larger customer
-    base, but Sentinel is now a real Better-Auth-side answer, not a gap.
-  * **Identity provider federation built in** — SAML, OIDC, LDAP, WS-Federation,
-    enterprise SSO connections. Better Auth has OAuth but not native SAML. Not relevant
-    for a personal recipe site, but listed because it's a genuine library-vs-platform gap.
-  * **Universal Login** — Auth0's hosted sign-in pages. Same shape as Clerk's hosted UI.
-    *Narrows under agentic coding* — building equivalent UI from primitives is now cheap.
-  * **Compliance certifications** — SOC 2, ISO 27001, HIPAA, FedRAMP. Not relevant for a
-    personal recipe site (per the [GDPR section](#data-protection--gdpr) above), but
-    real value for projects where compliance is a procurement requirement.
-  * Free tier expanded to 25k MAU in 2026, with Self-Service SSO + SCIM bundled
-    (previously enterprise-only). Most mature product in the entire auth landscape.
-  * **MFA and M2M paywall details** — *worth knowing*: MFA on the free tier is a paid
-    add-on (Auth0 calls this "Pro MFA"); it's included starting at the Essentials plan
-    ($35/mo B2C, $150/mo B2B), and Enterprise MFA is included from Professional ($240/mo
-    B2C). M2M tokens: 1k/month included on free tier, 5k on Professional+, additional
-    M2M as a separately-priced add-on. **The M2M cap matters concretely here** — the
-    planned architecture spans runtimes (GPU VPS, third-party integrations, MCP
-    servers / agents) so M2M token usage will scale with those integrations, not be a
-    fixed cost. Better Auth provides both MFA and M2M (via the MCP-ready OAuth 2.1
-    Provider plugin or the simpler API Key plugin) at no cost in the library, uncapped —
-    structurally better fit for the multi-runtime case than Auth0's per-token model.
-
-  The durable advantages under agentic coding are the **Terraform IaC story** (the only
-  SaaS option that pays off here) and the **operational handoff** (Better Auth pushes JWT
-  rotation, abuse mitigation, email delivery onto us; Auth0 absorbs them). Universal
-  Login is ~free to replicate from primitives; SAML and compliance are real but not
-  project-relevant.
-
-* **Cons**:
-  * **Pricing-curve risk at growth.** Even with the expanded free tier, Auth0's post-Okta
-    commercial reputation is rough.
-    [Reports of 4x+ renewal multipliers at growth thresholds](https://securityboulevard.com/2025/09/auth0-pricing-explained-and-why-startups-call-it-a-growth-penalty/)
-    mean "the recipe site goes viral" becomes a pricing liability that's hard to
-    underwrite. Better Auth has zero per-MAU pricing.
-  * **Product mental-model overhead.** Rules vs Actions vs Flows vs Hooks, with multiple
-    migrations between them over the years. The configuration surface is large because
-    the product is large; for a recipe site we'd use a small fraction of it. Better Auth's
-    surface area is smaller and shaped closer to what this project needs.
-  * **Agent-friendliness exists but lags.** Auth0 publishes
-    [llms-full.txt](https://auth0.com/ai/docs/llms-full.txt), but the documentation is
-    marketing-heavy and sprawling — the surface area an agent has to navigate is much
-    larger than Better Auth's. Better Auth's docs are deliberately engineered for agentic
-    consumption (`llms.txt`, MCP server, Claude/Cursor skills); Auth0's predate that
-    engineering pattern.
-  * **Okta-owned vendor relationship** for a personal project where every other tier of
-    the stack is OSS or Cloudflare-first. Adds a vendor we'd otherwise not have.
-  * **Uptime dependency.** Same shape as any SaaS option — Auth0's uptime becomes ours.
-    Auth0 publishes 99.99% SLA on paid tiers, but the dependency is structural.
-
-* **Decision**: **Rejected, with the closest second-place positioning.** This rejection
-  is meaningfully closer than the dashboard-first ones. Auth0's IaC story is the only
-  SaaS approach the agentic-coding shift actually rewards, and on raw IaC coverage it's
-  strictly better than Better Auth (which doesn't have a SaaS control plane *to* manage
-  with Terraform — different shape of "config in code"). The decision against Auth0 is
-  driven by:
-  1. **Pricing curve** at scale if the recipe site ever opens to public signup — Better
-     Auth has none.
-  2. **Product mental-model overhead** disproportionate to the problem.
-  3. **Better Auth being meaningfully more engineered-for-agents** on documentation
-     (`llms.txt`, MCP server, dedicated Claude/Cursor skills).
-  4. **Okta-owned vendor relationship** for an otherwise non-vendor stack.
-
-  **If Better Auth ever stalls or the OSS library path becomes untenable, Auth0 is the
-  documented escape hatch — and that escape hatch is in code (Terraform), not vendor
-  lock-in.** The migration cost is bounded: the user/session/account schema is
-  industry-standard, and the Terraform config replaces `auth.ts` as the source of truth.
-
-The "outdated" perception of Auth0 is **partially fair, partially not**. On Terraform /
-config-as-code: unfair — they have the best story in the SaaS space, and it's the only
-SaaS story the agentic-coding shift actively rewards. On product mental model and pricing
-posture: fair — the post-Okta tilt toward enterprise CIAM has made the product heavier and
-less developer-friendly than it was in 2019. For this project, the weight is the
-deal-breaker, not the perception.
+* **Auth.js**: rejected because its own maintainers now point greenfield users toward Better Auth.
+* **Lucia**: rejected because it was sunset in March 2025.
+* **Stack Auth**: credible, but weaker on adoption, runtime story, and overall fit than Better Auth.
 
 ## Roll Your Own
 
-A custom auth implementation in Workers — OAuth flows hand-rolled, sessions in KV, user
-records in D1.
-
-* **Pros**: Zero third-party dependencies. Complete control. Educational.
-* **Cons**: Reimplements Better Auth at greater cost and worse coverage. PKCE flow
-  edge cases, CSRF protection, session rotation, secure cookie attributes, OAuth state
-  parameter handling, Apple's nonce requirement, JWT verification, refresh token handling
-  — each of these is a subtle correctness problem that someone has already solved
-  comprehensively. Reinventing them is the [Not Invented Here](https://en.wikipedia.org/wiki/Not_invented_here)
-  trap that the [Less Is More](/projects?tab=philosophy#less-is-more) philosophy
-  specifically warns against.
-* **Decision**: **Rejected.** This is the work to avoid.
+Rejected. Re-implementing OAuth, session management, CSRF protection, cookie handling, and account
+linking would be a large amount of undifferentiated work.
 
 # Consequences
 
 ## Positive
 
-* **Auth config IS the repo.** `auth.ts` plus a generated schema file are the entire
-  source of truth. PRs review the auth model the same way they review the recipe model.
-  No drift between dashboard state and code; no "did someone toggle X in the dashboard?"
-  debugging.
-* **Best-in-class agent friendliness.**
-  [llms.txt](https://better-auth.com/llms.txt) +
-  [MCP server](https://better-auth.com/docs/ai-resources) + Claude/Cursor skills mean
-  coding agents can both *read* the auth config (because it's local TypeScript) and
-  *query* up-to-date Better Auth documentation natively. This compounds with every other
-  agent-assisted task on the project.
-* **No SaaS pricing curve.** Free at MVP scale, free at inner-circle scale (under 50 users),
-  free at small-public scale, and *still free* if the recipe site ever has a viral
-  moment. Cost grows linearly with infrastructure we already pay for, not with MAU.
-* **Cloudflare-native runtime story.** D1 is supported in core as of v1.5; the community
-  `better-auth-cloudflare` package covers KV, Hyperdrive, and R2 on top of that. If the
-  backend ADR picks Workers + D1, this is a drop-in. If it picks something else, Better
-  Auth's wide adapter coverage keeps it portable.
-* **Auth.js merger validates the Goldilocks position.** Adopting Better Auth in May 2026
-  is not an early-adopter bet — it is the consolidating point of OSS TypeScript auth
-  after the September 2025 absorption of Auth.js and the March 2025 sunset of Lucia.
-  28.4k GitHub stars, weekly minor releases, MIT licensed, $5M Peak XV seed, used in
-  production by OpenAI / Databricks / Strapi (vendor claim, public list).
-* **Organisation primitive ready for households.** The
-  [`organization` plugin](https://better-auth.com/docs/plugins/organization) provides
-  teams, roles, invitations, custom fields, and multi-tenant isolation. The future authz
-  ADR can build the four-tier visibility model
-  (private/household/friends/public) without inventing household membership from scratch.
-* **Anonymous browse → authenticated upgrade.** The
-  [anonymous plugin](https://better-auth.com/docs/plugins/anonymous) supports
-  browsing-without-account with state preserved across sign-up, which fits the recipe
-  site's "browsing is public, accounts unlock personalisation" shape exactly.
-* **No vendor account proliferation.** No Clerk / Auth0 / WorkOS account to onboard,
-  bill, audit, or revoke. The only external accounts are the OAuth issuers themselves
-  (Google Cloud Console, GitHub OAuth Apps) — which would be needed by *any* auth solution.
-* **Auth availability stays bounded by app availability.** With Better Auth running in our
-  process, the sign-in path is up iff our app is up. SaaS options would add a separate
-  service whose outage breaks sign-in even when our app is fine. Vendor uptime in this space
-  is generally very good (99.9%+ SLAs), but the shape is meaningfully different: one
-  dependency vs two.
+* **Auth config stays in the repo.** Changes are reviewed in PRs instead of hidden in a dashboard.
+* **The backend ADR stays open.** Auth does not force a database or hosting choice up front.
+* **Costs stay simple.** There is no per-user SaaS pricing curve.
+* **Household sharing gets a head start.** The organization primitive covers membership without
+  forcing us to invent it from scratch.
+* **The support surface stays small.** Social OAuth-first avoids password resets, password storage,
+  and most first-party auth UX complexity.
 
 ## Negative
 
-* **Apple JWT client secret rotation would land on us if/when Apple Sign In is added.**
-  Apple's [6-month maximum JWT expiry](https://developer.apple.com/documentation/accountorganizationaldatasharing/creating-a-client-secret)
-  is non-configurable; Better Auth's
-  [Apple docs](https://better-auth.com/docs/authentication/apple) call out regeneration as a
-  manual responsibility. Apple Sign In is deferred at MVP, so this isn't immediate — but
-  worth flagging now: SaaS options (Clerk, Auth0, Kinde, WorkOS, Supabase) absorb this
-  rotation server-side; Better Auth would leave us with a scheduled job (writing the rotated
-  client secret back to [Doppler](https://www.doppler.com/), then propagating to whatever
-  runtime the backend ADR picks) as our responsibility.
-* **We own the operational runtime.** Database, session storage, rate limiting, abuse
-  mitigation, account lockout, audit logs, GDPR data-subject access / deletion flows — all
-  live in our backend, not a vendor's. Better Auth provides primitives for each but the
-  operational responsibility lands on us. For an inner-circle MVP the cost is low. As that
-  scales up, the options for absorbing this back are documented in
-  [Hosted Better Auth Infrastructure as a Later Add-On](#hosted-better-auth-infrastructure-as-a-later-add-on)
-  (Sentinel / hosted dashboard / audit logs for $0-$20/mo, opt-in per-feature) or, if those
-  prove insufficient, migration to Auth0 via the [escape-hatch path](#auth0-okta-cic)
-  documented above.
-* **Library moves fast.** Better Auth ships minor releases roughly weekly. That's good
-  for fixes and features but means staying current matters; pinning to an exact version
-  in [Renovate (ADR 020)](/projects/recipe-site/adrs/020-renovate) and reviewing
-  changelogs becomes part of the workflow. Renovate already covers this — the cost is
-  one more grouped dep to read carefully.
-* **VC funding overhang on a free OSS library.** Better Auth raised
-  [$5M from Peak XV in June 2025](https://better-auth.com/blog/seed-round). HN
-  [raised concern](https://news.ycombinator.com/item?id=44380185) that VC pressure on a
-  free library typically pushes toward a paid managed service — i.e. "Better Auth Cloud"
-  — which is fine for *us* (we don't have to use it) but could de-prioritise OSS-only
-  improvements. **Bounded by:** the integration shape is OAuth/OIDC + a database schema.
-  Migrating to Auth0 (the documented escape hatch) is a schema migration and a Terraform
-  PR, not a code rewrite. Migrating to a different OSS library is even smaller — the
-  user/session/account schema shape is industry-standard.
-* **Most abuse protection is app-level regardless of auth choice — but Clerk has a real
-  edge at the auth endpoints themselves.** Of the abuse-protection surface, three pieces
-  sit at the auth boundary and the rest sit in the app:
-  * **Sign-in / signup rate limiting** — Better Auth has a built-in rate limiter (KV-backed
-    on Workers, with the
-    [known minimum-TTL gotcha](https://github.com/better-auth/better-auth/issues/7124)
-    worth being aware of). Clerk and Auth0 have equivalent or richer rate limiters
-    server-side. Roughly comparable across all three.
-  * **CAPTCHA on signup** — Better Auth via
-    [Cloudflare Turnstile plugin](https://better-auth.com/docs/plugins/captcha); Clerk and
-    Auth0 have built-in CAPTCHA. Roughly comparable.
-  * **Bot detection / behavioural anti-abuse** — three layers cover this:
-    [Cloudflare's edge protections](https://www.cloudflare.com/application-services/products/bot-management/)
-    (Bot Fight Mode, Turnstile, WAF rules, edge rate-limiting — filter most bot traffic
-    before it reaches the origin), Better Auth Infrastructure's
-    [Sentinel](https://better-auth.com/pricing) (Bot Detection, Brute Force, Breached
-    Passwords, Impossible Travel, Suspicious IPs at $20/mo Pro tier), and the auth
-    library's own rate limiting + Turnstile CAPTCHA. Clerk and Auth0 ship behavioural
-    detection on by default — the operational ease win is real, but the capability gap
-    is much narrower than "Clerk has it, Better Auth doesn't" suggests.
+* **We own the runtime.** Rate limiting, abuse mitigation, admin tooling, and data-deletion flows
+  remain our responsibility unless we later adopt hosted operational tooling.
+* **Apple Sign In would add maintenance if adopted later.** In particular, the Apple client secret
+  rotation burden would sit with us rather than a SaaS provider.
+* **Dependency review matters.** Better Auth moves quickly, so upgrade hygiene is part of the cost.
+* **There is some business-risk overhang.** Better Auth is VC-backed; if the OSS path degrades, we
+  may need to revisit sooner than planned.
 
-  Everything else — per-user budget caps, product-shaped rate limits (recipe-create per user,
-  AI-route invocations per user), prompt-injection defence on AI-touching paths, content
-  moderation — sits in our app code and looks the same regardless of which auth solution we
-  pick. So the auth-side gap is narrow (mostly bot detection); the bigger anti-abuse story
-  is ours to build either way.
+# When To Revisit
 
-## Data Protection & GDPR
+Revisit this ADR if any of the following become true:
 
-The developer is UK-based and first users will be too, so UK GDPR (substantively similar to
-EU GDPR) applies regardless of auth choice. A note on what the auth decision actually
-affects vs what stays the same:
+* public signup materially increases abuse or support burden
+* hosted audit logs, dashboards, or stronger managed security controls become necessary
+* enterprise SSO / compliance requirements appear
+* Better Auth's runtime support or maintenance quality drops
+* a future backend ADR surfaces a hard incompatibility with this choice
 
-**What GDPR actually requires** (in plain terms, for a small consumer site):
-
-* **A lawful basis for each processing purpose**, chosen from the six UK GDPR options
-  (consent, contract, legal obligation, vital interests, public task, legitimate interests).
-  The right basis depends on what we're doing with the data, not a single label that covers
-  everything. For creating and operating a user account,
-  [**"performance of a contract"**](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/lawful-basis/a-guide-to-lawful-basis/contract/)
-  typically applies — the user requested an account, and processing identity / session /
-  membership data is necessary to deliver the service they asked for. Optional add-ons
-  (marketing emails, non-essential analytics, sharing data with third parties beyond what
-  the service requires) each need their own basis — usually consent, gathered separately.
-  These are alternative bases per purpose, not additive labels.
-* **A privacy policy** explaining what we collect, why, how long we keep it, and who else
-  sees it.
-* **Data subject rights** — honour requests for access, export, rectification, and
-  deletion, within roughly 30 days and free of charge.
-* **A lawful mechanism for international transfers** of personal data outside the UK.
-  UK GDPR restricts transfers except where covered by:
-  * An [adequacy decision](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/international-transfers/)
-    — the US-UK "Data Bridge" extension of the EU-US Data Privacy Framework covers
-    transfers to DPF-certified US recipients, for example.
-  * **Standard Contractual Clauses (SCCs) plus a Transfer Risk Assessment (TRA)** — SCCs
-    are EU-approved contract terms a non-EEA recipient signs to commit to
-    GDPR-equivalent protections, but post-Schrems II they're not an automatic compliance
-    pass on their own. The controller (us) must also conduct a
-    [TRA](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/international-transfers/completing-a-transfer-risk-assessment/)
-    confirming that the SCC protections actually hold in practice for the specific
-    destination — accounting for local surveillance laws, redress mechanisms, and so on.
-    The ICO publishes a
-    [US-specific TRA analysis](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/international-transfers/completing-a-transfer-risk-assessment/completing-a-tra-using-the-uk-government-s-analysis-us/)
-    that controllers can rely on rather than building one from scratch.
-  * Other mechanisms (Binding Corporate Rules, Article 49 derogations) — niche for a
-    consumer recipe site.
-
-  Cloudflare signs the EU-approved SCCs as part of their standard data processing
-  agreement, and their D1 / Workers infrastructure spans US/global regions. SCCs in the
-  DPA are necessary but not sufficient on their own — we'd rely on the ICO's published US
-  TRA analysis to complete the picture before treating the transfer as lawful.
-* **Sub-processor disclosure** — list third parties handling the data on our behalf in the
-  privacy policy.
-
-**What the auth choice changes:**
-
-* **Where user records live.** With Better Auth, user records sit in our database, so EU
-  residency = whatever DB we pick (D1 is US/global today; if explicit EU residency ever
-  matters, [Turso](https://turso.tech/) regional groups or [Neon](https://neon.tech) EU
-  regions are the move). With Clerk or Auth0, user records sit in the vendor's database;
-  both offer EU-region instances. *For UK first users with Cloudflare SCCs covering
-  transfer-out, this is not a current concern.*
-* **Sub-processor count.** Better Auth in-process means the OAuth issuers (Google, GitHub)
-  are the only third parties touching auth data — no separate auth vendor to list. Clerk or
-  Auth0 add themselves as a sub-processor.
-* **Deletion / export primitives.** Better Auth ships GDPR-shaped delete-user flows; Clerk
-  and Auth0 do too. Table stakes everywhere. Either way, we own the cascade across the rest
-  of our data (household membership, recipe ownership, etc.) — the auth layer can only
-  delete what the auth layer stores.
-
-**What the auth choice does *not* change:**
-
-* Writing and maintaining the privacy policy.
-* Building the data-export and data-deletion UI in the app.
-* Handling deletion of associated recipe-side data when a user closes their account.
-* The substance of UK/EU GDPR obligations for the data the *app* stores beyond auth.
-
-**Practical translation for this project**: the GDPR work is privacy policy +
-delete-user flow + data-export flow + an international transfer story (SCCs in the
-processor DPA + reliance on the ICO's published US TRA analysis), all of which are
-app-layer or contract-layer regardless of auth choice. Data residency is a DB question,
-not an auth one — and the US/global D1 default is workable for UK and EU users via the
-SCC-plus-TRA path, not because SCCs are a compliance shortcut on their own. EU-only
-residency is mostly a B2B procurement concern; for a consumer recipe site it's unlikely
-to ever become a real requirement. If it ever did, the fix is a DB-layer change
-(Turso / Neon EU regions), not an auth-layer one.
-
-## Hosted Better Auth Infrastructure as a Later Add-On
-
-This ADR's recommendation is the Better Auth library only. The hosted infrastructure tier is
-a separable later decision — here are its pros and cons as evaluated *against the library
-alone*, for the eventual decision of whether to adopt it.
-
-* **What it adds**:
-  * **Hosted dashboard** at dash.better-auth.com — user management, session monitoring,
-    organization oversight, analytics. Removes the "build admin UI" task.
-  * **[Sentinel](https://better-auth.com/pricing) behavioural threat detection** — Bot
-    Detection, Brute Force, Breached Passwords, Impossible Travel, Rate Limiting,
-    Geo Blocking, Suspicious IPs, Disposable Emails, Email Abuse, Free Trial Abuse.
-    Comparable footprint to Auth0's Adaptive MFA / breached password detection (though
-    Auth0 still benefits from a larger customer base for cross-customer signal).
-  * **Audit logs** with configurable retention and SIEM log drain.
-  * **Enterprise features** — SSO, SCIM, Directory sync, RBAC.
-  * **Transactional comms** at the Pro tier and above.
-
-* **What it costs**:
-  * **Starter ($0/month)**: 1 dashboard seat, 10k audit logs/month (1-day retention), 1k
-    Sentinel detections/month, community support. Realistically covers inner-circle scale.
-  * **Pro ($20/month flat)**: unlimited seats, 20k audit logs/month then $0.0001/event,
-    10k detections/month then $0.001/event, email support, transactional comms. The first
-    real upgrade trigger is "more than one person needs dashboard access" or "Sentinel
-    detections approaching 1k/month."
-  * **Enterprise**: custom pricing, custom retention, log drain, Slack support.
-
-* **SaaS-style cons we'd be opting into** (the reason this is a *separable* decision):
-  * **Synchronous dependency in the auth request path.** This is the important one. The
-    `dash()` and `sentinel()` plugins aren't side-channel syncs — they make blocking calls
-    to Better Auth Infrastructure during auth flows (3000ms API timeout, 1000ms KV
-    timeout per their docs). Sentinel specifically gates sign-in: it returns
-    `log`/`challenge`/`block` verdicts that the plugin acts on before completing the
-    request. On failure the plugin falls back to allow-mode — auth keeps working but
-    security checks are bypassed (docs: *"Security checks may fall back to allow mode."*).
-    This is standard for hosted bot detection (Clerk and Auth0 work the same way and
-    fail-open similarly) but it's a real architectural commitment, not opt-in observation.
-    Each auth call also adds the timeout budget as worst-case latency during Infrastructure
-    slow periods.
-  * **Vendor dependency for the ops slice.** Hosted dashboard, Sentinel verdicts, and
-    audit log accumulation all depend on Better Auth Infrastructure being up. Sign-in
-    survives an outage (fail-open); admin operations, security enforcement, and audit
-    capture don't.
-  * **Sub-processor disclosure.** Adding Better Auth Inc as a sub-processor in our privacy
-    policy. Real cost: one more disclosure to maintain.
-  * **Auth event data leaves our process.** Sentinel and audit logging hook into auth
-    events and emit them to Better Auth Infrastructure synchronously. Where those events
-    are stored, how long, and under what residency rules is a question we'd need to nail
-    down before adopting.
-  * **Business risk on a young company.** Better Auth Inc is post-seed ($5M, June 2025).
-    Pricing can change; the company can change direction. This is much smaller risk than
-    Clerk/Auth0 (years of established pricing curves to manage) but it's not nothing.
-  * **Per-event pricing curve.** Pro tier's "10k detections free then $0.001/event" is
-    gentle vs Clerk/Auth0's per-MAU curves, but it is a curve — high-attack-volume periods
-    will cost more than baseline.
-
-* **When to adopt** (concrete triggers, not abstract maturity):
-  * Public signup opens and Sentinel detections start exceeding what Cloudflare edge
-    protections + Better Auth library rate limiting + Turnstile can comfortably handle.
-  * Building admin UI from primitives becomes a real time sink (more likely if multiple
-    people end up needing dashboard access).
-  * Audit log requirements appear that the app-level event log can't satisfy (regulatory,
-    forensic, or just operational clarity).
-  * Better Auth Infrastructure adds a feature that's genuinely hard to replicate (e.g. the
-    SAML / SCIM / Directory sync layer if a federated identity case ever appears).
-
-  None of these triggers fire at inner-circle MVP scale. The right shape is to ship without
-  Infrastructure, watch where the operational pain actually lands, and add the appropriate
-  tier when the trigger is concrete rather than speculative.
-
-## When to Revisit
-
-This decision should be revisited if any of the following become true:
-
-* **Apple Sign In gets added and JWT rotation becomes operationally painful.** Two things
-  need to be true for this to bite: an inner-circle user has to want Apple Sign In, and the
-  resulting rotation job has to become a maintenance burden. If both happen, Auth0 / Clerk /
-  WorkOS / Kinde / Supabase all handle Apple JWT rotation server-side. Switching for this
-  reason alone is hard to justify, but the option is there.
-* **Better Auth velocity meaningfully slows, or community signals deteriorate.** Watch:
-  the [release cadence](https://github.com/better-auth/better-auth/releases) (currently
-  weekly), the [open issue ratio](https://github.com/better-auth/better-auth/issues),
-  and the relationship with Auth.js (whose users continue to migrate in). If the project
-  stalls, the migration path is to Auth0 (documented escape hatch, code-first).
-* **Operational pain crosses one of the Better Auth Infrastructure adoption triggers.** The
-  hosted Infrastructure tier is the natural first add-on; concrete triggers (more dashboard
-  seats, Sentinel detections exceeding free tier, audit retention requirements) are
-  documented in
-  [Hosted Better Auth Infrastructure as a Later Add-On](#hosted-better-auth-infrastructure-as-a-later-add-on).
-  Adding Infrastructure is a few-line change in `auth.ts`; revisiting is the explicit
-  signal to make that change.
-* **The household / friends / public authz model exceeds what the `organization` plugin
-  can cleanly express.** The future authz ADR may pick a dedicated authz tool (OpenFGA,
-  Oso, Cedar, Permit.io) regardless of this auth decision. If it does, the Better Auth
-  user ID stays stable across that change.
-* **WorkOS AuthKit ships a Terraform provider.** Plausible in the 12-24 month timeframe
-  based on their public roadmap. The 1M-MAU free tier would make this materially worth
-  re-evaluating for a public-scale recipe site if the IaC gap closes.
-
-Until then, Better Auth is the right point on the curve: the only solution that combines
-config-in-repo by construction, best-in-class agent friendliness, Cloudflare-native runtime,
-zero pricing curve, and the post-Auth.js-merger validation that this is no longer an
-early-adopter bet.
+If the self-hosted library path stops paying for itself, **Auth0 is the documented fallback**,
+because it preserves the same code-first operating model better than any other hosted option.

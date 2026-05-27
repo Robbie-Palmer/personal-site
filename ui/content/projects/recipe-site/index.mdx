@@ -103,11 +103,9 @@ ourselves first, but the pain points are universal.
 * **Draft status** — `draft | published` workflow so recipes can be captured immediately and refined later
 * **Attribution** — track recipe origin (e.g., "Grandma's book", "BBC Good Food", "Instagram @chef")
 
-*Current implementation: Recipes are TypeScript objects with Zod schema validation, stored in git.
-This gives us type safety, build-time error checking, and version history as architectural properties —
-not user-facing features, but enablers for fast iteration. The recipe data format is an open decision
-longer term — Cooklang's `.cook` markup and database-backed models are both under consideration
-(see [Architecture](#architecture)).*
+*Current implementation: Recipes are structured content files validated at build time and kept in
+version control. That gives us fast iteration, error checking, and clear history today without
+locking the long-term content model prematurely (see [Architecture](#architecture)).*
 
 ## Phase 2: Kitchen Experience
 
@@ -123,11 +121,11 @@ Recipe steps that mention durations (e.g., "simmer for 20 minutes") get a tap-to
 Multiple timers can run simultaneously for complex recipes. Eliminates the need to context-switch to a
 separate app or shout at a voice assistant.
 
-### Progressive Web App (PWA)
+### Offline Access & Installability
 
-Service worker for offline access — recipes load even with poor signal, critical for kitchens and
-supermarkets where connectivity is unreliable. Home screen installation for app-like experience
-without app store friction.
+Recipes should remain available with poor signal, especially in kitchens and supermarkets.
+If the web experience benefits from it, home-screen installation should be possible without
+requiring native app distribution.
 
 ## Phase 3: Shopping & Meal Planning
 
@@ -136,7 +134,7 @@ without app store friction.
 * Generate a shopping list from a single recipe or aggregate across multiple recipes for meal planning
 * Deduplicate and merge ingredients (e.g., two recipes both needing onions combines into one entry)
 * Checkbox interface for ticking off items while shopping
-* Works offline (PWA) for use in supermarkets with poor signal
+* Works offline for use in supermarkets with poor signal
 
 ### Meal Planning Calendar
 
@@ -146,43 +144,36 @@ without app store friction.
 
 ## Phase 4: Recipe Ingestion Pipeline
 
-> The ML pipeline (`ml-pipelines/recipe-parsing/`) is being developed in parallel with Phases 2-3,
-> not sequentially after them. Pipeline infrastructure (DVC stages, evaluation framework, ground-truth
-> dataset) is already built. The phasing here reflects when ingestion features ship to users, not when
-> development begins.
+> Import tooling is being explored in parallel with Phases 2-3, not sequentially after them.
+> The phasing here reflects when ingestion features ship to users, not when the underlying
+> work starts.
 
 ### Photo-to-Recipe
 
-ML pipeline to extract structured recipe data from images — handwritten recipe pages, printed
-cookbook photos, recipe cards. Enables batch digitization of existing physical recipe collections
-and one-tap capture of any recipe image.
+Extract structured recipe data from images — handwritten recipe pages, printed cookbook photos,
+recipe cards. Enables batch digitization of existing physical recipe collections and low-friction
+capture of any recipe image.
 
 ### Website Import
 
-Parse recipes from URLs using schema.org `Recipe` structured data markup. Many recipe websites
-already publish structured data — this enables one-click import rather than manual transcription.
-Fall back to ML-based extraction for sites without structured markup.
+Import recipes from URLs when sites already expose useful structure, with a fallback path for
+messier pages. The goal is one-click capture rather than manual transcription.
 
 ### Social Media Import
 
 Extract recipes from Instagram posts/reels, TikTok videos, YouTube cooking videos, and Facebook
-posts. This addresses the core pain point of recipes scattered across platforms and is the headline
-feature of the AI-capture segment (Flavorish, Honeydew, Recify). Likely requires LLM-based
-video/image analysis — distinct from both photo OCR and schema.org parsing.
+posts. This addresses the core pain point of recipes scattered across platforms and is likely the
+hardest ingestion problem, but also one of the most differentiated.
 
-### PR-Based Workflow
+### Review Workflow
 
-Ingested recipes (from photos, URLs, or social media) create pull requests for review before
-merging into the recipe collection. Maintains quality control and the git-backed audit trail.
-Longer term, the ingestion pipeline likely moves to writing directly to a database.
+Imported recipes should enter a review flow before becoming part of the collection. The exact
+mechanism can evolve; the important point is preserving quality control and editorial oversight.
 
-### Open Standard Data
+### Portable Recipe Data
 
-Adopt [schema.org Recipe](https://schema.org/Recipe) as the canonical output format alongside the
-internal TypeScript schema. schema.org is already the import source for website parsing — emitting
-it for our own recipes enables SEO (search engines consume it), interoperability (other tools can
-import our recipes), and export without vendor lock-in. Mealie already uses schema.org Recipe as its
-core data model, confirming it's the lingua franca of the space.
+Recipes should remain exportable in a broadly understood structured format. That supports SEO,
+interoperability, and long-term portability without turning the collection into a closed system.
 
 ## Phase 5: Personalization & Social
 
@@ -478,8 +469,8 @@ resilience, and tangibility while eliminating the limitations — is under-explo
 
 | Capability                     | Market leader                                                                                                                   | Our timeline                                                                                                                                                |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AI recipe import**           | [Flavorish](https://www.flavorish.ai/), [Honeydew](https://honeydewcook.com/), [Recify](https://www.recify.app/)                | Pipeline scaffolded, model in development                                                                                                                   |
-| **Voice / hands-free cooking** | [Pestle](https://9to5mac.com/2022/01/21/pestle-cooking-app-for-ios-release/) (voice + wink), SideChef (voice + narrator)        | Future (post-cooking-mode, via Web Speech API)                                                                                                              |
+| **AI recipe import**           | [Flavorish](https://www.flavorish.ai/), [Honeydew](https://honeydewcook.com/), [Recify](https://www.recify.app/)                | In exploration                                                                                                                                              |
+| **Voice / hands-free cooking** | [Pestle](https://9to5mac.com/2022/01/21/pestle-cooking-app-for-ios-release/) (voice + wink), SideChef (voice + narrator)        | Future (after cooking mode lands)                                                                                                                           |
 | **Recipe reviews**             | [NYT Cooking](https://cooking.nytimes.com/) (community notes), [Mealie](https://mealie.io/) (multi-user comments + adaptations) | Future (complex — needs to handle forked recipe variants where users personalise a base recipe, similar to Mealie's multi-generational collaboration model) |
 
 ### Out of scope
@@ -521,24 +512,18 @@ This architecture is intentionally simple:
 ## Future: Dynamic Features
 
 Features like user accounts, cooking logs, shopping list state, and favorites require persistent
-user state. The natural evolution:
+user state. The likely direction is to add dynamic infrastructure only where user-specific state
+actually requires it, while keeping the core recipe experience simple and fast.
 
-* **Cloudflare D1** (SQLite at the edge) for structured user data
-* **Cloudflare KV** for session/preference storage
-* **Cloudflare Workers** for API endpoints
-
-Recipes themselves may stay as static content (git-backed, type-safe) while user-specific data
-lives in D1. This hybrid approach preserves the benefits of static generation for the core
-content while adding dynamic capabilities only where needed. The recipe data format itself is
-an open decision — the current TypeScript + Zod approach works well for the static site, but
-Cooklang's `.cook` markup (with its WASM parser and inline ingredient/timer annotations) and
-database-backed models are both worth evaluating as the project matures.
+Recipes themselves may remain version-controlled content while user-specific data moves to a
+database-backed layer. The exact runtime, storage choices, and content model are future decisions
+that should be made through ADRs when the constraints are clearer.
 
 ## Recipe Ingestion
 
-Short/medium term: an ingestion pipeline (photo parsing, website import, social media extraction)
-that creates PRs for review. Longer term: likely moves to writing directly to a database as the
-content management needs outgrow git-based workflows.
+Short/medium term: import tooling for photos, websites, and social media that feeds a human review
+workflow. Longer term: content management can evolve if the collection or contributor model outgrows
+the current approach.
 
 # Building Philosophy
 
@@ -548,7 +533,7 @@ The recipe site is a textbook case for several principles:
 
 * **Short feedback loops** — ship the static recipe list first, learn from real kitchen use, then build features
 * **Build flywheels** — every recipe added makes the site more valuable. The ingredient graph, search index, and filtering all improve with more content. Structured data compounds into nutritional analysis, shopping lists, and meal planning
-* **Leverage tech debt** — start with recipes as TypeScript objects in git. It's not scalable for non-technical users, but it's perfect for two people who can commit code. Move to a database when the constraint actually bites
+* **Leverage tech debt** — start with recipes as version-controlled structured content. It's not scalable for non-technical users, but it's perfect for a tiny initial contributor set. Move to a richer content workflow when the constraint actually bites
 * **Less is more** — built on the existing personal site infrastructure. No new deployment pipeline, no new hosting, no new CI/CD. The recipe site is a route, not a separate application
 
 # Risks
