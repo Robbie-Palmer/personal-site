@@ -587,4 +587,11 @@ export const technologies: TechnologyContent[] = [
     website: "https://github.com/cooklang/cooklang-rs",
     type: "library",
   },
+  {
+    name: "Better Auth",
+    description:
+      "TypeScript-first, self-hosted authentication library with config-as-code and native Cloudflare Workers + D1 support",
+    website: "https://better-auth.com",
+    type: "library",
+  },
 ];
