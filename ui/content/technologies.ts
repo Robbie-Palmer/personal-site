@@ -590,8 +590,37 @@ export const technologies: TechnologyContent[] = [
   {
     name: "Better Auth",
     description:
-      "TypeScript-first, self-hosted authentication library with config-as-code and native Cloudflare Workers + D1 support",
+      "TypeScript-first, self-hosted authentication library with config-as-code",
     website: "https://better-auth.com",
     type: "library",
+  },
+  {
+    name: "Drizzle ORM",
+    description:
+      "TypeScript ORM with type-safe queries and dialect-specific schema definitions",
+    website: "https://orm.drizzle.team",
+    type: "library",
+  },
+  {
+    name: "Hono",
+    description:
+      "Lightweight HTTP framework for Cloudflare Workers, Node.js, Deno, and Bun",
+    website: "https://hono.dev",
+    type: "library",
+  },
+  {
+    name: "Hyperdrive",
+    description:
+      "Cloudflare connection pooling service for Workers connecting to external databases",
+    website: "https://developers.cloudflare.com/hyperdrive/",
+    iconSlug: "cloudflare",
+    type: "platform",
+  },
+  {
+    name: "Neon Postgres",
+    description:
+      "Serverless Postgres with scale-to-zero, branching, and a generous free tier",
+    website: "https://neon.com",
+    type: "database",
   },
 ];

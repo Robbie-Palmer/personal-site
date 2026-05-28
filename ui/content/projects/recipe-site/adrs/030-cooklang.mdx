@@ -5,15 +5,6 @@ status: "Accepted"
 tech_stack: ["cooklang-rs"]
 ---
 
-> **Revision note (May 2026):** This ADR's original decision positioned `.cook` files as the
-> permanent source of truth for recipe content. That stance has evolved.
-> [ADR 033](/projects/recipe-site/adrs/033-application-data-store) moves recipe content to Neon
-> Postgres, with Cooklang syntax preserved as a text column in the recipes table. `.cook` files
-> remain the canonical *format* — parsed by the same `cooklang-rs` WASM bindings — but the
-> database is now the canonical *storage location*. Existing `.cook` files serve as the import
-> source for the initial recipe corpus. The Data Model Note section below has been updated to
-> reflect this.
-
 # Context
 
 Our building philosophy is to ride rising tides — adopt open standards that are already gaining
@@ -134,7 +125,7 @@ developer-only. The recipe editor UI is required regardless of format choice.
 
 | Feature                            | Status                                                                                                                                                                                                                                                                                                                      |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version history**                | ✅ Meets — `.cook` files in git give the same full commit-level history as the current TypeScript approach. Longer term, if content moves to a database, version history becomes event sourcing on extracted relational data — `.cook` remains the import/export format either way.                                          |
+| **Version history**                | 🔧 Deferred — git history covers the initial `.cook` corpus, but database-backed recipe editing needs an explicit revisions table or audit log. Cooklang remains the import/export format either way.                                                                                                                       |
 | **Recipe forks / personalization** | ✅ **Exceeds** — plain-text files are trivially forkable. Lineage can be tracked in frontmatter. The community has built multi-generational collaborative recipe management patterns on top of Cooklang.                                                                                                                     |
 | **Sub-recipe dependencies**        | ✅ **Exceeds (not in current proposal)** — `@./Shakshuka sauce{100%g}` references another `.cook` file as a composable ingredient. Recipe composition graphs are first-class Cooklang concepts with no equivalent in our current schema — opening dependency trees, partial shopping lists, and modular recipe construction. |
 
@@ -201,8 +192,7 @@ developer-only. The recipe editor UI is required regardless of format choice.
 Cooklang occupies a specific role in our data model — it is the **content format**, not the
 storage layer:
 
-* **Canonical format** — recipe content is authored and stored as Cooklang syntax (in a Postgres
-  text column per [ADR 033](/projects/recipe-site/adrs/033-application-data-store))
+* **Canonical format** — recipe content is authored and stored as Cooklang syntax
 * **Import / export format** — readable by any Cooklang-compatible tool; portability and
   interoperability without vendor lock-in
 * **In-browser parsing** — WASM bindings run the parse/scale pipeline client-side for serving size
@@ -285,11 +275,7 @@ Storing recipes directly in a database enables dynamic features (UI-based editin
 * Loses git version history for recipe content (replaced by database-backed audit mechanism).
 * Requires schema migrations instead of file edits.
 * Adds operational complexity.
-* **Decision**: Originally deferred. Now adopted per
-  [ADR 033](/projects/recipe-site/adrs/033-application-data-store) — recipe content moves to Neon
-  Postgres with Cooklang syntax preserved as a text column. The recipe site PRD anticipated this
-  evolution: *"Move to a richer content workflow when the constraint actually bites."* UI-based
-  recipe editing for non-technical household members is the moment the constraint bites.
+* **Decision**: Deferred until dynamic editing or collaboration makes database storage necessary.
 
 # Consequences
 

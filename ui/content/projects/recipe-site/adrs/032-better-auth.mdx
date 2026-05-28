@@ -1,13 +1,13 @@
 ---
 title: "ADR 032: Better Auth"
 date: "2026-05-25"
-status: "Proposed"
+status: "Accepted"
 tech_stack: ["Better Auth"]
 ---
 
 # Summary
 
-This ADR proposes **[Better Auth](https://better-auth.com)** as the authentication layer for the
+This ADR chooses **[Better Auth](https://better-auth.com)** as the authentication layer for the
 recipe site.
 
 This is a decision about **authentication**, not the full backend or authorization model. It covers
@@ -15,10 +15,7 @@ how users sign in and how account identity is represented. It does **not** decid
 
 * the household / friend-sharing permission model
 * the authorization enforcement strategy
-
-The backend platform and database are now decided in
-[ADR 037](/projects/recipe-site/adrs/037-backend-platform-for-authenticated-features): Cloudflare
-Workers + Hyperdrive + Neon Postgres.
+* the backend runtime, database, or deployment target
 
 # Context
 
@@ -46,8 +43,7 @@ not an experimental contrarian pick; it is the main code-first OSS option in thi
 Use **[Better Auth](https://better-auth.com)** as the recipe site's authentication library.
 
 Auth configuration lives in repository code. Social OAuth credentials live in the project's secrets
-layer. The deployment target is Cloudflare Workers with Neon Postgres via Hyperdrive
-([ADR 037](/projects/recipe-site/adrs/037-backend-platform-for-authenticated-features)).
+layer. The runtime, database, and deployment target are outside this ADR's scope.
 
 At MVP, the intended scope is:
 
@@ -65,7 +61,7 @@ The initial shape is intentionally small:
 
 ```ts
 export const auth = betterAuth({
-  database: drizzleAdapter(db, { provider: "pg" }),
+  database: adapter(db),
   socialProviders: {
     google: {
       clientId: env.GOOGLE_CLIENT_ID,
@@ -84,28 +80,9 @@ Better Auth's hosted **Infrastructure** product is explicitly **out of scope** f
 chooses the library, not a hosted control plane. Hosted dashboards, audit logs, or extra abuse
 protection can be a later operational decision if usage justifies them.
 
-The authorization model remains a separate ADR
-([ADR 035](/projects/recipe-site/adrs/035-authorization-model)). Better Auth gives us stable
-identity and a household membership primitive; it does not settle how recipe visibility and sharing
-rules should work.
-
-## Workers Deployment
-
-Better Auth on Cloudflare Workers has known edge cases. The
-[`better-auth-cloudflare`](https://github.com/zpg6/better-auth-cloudflare) package addresses the
-primary integration pain points:
-
-| Edge case                                                                                                   | Workaround                                                                          |
-| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `AsyncLocalStorage` required                                                                                | Add `nodejs_compat` compatibility flag in `wrangler.toml`                           |
-| `cookieCache` + `secondaryStorage` broken ([#4203](https://github.com/better-auth/better-auth/issues/4203)) | Disable `cookieCache`                                                               |
-| KV rate limiter TTL mismatch (KV minimum 60s, Better Auth expects 10s)                                      | Use custom rate limiter or accept KV 60s minimum                                    |
-| `createRequire` bundler error ([#6665](https://github.com/better-auth/better-auth/issues/6665))             | Use `better-auth-cloudflare` package                                                |
-| Per-request auth instance creation                                                                          | Pass Hyperdrive binding to Drizzle per-request (Workers have no persistent process) |
-
-These are documented workarounds, not blocking issues. The `better-auth-cloudflare` community
-package consolidates them. If these edge cases accumulate beyond what workarounds address, the
-escape path is documented below.
+The authorization model is also outside this ADR's scope. Better Auth gives us stable identity and
+a household membership primitive; it does not settle how recipe visibility and sharing rules should
+work.
 
 # Why Better Auth
 
@@ -136,7 +113,7 @@ As of **May 27, 2026**, the cost picture is straightforward:
 | **Better Auth Infrastructure usage** | Starter includes 1 dashboard seat, 10,000 audit logs/month, and 1,000 security detections/month. Pro includes unlimited seats, 20,000 audit logs/month then $0.0001/event, and 10,000 security detections/month then $0.001/event. |
 | **Google / GitHub OAuth**            | **$0** at the auth-provider layer for normal use.                                                                                                                                                                                  |
 | **Email / SMS**                      | **$0 at MVP** because email/password, magic links, and first-party MFA are deferred. If Better Auth Infrastructure Pro is adopted later, its pricing page lists $0.001/email and $0.09/SMS.                                        |
-| **Database / session storage**       | Included in [ADR 037](/projects/recipe-site/adrs/037-backend-platform-for-authenticated-features) — Neon Postgres free tier.                                                                                                       |
+| **Database / session storage**       | Out of scope. This ADR does not pre-decide those costs.                                                                                                                                                                            |
 
 The practical implication is that the MVP auth decision does **not** add a mandatory monthly SaaS
 line item. The first real paid cost only appears if the project later chooses hosted operational
@@ -212,17 +189,11 @@ linking would be a large amount of undifferentiated work.
   forcing us to invent it from scratch.
 * **The support surface stays small.** Social OAuth-first avoids password resets, password storage,
   and most first-party auth UX complexity.
-* **Drizzle adapter available.** Better Auth's Drizzle adapter supports Postgres natively —
-  consistent with the ORM choice in
-  [ADR 037](/projects/recipe-site/adrs/037-backend-platform-for-authenticated-features).
 
 ## Negative
 
 * **We own the runtime.** Rate limiting, abuse mitigation, admin tooling, and data-deletion flows
   remain our responsibility unless we later adopt hosted operational tooling.
-* **Workers edge cases.** The V8 isolate runtime introduces friction documented above. The
-  `better-auth-cloudflare` package and `nodejs_compat` flag address known issues, but new edge
-  cases may appear as Better Auth evolves.
 * **Apple Sign In would add maintenance if adopted later.** In particular, the Apple client secret
   rotation burden would sit with us rather than a SaaS provider.
 * **Dependency review matters.** Better Auth moves quickly, so upgrade hygiene is part of the cost.
@@ -237,7 +208,7 @@ Revisit this ADR if any of the following become true:
 * hosted audit logs, dashboards, or stronger managed security controls become necessary
 * enterprise SSO / compliance requirements appear
 * Better Auth's runtime support or maintenance quality drops
-* Workers edge cases accumulate beyond what `better-auth-cloudflare` can address
+* the chosen runtime or database surfaces a hard incompatibility with this choice
 
 If the self-hosted library path stops paying for itself, **Auth0 is the documented fallback**,
 because it preserves the same code-first operating model better than any other hosted option.

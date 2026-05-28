@@ -1,7 +1,7 @@
 ---
-title: "ADR 035: Authorization Model"
+title: "ADR 034: Authorization Model"
 date: "2026-05-27"
-status: "Proposed"
+status: "Accepted"
 ---
 
 # Summary
@@ -52,6 +52,24 @@ Adopt the following authorization baseline:
 If [ADR 032: Better Auth](/projects/recipe-site/adrs/032-better-auth) is accepted, its
 organization/household primitive should be treated as a membership building block, not as a
 complete authorization system by itself.
+
+## MVP Policy Matrix
+
+| Resource / action                    | Public visitor | Owner | Household member |
+| ------------------------------------ | -------------- | ----- | ---------------- |
+| Read public recipe                   | Yes            | Yes   | Yes              |
+| Read private recipe or user state    | No             | Yes   | No               |
+| Read household-shared recipe / state | No             | Yes   | Yes              |
+| Create recipe draft                  | No             | Yes   | Yes              |
+| Edit own recipe draft                | No             | Yes   | No               |
+| Edit another user's shared recipe    | No             | No    | No               |
+| Delete own resource                  | No             | Yes   | No               |
+| Manage household membership          | No             | Yes   | No               |
+
+The key intentional constraint is that household sharing grants read access first. Collaborative
+editing, shared ownership, and household-admin roles are deferred until real use shows they are
+needed. In this matrix, **Owner** means the resource owner except for household membership actions,
+where it means the household owner.
 
 The practical MVP scope becomes:
 

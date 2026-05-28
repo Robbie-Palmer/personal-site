@@ -1,7 +1,7 @@
 ---
-title: "ADR 036: Application Security Baseline"
+title: "ADR 035: Application Security Baseline"
 date: "2026-05-27"
-status: "Proposed"
+status: "Accepted"
 tech_stack: ["Better Auth", "Cloudflare Workers"]
 ---
 
@@ -30,7 +30,7 @@ What is new here is **application security**:
 * server-side authorization enforcement
 
 The chosen backend —
-[Cloudflare Workers](/projects/recipe-site/adrs/034-api-runtime-topology) — provides
+[Cloudflare Workers](/projects/recipe-site/adrs/033-backend-platform-for-authenticated-features) — provides
 several security properties by default that reduce the baseline we need to implement ourselves.
 
 # Decision
@@ -57,13 +57,13 @@ Before authenticated features go live, the application must provide this baselin
 
 The Cloudflare Workers runtime provides several security properties for free:
 
-| Property                         | What it means                                                                                                                                                          |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Process isolation**            | Each Worker invocation runs in its own V8 isolate. No shared server state, no cross-request memory leaks, no risk of one request poisoning another.                    |
-| **Automatic HTTPS**              | All traffic is TLS-terminated at Cloudflare's edge by default. No certificate management.                                                                              |
-| **No long-lived server process** | Workers are stateless per-invocation. This eliminates attack surface for session fixation via server-state corruption and removes the risk of accumulated state drift. |
-| **DDoS protection**              | Cloudflare's edge network provides baseline DDoS mitigation for all Workers. No configuration needed.                                                                  |
-| **No exposed ports**             | Workers are not addressable by IP. All traffic flows through Cloudflare's reverse proxy. There is no server to port-scan.                                              |
+| Property                           | What it means                                                                                                                                                                                  |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Managed isolate sandboxing**     | Worker code runs inside Cloudflare-managed V8 isolates rather than a user-managed server process. Global scope may be reused across requests, so request-scoped data must not be stored there. |
+| **Automatic HTTPS**                | All traffic is TLS-terminated at Cloudflare's edge by default. No certificate management.                                                                                                      |
+| **No user-managed server process** | There is no VM or container for us to patch, harden, or expose directly. Application state still belongs in explicit stores, not process memory.                                               |
+| **DDoS protection**                | Cloudflare's edge network provides baseline DDoS mitigation for all Workers. No configuration needed.                                                                                          |
+| **No exposed ports**               | Workers are not addressable by IP. All traffic flows through Cloudflare's reverse proxy. There is no server to port-scan.                                                                      |
 
 These do not replace the application-level controls above, but they reduce the surface area that
 needs explicit security engineering.
@@ -76,8 +76,8 @@ Rate limiting uses a layered approach:
   `infra/cloudflare/main.tf`) for broad endpoint protection — e.g. limiting requests per IP to
   auth endpoints. These run at the edge before the Worker is invoked.
 * **KV-backed custom logic** for application-specific rate limiting — e.g. auth attempts per user
-  account, household invite frequency. Note that Cloudflare KV has a **minimum TTL of 60 seconds**,
-  which affects short-window rate limiting granularity.
+  account, household invite frequency. Note that Cloudflare KV's per-key expiration TTL has a
+  **minimum of 60 seconds**, which affects short-window rate limiting granularity.
 * **Better Auth's built-in rate limiter** has a known TTL mismatch with KV (expects 10s, KV
   minimum is 60s). Use the `better-auth-cloudflare` package or a custom rate limiter
   implementation to address this.
