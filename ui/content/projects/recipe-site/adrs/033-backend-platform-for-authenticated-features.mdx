@@ -60,39 +60,40 @@ Several constraints narrowed the field:
 
 ## Architecture
 
-```mermaid
-graph TB
-    subgraph Cloudflare["Cloudflare Platform"]
-        Pages["Cloudflare Pages\nStatic Frontend\nNext.js export · Cooklang WASM · PostHog proxy"]
-        Worker["Cloudflare Worker\nAuth / API Layer\nHono · Better Auth · Recipe CRUD\nFavorites · Cooking Log · Sharing"]
-        HD["Hyperdrive\nConnection Pooling"]
-        R2["R2\nObject Storage\nStatic assets"]
-        Images["Images\nCDN Optimization"]
-    end
+<Mermaid
+  chart={`graph TB
+subgraph Cloudflare["Cloudflare Platform"]
+    Pages["Cloudflare Pages\nStatic Frontend\nNext.js export · Cooklang WASM · PostHog proxy"]
+    Worker["Cloudflare Worker\nAuth / API Layer\nHono · Better Auth · Recipe CRUD\nFavorites · Cooking Log · Sharing"]
+    HD["Hyperdrive\nConnection Pooling"]
+    R2["R2\nObject Storage\nStatic assets"]
+    Images["Images\nCDN Optimization"]
+end
 
-    subgraph Neon["Neon (Databricks)"]
-        PG["Postgres\nApplication Data\nUsers · Sessions · Recipes\nHouseholds · Favorites · Cooking Logs"]
-    end
+subgraph Neon["Neon (Databricks)"]
+    PG["Postgres\nApplication Data\nUsers · Sessions · Recipes\nHouseholds · Favorites · Cooking Logs"]
+end
 
-    subgraph OAuth["Identity Providers"]
-        Google["Google OAuth"]
-        GitHub["GitHub OAuth"]
-    end
+subgraph OAuth["Identity Providers"]
+    Google["Google OAuth"]
+    GitHub["GitHub OAuth"]
+end
 
-    subgraph Future["Separate Services when needed"]
-        ImportJobs["Recipe import jobs\nLLM/VLM API orchestration"]
-        Containers["CF Containers\nStep-up runtime\nFull Node.js"]
-        CSP["AWS / GCP\nScale-up\nGPUs · NATS · Kubernetes"]
-    end
+subgraph Future["Separate Services when needed"]
+    ImportJobs["Recipe import jobs\nLLM/VLM API orchestration"]
+    Containers["CF Containers\nStep-up runtime\nFull Node.js"]
+    CSP["AWS / GCP\nScale-up\nGPUs · NATS · Kubernetes"]
+end
 
-    Pages -->|API calls| Worker
-    Worker --> HD
-    HD -->|Pooled connections| PG
-    Worker -->|OAuth flows| Google
-    Worker -->|OAuth flows| GitHub
-    Pages -.->|Static assets| R2
-    Pages -.->|Image optimization| Images
-```
+Pages -->|API calls| Worker
+Worker --> HD
+HD -->|Pooled connections| PG
+Worker -->|OAuth flows| Google
+Worker -->|OAuth flows| GitHub
+Pages -.->|Static assets| R2
+Pages -.->|Image optimization| Images
+`}
+/>
 
 ## Component Choices
 
