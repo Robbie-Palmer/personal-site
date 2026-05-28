@@ -617,7 +617,7 @@ export const technologies: TechnologyContent[] = [
     type: "platform",
   },
   {
-    name: "Neon Postgres",
+    name: "Neon",
     description:
       "Serverless Postgres with scale-to-zero, branching, and a generous free tier",
     website: "https://neon.com",

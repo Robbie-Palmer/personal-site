@@ -2,19 +2,19 @@
 title: "ADR 033: Backend Platform for Authenticated Features"
 date: "2026-05-27"
 status: "Accepted"
-tech_stack: ["Cloudflare Workers", "Neon Postgres", "Hono", "Drizzle ORM", "Hyperdrive"]
+tech_stack: ["Cloudflare Workers", "Neon", "Hono", "Drizzle ORM", "Hyperdrive"]
 ---
 
 # Summary
 
-Use **Cloudflare Workers (Paid) + Hono + Hyperdrive + Neon Postgres + Drizzle ORM** as the backend
+Use **Cloudflare Workers (Paid) + Hono + Hyperdrive + Neon + Drizzle ORM** as the backend
 platform for authenticated features.
 
 The static frontend stays on Cloudflare Pages. The authenticated backend is a thin Cloudflare
 Worker running [Hono](https://hono.dev) with [Better Auth](/projects/recipe-site/adrs/032-better-auth)
 for identity, [Drizzle ORM](https://orm.drizzle.team) for data access, and
-[Neon](https://neon.com) Postgres as the application database. Heavy processing (ML pipelines,
-future import jobs) stays on separate services.
+[Neon](https://neon.com) as the application database. Heavy processing (ML pipelines, future import
+jobs) stays on separate services.
 
 # Context
 
@@ -63,26 +63,26 @@ Several constraints narrowed the field:
 <Mermaid
   chart={`graph TB
 subgraph Cloudflare["Cloudflare Platform"]
-    Pages["Cloudflare Pages\nStatic Frontend\nNext.js export · Cooklang WASM · PostHog proxy"]
-    Worker["Cloudflare Worker\nAuth / API Layer\nHono · Better Auth · Recipe CRUD\nFavorites · Cooking Log · Sharing"]
-    HD["Hyperdrive\nConnection Pooling"]
-    R2["R2\nObject Storage\nStatic assets"]
-    Images["Images\nCDN Optimization"]
+Pages["Cloudflare Pages\nStatic Frontend\nNext.js export · Cooklang WASM · PostHog proxy"]
+Worker["Cloudflare Worker\nAuth / API Layer\nHono · Better Auth · Recipe CRUD\nFavorites · Cooking Log · Sharing"]
+HD["Hyperdrive\nConnection Pooling"]
+R2["R2\nObject Storage\nStatic assets"]
+Images["Images\nCDN Optimization"]
 end
 
-subgraph Neon["Neon (Databricks)"]
-    PG["Postgres\nApplication Data\nUsers · Sessions · Recipes\nHouseholds · Favorites · Cooking Logs"]
+subgraph Neon["Neon"]
+PG["Postgres\nApplication Data\nUsers · Sessions · Recipes\nHouseholds · Favorites · Cooking Logs"]
 end
 
 subgraph OAuth["Identity Providers"]
-    Google["Google OAuth"]
-    GitHub["GitHub OAuth"]
+Google["Google OAuth"]
+GitHub["GitHub OAuth"]
 end
 
 subgraph Future["Separate Services when needed"]
-    ImportJobs["Recipe import jobs\nLLM/VLM API orchestration"]
-    Containers["CF Containers\nStep-up runtime\nFull Node.js"]
-    CSP["AWS / GCP\nScale-up\nGPUs · NATS · Kubernetes"]
+ImportJobs["Recipe import jobs\nLLM/VLM API orchestration"]
+Containers["CF Containers\nStep-up runtime\nFull Node.js"]
+CSP["AWS / GCP\nScale-up\nGPUs · NATS · Kubernetes"]
 end
 
 Pages -->|API calls| Worker
@@ -102,7 +102,7 @@ starts and stay on the same Cloudflare platform as Pages, R2, DNS, and Images. T
 required for Hyperdrive access, 30-second CPU time (the free tier's 10ms limit is insufficient for
 auth operations), and access to Durable Objects and Queues for future use.
 
-**Neon Postgres** as the application database. Neon is serverless Postgres with scale-to-zero,
+**Neon** as the application database. Neon is serverless Postgres with scale-to-zero,
 database branching for preview environments, and a generous free tier (0.5 GB storage, 100
 CU-hours/month). It runs real Postgres — not a Postgres-compatible wire protocol — so every
 Postgres tool, ORM, and auth library works without compatibility concerns.
@@ -169,8 +169,8 @@ escape paths below apply.
 | ---------------------- | ----------------- | ---------------------------------------------------------- |
 | **Static frontend**    | Cloudflare Pages  | Next.js static export, Cooklang WASM parser, PostHog proxy |
 | **Auth/API backend**   | Cloudflare Worker | Hono, Better Auth, recipe CRUD, user state, authorization  |
-| **Connection pooling** | Hyperdrive        | Persistent pools from Workers to Neon Postgres             |
-| **Database**           | Neon Postgres     | Users, sessions, recipes, households, user-owned state     |
+| **Connection pooling** | Hyperdrive        | Persistent pools from Workers to Neon                      |
+| **Database**           | Neon              | Users, sessions, recipes, households, user-owned state     |
 
 ## Recipe Content Storage
 
@@ -198,18 +198,18 @@ The Worker is the server-side trust boundary:
 * The browser is a user interface, not the enforcement point.
 * Session cookies are `HttpOnly`, `Secure`, and server-owned.
 
-A direct client-to-database architecture was rejected. Even Neon Postgres with row-level security
+A direct client-to-database architecture was rejected. Even Neon with row-level security
 would not provide the same level of control as explicit server-side authorization logic.
 
 ## Cost Model
 
-| Component                 | Monthly Cost                                                     |
-| ------------------------- | ---------------------------------------------------------------- |
-| Cloudflare Pages          | $0 (free tier)                                                   |
-| Cloudflare Workers Paid   | $5/month (includes Hyperdrive, 30s CPU, Durable Objects, Queues) |
-| Neon Postgres (free tier) | $0 (0.5 GB storage, 100 CU-hours/month)                          |
-| Google / GitHub OAuth     | $0                                                               |
-| **Total MVP**             | **\~$5/month**                                                   |
+| Component               | Monthly Cost                                                     |
+| ----------------------- | ---------------------------------------------------------------- |
+| Cloudflare Pages        | $0 (free tier)                                                   |
+| Cloudflare Workers Paid | $5/month (includes Hyperdrive, 30s CPU, Durable Objects, Queues) |
+| Neon (free tier)        | $0 (0.5 GB storage, 100 CU-hours/month)                          |
+| Google / GitHub OAuth   | $0                                                               |
+| **Total MVP**           | **\~$5/month**                                                   |
 
 Neon's pricing is transparent: $0.106/CU-hour + $0.35/GB-month on the Launch tier. Scale-to-zero
 means bursty/low-traffic workloads are dramatically cheaper than always-on databases. The free tier
@@ -261,7 +261,7 @@ Auth in its cleanest environment.
 
 ## Cloudflare Workers + D1
 
-Workers with D1 (Cloudflare's SQLite-based database) instead of Neon Postgres.
+Workers with D1 (Cloudflare's SQLite-based database) instead of Neon.
 
 **Why it was considered:** Fewest moving parts, everything on one platform, cheapest.
 
