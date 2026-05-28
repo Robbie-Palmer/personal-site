@@ -2,17 +2,17 @@
 title: "ADR 033: Backend Platform for Authenticated Features"
 date: "2026-05-27"
 status: "Accepted"
-tech_stack: ["Cloudflare Workers", "Neon", "Hono", "Drizzle ORM", "Hyperdrive"]
+tech_stack: ["Cloudflare Workers", "Neon", "Hono", "Drizzle", "Hyperdrive"]
 ---
 
 # Summary
 
-Use **Cloudflare Workers (Paid) + Hono + Hyperdrive + Neon + Drizzle ORM** as the backend
+Use **Cloudflare Workers (Paid) + Hono + Hyperdrive + Neon + Drizzle** as the backend
 platform for authenticated features.
 
 The static frontend stays on Cloudflare Pages. The authenticated backend is a thin Cloudflare
 Worker running [Hono](https://hono.dev) with [Better Auth](/projects/recipe-site/adrs/032-better-auth)
-for identity, [Drizzle ORM](https://orm.drizzle.team) for data access, and
+for identity, [Drizzle](https://orm.drizzle.team) for data access, and
 [Neon](https://neon.com) as the application database. Heavy processing (ML pipelines, future import
 jobs) stays on separate services.
 
@@ -45,7 +45,7 @@ Several constraints narrowed the field:
    keys — a fundamental mismatch.
 3. **Postgres ecosystem valued.** Full-text search, vector search, DuckDB integration, and PostGIS
    for other projects make Postgres the long-term database. Starting on SQLite/D1 and migrating
-   later creates schema rewrite debt — the Drizzle ORM community strongly recommends starting with
+   later creates schema rewrite debt — the Drizzle community strongly recommends starting with
    the target dialect.
 4. **Split architecture accepted.** The auth/CRUD layer can stay thin. Heavy processing (ML
    pipelines, import jobs, background workers) lives on separate services. This means Workers'
@@ -116,7 +116,7 @@ Included in the Workers Paid plan at no additional cost. Neon's serverless drive
 code portable if the runtime ever changes. It is lightweight, TypeScript-native, and the most
 popular framework for Cloudflare Workers.
 
-**Drizzle ORM** with the Postgres dialect from day one. Starting with Postgres avoids the schema
+**Drizzle** with the Postgres dialect from day one. Starting with Postgres avoids the schema
 rewrite debt that would come from starting on SQLite/D1 and migrating later (Drizzle uses different
 table constructors per dialect — `sqliteTable()` vs `pgTable()` — and the migration is non-trivial).
 
@@ -269,7 +269,7 @@ Workers with D1 (Cloudflare's SQLite-based database) instead of Neon.
 
 * **SQLite, not Postgres.** The Postgres ecosystem (full-text search, vector search, DuckDB,
   PostGIS for other projects) is explicitly valued. Starting on SQLite creates migration debt.
-* **Drizzle schema rewrite.** Drizzle ORM uses different table constructors per dialect. Migrating
+* **Drizzle schema rewrite.** Drizzle uses different table constructors per dialect. Migrating
   from `sqliteTable()` to `pgTable()` requires rewriting all schema files, regenerating all
   migrations, and adapting for dialect-specific features. The Drizzle community recommends starting
   with the target dialect.

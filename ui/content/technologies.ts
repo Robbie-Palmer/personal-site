@@ -595,7 +595,7 @@ export const technologies: TechnologyContent[] = [
     type: "library",
   },
   {
-    name: "Drizzle ORM",
+    name: "Drizzle",
     description:
       "TypeScript ORM with type-safe queries and dialect-specific schema definitions",
     website: "https://orm.drizzle.team",
