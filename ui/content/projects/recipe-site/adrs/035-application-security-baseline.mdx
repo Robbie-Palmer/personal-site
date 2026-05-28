@@ -75,12 +75,15 @@ Rate limiting uses a layered approach:
 * **Cloudflare rate limiting rules** (configured via Terraform in
   `infra/cloudflare/main.tf`) for broad endpoint protection — e.g. limiting requests per IP to
   auth endpoints. These run at the edge before the Worker is invoked.
-* **KV-backed custom logic** for application-specific rate limiting — e.g. auth attempts per user
-  account, household invite frequency. Note that Cloudflare KV's per-key expiration TTL has a
-  **minimum of 60 seconds**, which affects short-window rate limiting granularity.
-* **Better Auth's built-in rate limiter** has a known TTL mismatch with KV (expects 10s, KV
-  minimum is 60s). Use the `better-auth-cloudflare` package or a custom rate limiter
-  implementation to address this.
+* **Durable Objects or native Cloudflare rate limiting** for application-specific limits — e.g. auth
+  attempts per user account, household invite frequency. Durable Objects are included in Workers
+  Paid and provide the strong consistency needed for high-frequency counters. Cloudflare's native
+  rate limiting is preferable where an edge-level rule can express the policy.
+* **Do not use Cloudflare KV for write-heavy rate limiting.** KV is optimized for high-read,
+  low-write workloads, is eventually consistent across edge locations, and has a 1 write/second
+  limit per key. Those properties make it a poor fit for brute-force counters.
+* **Better Auth's built-in rate limiter** should be backed by Durable Objects, native Cloudflare
+  rate limiting, or another strongly consistent store rather than KV.
 
 ## Deferred
 
@@ -108,7 +111,7 @@ before they are justified.
 
 * "Lean" still means some engineering work: rate limiting, session config, and validation cannot be
   hand-waved away.
-* KV's 60-second minimum TTL limits the granularity of short-window rate limiting.
+* Durable Objects or equivalent strongly consistent rate limiting add implementation work.
 * If public signup or friend sharing expands quickly, this baseline may stop being sufficient.
 
 # When To Revisit

@@ -150,13 +150,13 @@ Better Auth on Cloudflare Workers has known edge cases. The
 [`better-auth-cloudflare`](https://github.com/zpg6/better-auth-cloudflare) package addresses the
 primary integration pain points:
 
-| Edge case                                                                                                   | Workaround                                                                          |
-| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `AsyncLocalStorage` required                                                                                | Add `nodejs_compat` compatibility flag in `wrangler.toml`                           |
-| `cookieCache` + `secondaryStorage` broken ([#4203](https://github.com/better-auth/better-auth/issues/4203)) | Disable `cookieCache`                                                               |
-| KV rate limiter TTL mismatch (KV minimum 60s, Better Auth expects 10s)                                      | Use custom rate limiter or accept KV 60s minimum                                    |
-| `createRequire` bundler error ([#6665](https://github.com/better-auth/better-auth/issues/6665))             | Use `better-auth-cloudflare` package                                                |
-| Per-request auth instance creation                                                                          | Pass Hyperdrive binding to Drizzle per-request (Workers have no persistent process) |
+| Edge case                                                                                                   | Workaround                                                                                                                              |
+| ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `AsyncLocalStorage` required                                                                                | Add `nodejs_compat` compatibility flag in `wrangler.toml`                                                                               |
+| `cookieCache` + `secondaryStorage` broken ([#4203](https://github.com/better-auth/better-auth/issues/4203)) | Disable `cookieCache`                                                                                                                   |
+| KV rate limiter mismatch (eventual consistency, 1 write/sec per key, TTL expectations)                      | Do not use KV for write-heavy rate limiting; use Durable Objects, Cloudflare native rate limiting, or another strongly consistent store |
+| `createRequire` bundler error ([#6665](https://github.com/better-auth/better-auth/issues/6665))             | Use `better-auth-cloudflare` package                                                                                                    |
+| Per-request auth instance creation                                                                          | Pass Hyperdrive binding to Drizzle per-request (Workers have no persistent process)                                                     |
 
 These are documented workarounds, not blocking issues. The `better-auth-cloudflare` community
 package consolidates them. If these edge cases accumulate beyond what workarounds address, the
