@@ -1,33 +1,32 @@
 ---
 title: "ADR 032: Better Auth"
 date: "2026-05-25"
-status: "Proposed"
+status: "Accepted"
 tech_stack: ["Better Auth"]
 ---
 
 # Summary
 
-This ADR proposes **[Better Auth](https://better-auth.com)** as the authentication layer for the
+This ADR chooses **[Better Auth](https://better-auth.com)** as the authentication layer for the
 recipe site.
 
 This is a decision about **authentication**, not the full backend or authorization model. It covers
 how users sign in and how account identity is represented. It does **not** decide:
 
-* the eventual backend runtime or database
 * the household / friend-sharing permission model
-* whether any hosted auth operations platform is adopted later
+* the authorization enforcement strategy
+* the backend runtime, database, or deployment target
 
 # Context
 
-The recipe site is moving from a shared public collection toward user-specific features:
-favorites, cooking history, household sharing, and eventually friend sharing. That requires a
-real notion of user identity.
+The recipe site is moving from a shared public collection toward authenticated, user-specific
+state and sharing. That requires a real notion of user identity.
 
 The auth choice needs to satisfy a small number of constraints:
 
 1. **Config should live in code.** This project leans heavily on agent-assisted workflows. Agents
    can read and edit TypeScript or Terraform; they cannot reliably own a SaaS dashboard.
-2. **The choice should stay portable.** Auth should not pre-decide the future backend ADR.
+2. **The choice should stay portable.** Auth should not create hard vendor lock-in.
 3. **Costs should stay predictable.** A personal project does not need per-MAU pricing pressure.
 4. **Social OAuth is the primary sign-in model.** Google is the default path; GitHub is a useful
    secondary provider. Email/password is out of scope.
@@ -43,9 +42,8 @@ not an experimental contrarian pick; it is the main code-first OSS option in thi
 
 Use **[Better Auth](https://better-auth.com)** as the recipe site's authentication library.
 
-Auth configuration should live in repository code. Social OAuth credentials should live in the
-project's secrets layer. The exact runtime, database, and deployment target remain deferred to a
-future backend ADR.
+Auth configuration lives in repository code. Social OAuth credentials live in the project's secrets
+layer. The runtime, database, and deployment target are outside this ADR's scope.
 
 At MVP, the intended scope is:
 
@@ -82,8 +80,8 @@ Better Auth's hosted **Infrastructure** product is explicitly **out of scope** f
 chooses the library, not a hosted control plane. Hosted dashboards, audit logs, or extra abuse
 protection can be a later operational decision if usage justifies them.
 
-The authorization model remains a separate future ADR. Better Auth gives us stable identity and a
-household membership primitive; it does not settle how recipe visibility and sharing rules should
+The authorization model is also outside this ADR's scope. Better Auth gives us stable identity and
+a household membership primitive; it does not settle how recipe visibility and sharing rules should
 work.
 
 # Why Better Auth
@@ -115,7 +113,7 @@ As of **May 27, 2026**, the cost picture is straightforward:
 | **Better Auth Infrastructure usage** | Starter includes 1 dashboard seat, 10,000 audit logs/month, and 1,000 security detections/month. Pro includes unlimited seats, 20,000 audit logs/month then $0.0001/event, and 10,000 security detections/month then $0.001/event. |
 | **Google / GitHub OAuth**            | **$0** at the auth-provider layer for normal use.                                                                                                                                                                                  |
 | **Email / SMS**                      | **$0 at MVP** because email/password, magic links, and first-party MFA are deferred. If Better Auth Infrastructure Pro is adopted later, its pricing page lists $0.001/email and $0.09/SMS.                                        |
-| **Database / session storage**       | Deferred to the backend ADR. This ADR does not pre-decide those costs.                                                                                                                                                             |
+| **Database / session storage**       | Out of scope. This ADR does not pre-decide those costs.                                                                                                                                                                            |
 
 The practical implication is that the MVP auth decision does **not** add a mandatory monthly SaaS
 line item. The first real paid cost only appears if the project later chooses hosted operational
@@ -186,7 +184,6 @@ linking would be a large amount of undifferentiated work.
 ## Positive
 
 * **Auth config stays in the repo.** Changes are reviewed in PRs instead of hidden in a dashboard.
-* **The backend ADR stays open.** Auth does not force a database or hosting choice up front.
 * **Costs stay simple.** There is no per-user SaaS pricing curve.
 * **Household sharing gets a head start.** The organization primitive covers membership without
   forcing us to invent it from scratch.
@@ -211,7 +208,7 @@ Revisit this ADR if any of the following become true:
 * hosted audit logs, dashboards, or stronger managed security controls become necessary
 * enterprise SSO / compliance requirements appear
 * Better Auth's runtime support or maintenance quality drops
-* a future backend ADR surfaces a hard incompatibility with this choice
+* the chosen runtime or database surfaces a hard incompatibility with this choice
 
 If the self-hosted library path stops paying for itself, **Auth0 is the documented fallback**,
 because it preserves the same code-first operating model better than any other hosted option.
