@@ -14,13 +14,11 @@ export const UnitSchema = z.enum([
   "tbsp",
   "au_tbsp",
   // Volume – cups (each standard is a distinct unit)
-  "cup",             // legacy/ambiguous – treated as 250 ml in conversion
   "us_cup",          // US customary cup – 236.588 ml
   "uk_cup",          // UK metric cup – 250 ml
   "au_cup",          // Australian cup – 250 ml
   "uk_imperial_cup", // Old British Imperial cup – 284.131 ml
   // Volume – pints (UK and US are ~20% different)
-  "pint",            // legacy/ambiguous – treated as UK pint in conversion
   "uk_pint",         // UK Imperial pint – 568.261 ml
   "us_pint",         // US liquid pint – 473.176 ml
   // Volume – fluid ounces
@@ -58,12 +56,10 @@ export const UNIT_LABELS: Record<Unit, UnitLabel> = {
   tsp:             { singular: "tsp",     plural: "tsp" },
   tbsp:            { singular: "tbsp",    plural: "tbsp" },
   au_tbsp:         { singular: "tbsp",    plural: "tbsp" },
-  cup:             { singular: "cup",     plural: "cups" },
   us_cup:          { singular: "cup",     plural: "cups" },
   uk_cup:          { singular: "cup",     plural: "cups" },
   au_cup:          { singular: "cup",     plural: "cups" },
   uk_imperial_cup: { singular: "cup",     plural: "cups" },
-  pint:            { singular: "pint",    plural: "pints" },
   uk_pint:         { singular: "pint",    plural: "pints" },
   us_pint:         { singular: "pint",    plural: "pints" },
   us_fl_oz:        { singular: "fl oz",   plural: "fl oz" },
@@ -112,8 +108,7 @@ const EXPLICIT_UNIT_ALIASES: Partial<Record<string, Unit>> = {
   "australian tablespoons": "au_tbsp",
   "au tbsp": "au_tbsp",
   "australian tbsp": "au_tbsp",
-  // Cup variants (by region)
-  c: "cup",
+  // Cup variants (by region) – bare "cup"/"c" intentionally omitted: ambiguous
   "us cup": "us_cup",
   "us cups": "us_cup",
   "american cup": "us_cup",
@@ -127,7 +122,7 @@ const EXPLICIT_UNIT_ALIASES: Partial<Record<string, Unit>> = {
   "australian cups": "au_cup",
   "imperial cup": "uk_imperial_cup",
   "imperial cups": "uk_imperial_cup",
-  // Pint variants
+  // Pint variants – bare "pint" intentionally omitted: ambiguous
   "us pint": "us_pint",
   "us pints": "us_pint",
   "american pint": "us_pint",
@@ -155,19 +150,23 @@ const EXPLICIT_UNIT_ALIASES: Partial<Record<string, Unit>> = {
   packs: "piece",
 };
 
+// Tokens that are genuinely ambiguous across regional standards and must never
+// resolve automatically — callers must use explicit variants (us_cup, uk_pint…).
+const AMBIGUOUS_TOKENS = new Set(["cup", "cups", "pint", "pints"]);
+
 const NORMALIZED_UNIT_ALIASES: Record<string, Unit> = (() => {
   const aliases: Record<string, Unit> = {};
 
-  // Label-based aliases: first unit in enum order wins for shared labels (e.g.
-  // "cup" maps to the generic `cup` unit, not to `us_cup` or `uk_cup`).
   for (const [unit, labels] of Object.entries(UNIT_LABELS) as Array<
     [Unit, UnitLabel]
   >) {
     aliases[unit] = unit;
     const singular = labels.singular.toLowerCase();
     const plural = labels.plural.toLowerCase();
-    if (!aliases[singular]) aliases[singular] = unit;
-    if (!aliases[plural]) aliases[plural] = unit;
+    if (!aliases[singular] && !AMBIGUOUS_TOKENS.has(singular))
+      aliases[singular] = unit;
+    if (!aliases[plural] && !AMBIGUOUS_TOKENS.has(plural))
+      aliases[plural] = unit;
   }
 
   // Explicit aliases take precedence over label-derived ones.
@@ -197,12 +196,10 @@ export const UNIT_CATEGORIES: Record<Unit, UnitCategory> = {
   tsp:             "spoon",
   tbsp:            "spoon",
   au_tbsp:         "spoon",
-  cup:             "volume",
   us_cup:          "volume",
   uk_cup:          "volume",
   au_cup:          "volume",
   uk_imperial_cup: "volume",
-  pint:            "volume",
   uk_pint:         "volume",
   us_pint:         "volume",
   us_fl_oz:        "volume",

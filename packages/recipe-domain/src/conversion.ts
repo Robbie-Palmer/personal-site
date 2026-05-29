@@ -24,12 +24,10 @@ const CONVERSIONS: Partial<Record<Unit, ConversionEntry>> = {
   tsp:             { toBase: 5,          dimension: "volume" }, // UK/metric standard (5 ml exactly)
   tbsp:            { toBase: 15,         dimension: "volume" }, // UK/metric standard (3 tsp)
   au_tbsp:         { toBase: 20,         dimension: "volume" }, // Australian tablespoon
-  cup:             { toBase: 250,        dimension: "volume" }, // legacy – treated as 250 ml
   us_cup:          { toBase: 236.588,    dimension: "volume" },
   uk_cup:          { toBase: 250,        dimension: "volume" },
   au_cup:          { toBase: 250,        dimension: "volume" },
   uk_imperial_cup: { toBase: 284.131,    dimension: "volume" },
-  pint:            { toBase: 568.261,    dimension: "volume" }, // legacy – treated as UK pint
   uk_pint:         { toBase: 568.261,    dimension: "volume" },
   us_pint:         { toBase: 473.176,    dimension: "volume" },
   us_fl_oz:        { toBase: 29.5735,    dimension: "volume" },

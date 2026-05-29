@@ -188,10 +188,4 @@ describe("convertToSystem", () => {
     expect(convertToSystem(1, "pinch", "us")).toBeNull();
   });
 
-  it("handles legacy ambiguous cup correctly", () => {
-    // `cup` treated as 250 ml
-    const result = convertToSystem(1, "cup", "us");
-    expect(result?.unit).toBe("us_cup");
-    expect(result?.amount).toBeCloseTo(250 / 236.588);
-  });
 });
