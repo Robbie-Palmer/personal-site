@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
-import { UnitPreferenceProvider } from "@/context/unit-preference";
 import { siteConfig } from "@/lib/config/site-config";
 
 export const metadata: Metadata = {
@@ -41,9 +40,7 @@ export default function RecipesLayout({
         </nav>
       </header>
 
-      <main className="flex-1 flex flex-col">
-        <UnitPreferenceProvider>{children}</UnitPreferenceProvider>
-      </main>
+      <main className="flex-1 flex flex-col">{children}</main>
 
       <footer className="border-t mt-auto">
         <div className="container mx-auto px-4 py-8">
