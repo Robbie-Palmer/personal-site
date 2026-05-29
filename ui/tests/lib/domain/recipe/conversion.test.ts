@@ -109,13 +109,19 @@ describe("convertToSystem", () => {
   });
 
   describe("US system", () => {
-    it("uses tsp for very small volumes", () => {
+    it("uses tsp below 1 tbsp", () => {
       const result = convertToSystem(5, "ml", "us");
       expect(result?.unit).toBe("tsp");
       expect(result?.amount).toBe(1);
     });
 
-    it("uses tbsp for small volumes", () => {
+    it("keeps 2 tsp as tsp rather than converting to 0.67 tbsp", () => {
+      const result = convertToSystem(10, "ml", "us");
+      expect(result?.unit).toBe("tsp");
+      expect(result?.amount).toBe(2);
+    });
+
+    it("uses tbsp at 1 tbsp and above", () => {
       const result = convertToSystem(15, "ml", "us");
       expect(result?.unit).toBe("tbsp");
       expect(result?.amount).toBe(1);
