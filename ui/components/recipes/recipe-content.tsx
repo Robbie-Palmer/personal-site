@@ -287,26 +287,6 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
     [effectiveRecipe.instructionSdk],
   );
   const shouldUseSdkInstructions = instructionTokenization?.ok === true;
-  const repeatedInstructionIngredients = useMemo(() => {
-    if (!shouldUseSdkInstructions) return new Set<string>();
-
-    const counts = new Map<string, number>();
-    for (const step of instructionTokenization.steps) {
-      for (const token of step) {
-        if (token.type !== "ingredient") continue;
-        counts.set(
-          token.canonicalName,
-          (counts.get(token.canonicalName) ?? 0) + 1,
-        );
-      }
-    }
-
-    return new Set(
-      Array.from(counts.entries())
-        .filter(([, count]) => count > 1)
-        .map(([name]) => name),
-    );
-  }, [instructionTokenization, shouldUseSdkInstructions]);
 
   useEffect(() => {
     if (
@@ -478,10 +458,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                           durationSeconds={token.durationSeconds}
                           label={token.value}
                         />
-                      ) : token.type === "ingredient" &&
-                        repeatedInstructionIngredients.has(
-                          token.canonicalName,
-                        ) ? (
+                      ) : token.type === "ingredient" ? (
                         formatInstructionIngredientToken(
                           token,
                           scale,
