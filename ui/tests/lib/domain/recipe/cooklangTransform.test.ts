@@ -73,7 +73,9 @@ describe("buildScaledRecipeParts", () => {
     // supplied to parse() — even at scale=1. The explicit regional variants
     // (us_cup, uk_cup…) are not known to cooklang-rs so they pass through
     // unchanged, which makes the normaliser reliable for those tokens.
-    const parts = buildScaledRecipeParts(parsedAt(`@mayonnaise{0.5%us_cup}\n`, 1));
+    const parts = buildScaledRecipeParts(
+      parsedAt(`@mayonnaise{0.5%us_cup}\n`, 1),
+    );
 
     expect(parts.ingredientGroups[0]?.items).toEqual([
       { ingredient: "mayonnaise", amount: 0.5, unit: "us_cup" },

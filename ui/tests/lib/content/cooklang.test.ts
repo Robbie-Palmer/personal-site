@@ -104,7 +104,7 @@ Add @garlic{2%cloves}, @bread{3%slices}, @stock{2%litres}, @milk{1%pints}, @suga
       "clove",
       "slice",
       "l",
-      null,  // "pints" is ambiguous – no unit recognised
+      null, // "pints" is ambiguous – no unit recognised
       "tbsp",
       "tsp",
     ]);
