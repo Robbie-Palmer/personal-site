@@ -9,7 +9,8 @@
     "./recipe": "./src/recipe.ts",
     "./unit": "./src/unit.ts",
     "./slugs": "./src/slugs.ts",
-    "./pluralization": "./src/pluralization.ts"
+    "./pluralization": "./src/pluralization.ts",
+    "./conversion": "./src/conversion.ts"
   },
   "dependencies": {
     "pluralize": "^8.0.0",

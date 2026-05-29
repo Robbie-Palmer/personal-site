@@ -70,22 +70,24 @@ describe("buildScaledRecipeParts", () => {
 
   it("maps cooklang-rs short unit forms back to UnitSchema names when scaling", () => {
     // cooklang-rs normalises `cup` to `c` whenever a scale parameter is
-    // supplied to parse() — even at scale=1. Without aliasing, UnitSchema
-    // would reject "c" and the unit would be dropped from the rendered
-    // ingredient list.
-    const parts = buildScaledRecipeParts(parsedAt(`@mayonnaise{0.5%cup}\n`, 1));
+    // supplied to parse() — even at scale=1. The explicit regional variants
+    // (us_cup, uk_cup…) are not known to cooklang-rs so they pass through
+    // unchanged, which makes the normaliser reliable for those tokens.
+    const parts = buildScaledRecipeParts(
+      parsedAt(`@mayonnaise{0.5%us_cup}\n`, 1),
+    );
 
     expect(parts.ingredientGroups[0]?.items).toEqual([
-      { ingredient: "mayonnaise", amount: 0.5, unit: "cup" },
+      { ingredient: "mayonnaise", amount: 0.5, unit: "us_cup" },
     ]);
-    expect(parts.instructionSdk.ingredientUnits).toEqual(["cup"]);
+    expect(parts.instructionSdk.ingredientUnits).toEqual(["us_cup"]);
   });
 
   it("preserves the user's written unit when cooklang-rs converts it", () => {
-    // cooklang-rs converts pint → c using US ratios (1 pint = 2 cups) the
-    // moment any scale is passed. With the unit-recovery reference parse the
-    // transform restores the written unit instead.
-    const body = `@milk{1%pint}\n`;
+    // cooklang-rs converts uk_pint → c using US ratios the moment any scale
+    // is passed. With the unit-recovery reference parse the transform restores
+    // the written unit instead.
+    const body = `@milk{1%uk_pint}\n`;
     const parsedOriginal = parsedAt(body);
     const parts = buildScaledRecipeParts(
       parsedAt(body, 3),
@@ -97,9 +99,9 @@ describe("buildScaledRecipeParts", () => {
     );
 
     expect(parts.ingredientGroups[0]?.items).toEqual([
-      { ingredient: "milk", amount: 3, unit: "pint" },
+      { ingredient: "milk", amount: 3, unit: "uk_pint" },
     ]);
-    expect(parts.instructionSdk.ingredientUnits).toEqual(["pint"]);
+    expect(parts.instructionSdk.ingredientUnits).toEqual(["uk_pint"]);
     expect(parts.instructionSdk.ingredientAmounts).toEqual([3]);
   });
 
@@ -128,7 +130,7 @@ describe("buildScaledRecipeParts", () => {
   it("trusts cooklang for fixed-quantity ingredients (= prefix is no-op for unit conversion)", () => {
     // The recovery branch only fires when units differ; cooklang preserves
     // both unit and amount for `=` ingredients, so we should pass them through.
-    const body = `Mix @flour{200%g} with @salt{=1%pint}.\n`;
+    const body = `Mix @flour{200%g} with @salt{=1%uk_pint}.\n`;
     const parsedOriginal = parsedAt(body);
     const parts = buildScaledRecipeParts(
       parsedAt(body, 3),
@@ -148,7 +150,7 @@ describe("buildScaledRecipeParts", () => {
     expect(items.find((i) => i.ingredient === "salt")).toEqual({
       ingredient: "salt",
       amount: 1,
-      unit: "pint",
+      unit: "uk_pint",
     });
   });
 });

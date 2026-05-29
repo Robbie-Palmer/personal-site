@@ -14,6 +14,7 @@ import { InlineTimer } from "@/components/recipes/inline-timer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useScaledRecipe } from "@/hooks/use-scaled-recipe";
+import { useUnitPreference } from "@/hooks/use-unit-preference";
 import {
   formatIngredientName,
   getDisplayedScaledAmount,
@@ -27,7 +28,12 @@ import type {
   RecipeDetailView,
   RecipeIngredientView,
 } from "@/lib/domain/recipe/recipeViews";
-import { UNIT_LABELS } from "@/lib/domain/recipe/unit";
+import {
+  convertToSystem,
+  MEASUREMENT_SYSTEM_LABELS,
+  type MeasurementSystem,
+  UNIT_LABELS,
+} from "@/lib/domain/recipe/unit";
 import { normalizeSlug } from "@/lib/generic/slugs";
 
 type IngredientAnnotation = Pick<RecipeIngredientView, "preparation" | "note">;
@@ -82,36 +88,38 @@ function formatScaled(value: number): string {
 
 const SINGULAR_EPSILON = 1e-9;
 
-function selectUnitLabel(
+/** Apply scale + system conversion, returning the best display (amount, unit). */
+function resolveDisplay(
   item: Pick<RecipeIngredientView, "amount" | "unit">,
   scale: number,
-): string | undefined {
-  if (!item.unit) {
-    return undefined;
+  system: MeasurementSystem,
+): { amount: number | undefined; unit: RecipeIngredientView["unit"] } {
+  const scaledAmount = item.amount != null ? item.amount * scale : undefined;
+  if (scaledAmount != null && item.unit) {
+    const converted = convertToSystem(scaledAmount, item.unit, system);
+    if (converted) return converted;
   }
-
-  const labels = UNIT_LABELS[item.unit];
-  if (!labels) {
-    return undefined;
-  }
-
-  const scaledAmount = getDisplayedScaledAmount(item.amount, scale);
-  const isPlural =
-    scaledAmount != null && Math.abs(scaledAmount - 1) >= SINGULAR_EPSILON;
-  return isPlural ? labels.plural : labels.singular;
+  return { amount: scaledAmount, unit: item.unit };
 }
 
-function formatAmount(item: RecipeIngredientView, scale: number): string {
+function formatAmount(
+  item: Pick<RecipeIngredientView, "amount" | "unit">,
+  scale: number,
+  system: MeasurementSystem,
+): string {
+  const { amount, unit } = resolveDisplay(item, scale, system);
   const parts: string[] = [];
 
-  if (item.amount != null) {
-    parts.push(formatScaled(item.amount * scale));
+  if (amount != null) {
+    parts.push(formatScaled(amount));
   }
 
-  if (item.unit) {
-    const labels = UNIT_LABELS[item.unit];
+  if (unit) {
+    const labels = UNIT_LABELS[unit];
     if (labels) {
-      const label = selectUnitLabel(item, scale);
+      const isPlural =
+        amount != null && Math.abs(amount) > 1 + SINGULAR_EPSILON;
+      const label = isPlural ? labels.plural : labels.singular;
       if (label) {
         if (labels.noSpace && parts.length > 0) {
           parts[parts.length - 1] += label;
@@ -128,22 +136,20 @@ function formatAmount(item: RecipeIngredientView, scale: number): string {
 function hasRenderedUnitLabel(
   item: Pick<RecipeIngredientView, "amount" | "unit">,
   scale: number,
+  system: MeasurementSystem,
 ): boolean {
-  if (!item.unit || item.unit === "piece") {
-    return false;
-  }
-
-  const labels = UNIT_LABELS[item.unit];
-  if (!labels) {
-    return false;
-  }
-
-  return Boolean(selectUnitLabel(item, scale));
+  const { amount, unit } = resolveDisplay(item, scale, system);
+  if (!unit || unit === "piece") return false;
+  const labels = UNIT_LABELS[unit];
+  if (!labels) return false;
+  const isPlural = amount != null && Math.abs(amount) > 1 + SINGULAR_EPSILON;
+  return Boolean(isPlural ? labels.plural : labels.singular);
 }
 
 function formatIngredient(
   item: RecipeIngredientView,
   scale: number,
+  system: MeasurementSystem,
   annotation?: IngredientAnnotation,
 ): string {
   const isPiece = item.unit === "piece";
@@ -151,12 +157,12 @@ function formatIngredient(
     ? item.amount != null
       ? formatScaled(item.amount * scale)
       : ""
-    : formatAmount(item, scale);
+    : formatAmount(item, scale, system);
   const parts: string[] = [];
 
   if (amount) {
     parts.push(amount);
-    if (hasRenderedUnitLabel(item, scale)) {
+    if (hasRenderedUnitLabel(item, scale, system)) {
       parts.push("of");
     }
   }
@@ -180,6 +186,7 @@ function formatIngredient(
 function formatInstructionIngredientToken(
   token: Extract<InstructionDisplayToken, { type: "ingredient" }>,
   scale: number,
+  system: MeasurementSystem,
 ): string {
   const item = {
     ingredient: token.canonicalName,
@@ -192,12 +199,12 @@ function formatInstructionIngredientToken(
     ? item.amount != null
       ? formatScaled(item.amount * scale)
       : ""
-    : formatAmount(item, scale);
+    : formatAmount(item, scale, system);
   const parts: string[] = [];
 
   if (amount) {
     parts.push(amount);
-    if (hasRenderedUnitLabel(item, scale)) {
+    if (hasRenderedUnitLabel(item, scale, system)) {
       parts.push("of");
     }
   }
@@ -216,10 +223,12 @@ function formatTime(minutes: number): string {
 function IngredientGroup({
   group,
   scale,
+  system,
   annotations,
 }: {
   group: IngredientGroupView;
   scale: number;
+  system: MeasurementSystem;
   annotations: Map<string, IngredientAnnotation>;
 }) {
   return (
@@ -235,6 +244,7 @@ function IngredientGroup({
               {formatIngredient(
                 item,
                 scale,
+                system,
                 resolveIngredientAnnotation(item, annotations),
               )}
             </span>
@@ -255,6 +265,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
     isScaling,
     error: scalingError,
   } = useScaledRecipe(recipe, requestedScale);
+  const [unitSystem, setUnitSystem] = useUnitPreference();
   useEffect(() => {
     if (scalingError) {
       console.error(
@@ -276,26 +287,6 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
     [effectiveRecipe.instructionSdk],
   );
   const shouldUseSdkInstructions = instructionTokenization?.ok === true;
-  const repeatedInstructionIngredients = useMemo(() => {
-    if (!shouldUseSdkInstructions) return new Set<string>();
-
-    const counts = new Map<string, number>();
-    for (const step of instructionTokenization.steps) {
-      for (const token of step) {
-        if (token.type !== "ingredient") continue;
-        counts.set(
-          token.canonicalName,
-          (counts.get(token.canonicalName) ?? 0) + 1,
-        );
-      }
-    }
-
-    return new Set(
-      Array.from(counts.entries())
-        .filter(([, count]) => count > 1)
-        .map(([name]) => name),
-    );
-  }, [instructionTokenization, shouldUseSdkInstructions]);
 
   useEffect(() => {
     if (
@@ -373,6 +364,27 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
               ) : null}
             </div>
           </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs">Units:</span>
+            <div className="flex items-center rounded border">
+              {(["metric", "us", "uk"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setUnitSystem(s)}
+                  className={[
+                    "px-2 py-0.5 text-xs font-medium transition-colors first:rounded-l last:rounded-r",
+                    unitSystem === s
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:text-foreground",
+                  ].join(" ")}
+                  aria-pressed={unitSystem === s}
+                >
+                  {MEASUREMENT_SYSTEM_LABELS[s]}
+                </button>
+              ))}
+            </div>
+          </div>
           {recipe.prepTime != null && (
             <div className="flex items-center gap-1">
               <Timer className="h-4 w-4" />
@@ -412,6 +424,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
               key={group.name ?? i}
               group={group}
               scale={scale}
+              system={unitSystem}
               annotations={ingredientAnnotations}
             />
           ))}
@@ -445,11 +458,12 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                           durationSeconds={token.durationSeconds}
                           label={token.value}
                         />
-                      ) : token.type === "ingredient" &&
-                        repeatedInstructionIngredients.has(
-                          token.canonicalName,
-                        ) ? (
-                        formatInstructionIngredientToken(token, scale)
+                      ) : token.type === "ingredient" ? (
+                        formatInstructionIngredientToken(
+                          token,
+                          scale,
+                          unitSystem,
+                        )
                       ) : (
                         token.value
                       )}

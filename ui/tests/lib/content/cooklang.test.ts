@@ -94,7 +94,7 @@ Add @garlic{2%cloves}, @bread{3%slices}, @stock{2%litres}, @milk{1%pints}, @suga
           { ingredient: "garlic", amount: 2, unit: "clove" },
           { ingredient: "bread", amount: 3, unit: "slice" },
           { ingredient: "stock", amount: 2, unit: "l" },
-          { ingredient: "milk", amount: 1, unit: "pint" },
+          { ingredient: "milk", amount: 1, unit: "uk_pint" },
           { ingredient: "sugar", amount: 2, unit: "tbsp" },
           { ingredient: "salt", amount: 3, unit: "tsp" },
         ],
@@ -104,7 +104,7 @@ Add @garlic{2%cloves}, @bread{3%slices}, @stock{2%litres}, @milk{1%pints}, @suga
       "clove",
       "slice",
       "l",
-      "pint",
+      "uk_pint",
       "tbsp",
       "tsp",
     ]);
