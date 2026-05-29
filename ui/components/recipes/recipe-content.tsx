@@ -118,7 +118,7 @@ function formatAmount(
     const labels = UNIT_LABELS[unit];
     if (labels) {
       const isPlural =
-        amount != null && Math.abs(amount - 1) >= SINGULAR_EPSILON;
+        amount != null && Math.abs(amount) > 1 + SINGULAR_EPSILON;
       const label = isPlural ? labels.plural : labels.singular;
       if (label) {
         if (labels.noSpace && parts.length > 0) {
@@ -142,7 +142,7 @@ function hasRenderedUnitLabel(
   if (!unit || unit === "piece") return false;
   const labels = UNIT_LABELS[unit];
   if (!labels) return false;
-  const isPlural = amount != null && Math.abs(amount - 1) >= SINGULAR_EPSILON;
+  const isPlural = amount != null && Math.abs(amount) > 1 + SINGULAR_EPSILON;
   return Boolean(isPlural ? labels.plural : labels.singular);
 }
 
