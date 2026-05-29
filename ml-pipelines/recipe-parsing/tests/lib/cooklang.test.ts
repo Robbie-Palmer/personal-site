@@ -203,7 +203,7 @@ describe("cooklang helpers", () => {
 			{ ingredient: "flour", amount: 200, unit: "g" },
 			{ ingredient: "potatoes", amount: 2, unit: "kg" },
 			{ ingredient: "stock", amount: 3, unit: "l" },
-			{ ingredient: "milk", amount: 2 },
+			{ ingredient: "milk", amount: 2, unit: "uk_pint" },
 			{ ingredient: "sugar", amount: 2, unit: "tbsp" },
 			{ ingredient: "salt", amount: 3, unit: "tsp" },
 			{ ingredient: "garlic", amount: 4, unit: "clove" },

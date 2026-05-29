@@ -108,7 +108,10 @@ const EXPLICIT_UNIT_ALIASES: Partial<Record<string, Unit>> = {
   "australian tablespoons": "au_tbsp",
   "au tbsp": "au_tbsp",
   "australian tbsp": "au_tbsp",
-  // Cup variants (by region) – bare "cup"/"c" intentionally omitted: ambiguous
+  // Cup variants (by region) – bare "cup" defaults to us_cup
+  cup: "us_cup",
+  cups: "us_cup",
+  c: "us_cup", // cooklang-rs normalises `cup` → `c` when a scale is passed
   "us cup": "us_cup",
   "us cups": "us_cup",
   "american cup": "us_cup",
@@ -122,7 +125,9 @@ const EXPLICIT_UNIT_ALIASES: Partial<Record<string, Unit>> = {
   "australian cups": "au_cup",
   "imperial cup": "uk_imperial_cup",
   "imperial cups": "uk_imperial_cup",
-  // Pint variants – bare "pint" intentionally omitted: ambiguous
+  // Pint variants – bare "pint" defaults to uk_pint (the more common culinary pint outside the US)
+  pint: "uk_pint",
+  pints: "uk_pint",
   "us pint": "us_pint",
   "us pints": "us_pint",
   "american pint": "us_pint",
@@ -150,10 +155,6 @@ const EXPLICIT_UNIT_ALIASES: Partial<Record<string, Unit>> = {
   packs: "piece",
 };
 
-// Tokens that are genuinely ambiguous across regional standards and must never
-// resolve automatically — callers must use explicit variants (us_cup, uk_pint…).
-const AMBIGUOUS_TOKENS = new Set(["cup", "cups", "pint", "pints"]);
-
 const NORMALIZED_UNIT_ALIASES: Record<string, Unit> = (() => {
   const aliases: Record<string, Unit> = {};
 
@@ -163,10 +164,8 @@ const NORMALIZED_UNIT_ALIASES: Record<string, Unit> = (() => {
     aliases[unit] = unit;
     const singular = labels.singular.toLowerCase();
     const plural = labels.plural.toLowerCase();
-    if (!aliases[singular] && !AMBIGUOUS_TOKENS.has(singular))
-      aliases[singular] = unit;
-    if (!aliases[plural] && !AMBIGUOUS_TOKENS.has(plural))
-      aliases[plural] = unit;
+    if (!aliases[singular]) aliases[singular] = unit;
+    if (!aliases[plural]) aliases[plural] = unit;
   }
 
   // Explicit aliases take precedence over label-derived ones.
