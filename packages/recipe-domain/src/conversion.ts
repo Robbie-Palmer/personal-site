@@ -61,10 +61,6 @@ export function getUnitDimension(unit: Unit): Dimension | null {
   return CONVERSIONS[unit]?.dimension ?? null;
 }
 
-// ---------------------------------------------------------------------------
-// Preferred display unit selection per system
-// ---------------------------------------------------------------------------
-
 // Volume thresholds (in ml) for selecting the display unit in each system.
 // The goal is a human-readable amount (e.g. "1 cup" rather than "237 ml").
 function preferredVolumeUnit(ml: number, system: MeasurementSystem): Unit {
