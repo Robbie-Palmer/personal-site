@@ -13,7 +13,7 @@ function readStored(): MeasurementSystem {
   } catch {
     // localStorage unavailable (SSR, private browsing, etc.)
   }
-  return "metric";
+  return "uk";
 }
 
 // Module-level listener set so every hook instance shares one store.
@@ -46,7 +46,7 @@ export function useUnitPreference(): [
     subscribe,
     readStored,
     // getServerSnapshot – must match initial SSR output to avoid hydration mismatch
-    () => "metric" as MeasurementSystem,
+    () => "uk" as MeasurementSystem,
   );
 
   return [system, setSystem];
