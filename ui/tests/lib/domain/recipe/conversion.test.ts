@@ -167,6 +167,13 @@ describe("convertToSystem", () => {
       });
     });
 
+    it("uses uk_pint for pint-range volumes", () => {
+      expect(convertToSystem(568.261, "ml", "uk")).toEqual({
+        amount: 1,
+        unit: "uk_pint",
+      });
+    });
+
     it("uses l for large volumes", () => {
       expect(convertToSystem(1500, "ml", "uk")).toEqual({
         amount: 1.5,

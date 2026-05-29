@@ -80,10 +80,12 @@ function preferredVolumeUnit(ml: number, system: MeasurementSystem): Unit {
       return "us_pint";
 
     case "uk":
-      // UK cooking is metric for volumes; tsp/tbsp for small measures
+      // UK cooking is metric for small/large volumes; pint for the middle band
       if (ml < 15) return "tsp";
       if (ml < 60) return "tbsp";
-      return ml >= 1000 ? "l" : "ml";
+      if (ml < 300) return "ml";
+      if (ml < 1200) return "uk_pint";
+      return "l";
   }
 }
 
