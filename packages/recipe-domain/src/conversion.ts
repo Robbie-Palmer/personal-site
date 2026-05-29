@@ -73,9 +73,9 @@ function preferredVolumeUnit(ml: number, system: MeasurementSystem): Unit {
       return ml >= 1000 ? "l" : "ml";
 
     case "us":
-      // < ~1.5 tsp → tsp; < 4 tbsp → tbsp; < ~2 US cups → cup; else pint
+      // < ~1.5 tsp → tsp; < ~3 tbsp → tbsp; < ~2 US cups → cup; else pint
       if (ml < 7.5) return "tsp";
-      if (ml < 60) return "tbsp";
+      if (ml < 45) return "tbsp";
       if (ml < 473) return "us_cup";
       return "us_pint";
 

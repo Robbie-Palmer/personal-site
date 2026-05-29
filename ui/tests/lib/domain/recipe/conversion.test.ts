@@ -121,12 +121,6 @@ describe("convertToSystem", () => {
       expect(result?.amount).toBe(1);
     });
 
-    it("keeps 3 tbsp as tbsp rather than converting to an awkward 0.19 cups", () => {
-      const result = convertToSystem(45, "ml", "us");
-      expect(result?.unit).toBe("tbsp");
-      expect(result?.amount).toBe(3);
-    });
-
     it("uses cup for medium volumes", () => {
       const result = convertToSystem(250, "ml", "us");
       expect(result?.unit).toBe("us_cup");
