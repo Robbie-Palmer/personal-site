@@ -164,6 +164,11 @@ const NORMALIZED_UNIT_ALIASES: Record<string, Unit> = (() => {
     aliases[unit] = unit;
     const singular = labels.singular.toLowerCase();
     const plural = labels.plural.toLowerCase();
+    // First unit to claim a display label wins. Multiple regional variants
+    // share the same label text (e.g. us_cup, uk_cup, au_cup all render as
+    // "cup"), so without this guard the last one iterated would silently
+    // overwrite the earlier ones. Explicit aliases in EXPLICIT_UNIT_ALIASES
+    // are applied afterwards and can still override any entry set here.
     if (!aliases[singular]) aliases[singular] = unit;
     if (!aliases[plural]) aliases[plural] = unit;
   }

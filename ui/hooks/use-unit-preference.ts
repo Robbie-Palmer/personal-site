@@ -5,6 +5,7 @@ import type { MeasurementSystem } from "@/lib/domain/recipe/unit";
 
 const STORAGE_KEY = "recipe-unit-preference";
 const VALID_SYSTEMS = new Set<string>(["metric", "us", "uk"]);
+const DEFAULT_SYSTEM: MeasurementSystem = "uk";
 
 function readStored(): MeasurementSystem {
   try {
@@ -13,7 +14,7 @@ function readStored(): MeasurementSystem {
   } catch {
     // localStorage unavailable (SSR, private browsing, etc.)
   }
-  return "uk";
+  return DEFAULT_SYSTEM;
 }
 
 // Module-level listener set so every hook instance shares one store.
@@ -46,7 +47,7 @@ export function useUnitPreference(): [
     subscribe,
     readStored,
     // getServerSnapshot – must match initial SSR output to avoid hydration mismatch
-    () => "uk" as MeasurementSystem,
+    () => DEFAULT_SYSTEM,
   );
 
   return [system, setSystem];
