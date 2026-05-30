@@ -15,9 +15,9 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^0.10.4",
     "drizzle-orm": "^0.44.2",
-    "hono": "^4.7.11"
+    "hono": "^4.7.11",
+    "postgres": "^3.4.5"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4",

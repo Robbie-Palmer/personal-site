@@ -1,11 +1,13 @@
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "./schema";
 
 export { schema };
-export type Db = ReturnType<typeof createDb>;
 
 export function createDb(connectionString: string) {
-  const sql = neon(connectionString);
-  return drizzle(sql, { schema });
+  // prepare: false required for Hyperdrive — it may route requests to different
+  // backend servers, so named prepared statements won't be available across connections.
+  const client = postgres(connectionString, { prepare: false });
+  const db = drizzle(client, { schema });
+  return { db, client };
 }

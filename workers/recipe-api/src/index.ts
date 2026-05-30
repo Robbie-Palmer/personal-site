@@ -18,8 +18,8 @@ app.get("/recipes", async (c) => {
   if (!connectionString) {
     return c.json({ error: "DATABASE_URL is not configured" }, 503);
   }
+  const { db, client } = createDb(connectionString);
   try {
-    const db = createDb(connectionString);
     const recipes = await db.select().from(schema.recipe);
     return c.json(recipes);
   } catch (e) {
@@ -27,6 +27,8 @@ app.get("/recipes", async (c) => {
       { error: "Database query failed", message: String(e) },
       502,
     );
+  } finally {
+    await client.end({ timeout: 5 });
   }
 });
 

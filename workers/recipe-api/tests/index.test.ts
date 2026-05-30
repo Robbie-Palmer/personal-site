@@ -1,13 +1,24 @@
 import { describe, it, expect, vi } from "vitest";
-import { neon } from "@neondatabase/serverless";
+import postgres from "postgres";
 
-vi.mock("@neondatabase/serverless", () => ({
-  neon: vi.fn(() => {
-    // drizzle-orm/neon-http calls client(sql, params, { fullResults: true }) as a plain
-    // function and destructures { rows, fields } from the result.
-    const sql = (_query: unknown, ..._rest: unknown[]) =>
-      Promise.resolve({ rows: [], fields: [] });
-    return sql;
+vi.mock("postgres", () => ({
+  default: vi.fn(() => {
+    // drizzle-orm/postgres-js/driver.js writes transparent parsers into
+    // client.options.parsers / .serializers at construction time, so the mock
+    // client must expose those empty objects. Queries go through:
+    //   client.unsafe(sql, params).values() — SELECT (drizzle maps array-of-arrays)
+    //   client.unsafe(sql, params)          — DML
+    const emptyResult = Object.assign(Promise.resolve([]), {
+      values: () => Promise.resolve([]),
+    });
+    return Object.assign(
+      (_strings: TemplateStringsArray, ..._values: unknown[]) => emptyResult,
+      {
+        options: { parsers: {}, serializers: {} },
+        unsafe: (_query: string, _params?: unknown[]) => emptyResult,
+        end: (_options?: { timeout?: number }) => Promise.resolve(),
+      },
+    );
   }),
 }));
 
@@ -39,9 +50,18 @@ describe("GET /recipes", () => {
   });
 
   it("returns 502 when database query fails", async () => {
-    vi.mocked(neon).mockReturnValueOnce(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ((_query: unknown) => Promise.reject(new Error("connection refused"))) as any,
+    vi.mocked(postgres).mockReturnValueOnce(
+      Object.assign(
+        () => {},
+        {
+          options: { parsers: {}, serializers: {} },
+          unsafe: () => ({
+            values: () => Promise.reject(new Error("connection refused")),
+          }),
+          end: () => Promise.resolve(),
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ) as any,
     );
 
     const res = await app.request("/recipes", {}, env);
