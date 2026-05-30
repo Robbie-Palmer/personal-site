@@ -29,11 +29,11 @@ resource "cloudflare_pages_project" "personal_site" {
       owner                         = var.github_repo_owner
       repo_name                     = var.github_repo_name
       production_branch             = var.production_branch
-      pr_comments_enabled           = true
-      deployments_enabled           = true
-      production_deployment_enabled = true
-      preview_deployment_setting    = "all"
-      preview_branch_includes       = ["*"]
+      pr_comments_enabled           = false
+      deployments_enabled           = false
+      production_deployment_enabled = false
+      preview_deployment_setting    = "none"
+      preview_branch_includes       = []
       preview_branch_excludes       = []
     }
   }
