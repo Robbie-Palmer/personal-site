@@ -90,7 +90,7 @@ run = "pnpm images:health-check"
 [tasks.deploy]
 description = "Deploy to Cloudflare Pages via Wrangler"
 depends = ["//ui:build"]
-run = "pnpm exec wrangler pages deploy out --project-name=personal-site --branch=$DEPLOY_BRANCH"
+run = "pnpm exec wrangler pages deploy out --project-name=personal-site --branch=$DEPLOY_BRANCH --functions-dir=../functions"
 
 # Lighthouse performance testing tasks
 [tasks.lighthouse]
