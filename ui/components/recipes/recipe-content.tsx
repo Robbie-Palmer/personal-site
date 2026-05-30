@@ -245,30 +245,43 @@ function IngredientGroup({
         {group.items.map((item) => {
           const isChecked = checked.has(item.ingredient);
           return (
-            <li key={item.ingredient} className="flex items-start gap-2">
-              <button
-                type="button"
-                onClick={() => onToggle(item.ingredient)}
-                aria-checked={isChecked}
-                role="checkbox"
-                aria-label={item.name}
-                className={[
-                  "mt-0.5 h-4 w-4 rounded flex-shrink-0 border-2 flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  isChecked
-                    ? "bg-muted-foreground border-muted-foreground"
-                    : "border-muted-foreground/40 hover:border-muted-foreground",
-                ].join(" ")}
-              >
-                {isChecked && <Check className="h-2.5 w-2.5 text-background" strokeWidth={3} />}
-              </button>
-              <span className={isChecked ? "line-through text-muted-foreground/60" : ""}>
-                {formatIngredient(
-                  item,
-                  scale,
-                  system,
-                  resolveIngredientAnnotation(item, annotations),
-                )}
-              </span>
+            <li key={item.ingredient}>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => onToggle(item.ingredient)}
+                  className="sr-only"
+                />
+                <span
+                  aria-hidden="true"
+                  className={[
+                    "mt-0.5 h-4 w-4 rounded flex-shrink-0 border-2 flex items-center justify-center transition-colors",
+                    isChecked
+                      ? "bg-muted-foreground border-muted-foreground"
+                      : "border-muted-foreground/40 hover:border-muted-foreground",
+                  ].join(" ")}
+                >
+                  {isChecked && (
+                    <Check
+                      className="h-2.5 w-2.5 text-background"
+                      strokeWidth={3}
+                    />
+                  )}
+                </span>
+                <span
+                  className={
+                    isChecked ? "line-through text-muted-foreground/60" : ""
+                  }
+                >
+                  {formatIngredient(
+                    item,
+                    scale,
+                    system,
+                    resolveIngredientAnnotation(item, annotations),
+                  )}
+                </span>
+              </label>
             </li>
           );
         })}
