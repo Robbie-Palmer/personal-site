@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { eq } from "drizzle-orm";
 import { createDb, schema } from "./db";
 
 type Bindings = {
@@ -20,13 +21,14 @@ app.get("/recipes", async (c) => {
   }
   const { db, client } = createDb(connectionString);
   try {
-    const recipes = await db.select().from(schema.recipe);
+    const recipes = await db
+      .select()
+      .from(schema.recipe)
+      .where(eq(schema.recipe.visibility, "public"));
     return c.json(recipes);
   } catch (e) {
-    return c.json(
-      { error: "Database query failed", message: String(e) },
-      502,
-    );
+    console.error("GET /recipes query failed", e);
+    return c.json({ error: "Database query failed" }, 502);
   } finally {
     await client.end({ timeout: 5 });
   }
