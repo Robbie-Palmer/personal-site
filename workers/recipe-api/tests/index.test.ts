@@ -3,7 +3,7 @@ import { neon } from "@neondatabase/serverless";
 
 vi.mock("@neondatabase/serverless", () => ({
   neon: vi.fn(() => {
-    const sql = (_strings: TemplateStringsArray) =>
+    const sql = (_strings: TemplateStringsArray, ..._values: unknown[]) =>
       Promise.resolve([{ connected: 1 }]);
     return sql;
   }),

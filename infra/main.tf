@@ -101,6 +101,10 @@ resource "neon_project" "recipes" {
 
   history_retention_seconds = 21600 # 6 hours (free plan max)
 
+  lifecycle {
+    prevent_destroy = true
+  }
+
   branch {
     name          = "main"
     database_name = "recipes"
