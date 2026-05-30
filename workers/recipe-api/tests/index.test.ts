@@ -3,8 +3,10 @@ import { neon } from "@neondatabase/serverless";
 
 vi.mock("@neondatabase/serverless", () => ({
   neon: vi.fn(() => {
-    const sql = (_strings: TemplateStringsArray, ..._values: unknown[]) =>
-      Promise.resolve([{ connected: 1 }]);
+    // drizzle-orm/neon-http calls client(sql, params, { fullResults: true }) as a plain
+    // function and destructures { rows, fields } from the result.
+    const sql = (_query: unknown, ..._rest: unknown[]) =>
+      Promise.resolve({ rows: [], fields: [] });
     return sql;
   }),
 }));
@@ -22,14 +24,13 @@ describe("GET /health", () => {
 });
 
 describe("GET /recipes", () => {
-  it("returns connection status", async () => {
+  it("returns recipes list", async () => {
     const res = await app.request("/recipes", {}, env);
     expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toEqual({ connected: true, rows: [{ connected: 1 }] });
+    expect(await res.json()).toEqual([]);
   });
 
-  it("returns 503 when DATABASE_URL is missing", async () => {
+  it("returns 503 when no connection is configured", async () => {
     const res = await app.request("/recipes", {}, { DATABASE_URL: "" });
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({
@@ -38,15 +39,15 @@ describe("GET /recipes", () => {
   });
 
   it("returns 502 when database query fails", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(neon).mockReturnValueOnce((() => {
-      throw new Error("connection refused");
-    }) as any);
+    vi.mocked(neon).mockReturnValueOnce(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ((_query: unknown) => Promise.reject(new Error("connection refused"))) as any,
+    );
 
     const res = await app.request("/recipes", {}, env);
     expect(res.status).toBe(502);
     const body = (await res.json()) as { error: string };
-    expect(body.error).toBe("Database connection failed");
+    expect(body.error).toBe("Database query failed");
   });
 });
 

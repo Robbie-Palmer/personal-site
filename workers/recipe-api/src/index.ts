@@ -1,8 +1,11 @@
 import { Hono } from "hono";
-import { neon } from "@neondatabase/serverless";
+import { createDb, schema } from "./db";
 
 type Bindings = {
-  DATABASE_URL: string;
+  // In production, HYPERDRIVE is the Cloudflare Hyperdrive binding (connection pooling).
+  // For local dev, set DATABASE_URL in .dev.vars instead.
+  HYPERDRIVE?: Hyperdrive;
+  DATABASE_URL?: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -10,16 +13,18 @@ const app = new Hono<{ Bindings: Bindings }>();
 app.get("/health", (c) => c.json({ status: "ok" }));
 
 app.get("/recipes", async (c) => {
-  if (!c.env.DATABASE_URL) {
+  const connectionString =
+    c.env.HYPERDRIVE?.connectionString ?? c.env.DATABASE_URL;
+  if (!connectionString) {
     return c.json({ error: "DATABASE_URL is not configured" }, 503);
   }
   try {
-    const sql = neon(c.env.DATABASE_URL);
-    const rows = await sql`SELECT 1 AS connected`;
-    return c.json({ connected: true, rows });
+    const db = createDb(connectionString);
+    const recipes = await db.select().from(schema.recipe);
+    return c.json(recipes);
   } catch (e) {
     return c.json(
-      { error: "Database connection failed", message: String(e) },
+      { error: "Database query failed", message: String(e) },
       502,
     );
   }
