@@ -2,6 +2,7 @@
 
 import {
   AlertTriangle,
+  Check,
   Clock,
   Loader2,
   Minus,
@@ -9,7 +10,7 @@ import {
   Timer,
   Users,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { InlineTimer } from "@/components/recipes/inline-timer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -225,11 +226,15 @@ function IngredientGroup({
   scale,
   system,
   annotations,
+  checked,
+  onToggle,
 }: {
   group: IngredientGroupView;
   scale: number;
   system: MeasurementSystem;
   annotations: Map<string, IngredientAnnotation>;
+  checked: Set<string>;
+  onToggle: (ingredient: string) => void;
 }) {
   return (
     <div>
@@ -237,19 +242,36 @@ function IngredientGroup({
         <h3 className="font-semibold text-lg mb-2">{group.name}</h3>
       )}
       <ul className="space-y-1">
-        {group.items.map((item) => (
-          <li key={item.ingredient} className="flex items-start gap-2">
-            <span className="text-muted-foreground mt-1.5 h-1.5 w-1.5 rounded-full bg-current flex-shrink-0" />
-            <span>
-              {formatIngredient(
-                item,
-                scale,
-                system,
-                resolveIngredientAnnotation(item, annotations),
-              )}
-            </span>
-          </li>
-        ))}
+        {group.items.map((item) => {
+          const isChecked = checked.has(item.ingredient);
+          return (
+            <li key={item.ingredient} className="flex items-start gap-2">
+              <button
+                type="button"
+                onClick={() => onToggle(item.ingredient)}
+                aria-checked={isChecked}
+                role="checkbox"
+                aria-label={item.name}
+                className={[
+                  "mt-0.5 h-4 w-4 rounded flex-shrink-0 border-2 flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  isChecked
+                    ? "bg-muted-foreground border-muted-foreground"
+                    : "border-muted-foreground/40 hover:border-muted-foreground",
+                ].join(" ")}
+              >
+                {isChecked && <Check className="h-2.5 w-2.5 text-background" strokeWidth={3} />}
+              </button>
+              <span className={isChecked ? "line-through text-muted-foreground/60" : ""}>
+                {formatIngredient(
+                  item,
+                  scale,
+                  system,
+                  resolveIngredientAnnotation(item, annotations),
+                )}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -266,6 +288,37 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
     error: scalingError,
   } = useScaledRecipe(recipe, requestedScale);
   const [unitSystem, setUnitSystem] = useUnitPreference();
+
+  const storageKey = `recipe-checklist-${recipe.slug}`;
+  const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(
+    () => {
+      if (typeof window === "undefined") return new Set();
+      try {
+        const stored = localStorage.getItem(`recipe-checklist-${recipe.slug}`);
+        return stored ? new Set(JSON.parse(stored) as string[]) : new Set();
+      } catch {
+        return new Set();
+      }
+    },
+  );
+
+  const toggleIngredient = useCallback(
+    (ingredient: string) => {
+      setCheckedIngredients((prev) => {
+        const next = new Set(prev);
+        if (next.has(ingredient)) {
+          next.delete(ingredient);
+        } else {
+          next.add(ingredient);
+        }
+        try {
+          localStorage.setItem(storageKey, JSON.stringify([...next]));
+        } catch {}
+        return next;
+      });
+    },
+    [storageKey],
+  );
   useEffect(() => {
     if (scalingError) {
       console.error(
@@ -417,7 +470,23 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
       </header>
 
       <section className="mb-8">
-        <h2 className="text-2xl font-bold mb-4">Ingredients</h2>
+        <div className="flex items-baseline justify-between mb-4">
+          <h2 className="text-2xl font-bold">Ingredients</h2>
+          {checkedIngredients.size > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setCheckedIngredients(new Set());
+                try {
+                  localStorage.removeItem(storageKey);
+                } catch {}
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Reset
+            </button>
+          )}
+        </div>
         <div className="space-y-4">
           {effectiveRecipe.ingredientGroups.map((group, i) => (
             <IngredientGroup
@@ -426,6 +495,8 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
               scale={scale}
               system={unitSystem}
               annotations={ingredientAnnotations}
+              checked={checkedIngredients}
+              onToggle={toggleIngredient}
             />
           ))}
         </div>
