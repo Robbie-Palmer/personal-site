@@ -40,12 +40,6 @@ output "neon_project_id" {
   value       = neon_project.recipes.id
 }
 
-output "neon_connection_uri_pooler" {
-  description = "Neon pooled connection URI (for serverless/Workers)"
-  value       = neon_project.recipes.connection_uri_pooler
-  sensitive   = true
-}
-
 output "neon_database_host_pooler" {
   description = "Neon pooler endpoint hostname"
   value       = neon_project.recipes.database_host_pooler
