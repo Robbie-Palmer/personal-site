@@ -55,9 +55,9 @@ jobs:
       - name: Deploy to Cloudflare Pages
         id: deploy
         run: |
-          OUTPUT=$(mise run //ui:deploy 2>&1)
-          echo "$OUTPUT"
-          URL=$(echo "$OUTPUT" | grep -Eo "https://[^ ]+" | tail -1)
+          set -o pipefail
+          mise run //ui:deploy 2>&1 | tee /tmp/deploy-output.txt
+          URL=$(grep -Eo "https://[^ ]+" /tmp/deploy-output.txt | tail -1)
           echo "url=$URL" >> $GITHUB_OUTPUT
         env:
           DEPLOY_BRANCH: ${{ github.head_ref || github.ref_name }}
