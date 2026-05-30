@@ -107,10 +107,28 @@ database branching for preview environments, and a generous free tier (0.5 GB st
 CU-hours/month). It runs real Postgres — not a Postgres-compatible wire protocol — so every
 Postgres tool, ORM, and auth library works without compatibility concerns.
 
-**Hyperdrive** for connection pooling from Workers to Neon. Hyperdrive maintains persistent
-connection pools across Cloudflare's global network, eliminating per-request TLS handshake overhead.
-Included in the Workers Paid plan at no additional cost. Neon's serverless driver
-(`@neondatabase/serverless`) is available as a fallback if Hyperdrive is ever removed.
+Neon projects are locked to a single AWS region from a limited set of 8 (us-east-1, us-east-2,
+us-west-2, eu-central-1, eu-west-2, ap-southeast-1, ap-southeast-2, sa-east-1). Region selection
+is permanent — changing regions requires creating a new project and migrating via `pg_dump`/`pg_restore`.
+Read replicas are same-region only; cross-region read replicas are tracked as a Neon GitHub epic but
+have not shipped. Cross-region logical replication between two Neon projects is possible but keeps
+the subscriber compute active at all times, negating scale-to-zero. This single-region constraint
+is common among managed serverless Postgres providers (Supabase is similarly single-region per
+project, though it offers cross-region read replicas on paid plans with geo-routing). It is
+acceptable here because the recipe site's user base is geographically concentrated and Hyperdrive
+mitigates the edge-to-origin latency gap (see below).
+
+**Hyperdrive** for connection pooling from Workers to Neon. A standard Postgres connection requires
+5+ network round trips (TCP handshake, TLS handshake, authentication); at 150ms per round trip to a
+distant region, that is 750ms+ before the first query. Hyperdrive maintains pre-warmed, authenticated
+connection pools globally — Workers connect to the nearest Hyperdrive node (\~2-4ms) rather than
+establishing a new connection to the database. Cloudflare's benchmarks show \~58% latency reduction
+without caching and \~73% with caching enabled; cached read queries return in \~4ms from the nearest
+edge data center with no database round trip. This is the primary mitigation for Neon's single-region
+constraint: the connection setup penalty disappears, and read-heavy workloads can be served from
+cache. Included in the Workers Paid plan at no additional cost. Neon's serverless driver
+(`@neondatabase/serverless`) is available as a fallback — it uses HTTP (3 round trips per query
+vs 8+ for TCP) but lacks Hyperdrive's connection reuse and caching.
 
 **Hono** as the HTTP framework. Hono runs on Workers, Node.js, Deno, and Bun — making the handler
 code portable if the runtime ever changes. It is lightweight, TypeScript-native, and the most
@@ -129,7 +147,7 @@ applies to Neon as well as Cloudflare.
 | ---------------------------------------- | ------------------------------------- |
 | Application behavior                     | TypeScript in the repo                |
 | Database schema and migrations           | Drizzle schema/migrations in the repo |
-| Cloudflare resources                     | Terraform in `infra/cloudflare`       |
+| Cloudflare resources                     | Terraform in `infra`                  |
 | Neon project, branches, roles, databases | Terraform via a Neon provider         |
 | Secrets                                  | Project secret-management layer       |
 
@@ -263,7 +281,9 @@ Auth in its cleanest environment.
 
 Workers with D1 (Cloudflare's SQLite-based database) instead of Neon.
 
-**Why it was considered:** Fewest moving parts, everything on one platform, cheapest.
+**Why it was considered:** Fewest moving parts, everything on one platform, cheapest. D1 also
+has automatic global read replication across all 6 supported location hints at no additional cost —
+an advantage Neon lacks. Writes go to the primary; reads are served from the nearest replica.
 
 **Why it was rejected:**
 
@@ -300,8 +320,10 @@ Postgres-compatible wire protocol.
 * **Postgres-compatible, not Postgres.** ORM and auth library compatibility is not guaranteed.
   Better Auth and Drizzle are tested against real Postgres, not CockroachDB's distributed SQL
   semantics.
-* **Distributed architecture is overkill.** CockroachDB is designed to survive entire region
-  failures. A personal recipe site does not need distributed consensus.
+* **Distributed architecture is overkill.** CockroachDB's core differentiator is native
+  multi-region with distributed consensus — a single logical database spanning regions. This
+  solves the single-region constraint that Neon has, but a personal recipe site does not need
+  region-failure survival or globally distributed writes.
 * **No native edge driver.** Unlike Neon's `@neondatabase/serverless`, CockroachDB has no
   purpose-built driver for Cloudflare Workers.
 * **Opaque pricing.** Request Unit-based billing is harder to predict than Neon's CU-hours + GB
@@ -385,6 +407,18 @@ production import worker is a future infrastructure decision.
 * **Neon Terraform provider maturity matters.** The Neon provider is an extra dependency and should
   be reviewed like any other infrastructure provider. If it proves unreliable, fall back to Neon API
   scripting rather than dashboard-owned configuration.
+* **Single-region database.** Neon projects are locked to one of 8 AWS regions with no
+  cross-region read replicas. Workers run globally but every database query travels to one region.
+  Hyperdrive mitigates connection setup latency and caches reads at the edge, but uncached writes
+  and queries still incur cross-region round trips for distant users. If the user base becomes
+  genuinely global, escape paths include Supabase (cross-region read replicas on paid plans),
+  manual logical replication to a second Neon project, or revisiting D1 (which has automatic
+  global read replication).
+* **Neon cold starts.** Scale-to-zero means the Neon compute must wake on first request after
+  idle. Typical cold starts are 300-500ms, with p95 spikes up to \~2.6s in some measurements.
+  This is often a more noticeable user-facing latency source than cross-region query time on a
+  warm database. Mitigated by Neon's "always on" option or configuring a minimum compute size on
+  paid plans.
 * **No git-native recipe history.** Recipe edit history moves from git commits to a
   database-backed mechanism. Until a revisions table or audit log exists, recipe edits have no
   meaningful user-facing history.
@@ -399,5 +433,10 @@ Revisit if any of the following become true:
 * Cloudflare Containers mature enough to replace Workers as the primary runtime
 * Hyperdrive or Neon serverless driver introduces breaking changes
 * a concrete recipe schema reveals limitations of the Neon/Postgres approach
+* Neon cold starts become unacceptable for the usage pattern (consider "always on" or a minimum
+  compute size)
+* the user base becomes geographically distributed enough that single-region latency is noticeable
+  despite Hyperdrive caching
+* Neon ships cross-region read replicas, changing the single-region trade-off calculus
 * Neon Terraform/API automation proves unreliable enough that preview branches or repeatable
   environment provisioning suffer

@@ -1,6 +1,6 @@
-# Cloudflare Infrastructure
+# Infrastructure
 
-Terraform configuration for managing Cloudflare Pages deployments.
+Terraform configuration for managing Cloudflare and Neon resources.
 
 ## GitHub Actions Setup
 
@@ -23,6 +23,12 @@ Configure these in GitHub repository settings (Settings → Secrets and variable
    - Example: `AbCdEfGh123` (from `https://imagedelivery.net/AbCdEfGh123/...`)
    - Used to configure Cloudflare Images environment variable for deployments
    - Note: Not actually sensitive (publicly visible in image URLs), but stored as secret for consistency
+4. **`NEON_API_KEY`**
+   - Create at: [Neon Console](https://console.neon.tech) → Account Settings → API Keys
+   - Used by the Neon Terraform provider to manage database resources
+5. **`NEON_ORG_ID`**
+   - Find at: [Neon Console](https://console.neon.tech) → Organization settings
+   - Passed as `TF_VAR_neon_org_id`
 
 ### Required Environment
 
@@ -51,10 +57,12 @@ Create a workspace in Terraform Cloud for remote state:
 2. Fill in your credentials in `.env`:
    - `CLOUDFLARE_API_TOKEN` - Your Cloudflare API token
    - `TF_TOKEN_app_terraform_io` - Your Terraform Cloud token
+   - `NEON_API_KEY` - Your Neon API key
+   - `TF_VAR_neon_org_id` - Your Neon organization ID
 
 3. Run Terraform commands via mise:
-   - `mise run //infra/cloudflare:plan` - Preview changes
-   - `mise run //infra/cloudflare:apply` - Apply changes
+   - `mise run //infra:plan` - Preview changes
+   - `mise run //infra:apply` - Apply changes
 
 The `.env` file is automatically loaded by mise when running tasks.
 
@@ -80,3 +88,15 @@ Manage R2 API Tokens → Create User API Token
 (Object Read & Write, scoped to `dvc` bucket).
 
 See [`ml-pipelines/README.md`](/ml-pipelines/README.md) for developer setup.
+
+## Neon Database
+
+### `recipes`
+
+Serverless Postgres project for the recipe site. Managed via the
+[kislerdm/neon](https://registry.terraform.io/providers/kislerdm/neon/latest/docs)
+Terraform provider.
+
+- **Region:** `aws-us-east-1`
+- **Connection:** Use the pooled connection URI (`neon_connection_uri_pooler` output)
+  for serverless/Workers environments

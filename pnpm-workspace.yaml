@@ -1,5 +1,6 @@
 packages:
   - 'ui'
   - 'packages/*'
+  - 'workers/*'
   - 'ml-pipelines/recipe-parsing'
   - 'ml-pipelines/recipe-parsing/tools/viz'

@@ -128,8 +128,8 @@ mise //ui:format              # Format and fix with Biome
 ### Infrastructure Tasks
 
 ```bash
-mise //infra/cloudflare:format  # Format Terraform files
-mise //infra/cloudflare:lint    # Lint Terraform files
+mise //infra:format  # Format Terraform files
+mise //infra:lint    # Lint Terraform files
 ```
 
 ### Content Management

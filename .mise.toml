@@ -4,7 +4,6 @@ experimental_monorepo_root = true
 config_roots = [
     "ui",
     "infra",
-    "infra/cloudflare",
     "ml-pipelines",
 ]
 
@@ -24,7 +23,7 @@ MISE_EXPERIMENTAL = "1"
 # Root-level tasks for repo-wide tooling
 [tasks.lint]
 description = "Lint all files across the entire repo"
-depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//ui:lint", "//infra/cloudflare:lint"]
+depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//ui:lint", "//infra:lint"]
 
 [tasks."lint:markdown"]
 description = "Lint and fix Markdown files (optionally pass files as args)"
