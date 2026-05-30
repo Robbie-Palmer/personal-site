@@ -54,9 +54,11 @@ jobs:
         id: deploy
         run: |
           WORKER_NAME="recipe-api-pr-${{ github.event.pull_request.number }}"
-          npx wrangler deploy --name "$WORKER_NAME"
+          DEPLOY_OUTPUT=$(npx wrangler deploy --name "$WORKER_NAME" 2>&1)
+          echo "$DEPLOY_OUTPUT"
+          PUBLISHED_URL=$(echo "$DEPLOY_OUTPUT" | grep -oP 'https://[^\s]+\.workers\.dev' | head -1)
           echo "worker_name=$WORKER_NAME" >> "$GITHUB_OUTPUT"
-          echo "url=https://${WORKER_NAME}.${CLOUDFLARE_ACCOUNT_ID}.workers.dev" >> "$GITHUB_OUTPUT"
+          echo "url=$PUBLISHED_URL" >> "$GITHUB_OUTPUT"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
