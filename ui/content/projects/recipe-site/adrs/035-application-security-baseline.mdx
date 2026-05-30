@@ -73,7 +73,7 @@ needs explicit security engineering.
 Rate limiting uses a layered approach:
 
 * **Cloudflare rate limiting rules** (configured via Terraform in
-  `infra/cloudflare/main.tf`) for broad endpoint protection — e.g. limiting requests per IP to
+  `infra/main.tf`) for broad endpoint protection — e.g. limiting requests per IP to
   auth endpoints. These run at the edge before the Worker is invoked.
 * **Durable Objects or native Cloudflare rate limiting** for application-specific limits — e.g. auth
   attempts per user account, household invite frequency. Durable Objects are included in Workers

@@ -1,0 +1,33 @@
+name: Recipe API Preview Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+    paths:
+      - "workers/recipe-api/**"
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    environment:
+      name: cloudflare-production
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: jdx/mise-action@v4
+        with:
+          experimental: true
+
+      - name: Install dependencies
+        working-directory: workers/recipe-api
+        run: pnpm install
+
+      - name: Delete preview worker
+        run: npx wrangler delete --name "recipe-api-pr-${{ github.event.pull_request.number }}" --force
+        working-directory: workers/recipe-api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

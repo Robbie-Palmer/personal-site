@@ -32,3 +32,26 @@ output "r2_dvc_endpoint_url" {
   description = "S3-compatible endpoint URL for DVC storage"
   value       = "https://${var.cloudflare_account_id}.r2.cloudflarestorage.com"
 }
+
+# Neon
+
+output "neon_project_id" {
+  description = "Neon project ID"
+  value       = neon_project.recipes.id
+}
+
+output "neon_connection_uri_pooler" {
+  description = "Neon pooled connection URI (for serverless/Workers)"
+  value       = neon_project.recipes.connection_uri_pooler
+  sensitive   = true
+}
+
+output "neon_database_host_pooler" {
+  description = "Neon pooler endpoint hostname"
+  value       = neon_project.recipes.database_host_pooler
+}
+
+output "neon_database_name" {
+  description = "Neon database name"
+  value       = neon_project.recipes.database_name
+}

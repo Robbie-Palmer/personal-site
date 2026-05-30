@@ -24,7 +24,7 @@ Beyond these, there are several natural extensions for a project-oriented person
 
 Use **Cloudflare R2** as the primary object storage layer for the site and its sub-projects.
 
-R2 buckets are provisioned via Terraform in `infra/cloudflare/main.tf` and scoped per use case (e.g. `map-tiles`, `dvc`).
+R2 buckets are provisioned via Terraform in `infra/main.tf` and scoped per use case (e.g. `map-tiles`, `dvc`).
 Public buckets are exposed via custom subdomains with Cloudflare Rulesets controlling cache behaviour.
 Private buckets are accessed via S3-compatible API tokens.
 
@@ -86,7 +86,7 @@ No separate CDN configuration is needed—Cloudflare's edge network sits in fron
 
 * **Zero Egress**: Serving map tiles, datasets, and images to users costs nothing beyond storage and operations—ideal for a site where traffic is unpredictable.
 * **Consolidation**: All infrastructure remains under one Cloudflare account, managed via Terraform—[Less Is More](/projects?tab=philosophy#less-is-more).
-* **Scalable Image Strategy**: R2 + a Pages Function/Worker provides a path to replace or supplement Cloudflare Images [ADR 029](/projects/personal-site/adrs/029-cloudflare-images) with a pay-as-you-go model, eliminating the fixed \$5/month cost.
+* **Scalable Image Strategy**: R2 + a Pages Function/Worker provides a path to replace or supplement Cloudflare Images [ADR 029](/projects/personal-site/adrs/029-cloudflare-images) with a pay-as-you-go model, eliminating the fixed $5/month cost.
 * **Tooling Compatibility**: S3-compatible API means DVC, AWS CLI, and any S3 SDK work out of the box with no custom integration.
 * **IaC**: Buckets, access controls, and caching rules are all defined in Terraform, versioned in git, and reviewed via Pull Requests.
 * **Edge Performance**: Public R2 buckets served via custom domains benefit from Cloudflare's global edge network automatically—no separate CDN setup required.

@@ -24,7 +24,7 @@ Always use mise instead of direct package manager commands:
 This is a mono-repo containing:
 
 - `ui/` - Next.js frontend application
-- `infra/cloudflare/` - Cloudflare infrastructure (Terraform)
+- `infra/` - Infrastructure as code (Terraform: Cloudflare + Neon)
 - Root `package.json` - Generic dev tooling only
 
 ## Tech Stack

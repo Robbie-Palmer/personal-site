@@ -1,3 +1,12 @@
+[env]
+_.file = ".env"
+
+[tasks.init]
+description = "Initialize Terraform"
+run = "terraform init"
+sources = ["*.tf"]
+outputs = [".terraform/**/*"]
+
 [tasks.format]
 description = "Format Terraform files (optionally pass files as args)"
 run = """
@@ -21,9 +30,30 @@ fi
 """
 
 [tasks.lint]
-description = "Validate all Terraform configurations"
-depends = ["//infra/cloudflare:lint"]
+description = "Validate Terraform configuration"
+depends = ["//infra:init"]
+run = "terraform validate"
 
 [tasks.precommit-lint]
-description = "Validate all Terraform configurations (lightweight for pre-commit)"
-depends = ["//infra/cloudflare:precommit-lint"]
+description = "Validate Terraform configuration (lightweight for pre-commit)"
+run = """
+#!/usr/bin/env bash
+# Initialize without backend for pre-commit usage, showing errors if init fails
+terraform init -backend=false > /dev/null || { echo "Terraform init failed" >&2; exit 1; }
+terraform validate
+"""
+
+[tasks.plan]
+description = "Run Terraform plan"
+depends = ["//infra:init"]
+run = "terraform plan -out .planfile"
+outputs = [".planfile"]
+
+[tasks.apply]
+description = "Apply Terraform changes"
+depends = ["//infra:init"]
+run = "terraform apply -auto-approve .planfile"
+
+[tasks.check]
+description = "Run all checks (format, lint, plan)"
+depends = ["//infra:format:check", "//infra:lint", "//infra:plan"]

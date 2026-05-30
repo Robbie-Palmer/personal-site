@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.13"
+  required_version = ">= 1.14"
 
   cloud {
     organization = "robbie-palmer"
@@ -13,9 +13,17 @@ terraform {
       source  = "cloudflare/cloudflare"
       version = "~> 4.0"
     }
+    neon = {
+      source  = "kislerdm/neon"
+      version = "~> 0.6"
+    }
   }
 }
 
 provider "cloudflare" {
   # API token should be provided via CLOUDFLARE_API_TOKEN environment variable
+}
+
+provider "neon" {
+  # API key should be provided via NEON_API_KEY environment variable
 }

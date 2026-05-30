@@ -71,3 +71,22 @@ variable "r2_dvc_bucket_name" {
   type        = string
   default     = "dvc"
 }
+
+# Neon
+
+variable "neon_org_id" {
+  description = "Neon organization ID"
+  type        = string
+}
+
+variable "neon_region" {
+  description = "Neon deployment region"
+  type        = string
+  default     = "aws-us-east-1"
+}
+
+variable "neon_pg_version" {
+  description = "Postgres version for Neon project"
+  type        = number
+  default     = 17
+}

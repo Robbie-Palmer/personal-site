@@ -91,6 +91,31 @@ resource "cloudflare_r2_bucket" "dvc" {
   location   = "ENAM"
 }
 
+# Neon
+
+resource "neon_project" "recipes" {
+  name       = "recipes"
+  region_id  = var.neon_region
+  pg_version = var.neon_pg_version
+  org_id     = var.neon_org_id
+
+  history_retention_seconds = 21600 # 6 hours (free plan max)
+
+  branch {
+    name          = "main"
+    database_name = "recipes"
+    role_name     = "recipes_owner"
+  }
+
+  quota {
+    compute_time_seconds = 360000     # 100 CU-hours (free plan limit)
+    data_transfer_bytes  = 5368709120 # 5 GB (free plan limit)
+    logical_size_bytes   = 536870912  # 512 MB per branch (free plan limit)
+  }
+}
+
+# Cloudflare cache
+
 resource "cloudflare_ruleset" "map_tiles_cache" {
   zone_id     = data.cloudflare_zone.domain.id
   name        = "Map tiles cache settings"
