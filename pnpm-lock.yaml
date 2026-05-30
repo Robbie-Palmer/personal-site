@@ -52,7 +52,7 @@ importers:
         version: 3.2.1
       openai:
         specifier: ^6.6.0
-        version: 6.38.0(ws@8.20.1)(zod@4.4.3)
+        version: 6.39.0(ws@8.20.1)(zod@4.4.3)
       recipe-domain:
         specifier: workspace:*
         version: link:../../packages/recipe-domain
@@ -5164,8 +5164,8 @@ packages:
     resolution: {integrity: sha512-7x81NCL719oNbsq/3mh+hVrAWmFuEYUqrq/Iw3kUzH8ReypT9QQ0BLoJS7/G9k6N81XjW4qHWtjWwe/9eLy1EQ==}
     engines: {node: '>=12'}
 
-  openai@6.38.0:
-    resolution: {integrity: sha512-AoMplt2UalrpgUDMh3L09QWjNRlgJPipclQvA6sYAaeF6nHNBMgmikAZGmcYLn8on4d9sQY9Q8bOLfrBS7Lc8g==}
+  openai@6.39.0:
+    resolution: {integrity: sha512-O61LIsimY3acVabwvomwFhwrnN36yvHY2quIfy9keEcFytGgWeV35yLHQ6NVMLSBxRpHmcg2yuhCnlu2HT4pLQ==}
     hasBin: true
     peerDependencies:
       ws: ^8.18.0
@@ -11587,7 +11587,7 @@ snapshots:
       is-docker: 2.2.1
       is-wsl: 2.2.0
 
-  openai@6.38.0(ws@8.20.1)(zod@4.4.3):
+  openai@6.39.0(ws@8.20.1)(zod@4.4.3):
     optionalDependencies:
       ws: 8.20.1
       zod: 4.4.3
