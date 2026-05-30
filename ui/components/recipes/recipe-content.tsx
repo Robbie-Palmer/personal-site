@@ -289,36 +289,21 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
   } = useScaledRecipe(recipe, requestedScale);
   const [unitSystem, setUnitSystem] = useUnitPreference();
 
-  const storageKey = `recipe-checklist-${recipe.slug}`;
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(
-    () => {
-      if (typeof window === "undefined") return new Set();
-      try {
-        const stored = localStorage.getItem(`recipe-checklist-${recipe.slug}`);
-        return stored ? new Set(JSON.parse(stored) as string[]) : new Set();
-      } catch {
-        return new Set();
-      }
-    },
+    () => new Set(),
   );
 
-  const toggleIngredient = useCallback(
-    (ingredient: string) => {
-      setCheckedIngredients((prev) => {
-        const next = new Set(prev);
-        if (next.has(ingredient)) {
-          next.delete(ingredient);
-        } else {
-          next.add(ingredient);
-        }
-        try {
-          localStorage.setItem(storageKey, JSON.stringify([...next]));
-        } catch {}
-        return next;
-      });
-    },
-    [storageKey],
-  );
+  const toggleIngredient = useCallback((ingredient: string) => {
+    setCheckedIngredients((prev) => {
+      const next = new Set(prev);
+      if (next.has(ingredient)) {
+        next.delete(ingredient);
+      } else {
+        next.add(ingredient);
+      }
+      return next;
+    });
+  }, []);
   useEffect(() => {
     if (scalingError) {
       console.error(
@@ -475,12 +460,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
           {checkedIngredients.size > 0 && (
             <button
               type="button"
-              onClick={() => {
-                setCheckedIngredients(new Set());
-                try {
-                  localStorage.removeItem(storageKey);
-                } catch {}
-              }}
+              onClick={() => setCheckedIngredients(new Set())}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               Reset
