@@ -8,8 +8,6 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-// ── Better Auth required tables ─────────────────────────────────────────────
-
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -92,9 +90,6 @@ export const verification = pgTable("verification", {
     .$onUpdate(() => new Date()),
 });
 
-// ── Application domain tables ────────────────────────────────────────────────
-
-// ADR 034: three visibility tiers; private is the default (deny-by-default)
 export const visibilityEnum = pgEnum("visibility", [
   "public",
   "private",
