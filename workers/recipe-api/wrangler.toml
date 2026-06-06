@@ -3,14 +3,6 @@ main = "src/index.ts"
 compatibility_date = "2026-05-28"
 compatibility_flags = ["nodejs_compat"]
 
-# Environment variables — set real values in .dev.vars (gitignored) for local dev:
-#   DATABASE_URL = "postgresql://..."
-#
-# Hyperdrive (production connection pooling):
-#   1. Provision: wrangler hyperdrive create recipe-db --connection-string=$DATABASE_URL
-#      (or via Terraform cloudflare_hyperdrive_config resource)
-#   2. Uncomment the block below and set `id` to the config ID from step 1.
-#
 # [[hyperdrive]]
 # binding = "HYPERDRIVE"
-# id = ""  # hyperdrive config ID from `wrangler hyperdrive create` or Terraform output
+# id = ""
