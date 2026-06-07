@@ -1,11 +1,24 @@
 import { describe, it, expect, vi } from "vitest";
-import { neon } from "@neondatabase/serverless";
+import postgres from "postgres";
 
-vi.mock("@neondatabase/serverless", () => ({
-  neon: vi.fn(() => {
-    const sql = (_strings: TemplateStringsArray, ..._values: unknown[]) =>
-      Promise.resolve([{ connected: 1 }]);
-    return sql;
+vi.mock("postgres", () => ({
+  default: vi.fn(() => {
+    // drizzle-orm/postgres-js/driver.js writes transparent parsers into
+    // client.options.parsers / .serializers at construction time, so the mock
+    // client must expose those empty objects. Queries go through:
+    //   client.unsafe(sql, params).values() — SELECT (drizzle maps array-of-arrays)
+    //   client.unsafe(sql, params)          — DML
+    const emptyResult = Object.assign(Promise.resolve([]), {
+      values: () => Promise.resolve([]),
+    });
+    return Object.assign(
+      (_strings: TemplateStringsArray, ..._values: unknown[]) => emptyResult,
+      {
+        options: { parsers: {}, serializers: {} },
+        unsafe: (_query: string, _params?: unknown[]) => emptyResult,
+        end: (_options?: { timeout?: number }) => Promise.resolve(),
+      },
+    );
   }),
 }));
 
@@ -22,14 +35,13 @@ describe("GET /health", () => {
 });
 
 describe("GET /recipes", () => {
-  it("returns connection status", async () => {
+  it("returns recipes list", async () => {
     const res = await app.request("/recipes", {}, env);
     expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toEqual({ connected: true, rows: [{ connected: 1 }] });
+    expect(await res.json()).toEqual([]);
   });
 
-  it("returns 503 when DATABASE_URL is missing", async () => {
+  it("returns 503 when no connection is configured", async () => {
     const res = await app.request("/recipes", {}, { DATABASE_URL: "" });
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({
@@ -38,15 +50,24 @@ describe("GET /recipes", () => {
   });
 
   it("returns 502 when database query fails", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(neon).mockReturnValueOnce((() => {
-      throw new Error("connection refused");
-    }) as any);
+    vi.mocked(postgres).mockReturnValueOnce(
+      Object.assign(
+        () => {},
+        {
+          options: { parsers: {}, serializers: {} },
+          unsafe: () => ({
+            values: () => Promise.reject(new Error("connection refused")),
+          }),
+          end: () => Promise.resolve(),
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ) as any,
+    );
 
     const res = await app.request("/recipes", {}, env);
     expect(res.status).toBe(502);
     const body = (await res.json()) as { error: string };
-    expect(body.error).toBe("Database connection failed");
+    expect(body.error).toBe("Database query failed");
   });
 });
 
