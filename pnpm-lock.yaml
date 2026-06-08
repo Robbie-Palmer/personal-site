@@ -49,7 +49,7 @@ importers:
         version: 17.4.2
       numeric-quantity:
         specifier: ^3.2.1
-        version: 3.2.1
+        version: 3.2.2
       openai:
         specifier: ^6.6.0
         version: 6.39.1(ws@8.21.0)(zod@4.4.3)
@@ -5415,8 +5415,8 @@ packages:
     resolution: {integrity: sha512-S48WzZW777zhNIrn7gxOlISNAqi9ZC/uQFnRdbeIHhZhCA6UqpkOT8T1G7BvfdgP4Er8gF4sUbaS0i7QvIfCWw==}
     engines: {node: '>=8'}
 
-  numeric-quantity@3.2.1:
-    resolution: {integrity: sha512-VxyUyUAMWGcQcOVrsH7KzrrFZTrN875eDte0lY4pSj1FDtHjnDkVKgk6Q3lcjJwJSRWcMtSaNAuZlfdh7NtFIw==}
+  numeric-quantity@3.2.2:
+    resolution: {integrity: sha512-qHc6mhIySaoqFYCM+foWY0DYYIT0ick1fI+MB9530gJ8XAPDExwXT8eyl3J+PWLIlZy0MCxSLobBjrggN9Z8EQ==}
     engines: {node: '>=16'}
 
   object-assign@4.1.1:
@@ -6085,8 +6085,8 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
-  semver@7.8.2:
-    resolution: {integrity: sha512-c8jsqUZm3omBOI66G90z1Dyw5z622G8oLG+omfsHBJf3CWQTlOcwOjvOG6wtiNfW6anKm/eA39LMwMtMez2TiQ==}
+  semver@7.8.3:
+    resolution: {integrity: sha512-wnilbGyMxzbY7dNOl7jpKbLSjcfeweJWU5j4+u5qW+6/wuGD9KzIGOyZnQVSBM9E7DtWaaH3CyHkppYrKYoxwg==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -10583,7 +10583,7 @@ snapshots:
       '@petamoriken/float16': 3.9.3
       debug: 4.4.3
       env-paths: 3.0.0
-      semver: 7.8.2
+      semver: 7.8.3
       shell-quote: 1.8.4
       which: 4.0.0
     transitivePeerDependencies:
@@ -12027,7 +12027,7 @@ snapshots:
     dependencies:
       path-key: 3.1.1
 
-  numeric-quantity@3.2.1: {}
+  numeric-quantity@3.2.2: {}
 
   object-assign@4.1.1: {}
 
@@ -12958,7 +12958,7 @@ snapshots:
 
   semver@7.8.1: {}
 
-  semver@7.8.2:
+  semver@7.8.3:
     optional: true
 
   serve-handler@6.1.7:
