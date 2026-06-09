@@ -205,7 +205,7 @@ importers:
         version: 8.6.0(react@19.2.6)
       fuse.js:
         specifier: ^7.1.0
-        version: 7.4.0
+        version: 7.4.1
       graphology:
         specifier: ^0.26.0
         version: 0.26.0(graphology-types@0.24.8)
@@ -4336,8 +4336,8 @@ packages:
   function-bind@1.1.2:
     resolution: {integrity: sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==}
 
-  fuse.js@7.4.0:
-    resolution: {integrity: sha512-3UqmoSFwzX1sNB1YSk+Co0EdH29XCW2p9g48OAiy93cjKqzuABsqw2VIgSN3CmsT/wo6pIJ3F0Jxeiiby8rhIQ==}
+  fuse.js@7.4.1:
+    resolution: {integrity: sha512-AY7lKAXK71hi3WgUvDy6oZL67UEHOOtvCAwVdOXHyJd6ZzftBy7QqxuXt4HxmmAhYjmp/YCuOELZtIvAdlZ+fw==}
     engines: {node: '>=10'}
 
   gel@2.2.0:
@@ -10576,7 +10576,7 @@ snapshots:
 
   function-bind@1.1.2: {}
 
-  fuse.js@7.4.0: {}
+  fuse.js@7.4.1: {}
 
   gel@2.2.0:
     dependencies:
