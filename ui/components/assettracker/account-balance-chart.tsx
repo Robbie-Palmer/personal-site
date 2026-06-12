@@ -20,8 +20,11 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import type { AccountDetailView } from "@/lib/api/assettracker";
-import { ACCOUNT_COLORS, formatCurrency } from "@/lib/domain/assettracker";
+import {
+  ACCOUNT_COLORS,
+  type AccountDetailView,
+  formatCurrency,
+} from "@/lib/domain/assettracker";
 
 interface AccountBalanceChartProps {
   accounts: AccountDetailView[];

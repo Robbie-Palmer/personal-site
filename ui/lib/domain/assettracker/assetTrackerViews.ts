@@ -1,4 +1,5 @@
 import type { Account, AssetType, Currency } from "./account";
+import { computeCagr } from "./assetTrackerAnalytics";
 import type { BalanceSnapshot } from "./balanceSnapshot";
 
 export type AccountSummaryView = {
@@ -11,6 +12,8 @@ export type AccountSummaryView = {
   isOpen: boolean;
   latestBalance: number | null;
   latestSnapshotDate: string | null;
+  /** Realised annual growth rate; null for closed accounts or sparse data */
+  cagr: number | null;
 };
 
 export type BalanceSnapshotView = {
@@ -48,6 +51,8 @@ export function toAccountSummaryView(
     isOpen: !account.closedAt,
     latestBalance: latest?.balance ?? null,
     latestSnapshotDate: latest?.date ?? null,
+    // CAGR through a closing zero balance reads as a total loss, so skip it
+    cagr: account.closedAt ? null : computeCagr(accountSnapshots),
   };
 }
 
@@ -72,6 +77,7 @@ export function toAccountDetailView(
     isOpen: !account.closedAt,
     latestBalance: latest?.balance ?? null,
     latestSnapshotDate: latest?.date ?? null,
+    cagr: account.closedAt ? null : computeCagr(accountSnapshots),
     createdAt: account.createdAt,
     closedAt: account.closedAt,
     // Reverse for ascending order for charts

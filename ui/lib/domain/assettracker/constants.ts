@@ -1,3 +1,4 @@
+import type { Currency } from "./account";
 import type { AccountSummaryView } from "./assetTrackerViews";
 
 export const ACCOUNT_COLORS = [
@@ -11,6 +12,23 @@ export const ACCOUNT_COLORS = [
 
 export function formatCurrency(value: number): string {
   return `£${value.toLocaleString()}`;
+}
+
+export function formatAccountCurrency(
+  amount: number,
+  currency: Currency,
+): string {
+  // Fixed locale keeps the statically generated HTML and client render in sync
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency,
+  }).format(amount);
+}
+
+export function formatAnnualRate(rate: number): string {
+  const percent = rate * 100;
+  const sign = percent > 0 ? "+" : "";
+  return `${sign}${percent.toFixed(1)}%`;
 }
 
 export function computeTotalBalance(accounts: AccountSummaryView[]): number {

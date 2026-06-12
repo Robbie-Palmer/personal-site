@@ -22,8 +22,11 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import type { NetWorthDataPoint } from "@/lib/api/assettracker";
-import { ACCOUNT_COLORS, formatCurrency } from "@/lib/domain/assettracker";
+import {
+  ACCOUNT_COLORS,
+  formatCurrency,
+  type NetWorthDataPoint,
+} from "@/lib/domain/assettracker";
 
 interface NetWorthChartProps {
   data: NetWorthDataPoint[];

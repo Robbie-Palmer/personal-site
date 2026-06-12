@@ -1,4 +1,7 @@
 export * from "./account";
+export * from "./assetTrackerAnalytics";
+export * from "./assetTrackerCommands";
+export * from "./assetTrackerData";
 export * from "./assetTrackerQueries";
 export * from "./assetTrackerRepository";
 export * from "./assetTrackerViews";

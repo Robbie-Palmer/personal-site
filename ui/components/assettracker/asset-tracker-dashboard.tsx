@@ -1,40 +1,43 @@
 "use client";
-import type {
-  AccountDetailView,
-  AccountSummaryView,
-  NetWorthDataPoint,
-} from "@/lib/api/assettracker";
-import type { AssetType } from "@/lib/domain/assettracker";
+
+import { useState } from "react";
 import { computeTotalBalance, formatCurrency } from "@/lib/domain/assettracker";
 import { AccountBalanceChart } from "./account-balance-chart";
+import { AccountDetailSheet } from "./account-detail-sheet";
 import { AccountsTable } from "./accounts-table";
+import { AddAccountDrawer } from "./add-account-drawer";
 import { AssetAllocationChart } from "./asset-allocation-chart";
+import { useAssetTracker } from "./asset-tracker-provider";
+import { DataControls } from "./data-controls";
+import { LogBalanceDrawer } from "./log-balance-drawer";
 import { NetWorthChart } from "./net-worth-chart";
 
-interface AssetTrackerDashboardProps {
-  accounts: AccountSummaryView[];
-  accountDetails: AccountDetailView[];
-  netWorthData: NetWorthDataPoint[];
-  assetAllocation: { assetType: AssetType; total: number }[];
-}
+export function AssetTrackerDashboard() {
+  const { accounts, accountDetails, netWorthData, assetAllocation } =
+    useAssetTracker();
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
+    null,
+  );
 
-export function AssetTrackerDashboard({
-  accounts,
-  accountDetails,
-  netWorthData,
-  assetAllocation,
-}: AssetTrackerDashboardProps) {
   const totalBalance = computeTotalBalance(accounts);
   const openAccounts = accounts.filter((a) => a.isOpen);
   const accountNames = accounts.map((a) => a.name);
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold mb-2">Asset Tracker</h1>
-        <p className="text-lg text-muted-foreground">
-          Track and visualise your portfolio across accounts.
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-4xl font-bold mb-2">Asset Tracker</h1>
+          <p className="text-lg text-muted-foreground">
+            Track and visualise your portfolio across accounts.
+          </p>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <LogBalanceDrawer />
+          <AddAccountDrawer />
+        </div>
       </div>
+      <DataControls />
       <div className="grid gap-4 md:grid-cols-3">
         <div className="border rounded-lg p-6">
           <p className="text-sm text-muted-foreground">Total Net Worth</p>
@@ -58,8 +61,15 @@ export function AssetTrackerDashboard({
       </div>
       <div>
         <h2 className="text-2xl font-semibold mb-4">Accounts</h2>
-        <AccountsTable accounts={accounts} />
+        <AccountsTable
+          accounts={accounts}
+          onSelectAccount={setSelectedAccountId}
+        />
       </div>
+      <AccountDetailSheet
+        accountId={selectedAccountId}
+        onClose={() => setSelectedAccountId(null)}
+      />
     </div>
   );
 }
