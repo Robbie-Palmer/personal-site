@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
+import { effectiveExpectedReturn } from "@/lib/domain/assettracker/account";
 import {
   buildExpectedTrajectory,
+  buildProjection,
   computeCagr,
+  projectedDateForTarget,
 } from "@/lib/domain/assettracker/assetTrackerAnalytics";
+import {
+  monthlyAmount,
+  type RecurringFlow,
+} from "@/lib/domain/assettracker/recurringFlow";
 
 describe("computeCagr", () => {
   it("computes the annual growth rate over one year", () => {
@@ -59,9 +66,35 @@ describe("computeCagr", () => {
   });
 });
 
+describe("effectiveExpectedReturn", () => {
+  const account = {
+    expectedAnnualReturn: 0.04,
+    expectedReturnChanges: [
+      { date: "2024-06-01", rate: 0.05 },
+      { date: "2025-01-01", rate: 0.03 },
+    ],
+  };
+
+  it("uses the base rate before any change", () => {
+    expect(effectiveExpectedReturn(account, "2024-01-01")).toBe(0.04);
+  });
+
+  it("uses the latest change on or before the date", () => {
+    expect(effectiveExpectedReturn(account, "2024-06-01")).toBe(0.05);
+    expect(effectiveExpectedReturn(account, "2024-12-31")).toBe(0.05);
+    expect(effectiveExpectedReturn(account, "2026-01-01")).toBe(0.03);
+  });
+
+  it("uses the base rate when there are no changes", () => {
+    expect(
+      effectiveExpectedReturn({ expectedAnnualReturn: 0.07 }, "2024-01-01"),
+    ).toBe(0.07);
+  });
+});
+
 describe("buildExpectedTrajectory", () => {
   it("anchors the first expected point to the first actual balance", () => {
-    const trajectory = buildExpectedTrajectory(0.1, [
+    const trajectory = buildExpectedTrajectory({ expectedAnnualReturn: 0.1 }, [
       { date: "2023-01-01", balance: 1000 },
       { date: "2024-01-01", balance: 1200 },
     ]);
@@ -73,34 +106,249 @@ describe("buildExpectedTrajectory", () => {
     });
   });
 
-  it("compounds the previous actual balance at the expected return", () => {
-    const trajectory = buildExpectedTrajectory(0.1, [
+  it("compounds the first balance at the expected return", () => {
+    const trajectory = buildExpectedTrajectory({ expectedAnnualReturn: 0.1 }, [
       { date: "2023-01-01", balance: 1000 },
       { date: "2024-01-01", balance: 1200 },
     ]);
 
-    // ~1 year at 10% from the previous actual of 1000
     expect(trajectory[1]?.actual).toBe(1200);
     expect(trajectory[1]?.expected).toBeCloseTo(1100, 0);
   });
 
-  it("re-anchors after each entry rather than compounding the divergence", () => {
-    const trajectory = buildExpectedTrajectory(0.1, [
+  it("projects one smooth curve, never re-anchoring to later actuals", () => {
+    const trajectory = buildExpectedTrajectory({ expectedAnnualReturn: 0.1 }, [
       { date: "2022-01-01", balance: 1000 },
       { date: "2023-01-01", balance: 5000 }, // big contribution landed
       { date: "2024-01-01", balance: 5400 },
     ]);
 
-    // The third expected point grows from the actual 5000, not from 1100
-    expect(trajectory[2]?.expected).toBeCloseTo(5500, 0);
+    // Expected keeps compounding 1000 at 10%/yr regardless of the actuals
+    expect(trajectory[2]?.expected).toBeCloseTo(1210, 0);
+  });
+
+  it("honours scheduled rate changes", () => {
+    const trajectory = buildExpectedTrajectory(
+      {
+        expectedAnnualReturn: 0,
+        expectedReturnChanges: [{ date: "2023-01-01", rate: 0.1 }],
+      },
+      [
+        { date: "2022-01-01", balance: 1000 },
+        { date: "2023-01-01", balance: 1000 },
+        { date: "2024-01-01", balance: 1000 },
+      ],
+    );
+
+    // Flat at 0% for the first year, then 10% applies
+    expect(trajectory[1]?.expected).toBeCloseTo(1000, 0);
+    expect(trajectory[2]?.expected).toBeCloseTo(1100, 0);
   });
 
   it("sorts snapshots by date before building the series", () => {
-    const trajectory = buildExpectedTrajectory(0.05, [
+    const trajectory = buildExpectedTrajectory({ expectedAnnualReturn: 0.05 }, [
       { date: "2024-01-01", balance: 1200 },
       { date: "2023-01-01", balance: 1000 },
     ]);
 
     expect(trajectory.map((p) => p.date)).toEqual(["2023-01-01", "2024-01-01"]);
+  });
+});
+
+describe("monthlyAmount", () => {
+  it("normalises fixed amounts to a monthly equivalent", () => {
+    const base = {
+      id: "f",
+      name: "f",
+      toAccountId: "a",
+      startDate: "2024-01-01",
+    };
+    expect(
+      monthlyAmount({
+        ...base,
+        amount: 120,
+        frequency: "weekly",
+      } as RecurringFlow),
+    ).toBeCloseTo(520, 5);
+    expect(
+      monthlyAmount({
+        ...base,
+        amount: 500,
+        frequency: "monthly",
+      } as RecurringFlow),
+    ).toBe(500);
+    expect(
+      monthlyAmount({
+        ...base,
+        amount: 300,
+        frequency: "quarterly",
+      } as RecurringFlow),
+    ).toBe(100);
+    expect(
+      monthlyAmount({
+        ...base,
+        amount: 1200,
+        frequency: "yearly",
+      } as RecurringFlow),
+    ).toBe(100);
+  });
+
+  it("computes minimum payments from the outstanding balance", () => {
+    const flow = {
+      id: "min",
+      name: "Minimum payment",
+      toAccountId: "card",
+      formula: {
+        kind: "minimumPayment",
+        percentOfBalance: 0.025,
+        floor: 25,
+      },
+      frequency: "monthly",
+      startDate: "2024-01-01",
+    } as RecurringFlow;
+
+    expect(monthlyAmount(flow, -5000)).toBeCloseTo(125, 5); // 2.5% wins
+    expect(monthlyAmount(flow, -500)).toBe(25); // floor wins
+    expect(monthlyAmount(flow, -10)).toBe(10); // never pay more than owed
+    expect(monthlyAmount(flow, 0)).toBe(0); // paid off
+    expect(monthlyAmount(flow, 100)).toBe(0); // in credit
+    expect(monthlyAmount(flow)).toBe(0); // unknown balance
+  });
+});
+
+describe("buildProjection", () => {
+  it("holds steady with no flows and a zero rate", () => {
+    const points = buildProjection({
+      accountId: "a",
+      schedule: { expectedAnnualReturn: 0 },
+      startDate: "2024-01-01",
+      startBalance: 1000,
+      flows: [],
+      months: 12,
+    });
+
+    expect(points).toHaveLength(13);
+    expect(points[12]?.projected).toBe(1000);
+  });
+
+  it("compounds at the expected annual return", () => {
+    const points = buildProjection({
+      accountId: "a",
+      schedule: { expectedAnnualReturn: 0.12 },
+      startDate: "2024-01-01",
+      startBalance: 1000,
+      flows: [],
+      months: 12,
+    });
+
+    expect(points[12]?.projected).toBeCloseTo(1120, 0);
+  });
+
+  it("adds recurring contributions into the account", () => {
+    const flow = {
+      id: "saving",
+      name: "Saving",
+      toAccountId: "a",
+      amount: 100,
+      frequency: "monthly",
+      startDate: "2020-01-01",
+    } as RecurringFlow;
+
+    const points = buildProjection({
+      accountId: "a",
+      schedule: { expectedAnnualReturn: 0 },
+      startDate: "2024-01-01",
+      startBalance: 1000,
+      flows: [flow],
+      months: 12,
+    });
+
+    expect(points[12]?.projected).toBe(2200);
+  });
+
+  it("pays down a debt with a minimum payment formula", () => {
+    const flow = {
+      id: "min",
+      name: "Minimum payment",
+      toAccountId: "card",
+      formula: { kind: "minimumPayment", percentOfBalance: 0.1, floor: 25 },
+      frequency: "monthly",
+      startDate: "2020-01-01",
+    } as RecurringFlow;
+
+    const points = buildProjection({
+      accountId: "card",
+      schedule: { expectedAnnualReturn: 0 },
+      startDate: "2024-01-01",
+      startBalance: -1000,
+      flows: [flow],
+      months: 60,
+    });
+
+    expect(points[1]?.projected).toBe(-900); // 10% of 1000
+    expect(points[2]?.projected).toBe(-810); // 10% of 900
+    // The floor eventually clears the debt entirely
+    expect(projectedDateForTarget(points, 0)).not.toBeNull();
+  });
+
+  it("subtracts formula payments from the source account using the liability's balance", () => {
+    const flow = {
+      id: "min",
+      name: "Minimum payment",
+      fromAccountId: "current",
+      toAccountId: "card",
+      formula: { kind: "minimumPayment", percentOfBalance: 0.1, floor: 25 },
+      frequency: "monthly",
+      startDate: "2020-01-01",
+    } as RecurringFlow;
+
+    const points = buildProjection({
+      accountId: "current",
+      schedule: { expectedAnnualReturn: 0 },
+      startDate: "2024-01-01",
+      startBalance: 3000,
+      flows: [flow],
+      months: 1,
+      liabilityBalances: { card: -1000 },
+    });
+
+    expect(points[1]?.projected).toBe(2900);
+  });
+
+  it("respects flow start and end dates", () => {
+    const flow = {
+      id: "bonus",
+      name: "Bonus period",
+      toAccountId: "a",
+      amount: 100,
+      frequency: "monthly",
+      startDate: "2024-03-01",
+      endDate: "2024-05-01",
+    } as RecurringFlow;
+
+    const points = buildProjection({
+      accountId: "a",
+      schedule: { expectedAnnualReturn: 0 },
+      startDate: "2024-01-01",
+      startBalance: 0,
+      flows: [flow],
+      months: 12,
+    });
+
+    // Active for the 2024-03-01, 2024-04-01 and 2024-05-01 steps only
+    expect(points[12]?.projected).toBe(300);
+  });
+});
+
+describe("projectedDateForTarget", () => {
+  it("returns the first date at or above the target", () => {
+    const points = [
+      { date: "2024-01-01", projected: 100 },
+      { date: "2024-02-01", projected: 200 },
+      { date: "2024-03-01", projected: 300 },
+    ];
+
+    expect(projectedDateForTarget(points, 150)).toBe("2024-02-01");
+    expect(projectedDateForTarget(points, 1000)).toBeNull();
   });
 });

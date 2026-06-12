@@ -21,23 +21,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  ASSET_TYPE_LABELS,
   type AssetType,
   type Currency,
   formatAssetTrackerError,
+  isLiability,
   todayIsoDate,
 } from "@/lib/domain/assettracker";
 import { useAssetTracker } from "./asset-tracker-provider";
 
-const ASSET_TYPE_OPTIONS: { value: AssetType; label: string }[] = [
-  { value: "cash", label: "Cash" },
-  { value: "stocks", label: "Stocks" },
-  { value: "crypto", label: "Crypto" },
-];
+const ASSET_TYPE_OPTIONS = Object.entries(ASSET_TYPE_LABELS) as [
+  AssetType,
+  string,
+][];
 
 const CURRENCY_OPTIONS: Currency[] = ["GBP", "USD"];
 
+const NO_LINK = "none";
+
 export function AddAccountDrawer() {
-  const { createAccount } = useAssetTracker();
+  const { accounts, createAccount } = useAssetTracker();
+  const propertyAccounts = accounts.filter(
+    (account) => account.assetType === "property" && account.isOpen,
+  );
 
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -45,6 +51,7 @@ export function AddAccountDrawer() {
   const [assetType, setAssetType] = useState<AssetType>("cash");
   const [currency, setCurrency] = useState<Currency>("GBP");
   const [expectedReturnPercent, setExpectedReturnPercent] = useState("");
+  const [linkedId, setLinkedId] = useState(NO_LINK);
   const [openingBalance, setOpeningBalance] = useState("");
   const [openingDate, setOpeningDate] = useState(todayIsoDate());
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +63,7 @@ export function AddAccountDrawer() {
     setAssetType("cash");
     setCurrency("GBP");
     setExpectedReturnPercent("");
+    setLinkedId(NO_LINK);
     setOpeningBalance("");
     setOpeningDate(todayIsoDate());
     setError(null);
@@ -72,6 +80,10 @@ export function AddAccountDrawer() {
         assetType,
         currency,
         expectedAnnualReturn: Number(expectedReturnPercent) / 100,
+        linkedAccountId:
+          assetType === "mortgage" && linkedId !== NO_LINK
+            ? linkedId
+            : undefined,
         openingBalance:
           openingBalance === "" ? undefined : Number(openingBalance),
         openingDate,
@@ -97,7 +109,8 @@ export function AddAccountDrawer() {
         <DrawerHeader className="mx-auto w-full max-w-md">
           <DrawerTitle>Add an account</DrawerTitle>
           <DrawerDescription>
-            Anything with a balance: savings, investments, pensions, crypto.
+            Anything with a balance: savings, investments, property, or
+            liabilities like credit cards and mortgages (negative balances).
           </DrawerDescription>
         </DrawerHeader>
         <form
@@ -144,9 +157,9 @@ export function AddAccountDrawer() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {ASSET_TYPE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                  {ASSET_TYPE_OPTIONS.map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -178,7 +191,9 @@ export function AddAccountDrawer() {
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="add-account-return" className="text-sm font-medium">
-              Expected annual return (%)
+              {isLiability(assetType)
+                ? "Interest rate (%)"
+                : "Expected annual return (%)"}
             </label>
             <Input
               id="add-account-return"
@@ -186,13 +201,32 @@ export function AddAccountDrawer() {
               inputMode="decimal"
               step="0.1"
               min="-99"
-              max="99"
               required
-              placeholder="e.g. 7"
+              placeholder={isLiability(assetType) ? "e.g. 24.9" : "e.g. 7"}
               value={expectedReturnPercent}
               onChange={(e) => setExpectedReturnPercent(e.target.value)}
             />
           </div>
+          {assetType === "mortgage" && propertyAccounts.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="add-account-link" className="text-sm font-medium">
+                Secured on
+              </label>
+              <Select value={linkedId} onValueChange={setLinkedId}>
+                <SelectTrigger id="add-account-link" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_LINK}>Not linked</SelectItem>
+                  {propertyAccounts.map((property) => (
+                    <SelectItem key={property.id} value={property.id}>
+                      {property.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label
@@ -205,9 +239,8 @@ export function AddAccountDrawer() {
                 id="add-account-balance"
                 type="number"
                 inputMode="decimal"
-                min="0"
                 step="0.01"
-                placeholder="Optional"
+                placeholder={isLiability(assetType) ? "e.g. -1500" : "Optional"}
                 value={openingBalance}
                 onChange={(e) => setOpeningBalance(e.target.value)}
               />

@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import type { AccountSummaryView, AssetType } from "@/lib/domain/assettracker";
 import {
+  ASSET_TYPE_LABELS,
   computeTotalBalance,
   formatAccountCurrency,
   formatAnnualRate,
@@ -8,11 +9,16 @@ import {
 
 const ASSET_TYPE_VARIANT: Record<
   AssetType,
-  "default" | "secondary" | "outline"
+  "default" | "secondary" | "outline" | "destructive"
 > = {
   cash: "default",
   stocks: "secondary",
+  bonds: "secondary",
+  reits: "secondary",
   crypto: "outline",
+  property: "secondary",
+  mortgage: "destructive",
+  debt: "destructive",
 };
 
 interface AccountsTableProps {
@@ -66,7 +72,7 @@ export function AccountsTable({
                 </td>
                 <td className="p-3">
                   <Badge variant={ASSET_TYPE_VARIANT[account.assetType]}>
-                    {account.assetType}
+                    {ASSET_TYPE_LABELS[account.assetType]}
                   </Badge>
                 </td>
                 <td className="p-3 text-right font-mono">

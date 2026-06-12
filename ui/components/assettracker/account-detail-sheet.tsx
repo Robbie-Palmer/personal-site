@@ -19,6 +19,13 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -28,12 +35,19 @@ import {
 import {
   type AccountDetailView,
   buildExpectedTrajectory,
+  effectiveExpectedReturn,
   formatAccountCurrency,
   formatAnnualRate,
   formatAssetTrackerError,
+  todayIsoDate,
 } from "@/lib/domain/assettracker";
+import { AccountFlows } from "./account-flows";
+import { AccountProjection } from "./account-projection";
 import { useAssetTracker } from "./asset-tracker-provider";
+import { ExpectedReturnEditor } from "./expected-return-editor";
 import { LogBalanceDrawer } from "./log-balance-drawer";
+
+const KEEP_BALANCE = "keep";
 
 const TRAJECTORY_CONFIG: ChartConfig = {
   actual: { label: "Actual", color: "hsl(220, 70%, 50%)" },
@@ -49,17 +63,39 @@ export function AccountDetailSheet({
   accountId,
   onClose,
 }: AccountDetailSheetProps) {
-  const { accountDetails, closeAccount, deleteSnapshot } = useAssetTracker();
+  const {
+    accounts,
+    accountDetails,
+    recurringFlows,
+    transfers,
+    closeAccount,
+    deleteSnapshot,
+  } = useAssetTracker();
   const [error, setError] = useState<string | null>(null);
   const [confirmingClose, setConfirmingClose] = useState(false);
+  const [transferTargetId, setTransferTargetId] = useState(KEEP_BALANCE);
 
   const account =
     accountDetails.find((detail) => detail.id === accountId) ?? null;
+  const accountTransfers = account
+    ? transfers.filter(
+        (t) => t.fromAccountId === account.id || t.toAccountId === account.id,
+      )
+    : [];
+  const otherOpenAccounts = account
+    ? accounts.filter((a) => a.isOpen && a.id !== account.id)
+    : [];
+
+  function accountName(id: string | undefined): string {
+    if (id == null) return "External";
+    return accounts.find((a) => a.id === id)?.name ?? id;
+  }
 
   function handleOpenChange(open: boolean) {
     if (!open) {
       setError(null);
       setConfirmingClose(false);
+      setTransferTargetId(KEEP_BALANCE);
       onClose();
     }
   }
@@ -70,7 +106,10 @@ export function AccountDetailSheet({
       return;
     }
     try {
-      await closeAccount(detail.id);
+      await closeAccount(
+        detail.id,
+        transferTargetId === KEEP_BALANCE ? undefined : transferTargetId,
+      );
       setConfirmingClose(false);
       setError(null);
     } catch (err) {
@@ -88,8 +127,44 @@ export function AccountDetailSheet({
   }
 
   const trajectory = account
-    ? buildExpectedTrajectory(account.expectedAnnualReturn, account.snapshots)
+    ? buildExpectedTrajectory(account, account.snapshots)
     : [];
+  const currentRate = account
+    ? effectiveExpectedReturn(account, todayIsoDate())
+    : 0;
+  const hasPositiveBalance =
+    account?.latestBalance != null && account.latestBalance > 0;
+
+  // Home equity: property value plus the (negative) balances of mortgages
+  // secured on it, derived from the account links
+  const linkedMortgages = account
+    ? accountDetails.filter((d) => d.linkedAccountId === account.id && d.isOpen)
+    : [];
+  const linkedProperty = account?.linkedAccountId
+    ? (accountDetails.find((d) => d.id === account.linkedAccountId) ?? null)
+    : null;
+  let equity: { propertyName: string; value: number } | null = null;
+  if (
+    account &&
+    account.assetType === "property" &&
+    linkedMortgages.length > 0
+  ) {
+    equity = {
+      propertyName: account.name,
+      value:
+        (account.latestBalance ?? 0) +
+        linkedMortgages.reduce((sum, m) => sum + (m.latestBalance ?? 0), 0),
+    };
+  } else if (account && linkedProperty) {
+    equity = {
+      propertyName: linkedProperty.name,
+      value: (linkedProperty.latestBalance ?? 0) + (account.latestBalance ?? 0),
+    };
+  }
+
+  const liabilityBalances = Object.fromEntries(
+    accountDetails.map((d) => [d.id, d.latestBalance ?? 0]),
+  );
 
   return (
     <Sheet open={account !== null} onOpenChange={handleOpenChange}>
@@ -131,9 +206,13 @@ export function AccountDetailSheet({
                   </p>
                 </div>
                 <div className="rounded-lg border p-3">
-                  <p className="text-xs text-muted-foreground">Expected</p>
+                  <p className="text-xs text-muted-foreground">
+                    {account.assetType === "debt"
+                      ? "Interest rate"
+                      : "Expected now"}
+                  </p>
                   <p className="mt-1 font-semibold">
-                    {formatAnnualRate(account.expectedAnnualReturn)}
+                    {formatAnnualRate(currentRate)}
                   </p>
                 </div>
               </div>
@@ -143,6 +222,10 @@ export function AccountDetailSheet({
                   <h3 className="mb-2 text-sm font-medium">
                     Actual vs expected growth
                   </h3>
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    Expected compounds the first balance at the expected return;
+                    the gap shows contributions and out/under performance.
+                  </p>
                   <ChartContainer
                     config={TRAJECTORY_CONFIG}
                     className="aspect-auto w-full"
@@ -178,7 +261,7 @@ export function AccountDetailSheet({
                           dataKey="actual"
                           stroke="hsl(220, 70%, 50%)"
                           strokeWidth={2}
-                          dot={false}
+                          dot={trajectory.length === 1}
                         />
                         <Line
                           type="monotone"
@@ -193,6 +276,29 @@ export function AccountDetailSheet({
                   </ChartContainer>
                 </div>
               )}
+
+              {equity && (
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs text-muted-foreground">
+                    Equity in {equity.propertyName}
+                  </p>
+                  <p className="mt-1 font-semibold">
+                    {formatAccountCurrency(equity.value, account.currency)}
+                  </p>
+                </div>
+              )}
+
+              {account.isOpen && (
+                <AccountProjection
+                  account={account}
+                  flows={recurringFlows}
+                  liabilityBalances={liabilityBalances}
+                />
+              )}
+
+              <AccountFlows account={account} />
+
+              <ExpectedReturnEditor account={account} />
 
               <div>
                 <h3 className="mb-2 text-sm font-medium">Balance history</h3>
@@ -232,19 +338,78 @@ export function AccountDetailSheet({
                 )}
               </div>
 
+              {accountTransfers.length > 0 && (
+                <div>
+                  <h3 className="mb-2 text-sm font-medium">Transfers</h3>
+                  <ul className="divide-y rounded-lg border">
+                    {[...accountTransfers].reverse().map((transfer) => {
+                      const into = transfer.toAccountId === account.id;
+                      const counterparty = accountName(
+                        into ? transfer.fromAccountId : transfer.toAccountId,
+                      );
+                      return (
+                        <li
+                          key={transfer.id}
+                          className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
+                        >
+                          <span className="text-muted-foreground">
+                            {transfer.date} · {into ? "from" : "to"}{" "}
+                            {counterparty}
+                          </span>
+                          <span className="font-mono">
+                            {into ? "+" : "−"}
+                            {formatAccountCurrency(
+                              transfer.amount,
+                              account.currency,
+                            )}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+
               {error && <p className="text-sm text-destructive">{error}</p>}
 
               {account.isOpen && (
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col gap-3 border-t pt-4">
                   <LogBalanceDrawer accountId={account.id} />
-                  <Button
-                    variant={confirmingClose ? "destructive" : "outline"}
-                    onClick={() => handleCloseAccount(account)}
-                  >
-                    {confirmingClose
-                      ? "Confirm close (records a zero balance today)"
-                      : "Close account"}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {hasPositiveBalance && otherOpenAccounts.length > 0 && (
+                      <Select
+                        value={transferTargetId}
+                        onValueChange={setTransferTargetId}
+                      >
+                        <SelectTrigger
+                          aria-label="Transfer remaining balance to"
+                          className="w-full sm:w-auto"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={KEEP_BALANCE}>
+                            Don't transfer balance
+                          </SelectItem>
+                          {otherOpenAccounts.map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              Move balance to {a.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <Button
+                      variant={confirmingClose ? "destructive" : "outline"}
+                      onClick={() => handleCloseAccount(account)}
+                    >
+                      {confirmingClose
+                        ? transferTargetId === KEEP_BALANCE
+                          ? "Confirm close (records a zero balance today)"
+                          : `Confirm close & move balance`
+                        : "Close account"}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>

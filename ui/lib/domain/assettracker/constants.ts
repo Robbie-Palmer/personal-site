@@ -1,5 +1,27 @@
-import type { Currency } from "./account";
+import type { AssetType, Currency } from "./account";
 import type { AccountSummaryView } from "./assetTrackerViews";
+
+export const ASSET_TYPE_LABELS: Record<AssetType, string> = {
+  cash: "Cash",
+  stocks: "Stocks",
+  bonds: "Bonds",
+  reits: "REITs",
+  crypto: "Crypto",
+  property: "Property",
+  mortgage: "Mortgage",
+  debt: "Debt",
+};
+
+export const ASSET_TYPE_COLORS: Record<AssetType, string> = {
+  cash: "hsl(220, 70%, 50%)",
+  stocks: "hsl(160, 60%, 45%)",
+  bonds: "hsl(190, 70%, 45%)",
+  reits: "hsl(280, 65%, 55%)",
+  crypto: "hsl(30, 80%, 55%)",
+  property: "hsl(100, 50%, 45%)",
+  mortgage: "hsl(350, 65%, 55%)",
+  debt: "hsl(0, 70%, 50%)",
+};
 
 export const ACCOUNT_COLORS = [
   "hsl(220, 70%, 50%)",

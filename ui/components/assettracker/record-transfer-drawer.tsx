@@ -1,6 +1,6 @@
 "use client";
 
-import { PenLineIcon } from "lucide-react";
+import { ArrowLeftRightIcon } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,48 +21,38 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  formatAccountCurrency,
   formatAssetTrackerError,
   todayIsoDate,
 } from "@/lib/domain/assettracker";
 import { useAssetTracker } from "./asset-tracker-provider";
 
-interface LogBalanceDrawerProps {
-  /** Lock the form to one account (used from the account detail view) */
-  accountId?: string;
-}
+const EXTERNAL = "external";
 
-export function LogBalanceDrawer({ accountId }: LogBalanceDrawerProps) {
-  const { accounts, recordBalance } = useAssetTracker();
+export function RecordTransferDrawer() {
+  const { accounts, recordTransfer } = useAssetTracker();
   const openAccounts = accounts.filter((account) => account.isOpen);
 
   const [open, setOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState(
-    accountId ?? openAccounts[0]?.id ?? "",
-  );
+  const [fromId, setFromId] = useState(EXTERNAL);
+  const [toId, setToId] = useState(openAccounts[0]?.id ?? EXTERNAL);
+  const [amount, setAmount] = useState("");
   const [date, setDate] = useState(todayIsoDate());
-  const [balance, setBalance] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const selectedAccount = accounts.find((a) => a.id === selectedId);
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedId) {
-      setError("Choose an account");
-      return;
-    }
     setError(null);
     setSubmitting(true);
     try {
-      await recordBalance({
-        accountId: selectedId,
+      await recordTransfer({
         date,
-        balance: Number(balance),
+        fromAccountId: fromId === EXTERNAL ? undefined : fromId,
+        toAccountId: toId === EXTERNAL ? undefined : toId,
+        amount: Number(amount),
       });
       setOpen(false);
-      setBalance("");
+      setAmount("");
       setDate(todayIsoDate());
     } catch (err) {
       setError(formatAssetTrackerError(err));
@@ -74,38 +64,34 @@ export function LogBalanceDrawer({ accountId }: LogBalanceDrawerProps) {
   return (
     <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>
-        <Button disabled={openAccounts.length === 0}>
-          <PenLineIcon />
-          Log balance
+        <Button variant="outline" disabled={openAccounts.length === 0}>
+          <ArrowLeftRightIcon />
+          Transfer
         </Button>
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader className="mx-auto w-full max-w-md">
-          <DrawerTitle>Log a balance</DrawerTitle>
+          <DrawerTitle>Record a transfer</DrawerTitle>
           <DrawerDescription>
-            Record what an account is worth right now — that's all it takes to
-            keep the picture current.
+            Move money between accounts, or in/out from the outside world. Both
+            balances update — no rescanning every account.
           </DrawerDescription>
         </DrawerHeader>
         <form
           onSubmit={handleSubmit}
           className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 pb-8"
         >
-          {accountId ? (
-            <p className="text-sm font-medium">{selectedAccount?.name}</p>
-          ) : (
+          <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="log-balance-account"
-                className="text-sm font-medium"
-              >
-                Account
+              <label htmlFor="transfer-from" className="text-sm font-medium">
+                From
               </label>
-              <Select value={selectedId} onValueChange={setSelectedId}>
-                <SelectTrigger id="log-balance-account" className="w-full">
-                  <SelectValue placeholder="Choose an account" />
+              <Select value={fromId} onValueChange={setFromId}>
+                <SelectTrigger id="transfer-from" className="w-full">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={EXTERNAL}>External (income)</SelectItem>
                   {openAccounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
                       {account.name}
@@ -114,38 +100,47 @@ export function LogBalanceDrawer({ accountId }: LogBalanceDrawerProps) {
                 </SelectContent>
               </Select>
             </div>
-          )}
-          {selectedAccount?.latestBalance != null && (
-            <p className="text-xs text-muted-foreground">
-              Last recorded{" "}
-              {formatAccountCurrency(
-                selectedAccount.latestBalance,
-                selectedAccount.currency,
-              )}{" "}
-              on {selectedAccount.latestSnapshotDate}
-            </p>
-          )}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="transfer-to" className="text-sm font-medium">
+                To
+              </label>
+              <Select value={toId} onValueChange={setToId}>
+                <SelectTrigger id="transfer-to" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={EXTERNAL}>External (spending)</SelectItem>
+                  {openAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="log-balance-amount" className="text-sm font-medium">
-              Balance{selectedAccount ? ` (${selectedAccount.currency})` : ""}
+            <label htmlFor="transfer-amount" className="text-sm font-medium">
+              Amount
             </label>
             <Input
-              id="log-balance-amount"
+              id="transfer-amount"
               type="number"
               inputMode="decimal"
+              min="0.01"
               step="0.01"
               required
-              placeholder="0.00 (negative for debt)"
-              value={balance}
-              onChange={(e) => setBalance(e.target.value)}
+              placeholder="0.00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="log-balance-date" className="text-sm font-medium">
+            <label htmlFor="transfer-date" className="text-sm font-medium">
               Date
             </label>
             <Input
-              id="log-balance-date"
+              id="transfer-date"
               type="date"
               required
               max={todayIsoDate()}
@@ -156,7 +151,7 @@ export function LogBalanceDrawer({ accountId }: LogBalanceDrawerProps) {
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex gap-2 pt-2">
             <Button type="submit" className="flex-1" disabled={submitting}>
-              Save balance
+              Record transfer
             </Button>
             <DrawerClose asChild>
               <Button type="button" variant="outline">

@@ -1,4 +1,9 @@
-import type { Account, AssetType, Currency } from "./account";
+import type {
+  Account,
+  AssetType,
+  Currency,
+  ExpectedReturnChange,
+} from "./account";
 import { computeCagr } from "./assetTrackerAnalytics";
 import type { BalanceSnapshot } from "./balanceSnapshot";
 
@@ -24,6 +29,8 @@ export type BalanceSnapshotView = {
 export type AccountDetailView = AccountSummaryView & {
   createdAt: string;
   closedAt?: string;
+  expectedReturnChanges?: ExpectedReturnChange[];
+  linkedAccountId?: string;
   snapshots: BalanceSnapshotView[];
 };
 
@@ -79,6 +86,8 @@ export function toAccountDetailView(
     latestSnapshotDate: latest?.date ?? null,
     cagr: account.closedAt ? null : computeCagr(accountSnapshots),
     createdAt: account.createdAt,
+    expectedReturnChanges: account.expectedReturnChanges,
+    linkedAccountId: account.linkedAccountId,
     closedAt: account.closedAt,
     // Reverse for ascending order for charts
     snapshots: accountSnapshots

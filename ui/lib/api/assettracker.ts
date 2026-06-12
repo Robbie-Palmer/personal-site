@@ -1,16 +1,24 @@
 import {
+  type AddRecurringFlowInput,
   type AssetTrackerData,
   AssetTrackerDataSchema,
+  applyAddRecurringFlow,
   applyCloseAccount,
   applyCreateAccount,
+  applyDeleteRecurringFlow,
   applyDeleteSnapshot,
   applyRecordBalance,
+  applyRecordTransfer,
+  applySetExpectedReturn,
   buildRepository,
   type CloseAccountInput,
   type CreateAccountInput,
+  type DeleteRecurringFlowInput,
   type DeleteSnapshotInput,
   getSeedData,
   type RecordBalanceInput,
+  type RecordTransferInput,
+  type SetExpectedReturnInput,
 } from "@/lib/domain/assettracker";
 
 /**
@@ -24,8 +32,14 @@ export interface AssetTrackerApi {
   load(): Promise<AssetTrackerLoadResult>;
   createAccount(input: CreateAccountInput): Promise<AssetTrackerData>;
   recordBalance(input: RecordBalanceInput): Promise<AssetTrackerData>;
+  recordTransfer(input: RecordTransferInput): Promise<AssetTrackerData>;
   closeAccount(input: CloseAccountInput): Promise<AssetTrackerData>;
   deleteSnapshot(input: DeleteSnapshotInput): Promise<AssetTrackerData>;
+  addRecurringFlow(input: AddRecurringFlowInput): Promise<AssetTrackerData>;
+  deleteRecurringFlow(
+    input: DeleteRecurringFlowInput,
+  ): Promise<AssetTrackerData>;
+  setExpectedReturn(input: SetExpectedReturnInput): Promise<AssetTrackerData>;
   importData(raw: unknown): Promise<AssetTrackerData>;
   reset(): Promise<AssetTrackerData>;
 }
@@ -77,11 +91,23 @@ export function createLocalAssetTrackerApi(storage: Storage): AssetTrackerApi {
     async recordBalance(input) {
       return write(applyRecordBalance(current(), input));
     },
+    async recordTransfer(input) {
+      return write(applyRecordTransfer(current(), input));
+    },
     async closeAccount(input) {
       return write(applyCloseAccount(current(), input));
     },
     async deleteSnapshot(input) {
       return write(applyDeleteSnapshot(current(), input));
+    },
+    async addRecurringFlow(input) {
+      return write(applyAddRecurringFlow(current(), input));
+    },
+    async deleteRecurringFlow(input) {
+      return write(applyDeleteRecurringFlow(current(), input));
+    },
+    async setExpectedReturn(input) {
+      return write(applySetExpectedReturn(current(), input));
     },
     async importData(raw) {
       const data = AssetTrackerDataSchema.parse(raw);

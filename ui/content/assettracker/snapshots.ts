@@ -47,6 +47,20 @@ export const snapshots: BalanceSnapshot[] = [
   { accountId: "nationwide-current", date: "2023-12-01", balance: 3200 },
   { accountId: "nationwide-current", date: "2024-06-01", balance: 2900 },
   { accountId: "nationwide-current", date: "2024-12-01", balance: 3400 },
+  // Home (property)
+  { accountId: "home", date: "2023-03-01", balance: 285000 },
+  { accountId: "home", date: "2024-03-01", balance: 292000 },
+  { accountId: "home", date: "2024-12-01", balance: 298000 },
+  // Home Mortgage (linked to the property)
+  { accountId: "home-mortgage", date: "2023-03-01", balance: -228000 },
+  { accountId: "home-mortgage", date: "2023-12-01", balance: -221500 },
+  { accountId: "home-mortgage", date: "2024-06-01", balance: -217200 },
+  { accountId: "home-mortgage", date: "2024-12-01", balance: -212800 },
+  // Amex Credit Card (debt)
+  { accountId: "amex-credit-card", date: "2023-06-01", balance: -1450 },
+  { accountId: "amex-credit-card", date: "2023-12-01", balance: -2100 },
+  { accountId: "amex-credit-card", date: "2024-06-01", balance: -1200 },
+  { accountId: "amex-credit-card", date: "2024-12-01", balance: -1800 },
   // Old Mutual Pension (closed)
   { accountId: "old-mutual-pension", date: "2020-06-01", balance: 12000 },
   { accountId: "old-mutual-pension", date: "2020-12-01", balance: 13500 },

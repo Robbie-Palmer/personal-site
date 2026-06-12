@@ -11,6 +11,7 @@ import { useAssetTracker } from "./asset-tracker-provider";
 import { DataControls } from "./data-controls";
 import { LogBalanceDrawer } from "./log-balance-drawer";
 import { NetWorthChart } from "./net-worth-chart";
+import { RecordTransferDrawer } from "./record-transfer-drawer";
 
 export function AssetTrackerDashboard() {
   const { accounts, accountDetails, netWorthData, assetAllocation } =
@@ -32,8 +33,9 @@ export function AssetTrackerDashboard() {
             Track and visualise your portfolio across accounts.
           </p>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2">
           <LogBalanceDrawer />
+          <RecordTransferDrawer />
           <AddAccountDrawer />
         </div>
       </div>

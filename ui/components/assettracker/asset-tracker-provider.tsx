@@ -18,6 +18,7 @@ import {
   type AccountDetailView,
   type AccountId,
   type AccountSummaryView,
+  type AddRecurringFlowInput,
   type AssetTrackerData,
   type AssetType,
   buildRepository,
@@ -30,6 +31,10 @@ import {
   getTotalByAssetType,
   type NetWorthDataPoint,
   type RecordBalanceInput,
+  type RecordTransferInput,
+  type RecurringFlow,
+  type SetExpectedReturnInput,
+  type Transfer,
   todayIsoDate,
 } from "@/lib/domain/assettracker";
 
@@ -38,12 +43,21 @@ interface AssetTrackerContextValue {
   accountDetails: AccountDetailView[];
   netWorthData: NetWorthDataPoint[];
   assetAllocation: { assetType: AssetType; total: number }[];
+  transfers: Transfer[];
+  recurringFlows: RecurringFlow[];
   /** True once the user has made changes that are persisted in this browser */
   hasLocalChanges: boolean;
   createAccount(input: CreateAccountInput): Promise<void>;
   recordBalance(input: RecordBalanceInput): Promise<void>;
-  closeAccount(accountId: AccountId): Promise<void>;
+  recordTransfer(input: RecordTransferInput): Promise<void>;
+  closeAccount(
+    accountId: AccountId,
+    transferToAccountId?: AccountId,
+  ): Promise<void>;
   deleteSnapshot(input: DeleteSnapshotInput): Promise<void>;
+  addRecurringFlow(input: AddRecurringFlowInput): Promise<void>;
+  deleteRecurringFlow(id: string): Promise<void>;
+  setExpectedReturn(input: SetExpectedReturnInput): Promise<void>;
   resetData(): Promise<void>;
   exportData(): void;
   importData(file: File): Promise<void>;
@@ -95,6 +109,8 @@ export function AssetTrackerProvider({ children }: { children: ReactNode }) {
       accountDetails: getAllAccountDetails(repository),
       netWorthData: getNetWorthTimeSeries(repository),
       assetAllocation: getTotalByAssetType(repository),
+      transfers: repository.transfers,
+      recurringFlows: repository.recurringFlows,
     };
   }, [data]);
 
@@ -104,11 +120,21 @@ export function AssetTrackerProvider({ children }: { children: ReactNode }) {
       hasLocalChanges,
       createAccount: (input) => mutate((api) => api.createAccount(input)),
       recordBalance: (input) => mutate((api) => api.recordBalance(input)),
-      closeAccount: (accountId) =>
+      recordTransfer: (input) => mutate((api) => api.recordTransfer(input)),
+      closeAccount: (accountId, transferToAccountId) =>
         mutate((api) =>
-          api.closeAccount({ accountId, closedAt: todayIsoDate() }),
+          api.closeAccount({
+            accountId,
+            closedAt: todayIsoDate(),
+            transferToAccountId,
+          }),
         ),
       deleteSnapshot: (input) => mutate((api) => api.deleteSnapshot(input)),
+      addRecurringFlow: (input) => mutate((api) => api.addRecurringFlow(input)),
+      deleteRecurringFlow: (id) =>
+        mutate((api) => api.deleteRecurringFlow({ id })),
+      setExpectedReturn: (input) =>
+        mutate((api) => api.setExpectedReturn(input)),
       resetData: async () => {
         const seed = await getApi().reset();
         setData(seed);
