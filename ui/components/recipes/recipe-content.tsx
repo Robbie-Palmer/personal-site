@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Check,
   Clock,
+  Download,
   Loader2,
   Minus,
   Plus,
@@ -454,6 +455,15 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
               <span>Total: {formatTime(recipe.totalTime)}</span>
             </div>
           )}
+          <a
+            href={`/recipes/${recipe.slug}.json`}
+            download={`${recipe.slug}.json`}
+            className="flex items-center gap-1 hover:text-foreground transition-colors"
+            title="Download as schema.org Recipe JSON, importable into most recipe apps"
+          >
+            <Download className="h-4 w-4" />
+            <span>Export</span>
+          </a>
         </div>
 
         {recipe.cuisine.length > 0 && (

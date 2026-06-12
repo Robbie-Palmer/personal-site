@@ -33,6 +33,9 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
       description: recipe.description,
       alternates: {
         canonical: canonicalUrl,
+        types: {
+          "application/ld+json": `${siteConfig.url}/recipes/${slug}.json`,
+        },
       },
     };
   } catch (_e) {
@@ -54,7 +57,11 @@ export default async function RecipePage(props: PageProps) {
   }
 
   const { prevRecipe, nextRecipe } = getRecipeNavigation(slug);
-  const jsonLd = buildRecipeJsonLd(recipe, siteConfig.author.name);
+  const jsonLd = buildRecipeJsonLd(
+    recipe,
+    siteConfig.author.name,
+    `${siteConfig.url}/recipes/${slug}`,
+  );
 
   return (
     <article className="container mx-auto px-4 py-12 max-w-4xl">
