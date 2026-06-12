@@ -27,14 +27,14 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   try {
     const recipe = getRecipeBySlug(slug);
     const canonicalUrl =
-      recipe.canonical || `${siteConfig.url}/recipes/${slug}`;
+      recipe.canonical || `${siteConfig.url}/recipes/${recipe.slug}`;
     return {
       title: recipe.title,
       description: recipe.description,
       alternates: {
         canonical: canonicalUrl,
         types: {
-          "application/ld+json": `${siteConfig.url}/recipes/${slug}.json`,
+          "application/ld+json": `${siteConfig.url}/recipes/${recipe.slug}.json`,
         },
       },
     };
@@ -60,7 +60,7 @@ export default async function RecipePage(props: PageProps) {
   const jsonLd = buildRecipeJsonLd(
     recipe,
     siteConfig.author.name,
-    `${siteConfig.url}/recipes/${slug}`,
+    `${siteConfig.url}/recipes/${recipe.slug}`,
   );
 
   return (

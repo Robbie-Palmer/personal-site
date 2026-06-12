@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
 import type { RecipeDetailView } from "@/lib/domain/recipe/recipeViews";
 import {
@@ -14,6 +14,7 @@ function makeRecipeDetail(
     title: "Lemon Tart",
     description: "A sharp, silky lemon tart",
     date: "2024-01-01",
+    image: "some-cf-image-id",
     cuisine: [],
     tags: [],
     servings: 4,
@@ -83,7 +84,9 @@ describe("buildRecipeJsonLd", () => {
     expect(jsonLd.totalTime).toBe("PT1H30M");
   });
 
-  it("omits optional fields when absent", () => {
+  it("omits optional fields when absent, warning about the description", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
     const jsonLd = buildRecipeJsonLd(
       makeRecipeDetail({ description: "" }),
       "Test Author",
@@ -95,6 +98,10 @@ describe("buildRecipeJsonLd", () => {
     expect(jsonLd.recipeCuisine).toBeUndefined();
     expect(jsonLd.keywords).toBeUndefined();
     expect(jsonLd.isBasedOn).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('missing "description"'),
+    );
+    warn.mockRestore();
   });
 
   it("includes cuisine, keywords, and the source recipe when present", () => {
