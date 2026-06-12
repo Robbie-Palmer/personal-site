@@ -508,7 +508,7 @@ function buildLlmsTxt(
         `- [${page.title}](${markdownUrl(page.htmlPath)})${page.description ? `: ${page.description}` : ""}`,
     ),
     "",
-    "## Optional",
+    "## Recipes",
     "",
     `- [Recipe index](${markdownUrl("/recipes")}): a digital recipe book`,
     ...recipes.map(
@@ -621,13 +621,14 @@ function main(): void {
     );
   }
 
-  const llmsTxt = buildLlmsTxt(projects, posts, recipes, technologyPages);
-  writeFile("llms.txt", llmsTxt);
+  writeFile("llms.txt", buildLlmsTxt(projects, posts, recipes, technologyPages));
 
+  // All pages concatenated, starting with the home page; the llms.txt index
+  // is not prepended since its navigation links are redundant here
   const llmsFull = pages
     .map((page) => fs.readFileSync(path.join(OUT_DIR, page.filePath), "utf-8"))
     .join("\n\n");
-  writeFile("llms-full.txt", `${llmsTxt}\n${llmsFull}`);
+  writeFile("llms-full.txt", llmsFull);
 
   writeFile("_headers", buildHeadersFile(pages));
   writeFile("_routes.json", buildRoutesJson());
