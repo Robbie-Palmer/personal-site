@@ -12,6 +12,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
+// Must come before recipe imports: registers WASM loading for @cooklang/cooklang
+import "./lib/register-wasm";
 import { getAllPosts } from "@/lib/api/blog";
 import {
   formatExperienceDateRange,
@@ -23,12 +25,23 @@ import {
   getProjectADR,
   type ProjectWithADRs,
 } from "@/lib/api/projects";
+import {
+  getAllRecipes,
+  getRecipeBySlug,
+  type RecipeDetailView,
+} from "@/lib/api/recipes";
 import { siteConfig } from "@/lib/config/site-config";
 import {
   markdownUrl,
   mdxToAgentMarkdown,
   renderPage,
 } from "@/lib/content/agent-markdown";
+import { loadDomainRepository } from "@/lib/domain";
+import {
+  getAllTechnologySlugs,
+  getRelatedContentForTechnology,
+  getTechnologyDetail,
+} from "@/lib/domain/technology";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
 
 const OUT_DIR = path.join(process.cwd(), "out");
@@ -247,6 +260,162 @@ function buildExperiencePage(): GeneratedPage {
   };
 }
 
+function formatIngredient(
+  item: RecipeDetailView["ingredientGroups"][number]["items"][number],
+): string {
+  const quantity = [item.amount, item.unit].filter(Boolean).join(" ");
+  const name = quantity ? `${quantity} ${item.name}` : item.name;
+  const preparation = item.preparation ? `, ${item.preparation}` : "";
+  const note = item.note ? ` (${item.note})` : "";
+  return `- ${name}${preparation}${note}`;
+}
+
+function buildRecipePage(recipe: RecipeDetailView): GeneratedPage {
+  const facts: [string, string][] = [["Servings", String(recipe.servings)]];
+  if (recipe.prepTime) facts.push(["Prep time", `${recipe.prepTime} min`]);
+  if (recipe.cookTime) facts.push(["Cook time", `${recipe.cookTime} min`]);
+  if (recipe.totalTime) facts.push(["Total time", `${recipe.totalTime} min`]);
+  if (recipe.cuisine.length > 0) {
+    facts.push(["Cuisine", recipe.cuisine.join(", ")]);
+  }
+  if (recipe.tags.length > 0) facts.push(["Tags", recipe.tags.join(", ")]);
+
+  const ingredients = recipe.ingredientGroups.flatMap((group) => [
+    ...(group.name ? [`### ${group.name}`, ""] : []),
+    ...group.items.map(formatIngredient),
+    "",
+  ]);
+  const cookware =
+    recipe.cookware.length > 0
+      ? ["## Cookware", "", ...recipe.cookware.map((item) => `- ${item}`), ""]
+      : [];
+  const instructions = recipe.instructions.map(
+    (step, index) => `${index + 1}. ${step}`,
+  );
+
+  return {
+    htmlPath: `/recipes/${recipe.slug}`,
+    filePath: `recipes/${recipe.slug}.md`,
+    title: recipe.title,
+    description: recipe.description,
+    content: [
+      "## Ingredients",
+      "",
+      ...ingredients,
+      ...cookware,
+      "## Instructions",
+      "",
+      ...instructions,
+    ].join("\n"),
+    facts,
+  };
+}
+
+function buildRecipesIndexPage(
+  recipes: ReturnType<typeof getAllRecipes>,
+): GeneratedPage {
+  return {
+    htmlPath: "/recipes",
+    filePath: "recipes.md",
+    title: "Recipes",
+    description:
+      "A digital recipe book with search, filtering, and kitchen-friendly features",
+    content: recipes
+      .flatMap((recipe) => {
+        const time = recipe.totalTime ? ` · ${recipe.totalTime} min` : "";
+        const cuisine =
+          recipe.cuisine.length > 0 ? ` · ${recipe.cuisine.join(", ")}` : "";
+        return [
+          `### [${recipe.title}](${markdownUrl(`/recipes/${recipe.slug}`)})`,
+          "",
+          `Serves ${recipe.servings}${time}${cuisine}`,
+          "",
+          recipe.description,
+          "",
+        ];
+      })
+      .join("\n"),
+  };
+}
+
+function buildTechnologyPages(projects: ProjectWithADRs[]): GeneratedPage[] {
+  const repository = loadDomainRepository();
+  // Maps each ADR to the project it originates in, for stable links
+  const adrProjects = new Map<string, string>();
+  for (const project of projects) {
+    for (const adr of project.adrs) {
+      if (!adr.isInherited) adrProjects.set(adr.slug, project.slug);
+    }
+  }
+
+  return getAllTechnologySlugs(repository).flatMap((slug) => {
+    const tech = getTechnologyDetail(repository, slug);
+    if (!tech) return [];
+    const related = getRelatedContentForTechnology(repository, slug);
+
+    const sections: string[] = [];
+    if (related.projects.length > 0) {
+      sections.push(
+        "## Projects using this technology",
+        "",
+        ...related.projects.map(
+          (project) =>
+            `- [${project.title}](${markdownUrl(`/projects/${project.slug}`)})`,
+        ),
+        "",
+      );
+    }
+    // Inherited ADRs surface once per project; keep one entry per ADR
+    const uniqueAdrs = [
+      ...new Map(related.adrs.map((adr) => [adr.slug, adr])).values(),
+    ];
+    if (uniqueAdrs.length > 0) {
+      sections.push(
+        "## Architecture decision records",
+        "",
+        ...uniqueAdrs.map((adr) => {
+          const projectSlug = adrProjects.get(adr.slug);
+          return projectSlug
+            ? `- [${adr.title}](${markdownUrl(`/projects/${projectSlug}/adrs/${adr.slug}`)})`
+            : `- ${adr.title}`;
+        }),
+        "",
+      );
+    }
+    if (related.blogs.length > 0) {
+      sections.push(
+        "## Blog posts",
+        "",
+        ...related.blogs.map(
+          (post) =>
+            `- [${post.title}](${markdownUrl(`/blog/${post.slug}`)}) — ${post.date}`,
+        ),
+        "",
+      );
+    }
+    if (related.roles.length > 0) {
+      sections.push(
+        "## Used professionally at",
+        "",
+        ...related.roles.map((role) => `- ${role.company} — ${role.title}`),
+        "",
+      );
+    }
+
+    const facts: [string, string][] = [["Website", tech.website]];
+    return [
+      {
+        htmlPath: `/technologies/${tech.slug}`,
+        filePath: `technologies/${tech.slug}.md`,
+        title: tech.name,
+        description: tech.description ?? "",
+        content: sections.join("\n").trim() || "_No related content yet._",
+        facts,
+      },
+    ];
+  });
+}
+
 function buildHomePage(): GeneratedPage {
   return {
     htmlPath: "/",
@@ -261,6 +430,7 @@ function buildHomePage(): GeneratedPage {
       `- [Experience](${markdownUrl("/experience")}): career history, roles, and technologies`,
       `- [Projects](${markdownUrl("/projects")}): projects, ADRs, and building philosophy`,
       `- [Blog](${markdownUrl("/blog")}): ${siteConfig.blog.description}`,
+      `- [Recipes](${markdownUrl("/recipes")}): a digital recipe book`,
       "",
       "## Links",
       "",
@@ -274,6 +444,8 @@ function buildHomePage(): GeneratedPage {
 function buildLlmsTxt(
   projects: ProjectWithADRs[],
   posts: ReturnType<typeof getAllPosts>,
+  recipes: ReturnType<typeof getAllRecipes>,
+  technologyPages: GeneratedPage[],
 ): string {
   const lines = [
     `# ${siteConfig.name}`,
@@ -314,8 +486,54 @@ function buildLlmsTxt(
         `- [${post.title}](${markdownUrl(`/blog/${post.slug}`)}): ${post.description}`,
     ),
     "",
+    "## Technologies",
+    "",
+    "Each page lists the projects, ADRs, blog posts, and roles using that technology.",
+    "",
+    ...technologyPages.map(
+      (page) =>
+        `- [${page.title}](${markdownUrl(page.htmlPath)})${page.description ? `: ${page.description}` : ""}`,
+    ),
+    "",
+    "## Optional",
+    "",
+    `- [Recipe index](${markdownUrl("/recipes")}): a digital recipe book`,
+    ...recipes.map(
+      (recipe) =>
+        `- [${recipe.title}](${markdownUrl(`/recipes/${recipe.slug}`)}): ${recipe.description}`,
+    ),
+    "",
   ];
   return lines.join("\n");
+}
+
+/**
+ * Custom Pages routing manifest so the content-negotiation middleware
+ * (functions/_middleware.ts) runs only on page routes, keeping static
+ * assets (JS chunks, images, .md twins are excluded by the middleware
+ * itself) free of function invocations.
+ */
+function buildRoutesJson(): string {
+  return `${JSON.stringify(
+    {
+      version: 1,
+      include: [
+        "/ingest/*",
+        "/",
+        "/experience",
+        "/projects",
+        "/projects/*",
+        "/blog",
+        "/blog/*",
+        "/recipes",
+        "/recipes/*",
+        "/technologies/*",
+      ],
+      exclude: ["/_next/*", "/company-logos/*", "/tech-icons/*"],
+    },
+    null,
+    2,
+  )}\n`;
 }
 
 /**
@@ -359,6 +577,8 @@ function main(): void {
   const projects = getAllProjects();
   const posts = getAllPosts();
   const philosophy = getBuildingPhilosophy();
+  const recipes = getAllRecipes();
+  const technologyPages = buildTechnologyPages(projects);
 
   const pages: GeneratedPage[] = [
     buildHomePage(),
@@ -368,6 +588,9 @@ function main(): void {
     ...projects.flatMap(buildAdrPages),
     buildBlogIndexPage(posts),
     ...buildBlogPostPages(posts),
+    buildRecipesIndexPage(recipes),
+    ...recipes.map((recipe) => buildRecipePage(getRecipeBySlug(recipe.slug))),
+    ...technologyPages,
   ];
 
   for (const page of pages) {
@@ -385,7 +608,7 @@ function main(): void {
     );
   }
 
-  const llmsTxt = buildLlmsTxt(projects, posts);
+  const llmsTxt = buildLlmsTxt(projects, posts, recipes, technologyPages);
   writeFile("llms.txt", llmsTxt);
 
   const llmsFull = pages
@@ -394,9 +617,10 @@ function main(): void {
   writeFile("llms-full.txt", `${llmsTxt}\n${llmsFull}`);
 
   writeFile("_headers", buildHeadersFile(pages));
+  writeFile("_routes.json", buildRoutesJson());
 
   console.log(
-    `Generated ${pages.length} Markdown pages, llms.txt, llms-full.txt, and _headers in out/`,
+    `Generated ${pages.length} Markdown pages, llms.txt, llms-full.txt, _headers, and _routes.json in out/`,
   );
 }
 

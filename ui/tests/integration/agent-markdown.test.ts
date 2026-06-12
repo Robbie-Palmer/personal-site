@@ -20,9 +20,11 @@ describe("agent markdown generation", () => {
       "experience.md",
       "projects.md",
       "blog.md",
+      "recipes.md",
       "llms.txt",
       "llms-full.txt",
       "_headers",
+      "_routes.json",
     ]) {
       expect(fs.existsSync(path.join(OUT_DIR, file)), file).toBe(true);
     }
@@ -44,6 +46,42 @@ describe("agent markdown generation", () => {
         `projects/${dir.name}.md`,
       ).toBe(true);
     }
+  });
+
+  it("generates a markdown twin for every recipe and technology page", () => {
+    for (const section of ["recipes", "technologies"]) {
+      const htmlPages = fs
+        .readdirSync(path.join(OUT_DIR, section))
+        .filter((file) => file.endsWith(".html"));
+      expect(htmlPages.length).toBeGreaterThan(0);
+      for (const htmlPage of htmlPages) {
+        const mdPage = htmlPage.replace(/\.html$/, ".md");
+        expect(
+          fs.existsSync(path.join(OUT_DIR, section, mdPage)),
+          `${section}/${mdPage}`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("renders recipe ingredients and instructions as markdown", () => {
+    const recipeFiles = fs
+      .readdirSync(path.join(OUT_DIR, "recipes"))
+      .filter((file) => file.endsWith(".md"));
+    const recipe = read(`recipes/${recipeFiles[0]}`);
+    expect(recipe).toContain("## Ingredients");
+    expect(recipe).toContain("## Instructions");
+    expect(recipe).not.toContain("{%"); // no leftover cooklang markup
+  });
+
+  it("scopes the middleware to page routes in _routes.json", () => {
+    const routes = JSON.parse(read("_routes.json"));
+    expect(routes.include).toContain("/ingest/*");
+    expect(routes.include).toContain("/projects/*");
+    expect(routes.exclude).toContain("/_next/*");
+    expect(routes.include.length + routes.exclude.length).toBeLessThanOrEqual(
+      100,
+    );
   });
 
   it("links every llms.txt entry to a generated file", () => {
