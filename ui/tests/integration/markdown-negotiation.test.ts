@@ -1,5 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { killProcessGroup, waitForServer } from "./wrangler-test-utils";
 
 const WRANGLER_PORT = 8791;
 const BASE_URL = `http://localhost:${WRANGLER_PORT}`;
@@ -92,31 +93,3 @@ describe("Markdown content negotiation middleware", () => {
     expect(noTwin.headers.get("content-type")).toContain("text/html");
   });
 });
-
-function killProcessGroup(proc: ChildProcess | undefined): void {
-  if (!proc?.pid) return;
-  try {
-    process.kill(-proc.pid, "SIGTERM");
-  } catch {
-    proc.kill();
-  }
-}
-
-async function waitForServer(
-  proc: ChildProcess,
-  timeout: number,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      killProcessGroup(proc);
-      reject(new Error(`Server did not start within ${timeout}ms`));
-    }, timeout);
-
-    proc.stdout?.on("data", (data: Buffer) => {
-      if (data.toString().includes("Ready on")) {
-        clearTimeout(timer);
-        resolve();
-      }
-    });
-  });
-}

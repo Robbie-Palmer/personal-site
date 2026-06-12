@@ -54,10 +54,12 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   }
 
   const markdownUrl = new URL(markdownPath, url.origin);
+  // Forward the original request (headers included) so conditional caching
+  // (If-None-Match -> 304) keeps working for the negotiated Markdown
   const asset = await context.env.ASSETS.fetch(
-    new Request(markdownUrl, { method: request.method }),
+    new Request(markdownUrl, request),
   );
-  if (!asset.ok) {
+  if (!asset.ok && asset.status !== 304) {
     return context.next();
   }
 

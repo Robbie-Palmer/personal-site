@@ -51,6 +51,9 @@ const hasImagesAccountHash = Boolean(
 );
 
 function resolveImageUrl(src: string): string | null {
+  // Site-relative assets (e.g. /company-logos/foo.png) are not Cloudflare
+  // Images IDs; point them at the deployed site instead
+  if (src.startsWith("/")) return `${siteConfig.url}${src}`;
   if (!hasImagesAccountHash) return null;
   return getImageUrl(src, null, { width: 1200, format: "auto" });
 }
@@ -340,11 +343,26 @@ function buildRecipesIndexPage(
 
 function buildTechnologyPages(projects: ProjectWithADRs[]): GeneratedPage[] {
   const repository = loadDomainRepository();
-  // Maps each ADR to the project it originates in, for stable links
-  const adrProjects = new Map<string, string>();
+  // ADR slugs are only unique within a project, so collect ADRs per
+  // technology from the project cards, which carry their origin project.
+  // Inherited ADRs are skipped so each decision appears once, linked to
+  // the project where it was made.
+  const adrsByTechnology = new Map<
+    string,
+    { title: string; projectSlug: string; adrSlug: string }[]
+  >();
   for (const project of projects) {
     for (const adr of project.adrs) {
-      if (!adr.isInherited) adrProjects.set(adr.slug, project.slug);
+      if (adr.isInherited) continue;
+      for (const badge of adr.technologies) {
+        const entries = adrsByTechnology.get(badge.slug) ?? [];
+        entries.push({
+          title: adr.title,
+          projectSlug: project.slug,
+          adrSlug: adr.slug,
+        });
+        adrsByTechnology.set(badge.slug, entries);
+      }
     }
   }
 
@@ -365,20 +383,15 @@ function buildTechnologyPages(projects: ProjectWithADRs[]): GeneratedPage[] {
         "",
       );
     }
-    // Inherited ADRs surface once per project; keep one entry per ADR
-    const uniqueAdrs = [
-      ...new Map(related.adrs.map((adr) => [adr.slug, adr])).values(),
-    ];
-    if (uniqueAdrs.length > 0) {
+    const adrs = adrsByTechnology.get(slug) ?? [];
+    if (adrs.length > 0) {
       sections.push(
         "## Architecture decision records",
         "",
-        ...uniqueAdrs.map((adr) => {
-          const projectSlug = adrProjects.get(adr.slug);
-          return projectSlug
-            ? `- [${adr.title}](${markdownUrl(`/projects/${projectSlug}/adrs/${adr.slug}`)})`
-            : `- ${adr.title}`;
-        }),
+        ...adrs.map(
+          (adr) =>
+            `- [${adr.title}](${markdownUrl(`/projects/${adr.projectSlug}/adrs/${adr.adrSlug}`)})`,
+        ),
         "",
       );
     }
