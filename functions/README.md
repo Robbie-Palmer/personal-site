@@ -8,6 +8,14 @@ directory. No additional configuration is required.
 
 ## Functions
 
+### `_middleware.ts` - Markdown Content Negotiation
+
+Serves each page's agent-friendly Markdown twin from its canonical URL
+when the client requests `Accept: text/markdown`, or has an agent/CLI user
+agent without asking for HTML. Browsers are unaffected. Agents can also
+fetch Markdown explicitly by appending `.md` to any page URL, or start
+from the index at `/llms.txt`.
+
 ### `/ingest/*` - PostHog Reverse Proxy
 
 **File:** `ingest/[[path]].ts`

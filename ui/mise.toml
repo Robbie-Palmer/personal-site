@@ -21,7 +21,7 @@ run = "pnpm dev:qr"
 description = "Build Next.js application for production"
 depends = ["//ui:install"]
 run = "pnpm build"
-sources = ["app/**/*", "components/**/*", "lib/**/*", "public/**/*", "*.ts", "*.tsx", "*.json"]
+sources = ["app/**/*", "components/**/*", "content/**/*", "lib/**/*", "public/**/*", "scripts/**/*", "*.ts", "*.tsx", "*.json"]
 outputs = ["out/**/*"]
 
 [tasks.test]

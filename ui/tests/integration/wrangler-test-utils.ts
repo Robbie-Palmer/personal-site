@@ -1,0 +1,42 @@
+import type { ChildProcess } from "node:child_process";
+
+/**
+ * Kills a spawned process and its children. Wrangler spawns workerd
+ * subprocesses that survive a plain kill() and keep holding ports, so the
+ * process must be spawned with `detached: true` and killed as a group.
+ */
+export function killProcessGroup(proc: ChildProcess | undefined): void {
+  if (!proc?.pid) return;
+  try {
+    process.kill(-proc.pid, "SIGTERM");
+  } catch {
+    proc.kill();
+  }
+}
+
+/** Waits for a wrangler dev server to report readiness on stdout. */
+export async function waitForServer(
+  proc: ChildProcess,
+  timeout: number,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      killProcessGroup(proc);
+      reject(new Error(`Server did not start within ${timeout}ms`));
+    }, timeout);
+
+    proc.stdout?.on("data", (data: Buffer) => {
+      if (data.toString().includes("Ready on")) {
+        clearTimeout(timer);
+        resolve();
+      }
+    });
+
+    proc.on("exit", (code) => {
+      clearTimeout(timer);
+      if (code !== 0 && code !== null) {
+        reject(new Error(`Wrangler process exited with code ${code}`));
+      }
+    });
+  });
+}
