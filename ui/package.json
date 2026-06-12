@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "dev:qr": "node scripts/qr-dev.mjs && pnpm run dev",
-    "build": "next build",
+    "build": "next build && tsx scripts/generate-agent-markdown.ts",
+    "generate:agent-markdown": "tsx scripts/generate-agent-markdown.ts",
     "start": "next start",
     "test": "vitest run --exclude 'tests/integration/**'",
     "test:integration": "vitest run tests/integration",

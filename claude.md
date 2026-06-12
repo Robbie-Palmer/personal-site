@@ -34,6 +34,15 @@ This is a mono-repo containing:
 - **Infrastructure**: Cloudflare Pages
 - **Tooling**: Biome (linting/formatting), Husky (pre-commit hooks)
 
+## Agent-Friendly Markdown
+
+Every major page has a plain-Markdown twin at the same URL with a `.md`
+suffix (e.g. `/projects.md`), indexed at `/llms.txt` (and concatenated in
+`/llms-full.txt`). These are generated into `out/` by
+`ui/scripts/generate-agent-markdown.ts`, which runs as part of `pnpm build`
+after `next build`. The MDX-to-Markdown conversion lives in
+`ui/lib/content/agent-markdown.ts`.
+
 ## When Mise Is Not Available
 
 If mise is not installed in your environment, run equivalent commands directly from the `ui/` directory:
