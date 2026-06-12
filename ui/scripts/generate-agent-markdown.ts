@@ -5,6 +5,9 @@
  * static export directory (out/), following the convention popularised by
  * Neon's docs: append `.md` to a page URL to get plain Markdown, and fetch
  * /llms.txt for a structured index of everything available.
+ *
+ * Recipe pages additionally get a schema.org Recipe JSON twin (append
+ * `.json` instead), the interchange format most recipe apps can import.
  */
 
 import fs from "node:fs";
@@ -40,6 +43,7 @@ import {
   getTechnologyDetail,
 } from "@/lib/domain/technology";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
+import { buildRecipeJsonLd } from "@/lib/seo/recipe-jsonld";
 
 const OUT_DIR = path.join(process.cwd(), "out");
 
@@ -507,6 +511,8 @@ function buildLlmsTxt(
     "",
     "## Recipes",
     "",
+    `Each recipe is also available as schema.org Recipe JSON (importable into most recipe apps): append \`.json\` to the recipe URL instead of \`.md\`.`,
+    "",
     `- [Recipe index](${markdownUrl("/recipes")}): a digital recipe book`,
     ...recipes.map(
       (recipe) =>
@@ -585,6 +591,7 @@ function main(): void {
   const posts = getAllPosts();
   const philosophy = getBuildingPhilosophy();
   const recipes = getAllRecipes();
+  const recipeDetails = recipes.map((recipe) => getRecipeBySlug(recipe.slug));
   const technologyPages = buildTechnologyPages(projects);
 
   const pages: GeneratedPage[] = [
@@ -596,7 +603,7 @@ function main(): void {
     buildBlogIndexPage(posts),
     ...buildBlogPostPages(posts),
     buildRecipesIndexPage(recipes),
-    ...recipes.map((recipe) => buildRecipePage(getRecipeBySlug(recipe.slug))),
+    ...recipeDetails.map(buildRecipePage),
     ...technologyPages,
   ];
 
@@ -615,6 +622,20 @@ function main(): void {
     );
   }
 
+  // Recipe twins in schema.org Recipe JSON-LD, the interchange format most
+  // recipe apps import; same URL convention as the Markdown twins
+  for (const recipe of recipeDetails) {
+    const jsonLd = buildRecipeJsonLd(
+      recipe,
+      siteConfig.author.name,
+      `${siteConfig.url}/recipes/${recipe.slug}`,
+    );
+    writeFile(
+      `recipes/${recipe.slug}.json`,
+      `${JSON.stringify(jsonLd, null, 2)}\n`,
+    );
+  }
+
   writeFile("llms.txt", buildLlmsTxt(projects, posts, recipes, technologyPages));
 
   // The llms.txt index is deliberately not prepended: its navigation links
@@ -628,7 +649,7 @@ function main(): void {
   writeFile("_routes.json", buildRoutesJson());
 
   console.log(
-    `Generated ${pages.length} Markdown pages, llms.txt, llms-full.txt, _headers, and _routes.json in out/`,
+    `Generated ${pages.length} Markdown pages, ${recipeDetails.length} recipe JSON exports, llms.txt, llms-full.txt, _headers, and _routes.json in out/`,
   );
 }
 
