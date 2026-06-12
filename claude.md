@@ -38,13 +38,9 @@ This is a mono-repo containing:
 
 Every major page has a plain-Markdown twin at the same URL with a `.md`
 suffix (e.g. `/projects.md`), indexed at `/llms.txt` (and concatenated in
-`/llms-full.txt`). These are generated into `out/` by
-`ui/scripts/generate-agent-markdown.ts`, which runs as part of `pnpm build`
-after `next build`. The MDX-to-Markdown conversion lives in
-`ui/lib/content/agent-markdown.ts`. A Pages Function middleware
-(`functions/_middleware.ts`) additionally serves Markdown from canonical
-page URLs via content negotiation (`Accept: text/markdown` or agent user
-agents), scoped by the generated `out/_routes.json`.
+`/llms-full.txt`). These are generated into `out/` during the UI build by
+`ui/scripts/generate-agent-markdown.ts`. A Pages Function middleware also
+serves the Markdown from canonical page URLs via content negotiation.
 
 ## When Mise Is Not Available
 

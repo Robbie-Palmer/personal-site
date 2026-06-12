@@ -5,14 +5,11 @@
  * static export directory (out/), following the convention popularised by
  * Neon's docs: append `.md` to a page URL to get plain Markdown, and fetch
  * /llms.txt for a structured index of everything available.
- *
- * Runs after `next build` (see the package.json build script) so the files
- * are deployed as plain static assets alongside the exported HTML.
  */
 
 import fs from "node:fs";
 import path from "node:path";
-// Must come before recipe imports: registers WASM loading for @cooklang/cooklang
+// Import order matters: registers .wasm loading before content imports
 import "./lib/register-wasm";
 import { getAllPosts } from "@/lib/api/blog";
 import {
@@ -521,10 +518,8 @@ function buildLlmsTxt(
 }
 
 /**
- * Custom Pages routing manifest so the content-negotiation middleware
- * (functions/_middleware.ts) runs only on page routes, keeping static
- * assets (JS chunks, images, .md twins are excluded by the middleware
- * itself) free of function invocations.
+ * Restricts Pages Function invocations to page routes, so static assets
+ * are served straight from the CDN.
  */
 function buildRoutesJson(): string {
   return `${JSON.stringify(
@@ -551,9 +546,8 @@ function buildRoutesJson(): string {
 
 /**
  * Cloudflare Pages caps _headers at 100 rules and doesn't support
- * placeholders in header values, so only the main entry pages advertise
- * their Markdown twin via a Link header. Deeper pages (ADRs, blog posts)
- * are discoverable through llms.txt and the index pages.
+ * placeholders in header values, so only the entry pages advertise their
+ * Markdown twin via a Link header.
  */
 function buildHeadersFile(pages: GeneratedPage[]): string {
   const entryPages = pages.filter(
@@ -623,8 +617,8 @@ function main(): void {
 
   writeFile("llms.txt", buildLlmsTxt(projects, posts, recipes, technologyPages));
 
-  // All pages concatenated, starting with the home page; the llms.txt index
-  // is not prepended since its navigation links are redundant here
+  // The llms.txt index is deliberately not prepended: its navigation links
+  // are redundant when every page is inline
   const llmsFull = pages
     .map((page) => fs.readFileSync(path.join(OUT_DIR, page.filePath), "utf-8"))
     .join("\n\n");

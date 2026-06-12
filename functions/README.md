@@ -10,16 +10,11 @@ directory. No additional configuration is required.
 
 ### `_middleware.ts` - Markdown Content Negotiation
 
-Serves the agent-friendly Markdown twins (generated into `out/` by
-`ui/scripts/generate-agent-markdown.ts`) from canonical page URLs when the
-client requests `Accept: text/markdown`, or has an agent/CLI user agent
-without asking for HTML. Browsers are unaffected. Agents can also fetch
-Markdown explicitly by appending `.md` to any page URL, or start from the
-index at `/llms.txt`.
-
-The generated `out/_routes.json` restricts function invocation to page
-routes, so static assets (JS chunks, images) are served directly from the
-CDN without invoking the middleware.
+Serves each page's agent-friendly Markdown twin from its canonical URL
+when the client requests `Accept: text/markdown`, or has an agent/CLI user
+agent without asking for HTML. Browsers are unaffected. Agents can also
+fetch Markdown explicitly by appending `.md` to any page URL, or start
+from the index at `/llms.txt`.
 
 ### `/ingest/*` - PostHog Reverse Proxy
 
