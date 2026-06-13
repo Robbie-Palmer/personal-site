@@ -1,5 +1,13 @@
 "use client";
-import { Bar, BarChart, Cell, ReferenceLine, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  Cell,
+  ReferenceLine,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   Card,
   CardContent,
@@ -48,38 +56,39 @@ export function AssetAllocationChart({ data }: AssetAllocationChartProps) {
       </CardHeader>
       <CardContent className="px-2 sm:px-6">
         <ChartContainer config={chartConfig} className="aspect-auto w-full">
-          <BarChart
-            accessibilityLayer
-            data={chartData}
-            layout="vertical"
-            height={300}
-            margin={{ top: 5, right: 16, left: 8, bottom: 5 }}
-          >
-            <XAxis
-              type="number"
-              className="text-xs"
-              tickFormatter={(v: number) => `£${(v / 1000).toFixed(0)}k`}
-            />
-            <YAxis
-              type="category"
-              dataKey="label"
-              className="text-xs"
-              width={70}
-            />
-            <ReferenceLine x={0} className="stroke-muted-foreground" />
-            <ChartTooltip
-              content={<ChartTooltipContent />}
-              formatter={(value) => formatCurrency(value as number)}
-            />
-            <Bar dataKey="value" radius={4}>
-              {chartData.map((entry) => (
-                <Cell
-                  key={entry.assetType}
-                  fill={ASSET_TYPE_COLORS[entry.assetType]}
-                />
-              ))}
-            </Bar>
-          </BarChart>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart
+              accessibilityLayer
+              data={chartData}
+              layout="vertical"
+              margin={{ top: 5, right: 16, left: 8, bottom: 5 }}
+            >
+              <XAxis
+                type="number"
+                className="text-xs"
+                tickFormatter={(v: number) => `£${(v / 1000).toFixed(0)}k`}
+              />
+              <YAxis
+                type="category"
+                dataKey="label"
+                className="text-xs"
+                width={70}
+              />
+              <ReferenceLine x={0} className="stroke-muted-foreground" />
+              <ChartTooltip
+                content={<ChartTooltipContent />}
+                formatter={(value) => formatCurrency(value as number)}
+              />
+              <Bar dataKey="value" radius={4}>
+                {chartData.map((entry) => (
+                  <Cell
+                    key={entry.assetType}
+                    fill={ASSET_TYPE_COLORS[entry.assetType]}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </ChartContainer>
       </CardContent>
     </Card>
