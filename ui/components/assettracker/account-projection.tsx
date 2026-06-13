@@ -29,10 +29,12 @@ import {
   type AccountDetailView,
   addRealValues,
   buildProjection,
+  dateTargetReached,
   formatAccountCurrency,
   formatAxisTick,
   projectedDateForTarget,
   type RecurringFlow,
+  todayIsoDate,
 } from "@/lib/domain/assettracker";
 
 const HORIZON_OPTIONS = [5, 10, 20, 30, 40] as const;
@@ -68,10 +70,12 @@ export function AccountProjection({
     if (account.latestBalance == null || account.latestSnapshotDate == null) {
       return { projection: [], payoffDate: null };
     }
+    // Project forward from today using the latest known balance, so every
+    // projected date is in the future rather than starting at an old snapshot
     const base = {
       accountId: account.id,
       schedule: account,
-      startDate: account.latestSnapshotDate,
+      startDate: todayIsoDate(),
       startBalance: account.latestBalance,
       flows,
       liabilityBalances,
@@ -94,10 +98,20 @@ export function AccountProjection({
   if (projection.length === 0) return null;
 
   const targetAmount = target === "" ? null : Number(target);
+  const hasTarget = targetAmount != null && Number.isFinite(targetAmount);
+  // If the current balance already meets the target, report when it was hit
+  // from the recorded history; otherwise project a future date
+  const targetReachedDate = hasTarget
+    ? dateTargetReached(account.snapshots, targetAmount)
+    : null;
   const targetDate =
-    targetAmount != null && Number.isFinite(targetAmount)
+    hasTarget && targetReachedDate == null
       ? projectedDateForTarget(projection, targetAmount)
       : null;
+
+  const paidOffOnDate = isLiabilityBalance
+    ? dateTargetReached(account.snapshots, 0)
+    : null;
 
   return (
     <div>
@@ -168,9 +182,11 @@ export function AccountProjection({
       </ChartContainer>
       {isLiabilityBalance && (
         <p className="mt-2 text-sm">
-          {payoffDate
-            ? `Projected to be paid off by ${payoffDate}.`
-            : `Not projected to be paid off within ${PAYOFF_SEARCH_MONTHS / 12} years.`}
+          {paidOffOnDate
+            ? `Paid off on ${paidOffOnDate}.`
+            : payoffDate
+              ? `Projected to be paid off by ${payoffDate}.`
+              : `Not projected to be paid off within ${PAYOFF_SEARCH_MONTHS / 12} years.`}
         </p>
       )}
       <div className="mt-3 flex items-center gap-2">
@@ -193,9 +209,11 @@ export function AccountProjection({
       </div>
       {targetAmount != null && Number.isFinite(targetAmount) && (
         <p className="mt-2 text-sm">
-          {targetDate
-            ? `Projected to reach ${formatAccountCurrency(targetAmount, account.currency)} by ${targetDate}.`
-            : `Not projected to reach ${formatAccountCurrency(targetAmount, account.currency)} within ${horizonYears} years.`}
+          {targetReachedDate
+            ? `Already at ${formatAccountCurrency(targetAmount, account.currency)} — reached on ${targetReachedDate}.`
+            : targetDate
+              ? `Projected to reach ${formatAccountCurrency(targetAmount, account.currency)} by ${targetDate}.`
+              : `Not projected to reach ${formatAccountCurrency(targetAmount, account.currency)} within ${horizonYears} years.`}
         </p>
       )}
     </div>

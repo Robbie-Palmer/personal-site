@@ -6,6 +6,7 @@ import {
   buildProjection,
   computeCagr,
   computeMoneyWeightedReturn,
+  dateTargetReached,
   projectedDateForTarget,
   realRate,
 } from "@/lib/domain/assettracker/assetTrackerAnalytics";
@@ -468,6 +469,59 @@ describe("addRealValues", () => {
     expect(points[0]?.real).toBe(1000);
     // 1100 a year out at 10% inflation is ~1000 in today's money
     expect(points[1]?.real).toBeCloseTo(1000, 0);
+  });
+});
+
+describe("dateTargetReached", () => {
+  it("returns null when the latest balance is still below the target", () => {
+    const reached = dateTargetReached(
+      [
+        { date: "2024-01-01", balance: 1000 },
+        { date: "2024-06-01", balance: 1500 },
+      ],
+      2000,
+    );
+
+    expect(reached).toBeNull();
+  });
+
+  it("returns the start of the current run at or above the target", () => {
+    const reached = dateTargetReached(
+      [
+        { date: "2024-01-01", balance: 1000 },
+        { date: "2024-06-01", balance: 2500 },
+        { date: "2024-12-01", balance: 3000 },
+      ],
+      2000,
+    );
+
+    expect(reached).toBe("2024-06-01");
+  });
+
+  it("ignores an earlier crossing that later dropped back below", () => {
+    const reached = dateTargetReached(
+      [
+        { date: "2024-01-01", balance: 2500 }, // briefly above
+        { date: "2024-06-01", balance: 1500 }, // dropped below
+        { date: "2024-12-01", balance: 2200 }, // back above — current run starts here
+      ],
+      2000,
+    );
+
+    expect(reached).toBe("2024-12-01");
+  });
+
+  it("handles liability targets (debt already within a ceiling)", () => {
+    // Owes 800 now; target of -1000 (owe no more than 1000) is already met
+    const reached = dateTargetReached(
+      [
+        { date: "2023-06-01", balance: -900 },
+        { date: "2024-06-01", balance: -800 },
+      ],
+      -1000,
+    );
+
+    expect(reached).toBe("2023-06-01");
   });
 });
 

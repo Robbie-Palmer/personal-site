@@ -267,3 +267,27 @@ export function projectedDateForTarget(
 ): string | null {
   return points.find((point) => point.projected >= target)?.date ?? null;
 }
+
+/**
+ * If the recorded balance already meets the target (>= it), the date it was
+ * reached — the start of the current unbroken run at or above the target.
+ * Returns null when the latest balance is still below the target.
+ */
+export function dateTargetReached(
+  snapshots: BalanceSnapshotView[],
+  target: number,
+): string | null {
+  const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
+  const last = sorted[sorted.length - 1];
+  if (!last || last.balance < target) return null;
+  let reached = last.date;
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const snapshot = sorted[i];
+    if (snapshot && snapshot.balance >= target) {
+      reached = snapshot.date;
+    } else {
+      break;
+    }
+  }
+  return reached;
+}
