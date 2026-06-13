@@ -39,19 +39,27 @@ import {
   formatAccountCurrency,
   formatAnnualRate,
   formatAssetTrackerError,
+  isLiability,
+  realRate,
   todayIsoDate,
 } from "@/lib/domain/assettracker";
 import { AccountFlows } from "./account-flows";
 import { AccountProjection } from "./account-projection";
 import { useAssetTracker } from "./asset-tracker-provider";
+import { EquityProjection } from "./equity-projection";
 import { ExpectedReturnEditor } from "./expected-return-editor";
 import { LogBalanceDrawer } from "./log-balance-drawer";
+import { RecordTransferDrawer } from "./record-transfer-drawer";
 
 const KEEP_BALANCE = "keep";
 
 const TRAJECTORY_CONFIG: ChartConfig = {
   actual: { label: "Actual", color: "hsl(220, 70%, 50%)" },
   expected: { label: "Expected", color: "hsl(220, 10%, 60%)" },
+};
+const LIABILITY_TRAJECTORY_CONFIG: ChartConfig = {
+  actual: { label: "Actual", color: "hsl(220, 70%, 50%)" },
+  expected: { label: "Interest only", color: "hsl(220, 10%, 60%)" },
 };
 
 interface AccountDetailSheetProps {
@@ -68,6 +76,7 @@ export function AccountDetailSheet({
     accountDetails,
     recurringFlows,
     transfers,
+    inflation,
     closeAccount,
     deleteSnapshot,
   } = useAssetTracker();
@@ -126,9 +135,16 @@ export function AccountDetailSheet({
     }
   }
 
-  const trajectory = account
-    ? buildExpectedTrajectory(account, account.snapshots)
+  const accountExternalFlows = account
+    ? accountTransfers.map((t) => ({
+        date: t.date,
+        amount: t.toAccountId === account.id ? t.amount : -t.amount,
+      }))
     : [];
+  const trajectory = account
+    ? buildExpectedTrajectory(account, account.snapshots, accountExternalFlows)
+    : [];
+  const isLiabilityAccount = account ? isLiability(account.assetType) : false;
   const currentRate = account
     ? effectiveExpectedReturn(account, todayIsoDate())
     : 0;
@@ -185,7 +201,13 @@ export function AccountDetailSheet({
               </div>
             </SheetHeader>
             <div className="flex flex-col gap-6 px-4 pb-8">
-              <div className="grid grid-cols-3 gap-3">
+              <div
+                className={
+                  isLiabilityAccount
+                    ? "grid grid-cols-2 gap-3"
+                    : "grid grid-cols-3 gap-3"
+                }
+              >
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">Balance</p>
                   <p className="mt-1 font-semibold">
@@ -197,22 +219,29 @@ export function AccountDetailSheet({
                       : "—"}
                   </p>
                 </div>
-                <div className="rounded-lg border p-3">
-                  <p className="text-xs text-muted-foreground">CAGR</p>
-                  <p className="mt-1 font-semibold">
-                    {account.cagr != null
-                      ? formatAnnualRate(account.cagr)
-                      : "—"}
-                  </p>
-                </div>
+                {/* CAGR is meaningless for a debt being paid down, so omit it */}
+                {!isLiabilityAccount && (
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-muted-foreground">CAGR</p>
+                    <p className="mt-1 font-semibold">
+                      {account.cagr != null
+                        ? formatAnnualRate(account.cagr)
+                        : "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      excl. contributions
+                    </p>
+                  </div>
+                )}
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">
-                    {account.assetType === "debt"
-                      ? "Interest rate"
-                      : "Expected now"}
+                    {isLiabilityAccount ? "Interest rate" : "Expected now"}
                   </p>
                   <p className="mt-1 font-semibold">
                     {formatAnnualRate(currentRate)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatAnnualRate(realRate(currentRate, inflation))} real
                   </p>
                 </div>
               </div>
@@ -220,14 +249,21 @@ export function AccountDetailSheet({
               {trajectory.length >= 2 && (
                 <div>
                   <h3 className="mb-2 text-sm font-medium">
-                    Actual vs expected growth
+                    {isLiabilityAccount
+                      ? "Actual vs interest-only"
+                      : "Actual vs expected growth"}
                   </h3>
                   <p className="mb-2 text-xs text-muted-foreground">
-                    Expected compounds the first balance at the expected return;
-                    the gap shows contributions and out/under performance.
+                    {isLiabilityAccount
+                      ? "Expected compounds the opening balance at the interest rate alone — so the gap above it is the effect of your repayments."
+                      : "Expected compounds the first balance at the expected return and steps with recorded transfers, so the remaining gap is pure out/under-performance."}
                   </p>
                   <ChartContainer
-                    config={TRAJECTORY_CONFIG}
+                    config={
+                      isLiabilityAccount
+                        ? LIABILITY_TRAJECTORY_CONFIG
+                        : TRAJECTORY_CONFIG
+                    }
                     className="aspect-auto w-full"
                   >
                     <ResponsiveContainer width="100%" height={200}>
@@ -293,8 +329,20 @@ export function AccountDetailSheet({
                   account={account}
                   flows={recurringFlows}
                   liabilityBalances={liabilityBalances}
+                  inflation={inflation}
                 />
               )}
+
+              {account.assetType === "property" &&
+                linkedMortgages.length > 0 && (
+                  <EquityProjection
+                    property={account}
+                    mortgages={linkedMortgages}
+                    flows={recurringFlows}
+                    liabilityBalances={liabilityBalances}
+                    inflation={inflation}
+                  />
+                )}
 
               <AccountFlows account={account} />
 
@@ -374,7 +422,12 @@ export function AccountDetailSheet({
 
               {account.isOpen && (
                 <div className="flex flex-col gap-3 border-t pt-4">
-                  <LogBalanceDrawer accountId={account.id} />
+                  <div className="flex flex-wrap gap-2">
+                    <LogBalanceDrawer accountId={account.id} />
+                    {otherOpenAccounts.length > 0 && (
+                      <RecordTransferDrawer fromAccountId={account.id} />
+                    )}
+                  </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {hasPositiveBalance && otherOpenAccounts.length > 0 && (
                       <Select

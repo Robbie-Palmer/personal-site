@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { effectiveExpectedReturn } from "@/lib/domain/assettracker/account";
 import {
+  addRealValues,
   buildExpectedTrajectory,
   buildProjection,
   computeCagr,
+  computeMoneyWeightedReturn,
   projectedDateForTarget,
+  realRate,
 } from "@/lib/domain/assettracker/assetTrackerAnalytics";
 import {
   monthlyAmount,
@@ -63,6 +66,61 @@ describe("computeCagr", () => {
     ]);
 
     expect(cagr).toBeCloseTo(-1, 5);
+  });
+});
+
+describe("computeMoneyWeightedReturn", () => {
+  const snapshots = [
+    { date: "2023-01-01", balance: 1000 },
+    { date: "2024-01-01", balance: 2100 },
+  ];
+
+  it("matches the plain CAGR when no flows are recorded", () => {
+    expect(computeMoneyWeightedReturn(snapshots, [])).toBeCloseTo(
+      computeCagr(snapshots) ?? Number.NaN,
+      6,
+    );
+  });
+
+  it("excludes contributions from the growth rate", () => {
+    // A £1,000 deposit landed mid-year; the doubling is mostly not growth
+    const withContribution = computeMoneyWeightedReturn(snapshots, [
+      { date: "2023-07-01", amount: 1000 },
+    ]);
+
+    expect(withContribution).not.toBeNull();
+    expect(withContribution).toBeCloseTo(0.067, 2);
+    expect(withContribution ?? 0).toBeLessThan(computeCagr(snapshots) ?? 0);
+  });
+
+  it("treats withdrawals as the opposite of contributions", () => {
+    // Balance halved, but £600 was withdrawn — the account actually grew
+    const withWithdrawal = computeMoneyWeightedReturn(
+      [
+        { date: "2023-01-01", balance: 1000 },
+        { date: "2024-01-01", balance: 500 },
+      ],
+      [{ date: "2023-12-31", amount: -600 }],
+    );
+
+    expect(withWithdrawal).not.toBeNull();
+    expect(withWithdrawal ?? 0).toBeGreaterThan(0);
+  });
+
+  it("ignores flows outside the snapshot period", () => {
+    const result = computeMoneyWeightedReturn(snapshots, [
+      { date: "2022-06-01", amount: 5000 },
+      { date: "2024-06-01", amount: 5000 },
+    ]);
+
+    expect(result).toBeCloseTo(computeCagr(snapshots) ?? Number.NaN, 6);
+  });
+});
+
+describe("realRate", () => {
+  it("deflates a nominal rate by inflation", () => {
+    expect(realRate(0.07, 0.025)).toBeCloseTo(0.0439, 4);
+    expect(realRate(0.025, 0.025)).toBeCloseTo(0, 10);
   });
 });
 
@@ -143,6 +201,37 @@ describe("buildExpectedTrajectory", () => {
     // Flat at 0% for the first year, then 10% applies
     expect(trajectory[1]?.expected).toBeCloseTo(1000, 0);
     expect(trajectory[2]?.expected).toBeCloseTo(1100, 0);
+  });
+
+  it("steps the expected line with recorded transfers so they aren't performance", () => {
+    // £1,000 grows at 0%, but £500 was paid in mid-period
+    const trajectory = buildExpectedTrajectory(
+      { expectedAnnualReturn: 0 },
+      [
+        { date: "2023-01-01", balance: 1000 },
+        { date: "2024-01-01", balance: 1500 },
+      ],
+      [{ date: "2023-07-01", amount: 500 }],
+    );
+
+    // Expected absorbs the contribution, so it matches actual — no
+    // out/under-performance to show
+    expect(trajectory[1]?.expected).toBeCloseTo(1500, 0);
+  });
+
+  it("leaves a gap when actuals beat the expected return plus contributions", () => {
+    const trajectory = buildExpectedTrajectory(
+      { expectedAnnualReturn: 0 },
+      [
+        { date: "2023-01-01", balance: 1000 },
+        { date: "2024-01-01", balance: 1800 },
+      ],
+      [{ date: "2023-07-01", amount: 500 }],
+    );
+
+    // Expected is 1500; the extra 300 of actual is genuine outperformance
+    expect(trajectory[1]?.expected).toBeCloseTo(1500, 0);
+    expect(trajectory[1]?.actual).toBe(1800);
   });
 
   it("sorts snapshots by date before building the series", () => {
@@ -337,6 +426,22 @@ describe("buildProjection", () => {
 
     // Active for the 2024-03-01, 2024-04-01 and 2024-05-01 steps only
     expect(points[12]?.projected).toBe(300);
+  });
+});
+
+describe("addRealValues", () => {
+  it("deflates each projected value into today's money", () => {
+    const points = addRealValues(
+      [
+        { date: "2024-01-01", projected: 1000 },
+        { date: "2025-01-01", projected: 1100 },
+      ],
+      0.1,
+    );
+
+    expect(points[0]?.real).toBe(1000);
+    // 1100 a year out at 10% inflation is ~1000 in today's money
+    expect(points[1]?.real).toBeCloseTo(1000, 0);
   });
 });
 

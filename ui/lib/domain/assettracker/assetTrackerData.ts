@@ -12,11 +12,22 @@ import { TransferSchema } from "./transfer";
  * transfers and recurringFlows default to empty so data saved by earlier
  * versions still parses.
  */
+export const DEFAULT_EXPECTED_INFLATION = 0.025;
+
+export const AssetTrackerSettingsSchema = z.object({
+  /** Used to express projected values and rates in today's money */
+  expectedAnnualInflation: z.number().gt(-1),
+});
+export type AssetTrackerSettings = z.infer<typeof AssetTrackerSettingsSchema>;
+
 export const AssetTrackerDataSchema = z.object({
   accounts: z.array(AccountContentSchema),
   snapshots: z.array(BalanceSnapshotSchema),
   transfers: z.array(TransferSchema).default([]),
   recurringFlows: z.array(RecurringFlowSchema).default([]),
+  settings: AssetTrackerSettingsSchema.default({
+    expectedAnnualInflation: DEFAULT_EXPECTED_INFLATION,
+  }),
 });
 
 export type AssetTrackerData = z.infer<typeof AssetTrackerDataSchema>;

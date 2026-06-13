@@ -142,6 +142,11 @@ export type SetExpectedReturnInput = z.infer<
   typeof SetExpectedReturnInputSchema
 >;
 
+export const SetInflationInputSchema = z.object({
+  rate: AnnualRateSchema,
+});
+export type SetInflationInput = z.infer<typeof SetInflationInputSchema>;
+
 export function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -403,6 +408,17 @@ export function applySetExpectedReturn(
     a.id === account.id ? { ...a, expectedReturnChanges: changes } : a,
   );
   return { ...data, accounts };
+}
+
+export function applySetInflation(
+  data: AssetTrackerData,
+  input: SetInflationInput,
+): AssetTrackerData {
+  const parsed = SetInflationInputSchema.parse(input);
+  return {
+    ...data,
+    settings: { ...data.settings, expectedAnnualInflation: parsed.rate },
+  };
 }
 
 /** Maps validation and command failures to a message safe to show in a form */

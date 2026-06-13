@@ -1,11 +1,42 @@
-import type {
-  Account,
-  AssetType,
-  Currency,
-  ExpectedReturnChange,
+import {
+  type Account,
+  type AssetType,
+  type Currency,
+  type ExpectedReturnChange,
+  isLiability,
 } from "./account";
-import { computeCagr } from "./assetTrackerAnalytics";
+import {
+  computeMoneyWeightedReturn,
+  type ExternalFlow,
+} from "./assetTrackerAnalytics";
 import type { BalanceSnapshot } from "./balanceSnapshot";
+import type { Transfer } from "./transfer";
+
+/**
+ * Mortgages secured on a property are netted into that property so a home
+ * shows as equity, not gross value, in totals and charts. Returns the set of
+ * absorbed (linked-mortgage) account IDs and, per property, its mortgages.
+ */
+export function buildLinkage(accounts: Account[]): {
+  absorbedIds: Set<string>;
+  mortgagesByProperty: Map<string, string[]>;
+} {
+  const byId = new Map(accounts.map((a) => [a.id, a]));
+  const absorbedIds = new Set<string>();
+  const mortgagesByProperty = new Map<string, string[]>();
+  for (const account of accounts) {
+    if (account.assetType !== "mortgage" || account.linkedAccountId == null) {
+      continue;
+    }
+    const property = byId.get(account.linkedAccountId);
+    if (property?.assetType !== "property") continue;
+    absorbedIds.add(account.id);
+    const existing = mortgagesByProperty.get(property.id) ?? [];
+    existing.push(account.id);
+    mortgagesByProperty.set(property.id, existing);
+  }
+  return { absorbedIds, mortgagesByProperty };
+}
 
 export type AccountSummaryView = {
   id: string;
@@ -17,7 +48,11 @@ export type AccountSummaryView = {
   isOpen: boolean;
   latestBalance: number | null;
   latestSnapshotDate: string | null;
-  /** Realised annual growth rate; null for closed accounts or sparse data */
+  /**
+   * Realised annual growth rate, excluding recorded transfers in/out so
+   * contributions don't count as growth; null for closed accounts or
+   * sparse data
+   */
   cagr: number | null;
 };
 
@@ -40,9 +75,26 @@ export type NetWorthDataPoint = {
   [accountName: string]: string | number;
 };
 
+/** Recorded transfers as signed flows from the account's perspective */
+function toExternalFlows(
+  accountId: string,
+  transfers: Transfer[],
+): ExternalFlow[] {
+  const flows: ExternalFlow[] = [];
+  for (const transfer of transfers) {
+    if (transfer.toAccountId === accountId) {
+      flows.push({ date: transfer.date, amount: transfer.amount });
+    } else if (transfer.fromAccountId === accountId) {
+      flows.push({ date: transfer.date, amount: -transfer.amount });
+    }
+  }
+  return flows;
+}
+
 export function toAccountSummaryView(
   account: Account,
   snapshots: BalanceSnapshot[],
+  transfers: Transfer[] = [],
 ): AccountSummaryView {
   const accountSnapshots = snapshots
     .filter((s) => s.accountId === account.id)
@@ -58,14 +110,22 @@ export function toAccountSummaryView(
     isOpen: !account.closedAt,
     latestBalance: latest?.balance ?? null,
     latestSnapshotDate: latest?.date ?? null,
-    // CAGR through a closing zero balance reads as a total loss, so skip it
-    cagr: account.closedAt ? null : computeCagr(accountSnapshots),
+    // CAGR through a closing zero balance reads as a total loss, so skip it;
+    // a growth rate on a debt that's being paid down is meaningless too
+    cagr:
+      account.closedAt || isLiability(account.assetType)
+        ? null
+        : computeMoneyWeightedReturn(
+            accountSnapshots,
+            toExternalFlows(account.id, transfers),
+          ),
   };
 }
 
 export function toAccountDetailView(
   account: Account,
   snapshots: BalanceSnapshot[],
+  transfers: Transfer[] = [],
 ): AccountDetailView {
   // Single filter and sort (descending for latest first)
   const accountSnapshots = snapshots
@@ -84,7 +144,12 @@ export function toAccountDetailView(
     isOpen: !account.closedAt,
     latestBalance: latest?.balance ?? null,
     latestSnapshotDate: latest?.date ?? null,
-    cagr: account.closedAt ? null : computeCagr(accountSnapshots),
+    cagr: account.closedAt
+      ? null
+      : computeMoneyWeightedReturn(
+          accountSnapshots,
+          toExternalFlows(account.id, transfers),
+        ),
     createdAt: account.createdAt,
     expectedReturnChanges: account.expectedReturnChanges,
     linkedAccountId: account.linkedAccountId,
@@ -114,6 +179,10 @@ export function toNetWorthTimeSeries(
   const latestByAccount = new Map<string, number>();
   let snapshotIndex = 0;
 
+  // A linked mortgage is folded into its property's series (shown as equity)
+  // rather than appearing as its own negative series
+  const { absorbedIds, mortgagesByProperty } = buildLinkage(accounts);
+
   return sortedDates.map((date) => {
     // Advance pointer through snapshots up to current date
     let snapshot = sortedSnapshots[snapshotIndex];
@@ -125,7 +194,11 @@ export function toNetWorthTimeSeries(
 
     const point: NetWorthDataPoint = { date, total: 0 };
     for (const account of accounts) {
-      const balance = latestByAccount.get(account.id) ?? 0;
+      if (absorbedIds.has(account.id)) continue;
+      let balance = latestByAccount.get(account.id) ?? 0;
+      for (const mortgageId of mortgagesByProperty.get(account.id) ?? []) {
+        balance += latestByAccount.get(mortgageId) ?? 0;
+      }
       point[account.name] = balance;
       point.total += balance;
     }

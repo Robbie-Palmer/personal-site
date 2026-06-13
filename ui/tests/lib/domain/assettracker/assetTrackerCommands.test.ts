@@ -62,6 +62,7 @@ function baseData(): AssetTrackerData {
     ],
     transfers: [],
     recurringFlows: [],
+    settings: { expectedAnnualInflation: 0.025 },
   };
 }
 

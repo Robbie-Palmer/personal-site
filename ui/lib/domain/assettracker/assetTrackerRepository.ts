@@ -15,6 +15,7 @@ export interface AssetTrackerRepository {
   snapshots: BalanceSnapshot[];
   transfers: Transfer[];
   recurringFlows: RecurringFlow[];
+  settings: AssetTrackerData["settings"];
 }
 
 /**
@@ -86,6 +87,7 @@ export function buildRepository(
     snapshots,
     transfers: data.transfers,
     recurringFlows: data.recurringFlows,
+    settings: data.settings,
   };
 }
 

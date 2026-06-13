@@ -12,22 +12,35 @@ import {
 import {
   type ChartConfig,
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   type AccountDetailView,
+  addRealValues,
   buildProjection,
   formatAccountCurrency,
   projectedDateForTarget,
   type RecurringFlow,
 } from "@/lib/domain/assettracker";
 
-const PROJECTION_MONTHS = 60;
+const HORIZON_OPTIONS = [5, 10, 20, 30, 40] as const;
+// Liability payoff is searched well beyond the chart window (mortgages!)
+const PAYOFF_SEARCH_MONTHS = 480;
 
 const PROJECTION_CONFIG: ChartConfig = {
   projected: { label: "Projected", color: "hsl(160, 60%, 45%)" },
+  real: { label: "Today's money", color: "hsl(160, 30%, 60%)" },
 };
 
 interface AccountProjectionProps {
@@ -35,29 +48,47 @@ interface AccountProjectionProps {
   flows: RecurringFlow[];
   /** Latest balances by account ID, for formula flows paying other accounts */
   liabilityBalances: Record<string, number>;
+  inflation: number;
 }
 
 export function AccountProjection({
   account,
   flows,
   liabilityBalances,
+  inflation,
 }: AccountProjectionProps) {
   const [target, setTarget] = useState("");
+  const [horizonYears, setHorizonYears] = useState(5);
 
-  const projection = useMemo(() => {
+  const isLiabilityBalance =
+    account.latestBalance != null && account.latestBalance < 0;
+
+  const { projection, payoffDate } = useMemo(() => {
     if (account.latestBalance == null || account.latestSnapshotDate == null) {
-      return [];
+      return { projection: [], payoffDate: null };
     }
-    return buildProjection({
+    const base = {
       accountId: account.id,
       schedule: account,
       startDate: account.latestSnapshotDate,
       startBalance: account.latestBalance,
       flows,
-      months: PROJECTION_MONTHS,
       liabilityBalances,
-    });
-  }, [account, flows, liabilityBalances]);
+      clampAtZero: account.latestBalance < 0,
+    };
+    const points = addRealValues(
+      buildProjection({ ...base, months: horizonYears * 12 }),
+      inflation,
+    );
+    const payoff =
+      account.latestBalance < 0
+        ? projectedDateForTarget(
+            buildProjection({ ...base, months: PAYOFF_SEARCH_MONTHS }),
+            0,
+          )
+        : null;
+    return { projection: points, payoffDate: payoff };
+  }, [account, flows, liabilityBalances, inflation, horizonYears]);
 
   if (projection.length === 0) return null;
 
@@ -69,12 +100,32 @@ export function AccountProjection({
 
   return (
     <div>
-      <h3 className="mb-2 text-sm font-medium">
-        Projection — next {PROJECTION_MONTHS / 12} years
-      </h3>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="text-sm font-medium">Projection</h3>
+        <Select
+          value={String(horizonYears)}
+          onValueChange={(value) => setHorizonYears(Number(value))}
+        >
+          <SelectTrigger
+            aria-label="Projection horizon"
+            size="sm"
+            className="w-auto"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {HORIZON_OPTIONS.map((years) => (
+              <SelectItem key={years} value={String(years)}>
+                {years} years
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <p className="mb-2 text-xs text-muted-foreground">
         Compounds the latest balance at the expected return and applies the
-        expected regular flows below.
+        expected regular flows below. The lighter line deflates by{" "}
+        {(inflation * 100).toFixed(1)}%/yr expected inflation.
       </p>
       <ChartContainer config={PROJECTION_CONFIG} className="aspect-auto w-full">
         <ResponsiveContainer width="100%" height={180}>
@@ -95,6 +146,7 @@ export function AccountProjection({
                 formatAccountCurrency(value as number, account.currency)
               }
             />
+            <ChartLegend content={<ChartLegendContent />} />
             <Line
               type="monotone"
               dataKey="projected"
@@ -102,9 +154,24 @@ export function AccountProjection({
               strokeWidth={2}
               dot={false}
             />
+            <Line
+              type="monotone"
+              dataKey="real"
+              stroke="hsl(160, 30%, 60%)"
+              strokeWidth={2}
+              strokeDasharray="6 4"
+              dot={false}
+            />
           </LineChart>
         </ResponsiveContainer>
       </ChartContainer>
+      {isLiabilityBalance && (
+        <p className="mt-2 text-sm">
+          {payoffDate
+            ? `Projected to be paid off by ${payoffDate}.`
+            : `Not projected to be paid off within ${PAYOFF_SEARCH_MONTHS / 12} years.`}
+        </p>
+      )}
       <div className="mt-3 flex items-center gap-2">
         <label
           htmlFor={`projection-target-${account.id}`}
@@ -117,11 +184,7 @@ export function AccountProjection({
           type="number"
           inputMode="decimal"
           step="0.01"
-          placeholder={
-            account.latestBalance != null && account.latestBalance < 0
-              ? "e.g. 0 (paid off)"
-              : "e.g. 20000"
-          }
+          placeholder={isLiabilityBalance ? "e.g. 0 (paid off)" : "e.g. 20000"}
           className="max-w-36"
           value={target}
           onChange={(e) => setTarget(e.target.value)}
@@ -131,7 +194,7 @@ export function AccountProjection({
         <p className="mt-2 text-sm">
           {targetDate
             ? `Projected to reach ${formatAccountCurrency(targetAmount, account.currency)} by ${targetDate}.`
-            : `Not projected to reach ${formatAccountCurrency(targetAmount, account.currency)} within ${PROJECTION_MONTHS / 12} years.`}
+            : `Not projected to reach ${formatAccountCurrency(targetAmount, account.currency)} within ${horizonYears} years.`}
         </p>
       )}
     </div>

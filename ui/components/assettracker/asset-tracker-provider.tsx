@@ -27,6 +27,7 @@ import {
   getAllAccountDetails,
   getAllAccountSummaries,
   getNetWorthTimeSeries,
+  getPortfolioAnnualReturn,
   getSeedData,
   getTotalByAssetType,
   type NetWorthDataPoint,
@@ -45,6 +46,10 @@ interface AssetTrackerContextValue {
   assetAllocation: { assetType: AssetType; total: number }[];
   transfers: Transfer[];
   recurringFlows: RecurringFlow[];
+  /** Annualised portfolio growth, excluding recorded external money in/out */
+  portfolioReturn: number | null;
+  /** Expected annual inflation used to express values in today's money */
+  inflation: number;
   /** True once the user has made changes that are persisted in this browser */
   hasLocalChanges: boolean;
   createAccount(input: CreateAccountInput): Promise<void>;
@@ -58,6 +63,7 @@ interface AssetTrackerContextValue {
   addRecurringFlow(input: AddRecurringFlowInput): Promise<void>;
   deleteRecurringFlow(id: string): Promise<void>;
   setExpectedReturn(input: SetExpectedReturnInput): Promise<void>;
+  setInflation(rate: number): Promise<void>;
   resetData(): Promise<void>;
   exportData(): void;
   importData(file: File): Promise<void>;
@@ -111,6 +117,8 @@ export function AssetTrackerProvider({ children }: { children: ReactNode }) {
       assetAllocation: getTotalByAssetType(repository),
       transfers: repository.transfers,
       recurringFlows: repository.recurringFlows,
+      portfolioReturn: getPortfolioAnnualReturn(repository),
+      inflation: repository.settings.expectedAnnualInflation,
     };
   }, [data]);
 
@@ -135,6 +143,7 @@ export function AssetTrackerProvider({ children }: { children: ReactNode }) {
         mutate((api) => api.deleteRecurringFlow({ id })),
       setExpectedReturn: (input) =>
         mutate((api) => api.setExpectedReturn(input)),
+      setInflation: (rate) => mutate((api) => api.setInflation({ rate })),
       resetData: async () => {
         const seed = await getApi().reset();
         setData(seed);

@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeftRightIcon } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -28,17 +28,33 @@ import { useAssetTracker } from "./asset-tracker-provider";
 
 const EXTERNAL = "external";
 
-export function RecordTransferDrawer() {
+interface RecordTransferDrawerProps {
+  /** Pre-select (and lock) the source account, e.g. from an account view */
+  fromAccountId?: string;
+  trigger?: ReactNode;
+}
+
+export function RecordTransferDrawer({
+  fromAccountId,
+  trigger,
+}: RecordTransferDrawerProps) {
   const { accounts, recordTransfer } = useAssetTracker();
   const openAccounts = accounts.filter((account) => account.isOpen);
+  const lockedFrom = fromAccountId != null;
+  const sourceAccount = accounts.find((a) => a.id === fromAccountId);
 
   const [open, setOpen] = useState(false);
-  const [fromId, setFromId] = useState(EXTERNAL);
-  const [toId, setToId] = useState(openAccounts[0]?.id ?? EXTERNAL);
+  const [fromId, setFromId] = useState(fromAccountId ?? EXTERNAL);
+  const [toId, setToId] = useState(
+    openAccounts.find((a) => a.id !== fromAccountId)?.id ?? EXTERNAL,
+  );
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(todayIsoDate());
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const fromOptions = openAccounts;
+  const toOptions = openAccounts.filter((a) => a.id !== fromId);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -64,14 +80,20 @@ export function RecordTransferDrawer() {
   return (
     <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>
-        <Button variant="outline" disabled={openAccounts.length === 0}>
-          <ArrowLeftRightIcon />
-          Transfer
-        </Button>
+        {trigger ?? (
+          <Button variant="outline" disabled={openAccounts.length === 0}>
+            <ArrowLeftRightIcon />
+            Transfer
+          </Button>
+        )}
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader className="mx-auto w-full max-w-md">
-          <DrawerTitle>Record a transfer</DrawerTitle>
+          <DrawerTitle>
+            {lockedFrom
+              ? `Transfer from ${sourceAccount?.name}`
+              : "Record a transfer"}
+          </DrawerTitle>
           <DrawerDescription>
             Move money between accounts, or in/out from the outside world. Both
             balances update — no rescanning every account.
@@ -86,19 +108,25 @@ export function RecordTransferDrawer() {
               <label htmlFor="transfer-from" className="text-sm font-medium">
                 From
               </label>
-              <Select value={fromId} onValueChange={setFromId}>
-                <SelectTrigger id="transfer-from" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={EXTERNAL}>External (income)</SelectItem>
-                  {openAccounts.map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {lockedFrom ? (
+                <p className="flex h-9 items-center text-sm font-medium">
+                  {sourceAccount?.name}
+                </p>
+              ) : (
+                <Select value={fromId} onValueChange={setFromId}>
+                  <SelectTrigger id="transfer-from" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={EXTERNAL}>External (income)</SelectItem>
+                    {fromOptions.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="transfer-to" className="text-sm font-medium">
@@ -110,7 +138,7 @@ export function RecordTransferDrawer() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={EXTERNAL}>External (spending)</SelectItem>
-                  {openAccounts.map((account) => (
+                  {toOptions.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
                       {account.name}
                     </SelectItem>
@@ -134,6 +162,19 @@ export function RecordTransferDrawer() {
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
             />
+            {lockedFrom && sourceAccount?.latestBalance != null && (
+              <button
+                type="button"
+                className="self-start text-xs text-muted-foreground hover:underline"
+                onClick={() =>
+                  setAmount(
+                    String(Math.max(sourceAccount.latestBalance ?? 0, 0)),
+                  )
+                }
+              >
+                Transfer full balance
+              </button>
+            )}
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="transfer-date" className="text-sm font-medium">

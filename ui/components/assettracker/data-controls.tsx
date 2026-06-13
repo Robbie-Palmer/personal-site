@@ -3,15 +3,32 @@
 import { DownloadIcon, RotateCcwIcon, UploadIcon } from "lucide-react";
 import { type ChangeEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { formatAssetTrackerError } from "@/lib/domain/assettracker";
 import { useAssetTracker } from "./asset-tracker-provider";
 
 export function DataControls() {
-  const { hasLocalChanges, exportData, importData, resetData } =
-    useAssetTracker();
+  const {
+    hasLocalChanges,
+    inflation,
+    setInflation,
+    exportData,
+    importData,
+    resetData,
+  } = useAssetTracker();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
+
+  async function handleInflationChange(value: string) {
+    if (value === "") return;
+    try {
+      await setInflation(Number(value) / 100);
+      setError(null);
+    } catch (err) {
+      setError(formatAssetTrackerError(err));
+    }
+  }
 
   async function handleImport(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -43,7 +60,25 @@ export function DataControls() {
             ? "Your changes are saved in this browser — nothing leaves your device."
             : "This is demo data. Log a balance or add an account to try it; changes are saved in your browser."}
         </p>
-        <div className="flex shrink-0 gap-1">
+        <div className="flex shrink-0 items-center gap-1">
+          <label
+            htmlFor="expected-inflation"
+            className="flex items-center gap-1.5 pr-2 text-sm text-muted-foreground"
+          >
+            Inflation
+            <Input
+              id="expected-inflation"
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              min="-99"
+              className="h-8 w-16 text-right"
+              key={inflation}
+              defaultValue={(inflation * 100).toFixed(1)}
+              onBlur={(e) => handleInflationChange(e.target.value)}
+            />
+            %/yr
+          </label>
           <Button variant="ghost" size="sm" onClick={exportData}>
             <DownloadIcon />
             Export

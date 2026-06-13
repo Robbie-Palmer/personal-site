@@ -1,8 +1,10 @@
 "use client";
 import {
   Area,
-  AreaChart,
   CartesianGrid,
+  ComposedChart,
+  Line,
+  ReferenceLine,
   ResponsiveContainer,
   XAxis,
   YAxis,
@@ -34,7 +36,9 @@ interface NetWorthChartProps {
 }
 
 export function NetWorthChart({ data, accountNames }: NetWorthChartProps) {
-  const chartConfig: ChartConfig = {};
+  const chartConfig: ChartConfig = {
+    total: { label: "Net worth", color: "var(--foreground)" },
+  };
   for (const [i, name] of accountNames.entries()) {
     chartConfig[name] = {
       label: name,
@@ -46,14 +50,16 @@ export function NetWorthChart({ data, accountNames }: NetWorthChartProps) {
       <CardHeader>
         <CardTitle>Net Worth Over Time</CardTitle>
         <CardDescription>
-          Stacked area chart showing balance across all accounts
+          Stacked account balances with net worth as the bold line — liability
+          accounts stack below zero, so the line is the true total.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-2 sm:px-6">
         <ChartContainer config={chartConfig} className="aspect-auto w-full">
           <ResponsiveContainer width="100%" height={400}>
-            <AreaChart
+            <ComposedChart
               data={data}
+              stackOffset="sign"
               margin={{ top: 10, right: 30, left: 20, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -62,6 +68,7 @@ export function NetWorthChart({ data, accountNames }: NetWorthChartProps) {
                 className="text-xs"
                 tickFormatter={(v: number) => `£${(v / 1000).toFixed(0)}k`}
               />
+              <ReferenceLine y={0} className="stroke-muted-foreground" />
               <ChartTooltip
                 content={<ChartTooltipContent />}
                 formatter={(value) => formatCurrency(value as number)}
@@ -82,7 +89,14 @@ export function NetWorthChart({ data, accountNames }: NetWorthChartProps) {
                   fillOpacity={0.3}
                 />
               ))}
-            </AreaChart>
+              <Line
+                type="monotone"
+                dataKey="total"
+                stroke="var(--foreground)"
+                strokeWidth={2.5}
+                dot={false}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         </ChartContainer>
       </CardContent>

@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { computeTotalBalance, formatCurrency } from "@/lib/domain/assettracker";
+import {
+  computeTotalBalance,
+  formatAnnualRate,
+  formatCurrency,
+  realRate,
+} from "@/lib/domain/assettracker";
 import { AccountBalanceChart } from "./account-balance-chart";
 import { AccountDetailSheet } from "./account-detail-sheet";
 import { AccountsTable } from "./accounts-table";
@@ -14,8 +19,14 @@ import { NetWorthChart } from "./net-worth-chart";
 import { RecordTransferDrawer } from "./record-transfer-drawer";
 
 export function AssetTrackerDashboard() {
-  const { accounts, accountDetails, netWorthData, assetAllocation } =
-    useAssetTracker();
+  const {
+    accounts,
+    accountDetails,
+    netWorthData,
+    assetAllocation,
+    portfolioReturn,
+    inflation,
+  } = useAssetTracker();
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     null,
   );
@@ -40,12 +51,26 @@ export function AssetTrackerDashboard() {
         </div>
       </div>
       <DataControls />
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="border rounded-lg p-6">
           <p className="text-sm text-muted-foreground">Total Net Worth</p>
           <p className="text-3xl font-bold mt-1">
             {formatCurrency(totalBalance)}
           </p>
+        </div>
+        <div className="border rounded-lg p-6">
+          <p className="text-sm text-muted-foreground">Portfolio Growth</p>
+          <p className="text-3xl font-bold mt-1">
+            {portfolioReturn != null
+              ? `${formatAnnualRate(portfolioReturn)}/yr`
+              : "—"}
+          </p>
+          {portfolioReturn != null && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatAnnualRate(realRate(portfolioReturn, inflation))}/yr after
+              inflation · excludes recorded contributions
+            </p>
+          )}
         </div>
         <div className="border rounded-lg p-6">
           <p className="text-sm text-muted-foreground">Open Accounts</p>
