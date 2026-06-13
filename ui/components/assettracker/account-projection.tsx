@@ -30,6 +30,7 @@ import {
   addRealValues,
   buildProjection,
   formatAccountCurrency,
+  formatAxisTick,
   projectedDateForTarget,
   type RecurringFlow,
 } from "@/lib/domain/assettracker";
@@ -138,7 +139,7 @@ export function AccountProjection({
             <YAxis
               className="text-xs"
               width={45}
-              tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
+              tickFormatter={formatAxisTick}
             />
             <ChartTooltip
               content={<ChartTooltipContent />}

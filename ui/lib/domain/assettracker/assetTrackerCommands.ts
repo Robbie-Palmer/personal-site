@@ -28,6 +28,7 @@ export type AssetTrackerCommandErrorCode =
   | "ACCOUNT_NOT_FOUND"
   | "ACCOUNT_CLOSED"
   | "ACCOUNT_ALREADY_CLOSED"
+  | "ACCOUNT_HAS_LATER_HISTORY"
   | "SNAPSHOT_NOT_FOUND"
   | "FLOW_NOT_FOUND"
   | "INVALID_ACCOUNT_NAME";
@@ -125,8 +126,11 @@ export const AddRecurringFlowInputSchema = z
   .refine((f) => f.fromAccountId !== f.toAccountId, {
     message: "Source and destination must differ",
   })
-  .refine((f) => f.amount != null || f.formula != null, {
-    message: "A flow needs an amount or a formula",
+  .refine((f) => (f.amount != null) !== (f.formula != null), {
+    message: "Provide either an amount or a formula, not both",
+  })
+  .refine((f) => f.formula == null || f.frequency === "monthly", {
+    message: "Formula payments must use a monthly frequency",
   });
 export type AddRecurringFlowInput = z.infer<typeof AddRecurringFlowInputSchema>;
 
@@ -159,7 +163,13 @@ export const SetInflationInputSchema = z.object({
 export type SetInflationInput = z.infer<typeof SetInflationInputSchema>;
 
 export function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
+  // Local calendar date, not UTC — toISOString() would roll over around
+  // local midnight and record the wrong day
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function uniqueId(taken: Set<string>, base: string): string {
@@ -374,6 +384,18 @@ export function applyCloseAccount(
       `"${account.name}" is already closed`,
     );
   }
+  // Closing before later history would strand those snapshots, so the account
+  // would reappear in net-worth views after its close date
+  const hasLaterHistory = data.snapshots.some(
+    (s) => s.accountId === account.id && s.date > parsed.closedAt,
+  );
+  if (hasLaterHistory) {
+    throw new AssetTrackerCommandError(
+      "ACCOUNT_HAS_LATER_HISTORY",
+      `"${account.name}" has balances recorded after ${parsed.closedAt}; delete them before closing`,
+    );
+  }
+
   let working = data;
   const remaining = balanceAsOf(data.snapshots, account.id, parsed.closedAt);
   if (parsed.transferToAccountId != null && remaining > 0) {
@@ -388,12 +410,18 @@ export function applyCloseAccount(
     a.id === account.id ? { ...a, closedAt: parsed.closedAt } : a,
   );
   // Record the final zero balance so net worth trends stay accurate without
-  // the user manually entering rows of zeros
-  const snapshots = upsertSnapshot(working.snapshots, {
-    accountId: account.id,
-    date: parsed.closedAt,
-    balance: 0,
-  });
+  // the user manually entering rows of zeros — but never clobber a balance the
+  // user already recorded for the close date
+  const hasSnapshotOnCloseDate = working.snapshots.some(
+    (s) => s.accountId === account.id && s.date === parsed.closedAt,
+  );
+  const snapshots = hasSnapshotOnCloseDate
+    ? working.snapshots
+    : upsertSnapshot(working.snapshots, {
+        accountId: account.id,
+        date: parsed.closedAt,
+        balance: 0,
+      });
   return { ...working, accounts, snapshots };
 }
 

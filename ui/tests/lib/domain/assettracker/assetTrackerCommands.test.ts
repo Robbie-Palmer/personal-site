@@ -517,6 +517,33 @@ describe("applyCloseAccount", () => {
       }),
     ).toThrow();
   });
+
+  it("rejects closing before a later recorded balance", () => {
+    // savings has a snapshot on 2024-06-01; closing earlier would strand it
+    expect(() =>
+      applyCloseAccount(baseData(), {
+        accountId: "savings",
+        closedAt: "2024-01-01",
+      }),
+    ).toThrow(/recorded after/);
+  });
+
+  it("does not overwrite a balance already recorded on the close date", () => {
+    // User logs £5,000 on 2024-06-01, then closes that same day
+    const next = applyCloseAccount(baseData(), {
+      accountId: "savings",
+      closedAt: "2024-06-01",
+    });
+
+    const account = next.accounts.find((a) => a.id === "savings");
+    expect(account?.closedAt).toBe("2024-06-01");
+    // The recorded £5,000 survives rather than being clobbered with £0
+    expect(next.snapshots).toContainEqual({
+      accountId: "savings",
+      date: "2024-06-01",
+      balance: 5000,
+    });
+  });
 });
 
 describe("applyAddRecurringFlow / applyDeleteRecurringFlow", () => {

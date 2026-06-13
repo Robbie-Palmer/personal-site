@@ -80,6 +80,9 @@ export function AssetTrackerProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AssetTrackerData>(getSeedData);
   const [hasLocalChanges, setHasLocalChanges] = useState(false);
   const apiRef = useRef<AssetTrackerApi | null>(null);
+  // Once the user has mutated, a late-resolving load() must not clobber the
+  // fresher state with the older persisted snapshot
+  const hasMutatedRef = useRef(false);
 
   const getApi = useCallback(() => {
     apiRef.current ??= createLocalAssetTrackerApi(window.localStorage);
@@ -91,9 +94,12 @@ export function AssetTrackerProvider({ children }: { children: ReactNode }) {
     getApi()
       .load()
       .then(({ data: stored, persisted }) => {
-        if (cancelled || !persisted) return;
+        if (cancelled || hasMutatedRef.current || !persisted) return;
         setData(stored);
         setHasLocalChanges(true);
+      })
+      .catch((err) => {
+        console.warn("AssetTracker: failed to load stored data", err);
       });
     return () => {
       cancelled = true;
@@ -102,6 +108,7 @@ export function AssetTrackerProvider({ children }: { children: ReactNode }) {
 
   const mutate = useCallback(
     async (run: (api: AssetTrackerApi) => Promise<AssetTrackerData>) => {
+      hasMutatedRef.current = true;
       const next = await run(getApi());
       setData(next);
       setHasLocalChanges(true);

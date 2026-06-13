@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeftRightIcon } from "lucide-react";
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -55,6 +55,21 @@ export function RecordTransferDrawer({
 
   const fromOptions = openAccounts;
   const toOptions = openAccounts.filter((a) => a.id !== fromId);
+
+  // After import/reset/close, drop selections that point at gone accounts
+  // (EXTERNAL is always valid) so a stale ID can't drive a transfer
+  const openAccountsKey = openAccounts.map((a) => a.id).join(",");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: openAccountsKey fingerprints membership instead of the array's identity
+  useEffect(() => {
+    const valid = (id: string) =>
+      id === EXTERNAL || openAccounts.some((a) => a.id === id);
+    if (lockedFrom) {
+      setFromId(fromAccountId ?? EXTERNAL);
+    } else {
+      setFromId((current) => (valid(current) ? current : EXTERNAL));
+    }
+    setToId((current) => (valid(current) ? current : EXTERNAL));
+  }, [openAccountsKey, lockedFrom, fromAccountId]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

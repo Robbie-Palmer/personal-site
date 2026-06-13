@@ -1,7 +1,7 @@
 "use client";
 
 import { PenLineIcon } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -46,6 +46,22 @@ export function LogBalanceDrawer({ accountId }: LogBalanceDrawerProps) {
   const [submitting, setSubmitting] = useState(false);
 
   const selectedAccount = accounts.find((a) => a.id === selectedId);
+
+  // Keep the selection valid after import/reset/close changes the open set,
+  // so a stale account ID can't drive a mutation
+  const openAccountsKey = openAccounts.map((a) => a.id).join(",");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: openAccountsKey fingerprints membership instead of the array's identity
+  useEffect(() => {
+    if (accountId) {
+      setSelectedId(accountId);
+      return;
+    }
+    setSelectedId((current) =>
+      openAccounts.some((a) => a.id === current)
+        ? current
+        : (openAccounts[0]?.id ?? ""),
+    );
+  }, [accountId, openAccountsKey]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -23,6 +23,7 @@ import {
   effectiveExpectedReturn,
   formatAccountCurrency,
   formatAnnualRate,
+  formatAxisTick,
   type RecurringFlow,
   realRate,
   todayIsoDate,
@@ -127,7 +128,7 @@ export function EquityProjection({
             <YAxis
               className="text-xs"
               width={50}
-              tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
+              tickFormatter={formatAxisTick}
             />
             <ChartTooltip
               content={<ChartTooltipContent />}

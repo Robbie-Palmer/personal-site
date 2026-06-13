@@ -22,8 +22,10 @@ export function DataControls() {
 
   async function handleInflationChange(value: string) {
     if (value === "") return;
+    const percent = Number(value);
+    if (!Number.isFinite(percent)) return;
     try {
-      await setInflation(Number(value) / 100);
+      await setInflation(percent / 100);
       setError(null);
     } catch (err) {
       setError(formatAssetTrackerError(err));
@@ -47,9 +49,13 @@ export function DataControls() {
       setConfirmingReset(true);
       return;
     }
-    await resetData();
-    setConfirmingReset(false);
-    setError(null);
+    try {
+      await resetData();
+      setConfirmingReset(false);
+      setError(null);
+    } catch (err) {
+      setError(formatAssetTrackerError(err));
+    }
   }
 
   return (

@@ -47,6 +47,15 @@ export function formatAccountCurrency(
   }).format(amount);
 }
 
+/**
+ * Compact axis tick: thousands get a "k" suffix, smaller values render in
+ * full so an axis of sub-£1,000 balances isn't a column of "0k".
+ */
+export function formatAxisTick(value: number): string {
+  if (Math.abs(value) >= 1000) return `${Math.round(value / 1000)}k`;
+  return String(Math.round(value));
+}
+
 export function formatAnnualRate(rate: number): string {
   const percent = rate * 100;
   const sign = percent > 0 ? "+" : "";

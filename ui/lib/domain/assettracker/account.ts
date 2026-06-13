@@ -41,8 +41,9 @@ export const AccountContentSchema = z.object({
   currency: CurrencySchema,
   assetType: AssetTypeSchema,
   // For debt accounts this is the interest rate, compounding the (negative)
-  // balance further from zero
-  expectedAnnualReturn: z.number(),
+  // balance further from zero. Constrained like ExpectedReturnChange.rate —
+  // a return at or below -100% can't compound.
+  expectedAnnualReturn: z.number().gt(-1, "Rate must be above -100%"),
   expectedReturnChanges: z.array(ExpectedReturnChangeSchema).optional(),
   /**
    * Inter-linked accounts, e.g. a mortgage secured on a property. Lets the

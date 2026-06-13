@@ -67,6 +67,15 @@ describe("computeCagr", () => {
 
     expect(cagr).toBeCloseTo(-1, 5);
   });
+
+  it("returns null rather than NaN when the end balance is negative", () => {
+    const cagr = computeCagr([
+      { date: "2023-01-01", balance: 1000 },
+      { date: "2024-01-01", balance: -500 },
+    ]);
+
+    expect(cagr).toBeNull();
+  });
 });
 
 describe("computeMoneyWeightedReturn", () => {
@@ -201,6 +210,23 @@ describe("buildExpectedTrajectory", () => {
     // Flat at 0% for the first year, then 10% applies
     expect(trajectory[1]?.expected).toBeCloseTo(1000, 0);
     expect(trajectory[2]?.expected).toBeCloseTo(1100, 0);
+  });
+
+  it("applies a rate change that falls mid-interval", () => {
+    // One 2-year interval; rate jumps 0% -> 10% at the one-year mark
+    const trajectory = buildExpectedTrajectory(
+      {
+        expectedAnnualReturn: 0,
+        expectedReturnChanges: [{ date: "2023-01-01", rate: 0.1 }],
+      },
+      [
+        { date: "2022-01-01", balance: 1000 },
+        { date: "2024-01-01", balance: 1000 },
+      ],
+    );
+
+    // Flat for year one, then ~10% for year two — not 0% across the whole span
+    expect(trajectory[1]?.expected).toBeCloseTo(1100, 0);
   });
 
   it("steps the expected line with recorded transfers so they aren't performance", () => {

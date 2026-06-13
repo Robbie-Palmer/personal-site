@@ -49,8 +49,13 @@ export const RecurringFlowSchema = z
   .refine((f) => f.fromAccountId !== f.toAccountId, {
     message: "Source and destination must differ",
   })
-  .refine((f) => f.amount != null || f.formula != null, {
-    message: "A flow needs an amount or a formula",
+  .refine((f) => (f.amount != null) !== (f.formula != null), {
+    message: "Provide either an amount or a formula, not both",
+  })
+  // monthlyAmount() treats a formula as a monthly figure, so the frequency
+  // must agree to avoid silently skewed projections
+  .refine((f) => f.formula == null || f.frequency === "monthly", {
+    message: "Formula payments must use a monthly frequency",
   });
 
 export type RecurringFlow = z.infer<typeof RecurringFlowSchema>;

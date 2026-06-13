@@ -1,7 +1,7 @@
 "use client";
 
 import { Trash2Icon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -39,6 +39,7 @@ import {
   formatAccountCurrency,
   formatAnnualRate,
   formatAssetTrackerError,
+  formatAxisTick,
   isLiability,
   realRate,
   todayIsoDate,
@@ -83,6 +84,15 @@ export function AccountDetailSheet({
   const [error, setError] = useState<string | null>(null);
   const [confirmingClose, setConfirmingClose] = useState(false);
   const [transferTargetId, setTransferTargetId] = useState(KEEP_BALANCE);
+
+  // Switching to a different account while the sheet stays open must not carry
+  // over a pending close confirmation, or the next click closes the new account
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset is keyed on the shown account changing, not on values read in the body
+  useEffect(() => {
+    setError(null);
+    setConfirmingClose(false);
+    setTransferTargetId(KEEP_BALANCE);
+  }, [accountId]);
 
   const account =
     accountDetails.find((detail) => detail.id === accountId) ?? null;
@@ -279,9 +289,7 @@ export function AccountDetailSheet({
                         <YAxis
                           className="text-xs"
                           width={45}
-                          tickFormatter={(v: number) =>
-                            `${(v / 1000).toFixed(0)}k`
-                          }
+                          tickFormatter={formatAxisTick}
                         />
                         <ChartTooltip
                           content={<ChartTooltipContent />}

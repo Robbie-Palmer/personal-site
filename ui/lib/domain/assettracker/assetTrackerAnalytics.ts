@@ -35,7 +35,13 @@ export function computeCagr(snapshots: BalanceSnapshotView[]): number | null {
   if (!start || !end) return null;
   const years = yearsBetween(start.date, end.date);
   if (years <= 0) return null;
-  return (end.balance / start.balance) ** (1 / years) - 1;
+  const ratio = end.balance / start.balance;
+  // A negative end balance gives a negative ratio, and a fractional power of a
+  // negative number is NaN — guard so it never leaks into charts/formatting.
+  // A zero ratio is fine: it yields a clean -100% (total loss).
+  if (ratio < 0) return null;
+  const cagr = ratio ** (1 / years) - 1;
+  return Number.isFinite(cagr) ? cagr : null;
 }
 
 /** Money in (+) or out (-) of an account on a date, e.g. a recorded transfer */
@@ -104,6 +110,31 @@ export type TrajectoryPoint = {
 };
 
 /**
+ * Compounds `principal` from `fromDate` to `toDate`, splitting the span at any
+ * scheduled rate-change boundaries so a change mid-interval is applied from
+ * its effective date rather than the rate at the interval start.
+ */
+function compoundAcrossSchedule(
+  schedule: ReturnSchedule,
+  principal: number,
+  fromDate: string,
+  toDate: string,
+): number {
+  const boundaries = (schedule.expectedReturnChanges ?? [])
+    .map((change) => change.date)
+    .filter((date) => date > fromDate && date < toDate)
+    .sort((a, b) => a.localeCompare(b));
+  let value = principal;
+  let cursor = fromDate;
+  for (const boundary of [...boundaries, toDate]) {
+    const rate = effectiveExpectedReturn(schedule, cursor);
+    value *= (1 + rate) ** Math.max(yearsBetween(cursor, boundary), 0);
+    cursor = boundary;
+  }
+  return value;
+}
+
+/**
  * Expected-vs-actual series for forecast reconciliation. The expected curve
  * is anchored to the first recorded balance, compounds at the expected
  * annual return (honouring scheduled rate changes), and steps at each
@@ -123,18 +154,22 @@ export function buildExpectedTrajectory(
   return sorted.map((snapshot, i) => {
     if (i > 0) {
       // Compound the running expectation across the interval...
-      const rate = effectiveExpectedReturn(schedule, previousDate);
-      expected *=
-        (1 + rate) ** Math.max(yearsBetween(previousDate, snapshot.date), 0);
+      expected = compoundAcrossSchedule(
+        schedule,
+        expected,
+        previousDate,
+        snapshot.date,
+      );
       // ...then add contributions/withdrawals recorded within it, each grown
       // from its own date (a contribution isn't growth, but it earns after)
       for (const flow of flows) {
         if (flow.date > previousDate && flow.date <= snapshot.date) {
-          const flowRate = effectiveExpectedReturn(schedule, flow.date);
-          expected +=
-            flow.amount *
-            (1 + flowRate) **
-              Math.max(yearsBetween(flow.date, snapshot.date), 0);
+          expected += compoundAcrossSchedule(
+            schedule,
+            flow.amount,
+            flow.date,
+            snapshot.date,
+          );
         }
       }
       previousDate = snapshot.date;
