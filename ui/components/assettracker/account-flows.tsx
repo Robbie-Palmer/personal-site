@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2Icon } from "lucide-react";
+import { CalendarCheckIcon, Trash2Icon } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,8 +38,14 @@ interface AccountFlowsProps {
 }
 
 export function AccountFlows({ account }: AccountFlowsProps) {
-  const { accounts, recurringFlows, addRecurringFlow, deleteRecurringFlow } =
-    useAssetTracker();
+  const {
+    accounts,
+    recurringFlows,
+    transfers,
+    addRecurringFlow,
+    deleteRecurringFlow,
+    materializeFlow,
+  } = useAssetTracker();
   const accountFlows = recurringFlows.filter(
     (flow) =>
       flow.fromAccountId === account.id || flow.toAccountId === account.id,
@@ -121,6 +127,19 @@ export function AccountFlows({ account }: AccountFlowsProps) {
     }
   }
 
+  async function handleMaterialize(id: string) {
+    setError(null);
+    try {
+      await materializeFlow(id);
+    } catch (err) {
+      setError(formatAssetTrackerError(err));
+    }
+  }
+
+  function recordedCount(flowId: string): number {
+    return transfers.filter((t) => t.flowId === flowId).length;
+  }
+
   return (
     <div>
       <h3 className="mb-2 text-sm font-medium">Expected regular flows</h3>
@@ -150,6 +169,16 @@ export function AccountFlows({ account }: AccountFlowsProps) {
                   {signedMonthly >= 0 ? "+" : ""}
                   {formatAccountCurrency(signedMonthly, account.currency)}/mo
                 </span>
+                {account.isOpen && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleMaterialize(flow.id)}
+                  >
+                    <CalendarCheckIcon />
+                    {recordedCount(flow.id) > 0 ? "Top up" : "Record"}
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -162,6 +191,12 @@ export function AccountFlows({ account }: AccountFlowsProps) {
             );
           })}
         </ul>
+      )}
+      {accountFlows.length > 0 && account.isOpen && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          "Record" turns a flow's due payments into real transfers up to today,
+          so balances and growth reflect the money actually moving.
+        </p>
       )}
       {account.isOpen && (
         <form onSubmit={handleAdd} className="mt-3 flex flex-col gap-2">

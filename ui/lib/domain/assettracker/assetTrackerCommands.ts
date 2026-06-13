@@ -12,7 +12,9 @@ import type { AssetTrackerData } from "./assetTrackerData";
 import type { BalanceSnapshot } from "./balanceSnapshot";
 import {
   FlowFrequencySchema,
+  flowOccurrenceDates,
   MinimumPaymentFormulaSchema,
+  monthlyAmount,
 } from "./recurringFlow";
 
 /**
@@ -95,6 +97,8 @@ export const RecordTransferInputSchema = z
     /** Omit for external spending */
     toAccountId: AccountIdSchema.optional(),
     amount: z.number().positive("Amount must be positive"),
+    /** Links the transfer back to the recurring flow that produced it */
+    flowId: z.string().min(1).optional(),
   })
   .refine((t) => t.fromAccountId != null || t.toAccountId != null, {
     message: "A transfer needs a source or a destination account",
@@ -141,6 +145,13 @@ export const SetExpectedReturnInputSchema = z.object({
 export type SetExpectedReturnInput = z.infer<
   typeof SetExpectedReturnInputSchema
 >;
+
+export const MaterializeFlowInputSchema = z.object({
+  flowId: z.string().min(1),
+  /** Generate occurrences up to and including this date */
+  throughDate: IsoDateSchema,
+});
+export type MaterializeFlowInput = z.infer<typeof MaterializeFlowInputSchema>;
 
 export const SetInflationInputSchema = z.object({
   rate: AnnualRateSchema,
@@ -296,8 +307,59 @@ export function applyRecordTransfer(
     fromAccountId: parsed.fromAccountId,
     toAccountId: parsed.toAccountId,
     amount: parsed.amount,
+    flowId: parsed.flowId,
   };
   return { ...data, snapshots, transfers: [...data.transfers, transfer] };
+}
+
+/**
+ * Realises a recurring flow into actual transfers from its start (or the day
+ * after its last already-recorded transfer) through `throughDate`. Each
+ * occurrence debits the source and credits the destination, so the recorded
+ * balances — and the trajectory and CAGR that read them — reflect the money
+ * actually moving. Re-running only tops up newly-due periods. Formula amounts
+ * are evaluated against the liability's running balance at each step, and a
+ * period with nothing due (debt cleared) is skipped.
+ */
+export function applyMaterializeFlow(
+  data: AssetTrackerData,
+  input: MaterializeFlowInput,
+): AssetTrackerData {
+  const parsed = MaterializeFlowInputSchema.parse(input);
+  const flow = data.recurringFlows.find((f) => f.id === parsed.flowId);
+  if (!flow) {
+    throw new AssetTrackerCommandError(
+      "FLOW_NOT_FOUND",
+      `No recurring flow found with ID ${parsed.flowId}`,
+    );
+  }
+  const lastRecorded = data.transfers
+    .filter((t) => t.flowId === flow.id)
+    .map((t) => t.date)
+    .sort()
+    .at(-1);
+  const dates = flowOccurrenceDates(flow, parsed.throughDate, lastRecorded);
+
+  let working = data;
+  for (const date of dates) {
+    const liabilityBalance =
+      flow.toAccountId != null
+        ? balanceAsOf(working.snapshots, flow.toAccountId, date)
+        : undefined;
+    const amount =
+      flow.formula != null
+        ? monthlyAmount(flow, liabilityBalance)
+        : (flow.amount ?? 0);
+    if (amount <= 0) continue;
+    working = applyRecordTransfer(working, {
+      date,
+      fromAccountId: flow.fromAccountId,
+      toAccountId: flow.toAccountId,
+      amount,
+      flowId: flow.id,
+    });
+  }
+  return working;
 }
 
 export function applyCloseAccount(

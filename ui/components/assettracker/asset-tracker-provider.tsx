@@ -62,6 +62,7 @@ interface AssetTrackerContextValue {
   deleteSnapshot(input: DeleteSnapshotInput): Promise<void>;
   addRecurringFlow(input: AddRecurringFlowInput): Promise<void>;
   deleteRecurringFlow(id: string): Promise<void>;
+  materializeFlow(flowId: string): Promise<void>;
   setExpectedReturn(input: SetExpectedReturnInput): Promise<void>;
   setInflation(rate: number): Promise<void>;
   resetData(): Promise<void>;
@@ -141,6 +142,10 @@ export function AssetTrackerProvider({ children }: { children: ReactNode }) {
       addRecurringFlow: (input) => mutate((api) => api.addRecurringFlow(input)),
       deleteRecurringFlow: (id) =>
         mutate((api) => api.deleteRecurringFlow({ id })),
+      materializeFlow: (flowId) =>
+        mutate((api) =>
+          api.materializeFlow({ flowId, throughDate: todayIsoDate() }),
+        ),
       setExpectedReturn: (input) =>
         mutate((api) => api.setExpectedReturn(input)),
       setInflation: (rate) => mutate((api) => api.setInflation({ rate })),

@@ -7,6 +7,7 @@ import {
   applyCreateAccount,
   applyDeleteRecurringFlow,
   applyDeleteSnapshot,
+  applyMaterializeFlow,
   applyRecordBalance,
   applyRecordTransfer,
   applySetExpectedReturn,
@@ -17,6 +18,7 @@ import {
   type DeleteRecurringFlowInput,
   type DeleteSnapshotInput,
   getSeedData,
+  type MaterializeFlowInput,
   type RecordBalanceInput,
   type RecordTransferInput,
   type SetExpectedReturnInput,
@@ -41,6 +43,7 @@ export interface AssetTrackerApi {
   deleteRecurringFlow(
     input: DeleteRecurringFlowInput,
   ): Promise<AssetTrackerData>;
+  materializeFlow(input: MaterializeFlowInput): Promise<AssetTrackerData>;
   setExpectedReturn(input: SetExpectedReturnInput): Promise<AssetTrackerData>;
   setInflation(input: SetInflationInput): Promise<AssetTrackerData>;
   importData(raw: unknown): Promise<AssetTrackerData>;
@@ -108,6 +111,9 @@ export function createLocalAssetTrackerApi(storage: Storage): AssetTrackerApi {
     },
     async deleteRecurringFlow(input) {
       return write(applyDeleteRecurringFlow(current(), input));
+    },
+    async materializeFlow(input) {
+      return write(applyMaterializeFlow(current(), input));
     },
     async setExpectedReturn(input) {
       return write(applySetExpectedReturn(current(), input));

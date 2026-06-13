@@ -6,11 +6,13 @@ import {
   applyCreateAccount,
   applyDeleteRecurringFlow,
   applyDeleteSnapshot,
+  applyMaterializeFlow,
   applyRecordBalance,
   applyRecordTransfer,
   applySetExpectedReturn,
 } from "@/lib/domain/assettracker/assetTrackerCommands";
 import type { AssetTrackerData } from "@/lib/domain/assettracker/assetTrackerData";
+import { flowOccurrenceDates } from "@/lib/domain/assettracker/recurringFlow";
 
 function baseData(): AssetTrackerData {
   return {
@@ -328,6 +330,133 @@ describe("applyRecordTransfer", () => {
         amount: 100,
       }),
     ).toThrow(/closed/);
+  });
+});
+
+describe("flowOccurrenceDates", () => {
+  const monthly = {
+    id: "f",
+    name: "Monthly",
+    toAccountId: "savings",
+    amount: 100,
+    frequency: "monthly" as const,
+    startDate: "2024-01-15",
+  };
+
+  it("lists each due date through the cutoff", () => {
+    expect(flowOccurrenceDates(monthly, "2024-04-01")).toEqual([
+      "2024-01-15",
+      "2024-02-15",
+      "2024-03-15",
+    ]);
+  });
+
+  it("honours an end date", () => {
+    expect(
+      flowOccurrenceDates({ ...monthly, endDate: "2024-02-20" }, "2024-06-01"),
+    ).toEqual(["2024-01-15", "2024-02-15"]);
+  });
+
+  it("only returns occurrences after a given date", () => {
+    expect(flowOccurrenceDates(monthly, "2024-05-01", "2024-02-15")).toEqual([
+      "2024-03-15",
+      "2024-04-15",
+    ]);
+  });
+
+  it("steps weekly", () => {
+    expect(
+      flowOccurrenceDates(
+        { ...monthly, frequency: "weekly", startDate: "2024-01-01" },
+        "2024-01-22",
+      ),
+    ).toEqual(["2024-01-01", "2024-01-08", "2024-01-15", "2024-01-22"]);
+  });
+});
+
+describe("applyMaterializeFlow", () => {
+  function withSalaryFlow(): AssetTrackerData {
+    return applyAddRecurringFlow(baseData(), {
+      name: "Salary",
+      toAccountId: "savings",
+      amount: 1000,
+      frequency: "monthly",
+      startDate: "2024-06-01",
+    });
+  }
+
+  it("turns a flow's due payments into real transfers and balances", () => {
+    const next = applyMaterializeFlow(withSalaryFlow(), {
+      flowId: "salary",
+      throughDate: "2024-08-15",
+    });
+
+    const salaryTransfers = next.transfers.filter((t) => t.flowId === "salary");
+    expect(salaryTransfers.map((t) => t.date)).toEqual([
+      "2024-06-01",
+      "2024-07-01",
+      "2024-08-01",
+    ]);
+    // Savings started at 5,000 (2024-06-01); three £1,000 credits land
+    expect(next.snapshots).toContainEqual({
+      accountId: "savings",
+      date: "2024-08-01",
+      balance: 8000,
+    });
+  });
+
+  it("only tops up newly-due periods when re-run", () => {
+    const once = applyMaterializeFlow(withSalaryFlow(), {
+      flowId: "salary",
+      throughDate: "2024-07-15",
+    });
+    const twice = applyMaterializeFlow(once, {
+      flowId: "salary",
+      throughDate: "2024-09-15",
+    });
+
+    const dates = twice.transfers
+      .filter((t) => t.flowId === "salary")
+      .map((t) => t.date);
+    // No duplicates for June/July, and August/September added
+    expect(dates).toEqual([
+      "2024-06-01",
+      "2024-07-01",
+      "2024-08-01",
+      "2024-09-01",
+    ]);
+  });
+
+  it("pays a formula debt down and stops once it's cleared", () => {
+    let data = applyAddRecurringFlow(baseData(), {
+      name: "Card payment",
+      fromAccountId: "savings",
+      toAccountId: "credit-card",
+      formula: { kind: "minimumPayment", percentOfBalance: 0.5, floor: 100 },
+      frequency: "monthly",
+      startDate: "2024-07-01",
+    });
+    // Card owes 800 at 2024-06-01
+    data = applyMaterializeFlow(data, {
+      flowId: "card-payment",
+      throughDate: "2025-07-01",
+    });
+
+    const card = data.snapshots
+      .filter((s) => s.accountId === "credit-card")
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .at(-1);
+    // Debt is fully cleared, never overpaid past zero
+    expect(card?.balance).toBe(0);
+  });
+
+  it("rejects an unknown flow", () => {
+    expect(() =>
+      applyMaterializeFlow(baseData(), {
+        flowId: "ghost",
+        throughDate: "2024-12-01",
+      }),
+    ).toThrow(/No recurring flow/);
   });
 });
 

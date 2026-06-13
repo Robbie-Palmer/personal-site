@@ -1,3 +1,4 @@
+import { addDays, addMonths, format, parseISO } from "date-fns";
 import { z } from "zod";
 import { AccountIdSchema } from "./account";
 
@@ -79,4 +80,43 @@ export function monthlyAmount(
     );
   }
   return (flow.amount ?? 0) / MONTHS_PER_PERIOD[flow.frequency];
+}
+
+function nextOccurrence(date: Date, frequency: FlowFrequency): Date {
+  switch (frequency) {
+    case "weekly":
+      return addDays(date, 7);
+    case "monthly":
+      return addMonths(date, 1);
+    case "quarterly":
+      return addMonths(date, 3);
+    case "yearly":
+      return addMonths(date, 12);
+  }
+}
+
+/** Hard cap so a misconfigured weekly flow can't generate unbounded dates */
+const MAX_OCCURRENCES = 2000;
+
+/**
+ * Every date the flow falls due from its start through `throughDate`
+ * (inclusive), honouring its end date. Pass `afterDateExclusive` to only get
+ * occurrences strictly after a date — used to top up already-recorded periods.
+ */
+export function flowOccurrenceDates(
+  flow: RecurringFlow,
+  throughDate: string,
+  afterDateExclusive?: string,
+): string[] {
+  const dates: string[] = [];
+  let cursor = parseISO(flow.startDate);
+  for (let i = 0; i < MAX_OCCURRENCES; i++) {
+    const iso = format(cursor, "yyyy-MM-dd");
+    if (iso > throughDate) break;
+    const withinEnd = flow.endDate == null || iso <= flow.endDate;
+    const afterFrom = afterDateExclusive == null || iso > afterDateExclusive;
+    if (withinEnd && afterFrom) dates.push(iso);
+    cursor = nextOccurrence(cursor, flow.frequency);
+  }
+  return dates;
 }
