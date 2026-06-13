@@ -60,7 +60,7 @@ export function DataControls() {
             ? "Your changes are saved in this browser — nothing leaves your device."
             : "This is demo data. Log a balance or add an account to try it; changes are saved in your browser."}
         </p>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <label
             htmlFor="expected-inflation"
             className="flex items-center gap-1.5 pr-2 text-sm text-muted-foreground"
