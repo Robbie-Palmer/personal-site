@@ -35,7 +35,7 @@ jobs:
           restore-keys: pnpm-store-${{ runner.os }}-
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --filter recipe-api...
 
       - name: Typecheck
         run: pnpm typecheck
@@ -74,7 +74,7 @@ jobs:
           restore-keys: pnpm-store-${{ runner.os }}-
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --filter recipe-api...
 
       - name: Deploy preview worker
         id: deploy
