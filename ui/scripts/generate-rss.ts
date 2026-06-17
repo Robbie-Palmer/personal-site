@@ -143,20 +143,18 @@ function main(): void {
   const blog = blogEntries();
   const projects = projectEntries();
   const adrs = adrEntries();
-  const combined = [
-    ...blog,
-    ...projects,
-    ...adrs,
-    ...roleEntries(),
-    ...technologyEntries(),
-  ];
+  const roles = roleEntries();
+  const technologies = technologyEntries();
+  // Technologies have their own feed; the bulk-imported catalogue would
+  // otherwise swamp the combined feed, so it carries the narrative content.
+  const combined = [...blog, ...projects, ...adrs, ...roles];
 
   write(
     "feed.xml",
     buildFeed(
       {
         title: siteConfig.name,
-        description: `Updates from ${siteConfig.name} — posts, projects, architecture decisions, roles, and technologies.`,
+        description: `Updates from ${siteConfig.name} — posts, projects, architecture decisions, and roles.`,
         feedPath: "/feed.xml",
       },
       combined,
@@ -184,8 +182,32 @@ function main(): void {
       [...projects, ...adrs],
     ),
   );
+  write(
+    "experience/feed.xml",
+    buildFeed(
+      {
+        title: `${siteConfig.name} — Experience`,
+        description: `Roles and career updates from ${siteConfig.name}.`,
+        feedPath: "/experience/feed.xml",
+      },
+      roles,
+    ),
+  );
+  write(
+    "technologies/feed.xml",
+    buildFeed(
+      {
+        title: `${siteConfig.name} — Technologies`,
+        description: `Technologies ${siteConfig.name} has added to the stack.`,
+        feedPath: "/technologies/feed.xml",
+      },
+      technologies,
+    ),
+  );
 
-  console.log("Generated feed.xml, blog/feed.xml, and projects/feed.xml in out/");
+  console.log(
+    "Generated feed.xml, blog/feed.xml, projects/feed.xml, experience/feed.xml, and technologies/feed.xml in out/",
+  );
 }
 
 main();
