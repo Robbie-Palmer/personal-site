@@ -3,8 +3,11 @@ import { eq } from "drizzle-orm";
 import { createDb, schema } from "./db";
 
 type Bindings = {
-  // In production, HYPERDRIVE is the Cloudflare Hyperdrive binding (connection pooling).
-  // For local dev, set DATABASE_URL in .dev.vars instead.
+  // Production: Cloudflare Hyperdrive binding (connection pooling).
+  // Local dev: set DATABASE_URL in .dev.vars instead.
+  // Fallback: if Hyperdrive is ever unavailable, swap the postgres.js driver
+  // for @neondatabase/serverless which uses Neon's WebSocket protocol and
+  // handles its own connection pooling via Neon's proxy.
   HYPERDRIVE?: Hyperdrive;
   DATABASE_URL?: string;
 };

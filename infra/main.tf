@@ -118,6 +118,27 @@ resource "neon_project" "recipes" {
   }
 }
 
+# Hyperdrive — connection pooling from Workers to Neon.
+# Uses the direct host (not pooler) because Hyperdrive does its own pooling.
+
+resource "cloudflare_hyperdrive_config" "recipe_db" {
+  account_id = var.cloudflare_account_id
+  name       = "recipe-db"
+
+  origin = {
+    database = neon_project.recipes.database_name
+    host     = neon_project.recipes.database_host
+    port     = 5432
+    user     = neon_project.recipes.database_user
+    password = neon_project.recipes.database_password
+    scheme   = "postgresql"
+  }
+
+  caching = {
+    disabled = false
+  }
+}
+
 # Cloudflare cache
 
 resource "cloudflare_ruleset" "map_tiles_cache" {

@@ -3,6 +3,7 @@ main = "src/index.ts"
 compatibility_date = "2026-05-28"
 compatibility_flags = ["nodejs_compat"]
 
-# [[hyperdrive]]
-# binding = "HYPERDRIVE"
-# id = ""
+# Hyperdrive connection pooling to Neon.
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "981c36e3ec8a48fda9a5de338e8d8257"
