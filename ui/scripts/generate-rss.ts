@@ -141,10 +141,11 @@ function main(): void {
   }
 
   const blog = blogEntries();
+  const projects = projectEntries();
   const adrs = adrEntries();
   const combined = [
     ...blog,
-    ...projectEntries(),
+    ...projects,
     ...adrs,
     ...roleEntries(),
     ...technologyEntries(),
@@ -173,18 +174,18 @@ function main(): void {
     ),
   );
   write(
-    "adrs/feed.xml",
+    "projects/feed.xml",
     buildFeed(
       {
-        title: `${siteConfig.name} — Architecture Decision Records`,
-        description: `Architecture decision records from ${siteConfig.name}'s projects.`,
-        feedPath: "/adrs/feed.xml",
+        title: `${siteConfig.name} — Projects & ADRs`,
+        description: `New projects and architecture decision records from ${siteConfig.name}.`,
+        feedPath: "/projects/feed.xml",
       },
-      adrs,
+      [...projects, ...adrs],
     ),
   );
 
-  console.log("Generated feed.xml, blog/feed.xml, and adrs/feed.xml in out/");
+  console.log("Generated feed.xml, blog/feed.xml, and projects/feed.xml in out/");
 }
 
 main();

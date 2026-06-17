@@ -1,7 +1,10 @@
+import { Rss } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { preload } from "react-dom";
 import { BlogList } from "@/components/blog/blog-list";
+import { Button } from "@/components/ui/button";
 import { CardGridSkeleton } from "@/components/ui/card-grid-skeleton";
 import { getAllPosts } from "@/lib/api/blog";
 import { siteConfig } from "@/lib/config/site-config";
@@ -55,11 +58,19 @@ export default function BlogPage() {
 
   return (
     <div className="container mx-auto px-4 py-12 min-h-screen max-w-6xl">
-      <div className="mb-8">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4">Blog</h1>
-        <p className="text-xl text-muted-foreground">
-          Thoughts on technology, finance, and whatever else I'm exploring
-        </p>
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">Blog</h1>
+          <p className="text-xl text-muted-foreground">
+            Thoughts on technology, finance, and whatever else I'm exploring
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm" className="shrink-0">
+          <Link href="/blog/feed.xml" target="_blank" rel="noopener noreferrer">
+            <Rss className="h-4 w-4" />
+            Subscribe
+          </Link>
+        </Button>
       </div>
 
       <Suspense fallback={<CardGridSkeleton />}>
