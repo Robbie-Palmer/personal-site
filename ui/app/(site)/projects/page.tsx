@@ -1,9 +1,12 @@
+import { Rss } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { Markdown } from "@/components/markdown";
 import { ProjectList } from "@/components/projects/project-list";
 import { ProjectTabsSkeleton } from "@/components/projects/project-tabs-skeleton";
 import { ProjectsPageTabs } from "@/components/projects/projects-page-tabs";
+import { Button } from "@/components/ui/button";
 import { getAllProjects, getBuildingPhilosophy } from "@/lib/api/projects";
 
 export const metadata: Metadata = {
@@ -18,13 +21,25 @@ export default async function ProjectsPage() {
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-6xl">
-      <div className="mb-8">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4">Projects</h1>
-        <p className="text-xl text-muted-foreground">
-          A collection of my work, featuring architectural decision records
-          (ADRs), source code links, and the building philosophy that guides
-          them
-        </p>
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">Projects</h1>
+          <p className="text-xl text-muted-foreground">
+            A collection of my work, featuring architectural decision records
+            (ADRs), source code links, and the building philosophy that guides
+            them
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm" className="shrink-0">
+          <Link
+            href="/projects/feed.xml"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Rss className="h-4 w-4" />
+            Subscribe
+          </Link>
+        </Button>
       </div>
 
       <Suspense fallback={<ProjectTabsSkeleton />}>
