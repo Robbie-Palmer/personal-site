@@ -11,6 +11,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
   alternates: {
     canonical: siteConfig.url,
+    types: {
+      "application/rss+xml": [
+        { url: "/feed.xml", title: `${siteConfig.name} RSS Feed` },
+      ],
+    },
   },
   title: {
     default: siteConfig.name,

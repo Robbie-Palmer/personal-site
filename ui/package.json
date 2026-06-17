@@ -5,8 +5,9 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "dev:qr": "node scripts/qr-dev.mjs && pnpm run dev",
-    "build": "next build && tsx scripts/generate-agent-markdown.ts",
+    "build": "next build && tsx scripts/generate-agent-markdown.ts && tsx scripts/generate-rss.ts",
     "generate:agent-markdown": "tsx scripts/generate-agent-markdown.ts",
+    "generate:rss": "tsx scripts/generate-rss.ts",
     "start": "next start",
     "test": "vitest run --exclude 'tests/integration/**'",
     "test:integration": "vitest run --no-file-parallelism tests/integration",
@@ -40,6 +41,7 @@
     "embla-carousel": "^8.6.0",
     "embla-carousel-auto-scroll": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
+    "feed": "^5.2.1",
     "fuse.js": "^7.1.0",
     "graphology": "^0.26.0",
     "graphology-layout-forceatlas2": "^0.10.1",
