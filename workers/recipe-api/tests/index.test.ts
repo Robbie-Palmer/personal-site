@@ -45,7 +45,7 @@ describe("GET /recipes", () => {
     const res = await app.request("/recipes", {}, { DATABASE_URL: "" });
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({
-      error: "DATABASE_URL is not configured",
+      error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)",
     });
   });
 
