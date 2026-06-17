@@ -20,7 +20,10 @@ app.get("/recipes", async (c) => {
   const connectionString =
     c.env.HYPERDRIVE?.connectionString ?? c.env.DATABASE_URL;
   if (!connectionString) {
-    return c.json({ error: "DATABASE_URL is not configured" }, 503);
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
   }
   const { db, client } = createDb(connectionString);
   try {
@@ -33,7 +36,11 @@ app.get("/recipes", async (c) => {
     console.error("GET /recipes query failed", e);
     return c.json({ error: "Database query failed" }, 502);
   } finally {
-    await client.end({ timeout: 5 });
+    try {
+      await client.end({ timeout: 5 });
+    } catch (e) {
+      console.error("client.end() cleanup failed", e);
+    }
   }
 });
 

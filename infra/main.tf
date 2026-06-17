@@ -135,7 +135,7 @@ resource "cloudflare_hyperdrive_config" "recipe_db" {
   }
 
   caching = {
-    disabled = false
+    disabled = true
   }
 }
 
