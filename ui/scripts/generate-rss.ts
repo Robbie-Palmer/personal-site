@@ -1,8 +1,8 @@
 #!/usr/bin/env tsx
 
 /**
- * Writes RSS 2.0 feeds into the static export directory (out/): a combined
- * feed of all dated content, a blog-only feed, and an ADR-only feed.
+ * Writes the site's RSS 2.0 feeds into the static export directory (out/):
+ * a combined feed of all dated content plus per-section feeds.
  */
 
 import fs from "node:fs";
@@ -27,7 +27,8 @@ type FeedEntry = {
   categories: string[];
 };
 
-const day = (date: string): Date => new Date(`${date}T00:00:00Z`);
+const day = (date: string): Date =>
+  date.includes("T") ? new Date(date) : new Date(`${date}T00:00:00Z`);
 const month = (value: string): Date => new Date(`${value}-01T00:00:00Z`);
 
 function blogEntries(): FeedEntry[] {
@@ -107,7 +108,7 @@ function buildFeed(
     link: siteConfig.url,
     language: "en",
     copyright: `© ${new Date().getFullYear()} ${siteConfig.author.name}`,
-    updated: items[0]?.date ?? new Date(),
+    updated: items[0]?.date ?? new Date(0),
     feedLinks: { rss: `${siteConfig.url}${meta.feedPath}` },
     author: { name: siteConfig.author.name, link: siteConfig.url },
   });
