@@ -52,6 +52,9 @@ app.on(["POST", "GET"], "/api/auth/**", async (c) => {
   if (!connectionString) {
     return c.json({ error: "No database connection configured" }, 503);
   }
+  if (!c.env.BETTER_AUTH_SECRET) {
+    return c.json({ error: "Auth secrets not configured" }, 503);
+  }
   const { db, client } = createDb(connectionString);
   try {
     const baseURL = new URL(c.req.url).origin;
