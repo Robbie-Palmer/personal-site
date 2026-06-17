@@ -17,7 +17,10 @@ import { siteConfig } from "@/lib/config/site-config";
 import { loadDomainRepository } from "@/lib/domain";
 
 const OUT_DIR = path.join(process.cwd(), "out");
+// Section feeds stay a tight rolling window; the global feed is the firehose
+// of everything, so it keeps a much larger cap.
 const MAX_ITEMS = 50;
+const GLOBAL_MAX_ITEMS = 200;
 
 type FeedEntry = {
   title: string;
@@ -96,10 +99,11 @@ function technologyEntries(): FeedEntry[] {
 function buildFeed(
   meta: { title: string; description: string; feedPath: string },
   entries: FeedEntry[],
+  max: number = MAX_ITEMS,
 ): string {
   const items = [...entries]
     .sort((a, b) => b.date.getTime() - a.date.getTime())
-    .slice(0, MAX_ITEMS);
+    .slice(0, max);
 
   const feed = new Feed({
     title: meta.title,
@@ -146,19 +150,24 @@ function main(): void {
   const adrs = adrEntries();
   const roles = roleEntries();
   const technologies = technologyEntries();
-  // Technologies have their own feed; the bulk-imported catalogue would
-  // otherwise swamp the combined feed, so it carries the narrative content.
-  const combined = [...blog, ...projects, ...adrs, ...roles];
+  const combined = [
+    ...blog,
+    ...projects,
+    ...adrs,
+    ...roles,
+    ...technologies,
+  ];
 
   write(
     "feed.xml",
     buildFeed(
       {
         title: siteConfig.name,
-        description: `Updates from ${siteConfig.name} — posts, projects, architecture decisions, and roles.`,
+        description: `Everything from ${siteConfig.name} — posts, projects, architecture decisions, roles, and technologies.`,
         feedPath: "/feed.xml",
       },
       combined,
+      GLOBAL_MAX_ITEMS,
     ),
   );
   write(
