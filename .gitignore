@@ -6,6 +6,7 @@ package-lock.json
 
 # Next.js
 .next/
+.next-dev/
 out/
 build/
 .vercel/

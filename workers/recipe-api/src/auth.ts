@@ -4,6 +4,7 @@ import type { createDb } from "./db";
 import * as schema from "./db/schema";
 
 type AuthEnv = {
+  BETTER_AUTH_URL: string;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
   GITHUB_CLIENT_ID: string;
@@ -13,9 +14,9 @@ type AuthEnv = {
 
 export function createAuth(
   db: ReturnType<typeof createDb>["db"],
-  baseURL: string,
   env: AuthEnv,
 ) {
+  const baseURL = new URL(env.BETTER_AUTH_URL).origin;
   const isSecure = baseURL.startsWith("https://");
   return betterAuth({
     baseURL,

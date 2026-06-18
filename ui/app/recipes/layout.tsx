@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AuthButton } from "@/components/recipes/auth-button";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { siteConfig } from "@/lib/config/site-config";
 
@@ -29,12 +30,7 @@ export default function RecipesLayout({
             Robbie's Recipes
           </Link>
           <div className="flex items-center gap-2">
-            <Link
-              href="/"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Main Site
-            </Link>
+            <AuthButton />
             <AnimatedThemeToggler />
           </div>
         </nav>
@@ -46,12 +42,6 @@ export default function RecipesLayout({
         <div className="container mx-auto px-4 py-8">
           <div className="flex flex-col items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              <Link
-                href="/"
-                className="hover:text-foreground transition-colors underline decoration-dotted underline-offset-4"
-              >
-                Back to Main Site
-              </Link>
               {" · "}© {currentYear} {siteConfig.author.name}
             </p>
           </div>

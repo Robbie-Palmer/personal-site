@@ -28,7 +28,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   if (request.method !== "GET" && request.method !== "HEAD") {
     return context.next();
   }
-  if (url.pathname.startsWith("/ingest")) {
+  if (url.pathname.startsWith("/ingest") || url.pathname.startsWith("/api")) {
     return context.next();
   }
 
