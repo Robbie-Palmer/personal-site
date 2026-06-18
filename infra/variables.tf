@@ -72,6 +72,12 @@ variable "r2_dvc_bucket_name" {
   default     = "dvc"
 }
 
+variable "recipe_api_url" {
+  description = "URL of the recipe-api Worker for the auth proxy"
+  type        = string
+  default     = "https://recipe-api.robbiepalmer95.workers.dev"
+}
+
 # Neon
 
 variable "neon_org_id" {

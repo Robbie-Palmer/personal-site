@@ -3,6 +3,11 @@ main = "src/index.ts"
 compatibility_date = "2026-05-28"
 compatibility_flags = ["nodejs_compat"]
 
+[vars]
+# Browser-facing URL used to build OAuth callbacks in production.
+# The local dev script overrides this with http://localhost:3000.
+BETTER_AUTH_URL = "https://robbiepalmer.me"
+
 # Hyperdrive connection pooling to Neon.
 [[hyperdrive]]
 binding = "HYPERDRIVE"

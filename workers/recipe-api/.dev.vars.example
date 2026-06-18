@@ -1,0 +1,14 @@
+# Public browser origin. OAuth providers redirect back through the frontend proxy.
+BETTER_AUTH_URL=http://localhost:3000
+
+# Use local OAuth credentials. GitHub requires a separate local OAuth app.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+
+# Generate with: openssl rand -base64 32
+BETTER_AUTH_SECRET=
+
+# Direct Neon connection used by Wrangler local development.
+DATABASE_URL=

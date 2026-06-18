@@ -8,6 +8,15 @@ directory. No additional configuration is required.
 
 ## Functions
 
+### `/api/auth/*` - Recipe Authentication Proxy
+
+**File:** `api/auth/[[path]].ts`
+
+Proxies same-origin Better Auth requests to the recipe API Worker. Keeping the
+browser-facing auth URL on `robbiepalmer.me` means OAuth callbacks and session
+cookies use the site origin even though the auth handler runs in a separate
+Worker. `RECIPE_API_URL` can override the deployed Worker URL.
+
 ### `_middleware.ts` - Markdown Content Negotiation
 
 Serves each page's agent-friendly Markdown twin from its canonical URL

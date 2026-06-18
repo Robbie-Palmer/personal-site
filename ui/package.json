@@ -34,6 +34,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@react-sigma/core": "^5.0.6",
     "@tailwindcss/typography": "^0.5.19",
+    "better-auth": "^1.6.19",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

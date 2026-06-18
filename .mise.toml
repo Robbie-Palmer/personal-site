@@ -85,6 +85,130 @@ description = "Run pre-commit checks (called by Husky)"
 run = "pnpm lint-staged"
 depends = ["//:install"]
 
+[tasks.dev]
+description = "Start full local dev: Next.js (with auth rewrite) + recipe-api Worker"
+depends = ["//:install"]
+run = """
+#!/usr/bin/env bash
+set -e
+
+if ! command -v lsof >/dev/null 2>&1; then
+  echo "Cannot start local development: lsof is required."
+  echo "Install it with your package manager, then run 'mise run //:dev' again."
+  exit 1
+fi
+
+check_port() {
+  local port="$1"
+  local service="$2"
+  local listeners
+
+  listeners=$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+  if [ -n "$listeners" ]; then
+    echo "Cannot start $service: port $port is already in use."
+    echo "$listeners"
+    echo "Stop that process, then run 'mise run //:dev' again."
+    exit 1
+  fi
+}
+
+check_port 8787 "recipe-api Worker"
+check_port 3000 "Next.js"
+
+# Wrangler needs this env var to emulate the Hyperdrive binding locally.
+# Read DATABASE_URL from the Worker's .dev.vars if not already set.
+if [ -z "$CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE" ]; then
+  DB_URL=""
+  if [ -f workers/recipe-api/.dev.vars ]; then
+    DB_URL=$(grep '^DATABASE_URL=' workers/recipe-api/.dev.vars | cut -d'=' -f2-)
+  fi
+  if [ -n "$DB_URL" ]; then
+    export CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="$DB_URL"
+  fi
+fi
+
+NEXT_PID=""
+WORKER_PID=""
+CLEANED_UP=0
+
+terminate_tree() {
+  local parent_pid="$1"
+  local child_pid
+
+  while read -r child_pid; do
+    if [ -n "$child_pid" ]; then
+      terminate_tree "$child_pid"
+    fi
+  done < <(pgrep -P "$parent_pid" 2>/dev/null || true)
+
+  kill -TERM "$parent_pid" 2>/dev/null || true
+}
+
+cleanup() {
+  if [ "$CLEANED_UP" -eq 1 ]; then
+    return
+  fi
+  CLEANED_UP=1
+  trap - EXIT INT TERM
+
+  echo ""
+  echo "Shutting down..."
+
+  if [ -n "$NEXT_PID" ]; then
+    terminate_tree "$NEXT_PID"
+  fi
+  if [ -n "$WORKER_PID" ]; then
+    terminate_tree "$WORKER_PID"
+  fi
+
+  wait "$NEXT_PID" "$WORKER_PID" 2>/dev/null || true
+}
+trap cleanup EXIT
+trap 'cleanup; exit 0' INT TERM
+
+echo "Starting recipe-api Worker on :8787..."
+pnpm --filter recipe-api dev --port 8787 &
+WORKER_PID=$!
+
+echo "Starting Next.js dev server on :3000..."
+echo "Open http://localhost:3000 to test"
+pnpm --filter ui dev --port 3000 &
+NEXT_PID=$!
+
+# Give both commands time to fail fast before entering the monitoring loop.
+sleep 2
+
+if ! kill -0 "$WORKER_PID" 2>/dev/null; then
+  echo "recipe-api Worker failed to start."
+  cleanup
+  exit 1
+fi
+
+if ! kill -0 "$NEXT_PID" 2>/dev/null; then
+  echo "Next.js failed to start."
+  cleanup
+  exit 1
+fi
+
+# Poll for the first exit instead of using `wait -n`, which requires Bash 4.3.
+while kill -0 "$WORKER_PID" 2>/dev/null && kill -0 "$NEXT_PID" 2>/dev/null; do
+  sleep 1
+done
+
+set +e
+if ! kill -0 "$WORKER_PID" 2>/dev/null; then
+  wait "$WORKER_PID"
+  STATUS=$?
+else
+  wait "$NEXT_PID"
+  STATUS=$?
+fi
+set -e
+
+cleanup
+exit "$STATUS"
+"""
+
 [tasks.install]
 description = "Install all dependencies (root and workspaces)"
 run = "pnpm install"

@@ -8,6 +8,7 @@ locals {
     NEXT_PUBLIC_POSTHOG_KEY            = var.posthog_key
     NEXT_PUBLIC_POSTHOG_HOST           = var.posthog_host
     GITHUB_TOKEN                       = var.github_token
+    RECIPE_API_URL                     = var.recipe_api_url
   }
 }
 
