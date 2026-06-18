@@ -10,20 +10,33 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   const destination = `${apiBase}${url.pathname}${url.search}`;
 
   const headers = new Headers(context.request.headers);
+  headers.delete("host");
 
   console.log(
-    `[Auth Proxy] ${context.request.method} ${url.pathname}${url.search} -> ${destination}`,
+    JSON.stringify({
+      message: "Auth proxy request",
+      method: context.request.method,
+      path: url.pathname,
+      destination: `${apiBase}${url.pathname}`,
+    }),
   );
+
+  const hasBody = !["GET", "HEAD"].includes(context.request.method);
 
   const response = await fetch(
     new Request(destination, {
       method: context.request.method,
       headers,
-      body: context.request.body,
+      body: hasBody ? context.request.body : undefined,
       redirect: "manual",
     }),
   );
 
-  console.log(`[Auth Proxy] Response: ${response.status}`);
+  console.log(
+    JSON.stringify({
+      message: "Auth proxy response",
+      status: response.status,
+    }),
+  );
   return response;
 };

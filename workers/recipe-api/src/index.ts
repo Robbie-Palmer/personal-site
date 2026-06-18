@@ -18,6 +18,15 @@ const app = new Hono<{ Bindings: Bindings }>();
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 
+function isValidAuthURL(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 app.on(["POST", "GET"], "/api/auth/**", async (c) => {
   const connectionString =
     c.env.HYPERDRIVE?.connectionString ?? c.env.DATABASE_URL;
@@ -26,6 +35,9 @@ app.on(["POST", "GET"], "/api/auth/**", async (c) => {
   }
   if (!c.env.BETTER_AUTH_URL || !c.env.BETTER_AUTH_SECRET) {
     return c.json({ error: "Auth configuration is incomplete" }, 503);
+  }
+  if (!isValidAuthURL(c.env.BETTER_AUTH_URL)) {
+    return c.json({ error: "Auth configuration is invalid" }, 503);
   }
   const { db, client } = createDb(connectionString);
   try {

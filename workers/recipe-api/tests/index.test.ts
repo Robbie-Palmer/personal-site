@@ -132,6 +132,23 @@ describe("POST /api/auth/sign-in/social", () => {
       error: "Auth configuration is incomplete",
     });
   });
+
+  it("returns 503 when the public auth URL is malformed", async () => {
+    const res = await app.request(
+      "/api/auth/sign-in/social",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ provider: "google" }),
+      },
+      { ...env, BETTER_AUTH_URL: "not-a-valid-url" },
+    );
+
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({
+      error: "Auth configuration is invalid",
+    });
+  });
 });
 
 describe("unknown routes", () => {

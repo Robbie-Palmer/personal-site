@@ -25,6 +25,7 @@ describe("AuthButton", () => {
     vi.clearAllMocks();
     mocks.useSession.mockReturnValue({ data: null, isPending: false });
     mocks.signInSocial.mockResolvedValue({ data: null, error: null });
+    mocks.signOut.mockResolvedValue({ data: null, error: null });
     mocks.listAccounts.mockResolvedValue({ data: [], error: null });
   });
 
@@ -91,5 +92,27 @@ describe("AuthButton", () => {
     await user.click(screen.getByRole("button", { name: "Sign out" }));
 
     expect(mocks.signOut).toHaveBeenCalledOnce();
+  });
+
+  it("shows an error when sign out fails", async () => {
+    const user = userEvent.setup();
+    mocks.useSession.mockReturnValue({
+      data: { user: { name: "Robbie", email: "robbie@example.com" } },
+      isPending: false,
+    });
+    mocks.signOut.mockResolvedValue({
+      data: null,
+      error: { message: "Session could not be ended" },
+    });
+    render(<AuthButton />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Account for Robbie" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Session could not be ended",
+    );
   });
 });

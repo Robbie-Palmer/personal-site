@@ -92,6 +92,12 @@ run = """
 #!/usr/bin/env bash
 set -e
 
+if ! command -v lsof >/dev/null 2>&1; then
+  echo "Cannot start local development: lsof is required."
+  echo "Install it with your package manager, then run 'mise run //:dev' again."
+  exit 1
+fi
+
 check_port() {
   local port="$1"
   local service="$2"
@@ -112,7 +118,10 @@ check_port 3000 "Next.js"
 # Wrangler needs this env var to emulate the Hyperdrive binding locally.
 # Read DATABASE_URL from the Worker's .dev.vars if not already set.
 if [ -z "$CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE" ]; then
-  DB_URL=$(grep '^DATABASE_URL=' workers/recipe-api/.dev.vars | cut -d'=' -f2-)
+  DB_URL=""
+  if [ -f workers/recipe-api/.dev.vars ]; then
+    DB_URL=$(grep '^DATABASE_URL=' workers/recipe-api/.dev.vars | cut -d'=' -f2-)
+  fi
   if [ -n "$DB_URL" ]; then
     export CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="$DB_URL"
   fi
@@ -166,9 +175,34 @@ echo "Open http://localhost:3000 to test"
 pnpm --filter ui dev --port 3000 &
 NEXT_PID=$!
 
+# Give both commands time to fail fast before entering the monitoring loop.
+sleep 2
+
+if ! kill -0 "$WORKER_PID" 2>/dev/null; then
+  echo "recipe-api Worker failed to start."
+  cleanup
+  exit 1
+fi
+
+if ! kill -0 "$NEXT_PID" 2>/dev/null; then
+  echo "Next.js failed to start."
+  cleanup
+  exit 1
+fi
+
+# Poll for the first exit instead of using `wait -n`, which requires Bash 4.3.
+while kill -0 "$WORKER_PID" 2>/dev/null && kill -0 "$NEXT_PID" 2>/dev/null; do
+  sleep 1
+done
+
 set +e
-wait -n "$WORKER_PID" "$NEXT_PID"
-STATUS=$?
+if ! kill -0 "$WORKER_PID" 2>/dev/null; then
+  wait "$WORKER_PID"
+  STATUS=$?
+else
+  wait "$NEXT_PID"
+  STATUS=$?
+fi
 set -e
 
 cleanup

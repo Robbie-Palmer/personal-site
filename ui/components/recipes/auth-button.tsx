@@ -54,6 +54,20 @@ export function AuthButton() {
     }
   }
 
+  async function signOut() {
+    setError(null);
+    try {
+      const result = await authClient.signOut({
+        fetchOptions: { onSuccess: () => window.location.reload() },
+      });
+      if (result?.error) {
+        setError(result.error.message ?? "Sign-out failed. Please try again.");
+      }
+    } catch {
+      setError("Sign-out failed. Please try again.");
+    }
+  }
+
   if (isPending) {
     return (
       <Button variant="outline" size="sm" disabled aria-label="Loading session">
@@ -129,15 +143,17 @@ export function AuthButton() {
               </p>
             )}
 
+            {error && (
+              <p role="alert" className="text-xs text-destructive">
+                {error}
+              </p>
+            )}
+
             <div className="my-3 border-t" />
             <Button
               variant="ghost"
               className="w-full justify-start"
-              onClick={() =>
-                authClient.signOut({
-                  fetchOptions: { onSuccess: () => window.location.reload() },
-                })
-              }
+              onClick={signOut}
             >
               <LogOut />
               Sign out

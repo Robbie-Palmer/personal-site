@@ -42,7 +42,7 @@ export default function RecipesLayout({
         <div className="container mx-auto px-4 py-8">
           <div className="flex flex-col items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              {" · "}© {currentYear} {siteConfig.author.name}
+              © {currentYear} {siteConfig.author.name}
             </p>
           </div>
         </div>

@@ -27,15 +27,18 @@ function createNextConfig(phase: string): NextConfig {
     },
     // Dev-only: proxy auth requests to the local recipe-api Worker.
     // In production the Cloudflare Pages Function (functions/api/auth/) handles this.
-    // Rewrites are ignored during `next build` with output: "export".
-    async rewrites() {
-      return [
-        {
-          source: "/api/auth/:path*",
-          destination: "http://localhost:8787/api/auth/:path*",
-        },
-      ];
-    },
+    ...(phase === PHASE_DEVELOPMENT_SERVER
+      ? {
+          async rewrites() {
+            return [
+              {
+                source: "/api/auth/:path*",
+                destination: "http://localhost:8787/api/auth/:path*",
+              },
+            ];
+          },
+        }
+      : {}),
     turbopack: {
       root: path.join(__dirname, ".."),
     },
