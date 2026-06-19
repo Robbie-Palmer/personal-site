@@ -12,7 +12,7 @@ site's primary sign-in method.
 
 [ADR 032](/projects/recipe-site/adrs/032-better-auth) chose Better Auth as the authentication
 library and named Google as the expected default sign-in path. This ADR formalises *why* Google
-OIDC is that default, with explicit pros and cons, so the trade-off is recorded rather than implied.
+OIDC is that default, with explicit pros and cons.
 
 This is a decision about the **identity provider used for sign-in**. It does not decide the auth
 library ([Better Auth, ADR 032](/projects/recipe-site/adrs/032-better-auth)), the backend runtime
@@ -36,8 +36,7 @@ Two goals dominate the choice:
    removes a whole category of code, support burden, and security risk.
 
 Better Auth ([ADR 032](/projects/recipe-site/adrs/032-better-auth)) already states the social-first
-position: email/password is out of scope, and Google is the default path. This ADR is the dedicated
-record of the Google OIDC decision itself.
+position: email/password is out of scope, and Google is the default path.
 
 # Decision
 
@@ -87,14 +86,13 @@ Federation, not Sign in with Google.
 The consequence for this decision: the project and its APIs can be Terraformed, but **creating the
 OAuth consent screen and the web OAuth client is a manual Google Cloud Console step**. The resulting
 client ID and secret are then fed into the secret-management layer, which *is* code-owned. This is
-the one piece of console-owned configuration this decision introduces, and it is bounded — it
-happens once per environment and produces values that the rest of the pipeline can consume as code.
+the one piece of console-owned configuration this decision introduces: it happens once per
+environment and produces values the rest of the pipeline consumes as code.
 
 ## Same-Origin Proxy
 
 Google OIDC with Better Auth needs the auth/API backend and the frontend to share a **site**, and
-the cleanest way to guarantee that is to serve both on the **same origin**. The reason is worth
-recording so it is not treated as folklore.
+the cleanest way to guarantee that is to serve both on the **same origin**.
 
 The site's frontend is a static export on Cloudflare Pages; the auth/API layer is a separate
 Cloudflare Worker ([ADR 033](/projects/recipe-site/adrs/033-backend-platform-for-authenticated-features)).
@@ -114,14 +112,12 @@ Serving the Worker on the **same origin** as the site — for example routing `/
 domain to the Worker via a proxy — sidesteps both cases: the session cookie is first-party with no
 special `Domain`/`SameSite` handling, there is no CORS preflight, and Google has a single stable
 callback URL on that one origin. This is the
-[backend-for-frontend](https://github.com/better-auth/better-auth/issues/7657) pattern, not a quirk
-of one deployment.
+[backend-for-frontend](https://github.com/better-auth/better-auth/issues/7657) pattern.
 
-The decision here is therefore explicit: **the deployment will front the auth Worker on the site's
-own origin** rather than expose it on a separate host. The exact mechanism (a Pages route/proxy, a
-Cloudflare route binding, or equivalent) is an implementation detail left to the backend work, but
-keeping the two halves same-origin is worth committing to up front — especially since Cloudflare's
-default `*.pages.dev` / `*.workers.dev` hosts are cross-site and would otherwise force the fragile
+So **the deployment will front the auth Worker on the site's own origin** rather than expose it on a
+separate host. The exact mechanism (a Pages route/proxy, a Cloudflare route binding, or equivalent)
+is left to the backend work, but the two halves must stay same-origin: Cloudflare's default
+`*.pages.dev` / `*.workers.dev` hosts are cross-site and would otherwise force the fragile
 `SameSite=None` path.
 
 # This Is A Default, Not An Exclusive Choice
@@ -129,12 +125,10 @@ default `*.pages.dev` / `*.workers.dev` hosts are cross-site and would otherwise
 Choosing Google as the primary sign-in method does **not** preclude any other method. Better Auth
 ([ADR 032](/projects/recipe-site/adrs/032-better-auth)) treats sign-in methods as additive
 configuration: each social provider is a few lines, and magic links and passkeys are plugins. Adding
-a second provider or method later does not require revisiting this ADR — it is expected headroom, not
-a reversal.
+a second provider or method later does not require revisiting this ADR — it is expected headroom.
 
 What this ADR fixes is the **default**: the path the sign-in screen leads with, and the one onboarding
-is optimised for. The comparison below is therefore about *what to lead with*, not about ruling the
-others out.
+is optimised for. The comparison below is about *what to lead with*, not about ruling the others out.
 
 # How Google Compares To The Alternatives
 
@@ -157,8 +151,8 @@ fee, not a technical advantage.
 | **Magic links**      | Deferred     | Passwordless like Google, but adds an email-delivery dependency and link-consumption edge cases (expiry, reuse, multi-device) that a federated provider sidesteps. A reasonable *fallback* for users without a Google account.     |
 | **Passkeys**         | Deferred     | The strongest long-term direction: phishing-resistant and passwordless. Less universally ready for non-technical users today, and best added as an *enhancement* on top of an existing account rather than the first-run path.     |
 
-Magic links and passkeys are not competitors to Google here so much as future layers: magic links as
-a no-account-required fallback, passkeys as a step-up once a user exists. Neither needs to displace
+Magic links and passkeys are future layers rather than competitors: magic links as a
+no-account-required fallback, passkeys as a step-up once a user exists. Neither needs to displace
 Google to be worth adding.
 
 # Consequences
@@ -184,7 +178,7 @@ Google to be worth adding.
 * **A same-origin proxy is needed.** The auth Worker must be fronted on the site's own origin so the
   session cookie stays first-party; running it cross-site (e.g. on the default `*.pages.dev` /
   `*.workers.dev` hosts) forces the fragile `SameSite=None` path. This is extra routing
-  infrastructure to operate, justified by the cookie/OAuth flow rather than incidental.
+  infrastructure to operate.
 * **No preview-environment story.** OAuth requires pre-registered, static redirect URIs, so
   ephemeral per-PR preview URLs cannot complete a Google sign-in out of the box. This conflicts with
   the short-feedback-loop / preview-environment goals in ADR 033, and there is no obvious solution
