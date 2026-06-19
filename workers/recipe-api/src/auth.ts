@@ -23,7 +23,6 @@ export function createAuth(
     baseURL,
     basePath: "/api/auth",
     secret: env.BETTER_AUTH_SECRET,
-    plugins: [admin()],
     ...withCloudflare(
       {
         postgres: { db, options: { schema } },
@@ -31,6 +30,7 @@ export function createAuth(
         geolocationTracking: false,
       },
       {
+        plugins: [admin()],
         emailAndPassword: { enabled: false },
         socialProviders: {
           google: {
