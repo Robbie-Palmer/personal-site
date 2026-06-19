@@ -104,8 +104,6 @@ describe("Projects functions", () => {
     });
 
     it("should dedupe technologies shared across multiple accepted ADRs", () => {
-      // Better Auth and Cloudflare Workers are each referenced by more than one
-      // accepted recipe-site ADR; they must still appear only once.
       const project = getProject("recipe-site");
       const names = project.technologies.map((t) => t.name);
       expect(names.filter((n) => n === "Better Auth")).toHaveLength(1);
