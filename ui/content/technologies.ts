@@ -736,7 +736,7 @@ export const technologies: TechnologyContent[] = [
     type: "database",
   },
   {
-    name: "Google Identity Platform",
+    name: "Google OAuth",
     added: "2026-06-19",
     description:
       "Sign in with Google via OAuth 2.0 / OpenID Connect, configured through a Google Cloud project",

@@ -2,7 +2,7 @@
 title: "ADR 036: Google OIDC Login"
 date: "2026-06-19"
 status: "Accepted"
-tech_stack: ["Google Identity Platform"]
+tech_stack: ["Google OAuth"]
 ---
 
 # Summary
@@ -15,9 +15,10 @@ library and named Google as the expected default sign-in path. This ADR formalis
 OIDC is that default, with explicit pros and cons, so the trade-off is recorded rather than implied.
 
 This is a decision about the **identity provider used for sign-in**. It does not decide the auth
-library (Better Auth, ADR 032), the backend runtime (ADR 033), the authorization model
-([ADR 034](/projects/recipe-site/adrs/034-authorization-model)), or the security baseline
-([ADR 035](/projects/recipe-site/adrs/035-application-security-baseline)).
+library ([Better Auth, ADR 032](/projects/recipe-site/adrs/032-better-auth)), the backend runtime
+([ADR 033](/projects/recipe-site/adrs/033-backend-platform-for-authenticated-features)), the
+authorization model ([ADR 034](/projects/recipe-site/adrs/034-authorization-model)), or the security
+baseline ([ADR 035](/projects/recipe-site/adrs/035-application-security-baseline)).
 
 # Context
 
@@ -91,30 +92,37 @@ happens once per environment and produces values that the rest of the pipeline c
 
 ## Same-Origin Proxy
 
-Google OIDC with Better Auth needs the auth/API backend to be reachable on the **same origin** as the
-static frontend. That has a concrete cause worth recording so it is not treated as folklore.
+Google OIDC with Better Auth needs the auth/API backend and the frontend to share a **site**, and
+the cleanest way to guarantee that is to serve both on the **same origin**. The reason is worth
+recording so it is not treated as folklore.
 
 The site's frontend is a static export on Cloudflare Pages; the auth/API layer is a separate
 Cloudflare Worker ([ADR 033](/projects/recipe-site/adrs/033-backend-platform-for-authenticated-features)).
-If those sit on different origins (for example `recipes.example.com` and `api.example.com`), the
-sign-in flow breaks on cookies:
+Better Auth sets the session cookie during the OAuth callback, and whether the browser returns that
+cookie on later requests depends on how the two halves are hosted:
 
-* Better Auth sets the session cookie during the OAuth callback on the **Worker's** origin.
-* A cookie set on `api.example.com` is not sent on requests to `recipes.example.com`, so the user
-  appears unauthenticated even though the OAuth exchange succeeded.
-* The cross-site workaround (`SameSite=None`) is increasingly blocked by browsers' third-party-cookie
-  restrictions, so it is not a durable fix.
+* **Subdomains of one registrable domain** (for example `recipes.example.com` and
+  `api.example.com`) are *same-site*. The session cookie can be shared by scoping it to
+  `Domain=example.com` with `SameSite=Lax`; it is not affected by third-party-cookie restrictions.
+  This works, but it needs explicit cookie-domain configuration and still triggers CORS preflight on
+  cross-subdomain API calls.
+* **Genuinely cross-site origins** (different registrable domains — notably Cloudflare's defaults
+  `*.pages.dev` and `*.workers.dev`) require `SameSite=None`, which is subject to browsers'
+  third-party-cookie phase-out. That is not a durable setup.
 
-The remedy is to put the Worker behind the **same origin** as the site — for example routing
-`/api/*` on the site's domain to the Worker via a proxy. Then the session cookie is first-party and
-is sent on every request, and Google has a single stable callback URL on that one origin. This is the
+Serving the Worker on the **same origin** as the site — for example routing `/api/*` on the site's
+domain to the Worker via a proxy — sidesteps both cases: the session cookie is first-party with no
+special `Domain`/`SameSite` handling, there is no CORS preflight, and Google has a single stable
+callback URL on that one origin. This is the
 [backend-for-frontend](https://github.com/better-auth/better-auth/issues/7657) pattern, not a quirk
 of one deployment.
 
 The decision here is therefore explicit: **the deployment will front the auth Worker on the site's
 own origin** rather than expose it on a separate host. The exact mechanism (a Pages route/proxy, a
 Cloudflare route binding, or equivalent) is an implementation detail left to the backend work, but
-the same-origin requirement itself is a property of the cookie/OAuth flow and is not optional.
+keeping the two halves same-origin is worth committing to up front — especially since Cloudflare's
+default `*.pages.dev` / `*.workers.dev` hosts are cross-site and would otherwise force the fragile
+`SameSite=None` path.
 
 # This Is A Default, Not An Exclusive Choice
 
@@ -174,8 +182,9 @@ Google to be worth adding.
   console step. This is one bounded piece of console-owned configuration, mitigated by storing the
   resulting credentials in the code-owned secret layer.
 * **A same-origin proxy is needed.** The auth Worker must be fronted on the site's own origin so the
-  session cookie stays first-party; running it on a separate host breaks sign-in. This is extra
-  routing infrastructure to operate, justified by the cookie/OAuth flow rather than incidental.
+  session cookie stays first-party; running it cross-site (e.g. on the default `*.pages.dev` /
+  `*.workers.dev` hosts) forces the fragile `SameSite=None` path. This is extra routing
+  infrastructure to operate, justified by the cookie/OAuth flow rather than incidental.
 * **No preview-environment story.** OAuth requires pre-registered, static redirect URIs, so
   ephemeral per-PR preview URLs cannot complete a Google sign-in out of the box. This conflicts with
   the short-feedback-loop / preview-environment goals in ADR 033, and there is no obvious solution
