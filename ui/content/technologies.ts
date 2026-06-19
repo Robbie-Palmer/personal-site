@@ -744,4 +744,13 @@ export const technologies: TechnologyContent[] = [
     iconSlug: "google",
     type: "platform",
   },
+  {
+    name: "GitHub OAuth",
+    added: "2026-06-19",
+    description:
+      "Sign in with GitHub via OAuth 2.0, configured through a GitHub OAuth App",
+    website: "https://docs.github.com/en/apps/oauth-apps",
+    iconSlug: "github",
+    type: "platform",
+  },
 ];
