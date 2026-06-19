@@ -735,4 +735,13 @@ export const technologies: TechnologyContent[] = [
     website: "https://neon.com",
     type: "database",
   },
+  {
+    name: "Google OAuth",
+    added: "2026-06-19",
+    description:
+      "Sign in with Google via OAuth 2.0 / OpenID Connect, configured through a Google Cloud project",
+    website: "https://developers.google.com/identity",
+    iconSlug: "google",
+    type: "platform",
+  },
 ];
