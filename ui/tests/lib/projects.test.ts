@@ -94,6 +94,24 @@ describe("Projects functions", () => {
       }
     });
 
+    it("should not include duplicate technologies", () => {
+      const projects = getAllProjects();
+      for (const project of projects) {
+        const slugs = project.technologies.map((t) => t.slug);
+        const uniqueSlugs = new Set(slugs);
+        expect(slugs.length).toBe(uniqueSlugs.size);
+      }
+    });
+
+    it("should dedupe technologies shared across multiple accepted ADRs", () => {
+      // Better Auth and Cloudflare Workers are each referenced by more than one
+      // accepted recipe-site ADR; they must still appear only once.
+      const project = getProject("recipe-site");
+      const names = project.technologies.map((t) => t.name);
+      expect(names.filter((n) => n === "Better Auth")).toHaveLength(1);
+      expect(names.filter((n) => n === "Cloudflare Workers")).toHaveLength(1);
+    });
+
     it("should include technologies from accepted ADRs", () => {
       const project = getProject("personal-site");
       const acceptedADRs = project.adrs.filter(

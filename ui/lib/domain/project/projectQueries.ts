@@ -165,12 +165,19 @@ export function getProjectWithADRs(
     .filter((adr) => adr.status === "Accepted")
     .flatMap((adr) => adr.technologies);
 
+  // Dedupe by slug across both project and ADR technologies. A technology can
+  // legitimately appear in multiple accepted ADRs (e.g. Better Auth in both the
+  // auth ADR and the security baseline ADR), so deduping only ADR-vs-project is
+  // not enough — it must also collapse repeats within the ADR set itself.
+  const seenSlugs = new Set<string>();
   const mergedTechnologies = [
     ...projectTechnologies,
-    ...adrTechnologies.filter(
-      (adrTech) => !projectTechnologies.some((t) => t.slug === adrTech.slug),
-    ),
-  ];
+    ...adrTechnologies,
+  ].filter((tech) => {
+    if (seenSlugs.has(tech.slug)) return false;
+    seenSlugs.add(tech.slug);
+    return true;
+  });
 
   const adrSlugs = getADRSlugsForProject(repository.graph, slug);
   const role = getRoleView(repository, slug);
