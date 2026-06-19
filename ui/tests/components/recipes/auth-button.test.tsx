@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   signInSocial: vi.fn(),
   signOut: vi.fn(),
   listAccounts: vi.fn(),
+  getLastUsedLoginMethod: vi.fn(),
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -15,6 +16,7 @@ vi.mock("@/lib/auth-client", () => ({
     signIn: { social: mocks.signInSocial },
     signOut: mocks.signOut,
     listAccounts: mocks.listAccounts,
+    getLastUsedLoginMethod: mocks.getLastUsedLoginMethod,
   },
 }));
 
@@ -27,6 +29,7 @@ describe("AuthButton", () => {
     mocks.signInSocial.mockResolvedValue({ data: null, error: null });
     mocks.signOut.mockResolvedValue({ data: null, error: null });
     mocks.listAccounts.mockResolvedValue({ data: [], error: null });
+    mocks.getLastUsedLoginMethod.mockReturnValue(null);
   });
 
   it("lets the user choose Google or GitHub", async () => {
@@ -41,6 +44,21 @@ describe("AuthButton", () => {
     expect(
       screen.getByRole("button", { name: "Continue with GitHub" }),
     ).toBeInTheDocument();
+  });
+
+  it("marks the last used provider", async () => {
+    const user = userEvent.setup();
+    mocks.getLastUsedLoginMethod.mockReturnValue("google");
+    render(<AuthButton />);
+
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(
+      screen.getByRole("button", { name: /Continue with Google/ }),
+    ).toHaveTextContent("Last used");
+    expect(
+      screen.getByRole("button", { name: /Continue with GitHub/ }),
+    ).not.toHaveTextContent("Last used");
   });
 
   it("starts the selected provider flow and preserves the current page", async () => {
