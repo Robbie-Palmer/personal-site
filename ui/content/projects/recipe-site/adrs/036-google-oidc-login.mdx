@@ -149,13 +149,14 @@ fee, not a technical advantage.
 | -------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Email + password** | Out of scope | The highest-friction sign-up for this audience and the one that drags in password storage, resets, recovery, and breach response — the exact complexity this decision exists to avoid. Not planned.                                |
 | **Magic links**      | Deferred     | Passwordless like Google, but adds an email-delivery dependency and link-consumption edge cases (expiry, reuse, multi-device) that a federated provider sidesteps. A reasonable *fallback* for users without a Google account.     |
-| **Passkeys**         | Deferred     | Phishing-resistant and passwordless, and the strongest long-term direction. The catch: passkeys only deliver that security if they are the sole or required way in. While Google sign-in stays enabled beside them, the account is only as phishing-resistant as Google's flow, because an attacker falls back to it — so bolting passkeys on as an optional extra is mostly convenience until they gate or replace the weaker method, which works against the Google-first, low-friction goal. Also less universally ready for non-technical users today. |
+| **Passkeys**         | Deferred     | Phishing-resistant and passwordless, and the strongest long-term direction. The security ceiling is **per account**: a user who registers only a passkey gets the full guarantee, and is unaffected by which methods other users or the system offer. It is only diluted for a user who links *both* a passkey and a weaker method (e.g. Google) to the *same* account, since an attacker can then fall back to the weaker one. So passkeys deliver real value as soon as any individual wants stronger protection — they do not require replacing Google system-wide. Still less universally ready for non-technical users today. |
 
 Magic links and passkeys are future layers rather than competitors. Magic links would be a
-no-account-required fallback for users without Google. Passkeys are the harder call: their
-phishing-resistance only counts if they become the sole or required factor, so adding them while
-Google stays enabled raises convenience more than security. They are worth the headline benefit only
-if they eventually gate the account rather than sit beside Google as one option among several.
+no-account-required fallback for users without Google. Passkeys give individual users full
+phishing-resistance: a passkey-only account is unaffected by the methods other people use, and the
+guarantee is only diluted if a single account links a passkey alongside a weaker method like Google.
+So passkeys are worth adding whenever a user wants stronger protection, with no need to drop Google
+for everyone else.
 
 # Consequences
 
@@ -206,5 +207,7 @@ Revisit this ADR if any of the following become true:
   for first-run sign-up — note that merely *adding* one of these alongside Google does not need this
   ADR revisited
 
-If Google OIDC stops being the right default, this ADR can be marked **Deprecated** in favour of a
-successor, while Better Auth (ADR 032) keeps the underlying auth layer stable through the change.
+This ADR stays **Accepted** for as long as Google is offered as a sign-in option, even if it stops
+being the default. Losing default status is a reason to update this ADR, not to deprecate it. It
+would only move to **Deprecated** if Google sign-in were removed entirely, and Better Auth (ADR 032)
+keeps the underlying auth layer stable through any such change.
