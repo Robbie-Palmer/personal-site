@@ -79,28 +79,43 @@ Two points matter most: the sign-up experience is about as low-friction as it ge
 audience, and an entire problem domain — passwords and everything around them — never enters the
 system.
 
-# Alternatives Considered
+# This Is A Default, Not An Exclusive Choice
 
-## Email + password
+Choosing Google as the primary sign-in method does **not** preclude any other method. Better Auth
+([ADR 032](/projects/recipe-site/adrs/032-better-auth)) treats sign-in methods as additive
+configuration: each social provider is a few lines, and magic links and passkeys are plugins. Adding
+a second provider or method later does not require revisiting this ADR — it is expected headroom, not
+a reversal.
 
-Rejected. It is the highest-friction sign-up for this audience and pulls in password storage, reset
-flows, recovery, and breach response — exactly the complexity this decision exists to avoid.
+What this ADR fixes is the **default**: the path the sign-in screen leads with, and the one onboarding
+is optimised for. The comparison below is therefore about *what to lead with*, not about ruling the
+others out.
 
-## Magic links
+# How Google Compares To The Alternatives
 
-Deferred. Lower friction than passwords, but adds an email-delivery dependency and link-consumption
-edge cases (expiry, reuse, multi-device) that Google OIDC sidesteps.
+## Other OIDC providers
 
-## GitHub OAuth as the primary provider
+| Provider   | Status for this site         | How it compares to Google                                                                                                                                                            |
+| ---------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Google** | **Primary (this ADR)**       | Near-universal account ownership in the target audience, lowest-friction consent, verified email, no provider cost.                                                                   |
+| **GitHub** | Secondary, already supported | Same OAuth shape and effort as Google, but most household members do not have GitHub accounts — a worse *default*, a good *complement* for technical friends. Already wired in 032.   |
+| **Apple**  | Deferred                     | Strong fit for iOS users and sometimes required by App Store policy, but adds the recurring **client-secret rotation** burden called out in ADR 032. Worth adding on a real iOS need. |
 
-Kept as a secondary provider, not the primary one. Most household members do not have GitHub
-accounts, so it is a worse default than Google for the intended audience, while remaining useful for
-technical friends.
+GitHub and Apple are the same kind of decision as Google — federated OIDC, no passwords held here —
+so they stack cleanly alongside it. The only reason Google leads is audience fit, not a technical
+advantage.
 
-## Passkeys
+## Non-OIDC methods
 
-Deferred, per ADR 032. Worth revisiting later, but not necessary for MVP and not as universally
-ready for non-technical users as Google sign-in today.
+| Method               | Status       | How it compares to Google                                                                                                                                                                                |
+| -------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Email + password** | Out of scope | The highest-friction sign-up for this audience and the one that drags in password storage, resets, recovery, and breach response — the exact complexity this decision exists to avoid. Not planned.       |
+| **Magic links**      | Deferred     | Passwordless like Google, but adds an email-delivery dependency and link-consumption edge cases (expiry, reuse, multi-device) that a federated provider sidesteps. A reasonable *fallback* for non-Google users. |
+| **Passkeys**         | Deferred     | The strongest long-term direction: phishing-resistant and passwordless. Less universally ready for non-technical users today, and best added as an *enhancement* on top of an existing account rather than the first-run path. |
+
+Magic links and passkeys are not competitors to Google here so much as future layers: magic links as
+a no-account-required fallback, passkeys as a step-up once a user exists. Neither needs to displace
+Google to be worth adding.
 
 # Consequences
 
@@ -145,8 +160,9 @@ Revisit this ADR if any of the following become true:
 * preview environments need real sign-in and the missing callback-URL story starts to hurt
 * the frontend/backend proxy proves removable, or conversely becomes a recurring source of bugs
 * Google changes OAuth terms, pricing, or verification requirements in a way that affects this use
-* product needs change such that owning identity directly (passwords, passkeys, magic links) becomes
-  worthwhile
+* another method (passkeys, magic links, or another provider) becomes a better *default* than Google
+  for first-run sign-up — note that merely *adding* one of these alongside Google does not need this
+  ADR revisited
 
 If Google OIDC stops being the right default, this ADR can be marked **Deprecated** in favour of a
 successor, while Better Auth (ADR 032) keeps the underlying auth layer stable through the change.
