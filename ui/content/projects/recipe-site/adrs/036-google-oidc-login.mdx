@@ -77,8 +77,8 @@ split:
 | **OAuth consent screen (brand)**                | **Not** manageable as a normal web-app brand; the only Terraform resource (`google_iap_brand`) is Identity-Aware Proxy only. |
 | **OAuth 2.0 Client ID (type "Web application")** | **No Terraform resource exists.** This is the credential the sign-in flow depends on.                                       |
 
-The gap is specific and confirmed, not unknown: the HashiCorp Google provider has no resource for a
-standard (non-IAP) web-application OAuth 2.0 Client ID. The long-running feature request
+The HashiCorp Google provider has no resource for a standard (non-IAP) web-application OAuth 2.0
+Client ID. The long-running feature request
 ([terraform-provider-google#16452](https://github.com/hashicorp/terraform-provider-google/issues/16452))
 is still open and unresolved. The existing `google_iap_client` resource is for Identity-Aware Proxy
 and cannot manage these credentials, and `google_iam_oauth_client` is for Workforce Identity
