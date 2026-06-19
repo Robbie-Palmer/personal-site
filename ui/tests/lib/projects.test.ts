@@ -82,27 +82,6 @@ describe("Projects functions", () => {
       }
     });
 
-    it("should include project technologies", () => {
-      const projects = getAllProjects();
-      const projectWithTech = projects.find((p) => p.technologies.length > 0);
-      expect(projectWithTech).toBeDefined();
-      if (!projectWithTech) return;
-      expect(projectWithTech.technologies.length).toBeGreaterThan(0);
-      for (const tech of projectWithTech.technologies) {
-        expect(typeof tech.name).toBe("string");
-        expect(tech.name.length).toBeGreaterThan(0);
-      }
-    });
-
-    it("should not include duplicate technologies", () => {
-      const projects = getAllProjects();
-      for (const project of projects) {
-        const slugs = project.technologies.map((t) => t.slug);
-        const uniqueSlugs = new Set(slugs);
-        expect(slugs.length).toBe(uniqueSlugs.size);
-      }
-    });
-
     it("should dedupe technologies shared across multiple accepted ADRs", () => {
       const project = getProject("recipe-site");
       const names = project.technologies.map((t) => t.name);
@@ -157,6 +136,27 @@ describe("Projects functions", () => {
       const projectSlugs = projects.map((p) => p.slug);
       for (const slug of slugs) {
         expect(projectSlugs).toContain(slug);
+      }
+    });
+
+    it("should include project technologies", () => {
+      const projects = getAllProjects();
+      const projectWithTech = projects.find((p) => p.technologies.length > 0);
+      expect(projectWithTech).toBeDefined();
+      if (!projectWithTech) return;
+      expect(projectWithTech.technologies.length).toBeGreaterThan(0);
+      for (const tech of projectWithTech.technologies) {
+        expect(typeof tech.name).toBe("string");
+        expect(tech.name.length).toBeGreaterThan(0);
+      }
+    });
+
+    it("should not include duplicate technologies", () => {
+      const projects = getAllProjects();
+      for (const project of projects) {
+        const slugs = project.technologies.map((t) => t.slug);
+        const uniqueSlugs = new Set(slugs);
+        expect(slugs.length).toBe(uniqueSlugs.size);
       }
     });
   });
