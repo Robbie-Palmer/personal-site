@@ -165,12 +165,15 @@ export function getProjectWithADRs(
     .filter((adr) => adr.status === "Accepted")
     .flatMap((adr) => adr.technologies);
 
+  const seenSlugs = new Set<string>();
   const mergedTechnologies = [
     ...projectTechnologies,
-    ...adrTechnologies.filter(
-      (adrTech) => !projectTechnologies.some((t) => t.slug === adrTech.slug),
-    ),
-  ];
+    ...adrTechnologies,
+  ].filter((tech) => {
+    if (seenSlugs.has(tech.slug)) return false;
+    seenSlugs.add(tech.slug);
+    return true;
+  });
 
   const adrSlugs = getADRSlugsForProject(repository.graph, slug);
   const role = getRoleView(repository, slug);
