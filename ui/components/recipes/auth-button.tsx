@@ -2,7 +2,7 @@
 
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { ChevronDown, LoaderCircle, LogIn, LogOut } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { siGithub, siGoogle } from "simple-icons";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
@@ -36,6 +36,17 @@ export function AuthButton() {
     null,
   );
   const [accountsError, setAccountsError] = useState(false);
+  const [lastUsedProvider, setLastUsedProvider] = useState<Provider | null>(
+    null,
+  );
+
+  // Read from the client-side cookie after mount to avoid a hydration mismatch.
+  useEffect(() => {
+    const method = authClient.getLastUsedLoginMethod();
+    if (method === "google" || method === "github") {
+      setLastUsedProvider(method);
+    }
+  }, []);
 
   async function loadLinkedAccounts() {
     setAccountsError(false);
@@ -225,6 +236,11 @@ export function AuthButton() {
                   <ProviderIcon path={provider.iconPath} />
                 )}
                 Continue with {provider.name}
+                {lastUsedProvider === provider.id && (
+                  <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
+                    Last used
+                  </span>
+                )}
               </Button>
             ))}
           </div>

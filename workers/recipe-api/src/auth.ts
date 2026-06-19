@@ -1,5 +1,5 @@
 import { betterAuth } from "better-auth";
-import { admin } from "better-auth/plugins";
+import { admin, lastLoginMethod } from "better-auth/plugins";
 import { withCloudflare } from "better-auth-cloudflare";
 import type { createDb } from "./db";
 import * as schema from "./db/schema";
@@ -30,7 +30,7 @@ export function createAuth(
         geolocationTracking: false,
       },
       {
-        plugins: [admin()],
+        plugins: [admin(), lastLoginMethod()],
         emailAndPassword: { enabled: false },
         socialProviders: {
           google: {
