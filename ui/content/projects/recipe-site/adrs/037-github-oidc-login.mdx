@@ -75,7 +75,7 @@ step, but the resulting secrets are code-owned.
 
 | Element                                  | IaC status                                                                                                                       |
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| **GitHub OAuth App (client ID / secret)** | **No Terraform resource exists.** The `integrations/terraform-provider-github` provider authenticates *to* GitHub but has no resource that *creates* an OAuth App. |
+| **GitHub OAuth App (client ID / secret)** | **No Terraform resource exists.** The `integrations/github` provider authenticates *to* GitHub but has no resource that *creates* an OAuth App. |
 | Client ID / secret stored as app secrets  | Terraformable via the project's secret-management layer.                                                                          |
 
 GitHub OAuth Apps cannot be created through the API at all — only through GitHub's developer
@@ -156,5 +156,3 @@ This ADR stays **Accepted** for as long as GitHub is offered as a sign-in option
 to **Deprecated** if GitHub sign-in were removed entirely; Better Auth
 ([ADR 032](/projects/recipe-site/adrs/032-better-auth)) keeps the underlying auth layer stable
 through any such change.
-</content>
-</invoke>
