@@ -97,7 +97,14 @@ export function AuthButton() {
             sideOffset={6}
             className="bg-popover text-popover-foreground z-50 w-64 rounded-md border p-3 shadow-md outline-none"
           >
-            <p className="text-sm font-medium">{session.user.name}</p>
+            <p className="flex items-center gap-2 text-sm font-medium">
+              {session.user.name}
+              {session.user.role === "admin" && (
+                <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
+                  Admin
+                </span>
+              )}
+            </p>
             <p className="truncate text-xs text-muted-foreground">
               {session.user.email}
             </p>
