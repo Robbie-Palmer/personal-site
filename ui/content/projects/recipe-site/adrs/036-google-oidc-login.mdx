@@ -1,0 +1,152 @@
+---
+title: "ADR 036: Google OIDC Login"
+date: "2026-06-19"
+status: "Accepted"
+tech_stack: ["Google Identity Platform", "Better Auth"]
+---
+
+# Summary
+
+Use **Sign in with Google** (Google's OAuth 2.0 / OpenID Connect implementation) as the recipe
+site's primary sign-in method.
+
+[ADR 032](/projects/recipe-site/adrs/032-better-auth) chose Better Auth as the authentication
+library and named Google as the expected default sign-in path. This ADR formalises *why* Google
+OIDC is that default, with explicit pros and cons, so the trade-off is recorded rather than implied.
+
+This is a decision about the **identity provider used for sign-in**. It does not decide the auth
+library (Better Auth, ADR 032), the backend runtime (ADR 033), the authorization model
+([ADR 034](/projects/recipe-site/adrs/034-authorization-model)), or the security baseline
+([ADR 035](/projects/recipe-site/adrs/035-application-security-baseline)).
+
+# Context
+
+The recipe site is moving from a shared public collection toward authenticated, user-specific state
+and household sharing. That needs a sign-in method.
+
+Two goals dominate the choice:
+
+1. **Sign-up should be as frictionless as possible.** The intended users — household members and a
+   small inner circle of friends — already have Google accounts. The ideal sign-up is a couple of
+   clicks with no form to fill in: no username to invent, no password to choose, no email to verify.
+2. **Password handling should sit with someone else.** Storing passwords drags in a long tail of
+   complexity: secure hashing, breach response, password reset flows, account recovery, and the UX
+   for all of it. None of that is differentiating work for a recipe site. Deferring it to Google
+   removes a whole category of code, support burden, and security risk.
+
+Better Auth ([ADR 032](/projects/recipe-site/adrs/032-better-auth)) already states the social-first
+position: email/password is out of scope, Google is the default path, and GitHub is a useful
+secondary provider for technical friends. This ADR is the dedicated record of the Google OIDC
+decision itself.
+
+# Decision
+
+Use **Google OIDC** as the primary sign-in method, wired through Better Auth's `google` social
+provider:
+
+```ts
+socialProviders: {
+  google: {
+    clientId: env.GOOGLE_CLIENT_ID,
+    clientSecret: env.GOOGLE_CLIENT_SECRET,
+  },
+}
+```
+
+The supporting setup is:
+
+* A **Google Cloud project** holds the OAuth consent screen and OAuth 2.0 client credentials.
+* The client ID and secret live in the project's secret-management layer, not in the repo.
+* Authorized redirect URIs point at the backend's OAuth callback route.
+* GitHub OAuth remains the documented secondary provider; this ADR does not remove it.
+
+Sign-up and sign-in are the same gesture: a returning user who authenticates with Google lands on
+their existing account; a new user gets one created on first sign-in. There is no separate
+registration step.
+
+# Why Google OIDC
+
+| Need                              | Google OIDC fit                                                                                                       |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Frictionless sign-up**          | Target users already have Google accounts. Sign-up is a consent click — no form, no password, no email verification. |
+| **No password ownership**         | Hashing, storage, reset, and recovery flows all sit with Google rather than this codebase.                           |
+| **Lower security surface**        | No password database to breach, and no credential-stuffing target. Account-takeover risk shifts to Google's controls. |
+| **MFA handled upstream**          | Multi-factor enforcement lives at the identity provider, consistent with the deferral stance in ADR 032.             |
+| **Verified email for free**       | Google returns a verified email and basic profile, removing a verification round-trip from onboarding.               |
+| **No auth-provider cost**         | Google OAuth is $0 for normal use, consistent with the cost model in ADR 032 and ADR 033.                            |
+
+Two points matter most: the sign-up experience is about as low-friction as it gets for this
+audience, and an entire problem domain — passwords and everything around them — never enters the
+system.
+
+# Alternatives Considered
+
+## Email + password
+
+Rejected. It is the highest-friction sign-up for this audience and pulls in password storage, reset
+flows, recovery, and breach response — exactly the complexity this decision exists to avoid.
+
+## Magic links
+
+Deferred. Lower friction than passwords, but adds an email-delivery dependency and link-consumption
+edge cases (expiry, reuse, multi-device) that Google OIDC sidesteps.
+
+## GitHub OAuth as the primary provider
+
+Kept as a secondary provider, not the primary one. Most household members do not have GitHub
+accounts, so it is a worse default than Google for the intended audience, while remaining useful for
+technical friends.
+
+## Passkeys
+
+Deferred, per ADR 032. Worth revisiting later, but not necessary for MVP and not as universally
+ready for non-technical users as Google sign-in today.
+
+# Consequences
+
+## Positive
+
+* **Sign-up is a couple of clicks.** No forms, no password, no email verification step.
+* **No password complexity.** Storage, resets, recovery, and breach response are Google's
+  responsibility, not ours.
+* **Smaller security surface.** There is no password store to leak and no credential-stuffing
+  target.
+* **Cheap.** No auth-provider cost at MVP scale.
+
+## Negative
+
+* **A Google Cloud project is required.** Sign-in depends on an external GCP project with an OAuth
+  consent screen and client credentials — a setup step and an ongoing dependency that would not
+  exist with self-contained auth.
+* **Setup is currently manual.** The Google Cloud OAuth client is configured by hand in the console.
+  Whether it can be managed via Terraform/IaC is unconfirmed; until that is resolved, this is
+  console-owned configuration, which sits awkwardly with the code-first, agent-friendly principle in
+  ADR 032 and ADR 033.
+* **No preview-environment story.** OAuth requires pre-registered, static redirect URIs, so
+  ephemeral per-PR preview URLs cannot complete a Google sign-in out of the box. This conflicts with
+  the short-feedback-loop / preview-environment goals in ADR 033, and there is currently no adopted
+  solution (options to explore: a shared fixed callback host, a wildcard-tolerant proxy, or a
+  dedicated long-lived staging client).
+* **A proxy currently sits between frontend and backend.** Making the flow work in practice required
+  an additional proxy in front of the static frontend (Cloudflare Pages) and the API Worker so the
+  OAuth callback and session cookies share an origin. This is extra moving infrastructure that is
+  annoying to operate, and the reason it is needed should be understood and ideally removed rather
+  than left as folklore.
+* **Hard dependency on Google.** Users without a Google account cannot sign in via this path; GitHub
+  OAuth is the mitigation. A Google outage or account-level lockout blocks sign-in entirely.
+
+# When To Revisit
+
+Revisit this ADR if any of the following become true:
+
+* a meaningful number of intended users do not have, or do not want to use, a Google account
+* the manual Google Cloud setup becomes painful enough to justify investing in IaC for it (or Google
+  ships a workable Terraform path)
+* preview environments need real sign-in and the missing callback-URL story starts to hurt
+* the frontend/backend proxy proves removable, or conversely becomes a recurring source of bugs
+* Google changes OAuth terms, pricing, or verification requirements in a way that affects this use
+* product needs change such that owning identity directly (passwords, passkeys, magic links) becomes
+  worthwhile
+
+If Google OIDC stops being the right default, this ADR can be marked **Deprecated** in favour of a
+successor, while Better Auth (ADR 032) keeps the underlying auth layer stable through the change.
