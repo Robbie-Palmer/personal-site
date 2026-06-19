@@ -75,7 +75,7 @@ split:
 | Enabling required APIs                          | Terraformable (`google_project_service`).                                                                                  |
 | Client ID / secret stored as app secrets        | Terraformable via the project's secret-management layer.                                                                   |
 | **OAuth consent screen (brand)**                | **Not** manageable as a normal web-app brand; the only Terraform resource (`google_iap_brand`) is Identity-Aware Proxy only. |
-| **OAuth 2.0 Client ID (type "Web application")** | **No Terraform resource exists.** This is the credential Sign in with Google actually uses.                                 |
+| **OAuth 2.0 Client ID (type "Web application")** | **No Terraform resource exists.** This is the credential the sign-in flow depends on.                                       |
 
 The gap is specific and confirmed, not unknown: the HashiCorp Google provider has no resource for a
 standard (non-IAP) web-application OAuth 2.0 Client ID. The long-running feature request
