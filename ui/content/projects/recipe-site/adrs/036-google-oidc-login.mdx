@@ -149,11 +149,13 @@ fee, not a technical advantage.
 | -------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Email + password** | Out of scope | The highest-friction sign-up for this audience and the one that drags in password storage, resets, recovery, and breach response — the exact complexity this decision exists to avoid. Not planned.                                |
 | **Magic links**      | Deferred     | Passwordless like Google, but adds an email-delivery dependency and link-consumption edge cases (expiry, reuse, multi-device) that a federated provider sidesteps. A reasonable *fallback* for users without a Google account.     |
-| **Passkeys**         | Deferred     | The strongest long-term direction: phishing-resistant and passwordless. Less universally ready for non-technical users today, and best added as an *enhancement* on top of an existing account rather than the first-run path.     |
+| **Passkeys**         | Deferred     | Phishing-resistant and passwordless, and the strongest long-term direction. The catch: passkeys only deliver that security if they are the sole or required way in. While Google sign-in stays enabled beside them, the account is only as phishing-resistant as Google's flow, because an attacker falls back to it — so bolting passkeys on as an optional extra is mostly convenience until they gate or replace the weaker method, which works against the Google-first, low-friction goal. Also less universally ready for non-technical users today. |
 
-Magic links and passkeys are future layers rather than competitors: magic links as a
-no-account-required fallback, passkeys as a step-up once a user exists. Neither needs to displace
-Google to be worth adding.
+Magic links and passkeys are future layers rather than competitors. Magic links would be a
+no-account-required fallback for users without Google. Passkeys are the harder call: their
+phishing-resistance only counts if they become the sole or required factor, so adding them while
+Google stays enabled raises convenience more than security. They are worth the headline benefit only
+if they eventually gate the account rather than sit beside Google as one option among several.
 
 # Consequences
 
