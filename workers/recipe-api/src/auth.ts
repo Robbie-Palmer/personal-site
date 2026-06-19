@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { admin } from "better-auth/plugins";
 import { withCloudflare } from "better-auth-cloudflare";
 import type { createDb } from "./db";
 import * as schema from "./db/schema";
@@ -22,6 +23,7 @@ export function createAuth(
     baseURL,
     basePath: "/api/auth",
     secret: env.BETTER_AUTH_SECRET,
+    plugins: [admin()],
     ...withCloudflare(
       {
         postgres: { db, options: { schema } },
