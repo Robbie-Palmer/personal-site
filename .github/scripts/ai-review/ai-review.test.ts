@@ -66,6 +66,7 @@ test("rendered comment preserves provenance and cumulative cost", () => {
     failed: [],
     candidateCounts: { "model-a": 1 },
     invalidCounts: {},
+    outOfScopeCounts: {},
     modelCosts: { "model-a": 0.1 },
     mergerCost: 0.15,
     omitted: [],
@@ -75,7 +76,7 @@ test("rendered comment preserves provenance and cumulative cost", () => {
   assert.match(body, /Reported by: `model-a`/);
   assert.match(body, /&lt;details&gt;/);
   assert.match(body, /<!-- ai-review-cost:{"runs":2,"total_usd":0.75,"models":/);
-  assert.match(body, /\| model-a \| 1 \| 1 \| 1 \| 0 \| 0 \| \$0.1000 \|/);
+  assert.match(body, /\| model-a \| 1 \| 1 \| 1 \| 0 \| 0 \| 0 \| \$0.1000 \|/);
 });
 
 test("historical scorecard schema drift cannot produce NaN", () => {
@@ -87,6 +88,7 @@ test("historical scorecard schema drift cannot produce NaN", () => {
     failed: [],
     candidateCounts: { "model-a": 0 },
     invalidCounts: {},
+    outOfScopeCounts: {},
     modelCosts: {},
     mergerCost: 0,
     omitted: [],

@@ -39,10 +39,19 @@ jobs:
     steps:
       # pull_request_target has access to secrets. Always execute reviewer code from
       # the trusted base commit, never from the pull request head.
+      - name: Resolve trusted base commit
+        id: base
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}
+        run: |
+          base_sha=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.sha')
+          echo "sha=${base_sha}" >> "$GITHUB_OUTPUT"
+
       - name: Check out trusted reviewer
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.base.sha || github.event.repository.default_branch }}
+          ref: ${{ steps.base.outputs.sha }}
           persist-credentials: false
 
       - name: Set up Node.js

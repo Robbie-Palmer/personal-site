@@ -56,6 +56,7 @@ interface ModelStats {
   candidates: number;
   retained: number;
   invalid: number;
+  outOfScope: number;
   failures: number;
   cost: number;
 }
@@ -399,9 +400,9 @@ class Reviewer {
     return this.github.request("GET", this.prPath);
   }
 
-  private async pages<T>(path: string, limit = 30): Promise<T[]> {
+  private async pages<T>(path: string, limit?: number): Promise<T[]> {
     const output: T[] = [];
-    for (let page = 1; page <= limit; page += 1) {
+    for (let page = 1; limit === undefined || page <= limit; page += 1) {
       const batch = await this.github.request<T[]>("GET", path, { query: { per_page: 100, page } });
       if (!Array.isArray(batch)) throw new Error(`Expected list from GitHub endpoint ${path}`);
       output.push(...batch);
@@ -411,7 +412,7 @@ class Reviewer {
   }
 
   async changedFiles(): Promise<{ diff: string; paths: string[]; omitted: string[] }> {
-    const files = await this.pages<ChangedFile>(`${this.prPath}/files`);
+    const files = await this.pages<ChangedFile>(`${this.prPath}/files`, 30);
     const blocks: string[] = [];
     const paths: string[] = [];
     const omitted: string[] = [];
@@ -624,6 +625,7 @@ export function renderComment(options: {
   failed: string[];
   candidateCounts: Record<string, number>;
   invalidCounts: Record<string, number>;
+  outOfScopeCounts: Record<string, number>;
   modelCosts: Record<string, number>;
   mergerCost: number;
   omitted: string[];
@@ -648,6 +650,7 @@ export function renderComment(options: {
       candidates: 0,
       retained: 0,
       invalid: 0,
+      outOfScope: 0,
       failures: 0,
       cost: 0,
     };
@@ -658,6 +661,8 @@ export function renderComment(options: {
         finiteNumber(previous.retained) +
         findings.filter((finding) => finding.source_models.includes(model)).length,
       invalid: finiteNumber(previous.invalid) + (options.invalidCounts[model] ?? 0),
+      outOfScope:
+        finiteNumber(previous.outOfScope) + (options.outOfScopeCounts[model] ?? 0),
       failures: finiteNumber(previous.failures) + (options.failed.includes(model) ? 1 : 0),
       cost: Number((finiteNumber(previous.cost) + (options.modelCosts[model] ?? 0)).toFixed(6)),
     };
@@ -707,7 +712,14 @@ export function renderComment(options: {
   const invalid = Object.entries(options.invalidCounts).filter(([, count]) => count > 0);
   if (invalid.length) {
     lines.push(
-      `> Invalid/out-of-diff findings dropped: ${invalid.map(([model, count]) => `${markdownText(model)}: ${count}`).join(", ")}`,
+      `> Structurally invalid findings dropped: ${invalid.map(([model, count]) => `${markdownText(model)}: ${count}`).join(", ")}`,
+      "",
+    );
+  }
+  const outOfScope = Object.entries(options.outOfScopeCounts).filter(([, count]) => count > 0);
+  if (outOfScope.length) {
+    lines.push(
+      `> Out-of-diff findings dropped: ${outOfScope.map(([model, count]) => `${markdownText(model)}: ${count}`).join(", ")}`,
       "",
     );
   }
@@ -722,11 +734,11 @@ export function renderComment(options: {
     "",
     "<details><summary>Model scorecard</summary>",
     "",
-    "| Scout | Runs | Candidates | Retained | Invalid/OOD | Failures | Cost |",
-    "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    "| Scout | Runs | Candidates | Retained | Invalid | OOD | Failures | Cost |",
+    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...options.models.map((model) => {
       const stats = modelStats[model];
-      return `| ${markdownText(model, 200)} | ${stats.runs} | ${stats.candidates} | ${stats.retained} | ${stats.invalid} | ${stats.failures} | $${stats.cost.toFixed(4)} |`;
+      return `| ${markdownText(model, 200)} | ${stats.runs} | ${stats.candidates} | ${stats.retained} | ${stats.invalid} | ${stats.outOfScope} | ${stats.failures} | $${stats.cost.toFixed(4)} |`;
     }),
     "",
     `Merger cost this run: $${options.mergerCost.toFixed(4)}.`,
@@ -741,7 +753,10 @@ async function main(): Promise<void> {
   if (!Number.isInteger(settings.prNumber) || settings.prNumber < 1) throw new Error("PR_NUMBER must be positive");
   const reviewer = new Reviewer(settings);
   const pr = await reviewer.getPr();
-  if (pr.state !== "open") throw new Error(`PR #${settings.prNumber} is not open`);
+  if (pr.state !== "open") {
+    console.log(`Skipping PR #${settings.prNumber} because it is ${pr.state}`);
+    return;
+  }
   const author = pr.user.login.toLowerCase();
   if (settings.ignoredAuthors.includes(author)) {
     console.log(`Skipping PR #${settings.prNumber} from ignored author ${author}`);
@@ -769,6 +784,7 @@ async function main(): Promise<void> {
   const candidates: Record<string, Finding[]> = {};
   const costs: Record<string, number> = {};
   const invalidCounts: Record<string, number> = {};
+  const outOfScopeCounts: Record<string, number> = {};
   const candidateCounts: Record<string, number> = {};
   const failed: string[] = [];
   const allowedFiles = new Set(paths);
@@ -785,12 +801,14 @@ async function main(): Promise<void> {
       const structurallyValid = validateFindings(raw, { merged: false }) as Finding[];
       const accepted = structurallyValid.filter((finding) => allowedFiles.has(finding.file));
       const rawCount = isObject(raw) && Array.isArray(raw.findings) ? raw.findings.length : 0;
-      invalidCounts[model] = rawCount - accepted.length;
+      invalidCounts[model] = rawCount - structurallyValid.length;
+      outOfScopeCounts[model] = structurallyValid.length - accepted.length;
       candidateCounts[model] = accepted.length;
       candidates[model] = accepted;
     } catch (error) {
       failed.push(model);
       invalidCounts[model] = 1;
+      outOfScopeCounts[model] = 0;
       candidateCounts[model] = 0;
       console.error(`::warning::Scout ${model} returned invalid payload: ${String(error)}`);
     }
@@ -826,6 +844,7 @@ async function main(): Promise<void> {
       failed,
       candidateCounts,
       invalidCounts,
+      outOfScopeCounts,
       modelCosts: costs,
       mergerCost: merged.cost,
       omitted,
