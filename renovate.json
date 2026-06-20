@@ -32,6 +32,11 @@
       "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["minor", "patch", "major"],
       "automerge": true
+    },
+    {
+      "description": "Disable release age for lockfile maintenance",
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "minimumReleaseAge": null
     }
   ]
 }
