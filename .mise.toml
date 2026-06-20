@@ -14,7 +14,7 @@ verbose = false
 [tools]
 node = "lts"
 pnpm = "10.34.3"
-terraform = "1.15.5"
+terraform = "1.15.6"
 
 [env]
 _.file = ".env"
