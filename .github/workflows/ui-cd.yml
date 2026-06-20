@@ -11,6 +11,7 @@ on:
       - ".mise.toml"
       - ".github/workflows/ui-cd.yml"
       - "package.json"
+      - "pnpm-lock.yaml"
   pull_request:
     paths:
       - "ui/**"
@@ -19,6 +20,7 @@ on:
       - ".mise.toml"
       - ".github/workflows/ui-cd.yml"
       - "package.json"
+      - "pnpm-lock.yaml"
   workflow_dispatch:
 
 permissions:
