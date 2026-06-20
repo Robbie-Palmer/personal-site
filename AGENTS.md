@@ -1,4 +1,4 @@
-# Project Guide for Claude
+# Project Guide for Coding Agents
 
 ## Build System
 
