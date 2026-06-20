@@ -29,12 +29,13 @@ Optional Actions repository variables:
 ## Security and behavior
 
 The workflow needs the OpenRouter secret, but code in a pull request is
-untrusted. `pull_request_target` makes the secret available. For every automatic
-or manual trigger, the workflow resolves the PR's exact base commit through the
-GitHub API and checks out that commit. The trusted reviewer then downloads the
-proposed changes through GitHub's API as text. It never checks out or executes
-code from the pull-request branch. Do not change the checkout to the PR head
-while the OpenRouter secret is present.
+untrusted. `pull_request_target` makes the secret available. Automatic reviews
+check out the PR's exact base commit. Manual comment and dispatch runs check out
+the protected default branch because those events do not contain a trusted PR
+base reference. The trusted reviewer then downloads the proposed changes through
+GitHub's API as text. It never checks out or executes code from the pull-request
+branch. Do not change the checkout to the PR head while the OpenRouter secret is
+present.
 
 The reviewer is advisory: it creates one rolling comment, does not submit a
 formal review, and is not intended to be a required merge check initially. Its
