@@ -1,0 +1,63 @@
+name: AI code review
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  review:
+    if: >-
+      (github.event_name == 'pull_request_target' &&
+       github.event.pull_request.draft == false &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
+                github.event.pull_request.author_association)) ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       github.event.comment.body == '/ai-review' &&
+       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: ai-review-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}
+      cancel-in-progress: true
+
+    steps:
+      # pull_request_target has access to secrets. Always execute reviewer code from
+      # the trusted base commit, never from the pull request head.
+      - name: Check out trusted reviewer
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Review pull request
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}
+          AI_REVIEW_MODELS: ${{ vars.AI_REVIEW_MODELS }}
+          AI_REVIEW_MERGER_MODEL: ${{ vars.AI_REVIEW_MERGER_MODEL }}
+          AI_REVIEW_IGNORED_AUTHORS: ${{ vars.AI_REVIEW_IGNORED_AUTHORS }}
+          AI_REVIEW_ZDR: ${{ vars.AI_REVIEW_ZDR }}
+        run: node .github/scripts/ai-review/ai-review.ts
