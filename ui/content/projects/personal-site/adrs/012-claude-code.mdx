@@ -20,7 +20,7 @@ I will use **[Claude Code](https://docs.anthropic.com/en/docs/claude-code/overvi
 This involves committing to its specific configuration infrastructure:
 
 * `.claude/` directory for tool-specific settings.
-* `claude.md` for providing high-level project context and architectural guidelines specifically formatted for this agent.
+* `CLAUDE.md` for Claude Code discovery, importing the shared project context and architectural guidelines from `AGENTS.md`.
 
 # Alternatives
 
@@ -35,10 +35,10 @@ This involves committing to its specific configuration infrastructure:
 * **Augment Code**: Optimizes for extreme speed and enterprise context.
 * **Reasoning**: While these are strong competitors, **Claude Code** provides the native, unmediated experience with the specific models (Claude 4.5 Sonnet, Opus) that I find most effective for complex reasoning tasks.
 
-## Standardized Config (`agents.md`)
+## Standardized Config (`AGENTS.md`)
 
 * **Pros**: Open standard for defining agent context, avoiding tool-specific files.
-* **Cons**: Claude Code reads `claude.md` natively and effectively. I am accepting the trade-off of using a tool-specific context file for better immediate results.
+* **Cons**: At the time of this decision, Claude Code relied on its tool-specific context file for native loading. The repository now preserves native discovery through `CLAUDE.md` while sharing the actual instructions through `AGENTS.md`.
 
 *Note: **Antigravity** is not considered in this ADR as it is a newer development than when this decision was originally made.*
 
@@ -47,7 +47,7 @@ This involves committing to its specific configuration infrastructure:
 ### Pros
 
 * **Velocity**: I can ship features significantly faster by delegating implementation details.
-* **Context Management**: Centralizing project knowledge in `claude.md` ensures the agent stays aligned with the project's evolving architecture.
+* **Context Management**: Centralizing project knowledge in `AGENTS.md` ensures coding agents stay aligned with the project's evolving architecture; `CLAUDE.md` imports it for Claude Code.
 * **Synergy**: Necessitates robust testing \[ADR 008] and review \[ADR 009] to verify the agent's output.
 
 ### Cons
