@@ -88,6 +88,11 @@ description = "Validate Cloudflare Images configuration and connectivity"
 depends = ["//ui:install"]
 run = "pnpm images:health-check"
 
+[tasks.deploy]
+description = "Deploy to Cloudflare Pages via Wrangler"
+depends = ["//ui:build"]
+run = "pnpm exec wrangler pages deploy ui/out --cwd .. --project-name=personal-site --branch=\"${DEPLOY_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}\""
+
 # Lighthouse performance testing tasks
 [tasks.lighthouse]
 description = "Run Lighthouse against running dev server (start dev server first)"
