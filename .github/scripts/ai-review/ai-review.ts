@@ -334,6 +334,11 @@ function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function finiteNumber(value: unknown): number {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) ? number : 0;
+}
+
 export function validateFindings(
   payload: unknown,
   options: { merged: boolean; allowedFiles?: Set<string> },
@@ -412,13 +417,9 @@ class Reviewer {
     const omitted: string[] = [];
     let used = 0;
     for (const file of files) {
-      if (
-        !file.filename ||
-        ignored(file.filename) ||
-        typeof file.patch !== "string" ||
-        file.patch.length > MAX_PATCH_CHARS
-      ) {
-        omitted.push(file.filename || "(unknown)");
+      if (!file.filename || ignored(file.filename)) continue;
+      if (typeof file.patch !== "string" || file.patch.length > MAX_PATCH_CHARS) {
+        omitted.push(file.filename);
         continue;
       }
       const block = `diff --git a/${file.previous_filename ?? file.filename} b/${file.filename}\nstatus ${file.status}\n${file.patch}\n`;
@@ -638,8 +639,8 @@ export function renderComment(options: {
   );
   const open = findings.filter((finding) => finding.status === "open");
   const resolved = findings.filter((finding) => finding.status === "resolved");
-  const total = options.previousState.total_usd + options.runCost;
-  const runs = options.previousState.runs + 1;
+  const total = finiteNumber(options.previousState.total_usd) + options.runCost;
+  const runs = finiteNumber(options.previousState.runs) + 1;
   const modelStats = { ...(options.previousState.models ?? {}) };
   for (const model of options.models) {
     const previous = modelStats[model] ?? {
@@ -651,12 +652,14 @@ export function renderComment(options: {
       cost: 0,
     };
     modelStats[model] = {
-      runs: previous.runs + 1,
-      candidates: previous.candidates + (options.candidateCounts[model] ?? 0),
-      retained: previous.retained + findings.filter((finding) => finding.source_models.includes(model)).length,
-      invalid: previous.invalid + (options.invalidCounts[model] ?? 0),
-      failures: previous.failures + (options.failed.includes(model) ? 1 : 0),
-      cost: Number((previous.cost + (options.modelCosts[model] ?? 0)).toFixed(6)),
+      runs: finiteNumber(previous.runs) + 1,
+      candidates: finiteNumber(previous.candidates) + (options.candidateCounts[model] ?? 0),
+      retained:
+        finiteNumber(previous.retained) +
+        findings.filter((finding) => finding.source_models.includes(model)).length,
+      invalid: finiteNumber(previous.invalid) + (options.invalidCounts[model] ?? 0),
+      failures: finiteNumber(previous.failures) + (options.failed.includes(model) ? 1 : 0),
+      cost: Number((finiteNumber(previous.cost) + (options.modelCosts[model] ?? 0)).toFixed(6)),
     };
   }
   const state = JSON.stringify({
@@ -703,7 +706,10 @@ export function renderComment(options: {
   }
   const invalid = Object.entries(options.invalidCounts).filter(([, count]) => count > 0);
   if (invalid.length) {
-    lines.push(`> Structurally invalid findings dropped: ${invalid.map(([model, count]) => `${markdownText(model)}: ${count}`).join(", ")}`, "");
+    lines.push(
+      `> Invalid/out-of-diff findings dropped: ${invalid.map(([model, count]) => `${markdownText(model)}: ${count}`).join(", ")}`,
+      "",
+    );
   }
   const candidateSummary = options.models
     .map((model) => `${markdownText(model, 200)}: ${options.candidateCounts[model] ?? 0}`)
@@ -716,7 +722,7 @@ export function renderComment(options: {
     "",
     "<details><summary>Model scorecard</summary>",
     "",
-    "| Scout | Runs | Candidates | Retained | Invalid | Failures | Cost |",
+    "| Scout | Runs | Candidates | Retained | Invalid/OOD | Failures | Cost |",
     "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...options.models.map((model) => {
       const stats = modelStats[model];
@@ -773,14 +779,21 @@ async function main(): Promise<void> {
       console.error(`::warning::Scout ${model} failed: ${String(outcome.reason)}`);
       return;
     }
-    const raw = outcome.value.result.payload;
-    const structurallyValid = validateFindings(raw, { merged: false }) as Finding[];
-    const accepted = structurallyValid.filter((finding) => allowedFiles.has(finding.file));
-    const rawCount = isObject(raw) && Array.isArray(raw.findings) ? raw.findings.length : 0;
-    invalidCounts[model] = rawCount - accepted.length;
-    candidateCounts[model] = accepted.length;
-    candidates[model] = accepted;
     costs[model] = outcome.value.result.cost;
+    try {
+      const raw = outcome.value.result.payload;
+      const structurallyValid = validateFindings(raw, { merged: false }) as Finding[];
+      const accepted = structurallyValid.filter((finding) => allowedFiles.has(finding.file));
+      const rawCount = isObject(raw) && Array.isArray(raw.findings) ? raw.findings.length : 0;
+      invalidCounts[model] = rawCount - accepted.length;
+      candidateCounts[model] = accepted.length;
+      candidates[model] = accepted;
+    } catch (error) {
+      failed.push(model);
+      invalidCounts[model] = 1;
+      candidateCounts[model] = 0;
+      console.error(`::warning::Scout ${model} returned invalid payload: ${String(error)}`);
+    }
   });
   if (!Object.keys(candidates).length) throw new Error("All scout models failed; refusing to publish an empty review");
 

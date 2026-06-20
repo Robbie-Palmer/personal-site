@@ -42,8 +42,8 @@ test("finding validation rejects incomplete and out-of-diff findings", () => {
 });
 
 test("model text cannot inject HTML, mentions, or markdown links", () => {
-  const output = markdownText("<script>@owner [click](https://example.com)</script>");
-  assert.doesNotMatch(output, /<script>|@owner|\[click\]\(/);
+  const output = markdownText("<SCRIPT>@owner [click](https://example.com)</SCRIPT>");
+  assert.doesNotMatch(output, /<script>|@owner|\[click\]\(/i);
 });
 
 test("rendered comment preserves provenance and cumulative cost", () => {
@@ -76,4 +76,26 @@ test("rendered comment preserves provenance and cumulative cost", () => {
   assert.match(body, /&lt;details&gt;/);
   assert.match(body, /<!-- ai-review-cost:{"runs":2,"total_usd":0.75,"models":/);
   assert.match(body, /\| model-a \| 1 \| 1 \| 1 \| 0 \| 0 \| \$0.1000 \|/);
+});
+
+test("historical scorecard schema drift cannot produce NaN", () => {
+  const body = renderComment({
+    result: { summary: "Summary", findings: [] },
+    headSha: "a".repeat(40),
+    models: ["model-a"],
+    merger: "model-b",
+    failed: [],
+    candidateCounts: { "model-a": 0 },
+    invalidCounts: {},
+    modelCosts: {},
+    mergerCost: 0,
+    omitted: [],
+    runCost: 0,
+    previousState: {
+      runs: 1,
+      total_usd: 0.5,
+      models: { "model-a": {} as never },
+    },
+  });
+  assert.doesNotMatch(body, /NaN/);
 });

@@ -47,9 +47,11 @@ directories, images, fonts, archives, documents, audio/video, compiled objects,
 databases, WebAssembly, model checkpoints, and binary data formats. GitHub also
 omits textual patches for binary or excessively large files; the reviewer marks
 those files as omitted rather than sending them to a model. The PR comment lists
-all omitted files. It also caps each patch at 60,000 characters, each full-file
-context at 200 KB, and the combined diff at 280,000 characters. Split large PRs
-when full coverage matters.
+all unexpectedly omitted files; intentionally ignored files do not produce an
+incomplete-coverage warning. It does not fetch files over 200 KB. For files it
+does fetch, it includes at most 40,000 characters per file and 180,000 characters
+of combined file context. It also caps each patch at 60,000 characters and the
+combined diff at 280,000 characters. Split large PRs when full coverage matters.
 
 ## Validation
 
