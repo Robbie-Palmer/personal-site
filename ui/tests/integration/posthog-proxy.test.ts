@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { createServer, type Server } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { killProcessGroup, waitForServer } from "./wrangler-test-utils";
 
 const WRANGLER_PORT = 8788;
 const MOCK_API_PORT = 8789;
@@ -90,6 +91,8 @@ describe("PostHog Proxy Integration Test", () => {
       {
         cwd: process.cwd().replace(/\/ui$/, ""),
         stdio: ["ignore", "pipe", "pipe"],
+        // Own process group so cleanup also kills spawned workerd children
+        detached: true,
       },
     );
 
@@ -104,7 +107,7 @@ describe("PostHog Proxy Integration Test", () => {
   }, 60000);
 
   afterAll(async () => {
-    wranglerProcess?.kill();
+    killProcessGroup(wranglerProcess);
     await new Promise<void>((resolve) => mockApiServer?.close(() => resolve()));
     await new Promise<void>((resolve) =>
       mockAssetsServer?.close(() => resolve()),
@@ -173,29 +176,3 @@ describe("PostHog Proxy Integration Test", () => {
     expect(forwardedRequest?.url).toBe("/static/array.js");
   });
 });
-
-async function waitForServer(
-  proc: ChildProcess,
-  timeout: number,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      proc.kill();
-      reject(new Error(`Server did not start within ${timeout}ms`));
-    }, timeout);
-
-    proc.stdout?.on("data", (data: Buffer) => {
-      if (data.toString().includes("Ready on")) {
-        clearTimeout(timer);
-        resolve();
-      }
-    });
-
-    proc.on("exit", (code) => {
-      clearTimeout(timer);
-      if (code !== 0 && code !== null) {
-        reject(new Error(`Wrangler process exited with code ${code}`));
-      }
-    });
-  });
-}

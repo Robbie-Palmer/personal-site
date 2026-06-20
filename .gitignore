@@ -6,6 +6,7 @@ package-lock.json
 
 # Next.js
 .next/
+.next-dev/
 out/
 build/
 .vercel/
@@ -50,7 +51,8 @@ override.tf.json
 .mise.local.toml
 
 # Cloudflare
-.wrangler/*
+**/.wrangler/
+.dev.vars
 
 # IDE
 .vscode/*

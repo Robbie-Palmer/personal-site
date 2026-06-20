@@ -76,6 +76,14 @@ Personal website with blog and interactive resume.
 
 Visit [http://localhost:3000](http://localhost:3000)
 
+To run the frontend together with the recipe API Worker for OAuth development,
+configure `workers/recipe-api/.dev.vars` as described in the
+[recipe API setup guide](workers/recipe-api/README.md), then run:
+
+```bash
+mise run //:dev
+```
+
 ## Repository Structure
 
 ```text
@@ -128,8 +136,8 @@ mise //ui:format              # Format and fix with Biome
 ### Infrastructure Tasks
 
 ```bash
-mise //infra/cloudflare:format  # Format Terraform files
-mise //infra/cloudflare:lint    # Lint Terraform files
+mise //infra:format  # Format Terraform files
+mise //infra:lint    # Lint Terraform files
 ```
 
 ### Content Management

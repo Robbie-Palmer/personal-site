@@ -21,9 +21,11 @@ jobs:
       TF_VAR_cf_images_account_hash: ${{ secrets.CF_IMAGES_ACCOUNT_HASH }}
       TF_VAR_posthog_key: ${{ secrets.POSTHOG_KEY }}
       TF_VAR_github_token: ${{ secrets.MISE_GITHUB_TOKEN }}
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      TF_VAR_neon_org_id: ${{ secrets.NEON_ORG_ID }}
     defaults:
       run:
-        working-directory: infra/cloudflare
+        working-directory: infra
     steps:
       - uses: actions/checkout@v6
 
@@ -39,20 +41,22 @@ jobs:
           export TF_VAR_cf_images_account_hash="${TF_VAR_cf_images_account_hash}"
           export TF_VAR_posthog_key="${TF_VAR_posthog_key}"
           export TF_VAR_github_token="${TF_VAR_github_token}"
+          export NEON_API_KEY="${NEON_API_KEY}"
+          export TF_VAR_neon_org_id="${TF_VAR_neon_org_id}"
           EOF
 
       - name: Check Terraform formatting
-        run: mise run //infra/cloudflare:format:check
+        run: mise run //infra:format:check
 
       - name: Validate Terraform
-        run: mise run //infra/cloudflare:lint
+        run: mise run //infra:lint
 
       - name: Terraform Plan
-        run: mise run //infra/cloudflare:plan
+        run: mise run //infra:plan
 
       - name: Add Terraform Plan to PR Comment
         uses: borchero/terraform-plan-comment@v3
         with:
           token: ${{ github.token }}
           planfile: .planfile
-          working-directory: ./infra/cloudflare
+          working-directory: ./infra

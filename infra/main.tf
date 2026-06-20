@@ -8,6 +8,7 @@ locals {
     NEXT_PUBLIC_POSTHOG_KEY            = var.posthog_key
     NEXT_PUBLIC_POSTHOG_HOST           = var.posthog_host
     GITHUB_TOKEN                       = var.github_token
+    RECIPE_API_URL                     = var.recipe_api_url
   }
 }
 
@@ -90,6 +91,56 @@ resource "cloudflare_r2_bucket" "dvc" {
   name       = var.r2_dvc_bucket_name
   location   = "ENAM"
 }
+
+# Neon
+
+resource "neon_project" "recipes" {
+  name       = "recipes"
+  region_id  = var.neon_region
+  pg_version = var.neon_pg_version
+  org_id     = var.neon_org_id
+
+  history_retention_seconds = 21600 # 6 hours (free plan max)
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  branch {
+    name          = "main"
+    database_name = "recipes"
+    role_name     = "recipes_owner"
+  }
+
+  quota {
+    compute_time_seconds = 360000     # 100 CU-hours (free plan limit)
+    data_transfer_bytes  = 5368709120 # 5 GB (free plan limit)
+    logical_size_bytes   = 536870912  # 512 MB per branch (free plan limit)
+  }
+}
+
+# Hyperdrive — connection pooling from Workers to Neon.
+# Uses the direct host (not pooler) because Hyperdrive does its own pooling.
+
+resource "cloudflare_hyperdrive_config" "recipe_db" {
+  account_id = var.cloudflare_account_id
+  name       = "recipe-db"
+
+  origin = {
+    database = neon_project.recipes.database_name
+    host     = neon_project.recipes.database_host
+    port     = 5432
+    user     = neon_project.recipes.database_user
+    password = neon_project.recipes.database_password
+    scheme   = "postgresql"
+  }
+
+  caching = {
+    disabled = true
+  }
+}
+
+# Cloudflare cache
 
 resource "cloudflare_ruleset" "map_tiles_cache" {
   zone_id     = data.cloudflare_zone.domain.id

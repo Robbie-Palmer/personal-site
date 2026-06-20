@@ -1,6 +1,6 @@
 "use client";
 
-import { Github, Linkedin } from "lucide-react";
+import { Github, Linkedin, Rss } from "lucide-react";
 import Link from "next/link";
 import posthog from "posthog-js";
 
@@ -49,6 +49,21 @@ export function FooterLinks({
           }
         >
           <Linkedin className="h-6 w-6" />
+        </Link>
+        <Link
+          href="/feed.xml"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-foreground hover:opacity-60 transition-opacity"
+          aria-label="RSS feed"
+          onClick={() =>
+            posthog.capture("rss_feed_clicked", {
+              feed: "global",
+              location: "footer",
+            })
+          }
+        >
+          <Rss className="h-6 w-6" />
         </Link>
       </div>
 

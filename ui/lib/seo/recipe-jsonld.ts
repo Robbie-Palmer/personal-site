@@ -24,6 +24,7 @@ export type SchemaOrgRecipe = {
   "@context": "https://schema.org";
   "@type": "Recipe";
   name: string;
+  url: string;
   description?: string;
   image?: string[];
   author: SchemaOrgPerson;
@@ -127,6 +128,7 @@ function warnMissing(slug: string, field: string): void {
 export function buildRecipeJsonLd(
   recipe: RecipeDetailView,
   authorName: string,
+  recipeUrl: string,
 ): SchemaOrgRecipe {
   if (!recipe.image) {
     warnMissing(recipe.slug, "image");
@@ -149,6 +151,7 @@ export function buildRecipeJsonLd(
     "@context": "https://schema.org",
     "@type": "Recipe",
     name: recipe.title,
+    url: recipeUrl,
     author: { "@type": "Person", name: authorName },
     datePublished: recipe.date,
     recipeYield: `${recipe.servings} serving${recipe.servings !== 1 ? "s" : ""}`,
