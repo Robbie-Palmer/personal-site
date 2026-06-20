@@ -218,6 +218,13 @@ export const technologies: TechnologyContent[] = [
     type: "tool",
   },
   {
+    name: "Greptile",
+    added: "2026-06-20",
+    description: "AI code reviewer with whole-codebase context",
+    website: "https://www.greptile.com",
+    type: "tool",
+  },
+  {
     name: "CLA Assistant",
     added: "2026-01-11",
     description: "Contributor License Agreement automation for GitHub",
