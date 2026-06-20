@@ -1,0 +1,60 @@
+---
+title: "ADR 043: Codex"
+date: "2026-06-21"
+status: "Accepted"
+tech_stack: ["Codex"]
+---
+
+# Context
+
+[ADR 012: Claude Code](/projects/personal-site/adrs/012-claude-code) records why this project uses an agentic coding assistant: deep reasoning, repository-wide changes, and autonomous iteration are central to maintaining velocity as a solo developer. This ADR accepts that basis without repeating it.
+
+Claude Code remains effective, but I regularly exhaust the usage included with the $20/month Claude Pro plan. When that happens, implementation work stops until the allowance resets or moves to usage-based billing. Anthropic's direct subscription solution is the **[Max 5x plan](https://support.claude.com/en/articles/11145838-using-claude-code-with-your-pro-or-max-plan)** at $100/month.
+
+At the same time, experienced practitioners whose workflows I respect report that Codex and OpenAI's coding models can be at least as effective as Claude when used according to their different interaction model. That is not a claim that one model is universally better. It is sufficient evidence to evaluate Codex as a complementary tool rather than treating Claude Code as the only viable agent.
+
+# Decision
+
+I will use **[Codex](https://developers.openai.com/codex/)** alongside Claude Code as an agentic coding assistant.
+
+Codex is included with the **[$20/month ChatGPT Plus plan](https://developers.openai.com/codex/pricing)** across its app, CLI, IDE, and web surfaces. Current limits use a five-hour window for local messages and cloud tasks, with additional weekly limits possible. In my observed use, its allowance appears more generous than Claude Pro, and its reset cadence provides useful capacity when Claude Code is unavailable. This is an operational observation rather than a guaranteed entitlement; both providers can change their limits.
+
+This is a complementary adoption, not a replacement for Claude Code. Using both tools preserves access to their different models, interfaces, and workflows while reducing dependence on one provider's availability, pricing, and usage policy.
+
+# Alternatives
+
+## Upgrade Claude Pro to Max 5x
+
+* **Pros**: Increases Claude usage fivefold without introducing another coding tool or model family.
+* **Cons**: Raises the Claude subscription from $20 to $100 per month while retaining a single provider dependency.
+* **Decision**: Rejected. Keeping Claude Pro and adding ChatGPT Plus costs $40 per month in total, which is $60 less than Claude Max 5x, while also introducing provider and tooling diversity.
+
+## Continue with Claude Pro Only
+
+* **Pros**: No additional subscription or tool configuration.
+* **Cons**: Regularly reaching the usage limit interrupts delivery and leaves no equivalent agentic fallback.
+* **Decision**: Rejected. The existing limit is already constraining development velocity.
+
+## Claude Usage-Based Billing
+
+* **Pros**: Extends Claude Code usage without waiting for a reset or changing the base subscription.
+* **Cons**: Variable API expenditure is harder to budget and still concentrates the workflow on Anthropic.
+* **Decision**: Rejected as the default response to limits. It remains available for exceptional bursts of work.
+
+# Consequences
+
+## Positive
+
+* **Maintained Velocity**: Work can continue in Codex when the Claude allowance is exhausted.
+* **Lower Cost than Claude Max**: Claude Pro plus ChatGPT Plus costs $40 per month rather than $100 per month for Claude Max 5x.
+* **Provider Redundancy**: An outage, limit, or pricing change from one provider does not remove the agentic coding workflow entirely.
+* **Different Strengths**: OpenAI and Anthropic models reason and interact differently. Learning both creates opportunities to route work to the tool that handles it best.
+* **Broader Tooling**: The ChatGPT Plus plan includes Codex across local and cloud surfaces rather than only adding more of the same usage.
+
+## Negative
+
+* **Additional Subscription**: The decision adds $20 per month rather than remaining on Claude Pro alone.
+* **Workflow Adaptation**: Codex needs to be used differently from Claude Code. Applying the same prompting and supervision patterns mechanically may produce worse results.
+* **Configuration Duplication**: Both tools require installation, authentication, and occasional tool-specific configuration, even though `AGENTS.md` provides shared project guidance.
+* **Two Sets of Limits**: Redundancy reduces interruption risk but does not remove usage limits. Codex limits vary with task size, model, and execution surface, and additional weekly limits may apply.
+* **Verification Remains Required**: Practitioner recommendations and model reputation do not guarantee better results on this repository. Codex output requires the same testing and review discipline as Claude output.

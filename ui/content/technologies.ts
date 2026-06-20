@@ -153,6 +153,13 @@ export const technologies: TechnologyContent[] = [
     type: "tool",
   },
   {
+    name: "Codex",
+    added: "2026-06-21",
+    description: "OpenAI agentic coding assistant",
+    website: "https://developers.openai.com/codex",
+    type: "tool",
+  },
+  {
     name: "Mise",
     added: "2026-01-04",
     description:
