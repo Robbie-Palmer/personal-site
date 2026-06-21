@@ -1,0 +1,4 @@
+# Vendored design prototypes exported from Claude Design — reference artifacts,
+# not hand-authored app code. Collapse in diffs and exclude from language stats.
+ui/content/projects/*/designs/** linguist-vendored
+ui/public/recipe-site-design/** linguist-generated

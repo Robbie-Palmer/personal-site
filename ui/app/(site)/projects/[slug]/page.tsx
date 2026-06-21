@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Markdown } from "@/components/markdown";
 import { ADRList } from "@/components/projects/adr-list";
+import { DesignEmbed } from "@/components/projects/design-embed";
 import { ProjectRoleBadge } from "@/components/projects/project-role-badge";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { ProjectTabs } from "@/components/projects/project-tabs";
@@ -16,6 +17,8 @@ import {
   getProject,
   type ProjectWithADRs,
 } from "@/lib/api/projects";
+
+const projectComponents = { DesignEmbed };
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -145,7 +148,12 @@ export default async function ProjectPage({ params }: PageProps) {
           <Suspense fallback={<ProjectTabsSkeleton />}>
             <ProjectTabs
               adrCount={project.adrs.length}
-              overview={<Markdown source={project.content} />}
+              overview={
+                <Markdown
+                  source={project.content}
+                  components={projectComponents}
+                />
+              }
               adrs={
                 <ADRList
                   projectSlug={project.slug}
@@ -165,7 +173,7 @@ export default async function ProjectPage({ params }: PageProps) {
             />
           </Suspense>
         ) : (
-          <Markdown source={project.content} />
+          <Markdown source={project.content} components={projectComponents} />
         )}
       </div>
     </div>

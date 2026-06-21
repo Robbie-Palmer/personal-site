@@ -270,6 +270,31 @@ The physical book isn't all bad. The recipe site should preserve its strengths:
 * **Resilience** — PWA works offline; no "phone died mid-recipe" failure mode
 * **Tangibility** — the printed recipe book feature lets users create physical artifacts when the occasion calls for it
 
+# Product Design
+
+The product has been designed end-to-end as a mid-fidelity prototype — every
+surface, in both desktop and mobile, rendered in a warm "paper and handwriting"
+visual language (a soft paper palette with Caveat, Kalam, and JetBrains Mono
+type) that deliberately evokes the physical recipe book this replaces.
+
+It spans 17 surfaces: the recipe box and recipe read/cook views, scan/import,
+the kitchen (pantry + freezer), shopping and meal planning, sharing, cookbooks,
+a public profile, a profile-wide diet, a full shared-household system, recipe
+lineage/provenance, a cook log, the logged-out home and discover feed,
+onboarding, a recommendations inbox, notifications, and a settings hub. Much of
+it is interactive — cooking-mode timers run live, and a "tweaks" panel re-casts
+household size, diet model, and activity density across the artboards.
+
+This is a design exploration of the full vision above, not a commitment to build
+all of it — it exists to pressure-test the ideas and seed the backlog. Breaking
+it into prioritised epics is the next step.
+
+<DesignEmbed src="/recipe-site-design/standalone.html" title="Recipe Site — mid-fi prototype" caption="All 17 surfaces, desktop + mobile · interactive · scroll and pan the canvas" height={760} />
+
+The prototype above is a self-contained build; the editable design source
+(tokens, shared components, and one file per screen) is vendored alongside this
+document under [`designs/`](https://github.com/Robbie-Palmer/personal-site/tree/main/ui/content/projects/recipe-site/designs).
+
 # Competitor Analysis
 
 The recipe app market is fragmented. No single product does everything well, and most users cobble together
