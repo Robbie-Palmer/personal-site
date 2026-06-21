@@ -36,7 +36,7 @@ Both jobs run on:
 * **Pull requests**: Block new CRITICAL or HIGH severity issues introduced by changes
 * **Weekly schedule**: Detect newly disclosed CVEs in existing configurations and dependencies
 
-Results are uploaded to GitHub Security tab in SARIF format for unified visibility alongside CodeQL findings. GitHub's code scanning infrastructure distinguishes new alerts from pre-existing ones, so PRs are only blocked for issues they introduce—not for pre-existing vulnerabilities in the codebase.
+Results are uploaded to GitHub Security tab in SARIF format for unified visibility alongside CodeQL findings. PR gating uses GitHub's Code Scanning alert checks (the same mechanism as CodeQL ([ADR 032](/projects/personal-site/adrs/032-codeql))), which distinguish new alerts from pre-existing ones—PRs are only blocked for issues they introduce, not for pre-existing vulnerabilities in the codebase.
 
 ## Why Trivy
 
