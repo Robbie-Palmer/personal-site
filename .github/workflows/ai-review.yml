@@ -52,6 +52,11 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Test trusted reviewer
+        run: |
+          node --test .github/scripts/ai-review/ai-review.test.ts
+          node --check .github/scripts/ai-review/ai-review.ts
+
       - name: Review pull request
         env:
           GITHUB_TOKEN: ${{ github.token }}

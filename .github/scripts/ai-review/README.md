@@ -58,7 +58,8 @@ gh workflow run ai-review.yml --ref <branch> -f pr_number=<number>
 
 The manual run checks out the selected branch commit. Do not add untrusted users
 as repository collaborators: collaborators can dispatch workflows with access to
-Actions secrets.
+Actions secrets. Every live review runs the reviewer unit tests and syntax check
+before making paid model calls.
 
 The reviewer excludes lock files, generated/minified files, dependency/build
 directories, images, fonts, archives, documents, audio/video, compiled objects,
