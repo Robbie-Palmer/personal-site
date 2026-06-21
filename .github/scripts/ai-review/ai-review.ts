@@ -346,6 +346,16 @@ function finiteNumber(value: unknown): number {
   return Number.isFinite(number) ? number : 0;
 }
 
+export function completionContent(choice: JsonObject, model: string): string {
+  if (choice.finish_reason != null && choice.finish_reason !== "stop") {
+    throw new Error(`${model} stopped with ${String(choice.finish_reason)}`);
+  }
+  if (!isObject(choice.message) || typeof choice.message.content !== "string") {
+    throw new Error(`Invalid message from ${model}`);
+  }
+  return choice.message.content;
+}
+
 export function validateFindings(
   payload: unknown,
   options: { merged: boolean; allowedFiles?: Set<string> },
@@ -523,14 +533,8 @@ class Reviewer {
     const choices = response.choices;
     if (!Array.isArray(choices) || !isObject(choices[0])) throw new Error(`Invalid response from ${model}`);
     const choice = choices[0];
-    if (choice.finish_reason !== undefined && choice.finish_reason !== "stop") {
-      throw new Error(`${model} stopped with ${String(choice.finish_reason)}`);
-    }
-    if (!isObject(choice.message) || typeof choice.message.content !== "string") {
-      throw new Error(`Invalid message from ${model}`);
-    }
     const usage = isObject(response.usage) ? response.usage : {};
-    return { payload: JSON.parse(choice.message.content) as JsonObject, cost: Number(usage.cost ?? 0) };
+    return { payload: JSON.parse(completionContent(choice, model)) as JsonObject, cost: Number(usage.cost ?? 0) };
   }
 
   async existingComment(): Promise<{ id?: number; state: ReviewState }> {

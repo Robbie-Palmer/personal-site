@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ignored, markdownText, renderComment, validateFindings } from "./ai-review.ts";
+import { completionContent, ignored, markdownText, renderComment, validateFindings } from "./ai-review.ts";
 
 const finding = {
   severity: "high",
@@ -44,6 +44,14 @@ test("finding validation rejects incomplete and out-of-diff findings", () => {
 test("finding validation enforces confidence bounds at runtime", () => {
   assert.equal(validateFindings({ findings: [{ ...finding, confidence: -2 }] }, { merged: false })[0]?.confidence, 0);
   assert.equal(validateFindings({ findings: [{ ...finding, confidence: 4 }] }, { merged: false })[0]?.confidence, 1);
+});
+
+test("completion accepts a null finish reason but rejects truncation", () => {
+  assert.equal(completionContent({ finish_reason: null, message: { content: "{}" } }, "model"), "{}");
+  assert.throws(
+    () => completionContent({ finish_reason: "length", message: { content: "{}" } }, "model"),
+    /stopped with length/,
+  );
 });
 
 test("model text cannot inject HTML, mentions, or markdown links", () => {
