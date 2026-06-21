@@ -63,6 +63,8 @@ test("completion accepts a null finish reason but rejects truncation", () => {
 
 test("model payload accepts a single JSON fence but rejects prose", () => {
   assert.deepEqual(parseModelPayload('```json\n{"findings":[]}\n```'), { findings: [] });
+  assert.deepEqual(parseModelPayload('```json\n{"findings":[]}```'), { findings: [] });
+  assert.throws(() => parseModelPayload("```json\n```"));
   assert.throws(() => parseModelPayload('Result: {"findings":[]}'), /Unexpected token|Unexpected character/);
 });
 

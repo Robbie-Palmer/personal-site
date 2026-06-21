@@ -51,6 +51,13 @@ interface ModelResult {
   cost: number;
 }
 
+interface ReasoningSettings {
+  enabled: boolean;
+  // OpenRouter's unified reasoning API supports excluding reasoning text while
+  // still controlling whether the model reasons internally.
+  exclude: boolean;
+}
+
 interface ModelStats {
   runs: number;
   candidates: number;
@@ -358,8 +365,8 @@ export function completionContent(choice: JsonObject, model: string): string {
 
 export function parseModelPayload(content: string): JsonObject {
   const trimmed = content.trim();
-  const fenced = trimmed.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/i);
-  const parsed = JSON.parse(fenced?.[1] ?? trimmed) as unknown;
+  const fenced = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i);
+  const parsed = JSON.parse(fenced?.[1].trim() ?? trimmed) as unknown;
   if (!isObject(parsed)) throw new Error("Model response is not a JSON object");
   return parsed;
 }
@@ -522,7 +529,7 @@ class Reviewer {
     schemaName: string,
     schema: JsonObject,
     maxTokens: number,
-    reasoning?: JsonObject,
+    reasoning?: ReasoningSettings,
   ): Promise<ModelResult> {
     const provider: JsonObject = { require_parameters: true };
     if (this.settings.requireZdr) Object.assign(provider, { zdr: true, data_collection: "deny" });

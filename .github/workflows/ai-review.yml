@@ -40,7 +40,8 @@ jobs:
       # pull_request_target has access to secrets. Always execute reviewer code from
       # the trusted base commit, never from the pull request head. A manual dispatch
       # can execute a selected ref because only maintainers can start that event;
-      # this is the safe path for validating reviewer changes before they are merged.
+      # github.sha is the immutable commit selected by that dispatch, which avoids
+      # a branch moving between workflow dispatch and checkout.
       - name: Check out trusted reviewer
         uses: actions/checkout@v6
         with:
