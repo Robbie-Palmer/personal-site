@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { completionContent, ignored, markdownText, renderComment, validateFindings } from "./ai-review.ts";
+import {
+  completionContent,
+  ignored,
+  markdownText,
+  parseModelPayload,
+  renderComment,
+  validateFindings,
+} from "./ai-review.ts";
 
 const finding = {
   severity: "high",
@@ -52,6 +59,11 @@ test("completion accepts a null finish reason but rejects truncation", () => {
     () => completionContent({ finish_reason: "length", message: { content: "{}" } }, "model"),
     /stopped with length/,
   );
+});
+
+test("model payload accepts a single JSON fence but rejects prose", () => {
+  assert.deepEqual(parseModelPayload('```json\n{"findings":[]}\n```'), { findings: [] });
+  assert.throws(() => parseModelPayload('Result: {"findings":[]}'), /Unexpected token|Unexpected character/);
 });
 
 test("model text cannot inject HTML, mentions, or markdown links", () => {

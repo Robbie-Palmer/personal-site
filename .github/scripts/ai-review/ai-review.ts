@@ -356,6 +356,14 @@ export function completionContent(choice: JsonObject, model: string): string {
   return choice.message.content;
 }
 
+export function parseModelPayload(content: string): JsonObject {
+  const trimmed = content.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/i);
+  const parsed = JSON.parse(fenced?.[1] ?? trimmed) as unknown;
+  if (!isObject(parsed)) throw new Error("Model response is not a JSON object");
+  return parsed;
+}
+
 export function validateFindings(
   payload: unknown,
   options: { merged: boolean; allowedFiles?: Set<string> },
@@ -536,7 +544,7 @@ class Reviewer {
     if (!Array.isArray(choices) || !isObject(choices[0])) throw new Error(`Invalid response from ${model}`);
     const choice = choices[0];
     const usage = isObject(response.usage) ? response.usage : {};
-    return { payload: JSON.parse(completionContent(choice, model)) as JsonObject, cost: Number(usage.cost ?? 0) };
+    return { payload: parseModelPayload(completionContent(choice, model)), cost: Number(usage.cost ?? 0) };
   }
 
   async existingComment(): Promise<{ id?: number; state: ReviewState }> {
