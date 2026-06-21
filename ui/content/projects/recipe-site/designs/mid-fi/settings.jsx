@@ -208,7 +208,7 @@ function P_Diet() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 18 }}>
         {(presets.length ? presets : [['vegetarian', '🥬', 'no meat or fish'], ['vegan', '🌱', 'no animal products'], ['pescatarian', '🐟', 'no meat, fish OK'], ['dairy-free', '🥛', 'no milk / cheese'], ['gluten-free', '🌾', 'no gluten / wheat'], ['low-carb', '🍞', 'minimise grains']]).map((p) => {
           const k = Array.isArray(p) ? p[0] : p.key; const ic = Array.isArray(p) ? p[1] : p.icon; const sub = Array.isArray(p) ? p[2] : p.sub;
-          const l = k.charAt(0).toUpperCase() + k.slice(1).replace(/-/g, '-');
+          const l = k.charAt(0).toUpperCase() + k.slice(1);
           const active = !!on[k];
           return (
             <div key={k} onClick={() => setOn((s) => ({ ...s, [k]: !s[k] }))} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, cursor: 'pointer', border: '1.5px solid ' + (active ? 'var(--terracotta)' : 'var(--line)'), background: active ? 'var(--butter-soft)' : 'var(--card)' }}>
