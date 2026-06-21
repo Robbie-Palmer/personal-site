@@ -174,6 +174,7 @@ function DesignCanvas({ children, minScale, maxScale, style }) {
 //   • trackpad scroll → pan    (two-finger)
 //   • mouse wheel     → zoom   (notched; distinguished from trackpad scroll)
 //   • middle-drag / primary-drag-on-bg → pan
+//   • one-finger drag → pan; two-finger pinch → pan + zoom
 //
 // Transform state lives in a ref and is written straight to the DOM
 // (translate3d + will-change) so wheel ticks don't go through React —
@@ -247,10 +248,30 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
     };
     const onGestureEnd = (e) => { e.preventDefault(); isGesturing = false; };
 
-    // Drag-pan: middle button anywhere, or primary button on canvas
+    // Touch gestures use Pointer Events rather than Safari's gesture* events,
+    // which are not consistently emitted for touchscreens. A finger can pan
+    // from anywhere on the dense canvas; a tap still reaches the prototype.
+    const touches = new Map();
+    let suppressClick = false;
+    const touchPair = () => {
+      const [a, b] = Array.from(touches.values());
+      if (!a || !b) return null;
+      return {
+        cx: (a.x + b.x) / 2,
+        cy: (a.y + b.y) / 2,
+        distance: Math.hypot(b.x - a.x, b.y - a.y),
+      };
+    };
+
+    // Mouse drag-pan: middle button anywhere, or primary button on canvas
     // background (anything that isn't an artboard or an inline editor).
     let drag = null;
     const onPointerDown = (e) => {
+      if (e.pointerType === 'touch') {
+        e.preventDefault();
+        touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        return;
+      }
       const onBg = !e.target.closest('[data-dc-slot], .dc-editable');
       if (!(e.button === 1 || (e.button === 0 && onBg))) return;
       e.preventDefault();
@@ -259,6 +280,34 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
       vp.style.cursor = 'grabbing';
     };
     const onPointerMove = (e) => {
+      if (e.pointerType === 'touch' && touches.has(e.pointerId)) {
+        e.preventDefault();
+        const previous = touches.get(e.pointerId);
+        const previousPair = touchPair();
+        touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        const nextPair = touchPair();
+
+        if (previousPair && nextPair) {
+          const dx = nextPair.cx - previousPair.cx;
+          const dy = nextPair.cy - previousPair.cy;
+          tf.current.x += dx;
+          tf.current.y += dy;
+          if (previousPair.distance > 0) {
+            zoomAt(nextPair.cx, nextPair.cy, nextPair.distance / previousPair.distance);
+          } else {
+            apply();
+          }
+          suppressClick = true;
+        } else if (previous) {
+          const dx = e.clientX - previous.x;
+          const dy = e.clientY - previous.y;
+          tf.current.x += dx;
+          tf.current.y += dy;
+          apply();
+          if (Math.abs(dx) + Math.abs(dy) > 2) suppressClick = true;
+        }
+        return;
+      }
       if (!drag || e.pointerId !== drag.id) return;
       tf.current.x += e.clientX - drag.lx;
       tf.current.y += e.clientY - drag.ly;
@@ -266,10 +315,25 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
       apply();
     };
     const onPointerUp = (e) => {
+      if (e.pointerType === 'touch' && touches.has(e.pointerId)) {
+        touches.delete(e.pointerId);
+        if (touches.size === 0 && suppressClick) {
+          // A compatibility click, when emitted, follows pointerup before
+          // this timer. Do not let stale suppression eat the next real tap.
+          setTimeout(() => { suppressClick = false; }, 0);
+        }
+        return;
+      }
       if (!drag || e.pointerId !== drag.id) return;
       vp.releasePointerCapture(e.pointerId);
       drag = null;
       vp.style.cursor = '';
+    };
+    const onClick = (e) => {
+      if (!suppressClick) return;
+      e.preventDefault();
+      e.stopPropagation();
+      suppressClick = false;
     };
 
     vp.addEventListener('wheel', onWheel, { passive: false });
@@ -280,6 +344,7 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
     vp.addEventListener('pointermove', onPointerMove);
     vp.addEventListener('pointerup', onPointerUp);
     vp.addEventListener('pointercancel', onPointerUp);
+    vp.addEventListener('click', onClick, true);
     return () => {
       vp.removeEventListener('wheel', onWheel);
       vp.removeEventListener('gesturestart', onGestureStart);
@@ -289,6 +354,7 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
       vp.removeEventListener('pointermove', onPointerMove);
       vp.removeEventListener('pointerup', onPointerUp);
       vp.removeEventListener('pointercancel', onPointerUp);
+      vp.removeEventListener('click', onClick, true);
     };
   }, [apply, minScale, maxScale]);
 
@@ -619,4 +685,3 @@ function DCPostIt({ children, top, left, right, bottom, rotate = -2, width = 180
 }
 
 Object.assign(window, { DesignCanvas, DCSection, DCArtboard, DCPostIt });
-

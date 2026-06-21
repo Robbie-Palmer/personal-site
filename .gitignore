@@ -55,6 +55,7 @@ override.tf.json
 .dev.vars
 
 # IDE
+.history/
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
