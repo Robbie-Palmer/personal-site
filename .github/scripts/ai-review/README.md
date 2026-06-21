@@ -45,6 +45,21 @@ per-model cost, model failures, and incomplete-coverage warnings. These
 cumulative scorecard fields are intended to support removing scouts that are
 noisy or not cost-effective.
 
+## Testing reviewer changes
+
+`pull_request_target` deliberately runs the reviewer from the Pull Request's
+trusted base commit, so it cannot validate reviewer changes in that Pull Request.
+To run a branch version end to end, a maintainer can manually dispatch the
+workflow against that branch and supply an open Pull Request number:
+
+```sh
+gh workflow run ai-review.yml --ref <branch> -f pr_number=<number>
+```
+
+The manual run checks out the selected branch commit. Do not add untrusted users
+as repository collaborators: collaborators can dispatch workflows with access to
+Actions secrets.
+
 The reviewer excludes lock files, generated/minified files, dependency/build
 directories, images, fonts, archives, documents, audio/video, compiled objects,
 databases, WebAssembly, model checkpoints, and binary data formats. GitHub also

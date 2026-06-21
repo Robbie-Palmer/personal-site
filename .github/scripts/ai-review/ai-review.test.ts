@@ -41,6 +41,11 @@ test("finding validation rejects incomplete and out-of-diff findings", () => {
   );
 });
 
+test("finding validation enforces confidence bounds at runtime", () => {
+  assert.equal(validateFindings({ findings: [{ ...finding, confidence: -2 }] }, { merged: false })[0]?.confidence, 0);
+  assert.equal(validateFindings({ findings: [{ ...finding, confidence: 4 }] }, { merged: false })[0]?.confidence, 1);
+});
+
 test("model text cannot inject HTML, mentions, or markdown links", () => {
   const output = markdownText("<SCRIPT>@owner [click](https://example.com)</SCRIPT>");
   assert.doesNotMatch(output, /<script>|@owner|\[click\]\(/i);

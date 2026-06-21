@@ -155,7 +155,9 @@ const findingProperties = {
   title: { type: "string" },
   evidence: { type: "string" },
   recommendation: { type: "string" },
-  confidence: { type: "number", minimum: 0, maximum: 1 },
+  // Some OpenRouter providers only support a subset of JSON Schema and reject
+  // numeric bounds. Runtime validation below clamps confidence to this range.
+  confidence: { type: "number" },
 };
 
 const scoutSchema = {
