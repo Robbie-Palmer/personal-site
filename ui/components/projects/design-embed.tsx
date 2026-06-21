@@ -42,11 +42,17 @@ export function DesignEmbed({
           Open full screen
         </a>
       </div>
+      {/*
+        Sandboxed to an opaque origin. The prototype is self-contained (no
+        storage, cookies, or same-origin requests), so allow-same-origin is
+        intentionally omitted — combining it with allow-scripts on a same-origin
+        frame would let the embedded scripts reach the parent page.
+      */}
       <iframe
         src={src}
         title={title}
         loading="lazy"
-        sandbox="allow-scripts allow-same-origin allow-popups"
+        sandbox="allow-scripts allow-popups"
         className="block w-full border-0 bg-background"
         style={{ height }}
       />
