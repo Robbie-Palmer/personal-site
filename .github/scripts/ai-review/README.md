@@ -49,7 +49,7 @@ noisy or not cost-effective.
 Scout responses allow up to 8,000 output tokens because reasoning tokens count
 against the same limit and thinking models can otherwise exhaust the budget
 before emitting their final structured response. The default Kimi K2.6 scout
-does not opt into reasoning because this workflow needs a small structured
+explicitly disables reasoning because this workflow needs a small structured
 response rather than long-horizon agentic thinking.
 
 ## Testing reviewer changes
