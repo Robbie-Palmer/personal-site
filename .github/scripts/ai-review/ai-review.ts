@@ -504,6 +504,7 @@ class Reviewer {
     schemaName: string,
     schema: JsonObject,
     maxTokens: number,
+    reasoning?: JsonObject,
   ): Promise<ModelResult> {
     const provider: JsonObject = { require_parameters: true };
     if (this.settings.requireZdr) Object.assign(provider, { zdr: true, data_collection: "deny" });
@@ -513,6 +514,7 @@ class Reviewer {
         temperature: 0,
         max_tokens: maxTokens,
         provider,
+        ...(reasoning ? { reasoning } : {}),
         response_format: { type: "json_schema", json_schema: { name: schemaName, strict: true, schema } },
         messages: [
           { role: "system", content: system },
@@ -791,6 +793,7 @@ async function main(): Promise<void> {
         "code_review_findings",
         scoutSchema,
         SCOUT_MAX_TOKENS,
+        model.startsWith("moonshotai/kimi-") ? { effort: "low", exclude: true } : undefined,
       ),
     })),
   );

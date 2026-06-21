@@ -47,7 +47,8 @@ noisy or not cost-effective.
 
 Scout responses allow up to 8,000 output tokens because reasoning tokens count
 against the same limit and thinking models can otherwise exhaust the budget
-before emitting their final structured response.
+before emitting their final structured response. Kimi scouts request low-effort
+reasoning and omit the unused reasoning text from the response.
 
 ## Testing reviewer changes
 
