@@ -17,9 +17,11 @@ I also experienced severe Claude availability problems earlier in 2026. I have r
 
 At the same time, experienced practitioners whose workflows I respect report that Codex and OpenAI's coding models can be at least as effective as Claude when used according to their different interaction model. That is not a claim that one model is universally better. It is sufficient evidence to evaluate Codex as a complementary tool rather than treating Claude Code as the only viable agent.
 
-The tools also support complementary mobile-development workflows. I heavily use **[Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)** from mobile. Each task runs in an isolated Anthropic-managed environment, which provides a useful security boundary but can require dependencies, tools, and project context to be prepared again for fresh sessions.
+I heavily use **[Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)** from mobile. Each task runs in an isolated Anthropic-managed environment, which provides a useful security boundary but can require dependencies, tools, and project context to be prepared again for fresh sessions.
 
-**[Codex Remote Connections](https://developers.openai.com/codex/remote-connections)** instead allow the ChatGPT mobile app to control Codex on a connected host. The host supplies its existing projects, files, credentials, plugins, tools, and shell. I already operate an always-on Mac mini as a home server, so it can provide a persistent development environment for mobile Codex sessions. This avoids repeated environment bootstrapping and its associated command output and context consumption, although Codex must still inspect enough of the repository to perform each task.
+**[Codex Remote Connections](https://developers.openai.com/codex/remote-connections)** allow the ChatGPT mobile app to control Codex on a connected host. The host supplies its existing projects, files, credentials, plugins, tools, and shell. I already operate an always-on Mac mini as a home server, so it can provide a persistent development environment for mobile Codex sessions. This avoids repeated environment bootstrapping and its associated command output and context consumption, although Codex must still inspect enough of the repository to perform each task.
+
+This is not a unique Codex capability. **[Claude Remote Control](https://code.claude.com/docs/en/remote-control)** also runs Claude Code on my machine while exposing it through web and mobile interfaces. Claude Code added its public `remote-control` command before OpenAI announced Codex mobile connected-host access. I had not tried or accounted for it when initially evaluating Codex. The remote workflow therefore provides an alternative implementation and independent allowance, not meaningful feature breadth beyond Claude Code.
 
 # Decision
 
@@ -51,9 +53,9 @@ This is a complementary adoption, not a replacement for Claude Code. Using both 
 
 ## Claude Remote Control
 
-* **Pros**: Claude Code now supports running on my own machine while being controlled from its web or mobile interface. This can preserve the established local environment and reduce the same setup overhead as Codex Remote Connections.
+* **Pros**: Runs Claude Code on my own machine while being controlled from its web or mobile interface. It preserves the established local environment and provides substantially the same setup-efficiency benefit as Codex Remote Connections.
 * **Cons**: It still consumes Claude usage and depends on Claude availability, so it does not address the primary cost and provider-resilience drivers.
-* **Decision**: Not sufficient as the sole solution. It may complement Claude cloud sessions, but it does not replace the need for Codex.
+* **Decision**: Preferable when I specifically want Claude on the Mac mini, but not sufficient as the sole solution. Codex remains justified by independent usage and provider redundancy rather than this feature.
 
 # Consequences
 
@@ -63,14 +65,15 @@ This is a complementary adoption, not a replacement for Claude Code. Using both 
 * **Lower Cost than Claude Max**: Claude Pro plus ChatGPT Plus costs $40 per month rather than $100 per month for Claude Max 5x.
 * **Provider Redundancy**: An outage, limit, or pricing change from one provider does not remove the agentic coding workflow entirely.
 * **Different Strengths**: OpenAI and Anthropic models reason and interact differently. Learning both creates opportunities to route work to the tool that handles it best.
-* **Broader Tooling**: The ChatGPT Plus plan includes Codex across local and cloud surfaces rather than only adding more of the same usage.
 * **Complementary Mobile Capacity**: Mobile work can move between Claude's subscription allowance and Codex's independent allowance.
-* **Persistent Mobile Environment**: The Mac mini already has the repository, dependencies, tools, and credentials, reducing repeated setup work in fresh cloud environments.
+* **Alternative Remote Implementation**: Codex provides another route to the Mac mini even though Claude Remote Control offers equivalent core functionality.
+* **Persistent Mobile Environment**: Using either connected-host implementation, the Mac mini already has the repository, dependencies, tools, and credentials, reducing repeated setup work in fresh cloud environments.
 * **Existing Infrastructure**: An always-on home server gains another useful workload without buying a separate development host.
 
 ## Negative
 
 * **Additional Subscription**: The decision adds $20 per month rather than remaining on Claude Pro alone.
+* **Narrower Feature Set**: Codex duplicates several capabilities already available in Claude Code and may provide only a subset of the broader Claude workflow. This adoption is justified by capacity and resilience, not feature superiority.
 * **Workflow Adaptation**: Codex needs to be used differently from Claude Code. Applying the same prompting and supervision patterns mechanically may produce worse results.
 * **Configuration Duplication**: Both tools require installation, authentication, and occasional tool-specific configuration, even though `AGENTS.md` provides shared project guidance.
 * **Two Sets of Limits**: Redundancy reduces interruption risk but does not remove usage limits. Codex limits vary with task size, model, and execution surface, and additional weekly limits may apply.
