@@ -71,7 +71,7 @@ const MARKER = "<!-- ai-code-review -->";
 const COST_PATTERN = /<!-- ai-review-cost:(\{[^\n]*\}) -->/;
 const BOT_LOGINS = new Set(["github-actions[bot]"]);
 const DEFAULT_SCOUTS = [
-  "moonshotai/kimi-k2.7-code",
+  "moonshotai/kimi-k2.6",
   "deepseek/deepseek-v4-pro",
   "z-ai/glm-5.2",
   "qwen/qwen3-coder",
@@ -504,7 +504,6 @@ class Reviewer {
     schemaName: string,
     schema: JsonObject,
     maxTokens: number,
-    reasoning?: JsonObject,
   ): Promise<ModelResult> {
     const provider: JsonObject = { require_parameters: true };
     if (this.settings.requireZdr) Object.assign(provider, { zdr: true, data_collection: "deny" });
@@ -514,7 +513,6 @@ class Reviewer {
         temperature: 0,
         max_tokens: maxTokens,
         provider,
-        ...(reasoning ? { reasoning } : {}),
         response_format: { type: "json_schema", json_schema: { name: schemaName, strict: true, schema } },
         messages: [
           { role: "system", content: system },
@@ -793,7 +791,6 @@ async function main(): Promise<void> {
         "code_review_findings",
         scoutSchema,
         SCOUT_MAX_TOKENS,
-        model.startsWith("moonshotai/kimi-") ? { effort: "low", exclude: true } : undefined,
       ),
     })),
   );
