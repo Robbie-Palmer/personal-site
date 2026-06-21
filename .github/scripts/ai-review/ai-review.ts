@@ -51,6 +51,13 @@ interface ModelResult {
   cost: number;
 }
 
+interface ReasoningSettings {
+  enabled: boolean;
+  // OpenRouter's unified reasoning API supports excluding reasoning text while
+  // still controlling whether the model reasons internally.
+  exclude: boolean;
+}
+
 interface ModelStats {
   runs: number;
   candidates: number;
@@ -71,11 +78,12 @@ const MARKER = "<!-- ai-code-review -->";
 const COST_PATTERN = /<!-- ai-review-cost:(\{[^\n]*\}) -->/;
 const BOT_LOGINS = new Set(["github-actions[bot]"]);
 const DEFAULT_SCOUTS = [
-  "moonshotai/kimi-k2.7-code",
+  "moonshotai/kimi-k2.6",
   "deepseek/deepseek-v4-pro",
   "z-ai/glm-5.2",
   "qwen/qwen3-coder",
 ];
+const REASONING_DISABLED_MODELS = new Set(["moonshotai/kimi-k2.6"]);
 const DEFAULT_MERGER = "anthropic/claude-sonnet-4.6";
 const DEFAULT_IGNORED_AUTHORS = ["renovate[bot]", "dependabot[bot]"];
 const IGNORED_FILENAMES = new Set([
@@ -145,6 +153,10 @@ const MAX_THREAD_CHARS = 40_000;
 const MAX_COMMENT_CHARS = 60_000;
 const SCOUT_FINDINGS_LIMIT = 25;
 const MERGED_FINDINGS_LIMIT = 100;
+// Reasoning tokens count against max_tokens. Kimi always thinks, and both Kimi
+// and DeepSeek have exhausted a 4,000-token budget before emitting final JSON.
+const SCOUT_MAX_TOKENS = 8_000;
+const MERGER_MAX_TOKENS = 6_000;
 const HTTP_TIMEOUT_MS = 300_000;
 const RETRIES = 3;
 
@@ -155,7 +167,9 @@ const findingProperties = {
   title: { type: "string" },
   evidence: { type: "string" },
   recommendation: { type: "string" },
-  confidence: { type: "number", minimum: 0, maximum: 1 },
+  // Some OpenRouter providers only support a subset of JSON Schema and reject
+  // numeric bounds. Runtime validation below clamps confidence to this range.
+  confidence: { type: "number" },
 };
 
 const scoutSchema = {
@@ -340,6 +354,24 @@ function finiteNumber(value: unknown): number {
   return Number.isFinite(number) ? number : 0;
 }
 
+export function completionContent(choice: JsonObject, model: string): string {
+  if (choice.finish_reason != null && choice.finish_reason !== "stop") {
+    throw new Error(`${model} stopped with ${String(choice.finish_reason)}`);
+  }
+  if (!isObject(choice.message) || typeof choice.message.content !== "string") {
+    throw new Error(`Invalid message from ${model}`);
+  }
+  return choice.message.content;
+}
+
+export function parseModelPayload(content: string): JsonObject {
+  const trimmed = content.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i);
+  const parsed = JSON.parse(fenced?.[1].trim() ?? trimmed) as unknown;
+  if (!isObject(parsed)) throw new Error("Model response is not a JSON object");
+  return parsed;
+}
+
 export function validateFindings(
   payload: unknown,
   options: { merged: boolean; allowedFiles?: Set<string> },
@@ -498,6 +530,7 @@ class Reviewer {
     schemaName: string,
     schema: JsonObject,
     maxTokens: number,
+    reasoning?: ReasoningSettings,
   ): Promise<ModelResult> {
     const provider: JsonObject = { require_parameters: true };
     if (this.settings.requireZdr) Object.assign(provider, { zdr: true, data_collection: "deny" });
@@ -507,6 +540,7 @@ class Reviewer {
         temperature: 0,
         max_tokens: maxTokens,
         provider,
+        ...(reasoning ? { reasoning } : {}),
         response_format: { type: "json_schema", json_schema: { name: schemaName, strict: true, schema } },
         messages: [
           { role: "system", content: system },
@@ -517,14 +551,8 @@ class Reviewer {
     const choices = response.choices;
     if (!Array.isArray(choices) || !isObject(choices[0])) throw new Error(`Invalid response from ${model}`);
     const choice = choices[0];
-    if (choice.finish_reason !== undefined && choice.finish_reason !== "stop") {
-      throw new Error(`${model} stopped with ${String(choice.finish_reason)}`);
-    }
-    if (!isObject(choice.message) || typeof choice.message.content !== "string") {
-      throw new Error(`Invalid message from ${model}`);
-    }
     const usage = isObject(response.usage) ? response.usage : {};
-    return { payload: JSON.parse(choice.message.content) as JsonObject, cost: Number(usage.cost ?? 0) };
+    return { payload: parseModelPayload(completionContent(choice, model)), cost: Number(usage.cost ?? 0) };
   }
 
   async existingComment(): Promise<{ id?: number; state: ReviewState }> {
@@ -778,7 +806,15 @@ async function main(): Promise<void> {
   const settled = await Promise.allSettled(
     settings.scouts.map(async (model) => ({
       model,
-      result: await reviewer.callModel(model, scoutSystem, source, "code_review_findings", scoutSchema, 4_000),
+      result: await reviewer.callModel(
+        model,
+        scoutSystem,
+        source,
+        "code_review_findings",
+        scoutSchema,
+        SCOUT_MAX_TOKENS,
+        REASONING_DISABLED_MODELS.has(model) ? { enabled: false, exclude: true } : undefined,
+      ),
     })),
   );
   const candidates: Record<string, Finding[]> = {};
@@ -818,7 +854,14 @@ async function main(): Promise<void> {
   const threads = await reviewer.reviewThreadContext();
   const mergerPrompt = `<DATA kind=scout-candidates>\n${JSON.stringify(candidates)}\n</DATA>
 <DATA kind=github-review-threads>\n${threads}\n</DATA>`;
-  const merged = await reviewer.callModel(settings.merger, mergerSystem, mergerPrompt, "merged_code_review", mergerSchema, 6_000);
+  const merged = await reviewer.callModel(
+    settings.merger,
+    mergerSystem,
+    mergerPrompt,
+    "merged_code_review",
+    mergerSchema,
+    MERGER_MAX_TOKENS,
+  );
   merged.payload.findings = (validateFindings(merged.payload, {
     merged: true,
     allowedFiles,
