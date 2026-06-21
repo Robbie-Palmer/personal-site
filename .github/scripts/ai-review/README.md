@@ -45,6 +45,10 @@ per-model cost, model failures, and incomplete-coverage warnings. These
 cumulative scorecard fields are intended to support removing scouts that are
 noisy or not cost-effective.
 
+Scout responses allow up to 8,000 output tokens because reasoning tokens count
+against the same limit and thinking models can otherwise exhaust the budget
+before emitting their final structured response.
+
 ## Testing reviewer changes
 
 `pull_request_target` deliberately runs the reviewer from the Pull Request's

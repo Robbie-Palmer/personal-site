@@ -145,6 +145,10 @@ const MAX_THREAD_CHARS = 40_000;
 const MAX_COMMENT_CHARS = 60_000;
 const SCOUT_FINDINGS_LIMIT = 25;
 const MERGED_FINDINGS_LIMIT = 100;
+// Reasoning tokens count against max_tokens. Kimi always thinks, and both Kimi
+// and DeepSeek have exhausted a 4,000-token budget before emitting final JSON.
+const SCOUT_MAX_TOKENS = 8_000;
+const MERGER_MAX_TOKENS = 6_000;
 const HTTP_TIMEOUT_MS = 300_000;
 const RETRIES = 3;
 
@@ -780,7 +784,14 @@ async function main(): Promise<void> {
   const settled = await Promise.allSettled(
     settings.scouts.map(async (model) => ({
       model,
-      result: await reviewer.callModel(model, scoutSystem, source, "code_review_findings", scoutSchema, 4_000),
+      result: await reviewer.callModel(
+        model,
+        scoutSystem,
+        source,
+        "code_review_findings",
+        scoutSchema,
+        SCOUT_MAX_TOKENS,
+      ),
     })),
   );
   const candidates: Record<string, Finding[]> = {};
@@ -820,7 +831,14 @@ async function main(): Promise<void> {
   const threads = await reviewer.reviewThreadContext();
   const mergerPrompt = `<DATA kind=scout-candidates>\n${JSON.stringify(candidates)}\n</DATA>
 <DATA kind=github-review-threads>\n${threads}\n</DATA>`;
-  const merged = await reviewer.callModel(settings.merger, mergerSystem, mergerPrompt, "merged_code_review", mergerSchema, 6_000);
+  const merged = await reviewer.callModel(
+    settings.merger,
+    mergerSystem,
+    mergerPrompt,
+    "merged_code_review",
+    mergerSchema,
+    MERGER_MAX_TOKENS,
+  );
   merged.payload.findings = (validateFindings(merged.payload, {
     merged: true,
     allowedFiles,
