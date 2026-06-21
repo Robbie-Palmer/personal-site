@@ -232,6 +232,13 @@ export const technologies: TechnologyContent[] = [
     type: "tool",
   },
   {
+    name: "Qodo",
+    added: "2026-06-21",
+    description: "AI-powered multi-agent code review platform",
+    website: "https://www.qodo.ai",
+    type: "tool",
+  },
+  {
     name: "CLA Assistant",
     added: "2026-01-11",
     description: "Contributor License Agreement automation for GitHub",
