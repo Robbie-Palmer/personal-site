@@ -162,7 +162,6 @@ const scoutSchema = {
   properties: {
     findings: {
       type: "array",
-      maxItems: 25,
       items: {
         type: "object",
         properties: findingProperties,
@@ -177,7 +176,7 @@ const scoutSchema = {
 
 const mergedProperties = {
   ...findingProperties,
-  source_models: { type: "array", items: { type: "string" }, minItems: 1, uniqueItems: true },
+  source_models: { type: "array", items: { type: "string" } },
   status: { type: "string", enum: ["open", "resolved"] },
   resolution_note: { type: "string" },
 };
@@ -188,7 +187,6 @@ const mergerSchema = {
     summary: { type: "string" },
     findings: {
       type: "array",
-      maxItems: 100,
       items: {
         type: "object",
         properties: mergedProperties,
