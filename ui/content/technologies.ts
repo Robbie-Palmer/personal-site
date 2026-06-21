@@ -774,4 +774,12 @@ export const technologies: TechnologyContent[] = [
     iconSlug: "github",
     type: "platform",
   },
+  {
+    name: "Trivy",
+    added: "2026-06-21",
+    description:
+      "Open source security scanner for IaC, container images, and dependency vulnerabilities",
+    website: "https://trivy.dev",
+    type: "tool",
+  },
 ];
