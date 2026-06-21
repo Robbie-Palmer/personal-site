@@ -17,11 +17,13 @@ I also experienced severe Claude availability problems earlier in 2026. I have r
 
 At the same time, experienced practitioners whose workflows I respect report that Codex and OpenAI's coding models can be at least as effective as Claude when used according to their different interaction model. That is not a claim that one model is universally better. It is sufficient evidence to evaluate Codex as a complementary tool rather than treating Claude Code as the only viable agent.
 
-I heavily use **[Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)** from mobile. Each task runs in an isolated Anthropic-managed environment, which provides a useful security boundary but can require dependencies, tools, and project context to be prepared again for fresh sessions.
+**[Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)** supports mobile development in isolated Anthropic-managed environments. This provides a useful security boundary and does not require a personal computer to remain available, but fresh environments can require dependencies, tools, and project context to be prepared again.
 
-**[Codex Remote Connections](https://developers.openai.com/codex/remote-connections)** allow the ChatGPT mobile app to control Codex on a connected host. The host supplies its existing projects, files, credentials, plugins, tools, and shell. I already operate an always-on Mac mini as a home server, so it can provide a persistent development environment for mobile Codex sessions. This avoids repeated environment bootstrapping and its associated command output and context consumption, although Codex must still inspect enough of the repository to perform each task.
+**[Codex Remote Connections](https://developers.openai.com/codex/remote-connections)** allow the ChatGPT mobile app to control Codex on a connected host. The host supplies its existing projects, files, credentials, plugins, tools, and shell. The existing always-on Mac mini can provide that persistent development environment, avoiding repeated environment bootstrapping and its associated command output and context consumption. However, this workflow requires the Mac mini to remain available.
 
-This is not a unique Codex capability. **[Claude Remote Control](https://code.claude.com/docs/en/remote-control)** also runs Claude Code on my machine while exposing it through web and mobile interfaces. Claude Code added its public `remote-control` command before OpenAI announced Codex mobile connected-host access. I had not tried or accounted for it when initially evaluating Codex. The remote workflow therefore provides an alternative implementation and independent allowance, not meaningful feature breadth beyond Claude Code.
+This is not a unique Codex capability. **[Claude Remote Control](https://code.claude.com/docs/en/remote-control)** also runs Claude Code on a personal machine while exposing it through web and mobile interfaces. Its server mode can start new sessions remotely, run multiple sessions concurrently, and place sessions in separate worktrees. Claude therefore provides two mobile development options: hosted cloud environments that do not depend on a personal host and Remote Control for working in an established local environment.
+
+Both connected-host implementations are previews: Anthropic labels Remote Control a research preview, while OpenAI introduced Codex mobile remote access as a preview. Codex's documented mobile remote workflow requires a connected host, making its mobile development options a subset of Claude Code's. Codex is being adopted despite this limitation because its independent usage allowance, models, and provider improve capacity and resilience.
 
 # Decision
 
@@ -53,9 +55,9 @@ This is a complementary adoption, not a replacement for Claude Code. Using both 
 
 ## Claude Remote Control
 
-* **Pros**: Runs Claude Code on my own machine while being controlled from its web or mobile interface. It preserves the established local environment and provides substantially the same setup-efficiency benefit as Codex Remote Connections.
+* **Pros**: Runs Claude Code on a personal machine while being controlled from its web or mobile interface. Server mode can initiate multiple sessions and isolate them in worktrees, providing substantially the same core workflow and setup-efficiency benefit as Codex Remote Connections. Claude Code also offers hosted mobile sessions that do not require the personal machine to remain available.
 * **Cons**: It still consumes Claude usage and depends on Claude availability, so it does not address the primary cost and provider-resilience drivers.
-* **Decision**: Preferable when I specifically want Claude on the Mac mini, but not sufficient as the sole solution. Codex remains justified by independent usage and provider redundancy rather than this feature.
+* **Decision**: Rejected as the sole solution. Codex remains justified by independent usage and provider redundancy rather than exclusive or broader remote-control features.
 
 # Consequences
 
@@ -66,14 +68,13 @@ This is a complementary adoption, not a replacement for Claude Code. Using both 
 * **Provider Redundancy**: An outage, limit, or pricing change from one provider does not remove the agentic coding workflow entirely.
 * **Different Strengths**: OpenAI and Anthropic models reason and interact differently. Learning both creates opportunities to route work to the tool that handles it best.
 * **Complementary Mobile Capacity**: Mobile work can move between Claude's subscription allowance and Codex's independent allowance.
-* **Alternative Remote Implementation**: Codex provides another route to the Mac mini even though Claude Remote Control offers equivalent core functionality.
 * **Persistent Mobile Environment**: Using either connected-host implementation, the Mac mini already has the repository, dependencies, tools, and credentials, reducing repeated setup work in fresh cloud environments.
 * **Existing Infrastructure**: An always-on home server gains another useful workload without buying a separate development host.
 
 ## Negative
 
 * **Additional Subscription**: The decision adds $20 per month rather than remaining on Claude Pro alone.
-* **Narrower Feature Set**: Codex duplicates several capabilities already available in Claude Code and may provide only a subset of the broader Claude workflow. This adoption is justified by capacity and resilience, not feature superiority.
+* **Narrower Mobile Feature Set**: Codex's mobile remote workflow requires the Mac mini, while Claude Code supports both hosted cloud environments and connected-host sessions. This adoption is justified by capacity and resilience, not feature superiority.
 * **Workflow Adaptation**: Codex needs to be used differently from Claude Code. Applying the same prompting and supervision patterns mechanically may produce worse results.
 * **Configuration Duplication**: Both tools require installation, authentication, and occasional tool-specific configuration, even though `AGENTS.md` provides shared project guidance.
 * **Two Sets of Limits**: Redundancy reduces interruption risk but does not remove usage limits. Codex limits vary with task size, model, and execution surface, and additional weekly limits may apply.
