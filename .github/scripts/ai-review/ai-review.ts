@@ -83,6 +83,7 @@ const DEFAULT_SCOUTS = [
   "z-ai/glm-5.2",
   "qwen/qwen3-coder",
 ];
+const REASONING_DISABLED_MODELS = new Set(["moonshotai/kimi-k2.6"]);
 const DEFAULT_MERGER = "anthropic/claude-sonnet-4.6";
 const DEFAULT_IGNORED_AUTHORS = ["renovate[bot]", "dependabot[bot]"];
 const IGNORED_FILENAMES = new Set([
@@ -812,7 +813,7 @@ async function main(): Promise<void> {
         "code_review_findings",
         scoutSchema,
         SCOUT_MAX_TOKENS,
-        model === "moonshotai/kimi-k2.6" ? { enabled: false, exclude: true } : undefined,
+        REASONING_DISABLED_MODELS.has(model) ? { enabled: false, exclude: true } : undefined,
       ),
     })),
   );
