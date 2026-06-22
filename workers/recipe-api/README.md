@@ -7,6 +7,10 @@ same-origin and are proxied to this Worker:
 - production: the Pages Function at `functions/api/auth/[[path]].ts` proxies
   `/api/auth/*` to the deployed Worker
 
+PR previews use an isolated Worker, schema-only Neon branch, and
+Access-protected test-user login. See the
+[preview environment runbook](../../docs/preview-environments.md).
+
 ## Local OAuth setup
 
 Copy `.dev.vars.example` to `.dev.vars` and fill in the credentials. The file is
@@ -52,3 +56,7 @@ pnpm --filter recipe-api exec wrangler secret put BETTER_AUTH_SECRET
 Do not use the direct `workers.dev` URL as a provider callback. The supported
 browser origins are the local frontend and the production site, where the
 session cookie remains same-origin.
+
+OAuth is intentionally disabled in PR previews. The preview workflow seeds
+test scenarios and configures Better Auth's password support only for a
+server-side scenario endpoint guarded by Cloudflare Access.

@@ -1,12 +1,24 @@
+import { previewApiBase } from "./routing";
+
 interface Env {
   RECIPE_API_URL?: string;
+  RECIPE_API_PREVIEW_ORIGIN_TEMPLATE?: string;
+  CF_PAGES_HOST?: string;
 }
 
 export const onRequest: PagesFunction<Env> = async (context) => {
-  const apiBase =
-    context.env.RECIPE_API_URL || "https://recipe-api.robbiepalmer95.workers.dev";
-
   const url = new URL(context.request.url);
+  const previewBase = previewApiBase(url, context.env);
+  if (previewBase === null) {
+    return Response.json(
+      { error: "Auth is available on the canonical PR preview URL only" },
+      { status: 503 },
+    );
+  }
+  const apiBase =
+    previewBase ||
+    context.env.RECIPE_API_URL ||
+    "https://recipe-api.robbiepalmer95.workers.dev";
   const destination = `${apiBase}${url.pathname}${url.search}`;
 
   const headers = new Headers(context.request.headers);

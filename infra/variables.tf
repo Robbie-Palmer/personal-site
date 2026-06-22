@@ -78,6 +78,18 @@ variable "recipe_api_url" {
   default     = "https://recipe-api.robbiepalmer95.workers.dev"
 }
 
+variable "recipe_api_preview_origin_template" {
+  description = "Preview Worker origin template; {pr} is replaced with the PR number"
+  type        = string
+  default     = "https://recipe-api-pr-{pr}.robbiepalmer95.workers.dev"
+}
+
+variable "cf_pages_host" {
+  description = "Cloudflare Pages project hostname used to recognize canonical PR aliases"
+  type        = string
+  default     = "personal-site-bu5.pages.dev"
+}
+
 # Neon
 
 variable "neon_org_id" {

@@ -2,16 +2,25 @@ import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { createDb, schema } from "./db";
 import { createAuth } from "./auth";
+import { verifyCloudflareAccess } from "./cloudflare-access";
+import {
+  findPreviewScenario,
+  previewScenarios,
+} from "./preview-scenarios";
 
 type Bindings = {
   HYPERDRIVE?: Hyperdrive;
   DATABASE_URL?: string;
+  DEPLOYMENT_ENV?: string;
   BETTER_AUTH_URL: string;
-  GOOGLE_CLIENT_ID: string;
-  GOOGLE_CLIENT_SECRET: string;
-  GITHUB_CLIENT_ID: string;
-  GITHUB_CLIENT_SECRET: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  GITHUB_CLIENT_ID?: string;
+  GITHUB_CLIENT_SECRET?: string;
   BETTER_AUTH_SECRET: string;
+  PREVIEW_AUTH_PASSWORD?: string;
+  CF_ACCESS_TEAM_DOMAIN?: string;
+  CF_ACCESS_AUD?: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -27,13 +36,110 @@ function isValidAuthURL(value: string): boolean {
   }
 }
 
-app.on(["POST", "GET"], "/api/auth/**", async (c) => {
-  const connectionString =
-    c.env.HYPERDRIVE?.connectionString ?? c.env.DATABASE_URL;
+function databaseConnection(env: Bindings): string | undefined {
+  return env.HYPERDRIVE?.connectionString ?? env.DATABASE_URL;
+}
+
+function hasAuthConfiguration(env: Bindings): boolean {
+  if (!env.BETTER_AUTH_URL || !env.BETTER_AUTH_SECRET) return false;
+  if (env.DEPLOYMENT_ENV === "preview") {
+    return Boolean(
+      env.PREVIEW_AUTH_PASSWORD &&
+        env.CF_ACCESS_TEAM_DOMAIN &&
+        env.CF_ACCESS_AUD,
+    );
+  }
+  return Boolean(
+    env.GOOGLE_CLIENT_ID &&
+      env.GOOGLE_CLIENT_SECRET &&
+      env.GITHUB_CLIENT_ID &&
+      env.GITHUB_CLIENT_SECRET,
+  );
+}
+
+async function hasPreviewAccess(request: Request, env: Bindings) {
+  return (
+    env.DEPLOYMENT_ENV === "preview" &&
+    (await verifyCloudflareAccess(request, env))
+  );
+}
+
+app.get("/api/auth/preview/scenarios", async (c) => {
+  if (c.env.DEPLOYMENT_ENV !== "preview") return c.notFound();
+  if (!hasAuthConfiguration(c.env)) {
+    return c.json({ error: "Preview auth configuration is incomplete" }, 503);
+  }
+  if (!(await hasPreviewAccess(c.req.raw, c.env))) {
+    return c.json({ error: "Cloudflare Access authorization required" }, 403);
+  }
+
+  return c.json(
+    previewScenarios.map(({ id, name, description }) => ({
+      id,
+      name,
+      description,
+    })),
+  );
+});
+
+app.post("/api/auth/preview/sign-in", async (c) => {
+  if (c.env.DEPLOYMENT_ENV !== "preview") return c.notFound();
+  if (!hasAuthConfiguration(c.env)) {
+    return c.json({ error: "Preview auth configuration is incomplete" }, 503);
+  }
+  if (!(await hasPreviewAccess(c.req.raw, c.env))) {
+    return c.json({ error: "Cloudflare Access authorization required" }, 403);
+  }
+
+  const body = await c.req
+    .json<{ scenario?: unknown }>()
+    .catch(() => ({ scenario: undefined }));
+  const scenario = findPreviewScenario(body.scenario);
+  if (!scenario) return c.json({ error: "Unknown preview scenario" }, 400);
+
+  const connectionString = databaseConnection(c.env);
   if (!connectionString) {
     return c.json({ error: "No database connection configured" }, 503);
   }
-  if (!c.env.BETTER_AUTH_URL || !c.env.BETTER_AUTH_SECRET) {
+
+  const { db, client } = createDb(connectionString);
+  try {
+    const auth = createAuth(db, c.env);
+    return await auth.api.signInEmail({
+      body: {
+        email: scenario.email,
+        password: c.env.PREVIEW_AUTH_PASSWORD!,
+      },
+      headers: c.req.raw.headers,
+      asResponse: true,
+    });
+  } catch (error) {
+    console.error("Preview sign-in failed", error);
+    return c.json({ error: "Preview sign-in failed" }, 401);
+  } finally {
+    try {
+      await client.end({ timeout: 5 });
+    } catch (error) {
+      console.error("client.end() cleanup failed", error);
+    }
+  }
+});
+
+app.on(["POST", "GET"], "/api/auth/*", async (c) => {
+  // Preview credentials are server-owned. Only the Access-protected scenario
+  // endpoint above may invoke Better Auth's email/password API.
+  if (
+    c.req.path === "/api/auth/sign-in/email" ||
+    c.req.path === "/api/auth/sign-up/email"
+  ) {
+    return c.notFound();
+  }
+
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json({ error: "No database connection configured" }, 503);
+  }
+  if (!hasAuthConfiguration(c.env)) {
     return c.json({ error: "Auth configuration is incomplete" }, 503);
   }
   if (!isValidAuthURL(c.env.BETTER_AUTH_URL)) {
@@ -53,8 +159,7 @@ app.on(["POST", "GET"], "/api/auth/**", async (c) => {
 });
 
 app.get("/recipes", async (c) => {
-  const connectionString =
-    c.env.HYPERDRIVE?.connectionString ?? c.env.DATABASE_URL;
+  const connectionString = databaseConnection(c.env);
   if (!connectionString) {
     return c.json(
       { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },

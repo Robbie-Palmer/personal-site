@@ -38,6 +38,11 @@ Create a GitHub environment named `cloudflare-production`:
 2. Name: `cloudflare-production`
 3. (Optional) Add protection rules for production deployments
 
+PR infrastructure uses a separate `cloudflare-preview` environment with
+least-privilege credentials. Follow the
+[preview environment runbook](../docs/preview-environments.md); do not copy the
+production Cloudflare token or production database URL into it.
+
 ### Terraform Cloud Workspace
 
 Create a workspace in Terraform Cloud for remote state:

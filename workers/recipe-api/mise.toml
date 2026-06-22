@@ -1,0 +1,60 @@
+[tasks.install]
+description = "Install recipe API dependencies"
+run = "pnpm install --frozen-lockfile --filter recipe-api..."
+
+[tasks.typecheck]
+description = "Typecheck the recipe API"
+depends = ["install"]
+run = "pnpm typecheck"
+
+[tasks.test]
+description = "Run recipe API tests"
+depends = ["install"]
+run = "pnpm test"
+
+[tasks.check]
+description = "Run all recipe API checks"
+depends = ["typecheck", "test"]
+
+[tasks."db:push"]
+description = "Push the recipe API schema to DATABASE_URL"
+depends = ["install"]
+run = "pnpm db:push:ci"
+
+[tasks."db:seed:preview"]
+description = "Seed deterministic preview users and data"
+depends = ["install"]
+run = "pnpm preview:seed"
+
+[tasks."preview:deploy"]
+description = "Deploy an isolated preview Worker"
+depends = ["install"]
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${PREVIEW_WORKER_NAME:?PREVIEW_WORKER_NAME is required}"
+: "${PREVIEW_SITE_URL:?PREVIEW_SITE_URL is required}"
+: "${CF_ACCESS_TEAM_DOMAIN:?CF_ACCESS_TEAM_DOMAIN is required}"
+: "${CF_ACCESS_AUD:?CF_ACCESS_AUD is required}"
+: "${PREVIEW_SECRETS_FILE:?PREVIEW_SECRETS_FILE is required}"
+
+pnpm exec wrangler deploy \
+  --config wrangler.preview.toml \
+  --name "$PREVIEW_WORKER_NAME" \
+  --var DEPLOYMENT_ENV:preview \
+  --var BETTER_AUTH_URL:"$PREVIEW_SITE_URL" \
+  --var CF_ACCESS_TEAM_DOMAIN:"$CF_ACCESS_TEAM_DOMAIN" \
+  --var CF_ACCESS_AUD:"$CF_ACCESS_AUD" \
+  --secrets-file "$PREVIEW_SECRETS_FILE"
+"""
+
+[tasks."preview:delete"]
+description = "Delete an isolated preview Worker"
+depends = ["install"]
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+: "${PREVIEW_WORKER_NAME:?PREVIEW_WORKER_NAME is required}"
+pnpm exec wrangler delete --name "$PREVIEW_WORKER_NAME" --force
+"""
