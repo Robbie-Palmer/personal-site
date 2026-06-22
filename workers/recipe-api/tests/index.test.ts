@@ -29,6 +29,11 @@ vi.mock("postgres", () => ({
   }),
 }));
 
+vi.mock("jose", () => ({
+  createRemoteJWKSet: vi.fn(() => vi.fn()),
+  jwtVerify: vi.fn(() => Promise.resolve({ payload: { sub: "tester" } })),
+}));
+
 import app from "../src/index";
 
 const env = {
@@ -148,6 +153,212 @@ describe("POST /api/auth/sign-in/social", () => {
     expect(await res.json()).toEqual({
       error: "Auth configuration is invalid",
     });
+  });
+});
+
+describe("preview authentication", () => {
+  const previewEnv = {
+    DATABASE_URL: env.DATABASE_URL,
+    DEPLOYMENT_ENV: "preview",
+    BETTER_AUTH_URL: "https://pr-42.personal-site-bu5.pages.dev",
+    BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
+    PREVIEW_AUTH_PASSWORD: "a-long-random-preview-password",
+    CF_ACCESS_TEAM_DOMAIN: "example.cloudflareaccess.com",
+    CF_ACCESS_AUD: "preview-audience",
+  };
+
+  it("is unavailable outside preview deployments", async () => {
+    const res = await app.request(
+      "/api/auth/preview/scenarios",
+      {},
+      env,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("requires complete preview configuration", async () => {
+    const res = await app.request(
+      "/api/auth/preview/scenarios",
+      {},
+      { ...previewEnv, CF_ACCESS_AUD: "" },
+    );
+    expect(res.status).toBe(503);
+  });
+
+  it("requires a valid Cloudflare Access assertion", async () => {
+    const res = await app.request(
+      "/api/auth/preview/scenarios",
+      {},
+      previewEnv,
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("returns the allowlisted scenarios after Access authorization", async () => {
+    const res = await app.request(
+      "/api/auth/preview/scenarios",
+      { headers: { "cf-access-jwt-assertion": "test-assertion" } },
+      previewEnv,
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "empty-user" }),
+        expect.objectContaining({ id: "user-with-recipes" }),
+        expect.objectContaining({ id: "admin-user" }),
+      ]),
+    );
+  });
+
+  it("rejects scenario identifiers that are not allowlisted", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-in",
+      {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": "test-assertion",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ scenario: "arbitrary-user" }),
+      },
+      previewEnv,
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Unknown preview scenario" });
+  });
+
+  it("does not expose Better Auth's raw password endpoints", async () => {
+    const res = await app.request(
+      "/api/auth/sign-in/email",
+      { method: "POST" },
+      previewEnv,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("does not expose the sign-up/email endpoint in preview mode", async () => {
+    const res = await app.request(
+      "/api/auth/sign-up/email",
+      { method: "POST" },
+      previewEnv,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("does not expose the sign-in/email endpoint in production mode", async () => {
+    const res = await app.request(
+      "/api/auth/sign-in/email",
+      { method: "POST" },
+      env,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("scenario response omits internal fields (email and role)", async () => {
+    const res = await app.request(
+      "/api/auth/preview/scenarios",
+      { headers: { "cf-access-jwt-assertion": "test-assertion" } },
+      previewEnv,
+    );
+    expect(res.status).toBe(200);
+    const scenarios = (await res.json()) as Array<Record<string, unknown>>;
+    for (const scenario of scenarios) {
+      expect(scenario).not.toHaveProperty("email");
+      expect(scenario).not.toHaveProperty("role");
+      expect(scenario).toHaveProperty("id");
+      expect(scenario).toHaveProperty("name");
+      expect(scenario).toHaveProperty("description");
+    }
+  });
+
+  it("preview sign-in endpoint requires Access assertion", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-in",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ scenario: "empty-user" }),
+      },
+      previewEnv,
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("preview sign-in with missing database returns 503", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-in",
+      {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": "test-assertion",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ scenario: "empty-user" }),
+      },
+      { ...previewEnv, DATABASE_URL: "" },
+    );
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({
+      error: "No database connection configured",
+    });
+  });
+
+  it("preview sign-in with malformed JSON body returns 400", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-in",
+      {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": "test-assertion",
+          "content-type": "application/json",
+        },
+        body: "not valid json",
+      },
+      previewEnv,
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Unknown preview scenario" });
+  });
+
+  it("preview sign-in is unavailable outside preview deployments", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-in",
+      {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": "test-assertion",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ scenario: "empty-user" }),
+      },
+      env,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("preview scenarios endpoint requires complete configuration", async () => {
+    const res = await app.request(
+      "/api/auth/preview/scenarios",
+      { headers: { "cf-access-jwt-assertion": "test-assertion" } },
+      { ...previewEnv, PREVIEW_AUTH_PASSWORD: "" },
+    );
+    expect(res.status).toBe(503);
+  });
+
+  it("preview sign-in endpoint requires complete configuration", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-in",
+      {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": "test-assertion",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ scenario: "empty-user" }),
+      },
+      { ...previewEnv, CF_ACCESS_TEAM_DOMAIN: "" },
+    );
+    expect(res.status).toBe(503);
   });
 });
 
