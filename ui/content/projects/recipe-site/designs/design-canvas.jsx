@@ -176,9 +176,9 @@ function DesignCanvas({ children, minScale, maxScale, style }) {
 //   • middle-drag / primary-drag-on-bg → pan
 //   • one-finger drag → pan; two-finger pinch → pan + zoom
 //
-// Transform state lives in a ref and is written straight to the DOM
-// (translate3d + will-change) so wheel ticks don't go through React —
-// keeps pans at 60fps on dense canvases.
+// Transform state lives in a ref and is written straight to the DOM so wheel
+// ticks don't go through React. A 2D transform avoids forcing the entire dense
+// canvas into one oversized GPU texture on mobile browsers.
 // ─────────────────────────────────────────────────────────────
 function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
   const vpRef = React.useRef(null);
@@ -188,7 +188,15 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
   const apply = React.useCallback(() => {
     const { x, y, scale } = tf.current;
     const el = worldRef.current;
-    if (el) el.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
+    if (el) el.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+    const vp = vpRef.current;
+    if (vp) {
+      // Keep the grid visually attached to the world without painting it as
+      // part of the enormous transformed content layer. Large promoted layers
+      // can exceed mobile Safari's texture budget and disappear when zoomed.
+      vp.style.backgroundPosition = `${x}px ${y}px`;
+      vp.style.backgroundSize = `${120 * scale}px ${120 * scale}px`;
+    }
   }, []);
 
   React.useEffect(() => {
@@ -268,8 +276,10 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
     let drag = null;
     const onPointerDown = (e) => {
       if (e.pointerType === 'touch') {
-        e.preventDefault();
-        touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        touches.set(e.pointerId, {
+          x: e.clientX, y: e.clientY,
+          sx: e.clientX, sy: e.clientY,
+        });
         return;
       }
       const onBg = !e.target.closest('[data-dc-slot], .dc-editable');
@@ -284,7 +294,7 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
         e.preventDefault();
         const previous = touches.get(e.pointerId);
         const previousPair = touchPair();
-        touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        touches.set(e.pointerId, { ...previous, x: e.clientX, y: e.clientY });
         const nextPair = touchPair();
 
         if (previousPair && nextPair) {
@@ -304,7 +314,11 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
           tf.current.x += dx;
           tf.current.y += dy;
           apply();
-          if (Math.abs(dx) + Math.abs(dy) > 2) suppressClick = true;
+          const totalDistance = Math.hypot(
+            e.clientX - previous.sx,
+            e.clientY - previous.sy,
+          );
+          if (totalDistance > 5) suppressClick = true;
         }
         return;
       }
@@ -366,6 +380,8 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
       style={{
         height: '100vh', width: '100vw',
         background: DC.bg,
+        backgroundImage: gridSvg,
+        backgroundSize: '120px 120px',
         overflow: 'hidden',
         overscrollBehavior: 'none',
         touchAction: 'none',
@@ -380,13 +396,11 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
         style={{
           position: 'absolute', top: 0, left: 0,
           transformOrigin: '0 0',
-          willChange: 'transform',
           width: 'max-content', minWidth: '100%',
           minHeight: '100%',
           padding: '60px 0 80px',
         }}
       >
-        <div style={{ position: 'absolute', inset: -6000, backgroundImage: gridSvg, backgroundSize: '120px 120px', pointerEvents: 'none', zIndex: -1 }} />
         {children}
       </div>
     </div>
