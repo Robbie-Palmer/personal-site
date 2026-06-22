@@ -225,8 +225,57 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
       e.deltaMode !== 0 ||
       (e.deltaX === 0 && Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= 40);
 
+    let inertiaFrame = null;
+    let velocityX = 0;
+    let velocityY = 0;
+    let velocityAt = performance.now();
+    const cancelInertia = () => {
+      if (inertiaFrame !== null) cancelAnimationFrame(inertiaFrame);
+      inertiaFrame = null;
+    };
+    const resetVelocity = () => {
+      velocityX = 0;
+      velocityY = 0;
+      velocityAt = performance.now();
+    };
+    const recordVelocity = (dx, dy) => {
+      const now = performance.now();
+      const elapsed = Math.max(1, Math.min(50, now - velocityAt));
+      const blend = 0.35;
+      velocityX = velocityX * (1 - blend) + (dx / elapsed) * blend;
+      velocityY = velocityY * (1 - blend) + (dy / elapsed) * blend;
+      velocityAt = now;
+    };
+    const startInertia = () => {
+      cancelInertia();
+      const speed = Math.hypot(velocityX, velocityY);
+      if (speed < 0.05) return;
+      // Cap unusually sparse-event spikes while preserving a brisk flick.
+      const cap = Math.min(1, 3 / speed);
+      velocityX *= cap;
+      velocityY *= cap;
+      let previousTime = performance.now();
+      const tick = (now) => {
+        const elapsed = Math.min(32, now - previousTime);
+        previousTime = now;
+        tf.current.x += velocityX * elapsed;
+        tf.current.y += velocityY * elapsed;
+        apply();
+        const friction = Math.pow(0.95, elapsed / 16.67);
+        velocityX *= friction;
+        velocityY *= friction;
+        if (Math.hypot(velocityX, velocityY) < 0.02) {
+          inertiaFrame = null;
+          return;
+        }
+        inertiaFrame = requestAnimationFrame(tick);
+      };
+      inertiaFrame = requestAnimationFrame(tick);
+    };
+
     const onWheel = (e) => {
       e.preventDefault();
+      cancelInertia();
       if (isGesturing) return; // Safari: gesture* owns the pinch — discard concurrent wheels
       if (e.ctrlKey) {
         // trackpad pinch (or explicit ctrl+wheel)
@@ -249,7 +298,7 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
     // onWheel drop those entirely so they neither zoom nor pan.
     let gsBase = 1;
     let isGesturing = false;
-    const onGestureStart = (e) => { e.preventDefault(); isGesturing = true; gsBase = tf.current.scale; };
+    const onGestureStart = (e) => { e.preventDefault(); cancelInertia(); isGesturing = true; gsBase = tf.current.scale; };
     const onGestureChange = (e) => {
       e.preventDefault();
       zoomAt(e.clientX, e.clientY, (gsBase * e.scale) / tf.current.scale);
@@ -275,7 +324,13 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
     // background (anything that isn't an artboard or an inline editor).
     let drag = null;
     const onPointerDown = (e) => {
+      cancelInertia();
       if (e.pointerType === 'touch') {
+        // Capture-phase tracking lets gestures begin over dense artboard
+        // content even when a child stops pointerdown propagation. Canvas
+        // chrome with its own drag/edit behavior explicitly opts out.
+        if (e.target.closest?.('.dc-editable, .dc-grip, .dc-expand')) return;
+        resetVelocity();
         touches.set(e.pointerId, {
           x: e.clientX, y: e.clientY,
           sx: e.clientX, sy: e.clientY,
@@ -302,6 +357,7 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
           const dy = nextPair.cy - previousPair.cy;
           tf.current.x += dx;
           tf.current.y += dy;
+          recordVelocity(dx, dy);
           if (previousPair.distance > 0) {
             zoomAt(nextPair.cx, nextPair.cy, nextPair.distance / previousPair.distance);
           } else {
@@ -313,6 +369,7 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
           const dy = e.clientY - previous.y;
           tf.current.x += dx;
           tf.current.y += dy;
+          recordVelocity(dx, dy);
           apply();
           const totalDistance = Math.hypot(
             e.clientX - previous.sx,
@@ -331,6 +388,16 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
     const onPointerUp = (e) => {
       if (e.pointerType === 'touch' && touches.has(e.pointerId)) {
         touches.delete(e.pointerId);
+        if (touches.size === 0 && e.type === 'pointerup') startInertia();
+        else if (touches.size > 0) {
+          // A remaining finger begins a fresh one-finger gesture here; do not
+          // measure its movement from before the two-finger pinch started.
+          for (const touch of touches.values()) {
+            touch.sx = touch.x;
+            touch.sy = touch.y;
+          }
+          resetVelocity();
+        }
         if (touches.size === 0 && suppressClick) {
           // A compatibility click, when emitted, follows pointerup before
           // this timer. Do not let stale suppression eat the next real tap.
@@ -354,21 +421,22 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
     vp.addEventListener('gesturestart', onGestureStart, { passive: false });
     vp.addEventListener('gesturechange', onGestureChange, { passive: false });
     vp.addEventListener('gestureend', onGestureEnd, { passive: false });
-    vp.addEventListener('pointerdown', onPointerDown);
-    vp.addEventListener('pointermove', onPointerMove);
-    vp.addEventListener('pointerup', onPointerUp);
-    vp.addEventListener('pointercancel', onPointerUp);
+    vp.addEventListener('pointerdown', onPointerDown, true);
+    vp.addEventListener('pointermove', onPointerMove, true);
+    vp.addEventListener('pointerup', onPointerUp, true);
+    vp.addEventListener('pointercancel', onPointerUp, true);
     vp.addEventListener('click', onClick, true);
     return () => {
       vp.removeEventListener('wheel', onWheel);
       vp.removeEventListener('gesturestart', onGestureStart);
       vp.removeEventListener('gesturechange', onGestureChange);
       vp.removeEventListener('gestureend', onGestureEnd);
-      vp.removeEventListener('pointerdown', onPointerDown);
-      vp.removeEventListener('pointermove', onPointerMove);
-      vp.removeEventListener('pointerup', onPointerUp);
-      vp.removeEventListener('pointercancel', onPointerUp);
+      vp.removeEventListener('pointerdown', onPointerDown, true);
+      vp.removeEventListener('pointermove', onPointerMove, true);
+      vp.removeEventListener('pointerup', onPointerUp, true);
+      vp.removeEventListener('pointercancel', onPointerUp, true);
       vp.removeEventListener('click', onClick, true);
+      cancelInertia();
     };
   }, [apply, minScale, maxScale]);
 
