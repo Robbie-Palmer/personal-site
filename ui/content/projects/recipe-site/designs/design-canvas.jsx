@@ -174,10 +174,11 @@ function DesignCanvas({ children, minScale, maxScale, style }) {
 //   • trackpad scroll → pan    (two-finger)
 //   • mouse wheel     → zoom   (notched; distinguished from trackpad scroll)
 //   • middle-drag / primary-drag-on-bg → pan
+//   • one-finger drag → pan; two-finger pinch → pan + zoom
 //
-// Transform state lives in a ref and is written straight to the DOM
-// (translate3d + will-change) so wheel ticks don't go through React —
-// keeps pans at 60fps on dense canvases.
+// Transform state lives in a ref and is written straight to the DOM so wheel
+// ticks don't go through React. A 2D transform avoids forcing the entire dense
+// canvas into one oversized GPU texture on mobile browsers.
 // ─────────────────────────────────────────────────────────────
 function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
   const vpRef = React.useRef(null);
@@ -187,7 +188,15 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
   const apply = React.useCallback(() => {
     const { x, y, scale } = tf.current;
     const el = worldRef.current;
-    if (el) el.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
+    if (el) el.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+    const vp = vpRef.current;
+    if (vp) {
+      // Keep the grid visually attached to the world without painting it as
+      // part of the enormous transformed content layer. Large promoted layers
+      // can exceed mobile Safari's texture budget and disappear when zoomed.
+      vp.style.backgroundPosition = `${x}px ${y}px`;
+      vp.style.backgroundSize = `${120 * scale}px ${120 * scale}px`;
+    }
   }, []);
 
   React.useEffect(() => {
@@ -216,8 +225,57 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
       e.deltaMode !== 0 ||
       (e.deltaX === 0 && Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= 40);
 
+    let inertiaFrame = null;
+    let velocityX = 0;
+    let velocityY = 0;
+    let velocityAt = performance.now();
+    const cancelInertia = () => {
+      if (inertiaFrame !== null) cancelAnimationFrame(inertiaFrame);
+      inertiaFrame = null;
+    };
+    const resetVelocity = () => {
+      velocityX = 0;
+      velocityY = 0;
+      velocityAt = performance.now();
+    };
+    const recordVelocity = (dx, dy) => {
+      const now = performance.now();
+      const elapsed = Math.max(1, Math.min(50, now - velocityAt));
+      const blend = 0.35;
+      velocityX = velocityX * (1 - blend) + (dx / elapsed) * blend;
+      velocityY = velocityY * (1 - blend) + (dy / elapsed) * blend;
+      velocityAt = now;
+    };
+    const startInertia = () => {
+      cancelInertia();
+      const speed = Math.hypot(velocityX, velocityY);
+      if (speed < 0.05) return;
+      // Cap unusually sparse-event spikes while preserving a brisk flick.
+      const cap = Math.min(1, 3 / speed);
+      velocityX *= cap;
+      velocityY *= cap;
+      let previousTime = performance.now();
+      const tick = (now) => {
+        const elapsed = Math.min(32, now - previousTime);
+        previousTime = now;
+        tf.current.x += velocityX * elapsed;
+        tf.current.y += velocityY * elapsed;
+        apply();
+        const friction = Math.pow(0.95, elapsed / 16.67);
+        velocityX *= friction;
+        velocityY *= friction;
+        if (Math.hypot(velocityX, velocityY) < 0.02) {
+          inertiaFrame = null;
+          return;
+        }
+        inertiaFrame = requestAnimationFrame(tick);
+      };
+      inertiaFrame = requestAnimationFrame(tick);
+    };
+
     const onWheel = (e) => {
       e.preventDefault();
+      cancelInertia();
       if (isGesturing) return; // Safari: gesture* owns the pinch — discard concurrent wheels
       if (e.ctrlKey) {
         // trackpad pinch (or explicit ctrl+wheel)
@@ -240,17 +298,45 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
     // onWheel drop those entirely so they neither zoom nor pan.
     let gsBase = 1;
     let isGesturing = false;
-    const onGestureStart = (e) => { e.preventDefault(); isGesturing = true; gsBase = tf.current.scale; };
+    const onGestureStart = (e) => { e.preventDefault(); cancelInertia(); isGesturing = true; gsBase = tf.current.scale; };
     const onGestureChange = (e) => {
       e.preventDefault();
       zoomAt(e.clientX, e.clientY, (gsBase * e.scale) / tf.current.scale);
     };
     const onGestureEnd = (e) => { e.preventDefault(); isGesturing = false; };
 
-    // Drag-pan: middle button anywhere, or primary button on canvas
+    // Touch gestures use Pointer Events rather than Safari's gesture* events,
+    // which are not consistently emitted for touchscreens. A finger can pan
+    // from anywhere on the dense canvas; a tap still reaches the prototype.
+    const touches = new Map();
+    let suppressClick = false;
+    const touchPair = () => {
+      const [a, b] = Array.from(touches.values());
+      if (!a || !b) return null;
+      return {
+        cx: (a.x + b.x) / 2,
+        cy: (a.y + b.y) / 2,
+        distance: Math.hypot(b.x - a.x, b.y - a.y),
+      };
+    };
+
+    // Mouse drag-pan: middle button anywhere, or primary button on canvas
     // background (anything that isn't an artboard or an inline editor).
     let drag = null;
     const onPointerDown = (e) => {
+      cancelInertia();
+      if (e.pointerType === 'touch') {
+        // Capture-phase tracking lets gestures begin over dense artboard
+        // content even when a child stops pointerdown propagation. Canvas
+        // chrome with its own drag/edit behavior explicitly opts out.
+        if (e.target.closest?.('.dc-editable, .dc-grip, .dc-expand')) return;
+        resetVelocity();
+        touches.set(e.pointerId, {
+          x: e.clientX, y: e.clientY,
+          sx: e.clientX, sy: e.clientY,
+        });
+        return;
+      }
       const onBg = !e.target.closest('[data-dc-slot], .dc-editable');
       if (!(e.button === 1 || (e.button === 0 && onBg))) return;
       e.preventDefault();
@@ -259,6 +345,40 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
       vp.style.cursor = 'grabbing';
     };
     const onPointerMove = (e) => {
+      if (e.pointerType === 'touch' && touches.has(e.pointerId)) {
+        e.preventDefault();
+        const previous = touches.get(e.pointerId);
+        const previousPair = touchPair();
+        touches.set(e.pointerId, { ...previous, x: e.clientX, y: e.clientY });
+        const nextPair = touchPair();
+
+        if (previousPair && nextPair) {
+          const dx = nextPair.cx - previousPair.cx;
+          const dy = nextPair.cy - previousPair.cy;
+          tf.current.x += dx;
+          tf.current.y += dy;
+          recordVelocity(dx, dy);
+          if (previousPair.distance > 0) {
+            zoomAt(nextPair.cx, nextPair.cy, nextPair.distance / previousPair.distance);
+          } else {
+            apply();
+          }
+          suppressClick = true;
+        } else if (previous) {
+          const dx = e.clientX - previous.x;
+          const dy = e.clientY - previous.y;
+          tf.current.x += dx;
+          tf.current.y += dy;
+          recordVelocity(dx, dy);
+          apply();
+          const totalDistance = Math.hypot(
+            e.clientX - previous.sx,
+            e.clientY - previous.sy,
+          );
+          if (totalDistance > 5) suppressClick = true;
+        }
+        return;
+      }
       if (!drag || e.pointerId !== drag.id) return;
       tf.current.x += e.clientX - drag.lx;
       tf.current.y += e.clientY - drag.ly;
@@ -266,29 +386,57 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
       apply();
     };
     const onPointerUp = (e) => {
+      if (e.pointerType === 'touch' && touches.has(e.pointerId)) {
+        touches.delete(e.pointerId);
+        if (touches.size === 0 && e.type === 'pointerup') startInertia();
+        else if (touches.size > 0) {
+          // A remaining finger begins a fresh one-finger gesture here; do not
+          // measure its movement from before the two-finger pinch started.
+          for (const touch of touches.values()) {
+            touch.sx = touch.x;
+            touch.sy = touch.y;
+          }
+          resetVelocity();
+        }
+        if (touches.size === 0 && suppressClick) {
+          // A compatibility click, when emitted, follows pointerup before
+          // this timer. Do not let stale suppression eat the next real tap.
+          setTimeout(() => { suppressClick = false; }, 0);
+        }
+        return;
+      }
       if (!drag || e.pointerId !== drag.id) return;
       vp.releasePointerCapture(e.pointerId);
       drag = null;
       vp.style.cursor = '';
+    };
+    const onClick = (e) => {
+      if (!suppressClick) return;
+      e.preventDefault();
+      e.stopPropagation();
+      suppressClick = false;
     };
 
     vp.addEventListener('wheel', onWheel, { passive: false });
     vp.addEventListener('gesturestart', onGestureStart, { passive: false });
     vp.addEventListener('gesturechange', onGestureChange, { passive: false });
     vp.addEventListener('gestureend', onGestureEnd, { passive: false });
-    vp.addEventListener('pointerdown', onPointerDown);
-    vp.addEventListener('pointermove', onPointerMove);
-    vp.addEventListener('pointerup', onPointerUp);
-    vp.addEventListener('pointercancel', onPointerUp);
+    vp.addEventListener('pointerdown', onPointerDown, true);
+    vp.addEventListener('pointermove', onPointerMove, true);
+    vp.addEventListener('pointerup', onPointerUp, true);
+    vp.addEventListener('pointercancel', onPointerUp, true);
+    vp.addEventListener('click', onClick, true);
     return () => {
       vp.removeEventListener('wheel', onWheel);
       vp.removeEventListener('gesturestart', onGestureStart);
       vp.removeEventListener('gesturechange', onGestureChange);
       vp.removeEventListener('gestureend', onGestureEnd);
-      vp.removeEventListener('pointerdown', onPointerDown);
-      vp.removeEventListener('pointermove', onPointerMove);
-      vp.removeEventListener('pointerup', onPointerUp);
-      vp.removeEventListener('pointercancel', onPointerUp);
+      vp.removeEventListener('pointerdown', onPointerDown, true);
+      vp.removeEventListener('pointermove', onPointerMove, true);
+      vp.removeEventListener('pointerup', onPointerUp, true);
+      vp.removeEventListener('pointercancel', onPointerUp, true);
+      vp.removeEventListener('click', onClick, true);
+      cancelInertia();
     };
   }, [apply, minScale, maxScale]);
 
@@ -300,6 +448,8 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
       style={{
         height: '100vh', width: '100vw',
         background: DC.bg,
+        backgroundImage: gridSvg,
+        backgroundSize: '120px 120px',
         overflow: 'hidden',
         overscrollBehavior: 'none',
         touchAction: 'none',
@@ -314,13 +464,11 @@ function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
         style={{
           position: 'absolute', top: 0, left: 0,
           transformOrigin: '0 0',
-          willChange: 'transform',
           width: 'max-content', minWidth: '100%',
           minHeight: '100%',
           padding: '60px 0 80px',
         }}
       >
-        <div style={{ position: 'absolute', inset: -6000, backgroundImage: gridSvg, backgroundSize: '120px 120px', pointerEvents: 'none', zIndex: -1 }} />
         {children}
       </div>
     </div>
@@ -619,4 +767,3 @@ function DCPostIt({ children, top, left, right, bottom, rotate = -2, width = 180
 }
 
 Object.assign(window, { DesignCanvas, DCSection, DCArtboard, DCPostIt });
-
