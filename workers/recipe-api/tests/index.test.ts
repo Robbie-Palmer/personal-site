@@ -29,6 +29,11 @@ vi.mock("postgres", () => ({
   }),
 }));
 
+vi.mock("jose", () => ({
+  createRemoteJWKSet: vi.fn(() => vi.fn()),
+  jwtVerify: vi.fn(() => Promise.resolve({ payload: { sub: "tester" } })),
+}));
+
 import app from "../src/index";
 
 const env = {
@@ -148,6 +153,90 @@ describe("POST /api/auth/sign-in/social", () => {
     expect(await res.json()).toEqual({
       error: "Auth configuration is invalid",
     });
+  });
+});
+
+describe("preview authentication", () => {
+  const previewEnv = {
+    DATABASE_URL: env.DATABASE_URL,
+    DEPLOYMENT_ENV: "preview",
+    BETTER_AUTH_URL: "https://pr-42.personal-site-bu5.pages.dev",
+    BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
+    PREVIEW_AUTH_PASSWORD: "a-long-random-preview-password",
+    CF_ACCESS_TEAM_DOMAIN: "example.cloudflareaccess.com",
+    CF_ACCESS_AUD: "preview-audience",
+  };
+
+  it("is unavailable outside preview deployments", async () => {
+    const res = await app.request(
+      "/api/auth/preview/scenarios",
+      {},
+      env,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("requires complete preview configuration", async () => {
+    const res = await app.request(
+      "/api/auth/preview/scenarios",
+      {},
+      { ...previewEnv, CF_ACCESS_AUD: "" },
+    );
+    expect(res.status).toBe(503);
+  });
+
+  it("requires a valid Cloudflare Access assertion", async () => {
+    const res = await app.request(
+      "/api/auth/preview/scenarios",
+      {},
+      previewEnv,
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("returns the allowlisted scenarios after Access authorization", async () => {
+    const res = await app.request(
+      "/api/auth/preview/scenarios",
+      { headers: { "cf-access-jwt-assertion": "test-assertion" } },
+      previewEnv,
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "empty-user" }),
+        expect.objectContaining({ id: "user-with-recipes" }),
+        expect.objectContaining({ id: "admin-user" }),
+      ]),
+    );
+  });
+
+  it("rejects scenario identifiers that are not allowlisted", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-in",
+      {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": "test-assertion",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ scenario: "arbitrary-user" }),
+      },
+      previewEnv,
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Unknown preview scenario" });
+  });
+
+  it("does not expose Better Auth's raw password endpoints", async () => {
+    for (const path of [
+      "/api/auth/sign-in/email",
+      "/api/auth/sign-in/email/",
+      "/api/auth/sign-up/email",
+      "/api/auth/sign-up/email/",
+    ]) {
+      const res = await app.request(path, { method: "POST" }, previewEnv);
+      expect(res.status).toBe(404);
+    }
   });
 });
 

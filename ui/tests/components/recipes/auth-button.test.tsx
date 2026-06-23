@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   signOut: vi.fn(),
   listAccounts: vi.fn(),
   getLastUsedLoginMethod: vi.fn(),
+  isPreviewDeployment: vi.fn(),
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -20,6 +21,10 @@ vi.mock("@/lib/auth-client", () => ({
   },
 }));
 
+vi.mock("@/lib/preview-environment", () => ({
+  isPreviewDeployment: mocks.isPreviewDeployment,
+}));
+
 import { AuthButton } from "@/components/recipes/auth-button";
 
 describe("AuthButton", () => {
@@ -30,6 +35,8 @@ describe("AuthButton", () => {
     mocks.signOut.mockResolvedValue({ data: null, error: null });
     mocks.listAccounts.mockResolvedValue({ data: [], error: null });
     mocks.getLastUsedLoginMethod.mockReturnValue(null);
+    mocks.isPreviewDeployment.mockReturnValue(false);
+    vi.unstubAllGlobals();
   });
 
   it("lets the user choose Google or GitHub", async () => {
@@ -76,6 +83,53 @@ describe("AuthButton", () => {
       callbackURL: "/recipes/pasta?servings=4#method",
       errorCallbackURL: "/recipes/pasta?servings=4#method",
     });
+  });
+
+  it("offers Access-protected test scenarios on PR previews", async () => {
+    const user = userEvent.setup();
+    mocks.isPreviewDeployment.mockReturnValue(true);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            {
+              id: "empty-user",
+              name: "Empty account",
+              description: "A standard user with no saved recipes.",
+            },
+          ]),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ error: "Preview sign-in failed" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AuthButton />);
+
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    const scenarioButton = await screen.findByRole("button", {
+      name: /Empty account/,
+    });
+    expect(
+      screen.queryByRole("button", { name: "Continue with Google" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(scenarioButton);
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        "/api/auth/preview/sign-in",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ scenario: "empty-user" }),
+        }),
+      ),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Preview sign-in failed",
+    );
   });
 
   it("shows the signed-in user and supports sign out", async () => {

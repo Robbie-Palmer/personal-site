@@ -9,6 +9,8 @@ locals {
     NEXT_PUBLIC_POSTHOG_HOST           = var.posthog_host
     GITHUB_TOKEN                       = var.github_token
     RECIPE_API_URL                     = var.recipe_api_url
+    RECIPE_API_PREVIEW_ORIGIN_TEMPLATE = var.recipe_api_preview_origin_template
+    CF_PAGES_HOST                      = var.cf_pages_host
   }
 }
 

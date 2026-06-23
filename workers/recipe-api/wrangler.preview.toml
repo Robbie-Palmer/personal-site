@@ -1,0 +1,8 @@
+name = "recipe-api-preview"
+main = "src/index.ts"
+compatibility_date = "2026-05-28"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Preview deployments intentionally have no Hyperdrive binding. The workflow
+# injects the isolated Neon branch's pooled DATABASE_URL as a Worker secret.

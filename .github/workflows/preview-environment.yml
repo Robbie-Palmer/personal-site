@@ -1,0 +1,169 @@
+name: Preview Environment
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  deployments: write
+  pull-requests: write
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment:
+      name: cloudflare-preview
+    steps:
+      - name: Set preview resource names
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PAGES_HOST: ${{ vars.CLOUDFLARE_PAGES_HOST }}
+          PREVIEW_AUTH_SEED: ${{ secrets.PREVIEW_AUTH_SEED }}
+        run: |
+          set -euo pipefail
+          : "${PAGES_HOST:?CLOUDFLARE_PAGES_HOST is required}"
+          : "${PREVIEW_AUTH_SEED:?PREVIEW_AUTH_SEED is required}"
+
+          BETTER_AUTH_SECRET=$(printf 'better-auth:%s' "$PR_NUMBER" | openssl dgst -sha256 -hmac "$PREVIEW_AUTH_SEED" -binary | base64)
+          PREVIEW_AUTH_PASSWORD=$(printf 'preview-password:%s' "$PR_NUMBER" | openssl dgst -sha256 -hmac "$PREVIEW_AUTH_SEED" -binary | base64)
+          echo "::add-mask::$BETTER_AUTH_SECRET"
+          echo "::add-mask::$PREVIEW_AUTH_PASSWORD"
+
+          {
+            echo "PREVIEW_BRANCH=preview-pr-$PR_NUMBER"
+            echo "PREVIEW_WORKER_NAME=recipe-api-pr-$PR_NUMBER"
+            echo "PREVIEW_SITE_URL=https://pr-$PR_NUMBER.$PAGES_HOST"
+            echo "BETTER_AUTH_URL=https://pr-$PR_NUMBER.$PAGES_HOST"
+            echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET"
+            echo "PREVIEW_AUTH_PASSWORD=$PREVIEW_AUTH_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Set Neon branch expiry
+        id: neon-expiry
+        run: echo "expires_at=$(date -u --date '+30 days' +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
+      - name: Create or reuse schema-only Neon branch
+        id: neon
+        uses: neondatabase/create-branch-action@fb620d43d4c565abaf088b848a4e28e5c4ea4d9c
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          branch_name: preview-pr-${{ github.event.pull_request.number }}
+          branch_type: schema-only
+          database: recipes
+          role: recipes_owner
+          suspend_timeout: 300
+          expires_at: ${{ steps.neon-expiry.outputs.expires_at }}
+
+      # Provisioning above runs only trusted workflow/action code. Check out
+      # and execute the internal PR only after the Neon API key is out of scope.
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d
+        with:
+          experimental: true
+
+      - name: Install dependencies
+        run: mise run //:install
+
+      - name: Check preview backend
+        run: mise run //workers/recipe-api:check
+
+      - name: Push schema to preview branch
+        run: mise run //workers/recipe-api:db:push
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+
+      - name: Seed preview scenarios
+        run: mise run //workers/recipe-api:db:seed:preview
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+          BETTER_AUTH_URL: https://pr-${{ github.event.pull_request.number }}.${{ vars.CLOUDFLARE_PAGES_HOST }}
+
+      - name: Create atomic Worker secrets file
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+        run: |
+          SECRETS_FILE="$RUNNER_TEMP/preview-worker-secrets.json"
+          jq -n \
+            --arg database_url "$DATABASE_URL" \
+            --arg auth_secret "$BETTER_AUTH_SECRET" \
+            --arg preview_password "$PREVIEW_AUTH_PASSWORD" \
+            '{DATABASE_URL: $database_url, BETTER_AUTH_SECRET: $auth_secret, PREVIEW_AUTH_PASSWORD: $preview_password}' \
+            > "$SECRETS_FILE"
+          echo "PREVIEW_SECRETS_FILE=$SECRETS_FILE" >> "$GITHUB_ENV"
+
+      - name: Deploy isolated preview Worker
+        run: mise run //workers/recipe-api:preview:deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_ACCESS_TEAM_DOMAIN: ${{ vars.CF_ACCESS_TEAM_DOMAIN }}
+          CF_ACCESS_AUD: ${{ vars.CF_ACCESS_AUD }}
+
+      - name: Build UI
+        run: |
+          : "${NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH:?NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH is required}"
+          mise run //ui:build
+        env:
+          NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: ${{ secrets.CF_IMAGES_ACCOUNT_HASH }}
+          NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
+          NEXT_PUBLIC_POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+
+      - name: Deploy canonical PR Pages preview
+        run: mise run //ui:deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DEPLOY_BRANCH: pr-${{ github.event.pull_request.number }}
+
+      - name: Comment preview URL on PR
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        env:
+          PREVIEW_SITE_URL: https://pr-${{ github.event.pull_request.number }}.${{ vars.CLOUDFLARE_PAGES_HOST }}
+          PREVIEW_WORKER_NAME: recipe-api-pr-${{ github.event.pull_request.number }}
+          PREVIEW_BRANCH: preview-pr-${{ github.event.pull_request.number }}
+        with:
+          script: |
+            const marker = '<!-- preview-environment -->';
+            const body = `${marker}
+            ### Preview environment
+
+            **Site:** ${process.env.PREVIEW_SITE_URL}
+            **Worker:** \`${process.env.PREVIEW_WORKER_NAME}\`
+            **Database:** Neon branch \`${process.env.PREVIEW_BRANCH}\`
+
+            The site is protected by Cloudflare Access. Use the **Sign in** menu to choose a seeded QA scenario.`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(comment =>
+              comment.user.type === 'Bot' && comment.body?.includes(marker)
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

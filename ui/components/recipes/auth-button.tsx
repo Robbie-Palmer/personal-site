@@ -1,14 +1,26 @@
 "use client";
 
 import * as PopoverPrimitive from "@radix-ui/react-popover";
-import { ChevronDown, LoaderCircle, LogIn, LogOut } from "lucide-react";
+import {
+  ChevronDown,
+  FlaskConical,
+  LoaderCircle,
+  LogIn,
+  LogOut,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { siGithub, siGoogle } from "simple-icons";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
+import { isPreviewDeployment } from "@/lib/preview-environment";
 
 type Provider = "google" | "github";
 type LinkedAccount = { providerId: string; accountId: string };
+type PreviewScenario = {
+  id: string;
+  name: string;
+  description: string;
+};
 
 const providers: ReadonlyArray<{
   id: Provider;
@@ -30,7 +42,11 @@ function ProviderIcon({ path }: { path: string }) {
 export function AuthButton() {
   const { data: session, isPending } = authClient.useSession();
   const [open, setOpen] = useState(false);
-  const [pendingProvider, setPendingProvider] = useState<Provider | null>(null);
+  const [pendingSignIn, setPendingSignIn] = useState<string | null>(null);
+  const [isPreview, setIsPreview] = useState(false);
+  const [previewScenarios, setPreviewScenarios] = useState<
+    PreviewScenario[] | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [linkedAccounts, setLinkedAccounts] = useState<LinkedAccount[] | null>(
     null,
@@ -46,6 +62,20 @@ export function AuthButton() {
     if (method === "google" || method === "github") {
       setLastUsedProvider(method);
     }
+  }, []);
+
+  useEffect(() => {
+    const preview = isPreviewDeployment(window.location.hostname);
+    setIsPreview(preview);
+    if (!preview) return;
+
+    void fetch("/api/auth/preview/scenarios")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Preview scenarios unavailable");
+        return (await response.json()) as PreviewScenario[];
+      })
+      .then(setPreviewScenarios)
+      .catch(() => setError("Preview sign-in is not configured."));
   }, []);
 
   async function loadLinkedAccounts() {
@@ -183,7 +213,7 @@ export function AuthButton() {
   }
 
   async function signIn(provider: Provider) {
-    setPendingProvider(provider);
+    setPendingSignIn(provider);
     setError(null);
 
     const currentURL = `${window.location.pathname}${window.location.search}${window.location.hash}`;
@@ -199,7 +229,31 @@ export function AuthButton() {
     } catch {
       setError("Sign-in could not be started. Please try again.");
     } finally {
-      setPendingProvider(null);
+      setPendingSignIn(null);
+    }
+  }
+
+  async function previewSignIn(scenario: PreviewScenario) {
+    setPendingSignIn(scenario.id);
+    setError(null);
+    try {
+      const response = await fetch("/api/auth/preview/sign-in", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ scenario: scenario.id }),
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        setError(body?.error ?? "Preview sign-in failed.");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("Preview sign-in failed.");
+    } finally {
+      setPendingSignIn(null);
     }
   }
 
@@ -219,30 +273,60 @@ export function AuthButton() {
           className="bg-popover text-popover-foreground z-50 w-56 rounded-md border p-2 shadow-md outline-none"
         >
           <p className="px-2 pb-2 text-xs font-medium text-muted-foreground">
-            Sign in to your recipes
+            {isPreview
+              ? "Choose a preview scenario"
+              : "Sign in to your recipes"}
           </p>
           <div className="flex flex-col gap-1">
-            {providers.map((provider) => (
-              <Button
-                key={provider.id}
-                variant="ghost"
-                className="w-full justify-start"
-                disabled={pendingProvider !== null}
-                onClick={() => signIn(provider.id)}
-              >
-                {pendingProvider === provider.id ? (
-                  <LoaderCircle className="animate-spin" />
-                ) : (
-                  <ProviderIcon path={provider.iconPath} />
-                )}
-                Continue with {provider.name}
-                {lastUsedProvider === provider.id && (
-                  <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
-                    Last used
-                  </span>
-                )}
-              </Button>
-            ))}
+            {isPreview
+              ? previewScenarios?.map((scenario) => (
+                  <Button
+                    key={scenario.id}
+                    variant="ghost"
+                    className="h-auto w-full justify-start py-2"
+                    disabled={pendingSignIn !== null}
+                    onClick={() => previewSignIn(scenario)}
+                  >
+                    {pendingSignIn === scenario.id ? (
+                      <LoaderCircle className="animate-spin" />
+                    ) : (
+                      <FlaskConical />
+                    )}
+                    <span className="min-w-0 text-left">
+                      <span className="block">{scenario.name}</span>
+                      <span className="block truncate text-xs font-normal text-muted-foreground">
+                        {scenario.description}
+                      </span>
+                    </span>
+                  </Button>
+                ))
+              : providers.map((provider) => (
+                  <Button
+                    key={provider.id}
+                    variant="ghost"
+                    className="w-full justify-start"
+                    disabled={pendingSignIn !== null}
+                    onClick={() => signIn(provider.id)}
+                  >
+                    {pendingSignIn === provider.id ? (
+                      <LoaderCircle className="animate-spin" />
+                    ) : (
+                      <ProviderIcon path={provider.iconPath} />
+                    )}
+                    Continue with {provider.name}
+                    {lastUsedProvider === provider.id && (
+                      <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
+                        Last used
+                      </span>
+                    )}
+                  </Button>
+                ))}
+            {isPreview && previewScenarios === null && !error && (
+              <div className="flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground">
+                <LoaderCircle className="animate-spin" />
+                Loading scenarios…
+              </div>
+            )}
           </div>
           {error && (
             <p role="alert" className="px-2 pt-2 text-xs text-destructive">

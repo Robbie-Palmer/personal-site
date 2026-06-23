@@ -5,6 +5,7 @@ config_roots = [
     "ui",
     "infra",
     "ml-pipelines",
+    "workers/recipe-api",
 ]
 
 [settings]
