@@ -82,12 +82,29 @@ variable "recipe_api_preview_origin_template" {
   description = "Preview Worker origin template; {pr} is replaced with the PR number"
   type        = string
   default     = "https://recipe-api-pr-{pr}.robbiepalmer95.workers.dev"
+
+  validation {
+    condition = (
+      length(regexall("\\{pr\\}", var.recipe_api_preview_origin_template)) == 1 &&
+      can(regex("^https://[A-Za-z0-9.-]*\\{pr\\}[A-Za-z0-9.-]*(:[0-9]+)?$", var.recipe_api_preview_origin_template))
+    )
+    error_message = "recipe_api_preview_origin_template must be an HTTPS origin template containing exactly one {pr} placeholder and no path or query."
+  }
 }
 
 variable "cf_pages_host" {
   description = "Cloudflare Pages project hostname used to recognize canonical PR aliases"
   type        = string
   default     = "personal-site-bu5.pages.dev"
+
+  validation {
+    condition = (
+      can(regex("^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$", var.cf_pages_host)) &&
+      length(regexall("\\.", var.cf_pages_host)) > 0 &&
+      length(regexall("\\.\\.", var.cf_pages_host)) == 0
+    )
+    error_message = "cf_pages_host must be a hostname only, with no scheme, path, query, or empty labels."
+  }
 }
 
 # Neon

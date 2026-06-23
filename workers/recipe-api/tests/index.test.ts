@@ -228,12 +228,15 @@ describe("preview authentication", () => {
   });
 
   it("does not expose Better Auth's raw password endpoints", async () => {
-    const res = await app.request(
+    for (const path of [
       "/api/auth/sign-in/email",
-      { method: "POST" },
-      previewEnv,
-    );
-    expect(res.status).toBe(404);
+      "/api/auth/sign-in/email/",
+      "/api/auth/sign-up/email",
+      "/api/auth/sign-up/email/",
+    ]) {
+      const res = await app.request(path, { method: "POST" }, previewEnv);
+      expect(res.status).toBe(404);
+    }
   });
 });
 

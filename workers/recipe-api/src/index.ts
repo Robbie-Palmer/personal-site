@@ -128,10 +128,8 @@ app.post("/api/auth/preview/sign-in", async (c) => {
 app.on(["POST", "GET"], "/api/auth/*", async (c) => {
   // Preview credentials are server-owned. Only the Access-protected scenario
   // endpoint above may invoke Better Auth's email/password API.
-  if (
-    c.req.path === "/api/auth/sign-in/email" ||
-    c.req.path === "/api/auth/sign-up/email"
-  ) {
+  const blockedPasswordRoute = /^\/api\/auth\/sign-(in|up)\/email\/?$/;
+  if (blockedPasswordRoute.test(c.req.path)) {
     return c.notFound();
   }
 
