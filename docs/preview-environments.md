@@ -26,11 +26,18 @@ default branch, then explicitly checks out the internal PR commit. Only
 preview-scoped credentials should be stored in the preview environment because
 the deployed application code is still the PR's code.
 
-## One-time manual setup
+## Operational setup & runbook
 
-### 1. Apply the Terraform change
+This environment is already provisioned. The steps below are retained as a
+recovery and rotation runbook — how to recreate the GitHub environment, rotate
+the scoped credentials, and rebuild the Cloudflare Access application. These
+pieces are configured out of band; their sensitive values are not stored in the
+repository (the Terraform configuration itself is, under `infra/`).
 
-After this change reaches `main`, apply the infrastructure workspace:
+### 1. Apply the Terraform configuration
+
+A push to `main` that touches `infra/**` applies the configuration
+automatically via the `infra-cd` workflow. To apply by hand (the fallback):
 
 ```bash
 mise run //infra:plan
@@ -78,10 +85,17 @@ Do not store that service token in this repository.
 
 ### 3. Create a least-privilege Cloudflare token
 
-Create a token intended only for previews. It needs the account permissions
-required to deploy/delete Workers and deploy Pages projects. Scope it to this
-Cloudflare account and, where Cloudflare permits, the `personal-site` Pages
-project. Do not reuse a global or DNS-capable production token.
+Create a token intended only for previews, with exactly these account-scoped
+permissions:
+
+- **Account -> Workers Scripts -> Edit** (deploy/delete the preview Worker and
+  upload its secrets)
+- **Account -> Cloudflare Pages -> Edit** (deploy the canonical PR Pages alias)
+
+Scope it to this Cloudflare account. Cloudflare's Pages permission is
+account-level only and cannot be narrowed to the `personal-site` project, so
+account scope is the tightest available. Do not reuse a global or DNS-capable
+production token.
 
 ### 4. Create the GitHub environment
 
@@ -114,12 +128,20 @@ Add these environment variables:
 | `CF_ACCESS_TEAM_DOMAIN` | `https://your-team.cloudflareaccess.com` |
 | `CF_ACCESS_AUD` | Audience tag from the Pages preview Access application |
 
-The Neon key currently operates at project or organization scope. Keep it in
-the controller action only and rotate it if GitHub reports any exposure.
+`NEON_API_KEY` is a **project-scoped** key for the `recipes` project (Neon
+Console -> organization -> Settings -> API keys -> Create API key ->
+Project-scoped), so it can manage branches in that project and nothing else.
+Keep it in the `cloudflare-preview` environment only and rotate it if GitHub
+reports any exposure.
 
-### 5. Verify the first preview
+`POSTHOG_KEY` and `POSTHOG_HOST` are currently omitted, so previews run without
+analytics. The UI build only requires `CF_IMAGES_ACCOUNT_HASH`; the PostHog
+client no-ops when its key is unset.
 
-Open or update an internal PR after the workflow has landed on `main`. Confirm:
+### 5. Smoke-test a preview
+
+To validate the pipeline (after recreating any of the above, or when debugging),
+open or update an internal PR — the workflow runs from `main`. Confirm:
 
 1. The PR receives one `Preview environment` comment.
 2. Neon contains `preview-pr-<number>` and it has no production rows.
