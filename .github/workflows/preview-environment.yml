@@ -58,7 +58,8 @@ jobs:
           branch_type: schema-only
           database: recipes
           role: recipes_owner
-          suspend_timeout: 300
+          # Neon Free plan fixes scale-to-zero at 5 minutes and rejects any
+          # explicit suspend_timeout with HTTP 412, so it must be omitted.
           expires_at: ${{ steps.neon-expiry.outputs.expires_at }}
 
       # Provisioning above runs only trusted workflow/action code. Check out

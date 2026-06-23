@@ -149,6 +149,19 @@ Add the scenario to
 to `workers/recipe-api/scripts/seed-preview.ts`. Seeds must be idempotent and
 must not erase QA changes on subsequent pushes.
 
+## Neon Free plan constraints
+
+The preview branch is a schema-only branch, which Neon implements as an
+independent **root branch**. The Free plan permits only **3 root branches per
+project**, and the project's `main` branch consumes one. Previews therefore
+support at most **two concurrent internal PRs**; a third preview branch fails
+with `ROOT_BRANCHES_LIMIT_EXCEEDED` until an open preview closes. Upgrading to a
+paid plan (Launch allows 5 root branches) raises this ceiling.
+
+Scale-to-zero is fixed at 5 minutes on the Free plan and cannot be configured.
+The Neon branch action must not pass `suspend_timeout`; any explicit value is
+rejected with `412 Precondition Failed`.
+
 ## Known follow-up: committed migrations
 
 The workflow currently uses `drizzle-kit push`, matching production. Before
