@@ -30,13 +30,14 @@ the deployed application code is still the PR's code.
 
 This environment is already provisioned. The steps below are retained as a
 recovery and rotation runbook — how to recreate the GitHub environment, rotate
-the scoped credentials, or rebuild the Cloudflare Access app and Terraform
-variables. None of these live in the repository.
+the scoped credentials, and rebuild the Cloudflare Access application. These
+pieces are configured out of band; their sensitive values are not stored in the
+repository (the Terraform configuration itself is, under `infra/`).
 
-### 1. Apply the Terraform variables
+### 1. Apply the Terraform configuration
 
-A push to `main` that touches `infra/**` applies these automatically via the
-`infra-cd` workflow. To apply by hand (the fallback):
+A push to `main` that touches `infra/**` applies the configuration
+automatically via the `infra-cd` workflow. To apply by hand (the fallback):
 
 ```bash
 mise run //infra:plan
