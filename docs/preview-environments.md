@@ -9,10 +9,12 @@ https://pr-<number>.<pages-host>
   -> preview-pr-<number> Neon branch
 ```
 
-The Neon branch is created as a schema-only child of the project's primary
-branch. Production rows, Better Auth sessions, OAuth tokens, and private
-recipes are therefore never copied into a preview. The workflow pushes the PR
-schema and adds deterministic QA fixtures.
+The Neon branch is created with a schema-only copy of the project's primary
+branch. It copies the structure but none of the rows, so it is technically an
+independent root branch rather than a child (see [Neon Free plan
+constraints](#neon-free-plan-constraints) below). Production rows, Better Auth
+sessions, OAuth tokens, and private recipes are therefore never copied into a
+preview. The workflow pushes the PR schema and adds deterministic QA fixtures.
 
 The branch and Worker survive updates to the PR so QA state is preserved. They
 are deleted when the PR closes. Neon also expires the branch after 30 days as a
@@ -148,6 +150,19 @@ Add the scenario to
 `workers/recipe-api/src/preview-scenarios.ts` and its deterministic domain data
 to `workers/recipe-api/scripts/seed-preview.ts`. Seeds must be idempotent and
 must not erase QA changes on subsequent pushes.
+
+## Neon Free plan constraints
+
+The preview branch is a schema-only branch, which Neon implements as an
+independent **root branch**. The Free plan permits only **3 root branches per
+project**, and the project's `main` branch consumes one. Previews therefore
+support at most **two concurrent internal PRs**; a third preview branch fails
+with `ROOT_BRANCHES_LIMIT_EXCEEDED` until an open preview closes. Upgrading to a
+paid plan (Launch allows 5 root branches) raises this ceiling.
+
+Scale-to-zero is fixed at 5 minutes on the Free plan and cannot be configured.
+The Neon branch action must not pass `suspend_timeout`; any explicit value is
+rejected with `412 Precondition Failed`.
 
 ## Known follow-up: committed migrations
 
