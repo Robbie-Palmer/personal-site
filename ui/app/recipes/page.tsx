@@ -23,7 +23,7 @@ export default function RecipesPage() {
       <div className="mb-8">
         <h1 className="text-4xl md:text-5xl font-bold mb-4">Recipes</h1>
         <p className="text-xl text-muted-foreground">
-          A collection of my favorite recipes
+          A collection of my favorite recipes — preview environment smoke test
         </p>
         <p className="mt-2 text-sm font-medium text-muted-foreground">
           {recipeCountLabel}
