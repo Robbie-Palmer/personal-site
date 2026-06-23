@@ -9,10 +9,12 @@ https://pr-<number>.<pages-host>
   -> preview-pr-<number> Neon branch
 ```
 
-The Neon branch is created as a schema-only child of the project's primary
-branch. Production rows, Better Auth sessions, OAuth tokens, and private
-recipes are therefore never copied into a preview. The workflow pushes the PR
-schema and adds deterministic QA fixtures.
+The Neon branch is created with a schema-only copy of the project's primary
+branch. It copies the structure but none of the rows, so it is technically an
+independent root branch rather than a child (see [Neon Free plan
+constraints](#neon-free-plan-constraints) below). Production rows, Better Auth
+sessions, OAuth tokens, and private recipes are therefore never copied into a
+preview. The workflow pushes the PR schema and adds deterministic QA fixtures.
 
 The branch and Worker survive updates to the PR so QA state is preserved. They
 are deleted when the PR closes. Neon also expires the branch after 30 days as a
