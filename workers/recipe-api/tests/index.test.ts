@@ -177,6 +177,32 @@ describe("POST /api/auth/sign-in/social", () => {
       ],
     });
   });
+
+  it("rejects same-site fetch metadata without a trusted origin", async () => {
+    const res = await app.request(
+      "/api/auth/sign-in/social",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-site",
+        },
+        body: JSON.stringify({ provider: "google" }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({
+      error: "CSRF validation failed",
+      details: [
+        {
+          path: [],
+          message: "Unsafe browser mutations must come from a trusted origin",
+        },
+      ],
+    });
+  });
 });
 
 describe("preview authentication", () => {
@@ -273,6 +299,33 @@ describe("preview authentication", () => {
         {
           path: ["scenario"],
           message: expect.any(String),
+        },
+      ],
+    });
+  });
+
+  it("returns structured errors for invalid preview sign-in JSON", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-in",
+      {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": "test-assertion",
+          "content-type": "application/json",
+          origin: previewEnv.BETTER_AUTH_URL,
+        },
+        body: "{not-json",
+      },
+      previewEnv,
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "Invalid JSON",
+      details: [
+        {
+          path: [],
+          message: "Request body must be valid JSON",
         },
       ],
     });

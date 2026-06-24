@@ -27,9 +27,9 @@ function hasTrustedOrigin(c: Context): boolean {
   return Boolean(origin && trustedOrigins(c).has(origin));
 }
 
-function hasSameSiteFetchMetadata(c: Context): boolean {
+function hasSameOriginFetchMetadata(c: Context): boolean {
   const secFetchSite = c.req.header("sec-fetch-site");
-  return secFetchSite === "same-origin" || secFetchSite === "same-site";
+  return secFetchSite === "same-origin";
 }
 
 export function isUnsafeMutation(method: string): boolean {
@@ -37,7 +37,7 @@ export function isUnsafeMutation(method: string): boolean {
 }
 
 export function hasValidCsrfSignal(c: Context): boolean {
-  return hasTrustedOrigin(c) || hasSameSiteFetchMetadata(c);
+  return hasTrustedOrigin(c) || hasSameOriginFetchMetadata(c);
 }
 
 export function validateCsrf(c: Context): Response | undefined {

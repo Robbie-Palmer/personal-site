@@ -25,6 +25,21 @@ export function validationErrorResponse(c: Context, issues: ZodIssue[]) {
   );
 }
 
+export function invalidJsonResponse(c: Context) {
+  return c.json(
+    {
+      error: "Invalid JSON",
+      details: [
+        {
+          path: [],
+          message: "Request body must be valid JSON",
+        },
+      ],
+    },
+    400,
+  );
+}
+
 export async function parseJsonBody<TSchema extends ZodType>(
   c: Context,
   schema: TSchema,
@@ -33,6 +48,13 @@ export async function parseJsonBody<TSchema extends ZodType>(
   | { success: false; response: Response }
 > {
   const body = await c.req.json().catch(() => undefined);
+  if (body === undefined) {
+    return {
+      success: false,
+      response: invalidJsonResponse(c),
+    };
+  }
+
   const result = schema.safeParse(body);
   if (!result.success) {
     return {
