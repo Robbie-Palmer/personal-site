@@ -154,6 +154,81 @@ describe("POST /api/auth/sign-in/social", () => {
       error: "Auth configuration is invalid",
     });
   });
+
+  it("rejects unsafe browser mutations without a trusted CSRF signal", async () => {
+    const res = await app.request(
+      "/api/auth/sign-in/social",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ provider: "google" }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({
+      error: "CSRF validation failed",
+      details: [
+        {
+          path: [],
+          message: "Unsafe browser mutations must come from a trusted origin",
+        },
+      ],
+    });
+  });
+
+  it("rejects same-site fetch metadata without a trusted origin", async () => {
+    const res = await app.request(
+      "/api/auth/sign-in/social",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-site",
+        },
+        body: JSON.stringify({ provider: "google" }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({
+      error: "CSRF validation failed",
+      details: [
+        {
+          path: [],
+          message: "Unsafe browser mutations must come from a trusted origin",
+        },
+      ],
+    });
+  });
+
+  it("rejects same-origin fetch metadata without a trusted origin", async () => {
+    const res = await app.request(
+      "/api/auth/sign-in/social",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-origin",
+        },
+        body: JSON.stringify({ provider: "google" }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({
+      error: "CSRF validation failed",
+      details: [
+        {
+          path: [],
+          message: "Unsafe browser mutations must come from a trusted origin",
+        },
+      ],
+    });
+  });
 });
 
 describe("preview authentication", () => {
@@ -218,6 +293,7 @@ describe("preview authentication", () => {
         headers: {
           "cf-access-jwt-assertion": "test-assertion",
           "content-type": "application/json",
+          origin: previewEnv.BETTER_AUTH_URL,
         },
         body: JSON.stringify({ scenario: "arbitrary-user" }),
       },
@@ -225,6 +301,113 @@ describe("preview authentication", () => {
     );
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Unknown preview scenario" });
+  });
+
+  it("returns structured validation errors for malformed preview sign-in bodies", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-in",
+      {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": "test-assertion",
+          "content-type": "application/json",
+          origin: previewEnv.BETTER_AUTH_URL,
+        },
+        body: JSON.stringify({ scenario: "" }),
+      },
+      previewEnv,
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "Invalid request body",
+      details: [
+        {
+          path: ["scenario"],
+          message: expect.any(String),
+        },
+      ],
+    });
+  });
+
+  it("returns structured errors for invalid preview sign-in JSON", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-in",
+      {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": "test-assertion",
+          "content-type": "application/json",
+          origin: previewEnv.BETTER_AUTH_URL,
+        },
+        body: "{not-json",
+      },
+      previewEnv,
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "Invalid JSON",
+      details: [
+        {
+          path: [],
+          message: "Request body must be valid JSON",
+        },
+      ],
+    });
+  });
+
+  it("returns unsupported media type for non-JSON preview sign-in bodies", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-in",
+      {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": "test-assertion",
+          "content-type": "text/plain",
+          origin: previewEnv.BETTER_AUTH_URL,
+        },
+        body: "empty-user",
+      },
+      previewEnv,
+    );
+
+    expect(res.status).toBe(415);
+    expect(await res.json()).toEqual({
+      error: "Unsupported media type",
+      details: [
+        {
+          path: [],
+          message: "Request body must use application/json",
+        },
+      ],
+    });
+  });
+
+  it("rejects preview sign-in without a trusted CSRF signal", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-in",
+      {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": "test-assertion",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ scenario: "empty-user" }),
+      },
+      previewEnv,
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({
+      error: "CSRF validation failed",
+      details: [
+        {
+          path: [],
+          message: "Unsafe browser mutations must come from a trusted origin",
+        },
+      ],
+    });
   });
 
   it("does not expose Better Auth's raw password endpoints", async () => {
