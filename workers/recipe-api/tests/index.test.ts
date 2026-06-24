@@ -91,6 +91,29 @@ describe("GET /recipes", () => {
   });
 });
 
+describe("POST /recipes", () => {
+  it("requires authentication", async () => {
+    const res = await app.request(
+      "/recipes",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          slug: "private-draft",
+          title: "Private Draft",
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Authentication required" });
+  });
+});
+
 describe("POST /api/auth/sign-in/social", () => {
   it.each(["google", "github"] as const)(
     "uses the public frontend callback for %s",

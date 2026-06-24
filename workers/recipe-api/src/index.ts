@@ -4,6 +4,14 @@ import { z } from "zod";
 import { createDb, schema } from "./db";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
+import {
+  type AuthorizationVariables,
+  authorizationResponse,
+  authorizeOwnerOnly,
+  authorizeRecipeRead,
+  loadBetterAuthSession,
+  unauthenticated,
+} from "./http/authorization";
 import { validateCsrf } from "./http/security";
 import { parseJsonBody } from "./http/validation";
 import {
@@ -26,11 +34,37 @@ type Bindings = {
   CF_ACCESS_AUD?: string;
 };
 
-const app = new Hono<{ Bindings: Bindings }>();
+type Recipe = typeof schema.recipe.$inferSelect;
+
+const app = new Hono<{
+  Bindings: Bindings;
+  Variables: Partial<AuthorizationVariables>;
+}>();
 
 const previewSignInBodySchema = z.object({
   scenario: z.string().trim().min(1),
 });
+
+const recipeVisibilitySchema = z.enum(["public", "private", "household"]);
+
+const createRecipeBodySchema = z.object({
+  slug: z.string().trim().min(1),
+  title: z.string().trim().min(1),
+  description: z.string().trim().min(1).optional(),
+  body: z.string().trim().min(1).optional(),
+  visibility: recipeVisibilitySchema.default("private"),
+});
+
+const updateRecipeBodySchema = z
+  .object({
+    title: z.string().trim().min(1).optional(),
+    description: z.string().trim().min(1).nullable().optional(),
+    body: z.string().trim().min(1).nullable().optional(),
+    visibility: recipeVisibilitySchema.optional(),
+  })
+  .refine((body) => Object.keys(body).length > 0, {
+    message: "At least one recipe field must be provided",
+  });
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 
@@ -62,6 +96,18 @@ function hasAuthConfiguration(env: Bindings): boolean {
       env.GITHUB_CLIENT_ID &&
       env.GITHUB_CLIENT_SECRET,
   );
+}
+
+async function findRecipeBySlug(
+  db: ReturnType<typeof createDb>["db"],
+  slug: string,
+): Promise<Recipe | undefined> {
+  const [recipe] = await db
+    .select()
+    .from(schema.recipe)
+    .where(eq(schema.recipe.slug, slug))
+    .limit(1);
+  return recipe;
 }
 
 async function hasPreviewAccess(request: Request, env: Bindings) {
@@ -188,6 +234,160 @@ app.get("/recipes", async (c) => {
   } catch (e) {
     console.error("GET /recipes query failed", e);
     return c.json({ error: "Database query failed" }, 502);
+  } finally {
+    try {
+      await client.end({ timeout: 5 });
+    } catch (e) {
+      console.error("client.end() cleanup failed", e);
+    }
+  }
+});
+
+app.get("/recipes/:slug", async (c) => {
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  const { db, client } = createDb(connectionString);
+  try {
+    const recipe = await findRecipeBySlug(db, c.req.param("slug"));
+    if (!recipe) return c.notFound();
+
+    const session = await loadBetterAuthSession(c, db);
+    const decision = authorizeRecipeRead(session?.user, recipe);
+    if (!decision.allowed) return authorizationResponse(c, decision);
+
+    return c.json(recipe);
+  } catch (e) {
+    console.error("GET /recipes/:slug query failed", e);
+    return c.json({ error: "Database query failed" }, 502);
+  } finally {
+    try {
+      await client.end({ timeout: 5 });
+    } catch (e) {
+      console.error("client.end() cleanup failed", e);
+    }
+  }
+});
+
+app.post("/recipes", async (c) => {
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  const { db, client } = createDb(connectionString);
+  try {
+    const session = await loadBetterAuthSession(c, db);
+    if (!session) return authorizationResponse(c, unauthenticated());
+
+    const csrfFailure = validateCsrf(c);
+    if (csrfFailure) return csrfFailure;
+
+    const body = await parseJsonBody(c, createRecipeBodySchema);
+    if (!body.success) return body.response;
+
+    const [recipe] = await db
+      .insert(schema.recipe)
+      .values({
+        ...body.data,
+        userId: session.user.id,
+      })
+      .returning();
+
+    return c.json(recipe, 201);
+  } catch (e) {
+    console.error("POST /recipes mutation failed", e);
+    return c.json({ error: "Database mutation failed" }, 502);
+  } finally {
+    try {
+      await client.end({ timeout: 5 });
+    } catch (e) {
+      console.error("client.end() cleanup failed", e);
+    }
+  }
+});
+
+app.patch("/recipes/:slug", async (c) => {
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  const { db, client } = createDb(connectionString);
+  try {
+    const session = await loadBetterAuthSession(c, db);
+    if (!session) return authorizationResponse(c, unauthenticated());
+
+    const csrfFailure = validateCsrf(c);
+    if (csrfFailure) return csrfFailure;
+
+    const recipe = await findRecipeBySlug(db, c.req.param("slug"));
+    if (!recipe) return c.notFound();
+
+    const decision = authorizeOwnerOnly(session.user, recipe);
+    if (!decision.allowed) return authorizationResponse(c, decision);
+
+    const body = await parseJsonBody(c, updateRecipeBodySchema);
+    if (!body.success) return body.response;
+
+    const [updatedRecipe] = await db
+      .update(schema.recipe)
+      .set(body.data)
+      .where(eq(schema.recipe.id, recipe.id))
+      .returning();
+
+    return c.json(updatedRecipe);
+  } catch (e) {
+    console.error("PATCH /recipes/:slug mutation failed", e);
+    return c.json({ error: "Database mutation failed" }, 502);
+  } finally {
+    try {
+      await client.end({ timeout: 5 });
+    } catch (e) {
+      console.error("client.end() cleanup failed", e);
+    }
+  }
+});
+
+app.delete("/recipes/:slug", async (c) => {
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  const { db, client } = createDb(connectionString);
+  try {
+    const session = await loadBetterAuthSession(c, db);
+    if (!session) return authorizationResponse(c, unauthenticated());
+
+    const csrfFailure = validateCsrf(c);
+    if (csrfFailure) return csrfFailure;
+
+    const recipe = await findRecipeBySlug(db, c.req.param("slug"));
+    if (!recipe) return c.notFound();
+
+    const decision = authorizeOwnerOnly(session.user, recipe);
+    if (!decision.allowed) return authorizationResponse(c, decision);
+
+    await db.delete(schema.recipe).where(eq(schema.recipe.id, recipe.id));
+    return c.body(null, 204);
+  } catch (e) {
+    console.error("DELETE /recipes/:slug mutation failed", e);
+    return c.json({ error: "Database mutation failed" }, 502);
   } finally {
     try {
       await client.end({ timeout: 5 });
