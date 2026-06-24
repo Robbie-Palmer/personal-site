@@ -5,6 +5,7 @@ import { createDb, schema } from "./db";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
 import {
+  type AuthenticatedSession,
   type AuthorizationVariables,
   authorizationResponse,
   loadBetterAuthSession,
@@ -33,6 +34,9 @@ type Bindings = {
 };
 
 type Recipe = typeof schema.recipe.$inferSelect;
+type AuthSessionResult =
+  | { success: true; session: AuthenticatedSession }
+  | { success: false; response: Response };
 type AppEnv = {
   Bindings: Bindings;
   Variables: Partial<AuthorizationVariables>;
@@ -90,6 +94,11 @@ function databaseConnection(env: Bindings): string | undefined {
   return env.HYPERDRIVE?.connectionString ?? env.DATABASE_URL;
 }
 
+function recipeResponse(recipe: Recipe) {
+  const { userId: _userId, ...response } = recipe;
+  return response;
+}
+
 function invalidSlugResponse(c: Context<AppEnv>) {
   return c.json(
     {
@@ -131,6 +140,67 @@ function hasAuthConfiguration(env: Bindings): boolean {
       env.GOOGLE_CLIENT_SECRET &&
       env.GITHUB_CLIENT_ID &&
       env.GITHUB_CLIENT_SECRET,
+  );
+}
+
+function hasLoadableAuthConfiguration(env: Bindings): boolean {
+  return hasAuthConfiguration(env) && isValidAuthURL(env.BETTER_AUTH_URL);
+}
+
+async function loadOptionalRecipeSession(
+  c: Context<AppEnv>,
+  db: ReturnType<typeof createDb>["db"],
+): Promise<AuthenticatedSession | null> {
+  if (!hasLoadableAuthConfiguration(c.env)) return null;
+  try {
+    return await loadBetterAuthSession(c, db);
+  } catch (error) {
+    console.error("Recipe session lookup failed", error);
+    return null;
+  }
+}
+
+async function requireRecipeSession(
+  c: Context<AppEnv>,
+  db: ReturnType<typeof createDb>["db"],
+): Promise<AuthSessionResult> {
+  if (!hasAuthConfiguration(c.env)) {
+    return {
+      success: false,
+      response: c.json({ error: "Auth configuration is incomplete" }, 503),
+    };
+  }
+  if (!isValidAuthURL(c.env.BETTER_AUTH_URL)) {
+    return {
+      success: false,
+      response: c.json({ error: "Auth configuration is invalid" }, 503),
+    };
+  }
+
+  try {
+    const session = await loadBetterAuthSession(c, db);
+    if (!session) {
+      return {
+        success: false,
+        response: authorizationResponse(c, unauthenticated()),
+      };
+    }
+    return { success: true, session };
+  } catch (error) {
+    console.error("Recipe session lookup failed", error);
+    return {
+      success: false,
+      response: c.json({ error: "Auth session lookup failed" }, 503),
+    };
+  }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "23505"
   );
 }
 
@@ -283,7 +353,7 @@ app.get("/recipes", async (c) => {
       .select()
       .from(schema.recipe)
       .where(eq(schema.recipe.visibility, "public"));
-    return c.json(recipes);
+    return c.json(recipes.map(recipeResponse));
   } catch (e) {
     console.error("GET /recipes query failed", e);
     return c.json({ error: "Database query failed" }, 502);
@@ -310,7 +380,7 @@ app.get("/recipes/:slug", async (c) => {
 
   const { db, client } = createDb(connectionString);
   try {
-    const session = await loadBetterAuthSession(c, db);
+    const session = await loadOptionalRecipeSession(c, db);
     const recipe = await findReadableRecipeBySlug(
       db,
       slug.slug,
@@ -318,7 +388,7 @@ app.get("/recipes/:slug", async (c) => {
     );
     if (!recipe) return c.notFound();
 
-    return c.json(recipe);
+    return c.json(recipeResponse(recipe));
   } catch (e) {
     console.error("GET /recipes/:slug query failed", e);
     return c.json({ error: "Database query failed" }, 502);
@@ -332,6 +402,9 @@ app.get("/recipes/:slug", async (c) => {
 });
 
 app.post("/recipes", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
   const connectionString = databaseConnection(c.env);
   if (!connectionString) {
     return c.json(
@@ -342,11 +415,8 @@ app.post("/recipes", async (c) => {
 
   const { db, client } = createDb(connectionString);
   try {
-    const session = await loadBetterAuthSession(c, db);
-    if (!session) return authorizationResponse(c, unauthenticated());
-
-    const csrfFailure = validateCsrf(c);
-    if (csrfFailure) return csrfFailure;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
 
     const body = await parseJsonBody(c, createRecipeBodySchema);
     if (!body.success) return body.response;
@@ -355,14 +425,17 @@ app.post("/recipes", async (c) => {
       .insert(schema.recipe)
       .values({
         ...body.data,
-        userId: session.user.id,
+        userId: session.session.user.id,
       })
       .returning();
 
     if (!recipe) return c.json({ error: "Database mutation failed" }, 502);
 
-    return c.json(recipe, 201);
+    return c.json(recipeResponse(recipe), 201);
   } catch (e) {
+    if (isUniqueViolation(e)) {
+      return c.json({ error: "Recipe slug already exists" }, 409);
+    }
     console.error("POST /recipes mutation failed", e);
     return c.json({ error: "Database mutation failed" }, 502);
   } finally {
@@ -378,6 +451,9 @@ app.patch("/recipes/:slug", async (c) => {
   const slug = parseRecipeSlug(c);
   if (!slug.success) return slug.response;
 
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
   const connectionString = databaseConnection(c.env);
   if (!connectionString) {
     return c.json(
@@ -388,13 +464,14 @@ app.patch("/recipes/:slug", async (c) => {
 
   const { db, client } = createDb(connectionString);
   try {
-    const session = await loadBetterAuthSession(c, db);
-    if (!session) return authorizationResponse(c, unauthenticated());
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
 
-    const csrfFailure = validateCsrf(c);
-    if (csrfFailure) return csrfFailure;
-
-    const recipe = await findOwnedRecipeBySlug(db, slug.slug, session.user.id);
+    const recipe = await findOwnedRecipeBySlug(
+      db,
+      slug.slug,
+      session.session.user.id,
+    );
     if (!recipe) return c.notFound();
 
     const body = await parseJsonBody(c, updateRecipeBodySchema);
@@ -403,12 +480,17 @@ app.patch("/recipes/:slug", async (c) => {
     const [updatedRecipe] = await db
       .update(schema.recipe)
       .set(body.data)
-      .where(eq(schema.recipe.id, recipe.id))
+      .where(
+        and(
+          eq(schema.recipe.id, recipe.id),
+          eq(schema.recipe.userId, session.session.user.id),
+        ),
+      )
       .returning();
 
     if (!updatedRecipe) return c.notFound();
 
-    return c.json(updatedRecipe);
+    return c.json(recipeResponse(updatedRecipe));
   } catch (e) {
     console.error("PATCH /recipes/:slug mutation failed", e);
     return c.json({ error: "Database mutation failed" }, 502);
@@ -425,6 +507,9 @@ app.delete("/recipes/:slug", async (c) => {
   const slug = parseRecipeSlug(c);
   if (!slug.success) return slug.response;
 
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
   const connectionString = databaseConnection(c.env);
   if (!connectionString) {
     return c.json(
@@ -435,18 +520,24 @@ app.delete("/recipes/:slug", async (c) => {
 
   const { db, client } = createDb(connectionString);
   try {
-    const session = await loadBetterAuthSession(c, db);
-    if (!session) return authorizationResponse(c, unauthenticated());
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
 
-    const csrfFailure = validateCsrf(c);
-    if (csrfFailure) return csrfFailure;
-
-    const recipe = await findOwnedRecipeBySlug(db, slug.slug, session.user.id);
+    const recipe = await findOwnedRecipeBySlug(
+      db,
+      slug.slug,
+      session.session.user.id,
+    );
     if (!recipe) return c.notFound();
 
     const [deletedRecipe] = await db
       .delete(schema.recipe)
-      .where(eq(schema.recipe.id, recipe.id))
+      .where(
+        and(
+          eq(schema.recipe.id, recipe.id),
+          eq(schema.recipe.userId, session.session.user.id),
+        ),
+      )
       .returning({ id: schema.recipe.id });
     if (!deletedRecipe) return c.notFound();
 
