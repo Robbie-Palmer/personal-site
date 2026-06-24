@@ -91,6 +91,73 @@ describe("GET /recipes", () => {
   });
 });
 
+describe("GET /recipes/:slug", () => {
+  it("rejects malformed slugs before database access", async () => {
+    const res = await app.request(
+      "/recipes/Invalid%20Slug",
+      {},
+      { DATABASE_URL: "" },
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "Invalid recipe slug",
+      details: [
+        {
+          path: ["slug"],
+          message:
+            "Slug must use lowercase letters, numbers, and single hyphens between words",
+        },
+      ],
+    });
+  });
+});
+
+describe("POST /recipes", () => {
+  it("requires authentication", async () => {
+    const res = await app.request(
+      "/recipes",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          slug: "private-draft",
+          title: "Private Draft",
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Authentication required" });
+  });
+});
+
+describe("PATCH /recipes/:slug", () => {
+  it("rejects malformed slugs before authentication or database access", async () => {
+    const res = await app.request(
+      "/recipes/-invalid",
+      { method: "PATCH" },
+      { DATABASE_URL: "" },
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "Invalid recipe slug",
+      details: [
+        {
+          path: ["slug"],
+          message:
+            "Slug must use lowercase letters, numbers, and single hyphens between words",
+        },
+      ],
+    });
+  });
+});
+
 describe("POST /api/auth/sign-in/social", () => {
   it.each(["google", "github"] as const)(
     "uses the public frontend callback for %s",
