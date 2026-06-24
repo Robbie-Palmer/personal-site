@@ -34,6 +34,7 @@ type Bindings = {
 };
 
 type Recipe = typeof schema.recipe.$inferSelect;
+type DbClient = ReturnType<typeof createDb>["client"];
 type AuthSessionResult =
   | { success: true; session: AuthenticatedSession }
   | { success: false; response: Response };
@@ -75,6 +76,7 @@ const updateRecipeBodySchema = z
     body: z.string().trim().min(1).nullable().optional(),
     visibility: recipeVisibilitySchema.optional(),
   })
+  .strict()
   .refine((body) => Object.keys(body).length > 0, {
     message: "At least one recipe field must be provided",
   });
@@ -92,6 +94,15 @@ function isValidAuthURL(value: string): boolean {
 
 function databaseConnection(env: Bindings): string | undefined {
   return env.HYPERDRIVE?.connectionString ?? env.DATABASE_URL;
+}
+
+async function closeDbClient(client: DbClient | undefined) {
+  if (!client) return;
+  try {
+    await client.end({ timeout: 5 });
+  } catch (e) {
+    console.error("client.end() cleanup failed", e);
+  }
 }
 
 function recipeResponse(recipe: Recipe) {
@@ -347,8 +358,11 @@ app.get("/recipes", async (c) => {
       503,
     );
   }
-  const { db, client } = createDb(connectionString);
+  let client: DbClient | undefined;
   try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
     const recipes = await db
       .select()
       .from(schema.recipe)
@@ -358,11 +372,7 @@ app.get("/recipes", async (c) => {
     console.error("GET /recipes query failed", e);
     return c.json({ error: "Database query failed" }, 502);
   } finally {
-    try {
-      await client.end({ timeout: 5 });
-    } catch (e) {
-      console.error("client.end() cleanup failed", e);
-    }
+    await closeDbClient(client);
   }
 });
 
@@ -378,8 +388,11 @@ app.get("/recipes/:slug", async (c) => {
     );
   }
 
-  const { db, client } = createDb(connectionString);
+  let client: DbClient | undefined;
   try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
     const session = await loadOptionalRecipeSession(c, db);
     const recipe = await findReadableRecipeBySlug(
       db,
@@ -393,11 +406,7 @@ app.get("/recipes/:slug", async (c) => {
     console.error("GET /recipes/:slug query failed", e);
     return c.json({ error: "Database query failed" }, 502);
   } finally {
-    try {
-      await client.end({ timeout: 5 });
-    } catch (e) {
-      console.error("client.end() cleanup failed", e);
-    }
+    await closeDbClient(client);
   }
 });
 
@@ -413,8 +422,11 @@ app.post("/recipes", async (c) => {
     );
   }
 
-  const { db, client } = createDb(connectionString);
+  let client: DbClient | undefined;
   try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
     const session = await requireRecipeSession(c, db);
     if (!session.success) return session.response;
 
@@ -439,11 +451,7 @@ app.post("/recipes", async (c) => {
     console.error("POST /recipes mutation failed", e);
     return c.json({ error: "Database mutation failed" }, 502);
   } finally {
-    try {
-      await client.end({ timeout: 5 });
-    } catch (e) {
-      console.error("client.end() cleanup failed", e);
-    }
+    await closeDbClient(client);
   }
 });
 
@@ -462,8 +470,11 @@ app.patch("/recipes/:slug", async (c) => {
     );
   }
 
-  const { db, client } = createDb(connectionString);
+  let client: DbClient | undefined;
   try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
     const session = await requireRecipeSession(c, db);
     if (!session.success) return session.response;
 
@@ -495,11 +506,7 @@ app.patch("/recipes/:slug", async (c) => {
     console.error("PATCH /recipes/:slug mutation failed", e);
     return c.json({ error: "Database mutation failed" }, 502);
   } finally {
-    try {
-      await client.end({ timeout: 5 });
-    } catch (e) {
-      console.error("client.end() cleanup failed", e);
-    }
+    await closeDbClient(client);
   }
 });
 
@@ -518,8 +525,11 @@ app.delete("/recipes/:slug", async (c) => {
     );
   }
 
-  const { db, client } = createDb(connectionString);
+  let client: DbClient | undefined;
   try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
     const session = await requireRecipeSession(c, db);
     if (!session.success) return session.response;
 
@@ -546,11 +556,7 @@ app.delete("/recipes/:slug", async (c) => {
     console.error("DELETE /recipes/:slug mutation failed", e);
     return c.json({ error: "Database mutation failed" }, 502);
   } finally {
-    try {
-      await client.end({ timeout: 5 });
-    } catch (e) {
-      console.error("client.end() cleanup failed", e);
-    }
+    await closeDbClient(client);
   }
 });
 
