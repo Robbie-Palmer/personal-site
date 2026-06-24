@@ -43,7 +43,7 @@ export type HouseholdReadContext = {
 };
 
 export type AuthSessionLoader = (
-  c: Context<{ Variables: Partial<AuthorizationVariables> }>,
+  c: Context,
 ) => Promise<AuthenticatedSession | null>;
 
 const noHouseholdReadAccess: HouseholdReadContext = Object.freeze({
@@ -102,7 +102,7 @@ export async function loadBetterAuthSession(
 
 export function requireAuthenticatedUser(
   loadSession: AuthSessionLoader,
-): MiddlewareHandler<{ Variables: Partial<AuthorizationVariables> }> {
+): MiddlewareHandler<{ Variables: AuthenticatedVariables }> {
   return async (c, next) => {
     const session = await loadSession(c);
     if (!session) return authorizationResponse(c, unauthenticated());
