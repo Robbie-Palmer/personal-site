@@ -109,6 +109,32 @@ describe("authorization policies", () => {
 });
 
 describe("authorization middleware", () => {
+  it("continues to the route with auth context when a session exists", async () => {
+    const app = new Hono<{
+      Variables: {
+        authSession: AuthenticatedSession;
+        authUser: AuthenticatedSession["user"];
+      };
+    }>();
+    app.use(
+      "/protected",
+      requireAuthenticatedUser(async () => ownerSession),
+    );
+    app.get("/protected", (c) =>
+      c.json({
+        userId: c.var.authUser.id,
+        sessionUserId: c.var.authSession.session.userId,
+      }),
+    );
+
+    const res = await app.request("/protected");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      userId: "user-owner",
+      sessionUserId: "user-owner",
+    });
+  });
+
   it("returns 401 when a privileged route has no authenticated session", async () => {
     const app = new Hono();
     app.use(
@@ -136,5 +162,21 @@ describe("authorization middleware", () => {
     const res = await app.request("/owner-only");
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: "Authorization required" });
+  });
+
+  it("continues to the route when authorization allows the session", async () => {
+    const app = new Hono();
+    app.use(
+      "/owner-only",
+      requireAuthorization(
+        async () => ownerSession,
+        () => ({ allowed: true }),
+      ),
+    );
+    app.get("/owner-only", (c) => c.json({ ok: true }));
+
+    const res = await app.request("/owner-only");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
   });
 });
