@@ -44,7 +44,7 @@ export type HouseholdResource = {
 };
 
 export type HouseholdReadContext = {
-  isHouseholdMemberOfOwner: boolean;
+  userSharesHouseholdWithOwner: boolean;
 };
 
 export type AuthSessionLoader = (
@@ -52,7 +52,7 @@ export type AuthSessionLoader = (
 ) => Promise<AuthenticatedSession | null>;
 
 const noHouseholdReadAccess: HouseholdReadContext = Object.freeze({
-  isHouseholdMemberOfOwner: false,
+  userSharesHouseholdWithOwner: false,
 });
 
 function hasSessionSignal(c: Context): boolean {
@@ -156,7 +156,7 @@ export function authorizeRecipeRead(
   if (recipe.userId === user.id) return allow();
   if (
     recipe.visibility === "household" &&
-    household.isHouseholdMemberOfOwner
+    household.userSharesHouseholdWithOwner
   ) {
     return allow();
   }

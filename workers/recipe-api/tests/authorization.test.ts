@@ -85,7 +85,7 @@ describe("authorization policies", () => {
           userId: "someone-else",
           visibility: "household",
         },
-        { isHouseholdMemberOfOwner: true },
+        { userSharesHouseholdWithOwner: true },
       ),
     ).toEqual({ allowed: true });
   });
