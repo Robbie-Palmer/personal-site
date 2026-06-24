@@ -203,6 +203,32 @@ describe("POST /api/auth/sign-in/social", () => {
       ],
     });
   });
+
+  it("rejects same-origin fetch metadata without a trusted origin", async () => {
+    const res = await app.request(
+      "/api/auth/sign-in/social",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-origin",
+        },
+        body: JSON.stringify({ provider: "google" }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({
+      error: "CSRF validation failed",
+      details: [
+        {
+          path: [],
+          message: "Unsafe browser mutations must come from a trusted origin",
+        },
+      ],
+    });
+  });
 });
 
 describe("preview authentication", () => {
@@ -326,6 +352,33 @@ describe("preview authentication", () => {
         {
           path: [],
           message: "Request body must be valid JSON",
+        },
+      ],
+    });
+  });
+
+  it("returns unsupported media type for non-JSON preview sign-in bodies", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-in",
+      {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": "test-assertion",
+          "content-type": "text/plain",
+          origin: previewEnv.BETTER_AUTH_URL,
+        },
+        body: "empty-user",
+      },
+      previewEnv,
+    );
+
+    expect(res.status).toBe(415);
+    expect(await res.json()).toEqual({
+      error: "Unsupported media type",
+      details: [
+        {
+          path: [],
+          message: "Request body must use application/json",
         },
       ],
     });

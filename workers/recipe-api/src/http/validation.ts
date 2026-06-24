@@ -40,6 +40,27 @@ export function invalidJsonResponse(c: Context) {
   );
 }
 
+export function unsupportedMediaTypeResponse(c: Context) {
+  return c.json(
+    {
+      error: "Unsupported media type",
+      details: [
+        {
+          path: [],
+          message: "Request body must use application/json",
+        },
+      ],
+    },
+    415,
+  );
+}
+
+function hasJsonContentType(c: Context): boolean {
+  const contentType = c.req.header("content-type");
+  if (!contentType) return false;
+  return /^application\/(?:[\w.+-]+\+)?json\b/i.test(contentType);
+}
+
 export async function parseJsonBody<TSchema extends ZodType>(
   c: Context,
   schema: TSchema,
@@ -47,6 +68,13 @@ export async function parseJsonBody<TSchema extends ZodType>(
   | { success: true; data: z.infer<TSchema> }
   | { success: false; response: Response }
 > {
+  if (!hasJsonContentType(c)) {
+    return {
+      success: false,
+      response: unsupportedMediaTypeResponse(c),
+    };
+  }
+
   const body = await c.req.json().catch(() => undefined);
   if (body === undefined) {
     return {

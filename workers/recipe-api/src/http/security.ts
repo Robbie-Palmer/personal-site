@@ -27,17 +27,12 @@ function hasTrustedOrigin(c: Context): boolean {
   return Boolean(origin && trustedOrigins(c).has(origin));
 }
 
-function hasSameOriginFetchMetadata(c: Context): boolean {
-  const secFetchSite = c.req.header("sec-fetch-site");
-  return secFetchSite === "same-origin";
-}
-
 export function isUnsafeMutation(method: string): boolean {
   return unsafeMethods.has(method.toUpperCase());
 }
 
 export function hasValidCsrfSignal(c: Context): boolean {
-  return hasTrustedOrigin(c) || hasSameOriginFetchMetadata(c);
+  return hasTrustedOrigin(c);
 }
 
 export function validateCsrf(c: Context): Response | undefined {
