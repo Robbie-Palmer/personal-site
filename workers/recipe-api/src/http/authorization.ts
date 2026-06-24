@@ -14,7 +14,12 @@ export type AuthorizationVariables = {
   authSession: AuthenticatedSession;
   authUser: AuthenticatedUser;
 };
-export type AuthenticatedVariables = AuthorizationVariables;
+
+/** Narrowed variant used after `requireAuthenticatedUser` succeeds. */
+export type AuthenticatedVariables = {
+  authSession: AuthenticatedSession;
+  authUser: AuthenticatedUser;
+};
 
 export type AuthorizationDecision =
   | { allowed: true }
