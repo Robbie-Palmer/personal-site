@@ -14,6 +14,7 @@ export type AuthorizationVariables = {
   authSession: AuthenticatedSession;
   authUser: AuthenticatedUser;
 };
+export type AuthenticatedVariables = AuthorizationVariables;
 
 export type AuthorizationDecision =
   | { allowed: true }
@@ -45,12 +46,16 @@ export type AuthSessionLoader = (
   c: Context<{ Variables: Partial<AuthorizationVariables> }>,
 ) => Promise<AuthenticatedSession | null>;
 
-const noHouseholdReadAccess: HouseholdReadContext = {
+const noHouseholdReadAccess: HouseholdReadContext = Object.freeze({
   isHouseholdMemberOfOwner: false,
-};
+});
 
 function hasSessionSignal(c: Context): boolean {
-  return Boolean(c.req.header("cookie") || c.req.header("authorization"));
+  if (c.req.header("authorization")) return true;
+
+  const cookie = c.req.header("cookie");
+  if (!cookie) return false;
+  return /(?:^|;\s*)(?:__Secure-)?better-auth[.-]session_token=/.test(cookie);
 }
 
 export function allow(): AuthorizationDecision {

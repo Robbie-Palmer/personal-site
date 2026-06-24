@@ -1,5 +1,5 @@
-import { Hono } from "hono";
-import { eq } from "drizzle-orm";
+import { Hono, type Context } from "hono";
+import { and, eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { createDb, schema } from "./db";
 import { createAuth } from "./auth";
@@ -7,8 +7,6 @@ import { verifyCloudflareAccess } from "./cloudflare-access";
 import {
   type AuthorizationVariables,
   authorizationResponse,
-  authorizeOwnerOnly,
-  authorizeRecipeRead,
   loadBetterAuthSession,
   unauthenticated,
 } from "./http/authorization";
@@ -35,20 +33,31 @@ type Bindings = {
 };
 
 type Recipe = typeof schema.recipe.$inferSelect;
-
-const app = new Hono<{
+type AppEnv = {
   Bindings: Bindings;
   Variables: Partial<AuthorizationVariables>;
-}>();
+};
+
+const app = new Hono<AppEnv>();
 
 const previewSignInBodySchema = z.object({
   scenario: z.string().trim().min(1),
 });
 
+const recipeSlugSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(120)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+    message:
+      "Slug must use lowercase letters, numbers, and single hyphens between words",
+  });
+
 const recipeVisibilitySchema = z.enum(["public", "private", "household"]);
 
 const createRecipeBodySchema = z.object({
-  slug: z.string().trim().min(1),
+  slug: recipeSlugSchema,
   title: z.string().trim().min(1),
   description: z.string().trim().min(1).optional(),
   body: z.string().trim().min(1).optional(),
@@ -81,6 +90,33 @@ function databaseConnection(env: Bindings): string | undefined {
   return env.HYPERDRIVE?.connectionString ?? env.DATABASE_URL;
 }
 
+function invalidSlugResponse(c: Context<AppEnv>) {
+  return c.json(
+    {
+      error: "Invalid recipe slug",
+      details: [
+        {
+          path: ["slug"],
+          message:
+            "Slug must use lowercase letters, numbers, and single hyphens between words",
+        },
+      ],
+    },
+    400,
+  );
+}
+
+function parseRecipeSlug(c: Context<AppEnv>) {
+  const result = recipeSlugSchema.safeParse(c.req.param("slug"));
+  if (!result.success) {
+    return {
+      success: false,
+      response: invalidSlugResponse(c),
+    } as const;
+  }
+  return { success: true, slug: result.data } as const;
+}
+
 function hasAuthConfiguration(env: Bindings): boolean {
   if (!env.BETTER_AUTH_URL || !env.BETTER_AUTH_SECRET) return false;
   if (env.DEPLOYMENT_ENV === "preview") {
@@ -98,14 +134,31 @@ function hasAuthConfiguration(env: Bindings): boolean {
   );
 }
 
-async function findRecipeBySlug(
+async function findReadableRecipeBySlug(
   db: ReturnType<typeof createDb>["db"],
   slug: string,
+  userId: string | undefined,
+): Promise<Recipe | undefined> {
+  const visibilityFilter = userId
+    ? or(eq(schema.recipe.visibility, "public"), eq(schema.recipe.userId, userId))
+    : eq(schema.recipe.visibility, "public");
+  const [recipe] = await db
+    .select()
+    .from(schema.recipe)
+    .where(and(eq(schema.recipe.slug, slug), visibilityFilter))
+    .limit(1);
+  return recipe;
+}
+
+async function findOwnedRecipeBySlug(
+  db: ReturnType<typeof createDb>["db"],
+  slug: string,
+  userId: string,
 ): Promise<Recipe | undefined> {
   const [recipe] = await db
     .select()
     .from(schema.recipe)
-    .where(eq(schema.recipe.slug, slug))
+    .where(and(eq(schema.recipe.slug, slug), eq(schema.recipe.userId, userId)))
     .limit(1);
   return recipe;
 }
@@ -244,6 +297,9 @@ app.get("/recipes", async (c) => {
 });
 
 app.get("/recipes/:slug", async (c) => {
+  const slug = parseRecipeSlug(c);
+  if (!slug.success) return slug.response;
+
   const connectionString = databaseConnection(c.env);
   if (!connectionString) {
     return c.json(
@@ -254,12 +310,13 @@ app.get("/recipes/:slug", async (c) => {
 
   const { db, client } = createDb(connectionString);
   try {
-    const recipe = await findRecipeBySlug(db, c.req.param("slug"));
-    if (!recipe) return c.notFound();
-
     const session = await loadBetterAuthSession(c, db);
-    const decision = authorizeRecipeRead(session?.user, recipe);
-    if (!decision.allowed) return authorizationResponse(c, decision);
+    const recipe = await findReadableRecipeBySlug(
+      db,
+      slug.slug,
+      session?.user.id,
+    );
+    if (!recipe) return c.notFound();
 
     return c.json(recipe);
   } catch (e) {
@@ -302,6 +359,8 @@ app.post("/recipes", async (c) => {
       })
       .returning();
 
+    if (!recipe) return c.json({ error: "Database mutation failed" }, 502);
+
     return c.json(recipe, 201);
   } catch (e) {
     console.error("POST /recipes mutation failed", e);
@@ -316,6 +375,9 @@ app.post("/recipes", async (c) => {
 });
 
 app.patch("/recipes/:slug", async (c) => {
+  const slug = parseRecipeSlug(c);
+  if (!slug.success) return slug.response;
+
   const connectionString = databaseConnection(c.env);
   if (!connectionString) {
     return c.json(
@@ -332,11 +394,8 @@ app.patch("/recipes/:slug", async (c) => {
     const csrfFailure = validateCsrf(c);
     if (csrfFailure) return csrfFailure;
 
-    const recipe = await findRecipeBySlug(db, c.req.param("slug"));
+    const recipe = await findOwnedRecipeBySlug(db, slug.slug, session.user.id);
     if (!recipe) return c.notFound();
-
-    const decision = authorizeOwnerOnly(session.user, recipe);
-    if (!decision.allowed) return authorizationResponse(c, decision);
 
     const body = await parseJsonBody(c, updateRecipeBodySchema);
     if (!body.success) return body.response;
@@ -346,6 +405,8 @@ app.patch("/recipes/:slug", async (c) => {
       .set(body.data)
       .where(eq(schema.recipe.id, recipe.id))
       .returning();
+
+    if (!updatedRecipe) return c.notFound();
 
     return c.json(updatedRecipe);
   } catch (e) {
@@ -361,6 +422,9 @@ app.patch("/recipes/:slug", async (c) => {
 });
 
 app.delete("/recipes/:slug", async (c) => {
+  const slug = parseRecipeSlug(c);
+  if (!slug.success) return slug.response;
+
   const connectionString = databaseConnection(c.env);
   if (!connectionString) {
     return c.json(
@@ -377,13 +441,15 @@ app.delete("/recipes/:slug", async (c) => {
     const csrfFailure = validateCsrf(c);
     if (csrfFailure) return csrfFailure;
 
-    const recipe = await findRecipeBySlug(db, c.req.param("slug"));
+    const recipe = await findOwnedRecipeBySlug(db, slug.slug, session.user.id);
     if (!recipe) return c.notFound();
 
-    const decision = authorizeOwnerOnly(session.user, recipe);
-    if (!decision.allowed) return authorizationResponse(c, decision);
+    const [deletedRecipe] = await db
+      .delete(schema.recipe)
+      .where(eq(schema.recipe.id, recipe.id))
+      .returning({ id: schema.recipe.id });
+    if (!deletedRecipe) return c.notFound();
 
-    await db.delete(schema.recipe).where(eq(schema.recipe.id, recipe.id));
     return c.body(null, 204);
   } catch (e) {
     console.error("DELETE /recipes/:slug mutation failed", e);

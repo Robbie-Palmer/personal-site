@@ -91,6 +91,28 @@ describe("GET /recipes", () => {
   });
 });
 
+describe("GET /recipes/:slug", () => {
+  it("rejects malformed slugs before database access", async () => {
+    const res = await app.request(
+      "/recipes/Invalid%20Slug",
+      {},
+      { DATABASE_URL: "" },
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "Invalid recipe slug",
+      details: [
+        {
+          path: ["slug"],
+          message:
+            "Slug must use lowercase letters, numbers, and single hyphens between words",
+        },
+      ],
+    });
+  });
+});
+
 describe("POST /recipes", () => {
   it("requires authentication", async () => {
     const res = await app.request(
@@ -111,6 +133,28 @@ describe("POST /recipes", () => {
 
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "Authentication required" });
+  });
+});
+
+describe("PATCH /recipes/:slug", () => {
+  it("rejects malformed slugs before authentication or database access", async () => {
+    const res = await app.request(
+      "/recipes/-invalid",
+      { method: "PATCH" },
+      { DATABASE_URL: "" },
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "Invalid recipe slug",
+      details: [
+        {
+          path: ["slug"],
+          message:
+            "Slug must use lowercase letters, numbers, and single hyphens between words",
+        },
+      ],
+    });
   });
 });
 
