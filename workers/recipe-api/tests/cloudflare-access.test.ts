@@ -118,8 +118,12 @@ describe("verifyCloudflareAccess", () => {
       CF_ACCESS_AUD: "preview-audience",
     };
 
-    await verifyCloudflareAccess(request("first-token"), env);
-    await verifyCloudflareAccess(request("second-token"), env);
+    await expect(
+      verifyCloudflareAccess(request("first-token"), env),
+    ).resolves.toBe(true);
+    await expect(
+      verifyCloudflareAccess(request("second-token"), env),
+    ).resolves.toBe(true);
 
     expect(joseMocks.createRemoteJWKSet).toHaveBeenCalledOnce();
     expect(joseMocks.jwtVerify).toHaveBeenCalledTimes(2);
