@@ -1,8 +1,11 @@
 import { Hono } from "hono";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { createDb, schema } from "./db";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
+import { validateCsrf } from "./http/security";
+import { parseJsonBody } from "./http/validation";
 import {
   findPreviewScenario,
   previewScenarios,
@@ -24,6 +27,10 @@ type Bindings = {
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
+
+const previewSignInBodySchema = z.object({
+  scenario: z.string().trim().min(1),
+});
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 
@@ -91,10 +98,13 @@ app.post("/api/auth/preview/sign-in", async (c) => {
     return c.json({ error: "Cloudflare Access authorization required" }, 403);
   }
 
-  const body = await c.req
-    .json<{ scenario?: unknown }>()
-    .catch(() => ({ scenario: undefined }));
-  const scenario = findPreviewScenario(body.scenario);
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  const body = await parseJsonBody(c, previewSignInBodySchema);
+  if (!body.success) return body.response;
+
+  const scenario = findPreviewScenario(body.data.scenario);
   if (!scenario) return c.json({ error: "Unknown preview scenario" }, 400);
 
   const connectionString = databaseConnection(c.env);
@@ -143,6 +153,10 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => {
   if (!isValidAuthURL(c.env.BETTER_AUTH_URL)) {
     return c.json({ error: "Auth configuration is invalid" }, 503);
   }
+
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
   const { db, client } = createDb(connectionString);
   try {
     const auth = createAuth(db, c.env);
