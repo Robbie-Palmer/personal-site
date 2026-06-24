@@ -11,7 +11,9 @@ vi.mock("jose", () => ({
   jwtVerify: joseMocks.jwtVerify,
 }));
 
-import { verifyCloudflareAccess } from "../src/cloudflare-access";
+let verifyCloudflareAccess: typeof import(
+  "../src/cloudflare-access"
+).verifyCloudflareAccess;
 
 function request(assertion?: string): Request {
   return new Request("https://recipe-api.example.test/api/auth/preview", {
@@ -20,10 +22,12 @@ function request(assertion?: string): Request {
 }
 
 describe("verifyCloudflareAccess", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    vi.resetModules();
     vi.clearAllMocks();
     joseMocks.createRemoteJWKSet.mockReturnValue(joseMocks.jwks);
     joseMocks.jwtVerify.mockResolvedValue({ payload: { sub: "tester" } });
+    ({ verifyCloudflareAccess } = await import("../src/cloudflare-access"));
   });
 
   it.each([
