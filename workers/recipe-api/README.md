@@ -80,5 +80,6 @@ requests cannot race a stale counter, and it fails open if the store errors.
 Exceeding any tier returns `429` with a `Retry-After`/`X-Retry-After` header.
 
 The `app_rate_limit` table is created by `drizzle-kit push` like the rest of the
-schema. Edge thresholds are tunable via the `auth_rate_limit_*` Terraform
+schema, and a daily Cron Trigger sweeps counters idle for over 24h so it stays
+bounded. Edge thresholds are tunable via the `auth_rate_limit_*` Terraform
 variables; application thresholds live alongside the code above.

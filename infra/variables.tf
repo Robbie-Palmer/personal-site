@@ -113,18 +113,33 @@ variable "auth_rate_limit_requests" {
   description = "Max auth requests per IP within the counting period before the edge returns 429"
   type        = number
   default     = 20
+
+  validation {
+    condition     = var.auth_rate_limit_requests > 0
+    error_message = "auth_rate_limit_requests must be greater than zero."
+  }
 }
 
 variable "auth_rate_limit_period" {
-  description = "Counting period in seconds for edge auth rate limiting (Cloudflare allows 10, 60, 120, 300, 600, 3600)"
+  description = "Counting period in seconds for edge auth rate limiting"
   type        = number
   default     = 10
+
+  validation {
+    condition     = contains([10, 60, 120, 300, 600, 3600], var.auth_rate_limit_period)
+    error_message = "auth_rate_limit_period must be one of 10, 60, 120, 300, 600, 3600 seconds."
+  }
 }
 
 variable "auth_rate_limit_mitigation_timeout" {
   description = "Seconds to keep blocking an IP after it trips the auth rate limit (must be >= the period)"
   type        = number
   default     = 10
+
+  validation {
+    condition     = var.auth_rate_limit_mitigation_timeout >= 10
+    error_message = "auth_rate_limit_mitigation_timeout must be at least 10 seconds."
+  }
 }
 
 # Neon

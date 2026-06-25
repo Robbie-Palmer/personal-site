@@ -8,6 +8,10 @@ compatibility_flags = ["nodejs_compat"]
 # The local dev script overrides this with http://localhost:3000.
 BETTER_AUTH_URL = "https://robbiepalmer.me"
 
+# Daily sweep of stale rate-limit counters (src/index.ts scheduled handler).
+[triggers]
+crons = ["0 3 * * *"]
+
 # Hyperdrive connection pooling to Neon.
 [[hyperdrive]]
 binding = "HYPERDRIVE"

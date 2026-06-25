@@ -65,6 +65,7 @@ const dbMock = vi.hoisted(() => {
     invitations: [] as InvitationRow[],
     recipes: [] as RecipeRow[],
     rateLimitCounts: new Map<string, number>(),
+    rateLimitSweeps: 0,
   };
 
   const organizationRow = (organization: OrganizationRow) => [
@@ -112,6 +113,7 @@ const dbMock = vi.hoisted(() => {
     state.invitations = [];
     state.recipes = [];
     state.rateLimitCounts.clear();
+    state.rateLimitSweeps = 0;
   }
 
   function queryRows(query: string, params: unknown[] = []) {
@@ -189,6 +191,11 @@ const dbMock = vi.hoisted(() => {
       if (!invitation) return [];
       invitation.status = status;
       return query.includes("returning") ? [invitationRow(invitation)] : [];
+    }
+
+    if (query.startsWith('delete from "app_rate_limit"')) {
+      state.rateLimitSweeps += 1;
+      return [];
     }
 
     if (query.startsWith('delete from "member"')) {
@@ -459,7 +466,7 @@ vi.mock("jose", () => ({
   jwtVerify: vi.fn(() => Promise.resolve({ payload: { sub: "tester" } })),
 }));
 
-import app from "../src/index";
+import handler, { app } from "../src/index";
 
 function sessionFor(user: { id: string; email: string; name: string }) {
   return {
@@ -1840,5 +1847,26 @@ describe("unknown routes", () => {
   it("returns 404", async () => {
     const res = await app.request("/unknown", {}, env);
     expect(res.status).toBe(404);
+  });
+});
+
+describe("scheduled rate-limit cleanup", () => {
+  function runScheduled(bindings: typeof env) {
+    const pending: Promise<unknown>[] = [];
+    const ctx = {
+      waitUntil: (p: Promise<unknown>) => pending.push(p),
+    } as unknown as ExecutionContext;
+    handler.scheduled?.({} as ScheduledController, bindings, ctx);
+    return Promise.all(pending);
+  }
+
+  it("sweeps stale counters", async () => {
+    await runScheduled(env);
+    expect(dbMock.state.rateLimitSweeps).toBe(1);
+  });
+
+  it("no-ops without a database connection", async () => {
+    await runScheduled({ ...env, DATABASE_URL: "" });
+    expect(dbMock.state.rateLimitSweeps).toBe(0);
   });
 });

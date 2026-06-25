@@ -181,6 +181,13 @@ resource "cloudflare_ruleset" "auth_rate_limit" {
   kind        = "zone"
   phase       = "http_ratelimit"
 
+  lifecycle {
+    precondition {
+      condition     = var.auth_rate_limit_mitigation_timeout >= var.auth_rate_limit_period
+      error_message = "auth_rate_limit_mitigation_timeout must be >= auth_rate_limit_period."
+    }
+  }
+
   rules {
     ref         = "auth_ip_rate_limit"
     description = "Limit auth requests per IP"

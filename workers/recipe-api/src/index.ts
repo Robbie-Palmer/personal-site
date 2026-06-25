@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { createDb, schema } from "./db";
 import { createAuth } from "./auth";
@@ -1542,4 +1542,32 @@ app.delete("/recipes/:slug", async (c) => {
   }
 });
 
-export default app;
+export { app };
+
+// Rows reset in place on each request, so only keys that fall idle linger. A
+// daily sweep past the longest window keeps the table bounded.
+const RATE_LIMIT_RETENTION_MS = 24 * 60 * 60 * 1000;
+
+async function cleanupRateLimits(env: Bindings): Promise<void> {
+  const connectionString = databaseConnection(env);
+  if (!connectionString) return;
+
+  const { db, client } = createDb(connectionString);
+  try {
+    const cutoff = new Date(Date.now() - RATE_LIMIT_RETENTION_MS);
+    await db
+      .delete(schema.appRateLimit)
+      .where(lt(schema.appRateLimit.windowStart, cutoff));
+  } catch (e) {
+    console.error("Rate limit cleanup failed", e);
+  } finally {
+    await closeDbClient(client);
+  }
+}
+
+export default {
+  fetch: app.fetch,
+  scheduled: (_event, env, ctx) => {
+    ctx.waitUntil(cleanupRateLimits(env));
+  },
+} satisfies ExportedHandler<Bindings>;
