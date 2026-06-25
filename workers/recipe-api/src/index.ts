@@ -15,6 +15,11 @@ import {
   loadBetterAuthSession,
   unauthenticated,
 } from "./http/authorization";
+import {
+  HOUSEHOLD_INVITE_RATE_LIMIT,
+  enforceRateLimit,
+  rateLimitedResponse,
+} from "./http/rate-limit";
 import { validateCsrf } from "./http/security";
 import { parseJsonBody } from "./http/validation";
 import {
@@ -774,6 +779,17 @@ app.post("/households/:householdId/invitations", async (c) => {
       session.session,
     );
     if (ownerFailure) return ownerFailure;
+
+    // Per-account abuse limit on invite frequency (ADR 035). Keyed by the
+    // inviting user, on strongly consistent Postgres rather than KV.
+    const inviteLimit = await enforceRateLimit(
+      db,
+      `household-invite:${session.session.user.id}`,
+      HOUSEHOLD_INVITE_RATE_LIMIT,
+    );
+    if (!inviteLimit.allowed) {
+      return rateLimitedResponse(c, inviteLimit.retryAfter);
+    }
 
     const body = await parseJsonBody(c, inviteHouseholdMemberBodySchema);
     if (!body.success) return body.response;

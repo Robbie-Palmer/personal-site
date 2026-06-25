@@ -107,6 +107,26 @@ variable "cf_pages_host" {
   }
 }
 
+# Rate limiting (edge tier — see ADR 035)
+
+variable "auth_rate_limit_requests" {
+  description = "Max auth requests per IP within the counting period before the edge returns 429"
+  type        = number
+  default     = 20
+}
+
+variable "auth_rate_limit_period" {
+  description = "Counting period in seconds for edge auth rate limiting (Cloudflare allows 10, 60, 120, 300, 600, 3600)"
+  type        = number
+  default     = 10
+}
+
+variable "auth_rate_limit_mitigation_timeout" {
+  description = "Seconds to keep blocking an IP after it trips the auth rate limit (must be >= the period)"
+  type        = number
+  default     = 10
+}
+
 # Neon
 
 variable "neon_org_id" {

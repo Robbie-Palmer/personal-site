@@ -3,6 +3,7 @@ import { admin, lastLoginMethod } from "better-auth/plugins";
 import { withCloudflare } from "better-auth-cloudflare";
 import type { createDb } from "./db";
 import * as schema from "./db/schema";
+import { createAuthRateLimitStorage } from "./http/rate-limit";
 
 type AuthEnv = {
   BETTER_AUTH_URL: string;
@@ -58,12 +59,31 @@ export function createAuth(
         },
         socialProviders,
         session: { cookieCache: { enabled: false } },
+        // Better Auth's built-in limiter, backed by strongly consistent
+        // Postgres (never KV) per ADR 035. This is the application tier of the
+        // layered design; the Cloudflare edge rule (infra/main.tf) is the
+        // broad per-IP tier in front of it.
+        rateLimit: {
+          enabled: true,
+          window: 60,
+          max: 100,
+          customRules: {
+            // OAuth sign-in is the sensitive write path in production.
+            "/sign-in/social": { window: 60, max: 20 },
+          },
+          customStorage: createAuthRateLimitStorage(db),
+        },
         advanced: {
           useSecureCookies: isSecure,
           defaultCookieAttributes: {
             httpOnly: true,
             secure: isSecure,
             sameSite: "lax",
+          },
+          // Auth requests reach the Worker through the Pages proxy, which
+          // forwards the client's Cloudflare-resolved IP. Key rate limits on it.
+          ipAddress: {
+            ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"],
           },
         },
       },

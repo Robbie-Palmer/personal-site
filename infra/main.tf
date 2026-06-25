@@ -163,8 +163,36 @@ resource "cloudflare_ruleset" "map_tiles_cache" {
       }
       browser_ttl {
         mode    = "override_origin"
-        default = 24 * 60 * 60 # 1 day - allows cache busting if tiles are re-generated  
+        default = 24 * 60 * 60 # 1 day - allows cache busting if tiles are re-generated
       }
+    }
+  }
+}
+
+# Edge rate limiting — broad per-IP protection for the auth endpoints, the
+# outermost tier of the layered design in ADR 035. Auth traffic reaches the
+# Worker through robbiepalmer.me/api/auth/* (the Pages Function proxy), so the
+# zone sees the real client IP here, before the request ever hits the Worker.
+# Application-specific and per-account limits live in the Worker itself.
+resource "cloudflare_ruleset" "auth_rate_limit" {
+  zone_id     = data.cloudflare_zone.domain.id
+  name        = "Auth endpoint rate limiting"
+  description = "Per-IP rate limiting for /api/auth/* — returns 429 on abuse"
+  kind        = "zone"
+  phase       = "http_ratelimit"
+
+  rules {
+    ref         = "auth_ip_rate_limit"
+    description = "Limit auth requests per IP"
+    expression  = "(http.host eq \"${var.domain_name}\" and starts_with(http.request.uri.path, \"/api/auth/\"))"
+    # Blocking in the http_ratelimit phase responds with HTTP 429.
+    action = "block"
+
+    ratelimit {
+      characteristics     = ["ip.src", "cf.colo.id"]
+      period              = var.auth_rate_limit_period
+      requests_per_period = var.auth_rate_limit_requests
+      mitigation_timeout  = var.auth_rate_limit_mitigation_timeout
     }
   }
 }

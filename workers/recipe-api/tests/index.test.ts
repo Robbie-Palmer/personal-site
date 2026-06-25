@@ -64,6 +64,7 @@ const dbMock = vi.hoisted(() => {
     members: [] as MemberRow[],
     invitations: [] as InvitationRow[],
     recipes: [] as RecipeRow[],
+    rateLimitCounts: new Map<string, number>(),
   };
 
   const organizationRow = (organization: OrganizationRow) => [
@@ -110,9 +111,18 @@ const dbMock = vi.hoisted(() => {
     state.members = [];
     state.invitations = [];
     state.recipes = [];
+    state.rateLimitCounts.clear();
   }
 
   function queryRows(query: string, params: unknown[] = []) {
+    if (query.startsWith('insert into "app_rate_limit"')) {
+      const key = params[0] as string;
+      const count = (state.rateLimitCounts.get(key) ?? 0) + 1;
+      state.rateLimitCounts.set(key, count);
+      // [count, windowStart] — drizzle .returning() maps these by column order.
+      return [[count, date]];
+    }
+
     if (query.startsWith('insert into "organization"')) {
       const organization: OrganizationRow = {
         id: params[0] as string,
@@ -886,6 +896,36 @@ describe("household membership flows", () => {
       role: "member",
       status: "pending",
     });
+  });
+
+  it("returns 429 once the owner exceeds the invite rate limit", async () => {
+    seedHousehold();
+    // Pre-fill the per-account window to its cap so the next invite trips it.
+    dbMock.state.rateLimitCounts.set("household-invite:owner-user", 10);
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/households/household-1/invitations",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ email: "newmember@example.test" }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(429);
+    expect(res.headers.get("retry-after")).toBeTruthy();
+    expect(await res.json()).toMatchObject({ error: "Too many requests" });
+    // The invitation is rejected before any row is written.
+    expect(dbMock.state.invitations).toHaveLength(0);
   });
 
   it("returns 409 when a pending invitation already exists for the email", async () => {
