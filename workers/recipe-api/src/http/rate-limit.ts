@@ -55,7 +55,6 @@ export async function enforceRateLimit(
 }
 
 export function rateLimitedResponse(c: Context, retryAfter: number): Response {
-  c.header("Retry-After", String(retryAfter));
   return c.json(
     {
       error: "Too many requests",
@@ -64,5 +63,6 @@ export function rateLimitedResponse(c: Context, retryAfter: number): Response {
       ],
     },
     429,
+    { "Retry-After": String(retryAfter) },
   );
 }

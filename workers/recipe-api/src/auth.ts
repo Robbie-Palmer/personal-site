@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { admin, lastLoginMethod } from "better-auth/plugins";
 import { withCloudflare } from "better-auth-cloudflare";
-import { sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { createDb } from "./db";
 import * as schema from "./db/schema";
 import { enforceRateLimit } from "./http/rate-limit";
@@ -42,7 +42,7 @@ function rateLimitStorage(db: Db) {
           windowStart: schema.appRateLimit.windowStart,
         })
         .from(schema.appRateLimit)
-        .where(sql`${schema.appRateLimit.key} = ${namespaced(key)}`)
+        .where(eq(schema.appRateLimit.key, namespaced(key)))
         .limit(1);
       return row
         ? { key, count: row.count, lastRequest: row.windowStart.getTime() }
@@ -121,7 +121,7 @@ export function createAuth(
             sameSite: "lax",
           },
           ipAddress: {
-            ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"],
+            ipAddressHeaders: ["cf-connecting-ip"],
           },
         },
       },

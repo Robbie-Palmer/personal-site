@@ -189,7 +189,7 @@ resource "cloudflare_ruleset" "auth_rate_limit" {
     action = "block"
 
     ratelimit {
-      characteristics     = ["ip.src", "cf.colo.id"]
+      characteristics     = ["ip.src"]
       period              = var.auth_rate_limit_period
       requests_per_period = var.auth_rate_limit_requests
       mitigation_timeout  = var.auth_rate_limit_mitigation_timeout
