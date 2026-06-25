@@ -1,9 +1,12 @@
 import { betterAuth } from "better-auth";
 import { admin, lastLoginMethod } from "better-auth/plugins";
 import { withCloudflare } from "better-auth-cloudflare";
+import { sql } from "drizzle-orm";
 import type { createDb } from "./db";
 import * as schema from "./db/schema";
-import { createAuthRateLimitStorage } from "./http/rate-limit";
+import { enforceRateLimit } from "./http/rate-limit";
+
+type Db = ReturnType<typeof createDb>["db"];
 
 type AuthEnv = {
   BETTER_AUTH_URL: string;
@@ -18,6 +21,48 @@ type AuthEnv = {
 type CreateAuthOptions = {
   allowPreviewSignUp?: boolean;
 };
+
+function rateLimitStorage(db: Db) {
+  const namespaced = (key: string) => `auth:${key}`;
+  return {
+    consume: async (key: string, rule: { window: number; max: number }) => {
+      const result = await enforceRateLimit(db, namespaced(key), {
+        max: rule.max,
+        windowSeconds: rule.window,
+      });
+      return {
+        allowed: result.allowed,
+        retryAfter: result.allowed ? null : result.retryAfter,
+      };
+    },
+    get: async (key: string) => {
+      const [row] = await db
+        .select({
+          count: schema.appRateLimit.count,
+          windowStart: schema.appRateLimit.windowStart,
+        })
+        .from(schema.appRateLimit)
+        .where(sql`${schema.appRateLimit.key} = ${namespaced(key)}`)
+        .limit(1);
+      return row
+        ? { key, count: row.count, lastRequest: row.windowStart.getTime() }
+        : undefined;
+    },
+    set: async (
+      key: string,
+      value: { key: string; count: number; lastRequest: number },
+    ) => {
+      const windowStart = new Date(value.lastRequest);
+      await db
+        .insert(schema.appRateLimit)
+        .values({ key: namespaced(key), count: value.count, windowStart })
+        .onConflictDoUpdate({
+          target: schema.appRateLimit.key,
+          set: { count: value.count, windowStart },
+        });
+    },
+  };
+}
 
 export function createAuth(
   db: ReturnType<typeof createDb>["db"],
@@ -59,19 +104,14 @@ export function createAuth(
         },
         socialProviders,
         session: { cookieCache: { enabled: false } },
-        // Better Auth's built-in limiter, backed by strongly consistent
-        // Postgres (never KV) per ADR 035. This is the application tier of the
-        // layered design; the Cloudflare edge rule (infra/main.tf) is the
-        // broad per-IP tier in front of it.
         rateLimit: {
           enabled: true,
           window: 60,
           max: 100,
           customRules: {
-            // OAuth sign-in is the sensitive write path in production.
             "/sign-in/social": { window: 60, max: 20 },
           },
-          customStorage: createAuthRateLimitStorage(db),
+          customStorage: rateLimitStorage(db),
         },
         advanced: {
           useSecureCookies: isSecure,
@@ -80,8 +120,6 @@ export function createAuth(
             secure: isSecure,
             sameSite: "lax",
           },
-          // Auth requests reach the Worker through the Pages proxy, which
-          // forwards the client's Cloudflare-resolved IP. Key rate limits on it.
           ipAddress: {
             ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"],
           },

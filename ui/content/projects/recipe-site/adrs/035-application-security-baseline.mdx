@@ -87,10 +87,12 @@ Rate limiting uses a layered approach:
 
 ### Tiers and thresholds
 
-The implementation uses three tiers. Postgres (via Hyperdrive/Neon) is the strongly consistent
-store for both application tiers — it satisfies the "not KV" constraint without the operational cost
-of standing up Durable Objects for a personal-scale MVP. The check-and-increment runs as a single
-`INSERT ... ON CONFLICT` statement so concurrent requests cannot race a stale counter.
+The implementation uses three tiers. Both application tiers count in Postgres (via Hyperdrive/Neon),
+which is already in the request path and gives the strong consistency these counters need: the
+check-and-increment runs as a single `INSERT ... ON CONFLICT` statement, so concurrent requests
+cannot race a stale counter. Durable Objects are the natural alternative — they would keep counter
+writes off Postgres and closer to the edge — but that is more moving parts than a personal-scale MVP
+warrants while the database is already there.
 
 | Tier                 | Mechanism                                     | Scope                     | Default threshold  | Over-limit response        |
 | -------------------- | --------------------------------------------- | ------------------------- | ------------------ | -------------------------- |
@@ -104,9 +106,6 @@ Worker while leaving normal multi-tab session polling alone. The application tie
 progressively toward the sensitive sign-in and write paths. Thresholds are configurable — the edge
 values are Terraform variables (`auth_rate_limit_*`) and the application values live in the Worker
 (`workers/recipe-api/src/auth.ts` and `src/http/rate-limit.ts`).
-
-KV is deliberately absent from every tier: its eventual consistency and 1 write/second per-key limit
-make it unfit for brute-force counters ([ADR 033](/projects/recipe-site/adrs/033-backend-platform-for-authenticated-features)).
 
 ## Deferred
 

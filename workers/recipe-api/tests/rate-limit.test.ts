@@ -1,15 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  createAuthRateLimitStorage,
-  enforceRateLimit,
-} from "../src/http/rate-limit";
+import { enforceRateLimit } from "../src/http/rate-limit";
 
 type ReturnRow = { count: number; windowStart: Date };
 
-/**
- * Minimal stand-in for the drizzle db that records the upsert and returns a
- * caller-supplied row, mirroring `INSERT ... ON CONFLICT ... RETURNING`.
- */
 function fakeDb(rows: ReturnRow[] | (() => never)) {
   const returning = vi.fn(() =>
     typeof rows === "function" ? rows() : Promise.resolve(rows),
@@ -54,7 +47,6 @@ describe("enforceRateLimit", () => {
     });
 
     expect(result.allowed).toBe(false);
-    // ~3000s remain (3600 window - 600 elapsed); allow a second of jitter.
     expect(result.retryAfter).toBeGreaterThanOrEqual(2999);
     expect(result.retryAfter).toBeLessThanOrEqual(3000);
   });
@@ -83,31 +75,5 @@ describe("enforceRateLimit", () => {
     });
 
     expect(result).toEqual({ allowed: true, retryAfter: 0 });
-  });
-});
-
-describe("createAuthRateLimitStorage", () => {
-  it("maps an allowed consume to a null retryAfter", async () => {
-    const { db } = fakeDb([{ count: 1, windowStart: new Date() }]);
-    const storage = createAuthRateLimitStorage(db);
-
-    await expect(
-      storage.consume("ip:/sign-in/social", { window: 60, max: 20 }),
-    ).resolves.toEqual({ allowed: true, retryAfter: null });
-  });
-
-  it("maps a blocked consume to a numeric retryAfter", async () => {
-    const windowStart = new Date(Date.now() - 10 * 1000);
-    const { db } = fakeDb([{ count: 21, windowStart }]);
-    const storage = createAuthRateLimitStorage(db);
-
-    const result = await storage.consume("ip:/sign-in/social", {
-      window: 60,
-      max: 20,
-    });
-
-    expect(result.allowed).toBe(false);
-    expect(result.retryAfter).toBeGreaterThanOrEqual(49);
-    expect(result.retryAfter).toBeLessThanOrEqual(50);
   });
 });

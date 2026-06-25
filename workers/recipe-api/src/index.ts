@@ -15,11 +15,7 @@ import {
   loadBetterAuthSession,
   unauthenticated,
 } from "./http/authorization";
-import {
-  HOUSEHOLD_INVITE_RATE_LIMIT,
-  enforceRateLimit,
-  rateLimitedResponse,
-} from "./http/rate-limit";
+import { enforceRateLimit, rateLimitedResponse } from "./http/rate-limit";
 import { validateCsrf } from "./http/security";
 import { parseJsonBody } from "./http/validation";
 import {
@@ -75,6 +71,8 @@ const recipeVisibilitySchema = z.enum(["public", "private", "household"]);
 
 // Household invitations stay valid for 48 hours after they are created.
 const INVITATION_EXPIRY_MS = 48 * 60 * 60 * 1000;
+
+const HOUSEHOLD_INVITE_RATE_LIMIT = { max: 10, windowSeconds: 60 * 60 };
 
 const createRecipeBodySchema = z.object({
   slug: recipeSlugSchema,
@@ -780,8 +778,6 @@ app.post("/households/:householdId/invitations", async (c) => {
     );
     if (ownerFailure) return ownerFailure;
 
-    // Per-account abuse limit on invite frequency (ADR 035). Keyed by the
-    // inviting user, on strongly consistent Postgres rather than KV.
     const inviteLimit = await enforceRateLimit(
       db,
       `household-invite:${session.session.user.id}`,

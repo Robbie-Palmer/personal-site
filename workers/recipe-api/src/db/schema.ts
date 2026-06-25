@@ -168,12 +168,7 @@ export const recipe = pgTable(
   (table) => [index("recipe_user_id_idx").on(table.userId)],
 );
 
-// Fixed-window rate-limit counters. Backs both Better Auth's built-in limiter
-// (via a custom storage adapter) and per-account write limits. Postgres gives
-// the strong consistency that Cloudflare KV cannot — see ADR 035.
 export const appRateLimit = pgTable("app_rate_limit", {
-  // `${scope}:${identifier}` — e.g. "household-invite:<userId>" or an
-  // auth-route key supplied by Better Auth.
   key: text().primaryKey(),
   count: integer().notNull().default(0),
   windowStart: timestamp({ withTimezone: true }).notNull().defaultNow(),

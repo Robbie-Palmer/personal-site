@@ -63,10 +63,9 @@ server-side scenario endpoint guarded by Cloudflare Access.
 
 ## Rate limiting
 
-Rate limiting is layered. Counters live in Postgres, never Cloudflare KV — KV is
-eventually consistent and capped at one write per second per key, which makes it
-unfit for brute-force counters
-([ADR 035](https://robbiepalmer.me/projects/recipe-site/adrs/035-application-security-baseline)).
+Rate limiting is layered, with counters in Postgres. See
+[ADR 035](https://robbiepalmer.me/projects/recipe-site/adrs/035-application-security-baseline)
+for the storage rationale and tier design.
 
 | Tier                 | Where                                       | Scope                     | Default            |
 | -------------------- | ------------------------------------------- | ------------------------- | ------------------ |
