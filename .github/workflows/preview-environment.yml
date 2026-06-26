@@ -20,8 +20,8 @@ jobs:
     # changes don't rebuild the preview.
     if: >
       github.event.pull_request.head.repo.full_name == github.repository
-      && github.actor != 'renovate[bot]'
-      && github.actor != 'dependabot[bot]'
+      && github.event.pull_request.user.login != 'renovate[bot]'
+      && github.event.pull_request.user.login != 'dependabot[bot]'
       && (
         (github.event.action != 'labeled' && github.event.action != 'unlabeled')
         || startsWith(github.event.label.name, 'preview:')
@@ -39,8 +39,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
-          # contains() matches array elements exactly, avoiding substring
-          # surprises from label names that embed a marker label.
           FORCE_FRONTEND: ${{ contains(github.event.pull_request.labels.*.name, 'preview:frontend-only') }}
           FORCE_BACKEND: ${{ contains(github.event.pull_request.labels.*.name, 'preview:backend') }}
         run: |
