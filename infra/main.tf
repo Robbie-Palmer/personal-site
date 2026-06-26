@@ -169,11 +169,6 @@ resource "cloudflare_ruleset" "map_tiles_cache" {
   }
 }
 
-# Edge rate limiting — broad per-IP protection for the auth endpoints, the
-# outermost tier of the layered design in ADR 035. Auth traffic reaches the
-# Worker through robbiepalmer.me/api/auth/* (the Pages Function proxy), so the
-# zone sees the real client IP here, before the request ever hits the Worker.
-# Application-specific and per-account limits live in the Worker itself.
 resource "cloudflare_ruleset" "auth_rate_limit" {
   zone_id     = data.cloudflare_zone.domain.id
   name        = "Auth endpoint rate limiting"

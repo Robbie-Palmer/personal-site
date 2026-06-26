@@ -107,8 +107,6 @@ variable "cf_pages_host" {
   }
 }
 
-# Rate limiting (edge tier — see ADR 035)
-
 variable "auth_rate_limit_requests" {
   description = "Max auth requests per IP within the counting period before the edge returns 429"
   type        = number
