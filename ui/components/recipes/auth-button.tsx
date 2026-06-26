@@ -40,6 +40,8 @@ function ProviderIcon({ path }: { path: string }) {
 }
 
 export function AuthButton() {
+  const previewBackendDisabled =
+    process.env.NEXT_PUBLIC_PREVIEW_BACKEND === "false";
   const { data: session, isPending } = authClient.useSession();
   const [open, setOpen] = useState(false);
   const [pendingSignIn, setPendingSignIn] = useState<string | null>(null);
@@ -69,6 +71,11 @@ export function AuthButton() {
     setIsPreview(preview);
     if (!preview) return;
 
+    if (previewBackendDisabled) {
+      setError("Sign-in is disabled on this frontend-only preview.");
+      return;
+    }
+
     void fetch("/api/auth/preview/scenarios")
       .then(async (response) => {
         if (!response.ok) throw new Error("Preview scenarios unavailable");
@@ -76,7 +83,7 @@ export function AuthButton() {
       })
       .then(setPreviewScenarios)
       .catch(() => setError("Preview sign-in is not configured."));
-  }, []);
+  }, [previewBackendDisabled]);
 
   async function loadLinkedAccounts() {
     setAccountsError(false);
@@ -274,7 +281,9 @@ export function AuthButton() {
         >
           <p className="px-2 pb-2 text-xs font-medium text-muted-foreground">
             {isPreview
-              ? "Choose a preview scenario"
+              ? previewBackendDisabled
+                ? "Sign-in unavailable"
+                : "Choose a preview scenario"
               : "Sign in to your recipes"}
           </p>
           <div className="flex flex-col gap-1">

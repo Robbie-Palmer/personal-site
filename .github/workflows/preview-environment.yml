@@ -2,7 +2,7 @@ name: Preview Environment
 
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 permissions:
   contents: read
@@ -14,8 +14,57 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    if: github.event.pull_request.head.repo.full_name == github.repository
+  # Decide whether this PR needs a database-backed backend preview.
+  detect:
+    # On label events, only react to the preview:* labels so unrelated label
+    # changes don't rebuild the preview.
+    if: >
+      github.event.pull_request.head.repo.full_name == github.repository
+      && github.event.pull_request.user.login != 'renovate[bot]'
+      && github.event.pull_request.user.login != 'dependabot[bot]'
+      && (
+        (github.event.action != 'labeled' && github.event.action != 'unlabeled')
+        || startsWith(github.event.label.name, 'preview:')
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.decide.outputs.backend }}
+    steps:
+      - name: Decide whether a backend preview is needed
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          FORCE_FRONTEND: ${{ contains(github.event.pull_request.labels.*.name, 'preview:frontend-only') }}
+          FORCE_BACKEND: ${{ contains(github.event.pull_request.labels.*.name, 'preview:backend') }}
+        run: |
+          set -euo pipefail
+          if [[ "$FORCE_FRONTEND" == "true" ]]; then
+            echo "Label preview:frontend-only forces frontend-only preview."
+            echo "backend=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$FORCE_BACKEND" == "true" ]]; then
+            echo "Label preview:backend forces a backend preview."
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files=$(gh pr diff "$PR_NUMBER" --repo "$REPO" --name-only)
+          if echo "$files" | grep -qE '^(workers/recipe-api/|functions/|packages/)'; then
+            echo "Backend-affecting paths changed; provisioning a backend preview."
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Frontend-only change; skipping backend provisioning."
+            echo "backend=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  backend:
+    needs: detect
+    if: needs.detect.outputs.backend == 'true'
     runs-on: ubuntu-latest
     environment:
       name: cloudflare-preview
@@ -111,6 +160,28 @@ jobs:
           CF_ACCESS_TEAM_DOMAIN: ${{ vars.CF_ACCESS_TEAM_DOMAIN }}
           CF_ACCESS_AUD: ${{ vars.CF_ACCESS_AUD }}
 
+  # Always deploy the static frontend for non-bot PRs, independent of the
+  # backend job. NEXT_PUBLIC_PREVIEW_BACKEND tells the build whether sign-in is
+  # backed by a per-PR Worker so the UI can present the right state.
+  frontend:
+    needs: detect
+    if: needs.detect.result == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: cloudflare-preview
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d
+        with:
+          experimental: true
+
+      - name: Install dependencies
+        run: mise run //:install
+
       - name: Build and deploy canonical PR Pages preview
         # //ui:deploy depends on //ui:build, so this single step both builds
         # and deploys the UI; a separate build step would only rebuild.
@@ -122,29 +193,54 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           DEPLOY_BRANCH: pr-${{ github.event.pull_request.number }}
           NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: ${{ secrets.CF_IMAGES_ACCOUNT_HASH }}
+          NEXT_PUBLIC_PREVIEW_BACKEND: ${{ needs.detect.outputs.backend }}
 
+  comment:
+    needs: [detect, backend, frontend]
+    if: always() && needs.frontend.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
       - name: Comment preview URL on PR
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         env:
           PREVIEW_SITE_URL: https://pr-${{ github.event.pull_request.number }}.${{ vars.CLOUDFLARE_PAGES_HOST }}
           PREVIEW_WORKER_NAME: recipe-api-pr-${{ github.event.pull_request.number }}
           PREVIEW_BRANCH: preview-pr-${{ github.event.pull_request.number }}
+          BACKEND_REQUESTED: ${{ needs.detect.outputs.backend }}
+          BACKEND_RESULT: ${{ needs.backend.result }}
         with:
           script: |
             const marker = '<!-- preview-environment -->';
-            const body = `${marker}
-            ### Preview environment
+            const requested = process.env.BACKEND_REQUESTED === 'true';
+            const ok = process.env.BACKEND_RESULT === 'success';
 
-            **Site:** ${process.env.PREVIEW_SITE_URL}
-            **Worker:** \`${process.env.PREVIEW_WORKER_NAME}\`
-            **Database:** Neon branch \`${process.env.PREVIEW_BRANCH}\`
+            let backendLines;
+            if (requested && ok) {
+              backendLines = [
+                `**Worker:** \`${process.env.PREVIEW_WORKER_NAME}\``,
+                `**Database:** Neon branch \`${process.env.PREVIEW_BRANCH}\``,
+                '',
+                'The site is protected by Cloudflare Access. Use the **Sign in** menu to choose a seeded QA scenario.',
+              ];
+            } else if (requested && !ok) {
+              backendLines = ['**Backend:** ⚠️ provisioning failed — the frontend is deployed, but sign-in is unavailable. Re-run the workflow to retry.'];
+            } else {
+              backendLines = ['**Backend:** frontend-only preview — sign-in is disabled. Add the `preview:backend` label to provision an isolated Worker + database.'];
+            }
 
-            The site is protected by Cloudflare Access. Use the **Sign in** menu to choose a seeded QA scenario.`;
+            const body = [
+              marker,
+              '### Preview environment',
+              '',
+              `**Site:** ${process.env.PREVIEW_SITE_URL}`,
+              ...backendLines,
+            ].join('\n');
 
-            const { data: comments } = await github.rest.issues.listComments({
+            const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
+              per_page: 100,
             });
             const existing = comments.find(comment =>
               comment.user.type === 'Bot' && comment.body?.includes(marker)
