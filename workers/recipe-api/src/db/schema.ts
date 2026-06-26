@@ -1,6 +1,7 @@
 import {
   boolean,
   index,
+  integer,
   pgEnum,
   pgTable,
   text,
@@ -166,3 +167,9 @@ export const recipe = pgTable(
   },
   (table) => [index("recipe_user_id_idx").on(table.userId)],
 );
+
+export const appRateLimit = pgTable("app_rate_limit", {
+  key: text().primaryKey(),
+  count: integer().notNull().default(0),
+  windowStart: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});

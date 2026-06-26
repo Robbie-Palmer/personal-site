@@ -163,8 +163,38 @@ resource "cloudflare_ruleset" "map_tiles_cache" {
       }
       browser_ttl {
         mode    = "override_origin"
-        default = 24 * 60 * 60 # 1 day - allows cache busting if tiles are re-generated  
+        default = 24 * 60 * 60 # 1 day - allows cache busting if tiles are re-generated
       }
+    }
+  }
+}
+
+resource "cloudflare_ruleset" "auth_rate_limit" {
+  zone_id     = data.cloudflare_zone.domain.id
+  name        = "Auth endpoint rate limiting"
+  description = "Per-IP rate limiting for /api/auth/* — returns 429 on abuse"
+  kind        = "zone"
+  phase       = "http_ratelimit"
+
+  lifecycle {
+    precondition {
+      condition     = var.auth_rate_limit_mitigation_timeout >= var.auth_rate_limit_period
+      error_message = "auth_rate_limit_mitigation_timeout must be >= auth_rate_limit_period."
+    }
+  }
+
+  rules {
+    ref         = "auth_ip_rate_limit"
+    description = "Limit auth requests per IP"
+    expression  = "(http.host eq \"${var.domain_name}\" and starts_with(http.request.uri.path, \"/api/auth/\"))"
+    # Blocking in the http_ratelimit phase responds with HTTP 429.
+    action = "block"
+
+    ratelimit {
+      characteristics     = ["ip.src"]
+      period              = var.auth_rate_limit_period
+      requests_per_period = var.auth_rate_limit_requests
+      mitigation_timeout  = var.auth_rate_limit_mitigation_timeout
     }
   }
 }

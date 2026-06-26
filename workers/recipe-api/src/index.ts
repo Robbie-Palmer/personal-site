@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { createDb, schema } from "./db";
 import { createAuth } from "./auth";
@@ -15,6 +15,7 @@ import {
   loadBetterAuthSession,
   unauthenticated,
 } from "./http/authorization";
+import { enforceRateLimit, rateLimitedResponse } from "./http/rate-limit";
 import { validateCsrf } from "./http/security";
 import { parseJsonBody } from "./http/validation";
 import {
@@ -70,6 +71,8 @@ const recipeVisibilitySchema = z.enum(["public", "private", "household"]);
 
 // Household invitations stay valid for 48 hours after they are created.
 const INVITATION_EXPIRY_MS = 48 * 60 * 60 * 1000;
+
+const HOUSEHOLD_INVITE_RATE_LIMIT = { max: 10, windowSeconds: 60 * 60 };
 
 const createRecipeBodySchema = z.object({
   slug: recipeSlugSchema,
@@ -774,6 +777,15 @@ app.post("/households/:householdId/invitations", async (c) => {
       session.session,
     );
     if (ownerFailure) return ownerFailure;
+
+    const inviteLimit = await enforceRateLimit(
+      db,
+      `household-invite:${session.session.user.id}`,
+      HOUSEHOLD_INVITE_RATE_LIMIT,
+    );
+    if (!inviteLimit.allowed) {
+      return rateLimitedResponse(c, inviteLimit.retryAfter);
+    }
 
     const body = await parseJsonBody(c, inviteHouseholdMemberBodySchema);
     if (!body.success) return body.response;
@@ -1530,4 +1542,32 @@ app.delete("/recipes/:slug", async (c) => {
   }
 });
 
-export default app;
+export { app };
+
+// Rows reset in place on each request, so only keys that fall idle linger. A
+// daily sweep past the longest window keeps the table bounded.
+const RATE_LIMIT_RETENTION_MS = 24 * 60 * 60 * 1000;
+
+async function cleanupRateLimits(env: Bindings): Promise<void> {
+  const connectionString = databaseConnection(env);
+  if (!connectionString) return;
+
+  const { db, client } = createDb(connectionString);
+  try {
+    const cutoff = new Date(Date.now() - RATE_LIMIT_RETENTION_MS);
+    await db
+      .delete(schema.appRateLimit)
+      .where(lt(schema.appRateLimit.windowStart, cutoff));
+  } catch (e) {
+    console.error("Rate limit cleanup failed", e);
+  } finally {
+    await closeDbClient(client);
+  }
+}
+
+export default {
+  fetch: app.fetch,
+  scheduled: (_event, env, ctx) => {
+    ctx.waitUntil(cleanupRateLimits(env));
+  },
+} satisfies ExportedHandler<Bindings>;

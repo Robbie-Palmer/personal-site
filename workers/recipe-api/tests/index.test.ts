@@ -64,6 +64,8 @@ const dbMock = vi.hoisted(() => {
     members: [] as MemberRow[],
     invitations: [] as InvitationRow[],
     recipes: [] as RecipeRow[],
+    rateLimitCounts: new Map<string, number>(),
+    rateLimitSweeps: 0,
   };
 
   const organizationRow = (organization: OrganizationRow) => [
@@ -110,9 +112,19 @@ const dbMock = vi.hoisted(() => {
     state.members = [];
     state.invitations = [];
     state.recipes = [];
+    state.rateLimitCounts.clear();
+    state.rateLimitSweeps = 0;
   }
 
   function queryRows(query: string, params: unknown[] = []) {
+    if (query.startsWith('insert into "app_rate_limit"')) {
+      const key = params[0] as string;
+      const count = (state.rateLimitCounts.get(key) ?? 0) + 1;
+      state.rateLimitCounts.set(key, count);
+      // [count, windowStart] — drizzle .returning() maps these by column order.
+      return [[count, date]];
+    }
+
     if (query.startsWith('insert into "organization"')) {
       const organization: OrganizationRow = {
         id: params[0] as string,
@@ -179,6 +191,11 @@ const dbMock = vi.hoisted(() => {
       if (!invitation) return [];
       invitation.status = status;
       return query.includes("returning") ? [invitationRow(invitation)] : [];
+    }
+
+    if (query.startsWith('delete from "app_rate_limit"')) {
+      state.rateLimitSweeps += 1;
+      return [];
     }
 
     if (query.startsWith('delete from "member"')) {
@@ -449,7 +466,7 @@ vi.mock("jose", () => ({
   jwtVerify: vi.fn(() => Promise.resolve({ payload: { sub: "tester" } })),
 }));
 
-import app from "../src/index";
+import handler, { app } from "../src/index";
 
 function sessionFor(user: { id: string; email: string; name: string }) {
   return {
@@ -886,6 +903,36 @@ describe("household membership flows", () => {
       role: "member",
       status: "pending",
     });
+  });
+
+  it("returns 429 once the owner exceeds the invite rate limit", async () => {
+    seedHousehold();
+    // Pre-fill the per-account window to its cap so the next invite trips it.
+    dbMock.state.rateLimitCounts.set("household-invite:owner-user", 10);
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/households/household-1/invitations",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ email: "newmember@example.test" }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(429);
+    expect(res.headers.get("retry-after")).toBeTruthy();
+    expect(await res.json()).toMatchObject({ error: "Too many requests" });
+    // The invitation is rejected before any row is written.
+    expect(dbMock.state.invitations).toHaveLength(0);
   });
 
   it("returns 409 when a pending invitation already exists for the email", async () => {
@@ -1800,5 +1847,26 @@ describe("unknown routes", () => {
   it("returns 404", async () => {
     const res = await app.request("/unknown", {}, env);
     expect(res.status).toBe(404);
+  });
+});
+
+describe("scheduled rate-limit cleanup", () => {
+  function runScheduled(bindings: typeof env) {
+    const pending: Promise<unknown>[] = [];
+    const ctx = {
+      waitUntil: (p: Promise<unknown>) => pending.push(p),
+    } as unknown as ExecutionContext;
+    handler.scheduled?.({} as ScheduledController, bindings, ctx);
+    return Promise.all(pending);
+  }
+
+  it("sweeps stale counters", async () => {
+    await runScheduled(env);
+    expect(dbMock.state.rateLimitSweeps).toBe(1);
+  });
+
+  it("no-ops without a database connection", async () => {
+    await runScheduled({ ...env, DATABASE_URL: "" });
+    expect(dbMock.state.rateLimitSweeps).toBe(0);
   });
 });
