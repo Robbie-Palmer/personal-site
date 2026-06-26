@@ -782,4 +782,13 @@ export const technologies: TechnologyContent[] = [
     website: "https://trivy.dev",
     type: "tool",
   },
+  {
+    name: "SonarQube",
+    added: "2026-06-26",
+    description:
+      "Continuous code quality and security platform: maintainability metrics, duplication, cognitive complexity, coverage gating, and SAST behind a pass/fail quality gate",
+    website: "https://www.sonarsource.com/products/sonarqube/",
+    iconSlug: "sonarqubeserver",
+    type: "tool",
+  },
 ];

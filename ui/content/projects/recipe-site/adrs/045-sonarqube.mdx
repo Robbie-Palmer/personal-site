@@ -1,0 +1,200 @@
+---
+title: "ADR 045: SonarQube"
+date: "2026-06-26"
+status: "Proposed"
+tech_stack: ["SonarQube"]
+---
+
+# Context
+
+The recipe site now ships backend services, authenticated features, and a Postgres data
+model, and the overwhelming majority of new code is written by coding agents. The bottleneck
+has moved from *writing* code to *verifying* it at volume.
+
+The existing quality and security stack is already dense:
+
+| Tool | Scope | Determinism | Notes |
+| --- | --- | --- | --- |
+| **Biome** | Lint + format | Deterministic | Style and intra-file correctness. No cross-file or whole-program analysis. |
+| **CodeQL** ([ADR 024](/projects/recipe-site/adrs/024-codeql) → [personal-site 032](/projects/personal-site/adrs/032-codeql)) | Security SAST | Deterministic | Deep dataflow for injection/XSS classes. Security-only; not maintainability. |
+| **Trivy** ([ADR 044](/projects/recipe-site/adrs/044-trivy) → [personal-site 047](/projects/personal-site/adrs/047-trivy)) | IaC, deps, containers | Deterministic | CVE/misconfig scanning. Not source quality. |
+| **Renovate** ([ADR 020](/projects/recipe-site/adrs/020-renovate)) | Dependency updates | Deterministic | Update proposals + CVE visibility. |
+| **GitHub Secret Scanning** | Committed secrets | Deterministic | Narrow. |
+| **Vitest** ([ADR 008](/projects/recipe-site/adrs/008-vitest)) | Unit tests | Deterministic | Produces coverage, but nothing *gates* on it. |
+| **CodeRabbit / Greptile / Codex / Qodo / Gemini / custom agentic review** (ADRs 009, 038–043) | AI PR review | **Non-deterministic** | Contextual prose review. Varies run-to-run; no objective trend. |
+
+The structural gaps these leave:
+
+1. **No deterministic measure of code *health*.** Nothing tracks maintainability, cross-file
+   duplication, or cognitive complexity, or enforces a threshold on them.
+2. **Coverage is measured but not enforced.** Vitest emits coverage; no gate fails a PR that
+   drops it on changed lines.
+3. **The only thing watching for systemic decay is non-deterministic.** Six AI reviewers give
+   excellent contextual feedback but cannot be relied on to flag the *same* regression twice.
+
+[ADR 032](/projects/personal-site/adrs/032-codeql) **explicitly rejected SonarQube**, on one
+specific objection: it "requires an external platform/account … rejected to minimize platform
+sprawl" — an extra dashboard and login to live in, when the site was a static front-end with one
+human author. That objection is the spine of this ADR, because **it no longer holds**: the
+adoption proposed here is the *free GitHub-native scan*, not a separate platform.
+
+# Decision (Proposed)
+
+Adopt **SonarQube Cloud's free GitHub App integration** (free for public repositories) as a
+deterministic, trend-tracked **quality gate that lives inside the GitHub pull request** — not a
+dashboard the project relocates into.
+
+Concretely, this is the same operational posture as CodeQL and Trivy
+([ADR 044](/projects/recipe-site/adrs/044-trivy)), where results land in GitHub and nobody
+babysits an external console:
+
+* **Runs in CI** via the `sonarqube-scan` GitHub Action on each PR.
+* **PR decoration** via the GitHub App: the quality gate is posted as a single **Check Run**
+  (pass/fail status on the PR) with **inline annotations** on the changed lines that violate it.
+  The review happens in the PR, next to the diff.
+* **Clean-as-You-Code gate on new code only** — maintainability, cognitive complexity,
+  cross-file duplication, and a coverage threshold (importing the Vitest LCOV report). Legacy
+  code is never blocked; only what a PR introduces, exactly how Trivy/CodeQL already gate.
+* **SAST deprioritised, not a blocker.** CodeQL stays the security-SAST owner; Sonar's
+  overlapping security rules run observe-only or off, to avoid double-gating the same classes.
+* **The Sonar web project is treated like the GitHub Security tab** — a drill-down for trends,
+  not a workplace. The daily loop stays in GitHub.
+
+Explicitly **out of scope**: self-hosting the Community Edition (a JVM server + its own
+Postgres), and treating the Sonar dashboard as a place work moves to. Both reintroduce the exact
+platform-sprawl cost [ADR 032](/projects/personal-site/adrs/032-codeql) declined to pay
+([Less Is More](/projects?tab=philosophy#less-is-more)).
+
+# Why This Reverses ADR 032
+
+ADR 032 rejected SonarQube as *a platform*. This ADR adopts SonarQube as *a GitHub status
+check*. The distinction is the whole decision:
+
+| ADR 032 read SonarQube as… | This ADR adopts SonarQube as… |
+| --- | --- |
+| An external dashboard + login to live in | A Check Run + inline annotations in the PR |
+| Cost that scales poorly for a small team | Free for the public repo, like CodeQL/Trivy |
+| Net-new platform sprawl | Same GitHub-native posture as tools already accepted |
+
+What changed besides the framing: the site grew a backend and an auth surface, and code is now
+agent-authored at volume — so the *gap* SonarQube fills (a deterministic code-health gate) went
+from theoretical to load-bearing.
+
+# Why It's Distinct From What We Have
+
+The differentiator is **determinism applied to code health**, a quadrant nothing else covers:
+
+| | Security | Code health (maintainability / duplication / complexity / coverage) |
+| --- | --- | --- |
+| **Deterministic** | CodeQL, Trivy | Biome (line-level only) → **gap → SonarQube** |
+| **Non-deterministic** | AI reviewers | AI reviewers |
+
+AI reviewers see code health but report it inconsistently; Biome is deterministic but only at
+the line. SonarQube is the only candidate that gives a *reproducible, monotonic* signal on
+whether the codebase is decaying — trustworthy as a PR gate, and a target an agent can be told
+to satisfy.
+
+# Alternatives Considered
+
+Weighted toward the same test ADR 032 applied: does it surface *in GitHub*, or does it drag in a
+separate platform?
+
+| Tool | GitHub-native? | Pros | Cons | Verdict |
+| --- | --- | --- | --- | --- |
+| **SonarQube Cloud + GitHub App** *(proposed)* | Yes — PR check + annotations | Free for public repos; mature TS/JS engine; coverage import; huge LLM corpus. | Security rules overlap CodeQL; gate metrics invite Goodhart gaming. | **Proposed** |
+| **Qodana** (JetBrains) | PR annotations, weaker | Strong analysis; free for OSS. | Best inside the JetBrains IDEs we don't use; thinner community/LLM corpus. | Rejected — weaker fit + less established ([Goldilocks](/projects?tab=philosophy#the-goldilocks-zone)). |
+| **Codacy** | Yes — PR check | Free OSS tier; one gate. | Mostly wraps linters we already run (Biome) + Semgrep; little net-new signal. | Rejected — duplicates Biome without filling the health quadrant. |
+| **Qlty** (Code Climate successor) | Yes | Modern maintainability/duplication metrics. | 2024 relaunch mid-pivot from Code Climate; smaller corpus; churn risk. | Rejected — [Build Flywheels](/projects?tab=philosophy#build-flywheels): don't bet learning on a product mid-transition. |
+| **CodeScene** | Partial | Unique behavioural/hotspot analysis from git history. | Niche, premium, little LLM data; orthogonal to a PR gate. | Rejected — past the early-majority window, weak [LLM-Optimized](/projects?tab=philosophy#llm-optimized) fit. |
+| **Semgrep** | Yes (SARIF) | Fast custom rules; named future SAST candidate in [ADR 032](/projects/personal-site/adrs/032-codeql). | A SAST/rules engine, not a code-health/coverage gate; overlaps CodeQL. | Rejected for *this* gap — remains the separate CodeQL-successor question. |
+| **Status quo** (Biome + CodeQL + AI review) | — | Zero new check. | Code-health gate stays missing; coverage stays unenforced; only decay-watcher stays non-deterministic. | Rejected — the gap is the reason for this ADR. |
+
+# Where It Sits On The Adoption Curve
+
+Deliberately split, because SonarQube is two things at once:
+
+* **Core static analysis: late majority / institutional.** Sonar dates to 2008 and is a default
+  in enterprise pipelines — *slightly past* the early-majority sweet spot we target. But the
+  philosophy's warning about late adopters ("shrinking community, looming deprecation") does
+  **not** apply: the community is large and the product is actively reinvented. That maturity
+  buys what we prize — zero API churn, exhaustive docs, and a deep LLM training corpus
+  ([LLM-Optimized](/projects?tab=philosophy#llm-optimized)).
+* **GitHub App + AI-assurance layer (PR decoration, AI Code Assurance, MCP server, 2024–2025):
+  early majority.** Recent, evolving, not yet ubiquitous — squarely in the window we target, and
+  a [rising tide](/projects?tab=philosophy#the-goldilocks-zone) (a mature vendor pivoting toward
+  agentic, GitHub-native workflows). This layer is the differentiated reason to adopt now.
+
+Net: we ride a late-majority engine for stability and AI-readability, justified by an
+early-majority, GitHub-native delivery aimed at the agent-authored-code problem.
+
+# Relation To Building Philosophy
+
+* **[Less Is More](/projects?tab=philosophy#less-is-more) (now the win, not the tension).** The
+  GitHub-native framing is what makes this adoptable at all: results are a PR check, not a new
+  console. We rent the analysis and surface it where we already work. The residual cost is one
+  CI step and one status check — not a platform to consolidate away later.
+* **[LLM-Optimized](/projects?tab=philosophy#llm-optimized) / agentic coding (primary driver).**
+  When agents write most code, the binding constraint is trustworthy verification — and verifying
+  AI output with *more* AI (the six existing reviewers) is non-determinism checking
+  non-determinism. SonarQube adds a deterministic floor: the same regression fails the same check
+  every time, which is what makes it safe to let agents merge fast. Its **MCP server closes the
+  loop** — the agent queries its own Sonar findings and fixes them before opening the PR — and
+  **AI Code Assurance** hardens the gate specifically on agent-authored code.
+* **[Short Feedback Loops](/projects?tab=philosophy#short-feedback-loops).** Inline PR annotations
+  put the signal on the diff; the MCP loop moves it earlier still, into the agent. Risk the other
+  way: a blocking gate tuned as a gatekeeper lengthens the path to production — mitigated by
+  gating new code only.
+* **[Build Flywheels](/projects?tab=philosophy#build-flywheels).** A trend line on code health is
+  a compounding asset; one-off AI review comments are not. Gate config learned once transfers to
+  every future service in the monorepo.
+* **[Respect Goodhart's & Conway's Laws](/projects?tab=philosophy#respect-goodharts-and-conways-laws).**
+  Coverage % and maintainability ratings are textbook Goodhart targets — easy to game, especially
+  by an agent optimising to pass the check. Thresholds must catch real decay without becoming a
+  number to farm.
+
+# Gaps & Risks
+
+* **SAST overlap with CodeQL.** Sonar's security rules and CodeQL overlap on injection/XSS
+  classes; running both as blockers double-gates and double-triages. Resolution: CodeQL stays the
+  security owner; Sonar SAST is observe-only or off. Open assumption worth testing: that Sonar's
+  TS *maintainability* engine adds enough over Biome to justify the check.
+* **Coverage import coupling.** The coverage gate is only as honest as the Vitest LCOV it imports;
+  a misconfigured report silently weakens it.
+* **The dashboard still exists.** The GitHub App keeps the daily loop in the PR, but findings are
+  computed on Sonar's side; an outage or free-tier change affects the check. Same vendor-risk
+  shape as Renovate ([ADR 020](/projects/recipe-site/adrs/020-renovate)).
+* **Solo-dev value question.** Maintainability metrics earn their keep mostly on multi-author
+  codebases. Here the "second author" is a fleet of agents — which is the bet that the value
+  transfers — but it is a bet, not a certainty.
+
+# Open Questions For Review
+
+1. Does Sonar's TS maintainability/duplication engine add enough over Biome + AI review to
+   justify the check, or is the coverage gate alone the real prize (achievable with a lighter
+   action)?
+2. Blocking quality gate from day one, or observe-only at first to calibrate thresholds against
+   the existing agentic workflow before it can block a merge?
+3. Is the MCP/AI-Code-Assurance loop redundant given the existing agentic review tooling
+   (ADRs 038–043), or is its determinism the precise thing that tooling lacks?
+
+# Consequences
+
+## Positive
+
+* Fills the one empty quadrant — a **deterministic, trend-tracked code-health gate** — and does
+  it as a GitHub PR check, not a separate platform, neutralising the objection in
+  [ADR 032](/projects/personal-site/adrs/032-codeql).
+* Enforces coverage on changed lines; closes the "measured but not gated" gap.
+* Gives coding agents an in-loop, reproducible target via MCP; AI Code Assurance hardens the gate
+  on exactly the code agents write.
+* Mature, heavily-documented, LLM-readable core — near-zero ramp and API churn.
+* Free for the public repo, consistent with [Build in Public](/projects?tab=philosophy#build-in-public).
+
+## Negative
+
+* Adds one CI step and one status check; the analysis is still computed on a vendor's free tier
+  whose terms it controls.
+* Security rules overlap CodeQL and need deliberate configuration to avoid double-gating.
+* Gate metrics are Goodhart-prone, more so with an agent optimising to pass them.
+* Maintainability metrics are weakest-justified for a single human author; the value rests on the
+  agent-authored-volume bet.
