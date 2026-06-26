@@ -71,7 +71,7 @@ export function AuthButton() {
     setIsPreview(preview);
     if (!preview) return;
 
-    if (process.env.NEXT_PUBLIC_PREVIEW_BACKEND === "false") {
+    if (previewBackendDisabled) {
       setError("Sign-in is disabled on this frontend-only preview.");
       return;
     }
@@ -83,7 +83,7 @@ export function AuthButton() {
       })
       .then(setPreviewScenarios)
       .catch(() => setError("Preview sign-in is not configured."));
-  }, []);
+  }, [previewBackendDisabled]);
 
   async function loadLinkedAccounts() {
     setAccountsError(false);

@@ -30,16 +30,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
-          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          # contains() matches array elements exactly, avoiding substring
+          # surprises from label names that embed a marker label.
+          FORCE_FRONTEND: ${{ contains(github.event.pull_request.labels.*.name, 'preview:frontend-only') }}
+          FORCE_BACKEND: ${{ contains(github.event.pull_request.labels.*.name, 'preview:backend') }}
         run: |
           set -euo pipefail
-          labels=",${LABELS},"
-          if [[ "$labels" == *",preview:frontend-only,"* ]]; then
+          if [[ "$FORCE_FRONTEND" == "true" ]]; then
             echo "Label preview:frontend-only forces frontend-only preview."
             echo "backend=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if [[ "$labels" == *",preview:backend,"* ]]; then
+          if [[ "$FORCE_BACKEND" == "true" ]]; then
             echo "Label preview:backend forces a backend preview."
             echo "backend=true" >> "$GITHUB_OUTPUT"
             exit 0
@@ -231,6 +233,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
+              per_page: 100,
             });
             const existing = comments.find(comment =>
               comment.user.type === 'Bot' && comment.body?.includes(marker)
