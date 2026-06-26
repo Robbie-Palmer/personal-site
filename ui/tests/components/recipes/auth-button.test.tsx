@@ -146,6 +146,10 @@ describe("AuthButton", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Sign-in is disabled on this frontend-only preview.",
     );
+    expect(screen.getByText("Sign-in unavailable")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Choose a preview scenario"),
+    ).not.toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

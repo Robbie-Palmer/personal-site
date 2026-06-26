@@ -205,25 +205,29 @@ jobs:
             const requested = process.env.BACKEND_REQUESTED === 'true';
             const ok = process.env.BACKEND_RESULT === 'success';
 
-            let backendSection;
+            let backendLines;
             if (requested && ok) {
-              backendSection = `**Worker:** \`${process.env.PREVIEW_WORKER_NAME}\`
-            **Database:** Neon branch \`${process.env.PREVIEW_BRANCH}\`
-
-            The site is protected by Cloudflare Access. Use the **Sign in** menu to choose a seeded QA scenario.`;
+              backendLines = [
+                `**Worker:** \`${process.env.PREVIEW_WORKER_NAME}\``,
+                `**Database:** Neon branch \`${process.env.PREVIEW_BRANCH}\``,
+                '',
+                'The site is protected by Cloudflare Access. Use the **Sign in** menu to choose a seeded QA scenario.',
+              ];
             } else if (requested && !ok) {
-              backendSection = `**Backend:** ⚠️ provisioning failed — the frontend is deployed, but sign-in is unavailable. Re-run the workflow to retry.`;
+              backendLines = ['**Backend:** ⚠️ provisioning failed — the frontend is deployed, but sign-in is unavailable. Re-run the workflow to retry.'];
             } else {
-              backendSection = `**Backend:** frontend-only preview — sign-in is disabled. Add the \`preview:backend\` label to provision an isolated Worker + database.`;
+              backendLines = ['**Backend:** frontend-only preview — sign-in is disabled. Add the `preview:backend` label to provision an isolated Worker + database.'];
             }
 
-            const body = `${marker}
-            ### Preview environment
+            const body = [
+              marker,
+              '### Preview environment',
+              '',
+              `**Site:** ${process.env.PREVIEW_SITE_URL}`,
+              ...backendLines,
+            ].join('\n');
 
-            **Site:** ${process.env.PREVIEW_SITE_URL}
-            ${backendSection}`;
-
-            const { data: comments } = await github.rest.issues.listComments({
+            const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
