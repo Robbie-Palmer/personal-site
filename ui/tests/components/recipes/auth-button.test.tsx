@@ -37,6 +37,7 @@ describe("AuthButton", () => {
     mocks.getLastUsedLoginMethod.mockReturnValue(null);
     mocks.isPreviewDeployment.mockReturnValue(false);
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it("lets the user choose Google or GitHub", async () => {
@@ -130,6 +131,22 @@ describe("AuthButton", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Preview sign-in failed",
     );
+  });
+
+  it("disables sign-in on a frontend-only preview", async () => {
+    const user = userEvent.setup();
+    mocks.isPreviewDeployment.mockReturnValue(true);
+    vi.stubEnv("NEXT_PUBLIC_PREVIEW_BACKEND", "false");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AuthButton />);
+
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Sign-in is disabled on this frontend-only preview.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("shows the signed-in user and supports sign out", async () => {

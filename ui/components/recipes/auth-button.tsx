@@ -69,6 +69,11 @@ export function AuthButton() {
     setIsPreview(preview);
     if (!preview) return;
 
+    if (process.env.NEXT_PUBLIC_PREVIEW_BACKEND === "false") {
+      setError("Sign-in is disabled on this frontend-only preview.");
+      return;
+    }
+
     void fetch("/api/auth/preview/scenarios")
       .then(async (response) => {
         if (!response.ok) throw new Error("Preview scenarios unavailable");
