@@ -101,6 +101,12 @@ type ScaledPartsRecord = {
   parts: ScaledRecipeParts;
 };
 
+type TransformErrorRecord = {
+  cookBody: string;
+  scale: number;
+  error: Error;
+};
+
 export function useScaledRecipe(
   view: RecipeDetailView,
   scale: number,
@@ -151,7 +157,8 @@ export function useScaledRecipe(
   const [scaledParts, setScaledParts] = useState<ScaledPartsRecord | null>(
     null,
   );
-  const [transformError, setTransformError] = useState<Error | null>(null);
+  const [transformError, setTransformError] =
+    useState<TransformErrorRecord | null>(null);
 
   useEffect(() => {
     if (isIdentity || !freshParsedRecipe || !freshParsedOriginal) return;
@@ -159,6 +166,7 @@ export function useScaledRecipe(
     let isActive = true;
     const targetCookBody = view.cookBody;
     const targetScale = scale;
+    setTransformError(null);
     loadTransformModule()
       .then(({ buildScaledRecipeParts }) => {
         if (!isActive) return;
@@ -170,15 +178,17 @@ export function useScaledRecipe(
             scale: targetScale,
           }),
         });
-        setTransformError(null);
       })
       .catch((err: unknown) => {
         if (!isActive) return;
-        setTransformError(
-          err instanceof Error
-            ? err
-            : new Error("Failed to load cooklang transform"),
-        );
+        setTransformError({
+          cookBody: targetCookBody,
+          scale: targetScale,
+          error:
+            err instanceof Error
+              ? err
+              : new Error("Failed to load cooklang transform"),
+        });
       });
 
     return () => {
@@ -197,6 +207,11 @@ export function useScaledRecipe(
     scaledParts?.cookBody === view.cookBody && scaledParts?.scale === scale
       ? scaledParts.parts
       : null;
+  const freshTransformError =
+    transformError?.cookBody === view.cookBody &&
+    transformError?.scale === scale
+      ? transformError.error
+      : null;
 
   const scaledView = useMemo(
     () =>
@@ -213,7 +228,7 @@ export function useScaledRecipe(
       view: scaledView,
       scaleMultiplier: 1,
       isScaling: false,
-      error: error ?? originalError ?? transformError,
+      error: error ?? originalError ?? freshTransformError,
     };
   }
 
@@ -223,7 +238,7 @@ export function useScaledRecipe(
   return {
     view,
     scaleMultiplier: scale,
-    isScaling: !transformError,
-    error: error ?? originalError ?? transformError,
+    isScaling: !freshTransformError,
+    error: error ?? originalError ?? freshTransformError,
   };
 }
