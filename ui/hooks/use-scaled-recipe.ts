@@ -161,12 +161,12 @@ export function useScaledRecipe(
     useState<TransformErrorRecord | null>(null);
 
   useEffect(() => {
+    setTransformError(null);
     if (isIdentity || !freshParsedRecipe || !freshParsedOriginal) return;
 
     let isActive = true;
     const targetCookBody = view.cookBody;
     const targetScale = scale;
-    setTransformError(null);
     loadTransformModule()
       .then(({ buildScaledRecipeParts }) => {
         if (!isActive) return;

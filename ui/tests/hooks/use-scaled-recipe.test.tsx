@@ -19,6 +19,7 @@ const recipe: RecipeDetailView = {
   description: "A recipe used in tests.",
   date: "2026-05-23",
   cuisine: ["Test"],
+  tags: [],
   servings: 2,
   cookBody: "@flour{100%g}\n",
   cookware: ["bowl"],
