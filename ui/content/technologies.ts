@@ -786,9 +786,9 @@ export const technologies: TechnologyContent[] = [
     name: "SonarQube",
     added: "2026-06-26",
     description:
-      "Continuous code quality and security platform: maintainability metrics, duplication, cognitive complexity, coverage gating, and SAST behind a pass/fail quality gate",
+      "Continuous code quality and security platform: maintainability metrics, duplication, cognitive complexity, and SAST behind a pass/fail quality gate",
     website: "https://www.sonarsource.com/products/sonarqube/",
-    iconSlug: "sonarqubeserver",
+    iconSlug: "sonarqubecloud",
     type: "tool",
   },
 ];
