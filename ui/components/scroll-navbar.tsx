@@ -2,6 +2,7 @@
 
 import { cva } from "class-variance-authority";
 import Link from "next/link";
+import { CommandPaletteTrigger } from "@/components/command-palette";
 import { Button } from "@/components/ui/button";
 import { useNavbarActions } from "@/contexts/navbar-actions-context";
 import { useNavbarVisibility } from "@/hooks/use-navbar-visibility";
@@ -38,6 +39,7 @@ export function ScrollNavbar() {
           </Link>
         </div>
         <div className="flex items-center gap-2">
+          <CommandPaletteTrigger />
           <Button variant="ghost" className="px-2 md:px-4" asChild>
             <Link href="/blog">Blog</Link>
           </Button>

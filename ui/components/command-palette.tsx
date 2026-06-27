@@ -25,6 +25,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Button } from "@/components/ui/button";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 import { siteConfig } from "@/lib/config/site-config";
 import { cn } from "@/lib/generic/styles";
@@ -35,6 +36,17 @@ interface FilterOption {
   icon?: ReactNode;
   group: string;
   paramName: string;
+}
+
+/**
+ * Minimal, serializable technology shape passed from server components into
+ * the (client) command palette so every technology is globally searchable.
+ */
+export interface PaletteTechnology {
+  slug: string;
+  name: string;
+  iconSlug?: string;
+  hasIcon: boolean;
 }
 
 interface NavigationItem {
@@ -103,10 +115,12 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
 
 interface CommandPaletteProviderProps {
   children: ReactNode;
+  technologies?: PaletteTechnology[];
 }
 
 export function CommandPaletteProvider({
   children,
+  technologies = [],
 }: CommandPaletteProviderProps) {
   const [open, setOpen] = useState(false);
   const [pageFilters, setPageFilters] = useState<FilterOption[]>([]);
@@ -159,6 +173,7 @@ export function CommandPaletteProvider({
           open={open}
           onOpenChange={setOpen}
           pageFilters={pageFilters}
+          technologies={technologies}
         />
       </Suspense>
     </CommandPaletteContext.Provider>
@@ -169,12 +184,14 @@ interface CommandPaletteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pageFilters: FilterOption[];
+  technologies: PaletteTechnology[];
 }
 
 function CommandPaletteDialog({
   open,
   onOpenChange,
   pageFilters,
+  technologies,
 }: CommandPaletteDialogProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -343,6 +360,37 @@ function CommandPaletteDialog({
               ))}
             </Command.Group>
 
+            {/* Technologies — globally searchable; gated behind a query to
+                keep the default view compact given the large catalogue. */}
+            {search.trim().length > 0 && technologies.length > 0 && (
+              <Command.Group
+                heading="Technologies"
+                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground"
+              >
+                {technologies.map((tech) => (
+                  <Command.Item
+                    key={tech.slug}
+                    value={`technology ${tech.name}`}
+                    onSelect={() =>
+                      handleNavigation(`/technologies/${tech.slug}`)
+                    }
+                    className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer aria-selected:bg-accent aria-selected:text-accent-foreground"
+                  >
+                    {tech.hasIcon ? (
+                      <TechIcon
+                        name={tech.name}
+                        iconSlug={tech.iconSlug}
+                        className="size-4"
+                      />
+                    ) : (
+                      <Code2 className="size-4" />
+                    )}
+                    <span>{tech.name}</span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+
             {/* Page-specific filters */}
             {Array.from(groupedFilters.entries()).map(([group, filters]) => (
               <Command.Group
@@ -428,6 +476,52 @@ function CommandPaletteDialog({
         </Command>
       </div>
     </div>
+  );
+}
+
+/**
+ * Navbar entry point for the command palette. Renders a compact icon button on
+ * mobile and a search-field-styled button (with a subtle ⌘K hint) on desktop.
+ */
+export function CommandPaletteTrigger({ className }: { className?: string }) {
+  const { setOpen } = useCommandPalette();
+
+  const handleOpen = useCallback(() => {
+    posthog.capture("command_palette_opened", { trigger: "navbar" });
+    setOpen(true);
+  }, [setOpen]);
+
+  return (
+    <>
+      {/* Mobile: icon-only */}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        onClick={handleOpen}
+        aria-label="Search"
+        className={cn("md:hidden", className)}
+      >
+        <Search className="size-5" />
+      </Button>
+
+      {/* Desktop: search-field-styled button with hotkey hint */}
+      <button
+        type="button"
+        onClick={handleOpen}
+        aria-label="Search"
+        className={cn(
+          "hidden md:inline-flex items-center gap-2 h-9 w-44 rounded-md border bg-background px-3 text-sm text-muted-foreground shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+          className,
+        )}
+      >
+        <Search className="size-4 shrink-0" />
+        <span className="flex-1 text-left">Search</span>
+        <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium">
+          <span className="text-xs">⌘</span>K
+        </kbd>
+      </button>
+    </>
   );
 }
 
