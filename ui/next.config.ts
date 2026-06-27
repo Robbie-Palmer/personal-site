@@ -25,6 +25,14 @@ function createNextConfig(phase: string): NextConfig {
     images: {
       unoptimized: true,
     },
+    // `next build` runs its own `tsc` type-check, but a dedicated `//ui:check`
+    // (PR CI) / `//ui:check:static` (deploy workflows) step already does, so the
+    // in-build pass is redundant serial work (~11s/build, measured). Skip it.
+    // `eslint.ignoreDuringBuilds` likewise disables Next's built-in ESLint
+    // integration — unused here, since linting is done by Biome in those same
+    // check steps — and is set defensively in case ESLint is ever added.
+    typescript: { ignoreBuildErrors: true },
+    eslint: { ignoreDuringBuilds: true },
     // Dev-only: proxy auth requests to the local recipe-api Worker.
     // In production the Cloudflare Pages Function (functions/api/auth/) handles this.
     ...(phase === PHASE_DEVELOPMENT_SERVER

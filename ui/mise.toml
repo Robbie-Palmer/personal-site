@@ -77,6 +77,10 @@ rm -rf out
 description = "Run all checks (lint, format, typecheck, test)"
 depends = ["//ui:lint", "//ui:format:check", "//ui:typecheck", "//ui:test"]
 
+[tasks."check:static"]
+description = "Static checks the production build relies on (type-check + Biome lint), without the slower test suite — gates deploy/preview workflows that skip the in-build type-check"
+depends = ["//ui:typecheck", "//ui:lint"]
+
 # Image management tasks
 [tasks."images:sync"]
 description = "Upload versioned images to Cloudflare Images with CalVer validation"
