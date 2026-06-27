@@ -30,22 +30,19 @@ jobs:
         working-directory: infra
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
 
       - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
         with:
           experimental: true
 
-      - name: Create .env file for Terraform
-        run: |
-          cat > .env <<EOF
-          export CLOUDFLARE_API_TOKEN="${CLOUDFLARE_API_TOKEN}"
-          export TF_TOKEN_app_terraform_io="${TF_TOKEN_app_terraform_io}"
-          export TF_VAR_cf_images_account_hash="${TF_VAR_cf_images_account_hash}"
-          export TF_VAR_posthog_key="${TF_VAR_posthog_key}"
-          export TF_VAR_github_token="${TF_VAR_github_token}"
-          export NEON_API_KEY="${NEON_API_KEY}"
-          export TF_VAR_neon_org_id="${TF_VAR_neon_org_id}"
-          EOF
+      # The Terraform credentials are provided via the job-level `env:` block and
+      # read by terraform from the process environment. mise (infra/mise.toml)
+      # only needs the .env file to exist, so create it empty rather than writing
+      # every deployment secret to the runner filesystem.
+      - name: Create empty .env for mise
+        run: touch .env
 
       - name: Terraform Plan
         run: mise run //infra:plan

@@ -6,8 +6,6 @@ on:
 
 permissions:
   contents: read
-  deployments: write
-  pull-requests: write
 
 concurrency:
   group: preview-${{ github.event.pull_request.number }}
@@ -68,6 +66,8 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: cloudflare-preview
+    permissions:
+      contents: read
     steps:
       - name: Set preview resource names
         env:
@@ -123,12 +123,13 @@ jobs:
           experimental: true
 
       - name: Get pnpm store directory
+        id: pnpm-store
         shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+        run: echo "dir=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          path: ${{ env.STORE_PATH }}
+          path: ${{ steps.pnpm-store.outputs.dir }}
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: pnpm-store-${{ runner.os }}-
 
@@ -150,6 +151,7 @@ jobs:
           BETTER_AUTH_URL: https://pr-${{ github.event.pull_request.number }}.${{ vars.CLOUDFLARE_PAGES_HOST }}
 
       - name: Create atomic Worker secrets file
+        id: worker-secrets
         env:
           DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
         run: |
@@ -160,11 +162,12 @@ jobs:
             --arg preview_password "$PREVIEW_AUTH_PASSWORD" \
             '{DATABASE_URL: $database_url, BETTER_AUTH_SECRET: $auth_secret, PREVIEW_AUTH_PASSWORD: $preview_password}' \
             > "$SECRETS_FILE"
-          echo "PREVIEW_SECRETS_FILE=$SECRETS_FILE" >> "$GITHUB_ENV"
+          echo "secrets_file=$SECRETS_FILE" >> "$GITHUB_OUTPUT"
 
       - name: Deploy isolated preview Worker
         run: mise run //workers/recipe-api:preview:deploy
         env:
+          PREVIEW_SECRETS_FILE: ${{ steps.worker-secrets.outputs.secrets_file }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CF_ACCESS_TEAM_DOMAIN: ${{ vars.CF_ACCESS_TEAM_DOMAIN }}
@@ -179,6 +182,8 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: cloudflare-preview
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -190,12 +195,13 @@ jobs:
           experimental: true
 
       - name: Get pnpm store directory
+        id: pnpm-store
         shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+        run: echo "dir=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          path: ${{ env.STORE_PATH }}
+          path: ${{ steps.pnpm-store.outputs.dir }}
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: pnpm-store-${{ runner.os }}-
 
@@ -232,6 +238,9 @@ jobs:
     needs: [detect, backend, frontend]
     if: always() && needs.frontend.result == 'success'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Comment preview URL on PR
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
