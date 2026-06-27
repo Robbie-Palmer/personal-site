@@ -122,6 +122,16 @@ jobs:
         with:
           experimental: true
 
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-
+
       - name: Install dependencies
         run: mise run //:install
 
@@ -179,8 +189,31 @@ jobs:
         with:
           experimental: true
 
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-
+
       - name: Install dependencies
         run: mise run //:install
+
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ui/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('ui/app/**', 'ui/components/**', 'ui/content/**', 'ui/lib/**') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            nextjs-${{ runner.os }}-
+
+      # //ui:build skips its in-build type-check (see next.config.ts), so run
+      # the static checks explicitly before building and deploying the preview.
+      - name: Static checks (type-check + lint)
+        run: mise run //ui:check:static
 
       - name: Build and deploy canonical PR Pages preview
         # //ui:deploy depends on //ui:build, so this single step both builds

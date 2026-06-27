@@ -21,6 +21,18 @@ jobs:
         with:
           experimental: true
 
+      # Cache the pnpm content-addressable store so installs restore packages
+      # from disk instead of re-downloading them on every run.
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-
+
       - name: Install dependencies
         run: mise run //:install
 
@@ -29,6 +41,18 @@ jobs:
 
       - name: Run checks
         run: mise run //ui:check
+
+      # Persist Next.js's incremental build cache (compiled modules, SWC output)
+      # so the Build step reuses unchanged work. The key is invalidated on lock
+      # or source changes; restore-keys still seeds the cache from the closest
+      # previous build so a content edit doesn't force a cold compile.
+      - uses: actions/cache@v4
+        with:
+          path: ui/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('ui/app/**', 'ui/components/**', 'ui/content/**', 'ui/lib/**') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            nextjs-${{ runner.os }}-
 
       - name: Build
         run: |
