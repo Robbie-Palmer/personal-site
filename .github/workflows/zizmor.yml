@@ -37,17 +37,18 @@ jobs:
           experimental: true
 
       - name: Run zizmor
-        # Non-blocking: findings surface in the GitHub Security tab rather than
-        # gating the PR, matching the Trivy posture (ADR 047). The GH token
-        # enables zizmor's online audits (e.g. unpinned/known-vulnerable refs).
-        continue-on-error: true
+        # Advisory on findings, but not on failure. --no-exit-codes makes
+        # zizmor exit 0 when it *finds* issues (they surface in the Security
+        # tab rather than gating the PR, matching the Trivy posture, ADR 047),
+        # while a genuine tool failure still exits non-zero. Combined with the
+        # unconditional upload below, the job fails loudly if zizmor cannot run
+        # or cannot publish its results — it must not silently skip its job.
         env:
           GH_TOKEN: ${{ github.token }}
-        run: mise exec -- zizmor --format sarif . > zizmor.sarif
+        run: mise exec -- zizmor --no-exit-codes --format sarif . > zizmor.sarif
 
       - name: Upload zizmor results to GitHub Security
         uses: github/codeql-action/upload-sarif@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3
-        if: always()
         with:
           sarif_file: zizmor.sarif
           category: zizmor
