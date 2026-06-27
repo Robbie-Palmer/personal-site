@@ -1,7 +1,7 @@
 ---
 title: "ADR 045: SonarQube"
 date: "2026-06-26"
-status: "Proposed"
+status: "Accepted"
 tech_stack: ["SonarQube"]
 ---
 
@@ -37,7 +37,7 @@ and login to maintain, back when the site was a static front-end with one human 
 revisits that decision because the reason no longer holds. What is proposed here is the free
 GitHub-native scan, not a separate platform.
 
-# Decision (Proposed)
+# Decision
 
 Adopt SonarQube Cloud's free GitHub App integration (free for public repositories) as a
 deterministic, trend-tracked code-health analysis that surfaces inside the GitHub pull request. It
@@ -143,7 +143,7 @@ platform?
 
 | Tool | GitHub-native? | Pros | Cons | Verdict |
 | --- | --- | --- | --- | --- |
-| **SonarQube Cloud + GitHub App** *(proposed)* | Yes (PR check + annotations) | Free for public repos; mature TS/JS engine, additive over Biome; large LLM corpus. | Security rules overlap CodeQL (redundant, not harmful); gate metrics invite Goodhart gaming. | **Proposed** |
+| **SonarQube Cloud + GitHub App** *(accepted)* | Yes (PR check + annotations) | Free for public repos; mature TS/JS engine, additive over Biome; large LLM corpus. | Security rules overlap CodeQL (redundant, not harmful); gate metrics invite Goodhart gaming. | **Accepted** |
 | **Qodana** (JetBrains) | Weaker PR annotations | Strong analysis; free for OSS. | Best inside the JetBrains IDEs we don't use; thinner community and LLM corpus. | Rejected: weaker fit, less established ([Goldilocks](/projects?tab=philosophy#the-goldilocks-zone)). |
 | **Codacy** | Yes (PR check) | Free OSS tier; one gate. | Mostly wraps linters we already run (Biome) plus Semgrep; little net-new signal. | Rejected: duplicates Biome without filling the health quadrant. |
 | **Qlty** (Code Climate successor) | Yes | Modern maintainability/duplication metrics. | 2024 relaunch mid-pivot from Code Climate; smaller corpus; churn risk. | Rejected: [Build Flywheels](/projects?tab=philosophy#build-flywheels) favours not betting learning on a product mid-transition. |
