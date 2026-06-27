@@ -24,6 +24,6 @@ packages:
 overrides:
   postcss: '^8.5.10'
   js-yaml: '^4.2.0'
-  '@esbuild-kit/core-utils>esbuild': '^0.25.0'
+  '@esbuild-kit/core-utils>esbuild': '^0.28.0'
 patchedDependencies:
   gray-matter@4.0.3: patches/gray-matter@4.0.3.patch
