@@ -64,6 +64,11 @@ jobs:
             nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
             nextjs-${{ runner.os }}-
 
+      # The production build skips its in-build type-check (see next.config.ts),
+      # so run the static checks explicitly before deploying from main.
+      - name: Static checks (type-check + lint)
+        run: mise run //ui:check:static
+
       - name: Build
         run: mise run //ui:build
 
