@@ -4,3 +4,10 @@ packages:
   - 'workers/*'
   - 'ml-pipelines/recipe-parsing'
   - 'ml-pipelines/recipe-parsing/tools/viz'
+
+# Force a non-vulnerable cross-spawn everywhere. The old 5.1.0 is pulled in
+# transitively via qrip -> update-notifier -> boxen -> term-size -> execa@0.7.0
+# and is affected by GHSA ReDoS (CVE in cross-spawn < 7.0.5). The API is
+# backwards compatible, so deduping onto 7.x is safe.
+overrides:
+  cross-spawn: '^7.0.6'
