@@ -1,6 +1,14 @@
 name: AI code review
 
 on:
+  # zizmor: ignore[dangerous-triggers]
+  # Deliberate, secure use of pull_request_target (not a finding to "fix"): the
+  # reviewer is always run from the trusted base commit, never the PR head (see
+  # the checkout step below), the job is gated to OWNER/MEMBER/COLLABORATOR, and
+  # checkouts use persist-credentials: false. Switching to pull_request would run
+  # the PR's *modified* reviewer code with secrets in scope — strictly less safe
+  # — and the /ai-review issue_comment command needs a privileged trigger
+  # regardless. See ADR 049.
   pull_request_target:
     types: [opened, reopened, synchronize, ready_for_review]
   issue_comment:

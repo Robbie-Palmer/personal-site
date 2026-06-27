@@ -1,7 +1,11 @@
 name: Preview Environment
 
 on:
-  pull_request_target:
+  # Internal-only: every job is gated to same-repo PRs (head.repo.full_name ==
+  # github.repository), so plain pull_request gives those PRs the secrets they
+  # need while fork PRs get no secrets at all — safer than pull_request_target,
+  # which this no longer needs. See ADR 049.
+  pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
 permissions:

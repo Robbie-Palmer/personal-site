@@ -54,15 +54,27 @@ runs identically on a laptop ([ADR 016](/projects/personal-site/adrs/016-github-
   its own workflow, emits SARIF, and uploads to the **GitHub Security tab**. The
   operational posture matches CodeQL and Trivy: results land in GitHub and there
   is no external console.
-  * It is **non-blocking** to start (`continue-on-error`), surfacing findings in
-    the Security tab rather than gating the PR — the same posture Trivy takes
-    ([ADR 047](/projects/personal-site/adrs/047-trivy)). This is deliberate: the
-    initial scan flags the `pull_request_target` workflows, whose risk is
-    already mitigated by design (trusted-base checkout, `author_association`
-    gating, secret masking), and those findings should be triaged and either
-    fixed or suppressed with a documented rationale rather than block merges on
-    day one. The gate can be tightened to fail on *new* high-severity findings
+  * It is **advisory on findings, loud on failure**. `zizmor --no-exit-codes`
+    exits 0 when it *finds* issues (they surface in the Security tab rather than
+    gating the PR — the same posture Trivy takes,
+    [ADR 047](/projects/personal-site/adrs/047-trivy)), while a genuine tool
+    failure or a failed SARIF upload still fails the job: the scan must not
+    silently skip its job. The gate can be tightened to fail on *new* findings
     later, the same Clean-as-You-Code path ADR 045 describes.
+  * The first scan's findings were **triaged, not parked**. The credential-
+    persistence, excessive-permissions, and `GITHUB_ENV`-injection findings were
+    fixed (`persist-credentials: false`, per-job least-privilege, step outputs
+    instead of `GITHUB_ENV`), and the secrets-to-disk `.env` step in the infra
+    workflows was removed. The `pull_request_target` (dangerous-trigger)
+    findings were resolved by migrating the two internal-only preview workflows
+    to plain `pull_request` (every job was already gated to same-repo PRs, so
+    they gain nothing from `pull_request_target` and are safer without it). The
+    one remaining `pull_request_target`, on AI review, is kept and documented
+    with an inline `# zizmor: ignore`: there it is the *correct* secure pattern
+    (the reviewer runs from the trusted base commit, gated to members), and
+    switching it would run the PR's modified reviewer code with secrets in
+    scope. Suppression is reserved for that single defensible case, not used to
+    silence findings that should be fixed.
 * **actionlint** — a fast deterministic linter for workflow syntax, expression
   validity, and (when present) shell via shellcheck. Unlike zizmor it runs as a
   **blocking** check in the existing `Lint CI` workflow alongside the Markdown
@@ -135,10 +147,13 @@ than a decade-old tool, accepted because the security gap is concrete.
 * **Non-blocking can be ignored.** Keeping zizmor advisory means a worsening
   workflow-security trend depends on the Security tab being watched, the same
   risk Trivy carries.
-* **Known findings on adoption.** The first scan flags the `pull_request_target`
-  workflows (`dangerous-triggers`, `github-env`, `excessive-permissions`). These
-  are mitigated by design and are accepted-pending-triage, not silently ignored
-  — surfacing them is the point ([Build in Public](/projects?tab=philosophy#build-in-public)).
+* **Clean baseline, by fixing not silencing.** The first scan surfaced 20
+  findings; all were fixed except one `pull_request_target` on AI review, which
+  is the correct secure pattern and carries a documented `# zizmor: ignore`. A
+  green baseline is what makes a future tightening to a blocking gate viable, but
+  it also means the gate only protects against *new* findings — pre-existing
+  patterns elsewhere still depend on the scan being read
+  ([Build in Public](/projects?tab=philosophy#build-in-public)).
 * **Vendor/free-tier risk.** zizmor's online audits use the GitHub API; the tool
   itself is open source and pinned via mise, so the dependency is light.
 

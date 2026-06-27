@@ -1,7 +1,10 @@
 name: Preview Environment Cleanup
 
 on:
-  pull_request_target:
+  # Internal-only cleanup (gated to same-repo PRs), so plain pull_request
+  # supplies the secrets needed to delete preview resources without the
+  # pull_request_target privilege. See ADR 049.
+  pull_request:
     types: [closed]
   workflow_dispatch:
     inputs:
