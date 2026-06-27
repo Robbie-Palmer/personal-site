@@ -41,31 +41,31 @@ This aligns with:
 
 # Build performance (measured)
 
-Before reaching for a paid runner I profiled the UI build (Next.js `output: export`, 269 static pages) on a 4-core machine—the same shape as GitHub's free public-repo runner. Per-phase wall-clock of a cache-warm build:
+Before reaching for a paid runner I profiled the UI build (Next.js `output: export`, 269 static pages) on a 4-core machine—the same shape as GitHub's free public-repo runner. Per-phase wall-clock of a cache-warm build, *before* the optimisations below:
 
 | Phase | Time | Parallel? |
 | --- | --- | --- |
 | Compile (webpack/SWC) | ~12s | partly |
-| Type-check + lint | ~11s | no |
+| Type-check + lint | ~11s | no — *now removed (see below)* |
 | Collecting page data (reads MDX) | ~7s | no (I/O-bound) |
 | Static generation (269 pages) | ~52s | yes (~4 cores) |
 | Export | <1s | — |
 
 **Caching.** A cold build is ~130s; restoring Next.js's `.next/cache` cuts compilation from ~43s to ~12s, taking the build to ~84s. The pnpm store cache removes package downloads (install ~18s → ~7s). Both are drop-in `actions/cache` steps.
 
-**Redundant type-checking removed.** `next build` re-runs `tsc`, but the dedicated `//ui:check` step already type-checks (and lints with Biome) *before* the build in CI. Setting `typescript.ignoreBuildErrors` and `eslint.ignoreDuringBuilds` skips the in-build pass (~11s/build) with no loss of safety—the check step still fails the job on any type or lint error. This single free change saves more wall-clock than an 8-core runner would.
+**Redundant type-checking removed.** `next build` re-runs `tsc`, but the dedicated `//ui:check` step already type-checks (and lints with Biome) *before* the build in CI. Setting `typescript.ignoreBuildErrors` and `eslint.ignoreDuringBuilds` skips the in-build pass (~11s/build) with no loss of safety—the check step still fails the job on any type or lint error. Combined with caching this takes the build to **~73s**, and this single free change saves more wall-clock than an 8-core runner would.
 
-**Turbopack was evaluated and rejected for CI.** The dev server already uses Turbopack; the production build uses webpack. `next build --turbopack` builds correctly and is faster *cold* (~104s vs ~130s), but it emits almost no persistent cache (~1 MB vs webpack's ~840 MB), so on a cache-warm CI run webpack+cache (~84s) beats Turbopack (~104s). The webpack cache captures more than Turbopack would, so the production build stays on webpack.
+**Turbopack was evaluated and rejected for CI.** The dev server already uses Turbopack; the production build uses webpack. `next build --turbopack` builds correctly and is faster *cold* (~104s vs ~130s), but it emits almost no persistent cache (~1 MB vs webpack's ~840 MB)—a second, cache-warm Turbopack build was no faster than its cold run (~104s either way). Webpack, by contrast, has a large cache to restore: cache-warm it lands at ~84s (~73s with the type-check cut), comfortably beating Turbopack's ~104s. Because CI runs are almost always cache-warm, the production build stays on webpack.
 
-**Why more cores have limited headroom.** Scaling the build 1→4 cores (167s → 84s) fits a serial floor of ~56s plus ~28s of parallelisable work (at 4 cores). The ~52s static-generation phase is only *partly* parallel—it carries its own per-page serial overhead—so adding cores pulls the build *toward*, but never below, that ~56s floor. It also scales linearly with page count, so it is the figure to watch as content grows.
+**Why more cores have limited headroom.** Scaling the pre-optimisation build 1→4 cores (167s → 84s) fits a serial floor of ~56s plus ~28s of parallelisable work at 4 cores. Removing the 11s type-check is a serial cut, so it lowers that floor to **~45s** and shifts the whole curve down without changing how it scales. The ~52s static-generation phase is only *partly* parallel—it carries its own per-page serial overhead—so adding cores pulls the build *toward*, but never below, the floor. That phase also scales linearly with page count, so it is the figure to watch as content grows. Predicted build times from the current ~73s baseline:
 
 | Runner | Predicted build | vs free 4-core | ~$/month\* | $ per CI-min saved |
 | --- | --- | --- | --- | --- |
-| GitHub 4-core (today) | ~84s | — | **$0** | — |
-| GitHub 8-core | ~70s | −14s | ~$3.3 | $0.36 |
-| GitHub 16-core | ~63s | −21s | ~$6.1 | $0.44 |
-| Depot 8 vCPU | ~70s + faster clock | −14s+ | ~$2.4 | $0.26 |
-| Depot 16 vCPU | ~63s + faster clock | −21s+ | ~$4.7 | $0.33 |
+| GitHub 4-core (today) | ~73s | — | **$0** | — |
+| GitHub 8-core | ~59s | −14s | ~$3.3 | $0.36 |
+| GitHub 16-core | ~52s | −21s | ~$6.1 | $0.44 |
+| Depot 8 vCPU | ~59s + faster clock | −14s+ | ~$2.4 | $0.26 |
+| Depot 16 vCPU | ~52s + faster clock | −21s+ | ~$4.7 | $0.33 |
 
 \*Assumes ~40 UI-building job runs/month with the whole job billed; larger runners are paid even on public repos. For comparison, the free type-check removal saves ~7 min/month at **$0**—comparable to an 8-core upgrade. A paid runner only justifies itself once content growth makes the static-generation phase dominate, and even then a faster *clock* (Blacksmith/Depot hardware) helps more than core count, because the build stops scaling past ~4–8 cores.
 
