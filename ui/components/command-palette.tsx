@@ -26,6 +26,7 @@ import {
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { useIsMac } from "@/hooks/use-is-mac";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 import { siteConfig } from "@/lib/config/site-config";
 import { cn } from "@/lib/generic/styles";
@@ -84,6 +85,25 @@ export function useRegisterFilters(filters: FilterOption[]) {
     registerFilters(filters);
     return () => unregisterFilters();
   }, [filters, registerFilters, unregisterFilters]);
+}
+
+/**
+ * Renders the keyboard shortcut hint, using ⌘ on Mac and Ctrl elsewhere.
+ * Pass `className` to control display/spacing at each usage site.
+ */
+function HotkeyHint({ className }: { className?: string }) {
+  const isMac = useIsMac();
+  return (
+    <kbd
+      className={cn(
+        "pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium",
+        className,
+      )}
+    >
+      {isMac ? <span className="text-xs">⌘</span> : <span>Ctrl</span>}
+      <span>K</span>
+    </kbd>
+  );
 }
 
 const NAVIGATION_ITEMS: NavigationItem[] = [
@@ -323,9 +343,7 @@ function CommandPaletteDialog({
                 <X className="size-3" />
               </button>
             )}
-            <kbd className="hidden sm:inline-flex ml-2 pointer-events-none h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-              <span className="text-xs">⌘</span>K
-            </kbd>
+            <HotkeyHint className="hidden sm:inline-flex ml-2 text-muted-foreground" />
           </div>
 
           <Command.List className="max-h-80 overflow-y-auto p-2">
@@ -481,7 +499,8 @@ function CommandPaletteDialog({
 
 /**
  * Navbar entry point for the command palette. Renders a compact icon button on
- * mobile and a search-field-styled button (with a subtle ⌘K hint) on desktop.
+ * mobile and a search-field-styled button (with a subtle hotkey hint) on
+ * desktop, showing ⌘K on Mac and Ctrl K elsewhere.
  */
 export function CommandPaletteTrigger({ className }: { className?: string }) {
   const { setOpen } = useCommandPalette();
@@ -517,9 +536,7 @@ export function CommandPaletteTrigger({ className }: { className?: string }) {
       >
         <Search className="size-4 shrink-0" />
         <span className="flex-1 text-left">Search</span>
-        <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium">
-          <span className="text-xs">⌘</span>K
-        </kbd>
+        <HotkeyHint />
       </button>
     </>
   );
