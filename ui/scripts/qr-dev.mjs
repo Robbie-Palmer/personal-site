@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import os from "os";
-import { execSync } from "child_process";
+import qrcode from "qrcode-terminal";
 
 function getLANIP() {
   const interfaces = os.networkInterfaces();
@@ -21,4 +21,4 @@ const url = `http://${ip}:${port}`;
 console.log(`\n🚀  Local dev server URL:\n   ${url}\n`);
 console.log("📱  Scan this QR on your phone to open:\n");
 
-execSync(`qrip "${url}"`, { stdio: "inherit" });
+qrcode.generate(url, { small: true });
