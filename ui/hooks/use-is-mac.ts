@@ -12,7 +12,9 @@ export function useIsMac() {
   const [isMac, setIsMac] = useState(false);
 
   useEffect(() => {
-    setIsMac(/Mac|iPhone|iPad|iPod/i.test(navigator.platform));
+    // `navigator.platform` is deprecated; `userAgent` is universally supported
+    // and reports "Macintosh"/"iPhone"/"iPad" for Apple platforms.
+    setIsMac(/Mac|iPhone|iPad|iPod/i.test(navigator.userAgent));
   }, []);
 
   return isMac;

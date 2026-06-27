@@ -307,6 +307,20 @@ function CommandPaletteDialog({
     return groups;
   }, [pageFilters]);
 
+  // Pre-filter and cap the technology list in React rather than rendering the
+  // whole catalogue and leaning on cmdk to filter it on every keystroke.
+  const matchedTechnologies = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return [];
+    return technologies
+      .filter(
+        (tech) =>
+          tech.name.toLowerCase().includes(query) ||
+          tech.slug.toLowerCase().includes(query),
+      )
+      .slice(0, 10);
+  }, [search, technologies]);
+
   if (!open) return null;
 
   return (
@@ -378,17 +392,17 @@ function CommandPaletteDialog({
               ))}
             </Command.Group>
 
-            {/* Technologies — globally searchable; gated behind a query to
-                keep the default view compact given the large catalogue. */}
-            {search.trim().length > 0 && technologies.length > 0 && (
+            {/* Technologies — globally searchable; only shown once the user
+                types, with matches pre-filtered and capped above. */}
+            {matchedTechnologies.length > 0 && (
               <Command.Group
                 heading="Technologies"
                 className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground"
               >
-                {technologies.map((tech) => (
+                {matchedTechnologies.map((tech) => (
                   <Command.Item
                     key={tech.slug}
-                    value={`technology ${tech.name}`}
+                    value={`${tech.name} ${tech.slug}`}
                     onSelect={() =>
                       handleNavigation(`/technologies/${tech.slug}`)
                     }
