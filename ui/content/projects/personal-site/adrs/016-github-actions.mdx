@@ -49,7 +49,7 @@ Before reaching for a paid runner I profiled the UI build (Next.js `output: expo
 | Type-check + lint | ~11s | no — *now removed (see below)* |
 | Collecting page data (reads MDX) | ~7s | no (I/O-bound) |
 | Static generation (269 pages) | ~52s | yes (~4 cores) |
-| Export | <1s | — |
+| Export | ~0.4s | — |
 
 **Caching.** A cold build is ~130s; restoring Next.js's `.next/cache` cuts compilation from ~43s to ~12s, taking the build to ~84s. The pnpm store cache removes package downloads (install ~18s → ~7s). Both are drop-in `actions/cache` steps.
 
