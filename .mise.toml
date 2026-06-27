@@ -16,6 +16,8 @@ verbose = false
 node = "lts"
 pnpm = "10.34.4"
 terraform = "1.15.6"
+actionlint = "1.7.12"
+zizmor = "1.26.1"
 
 [env]
 _.file = ".env"
@@ -24,7 +26,7 @@ MISE_EXPERIMENTAL = "1"
 # Root-level tasks for repo-wide tooling
 [tasks.lint]
 description = "Lint all files across the entire repo"
-depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//ui:lint", "//infra:lint"]
+depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:actions", "//ui:lint", "//infra:lint"]
 
 [tasks."lint:markdown"]
 description = "Lint and fix Markdown files (optionally pass files as args)"
@@ -80,6 +82,14 @@ else
   pnpm exec yamllint --ignore '**/node_modules/**' "$@"
 fi
 """
+
+[tasks."lint:actions"]
+description = "Lint GitHub Actions workflows with actionlint"
+run = "actionlint"
+
+[tasks."security:actions"]
+description = "Audit GitHub Actions workflows for security issues with zizmor"
+run = "zizmor ."
 
 [tasks.pre-commit]
 description = "Run pre-commit checks (called by Husky)"

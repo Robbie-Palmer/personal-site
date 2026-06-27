@@ -40,3 +40,6 @@ jobs:
 
       - name: Lint YAML files
         run: mise run //:lint:yaml
+
+      - name: Lint GitHub Actions workflows
+        run: mise run //:lint:actions

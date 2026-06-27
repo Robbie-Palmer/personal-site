@@ -1,0 +1,53 @@
+name: Zizmor GitHub Actions Audit
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - ".github/actions/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/**"
+      - ".github/actions/**"
+  schedule:
+    # Weekly audit every Monday at 00:00 UTC
+    - cron: "0 0 * * 1"
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: read
+
+jobs:
+  zizmor:
+    name: Audit GitHub Actions workflows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+        with:
+          experimental: true
+
+      - name: Run zizmor
+        # Non-blocking: findings surface in the GitHub Security tab rather than
+        # gating the PR, matching the Trivy posture (ADR 047). The GH token
+        # enables zizmor's online audits (e.g. unpinned/known-vulnerable refs).
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: mise exec -- zizmor --format sarif . > zizmor.sarif
+
+      - name: Upload zizmor results to GitHub Security
+        uses: github/codeql-action/upload-sarif@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3
+        if: always()
+        with:
+          sarif_file: zizmor.sarif
+          category: zizmor
