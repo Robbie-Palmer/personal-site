@@ -25,6 +25,13 @@ function createNextConfig(phase: string): NextConfig {
     images: {
       unoptimized: true,
     },
+    // Type-checking (tsc) and linting (Biome) already run as a dedicated
+    // `//ui:check` step before the build in CI, so re-running them inside
+    // `next build` is redundant serial work (~11s/build, measured). Skip them
+    // here; the separate check step still gates every PR, so type/lint errors
+    // continue to fail the build.
+    typescript: { ignoreBuildErrors: true },
+    eslint: { ignoreDuringBuilds: true },
     // Dev-only: proxy auth requests to the local recipe-api Worker.
     // In production the Cloudflare Pages Function (functions/api/auth/) handles this.
     ...(phase === PHASE_DEVELOPMENT_SERVER
