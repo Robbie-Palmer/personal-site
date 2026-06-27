@@ -3,6 +3,8 @@ import "./globals.css";
 import { CommandPaletteProvider } from "@/components/command-palette";
 import { ThemeProvider } from "@/components/theme-provider";
 import { siteConfig } from "@/lib/config/site-config";
+import { loadDomainRepository } from "@/lib/domain";
+import { getAllTechnologyBadgesSorted } from "@/lib/domain/technology";
 
 // Use Cloudflare Pages URL for preview deployments, fallback to production URL
 const baseUrl = process.env.CF_PAGES_URL || siteConfig.url;
@@ -53,6 +55,14 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const repository = loadDomainRepository();
+  const technologies = getAllTechnologyBadgesSorted(repository).map((tech) => ({
+    slug: tech.slug,
+    name: tech.name,
+    iconSlug: tech.iconSlug,
+    hasIcon: tech.hasIcon,
+  }));
+
   return (
     <html lang="en-GB" suppressHydrationWarning>
       <body>
@@ -62,7 +72,9 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          <CommandPaletteProvider>{children}</CommandPaletteProvider>
+          <CommandPaletteProvider technologies={technologies}>
+            {children}
+          </CommandPaletteProvider>
         </ThemeProvider>
       </body>
     </html>
