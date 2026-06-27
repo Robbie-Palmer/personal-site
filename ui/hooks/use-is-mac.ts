@@ -3,17 +3,13 @@
 import { useEffect, useState } from "react";
 
 /**
- * Detects whether the user is on a Mac so UI can show the right modifier key
- * (⌘ vs Ctrl). Returns `false` until mounted to keep SSR and the first client
- * render in agreement (avoiding hydration mismatches); it then resolves the
- * real platform on the client.
+ * Whether the user is on an Apple platform, for showing ⌘ vs Ctrl. Starts
+ * `false` and resolves after mount so SSR and first client render agree.
  */
 export function useIsMac() {
   const [isMac, setIsMac] = useState(false);
 
   useEffect(() => {
-    // `navigator.platform` is deprecated; `userAgent` is universally supported
-    // and reports "Macintosh"/"iPhone"/"iPad" for Apple platforms.
     setIsMac(/Mac|iPhone|iPad|iPod/i.test(navigator.userAgent));
   }, []);
 

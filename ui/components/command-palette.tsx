@@ -39,10 +39,6 @@ interface FilterOption {
   paramName: string;
 }
 
-/**
- * Minimal, serializable technology shape passed from server components into
- * the (client) command palette so every technology is globally searchable.
- */
 export interface PaletteTechnology {
   slug: string;
   name: string;
@@ -87,10 +83,6 @@ export function useRegisterFilters(filters: FilterOption[]) {
   }, [filters, registerFilters, unregisterFilters]);
 }
 
-/**
- * Renders the keyboard shortcut hint, using ⌘ on Mac and Ctrl elsewhere.
- * Pass `className` to control display/spacing at each usage site.
- */
 function HotkeyHint({ className }: { className?: string }) {
   const isMac = useIsMac();
   return (
@@ -307,8 +299,6 @@ function CommandPaletteDialog({
     return groups;
   }, [pageFilters]);
 
-  // Pre-filter and cap the technology list in React rather than rendering the
-  // whole catalogue and leaning on cmdk to filter it on every keystroke.
   const matchedTechnologies = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return [];
@@ -392,8 +382,6 @@ function CommandPaletteDialog({
               ))}
             </Command.Group>
 
-            {/* Technologies — globally searchable; only shown once the user
-                types, with matches pre-filtered and capped above. */}
             {matchedTechnologies.length > 0 && (
               <Command.Group
                 heading="Technologies"
@@ -511,11 +499,6 @@ function CommandPaletteDialog({
   );
 }
 
-/**
- * Navbar entry point for the command palette. Renders a compact icon button on
- * mobile and a search-field-styled button (with a subtle hotkey hint) on
- * desktop, showing ⌘K on Mac and Ctrl K elsewhere.
- */
 export function CommandPaletteTrigger({ className }: { className?: string }) {
   const { setOpen } = useCommandPalette();
 
