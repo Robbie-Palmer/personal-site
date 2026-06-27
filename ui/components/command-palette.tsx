@@ -212,12 +212,14 @@ function CommandPaletteDialog({
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    if (open) {
-      setSearch("");
-      requestAnimationFrame(() => {
-        inputRef.current?.focus();
-      });
-    }
+    if (!open) return;
+    setSearch("");
+    // Skip auto-focus on touch devices so opening the palette doesn't force
+    // the on-screen keyboard up before the user chooses to type.
+    if (window.matchMedia("(pointer: coarse)").matches) return;
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
   }, [open]);
 
   // Prevent arrow keys from scrolling page when dialog is open
@@ -473,7 +475,7 @@ function CommandPaletteDialog({
             </Command.Group>
           </Command.List>
 
-          <div className="border-t px-3 py-2 text-xs text-muted-foreground flex items-center justify-between">
+          <div className="border-t px-3 py-2 text-xs text-muted-foreground hidden sm:flex items-center justify-between">
             <div className="flex items-center gap-2">
               <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono">
                 ↑↓

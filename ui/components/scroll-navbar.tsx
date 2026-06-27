@@ -39,7 +39,6 @@ export function ScrollNavbar() {
           </Link>
         </div>
         <div className="flex items-center gap-2">
-          <CommandPaletteTrigger />
           <Button variant="ghost" className="px-2 md:px-4" asChild>
             <Link href="/blog">Blog</Link>
           </Button>
@@ -58,6 +57,7 @@ export function ScrollNavbar() {
               )}
             </Link>
           </Button>
+          <CommandPaletteTrigger />
           <AnimatedThemeToggler />
         </div>
       </nav>
