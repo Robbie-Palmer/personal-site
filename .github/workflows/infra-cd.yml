@@ -29,9 +29,9 @@ jobs:
       run:
         working-directory: infra
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
         with:
           experimental: true
 
@@ -51,7 +51,7 @@ jobs:
         run: mise run //infra:plan
 
       - name: Add Terraform Plan to Summary
-        uses: borchero/terraform-plan-comment@v3
+        uses: borchero/terraform-plan-comment@2d41e908725447b1677913001dfb92fa7010c025 # v3
         with:
           token: ${{ github.token }}
           planfile: .planfile
