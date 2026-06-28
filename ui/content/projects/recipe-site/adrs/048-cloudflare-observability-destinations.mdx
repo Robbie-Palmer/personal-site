@@ -1,0 +1,143 @@
+---
+title: "ADR 048: Cloudflare Workers Observability Destinations (Beta)"
+date: "2026-06-28"
+status: "Accepted"
+tech_stack: ["Cloudflare Workers", "OpenTelemetry", "Terraform", "PostHog"]
+---
+
+# Summary
+
+Use Cloudflare's native **Workers Observability OTLP destinations** as the mechanism for
+exporting `recipe-api` logs to PostHog
+([ADR 047](/projects/recipe-site/adrs/047-posthog-logs)).
+
+This feature is in **beta**, and its Terraform resource does not yet exist, so the
+destination is configured by hand in the Cloudflare dashboard while the toggle lives in
+`wrangler.toml`. This ADR records that choice and the trade-offs we are accepting —
+especially the gap against the project's code-owned-infrastructure principle and the
+silent-failure risk on key rotation.
+
+# Context
+
+[ADR 047](/projects/recipe-site/adrs/047-posthog-logs) decided *that* Worker logs go to
+PostHog. Something still has to ship the logs to PostHog's OTLP endpoint. The candidate
+mechanisms:
+
+| Mechanism                                | Control      | Dependencies        | IaC story                  |
+| ---------------------------------------- | ------------ | ------------------- | -------------------------- |
+| **Cloudflare native OTLP destination**   | Low (config) | None in app code    | Dashboard + `wrangler.toml`|
+| `otel-cf-workers` library (in-app OTel)  | High         | Extra runtime dep   | Code-owned                 |
+| Manual `fetch` to OTLP endpoint          | Full         | Hand-rolled         | Code-owned                 |
+
+A relevant project principle
+([ADR 033](/projects/recipe-site/adrs/033-backend-platform-for-authenticated-features)):
+vendor control-plane configuration should be code-owned via Terraform or a stable API
+wherever a provider exists; dashboard-only configuration is a poor fit for an
+agent-assisted, solo-maintained codebase.
+
+# Decision
+
+Use the **Cloudflare native observability destination**. It is the lowest-effort path, adds
+no application dependencies, and rides standard OTLP. Configuration is two parts:
+
+1. **Destination** (dashboard): create a `posthog-logs` destination under Workers
+   Observability with the OTLP endpoint `https://eu.i.posthog.com/i/v1/logs` and an
+   `Authorization: Bearer phc_…` header (the public PostHog project key — see
+   [ADR 047](/projects/recipe-site/adrs/047-posthog-logs)).
+2. **Toggle** (`workers/recipe-api/wrangler.toml`): enable export and reference the
+   destination by name.
+
+   ```toml
+   [observability.logs]
+   enabled = true
+   destinations = ["posthog-logs"]
+   ```
+
+Keeping the key in the dashboard destination (rather than in `wrangler.toml`) also keeps it
+out of source control.
+
+## Accepting beta status
+
+The feature is in beta, which we accept because:
+
+- The blast radius is observability only — if export breaks, the application is unaffected
+  and `wrangler tail` plus Cloudflare's built-in Workers Logs remain as fallbacks
+  ([ADR 047](/projects/recipe-site/adrs/047-posthog-logs)).
+- It is standard OTLP, so if Cloudflare's beta disappoints, the same logs can be pointed at
+  another OTLP backend, or moved in-app via `otel-cf-workers`, without rewriting the app.
+
+## Accepting the infrastructure-as-code gap
+
+This is the notable exception to the code-owned-infra principle. There **is** a Cloudflare
+API for observability destinations, but the Terraform resource
+(`cloudflare_workers_observability_destination`) was announced in provider v5.19.0 and
+shipped unimplemented
+([cloudflare/terraform-provider-cloudflare#7127](https://github.com/cloudflare/terraform-provider-cloudflare/issues/7127)).
+Nor is the destination a Worker secret or Pages variable, so Doppler's sync integrations
+cannot reach it either.
+
+The result: the destination's auth header is **manual** — neither Terraform nor Doppler
+manages it. This is the one place `POSTHOG_KEY` is not propagated automatically, so a key
+rotation will **silently** stop log ingestion (a `401` that drops logs, with no application
+error) if the destination header is not updated by hand.
+
+Mitigations:
+
+- A rotation runbook in `infra/README.md` ("Rotating `POSTHOG_KEY`") enumerates every
+  consumer and flags this destination as the manual step.
+- A pointer comment in `workers/recipe-api/wrangler.toml` references that runbook.
+- In practice the public `phc_` project key rotates rarely, which makes the manual step an
+  acceptable trade-off rather than an ongoing burden.
+
+Managing the destination via a raw Cloudflare API call (e.g. a `null_resource`/`restapi`
+shim) was considered and rejected: it would store the value in Terraform state, lacks real
+drift detection, and is disproportionate machinery for a single public key.
+
+# Alternatives Considered
+
+## `otel-cf-workers` (in-app OpenTelemetry)
+
+Instrument the Worker with an OpenTelemetry SDK and export OTLP directly from application
+code. Gives full control over spans/attributes and would be fully code-owned. Rejected for
+now as heavier than needed — it adds a runtime dependency and bundle weight for a log
+pipeline the native export already covers. It is the natural escape hatch if the native
+export proves limiting or if traces are wanted later.
+
+## Logpush
+
+Cloudflare Logpush is a different product aimed at bulk log delivery to object storage / SIEM
+sinks, not OTLP-native correlation into PostHog. Wrong shape for the
+[ADR 047](/projects/recipe-site/adrs/047-posthog-logs) correlation goal.
+
+## Manual `fetch` to the OTLP endpoint
+
+Hand-rolling OTLP requests from the Worker is maximal control and zero platform dependency,
+but means owning batching, retries, and the OTLP wire format. Not worth it when the platform
+does it.
+
+# Consequences
+
+## Positive
+
+- **Lowest effort**, no application dependencies, standard OTLP.
+- **Key stays out of git** — it lives in the dashboard destination.
+- **Reversible** — OTLP means the destination can be repointed or replaced with
+  `otel-cf-workers` without app changes.
+
+## Negative
+
+- **Beta risk** — API/behaviour may change, no stability guarantee, and trace export to
+  PostHog is unsupported.
+- **Not code-owned** — the destination is dashboard-managed, breaking the Terraform/Doppler
+  single-source-of-truth model for this one object.
+- **Silent-failure on rotation** — the manual auth header drops logs without erroring if a
+  rotation skips it; mitigated only by runbook discipline.
+
+# When To Revisit
+
+- The `cloudflare_workers_observability_destination` Terraform resource ships and works —
+  move the destination into `infra` and delete the manual step.
+- The feature leaves beta (revisit guarantees and trace support).
+- Traces or richer in-app instrumentation become worthwhile — adopt `otel-cf-workers`.
+- A silent ingestion outage actually occurs — add an active health check that logs are
+  arriving, rather than relying on the rotation runbook.

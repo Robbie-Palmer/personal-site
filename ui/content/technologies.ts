@@ -807,4 +807,12 @@ export const technologies: TechnologyContent[] = [
     website: "https://zizmor.sh",
     type: "tool",
   },
+  {
+    name: "OpenTelemetry",
+    added: "2026-06-28",
+    description:
+      "Vendor-neutral observability framework and protocol (OTLP) for emitting and exporting logs, metrics, and traces",
+    website: "https://opentelemetry.io",
+    type: "tool",
+  },
 ];
