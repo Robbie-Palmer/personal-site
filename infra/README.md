@@ -6,7 +6,17 @@ Terraform configuration for managing Cloudflare and Neon resources.
 
 ### Required Secrets
 
-Configure these in GitHub repository settings (Settings → Secrets and variables → Actions):
+**[Doppler](https://doppler.com) is the single source of truth for these
+values.** Doppler's GitHub Actions integration syncs them into GitHub
+repository secrets (Settings → Secrets and variables → Actions) — so don't edit
+the GitHub secrets by hand; change the value in Doppler and let it propagate.
+The workflows then map each synced secret onto the `TF_VAR_*` / build env vars
+that Terraform and the UI build expect (e.g. `secrets.POSTHOG_KEY` →
+`TF_VAR_posthog_key`, see `infra-ci.yml`). Because of this indirection, no
+workflow or Terraform changes are needed to source a value from Doppler — only
+the Doppler → GitHub sync.
+
+Secrets synced from Doppler:
 
 1. **`CLOUDFLARE_API_TOKEN`**
    - Create at: Cloudflare Dashboard → My Profile → API Tokens
@@ -29,6 +39,22 @@ Configure these in GitHub repository settings (Settings → Secrets and variable
 5. **`NEON_ORG_ID`**
    - Find at: [Neon Console](https://console.neon.tech) → Organization settings
    - Passed as `TF_VAR_neon_org_id`
+6. **`POSTHOG_KEY`**
+   - PostHog project API key (`phc_…`). This is a public, write-only ingestion
+     key — it already ships to browsers via `NEXT_PUBLIC_POSTHOG_KEY`, so it is
+     not secret in the usual sense, but it is sourced from Doppler for
+     single-source-of-truth config management.
+   - Mapped to `TF_VAR_posthog_key` (Terraform → Pages env var) and to
+     `NEXT_PUBLIC_POSTHOG_KEY` (UI build). It is **also** used — outside both
+     Terraform and Doppler's reach — as the auth header on the `posthog-logs`
+     Workers Observability destination. See [Rotating `POSTHOG_KEY`](#rotating-posthog_key).
+7. **`POSTHOG_HOST`**
+   - PostHog ingestion host (`https://eu.posthog.com`).
+   - Mapped to `NEXT_PUBLIC_POSTHOG_HOST` for the UI build.
+8. **`MISE_GITHUB_TOKEN`**
+   - GitHub token used by mise to download tools during Cloudflare Pages builds.
+   - Mapped to `TF_VAR_github_token`, which Terraform passes into the Pages
+     build configuration (`var.github_token`, required — no default).
 
 ### Required Environment
 
@@ -53,23 +79,63 @@ Create a workspace in Terraform Cloud for remote state:
 
 ## Local Development
 
-1. Create your local `.env` file:
+Credentials are sourced from Doppler (the same single source of truth CI uses).
+mise auto-loads a local `.env` (`_.file = ".env"` in `mise.toml`), so populate
+that `.env` from Doppler rather than hand-editing it, and regenerate it after
+any rotation so it never drifts:
 
-   ```bash
-   cp .env.example .env
-   ```
+```bash
+#!/usr/bin/env bash
+# Pull values from Doppler into .env using the names Terraform expects
+# (TF_VAR_<variable>, lowercase suffix). This covers the same secrets CI maps in
+# infra-ci.yml. All secrets are fetched and checked first, then written to a
+# temp file and moved into place, so a failed/empty fetch or interrupted write
+# never leaves a partial .env behind (which would silently break Terraform).
+set -euo pipefail
 
-2. Fill in your credentials in `.env`:
-   - `CLOUDFLARE_API_TOKEN` - Your Cloudflare API token
-   - `TF_TOKEN_app_terraform_io` - Your Terraform Cloud token
-   - `NEON_API_KEY` - Your Neon API key
-   - `TF_VAR_neon_org_id` - Your Neon organization ID
+require() {
+  local value
+  value=$(doppler secrets get "$1" --plain) || {
+    echo "error: failed to read '$1' from Doppler" >&2
+    return 1
+  }
+  if [ -z "$value" ]; then
+    echo "error: Doppler secret '$1' is empty" >&2
+    return 1
+  fi
+  printf '%s' "$value"
+}
 
-3. Run Terraform commands via mise:
-   - `mise run //infra:plan` - Preview changes
-   - `mise run //infra:apply` - Apply changes
+cloudflare_api_token=$(require CLOUDFLARE_API_TOKEN)
+tf_cloud_token=$(require TF_API_TOKEN)
+neon_api_key=$(require NEON_API_KEY)
+neon_org_id=$(require NEON_ORG_ID)
+posthog_key=$(require POSTHOG_KEY)
+cf_images_account_hash=$(require CF_IMAGES_ACCOUNT_HASH)
+github_token=$(require MISE_GITHUB_TOKEN)
 
-The `.env` file is automatically loaded by mise when running tasks.
+tmp=$(mktemp)       # mktemp creates the file mode 0600
+chmod 600 "$tmp"    # make the owner-only intent explicit
+{
+  printf 'CLOUDFLARE_API_TOKEN=%s\n' "$cloudflare_api_token"
+  printf 'TF_TOKEN_app_terraform_io=%s\n' "$tf_cloud_token"
+  printf 'NEON_API_KEY=%s\n' "$neon_api_key"
+  printf 'TF_VAR_neon_org_id=%s\n' "$neon_org_id"
+  printf 'TF_VAR_posthog_key=%s\n' "$posthog_key"
+  printf 'TF_VAR_cf_images_account_hash=%s\n' "$cf_images_account_hash"
+  printf 'TF_VAR_github_token=%s\n' "$github_token"
+} > "$tmp"
+mv "$tmp" .env
+```
+
+Then run Terraform commands via mise:
+
+- `mise run //infra:plan` - Preview changes
+- `mise run //infra:apply` - Apply changes
+
+The mapping from Doppler's uppercase secret names to Terraform's
+`TF_VAR_<variable>` names is the same one CI performs in the workflow `env:`
+blocks; doing it here keeps local and CI consistent.
 
 See `mise.toml` for all available tasks.
 
@@ -105,3 +171,27 @@ Terraform provider.
 - **Region:** `aws-us-east-1`
 - **Connection:** Use the pooled connection URI (`neon_connection_uri_pooler` output)
   for serverless/Workers environments
+
+## Rotating `POSTHOG_KEY`
+
+`POSTHOG_KEY` lives in Doppler, but it lands in **three** places — two are
+automated, one is **manual**. The manual one will break silently (logs just
+stop arriving in PostHog, no error) if you forget it, so rotate in this order:
+
+1. **Doppler** — update the value. This is the source of truth.
+2. **Pages / UI build** (automated) — Doppler syncs to the GitHub
+   `POSTHOG_KEY` secret; the next infra apply / UI build picks it up via
+   `TF_VAR_posthog_key` and `NEXT_PUBLIC_POSTHOG_KEY`. Nothing to do by hand.
+3. **`posthog-logs` Workers Observability destination** (⚠️ **manual**) —
+   Cloudflare Dashboard → Workers & Pages → Observability → Telemetry →
+   `posthog-logs` → update the `Authorization: Bearer <phc_…>` header. Neither
+   Terraform nor Doppler can reach this: there is a Cloudflare API for
+   observability destinations, but the Terraform resource
+   (`cloudflare_workers_observability_destination`) is currently
+   [unimplemented](https://github.com/cloudflare/terraform-provider-cloudflare/issues/7127),
+   and it is not a Worker secret or Pages var that Doppler's integrations sync.
+
+This destination is referenced by `workers/recipe-api/wrangler.toml`
+(`[observability.logs]`). In practice, the public `phc_` project key rarely
+rotates, which is why the manual step is an acceptable trade-off — but it is the
+one to remember.

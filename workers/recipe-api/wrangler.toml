@@ -3,6 +3,15 @@ main = "src/index.ts"
 compatibility_date = "2026-05-28"
 compatibility_flags = ["nodejs_compat"]
 
+# Export Worker logs to PostHog via OTLP. The "posthog-logs" destination
+# (endpoint + auth header) is configured in the Cloudflare dashboard, not here.
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+destinations = ["posthog-logs"]
+
 [vars]
 # Browser-facing URL used to build OAuth callbacks in production.
 # The local dev script overrides this with http://localhost:3000.
