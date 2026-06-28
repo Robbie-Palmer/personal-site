@@ -32,23 +32,24 @@ jobs:
       NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
       NEXT_PUBLIC_POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
 
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
         with:
           experimental: true
 
       # Cache the pnpm content-addressable store so installs restore packages
       # from disk instead of re-downloading them on every run.
       - name: Get pnpm store directory
+        id: pnpm-store
         shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+        run: echo "dir=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          path: ${{ env.STORE_PATH }}
+          path: ${{ steps.pnpm-store.outputs.dir }}
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: pnpm-store-${{ runner.os }}-
 
@@ -57,7 +58,7 @@ jobs:
 
       # Persist Next.js's incremental build cache (compiled modules, SWC output)
       # so the Build step reuses unchanged work across runs.
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ui/.next/cache
           key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('ui/app/**', 'ui/components/**', 'ui/content/**', 'ui/lib/**') }}
@@ -79,6 +80,6 @@ jobs:
           set -o pipefail
           mise run //ui:deploy 2>&1 | tee /tmp/deploy-output.txt
           URL=$(grep -Eo "https://[^ ]+" /tmp/deploy-output.txt | tail -1)
-          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
         env:
           DEPLOY_BRANCH: ${{ github.head_ref || github.ref_name }}

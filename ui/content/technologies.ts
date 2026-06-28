@@ -791,4 +791,20 @@ export const technologies: TechnologyContent[] = [
     iconSlug: "sonarqubecloud",
     type: "tool",
   },
+  {
+    name: "actionlint",
+    added: "2026-06-27",
+    description:
+      "Static linter for GitHub Actions workflows: syntax, expression, and shell (shellcheck) checks",
+    website: "https://github.com/rhysd/actionlint",
+    type: "tool",
+  },
+  {
+    name: "zizmor",
+    added: "2026-06-27",
+    description:
+      "Static analysis (SAST) for GitHub Actions workflows: template injection, dangerous triggers, credential persistence, and excessive permissions",
+    website: "https://zizmor.sh",
+    type: "tool",
+  },
 ];

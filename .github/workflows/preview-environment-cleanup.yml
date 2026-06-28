@@ -1,7 +1,9 @@
 name: Preview Environment Cleanup
 
 on:
-  pull_request_target:
+  # Gated to same-repo PRs, so pull_request supplies the secrets needed to
+  # delete the preview resources.
+  pull_request:
     types: [closed]
   workflow_dispatch:
     inputs:
@@ -26,12 +28,12 @@ jobs:
     environment:
       name: cloudflare-preview
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
-      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d
+      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
         with:
           experimental: true
 
@@ -45,7 +47,7 @@ jobs:
 
       - name: Delete Neon preview branch
         continue-on-error: true
-        uses: neondatabase/delete-branch-action@4468d825d5a88ef4012f1705a82f02ec3072f776
+        uses: neondatabase/delete-branch-action@4468d825d5a88ef4012f1705a82f02ec3072f776 # v3
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           api_key: ${{ secrets.NEON_API_KEY }}
