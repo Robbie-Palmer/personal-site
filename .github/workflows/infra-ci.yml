@@ -15,14 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: cloudflare-production
-    env:
-      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      TF_VAR_cf_images_account_hash: ${{ secrets.CF_IMAGES_ACCOUNT_HASH }}
-      TF_VAR_posthog_key: ${{ secrets.POSTHOG_KEY }}
-      TF_VAR_github_token: ${{ secrets.MISE_GITHUB_TOKEN }}
-      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-      TF_VAR_neon_org_id: ${{ secrets.NEON_ORG_ID }}
     defaults:
       run:
         working-directory: infra
@@ -35,10 +27,9 @@ jobs:
         with:
           experimental: true
 
-      # The Terraform credentials are provided via the job-level `env:` block and
-      # read by terraform from the process environment. mise (infra/mise.toml)
-      # only needs the .env file to exist, so create it empty rather than writing
-      # every deployment secret to the runner filesystem.
+      # mise (infra/mise.toml) loads .env if present; create it empty so the
+      # secrets below reach terraform through the step env: blocks rather than the
+      # runner filesystem or the checkout/mise/comment steps.
       - name: Create empty .env for mise
         run: touch .env
 
@@ -47,9 +38,20 @@ jobs:
 
       - name: Validate Terraform
         run: mise run //infra:lint
+        env:
+          # terraform init reaches the Terraform Cloud backend; validate is local
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
 
       - name: Terraform Plan
         run: mise run //infra:plan
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_cf_images_account_hash: ${{ secrets.CF_IMAGES_ACCOUNT_HASH }}
+          TF_VAR_posthog_key: ${{ secrets.POSTHOG_KEY }}
+          TF_VAR_github_token: ${{ secrets.MISE_GITHUB_TOKEN }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          TF_VAR_neon_org_id: ${{ secrets.NEON_ORG_ID }}
 
       - name: Add Terraform Plan to PR Comment
         uses: borchero/terraform-plan-comment@2d41e908725447b1677913001dfb92fa7010c025 # v3

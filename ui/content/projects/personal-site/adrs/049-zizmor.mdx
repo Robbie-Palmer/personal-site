@@ -15,7 +15,7 @@ context of a fork PR. That is exactly the class of misconfiguration that, in
 March 2026, was exploited in `aquasecurity/trivy-action` (an action this repo
 uses) to exfiltrate organization secrets. The risk is not hypothetical.
 
-[ADR 045 (SonarQube)](/projects/personal-site/adrs/048-sonarqube) framed the
+[ADR 048 (SonarQube)](/projects/personal-site/adrs/048-sonarqube) framed the
 quality/security stack along one axis that matters here: **determinism**.
 Mapping the workflow-security question onto that same axis exposes a gap:
 
@@ -73,7 +73,7 @@ The distinctive property is **determinism applied to GitHub Actions**, which
 nothing in the current stack covers. zizmor is the specialist; CodeQL, Trivy and
 SonarQube are generalists that each happen to carry one or two workflow rules.
 The overlap with SonarQube is a single rule (digest pinning) — fixed once,
-redundant rather than harmful, the same reasoning ADR 045 applied to its CodeQL
+redundant rather than harmful, the same reasoning ADR 048 applied to its CodeQL
 overlap. Everything else zizmor audits (template injection, dangerous triggers,
 `github-env` injection, artifact credential persistence, excessive permissions)
 is net-new coverage on the most privileged, least-watched part of the repo.
