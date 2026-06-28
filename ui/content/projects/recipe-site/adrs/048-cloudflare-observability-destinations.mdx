@@ -56,6 +56,27 @@ no application dependencies, and rides standard OTLP. Configuration is two parts
 Keeping the key in the dashboard destination (rather than in `wrangler.toml`) also keeps it
 out of source control.
 
+## Plan requirement and pricing
+
+OTel export is a **Workers Paid** feature — it is *not available* on Workers Free. This is
+already satisfied: the backend runs on Workers Paid for Hyperdrive and the 30s CPU limit
+([ADR 033](/projects/recipe-site/adrs/033-backend-platform-for-authenticated-features)), so
+no extra subscription is needed. (Note the distinction between a free Cloudflare *account*
+and the separate $5/month Workers Paid subscription — we have the latter.)
+
+Cloudflare's pricing for the export itself (separate from PostHog's own log storage pricing
+in [ADR 047](/projects/recipe-site/adrs/047-posthog-logs)):
+
+| Plan         | Logs                          | Traces                        | Overage             |
+| ------------ | ----------------------------- | ----------------------------- | ------------------- |
+| Workers Free | Not available                 | Not available                 | —                   |
+| Workers Paid | 10M events/month included     | 10M events/month included     | $0.05 per 1M events |
+
+During the early-beta period export is free for Workers Paid; from **March 1, 2026** it is
+billed as above. A personal recipe site will not approach 10M log events/month, so the
+effective cost is zero. The two pricing models stack but neither bites: Cloudflare meters
+**export events** (10M/month free), PostHog meters **stored volume** (50 GB/month free).
+
 ## Accepting beta status
 
 The feature is in beta, which we accept because:

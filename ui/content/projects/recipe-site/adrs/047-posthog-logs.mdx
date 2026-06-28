@@ -11,9 +11,12 @@ Export `recipe-api` Worker logs to **PostHog Logs** via OpenTelemetry (OTLP), re
 the PostHog project that already powers product analytics
 ([ADR 028](/projects/recipe-site/adrs/028-posthog-analytics)).
 
-Backend logs land in the same place as frontend events and session replays, so a
-backend error can be correlated to the same person's product-analytics timeline and
-replay. Neon log export is explicitly **not** adopted. The export *mechanism* — and the
+Backend logs land in the same place as frontend events, session replays, funnels, and
+retention — so operational signals (errors, latency) can be correlated with **product
+outcomes and KPIs**, not just inspected in isolation. The point is to make reliability and
+performance work *prioritisable against product impact* (is a buggy path actually driving
+churn? is latency actually hurting conversion?), not only to debug individual incidents.
+Neon log export is explicitly **not** adopted. The export *mechanism* — and the
 trade-offs of Cloudflare's beta observability pipeline — are a separate decision in
 [ADR 048](/projects/recipe-site/adrs/048-cloudflare-observability-destinations).
 
@@ -46,12 +49,32 @@ Retention is not the reason to adopt it.
 
 Use **PostHog Logs** as the destination for `recipe-api` Worker logs.
 
-The differentiator is **correlation with data we already have**. A backend `500` can be
-tied to the same `distinct_id`, that person's product-analytics events, and their session
-replay — "user X failed to save a recipe → here is the request log → here is the replay of
-what they clicked." That single-pane-of-glass is something `wrangler tail` and Cloudflare's
-siloed Workers Logs cannot provide. For that correlation to actually work, the Worker must
-attach the PostHog `distinct_id` to error logs.
+The differentiator is **correlation with the product data we already have** — at two levels.
+
+**Incident level.** A backend `500` can be tied to the same `distinct_id`, that person's
+product-analytics events, and their session replay: "user X failed to save a recipe → here
+is the request log → here is the replay of what they clicked." For this to work, the Worker
+must attach the PostHog `distinct_id` to logs.
+
+**Aggregate / KPI level (the main reason).** Because logs share a home with funnels,
+retention, and experiments, operational signals can be joined to product outcomes across
+cohorts rather than read in isolation:
+
+- **Reliability vs. churn.** Do users who hit a buggy or error-prone path retain and convert
+  worse than those who don't? If a flaky experience is measurably driving churn, that reframes
+  it from "a bug" into a retention/revenue problem and raises its priority accordingly.
+- **Latency vs. value.** Is latency optimisation worth it versus shipping features? Compare
+  success metrics (conversion, task completion, retention) across cohorts with different
+  latency profiles. If the KPIs are indistinguishable, latency work is hard to justify over
+  new features; if the slow cohort converts worse, the optimisation pays for itself.
+- **Where to invest.** Prioritise reliability, performance, or features by their *measured*
+  impact on KPIs rather than by intuition.
+
+This is the specific argument for *PostHog* as the destination: a standalone
+logging/observability tool (Grafana, Axiom, Sentry) has the operational signal but not the
+product/KPI side, and product analytics alone has the KPIs but not the per-request
+operational signal — PostHog has both. It is also something `wrangler tail` and Cloudflare's
+siloed Workers Logs cannot provide.
 
 Supporting factors:
 
@@ -115,6 +138,9 @@ Rejected — see "Neon logs are out of scope" above.
 
 - **One pane of glass.** Backend logs, product analytics, and session replays share a home
   and a person identity.
+- **Operational signals become prioritisable.** Errors and latency can be joined to KPIs and
+  cohorts, turning reliability/performance work into product-impact decisions rather than
+  guesses.
 - **Cheap.** Comfortably within PostHog's free log tier.
 - **Standards-based.** OTLP export, no proprietary logging SDK.
 - **Better DB signal than Neon logs would give**, captured with request context from the
@@ -122,9 +148,10 @@ Rejected — see "Neon logs are out of scope" above.
 
 ## Negative
 
-- **Correlation depends on discipline.** If the Worker does not attach `distinct_id` to
-  logs, PostHog Logs is just another log bucket with no advantage over Cloudflare's built-in
-  logs.
+- **Correlation depends on discipline.** The payoff only materialises if logs carry the
+  right dimensions — `distinct_id` for incident correlation, plus route and latency for
+  cohort/KPI analysis. Without them, PostHog Logs is just another log bucket with no
+  advantage over Cloudflare's built-in logs.
 - **Logs only.** No distributed tracing via this path.
 - **Pages Functions likely uncovered.** Observability export there lags Workers.
 - **A second consumer of `POSTHOG_KEY`.** The log pipeline authenticates with the public
