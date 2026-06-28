@@ -55,6 +55,13 @@ application dependencies, and uses standard OTLP. Configuration is two parts:
 
 Holding the key in the dashboard destination keeps it out of source control.
 
+Batching and delivery are platform-managed: there are no batch-size or flush-interval
+settings to tune. The only export-tuning knob is `head_sampling_rate` (0–1) under
+`[observability]`, applied head-based at request ingress and settable per signal (for
+example `[observability.logs] head_sampling_rate`). It defaults to `1` (export everything),
+which suits the recipe site's low volume. An account-wide 1% sample is forced only past 5
+billion logs/day, so it does not apply here.
+
 ## Plan requirement and pricing
 
 OTel export requires the Workers Paid plan and is unavailable on Workers Free. This is
@@ -119,11 +126,20 @@ key.
 
 ## `otel-cf-workers` (in-app OpenTelemetry)
 
-Instrument the Worker with an OpenTelemetry SDK and export OTLP from application code. This
-gives full control over spans and attributes and is fully code-owned. It was rejected for
-now because it adds a runtime dependency and bundle weight for a log pipeline that the native
-export already covers. It remains the escape hatch if the native export proves limiting or if
-traces are wanted later.
+Instrument the Worker with an OpenTelemetry SDK and export OTLP from application code. This is
+the most extensible option: it produces traces and spans (auto-instrumented `fetch` handlers,
+custom spans around Hyperdrive/Neon queries and auth flows) as well as logs, can fan out to
+several OTLP backends, gives full control over attribute enrichment, sampling, and batching,
+and keeps the whole pipeline code-owned in line with
+[ADR 033](/projects/recipe-site/adrs/033-backend-platform-for-authenticated-features).
+
+The trace and span benefit does not apply to the current goal, however: PostHog ingests logs
+over OTLP but not general distributed traces, so it would only help once a separate trace
+backend (Grafana Tempo, Honeycomb, Axiom) is also adopted. Against a logs-only PostHog sink,
+`otel-cf-workers` delivers the same result as the native destination while adding a
+community-maintained runtime dependency, bundle weight, and self-built export-health
+visibility. Rejected for now, and kept as the step-up for when tracing, multiple backends, or
+full code ownership become real wants.
 
 ## Logpush
 
@@ -143,6 +159,10 @@ platform already does.
 
 - **Lowest effort.** No application dependencies, standard OTLP.
 - **Key stays out of git.** It lives in the dashboard destination.
+- **Managed delivery.** Cloudflare handles batching and transmission; the only knob is
+  `head_sampling_rate`.
+- **Built-in export visibility.** The Workers Observability dashboard shows per-destination
+  delivery status (last successful delivery, errors) with no extra setup.
 - **Reversible.** OTLP lets the destination be repointed or replaced with `otel-cf-workers`
   without application changes.
 
@@ -152,8 +172,11 @@ platform already does.
   export to PostHog is unsupported.
 - **Not code-owned.** The destination is dashboard-managed, which breaks the
   Terraform/Doppler single-source-of-truth model for this one object.
-- **Silent failure on rotation.** The manual auth header drops logs without erroring if a
-  rotation skips it, guarded only by runbook discipline.
+- **Failure is effectively silent on rotation.** If a rotation skips the manual auth header,
+  exports start failing with no application error, no deployment failure, and no push alert.
+  Cloudflare's destination dashboard does record the delivery errors, but only someone who
+  looks will notice, so the practical guard is runbook discipline (or a future active health
+  check; see When To Revisit).
 
 # When To Revisit
 
