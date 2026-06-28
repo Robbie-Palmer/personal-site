@@ -80,6 +80,6 @@ jobs:
           set -o pipefail
           mise run //ui:deploy 2>&1 | tee /tmp/deploy-output.txt
           URL=$(grep -Eo "https://[^ ]+" /tmp/deploy-output.txt | tail -1)
-          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
         env:
           DEPLOY_BRANCH: ${{ github.head_ref || github.ref_name }}
