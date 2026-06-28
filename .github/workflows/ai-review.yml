@@ -1,10 +1,7 @@
 name: AI code review
 
 on:
-  # zizmor: ignore[dangerous-triggers]
-  # The reviewer runs from the trusted base commit (not PR head) and is gated to
-  # members, so PR-authored code never executes with the secrets in scope here.
-  pull_request_target:
+  pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
   issue_comment:
     types: [created]
@@ -23,7 +20,7 @@ permissions:
 jobs:
   review:
     if: >-
-      (github.event_name == 'pull_request_target' &&
+      (github.event_name == 'pull_request' &&
        github.event.pull_request.draft == false &&
        github.event.pull_request.head.repo.full_name == github.repository &&
        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
@@ -40,11 +37,9 @@ jobs:
       cancel-in-progress: true
 
     steps:
-      # pull_request_target has access to secrets. Always execute reviewer code from
-      # the trusted base commit, never from the pull request head. A manual dispatch
-      # can execute a selected ref because only maintainers can start that event;
-      # github.sha is the immutable commit selected by that dispatch, which avoids
-      # a branch moving between workflow dispatch and checkout.
+      # Run the reviewer from the trusted base commit, never the PR head, so a PR
+      # cannot change the reviewer that runs against it. workflow_dispatch pins
+      # github.sha, the immutable commit it selected.
       - name: Check out trusted reviewer
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:

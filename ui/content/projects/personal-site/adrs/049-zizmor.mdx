@@ -9,15 +9,15 @@ tech_stack: ["zizmor", "actionlint"]
 
 The CI/CD pipeline is itself an attack surface. The workflows in `.github/workflows`
 run with access to deployment credentials (Cloudflare, Neon, Terraform Cloud,
-OpenRouter), and two of them — AI review and the preview environment — run on
-`pull_request_target`, the trigger that executes with repository secrets in the
-context of a fork PR. That is exactly the class of misconfiguration that, in
-March 2026, was exploited in `aquasecurity/trivy-action` (an action this repo
-uses) to exfiltrate organization secrets. The risk is not hypothetical.
+OpenRouter). Privileged triggers, broad `GITHUB_TOKEN` permissions, template
+interpolation into `run:` blocks, and unpinned actions are each a short step from
+there to leaked secrets. In March 2026 `aquasecurity/trivy-action`, an action
+this repo uses, was exploited through a `pull_request_target` misconfiguration to
+exfiltrate organization secrets.
 
 [ADR 048 (SonarQube)](/projects/personal-site/adrs/048-sonarqube) framed the
-quality/security stack along one axis that matters here: **determinism**.
-Mapping the workflow-security question onto that same axis exposes a gap:
+quality/security stack along a **determinism** axis. Mapping the
+workflow-security question onto it exposes a gap:
 
 | | Application source code | GitHub Actions workflows |
 | --- | --- | --- |
@@ -30,8 +30,9 @@ Trivy covers IaC/deps/containers ([ADR 047](/projects/personal-site/adrs/047-tri
 SonarQube scores code health. None of them understands GitHub Actions semantics
 — template injection through `${{ }}` interpolation into `run:`, dangerous
 triggers, credential persistence, or over-broad `GITHUB_TOKEN` permissions.
-SonarQube's only workflow rule is "pin actions to a digest", which is the single
-finding that prompted this work; it is the tip of the iceberg, not the iceberg.
+SonarQube's only workflow rule is "pin actions to a digest". That was the finding
+that prompted this work, but it covers a small fraction of what a dedicated
+Actions analyzer checks.
 
 `actionlint` *does* already run — but only as a tool inside CodeRabbit's AI
 review, which sits in the **non-deterministic** column. A workflow regression it
@@ -55,11 +56,8 @@ runs identically on a laptop ([ADR 016](/projects/personal-site/adrs/016-github-
   Trivy ([ADR 047](/projects/personal-site/adrs/047-trivy)), GitHub Code Scanning
   fails a pull request that introduces a new alert. `zizmor --no-exit-codes`
   keeps the scan job green on findings — Code Scanning does the gating — but
-  fails the job on a genuine tool or upload failure, so the scan can never
-  silently skip its job. A `pull_request_target` workflow that is the correct
-  secure pattern (the AI reviewer, which runs from the trusted base commit and is
-  gated to members) is allow-listed with an inline `# zizmor: ignore`; everything
-  else is expected to be fixed, not silenced.
+  fails the job on a genuine tool or upload failure, so the scan cannot silently
+  skip its job.
 * **actionlint** — a fast deterministic linter for workflow syntax, expression
   validity, and (when present) shell via shellcheck. Unlike zizmor it runs as a
   **blocking** check in the existing `Lint CI` workflow alongside the Markdown
@@ -124,19 +122,15 @@ than a decade-old tool, accepted because the security gap is concrete.
 * [Build Flywheels](/projects?tab=philosophy#build-flywheels). Workflow-security
   rules learned once carry to every future workflow in the monorepo.
 * [Respect Goodhart's Law](/projects?tab=philosophy#respect-goodharts-and-conways-laws).
-  zizmor stays advisory rather than a hard gate while the existing findings are
-  triaged, so it is not gamed into being switched off on its first red run.
+  zizmor gates only new alerts rather than the whole backlog, so the pressure is
+  to fix a regression rather than to switch the check off.
 
 # Gaps & Risks
 
 * **The gate only catches *new* alerts.** Code Scanning fails a PR that
-  introduces a finding, but anything that predates the scan, lives in a file it
-  does not cover, or is allow-listed with a `# zizmor: ignore` only stays
-  addressed if the Security tab is read — the same watch-it-or-lose-it risk Trivy
-  carries.
-* **An `ignore` can outlive its rationale.** An inline allow-list entry is only
-  as good as the mitigation it points at; if the surrounding workflow changes,
-  the suppression can mask a finding that has become real again.
+  introduces a finding, but anything that predates the scan or lives in a file it
+  does not cover only stays addressed if the Security tab is read, the same
+  watch-it-or-lose-it risk Trivy carries.
 * **Vendor/free-tier risk.** zizmor's online audits use the GitHub API; the tool
   itself is open source and pinned via mise, so the dependency is light.
 
