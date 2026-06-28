@@ -10,6 +10,11 @@ compatibility_flags = ["nodejs_compat"]
 # NOTE: this auth header is the one place POSTHOG_KEY is NOT synced from Doppler
 # automatically — update it by hand on rotation. See infra/README.md
 # ("Rotating POSTHOG_KEY").
+[observability]
+# Persist Cloudflare's built-in Workers Logs as well — the fallback referenced in
+# ADRs 047/048, so logs are retained even if PostHog ingestion is unavailable.
+enabled = true
+
 [observability.logs]
 enabled = true
 destinations = ["posthog-logs"]

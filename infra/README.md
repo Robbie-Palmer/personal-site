@@ -114,16 +114,17 @@ posthog_key=$(require POSTHOG_KEY)
 cf_images_account_hash=$(require CF_IMAGES_ACCOUNT_HASH)
 github_token=$(require MISE_GITHUB_TOKEN)
 
-tmp=$(mktemp)
-cat > "$tmp" <<EOF
-CLOUDFLARE_API_TOKEN=$cloudflare_api_token
-TF_TOKEN_app_terraform_io=$tf_cloud_token
-NEON_API_KEY=$neon_api_key
-TF_VAR_neon_org_id=$neon_org_id
-TF_VAR_posthog_key=$posthog_key
-TF_VAR_cf_images_account_hash=$cf_images_account_hash
-TF_VAR_github_token=$github_token
-EOF
+tmp=$(mktemp)       # mktemp creates the file mode 0600
+chmod 600 "$tmp"    # make the owner-only intent explicit
+{
+  printf 'CLOUDFLARE_API_TOKEN=%s\n' "$cloudflare_api_token"
+  printf 'TF_TOKEN_app_terraform_io=%s\n' "$tf_cloud_token"
+  printf 'NEON_API_KEY=%s\n' "$neon_api_key"
+  printf 'TF_VAR_neon_org_id=%s\n' "$neon_org_id"
+  printf 'TF_VAR_posthog_key=%s\n' "$posthog_key"
+  printf 'TF_VAR_cf_images_account_hash=%s\n' "$cf_images_account_hash"
+  printf 'TF_VAR_github_token=%s\n' "$github_token"
+} > "$tmp"
 mv "$tmp" .env
 ```
 

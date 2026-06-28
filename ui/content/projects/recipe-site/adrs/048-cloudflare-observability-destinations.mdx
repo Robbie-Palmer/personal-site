@@ -48,10 +48,17 @@ application dependencies, and uses standard OTLP. Configuration is in two parts:
    destination by name.
 
    ```toml
+   [observability]
+   enabled = true  # persist built-in Workers Logs (the fallback below)
+
    [observability.logs]
    enabled = true
    destinations = ["posthog-logs"]
    ```
+
+   The parent `[observability] enabled = true` keeps Cloudflare's built-in Workers
+   Logs active, so the fallback that ADR 047 and this ADR rely on is genuinely
+   present rather than something that has to be turned on after an outage.
 
 Holding the key in the dashboard destination keeps it out of source control.
 
