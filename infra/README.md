@@ -51,6 +51,10 @@ Secrets synced from Doppler:
 7. **`POSTHOG_HOST`**
    - PostHog ingestion host (`https://eu.posthog.com`).
    - Mapped to `NEXT_PUBLIC_POSTHOG_HOST` for the UI build.
+8. **`MISE_GITHUB_TOKEN`**
+   - GitHub token used by mise to download tools during Cloudflare Pages builds.
+   - Mapped to `TF_VAR_github_token`, which Terraform passes into the Pages
+     build configuration (`var.github_token`, required — no default).
 
 ### Required Environment
 
@@ -83,16 +87,20 @@ any rotation so it never drifts:
 ```bash
 #!/usr/bin/env bash
 # Pull values from Doppler into .env using the names Terraform expects
-# (TF_VAR_<variable>, lowercase suffix). All secrets are fetched and checked
-# before .env is written, so a failed or empty fetch aborts without leaving a
-# partial/broken .env behind (which would silently break Terraform).
+# (TF_VAR_<variable>, lowercase suffix). This covers the same secrets CI maps in
+# infra-ci.yml. All secrets are fetched and checked first, then written to a
+# temp file and moved into place, so a failed/empty fetch or interrupted write
+# never leaves a partial .env behind (which would silently break Terraform).
 set -euo pipefail
 
 require() {
   local value
-  value=$(doppler secrets get "$1" --plain)
+  value=$(doppler secrets get "$1" --plain) || {
+    echo "error: failed to read '$1' from Doppler" >&2
+    return 1
+  }
   if [ -z "$value" ]; then
-    echo "error: Doppler secret '$1' is missing or empty" >&2
+    echo "error: Doppler secret '$1' is empty" >&2
     return 1
   fi
   printf '%s' "$value"
@@ -103,14 +111,20 @@ tf_cloud_token=$(require TF_API_TOKEN)
 neon_api_key=$(require NEON_API_KEY)
 neon_org_id=$(require NEON_ORG_ID)
 posthog_key=$(require POSTHOG_KEY)
+cf_images_account_hash=$(require CF_IMAGES_ACCOUNT_HASH)
+github_token=$(require MISE_GITHUB_TOKEN)
 
-cat > .env <<EOF
+tmp=$(mktemp)
+cat > "$tmp" <<EOF
 CLOUDFLARE_API_TOKEN=$cloudflare_api_token
 TF_TOKEN_app_terraform_io=$tf_cloud_token
 NEON_API_KEY=$neon_api_key
 TF_VAR_neon_org_id=$neon_org_id
 TF_VAR_posthog_key=$posthog_key
+TF_VAR_cf_images_account_hash=$cf_images_account_hash
+TF_VAR_github_token=$github_token
 EOF
+mv "$tmp" .env
 ```
 
 Then run Terraform commands via mise:
@@ -177,6 +191,6 @@ stop arriving in PostHog, no error) if you forget it, so rotate in this order:
    and it is not a Worker secret or Pages var that Doppler's integrations sync.
 
 This destination is referenced by `workers/recipe-api/wrangler.toml`
-(`[observability.logs]`). In practice the public `phc_` project key rarely
+(`[observability.logs]`). In practice, the public `phc_` project key rarely
 rotates, which is why the manual step is an acceptable trade-off — but it is the
 one to remember.

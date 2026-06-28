@@ -38,7 +38,7 @@ agent-assisted, solo-maintained codebase.
 # Decision
 
 Use the Cloudflare native observability destination. It is the lowest-effort path, adds no
-application dependencies, and uses standard OTLP. Configuration is two parts:
+application dependencies, and uses standard OTLP. Configuration is in two parts:
 
 1. **Destination** (dashboard): create a `posthog-logs` destination under Workers
    Observability with the OTLP endpoint `https://eu.i.posthog.com/i/v1/logs` and an
@@ -78,7 +78,7 @@ in [ADR 047](/projects/recipe-site/adrs/047-posthog-logs)):
 | Workers Free | Not available                 | Not available                 | —                   |
 | Workers Paid | 10M events/month included     | 10M events/month included     | $0.05 per 1M events |
 
-During the early-beta period export is free for Workers Paid; from March 1, 2026 it is
+During the early-beta period, export is free for Workers Paid; from March 1, 2026 it is
 billed as above. A personal recipe site stays well under 10M log events/month, so the
 effective cost is zero. The two pricing models stack and neither is reached: Cloudflare
 meters export events (10M/month free), PostHog meters stored volume (50 GB/month free).
@@ -104,7 +104,7 @@ shipped unimplemented
 The destination is also neither a Worker secret nor a Pages variable, so Doppler's sync
 integrations cannot reach it.
 
-As a result the destination's auth header is managed by hand: neither Terraform nor Doppler
+As a result, the destination's auth header is managed by hand: neither Terraform nor Doppler
 owns it. `POSTHOG_KEY` is propagated automatically everywhere except here, so a key rotation
 that skips the destination header stops log ingestion silently — a `401` that drops logs
 with no application error.
