@@ -3,13 +3,8 @@ main = "src/index.ts"
 compatibility_date = "2026-05-28"
 compatibility_flags = ["nodejs_compat"]
 
-# Export Worker logs to PostHog via OpenTelemetry (OTLP).
-# The "posthog-logs" destination (OTLP endpoint + PostHog API key auth header)
-# must be created in the Cloudflare dashboard under Workers Observability.
-# Keeping the key in the dashboard destination avoids committing it here.
-# NOTE: this auth header is the one place POSTHOG_KEY is NOT synced from Doppler
-# automatically — update it by hand on rotation. See infra/README.md
-# ("Rotating POSTHOG_KEY").
+# Export Worker logs to PostHog via OTLP. The "posthog-logs" destination
+# (endpoint + auth header) is configured in the Cloudflare dashboard, not here.
 [observability]
 # Persist Cloudflare's built-in Workers Logs as well — the fallback referenced in
 # ADRs 047/048, so logs are retained even if PostHog ingestion is unavailable.
