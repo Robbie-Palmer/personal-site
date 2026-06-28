@@ -9,7 +9,9 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import type React from "react";
+import { useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -117,10 +119,31 @@ export function RecipeList({ recipes }: RecipeListProps) {
   const selectedPrepTimes = filterParams.getValues("prepTime");
   const selectedTotalTimes = filterParams.getValues("totalTime");
 
+  // Search is hosted in the nav (see RecipeSearch) and shared via `?q=`.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get("q") ?? "";
+  const setSearchQuery = useCallback(
+    (value: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (value) {
+        params.set("q", value);
+      } else {
+        params.delete("q");
+      }
+      const qs = params.toString();
+      router.replace(`/recipes${qs ? `?${qs}` : ""}`, { scroll: false });
+    },
+    [router, searchParams],
+  );
+
   return (
     <FilterableCardGrid
       items={recipes}
       getItemKey={(recipe) => recipe.slug}
+      searchValue={searchQuery}
+      onSearchChange={setSearchQuery}
+      hideInlineSearch
       searchConfig={{
         placeholder: "Search recipes...",
         ariaLabel: "Search recipes",
@@ -194,7 +217,7 @@ export function RecipeList({ recipes }: RecipeListProps) {
       }}
       itemName="recipes"
       renderCard={(recipe, index) => (
-        <Card className="h-full flex flex-col overflow-hidden">
+        <Card className="h-full flex flex-col overflow-hidden rounded-xl border-[1.25px] border-[var(--line-strong)] gap-0 py-0 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--paper-shadow)]">
           {recipe.image && (
             <Link href={`/recipes/${recipe.slug}`} className="block">
               <div className="relative w-full h-48 bg-muted overflow-hidden">
@@ -214,15 +237,17 @@ export function RecipeList({ recipes }: RecipeListProps) {
               </div>
             </Link>
           )}
-          <CardHeader>
+          <CardHeader className="pt-4 pb-2 gap-1">
             <Link href={`/recipes/${recipe.slug}`}>
-              <CardTitle className="hover:text-primary transition-colors">
+              <CardTitle className="rt-display text-2xl leading-tight hover:text-[var(--terracotta)] transition-colors">
                 {recipe.title}
               </CardTitle>
             </Link>
-            <CardDescription>{recipe.description}</CardDescription>
+            <CardDescription className="rt-body line-clamp-2">
+              {recipe.description}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col justify-end">
+          <CardContent className="flex-1 flex flex-col justify-end pb-4">
             <div className="flex flex-wrap gap-2 mb-3">
               {recipe.cuisine.map((c) => (
                 <CuisineBadge

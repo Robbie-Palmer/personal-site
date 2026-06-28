@@ -5,6 +5,7 @@ import {
   Check,
   Clock,
   Download,
+  Globe,
   Loader2,
   Minus,
   Plus,
@@ -359,23 +360,28 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
   return (
     <>
       <header className="mb-8">
-        <h1 className="text-4xl font-bold mb-4">{recipe.title}</h1>
-        <p className="text-xl text-muted-foreground mb-4">
+        <h1 className="rt-display text-5xl md:text-6xl mb-3 leading-[0.95]">
+          {recipe.title}
+        </h1>
+        <p className="rt-body text-xl text-[var(--ink-2)] mb-4">
           {recipe.description}
         </p>
 
         {recipe.canonical && (
-          <p className="text-sm text-muted-foreground italic mb-4">
-            Adapted from{" "}
-            <a
-              href={recipe.canonical}
-              target="_blank"
-              rel="noopener"
-              className="underline hover:text-foreground"
-            >
-              the original recipe
-            </a>
-            .
+          <p className="rt-body text-sm text-[var(--ink-2)] italic mb-4 inline-flex items-center gap-2 rounded-lg border border-dashed border-[var(--line-strong)] bg-[var(--paper-warm)] px-3 py-2">
+            <Globe className="h-4 w-4 not-italic" />
+            <span>
+              Adapted from{" "}
+              <a
+                href={recipe.canonical}
+                target="_blank"
+                rel="noopener"
+                className="underline text-[var(--terracotta-deep)] hover:text-foreground"
+              >
+                the original recipe
+              </a>
+              .
+            </span>
           </p>
         )}
 
@@ -392,8 +398,13 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
               >
                 <Minus className="h-3 w-3" />
               </Button>
-              <span className="min-w-[4ch] text-center tabular-nums">
-                {portions} {portions === 1 ? "serving" : "servings"}
+              <span className="text-center tabular-nums">
+                <span className="rt-display text-2xl text-[var(--terracotta)] align-middle">
+                  {portions}
+                </span>{" "}
+                <span className="align-middle">
+                  {portions === 1 ? "serving" : "servings"}
+                </span>
               </span>
               <Button
                 variant="outline"
@@ -479,7 +490,9 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
 
       <section className="mb-8">
         <div className="flex items-baseline justify-between mb-4">
-          <h2 className="text-2xl font-bold">Ingredients</h2>
+          <h2 className="rt-display text-4xl text-[var(--terracotta)]">
+            Ingredients
+          </h2>
           {checkedIngredients.size > 0 && (
             <button
               type="button"
@@ -507,7 +520,9 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
 
       {effectiveRecipe.cookware.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-2xl font-bold mb-4">Equipment</h2>
+          <h2 className="rt-display text-3xl text-[var(--terracotta)] mb-4">
+            Equipment
+          </h2>
           <ul className="space-y-1">
             {effectiveRecipe.cookware.map((item) => (
               <li key={item} className="flex items-start gap-2">
@@ -520,34 +535,52 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
       )}
 
       <section>
-        <h2 className="text-2xl font-bold mb-4">Instructions</h2>
-        <ol className="space-y-3 list-decimal list-inside">
+        <h2 className="rt-display text-4xl text-[var(--terracotta)] mb-4">
+          Method
+        </h2>
+        <ol className="list-none p-0 m-0">
           {shouldUseSdkInstructions
             ? instructionTokenization.steps.map((tokens, i) => (
-                <li key={i} className="leading-relaxed pl-2">
-                  {tokens.map((token, tokenIndex) => (
-                    <span key={tokenIndex}>
-                      {token.type === "timer" ? (
-                        <InlineTimer
-                          durationSeconds={token.durationSeconds}
-                          label={token.value}
-                        />
-                      ) : token.type === "ingredient" ? (
-                        formatInstructionIngredientToken(
-                          token,
-                          scale,
-                          unitSystem,
-                        )
-                      ) : (
-                        token.value
-                      )}
-                    </span>
-                  ))}
+                <li
+                  key={i}
+                  className="flex gap-4 py-3 border-b border-dashed border-[var(--line)] last:border-0"
+                >
+                  <span className="rt-display text-3xl text-[var(--terracotta)] leading-none min-w-[1.5ch]">
+                    {i + 1}.
+                  </span>
+                  <div className="rt-body flex-1 leading-relaxed pt-1">
+                    {tokens.map((token, tokenIndex) => (
+                      <span key={tokenIndex}>
+                        {token.type === "timer" ? (
+                          <InlineTimer
+                            durationSeconds={token.durationSeconds}
+                            label={token.value}
+                          />
+                        ) : token.type === "ingredient" ? (
+                          formatInstructionIngredientToken(
+                            token,
+                            scale,
+                            unitSystem,
+                          )
+                        ) : (
+                          token.value
+                        )}
+                      </span>
+                    ))}
+                  </div>
                 </li>
               ))
             : effectiveRecipe.instructions.map((step, i) => (
-                <li key={i} className="leading-relaxed pl-2">
-                  {step}
+                <li
+                  key={i}
+                  className="flex gap-4 py-3 border-b border-dashed border-[var(--line)] last:border-0"
+                >
+                  <span className="rt-display text-3xl text-[var(--terracotta)] leading-none min-w-[1.5ch]">
+                    {i + 1}.
+                  </span>
+                  <div className="rt-body flex-1 leading-relaxed pt-1">
+                    {step}
+                  </div>
                 </li>
               ))}
         </ol>

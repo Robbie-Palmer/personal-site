@@ -240,6 +240,12 @@ jobs:
     needs: [detect, backend, frontend]
     if: always() && needs.frontend.result == 'success'
     runs-on: ubuntu-latest
+    # The preview URL is built from vars.CLOUDFLARE_PAGES_HOST, which is scoped
+    # to the cloudflare-preview environment. Without selecting that environment
+    # the variable resolves to empty and the comment links to a host-less
+    # "https://pr-<n>." URL, so this job must target it like frontend/backend do.
+    environment:
+      name: cloudflare-preview
     permissions:
       contents: read
       pull-requests: write

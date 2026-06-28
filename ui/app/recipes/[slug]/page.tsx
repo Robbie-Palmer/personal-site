@@ -64,13 +64,13 @@ export default async function RecipePage(props: PageProps) {
   );
 
   return (
-    <article className="container mx-auto px-4 py-12 max-w-4xl">
+    <article className="container mx-auto px-4 py-10 md:py-12 max-w-4xl">
       <JsonLdScript data={jsonLd} />
       <Link
         href="/recipes"
-        className="text-sm text-muted-foreground hover:text-foreground mb-8 inline-block"
+        className="rt-mono text-[var(--ink-3)] hover:text-[var(--terracotta)] mb-8 inline-block transition-colors"
       >
-        &larr; Back to recipes
+        &larr; Recipe box
       </Link>
 
       <RecipeContent recipe={recipe} />
