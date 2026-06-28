@@ -37,9 +37,9 @@ jobs:
       cancel-in-progress: true
 
     steps:
-      # Run the reviewer from the trusted base commit, never the PR head, so a PR
-      # cannot change the reviewer that runs against it. workflow_dispatch pins
-      # github.sha, the immutable commit it selected.
+      # Check out the reviewer from the base commit, not the PR head, so the PR is
+      # reviewed by the version on main rather than its own copy. workflow_dispatch
+      # pins github.sha, the commit it selected.
       - name: Check out trusted reviewer
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
