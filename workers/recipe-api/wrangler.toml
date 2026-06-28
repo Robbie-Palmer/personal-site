@@ -6,8 +6,6 @@ compatibility_flags = ["nodejs_compat"]
 # Export Worker logs to PostHog via OTLP. The "posthog-logs" destination
 # (endpoint + auth header) is configured in the Cloudflare dashboard, not here.
 [observability]
-# Persist Cloudflare's built-in Workers Logs as well — the fallback referenced in
-# ADRs 047/048, so logs are retained even if PostHog ingestion is unavailable.
 enabled = true
 
 [observability.logs]
