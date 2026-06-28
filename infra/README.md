@@ -81,15 +81,36 @@ that `.env` from Doppler rather than hand-editing it, and regenerate it after
 any rotation so it never drifts:
 
 ```bash
-# Pull individual values from Doppler into .env using the names Terraform
-# expects (TF_VAR_<variable>); the variable suffix is lowercase.
-{
-  echo "CLOUDFLARE_API_TOKEN=$(doppler secrets get CLOUDFLARE_API_TOKEN --plain)"
-  echo "TF_TOKEN_app_terraform_io=$(doppler secrets get TF_API_TOKEN --plain)"
-  echo "NEON_API_KEY=$(doppler secrets get NEON_API_KEY --plain)"
-  echo "TF_VAR_neon_org_id=$(doppler secrets get NEON_ORG_ID --plain)"
-  echo "TF_VAR_posthog_key=$(doppler secrets get POSTHOG_KEY --plain)"
-} > .env
+#!/usr/bin/env bash
+# Pull values from Doppler into .env using the names Terraform expects
+# (TF_VAR_<variable>, lowercase suffix). All secrets are fetched and checked
+# before .env is written, so a failed or empty fetch aborts without leaving a
+# partial/broken .env behind (which would silently break Terraform).
+set -euo pipefail
+
+require() {
+  local value
+  value=$(doppler secrets get "$1" --plain)
+  if [ -z "$value" ]; then
+    echo "error: Doppler secret '$1' is missing or empty" >&2
+    return 1
+  fi
+  printf '%s' "$value"
+}
+
+cloudflare_api_token=$(require CLOUDFLARE_API_TOKEN)
+tf_cloud_token=$(require TF_API_TOKEN)
+neon_api_key=$(require NEON_API_KEY)
+neon_org_id=$(require NEON_ORG_ID)
+posthog_key=$(require POSTHOG_KEY)
+
+cat > .env <<EOF
+CLOUDFLARE_API_TOKEN=$cloudflare_api_token
+TF_TOKEN_app_terraform_io=$tf_cloud_token
+NEON_API_KEY=$neon_api_key
+TF_VAR_neon_org_id=$neon_org_id
+TF_VAR_posthog_key=$posthog_key
+EOF
 ```
 
 Then run Terraform commands via mise:
