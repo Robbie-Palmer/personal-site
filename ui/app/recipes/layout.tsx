@@ -49,29 +49,34 @@ export default function RecipesLayout({
       className={`recipe-theme ${fontVars} antialiased flex flex-col min-h-screen`}
     >
       <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--paper)]/95 backdrop-blur supports-[backdrop-filter]:bg-[var(--paper)]/75">
+        {/* On desktop everything sits on one row (logo · tab · search · auth);
+            on mobile the search drops to a full-width second row so it isn't
+            squeezed against the logo. */}
         <nav className="container mx-auto px-4 py-3 max-w-7xl flex flex-wrap items-center gap-x-6 gap-y-3">
           <Link
             href="/recipes"
-            className="rt-display text-3xl leading-none text-foreground"
+            className="order-1 shrink-0 rt-display text-3xl leading-none text-foreground"
           >
             Robbie's <span className="rt-logo-accent">recipes</span>
           </Link>
           <Link
             href="/recipes"
-            className="rt-tab text-[0.95rem]"
+            className="order-2 rt-tab text-[0.95rem]"
             data-active="true"
           >
             Recipes
           </Link>
-          <div className="ms-auto flex flex-1 items-center justify-end gap-3 min-w-0">
+          <div className="order-3 ms-auto md:order-4 md:ms-0">
+            <AuthButton />
+          </div>
+          <div className="order-4 w-full md:order-3 md:w-64 md:ms-auto">
             <Suspense
               fallback={
-                <div className="h-[42px] w-full sm:w-56 md:w-64 rounded-full border-[1.5px] border-foreground/80 bg-card" />
+                <div className="h-[42px] w-full rounded-full border-[1.5px] border-foreground/80 bg-card" />
               }
             >
               <RecipeSearch />
             </Suspense>
-            <AuthButton />
           </div>
         </nav>
       </header>

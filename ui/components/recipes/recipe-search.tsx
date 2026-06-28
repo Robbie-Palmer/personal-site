@@ -45,7 +45,7 @@ export function RecipeSearch() {
   }
 
   return (
-    <search className="w-full sm:w-56 md:w-64">
+    <search className="w-full">
       <form
         onSubmit={(e) => {
           e.preventDefault();
