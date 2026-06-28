@@ -41,7 +41,7 @@ jobs:
       # reviewed by the version on main rather than its own copy. workflow_dispatch
       # pins github.sha, the commit it selected.
       - name: Check out trusted reviewer
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.pull_request.base.sha || github.event.repository.default_branch }}
           persist-credentials: false
