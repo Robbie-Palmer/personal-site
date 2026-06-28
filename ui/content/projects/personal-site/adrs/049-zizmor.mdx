@@ -51,30 +51,15 @@ managed through [mise](/projects/personal-site/adrs/004-mise) so what runs in CI
 runs identically on a laptop ([ADR 016](/projects/personal-site/adrs/016-github-actions)):
 
 * **zizmor** — a dedicated static analyzer (SAST) for GitHub Actions. It runs as
-  its own workflow, emits SARIF, and uploads to the **GitHub Security tab**. The
-  operational posture matches CodeQL and Trivy: results land in GitHub and there
-  is no external console.
-  * It is **advisory on findings, loud on failure**. `zizmor --no-exit-codes`
-    exits 0 when it *finds* issues (they surface in the Security tab rather than
-    gating the PR — the same posture Trivy takes,
-    [ADR 047](/projects/personal-site/adrs/047-trivy)), while a genuine tool
-    failure or a failed SARIF upload still fails the job: the scan must not
-    silently skip its job. The gate can be tightened to fail on *new* findings
-    later, the same Clean-as-You-Code path ADR 045 describes.
-  * The first scan's findings were **triaged, not parked**. The credential-
-    persistence, excessive-permissions, and `GITHUB_ENV`-injection findings were
-    fixed (`persist-credentials: false`, per-job least-privilege, step outputs
-    instead of `GITHUB_ENV`), and the secrets-to-disk `.env` step in the infra
-    workflows was removed. The `pull_request_target` (dangerous-trigger)
-    findings were resolved by migrating the two internal-only preview workflows
-    to plain `pull_request` (every job was already gated to same-repo PRs, so
-    they gain nothing from `pull_request_target` and are safer without it). The
-    one remaining `pull_request_target`, on AI review, is kept and documented
-    with an inline `# zizmor: ignore`: there it is the *correct* secure pattern
-    (the reviewer runs from the trusted base commit, gated to members), and
-    switching it would run the PR's modified reviewer code with secrets in
-    scope. Suppression is reserved for that single defensible case, not used to
-    silence findings that should be fixed.
+  its own workflow and uploads SARIF to the **GitHub Security tab**, where, like
+  Trivy ([ADR 047](/projects/personal-site/adrs/047-trivy)), GitHub Code Scanning
+  fails a pull request that introduces a new alert. `zizmor --no-exit-codes`
+  keeps the scan job green on findings — Code Scanning does the gating — but
+  fails the job on a genuine tool or upload failure, so the scan can never
+  silently skip its job. A `pull_request_target` workflow that is the correct
+  secure pattern (the AI reviewer, which runs from the trusted base commit and is
+  gated to members) is allow-listed with an inline `# zizmor: ignore`; everything
+  else is expected to be fixed, not silenced.
 * **actionlint** — a fast deterministic linter for workflow syntax, expression
   validity, and (when present) shell via shellcheck. Unlike zizmor it runs as a
   **blocking** check in the existing `Lint CI` workflow alongside the Markdown
@@ -144,16 +129,14 @@ than a decade-old tool, accepted because the security gap is concrete.
 
 # Gaps & Risks
 
-* **Non-blocking can be ignored.** Keeping zizmor advisory means a worsening
-  workflow-security trend depends on the Security tab being watched, the same
-  risk Trivy carries.
-* **Clean baseline, by fixing not silencing.** The first scan surfaced 20
-  findings; all were fixed except one `pull_request_target` on AI review, which
-  is the correct secure pattern and carries a documented `# zizmor: ignore`. A
-  green baseline is what makes a future tightening to a blocking gate viable, but
-  it also means the gate only protects against *new* findings — pre-existing
-  patterns elsewhere still depend on the scan being read
-  ([Build in Public](/projects?tab=philosophy#build-in-public)).
+* **The gate only catches *new* alerts.** Code Scanning fails a PR that
+  introduces a finding, but anything that predates the scan, lives in a file it
+  does not cover, or is allow-listed with a `# zizmor: ignore` only stays
+  addressed if the Security tab is read — the same watch-it-or-lose-it risk Trivy
+  carries.
+* **An `ignore` can outlive its rationale.** An inline allow-list entry is only
+  as good as the mitigation it points at; if the surrounding workflow changes,
+  the suppression can mask a finding that has become real again.
 * **Vendor/free-tier risk.** zizmor's online audits use the GitHub API; the tool
   itself is open source and pinned via mise, so the dependency is light.
 

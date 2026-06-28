@@ -1,10 +1,8 @@
 name: Preview Environment
 
 on:
-  # Internal-only: every job is gated to same-repo PRs (head.repo.full_name ==
-  # github.repository), so plain pull_request gives those PRs the secrets they
-  # need while fork PRs get no secrets at all — safer than pull_request_target,
-  # which this no longer needs. See ADR 049.
+  # Every job is gated to same-repo PRs, so pull_request gives internal PRs the
+  # secrets they need while fork PRs get none.
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
@@ -115,8 +113,8 @@ jobs:
           # explicit suspend_timeout with HTTP 412, so it must be omitted.
           expires_at: ${{ steps.neon-expiry.outputs.expires_at }}
 
-      # Provisioning above runs only trusted workflow/action code. Check out
-      # and execute the internal PR only after the Neon API key is out of scope.
+      # Check out and build the PR only after provisioning, so the build steps
+      # never see the Neon API key.
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
