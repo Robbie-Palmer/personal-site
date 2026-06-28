@@ -7,6 +7,9 @@ compatibility_flags = ["nodejs_compat"]
 # The "posthog-logs" destination (OTLP endpoint + PostHog API key auth header)
 # must be created in the Cloudflare dashboard under Workers Observability.
 # Keeping the key in the dashboard destination avoids committing it here.
+# NOTE: that auth header is the one place POSTHOG_KEY is NOT synced from Doppler
+# automatically — update it by hand on rotation. See infra/README.md
+# ("Rotating POSTHOG_KEY").
 [observability.logs]
 enabled = true
 destinations = ["posthog-logs"]
