@@ -28,7 +28,7 @@ export default function RecipesPage() {
     .join(" · ");
 
   return (
-    <div className="container mx-auto px-4 py-10 md:py-14 min-h-screen max-w-7xl">
+    <div className="container mx-auto px-4 pt-5 pb-10 md:pt-7 md:pb-14 min-h-screen max-w-7xl">
       <JsonLdScript data={jsonLd} />
       <div className="mb-8">
         <p className="rt-mono text-[var(--terracotta)]">Your recipe box</p>

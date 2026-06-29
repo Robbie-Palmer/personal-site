@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { InlineTimer } from "@/components/recipes/inline-timer";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useScaledRecipe } from "@/hooks/use-scaled-recipe";
 import { useUnitPreference } from "@/hooks/use-unit-preference";
@@ -478,11 +477,15 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
         </div>
 
         {recipe.cuisine.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-4">
             {recipe.cuisine.map((c) => (
-              <Badge key={c} variant="secondary">
+              <span
+                key={c}
+                className="inline-flex items-center gap-1.5 rt-mono text-[var(--ink-3)]"
+              >
+                <Globe className="h-3.5 w-3.5" />
                 {c}
-              </Badge>
+              </span>
             ))}
           </div>
         )}

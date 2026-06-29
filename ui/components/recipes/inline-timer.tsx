@@ -216,7 +216,10 @@ export function InlineTimer({
           interactive: true,
           active: state === "running",
         }),
-        "align-baseline",
+        "align-baseline text-[0.8125rem] font-semibold",
+        // The idle timer should read as an inviting, tappable control rather
+        // than recede into the method text — warm fill + emphasised label.
+        state === "idle" && "bg-[var(--butter-soft)] text-[var(--ink)]",
         state === "completed" && "animate-pulse",
       )}
     >

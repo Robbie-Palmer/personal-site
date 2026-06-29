@@ -126,3 +126,14 @@
 .recipe-theme [data-slot="badge"].bg-destructive {
   border-color: transparent;
 }
+
+/* Filter dropdown triggers: the small, muted label + value read too faintly
+   against the paper. Darken and slightly enlarge them for legibility. */
+.recipe-theme [data-slot="multi-select-trigger"] {
+  font-size: 0.8125rem;
+  color: var(--ink);
+}
+.recipe-theme [data-slot="multi-select-trigger"] .text-muted-foreground {
+  color: var(--ink-2);
+  font-weight: 600;
+}

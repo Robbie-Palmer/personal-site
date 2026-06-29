@@ -58,23 +58,25 @@ export default function RecipesLayout({
               on mobile the search drops to a full-width second row so it isn't
               squeezed against the logo. */}
           <nav className="container mx-auto px-4 py-3 max-w-7xl flex flex-wrap items-center gap-x-6 gap-y-3">
-            <Link
-              href="/recipes"
-              className="order-1 shrink-0 rt-display text-3xl leading-none text-foreground"
-            >
-              Robbie's <span className="rt-logo-accent">recipes</span>
-            </Link>
-            <Link
-              href="/recipes"
-              className="order-2 rt-tab text-[0.95rem]"
-              data-active="true"
-            >
-              Recipes
-            </Link>
-            <div className="order-3 ms-auto md:order-4 md:ms-0">
+            <div className="order-1 flex items-baseline gap-4">
+              <Link
+                href="/recipes"
+                className="shrink-0 rt-display text-3xl leading-none text-foreground"
+              >
+                Robbie's <span className="rt-logo-accent">recipes</span>
+              </Link>
+              <Link
+                href="/recipes"
+                className="rt-tab text-[0.95rem]"
+                data-active="true"
+              >
+                Recipes
+              </Link>
+            </div>
+            <div className="order-2 ms-auto md:order-3 md:ms-0">
               <AuthButton />
             </div>
-            <div className="order-4 w-full md:order-3 md:w-64 md:ms-auto">
+            <div className="order-3 w-full md:order-2 md:w-64 md:ms-auto">
               <RecipeSearch />
             </div>
           </nav>
