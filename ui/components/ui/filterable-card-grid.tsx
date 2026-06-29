@@ -26,7 +26,7 @@ import { useSortParam } from "@/hooks/use-sort-param";
 const SORT_OPTIONS = ["newest", "oldest", "updated"] as const;
 type SortOption = (typeof SORT_OPTIONS)[number];
 
-interface MultiFilterConfig<T> {
+export interface MultiFilterConfig<T> {
   paramName: string;
   isMulti: boolean;
   label: string;
@@ -36,7 +36,7 @@ interface MultiFilterConfig<T> {
   getOptionIcon?: (value: string) => ReactNode;
 }
 
-interface SearchConfig<T> {
+export interface SearchConfig<T> {
   placeholder: string;
   ariaLabel: string;
   keys: IFuseOptions<T>["keys"];

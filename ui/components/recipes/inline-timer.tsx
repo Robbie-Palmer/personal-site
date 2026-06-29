@@ -189,6 +189,7 @@ export function InlineTimer({
   if (durationSeconds === null) {
     return (
       <span
+        data-recipe-pill
         className={cn(badgeVariants({ variant: "outline" }), "align-baseline")}
       >
         <Timer className="size-3" />
@@ -208,6 +209,7 @@ export function InlineTimer({
 
   return (
     <span
+      data-recipe-pill
       className={cn(
         badgeVariants({
           variant,

@@ -38,7 +38,7 @@ export default function RecipesPage() {
         <p className="rt-body mt-3 text-lg text-[var(--ink-2)]">{stats}</p>
       </div>
 
-      <Suspense fallback={<CardGridSkeleton />}>
+      <Suspense fallback={<CardGridSkeleton variant="filters" />}>
         <RecipeList recipes={recipes} />
       </Suspense>
     </div>

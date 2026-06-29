@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { Caveat, JetBrains_Mono, Kalam } from "next/font/google";
 import Link from "next/link";
-import { Suspense } from "react";
 import { AuthButton } from "@/components/recipes/auth-button";
 import { RecipeSearch } from "@/components/recipes/recipe-search";
+import { RecipeThemeBody } from "@/components/recipes/recipe-theme-body";
+import { RecipeSearchProvider } from "@/contexts/recipe-search-context";
 import { siteConfig } from "@/lib/config/site-config";
 import "./recipe-theme.css";
 
@@ -45,53 +46,52 @@ export default function RecipesLayout({
   const fontVars = `${caveat.variable} ${kalam.variable} ${jetBrainsMono.variable}`;
 
   return (
-    <div
-      className={`recipe-theme ${fontVars} antialiased flex flex-col min-h-screen`}
-    >
-      <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--paper)]/95 backdrop-blur supports-[backdrop-filter]:bg-[var(--paper)]/75">
-        {/* On desktop everything sits on one row (logo · tab · search · auth);
-            on mobile the search drops to a full-width second row so it isn't
-            squeezed against the logo. */}
-        <nav className="container mx-auto px-4 py-3 max-w-7xl flex flex-wrap items-center gap-x-6 gap-y-3">
-          <Link
-            href="/recipes"
-            className="order-1 shrink-0 rt-display text-3xl leading-none text-foreground"
-          >
-            Robbie's <span className="rt-logo-accent">recipes</span>
-          </Link>
-          <Link
-            href="/recipes"
-            className="order-2 rt-tab text-[0.95rem]"
-            data-active="true"
-          >
-            Recipes
-          </Link>
-          <div className="order-3 ms-auto md:order-4 md:ms-0">
-            <AuthButton />
-          </div>
-          <div className="order-4 w-full md:order-3 md:w-64 md:ms-auto">
-            <Suspense
-              fallback={
-                <div className="h-[42px] w-full rounded-full border-[1.5px] border-foreground/80 bg-card" />
-              }
+    <RecipeSearchProvider>
+      {/* Mirror the theme + fonts onto <body> so portaled UI (mobile filter
+          drawer, popovers) inherits the warm palette instead of the dark base. */}
+      <RecipeThemeBody classNames={`recipe-theme ${fontVars}`} />
+      <div
+        className={`recipe-theme recipe-surface ${fontVars} antialiased flex flex-col min-h-screen`}
+      >
+        <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--paper)]/95 backdrop-blur supports-[backdrop-filter]:bg-[var(--paper)]/75">
+          {/* On desktop everything sits on one row (logo · tab · search · auth);
+              on mobile the search drops to a full-width second row so it isn't
+              squeezed against the logo. */}
+          <nav className="container mx-auto px-4 py-3 max-w-7xl flex flex-wrap items-center gap-x-6 gap-y-3">
+            <Link
+              href="/recipes"
+              className="order-1 shrink-0 rt-display text-3xl leading-none text-foreground"
             >
+              Robbie's <span className="rt-logo-accent">recipes</span>
+            </Link>
+            <Link
+              href="/recipes"
+              className="order-2 rt-tab text-[0.95rem]"
+              data-active="true"
+            >
+              Recipes
+            </Link>
+            <div className="order-3 ms-auto md:order-4 md:ms-0">
+              <AuthButton />
+            </div>
+            <div className="order-4 w-full md:order-3 md:w-64 md:ms-auto">
               <RecipeSearch />
-            </Suspense>
-          </div>
-        </nav>
-      </header>
+            </div>
+          </nav>
+        </header>
 
-      <main className="relative z-0 flex-1 flex flex-col">{children}</main>
+        <main className="relative z-0 flex-1 flex flex-col">{children}</main>
 
-      <footer className="border-t border-[var(--line)] mt-auto">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex flex-col items-center gap-4">
-            <p className="rt-mono text-[var(--ink-3)]">
-              © {currentYear} {siteConfig.author.name}
-            </p>
+        <footer className="border-t border-[var(--line)] mt-auto">
+          <div className="container mx-auto px-4 py-8">
+            <div className="flex flex-col items-center gap-4">
+              <p className="rt-mono text-[var(--ink-3)]">
+                © {currentYear} {siteConfig.author.name}
+              </p>
+            </div>
           </div>
-        </div>
-      </footer>
-    </div>
+        </footer>
+      </div>
+    </RecipeSearchProvider>
   );
 }

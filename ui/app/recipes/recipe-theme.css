@@ -53,15 +53,21 @@
   --ring: #c8693c;
   --radius: 0.75rem;
 
-  background-color: var(--paper);
   color: var(--foreground);
   font-family: var(--font-kalam), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* The page surface: paper background + grain. Kept separate from `.recipe-theme`
+   so the tokens can also be mirrored onto <body> (for portals) without painting
+   a second background or grain layer there. */
+.recipe-surface {
+  background-color: var(--paper);
   position: relative;
   isolation: isolate;
 }
 
 /* subtle paper grain, behind the content */
-.recipe-theme::before {
+.recipe-surface::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -106,4 +112,17 @@
 .recipe-theme .rt-tab[data-active="true"] {
   color: var(--ink);
   border-color: var(--terracotta);
+}
+
+/* Pills (cuisine/time badges, active-filter chips, inline timers) use a paper-
+   warm fill that blends into the page. Give them a defined ink border so they
+   read as chips, like the designs. Scoped under .recipe-theme so it also covers
+   pills inside portals (mobile filter drawer) once the body carries the theme. */
+.recipe-theme :is([data-slot="badge"], [data-recipe-pill]) {
+  border-color: var(--line-strong);
+}
+/* Keep solid/active fills borderless so they stay clean and high-contrast. */
+.recipe-theme [data-slot="badge"].bg-primary,
+.recipe-theme [data-slot="badge"].bg-destructive {
+  border-color: transparent;
 }
