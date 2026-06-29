@@ -121,9 +121,10 @@
 .recipe-theme :is([data-slot="badge"], [data-recipe-pill]) {
   border-color: var(--line-strong);
 }
-/* Keep solid/active fills borderless so they stay clean and high-contrast. */
-.recipe-theme [data-slot="badge"].bg-primary,
-.recipe-theme [data-slot="badge"].bg-destructive {
+/* Keep solid/active fills borderless so they stay clean and high-contrast
+   (covers active inline-timer states too). */
+.recipe-theme :is([data-slot="badge"], [data-recipe-pill]).bg-primary,
+.recipe-theme :is([data-slot="badge"], [data-recipe-pill]).bg-destructive {
   border-color: transparent;
 }
 

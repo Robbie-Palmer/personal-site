@@ -374,7 +374,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
               <a
                 href={recipe.canonical}
                 target="_blank"
-                rel="noopener"
+                rel="noopener noreferrer"
                 className="underline text-[var(--terracotta-deep)] hover:text-foreground"
               >
                 the original recipe

@@ -27,7 +27,9 @@ const RecipeSearchContext = createContext<RecipeSearchValue>({
  * layout, which persists across list <-> detail navigation, so a query typed on
  * a detail page survives the jump back to the list.
  */
-export function RecipeSearchProvider({ children }: { children: ReactNode }) {
+export function RecipeSearchProvider({
+  children,
+}: Readonly<{ children: ReactNode }>) {
   const [query, setQuery] = useState("");
   const value = useMemo(() => ({ query, setQuery }), [query]);
   return (

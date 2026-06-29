@@ -37,7 +37,7 @@ export function RecipeSearch() {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="search recipes…"
           aria-label="Search recipes"
-          className="min-w-0 flex-1 bg-transparent text-[0.95rem] outline-none placeholder:text-[var(--ink-4)]"
+          className="min-w-0 flex-1 bg-transparent text-[0.95rem] outline-hidden placeholder:text-[var(--ink-4)]"
         />
       </form>
     </search>

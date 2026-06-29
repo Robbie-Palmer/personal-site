@@ -78,7 +78,7 @@ export default async function RecipePage(props: PageProps) {
       <RecipePagination
         prevRecipe={prevRecipe}
         nextRecipe={nextRecipe}
-        className="mt-12"
+        className="mt-6"
       />
     </article>
   );
