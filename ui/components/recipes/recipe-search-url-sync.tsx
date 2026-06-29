@@ -33,6 +33,16 @@ export function RecipeSearchUrlSync() {
     hydrated.current = true;
   }, []);
 
+  // Re-sync from the URL on browser back/forward. popstate fires only for real
+  // history navigation (not our own router.replace), so it can't clobber typing.
+  useEffect(() => {
+    const onPopState = () => {
+      setQuery(new URLSearchParams(window.location.search).get("q") ?? "");
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [setQuery]);
+
   useEffect(() => {
     if (!hydrated.current) return;
     if (pathname !== "/recipes") return;

@@ -541,48 +541,57 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
         <h2 className="rt-display text-4xl text-[var(--terracotta)] mb-4">
           Method
         </h2>
-        <ol className="list-none p-0 m-0">
+        {/* Real ordered list (role="list" keeps semantics even with the marker
+            removed, which Safari/VoiceOver otherwise drop). The visible numeral
+            is decorative generated content via a CSS counter, hidden from AT. */}
+        <ol role="list" className="rt-method-steps list-none p-0 m-0">
           {shouldUseSdkInstructions
             ? instructionTokenization.steps.map((tokens, i) => (
                 <li
                   key={i}
-                  className="flex gap-4 py-3 border-b border-dashed border-[var(--line)] last:border-0"
+                  className="border-b border-dashed border-[var(--line)] last:border-0"
                 >
-                  <span className="rt-display text-3xl text-[var(--terracotta)] leading-none min-w-[1.5ch]">
-                    {i + 1}.
-                  </span>
-                  <div className="rt-body flex-1 leading-relaxed pt-1">
-                    {tokens.map((token, tokenIndex) => (
-                      <span key={tokenIndex}>
-                        {token.type === "timer" ? (
-                          <InlineTimer
-                            durationSeconds={token.durationSeconds}
-                            label={token.value}
-                          />
-                        ) : token.type === "ingredient" ? (
-                          formatInstructionIngredientToken(
-                            token,
-                            scale,
-                            unitSystem,
-                          )
-                        ) : (
-                          token.value
-                        )}
-                      </span>
-                    ))}
+                  <div className="flex gap-4 py-3">
+                    <span
+                      aria-hidden="true"
+                      className="rt-step-num rt-display text-3xl text-[var(--terracotta)] leading-none min-w-[2ch]"
+                    />
+                    <div className="rt-body flex-1 leading-relaxed pt-1">
+                      {tokens.map((token, tokenIndex) => (
+                        <span key={tokenIndex}>
+                          {token.type === "timer" ? (
+                            <InlineTimer
+                              durationSeconds={token.durationSeconds}
+                              label={token.value}
+                            />
+                          ) : token.type === "ingredient" ? (
+                            formatInstructionIngredientToken(
+                              token,
+                              scale,
+                              unitSystem,
+                            )
+                          ) : (
+                            token.value
+                          )}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </li>
               ))
             : effectiveRecipe.instructions.map((step, i) => (
                 <li
                   key={i}
-                  className="flex gap-4 py-3 border-b border-dashed border-[var(--line)] last:border-0"
+                  className="border-b border-dashed border-[var(--line)] last:border-0"
                 >
-                  <span className="rt-display text-3xl text-[var(--terracotta)] leading-none min-w-[1.5ch]">
-                    {i + 1}.
-                  </span>
-                  <div className="rt-body flex-1 leading-relaxed pt-1">
-                    {step}
+                  <div className="flex gap-4 py-3">
+                    <span
+                      aria-hidden="true"
+                      className="rt-step-num rt-display text-3xl text-[var(--terracotta)] leading-none min-w-[2ch]"
+                    />
+                    <div className="rt-body flex-1 leading-relaxed pt-1">
+                      {step}
+                    </div>
                   </div>
                 </li>
               ))}

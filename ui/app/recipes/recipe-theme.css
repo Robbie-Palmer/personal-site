@@ -66,10 +66,11 @@
   isolation: isolate;
 }
 
-/* subtle paper grain, behind the content */
+/* subtle paper grain, behind the content. Absolute (not fixed) so it is scoped
+   to the recipe surface rather than creating a viewport-wide fixed layer. */
 .recipe-surface::before {
   content: "";
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: -1;
   pointer-events: none;
@@ -126,6 +127,19 @@
 .recipe-theme :is([data-slot="badge"], [data-recipe-pill]).bg-primary,
 .recipe-theme :is([data-slot="badge"], [data-recipe-pill]).bg-destructive {
   border-color: transparent;
+}
+
+/* Method steps: a real ordered list whose visible numerals come from a CSS
+   counter (decorative; the markup numbers are aria-hidden) so screen readers
+   rely on the list semantics rather than reading the number twice. */
+.rt-method-steps {
+  counter-reset: rt-step;
+}
+.rt-method-steps > li {
+  counter-increment: rt-step;
+}
+.rt-step-num::before {
+  content: counter(rt-step) ".";
 }
 
 /* Filter dropdown triggers: the small, muted label + value read too faintly

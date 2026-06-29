@@ -10,7 +10,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { memo, type ReactNode, useCallback, useMemo, useRef } from "react";
+import {
+  memo,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -313,9 +320,13 @@ export function RecipeList({ recipes }: RecipeListProps) {
 
   // Stable toggle callbacks: useFilterParams returns fresh functions each render
   // (they close over searchParams), so route them through a ref to keep the
-  // identities passed to the memoized cards constant.
+  // identities passed to the memoized cards constant. The ref is updated in a
+  // commit-phase effect (not during render) so it always reflects committed
+  // state, even under concurrent rendering.
   const filterParamsRef = useRef(filterParams);
-  filterParamsRef.current = filterParams;
+  useEffect(() => {
+    filterParamsRef.current = filterParams;
+  });
   const onToggleCuisine = useCallback(
     (cuisine: string) =>
       filterParamsRef.current.toggleValue("cuisine", cuisine),
