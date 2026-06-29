@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Caveat, JetBrains_Mono, Kalam } from "next/font/google";
 import Link from "next/link";
+import { Suspense } from "react";
 import { AuthButton } from "@/components/recipes/auth-button";
 import { RecipeSearch } from "@/components/recipes/recipe-search";
+import { RecipeSearchUrlSync } from "@/components/recipes/recipe-search-url-sync";
 import { RecipeThemeBody } from "@/components/recipes/recipe-theme-body";
 import { RecipeSearchProvider } from "@/contexts/recipe-search-context";
 import { siteConfig } from "@/lib/config/site-config";
@@ -50,6 +52,9 @@ export default function RecipesLayout({
       {/* Mirror the theme + fonts onto <body> so portaled UI (mobile filter
           drawer, popovers) inherits the warm palette instead of the dark base. */}
       <RecipeThemeBody classNames={`recipe-theme ${fontVars}`} />
+      <Suspense fallback={null}>
+        <RecipeSearchUrlSync />
+      </Suspense>
       <div
         className={`recipe-theme recipe-surface ${fontVars} antialiased flex flex-col min-h-screen`}
       >

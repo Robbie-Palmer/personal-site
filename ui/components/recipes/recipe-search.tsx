@@ -25,7 +25,16 @@ export function RecipeSearch() {
           e.preventDefault();
           // Collapse the on-screen keyboard on mobile once results are showing.
           inputRef.current?.blur();
-          if (!onList) router.push("/recipes");
+          // From a detail page, jump to the list — carrying the query so the
+          // destination URL is shareable straight away.
+          if (!onList) {
+            const trimmed = query.trim();
+            router.push(
+              trimmed
+                ? `/recipes?q=${encodeURIComponent(trimmed)}`
+                : "/recipes",
+            );
+          }
         }}
         className="flex items-center gap-2 rounded-full border-[1.5px] border-foreground/80 bg-card px-4 py-2 transition-colors focus-within:border-[var(--terracotta)]"
       >
