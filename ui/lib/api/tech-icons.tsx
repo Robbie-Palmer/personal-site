@@ -4,6 +4,7 @@ import * as SimpleIcons from "simple-icons";
 // Custom SVG icons available in /public/tech-icons/
 const customIcons = new Set([
   "aws",
+  "codex",
   "java",
   "stanford",
   "neo4j",
@@ -12,6 +13,8 @@ const customIcons = new Set([
   "scikit-image",
   "weaviate",
   "openrouter",
+  "openai",
+  "neon",
   "claudecode",
   "shiki",
   "embla-carousel",
