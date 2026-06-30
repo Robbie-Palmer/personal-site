@@ -223,6 +223,7 @@ export const technologies: TechnologyContent[] = [
     added: "2026-06-30",
     description: "SVG logo library for brands and technologies",
     website: "https://svgl.app",
+    iconSlug: "svgl",
     type: "library",
   },
   {
