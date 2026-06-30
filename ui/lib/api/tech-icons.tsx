@@ -16,6 +16,7 @@ const customIcons = new Set([
   "openai",
   "neon",
   "claudecode",
+  "svgl",
   "shiki",
   "embla-carousel",
   "fusejs",
