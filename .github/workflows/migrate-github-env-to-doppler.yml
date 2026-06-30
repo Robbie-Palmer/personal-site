@@ -1,0 +1,221 @@
+name: Migrate GitHub Environment Secrets to Doppler
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_environment:
+        description: Existing GitHub environment to read from
+        required: true
+        type: choice
+        options:
+          - cloudflare-preview
+          - cloudflare-production
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.source_environment }}
+    env:
+      # Migration Doppler tokens. Create short-lived read/write service tokens
+      # for the target configs and store them on the source GitHub environment.
+      DOPPLER_TOKEN_STG_RECIPE_API: ${{ secrets.DOPPLER_TOKEN_STG_RECIPE_API }}
+      DOPPLER_TOKEN_STG_PAGES_ENV: ${{ secrets.DOPPLER_TOKEN_STG_PAGES_ENV }}
+      DOPPLER_TOKEN_STG_SITE_UI: ${{ secrets.DOPPLER_TOKEN_STG_SITE_UI }}
+      DOPPLER_TOKEN_PRD_RECIPE_API: ${{ secrets.DOPPLER_TOKEN_PRD_RECIPE_API }}
+      DOPPLER_TOKEN_PRD_PAGES_ENV: ${{ secrets.DOPPLER_TOKEN_PRD_PAGES_ENV }}
+      DOPPLER_TOKEN_PRD_SITE_UI: ${{ secrets.DOPPLER_TOKEN_PRD_SITE_UI }}
+      DOPPLER_TOKEN_PRD_INFRA: ${{ secrets.DOPPLER_TOKEN_PRD_INFRA }}
+      DOPPLER_TOKEN_PRD_CI_REPO: ${{ secrets.DOPPLER_TOKEN_PRD_CI_REPO }}
+
+      # Preview environment secrets and variables.
+      PREVIEW_CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      PREVIEW_CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PREVIEW_CF_IMAGES_ACCOUNT_HASH: ${{ secrets.CF_IMAGES_ACCOUNT_HASH }}
+      PREVIEW_NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      PREVIEW_AUTH_SEED: ${{ secrets.PREVIEW_AUTH_SEED }}
+      PREVIEW_CLOUDFLARE_PAGES_HOST: ${{ vars.CLOUDFLARE_PAGES_HOST }}
+      PREVIEW_CF_ACCESS_TEAM_DOMAIN: ${{ vars.CF_ACCESS_TEAM_DOMAIN }}
+      PREVIEW_CF_ACCESS_AUD: ${{ vars.CF_ACCESS_AUD }}
+      PREVIEW_NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+
+      # Production environment secrets and variables.
+      PRD_BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+      PRD_CF_IMAGES_ACCOUNT_HASH: ${{ secrets.CF_IMAGES_ACCOUNT_HASH }}
+      PRD_CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PRD_CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      PRD_GCP_OAUTH_CLIENT_ID: ${{ secrets.GCP_OAUTH_CLIENT_ID }}
+      PRD_GCP_OAUTH_CLIENT_SECRET: ${{ secrets.GCP_OAUTH_CLIENT_SECRET }}
+      PRD_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      PRD_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      PRD_MISE_GITHUB_TOKEN: ${{ secrets.MISE_GITHUB_TOKEN }}
+      PRD_NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      PRD_NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      PRD_NEON_ORG_ID: ${{ secrets.NEON_ORG_ID }}
+      PRD_OAUTH_CLIENT_ID_GITHUB: ${{ secrets.OAUTH_CLIENT_ID_GITHUB }}
+      PRD_OAUTH_CLIENT_SECRET_GITHUB: ${{ secrets.OAUTH_CLIENT_SECRET_GITHUB }}
+      PRD_OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      PRD_POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+      PRD_POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
+      PRD_POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+      PRD_POSTHOG_PROJECT_ID: ${{ secrets.POSTHOG_PROJECT_ID }}
+      PRD_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      PRD_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      PRD_TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
+      PRD_POSTHOG_IAC_ENABLED: ${{ vars.POSTHOG_IAC_ENABLED || 'false' }}
+    steps:
+      - name: Install Doppler CLI
+        run: |
+          curl -Ls https://cli.doppler.com/install.sh | sudo sh
+
+      - name: Upload preview environment to Doppler
+        if: inputs.source_environment == 'cloudflare-preview'
+        run: |
+          set -euo pipefail
+          : "${DOPPLER_TOKEN_STG_RECIPE_API:?DOPPLER_TOKEN_STG_RECIPE_API is required}"
+          : "${DOPPLER_TOKEN_STG_PAGES_ENV:?DOPPLER_TOKEN_STG_PAGES_ENV is required}"
+          : "${DOPPLER_TOKEN_STG_SITE_UI:?DOPPLER_TOKEN_STG_SITE_UI is required}"
+
+          recipe_file="$(mktemp)"
+          pages_env_file="$(mktemp)"
+          site_ui_file="$(mktemp)"
+
+          jq -n \
+            --arg cloudflare_api_token "$PREVIEW_CLOUDFLARE_API_TOKEN" \
+            --arg cloudflare_account_id "$PREVIEW_CLOUDFLARE_ACCOUNT_ID" \
+            --arg neon_api_key "$PREVIEW_NEON_API_KEY" \
+            --arg preview_auth_seed "$PREVIEW_AUTH_SEED" \
+            --arg cloudflare_pages_host "$PREVIEW_CLOUDFLARE_PAGES_HOST" \
+            --arg cf_access_team_domain "$PREVIEW_CF_ACCESS_TEAM_DOMAIN" \
+            --arg cf_access_aud "$PREVIEW_CF_ACCESS_AUD" \
+            --arg neon_project_id "$PREVIEW_NEON_PROJECT_ID" \
+            '{
+              CLOUDFLARE_API_TOKEN: $cloudflare_api_token,
+              CLOUDFLARE_ACCOUNT_ID: $cloudflare_account_id,
+              NEON_API_KEY: $neon_api_key,
+              PREVIEW_AUTH_SEED: $preview_auth_seed,
+              CLOUDFLARE_PAGES_HOST: $cloudflare_pages_host,
+              CF_ACCESS_TEAM_DOMAIN: $cf_access_team_domain,
+              CF_ACCESS_AUD: $cf_access_aud,
+              NEON_PROJECT_ID: $neon_project_id
+            } | with_entries(select(.value != ""))' > "$recipe_file"
+
+          jq -n \
+            --arg cf_images_account_hash "$PREVIEW_CF_IMAGES_ACCOUNT_HASH" \
+            --arg cloudflare_pages_host "$PREVIEW_CLOUDFLARE_PAGES_HOST" \
+            '{
+              CF_IMAGES_ACCOUNT_HASH: $cf_images_account_hash,
+              NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: $cf_images_account_hash,
+              CLOUDFLARE_PAGES_HOST: $cloudflare_pages_host,
+              CF_PAGES_HOST: $cloudflare_pages_host
+            } | with_entries(select(.value != ""))' > "$pages_env_file"
+
+          jq -n \
+            --arg cloudflare_api_token "$PREVIEW_CLOUDFLARE_API_TOKEN" \
+            --arg cloudflare_account_id "$PREVIEW_CLOUDFLARE_ACCOUNT_ID" \
+            '{
+              CLOUDFLARE_API_TOKEN: $cloudflare_api_token,
+              CLOUDFLARE_ACCOUNT_ID: $cloudflare_account_id
+            } | with_entries(select(.value != ""))' > "$site_ui_file"
+
+          DOPPLER_TOKEN="$DOPPLER_TOKEN_STG_RECIPE_API" doppler --silent secrets upload "$recipe_file" --project personal-site --config stg_recipe_api
+          DOPPLER_TOKEN="$DOPPLER_TOKEN_STG_PAGES_ENV" doppler --silent secrets upload "$pages_env_file" --project personal-site --config stg_pages_env
+          DOPPLER_TOKEN="$DOPPLER_TOKEN_STG_SITE_UI" doppler --silent secrets upload "$site_ui_file" --project personal-site --config stg_site_ui
+
+      - name: Upload production environment to Doppler
+        if: inputs.source_environment == 'cloudflare-production'
+        run: |
+          set -euo pipefail
+          : "${DOPPLER_TOKEN_PRD_RECIPE_API:?DOPPLER_TOKEN_PRD_RECIPE_API is required}"
+          : "${DOPPLER_TOKEN_PRD_PAGES_ENV:?DOPPLER_TOKEN_PRD_PAGES_ENV is required}"
+          : "${DOPPLER_TOKEN_PRD_SITE_UI:?DOPPLER_TOKEN_PRD_SITE_UI is required}"
+          : "${DOPPLER_TOKEN_PRD_INFRA:?DOPPLER_TOKEN_PRD_INFRA is required}"
+          : "${DOPPLER_TOKEN_PRD_CI_REPO:?DOPPLER_TOKEN_PRD_CI_REPO is required}"
+
+          recipe_file="$(mktemp)"
+          pages_env_file="$(mktemp)"
+          site_ui_file="$(mktemp)"
+          infra_file="$(mktemp)"
+          ci_file="$(mktemp)"
+
+          jq -n \
+            --arg better_auth_secret "$PRD_BETTER_AUTH_SECRET" \
+            --arg database_url "$PRD_NEON_DATABASE_URL" \
+            --arg google_client_id "${PRD_GOOGLE_CLIENT_ID:-$PRD_GCP_OAUTH_CLIENT_ID}" \
+            --arg google_client_secret "${PRD_GOOGLE_CLIENT_SECRET:-$PRD_GCP_OAUTH_CLIENT_SECRET}" \
+            --arg github_client_id "$PRD_OAUTH_CLIENT_ID_GITHUB" \
+            --arg github_client_secret "$PRD_OAUTH_CLIENT_SECRET_GITHUB" \
+            '{
+              BETTER_AUTH_SECRET: $better_auth_secret,
+              NEON_DATABASE_URL: $database_url,
+              GOOGLE_CLIENT_ID: $google_client_id,
+              GOOGLE_CLIENT_SECRET: $google_client_secret,
+              OAUTH_CLIENT_ID_GITHUB: $github_client_id,
+              OAUTH_CLIENT_SECRET_GITHUB: $github_client_secret
+            } | with_entries(select(.value != ""))' > "$recipe_file"
+
+          jq -n \
+            --arg cf_images_account_hash "$PRD_CF_IMAGES_ACCOUNT_HASH" \
+            --arg posthog_key "$PRD_POSTHOG_KEY" \
+            --arg posthog_host "$PRD_POSTHOG_HOST" \
+            '{
+              CF_IMAGES_ACCOUNT_HASH: $cf_images_account_hash,
+              NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: $cf_images_account_hash,
+              POSTHOG_KEY: $posthog_key,
+              NEXT_PUBLIC_POSTHOG_KEY: $posthog_key,
+              POSTHOG_HOST: $posthog_host,
+              NEXT_PUBLIC_POSTHOG_HOST: $posthog_host
+            } | with_entries(select(.value != ""))' > "$pages_env_file"
+
+          jq -n \
+            --arg cloudflare_api_token "$PRD_CLOUDFLARE_API_TOKEN" \
+            --arg cloudflare_account_id "$PRD_CLOUDFLARE_ACCOUNT_ID" \
+            '{
+              CLOUDFLARE_API_TOKEN: $cloudflare_api_token,
+              CLOUDFLARE_ACCOUNT_ID: $cloudflare_account_id
+            } | with_entries(select(.value != ""))' > "$site_ui_file"
+
+          jq -n \
+            --arg cloudflare_api_token "$PRD_CLOUDFLARE_API_TOKEN" \
+            --arg cloudflare_account_id "$PRD_CLOUDFLARE_ACCOUNT_ID" \
+            --arg cf_images_account_hash "$PRD_CF_IMAGES_ACCOUNT_HASH" \
+            --arg posthog_key "$PRD_POSTHOG_KEY" \
+            --arg mise_github_token "$PRD_MISE_GITHUB_TOKEN" \
+            --arg neon_api_key "$PRD_NEON_API_KEY" \
+            --arg neon_org_id "$PRD_NEON_ORG_ID" \
+            --arg posthog_api_key "$PRD_POSTHOG_PERSONAL_API_KEY" \
+            --arg posthog_project_id "$PRD_POSTHOG_PROJECT_ID" \
+            --arg posthog_iac_enabled "$PRD_POSTHOG_IAC_ENABLED" \
+            --arg tf_api_token "$PRD_TF_API_TOKEN" \
+            '{
+              CLOUDFLARE_API_TOKEN: $cloudflare_api_token,
+              CLOUDFLARE_ACCOUNT_ID: $cloudflare_account_id,
+              CF_IMAGES_ACCOUNT_HASH: $cf_images_account_hash,
+              POSTHOG_KEY: $posthog_key,
+              MISE_GITHUB_TOKEN: $mise_github_token,
+              NEON_API_KEY: $neon_api_key,
+              NEON_ORG_ID: $neon_org_id,
+              POSTHOG_PERSONAL_API_KEY: $posthog_api_key,
+              POSTHOG_PROJECT_ID: $posthog_project_id,
+              POSTHOG_IAC_ENABLED: $posthog_iac_enabled,
+              TF_API_TOKEN: $tf_api_token
+            } | with_entries(select(.value != ""))' > "$infra_file"
+
+          jq -n \
+            --arg openrouter_api_key "$PRD_OPENROUTER_API_KEY" \
+            --arg r2_access_key_id "$PRD_R2_ACCESS_KEY_ID" \
+            --arg r2_secret_access_key "$PRD_R2_SECRET_ACCESS_KEY" \
+            '{
+              OPENROUTER_API_KEY: $openrouter_api_key,
+              R2_ACCESS_KEY_ID: $r2_access_key_id,
+              R2_SECRET_ACCESS_KEY: $r2_secret_access_key
+            } | with_entries(select(.value != ""))' > "$ci_file"
+
+          DOPPLER_TOKEN="$DOPPLER_TOKEN_PRD_RECIPE_API" doppler --silent secrets upload "$recipe_file" --project personal-site --config prd_recipe_api
+          DOPPLER_TOKEN="$DOPPLER_TOKEN_PRD_PAGES_ENV" doppler --silent secrets upload "$pages_env_file" --project personal-site --config prd_pages_env
+          DOPPLER_TOKEN="$DOPPLER_TOKEN_PRD_SITE_UI" doppler --silent secrets upload "$site_ui_file" --project personal-site --config prd_site_ui
+          DOPPLER_TOKEN="$DOPPLER_TOKEN_PRD_INFRA" doppler --silent secrets upload "$infra_file" --project personal-site --config prd_infra
+          DOPPLER_TOKEN="$DOPPLER_TOKEN_PRD_CI_REPO" doppler --silent secrets upload "$ci_file" --project personal-site --config prd_ci_repo
