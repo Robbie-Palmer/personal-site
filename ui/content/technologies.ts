@@ -211,6 +211,21 @@ export const technologies: TechnologyContent[] = [
     type: "library",
   },
   {
+    name: "Simple Icons",
+    added: "2026-06-30",
+    description: "SVG icons for popular brands",
+    website: "https://simpleicons.org",
+    iconSlug: "simpleicons",
+    type: "library",
+  },
+  {
+    name: "SVGL",
+    added: "2026-06-30",
+    description: "SVG logo library for brands and technologies",
+    website: "https://svgl.app",
+    type: "library",
+  },
+  {
     name: "Renovate",
     added: "2026-01-04",
     description: "Automated dependency updates",
