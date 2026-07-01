@@ -4,5 +4,12 @@ compatibility_date = "2026-05-28"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
+[secrets]
+required = [
+  "DATABASE_URL",
+  "BETTER_AUTH_SECRET",
+  "PREVIEW_AUTH_PASSWORD",
+]
+
 # Preview deployments intentionally have no Hyperdrive binding. The workflow
 # injects the isolated Neon branch's pooled DATABASE_URL as a Worker secret.

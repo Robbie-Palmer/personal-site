@@ -20,7 +20,6 @@ actionlint = "1.7.12"
 zizmor = "1.26.1"
 
 [env]
-_.file = ".env"
 MISE_EXPERIMENTAL = "1"
 
 # Root-level tasks for repo-wide tooling
@@ -103,6 +102,24 @@ run = """
 #!/usr/bin/env bash
 set -e
 
+if [ "${PERSONAL_SITE_DOPPLER_WRAPPED:-}" != "1" ]; then
+  if ! command -v doppler >/dev/null 2>&1; then
+    echo "Cannot start local development: doppler is required."
+    echo "Install the Doppler CLI, then run 'mise run //:dev' again."
+    exit 1
+  fi
+
+  export PERSONAL_SITE_DOPPLER_WRAPPED=1
+  exec doppler run \
+    --project "${DOPPLER_PROJECT:-personal-site}" \
+    --config "${DOPPLER_PAGES_ENV_CONFIG:-dev_pages_env}" \
+    -- doppler run \
+      --project "${DOPPLER_PROJECT:-personal-site}" \
+      --config "${DOPPLER_RECIPE_API_CONFIG:-dev_recipe_api}" \
+      --preserve-env=NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH,CF_IMAGES_ACCOUNT_HASH,POSTHOG_HOST,RECIPE_API_URL,RECIPE_API_PREVIEW_ORIGIN_TEMPLATE \
+      -- "$0" "$@"
+fi
+
 if ! command -v lsof >/dev/null 2>&1; then
   echo "Cannot start local development: lsof is required."
   echo "Install it with your package manager, then run 'mise run //:dev' again."
@@ -127,14 +144,10 @@ check_port 8787 "recipe-api Worker"
 check_port 3000 "Next.js"
 
 # Wrangler needs this env var to emulate the Hyperdrive binding locally.
-# Read DATABASE_URL from the Worker's .dev.vars if not already set.
+# Read DATABASE_URL from Doppler if not already set.
 if [ -z "$CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE" ]; then
-  DB_URL=""
-  if [ -f workers/recipe-api/.dev.vars ]; then
-    DB_URL=$(grep '^DATABASE_URL=' workers/recipe-api/.dev.vars | cut -d'=' -f2-)
-  fi
-  if [ -n "$DB_URL" ]; then
-    export CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="$DB_URL"
+  if [ -n "${DATABASE_URL:-}" ]; then
+    export CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="$DATABASE_URL"
   fi
 fi
 

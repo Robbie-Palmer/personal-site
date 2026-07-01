@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --var BETTER_AUTH_URL:http://localhost:3000",
+    "dev": "bash scripts/dev.sh",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit && tsc --project tsconfig.scripts.json",
     "test": "vitest run",
