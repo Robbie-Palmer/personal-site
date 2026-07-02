@@ -17,26 +17,57 @@ contains_name() {
   grep -Fxq -- "$needle" <<<"$names"
 }
 
-sync_env() {
+load_config_entries() {
   local doppler_config="$1"
-  local github_env="$2"
   local secrets_json
-  local entries_json
-  local existing_secrets_json
-  local existing_vars_json
-
-  echo "Syncing Doppler config '$doppler_config' to GitHub environment '$github_env'"
 
   secrets_json=$(doppler secrets --project "$project" --config "$doppler_config" --json)
-  entries_json=$(jq -c '
+  jq -c --arg source "$doppler_config" '
     to_entries
     | map(select(.key | startswith("DOPPLER_") | not))
     | map({
         name: .key,
         value: .value.computed,
-        visibility: .value.computedVisibility
+        visibility: .value.computedVisibility,
+        source: $source
       })
-  ' <<<"$secrets_json")
+  ' <<<"$secrets_json"
+}
+
+sync_env() {
+  local github_env="$1"
+  shift
+
+  local entries_json="[]"
+  local config_entries_json
+  local existing_secrets_json
+  local existing_vars_json
+  local doppler_config
+
+  echo "Syncing Doppler configs '$*' to GitHub environment '$github_env'"
+
+  for doppler_config in "$@"; do
+    config_entries_json=$(load_config_entries "$doppler_config")
+    entries_json=$(jq -c -s '.[0] + .[1]' \
+      <(printf '%s\n' "$entries_json") \
+      <(printf '%s\n' "$config_entries_json"))
+  done
+
+  local duplicate_names
+  duplicate_names=$(jq -r '
+    group_by(.name)
+    | map(select(length > 1))
+    | .[]
+    | select((map(.value) | unique | length) > 1 or (map(.visibility) | unique | length) > 1)
+    | map(.source + ":" + .name)
+    | join(", ")
+  ' <<<"$entries_json")
+  if [ -n "$duplicate_names" ]; then
+    echo "Refusing to sync duplicate keys with different values or visibility: $duplicate_names" >&2
+    exit 1
+  fi
+
+  entries_json=$(jq -c 'unique_by(.name)' <<<"$entries_json")
 
   desired_secrets=$(jq -r '.[] | select(.visibility != "unmasked") | .name' <<<"$entries_json")
   desired_vars=$(jq -r '.[] | select(.visibility == "unmasked") | .name' <<<"$entries_json")
@@ -86,11 +117,11 @@ require_command doppler
 require_command gh
 require_command jq
 
-sync_env stg_recipe_api preview-recipe-api
-sync_env stg_site_ui preview-site-ui
-sync_env prd_recipe_api production-recipe-api
-sync_env prd_site_ui production-site-ui
-sync_env prd_infra production-infra
-sync_env prd_ci_repo production-ci
+sync_env preview-recipe-api stg_recipe_api
+sync_env preview-site-ui stg_site_ui stg_pages_env
+sync_env production-recipe-api prd_recipe_api prd_site_ui
+sync_env production-site-ui prd_site_ui prd_pages_env
+sync_env production-infra prd_infra
+sync_env production-ci prd_ci_repo
 
 echo "Manual Doppler to GitHub environment sync complete."

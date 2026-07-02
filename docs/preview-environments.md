@@ -103,6 +103,8 @@ Create GitHub environments named `preview-recipe-api` and `preview-site-ui`.
 Populate them from Doppler by running `scripts/sync-doppler-github-envs.sh`;
 do not use the Doppler GitHub sync integration on the free plan.
 
+`preview-recipe-api` receives values from `stg_recipe_api`.
+
 `preview-recipe-api` receives these environment secrets:
 
 | Secret | Purpose |
@@ -126,6 +128,8 @@ openssl rand -base64 48
 | `CLOUDFLARE_PAGES_HOST` | `personal-site-bu5.pages.dev` |
 | `CF_ACCESS_TEAM_DOMAIN` | `https://your-team.cloudflareaccess.com` |
 | `CF_ACCESS_AUD` | Audience tag from the Pages preview Access application |
+
+`preview-site-ui` receives values from `stg_site_ui` and `stg_pages_env`.
 
 `preview-site-ui` receives these environment secrets:
 

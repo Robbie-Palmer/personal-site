@@ -31,10 +31,12 @@ Configs are split by environment and runtime/control boundary:
 | `dev_pages_env` | Shared local Cloudflare Pages env vars | None |
 | `dev_recipe_api` | Local recipe Worker/API/DB/OAuth config | None |
 | `dev_infra` | Local Terraform/provider credentials | None |
-| `stg_site_ui` | PR preview UI build/deploy config | `preview-site-ui` |
+| `stg_pages_env` | Shared PR preview Cloudflare Pages env vars | `preview-site-ui` |
+| `stg_site_ui` | PR preview UI deploy credentials | `preview-site-ui` |
 | `stg_recipe_api` | PR preview Worker/API automation config | `preview-recipe-api` |
-| `prd_site_ui` | Production UI build/deploy config | `production-site-ui` |
-| `prd_recipe_api` | Production Worker/API/DB/OAuth/deploy config | `production-recipe-api` |
+| `prd_pages_env` | Shared production Cloudflare Pages env vars | `production-site-ui` |
+| `prd_site_ui` | Production UI deploy credentials | `production-site-ui`, `production-recipe-api` |
+| `prd_recipe_api` | Production Worker/API/DB/OAuth config | `production-recipe-api` |
 | `prd_infra` | Production Terraform/provider credentials | `production-infra` |
 | `prd_ci_repo` | Repo-wide sensitive CI like AI review and DVC | `production-ci` |
 
@@ -158,12 +160,12 @@ receive UI deploy credentials:
 
 The GitHub environments are runtime/job boundaries, not provider names:
 
-| GitHub environment | Doppler config | Used by |
+| GitHub environment | Doppler configs | Used by |
 | --- | --- | --- |
 | `preview-recipe-api` | `stg_recipe_api` | PR preview Worker/database jobs and preview cleanup |
-| `preview-site-ui` | `stg_site_ui` | PR preview Pages build/deploy and preview comment |
-| `production-recipe-api` | `prd_recipe_api` | Production recipe API deploy |
-| `production-site-ui` | `prd_site_ui` | Production UI CI/CD and Cloudflare Images health check |
+| `preview-site-ui` | `stg_site_ui`, `stg_pages_env` | PR preview Pages build/deploy and preview comment |
+| `production-recipe-api` | `prd_recipe_api`, `prd_site_ui` | Production recipe API deploy |
+| `production-site-ui` | `prd_site_ui`, `prd_pages_env` | Production UI CI/CD and Cloudflare Images health check |
 | `production-infra` | `prd_infra` | Terraform CI/CD |
 | `production-ci` | `prd_ci_repo` | AI review and ML pipeline CI |
 
@@ -188,11 +190,8 @@ are legacy catch-alls and should not be used for new workflow jobs.
 - `CF_ACCESS_AUD`
 - `NEON_PROJECT_ID`
 
-`stg_site_ui` should own preview UI deploy credentials and the public build
-config needed by the preview frontend job:
+`stg_pages_env` should own preview UI build/runtime config:
 
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_ACCOUNT_ID`
 - `CF_IMAGES_ACCOUNT_HASH`
 - `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH`
 - `CLOUDFLARE_PAGES_HOST`
@@ -202,6 +201,11 @@ config needed by the preview frontend job:
 - `POSTHOG_KEY` / `NEXT_PUBLIC_POSTHOG_KEY` if preview analytics are enabled
 - `POSTHOG_HOST` / `NEXT_PUBLIC_POSTHOG_HOST` if preview analytics are enabled
 
+`stg_site_ui` should own preview UI deploy credentials:
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
 The preview workflow derives per-PR `BETTER_AUTH_SECRET`,
 `PREVIEW_AUTH_PASSWORD`, and `DATABASE_URL`, then uploads those to the isolated
 preview Worker with `--secrets-file`.
@@ -210,8 +214,6 @@ preview Worker with `--secrets-file`.
 
 `prd_recipe_api` should own:
 
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_ACCOUNT_ID`
 - `BETTER_AUTH_SECRET`
 - `NEON_DATABASE_URL`
 - `GOOGLE_CLIENT_ID`
@@ -219,11 +221,8 @@ preview Worker with `--secrets-file`.
 - `OAUTH_CLIENT_ID_GITHUB`
 - `OAUTH_CLIENT_SECRET_GITHUB`
 
-`prd_site_ui` should own production UI deploy credentials and the public build
-config needed by production UI jobs:
+`prd_pages_env` should own production UI build/runtime config:
 
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_ACCOUNT_ID`
 - `CF_IMAGES_ACCOUNT_HASH`
 - `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH`
 - `POSTHOG_KEY`
@@ -233,6 +232,11 @@ config needed by production UI jobs:
 - `RECIPE_API_URL`
 - `RECIPE_API_PREVIEW_ORIGIN_TEMPLATE`
 - `CF_PAGES_HOST`
+
+`prd_site_ui` should own production UI deploy credentials:
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
 
 `prd_infra` should own:
 
