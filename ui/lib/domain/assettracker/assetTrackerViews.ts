@@ -75,6 +75,43 @@ export type NetWorthDataPoint = {
   [accountName: string]: string | number;
 };
 
+export type EquitySummary = {
+  propertyName: string;
+  value: number;
+};
+
+/**
+ * Home equity from the account's perspective: for a property, its value plus
+ * the (negative) balances of open mortgages secured on it; for a mortgage,
+ * the linked property's value plus this balance. Null when nothing is linked.
+ */
+export function computeEquitySummary(
+  account: AccountDetailView,
+  allAccounts: AccountDetailView[],
+): EquitySummary | null {
+  if (account.assetType === "property") {
+    const mortgages = allAccounts.filter(
+      (a) => a.linkedAccountId === account.id && a.isOpen,
+    );
+    if (mortgages.length === 0) return null;
+    const mortgageTotal = mortgages.reduce(
+      (sum, mortgage) => sum + (mortgage.latestBalance ?? 0),
+      0,
+    );
+    return {
+      propertyName: account.name,
+      value: (account.latestBalance ?? 0) + mortgageTotal,
+    };
+  }
+  if (account.linkedAccountId == null) return null;
+  const property = allAccounts.find((a) => a.id === account.linkedAccountId);
+  if (!property) return null;
+  return {
+    propertyName: property.name,
+    value: (property.latestBalance ?? 0) + (account.latestBalance ?? 0),
+  };
+}
+
 /** Recorded transfers as signed flows from the account's perspective */
 function toExternalFlows(
   accountId: string,

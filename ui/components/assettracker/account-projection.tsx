@@ -99,19 +99,40 @@ export function AccountProjection({
 
   const targetAmount = target === "" ? null : Number(target);
   const hasTarget = targetAmount != null && Number.isFinite(targetAmount);
-  // If the current balance already meets the target, report when it was hit
-  // from the recorded history; otherwise project a future date
-  const targetReachedDate = hasTarget
-    ? dateTargetReached(account.snapshots, targetAmount)
-    : null;
-  const targetDate =
-    hasTarget && targetReachedDate == null
-      ? projectedDateForTarget(projection, targetAmount)
-      : null;
 
-  const paidOffOnDate = isLiabilityBalance
-    ? dateTargetReached(account.snapshots, 0)
-    : null;
+  let targetMessage: string | null = null;
+  if (hasTarget) {
+    const formattedTarget = formatAccountCurrency(
+      targetAmount,
+      account.currency,
+    );
+    // If the current balance already meets the target, report when it was hit
+    // from the recorded history; otherwise project a future date
+    const reachedOn = dateTargetReached(account.snapshots, targetAmount);
+    const projectedBy =
+      reachedOn == null
+        ? projectedDateForTarget(projection, targetAmount)
+        : null;
+    if (reachedOn) {
+      targetMessage = `Already at ${formattedTarget} — reached on ${reachedOn}.`;
+    } else if (projectedBy) {
+      targetMessage = `Projected to reach ${formattedTarget} by ${projectedBy}.`;
+    } else {
+      targetMessage = `Not projected to reach ${formattedTarget} within ${horizonYears} years.`;
+    }
+  }
+
+  let payoffMessage: string | null = null;
+  if (isLiabilityBalance) {
+    const paidOffOn = dateTargetReached(account.snapshots, 0);
+    if (paidOffOn) {
+      payoffMessage = `Paid off on ${paidOffOn}.`;
+    } else if (payoffDate) {
+      payoffMessage = `Projected to be paid off by ${payoffDate}.`;
+    } else {
+      payoffMessage = `Not projected to be paid off within ${PAYOFF_SEARCH_MONTHS / 12} years.`;
+    }
+  }
 
   return (
     <div>
@@ -180,15 +201,7 @@ export function AccountProjection({
           </LineChart>
         </ResponsiveContainer>
       </ChartContainer>
-      {isLiabilityBalance && (
-        <p className="mt-2 text-sm">
-          {paidOffOnDate
-            ? `Paid off on ${paidOffOnDate}.`
-            : payoffDate
-              ? `Projected to be paid off by ${payoffDate}.`
-              : `Not projected to be paid off within ${PAYOFF_SEARCH_MONTHS / 12} years.`}
-        </p>
-      )}
+      {payoffMessage && <p className="mt-2 text-sm">{payoffMessage}</p>}
       <div className="mt-3 flex items-center gap-2">
         <label
           htmlFor={`projection-target-${account.id}`}
@@ -207,15 +220,7 @@ export function AccountProjection({
           onChange={(e) => setTarget(e.target.value)}
         />
       </div>
-      {targetAmount != null && Number.isFinite(targetAmount) && (
-        <p className="mt-2 text-sm">
-          {targetReachedDate
-            ? `Already at ${formatAccountCurrency(targetAmount, account.currency)} — reached on ${targetReachedDate}.`
-            : targetDate
-              ? `Projected to reach ${formatAccountCurrency(targetAmount, account.currency)} by ${targetDate}.`
-              : `Not projected to reach ${formatAccountCurrency(targetAmount, account.currency)} within ${horizonYears} years.`}
-        </p>
-      )}
+      {targetMessage && <p className="mt-2 text-sm">{targetMessage}</p>}
     </div>
   );
 }

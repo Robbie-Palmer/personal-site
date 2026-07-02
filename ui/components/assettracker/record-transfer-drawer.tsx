@@ -64,7 +64,10 @@ export function RecordTransferDrawer({
     const valid = (id: string) =>
       id === EXTERNAL || openAccounts.some((a) => a.id === id);
     if (lockedFrom) {
-      setFromId(fromAccountId ?? EXTERNAL);
+      // The locked account can vanish mid-session (import/reset/close);
+      // fall back to external rather than transferring from a ghost ID
+      const lockedIsValid = fromAccountId != null && valid(fromAccountId);
+      setFromId(lockedIsValid ? fromAccountId : EXTERNAL);
     } else {
       setFromId((current) => (valid(current) ? current : EXTERNAL));
     }
@@ -105,8 +108,8 @@ export function RecordTransferDrawer({
       <DrawerContent>
         <DrawerHeader className="mx-auto w-full max-w-md">
           <DrawerTitle>
-            {lockedFrom
-              ? `Transfer from ${sourceAccount?.name}`
+            {lockedFrom && sourceAccount
+              ? `Transfer from ${sourceAccount.name}`
               : "Record a transfer"}
           </DrawerTitle>
           <DrawerDescription>
@@ -123,9 +126,9 @@ export function RecordTransferDrawer({
               <label htmlFor="transfer-from" className="text-sm font-medium">
                 From
               </label>
-              {lockedFrom ? (
+              {lockedFrom && sourceAccount ? (
                 <p className="flex h-9 items-center text-sm font-medium">
-                  {sourceAccount?.name}
+                  {sourceAccount.name}
                 </p>
               ) : (
                 <Select value={fromId} onValueChange={setFromId}>

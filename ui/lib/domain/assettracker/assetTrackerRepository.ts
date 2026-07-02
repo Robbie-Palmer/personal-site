@@ -31,54 +31,79 @@ export function getSeedData(): AssetTrackerData {
   });
 }
 
-export function buildRepository(
-  data: AssetTrackerData,
-): AssetTrackerRepository {
-  const accounts = new Map<AccountId, Account>();
-  for (const account of data.accounts) {
-    const existing = accounts.get(account.id);
+function indexAccounts(accounts: Account[]): Map<AccountId, Account> {
+  const byId = new Map<AccountId, Account>();
+  for (const account of accounts) {
+    const existing = byId.get(account.id);
     if (existing) {
       throw new Error(
         `Duplicate account ID "${account.id}": "${existing.name}" and "${account.name}" both use the same ID`,
       );
     }
-    accounts.set(account.id, account);
+    byId.set(account.id, account);
   }
+  return byId;
+}
+
+function assertKnownAccount(
+  accounts: Map<AccountId, Account>,
+  accountId: AccountId | undefined,
+  referrer: string,
+): void {
+  if (accountId != null && !accounts.has(accountId)) {
+    throw new Error(`${referrer} references unknown account "${accountId}"`);
+  }
+}
+
+function validateReferences(
+  data: AssetTrackerData,
+  accounts: Map<AccountId, Account>,
+): void {
   for (const account of data.accounts) {
-    if (
-      account.linkedAccountId != null &&
-      !accounts.has(account.linkedAccountId)
-    ) {
-      throw new Error(
-        `Account "${account.id}" links to unknown account "${account.linkedAccountId}"`,
-      );
-    }
+    assertKnownAccount(
+      accounts,
+      account.linkedAccountId,
+      `Account "${account.id}"`,
+    );
   }
   for (const snapshot of data.snapshots) {
-    if (!accounts.has(snapshot.accountId)) {
-      throw new Error(
-        `Snapshot references unknown account "${snapshot.accountId}" on date ${snapshot.date}`,
-      );
-    }
+    assertKnownAccount(
+      accounts,
+      snapshot.accountId,
+      `Snapshot on date ${snapshot.date}`,
+    );
   }
   for (const transfer of data.transfers) {
-    for (const accountId of [transfer.fromAccountId, transfer.toAccountId]) {
-      if (accountId != null && !accounts.has(accountId)) {
-        throw new Error(
-          `Transfer "${transfer.id}" references unknown account "${accountId}"`,
-        );
-      }
-    }
+    assertKnownAccount(
+      accounts,
+      transfer.fromAccountId,
+      `Transfer "${transfer.id}"`,
+    );
+    assertKnownAccount(
+      accounts,
+      transfer.toAccountId,
+      `Transfer "${transfer.id}"`,
+    );
   }
   for (const flow of data.recurringFlows) {
-    for (const accountId of [flow.fromAccountId, flow.toAccountId]) {
-      if (accountId != null && !accounts.has(accountId)) {
-        throw new Error(
-          `Recurring flow "${flow.name}" references unknown account "${accountId}"`,
-        );
-      }
-    }
+    assertKnownAccount(
+      accounts,
+      flow.fromAccountId,
+      `Recurring flow "${flow.name}"`,
+    );
+    assertKnownAccount(
+      accounts,
+      flow.toAccountId,
+      `Recurring flow "${flow.name}"`,
+    );
   }
+}
+
+export function buildRepository(
+  data: AssetTrackerData,
+): AssetTrackerRepository {
+  const accounts = indexAccounts(data.accounts);
+  validateReferences(data, accounts);
   const snapshots = [...data.snapshots].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
   );
