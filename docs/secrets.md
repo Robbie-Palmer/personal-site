@@ -160,21 +160,24 @@ receive UI deploy credentials:
 
 ## GitHub Environments
 
-The current GitHub environments are:
+The GitHub environments are runtime/job boundaries, not provider names:
 
-- `cloudflare-preview`
-- `cloudflare-production`
+| GitHub environment | Doppler config | Used by |
+| --- | --- | --- |
+| `preview-recipe-api` | `stg_recipe_api` | PR preview Worker/database jobs and preview cleanup |
+| `preview-site-ui` | `stg_site_ui` | PR preview Pages build/deploy and preview comment |
+| `production-recipe-api` | `prd_recipe_api` | Production recipe API deploy |
+| `production-site-ui` | `prd_site_ui` | Production UI CI/CD and Cloudflare Images health check |
+| `production-infra` | `prd_infra` | Terraform CI/CD |
+| `production-ci` | `prd_ci_repo` | AI review and ML pipeline CI |
 
-Those names are historical and provider-centric. The cleaner target is either:
+Configure each Doppler GitHub Actions sync with **Sync unmasked secrets as
+variables** enabled. Workflows read public config such as PostHog host/key,
+Cloudflare Images hash, Pages host, and Neon project ID through `vars.*`;
+credentials stay under `secrets.*`.
 
-- broad deploy environments: `preview`, `production`, `ci`, or
-- strict runtime boundaries: `preview-site-ui`, `preview-recipe-api`,
-  `production-site-ui`, `production-recipe-api`, `production-infra`, `ci`.
-
-Use strict runtime boundaries if Doppler syncs are one-config-to-one-GitHub-env.
-Avoid syncing multiple Doppler configs into the same GitHub environment unless
-the sync integration is explicitly configured not to delete or overwrite names
-owned by another config.
+The older `cloudflare-preview` and `cloudflare-production` GitHub environments
+are legacy catch-alls and should not be used for new workflow jobs.
 
 ## Preview Values
 
@@ -189,7 +192,7 @@ owned by another config.
 - `CF_ACCESS_AUD`
 - `NEON_PROJECT_ID`
 
-`stg_pages_env` should own:
+`stg_pages_env` owns shared preview Pages/runtime config for local/reference use:
 
 - `CF_IMAGES_ACCOUNT_HASH`
 - `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH`
@@ -200,10 +203,19 @@ owned by another config.
 - `POSTHOG_KEY` / `NEXT_PUBLIC_POSTHOG_KEY` if preview analytics are enabled
 - `POSTHOG_HOST` / `NEXT_PUBLIC_POSTHOG_HOST` if preview analytics are enabled
 
-`stg_site_ui` should own preview UI deploy credentials:
+`stg_site_ui` should own preview UI deploy credentials and the public build
+config needed by the preview frontend job:
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
+- `CF_IMAGES_ACCOUNT_HASH`
+- `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH`
+- `CLOUDFLARE_PAGES_HOST`
+- `CF_PAGES_HOST`
+- `RECIPE_API_URL`
+- `RECIPE_API_PREVIEW_ORIGIN_TEMPLATE`
+- `POSTHOG_KEY` / `NEXT_PUBLIC_POSTHOG_KEY` if preview analytics are enabled
+- `POSTHOG_HOST` / `NEXT_PUBLIC_POSTHOG_HOST` if preview analytics are enabled
 
 The preview workflow derives per-PR `BETTER_AUTH_SECRET`,
 `PREVIEW_AUTH_PASSWORD`, and `DATABASE_URL`, then uploads those to the isolated
@@ -213,6 +225,8 @@ preview Worker with `--secrets-file`.
 
 `prd_recipe_api` should own:
 
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
 - `BETTER_AUTH_SECRET`
 - `NEON_DATABASE_URL`
 - `GOOGLE_CLIENT_ID`
@@ -220,20 +234,33 @@ preview Worker with `--secrets-file`.
 - `OAUTH_CLIENT_ID_GITHUB`
 - `OAUTH_CLIENT_SECRET_GITHUB`
 
-`prd_pages_env` should own:
+`prd_pages_env` owns shared production Pages/runtime config for local/reference
+use:
 
 - `CF_IMAGES_ACCOUNT_HASH`
 - `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH`
 - `POSTHOG_KEY`
+- `NEXT_PUBLIC_POSTHOG_KEY`
 - `POSTHOG_HOST`
+- `NEXT_PUBLIC_POSTHOG_HOST`
 - `RECIPE_API_URL`
 - `RECIPE_API_PREVIEW_ORIGIN_TEMPLATE`
 - `CF_PAGES_HOST`
 
-`prd_site_ui` should own production UI deploy credentials:
+`prd_site_ui` should own production UI deploy credentials and the public build
+config needed by production UI jobs:
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
+- `CF_IMAGES_ACCOUNT_HASH`
+- `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH`
+- `POSTHOG_KEY`
+- `NEXT_PUBLIC_POSTHOG_KEY`
+- `POSTHOG_HOST`
+- `NEXT_PUBLIC_POSTHOG_HOST`
+- `RECIPE_API_URL`
+- `RECIPE_API_PREVIEW_ORIGIN_TEMPLATE`
+- `CF_PAGES_HOST`
 
 `prd_infra` should own:
 

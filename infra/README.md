@@ -58,16 +58,17 @@ Secrets synced from Doppler:
 
 ### Required Environment
 
-Create a GitHub environment named `cloudflare-production`:
+Create GitHub environments that match the Doppler sync boundaries:
 
 1. Go to: Settings → Environments → New environment
-2. Name: `cloudflare-production`
+2. Create `production-infra`, `production-site-ui`, `production-recipe-api`,
+   `production-ci`, `preview-site-ui`, and `preview-recipe-api`
 3. (Optional) Add protection rules for production deployments
 
-PR infrastructure uses a separate `cloudflare-preview` environment with
-least-privilege credentials. Follow the
+PR infrastructure uses the `preview-*` environments with least-privilege
+credentials. Follow the
 [preview environment runbook](../docs/preview-environments.md); do not copy the
-production Cloudflare token or production database URL into it.
+production Cloudflare token or production database URL into them.
 
 ### Terraform Cloud Workspace
 

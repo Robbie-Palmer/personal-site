@@ -16,7 +16,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment:
-      name: cloudflare-production
+      name: production-recipe-api
     defaults:
       run:
         working-directory: workers/recipe-api

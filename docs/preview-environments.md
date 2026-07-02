@@ -97,11 +97,13 @@ account-level only and cannot be narrowed to the `personal-site` project, so
 account scope is the tightest available. Do not reuse a global or DNS-capable
 production token.
 
-### 4. Create the GitHub environment
+### 4. Create the GitHub environments
 
-Create a GitHub environment named `cloudflare-preview`.
+Create GitHub environments named `preview-recipe-api` and `preview-site-ui`.
+Doppler should sync `stg_recipe_api` to `preview-recipe-api` and `stg_site_ui`
+to `preview-site-ui` with **Sync unmasked secrets as variables** enabled.
 
-Add these environment secrets:
+`preview-recipe-api` receives these environment secrets:
 
 | Secret | Purpose |
 | --- | --- |
@@ -109,9 +111,6 @@ Add these environment secrets:
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account containing Pages and Workers |
 | `NEON_API_KEY` | Creates and deletes preview branches |
 | `PREVIEW_AUTH_SEED` | Derives stable, per-PR Better Auth secrets and test passwords |
-| `CF_IMAGES_ACCOUNT_HASH` | Required by the UI build |
-| `POSTHOG_KEY` | Existing public PostHog project key, if preview analytics remain enabled |
-| `POSTHOG_HOST` | Existing PostHog host, if preview analytics remain enabled |
 
 Generate `PREVIEW_AUTH_SEED` locally and paste the output directly into GitHub:
 
@@ -119,7 +118,7 @@ Generate `PREVIEW_AUTH_SEED` locally and paste the output directly into GitHub:
 openssl rand -base64 48
 ```
 
-Add these environment variables:
+`preview-recipe-api` receives these environment variables:
 
 | Variable | Example |
 | --- | --- |
@@ -128,10 +127,26 @@ Add these environment variables:
 | `CF_ACCESS_TEAM_DOMAIN` | `https://your-team.cloudflareaccess.com` |
 | `CF_ACCESS_AUD` | Audience tag from the Pages preview Access application |
 
+`preview-site-ui` receives these environment secrets:
+
+| Secret | Purpose |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | Least-privilege preview deployment token |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account containing Pages and Workers |
+
+`preview-site-ui` receives these environment variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `CF_IMAGES_ACCOUNT_HASH` | Required by the UI build |
+| `CLOUDFLARE_PAGES_HOST` | Used when commenting the canonical preview URL |
+| `POSTHOG_KEY` | Existing public PostHog project key, if preview analytics remain enabled |
+| `POSTHOG_HOST` | Existing PostHog host, if preview analytics remain enabled |
+
 `NEON_API_KEY` is a **project-scoped** key for the `recipes` project (Neon
 Console -> organization -> Settings -> API keys -> Create API key ->
 Project-scoped), so it can manage branches in that project and nothing else.
-Keep it in the `cloudflare-preview` environment only and rotate it if GitHub
+Keep it in the `preview-recipe-api` environment only and rotate it if GitHub
 reports any exposure.
 
 `POSTHOG_KEY` and `POSTHOG_HOST` are currently omitted, so previews run without
