@@ -67,7 +67,7 @@ jobs:
     if: needs.detect.outputs.backend == 'true'
     runs-on: ubuntu-latest
     environment:
-      name: cloudflare-preview
+      name: preview-recipe-api
     permissions:
       contents: read
     steps:
@@ -183,7 +183,7 @@ jobs:
     if: needs.detect.result == 'success'
     runs-on: ubuntu-latest
     environment:
-      name: cloudflare-preview
+      name: preview-site-ui
     permissions:
       contents: read
     steps:
@@ -233,7 +233,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           DEPLOY_BRANCH: pr-${{ github.event.pull_request.number }}
-          NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: ${{ secrets.CF_IMAGES_ACCOUNT_HASH }}
+          NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: ${{ vars.CF_IMAGES_ACCOUNT_HASH }}
           NEXT_PUBLIC_PREVIEW_BACKEND: ${{ needs.detect.outputs.backend }}
 
   comment:
@@ -241,11 +241,11 @@ jobs:
     if: always() && needs.frontend.result == 'success'
     runs-on: ubuntu-latest
     # The preview URL is built from vars.CLOUDFLARE_PAGES_HOST, which is scoped
-    # to the cloudflare-preview environment. Without selecting that environment
-    # the variable resolves to empty and the comment links to a host-less
-    # "https://pr-<n>." URL, so this job must target it like frontend/backend do.
+    # to the preview-site-ui environment. Selecting it here (like the frontend
+    # job does) keeps the variable from resolving empty and producing a
+    # host-less "https://pr-<n>." URL.
     environment:
-      name: cloudflare-preview
+      name: preview-site-ui
     permissions:
       contents: read
       pull-requests: write

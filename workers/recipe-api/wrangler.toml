@@ -17,6 +17,15 @@ destinations = ["posthog-logs"]
 # The local dev script overrides this with http://localhost:3000.
 BETTER_AUTH_URL = "https://robbiepalmer.me"
 
+[secrets]
+required = [
+  "BETTER_AUTH_SECRET",
+  "GOOGLE_CLIENT_ID",
+  "GOOGLE_CLIENT_SECRET",
+  "GITHUB_CLIENT_ID",
+  "GITHUB_CLIENT_SECRET",
+]
+
 # Daily sweep of stale rate-limit counters (src/index.ts scheduled handler).
 [triggers]
 crons = ["0 3 * * *"]
