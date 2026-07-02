@@ -240,6 +240,10 @@ jobs:
     needs: [detect, backend, frontend]
     if: always() && needs.frontend.result == 'success'
     runs-on: ubuntu-latest
+    # The preview URL is built from vars.CLOUDFLARE_PAGES_HOST, which is scoped
+    # to the preview-site-ui environment. Selecting it here (like the frontend
+    # job does) keeps the variable from resolving empty and producing a
+    # host-less "https://pr-<n>." URL.
     environment:
       name: preview-site-ui
     permissions:
