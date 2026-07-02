@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccountContent } from "@/lib/domain/assettracker/account";
 import type { BalanceSnapshot } from "@/lib/domain/assettracker/balanceSnapshot";
+import type { RecurringFlow } from "@/lib/domain/assettracker/recurringFlow";
 
 const accountsMock = vi.hoisted(() => ({
   accounts: [
@@ -35,8 +36,13 @@ const snapshotsMock = vi.hoisted(() => ({
   ] as BalanceSnapshot[],
 }));
 
+const flowsMock = vi.hoisted(() => ({
+  recurringFlows: [] as RecurringFlow[],
+}));
+
 vi.mock("@/content/assettracker/accounts", () => accountsMock);
 vi.mock("@/content/assettracker/snapshots", () => snapshotsMock);
+vi.mock("@/content/assettracker/recurringFlows", () => flowsMock);
 
 import {
   loadAssetTrackerRepository,

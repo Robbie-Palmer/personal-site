@@ -1,29 +1,35 @@
 import { Badge } from "@/components/ui/badge";
-import type { AccountSummaryView } from "@/lib/api/assettracker";
-import type { AssetType, Currency } from "@/lib/domain/assettracker";
-import { computeTotalBalance } from "@/lib/domain/assettracker";
+import type { AccountSummaryView, AssetType } from "@/lib/domain/assettracker";
+import {
+  ASSET_TYPE_LABELS,
+  computeTotalBalance,
+  formatAccountCurrency,
+  formatAnnualRate,
+} from "@/lib/domain/assettracker";
 
 const ASSET_TYPE_VARIANT: Record<
   AssetType,
-  "default" | "secondary" | "outline"
+  "default" | "secondary" | "outline" | "destructive"
 > = {
   cash: "default",
   stocks: "secondary",
+  bonds: "secondary",
+  reits: "secondary",
   crypto: "outline",
+  property: "secondary",
+  mortgage: "destructive",
+  debt: "destructive",
 };
-
-function formatAccountCurrency(amount: number, currency: Currency): string {
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency,
-  }).format(amount);
-}
 
 interface AccountsTableProps {
   accounts: AccountSummaryView[];
+  onSelectAccount?: (accountId: string) => void;
 }
 
-export function AccountsTable({ accounts }: AccountsTableProps) {
+export function AccountsTable({
+  accounts,
+  onSelectAccount,
+}: AccountsTableProps) {
   const totalBalance = computeTotalBalance(accounts);
   // Use first account's currency for total (assumes homogeneous currency)
   const totalCurrency = accounts[0]?.currency ?? "GBP";
@@ -37,20 +43,36 @@ export function AccountsTable({ accounts }: AccountsTableProps) {
               <th className="text-left p-3 font-medium">Provider</th>
               <th className="text-left p-3 font-medium">Type</th>
               <th className="text-right p-3 font-medium">Balance</th>
+              <th className="text-right p-3 font-medium">CAGR</th>
               <th className="text-right p-3 font-medium">Expected Return</th>
               <th className="text-left p-3 font-medium">Status</th>
             </tr>
           </thead>
           <tbody>
             {accounts.map((account) => (
-              <tr key={account.id} className="border-b last:border-b-0">
-                <td className="p-3 font-medium">{account.name}</td>
+              <tr
+                key={account.id}
+                className="border-b last:border-b-0 hover:bg-muted/30"
+              >
+                <td className="p-3 font-medium">
+                  {onSelectAccount ? (
+                    <button
+                      type="button"
+                      className="text-left font-medium hover:underline"
+                      onClick={() => onSelectAccount(account.id)}
+                    >
+                      {account.name}
+                    </button>
+                  ) : (
+                    account.name
+                  )}
+                </td>
                 <td className="p-3 text-muted-foreground">
                   {account.provider}
                 </td>
                 <td className="p-3">
                   <Badge variant={ASSET_TYPE_VARIANT[account.assetType]}>
-                    {account.assetType}
+                    {ASSET_TYPE_LABELS[account.assetType]}
                   </Badge>
                 </td>
                 <td className="p-3 text-right font-mono">
@@ -60,6 +82,9 @@ export function AccountsTable({ accounts }: AccountsTableProps) {
                         account.currency,
                       )
                     : "-"}
+                </td>
+                <td className="p-3 text-right font-mono">
+                  {account.cagr != null ? formatAnnualRate(account.cagr) : "—"}
                 </td>
                 <td className="p-3 text-right font-mono">
                   {(account.expectedAnnualReturn * 100).toFixed(1)}%
@@ -80,7 +105,7 @@ export function AccountsTable({ accounts }: AccountsTableProps) {
               <td className="p-3 text-right font-mono font-semibold">
                 {formatAccountCurrency(totalBalance, totalCurrency)}
               </td>
-              <td colSpan={2} />
+              <td colSpan={3} />
             </tr>
           </tfoot>
         </table>

@@ -1,5 +1,13 @@
 "use client";
-import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
+import {
+  Bar,
+  BarChart,
+  Cell,
+  ReferenceLine,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   Card,
   CardContent,
@@ -10,81 +18,76 @@ import {
 import {
   type ChartConfig,
   ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { AssetType } from "@/lib/domain/assettracker";
-import { formatCurrency } from "@/lib/domain/assettracker";
-
-const ASSET_TYPE_COLORS: Record<AssetType, string> = {
-  cash: "hsl(220, 70%, 50%)",
-  stocks: "hsl(160, 60%, 45%)",
-  crypto: "hsl(30, 80%, 55%)",
-};
-
-const ASSET_TYPE_LABELS: Record<AssetType, string> = {
-  cash: "Cash",
-  stocks: "Stocks",
-  crypto: "Crypto",
-};
+import {
+  ASSET_TYPE_COLORS,
+  ASSET_TYPE_LABELS,
+  formatCurrency,
+} from "@/lib/domain/assettracker";
 
 interface AssetAllocationChartProps {
   data: { assetType: AssetType; total: number }[];
 }
 
 export function AssetAllocationChart({ data }: AssetAllocationChartProps) {
-  const chartConfig: ChartConfig = {};
-  for (const item of data) {
-    chartConfig[item.assetType] = {
+  // Largest magnitude first so assets and liabilities read top-to-bottom
+  const chartData = [...data]
+    .filter((item) => item.total !== 0)
+    .sort((a, b) => Math.abs(b.total) - Math.abs(a.total))
+    .map((item) => ({
       label: ASSET_TYPE_LABELS[item.assetType],
-      color: ASSET_TYPE_COLORS[item.assetType],
-    };
-  }
-  const chartData = data.map((item) => ({
-    name: ASSET_TYPE_LABELS[item.assetType],
-    value: item.total,
-    dataKey: item.assetType,
-  }));
+      value: item.total,
+      assetType: item.assetType,
+    }));
+
+  const chartConfig: ChartConfig = { value: { label: "Net value" } };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Asset Allocation</CardTitle>
+        <CardTitle>Net Worth Composition</CardTitle>
         <CardDescription>
-          Breakdown of current holdings by asset type
+          Assets above the line, liabilities below. Mortgages are netted into
+          the property they're secured on, so property shows as equity.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-2 sm:px-6">
         <ChartContainer config={chartConfig} className="aspect-auto w-full">
           <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={chartData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
-                paddingAngle={2}
-                dataKey="value"
-                nameKey="name"
-                label={({ name, percent }) =>
-                  `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
-                }
-              >
-                {chartData.map((entry) => (
-                  <Cell
-                    key={entry.dataKey}
-                    fill={ASSET_TYPE_COLORS[entry.dataKey as AssetType]}
-                  />
-                ))}
-              </Pie>
+            <BarChart
+              accessibilityLayer
+              data={chartData}
+              layout="vertical"
+              margin={{ top: 5, right: 16, left: 8, bottom: 5 }}
+            >
+              <XAxis
+                type="number"
+                className="text-xs"
+                tickFormatter={(v: number) => `£${(v / 1000).toFixed(0)}k`}
+              />
+              <YAxis
+                type="category"
+                dataKey="label"
+                className="text-xs"
+                width={70}
+              />
+              <ReferenceLine x={0} className="stroke-muted-foreground" />
               <ChartTooltip
                 content={<ChartTooltipContent />}
                 formatter={(value) => formatCurrency(value as number)}
               />
-              <ChartLegend content={<ChartLegendContent />} />
-            </PieChart>
+              <Bar dataKey="value" radius={4}>
+                {chartData.map((entry) => (
+                  <Cell
+                    key={entry.assetType}
+                    fill={ASSET_TYPE_COLORS[entry.assetType]}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
           </ResponsiveContainer>
         </ChartContainer>
       </CardContent>
