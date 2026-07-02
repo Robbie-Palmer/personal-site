@@ -1,9 +1,6 @@
-[env]
-_.file = ".env"
-
 [tasks.init]
 description = "Initialize Terraform"
-run = "terraform init"
+run = "bash scripts/doppler-terraform-env terraform init"
 sources = ["*.tf"]
 outputs = [".terraform/**/*"]
 
@@ -39,20 +36,20 @@ description = "Validate Terraform configuration (lightweight for pre-commit)"
 run = """
 #!/usr/bin/env bash
 # Initialize without backend for pre-commit usage, showing errors if init fails
-terraform init -backend=false > /dev/null || { echo "Terraform init failed" >&2; exit 1; }
-terraform validate
+bash scripts/doppler-terraform-env terraform init -backend=false > /dev/null || { echo "Terraform init failed" >&2; exit 1; }
+bash scripts/doppler-terraform-env terraform validate
 """
 
 [tasks.plan]
 description = "Run Terraform plan"
 depends = ["//infra:init"]
-run = "terraform plan -out .planfile"
+run = "bash scripts/doppler-terraform-env terraform plan -out .planfile"
 outputs = [".planfile"]
 
 [tasks.apply]
 description = "Apply Terraform changes"
 depends = ["//infra:init"]
-run = "terraform apply -auto-approve .planfile"
+run = "bash scripts/doppler-terraform-env terraform apply -auto-approve .planfile"
 
 [tasks.check]
 description = "Run all checks (format, lint, plan)"
