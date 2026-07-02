@@ -100,8 +100,8 @@ production token.
 ### 4. Create the GitHub environments
 
 Create GitHub environments named `preview-recipe-api` and `preview-site-ui`.
-Doppler should sync `stg_recipe_api` to `preview-recipe-api` and `stg_site_ui`
-to `preview-site-ui` with **Sync unmasked secrets as variables** enabled.
+Populate them from Doppler by running `scripts/sync-doppler-github-envs.sh`;
+do not use the Doppler GitHub sync integration on the free plan.
 
 `preview-recipe-api` receives these environment secrets:
 

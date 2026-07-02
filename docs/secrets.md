@@ -4,7 +4,7 @@ This repo uses Doppler as the source of truth for both secrets and deploy-time
 configuration. Non-secret values such as `RECIPE_API_URL`,
 `CF_PAGES_HOST`, and `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH` belong in Doppler too
 when they are needed by CI/CD or runtime builds. Mark those values unmasked in
-Doppler so GitHub sync integrations can publish them as GitHub Actions
+Doppler so the manual GitHub sync script publishes them as GitHub Actions
 variables instead of encrypted secrets.
 
 GitHub Actions secrets are write-only through GitHub's API. They can be listed,
@@ -31,14 +31,12 @@ Configs are split by environment and runtime/control boundary:
 | `dev_pages_env` | Shared local Cloudflare Pages env vars | None |
 | `dev_recipe_api` | Local recipe Worker/API/DB/OAuth config | None |
 | `dev_infra` | Local Terraform/provider credentials | None |
-| `stg_pages_env` | Shared PR preview Cloudflare Pages env vars | Future `preview-pages-env` or `preview` |
-| `stg_site_ui` | PR preview UI workflow/deploy-only config | Future `preview-site-ui` or `preview` |
-| `stg_recipe_api` | PR preview Worker/API automation config | Future `preview-recipe-api` or `preview` |
-| `prd_pages_env` | Shared production Cloudflare Pages env vars | Future `production-pages-env` or `production` |
-| `prd_site_ui` | Production UI workflow/deploy-only config | Future `production-site-ui` or `production` |
-| `prd_recipe_api` | Production Worker/API/DB/OAuth config | Future `production-recipe-api` or `production` |
-| `prd_infra` | Production Terraform/provider credentials | Future `production-infra` |
-| `prd_ci_repo` | Repo-wide sensitive CI like AI review and DVC | Future `ci` |
+| `stg_site_ui` | PR preview UI build/deploy config | `preview-site-ui` |
+| `stg_recipe_api` | PR preview Worker/API automation config | `preview-recipe-api` |
+| `prd_site_ui` | Production UI build/deploy config | `production-site-ui` |
+| `prd_recipe_api` | Production Worker/API/DB/OAuth/deploy config | `production-recipe-api` |
+| `prd_infra` | Production Terraform/provider credentials | `production-infra` |
+| `prd_ci_repo` | Repo-wide sensitive CI like AI review and DVC | `production-ci` |
 
 Doppler config inheritance is not available on this workspace plan, so local
 full-stack dev uses nested `doppler run` calls instead of duplicating values
@@ -52,11 +50,9 @@ reference. The repo should not depend on it.
 Pages Functions use the Cloudflare Pages project environment. There is no
 separate OAuth secret needed by Pages Functions today.
 
-The source of truth for Pages Functions config is the matching `*_pages_env`
-Doppler config. Terraform reads those same values when it applies the
-Cloudflare Pages project, but Terraform is not the owner of the values. UI
-build/deploy workflows should layer `*_pages_env` with `*_site_ui` only for
-deployed environments that need Cloudflare deploy credentials.
+The source of truth for deployed Pages Functions config is the matching
+`*_site_ui` Doppler config. Terraform reads related values from `dev_pages_env`
+locally, but Terraform is not the owner of the values.
 
 Current Pages Function config:
 
@@ -72,14 +68,14 @@ configs, not the Pages UI/Functions configs.
 PostHog browser analytics uses `NEXT_PUBLIC_POSTHOG_KEY` and
 `NEXT_PUBLIC_POSTHOG_HOST` at build time. Those are not high-sensitivity
 secrets, but they can still live in Doppler as unmasked config and sync to
-GitHub variables.
+GitHub variables through `scripts/sync-doppler-github-envs.sh`.
 
 ## Naming Rules
 
 Prefer exact environment variable names consumed by code and tools.
 
 Exception: GitHub Actions does not allow secret names beginning with
-`GITHUB_`, so GitHub-synced configs should use:
+`GITHUB_`, so GitHub-targeted configs should use:
 
 - `OAUTH_CLIENT_ID_GITHUB`
 - `OAUTH_CLIENT_SECRET_GITHUB`
@@ -171,10 +167,10 @@ The GitHub environments are runtime/job boundaries, not provider names:
 | `production-infra` | `prd_infra` | Terraform CI/CD |
 | `production-ci` | `prd_ci_repo` | AI review and ML pipeline CI |
 
-Configure each Doppler GitHub Actions sync with **Sync unmasked secrets as
-variables** enabled. Workflows read public config such as PostHog host/key,
-Cloudflare Images hash, Pages host, and Neon project ID through `vars.*`;
-credentials stay under `secrets.*`.
+Run `scripts/sync-doppler-github-envs.sh` after any Doppler change that should
+reach GitHub Actions. The script reads Doppler visibility metadata: unmasked
+values become GitHub environment variables, while masked/restricted values
+become GitHub environment secrets.
 
 The older `cloudflare-preview` and `cloudflare-production` GitHub environments
 are legacy catch-alls and should not be used for new workflow jobs.
@@ -191,17 +187,6 @@ are legacy catch-alls and should not be used for new workflow jobs.
 - `CF_ACCESS_TEAM_DOMAIN`
 - `CF_ACCESS_AUD`
 - `NEON_PROJECT_ID`
-
-`stg_pages_env` owns shared preview Pages/runtime config for local/reference use:
-
-- `CF_IMAGES_ACCOUNT_HASH`
-- `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH`
-- `CLOUDFLARE_PAGES_HOST`
-- `CF_PAGES_HOST`
-- `RECIPE_API_URL`
-- `RECIPE_API_PREVIEW_ORIGIN_TEMPLATE`
-- `POSTHOG_KEY` / `NEXT_PUBLIC_POSTHOG_KEY` if preview analytics are enabled
-- `POSTHOG_HOST` / `NEXT_PUBLIC_POSTHOG_HOST` if preview analytics are enabled
 
 `stg_site_ui` should own preview UI deploy credentials and the public build
 config needed by the preview frontend job:
@@ -233,19 +218,6 @@ preview Worker with `--secrets-file`.
 - `GOOGLE_CLIENT_SECRET`
 - `OAUTH_CLIENT_ID_GITHUB`
 - `OAUTH_CLIENT_SECRET_GITHUB`
-
-`prd_pages_env` owns shared production Pages/runtime config for local/reference
-use:
-
-- `CF_IMAGES_ACCOUNT_HASH`
-- `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH`
-- `POSTHOG_KEY`
-- `NEXT_PUBLIC_POSTHOG_KEY`
-- `POSTHOG_HOST`
-- `NEXT_PUBLIC_POSTHOG_HOST`
-- `RECIPE_API_URL`
-- `RECIPE_API_PREVIEW_ORIGIN_TEMPLATE`
-- `CF_PAGES_HOST`
 
 `prd_site_ui` should own production UI deploy credentials and the public build
 config needed by production UI jobs:
@@ -290,6 +262,7 @@ These commands validate the wiring without printing secret values:
 doppler secrets --project personal-site --config dev_pages_env --only-names
 doppler secrets --project personal-site --config dev_recipe_api --only-names
 doppler secrets --project personal-site --config dev_infra --only-names
+scripts/sync-doppler-github-envs.sh
 
 mise run //:dev
 mise run //infra:format:check

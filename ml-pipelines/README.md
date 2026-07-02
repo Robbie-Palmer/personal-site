@@ -28,7 +28,9 @@ Manage R2 API Tokens to create one.
 
 1. Permissions: **Object Read**
 2. Specify bucket: `dvc`
-3. Add the credentials as `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` secrets in the `cloudflare-production` GitHub environment
+3. Add the credentials to Doppler `prd_ci_repo`, then run
+   `scripts/sync-doppler-github-envs.sh` to mirror them into the
+   `production-ci` GitHub environment
 
 **Configure local credentials:**
 

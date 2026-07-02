@@ -7,16 +7,13 @@ Terraform configuration for managing Cloudflare and Neon resources.
 ### Required Secrets
 
 **[Doppler](https://doppler.com) is the single source of truth for these
-values.** Doppler's GitHub Actions integration syncs them into GitHub
-repository secrets (Settings → Secrets and variables → Actions) — so don't edit
-the GitHub secrets by hand; change the value in Doppler and let it propagate.
-The workflows then map each synced secret onto the `TF_VAR_*` / build env vars
-that Terraform and the UI build expect (e.g. `secrets.POSTHOG_KEY` →
-`TF_VAR_posthog_key`, see `infra-ci.yml`). Because of this indirection, no
-workflow or Terraform changes are needed to source a value from Doppler — only
-the Doppler → GitHub sync.
+values.** GitHub environment secrets and variables are populated manually from
+Doppler with `scripts/sync-doppler-github-envs.sh` because the free Doppler plan
+does not provide enough sync integrations for this repo's environment
+boundaries. Do not edit GitHub environment values by hand; change Doppler, then
+run the manual sync script.
 
-Secrets synced from Doppler:
+Secrets and config mirrored from Doppler:
 
 1. **`CLOUDFLARE_API_TOKEN`**
    - Create at: Cloudflare Dashboard → My Profile → API Tokens
@@ -58,7 +55,7 @@ Secrets synced from Doppler:
 
 ### Required Environment
 
-Create GitHub environments that match the Doppler sync boundaries:
+Create GitHub environments that match the Doppler config boundaries:
 
 1. Go to: Settings → Environments → New environment
 2. Create `production-infra`, `production-site-ui`, `production-recipe-api`,
@@ -180,8 +177,8 @@ automated, one is **manual**. The manual one will break silently (logs just
 stop arriving in PostHog, no error) if you forget it, so rotate in this order:
 
 1. **Doppler** — update the value. This is the source of truth.
-2. **Pages / UI build** (automated) — Doppler syncs to the GitHub
-   `POSTHOG_KEY` secret; the next infra apply / UI build picks it up via
+2. **Pages / UI build** — run `scripts/sync-doppler-github-envs.sh`; the next
+   infra apply / UI build picks it up via
    `TF_VAR_posthog_key` and `NEXT_PUBLIC_POSTHOG_KEY`. Nothing to do by hand.
 3. **`posthog-logs` Workers Observability destination** (⚠️ **manual**) —
    Cloudflare Dashboard → Workers & Pages → Observability → Telemetry →
@@ -190,7 +187,8 @@ stop arriving in PostHog, no error) if you forget it, so rotate in this order:
    observability destinations, but the Terraform resource
    (`cloudflare_workers_observability_destination`) is currently
    [unimplemented](https://github.com/cloudflare/terraform-provider-cloudflare/issues/7127),
-   and it is not a Worker secret or Pages var that Doppler's integrations sync.
+   and it is not a Worker secret or Pages var that the manual GitHub sync
+   manages.
 
 This destination is referenced by `workers/recipe-api/wrangler.toml`
 (`[observability.logs]`). In practice, the public `phc_` project key rarely

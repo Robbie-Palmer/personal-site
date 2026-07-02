@@ -45,7 +45,7 @@ GitHub: https://robbiepalmer.me/api/auth/callback/github
 
 Configure production provider credentials and Better Auth secret in Doppler.
 See the repo [secrets runbook](../../docs/secrets.md) for the GitHub-safe
-secret names used by synced production configs.
+secret names mirrored into GitHub production environments.
 
 Do not use the direct `workers.dev` URL as a provider callback. The supported
 browser origins are the local frontend and the production site, where the

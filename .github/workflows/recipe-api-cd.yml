@@ -51,9 +51,9 @@ jobs:
       - name: Create Worker secrets file
         env:
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID || secrets.GCP_OAUTH_CLIENT_ID }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || vars.GCP_OAUTH_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET || secrets.GCP_OAUTH_CLIENT_SECRET }}
-          GITHUB_CLIENT_ID: ${{ secrets.OAUTH_CLIENT_ID_GITHUB }}
+          GITHUB_CLIENT_ID: ${{ vars.OAUTH_CLIENT_ID_GITHUB }}
           GITHUB_CLIENT_SECRET: ${{ secrets.OAUTH_CLIENT_SECRET_GITHUB }}
         run: |
           set -euo pipefail
