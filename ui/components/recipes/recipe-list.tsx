@@ -9,7 +9,15 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import Link from "next/link";
-import type React from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  memo,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -18,7 +26,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { FilterableCardGrid } from "@/components/ui/filterable-card-grid";
+import {
+  FilterableCardGrid,
+  type MultiFilterConfig,
+  type SearchConfig,
+} from "@/components/ui/filterable-card-grid";
+import { useRecipeSearch } from "@/contexts/recipe-search-context";
 import { useFilterParams } from "@/hooks/use-filter-params";
 import type { RecipeCardView } from "@/lib/api/recipes";
 import { formatDate } from "@/lib/generic/date";
@@ -47,6 +60,88 @@ function formatTime(minutes: number): string {
   const mins = minutes % 60;
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
+
+// These configs are static. Defining them at module scope (rather than inline
+// in the JSX) keeps their references stable across renders, so FilterableCardGrid
+// doesn't rebuild its Fuse index or recompute its memos on every filter toggle.
+const RECIPE_FILTER_PARAMS = [
+  { paramName: "cuisine", isMulti: true },
+  { paramName: "ingredient", isMulti: true },
+  { paramName: "equipment", isMulti: true },
+  { paramName: "prepTime", isMulti: true },
+  { paramName: "totalTime", isMulti: true },
+];
+
+const RECIPE_SEARCH_CONFIG: SearchConfig<RecipeCardView> = {
+  placeholder: "Search recipes...",
+  ariaLabel: "Search recipes",
+  keys: [
+    { name: "title", weight: 3 },
+    { name: "description", weight: 2 },
+    { name: "cuisine", weight: 2 },
+    { name: "ingredientNames", weight: 1 },
+    { name: "cookware", weight: 1 },
+  ],
+  threshold: 0.1,
+};
+
+const RECIPE_FILTER_CONFIGS: MultiFilterConfig<RecipeCardView>[] = [
+  {
+    paramName: "cuisine",
+    isMulti: true,
+    label: "Cuisines",
+    getItemValues: (recipe) => recipe.cuisine,
+    icon: <Globe className="h-4 w-4" />,
+    getValueLabel: (value) => value,
+    getOptionIcon: () => <Globe className="h-3 w-3" />,
+  },
+  {
+    paramName: "ingredient",
+    isMulti: true,
+    label: "Ingredients",
+    getItemValues: (recipe) => recipe.ingredientNames,
+    icon: <Leaf className="h-4 w-4" />,
+    getValueLabel: (value) => value,
+    getOptionIcon: () => <Leaf className="h-3 w-3" />,
+  },
+  {
+    paramName: "equipment",
+    isMulti: true,
+    label: "Equipment",
+    getItemValues: (recipe) => recipe.cookware,
+    icon: <ChefHat className="h-4 w-4" />,
+    getValueLabel: (value) => value,
+    getOptionIcon: () => <ChefHat className="h-3 w-3" />,
+  },
+  {
+    paramName: "prepTime",
+    isMulti: true,
+    label: "Prep Time",
+    getItemValues: (recipe) =>
+      recipe.prepTime != null ? [getTimeRangeLabel(recipe.prepTime)] : [],
+    icon: <Timer className="h-4 w-4" />,
+    getValueLabel: (value) => value,
+    getOptionIcon: () => <Timer className="h-3 w-3" />,
+  },
+  {
+    paramName: "totalTime",
+    isMulti: true,
+    label: "Total Time",
+    getItemValues: (recipe) =>
+      recipe.totalTime != null ? [getTimeRangeLabel(recipe.totalTime)] : [],
+    icon: <Clock className="h-4 w-4" />,
+    getOptionIcon: () => <Clock className="h-3 w-3" />,
+  },
+];
+
+const RECIPE_SORT_CONFIG = {
+  getDate: (recipe: RecipeCardView) => recipe.date,
+};
+
+const RECIPE_EMPTY_STATE = {
+  icon: <UtensilsCrossed className="w-10 h-10 text-muted-foreground/50" />,
+  message: "No recipes found matching your criteria.",
+};
 
 function CuisineBadge({
   cuisine,
@@ -80,7 +175,7 @@ function TimeBadge({
 }: {
   label: string;
   minutes: number;
-  icon: React.ReactNode;
+  icon: ReactNode;
   isActive: boolean;
   onToggle: (rangeLabel: string) => void;
 }) {
@@ -99,173 +194,182 @@ function TimeBadge({
   );
 }
 
+interface RecipeCardProps {
+  recipe: RecipeCardView;
+  index: number;
+  selectedCuisines: string[];
+  selectedPrepTimes: string[];
+  selectedTotalTimes: string[];
+  onToggleCuisine: (cuisine: string) => void;
+  onTogglePrepTime: (rangeLabel: string) => void;
+  onToggleTotalTime: (rangeLabel: string) => void;
+}
+
+// Memoized so that toggling high-cardinality filters that don't affect a card's
+// appearance (ingredient, equipment) skips re-rendering all the cards. The
+// selected-* arrays and toggle callbacks passed in are kept referentially stable
+// by RecipeList, so memo comparison is meaningful.
+const RecipeCard = memo(function RecipeCard({
+  recipe,
+  index,
+  selectedCuisines,
+  selectedPrepTimes,
+  selectedTotalTimes,
+  onToggleCuisine,
+  onTogglePrepTime,
+  onToggleTotalTime,
+}: RecipeCardProps) {
+  return (
+    <Card className="h-full flex flex-col overflow-hidden rounded-xl border-[1.25px] border-[var(--line-strong)] gap-0 py-0 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--paper-shadow)]">
+      {recipe.image && (
+        <Link href={`/recipes/${recipe.slug}`} className="block">
+          <div className="relative w-full h-48 bg-muted overflow-hidden">
+            {/* biome-ignore lint/performance/noImgElement: Need native img for srcset control with SSG */}
+            <img
+              src={getImageUrl(recipe.image, null, {
+                width: 400,
+                format: "auto",
+              })}
+              alt={recipe.imageAlt || recipe.title}
+              width={400}
+              height={192}
+              className="w-full h-full object-cover"
+              loading={index < 6 ? "eager" : "lazy"}
+              fetchPriority={index < 3 ? "high" : "auto"}
+            />
+          </div>
+        </Link>
+      )}
+      <CardHeader className="pt-4 pb-2 gap-1">
+        <Link href={`/recipes/${recipe.slug}`}>
+          <CardTitle className="rt-display text-2xl leading-tight hover:text-[var(--terracotta)] transition-colors">
+            {recipe.title}
+          </CardTitle>
+        </Link>
+        <CardDescription className="rt-body line-clamp-2">
+          {recipe.description}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex-1 flex flex-col justify-end pb-4">
+        <div className="flex flex-wrap gap-2 mb-3">
+          {recipe.cuisine.map((c) => (
+            <CuisineBadge
+              key={c}
+              cuisine={c}
+              isActive={selectedCuisines.includes(c)}
+              onToggle={onToggleCuisine}
+            />
+          ))}
+          {recipe.prepTime != null && (
+            <TimeBadge
+              label="Prep"
+              minutes={recipe.prepTime}
+              icon={<Timer className="h-3 w-3" />}
+              isActive={selectedPrepTimes.includes(
+                getTimeRangeLabel(recipe.prepTime),
+              )}
+              onToggle={onTogglePrepTime}
+            />
+          )}
+          {recipe.totalTime != null && (
+            <TimeBadge
+              label="Total"
+              minutes={recipe.totalTime}
+              icon={<Clock className="h-3 w-3" />}
+              isActive={selectedTotalTimes.includes(
+                getTimeRangeLabel(recipe.totalTime),
+              )}
+              onToggle={onToggleTotalTime}
+            />
+          )}
+        </div>
+        <div className="text-sm text-muted-foreground">
+          <time dateTime={recipe.date}>{formatDate(recipe.date)}</time>
+        </div>
+      </CardContent>
+    </Card>
+  );
+});
+
 interface RecipeListProps {
   recipes: RecipeCardView[];
 }
 
 export function RecipeList({ recipes }: RecipeListProps) {
-  const filterParams = useFilterParams({
-    filters: [
-      { paramName: "cuisine", isMulti: true },
-      { paramName: "ingredient", isMulti: true },
-      { paramName: "equipment", isMulti: true },
-      { paramName: "prepTime", isMulti: true },
-      { paramName: "totalTime", isMulti: true },
-    ],
+  const filterParams = useFilterParams({ filters: RECIPE_FILTER_PARAMS });
+
+  // Derive the selected values from the raw query strings so their array
+  // identities stay stable while a given filter is unchanged — this lets the
+  // memoized cards skip re-rendering when an unrelated filter toggles.
+  const searchParams = useSearchParams();
+  const cuisineKey = searchParams.get("cuisine") ?? "";
+  const prepKey = searchParams.get("prepTime") ?? "";
+  const totalKey = searchParams.get("totalTime") ?? "";
+  const selectedCuisines = useMemo(
+    () => (cuisineKey ? cuisineKey.split(",").filter(Boolean) : []),
+    [cuisineKey],
+  );
+  const selectedPrepTimes = useMemo(
+    () => (prepKey ? prepKey.split(",").filter(Boolean) : []),
+    [prepKey],
+  );
+  const selectedTotalTimes = useMemo(
+    () => (totalKey ? totalKey.split(",").filter(Boolean) : []),
+    [totalKey],
+  );
+
+  // Stable toggle callbacks: useFilterParams returns fresh functions each render
+  // (they close over searchParams), so route them through a ref to keep the
+  // identities passed to the memoized cards constant. The ref is updated in a
+  // commit-phase effect (not during render) so it always reflects committed
+  // state, even under concurrent rendering.
+  const filterParamsRef = useRef(filterParams);
+  useEffect(() => {
+    filterParamsRef.current = filterParams;
   });
-  const selectedCuisines = filterParams.getValues("cuisine");
-  const selectedPrepTimes = filterParams.getValues("prepTime");
-  const selectedTotalTimes = filterParams.getValues("totalTime");
+  const onToggleCuisine = useCallback(
+    (cuisine: string) =>
+      filterParamsRef.current.toggleValue("cuisine", cuisine),
+    [],
+  );
+  const onTogglePrepTime = useCallback(
+    (rangeLabel: string) =>
+      filterParamsRef.current.toggleValue("prepTime", rangeLabel),
+    [],
+  );
+  const onToggleTotalTime = useCallback(
+    (rangeLabel: string) =>
+      filterParamsRef.current.toggleValue("totalTime", rangeLabel),
+    [],
+  );
+
+  // Search is hosted in the nav (see RecipeSearch) and shared in memory so live
+  // filtering stays instant.
+  const { query: searchQuery, setQuery: setSearchQuery } = useRecipeSearch();
 
   return (
     <FilterableCardGrid
       items={recipes}
       getItemKey={(recipe) => recipe.slug}
-      searchConfig={{
-        placeholder: "Search recipes...",
-        ariaLabel: "Search recipes",
-        keys: [
-          { name: "title", weight: 3 },
-          { name: "description", weight: 2 },
-          { name: "cuisine", weight: 2 },
-          { name: "ingredientNames", weight: 1 },
-          { name: "cookware", weight: 1 },
-        ],
-        threshold: 0.1,
-      }}
-      filterConfigs={[
-        {
-          paramName: "cuisine",
-          isMulti: true,
-          label: "Cuisines",
-          getItemValues: (recipe) => recipe.cuisine,
-          icon: <Globe className="h-4 w-4" />,
-          getValueLabel: (value) => value,
-          getOptionIcon: () => <Globe className="h-3 w-3" />,
-        },
-        {
-          paramName: "ingredient",
-          isMulti: true,
-          label: "Ingredients",
-          getItemValues: (recipe) => recipe.ingredientNames,
-          icon: <Leaf className="h-4 w-4" />,
-          getValueLabel: (value) => value,
-          getOptionIcon: () => <Leaf className="h-3 w-3" />,
-        },
-        {
-          paramName: "equipment",
-          isMulti: true,
-          label: "Equipment",
-          getItemValues: (recipe) => recipe.cookware,
-          icon: <ChefHat className="h-4 w-4" />,
-          getValueLabel: (value) => value,
-          getOptionIcon: () => <ChefHat className="h-3 w-3" />,
-        },
-        {
-          paramName: "prepTime",
-          isMulti: true,
-          label: "Prep Time",
-          getItemValues: (recipe) =>
-            recipe.prepTime != null ? [getTimeRangeLabel(recipe.prepTime)] : [],
-          icon: <Timer className="h-4 w-4" />,
-          getValueLabel: (value) => value,
-          getOptionIcon: () => <Timer className="h-3 w-3" />,
-        },
-        {
-          paramName: "totalTime",
-          isMulti: true,
-          label: "Total Time",
-          getItemValues: (recipe) =>
-            recipe.totalTime != null
-              ? [getTimeRangeLabel(recipe.totalTime)]
-              : [],
-          icon: <Clock className="h-4 w-4" />,
-          getOptionIcon: () => <Clock className="h-3 w-3" />,
-        },
-      ]}
-      sortConfig={{
-        getDate: (recipe) => recipe.date,
-      }}
-      emptyState={{
-        icon: (
-          <UtensilsCrossed className="w-10 h-10 text-muted-foreground/50" />
-        ),
-        message: "No recipes found matching your criteria.",
-      }}
+      searchValue={searchQuery}
+      onSearchChange={setSearchQuery}
+      hideInlineSearch
+      searchConfig={RECIPE_SEARCH_CONFIG}
+      filterConfigs={RECIPE_FILTER_CONFIGS}
+      sortConfig={RECIPE_SORT_CONFIG}
+      emptyState={RECIPE_EMPTY_STATE}
       itemName="recipes"
       renderCard={(recipe, index) => (
-        <Card className="h-full flex flex-col overflow-hidden">
-          {recipe.image && (
-            <Link href={`/recipes/${recipe.slug}`} className="block">
-              <div className="relative w-full h-48 bg-muted overflow-hidden">
-                {/* biome-ignore lint/performance/noImgElement: Need native img for srcset control with SSG */}
-                <img
-                  src={getImageUrl(recipe.image, null, {
-                    width: 400,
-                    format: "auto",
-                  })}
-                  alt={recipe.imageAlt || recipe.title}
-                  width={400}
-                  height={192}
-                  className="w-full h-full object-cover"
-                  loading={index < 6 ? "eager" : "lazy"}
-                  fetchPriority={index < 3 ? "high" : "auto"}
-                />
-              </div>
-            </Link>
-          )}
-          <CardHeader>
-            <Link href={`/recipes/${recipe.slug}`}>
-              <CardTitle className="hover:text-primary transition-colors">
-                {recipe.title}
-              </CardTitle>
-            </Link>
-            <CardDescription>{recipe.description}</CardDescription>
-          </CardHeader>
-          <CardContent className="flex-1 flex flex-col justify-end">
-            <div className="flex flex-wrap gap-2 mb-3">
-              {recipe.cuisine.map((c) => (
-                <CuisineBadge
-                  key={c}
-                  cuisine={c}
-                  isActive={selectedCuisines.includes(c)}
-                  onToggle={(cuisine) =>
-                    filterParams.toggleValue("cuisine", cuisine)
-                  }
-                />
-              ))}
-              {recipe.prepTime != null && (
-                <TimeBadge
-                  label="Prep"
-                  minutes={recipe.prepTime}
-                  icon={<Timer className="h-3 w-3" />}
-                  isActive={selectedPrepTimes.includes(
-                    getTimeRangeLabel(recipe.prepTime),
-                  )}
-                  onToggle={(rangeLabel) =>
-                    filterParams.toggleValue("prepTime", rangeLabel)
-                  }
-                />
-              )}
-              {recipe.totalTime != null && (
-                <TimeBadge
-                  label="Total"
-                  minutes={recipe.totalTime}
-                  icon={<Clock className="h-3 w-3" />}
-                  isActive={selectedTotalTimes.includes(
-                    getTimeRangeLabel(recipe.totalTime),
-                  )}
-                  onToggle={(rangeLabel) =>
-                    filterParams.toggleValue("totalTime", rangeLabel)
-                  }
-                />
-              )}
-            </div>
-            <div className="text-sm text-muted-foreground">
-              <time dateTime={recipe.date}>{formatDate(recipe.date)}</time>
-            </div>
-          </CardContent>
-        </Card>
+        <RecipeCard
+          recipe={recipe}
+          index={index}
+          selectedCuisines={selectedCuisines}
+          selectedPrepTimes={selectedPrepTimes}
+          selectedTotalTimes={selectedTotalTimes}
+          onToggleCuisine={onToggleCuisine}
+          onTogglePrepTime={onTogglePrepTime}
+          onToggleTotalTime={onToggleTotalTime}
+        />
       )}
     />
   );

@@ -5,6 +5,7 @@ import {
   Check,
   Clock,
   Download,
+  Globe,
   Loader2,
   Minus,
   Plus,
@@ -13,7 +14,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { InlineTimer } from "@/components/recipes/inline-timer";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useScaledRecipe } from "@/hooks/use-scaled-recipe";
 import { useUnitPreference } from "@/hooks/use-unit-preference";
@@ -359,23 +359,28 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
   return (
     <>
       <header className="mb-8">
-        <h1 className="text-4xl font-bold mb-4">{recipe.title}</h1>
-        <p className="text-xl text-muted-foreground mb-4">
+        <h1 className="rt-display text-5xl md:text-6xl mb-3 leading-[0.95]">
+          {recipe.title}
+        </h1>
+        <p className="rt-body text-xl text-[var(--ink-2)] mb-4">
           {recipe.description}
         </p>
 
         {recipe.canonical && (
-          <p className="text-sm text-muted-foreground italic mb-4">
-            Adapted from{" "}
-            <a
-              href={recipe.canonical}
-              target="_blank"
-              rel="noopener"
-              className="underline hover:text-foreground"
-            >
-              the original recipe
-            </a>
-            .
+          <p className="rt-body text-sm text-[var(--ink-2)] italic mb-4 inline-flex items-center gap-2 rounded-lg border border-dashed border-[var(--line-strong)] bg-[var(--paper-warm)] px-3 py-2">
+            <Globe className="h-4 w-4 not-italic" />
+            <span>
+              Adapted from{" "}
+              <a
+                href={recipe.canonical}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline text-[var(--terracotta-deep)] hover:text-foreground"
+              >
+                the original recipe
+              </a>
+              .
+            </span>
           </p>
         )}
 
@@ -392,8 +397,13 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
               >
                 <Minus className="h-3 w-3" />
               </Button>
-              <span className="min-w-[4ch] text-center tabular-nums">
-                {portions} {portions === 1 ? "serving" : "servings"}
+              <span className="text-center tabular-nums">
+                <span className="rt-display text-2xl text-[var(--terracotta)] align-middle">
+                  {portions}
+                </span>{" "}
+                <span className="align-middle">
+                  {portions === 1 ? "serving" : "servings"}
+                </span>
               </span>
               <Button
                 variant="outline"
@@ -467,11 +477,15 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
         </div>
 
         {recipe.cuisine.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-4">
             {recipe.cuisine.map((c) => (
-              <Badge key={c} variant="secondary">
+              <span
+                key={c}
+                className="inline-flex items-center gap-1.5 rt-mono text-[var(--ink-3)]"
+              >
+                <Globe className="h-3.5 w-3.5" />
                 {c}
-              </Badge>
+              </span>
             ))}
           </div>
         )}
@@ -479,7 +493,9 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
 
       <section className="mb-8">
         <div className="flex items-baseline justify-between mb-4">
-          <h2 className="text-2xl font-bold">Ingredients</h2>
+          <h2 className="rt-display text-4xl text-[var(--terracotta)]">
+            Ingredients
+          </h2>
           {checkedIngredients.size > 0 && (
             <button
               type="button"
@@ -507,7 +523,9 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
 
       {effectiveRecipe.cookware.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-2xl font-bold mb-4">Equipment</h2>
+          <h2 className="rt-display text-3xl text-[var(--terracotta)] mb-4">
+            Equipment
+          </h2>
           <ul className="space-y-1">
             {effectiveRecipe.cookware.map((item) => (
               <li key={item} className="flex items-start gap-2">
@@ -520,34 +538,64 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
       )}
 
       <section>
-        <h2 className="text-2xl font-bold mb-4">Instructions</h2>
-        <ol className="space-y-3 list-decimal list-inside">
+        <h2 className="rt-display text-4xl text-[var(--terracotta)] mb-4">
+          Method
+        </h2>
+        {/* Real ordered list whose visible numeral is decorative generated
+            content via a CSS counter (aria-hidden), so screen readers rely on
+            list position. role="list" is redundant per spec but kept on purpose:
+            Safari/VoiceOver drop list semantics when the marker is removed with
+            list-style:none, and reasserting the role restores them. */}
+        {/* biome-ignore lint/a11y/noRedundantRoles: intentional Safari/VoiceOver list-semantics workaround (see above) */}
+        <ol role="list" className="rt-method-steps list-none p-0 m-0">
           {shouldUseSdkInstructions
-            ? instructionTokenization.steps.map((tokens, i) => (
-                <li key={i} className="leading-relaxed pl-2">
-                  {tokens.map((token, tokenIndex) => (
-                    <span key={tokenIndex}>
-                      {token.type === "timer" ? (
-                        <InlineTimer
-                          durationSeconds={token.durationSeconds}
-                          label={token.value}
-                        />
-                      ) : token.type === "ingredient" ? (
-                        formatInstructionIngredientToken(
-                          token,
-                          scale,
-                          unitSystem,
-                        )
-                      ) : (
-                        token.value
-                      )}
-                    </span>
-                  ))}
+            ? instructionTokenization.steps.map((tokens) => (
+                <li
+                  key={tokens.map((token) => token.value).join("|")}
+                  className="border-b border-dashed border-[var(--line)] last:border-0"
+                >
+                  <div className="flex gap-4 py-3">
+                    <span
+                      aria-hidden="true"
+                      className="rt-step-num rt-display text-3xl text-[var(--terracotta)] leading-none min-w-[2ch]"
+                    />
+                    <div className="rt-body flex-1 leading-relaxed pt-1">
+                      {tokens.map((token) => (
+                        <span key={`${token.type}:${token.value}`}>
+                          {token.type === "timer" ? (
+                            <InlineTimer
+                              durationSeconds={token.durationSeconds}
+                              label={token.value}
+                            />
+                          ) : token.type === "ingredient" ? (
+                            formatInstructionIngredientToken(
+                              token,
+                              scale,
+                              unitSystem,
+                            )
+                          ) : (
+                            token.value
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </li>
               ))
-            : effectiveRecipe.instructions.map((step, i) => (
-                <li key={i} className="leading-relaxed pl-2">
-                  {step}
+            : effectiveRecipe.instructions.map((step) => (
+                <li
+                  key={step}
+                  className="border-b border-dashed border-[var(--line)] last:border-0"
+                >
+                  <div className="flex gap-4 py-3">
+                    <span
+                      aria-hidden="true"
+                      className="rt-step-num rt-display text-3xl text-[var(--terracotta)] leading-none min-w-[2ch]"
+                    />
+                    <div className="rt-body flex-1 leading-relaxed pt-1">
+                      {step}
+                    </div>
+                  </div>
                 </li>
               ))}
         </ol>
