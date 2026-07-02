@@ -1,7 +1,7 @@
 "use client";
 
 import { PenLineIcon } from "lucide-react";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -30,9 +30,14 @@ import { useAssetTracker } from "./asset-tracker-provider";
 interface LogBalanceDrawerProps {
   /** Lock the form to one account (used from the account detail view) */
   accountId?: string;
+  /** Replaces the default "Log balance" button as the opening control */
+  trigger?: ReactNode;
 }
 
-export function LogBalanceDrawer({ accountId }: LogBalanceDrawerProps) {
+export function LogBalanceDrawer({
+  accountId,
+  trigger,
+}: LogBalanceDrawerProps) {
   const { accounts, recordBalance } = useAssetTracker();
   const openAccounts = accounts.filter((account) => account.isOpen);
 
@@ -90,10 +95,12 @@ export function LogBalanceDrawer({ accountId }: LogBalanceDrawerProps) {
   return (
     <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>
-        <Button disabled={openAccounts.length === 0}>
-          <PenLineIcon />
-          Log balance
-        </Button>
+        {trigger ?? (
+          <Button disabled={openAccounts.length === 0}>
+            <PenLineIcon />
+            Log balance
+          </Button>
+        )}
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader className="mx-auto w-full max-w-md">

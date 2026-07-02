@@ -242,6 +242,55 @@ export function buildProjection(input: {
   return points;
 }
 
+type PortfolioProjectionAccount = Pick<
+  Account,
+  "id" | "expectedAnnualReturn" | "expectedReturnChanges"
+> & {
+  isOpen: boolean;
+  latestBalance: number | null;
+};
+
+/**
+ * Whole-portfolio projection: each open account projected from its latest
+ * balance, then summed on the shared monthly grid. Transfers between owned
+ * accounts cancel out of the total, so only external flows move it.
+ */
+export function buildPortfolioProjection(input: {
+  accounts: PortfolioProjectionAccount[];
+  flows: RecurringFlow[];
+  startDate: string;
+  months: number;
+}): ProjectionPoint[] {
+  const openAccounts = input.accounts.filter((account) => account.isOpen);
+  const liabilityBalances = Object.fromEntries(
+    openAccounts.map((account) => [account.id, account.latestBalance ?? 0]),
+  );
+  const perAccount = openAccounts.map((account) =>
+    buildProjection({
+      accountId: account.id,
+      schedule: account,
+      startDate: input.startDate,
+      startBalance: account.latestBalance ?? 0,
+      flows: input.flows,
+      months: input.months,
+      liabilityBalances,
+      clampAtZero: (account.latestBalance ?? 0) < 0,
+    }),
+  );
+  const grid = perAccount[0];
+  if (!grid) return [];
+  return grid.map((point, i) => ({
+    date: point.date,
+    projected:
+      Math.round(
+        perAccount.reduce(
+          (sum, projection) => sum + (projection[i]?.projected ?? 0),
+          0,
+        ) * 100,
+      ) / 100,
+  }));
+}
+
 /** Adds inflation-adjusted values (today's money) to a projection */
 export function addRealValues(
   points: ProjectionPoint[],

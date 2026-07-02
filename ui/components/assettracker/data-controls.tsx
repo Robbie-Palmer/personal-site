@@ -1,6 +1,11 @@
 "use client";
 
-import { DownloadIcon, RotateCcwIcon, UploadIcon } from "lucide-react";
+import {
+  DownloadIcon,
+  FileSpreadsheetIcon,
+  RotateCcwIcon,
+  UploadIcon,
+} from "lucide-react";
 import { type ChangeEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +18,7 @@ export function DataControls() {
     inflation,
     setInflation,
     exportData,
+    exportCsv,
     importData,
     resetData,
   } = useAssetTracker();
@@ -88,6 +94,10 @@ export function DataControls() {
           <Button variant="ghost" size="sm" onClick={exportData}>
             <DownloadIcon />
             Export
+          </Button>
+          <Button variant="ghost" size="sm" onClick={exportCsv}>
+            <FileSpreadsheetIcon />
+            CSV
           </Button>
           <Button
             variant="ghost"

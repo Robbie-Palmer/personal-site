@@ -36,6 +36,7 @@ import {
   type RecurringFlow,
   type SetExpectedReturnInput,
   type Transfer,
+  toBalancesCsv,
   todayIsoDate,
 } from "@/lib/domain/assettracker";
 
@@ -50,6 +51,8 @@ interface AssetTrackerContextValue {
   portfolioReturn: number | null;
   /** Expected annual inflation used to express values in today's money */
   inflation: number;
+  /** The net worth the user is aiming for, if set */
+  netWorthTarget: number | null;
   /** True once the user has made changes that are persisted in this browser */
   hasLocalChanges: boolean;
   createAccount(input: CreateAccountInput): Promise<void>;
@@ -65,14 +68,26 @@ interface AssetTrackerContextValue {
   materializeFlow(flowId: string): Promise<void>;
   setExpectedReturn(input: SetExpectedReturnInput): Promise<void>;
   setInflation(rate: number): Promise<void>;
+  setNetWorthTarget(target: number | null): Promise<void>;
   resetData(): Promise<void>;
   exportData(): void;
+  exportCsv(): void;
   importData(file: File): Promise<void>;
 }
 
 const AssetTrackerContext = createContext<AssetTrackerContextValue | null>(
   null,
 );
+
+function downloadFile(filename: string, content: string, mime: string): void {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
 
 export function AssetTrackerProvider({ children }: { children: ReactNode }) {
   // Seed synchronously so the static build renders the full demo dashboard;
@@ -127,6 +142,7 @@ export function AssetTrackerProvider({ children }: { children: ReactNode }) {
       recurringFlows: repository.recurringFlows,
       portfolioReturn: getPortfolioAnnualReturn(repository),
       inflation: repository.settings.expectedAnnualInflation,
+      netWorthTarget: repository.settings.targetNetWorth ?? null,
     };
   }, [data]);
 
@@ -156,22 +172,25 @@ export function AssetTrackerProvider({ children }: { children: ReactNode }) {
       setExpectedReturn: (input) =>
         mutate((api) => api.setExpectedReturn(input)),
       setInflation: (rate) => mutate((api) => api.setInflation({ rate })),
+      setNetWorthTarget: (target) =>
+        mutate((api) => api.setNetWorthTarget({ target })),
       resetData: async () => {
         const seed = await getApi().reset();
         setData(seed);
         setHasLocalChanges(false);
       },
-      exportData: () => {
-        const blob = new Blob([JSON.stringify(data, null, 2)], {
-          type: "application/json",
-        });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = `assettracker-${todayIsoDate()}.json`;
-        anchor.click();
-        URL.revokeObjectURL(url);
-      },
+      exportData: () =>
+        downloadFile(
+          `assettracker-${todayIsoDate()}.json`,
+          JSON.stringify(data, null, 2),
+          "application/json",
+        ),
+      exportCsv: () =>
+        downloadFile(
+          `assettracker-balances-${todayIsoDate()}.csv`,
+          toBalancesCsv(data),
+          "text/csv",
+        ),
       importData: async (file) => {
         const raw = JSON.parse(await file.text());
         await mutate((api) => api.importData(raw));

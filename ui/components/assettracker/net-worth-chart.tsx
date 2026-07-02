@@ -1,4 +1,5 @@
 "use client";
+import { format, parseISO, subYears } from "date-fns";
 import { useMemo, useRef, useState } from "react";
 import {
   Area,
@@ -10,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -27,13 +29,50 @@ import {
   ACCOUNT_COLORS,
   formatCurrency,
   type NetWorthDataPoint,
+  todayIsoDate,
 } from "@/lib/domain/assettracker";
 import { cn } from "@/lib/generic/styles";
 
 const LONG_PRESS_MS = 450;
 
+const RANGE_OPTIONS = [
+  { label: "1Y", years: 1 },
+  { label: "5Y", years: 5 },
+  { label: "All", years: null },
+] as const;
+
 function seriesColor(index: number): string {
   return ACCOUNT_COLORS[index % ACCOUNT_COLORS.length] ?? ACCOUNT_COLORS[0];
+}
+
+/**
+ * Windows the series to the last N years. Balances carry forward between
+ * snapshots, so a synthetic point at the cutoff (last values before it) and
+ * one at today (latest values) keep the window truthful even when nothing
+ * was logged inside it.
+ */
+function windowToRange(
+  data: NetWorthDataPoint[],
+  years: number | null,
+): NetWorthDataPoint[] {
+  const last = data[data.length - 1];
+  if (!last) return data;
+  const today = todayIsoDate();
+  const extended =
+    last.date < today ? [...data, { ...last, date: today }] : data;
+  if (years == null) return extended;
+  const cutoff = format(subYears(parseISO(today), years), "yyyy-MM-dd");
+  const windowed = extended.filter((point) => point.date >= cutoff);
+  const baseline = [...extended].reverse().find((point) => point.date < cutoff);
+  if (baseline && windowed[0]?.date !== cutoff) {
+    windowed.unshift({ ...baseline, date: cutoff });
+  }
+  return windowed;
+}
+
+function formatSignedCurrency(value: number): string {
+  const sign = value >= 0 ? "+" : "−";
+  return `${sign}${formatCurrency(Math.abs(Math.round(value)))}`;
 }
 
 interface NetWorthChartProps {
@@ -41,13 +80,19 @@ interface NetWorthChartProps {
 }
 
 export function NetWorthChart({ data }: NetWorthChartProps) {
+  const [rangeYears, setRangeYears] = useState<number | null>(null);
+  const rangedData = useMemo(
+    () => windowToRange(data, rangeYears),
+    [data, rangeYears],
+  );
+
   // Every point carries every series key, so the last point names them all
   // (mortgages folded into their property never appear — no dead legend pills)
   const seriesNames = useMemo(() => {
-    const last = data[data.length - 1];
+    const last = rangedData[rangedData.length - 1];
     if (!last) return [];
     return Object.keys(last).filter((key) => key !== "date" && key !== "total");
-  }, [data]);
+  }, [rangedData]);
 
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   // Ignore hidden entries for series that no longer exist (import/reset)
@@ -57,15 +102,30 @@ export function NetWorthChart({ data }: NetWorthChartProps) {
   // shows that account's own trajectory rather than the full net worth
   const chartData = useMemo(() => {
     const visibleNames = seriesNames.filter((name) => !hidden.has(name));
-    if (visibleNames.length === seriesNames.length) return data;
-    return data.map((point) => ({
+    if (visibleNames.length === seriesNames.length) return rangedData;
+    return rangedData.map((point) => ({
       ...point,
       total: visibleNames.reduce(
         (sum, name) => sum + (Number(point[name]) || 0),
         0,
       ),
     }));
-  }, [data, seriesNames, hidden]);
+  }, [rangedData, seriesNames, hidden]);
+
+  const first = chartData[0];
+  const latest = chartData[chartData.length - 1];
+  const change =
+    first && latest && chartData.length > 1 ? latest.total - first.total : null;
+  const changePercent =
+    change != null && first && first.total !== 0
+      ? change / Math.abs(first.total)
+      : null;
+  const rangeLabel =
+    rangeYears == null
+      ? "all time"
+      : rangeYears === 1
+        ? "past year"
+        : `past ${rangeYears} years`;
 
   function soloSeries(name: string) {
     setHidden((previous) => {
@@ -106,7 +166,38 @@ export function NetWorthChart({ data }: NetWorthChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Net Worth Over Time</CardTitle>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <CardTitle>Net Worth Over Time</CardTitle>
+          <div className="flex gap-1">
+            {RANGE_OPTIONS.map((option) => (
+              <Button
+                key={option.label}
+                variant={rangeYears === option.years ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setRangeYears(option.years)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+        {change != null && (
+          <p className="text-sm">
+            <span className="font-semibold">
+              {formatSignedCurrency(change)}
+            </span>
+            {changePercent != null && (
+              <span className="font-semibold">
+                {" "}
+                ({(changePercent * 100).toFixed(1)}%)
+              </span>
+            )}{" "}
+            <span className="text-muted-foreground">
+              {isFiltered ? "for the selected accounts " : ""}over the{" "}
+              {rangeLabel}
+            </span>
+          </p>
+        )}
         <CardDescription>
           Stacked account balances with net worth as the bold line — liability
           accounts stack below zero, so the line is the true total.

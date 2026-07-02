@@ -162,6 +162,14 @@ export const SetInflationInputSchema = z.object({
 });
 export type SetInflationInput = z.infer<typeof SetInflationInputSchema>;
 
+export const SetNetWorthTargetInputSchema = z.object({
+  /** Null clears the target */
+  target: z.number().positive("Target must be positive").nullable(),
+});
+export type SetNetWorthTargetInput = z.infer<
+  typeof SetNetWorthTargetInputSchema
+>;
+
 export function todayIsoDate(): string {
   // Local calendar date, not UTC — toISOString() would roll over around
   // local midnight and record the wrong day
@@ -508,6 +516,17 @@ export function applySetInflation(
   return {
     ...data,
     settings: { ...data.settings, expectedAnnualInflation: parsed.rate },
+  };
+}
+
+export function applySetNetWorthTarget(
+  data: AssetTrackerData,
+  input: SetNetWorthTargetInput,
+): AssetTrackerData {
+  const parsed = SetNetWorthTargetInputSchema.parse(input);
+  return {
+    ...data,
+    settings: { ...data.settings, targetNetWorth: parsed.target ?? undefined },
   };
 }
 

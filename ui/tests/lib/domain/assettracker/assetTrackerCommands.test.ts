@@ -10,6 +10,7 @@ import {
   applyRecordBalance,
   applyRecordTransfer,
   applySetExpectedReturn,
+  applySetNetWorthTarget,
 } from "@/lib/domain/assettracker/assetTrackerCommands";
 import type { AssetTrackerData } from "@/lib/domain/assettracker/assetTrackerData";
 import { flowOccurrenceDates } from "@/lib/domain/assettracker/recurringFlow";
@@ -605,6 +606,23 @@ describe("applyAddRecurringFlow / applyDeleteRecurringFlow", () => {
     expect(() => applyDeleteRecurringFlow(next, { id: "salary" })).toThrow(
       /No recurring flow/,
     );
+  });
+});
+
+describe("applySetNetWorthTarget", () => {
+  it("sets and clears the target while preserving other settings", () => {
+    const withTarget = applySetNetWorthTarget(baseData(), { target: 500000 });
+    expect(withTarget.settings.targetNetWorth).toBe(500000);
+    expect(withTarget.settings.expectedAnnualInflation).toBe(0.025);
+
+    const cleared = applySetNetWorthTarget(withTarget, { target: null });
+    expect(cleared.settings.targetNetWorth).toBeUndefined();
+  });
+
+  it("rejects a non-positive target", () => {
+    expect(() =>
+      applySetNetWorthTarget(baseData(), { target: -100 }),
+    ).toThrow();
   });
 });
 

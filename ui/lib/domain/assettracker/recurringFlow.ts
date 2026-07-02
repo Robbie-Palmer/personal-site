@@ -125,3 +125,39 @@ export function flowOccurrenceDates(
   }
   return dates;
 }
+
+export type UpcomingFlowOccurrence = {
+  date: string;
+  flow: RecurringFlow;
+  amount: number;
+};
+
+/**
+ * Every payment due across all flows in [fromDate, throughDate], date-sorted.
+ * Formula payments are estimated against the liability's latest balance;
+ * a flow with nothing due (debt already cleared) produces no occurrence.
+ */
+export function upcomingFlowOccurrences(
+  flows: RecurringFlow[],
+  fromDate: string,
+  throughDate: string,
+  liabilityBalances: Record<string, number> = {},
+): UpcomingFlowOccurrence[] {
+  const dayBeforeFrom = format(addDays(parseISO(fromDate), -1), "yyyy-MM-dd");
+  const occurrences: UpcomingFlowOccurrence[] = [];
+  for (const flow of flows) {
+    const liabilityBalance =
+      flow.toAccountId != null
+        ? liabilityBalances[flow.toAccountId]
+        : undefined;
+    // Per-occurrence amount: the flow's own amount, not the monthly equivalent
+    const amount = flow.formula
+      ? monthlyAmount(flow, liabilityBalance)
+      : (flow.amount ?? 0);
+    if (amount <= 0) continue;
+    for (const date of flowOccurrenceDates(flow, throughDate, dayBeforeFrom)) {
+      occurrences.push({ date, flow, amount });
+    }
+  }
+  return occurrences.sort((a, b) => a.date.localeCompare(b.date));
+}

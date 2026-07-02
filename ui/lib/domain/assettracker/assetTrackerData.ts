@@ -17,6 +17,8 @@ export const DEFAULT_EXPECTED_INFLATION = 0.025;
 export const AssetTrackerSettingsSchema = z.object({
   /** Used to express projected values and rates in today's money */
   expectedAnnualInflation: z.number().gt(-1),
+  /** The net worth the user is aiming for, e.g. an FI number */
+  targetNetWorth: z.number().positive().optional(),
 });
 export type AssetTrackerSettings = z.infer<typeof AssetTrackerSettingsSchema>;
 

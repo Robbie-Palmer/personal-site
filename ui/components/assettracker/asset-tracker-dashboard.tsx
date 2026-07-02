@@ -16,7 +16,9 @@ import { useAssetTracker } from "./asset-tracker-provider";
 import { DataControls } from "./data-controls";
 import { LogBalanceDrawer } from "./log-balance-drawer";
 import { NetWorthChart } from "./net-worth-chart";
+import { PortfolioGoal } from "./portfolio-goal";
 import { RecordTransferDrawer } from "./record-transfer-drawer";
+import { UpcomingFlows } from "./upcoming-flows";
 
 export function AssetTrackerDashboard() {
   const {
@@ -82,13 +84,17 @@ export function AssetTrackerDashboard() {
       </div>
       <NetWorthChart data={netWorthData} />
       <div className="grid gap-8 lg:grid-cols-2">
+        <PortfolioGoal />
+        <UpcomingFlows />
+      </div>
+      <div className="grid gap-8 lg:grid-cols-2">
         <AssetAllocationChart data={assetAllocation} />
         <AccountBalanceChart accounts={accountDetails} />
       </div>
       <div>
         <h2 className="text-2xl font-semibold mb-4">Accounts</h2>
         <AccountsTable
-          accounts={accounts}
+          accounts={accountDetails}
           onSelectAccount={setSelectedAccountId}
         />
       </div>

@@ -3,6 +3,7 @@ import { effectiveExpectedReturn } from "@/lib/domain/assettracker/account";
 import {
   addRealValues,
   buildExpectedTrajectory,
+  buildPortfolioProjection,
   buildProjection,
   computeCagr,
   computeMoneyWeightedReturn,
@@ -13,6 +14,7 @@ import {
 import {
   monthlyAmount,
   type RecurringFlow,
+  upcomingFlowOccurrences,
 } from "@/lib/domain/assettracker/recurringFlow";
 
 describe("computeCagr", () => {
@@ -522,6 +524,165 @@ describe("dateTargetReached", () => {
     );
 
     expect(reached).toBe("2023-06-01");
+  });
+});
+
+describe("upcomingFlowOccurrences", () => {
+  const salary = {
+    id: "salary",
+    name: "Salary",
+    toAccountId: "current",
+    amount: 3000,
+    frequency: "monthly",
+    startDate: "2024-01-15",
+  } as RecurringFlow;
+  const weeklySaving = {
+    id: "saving",
+    name: "Saving",
+    fromAccountId: "current",
+    toAccountId: "isa",
+    amount: 50,
+    frequency: "weekly",
+    startDate: "2024-06-03",
+  } as RecurringFlow;
+
+  it("lists every due payment in the window, date-sorted", () => {
+    const occurrences = upcomingFlowOccurrences(
+      [salary, weeklySaving],
+      "2024-06-10",
+      "2024-07-09",
+    );
+
+    const summary = occurrences.map((o) => `${o.date} ${o.flow.id}`);
+    expect(summary).toEqual([
+      "2024-06-10 saving",
+      "2024-06-15 salary",
+      "2024-06-17 saving",
+      "2024-06-24 saving",
+      "2024-07-01 saving",
+      "2024-07-08 saving",
+    ]);
+    expect(occurrences[1]?.amount).toBe(3000);
+    expect(occurrences[0]?.amount).toBe(50);
+  });
+
+  it("estimates formula payments against the liability balance and skips cleared debts", () => {
+    const minimum = {
+      id: "min",
+      name: "Card minimum",
+      fromAccountId: "current",
+      toAccountId: "card",
+      formula: { kind: "minimumPayment", percentOfBalance: 0.025, floor: 25 },
+      frequency: "monthly",
+      startDate: "2024-01-01",
+    } as RecurringFlow;
+
+    const withDebt = upcomingFlowOccurrences(
+      [minimum],
+      "2024-06-15",
+      "2024-07-15",
+      { card: -5000 },
+    );
+    expect(withDebt).toHaveLength(1);
+    expect(withDebt[0]?.amount).toBeCloseTo(125, 5);
+
+    const cleared = upcomingFlowOccurrences(
+      [minimum],
+      "2024-06-15",
+      "2024-07-15",
+      { card: 0 },
+    );
+    expect(cleared).toHaveLength(0);
+  });
+});
+
+describe("buildPortfolioProjection", () => {
+  const accounts = [
+    {
+      id: "savings",
+      expectedAnnualReturn: 0,
+      isOpen: true,
+      latestBalance: 1000,
+    },
+    {
+      id: "card",
+      expectedAnnualReturn: 0,
+      isOpen: true,
+      latestBalance: -400,
+    },
+    {
+      id: "old",
+      expectedAnnualReturn: 0.5,
+      isOpen: false,
+      latestBalance: 9999,
+    },
+  ];
+
+  it("sums open accounts and ignores closed ones", () => {
+    const points = buildPortfolioProjection({
+      accounts,
+      flows: [],
+      startDate: "2024-01-01",
+      months: 6,
+    });
+
+    expect(points[0]?.projected).toBe(600); // 1000 − 400, closed excluded
+    expect(points[6]?.projected).toBe(600);
+  });
+
+  it("cancels transfers between owned accounts out of the total", () => {
+    const flow = {
+      id: "saving",
+      name: "Saving",
+      fromAccountId: "savings",
+      toAccountId: "card",
+      amount: 100,
+      frequency: "monthly",
+      startDate: "2020-01-01",
+    } as RecurringFlow;
+
+    const points = buildPortfolioProjection({
+      accounts,
+      flows: [flow],
+      startDate: "2024-01-01",
+      months: 3,
+    });
+
+    // Money moving between owned accounts doesn't change the total; once the
+    // card clears at zero, only the source keeps paying out... it stops there
+    // because the card leg is clamped, so the total only moves after payoff
+    expect(points[0]?.projected).toBe(600);
+  });
+
+  it("grows the total with external income", () => {
+    const salary = {
+      id: "salary",
+      name: "Salary",
+      toAccountId: "savings",
+      amount: 500,
+      frequency: "monthly",
+      startDate: "2020-01-01",
+    } as RecurringFlow;
+
+    const points = buildPortfolioProjection({
+      accounts,
+      flows: [salary],
+      startDate: "2024-01-01",
+      months: 4,
+    });
+
+    expect(points[4]?.projected).toBe(600 + 4 * 500);
+  });
+
+  it("returns an empty projection with no open accounts", () => {
+    const points = buildPortfolioProjection({
+      accounts: [],
+      flows: [],
+      startDate: "2024-01-01",
+      months: 12,
+    });
+
+    expect(points).toEqual([]);
   });
 });
 

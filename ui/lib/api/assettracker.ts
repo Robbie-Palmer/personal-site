@@ -12,6 +12,7 @@ import {
   applyRecordTransfer,
   applySetExpectedReturn,
   applySetInflation,
+  applySetNetWorthTarget,
   buildRepository,
   type CloseAccountInput,
   type CreateAccountInput,
@@ -23,6 +24,7 @@ import {
   type RecordTransferInput,
   type SetExpectedReturnInput,
   type SetInflationInput,
+  type SetNetWorthTargetInput,
 } from "@/lib/domain/assettracker";
 
 /**
@@ -46,6 +48,7 @@ export interface AssetTrackerApi {
   materializeFlow(input: MaterializeFlowInput): Promise<AssetTrackerData>;
   setExpectedReturn(input: SetExpectedReturnInput): Promise<AssetTrackerData>;
   setInflation(input: SetInflationInput): Promise<AssetTrackerData>;
+  setNetWorthTarget(input: SetNetWorthTargetInput): Promise<AssetTrackerData>;
   importData(raw: unknown): Promise<AssetTrackerData>;
   reset(): Promise<AssetTrackerData>;
 }
@@ -120,6 +123,9 @@ export function createLocalAssetTrackerApi(storage: Storage): AssetTrackerApi {
     },
     async setInflation(input) {
       return write(applySetInflation(current(), input));
+    },
+    async setNetWorthTarget(input) {
+      return write(applySetNetWorthTarget(current(), input));
     },
     async importData(raw) {
       const data = AssetTrackerDataSchema.parse(raw);
