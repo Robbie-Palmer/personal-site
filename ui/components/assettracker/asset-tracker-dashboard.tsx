@@ -33,7 +33,6 @@ export function AssetTrackerDashboard() {
 
   const totalBalance = computeTotalBalance(accounts);
   const openAccounts = accounts.filter((a) => a.isOpen);
-  const accountNames = accounts.map((a) => a.name);
 
   return (
     <div className="space-y-8">
@@ -81,7 +80,7 @@ export function AssetTrackerDashboard() {
           <p className="text-3xl font-bold mt-1">{assetAllocation.length}</p>
         </div>
       </div>
-      <NetWorthChart data={netWorthData} accountNames={accountNames} />
+      <NetWorthChart data={netWorthData} />
       <div className="grid gap-8 lg:grid-cols-2">
         <AssetAllocationChart data={assetAllocation} />
         <AccountBalanceChart accounts={accountDetails} />
