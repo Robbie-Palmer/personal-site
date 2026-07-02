@@ -37,10 +37,10 @@ export function RecipeSearchUrlSync() {
   // history navigation (not our own router.replace), so it can't clobber typing.
   useEffect(() => {
     const onPopState = () => {
-      setQuery(new URLSearchParams(window.location.search).get("q") ?? "");
+      setQuery(new URLSearchParams(globalThis.location.search).get("q") ?? "");
     };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
+    globalThis.addEventListener("popstate", onPopState);
+    return () => globalThis.removeEventListener("popstate", onPopState);
   }, [setQuery]);
 
   useEffect(() => {
@@ -55,7 +55,8 @@ export function RecipeSearchUrlSync() {
         params.delete("q");
       }
       const qs = params.toString();
-      router.replace(`/recipes${qs ? `?${qs}` : ""}`, { scroll: false });
+      const url = qs ? `/recipes?${qs}` : "/recipes";
+      router.replace(url, { scroll: false });
     }, URL_SYNC_DEBOUNCE_MS);
     return () => clearTimeout(id);
   }, [query, pathname, searchParams, router]);

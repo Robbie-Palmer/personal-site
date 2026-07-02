@@ -549,9 +549,9 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
         {/* biome-ignore lint/a11y/noRedundantRoles: intentional Safari/VoiceOver list-semantics workaround (see above) */}
         <ol role="list" className="rt-method-steps list-none p-0 m-0">
           {shouldUseSdkInstructions
-            ? instructionTokenization.steps.map((tokens, i) => (
+            ? instructionTokenization.steps.map((tokens) => (
                 <li
-                  key={i}
+                  key={tokens.map((token) => token.value).join("|")}
                   className="border-b border-dashed border-[var(--line)] last:border-0"
                 >
                   <div className="flex gap-4 py-3">
@@ -560,8 +560,8 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                       className="rt-step-num rt-display text-3xl text-[var(--terracotta)] leading-none min-w-[2ch]"
                     />
                     <div className="rt-body flex-1 leading-relaxed pt-1">
-                      {tokens.map((token, tokenIndex) => (
-                        <span key={tokenIndex}>
+                      {tokens.map((token) => (
+                        <span key={`${token.type}:${token.value}`}>
                           {token.type === "timer" ? (
                             <InlineTimer
                               durationSeconds={token.durationSeconds}
@@ -582,9 +582,9 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                   </div>
                 </li>
               ))
-            : effectiveRecipe.instructions.map((step, i) => (
+            : effectiveRecipe.instructions.map((step) => (
                 <li
-                  key={i}
+                  key={step}
                   className="border-b border-dashed border-[var(--line)] last:border-0"
                 >
                   <div className="flex gap-4 py-3">
