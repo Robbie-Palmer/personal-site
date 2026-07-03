@@ -26,7 +26,7 @@ import { useSortParam } from "@/hooks/use-sort-param";
 const SORT_OPTIONS = ["newest", "oldest", "updated"] as const;
 type SortOption = (typeof SORT_OPTIONS)[number];
 
-interface MultiFilterConfig<T> {
+export interface MultiFilterConfig<T> {
   paramName: string;
   isMulti: boolean;
   label: string;
@@ -36,7 +36,7 @@ interface MultiFilterConfig<T> {
   getOptionIcon?: (value: string) => ReactNode;
 }
 
-interface SearchConfig<T> {
+export interface SearchConfig<T> {
   placeholder: string;
   ariaLabel: string;
   keys: IFuseOptions<T>["keys"];
@@ -69,6 +69,14 @@ interface FilterableCardGridProps<T> {
   sortConfig: SortConfig<T>;
   emptyState: EmptyStateConfig;
   itemName: string;
+  /**
+   * Optionally hoist the search box out of the grid (e.g. into a nav bar).
+   * When both are provided the search becomes controlled by the parent; pair
+   * with `hideInlineSearch` to remove the in-grid search input.
+   */
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  hideInlineSearch?: boolean;
 }
 
 export function FilterableCardGrid<T>({
@@ -82,13 +90,22 @@ export function FilterableCardGrid<T>({
   sortConfig,
   emptyState,
   itemName,
+  searchValue,
+  onSearchChange,
+  hideInlineSearch = false,
 }: FilterableCardGridProps<T>) {
   const { currentSort, cycleSortOrder } = useSortParam<SortOption>(
     SORT_OPTIONS,
     "newest",
   );
   const pathname = usePathname();
-  const [searchQuery, setSearchQuery] = useState("");
+  const [internalSearchQuery, setInternalSearchQuery] = useState("");
+  const isSearchControlled =
+    searchValue !== undefined && onSearchChange !== undefined;
+  const searchQuery = isSearchControlled ? searchValue : internalSearchQuery;
+  const setSearchQuery = isSearchControlled
+    ? onSearchChange
+    : setInternalSearchQuery;
 
   const filterParamConfigs: FilterParamConfig[] = useMemo(() => {
     if (filterConfigs) {
@@ -327,6 +344,7 @@ export function FilterableCardGrid<T>({
   return (
     <div className="space-y-6">
       <FilterBar
+        showSearch={!hideInlineSearch}
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder={searchConfig.placeholder}

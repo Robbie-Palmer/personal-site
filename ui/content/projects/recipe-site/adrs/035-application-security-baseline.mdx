@@ -85,6 +85,28 @@ Rate limiting uses a layered approach:
 * **Better Auth's built-in rate limiter** should be backed by Durable Objects, native Cloudflare
   rate limiting, or another strongly consistent store rather than KV.
 
+### Tiers and thresholds
+
+The implementation uses three tiers. Both application tiers count in Postgres (via Hyperdrive/Neon),
+which is already in the request path and gives the strong consistency these counters need: the
+check-and-increment runs as a single `INSERT ... ON CONFLICT` statement, so concurrent requests
+cannot race a stale counter. Durable Objects are the natural alternative — they would keep counter
+writes off Postgres and closer to the edge — but that is more moving parts than a personal-scale MVP
+warrants while the database is already there.
+
+| Tier                 | Mechanism                                     | Scope                     | Default threshold  | Over-limit response        |
+| -------------------- | --------------------------------------------- | ------------------------- | ------------------ | -------------------------- |
+| Edge (broad)         | Cloudflare rate limiting rule (Terraform)     | Per IP, `/api/auth/*`     | 20 requests / 10s  | `429` at the edge          |
+| App auth (default)   | Better Auth limiter, Postgres `customStorage` | Per IP, `/api/auth/*`     | 100 requests / 60s | `429` with `X-Retry-After` |
+| App auth (sign-in)   | Better Auth limiter, Postgres `customStorage` | Per IP, `/sign-in/social` | 20 requests / 60s  | `429` with `X-Retry-After` |
+| Per-account (writes) | Worker limiter, Postgres `app_rate_limit`     | Per user, invites         | 10 invites / hour  | `429` with `Retry-After`   |
+
+The edge tier is intentionally the loosest: it absorbs volumetric floods before they reach the
+Worker while leaving normal multi-tab session polling alone. The application tiers tighten
+progressively toward the sensitive sign-in and write paths. Thresholds are configurable — the edge
+values are Terraform variables (`auth_rate_limit_*`) and the application values live in the Worker
+(`workers/recipe-api/src/auth.ts` and `src/http/rate-limit.ts`).
+
 ## Deferred
 
 The following can stay deferred to keep the system lean:

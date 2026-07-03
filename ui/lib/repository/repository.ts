@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { isValid, parse } from "date-fns";
-import matter from "gray-matter";
 import readingTime from "reading-time";
 import { experiences as definedExperiences } from "../../content/experience";
 import { technologies as definedTechnologies } from "../../content/technologies";
+import { parseFrontmatter } from "../content/frontmatter";
 import {
   type ADR,
   type ADRRef,
@@ -117,7 +117,7 @@ export function validateTechnologyReferences(
       const projectPath = path.join(PROJECTS_DIR, projectSlug, "index.mdx");
       if (fs.existsSync(projectPath)) {
         const fileContent = fs.readFileSync(projectPath, "utf-8");
-        const { data } = matter(fileContent);
+        const { data } = parseFrontmatter(fileContent);
         if (Array.isArray(data.tech_stack)) {
           for (const tech of data.tech_stack) {
             collectMissingTech(tech, `project: ${projectSlug}`);
@@ -132,7 +132,7 @@ export function validateTechnologyReferences(
           adrFiles.forEach((adrFile) => {
             const adrPath = path.join(adrsDir, adrFile);
             const adrContent = fs.readFileSync(adrPath, "utf-8");
-            const { data: adrData } = matter(adrContent);
+            const { data: adrData } = parseFrontmatter(adrContent);
             if (Array.isArray(adrData.tech_stack)) {
               for (const tech of adrData.tech_stack) {
                 collectMissingTech(tech, `ADR: ${projectSlug}/${adrFile}`);
@@ -152,7 +152,7 @@ export function validateTechnologyReferences(
     blogFiles.forEach((blogFile) => {
       const blogPath = path.join(BLOG_DIR, blogFile);
       const blogContent = fs.readFileSync(blogPath, "utf-8");
-      const { data: blogData } = matter(blogContent);
+      const { data: blogData } = parseFrontmatter(blogContent);
       if (Array.isArray(blogData.technologies)) {
         for (const tech of blogData.technologies) {
           collectMissingTech(tech, `blog: ${blogFile}`);
@@ -218,7 +218,7 @@ export function loadBlogPosts(): BlogLoadResult {
     const slug = filename.replace(/\.mdx$/, "");
     const filePath = path.join(BLOG_DIR, filename);
     const fileContent = fs.readFileSync(filePath, "utf-8");
-    const { data, content } = matter(fileContent);
+    const { data, content } = parseFrontmatter(fileContent);
 
     const post: BlogPost = {
       slug,
@@ -332,7 +332,7 @@ export function loadProjects(): ProjectLoadResult {
       return;
     }
     const fileContent = fs.readFileSync(projectPath, "utf-8");
-    const { data, content } = matter(fileContent);
+    const { data, content } = parseFrontmatter(fileContent);
 
     const adrRefs: ADRRef[] = [];
     const adrsDir = path.join(PROJECTS_DIR, projectSlug, "adrs");
@@ -443,7 +443,7 @@ export function loadADRs(): ADRLoadResult {
       const adrRef = makeADRRef(projectSlug, adrSlug);
       const adrPath = path.join(adrsDir, adrFile);
       const fileContent = fs.readFileSync(adrPath, "utf-8");
-      const { data, content } = matter(fileContent);
+      const { data, content } = parseFrontmatter(fileContent);
 
       if (typeof data.inherits_from === "string") {
         inheritedStubRecords.push({
@@ -639,7 +639,7 @@ export function loadBuildingPhilosophy(): string {
     return "";
   }
   const fileContent = fs.readFileSync(BUILDING_PHILOSOPHY_PATH, "utf-8");
-  const { content } = matter(fileContent);
+  const { content } = parseFrontmatter(fileContent);
   return content;
 }
 

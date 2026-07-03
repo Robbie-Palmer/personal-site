@@ -541,4 +541,4 @@ A: Yes, MDX supports both Markdown and JSX/HTML syntax.
 **Internal:**
 
 - [Main README](../../../README.md) - Project overview and tech stack
-- [claude.md](../../../claude.md) - AI agent guide (includes build system details)
+- [AGENTS.md](../../../AGENTS.md) - AI agent guide (includes build system details)

@@ -1,5 +1,6 @@
 import { TechMobileNav } from "@/components/technology/tech-mobile-nav";
 import { TechStickySidebar } from "@/components/technology/tech-sticky-sidebar";
+import { siteConfig } from "@/lib/config/site-config";
 import { loadDomainRepository } from "@/lib/domain";
 import { getAllTechnologyBadgesSorted } from "@/lib/domain/technology";
 
@@ -13,6 +14,12 @@ export default function TechnologyLayout({ children }: TechnologyLayoutProps) {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <link
+        rel="alternate"
+        type="application/rss+xml"
+        title={`${siteConfig.name} — Technologies`}
+        href="/technologies/feed.xml"
+      />
       <div className="lg:grid lg:grid-cols-[280px_1fr] list-none gap-8 items-start">
         {/* Mobile Navigation Trigger - Renders via Portal */}
         <TechMobileNav technologies={technologies} />

@@ -1,0 +1,312 @@
+name: Preview Environment
+
+on:
+  # Every job is gated to same-repo PRs, so pull_request gives internal PRs the
+  # secrets they need while fork PRs get none.
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # Decide whether this PR needs a database-backed backend preview.
+  detect:
+    # On label events, only react to the preview:* labels so unrelated label
+    # changes don't rebuild the preview.
+    if: >
+      github.event.pull_request.head.repo.full_name == github.repository
+      && github.event.pull_request.user.login != 'renovate[bot]'
+      && github.event.pull_request.user.login != 'dependabot[bot]'
+      && (
+        (github.event.action != 'labeled' && github.event.action != 'unlabeled')
+        || startsWith(github.event.label.name, 'preview:')
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.decide.outputs.backend }}
+    steps:
+      - name: Decide whether a backend preview is needed
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          FORCE_FRONTEND: ${{ contains(github.event.pull_request.labels.*.name, 'preview:frontend-only') }}
+          FORCE_BACKEND: ${{ contains(github.event.pull_request.labels.*.name, 'preview:backend') }}
+        run: |
+          set -euo pipefail
+          if [[ "$FORCE_FRONTEND" == "true" ]]; then
+            echo "Label preview:frontend-only forces frontend-only preview."
+            echo "backend=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$FORCE_BACKEND" == "true" ]]; then
+            echo "Label preview:backend forces a backend preview."
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files=$(gh pr diff "$PR_NUMBER" --repo "$REPO" --name-only)
+          if echo "$files" | grep -qE '^(workers/recipe-api/|functions/|packages/)'; then
+            echo "Backend-affecting paths changed; provisioning a backend preview."
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Frontend-only change; skipping backend provisioning."
+            echo "backend=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  backend:
+    needs: detect
+    if: needs.detect.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: preview-recipe-api
+    permissions:
+      contents: read
+    steps:
+      - name: Set preview resource names
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PAGES_HOST: ${{ vars.CLOUDFLARE_PAGES_HOST }}
+          PREVIEW_AUTH_SEED: ${{ secrets.PREVIEW_AUTH_SEED }}
+        run: |
+          set -euo pipefail
+          : "${PAGES_HOST:?CLOUDFLARE_PAGES_HOST is required}"
+          : "${PREVIEW_AUTH_SEED:?PREVIEW_AUTH_SEED is required}"
+
+          BETTER_AUTH_SECRET=$(printf 'better-auth:%s' "$PR_NUMBER" | openssl dgst -sha256 -hmac "$PREVIEW_AUTH_SEED" -binary | base64)
+          PREVIEW_AUTH_PASSWORD=$(printf 'preview-password:%s' "$PR_NUMBER" | openssl dgst -sha256 -hmac "$PREVIEW_AUTH_SEED" -binary | base64)
+          echo "::add-mask::$BETTER_AUTH_SECRET"
+          echo "::add-mask::$PREVIEW_AUTH_PASSWORD"
+
+          {
+            echo "PREVIEW_BRANCH=preview-pr-$PR_NUMBER"
+            echo "PREVIEW_WORKER_NAME=recipe-api-pr-$PR_NUMBER"
+            echo "PREVIEW_SITE_URL=https://pr-$PR_NUMBER.$PAGES_HOST"
+            echo "BETTER_AUTH_URL=https://pr-$PR_NUMBER.$PAGES_HOST"
+            echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET"
+            echo "PREVIEW_AUTH_PASSWORD=$PREVIEW_AUTH_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Set Neon branch expiry
+        id: neon-expiry
+        run: echo "expires_at=$(date -u --date '+30 days' +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
+      - name: Create or reuse schema-only Neon branch
+        id: neon
+        uses: neondatabase/create-branch-action@72ed4f69a12b6be9c16aebfad893f6a21e9aba8b # v6.4.0
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          branch_name: preview-pr-${{ github.event.pull_request.number }}
+          branch_type: schema-only
+          database: recipes
+          role: recipes_owner
+          # Neon Free plan fixes scale-to-zero at 5 minutes and rejects any
+          # explicit suspend_timeout with HTTP 412, so it must be omitted.
+          expires_at: ${{ steps.neon-expiry.outputs.expires_at }}
+
+      # Check out and build the PR only after provisioning, so the build steps
+      # never see the Neon API key.
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+        with:
+          experimental: true
+
+      - name: Get pnpm store directory
+        id: pnpm-store
+        shell: bash
+        run: echo "dir=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ steps.pnpm-store.outputs.dir }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: mise run //:install
+
+      - name: Check preview backend
+        run: mise run //workers/recipe-api:check
+
+      - name: Push schema to preview branch
+        run: mise run //workers/recipe-api:db:push
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+
+      - name: Seed preview scenarios
+        run: mise run //workers/recipe-api:db:seed:preview
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+          BETTER_AUTH_URL: https://pr-${{ github.event.pull_request.number }}.${{ vars.CLOUDFLARE_PAGES_HOST }}
+
+      - name: Create atomic Worker secrets file
+        id: worker-secrets
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+        run: |
+          SECRETS_FILE="$RUNNER_TEMP/preview-worker-secrets.json"
+          jq -n \
+            --arg database_url "$DATABASE_URL" \
+            --arg auth_secret "$BETTER_AUTH_SECRET" \
+            --arg preview_password "$PREVIEW_AUTH_PASSWORD" \
+            '{DATABASE_URL: $database_url, BETTER_AUTH_SECRET: $auth_secret, PREVIEW_AUTH_PASSWORD: $preview_password}' \
+            > "$SECRETS_FILE"
+          echo "secrets_file=$SECRETS_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy isolated preview Worker
+        run: mise run //workers/recipe-api:preview:deploy
+        env:
+          PREVIEW_SECRETS_FILE: ${{ steps.worker-secrets.outputs.secrets_file }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_ACCESS_TEAM_DOMAIN: ${{ vars.CF_ACCESS_TEAM_DOMAIN }}
+          CF_ACCESS_AUD: ${{ vars.CF_ACCESS_AUD }}
+
+  # Always deploy the static frontend for non-bot PRs, independent of the
+  # backend job. NEXT_PUBLIC_PREVIEW_BACKEND tells the build whether sign-in is
+  # backed by a per-PR Worker so the UI can present the right state.
+  frontend:
+    needs: detect
+    if: needs.detect.result == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: preview-site-ui
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+        with:
+          experimental: true
+
+      - name: Get pnpm store directory
+        id: pnpm-store
+        shell: bash
+        run: echo "dir=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ steps.pnpm-store.outputs.dir }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: mise run //:install
+
+      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ui/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('ui/app/**', 'ui/components/**', 'ui/content/**', 'ui/lib/**') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            nextjs-${{ runner.os }}-
+
+      # //ui:build skips its in-build type-check (see next.config.ts), so run
+      # the static checks explicitly before building and deploying the preview.
+      - name: Static checks (type-check + lint)
+        run: mise run //ui:check:static
+
+      - name: Build and deploy canonical PR Pages preview
+        # //ui:deploy depends on //ui:build, so this single step both builds
+        # and deploys the UI; a separate build step would only rebuild.
+        run: |
+          : "${NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH:?NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH is required}"
+          mise run //ui:deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DEPLOY_BRANCH: pr-${{ github.event.pull_request.number }}
+          NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: ${{ vars.CF_IMAGES_ACCOUNT_HASH }}
+          NEXT_PUBLIC_PREVIEW_BACKEND: ${{ needs.detect.outputs.backend }}
+
+  comment:
+    needs: [detect, backend, frontend]
+    if: always() && needs.frontend.result == 'success'
+    runs-on: ubuntu-latest
+    # The preview URL is built from vars.CLOUDFLARE_PAGES_HOST, which is scoped
+    # to the preview-site-ui environment. Selecting it here (like the frontend
+    # job does) keeps the variable from resolving empty and producing a
+    # host-less "https://pr-<n>." URL.
+    environment:
+      name: preview-site-ui
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Comment preview URL on PR
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          PREVIEW_SITE_URL: https://pr-${{ github.event.pull_request.number }}.${{ vars.CLOUDFLARE_PAGES_HOST }}
+          PREVIEW_WORKER_NAME: recipe-api-pr-${{ github.event.pull_request.number }}
+          PREVIEW_BRANCH: preview-pr-${{ github.event.pull_request.number }}
+          BACKEND_REQUESTED: ${{ needs.detect.outputs.backend }}
+          BACKEND_RESULT: ${{ needs.backend.result }}
+        with:
+          script: |
+            const marker = '<!-- preview-environment -->';
+            const requested = process.env.BACKEND_REQUESTED === 'true';
+            const ok = process.env.BACKEND_RESULT === 'success';
+
+            let backendLines;
+            if (requested && ok) {
+              backendLines = [
+                `**Worker:** \`${process.env.PREVIEW_WORKER_NAME}\``,
+                `**Database:** Neon branch \`${process.env.PREVIEW_BRANCH}\``,
+                '',
+                'The site is protected by Cloudflare Access. Use the **Sign in** menu to choose a seeded QA scenario.',
+              ];
+            } else if (requested && !ok) {
+              backendLines = ['**Backend:** ⚠️ provisioning failed — the frontend is deployed, but sign-in is unavailable. Re-run the workflow to retry.'];
+            } else {
+              backendLines = ['**Backend:** frontend-only preview — sign-in is disabled. Add the `preview:backend` label to provision an isolated Worker + database.'];
+            }
+
+            const body = [
+              marker,
+              '### Preview environment',
+              '',
+              `**Site:** ${process.env.PREVIEW_SITE_URL}`,
+              ...backendLines,
+            ].join('\n');
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find(comment =>
+              comment.user.type === 'Bot' && comment.body?.includes(marker)
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

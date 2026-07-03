@@ -8,6 +8,9 @@ locals {
     NEXT_PUBLIC_POSTHOG_KEY            = var.posthog_key
     NEXT_PUBLIC_POSTHOG_HOST           = var.posthog_host
     GITHUB_TOKEN                       = var.github_token
+    RECIPE_API_URL                     = var.recipe_api_url
+    RECIPE_API_PREVIEW_ORIGIN_TEMPLATE = var.recipe_api_preview_origin_template
+    CF_PAGES_HOST                      = var.cf_pages_host
   }
 }
 
@@ -29,11 +32,11 @@ resource "cloudflare_pages_project" "personal_site" {
       owner                         = var.github_repo_owner
       repo_name                     = var.github_repo_name
       production_branch             = var.production_branch
-      pr_comments_enabled           = true
-      deployments_enabled           = true
-      production_deployment_enabled = true
-      preview_deployment_setting    = "all"
-      preview_branch_includes       = ["*"]
+      pr_comments_enabled           = false
+      deployments_enabled           = false
+      production_deployment_enabled = false
+      preview_deployment_setting    = "none"
+      preview_branch_includes       = []
       preview_branch_excludes       = []
     }
   }
@@ -118,6 +121,27 @@ resource "neon_project" "recipes" {
   }
 }
 
+# Hyperdrive — connection pooling from Workers to Neon.
+# Uses the direct host (not pooler) because Hyperdrive does its own pooling.
+
+resource "cloudflare_hyperdrive_config" "recipe_db" {
+  account_id = var.cloudflare_account_id
+  name       = "recipe-db"
+
+  origin = {
+    database = neon_project.recipes.database_name
+    host     = neon_project.recipes.database_host
+    port     = 5432
+    user     = neon_project.recipes.database_user
+    password = neon_project.recipes.database_password
+    scheme   = "postgresql"
+  }
+
+  caching = {
+    disabled = true
+  }
+}
+
 # Cloudflare cache
 
 resource "cloudflare_ruleset" "map_tiles_cache" {
@@ -139,8 +163,38 @@ resource "cloudflare_ruleset" "map_tiles_cache" {
       }
       browser_ttl {
         mode    = "override_origin"
-        default = 24 * 60 * 60 # 1 day - allows cache busting if tiles are re-generated  
+        default = 24 * 60 * 60 # 1 day - allows cache busting if tiles are re-generated
       }
+    }
+  }
+}
+
+resource "cloudflare_ruleset" "auth_rate_limit" {
+  zone_id     = data.cloudflare_zone.domain.id
+  name        = "Auth endpoint rate limiting"
+  description = "Per-IP rate limiting for /api/auth/* — returns 429 on abuse. Counting is per Cloudflare data center (cf.colo.id is a mandatory, always-on characteristic; Cloudflare has no global counter)."
+  kind        = "zone"
+  phase       = "http_ratelimit"
+
+  lifecycle {
+    precondition {
+      condition     = var.auth_rate_limit_mitigation_timeout >= var.auth_rate_limit_period
+      error_message = "auth_rate_limit_mitigation_timeout must be >= auth_rate_limit_period."
+    }
+  }
+
+  rules {
+    ref         = "auth_ip_rate_limit"
+    description = "Limit auth requests per IP"
+    expression  = "(http.host eq \"${var.domain_name}\" and starts_with(http.request.uri.path, \"/api/auth/\"))"
+    # Blocking in the http_ratelimit phase responds with HTTP 429.
+    action = "block"
+
+    ratelimit {
+      characteristics     = ["ip.src", "cf.colo.id"]
+      period              = var.auth_rate_limit_period
+      requests_per_period = var.auth_rate_limit_requests
+      mitigation_timeout  = var.auth_rate_limit_mitigation_timeout
     }
   }
 }

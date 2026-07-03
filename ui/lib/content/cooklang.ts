@@ -1,8 +1,8 @@
 import { CooklangParser } from "@cooklang/cooklang";
 import { readdirSync, readFileSync } from "fs";
-import matter from "gray-matter";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
+import { parseFrontmatter } from "@/lib/content/frontmatter";
 import { buildRecipeContentFromParsed } from "@/lib/domain/recipe/cooklangTransform";
 import type { RecipeContent } from "@/lib/domain/recipe/recipe";
 import { RecipeFrontmatterSchema } from "@/lib/domain/recipe/recipe";
@@ -13,7 +13,7 @@ export function parseCookFile(
   fileContent: string,
   slug: string,
 ): RecipeContent {
-  const { data, content: body } = matter(fileContent);
+  const { data, content: body } = parseFrontmatter(fileContent);
   const fm = RecipeFrontmatterSchema.parse(data);
   const [parsed] = _parser.parse(body);
   return buildRecipeContentFromParsed(parsed, fm, slug, body);

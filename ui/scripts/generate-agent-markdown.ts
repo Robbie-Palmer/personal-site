@@ -532,6 +532,7 @@ function buildRoutesJson(): string {
     {
       version: 1,
       include: [
+        "/api/auth/*",
         "/ingest/*",
         "/",
         "/experience",

@@ -4,24 +4,32 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "bash scripts/dev.sh",
     "deploy": "wrangler deploy",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --project tsconfig.scripts.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:push:ci": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "preview:seed": "tsx scripts/seed-preview.ts"
   },
   "dependencies": {
-    "drizzle-orm": "^0.44.2",
+    "better-auth": "^1.6.19",
+    "better-auth-cloudflare": "^0.3.0",
+    "drizzle-orm": "^0.45.0",
     "hono": "^4.7.11",
-    "postgres": "^3.4.5"
+    "jose": "^6.1.3",
+    "postgres": "^3.4.5",
+    "zod": "^4.2.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4",
+    "@types/node": "^24",
     "drizzle-kit": "^0.31.0",
+    "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.1.7",
     "wrangler": "^4"

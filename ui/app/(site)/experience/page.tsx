@@ -1,7 +1,9 @@
-import { Briefcase, Layers } from "lucide-react";
+import { Briefcase, Layers, Rss } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ExperienceCard } from "@/components/experience/experience-card";
 import { SearchableTechnologyGrid } from "@/components/experience/searchable-technology-grid";
+import { Button } from "@/components/ui/button";
 import { getAllExperience, getExperienceSlug } from "@/lib/api/experience";
 import { siteConfig } from "@/lib/config/site-config";
 import { loadDomainRepository } from "@/lib/domain";
@@ -29,6 +31,19 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: `${siteConfig.url}/experience`,
+    types: {
+      "application/rss+xml": [
+        { url: "/feed.xml", title: `${siteConfig.name} RSS Feed` },
+        {
+          url: "/experience/feed.xml",
+          title: `${siteConfig.name} — Experience`,
+        },
+        {
+          url: "/technologies/feed.xml",
+          title: `${siteConfig.name} — Technologies`,
+        },
+      ],
+    },
   },
 };
 
@@ -45,10 +60,24 @@ export default function ExperiencePage() {
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-6xl">
-      <h1 className="text-4xl md:text-5xl font-bold mb-4">Experience</h1>
-      <p className="text-xl text-muted-foreground mb-8">
-        Professional experience and career history
-      </p>
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">Experience</h1>
+          <p className="text-xl text-muted-foreground">
+            Professional experience and career history
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm" className="shrink-0">
+          <Link
+            href="/experience/feed.xml"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Rss className="h-4 w-4" />
+            Subscribe
+          </Link>
+        </Button>
+      </div>
 
       <section className="mb-16">
         <h2 className="text-3xl font-semibold mb-8 flex items-center gap-2">
@@ -82,10 +111,22 @@ export default function ExperiencePage() {
       </section>
 
       <section id="technologies" className="mb-16 scroll-mt-24">
-        <h2 className="text-3xl font-semibold mb-8 flex items-center gap-2">
-          <Layers className="w-7 h-7 text-primary" />
-          Technologies
-        </h2>
+        <div className="mb-8 flex items-center justify-between gap-4">
+          <h2 className="text-3xl font-semibold flex items-center gap-2">
+            <Layers className="w-7 h-7 text-primary" />
+            Technologies
+          </h2>
+          <Button asChild variant="outline" size="sm" className="shrink-0">
+            <Link
+              href="/technologies/feed.xml"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Rss className="h-4 w-4" />
+              Subscribe
+            </Link>
+          </Button>
+        </div>
         <SearchableTechnologyGrid technologies={rankedTechnologies} />
       </section>
     </div>

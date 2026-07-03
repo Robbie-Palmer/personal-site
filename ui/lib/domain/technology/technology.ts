@@ -50,6 +50,11 @@ const TechnologyContentSchema = z.object({
   website: z.string().url(),
   iconSlug: z.string().optional(), // Only when icon slug differs from what's derived from name
   type: TechnologyTypeSchema.optional(),
+  // Date (YYYY-MM-DD) the technology was added to the catalogue.
+  added: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "added must be in YYYY-MM-DD format")
+    .optional(),
 });
 
 export type TechnologyContent = z.infer<typeof TechnologyContentSchema>;

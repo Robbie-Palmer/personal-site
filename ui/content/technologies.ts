@@ -2,36 +2,42 @@ import type { TechnologyContent } from "@/lib/domain/technology/technology";
 export const technologies: TechnologyContent[] = [
   {
     name: "React",
+    added: "2025-12-26",
     description: "Component-based UI development for JS/TS",
     website: "https://react.dev",
     type: "library",
   },
   {
     name: "Next.js",
+    added: "2026-01-04",
     description: "Full-stack web development built on React",
     website: "https://nextjs.org",
     type: "library",
   },
   {
     name: "TypeScript",
+    added: "2025-12-26",
     description: "TypeScript is JavaScript with syntax for types",
     website: "https://www.typescriptlang.org",
     type: "language",
   },
   {
     name: "Tailwind CSS",
+    added: "2026-01-04",
     description: "A utility-first CSS framework",
     website: "https://tailwindcss.com",
     type: "library",
   },
   {
     name: "AWS",
+    added: "2026-01-04",
     description: "Amazon Web Services - Cloud computing platform",
     website: "https://aws.amazon.com",
     type: "platform",
   },
   {
     name: "Java",
+    added: "2026-01-04",
     description:
       "A statically typed, object-oriented language running on the JVM",
     website: "https://www.java.com",
@@ -39,6 +45,7 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Python",
+    added: "2026-01-04",
     description:
       "A dynamically typed language widely used for ML, data, and automation",
     website: "https://www.python.org",
@@ -46,18 +53,21 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "pnpm",
+    added: "2026-01-04",
     description: "Fast, disk space efficient package manager",
     website: "https://pnpm.io",
     type: "tool",
   },
   {
     name: "Vitest",
+    added: "2026-01-04",
     description: "Modern unit testing for JS/TS with a familiar Jest-style API",
     website: "https://vitest.dev",
     type: "library",
   },
   {
     name: "shadcn/ui",
+    added: "2026-01-04",
     description:
       "Beautifully designed components built with Radix UI and Tailwind CSS",
     website: "https://ui.shadcn.com",
@@ -65,12 +75,14 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "GitHub",
+    added: "2026-01-04",
     description: "Development platform for version control and collaboration",
     website: "https://github.com",
     type: "platform",
   },
   {
     name: "GitHub Actions",
+    added: "2026-01-04",
     description:
       "A workflow automation platform integrated with GitHub repositories",
     website: "https://github.com/features/actions",
@@ -78,6 +90,7 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Terraform",
+    added: "2026-01-04",
     description:
       "Infrastructure as code for building, changing, and versioning cloud resources",
     website: "https://www.terraform.io",
@@ -85,54 +98,70 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Cloudflare Pages",
+    added: "2026-01-04",
     description: "JAMstack platform for frontend developers",
     website: "https://pages.cloudflare.com",
     type: "platform",
   },
   {
     name: "MDX",
+    added: "2026-01-04",
     description: "Markdown for the component era",
     website: "https://mdxjs.com",
     type: "library",
   },
   {
     name: "Shiki",
+    added: "2026-01-04",
     description: "A beautiful and powerful code syntax highlighter",
     website: "https://shiki.style",
     type: "library",
   },
   {
     name: "Fuse.js",
+    added: "2026-01-04",
     description: "Lightweight, client-side, fuzzy-search library",
     website: "https://www.fusejs.io",
     type: "library",
   },
   {
     name: "Zod",
+    added: "2026-01-04",
     description: "TypeScript-first schema validation",
     website: "https://zod.dev",
     type: "library",
   },
   {
     name: "Neo4j",
+    added: "2026-01-04",
     description: "Graph database management system",
     website: "https://neo4j.com",
     type: "database",
   },
   {
     name: "Embla Carousel",
+    added: "2026-01-04",
     description: "A lightweight carousel library with fluid motion",
     website: "https://www.embla-carousel.com",
     type: "library",
   },
   {
     name: "Claude Code",
+    added: "2026-01-04",
     description: "AI-powered coding assistant",
     website: "https://claude.ai",
     type: "tool",
   },
   {
+    name: "Codex",
+    added: "2026-06-21",
+    description: "OpenAI agentic coding assistant",
+    website: "https://developers.openai.com/codex",
+    type: "tool",
+  },
+  {
     name: "Mise",
+    added: "2026-01-04",
     description:
       "Tool version management, env var automation, and task execution for projects",
     website: "https://mise.jdx.dev",
@@ -140,97 +169,143 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "C#",
+    added: "2026-01-04",
     description: "A statically typed, object-oriented language running on .NET",
     website: "https://docs.microsoft.com/en-us/dotnet/csharp/",
     type: "language",
   },
   {
     name: "Weaviate",
+    added: "2026-01-04",
     description: "Open-source vector database",
     website: "https://weaviate.io",
     type: "database",
   },
   {
     name: "Doppler",
+    added: "2026-01-04",
     description: "SecretOps platform for managing environment variables",
     website: "https://www.doppler.com",
     type: "tool",
   },
   {
     name: "Recharts",
+    added: "2026-01-04",
     description: "A composable charting library built on React components",
     website: "https://recharts.org",
     type: "library",
   },
   {
     name: "Mermaid",
+    added: "2026-01-04",
     description: "JavaScript based diagramming and charting tool",
     website: "https://mermaid.js.org",
     type: "library",
   },
   {
     name: "Lucide React",
+    added: "2026-01-04",
     description: "Beautiful & consistent icon toolkit",
     website: "https://lucide.dev",
     iconSlug: "lucide",
     type: "library",
   },
   {
+    name: "Simple Icons",
+    added: "2026-06-30",
+    description: "SVG icons for popular brands",
+    website: "https://simpleicons.org",
+    iconSlug: "simpleicons",
+    type: "library",
+  },
+  {
+    name: "SVGL",
+    added: "2026-06-30",
+    description: "SVG logo library for brands and technologies",
+    website: "https://svgl.app",
+    iconSlug: "svgl",
+    type: "library",
+  },
+  {
     name: "Renovate",
+    added: "2026-01-04",
     description: "Automated dependency updates",
     website: "https://docs.renovatebot.com",
     type: "tool",
   },
   {
     name: "CodeRabbit",
+    added: "2026-01-04",
     description: "AI-powered code review assistant",
     website: "https://coderabbit.ai",
     type: "tool",
   },
   {
+    name: "Greptile",
+    added: "2026-06-20",
+    description: "AI code reviewer with whole-codebase context",
+    website: "https://www.greptile.com",
+    type: "tool",
+  },
+  {
+    name: "Qodo",
+    added: "2026-06-21",
+    description: "AI-powered multi-agent code review platform",
+    website: "https://www.qodo.ai",
+    type: "tool",
+  },
+  {
     name: "CLA Assistant",
+    added: "2026-01-11",
     description: "Contributor License Agreement automation for GitHub",
     website: "https://cla-assistant.io",
     type: "tool",
   },
   {
     name: "Dependabot",
+    added: "2026-01-04",
     description: "Automated dependency updates for GitHub",
     website: "https://github.com/dependabot",
     type: "tool",
   },
   {
     name: "CodeQL",
+    added: "2026-01-04",
     description: "Semantic code analysis engine",
     website: "https://codeql.github.com",
     type: "tool",
   },
   {
     name: "Husky",
+    added: "2026-01-04",
     description: "Git hooks made easy",
     website: "https://typicode.github.io/husky",
     type: "tool",
   },
   {
     name: "Turbopack",
+    added: "2026-01-04",
     description: "Incremental bundler optimized for JavaScript and TypeScript",
     website: "https://turbo.build/pack",
     type: "tool",
   },
   {
     name: "CCPM",
+    added: "2026-01-04",
     description: "Claude Code Project Management",
     website: "https://github.com/automazeio/ccpm/",
     type: "tool",
   },
   {
     name: "Shortcut",
+    added: "2026-01-04",
     description: "Project management platform",
     website: "https://shortcut.com",
     type: "tool",
   },
   {
     name: "GitHub Secrets",
+    added: "2026-01-04",
     description: "Encrypted environment variables for GitHub Actions",
     website:
       "https://docs.github.com/en/actions/security-guides/encrypted-secrets",
@@ -239,6 +314,7 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Cloudflare Terraform Provider",
+    added: "2026-01-04",
     website:
       "https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs",
     iconSlug: "cloudflare",
@@ -246,12 +322,14 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Cloudflare DNS",
+    added: "2026-01-04",
     website: "https://www.cloudflare.com/dns",
     iconSlug: "cloudflare",
     type: "platform",
   },
   {
     name: "Cloudflare Rulesets",
+    added: "2026-01-11",
     description: "Rules for transforming and routing HTTP requests at the edge",
     website: "https://developers.cloudflare.com/ruleset-engine/",
     iconSlug: "cloudflare",
@@ -259,6 +337,7 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Cloudflare Images",
+    added: "2026-01-04",
     description: "Image optimization and delivery service",
     website: "https://www.cloudflare.com/products/images",
     iconSlug: "cloudflare",
@@ -266,6 +345,7 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Cloudflare R2",
+    added: "2026-02-14",
     description: "S3-compatible object storage with zero egress fees",
     website: "https://www.cloudflare.com/products/r2",
     iconSlug: "cloudflare",
@@ -273,6 +353,7 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Terraform Cloud",
+    added: "2026-01-04",
     description:
       "A SaaS platform for running Terraform and managing infrastructure state",
     website: "https://www.hashicorp.com/products/terraform",
@@ -281,14 +362,21 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Tailwind CSS Typography",
+    added: "2026-01-04",
     description: "Beautiful typographic defaults for HTML you don't control",
     website: "https://github.com/tailwindlabs/tailwindcss-typography",
     iconSlug: "tailwindcss",
     type: "library",
   },
-  { name: ".NET", website: "https://dotnet.microsoft.com", type: "platform" },
+  {
+    name: ".NET",
+    added: "2026-01-04",
+    website: "https://dotnet.microsoft.com",
+    type: "platform",
+  },
   {
     name: "Ansible",
+    added: "2026-01-04",
     description:
       "A tool for automating configuration, deployment, and orchestration",
     website: "https://www.ansible.com",
@@ -296,6 +384,7 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Kafka",
+    added: "2026-01-04",
     description: "Distributed event streaming platform",
     website: "https://kafka.apache.org",
     iconSlug: "apachekafka",
@@ -303,6 +392,7 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Arduino",
+    added: "2026-01-04",
     description:
       "Microcontroller boards and tools for building interactive electronic projects",
     website: "https://www.arduino.cc",
@@ -310,25 +400,34 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Bitbucket Pipelines",
+    added: "2026-01-04",
     description: "CI/CD service built into Bitbucket",
     website: "https://bitbucket.org/product/features/pipelines",
     type: "tool",
   },
-  { name: "C++", website: "https://isocpp.org", type: "language" },
+  {
+    name: "C++",
+    added: "2026-01-04",
+    website: "https://isocpp.org",
+    type: "language",
+  },
   {
     name: "Cloudflare Workers",
+    added: "2026-01-04",
     description: "Serverless execution environment",
     website: "https://workers.cloudflare.com",
     type: "platform",
   },
   {
     name: "DVC",
+    added: "2026-01-04",
     description: "Data Version Control for machine learning projects",
     website: "https://dvc.org",
     type: "tool",
   },
   {
     name: "Docker",
+    added: "2026-01-04",
     description:
       "A platform for packaging, distributing, and running applications in containers",
     website: "https://www.docker.com",
@@ -336,18 +435,21 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "FastAPI",
+    added: "2026-01-04",
     description: "Modern, fast web framework for building APIs with Python",
     website: "https://fastapi.tiangolo.com",
     type: "library",
   },
   {
     name: "Fastify",
+    added: "2026-01-04",
     description: "Fast and low overhead web framework for Node.js",
     website: "https://www.fastify.io",
     type: "library",
   },
   {
     name: "Flink",
+    added: "2026-01-04",
     description:
       "A distributed system for stateful, high-throughput, low-latency data processing",
     website: "https://flink.apache.org",
@@ -356,12 +458,14 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "GeoPandas",
+    added: "2026-01-04",
     description: "Python library for working with geospatial data",
     website: "https://geopandas.org",
     type: "library",
   },
   {
     name: "Go",
+    added: "2026-01-04",
     description:
       "A statically typed, compiled language designed for simplicity and concurrency",
     website: "https://go.dev",
@@ -369,30 +473,35 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Google BigQuery",
+    added: "2026-01-04",
     description: "Serverless, highly scalable data warehouse",
     website: "https://cloud.google.com/bigquery",
     type: "database",
   },
   {
     name: "Google Gemini",
+    added: "2026-01-04",
     description: "A cloud-based multimodal large language model",
     website: "https://deepmind.google/technologies/gemini/",
     type: "tool",
   },
   {
     name: "Grafana",
+    added: "2026-01-04",
     description: "Open source analytics and monitoring platform",
     website: "https://grafana.com",
     type: "tool",
   },
   {
     name: "Hugging Face",
+    added: "2026-01-04",
     description: "AI community and model hub",
     website: "https://huggingface.co",
     type: "library",
   },
   {
     name: "Jenkins",
+    added: "2026-01-04",
     description:
       "A CI/CD platform for automating software development workflows",
     website: "https://www.jenkins.io",
@@ -400,12 +509,14 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Keras",
+    added: "2026-01-04",
     description: "A Python library for designing and training neural networks",
     website: "https://keras.io",
     type: "library",
   },
   {
     name: "Kotlin",
+    added: "2026-01-04",
     description:
       "A modern JVM language blending OOP and functional programming",
     website: "https://kotlinlang.org",
@@ -413,31 +524,41 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Leaflet",
+    added: "2026-01-04",
     description: "A JavaScript library for interactive maps on the web",
     website: "https://leafletjs.com",
     type: "library",
   },
   {
     name: "Node.js",
+    added: "2026-01-04",
     description: "JavaScript runtime built on Chrome's V8 engine",
     website: "https://nodejs.org",
     type: "platform",
   },
-  { name: "OpenAI", website: "https://openai.com", type: "tool" },
+  {
+    name: "OpenAI",
+    added: "2026-01-04",
+    website: "https://openai.com",
+    type: "tool",
+  },
   {
     name: "OpenCV",
+    added: "2026-01-04",
     description: "Open source computer vision library",
     website: "https://opencv.org",
     type: "library",
   },
   {
     name: "OpenRouter",
+    added: "2026-01-04",
     description: "Unified API for LLM inference",
     website: "https://openrouter.ai",
     type: "tool",
   },
   {
     name: "Plotly",
+    added: "2026-01-04",
     description:
       "A Python (and JS) library for building interactive charts and dashboards",
     website: "https://plotly.com",
@@ -445,6 +566,7 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "PostgreSQL",
+    added: "2026-01-04",
     description:
       "A relational database optimized for extensibility and advanced data management",
     website: "https://www.postgresql.org",
@@ -452,24 +574,28 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Prisma",
+    added: "2026-01-04",
     description: "A TypeScript and Node.js ORM",
     website: "https://www.prisma.io",
     type: "library",
   },
   {
     name: "Prometheus",
+    added: "2026-01-04",
     description: "A time-series database for collecting and querying metrics",
     website: "https://prometheus.io",
     type: "database",
   },
   {
     name: "Pulumi",
+    added: "2026-01-04",
     description: "Infrastructure as code using general-purpose languages",
     website: "https://www.pulumi.com",
     type: "library",
   },
   {
     name: "PyTorch",
+    added: "2026-01-04",
     description:
       "A Python library for designing, training, and running neural networks",
     website: "https://pytorch.org",
@@ -477,18 +603,21 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "RabbitMQ",
+    added: "2026-01-04",
     description: "A broker for asynchronous messaging and task distribution",
     website: "https://www.rabbitmq.com",
     type: "platform",
   },
   {
     name: "SQL",
+    added: "2026-01-04",
     description: "Domain-specific language for managing relational databases",
     website: "https://en.wikipedia.org/wiki/SQL",
     type: "language",
   },
   {
     name: "SemaphoreCI",
+    added: "2026-01-04",
     description:
       "A cloud-based CI/CD platform for automating software development workflows",
     website: "https://semaphoreci.com",
@@ -497,12 +626,14 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Stanford NLP",
+    added: "2026-01-04",
     description: "Natural language processing toolkit",
     website: "https://nlp.stanford.edu/software/",
     type: "library",
   },
   {
     name: "Swift",
+    added: "2026-01-04",
     description:
       "A compiled, type-safe language for developing applications across Apple platforms",
     website: "https://www.swift.org",
@@ -510,52 +641,61 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "T-SQL",
+    added: "2026-01-04",
     description: "Microsoft's extension of SQL",
     website: "https://docs.microsoft.com/en-us/sql/t-sql/",
     type: "language",
   },
   {
     name: "TensorRT",
+    added: "2026-01-04",
     description: "SDK for high-performance deep learning inference",
     website: "https://developer.nvidia.com/tensorrt",
     type: "library",
   },
   {
     name: "ksqlDB",
+    added: "2026-01-04",
     description: "Database purpose-built for stream processing",
     website: "https://ksqldb.io",
     type: "tool",
   },
   {
     name: "spaCy",
+    added: "2026-01-04",
     description: "Industrial-strength natural language processing",
     website: "https://spacy.io",
     type: "library",
   },
   {
     name: "Shapely",
+    added: "2026-01-04",
     description: "An SDK for embedded geospatial operations",
     website: "https://shapely.readthedocs.io/en/latest/",
     type: "library",
   },
   {
     name: "OpenSlide",
+    added: "2026-01-04",
     description: "An SDK for reading pathology image formats",
     website: "https://github.com/openslide/openslide-python",
     type: "library",
   },
   {
     name: "R",
+    added: "2026-01-04",
     website: "https://www.r-project.org/",
     type: "language",
   },
   {
     name: "Shiny",
+    added: "2026-01-04",
     website: "https://shiny.posit.co/",
     type: "library",
   },
   {
     name: "AWS Textract",
+    added: "2026-01-04",
     description:
       "Machine learning service that automatically extracts text, handwriting, and data from scanned documents",
     website: "https://aws.amazon.com/textract/",
@@ -563,18 +703,21 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "PyPika",
+    added: "2026-01-04",
     description: "A Python SQL query builder",
     website: "https://github.com/kayak/pypika",
     type: "library",
   },
   {
     name: "Sigma.js",
+    added: "2026-02-12",
     description: "WebGL-powered graph visualization for the web",
     website: "https://www.sigmajs.org",
     type: "library",
   },
   {
     name: "PostHog",
+    added: "2026-02-14",
     description:
       "Open source product analytics, session replay, and experimentation",
     website: "https://posthog.com",
@@ -582,6 +725,7 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "cooklang-rs",
+    added: "2026-02-28",
     description:
       "Rust parser and scaling engine for the Cooklang recipe format, with WASM/TypeScript bindings for in-browser use",
     website: "https://github.com/cooklang/cooklang-rs",
@@ -589,6 +733,7 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Better Auth",
+    added: "2026-05-27",
     description:
       "TypeScript-first, self-hosted authentication library with config-as-code",
     website: "https://better-auth.com",
@@ -596,6 +741,7 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Drizzle",
+    added: "2026-05-28",
     description:
       "TypeScript ORM with type-safe queries and dialect-specific schema definitions",
     website: "https://orm.drizzle.team",
@@ -603,6 +749,7 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Hono",
+    added: "2026-05-28",
     description:
       "Lightweight HTTP framework for Cloudflare Workers, Node.js, Deno, and Bun",
     website: "https://hono.dev",
@@ -610,6 +757,7 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Hyperdrive",
+    added: "2026-05-28",
     description:
       "Cloudflare connection pooling service for Workers connecting to external databases",
     website: "https://developers.cloudflare.com/hyperdrive/",
@@ -618,9 +766,69 @@ export const technologies: TechnologyContent[] = [
   },
   {
     name: "Neon",
+    added: "2026-05-28",
     description:
       "Serverless Postgres with scale-to-zero, branching, and a generous free tier",
     website: "https://neon.com",
     type: "database",
+  },
+  {
+    name: "Google OAuth",
+    added: "2026-06-19",
+    description:
+      "Sign in with Google via OAuth 2.0 / OpenID Connect, configured through a Google Cloud project",
+    website: "https://developers.google.com/identity",
+    iconSlug: "google",
+    type: "platform",
+  },
+  {
+    name: "GitHub OAuth",
+    added: "2026-06-19",
+    description:
+      "Sign in with GitHub via OAuth 2.0, configured through a GitHub OAuth App",
+    website: "https://docs.github.com/en/apps/oauth-apps",
+    iconSlug: "github",
+    type: "platform",
+  },
+  {
+    name: "Trivy",
+    added: "2026-06-21",
+    description:
+      "Open source security scanner for IaC, container images, and dependency vulnerabilities",
+    website: "https://trivy.dev",
+    type: "tool",
+  },
+  {
+    name: "SonarQube",
+    added: "2026-06-26",
+    description:
+      "Continuous code quality and security platform: maintainability metrics, duplication, cognitive complexity, and SAST behind a pass/fail quality gate",
+    website: "https://www.sonarsource.com/products/sonarqube/",
+    iconSlug: "sonarqubecloud",
+    type: "tool",
+  },
+  {
+    name: "actionlint",
+    added: "2026-06-27",
+    description:
+      "Static linter for GitHub Actions workflows: syntax, expression, and shell (shellcheck) checks",
+    website: "https://github.com/rhysd/actionlint",
+    type: "tool",
+  },
+  {
+    name: "zizmor",
+    added: "2026-06-27",
+    description:
+      "Static analysis (SAST) for GitHub Actions workflows: template injection, dangerous triggers, credential persistence, and excessive permissions",
+    website: "https://zizmor.sh",
+    type: "tool",
+  },
+  {
+    name: "OpenTelemetry",
+    added: "2026-06-28",
+    description:
+      "Vendor-neutral observability framework and protocol (OTLP) for emitting and exporting logs, metrics, and traces",
+    website: "https://opentelemetry.io",
+    type: "tool",
   },
 ];

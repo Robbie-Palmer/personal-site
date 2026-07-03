@@ -49,3 +49,10 @@ output "neon_database_name" {
   description = "Neon database name"
   value       = neon_project.recipes.database_name
 }
+
+# Hyperdrive
+
+output "hyperdrive_config_id" {
+  description = "Hyperdrive configuration ID for recipe-db (set in wrangler.toml)"
+  value       = cloudflare_hyperdrive_config.recipe_db.id
+}

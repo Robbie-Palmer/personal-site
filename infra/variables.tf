@@ -72,6 +72,74 @@ variable "r2_dvc_bucket_name" {
   default     = "dvc"
 }
 
+variable "recipe_api_url" {
+  description = "URL of the recipe-api Worker for the auth proxy"
+  type        = string
+  default     = "https://recipe-api.robbiepalmer95.workers.dev"
+}
+
+variable "recipe_api_preview_origin_template" {
+  description = "Preview Worker origin template; {pr} is replaced with the PR number"
+  type        = string
+  default     = "https://recipe-api-pr-{pr}.robbiepalmer95.workers.dev"
+
+  validation {
+    condition = (
+      length(regexall("\\{pr\\}", var.recipe_api_preview_origin_template)) == 1 &&
+      can(regex("^https://[A-Za-z0-9.-]*\\{pr\\}[A-Za-z0-9.-]*(:[0-9]+)?$", var.recipe_api_preview_origin_template))
+    )
+    error_message = "recipe_api_preview_origin_template must be an HTTPS origin template containing exactly one {pr} placeholder and no path or query."
+  }
+}
+
+variable "cf_pages_host" {
+  description = "Cloudflare Pages project hostname used to recognize canonical PR aliases"
+  type        = string
+  default     = "personal-site-bu5.pages.dev"
+
+  validation {
+    condition = (
+      can(regex("^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$", var.cf_pages_host)) &&
+      length(regexall("\\.", var.cf_pages_host)) > 0 &&
+      length(regexall("\\.\\.", var.cf_pages_host)) == 0
+    )
+    error_message = "cf_pages_host must be a hostname only, with no scheme, path, query, or empty labels."
+  }
+}
+
+variable "auth_rate_limit_requests" {
+  description = "Max auth requests per IP within the counting period before the edge returns 429"
+  type        = number
+  default     = 20
+
+  validation {
+    condition     = var.auth_rate_limit_requests > 0
+    error_message = "auth_rate_limit_requests must be greater than zero."
+  }
+}
+
+variable "auth_rate_limit_period" {
+  description = "Counting period in seconds for edge auth rate limiting"
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = contains([10, 60, 120, 300, 600, 3600], var.auth_rate_limit_period)
+    error_message = "auth_rate_limit_period must be one of 10, 60, 120, 300, 600, 3600 seconds."
+  }
+}
+
+variable "auth_rate_limit_mitigation_timeout" {
+  description = "Seconds to keep blocking an IP after it trips the auth rate limit (must be >= the period)"
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.auth_rate_limit_mitigation_timeout >= 10
+    error_message = "auth_rate_limit_mitigation_timeout must be at least 10 seconds."
+  }
+}
+
 # Neon
 
 variable "neon_org_id" {

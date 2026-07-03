@@ -5,6 +5,7 @@ config_roots = [
     "ui",
     "infra",
     "ml-pipelines",
+    "workers/recipe-api",
 ]
 
 [settings]
@@ -13,17 +14,18 @@ verbose = false
 
 [tools]
 node = "lts"
-pnpm = "10.33.4"
-terraform = "1.15.4"
+pnpm = "10.34.4"
+terraform = "1.15.6"
+actionlint = "1.7.12"
+zizmor = "1.26.1"
 
 [env]
-_.file = ".env"
 MISE_EXPERIMENTAL = "1"
 
 # Root-level tasks for repo-wide tooling
 [tasks.lint]
 description = "Lint all files across the entire repo"
-depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//ui:lint", "//infra:lint"]
+depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:actions", "//ui:lint", "//infra:lint"]
 
 [tasks."lint:markdown"]
 description = "Lint and fix Markdown files (optionally pass files as args)"
@@ -80,10 +82,156 @@ else
 fi
 """
 
+[tasks."lint:actions"]
+description = "Lint GitHub Actions workflows with actionlint"
+run = "actionlint"
+
+[tasks."security:actions"]
+description = "Audit GitHub Actions workflows for security issues with zizmor"
+run = "zizmor ."
+
 [tasks.pre-commit]
 description = "Run pre-commit checks (called by Husky)"
 run = "pnpm lint-staged"
 depends = ["//:install"]
+
+[tasks.dev]
+description = "Start full local dev: Next.js (with auth rewrite) + recipe-api Worker"
+depends = ["//:install"]
+run = """
+#!/usr/bin/env bash
+set -e
+
+if [ "${PERSONAL_SITE_DOPPLER_WRAPPED:-}" != "1" ]; then
+  if ! command -v doppler >/dev/null 2>&1; then
+    echo "Cannot start local development: doppler is required."
+    echo "Install the Doppler CLI, then run 'mise run //:dev' again."
+    exit 1
+  fi
+
+  export PERSONAL_SITE_DOPPLER_WRAPPED=1
+  exec doppler run \
+    --project "${DOPPLER_PROJECT:-personal-site}" \
+    --config "${DOPPLER_PAGES_ENV_CONFIG:-dev_pages_env}" \
+    -- doppler run \
+      --project "${DOPPLER_PROJECT:-personal-site}" \
+      --config "${DOPPLER_RECIPE_API_CONFIG:-dev_recipe_api}" \
+      --preserve-env=NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH,CF_IMAGES_ACCOUNT_HASH,POSTHOG_KEY,NEXT_PUBLIC_POSTHOG_KEY,POSTHOG_HOST,NEXT_PUBLIC_POSTHOG_HOST,POSTHOG_API_HOST,POSTHOG_ASSETS_HOST,RECIPE_API_URL,RECIPE_API_PREVIEW_ORIGIN_TEMPLATE,CF_PAGES_HOST \
+      -- "$0" "$@"
+fi
+
+if ! command -v lsof >/dev/null 2>&1; then
+  echo "Cannot start local development: lsof is required."
+  echo "Install it with your package manager, then run 'mise run //:dev' again."
+  exit 1
+fi
+
+check_port() {
+  local port="$1"
+  local service="$2"
+  local listeners
+
+  listeners=$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+  if [ -n "$listeners" ]; then
+    echo "Cannot start $service: port $port is already in use."
+    echo "$listeners"
+    echo "Stop that process, then run 'mise run //:dev' again."
+    exit 1
+  fi
+}
+
+check_port 8787 "recipe-api Worker"
+check_port 3000 "Next.js"
+
+# Wrangler needs this env var to emulate the Hyperdrive binding locally.
+# Read DATABASE_URL from Doppler if not already set.
+if [ -z "$CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE" ]; then
+  if [ -n "${DATABASE_URL:-}" ]; then
+    export CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="$DATABASE_URL"
+  fi
+fi
+
+NEXT_PID=""
+WORKER_PID=""
+CLEANED_UP=0
+
+terminate_tree() {
+  local parent_pid="$1"
+  local child_pid
+
+  while read -r child_pid; do
+    if [ -n "$child_pid" ]; then
+      terminate_tree "$child_pid"
+    fi
+  done < <(pgrep -P "$parent_pid" 2>/dev/null || true)
+
+  kill -TERM "$parent_pid" 2>/dev/null || true
+}
+
+cleanup() {
+  if [ "$CLEANED_UP" -eq 1 ]; then
+    return
+  fi
+  CLEANED_UP=1
+  trap - EXIT INT TERM
+
+  echo ""
+  echo "Shutting down..."
+
+  if [ -n "$NEXT_PID" ]; then
+    terminate_tree "$NEXT_PID"
+  fi
+  if [ -n "$WORKER_PID" ]; then
+    terminate_tree "$WORKER_PID"
+  fi
+
+  wait "$NEXT_PID" "$WORKER_PID" 2>/dev/null || true
+}
+trap cleanup EXIT
+trap 'cleanup; exit 0' INT TERM
+
+echo "Starting recipe-api Worker on :8787..."
+pnpm --filter recipe-api dev --port 8787 &
+WORKER_PID=$!
+
+echo "Starting Next.js dev server on :3000..."
+echo "Open http://localhost:3000 to test"
+pnpm --filter ui dev --port 3000 &
+NEXT_PID=$!
+
+# Give both commands time to fail fast before entering the monitoring loop.
+sleep 2
+
+if ! kill -0 "$WORKER_PID" 2>/dev/null; then
+  echo "recipe-api Worker failed to start."
+  cleanup
+  exit 1
+fi
+
+if ! kill -0 "$NEXT_PID" 2>/dev/null; then
+  echo "Next.js failed to start."
+  cleanup
+  exit 1
+fi
+
+# Poll for the first exit instead of using `wait -n`, which requires Bash 4.3.
+while kill -0 "$WORKER_PID" 2>/dev/null && kill -0 "$NEXT_PID" 2>/dev/null; do
+  sleep 1
+done
+
+set +e
+if ! kill -0 "$WORKER_PID" 2>/dev/null; then
+  wait "$WORKER_PID"
+  STATUS=$?
+else
+  wait "$NEXT_PID"
+  STATUS=$?
+fi
+set -e
+
+cleanup
+exit "$STATUS"
+"""
 
 [tasks.install]
 description = "Install all dependencies (root and workspaces)"

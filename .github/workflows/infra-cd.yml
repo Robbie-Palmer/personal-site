@@ -16,42 +16,38 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
     environment:
-      name: cloudflare-production
-    env:
-      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      TF_VAR_cf_images_account_hash: ${{ secrets.CF_IMAGES_ACCOUNT_HASH }}
-      TF_VAR_posthog_key: ${{ secrets.POSTHOG_KEY }}
-      TF_VAR_github_token: ${{ secrets.MISE_GITHUB_TOKEN }}
-      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-      TF_VAR_neon_org_id: ${{ secrets.NEON_ORG_ID }}
+      name: production-infra
     defaults:
       run:
         working-directory: infra
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
         with:
           experimental: true
 
-      - name: Create .env file for Terraform
-        run: |
-          cat > .env <<EOF
-          export CLOUDFLARE_API_TOKEN="${CLOUDFLARE_API_TOKEN}"
-          export TF_TOKEN_app_terraform_io="${TF_TOKEN_app_terraform_io}"
-          export TF_VAR_cf_images_account_hash="${TF_VAR_cf_images_account_hash}"
-          export TF_VAR_posthog_key="${TF_VAR_posthog_key}"
-          export TF_VAR_github_token="${TF_VAR_github_token}"
-          export NEON_API_KEY="${NEON_API_KEY}"
-          export TF_VAR_neon_org_id="${TF_VAR_neon_org_id}"
-          EOF
+      # mise (infra/mise.toml) loads .env if present; create it empty so the
+      # secrets below reach terraform through the step env: blocks rather than the
+      # runner filesystem or the checkout/mise/comment steps.
+      - name: Create empty .env for mise
+        run: touch .env
 
       - name: Terraform Plan
         run: mise run //infra:plan
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_cf_images_account_hash: ${{ vars.CF_IMAGES_ACCOUNT_HASH }}
+          TF_VAR_posthog_key: ${{ vars.POSTHOG_KEY }}
+          TF_VAR_github_token: ${{ secrets.MISE_GITHUB_TOKEN }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          TF_VAR_neon_org_id: ${{ secrets.NEON_ORG_ID }}
 
       - name: Add Terraform Plan to Summary
-        uses: borchero/terraform-plan-comment@v3
+        uses: borchero/terraform-plan-comment@2d41e908725447b1677913001dfb92fa7010c025 # v3
         with:
           token: ${{ github.token }}
           planfile: .planfile
@@ -60,3 +56,11 @@ jobs:
 
       - name: Terraform Apply
         run: mise run //infra:apply
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_cf_images_account_hash: ${{ vars.CF_IMAGES_ACCOUNT_HASH }}
+          TF_VAR_posthog_key: ${{ vars.POSTHOG_KEY }}
+          TF_VAR_github_token: ${{ secrets.MISE_GITHUB_TOKEN }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          TF_VAR_neon_org_id: ${{ secrets.NEON_ORG_ID }}

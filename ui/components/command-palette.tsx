@@ -25,6 +25,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { Button } from "@/components/ui/button";
+import { useIsMac } from "@/hooks/use-is-mac";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 import { siteConfig } from "@/lib/config/site-config";
 import { cn } from "@/lib/generic/styles";
@@ -35,6 +37,13 @@ interface FilterOption {
   icon?: ReactNode;
   group: string;
   paramName: string;
+}
+
+export interface PaletteTechnology {
+  slug: string;
+  name: string;
+  iconSlug?: string;
+  hasIcon: boolean;
 }
 
 interface NavigationItem {
@@ -74,6 +83,21 @@ export function useRegisterFilters(filters: FilterOption[]) {
   }, [filters, registerFilters, unregisterFilters]);
 }
 
+function HotkeyHint({ className }: { className?: string }) {
+  const isMac = useIsMac();
+  return (
+    <kbd
+      className={cn(
+        "pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium",
+        className,
+      )}
+    >
+      {isMac ? <span className="text-xs">⌘</span> : <span>Ctrl</span>}
+      <span>K</span>
+    </kbd>
+  );
+}
+
 const NAVIGATION_ITEMS: NavigationItem[] = [
   {
     label: "Home",
@@ -103,10 +127,12 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
 
 interface CommandPaletteProviderProps {
   children: ReactNode;
+  technologies?: PaletteTechnology[];
 }
 
 export function CommandPaletteProvider({
   children,
+  technologies = [],
 }: CommandPaletteProviderProps) {
   const [open, setOpen] = useState(false);
   const [pageFilters, setPageFilters] = useState<FilterOption[]>([]);
@@ -159,6 +185,7 @@ export function CommandPaletteProvider({
           open={open}
           onOpenChange={setOpen}
           pageFilters={pageFilters}
+          technologies={technologies}
         />
       </Suspense>
     </CommandPaletteContext.Provider>
@@ -169,12 +196,14 @@ interface CommandPaletteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pageFilters: FilterOption[];
+  technologies: PaletteTechnology[];
 }
 
 function CommandPaletteDialog({
   open,
   onOpenChange,
   pageFilters,
+  technologies,
 }: CommandPaletteDialogProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -183,12 +212,14 @@ function CommandPaletteDialog({
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    if (open) {
-      setSearch("");
-      requestAnimationFrame(() => {
-        inputRef.current?.focus();
-      });
-    }
+    if (!open) return;
+    setSearch("");
+    // Skip auto-focus on touch devices so opening the palette doesn't force
+    // the on-screen keyboard up before the user chooses to type.
+    if (window.matchMedia("(pointer: coarse)").matches) return;
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
   }, [open]);
 
   // Prevent arrow keys from scrolling page when dialog is open
@@ -270,6 +301,18 @@ function CommandPaletteDialog({
     return groups;
   }, [pageFilters]);
 
+  const matchedTechnologies = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return [];
+    return technologies
+      .filter(
+        (tech) =>
+          tech.name.toLowerCase().includes(query) ||
+          tech.slug.toLowerCase().includes(query),
+      )
+      .slice(0, 10);
+  }, [search, technologies]);
+
   if (!open) return null;
 
   return (
@@ -306,9 +349,7 @@ function CommandPaletteDialog({
                 <X className="size-3" />
               </button>
             )}
-            <kbd className="hidden sm:inline-flex ml-2 pointer-events-none h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-              <span className="text-xs">⌘</span>K
-            </kbd>
+            <HotkeyHint className="hidden sm:inline-flex ml-2 text-muted-foreground" />
           </div>
 
           <Command.List className="max-h-80 overflow-y-auto p-2">
@@ -342,6 +383,35 @@ function CommandPaletteDialog({
                 </Command.Item>
               ))}
             </Command.Group>
+
+            {matchedTechnologies.length > 0 && (
+              <Command.Group
+                heading="Technologies"
+                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground"
+              >
+                {matchedTechnologies.map((tech) => (
+                  <Command.Item
+                    key={tech.slug}
+                    value={`${tech.name} ${tech.slug}`}
+                    onSelect={() =>
+                      handleNavigation(`/technologies/${tech.slug}`)
+                    }
+                    className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer aria-selected:bg-accent aria-selected:text-accent-foreground"
+                  >
+                    {tech.hasIcon ? (
+                      <TechIcon
+                        name={tech.name}
+                        iconSlug={tech.iconSlug}
+                        className="size-4"
+                      />
+                    ) : (
+                      <Code2 className="size-4" />
+                    )}
+                    <span>{tech.name}</span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
 
             {/* Page-specific filters */}
             {Array.from(groupedFilters.entries()).map(([group, filters]) => (
@@ -405,7 +475,7 @@ function CommandPaletteDialog({
             </Command.Group>
           </Command.List>
 
-          <div className="border-t px-3 py-2 text-xs text-muted-foreground flex items-center justify-between">
+          <div className="border-t px-3 py-2 text-xs text-muted-foreground hidden sm:flex items-center justify-between">
             <div className="flex items-center gap-2">
               <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono">
                 ↑↓
@@ -428,6 +498,46 @@ function CommandPaletteDialog({
         </Command>
       </div>
     </div>
+  );
+}
+
+export function CommandPaletteTrigger({ className }: { className?: string }) {
+  const { setOpen } = useCommandPalette();
+
+  const handleOpen = useCallback(() => {
+    posthog.capture("command_palette_opened", { trigger: "navbar" });
+    setOpen(true);
+  }, [setOpen]);
+
+  return (
+    <>
+      {/* Mobile: icon-only */}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        onClick={handleOpen}
+        aria-label="Search"
+        className={cn("md:hidden", className)}
+      >
+        <Search className="size-5" />
+      </Button>
+
+      {/* Desktop: search-field-styled button with hotkey hint */}
+      <button
+        type="button"
+        onClick={handleOpen}
+        aria-label="Search"
+        className={cn(
+          "hidden md:inline-flex items-center gap-2 h-9 w-44 rounded-md border bg-background px-3 text-sm text-muted-foreground shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+          className,
+        )}
+      >
+        <Search className="size-4 shrink-0" />
+        <span className="flex-1 text-left">Search</span>
+        <HotkeyHint />
+      </button>
+    </>
   );
 }
 

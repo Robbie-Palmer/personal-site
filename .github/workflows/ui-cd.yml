@@ -1,0 +1,85 @@
+name: UI CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "ui/**"
+      - "functions/**"
+      - "packages/**"
+      - ".mise.toml"
+      - ".github/workflows/ui-cd.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+  pull-requests: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production-site-ui
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: ${{ vars.CF_IMAGES_ACCOUNT_HASH }}
+      NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
+      NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+        with:
+          experimental: true
+
+      # Cache the pnpm content-addressable store so installs restore packages
+      # from disk instead of re-downloading them on every run.
+      - name: Get pnpm store directory
+        id: pnpm-store
+        shell: bash
+        run: echo "dir=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ steps.pnpm-store.outputs.dir }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: mise run //:install
+
+      # Persist Next.js's incremental build cache (compiled modules, SWC output)
+      # so the Build step reuses unchanged work across runs.
+      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ui/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('ui/app/**', 'ui/components/**', 'ui/content/**', 'ui/lib/**') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            nextjs-${{ runner.os }}-
+
+      # The production build skips its in-build type-check (see next.config.ts),
+      # so run the static checks explicitly before deploying from main.
+      - name: Static checks (type-check + lint)
+        run: mise run //ui:check:static
+
+      - name: Build
+        run: mise run //ui:build
+
+      - name: Deploy to Cloudflare Pages
+        id: deploy
+        run: |
+          set -o pipefail
+          mise run //ui:deploy 2>&1 | tee /tmp/deploy-output.txt
+          URL=$(grep -Eo "https://[^ ]+" /tmp/deploy-output.txt | tail -1)
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+        env:
+          DEPLOY_BRANCH: ${{ github.head_ref || github.ref_name }}

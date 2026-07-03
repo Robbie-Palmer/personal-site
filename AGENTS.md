@@ -1,4 +1,4 @@
-# Project Guide for Claude
+# Project Guide for Coding Agents
 
 ## Build System
 
@@ -76,3 +76,11 @@ The build requires this env var for Cloudflare Images URL construction. It's val
 # Quick build verification (any value works)
 NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH=placeholder pnpm build
 ```
+
+## Sandboxed GitHub Commands
+
+GitHub authentication checks and operations can report invalid credentials when
+run inside the agent sandbox even though the host session is authenticated. If
+`gh auth status`, `git push`, or another required GitHub command fails in the
+sandbox, rerun the actual command with elevated approval. Do not ask the user to
+reauthenticate unless the elevated command also reports an authentication error.

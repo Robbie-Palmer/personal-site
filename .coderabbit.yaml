@@ -39,7 +39,11 @@ reviews:
   in_progress_fortune: false
   poem: false
   labeling_instructions: []
-  path_filters: []
+  path_filters:
+    # Vendored design prototypes (exported from Claude Design) and their served
+    # build — reference artifacts, not hand-authored app code.
+    - "!ui/content/projects/*/designs/**"
+    - "!ui/public/recipe-site-design/**"
   path_instructions: []
   abort_on_close: true
   disable_cache: false

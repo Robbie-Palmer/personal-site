@@ -8,6 +8,11 @@ const SITEMAP_PATH = path.join(OUT_DIR, "sitemap.xml");
 // Subdomain projects that have their own routing and should not be in main sitemap
 const SUBDOMAIN_PROJECTS = new Set(["assettracker"]);
 
+// Static, non-page HTML artifacts served from /public (e.g. the embedded recipe
+// design prototype) — versioned and served, but not navigable pages, so they
+// are intentionally excluded from the sitemap.
+const STATIC_ASSET_SEGMENTS = new Set(["recipe-site-design"]);
+
 describe("Sitemap Integration Test", () => {
   it("should have a sitemap.xml that includes all generated pages", () => {
     if (!fs.existsSync(SITEMAP_PATH)) {
@@ -37,6 +42,9 @@ describe("Sitemap Integration Test", () => {
         (topLevelSegment && SUBDOMAIN_PROJECTS.has(topLevelSegment)) ||
         SUBDOMAIN_PROJECTS.has(fileNameWithoutExt);
       if (isSubdomainProject) {
+        return;
+      }
+      if (topLevelSegment && STATIC_ASSET_SEGMENTS.has(topLevelSegment)) {
         return;
       }
 

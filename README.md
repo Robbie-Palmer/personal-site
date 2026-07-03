@@ -39,7 +39,7 @@ Personal website with blog and interactive resume.
 - **Dependency Management:** Renovate (automated PRs)
 - **Code Review:** [CodeRabbit](https://coderabbit.ai/) (AI-powered PR reviews)
 - **Project Management:** Shortcut (see [ADR 034](ui/content/projects/personal-site/adrs/034-shortcut.mdx))
-- **AI Pair Programming:** Claude (see [claude.md](claude.md) for agent guide)
+- **AI Pair Programming:** Claude (see [AGENTS.md](AGENTS.md) for agent guide)
 
 ## Setup
 
@@ -75,6 +75,14 @@ Personal website with blog and interactive resume.
    ```
 
 Visit [http://localhost:3000](http://localhost:3000)
+
+To run the frontend together with the recipe API Worker for OAuth development,
+configure `workers/recipe-api/.dev.vars` as described in the
+[recipe API setup guide](workers/recipe-api/README.md), then run:
+
+```bash
+mise run //:dev
+```
 
 ## Repository Structure
 
@@ -299,7 +307,7 @@ These require manual testing since preview generation happens on external platfo
 
 ## AI Coding Agent Guide
 
-If you're an AI coding agent (like Claude), read **[claude.md](claude.md)** for:
+If you're an AI coding agent (like Claude), read **[AGENTS.md](AGENTS.md)** for:
 
 - Build system details (mise usage)
 - Project structure and conventions
