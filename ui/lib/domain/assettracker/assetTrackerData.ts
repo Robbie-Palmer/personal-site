@@ -19,6 +19,8 @@ export const AssetTrackerSettingsSchema = z.object({
   expectedAnnualInflation: z.number().gt(-1),
   /** The net worth the user is aiming for, e.g. an FI number */
   targetNetWorth: z.number().positive().optional(),
+  /** When true the target is in today's money, so inflation must be beaten */
+  targetNetWorthIsReal: z.boolean().optional(),
 });
 export type AssetTrackerSettings = z.infer<typeof AssetTrackerSettingsSchema>;
 

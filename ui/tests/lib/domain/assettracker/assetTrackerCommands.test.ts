@@ -613,10 +613,22 @@ describe("applySetNetWorthTarget", () => {
   it("sets and clears the target while preserving other settings", () => {
     const withTarget = applySetNetWorthTarget(baseData(), { target: 500000 });
     expect(withTarget.settings.targetNetWorth).toBe(500000);
+    expect(withTarget.settings.targetNetWorthIsReal).toBe(false);
     expect(withTarget.settings.expectedAnnualInflation).toBe(0.025);
 
     const cleared = applySetNetWorthTarget(withTarget, { target: null });
     expect(cleared.settings.targetNetWorth).toBeUndefined();
+    expect(cleared.settings.targetNetWorthIsReal).toBeUndefined();
+  });
+
+  it("records that a target is in today's money", () => {
+    const next = applySetNetWorthTarget(baseData(), {
+      target: 500000,
+      inTodaysMoney: true,
+    });
+
+    expect(next.settings.targetNetWorth).toBe(500000);
+    expect(next.settings.targetNetWorthIsReal).toBe(true);
   });
 
   it("rejects a non-positive target", () => {

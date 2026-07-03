@@ -11,11 +11,13 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
+  addRealValues,
   buildPortfolioProjection,
   computeTotalBalance,
   dateTargetReached,
   formatAssetTrackerError,
   formatCurrency,
+  inflateToPresent,
   projectedDateForTarget,
   todayIsoDate,
 } from "@/lib/domain/assettracker";
@@ -30,38 +32,56 @@ export function PortfolioGoal() {
     accountDetails,
     netWorthData,
     recurringFlows,
+    inflation,
     netWorthTarget,
+    netWorthTargetIsReal,
     setNetWorthTarget,
   } = useAssetTracker();
   const [draft, setDraft] = useState("");
+  const [draftIsReal, setDraftIsReal] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const currentNetWorth = computeTotalBalance(accounts);
 
   const goal = useMemo(() => {
     if (netWorthTarget == null) return null;
-    const reachedOn = dateTargetReached(
-      netWorthData.map((point) => ({ date: point.date, balance: point.total })),
-      netWorthTarget,
-    );
-    const projectedBy = reachedOn
-      ? null
-      : projectedDateForTarget(
-          buildPortfolioProjection({
-            accounts: accountDetails,
-            flows: recurringFlows,
-            startDate: todayIsoDate(),
-            months: GOAL_SEARCH_MONTHS,
-          }),
-          netWorthTarget,
-        );
+    const today = todayIsoDate();
+    // For a today's-money target, restate past net worth in today's
+    // purchasing power before asking when the target was reached
+    const history = netWorthData.map((point) => ({
+      date: point.date,
+      balance: netWorthTargetIsReal
+        ? inflateToPresent(point.total, point.date, today, inflation)
+        : point.total,
+    }));
+    const reachedOn = dateTargetReached(history, netWorthTarget);
+    let projectedBy: string | null = null;
+    if (reachedOn == null) {
+      const nominal = buildPortfolioProjection({
+        accounts: accountDetails,
+        flows: recurringFlows,
+        startDate: today,
+        months: GOAL_SEARCH_MONTHS,
+      });
+      // ...and compare a today's-money target against deflated projections,
+      // so the projection has to outgrow inflation to hit it
+      const comparable = netWorthTargetIsReal
+        ? addRealValues(nominal, inflation).map((point) => ({
+            date: point.date,
+            projected: point.real ?? point.projected,
+          }))
+        : nominal;
+      projectedBy = projectedDateForTarget(comparable, netWorthTarget);
+    }
     const progress = Math.min(Math.max(currentNetWorth / netWorthTarget, 0), 1);
     return { reachedOn, projectedBy, progress };
   }, [
     netWorthTarget,
+    netWorthTargetIsReal,
     netWorthData,
     accountDetails,
     recurringFlows,
+    inflation,
     currentNetWorth,
   ]);
 
@@ -70,7 +90,7 @@ export function PortfolioGoal() {
     const target = Number(draft);
     if (!Number.isFinite(target)) return;
     try {
-      await setNetWorthTarget(target);
+      await setNetWorthTarget(target, draftIsReal);
       setDraft("");
       setError(null);
     } catch (err) {
@@ -87,11 +107,14 @@ export function PortfolioGoal() {
     }
   }
 
+  const moneyLabel = netWorthTargetIsReal ? "in today's money" : "nominal";
   let statusMessage: string | null = null;
   if (goal?.reachedOn) {
     statusMessage = `Reached on ${goal.reachedOn} — time for a bigger goal?`;
   } else if (goal?.projectedBy) {
-    statusMessage = `Projected to get there by ${goal.projectedBy}, based on expected returns and regular flows.`;
+    statusMessage = netWorthTargetIsReal
+      ? `Projected to get there by ${goal.projectedBy} in today's purchasing power — growth has to beat inflation to count.`
+      : `Projected to get there by ${goal.projectedBy}, based on expected returns and regular flows.`;
   } else if (goal) {
     statusMessage = `Not projected within ${GOAL_SEARCH_MONTHS / 12} years on current expectations.`;
   }
@@ -113,7 +136,7 @@ export function PortfolioGoal() {
                 {formatCurrency(currentNetWorth)}
               </p>
               <p className="text-sm text-muted-foreground">
-                of {formatCurrency(netWorthTarget)} (
+                of {formatCurrency(netWorthTarget)} {moneyLabel} (
                 {Math.round(goal.progress * 100)}%)
               </p>
             </div>
@@ -140,25 +163,36 @@ export function PortfolioGoal() {
             </Button>
           </>
         ) : (
-          <form onSubmit={handleSetTarget} className="flex items-center gap-2">
-            <label htmlFor="net-worth-target" className="sr-only">
-              Target net worth
+          <form onSubmit={handleSetTarget} className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <label htmlFor="net-worth-target" className="sr-only">
+                Target net worth
+              </label>
+              <Input
+                id="net-worth-target"
+                type="number"
+                inputMode="decimal"
+                min="1"
+                step="1000"
+                required
+                placeholder="e.g. 500000"
+                className="max-w-44"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+              />
+              <Button type="submit" variant="outline">
+                Set goal
+              </Button>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                className="size-4 accent-primary"
+                checked={draftIsReal}
+                onChange={(e) => setDraftIsReal(e.target.checked)}
+              />
+              In today's money — the projection must beat inflation
             </label>
-            <Input
-              id="net-worth-target"
-              type="number"
-              inputMode="decimal"
-              min="1"
-              step="1000"
-              required
-              placeholder="e.g. 500000"
-              className="max-w-44"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-            />
-            <Button type="submit" variant="outline">
-              Set goal
-            </Button>
           </form>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}

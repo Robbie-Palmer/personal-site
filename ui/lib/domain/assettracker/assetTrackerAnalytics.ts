@@ -103,6 +103,19 @@ export function realRate(nominal: number, inflation: number): number {
   return (1 + nominal) / (1 + inflation) - 1;
 }
 
+/**
+ * Converts a past nominal amount into money-of-`toDate` using expected
+ * inflation — e.g. a 2020 net worth restated in today's purchasing power.
+ */
+export function inflateToPresent(
+  value: number,
+  fromDate: string,
+  toDate: string,
+  inflation: number,
+): number {
+  return value * (1 + inflation) ** Math.max(yearsBetween(fromDate, toDate), 0);
+}
+
 export type TrajectoryPoint = {
   date: string;
   actual: number;

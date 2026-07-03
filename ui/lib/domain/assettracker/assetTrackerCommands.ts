@@ -165,6 +165,8 @@ export type SetInflationInput = z.infer<typeof SetInflationInputSchema>;
 export const SetNetWorthTargetInputSchema = z.object({
   /** Null clears the target */
   target: z.number().positive("Target must be positive").nullable(),
+  /** Interpret the target in today's money rather than nominal future money */
+  inTodaysMoney: z.boolean().optional(),
 });
 export type SetNetWorthTargetInput = z.infer<
   typeof SetNetWorthTargetInputSchema
@@ -524,9 +526,16 @@ export function applySetNetWorthTarget(
   input: SetNetWorthTargetInput,
 ): AssetTrackerData {
   const parsed = SetNetWorthTargetInputSchema.parse(input);
+  const cleared = parsed.target == null;
   return {
     ...data,
-    settings: { ...data.settings, targetNetWorth: parsed.target ?? undefined },
+    settings: {
+      ...data.settings,
+      targetNetWorth: parsed.target ?? undefined,
+      targetNetWorthIsReal: cleared
+        ? undefined
+        : (parsed.inTodaysMoney ?? false),
+    },
   };
 }
 

@@ -8,6 +8,7 @@ import {
   computeCagr,
   computeMoneyWeightedReturn,
   dateTargetReached,
+  inflateToPresent,
   projectedDateForTarget,
   realRate,
 } from "@/lib/domain/assettracker/assetTrackerAnalytics";
@@ -133,6 +134,21 @@ describe("realRate", () => {
   it("deflates a nominal rate by inflation", () => {
     expect(realRate(0.07, 0.025)).toBeCloseTo(0.0439, 4);
     expect(realRate(0.025, 0.025)).toBeCloseTo(0, 10);
+  });
+});
+
+describe("inflateToPresent", () => {
+  it("restates a past amount in later purchasing power", () => {
+    // £1,000 of 2020 money at 10% inflation is ~£1,100 of 2021 money
+    expect(inflateToPresent(1000, "2021-01-01", "2022-01-01", 0.1)).toBeCloseTo(
+      1100,
+      0,
+    );
+  });
+
+  it("leaves same-day and future-dated amounts unchanged", () => {
+    expect(inflateToPresent(1000, "2024-01-01", "2024-01-01", 0.1)).toBe(1000);
+    expect(inflateToPresent(1000, "2025-01-01", "2024-01-01", 0.1)).toBe(1000);
   });
 });
 

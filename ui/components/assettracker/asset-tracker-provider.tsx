@@ -53,6 +53,8 @@ interface AssetTrackerContextValue {
   inflation: number;
   /** The net worth the user is aiming for, if set */
   netWorthTarget: number | null;
+  /** Whether the target is expressed in today's money (inflation-adjusted) */
+  netWorthTargetIsReal: boolean;
   /** True once the user has made changes that are persisted in this browser */
   hasLocalChanges: boolean;
   createAccount(input: CreateAccountInput): Promise<void>;
@@ -68,7 +70,10 @@ interface AssetTrackerContextValue {
   materializeFlow(flowId: string): Promise<void>;
   setExpectedReturn(input: SetExpectedReturnInput): Promise<void>;
   setInflation(rate: number): Promise<void>;
-  setNetWorthTarget(target: number | null): Promise<void>;
+  setNetWorthTarget(
+    target: number | null,
+    inTodaysMoney?: boolean,
+  ): Promise<void>;
   resetData(): Promise<void>;
   exportData(): void;
   exportCsv(): void;
@@ -143,6 +148,7 @@ export function AssetTrackerProvider({ children }: { children: ReactNode }) {
       portfolioReturn: getPortfolioAnnualReturn(repository),
       inflation: repository.settings.expectedAnnualInflation,
       netWorthTarget: repository.settings.targetNetWorth ?? null,
+      netWorthTargetIsReal: repository.settings.targetNetWorthIsReal ?? false,
     };
   }, [data]);
 
@@ -172,8 +178,8 @@ export function AssetTrackerProvider({ children }: { children: ReactNode }) {
       setExpectedReturn: (input) =>
         mutate((api) => api.setExpectedReturn(input)),
       setInflation: (rate) => mutate((api) => api.setInflation({ rate })),
-      setNetWorthTarget: (target) =>
-        mutate((api) => api.setNetWorthTarget({ target })),
+      setNetWorthTarget: (target, inTodaysMoney) =>
+        mutate((api) => api.setNetWorthTarget({ target, inTodaysMoney })),
       resetData: async () => {
         const seed = await getApi().reset();
         setData(seed);
