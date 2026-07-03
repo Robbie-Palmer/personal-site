@@ -246,20 +246,21 @@ export function FlowSankeyChart() {
                 </Sankey>
               </ResponsiveContainer>
             </div>
-            <ul className="mt-3 grid gap-1.5 text-xs sm:hidden">
-              {data.links.map((link) => (
+            <ul
+              aria-label="Flow map legend"
+              className="mt-3 flex flex-wrap gap-2 text-xs sm:hidden"
+            >
+              {data.nodes.map((node) => (
                 <li
-                  key={`${link.source}-${link.target}-${link.label}`}
-                  className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-2 py-1.5"
+                  key={node.id}
+                  className="inline-flex min-w-0 items-center gap-1.5 rounded-full border px-2 py-1"
                 >
-                  <span className="min-w-0 truncate">
-                    {link.sourceName}
-                    {" -> "}
-                    {link.targetName}
-                  </span>
-                  <span className="shrink-0 font-mono">
-                    {formatCurrency(link.value)}/mo
-                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: node.color }}
+                  />
+                  <span className="min-w-0 truncate">{node.name}</span>
                 </li>
               ))}
             </ul>
