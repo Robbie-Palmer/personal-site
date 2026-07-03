@@ -5,6 +5,7 @@ import {
   Check,
   Clock,
   Download,
+  Flame,
   Globe,
   Loader2,
   Minus,
@@ -12,208 +13,33 @@ import {
   Timer,
   Users,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import {
+  CookMode,
+  type CookStep,
+  type CookToken,
+} from "@/components/recipes/cook-mode";
 import { InlineTimer } from "@/components/recipes/inline-timer";
 import { Button } from "@/components/ui/button";
 import { useScaledRecipe } from "@/hooks/use-scaled-recipe";
 import { useUnitPreference } from "@/hooks/use-unit-preference";
 import {
-  formatIngredientName,
-  getDisplayedScaledAmount,
-} from "@/lib/domain/recipe/ingredientText";
-import {
-  type InstructionDisplayToken,
-  tokenizeInstructionSdk,
-} from "@/lib/domain/recipe/instructionTokens";
+  buildIngredientAnnotationMap,
+  formatIngredient,
+  formatInstructionIngredientToken,
+  type IngredientAnnotation,
+  resolveIngredientAnnotation,
+} from "@/lib/domain/recipe/ingredientDisplay";
+import { tokenizeInstructionSdk } from "@/lib/domain/recipe/instructionTokens";
 import type {
   IngredientGroupView,
   RecipeDetailView,
-  RecipeIngredientView,
 } from "@/lib/domain/recipe/recipeViews";
 import {
-  convertToSystem,
   MEASUREMENT_SYSTEM_LABELS,
   type MeasurementSystem,
-  UNIT_LABELS,
 } from "@/lib/domain/recipe/unit";
-import { normalizeSlug } from "@/lib/generic/slugs";
-
-type IngredientAnnotation = Pick<RecipeIngredientView, "preparation" | "note">;
-
-function buildIngredientAnnotationMap(
-  ingredientGroups: IngredientGroupView[],
-): Map<string, IngredientAnnotation> {
-  const annotations = new Map<string, IngredientAnnotation>();
-
-  for (const group of ingredientGroups) {
-    for (const item of group.items) {
-      const annotation = {
-        preparation: item.preparation,
-        note: item.note,
-      };
-      annotations.set(item.ingredient, annotation);
-      const normalized = normalizeSlug(item.name);
-      if (normalized && normalized !== item.ingredient) {
-        annotations.set(normalized, annotation);
-      }
-    }
-  }
-
-  return annotations;
-}
-
-function hasAnnotation(a: IngredientAnnotation): boolean {
-  return a.preparation != null || a.note != null;
-}
-
-function resolveIngredientAnnotation(
-  item: RecipeIngredientView,
-  annotations: Map<string, IngredientAnnotation>,
-): IngredientAnnotation {
-  const fromIngredientSlug = annotations.get(item.ingredient);
-  if (fromIngredientSlug && hasAnnotation(fromIngredientSlug)) {
-    return fromIngredientSlug;
-  }
-
-  const parsedNameSlug = normalizeSlug(item.name);
-  const fromParsedName = annotations.get(parsedNameSlug);
-  if (fromParsedName && hasAnnotation(fromParsedName)) {
-    return fromParsedName;
-  }
-
-  return {};
-}
-
-function formatScaled(value: number): string {
-  return getDisplayedScaledAmount(value, 1)?.toString() ?? "";
-}
-
-const SINGULAR_EPSILON = 1e-9;
-
-/** Apply scale + system conversion, returning the best display (amount, unit). */
-function resolveDisplay(
-  item: Pick<RecipeIngredientView, "amount" | "unit">,
-  scale: number,
-  system: MeasurementSystem,
-): { amount: number | undefined; unit: RecipeIngredientView["unit"] } {
-  const scaledAmount = item.amount != null ? item.amount * scale : undefined;
-  if (scaledAmount != null && item.unit) {
-    const converted = convertToSystem(scaledAmount, item.unit, system);
-    if (converted) return converted;
-  }
-  return { amount: scaledAmount, unit: item.unit };
-}
-
-function formatAmount(
-  item: Pick<RecipeIngredientView, "amount" | "unit">,
-  scale: number,
-  system: MeasurementSystem,
-): string {
-  const { amount, unit } = resolveDisplay(item, scale, system);
-  const parts: string[] = [];
-
-  if (amount != null) {
-    parts.push(formatScaled(amount));
-  }
-
-  if (unit) {
-    const labels = UNIT_LABELS[unit];
-    if (labels) {
-      const isPlural =
-        amount != null && Math.abs(amount) > 1 + SINGULAR_EPSILON;
-      const label = isPlural ? labels.plural : labels.singular;
-      if (label) {
-        if (labels.noSpace && parts.length > 0) {
-          parts[parts.length - 1] += label;
-        } else {
-          parts.push(label);
-        }
-      }
-    }
-  }
-
-  return parts.join(" ");
-}
-
-function hasRenderedUnitLabel(
-  item: Pick<RecipeIngredientView, "amount" | "unit">,
-  scale: number,
-  system: MeasurementSystem,
-): boolean {
-  const { amount, unit } = resolveDisplay(item, scale, system);
-  if (!unit || unit === "piece") return false;
-  const labels = UNIT_LABELS[unit];
-  if (!labels) return false;
-  const isPlural = amount != null && Math.abs(amount) > 1 + SINGULAR_EPSILON;
-  return Boolean(isPlural ? labels.plural : labels.singular);
-}
-
-function formatIngredient(
-  item: RecipeIngredientView,
-  scale: number,
-  system: MeasurementSystem,
-  annotation?: IngredientAnnotation,
-): string {
-  const isPiece = item.unit === "piece";
-  const amount = isPiece
-    ? item.amount != null
-      ? formatScaled(item.amount * scale)
-      : ""
-    : formatAmount(item, scale, system);
-  const parts: string[] = [];
-
-  if (amount) {
-    parts.push(amount);
-    if (hasRenderedUnitLabel(item, scale, system)) {
-      parts.push("of");
-    }
-  }
-
-  parts.push(formatIngredientName(item, scale));
-
-  const effectivePreparation = item.preparation ?? annotation?.preparation;
-  const effectiveNote = item.note ?? annotation?.note;
-
-  if (effectivePreparation) {
-    parts.push(`(${effectivePreparation})`);
-  }
-
-  if (effectiveNote) {
-    parts.push(`\u2013 ${effectiveNote}`);
-  }
-
-  return parts.join(" ");
-}
-
-function formatInstructionIngredientToken(
-  token: Extract<InstructionDisplayToken, { type: "ingredient" }>,
-  scale: number,
-  system: MeasurementSystem,
-): string {
-  const item = {
-    ingredient: token.canonicalName,
-    name: token.value,
-    unit: token.unit as RecipeIngredientView["unit"],
-    amount: token.amount ?? undefined,
-  } satisfies RecipeIngredientView;
-  const isPiece = item.unit === "piece";
-  const amount = isPiece
-    ? item.amount != null
-      ? formatScaled(item.amount * scale)
-      : ""
-    : formatAmount(item, scale, system);
-  const parts: string[] = [];
-
-  if (amount) {
-    parts.push(amount);
-    if (hasRenderedUnitLabel(item, scale, system)) {
-      parts.push("of");
-    }
-  }
-
-  parts.push(formatIngredientName(item, scale));
-  return parts.join(" ");
-}
 
 function formatTime(minutes: number): string {
   if (minutes < 60) return `${minutes} min`;
@@ -291,6 +117,31 @@ function IngredientGroup({
   );
 }
 
+function parseCookParams(search: string): { open: boolean; step: number } {
+  const params = new URLSearchParams(search);
+  const step = Number.parseInt(params.get("step") ?? "1", 10);
+  return {
+    open: params.get("cook") === "1",
+    step: Number.isFinite(step) && step > 0 ? step - 1 : 0,
+  };
+}
+
+function buildCookUrl(open: boolean, step: number): string {
+  const url = new URL(window.location.href);
+  if (open) {
+    url.searchParams.set("cook", "1");
+    if (step > 0) {
+      url.searchParams.set("step", String(step + 1));
+    } else {
+      url.searchParams.delete("step");
+    }
+  } else {
+    url.searchParams.delete("cook");
+    url.searchParams.delete("step");
+  }
+  return url.toString();
+}
+
 export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
   const baseServings = Math.max(1, recipe.servings);
   const [portions, setPortions] = useState(baseServings);
@@ -338,8 +189,6 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
         : null,
     [effectiveRecipe.instructionSdk],
   );
-  const shouldUseSdkInstructions = instructionTokenization?.ok === true;
-
   useEffect(() => {
     if (
       process.env.NODE_ENV !== "production" &&
@@ -355,6 +204,74 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
     effectiveRecipe.slug,
     instructionTokenization,
   ]);
+
+  // One shared step model for the method list and cook mode. Timer tokens get
+  // stable ids so an inline pill, the cook-mode control, and the floating
+  // dock all drive the same global timer.
+  const cookSteps: CookStep[] = useMemo(() => {
+    if (instructionTokenization?.ok === true) {
+      return instructionTokenization.steps.map((tokens, stepIndex) => ({
+        key: tokens.map((token) => token.value).join("|"),
+        tokens: tokens.map((token, tokenIndex): CookToken => {
+          if (token.type !== "timer") return token;
+          return {
+            ...token,
+            timerId: `${recipe.slug}:s${stepIndex}:t${tokenIndex}`,
+          };
+        }),
+        text: "",
+      }));
+    }
+    return effectiveRecipe.instructions.map((step) => ({
+      key: step,
+      tokens: null,
+      text: step,
+    }));
+  }, [instructionTokenization, effectiveRecipe.instructions, recipe.slug]);
+
+  // Cook mode open/step state is mirrored into the URL (?cook=1&step=N) via
+  // the history API: entering pushes an entry so the back button exits, step
+  // changes replace in place, and reloading restores the session.
+  const [cookOpen, setCookOpen] = useState(false);
+  const [cookStep, setCookStep] = useState(0);
+  const pushedCookEntryRef = useRef(false);
+
+  useEffect(() => {
+    const applyLocation = () => {
+      const { open, step } = parseCookParams(window.location.search);
+      setCookOpen(open);
+      setCookStep(step);
+      if (!open) pushedCookEntryRef.current = false;
+    };
+    applyLocation();
+    window.addEventListener("popstate", applyLocation);
+    return () => window.removeEventListener("popstate", applyLocation);
+  }, []);
+
+  const openCookMode = useCallback(() => {
+    window.history.pushState(null, "", buildCookUrl(true, 0));
+    pushedCookEntryRef.current = true;
+    setCookStep(0);
+    setCookOpen(true);
+  }, []);
+
+  const exitCookMode = useCallback(() => {
+    if (pushedCookEntryRef.current) {
+      // We created the ?cook entry ourselves — back() returns to the read
+      // view and the popstate handler resets state.
+      window.history.back();
+    } else {
+      // Deep link / reload straight into cook mode: rewrite in place.
+      window.history.replaceState(null, "", buildCookUrl(false, 0));
+      setCookOpen(false);
+      setCookStep(0);
+    }
+  }, []);
+
+  const changeCookStep = useCallback((step: number) => {
+    window.history.replaceState(null, "", buildCookUrl(true, step));
+    setCookStep(step);
+  }, []);
 
   return (
     <>
@@ -382,6 +299,19 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
               .
             </span>
           </p>
+        )}
+
+        {cookSteps.length > 0 && (
+          <div className="mb-4">
+            <Button
+              size="lg"
+              onClick={openCookMode}
+              className="w-full sm:w-auto bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)] text-base"
+            >
+              <Flame className="size-5" />
+              Start cooking
+            </Button>
+          </div>
         )}
 
         <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
@@ -548,22 +478,25 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
             list-style:none, and reasserting the role restores them. */}
         {/* biome-ignore lint/a11y/noRedundantRoles: intentional Safari/VoiceOver list-semantics workaround (see above) */}
         <ol role="list" className="rt-method-steps list-none p-0 m-0">
-          {shouldUseSdkInstructions
-            ? instructionTokenization.steps.map((tokens) => (
-                <li
-                  key={tokens.map((token) => token.value).join("|")}
-                  className="border-b border-dashed border-[var(--line)] last:border-0"
-                >
-                  <div className="flex gap-4 py-3">
-                    <span
-                      aria-hidden="true"
-                      className="rt-step-num rt-display text-3xl text-[var(--terracotta)] leading-none min-w-[2ch]"
-                    />
-                    <div className="rt-body flex-1 leading-relaxed pt-1">
-                      {tokens.map((token) => (
+          {cookSteps.map((step) => (
+            <li
+              key={step.key}
+              className="border-b border-dashed border-[var(--line)] last:border-0"
+            >
+              <div className="flex gap-4 py-3">
+                <span
+                  aria-hidden="true"
+                  className="rt-step-num rt-display text-3xl text-[var(--terracotta)] leading-none min-w-[2ch]"
+                />
+                <div className="rt-body flex-1 leading-relaxed pt-1">
+                  {step.tokens
+                    ? step.tokens.map((token) => (
                         <span key={`${token.type}:${token.value}`}>
-                          {token.type === "timer" ? (
+                          {token.type === "timer" && token.timerId ? (
                             <InlineTimer
+                              timerId={token.timerId}
+                              recipeSlug={recipe.slug}
+                              recipeTitle={recipe.title}
                               durationSeconds={token.durationSeconds}
                               label={token.value}
                             />
@@ -577,29 +510,36 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                             token.value
                           )}
                         </span>
-                      ))}
-                    </div>
-                  </div>
-                </li>
-              ))
-            : effectiveRecipe.instructions.map((step) => (
-                <li
-                  key={step}
-                  className="border-b border-dashed border-[var(--line)] last:border-0"
-                >
-                  <div className="flex gap-4 py-3">
-                    <span
-                      aria-hidden="true"
-                      className="rt-step-num rt-display text-3xl text-[var(--terracotta)] leading-none min-w-[2ch]"
-                    />
-                    <div className="rt-body flex-1 leading-relaxed pt-1">
-                      {step}
-                    </div>
-                  </div>
-                </li>
-              ))}
+                      ))
+                    : step.text}
+                </div>
+              </div>
+            </li>
+          ))}
         </ol>
       </section>
+
+      {/* Portaled to <body> (which mirrors the recipe theme + fonts) so the
+          overlay escapes the page's `z-0` stacking context and covers the
+          sticky site header. */}
+      {cookOpen &&
+        cookSteps.length > 0 &&
+        createPortal(
+          <CookMode
+            recipeSlug={recipe.slug}
+            recipeTitle={recipe.title}
+            servings={portions}
+            steps={cookSteps}
+            ingredientGroups={effectiveRecipe.ingredientGroups}
+            annotations={ingredientAnnotations}
+            scale={scale}
+            system={unitSystem}
+            step={cookStep}
+            onStepChange={changeCookStep}
+            onExit={exitCookMode}
+          />,
+          document.body,
+        )}
     </>
   );
 }

@@ -6,6 +6,7 @@ import { AuthButton } from "@/components/recipes/auth-button";
 import { RecipeSearch } from "@/components/recipes/recipe-search";
 import { RecipeSearchUrlSync } from "@/components/recipes/recipe-search-url-sync";
 import { RecipeThemeBody } from "@/components/recipes/recipe-theme-body";
+import { TimerDock } from "@/components/recipes/timer-dock";
 import { RecipeSearchProvider } from "@/contexts/recipe-search-context";
 import { siteConfig } from "@/lib/config/site-config";
 import "./recipe-theme.css";
@@ -99,6 +100,11 @@ export default function RecipesLayout({
           </div>
         </footer>
       </div>
+
+      {/* Outside the isolated .recipe-surface stacking context so it paints
+          above the cook-mode overlay (which portals to <body>). Theme tokens
+          come from the classes RecipeThemeBody mirrors onto <body>. */}
+      <TimerDock />
     </RecipeSearchProvider>
   );
 }
