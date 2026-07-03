@@ -148,6 +148,8 @@ receive UI deploy credentials:
 
 - `CLOUDFLARE_API_TOKEN`
 - `GCP_PROJECT_ID`
+- `GCP_WORKLOAD_IDENTITY_PROVIDER`
+- `GCP_TERRAFORM_SERVICE_ACCOUNT`
 - `GITHUB_TOKEN` or `MISE_GITHUB_TOKEN`
 - `TF_API_TOKEN`
 - `NEON_API_KEY`
@@ -172,9 +174,6 @@ Run `scripts/sync-doppler-github-envs.sh` after any Doppler change that should
 reach GitHub Actions. The script reads Doppler visibility metadata: unmasked
 values become GitHub environment variables, while masked/restricted values
 become GitHub environment secrets.
-
-The older `cloudflare-preview` and `cloudflare-production` GitHub environments
-are legacy catch-alls and should not be used for new workflow jobs.
 
 ## Preview Values
 
@@ -242,6 +241,9 @@ preview Worker with `--secrets-file`.
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CF_IMAGES_ACCOUNT_HASH`
+- `GCP_PROJECT_ID`
+- `GCP_WORKLOAD_IDENTITY_PROVIDER`
+- `GCP_TERRAFORM_SERVICE_ACCOUNT`
 - `POSTHOG_KEY`
 - `MISE_GITHUB_TOKEN`
 - `NEON_API_KEY`

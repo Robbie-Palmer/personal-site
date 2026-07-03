@@ -39,6 +39,7 @@ next-env.d.ts
 *.tfstate.*
 *.tfvars.local
 .planfile
+gha-creds-*.json
 crash.log
 crash.*.log
 override.tf

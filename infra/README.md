@@ -66,6 +66,19 @@ Secrets and config mirrored from Doppler:
     - Mark unmasked in Doppler so the GitHub sync publishes it as an Actions
       variable, not a secret. Terraform requires a non-empty value and has no
       production default.
+11. **`GCP_PROJECT_ID`**
+    - GCP project ID backing the recipe site's Google OAuth.
+    - Passed as `TF_VAR_gcp_project_id`.
+    - Mark unmasked in Doppler so the GitHub sync publishes it as an Actions
+      variable, not a secret.
+12. **`GCP_WORKLOAD_IDENTITY_PROVIDER`**
+    - Full Workload Identity Provider resource name from Terraform output
+      `gcp_workload_identity_provider`.
+    - GitHub environment variable, not a secret.
+13. **`GCP_TERRAFORM_SERVICE_ACCOUNT`**
+    - Service account email from Terraform output
+      `gcp_terraform_service_account_email`.
+    - GitHub environment variable, not a secret.
 
 ### Required Environment
 
@@ -132,7 +145,7 @@ PostHog dashboards and insights are managed in Terraform via the official
 `posthog_resources.json`, with `posthog.tf` converting that data into
 Terraform-managed dashboard and insight resources.
 
-### Managed in Terraform
+### Managed PostHog Resources
 
 - Existing dashboards in project `123162`
 - Existing insights in project `123162`, including their dashboard attachments
@@ -188,3 +201,84 @@ This destination is referenced by `workers/recipe-api/wrangler.toml`
 (`[observability.logs]`). In practice, the public `phc_` project key rarely
 rotates, which is why the manual step is an acceptable trade-off — but it is the
 one to remember.
+
+## Google Cloud
+
+The recipe site's Google OAuth lives in a GCP project. Terraform manages the
+project and its enabled APIs via the `hashicorp/google` provider.
+
+### Managed in Terraform
+
+- `google_project.recipes` — the project itself (imported, `prevent_destroy`)
+- `google_project_service.required` — APIs needed for Terraform-managed IAM and
+  Workload Identity Federation
+- `google_service_account.github_terraform` — service account impersonated by
+  GitHub Actions
+- `google_iam_workload_identity_pool.*` — GitHub Actions OIDC trust
+- `google_project_iam_member.github_terraform` — project-level IAM for the
+  Terraform service account
+- `google_service_account_iam_member.github_actions_workload_identity_user` —
+  repository permission to impersonate the Terraform service account
+
+### Intentionally manual (not in Terraform)
+
+The **OAuth consent screen** and the **OAuth 2.0 client** (client ID + secret)
+are configured by hand in the Cloud console. They have no usable Terraform
+resource — the only options (`google_iap_brand`, `google_iap_client`) are
+IAP-only and built on a deprecated API. The client ID/secret are consumed by
+the app as configuration, not provisioned here.
+
+### Credentials
+
+The `google` provider needs credentials, supplied separately from the
+Cloudflare/Neon tokens:
+
+- **Local:** install the [gcloud CLI](https://cloud.google.com/sdk/docs/install)
+  (e.g. `brew install --cask gcloud-cli`), then
+  `gcloud auth login --update-adc`. The `--update-adc` flag writes
+  application-default credentials for Terraform while also selecting an active
+  `gcloud` account for bootstrap commands like `gcloud services enable`.
+- **CI (GitHub Actions):** runs execute on the runner, not in Terraform Cloud
+  ([ADR 017](/projects/personal-site/adrs/017-terraform-cloud) — TFC is
+  state-only, `execution_mode = local`). CI uses **keyless** auth via GitHub
+  OIDC and
+  [Workload Identity Federation](https://github.com/google-github-actions/auth#workload-identity-federation-through-a-service-account):
+  no long-lived key to store, sync, or rotate. Terraform creates the GitHub
+  Workload Identity Pool, provider, and impersonated service account.
+
+This is independent of where state lives, so it survives a future migration to
+the R2 backend (ADR 017's escape hatch) unchanged.
+
+### GitHub Actions Auth
+
+Install and authenticate local Google credentials before running Terraform
+against GCP:
+
+```bash
+brew install --cask gcloud-cli
+gcloud auth login --update-adc
+gcloud config set project <project-id>
+```
+
+The GitHub `production-infra` environment reads these unmasked variables from
+Doppler `prd_infra`:
+
+- `GCP_PROJECT_ID`
+- `GCP_WORKLOAD_IDENTITY_PROVIDER`
+- `GCP_TERRAFORM_SERVICE_ACCOUNT`
+
+The two WIF values come from Terraform outputs:
+
+```bash
+cd infra
+terraform output -raw gcp_workload_identity_provider
+terraform output -raw gcp_terraform_service_account_email
+```
+
+### Importing
+
+1. `gcloud auth login --update-adc` and set `gcp_project_id` (in
+   `terraform.tfvars` or `TF_VAR_gcp_project_id`).
+2. Add application APIs to `google.tf` as `google_project_service` resources
+   when Terraform should own them.
+3. `mise run //infra:plan` and confirm the import shows no destructive changes.
