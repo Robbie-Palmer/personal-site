@@ -264,12 +264,110 @@ describe("buildFlowSankeyData", () => {
         targetName: "ISA",
       },
       {
-        source: 5,
-        target: 3,
+        source: 3,
+        target: 5,
         value: 30.62,
         label: "Interest charged",
-        sourceName: "Interest charged",
-        targetName: "Credit Card",
+        sourceName: "Credit Card",
+        targetName: "Interest charged",
+      },
+    ]);
+  });
+
+  it("splits linked liability repayments into interest and principal flows", () => {
+    const data = buildFlowSankeyData(
+      [
+        {
+          id: "current",
+          name: "Current",
+          provider: "Bank",
+          currency: "GBP",
+          assetType: "cash",
+          expectedAnnualReturn: 0,
+          isOpen: true,
+          latestBalance: 1000,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+        {
+          id: "home",
+          name: "Home",
+          provider: "Property",
+          currency: "GBP",
+          assetType: "property",
+          expectedAnnualReturn: 0.03,
+          isOpen: true,
+          latestBalance: 298000,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+        {
+          id: "mortgage",
+          name: "Home Mortgage",
+          provider: "Lender",
+          currency: "GBP",
+          assetType: "debt",
+          expectedAnnualReturn: 0.0425,
+          linkedAccountId: "home",
+          isOpen: true,
+          latestBalance: -212800,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+      ],
+      [
+        {
+          id: "mortgage-payment",
+          name: "Mortgage payment",
+          fromAccountId: "current",
+          toAccountId: "mortgage",
+          amount: 1150,
+          frequency: "monthly",
+          startDate: "2026-07-01",
+        },
+      ],
+      { mortgage: -212800 },
+    );
+
+    expect(data.nodes.map((node) => node.name)).toEqual([
+      "Current",
+      "Home Mortgage",
+      "Expected returns",
+      "Home",
+      "Interest charged",
+    ]);
+    expect(data.links).toEqual([
+      {
+        source: 0,
+        target: 1,
+        value: 1150,
+        label: "Mortgage payment",
+        sourceName: "Current",
+        targetName: "Home Mortgage",
+      },
+      {
+        source: 2,
+        target: 3,
+        value: 734.95,
+        label: "Expected return",
+        sourceName: "Expected returns",
+        targetName: "Home",
+      },
+      {
+        source: 1,
+        target: 4,
+        value: 739.37,
+        label: "Interest charged",
+        sourceName: "Home Mortgage",
+        targetName: "Interest charged",
+      },
+      {
+        source: 1,
+        target: 3,
+        value: 410.63,
+        label: "Principal repayment",
+        sourceName: "Home Mortgage",
+        targetName: "Home",
       },
     ]);
   });

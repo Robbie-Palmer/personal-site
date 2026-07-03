@@ -35,6 +35,7 @@ const MIN_SYNTHETIC_FLOW = 1;
 
 type FlowSankeyAccount = AccountSummaryView & {
   expectedReturnChanges?: ExpectedReturnChange[];
+  linkedAccountId?: string;
 };
 
 type FlowSankeyNode = {
@@ -148,6 +149,19 @@ export function buildFlowSankeyData(
     });
   }
 
+  function monthlyIncoming(accountId: string): number {
+    return flows.reduce((total, flow) => {
+      if (flow.toAccountId !== accountId) return total;
+      const liabilityBalance = liabilityBalances[accountId];
+      return (
+        total +
+        (flow.formula
+          ? monthlyAmount(flow, liabilityBalance)
+          : monthlyAmount(flow))
+      );
+    }, 0);
+  }
+
   for (const flow of flows) {
     const sourceId = flow.fromAccountId ?? EXTERNAL_INCOME_NODE;
     const targetId = flow.toAccountId ?? EXTERNAL_SPENDING_NODE;
@@ -177,7 +191,18 @@ export function buildFlowSankeyData(
     if (change > 0) {
       addLink(EXPECTED_RETURNS_NODE, account.id, value, "Expected return");
     } else if (balance < 0) {
-      addLink(INTEREST_CHARGED_NODE, account.id, value, "Interest charged");
+      addLink(account.id, INTEREST_CHARGED_NODE, value, "Interest charged");
+      if (account.linkedAccountId != null) {
+        const principal = monthlyIncoming(account.id) - value;
+        if (principal >= MIN_SYNTHETIC_FLOW) {
+          addLink(
+            account.id,
+            account.linkedAccountId,
+            principal,
+            "Principal repayment",
+          );
+        }
+      }
     }
   }
 
