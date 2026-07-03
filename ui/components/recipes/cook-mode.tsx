@@ -113,9 +113,34 @@ export function CookMode({
     };
   }, []);
 
-  // Keyboard navigation: arrows move between steps, Escape exits.
+  // Keyboard navigation: arrows move between steps, Escape exits, and Tab is
+  // trapped inside the dialog — the covered page beneath is still in the DOM
+  // and would otherwise receive focus.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Tab") {
+        const container = containerRef.current;
+        if (!container) return;
+        const focusables = container.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        );
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (!first || !last) return;
+        const active = document.activeElement;
+        const inside =
+          active instanceof HTMLElement && container.contains(active);
+        if (event.shiftKey) {
+          if (!inside || active === first) {
+            event.preventDefault();
+            last.focus();
+          }
+        } else if (!inside || active === last) {
+          event.preventDefault();
+          first.focus();
+        }
+        return;
+      }
       if (event.target instanceof HTMLElement) {
         const tag = event.target.tagName;
         if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
@@ -285,26 +310,32 @@ export function CookMode({
           </div>
 
           {/* nav */}
-          <div className="border-t border-dashed border-[var(--line-strong)] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-8">
-            <div className="mb-3 flex items-center gap-1">
+          <div className="border-t border-dashed border-[var(--line-strong)] px-4 pt-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-8">
+            <div className="mb-1 flex items-center gap-1">
               {steps.map((s, index) => (
+                // The visual bar is thin, so pad the button vertically to give
+                // it a tappable hit area on touch screens.
                 <button
                   key={s.key}
                   type="button"
                   onClick={() => goTo(index)}
                   aria-label={`Go to step ${index + 1}`}
                   aria-current={index === clampedStep ? "step" : undefined}
-                  className="flex-1 rounded-full transition-all"
-                  style={{
-                    height: index === clampedStep ? 8 : 4,
-                    background:
-                      index < clampedStep
-                        ? "var(--terracotta)"
-                        : index === clampedStep
-                          ? "var(--butter)"
-                          : "var(--ink-4)",
-                  }}
-                />
+                  className="flex flex-1 items-center py-3"
+                >
+                  <span
+                    className="w-full rounded-full transition-all"
+                    style={{
+                      height: index === clampedStep ? 8 : 4,
+                      background:
+                        index < clampedStep
+                          ? "var(--terracotta)"
+                          : index === clampedStep
+                            ? "var(--butter)"
+                            : "var(--ink-4)",
+                    }}
+                  />
+                </button>
               ))}
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
