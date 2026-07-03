@@ -9,7 +9,13 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useCookingTimers } from "@/hooks/use-cooking-timers";
 import {
   type CookingTimer,
@@ -96,6 +102,46 @@ export function TimerDock() {
   useEffect(() => {
     setPosition(loadPosition());
   }, []);
+
+  // A dragged position is stored as bottom-right offsets measured at the
+  // dock's size at drag time. Expanding, gaining timers, or rotating the
+  // screen changes the dock's size (or the viewport), which can push parts of
+  // it off-screen — re-clamp whenever that happens so the controls stay
+  // reachable.
+  const clampToViewport = useCallback(() => {
+    setPosition((current) => {
+      if (!current) return current;
+      const rect = dockRef.current?.getBoundingClientRect();
+      if (!rect) return current;
+      const next = {
+        right: clamp(
+          current.right,
+          EDGE_MARGIN,
+          window.innerWidth - rect.width - EDGE_MARGIN,
+        ),
+        bottom: clamp(
+          current.bottom,
+          EDGE_MARGIN,
+          window.innerHeight - rect.height - EDGE_MARGIN,
+        ),
+      };
+      if (next.right === current.right && next.bottom === current.bottom) {
+        return current;
+      }
+      savePosition(next);
+      return next;
+    });
+  }, []);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: expanded and timers.length change the dock's size, which is what requires re-clamping
+  useLayoutEffect(() => {
+    clampToViewport();
+  }, [expanded, timers.length, clampToViewport]);
+
+  useEffect(() => {
+    window.addEventListener("resize", clampToViewport);
+    return () => window.removeEventListener("resize", clampToViewport);
+  }, [clampToViewport]);
 
   const onGripPointerDown = useCallback(
     (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -186,7 +232,7 @@ export function TimerDock() {
       }
     >
       {expanded ? (
-        <div className="flex min-w-60 flex-col rounded-2xl bg-[var(--ink)] p-2 text-[var(--paper)] shadow-lg">
+        <div className="flex min-w-60 max-w-[calc(100vw-1rem)] flex-col rounded-2xl bg-[var(--ink)] p-2 text-[var(--paper)] shadow-lg">
           <div className="flex items-center gap-1">
             {grip}
             <span className="rt-mono flex-1 text-[9px] text-[var(--ink-4)]">
@@ -202,9 +248,13 @@ export function TimerDock() {
               <ChevronDown className="size-4" />
             </button>
           </div>
-          {sorted.map((timer) => (
-            <DockRow key={timer.id} timer={timer} />
-          ))}
+          {/* Many timers must scroll inside the panel rather than grow it
+              past the top of the screen. */}
+          <div className="max-h-[45vh] overflow-y-auto overscroll-contain">
+            {sorted.map((timer) => (
+              <DockRow key={timer.id} timer={timer} />
+            ))}
+          </div>
         </div>
       ) : (
         <div className="flex items-center rounded-full bg-[var(--ink)] py-1 pr-2.5 pl-1.5 text-[var(--paper)] shadow-lg">
