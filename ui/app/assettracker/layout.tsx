@@ -26,7 +26,10 @@ export default function AssetTrackerLayout({
               <a href="/assettracker" className="hover:underline">
                 Home
               </a>
-              <a href="/assettracker/about" className="hover:underline">
+              <a
+                href="/projects/personal-finance-app"
+                className="hover:underline"
+              >
                 About
               </a>
             </div>

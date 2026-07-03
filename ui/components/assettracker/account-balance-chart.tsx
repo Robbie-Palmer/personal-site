@@ -20,8 +20,11 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import type { AccountDetailView } from "@/lib/api/assettracker";
-import { ACCOUNT_COLORS, formatCurrency } from "@/lib/domain/assettracker";
+import {
+  ACCOUNT_COLORS,
+  type AccountDetailView,
+  formatCurrency,
+} from "@/lib/domain/assettracker";
 
 interface AccountBalanceChartProps {
   accounts: AccountDetailView[];
@@ -80,7 +83,9 @@ export function AccountBalanceChart({ accounts }: AccountBalanceChartProps) {
                   dataKey={account.name}
                   stroke={ACCOUNT_COLORS[i % ACCOUNT_COLORS.length]}
                   strokeWidth={2}
-                  dot={false}
+                  // A line needs two points; show a dot so a freshly created
+                  // account's single balance is still visible
+                  dot={account.snapshots.length < 2}
                   connectNulls
                 />
               ))}
