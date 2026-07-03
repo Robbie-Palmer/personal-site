@@ -127,7 +127,7 @@ function parseCookParams(search: string): { open: boolean; step: number } {
 }
 
 function buildCookUrl(open: boolean, step: number): string {
-  const url = new URL(window.location.href);
+  const url = new URL(globalThis.location.href);
   if (open) {
     url.searchParams.set("cook", "1");
     if (step > 0) {
@@ -238,18 +238,18 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
 
   useEffect(() => {
     const applyLocation = () => {
-      const { open, step } = parseCookParams(window.location.search);
+      const { open, step } = parseCookParams(globalThis.location.search);
       setCookOpen(open);
       setCookStep(step);
       if (!open) pushedCookEntryRef.current = false;
     };
     applyLocation();
-    window.addEventListener("popstate", applyLocation);
-    return () => window.removeEventListener("popstate", applyLocation);
+    globalThis.addEventListener("popstate", applyLocation);
+    return () => globalThis.removeEventListener("popstate", applyLocation);
   }, []);
 
   const openCookMode = useCallback(() => {
-    window.history.pushState(null, "", buildCookUrl(true, 0));
+    globalThis.history.pushState(null, "", buildCookUrl(true, 0));
     pushedCookEntryRef.current = true;
     setCookStep(0);
     setCookOpen(true);
@@ -259,17 +259,17 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
     if (pushedCookEntryRef.current) {
       // We created the ?cook entry ourselves — back() returns to the read
       // view and the popstate handler resets state.
-      window.history.back();
+      globalThis.history.back();
     } else {
       // Deep link / reload straight into cook mode: rewrite in place.
-      window.history.replaceState(null, "", buildCookUrl(false, 0));
+      globalThis.history.replaceState(null, "", buildCookUrl(false, 0));
       setCookOpen(false);
       setCookStep(0);
     }
   }, []);
 
   const changeCookStep = useCallback((step: number) => {
-    window.history.replaceState(null, "", buildCookUrl(true, step));
+    globalThis.history.replaceState(null, "", buildCookUrl(true, step));
     setCookStep(step);
   }, []);
 

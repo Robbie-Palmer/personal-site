@@ -118,9 +118,7 @@ function anyRunning(): boolean {
 function syncSideEffects(): void {
   if (anyRunning()) {
     retainWakeLock(WAKE_LOCK_KEY);
-    if (tickHandle === null) {
-      tickHandle = setInterval(tick, TICK_MS);
-    }
+    tickHandle ??= setInterval(tick, TICK_MS);
   } else {
     releaseWakeLock(WAKE_LOCK_KEY);
     if (tickHandle !== null) {
@@ -166,10 +164,10 @@ function tick(): void {
 }
 
 function hookGlobalListeners(): void {
-  if (globalListenersHooked || typeof window === "undefined") return;
+  if (globalListenersHooked || globalThis.window === undefined) return;
   globalListenersHooked = true;
   // Cross-tab sync: another tab mutated the timers.
-  window.addEventListener("storage", (event) => {
+  globalThis.addEventListener("storage", (event) => {
     if (event.key !== STORAGE_KEY) return;
     timers = loadStored();
     syncSideEffects();
@@ -185,7 +183,7 @@ function hookGlobalListeners(): void {
 }
 
 export function getTimersSnapshot(): readonly CookingTimer[] {
-  if (!hydrated && typeof window !== "undefined") {
+  if (!hydrated && globalThis.window !== undefined) {
     hydrated = true;
     timers = loadStored();
   }
@@ -236,9 +234,9 @@ export function pauseTimer(id: string): void {
             ...t,
             state: "paused",
             remainingSeconds:
-              t.endTimeMs !== null
-                ? remainingFrom(t.endTimeMs, now)
-                : t.remainingSeconds,
+              t.endTimeMs === null
+                ? t.remainingSeconds
+                : remainingFrom(t.endTimeMs, now),
             endTimeMs: null,
           }
         : t,

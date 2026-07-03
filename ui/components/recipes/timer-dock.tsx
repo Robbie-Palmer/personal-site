@@ -72,11 +72,9 @@ function byUrgency(a: CookingTimer, b: CookingTimer): number {
 }
 
 function dotColor(timer: CookingTimer): string {
-  return timer.state === "completed"
-    ? "var(--terracotta)"
-    : timer.state === "paused"
-      ? "var(--ink-4)"
-      : "var(--butter)";
+  if (timer.state === "completed") return "var(--terracotta)";
+  if (timer.state === "paused") return "var(--ink-4)";
+  return "var(--butter)";
 }
 
 /**
@@ -117,12 +115,12 @@ export function TimerDock() {
         right: clamp(
           current.right,
           EDGE_MARGIN,
-          window.innerWidth - rect.width - EDGE_MARGIN,
+          globalThis.innerWidth - rect.width - EDGE_MARGIN,
         ),
         bottom: clamp(
           current.bottom,
           EDGE_MARGIN,
-          window.innerHeight - rect.height - EDGE_MARGIN,
+          globalThis.innerHeight - rect.height - EDGE_MARGIN,
         ),
       };
       if (next.right === current.right && next.bottom === current.bottom) {
@@ -139,8 +137,8 @@ export function TimerDock() {
   }, [expanded, timers.length, clampToViewport]);
 
   useEffect(() => {
-    window.addEventListener("resize", clampToViewport);
-    return () => window.removeEventListener("resize", clampToViewport);
+    globalThis.addEventListener("resize", clampToViewport);
+    return () => globalThis.removeEventListener("resize", clampToViewport);
   }, [clampToViewport]);
 
   const onGripPointerDown = useCallback(
@@ -152,8 +150,8 @@ export function TimerDock() {
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
-        startRight: window.innerWidth - rect.right,
-        startBottom: window.innerHeight - rect.bottom,
+        startRight: globalThis.innerWidth - rect.right,
+        startBottom: globalThis.innerHeight - rect.bottom,
         moved: false,
       };
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -172,12 +170,12 @@ export function TimerDock() {
         right: clamp(
           drag.startRight + (drag.startX - event.clientX),
           EDGE_MARGIN,
-          window.innerWidth - (rect?.width ?? 0) - EDGE_MARGIN,
+          globalThis.innerWidth - (rect?.width ?? 0) - EDGE_MARGIN,
         ),
         bottom: clamp(
           drag.startBottom + (drag.startY - event.clientY),
           EDGE_MARGIN,
-          window.innerHeight - (rect?.height ?? 0) - EDGE_MARGIN,
+          globalThis.innerHeight - (rect?.height ?? 0) - EDGE_MARGIN,
         ),
       });
     },
@@ -301,7 +299,7 @@ export function TimerDock() {
   );
 }
 
-function DockRow({ timer }: { timer: CookingTimer }) {
+function DockRow({ timer }: Readonly<{ timer: CookingTimer }>) {
   const completed = timer.state === "completed";
   const paused = timer.state === "paused";
 

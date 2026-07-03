@@ -55,6 +55,49 @@ export type CookStep = {
 const WAKE_LOCK_KEY = "cook-mode";
 const SWIPE_THRESHOLD_PX = 48;
 
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
+/**
+ * Keep Tab/Shift+Tab cycling within the dialog — the covered page beneath is
+ * still in the DOM and would otherwise receive focus.
+ */
+function trapFocus(event: KeyboardEvent, container: HTMLElement | null): void {
+  if (!container) return;
+  const focusables = container.querySelectorAll<HTMLElement>(
+    'button:not([disabled]), a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  );
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (!first || !last) return;
+  const active = document.activeElement;
+  const inside = active instanceof HTMLElement && container.contains(active);
+  if (event.shiftKey) {
+    if (!inside || active === first) {
+      event.preventDefault();
+      last.focus();
+    }
+  } else if (!inside || active === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function progressSegmentColor(index: number, currentStep: number): string {
+  if (index < currentStep) return "var(--terracotta)";
+  if (index === currentStep) return "var(--butter)";
+  return "var(--ink-4)";
+}
+
+function timerCircleBackground(state: CookingTimer["state"] | "idle"): string {
+  if (state === "running") return "var(--butter)";
+  if (state === "completed") return "var(--terracotta)";
+  return "var(--card)";
+}
+
 export function CookMode({
   recipeSlug,
   recipeTitle,
@@ -67,7 +110,7 @@ export function CookMode({
   step,
   onStepChange,
   onExit,
-}: {
+}: Readonly<{
   recipeSlug: string;
   recipeTitle: string;
   servings: number;
@@ -79,11 +122,11 @@ export function CookMode({
   step: number;
   onStepChange: (step: number) => void;
   onExit: () => void;
-}) {
+}>) {
   const clampedStep = Math.min(Math.max(step, 0), steps.length - 1);
   const current = steps[clampedStep];
   const [showIngredients, setShowIngredients] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDialogElement>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   const goTo = useCallback(
@@ -114,37 +157,14 @@ export function CookMode({
   }, []);
 
   // Keyboard navigation: arrows move between steps, Escape exits, and Tab is
-  // trapped inside the dialog — the covered page beneath is still in the DOM
-  // and would otherwise receive focus.
+  // trapped inside the dialog.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Tab") {
-        const container = containerRef.current;
-        if (!container) return;
-        const focusables = container.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        );
-        const first = focusables[0];
-        const last = focusables[focusables.length - 1];
-        if (!first || !last) return;
-        const active = document.activeElement;
-        const inside =
-          active instanceof HTMLElement && container.contains(active);
-        if (event.shiftKey) {
-          if (!inside || active === first) {
-            event.preventDefault();
-            last.focus();
-          }
-        } else if (!inside || active === last) {
-          event.preventDefault();
-          first.focus();
-        }
+        trapFocus(event, containerRef.current);
         return;
       }
-      if (event.target instanceof HTMLElement) {
-        const tag = event.target.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      }
+      if (isEditableTarget(event.target)) return;
       if (event.key === "ArrowRight") {
         event.preventDefault();
         goTo(clampedStep + 1);
@@ -160,8 +180,8 @@ export function CookMode({
         }
       }
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    globalThis.addEventListener("keydown", onKeyDown);
+    return () => globalThis.removeEventListener("keydown", onKeyDown);
   }, [clampedStep, goTo, onExit, showIngredients]);
 
   const onTouchStart = useCallback((event: React.TouchEvent) => {
@@ -225,14 +245,18 @@ export function CookMode({
   );
 
   return (
-    <div
+    // Native <dialog> for semantics, kept non-modal (`open`, not showModal())
+    // so the top layer doesn't paint over the floating timer dock; we manage
+    // focus trapping and Escape ourselves. The size/margin/border/padding
+    // classes neutralise the UA dialog stylesheet.
+    <dialog
       ref={containerRef}
-      role="dialog"
+      open
       aria-modal="true"
       aria-label={`Cook mode: ${recipeTitle}`}
       // Programmatically focused on open so arrow-key navigation works immediately.
       tabIndex={-1}
-      className="recipe-theme fixed inset-0 z-[60] flex flex-col bg-[var(--paper-warm)] outline-none"
+      className="recipe-theme fixed inset-0 z-[60] m-0 flex h-full max-h-none w-full max-w-none flex-col border-0 bg-[var(--paper-warm)] p-0 text-[var(--ink)] outline-none"
     >
       {/* slim cooking-mode chrome */}
       <header className="flex items-center gap-2 border-b border-[var(--line-strong)] bg-[var(--butter-soft)] px-3 py-2 sm:gap-4 sm:px-6">
@@ -327,12 +351,7 @@ export function CookMode({
                     className="w-full rounded-full transition-all"
                     style={{
                       height: index === clampedStep ? 8 : 4,
-                      background:
-                        index < clampedStep
-                          ? "var(--terracotta)"
-                          : index === clampedStep
-                            ? "var(--butter)"
-                            : "var(--ink-4)",
+                      background: progressSegmentColor(index, clampedStep),
                     }}
                   />
                 </button>
@@ -396,7 +415,7 @@ export function CookMode({
           </div>
         </div>
       )}
-    </div>
+    </dialog>
   );
 }
 
@@ -404,11 +423,11 @@ function StepToken({
   token,
   scale,
   system,
-}: {
+}: Readonly<{
   token: CookToken;
   scale: number;
   system: MeasurementSystem;
-}) {
+}>) {
   if (token.type === "ingredient") {
     return (
       <strong className="font-bold text-[var(--terracotta-deep)]">
@@ -432,13 +451,13 @@ function IngredientReference({
   scale,
   system,
   highlighted,
-}: {
+}: Readonly<{
   ingredientGroups: IngredientGroupView[];
   annotations: Map<string, IngredientAnnotation>;
   scale: number;
   system: MeasurementSystem;
   highlighted: Set<string>;
-}) {
+}>) {
   return (
     <div className="space-y-4">
       {ingredientGroups.map((group, groupIndex) => (
@@ -496,24 +515,19 @@ function CookModeTimer({
   durationSeconds,
   recipeSlug,
   recipeTitle,
-}: {
+}: Readonly<{
   timerId: string;
   label: string;
   durationSeconds: number;
   recipeSlug: string;
   recipeTitle: string;
-}) {
+}>) {
   const timers = useCookingTimers();
   const timer = timers.find((t) => t.id === timerId);
   const state: CookingTimer["state"] | "idle" = timer?.state ?? "idle";
   const remaining = timer?.remainingSeconds ?? durationSeconds;
 
-  const circleBackground =
-    state === "running"
-      ? "var(--butter)"
-      : state === "completed"
-        ? "var(--terracotta)"
-        : "var(--card)";
+  const circleBackground = timerCircleBackground(state);
 
   return (
     <div className="mt-7 flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">

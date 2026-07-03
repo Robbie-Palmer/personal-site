@@ -81,12 +81,26 @@ function resolveDisplay(
   scale: number,
   system: MeasurementSystem,
 ): { amount: number | undefined; unit: RecipeIngredientView["unit"] } {
-  const scaledAmount = item.amount != null ? item.amount * scale : undefined;
+  const scaledAmount = item.amount == null ? undefined : item.amount * scale;
   if (scaledAmount != null && item.unit) {
     const converted = convertToSystem(scaledAmount, item.unit, system);
     if (converted) return converted;
   }
   return { amount: scaledAmount, unit: item.unit };
+}
+
+/** The pluralised unit label to render after the amount, if the unit has one. */
+function unitLabelFor(
+  amount: number | undefined,
+  unit: RecipeIngredientView["unit"],
+): { label: string; noSpace: boolean } | null {
+  if (!unit) return null;
+  const labels = UNIT_LABELS[unit];
+  if (!labels) return null;
+  const isPlural = amount != null && Math.abs(amount) > 1 + SINGULAR_EPSILON;
+  const label = isPlural ? labels.plural : labels.singular;
+  if (!label) return null;
+  return { label, noSpace: Boolean(labels.noSpace) };
 }
 
 function formatAmount(
@@ -101,19 +115,12 @@ function formatAmount(
     parts.push(formatScaled(amount));
   }
 
-  if (unit) {
-    const labels = UNIT_LABELS[unit];
-    if (labels) {
-      const isPlural =
-        amount != null && Math.abs(amount) > 1 + SINGULAR_EPSILON;
-      const label = isPlural ? labels.plural : labels.singular;
-      if (label) {
-        if (labels.noSpace && parts.length > 0) {
-          parts[parts.length - 1] += label;
-        } else {
-          parts.push(label);
-        }
-      }
+  const unitLabel = unitLabelFor(amount, unit);
+  if (unitLabel) {
+    if (unitLabel.noSpace && parts.length > 0) {
+      parts[parts.length - 1] += unitLabel.label;
+    } else {
+      parts.push(unitLabel.label);
     }
   }
 
@@ -127,10 +134,23 @@ function hasRenderedUnitLabel(
 ): boolean {
   const { amount, unit } = resolveDisplay(item, scale, system);
   if (!unit || unit === "piece") return false;
-  const labels = UNIT_LABELS[unit];
-  if (!labels) return false;
-  const isPlural = amount != null && Math.abs(amount) > 1 + SINGULAR_EPSILON;
-  return Boolean(isPlural ? labels.plural : labels.singular);
+  return unitLabelFor(amount, unit) !== null;
+}
+
+/**
+ * The rendered amount prefix: "piece" quantities are bare scaled numbers,
+ * everything else goes through unit conversion and labelling.
+ */
+function amountText(
+  item: Pick<RecipeIngredientView, "amount" | "unit">,
+  scale: number,
+  system: MeasurementSystem,
+): string {
+  if (item.unit !== "piece") {
+    return formatAmount(item, scale, system);
+  }
+  if (item.amount == null) return "";
+  return formatScaled(item.amount * scale);
 }
 
 export function formatIngredient(
@@ -139,12 +159,7 @@ export function formatIngredient(
   system: MeasurementSystem,
   annotation?: IngredientAnnotation,
 ): string {
-  const isPiece = item.unit === "piece";
-  const amount = isPiece
-    ? item.amount != null
-      ? formatScaled(item.amount * scale)
-      : ""
-    : formatAmount(item, scale, system);
+  const amount = amountText(item, scale, system);
   const parts: string[] = [];
 
   if (amount) {
@@ -181,12 +196,7 @@ export function formatInstructionIngredientToken(
     unit: token.unit as RecipeIngredientView["unit"],
     amount: token.amount ?? undefined,
   } satisfies RecipeIngredientView;
-  const isPiece = item.unit === "piece";
-  const amount = isPiece
-    ? item.amount != null
-      ? formatScaled(item.amount * scale)
-      : ""
-    : formatAmount(item, scale, system);
+  const amount = amountText(item, scale, system);
   const parts: string[] = [];
 
   if (amount) {

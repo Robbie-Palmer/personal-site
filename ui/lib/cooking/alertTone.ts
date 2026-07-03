@@ -11,9 +11,7 @@ let audioCtx: AudioContext | null = null;
 
 export function ensureAudioUnlocked(): void {
   try {
-    if (!audioCtx) {
-      audioCtx = new AudioContext();
-    }
+    audioCtx ??= new AudioContext();
     if (audioCtx.state === "suspended") {
       audioCtx.resume().catch(() => {});
     }
