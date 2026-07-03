@@ -1,10 +1,10 @@
 "use client";
 
 import { type ReactElement, type SVGProps, useMemo } from "react";
+import { useMediaQuery } from "react-responsive";
 import {
   ResponsiveContainer,
   Sankey,
-  type SankeyLinkProps,
   type SankeyNodeProps,
   Tooltip,
 } from "recharts";
@@ -38,6 +38,8 @@ type FlowSankeyLink = {
   target: number;
   value: number;
   label: string;
+  sourceName: string;
+  targetName: string;
 };
 
 export type FlowSankeyData = {
@@ -102,11 +104,15 @@ export function buildFlowSankeyData(
       existing.value += value;
       existing.label = `${existing.label}, ${flow.name}`;
     } else {
+      const sourceNode = nodes[source];
+      const targetNode = nodes[target];
       linkTotals.set(key, {
         source,
         target,
         value,
         label: flow.name,
+        sourceName: sourceNode?.name ?? sourceId,
+        targetName: targetNode?.name ?? targetId,
       });
     }
   }
@@ -120,14 +126,20 @@ export function buildFlowSankeyData(
   };
 }
 
-function SankeyNode({
+function FlowSankeyNodeShape({
   x,
   y,
   width,
   height,
   payload,
-}: SankeyNodeProps): ReactElement<SVGProps<SVGRectElement>> {
+  showLabel,
+}: SankeyNodeProps & {
+  showLabel: boolean;
+}): ReactElement<SVGProps<SVGRectElement>> {
   const node = payload as unknown as FlowSankeyNode & { value?: number };
+  const depth = "depth" in payload ? Number(payload.depth) : 0;
+  const labelOnLeft = depth === 0;
+  const labelX = labelOnLeft ? x - 8 : x + width + 8;
   return (
     <g>
       <rect
@@ -139,40 +151,19 @@ function SankeyNode({
         fill={node.color}
         fillOpacity={0.85}
       />
-      <text
-        x={x + width + 6}
-        y={y + Math.max(height / 2, 10)}
-        fill="currentColor"
-        fontSize={11}
-        dominantBaseline="middle"
-      >
-        {node.name}
-      </text>
+      {showLabel && (
+        <text
+          x={labelX}
+          y={y + Math.max(height / 2, 10)}
+          fill="currentColor"
+          fontSize={11}
+          textAnchor={labelOnLeft ? "end" : "start"}
+          dominantBaseline="middle"
+        >
+          {node.name}
+        </text>
+      )}
     </g>
-  );
-}
-
-function SankeyLink({
-  sourceX,
-  targetX,
-  sourceY,
-  targetY,
-  sourceControlX,
-  targetControlX,
-  sourceRelativeY,
-  targetRelativeY,
-  linkWidth,
-}: SankeyLinkProps): ReactElement<SVGProps<SVGPathElement>> {
-  const source = sourceY + sourceRelativeY + linkWidth / 2;
-  const target = targetY + targetRelativeY + linkWidth / 2;
-  return (
-    <path
-      d={`M${sourceX},${source} C${sourceControlX},${source} ${targetControlX},${target} ${targetX},${target}`}
-      fill="none"
-      stroke="hsl(220, 70%, 50%)"
-      strokeOpacity={0.25}
-      strokeWidth={Math.max(1, linkWidth)}
-    />
   );
 }
 
@@ -188,6 +179,11 @@ function SankeyTooltip({
   return (
     <div className="rounded-lg border bg-background px-2.5 py-1.5 text-xs shadow-xl">
       <p className="font-medium">{link.label}</p>
+      <p className="text-muted-foreground">
+        {link.sourceName}
+        {" -> "}
+        {link.targetName}
+      </p>
       <p className="font-mono">{formatCurrency(link.value)}/mo</p>
     </div>
   );
@@ -195,6 +191,7 @@ function SankeyTooltip({
 
 export function FlowSankeyChart() {
   const { accounts, accountDetails, recurringFlows } = useAssetTracker();
+  const isCompact = useMediaQuery({ maxWidth: 639 });
   const liabilityBalances = useMemo(
     () =>
       Object.fromEntries(
@@ -206,6 +203,9 @@ export function FlowSankeyChart() {
     () => buildFlowSankeyData(accounts, recurringFlows, liabilityBalances),
     [accounts, recurringFlows, liabilityBalances],
   );
+  const chartMargin = isCompact
+    ? { top: 8, right: 12, bottom: 8, left: 12 }
+    : { top: 8, right: 140, bottom: 8, left: 120 };
 
   return (
     <Card className="min-w-0">
@@ -223,23 +223,47 @@ export function FlowSankeyChart() {
             an account's detail view.
           </p>
         ) : (
-          <div className="h-[320px] min-w-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <Sankey
-                data={data}
-                dataKey="value"
-                nameKey="name"
-                node={SankeyNode}
-                link={SankeyLink}
-                nodePadding={18}
-                nodeWidth={12}
-                margin={{ top: 8, right: 140, bottom: 8, left: 8 }}
-                iterations={64}
-              >
-                <Tooltip content={<SankeyTooltip />} />
-              </Sankey>
-            </ResponsiveContainer>
-          </div>
+          <>
+            <div className="h-[280px] min-w-0 sm:h-[320px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <Sankey
+                  data={data}
+                  dataKey="value"
+                  nameKey="name"
+                  node={(props) => (
+                    <FlowSankeyNodeShape {...props} showLabel={!isCompact} />
+                  )}
+                  link={{
+                    stroke: "hsl(220, 70%, 50%)",
+                    strokeOpacity: 0.25,
+                  }}
+                  nodePadding={isCompact ? 14 : 18}
+                  nodeWidth={12}
+                  margin={chartMargin}
+                  iterations={64}
+                >
+                  <Tooltip content={<SankeyTooltip />} />
+                </Sankey>
+              </ResponsiveContainer>
+            </div>
+            <ul className="mt-3 grid gap-1.5 text-xs sm:hidden">
+              {data.links.map((link) => (
+                <li
+                  key={`${link.source}-${link.target}-${link.label}`}
+                  className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-2 py-1.5"
+                >
+                  <span className="min-w-0 truncate">
+                    {link.sourceName}
+                    {" -> "}
+                    {link.targetName}
+                  </span>
+                  <span className="shrink-0 font-mono">
+                    {formatCurrency(link.value)}/mo
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </CardContent>
     </Card>

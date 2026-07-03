@@ -229,9 +229,30 @@ describe("buildFlowSankeyData", () => {
       "Credit Card",
     ]);
     expect(data.links).toEqual([
-      { source: 0, target: 1, value: 3200, label: "Salary" },
-      { source: 1, target: 2, value: 500, label: "ISA" },
-      { source: 1, target: 3, value: 50, label: "Card minimum" },
+      {
+        source: 0,
+        target: 1,
+        value: 3200,
+        label: "Salary",
+        sourceName: "External income",
+        targetName: "Current",
+      },
+      {
+        source: 1,
+        target: 2,
+        value: 500,
+        label: "ISA",
+        sourceName: "Current",
+        targetName: "ISA",
+      },
+      {
+        source: 1,
+        target: 3,
+        value: 50,
+        label: "Card minimum",
+        sourceName: "Current",
+        targetName: "Credit Card",
+      },
     ]);
   });
 });
