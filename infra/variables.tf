@@ -66,6 +66,12 @@ variable "posthog_host" {
   default     = "https://eu.posthog.com"
 }
 
+variable "posthog_project_id" {
+  description = "PostHog project/environment ID used by the Terraform provider"
+  type        = string
+  default     = null
+}
+
 variable "r2_dvc_bucket_name" {
   description = "Name of the R2 bucket for DVC data storage"
   type        = string
