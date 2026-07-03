@@ -329,6 +329,7 @@ export function FlowSankeyChart() {
                   nodePadding={isCompact ? 14 : 18}
                   nodeWidth={12}
                   margin={chartMargin}
+                  align="left"
                   iterations={64}
                 >
                   <Tooltip content={<SankeyTooltip />} />

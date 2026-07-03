@@ -1,11 +1,25 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAssetTracker } from "@/components/assettracker/asset-tracker-provider";
-import { buildFlowSankeyData } from "@/components/assettracker/flow-sankey-chart";
+import {
+  buildFlowSankeyData,
+  FlowSankeyChart,
+} from "@/components/assettracker/flow-sankey-chart";
 import { PortfolioGoal } from "@/components/assettracker/portfolio-goal";
 import { UpcomingFlows } from "@/components/assettracker/upcoming-flows";
 import { todayIsoDate } from "@/lib/domain/assettracker";
+
+vi.mock("recharts", () => ({
+  ResponsiveContainer: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  Sankey: ({ align }: { align?: string }) => (
+    <div data-align={align} data-testid="flow-sankey" />
+  ),
+  Tooltip: () => null,
+}));
 
 vi.mock("@/components/assettracker/asset-tracker-provider", () => ({
   useAssetTracker: vi.fn(),
@@ -143,6 +157,66 @@ describe("UpcomingFlows", () => {
     const row = screen.getByText("Salary").closest("li");
     expect(row).toHaveClass("grid", "min-w-0", "sm:flex");
     expect(row?.querySelector("span")).toHaveClass("shrink-0", "sm:w-24");
+  });
+});
+
+describe("FlowSankeyChart", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("keeps direct account allocations in their natural Sankey layer", () => {
+    const today = todayIsoDate();
+    mockAssetTracker({
+      accountDetails: [
+        {
+          id: "current",
+          name: "Current",
+          provider: "Bank",
+          currency: "GBP",
+          assetType: "cash",
+          expectedAnnualReturn: 0,
+          isOpen: true,
+          latestBalance: 1000,
+          latestSnapshotDate: today,
+          cagr: null,
+          createdAt: today,
+          snapshots: [{ date: today, balance: 1000 }],
+        },
+        {
+          id: "isa",
+          name: "ISA",
+          provider: "Broker",
+          currency: "GBP",
+          assetType: "stocks",
+          expectedAnnualReturn: 0,
+          isOpen: true,
+          latestBalance: 5000,
+          latestSnapshotDate: today,
+          cagr: null,
+          createdAt: today,
+          snapshots: [{ date: today, balance: 5000 }],
+        },
+      ],
+      recurringFlows: [
+        {
+          id: "isa",
+          name: "ISA contribution",
+          fromAccountId: "current",
+          toAccountId: "isa",
+          amount: 500,
+          frequency: "monthly",
+          startDate: today,
+        },
+      ],
+    });
+
+    render(<FlowSankeyChart />);
+
+    expect(screen.getByTestId("flow-sankey")).toHaveAttribute(
+      "data-align",
+      "left",
+    );
   });
 });
 
