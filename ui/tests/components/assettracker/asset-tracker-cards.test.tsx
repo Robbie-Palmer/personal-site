@@ -227,6 +227,8 @@ describe("buildFlowSankeyData", () => {
       "Current",
       "ISA",
       "Credit Card",
+      "Expected returns",
+      "Interest charged",
     ]);
     expect(data.links).toEqual([
       {
@@ -251,6 +253,22 @@ describe("buildFlowSankeyData", () => {
         value: 50,
         label: "Card minimum",
         sourceName: "Current",
+        targetName: "Credit Card",
+      },
+      {
+        source: 4,
+        target: 2,
+        value: 28.27,
+        label: "Expected return",
+        sourceName: "Expected returns",
+        targetName: "ISA",
+      },
+      {
+        source: 5,
+        target: 3,
+        value: 30.62,
+        label: "Interest charged",
+        sourceName: "Interest charged",
         targetName: "Credit Card",
       },
     ]);

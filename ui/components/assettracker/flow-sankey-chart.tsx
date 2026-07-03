@@ -18,14 +18,24 @@ import {
 import {
   ACCOUNT_COLORS,
   type AccountSummaryView,
+  type ExpectedReturnChange,
+  effectiveExpectedReturn,
   formatCurrency,
   monthlyAmount,
   type RecurringFlow,
+  todayIsoDate,
 } from "@/lib/domain/assettracker";
 import { useAssetTracker } from "./asset-tracker-provider";
 
 const EXTERNAL_INCOME_NODE = "__external_income";
 const EXTERNAL_SPENDING_NODE = "__external_spending";
+const EXPECTED_RETURNS_NODE = "__expected_returns";
+const INTEREST_CHARGED_NODE = "__interest_charged";
+const MIN_SYNTHETIC_FLOW = 1;
+
+type FlowSankeyAccount = AccountSummaryView & {
+  expectedReturnChanges?: ExpectedReturnChange[];
+};
 
 type FlowSankeyNode = {
   id: string;
@@ -51,8 +61,41 @@ function accountColor(index: number): string {
   return ACCOUNT_COLORS[index % ACCOUNT_COLORS.length] ?? ACCOUNT_COLORS[0];
 }
 
+function nodeName(id: string, account?: FlowSankeyAccount): string {
+  switch (id) {
+    case EXTERNAL_INCOME_NODE:
+      return "External income";
+    case EXTERNAL_SPENDING_NODE:
+      return "External spending";
+    case EXPECTED_RETURNS_NODE:
+      return "Expected returns";
+    case INTEREST_CHARGED_NODE:
+      return "Interest charged";
+    default:
+      return account?.name ?? id;
+  }
+}
+
+function nodeColor(id: string, index: number): string {
+  switch (id) {
+    case EXTERNAL_INCOME_NODE:
+    case EXTERNAL_SPENDING_NODE:
+      return "hsl(220, 10%, 60%)";
+    case EXPECTED_RETURNS_NODE:
+      return "hsl(145, 55%, 45%)";
+    case INTEREST_CHARGED_NODE:
+      return "hsl(350, 65%, 55%)";
+    default:
+      return accountColor(index);
+  }
+}
+
+function monthlyExpectedChange(balance: number, annualRate: number): number {
+  return balance * ((1 + annualRate) ** (1 / 12) - 1);
+}
+
 export function buildFlowSankeyData(
-  accounts: AccountSummaryView[],
+  accounts: FlowSankeyAccount[],
   flows: RecurringFlow[],
   liabilityBalances: Record<string, number>,
 ): FlowSankeyData {
@@ -68,19 +111,41 @@ export function buildFlowSankeyData(
     const index = nodes.length;
     nodes.push({
       id,
-      name:
-        id === EXTERNAL_INCOME_NODE
-          ? "External income"
-          : id === EXTERNAL_SPENDING_NODE
-            ? "External spending"
-            : (account?.name ?? id),
-      color:
-        id === EXTERNAL_INCOME_NODE || id === EXTERNAL_SPENDING_NODE
-          ? "hsl(220, 10%, 60%)"
-          : accountColor(index),
+      name: nodeName(id, account),
+      color: nodeColor(id, index),
     });
     nodeIndexes.set(id, index);
     return index;
+  }
+
+  function addLink(
+    sourceId: string,
+    targetId: string,
+    value: number,
+    label: string,
+  ) {
+    if (value <= 0) return;
+
+    const source = addNode(sourceId);
+    const target = addNode(targetId);
+    const key = `${source}->${target}`;
+    const existing = linkTotals.get(key);
+    if (existing) {
+      existing.value += value;
+      existing.label = `${existing.label}, ${label}`;
+      return;
+    }
+
+    const sourceNode = nodes[source];
+    const targetNode = nodes[target];
+    linkTotals.set(key, {
+      source,
+      target,
+      value,
+      label,
+      sourceName: sourceNode?.name ?? sourceId,
+      targetName: targetNode?.name ?? targetId,
+    });
   }
 
   for (const flow of flows) {
@@ -94,26 +159,25 @@ export function buildFlowSankeyData(
       ? monthlyAmount(flow, liabilityBalance)
       : monthlyAmount(flow);
 
-    if (value <= 0) continue;
+    addLink(sourceId, targetId, value, flow.name);
+  }
 
-    const source = addNode(sourceId);
-    const target = addNode(targetId);
-    const key = `${source}->${target}`;
-    const existing = linkTotals.get(key);
-    if (existing) {
-      existing.value += value;
-      existing.label = `${existing.label}, ${flow.name}`;
-    } else {
-      const sourceNode = nodes[source];
-      const targetNode = nodes[target];
-      linkTotals.set(key, {
-        source,
-        target,
-        value,
-        label: flow.name,
-        sourceName: sourceNode?.name ?? sourceId,
-        targetName: targetNode?.name ?? targetId,
-      });
+  const today = todayIsoDate();
+  for (const account of accounts) {
+    const balance = account.latestBalance ?? 0;
+    if (balance === 0) continue;
+
+    const rate = effectiveExpectedReturn(account, today);
+    if (rate === 0) continue;
+
+    const change = monthlyExpectedChange(balance, rate);
+    const value = Math.abs(change);
+    if (value < MIN_SYNTHETIC_FLOW) continue;
+
+    if (change > 0) {
+      addLink(EXPECTED_RETURNS_NODE, account.id, value, "Expected return");
+    } else if (balance < 0) {
+      addLink(INTEREST_CHARGED_NODE, account.id, value, "Interest charged");
     }
   }
 
@@ -190,7 +254,7 @@ function SankeyTooltip({
 }
 
 export function FlowSankeyChart() {
-  const { accounts, accountDetails, recurringFlows } = useAssetTracker();
+  const { accountDetails, recurringFlows } = useAssetTracker();
   const isCompact = useMediaQuery({ maxWidth: 639 });
   const liabilityBalances = useMemo(
     () =>
@@ -200,8 +264,9 @@ export function FlowSankeyChart() {
     [accountDetails],
   );
   const data = useMemo(
-    () => buildFlowSankeyData(accounts, recurringFlows, liabilityBalances),
-    [accounts, recurringFlows, liabilityBalances],
+    () =>
+      buildFlowSankeyData(accountDetails, recurringFlows, liabilityBalances),
+    [accountDetails, recurringFlows, liabilityBalances],
   );
   const chartMargin = isCompact
     ? { top: 8, right: 12, bottom: 8, left: 12 }
@@ -212,8 +277,7 @@ export function FlowSankeyChart() {
       <CardHeader>
         <CardTitle>Regular Flow Map</CardTitle>
         <CardDescription>
-          Monthly-equivalent expected flows between income, accounts, savings,
-          and liabilities.
+          Monthly-equivalent cash flows, expected returns, and interest charges.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-2 sm:px-6">
