@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useCookingTimers } from "@/hooks/use-cooking-timers";
+import { useCookingTimer } from "@/hooks/use-cooking-timers";
 import {
   type CookingTimer,
   dismissTimer,
@@ -156,6 +156,37 @@ export function CookMode({
     };
   }, []);
 
+  // A non-modal <dialog> (see below) doesn't make the rest of the page inert,
+  // so assistive tech could still reach the covered content. Mark every other
+  // top-level element inert while cook mode is mounted — but not the timer
+  // dock, which is a body-level sibling meant to stay usable during cooking.
+  useEffect(() => {
+    const dialog = containerRef.current;
+    if (!dialog) return;
+    const changed: HTMLElement[] = [];
+    for (const child of Array.from(document.body.children)) {
+      if (
+        !(child instanceof HTMLElement) ||
+        child === dialog ||
+        child.classList.contains("rt-timer-dock") ||
+        child.tagName === "SCRIPT" ||
+        child.tagName === "STYLE" ||
+        child.hasAttribute("inert")
+      ) {
+        continue;
+      }
+      child.setAttribute("inert", "");
+      child.setAttribute("aria-hidden", "true");
+      changed.push(child);
+    }
+    return () => {
+      for (const el of changed) {
+        el.removeAttribute("inert");
+        el.removeAttribute("aria-hidden");
+      }
+    };
+  }, []);
+
   // Keyboard navigation: arrows move between steps, Escape exits, and Tab is
   // trapped inside the dialog.
   useEffect(() => {
@@ -260,7 +291,13 @@ export function CookMode({
     >
       {/* slim cooking-mode chrome */}
       <header className="flex items-center gap-2 border-b border-[var(--line-strong)] bg-[var(--butter-soft)] px-3 py-2 sm:gap-4 sm:px-6">
-        <Button variant="ghost" size="sm" onClick={onExit} className="shrink-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onExit}
+          className="shrink-0"
+          aria-label="Exit cook mode"
+        >
           <ArrowLeft className="size-4" />
           <span className="hidden sm:inline">Exit</span>
         </Button>
@@ -329,6 +366,8 @@ export function CookMode({
                 durationSeconds={token.durationSeconds ?? 0}
                 recipeSlug={recipeSlug}
                 recipeTitle={recipeTitle}
+                stepIndex={clampedStep}
+                stepText={current.text}
               />
             ))}
           </div>
@@ -468,13 +507,13 @@ function IngredientReference({
             </div>
           )}
           <ul className="space-y-0.5">
-            {group.items.map((item) => {
+            {group.items.map((item, itemIndex) => {
               const isUsed =
                 highlighted.has(item.ingredient) ||
                 highlighted.has(normalizeSlug(item.name));
               return (
                 <li
-                  key={item.ingredient}
+                  key={`${item.ingredient}:${itemIndex}`}
                   className={[
                     "flex items-center gap-2 rounded-md px-2 py-1 text-[0.9375rem]",
                     isUsed
@@ -515,15 +554,18 @@ function CookModeTimer({
   durationSeconds,
   recipeSlug,
   recipeTitle,
+  stepIndex,
+  stepText,
 }: Readonly<{
   timerId: string;
   label: string;
   durationSeconds: number;
   recipeSlug: string;
   recipeTitle: string;
+  stepIndex: number;
+  stepText: string;
 }>) {
-  const timers = useCookingTimers();
-  const timer = timers.find((t) => t.id === timerId);
+  const timer = useCookingTimer(timerId);
   const state: CookingTimer["state"] | "idle" = timer?.state ?? "idle";
   const remaining = timer?.remainingSeconds ?? durationSeconds;
 
@@ -565,6 +607,8 @@ function CookModeTimer({
                   recipeSlug,
                   recipeTitle,
                   label,
+                  stepIndex,
+                  stepText,
                   durationSeconds,
                 })
               }

@@ -19,6 +19,10 @@ export type CookingTimer = {
   recipeSlug: string;
   recipeTitle: string;
   label: string;
+  /** Zero-based method step the timer belongs to, when known. */
+  stepIndex?: number;
+  /** Snippet of the instruction text, for telling similar timers apart. */
+  stepText?: string;
   durationSeconds: number;
   /** Epoch ms when the countdown hits zero; null unless running. */
   endTimeMs: number | null;
@@ -32,6 +36,8 @@ export type StartTimerInput = {
   recipeSlug: string;
   recipeTitle: string;
   label: string;
+  stepIndex?: number;
+  stepText?: string;
   durationSeconds: number;
 };
 
@@ -71,6 +77,8 @@ function isStoredTimer(value: unknown): value is CookingTimer {
     typeof t.durationSeconds === "number" &&
     typeof t.remainingSeconds === "number" &&
     (t.endTimeMs === null || typeof t.endTimeMs === "number") &&
+    (t.stepIndex === undefined || typeof t.stepIndex === "number") &&
+    (t.stepText === undefined || typeof t.stepText === "string") &&
     (t.state === "running" || t.state === "paused" || t.state === "completed")
   );
 }
@@ -298,5 +306,9 @@ export function __resetTimerStoreForTests(): void {
   releaseWakeLock(WAKE_LOCK_KEY);
   timers = EMPTY_TIMERS;
   hydrated = false;
+  // Deliberately NOT resetting globalListenersHooked: the storage /
+  // visibilitychange listeners are attached to the persistent jsdom globals
+  // and read live module state, so they keep working after a reset. Clearing
+  // the flag would re-add a duplicate listener on the next subscribe.
   listeners.clear();
 }

@@ -8,7 +8,6 @@ import {
   Play,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -16,6 +15,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { useCookingTimers } from "@/hooks/use-cooking-timers";
 import {
   type CookingTimer,
@@ -28,6 +28,15 @@ import {
 
 const POSITION_KEY = "cooking-timer-dock-pos:v1";
 const EDGE_MARGIN = 8;
+
+/**
+ * Minimum bottom offset while cook mode is open, so the dock clears the
+ * cook-mode footer (progress bar + prev/next). Applied on top of any dragged
+ * position without persisting it, so the dock drops back once cooking ends.
+ */
+function cookModeFooterClearance(): number {
+  return globalThis.innerWidth >= 640 ? 116 : 140;
+}
 
 /** Offsets from the bottom-right corner, so the dock hugs its default anchor. */
 type DockPosition = { right: number; bottom: number };
@@ -78,6 +87,23 @@ function dotColor(timer: CookingTimer): string {
 }
 
 /**
+ * Link back to the timer's recipe, deep-linking straight into cook mode at the
+ * step that started it when we know which step that was. Slug is encoded as
+ * defense-in-depth even though recipe slugs are build-time safe.
+ */
+function timerHref(timer: CookingTimer): string {
+  const base = `/recipes/${encodeURIComponent(timer.recipeSlug)}`;
+  return timer.stepIndex === undefined
+    ? base
+    : `${base}?cook=1&step=${timer.stepIndex + 1}`;
+}
+
+/** Short "step N" tag when the originating step is known. */
+function stepTag(timer: CookingTimer): string | null {
+  return timer.stepIndex === undefined ? null : `step ${timer.stepIndex + 1}`;
+}
+
+/**
  * Floating dock for every active cooking timer. Collapsed (the default) it is
  * a single compact pill showing the most urgent timer plus a count of the
  * rest, so several running timers never wall off the page; expanding reveals
@@ -97,8 +123,25 @@ export function TimerDock() {
     moved: boolean;
   } | null>(null);
 
+  const [cookModeOpen, setCookModeOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
     setPosition(loadPosition());
+  }, []);
+
+  // Track whether cook mode is open so we can lift the dock above its footer
+  // even after the user has dragged (an inline style would otherwise beat a
+  // stylesheet rule).
+  useEffect(() => {
+    const body = document.body;
+    const update = () =>
+      setCookModeOpen(body.classList.contains("rt-cook-mode-open"));
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(body, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
   }, []);
 
   // A dragged position is stored as bottom-right offsets measured at the
@@ -131,10 +174,13 @@ export function TimerDock() {
     });
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: expanded and timers.length change the dock's size, which is what requires re-clamping
+  // Re-clamp when the dock's size changes (expand / timer count) and, crucially,
+  // right after a persisted position is restored on mount — the saved offsets
+  // were measured in a possibly larger viewport and could land off-screen.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: expanded/timers.length/position drive the re-clamp even though clampToViewport doesn't close over them
   useLayoutEffect(() => {
     clampToViewport();
-  }, [expanded, timers.length, clampToViewport]);
+  }, [expanded, timers.length, position, clampToViewport]);
 
   useEffect(() => {
     globalThis.addEventListener("resize", clampToViewport);
@@ -197,11 +243,26 @@ export function TimerDock() {
     [],
   );
 
-  if (timers.length === 0) return null;
+  if (!mounted || timers.length === 0) return null;
 
   const sorted = [...timers].sort(byUrgency);
   const primary = sorted[0];
   if (!primary) return null;
+
+  // Positioning: default anchor comes from CSS classes; a dragged position is
+  // applied inline. While cook mode is open, raise the bottom to clear its
+  // footer without mutating the stored position.
+  let style: React.CSSProperties | undefined;
+  if (position) {
+    style = {
+      right: position.right,
+      bottom: cookModeOpen
+        ? Math.max(position.bottom, cookModeFooterClearance())
+        : position.bottom,
+    };
+  } else if (cookModeOpen) {
+    style = { bottom: cookModeFooterClearance() };
+  }
 
   const grip = (
     <button
@@ -218,16 +279,16 @@ export function TimerDock() {
     </button>
   );
 
-  return (
+  // Portaled to <body> (a sibling of the cook-mode dialog, which also portals
+  // to <body>) so cook mode can mark the rest of the app inert for assistive
+  // tech while leaving the dock reachable. Theme tokens come from the classes
+  // RecipeThemeBody mirrors onto <body>.
+  return createPortal(
     <section
       ref={dockRef}
       aria-label="Cooking timers"
       className="rt-timer-dock fixed right-3 bottom-3 z-[80] sm:right-4 sm:bottom-4"
-      style={
-        position
-          ? { right: position.right, bottom: position.bottom }
-          : undefined
-      }
+      style={style}
     >
       {expanded ? (
         <div className="flex min-w-60 max-w-[calc(100vw-1rem)] flex-col rounded-2xl bg-[var(--ink)] p-2 text-[var(--paper)] shadow-lg">
@@ -267,12 +328,18 @@ export function TimerDock() {
             <span className="flex min-w-0 flex-col text-left leading-tight">
               <span
                 className={[
-                  "rt-mono max-w-32 truncate text-[9px]",
+                  "rt-mono max-w-40 truncate text-[9px]",
                   primary.state === "completed" ? "animate-pulse" : "",
                 ].join(" ")}
                 style={{ color: dotColor(primary) }}
               >
                 ● {primary.label}
+                {stepTag(primary) && (
+                  <span className="text-[var(--ink-4)]">
+                    {" "}
+                    · {stepTag(primary)}
+                  </span>
+                )}
               </span>
               <span
                 className={[
@@ -295,29 +362,46 @@ export function TimerDock() {
           </button>
         </div>
       )}
-    </section>
+    </section>,
+    document.body,
   );
 }
 
 function DockRow({ timer }: Readonly<{ timer: CookingTimer }>) {
   const completed = timer.state === "completed";
   const paused = timer.state === "paused";
+  const tag = stepTag(timer);
+  const tooltip = [
+    timer.recipeTitle,
+    tag && `${tag} of ${timer.recipeTitle}`,
+    timer.stepText,
+  ]
+    .filter(Boolean)
+    .join(" — ");
 
   return (
     <div className="flex items-center gap-1.5 rounded-lg px-1 py-0.5">
-      <Link
-        href={`/recipes/${timer.recipeSlug}`}
+      {/* A plain <a> (full navigation), not next/link: deep-linking into cook
+          mode relies on RecipeContent reading ?cook=1&step=N on mount, which a
+          client-side transition to the same recipe route wouldn't retrigger.
+          Timers persist across the reload, so the dock survives. */}
+      <a
+        href={timerHref(timer)}
         className={[
           "flex min-w-0 flex-1 flex-col leading-tight",
           completed ? "animate-pulse" : "",
         ].join(" ")}
-        title={`${timer.recipeTitle} — ${timer.label}`}
+        title={tooltip}
       >
         <span
-          className="rt-mono max-w-36 truncate text-[9px]"
+          className="rt-mono max-w-40 truncate text-[9px]"
           style={{ color: dotColor(timer) }}
         >
           ● {timer.label}
+          {tag && <span className="text-[var(--ink-4)]"> · {tag}</span>}
+        </span>
+        <span className="max-w-40 truncate font-[family-name:var(--font-kalam)] text-[10px] text-[var(--ink-4)]">
+          {timer.stepText || timer.recipeTitle}
         </span>
         <span
           className={[
@@ -327,7 +411,7 @@ function DockRow({ timer }: Readonly<{ timer: CookingTimer }>) {
         >
           {completed ? "done!" : formatCountdown(timer.remainingSeconds)}
         </span>
-      </Link>
+      </a>
       {!completed && (
         <button
           type="button"

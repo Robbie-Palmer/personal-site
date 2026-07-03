@@ -25,6 +25,30 @@ export type IngredientAnnotation = Pick<
   "preparation" | "note"
 >;
 
+/**
+ * Record an annotation under a key. If a different annotation already exists
+ * for that key (the same ingredient listed twice with conflicting prep/note),
+ * mark the key ambiguous with an empty annotation rather than letting one row's
+ * note leak onto the other.
+ */
+function setAnnotation(
+  annotations: Map<string, IngredientAnnotation>,
+  key: string,
+  annotation: IngredientAnnotation,
+): void {
+  const existing = annotations.get(key);
+  if (!existing) {
+    annotations.set(key, annotation);
+    return;
+  }
+  if (
+    existing.preparation !== annotation.preparation ||
+    existing.note !== annotation.note
+  ) {
+    annotations.set(key, {});
+  }
+}
+
 export function buildIngredientAnnotationMap(
   ingredientGroups: IngredientGroupView[],
 ): Map<string, IngredientAnnotation> {
@@ -36,10 +60,10 @@ export function buildIngredientAnnotationMap(
         preparation: item.preparation,
         note: item.note,
       };
-      annotations.set(item.ingredient, annotation);
+      setAnnotation(annotations, item.ingredient, annotation);
       const normalized = normalizeSlug(item.name);
       if (normalized && normalized !== item.ingredient) {
-        annotations.set(normalized, annotation);
+        setAnnotation(annotations, normalized, annotation);
       }
     }
   }

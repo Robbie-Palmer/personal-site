@@ -22,15 +22,19 @@ export function InlineTimer({
   timerId,
   recipeSlug,
   recipeTitle,
+  stepIndex,
+  stepText,
   durationSeconds,
   label,
-}: {
+}: Readonly<{
   timerId: string;
   recipeSlug: string;
   recipeTitle: string;
+  stepIndex?: number;
+  stepText?: string;
   durationSeconds: number | null;
   label: string;
-}) {
+}>) {
   const timer = useCookingTimer(timerId);
   const state = timer?.state ?? "idle";
   const remaining = timer?.remainingSeconds ?? durationSeconds ?? 0;
@@ -44,6 +48,8 @@ export function InlineTimer({
           recipeSlug,
           recipeTitle,
           label,
+          stepIndex,
+          stepText,
           durationSeconds,
         });
         break;
@@ -57,7 +63,16 @@ export function InlineTimer({
         dismissTimer(timerId);
         break;
     }
-  }, [state, durationSeconds, timerId, recipeSlug, recipeTitle, label]);
+  }, [
+    state,
+    durationSeconds,
+    timerId,
+    recipeSlug,
+    recipeTitle,
+    stepIndex,
+    stepText,
+    label,
+  ]);
 
   if (durationSeconds === null) {
     return (

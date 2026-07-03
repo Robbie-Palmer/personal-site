@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import {
   type CookingTimer,
   getServerTimersSnapshot,
@@ -20,6 +20,16 @@ export function useCookingTimers(): readonly CookingTimer[] {
   );
 }
 
+/**
+ * A single timer by id. Subscribes with a per-id selector so a component only
+ * re-renders when *its* timer changes — the store keeps a stable object
+ * identity for timers whose remaining second didn't change on a tick, so idle
+ * pills don't re-render four times a second alongside the one counting down.
+ */
 export function useCookingTimer(id: string): CookingTimer | undefined {
-  return useCookingTimers().find((t) => t.id === id);
+  const getSnapshot = useCallback(
+    () => getTimersSnapshot().find((t) => t.id === id),
+    [id],
+  );
+  return useSyncExternalStore(subscribeTimers, getSnapshot, () => undefined);
 }

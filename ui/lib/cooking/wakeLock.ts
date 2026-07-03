@@ -39,6 +39,16 @@ async function acquire(): Promise<void> {
     sentinel = lock;
     lock.addEventListener("release", () => {
       if (sentinel === lock) sentinel = null;
+      // The browser/OS can drop the lock for reasons other than tab hiding
+      // (power events, etc.). If features still need it and we're visible,
+      // reacquire immediately rather than waiting for a visibility change.
+      if (
+        holders.size > 0 &&
+        typeof document !== "undefined" &&
+        document.visibilityState === "visible"
+      ) {
+        acquire();
+      }
     });
   } catch {
     // Not available right now (e.g. tab hidden, low battery)

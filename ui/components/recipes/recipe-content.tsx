@@ -211,7 +211,8 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
   const cookSteps: CookStep[] = useMemo(() => {
     if (instructionTokenization?.ok === true) {
       return instructionTokenization.steps.map((tokens, stepIndex) => ({
-        key: tokens.map((token) => token.value).join("|"),
+        // Step index keeps the key unique even when two steps read identically.
+        key: `${stepIndex}:${tokens.map((token) => token.value).join("|")}`,
         tokens: tokens.map((token, tokenIndex): CookToken => {
           if (token.type !== "timer") return token;
           return {
@@ -219,11 +220,11 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
             timerId: `${recipe.slug}:s${stepIndex}:t${tokenIndex}`,
           };
         }),
-        text: "",
+        text: tokens.map((token) => token.value).join(""),
       }));
     }
-    return effectiveRecipe.instructions.map((step) => ({
-      key: step,
+    return effectiveRecipe.instructions.map((step, stepIndex) => ({
+      key: `${stepIndex}:${step}`,
       tokens: null,
       text: step,
     }));
@@ -478,7 +479,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
             list-style:none, and reasserting the role restores them. */}
         {/* biome-ignore lint/a11y/noRedundantRoles: intentional Safari/VoiceOver list-semantics workaround (see above) */}
         <ol role="list" className="rt-method-steps list-none p-0 m-0">
-          {cookSteps.map((step) => (
+          {cookSteps.map((step, stepIndex) => (
             <li
               key={step.key}
               className="border-b border-dashed border-[var(--line)] last:border-0"
@@ -490,13 +491,17 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                 />
                 <div className="rt-body flex-1 leading-relaxed pt-1">
                   {step.tokens
-                    ? step.tokens.map((token) => (
-                        <span key={`${token.type}:${token.value}`}>
+                    ? step.tokens.map((token, tokenIndex) => (
+                        <span
+                          key={`${tokenIndex}:${token.type}:${token.value}`}
+                        >
                           {token.type === "timer" && token.timerId ? (
                             <InlineTimer
                               timerId={token.timerId}
                               recipeSlug={recipe.slug}
                               recipeTitle={recipe.title}
+                              stepIndex={stepIndex}
+                              stepText={step.text}
                               durationSeconds={token.durationSeconds}
                               label={token.value}
                             />

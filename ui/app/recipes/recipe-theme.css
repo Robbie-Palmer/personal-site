@@ -142,17 +142,6 @@
   content: counter(rt-step) ".";
 }
 
-/* While cook mode is open its footer (prev/next + progress) owns the bottom
-   edge, so lift the floating timer dock above it instead of covering it. */
-body.rt-cook-mode-open .rt-timer-dock {
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 8.5rem);
-}
-@media (min-width: 640px) {
-  body.rt-cook-mode-open .rt-timer-dock {
-    bottom: 7rem;
-  }
-}
-
 /* Filter dropdown triggers: the small, muted label + value read too faintly
    against the paper. Darken and slightly enlarge them for legibility. */
 .recipe-theme [data-slot="multi-select-trigger"] {
