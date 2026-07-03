@@ -1,7 +1,15 @@
 "use client";
 
-import { Pause, Play, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  GripVertical,
+  Pause,
+  Play,
+  X,
+} from "lucide-react";
 import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useCookingTimers } from "@/hooks/use-cooking-timers";
 import {
   type CookingTimer,
@@ -12,57 +20,263 @@ import {
   resumeTimer,
 } from "@/lib/cooking/timerStore";
 
+const POSITION_KEY = "cooking-timer-dock-pos:v1";
+const EDGE_MARGIN = 8;
+
+/** Offsets from the bottom-right corner, so the dock hugs its default anchor. */
+type DockPosition = { right: number; bottom: number };
+
+function loadPosition(): DockPosition | null {
+  try {
+    const raw = localStorage.getItem(POSITION_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      typeof (parsed as DockPosition).right === "number" &&
+      typeof (parsed as DockPosition).bottom === "number"
+    ) {
+      return parsed as DockPosition;
+    }
+  } catch {
+    // localStorage unavailable
+  }
+  return null;
+}
+
+function savePosition(position: DockPosition): void {
+  try {
+    localStorage.setItem(POSITION_KEY, JSON.stringify(position));
+  } catch {
+    // localStorage unavailable
+  }
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), Math.max(min, max));
+}
+
+/** Completed timers first (they need attention), then soonest-ending. */
+function byUrgency(a: CookingTimer, b: CookingTimer): number {
+  if ((a.state === "completed") !== (b.state === "completed")) {
+    return a.state === "completed" ? -1 : 1;
+  }
+  return a.remainingSeconds - b.remainingSeconds;
+}
+
+function dotColor(timer: CookingTimer): string {
+  return timer.state === "completed"
+    ? "var(--terracotta)"
+    : timer.state === "paused"
+      ? "var(--ink-4)"
+      : "var(--butter)";
+}
+
 /**
- * Floating dock listing every active cooking timer. Mounted once in the
- * recipes layout so timers stay visible (and controllable) while moving
- * between the recipe box, recipe pages, and cook mode.
+ * Floating dock for every active cooking timer. Collapsed (the default) it is
+ * a single compact pill showing the most urgent timer plus a count of the
+ * rest, so several running timers never wall off the page; expanding reveals
+ * per-timer controls. Draggable by its grip handle, and the position sticks.
  */
 export function TimerDock() {
   const timers = useCookingTimers();
+  const [expanded, setExpanded] = useState(false);
+  const [position, setPosition] = useState<DockPosition | null>(null);
+  const dockRef = useRef<HTMLElement>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    startRight: number;
+    startBottom: number;
+    moved: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    setPosition(loadPosition());
+  }, []);
+
+  const onGripPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      const dock = dockRef.current;
+      if (!dock) return;
+      const rect = dock.getBoundingClientRect();
+      dragRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        startRight: window.innerWidth - rect.right,
+        startBottom: window.innerHeight - rect.bottom,
+        moved: false,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    },
+    [],
+  );
+
+  const onGripPointerMove = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      const drag = dragRef.current;
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      const rect = dockRef.current?.getBoundingClientRect();
+      drag.moved = true;
+      setPosition({
+        right: clamp(
+          drag.startRight + (drag.startX - event.clientX),
+          EDGE_MARGIN,
+          window.innerWidth - (rect?.width ?? 0) - EDGE_MARGIN,
+        ),
+        bottom: clamp(
+          drag.startBottom + (drag.startY - event.clientY),
+          EDGE_MARGIN,
+          window.innerHeight - (rect?.height ?? 0) - EDGE_MARGIN,
+        ),
+      });
+    },
+    [],
+  );
+
+  const onGripPointerEnd = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      const drag = dragRef.current;
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      dragRef.current = null;
+      if (drag.moved) {
+        setPosition((current) => {
+          if (current) savePosition(current);
+          return current;
+        });
+      }
+    },
+    [],
+  );
+
   if (timers.length === 0) return null;
 
-  return (
-    <div
-      role="status"
-      aria-label="Cooking timers"
-      className="rt-timer-dock pointer-events-none fixed inset-x-2 bottom-2 z-[80] flex flex-wrap items-end justify-center gap-2 sm:inset-x-auto sm:right-4 sm:bottom-4 sm:flex-col sm:items-end"
+  const sorted = [...timers].sort(byUrgency);
+  const primary = sorted[0];
+  if (!primary) return null;
+
+  const grip = (
+    <button
+      type="button"
+      aria-label="Move timers"
+      onPointerDown={onGripPointerDown}
+      onPointerMove={onGripPointerMove}
+      onPointerUp={onGripPointerEnd}
+      onPointerCancel={onGripPointerEnd}
+      className="touch-none cursor-grab self-stretch rounded-full px-1 py-2 opacity-50 transition-opacity hover:opacity-90 active:cursor-grabbing"
+      title="Drag to move"
     >
-      {timers.map((timer) => (
-        <DockTimer key={timer.id} timer={timer} />
-      ))}
-    </div>
+      <GripVertical className="size-4" />
+    </button>
+  );
+
+  return (
+    <section
+      ref={dockRef}
+      aria-label="Cooking timers"
+      className="rt-timer-dock fixed right-3 bottom-3 z-[80] sm:right-4 sm:bottom-4"
+      style={
+        position
+          ? { right: position.right, bottom: position.bottom }
+          : undefined
+      }
+    >
+      {expanded ? (
+        <div className="flex min-w-60 flex-col rounded-2xl bg-[var(--ink)] p-2 text-[var(--paper)] shadow-lg">
+          <div className="flex items-center gap-1">
+            {grip}
+            <span className="rt-mono flex-1 text-[9px] text-[var(--ink-4)]">
+              cooking timers
+            </span>
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              aria-expanded="true"
+              aria-label="Collapse timers"
+              className="rounded-full p-2 opacity-70 transition-opacity hover:opacity-100"
+            >
+              <ChevronDown className="size-4" />
+            </button>
+          </div>
+          {sorted.map((timer) => (
+            <DockRow key={timer.id} timer={timer} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex items-center rounded-full bg-[var(--ink)] py-1 pr-2.5 pl-1.5 text-[var(--paper)] shadow-lg">
+          {grip}
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            aria-expanded="false"
+            aria-label={`Expand cooking timers (${sorted.length})`}
+            className="flex items-center gap-2 py-0.5 pl-1"
+          >
+            <span className="flex min-w-0 flex-col text-left leading-tight">
+              <span
+                className={[
+                  "rt-mono max-w-32 truncate text-[9px]",
+                  primary.state === "completed" ? "animate-pulse" : "",
+                ].join(" ")}
+                style={{ color: dotColor(primary) }}
+              >
+                ● {primary.label}
+              </span>
+              <span
+                className={[
+                  "rt-display text-xl leading-none tabular-nums",
+                  primary.state === "paused" ? "opacity-60" : "",
+                  primary.state === "completed" ? "animate-pulse" : "",
+                ].join(" ")}
+              >
+                {primary.state === "completed"
+                  ? "done!"
+                  : formatCountdown(primary.remainingSeconds)}
+              </span>
+            </span>
+            {sorted.length > 1 && (
+              <span className="rt-mono rounded-full bg-[var(--paper)]/15 px-1.5 py-0.5 text-[9px]">
+                +{sorted.length - 1}
+              </span>
+            )}
+            <ChevronUp className="size-3.5 opacity-60" />
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
 
-function DockTimer({ timer }: { timer: CookingTimer }) {
+function DockRow({ timer }: { timer: CookingTimer }) {
   const completed = timer.state === "completed";
   const paused = timer.state === "paused";
-  const dotColor = completed
-    ? "var(--terracotta)"
-    : paused
-      ? "var(--ink-4)"
-      : "var(--butter)";
 
   return (
-    <div
-      className={[
-        "pointer-events-auto flex items-center gap-1.5 rounded-full bg-[var(--ink)] py-1.5 pr-1.5 pl-4 text-[var(--paper)] shadow-lg",
-        completed ? "animate-pulse" : "",
-      ].join(" ")}
-    >
+    <div className="flex items-center gap-1.5 rounded-lg px-1 py-0.5">
       <Link
         href={`/recipes/${timer.recipeSlug}`}
-        className="flex min-w-0 flex-col leading-tight"
+        className={[
+          "flex min-w-0 flex-1 flex-col leading-tight",
+          completed ? "animate-pulse" : "",
+        ].join(" ")}
         title={`${timer.recipeTitle} — ${timer.label}`}
       >
         <span
           className="rt-mono max-w-36 truncate text-[9px]"
-          style={{ color: dotColor }}
+          style={{ color: dotColor(timer) }}
         >
           ● {timer.label}
-          {paused && " · paused"}
         </span>
-        <span className="rt-display text-xl leading-none tabular-nums">
+        <span
+          className={[
+            "rt-display text-lg leading-none tabular-nums",
+            paused ? "opacity-60" : "",
+          ].join(" ")}
+        >
           {completed ? "done!" : formatCountdown(timer.remainingSeconds)}
         </span>
       </Link>
@@ -86,7 +300,7 @@ function DockTimer({ timer }: { timer: CookingTimer }) {
         <button
           type="button"
           onClick={() => extendTimer(timer.id)}
-          className="rt-mono rounded-full px-1.5 py-2 text-[10px] opacity-70 transition-opacity hover:opacity-100"
+          className="rt-mono rounded-full px-1 py-2 text-[10px] opacity-70 transition-opacity hover:opacity-100"
           aria-label={`Add one minute to ${timer.label} timer`}
         >
           +1m
