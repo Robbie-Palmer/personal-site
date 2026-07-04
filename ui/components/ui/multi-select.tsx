@@ -16,7 +16,21 @@ export interface MultiSelectOption {
   disabled?: boolean;
 }
 
-interface MultiSelectProps {
+/**
+ * Tri-state (opt-in) props. When enabled, a row cycles off → include →
+ * exclude → off instead of a plain checkbox toggle. Requires `onSetState`;
+ * excluded values are supplied via `excludedValues`. Kept as a standalone
+ * interface so thin filter wrappers can forward it with a single spread.
+ */
+export interface MultiSelectTriStateProps {
+  triState?: boolean;
+  excludedValues?: string[];
+  onSetState?: (value: string, state: FilterState) => void;
+  /** Clears both included and excluded values. Falls back to `onChange([])`. */
+  onClearAll?: () => void;
+}
+
+interface MultiSelectProps extends MultiSelectTriStateProps {
   options: MultiSelectOption[];
   /** Included values. */
   value: string[];
@@ -30,16 +44,6 @@ interface MultiSelectProps {
   className?: string;
   disabled?: boolean;
   size?: "sm" | "default";
-  /**
-   * Tri-state (opt-in). When enabled, a row cycles off → include → exclude →
-   * off instead of a plain checkbox toggle. Requires `onSetState`; excluded
-   * values are supplied via `excludedValues`.
-   */
-  triState?: boolean;
-  excludedValues?: string[];
-  onSetState?: (value: string, state: FilterState) => void;
-  /** Clears both included and excluded values. Falls back to `onChange([])`. */
-  onClearAll?: () => void;
 }
 
 export function MultiSelect({
