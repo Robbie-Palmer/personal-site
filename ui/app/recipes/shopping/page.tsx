@@ -6,6 +6,10 @@ export const metadata: Metadata = {
   title: "Shopping List",
   description:
     "Pick the recipes you want to cook and build a combined shopping list, grouped by aisle, by recipe, or as one ingredient list.",
+  // Interactive tool whose content lives in the browser (localStorage); there's
+  // nothing meaningful to index, so keep it out of search like the other app
+  // pages (settings).
+  robots: { index: false, follow: false },
 };
 
 export default function ShoppingPage() {

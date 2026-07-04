@@ -56,6 +56,7 @@ function ItemRow({
   return (
     <button
       type="button"
+      aria-pressed={checked}
       onClick={() => toggleChecked(line.ingredient)}
       className="w-full flex items-center gap-2.5 py-1.5 text-left border-b border-dashed border-[var(--line)] last:border-0"
     >
@@ -120,6 +121,7 @@ function ExtrasSection({
             >
               <button
                 type="button"
+                aria-pressed={extra.checked}
                 onClick={() => toggleExtra(extra.id)}
                 className="flex items-center gap-2.5 flex-1 text-left"
               >

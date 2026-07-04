@@ -195,7 +195,9 @@ export function clearChecked(): void {
 export function addExtra(text: string): void {
   const trimmed = text.trim();
   if (!trimmed) return;
-  const id = `extra-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  // crypto.randomUUID (not Math.random) keeps this out of Sonar's PRNG hotspot;
+  // addExtra only runs in the browser, where crypto is always available.
+  const id = `extra-${crypto.randomUUID()}`;
   setState({
     ...state,
     extras: [...state.extras, { id, text: trimmed, checked: false }],

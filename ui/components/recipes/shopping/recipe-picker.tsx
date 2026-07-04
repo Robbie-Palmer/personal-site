@@ -148,20 +148,29 @@ export function RecipePicker({ recipes }: { recipes: ShoppingRecipe[] }) {
     return map;
   }, [selectedEntries]);
 
+  // Pre-compute each recipe's lowercase search string once (not per keystroke).
+  const searchIndex = useMemo(
+    () =>
+      recipes.map((recipe) => ({
+        recipe,
+        haystack: [
+          recipe.title,
+          recipe.cuisine.join(" "),
+          recipe.ingredients.map((i) => i.name).join(" "),
+        ]
+          .join(" ")
+          .toLowerCase(),
+      })),
+    [recipes],
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return recipes;
-    return recipes.filter((recipe) => {
-      const haystack = [
-        recipe.title,
-        recipe.cuisine.join(" "),
-        recipe.ingredients.map((i) => i.name).join(" "),
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [recipes, query]);
+    return searchIndex
+      .filter((entry) => entry.haystack.includes(q))
+      .map((entry) => entry.recipe);
+  }, [recipes, searchIndex, query]);
 
   // Selected recipes float to the top so the current basket is always in view.
   const ordered = useMemo(() => {
