@@ -20,31 +20,32 @@ type DeviceSession = {
 
 const KNOWN_PROVIDER_IDS = new Set<string>(AUTH_PROVIDERS.map((p) => p.id));
 
+const BROWSER_MATCHERS: ReadonlyArray<[RegExp, string]> = [
+  [/Edg/, "Edge"],
+  [/Chrome|CriOS/, "Chrome"],
+  [/Firefox/, "Firefox"],
+  [/Safari/, "Safari"],
+];
+const OS_MATCHERS: ReadonlyArray<[RegExp, string]> = [
+  [/iPhone/, "iPhone"],
+  [/iPad/, "iPad"],
+  [/Android/, "Android"],
+  [/Mac OS X|Macintosh/, "Mac"],
+  [/Windows/, "Windows"],
+  [/Linux/, "Linux"],
+];
+
+function matchLabel(
+  ua: string,
+  matchers: ReadonlyArray<[RegExp, string]>,
+  fallback: string,
+): string {
+  return matchers.find(([pattern]) => pattern.test(ua))?.[1] ?? fallback;
+}
+
 function describeDevice(ua?: string | null): string {
   if (!ua) return "Unknown device";
-  const browser = /Edg/.test(ua)
-    ? "Edge"
-    : /Chrome|CriOS/.test(ua)
-      ? "Chrome"
-      : /Firefox/.test(ua)
-        ? "Firefox"
-        : /Safari/.test(ua)
-          ? "Safari"
-          : "Browser";
-  const os = /iPhone/.test(ua)
-    ? "iPhone"
-    : /iPad/.test(ua)
-      ? "iPad"
-      : /Android/.test(ua)
-        ? "Android"
-        : /Mac OS X|Macintosh/.test(ua)
-          ? "Mac"
-          : /Windows/.test(ua)
-            ? "Windows"
-            : /Linux/.test(ua)
-              ? "Linux"
-              : "device";
-  return `${browser} · ${os}`;
+  return `${matchLabel(ua, BROWSER_MATCHERS, "Browser")} · ${matchLabel(ua, OS_MATCHERS, "device")}`;
 }
 
 function isMobileUa(ua?: string | null): boolean {
@@ -132,16 +133,17 @@ export function SecurityPanel({
 
   // A failed link redirects back here with ?error=<code> appended.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(globalThis.location.search);
     if (!params.has("error")) return;
     setError("Couldn't link that account. It may already be linked elsewhere.");
     params.delete("error");
     params.delete("error_description");
     const query = params.toString();
-    window.history.replaceState(
+    const search = query ? `?${query}` : "";
+    globalThis.history.replaceState(
       null,
       "",
-      `${window.location.pathname}${query ? `?${query}` : ""}`,
+      `${globalThis.location.pathname}${search}`,
     );
   }, []);
 

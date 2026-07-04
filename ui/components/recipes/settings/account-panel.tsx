@@ -9,6 +9,40 @@ import { PanelHead } from "./panel-head";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
+function renderSaveStatus(state: SaveState, errorMsg: string | null) {
+  switch (state) {
+    case "saving":
+      return (
+        <>
+          <LoaderCircle className="size-3.5 animate-spin text-[var(--ink-3)]" />
+          <span className="rt-mono text-[var(--ink-3)]">saving…</span>
+        </>
+      );
+    case "saved":
+      return (
+        <>
+          <Check className="size-3.5 text-[var(--sage)]" />
+          <span className="rt-mono text-[var(--sage)]">saved</span>
+        </>
+      );
+    case "error":
+      return (
+        <span role="alert" className="rt-mono text-[var(--destructive)]">
+          {errorMsg}
+        </span>
+      );
+    default:
+      return (
+        <>
+          <span className="size-2 rounded-full bg-[var(--sage)]" />
+          <span className="rt-mono text-[var(--sage)]">
+            changes save automatically
+          </span>
+        </>
+      );
+  }
+}
+
 function Field({
   label,
   hint,
@@ -120,28 +154,7 @@ export function AccountPanel({
       </Field>
 
       <div className="mt-4 flex items-center gap-2" aria-live="polite">
-        {saveState === "saving" ? (
-          <>
-            <LoaderCircle className="size-3.5 animate-spin text-[var(--ink-3)]" />
-            <span className="rt-mono text-[var(--ink-3)]">saving…</span>
-          </>
-        ) : saveState === "saved" ? (
-          <>
-            <Check className="size-3.5 text-[var(--sage)]" />
-            <span className="rt-mono text-[var(--sage)]">saved</span>
-          </>
-        ) : saveState === "error" ? (
-          <span role="alert" className="rt-mono text-[var(--destructive)]">
-            {errorMsg}
-          </span>
-        ) : (
-          <>
-            <span className="size-2 rounded-full bg-[var(--sage)]" />
-            <span className="rt-mono text-[var(--sage)]">
-              changes save automatically
-            </span>
-          </>
-        )}
+        {renderSaveStatus(saveState, errorMsg)}
       </div>
     </div>
   );
