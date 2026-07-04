@@ -2,6 +2,7 @@
 
 import { Briefcase, FileText, Tag } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import {
   createRoleFilterOptions,
@@ -24,6 +25,7 @@ import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 import type { BlogRoleView } from "@/lib/domain/blog/blogViews";
 import { prioritiseSelected } from "@/lib/generic/array";
 import { formatDate } from "@/lib/generic/date";
+import { cycleFilterFromCard } from "@/lib/generic/filter-cycle";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
 
 function RoleBadge({
@@ -119,6 +121,7 @@ export function BlogList({ posts }: BlogListProps) {
   const selectedTags = filterParams.getValues("tags");
   const selectedTech = filterParams.getValues("tech");
   const selectedRoles = filterParams.getValues("role");
+  const pathname = usePathname();
   const { registerFilters, unregisterFilters } = useCommandPalette();
 
   useEffect(() => {
@@ -257,7 +260,15 @@ export function BlogList({ posts }: BlogListProps) {
                     interactive
                     active={isActive}
                     className="gap-1 cursor-pointer"
-                    onClick={() => filterParams.toggleValue("tags", tag)}
+                    onClick={() =>
+                      cycleFilterFromCard({
+                        filterParams,
+                        paramName: "tags",
+                        value: tag,
+                        label: tag,
+                        page: pathname,
+                      })
+                    }
                   >
                     <Tag className="h-3 w-3" />
                     {tag}
@@ -283,7 +294,13 @@ export function BlogList({ posts }: BlogListProps) {
                         active={isActive}
                         className="gap-1 text-xs cursor-pointer"
                         onClick={() =>
-                          filterParams.toggleValue("tech", tech.slug)
+                          cycleFilterFromCard({
+                            filterParams,
+                            paramName: "tech",
+                            value: tech.slug,
+                            label: tech.name,
+                            page: pathname,
+                          })
                         }
                       >
                         {hasTechIcon(tech.name, tech.iconSlug) && (
@@ -314,7 +331,15 @@ export function BlogList({ posts }: BlogListProps) {
                 <RoleBadge
                   role={post.role}
                   isActive={selectedRoles.includes(post.role.slug)}
-                  onToggle={(slug) => filterParams.toggleValue("role", slug)}
+                  onToggle={(slug) =>
+                    cycleFilterFromCard({
+                      filterParams,
+                      paramName: "role",
+                      value: slug,
+                      label: post.role?.company ?? slug,
+                      page: pathname,
+                    })
+                  }
                 />
               )}
             </div>

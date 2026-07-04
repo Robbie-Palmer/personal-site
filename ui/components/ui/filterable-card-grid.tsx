@@ -19,6 +19,7 @@ import {
 import { useDebouncedSearchTracking } from "@/hooks/use-debounced-search-tracking";
 import {
   type FilterParamConfig,
+  type FilterState,
   useFilterParams,
 } from "@/hooks/use-filter-params";
 import { useSortParam } from "@/hooks/use-sort-param";
@@ -119,8 +120,12 @@ export function FilterableCardGrid<T>({
 
   const {
     getValues,
+    getExcludedValues,
+    getSelection,
+    getState,
+    cycleValue,
     setValues,
-    toggleValue,
+    setState,
     clearFilter,
     clearAllFilters,
     hasActiveFilters,
@@ -157,16 +162,20 @@ export function FilterableCardGrid<T>({
       ? fuse.search(searchQuery).map((result: FuseResult<T>) => result.item)
       : items;
 
-    // Apply multi-filters (AND between different filters, OR within same filter)
+    // Apply multi-filters. Across different filters: AND. Within one filter:
+    // OR over included values, then drop anything carrying an excluded value.
     if (filterConfigs) {
       for (const fc of filterConfigs) {
-        const selectedValues = getValues(fc.paramName);
-        if (selectedValues.length > 0) {
-          filtered = filtered.filter((item: T) => {
-            const itemValues = fc.getItemValues(item);
-            return selectedValues.some((v) => itemValues.includes(v));
-          });
-        }
+        const { include, exclude } = getSelection(fc.paramName);
+        if (include.length === 0 && exclude.length === 0) continue;
+        filtered = filtered.filter((item: T) => {
+          const itemValues = fc.getItemValues(item);
+          if (exclude.some((v) => itemValues.includes(v))) return false;
+          if (include.length > 0) {
+            return include.some((v) => itemValues.includes(v));
+          }
+          return true;
+        });
       }
     }
 
@@ -193,7 +202,7 @@ export function FilterableCardGrid<T>({
     searchQuery,
     items,
     filterConfigs,
-    getValues,
+    getSelection,
     dateRangeConfig,
     getDateRange,
   ]);
@@ -257,12 +266,13 @@ export function FilterableCardGrid<T>({
       value: string;
       displayValue: string;
       icon?: ReactNode;
+      excluded?: boolean;
     }> = [];
 
     if (filterConfigs) {
       for (const fc of filterConfigs) {
-        const values = getValues(fc.paramName);
-        for (const value of values) {
+        const { include, exclude } = getSelection(fc.paramName);
+        for (const value of include) {
           filters.push({
             paramName: fc.paramName,
             label: fc.label,
@@ -271,11 +281,38 @@ export function FilterableCardGrid<T>({
             icon: fc.icon,
           });
         }
+        for (const value of exclude) {
+          filters.push({
+            paramName: fc.paramName,
+            label: fc.label,
+            value,
+            displayValue: fc.getValueLabel?.(value) ?? value,
+            icon: fc.icon,
+            excluded: true,
+          });
+        }
       }
     }
 
     return filters;
-  }, [filterConfigs, getValues]);
+  }, [filterConfigs, getSelection]);
+
+  const captureFilterChange = useCallback(
+    (paramName: string, value: string, nextState: FilterState) => {
+      posthog.capture("filter_applied", {
+        page: pathname,
+        filter_type: paramName,
+        filter_value: value,
+        action:
+          nextState === "off"
+            ? "removed"
+            : nextState === "exclude"
+              ? "excluded"
+              : "added",
+      });
+    },
+    [pathname],
+  );
 
   const mobileFilterSections: MobileFilterSection[] = useMemo(() => {
     if (!filterConfigs) return [];
@@ -299,30 +336,26 @@ export function FilterableCardGrid<T>({
             icon: fc.getOptionIcon?.(value) ?? fc.icon,
           }))
           .sort((a, b) => a.label.localeCompare(b.label)),
-        selectedValues: getValues(fc.paramName),
-        onToggle: (value: string) => {
-          const isSelected = getValues(fc.paramName).includes(value);
-          posthog.capture("filter_applied", {
-            page: pathname,
-            filter_type: fc.paramName,
-            filter_value: value,
-            action: isSelected ? "removed" : "added",
-          });
-          toggleValue(fc.paramName, value);
+        getOptionState: (value: string) => getState(fc.paramName, value),
+        onCycleOption: (value: string) => {
+          const current = getState(fc.paramName, value);
+          const next: FilterState =
+            current === "off"
+              ? "include"
+              : current === "include"
+                ? "exclude"
+                : "off";
+          captureFilterChange(fc.paramName, value, next);
+          cycleValue(fc.paramName, value);
         },
       };
     });
-  }, [filterConfigs, items, getValues, toggleValue, pathname]);
+  }, [filterConfigs, items, getState, cycleValue, captureFilterChange]);
 
   const handleRemoveFilter = (paramName: string, value: string) => {
-    posthog.capture("filter_applied", {
-      page: pathname,
-      filter_type: paramName,
-      filter_value: value,
-      action: "removed",
-    });
+    captureFilterChange(paramName, value, "off");
     if (filterConfigs) {
-      toggleValue(paramName, value);
+      setState(paramName, value, "off");
     } else {
       clearFilter(paramName);
     }
@@ -398,29 +431,15 @@ export function FilterableCardGrid<T>({
                 <MultiSelect
                   key={fc.paramName}
                   options={options}
+                  triState
                   value={getValues(fc.paramName)}
-                  onChange={(v) => {
-                    const prev = getValues(fc.paramName);
-                    const added = v.filter((val) => !prev.includes(val));
-                    const removed = prev.filter((val) => !v.includes(val));
-                    for (const val of added) {
-                      posthog.capture("filter_applied", {
-                        page: pathname,
-                        filter_type: fc.paramName,
-                        filter_value: val,
-                        action: "added",
-                      });
-                    }
-                    for (const val of removed) {
-                      posthog.capture("filter_applied", {
-                        page: pathname,
-                        filter_type: fc.paramName,
-                        filter_value: val,
-                        action: "removed",
-                      });
-                    }
-                    setValues(fc.paramName, v);
+                  excludedValues={getExcludedValues(fc.paramName)}
+                  onSetState={(value, state) => {
+                    captureFilterChange(fc.paramName, value, state);
+                    setState(fc.paramName, value, state);
                   }}
+                  onClearAll={() => clearFilter(fc.paramName)}
+                  onChange={(v) => setValues(fc.paramName, v)}
                   label={fc.label}
                   placeholder={`All ${fc.label.toLowerCase()}`}
                   icon={fc.icon}

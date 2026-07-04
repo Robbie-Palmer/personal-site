@@ -1,9 +1,8 @@
 "use client";
 
-import { Check, Filter, Search, X } from "lucide-react";
+import { Check, Filter, Minus, Search, X } from "lucide-react";
 import type * as React from "react";
 import { useState } from "react";
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +14,7 @@ import {
 } from "@/components/ui/drawer";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { Input } from "@/components/ui/input";
+import type { FilterState } from "@/hooks/use-filter-params";
 import { cn } from "@/lib/generic/styles";
 
 interface ActiveFilter {
@@ -23,6 +23,7 @@ interface ActiveFilter {
   value: string;
   displayValue: string;
   icon?: React.ReactNode;
+  excluded?: boolean;
 }
 
 export interface MobileFilterOption {
@@ -35,8 +36,8 @@ export interface MobileFilterSection {
   paramName: string;
   label: string;
   options: MobileFilterOption[];
-  selectedValues: string[];
-  onToggle: (value: string) => void;
+  getOptionState: (value: string) => FilterState;
+  onCycleOption: (value: string) => void;
 }
 
 interface FilterBarProps {
@@ -162,22 +163,36 @@ export function FilterBar({
                       </h4>
                       <div className="flex flex-wrap gap-2">
                         {section.options.map((option) => {
-                          const isSelected = section.selectedValues.includes(
-                            option.value,
-                          );
+                          const state = section.getOptionState(option.value);
+                          const isIncluded = state === "include";
+                          const isExcluded = state === "exclude";
                           return (
                             <Badge
                               key={option.value}
-                              variant={isSelected ? "default" : "outline"}
+                              variant={
+                                isExcluded
+                                  ? "destructive"
+                                  : isIncluded
+                                    ? "default"
+                                    : "outline"
+                              }
                               interactive
-                              active={isSelected}
-                              className="cursor-pointer gap-1.5 py-1.5 px-3"
-                              onClick={() => section.onToggle(option.value)}
+                              active={isIncluded || isExcluded}
+                              className={cn(
+                                "cursor-pointer gap-1.5 py-1.5 px-3",
+                                isExcluded && "line-through",
+                              )}
+                              onClick={() =>
+                                section.onCycleOption(option.value)
+                              }
                             >
                               {option.icon}
                               <span>{option.label}</span>
-                              {isSelected && (
+                              {isIncluded && (
                                 <Check className="size-3 ml-0.5" />
+                              )}
+                              {isExcluded && (
+                                <Minus className="size-3 ml-0.5" />
                               )}
                             </Badge>
                           );
@@ -214,8 +229,9 @@ export function FilterBar({
           <span className="text-sm text-muted-foreground">Active filters:</span>
           {activeFilters.map((filter) => (
             <FilterChip
-              key={`${filter.paramName}-${filter.value}`}
+              key={`${filter.paramName}-${filter.excluded ? "!" : ""}${filter.value}`}
               icon={filter.icon}
+              excluded={filter.excluded}
               onRemove={() => onRemoveFilter?.(filter.paramName, filter.value)}
             >
               {filter.displayValue}

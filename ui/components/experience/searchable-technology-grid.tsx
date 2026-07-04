@@ -97,8 +97,9 @@ export function SearchableTechnologyGrid({
           />
         ),
       })),
-      selectedValues: selectedTypes,
-      onToggle: handleToggleType,
+      getOptionState: (value: string) =>
+        selectedTypes.includes(value) ? "include" : "off",
+      onCycleOption: handleToggleType,
     },
   ];
 

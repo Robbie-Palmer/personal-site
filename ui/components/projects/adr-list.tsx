@@ -177,8 +177,10 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
         paramName: "status",
         label: "Status",
         options: statusOptions,
-        selectedValues: selectedStatus,
-        onToggle: (value: string) => filterParams.toggleValue("status", value),
+        getOptionState: (value: string) =>
+          selectedStatus.includes(value) ? "include" : "off",
+        onCycleOption: (value: string) =>
+          filterParams.toggleValue("status", value),
       },
     ];
     if (allTechnologies.length > 0) {
@@ -189,8 +191,10 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
           value: t.slug,
           label: t.name,
         })),
-        selectedValues: selectedTech,
-        onToggle: (value: string) => filterParams.toggleValue("tech", value),
+        getOptionState: (value: string) =>
+          selectedTech.includes(value) ? "include" : "off",
+        onCycleOption: (value: string) =>
+          filterParams.toggleValue("tech", value),
       });
     }
     return sections;
