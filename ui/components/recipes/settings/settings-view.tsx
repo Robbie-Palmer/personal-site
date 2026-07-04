@@ -2,7 +2,7 @@
 
 import { KeyRound, LoaderCircle, Lock, User } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/generic/styles";
@@ -18,6 +18,14 @@ type SectionId = (typeof SECTIONS)[number]["id"];
 export function SettingsView() {
   const { data: session, isPending } = authClient.useSession();
   const [section, setSection] = useState<SectionId>("account");
+
+  // A failed account link redirects back with ?error=<code>; open on the panel
+  // that surfaces and clears it so the message isn't hidden behind a tab.
+  useEffect(() => {
+    if (new URLSearchParams(globalThis.location.search).has("error")) {
+      setSection("signin");
+    }
+  }, []);
 
   if (isPending) {
     return (

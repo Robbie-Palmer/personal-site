@@ -75,9 +75,13 @@ export function AccountPanel({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const savedName = useRef(user.name);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saving = useRef(false);
+  const pending = useRef<string | null>(null);
+  const mounted = useRef(true);
 
   useEffect(
     () => () => {
+      mounted.current = false;
       if (timer.current) clearTimeout(timer.current);
     },
     [],
@@ -95,16 +99,32 @@ export function AccountPanel({
       return;
     }
     if (trimmed === savedName.current) return;
+    // One request at a time; hold the newest value to save once it settles so
+    // a debounce firing mid-request can't overlap with a blur.
+    if (saving.current) {
+      pending.current = trimmed;
+      return;
+    }
+    saving.current = true;
     setSaveState("saving");
     setErrorMsg(null);
     const result = await authClient.updateUser({ name: trimmed });
+    saving.current = false;
+    if (!mounted.current) return;
     if (result.error) {
+      pending.current = null;
       setSaveState("error");
       setErrorMsg(result.error.message ?? "Couldn't save your changes.");
       return;
     }
     savedName.current = trimmed;
     setSaveState("saved");
+    // Normalise the field to the stored value, but only if the user hasn't
+    // since typed something different (just whitespace apart).
+    setName((current) => (current.trim() === trimmed ? trimmed : current));
+    const next = pending.current;
+    pending.current = null;
+    if (next !== null) void save(next);
   }
 
   function onNameChange(value: string) {

@@ -151,9 +151,12 @@ export function SecurityPanel({
   const linkedKnown = (accounts ?? []).filter((account) =>
     KNOWN_PROVIDER_IDS.has(account.providerId),
   );
-  const unlinked = AUTH_PROVIDERS.filter(
-    (provider) => !linkedIds.has(provider.id),
-  );
+  // Only offer providers to link once we know what's already linked, otherwise
+  // everything looks unlinked while accounts are still loading.
+  const unlinked =
+    accounts === null
+      ? []
+      : AUTH_PROVIDERS.filter((provider) => !linkedIds.has(provider.id));
   const isOnlySignIn = (accounts?.length ?? 0) <= 1;
 
   async function linkProvider(provider: Provider) {
@@ -179,28 +182,38 @@ export function SecurityPanel({
   async function unlinkProvider(account: LinkedAccount) {
     setPending(`unlink:${account.providerId}`);
     setError(null);
-    const result = await authClient.unlinkAccount({
-      providerId: account.providerId,
-      accountId: account.accountId,
-    });
-    if (result.error) {
-      setError(result.error.message ?? "Couldn't unlink that account.");
-    } else {
-      await loadAccounts();
+    try {
+      const result = await authClient.unlinkAccount({
+        providerId: account.providerId,
+        accountId: account.accountId,
+      });
+      if (result.error) {
+        setError(result.error.message ?? "Couldn't unlink that account.");
+      } else {
+        await loadAccounts();
+      }
+    } catch {
+      setError("Couldn't unlink that account. Please try again.");
+    } finally {
+      setPending(null);
     }
-    setPending(null);
   }
 
   async function signOutSession(token: string) {
     setPending(`session:${token}`);
     setError(null);
-    const result = await authClient.revokeSession({ token });
-    if (result.error) {
-      setError(result.error.message ?? "Couldn't sign out that device.");
-    } else {
-      await loadSessions();
+    try {
+      const result = await authClient.revokeSession({ token });
+      if (result.error) {
+        setError(result.error.message ?? "Couldn't sign out that device.");
+      } else {
+        await loadSessions();
+      }
+    } catch {
+      setError("Couldn't sign out that device. Please try again.");
+    } finally {
+      setPending(null);
     }
-    setPending(null);
   }
 
   return (

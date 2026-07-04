@@ -115,8 +115,7 @@ describe("SettingsView", () => {
     expect(screen.getByText("this device")).toBeInTheDocument();
   });
 
-  it("surfaces a link error passed back in the URL", async () => {
-    const user = userEvent.setup();
+  it("opens on the security panel and surfaces a link error from the URL", async () => {
     window.history.replaceState(
       {},
       "",
@@ -124,13 +123,11 @@ describe("SettingsView", () => {
     );
     render(<SettingsView />);
 
-    await user.click(
-      screen.getByRole("button", { name: /sign-in & security/i }),
-    );
-
+    // Lands on Sign-in & security without a manual tab switch.
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /couldn't link that account/i,
     );
+    expect(await screen.findByText("Google")).toBeInTheDocument();
     expect(window.location.search).toBe("");
   });
 });
