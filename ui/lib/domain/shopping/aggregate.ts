@@ -47,19 +47,10 @@ export type SelectedRecipe = {
   scale: number;
 };
 
-// Bucket keys keep incompatible quantities apart. Convertible units collapse
-// onto their physical dimension; everything else keys on its own unit (or a
-// shared "count" key for bare numbers).
+// Bucket keys keep incompatible quantities apart: convertible units collapse
+// onto their physical dimension, discrete units key on their own unit, and bare
+// numbers share a "count" key.
 const COUNT_BUCKET = "count";
-function bucketKey(unit: Unit | undefined): string {
-  if (!unit) return COUNT_BUCKET;
-  return getUnitDimension(unit) ?? `unit:${unit}`;
-}
-
-// The base unit a dimensional bucket accumulates into.
-function baseUnitFor(unit: Unit): Unit {
-  return getUnitDimension(unit) === "weight" ? "g" : "ml";
-}
 
 type Bucket = {
   /** Running total, in the bucket's own unit (base unit for dimensional). */
@@ -78,6 +69,20 @@ type Accumulator = {
   recipes: Map<string, string>;
 };
 
+function addToBucket(
+  acc: Accumulator,
+  key: string,
+  amount: number,
+  unit: Unit | undefined,
+): void {
+  const existing = acc.buckets.get(key);
+  if (!existing) {
+    acc.buckets.set(key, { amount, unit });
+    return;
+  }
+  existing.amount += amount;
+}
+
 function addContribution(
   acc: Accumulator,
   amount: number | undefined,
@@ -86,22 +91,25 @@ function addContribution(
   if (amount == null) return; // presence-only tag — records the recipe, no number
   acc.hasQuantified = true;
 
-  const key = bucketKey(unit);
-  const existing = acc.buckets.get(key);
-
-  // Dimensional units accumulate in their base unit so tsp + tbsp + ml all add up.
-  const isDimensional = unit != null && getUnitDimension(unit) != null;
-  const baseUnit = isDimensional ? baseUnitFor(unit!) : unit;
-  const baseAmount =
-    isDimensional && unit != null
-      ? (convertUnit(amount, unit, baseUnit!) ?? amount)
-      : amount;
-
-  if (!existing) {
-    acc.buckets.set(key, { amount: baseAmount, unit: baseUnit });
-    return;
+  // Dimensional units (weight/volume, incl. spoons/cups) accumulate in a base
+  // unit so tsp + tbsp + g etc. can be summed. getUnitDimension is non-null
+  // exactly for the units convertUnit knows, and the base unit shares that
+  // dimension, so the conversion always succeeds here — but if it ever doesn't
+  // (a future unit added to one table but not the other), fall through and bucket
+  // the contribution under its own written unit rather than mislabelling a raw
+  // amount as grams/millilitres.
+  const dimension = unit != null ? getUnitDimension(unit) : null;
+  if (unit != null && dimension != null) {
+    const baseUnit: Unit = dimension === "weight" ? "g" : "ml";
+    const baseAmount = convertUnit(amount, unit, baseUnit);
+    if (baseAmount != null) {
+      addToBucket(acc, dimension, baseAmount, baseUnit);
+      return;
+    }
   }
-  existing.amount += baseAmount;
+
+  // Discrete units (tin, clove, piece…) and bare counts keep their own bucket.
+  addToBucket(acc, unit ? `unit:${unit}` : COUNT_BUCKET, amount, unit);
 }
 
 /**

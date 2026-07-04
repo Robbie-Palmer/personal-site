@@ -56,11 +56,13 @@ function parseState(raw: string | null): ShoppingListState {
     const recipes = Array.isArray(parsed.recipes)
       ? parsed.recipes.flatMap((entry): SelectedRecipeEntry[] => {
           if (!isRecord(entry) || typeof entry.slug !== "string") return [];
+          // Normalise persisted servings the same way setRecipeServings does,
+          // so stale/edited storage can't feed the UI a fractional value the
+          // stepper (integer labels, servings<=1 disable) doesn't expect.
+          const raw = entry.servings;
           const servings =
-            typeof entry.servings === "number" &&
-            Number.isFinite(entry.servings) &&
-            entry.servings > 0
-              ? entry.servings
+            typeof raw === "number" && Number.isFinite(raw) && raw > 0
+              ? Math.max(1, Math.round(raw))
               : undefined;
           return [{ slug: entry.slug, ...(servings ? { servings } : {}) }];
         })
@@ -117,18 +119,30 @@ function setState(next: ShoppingListState): void {
   emit();
 }
 
+// A single, module-wide storage listener (hooked once on first subscribe, like
+// the cooking-timer store) rather than one per subscriber — otherwise a
+// cross-tab update would fan out to N handlers each calling emit() over N
+// callbacks (N×N redundant notifications).
+let storageListenerHooked = false;
+
+function handleStorage(event: StorageEvent): void {
+  if (event.key !== STORAGE_KEY) return;
+  state = parseState(event.newValue);
+  emit();
+}
+
+function hookStorageListener(): void {
+  if (storageListenerHooked || globalThis.window === undefined) return;
+  storageListenerHooked = true;
+  globalThis.addEventListener("storage", handleStorage);
+}
+
 export function subscribeShoppingList(callback: () => void): () => void {
   hydrate();
+  hookStorageListener();
   listeners.add(callback);
-  const onStorage = (event: StorageEvent) => {
-    if (event.key !== STORAGE_KEY) return;
-    state = parseState(event.newValue);
-    emit();
-  };
-  globalThis.addEventListener("storage", onStorage);
   return () => {
     listeners.delete(callback);
-    globalThis.removeEventListener("storage", onStorage);
   };
 }
 
@@ -227,6 +241,10 @@ export function clearList(): void {
 
 /** Reset module state between tests (mirrors the cooking-timer store). */
 export function __resetShoppingListForTests(): void {
+  if (storageListenerHooked) {
+    globalThis.removeEventListener("storage", handleStorage);
+    storageListenerHooked = false;
+  }
   state = EMPTY_STATE;
   hydrated = false;
   listeners.clear();
