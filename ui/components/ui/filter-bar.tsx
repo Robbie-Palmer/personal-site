@@ -17,6 +17,14 @@ import { Input } from "@/components/ui/input";
 import type { FilterState } from "@/hooks/use-filter-params";
 import { cn } from "@/lib/generic/styles";
 
+function chipVariantForState(
+  state: FilterState,
+): "destructive" | "default" | "outline" {
+  if (state === "exclude") return "destructive";
+  if (state === "include") return "default";
+  return "outline";
+}
+
 interface ActiveFilter {
   paramName: string;
   label: string;
@@ -169,13 +177,7 @@ export function FilterBar({
                           return (
                             <Badge
                               key={option.value}
-                              variant={
-                                isExcluded
-                                  ? "destructive"
-                                  : isIncluded
-                                    ? "default"
-                                    : "outline"
-                              }
+                              variant={chipVariantForState(state)}
                               interactive
                               active={isIncluded || isExcluded}
                               className={cn(

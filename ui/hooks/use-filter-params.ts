@@ -1,7 +1,12 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useMemo } from "react";
+import {
+  type ReadonlyURLSearchParams,
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
+import { useCallback, useMemo, useRef } from "react";
 
 export interface FilterParamConfig {
   paramName: string;
@@ -32,6 +37,38 @@ function parseToken(token: string): { value: string; excluded: boolean } {
 
 function toToken(value: string, state: Exclude<FilterState, "off">): string {
   return state === "exclude" ? `${EXCLUDE_PREFIX}${value}` : value;
+}
+
+/** Advances a tri-state: off → include → exclude → off. */
+export function nextFilterState(current: FilterState): FilterState {
+  if (current === "off") return "include";
+  if (current === "include") return "exclude";
+  return "off";
+}
+
+/** Maps a tri-state to the analytics action recorded for it. */
+export function filterAppliedAction(
+  state: FilterState,
+): "added" | "removed" | "excluded" {
+  if (state === "off") return "removed";
+  if (state === "exclude") return "excluded";
+  return "added";
+}
+
+function parseSelection(
+  searchParams: ReadonlyURLSearchParams,
+  paramName: string,
+  delimiter: string,
+): FilterSelection {
+  const value = searchParams.get(paramName);
+  const include: string[] = [];
+  const exclude: string[] = [];
+  if (!value) return { include, exclude };
+  for (const token of value.split(delimiter).filter(Boolean)) {
+    const { value: v, excluded } = parseToken(token);
+    (excluded ? exclude : include).push(v);
+  }
+  return { include, exclude };
 }
 
 export interface UseFilterParamsOptions {
@@ -73,6 +110,13 @@ export function useFilterParams(
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  // Write handlers may run in async contexts (e.g. the "Undo" action on the
+  // sonner toast fired when excluding from a card). A ref pinned to the latest
+  // searchParams lets those writes merge onto the current URL rather than a
+  // stale snapshot captured when the handler was created.
+  const searchParamsRef = useRef(searchParams);
+  searchParamsRef.current = searchParams;
+
   const { filters, delimiter = ",", preserveScroll = true } = options;
   const filterParamNames = useMemo(
     () => new Set(filters.map((f) => f.paramName)),
@@ -99,18 +143,11 @@ export function useFilterParams(
     [searchParams],
   );
 
+  // Reactive reads — their identity changes with searchParams so render-time
+  // consumers (filtering/active-chip memos) recompute when the URL changes.
   const getSelection = useCallback(
-    (paramName: string): FilterSelection => {
-      const value = searchParams.get(paramName);
-      const include: string[] = [];
-      const exclude: string[] = [];
-      if (!value) return { include, exclude };
-      for (const token of value.split(delimiter).filter(Boolean)) {
-        const { value: v, excluded } = parseToken(token);
-        (excluded ? exclude : include).push(v);
-      }
-      return { include, exclude };
-    },
+    (paramName: string): FilterSelection =>
+      parseSelection(searchParams, paramName, delimiter),
     [searchParams, delimiter],
   );
 
@@ -134,9 +171,26 @@ export function useFilterParams(
     [getSelection],
   );
 
+  // Latest-value reads for use inside write handlers (see searchParamsRef).
+  const readSelection = useCallback(
+    (paramName: string): FilterSelection =>
+      parseSelection(searchParamsRef.current, paramName, delimiter),
+    [delimiter],
+  );
+
+  const readState = useCallback(
+    (paramName: string, value: string): FilterState => {
+      const { include, exclude } = readSelection(paramName);
+      if (exclude.includes(value)) return "exclude";
+      if (include.includes(value)) return "include";
+      return "off";
+    },
+    [readSelection],
+  );
+
   const setValue = useCallback(
     (paramName: string, value: string | undefined) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(searchParamsRef.current.toString());
       if (value) {
         params.set(paramName, value);
       } else {
@@ -144,12 +198,12 @@ export function useFilterParams(
       }
       updateUrl(params);
     },
-    [searchParams, updateUrl],
+    [updateUrl],
   );
 
   const writeSelection = useCallback(
     (paramName: string, selection: FilterSelection) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(searchParamsRef.current.toString());
       const tokens = [
         ...selection.include,
         ...selection.exclude.map((v) => toToken(v, "exclude")),
@@ -161,42 +215,37 @@ export function useFilterParams(
       }
       updateUrl(params);
     },
-    [searchParams, delimiter, updateUrl],
+    [delimiter, updateUrl],
   );
 
   const setValues = useCallback(
     (paramName: string, values: string[]) => {
-      // Replaces the included set while preserving any excluded values.
-      const { exclude } = getSelection(paramName);
-      writeSelection(paramName, { include: values, exclude });
+      // Replaces the included set while preserving excludes — minus any value
+      // that is now included, so a value can't be both included and excluded.
+      const { exclude } = readSelection(paramName);
+      const nextExclude = exclude.filter((v) => !values.includes(v));
+      writeSelection(paramName, { include: values, exclude: nextExclude });
     },
-    [getSelection, writeSelection],
+    [readSelection, writeSelection],
   );
 
   const setState = useCallback(
     (paramName: string, value: string, state: FilterState) => {
-      const { include, exclude } = getSelection(paramName);
+      const { include, exclude } = readSelection(paramName);
       const nextInclude = include.filter((v) => v !== value);
       const nextExclude = exclude.filter((v) => v !== value);
       if (state === "include") nextInclude.push(value);
       if (state === "exclude") nextExclude.push(value);
       writeSelection(paramName, { include: nextInclude, exclude: nextExclude });
     },
-    [getSelection, writeSelection],
+    [readSelection, writeSelection],
   );
 
   const cycleValue = useCallback(
     (paramName: string, value: string) => {
-      const current = getState(paramName, value);
-      const next: FilterState =
-        current === "off"
-          ? "include"
-          : current === "include"
-            ? "exclude"
-            : "off";
-      setState(paramName, value, next);
+      setState(paramName, value, nextFilterState(readState(paramName, value)));
     },
-    [getState, setState],
+    [readState, setState],
   );
 
   const toggleValue = useCallback(
@@ -205,23 +254,23 @@ export function useFilterParams(
       setState(
         paramName,
         value,
-        getState(paramName, value) === "include" ? "off" : "include",
+        readState(paramName, value) === "include" ? "off" : "include",
       );
     },
-    [getState, setState],
+    [readState, setState],
   );
 
   const clearFilter = useCallback(
     (paramName: string) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(searchParamsRef.current.toString());
       params.delete(paramName);
       updateUrl(params);
     },
-    [searchParams, updateUrl],
+    [updateUrl],
   );
 
   const clearAllFilters = useCallback(() => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(searchParamsRef.current.toString());
     // Clear all filter params but preserve others (like sort, tab)
     for (const paramName of filterParamNames) {
       params.delete(paramName);
@@ -229,7 +278,7 @@ export function useFilterParams(
     params.delete("dateFrom");
     params.delete("dateTo");
     updateUrl(params);
-  }, [searchParams, filterParamNames, updateUrl]);
+  }, [filterParamNames, updateUrl]);
 
   const hasActiveFilters = useMemo(() => {
     for (const paramName of filterParamNames) {
@@ -266,7 +315,7 @@ export function useFilterParams(
 
   const setDateRange = useCallback(
     (from: string | undefined, to: string | undefined) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(searchParamsRef.current.toString());
       if (from) {
         params.set("dateFrom", from);
       } else {
@@ -279,7 +328,7 @@ export function useFilterParams(
       }
       updateUrl(params);
     },
-    [searchParams, updateUrl],
+    [updateUrl],
   );
 
   return {

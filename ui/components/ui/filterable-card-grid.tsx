@@ -20,6 +20,8 @@ import { useDebouncedSearchTracking } from "@/hooks/use-debounced-search-trackin
 import {
   type FilterParamConfig,
   type FilterState,
+  filterAppliedAction,
+  nextFilterState,
   useFilterParams,
 } from "@/hooks/use-filter-params";
 import { useSortParam } from "@/hooks/use-sort-param";
@@ -303,12 +305,7 @@ export function FilterableCardGrid<T>({
         page: pathname,
         filter_type: paramName,
         filter_value: value,
-        action:
-          nextState === "off"
-            ? "removed"
-            : nextState === "exclude"
-              ? "excluded"
-              : "added",
+        action: filterAppliedAction(nextState),
       });
     },
     [pathname],
@@ -338,13 +335,7 @@ export function FilterableCardGrid<T>({
           .sort((a, b) => a.label.localeCompare(b.label)),
         getOptionState: (value: string) => getState(fc.paramName, value),
         onCycleOption: (value: string) => {
-          const current = getState(fc.paramName, value);
-          const next: FilterState =
-            current === "off"
-              ? "include"
-              : current === "include"
-                ? "exclude"
-                : "off";
+          const next = nextFilterState(getState(fc.paramName, value));
           captureFilterChange(fc.paramName, value, next);
           cycleValue(fc.paramName, value);
         },

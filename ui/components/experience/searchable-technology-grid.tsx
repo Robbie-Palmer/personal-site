@@ -9,7 +9,7 @@ import {
   FilterBar,
   type MobileFilterSection,
 } from "@/components/ui/filter-bar";
-import type { FilterState } from "@/hooks/use-filter-params";
+import { type FilterState, nextFilterState } from "@/hooks/use-filter-params";
 import {
   TECHNOLOGY_TYPE_CONFIG,
   TECHNOLOGY_TYPES,
@@ -53,11 +53,7 @@ export function SearchableTechnologyGrid({
   };
 
   const cycleType = (value: string) => {
-    const current = typeState(value);
-    setTypeState(
-      value,
-      current === "off" ? "include" : current === "include" ? "exclude" : "off",
-    );
+    setTypeState(value, nextFilterState(typeState(value)));
   };
 
   const fuse = useMemo(

@@ -6,7 +6,7 @@ import type * as React from "react";
 import { useCallback, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import type { FilterState } from "@/hooks/use-filter-params";
+import { type FilterState, nextFilterState } from "@/hooks/use-filter-params";
 import { cn } from "@/lib/generic/styles";
 
 export interface MultiSelectOption {
@@ -14,6 +14,12 @@ export interface MultiSelectOption {
   label: string;
   icon?: React.ReactNode;
   disabled?: boolean;
+}
+
+function optionAriaLabel(label: string, state: FilterState): string {
+  if (state === "exclude") return `${label} (excluded)`;
+  if (state === "include") return `${label} (included)`;
+  return label;
 }
 
 /**
@@ -99,14 +105,7 @@ export function MultiSelect({
   const handleToggle = useCallback(
     (optionValue: string) => {
       if (isTri && onSetState) {
-        const current = stateOf(optionValue);
-        const next: FilterState =
-          current === "off"
-            ? "include"
-            : current === "include"
-              ? "exclude"
-              : "off";
-        onSetState(optionValue, next);
+        onSetState(optionValue, nextFilterState(stateOf(optionValue)));
         return;
       }
       const isSelected = value.includes(optionValue);
@@ -278,13 +277,7 @@ export function MultiSelect({
                     type="button"
                     onClick={() => !isDisabled && handleToggle(option.value)}
                     disabled={isDisabled}
-                    aria-label={
-                      isExcluded
-                        ? `${option.label} (excluded)`
-                        : isSelected
-                          ? `${option.label} (included)`
-                          : option.label
-                    }
+                    aria-label={optionAriaLabel(option.label, state)}
                     className={cn(
                       "relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-2 text-sm outline-hidden select-none",
                       "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",

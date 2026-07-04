@@ -1,8 +1,9 @@
 import posthog from "posthog-js";
 import { toast } from "sonner";
-import type {
-  FilterState,
-  UseFilterParamsReturn,
+import {
+  filterAppliedAction,
+  nextFilterState,
+  type UseFilterParamsReturn,
 } from "@/hooks/use-filter-params";
 
 interface CycleFromCardArgs {
@@ -30,15 +31,13 @@ export function cycleFilterFromCard({
   page,
 }: CycleFromCardArgs): void {
   const previous = filterParams.getState(paramName, value);
-  const next: FilterState =
-    previous === "off" ? "include" : previous === "include" ? "exclude" : "off";
+  const next = nextFilterState(previous);
 
   posthog.capture("filter_applied", {
     page,
     filter_type: paramName,
     filter_value: value,
-    action:
-      next === "off" ? "removed" : next === "exclude" ? "excluded" : "added",
+    action: filterAppliedAction(next),
   });
 
   filterParams.setState(paramName, value, next);
