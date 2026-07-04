@@ -195,6 +195,10 @@ export function clearChecked(): void {
 export function addExtra(text: string): void {
   const trimmed = text.trim();
   if (!trimmed) return;
+  // Ignore an accidental re-add of an extra that's already on the list
+  // (case-insensitive); a genuine duplicate is almost always a mistake.
+  const key = trimmed.toLowerCase();
+  if (state.extras.some((e) => e.text.toLowerCase() === key)) return;
   // crypto.randomUUID (not Math.random) keeps this out of Sonar's PRNG hotspot;
   // addExtra only runs in the browser, where crypto is always available.
   const id = `extra-${crypto.randomUUID()}`;
@@ -219,4 +223,11 @@ export function removeExtra(id: string): void {
 
 export function clearList(): void {
   setState({ ...EMPTY_STATE });
+}
+
+/** Reset module state between tests (mirrors the cooking-timer store). */
+export function __resetShoppingListForTests(): void {
+  state = EMPTY_STATE;
+  hydrated = false;
+  listeners.clear();
 }
