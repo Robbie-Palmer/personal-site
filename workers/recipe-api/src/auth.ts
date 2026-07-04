@@ -103,6 +103,17 @@ export function createAuth(
           autoSignIn: false,
         },
         socialProviders,
+        account: {
+          accountLinking: {
+            enabled: true,
+            // Both verify email, so a matching-email sign-in can auto-attach
+            // to an existing account.
+            trustedProviders: ["google", "github"],
+            // Let a signed-in user link the other provider even when its email
+            // differs from the one already on the account.
+            allowDifferentEmails: true,
+          },
+        },
         session: { cookieCache: { enabled: false } },
         rateLimit: {
           enabled: true,

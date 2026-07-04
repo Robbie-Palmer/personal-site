@@ -130,6 +130,26 @@ export function SecurityPanel({
     void loadSessions();
   }, []);
 
+  // A failed link redirects back here with ?error=<code> appended.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("error");
+    if (!code) return;
+    setError(
+      code === "email_doesn't_match"
+        ? "That account's email doesn't match, so it wasn't linked."
+        : "Couldn't link that account. Please try again.",
+    );
+    params.delete("error");
+    params.delete("error_description");
+    const query = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}`,
+    );
+  }, []);
+
   const linkedIds = new Set(accounts?.map((account) => account.providerId));
   const linkedKnown = (accounts ?? []).filter((account) =>
     KNOWN_PROVIDER_IDS.has(account.providerId),
@@ -146,6 +166,7 @@ export function SecurityPanel({
       const result = await authClient.linkSocial({
         provider,
         callbackURL: "/recipes/settings",
+        errorCallbackURL: "/recipes/settings",
       });
       if (result.error) {
         setError(result.error.message ?? "Couldn't start linking.");

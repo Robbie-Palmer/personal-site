@@ -37,6 +37,7 @@ const signedIn = {
 describe("SettingsView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.history.replaceState({}, "", "/recipes/settings");
     mocks.useSession.mockReturnValue(signedIn);
     mocks.updateUser.mockResolvedValue({ data: null, error: null });
     mocks.listAccounts.mockResolvedValue({
@@ -100,5 +101,24 @@ describe("SettingsView", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /github/i })).toBeInTheDocument();
     expect(screen.getByText("this device")).toBeInTheDocument();
+  });
+
+  it("surfaces a link error passed back in the URL", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(
+      {},
+      "",
+      "/recipes/settings?error=email_doesn't_match",
+    );
+    render(<SettingsView />);
+
+    await user.click(
+      screen.getByRole("button", { name: /sign-in & security/i }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /doesn't match/i,
+    );
+    expect(window.location.search).toBe("");
   });
 });
