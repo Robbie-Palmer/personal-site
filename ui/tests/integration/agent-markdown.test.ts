@@ -49,10 +49,16 @@ describe("agent markdown generation", () => {
   });
 
   it("generates a markdown twin for every recipe and technology page", () => {
+    // Interactive, noindex app pages that intentionally have no Markdown twin.
+    const nonContentPages = new Set(["recipes/settings.html"]);
     for (const section of ["recipes", "technologies"]) {
       const htmlPages = fs
         .readdirSync(path.join(OUT_DIR, section))
-        .filter((file) => file.endsWith(".html"));
+        .filter(
+          (file) =>
+            file.endsWith(".html") &&
+            !nonContentPages.has(`${section}/${file}`),
+        );
       expect(htmlPages.length).toBeGreaterThan(0);
       for (const htmlPage of htmlPages) {
         const mdPage = htmlPage.replace(/\.html$/, ".md");

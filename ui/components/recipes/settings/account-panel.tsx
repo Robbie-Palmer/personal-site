@@ -50,8 +50,17 @@ export function AccountPanel({
   );
 
   async function save(value: string) {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
     const trimmed = value.trim();
-    if (!trimmed || trimmed === savedName.current) return;
+    if (!trimmed) {
+      setSaveState("error");
+      setErrorMsg("Display name can't be empty.");
+      return;
+    }
+    if (trimmed === savedName.current) return;
     setSaveState("saving");
     setErrorMsg(null);
     const result = await authClient.updateUser({ name: trimmed });

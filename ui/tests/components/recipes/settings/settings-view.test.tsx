@@ -87,6 +87,18 @@ describe("SettingsView", () => {
     );
   });
 
+  it("rejects an empty display name without saving", async () => {
+    const user = userEvent.setup();
+    render(<SettingsView />);
+
+    const input = screen.getByLabelText("Display name");
+    await user.clear(input);
+    await user.tab();
+
+    expect(await screen.findByText(/can't be empty/i)).toBeInTheDocument();
+    expect(mocks.updateUser).not.toHaveBeenCalled();
+  });
+
   it("shows linked accounts and offers to link the other provider", async () => {
     const user = userEvent.setup();
     render(<SettingsView />);
