@@ -39,6 +39,20 @@ function byName(a: ShoppingLine, b: ShoppingLine): number {
   return a.name.localeCompare(b.name);
 }
 
+/**
+ * Sink ticked-off items to the bottom of a list (keeping each partition's
+ * existing order), like a notes app — so attention stays on what's still to
+ * buy. Unticking returns an item to its sorted place.
+ */
+function checkedLast(
+  lines: ShoppingLine[],
+  checkedSet: Set<string>,
+): ShoppingLine[] {
+  const todo = lines.filter((line) => !checkedSet.has(line.ingredient));
+  const done = lines.filter((line) => checkedSet.has(line.ingredient));
+  return [...todo, ...done];
+}
+
 function ItemRow({
   line,
   system,
@@ -109,12 +123,17 @@ function ExtrasSection({
     addExtra(text);
     setText("");
   };
+  // Ticked extras sink to the bottom too, matching the ingredient rows.
+  const ordered = [
+    ...extras.filter((e) => !e.checked),
+    ...extras.filter((e) => e.checked),
+  ];
   return (
     <div className="mt-6">
       <SectionHeading title="extras" />
       {extras.length > 0 && (
         <div className="mt-1">
-          {extras.map((extra) => (
+          {ordered.map((extra) => (
             <div
               key={extra.id}
               className="flex items-center gap-2.5 py-1.5 border-b border-dashed border-[var(--line)] last:border-0"
@@ -289,7 +308,7 @@ export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
             <div className="rt-mono text-[var(--ink-3)] mb-1">
               Just ingredients · A–Z
             </div>
-            {flatLines.map((line) => (
+            {checkedLast(flatLines, checkedSet).map((line) => (
               <ItemRow
                 key={line.ingredient}
                 line={line}
@@ -306,7 +325,7 @@ export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
             <div key={group.id}>
               <SectionHeading title={group.name} />
               <div className="mt-1">
-                {group.lines.map((line) => (
+                {checkedLast(group.lines, checkedSet).map((line) => (
                   <ItemRow
                     key={line.ingredient}
                     line={line}
@@ -327,7 +346,7 @@ export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
                 hint={`${group.servings} ${group.servings === 1 ? "serving" : "servings"}`}
               />
               <div className="mt-1">
-                {group.lines.map((line) => (
+                {checkedLast(group.lines, checkedSet).map((line) => (
                   <ItemRow
                     key={line.ingredient}
                     line={line}

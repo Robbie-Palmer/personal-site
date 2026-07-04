@@ -121,10 +121,14 @@ describe("aggregateShoppingList", () => {
         recipe("a", [
           ing("chicken", { amount: 1, unit: "piece", category: "protein" }),
           ing("onion", { amount: 1, unit: "piece", category: "vegetable" }),
+          // Cooking liquids (stock, wine…) belong with cooking staples, not on
+          // a "drinks" aisle where they read oddly.
+          ing("chicken-stock", { amount: 500, unit: "ml", category: "liquid" }),
         ]),
       ),
     ]);
     expect(lineFor(lines, "chicken").aisle).toBe("meat-fish");
     expect(lineFor(lines, "onion").aisle).toBe("produce");
+    expect(lineFor(lines, "chicken-stock").aisle).toBe("tins-cooking");
   });
 });

@@ -19,7 +19,6 @@ export const AISLES: Aisle[] = [
   { id: "bakery-grains", name: "Bakery & grains" },
   { id: "tins-cooking", name: "Tins, pasta & cooking" },
   { id: "herbs-spices", name: "Herbs & spices" },
-  { id: "drinks", name: "Drinks" },
   { id: "sweets-baking", name: "Sweets & baking" },
   { id: "other", name: "Other" },
 ];
@@ -37,8 +36,10 @@ const CATEGORY_TO_AISLE: Record<IngredientCategory, string> = {
   legume: "tins-cooking",
   condiment: "tins-cooking",
   "oil-fat": "tins-cooking",
+  // "liquid" is dominated by cooking liquids (stock, wine, pasta water) rather
+  // than drinks, so it belongs with the cooking staples, not on its own aisle.
+  liquid: "tins-cooking",
   spice: "herbs-spices",
-  liquid: "drinks",
   sweets: "sweets-baking",
   other: "other",
 };

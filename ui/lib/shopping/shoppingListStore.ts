@@ -125,10 +125,10 @@ export function subscribeShoppingList(callback: () => void): () => void {
     state = parseState(event.newValue);
     emit();
   };
-  window.addEventListener("storage", onStorage);
+  globalThis.addEventListener("storage", onStorage);
   return () => {
     listeners.delete(callback);
-    window.removeEventListener("storage", onStorage);
+    globalThis.removeEventListener("storage", onStorage);
   };
 }
 

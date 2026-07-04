@@ -65,12 +65,16 @@ export default function RecipesLayout({
               on mobile the search drops to a full-width second row so it isn't
               squeezed against the logo. */}
           <nav className="container mx-auto px-4 py-3 max-w-7xl flex flex-wrap items-center gap-x-6 gap-y-3">
-            <div className="order-1 flex items-baseline gap-4">
+            <div className="order-1 flex items-center gap-4">
               <Link
                 href="/recipes"
                 className="shrink-0 rt-display text-3xl leading-none text-foreground"
               >
-                Robbie's <span className="rt-logo-accent">recipes</span>
+                {/* Stack onto two lines on mobile so the logo doesn't eat half
+                    the row and crowd out the tabs + auth button; one line from
+                    sm up where there's room. */}
+                <span className="block sm:inline">Robbie's</span>{" "}
+                <span className="rt-logo-accent">recipes</span>
               </Link>
               <RecipeNavTabs />
             </div>
