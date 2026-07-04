@@ -213,16 +213,20 @@ export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
       .map(([id, lines]) => ({
         id,
         name: aisleName(id),
-        lines: lines.sort(byName),
+        lines: [...lines].sort(byName),
       }));
   }, [aggregated]);
 
   const recipeGroups = useMemo(() => {
-    return selected.map(({ recipe, scale }) => ({
-      recipe,
-      servings: Math.round(recipe.servings * scale),
-      lines: aggregateShoppingList([{ recipe, scale }]).sort(byName),
-    }));
+    return selected.map(({ recipe, scale }) => {
+      const lines = aggregateShoppingList([{ recipe, scale }]);
+      lines.sort(byName);
+      return {
+        recipe,
+        servings: Math.round(recipe.servings * scale),
+        lines,
+      };
+    });
   }, [selected]);
 
   const tickedCount =

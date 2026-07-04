@@ -19,6 +19,7 @@ export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
   const { recipes: selected } = useShoppingList();
   const [step, setStep] = useState<Step>("pick");
   const count = selected.length;
+  const recipeNoun = count === 1 ? "recipe" : "recipes";
 
   return (
     <div className="container mx-auto px-4 pt-5 pb-16 md:pt-7 max-w-5xl">
@@ -31,7 +32,7 @@ export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
           <p className="rt-body mt-2 text-[var(--ink-2)]">
             {count === 0
               ? "Choose the recipes you want to cook and we'll build the list."
-              : `${count} ${count === 1 ? "recipe" : "recipes"} selected.`}
+              : `${count} ${recipeNoun} selected.`}
           </p>
         </div>
         {count > 0 && (
