@@ -7,37 +7,25 @@ import {
   LoaderCircle,
   LogIn,
   LogOut,
+  Settings,
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { siGithub, siGoogle } from "simple-icons";
+import {
+  type Provider,
+  ProviderIcon,
+  AUTH_PROVIDERS as providers,
+} from "@/components/recipes/auth-providers";
+import { RecipeAvatar } from "@/components/recipes/recipe-avatar";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { isPreviewDeployment } from "@/lib/preview-environment";
 
-type Provider = "google" | "github";
-type LinkedAccount = { providerId: string; accountId: string };
 type PreviewScenario = {
   id: string;
   name: string;
   description: string;
 };
-
-const providers: ReadonlyArray<{
-  id: Provider;
-  name: string;
-  iconPath: string;
-}> = [
-  { id: "google", name: "Google", iconPath: siGoogle.path },
-  { id: "github", name: "GitHub", iconPath: siGithub.path },
-];
-
-function ProviderIcon({ path }: { path: string }) {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4">
-      <path d={path} fill="currentColor" />
-    </svg>
-  );
-}
 
 export function AuthButton() {
   const previewBackendDisabled =
@@ -50,10 +38,6 @@ export function AuthButton() {
     PreviewScenario[] | null
   >(null);
   const [error, setError] = useState<string | null>(null);
-  const [linkedAccounts, setLinkedAccounts] = useState<LinkedAccount[] | null>(
-    null,
-  );
-  const [accountsError, setAccountsError] = useState(false);
   const [lastUsedProvider, setLastUsedProvider] = useState<Provider | null>(
     null,
   );
@@ -85,23 +69,6 @@ export function AuthButton() {
       .catch(() => setError("Preview sign-in is not configured."));
   }, [previewBackendDisabled]);
 
-  async function loadLinkedAccounts() {
-    setAccountsError(false);
-    const result = await authClient.listAccounts();
-    if (result.error) {
-      setAccountsError(true);
-      return;
-    }
-    setLinkedAccounts(result.data ?? []);
-  }
-
-  function handleOpenChange(nextOpen: boolean) {
-    setOpen(nextOpen);
-    if (nextOpen && session && linkedAccounts === null && !accountsError) {
-      void loadLinkedAccounts();
-    }
-  }
-
   async function signOut() {
     setError(null);
     try {
@@ -127,92 +94,80 @@ export function AuthButton() {
 
   if (session) {
     return (
-      <PopoverPrimitive.Root open={open} onOpenChange={handleOpenChange}>
+      <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
         <PopoverPrimitive.Trigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
+            type="button"
             aria-label={`Account for ${session.user.name}`}
             aria-expanded={open}
+            className="rounded-full outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-[var(--terracotta)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--paper)] data-[state=open]:ring-2 data-[state=open]:ring-[var(--terracotta)] data-[state=open]:ring-offset-2 data-[state=open]:ring-offset-[var(--paper)]"
           >
-            <span className="max-w-32 truncate">{session.user.name}</span>
-            <ChevronDown className="size-3.5 opacity-60" />
-          </Button>
+            <RecipeAvatar
+              name={session.user.name}
+              email={session.user.email}
+              image={session.user.image}
+              size={36}
+            />
+          </button>
         </PopoverPrimitive.Trigger>
         <PopoverPrimitive.Portal>
           <PopoverPrimitive.Content
             align="end"
-            sideOffset={6}
-            className="bg-popover text-popover-foreground z-50 w-64 rounded-md border p-3 shadow-md outline-none"
+            sideOffset={8}
+            className="bg-popover text-popover-foreground z-50 w-64 overflow-hidden rounded-xl border shadow-md outline-none"
           >
-            <p className="flex items-center gap-2 text-sm font-medium">
-              {session.user.name}
-              {session.user.role === "admin" && (
-                <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
-                  Admin
-                </span>
-              )}
-            </p>
-            <p className="truncate text-xs text-muted-foreground">
-              {session.user.email}
-            </p>
-
-            <div className="my-3 border-t" />
-            <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Connected identities
-            </p>
-
-            {linkedAccounts === null && !accountsError && (
-              <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
-                <LoaderCircle className="animate-spin" />
-                Checking accounts…
+            <div className="flex items-center gap-3 border-b bg-[var(--paper-warm)] px-4 py-3">
+              <RecipeAvatar
+                name={session.user.name}
+                email={session.user.email}
+                image={session.user.image}
+                size={40}
+              />
+              <div className="min-w-0">
+                <p className="rt-display flex items-center gap-2 text-lg leading-none">
+                  {session.user.name}
+                  {session.user.role === "admin" && (
+                    <span className="rt-mono rounded bg-muted px-1.5 py-0.5 text-[0.625rem] text-muted-foreground">
+                      Admin
+                    </span>
+                  )}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {session.user.email}
+                </p>
               </div>
-            )}
+            </div>
 
-            {linkedAccounts?.map((account) => {
-              const provider = providers.find(
-                (candidate) => candidate.id === account.providerId,
-              );
-              if (!provider) return null;
-              const accountSuffix = account.accountId.slice(-6);
+            <div className="p-1.5">
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                asChild
+                onClick={() => setOpen(false)}
+              >
+                <Link href="/recipes/settings">
+                  <Settings />
+                  Settings
+                </Link>
+              </Button>
+            </div>
 
-              return (
-                <div
-                  key={`${account.providerId}:${account.accountId}`}
-                  className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-2"
-                >
-                  <ProviderIcon path={provider.iconPath} />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{provider.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Provider account ending {accountSuffix}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-
-            {accountsError && (
-              <p className="text-xs text-destructive">
-                Connected identities could not be loaded.
-              </p>
-            )}
+            <div className="border-t p-1.5">
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                onClick={signOut}
+              >
+                <LogOut />
+                Sign out
+              </Button>
+            </div>
 
             {error && (
-              <p role="alert" className="text-xs text-destructive">
+              <p role="alert" className="px-3 pb-3 text-xs text-destructive">
                 {error}
               </p>
             )}
-
-            <div className="my-3 border-t" />
-            <Button
-              variant="ghost"
-              className="w-full justify-start"
-              onClick={signOut}
-            >
-              <LogOut />
-              Sign out
-            </Button>
           </PopoverPrimitive.Content>
         </PopoverPrimitive.Portal>
       </PopoverPrimitive.Root>
@@ -265,7 +220,7 @@ export function AuthButton() {
   }
 
   return (
-    <PopoverPrimitive.Root open={open} onOpenChange={handleOpenChange}>
+    <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
       <PopoverPrimitive.Trigger asChild>
         <Button variant="outline" size="sm" aria-expanded={open}>
           <LogIn />

@@ -103,6 +103,13 @@ export function createAuth(
           autoSignIn: false,
         },
         socialProviders,
+        account: {
+          accountLinking: {
+            enabled: true,
+            trustedProviders: ["google", "github"],
+            allowDifferentEmails: true,
+          },
+        },
         session: { cookieCache: { enabled: false } },
         rateLimit: {
           enabled: true,
