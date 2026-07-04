@@ -1,6 +1,5 @@
 import { siGithub, siGoogle } from "simple-icons";
 
-// Social sign-in providers and their brand icons.
 export type Provider = "google" | "github";
 
 export const AUTH_PROVIDERS: ReadonlyArray<{

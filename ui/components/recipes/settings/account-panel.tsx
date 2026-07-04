@@ -68,7 +68,6 @@ export function AccountPanel({
     setName(value);
     setSaveState("idle");
     if (timer.current) clearTimeout(timer.current);
-    // Save a moment after typing stops.
     timer.current = setTimeout(() => void save(value), 800);
   }
 

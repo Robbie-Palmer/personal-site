@@ -108,7 +108,7 @@ describe("SettingsView", () => {
     window.history.replaceState(
       {},
       "",
-      "/recipes/settings?error=email_doesn't_match",
+      "/recipes/settings?error=account_already_linked",
     );
     render(<SettingsView />);
 
@@ -117,7 +117,7 @@ describe("SettingsView", () => {
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      /doesn't match/i,
+      /couldn't link that account/i,
     );
     expect(window.location.search).toBe("");
   });

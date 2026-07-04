@@ -1,9 +1,5 @@
 import { cn } from "@/lib/generic/styles";
 
-/**
- * A circular avatar: the account photo when there is one, otherwise the first
- * initial on a butter-yellow disc with a handwritten (Caveat) letter.
- */
 export function RecipeAvatar({
   name,
   email,

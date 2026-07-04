@@ -133,13 +133,8 @@ export function SecurityPanel({
   // A failed link redirects back here with ?error=<code> appended.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const code = params.get("error");
-    if (!code) return;
-    setError(
-      code === "email_doesn't_match"
-        ? "That account's email doesn't match, so it wasn't linked."
-        : "Couldn't link that account. Please try again.",
-    );
+    if (!params.has("error")) return;
+    setError("Couldn't link that account. It may already be linked elsewhere.");
     params.delete("error");
     params.delete("error_description");
     const query = params.toString();
