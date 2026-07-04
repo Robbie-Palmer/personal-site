@@ -177,6 +177,19 @@ function amountText(
   return formatScaled(item.amount * scale);
 }
 
+/**
+ * The rendered amount + unit for an ingredient, without the trailing name or
+ * annotations (e.g. "500g", "2 tins", "3 cloves", "2"). Used by the shopping
+ * list to show the quantity as a distinct, bold chip ahead of the name.
+ */
+export function formatIngredientAmount(
+  item: Pick<RecipeIngredientView, "amount" | "unit">,
+  scale: number,
+  system: MeasurementSystem,
+): string {
+  return amountText(item, scale, system);
+}
+
 export function formatIngredient(
   item: RecipeIngredientView,
   scale: number,

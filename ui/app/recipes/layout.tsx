@@ -3,6 +3,7 @@ import { Caveat, JetBrains_Mono, Kalam } from "next/font/google";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AuthButton } from "@/components/recipes/auth-button";
+import { RecipeNavTabs } from "@/components/recipes/recipe-nav-tabs";
 import { RecipeSearch } from "@/components/recipes/recipe-search";
 import { RecipeSearchUrlSync } from "@/components/recipes/recipe-search-url-sync";
 import { RecipeThemeBody } from "@/components/recipes/recipe-theme-body";
@@ -71,13 +72,7 @@ export default function RecipesLayout({
               >
                 Robbie's <span className="rt-logo-accent">recipes</span>
               </Link>
-              <Link
-                href="/recipes"
-                className="rt-tab text-[0.95rem]"
-                data-active="true"
-              >
-                Recipes
-              </Link>
+              <RecipeNavTabs />
             </div>
             <div className="order-2 ms-auto md:order-3 md:ms-0">
               <AuthButton />
