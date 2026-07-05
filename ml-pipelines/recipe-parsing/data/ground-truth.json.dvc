@@ -1,5 +1,5 @@
 outs:
-- md5: 5368787f1be63079d090d6b6c425d863
-  size: 167643
+- md5: d2a3ed50e3c76014f0390befd7647caf
+  size: 295775
   hash: md5
   path: ground-truth.json

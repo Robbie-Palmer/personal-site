@@ -1,6 +1,10 @@
 {
   "ingredients": [
     {
+      "slug": "almond-milk",
+      "category": "liquid"
+    },
+    {
       "slug": "arborio-rice",
       "category": "grain"
     },
@@ -9,8 +13,16 @@
       "category": "fruit"
     },
     {
+      "slug": "baby-tomatoes",
+      "category": "vegetable"
+    },
+    {
       "slug": "bacon",
       "category": "protein"
+    },
+    {
+      "slug": "balsamic-vinegar",
+      "category": "condiment"
     },
     {
       "slug": "bap",
@@ -19,6 +31,14 @@
     {
       "slug": "basil-pesto",
       "category": "condiment"
+    },
+    {
+      "slug": "basmati-rice",
+      "category": "grain"
+    },
+    {
+      "slug": "beansprouts",
+      "category": "vegetable"
     },
     {
       "slug": "bell-pepper",
@@ -45,6 +65,10 @@
       "category": "dairy"
     },
     {
+      "slug": "buttermilk",
+      "category": "dairy"
+    },
+    {
       "slug": "cajun-seasoning",
       "category": "spice"
     },
@@ -55,6 +79,14 @@
     {
       "slug": "carrot",
       "category": "vegetable"
+    },
+    {
+      "slug": "cashew",
+      "category": "other"
+    },
+    {
+      "slug": "caster-sugar",
+      "category": "sweets"
     },
     {
       "slug": "cayenne-pepper",
@@ -75,6 +107,14 @@
     {
       "slug": "chicken-stock",
       "category": "liquid"
+    },
+    {
+      "slug": "chicken-stock-pot",
+      "category": "other"
+    },
+    {
+      "slug": "chicken-thigh",
+      "category": "protein"
     },
     {
       "slug": "chickpeas",
@@ -109,12 +149,20 @@
       "category": "protein"
     },
     {
-      "slug": "cornflour",
-      "category": "grain"
+      "slug": "coconut-cream",
+      "category": "dairy"
     },
     {
       "slug": "coconut-milk",
       "category": "oil-fat"
+    },
+    {
+      "slug": "coconut-oil",
+      "category": "other"
+    },
+    {
+      "slug": "cornflour",
+      "category": "grain"
     },
     {
       "slug": "cream-cheese",
@@ -123,6 +171,10 @@
     {
       "slug": "creme-fraiche",
       "category": "dairy"
+    },
+    {
+      "slug": "cucumber",
+      "category": "vegetable"
     },
     {
       "slug": "cumin",
@@ -137,8 +189,20 @@
       "category": "sweets"
     },
     {
+      "slug": "dark-soy-sauce",
+      "category": "condiment"
+    },
+    {
       "slug": "double-cream",
       "category": "dairy"
+    },
+    {
+      "slug": "dried-parsley",
+      "category": "spice"
+    },
+    {
+      "slug": "dried-thyme",
+      "category": "herb"
     },
     {
       "slug": "dry-yeast",
@@ -149,8 +213,8 @@
       "category": "sweets"
     },
     {
-      "slug": "dried-parsley",
-      "category": "spice"
+      "slug": "egg",
+      "category": "protein"
     },
     {
       "slug": "extra-virgin-olive-oil",
@@ -167,6 +231,10 @@
     {
       "slug": "five-spice",
       "category": "spice"
+    },
+    {
+      "slug": "flour",
+      "category": "other"
     },
     {
       "slug": "fresh-basil",
@@ -197,8 +265,16 @@
       "category": "vegetable"
     },
     {
+      "slug": "frozen-raspberries",
+      "category": "fruit"
+    },
+    {
       "slug": "frozen-vegetables",
       "category": "vegetable"
+    },
+    {
+      "slug": "garam-masala",
+      "category": "spice"
     },
     {
       "slug": "garlic",
@@ -225,8 +301,24 @@
       "category": "spice"
     },
     {
+      "slug": "ginger-paste",
+      "category": "other"
+    },
+    {
+      "slug": "ginger-puree",
+      "category": "condiment"
+    },
+    {
       "slug": "grana-padano",
       "category": "dairy"
+    },
+    {
+      "slug": "greek-yoghurt",
+      "category": "dairy"
+    },
+    {
+      "slug": "ground-almonds",
+      "category": "other"
     },
     {
       "slug": "ground-coriander",
@@ -239,6 +331,10 @@
     {
       "slug": "harissa-paste",
       "category": "condiment"
+    },
+    {
+      "slug": "herbes-de-provence",
+      "category": "herb"
     },
     {
       "slug": "hoisin-sauce",
@@ -265,6 +361,10 @@
       "category": "spice"
     },
     {
+      "slug": "kosher-salt",
+      "category": "spice"
+    },
+    {
       "slug": "large-pasta-shells",
       "category": "grain"
     },
@@ -273,12 +373,20 @@
       "category": "vegetable"
     },
     {
+      "slug": "lemon-juice",
+      "category": "condiment"
+    },
+    {
       "slug": "lettuce",
       "category": "vegetable"
     },
     {
       "slug": "light-soft-cheese",
       "category": "dairy"
+    },
+    {
+      "slug": "light-soy-sauce",
+      "category": "condiment"
     },
     {
       "slug": "lime",
@@ -309,16 +417,20 @@
       "category": "condiment"
     },
     {
+      "slug": "mexican-seasoning",
+      "category": "spice"
+    },
+    {
       "slug": "milk",
       "category": "dairy"
     },
     {
-      "slug": "mixed-beans",
-      "category": "legume"
-    },
-    {
       "slug": "milk-chocolate",
       "category": "sweets"
+    },
+    {
+      "slug": "mixed-beans",
+      "category": "legume"
     },
     {
       "slug": "mozzarella",
@@ -329,12 +441,20 @@
       "category": "spice"
     },
     {
+      "slug": "naan",
+      "category": "other"
+    },
+    {
       "slug": "noodles",
       "category": "grain"
     },
     {
       "slug": "olive-oil",
       "category": "oil-fat"
+    },
+    {
+      "slug": "onion-powder",
+      "category": "spice"
     },
     {
       "slug": "onion-salt",
@@ -347,6 +467,10 @@
     {
       "slug": "oregano",
       "category": "spice"
+    },
+    {
+      "slug": "orzo",
+      "category": "grain"
     },
     {
       "slug": "paella-rice",
@@ -389,6 +513,10 @@
       "category": "condiment"
     },
     {
+      "slug": "pita",
+      "category": "other"
+    },
+    {
       "slug": "plain-flour",
       "category": "grain"
     },
@@ -401,6 +529,10 @@
       "category": "vegetable"
     },
     {
+      "slug": "potato-wedges",
+      "category": "other"
+    },
+    {
       "slug": "prawn-crackers",
       "category": "other"
     },
@@ -409,12 +541,16 @@
       "category": "spice"
     },
     {
-      "slug": "red-onion",
-      "category": "vegetable"
+      "slug": "red-curry-paste",
+      "category": "condiment"
     },
     {
       "slug": "red-lentils",
       "category": "legume"
+    },
+    {
+      "slug": "red-onion",
+      "category": "vegetable"
     },
     {
       "slug": "rice",
@@ -433,6 +569,10 @@
       "category": "spice"
     },
     {
+      "slug": "salad",
+      "category": "other"
+    },
+    {
       "slug": "salt",
       "category": "spice"
     },
@@ -441,8 +581,24 @@
       "category": "spice"
     },
     {
+      "slug": "self-raising-flour",
+      "category": "other"
+    },
+    {
       "slug": "semolina",
       "category": "grain"
+    },
+    {
+      "slug": "sesame-oil",
+      "category": "oil-fat"
+    },
+    {
+      "slug": "sesame-seeds",
+      "category": "other"
+    },
+    {
+      "slug": "shallot",
+      "category": "vegetable"
     },
     {
       "slug": "single-cream",
@@ -457,6 +613,10 @@
       "category": "condiment"
     },
     {
+      "slug": "spaghetti",
+      "category": "grain"
+    },
+    {
       "slug": "spinach",
       "category": "vegetable"
     },
@@ -465,8 +625,16 @@
       "category": "vegetable"
     },
     {
+      "slug": "sriracha",
+      "category": "condiment"
+    },
+    {
       "slug": "sugar",
       "category": "sweets"
+    },
+    {
+      "slug": "sun-dried-tomato",
+      "category": "vegetable"
     },
     {
       "slug": "sun-dried-tomato-pesto",
@@ -477,12 +645,24 @@
       "category": "condiment"
     },
     {
+      "slug": "sweet-paprika",
+      "category": "spice"
+    },
+    {
+      "slug": "sweet-pepper",
+      "category": "vegetable"
+    },
+    {
       "slug": "sweet-potato",
       "category": "vegetable"
     },
     {
       "slug": "taco-seasoning",
       "category": "spice"
+    },
+    {
+      "slug": "thai-crackers",
+      "category": "other"
     },
     {
       "slug": "thyme",
@@ -533,6 +713,10 @@
       "category": "liquid"
     },
     {
+      "slug": "white-chocolate",
+      "category": "sweets"
+    },
+    {
       "slug": "white-onion",
       "category": "vegetable"
     },
@@ -543,6 +727,14 @@
     {
       "slug": "white-wine",
       "category": "liquid"
+    },
+    {
+      "slug": "white-wine-vinegar",
+      "category": "condiment"
+    },
+    {
+      "slug": "yoghurt",
+      "category": "dairy"
     }
   ]
 }

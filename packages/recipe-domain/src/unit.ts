@@ -35,6 +35,7 @@ export const UnitSchema = z.enum([
   "cube",
   "sachet",
   "bag",
+  "bunch",
 ]);
 
 export type Unit = z.infer<typeof UnitSchema>;
@@ -73,6 +74,7 @@ export const UNIT_LABELS: Record<Unit, UnitLabel> = {
   cube:            { singular: "cube",    plural: "cubes" },
   sachet:          { singular: "sachet",  plural: "sachets" },
   bag:             { singular: "bag",     plural: "bags" },
+  bunch:           { singular: "bunch",   plural: "bunches" },
 };
 
 const EXPLICIT_UNIT_ALIASES: Partial<Record<string, Unit>> = {
@@ -217,4 +219,5 @@ export const UNIT_CATEGORIES: Record<Unit, UnitCategory> = {
   cube:            "discrete",
   sachet:          "discrete",
   bag:             "discrete",
+  bunch:           "discrete",
 };
