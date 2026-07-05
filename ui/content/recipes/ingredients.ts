@@ -171,7 +171,7 @@ export const ingredients: IngredientContent[] = [
   { name: "chips", category: "other" },
   { name: "potato wedges", category: "other" },
   { name: "self-raising flour", category: "other" },
-  { name: "caster sugar", category: "other" },
+  { name: "caster sugar", category: "sweets" },
   { name: "flour", category: "other" },
   { name: "cornflakes", category: "other" },
   { name: "cashew nuts", category: "other" },
