@@ -9,6 +9,7 @@ import {
   FilterBar,
   type MobileFilterSection,
 } from "@/components/ui/filter-bar";
+import { type FilterState, nextFilterState } from "@/hooks/use-filter-params";
 import {
   TECHNOLOGY_TYPE_CONFIG,
   TECHNOLOGY_TYPES,
@@ -30,6 +31,30 @@ export function SearchableTechnologyGrid({
 }: SearchableTechnologyGridProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [excludedTypes, setExcludedTypes] = useState<string[]>([]);
+
+  const typeState = (value: string): FilterState => {
+    if (excludedTypes.includes(value)) return "exclude";
+    if (selectedTypes.includes(value)) return "include";
+    return "off";
+  };
+
+  const setTypeState = (value: string, state: FilterState) => {
+    setSelectedTypes((prev) =>
+      state === "include"
+        ? [...prev.filter((t) => t !== value), value]
+        : prev.filter((t) => t !== value),
+    );
+    setExcludedTypes((prev) =>
+      state === "exclude"
+        ? [...prev.filter((t) => t !== value), value]
+        : prev.filter((t) => t !== value),
+    );
+  };
+
+  const cycleType = (value: string) => {
+    setTypeState(value, nextFilterState(typeState(value)));
+  };
 
   const fuse = useMemo(
     () =>
@@ -51,37 +76,49 @@ export function SearchableTechnologyGrid({
         .map((result: FuseResult<RankedTechnology>) => result.item);
     }
 
-    // Apply type filter
+    // Apply type filter: OR over included, then drop excluded.
     if (selectedTypes.length > 0) {
       results = results.filter((tech) =>
         selectedTypes.includes(tech.badge.type as TechnologyType),
       );
     }
+    if (excludedTypes.length > 0) {
+      results = results.filter(
+        (tech) => !excludedTypes.includes(tech.badge.type as TechnologyType),
+      );
+    }
 
     return results;
-  }, [fuse, searchQuery, selectedTypes, technologies]);
+  }, [fuse, searchQuery, selectedTypes, excludedTypes, technologies]);
 
-  const hasActiveFilters = selectedTypes.length > 0;
+  const hasActiveFilters = selectedTypes.length > 0 || excludedTypes.length > 0;
 
-  const activeFilters = selectedTypes.map((type) => {
-    const config = TECHNOLOGY_TYPE_CONFIG[type as TechnologyType];
-    return {
-      paramName: "type",
-      label: "Type",
-      value: type,
-      displayValue: config.label,
-      icon: <Circle className={`size-2 fill-current ${config.color}`} />,
-    };
-  });
+  const activeFilters = [
+    ...selectedTypes.map((type) => {
+      const config = TECHNOLOGY_TYPE_CONFIG[type as TechnologyType];
+      return {
+        paramName: "type",
+        label: "Type",
+        value: type,
+        displayValue: config.label,
+        icon: <Circle className={`size-2 fill-current ${config.color}`} />,
+      };
+    }),
+    ...excludedTypes.map((type) => {
+      const config = TECHNOLOGY_TYPE_CONFIG[type as TechnologyType];
+      return {
+        paramName: "type",
+        label: "Type",
+        value: type,
+        displayValue: config.label,
+        icon: <Circle className={`size-2 fill-current ${config.color}`} />,
+        excluded: true,
+      };
+    }),
+  ];
 
   const handleRemoveFilter = (_paramName: string, value: string) => {
-    setSelectedTypes((prev) => prev.filter((t) => t !== value));
-  };
-
-  const handleToggleType = (value: string) => {
-    setSelectedTypes((prev) =>
-      prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value],
-    );
+    setTypeState(value, "off");
   };
 
   const mobileFilterSections: MobileFilterSection[] = [
@@ -97,8 +134,8 @@ export function SearchableTechnologyGrid({
           />
         ),
       })),
-      selectedValues: selectedTypes,
-      onToggle: handleToggleType,
+      getOptionState: (value: string) => typeState(value),
+      onCycleOption: cycleType,
     },
   ];
 
@@ -110,14 +147,24 @@ export function SearchableTechnologyGrid({
         searchPlaceholder="Search technologies..."
         activeFilters={activeFilters}
         onRemoveFilter={handleRemoveFilter}
-        onClearAll={() => setSelectedTypes([])}
+        onClearAll={() => {
+          setSelectedTypes([]);
+          setExcludedTypes([]);
+        }}
         hasActiveFilters={hasActiveFilters}
-        activeFilterCount={selectedTypes.length}
+        activeFilterCount={selectedTypes.length + excludedTypes.length}
         mobileFilterSections={mobileFilterSections}
       >
         <TechnologyTypeFilter
           value={selectedTypes}
           onChange={setSelectedTypes}
+          triState
+          excludedValues={excludedTypes}
+          onSetState={setTypeState}
+          onClearAll={() => {
+            setSelectedTypes([]);
+            setExcludedTypes([]);
+          }}
           size="sm"
         />
       </FilterBar>

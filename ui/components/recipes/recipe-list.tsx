@@ -9,7 +9,7 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   memo,
   type ReactNode,
@@ -35,6 +35,7 @@ import { useRecipeSearch } from "@/contexts/recipe-search-context";
 import { useFilterParams } from "@/hooks/use-filter-params";
 import type { RecipeCardView } from "@/lib/api/recipes";
 import { formatDate } from "@/lib/generic/date";
+import { cycleFilterFromCard } from "@/lib/generic/filter-cycle";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
 
 const TIME_RANGES = [
@@ -323,23 +324,44 @@ export function RecipeList({ recipes }: RecipeListProps) {
   // identities passed to the memoized cards constant. The ref is updated in a
   // commit-phase effect (not during render) so it always reflects committed
   // state, even under concurrent rendering.
+  const pathname = usePathname();
   const filterParamsRef = useRef(filterParams);
+  const pathnameRef = useRef(pathname);
   useEffect(() => {
     filterParamsRef.current = filterParams;
+    pathnameRef.current = pathname;
   });
   const onToggleCuisine = useCallback(
     (cuisine: string) =>
-      filterParamsRef.current.toggleValue("cuisine", cuisine),
+      cycleFilterFromCard({
+        filterParams: filterParamsRef.current,
+        paramName: "cuisine",
+        value: cuisine,
+        label: cuisine,
+        page: pathnameRef.current,
+      }),
     [],
   );
   const onTogglePrepTime = useCallback(
     (rangeLabel: string) =>
-      filterParamsRef.current.toggleValue("prepTime", rangeLabel),
+      cycleFilterFromCard({
+        filterParams: filterParamsRef.current,
+        paramName: "prepTime",
+        value: rangeLabel,
+        label: `prep ${rangeLabel}`,
+        page: pathnameRef.current,
+      }),
     [],
   );
   const onToggleTotalTime = useCallback(
     (rangeLabel: string) =>
-      filterParamsRef.current.toggleValue("totalTime", rangeLabel),
+      cycleFilterFromCard({
+        filterParams: filterParamsRef.current,
+        paramName: "totalTime",
+        value: rangeLabel,
+        label: `total ${rangeLabel}`,
+        page: pathnameRef.current,
+      }),
     [],
   );
 

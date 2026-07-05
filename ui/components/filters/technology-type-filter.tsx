@@ -4,13 +4,14 @@ import { Circle } from "lucide-react";
 import {
   MultiSelect,
   type MultiSelectOption,
+  type MultiSelectTriStateProps,
 } from "@/components/ui/multi-select";
 import {
   TECHNOLOGY_TYPE_CONFIG,
   TECHNOLOGY_TYPES,
 } from "@/lib/domain/technology/technology";
 
-interface TechnologyTypeFilterProps {
+interface TechnologyTypeFilterProps extends MultiSelectTriStateProps {
   value: string[];
   onChange: (value: string[]) => void;
   label?: string;
@@ -28,6 +29,7 @@ export function TechnologyTypeFilter({
   className,
   disabled = false,
   size = "default",
+  ...triState
 }: TechnologyTypeFilterProps) {
   const options: MultiSelectOption[] = TECHNOLOGY_TYPES.map((type) => {
     const typeConfig = TECHNOLOGY_TYPE_CONFIG[type];
@@ -49,6 +51,7 @@ export function TechnologyTypeFilter({
       className={className}
       disabled={disabled}
       size={size}
+      {...triState}
     />
   );
 }
