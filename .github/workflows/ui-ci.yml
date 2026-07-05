@@ -35,7 +35,7 @@ jobs:
         shell: bash
         run: echo "dir=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.pnpm-store.outputs.dir }}
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -54,7 +54,7 @@ jobs:
       # so the Build step reuses unchanged work. The key is invalidated on lock
       # or source changes; restore-keys still seeds the cache from the closest
       # previous build so a content edit doesn't force a cold compile.
-      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ui/.next/cache
           key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('ui/app/**', 'ui/components/**', 'ui/content/**', 'ui/lib/**') }}
