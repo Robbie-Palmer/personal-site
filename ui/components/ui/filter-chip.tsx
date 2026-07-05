@@ -52,6 +52,7 @@ export function FilterChip({
       )}
       <span className={cn("truncate", excluded && "line-through")}>
         {children}
+        {excluded && <span className="sr-only"> (excluded)</span>}
       </span>
       <button
         type="button"

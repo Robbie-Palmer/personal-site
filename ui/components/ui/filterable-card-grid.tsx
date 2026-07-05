@@ -125,6 +125,7 @@ export function FilterableCardGrid<T>({
     getExcludedValues,
     getSelection,
     getState,
+    peekState,
     cycleValue,
     setValues,
     setState,
@@ -335,13 +336,22 @@ export function FilterableCardGrid<T>({
           .sort((a, b) => a.label.localeCompare(b.label)),
         getOptionState: (value: string) => getState(fc.paramName, value),
         onCycleOption: (value: string) => {
-          const next = nextFilterState(getState(fc.paramName, value));
+          // Derive the analytics action from the same latest read cycleValue
+          // writes from, so the recorded action can't drift from the URL.
+          const next = nextFilterState(peekState(fc.paramName, value));
           captureFilterChange(fc.paramName, value, next);
           cycleValue(fc.paramName, value);
         },
       };
     });
-  }, [filterConfigs, items, getState, cycleValue, captureFilterChange]);
+  }, [
+    filterConfigs,
+    items,
+    getState,
+    peekState,
+    cycleValue,
+    captureFilterChange,
+  ]);
 
   const handleRemoveFilter = (paramName: string, value: string) => {
     captureFilterChange(paramName, value, "off");

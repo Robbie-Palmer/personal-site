@@ -26,6 +26,11 @@ export interface FilterSelection {
  * Excluded values live in the same comma-delimited param as includes, marked
  * with a leading "!" (e.g. `ingredient=chicken,!mushroom`). This keeps one
  * param per category and stays human-readable/shareable in the URL.
+ *
+ * Invariant: filter values themselves must not begin with "!" — such a value
+ * would round-trip as an exclude. This holds for every current source (recipe
+ * ingredient names, tech/role slugs, tags, kebab-case labels); introducing a
+ * value that can start with "!" would need a different sentinel/encoding.
  */
 const EXCLUDE_PREFIX = "!";
 
@@ -53,6 +58,16 @@ export function filterAppliedAction(
   if (state === "off") return "removed";
   if (state === "exclude") return "excluded";
   return "added";
+}
+
+/** Screen-reader label describing a value's tri-state. */
+export function filterStateAriaLabel(
+  label: string,
+  state: FilterState,
+): string {
+  if (state === "exclude") return `${label} (excluded)`;
+  if (state === "include") return `${label} (included)`;
+  return label;
 }
 
 function parseSelection(
@@ -86,8 +101,14 @@ export interface UseFilterParamsReturn {
   getExcludedValues: (paramName: string) => string[];
   /** Full include/exclude split for a filter. */
   getSelection: (paramName: string) => FilterSelection;
-  /** Tri-state of a single value within a filter. */
+  /** Tri-state of a single value within a filter (reactive). */
   getState: (paramName: string, value: string) => FilterState;
+  /**
+   * Latest tri-state read straight from the current URL, not tied to a render.
+   * Safe inside async handlers (e.g. a toast Undo) where the reactive
+   * `getState` closure may be stale.
+   */
+  peekState: (paramName: string, value: string) => FilterState;
   setValue: (paramName: string, value: string | undefined) => void;
   setValues: (paramName: string, values: string[]) => void;
   toggleValue: (paramName: string, value: string) => void;
@@ -178,7 +199,7 @@ export function useFilterParams(
     [delimiter],
   );
 
-  const readState = useCallback(
+  const peekState = useCallback(
     (paramName: string, value: string): FilterState => {
       const { include, exclude } = readSelection(paramName);
       if (exclude.includes(value)) return "exclude";
@@ -243,9 +264,9 @@ export function useFilterParams(
 
   const cycleValue = useCallback(
     (paramName: string, value: string) => {
-      setState(paramName, value, nextFilterState(readState(paramName, value)));
+      setState(paramName, value, nextFilterState(peekState(paramName, value)));
     },
-    [readState, setState],
+    [peekState, setState],
   );
 
   const toggleValue = useCallback(
@@ -254,10 +275,10 @@ export function useFilterParams(
       setState(
         paramName,
         value,
-        readState(paramName, value) === "include" ? "off" : "include",
+        peekState(paramName, value) === "include" ? "off" : "include",
       );
     },
-    [readState, setState],
+    [peekState, setState],
   );
 
   const clearFilter = useCallback(
@@ -337,6 +358,7 @@ export function useFilterParams(
     getExcludedValues,
     getSelection,
     getState,
+    peekState,
     setValue,
     setValues,
     toggleValue,

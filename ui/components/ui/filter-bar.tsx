@@ -14,7 +14,10 @@ import {
 } from "@/components/ui/drawer";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { Input } from "@/components/ui/input";
-import type { FilterState } from "@/hooks/use-filter-params";
+import {
+  type FilterState,
+  filterStateAriaLabel,
+} from "@/hooks/use-filter-params";
 import { cn } from "@/lib/generic/styles";
 
 function chipVariantForState(
@@ -180,6 +183,10 @@ export function FilterBar({
                               variant={chipVariantForState(state)}
                               interactive
                               active={isIncluded || isExcluded}
+                              aria-label={filterStateAriaLabel(
+                                option.label,
+                                state,
+                              )}
                               className={cn(
                                 "cursor-pointer gap-1.5 py-1.5 px-3",
                                 isExcluded && "line-through",

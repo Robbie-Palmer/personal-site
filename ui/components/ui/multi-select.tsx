@@ -6,7 +6,11 @@ import type * as React from "react";
 import { useCallback, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { type FilterState, nextFilterState } from "@/hooks/use-filter-params";
+import {
+  type FilterState,
+  filterStateAriaLabel,
+  nextFilterState,
+} from "@/hooks/use-filter-params";
 import { cn } from "@/lib/generic/styles";
 
 export interface MultiSelectOption {
@@ -14,12 +18,6 @@ export interface MultiSelectOption {
   label: string;
   icon?: React.ReactNode;
   disabled?: boolean;
-}
-
-function optionAriaLabel(label: string, state: FilterState): string {
-  if (state === "exclude") return `${label} (excluded)`;
-  if (state === "include") return `${label} (included)`;
-  return label;
 }
 
 /**
@@ -91,16 +89,29 @@ export function MultiSelect({
     [excludedValues, value],
   );
 
-  const includedOptions = useMemo(
-    () => options.filter((option) => value.includes(option.value)),
-    [options, value],
+  // Build chips straight from the selected values (not by filtering options),
+  // so a stale token in the URL — one whose option no longer exists after the
+  // data changed — still renders a labelled, removable chip instead of a
+  // phantom count with no affordance.
+  const optionByValue = useMemo(
+    () => new Map(options.map((option) => [option.value, option])),
+    [options],
   );
-  const excludedOptions = useMemo(
-    () => options.filter((option) => excludedValues.includes(option.value)),
-    [options, excludedValues],
+  const includedOptions = useMemo<MultiSelectOption[]>(
+    () => value.map((v) => optionByValue.get(v) ?? { value: v, label: v }),
+    [value, optionByValue],
+  );
+  const excludedOptions = useMemo<MultiSelectOption[]>(
+    () =>
+      isTri
+        ? excludedValues.map(
+            (v) => optionByValue.get(v) ?? { value: v, label: v },
+          )
+        : [],
+    [isTri, excludedValues, optionByValue],
   );
 
-  const activeCount = value.length + (isTri ? excludedValues.length : 0);
+  const activeCount = includedOptions.length + excludedOptions.length;
 
   const handleToggle = useCallback(
     (optionValue: string) => {
@@ -277,7 +288,7 @@ export function MultiSelect({
                     type="button"
                     onClick={() => !isDisabled && handleToggle(option.value)}
                     disabled={isDisabled}
-                    aria-label={optionAriaLabel(option.label, state)}
+                    aria-label={filterStateAriaLabel(option.label, state)}
                     className={cn(
                       "relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-2 text-sm outline-hidden select-none",
                       "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
