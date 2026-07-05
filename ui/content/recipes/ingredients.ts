@@ -109,7 +109,7 @@ export const ingredients: IngredientContent[] = [
   { name: "MSG", category: "spice" },
   { name: "five spice", category: "spice" },
   { name: "white pepper", category: "spice" },
-  { name: "dried parsley", category: "spice" },
+  { name: "dried parsley", category: "herb" },
   { name: "turmeric", category: "spice" },
   { name: "saffron", category: "spice" },
   { name: "cumin", category: "spice" },
