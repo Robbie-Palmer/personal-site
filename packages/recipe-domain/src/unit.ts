@@ -35,6 +35,7 @@ export const UnitSchema = z.enum([
   "cube",
   "sachet",
   "bag",
+  "bunch",
 ]);
 
 export type Unit = z.infer<typeof UnitSchema>;
