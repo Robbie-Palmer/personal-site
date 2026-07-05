@@ -3,10 +3,28 @@ main = "src/index.ts"
 compatibility_date = "2026-05-28"
 compatibility_flags = ["nodejs_compat"]
 
+# Export Worker logs to PostHog via OTLP. The "posthog-logs" destination
+# (endpoint + auth header) is configured in the Cloudflare dashboard, not here.
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+destinations = ["posthog-logs"]
+
 [vars]
 # Browser-facing URL used to build OAuth callbacks in production.
 # The local dev script overrides this with http://localhost:3000.
 BETTER_AUTH_URL = "https://robbiepalmer.me"
+
+[secrets]
+required = [
+  "BETTER_AUTH_SECRET",
+  "GOOGLE_CLIENT_ID",
+  "GOOGLE_CLIENT_SECRET",
+  "GITHUB_CLIENT_ID",
+  "GITHUB_CLIENT_SECRET",
+]
 
 # Daily sweep of stale rate-limit counters (src/index.ts scheduled handler).
 [triggers]

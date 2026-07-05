@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { CommandPaletteProvider } from "@/components/command-palette";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 import { siteConfig } from "@/lib/config/site-config";
 import { loadDomainRepository } from "@/lib/domain";
 import { getAllTechnologyBadgesSorted } from "@/lib/domain/technology";
@@ -75,6 +76,7 @@ export default function RootLayout({
           <CommandPaletteProvider technologies={technologies}>
             {children}
           </CommandPaletteProvider>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

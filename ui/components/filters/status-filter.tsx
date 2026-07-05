@@ -4,6 +4,7 @@ import { Circle } from "lucide-react";
 import {
   MultiSelect,
   type MultiSelectOption,
+  type MultiSelectTriStateProps,
 } from "@/components/ui/multi-select";
 import { ADR_STATUS_CONFIG, ADR_STATUSES } from "@/lib/domain/adr/adr";
 import {
@@ -13,7 +14,8 @@ import {
 
 type StatusType = "project" | "adr";
 
-interface StatusFilterProps<T extends StatusType> {
+interface StatusFilterProps<T extends StatusType>
+  extends MultiSelectTriStateProps {
   type: T;
   value: string[];
   onChange: (value: string[]) => void;
@@ -33,6 +35,7 @@ export function StatusFilter<T extends StatusType>({
   className,
   disabled = false,
   size = "default",
+  ...triState
 }: StatusFilterProps<T>) {
   const options: MultiSelectOption[] =
     type === "project"
@@ -68,6 +71,7 @@ export function StatusFilter<T extends StatusType>({
       className={className}
       disabled={disabled}
       size={size}
+      {...triState}
     />
   );
 }

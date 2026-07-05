@@ -211,6 +211,22 @@ export const technologies: TechnologyContent[] = [
     type: "library",
   },
   {
+    name: "Simple Icons",
+    added: "2026-06-30",
+    description: "SVG icons for popular brands",
+    website: "https://simpleicons.org",
+    iconSlug: "simpleicons",
+    type: "library",
+  },
+  {
+    name: "SVGL",
+    added: "2026-06-30",
+    description: "SVG logo library for brands and technologies",
+    website: "https://svgl.app",
+    iconSlug: "svgl",
+    type: "library",
+  },
+  {
     name: "Renovate",
     added: "2026-01-04",
     description: "Automated dependency updates",
@@ -805,6 +821,14 @@ export const technologies: TechnologyContent[] = [
     description:
       "Static analysis (SAST) for GitHub Actions workflows: template injection, dangerous triggers, credential persistence, and excessive permissions",
     website: "https://zizmor.sh",
+    type: "tool",
+  },
+  {
+    name: "OpenTelemetry",
+    added: "2026-06-28",
+    description:
+      "Vendor-neutral observability framework and protocol (OTLP) for emitting and exporting logs, metrics, and traces",
+    website: "https://opentelemetry.io",
     type: "tool",
   },
 ];

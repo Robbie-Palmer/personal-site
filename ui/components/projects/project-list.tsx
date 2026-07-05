@@ -2,6 +2,7 @@
 
 import { Circle, FolderGit2, Tag } from "lucide-react";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import {
   createRoleFilterOptions,
@@ -15,6 +16,7 @@ import { useFilterParams } from "@/hooks/use-filter-params";
 import type { Project, ProjectStatus } from "@/lib/api/projects";
 import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
 import { PROJECT_STATUS_CONFIG } from "@/lib/domain/project/project";
+import { cycleFilterFromCard } from "@/lib/generic/filter-cycle";
 import { ProjectCard } from "./project-card";
 
 interface ProjectListProps {
@@ -78,6 +80,7 @@ export function ProjectList({ projects }: ProjectListProps) {
   const selectedTags = filterParams.getValues("tags");
   const selectedStatuses = filterParams.getValues("status");
   const selectedRoles = filterParams.getValues("role");
+  const pathname = usePathname();
   const { registerFilters, unregisterFilters } = useCommandPalette();
 
   useEffect(() => {
@@ -198,13 +201,46 @@ export function ProjectList({ projects }: ProjectListProps) {
         <ProjectCard
           project={project}
           selectedTech={selectedTech}
-          onTechClick={(tech) => filterParams.toggleValue("tech", tech)}
+          onTechClick={(tech) =>
+            cycleFilterFromCard({
+              filterParams,
+              paramName: "tech",
+              value: tech,
+              label: allTechnologies.find((t) => t.slug === tech)?.name ?? tech,
+              page: pathname,
+            })
+          }
           selectedTags={selectedTags}
-          onTagClick={(tag) => filterParams.toggleValue("tags", tag)}
+          onTagClick={(tag) =>
+            cycleFilterFromCard({
+              filterParams,
+              paramName: "tags",
+              value: tag,
+              label: tag,
+              page: pathname,
+            })
+          }
           selectedStatuses={selectedStatuses}
-          onStatusClick={(status) => filterParams.toggleValue("status", status)}
+          onStatusClick={(status) =>
+            cycleFilterFromCard({
+              filterParams,
+              paramName: "status",
+              value: status,
+              label:
+                PROJECT_STATUS_CONFIG[status as ProjectStatus]?.label ?? status,
+              page: pathname,
+            })
+          }
           selectedRoles={selectedRoles}
-          onRoleClick={(role) => filterParams.toggleValue("role", role)}
+          onRoleClick={(role) =>
+            cycleFilterFromCard({
+              filterParams,
+              paramName: "role",
+              value: role,
+              label: allRolesMap.get(role)?.company ?? role,
+              page: pathname,
+            })
+          }
         />
       )}
     />

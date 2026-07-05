@@ -172,7 +172,7 @@ resource "cloudflare_ruleset" "map_tiles_cache" {
 resource "cloudflare_ruleset" "auth_rate_limit" {
   zone_id     = data.cloudflare_zone.domain.id
   name        = "Auth endpoint rate limiting"
-  description = "Per-IP rate limiting for /api/auth/* — returns 429 on abuse"
+  description = "Per-IP rate limiting for /api/auth/* — returns 429 on abuse. Counting is per Cloudflare data center (cf.colo.id is a mandatory, always-on characteristic; Cloudflare has no global counter)."
   kind        = "zone"
   phase       = "http_ratelimit"
 
@@ -191,7 +191,7 @@ resource "cloudflare_ruleset" "auth_rate_limit" {
     action = "block"
 
     ratelimit {
-      characteristics     = ["ip.src"]
+      characteristics     = ["ip.src", "cf.colo.id"]
       period              = var.auth_rate_limit_period
       requests_per_period = var.auth_rate_limit_requests
       mitigation_timeout  = var.auth_rate_limit_mitigation_timeout

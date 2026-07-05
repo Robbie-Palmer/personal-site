@@ -68,6 +68,8 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
   });
   const selectedStatus = filterParams.getValues("status");
   const selectedTech = filterParams.getValues("tech");
+  const excludedStatus = filterParams.getExcludedValues("status");
+  const excludedTech = filterParams.getExcludedValues("tech");
 
   const fuse = useMemo(
     () =>
@@ -86,13 +88,30 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
     if (selectedStatus.length > 0) {
       filtered = filtered.filter((adr) => selectedStatus.includes(adr.status));
     }
+    if (excludedStatus.length > 0) {
+      filtered = filtered.filter((adr) => !excludedStatus.includes(adr.status));
+    }
     if (selectedTech.length > 0) {
       filtered = filtered.filter((adr) =>
         adr.technologies?.some((tech) => selectedTech.includes(tech.slug)),
       );
     }
+    if (excludedTech.length > 0) {
+      filtered = filtered.filter(
+        (adr) =>
+          !adr.technologies?.some((tech) => excludedTech.includes(tech.slug)),
+      );
+    }
     return filtered;
-  }, [fuse, searchQuery, adrs, selectedStatus, selectedTech]);
+  }, [
+    fuse,
+    searchQuery,
+    adrs,
+    selectedStatus,
+    selectedTech,
+    excludedStatus,
+    excludedTech,
+  ]);
 
   const sortedADRs = [...filteredADRs].sort((a, b) => {
     const direction = currentSort === "newest" ? -1 : 1;
@@ -109,6 +128,7 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
       label: string;
       value: string;
       displayValue: string;
+      excluded?: boolean;
     }> = [];
 
     for (const status of selectedStatus) {
@@ -117,6 +137,15 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
         label: "Status",
         value: status,
         displayValue: status,
+      });
+    }
+    for (const status of excludedStatus) {
+      filters.push({
+        paramName: "status",
+        label: "Status",
+        value: status,
+        displayValue: status,
+        excluded: true,
       });
     }
     for (const tech of selectedTech) {
@@ -128,14 +157,29 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
         displayValue: techObj?.name ?? tech,
       });
     }
+    for (const tech of excludedTech) {
+      const techObj = allTechnologies.find((t) => t.slug === tech);
+      filters.push({
+        paramName: "tech",
+        label: "Tech",
+        value: tech,
+        displayValue: techObj?.name ?? tech,
+        excluded: true,
+      });
+    }
     return filters;
-  }, [selectedStatus, selectedTech, allTechnologies]);
+  }, [
+    selectedStatus,
+    selectedTech,
+    excludedStatus,
+    excludedTech,
+    allTechnologies,
+  ]);
 
   const handleRemoveFilter = (paramName: string, value: string) => {
-    filterParams.toggleValue(paramName, value);
+    filterParams.setState(paramName, value, "off");
   };
-  const isFiltering =
-    searchQuery || selectedStatus.length > 0 || selectedTech.length > 0;
+  const isFiltering = searchQuery || filterParams.hasActiveFilters;
   const sortButton = (
     <Button
       variant="outline"
@@ -154,12 +198,24 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
         type="adr"
         value={selectedStatus}
         onChange={(v) => filterParams.setValues("status", v)}
+        triState
+        excludedValues={excludedStatus}
+        onSetState={(value, state) =>
+          filterParams.setState("status", value, state)
+        }
+        onClearAll={() => filterParams.clearFilter("status")}
         size="sm"
       />
       {allTechnologies.length > 0 && (
         <TechnologyFilter
           technologies={allTechnologies}
           value={selectedTech}
+          triState
+          excludedValues={excludedTech}
+          onSetState={(value, state) =>
+            filterParams.setState("tech", value, state)
+          }
+          onClearAll={() => filterParams.clearFilter("tech")}
           onChange={(v) => filterParams.setValues("tech", v)}
           size="sm"
         />
@@ -177,8 +233,10 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
         paramName: "status",
         label: "Status",
         options: statusOptions,
-        selectedValues: selectedStatus,
-        onToggle: (value: string) => filterParams.toggleValue("status", value),
+        getOptionState: (value: string) =>
+          filterParams.getState("status", value),
+        onCycleOption: (value: string) =>
+          filterParams.cycleValue("status", value),
       },
     ];
     if (allTechnologies.length > 0) {
@@ -189,12 +247,13 @@ export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
           value: t.slug,
           label: t.name,
         })),
-        selectedValues: selectedTech,
-        onToggle: (value: string) => filterParams.toggleValue("tech", value),
+        getOptionState: (value: string) => filterParams.getState("tech", value),
+        onCycleOption: (value: string) =>
+          filterParams.cycleValue("tech", value),
       });
     }
     return sections;
-  }, [selectedStatus, selectedTech, allTechnologies, filterParams]);
+  }, [allTechnologies, filterParams]);
 
   if (adrs.length === 0) {
     return (

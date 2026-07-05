@@ -15,22 +15,30 @@ export const metadata: Metadata = {
 export default function RecipesPage() {
   const recipes = getAllRecipes();
   const jsonLd = buildRecipeListJsonLd(recipes, siteConfig.url);
-  const recipeCountLabel = `${recipes.length.toLocaleString()} ${recipes.length === 1 ? "recipe" : "recipes"}`;
+
+  const recipeCount = recipes.length;
+  const cuisineCount = new Set(recipes.flatMap((recipe) => recipe.cuisine))
+    .size;
+  const stats = [
+    `${recipeCount.toLocaleString()} ${recipeCount === 1 ? "recipe" : "recipes"}`,
+    cuisineCount > 0 &&
+      `${cuisineCount} ${cuisineCount === 1 ? "cuisine" : "cuisines"}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <div className="container mx-auto px-4 py-12 min-h-screen max-w-6xl">
+    <div className="container mx-auto px-4 pt-5 pb-10 md:pt-7 md:pb-14 min-h-screen max-w-7xl">
       <JsonLdScript data={jsonLd} />
       <div className="mb-8">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4">Recipes</h1>
-        <p className="text-xl text-muted-foreground">
-          A collection of my favorite recipes
-        </p>
-        <p className="mt-2 text-sm font-medium text-muted-foreground">
-          {recipeCountLabel}
-        </p>
+        <p className="rt-mono text-[var(--terracotta)]">Your recipe box</p>
+        <h1 className="rt-display text-6xl md:text-7xl mt-2">
+          What's <span className="text-[var(--terracotta)]">cooking?</span>
+        </h1>
+        <p className="rt-body mt-3 text-lg text-[var(--ink-2)]">{stats}</p>
       </div>
 
-      <Suspense fallback={<CardGridSkeleton />}>
+      <Suspense fallback={<CardGridSkeleton variant="filters" />}>
         <RecipeList recipes={recipes} />
       </Suspense>
     </div>

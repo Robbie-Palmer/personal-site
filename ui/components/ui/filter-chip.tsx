@@ -1,7 +1,7 @@
 "use client";
 
 import type { VariantProps } from "class-variance-authority";
-import { X } from "lucide-react";
+import { Minus, X } from "lucide-react";
 import type * as React from "react";
 import { Badge, type badgeVariants } from "@/components/ui/badge";
 import { cn } from "@/lib/generic/styles";
@@ -13,6 +13,8 @@ interface FilterChipProps
   icon?: React.ReactNode;
   children: React.ReactNode;
   disabled?: boolean;
+  /** Render as an exclude filter (destructive, struck through, minus glyph). */
+  excluded?: boolean;
 }
 
 export function FilterChip({
@@ -20,6 +22,7 @@ export function FilterChip({
   icon,
   children,
   disabled = false,
+  excluded = false,
   variant = "secondary",
   className,
   ...props
@@ -34,7 +37,7 @@ export function FilterChip({
 
   return (
     <Badge
-      variant={variant}
+      variant={excluded ? "destructive" : variant}
       className={cn(
         "flex items-center gap-1.5 pr-1",
         disabled && "opacity-50",
@@ -42,8 +45,15 @@ export function FilterChip({
       )}
       {...props}
     >
-      {icon && <span className="shrink-0 [&>svg]:size-3">{icon}</span>}
-      <span className="truncate">{children}</span>
+      {excluded ? (
+        <Minus className="size-3 shrink-0" aria-hidden />
+      ) : (
+        icon && <span className="shrink-0 [&>svg]:size-3">{icon}</span>
+      )}
+      <span className={cn("truncate", excluded && "line-through")}>
+        {children}
+        {excluded && <span className="sr-only"> (excluded)</span>}
+      </span>
       <button
         type="button"
         onClick={handleRemove}

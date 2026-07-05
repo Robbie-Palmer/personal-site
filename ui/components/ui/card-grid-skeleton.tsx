@@ -1,17 +1,36 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function CardGridSkeleton() {
+export function CardGridSkeleton({
+  variant = "search",
+}: {
+  /**
+   * "search" mirrors a search-input + sort header (blog, projects, …).
+   * "filters" mirrors a row of filter dropdowns + sort, for surfaces whose
+   * search lives elsewhere (the recipe list hosts search in the nav).
+   */
+  variant?: "search" | "filters";
+}) {
   const skeletonIds: string[] = Array.from(
     { length: 6 },
     (_, i) => `skeleton-${i}`,
   );
   return (
     <div className="space-y-6">
-      {/* Input + Button row */}
-      <div className="flex items-center gap-4">
-        <Skeleton className="h-10 flex-1 max-w-md rounded-md" />
-        <Skeleton className="h-10 w-10 rounded-md" />
-      </div>
+      {variant === "filters" ? (
+        /* Filter dropdowns + sort row */
+        <div className="flex flex-wrap items-center gap-3">
+          {["a", "b", "c", "d", "e"].map((id) => (
+            <Skeleton key={id} className="h-9 w-32 rounded-md" />
+          ))}
+          <Skeleton className="h-9 w-9 rounded-md" />
+        </div>
+      ) : (
+        /* Input + Button row */
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 flex-1 max-w-md rounded-md" />
+          <Skeleton className="h-10 w-10 rounded-md" />
+        </div>
+      )}
 
       {/* Cards grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

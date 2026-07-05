@@ -1,0 +1,154 @@
+/*
+ * Recipe-site theme — a warm "paper" palette + handwritten type, scoped to the
+ * `.recipe-theme` subtree so it never leaks into the rest of the personal site.
+ *
+ * It redefines the shadcn semantic tokens (--background, --card, --primary, …)
+ * with warm values, so the existing shadcn components (Card, Badge, Button,
+ * MultiSelect, …) pick up the new look automatically. Custom design tokens
+ * (--terracotta, --ink-*, …) and a few typographic helpers are exposed for the
+ * recipe-specific markup. Light-only by design: tokens are defined directly on
+ * `.recipe-theme`, so they win regardless of the global `.dark` class.
+ *
+ * Source of truth for the values: the vendored mid-fi design tokens at
+ * ui/content/projects/recipe-site/designs/mid-fi/system.css
+ */
+
+.recipe-theme {
+  /* raw design tokens */
+  --paper: #faf3e2;
+  --paper-warm: #f4ecd6;
+  --ink: #1f1a14;
+  --ink-2: #4d4337;
+  --ink-3: #8b7c66;
+  --ink-4: #b5a687;
+  --line: rgba(31, 26, 20, 0.12);
+  --line-strong: rgba(31, 26, 20, 0.28);
+  --terracotta: #c8693c;
+  --terracotta-deep: #a04f26;
+  --butter: #f5c764;
+  --butter-soft: #fbe7b0;
+  --sage: #8fa677;
+  --berry: #99394a;
+  --paper-shadow:
+    0 1px 2px rgba(31, 26, 20, 0.06), 0 8px 24px rgba(31, 26, 20, 0.08);
+
+  /* shadcn semantic tokens mapped onto the warm palette */
+  --background: #faf3e2;
+  --foreground: #1f1a14;
+  --card: #fffef8;
+  --card-foreground: #1f1a14;
+  --popover: #fffef8;
+  --popover-foreground: #1f1a14;
+  --primary: #1f1a14;
+  --primary-foreground: #faf3e2;
+  --secondary: #f4ecd6;
+  --secondary-foreground: #4d4337;
+  --muted: #f4ecd6;
+  --muted-foreground: #8b7c66;
+  --accent: #fbe7b0;
+  --accent-foreground: #1f1a14;
+  --destructive: #99394a;
+  --border: rgba(31, 26, 20, 0.14);
+  --input: rgba(31, 26, 20, 0.28);
+  --ring: #c8693c;
+  --radius: 0.75rem;
+
+  color: var(--foreground);
+  font-family: var(--font-kalam), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* The page surface: paper background + grain. Kept separate from `.recipe-theme`
+   so the tokens can also be mirrored onto <body> (for portals) without painting
+   a second background or grain layer there. */
+.recipe-surface {
+  background-color: var(--paper);
+  position: relative;
+  isolation: isolate;
+}
+
+/* subtle paper grain, behind the content. Absolute (not fixed) so it is scoped
+   to the recipe surface rather than creating a viewport-wide fixed layer. */
+.recipe-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(0, 0, 0, 0.025) 0, transparent 60%),
+    radial-gradient(circle at 70% 80%, rgba(0, 0, 0, 0.02) 0, transparent 60%);
+}
+
+/* typographic helpers */
+.rt-display {
+  font-family: var(--font-caveat), ui-sans-serif, cursive;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+}
+
+.rt-body {
+  font-family: var(--font-kalam), ui-sans-serif, sans-serif;
+  line-height: 1.55;
+}
+
+.rt-mono {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* the logo's italic accent */
+.recipe-theme .rt-logo-accent {
+  font-style: italic;
+  color: var(--terracotta);
+}
+
+/* active nav tab — terracotta underline like the design */
+.recipe-theme .rt-tab {
+  border-bottom: 1.5px solid transparent;
+  color: var(--ink-2);
+}
+.recipe-theme .rt-tab[data-active="true"] {
+  color: var(--ink);
+  border-color: var(--terracotta);
+}
+
+/* Pills (cuisine/time badges, active-filter chips, inline timers) use a paper-
+   warm fill that blends into the page. Give them a defined ink border so they
+   read as chips, like the designs. Scoped under .recipe-theme so it also covers
+   pills inside portals (mobile filter drawer) once the body carries the theme. */
+.recipe-theme :is([data-slot="badge"], [data-recipe-pill]) {
+  border-color: var(--line-strong);
+}
+/* Keep solid/active fills borderless so they stay clean and high-contrast
+   (covers active inline-timer states too). */
+.recipe-theme :is([data-slot="badge"], [data-recipe-pill]).bg-primary,
+.recipe-theme :is([data-slot="badge"], [data-recipe-pill]).bg-destructive {
+  border-color: transparent;
+}
+
+/* Method steps: a real ordered list whose visible numerals come from a CSS
+   counter (decorative; the markup numbers are aria-hidden) so screen readers
+   rely on the list semantics rather than reading the number twice. */
+.rt-method-steps {
+  counter-reset: rt-step;
+}
+.rt-method-steps > li {
+  counter-increment: rt-step;
+}
+.rt-step-num::before {
+  content: counter(rt-step) ".";
+}
+
+/* Filter dropdown triggers: the small, muted label + value read too faintly
+   against the paper. Darken and slightly enlarge them for legibility. */
+.recipe-theme [data-slot="multi-select-trigger"] {
+  font-size: 0.8125rem;
+  color: var(--ink);
+}
+.recipe-theme [data-slot="multi-select-trigger"] .text-muted-foreground {
+  color: var(--ink-2);
+  font-weight: 600;
+}

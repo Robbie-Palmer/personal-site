@@ -3,6 +3,7 @@
 import {
   MultiSelect,
   type MultiSelectOption,
+  type MultiSelectTriStateProps,
 } from "@/components/ui/multi-select";
 import { TechIcon } from "@/lib/api/tech-icons";
 
@@ -12,7 +13,7 @@ interface FilterableTechnology {
   iconSlug?: string;
 }
 
-interface TechnologyFilterProps {
+interface TechnologyFilterProps extends MultiSelectTriStateProps {
   technologies: FilterableTechnology[];
   value: string[];
   onChange: (value: string[]) => void;
@@ -32,6 +33,7 @@ export function TechnologyFilter({
   className,
   disabled = false,
   size = "default",
+  ...triState
 }: TechnologyFilterProps) {
   const options: MultiSelectOption[] = technologies.map((tech) => ({
     value: tech.slug,
@@ -52,6 +54,7 @@ export function TechnologyFilter({
       className={className}
       disabled={disabled}
       size={size}
+      {...triState}
     />
   );
 }

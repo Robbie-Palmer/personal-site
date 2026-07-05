@@ -1,46 +1,77 @@
 "use client";
-import type {
-  AccountDetailView,
-  AccountSummaryView,
-  NetWorthDataPoint,
-} from "@/lib/api/assettracker";
-import type { AssetType } from "@/lib/domain/assettracker";
-import { computeTotalBalance, formatCurrency } from "@/lib/domain/assettracker";
+
+import { useState } from "react";
+import {
+  computeTotalBalance,
+  formatAnnualRate,
+  formatCurrency,
+  realRate,
+} from "@/lib/domain/assettracker";
 import { AccountBalanceChart } from "./account-balance-chart";
+import { AccountDetailSheet } from "./account-detail-sheet";
 import { AccountsTable } from "./accounts-table";
+import { AddAccountDrawer } from "./add-account-drawer";
 import { AssetAllocationChart } from "./asset-allocation-chart";
+import { useAssetTracker } from "./asset-tracker-provider";
+import { DataControls } from "./data-controls";
+import { LogBalanceDrawer } from "./log-balance-drawer";
 import { NetWorthChart } from "./net-worth-chart";
+import { PortfolioGoal } from "./portfolio-goal";
+import { RecordTransferDrawer } from "./record-transfer-drawer";
+import { UpcomingFlows } from "./upcoming-flows";
 
-interface AssetTrackerDashboardProps {
-  accounts: AccountSummaryView[];
-  accountDetails: AccountDetailView[];
-  netWorthData: NetWorthDataPoint[];
-  assetAllocation: { assetType: AssetType; total: number }[];
-}
+export function AssetTrackerDashboard() {
+  const {
+    accounts,
+    accountDetails,
+    netWorthData,
+    assetAllocation,
+    portfolioReturn,
+    inflation,
+  } = useAssetTracker();
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
+    null,
+  );
 
-export function AssetTrackerDashboard({
-  accounts,
-  accountDetails,
-  netWorthData,
-  assetAllocation,
-}: AssetTrackerDashboardProps) {
   const totalBalance = computeTotalBalance(accounts);
   const openAccounts = accounts.filter((a) => a.isOpen);
-  const accountNames = accounts.map((a) => a.name);
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold mb-2">Asset Tracker</h1>
-        <p className="text-lg text-muted-foreground">
-          Track and visualise your portfolio across accounts.
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-4xl font-bold mb-2">Asset Tracker</h1>
+          <p className="text-lg text-muted-foreground">
+            Track and visualise your portfolio across accounts.
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <LogBalanceDrawer />
+          <RecordTransferDrawer />
+          <AddAccountDrawer />
+        </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-3">
+      <DataControls />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="border rounded-lg p-6">
           <p className="text-sm text-muted-foreground">Total Net Worth</p>
           <p className="text-3xl font-bold mt-1">
             {formatCurrency(totalBalance)}
           </p>
+        </div>
+        <div className="border rounded-lg p-6">
+          <p className="text-sm text-muted-foreground">Portfolio Growth</p>
+          <p className="text-3xl font-bold mt-1">
+            {portfolioReturn != null
+              ? `${formatAnnualRate(portfolioReturn)}/yr`
+              : "—"}
+          </p>
+          {portfolioReturn != null && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatAnnualRate(realRate(portfolioReturn, inflation))}/yr after
+              inflation · excludes recorded contributions
+            </p>
+          )}
         </div>
         <div className="border rounded-lg p-6">
           <p className="text-sm text-muted-foreground">Open Accounts</p>
@@ -51,15 +82,26 @@ export function AssetTrackerDashboard({
           <p className="text-3xl font-bold mt-1">{assetAllocation.length}</p>
         </div>
       </div>
-      <NetWorthChart data={netWorthData} accountNames={accountNames} />
+      <NetWorthChart data={netWorthData} />
+      <div className="grid gap-8 lg:grid-cols-2">
+        <PortfolioGoal />
+        <UpcomingFlows />
+      </div>
       <div className="grid gap-8 lg:grid-cols-2">
         <AssetAllocationChart data={assetAllocation} />
         <AccountBalanceChart accounts={accountDetails} />
       </div>
       <div>
         <h2 className="text-2xl font-semibold mb-4">Accounts</h2>
-        <AccountsTable accounts={accounts} />
+        <AccountsTable
+          accounts={accountDetails}
+          onSelectAccount={setSelectedAccountId}
+        />
       </div>
+      <AccountDetailSheet
+        accountId={selectedAccountId}
+        onClose={() => setSelectedAccountId(null)}
+      />
     </div>
   );
 }

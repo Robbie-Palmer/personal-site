@@ -153,34 +153,23 @@ describe("AuthButton", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("shows the signed-in user and supports sign out", async () => {
+  it("opens an account menu linking to settings and supports sign out", async () => {
     const user = userEvent.setup();
     mocks.useSession.mockReturnValue({
       data: { user: { name: "Robbie", email: "robbie@example.com" } },
       isPending: false,
     });
-    mocks.listAccounts.mockResolvedValue({
-      data: [
-        {
-          providerId: "github",
-          accountId: "123456789",
-        },
-      ],
-      error: null,
-    });
     render(<AuthButton />);
 
-    expect(screen.getByText("Robbie")).toBeInTheDocument();
     await user.click(
       screen.getByRole("button", { name: "Account for Robbie" }),
     );
 
-    expect(await screen.findByText("Connected identities")).toBeInTheDocument();
-    expect(screen.getByText("GitHub")).toBeInTheDocument();
-    expect(
-      screen.getByText("Provider account ending 456789"),
-    ).toBeInTheDocument();
-    expect(mocks.listAccounts).toHaveBeenCalledOnce();
+    expect(screen.getByText("robbie@example.com")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /settings/i })).toHaveAttribute(
+      "href",
+      "/recipes/settings",
+    );
 
     await user.click(screen.getByRole("button", { name: "Sign out" }));
 

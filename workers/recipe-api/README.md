@@ -13,8 +13,8 @@ Access-protected test-user login. See the
 
 ## Local OAuth setup
 
-Copy `.dev.vars.example` to `.dev.vars` and fill in the credentials. The file is
-ignored by git. Start both the frontend and Worker from the repository root:
+Configure local credentials in Doppler config `dev_recipe_api`. Start both the
+frontend and Worker from the repository root:
 
 ```bash
 mise run //:dev
@@ -30,7 +30,8 @@ GitHub: http://localhost:3000/api/auth/callback/github
 
 Google permits both local and production redirect URIs on one OAuth client.
 GitHub OAuth apps permit only one callback URL, so use a separate development
-OAuth app and put its client ID and secret in `.dev.vars`.
+OAuth app and put its client ID and secret in Doppler as `GITHUB_CLIENT_ID` and
+`GITHUB_CLIENT_SECRET`.
 
 ## Production OAuth setup
 
@@ -42,16 +43,9 @@ Google: https://robbiepalmer.me/api/auth/callback/google
 GitHub: https://robbiepalmer.me/api/auth/callback/github
 ```
 
-Configure the production provider credentials and Better Auth secret as Worker
-secrets using the interactive command, once for each secret name:
-
-```bash
-pnpm --filter recipe-api exec wrangler secret put GOOGLE_CLIENT_ID
-pnpm --filter recipe-api exec wrangler secret put GOOGLE_CLIENT_SECRET
-pnpm --filter recipe-api exec wrangler secret put GITHUB_CLIENT_ID
-pnpm --filter recipe-api exec wrangler secret put GITHUB_CLIENT_SECRET
-pnpm --filter recipe-api exec wrangler secret put BETTER_AUTH_SECRET
-```
+Configure production provider credentials and Better Auth secret in Doppler.
+See the repo [secrets runbook](../../docs/secrets.md) for the GitHub-safe
+secret names mirrored into GitHub production environments.
 
 Do not use the direct `workers.dev` URL as a provider callback. The supported
 browser origins are the local frontend and the production site, where the
