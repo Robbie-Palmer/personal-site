@@ -15,17 +15,17 @@ export function RecipeNavTabs() {
   const onRecipes = !onShopping && !onSettings;
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-baseline gap-2 md:gap-4">
       <Link
         href="/recipes"
-        className="rt-tab text-lg"
+        className="rt-tab text-base lg:text-lg"
         data-active={onRecipes || undefined}
       >
         Recipes
       </Link>
       <Link
         href="/recipes/shopping"
-        className="rt-tab text-lg inline-flex items-center gap-1.5"
+        className="rt-tab text-base lg:text-lg inline-flex items-center gap-1.5"
         data-active={onShopping || undefined}
       >
         Shopping

@@ -107,13 +107,14 @@
 
 /* active nav tab — terracotta underline like the design */
 .recipe-theme .rt-tab {
-  border-bottom: 1.5px solid transparent;
-  padding-bottom: 2px;
+  text-underline-offset: 6px;
   color: var(--ink-2);
 }
 .recipe-theme .rt-tab[data-active="true"] {
   color: var(--ink);
-  border-color: var(--terracotta);
+  text-decoration: underline;
+  text-decoration-color: var(--terracotta);
+  text-decoration-thickness: 1.5px;
 }
 
 /* Pills (cuisine/time badges, active-filter chips, inline timers) use a paper-
