@@ -108,6 +108,7 @@
 /* active nav tab — terracotta underline like the design */
 .recipe-theme .rt-tab {
   border-bottom: 1.5px solid transparent;
+  padding-bottom: 2px;
   color: var(--ink-2);
 }
 .recipe-theme .rt-tab[data-active="true"] {
