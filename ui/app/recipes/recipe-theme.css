@@ -152,3 +152,30 @@
   color: var(--ink-2);
   font-weight: 600;
 }
+
+/* Toast notifications — styled as warm paper cards to match the recipe site. */
+.recipe-theme [data-sonner-toaster] {
+  font-family: var(--font-kalam), ui-sans-serif, system-ui, sans-serif;
+}
+.recipe-theme [data-sonner-toast] {
+  background: var(--card);
+  color: var(--ink);
+  border-color: var(--line-strong);
+  border-radius: 0.75rem;
+  box-shadow:
+    0 1px 2px rgba(31, 26, 20, 0.06),
+    0 8px 24px rgba(31, 26, 20, 0.08);
+}
+.recipe-theme [data-sonner-toast] [data-description] {
+  color: var(--ink-2);
+}
+.recipe-theme [data-sonner-toast] [data-button] {
+  background: var(--terracotta);
+  color: var(--paper);
+  border-radius: 0.5rem;
+}
+.recipe-theme [data-sonner-toast] [data-cancel] {
+  background: var(--paper-warm);
+  color: var(--ink-2);
+  border-radius: 0.5rem;
+}

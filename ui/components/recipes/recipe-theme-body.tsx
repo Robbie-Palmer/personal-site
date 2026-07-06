@@ -16,8 +16,13 @@ export function RecipeThemeBody({ classNames }: { classNames: string }) {
     const body = document.body;
     const added = classes.filter((c) => !body.classList.contains(c));
     body.classList.add(...added);
+
+    const html = document.documentElement;
+    html.dataset.sonnerTheme = "light";
+
     return () => {
       body.classList.remove(...added);
+      delete html.dataset.sonnerTheme;
     };
   }, [classNames]);
 
