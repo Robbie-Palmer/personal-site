@@ -422,7 +422,13 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
         )}
       </header>
 
-      <div className="mb-8 lg:grid lg:grid-cols-[1fr_280px] lg:gap-8 lg:items-start">
+      <div
+        className={
+          effectiveRecipe.cookware.length > 0
+            ? "mb-8 lg:grid lg:grid-cols-[1fr_280px] lg:gap-8 lg:items-start"
+            : "mb-8"
+        }
+      >
         <section className="mb-8 lg:mb-0">
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="rt-display text-4xl text-[var(--terracotta)]">
@@ -447,7 +453,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                     ? group.name
                       ? "border-t border-border/50 pt-4 mt-4"
                       : "mt-4"
-                    : ""
+                    : undefined
                 }
               >
                 <IngredientGroup
