@@ -86,7 +86,7 @@ function PickerCard({
         onClick={() => toggleRecipe(recipe.slug)}
         className="flex gap-3 p-3 text-left w-full cursor-pointer"
       >
-        {recipe.image ? (
+        {recipe.image && (
           // biome-ignore lint/performance/noImgElement: native img for SSG srcset control
           <img
             src={getImageUrl(recipe.image, null, {
@@ -99,8 +99,6 @@ function PickerCard({
             loading="lazy"
             className="h-16 w-16 rounded-lg object-cover flex-shrink-0 bg-muted"
           />
-        ) : (
-          <div className="h-16 w-16 rounded-lg flex-shrink-0 bg-[var(--paper-warm)]" />
         )}
         <span className="flex-1 min-w-0 block">
           <span className="flex items-start gap-2">
