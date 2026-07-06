@@ -422,51 +422,71 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
         )}
       </header>
 
-      <section className="mb-8">
-        <div className="flex items-baseline justify-between mb-4">
-          <h2 className="rt-display text-4xl text-[var(--terracotta)]">
-            Ingredients
-          </h2>
-          {checkedIngredients.size > 0 && (
-            <button
-              type="button"
-              onClick={() => setCheckedIngredients(new Set())}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Reset
-            </button>
-          )}
-        </div>
-        <div className="space-y-4">
-          {effectiveRecipe.ingredientGroups.map((group, i) => (
-            <IngredientGroup
-              key={group.name ?? i}
-              group={group}
-              scale={scale}
-              system={unitSystem}
-              annotations={ingredientAnnotations}
-              checked={checkedIngredients}
-              onToggle={toggleIngredient}
-            />
-          ))}
-        </div>
-      </section>
-
-      {effectiveRecipe.cookware.length > 0 && (
-        <section className="mb-8">
-          <h2 className="rt-display text-3xl text-[var(--terracotta)] mb-4">
-            Equipment
-          </h2>
-          <ul className="space-y-1">
-            {effectiveRecipe.cookware.map((item) => (
-              <li key={item} className="flex items-start gap-2">
-                <span className="text-muted-foreground mt-1.5 h-1.5 w-1.5 rounded-full bg-current flex-shrink-0" />
-                <span>{item}</span>
-              </li>
+      <div
+        className={
+          effectiveRecipe.cookware.length > 0
+            ? "mb-8 lg:grid lg:grid-cols-[1fr_280px] lg:gap-8 lg:items-start"
+            : "mb-8"
+        }
+      >
+        <section className="mb-8 lg:mb-0">
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="rt-display text-4xl text-[var(--terracotta)]">
+              Ingredients
+            </h2>
+            {checkedIngredients.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setCheckedIngredients(new Set())}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+          <div>
+            {effectiveRecipe.ingredientGroups.map((group, i) => (
+              <div
+                key={group.name ?? i}
+                className={
+                  i > 0
+                    ? group.name
+                      ? "border-t border-border/50 pt-4 mt-4"
+                      : "mt-4"
+                    : undefined
+                }
+              >
+                <IngredientGroup
+                  group={group}
+                  scale={scale}
+                  system={unitSystem}
+                  annotations={ingredientAnnotations}
+                  checked={checkedIngredients}
+                  onToggle={toggleIngredient}
+                />
+              </div>
             ))}
-          </ul>
+          </div>
         </section>
-      )}
+
+        {effectiveRecipe.cookware.length > 0 && (
+          <aside>
+            <section className="mb-8 lg:mb-0 lg:rounded-lg lg:border lg:border-border/50 lg:p-4">
+              <h2 className="rt-display text-3xl text-[var(--terracotta)] mb-4">
+                Equipment
+              </h2>
+              <ul className="space-y-1">
+                {effectiveRecipe.cookware.map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <span className="text-muted-foreground mt-1.5 h-1.5 w-1.5 rounded-full bg-current flex-shrink-0" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </aside>
+        )}
+      </div>
 
       <section>
         <h2 className="rt-display text-4xl text-[var(--terracotta)] mb-4">

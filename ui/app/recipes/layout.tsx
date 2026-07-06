@@ -62,10 +62,10 @@ export default function RecipesLayout({
       >
         <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--paper)]/95 backdrop-blur supports-[backdrop-filter]:bg-[var(--paper)]/75">
           {/* On desktop everything sits on one row (logo · tab · search · auth);
-              on mobile the search drops to a full-width second row so it isn't
-              squeezed against the logo. */}
-          <nav className="container mx-auto px-4 py-3 max-w-7xl flex flex-wrap items-center gap-x-6 gap-y-3">
-            <div className="order-1 flex items-center gap-4">
+              on mobile/tablet the search drops to a full-width second row so it
+              isn't squeezed against the logo. */}
+          <nav className="container mx-auto px-4 py-3 max-w-7xl flex flex-wrap items-center gap-x-2 sm:gap-x-4 lg:gap-x-6 gap-y-3">
+            <div className="order-1 flex items-baseline gap-2 sm:gap-4 md:gap-6">
               <Link
                 href="/recipes"
                 className="shrink-0 rt-display text-3xl leading-none text-foreground"
@@ -78,10 +78,10 @@ export default function RecipesLayout({
               </Link>
               <RecipeNavTabs />
             </div>
-            <div className="order-2 ms-auto md:order-3 md:ms-0">
+            <div className="order-2 ms-auto lg:order-3 lg:ms-0">
               <AuthButton />
             </div>
-            <div className="order-3 w-full md:order-2 md:w-64 md:ms-auto">
+            <div className="order-3 w-full lg:order-2 lg:w-64 lg:ms-auto">
               <RecipeSearch />
             </div>
           </nav>
