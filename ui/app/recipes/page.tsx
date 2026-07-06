@@ -19,10 +19,17 @@ export default function RecipesPage() {
   const recipeCount = recipes.length;
   const cuisineCount = new Set(recipes.flatMap((recipe) => recipe.cuisine))
     .size;
+  const ingredientCount = new Set(
+    recipes.flatMap((recipe) => recipe.ingredientNames),
+  ).size;
+  const cookwareCount = new Set(recipes.flatMap((recipe) => recipe.cookware))
+    .size;
   const stats = [
     `${recipeCount.toLocaleString()} ${recipeCount === 1 ? "recipe" : "recipes"}`,
     cuisineCount > 0 &&
       `${cuisineCount} ${cuisineCount === 1 ? "cuisine" : "cuisines"}`,
+    `${ingredientCount} ${ingredientCount === 1 ? "ingredient" : "ingredients"}`,
+    `${cookwareCount} ${cookwareCount === 1 ? "tool" : "tools"}`,
   ]
     .filter(Boolean)
     .join(" · ");
