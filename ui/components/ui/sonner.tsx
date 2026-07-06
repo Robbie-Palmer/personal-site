@@ -1,37 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 
-export function Toaster(props: ToasterProps) {
-  const [theme, setTheme] = useState<"light" | "dark">(() =>
-    typeof document !== "undefined" &&
-    document.documentElement.classList.contains("dark")
-      ? "dark"
-      : "light",
-  );
+const subscribe = (callback: () => void) => {
+  const observer = new MutationObserver(callback);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+  return () => observer.disconnect();
+};
 
-  useEffect(() => {
-    const updateTheme = () => {
-      setTheme(
-        document.documentElement.classList.contains("dark") ? "dark" : "light",
-      );
-    };
+const getSnapshot = (): "light" | "dark" =>
+  document.documentElement.classList.contains("dark") ? "dark" : "light";
 
-    updateTheme();
+const getServerSnapshot = (): "light" | "dark" => "dark";
 
-    const observer = new MutationObserver(updateTheme);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-
-    return () => observer.disconnect();
-  }, []);
+export function Toaster({ theme: propsTheme, ...props }: ToasterProps) {
+  const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   return (
     <Sonner
-      theme={theme}
+      theme={propsTheme ?? theme}
       className="toaster group"
       position="bottom-center"
       toastOptions={{
