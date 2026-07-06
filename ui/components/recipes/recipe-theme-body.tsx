@@ -10,6 +10,8 @@ import { useEffect } from "react";
  * surfaces inherit the warm tokens. Page content keeps its own wrapper class, so
  * there is no flash before this effect runs.
  */
+let sonnerThemeRefCount = 0;
+
 export function RecipeThemeBody({ classNames }: { classNames: string }) {
   useEffect(() => {
     const classes = classNames.split(" ").filter(Boolean);
@@ -18,11 +20,15 @@ export function RecipeThemeBody({ classNames }: { classNames: string }) {
     body.classList.add(...added);
 
     const html = document.documentElement;
+    sonnerThemeRefCount++;
     html.dataset.sonnerTheme = "light";
 
     return () => {
       body.classList.remove(...added);
-      delete html.dataset.sonnerTheme;
+      sonnerThemeRefCount--;
+      if (sonnerThemeRefCount <= 0) {
+        delete html.dataset.sonnerTheme;
+      }
     };
   }, [classNames]);
 

@@ -29,6 +29,8 @@ const classNames = {
   cancelButton: "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
 };
 
+const toastOptions = { classNames };
+
 export function Toaster({ theme: propsTheme, ...props }: ToasterProps) {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
@@ -37,7 +39,7 @@ export function Toaster({ theme: propsTheme, ...props }: ToasterProps) {
       theme={propsTheme ?? theme}
       className="toaster group"
       position="bottom-center"
-      toastOptions={{ classNames }}
+      toastOptions={toastOptions}
       {...props}
     />
   );
