@@ -37,7 +37,7 @@ export default function RecipesPage() {
       <JsonLdScript data={jsonLd} />
       <div className="mb-6 md:mb-8">
         <p className="rt-mono text-[var(--terracotta)]">Your recipe box</p>
-        <h1 className="rt-display text-5xl sm:text-6xl md:text-7xl mt-2">
+        <h1 className="rt-display text-5xl sm:text-6xl lg:text-7xl mt-2">
           What's <span className="text-[var(--terracotta)]">cooking?</span>
         </h1>
         <p className="rt-body mt-3 flex flex-wrap gap-x-2 gap-y-1 text-base leading-snug text-[var(--ink-2)] sm:text-lg">
