@@ -72,19 +72,19 @@ function FlowSankeyNodeShape({
 
 type SankeyTooltipItem = Partial<FlowSankeyLink & FlowSankeyNode> & {
   value?: number;
-  source?: { name?: string };
-  target?: { name?: string };
+  source?: Readonly<{ name?: string }>;
+  target?: Readonly<{ name?: string }>;
 };
 
 function SankeyTooltip({
   active,
   payload,
-}: {
+}: Readonly<{
   active?: boolean;
-  payload?: Array<{ payload?: SankeyTooltipItem }>;
-}) {
+  payload?: ReadonlyArray<Readonly<{ payload?: SankeyTooltipItem }>>;
+}>) {
   const item = payload?.[0]?.payload;
-  if (!active || !item || item.value == null) return null;
+  if (!active || item?.value == null) return null;
 
   const sourceName = item.sourceName ?? item.source?.name;
   const targetName = item.targetName ?? item.target?.name;
@@ -101,6 +101,14 @@ function SankeyTooltip({
       <p className="font-mono">{formatCurrency(item.value)}/mo</p>
     </div>
   );
+}
+
+function LabeledFlowSankeyNodeShape(props: SankeyNodeProps) {
+  return <FlowSankeyNodeShape {...props} showLabel />;
+}
+
+function CompactFlowSankeyNodeShape(props: SankeyNodeProps) {
+  return <FlowSankeyNodeShape {...props} showLabel={false} />;
 }
 
 export function FlowSankeyChart() {
@@ -127,6 +135,9 @@ export function FlowSankeyChart() {
   const chartMargin = isCompact
     ? { top: 8, right: 12, bottom: 8, left: 12 }
     : { top: 8, right: 140, bottom: 8, left: 120 };
+  const nodeRenderer = isCompact
+    ? CompactFlowSankeyNodeShape
+    : LabeledFlowSankeyNodeShape;
 
   return (
     <Card className="min-w-0">
@@ -151,9 +162,7 @@ export function FlowSankeyChart() {
                     data={data}
                     dataKey="value"
                     nameKey="name"
-                    node={(props) => (
-                      <FlowSankeyNodeShape {...props} showLabel={!isCompact} />
-                    )}
+                    node={nodeRenderer}
                     link={{
                       stroke: "hsl(220, 70%, 50%)",
                       strokeOpacity: 0.25,

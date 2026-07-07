@@ -170,7 +170,7 @@ describe("FlowSankeyChart", () => {
     vi.clearAllMocks();
   });
 
-  it("keeps direct account allocations in their natural Sankey layer", async () => {
+  it("passes left alignment to the Sankey layout", async () => {
     const today = todayIsoDate();
     mockAssetTracker({
       accountDetails: [
