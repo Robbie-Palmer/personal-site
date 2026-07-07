@@ -83,6 +83,7 @@ function nodeColor(id: string, index: number): string {
 }
 
 function monthlyExpectedChange(balance: number, annualRate: number): number {
+  if (annualRate <= -1 || !Number.isFinite(annualRate)) return 0;
   return balance * ((1 + annualRate) ** (1 / 12) - 1);
 }
 
@@ -232,6 +233,7 @@ function addSyntheticFlowLinks(
 }
 
 function roundCurrencyValue(value: number): number {
+  if (!Number.isFinite(value)) return 0;
   return Math.round(value * 100) / 100;
 }
 
@@ -262,8 +264,8 @@ export function buildFlowSankeyData(
 
   const builder: FlowSankeyBuilder = {
     addLink(sourceId, targetId, value, label) {
-      if (value <= 0) return;
       const roundedValue = roundCurrencyValue(value);
+      if (roundedValue <= 0) return;
 
       const source = addNode(sourceId);
       const target = addNode(targetId);
@@ -271,7 +273,9 @@ export function buildFlowSankeyData(
       const existing = linkTotals.get(key);
       if (existing) {
         existing.value = roundCurrencyValue(existing.value + roundedValue);
-        existing.label = `${existing.label}, ${label}`;
+        const labels = new Set(existing.label.split(", "));
+        labels.add(label);
+        existing.label = Array.from(labels).join(", ");
         return;
       }
 

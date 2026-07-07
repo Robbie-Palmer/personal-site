@@ -486,4 +486,135 @@ describe("buildFlowSankeyData", () => {
       },
     ]);
   });
+
+  it("skips invalid expected return calculations", () => {
+    const data = buildFlowSankeyData(
+      [
+        {
+          id: "asset",
+          name: "Invalid return asset",
+          provider: "Provider",
+          currency: "GBP",
+          assetType: "stocks",
+          expectedAnnualReturn: -1,
+          isOpen: true,
+          latestBalance: 10000,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+      ],
+      [],
+      {},
+    );
+
+    expect(data).toEqual({ nodes: [], links: [] });
+  });
+
+  it("does not create zero-value links after rounding", () => {
+    const data = buildFlowSankeyData(
+      [
+        {
+          id: "current",
+          name: "Current",
+          provider: "Bank",
+          currency: "GBP",
+          assetType: "cash",
+          expectedAnnualReturn: 0,
+          isOpen: true,
+          latestBalance: 1000,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+        {
+          id: "savings",
+          name: "Savings",
+          provider: "Bank",
+          currency: "GBP",
+          assetType: "cash",
+          expectedAnnualReturn: 0,
+          isOpen: true,
+          latestBalance: 1000,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+      ],
+      [
+        {
+          id: "dust",
+          name: "Dust",
+          fromAccountId: "current",
+          toAccountId: "savings",
+          amount: 0.004,
+          frequency: "monthly",
+          startDate: "2026-07-01",
+        },
+      ],
+      {},
+    );
+
+    expect(data).toEqual({ nodes: [], links: [] });
+  });
+
+  it("deduplicates labels when merging equivalent links", () => {
+    const data = buildFlowSankeyData(
+      [
+        {
+          id: "current",
+          name: "Current",
+          provider: "Bank",
+          currency: "GBP",
+          assetType: "cash",
+          expectedAnnualReturn: 0,
+          isOpen: true,
+          latestBalance: 1000,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+        {
+          id: "savings",
+          name: "Savings",
+          provider: "Bank",
+          currency: "GBP",
+          assetType: "cash",
+          expectedAnnualReturn: 0,
+          isOpen: true,
+          latestBalance: 1000,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+      ],
+      [
+        {
+          id: "first",
+          name: "Transfer",
+          fromAccountId: "current",
+          toAccountId: "savings",
+          amount: 10,
+          frequency: "monthly",
+          startDate: "2026-07-01",
+        },
+        {
+          id: "second",
+          name: "Transfer",
+          fromAccountId: "current",
+          toAccountId: "savings",
+          amount: 5,
+          frequency: "monthly",
+          startDate: "2026-07-01",
+        },
+      ],
+      {},
+    );
+
+    expect(data.links).toEqual([
+      {
+        source: 0,
+        target: 1,
+        value: 15,
+        label: "Transfer",
+        sourceName: "Current",
+        targetName: "Savings",
+      },
+    ]);
+  });
 });
