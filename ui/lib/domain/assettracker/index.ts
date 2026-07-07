@@ -8,5 +8,6 @@ export * from "./assetTrackerRepository";
 export * from "./assetTrackerViews";
 export * from "./balanceSnapshot";
 export * from "./constants";
+export * from "./flowSankeyData";
 export * from "./recurringFlow";
 export * from "./transfer";

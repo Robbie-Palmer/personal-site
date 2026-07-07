@@ -48,7 +48,7 @@ export function UpcomingFlows() {
   const overflow = occurrences.length - shown.length;
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Upcoming</CardTitle>
         <CardDescription>
@@ -56,20 +56,20 @@ export function UpcomingFlows() {
           an account's flows to turn them into real transfers as they land.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-4 sm:px-6">
         {shown.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No expected flows in the next {UPCOMING_DAYS} days — add regular
             income or contributions from an account's detail view.
           </p>
         ) : (
-          <ul className="divide-y rounded-lg border">
+          <ul className="min-w-0 divide-y rounded-lg border">
             {shown.map((occurrence) => (
               <li
                 key={`${occurrence.flow.id}-${occurrence.date}`}
-                className="flex items-center gap-2 px-3 py-2 text-sm"
+                className="grid min-w-0 grid-cols-[auto_1fr] gap-x-2 gap-y-1 px-3 py-2 text-sm sm:flex sm:items-center"
               >
-                <span className="w-24 shrink-0 text-muted-foreground">
+                <span className="shrink-0 text-muted-foreground sm:w-24">
                   {occurrence.date}
                 </span>
                 <div className="min-w-0">
@@ -79,7 +79,7 @@ export function UpcomingFlows() {
                     {accountName(occurrence.flow.toAccountId)}
                   </p>
                 </div>
-                <span className="ml-auto shrink-0 font-mono">
+                <span className="col-span-2 font-mono sm:col-span-1 sm:ml-auto sm:shrink-0">
                   {formatCurrency(Math.round(occurrence.amount * 100) / 100)}
                 </span>
               </li>

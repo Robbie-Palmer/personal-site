@@ -14,6 +14,7 @@ import { AddAccountDrawer } from "./add-account-drawer";
 import { AssetAllocationChart } from "./asset-allocation-chart";
 import { useAssetTracker } from "./asset-tracker-provider";
 import { DataControls } from "./data-controls";
+import { FlowSankeyChart } from "./flow-sankey-chart";
 import { LogBalanceDrawer } from "./log-balance-drawer";
 import { NetWorthChart } from "./net-worth-chart";
 import { PortfolioGoal } from "./portfolio-goal";
@@ -87,6 +88,7 @@ export function AssetTrackerDashboard() {
         <PortfolioGoal />
         <UpcomingFlows />
       </div>
+      <FlowSankeyChart />
       <div className="grid gap-8 lg:grid-cols-2">
         <AssetAllocationChart data={assetAllocation} />
         <AccountBalanceChart accounts={accountDetails} />

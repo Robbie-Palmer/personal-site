@@ -47,6 +47,18 @@ override.tf.json
 *_override.tf.json
 .terraform.lock.hcl
 
+# Python
+__pycache__/
+*.py[codz]
+*$py.class
+.Python
+build/
+dist/
+*.egg-info/
+.venv
+.ruff_cache/
+.mypy_cache/
+
 # mise
 .mise.local.toml
 

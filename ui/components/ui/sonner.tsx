@@ -1,27 +1,45 @@
 "use client";
 
-import { useTheme } from "next-themes";
+import { useSyncExternalStore } from "react";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 
-export function Toaster(props: ToasterProps) {
-  const { theme = "dark" } = useTheme();
+const subscribe = (callback: () => void) => {
+  const observer = new MutationObserver(callback);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class", "data-sonner-theme"],
+  });
+  return () => observer.disconnect();
+};
+
+const getSnapshot = (): "light" | "dark" => {
+  const override = document.documentElement.dataset.sonnerTheme;
+  if (override === "light" || override === "dark") return override;
+  return document.documentElement.classList.contains("dark") ? "dark" : "light";
+};
+
+const getServerSnapshot = (): "light" | "dark" => "dark";
+
+const classNames = {
+  toast:
+    "group toast group-[.toaster]:bg-popover group-[.toaster]:text-popover-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
+  description: "group-[.toast]:text-muted-foreground",
+  actionButton:
+    "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
+  cancelButton: "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
+};
+
+const toastOptions = { classNames };
+
+export function Toaster({ theme: propsTheme, ...props }: ToasterProps) {
+  const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={propsTheme ?? theme}
       className="toaster group"
       position="bottom-center"
-      toastOptions={{
-        classNames: {
-          toast:
-            "group toast group-[.toaster]:bg-popover group-[.toaster]:text-popover-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
-          description: "group-[.toast]:text-muted-foreground",
-          actionButton:
-            "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
-          cancelButton:
-            "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
-        },
-      }}
+      toastOptions={toastOptions}
       {...props}
     />
   );
