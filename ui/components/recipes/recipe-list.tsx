@@ -76,7 +76,7 @@ const RECIPE_FILTER_PARAMS = [
 const URL_SYNC_DEBOUNCE_MS = 300;
 
 const RECIPE_SEARCH_CONFIG: SearchConfig<RecipeCardView> = {
-  placeholder: "Search by recipe, ingredient, cuisine...",
+  placeholder: "Search recipes...",
   ariaLabel: "Search recipes",
   keys: [
     { name: "title", weight: 3 },

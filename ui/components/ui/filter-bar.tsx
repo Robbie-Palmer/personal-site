@@ -100,7 +100,7 @@ export function FilterBar({
       <Search
         className={cn(
           "absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground",
-          searchVariant === "prominent" && "left-4 h-5 w-5",
+          searchVariant === "prominent" && "md:left-4 md:h-5 md:w-5",
         )}
       />
       <Input
@@ -111,7 +111,7 @@ export function FilterBar({
         className={cn(
           "pl-9 pr-9",
           searchVariant === "prominent" &&
-            "h-12 rounded-full border-[1.5px] border-foreground/80 bg-card pl-12 pr-12 text-base shadow-[var(--paper-shadow)] focus-visible:border-[var(--terracotta)] md:text-base",
+            "h-10 rounded-xl border-[1.25px] border-foreground/60 bg-card text-base focus-visible:border-[var(--terracotta)] md:h-12 md:rounded-full md:border-[1.5px] md:border-foreground/80 md:pl-12 md:pr-12 md:shadow-[var(--paper-shadow)] md:text-base",
         )}
         aria-label={searchAriaLabel ?? searchPlaceholder}
       />

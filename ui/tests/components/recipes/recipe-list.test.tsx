@@ -121,7 +121,7 @@ describe("RecipeList", () => {
     render(<RecipeList recipes={recipes} />);
 
     await user.type(
-      screen.getByPlaceholderText("Search by recipe, ingredient, cuisine..."),
+      screen.getByPlaceholderText("Search recipes..."),
       "risotto",
     );
 
@@ -141,9 +141,9 @@ describe("RecipeList", () => {
 
     render(<RecipeList recipes={recipes} />);
 
-    expect(
-      screen.getByPlaceholderText("Search by recipe, ingredient, cuisine..."),
-    ).toHaveValue("risotto");
+    expect(screen.getByPlaceholderText("Search recipes...")).toHaveValue(
+      "risotto",
+    );
     expect(
       screen.getByText('Showing 1 of 3 recipes matching "risotto"'),
     ).toBeInTheDocument();
