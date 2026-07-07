@@ -123,6 +123,27 @@ function monthlyIncoming(
   }, 0);
 }
 
+function monthlyOutgoing(
+  flowAccountId: string,
+  flows: RecurringFlow[],
+): number {
+  return flows.reduce((total, flow) => {
+    if (flow.fromAccountId !== flowAccountId) return total;
+    return total + monthlyAmount(flow);
+  }, 0);
+}
+
+function monthlyNetFlow(
+  accountId: string,
+  flows: RecurringFlow[],
+  liabilityBalances: Record<string, number>,
+): number {
+  return (
+    monthlyIncoming(accountId, flows, liabilityBalances) -
+    monthlyOutgoing(accountId, flows)
+  );
+}
+
 function addLinkedLiabilityPrincipalFlow(
   account: FlowSankeyAccount,
   interestCharged: number,
@@ -132,8 +153,10 @@ function addLinkedLiabilityPrincipalFlow(
 ) {
   if (account.linkedAccountId == null) return;
 
-  const principal =
-    monthlyIncoming(account.id, flows, liabilityBalances) - interestCharged;
+  const principal = Math.max(
+    0,
+    monthlyNetFlow(account.id, flows, liabilityBalances) - interestCharged,
+  );
   if (principal < MIN_SYNTHETIC_FLOW) return;
 
   builder.addLink(
@@ -240,13 +263,14 @@ export function buildFlowSankeyData(
   const builder: FlowSankeyBuilder = {
     addLink(sourceId, targetId, value, label) {
       if (value <= 0) return;
+      const roundedValue = roundCurrencyValue(value);
 
       const source = addNode(sourceId);
       const target = addNode(targetId);
       const key = `${source}->${target}`;
       const existing = linkTotals.get(key);
       if (existing) {
-        existing.value += value;
+        existing.value = roundCurrencyValue(existing.value + roundedValue);
         existing.label = `${existing.label}, ${label}`;
         return;
       }
@@ -254,7 +278,7 @@ export function buildFlowSankeyData(
       linkTotals.set(key, {
         source,
         target,
-        value,
+        value: roundedValue,
         label,
         sourceName: nodes[source]?.name ?? sourceId,
         targetName: nodes[target]?.name ?? targetId,

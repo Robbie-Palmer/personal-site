@@ -40,7 +40,9 @@ function FlowSankeyNodeShape({
   showLabel: boolean;
 }): ReactElement<SVGProps<SVGGElement>> {
   const node = payload as unknown as FlowSankeyNode & { value?: number };
-  const depth = "depth" in payload ? Number(payload.depth) : 0;
+  const rawDepth = "depth" in payload ? payload.depth : 0;
+  const depth =
+    typeof rawDepth === "number" && Number.isFinite(rawDepth) ? rawDepth : 0;
   const labelOnLeft = depth === 0;
   const labelX = labelOnLeft ? x - 8 : x + width + 8;
   return (
