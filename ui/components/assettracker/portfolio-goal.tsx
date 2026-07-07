@@ -120,7 +120,7 @@ export function PortfolioGoal() {
   }
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Net Worth Goal</CardTitle>
         <CardDescription>
@@ -128,14 +128,14 @@ export function PortfolioGoal() {
           deposit, or your FI number.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex min-w-0 flex-col gap-3 px-4 sm:px-6">
         {netWorthTarget != null && goal ? (
           <>
-            <div className="flex items-baseline justify-between gap-2">
+            <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
               <p className="text-2xl font-bold">
                 {formatCurrency(currentNetWorth)}
               </p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground sm:text-right">
                 of {formatCurrency(netWorthTarget)} {moneyLabel} (
                 {Math.round(goal.progress * 100)}%)
               </p>
@@ -164,7 +164,7 @@ export function PortfolioGoal() {
           </>
         ) : (
           <form onSubmit={handleSetTarget} className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <label htmlFor="net-worth-target" className="sr-only">
                 Target net worth
               </label>
@@ -173,14 +173,18 @@ export function PortfolioGoal() {
                 type="number"
                 inputMode="decimal"
                 min="1"
-                step="1000"
+                step="any"
                 required
                 placeholder="e.g. 500000"
-                className="max-w-44"
+                className="w-full sm:max-w-44"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
               />
-              <Button type="submit" variant="outline">
+              <Button
+                type="submit"
+                variant="outline"
+                className="w-full sm:w-auto"
+              >
                 Set goal
               </Button>
             </div>
