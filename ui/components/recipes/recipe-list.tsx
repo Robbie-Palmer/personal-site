@@ -9,7 +9,7 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   memo,
   type ReactNode,
@@ -17,6 +17,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -31,7 +32,6 @@ import {
   type MultiFilterConfig,
   type SearchConfig,
 } from "@/components/ui/filterable-card-grid";
-import { useRecipeSearch } from "@/contexts/recipe-search-context";
 import { useFilterParams } from "@/hooks/use-filter-params";
 import type { RecipeCardView } from "@/lib/api/recipes";
 import { formatDate } from "@/lib/generic/date";
@@ -52,7 +52,7 @@ function getTimeRangeLabel(minutes: number): string {
     if (aboveMin && belowMax) return range.label;
   }
   // Fallback to last range (should never reach here given the ranges cover all values)
-  return TIME_RANGES[TIME_RANGES.length - 1]!.label;
+  return "Over 60 min";
 }
 
 function formatTime(minutes: number): string {
@@ -73,8 +73,10 @@ const RECIPE_FILTER_PARAMS = [
   { paramName: "totalTime", isMulti: true },
 ];
 
+const URL_SYNC_DEBOUNCE_MS = 300;
+
 const RECIPE_SEARCH_CONFIG: SearchConfig<RecipeCardView> = {
-  placeholder: "Search recipes...",
+  placeholder: "Search by recipe, ingredient, cuisine...",
   ariaLabel: "Search recipes",
   keys: [
     { name: "title", weight: 3 },
@@ -298,6 +300,7 @@ interface RecipeListProps {
 
 export function RecipeList({ recipes }: RecipeListProps) {
   const filterParams = useFilterParams({ filters: RECIPE_FILTER_PARAMS });
+  const router = useRouter();
 
   // Derive the selected values from the raw query strings so their array
   // identities stay stable while a given filter is unchanged — this lets the
@@ -306,6 +309,8 @@ export function RecipeList({ recipes }: RecipeListProps) {
   const cuisineKey = searchParams.get("cuisine") ?? "";
   const prepKey = searchParams.get("prepTime") ?? "";
   const totalKey = searchParams.get("totalTime") ?? "";
+  const searchParamQuery = searchParams.get("q") ?? "";
+  const [searchQuery, setSearchQuery] = useState(searchParamQuery);
   const selectedCuisines = useMemo(
     () => (cuisineKey ? cuisineKey.split(",").filter(Boolean) : []),
     [cuisineKey],
@@ -365,9 +370,24 @@ export function RecipeList({ recipes }: RecipeListProps) {
     [],
   );
 
-  // Search is hosted in the nav (see RecipeSearch) and shared in memory so live
-  // filtering stays instant.
-  const { query: searchQuery, setQuery: setSearchQuery } = useRecipeSearch();
+  useEffect(() => {
+    setSearchQuery(searchParamQuery);
+  }, [searchParamQuery]);
+
+  useEffect(() => {
+    if (searchParamQuery === searchQuery) return;
+    const id = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (searchQuery) {
+        params.set("q", searchQuery);
+      } else {
+        params.delete("q");
+      }
+      const qs = params.toString();
+      router.replace(qs ? `/recipes?${qs}` : "/recipes", { scroll: false });
+    }, URL_SYNC_DEBOUNCE_MS);
+    return () => clearTimeout(id);
+  }, [searchParamQuery, searchQuery, searchParams, router]);
 
   return (
     <FilterableCardGrid
@@ -375,7 +395,7 @@ export function RecipeList({ recipes }: RecipeListProps) {
       getItemKey={(recipe) => recipe.slug}
       searchValue={searchQuery}
       onSearchChange={setSearchQuery}
-      hideInlineSearch
+      searchVariant="prominent"
       searchConfig={RECIPE_SEARCH_CONFIG}
       filterConfigs={RECIPE_FILTER_CONFIGS}
       sortConfig={RECIPE_SORT_CONFIG}

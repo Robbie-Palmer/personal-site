@@ -80,6 +80,7 @@ interface FilterableCardGridProps<T> {
   searchValue?: string;
   onSearchChange?: (value: string) => void;
   hideInlineSearch?: boolean;
+  searchVariant?: "default" | "prominent";
 }
 
 export function FilterableCardGrid<T>({
@@ -96,6 +97,7 @@ export function FilterableCardGrid<T>({
   searchValue,
   onSearchChange,
   hideInlineSearch = false,
+  searchVariant = "default",
 }: FilterableCardGridProps<T>) {
   const { currentSort, cycleSortOrder } = useSortParam<SortOption>(
     SORT_OPTIONS,
@@ -382,6 +384,8 @@ export function FilterableCardGrid<T>({
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder={searchConfig.placeholder}
+        searchAriaLabel={searchConfig.ariaLabel}
+        searchVariant={searchVariant}
         activeFilters={activeFilters}
         onRemoveFilter={handleRemoveFilter}
         onClearAll={clearAllFilters}

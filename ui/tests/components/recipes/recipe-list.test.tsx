@@ -85,8 +85,9 @@ describe("RecipeList", () => {
     const equipmentLabel = screen.getByText("Equipment:");
     const equipmentFilter = equipmentLabel.closest('[role="combobox"]');
     expect(equipmentFilter).not.toBeNull();
+    if (!equipmentFilter) throw new Error("Equipment filter not found");
 
-    await user.click(equipmentFilter!);
+    await user.click(equipmentFilter);
 
     expect(screen.getByRole("button", { name: "fork" })).toBeInTheDocument();
     expect(
@@ -111,6 +112,46 @@ describe("RecipeList", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "Creamy Pesto Risotto" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("filters recipes from the inline search field", async () => {
+    const user = userEvent.setup();
+
+    render(<RecipeList recipes={recipes} />);
+
+    await user.type(
+      screen.getByPlaceholderText("Search by recipe, ingredient, cuisine..."),
+      "risotto",
+    );
+
+    expect(
+      screen.getByText('Showing 1 of 3 recipes matching "risotto"'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Creamy Pesto Risotto" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Slow Cooker Mexican Chicken" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hydrates recipe search from the q query param", () => {
+    currentSearchParams = new URLSearchParams("q=risotto");
+
+    render(<RecipeList recipes={recipes} />);
+
+    expect(
+      screen.getByPlaceholderText("Search by recipe, ingredient, cuisine..."),
+    ).toHaveValue("risotto");
+    expect(
+      screen.getByText('Showing 1 of 3 recipes matching "risotto"'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Creamy Pesto Risotto" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Slow Cooker Mexican Chicken" }),
     ).not.toBeInTheDocument();
   });
 });

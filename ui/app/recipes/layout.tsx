@@ -1,14 +1,10 @@
 import type { Metadata } from "next";
 import { Caveat, JetBrains_Mono, Kalam } from "next/font/google";
 import Link from "next/link";
-import { Suspense } from "react";
 import { AuthButton } from "@/components/recipes/auth-button";
 import { RecipeNavTabs } from "@/components/recipes/recipe-nav-tabs";
-import { RecipeSearch } from "@/components/recipes/recipe-search";
-import { RecipeSearchUrlSync } from "@/components/recipes/recipe-search-url-sync";
 import { RecipeThemeBody } from "@/components/recipes/recipe-theme-body";
 import { TimerDock } from "@/components/recipes/timer-dock";
-import { RecipeSearchProvider } from "@/contexts/recipe-search-context";
 import { siteConfig } from "@/lib/config/site-config";
 import "./recipe-theme.css";
 
@@ -50,39 +46,27 @@ export default function RecipesLayout({
   const fontVars = `${caveat.variable} ${kalam.variable} ${jetBrainsMono.variable}`;
 
   return (
-    <RecipeSearchProvider>
+    <>
       {/* Mirror the theme + fonts onto <body> so portaled UI (mobile filter
           drawer, popovers) inherits the warm palette instead of the dark base. */}
       <RecipeThemeBody classNames={`recipe-theme ${fontVars}`} />
-      <Suspense fallback={null}>
-        <RecipeSearchUrlSync />
-      </Suspense>
       <div
         className={`recipe-theme recipe-surface ${fontVars} antialiased flex flex-col min-h-screen`}
       >
         <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--paper)]/95 backdrop-blur supports-[backdrop-filter]:bg-[var(--paper)]/75">
-          {/* On desktop everything sits on one row (logo · tab · search · auth);
-              on mobile the search drops to a full-width second row so it isn't
-              squeezed against the logo. */}
-          <nav className="container mx-auto px-4 py-3 max-w-7xl flex flex-wrap items-center gap-x-6 gap-y-3">
-            <div className="order-1 flex items-center gap-4">
-              <Link
-                href="/recipes"
-                className="shrink-0 rt-display text-3xl leading-none text-foreground"
-              >
-                {/* Stack onto two lines on mobile so the logo doesn't eat half
-                    the row and crowd out the tabs + auth button; one line from
-                    sm up where there's room. */}
-                <span className="block sm:inline">Robbie's</span>{" "}
-                <span className="rt-logo-accent">recipes</span>
-              </Link>
+          <nav className="container mx-auto px-4 py-3 max-w-7xl flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Link
+              href="/recipes"
+              className="order-1 shrink-0 rt-display text-3xl leading-none text-foreground"
+            >
+              <span>Robbie's</span>{" "}
+              <span className="rt-logo-accent">recipes</span>
+            </Link>
+            <div className="order-3 w-full sm:order-2 sm:w-auto">
               <RecipeNavTabs />
             </div>
-            <div className="order-2 ms-auto md:order-3 md:ms-0">
+            <div className="order-2 ms-auto sm:order-3">
               <AuthButton />
-            </div>
-            <div className="order-3 w-full md:order-2 md:w-64 md:ms-auto">
-              <RecipeSearch />
             </div>
           </nav>
         </header>
@@ -104,6 +88,6 @@ export default function RecipesLayout({
           above the cook-mode overlay (which portals to <body>). Theme tokens
           come from the classes RecipeThemeBody mirrors onto <body>. */}
       <TimerDock />
-    </RecipeSearchProvider>
+    </>
   );
 }

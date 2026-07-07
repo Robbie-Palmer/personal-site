@@ -56,6 +56,8 @@ interface FilterBarProps {
   searchValue?: string;
   onSearchChange?: (value: string) => void;
   searchPlaceholder?: string;
+  searchAriaLabel?: string;
+  searchVariant?: "default" | "prominent";
   activeFilters?: ActiveFilter[];
   onRemoveFilter?: (paramName: string, value: string) => void;
   onClearAll?: () => void;
@@ -73,6 +75,8 @@ export function FilterBar({
   searchValue = "",
   onSearchChange,
   searchPlaceholder = "Search...",
+  searchAriaLabel,
+  searchVariant = "default",
   activeFilters = [],
   onRemoveFilter,
   onClearAll,
@@ -85,153 +89,181 @@ export function FilterBar({
   mobileExtraContent,
 }: FilterBarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const searchControl = showSearch && onSearchChange && (
+    <div
+      className={cn(
+        "relative flex-1 min-w-[120px] md:min-w-[200px] max-w-md",
+        searchVariant === "prominent" &&
+          "w-full max-w-none basis-full md:basis-auto",
+      )}
+    >
+      <Search
+        className={cn(
+          "absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground",
+          searchVariant === "prominent" && "left-4 h-5 w-5",
+        )}
+      />
+      <Input
+        type="search"
+        placeholder={searchPlaceholder}
+        value={searchValue}
+        onChange={(e) => onSearchChange(e.target.value)}
+        className={cn(
+          "pl-9 pr-9",
+          searchVariant === "prominent" &&
+            "h-12 rounded-full border-[1.5px] border-foreground/80 bg-card pl-12 pr-12 text-base shadow-[var(--paper-shadow)] focus-visible:border-[var(--terracotta)] md:text-base",
+        )}
+        aria-label={searchAriaLabel ?? searchPlaceholder}
+      />
+      {searchValue && (
+        <button
+          type="button"
+          onClick={() => onSearchChange("")}
+          className={cn(
+            "absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground",
+            searchVariant === "prominent" && "right-4",
+          )}
+          aria-label="Clear search"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+  const desktopFilters = (
+    <div
+      className={cn(
+        "hidden md:flex items-center gap-2 flex-wrap",
+        searchVariant === "prominent" && "flex-1",
+      )}
+    >
+      {children}
+    </div>
+  );
+  const mobileFilterButton = (
+    <Drawer open={mobileOpen} onOpenChange={setMobileOpen}>
+      <DrawerTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="md:hidden flex items-center gap-2"
+        >
+          <Filter className="h-4 w-4" />
+          <span>Filters</span>
+          {activeFilterCount > 0 && (
+            <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+              {activeFilterCount}
+            </span>
+          )}
+        </Button>
+      </DrawerTrigger>
+      <DrawerContent className="max-h-[70vh] pb-8">
+        <DrawerHeader className="pb-2">
+          <DrawerTitle className="flex items-center justify-between">
+            <span>Filters</span>
+            {hasActiveFilters && onClearAll && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  onClearAll();
+                  setMobileOpen(false);
+                }}
+              >
+                Clear all
+              </Button>
+            )}
+          </DrawerTitle>
+        </DrawerHeader>
+
+        {/* Mobile filter sections - inline tappable chips */}
+        {mobileFilterSections?.length ? (
+          <div className="overflow-y-auto max-h-[calc(70vh-100px)] px-1">
+            <div className="space-y-4">
+              {mobileExtraContent && (
+                <div className="mb-4 pb-4 border-b">
+                  <h4 className="text-sm font-medium mb-2 px-1">Date Range</h4>
+                  {mobileExtraContent}
+                </div>
+              )}
+              {mobileFilterSections.map((section) => (
+                <div key={section.paramName}>
+                  <h4 className="text-sm font-medium mb-2 px-1">
+                    {section.label}
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {section.options.map((option) => {
+                      const state = section.getOptionState(option.value);
+                      const isIncluded = state === "include";
+                      const isExcluded = state === "exclude";
+                      return (
+                        <Badge
+                          key={option.value}
+                          variant={chipVariantForState(state)}
+                          interactive
+                          active={isIncluded || isExcluded}
+                          aria-label={filterStateAriaLabel(option.label, state)}
+                          className={cn(
+                            "cursor-pointer gap-1.5 py-1.5 px-3",
+                            isExcluded && "line-through",
+                          )}
+                          onClick={() => section.onCycleOption(option.value)}
+                        >
+                          {option.icon}
+                          <span>{option.label}</span>
+                          {isIncluded && <Check className="size-3 ml-0.5" />}
+                          {isExcluded && <Minus className="size-3 ml-0.5" />}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          /* Fallback to children if no mobile sections provided */
+          <div className="flex flex-col gap-3 py-4">{children}</div>
+        )}
+      </DrawerContent>
+    </Drawer>
+  );
+  const toolbarControls = (
+    <>
+      {desktopFilters}
+      {mobileFilterButton}
+      {sortButton}
+
+      {hasActiveFilters && onClearAll && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClearAll}
+          className="hidden md:flex items-center gap-1 text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-3 w-3" />
+          Clear filters
+        </Button>
+      )}
+    </>
+  );
 
   return (
     <div className={cn("space-y-3", className)}>
       {/* Main filter bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        {showSearch && onSearchChange && (
-          <div className="relative flex-1 min-w-[120px] md:min-w-[200px] max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder={searchPlaceholder}
-              value={searchValue}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="pl-9 pr-9"
-              aria-label={searchPlaceholder}
-            />
-            {searchValue && (
-              <button
-                type="button"
-                onClick={() => onSearchChange("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label="Clear search"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+      {searchVariant === "prominent" ? (
+        <div className="space-y-3">
+          {searchControl}
+          <div className="flex flex-wrap items-center gap-3">
+            {toolbarControls}
           </div>
-        )}
-
-        {/* Desktop filters */}
-        <div className="hidden md:flex items-center gap-2 flex-wrap">
-          {children}
         </div>
-
-        {/* Mobile filter trigger */}
-        <Drawer open={mobileOpen} onOpenChange={setMobileOpen}>
-          <DrawerTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="md:hidden flex items-center gap-2"
-            >
-              <Filter className="h-4 w-4" />
-              <span>Filters</span>
-              {activeFilterCount > 0 && (
-                <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
-                  {activeFilterCount}
-                </span>
-              )}
-            </Button>
-          </DrawerTrigger>
-          <DrawerContent className="max-h-[70vh] pb-8">
-            <DrawerHeader className="pb-2">
-              <DrawerTitle className="flex items-center justify-between">
-                <span>Filters</span>
-                {hasActiveFilters && onClearAll && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      onClearAll();
-                      setMobileOpen(false);
-                    }}
-                  >
-                    Clear all
-                  </Button>
-                )}
-              </DrawerTitle>
-            </DrawerHeader>
-
-            {/* Mobile filter sections - inline tappable chips */}
-            {mobileFilterSections?.length ? (
-              <div className="overflow-y-auto max-h-[calc(70vh-100px)] px-1">
-                <div className="space-y-4">
-                  {mobileExtraContent && (
-                    <div className="mb-4 pb-4 border-b">
-                      <h4 className="text-sm font-medium mb-2 px-1">
-                        Date Range
-                      </h4>
-                      {mobileExtraContent}
-                    </div>
-                  )}
-                  {mobileFilterSections.map((section) => (
-                    <div key={section.paramName}>
-                      <h4 className="text-sm font-medium mb-2 px-1">
-                        {section.label}
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {section.options.map((option) => {
-                          const state = section.getOptionState(option.value);
-                          const isIncluded = state === "include";
-                          const isExcluded = state === "exclude";
-                          return (
-                            <Badge
-                              key={option.value}
-                              variant={chipVariantForState(state)}
-                              interactive
-                              active={isIncluded || isExcluded}
-                              aria-label={filterStateAriaLabel(
-                                option.label,
-                                state,
-                              )}
-                              className={cn(
-                                "cursor-pointer gap-1.5 py-1.5 px-3",
-                                isExcluded && "line-through",
-                              )}
-                              onClick={() =>
-                                section.onCycleOption(option.value)
-                              }
-                            >
-                              {option.icon}
-                              <span>{option.label}</span>
-                              {isIncluded && (
-                                <Check className="size-3 ml-0.5" />
-                              )}
-                              {isExcluded && (
-                                <Minus className="size-3 ml-0.5" />
-                              )}
-                            </Badge>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              /* Fallback to children if no mobile sections provided */
-              <div className="flex flex-col gap-3 py-4">{children}</div>
-            )}
-          </DrawerContent>
-        </Drawer>
-
-        {sortButton}
-
-        {hasActiveFilters && onClearAll && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClearAll}
-            className="hidden md:flex items-center gap-1 text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-3 w-3" />
-            Clear filters
-          </Button>
-        )}
-      </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          {searchControl}
+          {toolbarControls}
+        </div>
+      )}
 
       {activeFilters.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
