@@ -1,15 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAssetTracker } from "@/components/assettracker/asset-tracker-provider";
-import {
-  buildFlowSankeyData,
-  FlowSankeyChart,
-} from "@/components/assettracker/flow-sankey-chart";
+import { FlowSankeyChart } from "@/components/assettracker/flow-sankey-chart";
 import { PortfolioGoal } from "@/components/assettracker/portfolio-goal";
 import { UpcomingFlows } from "@/components/assettracker/upcoming-flows";
-import { todayIsoDate } from "@/lib/domain/assettracker";
+import { buildFlowSankeyData, todayIsoDate } from "@/lib/domain/assettracker";
 
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: { children: ReactNode }) => (
@@ -26,6 +23,7 @@ vi.mock("@/components/assettracker/asset-tracker-provider", () => ({
 }));
 
 const mockUseAssetTracker = vi.mocked(useAssetTracker);
+const FIXED_NOW = new Date("2026-07-03T12:00:00+01:00");
 
 function mockAssetTracker(
   overrides: Partial<ReturnType<typeof useAssetTracker>> = {},
@@ -60,6 +58,10 @@ function mockAssetTracker(
     ...overrides,
   } as ReturnType<typeof useAssetTracker>);
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("PortfolioGoal", () => {
   beforeEach(() => {
@@ -105,6 +107,9 @@ describe("UpcomingFlows", () => {
   });
 
   it("keeps upcoming rows narrow-first on mobile", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FIXED_NOW);
+
     const today = todayIsoDate();
     mockAssetTracker({
       accounts: [
@@ -165,7 +170,7 @@ describe("FlowSankeyChart", () => {
     vi.clearAllMocks();
   });
 
-  it("keeps direct account allocations in their natural Sankey layer", () => {
+  it("keeps direct account allocations in their natural Sankey layer", async () => {
     const today = todayIsoDate();
     mockAssetTracker({
       accountDetails: [
@@ -213,7 +218,7 @@ describe("FlowSankeyChart", () => {
 
     render(<FlowSankeyChart />);
 
-    expect(screen.getByTestId("flow-sankey")).toHaveAttribute(
+    expect(await screen.findByTestId("flow-sankey")).toHaveAttribute(
       "data-align",
       "left",
     );
@@ -442,6 +447,42 @@ describe("buildFlowSankeyData", () => {
         label: "Principal repayment",
         sourceName: "Home Mortgage",
         targetName: "Home",
+      },
+    ]);
+  });
+
+  it("shows expected losses for depreciating assets", () => {
+    const data = buildFlowSankeyData(
+      [
+        {
+          id: "car",
+          name: "Car",
+          provider: "Owned",
+          currency: "GBP",
+          assetType: "property",
+          expectedAnnualReturn: -0.12,
+          isOpen: true,
+          latestBalance: 10000,
+          latestSnapshotDate: "2026-07-03",
+          cagr: null,
+        },
+      ],
+      [],
+      {},
+    );
+
+    expect(data.nodes.map((node) => node.name)).toEqual([
+      "Car",
+      "Expected losses",
+    ]);
+    expect(data.links).toEqual([
+      {
+        source: 0,
+        target: 1,
+        value: 105.96,
+        label: "Expected loss",
+        sourceName: "Car",
+        targetName: "Expected losses",
       },
     ]);
   });

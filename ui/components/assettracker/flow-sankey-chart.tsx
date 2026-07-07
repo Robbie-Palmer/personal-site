@@ -1,6 +1,12 @@
 "use client";
 
-import { type ReactElement, type SVGProps, useMemo } from "react";
+import {
+  type ReactElement,
+  type SVGProps,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useMediaQuery } from "react-responsive";
 import {
   ResponsiveContainer,
@@ -16,204 +22,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  ACCOUNT_COLORS,
-  type AccountSummaryView,
-  type ExpectedReturnChange,
-  effectiveExpectedReturn,
+  buildFlowSankeyData,
+  type FlowSankeyLink,
+  type FlowSankeyNode,
   formatCurrency,
-  monthlyAmount,
-  type RecurringFlow,
-  todayIsoDate,
 } from "@/lib/domain/assettracker";
 import { useAssetTracker } from "./asset-tracker-provider";
-
-const EXTERNAL_INCOME_NODE = "__external_income";
-const EXTERNAL_SPENDING_NODE = "__external_spending";
-const EXPECTED_RETURNS_NODE = "__expected_returns";
-const INTEREST_CHARGED_NODE = "__interest_charged";
-const MIN_SYNTHETIC_FLOW = 1;
-
-type FlowSankeyAccount = AccountSummaryView & {
-  expectedReturnChanges?: ExpectedReturnChange[];
-  linkedAccountId?: string;
-};
-
-type FlowSankeyNode = {
-  id: string;
-  name: string;
-  color: string;
-};
-
-type FlowSankeyLink = {
-  source: number;
-  target: number;
-  value: number;
-  label: string;
-  sourceName: string;
-  targetName: string;
-};
-
-export type FlowSankeyData = {
-  nodes: FlowSankeyNode[];
-  links: FlowSankeyLink[];
-};
-
-function accountColor(index: number): string {
-  return ACCOUNT_COLORS[index % ACCOUNT_COLORS.length] ?? ACCOUNT_COLORS[0];
-}
-
-function nodeName(id: string, account?: FlowSankeyAccount): string {
-  switch (id) {
-    case EXTERNAL_INCOME_NODE:
-      return "External income";
-    case EXTERNAL_SPENDING_NODE:
-      return "External spending";
-    case EXPECTED_RETURNS_NODE:
-      return "Expected returns";
-    case INTEREST_CHARGED_NODE:
-      return "Interest charged";
-    default:
-      return account?.name ?? id;
-  }
-}
-
-function nodeColor(id: string, index: number): string {
-  switch (id) {
-    case EXTERNAL_INCOME_NODE:
-    case EXTERNAL_SPENDING_NODE:
-      return "hsl(220, 10%, 60%)";
-    case EXPECTED_RETURNS_NODE:
-      return "hsl(145, 55%, 45%)";
-    case INTEREST_CHARGED_NODE:
-      return "hsl(350, 65%, 55%)";
-    default:
-      return accountColor(index);
-  }
-}
-
-function monthlyExpectedChange(balance: number, annualRate: number): number {
-  return balance * ((1 + annualRate) ** (1 / 12) - 1);
-}
-
-export function buildFlowSankeyData(
-  accounts: FlowSankeyAccount[],
-  flows: RecurringFlow[],
-  liabilityBalances: Record<string, number>,
-): FlowSankeyData {
-  const accountById = new Map(accounts.map((account) => [account.id, account]));
-  const nodeIndexes = new Map<string, number>();
-  const nodes: FlowSankeyNode[] = [];
-  const linkTotals = new Map<string, FlowSankeyLink>();
-
-  function addNode(id: string): number {
-    const existing = nodeIndexes.get(id);
-    if (existing != null) return existing;
-    const account = accountById.get(id);
-    const index = nodes.length;
-    nodes.push({
-      id,
-      name: nodeName(id, account),
-      color: nodeColor(id, index),
-    });
-    nodeIndexes.set(id, index);
-    return index;
-  }
-
-  function addLink(
-    sourceId: string,
-    targetId: string,
-    value: number,
-    label: string,
-  ) {
-    if (value <= 0) return;
-
-    const source = addNode(sourceId);
-    const target = addNode(targetId);
-    const key = `${source}->${target}`;
-    const existing = linkTotals.get(key);
-    if (existing) {
-      existing.value += value;
-      existing.label = `${existing.label}, ${label}`;
-      return;
-    }
-
-    const sourceNode = nodes[source];
-    const targetNode = nodes[target];
-    linkTotals.set(key, {
-      source,
-      target,
-      value,
-      label,
-      sourceName: sourceNode?.name ?? sourceId,
-      targetName: targetNode?.name ?? targetId,
-    });
-  }
-
-  function monthlyIncoming(accountId: string): number {
-    return flows.reduce((total, flow) => {
-      if (flow.toAccountId !== accountId) return total;
-      const liabilityBalance = liabilityBalances[accountId];
-      return (
-        total +
-        (flow.formula
-          ? monthlyAmount(flow, liabilityBalance)
-          : monthlyAmount(flow))
-      );
-    }, 0);
-  }
-
-  for (const flow of flows) {
-    const sourceId = flow.fromAccountId ?? EXTERNAL_INCOME_NODE;
-    const targetId = flow.toAccountId ?? EXTERNAL_SPENDING_NODE;
-    const liabilityBalance =
-      flow.toAccountId != null
-        ? liabilityBalances[flow.toAccountId]
-        : undefined;
-    const value = flow.formula
-      ? monthlyAmount(flow, liabilityBalance)
-      : monthlyAmount(flow);
-
-    addLink(sourceId, targetId, value, flow.name);
-  }
-
-  const today = todayIsoDate();
-  for (const account of accounts) {
-    const balance = account.latestBalance ?? 0;
-    if (balance === 0) continue;
-
-    const rate = effectiveExpectedReturn(account, today);
-    if (rate === 0) continue;
-
-    const change = monthlyExpectedChange(balance, rate);
-    const value = Math.abs(change);
-    if (value < MIN_SYNTHETIC_FLOW) continue;
-
-    if (change > 0) {
-      addLink(EXPECTED_RETURNS_NODE, account.id, value, "Expected return");
-    } else if (balance < 0) {
-      addLink(account.id, INTEREST_CHARGED_NODE, value, "Interest charged");
-      if (account.linkedAccountId != null) {
-        const principal = monthlyIncoming(account.id) - value;
-        if (principal >= MIN_SYNTHETIC_FLOW) {
-          addLink(
-            account.id,
-            account.linkedAccountId,
-            principal,
-            "Principal repayment",
-          );
-        }
-      }
-    }
-  }
-
-  return {
-    nodes,
-    links: Array.from(linkTotals.values()).map((link) => ({
-      ...link,
-      value: Math.round(link.value * 100) / 100,
-    })),
-  };
-}
 
 function FlowSankeyNodeShape({
   x,
@@ -224,7 +38,7 @@ function FlowSankeyNodeShape({
   showLabel,
 }: SankeyNodeProps & {
   showLabel: boolean;
-}): ReactElement<SVGProps<SVGRectElement>> {
+}): ReactElement<SVGProps<SVGGElement>> {
   const node = payload as unknown as FlowSankeyNode & { value?: number };
   const depth = "depth" in payload ? Number(payload.depth) : 0;
   const labelOnLeft = depth === 0;
@@ -256,31 +70,44 @@ function FlowSankeyNodeShape({
   );
 }
 
+type SankeyTooltipItem = Partial<FlowSankeyLink & FlowSankeyNode> & {
+  value?: number;
+  source?: { name?: string };
+  target?: { name?: string };
+};
+
 function SankeyTooltip({
   active,
   payload,
 }: {
   active?: boolean;
-  payload?: Array<{ payload?: FlowSankeyLink }>;
+  payload?: Array<{ payload?: SankeyTooltipItem }>;
 }) {
-  const link = payload?.[0]?.payload;
-  if (!active || !link) return null;
+  const item = payload?.[0]?.payload;
+  if (!active || !item || item.value == null) return null;
+
+  const sourceName = item.sourceName ?? item.source?.name;
+  const targetName = item.targetName ?? item.target?.name;
   return (
     <div className="rounded-lg border bg-background px-2.5 py-1.5 text-xs shadow-xl">
-      <p className="font-medium">{link.label}</p>
-      <p className="text-muted-foreground">
-        {link.sourceName}
-        {" -> "}
-        {link.targetName}
-      </p>
-      <p className="font-mono">{formatCurrency(link.value)}/mo</p>
+      <p className="font-medium">{item.label ?? item.name}</p>
+      {sourceName && targetName && (
+        <p className="text-muted-foreground">
+          {sourceName}
+          {" -> "}
+          {targetName}
+        </p>
+      )}
+      <p className="font-mono">{formatCurrency(item.value)}/mo</p>
     </div>
   );
 }
 
 export function FlowSankeyChart() {
   const { accountDetails, recurringFlows } = useAssetTracker();
-  const isCompact = useMediaQuery({ maxWidth: 639 });
+  const [mounted, setMounted] = useState(false);
+  const compactQuery = useMediaQuery({ maxWidth: 639 });
+  const isCompact = mounted && compactQuery;
   const liabilityBalances = useMemo(
     () =>
       Object.fromEntries(
@@ -293,6 +120,10 @@ export function FlowSankeyChart() {
       buildFlowSankeyData(accountDetails, recurringFlows, liabilityBalances),
     [accountDetails, recurringFlows, liabilityBalances],
   );
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const chartMargin = isCompact
     ? { top: 8, right: 12, bottom: 8, left: 12 }
     : { top: 8, right: 140, bottom: 8, left: 120 };
@@ -313,29 +144,33 @@ export function FlowSankeyChart() {
           </p>
         ) : (
           <>
-            <div className="h-[280px] min-w-0 sm:h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <Sankey
-                  data={data}
-                  dataKey="value"
-                  nameKey="name"
-                  node={(props) => (
-                    <FlowSankeyNodeShape {...props} showLabel={!isCompact} />
-                  )}
-                  link={{
-                    stroke: "hsl(220, 70%, 50%)",
-                    strokeOpacity: 0.25,
-                  }}
-                  nodePadding={isCompact ? 14 : 18}
-                  nodeWidth={12}
-                  margin={chartMargin}
-                  align="left"
-                  iterations={64}
-                >
-                  <Tooltip content={<SankeyTooltip />} />
-                </Sankey>
-              </ResponsiveContainer>
-            </div>
+            {mounted ? (
+              <div className="h-[280px] min-w-0 sm:h-[320px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <Sankey
+                    data={data}
+                    dataKey="value"
+                    nameKey="name"
+                    node={(props) => (
+                      <FlowSankeyNodeShape {...props} showLabel={!isCompact} />
+                    )}
+                    link={{
+                      stroke: "hsl(220, 70%, 50%)",
+                      strokeOpacity: 0.25,
+                    }}
+                    nodePadding={isCompact ? 14 : 18}
+                    nodeWidth={12}
+                    margin={chartMargin}
+                    align="left"
+                    iterations={64}
+                  >
+                    <Tooltip content={<SankeyTooltip />} />
+                  </Sankey>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-[280px] min-w-0 sm:h-[320px]" />
+            )}
             <ul
               aria-label="Flow map legend"
               className="mt-3 flex flex-wrap gap-2 text-xs sm:hidden"

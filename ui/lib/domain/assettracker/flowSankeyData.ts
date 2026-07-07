@@ -1,0 +1,275 @@
+import { type ExpectedReturnChange, effectiveExpectedReturn } from "./account";
+import { todayIsoDate } from "./assetTrackerCommands";
+import type { AccountSummaryView } from "./assetTrackerViews";
+import { ACCOUNT_COLORS } from "./constants";
+import { monthlyAmount, type RecurringFlow } from "./recurringFlow";
+
+const EXTERNAL_INCOME_NODE = "__external_income";
+const EXTERNAL_SPENDING_NODE = "__external_spending";
+const EXPECTED_RETURNS_NODE = "__expected_returns";
+const EXPECTED_LOSSES_NODE = "__expected_losses";
+const INTEREST_CHARGED_NODE = "__interest_charged";
+const MIN_SYNTHETIC_FLOW = 1;
+
+type FlowSankeyAccount = AccountSummaryView & {
+  expectedReturnChanges?: ExpectedReturnChange[];
+  linkedAccountId?: string;
+};
+
+export type FlowSankeyNode = {
+  id: string;
+  name: string;
+  color: string;
+};
+
+export type FlowSankeyLink = {
+  source: number;
+  target: number;
+  value: number;
+  label: string;
+  sourceName: string;
+  targetName: string;
+};
+
+export type FlowSankeyData = {
+  nodes: FlowSankeyNode[];
+  links: FlowSankeyLink[];
+};
+
+type FlowSankeyBuilder = {
+  addLink: (
+    sourceId: string,
+    targetId: string,
+    value: number,
+    label: string,
+  ) => void;
+};
+
+function accountColor(index: number): string {
+  return ACCOUNT_COLORS[index % ACCOUNT_COLORS.length] ?? ACCOUNT_COLORS[0];
+}
+
+function nodeName(id: string, account?: FlowSankeyAccount): string {
+  switch (id) {
+    case EXTERNAL_INCOME_NODE:
+      return "External income";
+    case EXTERNAL_SPENDING_NODE:
+      return "External spending";
+    case EXPECTED_RETURNS_NODE:
+      return "Expected returns";
+    case EXPECTED_LOSSES_NODE:
+      return "Expected losses";
+    case INTEREST_CHARGED_NODE:
+      return "Interest charged";
+    default:
+      return account?.name ?? id;
+  }
+}
+
+function nodeColor(id: string, index: number): string {
+  switch (id) {
+    case EXTERNAL_INCOME_NODE:
+    case EXTERNAL_SPENDING_NODE:
+      return "hsl(220, 10%, 60%)";
+    case EXPECTED_RETURNS_NODE:
+      return "hsl(145, 55%, 45%)";
+    case EXPECTED_LOSSES_NODE:
+      return "hsl(20, 75%, 55%)";
+    case INTEREST_CHARGED_NODE:
+      return "hsl(350, 65%, 55%)";
+    default:
+      return accountColor(index);
+  }
+}
+
+function monthlyExpectedChange(balance: number, annualRate: number): number {
+  return balance * ((1 + annualRate) ** (1 / 12) - 1);
+}
+
+function recurringFlowValue(
+  flow: RecurringFlow,
+  liabilityBalances: Record<string, number>,
+): number {
+  const liabilityBalance =
+    flow.toAccountId != null ? liabilityBalances[flow.toAccountId] : undefined;
+  return flow.formula
+    ? monthlyAmount(flow, liabilityBalance)
+    : monthlyAmount(flow);
+}
+
+function addRecurringFlowLinks(
+  flows: RecurringFlow[],
+  liabilityBalances: Record<string, number>,
+  builder: FlowSankeyBuilder,
+) {
+  for (const flow of flows) {
+    builder.addLink(
+      flow.fromAccountId ?? EXTERNAL_INCOME_NODE,
+      flow.toAccountId ?? EXTERNAL_SPENDING_NODE,
+      recurringFlowValue(flow, liabilityBalances),
+      flow.name,
+    );
+  }
+}
+
+function monthlyIncoming(
+  accountId: string,
+  flows: RecurringFlow[],
+  liabilityBalances: Record<string, number>,
+): number {
+  return flows.reduce((total, flow) => {
+    if (flow.toAccountId !== accountId) return total;
+    return total + recurringFlowValue(flow, liabilityBalances);
+  }, 0);
+}
+
+function addLinkedLiabilityPrincipalFlow(
+  account: FlowSankeyAccount,
+  interestCharged: number,
+  flows: RecurringFlow[],
+  liabilityBalances: Record<string, number>,
+  builder: FlowSankeyBuilder,
+) {
+  if (account.linkedAccountId == null) return;
+
+  const principal =
+    monthlyIncoming(account.id, flows, liabilityBalances) - interestCharged;
+  if (principal < MIN_SYNTHETIC_FLOW) return;
+
+  builder.addLink(
+    account.id,
+    account.linkedAccountId,
+    principal,
+    "Principal repayment",
+  );
+}
+
+function addNegativeExpectedChangeLink(
+  account: FlowSankeyAccount,
+  value: number,
+  flows: RecurringFlow[],
+  liabilityBalances: Record<string, number>,
+  builder: FlowSankeyBuilder,
+) {
+  if ((account.latestBalance ?? 0) < 0) {
+    builder.addLink(
+      account.id,
+      INTEREST_CHARGED_NODE,
+      value,
+      "Interest charged",
+    );
+    addLinkedLiabilityPrincipalFlow(
+      account,
+      value,
+      flows,
+      liabilityBalances,
+      builder,
+    );
+    return;
+  }
+
+  builder.addLink(account.id, EXPECTED_LOSSES_NODE, value, "Expected loss");
+}
+
+function addSyntheticFlowLinks(
+  accounts: FlowSankeyAccount[],
+  flows: RecurringFlow[],
+  liabilityBalances: Record<string, number>,
+  builder: FlowSankeyBuilder,
+) {
+  const today = todayIsoDate();
+  for (const account of accounts) {
+    const balance = account.latestBalance ?? 0;
+    if (balance === 0) continue;
+
+    const rate = effectiveExpectedReturn(account, today);
+    if (rate === 0) continue;
+
+    const change = monthlyExpectedChange(balance, rate);
+    const value = Math.abs(change);
+    if (value < MIN_SYNTHETIC_FLOW) continue;
+
+    if (change > 0) {
+      builder.addLink(
+        EXPECTED_RETURNS_NODE,
+        account.id,
+        value,
+        "Expected return",
+      );
+    } else {
+      addNegativeExpectedChangeLink(
+        account,
+        value,
+        flows,
+        liabilityBalances,
+        builder,
+      );
+    }
+  }
+}
+
+function roundCurrencyValue(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+export function buildFlowSankeyData(
+  accounts: FlowSankeyAccount[],
+  flows: RecurringFlow[],
+  liabilityBalances: Record<string, number>,
+): FlowSankeyData {
+  const accountById = new Map(accounts.map((account) => [account.id, account]));
+  const nodeIndexes = new Map<string, number>();
+  const nodes: FlowSankeyNode[] = [];
+  const linkTotals = new Map<string, FlowSankeyLink>();
+
+  function addNode(id: string): number {
+    const existing = nodeIndexes.get(id);
+    if (existing != null) return existing;
+
+    const account = accountById.get(id);
+    const index = nodes.length;
+    nodes.push({
+      id,
+      name: nodeName(id, account),
+      color: nodeColor(id, index),
+    });
+    nodeIndexes.set(id, index);
+    return index;
+  }
+
+  const builder: FlowSankeyBuilder = {
+    addLink(sourceId, targetId, value, label) {
+      if (value <= 0) return;
+
+      const source = addNode(sourceId);
+      const target = addNode(targetId);
+      const key = `${source}->${target}`;
+      const existing = linkTotals.get(key);
+      if (existing) {
+        existing.value += value;
+        existing.label = `${existing.label}, ${label}`;
+        return;
+      }
+
+      linkTotals.set(key, {
+        source,
+        target,
+        value,
+        label,
+        sourceName: nodes[source]?.name ?? sourceId,
+        targetName: nodes[target]?.name ?? targetId,
+      });
+    },
+  };
+
+  addRecurringFlowLinks(flows, liabilityBalances, builder);
+  addSyntheticFlowLinks(accounts, flows, liabilityBalances, builder);
+
+  return {
+    nodes,
+    links: Array.from(linkTotals.values()).map((link) => ({
+      ...link,
+      value: roundCurrencyValue(link.value),
+    })),
+  };
+}
