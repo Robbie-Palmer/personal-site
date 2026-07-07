@@ -126,12 +126,7 @@ export function FilterBar({
     </div>
   );
   const desktopFilters = (
-    <div
-      className={cn(
-        "hidden md:flex items-center gap-2 flex-wrap",
-        searchVariant === "prominent" && "flex-1",
-      )}
-    >
+    <div className="hidden md:flex items-center gap-2 flex-wrap">
       {children}
     </div>
   );
@@ -247,9 +242,11 @@ export function FilterBar({
     <div className={cn("space-y-3", className)}>
       {/* Main filter bar */}
       {searchVariant === "prominent" ? (
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="space-y-3">
           {searchControl}
-          {toolbarControls}
+          <div className="flex flex-wrap items-center gap-3">
+            {toolbarControls}
+          </div>
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-3">
