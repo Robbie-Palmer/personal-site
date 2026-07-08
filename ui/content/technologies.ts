@@ -352,6 +352,14 @@ export const technologies: TechnologyContent[] = [
     type: "platform",
   },
   {
+    name: "Cloudflare Workflows",
+    added: "2026-07-08",
+    description: "Durable execution engine for multi-step Workers applications",
+    website: "https://developers.cloudflare.com/workflows/",
+    iconSlug: "cloudflare",
+    type: "platform",
+  },
+  {
     name: "Terraform Cloud",
     added: "2026-01-04",
     description:
