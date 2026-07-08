@@ -52,7 +52,7 @@ function getTimeRangeLabel(minutes: number): string {
     if (aboveMin && belowMax) return range.label;
   }
   // Fallback to last range (should never reach here given the ranges cover all values)
-  return "Over 60 min";
+  return TIME_RANGES[TIME_RANGES.length - 1]?.label ?? "";
 }
 
 function formatTime(minutes: number): string {
@@ -311,6 +311,7 @@ export function RecipeList({ recipes }: RecipeListProps) {
   const totalKey = searchParams.get("totalTime") ?? "";
   const searchParamQuery = searchParams.get("q") ?? "";
   const [searchQuery, setSearchQuery] = useState(searchParamQuery);
+  const pendingUrlSearchRef = useRef<string | null>(null);
   const searchConfig = useMemo(
     () => ({
       ...RECIPE_SEARCH_CONFIG,
@@ -378,6 +379,10 @@ export function RecipeList({ recipes }: RecipeListProps) {
   );
 
   useEffect(() => {
+    if (pendingUrlSearchRef.current === searchParamQuery) {
+      pendingUrlSearchRef.current = null;
+      return;
+    }
     setSearchQuery(searchParamQuery);
   }, [searchParamQuery]);
 
@@ -391,6 +396,7 @@ export function RecipeList({ recipes }: RecipeListProps) {
         params.delete("q");
       }
       const qs = params.toString();
+      pendingUrlSearchRef.current = searchQuery;
       router.replace(qs ? `/recipes?${qs}` : "/recipes", { scroll: false });
     }, URL_SYNC_DEBOUNCE_MS);
     return () => clearTimeout(id);

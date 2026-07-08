@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RecipeList } from "@/components/recipes/recipe-list";
@@ -153,5 +153,29 @@ describe("RecipeList", () => {
     expect(
       screen.queryByRole("link", { name: "Slow Cooker Mexican Chicken" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps newer typed input when its own debounced URL update lands", async () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = render(<RecipeList recipes={recipes} />);
+      const input = screen.getByPlaceholderText("Search 3 recipes…");
+
+      fireEvent.change(input, { target: { value: "ri" } });
+      await act(async () => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(replaceMock).toHaveBeenLastCalledWith("/recipes?q=ri", {
+        scroll: false,
+      });
+
+      fireEvent.change(input, { target: { value: "ris" } });
+      currentSearchParams = new URLSearchParams("q=ri");
+      rerender(<RecipeList recipes={recipes} />);
+
+      expect(input).toHaveValue("ris");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
