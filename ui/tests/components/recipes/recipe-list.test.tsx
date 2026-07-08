@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RecipeList } from "@/components/recipes/recipe-list";
@@ -85,8 +85,9 @@ describe("RecipeList", () => {
     const equipmentLabel = screen.getByText("Equipment:");
     const equipmentFilter = equipmentLabel.closest('[role="combobox"]');
     expect(equipmentFilter).not.toBeNull();
+    if (!equipmentFilter) throw new Error("Equipment filter not found");
 
-    await user.click(equipmentFilter!);
+    await user.click(equipmentFilter);
 
     expect(screen.getByRole("button", { name: "fork" })).toBeInTheDocument();
     expect(
@@ -112,5 +113,69 @@ describe("RecipeList", () => {
     expect(
       screen.queryByRole("link", { name: "Creamy Pesto Risotto" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("filters recipes from the inline search field", async () => {
+    const user = userEvent.setup();
+
+    render(<RecipeList recipes={recipes} />);
+
+    await user.type(
+      screen.getByPlaceholderText("Search 3 recipes…"),
+      "risotto",
+    );
+
+    expect(
+      screen.getByText('Showing 1 of 3 recipes matching "risotto"'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Creamy Pesto Risotto" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Slow Cooker Mexican Chicken" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hydrates recipe search from the q query param", () => {
+    currentSearchParams = new URLSearchParams("q=risotto");
+
+    render(<RecipeList recipes={recipes} />);
+
+    expect(screen.getByPlaceholderText("Search 3 recipes…")).toHaveValue(
+      "risotto",
+    );
+    expect(
+      screen.getByText('Showing 1 of 3 recipes matching "risotto"'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Creamy Pesto Risotto" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Slow Cooker Mexican Chicken" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps newer typed input when its own debounced URL update lands", async () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = render(<RecipeList recipes={recipes} />);
+      const input = screen.getByPlaceholderText("Search 3 recipes…");
+
+      fireEvent.change(input, { target: { value: "ri" } });
+      await act(async () => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(replaceMock).toHaveBeenLastCalledWith("/recipes?q=ri", {
+        scroll: false,
+      });
+
+      fireEvent.change(input, { target: { value: "ris" } });
+      currentSearchParams = new URLSearchParams("q=ri");
+      rerender(<RecipeList recipes={recipes} />);
+
+      expect(input).toHaveValue("ris");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

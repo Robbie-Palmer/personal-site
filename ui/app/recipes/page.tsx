@@ -30,19 +30,26 @@ export default function RecipesPage() {
       `${cuisineCount} ${cuisineCount === 1 ? "cuisine" : "cuisines"}`,
     `${ingredientCount} ${ingredientCount === 1 ? "ingredient" : "ingredients"}`,
     `${cookwareCount} ${cookwareCount === 1 ? "tool" : "tools"}`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  ].filter((stat): stat is string => Boolean(stat));
 
   return (
     <div className="container mx-auto px-4 pt-5 pb-10 md:pt-7 md:pb-14 min-h-screen max-w-7xl">
       <JsonLdScript data={jsonLd} />
-      <div className="mb-8">
+      <div className="mb-6 md:mb-8">
         <p className="rt-mono text-[var(--terracotta)]">Your recipe box</p>
-        <h1 className="rt-display text-6xl md:text-7xl mt-2">
+        <h1 className="rt-display text-5xl sm:text-6xl lg:text-7xl mt-2">
           What's <span className="text-[var(--terracotta)]">cooking?</span>
         </h1>
-        <p className="rt-body mt-3 text-lg text-[var(--ink-2)]">{stats}</p>
+        <p className="rt-body mt-3 flex flex-wrap gap-x-2 gap-y-1 text-base leading-snug text-[var(--ink-2)] sm:text-lg">
+          {stats.map((stat, index) => (
+            <span key={stat} className="whitespace-nowrap">
+              {stat}
+              {index < stats.length - 1 && (
+                <span className="text-[var(--ink-3)]"> ·</span>
+              )}
+            </span>
+          ))}
+        </p>
       </div>
 
       <Suspense fallback={<CardGridSkeleton variant="filters" />}>
