@@ -328,6 +328,15 @@ export const technologies: TechnologyContent[] = [
     type: "platform",
   },
   {
+    name: "Cloudflare Access",
+    added: "2026-07-08",
+    description:
+      "Zero Trust access control for internal and preview applications",
+    website: "https://www.cloudflare.com/zero-trust/products/access/",
+    iconSlug: "cloudflare",
+    type: "platform",
+  },
+  {
     name: "Cloudflare Rulesets",
     added: "2026-01-11",
     description: "Rules for transforming and routing HTTP requests at the edge",
