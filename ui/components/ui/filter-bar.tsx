@@ -57,7 +57,7 @@ interface FilterBarProps {
   onSearchChange?: (value: string) => void;
   searchPlaceholder?: string;
   searchAriaLabel?: string;
-  searchVariant?: "default" | "prominent";
+  stackControls?: boolean;
   activeFilters?: ActiveFilter[];
   onRemoveFilter?: (paramName: string, value: string) => void;
   onClearAll?: () => void;
@@ -76,7 +76,7 @@ export function FilterBar({
   onSearchChange,
   searchPlaceholder = "Search...",
   searchAriaLabel,
-  searchVariant = "default",
+  stackControls = false,
   activeFilters = [],
   onRemoveFilter,
   onClearAll,
@@ -93,8 +93,7 @@ export function FilterBar({
     <div
       className={cn(
         "relative flex-1 min-w-[120px] md:min-w-[200px] max-w-md",
-        searchVariant === "prominent" &&
-          "w-full basis-full md:w-auto md:basis-auto",
+        stackControls && "w-full basis-full md:w-auto md:basis-auto",
       )}
     >
       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -234,7 +233,7 @@ export function FilterBar({
   return (
     <div className={cn("space-y-3", className)}>
       {/* Main filter bar */}
-      {searchVariant === "prominent" ? (
+      {stackControls ? (
         <div className="space-y-3">
           {searchControl}
           <div className="flex flex-wrap items-center gap-3">

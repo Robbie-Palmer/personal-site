@@ -402,7 +402,7 @@ export function RecipeList({ recipes }: RecipeListProps) {
       getItemKey={(recipe) => recipe.slug}
       searchValue={searchQuery}
       onSearchChange={setSearchQuery}
-      searchVariant="prominent"
+      stackControls
       searchConfig={searchConfig}
       filterConfigs={RECIPE_FILTER_CONFIGS}
       sortConfig={RECIPE_SORT_CONFIG}
