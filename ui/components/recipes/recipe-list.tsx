@@ -76,7 +76,7 @@ const RECIPE_FILTER_PARAMS = [
 const URL_SYNC_DEBOUNCE_MS = 300;
 
 const RECIPE_SEARCH_CONFIG: SearchConfig<RecipeCardView> = {
-  placeholder: "Search recipes...",
+  placeholder: "Search recipes…",
   ariaLabel: "Search recipes",
   keys: [
     { name: "title", weight: 3 },
@@ -311,6 +311,13 @@ export function RecipeList({ recipes }: RecipeListProps) {
   const totalKey = searchParams.get("totalTime") ?? "";
   const searchParamQuery = searchParams.get("q") ?? "";
   const [searchQuery, setSearchQuery] = useState(searchParamQuery);
+  const searchConfig = useMemo(
+    () => ({
+      ...RECIPE_SEARCH_CONFIG,
+      placeholder: `Search ${recipes.length} recipes…`,
+    }),
+    [recipes.length],
+  );
   const selectedCuisines = useMemo(
     () => (cuisineKey ? cuisineKey.split(",").filter(Boolean) : []),
     [cuisineKey],
@@ -396,7 +403,7 @@ export function RecipeList({ recipes }: RecipeListProps) {
       searchValue={searchQuery}
       onSearchChange={setSearchQuery}
       searchVariant="prominent"
-      searchConfig={RECIPE_SEARCH_CONFIG}
+      searchConfig={searchConfig}
       filterConfigs={RECIPE_FILTER_CONFIGS}
       sortConfig={RECIPE_SORT_CONFIG}
       emptyState={RECIPE_EMPTY_STATE}

@@ -103,21 +103,14 @@ export function FilterBar({
         placeholder={searchPlaceholder}
         value={searchValue}
         onChange={(e) => onSearchChange(e.target.value)}
-        className={cn(
-          "pl-9 pr-9",
-          searchVariant === "prominent" &&
-            "h-10 rounded-xl border-[1.25px] border-foreground/60 bg-card text-base focus-visible:border-[var(--terracotta)]",
-        )}
+        className="pl-9 pr-9 [&::-webkit-search-cancel-button]:appearance-none"
         aria-label={searchAriaLabel ?? searchPlaceholder}
       />
       {searchValue && (
         <button
           type="button"
           onClick={() => onSearchChange("")}
-          className={cn(
-            "absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground",
-            searchVariant === "prominent" && "right-4",
-          )}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           aria-label="Clear search"
         >
           <X className="h-4 w-4" />
