@@ -130,6 +130,14 @@ function parseState(raw: string | null): ShoppingListState {
         })
       : [];
 
+    const recipeSlugs = new Set(recipes.map((recipe) => recipe.slug));
+    for (const meal of plan) {
+      if (!recipeSlugs.has(meal.slug)) {
+        recipes.push({ slug: meal.slug });
+        recipeSlugs.add(meal.slug);
+      }
+    }
+
     const checked = Array.isArray(parsed.checked)
       ? parsed.checked.filter((v): v is string => typeof v === "string")
       : [];

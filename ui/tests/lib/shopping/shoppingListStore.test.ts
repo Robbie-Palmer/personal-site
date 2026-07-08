@@ -196,15 +196,16 @@ describe("shoppingListStore", () => {
         key: STORAGE_KEY,
         newValue: JSON.stringify({
           recipes: [{ slug: "x" }, { slug: "y" }],
-          plan: [{ day: "tue", slot: "lunch", slug: "x" }],
+          plan: [{ day: "tue", slot: "lunch", slug: "z" }],
           checked: [],
           extras: [],
         }),
       }),
     );
-    expect(getShoppingListSnapshot().recipes).toHaveLength(2);
+    expect(getShoppingListSnapshot().recipes).toHaveLength(3);
+    expect(getShoppingListSnapshot().recipes).toContainEqual({ slug: "z" });
     expect(getShoppingListSnapshot().plan).toHaveLength(1);
-    expect(seen).toContain(2); // subscribers were notified
+    expect(seen).toContain(3); // subscribers were notified
     unsub();
   });
 });

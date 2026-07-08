@@ -28,13 +28,16 @@ function recipeCountLabel(count: number): string {
   return `${count} ${count === 1 ? "recipe" : "recipes"}`;
 }
 
-function ServingsStepper({
-  slug,
-  servings,
-}: {
+function servingCountLabel(count: number): string {
+  return `${count} ${count === 1 ? "serving" : "servings"}`;
+}
+
+type ServingsStepperProps = Readonly<{
   slug: string;
   servings: number;
-}) {
+}>;
+
+function ServingsStepper({ slug, servings }: ServingsStepperProps) {
   return (
     <div className="flex items-center gap-1.5">
       <Button
@@ -61,17 +64,14 @@ function ServingsStepper({
   );
 }
 
-function MealSelect({
-  day,
-  slot,
-  value,
-  recipeOptions,
-}: {
+type MealSelectProps = Readonly<{
   day: MealPlanDay;
   slot: MealPlanSlot;
   value?: string;
-  recipeOptions: ShoppingRecipe[];
-}) {
+  recipeOptions: readonly ShoppingRecipe[];
+}>;
+
+function MealSelect({ day, slot, value, recipeOptions }: MealSelectProps) {
   return (
     <select
       value={value ?? ""}
@@ -79,7 +79,7 @@ function MealSelect({
         setPlannedMeal(day, slot, event.target.value || null)
       }
       aria-label={`${day} ${slot}`}
-      className="h-8 w-full rounded-md border border-[var(--line-strong)] bg-[var(--card)] px-2 text-xs text-[var(--ink-2)] outline-none transition-colors hover:border-[var(--terracotta)] focus:border-[var(--terracotta)] focus:ring-2 focus:ring-[var(--terracotta)]/15"
+      className="h-8 w-full min-w-0 max-w-full truncate rounded-md border border-[var(--line-strong)] bg-[var(--card)] px-2 text-xs text-[var(--ink-2)] outline-none transition-colors hover:border-[var(--terracotta)] focus:border-[var(--terracotta)] focus:ring-2 focus:ring-[var(--terracotta)]/15"
     >
       <option value="">Add meal</option>
       {recipeOptions.map((recipe) => (
@@ -91,16 +91,15 @@ function MealSelect({
   );
 }
 
-function PlannedRecipePill({
-  recipe,
-  onRemove,
-}: {
+type PlannedRecipePillProps = Readonly<{
   recipe?: ShoppingRecipe;
   onRemove: () => void;
-}) {
+}>;
+
+function PlannedRecipePill({ recipe, onRemove }: PlannedRecipePillProps) {
   if (!recipe) return null;
   return (
-    <div className="mt-2 flex items-center gap-2 rounded-md border border-[var(--line)] bg-[var(--paper-warm)] px-2 py-1.5">
+    <div className="mt-2 flex min-w-0 items-center gap-2 rounded-md border border-[var(--line)] bg-[var(--paper-warm)] px-2 py-1.5">
       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-[var(--butter-soft)] text-[var(--terracotta)]">
         <Utensils className="h-3.5 w-3.5" />
       </span>
@@ -116,7 +115,7 @@ function PlannedRecipePill({
         type="button"
         onClick={onRemove}
         aria-label={`Remove ${recipe.title} from this meal`}
-        className="text-[var(--ink-4)] transition-colors hover:text-[var(--berry)]"
+        className="shrink-0 text-[var(--ink-4)] transition-colors hover:text-[var(--berry)]"
       >
         <X className="h-3.5 w-3.5" />
       </button>
@@ -124,19 +123,16 @@ function PlannedRecipePill({
   );
 }
 
-function PlanCell({
-  day,
-  slot,
-  plannedRecipe,
-  recipeOptions,
-}: {
+type PlanCellProps = Readonly<{
   day: MealPlanDay;
   slot: MealPlanSlot;
   plannedRecipe?: ShoppingRecipe;
-  recipeOptions: ShoppingRecipe[];
-}) {
+  recipeOptions: readonly ShoppingRecipe[];
+}>;
+
+function PlanCell({ day, slot, plannedRecipe, recipeOptions }: PlanCellProps) {
   return (
-    <div className="min-h-28 rounded-md border border-[var(--line-strong)] bg-[var(--card)] p-2">
+    <div className="min-w-0 overflow-hidden rounded-md border border-[var(--line-strong)] bg-[var(--card)] p-2 lg:min-h-28">
       <MealSelect
         day={day}
         slot={slot}
@@ -151,13 +147,19 @@ function PlanCell({
   );
 }
 
-export function MealPlanner({ recipes }: { recipes: ShoppingRecipe[] }) {
+type MealPlannerProps = Readonly<{ recipes: ShoppingRecipe[] }>;
+
+export function MealPlanner({ recipes }: MealPlannerProps) {
   const state = useShoppingList();
 
   const bySlug = useMemo(() => {
     const map = new Map<string, ShoppingRecipe>();
     for (const recipe of recipes) map.set(recipe.slug, recipe);
     return map;
+  }, [recipes]);
+
+  const sortedRecipes = useMemo(() => {
+    return [...recipes].sort((a, b) => a.title.localeCompare(b.title));
   }, [recipes]);
 
   const planBySlot = useMemo(() => {
@@ -195,6 +197,10 @@ export function MealPlanner({ recipes }: { recipes: ShoppingRecipe[] }) {
     bySlug.has(meal.slug),
   ).length;
   const unscheduled = selected.filter((entry) => entry.plannedMeals === 0);
+  const totalServings = selected.reduce(
+    (sum, entry) => sum + entry.servings,
+    0,
+  );
 
   return (
     <div className="space-y-6">
@@ -210,7 +216,10 @@ export function MealPlanner({ recipes }: { recipes: ShoppingRecipe[] }) {
           <b className="text-[var(--ink)]">
             {mealCountLabel(plannedMealCount)}
           </b>{" "}
-          scheduled
+          scheduled ·{" "}
+          <b className="text-[var(--ink)]">
+            {servingCountLabel(totalServings)}
+          </b>
           {unscheduled.length > 0
             ? ` · ${recipeCountLabel(unscheduled.length)} unscheduled`
             : ""}
@@ -250,7 +259,7 @@ export function MealPlanner({ recipes }: { recipes: ShoppingRecipe[] }) {
                     day={day.id}
                     slot={slot.id}
                     plannedRecipe={recipe}
-                    recipeOptions={recipes}
+                    recipeOptions={sortedRecipes}
                   />
                 );
               })}
@@ -268,7 +277,7 @@ export function MealPlanner({ recipes }: { recipes: ShoppingRecipe[] }) {
                 {MEAL_PLAN_SLOTS.map((slot) => {
                   const recipe = planBySlot.get(planKey(day.id, slot.id));
                   return (
-                    <div key={slot.id}>
+                    <div key={slot.id} className="min-w-0">
                       <div className="mb-1 rt-mono text-xs text-[var(--ink-3)]">
                         {slot.label}
                       </div>
@@ -276,7 +285,7 @@ export function MealPlanner({ recipes }: { recipes: ShoppingRecipe[] }) {
                         day={day.id}
                         slot={slot.id}
                         plannedRecipe={recipe}
-                        recipeOptions={recipes}
+                        recipeOptions={sortedRecipes}
                       />
                     </div>
                   );
@@ -341,7 +350,7 @@ export function MealPlanner({ recipes }: { recipes: ShoppingRecipe[] }) {
             {unscheduled.map(({ recipe }) => (
               <span
                 key={recipe.slug}
-                className="rounded-md border border-[var(--line)] bg-[var(--paper-warm)] px-2 py-1 rt-body text-sm text-[var(--ink-2)]"
+                className="max-w-full truncate rounded-md border border-[var(--line)] bg-[var(--paper-warm)] px-2 py-1 rt-body text-sm text-[var(--ink-2)]"
               >
                 {recipe.title}
               </span>

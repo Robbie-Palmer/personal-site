@@ -17,12 +17,14 @@ const STEPS: { id: Step; label: string }[] = [
 ];
 
 export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
-  const { recipes: selected, plan } = useShoppingList();
+  const { recipes: selected, plan, extras } = useShoppingList();
   const [step, setStep] = useState<Step>("plan");
   const count = selected.length;
   const recipeNoun = count === 1 ? "recipe" : "recipes";
   const plannedCount = plan.length;
   const plannedNoun = plannedCount === 1 ? "meal" : "meals";
+  const extraNoun = extras.length === 1 ? "extra item" : "extra items";
+  const hasListContent = count > 0 || extras.length > 0;
 
   return (
     <div className="container mx-auto px-4 pt-5 pb-16 md:pt-7 max-w-5xl">
@@ -35,12 +37,14 @@ export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
             {step === "plan" ? "What's the plan?" : "Shopping list."}
           </h1>
           <p className="rt-body mt-2 text-[var(--ink-2)]">
-            {count === 0
-              ? "Plan meals for the week or choose recipes directly and we'll build the list."
-              : `${count} ${recipeNoun} selected · ${plannedCount} ${plannedNoun} scheduled.`}
+            {count > 0
+              ? `${count} ${recipeNoun} selected · ${plannedCount} ${plannedNoun} scheduled.`
+              : extras.length > 0
+                ? `${extras.length} ${extraNoun} on the shopping list.`
+                : "Plan meals for the week or choose recipes directly and we'll build the list."}
           </p>
         </div>
-        {count > 0 && (
+        {hasListContent && (
           <button
             type="button"
             onClick={() => {
@@ -100,7 +104,7 @@ export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
             <button
               type="button"
               onClick={() => setStep("list")}
-              disabled={count === 0}
+              disabled={!hasListContent}
               className="inline-flex items-center gap-2 rounded-md bg-[var(--terracotta)] px-4 py-2 text-white font-medium hover:bg-[var(--terracotta-deep)] disabled:opacity-40 disabled:hover:bg-[var(--terracotta)] transition-colors"
             >
               View shopping list
