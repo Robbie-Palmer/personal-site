@@ -252,9 +252,25 @@ export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
     aggregated.filter((l) => checkedSet.has(l.ingredient)).length +
     state.extras.filter((e) => e.checked).length;
   const itemCount = aggregated.length + state.extras.length;
+  const servingCount = recipeGroups.reduce(
+    (total, group) => total + group.servings,
+    0,
+  );
+  const stats = [
+    selected.length > 0
+      ? `${selected.length} ${selected.length === 1 ? "recipe" : "recipes"}`
+      : null,
+    selected.length > 0
+      ? `${servingCount} ${servingCount === 1 ? "serving" : "servings"}`
+      : null,
+    `${itemCount} ${itemCount === 1 ? "item" : "items"}`,
+    `${tickedCount} ticked`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const hasTicked = tickedCount > 0;
 
-  if (selected.length === 0) {
+  if (selected.length === 0 && state.extras.length === 0) {
     return (
       <div className="rounded-xl border-[1.25px] border-dashed border-[var(--line-strong)] bg-[var(--card)] p-10 text-center">
         <p className="rt-display text-3xl text-[var(--ink-2)]">
@@ -271,11 +287,7 @@ export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
   return (
     <div className="rounded-xl border-[1.25px] border-[var(--line-strong)] bg-[var(--card)] p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="rt-mono text-[var(--ink-3)]">
-          {selected.length} {selected.length === 1 ? "recipe" : "recipes"} ·{" "}
-          {itemCount} {itemCount === 1 ? "item" : "items"} · {tickedCount}{" "}
-          ticked
-        </p>
+        <p className="rt-mono text-[var(--ink-3)]">{stats}</p>
         <div className="flex flex-wrap gap-1.5">
           {VIEWS.map((v) => (
             <Badge
