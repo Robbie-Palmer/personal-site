@@ -24,11 +24,13 @@ export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
   const plannedCount = plan.length;
   const plannedNoun = plannedCount === 1 ? "meal" : "meals";
   const extraNoun = extras.length === 1 ? "extra item" : "extra items";
-  const hasListContent = count > 0 || extras.length > 0;
+  const hasListContent = count > 0 || plannedCount > 0 || extras.length > 0;
   let summary =
     "Plan meals for the week or choose recipes directly and we'll build the list.";
   if (count > 0) {
     summary = `${count} ${recipeNoun} selected · ${plannedCount} ${plannedNoun} scheduled.`;
+  } else if (plannedCount > 0) {
+    summary = `${plannedCount} ${plannedNoun} scheduled.`;
   } else if (extras.length > 0) {
     summary = `${extras.length} ${extraNoun} on the shopping list.`;
   }

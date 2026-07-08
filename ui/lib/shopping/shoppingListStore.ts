@@ -38,16 +38,16 @@ export const MEAL_PLAN_SLOTS = [
   { id: "dinner", label: "Dinner", short: "D" },
 ] as const;
 
-const MEAL_PLAN_DAY_SET: ReadonlySet<unknown> = new Set(
-  MEAL_PLAN_DAYS.map((day) => day.id),
-);
-const MEAL_PLAN_SLOT_SET: ReadonlySet<unknown> = new Set(
-  MEAL_PLAN_SLOTS.map((slot) => slot.id),
-);
-
 export type MealPlanDay = (typeof MEAL_PLAN_DAYS)[number]["id"];
 
 export type MealPlanSlot = (typeof MEAL_PLAN_SLOTS)[number]["id"];
+
+const MEAL_PLAN_DAY_SET: ReadonlySet<MealPlanDay> = new Set(
+  MEAL_PLAN_DAYS.map((day) => day.id),
+);
+const MEAL_PLAN_SLOT_SET: ReadonlySet<MealPlanSlot> = new Set(
+  MEAL_PLAN_SLOTS.map((slot) => slot.id),
+);
 
 export type PlannedMealEntry = {
   day: MealPlanDay;
@@ -84,11 +84,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isMealPlanDay(value: unknown): value is MealPlanDay {
-  return MEAL_PLAN_DAY_SET.has(value);
+  return (
+    typeof value === "string" && MEAL_PLAN_DAY_SET.has(value as MealPlanDay)
+  );
 }
 
 function isMealPlanSlot(value: unknown): value is MealPlanSlot {
-  return MEAL_PLAN_SLOT_SET.has(value);
+  return (
+    typeof value === "string" && MEAL_PLAN_SLOT_SET.has(value as MealPlanSlot)
+  );
 }
 
 function parseState(raw: string | null): ShoppingListState {
@@ -130,10 +134,11 @@ function parseState(raw: string | null): ShoppingListState {
         })
       : [];
 
-    const recipeSlugs = new Set(recipes.map((recipe) => recipe.slug));
+    const hydratedRecipes = [...recipes];
+    const recipeSlugs = new Set(hydratedRecipes.map((recipe) => recipe.slug));
     for (const meal of plan) {
       if (!recipeSlugs.has(meal.slug)) {
-        recipes.push({ slug: meal.slug });
+        hydratedRecipes.push({ slug: meal.slug });
         recipeSlugs.add(meal.slug);
       }
     }
@@ -155,7 +160,7 @@ function parseState(raw: string | null): ShoppingListState {
         })
       : [];
 
-    return { recipes, plan, checked, extras };
+    return { recipes: hydratedRecipes, plan, checked, extras };
   } catch {
     return EMPTY_STATE;
   }
