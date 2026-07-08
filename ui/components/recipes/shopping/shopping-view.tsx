@@ -2,37 +2,42 @@
 
 import { ArrowLeft, ArrowRight, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { MealPlanner } from "@/components/recipes/shopping/meal-planner";
 import { RecipePicker } from "@/components/recipes/shopping/recipe-picker";
 import { ShoppingList } from "@/components/recipes/shopping/shopping-list";
 import { useShoppingList } from "@/hooks/use-shopping-list";
 import type { ShoppingRecipe } from "@/lib/api/shopping";
 import { clearList } from "@/lib/shopping/shoppingListStore";
 
-type Step = "pick" | "list";
+type Step = "plan" | "list";
 
 const STEPS: { id: Step; label: string }[] = [
-  { id: "pick", label: "1 · Pick recipes" },
+  { id: "plan", label: "1 · Plan the week" },
   { id: "list", label: "2 · Shopping list" },
 ];
 
 export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
-  const { recipes: selected } = useShoppingList();
-  const [step, setStep] = useState<Step>("pick");
+  const { recipes: selected, plan } = useShoppingList();
+  const [step, setStep] = useState<Step>("plan");
   const count = selected.length;
   const recipeNoun = count === 1 ? "recipe" : "recipes";
+  const plannedCount = plan.length;
+  const plannedNoun = plannedCount === 1 ? "meal" : "meals";
 
   return (
     <div className="container mx-auto px-4 pt-5 pb-16 md:pt-7 max-w-5xl">
       <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
         <div>
-          <p className="rt-mono text-[var(--terracotta)]">Shopping</p>
+          <p className="rt-mono text-[var(--terracotta)]">
+            Shopping · weekly plan
+          </p>
           <h1 className="rt-display text-5xl md:text-6xl mt-2">
-            {step === "pick" ? "What are you cooking?" : "Shopping list."}
+            {step === "plan" ? "What's the plan?" : "Shopping list."}
           </h1>
           <p className="rt-body mt-2 text-[var(--ink-2)]">
             {count === 0
-              ? "Choose the recipes you want to cook and we'll build the list."
-              : `${count} ${recipeNoun} selected.`}
+              ? "Plan meals for the week or choose recipes directly and we'll build the list."
+              : `${count} ${recipeNoun} selected · ${plannedCount} ${plannedNoun} scheduled.`}
           </p>
         </div>
         {count > 0 && (
@@ -40,7 +45,7 @@ export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
             type="button"
             onClick={() => {
               clearList();
-              setStep("pick");
+              setStep("plan");
             }}
             className="inline-flex items-center gap-1.5 rt-mono text-[var(--ink-3)] hover:text-[var(--berry)] transition-colors"
           >
@@ -72,9 +77,25 @@ export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
         })}
       </div>
 
-      {step === "pick" ? (
-        <div>
-          <RecipePicker recipes={recipes} />
+      {step === "plan" ? (
+        <div className="space-y-8">
+          <MealPlanner recipes={recipes} />
+          <div>
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <p className="rt-mono text-[var(--terracotta)]">
+                  Recipe picker
+                </p>
+                <h2 className="rt-display text-3xl text-[var(--ink)]">
+                  Add anything else.
+                </h2>
+              </div>
+              <p className="rt-body text-sm text-[var(--ink-3)]">
+                Selected recipes appear in the plan pool and shopping list.
+              </p>
+            </div>
+            <RecipePicker recipes={recipes} />
+          </div>
           <div className="mt-6 flex justify-end">
             <button
               type="button"
@@ -91,10 +112,10 @@ export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
         <div>
           <button
             type="button"
-            onClick={() => setStep("pick")}
+            onClick={() => setStep("plan")}
             className="inline-flex items-center gap-1.5 rt-mono text-[var(--ink-3)] hover:text-[var(--terracotta)] mb-3 transition-colors"
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> back to recipes
+            <ArrowLeft className="h-3.5 w-3.5" /> back to plan
           </button>
           <ShoppingList recipes={recipes} />
         </div>

@@ -22,9 +22,44 @@ export type ExtraItem = {
   checked: boolean;
 };
 
+export const MEAL_PLAN_DAYS = [
+  { id: "mon", label: "Monday", short: "Mon" },
+  { id: "tue", label: "Tuesday", short: "Tue" },
+  { id: "wed", label: "Wednesday", short: "Wed" },
+  { id: "thu", label: "Thursday", short: "Thu" },
+  { id: "fri", label: "Friday", short: "Fri" },
+  { id: "sat", label: "Saturday", short: "Sat" },
+  { id: "sun", label: "Sunday", short: "Sun" },
+] as const;
+
+export const MEAL_PLAN_SLOTS = [
+  { id: "breakfast", label: "Breakfast", short: "B" },
+  { id: "lunch", label: "Lunch", short: "L" },
+  { id: "dinner", label: "Dinner", short: "D" },
+] as const;
+
+const MEAL_PLAN_DAY_SET: ReadonlySet<unknown> = new Set(
+  MEAL_PLAN_DAYS.map((day) => day.id),
+);
+const MEAL_PLAN_SLOT_SET: ReadonlySet<unknown> = new Set(
+  MEAL_PLAN_SLOTS.map((slot) => slot.id),
+);
+
+export type MealPlanDay = (typeof MEAL_PLAN_DAYS)[number]["id"];
+
+export type MealPlanSlot = (typeof MEAL_PLAN_SLOTS)[number]["id"];
+
+export type PlannedMealEntry = {
+  day: MealPlanDay;
+  slot: MealPlanSlot;
+  slug: string;
+};
+
 export type ShoppingListState = {
   /** Selected recipes, kept in the order they were added. */
   recipes: SelectedRecipeEntry[];
+  /** Weekly calendar slots that reference selected recipes. */
+  plan: PlannedMealEntry[];
   /** Ticked-off ingredient slugs. */
   checked: string[];
   /** Freeform extras (milk, bread…). */
@@ -35,6 +70,7 @@ const STORAGE_KEY = "recipe-shopping-list:v1";
 
 const EMPTY_STATE: ShoppingListState = {
   recipes: [],
+  plan: [],
   checked: [],
   extras: [],
 };
@@ -45,6 +81,14 @@ const listeners = new Set<() => void>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isMealPlanDay(value: unknown): value is MealPlanDay {
+  return MEAL_PLAN_DAY_SET.has(value);
+}
+
+function isMealPlanSlot(value: unknown): value is MealPlanSlot {
+  return MEAL_PLAN_SLOT_SET.has(value);
 }
 
 function parseState(raw: string | null): ShoppingListState {
@@ -68,6 +112,24 @@ function parseState(raw: string | null): ShoppingListState {
         })
       : [];
 
+    const seenPlanSlots = new Set<string>();
+    const plan = Array.isArray(parsed.plan)
+      ? parsed.plan.flatMap((entry): PlannedMealEntry[] => {
+          if (
+            !isRecord(entry) ||
+            !isMealPlanDay(entry.day) ||
+            !isMealPlanSlot(entry.slot) ||
+            typeof entry.slug !== "string"
+          ) {
+            return [];
+          }
+          const key = `${entry.day}:${entry.slot}`;
+          if (seenPlanSlots.has(key)) return [];
+          seenPlanSlots.add(key);
+          return [{ day: entry.day, slot: entry.slot, slug: entry.slug }];
+        })
+      : [];
+
     const checked = Array.isArray(parsed.checked)
       ? parsed.checked.filter((v): v is string => typeof v === "string")
       : [];
@@ -85,7 +147,7 @@ function parseState(raw: string | null): ShoppingListState {
         })
       : [];
 
-    return { recipes, checked, extras };
+    return { recipes, plan, checked, extras };
   } catch {
     return EMPTY_STATE;
   }
@@ -170,6 +232,7 @@ export function removeRecipe(slug: string): void {
   setState({
     ...state,
     recipes: state.recipes.filter((r) => r.slug !== slug),
+    plan: state.plan.filter((meal) => meal.slug !== slug),
   });
 }
 
@@ -186,6 +249,30 @@ export function setRecipeServings(slug: string, servings: number): void {
       r.slug === slug ? { ...r, servings: safe } : r,
     ),
   });
+}
+
+export function setPlannedMeal(
+  day: MealPlanDay,
+  slot: MealPlanSlot,
+  slug: string | null,
+): void {
+  const plan = state.plan.filter(
+    (meal) => meal.day !== day || meal.slot !== slot,
+  );
+  const recipes =
+    slug && !state.recipes.some((recipe) => recipe.slug === slug)
+      ? [...state.recipes, { slug }]
+      : state.recipes;
+  setState({
+    ...state,
+    recipes,
+    plan: slug ? [...plan, { day, slot, slug }] : plan,
+  });
+}
+
+export function clearMealPlan(): void {
+  if (state.plan.length === 0) return;
+  setState({ ...state, plan: [] });
 }
 
 export function toggleChecked(key: string): void {
