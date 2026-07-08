@@ -25,6 +25,13 @@ export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
   const plannedNoun = plannedCount === 1 ? "meal" : "meals";
   const extraNoun = extras.length === 1 ? "extra item" : "extra items";
   const hasListContent = count > 0 || extras.length > 0;
+  let summary =
+    "Plan meals for the week or choose recipes directly and we'll build the list.";
+  if (count > 0) {
+    summary = `${count} ${recipeNoun} selected · ${plannedCount} ${plannedNoun} scheduled.`;
+  } else if (extras.length > 0) {
+    summary = `${extras.length} ${extraNoun} on the shopping list.`;
+  }
 
   return (
     <div className="container mx-auto px-4 pt-5 pb-16 md:pt-7 max-w-5xl">
@@ -36,13 +43,7 @@ export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
           <h1 className="rt-display text-5xl md:text-6xl mt-2">
             {step === "plan" ? "What's the plan?" : "Shopping list."}
           </h1>
-          <p className="rt-body mt-2 text-[var(--ink-2)]">
-            {count > 0
-              ? `${count} ${recipeNoun} selected · ${plannedCount} ${plannedNoun} scheduled.`
-              : extras.length > 0
-                ? `${extras.length} ${extraNoun} on the shopping list.`
-                : "Plan meals for the week or choose recipes directly and we'll build the list."}
-          </p>
+          <p className="rt-body mt-2 text-[var(--ink-2)]">{summary}</p>
         </div>
         {hasListContent && (
           <button
