@@ -135,6 +135,17 @@ export function hasTechIcon(name: string, iconSlug?: string): boolean {
   return resolveIconData(name, iconSlug) !== null;
 }
 
+export function getTechIconKey(name: string, iconSlug?: string): string | null {
+  const iconData = resolveIconData(name, iconSlug);
+  if (!iconData) return null;
+
+  if (iconData.type === "custom") {
+    return `custom:${iconData.slug}`;
+  }
+
+  return `simple:${iconData.icon.slug}`;
+}
+
 export function getTechIconUrl(name: string, iconSlug?: string): string | null {
   const iconData = resolveIconData(name, iconSlug);
   if (!iconData) return null;

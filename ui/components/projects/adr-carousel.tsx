@@ -2,13 +2,16 @@
 
 import type { EmblaOptionsType } from "embla-carousel";
 import Link from "next/link";
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ContentCarousel } from "@/components/ui/content-carousel";
 import type { ProjectADR } from "@/lib/api/projects";
-import { hasTechIcon, TechIcon } from "@/lib/api/tech-icons";
+import { TechIcon } from "@/lib/api/tech-icons";
 import { defaultCarouselConfig } from "@/lib/config/carousel-config";
 import { formatDate } from "@/lib/generic/date";
+import { cn } from "@/lib/generic/styles";
 import { ADRBadge } from "./adr-badge";
+import { getADRCarouselTechIcons } from "./adr-carousel-tech-icons";
 
 type ADRCarouselProps = {
   adrs: ProjectADR[];
@@ -19,6 +22,10 @@ type ADRCarouselProps = {
   stopOnMouseEnter?: boolean;
 };
 
+function getADRCarouselItemKey(adr: ProjectADR) {
+  return `${adr.projectSlug}-${adr.slug}`;
+}
+
 export function ADRCarousel({
   adrs,
   options,
@@ -27,71 +34,98 @@ export function ADRCarousel({
   stopOnInteraction = defaultCarouselConfig.stopOnInteraction,
   stopOnMouseEnter = defaultCarouselConfig.stopOnMouseEnter,
 }: ADRCarouselProps) {
+  const techIconsByADRKey = useMemo(
+    () =>
+      new Map(
+        adrs.map((adr) => [
+          getADRCarouselItemKey(adr),
+          getADRCarouselTechIcons(adr.technologies),
+        ]),
+      ),
+    [adrs],
+  );
+
   return (
     <ContentCarousel
       items={adrs}
-      getItemKey={(adr) => `${adr.projectSlug}-${adr.slug}`}
+      getItemKey={getADRCarouselItemKey}
       options={options}
       autoScroll={autoScroll}
       scrollSpeed={scrollSpeed}
       stopOnInteraction={stopOnInteraction}
       stopOnMouseEnter={stopOnMouseEnter}
-      renderItem={(adr) => (
-        <Card className="h-full flex flex-col overflow-hidden transition-all hover:shadow-lg hover:border-primary/50 relative bg-card">
-          <div className="absolute top-4 left-4 right-20 z-10 pointer-events-none">
-            <div
-              className="text-lg font-semibold text-muted-foreground truncate"
-              title={adr.projectTitle}
-            >
-              {adr.projectTitle}
+      renderItem={(adr) => {
+        const { visibleIcons, hiddenIconCount } =
+          techIconsByADRKey.get(getADRCarouselItemKey(adr)) ??
+          getADRCarouselTechIcons(adr.technologies);
+        const adrHref = `/projects/${encodeURIComponent(adr.projectSlug)}/adrs/${encodeURIComponent(adr.slug)}`;
+        const hasSingleVisibleIcon =
+          visibleIcons.length === 1 && hiddenIconCount === 0;
+
+        return (
+          <Card className="h-full flex flex-col overflow-hidden transition-all hover:shadow-lg hover:border-primary/50 relative bg-card">
+            <div className="absolute top-4 left-4 right-20 z-10 pointer-events-none">
+              <div
+                className="text-lg font-semibold text-muted-foreground truncate"
+                title={adr.projectTitle}
+              >
+                {adr.projectTitle}
+              </div>
             </div>
-          </div>
-          <div className="absolute top-4 right-4 z-10 pointer-events-none">
-            <ADRBadge status={adr.status} />
-          </div>
-          <CardHeader className="flex-1 pt-12 mt-2">
-            <div className="flex flex-col gap-1">
-              <div className="flex items-start justify-between gap-4">
-                <CardTitle className="line-clamp-2 group-hover:text-primary transition-colors text-lg flex-1">
-                  <Link
-                    href={`/projects/${encodeURIComponent(adr.projectSlug)}/adrs/${encodeURIComponent(adr.slug)}`}
-                    className="after:absolute after:inset-0"
-                  >
+            <div className="absolute top-4 right-4 z-10 pointer-events-none">
+              <ADRBadge status={adr.status} />
+            </div>
+            <CardHeader className="flex-1 pt-12 mt-2 min-w-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                <CardTitle className="line-clamp-3 group-hover:text-primary transition-colors text-base sm:text-lg min-w-0">
+                  <Link href={adrHref} className="after:absolute after:inset-0">
                     {adr.title}
                   </Link>
                 </CardTitle>
-                <div className="flex flex-wrap gap-2 flex-shrink-0 pt-0.5 pointer-events-auto">
-                  {adr.technologies?.slice(0, 5).map((tech) => {
-                    const hasIcon = hasTechIcon(tech.name);
-                    if (!hasIcon) return null;
-                    return (
+                {visibleIcons.length > 0 && (
+                  <div className="flex flex-wrap justify-end gap-1.5 max-w-[4.625rem] flex-shrink-0 pt-0.5 pointer-events-auto">
+                    {visibleIcons.map((tech) => (
                       <Link
                         key={tech.slug}
-                        href={`/technologies/${tech.slug}`}
+                        href={`/technologies/${encodeURIComponent(tech.slug)}`}
                         aria-label={`View ${tech.name} technology`}
                         onClick={(e) => e.stopPropagation()}
-                        className="z-20 relative p-1.5 rounded-md hover:bg-muted/80 hover:scale-110 transition-all -m-1.5"
+                        className="z-20 relative p-1 rounded-md hover:bg-muted/80 hover:scale-110 transition-all -m-1"
                       >
                         <TechIcon
                           name={tech.name}
-                          className="w-12 h-12 text-foreground transition-all"
+                          iconSlug={tech.iconSlug}
+                          className={cn(
+                            "text-foreground transition-all",
+                            hasSingleVisibleIcon ? "size-12" : "size-8",
+                          )}
                         />
                       </Link>
-                    );
-                  })}
-                </div>
+                    ))}
+                    {hiddenIconCount > 0 && (
+                      <Link
+                        href={adrHref}
+                        className="z-20 relative inline-flex size-8 items-center justify-center rounded-md bg-muted text-[0.6875rem] font-medium text-muted-foreground hover:bg-muted/80 transition-colors"
+                        aria-label={`View ADR with ${hiddenIconCount} more technologies`}
+                        title={`${hiddenIconCount} more technologies`}
+                      >
+                        +{hiddenIconCount}
+                      </Link>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xs text-muted-foreground">
-              <time>{formatDate(adr.date)}</time>
-              <span className="mx-2">·</span>
-              <span>{adr.readingTime}</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardHeader>
+            <CardContent>
+              <div className="text-xs text-muted-foreground">
+                <time>{formatDate(adr.date)}</time>
+                <span className="mx-2">·</span>
+                <span>{adr.readingTime}</span>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      }}
     />
   );
 }
