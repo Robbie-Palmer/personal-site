@@ -65,7 +65,6 @@ export function getKitchenRecipes(): KitchenRecipeView[] {
       return {
         slug: recipe.slug,
         title: recipe.title,
-        description: recipe.description,
         cuisine: recipe.cuisine,
         totalTime,
         ingredients: Array.from(ingredientsBySlug.values()).sort((a, b) =>

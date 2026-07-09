@@ -34,7 +34,6 @@ export type KitchenIngredientView = {
   slug: IngredientSlug;
   name: string;
   category?: IngredientCategory;
-  defaultLocation: KitchenLocation;
 };
 
 export type KitchenRecipeIngredientView = {
@@ -45,7 +44,6 @@ export type KitchenRecipeIngredientView = {
 export type KitchenRecipeView = {
   slug: string;
   title: string;
-  description: string;
   cuisine: string[];
   totalTime?: number;
   ingredients: KitchenRecipeIngredientView[];
@@ -59,29 +57,8 @@ export type KitchenRecipeMatch = KitchenRecipeView & {
   missingIngredients: KitchenRecipeIngredientView[];
 };
 
-const FRIDGE_CATEGORIES = new Set<IngredientCategory>(["dairy", "protein"]);
-const FRESH_CATEGORIES = new Set<IngredientCategory>([
-  "fruit",
-  "herb",
-  "vegetable",
-]);
-
 export function isKitchenLocation(value: unknown): value is KitchenLocation {
   return KITCHEN_LOCATIONS.some((location) => location.id === value);
-}
-
-export function getDefaultKitchenLocation(
-  ingredient: Pick<Ingredient, "category" | "name">,
-): KitchenLocation {
-  if (ingredient.category && FRIDGE_CATEGORIES.has(ingredient.category)) {
-    return "fridge";
-  }
-
-  if (ingredient.category && FRESH_CATEGORIES.has(ingredient.category)) {
-    return "fresh";
-  }
-
-  return "cupboards";
 }
 
 export function toKitchenIngredientView(
@@ -91,7 +68,6 @@ export function toKitchenIngredientView(
     slug: ingredient.slug,
     name: ingredient.name,
     category: ingredient.category,
-    defaultLocation: getDefaultKitchenLocation(ingredient),
   };
 }
 

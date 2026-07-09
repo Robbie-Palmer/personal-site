@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  getDefaultKitchenLocation,
   getKitchenRecipeMatches,
   isKitchenLocation,
   KITCHEN_LOCATIONS,
@@ -17,25 +16,12 @@ describe("kitchen helpers", () => {
     expect(isKitchenLocation("fridge")).toBe(true);
   });
 
-  it("places ingredients into practical default kitchen locations", () => {
-    expect(getDefaultKitchenLocation({ name: "milk", category: "dairy" })).toBe(
-      "fridge",
-    );
-    expect(
-      getDefaultKitchenLocation({ name: "fresh basil", category: "herb" }),
-    ).toBe("fresh");
-    expect(
-      getDefaultKitchenLocation({ name: "penne pasta", category: "grain" }),
-    ).toBe("cupboards");
-  });
-
   it("ranks recipes by match ratio then missing ingredients", () => {
     const matches = getKitchenRecipeMatches(
       [
         {
           slug: "small-recipe",
           title: "Small Recipe",
-          description: "",
           cuisine: [],
           ingredients: [
             { slug: "pasta", name: "pasta" },
@@ -45,7 +31,6 @@ describe("kitchen helpers", () => {
         {
           slug: "larger-recipe",
           title: "Larger Recipe",
-          description: "",
           cuisine: [],
           ingredients: [
             { slug: "rice", name: "rice" },

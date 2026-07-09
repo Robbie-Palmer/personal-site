@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/generic/styles";
 
 const STORAGE_KEY = "recipe-kitchen-stock-v1";
+const CATALOG_RESULT_LIMIT = 18;
 
 const LOCATION_ICONS = {
   fridge: Refrigerator,
@@ -213,7 +214,7 @@ export function KitchenView({
     .filter((recipe) => recipe.missingCount > 0)
     .slice(0, 5);
 
-  const filteredCatalog = useMemo(() => {
+  const catalogMatches = useMemo(() => {
     const query = normalizeQuery(catalogQuery);
     return ingredients
       .filter((ingredient) => !stock[ingredient.slug])
@@ -222,9 +223,10 @@ export function KitchenView({
         return `${ingredient.name} ${ingredient.category ?? ""}`
           .toLowerCase()
           .includes(query);
-      })
-      .slice(0, 18);
+      });
   }, [catalogQuery, ingredients, stock]);
+  const filteredCatalog = catalogMatches.slice(0, CATALOG_RESULT_LIMIT);
+  const isCatalogTruncated = catalogMatches.length > filteredCatalog.length;
 
   const stockQueryNormalized = normalizeQuery(stockQuery);
   const groupedStock = useMemo(
@@ -477,6 +479,12 @@ export function KitchenView({
                   </button>
                 ))}
               </div>
+              {isCatalogTruncated && (
+                <p className="rt-body mt-3 text-sm text-[var(--ink-3)]">
+                  Showing {filteredCatalog.length} of {catalogMatches.length}
+                  matching ingredients.
+                </p>
+              )}
               {filteredCatalog.length === 0 && (
                 <p className="rt-body text-sm text-[var(--ink-3)]">
                   No matching ingredients left to add.
@@ -517,9 +525,15 @@ export function KitchenView({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {closeMatches.map((recipe) => (
-                <RecipeMatchCard key={recipe.slug} recipe={recipe} />
-              ))}
+              {closeMatches.length > 0 ? (
+                closeMatches.map((recipe) => (
+                  <RecipeMatchCard key={recipe.slug} recipe={recipe} />
+                ))
+              ) : (
+                <p className="rt-body text-sm text-[var(--ink-3)]">
+                  No close matches right now.
+                </p>
+              )}
             </CardContent>
           </Card>
         </aside>
