@@ -1,5 +1,10 @@
 import type { ChildProcess } from "node:child_process";
 
+// Keep Pages dev deterministic in CI. Wrangler otherwise defaults to today's
+// date, which can be newer than the workerd binary bundled with the installed
+// package. Match the repo's explicit Worker compatibility date.
+export const WRANGLER_TEST_COMPATIBILITY_DATE = "2026-05-28";
+
 /**
  * Kills a spawned process and its children. Wrangler spawns workerd
  * subprocesses that survive a plain kill() and keep holding ports, so the

@@ -1,6 +1,10 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { killProcessGroup, waitForServer } from "./wrangler-test-utils";
+import {
+  killProcessGroup,
+  WRANGLER_TEST_COMPATIBILITY_DATE,
+  waitForServer,
+} from "./wrangler-test-utils";
 
 const WRANGLER_PORT = 8791;
 const BASE_URL = `http://localhost:${WRANGLER_PORT}`;
@@ -15,14 +19,21 @@ describe("Markdown content negotiation middleware", () => {
 
   beforeAll(async () => {
     wranglerProcess = spawn(
-      "npx",
+      "pnpm",
       [
+        "--dir",
+        "ui",
+        "exec",
         "wrangler",
+        "--cwd",
+        "..",
         "pages",
         "dev",
         "ui/out",
         "--port",
         String(WRANGLER_PORT),
+        "--compatibility-date",
+        WRANGLER_TEST_COMPATIBILITY_DATE,
         // Distinct inspector port so this can run alongside other wrangler
         // instances (e.g. the PostHog proxy test)
         "--inspector-port",
