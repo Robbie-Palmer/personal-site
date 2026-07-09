@@ -1,9 +1,17 @@
 import type { ChildProcess } from "node:child_process";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 // Keep Pages dev deterministic in CI. Wrangler otherwise defaults to today's
 // date, which can be newer than the workerd binary bundled with the installed
 // package. Match the repo's explicit Worker compatibility date.
 export const WRANGLER_TEST_COMPATIBILITY_DATE = "2026-05-28";
+
+export function getWranglerTestRepoRoot(): string {
+  return REPO_ROOT;
+}
 
 /**
  * Kills a spawned process and its children. Wrangler spawns workerd

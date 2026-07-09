@@ -5,6 +5,9 @@ import { getKitchenIngredients, getKitchenRecipes } from "@/lib/api/recipes";
 export const metadata: Metadata = {
   title: "Kitchen",
   description: "Track what is in your kitchen and find recipes you can make.",
+  robots: {
+    index: false,
+  },
 };
 
 export default function KitchenPage() {

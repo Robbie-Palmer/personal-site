@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  getWranglerTestRepoRoot,
   killProcessGroup,
   WRANGLER_TEST_COMPATIBILITY_DATE,
   waitForServer,
@@ -40,7 +41,7 @@ describe("Markdown content negotiation middleware", () => {
         "9239",
       ],
       {
-        cwd: process.cwd().replace(/\/ui$/, ""),
+        cwd: getWranglerTestRepoRoot(),
         stdio: ["ignore", "pipe", "pipe"],
         // Own process group so cleanup also kills spawned workerd children
         detached: true,

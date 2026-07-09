@@ -2,6 +2,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { createServer, type Server } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  getWranglerTestRepoRoot,
   killProcessGroup,
   WRANGLER_TEST_COMPATIBILITY_DATE,
   waitForServer,
@@ -100,7 +101,7 @@ describe("PostHog Proxy Integration Test", () => {
         `POSTHOG_ASSETS_HOST=http://localhost:${MOCK_ASSETS_PORT}`,
       ],
       {
-        cwd: process.cwd().replace(/\/ui$/, ""),
+        cwd: getWranglerTestRepoRoot(),
         stdio: ["ignore", "pipe", "pipe"],
         // Own process group so cleanup also kills spawned workerd children
         detached: true,
