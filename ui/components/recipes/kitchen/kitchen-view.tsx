@@ -12,23 +12,29 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useKitchenStock } from "@/hooks/use-kitchen-stock";
 import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
 import {
   getKitchenRecipeMatches,
-  isKitchenLocation,
   KITCHEN_LOCATIONS,
   type KitchenIngredientView,
   type KitchenLocation,
   type KitchenRecipeView,
 } from "@/lib/domain/recipe/kitchen";
 import { cn } from "@/lib/generic/styles";
+import {
+  clearStock as clearKitchenStock,
+  type KitchenStock,
+  removeFromStock,
+  replaceStock,
+  setStockLocation,
+} from "@/lib/kitchen/kitchenStockStore";
 
-const STORAGE_KEY = "recipe-kitchen-stock-v1";
 const CATALOG_RESULT_LIMIT = 18;
 
 const LOCATION_ICONS = {
@@ -36,8 +42,6 @@ const LOCATION_ICONS = {
   cupboards: ShoppingBasket,
   fresh: Sprout,
 } satisfies Record<KitchenLocation, typeof Refrigerator>;
-
-type StockBySlug = Record<string, KitchenLocation>;
 
 function normalizeQuery(value: string) {
   return value.trim().toLowerCase();
@@ -49,48 +53,6 @@ function formatTime(minutes?: number) {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-}
-
-function readStoredStock(): StockBySlug | null {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return null;
-    }
-
-    const stock: StockBySlug = {};
-    for (const [slug, location] of Object.entries(parsed)) {
-      if (isKitchenLocation(location)) {
-        stock[slug] = location;
-      }
-    }
-    return stock;
-  } catch {
-    return null;
-  }
-}
-
-function pruneStock(
-  stock: StockBySlug,
-  knownIngredientSlugs: ReadonlySet<string>,
-): StockBySlug {
-  const pruned: StockBySlug = {};
-  for (const [slug, location] of Object.entries(stock)) {
-    if (knownIngredientSlugs.has(slug) && isKitchenLocation(location)) {
-      pruned[slug] = location;
-    }
-  }
-  return pruned;
-}
-
-function stocksEqual(a: StockBySlug, b: StockBySlug) {
-  const aEntries = Object.entries(a);
-  if (aEntries.length !== Object.keys(b).length) return false;
-  return aEntries.every(([slug, location]) => b[slug] === location);
 }
 
 function RecipeMatchCard({
@@ -199,46 +161,16 @@ export function KitchenView({
     () => new Set<string>(ingredients.map((ingredient) => ingredient.slug)),
     [ingredients],
   );
-  const [stock, setStock] = useState<StockBySlug>({});
-  const [hasHydrated, setHasHydrated] = useState(false);
+  const stock = useKitchenStock();
   const [stockQuery, setStockQuery] = useState("");
   const [catalogQuery, setCatalogQuery] = useState("");
-  const [lastClearedStock, setLastClearedStock] = useState<StockBySlug | null>(
+  const [lastClearedStock, setLastClearedStock] = useState<KitchenStock | null>(
     null,
   );
   const [targetLocation, setTargetLocation] =
     useState<KitchenLocation>("cupboards");
   const catalogCardRef = useRef<HTMLDivElement>(null);
   const catalogSearchRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setStock(pruneStock(readStoredStock() ?? {}, knownIngredientSlugs));
-    setHasHydrated(true);
-
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key !== STORAGE_KEY) return;
-      setStock(pruneStock(readStoredStock() ?? {}, knownIngredientSlugs));
-      setLastClearedStock(null);
-    };
-
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, [knownIngredientSlugs]);
-
-  useEffect(() => {
-    if (!hasHydrated) return;
-    const prunedStock = pruneStock(stock, knownIngredientSlugs);
-    if (!stocksEqual(stock, prunedStock)) {
-      setStock(prunedStock);
-      return;
-    }
-
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(prunedStock));
-    } catch {
-      // Keep in-memory kitchen state even if browser storage is unavailable.
-    }
-  }, [hasHydrated, knownIngredientSlugs, stock]);
 
   const stockedSlugs = useMemo(
     () =>
@@ -300,16 +232,12 @@ export function KitchenView({
     ingredient: KitchenIngredientView,
     location = targetLocation,
   ) => {
-    setStock((current) => ({ ...current, [ingredient.slug]: location }));
+    setStockLocation(ingredient.slug, location);
     setLastClearedStock(null);
   };
 
   const removeIngredient = (slug: IngredientSlug) => {
-    setStock((current) => {
-      const next = { ...current };
-      delete next[slug];
-      return next;
-    });
+    removeFromStock(slug);
   };
 
   const focusAddIngredients = (location: KitchenLocation) => {
@@ -325,12 +253,12 @@ export function KitchenView({
 
   const clearStock = () => {
     setLastClearedStock(stock);
-    setStock({});
+    clearKitchenStock();
   };
 
   const undoClear = () => {
     if (!lastClearedStock) return;
-    setStock(lastClearedStock);
+    replaceStock(lastClearedStock);
     setLastClearedStock(null);
   };
 

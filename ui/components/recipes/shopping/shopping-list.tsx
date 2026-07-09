@@ -1,14 +1,24 @@
 "use client";
 
-import { Plus, RotateCcw, X } from "lucide-react";
+import {
+  Check,
+  Plus,
+  Refrigerator,
+  RotateCcw,
+  ShoppingBasket,
+  Sprout,
+  X,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { ShoppingCheckbox } from "@/components/recipes/shopping/shopping-checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { useKitchenStock } from "@/hooks/use-kitchen-stock";
 import { useShoppingList } from "@/hooks/use-shopping-list";
 import { useUnitPreference } from "@/hooks/use-unit-preference";
 import type { ShoppingRecipe } from "@/lib/api/shopping";
 import type { MeasurementSystem } from "@/lib/domain/recipe";
+import type { KitchenLocation } from "@/lib/domain/recipe/kitchen";
 import {
   aggregateShoppingList,
   type SelectedRecipe,
@@ -19,6 +29,7 @@ import {
   formatShoppingName,
   formatShoppingQuantities,
 } from "@/lib/domain/shopping/display";
+import { removeFromStock } from "@/lib/kitchen/kitchenStockStore";
 import {
   addExtra,
   clearChecked,
@@ -28,6 +39,15 @@ import {
 } from "@/lib/shopping/shoppingListStore";
 
 type ListView = "aisle" | "recipe" | "flat";
+
+const LOCATION_META: Record<
+  KitchenLocation,
+  { label: string; icon: typeof Refrigerator }
+> = {
+  fridge: { label: "fridge", icon: Refrigerator },
+  cupboards: { label: "cupboards", icon: ShoppingBasket },
+  fresh: { label: "fresh", icon: Sprout },
+};
 
 const VIEWS: { id: ListView; label: string }[] = [
   { id: "aisle", label: "by aisle" },
@@ -40,33 +60,100 @@ function byName(a: ShoppingLine, b: ShoppingLine): number {
 }
 
 /**
- * Sink ticked-off items to the bottom of a list (keeping each partition's
- * existing order), like a notes app — so attention stays on what's still to
- * buy. Unticking returns an item to its sorted place.
+ * Sink handled items (ticked off, or already in the kitchen) to the bottom of a
+ * list (keeping each partition's existing order), like a notes app — so
+ * attention stays on what's still to buy. Un-handling returns an item to its
+ * sorted place.
  */
-function checkedLast(
+function doneLast(
   lines: ShoppingLine[],
-  checkedSet: Set<string>,
+  isDone: (line: ShoppingLine) => boolean,
 ): ShoppingLine[] {
-  const todo = lines.filter((line) => !checkedSet.has(line.ingredient));
-  const done = lines.filter((line) => checkedSet.has(line.ingredient));
+  const todo = lines.filter((line) => !isDone(line));
+  const done = lines.filter((line) => isDone(line));
   return [...todo, ...done];
+}
+
+function MergedBadge({ count }: { count: number }) {
+  return (
+    <span
+      className="ml-1.5 align-middle inline-flex items-center rounded border border-[var(--butter)] bg-[var(--butter-soft)] px-1 text-[0.625rem] text-[var(--ink-2)]"
+      title={`Combined from ${count} recipes`}
+    >
+      ↻
+    </span>
+  );
+}
+
+/**
+ * A line whose ingredient is already stocked in the kitchen. Distinct from a
+ * manual tick: a sage location chip marks it as "have it, didn't buy it", and a
+ * one-tap remove pulls it back out of the kitchen (the undo) if we don't
+ * actually have it after all.
+ */
+function KitchenItemRow({
+  line,
+  system,
+  location,
+}: {
+  line: ShoppingLine;
+  system: MeasurementSystem;
+  location: KitchenLocation;
+}) {
+  const quantity = formatShoppingQuantities(line.quantities, system);
+  const name = formatShoppingName(line);
+  const { label, icon: Icon } = LOCATION_META[location];
+  return (
+    <div className="w-full flex items-center gap-2.5 py-1.5 border-b border-dashed border-[var(--line)] last:border-0">
+      <span
+        className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-[3px] bg-[var(--sage)] text-white"
+        aria-hidden="true"
+      >
+        <Icon className="h-2.5 w-2.5" />
+      </span>
+      <span className="rt-body flex-1 leading-snug text-[var(--ink-3)] line-through">
+        {quantity && <b className="font-semibold">{quantity}</b>}
+        {quantity ? " " : ""}
+        {name}
+        {line.recipes.length > 1 && <MergedBadge count={line.recipes.length} />}
+      </span>
+      <span className="rt-mono text-[var(--sage)] hidden sm:inline">
+        in {label}
+      </span>
+      <button
+        type="button"
+        onClick={() => removeFromStock(line.ingredient)}
+        aria-label={`Remove ${name} from the kitchen`}
+        title="Not in the kitchen after all — put back on the list"
+        className="inline-flex items-center gap-1 rt-mono text-[var(--ink-4)] hover:text-[var(--berry)] transition-colors"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
 }
 
 function ItemRow({
   line,
   system,
   checked,
+  kitchenLocation,
   showRecipes,
 }: {
   line: ShoppingLine;
   system: MeasurementSystem;
   checked: boolean;
+  kitchenLocation?: KitchenLocation;
   showRecipes: boolean;
 }) {
+  if (kitchenLocation) {
+    return (
+      <KitchenItemRow line={line} system={system} location={kitchenLocation} />
+    );
+  }
+
   const quantity = formatShoppingQuantities(line.quantities, system);
   const name = formatShoppingName(line);
-  const merged = line.recipes.length > 1;
   return (
     <button
       type="button"
@@ -84,14 +171,7 @@ function ItemRow({
         {quantity && <b className="font-semibold">{quantity}</b>}
         {quantity ? " " : ""}
         {name}
-        {merged && (
-          <span
-            className="ml-1.5 align-middle inline-flex items-center rounded border border-[var(--butter)] bg-[var(--butter-soft)] px-1 text-[0.625rem] text-[var(--ink-2)]"
-            title={`Combined from ${line.recipes.length} recipes`}
-          >
-            ↻
-          </span>
-        )}
+        {line.recipes.length > 1 && <MergedBadge count={line.recipes.length} />}
       </span>
       {showRecipes && (
         <span className="rt-mono text-[var(--ink-4)] hidden sm:block max-w-[45%] truncate text-right">
@@ -196,8 +276,10 @@ function ExtrasSection({
 
 export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
   const state = useShoppingList();
+  const stock = useKitchenStock();
   const [system] = useUnitPreference();
   const [view, setView] = useState<ListView>("aisle");
+  const [hideHave, setHideHave] = useState(false);
 
   const bySlug = useMemo(() => {
     const map = new Map<string, ShoppingRecipe>();
@@ -218,7 +300,29 @@ export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
 
   const checkedSet = useMemo(() => new Set(state.checked), [state.checked]);
 
+  // An ingredient already in the kitchen (any location) is treated as "handled".
+  const locationOf = (line: ShoppingLine): KitchenLocation | undefined =>
+    stock[line.ingredient];
+  const inKitchen = (line: ShoppingLine): boolean =>
+    Boolean(stock[line.ingredient]);
+  const isDone = (line: ShoppingLine): boolean =>
+    inKitchen(line) || checkedSet.has(line.ingredient);
+
+  // Lines to render within a group: optionally drop the kitchen items entirely
+  // (they gather in the "already have" section instead), then sink the rest.
+  const groupLines = (lines: ShoppingLine[]): ShoppingLine[] =>
+    doneLast(
+      hideHave ? lines.filter((line) => !inKitchen(line)) : lines,
+      isDone,
+    );
+
   const flatLines = useMemo(() => [...aggregated].sort(byName), [aggregated]);
+
+  const haveLines = useMemo(
+    () => aggregated.filter((line) => stock[line.ingredient]).sort(byName),
+    [aggregated, stock],
+  );
+  const inKitchenCount = haveLines.length;
 
   const aisleGroups = useMemo(() => {
     const groups = new Map<string, ShoppingLine[]>();
@@ -264,6 +368,7 @@ export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
       ? `${servingCount} ${servingCount === 1 ? "serving" : "servings"}`
       : null,
     `${itemCount} ${itemCount === 1 ? "item" : "items"}`,
+    inKitchenCount > 0 ? `${inKitchenCount} in kitchen` : null,
     `${tickedCount} ticked`,
   ]
     .filter(Boolean)
@@ -304,14 +409,43 @@ export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
         </div>
       </div>
 
-      {hasTicked && (
-        <button
-          type="button"
-          onClick={clearChecked}
-          className="mt-2 inline-flex items-center gap-1 rt-mono text-[var(--ink-3)] hover:text-[var(--terracotta)] transition-colors"
-        >
-          <RotateCcw className="h-3 w-3" /> uncheck all
-        </button>
+      {(hasTicked || inKitchenCount > 0) && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          {hasTicked && (
+            <button
+              type="button"
+              onClick={clearChecked}
+              className="inline-flex items-center gap-1 rt-mono text-[var(--ink-3)] hover:text-[var(--terracotta)] transition-colors"
+            >
+              <RotateCcw className="h-3 w-3" /> uncheck all
+            </button>
+          )}
+          {inKitchenCount > 0 && (
+            <button
+              type="button"
+              aria-pressed={hideHave}
+              onClick={() => setHideHave((v) => !v)}
+              className={[
+                "inline-flex items-center gap-1.5 rt-mono transition-colors",
+                hideHave
+                  ? "text-[var(--sage)]"
+                  : "text-[var(--ink-3)] hover:text-[var(--sage)]",
+              ].join(" ")}
+            >
+              <span
+                className={[
+                  "flex h-3.5 w-3.5 items-center justify-center rounded-[3px] border-2 transition-colors",
+                  hideHave
+                    ? "border-[var(--sage)] bg-[var(--sage)] text-white"
+                    : "border-[var(--line-strong)]",
+                ].join(" ")}
+              >
+                {hideHave && <Check className="h-2 w-2" strokeWidth={3} />}
+              </span>
+              hide {inKitchenCount} I have
+            </button>
+          )}
+        </div>
       )}
 
       <div className="mt-3">
@@ -320,12 +454,13 @@ export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
             <div className="rt-mono text-[var(--ink-3)] mb-1">
               Just ingredients · A–Z
             </div>
-            {checkedLast(flatLines, checkedSet).map((line) => (
+            {groupLines(flatLines).map((line) => (
               <ItemRow
                 key={line.ingredient}
                 line={line}
                 system={system}
                 checked={checkedSet.has(line.ingredient)}
+                kitchenLocation={locationOf(line)}
                 showRecipes
               />
             ))}
@@ -333,44 +468,75 @@ export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
         )}
 
         {view === "aisle" &&
-          aisleGroups.map((group) => (
-            <div key={group.id}>
-              <SectionHeading title={group.name} />
-              <div className="mt-1">
-                {checkedLast(group.lines, checkedSet).map((line) => (
-                  <ItemRow
-                    key={line.ingredient}
-                    line={line}
-                    system={system}
-                    checked={checkedSet.has(line.ingredient)}
-                    showRecipes
-                  />
-                ))}
+          aisleGroups.map((group) => {
+            const lines = groupLines(group.lines);
+            if (lines.length === 0) return null;
+            return (
+              <div key={group.id}>
+                <SectionHeading title={group.name} />
+                <div className="mt-1">
+                  {lines.map((line) => (
+                    <ItemRow
+                      key={line.ingredient}
+                      line={line}
+                      system={system}
+                      checked={checkedSet.has(line.ingredient)}
+                      kitchenLocation={locationOf(line)}
+                      showRecipes
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
         {view === "recipe" &&
-          recipeGroups.map((group) => (
-            <div key={group.recipe.slug}>
-              <SectionHeading
-                title={group.recipe.title}
-                hint={`${group.servings} ${group.servings === 1 ? "serving" : "servings"}`}
-              />
-              <div className="mt-1">
-                {checkedLast(group.lines, checkedSet).map((line) => (
-                  <ItemRow
-                    key={line.ingredient}
-                    line={line}
-                    system={system}
-                    checked={checkedSet.has(line.ingredient)}
-                    showRecipes={false}
-                  />
-                ))}
+          recipeGroups.map((group) => {
+            const lines = groupLines(group.lines);
+            if (lines.length === 0) return null;
+            return (
+              <div key={group.recipe.slug}>
+                <SectionHeading
+                  title={group.recipe.title}
+                  hint={`${group.servings} ${group.servings === 1 ? "serving" : "servings"}`}
+                />
+                <div className="mt-1">
+                  {lines.map((line) => (
+                    <ItemRow
+                      key={line.ingredient}
+                      line={line}
+                      system={system}
+                      checked={checkedSet.has(line.ingredient)}
+                      kitchenLocation={locationOf(line)}
+                      showRecipes={false}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
       </div>
+
+      {hideHave && haveLines.length > 0 && (
+        <div className="mt-6">
+          <SectionHeading
+            title="already have"
+            hint={`${haveLines.length} in the kitchen`}
+          />
+          <div className="mt-1">
+            {haveLines.map((line) => (
+              <ItemRow
+                key={line.ingredient}
+                line={line}
+                system={system}
+                checked={checkedSet.has(line.ingredient)}
+                kitchenLocation={locationOf(line)}
+                showRecipes={false}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       <ExtrasSection extras={state.extras} />
     </div>

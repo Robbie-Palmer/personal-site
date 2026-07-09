@@ -1,7 +1,8 @@
 "use client";
 
-import { CalendarDays, Minus, Plus, Trash2, Utensils, X } from "lucide-react";
+import { CalendarDays, Minus, Plus, Trash2, X } from "lucide-react";
 import { useMemo } from "react";
+import { SlotPicker } from "@/components/recipes/shopping/slot-picker";
 import { Button } from "@/components/ui/button";
 import { useShoppingList } from "@/hooks/use-shopping-list";
 import type { ShoppingRecipe } from "@/lib/api/shopping";
@@ -12,7 +13,6 @@ import {
   type MealPlanDay,
   type MealPlanSlot,
   removeRecipe,
-  setPlannedMeal,
   setRecipeServings,
 } from "@/lib/shopping/shoppingListStore";
 
@@ -64,84 +64,32 @@ function ServingsStepper({ slug, servings }: ServingsStepperProps) {
   );
 }
 
-type MealSelectProps = Readonly<{
-  day: MealPlanDay;
-  slot: MealPlanSlot;
-  value?: string;
-  recipeOptions: readonly ShoppingRecipe[];
-}>;
-
-function MealSelect({ day, slot, value, recipeOptions }: MealSelectProps) {
-  return (
-    <select
-      value={value ?? ""}
-      onChange={(event) =>
-        setPlannedMeal(day, slot, event.target.value || null)
-      }
-      aria-label={`${day} ${slot}`}
-      className="h-8 w-full min-w-0 max-w-full truncate rounded-md border border-[var(--line-strong)] bg-[var(--card)] px-2 text-xs text-[var(--ink-2)] outline-none transition-colors hover:border-[var(--terracotta)] focus:border-[var(--terracotta)] focus:ring-2 focus:ring-[var(--terracotta)]/15"
-    >
-      <option value="">Add meal</option>
-      {recipeOptions.map((recipe) => (
-        <option key={recipe.slug} value={recipe.slug}>
-          {recipe.title}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-type PlannedRecipePillProps = Readonly<{
-  recipe?: ShoppingRecipe;
-  onRemove: () => void;
-}>;
-
-function PlannedRecipePill({ recipe, onRemove }: PlannedRecipePillProps) {
-  if (!recipe) return null;
-  return (
-    <div className="mt-2 flex min-w-0 items-center gap-2 rounded-md border border-[var(--line)] bg-[var(--paper-warm)] px-2 py-1.5">
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-[var(--butter-soft)] text-[var(--terracotta)]">
-        <Utensils className="h-3.5 w-3.5" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate rt-body text-sm leading-tight text-[var(--ink)]">
-          {recipe.title}
-        </span>
-        <span className="block truncate rt-mono text-[0.65rem] text-[var(--ink-3)]">
-          {recipe.cuisine.join(" · ").toLowerCase() || "planned"}
-        </span>
-      </span>
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`Remove ${recipe.title} from this meal`}
-        className="shrink-0 text-[var(--ink-4)] transition-colors hover:text-[var(--berry)]"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
-
 type PlanCellProps = Readonly<{
   day: MealPlanDay;
   slot: MealPlanSlot;
+  dayLabel: string;
+  slotLabel: string;
   plannedRecipe?: ShoppingRecipe;
   recipeOptions: readonly ShoppingRecipe[];
 }>;
 
-function PlanCell({ day, slot, plannedRecipe, recipeOptions }: PlanCellProps) {
+function PlanCell({
+  day,
+  slot,
+  dayLabel,
+  slotLabel,
+  plannedRecipe,
+  recipeOptions,
+}: PlanCellProps) {
   return (
-    <div className="min-w-0 overflow-hidden rounded-md border border-[var(--line-strong)] bg-[var(--card)] p-2 lg:min-h-28">
-      <MealSelect
+    <div className="flex min-h-16 min-w-0">
+      <SlotPicker
         day={day}
         slot={slot}
-        value={plannedRecipe?.slug}
-        recipeOptions={recipeOptions}
-      />
-      <PlannedRecipePill
-        recipe={plannedRecipe}
-        onRemove={() => setPlannedMeal(day, slot, null)}
+        dayLabel={dayLabel}
+        slotLabel={slotLabel}
+        plannedRecipe={plannedRecipe}
+        recipes={recipeOptions}
       />
     </div>
   );
@@ -258,6 +206,8 @@ export function MealPlanner({ recipes }: MealPlannerProps) {
                     key={`${day.id}-${slot.id}`}
                     day={day.id}
                     slot={slot.id}
+                    dayLabel={day.label}
+                    slotLabel={slot.label}
                     plannedRecipe={recipe}
                     recipeOptions={sortedRecipes}
                   />
@@ -284,6 +234,8 @@ export function MealPlanner({ recipes }: MealPlannerProps) {
                       <PlanCell
                         day={day.id}
                         slot={slot.id}
+                        dayLabel={day.label}
+                        slotLabel={slot.label}
                         plannedRecipe={recipe}
                         recipeOptions={sortedRecipes}
                       />

@@ -2,24 +2,20 @@
 
 import { Minus, Plus, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import {
+  RecipeThumb,
+  recipeMetaLabel,
+} from "@/components/recipes/shopping/recipe-card";
 import { ShoppingCheckbox } from "@/components/recipes/shopping/shopping-checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useShoppingList } from "@/hooks/use-shopping-list";
 import type { ShoppingRecipe } from "@/lib/api/shopping";
-import { getImageUrl } from "@/lib/integrations/cloudflare-images";
 import {
   removeRecipe,
   setRecipeServings,
   toggleRecipe,
 } from "@/lib/shopping/shoppingListStore";
-
-function formatTime(minutes: number): string {
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-}
 
 function ServingsStepper({
   slug,
@@ -86,22 +82,7 @@ function PickerCard({
         onClick={() => toggleRecipe(recipe.slug)}
         className="flex gap-3 p-3 text-left w-full cursor-pointer"
       >
-        {recipe.image ? (
-          // biome-ignore lint/performance/noImgElement: native img for SSG srcset control
-          <img
-            src={getImageUrl(recipe.image, null, {
-              width: 160,
-              format: "auto",
-            })}
-            alt={recipe.imageAlt || recipe.title}
-            width={64}
-            height={64}
-            loading="lazy"
-            className="h-16 w-16 rounded-lg object-cover flex-shrink-0 bg-muted"
-          />
-        ) : (
-          <div className="h-16 w-16 rounded-lg flex-shrink-0 bg-[var(--paper-warm)]" />
-        )}
+        <RecipeThumb recipe={recipe} size={64} />
         <span className="flex-1 min-w-0 block">
           <span className="flex items-start gap-2">
             <ShoppingCheckbox checked={selected} className="mt-1" />
@@ -110,12 +91,7 @@ function PickerCard({
             </span>
           </span>
           <span className="rt-mono text-[var(--ink-3)] mt-1 truncate block">
-            {[
-              recipe.cuisine.join(" · ").toLowerCase(),
-              recipe.totalTime != null ? formatTime(recipe.totalTime) : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
+            {recipeMetaLabel(recipe)}
           </span>
         </span>
       </button>
