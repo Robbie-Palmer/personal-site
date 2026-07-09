@@ -1,7 +1,8 @@
 "use client";
 
 import {
-  Check,
+  ArrowRight,
+  Layers,
   Plus,
   Refrigerator,
   RotateCcw,
@@ -9,6 +10,7 @@ import {
   Sprout,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ShoppingCheckbox } from "@/components/recipes/shopping/shopping-checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -74,13 +76,19 @@ function doneLast(
   return [...todo, ...done];
 }
 
+/**
+ * Marks a line whose quantity was summed across several recipes. The layers
+ * icon + count reads as "combined from N recipes" (the old ↻ glyph looked like
+ * a refresh control).
+ */
 function MergedBadge({ count }: { count: number }) {
   return (
     <span
-      className="ml-1.5 align-middle inline-flex items-center rounded border border-[var(--butter)] bg-[var(--butter-soft)] px-1 text-[0.625rem] text-[var(--ink-2)]"
-      title={`Combined from ${count} recipes`}
+      className="ml-1.5 align-middle inline-flex items-center gap-0.5 rounded border border-[var(--butter)] bg-[var(--butter-soft)] px-1 py-px text-[0.625rem] text-[var(--ink-2)]"
+      title={`Quantity combined from ${count} recipes`}
     >
-      ↻
+      <Layers className="h-2.5 w-2.5" />
+      {count}
     </span>
   );
 }
@@ -279,7 +287,6 @@ export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
   const stock = useKitchenStock();
   const [system] = useUnitPreference();
   const [view, setView] = useState<ListView>("aisle");
-  const [hideHave, setHideHave] = useState(false);
 
   const bySlug = useMemo(() => {
     const map = new Map<string, ShoppingRecipe>();
@@ -300,20 +307,18 @@ export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
 
   const checkedSet = useMemo(() => new Set(state.checked), [state.checked]);
 
-  // An ingredient already in the kitchen (any location) is treated as "handled".
+  // An ingredient already in the kitchen (any location) is pulled out of the
+  // aisle/recipe groups and gathered into the "already have" section, so the
+  // main list stays focused on what's still to buy. Ticked items just sink.
   const locationOf = (line: ShoppingLine): KitchenLocation | undefined =>
     stock[line.ingredient];
   const inKitchen = (line: ShoppingLine): boolean =>
     Boolean(stock[line.ingredient]);
-  const isDone = (line: ShoppingLine): boolean =>
-    inKitchen(line) || checkedSet.has(line.ingredient);
 
-  // Lines to render within a group: optionally drop the kitchen items entirely
-  // (they gather in the "already have" section instead), then sink the rest.
   const groupLines = (lines: ShoppingLine[]): ShoppingLine[] =>
     doneLast(
-      hideHave ? lines.filter((line) => !inKitchen(line)) : lines,
-      isDone,
+      lines.filter((line) => !inKitchen(line)),
+      (line) => checkedSet.has(line.ingredient),
     );
 
   const flatLines = useMemo(() => [...aggregated].sort(byName), [aggregated]);
@@ -409,43 +414,14 @@ export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
         </div>
       </div>
 
-      {(hasTicked || inKitchenCount > 0) && (
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-          {hasTicked && (
-            <button
-              type="button"
-              onClick={clearChecked}
-              className="inline-flex items-center gap-1 rt-mono text-[var(--ink-3)] hover:text-[var(--terracotta)] transition-colors"
-            >
-              <RotateCcw className="h-3 w-3" /> uncheck all
-            </button>
-          )}
-          {inKitchenCount > 0 && (
-            <button
-              type="button"
-              aria-pressed={hideHave}
-              onClick={() => setHideHave((v) => !v)}
-              className={[
-                "inline-flex items-center gap-1.5 rt-mono transition-colors",
-                hideHave
-                  ? "text-[var(--sage)]"
-                  : "text-[var(--ink-3)] hover:text-[var(--sage)]",
-              ].join(" ")}
-            >
-              <span
-                className={[
-                  "flex h-3.5 w-3.5 items-center justify-center rounded-[3px] border-2 transition-colors",
-                  hideHave
-                    ? "border-[var(--sage)] bg-[var(--sage)] text-white"
-                    : "border-[var(--line-strong)]",
-                ].join(" ")}
-              >
-                {hideHave && <Check className="h-2 w-2" strokeWidth={3} />}
-              </span>
-              hide {inKitchenCount} I have
-            </button>
-          )}
-        </div>
+      {hasTicked && (
+        <button
+          type="button"
+          onClick={clearChecked}
+          className="mt-2 inline-flex items-center gap-1 rt-mono text-[var(--ink-3)] hover:text-[var(--terracotta)] transition-colors"
+        >
+          <RotateCcw className="h-3 w-3" /> uncheck all
+        </button>
       )}
 
       <div className="mt-3">
@@ -517,12 +493,24 @@ export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
           })}
       </div>
 
-      {hideHave && haveLines.length > 0 && (
+      {haveLines.length > 0 && (
         <div className="mt-6">
-          <SectionHeading
-            title="already have"
-            hint={`${haveLines.length} in the kitchen`}
-          />
+          <div className="mt-5 flex items-baseline justify-between border-b border-[var(--line)] pb-1">
+            <h3 className="rt-display text-2xl text-[var(--terracotta)]">
+              · already have
+            </h3>
+            <Link
+              href="/recipes/kitchen"
+              className="inline-flex items-center gap-1 rt-mono text-[var(--ink-3)] transition-colors hover:text-[var(--terracotta)]"
+            >
+              {haveLines.length} in the kitchen
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+          <p className="rt-body mt-1 text-sm text-[var(--ink-3)]">
+            Skipped because they're in your kitchen. Tap ✕ to put one back on
+            the list if you don't actually have it.
+          </p>
           <div className="mt-1">
             {haveLines.map((line) => (
               <ItemRow
