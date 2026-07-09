@@ -103,25 +103,15 @@ export function getKitchenRecipeMatches(
 
   return recipes
     .map((recipe) => {
-      const requiredBySlug = new Map<
-        IngredientSlug,
-        KitchenRecipeIngredientView
-      >();
-      for (const ingredient of recipe.ingredients) {
-        requiredBySlug.set(ingredient.slug, ingredient);
-      }
-
-      const required = Array.from(requiredBySlug.values());
-      const missingIngredients = required.filter(
+      const missingIngredients = recipe.ingredients.filter(
         (ingredient) => !available.has(ingredient.slug),
       );
-      const totalCount = required.length;
+      const totalCount = recipe.ingredients.length;
       const missingCount = missingIngredients.length;
       const haveCount = totalCount - missingCount;
 
       return {
         ...recipe,
-        ingredients: required,
         haveCount,
         missingCount,
         totalCount,
@@ -130,11 +120,11 @@ export function getKitchenRecipeMatches(
       };
     })
     .sort((a, b) => {
-      const missingComparison = a.missingCount - b.missingCount;
-      if (missingComparison !== 0) return missingComparison;
-
       const ratioComparison = b.matchRatio - a.matchRatio;
       if (ratioComparison !== 0) return ratioComparison;
+
+      const missingComparison = a.missingCount - b.missingCount;
+      if (missingComparison !== 0) return missingComparison;
 
       return a.title.localeCompare(b.title);
     });

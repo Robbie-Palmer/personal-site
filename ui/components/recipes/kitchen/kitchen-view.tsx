@@ -12,7 +12,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -173,8 +173,13 @@ export function KitchenView({
   const [hasHydrated, setHasHydrated] = useState(false);
   const [stockQuery, setStockQuery] = useState("");
   const [catalogQuery, setCatalogQuery] = useState("");
+  const [lastClearedStock, setLastClearedStock] = useState<StockBySlug | null>(
+    null,
+  );
   const [targetLocation, setTargetLocation] =
     useState<KitchenLocation>("cupboards");
+  const catalogCardRef = useRef<HTMLDivElement>(null);
+  const catalogSearchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setStock(readStoredStock() ?? {});
@@ -244,6 +249,7 @@ export function KitchenView({
     location = targetLocation,
   ) => {
     setStock((current) => ({ ...current, [ingredient.slug]: location }));
+    setLastClearedStock(null);
   };
 
   const removeIngredient = (slug: IngredientSlug) => {
@@ -252,6 +258,28 @@ export function KitchenView({
       delete next[slug];
       return next;
     });
+  };
+
+  const focusAddIngredients = (location: KitchenLocation) => {
+    setTargetLocation(location);
+    window.requestAnimationFrame(() => {
+      catalogCardRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      catalogSearchRef.current?.focus({ preventScroll: true });
+    });
+  };
+
+  const clearStock = () => {
+    setLastClearedStock(stock);
+    setStock({});
+  };
+
+  const undoClear = () => {
+    if (!lastClearedStock) return;
+    setStock(lastClearedStock);
+    setLastClearedStock(null);
   };
 
   const stockedCount = stockedSlugs.length;
@@ -278,10 +306,20 @@ export function KitchenView({
               type="button"
               variant="ghost"
               className="min-w-0 flex-1 text-[var(--ink-3)] hover:text-[var(--berry)] sm:flex-none"
-              onClick={() => setStock({})}
+              onClick={clearStock}
             >
               <Trash2 className="size-4" />
               Clear
+            </Button>
+          )}
+          {lastClearedStock && stockedCount === 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-w-0 flex-1 border-[var(--line-strong)] bg-[var(--card)] text-[var(--ink)] sm:flex-none"
+              onClick={undoClear}
+            >
+              Undo clear
             </Button>
           )}
         </div>
@@ -332,7 +370,8 @@ export function KitchenView({
                         variant="ghost"
                         size="sm"
                         className="text-[var(--terracotta)]"
-                        onClick={() => setTargetLocation(group.id)}
+                        onClick={() => focusAddIngredients(group.id)}
+                        aria-label={`Add ingredients to ${group.label}`}
                       >
                         <CirclePlus className="size-4" />
                         Add here
@@ -369,7 +408,10 @@ export function KitchenView({
             </CardContent>
           </Card>
 
-          <Card className="rounded-lg border-[1.25px] border-[var(--line-strong)] bg-[var(--card)]">
+          <Card
+            ref={catalogCardRef}
+            className="scroll-mt-24 rounded-lg border-[1.25px] border-[var(--line-strong)] bg-[var(--card)]"
+          >
             <CardHeader className="gap-3">
               <div>
                 <p className="rt-mono text-[var(--terracotta)]">
@@ -383,6 +425,7 @@ export function KitchenView({
                 <div className="relative min-w-0">
                   <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--ink-3)]" />
                   <Input
+                    ref={catalogSearchRef}
                     value={catalogQuery}
                     onChange={(event) => setCatalogQuery(event.target.value)}
                     placeholder={`Search ${ingredients.length} ingredients...`}
@@ -395,6 +438,7 @@ export function KitchenView({
                       key={location.id}
                       type="button"
                       onClick={() => setTargetLocation(location.id)}
+                      aria-label={`Add ingredients to ${location.label}`}
                       className={cn(
                         "inline-flex items-center justify-center gap-1 rounded-sm px-2 py-1.5 text-sm transition-colors",
                         targetLocation === location.id

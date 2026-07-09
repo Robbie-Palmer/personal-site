@@ -29,23 +29,12 @@ describe("kitchen helpers", () => {
     ).toBe("cupboards");
   });
 
-  it("ranks recipes by missing ingredients then match ratio", () => {
+  it("ranks recipes by match ratio then missing ingredients", () => {
     const matches = getKitchenRecipeMatches(
       [
         {
-          slug: "risotto",
-          title: "Risotto",
-          description: "",
-          cuisine: [],
-          ingredients: [
-            { slug: "rice", name: "rice" },
-            { slug: "parmesan", name: "parmesan" },
-            { slug: "stock", name: "stock" },
-          ],
-        },
-        {
-          slug: "pasta",
-          title: "Pasta",
+          slug: "small-recipe",
+          title: "Small Recipe",
           description: "",
           cuisine: [],
           ingredients: [
@@ -53,16 +42,32 @@ describe("kitchen helpers", () => {
             { slug: "tomatoes", name: "tomatoes" },
           ],
         },
+        {
+          slug: "larger-recipe",
+          title: "Larger Recipe",
+          description: "",
+          cuisine: [],
+          ingredients: [
+            { slug: "rice", name: "rice" },
+            { slug: "parmesan", name: "parmesan" },
+            { slug: "stock", name: "stock" },
+            { slug: "peas", name: "peas" },
+            { slug: "butter", name: "butter" },
+          ],
+        },
       ],
-      ["pasta", "tomatoes", "rice"],
+      ["pasta", "rice", "parmesan", "stock", "peas"],
     );
 
-    expect(matches[0]?.slug).toBe("pasta");
-    expect(matches[0]?.missingIngredients).toEqual([]);
-    expect(matches[1]?.slug).toBe("risotto");
+    expect(matches[0]?.slug).toBe("larger-recipe");
+    expect(matches[0]?.matchRatio).toBe(0.8);
+    expect(matches[0]?.missingIngredients).toEqual([
+      { slug: "butter", name: "butter" },
+    ]);
+    expect(matches[1]?.slug).toBe("small-recipe");
+    expect(matches[1]?.matchRatio).toBe(0.5);
     expect(matches[1]?.missingIngredients).toEqual([
-      { slug: "parmesan", name: "parmesan" },
-      { slug: "stock", name: "stock" },
+      { slug: "tomatoes", name: "tomatoes" },
     ]);
   });
 });
