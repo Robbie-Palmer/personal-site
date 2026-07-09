@@ -72,9 +72,9 @@ function readStoredStock(): StockBySlug | null {
 
 function RecipeMatchCard({
   recipe,
-}: {
+}: Readonly<{
   recipe: ReturnType<typeof getKitchenRecipeMatches>[number];
-}) {
+}>) {
   const timeLabel = formatTime(recipe.totalTime);
   const canCook = recipe.missingCount === 0;
   const progress = Math.round(recipe.matchRatio * 100);
@@ -155,7 +155,7 @@ function RecipeMatchCard({
   );
 }
 
-function LocationIcon({ location }: { location: KitchenLocation }) {
+function LocationIcon({ location }: Readonly<{ location: KitchenLocation }>) {
   const Icon = LOCATION_ICONS[location];
   return <Icon className="size-4" />;
 }
@@ -163,10 +163,10 @@ function LocationIcon({ location }: { location: KitchenLocation }) {
 export function KitchenView({
   ingredients,
   recipes,
-}: {
+}: Readonly<{
   ingredients: KitchenIngredientView[];
   recipes: KitchenRecipeView[];
-}) {
+}>) {
   const ingredientBySlug = useMemo(
     () =>
       new Map(ingredients.map((ingredient) => [ingredient.slug, ingredient])),
