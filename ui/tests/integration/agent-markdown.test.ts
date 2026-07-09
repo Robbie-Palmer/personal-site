@@ -51,6 +51,7 @@ describe("agent markdown generation", () => {
   it("generates a markdown twin for every recipe and technology page", () => {
     // Interactive, noindex app pages that intentionally have no Markdown twin.
     const nonContentPages = new Set([
+      "recipes/kitchen.html",
       "recipes/settings.html",
       "recipes/shopping.html",
     ]);

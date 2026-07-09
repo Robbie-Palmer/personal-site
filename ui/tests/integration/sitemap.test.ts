@@ -15,7 +15,11 @@ const STATIC_ASSET_SEGMENTS = new Set(["recipe-site-design"]);
 
 // Authenticated, noindex app pages (e.g. account settings) — served but kept
 // out of the sitemap on purpose.
-const NOINDEX_APP_PAGES = new Set(["recipes/settings", "recipes/shopping"]);
+const NOINDEX_APP_PAGES = new Set([
+  "recipes/kitchen",
+  "recipes/settings",
+  "recipes/shopping",
+]);
 
 describe("Sitemap Integration Test", () => {
   it("should have a sitemap.xml that includes all generated pages", () => {
