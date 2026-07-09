@@ -80,75 +80,78 @@ function RecipeMatchCard({
   const progress = Math.round(recipe.matchRatio * 100);
 
   return (
-    <Card className="overflow-hidden rounded-lg border-[1.25px] border-[var(--line-strong)] bg-[var(--card)] py-0">
-      <CardContent className="p-3">
-        <div className="flex min-w-0 items-start gap-3">
-          <div
-            className={cn(
-              "flex size-11 shrink-0 items-center justify-center rounded-md",
-              canCook
-                ? "bg-[var(--sage)] text-white"
-                : "bg-[var(--paper-warm)] text-[var(--terracotta)]",
-            )}
-          >
-            {canCook ? (
-              <Check className="size-5" />
-            ) : (
-              <ChefHat className="size-5" />
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <Link
-              href={`/recipes/${recipe.slug}`}
-              className="rt-display block truncate text-2xl leading-none transition-colors hover:text-[var(--terracotta)]"
+    <Link
+      href={`/recipes/${recipe.slug}`}
+      className="group block rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--ring)]/50"
+      aria-label={`Open ${recipe.title}`}
+    >
+      <Card className="overflow-hidden rounded-lg border-[1.25px] border-[var(--line-strong)] bg-[var(--card)] py-0 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--paper-shadow)]">
+        <CardContent className="p-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div
+              className={cn(
+                "flex size-11 shrink-0 items-center justify-center rounded-md",
+                canCook
+                  ? "bg-[var(--sage)] text-white"
+                  : "bg-[var(--paper-warm)] text-[var(--terracotta)]",
+              )}
             >
-              {recipe.title}
-            </Link>
-            <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs text-[var(--ink-3)]">
-              {timeLabel && <span>{timeLabel}</span>}
-              {recipe.cuisine.slice(0, 2).map((cuisine) => (
-                <span key={cuisine}>{cuisine}</span>
-              ))}
-              <span>
-                {recipe.haveCount}/{recipe.totalCount} ingredients
-              </span>
+              {canCook ? (
+                <Check className="size-5" />
+              ) : (
+                <ChefHat className="size-5" />
+              )}
             </div>
+            <div className="min-w-0 flex-1">
+              <div className="rt-display text-2xl leading-none transition-colors group-hover:text-[var(--terracotta)]">
+                {recipe.title}
+              </div>
+              <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs text-[var(--ink-3)]">
+                {timeLabel && <span>{timeLabel}</span>}
+                {recipe.cuisine.slice(0, 2).map((cuisine) => (
+                  <span key={cuisine}>{cuisine}</span>
+                ))}
+                <span>
+                  {recipe.haveCount}/{recipe.totalCount} ingredients
+                </span>
+              </div>
+            </div>
+            <Badge
+              variant={canCook ? "default" : "outline"}
+              className={cn(
+                "shrink-0",
+                canCook
+                  ? "bg-[var(--sage)] text-white"
+                  : "text-[var(--terracotta)]",
+              )}
+            >
+              {canCook ? "cook" : `+${recipe.missingCount}`}
+            </Badge>
           </div>
-          <Badge
-            variant={canCook ? "default" : "outline"}
-            className={cn(
-              "shrink-0",
-              canCook
-                ? "bg-[var(--sage)] text-white"
-                : "text-[var(--terracotta)]",
-            )}
-          >
-            {canCook ? "cook" : `+${recipe.missingCount}`}
-          </Badge>
-        </div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--paper-warm)]">
-          <div
-            className={cn(
-              "h-full rounded-full",
-              canCook ? "bg-[var(--sage)]" : "bg-[var(--terracotta)]",
-            )}
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        {recipe.missingIngredients.length > 0 && (
-          <p className="rt-body mt-2 line-clamp-2 text-sm text-[var(--ink-2)]">
-            Need:{" "}
-            <span className="text-[var(--terracotta)]">
-              {recipe.missingIngredients
-                .slice(0, 5)
-                .map((ingredient) => ingredient.name)
-                .join(", ")}
-              {recipe.missingIngredients.length > 5 ? "..." : ""}
-            </span>
-          </p>
-        )}
-      </CardContent>
-    </Card>
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--paper-warm)]">
+            <div
+              className={cn(
+                "h-full rounded-full",
+                canCook ? "bg-[var(--sage)]" : "bg-[var(--terracotta)]",
+              )}
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          {recipe.missingIngredients.length > 0 && (
+            <p className="rt-body mt-2 line-clamp-2 text-sm text-[var(--ink-2)]">
+              Need:{" "}
+              <span className="text-[var(--terracotta)]">
+                {recipe.missingIngredients
+                  .slice(0, 5)
+                  .map((ingredient) => ingredient.name)
+                  .join(", ")}
+                {recipe.missingIngredients.length > 5 ? "..." : ""}
+              </span>
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
