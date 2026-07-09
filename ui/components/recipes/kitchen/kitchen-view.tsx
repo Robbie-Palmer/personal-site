@@ -10,6 +10,7 @@ import {
   ShoppingBasket,
   Sprout,
   Trash2,
+  Undo2,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -315,29 +316,6 @@ export function KitchenView({
             recipe box.
           </p>
         </div>
-        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-          {stockedCount > 0 && (
-            <Button
-              type="button"
-              variant="ghost"
-              className="min-w-0 flex-1 text-[var(--ink-3)] hover:text-[var(--berry)] sm:flex-none"
-              onClick={clearStock}
-            >
-              <Trash2 className="size-4" />
-              Clear
-            </Button>
-          )}
-          {lastClearedStock && stockedCount === 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              className="min-w-0 flex-1 border-[var(--line-strong)] bg-[var(--card)] text-[var(--ink)] sm:flex-none"
-              onClick={undoClear}
-            >
-              Undo clear
-            </Button>
-          )}
-        </div>
       </div>
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.85fr)]">
@@ -351,9 +329,29 @@ export function KitchenView({
                     Your kitchen.
                   </CardTitle>
                 </div>
-                <Badge variant="outline" className="text-[var(--ink-2)]">
-                  {stockedCount} {stockedCount === 1 ? "item" : "items"}
-                </Badge>
+                <div className="flex items-center gap-3">
+                  {stockedCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearStock}
+                      className="inline-flex items-center gap-1 rt-mono text-[var(--ink-3)] transition-colors hover:text-[var(--berry)]"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> clear all
+                    </button>
+                  )}
+                  {lastClearedStock && stockedCount === 0 && (
+                    <button
+                      type="button"
+                      onClick={undoClear}
+                      className="inline-flex items-center gap-1 rt-mono text-[var(--ink-3)] transition-colors hover:text-[var(--terracotta)]"
+                    >
+                      <Undo2 className="h-3.5 w-3.5" /> undo clear
+                    </button>
+                  )}
+                  <Badge variant="outline" className="text-[var(--ink-2)]">
+                    {stockedCount} {stockedCount === 1 ? "item" : "items"}
+                  </Badge>
+                </div>
               </div>
               <div className="relative">
                 <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--ink-3)]" />

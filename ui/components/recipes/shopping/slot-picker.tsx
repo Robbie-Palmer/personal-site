@@ -125,6 +125,7 @@ export function SlotPicker({
                 <button
                   key={recipe.slug}
                   type="button"
+                  aria-pressed={active}
                   onClick={() => assign(active ? null : recipe.slug)}
                   className={[
                     "flex w-full min-w-0 items-center gap-2.5 rounded-md p-1.5 text-left transition-colors",

@@ -81,7 +81,7 @@ function doneLast(
  * icon + count reads as "combined from N recipes" (the old ↻ glyph looked like
  * a refresh control).
  */
-function MergedBadge({ count }: { count: number }) {
+function MergedBadge({ count }: Readonly<{ count: number }>) {
   return (
     <span
       className="ml-1.5 align-middle inline-flex items-center gap-0.5 rounded border border-[var(--butter)] bg-[var(--butter-soft)] px-1 py-px text-[0.625rem] text-[var(--ink-2)]"
@@ -103,11 +103,11 @@ function KitchenItemRow({
   line,
   system,
   location,
-}: {
+}: Readonly<{
   line: ShoppingLine;
   system: MeasurementSystem;
   location: KitchenLocation;
-}) {
+}>) {
   const quantity = formatShoppingQuantities(line.quantities, system);
   const name = formatShoppingName(line);
   const { label, icon: Icon } = LOCATION_META[location];

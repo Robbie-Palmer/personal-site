@@ -30,11 +30,11 @@ export function RecipeThumb({
   recipe,
   size = 64,
   className = "",
-}: {
+}: Readonly<{
   recipe: ShoppingRecipe;
   size?: number;
   className?: string;
-}) {
+}>) {
   const box = `${className} rounded-lg object-cover flex-shrink-0 bg-muted`;
   if (!recipe.image) {
     return (
