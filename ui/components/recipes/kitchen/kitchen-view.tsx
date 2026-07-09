@@ -52,6 +52,8 @@ function formatTime(minutes?: number) {
 }
 
 function readStoredStock(): StockBySlug | null {
+  if (typeof window === "undefined") return null;
+
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -60,15 +62,35 @@ function readStoredStock(): StockBySlug | null {
       return null;
     }
 
-    return Object.fromEntries(
-      Object.entries(parsed).filter(
-        (entry): entry is [string, KitchenLocation] =>
-          isKitchenLocation(entry[1]),
-      ),
-    );
+    const stock: StockBySlug = {};
+    for (const [slug, location] of Object.entries(parsed)) {
+      if (isKitchenLocation(location)) {
+        stock[slug] = location;
+      }
+    }
+    return stock;
   } catch {
     return null;
   }
+}
+
+function pruneStock(
+  stock: StockBySlug,
+  knownIngredientSlugs: ReadonlySet<string>,
+): StockBySlug {
+  const pruned: StockBySlug = {};
+  for (const [slug, location] of Object.entries(stock)) {
+    if (knownIngredientSlugs.has(slug) && isKitchenLocation(location)) {
+      pruned[slug] = location;
+    }
+  }
+  return pruned;
+}
+
+function stocksEqual(a: StockBySlug, b: StockBySlug) {
+  const aEntries = Object.entries(a);
+  if (aEntries.length !== Object.keys(b).length) return false;
+  return aEntries.every(([slug, location]) => b[slug] === location);
 }
 
 function RecipeMatchCard({
@@ -77,7 +99,7 @@ function RecipeMatchCard({
   recipe: ReturnType<typeof getKitchenRecipeMatches>[number];
 }>) {
   const timeLabel = formatTime(recipe.totalTime);
-  const canCook = recipe.missingCount === 0;
+  const canCook = recipe.totalCount > 0 && recipe.missingCount === 0;
   const progress = Math.round(recipe.matchRatio * 100);
 
   return (
@@ -173,6 +195,10 @@ export function KitchenView({
       new Map(ingredients.map((ingredient) => [ingredient.slug, ingredient])),
     [ingredients],
   );
+  const knownIngredientSlugs = useMemo(
+    () => new Set<string>(ingredients.map((ingredient) => ingredient.slug)),
+    [ingredients],
+  );
   const [stock, setStock] = useState<StockBySlug>({});
   const [hasHydrated, setHasHydrated] = useState(false);
   const [stockQuery, setStockQuery] = useState("");
@@ -186,21 +212,40 @@ export function KitchenView({
   const catalogSearchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setStock(readStoredStock() ?? {});
+    setStock(pruneStock(readStoredStock() ?? {}, knownIngredientSlugs));
     setHasHydrated(true);
-  }, []);
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== STORAGE_KEY) return;
+      setStock(pruneStock(readStoredStock() ?? {}, knownIngredientSlugs));
+      setLastClearedStock(null);
+    };
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [knownIngredientSlugs]);
 
   useEffect(() => {
     if (!hasHydrated) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stock));
-  }, [hasHydrated, stock]);
+    const prunedStock = pruneStock(stock, knownIngredientSlugs);
+    if (!stocksEqual(stock, prunedStock)) {
+      setStock(prunedStock);
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(prunedStock));
+    } catch {
+      // Keep in-memory kitchen state even if browser storage is unavailable.
+    }
+  }, [hasHydrated, knownIngredientSlugs, stock]);
 
   const stockedSlugs = useMemo(
     () =>
-      Object.keys(stock).filter((slug) =>
-        ingredientBySlug.has(slug as IngredientSlug),
-      ) as IngredientSlug[],
-    [ingredientBySlug, stock],
+      Object.keys(stock).filter((slug): slug is IngredientSlug =>
+        knownIngredientSlugs.has(slug),
+      ),
+    [knownIngredientSlugs, stock],
   );
 
   const matches = useMemo(
@@ -208,7 +253,7 @@ export function KitchenView({
     [recipes, stockedSlugs],
   );
   const cookNow = matches
-    .filter((recipe) => recipe.missingCount === 0)
+    .filter((recipe) => recipe.totalCount > 0 && recipe.missingCount === 0)
     .slice(0, 4);
   const closeMatches = matches
     .filter((recipe) => recipe.missingCount > 0)
@@ -217,7 +262,7 @@ export function KitchenView({
   const catalogMatches = useMemo(() => {
     const query = normalizeQuery(catalogQuery);
     return ingredients
-      .filter((ingredient) => !stock[ingredient.slug])
+      .filter((ingredient) => !(ingredient.slug in stock))
       .filter((ingredient) => {
         if (!query) return true;
         return `${ingredient.name} ${ingredient.category ?? ""}`
@@ -232,7 +277,9 @@ export function KitchenView({
   const groupedStock = useMemo(
     () =>
       KITCHEN_LOCATIONS.map((location) => ({
-        ...location,
+        id: location.id,
+        label: location.label,
+        description: location.description,
         icon: LOCATION_ICONS[location.id],
         items: stockedSlugs
           .filter((slug) => stock[slug] === location.id)
