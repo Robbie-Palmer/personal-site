@@ -139,17 +139,18 @@ Terraform-managed dashboard and insight resources.
 
 ### Importing PostHog Resources
 
-`posthog.tf` includes config-driven `import` blocks. After setting
-`POSTHOG_API_KEY` and `POSTHOG_PROJECT_ID` in Doppler, run:
+The dashboards and insights in `posthog_resources.json` have already been
+imported into Terraform Cloud state. For future resources, add the resource to
+`posthog_resources.json`, import it once, then commit the updated inventory:
 
 ```bash
-mise run //infra:plan
-mise run //infra:apply
+terraform import 'posthog_dashboard.managed["<stable-key>"]' '<project-id>/<dashboard-id>'
+terraform import 'posthog_insight.managed["<stable-key>"]' '<project-id>/<insight-id>'
 ```
 
-Terraform will import the existing dashboards and insights into state before it
-attempts to manage their configuration. Do not remove the import blocks until
-those addresses are present in Terraform state.
+After import, `mise run //infra:plan` should show no PostHog changes. Do not
+edit managed dashboards or insights in the PostHog UI without also updating
+`posthog_resources.json`, because Terraform will treat that as drift.
 
 ## Neon Database
 

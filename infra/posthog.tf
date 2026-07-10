@@ -17,6 +17,10 @@ resource "posthog_dashboard" "managed" {
   description = try(each.value.description, null)
   pinned      = each.value.pinned
   tags        = length(try(each.value.tags, [])) > 0 ? toset(each.value.tags) : null
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "posthog_insight" "managed" {
@@ -32,18 +36,8 @@ resource "posthog_insight" "managed" {
   ]) : null
   tags       = length(try(each.value.tags, [])) > 0 ? toset(each.value.tags) : null
   query_json = jsonencode(each.value.query)
-}
 
-import {
-  for_each = local.posthog_dashboards
-
-  to = posthog_dashboard.managed[each.key]
-  id = "${var.posthog_project_id}/${each.value.id}"
-}
-
-import {
-  for_each = local.posthog_insights
-
-  to = posthog_insight.managed[each.key]
-  id = "${var.posthog_project_id}/${each.value.id}"
+  lifecycle {
+    prevent_destroy = true
+  }
 }
