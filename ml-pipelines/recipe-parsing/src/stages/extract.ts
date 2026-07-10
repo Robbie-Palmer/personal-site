@@ -2,30 +2,36 @@ import "dotenv/config";
 import {
   EXTRACTION_PREDICTIONS_PATH,
   EXTRACTION_FAILURES_PATH,
+  IMAGES_DIR,
   loadImageEntries,
   loadExtractionPredictions,
   loadExtractionFailures,
   loadParams,
   writeJson,
 } from "../lib/io";
-import { extractRecipeFromImages } from "../lib/openrouter.js";
+import { join } from "node:path";
+import { extractRecipeFromImages } from "recipe-parsing/openrouter";
 import { imageSetKey } from "../lib/image-key.js";
-import { stringifyProviderErrorBody } from "../lib/parse-retry.js";
+import { stringifyProviderErrorBody } from "recipe-parsing/parse-retry";
 import {
   type AttemptErrorDetail,
-  parseCsvEnv,
   sleep,
   computeBackoffDelayMs,
   isOpenAIStyleError,
   extractAttemptErrorDetail,
+} from "recipe-parsing/attempts";
+import {
+  parseCsvEnv,
   mergeByImageSet,
   catchMissingFile,
 } from "../lib/stage-runner.js";
+import { requiredEnv } from "../lib/env.js";
+import { imagePathToDataUrl } from "../lib/images.js";
 import type {
   ExtractionPredictionEntry,
   ExtractionPredictionsDataset,
-} from "../schemas/stage-artifacts.js";
-import type { ParseFailuresDataset } from "../schemas/parse-failures.js";
+} from "recipe-parsing/schemas/stage-artifacts";
+import type { ParseFailuresDataset } from "recipe-parsing/schemas/parse-failures";
 
 type ExtractSuccess = {
   ok: true;
@@ -73,6 +79,7 @@ function buildFailure(params: {
 }
 
 async function extractEntryWithRetries(params: {
+  apiKey: string;
   images: string[];
   model: string;
   requestTimeoutMs: number;
@@ -86,21 +93,30 @@ async function extractEntryWithRetries(params: {
   let lastError: unknown;
   const attemptErrors: AttemptErrorDetail[] = [];
 
+  const imageDataUrls = await Promise.all(
+    params.images.map((imageFile) =>
+      imagePathToDataUrl(
+        join(IMAGES_DIR, imageFile),
+        params.maxImageDimension,
+        params.jpegQuality,
+      ),
+    ),
+  );
+
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
       const extracted = await extractRecipeFromImages({
-        imageFiles: params.images,
+        apiKey: params.apiKey,
+        imageDataUrls,
         model: params.model,
         requestTimeoutMs: params.requestTimeoutMs,
-        maxImageDimension: params.maxImageDimension,
-        jpegQuality: params.jpegQuality,
       });
 
       return {
         ok: true,
         prediction: {
           images: params.images,
-          extracted,
+          extracted: extracted.value,
         },
       };
     } catch (error) {
@@ -168,6 +184,7 @@ async function main() {
     `  target_images:      ${targetImages ? targetImages.join(", ") : "(all entries)"}`,
   );
   console.log(`  OPENROUTER_API_KEY: ${hasApiKey ? "set" : "missing"}`);
+  const apiKey = requiredEnv("OPENROUTER_API_KEY");
 
   console.log("Loading image entries...");
   const imageEntries = await loadImageEntries();
@@ -209,6 +226,7 @@ async function main() {
       }
       const entry = entriesToProcess[currentIndex]!;
       results[currentIndex] = await extractEntryWithRetries({
+        apiKey,
         images: entry.images,
         model,
         requestTimeoutMs,

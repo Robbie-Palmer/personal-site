@@ -8,7 +8,7 @@ import {
   PredictionsDatasetSchema,
   type GroundTruthDataset,
   type PredictionsDataset,
-} from "../schemas/ground-truth.js";
+} from "recipe-parsing/schemas/ground-truth";
 import {
   CooklangPredictionsDatasetSchema,
   ExtractionPredictionsDatasetSchema,
@@ -16,15 +16,11 @@ import {
   type CooklangPredictionsDataset,
   type ExtractionPredictionsDataset,
   type StructuredTextPredictionsDataset,
-} from "../schemas/stage-artifacts.js";
+} from "recipe-parsing/schemas/stage-artifacts";
 import {
   ParseFailuresDatasetSchema,
   type ParseFailuresDataset,
-} from "../schemas/parse-failures.js";
-import {
-  CanonicalIngredientsDataSchema,
-  type CanonicalIngredientsData,
-} from "../schemas/canonical-ingredients.js";
+} from "recipe-parsing/schemas/parse-failures";
 
 const DATA_DIR = "data";
 const OUTPUTS_DIR = "outputs";
@@ -59,7 +55,6 @@ export const IMAGES_PER_RECIPE_HISTOGRAM_PATH = join(OUTPUTS_DIR, "images-per-re
 export const CUISINE_DISTRIBUTION_PLOT_PATH = join(OUTPUTS_DIR, "cuisine-distribution.json");
 export const TOP_INGREDIENTS_PLOT_PATH = join(OUTPUTS_DIR, "top-ingredients.json");
 export const PER_ENTRY_SCORE_PLOT_PATH = join(OUTPUTS_DIR, "per-entry-score-plot.json");
-export const CANONICAL_INGREDIENTS_PATH = join(DATA_DIR, "canonical-ingredients.json");
 export const PARAMS_PATH = "params.yaml";
 
 export async function loadGroundTruth(): Promise<GroundTruthDataset> {
@@ -130,11 +125,6 @@ export async function loadParseFailures(): Promise<ParseFailuresDataset> {
   }
   const raw = JSON.parse(await readFile(PARSE_FAILURES_PATH, "utf-8"));
   return ParseFailuresDatasetSchema.parse(raw);
-}
-
-export async function loadCanonicalIngredients(): Promise<CanonicalIngredientsData> {
-  const raw = JSON.parse(await readFile(CANONICAL_INGREDIENTS_PATH, "utf-8"));
-  return CanonicalIngredientsDataSchema.parse(raw);
 }
 
 export async function listImageFiles(): Promise<string[]> {

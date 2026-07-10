@@ -11,7 +11,7 @@ import {
   evaluateScalarFields,
 } from "../../../../src/evaluation/metrics.js";
 import { extractionToRecipe } from "../../../../src/lib/extraction-to-recipe.js";
-import type { Recipe } from "../../../../src/schemas/ground-truth.js";
+import type { Recipe } from "recipe-parsing/schemas/ground-truth";
 import type { ExtractionRecipe } from "../types/extraction";
 
 export interface DetailScoreBreakdown {

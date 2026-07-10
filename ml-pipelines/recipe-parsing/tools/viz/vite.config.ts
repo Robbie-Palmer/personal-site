@@ -8,6 +8,10 @@ import fs from "node:fs";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const pipelineRoot = path.resolve(__dirname, "../..");
+const canonicalIngredientsPath = path.resolve(
+  pipelineRoot,
+  "../../packages/recipe-parsing/src/data/canonical-ingredients.json",
+);
 const MAX_REQUEST_BODY_BYTES = 5 * 1024 * 1024;
 const DVC_SAVE_MESSAGE =
   "Saved data/ground-truth.json. Run `dvc add data/ground-truth.json` and commit the updated DVC metadata when you intend to persist this dataset change.";
@@ -92,16 +96,35 @@ function servePipelineFiles(): Plugin {
             res.end(JSON.stringify({ error: "Expected { ingredients: [...] }" }));
             return;
           }
-          const target = path.join(pipelineRoot, "data/canonical-ingredients.json");
-          await fs.promises.writeFile(target, JSON.stringify(json, null, 2) + "\n");
+          await fs.promises.writeFile(
+            canonicalIngredientsPath,
+            JSON.stringify(json, null, 2) + "\n",
+          );
           res.statusCode = 200;
           res.setHeader("Content-Type", "application/json");
-          res.end(JSON.stringify({ ok: true, message: "Saved data/canonical-ingredients.json." }));
+          res.end(
+            JSON.stringify({
+              ok: true,
+              message: "Saved packages/recipe-parsing/src/data/canonical-ingredients.json.",
+            }),
+          );
         } catch (e) {
           res.statusCode = e instanceof RequestBodyTooLargeError ? 413 : 500;
           res.setHeader("Content-Type", "application/json");
           res.end(JSON.stringify({ error: String(e) }));
         }
+      });
+
+      // The ontology lives in the shared recipe-parsing package, outside pipelineRoot
+      server.middlewares.use("/pipeline/data/canonical-ingredients.json", (req, res, next) => {
+        if (req.method !== "GET") return next();
+        res.setHeader("Content-Type", "application/json");
+        fs.createReadStream(canonicalIngredientsPath)
+          .on("error", () => {
+            res.statusCode = 404;
+            res.end("Not found");
+          })
+          .pipe(res);
       });
 
       // Read endpoint for pipeline files

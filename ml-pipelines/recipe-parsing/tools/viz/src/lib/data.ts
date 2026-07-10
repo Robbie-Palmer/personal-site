@@ -2,8 +2,8 @@ import type { z } from "zod";
 import {
   GroundTruthDatasetSchema,
   PredictionsDatasetSchema,
-} from "../../../../src/schemas/ground-truth.js";
-import { CooklangPredictionsDatasetSchema } from "../../../../src/schemas/stage-artifacts.js";
+} from "recipe-parsing/schemas/ground-truth";
+import { CooklangPredictionsDatasetSchema } from "recipe-parsing/schemas/stage-artifacts";
 import type { ReviewManifest, ReviewEntry } from "../types/review";
 import type { CanonicalizationFile } from "../types/canonicalization";
 import type { CanonicalIngredient, CanonicalIngredientsData } from "../types/canonicalization";

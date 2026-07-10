@@ -2,8 +2,8 @@ import {
   inferCooklangIngredientLine,
   parseIngredientLine,
   parseScalarTextNumber,
-} from "./cooklang.js";
-import type { Recipe } from "../schemas/ground-truth.js";
+} from "recipe-parsing/cooklang";
+import type { Recipe } from "recipe-parsing/schemas/ground-truth";
 
 /** Minimal extraction shape accepted by the converter. */
 interface ExtractionInput {

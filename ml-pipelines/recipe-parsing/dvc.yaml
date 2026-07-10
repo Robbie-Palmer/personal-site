@@ -5,7 +5,7 @@ stages:
       - data/ground-truth.json
       - data/recipe-images
       - src/stages/prepare.ts
-      - src/schemas/ground-truth.ts
+      - ../../packages/recipe-parsing/src/schemas/ground-truth.ts
       - src/lib/io.ts
     outs:
       - outputs/prepared.json
@@ -17,7 +17,7 @@ stages:
       - outputs/prepared.json
       - data/recipe-images
       - src/stages/dataset-stats.ts
-      - src/schemas/ground-truth.ts
+      - ../../packages/recipe-parsing/src/schemas/ground-truth.ts
       - src/lib/io.ts
     metrics:
       - outputs/dataset-stats.json
@@ -52,15 +52,16 @@ stages:
       - outputs/image-entries.json
       - data/recipe-images
       - src/stages/extract.ts
-      - src/lib/openrouter.ts
+      - ../../packages/recipe-parsing/src/lib/openrouter.ts
       - src/lib/stage-runner.ts
-      - src/lib/parse-retry.ts
+      - ../../packages/recipe-parsing/src/lib/attempts.ts
+      - ../../packages/recipe-parsing/src/lib/parse-retry.ts
       - src/lib/images.ts
       - src/lib/env.ts
       - src/lib/image-key.ts
-      - src/schemas/ground-truth.ts
-      - src/schemas/stage-artifacts.ts
-      - src/schemas/parse-failures.ts
+      - ../../packages/recipe-parsing/src/schemas/ground-truth.ts
+      - ../../packages/recipe-parsing/src/schemas/stage-artifacts.ts
+      - ../../packages/recipe-parsing/src/schemas/parse-failures.ts
       - src/lib/io.ts
     outs:
       - outputs/extraction-predictions.json
@@ -73,18 +74,19 @@ stages:
     deps:
       - outputs/extraction-predictions.json
       - src/stages/normalize.ts
-      - src/lib/cooklang.ts
-      - src/lib/recipe-postprocess.ts
-      - src/lib/cuisine-normalization.ts
-      - src/lib/ingredient-normalization-rules.ts
+      - ../../packages/recipe-parsing/src/lib/cooklang.ts
+      - ../../packages/recipe-parsing/src/lib/recipe-postprocess.ts
+      - ../../packages/recipe-parsing/src/lib/cuisine-normalization.ts
+      - ../../packages/recipe-parsing/src/lib/ingredient-normalization-rules.ts
       - src/lib/stage-runner.ts
-      - src/lib/parse-retry.ts
-      - src/lib/openrouter.ts
+      - ../../packages/recipe-parsing/src/lib/attempts.ts
+      - ../../packages/recipe-parsing/src/lib/parse-retry.ts
+      - ../../packages/recipe-parsing/src/lib/openrouter.ts
       - src/lib/env.ts
       - src/lib/image-key.ts
-      - src/schemas/ground-truth.ts
-      - src/schemas/stage-artifacts.ts
-      - src/schemas/parse-failures.ts
+      - ../../packages/recipe-parsing/src/schemas/ground-truth.ts
+      - ../../packages/recipe-parsing/src/schemas/stage-artifacts.ts
+      - ../../packages/recipe-parsing/src/schemas/parse-failures.ts
       - src/lib/io.ts
     outs:
       - outputs/predictions.json
@@ -99,10 +101,10 @@ stages:
       - src/stages/evaluate-extraction.ts
       - src/evaluation/metrics.ts
       - src/lib/image-key.ts
-      - src/lib/cooklang.ts
+      - ../../packages/recipe-parsing/src/lib/cooklang.ts
       - src/lib/extraction-text.ts
-      - src/schemas/ground-truth.ts
-      - src/schemas/stage-artifacts.ts
+      - ../../packages/recipe-parsing/src/schemas/ground-truth.ts
+      - ../../packages/recipe-parsing/src/schemas/stage-artifacts.ts
       - src/lib/io.ts
     outs:
       - outputs/extraction-metrics.json
@@ -116,7 +118,7 @@ stages:
       - src/stages/evaluate-normalization.ts
       - src/evaluation/metrics.ts
       - src/lib/image-key.ts
-      - src/schemas/ground-truth.ts
+      - ../../packages/recipe-parsing/src/schemas/ground-truth.ts
       - src/lib/io.ts
     outs:
       - outputs/normalization-metrics.json
@@ -128,18 +130,19 @@ stages:
       - canonicalize
     deps:
       - outputs/predictions.json
-      - data/canonical-ingredients.json
+      - ../../packages/recipe-parsing/src/data/canonical-ingredients.json
       - src/stages/canonicalize.ts
-      - src/lib/ingredient-canonicalization.ts
-      - src/lib/ingredient-normalization-rules.ts
-      - src/lib/cuisine-normalization.ts
-      - src/lib/equipment-canonicalization.ts
-      - src/lib/openrouter.ts
+      - ../../packages/recipe-parsing/src/lib/ingredient-canonicalization.ts
+      - ../../packages/recipe-parsing/src/lib/ingredient-normalization-rules.ts
+      - ../../packages/recipe-parsing/src/lib/cuisine-normalization.ts
+      - ../../packages/recipe-parsing/src/lib/equipment-canonicalization.ts
+      - ../../packages/recipe-parsing/src/lib/openrouter.ts
       - src/lib/stage-runner.ts
+      - ../../packages/recipe-parsing/src/lib/attempts.ts
       - src/lib/env.ts
       - src/lib/io.ts
-      - src/schemas/ground-truth.ts
-      - src/schemas/canonical-ingredients.ts
+      - ../../packages/recipe-parsing/src/schemas/ground-truth.ts
+      - ../../packages/recipe-parsing/src/schemas/canonical-ingredients.ts
     outs:
       - outputs/predictions-canonicalized.json
       - outputs/canonicalization-decisions.json

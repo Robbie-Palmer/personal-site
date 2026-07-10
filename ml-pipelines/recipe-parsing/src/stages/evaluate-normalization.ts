@@ -7,12 +7,12 @@ import {
 } from "../lib/io";
 import { aggregateMetrics, NORMALIZATION_SCORING_PROFILE } from "../evaluation/metrics";
 import { imageSetKey } from "../lib/image-key.js";
-import { deriveRecipeFromCooklang } from "../lib/cooklang.js";
+import { deriveRecipeFromCooklang } from "recipe-parsing/cooklang";
 import type {
   GroundTruthEntry,
   PredictionEntry,
-} from "../schemas/ground-truth.js";
-import type { CooklangRecipe } from "../schemas/stage-artifacts.js";
+} from "recipe-parsing/schemas/ground-truth";
+import type { CooklangRecipe } from "recipe-parsing/schemas/stage-artifacts";
 
 function hasExpectedNormalization(
   entry: GroundTruthEntry,

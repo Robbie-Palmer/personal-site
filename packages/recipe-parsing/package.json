@@ -1,0 +1,25 @@
+{
+  "name": "recipe-parsing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./schemas/*": "./src/schemas/*.ts",
+    "./*": "./src/lib/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@cooklang/cooklang": "^0.18.0",
+    "numeric-quantity": "^3.2.1",
+    "openai": "^6.6.0",
+    "recipe-domain": "workspace:*",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.0",
+    "vitest": "^4.0.0"
+  }
+}

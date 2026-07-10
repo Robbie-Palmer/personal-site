@@ -1,9 +1,5 @@
-import { join } from "node:path";
 import OpenAI from "openai";
 import { z } from "zod";
-import { IMAGES_DIR } from "./io.js";
-import { imagePathToDataUrl } from "./images.js";
-import { requiredEnv } from "./env.js";
 import { parseRecipeJsonFromText } from "./recipe-output.js";
 import {
   ExtractionRecipeSchema,
@@ -39,25 +35,36 @@ function getOrCreateOpenRouterClient(apiKey: string): OpenAI {
   return client;
 }
 
+export interface LlmUsage {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+}
+
+export interface LlmResult<T> {
+  value: T;
+  usage?: LlmUsage;
+}
+
+function extractUsage(
+  completion: OpenAI.Chat.Completions.ChatCompletion,
+): LlmUsage | undefined {
+  const usage = completion.usage;
+  if (!usage) return undefined;
+  return {
+    promptTokens: usage.prompt_tokens,
+    completionTokens: usage.completion_tokens,
+    totalTokens: usage.total_tokens,
+  };
+}
+
 export async function parseRecipeFromImages(params: {
-  imageFiles: string[];
+  apiKey: string;
+  imageDataUrls: string[];
   model: string;
   requestTimeoutMs: number;
-  maxImageDimension: number;
-  jpegQuality: number;
-}): Promise<Recipe> {
-  const apiKey = requiredEnv("OPENROUTER_API_KEY");
-  const client = getOrCreateOpenRouterClient(apiKey);
-
-  const imageDataUrls = await Promise.all(
-    params.imageFiles.map((imageFile) =>
-      imagePathToDataUrl(
-        join(IMAGES_DIR, imageFile),
-        params.maxImageDimension,
-        params.jpegQuality,
-      ),
-    ),
-  );
+}): Promise<LlmResult<Recipe>> {
+  const client = getOrCreateOpenRouterClient(params.apiKey);
 
   const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
     {
@@ -67,7 +74,7 @@ export async function parseRecipeFromImages(params: {
         "Ingredient grouping matters, so preserve distinct groups (for example sauce/base) " +
         "when present. Ingredient identifiers should be normalized slugs such as 'olive-oil'.",
     },
-    ...imageDataUrls.map(
+    ...params.imageDataUrls.map(
       (url): OpenAI.Chat.Completions.ChatCompletionContentPartImage => ({
         type: "image_url",
         image_url: { url },
@@ -93,7 +100,10 @@ export async function parseRecipeFromImages(params: {
     },
   );
 
-  return parseRecipeJsonFromText(completion.choices[0]?.message?.content);
+  return {
+    value: parseRecipeJsonFromText(completion.choices[0]?.message?.content),
+    usage: extractUsage(completion),
+  };
 }
 
 function parseSchemaJsonFromText<T>(raw: string | null | undefined, schema: z.ZodType<T>): T {
@@ -108,32 +118,20 @@ function parseSchemaJsonFromText<T>(raw: string | null | undefined, schema: z.Zo
 }
 
 async function runImagePrompt<T>(params: {
-  imageFiles: string[];
+  apiKey: string;
+  imageDataUrls: string[];
   model: string;
   requestTimeoutMs: number;
-  maxImageDimension: number;
-  jpegQuality: number;
   instruction: string;
   schemaName: string;
   schemaJson: unknown;
   schema: z.ZodType<T>;
-}): Promise<T> {
-  const apiKey = requiredEnv("OPENROUTER_API_KEY");
-  const client = getOrCreateOpenRouterClient(apiKey);
-
-  const imageDataUrls = await Promise.all(
-    params.imageFiles.map((imageFile) =>
-      imagePathToDataUrl(
-        join(IMAGES_DIR, imageFile),
-        params.maxImageDimension,
-        params.jpegQuality,
-      ),
-    ),
-  );
+}): Promise<LlmResult<T>> {
+  const client = getOrCreateOpenRouterClient(params.apiKey);
 
   const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
     { type: "text", text: params.instruction },
-    ...imageDataUrls.map(
+    ...params.imageDataUrls.map(
       (url): OpenAI.Chat.Completions.ChatCompletionContentPartImage => ({
         type: "image_url",
         image_url: { url },
@@ -157,16 +155,18 @@ async function runImagePrompt<T>(params: {
     { timeout: params.requestTimeoutMs },
   );
 
-  return parseSchemaJsonFromText(completion.choices[0]?.message?.content, params.schema);
+  return {
+    value: parseSchemaJsonFromText(completion.choices[0]?.message?.content, params.schema),
+    usage: extractUsage(completion),
+  };
 }
 
 export async function extractRecipeFromImages(params: {
-  imageFiles: string[];
+  apiKey: string;
+  imageDataUrls: string[];
   model: string;
   requestTimeoutMs: number;
-  maxImageDimension: number;
-  jpegQuality: number;
-}): Promise<ExtractionRecipe> {
+}): Promise<LlmResult<ExtractionRecipe>> {
   return runImagePrompt({
     ...params,
     instruction:
@@ -188,12 +188,11 @@ export async function extractRecipeFromImages(params: {
 }
 
 export async function extractStructuredTextFromImages(params: {
-  imageFiles: string[];
+  apiKey: string;
+  imageDataUrls: string[];
   model: string;
   requestTimeoutMs: number;
-  maxImageDimension: number;
-  jpegQuality: number;
-}): Promise<StructuredTextRecipe> {
+}): Promise<LlmResult<StructuredTextRecipe>> {
   return runImagePrompt({
     ...params,
     instruction:
@@ -207,12 +206,12 @@ export async function extractStructuredTextFromImages(params: {
 }
 
 export async function normalizeExtractionToCooklang(params: {
+  apiKey: string;
   extracted: ExtractionRecipe;
   model: string;
   requestTimeoutMs: number;
-}): Promise<CooklangRecipe> {
-  const apiKey = requiredEnv("OPENROUTER_API_KEY");
-  const client = getOrCreateOpenRouterClient(apiKey);
+}): Promise<LlmResult<CooklangRecipe>> {
+  const client = getOrCreateOpenRouterClient(params.apiKey);
 
   const prompt =
     "Normalize the following raw recipe extraction into Cooklang format with frontmatter.\n" +
@@ -274,16 +273,22 @@ export async function normalizeExtractionToCooklang(params: {
     { timeout: params.requestTimeoutMs },
   );
 
-  return parseSchemaJsonFromText(completion.choices[0]?.message?.content, CooklangRecipeSchema);
+  return {
+    value: parseSchemaJsonFromText(
+      completion.choices[0]?.message?.content,
+      CooklangRecipeSchema,
+    ),
+    usage: extractUsage(completion),
+  };
 }
 
 export async function generateCooklangFromStructuredText(params: {
+  apiKey: string;
   extracted: StructuredTextRecipe;
   model: string;
   requestTimeoutMs: number;
-}): Promise<CooklangRecipe> {
-  const apiKey = requiredEnv("OPENROUTER_API_KEY");
-  const client = getOrCreateOpenRouterClient(apiKey);
+}): Promise<LlmResult<CooklangRecipe>> {
+  const client = getOrCreateOpenRouterClient(params.apiKey);
 
   const prompt =
     "Convert the provided structured recipe extraction into Cooklang plus frontmatter. " +
@@ -331,7 +336,13 @@ export async function generateCooklangFromStructuredText(params: {
     { timeout: params.requestTimeoutMs },
   );
 
-  return parseSchemaJsonFromText(completion.choices[0]?.message?.content, CooklangRecipeSchema);
+  return {
+    value: parseSchemaJsonFromText(
+      completion.choices[0]?.message?.content,
+      CooklangRecipeSchema,
+    ),
+    usage: extractUsage(completion),
+  };
 }
 
 export interface UnresolvedItem {
@@ -364,13 +375,13 @@ const DisambiguationResponseSchema = z.object({
 const DISAMBIGUATION_JSON_SCHEMA = z.toJSONSchema(DisambiguationResponseSchema);
 
 export async function disambiguateIngredients(params: {
+  apiKey: string;
   unresolvedItems: UnresolvedItem[];
   recipeContext: RecipeContext;
   model: string;
   requestTimeoutMs: number;
-}): Promise<DisambiguationChoice[]> {
-  const apiKey = requiredEnv("OPENROUTER_API_KEY");
-  const client = getOrCreateOpenRouterClient(apiKey);
+}): Promise<LlmResult<DisambiguationChoice[]>> {
+  const client = getOrCreateOpenRouterClient(params.apiKey);
 
   const itemLines = params.unresolvedItems.map((item) => {
     const options = item.candidates
@@ -415,5 +426,5 @@ export async function disambiguateIngredients(params: {
     completion.choices[0]?.message?.content,
     DisambiguationResponseSchema,
   );
-  return result.choices;
+  return { value: result.choices, usage: extractUsage(completion) };
 }
