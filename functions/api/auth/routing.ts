@@ -15,11 +15,13 @@ export type RecipeApiProxyContext = {
 const FORWARDED_REQUEST_HEADERS = [
   "accept",
   "authorization",
+  "cf-connecting-ip",
   "content-type",
   "cookie",
   "origin",
   "referer",
   "user-agent",
+  "x-forwarded-for",
 ] as const;
 
 export function previewApiBase(

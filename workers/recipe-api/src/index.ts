@@ -223,7 +223,7 @@ function dietProfileResponse(profile: DietProfileResponse) {
 
 function dietUnknownReferencesResponse(
   c: Context<AppEnv>,
-  details: { path: string[]; message: string }[],
+  details: DietReferenceIssue[],
 ) {
   return c.json(
     {
@@ -232,6 +232,17 @@ function dietUnknownReferencesResponse(
     },
     400,
   );
+}
+
+type DietReferenceIssue = {
+  path: string[];
+  message: string;
+};
+
+class MissingDietReferencesError extends Error {
+  constructor(readonly details: DietReferenceIssue[]) {
+    super("Unknown diet reference");
+  }
 }
 
 function createId() {
@@ -920,7 +931,7 @@ app.put("/api/profile/diet", async (c) => {
         const profile = await db.transaction(async (tx) => {
           const missingReferences = await findMissingDietReferences(tx, body.data);
           if (missingReferences.length > 0) {
-            return dietUnknownReferencesResponse(c, missingReferences);
+            throw new MissingDietReferencesError(missingReferences);
           }
 
           const [savedProfile] = await tx
@@ -989,9 +1000,11 @@ app.put("/api/profile/diet", async (c) => {
           };
         });
 
-        if (profile instanceof Response) return profile;
         return c.json(dietProfileResponse(profile));
       } catch (error) {
+        if (error instanceof MissingDietReferencesError) {
+          return dietUnknownReferencesResponse(c, error.details);
+        }
         if (isForeignKeyViolation(error)) {
           return dietUnknownReferencesResponse(c, [
             {
