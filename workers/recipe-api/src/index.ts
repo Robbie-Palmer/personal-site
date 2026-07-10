@@ -708,7 +708,10 @@ app.put("/api/profile/diet", async (c) => {
       })
       .onConflictDoUpdate({
         target: schema.userDietProfile.userId,
-        set: values,
+        set: {
+          ...values,
+          updatedAt: new Date(),
+        },
       })
       .returning();
 

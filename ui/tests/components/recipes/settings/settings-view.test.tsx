@@ -26,6 +26,15 @@ vi.mock("@/lib/auth-client", () => ({
 
 import { SettingsView } from "@/components/recipes/settings/settings-view";
 
+const dietIngredients = [
+  { slug: "eggs", name: "eggs", category: "protein" },
+  { slug: "garlic", name: "garlic", category: "vegetable" },
+];
+
+function renderSettingsView() {
+  return render(<SettingsView dietIngredients={dietIngredients} />);
+}
+
 const signedIn = {
   data: {
     user: { name: "Robbie", email: "robbie@example.com", image: null },
@@ -58,7 +67,7 @@ describe("SettingsView", () => {
 
   it("prompts to sign in when there is no session", () => {
     mocks.useSession.mockReturnValue({ data: null, isPending: false });
-    render(<SettingsView />);
+    renderSettingsView();
 
     expect(screen.getByText("Sign in to open settings.")).toBeInTheDocument();
     expect(
@@ -67,7 +76,7 @@ describe("SettingsView", () => {
   });
 
   it("shows the account panel with name and email", () => {
-    render(<SettingsView />);
+    renderSettingsView();
 
     expect(screen.getByLabelText("Display name")).toHaveValue("Robbie");
     expect(screen.getByText("robbie@example.com")).toBeInTheDocument();
@@ -75,7 +84,7 @@ describe("SettingsView", () => {
 
   it("saves a new display name after editing", async () => {
     const user = userEvent.setup();
-    render(<SettingsView />);
+    renderSettingsView();
 
     const input = screen.getByLabelText("Display name");
     await user.clear(input);
@@ -89,7 +98,7 @@ describe("SettingsView", () => {
 
   it("rejects an empty display name without saving", async () => {
     const user = userEvent.setup();
-    render(<SettingsView />);
+    renderSettingsView();
 
     const input = screen.getByLabelText("Display name");
     await user.clear(input);
@@ -101,7 +110,7 @@ describe("SettingsView", () => {
 
   it("shows linked accounts and offers to link the other provider", async () => {
     const user = userEvent.setup();
-    render(<SettingsView />);
+    renderSettingsView();
 
     await user.click(
       screen.getByRole("button", { name: /sign-in & security/i }),
@@ -121,7 +130,7 @@ describe("SettingsView", () => {
       "",
       "/recipes/settings?error=account_already_linked",
     );
-    render(<SettingsView />);
+    renderSettingsView();
 
     // Lands on Sign-in & security without a manual tab switch.
     expect(await screen.findByRole("alert")).toHaveTextContent(

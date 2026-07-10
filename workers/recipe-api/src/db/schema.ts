@@ -190,7 +190,6 @@ export const userDietProfile = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [index("user_diet_profile_user_id_idx").on(table.userId)],
 );
 
 export const appRateLimit = pgTable("app_rate_limit", {

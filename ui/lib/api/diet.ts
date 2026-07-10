@@ -7,6 +7,12 @@ export type DietProfile = {
   recipeMatchMode: DietRecipeMatchMode;
 };
 
+export type DietIngredientOption = {
+  slug: string;
+  name: string;
+  category?: string;
+};
+
 export const emptyDietProfile: DietProfile = {
   presetDietKeys: [],
   excludedIngredientSlugs: [],

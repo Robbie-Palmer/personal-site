@@ -5,14 +5,16 @@ import {
   Leaf,
   LoaderCircle,
   Plus,
+  Search,
   TriangleAlert,
   X,
 } from "lucide-react";
-import type { FormEvent } from "react";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  type DietIngredientOption,
   type DietProfile,
   type DietRecipeMatchMode,
   emptyDietProfile,
@@ -95,16 +97,8 @@ const EXCLUSION_GROUPS: DietGroup[] = [
   { key: "alcohol", label: "Alcohol", sub: "wine, beer, spirits" },
 ];
 
+const INGREDIENT_RESULT_LIMIT = 8;
 const presetByKey = new Map(DIET_PRESETS.map((preset) => [preset.key, preset]));
-
-function slugify(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-");
-}
 
 function labelFromSlug(slug: string): string {
   return slug
@@ -114,12 +108,21 @@ function labelFromSlug(slug: string): string {
     .join(" ");
 }
 
+function normalizeQuery(value: string): string {
+  return value.trim().toLowerCase();
+}
+
 function unique(values: string[]): string[] {
   return Array.from(new Set(values));
 }
 
 function serialize(profile: DietProfile): string {
-  return JSON.stringify(profile);
+  return JSON.stringify({
+    ...profile,
+    presetDietKeys: [...profile.presetDietKeys].sort(),
+    excludedIngredientSlugs: [...profile.excludedIngredientSlugs].sort(),
+    excludedGroupKeys: [...profile.excludedGroupKeys].sort(),
+  });
 }
 
 function toggleValue(values: string[], value: string): string[] {
@@ -129,13 +132,16 @@ function toggleValue(values: string[], value: string): string[] {
 }
 
 function summarise(profile: DietProfile) {
-  const presetLabels = profile.presetDietKeys
-    .map((key) => presetByKey.get(key)?.label ?? labelFromSlug(key))
-    .slice(0, 2);
-  const extraCount =
+  const presetLabels = profile.presetDietKeys.map(
+    (key) => presetByKey.get(key)?.label ?? labelFromSlug(key),
+  );
+  const displayedPresets = presetLabels.slice(0, 2);
+  const remainingPresetCount = presetLabels.length - displayedPresets.length;
+  const customCount =
     profile.excludedIngredientSlugs.length + profile.excludedGroupKeys.length;
-  const parts = [...presetLabels];
-  if (extraCount > 0) parts.push(`${extraCount} custom`);
+  const parts = [...displayedPresets];
+  if (remainingPresetCount > 0) parts.push(`+${remainingPresetCount} more`);
+  if (customCount > 0) parts.push(`${customCount} custom`);
   return parts.length > 0 ? parts.join(" / ") : "No diet filters set";
 }
 
@@ -156,49 +162,226 @@ function effectiveExclusions(profile: DietProfile) {
   };
 }
 
-function Status({ state, error }: { state: SaveState; error: string | null }) {
-  if (state === "saving") {
-    return (
-      <>
+function SectionLabel({ children }: Readonly<{ children: ReactNode }>) {
+  return <p className="rt-mono mb-3 text-[var(--terracotta)]">{children}</p>;
+}
+
+function Status({
+  state,
+  error,
+}: Readonly<{
+  state: SaveState;
+  error: string | null;
+}>) {
+  const content = {
+    idle: {
+      icon: <span className="size-2 rounded-full bg-[var(--sage)]" />,
+      text: "ready to save",
+      className: "text-[var(--sage)]",
+    },
+    saving: {
+      icon: (
         <LoaderCircle className="size-3.5 animate-spin text-[var(--ink-3)]" />
-        <span className="rt-mono text-[var(--ink-3)]">saving...</span>
-      </>
-    );
-  }
-  if (state === "saved") {
-    return (
-      <>
-        <Check className="size-3.5 text-[var(--sage)]" />
-        <span className="rt-mono text-[var(--sage)]">saved</span>
-      </>
-    );
-  }
-  if (state === "error") {
-    return (
-      <>
-        <TriangleAlert className="size-3.5 text-[var(--destructive)]" />
-        <span role="alert" className="rt-mono text-[var(--destructive)]">
-          {error}
-        </span>
-      </>
-    );
-  }
+      ),
+      text: "saving...",
+      className: "text-[var(--ink-3)]",
+    },
+    saved: {
+      icon: <Check className="size-3.5 text-[var(--sage)]" />,
+      text: "saved",
+      className: "text-[var(--sage)]",
+    },
+    error: {
+      icon: <TriangleAlert className="size-3.5 text-[var(--destructive)]" />,
+      text: error ?? "Couldn't save your diet profile.",
+      className: "text-[var(--destructive)]",
+    },
+  }[state];
+
   return (
     <>
-      <span className="size-2 rounded-full bg-[var(--sage)]" />
-      <span className="rt-mono text-[var(--sage)]">ready to save</span>
+      {content.icon}
+      <span
+        role={state === "error" ? "alert" : undefined}
+        className={cn("rt-mono", content.className)}
+      >
+        {content.text}
+      </span>
     </>
   );
 }
 
-export function DietPanel() {
+function CheckDot({ active }: Readonly<{ active: boolean }>) {
+  return (
+    <span
+      className={cn(
+        "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border",
+        active
+          ? "border-[var(--terracotta)] bg-[var(--terracotta)] text-white"
+          : "border-[var(--line-strong)] bg-[var(--paper)] text-transparent",
+      )}
+    >
+      <Check className="size-3.5" />
+    </span>
+  );
+}
+
+function SelectableTile({
+  active,
+  children,
+  className,
+  label,
+  onClick,
+}: Readonly<{
+  active: boolean;
+  children: ReactNode;
+  className?: string;
+  label: string;
+  onClick: () => void;
+}>) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "flex items-start gap-3 rounded-lg border px-3 py-3 text-left transition-colors",
+        active
+          ? "border-[var(--terracotta)] bg-[var(--butter-soft)]"
+          : "border-[var(--line)] bg-[var(--card)] hover:border-[var(--line-strong)]",
+        className,
+      )}
+    >
+      <CheckDot active={active} />
+      <span className="min-w-0">
+        <span className="rt-body block font-semibold text-[var(--ink)]">
+          {label}
+        </span>
+        {children}
+      </span>
+    </button>
+  );
+}
+
+function IngredientBadge({
+  ingredient,
+  onRemove,
+}: Readonly<{
+  ingredient: DietIngredientOption;
+  onRemove: () => void;
+}>) {
+  return (
+    <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--terracotta)] bg-[var(--butter-soft)] px-3 py-1 text-[0.85rem] text-[var(--ink)]">
+      <span className="truncate">{ingredient.name}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove ${ingredient.name}`}
+        className="rounded-full text-[var(--terracotta-deep)] hover:bg-[var(--paper-warm)]"
+      >
+        <X className="size-3.5" />
+      </button>
+    </span>
+  );
+}
+
+function IngredientPicker({
+  ingredients,
+  onAdd,
+  selectedSlugs,
+}: Readonly<{
+  ingredients: DietIngredientOption[];
+  onAdd: (ingredient: DietIngredientOption) => void;
+  selectedSlugs: string[];
+}>) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const selected = useMemo(() => new Set(selectedSlugs), [selectedSlugs]);
+  const matches = useMemo(() => {
+    const normalized = normalizeQuery(query);
+    return ingredients
+      .filter((ingredient) => !selected.has(ingredient.slug))
+      .filter((ingredient) => {
+        if (!normalized) return true;
+        return `${ingredient.name} ${ingredient.category ?? ""}`
+          .toLowerCase()
+          .includes(normalized);
+      })
+      .slice(0, INGREDIENT_RESULT_LIMIT);
+  }, [ingredients, query, selected]);
+
+  function addIngredient(ingredient: DietIngredientOption) {
+    onAdd(ingredient);
+    setQuery("");
+    setOpen(false);
+  }
+
+  return (
+    <div className="relative max-w-lg">
+      <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--ink-3)]" />
+      <Input
+        value={query}
+        onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        placeholder={`Search ${ingredients.length} canonical ingredients...`}
+        aria-autocomplete="list"
+        aria-expanded={open}
+        aria-label="Search canonical ingredients to exclude"
+        className="bg-[var(--card)] pl-9"
+      />
+      {open && (
+        <div className="absolute z-20 mt-2 max-h-72 w-full overflow-auto rounded-lg border border-[var(--line-strong)] bg-[var(--card)] p-2 shadow-lg">
+          {matches.length > 0 ? (
+            matches.map((ingredient) => (
+              <button
+                key={ingredient.slug}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => addIngredient(ingredient)}
+                className="flex w-full min-w-0 items-center justify-between gap-3 rounded-md px-3 py-2 text-left transition-colors hover:bg-[var(--butter-soft)]"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-[var(--ink)]">
+                    {ingredient.name}
+                  </span>
+                  <span className="rt-mono block truncate text-[var(--ink-3)]">
+                    {ingredient.category ?? "ingredient"}
+                  </span>
+                </span>
+                <Plus className="size-4 shrink-0 text-[var(--terracotta)]" />
+              </button>
+            ))
+          ) : (
+            <p className="rt-body px-3 py-2 text-sm text-[var(--ink-3)]">
+              No canonical ingredients match that search.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function DietPanel({
+  ingredients,
+}: Readonly<{
+  ingredients: DietIngredientOption[];
+}>) {
   const [profile, setProfile] = useState<DietProfile>(emptyDietProfile);
   const [savedProfile, setSavedProfile] =
     useState<DietProfile>(emptyDietProfile);
-  const [ingredientInput, setIngredientInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
+  const ingredientBySlug = useMemo(
+    () =>
+      new Map(ingredients.map((ingredient) => [ingredient.slug, ingredient])),
+    [ingredients],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -230,6 +413,14 @@ export function DietPanel() {
 
   const dirty = serialize(profile) !== serialize(savedProfile);
   const exclusions = useMemo(() => effectiveExclusions(profile), [profile]);
+  const selectedIngredients = profile.excludedIngredientSlugs.map((slug) => {
+    return (
+      ingredientBySlug.get(slug) ?? {
+        slug,
+        name: labelFromSlug(slug),
+      }
+    );
+  });
 
   function updateProfile(next: DietProfile) {
     setProfile(next);
@@ -237,36 +428,14 @@ export function DietPanel() {
     setError(null);
   }
 
-  function togglePreset(key: string) {
-    updateProfile({
-      ...profile,
-      presetDietKeys: toggleValue(profile.presetDietKeys, key),
-    });
-  }
-
-  function toggleGroup(key: string) {
-    updateProfile({
-      ...profile,
-      excludedGroupKeys: toggleValue(profile.excludedGroupKeys, key),
-    });
-  }
-
-  function setMode(recipeMatchMode: DietRecipeMatchMode) {
-    updateProfile({ ...profile, recipeMatchMode });
-  }
-
-  function addIngredient(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const slug = slugify(ingredientInput);
-    if (!slug) return;
+  function addIngredient(ingredient: DietIngredientOption) {
     updateProfile({
       ...profile,
       excludedIngredientSlugs: unique([
         ...profile.excludedIngredientSlugs,
-        slug,
+        ingredient.slug,
       ]),
     });
-    setIngredientInput("");
   }
 
   function removeIngredient(slug: string) {
@@ -276,6 +445,10 @@ export function DietPanel() {
         (ingredient) => ingredient !== slug,
       ),
     });
+  }
+
+  function setMode(recipeMatchMode: DietRecipeMatchMode) {
+    updateProfile({ ...profile, recipeMatchMode });
   }
 
   async function save() {
@@ -327,133 +500,94 @@ export function DietPanel() {
       ) : (
         <>
           <section className="mb-7">
-            <p className="rt-mono mb-3 text-[var(--terracotta)]">
-              DIETARY CHOICES
-            </p>
+            <SectionLabel>DIETARY CHOICES</SectionLabel>
             <div className="grid gap-2 sm:grid-cols-2">
-              {DIET_PRESETS.map((preset) => {
-                const active = profile.presetDietKeys.includes(preset.key);
-                return (
-                  <button
-                    key={preset.key}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => togglePreset(preset.key)}
-                    className={cn(
-                      "flex min-h-20 items-start gap-3 rounded-lg border px-3 py-3 text-left transition-colors",
-                      active
-                        ? "border-[var(--terracotta)] bg-[var(--butter-soft)]"
-                        : "border-[var(--line)] bg-[var(--card)] hover:border-[var(--line-strong)]",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border",
-                        active
-                          ? "border-[var(--terracotta)] bg-[var(--terracotta)] text-white"
-                          : "border-[var(--line-strong)] bg-[var(--paper)] text-transparent",
-                      )}
-                    >
-                      <Check className="size-3.5" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="rt-body block font-semibold text-[var(--ink)]">
-                        {preset.label}
-                      </span>
-                      <span className="rt-mono mt-1 block text-[var(--ink-4)]">
-                        {preset.sub}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
+              {DIET_PRESETS.map((preset) => (
+                <SelectableTile
+                  key={preset.key}
+                  active={profile.presetDietKeys.includes(preset.key)}
+                  className="min-h-20"
+                  label={preset.label}
+                  onClick={() =>
+                    updateProfile({
+                      ...profile,
+                      presetDietKeys: toggleValue(
+                        profile.presetDietKeys,
+                        preset.key,
+                      ),
+                    })
+                  }
+                >
+                  <span className="rt-mono mt-1 block text-[var(--ink-4)]">
+                    {preset.sub}
+                  </span>
+                </SelectableTile>
+              ))}
             </div>
           </section>
 
           <section className="mb-7">
-            <p className="rt-mono mb-3 text-[var(--terracotta)]">
-              GROUPS TO EXCLUDE OR WARN ON
-            </p>
+            <SectionLabel>GROUPS TO EXCLUDE OR WARN ON</SectionLabel>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {EXCLUSION_GROUPS.map((group) => {
-                const active = profile.excludedGroupKeys.includes(group.key);
                 const coveredByPreset = profile.presetDietKeys.some((key) =>
                   presetByKey.get(key)?.excludedGroupKeys.includes(group.key),
                 );
                 return (
-                  <button
+                  <SelectableTile
                     key={group.key}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => toggleGroup(group.key)}
-                    className={cn(
-                      "rounded-lg border px-3 py-2 text-left transition-colors",
-                      active
-                        ? "border-[var(--terracotta)] bg-[var(--butter-soft)]"
-                        : "border-[var(--line)] bg-[var(--card)] hover:border-[var(--line-strong)]",
-                    )}
+                    active={profile.excludedGroupKeys.includes(group.key)}
+                    label={group.label}
+                    onClick={() =>
+                      updateProfile({
+                        ...profile,
+                        excludedGroupKeys: toggleValue(
+                          profile.excludedGroupKeys,
+                          group.key,
+                        ),
+                      })
+                    }
                   >
-                    <span className="rt-body block text-[0.95rem] font-semibold text-[var(--ink)]">
-                      {group.label}
-                    </span>
                     <span className="rt-mono mt-0.5 block text-[var(--ink-4)]">
-                      {coveredByPreset
-                        ? "already covered by preset"
-                        : group.sub}
+                      {group.sub}
+                      {coveredByPreset && (
+                        <span className="mt-0.5 block font-semibold text-[var(--sage)]">
+                          covered by preset
+                        </span>
+                      )}
                     </span>
-                  </button>
+                  </SelectableTile>
                 );
               })}
             </div>
           </section>
 
           <section className="mb-7">
-            <p className="rt-mono mb-3 text-[var(--terracotta)]">
-              SPECIFIC INGREDIENTS
-            </p>
-            <form onSubmit={addIngredient} className="flex max-w-lg gap-2">
-              <Input
-                value={ingredientInput}
-                onChange={(event) => setIngredientInput(event.target.value)}
-                placeholder="egg, coriander, chilli oil..."
-                aria-label="Ingredient to exclude"
-                className="bg-[var(--card)]"
-              />
-              <Button type="submit" variant="outline" className="shrink-0">
-                <Plus className="size-4" />
-                Add
-              </Button>
-            </form>
+            <SectionLabel>SPECIFIC INGREDIENTS</SectionLabel>
+            <IngredientPicker
+              ingredients={ingredients}
+              onAdd={addIngredient}
+              selectedSlugs={profile.excludedIngredientSlugs}
+            />
             <div className="mt-3 flex flex-wrap gap-2">
-              {profile.excludedIngredientSlugs.length > 0 ? (
-                profile.excludedIngredientSlugs.map((slug) => (
-                  <span
-                    key={slug}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-[var(--terracotta)] bg-[var(--butter-soft)] px-3 py-1 text-[0.85rem] text-[var(--ink)]"
-                  >
-                    {labelFromSlug(slug)}
-                    <button
-                      type="button"
-                      onClick={() => removeIngredient(slug)}
-                      aria-label={`Remove ${labelFromSlug(slug)}`}
-                      className="rounded-full text-[var(--terracotta-deep)] hover:bg-[var(--paper-warm)]"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </span>
+              {selectedIngredients.length > 0 ? (
+                selectedIngredients.map((ingredient) => (
+                  <IngredientBadge
+                    key={ingredient.slug}
+                    ingredient={ingredient}
+                    onRemove={() => removeIngredient(ingredient.slug)}
+                  />
                 ))
               ) : (
                 <p className="rt-mono text-[var(--ink-4)]">
-                  No ingredient-level exclusions yet.
+                  Pick ingredients from the canonical recipe catalog.
                 </p>
               )}
             </div>
           </section>
 
           <section className="mb-7">
-            <p className="rt-mono mb-3 text-[var(--terracotta)]">
-              WHEN A RECIPE BREAKS YOUR DIET
-            </p>
+            <SectionLabel>WHEN A RECIPE BREAKS YOUR DIET</SectionLabel>
             <div className="inline-flex rounded-full border border-[var(--line)] bg-[var(--paper-warm)] p-1">
               {(
                 [
@@ -466,6 +600,7 @@ export function DietPanel() {
                   <button
                     key={value}
                     type="button"
+                    aria-pressed={active}
                     onClick={() => setMode(value)}
                     className={cn(
                       "rt-body rounded-full px-4 py-1.5 text-sm transition-colors",
