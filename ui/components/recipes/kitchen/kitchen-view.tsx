@@ -1,34 +1,41 @@
 "use client";
 
 import {
-  Check,
-  ChefHat,
   CirclePlus,
   Refrigerator,
   Search,
   ShoppingBasket,
   Sprout,
   Trash2,
+  Undo2,
   X,
 } from "lucide-react";
-import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { RecipeMatchCard } from "@/components/recipes/recipe-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useKitchenStock } from "@/hooks/use-kitchen-stock";
+import { useShoppingList } from "@/hooks/use-shopping-list";
 import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
 import {
   getKitchenRecipeMatches,
-  isKitchenLocation,
   KITCHEN_LOCATIONS,
   type KitchenIngredientView,
   type KitchenLocation,
   type KitchenRecipeView,
 } from "@/lib/domain/recipe/kitchen";
 import { cn } from "@/lib/generic/styles";
+import {
+  clearStock as clearKitchenStock,
+  type KitchenStock,
+  removeFromStock,
+  replaceStock,
+  setStockLocation,
+} from "@/lib/kitchen/kitchenStockStore";
+import { toggleRecipe } from "@/lib/shopping/shoppingListStore";
 
-const STORAGE_KEY = "recipe-kitchen-stock-v1";
 const CATALOG_RESULT_LIMIT = 18;
 
 const LOCATION_ICONS = {
@@ -37,145 +44,8 @@ const LOCATION_ICONS = {
   fresh: Sprout,
 } satisfies Record<KitchenLocation, typeof Refrigerator>;
 
-type StockBySlug = Record<string, KitchenLocation>;
-
 function normalizeQuery(value: string) {
   return value.trim().toLowerCase();
-}
-
-function formatTime(minutes?: number) {
-  if (minutes == null) return null;
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-}
-
-function readStoredStock(): StockBySlug | null {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return null;
-    }
-
-    const stock: StockBySlug = {};
-    for (const [slug, location] of Object.entries(parsed)) {
-      if (isKitchenLocation(location)) {
-        stock[slug] = location;
-      }
-    }
-    return stock;
-  } catch {
-    return null;
-  }
-}
-
-function pruneStock(
-  stock: StockBySlug,
-  knownIngredientSlugs: ReadonlySet<string>,
-): StockBySlug {
-  const pruned: StockBySlug = {};
-  for (const [slug, location] of Object.entries(stock)) {
-    if (knownIngredientSlugs.has(slug) && isKitchenLocation(location)) {
-      pruned[slug] = location;
-    }
-  }
-  return pruned;
-}
-
-function stocksEqual(a: StockBySlug, b: StockBySlug) {
-  const aEntries = Object.entries(a);
-  if (aEntries.length !== Object.keys(b).length) return false;
-  return aEntries.every(([slug, location]) => b[slug] === location);
-}
-
-function RecipeMatchCard({
-  recipe,
-}: Readonly<{
-  recipe: ReturnType<typeof getKitchenRecipeMatches>[number];
-}>) {
-  const timeLabel = formatTime(recipe.totalTime);
-  const canCook = recipe.totalCount > 0 && recipe.missingCount === 0;
-  const progress = Math.round(recipe.matchRatio * 100);
-
-  return (
-    <Link
-      href={`/recipes/${recipe.slug}`}
-      className="group block rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--ring)]/50"
-      aria-label={`Open ${recipe.title}`}
-    >
-      <Card className="overflow-hidden rounded-lg border-[1.25px] border-[var(--line-strong)] bg-[var(--card)] py-0 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--paper-shadow)]">
-        <CardContent className="p-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <div
-              className={cn(
-                "flex size-11 shrink-0 items-center justify-center rounded-md",
-                canCook
-                  ? "bg-[var(--sage)] text-white"
-                  : "bg-[var(--paper-warm)] text-[var(--terracotta)]",
-              )}
-            >
-              {canCook ? (
-                <Check className="size-5" />
-              ) : (
-                <ChefHat className="size-5" />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="rt-display text-2xl leading-none transition-colors group-hover:text-[var(--terracotta)]">
-                {recipe.title}
-              </div>
-              <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs text-[var(--ink-3)]">
-                {timeLabel && <span>{timeLabel}</span>}
-                {recipe.cuisine.slice(0, 2).map((cuisine) => (
-                  <span key={cuisine}>{cuisine}</span>
-                ))}
-                <span>
-                  {recipe.haveCount}/{recipe.totalCount} ingredients
-                </span>
-              </div>
-            </div>
-            <Badge
-              variant={canCook ? "default" : "outline"}
-              className={cn(
-                "shrink-0",
-                canCook
-                  ? "bg-[var(--sage)] text-white"
-                  : "text-[var(--terracotta)]",
-              )}
-            >
-              {canCook ? "cook" : `+${recipe.missingCount}`}
-            </Badge>
-          </div>
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--paper-warm)]">
-            <div
-              className={cn(
-                "h-full rounded-full",
-                canCook ? "bg-[var(--sage)]" : "bg-[var(--terracotta)]",
-              )}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          {recipe.missingIngredients.length > 0 && (
-            <p className="rt-body mt-2 line-clamp-2 text-sm text-[var(--ink-2)]">
-              Need:{" "}
-              <span className="text-[var(--terracotta)]">
-                {recipe.missingIngredients
-                  .slice(0, 5)
-                  .map((ingredient) => ingredient.name)
-                  .join(", ")}
-                {recipe.missingIngredients.length > 5 ? "..." : ""}
-              </span>
-            </p>
-          )}
-        </CardContent>
-      </Card>
-    </Link>
-  );
 }
 
 function LocationIcon({ location }: Readonly<{ location: KitchenLocation }>) {
@@ -199,46 +69,21 @@ export function KitchenView({
     () => new Set<string>(ingredients.map((ingredient) => ingredient.slug)),
     [ingredients],
   );
-  const [stock, setStock] = useState<StockBySlug>({});
-  const [hasHydrated, setHasHydrated] = useState(false);
+  const stock = useKitchenStock();
+  const shoppingList = useShoppingList();
+  const selectedRecipeSlugs = useMemo(
+    () => new Set(shoppingList.recipes.map((entry) => entry.slug)),
+    [shoppingList.recipes],
+  );
   const [stockQuery, setStockQuery] = useState("");
   const [catalogQuery, setCatalogQuery] = useState("");
-  const [lastClearedStock, setLastClearedStock] = useState<StockBySlug | null>(
+  const [lastClearedStock, setLastClearedStock] = useState<KitchenStock | null>(
     null,
   );
   const [targetLocation, setTargetLocation] =
     useState<KitchenLocation>("cupboards");
   const catalogCardRef = useRef<HTMLDivElement>(null);
   const catalogSearchRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setStock(pruneStock(readStoredStock() ?? {}, knownIngredientSlugs));
-    setHasHydrated(true);
-
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key !== STORAGE_KEY) return;
-      setStock(pruneStock(readStoredStock() ?? {}, knownIngredientSlugs));
-      setLastClearedStock(null);
-    };
-
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, [knownIngredientSlugs]);
-
-  useEffect(() => {
-    if (!hasHydrated) return;
-    const prunedStock = pruneStock(stock, knownIngredientSlugs);
-    if (!stocksEqual(stock, prunedStock)) {
-      setStock(prunedStock);
-      return;
-    }
-
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(prunedStock));
-    } catch {
-      // Keep in-memory kitchen state even if browser storage is unavailable.
-    }
-  }, [hasHydrated, knownIngredientSlugs, stock]);
 
   const stockedSlugs = useMemo(
     () =>
@@ -300,16 +145,12 @@ export function KitchenView({
     ingredient: KitchenIngredientView,
     location = targetLocation,
   ) => {
-    setStock((current) => ({ ...current, [ingredient.slug]: location }));
+    setStockLocation(ingredient.slug, location);
     setLastClearedStock(null);
   };
 
   const removeIngredient = (slug: IngredientSlug) => {
-    setStock((current) => {
-      const next = { ...current };
-      delete next[slug];
-      return next;
-    });
+    removeFromStock(slug);
   };
 
   const focusAddIngredients = (location: KitchenLocation) => {
@@ -325,12 +166,12 @@ export function KitchenView({
 
   const clearStock = () => {
     setLastClearedStock(stock);
-    setStock({});
+    clearKitchenStock();
   };
 
   const undoClear = () => {
     if (!lastClearedStock) return;
-    setStock(lastClearedStock);
+    replaceStock(lastClearedStock);
     setLastClearedStock(null);
   };
 
@@ -352,29 +193,6 @@ export function KitchenView({
             recipe box.
           </p>
         </div>
-        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-          {stockedCount > 0 && (
-            <Button
-              type="button"
-              variant="ghost"
-              className="min-w-0 flex-1 text-[var(--ink-3)] hover:text-[var(--berry)] sm:flex-none"
-              onClick={clearStock}
-            >
-              <Trash2 className="size-4" />
-              Clear
-            </Button>
-          )}
-          {lastClearedStock && stockedCount === 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              className="min-w-0 flex-1 border-[var(--line-strong)] bg-[var(--card)] text-[var(--ink)] sm:flex-none"
-              onClick={undoClear}
-            >
-              Undo clear
-            </Button>
-          )}
-        </div>
       </div>
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.85fr)]">
@@ -388,9 +206,29 @@ export function KitchenView({
                     Your kitchen.
                   </CardTitle>
                 </div>
-                <Badge variant="outline" className="text-[var(--ink-2)]">
-                  {stockedCount} {stockedCount === 1 ? "item" : "items"}
-                </Badge>
+                <div className="flex items-center gap-3">
+                  {stockedCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearStock}
+                      className="inline-flex items-center gap-1 rt-mono text-[var(--ink-3)] transition-colors hover:text-[var(--berry)]"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> clear all
+                    </button>
+                  )}
+                  {lastClearedStock && stockedCount === 0 && (
+                    <button
+                      type="button"
+                      onClick={undoClear}
+                      className="inline-flex items-center gap-1 rt-mono text-[var(--ink-3)] transition-colors hover:text-[var(--terracotta)]"
+                    >
+                      <Undo2 className="h-3.5 w-3.5" /> undo clear
+                    </button>
+                  )}
+                  <Badge variant="outline" className="text-[var(--ink-2)]">
+                    {stockedCount} {stockedCount === 1 ? "item" : "items"}
+                  </Badge>
+                </div>
               </div>
               <div className="relative">
                 <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--ink-3)]" />
@@ -552,7 +390,12 @@ export function KitchenView({
             <CardContent className="space-y-3">
               {cookNow.length > 0 ? (
                 cookNow.map((recipe) => (
-                  <RecipeMatchCard key={recipe.slug} recipe={recipe} />
+                  <RecipeMatchCard
+                    key={recipe.slug}
+                    recipe={recipe}
+                    inList={selectedRecipeSlugs.has(recipe.slug)}
+                    onToggleList={() => toggleRecipe(recipe.slug)}
+                  />
                 ))
               ) : (
                 <p className="rt-body text-sm text-[var(--ink-3)]">
@@ -574,7 +417,12 @@ export function KitchenView({
             <CardContent className="space-y-3">
               {closeMatches.length > 0 ? (
                 closeMatches.map((recipe) => (
-                  <RecipeMatchCard key={recipe.slug} recipe={recipe} />
+                  <RecipeMatchCard
+                    key={recipe.slug}
+                    recipe={recipe}
+                    inList={selectedRecipeSlugs.has(recipe.slug)}
+                    onToggleList={() => toggleRecipe(recipe.slug)}
+                  />
                 ))
               ) : (
                 <p className="rt-body text-sm text-[var(--ink-3)]">
