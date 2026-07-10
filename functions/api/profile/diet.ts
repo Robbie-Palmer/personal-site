@@ -1,14 +1,9 @@
 import {
   proxyRecipeApiRequest,
-  type RecipeApiProxyEnv,
+  type RecipeApiProxyContext,
 } from "../auth/routing";
 
-type PagesContext = {
-  request: Request;
-  env: RecipeApiProxyEnv;
-};
-
-export const onRequest = (context: PagesContext): Promise<Response> =>
+export const onRequest = (context: RecipeApiProxyContext): Promise<Response> =>
   proxyRecipeApiRequest(
     context,
     "Profile APIs are available on the canonical PR preview URL only",

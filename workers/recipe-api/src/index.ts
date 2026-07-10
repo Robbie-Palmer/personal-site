@@ -625,26 +625,23 @@ async function listDietOptions(db: Db) {
 
   const groupKeysByPreset = new Map<string, string[]>();
   for (const row of presetGroups) {
-    groupKeysByPreset.set(row.presetKey, [
-      ...(groupKeysByPreset.get(row.presetKey) ?? []),
-      row.groupKey,
-    ]);
+    const groupKeys = groupKeysByPreset.get(row.presetKey) ?? [];
+    groupKeys.push(row.groupKey);
+    groupKeysByPreset.set(row.presetKey, groupKeys);
   }
 
   const ingredientSlugsByPreset = new Map<string, string[]>();
   for (const row of presetIngredients) {
-    ingredientSlugsByPreset.set(row.presetKey, [
-      ...(ingredientSlugsByPreset.get(row.presetKey) ?? []),
-      row.ingredientSlug,
-    ]);
+    const ingredientSlugs = ingredientSlugsByPreset.get(row.presetKey) ?? [];
+    ingredientSlugs.push(row.ingredientSlug);
+    ingredientSlugsByPreset.set(row.presetKey, ingredientSlugs);
   }
 
   const ingredientSlugsByGroup = new Map<string, string[]>();
   for (const row of groupMembers) {
-    ingredientSlugsByGroup.set(row.groupKey, [
-      ...(ingredientSlugsByGroup.get(row.groupKey) ?? []),
-      row.ingredientSlug,
-    ]);
+    const ingredientSlugs = ingredientSlugsByGroup.get(row.groupKey) ?? [];
+    ingredientSlugs.push(row.ingredientSlug);
+    ingredientSlugsByGroup.set(row.groupKey, ingredientSlugs);
   }
 
   return {

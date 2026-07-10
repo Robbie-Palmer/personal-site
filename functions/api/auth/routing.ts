@@ -7,14 +7,14 @@ export type RecipeApiProxyEnv = AuthProxyRoutingEnv & {
   RECIPE_API_URL?: string;
 };
 
-type RecipeApiProxyContext = {
+export type RecipeApiProxyContext = {
   request: Request;
   env: RecipeApiProxyEnv;
 };
 
-const DEFAULT_RECIPE_API_URL = "https://recipe-api.robbiepalmer95.workers.dev";
 const FORWARDED_REQUEST_HEADERS = [
   "accept",
+  "authorization",
   "content-type",
   "cookie",
   "origin",
@@ -64,7 +64,14 @@ export async function proxyRecipeApiRequest(
     return Response.json({ error: invalidPreviewMessage }, { status: 503 });
   }
 
-  const apiBase = previewBase || context.env.RECIPE_API_URL || DEFAULT_RECIPE_API_URL;
+  const apiBase = previewBase || context.env.RECIPE_API_URL;
+  if (!apiBase) {
+    return Response.json(
+      { error: "Recipe API URL is not configured" },
+      { status: 503 },
+    );
+  }
+
   const destination = `${apiBase}${url.pathname}${url.search}`;
   const headers = new Headers();
   for (const name of FORWARDED_REQUEST_HEADERS) {
@@ -87,14 +94,30 @@ export async function proxyRecipeApiRequest(
     ? undefined
     : await context.request.arrayBuffer();
 
-  const response = await fetch(
-    new Request(destination, {
-      method: context.request.method,
-      headers,
-      body,
-      redirect: "manual",
-    }),
-  );
+  let response: Response;
+  try {
+    response = await fetch(
+      new Request(destination, {
+        method: context.request.method,
+        headers,
+        body,
+        redirect: "manual",
+      }),
+    );
+  } catch (error) {
+    if (logLabel) {
+      console.error(
+        JSON.stringify({
+          message: `${logLabel} proxy request failed`,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    }
+    return Response.json(
+      { error: "Failed to reach the recipe API" },
+      { status: 502 },
+    );
+  }
 
   if (logLabel) {
     console.log(

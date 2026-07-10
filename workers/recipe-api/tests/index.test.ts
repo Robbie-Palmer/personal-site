@@ -852,6 +852,10 @@ function seedDietCatalog() {
     { presetKey: "vegetarian", groupKey: "shellfish" },
     { presetKey: "vegan", groupKey: "dairy" },
   );
+  dbMock.state.dietPresetExcludedIngredients.push({
+    presetKey: "vegan",
+    ingredientSlug: "honey",
+  });
   dbMock.state.ingredientGroupMembers.push({
     groupKey: "dairy",
     ingredientSlug: "milk",
@@ -1067,6 +1071,36 @@ describe("profile diet preferences", () => {
     expect(await res.json()).toEqual({ error: "Authentication required" });
   });
 
+  it("requires authentication before returning diet options", async () => {
+    const res = await app.request("/api/profile/diet/options", {}, env);
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Authentication required" });
+  });
+
+  it("requires authentication before saving a diet profile", async () => {
+    const res = await app.request(
+      "/api/profile/diet",
+      {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          presetDietKeys: [],
+          excludedIngredientSlugs: [],
+          excludedGroupKeys: [],
+          recipeMatchMode: "warn",
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Authentication required" });
+  });
+
   it("returns an empty default diet profile when none has been saved", async () => {
     authzMock.session = sessionFor({
       id: "owner-user",
@@ -1120,7 +1154,7 @@ describe("profile diet preferences", () => {
           label: "Vegan",
           sub: "no animal products",
           excludedGroupKeys: ["dairy"],
-          excludedIngredientSlugs: [],
+          excludedIngredientSlugs: ["honey"],
         },
         {
           key: "vegetarian",

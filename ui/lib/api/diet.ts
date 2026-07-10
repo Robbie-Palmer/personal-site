@@ -47,12 +47,32 @@ export const emptyDietOptions: DietOptions = {
   ingredients: [],
 };
 
+type ApiErrorBody = {
+  error?: string;
+  details?: { path?: string[]; message?: string }[];
+};
+
+function messageFromApiError(
+  body: ApiErrorBody | null,
+  fallback: string,
+): string {
+  const details = body?.details
+    ?.map((detail) => {
+      if (!detail.message) return undefined;
+      const path = detail.path?.join(".");
+      return path ? `${path}: ${detail.message}` : detail.message;
+    })
+    .filter(Boolean);
+  if (details && details.length > 0) return details.join("; ");
+  return body?.error ?? fallback;
+}
+
 async function parseDietResponse(response: Response): Promise<DietProfile> {
   if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as {
-      error?: string;
-    } | null;
-    throw new Error(body?.error ?? "Diet profile request failed.");
+    const body = (await response
+      .json()
+      .catch(() => null)) as ApiErrorBody | null;
+    throw new Error(messageFromApiError(body, "Diet profile request failed."));
   }
   return response.json() as Promise<DietProfile>;
 }
@@ -61,10 +81,10 @@ async function parseDietOptionsResponse(
   response: Response,
 ): Promise<DietOptions> {
   if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as {
-      error?: string;
-    } | null;
-    throw new Error(body?.error ?? "Diet options request failed.");
+    const body = (await response
+      .json()
+      .catch(() => null)) as ApiErrorBody | null;
+    throw new Error(messageFromApiError(body, "Diet options request failed."));
   }
   return response.json() as Promise<DietOptions>;
 }
@@ -91,12 +111,14 @@ export async function getDietOptions(
 
 export async function saveDietProfile(
   profile: DietProfile,
+  signal?: AbortSignal,
 ): Promise<DietProfile> {
   const response = await fetch("/api/profile/diet", {
     method: "PUT",
     credentials: "same-origin",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(profile),
+    signal,
   });
   return parseDietResponse(response);
 }

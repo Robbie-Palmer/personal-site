@@ -15,7 +15,7 @@ directory. No additional configuration is required.
 Proxies same-origin Better Auth requests to the recipe API Worker. Keeping the
 browser-facing auth URL on `robbiepalmer.me` means OAuth callbacks and session
 cookies use the site origin even though the auth handler runs in a separate
-Worker. `RECIPE_API_URL` can override the deployed Worker URL.
+Worker. `RECIPE_API_URL` configures the deployed Worker URL.
 
 ### `/api/profile/diet` - Recipe Profile Diet Proxy
 

@@ -10,7 +10,7 @@ import {
   X,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -333,6 +333,7 @@ export function DietPanel() {
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
+  const saveControllerRef = useRef<AbortController | null>(null);
   const ingredientBySlug = useMemo(
     () =>
       new Map(
@@ -375,6 +376,10 @@ export function DietPanel() {
 
     void load();
     return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    return () => saveControllerRef.current?.abort();
   }, []);
 
   const dirty = serialize(profile) !== serialize(savedProfile);
@@ -421,20 +426,29 @@ export function DietPanel() {
   }
 
   async function save() {
+    saveControllerRef.current?.abort();
+    const controller = new AbortController();
+    saveControllerRef.current = controller;
     setSaveState("saving");
     setError(null);
     try {
-      const saved = await saveDietProfile(profile);
+      const saved = await saveDietProfile(profile, controller.signal);
+      if (controller.signal.aborted) return;
       setProfile(saved);
       setSavedProfile(saved);
       setSaveState("saved");
     } catch (saveError) {
+      if (controller.signal.aborted) return;
       setSaveState("error");
       setError(
         saveError instanceof Error
           ? saveError.message
           : "Couldn't save your diet profile.",
       );
+    } finally {
+      if (saveControllerRef.current === controller) {
+        saveControllerRef.current = null;
+      }
     }
   }
 

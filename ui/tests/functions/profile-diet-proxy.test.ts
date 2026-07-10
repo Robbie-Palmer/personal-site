@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { RecipeApiProxyContext } from "../../../functions/api/auth/routing";
 import { onRequest } from "../../../functions/api/profile/diet";
 import { onRequest as onOptionsRequest } from "../../../functions/api/profile/diet/options";
 
@@ -14,17 +15,19 @@ describe("profile diet proxy", () => {
     const fetchMock = vi.fn(async (_request: Request) => new Response("ok"));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const response = await onRequest({
+    const context: RecipeApiProxyContext = {
       request: new Request("https://robbiepalmer.me/api/profile/diet?fresh=1", {
         method: "PUT",
         headers: {
+          authorization: "Bearer test-token",
           "content-type": "application/json",
           host: "robbiepalmer.me",
         },
         body: JSON.stringify({ recipeMatchMode: "warn" }),
       }),
       env: { RECIPE_API_URL: "https://recipe-api.example.test" },
-    } as never);
+    };
+    const response = await onRequest(context);
 
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledOnce();
@@ -38,10 +41,14 @@ describe("profile diet proxy", () => {
     );
     expect(forwarded.method).toBe("PUT");
     expect(forwarded.headers.has("host")).toBe(false);
+    expect(forwarded.headers.get("authorization")).toBe("Bearer test-token");
+    expect(await forwarded.text()).toBe(
+      JSON.stringify({ recipeMatchMode: "warn" }),
+    );
   });
 
   it("rejects non-canonical preview aliases", async () => {
-    const response = await onRequest({
+    const context: RecipeApiProxyContext = {
       request: new Request(
         "https://abc123.personal-site-bu5.pages.dev/api/profile/diet",
       ),
@@ -50,7 +57,8 @@ describe("profile diet proxy", () => {
         RECIPE_API_PREVIEW_ORIGIN_TEMPLATE:
           "https://recipe-api-pr-{pr}.example.test",
       },
-    } as never);
+    };
+    const response = await onRequest(context);
 
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({
@@ -62,10 +70,11 @@ describe("profile diet proxy", () => {
     const fetchMock = vi.fn(async (_request: Request) => new Response("ok"));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const response = await onOptionsRequest({
+    const context: RecipeApiProxyContext = {
       request: new Request("https://robbiepalmer.me/api/profile/diet/options"),
       env: { RECIPE_API_URL: "https://recipe-api.example.test" },
-    } as never);
+    };
+    const response = await onOptionsRequest(context);
 
     expect(response.status).toBe(200);
     const forwarded = fetchMock.mock.calls[0]?.[0];
@@ -76,5 +85,22 @@ describe("profile diet proxy", () => {
     expect(forwarded.url).toBe(
       "https://recipe-api.example.test/api/profile/diet/options",
     );
+  });
+
+  it("returns a bad gateway response when the recipe API is unreachable", async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new TypeError("fetch failed");
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onRequest({
+      request: new Request("https://robbiepalmer.me/api/profile/diet"),
+      env: { RECIPE_API_URL: "https://recipe-api.example.test" },
+    });
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({
+      error: "Failed to reach the recipe API",
+    });
   });
 });
