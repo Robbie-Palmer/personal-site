@@ -376,6 +376,15 @@ function isUniqueViolation(error: unknown): boolean {
   );
 }
 
+function isForeignKeyViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "23503"
+  );
+}
+
 async function findRecipeBySlug(
   db: ReturnType<typeof createDb>["db"],
   slug: string,
@@ -531,7 +540,7 @@ async function findHouseholdMembership(
 }
 
 async function findDietProfile(
-  db: ReturnType<typeof createDb>["db"],
+  db: Db,
   userId: string,
 ): Promise<DietProfileResponse | undefined> {
   const [profile] = await db
@@ -668,7 +677,7 @@ async function listDietOptions(db: Db) {
 }
 
 async function findMissingDietReferences(
-  db: Db,
+  db: Pick<Db, "select">,
   body: z.infer<typeof updateDietProfileBodySchema>,
 ) {
   const [presets, ingredients, groups] = await Promise.all([
@@ -902,87 +911,100 @@ app.put("/api/profile/diet", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
+  const body = await parseJsonBody(c, updateDietProfileBodySchema);
+  if (!body.success) return body.response;
+
   return withRecipeSession(
     c,
     "mutation",
     "PUT /api/profile/diet mutation failed",
     async ({ db, session }) => {
-      const body = await parseJsonBody(c, updateDietProfileBodySchema);
-      if (!body.success) return body.response;
+      try {
+        const profile = await db.transaction(async (tx) => {
+          const missingReferences = await findMissingDietReferences(tx, body.data);
+          if (missingReferences.length > 0) {
+            return dietUnknownReferencesResponse(c, missingReferences);
+          }
 
-      const missingReferences = await findMissingDietReferences(db, body.data);
-      if (missingReferences.length > 0) {
-        return dietUnknownReferencesResponse(c, missingReferences);
-      }
-
-      const profile = await db.transaction(async (tx) => {
-        const [savedProfile] = await tx
-          .insert(schema.userDietProfile)
-          .values({
-            userId: session.user.id,
-            recipeMatchMode: body.data.recipeMatchMode,
-          })
-          .onConflictDoUpdate({
-            target: schema.userDietProfile.userId,
-            set: {
+          const [savedProfile] = await tx
+            .insert(schema.userDietProfile)
+            .values({
+              userId: session.user.id,
               recipeMatchMode: body.data.recipeMatchMode,
-              updatedAt: new Date(),
+            })
+            .onConflictDoUpdate({
+              target: schema.userDietProfile.userId,
+              set: {
+                recipeMatchMode: body.data.recipeMatchMode,
+                updatedAt: new Date(),
+              },
+            })
+            .returning();
+
+          if (!savedProfile) throw new Error("Diet profile upsert failed");
+
+          await Promise.all([
+            tx
+              .delete(schema.userDietPreset)
+              .where(eq(schema.userDietPreset.userId, session.user.id)),
+            tx
+              .delete(schema.userDietExcludedIngredient)
+              .where(
+                eq(schema.userDietExcludedIngredient.userId, session.user.id),
+              ),
+            tx
+              .delete(schema.userDietExcludedGroup)
+              .where(eq(schema.userDietExcludedGroup.userId, session.user.id)),
+          ]);
+
+          if (body.data.presetDietKeys.length > 0) {
+            await tx.insert(schema.userDietPreset).values(
+              body.data.presetDietKeys.map((presetKey) => ({
+                userId: session.user.id,
+                presetKey,
+              })),
+            );
+          }
+
+          if (body.data.excludedIngredientSlugs.length > 0) {
+            await tx.insert(schema.userDietExcludedIngredient).values(
+              body.data.excludedIngredientSlugs.map((ingredientSlug) => ({
+                userId: session.user.id,
+                ingredientSlug,
+              })),
+            );
+          }
+
+          if (body.data.excludedGroupKeys.length > 0) {
+            await tx.insert(schema.userDietExcludedGroup).values(
+              body.data.excludedGroupKeys.map((groupKey) => ({
+                userId: session.user.id,
+                groupKey,
+              })),
+            );
+          }
+
+          return {
+            presetDietKeys: body.data.presetDietKeys,
+            excludedIngredientSlugs: body.data.excludedIngredientSlugs,
+            excludedGroupKeys: body.data.excludedGroupKeys,
+            recipeMatchMode: savedProfile.recipeMatchMode,
+          };
+        });
+
+        if (profile instanceof Response) return profile;
+        return c.json(dietProfileResponse(profile));
+      } catch (error) {
+        if (isForeignKeyViolation(error)) {
+          return dietUnknownReferencesResponse(c, [
+            {
+              path: [],
+              message: "Diet reference was removed before the profile could be saved",
             },
-          })
-          .returning();
-
-        if (!savedProfile) throw new Error("Diet profile upsert failed");
-
-        await Promise.all([
-          tx
-            .delete(schema.userDietPreset)
-            .where(eq(schema.userDietPreset.userId, session.user.id)),
-          tx
-            .delete(schema.userDietExcludedIngredient)
-            .where(
-              eq(schema.userDietExcludedIngredient.userId, session.user.id),
-            ),
-          tx
-            .delete(schema.userDietExcludedGroup)
-            .where(eq(schema.userDietExcludedGroup.userId, session.user.id)),
-        ]);
-
-        if (body.data.presetDietKeys.length > 0) {
-          await tx.insert(schema.userDietPreset).values(
-            body.data.presetDietKeys.map((presetKey) => ({
-              userId: session.user.id,
-              presetKey,
-            })),
-          );
+          ]);
         }
-
-        if (body.data.excludedIngredientSlugs.length > 0) {
-          await tx.insert(schema.userDietExcludedIngredient).values(
-            body.data.excludedIngredientSlugs.map((ingredientSlug) => ({
-              userId: session.user.id,
-              ingredientSlug,
-            })),
-          );
-        }
-
-        if (body.data.excludedGroupKeys.length > 0) {
-          await tx.insert(schema.userDietExcludedGroup).values(
-            body.data.excludedGroupKeys.map((groupKey) => ({
-              userId: session.user.id,
-              groupKey,
-            })),
-          );
-        }
-
-        return {
-          presetDietKeys: body.data.presetDietKeys,
-          excludedIngredientSlugs: body.data.excludedIngredientSlugs,
-          excludedGroupKeys: body.data.excludedGroupKeys,
-          recipeMatchMode: savedProfile.recipeMatchMode,
-        };
-      });
-
-      return c.json(dietProfileResponse(profile));
+        throw error;
+      }
     },
   );
 });

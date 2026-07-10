@@ -368,17 +368,6 @@ const dbMock = vi.hoisted(() => {
       return [recipeRow(recipe)];
     }
 
-    if (query.startsWith('update "user_diet_profile"')) {
-      const userId = params.at(-1) as string;
-      const profile = state.dietProfiles.find(
-        (candidate) => candidate.userId === userId,
-      );
-      if (!profile) return [];
-      profile.recipeMatchMode = params[0] as DietProfileRow["recipeMatchMode"];
-      profile.updatedAt = date;
-      return [dietProfileRow(profile)];
-    }
-
     if (query.includes('from "organization"') && query.includes('"organization"."id"')) {
       const householdId = params[0] as string;
       return state.organizations

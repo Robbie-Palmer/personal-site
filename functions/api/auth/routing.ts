@@ -13,6 +13,14 @@ type RecipeApiProxyContext = {
 };
 
 const DEFAULT_RECIPE_API_URL = "https://recipe-api.robbiepalmer95.workers.dev";
+const FORWARDED_REQUEST_HEADERS = [
+  "accept",
+  "content-type",
+  "cookie",
+  "origin",
+  "referer",
+  "user-agent",
+] as const;
 
 export function previewApiBase(
   requestURL: URL,
@@ -58,8 +66,11 @@ export async function proxyRecipeApiRequest(
 
   const apiBase = previewBase || context.env.RECIPE_API_URL || DEFAULT_RECIPE_API_URL;
   const destination = `${apiBase}${url.pathname}${url.search}`;
-  const headers = new Headers(context.request.headers);
-  headers.delete("host");
+  const headers = new Headers();
+  for (const name of FORWARDED_REQUEST_HEADERS) {
+    const value = context.request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
 
   if (logLabel) {
     console.log(
