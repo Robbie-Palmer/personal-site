@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { onRequest } from "../../../functions/api/profile/diet";
+import { onRequest as onOptionsRequest } from "../../../functions/api/profile/diet/options";
 
 const originalFetch = globalThis.fetch;
 
@@ -55,5 +56,25 @@ describe("profile diet proxy", () => {
     expect(await response.json()).toEqual({
       error: "Profile APIs are available on the canonical PR preview URL only",
     });
+  });
+
+  it("forwards diet options requests to the recipe API Worker", async () => {
+    const fetchMock = vi.fn(async (_request: Request) => new Response("ok"));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onOptionsRequest({
+      request: new Request("https://robbiepalmer.me/api/profile/diet/options"),
+      env: { RECIPE_API_URL: "https://recipe-api.example.test" },
+    } as never);
+
+    expect(response.status).toBe(200);
+    const forwarded = fetchMock.mock.calls[0]?.[0];
+    expect(forwarded).toBeInstanceOf(Request);
+    if (!(forwarded instanceof Request)) {
+      throw new Error("Expected diet options proxy to forward a Request");
+    }
+    expect(forwarded.url).toBe(
+      "https://recipe-api.example.test/api/profile/diet/options",
+    );
   });
 });

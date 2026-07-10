@@ -14,10 +14,15 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  type DietGroupOption,
   type DietIngredientOption,
+  type DietOptions,
+  type DietPresetOption,
   type DietProfile,
   type DietRecipeMatchMode,
+  emptyDietOptions,
   emptyDietProfile,
+  getDietOptions,
   getDietProfile,
   saveDietProfile,
 } from "@/lib/api/diet";
@@ -26,79 +31,7 @@ import { PanelHead } from "./panel-head";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
-type DietPreset = {
-  key: string;
-  label: string;
-  sub: string;
-  excludedGroupKeys: string[];
-  excludedIngredientSlugs?: string[];
-};
-
-type DietGroup = {
-  key: string;
-  label: string;
-  sub: string;
-};
-
-const DIET_PRESETS: DietPreset[] = [
-  {
-    key: "vegetarian",
-    label: "Vegetarian",
-    sub: "no meat or fish",
-    excludedGroupKeys: ["meat", "poultry", "fish", "shellfish"],
-  },
-  {
-    key: "vegan",
-    label: "Vegan",
-    sub: "no animal products",
-    excludedGroupKeys: ["meat", "poultry", "fish", "shellfish", "dairy", "egg"],
-    excludedIngredientSlugs: ["honey"],
-  },
-  {
-    key: "pescatarian",
-    label: "Pescatarian",
-    sub: "no meat, fish ok",
-    excludedGroupKeys: ["meat", "poultry"],
-  },
-  {
-    key: "dairy-free",
-    label: "Dairy-free",
-    sub: "no milk or cheese",
-    excludedGroupKeys: ["dairy"],
-  },
-  {
-    key: "gluten-free",
-    label: "Gluten-free",
-    sub: "no wheat or gluten",
-    excludedGroupKeys: ["gluten"],
-  },
-  {
-    key: "low-fodmap",
-    label: "Low-FODMAP review",
-    sub: "flag common triggers",
-    excludedGroupKeys: ["onion", "garlic", "wheat", "legumes"],
-  },
-];
-
-const EXCLUSION_GROUPS: DietGroup[] = [
-  { key: "meat", label: "Meat", sub: "beef, pork, lamb" },
-  { key: "poultry", label: "Poultry", sub: "chicken, turkey" },
-  { key: "fish", label: "Fish", sub: "salmon, tuna" },
-  { key: "shellfish", label: "Shellfish", sub: "prawns, mussels" },
-  { key: "dairy", label: "Dairy", sub: "milk, cheese" },
-  { key: "egg", label: "Egg", sub: "egg and egg yolk" },
-  { key: "gluten", label: "Gluten", sub: "wheat, barley, rye" },
-  { key: "nuts", label: "Tree nuts", sub: "almond, cashew" },
-  { key: "peanut", label: "Peanut", sub: "peanut products" },
-  { key: "soy", label: "Soy", sub: "soy sauce, tofu" },
-  { key: "onion", label: "Onion", sub: "onions, shallots" },
-  { key: "garlic", label: "Garlic", sub: "garlic, granules" },
-  { key: "chilli", label: "Chilli", sub: "fresh or dried" },
-  { key: "alcohol", label: "Alcohol", sub: "wine, beer, spirits" },
-];
-
 const INGREDIENT_RESULT_LIMIT = 8;
-const presetByKey = new Map(DIET_PRESETS.map((preset) => [preset.key, preset]));
 
 function labelFromSlug(slug: string): string {
   return slug
@@ -137,7 +70,10 @@ function toggleValue(values: string[], value: string): string[] {
     : [...values, value];
 }
 
-function summarise(profile: DietProfile) {
+function summarise(
+  profile: DietProfile,
+  presetByKey: Map<string, DietPresetOption>,
+) {
   const presetLabels = profile.presetDietKeys.map(
     (key) => presetByKey.get(key)?.label ?? labelFromSlug(key),
   );
@@ -151,7 +87,10 @@ function summarise(profile: DietProfile) {
   return parts.length > 0 ? parts.join(" / ") : "No diet filters set";
 }
 
-function effectiveExclusions(profile: DietProfile) {
+function effectiveExclusions(
+  profile: DietProfile,
+  presetByKey: Map<string, DietPresetOption>,
+) {
   const presetGroups = profile.presetDietKeys.flatMap(
     (key) => presetByKey.get(key)?.excludedGroupKeys ?? [],
   );
@@ -170,6 +109,14 @@ function effectiveExclusions(profile: DietProfile) {
 
 function SectionLabel({ children }: Readonly<{ children: ReactNode }>) {
   return <p className="rt-mono mb-3 text-[var(--terracotta)]">{children}</p>;
+}
+
+function EmptyCatalogMessage({ children }: Readonly<{ children: ReactNode }>) {
+  return (
+    <div className="rounded-lg border border-dashed border-[var(--line-strong)] bg-[var(--paper-warm)] px-4 py-3">
+      <p className="rt-body text-sm text-[var(--ink-3)]">{children}</p>
+    </div>
+  );
 }
 
 function Status({
@@ -302,6 +249,7 @@ function IngredientPicker({
 }>) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const hasIngredients = ingredients.length > 0;
   const selected = useMemo(() => new Set(selectedSlugs), [selectedSlugs]);
   const matches = useMemo(() => {
     const normalized = normalizeQuery(query);
@@ -327,19 +275,24 @@ function IngredientPicker({
       <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--ink-3)]" />
       <Input
         value={query}
+        disabled={!hasIngredients}
         onBlur={() => window.setTimeout(() => setOpen(false), 120)}
         onChange={(event) => {
           setQuery(event.target.value);
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
-        placeholder={`Search ${ingredients.length} canonical ingredients...`}
+        placeholder={
+          hasIngredients
+            ? `Search ${ingredients.length} canonical ingredients...`
+            : "No canonical ingredients have been seeded yet"
+        }
         aria-autocomplete="list"
-        aria-expanded={open}
+        aria-expanded={hasIngredients && open}
         aria-label="Search canonical ingredients to exclude"
         className="bg-[var(--card)] pl-9"
       />
-      {open && (
+      {hasIngredients && open && (
         <div className="absolute z-20 mt-2 max-h-72 w-full overflow-auto rounded-lg border border-[var(--line-strong)] bg-[var(--card)] p-2 shadow-lg">
           {matches.length > 0 ? (
             matches.map((ingredient) => (
@@ -372,21 +325,24 @@ function IngredientPicker({
   );
 }
 
-export function DietPanel({
-  ingredients,
-}: Readonly<{
-  ingredients: DietIngredientOption[];
-}>) {
+export function DietPanel() {
   const [profile, setProfile] = useState<DietProfile>(emptyDietProfile);
   const [savedProfile, setSavedProfile] =
     useState<DietProfile>(emptyDietProfile);
+  const [options, setOptions] = useState<DietOptions>(emptyDietOptions);
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
   const ingredientBySlug = useMemo(
     () =>
-      new Map(ingredients.map((ingredient) => [ingredient.slug, ingredient])),
-    [ingredients],
+      new Map(
+        options.ingredients.map((ingredient) => [ingredient.slug, ingredient]),
+      ),
+    [options.ingredients],
+  );
+  const presetByKey = useMemo(
+    () => new Map(options.presets.map((preset) => [preset.key, preset])),
+    [options.presets],
   );
 
   useEffect(() => {
@@ -395,9 +351,13 @@ export function DietPanel({
       setLoading(true);
       setError(null);
       try {
-        const next = await getDietProfile(controller.signal);
-        setProfile(next);
-        setSavedProfile(next);
+        const [nextProfile, nextOptions] = await Promise.all([
+          getDietProfile(controller.signal),
+          getDietOptions(controller.signal),
+        ]);
+        setProfile(nextProfile);
+        setSavedProfile(nextProfile);
+        setOptions(nextOptions);
         setSaveState("idle");
       } catch (loadError) {
         if (!controller.signal.aborted) {
@@ -418,7 +378,10 @@ export function DietPanel({
   }, []);
 
   const dirty = serialize(profile) !== serialize(savedProfile);
-  const exclusions = useMemo(() => effectiveExclusions(profile), [profile]);
+  const exclusions = useMemo(
+    () => effectiveExclusions(profile, presetByKey),
+    [presetByKey, profile],
+  );
   const selectedIngredients = profile.excludedIngredientSlugs.map((slug) => {
     return (
       ingredientBySlug.get(slug) ?? {
@@ -489,7 +452,7 @@ export function DietPanel({
         </span>
         <div className="min-w-0">
           <p className="rt-body font-semibold text-[var(--ink)]">
-            {summarise(profile)}
+            {summarise(profile, presetByKey)}
           </p>
           <p className="rt-mono mt-0.5 text-[var(--ink-3)]">
             {exclusions.groups.length + exclusions.ingredients.length} effective
@@ -507,71 +470,85 @@ export function DietPanel({
         <>
           <section className="mb-7">
             <SectionLabel>DIETARY CHOICES</SectionLabel>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {DIET_PRESETS.map((preset) => (
-                <SelectableTile
-                  key={preset.key}
-                  active={profile.presetDietKeys.includes(preset.key)}
-                  className="min-h-20"
-                  label={preset.label}
-                  onClick={() =>
-                    updateProfile({
-                      ...profile,
-                      presetDietKeys: toggleValue(
-                        profile.presetDietKeys,
-                        preset.key,
-                      ),
-                    })
-                  }
-                >
-                  <span className="rt-mono mt-1 block text-[var(--ink-4)]">
-                    {preset.sub}
-                  </span>
-                </SelectableTile>
-              ))}
-            </div>
-          </section>
-
-          <section className="mb-7">
-            <SectionLabel>GROUPS TO EXCLUDE OR WARN ON</SectionLabel>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {EXCLUSION_GROUPS.map((group) => {
-                const coveredByPreset = profile.presetDietKeys.some((key) =>
-                  presetByKey.get(key)?.excludedGroupKeys.includes(group.key),
-                );
-                return (
+            {options.presets.length > 0 ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {options.presets.map((preset) => (
                   <SelectableTile
-                    key={group.key}
-                    active={profile.excludedGroupKeys.includes(group.key)}
-                    label={group.label}
+                    key={preset.key}
+                    active={profile.presetDietKeys.includes(preset.key)}
+                    className="min-h-20"
+                    label={preset.label}
                     onClick={() =>
                       updateProfile({
                         ...profile,
-                        excludedGroupKeys: toggleValue(
-                          profile.excludedGroupKeys,
-                          group.key,
+                        presetDietKeys: toggleValue(
+                          profile.presetDietKeys,
+                          preset.key,
                         ),
                       })
                     }
                   >
-                    <span className="rt-mono mt-0.5 block text-[var(--ink-4)]">
-                      {group.sub}
-                      {coveredByPreset && (
-                        <span className="mt-0.5 block font-semibold text-[var(--sage)]">
-                          covered by preset
-                        </span>
-                      )}
+                    <span className="rt-mono mt-1 block text-[var(--ink-4)]">
+                      {preset.sub}
                     </span>
                   </SelectableTile>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyCatalogMessage>
+                Diet presets will appear here once the database catalog has been
+                seeded.
+              </EmptyCatalogMessage>
+            )}
+          </section>
+
+          <section className="mb-7">
+            <SectionLabel>GROUPS TO EXCLUDE OR WARN ON</SectionLabel>
+            {options.groups.length > 0 ? (
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {options.groups.map((group: DietGroupOption) => {
+                  const coveredByPreset = profile.presetDietKeys.some((key) =>
+                    presetByKey.get(key)?.excludedGroupKeys.includes(group.key),
+                  );
+                  return (
+                    <SelectableTile
+                      key={group.key}
+                      active={profile.excludedGroupKeys.includes(group.key)}
+                      label={group.label}
+                      onClick={() =>
+                        updateProfile({
+                          ...profile,
+                          excludedGroupKeys: toggleValue(
+                            profile.excludedGroupKeys,
+                            group.key,
+                          ),
+                        })
+                      }
+                    >
+                      <span className="rt-mono mt-0.5 block text-[var(--ink-4)]">
+                        {group.sub}
+                        {coveredByPreset && (
+                          <span className="mt-0.5 block font-semibold text-[var(--sage)]">
+                            covered by preset
+                          </span>
+                        )}
+                      </span>
+                    </SelectableTile>
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyCatalogMessage>
+                Ingredient groups will appear here once the database catalog has
+                been seeded.
+              </EmptyCatalogMessage>
+            )}
           </section>
 
           <section className="mb-7">
             <SectionLabel>SPECIFIC INGREDIENTS</SectionLabel>
             <IngredientPicker
-              ingredients={ingredients}
+              ingredients={options.ingredients}
               onAdd={addIngredient}
               selectedSlugs={profile.excludedIngredientSlugs}
             />

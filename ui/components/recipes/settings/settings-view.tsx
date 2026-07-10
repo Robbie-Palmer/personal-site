@@ -4,7 +4,6 @@ import { KeyRound, Leaf, LoaderCircle, Lock, User } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { DietIngredientOption } from "@/lib/api/diet";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/generic/styles";
 import { AccountPanel } from "./account-panel";
@@ -18,11 +17,7 @@ const SECTIONS = [
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
 
-export function SettingsView({
-  dietIngredients,
-}: Readonly<{
-  dietIngredients: DietIngredientOption[];
-}>) {
+export function SettingsView() {
   const { data: session, isPending } = authClient.useSession();
   const [section, setSection] = useState<SectionId>("account");
 
@@ -103,7 +98,7 @@ export function SettingsView({
 
         <div className="min-w-0">
           {section === "account" && <AccountPanel user={session.user} />}
-          {section === "diet" && <DietPanel ingredients={dietIngredients} />}
+          {section === "diet" && <DietPanel />}
           {section === "signin" && (
             <SecurityPanel currentSessionToken={session.session.token} />
           )}

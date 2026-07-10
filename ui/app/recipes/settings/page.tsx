@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { SettingsView } from "@/components/recipes/settings/settings-view";
-import { getKitchenIngredients } from "@/lib/api/recipes";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -9,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function SettingsPage() {
-  return <SettingsView dietIngredients={getKitchenIngredients()} />;
+  return <SettingsView />;
 }

@@ -26,13 +26,8 @@ vi.mock("@/lib/auth-client", () => ({
 
 import { SettingsView } from "@/components/recipes/settings/settings-view";
 
-const dietIngredients = [
-  { slug: "eggs", name: "eggs", category: "protein" },
-  { slug: "garlic", name: "garlic", category: "vegetable" },
-];
-
 function renderSettingsView() {
-  return render(<SettingsView dietIngredients={dietIngredients} />);
+  return render(<SettingsView />);
 }
 
 const signedIn = {

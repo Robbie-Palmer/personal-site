@@ -39,7 +39,6 @@ type Bindings = {
 };
 
 type Recipe = typeof schema.recipe.$inferSelect;
-type DietProfile = typeof schema.userDietProfile.$inferSelect;
 type Household = typeof schema.organization.$inferSelect;
 type HouseholdMember = typeof schema.member.$inferSelect;
 type HouseholdInvitation = typeof schema.invitation.$inferSelect;
@@ -51,6 +50,12 @@ type AuthSessionResult =
 type RecipeSessionContext = {
   db: Db;
   session: AuthenticatedSession;
+};
+type DietProfileResponse = {
+  presetDietKeys: string[];
+  excludedIngredientSlugs: string[];
+  excludedGroupKeys: string[];
+  recipeMatchMode: "hide" | "warn";
 };
 type AppEnv = {
   Bindings: Bindings;
@@ -207,13 +212,26 @@ function defaultDietProfile(userId: string) {
   };
 }
 
-function dietProfileResponse(profile: DietProfile | ReturnType<typeof defaultDietProfile>) {
+function dietProfileResponse(profile: DietProfileResponse) {
   return {
     presetDietKeys: profile.presetDietKeys,
     excludedIngredientSlugs: profile.excludedIngredientSlugs,
     excludedGroupKeys: profile.excludedGroupKeys,
     recipeMatchMode: profile.recipeMatchMode,
   };
+}
+
+function dietUnknownReferencesResponse(
+  c: Context<AppEnv>,
+  details: { path: string[]; message: string }[],
+) {
+  return c.json(
+    {
+      error: "Unknown diet reference",
+      details,
+    },
+    400,
+  );
 }
 
 function createId() {
@@ -515,13 +533,196 @@ async function findHouseholdMembership(
 async function findDietProfile(
   db: ReturnType<typeof createDb>["db"],
   userId: string,
-): Promise<DietProfile | undefined> {
+): Promise<DietProfileResponse | undefined> {
   const [profile] = await db
     .select()
     .from(schema.userDietProfile)
     .where(eq(schema.userDietProfile.userId, userId))
     .limit(1);
-  return profile;
+  if (!profile) return undefined;
+
+  const [presets, ingredients, groups] = await Promise.all([
+    db
+      .select({ key: schema.userDietPreset.presetKey })
+      .from(schema.userDietPreset)
+      .where(eq(schema.userDietPreset.userId, userId)),
+    db
+      .select({ slug: schema.userDietExcludedIngredient.ingredientSlug })
+      .from(schema.userDietExcludedIngredient)
+      .where(eq(schema.userDietExcludedIngredient.userId, userId)),
+    db
+      .select({ key: schema.userDietExcludedGroup.groupKey })
+      .from(schema.userDietExcludedGroup)
+      .where(eq(schema.userDietExcludedGroup.userId, userId)),
+  ]);
+
+  return {
+    presetDietKeys: presets.map((preset) => preset.key),
+    excludedIngredientSlugs: ingredients.map((ingredient) => ingredient.slug),
+    excludedGroupKeys: groups.map((group) => group.key),
+    recipeMatchMode: profile.recipeMatchMode,
+  };
+}
+
+async function listDietOptions(db: Db) {
+  const [
+    ingredients,
+    groups,
+    groupMembers,
+    presets,
+    presetGroups,
+    presetIngredients,
+  ] = await Promise.all([
+      db
+        .select({
+          slug: schema.ingredient.slug,
+          name: schema.ingredient.name,
+          category: schema.ingredient.category,
+        })
+        .from(schema.ingredient),
+      db
+        .select({
+          key: schema.ingredientGroup.key,
+          label: schema.ingredientGroup.label,
+          sub: schema.ingredientGroup.description,
+        })
+        .from(schema.ingredientGroup),
+      db
+        .select({
+          groupKey: schema.ingredientGroupMember.groupKey,
+          ingredientSlug: schema.ingredientGroupMember.ingredientSlug,
+        })
+        .from(schema.ingredientGroupMember),
+      db
+        .select({
+          key: schema.dietPreset.key,
+          label: schema.dietPreset.label,
+          sub: schema.dietPreset.description,
+        })
+        .from(schema.dietPreset),
+      db
+        .select({
+          presetKey: schema.dietPresetExcludedGroup.presetKey,
+          groupKey: schema.dietPresetExcludedGroup.groupKey,
+        })
+        .from(schema.dietPresetExcludedGroup),
+      db
+        .select({
+          presetKey: schema.dietPresetExcludedIngredient.presetKey,
+          ingredientSlug: schema.dietPresetExcludedIngredient.ingredientSlug,
+        })
+        .from(schema.dietPresetExcludedIngredient),
+    ]);
+
+  const groupKeysByPreset = new Map<string, string[]>();
+  for (const row of presetGroups) {
+    groupKeysByPreset.set(row.presetKey, [
+      ...(groupKeysByPreset.get(row.presetKey) ?? []),
+      row.groupKey,
+    ]);
+  }
+
+  const ingredientSlugsByPreset = new Map<string, string[]>();
+  for (const row of presetIngredients) {
+    ingredientSlugsByPreset.set(row.presetKey, [
+      ...(ingredientSlugsByPreset.get(row.presetKey) ?? []),
+      row.ingredientSlug,
+    ]);
+  }
+
+  const ingredientSlugsByGroup = new Map<string, string[]>();
+  for (const row of groupMembers) {
+    ingredientSlugsByGroup.set(row.groupKey, [
+      ...(ingredientSlugsByGroup.get(row.groupKey) ?? []),
+      row.ingredientSlug,
+    ]);
+  }
+
+  return {
+    presets: presets
+      .map((preset) => ({
+        key: preset.key,
+        label: preset.label,
+        sub: preset.sub ?? "",
+        excludedGroupKeys: groupKeysByPreset.get(preset.key) ?? [],
+        excludedIngredientSlugs:
+          ingredientSlugsByPreset.get(preset.key) ?? [],
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    groups: groups
+      .map((group) => ({
+        key: group.key,
+        label: group.label,
+        sub: group.sub ?? "",
+        ingredientSlugs: ingredientSlugsByGroup.get(group.key) ?? [],
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    ingredients: ingredients
+      .map((ingredient) => ({
+        slug: ingredient.slug,
+        name: ingredient.name,
+        category: ingredient.category ?? undefined,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
+
+async function findMissingDietReferences(
+  db: Db,
+  body: z.infer<typeof updateDietProfileBodySchema>,
+) {
+  const [presets, ingredients, groups] = await Promise.all([
+    body.presetDietKeys.length > 0
+      ? db
+          .select({ key: schema.dietPreset.key })
+          .from(schema.dietPreset)
+          .where(inArray(schema.dietPreset.key, body.presetDietKeys))
+      : [],
+    body.excludedIngredientSlugs.length > 0
+      ? db
+          .select({ slug: schema.ingredient.slug })
+          .from(schema.ingredient)
+          .where(
+            inArray(
+              schema.ingredient.slug,
+              body.excludedIngredientSlugs,
+            ),
+          )
+      : [],
+    body.excludedGroupKeys.length > 0
+      ? db
+          .select({ key: schema.ingredientGroup.key })
+          .from(schema.ingredientGroup)
+          .where(inArray(schema.ingredientGroup.key, body.excludedGroupKeys))
+      : [],
+  ]);
+
+  const presetKeys = new Set(presets.map((preset) => preset.key));
+  const ingredientSlugs = new Set(
+    ingredients.map((ingredient) => ingredient.slug),
+  );
+  const groupKeys = new Set(groups.map((group) => group.key));
+
+  return [
+    ...body.presetDietKeys
+      .filter((key) => !presetKeys.has(key))
+      .map((key) => ({
+        path: ["presetDietKeys"],
+        message: `Unknown diet preset: ${key}`,
+      })),
+    ...body.excludedIngredientSlugs
+      .filter((slug) => !ingredientSlugs.has(slug))
+      .map((slug) => ({
+        path: ["excludedIngredientSlugs"],
+        message: `Unknown ingredient: ${slug}`,
+      })),
+    ...body.excludedGroupKeys
+      .filter((key) => !groupKeys.has(key))
+      .map((key) => ({
+        path: ["excludedGroupKeys"],
+        message: `Unknown ingredient group: ${key}`,
+      })),
+  ];
 }
 
 async function authorizeHouseholdOwnerResponse(
@@ -688,6 +889,15 @@ app.get("/api/profile/diet", async (c) => {
   );
 });
 
+app.get("/api/profile/diet/options", async (c) => {
+  return withRecipeSession(
+    c,
+    "query",
+    "GET /api/profile/diet/options query failed",
+    async ({ db }) => c.json(await listDietOptions(db)),
+  );
+});
+
 app.put("/api/profile/diet", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
@@ -700,29 +910,78 @@ app.put("/api/profile/diet", async (c) => {
       const body = await parseJsonBody(c, updateDietProfileBodySchema);
       if (!body.success) return body.response;
 
-      const values = {
-        presetDietKeys: body.data.presetDietKeys,
-        excludedIngredientSlugs: body.data.excludedIngredientSlugs,
-        excludedGroupKeys: body.data.excludedGroupKeys,
-        recipeMatchMode: body.data.recipeMatchMode,
-      };
+      const missingReferences = await findMissingDietReferences(db, body.data);
+      if (missingReferences.length > 0) {
+        return dietUnknownReferencesResponse(c, missingReferences);
+      }
 
-      const [profile] = await db
-        .insert(schema.userDietProfile)
-        .values({
-          userId: session.user.id,
-          ...values,
-        })
-        .onConflictDoUpdate({
-          target: schema.userDietProfile.userId,
-          set: {
-            ...values,
-            updatedAt: new Date(),
-          },
-        })
-        .returning();
+      const profile = await db.transaction(async (tx) => {
+        const [savedProfile] = await tx
+          .insert(schema.userDietProfile)
+          .values({
+            userId: session.user.id,
+            recipeMatchMode: body.data.recipeMatchMode,
+          })
+          .onConflictDoUpdate({
+            target: schema.userDietProfile.userId,
+            set: {
+              recipeMatchMode: body.data.recipeMatchMode,
+              updatedAt: new Date(),
+            },
+          })
+          .returning();
 
-      if (!profile) return c.json({ error: "Database mutation failed" }, 502);
+        if (!savedProfile) throw new Error("Diet profile upsert failed");
+
+        await Promise.all([
+          tx
+            .delete(schema.userDietPreset)
+            .where(eq(schema.userDietPreset.userId, session.user.id)),
+          tx
+            .delete(schema.userDietExcludedIngredient)
+            .where(
+              eq(schema.userDietExcludedIngredient.userId, session.user.id),
+            ),
+          tx
+            .delete(schema.userDietExcludedGroup)
+            .where(eq(schema.userDietExcludedGroup.userId, session.user.id)),
+        ]);
+
+        if (body.data.presetDietKeys.length > 0) {
+          await tx.insert(schema.userDietPreset).values(
+            body.data.presetDietKeys.map((presetKey) => ({
+              userId: session.user.id,
+              presetKey,
+            })),
+          );
+        }
+
+        if (body.data.excludedIngredientSlugs.length > 0) {
+          await tx.insert(schema.userDietExcludedIngredient).values(
+            body.data.excludedIngredientSlugs.map((ingredientSlug) => ({
+              userId: session.user.id,
+              ingredientSlug,
+            })),
+          );
+        }
+
+        if (body.data.excludedGroupKeys.length > 0) {
+          await tx.insert(schema.userDietExcludedGroup).values(
+            body.data.excludedGroupKeys.map((groupKey) => ({
+              userId: session.user.id,
+              groupKey,
+            })),
+          );
+        }
+
+        return {
+          presetDietKeys: body.data.presetDietKeys,
+          excludedIngredientSlugs: body.data.excludedIngredientSlugs,
+          excludedGroupKeys: body.data.excludedGroupKeys,
+          recipeMatchMode: savedProfile.recipeMatchMode,
+        };
+      });
+
       return c.json(dietProfileResponse(profile));
     },
   );

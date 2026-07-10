@@ -2,8 +2,8 @@ import {
   boolean,
   index,
   integer,
-  jsonb,
   pgEnum,
+  primaryKey,
   pgTable,
   text,
   timestamp,
@@ -174,15 +174,105 @@ export const recipe = pgTable(
   (table) => [index("recipe_user_id_idx").on(table.userId)],
 );
 
+export const ingredient = pgTable("ingredient", {
+  slug: text().primaryKey(),
+  name: text().notNull(),
+  category: text(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp({ withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const ingredientGroup = pgTable("ingredient_group", {
+  key: text().primaryKey(),
+  label: text().notNull(),
+  description: text(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp({ withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const ingredientGroupMember = pgTable(
+  "ingredient_group_member",
+  {
+    groupKey: text()
+      .notNull()
+      .references(() => ingredientGroup.key, { onDelete: "cascade" }),
+    ingredientSlug: text()
+      .notNull()
+      .references(() => ingredient.slug, { onDelete: "cascade" }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.groupKey, table.ingredientSlug],
+      name: "ingredient_group_member_pk",
+    }),
+    index("ingredient_group_member_ingredient_slug_idx").on(table.ingredientSlug),
+  ],
+);
+
+export const dietPreset = pgTable("diet_preset", {
+  key: text().primaryKey(),
+  label: text().notNull(),
+  description: text(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp({ withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const dietPresetExcludedGroup = pgTable(
+  "diet_preset_excluded_group",
+  {
+    presetKey: text()
+      .notNull()
+      .references(() => dietPreset.key, { onDelete: "cascade" }),
+    groupKey: text()
+      .notNull()
+      .references(() => ingredientGroup.key, { onDelete: "cascade" }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.presetKey, table.groupKey],
+      name: "diet_preset_excluded_group_pk",
+    }),
+    index("diet_preset_excluded_group_group_key_idx").on(table.groupKey),
+  ],
+);
+
+export const dietPresetExcludedIngredient = pgTable(
+  "diet_preset_excluded_ingredient",
+  {
+    presetKey: text()
+      .notNull()
+      .references(() => dietPreset.key, { onDelete: "cascade" }),
+    ingredientSlug: text()
+      .notNull()
+      .references(() => ingredient.slug, { onDelete: "cascade" }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.presetKey, table.ingredientSlug],
+      name: "diet_preset_excluded_ingredient_pk",
+    }),
+    index("diet_preset_excluded_ingredient_slug_idx").on(table.ingredientSlug),
+  ],
+);
+
 export const userDietProfile = pgTable(
   "user_diet_profile",
   {
     userId: text()
       .primaryKey()
       .references(() => user.id, { onDelete: "cascade" }),
-    presetDietKeys: jsonb().$type<string[]>().notNull().default([]),
-    excludedIngredientSlugs: jsonb().$type<string[]>().notNull().default([]),
-    excludedGroupKeys: jsonb().$type<string[]>().notNull().default([]),
     recipeMatchMode: dietRecipeMatchModeEnum().notNull().default("hide"),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
@@ -190,6 +280,66 @@ export const userDietProfile = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
+);
+
+export const userDietPreset = pgTable(
+  "user_diet_preset",
+  {
+    userId: text()
+      .notNull()
+      .references(() => userDietProfile.userId, { onDelete: "cascade" }),
+    presetKey: text()
+      .notNull()
+      .references(() => dietPreset.key, { onDelete: "cascade" }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.userId, table.presetKey],
+      name: "user_diet_preset_pk",
+    }),
+    index("user_diet_preset_preset_key_idx").on(table.presetKey),
+  ],
+);
+
+export const userDietExcludedGroup = pgTable(
+  "user_diet_excluded_group",
+  {
+    userId: text()
+      .notNull()
+      .references(() => userDietProfile.userId, { onDelete: "cascade" }),
+    groupKey: text()
+      .notNull()
+      .references(() => ingredientGroup.key, { onDelete: "cascade" }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.userId, table.groupKey],
+      name: "user_diet_excluded_group_pk",
+    }),
+    index("user_diet_excluded_group_group_key_idx").on(table.groupKey),
+  ],
+);
+
+export const userDietExcludedIngredient = pgTable(
+  "user_diet_excluded_ingredient",
+  {
+    userId: text()
+      .notNull()
+      .references(() => userDietProfile.userId, { onDelete: "cascade" }),
+    ingredientSlug: text()
+      .notNull()
+      .references(() => ingredient.slug, { onDelete: "cascade" }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.userId, table.ingredientSlug],
+      name: "user_diet_excluded_ingredient_pk",
+    }),
+    index("user_diet_excluded_ingredient_slug_idx").on(table.ingredientSlug),
+  ],
 );
 
 export const appRateLimit = pgTable("app_rate_limit", {
