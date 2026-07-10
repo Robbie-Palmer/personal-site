@@ -44,9 +44,14 @@ type Household = typeof schema.organization.$inferSelect;
 type HouseholdMember = typeof schema.member.$inferSelect;
 type HouseholdInvitation = typeof schema.invitation.$inferSelect;
 type DbClient = ReturnType<typeof createDb>["client"];
+type Db = ReturnType<typeof createDb>["db"];
 type AuthSessionResult =
   | { success: true; session: AuthenticatedSession }
   | { success: false; response: Response };
+type RecipeSessionContext = {
+  db: Db;
+  session: AuthenticatedSession;
+};
 type AppEnv = {
   Bindings: Bindings;
   Variables: Partial<AuthorizationVariables>;
@@ -282,7 +287,7 @@ async function loadOptionalRecipeSession(
 
 async function requireRecipeSession(
   c: Context<AppEnv>,
-  db: ReturnType<typeof createDb>["db"],
+  db: Db,
 ): Promise<AuthSessionResult> {
   if (!hasAuthConfiguration(c.env)) {
     return {
@@ -312,6 +317,35 @@ async function requireRecipeSession(
       success: false,
       response: c.json({ error: "Auth session lookup failed" }, 503),
     };
+  }
+}
+
+async function withRecipeSession(
+  c: Context<AppEnv>,
+  failureKind: "query" | "mutation",
+  logMessage: string,
+  action: (context: RecipeSessionContext) => Promise<Response> | Response,
+): Promise<Response> {
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const session = await requireRecipeSession(c, connection.db);
+    if (!session.success) return session.response;
+    return await action({ db: connection.db, session: session.session });
+  } catch (e) {
+    console.error(logMessage, e);
+    return c.json({ error: `Database ${failureKind} failed` }, 502);
+  } finally {
+    await closeDbClient(client);
   }
 }
 
@@ -641,88 +675,57 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => {
 });
 
 app.get("/api/profile/diet", async (c) => {
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
-
-  let client: DbClient | undefined;
-  try {
-    const connection = createDb(connectionString);
-    client = connection.client;
-    const { db } = connection;
-    const session = await requireRecipeSession(c, db);
-    if (!session.success) return session.response;
-
-    const profile =
-      (await findDietProfile(db, session.session.user.id)) ??
-      defaultDietProfile(session.session.user.id);
-    return c.json(dietProfileResponse(profile));
-  } catch (e) {
-    console.error("GET /api/profile/diet query failed", e);
-    return c.json({ error: "Database query failed" }, 502);
-  } finally {
-    await closeDbClient(client);
-  }
+  return withRecipeSession(
+    c,
+    "query",
+    "GET /api/profile/diet query failed",
+    async ({ db, session }) => {
+      const profile =
+        (await findDietProfile(db, session.user.id)) ??
+        defaultDietProfile(session.user.id);
+      return c.json(dietProfileResponse(profile));
+    },
+  );
 });
 
 app.put("/api/profile/diet", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  return withRecipeSession(
+    c,
+    "mutation",
+    "PUT /api/profile/diet mutation failed",
+    async ({ db, session }) => {
+      const body = await parseJsonBody(c, updateDietProfileBodySchema);
+      if (!body.success) return body.response;
 
-  let client: DbClient | undefined;
-  try {
-    const connection = createDb(connectionString);
-    client = connection.client;
-    const { db } = connection;
-    const session = await requireRecipeSession(c, db);
-    if (!session.success) return session.response;
+      const values = {
+        presetDietKeys: body.data.presetDietKeys,
+        excludedIngredientSlugs: body.data.excludedIngredientSlugs,
+        excludedGroupKeys: body.data.excludedGroupKeys,
+        recipeMatchMode: body.data.recipeMatchMode,
+      };
 
-    const body = await parseJsonBody(c, updateDietProfileBodySchema);
-    if (!body.success) return body.response;
-
-    const userId = session.session.user.id;
-    const values = {
-      presetDietKeys: body.data.presetDietKeys,
-      excludedIngredientSlugs: body.data.excludedIngredientSlugs,
-      excludedGroupKeys: body.data.excludedGroupKeys,
-      recipeMatchMode: body.data.recipeMatchMode,
-    };
-
-    const [profile] = await db
-      .insert(schema.userDietProfile)
-      .values({
-        userId,
-        ...values,
-      })
-      .onConflictDoUpdate({
-        target: schema.userDietProfile.userId,
-        set: {
+      const [profile] = await db
+        .insert(schema.userDietProfile)
+        .values({
+          userId: session.user.id,
           ...values,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
+        })
+        .onConflictDoUpdate({
+          target: schema.userDietProfile.userId,
+          set: {
+            ...values,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
 
-    if (!profile) return c.json({ error: "Database mutation failed" }, 502);
-    return c.json(dietProfileResponse(profile));
-  } catch (e) {
-    console.error("PUT /api/profile/diet mutation failed", e);
-    return c.json({ error: "Database mutation failed" }, 502);
-  } finally {
-    await closeDbClient(client);
-  }
+      if (!profile) return c.json({ error: "Database mutation failed" }, 502);
+      return c.json(dietProfileResponse(profile));
+    },
+  );
 });
 
 app.get("/households", async (c) => {

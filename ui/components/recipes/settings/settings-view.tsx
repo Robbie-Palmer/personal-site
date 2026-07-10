@@ -20,9 +20,9 @@ type SectionId = (typeof SECTIONS)[number]["id"];
 
 export function SettingsView({
   dietIngredients,
-}: {
+}: Readonly<{
   dietIngredients: DietIngredientOption[];
-}) {
+}>) {
   const { data: session, isPending } = authClient.useSession();
   const [section, setSection] = useState<SectionId>("account");
 

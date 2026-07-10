@@ -116,12 +116,18 @@ function unique(values: string[]): string[] {
   return Array.from(new Set(values));
 }
 
+function sortAlphabetically(values: string[]): string[] {
+  return [...values].sort((first, second) => first.localeCompare(second));
+}
+
 function serialize(profile: DietProfile): string {
   return JSON.stringify({
     ...profile,
-    presetDietKeys: [...profile.presetDietKeys].sort(),
-    excludedIngredientSlugs: [...profile.excludedIngredientSlugs].sort(),
-    excludedGroupKeys: [...profile.excludedGroupKeys].sort(),
+    presetDietKeys: sortAlphabetically(profile.presetDietKeys),
+    excludedIngredientSlugs: sortAlphabetically(
+      profile.excludedIngredientSlugs,
+    ),
+    excludedGroupKeys: sortAlphabetically(profile.excludedGroupKeys),
   });
 }
 

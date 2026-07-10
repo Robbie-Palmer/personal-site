@@ -3,6 +3,17 @@ export type AuthProxyRoutingEnv = {
   CF_PAGES_HOST?: string;
 };
 
+export type RecipeApiProxyEnv = AuthProxyRoutingEnv & {
+  RECIPE_API_URL?: string;
+};
+
+type RecipeApiProxyContext = {
+  request: Request;
+  env: RecipeApiProxyEnv;
+};
+
+const DEFAULT_RECIPE_API_URL = "https://recipe-api.robbiepalmer95.workers.dev";
+
 export function previewApiBase(
   requestURL: URL,
   env: AuthProxyRoutingEnv,
@@ -32,4 +43,56 @@ export function previewApiBase(
   } catch {
     return null;
   }
+}
+
+export async function proxyRecipeApiRequest(
+  context: RecipeApiProxyContext,
+  invalidPreviewMessage: string,
+  logLabel?: string,
+): Promise<Response> {
+  const url = new URL(context.request.url);
+  const previewBase = previewApiBase(url, context.env);
+  if (previewBase === null) {
+    return Response.json({ error: invalidPreviewMessage }, { status: 503 });
+  }
+
+  const apiBase = previewBase || context.env.RECIPE_API_URL || DEFAULT_RECIPE_API_URL;
+  const destination = `${apiBase}${url.pathname}${url.search}`;
+  const headers = new Headers(context.request.headers);
+  headers.delete("host");
+
+  if (logLabel) {
+    console.log(
+      JSON.stringify({
+        message: `${logLabel} proxy request`,
+        method: context.request.method,
+        path: url.pathname,
+        destination: `${apiBase}${url.pathname}`,
+      }),
+    );
+  }
+
+  const body = ["GET", "HEAD"].includes(context.request.method)
+    ? undefined
+    : await context.request.arrayBuffer();
+
+  const response = await fetch(
+    new Request(destination, {
+      method: context.request.method,
+      headers,
+      body,
+      redirect: "manual",
+    }),
+  );
+
+  if (logLabel) {
+    console.log(
+      JSON.stringify({
+        message: `${logLabel} proxy response`,
+        status: response.status,
+      }),
+    );
+  }
+
+  return response;
 }
