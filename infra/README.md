@@ -63,6 +63,9 @@ Secrets and config mirrored from Doppler:
 10. **`POSTHOG_PROJECT_ID`**
     - Find in the PostHog project/environment settings or API URLs
     - Passed as `TF_VAR_posthog_project_id`
+    - Mark unmasked in Doppler so the GitHub sync publishes it as an Actions
+      variable, not a secret. Terraform requires a non-empty value and has no
+      production default.
 
 ### Required Environment
 
@@ -137,7 +140,7 @@ Terraform-managed dashboard and insight resources.
 ### Importing PostHog Resources
 
 `posthog.tf` includes config-driven `import` blocks. After setting
-`POSTHOG_API_KEY` in Doppler, run:
+`POSTHOG_API_KEY` and `POSTHOG_PROJECT_ID` in Doppler, run:
 
 ```bash
 mise run //infra:plan

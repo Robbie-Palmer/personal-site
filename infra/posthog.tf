@@ -22,6 +22,8 @@ resource "posthog_dashboard" "managed" {
 resource "posthog_insight" "managed" {
   for_each = local.posthog_insights
 
+  # Some imported insights intentionally have no explicit name; PostHog renders
+  # those from the provider-computed derived_name. Null preserves that state.
   name        = try(each.value.name, null)
   description = try(each.value.description, null)
   dashboard_ids = length(try(each.value.dashboard_keys, [])) > 0 ? toset([

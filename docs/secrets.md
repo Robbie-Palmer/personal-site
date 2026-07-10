@@ -153,7 +153,7 @@ receive UI deploy credentials:
 - `NEON_API_KEY`
 - `NEON_ORG_ID`
 - `POSTHOG_API_KEY`
-- `POSTHOG_PROJECT_ID`
+- `POSTHOG_PROJECT_ID` (unmasked; syncs to a GitHub Actions variable)
 
 ## GitHub Environments
 
@@ -247,7 +247,7 @@ preview Worker with `--secrets-file`.
 - `NEON_API_KEY`
 - `NEON_ORG_ID`
 - `POSTHOG_API_KEY`
-- `POSTHOG_PROJECT_ID`
+- `POSTHOG_PROJECT_ID` (unmasked; syncs to a GitHub Actions variable)
 - `TF_API_TOKEN`
 
 `prd_ci_repo` should own:

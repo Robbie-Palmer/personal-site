@@ -53,7 +53,7 @@ jobs:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           TF_VAR_neon_org_id: ${{ secrets.NEON_ORG_ID }}
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
-          TF_VAR_posthog_project_id: ${{ vars.POSTHOG_PROJECT_ID || secrets.POSTHOG_PROJECT_ID }}
+          TF_VAR_posthog_project_id: ${{ vars.POSTHOG_PROJECT_ID }}
 
       - name: Add Terraform Plan to PR Comment
         uses: borchero/terraform-plan-comment@2d41e908725447b1677913001dfb92fa7010c025 # v3
