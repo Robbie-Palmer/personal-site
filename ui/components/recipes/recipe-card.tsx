@@ -84,12 +84,15 @@ export function RecipeMatchCard({
   onToggleList,
   highlight = false,
   footer,
+  cardAction = "open-recipe",
 }: Readonly<{
   recipe: KitchenRecipeMatch;
   inList: boolean;
   onToggleList: () => void;
   highlight?: boolean;
   footer?: ReactNode;
+  /** What tapping the card body does: open the recipe, or toggle the list. */
+  cardAction?: "open-recipe" | "toggle-list";
 }>) {
   const timeLabel = formatRecipeTime(recipe.totalTime);
   const canCook = recipe.totalCount > 0 && recipe.missingCount === 0;
@@ -104,11 +107,25 @@ export function RecipeMatchCard({
           : "border-[var(--line-strong)]",
       )}
     >
-      <Link
-        href={`/recipes/${recipe.slug}`}
-        aria-label={`Open ${recipe.title}`}
-        className="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--ring)]/50"
-      />
+      {cardAction === "toggle-list" ? (
+        <button
+          type="button"
+          aria-pressed={inList}
+          aria-label={
+            inList
+              ? `Remove ${recipe.title} from the shopping list`
+              : `Add ${recipe.title} to the shopping list`
+          }
+          onClick={onToggleList}
+          className="absolute inset-0 cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--ring)]/50"
+        />
+      ) : (
+        <Link
+          href={`/recipes/${recipe.slug}`}
+          aria-label={`Open ${recipe.title}`}
+          className="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--ring)]/50"
+        />
+      )}
       <CardContent className="p-3">
         <div className="flex min-w-0 items-start gap-3">
           <RecipeThumb recipe={recipe} size={48} />

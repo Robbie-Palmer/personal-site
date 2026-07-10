@@ -161,6 +161,7 @@ export function RecipePicker({ recipes }: { recipes: ShoppingRecipe[] }) {
                 inList={selected}
                 onToggleList={() => toggleRecipe(recipe.slug)}
                 highlight={selected}
+                cardAction="toggle-list"
                 footer={
                   selected ? (
                     <ServingsStepper slug={recipe.slug} servings={servings} />
