@@ -48,6 +48,11 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
 
+      - name: Seed diet catalog
+        run: mise run //workers/recipe-api:db:seed:diet-catalog
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+
       - name: Create Worker secrets file
         env:
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}

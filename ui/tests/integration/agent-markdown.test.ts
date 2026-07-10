@@ -74,6 +74,14 @@ describe("agent markdown generation", () => {
     }
   });
 
+  it("keeps authenticated app pages out of agent markdown outputs", () => {
+    expect(fs.existsSync(path.join(OUT_DIR, "recipes", "settings.md"))).toBe(
+      false,
+    );
+    expect(read("llms.txt")).not.toContain("/recipes/settings");
+    expect(read("llms-full.txt")).not.toContain("/recipes/settings");
+  });
+
   it("renders recipe ingredients and instructions as markdown", () => {
     const recipeFiles = fs
       .readdirSync(path.join(OUT_DIR, "recipes"))
@@ -87,6 +95,8 @@ describe("agent markdown generation", () => {
   it("scopes the middleware to page routes in _routes.json", () => {
     const routes = JSON.parse(read("_routes.json"));
     expect(routes.include).toContain("/api/auth/*");
+    expect(routes.include).toContain("/api/profile/diet");
+    expect(routes.include).toContain("/api/profile/diet/options");
     expect(routes.include).toContain("/ingest/*");
     expect(routes.include).toContain("/projects/*");
     expect(routes.exclude).toContain("/_next/*");
