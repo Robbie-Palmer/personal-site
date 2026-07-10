@@ -43,6 +43,10 @@ function createNextConfig(phase: string): NextConfig {
                 source: "/api/auth/:path*",
                 destination: "http://localhost:8787/api/auth/:path*",
               },
+              {
+                source: "/api/profile/diet",
+                destination: "http://localhost:8787/api/profile/diet",
+              },
             ];
           },
         }

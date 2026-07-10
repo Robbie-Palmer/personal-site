@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -91,6 +92,11 @@ export const visibilityEnum = pgEnum("visibility", [
   "household",
 ]);
 
+export const dietRecipeMatchModeEnum = pgEnum("diet_recipe_match_mode", [
+  "hide",
+  "warn",
+]);
+
 export const organization = pgTable("organization", {
   id: text().primaryKey(),
   name: text().notNull(),
@@ -166,6 +172,25 @@ export const recipe = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [index("recipe_user_id_idx").on(table.userId)],
+);
+
+export const userDietProfile = pgTable(
+  "user_diet_profile",
+  {
+    userId: text()
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    presetDietKeys: jsonb().$type<string[]>().notNull().default([]),
+    excludedIngredientSlugs: jsonb().$type<string[]>().notNull().default([]),
+    excludedGroupKeys: jsonb().$type<string[]>().notNull().default([]),
+    recipeMatchMode: dietRecipeMatchModeEnum().notNull().default("hide"),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [index("user_diet_profile_user_id_idx").on(table.userId)],
 );
 
 export const appRateLimit = pgTable("app_rate_limit", {

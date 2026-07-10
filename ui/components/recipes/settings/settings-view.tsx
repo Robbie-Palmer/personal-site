@@ -1,16 +1,18 @@
 "use client";
 
-import { KeyRound, LoaderCircle, Lock, User } from "lucide-react";
+import { KeyRound, Leaf, LoaderCircle, Lock, User } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/generic/styles";
 import { AccountPanel } from "./account-panel";
+import { DietPanel } from "./diet-panel";
 import { SecurityPanel } from "./security-panel";
 
 const SECTIONS = [
   { id: "account", label: "Account", icon: User },
+  { id: "diet", label: "Your diet", icon: Leaf },
   { id: "signin", label: "Sign-in & security", icon: KeyRound },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
@@ -95,9 +97,9 @@ export function SettingsView() {
         </nav>
 
         <div className="min-w-0">
-          {section === "account" ? (
-            <AccountPanel user={session.user} />
-          ) : (
+          {section === "account" && <AccountPanel user={session.user} />}
+          {section === "diet" && <DietPanel />}
+          {section === "signin" && (
             <SecurityPanel currentSessionToken={session.session.token} />
           )}
         </div>

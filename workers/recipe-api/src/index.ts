@@ -39,6 +39,7 @@ type Bindings = {
 };
 
 type Recipe = typeof schema.recipe.$inferSelect;
+type DietProfile = typeof schema.userDietProfile.$inferSelect;
 type Household = typeof schema.organization.$inferSelect;
 type HouseholdMember = typeof schema.member.$inferSelect;
 type HouseholdInvitation = typeof schema.invitation.$inferSelect;
@@ -68,6 +69,23 @@ const recipeSlugSchema = z
   });
 
 const recipeVisibilitySchema = z.enum(["public", "private", "household"]);
+const dietRecipeMatchModeSchema = z.enum(["hide", "warn"]);
+
+const dietKeySchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(1)
+  .max(80)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+    message:
+      "Diet keys must use lowercase letters, numbers, and single hyphens between words",
+  });
+
+const uniqueDietKeysSchema = z
+  .array(dietKeySchema)
+  .max(80)
+  .transform((values) => Array.from(new Set(values)));
 
 // Household invitations stay valid for 48 hours after they are created.
 const INVITATION_EXPIRY_MS = 48 * 60 * 60 * 1000;
@@ -103,6 +121,15 @@ const createHouseholdBodySchema = z
 const inviteHouseholdMemberBodySchema = z
   .object({
     email: z.string().trim().email(),
+  })
+  .strict();
+
+const updateDietProfileBodySchema = z
+  .object({
+    presetDietKeys: uniqueDietKeysSchema.default([]),
+    excludedIngredientSlugs: uniqueDietKeysSchema.default([]),
+    excludedGroupKeys: uniqueDietKeysSchema.default([]),
+    recipeMatchMode: dietRecipeMatchModeSchema.default("hide"),
   })
   .strict();
 
@@ -162,6 +189,25 @@ function invitationResponse(invitation: HouseholdInvitation) {
     status: invitation.status,
     expiresAt: invitation.expiresAt,
     createdAt: invitation.createdAt,
+  };
+}
+
+function defaultDietProfile(userId: string) {
+  return {
+    userId,
+    presetDietKeys: [],
+    excludedIngredientSlugs: [],
+    excludedGroupKeys: [],
+    recipeMatchMode: "hide" as const,
+  };
+}
+
+function dietProfileResponse(profile: DietProfile | ReturnType<typeof defaultDietProfile>) {
+  return {
+    presetDietKeys: profile.presetDietKeys,
+    excludedIngredientSlugs: profile.excludedIngredientSlugs,
+    excludedGroupKeys: profile.excludedGroupKeys,
+    recipeMatchMode: profile.recipeMatchMode,
   };
 }
 
@@ -432,6 +478,18 @@ async function findHouseholdMembership(
   return member;
 }
 
+async function findDietProfile(
+  db: ReturnType<typeof createDb>["db"],
+  userId: string,
+): Promise<DietProfile | undefined> {
+  const [profile] = await db
+    .select()
+    .from(schema.userDietProfile)
+    .where(eq(schema.userDietProfile.userId, userId))
+    .limit(1);
+  return profile;
+}
+
 async function authorizeHouseholdOwnerResponse(
   c: Context<AppEnv>,
   db: ReturnType<typeof createDb>["db"],
@@ -579,6 +637,88 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => {
     } catch (e) {
       console.error("client.end() cleanup failed", e);
     }
+  }
+});
+
+app.get("/api/profile/diet", async (c) => {
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
+
+    const profile =
+      (await findDietProfile(db, session.session.user.id)) ??
+      defaultDietProfile(session.session.user.id);
+    return c.json(dietProfileResponse(profile));
+  } catch (e) {
+    console.error("GET /api/profile/diet query failed", e);
+    return c.json({ error: "Database query failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
+app.put("/api/profile/diet", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
+
+    const body = await parseJsonBody(c, updateDietProfileBodySchema);
+    if (!body.success) return body.response;
+
+    const userId = session.session.user.id;
+    const values = {
+      presetDietKeys: body.data.presetDietKeys,
+      excludedIngredientSlugs: body.data.excludedIngredientSlugs,
+      excludedGroupKeys: body.data.excludedGroupKeys,
+      recipeMatchMode: body.data.recipeMatchMode,
+    };
+
+    const [profile] = await db
+      .insert(schema.userDietProfile)
+      .values({
+        userId,
+        ...values,
+      })
+      .onConflictDoUpdate({
+        target: schema.userDietProfile.userId,
+        set: values,
+      })
+      .returning();
+
+    if (!profile) return c.json({ error: "Database mutation failed" }, 502);
+    return c.json(dietProfileResponse(profile));
+  } catch (e) {
+    console.error("PUT /api/profile/diet mutation failed", e);
+    return c.json({ error: "Database mutation failed" }, 502);
+  } finally {
+    await closeDbClient(client);
   }
 });
 

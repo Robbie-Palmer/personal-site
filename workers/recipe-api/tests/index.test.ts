@@ -57,6 +57,15 @@ const dbMock = vi.hoisted(() => {
     createdAt: Date;
     updatedAt: Date;
   };
+  type DietProfileRow = {
+    userId: string;
+    presetDietKeys: string[];
+    excludedIngredientSlugs: string[];
+    excludedGroupKeys: string[];
+    recipeMatchMode: "hide" | "warn";
+    createdAt: Date;
+    updatedAt: Date;
+  };
 
   const state = {
     users: [] as UserRow[],
@@ -64,6 +73,7 @@ const dbMock = vi.hoisted(() => {
     members: [] as MemberRow[],
     invitations: [] as InvitationRow[],
     recipes: [] as RecipeRow[],
+    dietProfiles: [] as DietProfileRow[],
     rateLimitCounts: new Map<string, number>(),
     rateLimitSweeps: 0,
   };
@@ -105,6 +115,15 @@ const dbMock = vi.hoisted(() => {
     recipe.createdAt,
     recipe.updatedAt,
   ];
+  const dietProfileRow = (profile: DietProfileRow) => [
+    profile.userId,
+    profile.presetDietKeys,
+    profile.excludedIngredientSlugs,
+    profile.excludedGroupKeys,
+    profile.recipeMatchMode,
+    profile.createdAt,
+    profile.updatedAt,
+  ];
 
   function reset() {
     state.users = [];
@@ -112,6 +131,7 @@ const dbMock = vi.hoisted(() => {
     state.members = [];
     state.invitations = [];
     state.recipes = [];
+    state.dietProfiles = [];
     state.rateLimitCounts.clear();
     state.rateLimitSweeps = 0;
   }
@@ -168,6 +188,31 @@ const dbMock = vi.hoisted(() => {
       };
       state.invitations.push(invitation);
       return [invitationRow(invitation)];
+    }
+
+    if (query.startsWith('insert into "user_diet_profile"')) {
+      const existing = state.dietProfiles.find(
+        (candidate) => candidate.userId === params[0],
+      );
+      if (existing) {
+        existing.presetDietKeys = params[1] as string[];
+        existing.excludedIngredientSlugs = params[2] as string[];
+        existing.excludedGroupKeys = params[3] as string[];
+        existing.recipeMatchMode = params[4] as DietProfileRow["recipeMatchMode"];
+        existing.updatedAt = date;
+        return [dietProfileRow(existing)];
+      }
+      const profile: DietProfileRow = {
+        userId: params[0] as string,
+        presetDietKeys: params[1] as string[],
+        excludedIngredientSlugs: params[2] as string[],
+        excludedGroupKeys: params[3] as string[],
+        recipeMatchMode: params[4] as DietProfileRow["recipeMatchMode"],
+        createdAt: date,
+        updatedAt: date,
+      };
+      state.dietProfiles.push(profile);
+      return [dietProfileRow(profile)];
     }
 
     if (query.startsWith('update "invitation" set "status"')) {
@@ -230,6 +275,20 @@ const dbMock = vi.hoisted(() => {
       recipe.visibility = params[0] as RecipeRow["visibility"];
       recipe.updatedAt = date;
       return [recipeRow(recipe)];
+    }
+
+    if (query.startsWith('update "user_diet_profile"')) {
+      const userId = params.at(-1) as string;
+      const profile = state.dietProfiles.find(
+        (candidate) => candidate.userId === userId,
+      );
+      if (!profile) return [];
+      profile.presetDietKeys = params[0] as string[];
+      profile.excludedIngredientSlugs = params[1] as string[];
+      profile.excludedGroupKeys = params[2] as string[];
+      profile.recipeMatchMode = params[3] as DietProfileRow["recipeMatchMode"];
+      profile.updatedAt = date;
+      return [dietProfileRow(profile)];
     }
 
     if (query.includes('from "organization"') && query.includes('"organization"."id"')) {
@@ -411,6 +470,13 @@ const dbMock = vi.hoisted(() => {
               householdUserIds.has(recipe.userId)),
         )
         .map(recipeRow);
+    }
+
+    if (query.includes('from "user_diet_profile"')) {
+      const userId = params[0] as string;
+      return state.dietProfiles
+        .filter((profile) => profile.userId === userId)
+        .map(dietProfileRow);
     }
 
     if (query.startsWith('insert into "verification"')) {
@@ -756,6 +822,127 @@ describe("POST /recipes", () => {
 
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "Authentication required" });
+  });
+});
+
+describe("profile diet preferences", () => {
+  it("requires authentication before returning a diet profile", async () => {
+    const res = await app.request("/api/profile/diet", {}, env);
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Authentication required" });
+  });
+
+  it("returns an empty default diet profile when none has been saved", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request("/api/profile/diet", {}, env);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      presetDietKeys: [],
+      excludedIngredientSlugs: [],
+      excludedGroupKeys: [],
+      recipeMatchMode: "hide",
+    });
+  });
+
+  it("creates and updates the signed-in user's diet profile", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const createRes = await app.request(
+      "/api/profile/diet",
+      {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          presetDietKeys: ["vegetarian"],
+          excludedIngredientSlugs: ["egg", "egg"],
+          excludedGroupKeys: ["shellfish"],
+          recipeMatchMode: "warn",
+        }),
+      },
+      env,
+    );
+
+    expect(createRes.status).toBe(200);
+    expect(await createRes.json()).toEqual({
+      presetDietKeys: ["vegetarian"],
+      excludedIngredientSlugs: ["egg"],
+      excludedGroupKeys: ["shellfish"],
+      recipeMatchMode: "warn",
+    });
+
+    const updateRes = await app.request(
+      "/api/profile/diet",
+      {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          presetDietKeys: ["vegan"],
+          excludedIngredientSlugs: ["honey"],
+          excludedGroupKeys: ["gluten", "dairy"],
+          recipeMatchMode: "hide",
+        }),
+      },
+      env,
+    );
+
+    expect(updateRes.status).toBe(200);
+    expect(await updateRes.json()).toEqual({
+      presetDietKeys: ["vegan"],
+      excludedIngredientSlugs: ["honey"],
+      excludedGroupKeys: ["gluten", "dairy"],
+      recipeMatchMode: "hide",
+    });
+    expect(dbMock.state.dietProfiles).toHaveLength(1);
+  });
+
+  it("returns structured validation errors for malformed diet profiles", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/api/profile/diet",
+      {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          excludedIngredientSlugs: ["Not a slug"],
+          recipeMatchMode: "block",
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      error: "Invalid request body",
+      details: expect.arrayContaining([
+        expect.objectContaining({ path: ["excludedIngredientSlugs", 0] }),
+        expect.objectContaining({ path: ["recipeMatchMode"] }),
+      ]),
+    });
   });
 });
 

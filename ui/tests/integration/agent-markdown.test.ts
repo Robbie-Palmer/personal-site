@@ -74,6 +74,14 @@ describe("agent markdown generation", () => {
     }
   });
 
+  it("keeps authenticated app pages out of agent markdown outputs", () => {
+    expect(fs.existsSync(path.join(OUT_DIR, "recipes", "settings.md"))).toBe(
+      false,
+    );
+    expect(read("llms.txt")).not.toContain("/recipes/settings");
+    expect(read("llms-full.txt")).not.toContain("/recipes/settings");
+  });
+
   it("renders recipe ingredients and instructions as markdown", () => {
     const recipeFiles = fs
       .readdirSync(path.join(OUT_DIR, "recipes"))

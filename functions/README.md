@@ -17,6 +17,13 @@ browser-facing auth URL on `robbiepalmer.me` means OAuth callbacks and session
 cookies use the site origin even though the auth handler runs in a separate
 Worker. `RECIPE_API_URL` can override the deployed Worker URL.
 
+### `/api/profile/diet` - Recipe Profile Diet Proxy
+
+**File:** `api/profile/diet.ts`
+
+Proxies same-origin diet profile reads and writes to the recipe API Worker so
+the browser can use the same session cookies and CSRF origin checks as auth.
+
 ### `_middleware.ts` - Markdown Content Negotiation
 
 Serves each page's agent-friendly Markdown twin from its canonical URL
