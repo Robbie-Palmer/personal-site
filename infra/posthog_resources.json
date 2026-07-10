@@ -1,0 +1,1340 @@
+{
+  "dashboards": {
+    "ai_observability_default_782716": {
+      "description": "Overview of your AI usage, costs, and performance",
+      "id": 782716,
+      "name": "AI observability default",
+      "pinned": false,
+      "tags": [
+        "llm-analytics"
+      ]
+    },
+    "analytics_basics_516729": {
+      "description": "Core analytics dashboard for tracking user engagement with key site features",
+      "id": 516729,
+      "name": "Analytics basics",
+      "pinned": true
+    },
+    "my_app_dashboard_512607": {
+      "id": 512607,
+      "name": "My App Dashboard",
+      "pinned": true
+    },
+    "web_vitals_521311": {
+      "description": "Dashboard to report on captured $web_vitals events",
+      "id": 521311,
+      "name": "Web Vitals",
+      "pinned": false,
+      "tags": [
+        "apm",
+        "web-vitals"
+      ]
+    }
+  },
+  "insights": {
+    "404_recovery_rate_3260193": {
+      "dashboard_keys": [
+        "analytics_basics_516729",
+        "web_vitals_521311"
+      ],
+      "description": "Track how users recover from 404 pages by clicking suggested links",
+      "id": 3260193,
+      "name": "404 Recovery Rate",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "breakdownFilter": {
+            "breakdown": "destination_title",
+            "breakdown_type": "event"
+          },
+          "dateRange": {
+            "date_from": "-30d"
+          },
+          "interval": "day",
+          "kind": "TrendsQuery",
+          "series": [
+            {
+              "custom_name": "Recovery Clicks",
+              "event": "not_found_recovery_clicked",
+              "kind": "EventsNode"
+            }
+          ],
+          "trendsFilter": {
+            "display": "ActionsPie"
+          }
+        }
+      }
+    },
+    "ai_errors_4765373": {
+      "dashboard_keys": [
+        "ai_observability_default_782716"
+      ],
+      "description": "Failed AI generation calls",
+      "id": 4765373,
+      "name": "AI Errors",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-7d"
+          },
+          "filterTestAccounts": false,
+          "kind": "TrendsQuery",
+          "properties": [
+            {
+              "key": "$ai_is_error",
+              "operator": "exact",
+              "type": "event",
+              "value": "true"
+            }
+          ],
+          "series": [
+            {
+              "event": "$ai_generation",
+              "kind": "EventsNode",
+              "name": "$ai_generation"
+            }
+          ]
+        }
+      }
+    },
+    "cls_p75_3284510": {
+      "dashboard_keys": [
+        "web_vitals_521311"
+      ],
+      "id": 3284510,
+      "name": "CLS p75",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "aggregation_group_type_index": null,
+          "breakdownFilter": null,
+          "compareFilter": {
+            "compare": false,
+            "compare_to": null
+          },
+          "dateRange": {
+            "date_from": "-7d",
+            "date_to": null,
+            "explicitDate": false
+          },
+          "filterTestAccounts": true,
+          "interval": "day",
+          "kind": "TrendsQuery",
+          "modifiers": null,
+          "properties": [],
+          "response": null,
+          "samplingFactor": null,
+          "series": [
+            {
+              "custom_name": null,
+              "event": "$web_vitals",
+              "fixedProperties": null,
+              "kind": "EventsNode",
+              "limit": null,
+              "math": "hogql",
+              "math_group_type_index": null,
+              "math_hogql": "quantile(0.75)(if(properties.$web_vitals_CLS_value IS NOT NULL, properties.$web_vitals_CLS_value, null))",
+              "math_property": null,
+              "name": "$web_vitals",
+              "orderBy": null,
+              "properties": null,
+              "response": null
+            }
+          ],
+          "trendsFilter": {
+            "aggregationAxisFormat": "numeric",
+            "aggregationAxisPostfix": null,
+            "aggregationAxisPrefix": null,
+            "breakdown_histogram_bin_count": null,
+            "decimalPlaces": null,
+            "display": "ActionsLineGraph",
+            "formula": null,
+            "hiddenLegendIndexes": null,
+            "showLabelsOnSeries": null,
+            "showLegend": false,
+            "showPercentStackView": false,
+            "showValuesOnSeries": true,
+            "smoothingIntervals": 1,
+            "yAxisScaleType": null
+          }
+        }
+      }
+    },
+    "command_palette_usage_3260191": {
+      "dashboard_keys": [
+        "analytics_basics_516729"
+      ],
+      "description": "Track how users interact with the command palette (opens, navigation, filters)",
+      "id": 3260191,
+      "name": "Command Palette Usage",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-30d"
+          },
+          "interval": "day",
+          "kind": "TrendsQuery",
+          "series": [
+            {
+              "custom_name": "Opened",
+              "event": "command_palette_opened",
+              "kind": "EventsNode"
+            },
+            {
+              "custom_name": "Navigation",
+              "event": "command_palette_navigation",
+              "kind": "EventsNode"
+            },
+            {
+              "custom_name": "Filters Applied",
+              "event": "command_palette_filter_applied",
+              "kind": "EventsNode"
+            }
+          ],
+          "trendsFilter": {
+            "display": "ActionsLineGraph"
+          }
+        }
+      }
+    },
+    "cost_by_model_usd_4765371": {
+      "dashboard_keys": [
+        "ai_observability_default_782716"
+      ],
+      "id": 4765371,
+      "name": "Cost by model (USD)",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "breakdownFilter": {
+            "breakdown": "$ai_model",
+            "breakdown_type": "event"
+          },
+          "dateRange": {
+            "date_from": "-7d",
+            "explicitDate": true
+          },
+          "filterTestAccounts": false,
+          "kind": "TrendsQuery",
+          "properties": [],
+          "series": [
+            {
+              "event": "$ai_generation",
+              "kind": "EventsNode",
+              "math": "sum",
+              "math_property": "$ai_total_cost_usd",
+              "name": "$ai_generation"
+            }
+          ],
+          "trendsFilter": {
+            "aggregationAxisPrefix": "$",
+            "decimalPlaces": 2,
+            "display": "ActionsBarValue",
+            "showValuesOnSeries": true
+          }
+        }
+      }
+    },
+    "cost_per_user_usd_4765370": {
+      "dashboard_keys": [
+        "ai_observability_default_782716"
+      ],
+      "description": "Average cost for each generative AI user active in the data point's period.",
+      "id": 4765370,
+      "name": "Cost per user (USD)",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-7d"
+          },
+          "filterTestAccounts": false,
+          "kind": "TrendsQuery",
+          "properties": [
+            {
+              "key": "distinct_id != properties.$ai_trace_id",
+              "type": "hogql"
+            }
+          ],
+          "series": [
+            {
+              "event": "$ai_generation",
+              "kind": "EventsNode",
+              "math": "sum",
+              "math_property": "$ai_total_cost_usd",
+              "name": "$ai_generation"
+            },
+            {
+              "event": "$ai_generation",
+              "kind": "EventsNode",
+              "math": "dau",
+              "name": "$ai_generation"
+            }
+          ],
+          "trendsFilter": {
+            "aggregationAxisPrefix": "$",
+            "decimalPlaces": 2,
+            "formula": "A / B"
+          }
+        }
+      }
+    },
+    "daily_active_users_daus_3237082": {
+      "dashboard_keys": [
+        "my_app_dashboard_512607"
+      ],
+      "description": "Shows the number of unique users that use your app every day.",
+      "id": 3237082,
+      "name": "Daily active users (DAUs)",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "breakdownFilter": {
+            "breakdown_type": "event"
+          },
+          "dateRange": {
+            "date_from": "-30d",
+            "explicitDate": false
+          },
+          "filterTestAccounts": false,
+          "interval": "day",
+          "kind": "TrendsQuery",
+          "properties": [],
+          "series": [
+            {
+              "event": "$pageview",
+              "kind": "EventsNode",
+              "math": "dau",
+              "name": "$pageview"
+            }
+          ],
+          "trendsFilter": {
+            "aggregationAxisFormat": "numeric",
+            "display": "ActionsLineGraph",
+            "showAlertThresholdLines": false,
+            "showLegend": false,
+            "showPercentStackView": false,
+            "showValuesOnSeries": false,
+            "smoothingIntervals": 1,
+            "yAxisScaleType": "linear"
+          }
+        }
+      }
+    },
+    "external_link_engagement_3260184": {
+      "dashboard_keys": [
+        "analytics_basics_516729"
+      ],
+      "description": "Track external link clicks by type (GitHub, Demo, Product Page)",
+      "id": 3260184,
+      "name": "External Link Engagement",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "breakdownFilter": {
+            "breakdown": "link_type",
+            "breakdown_type": "event"
+          },
+          "dateRange": {
+            "date_from": "-30d"
+          },
+          "interval": "day",
+          "kind": "TrendsQuery",
+          "series": [
+            {
+              "custom_name": "External Links",
+              "event": "external_link_clicked",
+              "kind": "EventsNode"
+            }
+          ],
+          "trendsFilter": {
+            "display": "ActionsPie"
+          }
+        }
+      }
+    },
+    "fcp_p75_3284508": {
+      "dashboard_keys": [
+        "web_vitals_521311"
+      ],
+      "id": 3284508,
+      "name": "FCP p75",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "aggregation_group_type_index": null,
+          "breakdownFilter": null,
+          "compareFilter": {
+            "compare": false,
+            "compare_to": null
+          },
+          "dateRange": {
+            "date_from": "-7d",
+            "date_to": null,
+            "explicitDate": false
+          },
+          "filterTestAccounts": true,
+          "interval": "day",
+          "kind": "TrendsQuery",
+          "modifiers": null,
+          "properties": [],
+          "response": null,
+          "samplingFactor": null,
+          "series": [
+            {
+              "custom_name": null,
+              "event": "$web_vitals",
+              "fixedProperties": null,
+              "kind": "EventsNode",
+              "limit": null,
+              "math": "hogql",
+              "math_group_type_index": null,
+              "math_hogql": "(quantile(0.75)(if(properties.$web_vitals_FCP_value IS NOT NULL, properties.$web_vitals_FCP_value, null))) / 1000",
+              "math_property": null,
+              "name": "$web_vitals",
+              "orderBy": null,
+              "properties": null,
+              "response": null
+            }
+          ],
+          "trendsFilter": {
+            "aggregationAxisFormat": "numeric",
+            "aggregationAxisPostfix": "s",
+            "aggregationAxisPrefix": null,
+            "breakdown_histogram_bin_count": null,
+            "decimalPlaces": 1,
+            "display": "ActionsLineGraph",
+            "formula": null,
+            "hiddenLegendIndexes": null,
+            "showLabelsOnSeries": null,
+            "showLegend": false,
+            "showPercentStackView": false,
+            "showValuesOnSeries": true,
+            "smoothingIntervals": 1,
+            "yAxisScaleType": null
+          }
+        }
+      }
+    },
+    "generation_calls_4765372": {
+      "dashboard_keys": [
+        "ai_observability_default_782716"
+      ],
+      "id": 4765372,
+      "name": "Generation calls",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-7d"
+          },
+          "filterTestAccounts": false,
+          "kind": "TrendsQuery",
+          "properties": [],
+          "series": [
+            {
+              "event": "$ai_generation",
+              "kind": "EventsNode",
+              "name": "$ai_generation"
+            }
+          ]
+        }
+      }
+    },
+    "generation_latency_by_model_median_4765374": {
+      "dashboard_keys": [
+        "ai_observability_default_782716"
+      ],
+      "id": 4765374,
+      "name": "Generation latency by model (median)",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "breakdownFilter": {
+            "breakdown": "$ai_model",
+            "breakdown_type": "event"
+          },
+          "dateRange": {
+            "date_from": "-7d"
+          },
+          "filterTestAccounts": false,
+          "kind": "TrendsQuery",
+          "properties": [],
+          "series": [
+            {
+              "event": "$ai_generation",
+              "kind": "EventsNode",
+              "math": "median",
+              "math_property": "$ai_latency",
+              "name": "$ai_generation"
+            }
+          ],
+          "trendsFilter": {
+            "aggregationAxisPostfix": " s",
+            "decimalPlaces": 2
+          }
+        }
+      }
+    },
+    "generations_by_http_status_4765375": {
+      "dashboard_keys": [
+        "ai_observability_default_782716"
+      ],
+      "id": 4765375,
+      "name": "Generations by HTTP status",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "breakdownFilter": {
+            "breakdown": "$ai_http_status"
+          },
+          "dateRange": {
+            "date_from": "-7d",
+            "explicitDate": true
+          },
+          "filterTestAccounts": false,
+          "kind": "TrendsQuery",
+          "properties": [],
+          "series": [
+            {
+              "event": "$ai_generation",
+              "kind": "EventsNode",
+              "name": "$ai_generation"
+            }
+          ],
+          "trendsFilter": {
+            "display": "ActionsBarValue"
+          }
+        }
+      }
+    },
+    "generative_ai_users_4765368": {
+      "dashboard_keys": [
+        "ai_observability_default_782716"
+      ],
+      "description": "To count users, set `distinct_id` in LLM tracking.",
+      "id": 4765368,
+      "name": "Generative AI users",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-7d"
+          },
+          "filterTestAccounts": false,
+          "kind": "TrendsQuery",
+          "properties": [
+            {
+              "key": "distinct_id != properties.$ai_trace_id",
+              "type": "hogql"
+            }
+          ],
+          "series": [
+            {
+              "event": "$ai_generation",
+              "kind": "EventsNode",
+              "math": "dau",
+              "name": "$ai_generation"
+            }
+          ]
+        }
+      }
+    },
+    "growth_accounting_3237085": {
+      "dashboard_keys": [
+        "my_app_dashboard_512607"
+      ],
+      "description": "How many of your users are new, returning, resurrecting, or dormant each week.",
+      "id": 3237085,
+      "name": "Growth accounting",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-30d",
+            "explicitDate": false
+          },
+          "filterTestAccounts": false,
+          "interval": "week",
+          "kind": "LifecycleQuery",
+          "lifecycleFilter": {
+            "showLegend": false
+          },
+          "properties": [],
+          "series": [
+            {
+              "event": "$pageview",
+              "kind": "EventsNode",
+              "name": "$pageview"
+            }
+          ]
+        }
+      }
+    },
+    "homepage_cta_clicks_by_button_3260182": {
+      "dashboard_keys": [
+        "analytics_basics_516729"
+      ],
+      "description": "Track which homepage CTA buttons are clicked most frequently",
+      "id": 3260182,
+      "name": "Homepage CTA Clicks by Button",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "breakdownFilter": {
+            "breakdown": "cta_text",
+            "breakdown_type": "event"
+          },
+          "dateRange": {
+            "date_from": "-30d"
+          },
+          "interval": "day",
+          "kind": "TrendsQuery",
+          "series": [
+            {
+              "custom_name": "CTA Clicks",
+              "event": "cta_clicked",
+              "kind": "EventsNode"
+            }
+          ],
+          "trendsFilter": {
+            "display": "ActionsBar"
+          }
+        }
+      }
+    },
+    "inp_p75_3284504": {
+      "dashboard_keys": [
+        "web_vitals_521311"
+      ],
+      "id": 3284504,
+      "name": "INP p75",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "aggregation_group_type_index": null,
+          "breakdownFilter": null,
+          "compareFilter": {
+            "compare": false,
+            "compare_to": null
+          },
+          "dateRange": {
+            "date_from": "-7d",
+            "date_to": null,
+            "explicitDate": false
+          },
+          "filterTestAccounts": true,
+          "interval": "day",
+          "kind": "TrendsQuery",
+          "modifiers": null,
+          "properties": [],
+          "response": null,
+          "samplingFactor": null,
+          "series": [
+            {
+              "custom_name": null,
+              "event": "$web_vitals",
+              "fixedProperties": null,
+              "kind": "EventsNode",
+              "limit": null,
+              "math": "hogql",
+              "math_group_type_index": null,
+              "math_hogql": "quantile(0.75)(if(properties.$web_vitals_INP_value IS NOT NULL, properties.$web_vitals_INP_value, null))",
+              "math_property": null,
+              "name": "$web_vitals",
+              "orderBy": null,
+              "properties": null,
+              "response": null
+            }
+          ],
+          "trendsFilter": {
+            "aggregationAxisFormat": "numeric",
+            "aggregationAxisPostfix": "ms",
+            "aggregationAxisPrefix": null,
+            "breakdown_histogram_bin_count": null,
+            "decimalPlaces": null,
+            "display": "ActionsLineGraph",
+            "formula": null,
+            "hiddenLegendIndexes": null,
+            "showLabelsOnSeries": null,
+            "showLegend": false,
+            "showPercentStackView": false,
+            "showValuesOnSeries": true,
+            "smoothingIntervals": 1,
+            "yAxisScaleType": null
+          }
+        }
+      }
+    },
+    "lcp_p75_3284509": {
+      "dashboard_keys": [
+        "web_vitals_521311"
+      ],
+      "id": 3284509,
+      "name": "LCP p75",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "aggregation_group_type_index": null,
+          "breakdownFilter": null,
+          "compareFilter": {
+            "compare": false,
+            "compare_to": null
+          },
+          "dateRange": {
+            "date_from": "-7d",
+            "date_to": null,
+            "explicitDate": false
+          },
+          "filterTestAccounts": true,
+          "interval": "day",
+          "kind": "TrendsQuery",
+          "modifiers": null,
+          "properties": [],
+          "response": null,
+          "samplingFactor": null,
+          "series": [
+            {
+              "custom_name": null,
+              "event": "$web_vitals",
+              "fixedProperties": null,
+              "kind": "EventsNode",
+              "limit": null,
+              "math": "hogql",
+              "math_group_type_index": null,
+              "math_hogql": "quantile(0.75)(if(properties.$web_vitals_LCP_value IS NOT NULL, properties.$web_vitals_LCP_value, null)) / 1000",
+              "math_property": null,
+              "name": "$web_vitals",
+              "orderBy": null,
+              "properties": null,
+              "response": null
+            }
+          ],
+          "trendsFilter": {
+            "aggregationAxisFormat": "numeric",
+            "aggregationAxisPostfix": "s",
+            "aggregationAxisPrefix": null,
+            "breakdown_histogram_bin_count": null,
+            "decimalPlaces": 1,
+            "display": "ActionsLineGraph",
+            "formula": null,
+            "hiddenLegendIndexes": null,
+            "showLabelsOnSeries": null,
+            "showLegend": false,
+            "showPercentStackView": false,
+            "showValuesOnSeries": true,
+            "smoothingIntervals": 1,
+            "yAxisScaleType": null
+          }
+        }
+      }
+    },
+    "p75_cls_by_path_3284503": {
+      "dashboard_keys": [
+        "web_vitals_521311"
+      ],
+      "id": 3284503,
+      "name": "p75 CLS by path",
+      "query": {
+        "chartSettings": {},
+        "kind": "DataVisualizationNode",
+        "source": {
+          "explain": true,
+          "filters": {
+            "dateRange": {
+              "date_from": "-7d",
+              "date_to": null,
+              "explicitDate": false
+            },
+            "filterTestAccounts": null,
+            "properties": null
+          },
+          "kind": "HogQLQuery",
+          "modifiers": null,
+          "query": "SELECT \n    properties.$current_url AS current_url,\n    round(quantile(0.75)(properties.$web_vitals_CLS_value), 3) AS 'p75 CLS',\n    count() AS \"event count\"\nFROM events\nWHERE \n    {filters} AND\n    properties.$web_vitals_CLS_value IS NOT NULL\nGROUP BY properties.$current_url\nORDER BY \"event count\" DESC\nLIMIT 100",
+          "response": null,
+          "values": null
+        },
+        "tableSettings": {
+          "columns": [
+            {
+              "column": "timestamp",
+              "settings": {
+                "formatting": {
+                  "prefix": "",
+                  "suffix": ""
+                }
+              }
+            },
+            {
+              "column": "count()",
+              "settings": {
+                "formatting": {
+                  "prefix": "",
+                  "suffix": ""
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "p75_fcp_by_path_3284507": {
+      "dashboard_keys": [
+        "web_vitals_521311"
+      ],
+      "id": 3284507,
+      "name": "p75 FCP by path",
+      "query": {
+        "chartSettings": {},
+        "kind": "DataVisualizationNode",
+        "source": {
+          "explain": true,
+          "filters": {
+            "dateRange": {
+              "date_from": "-7d",
+              "date_to": null,
+              "explicitDate": false
+            },
+            "filterTestAccounts": null,
+            "properties": null
+          },
+          "kind": "HogQLQuery",
+          "modifiers": null,
+          "query": "SELECT \n    properties.$current_url AS current_url,\n    concat(toString(round(quantile(0.75)(properties.$web_vitals_FCP_value) / 1000, 1)), ' s') AS 'p75 FCP',\n    count() AS \"event count\"\nFROM events\nWHERE \n    {filters} AND\n    properties.$web_vitals_FCP_value IS NOT NULL\nGROUP BY properties.$current_url\nORDER BY \"event count\" DESC\nLIMIT 100",
+          "response": null,
+          "values": null
+        },
+        "tableSettings": {
+          "columns": [
+            {
+              "column": "timestamp",
+              "settings": {
+                "formatting": {
+                  "prefix": "",
+                  "suffix": ""
+                }
+              }
+            },
+            {
+              "column": "count()",
+              "settings": {
+                "formatting": {
+                  "prefix": "",
+                  "suffix": ""
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "p75_inp_by_path_3284505": {
+      "dashboard_keys": [
+        "web_vitals_521311"
+      ],
+      "id": 3284505,
+      "name": "p75 INP by path",
+      "query": {
+        "chartSettings": {},
+        "kind": "DataVisualizationNode",
+        "source": {
+          "explain": true,
+          "filters": {
+            "dateRange": {
+              "date_from": "-7d",
+              "date_to": null,
+              "explicitDate": false
+            },
+            "filterTestAccounts": null,
+            "properties": null
+          },
+          "kind": "HogQLQuery",
+          "modifiers": null,
+          "query": "SELECT \n    properties.$current_url AS current_url,\n    concat(toString(round(quantile(0.75)(properties.$web_vitals_INP_value), 2)), ' ms') AS 'p75 inp',\n    count() AS \"event count\"\nFROM events\nWHERE \n    {filters} AND\n    properties.$web_vitals_INP_value IS NOT NULL\nGROUP BY properties.$current_url\nORDER BY \"event count\" DESC\nLIMIT 100",
+          "response": null,
+          "values": null
+        },
+        "tableSettings": {
+          "columns": [
+            {
+              "column": "timestamp",
+              "settings": {
+                "formatting": {
+                  "prefix": "",
+                  "suffix": ""
+                }
+              }
+            },
+            {
+              "column": "count()",
+              "settings": {
+                "formatting": {
+                  "prefix": "",
+                  "suffix": ""
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "p75_lcp_by_path_3284506": {
+      "dashboard_keys": [
+        "web_vitals_521311"
+      ],
+      "id": 3284506,
+      "name": "p75 LCP by path",
+      "query": {
+        "chartSettings": {},
+        "kind": "DataVisualizationNode",
+        "source": {
+          "explain": true,
+          "filters": {
+            "dateRange": {
+              "date_from": "-7d",
+              "date_to": null,
+              "explicitDate": false
+            },
+            "filterTestAccounts": null,
+            "properties": null
+          },
+          "kind": "HogQLQuery",
+          "modifiers": null,
+          "query": "SELECT \n    properties.$current_url AS current_url,\n    concat(toString(round(quantile(0.75)(properties.$web_vitals_LCP_value) / 1000, 1)), ' s') AS 'p75 LCP',\n    count() AS \"event count\"\nFROM events\nWHERE \n    {filters} AND\n    properties.$web_vitals_LCP_value IS NOT NULL\nGROUP BY properties.$current_url\nORDER BY \"event count\" DESC\nLIMIT 100",
+          "response": null,
+          "values": null
+        },
+        "tableSettings": {
+          "columns": [
+            {
+              "column": "timestamp",
+              "settings": {
+                "formatting": {
+                  "prefix": "",
+                  "suffix": ""
+                }
+              }
+            },
+            {
+              "column": "count()",
+              "settings": {
+                "formatting": {
+                  "prefix": "",
+                  "suffix": ""
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "pageview_count_per_user_average_3291743": {
+      "id": 3291743,
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "filterTestAccounts": true,
+          "kind": "TrendsQuery",
+          "properties": {
+            "type": "AND",
+            "values": [
+              {
+                "type": "AND",
+                "values": [
+                  {
+                    "key": "$current_url",
+                    "operator": "icontains",
+                    "type": "event",
+                    "value": "https://robbiepalmer.me/"
+                  }
+                ]
+              }
+            ]
+          },
+          "series": [
+            {
+              "event": "$pageview",
+              "kind": "EventsNode",
+              "math": "avg_count_per_actor",
+              "name": "$pageview"
+            }
+          ],
+          "trendsFilter": {}
+        }
+      }
+    },
+    "pageview_cta_clicked_user_conversion_rate_3291761": {
+      "id": 3291761,
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "filterTestAccounts": true,
+          "funnelsFilter": {
+            "funnelVizType": "steps"
+          },
+          "kind": "FunnelsQuery",
+          "series": [
+            {
+              "event": "$pageview",
+              "kind": "EventsNode",
+              "name": "$pageview"
+            },
+            {
+              "event": "cta_clicked",
+              "kind": "EventsNode",
+              "name": "cta_clicked"
+            }
+          ]
+        }
+      }
+    },
+    "pageview_funnel_by_browser_3237087": {
+      "dashboard_keys": [
+        "my_app_dashboard_512607"
+      ],
+      "description": "This example funnel shows how many of your users have completed 3 page views, broken down by browser.",
+      "id": 3237087,
+      "name": "Pageview funnel, by browser",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "breakdownFilter": {
+            "breakdown": "$browser",
+            "breakdown_type": "event"
+          },
+          "dateRange": {
+            "date_from": "-7d",
+            "explicitDate": false
+          },
+          "filterTestAccounts": false,
+          "funnelsFilter": {
+            "breakdownAttributionType": "first_touch",
+            "exclusions": [],
+            "funnelOrderType": "ordered",
+            "funnelStepReference": "total",
+            "funnelVizType": "steps",
+            "funnelWindowInterval": 14,
+            "funnelWindowIntervalUnit": "day",
+            "layout": "horizontal"
+          },
+          "interval": "day",
+          "kind": "FunnelsQuery",
+          "properties": [],
+          "series": [
+            {
+              "custom_name": "First page view",
+              "event": "$pageview",
+              "kind": "EventsNode",
+              "name": "$pageview"
+            },
+            {
+              "custom_name": "Second page view",
+              "event": "$pageview",
+              "kind": "EventsNode",
+              "name": "$pageview"
+            },
+            {
+              "custom_name": "Third page view",
+              "event": "$pageview",
+              "kind": "EventsNode",
+              "name": "$pageview"
+            }
+          ]
+        }
+      }
+    },
+    "referring_domain_last_14_days_3237086": {
+      "dashboard_keys": [
+        "my_app_dashboard_512607"
+      ],
+      "description": "Shows the most common referring domains for your users over the past 14 days.",
+      "id": 3237086,
+      "name": "Referring domain (last 14 days)",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "breakdownFilter": {
+            "breakdown": "$referring_domain",
+            "breakdown_type": "event"
+          },
+          "dateRange": {
+            "date_from": "-14d",
+            "explicitDate": false
+          },
+          "filterTestAccounts": false,
+          "interval": "day",
+          "kind": "TrendsQuery",
+          "properties": [],
+          "series": [
+            {
+              "event": "$pageview",
+              "kind": "EventsNode",
+              "math": "dau",
+              "name": "$pageview"
+            }
+          ],
+          "trendsFilter": {
+            "aggregationAxisFormat": "numeric",
+            "display": "ActionsBarValue",
+            "showAlertThresholdLines": false,
+            "showLegend": false,
+            "showPercentStackView": false,
+            "showValuesOnSeries": false,
+            "smoothingIntervals": 1,
+            "yAxisScaleType": "linear"
+          }
+        }
+      }
+    },
+    "retention_3237084": {
+      "dashboard_keys": [
+        "my_app_dashboard_512607"
+      ],
+      "description": "Weekly retention of your users.",
+      "id": 3237084,
+      "name": "Retention",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-7d",
+            "explicitDate": false
+          },
+          "filterTestAccounts": false,
+          "kind": "RetentionQuery",
+          "properties": [],
+          "retentionFilter": {
+            "period": "Week",
+            "retentionType": "retention_first_time",
+            "returningEntity": {
+              "id": "$pageview",
+              "type": "events"
+            },
+            "targetEntity": {
+              "id": "$pageview",
+              "type": "events"
+            },
+            "totalIntervals": 11
+          }
+        }
+      }
+    },
+    "retention_of_users_based_on_doing_pageview_first_occurrence_and_returning_with_the_same_event_3291768": {
+      "id": 3291768,
+      "name": "Retention of users based on doing Pageview first occurrence and returning with the same event",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "filterTestAccounts": true,
+          "kind": "RetentionQuery",
+          "retentionFilter": {
+            "meanRetentionCalculation": "simple",
+            "period": "Day",
+            "retentionType": "retention_first_time",
+            "returningEntity": {
+              "id": "$pageview",
+              "name": "$pageview",
+              "type": "events"
+            },
+            "targetEntity": {
+              "id": "$pageview",
+              "name": "$pageview",
+              "type": "events"
+            },
+            "totalIntervals": 8
+          }
+        }
+      }
+    },
+    "social_link_clicks_3260192": {
+      "dashboard_keys": [
+        "analytics_basics_516729"
+      ],
+      "description": "Track social media link clicks (GitHub, LinkedIn) from the footer",
+      "id": 3260192,
+      "name": "Social Link Clicks",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "breakdownFilter": {
+            "breakdown": "platform",
+            "breakdown_type": "event"
+          },
+          "dateRange": {
+            "date_from": "-30d"
+          },
+          "interval": "day",
+          "kind": "TrendsQuery",
+          "series": [
+            {
+              "custom_name": "Social Links",
+              "event": "social_link_clicked",
+              "kind": "EventsNode"
+            }
+          ],
+          "trendsFilter": {
+            "display": "ActionsBar"
+          }
+        }
+      }
+    },
+    "total_cost_usd_4765369": {
+      "dashboard_keys": [
+        "ai_observability_default_782716"
+      ],
+      "id": 4765369,
+      "name": "Total cost (USD)",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-7d",
+            "explicitDate": true
+          },
+          "filterTestAccounts": false,
+          "kind": "TrendsQuery",
+          "properties": [],
+          "series": [
+            {
+              "event": "$ai_generation",
+              "kind": "EventsNode",
+              "math": "sum",
+              "math_property": "$ai_total_cost_usd",
+              "name": "$ai_generation"
+            }
+          ],
+          "trendsFilter": {
+            "aggregationAxisPrefix": "$",
+            "decimalPlaces": 0,
+            "display": "BoldNumber"
+          }
+        }
+      }
+    },
+    "traces_4765367": {
+      "dashboard_keys": [
+        "ai_observability_default_782716"
+      ],
+      "id": 4765367,
+      "name": "Traces",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-7d"
+          },
+          "filterTestAccounts": false,
+          "kind": "TrendsQuery",
+          "properties": [],
+          "series": [
+            {
+              "event": "$ai_generation",
+              "kind": "EventsNode",
+              "math": "hogql",
+              "math_hogql": "COUNT(DISTINCT properties.$ai_trace_id)",
+              "name": "$ai_generation"
+            }
+          ]
+        }
+      }
+    },
+    "user_paths_based_on_page_views_starting_at_https_robbiepalmer_me_3291698": {
+      "id": 3291698,
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "filterTestAccounts": true,
+          "kind": "PathsQuery",
+          "pathsFilter": {
+            "includeEventTypes": [
+              "$pageview"
+            ],
+            "startPoint": "https://robbiepalmer.me/"
+          },
+          "properties": {
+            "type": "AND",
+            "values": [
+              {
+                "type": "AND",
+                "values": [
+                  {
+                    "key": "$current_url",
+                    "operator": "icontains",
+                    "type": "event",
+                    "value": "https://robbiepalmer.me/"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "user_stickiness_based_on_all_events_3291776": {
+      "id": 3291776,
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "filterTestAccounts": true,
+          "kind": "StickinessQuery",
+          "series": [
+            {
+              "event": null,
+              "kind": "EventsNode",
+              "math": "dau",
+              "name": "All events"
+            }
+          ],
+          "stickinessFilter": {
+            "computedAs": "non_cumulative"
+          }
+        }
+      }
+    },
+    "weekly_active_users_waus_3237083": {
+      "dashboard_keys": [
+        "my_app_dashboard_512607"
+      ],
+      "description": "Shows the number of unique users that use your app every week.",
+      "id": 3237083,
+      "name": "Weekly active users (WAUs)",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "breakdownFilter": {
+            "breakdown_type": "event"
+          },
+          "dateRange": {
+            "date_from": "-90d",
+            "explicitDate": false
+          },
+          "filterTestAccounts": false,
+          "interval": "week",
+          "kind": "TrendsQuery",
+          "properties": [],
+          "series": [
+            {
+              "event": "$pageview",
+              "kind": "EventsNode",
+              "math": "dau",
+              "name": "$pageview"
+            }
+          ],
+          "trendsFilter": {
+            "aggregationAxisFormat": "numeric",
+            "display": "ActionsLineGraph",
+            "showAlertThresholdLines": false,
+            "showLegend": false,
+            "showPercentStackView": false,
+            "showValuesOnSeries": false,
+            "smoothingIntervals": 1,
+            "yAxisScaleType": "linear"
+          }
+        }
+      }
+    }
+  }
+}

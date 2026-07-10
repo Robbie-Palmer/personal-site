@@ -52,6 +52,20 @@ Secrets and config mirrored from Doppler:
    - GitHub token used by mise to download tools during Cloudflare Pages builds.
    - Mapped to `TF_VAR_github_token`, which Terraform passes into the Pages
      build configuration (`var.github_token`, required — no default).
+9. **`POSTHOG_API_KEY`**
+   - Create at: PostHog → Settings → Personal API keys
+   - Required scopes:
+     - `dashboard:read`
+     - `dashboard:write`
+     - `insight:read`
+     - `insight:write`
+   - Used by the PostHog Terraform provider
+10. **`POSTHOG_PROJECT_ID`**
+    - Find in the PostHog project/environment settings or API URLs
+    - Passed as `TF_VAR_posthog_project_id`
+    - Mark unmasked in Doppler so the GitHub sync publishes it as an Actions
+      variable, not a secret. Terraform requires a non-empty value and has no
+      production default.
 
 ### Required Environment
 
@@ -77,63 +91,16 @@ Create a workspace in Terraform Cloud for remote state:
 
 ## Local Development
 
-Credentials are sourced from Doppler (the same single source of truth CI uses).
-mise auto-loads a local `.env` (`_.file = ".env"` in `mise.toml`), so populate
-that `.env` from Doppler rather than hand-editing it, and regenerate it after
-any rotation so it never drifts:
-
-```bash
-#!/usr/bin/env bash
-# Pull values from Doppler into .env using the names Terraform expects
-# (TF_VAR_<variable>, lowercase suffix). This covers the same secrets CI maps in
-# infra-ci.yml. All secrets are fetched and checked first, then written to a
-# temp file and moved into place, so a failed/empty fetch or interrupted write
-# never leaves a partial .env behind (which would silently break Terraform).
-set -euo pipefail
-
-require() {
-  local value
-  value=$(doppler secrets get "$1" --plain) || {
-    echo "error: failed to read '$1' from Doppler" >&2
-    return 1
-  }
-  if [ -z "$value" ]; then
-    echo "error: Doppler secret '$1' is empty" >&2
-    return 1
-  fi
-  printf '%s' "$value"
-}
-
-cloudflare_api_token=$(require CLOUDFLARE_API_TOKEN)
-tf_cloud_token=$(require TF_API_TOKEN)
-neon_api_key=$(require NEON_API_KEY)
-neon_org_id=$(require NEON_ORG_ID)
-posthog_key=$(require POSTHOG_KEY)
-cf_images_account_hash=$(require CF_IMAGES_ACCOUNT_HASH)
-github_token=$(require MISE_GITHUB_TOKEN)
-
-tmp=$(mktemp)       # mktemp creates the file mode 0600
-chmod 600 "$tmp"    # make the owner-only intent explicit
-{
-  printf 'CLOUDFLARE_API_TOKEN=%s\n' "$cloudflare_api_token"
-  printf 'TF_TOKEN_app_terraform_io=%s\n' "$tf_cloud_token"
-  printf 'NEON_API_KEY=%s\n' "$neon_api_key"
-  printf 'TF_VAR_neon_org_id=%s\n' "$neon_org_id"
-  printf 'TF_VAR_posthog_key=%s\n' "$posthog_key"
-  printf 'TF_VAR_cf_images_account_hash=%s\n' "$cf_images_account_hash"
-  printf 'TF_VAR_github_token=%s\n' "$github_token"
-} > "$tmp"
-mv "$tmp" .env
-```
+Credentials are sourced from Doppler, the same single source of truth CI uses.
+Run Terraform through mise; `infra/scripts/doppler-terraform-env` injects
+`dev_pages_env` and `dev_infra`, then maps readable Doppler names to
+Terraform's expected `TF_VAR_*` and provider environment variables. A local
+`.env` file is no longer required for normal development.
 
 Then run Terraform commands via mise:
 
 - `mise run //infra:plan` - Preview changes
 - `mise run //infra:apply` - Apply changes
-
-The mapping from Doppler's uppercase secret names to Terraform's
-`TF_VAR_<variable>` names is the same one CI performs in the workflow `env:`
-blocks; doing it here keeps local and CI consistent.
 
 See `mise.toml` for all available tasks.
 
@@ -157,6 +124,33 @@ Manage R2 API Tokens → Create User API Token
 (Object Read & Write, scoped to `dvc` bucket).
 
 See [`ml-pipelines/README.md`](/ml-pipelines/README.md) for developer setup.
+
+## PostHog
+
+PostHog dashboards and insights are managed in Terraform via the official
+`PostHog/posthog` provider. The live project inventory is captured in
+`posthog_resources.json`, with `posthog.tf` converting that data into
+Terraform-managed dashboard and insight resources.
+
+### Managed in Terraform
+
+- Existing dashboards in project `123162`
+- Existing insights in project `123162`, including their dashboard attachments
+
+### Importing PostHog Resources
+
+The dashboards and insights in `posthog_resources.json` have already been
+imported into Terraform Cloud state. For future resources, add the resource to
+`posthog_resources.json`, import it once, then commit the updated inventory:
+
+```bash
+terraform import 'posthog_dashboard.managed["<stable-key>"]' '<project-id>/<dashboard-id>'
+terraform import 'posthog_insight.managed["<stable-key>"]' '<project-id>/<insight-id>'
+```
+
+After import, `mise run //infra:plan` should show no PostHog changes. Do not
+edit managed dashboards or insights in the PostHog UI without also updating
+`posthog_resources.json`, because Terraform will treat that as drift.
 
 ## Neon Database
 

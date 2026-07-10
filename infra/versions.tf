@@ -17,6 +17,10 @@ terraform {
       source  = "kislerdm/neon"
       version = "~> 0.13"
     }
+    posthog = {
+      source  = "PostHog/posthog"
+      version = "~> 1.0"
+    }
   }
 }
 
@@ -26,4 +30,10 @@ provider "cloudflare" {
 
 provider "neon" {
   # API key should be provided via NEON_API_KEY environment variable
+}
+
+provider "posthog" {
+  host       = var.posthog_host
+  project_id = var.posthog_project_id
+  # API key should be provided via POSTHOG_API_KEY.
 }
