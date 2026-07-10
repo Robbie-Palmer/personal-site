@@ -867,10 +867,6 @@ function seedDietCatalog() {
     groupKey: "dairy",
     ingredientSlug: "milk",
   });
-  dbMock.state.dietPresetExcludedIngredients.push({
-    presetKey: "vegan",
-    ingredientSlug: "honey",
-  });
 }
 
 beforeEach(() => {
@@ -1114,6 +1110,62 @@ describe("profile diet preferences", () => {
       presets: [],
       groups: [],
       ingredients: [],
+    });
+  });
+
+  it("returns seeded diet options from the catalog", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+    seedDietCatalog();
+
+    const res = await app.request("/api/profile/diet/options", {}, env);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      presets: [
+        {
+          key: "vegan",
+          label: "Vegan",
+          sub: "no animal products",
+          excludedGroupKeys: ["dairy"],
+          excludedIngredientSlugs: [],
+        },
+        {
+          key: "vegetarian",
+          label: "Vegetarian",
+          sub: "no meat or fish",
+          excludedGroupKeys: ["shellfish"],
+          excludedIngredientSlugs: [],
+        },
+      ],
+      groups: [
+        {
+          key: "dairy",
+          label: "Dairy",
+          sub: "milk, cheese",
+          ingredientSlugs: ["milk"],
+        },
+        {
+          key: "gluten",
+          label: "Gluten",
+          sub: "wheat, barley, rye",
+          ingredientSlugs: [],
+        },
+        {
+          key: "shellfish",
+          label: "Shellfish",
+          sub: "prawns, mussels",
+          ingredientSlugs: [],
+        },
+      ],
+      ingredients: [
+        { slug: "egg", name: "egg", category: "protein" },
+        { slug: "honey", name: "honey", category: "sweetener" },
+        { slug: "milk", name: "milk", category: "dairy" },
+      ],
     });
   });
 

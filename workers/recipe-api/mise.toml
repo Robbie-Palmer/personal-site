@@ -21,6 +21,11 @@ description = "Push the recipe API schema to DATABASE_URL"
 depends = ["install"]
 run = "pnpm db:push:ci"
 
+[tasks."db:seed:diet-catalog"]
+description = "Seed diet presets and ingredient groups into DATABASE_URL"
+depends = ["install"]
+run = "pnpm db:seed:diet-catalog"
+
 [tasks."db:seed:preview"]
 description = "Seed deterministic preview users and data"
 depends = ["install"]

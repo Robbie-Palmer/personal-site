@@ -13,6 +13,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:push:ci": "drizzle-kit push",
+    "db:seed:diet-catalog": "tsx scripts/seed-diet-catalog.ts",
     "db:studio": "drizzle-kit studio",
     "preview:seed": "tsx scripts/seed-preview.ts"
   },
