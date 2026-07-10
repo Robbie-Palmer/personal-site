@@ -69,7 +69,7 @@ variable "posthog_host" {
 variable "posthog_project_id" {
   description = "PostHog project/environment ID used by the Terraform provider"
   type        = string
-  default     = null
+  default     = "123162"
 }
 
 variable "r2_dvc_bucket_name" {

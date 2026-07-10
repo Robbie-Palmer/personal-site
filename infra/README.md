@@ -124,28 +124,29 @@ See [`ml-pipelines/README.md`](/ml-pipelines/README.md) for developer setup.
 
 ## PostHog
 
-PostHog dashboards and insights are prepared in Terraform via the official
-`PostHog/posthog` provider. Keep the PR draft until the API key, project ID,
-and any required imports are ready.
+PostHog dashboards and insights are managed in Terraform via the official
+`PostHog/posthog` provider. The live project inventory is captured in
+`posthog_resources.json`, with `posthog.tf` converting that data into
+Terraform-managed dashboard and insight resources.
 
 ### Managed in Terraform
 
-- `posthog_dashboard.product_success` — a starter product success dashboard
-- `posthog_insight.weekly_active_visitors` — a starter insight attached to that
-  dashboard
+- Existing dashboards in project `123162`
+- Existing insights in project `123162`, including their dashboard attachments
 
 ### Importing PostHog Resources
 
-After setting `POSTHOG_API_KEY` and `TF_VAR_posthog_project_id`, import
-existing resources before applying:
+`posthog.tf` includes config-driven `import` blocks. After setting
+`POSTHOG_API_KEY` in Doppler, run:
 
 ```bash
-terraform import posthog_dashboard.product_success '<project-id>/<dashboard-id>'
-terraform import posthog_insight.weekly_active_visitors '<project-id>/<insight-id>'
+mise run //infra:plan
+mise run //infra:apply
 ```
 
-If `posthog_project_id` is configured, the provider also supports omitting the
-project ID from import IDs for these resource types.
+Terraform will import the existing dashboards and insights into state before it
+attempts to manage their configuration. Do not remove the import blocks until
+those addresses are present in Terraform state.
 
 ## Neon Database
 
