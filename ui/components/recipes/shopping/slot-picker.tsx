@@ -2,10 +2,7 @@
 
 import { Check, Plus, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import {
-  RecipeThumb,
-  recipeMetaLabel,
-} from "@/components/recipes/shopping/recipe-card";
+import { RecipeThumb, recipeMetaLabel } from "@/components/recipes/recipe-card";
 import { Input } from "@/components/ui/input";
 import {
   Popover,

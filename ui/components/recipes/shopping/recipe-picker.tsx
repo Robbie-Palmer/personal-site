@@ -1,18 +1,19 @@
 "use client";
 
-import { Minus, Plus, Search, X } from "lucide-react";
+import { Minus, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import {
-  RecipeThumb,
-  recipeMetaLabel,
-} from "@/components/recipes/shopping/recipe-card";
-import { ShoppingCheckbox } from "@/components/recipes/shopping/shopping-checkbox";
+import { RecipeMatchCard } from "@/components/recipes/recipe-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useKitchenStock } from "@/hooks/use-kitchen-stock";
 import { useShoppingList } from "@/hooks/use-shopping-list";
 import type { ShoppingRecipe } from "@/lib/api/shopping";
+import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
 import {
-  removeRecipe,
+  getKitchenRecipeMatches,
+  type KitchenRecipeView,
+} from "@/lib/domain/recipe/kitchen";
+import {
   setRecipeServings,
   toggleRecipe,
 } from "@/lib/shopping/shoppingListStore";
@@ -20,10 +21,10 @@ import {
 function ServingsStepper({
   slug,
   servings,
-}: {
+}: Readonly<{
   slug: string;
   servings: number;
-}) {
+}>) {
   return (
     <div className="flex items-center gap-1.5">
       <Button
@@ -55,67 +56,9 @@ function ServingsStepper({
   );
 }
 
-function PickerCard({
-  recipe,
-  selected,
-  servings,
-}: {
-  recipe: ShoppingRecipe;
-  selected: boolean;
-  servings: number;
-}) {
-  return (
-    <div
-      className={[
-        "rounded-xl border-[1.25px] bg-[var(--card)] overflow-hidden transition-all",
-        "flex flex-col hover:-translate-y-0.5 hover:shadow-[var(--paper-shadow)]",
-        selected
-          ? "border-[var(--terracotta)] ring-1 ring-[var(--terracotta)]"
-          : "border-[var(--line-strong)]",
-      ].join(" ")}
-    >
-      {/* The toggle is its own button so the servings stepper (which contains
-          buttons of its own) can live alongside it without nesting buttons. */}
-      <button
-        type="button"
-        aria-pressed={selected}
-        onClick={() => toggleRecipe(recipe.slug)}
-        className="flex gap-3 p-3 text-left w-full cursor-pointer"
-      >
-        <RecipeThumb recipe={recipe} size={64} />
-        <span className="flex-1 min-w-0 block">
-          <span className="flex items-start gap-2">
-            <ShoppingCheckbox checked={selected} className="mt-1" />
-            <span className="rt-display text-xl leading-tight flex-1 block">
-              {recipe.title}
-            </span>
-          </span>
-          <span className="rt-mono text-[var(--ink-3)] mt-1 truncate block">
-            {recipeMetaLabel(recipe)}
-          </span>
-        </span>
-      </button>
-      {selected && (
-        <div className="border-t border-[var(--line)] px-3 py-2 flex items-center justify-between gap-2 bg-[var(--paper-warm)]/50">
-          <ServingsStepper slug={recipe.slug} servings={servings} />
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              removeRecipe(recipe.slug);
-            }}
-            className="rt-mono text-[var(--ink-3)] hover:text-[var(--berry)] inline-flex items-center gap-1 transition-colors"
-          >
-            <X className="h-3 w-3" /> remove
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function RecipePicker({ recipes }: { recipes: ShoppingRecipe[] }) {
   const { recipes: selectedEntries } = useShoppingList();
+  const stock = useKitchenStock();
   const [query, setQuery] = useState("");
 
   const servingsBySlug = useMemo(() => {
@@ -123,6 +66,34 @@ export function RecipePicker({ recipes }: { recipes: ShoppingRecipe[] }) {
     for (const entry of selectedEntries) map.set(entry.slug, entry.servings);
     return map;
   }, [selectedEntries]);
+
+  // The same have/need match the kitchen tab shows, computed against the shared
+  // stock, so a recipe card reads identically on both tabs.
+  const matchBySlug = useMemo(() => {
+    const views = recipes.map(
+      (recipe): KitchenRecipeView => ({
+        slug: recipe.slug,
+        title: recipe.title,
+        cuisine: recipe.cuisine,
+        totalTime: recipe.totalTime,
+        image: recipe.image,
+        imageAlt: recipe.imageAlt,
+        ingredients: [
+          ...new Map(
+            recipe.ingredients.map((item) => [
+              item.ingredient,
+              { slug: item.ingredient, name: item.name },
+            ]),
+          ).values(),
+        ],
+      }),
+    );
+    const matches = getKitchenRecipeMatches(
+      views,
+      Object.keys(stock) as IngredientSlug[],
+    );
+    return new Map(matches.map((match) => [match.slug, match]));
+  }, [recipes, stock]);
 
   // Pre-compute each recipe's lowercase search string once (not per keystroke).
   const searchIndex = useMemo(
@@ -179,14 +150,22 @@ export function RecipePicker({ recipes }: { recipes: ShoppingRecipe[] }) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {ordered.map((recipe) => {
-            const stored = servingsBySlug.get(recipe.slug);
+            const match = matchBySlug.get(recipe.slug);
+            if (!match) return null;
             const selected = servingsBySlug.has(recipe.slug);
+            const servings = servingsBySlug.get(recipe.slug) ?? recipe.servings;
             return (
-              <PickerCard
+              <RecipeMatchCard
                 key={recipe.slug}
-                recipe={recipe}
-                selected={selected}
-                servings={stored ?? recipe.servings}
+                recipe={match}
+                inList={selected}
+                onToggleList={() => toggleRecipe(recipe.slug)}
+                highlight={selected}
+                footer={
+                  selected ? (
+                    <ServingsStepper slug={recipe.slug} servings={servings} />
+                  ) : undefined
+                }
               />
             );
           })}

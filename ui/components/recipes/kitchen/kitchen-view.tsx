@@ -1,10 +1,7 @@
 "use client";
 
 import {
-  Check,
-  ChefHat,
   CirclePlus,
-  Plus,
   Refrigerator,
   Search,
   ShoppingBasket,
@@ -13,8 +10,8 @@ import {
   Undo2,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
+import { RecipeMatchCard } from "@/components/recipes/recipe-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,126 +46,6 @@ const LOCATION_ICONS = {
 
 function normalizeQuery(value: string) {
   return value.trim().toLowerCase();
-}
-
-function formatTime(minutes?: number) {
-  if (minutes == null) return null;
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-}
-
-function RecipeMatchCard({
-  recipe,
-  inList,
-  onToggleList,
-}: Readonly<{
-  recipe: ReturnType<typeof getKitchenRecipeMatches>[number];
-  inList: boolean;
-  onToggleList: () => void;
-}>) {
-  const timeLabel = formatTime(recipe.totalTime);
-  const canCook = recipe.totalCount > 0 && recipe.missingCount === 0;
-  const progress = Math.round(recipe.matchRatio * 100);
-
-  return (
-    // A "stretched link" card: the Link fills the card so tapping it opens the
-    // recipe, while the add-to-list button sits above it (relative z-10) and
-    // stays independently clickable without nesting a button inside an anchor.
-    <Card className="group relative overflow-hidden rounded-lg border-[1.25px] border-[var(--line-strong)] bg-[var(--card)] py-0 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--paper-shadow)]">
-      <Link
-        href={`/recipes/${recipe.slug}`}
-        aria-label={`Open ${recipe.title}`}
-        className="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--ring)]/50"
-      />
-      <CardContent className="p-3">
-        <div className="flex min-w-0 items-start gap-3">
-          <div
-            className={cn(
-              "flex size-11 shrink-0 items-center justify-center rounded-md",
-              canCook
-                ? "bg-[var(--sage)] text-white"
-                : "bg-[var(--paper-warm)] text-[var(--terracotta)]",
-            )}
-          >
-            {canCook ? (
-              <Check className="size-5" />
-            ) : (
-              <ChefHat className="size-5" />
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="rt-display text-2xl leading-none transition-colors group-hover:text-[var(--terracotta)]">
-              {recipe.title}
-            </div>
-            <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs text-[var(--ink-3)]">
-              {timeLabel && <span>{timeLabel}</span>}
-              {recipe.cuisine.slice(0, 2).map((cuisine) => (
-                <span key={cuisine}>{cuisine}</span>
-              ))}
-              <span>
-                {recipe.haveCount}/{recipe.totalCount} ingredients
-              </span>
-            </div>
-          </div>
-          <Badge
-            variant={canCook ? "default" : "outline"}
-            className={cn(
-              "shrink-0",
-              canCook
-                ? "bg-[var(--sage)] text-white"
-                : "text-[var(--terracotta)]",
-            )}
-          >
-            {canCook ? "cook" : `+${recipe.missingCount}`}
-          </Badge>
-        </div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--paper-warm)]">
-          <div
-            className={cn(
-              "h-full rounded-full",
-              canCook ? "bg-[var(--sage)]" : "bg-[var(--terracotta)]",
-            )}
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        {recipe.missingIngredients.length > 0 && (
-          <p className="rt-body mt-2 line-clamp-2 text-sm text-[var(--ink-2)]">
-            Need:{" "}
-            <span className="text-[var(--terracotta)]">
-              {recipe.missingIngredients
-                .slice(0, 5)
-                .map((ingredient) => ingredient.name)
-                .join(", ")}
-              {recipe.missingIngredients.length > 5 ? "..." : ""}
-            </span>
-          </p>
-        )}
-        <button
-          type="button"
-          onClick={onToggleList}
-          aria-pressed={inList}
-          className={cn(
-            "relative z-10 mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors",
-            inList
-              ? "border-[var(--sage)] bg-[var(--sage)]/10 text-[var(--sage)] hover:bg-[var(--sage)]/15"
-              : "border-[var(--line-strong)] text-[var(--ink-2)] hover:border-[var(--terracotta)] hover:text-[var(--terracotta)]",
-          )}
-        >
-          {inList ? (
-            <>
-              <Check className="size-4" /> On shopping list
-            </>
-          ) : (
-            <>
-              <Plus className="size-4" /> Add to shopping list
-            </>
-          )}
-        </button>
-      </CardContent>
-    </Card>
-  );
 }
 
 function LocationIcon({ location }: Readonly<{ location: KitchenLocation }>) {

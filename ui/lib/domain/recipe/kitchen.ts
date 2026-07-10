@@ -46,6 +46,8 @@ export type KitchenRecipeView = {
   title: string;
   cuisine: string[];
   totalTime?: number;
+  image?: string;
+  imageAlt?: string;
   ingredients: KitchenRecipeIngredientView[];
 };
 

@@ -103,14 +103,22 @@ function KitchenItemRow({
   line,
   system,
   location,
+  checked,
 }: Readonly<{
   line: ShoppingLine;
   system: MeasurementSystem;
   location: KitchenLocation;
+  checked: boolean;
 }>) {
   const quantity = formatShoppingQuantities(line.quantities, system);
   const name = formatShoppingName(line);
   const { label, icon: Icon } = LOCATION_META[location];
+  const returnToList = () => {
+    removeFromStock(line.ingredient);
+    // A tick from before the item entered the kitchen would bring it back
+    // struck through — clear it so "put back on the list" means exactly that.
+    if (checked) toggleChecked(line.ingredient);
+  };
   return (
     <div className="w-full flex items-center gap-2.5 py-1.5 border-b border-dashed border-[var(--line)] last:border-0">
       <span
@@ -130,7 +138,7 @@ function KitchenItemRow({
       </span>
       <button
         type="button"
-        onClick={() => removeFromStock(line.ingredient)}
+        onClick={returnToList}
         aria-label={`Remove ${name} from the kitchen`}
         title="Not in the kitchen after all — put back on the list"
         className="inline-flex items-center gap-1 rt-mono text-[var(--ink-4)] hover:text-[var(--berry)] transition-colors"
@@ -156,7 +164,12 @@ function ItemRow({
 }) {
   if (kitchenLocation) {
     return (
-      <KitchenItemRow line={line} system={system} location={kitchenLocation} />
+      <KitchenItemRow
+        line={line}
+        system={system}
+        location={kitchenLocation}
+        checked={checked}
+      />
     );
   }
 

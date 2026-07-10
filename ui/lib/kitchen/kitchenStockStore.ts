@@ -26,12 +26,14 @@ let state: KitchenStock = EMPTY_STOCK;
 let hydrated = false;
 const listeners = new Set<() => void>();
 
+// Always a fresh object (never the shared EMPTY_STOCK constant), so a consumer
+// accidentally mutating a snapshot can't corrupt the module-level empty state.
 function parseStock(raw: string | null): KitchenStock {
-  if (!raw) return EMPTY_STOCK;
+  if (!raw) return {};
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return EMPTY_STOCK;
+      return {};
     }
     const stock: KitchenStock = {};
     for (const [slug, location] of Object.entries(parsed)) {
@@ -39,7 +41,7 @@ function parseStock(raw: string | null): KitchenStock {
     }
     return stock;
   } catch {
-    return EMPTY_STOCK;
+    return {};
   }
 }
 

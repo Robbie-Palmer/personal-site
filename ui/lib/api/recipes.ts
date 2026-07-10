@@ -67,6 +67,8 @@ export function getKitchenRecipes(): KitchenRecipeView[] {
         title: recipe.title,
         cuisine: recipe.cuisine,
         totalTime,
+        image: recipe.image,
+        imageAlt: recipe.imageAlt,
         ingredients: Array.from(ingredientsBySlug.values()).sort((a, b) =>
           a.name.localeCompare(b.name),
         ),
