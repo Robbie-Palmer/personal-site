@@ -31,6 +31,7 @@ Configs are split by environment and runtime/control boundary:
 | `dev_pages_env` | Shared local Cloudflare Pages env vars | None |
 | `dev_recipe_api` | Local recipe Worker/API/DB/OAuth config | None |
 | `dev_infra` | Local Terraform/provider credentials | None |
+| `dev_bootstrap_infra` | Local bootstrap Terraform credentials | None |
 | `stg_pages_env` | Shared PR preview Cloudflare Pages env vars | `preview-site-ui` |
 | `stg_site_ui` | PR preview UI deploy credentials | `preview-site-ui` |
 | `stg_recipe_api` | PR preview Worker/API automation config | `preview-recipe-api` |
@@ -38,6 +39,7 @@ Configs are split by environment and runtime/control boundary:
 | `prd_site_ui` | Production UI deploy credentials | `production-site-ui`, `production-recipe-api` |
 | `prd_recipe_api` | Production Worker/API/DB/OAuth config | `production-recipe-api` |
 | `prd_infra` | Production Terraform/provider credentials | `production-infra` |
+| `prd_bootstrap_infra` | Production bootstrap Terraform credentials | `production-infra-bootstrap` |
 | `prd_ci_repo` | Repo-wide sensitive CI like AI review and DVC | `production-ci` |
 
 Doppler config inheritance is not available on this workspace plan, so local
@@ -127,10 +129,13 @@ Run Terraform through mise:
 ```bash
 mise run //infra:plan
 mise run //infra:apply
+mise run //infra-bootstrap:plan
+mise run //infra-bootstrap:apply
 ```
 
-Terraform tasks inject both `dev_pages_env` and `dev_infra` locally. The wrapper
-maps readable Doppler names to Terraform's expected names, including
+Normal infra tasks inject both `dev_pages_env` and `dev_infra` locally.
+Bootstrap infra tasks inject `dev_bootstrap_infra`. The wrappers map readable
+Doppler names to Terraform's expected names, including
 `TF_TOKEN_app_terraform_io` and `TF_VAR_*`.
 
 `dev_pages_env` owns Pages runtime values that Terraform applies to Cloudflare
@@ -143,19 +148,23 @@ Pages:
 - `POSTHOG_HOST` / `NEXT_PUBLIC_POSTHOG_HOST`
 - `CF_IMAGES_ACCOUNT_HASH` / `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH`
 
-`dev_infra` owns provider and control-plane credentials. Terraform should not
-receive UI deploy credentials:
+`dev_infra` owns normal provider credentials. Terraform should not receive UI
+deploy credentials or privileged GCP credentials:
 
 - `CLOUDFLARE_API_TOKEN`
-- `GCP_PROJECT_ID`
-- `GCP_WORKLOAD_IDENTITY_PROVIDER`
-- `GCP_TERRAFORM_SERVICE_ACCOUNT`
 - `GITHUB_TOKEN` or `MISE_GITHUB_TOKEN`
 - `TF_API_TOKEN`
 - `NEON_API_KEY`
 - `NEON_ORG_ID`
 - `POSTHOG_API_KEY`
 - `POSTHOG_PROJECT_ID` (unmasked; syncs to a GitHub Actions variable)
+
+`dev_bootstrap_infra` owns foundational IAM and identity bootstrap credentials:
+
+- `GCP_PROJECT_ID` (unmasked)
+- `GCP_WORKLOAD_IDENTITY_PROVIDER` (unmasked)
+- `GCP_TERRAFORM_SERVICE_ACCOUNT` (unmasked)
+- `TF_API_TOKEN`
 
 ## GitHub Environments
 
@@ -168,6 +177,7 @@ The GitHub environments are runtime/job boundaries, not provider names:
 | `production-recipe-api` | `prd_recipe_api`, `prd_site_ui` | Production recipe API deploy |
 | `production-site-ui` | `prd_site_ui`, `prd_pages_env` | Production UI CI/CD and Cloudflare Images health check |
 | `production-infra` | `prd_infra` | Terraform CI/CD |
+| `production-infra-bootstrap` | `prd_bootstrap_infra` | Manual bootstrap Terraform |
 | `production-ci` | `prd_ci_repo` | AI review and ML pipeline CI |
 
 Run `scripts/sync-doppler-github-envs.sh` after any Doppler change that should
@@ -241,15 +251,19 @@ preview Worker with `--secrets-file`.
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CF_IMAGES_ACCOUNT_HASH`
-- `GCP_PROJECT_ID`
-- `GCP_WORKLOAD_IDENTITY_PROVIDER`
-- `GCP_TERRAFORM_SERVICE_ACCOUNT`
 - `POSTHOG_KEY`
 - `MISE_GITHUB_TOKEN`
 - `NEON_API_KEY`
 - `NEON_ORG_ID`
 - `POSTHOG_API_KEY`
 - `POSTHOG_PROJECT_ID` (unmasked; syncs to a GitHub Actions variable)
+- `TF_API_TOKEN`
+
+`prd_bootstrap_infra` should own:
+
+- `GCP_PROJECT_ID` (unmasked)
+- `GCP_WORKLOAD_IDENTITY_PROVIDER` (unmasked)
+- `GCP_TERRAFORM_SERVICE_ACCOUNT` (unmasked)
 - `TF_API_TOKEN`
 
 `prd_ci_repo` should own:
@@ -266,11 +280,14 @@ These commands validate the wiring without printing secret values:
 doppler secrets --project personal-site --config dev_pages_env --only-names
 doppler secrets --project personal-site --config dev_recipe_api --only-names
 doppler secrets --project personal-site --config dev_infra --only-names
+doppler secrets --project personal-site --config dev_bootstrap_infra --only-names
 scripts/sync-doppler-github-envs.sh
 
 mise run //:dev
 mise run //infra:format:check
 mise run //infra:precommit-lint
+mise run //infra-bootstrap:format:check
+mise run //infra-bootstrap:precommit-lint
 CI=true mise run //workers/recipe-api:typecheck
 doppler run --project personal-site --config dev_recipe_api -- mise x -- pnpm --dir workers/recipe-api exec wrangler deploy --dry-run
 ```

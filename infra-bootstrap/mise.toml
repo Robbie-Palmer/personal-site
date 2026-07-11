@@ -1,0 +1,55 @@
+[tasks.init]
+description = "Initialize privileged GCP Terraform"
+run = "bash scripts/doppler-terraform-env terraform init"
+sources = ["*.tf"]
+outputs = [".terraform/**/*"]
+
+[tasks.format]
+description = "Format privileged GCP Terraform files (optionally pass files as args)"
+run = """
+#!/usr/bin/env bash
+if [ $# -eq 0 ]; then
+  terraform fmt -recursive .
+else
+  terraform fmt "$@"
+fi
+"""
+
+[tasks."format:check"]
+description = "Check privileged GCP Terraform formatting without making changes"
+run = """
+#!/usr/bin/env bash
+if [ $# -eq 0 ]; then
+  terraform fmt -check -recursive .
+else
+  terraform fmt -check "$@"
+fi
+"""
+
+[tasks.lint]
+description = "Validate privileged GCP Terraform configuration"
+depends = ["//infra-bootstrap:init"]
+run = "terraform validate"
+
+[tasks.precommit-lint]
+description = "Validate privileged GCP Terraform configuration (lightweight for pre-commit)"
+run = """
+#!/usr/bin/env bash
+bash scripts/doppler-terraform-env terraform init -backend=false > /dev/null || { echo "Terraform init failed" >&2; exit 1; }
+bash scripts/doppler-terraform-env terraform validate
+"""
+
+[tasks.plan]
+description = "Run privileged GCP Terraform plan"
+depends = ["//infra-bootstrap:init"]
+run = "bash scripts/doppler-terraform-env terraform plan -out .planfile"
+outputs = [".planfile"]
+
+[tasks.apply]
+description = "Apply privileged GCP Terraform changes"
+depends = ["//infra-bootstrap:init"]
+run = "bash scripts/doppler-terraform-env terraform apply -auto-approve .planfile"
+
+[tasks.check]
+description = "Run all privileged GCP Terraform checks"
+depends = ["//infra-bootstrap:format:check", "//infra-bootstrap:lint", "//infra-bootstrap:plan"]

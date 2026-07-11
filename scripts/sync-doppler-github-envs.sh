@@ -122,6 +122,7 @@ sync_env preview-site-ui stg_site_ui stg_pages_env
 sync_env production-recipe-api prd_recipe_api prd_site_ui
 sync_env production-site-ui prd_site_ui prd_pages_env
 sync_env production-infra prd_infra
+sync_env production-infra-bootstrap prd_bootstrap_infra
 sync_env production-ci prd_ci_repo
 
 echo "Manual Doppler to GitHub environment sync complete."

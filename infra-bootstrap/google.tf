@@ -1,11 +1,8 @@
-# Google Cloud - recipe site OAuth
+# Google Cloud - privileged control plane for recipe site OAuth
 #
-# The OAuth consent screen and the OAuth 2.0 "Web application" client
-# (client ID + secret) are configured manually in the Cloud console. Neither
-# has a usable Terraform resource: the only options (google_iap_brand,
-# google_iap_client) are IAP-only, built on a deprecated API, and cannot
-# represent a general sign-in client. Those stay click-ops; Terraform manages
-# the project and its enabled APIs around them.
+# Keep these resources separate from the normal infra root. They grant a GitHub
+# Actions identity the ability to manage project IAM and Workload Identity, so
+# they must not be available to routine Cloudflare/Neon/PostHog deployments.
 
 resource "google_project" "recipes" {
   name       = var.gcp_project_name
@@ -44,14 +41,15 @@ resource "google_project_service" "required" {
   project = google_project.recipes.project_id
   service = each.value
 
-  disable_on_destroy = false
+  disable_dependent_services = false
+  disable_on_destroy         = false
 }
 
 resource "google_service_account" "github_terraform" {
   project      = google_project.recipes.project_id
   account_id   = var.gcp_terraform_service_account_id
-  display_name = "GitHub Actions Terraform"
-  description  = "Impersonated by GitHub Actions via Workload Identity Federation to run Terraform."
+  display_name = "GitHub Actions privileged GCP Terraform"
+  description  = "Impersonated only by the dedicated bootstrap workflow via Workload Identity Federation."
 
   depends_on = [google_project_service.required]
 }
@@ -74,12 +72,12 @@ resource "google_iam_workload_identity_pool" "github_actions" {
   depends_on = [google_project_service.required]
 }
 
-resource "google_iam_workload_identity_pool_provider" "personal_site" {
+resource "google_iam_workload_identity_pool_provider" "bootstrap" {
   project                            = google_project.recipes.project_id
   workload_identity_pool_id          = google_iam_workload_identity_pool.github_actions.workload_identity_pool_id
   workload_identity_pool_provider_id = var.gcp_github_workload_identity_provider_id
-  display_name                       = "personal-site"
-  description                        = "GitHub Actions OIDC provider for ${local.github_repository}."
+  display_name                       = "personal-site-bootstrap"
+  description                        = "GitHub Actions OIDC provider for bootstrap Terraform in ${local.github_repository}."
 
   attribute_mapping = {
     "google.subject"        = "assertion.sub"
@@ -89,11 +87,16 @@ resource "google_iam_workload_identity_pool_provider" "personal_site" {
     "attribute.ref"         = "assertion.ref"
   }
 
-  attribute_condition = "assertion.repository == '${local.github_repository}' && assertion.environment == 'production-infra'"
+  attribute_condition = "assertion.repository == '${local.github_repository}' && assertion.environment == 'production-infra-bootstrap' && assertion.ref == 'refs/heads/main'"
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
+}
+
+moved {
+  from = google_iam_workload_identity_pool_provider.gcp_infra
+  to   = google_iam_workload_identity_pool_provider.bootstrap
 }
 
 resource "google_service_account_iam_member" "github_actions_workload_identity_user" {

@@ -56,15 +56,3 @@ output "hyperdrive_config_id" {
   description = "Hyperdrive configuration ID for recipe-db (set in wrangler.toml)"
   value       = cloudflare_hyperdrive_config.recipe_db.id
 }
-
-# Google Cloud
-
-output "gcp_terraform_service_account_email" {
-  description = "Service account GitHub Actions impersonates to run Terraform"
-  value       = google_service_account.github_terraform.email
-}
-
-output "gcp_workload_identity_provider" {
-  description = "Workload Identity Provider resource name for google-github-actions/auth"
-  value       = "projects/${google_project.recipes.number}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.github_actions.workload_identity_pool_id}/providers/${google_iam_workload_identity_pool_provider.personal_site.workload_identity_pool_provider_id}"
-}
