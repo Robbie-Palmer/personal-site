@@ -94,6 +94,13 @@ resource "cloudflare_r2_bucket" "dvc" {
   location   = "ENAM"
 }
 
+# Source images and immutable stage artifact snapshots for recipe ingestion (ADR 049).
+resource "cloudflare_r2_bucket" "recipe_artifacts" {
+  account_id = var.cloudflare_account_id
+  name       = var.r2_recipe_artifacts_bucket_name
+  location   = "ENAM"
+}
+
 # Neon
 
 resource "neon_project" "recipes" {

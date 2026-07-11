@@ -1,0 +1,12 @@
+[tasks.install]
+description = "Install recipe-db dependencies"
+run = "pnpm install --frozen-lockfile --filter recipe-db..."
+
+[tasks.typecheck]
+description = "Typecheck the recipe-db package"
+depends = ["install"]
+run = "pnpm typecheck"
+
+[tasks.check]
+description = "Run all recipe-db checks"
+depends = ["typecheck"]

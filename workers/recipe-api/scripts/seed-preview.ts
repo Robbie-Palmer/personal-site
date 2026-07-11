@@ -1,6 +1,6 @@
 import { eq, inArray } from "drizzle-orm";
 import { createAuth } from "../src/auth";
-import { createDb, schema } from "../src/db";
+import { createDb, schema } from "recipe-db";
 import { previewScenarios } from "../src/preview-scenarios";
 
 function requiredEnv(name: string): string {

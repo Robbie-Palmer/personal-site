@@ -1,0 +1,45 @@
+name = "recipe-ingest"
+main = "src/index.ts"
+compatibility_date = "2026-05-28"
+compatibility_flags = ["nodejs_compat"]
+
+# Export Worker logs to PostHog via OTLP. The "posthog-logs" destination
+# (endpoint + auth header) is configured in the Cloudflare dashboard, not here.
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+destinations = ["posthog-logs"]
+
+[vars]
+# Stage parameters mirror ml-pipelines/recipe-parsing/params.yaml so production
+# runs the same models/timeouts the evaluation pipeline scores.
+EXTRACT_MODEL = "google/gemini-3-flash-preview"
+EXTRACT_TIMEOUT_MS = "30000"
+EXTRACT_RETRIES = "2"
+NORMALIZE_MODEL = "google/gemini-3-flash-preview"
+NORMALIZE_TIMEOUT_MS = "30000"
+NORMALIZE_RETRIES = "2"
+CANONICALIZE_MODEL = "google/gemini-2.5-flash"
+CANONICALIZE_TIMEOUT_MS = "15000"
+CANONICALIZE_RETRIES = "1"
+
+[secrets]
+required = ["OPENROUTER_API_KEY"]
+
+[[workflows]]
+name = "recipe-ingest"
+binding = "RECIPE_INGEST_WORKFLOW"
+class_name = "RecipeIngestWorkflow"
+
+[[r2_buckets]]
+binding = "ARTIFACTS"
+bucket_name = "recipe-artifacts"
+
+# Hyperdrive connection pooling to Neon (same config as recipe-api).
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "981c36e3ec8a48fda9a5de338e8d8257"
+# Local dev: set CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE in your shell environment.
+# Do NOT put the connection string in this file — it gets committed to git.

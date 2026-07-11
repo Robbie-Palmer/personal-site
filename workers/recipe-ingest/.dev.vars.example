@@ -1,0 +1,3 @@
+# Copy to .dev.vars for local development (git-ignored).
+# OpenRouter key for the ingestion pipeline — use a low-limit dev key.
+OPENROUTER_API_KEY=sk-or-...

@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgEnum,
   primaryKey,
   pgTable,
@@ -347,3 +348,110 @@ export const appRateLimit = pgTable("app_rate_limit", {
   count: integer().notNull().default(0),
   windowStart: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
+
+// Recipe ingestion (ADR 049). Postgres is the source of truth for job state;
+// R2 holds the immutable source images and stage artifact snapshots.
+
+export const recipeImportStatusEnum = pgEnum("recipe_import_status", [
+  "queued",
+  "running",
+  "succeeded",
+  "failed",
+]);
+
+export const recipeImportStageEnum = pgEnum("recipe_import_stage", [
+  "extract",
+  "normalize",
+  "canonicalize",
+  "finalize",
+]);
+
+export const recipeImportJob = pgTable(
+  "recipe_import_job",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    status: recipeImportStatusEnum().notNull().default("queued"),
+    currentStage: recipeImportStageEnum(),
+    progressLabel: text(),
+    errorType: text(),
+    errorMessage: text(),
+    workflowInstanceId: text(),
+    imageCount: integer().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    finishedAt: timestamp({ withTimezone: true }),
+  },
+  (table) => [
+    index("recipe_import_job_user_id_idx").on(table.userId),
+    index("recipe_import_job_user_status_idx").on(table.userId, table.status),
+    index("recipe_import_job_user_created_idx").on(
+      table.userId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const recipeImportArtifact = pgTable(
+  "recipe_import_artifact",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    jobId: uuid()
+      .notNull()
+      .references(() => recipeImportJob.id, { onDelete: "cascade" }),
+    stage: recipeImportStageEnum().notNull(),
+    kind: text().notNull(),
+    r2Key: text().notNull(),
+    checksum: text().notNull(),
+    schemaVersion: integer().notNull().default(1),
+    model: text(),
+    provider: text(),
+    preview: jsonb(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("recipe_import_artifact_job_id_idx").on(table.jobId),
+    // Workflow step retries upsert on this key so a replay cannot duplicate manifests.
+    uniqueIndex("recipe_import_artifact_job_stage_kind_unique").on(
+      table.jobId,
+      table.stage,
+      table.kind,
+    ),
+  ],
+);
+
+export const recipeImportAttempt = pgTable(
+  "recipe_import_attempt",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    jobId: uuid()
+      .notNull()
+      .references(() => recipeImportJob.id, { onDelete: "cascade" }),
+    stage: recipeImportStageEnum().notNull(),
+    attempt: integer().notNull(),
+    succeeded: boolean().notNull(),
+    retryable: boolean(),
+    providerRequestId: text(),
+    errorType: text(),
+    errorMessage: text(),
+    durationMs: integer(),
+    model: text(),
+    promptTokens: integer(),
+    completionTokens: integer(),
+    totalTokens: integer(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("recipe_import_attempt_job_id_idx").on(table.jobId),
+    uniqueIndex("recipe_import_attempt_job_stage_attempt_unique").on(
+      table.jobId,
+      table.stage,
+      table.attempt,
+    ),
+  ],
+);

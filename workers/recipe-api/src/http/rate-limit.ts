@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { Context } from "hono";
-import type { createDb } from "../db";
-import { appRateLimit } from "../db/schema";
+import type { createDb } from "recipe-db";
+import { appRateLimit } from "recipe-db/schema";
 
 type Db = ReturnType<typeof createDb>["db"];
 

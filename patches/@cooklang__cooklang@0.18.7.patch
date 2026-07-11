@@ -1,0 +1,30 @@
+diff --git a/pkg/cooklang_wasm.js b/pkg/cooklang_wasm.js
+index 27c98e1f3af1a6788f85517598e84516e5fa5794..a3cf022f6b1357ea9e6d8ef36cd08bca5b4b9773 100644
+--- a/pkg/cooklang_wasm.js
++++ b/pkg/cooklang_wasm.js
+@@ -1,4 +1,24 @@
+-import * as wasm from "./cooklang_wasm_bg.wasm";
++import * as wasmOrModule from "./cooklang_wasm_bg.wasm";
++import * as imports from "./cooklang_wasm_bg.js";
+ export * from "./cooklang_wasm_bg.js";
+ import { __wbg_set_wasm } from "./cooklang_wasm_bg.js";
++
++// Bundlers (vite, webpack, node) resolve the .wasm import to instantiated
++// exports, but Cloudflare's workerd resolves it to a WebAssembly.Module
++// (surfaced as the namespace default export). Instantiate it ourselves in
++// that case so both runtimes work.
++const wasmModule =
++  wasmOrModule instanceof WebAssembly.Module
++    ? wasmOrModule
++    : wasmOrModule.default instanceof WebAssembly.Module
++      ? wasmOrModule.default
++      : undefined;
++const wasm = wasmModule
++  ? new WebAssembly.Instance(wasmModule, {
++      "./cooklang_wasm_bg.js": imports,
++    }).exports
++  : wasmOrModule;
+ __wbg_set_wasm(wasm);
++if (typeof wasm.__wbindgen_start === "function") {
++  wasm.__wbindgen_start();
++}

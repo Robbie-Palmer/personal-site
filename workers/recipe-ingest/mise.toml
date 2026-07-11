@@ -1,0 +1,22 @@
+[tasks.install]
+description = "Install recipe ingest dependencies"
+run = "pnpm install --frozen-lockfile --filter recipe-ingest..."
+
+[tasks.typecheck]
+description = "Typecheck the recipe ingest worker"
+depends = ["install"]
+run = "pnpm typecheck"
+
+[tasks.test]
+description = "Run recipe ingest tests"
+depends = ["install"]
+run = "pnpm test"
+
+[tasks.check]
+description = "Run all recipe ingest checks"
+depends = ["typecheck", "test"]
+
+[tasks."dev:stack"]
+description = "Run recipe-ingest and recipe-api together so the cross-script workflow binding resolves"
+depends = ["install"]
+run = "pnpm exec wrangler dev -c wrangler.toml -c ../recipe-api/wrangler.toml"
