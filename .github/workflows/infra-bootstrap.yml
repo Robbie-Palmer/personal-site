@@ -45,6 +45,9 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.GCP_TERRAFORM_SERVICE_ACCOUNT }}
 
+      - name: Remove stale Terraform plan file
+        run: rm -f .planfile
+
       - name: Terraform Plan
         run: mise run //infra-bootstrap:plan
         env:
@@ -53,7 +56,7 @@ jobs:
           TF_VAR_gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
 
       - name: Terraform Apply
-        if: ${{ inputs.apply && success() }}
+        if: ${{ inputs.apply && success() && hashFiles('infra-bootstrap/.planfile') != '' }}
         run: mise run //infra-bootstrap:apply
         env:
           DOPPLER_BOOTSTRAP_INFRA_CONFIG: prd_bootstrap_infra
