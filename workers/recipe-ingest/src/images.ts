@@ -15,6 +15,11 @@ export async function listSourceImageKeys(
   jobId: string,
 ): Promise<string[]> {
   const listing = await env.ARTIFACTS.list({ prefix: sourcePrefix(jobId) });
+  if (listing.truncated) {
+    throw new Error(
+      `Unexpectedly many source objects for job ${jobId}; listing truncated`,
+    );
+  }
   return listing.objects.map((object) => object.key).sort();
 }
 

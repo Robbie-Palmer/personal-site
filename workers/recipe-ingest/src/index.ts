@@ -216,7 +216,7 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
       const canonical = await step.do(
         "canonicalize",
         llmStepConfig(canonicalizeParams),
-        async () => {
+        async (ctx) => {
           const recipe = cooklang.derived;
           if (!recipe) {
             throw new NonRetryableError(
@@ -255,7 +255,14 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
               });
               applyDisambiguationChoices(decisions, unresolved, choices);
             } catch (error) {
-              // Disambiguation is best-effort: keep the deterministic results.
+              // Rethrow retryable provider errors while step attempts remain;
+              // otherwise disambiguation is best-effort — keep the
+              // deterministic results.
+              const attemptsRemain =
+                ctx.attempt <= canonicalizeParams.retryLimit;
+              if (attemptsRemain && !(error instanceof NonRetryableError)) {
+                throw error;
+              }
               console.warn(
                 `LLM disambiguation failed for job ${jobId}: ${
                   error instanceof Error ? error.message : String(error)
