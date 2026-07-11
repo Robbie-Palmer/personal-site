@@ -1,17 +1,5 @@
 import { RecipeSchema, type Recipe } from "../schemas/ground-truth.js";
 
-function sanitizeOptionalFiniteNumber(
-  obj: Record<string, unknown>,
-  key: string,
-  warnings: string[],
-): void {
-  const value = obj[key];
-  if (value === undefined || value === null) return;
-  if (typeof value === "number" && Number.isFinite(value)) return;
-  warnings.push(`${key}=${String(value)}`);
-  delete obj[key];
-}
-
 function sanitizeOptionalPositiveNumber(
   obj: Record<string, unknown>,
   key: string,
@@ -43,7 +31,7 @@ export function sanitizeParsedRecipe(raw: unknown): unknown {
       if (!Array.isArray(items)) continue;
       for (const item of items) {
         if (!item || typeof item !== "object") continue;
-        sanitizeOptionalFiniteNumber(item as Record<string, unknown>, "amount", warnings);
+        sanitizeOptionalPositiveNumber(item as Record<string, unknown>, "amount", warnings);
       }
     }
   }

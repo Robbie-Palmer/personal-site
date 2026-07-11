@@ -462,7 +462,10 @@ function stepToInstructionText(step: Step, parsed: CkParsedRecipe): string {
           const timer = parsed.timers[item.index]!;
           const amount = getQuantityValue(timer.quantity);
           const unit = getQuantityUnit(timer.quantity);
-          return [amount != null ? String(amount) : null, unit]
+          return [
+            amount != null && !Number.isNaN(amount) ? String(amount) : null,
+            unit,
+          ]
             .filter(Boolean)
             .join(" ");
         }

@@ -246,6 +246,7 @@ async function main() {
 
   // Pass 2: LLM disambiguation for unresolved ingredients
   if (llmEnabled) {
+    const apiKey = requiredEnv("OPENROUTER_API_KEY");
     const unresolvedCount = allEntryDecisions.reduce(
       (sum, d) => sum + d.filter((x) => x.method === "none" && x.candidates.length > 0).length,
       0,
@@ -266,7 +267,7 @@ async function main() {
       );
 
       await runLlmDisambiguation(
-        requiredEnv("OPENROUTER_API_KEY"),
+        apiKey,
         entry,
         entryDecisions,
         categoryMap,

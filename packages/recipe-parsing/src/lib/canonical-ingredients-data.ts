@@ -1,4 +1,4 @@
-import rawCanonicalIngredients from "../data/canonical-ingredients.json";
+import rawCanonicalIngredients from "../data/canonical-ingredients.json" with { type: "json" };
 import {
   CanonicalIngredientsDataSchema,
   type CanonicalIngredientsData,

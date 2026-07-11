@@ -19,7 +19,7 @@ export function computeBackoffDelayMs(
 ): number {
   const expDelay = Math.min(baseDelayMs * 2 ** Math.max(0, attempt - 1), maxDelayMs);
   const jitterMultiplier = 0.5 + Math.random();
-  return Math.floor(expDelay * jitterMultiplier);
+  return Math.floor(Math.min(expDelay * jitterMultiplier, maxDelayMs));
 }
 
 export function isOpenAIStyleError(error: unknown): error is OpenAIStyleError {
@@ -47,34 +47,30 @@ export function extractAttemptErrorDetail(
     errorMessage: error instanceof Error ? error.message : String(error),
   };
 
-  const candidate = isOpenAIStyleError(error) ? error : undefined;
-  if (candidate && typeof candidate.status === "number") {
-    base.statusCode = candidate.status;
+  if (!isOpenAIStyleError(error)) return base;
+
+  if (typeof error.status === "number") {
+    base.statusCode = error.status;
+  }
+  if (typeof error.requestID === "string" && error.requestID.length > 0) {
+    base.requestId = error.requestID;
+  }
+  if (typeof error.code === "string" && error.code.length > 0) {
+    base.providerErrorCode = error.code;
+  }
+  if (typeof error.type === "string" && error.type.length > 0) {
+    base.providerErrorType = error.type;
+  }
+  if (typeof error.param === "string" && error.param.length > 0) {
+    base.providerErrorParam = error.param;
   }
   if (
-    candidate &&
-    typeof candidate.requestID === "string" &&
-    candidate.requestID.length > 0
+    typeof error.cause === "object" &&
+    error.cause !== null &&
+    "message" in error.cause &&
+    typeof (error.cause as { message?: unknown }).message === "string"
   ) {
-    base.requestId = candidate.requestID;
-  }
-  if (candidate && typeof candidate.code === "string" && candidate.code.length > 0) {
-    base.providerErrorCode = candidate.code;
-  }
-  if (candidate && typeof candidate.type === "string" && candidate.type.length > 0) {
-    base.providerErrorType = candidate.type;
-  }
-  if (candidate && typeof candidate.param === "string" && candidate.param.length > 0) {
-    base.providerErrorParam = candidate.param;
-  }
-  if (
-    candidate &&
-    typeof candidate.cause === "object" &&
-    candidate.cause !== null &&
-    "message" in candidate.cause &&
-    typeof (candidate.cause as { message?: unknown }).message === "string"
-  ) {
-    base.causeMessage = (candidate.cause as { message: string }).message;
+    base.causeMessage = (error.cause as { message: string }).message;
   }
 
   return base;

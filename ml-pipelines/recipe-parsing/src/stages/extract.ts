@@ -93,15 +93,26 @@ async function extractEntryWithRetries(params: {
   let lastError: unknown;
   const attemptErrors: AttemptErrorDetail[] = [];
 
-  const imageDataUrls = await Promise.all(
-    params.images.map((imageFile) =>
-      imagePathToDataUrl(
-        join(IMAGES_DIR, imageFile),
-        params.maxImageDimension,
-        params.jpegQuality,
+  // A single unreadable image should fail this entry, not abort the whole run.
+  let imageDataUrls: string[];
+  try {
+    imageDataUrls = await Promise.all(
+      params.images.map((imageFile) =>
+        imagePathToDataUrl(
+          join(IMAGES_DIR, imageFile),
+          params.maxImageDimension,
+          params.jpegQuality,
+        ),
       ),
-    ),
-  );
+    );
+  } catch (error) {
+    return buildFailure({
+      images: params.images,
+      model: params.model,
+      lastError: error,
+      attemptErrors: [extractAttemptErrorDetail(error, 1)],
+    });
+  }
 
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
