@@ -1,7 +1,9 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { DietListNotice } from "@/components/recipes/diet-notice";
+import { useDiet } from "@/components/recipes/diet-provider";
 import { MealPlanner } from "@/components/recipes/shopping/meal-planner";
 import { RecipePicker } from "@/components/recipes/shopping/recipe-picker";
 import { ShoppingList } from "@/components/recipes/shopping/shopping-list";
@@ -17,8 +19,47 @@ const STEPS: { id: Step; label: string }[] = [
 ];
 
 export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
+  const { diet, matchRecipe } = useDiet();
   const { recipes: selected, plan, extras } = useShoppingList();
   const [step, setStep] = useState<Step>("plan");
+  const [showHidden, setShowHidden] = useState(false);
+  const selectedSlugs = useMemo(
+    () => new Set(selected.map((entry) => entry.slug)),
+    [selected],
+  );
+  const dietMatches = useMemo(
+    () =>
+      new Map(
+        recipes.map((recipe) => [
+          recipe.slug,
+          matchRecipe({
+            ingredients: recipe.ingredients.map((ingredient) => ({
+              slug: ingredient.ingredient,
+              name: ingredient.name,
+            })),
+          }),
+        ]),
+      ),
+    [matchRecipe, recipes],
+  );
+  const hiddenCount = Array.from(dietMatches.values()).filter(
+    (match) => !match.matches,
+  ).length;
+  const availableRecipes = useMemo(
+    () =>
+      diet.active && diet.mode === "hide" && !showHidden
+        ? recipes.filter((recipe) => dietMatches.get(recipe.slug)?.matches)
+        : recipes,
+    [diet.active, diet.mode, dietMatches, recipes, showHidden],
+  );
+  const pickerRecipes = useMemo(
+    () =>
+      recipes.filter(
+        (recipe) =>
+          availableRecipes.includes(recipe) || selectedSlugs.has(recipe.slug),
+      ),
+    [availableRecipes, recipes, selectedSlugs],
+  );
   const count = selected.length;
   const recipeNoun = count === 1 ? "recipe" : "recipes";
   const plannedCount = plan.length;
@@ -61,6 +102,16 @@ export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
         )}
       </div>
 
+      {diet.active && (
+        <DietListNotice
+          hiddenCount={hiddenCount}
+          labels={diet.labels}
+          mode={diet.mode}
+          showingHidden={showHidden}
+          onToggleHidden={() => setShowHidden((current) => !current)}
+        />
+      )}
+
       {/* Step tabs — mirror the recipe read-view tabs so the two feel of a piece. */}
       <div className="flex items-center border-b border-[var(--line)] mb-6">
         {STEPS.map((s) => {
@@ -86,7 +137,7 @@ export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
 
       {step === "plan" ? (
         <div className="space-y-8">
-          <MealPlanner recipes={recipes} />
+          <MealPlanner recipes={recipes} availableRecipes={availableRecipes} />
           <div>
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
               <div>
@@ -101,7 +152,7 @@ export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
                 Selected recipes appear in the plan pool and shopping list.
               </p>
             </div>
-            <RecipePicker recipes={recipes} />
+            <RecipePicker recipes={pickerRecipes} dietMatches={dietMatches} />
           </div>
           <div className="mt-6 flex justify-end">
             <button

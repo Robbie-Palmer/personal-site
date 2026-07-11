@@ -20,6 +20,8 @@ import {
   type CookStep,
   type CookToken,
 } from "@/components/recipes/cook-mode";
+import { DietWarning } from "@/components/recipes/diet-notice";
+import { useDiet } from "@/components/recipes/diet-provider";
 import { InlineTimer } from "@/components/recipes/inline-timer";
 import { Button } from "@/components/ui/button";
 import { useScaledRecipe } from "@/hooks/use-scaled-recipe";
@@ -143,6 +145,19 @@ function buildCookUrl(open: boolean, step: number): string {
 }
 
 export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
+  const { diet, matchRecipe } = useDiet();
+  const dietMatch = useMemo(
+    () =>
+      matchRecipe({
+        ingredients: recipe.ingredientGroups.flatMap((group) =>
+          group.items.map((item) => ({
+            slug: item.ingredient,
+            name: item.name,
+          })),
+        ),
+      }),
+    [matchRecipe, recipe.ingredientGroups],
+  );
   const baseServings = Math.max(1, recipe.servings);
   const [portions, setPortions] = useState(baseServings);
   const requestedScale = portions / baseServings;
@@ -283,6 +298,8 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
         <p className="rt-body text-xl text-[var(--ink-2)] mb-4">
           {recipe.description}
         </p>
+
+        {diet.active && <DietWarning match={dietMatch} className="mb-4" />}
 
         {recipe.canonical && (
           <p className="rt-body text-sm text-[var(--ink-2)] italic mb-4 inline-flex items-center gap-2 rounded-lg border border-dashed border-[var(--line-strong)] bg-[var(--paper-warm)] px-3 py-2">

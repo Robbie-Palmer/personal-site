@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { DIET_PROFILE_UPDATED_EVENT } from "@/components/recipes/diet-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -437,6 +438,7 @@ export function DietPanel() {
       setProfile(saved);
       setSavedProfile(saved);
       setSaveState("saved");
+      globalThis.dispatchEvent(new Event(DIET_PROFILE_UPDATED_EVENT));
     } catch (saveError) {
       if (controller.signal.aborted) return;
       setSaveState("error");

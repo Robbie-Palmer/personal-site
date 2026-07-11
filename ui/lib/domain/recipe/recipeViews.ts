@@ -42,6 +42,7 @@ type BaseRecipeView = {
 
 export type RecipeCardView = BaseRecipeView & {
   ingredientNames: string[];
+  ingredientSlugs: IngredientSlug[];
   cookware: string[];
 };
 
@@ -103,6 +104,16 @@ function extractIngredientNames(
   return Array.from(names).sort();
 }
 
+function extractIngredientSlugs(recipe: Recipe): IngredientSlug[] {
+  return Array.from(
+    new Set(
+      recipe.ingredientGroups.flatMap((group) =>
+        group.items.map((item) => item.ingredient),
+      ),
+    ),
+  ).sort();
+}
+
 export function toRecipeCardView(
   recipe: Recipe,
   ingredients: Map<IngredientSlug, Ingredient>,
@@ -122,6 +133,7 @@ export function toRecipeCardView(
     imageAlt: recipe.imageAlt,
     canonical: recipe.canonical,
     ingredientNames: extractIngredientNames(recipe, ingredients),
+    ingredientSlugs: extractIngredientSlugs(recipe),
     cookware: recipe.cookware,
   };
 }

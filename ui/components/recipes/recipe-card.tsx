@@ -1,8 +1,10 @@
 import { Check, ChefHat, Plus } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { DietWarning } from "@/components/recipes/diet-notice";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import type { DietMatch } from "@/lib/domain/diet";
 import type { KitchenRecipeMatch } from "@/lib/domain/recipe/kitchen";
 import { cn } from "@/lib/generic/styles";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
@@ -85,6 +87,7 @@ export function RecipeMatchCard({
   highlight = false,
   footer,
   cardAction = "open-recipe",
+  dietMatch,
 }: Readonly<{
   recipe: KitchenRecipeMatch;
   inList: boolean;
@@ -93,6 +96,7 @@ export function RecipeMatchCard({
   footer?: ReactNode;
   /** What tapping the card body does: open the recipe, or toggle the list. */
   cardAction?: "open-recipe" | "toggle-list";
+  dietMatch?: DietMatch;
 }>) {
   const timeLabel = formatRecipeTime(recipe.totalTime);
   const canCook = recipe.totalCount > 0 && recipe.missingCount === 0;
@@ -175,6 +179,9 @@ export function RecipeMatchCard({
               {recipe.missingIngredients.length > 5 ? "..." : ""}
             </span>
           </p>
+        )}
+        {dietMatch && (
+          <DietWarning match={dietMatch} compact className="mt-2" />
         )}
         <button
           type="button"

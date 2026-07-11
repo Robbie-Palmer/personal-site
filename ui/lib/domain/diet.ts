@@ -1,0 +1,104 @@
+import type {
+  DietOptions,
+  DietProfile,
+  DietRecipeMatchMode,
+} from "@/lib/api/diet";
+
+export type DietRecipe = {
+  ingredients: readonly { slug: string; name?: string }[];
+};
+
+export type DietMatch = {
+  matches: boolean;
+  excludedIngredients: { slug: string; name: string }[];
+};
+
+export type EffectiveDiet = {
+  active: boolean;
+  labels: string[];
+  mode: DietRecipeMatchMode;
+  excludedIngredientSlugs: ReadonlySet<string>;
+  ingredientNames: ReadonlyMap<string, string>;
+};
+
+function labelFromSlug(slug: string): string {
+  return slug
+    .split("-")
+    .filter(Boolean)
+    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
+    .join(" ");
+}
+
+export function buildEffectiveDiet(
+  profile: DietProfile,
+  options: DietOptions,
+): EffectiveDiet {
+  const presetByKey = new Map(
+    options.presets.map((preset) => [preset.key, preset]),
+  );
+  const groupByKey = new Map(options.groups.map((group) => [group.key, group]));
+  const ingredientNames = new Map(
+    options.ingredients.map((ingredient) => [ingredient.slug, ingredient.name]),
+  );
+  const presetGroups = profile.presetDietKeys.flatMap(
+    (key) => presetByKey.get(key)?.excludedGroupKeys ?? [],
+  );
+  const groupKeys = new Set([...presetGroups, ...profile.excludedGroupKeys]);
+  const excludedIngredientSlugs = new Set([
+    ...profile.excludedIngredientSlugs,
+    ...profile.presetDietKeys.flatMap(
+      (key) => presetByKey.get(key)?.excludedIngredientSlugs ?? [],
+    ),
+    ...Array.from(groupKeys).flatMap(
+      (key) => groupByKey.get(key)?.ingredientSlugs ?? [],
+    ),
+  ]);
+  const labels = [
+    ...profile.presetDietKeys.map(
+      (key) => presetByKey.get(key)?.label ?? labelFromSlug(key),
+    ),
+    ...profile.excludedGroupKeys.map(
+      (key) => `no ${groupByKey.get(key)?.label ?? labelFromSlug(key)}`,
+    ),
+    ...profile.excludedIngredientSlugs.map(
+      (slug) => `no ${ingredientNames.get(slug) ?? labelFromSlug(slug)}`,
+    ),
+  ];
+
+  return {
+    active: excludedIngredientSlugs.size > 0,
+    labels: Array.from(new Set(labels)),
+    mode: profile.recipeMatchMode,
+    excludedIngredientSlugs,
+    ingredientNames,
+  };
+}
+
+export function matchRecipeToDiet(
+  recipe: DietRecipe,
+  diet: EffectiveDiet,
+): DietMatch {
+  const excludedIngredients = Array.from(
+    new Map(
+      recipe.ingredients
+        .filter((ingredient) =>
+          diet.excludedIngredientSlugs.has(ingredient.slug),
+        )
+        .map((ingredient) => [
+          ingredient.slug,
+          {
+            slug: ingredient.slug,
+            name:
+              ingredient.name ??
+              diet.ingredientNames.get(ingredient.slug) ??
+              labelFromSlug(ingredient.slug),
+          },
+        ]),
+    ).values(),
+  );
+
+  return {
+    matches: excludedIngredients.length === 0,
+    excludedIngredients,
+  };
+}

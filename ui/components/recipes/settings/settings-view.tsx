@@ -24,8 +24,14 @@ export function SettingsView() {
   // A failed account link redirects back with ?error=<code>; open on the panel
   // that surfaces and clears it so the message isn't hidden behind a tab.
   useEffect(() => {
-    if (new URLSearchParams(globalThis.location.search).has("error")) {
+    const params = new URLSearchParams(globalThis.location.search);
+    if (params.has("error")) {
       setSection("signin");
+      return;
+    }
+    const requestedSection = params.get("section");
+    if (SECTIONS.some(({ id }) => id === requestedSection)) {
+      setSection(requestedSection as SectionId);
     }
   }, []);
 

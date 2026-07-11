@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useKitchenStock } from "@/hooks/use-kitchen-stock";
 import { useShoppingList } from "@/hooks/use-shopping-list";
 import type { ShoppingRecipe } from "@/lib/api/shopping";
+import type { DietMatch } from "@/lib/domain/diet";
 import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
 import {
   getKitchenRecipeMatches,
@@ -56,7 +57,13 @@ function ServingsStepper({
   );
 }
 
-export function RecipePicker({ recipes }: { recipes: ShoppingRecipe[] }) {
+export function RecipePicker({
+  recipes,
+  dietMatches,
+}: {
+  recipes: ShoppingRecipe[];
+  dietMatches?: ReadonlyMap<string, DietMatch>;
+}) {
   const { recipes: selectedEntries } = useShoppingList();
   const stock = useKitchenStock();
   const [query, setQuery] = useState("");
@@ -162,6 +169,7 @@ export function RecipePicker({ recipes }: { recipes: ShoppingRecipe[] }) {
                 onToggleList={() => toggleRecipe(recipe.slug)}
                 highlight={selected}
                 cardAction="toggle-list"
+                dietMatch={dietMatches?.get(recipe.slug)}
                 footer={
                   selected ? (
                     <ServingsStepper slug={recipe.slug} servings={servings} />

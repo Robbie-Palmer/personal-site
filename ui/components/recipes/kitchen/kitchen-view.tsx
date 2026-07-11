@@ -11,6 +11,8 @@ import {
   X,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
+import { DietListNotice } from "@/components/recipes/diet-notice";
+import { useDiet } from "@/components/recipes/diet-provider";
 import { RecipeMatchCard } from "@/components/recipes/recipe-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -60,6 +62,8 @@ export function KitchenView({
   ingredients: KitchenIngredientView[];
   recipes: KitchenRecipeView[];
 }>) {
+  const { diet, matchRecipe } = useDiet();
+  const [showHidden, setShowHidden] = useState(false);
   const ingredientBySlug = useMemo(
     () =>
       new Map(ingredients.map((ingredient) => [ingredient.slug, ingredient])),
@@ -93,9 +97,29 @@ export function KitchenView({
     [knownIngredientSlugs, stock],
   );
 
+  const dietMatches = useMemo(
+    () =>
+      new Map(
+        recipes.map((recipe) => [
+          recipe.slug,
+          matchRecipe({ ingredients: recipe.ingredients }),
+        ]),
+      ),
+    [matchRecipe, recipes],
+  );
+  const hiddenCount = Array.from(dietMatches.values()).filter(
+    (match) => !match.matches,
+  ).length;
+  const dietFilteredRecipes = useMemo(
+    () =>
+      diet.active && diet.mode === "hide" && !showHidden
+        ? recipes.filter((recipe) => dietMatches.get(recipe.slug)?.matches)
+        : recipes,
+    [diet.active, diet.mode, dietMatches, recipes, showHidden],
+  );
   const matches = useMemo(
-    () => getKitchenRecipeMatches(recipes, stockedSlugs),
-    [recipes, stockedSlugs],
+    () => getKitchenRecipeMatches(dietFilteredRecipes, stockedSlugs),
+    [dietFilteredRecipes, stockedSlugs],
   );
   const cookNow = matches
     .filter((recipe) => recipe.totalCount > 0 && recipe.missingCount === 0)
@@ -194,6 +218,16 @@ export function KitchenView({
           </p>
         </div>
       </div>
+
+      {diet.active && (
+        <DietListNotice
+          hiddenCount={hiddenCount}
+          labels={diet.labels}
+          mode={diet.mode}
+          showingHidden={showHidden}
+          onToggleHidden={() => setShowHidden((current) => !current)}
+        />
+      )}
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.85fr)]">
         <div className="min-w-0 space-y-6">
@@ -395,6 +429,7 @@ export function KitchenView({
                     recipe={recipe}
                     inList={selectedRecipeSlugs.has(recipe.slug)}
                     onToggleList={() => toggleRecipe(recipe.slug)}
+                    dietMatch={dietMatches.get(recipe.slug)}
                   />
                 ))
               ) : (
@@ -422,6 +457,7 @@ export function KitchenView({
                     recipe={recipe}
                     inList={selectedRecipeSlugs.has(recipe.slug)}
                     onToggleList={() => toggleRecipe(recipe.slug)}
+                    dietMatch={dietMatches.get(recipe.slug)}
                   />
                 ))
               ) : (
