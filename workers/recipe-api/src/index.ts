@@ -2188,6 +2188,20 @@ app.post("/recipe-imports", async (c) => {
       await workflow.create({ id: job.id, params: { jobId: job.id } });
     } catch (error) {
       console.error("POST /recipe-imports failed to start workflow", error);
+      // Best-effort cleanup so partially uploaded images don't accumulate.
+      try {
+        const uploaded = await artifacts.list({
+          prefix: `imports/${job.id}/`,
+        });
+        await Promise.all(
+          uploaded.objects.map((object) => artifacts.delete(object.key)),
+        );
+      } catch (cleanupError) {
+        console.error(
+          `Failed to clean up R2 objects for import ${job.id}`,
+          cleanupError,
+        );
+      }
       await db
         .update(schema.recipeImportJob)
         .set({
