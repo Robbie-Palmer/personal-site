@@ -32,7 +32,6 @@ set_if_unset() {
 set_if_unset TF_TOKEN_app_terraform_io "${TF_API_TOKEN:-}"
 set_if_unset TF_VAR_cf_images_account_hash "${CF_IMAGES_ACCOUNT_HASH:-${NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH:-}}"
 set_if_unset TF_VAR_github_token "${MISE_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}"
-set_if_unset TF_VAR_gcp_project_id "${GCP_PROJECT_ID:-}"
 set_if_unset TF_VAR_neon_org_id "${NEON_ORG_ID:-}"
 set_if_unset TF_VAR_posthog_host "${POSTHOG_HOST:-${NEXT_PUBLIC_POSTHOG_HOST:-}}"
 set_if_unset TF_VAR_posthog_key "${POSTHOG_KEY:-${NEXT_PUBLIC_POSTHOG_KEY:-}}"

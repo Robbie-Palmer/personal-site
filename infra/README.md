@@ -1,6 +1,11 @@
 # Infrastructure
 
-Terraform configuration for managing Cloudflare and Neon resources.
+Terraform configuration for managing Cloudflare, Neon, and PostHog resources.
+
+Foundational IAM and identity trust resources live in
+[`../infra-bootstrap`](../infra-bootstrap/README.md). Keep that root separate
+from routine Cloudflare, Neon, PostHog, and Pages deploys because its GitHub
+identity can change project IAM.
 
 ## GitHub Actions Setup
 
@@ -72,8 +77,9 @@ Secrets and config mirrored from Doppler:
 Create GitHub environments that match the Doppler config boundaries:
 
 1. Go to: Settings → Environments → New environment
-2. Create `production-infra`, `production-site-ui`, `production-recipe-api`,
-   `production-ci`, `preview-site-ui`, and `preview-recipe-api`
+2. Create `production-infra`, `production-infra-bootstrap`, `production-site-ui`,
+   `production-recipe-api`, `production-ci`, `preview-site-ui`, and
+   `preview-recipe-api`
 3. (Optional) Add protection rules for production deployments
 
 PR infrastructure uses the `preview-*` environments with least-privilege
@@ -132,7 +138,7 @@ PostHog dashboards and insights are managed in Terraform via the official
 `posthog_resources.json`, with `posthog.tf` converting that data into
 Terraform-managed dashboard and insight resources.
 
-### Managed in Terraform
+### Managed PostHog Resources
 
 - Existing dashboards in project `123162`
 - Existing insights in project `123162`, including their dashboard attachments

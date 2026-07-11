@@ -4,6 +4,7 @@ experimental_monorepo_root = true
 config_roots = [
     "ui",
     "infra",
+    "infra-bootstrap",
     "ml-pipelines",
     "workers/recipe-api",
 ]
@@ -25,7 +26,7 @@ MISE_EXPERIMENTAL = "1"
 # Root-level tasks for repo-wide tooling
 [tasks.lint]
 description = "Lint all files across the entire repo"
-depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:actions", "//ui:lint", "//infra:lint"]
+depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:actions", "//ui:lint", "//infra:lint", "//infra-bootstrap:lint"]
 
 [tasks."lint:markdown"]
 description = "Lint and fix Markdown files (optionally pass files as args)"
