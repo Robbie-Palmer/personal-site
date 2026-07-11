@@ -18,7 +18,8 @@ export function computeBackoffDelayMs(
   maxDelayMs: number,
 ): number {
   const expDelay = Math.min(baseDelayMs * 2 ** Math.max(0, attempt - 1), maxDelayMs);
-  const jitterMultiplier = 0.5 + Math.random();
+  // Retry jitter needs no cryptographic strength (Sonar S2245).
+  const jitterMultiplier = 0.5 + Math.random(); // NOSONAR
   return Math.floor(Math.min(expDelay * jitterMultiplier, maxDelayMs));
 }
 
