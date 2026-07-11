@@ -11,6 +11,13 @@ const options: DietOptions = {
       excludedGroupKeys: ["meat"],
       excludedIngredientSlugs: [],
     },
+    {
+      key: "vegan",
+      label: "Vegan",
+      sub: "No animal products",
+      excludedGroupKeys: ["meat", "dairy", "egg"],
+      excludedIngredientSlugs: ["honey"],
+    },
   ],
   groups: [
     {
@@ -19,10 +26,25 @@ const options: DietOptions = {
       sub: "Meat ingredients",
       ingredientSlugs: ["chicken-breast", "beef-mince"],
     },
+    {
+      key: "dairy",
+      label: "Dairy",
+      sub: "Dairy ingredients",
+      ingredientSlugs: ["cheddar-cheese"],
+    },
+    {
+      key: "egg",
+      label: "Egg",
+      sub: "Egg ingredients",
+      ingredientSlugs: ["eggs"],
+    },
   ],
   ingredients: [
     { slug: "chicken-breast", name: "Chicken breast" },
     { slug: "egg", name: "Egg" },
+    { slug: "cheddar-cheese", name: "Cheddar cheese" },
+    { slug: "eggs", name: "Eggs" },
+    { slug: "honey", name: "Honey" },
   ],
 };
 
@@ -77,5 +99,28 @@ describe("diet recipe matching", () => {
         diet,
       ).excludedIngredients,
     ).toEqual([{ slug: "egg", name: "Eggs" }]);
+  });
+
+  it("filters representative recipes for a vegan profile", () => {
+    const diet = buildEffectiveDiet(
+      profile({ presetDietKeys: ["vegan"] }),
+      options,
+    );
+
+    expect(diet.active).toBe(true);
+    expect(
+      matchRecipeToDiet(
+        {
+          ingredients: [{ slug: "chicken-breast" }, { slug: "cheddar-cheese" }],
+        },
+        diet,
+      ).matches,
+    ).toBe(false);
+    expect(
+      matchRecipeToDiet(
+        { ingredients: [{ slug: "chickpeas" }, { slug: "tomato" }] },
+        diet,
+      ).matches,
+    ).toBe(true);
   });
 });

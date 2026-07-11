@@ -302,9 +302,13 @@ const RecipeCard = memo(function RecipeCard({
 
 interface RecipeListProps {
   recipes: RecipeCardView[];
+  onDietVisibleCountChange?: (count: number) => void;
 }
 
-export function RecipeList({ recipes }: RecipeListProps) {
+export function RecipeList({
+  recipes,
+  onDietVisibleCountChange,
+}: RecipeListProps) {
   const { diet, matchRecipe } = useDiet();
   const filterParams = useFilterParams({ filters: RECIPE_FILTER_PARAMS });
   const router = useRouter();
@@ -333,6 +337,9 @@ export function RecipeList({ recipes }: RecipeListProps) {
         : recipes,
     [diet.active, diet.mode, dietMatches, recipes, showHidden],
   );
+  useEffect(() => {
+    onDietVisibleCountChange?.(visibleRecipes.length);
+  }, [onDietVisibleCountChange, visibleRecipes.length]);
 
   // Derive the selected values from the raw query strings so their array
   // identities stay stable while a given filter is unchanged — this lets the

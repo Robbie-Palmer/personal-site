@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RecipeList } from "@/components/recipes/recipe-list";
@@ -109,17 +115,29 @@ describe("RecipeList", () => {
   it("hides diet mismatches and lets the user temporarily show them", async () => {
     dietTestState.mode = "hide";
     const user = userEvent.setup();
+    const onDietVisibleCountChange = vi.fn();
 
-    render(<RecipeList recipes={recipes} />);
+    render(
+      <RecipeList
+        recipes={recipes}
+        onDietVisibleCountChange={onDietVisibleCountChange}
+      />,
+    );
 
     expect(screen.queryByText("Chicken Quesadillas")).not.toBeInTheDocument();
     expect(screen.getByText("Creamy Pesto Risotto")).toBeInTheDocument();
     expect(screen.getByText(/2 recipes hidden/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(onDietVisibleCountChange).toHaveBeenCalledWith(1),
+    );
 
     await user.click(screen.getByRole("button", { name: /show anyway/i }));
 
     expect(screen.getByText("Chicken Quesadillas")).toBeInTheDocument();
     expect(screen.getAllByText(/doesn't match your diet/i)).toHaveLength(2);
+    await waitFor(() =>
+      expect(onDietVisibleCountChange).toHaveBeenCalledWith(3),
+    );
   });
 
   it("keeps diet mismatches visible with warnings in warn mode", () => {
