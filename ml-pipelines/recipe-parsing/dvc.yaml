@@ -131,6 +131,7 @@ stages:
     deps:
       - outputs/predictions.json
       - ../../packages/recipe-parsing/src/data/canonical-ingredients.json
+      - ../../packages/recipe-parsing/src/lib/canonical-ingredients-data.ts
       - src/stages/canonicalize.ts
       - ../../packages/recipe-parsing/src/lib/ingredient-canonicalization.ts
       - ../../packages/recipe-parsing/src/lib/ingredient-normalization-rules.ts

@@ -122,7 +122,7 @@ function servePipelineFiles(): Plugin {
         fs.createReadStream(canonicalIngredientsPath)
           .on("error", () => {
             res.statusCode = 404;
-            res.end("Not found");
+            res.end(JSON.stringify({ error: "Not found" }));
           })
           .pipe(res);
       });
