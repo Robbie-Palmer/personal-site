@@ -2,12 +2,22 @@ variable "github_repo_owner" {
   description = "GitHub repository owner/organization"
   type        = string
   default     = "Robbie-Palmer"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9._-]+$", var.github_repo_owner))
+    error_message = "github_repo_owner must contain only letters, numbers, dots, underscores, and hyphens."
+  }
 }
 
 variable "github_repo_name" {
   description = "GitHub repository name"
   type        = string
   default     = "personal-site"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9._-]+$", var.github_repo_name))
+    error_message = "github_repo_name must contain only letters, numbers, dots, underscores, and hyphens."
+  }
 }
 
 variable "gcp_project_id" {

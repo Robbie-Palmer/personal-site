@@ -9,6 +9,10 @@ on:
         default: false
         type: boolean
 
+concurrency:
+  group: infra-bootstrap
+  cancel-in-progress: false
+
 permissions:
   contents: read
   id-token: write
@@ -49,9 +53,16 @@ jobs:
           TF_VAR_gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
 
       - name: Terraform Apply
-        if: ${{ inputs.apply }}
+        if: ${{ inputs.apply && success() }}
         run: mise run //infra-bootstrap:apply
         env:
           DOPPLER_BOOTSTRAP_INFRA_CONFIG: prd_bootstrap_infra
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
           TF_VAR_gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Remove Google credentials file
+        if: ${{ always() }}
+        run: |
+          if [ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]; then
+            rm -f "$GOOGLE_APPLICATION_CREDENTIALS"
+          fi
