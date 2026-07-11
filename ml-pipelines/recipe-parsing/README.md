@@ -22,10 +22,15 @@ recipe-parsing/
 │   └── config.local    # Credentials (git-ignored)
 ├── data/
 │   ├── recipe-images/              # Image data (tracked by DVC, not git)
-│   ├── ground-truth.json           # Ground truth annotations
-│   └── canonical-ingredients.json  # Canonical ingredient registry
+│   └── ground-truth.json           # Ground truth annotations
 └── README.md
 ```
+
+The parsing algorithm itself (prompts, OpenRouter calls, Cooklang handling,
+canonicalization, and the canonical ingredient registry) lives in the shared
+[`recipe-parsing` package](../../packages/recipe-parsing/), which the
+production ingestion backend also consumes. This pipeline owns dataset
+management, stage orchestration, and evaluation.
 
 ## Pipeline Stages
 
@@ -94,7 +99,7 @@ Outputs:
 ### 4. Canonicalize
 
 `canonicalize` maps parsed ingredient slugs to the canonical ingredient registry
-in `data/canonical-ingredients.json`.
+in `packages/recipe-parsing/src/data/canonical-ingredients.json`.
 
 Outputs:
 

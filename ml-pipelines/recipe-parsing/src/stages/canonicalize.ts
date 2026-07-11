@@ -1,5 +1,4 @@
 import {
-  loadCanonicalIngredients,
   loadPredictions,
   loadParams,
   CANONICALIZATION_DECISIONS_PATH,
@@ -7,18 +6,21 @@ import {
   writeJson,
   type CanonicalizationParams,
 } from "../lib/io.js";
+import { canonicalIngredients } from "recipe-parsing/canonical-ingredients-data";
 import {
   canonicalizePredictionEntry,
   buildOntologyIndex,
   type IngredientCanonicalizationDecision,
-} from "../lib/ingredient-canonicalization.js";
+} from "recipe-parsing/ingredient-canonicalization";
 import {
   disambiguateIngredients,
+  type DisambiguationChoice,
   type UnresolvedItem,
-} from "../lib/openrouter.js";
-import { computeBackoffDelayMs, sleep } from "../lib/stage-runner.js";
-import type { CanonicalIngredient } from "../schemas/canonical-ingredients.js";
-import type { PredictionEntry } from "../schemas/ground-truth.js";
+} from "recipe-parsing/openrouter";
+import { computeBackoffDelayMs, sleep } from "recipe-parsing/attempts";
+import { requiredEnv } from "../lib/env.js";
+import type { CanonicalIngredient } from "recipe-parsing/schemas/canonical-ingredients";
+import type { PredictionEntry } from "recipe-parsing/schemas/ground-truth";
 
 function hasApiKey(): boolean {
   return Boolean(process.env.OPENROUTER_API_KEY);
@@ -70,6 +72,7 @@ function extractRecipeContext(
 }
 
 async function runLlmDisambiguation(
+  apiKey: string,
   entry: PredictionEntry,
   decisions: IngredientCanonicalizationDecision[],
   categoryMap: Map<string, string>,
@@ -88,16 +91,19 @@ async function runLlmDisambiguation(
     );
   }
 
-  let choices: Awaited<ReturnType<typeof disambiguateIngredients>> | undefined;
+  let choices: DisambiguationChoice[] | undefined;
 
   for (let attempt = 0; attempt <= params.max_retries; attempt++) {
     try {
-      choices = await disambiguateIngredients({
-        unresolvedItems: unresolved,
-        recipeContext,
-        model: params.model,
-        requestTimeoutMs: params.request_timeout_ms,
-      });
+      choices = (
+        await disambiguateIngredients({
+          apiKey,
+          unresolvedItems: unresolved,
+          recipeContext,
+          model: params.model,
+          requestTimeoutMs: params.request_timeout_ms,
+        })
+      ).value;
       break;
     } catch (err) {
       const isLastAttempt = attempt === params.max_retries;
@@ -184,11 +190,11 @@ function applyLlmDecisionsToEntry(
 
 async function main() {
   console.log("Loading predictions and canonical ingredients...");
-  const [predictions, canonicalData, pipelineParams] = await Promise.all([
+  const [predictions, pipelineParams] = await Promise.all([
     loadPredictions(),
-    loadCanonicalIngredients(),
     loadParams(),
   ]);
+  const canonicalData = canonicalIngredients;
 
   const ontology = new Set<string>();
   for (const { slug } of canonicalData.ingredients) {
@@ -240,6 +246,7 @@ async function main() {
 
   // Pass 2: LLM disambiguation for unresolved ingredients
   if (llmEnabled) {
+    const apiKey = requiredEnv("OPENROUTER_API_KEY");
     const unresolvedCount = allEntryDecisions.reduce(
       (sum, d) => sum + d.filter((x) => x.method === "none" && x.candidates.length > 0).length,
       0,
@@ -260,6 +267,7 @@ async function main() {
       );
 
       await runLlmDisambiguation(
+        apiKey,
         entry,
         entryDecisions,
         categoryMap,

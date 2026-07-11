@@ -1,4 +1,4 @@
-import { deriveRecipeFromCooklang } from "../../../../src/lib/cooklang.js";
+import { deriveRecipeFromCooklang } from "recipe-parsing/cooklang";
 import type { ParsedRecipe } from "recipe-domain";
 import type { CooklangRecipe } from "../types/extraction";
 

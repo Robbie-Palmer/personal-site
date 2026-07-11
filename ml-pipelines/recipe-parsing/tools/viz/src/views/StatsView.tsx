@@ -35,7 +35,7 @@ import {
 import type {
   GroundTruthEntry as MetricsGroundTruthEntry,
   PredictionEntry as MetricsPredictionEntry,
-} from "../../../../src/schemas/ground-truth.js";
+} from "recipe-parsing/schemas/ground-truth";
 import { extractionToRecipe } from "../../../../src/lib/extraction-to-recipe.js";
 import { flattenExtractionText } from "../../../../src/lib/extraction-text.js";
 import type {

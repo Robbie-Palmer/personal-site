@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { extractIngredientSlugsFromBody } from "../../../../src/lib/cooklang.js";
+import { extractIngredientSlugsFromBody } from "recipe-parsing/cooklang";
 import type { CooklangRecipe, CooklangFrontmatter } from "../types/extraction";
 
 interface CooklangEditorProps {

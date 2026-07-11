@@ -17,7 +17,7 @@ export function stringifyProviderErrorBody(errorBody: unknown): string | undefin
     raw = errorBody;
   } else {
     try {
-      raw = JSON.stringify(errorBody, null, 2);
+      raw = JSON.stringify(errorBody, null, 2) ?? "[unserializable error body]";
     } catch {
       raw = "[unserializable error body]";
     }

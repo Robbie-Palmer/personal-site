@@ -2,7 +2,7 @@ import type {
   GroundTruthEntry,
   Recipe,
   PredictionEntry,
-} from "../schemas/ground-truth";
+} from "recipe-parsing/schemas/ground-truth";
 import { imageSetKey } from "../lib/image-key.js";
 import { splitComparableWords } from "../lib/comparable-text.js";
 

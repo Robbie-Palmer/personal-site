@@ -9,7 +9,7 @@ import {
   saveGroundTruth,
 } from "../lib/data";
 import { deriveNormalizedRecipe } from "../lib/cooklang";
-import { extractCookwareFromBody } from "../../../../src/lib/cooklang.js";
+import { extractCookwareFromBody } from "recipe-parsing/cooklang";
 import type {
   CooklangPredictionsDataset,
   CooklangRecipe,

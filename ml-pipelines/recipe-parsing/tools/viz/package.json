@@ -13,7 +13,8 @@
     "react": "^19",
     "react-dom": "^19",
     "recharts": "^3.3.0",
-    "recipe-domain": "workspace:*"
+    "recipe-domain": "workspace:*",
+    "recipe-parsing": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4",

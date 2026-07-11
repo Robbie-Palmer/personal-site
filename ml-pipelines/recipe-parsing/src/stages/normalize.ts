@@ -13,30 +13,33 @@ import {
 import {
   buildCooklangDraftFromExtraction,
   deriveRecipeFromCooklang,
-} from "../lib/cooklang.js";
-import { normalizeExtractionToCooklang } from "../lib/openrouter.js";
-import { stringifyProviderErrorBody } from "../lib/parse-retry.js";
+} from "recipe-parsing/cooklang";
+import { normalizeExtractionToCooklang } from "recipe-parsing/openrouter";
+import { stringifyProviderErrorBody } from "recipe-parsing/parse-retry";
 import { imageSetKey } from "../lib/image-key.js";
 import {
   type AttemptErrorDetail,
-  parseCsvEnv,
   sleep,
   computeBackoffDelayMs,
   isOpenAIStyleError,
   extractAttemptErrorDetail,
+} from "recipe-parsing/attempts";
+import {
+  parseCsvEnv,
   mergeByImageSet,
   catchMissingFile,
 } from "../lib/stage-runner.js";
+import { requiredEnv } from "../lib/env.js";
 import type {
   PredictionEntry,
   PredictionsDataset,
-} from "../schemas/ground-truth.js";
+} from "recipe-parsing/schemas/ground-truth";
 import type {
   CooklangPredictionEntry,
   CooklangPredictionsDataset,
   ExtractionPredictionEntry,
-} from "../schemas/stage-artifacts.js";
-import type { ParseFailuresDataset } from "../schemas/parse-failures.js";
+} from "recipe-parsing/schemas/stage-artifacts";
+import type { ParseFailuresDataset } from "recipe-parsing/schemas/parse-failures";
 
 type NormalizeSuccess = {
   ok: true;
@@ -91,6 +94,7 @@ function buildFailure(params: {
 }
 
 async function normalizeEntryWithRetries(params: {
+  apiKey: string;
   entry: ExtractionPredictionEntry;
   model: string;
   requestTimeoutMs: number;
@@ -106,6 +110,7 @@ async function normalizeEntryWithRetries(params: {
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
       const cooklang = await normalizeExtractionToCooklang({
+        apiKey: params.apiKey,
         extracted: entry.extracted,
         model: params.model,
         requestTimeoutMs: params.requestTimeoutMs,
@@ -113,7 +118,7 @@ async function normalizeEntryWithRetries(params: {
 
       // Always re-derive from the body to ensure slug normalization is applied.
       // The LLM may include a `derived` field but it won't have normalized slugs.
-      const derived = deriveRecipeFromCooklang({ ...cooklang, derived: undefined });
+      const derived = deriveRecipeFromCooklang({ ...cooklang.value, derived: undefined });
 
       if (!derived.derived) {
         // LLM produced cooklang but derivation failed — use draft fallback
@@ -224,6 +229,7 @@ async function main() {
     `  target_images:      ${targetImages ? targetImages.join(", ") : "(all entries)"}`,
   );
   console.log(`  OPENROUTER_API_KEY: ${hasApiKey ? "set" : "missing"}`);
+  const apiKey = requiredEnv("OPENROUTER_API_KEY");
 
   console.log("Loading extraction predictions...");
   const extractionPredictions = await loadExtractionPredictions();
@@ -265,6 +271,7 @@ async function main() {
       }
       const entry = entriesToProcess[currentIndex]!;
       results[currentIndex] = await normalizeEntryWithRetries({
+        apiKey,
         entry,
         model,
         requestTimeoutMs,

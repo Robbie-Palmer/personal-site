@@ -19,7 +19,7 @@ import type {
   GroundTruthEntry,
   ExtractionRecipe,
   PredictionEntry,
-} from "../schemas/ground-truth.js";
+} from "recipe-parsing/schemas/ground-truth";
 
 function hasExpectedExtraction(entry: GroundTruthEntry): entry is GroundTruthEntry & { expectedExtraction: ExtractionRecipe } {
   return entry.expectedExtraction !== undefined;

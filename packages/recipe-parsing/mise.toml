@@ -1,0 +1,17 @@
+[tasks.install]
+description = "Install recipe-parsing dependencies"
+run = "pnpm install --frozen-lockfile --filter recipe-parsing..."
+
+[tasks.typecheck]
+description = "Typecheck the recipe-parsing package"
+depends = ["install"]
+run = "pnpm typecheck"
+
+[tasks.test]
+description = "Run recipe-parsing tests"
+depends = ["install"]
+run = "pnpm test"
+
+[tasks.check]
+description = "Run all recipe-parsing checks"
+depends = ["typecheck", "test"]

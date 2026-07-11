@@ -387,6 +387,7 @@ describe("cooklang helpers", () => {
 		const input = {
 			title: "Salad",
 			description: "Fresh salad.",
+			cuisine: [],
 			servings: 1,
 			ingredientGroups: [
 				{

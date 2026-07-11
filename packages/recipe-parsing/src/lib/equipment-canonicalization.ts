@@ -86,7 +86,7 @@ export function canonicalizeEquipmentName(
     method: canonicalSlug === baseSlug ? "none" : "exact",
     candidates: candidateSlugs.map((candidate, index) => ({
       name: toDisplayName(candidate),
-      score: index === 0 ? 1 : 0.95,
+      score: index === candidateSlugs.length - 1 ? 1 : 0.95,
     })),
   };
 }

@@ -17,7 +17,7 @@ import {
   normalizeComparableText,
   splitComparableWords,
 } from "../../src/lib/comparable-text.js";
-import type { Recipe } from "../../src/schemas/ground-truth.js";
+import type { Recipe } from "recipe-parsing/schemas/ground-truth";
 
 describe("splitWords", () => {
     it("should split words correctly", () => {
