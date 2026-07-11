@@ -32,7 +32,7 @@ locals {
     "sts.googleapis.com",
   ])
 
-  github_actions_principal = "principalSet://iam.googleapis.com/projects/${google_project.recipes.number}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.github_actions.workload_identity_pool_id}/attribute.repository/${local.github_repository}"
+  github_actions_principal = "principal://iam.googleapis.com/projects/${google_project.recipes.number}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.github_actions.workload_identity_pool_id}/subject/repo:${local.github_repository}:environment:production-infra-bootstrap"
 }
 
 resource "google_project_service" "required" {
