@@ -73,7 +73,9 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
             `No source images found for job ${jobId}`,
           );
         }
-        await withDb(env, (db) => markJobRunning(db, jobId));
+        await withDb(env, (db) =>
+          markJobRunning(db, jobId, event.instanceId),
+        );
         return keys;
       });
 

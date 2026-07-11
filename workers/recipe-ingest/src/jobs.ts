@@ -3,13 +3,18 @@ import { recipeImportJob } from "recipe-db/schema";
 import type { Db } from "./db";
 import type { ImportStage } from "./keys";
 
-export async function markJobRunning(db: Db, jobId: string): Promise<void> {
+export async function markJobRunning(
+  db: Db,
+  jobId: string,
+  workflowInstanceId: string,
+): Promise<void> {
   await db
     .update(recipeImportJob)
     .set({
       status: "running",
       currentStage: "extract",
       progressLabel: "Reading the recipe from your photos",
+      workflowInstanceId,
     })
     .where(eq(recipeImportJob.id, jobId));
 }
