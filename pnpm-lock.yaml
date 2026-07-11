@@ -11,7 +11,7 @@ overrides:
 
 patchedDependencies:
   '@cooklang/cooklang@0.18.7':
-    hash: 25097fedb9bd28c93f0f9d1b4c83a86ababa0cde09fada6c7a67392a545cd7c6
+    hash: 85b684e1c0e18dedb7ebd9e043c0c937dc04446f8417852c7f5af27b4b423ec7
     path: patches/@cooklang__cooklang@0.18.7.patch
   gray-matter@4.0.3:
     hash: 82198c3ee34e2823c4e9793c5209cf97bd566d5610c3f6582dc3f044ca423d6f
@@ -168,7 +168,7 @@ importers:
     dependencies:
       '@cooklang/cooklang':
         specifier: ^0.18.0
-        version: 0.18.7(patch_hash=25097fedb9bd28c93f0f9d1b4c83a86ababa0cde09fada6c7a67392a545cd7c6)
+        version: 0.18.7(patch_hash=85b684e1c0e18dedb7ebd9e043c0c937dc04446f8417852c7f5af27b4b423ec7)
       numeric-quantity:
         specifier: ^3.2.1
         version: 3.2.2
@@ -193,7 +193,7 @@ importers:
     dependencies:
       '@cooklang/cooklang':
         specifier: ^0.18.0
-        version: 0.18.7(patch_hash=25097fedb9bd28c93f0f9d1b4c83a86ababa0cde09fada6c7a67392a545cd7c6)
+        version: 0.18.7(patch_hash=85b684e1c0e18dedb7ebd9e043c0c937dc04446f8417852c7f5af27b4b423ec7)
       '@radix-ui/react-accordion':
         specifier: ^1.2.12
         version: 1.2.15(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -6560,7 +6560,7 @@ snapshots:
 
   '@cloudflare/workers-types@4.20260702.1': {}
 
-  '@cooklang/cooklang@0.18.7(patch_hash=25097fedb9bd28c93f0f9d1b4c83a86ababa0cde09fada6c7a67392a545cd7c6)': {}
+  '@cooklang/cooklang@0.18.7(patch_hash=85b684e1c0e18dedb7ebd9e043c0c937dc04446f8417852c7f5af27b4b423ec7)': {}
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:

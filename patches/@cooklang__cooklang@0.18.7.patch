@@ -1,5 +1,5 @@
 diff --git a/pkg/cooklang_wasm.js b/pkg/cooklang_wasm.js
-index 27c98e1f3af1a6788f85517598e84516e5fa5794..a3cf022f6b1357ea9e6d8ef36cd08bca5b4b9773 100644
+index 27c98e1f3af1a6788f85517598e84516e5fa5794..36dcd956d6c016d037566e202aa5b9f97ea830fc 100644
 --- a/pkg/cooklang_wasm.js
 +++ b/pkg/cooklang_wasm.js
 @@ -1,4 +1,24 @@
@@ -12,18 +12,18 @@ index 27c98e1f3af1a6788f85517598e84516e5fa5794..a3cf022f6b1357ea9e6d8ef36cd08bca
 +// Bundlers (vite, webpack, node) resolve the .wasm import to instantiated
 +// exports, but Cloudflare's workerd resolves it to a WebAssembly.Module
 +// (surfaced as the namespace default export). Instantiate it ourselves in
-+// that case so both runtimes work.
-+const wasmModule =
++// that case so both runtimes work. Reflect.get avoids webpack's static
++// export analysis, which rejects a direct .default access on wasm modules.
++const maybeModule =
 +  wasmOrModule instanceof WebAssembly.Module
 +    ? wasmOrModule
-+    : wasmOrModule.default instanceof WebAssembly.Module
-+      ? wasmOrModule.default
-+      : undefined;
-+const wasm = wasmModule
-+  ? new WebAssembly.Instance(wasmModule, {
-+      "./cooklang_wasm_bg.js": imports,
-+    }).exports
-+  : wasmOrModule;
++    : Reflect.get(wasmOrModule, "default");
++const wasm =
++  maybeModule instanceof WebAssembly.Module
++    ? new WebAssembly.Instance(maybeModule, {
++        "./cooklang_wasm_bg.js": imports,
++      }).exports
++    : wasmOrModule;
  __wbg_set_wasm(wasm);
 +if (typeof wasm.__wbindgen_start === "function") {
 +  wasm.__wbindgen_start();
