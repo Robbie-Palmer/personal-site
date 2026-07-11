@@ -111,7 +111,7 @@ function extractIngredientSlugs(recipe: Recipe): IngredientSlug[] {
         group.items.map((item) => item.ingredient),
       ),
     ),
-  ).sort();
+  ).sort((first, second) => first.localeCompare(second));
 }
 
 export function toRecipeCardView(

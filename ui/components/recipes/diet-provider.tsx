@@ -3,6 +3,7 @@
 import {
   createContext,
   type ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -83,13 +84,18 @@ export function DietProvider({ children }: Readonly<{ children: ReactNode }>) {
     };
   }, [isPending, sessionUserId]);
 
+  const matchRecipe = useCallback(
+    (recipe: DietRecipe) => matchRecipeToDiet(recipe, diet),
+    [diet],
+  );
+
   const value = useMemo<DietContextValue>(
     () => ({
       diet,
       loading: isPending || loading,
-      matchRecipe: (recipe) => matchRecipeToDiet(recipe, diet),
+      matchRecipe,
     }),
-    [diet, isPending, loading],
+    [diet, isPending, loading, matchRecipe],
   );
 
   return <DietContext.Provider value={value}>{children}</DietContext.Provider>;

@@ -52,14 +52,13 @@ export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
         : recipes,
     [diet.active, diet.mode, dietMatches, recipes, showHidden],
   );
-  const pickerRecipes = useMemo(
-    () =>
-      recipes.filter(
-        (recipe) =>
-          availableRecipes.includes(recipe) || selectedSlugs.has(recipe.slug),
-      ),
-    [availableRecipes, recipes, selectedSlugs],
-  );
+  const pickerRecipes = useMemo(() => {
+    if (!diet.active || diet.mode !== "hide" || showHidden) return recipes;
+    return recipes.filter(
+      (recipe) =>
+        dietMatches.get(recipe.slug)?.matches || selectedSlugs.has(recipe.slug),
+    );
+  }, [diet.active, diet.mode, dietMatches, recipes, selectedSlugs, showHidden]);
   const count = selected.length;
   const recipeNoun = count === 1 ? "recipe" : "recipes";
   const plannedCount = plan.length;
