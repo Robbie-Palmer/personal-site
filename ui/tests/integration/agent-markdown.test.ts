@@ -115,6 +115,14 @@ describe("agent markdown generation", () => {
     }
   });
 
+  it("preserves ingredient annotations in Cooklang exports", () => {
+    const recipe = read("recipes/breakfast-flatbreads.cook");
+
+    expect(recipe).toContain("ingredientAnnotations:");
+    expect(recipe).toContain('"cherry-tomato":{"preparation":"halved"}');
+    expect(recipe).toContain('"naan":{"note":"plain"}');
+  });
+
   it("scopes the middleware to page routes in _routes.json", () => {
     const routes = JSON.parse(read("_routes.json"));
     expect(routes.include).toContain("/api/auth/*");

@@ -46,6 +46,18 @@ import { getImageUrl } from "@/lib/integrations/cloudflare-images";
 import { buildRecipeJsonLd } from "@/lib/seo/recipe-jsonld";
 
 function formatCooklangExport(recipe: RecipeDetailView): string {
+  const ingredientAnnotations = Object.fromEntries(
+    recipe.ingredientGroups
+      .flatMap((group) => group.items)
+      .filter((item) => item.preparation || item.note)
+      .map((item) => [
+        item.ingredient,
+        {
+          ...(item.preparation ? { preparation: item.preparation } : {}),
+          ...(item.note ? { note: item.note } : {}),
+        },
+      ]),
+  );
   const frontmatter = [
     "---",
     `title: ${JSON.stringify(recipe.title)}`,
@@ -60,6 +72,9 @@ function formatCooklangExport(recipe: RecipeDetailView): string {
     ...(recipe.imageAlt ? [`imageAlt: ${JSON.stringify(recipe.imageAlt)}`] : []),
     ...(recipe.canonical
       ? [`canonical: ${JSON.stringify(recipe.canonical)}`]
+      : []),
+    ...(Object.keys(ingredientAnnotations).length > 0
+      ? [`ingredientAnnotations: ${JSON.stringify(ingredientAnnotations)}`]
       : []),
     "---",
   ];
