@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { DietOptions, DietProfile } from "@/lib/api/diet";
-import { buildEffectiveDiet, matchRecipeToDiet } from "@/lib/domain/diet";
+import {
+  applyDietRecipeVisibility,
+  buildEffectiveDiet,
+  matchRecipeToDiet,
+} from "@/lib/domain/diet";
 
 const options: DietOptions = {
   presets: [
@@ -135,5 +139,35 @@ describe("diet recipe matching", () => {
     );
 
     expect(diet.labels).toEqual(["Vegan", "no Egg"]);
+  });
+});
+
+describe("diet recipe visibility", () => {
+  const recipes = [{ slug: "vegan" }, { slug: "bacon" }, { slug: "milk" }];
+  const matches = new Map([
+    ["vegan", { matches: true, excludedIngredients: [] }],
+    ["bacon", { matches: false, excludedIngredients: [] }],
+    ["milk", { matches: false, excludedIngredients: [] }],
+  ]);
+  const hideDiet = { active: true, mode: "hide" as const };
+
+  it("counts only recipes that are actually hidden", () => {
+    expect(
+      applyDietRecipeVisibility(recipes, matches, hideDiet, {
+        showHidden: false,
+        alwaysVisibleSlugs: new Set(["bacon"]),
+      }),
+    ).toEqual({
+      visibleRecipes: [recipes[0], recipes[1]],
+      hiddenCount: 1,
+    });
+  });
+
+  it("preserves the baseline hidden count while temporarily showing recipes", () => {
+    expect(
+      applyDietRecipeVisibility(recipes, matches, hideDiet, {
+        showHidden: true,
+      }),
+    ).toEqual({ visibleRecipes: recipes, hiddenCount: 2 });
   });
 });

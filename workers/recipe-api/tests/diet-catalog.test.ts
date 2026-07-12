@@ -36,4 +36,8 @@ describe("diet catalog seed", () => {
     expect(members("garlic")).toContain("garlic-powder");
     expect(members("peanut")).toContain("crunchy-peanut-butter");
   });
+
+  it("keeps wheat and gluten exclusions aligned", () => {
+    expect(members("wheat")).toEqual(members("gluten"));
+  });
 });

@@ -60,10 +60,10 @@ function ServingsStepper({
 export function RecipePicker({
   recipes,
   dietMatches,
-}: {
+}: Readonly<{
   recipes: ShoppingRecipe[];
   dietMatches?: ReadonlyMap<string, DietMatch>;
-}) {
+}>) {
   const { recipes: selectedEntries } = useShoppingList();
   const stock = useKitchenStock();
   const [query, setQuery] = useState("");

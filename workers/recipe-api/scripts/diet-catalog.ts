@@ -19,6 +19,29 @@ export type DietGroupKey =
   | "soy"
   | "wheat";
 
+const WHEAT_AND_GLUTEN_INGREDIENTS = [
+  "macaroni",
+  "penne pasta",
+  "large pasta shells",
+  "pasta",
+  "tortilla wrap",
+  "farfalle",
+  "plain flour",
+  "bread flour",
+  "semolina",
+  "bread",
+  "noodles",
+  "bap",
+  "garlic bread",
+  "self-raising flour",
+  "flour",
+  "naan",
+  "baps",
+  "orzo",
+  "pita",
+  "spaghetti",
+] as const;
+
 const EXPLICIT_GROUP_MEMBERS: Partial<
   Record<DietGroupKey, readonly string[]>
 > = {
@@ -45,28 +68,7 @@ const EXPLICIT_GROUP_MEMBERS: Partial<
     "garlic powder",
     "garlic bread",
   ],
-  gluten: [
-    "macaroni",
-    "penne pasta",
-    "large pasta shells",
-    "pasta",
-    "tortilla wrap",
-    "farfalle",
-    "plain flour",
-    "bread flour",
-    "semolina",
-    "bread",
-    "noodles",
-    "bap",
-    "garlic bread",
-    "self-raising flour",
-    "flour",
-    "naan",
-    "baps",
-    "orzo",
-    "pita",
-    "spaghetti",
-  ],
+  gluten: WHEAT_AND_GLUTEN_INGREDIENTS,
   meat: ["chorizo", "bacon", "pork sausage"],
   nuts: ["cashew nuts", "cashews", "ground almonds", "almond milk"],
   onion: [
@@ -88,28 +90,7 @@ const EXPLICIT_GROUP_MEMBERS: Partial<
   ],
   shellfish: ["prawn crackers"],
   soy: ["soy sauce", "dark soy sauce", "light soy sauce"],
-  wheat: [
-    "macaroni",
-    "penne pasta",
-    "large pasta shells",
-    "pasta",
-    "tortilla wrap",
-    "farfalle",
-    "plain flour",
-    "bread flour",
-    "semolina",
-    "bread",
-    "noodles",
-    "bap",
-    "garlic bread",
-    "self-raising flour",
-    "flour",
-    "naan",
-    "baps",
-    "orzo",
-    "pita",
-    "spaghetti",
-  ],
+  wheat: WHEAT_AND_GLUTEN_INGREDIENTS,
 };
 
 export const dietCatalogIngredients = ingredients.map((ingredient) => ({
@@ -125,13 +106,17 @@ const ingredientByName = new Map<
   dietCatalogIngredients.map((ingredient) => [ingredient.name, ingredient]),
 );
 
-function slugsForNames(group: DietGroupKey, names: readonly string[]) {
+function slugForName(context: string, name: string) {
+  const ingredient = ingredientByName.get(name);
+  if (!ingredient) {
+    throw new Error(`Unknown ${context} ingredient: ${name}`);
+  }
+  return ingredient.slug;
+}
+
+function slugsForNames(context: string, names: readonly string[]) {
   return names.map((name) => {
-    const ingredient = ingredientByName.get(name);
-    if (!ingredient) {
-      throw new Error(`Unknown ${group} diet-group ingredient: ${name}`);
-    }
-    return ingredient.slug;
+    return slugForName(context, name);
   });
 }
 
@@ -149,7 +134,7 @@ export const dietGroupMembers = (
   }) as DietGroupKey[]
 ).flatMap((groupKey) => {
   const explicitSlugs = slugsForNames(
-    groupKey,
+    `diet group "${groupKey}"`,
     EXPLICIT_GROUP_MEMBERS[groupKey] ?? [],
   );
   const category = categoryGroups[groupKey];
@@ -165,5 +150,8 @@ export const dietGroupMembers = (
 });
 
 export const dietPresetIngredientExclusions = [
-  { presetKey: "vegan", ingredientSlug: resolveIngredientSlug({ name: "honey" }) },
+  {
+    presetKey: "vegan",
+    ingredientSlug: slugForName('diet preset "vegan"', "honey"),
+  },
 ] as const;

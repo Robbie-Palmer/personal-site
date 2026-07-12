@@ -21,6 +21,21 @@ export type EffectiveDiet = {
   ingredientNames: ReadonlyMap<string, string>;
 };
 
+export type DietVisibilityResult<T> = {
+  visibleRecipes: T[];
+  hiddenCount: number;
+};
+
+export function buildDietRecipeMatches<T extends { slug: string }>(
+  recipes: T[],
+  matchRecipe: (recipe: DietRecipe) => DietMatch,
+  toDietRecipe: (recipe: T) => DietRecipe,
+): Map<string, DietMatch> {
+  return new Map(
+    recipes.map((recipe) => [recipe.slug, matchRecipe(toDietRecipe(recipe))]),
+  );
+}
+
 function labelFromSlug(slug: string): string {
   return slug
     .split("-")
@@ -107,5 +122,30 @@ export function matchRecipeToDiet(
   return {
     matches: excludedIngredients.length === 0,
     excludedIngredients,
+  };
+}
+
+export function applyDietRecipeVisibility<T extends { slug: string }>(
+  recipes: T[],
+  matches: ReadonlyMap<string, DietMatch>,
+  diet: Pick<EffectiveDiet, "active" | "mode">,
+  options: Readonly<{
+    showHidden: boolean;
+    alwaysVisibleSlugs?: ReadonlySet<string>;
+  }>,
+): DietVisibilityResult<T> {
+  if (!diet.active || diet.mode !== "hide") {
+    return { visibleRecipes: recipes, hiddenCount: 0 };
+  }
+
+  const dietVisibleRecipes = recipes.filter(
+    (recipe) =>
+      matches.get(recipe.slug)?.matches === true ||
+      options.alwaysVisibleSlugs?.has(recipe.slug),
+  );
+
+  return {
+    visibleRecipes: options.showHidden ? recipes : dietVisibleRecipes,
+    hiddenCount: recipes.length - dietVisibleRecipes.length,
   };
 }

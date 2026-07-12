@@ -21,6 +21,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useKitchenStock } from "@/hooks/use-kitchen-stock";
 import { useShoppingList } from "@/hooks/use-shopping-list";
+import {
+  applyDietRecipeVisibility,
+  buildDietRecipeMatches,
+} from "@/lib/domain/diet";
 import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
 import {
   getDietRelevantKitchenIngredients,
@@ -125,22 +129,19 @@ export function KitchenView({
 
   const dietMatches = useMemo(
     () =>
-      new Map(
-        recipes.map((recipe) => [
-          recipe.slug,
-          matchRecipe({ ingredients: recipe.ingredients }),
-        ]),
-      ),
+      buildDietRecipeMatches(recipes, matchRecipe, (recipe) => ({
+        ingredients: recipe.ingredients,
+      })),
     [matchRecipe, recipes],
   );
-  const hiddenCount = Array.from(dietMatches.values()).filter(
-    (match) => !match.matches,
-  ).length;
-  const dietFilteredRecipes = useMemo(
+  const { visibleRecipes: dietFilteredRecipes, hiddenCount } = useMemo(
     () =>
-      diet.active && diet.mode === "hide" && !showHidden
-        ? recipes.filter((recipe) => dietMatches.get(recipe.slug)?.matches)
-        : recipes,
+      applyDietRecipeVisibility(
+        recipes,
+        dietMatches,
+        { active: diet.active, mode: diet.mode },
+        { showHidden },
+      ),
     [diet.active, diet.mode, dietMatches, recipes, showHidden],
   );
   const matches = useMemo(

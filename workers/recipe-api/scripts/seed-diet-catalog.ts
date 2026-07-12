@@ -43,6 +43,7 @@ try {
       `;
     }
 
+    await sql`delete from "diet_preset_excluded_ingredient"`;
     for (const exclusion of dietPresetIngredientExclusions) {
       await sql`
         insert into "diet_preset_excluded_ingredient" ("preset_key", "ingredient_slug")

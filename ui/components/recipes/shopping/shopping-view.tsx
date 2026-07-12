@@ -9,6 +9,10 @@ import { RecipePicker } from "@/components/recipes/shopping/recipe-picker";
 import { ShoppingList } from "@/components/recipes/shopping/shopping-list";
 import { useShoppingList } from "@/hooks/use-shopping-list";
 import type { ShoppingRecipe } from "@/lib/api/shopping";
+import {
+  applyDietRecipeVisibility,
+  buildDietRecipeMatches,
+} from "@/lib/domain/diet";
 import { clearList } from "@/lib/shopping/shoppingListStore";
 
 type Step = "plan" | "list";
@@ -18,7 +22,9 @@ const STEPS: { id: Step; label: string }[] = [
   { id: "list", label: "2 · Shopping list" },
 ];
 
-export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
+export function ShoppingView({
+  recipes,
+}: Readonly<{ recipes: ShoppingRecipe[] }>) {
   const { diet, matchRecipe } = useDiet();
   const { recipes: selected, plan, extras } = useShoppingList();
   const [step, setStep] = useState<Step>("plan");
@@ -29,36 +35,37 @@ export function ShoppingView({ recipes }: { recipes: ShoppingRecipe[] }) {
   );
   const dietMatches = useMemo(
     () =>
-      new Map(
-        recipes.map((recipe) => [
-          recipe.slug,
-          matchRecipe({
-            ingredients: recipe.ingredients.map((ingredient) => ({
-              slug: ingredient.ingredient,
-              name: ingredient.name,
-            })),
-          }),
-        ]),
-      ),
+      buildDietRecipeMatches(recipes, matchRecipe, (recipe) => ({
+        ingredients: recipe.ingredients.map((ingredient) => ({
+          slug: ingredient.ingredient,
+          name: ingredient.name,
+        })),
+      })),
     [matchRecipe, recipes],
   );
-  const hiddenCount = Array.from(dietMatches.values()).filter(
-    (match) => !match.matches,
-  ).length;
-  const availableRecipes = useMemo(
+  const { visibleRecipes: availableRecipes } = useMemo(
     () =>
-      diet.active && diet.mode === "hide" && !showHidden
-        ? recipes.filter((recipe) => dietMatches.get(recipe.slug)?.matches)
-        : recipes,
+      applyDietRecipeVisibility(
+        recipes,
+        dietMatches,
+        { active: diet.active, mode: diet.mode },
+        { showHidden },
+      ),
     [diet.active, diet.mode, dietMatches, recipes, showHidden],
   );
-  const pickerRecipes = useMemo(() => {
-    if (!diet.active || diet.mode !== "hide" || showHidden) return recipes;
-    return recipes.filter(
-      (recipe) =>
-        dietMatches.get(recipe.slug)?.matches || selectedSlugs.has(recipe.slug),
-    );
-  }, [diet.active, diet.mode, dietMatches, recipes, selectedSlugs, showHidden]);
+  const { visibleRecipes: pickerRecipes, hiddenCount } = useMemo(
+    () =>
+      applyDietRecipeVisibility(
+        recipes,
+        dietMatches,
+        { active: diet.active, mode: diet.mode },
+        {
+          showHidden,
+          alwaysVisibleSlugs: selectedSlugs,
+        },
+      ),
+    [diet.active, diet.mode, dietMatches, recipes, selectedSlugs, showHidden],
+  );
   const count = selected.length;
   const recipeNoun = count === 1 ? "recipe" : "recipes";
   const plannedCount = plan.length;

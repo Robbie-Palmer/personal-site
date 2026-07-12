@@ -15,6 +15,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -36,7 +37,11 @@ import {
 } from "@/components/ui/filterable-card-grid";
 import { useFilterParams } from "@/hooks/use-filter-params";
 import type { RecipeCardView } from "@/lib/api/recipes";
-import type { DietMatch } from "@/lib/domain/diet";
+import {
+  applyDietRecipeVisibility,
+  buildDietRecipeMatches,
+  type DietMatch,
+} from "@/lib/domain/diet";
 import { formatDate } from "@/lib/generic/date";
 import { cycleFilterFromCard } from "@/lib/generic/filter-cycle";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
@@ -300,10 +305,10 @@ const RecipeCard = memo(function RecipeCard({
   );
 });
 
-interface RecipeListProps {
+type RecipeListProps = Readonly<{
   recipes: RecipeCardView[];
   onDietVisibleCountChange?: (count: number) => void;
-}
+}>;
 
 export function RecipeList({
   recipes,
@@ -315,29 +320,22 @@ export function RecipeList({
   const [showHidden, setShowHidden] = useState(false);
   const dietMatches = useMemo(
     () =>
-      new Map(
-        recipes.map((recipe) => [
-          recipe.slug,
-          matchRecipe({
-            ingredients: recipe.ingredientSlugs.map((slug) => ({ slug })),
-          }),
-        ]),
-      ),
+      buildDietRecipeMatches(recipes, matchRecipe, (recipe) => ({
+        ingredients: recipe.ingredientSlugs.map((slug) => ({ slug })),
+      })),
     [matchRecipe, recipes],
   );
-  const hiddenCount = useMemo(
+  const { visibleRecipes, hiddenCount } = useMemo(
     () =>
-      Array.from(dietMatches.values()).filter((match) => !match.matches).length,
-    [dietMatches],
-  );
-  const visibleRecipes = useMemo(
-    () =>
-      diet.active && diet.mode === "hide" && !showHidden
-        ? recipes.filter((recipe) => dietMatches.get(recipe.slug)?.matches)
-        : recipes,
+      applyDietRecipeVisibility(
+        recipes,
+        dietMatches,
+        { active: diet.active, mode: diet.mode },
+        { showHidden },
+      ),
     [diet.active, diet.mode, dietMatches, recipes, showHidden],
   );
-  useEffect(() => {
+  useLayoutEffect(() => {
     onDietVisibleCountChange?.(visibleRecipes.length);
   }, [onDietVisibleCountChange, visibleRecipes.length]);
 

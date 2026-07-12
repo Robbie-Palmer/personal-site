@@ -9,6 +9,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { DietLoadErrorNotice } from "@/components/recipes/diet-notice";
 import {
   emptyDietOptions,
   emptyDietProfile,
@@ -26,6 +27,7 @@ import {
 
 type DietContextValue = {
   diet: EffectiveDiet;
+  error: boolean;
   loading: boolean;
   matchRecipe: (recipe: DietRecipe) => DietMatch;
 };
@@ -35,6 +37,7 @@ export const DIET_PROFILE_UPDATED_EVENT = "recipe-diet-profile-updated";
 const fallbackDiet = buildEffectiveDiet(emptyDietProfile, emptyDietOptions);
 const DietContext = createContext<DietContextValue>({
   diet: fallbackDiet,
+  error: false,
   loading: false,
   matchRecipe: (recipe) => matchRecipeToDiet(recipe, fallbackDiet),
 });
@@ -43,12 +46,14 @@ export function DietProvider({ children }: Readonly<{ children: ReactNode }>) {
   const { data: session, isPending } = authClient.useSession();
   const sessionUserId = session?.user.id;
   const [diet, setDiet] = useState(fallbackDiet);
+  const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isPending) return;
     if (!sessionUserId) {
       setDiet(fallbackDiet);
+      setError(false);
       setLoading(false);
       return;
     }
@@ -58,13 +63,16 @@ export function DietProvider({ children }: Readonly<{ children: ReactNode }>) {
       controller?.abort();
       controller = new AbortController();
       const signal = controller.signal;
+      setError(false);
       setLoading(true);
       void Promise.all([getDietProfile(signal), getDietOptions(signal)])
-        .then(([profile, options]) =>
-          setDiet(buildEffectiveDiet(profile, options)),
-        )
+        .then(([profile, options]) => {
+          setDiet(buildEffectiveDiet(profile, options));
+          setError(false);
+        })
         .catch((error: unknown) => {
           if (!signal.aborted) {
+            setError(true);
             console.error(
               "[DietProvider] Failed to load diet preferences.",
               error,
@@ -92,13 +100,19 @@ export function DietProvider({ children }: Readonly<{ children: ReactNode }>) {
   const value = useMemo<DietContextValue>(
     () => ({
       diet,
+      error,
       loading: isPending || loading,
       matchRecipe,
     }),
-    [diet, isPending, loading, matchRecipe],
+    [diet, error, isPending, loading, matchRecipe],
   );
 
-  return <DietContext.Provider value={value}>{children}</DietContext.Provider>;
+  return (
+    <DietContext.Provider value={value}>
+      {error && !isPending && <DietLoadErrorNotice />}
+      {children}
+    </DietContext.Provider>
+  );
 }
 
 export function useDiet() {
