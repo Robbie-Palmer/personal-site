@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Caveat, JetBrains_Mono, Kalam } from "next/font/google";
 import Link from "next/link";
 import { AuthButton } from "@/components/recipes/auth-button";
+import { DietProvider } from "@/components/recipes/diet-provider";
 import { RecipeNavTabs } from "@/components/recipes/recipe-nav-tabs";
 import { RecipeThemeBody } from "@/components/recipes/recipe-theme-body";
 import { TimerDock } from "@/components/recipes/timer-dock";
@@ -71,7 +72,9 @@ export default function RecipesLayout({
           </nav>
         </header>
 
-        <main className="relative z-0 flex-1 flex flex-col">{children}</main>
+        <DietProvider>
+          <main className="relative z-0 flex-1 flex flex-col">{children}</main>
+        </DietProvider>
 
         <footer className="border-t border-[var(--line)] mt-auto">
           <div className="container mx-auto px-4 py-8">

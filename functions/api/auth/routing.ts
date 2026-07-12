@@ -15,6 +15,7 @@ export type RecipeApiProxyContext = {
 const FORWARDED_REQUEST_HEADERS = [
   "accept",
   "authorization",
+  "cf-access-jwt-assertion",
   "cf-connecting-ip",
   "content-type",
   "cookie",
