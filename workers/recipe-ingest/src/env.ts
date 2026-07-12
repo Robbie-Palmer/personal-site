@@ -1,5 +1,6 @@
 export type Env = {
-  HYPERDRIVE: Hyperdrive;
+  HYPERDRIVE?: Hyperdrive;
+  DATABASE_URL?: string;
   ARTIFACTS: R2Bucket;
   RECIPE_INGEST_WORKFLOW: Workflow;
   OPENROUTER_API_KEY: string;

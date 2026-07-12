@@ -1982,7 +1982,7 @@ app.delete("/recipes/:slug", async (c) => {
   }
 });
 
-// Recipe photo imports (ADR 049). This API owns auth, quotas, job creation,
+// This API owns recipe photo import auth, quotas, job creation,
 // and status reads; the recipe-ingest Workflow owns the parsing chain.
 
 const RECIPE_IMPORT_MAX_IMAGES = 6;

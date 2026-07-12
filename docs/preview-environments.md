@@ -6,7 +6,9 @@ Internal pull requests receive a coordinated preview stack:
 https://pr-<number>.<pages-host>
   -> Pages Function auth proxy
   -> recipe-api-pr-<number> Worker
+  -> recipe-ingest-pr-<number> Workflow Worker
   -> preview-pr-<number> Neon branch
+  -> recipe-artifacts-pr-<number> R2 bucket
 ```
 
 The Neon branch is created with a schema-only copy of the project's primary
@@ -16,9 +18,10 @@ constraints](#neon-free-plan-constraints) below). Production rows, Better Auth
 sessions, OAuth tokens, and private recipes are therefore never copied into a
 preview. The workflow pushes the PR schema and adds deterministic QA fixtures.
 
-The branch and Worker survive updates to the PR so QA state is preserved. They
-are deleted when the PR closes. Neon also expires the branch after 30 days as a
-backstop; pushing another commit recreates an expired branch.
+The database branch, Workers, Workflow, and artifact bucket survive updates to
+the PR so QA state is preserved. They are deleted when the PR closes. Neon also
+expires the branch after 30 days as a backstop; pushing another commit recreates
+an expired branch.
 
 Fork pull requests do not receive preview infrastructure. The workflow uses
 `pull_request_target` so its privileged control flow always comes from the
@@ -88,8 +91,11 @@ Do not store that service token in this repository.
 Create a token intended only for previews, with exactly these account-scoped
 permissions:
 
-- **Account -> Workers Scripts -> Edit** (deploy/delete the preview Worker and
-  upload its secrets)
+- **Account -> Workers Scripts -> Edit** (deploy/delete preview Workers and
+  upload their secrets)
+- **Account -> Workers R2 Storage -> Edit** (create/delete preview artifact
+  buckets)
+- **Account -> Workers Workflows -> Edit** (deploy/delete preview Workflows)
 - **Account -> Cloudflare Pages -> Edit** (deploy the canonical PR Pages alias)
 
 Scope it to this Cloudflare account. Cloudflare's Pages permission is
@@ -113,6 +119,7 @@ do not use the Doppler GitHub sync integration on the free plan.
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account containing Pages and Workers |
 | `NEON_API_KEY` | Creates and deletes preview branches |
 | `PREVIEW_AUTH_SEED` | Derives stable, per-PR Better Auth secrets and test passwords |
+| `OPENROUTER_API_KEY` | Preview-only key for end-to-end recipe import QA |
 
 Generate `PREVIEW_AUTH_SEED` locally and paste the output directly into GitHub:
 

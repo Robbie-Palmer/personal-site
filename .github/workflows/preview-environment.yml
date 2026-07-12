@@ -54,7 +54,7 @@ jobs:
             exit 0
           fi
           files=$(gh pr diff "$PR_NUMBER" --repo "$REPO" --name-only)
-          if echo "$files" | grep -qE '^(workers/recipe-api/|functions/|packages/)'; then
+          if echo "$files" | grep -qE '^(workers/recipe-(api|ingest)/|functions/|packages/)'; then
             echo "Backend-affecting paths changed; provisioning a backend preview."
             echo "backend=true" >> "$GITHUB_OUTPUT"
           else
@@ -89,6 +89,8 @@ jobs:
           {
             echo "PREVIEW_BRANCH=preview-pr-$PR_NUMBER"
             echo "PREVIEW_WORKER_NAME=recipe-api-pr-$PR_NUMBER"
+            echo "PREVIEW_INGEST_NAME=recipe-ingest-pr-$PR_NUMBER"
+            echo "PREVIEW_BUCKET_NAME=recipe-artifacts-pr-$PR_NUMBER"
             echo "PREVIEW_SITE_URL=https://pr-$PR_NUMBER.$PAGES_HOST"
             echo "BETTER_AUTH_URL=https://pr-$PR_NUMBER.$PAGES_HOST"
             echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET"
@@ -157,24 +159,46 @@ jobs:
           DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
           BETTER_AUTH_URL: https://pr-${{ github.event.pull_request.number }}.${{ vars.CLOUDFLARE_PAGES_HOST }}
 
-      - name: Create atomic Worker secrets file
+      - name: Create atomic Worker secrets files
         id: worker-secrets
         env:
           DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
-          SECRETS_FILE="$RUNNER_TEMP/preview-worker-secrets.json"
+          : "${OPENROUTER_API_KEY:?OPENROUTER_API_KEY is required}"
+          API_SECRETS_FILE="$RUNNER_TEMP/preview-api-secrets.json"
+          INGEST_SECRETS_FILE="$RUNNER_TEMP/preview-ingest-secrets.json"
           jq -n \
             --arg database_url "$DATABASE_URL" \
             --arg auth_secret "$BETTER_AUTH_SECRET" \
             --arg preview_password "$PREVIEW_AUTH_PASSWORD" \
             '{DATABASE_URL: $database_url, BETTER_AUTH_SECRET: $auth_secret, PREVIEW_AUTH_PASSWORD: $preview_password}' \
-            > "$SECRETS_FILE"
-          echo "secrets_file=$SECRETS_FILE" >> "$GITHUB_OUTPUT"
+            > "$API_SECRETS_FILE"
+          jq -n \
+            --arg database_url "$DATABASE_URL" \
+            --arg openrouter_api_key "$OPENROUTER_API_KEY" \
+            '{DATABASE_URL: $database_url, OPENROUTER_API_KEY: $openrouter_api_key}' \
+            > "$INGEST_SECRETS_FILE"
+          echo "api_secrets_file=$API_SECRETS_FILE" >> "$GITHUB_OUTPUT"
+          echo "ingest_secrets_file=$INGEST_SECRETS_FILE" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy isolated preview Worker
+      - name: Create isolated artifact bucket
+        run: mise run //workers/recipe-ingest:preview:bucket:create
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy isolated ingestion Worker and Workflow
+        run: mise run //workers/recipe-ingest:preview:deploy
+        env:
+          PREVIEW_SECRETS_FILE: ${{ steps.worker-secrets.outputs.ingest_secrets_file }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy isolated API Worker
         run: mise run //workers/recipe-api:preview:deploy
         env:
-          PREVIEW_SECRETS_FILE: ${{ steps.worker-secrets.outputs.secrets_file }}
+          PREVIEW_SECRETS_FILE: ${{ steps.worker-secrets.outputs.api_secrets_file }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CF_ACCESS_TEAM_DOMAIN: ${{ vars.CF_ACCESS_TEAM_DOMAIN }}
@@ -272,7 +296,8 @@ jobs:
             let backendLines;
             if (requested && ok) {
               backendLines = [
-                `**Worker:** \`${process.env.PREVIEW_WORKER_NAME}\``,
+                `**API Worker:** \`${process.env.PREVIEW_WORKER_NAME}\``,
+                `**Ingestion:** isolated Worker, Workflow, and R2 bucket`,
                 `**Database:** Neon branch \`${process.env.PREVIEW_BRANCH}\``,
                 '',
                 'The site is protected by Cloudflare Access. Use the **Sign in** menu to choose a seeded QA scenario.',

@@ -7,7 +7,11 @@ export async function withDb<T>(
   env: Env,
   fn: (db: Db) => Promise<T>,
 ): Promise<T> {
-  const { db, client } = createDb(env.HYPERDRIVE.connectionString);
+  const connectionString = env.HYPERDRIVE?.connectionString ?? env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("No database connection configured");
+  }
+  const { db, client } = createDb(connectionString);
   try {
     return await fn(db);
   } finally {

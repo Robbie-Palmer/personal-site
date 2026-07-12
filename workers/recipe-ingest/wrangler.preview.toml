@@ -1,0 +1,28 @@
+name = "recipe-ingest-preview"
+main = "src/index.ts"
+compatibility_date = "2026-05-28"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[vars]
+EXTRACT_MODEL = "google/gemini-3-flash-preview"
+EXTRACT_TIMEOUT_MS = "30000"
+EXTRACT_RETRIES = "2"
+NORMALIZE_MODEL = "google/gemini-3-flash-preview"
+NORMALIZE_TIMEOUT_MS = "30000"
+NORMALIZE_RETRIES = "2"
+CANONICALIZE_MODEL = "google/gemini-2.5-flash"
+CANONICALIZE_TIMEOUT_MS = "15000"
+CANONICALIZE_RETRIES = "1"
+
+[secrets]
+required = ["DATABASE_URL", "OPENROUTER_API_KEY"]
+
+[[workflows]]
+name = "__PREVIEW_INGEST_NAME__"
+binding = "RECIPE_INGEST_WORKFLOW"
+class_name = "RecipeIngestWorkflow"
+
+[[r2_buckets]]
+binding = "ARTIFACTS"
+bucket_name = "__PREVIEW_BUCKET_NAME__"

@@ -20,3 +20,59 @@ depends = ["typecheck", "test"]
 description = "Run recipe-ingest and recipe-api together so the cross-script workflow binding resolves"
 depends = ["install"]
 run = "pnpm exec wrangler dev -c wrangler.toml -c ../recipe-api/wrangler.toml"
+
+[tasks."preview:deploy"]
+description = "Deploy an isolated preview ingestion Worker and Workflow"
+depends = ["install"]
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${PREVIEW_INGEST_NAME:?PREVIEW_INGEST_NAME is required}"
+: "${PREVIEW_BUCKET_NAME:?PREVIEW_BUCKET_NAME is required}"
+: "${PREVIEW_SECRETS_FILE:?PREVIEW_SECRETS_FILE is required}"
+
+PREVIEW_CONFIG=$(mktemp ./wrangler.preview.generated.XXXXXX.toml)
+trap 'rm -f "$PREVIEW_CONFIG"' EXIT
+sed \
+  -e "s/__PREVIEW_INGEST_NAME__/$PREVIEW_INGEST_NAME/g" \
+  -e "s/__PREVIEW_BUCKET_NAME__/$PREVIEW_BUCKET_NAME/g" \
+  wrangler.preview.toml > "$PREVIEW_CONFIG"
+
+pnpm exec wrangler deploy \
+  --config "$PREVIEW_CONFIG" \
+  --name "$PREVIEW_INGEST_NAME" \
+  --secrets-file "$PREVIEW_SECRETS_FILE"
+"""
+
+[tasks."preview:delete"]
+description = "Delete an isolated preview ingestion Worker"
+depends = ["install"]
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+: "${PREVIEW_INGEST_NAME:?PREVIEW_INGEST_NAME is required}"
+pnpm exec wrangler delete --name "$PREVIEW_INGEST_NAME" --force
+"""
+
+[tasks."preview:bucket:create"]
+description = "Create an isolated preview artifact bucket if needed"
+depends = ["install"]
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+: "${PREVIEW_BUCKET_NAME:?PREVIEW_BUCKET_NAME is required}"
+if ! pnpm exec wrangler r2 bucket info "$PREVIEW_BUCKET_NAME" >/dev/null 2>&1; then
+  pnpm exec wrangler r2 bucket create "$PREVIEW_BUCKET_NAME"
+fi
+"""
+
+[tasks."preview:bucket:delete"]
+description = "Delete an isolated preview artifact bucket"
+depends = ["install"]
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+: "${PREVIEW_BUCKET_NAME:?PREVIEW_BUCKET_NAME is required}"
+pnpm exec wrangler r2 bucket delete "$PREVIEW_BUCKET_NAME"
+"""

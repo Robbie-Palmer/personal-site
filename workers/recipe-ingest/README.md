@@ -1,14 +1,12 @@
 # Recipe Ingest Worker
 
 Cloudflare Workflows-backed Worker that runs the production photo-to-recipe
-ingestion pipeline ([ADR 049]). `recipe-api` creates jobs and workflow
+ingestion pipeline. `recipe-api` creates jobs and workflow
 instances; this Worker owns the durable extract → normalize → canonicalize →
 finalize chain, calling OpenRouter through the shared
 [`recipe-parsing`](../../packages/recipe-parsing/) package — the same
 algorithm the [evaluation pipeline](../../ml-pipelines/recipe-parsing/)
 iterates on and scores.
-
-[ADR 049]: https://robbiepalmer.me/projects/recipe-site/adrs/049-cloudflare-workflows-recipe-ingestion
 
 ## Data flow
 

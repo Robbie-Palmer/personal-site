@@ -349,7 +349,7 @@ export const appRateLimit = pgTable("app_rate_limit", {
   windowStart: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
-// Recipe ingestion (ADR 049). Postgres is the source of truth for job state;
+// Postgres is the source of truth for recipe import job state;
 // R2 holds the immutable source images and stage artifact snapshots.
 
 export const recipeImportStatusEnum = pgEnum("recipe_import_status", [

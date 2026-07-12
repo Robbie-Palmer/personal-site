@@ -218,7 +218,8 @@ become GitHub environment secrets.
 
 The preview workflow derives per-PR `BETTER_AUTH_SECRET`,
 `PREVIEW_AUTH_PASSWORD`, and `DATABASE_URL`, then uploads those to the isolated
-preview Worker with `--secrets-file`.
+preview Workers with `--secrets-file`. `stg_recipe_api` also supplies a
+spend-limited `OPENROUTER_API_KEY` so recipe imports can be QA'd end to end.
 
 ## Production Values
 
