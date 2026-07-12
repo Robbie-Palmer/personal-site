@@ -73,6 +73,16 @@ export function toKitchenIngredientView(
   };
 }
 
+export function getDietRelevantKitchenIngredients(
+  ingredients: readonly KitchenIngredientView[],
+  excludedIngredientSlugs: ReadonlySet<string>,
+): KitchenIngredientView[] {
+  if (excludedIngredientSlugs.size === 0) return [...ingredients];
+  return ingredients.filter(
+    (ingredient) => !excludedIngredientSlugs.has(ingredient.slug),
+  );
+}
+
 export function getKitchenRecipeMatches(
   recipes: KitchenRecipeView[],
   availableIngredientSlugs: Iterable<IngredientSlug>,

@@ -22,6 +22,7 @@ import { useKitchenStock } from "@/hooks/use-kitchen-stock";
 import { useShoppingList } from "@/hooks/use-shopping-list";
 import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
 import {
+  getDietRelevantKitchenIngredients,
   getKitchenRecipeMatches,
   KITCHEN_LOCATIONS,
   type KitchenIngredientView,
@@ -89,6 +90,17 @@ export function KitchenView({
   const catalogCardRef = useRef<HTMLDivElement>(null);
   const catalogSearchRef = useRef<HTMLInputElement>(null);
 
+  const dietRelevantIngredients = useMemo(
+    () =>
+      getDietRelevantKitchenIngredients(
+        ingredients,
+        diet.excludedIngredientSlugs,
+      ),
+    [diet.excludedIngredientSlugs, ingredients],
+  );
+  const dietHiddenIngredientCount =
+    ingredients.length - dietRelevantIngredients.length;
+
   const stockedSlugs = useMemo(
     () =>
       Object.keys(stock).filter((slug): slug is IngredientSlug =>
@@ -130,7 +142,7 @@ export function KitchenView({
 
   const catalogMatches = useMemo(() => {
     const query = normalizeQuery(catalogQuery);
-    return ingredients
+    return dietRelevantIngredients
       .filter((ingredient) => !(ingredient.slug in stock))
       .filter((ingredient) => {
         if (!query) return true;
@@ -138,7 +150,7 @@ export function KitchenView({
           .toLowerCase()
           .includes(query);
       });
-  }, [catalogQuery, ingredients, stock]);
+  }, [catalogQuery, dietRelevantIngredients, stock]);
   const filteredCatalog = catalogMatches.slice(0, CATALOG_RESULT_LIMIT);
   const isCatalogTruncated = catalogMatches.length > filteredCatalog.length;
 
@@ -344,6 +356,13 @@ export function KitchenView({
                 <CardTitle className="rt-display text-4xl">
                   Add to your kitchen.
                 </CardTitle>
+                {dietHiddenIngredientCount > 0 && (
+                  <p className="rt-body mt-1 text-sm text-[var(--ink-3)]">
+                    {dietHiddenIngredientCount} diet-excluded ingredient
+                    {dietHiddenIngredientCount === 1 ? " is" : "s are"} hidden
+                    from this catalog.
+                  </p>
+                )}
               </div>
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
                 <div className="relative min-w-0">
@@ -352,7 +371,7 @@ export function KitchenView({
                     ref={catalogSearchRef}
                     value={catalogQuery}
                     onChange={(event) => setCatalogQuery(event.target.value)}
-                    placeholder={`Search ${ingredients.length} ingredients...`}
+                    placeholder={`Search ${dietRelevantIngredients.length} ingredients...`}
                     className="h-10 border-[var(--line-strong)] bg-[var(--paper)] pl-9"
                   />
                 </div>
