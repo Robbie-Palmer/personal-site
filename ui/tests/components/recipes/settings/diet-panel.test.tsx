@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DietPanel } from "@/components/recipes/settings/diet-panel";
 
 const apiMocks = vi.hoisted(() => ({
@@ -45,8 +45,13 @@ describe("DietPanel", () => {
           ingredientSlugs: ["chilli"],
         },
       ],
-      ingredients: [],
+      ingredients: [{ slug: "bacon", name: "Bacon", category: "protein" }],
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   it("checks groups covered by a selected preset without adding custom state", async () => {
@@ -60,5 +65,20 @@ describe("DietPanel", () => {
     expect(meat).toHaveTextContent("covered by preset");
     expect(chilli).toHaveAttribute("aria-pressed", "false");
     expect(chilli).not.toBeDisabled();
+  });
+
+  it("clears the delayed picker close when unmounted", async () => {
+    const { unmount } = render(<DietPanel />);
+    const input = await screen.findByLabelText(
+      "Search canonical ingredients to exclude",
+    );
+    vi.useFakeTimers();
+    const clearTimeoutSpy = vi.spyOn(window, "clearTimeout");
+
+    fireEvent.focus(input);
+    fireEvent.blur(input);
+    unmount();
+
+    expect(clearTimeoutSpy).toHaveBeenCalledOnce();
   });
 });

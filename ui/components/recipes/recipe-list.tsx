@@ -53,6 +53,11 @@ const TIME_RANGES = [
   { label: "Over 60 min", min: 61 },
 ] as const;
 
+const MATCHING_DIET_MATCH: DietMatch = {
+  matches: true,
+  excludedIngredients: [],
+};
+
 function getTimeRangeLabel(minutes: number): string {
   for (const range of TIME_RANGES) {
     const aboveMin = !("min" in range) || minutes >= range.min;
@@ -471,12 +476,7 @@ export function RecipeList({
             onToggleCuisine={onToggleCuisine}
             onTogglePrepTime={onTogglePrepTime}
             onToggleTotalTime={onToggleTotalTime}
-            dietMatch={
-              dietMatches.get(recipe.slug) ?? {
-                matches: true,
-                excludedIngredients: [],
-              }
-            }
+            dietMatch={dietMatches.get(recipe.slug) ?? MATCHING_DIET_MATCH}
           />
         )}
       />

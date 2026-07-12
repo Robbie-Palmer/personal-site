@@ -23,6 +23,10 @@ export type EffectiveDiet = {
 
 export type DietVisibilityResult<T> = {
   visibleRecipes: T[];
+  /**
+   * Recipes the active hide policy would suppress. It remains the baseline
+   * count while temporarily showing hidden recipes, and is zero in warn mode.
+   */
   hiddenCount: number;
 };
 

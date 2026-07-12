@@ -15,7 +15,20 @@ vi.mock("@/components/recipes/diet-provider", () => ({
       ingredientNames: new Map([["bacon", "Bacon"]]),
     },
     loading: false,
-    matchRecipe: () => ({ matches: true, excludedIngredients: [] }),
+    matchRecipe: (recipe: {
+      ingredients: { slug: string; name?: string }[];
+    }) => {
+      const excludedIngredients = recipe.ingredients
+        .filter((ingredient) => ingredient.slug === "bacon")
+        .map((ingredient) => ({
+          slug: ingredient.slug,
+          name: ingredient.name ?? "Bacon",
+        }));
+      return {
+        matches: excludedIngredients.length === 0,
+        excludedIngredients,
+      };
+    },
   }),
 }));
 
@@ -43,6 +56,21 @@ const ingredients = [
   { slug: "chickpeas", name: "Chickpeas", category: "legume" as const },
 ];
 
+const recipes = [
+  {
+    slug: "bacon-pasta",
+    title: "Bacon Pasta",
+    cuisine: [],
+    ingredients: [{ slug: "bacon", name: "Bacon" }],
+  },
+  {
+    slug: "chickpea-stew",
+    title: "Chickpea Stew",
+    cuisine: [],
+    ingredients: [{ slug: "chickpeas", name: "Chickpeas" }],
+  },
+];
+
 describe("KitchenView diet ingredient catalog", () => {
   beforeEach(() => {
     dietState.mode = "hide";
@@ -68,13 +96,37 @@ describe("KitchenView diet ingredient catalog", () => {
     ).toBeInTheDocument();
   });
 
+  it("hides mismatched recipes until the user chooses to show them", async () => {
+    const user = userEvent.setup();
+    render(<KitchenView ingredients={ingredients} recipes={recipes} />);
+
+    expect(screen.queryByText("Bacon Pasta")).toBeNull();
+    expect(screen.getByText("Chickpea Stew")).toBeInTheDocument();
+
+    const [showHiddenRecipes] = screen.getAllByRole("button", {
+      name: /show anyway/i,
+    });
+    expect(showHiddenRecipes).toBeDefined();
+    if (!showHiddenRecipes) throw new Error("Missing recipe override button.");
+    await user.click(showHiddenRecipes);
+
+    expect(screen.getByText("Bacon Pasta")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Doesn't match your diet: Bacon/),
+    ).toBeInTheDocument();
+  });
+
   it("shows excluded ingredients with warnings in warn mode", () => {
     dietState.mode = "warn";
-    render(<KitchenView ingredients={ingredients} recipes={[]} />);
+    render(<KitchenView ingredients={ingredients} recipes={recipes} />);
 
     expect(
       screen.getByRole("button", { name: /add bacon — diet warning/i }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Show anyway" })).toBeNull();
+    expect(screen.getByText("Bacon Pasta")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Doesn't match your diet: Bacon/),
+    ).toBeInTheDocument();
   });
 });

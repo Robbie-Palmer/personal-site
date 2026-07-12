@@ -254,6 +254,7 @@ function IngredientPicker({
 }>) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const closeTimeoutRef = useRef<number | null>(null);
   const hasIngredients = ingredients.length > 0;
   const selected = useMemo(() => new Set(selectedSlugs), [selectedSlugs]);
   const matches = useMemo(() => {
@@ -269,7 +270,30 @@ function IngredientPicker({
       .slice(0, INGREDIENT_RESULT_LIMIT);
   }, [ingredients, query, selected]);
 
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current !== null) {
+        window.clearTimeout(closeTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function cancelScheduledClose() {
+    if (closeTimeoutRef.current === null) return;
+    window.clearTimeout(closeTimeoutRef.current);
+    closeTimeoutRef.current = null;
+  }
+
+  function scheduleClose() {
+    cancelScheduledClose();
+    closeTimeoutRef.current = window.setTimeout(() => {
+      setOpen(false);
+      closeTimeoutRef.current = null;
+    }, 120);
+  }
+
   function addIngredient(ingredient: DietIngredientOption) {
+    cancelScheduledClose();
     onAdd(ingredient);
     setQuery("");
     setOpen(false);
@@ -281,12 +305,15 @@ function IngredientPicker({
       <Input
         value={query}
         disabled={!hasIngredients}
-        onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+        onBlur={scheduleClose}
         onChange={(event) => {
           setQuery(event.target.value);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          cancelScheduledClose();
+          setOpen(true);
+        }}
         placeholder={
           hasIngredients
             ? `Search ${ingredients.length} canonical ingredients...`

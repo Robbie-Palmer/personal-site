@@ -35,12 +35,7 @@ type DietContextValue = {
 export const DIET_PROFILE_UPDATED_EVENT = "recipe-diet-profile-updated";
 
 const fallbackDiet = buildEffectiveDiet(emptyDietProfile, emptyDietOptions);
-const DietContext = createContext<DietContextValue>({
-  diet: fallbackDiet,
-  error: false,
-  loading: false,
-  matchRecipe: (recipe) => matchRecipeToDiet(recipe, fallbackDiet),
-});
+const DietContext = createContext<DietContextValue | null>(null);
 
 export function DietProvider({ children }: Readonly<{ children: ReactNode }>) {
   const { data: session, isPending } = authClient.useSession();
@@ -116,5 +111,9 @@ export function DietProvider({ children }: Readonly<{ children: ReactNode }>) {
 }
 
 export function useDiet() {
-  return useContext(DietContext);
+  const context = useContext(DietContext);
+  if (!context) {
+    throw new Error("useDiet must be used within a DietProvider.");
+  }
+  return context;
 }

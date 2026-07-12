@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DietProvider } from "@/components/recipes/diet-provider";
+import { DietProvider, useDiet } from "@/components/recipes/diet-provider";
 
 const apiMocks = vi.hoisted(() => ({
   getDietOptions: vi.fn(),
@@ -48,5 +48,16 @@ describe("DietProvider", () => {
       /Diet preferences are unavailable/,
     );
     expect(screen.getByText("Recipe content")).toBeInTheDocument();
+  });
+
+  it("fails fast when the hook is used outside its provider", () => {
+    function UnwrappedConsumer() {
+      useDiet();
+      return null;
+    }
+
+    expect(() => render(<UnwrappedConsumer />)).toThrow(
+      "useDiet must be used within a DietProvider.",
+    );
   });
 });
