@@ -43,17 +43,7 @@ export function ShoppingView({
       })),
     [matchRecipe, recipes],
   );
-  const { visibleRecipes: availableRecipes } = useMemo(
-    () =>
-      applyDietRecipeVisibility(
-        recipes,
-        dietMatches,
-        { active: diet.active, mode: diet.mode },
-        { showHidden },
-      ),
-    [diet.active, diet.mode, dietMatches, recipes, showHidden],
-  );
-  const { visibleRecipes: pickerRecipes, hiddenCount } = useMemo(
+  const { visibleRecipes: availableRecipes, hiddenCount } = useMemo(
     () =>
       applyDietRecipeVisibility(
         recipes,
@@ -66,6 +56,7 @@ export function ShoppingView({
       ),
     [diet.active, diet.mode, dietMatches, recipes, selectedSlugs, showHidden],
   );
+  const pickerRecipes = availableRecipes;
   const count = selected.length;
   const recipeNoun = count === 1 ? "recipe" : "recipes";
   const plannedCount = plan.length;
