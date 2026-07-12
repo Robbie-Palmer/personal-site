@@ -74,15 +74,17 @@ sync_env() {
 
   while IFS= read -r entry; do
     local name
+    local source
     local value
     local visibility
 
     name=$(jq -r '.name' <<<"$entry")
+    source=$(jq -r '.source' <<<"$entry")
     value=$(jq -r '.value // ""' <<<"$entry")
     visibility=$(jq -r '.visibility' <<<"$entry")
 
     if [ -z "$value" ]; then
-      echo "Refusing to sync empty value: $doppler_config:$name" >&2
+      echo "Refusing to sync empty value: $source:$name" >&2
       exit 1
     fi
 
@@ -120,6 +122,7 @@ require_command jq
 sync_env preview-recipe-api stg_recipe_api
 sync_env preview-site-ui stg_site_ui stg_pages_env
 sync_env production-recipe-api prd_recipe_api prd_site_ui
+sync_env production-recipe-ingest prd_recipe_ingest prd_site_ui
 sync_env production-site-ui prd_site_ui prd_pages_env
 sync_env production-infra prd_infra
 sync_env production-infra-bootstrap prd_bootstrap_infra

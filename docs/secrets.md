@@ -36,8 +36,9 @@ Configs are split by environment and runtime/control boundary:
 | `stg_site_ui` | PR preview UI deploy credentials | `preview-site-ui` |
 | `stg_recipe_api` | PR preview Worker/API automation config | `preview-recipe-api` |
 | `prd_pages_env` | Shared production Cloudflare Pages env vars | `production-site-ui` |
-| `prd_site_ui` | Production UI deploy credentials | `production-site-ui`, `production-recipe-api` |
+| `prd_site_ui` | Production UI deploy credentials | `production-site-ui`, `production-recipe-api`, `production-recipe-ingest` |
 | `prd_recipe_api` | Production Worker/API/DB/OAuth config | `production-recipe-api` |
+| `prd_recipe_ingest` | Production recipe ingest Worker LLM config | `production-recipe-ingest` |
 | `prd_infra` | Production Terraform/provider credentials | `production-infra` |
 | `prd_bootstrap_infra` | Production bootstrap Terraform credentials | `production-infra-bootstrap` |
 | `prd_ci_repo` | Repo-wide sensitive CI like AI review and DVC | `production-ci` |
@@ -175,6 +176,7 @@ The GitHub environments are runtime/job boundaries, not provider names:
 | `preview-recipe-api` | `stg_recipe_api` | PR preview Worker/database jobs and preview cleanup |
 | `preview-site-ui` | `stg_site_ui`, `stg_pages_env` | PR preview Pages build/deploy and preview comment |
 | `production-recipe-api` | `prd_recipe_api`, `prd_site_ui` | Production recipe API deploy |
+| `production-recipe-ingest` | `prd_recipe_ingest`, `prd_site_ui` | Production recipe ingest Worker deploy |
 | `production-site-ui` | `prd_site_ui`, `prd_pages_env` | Production UI CI/CD and Cloudflare Images health check |
 | `production-infra` | `prd_infra` | Terraform CI/CD |
 | `production-infra-bootstrap` | `prd_bootstrap_infra` | Manual bootstrap Terraform |
@@ -229,6 +231,10 @@ preview Worker with `--secrets-file`.
 - `OAUTH_CLIENT_ID_GITHUB`
 - `OAUTH_CLIENT_SECRET_GITHUB`
 
+`prd_recipe_ingest` should own:
+
+- `OPENROUTER_API_KEY`
+
 `prd_pages_env` should own production UI build/runtime config:
 
 - `CF_IMAGES_ACCOUNT_HASH`
@@ -245,6 +251,11 @@ preview Worker with `--secrets-file`.
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
+
+The sync script also includes `prd_site_ui` when publishing
+`production-recipe-api` and `production-recipe-ingest`, so Worker deploy jobs
+reuse the shared Cloudflare deploy token without duplicating it into each
+runtime-specific Doppler config.
 
 `prd_infra` should own:
 
@@ -271,6 +282,10 @@ preview Worker with `--secrets-file`.
 - `OPENROUTER_API_KEY`
 - `R2_ACCESS_KEY_ID`
 - `R2_SECRET_ACCESS_KEY`
+
+This OpenRouter key is for repo-wide CI, such as AI review and ML pipeline
+jobs. Recipe ingestion uses the separate key in `prd_recipe_ingest` so its
+budget and limits can be managed independently.
 
 ## QA Commands
 
