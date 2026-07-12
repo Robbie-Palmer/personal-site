@@ -28,7 +28,7 @@ Use **Trivy** for security scanning, covering IaC (Terraform) and dependency vul
 
 Trivy runs two scan jobs in CI via GitHub Actions:
 
-1. **IaC scan** (`config` mode): Scans Terraform configurations for misconfigurations. Triggered on changes to `infra/**`.
+1. **IaC scan** (`config` mode): Scans the whole workspace for misconfigurations in supported config types (Terraform, Dockerfiles, Helm, Kubernetes manifests, etc.). That includes every Terraform root today (`infra/`, `infra-bootstrap/`) and any future roots without needing a new path pin. Triggered on changes to Terraform roots, `*.tf` / `*.tfvars`, Docker/Helm/K8s-related paths, and the workflow file itself.
 2. **Dependency scan** (`fs` mode): Scans lockfiles (`pnpm-lock.yaml`) for known CVEs in direct and transitive dependencies. Triggered on changes to dependency files (`pnpm-lock.yaml`, `package.json`).
 
 Both jobs run on:

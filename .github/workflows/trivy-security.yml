@@ -3,7 +3,27 @@ name: Trivy Security Scan
 on:
   pull_request:
     paths:
+      # Terraform roots (and any future *.tf / *.tfvars anywhere)
       - "infra/**"
+      - "infra-bootstrap/**"
+      - "**/*.tf"
+      - "**/*.tfvars"
+      # Other config types Trivy config mode understands — keep path filters
+      # ahead of first use so new Docker/Helm/K8s configs are not silently
+      # skipped on PRs (scheduled scan still covers the full tree weekly)
+      - "**/Dockerfile"
+      - "**/Dockerfile.*"
+      - "**/docker-compose*.yml"
+      - "**/docker-compose*.yaml"
+      - "**/compose.yml"
+      - "**/compose.yaml"
+      - "**/Chart.yaml"
+      - "**/values.yml"
+      - "**/values.yaml"
+      - "**/kubernetes/**"
+      - "**/k8s/**"
+      - "**/helm/**"
+      # Dependencies
       - "**/pnpm-lock.yaml"
       - "**/package.json"
       - ".github/workflows/trivy-security.yml"
@@ -28,15 +48,22 @@ jobs:
         with:
           persist-credentials: false
 
+      # Scan the whole workspace so every Terraform root (infra/, infra-bootstrap/,
+      # and any future roots) and other supported config types are covered. Do not
+      # pin scan-ref to a single directory — that omission previously left
+      # infra-bootstrap unscanned.
       - name: Run Trivy IaC scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: "config"
-          scan-ref: "./infra"
+          scan-ref: "."
           format: "sarif"
           output: "trivy-iac-results.sarif"
           severity: "CRITICAL,HIGH"
           timeout: "10m"
+          # Avoid noise from dependency trees if present on the runner; config
+          # mode only needs IaC-like files, not installed packages.
+          skip-dirs: "node_modules,.pnpm-store,.terraform"
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4
