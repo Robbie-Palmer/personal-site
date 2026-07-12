@@ -22,6 +22,11 @@ import {
 } from "@/components/recipes/cook-mode";
 import { InlineTimer } from "@/components/recipes/inline-timer";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useScaledRecipe } from "@/hooks/use-scaled-recipe";
 import { useUnitPreference } from "@/hooks/use-unit-preference";
 import {
@@ -396,15 +401,36 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
               <span>Total: {formatTime(recipe.totalTime)}</span>
             </div>
           )}
-          <a
-            href={`/recipes/${recipe.slug}.json`}
-            download={`${recipe.slug}.json`}
-            className="flex items-center gap-1 hover:text-foreground transition-colors"
-            title="Download as schema.org Recipe JSON, importable into most recipe apps"
-          >
-            <Download className="h-4 w-4" />
-            <span>Export</span>
-          </a>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-1 hover:text-foreground transition-colors"
+                aria-label="Choose recipe export format"
+              >
+                <Download className="h-4 w-4" />
+                <span>Export</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-60 p-1.5">
+              <a
+                href={`/recipes/${recipe.slug}.json`}
+                download={`${recipe.slug}.json`}
+                className="block rounded-md px-3 py-2 text-sm hover:bg-accent"
+                title="Download as Open Recipe JSON, importable into most recipe apps"
+              >
+                Open Recipe (.json)
+              </a>
+              <a
+                href={`/recipes/${recipe.slug}.cook`}
+                download={`${recipe.slug}.cook`}
+                className="block rounded-md px-3 py-2 text-sm hover:bg-accent"
+                title="Download as a Cooklang recipe"
+              >
+                Cooklang (.cook)
+              </a>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {recipe.cuisine.length > 0 && (

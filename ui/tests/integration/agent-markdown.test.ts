@@ -92,6 +92,29 @@ describe("agent markdown generation", () => {
     expect(recipe).not.toContain("{%"); // no leftover cooklang markup
   });
 
+  it("generates JSON and Cooklang exports for every recipe", () => {
+    const nonRecipePages = new Set([
+      "kitchen.html",
+      "settings.html",
+      "shopping.html",
+    ]);
+    const recipePages = fs
+      .readdirSync(path.join(OUT_DIR, "recipes"))
+      .filter((file) => file.endsWith(".html") && !nonRecipePages.has(file));
+
+    for (const recipePage of recipePages) {
+      const slug = recipePage.replace(/\.html$/, "");
+      expect(
+        fs.existsSync(path.join(OUT_DIR, "recipes", `${slug}.json`)),
+        `recipes/${slug}.json`,
+      ).toBe(true);
+      expect(
+        fs.existsSync(path.join(OUT_DIR, "recipes", `${slug}.cook`)),
+        `recipes/${slug}.cook`,
+      ).toBe(true);
+    }
+  });
+
   it("scopes the middleware to page routes in _routes.json", () => {
     const routes = JSON.parse(read("_routes.json"));
     expect(routes.include).toContain("/api/auth/*");
