@@ -123,4 +123,17 @@ describe("diet recipe matching", () => {
       ).matches,
     ).toBe(true);
   });
+
+  it("does not repeat custom exclusions already covered by a preset", () => {
+    const diet = buildEffectiveDiet(
+      profile({
+        presetDietKeys: ["vegan"],
+        excludedGroupKeys: ["meat", "dairy"],
+        excludedIngredientSlugs: ["chicken-breast", "honey", "egg"],
+      }),
+      options,
+    );
+
+    expect(diet.labels).toEqual(["Vegan", "no Egg"]);
+  });
 });

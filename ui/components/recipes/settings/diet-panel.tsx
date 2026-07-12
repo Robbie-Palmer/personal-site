@@ -184,12 +184,14 @@ function SelectableTile({
   active,
   children,
   className,
+  disabled = false,
   label,
   onClick,
 }: Readonly<{
   active: boolean;
   children: ReactNode;
   className?: string;
+  disabled?: boolean;
   label: string;
   onClick: () => void;
 }>) {
@@ -197,12 +199,14 @@ function SelectableTile({
     <button
       type="button"
       aria-pressed={active}
+      disabled={disabled}
       onClick={onClick}
       className={cn(
         "flex items-start gap-3 rounded-lg border px-3 py-3 text-left transition-colors",
         active
           ? "border-[var(--terracotta)] bg-[var(--butter-soft)]"
           : "border-[var(--line)] bg-[var(--card)] hover:border-[var(--line-strong)]",
+        disabled && "cursor-default",
         className,
       )}
     >
@@ -529,7 +533,11 @@ export function DietPanel() {
                   return (
                     <SelectableTile
                       key={group.key}
-                      active={profile.excludedGroupKeys.includes(group.key)}
+                      active={
+                        coveredByPreset ||
+                        profile.excludedGroupKeys.includes(group.key)
+                      }
+                      disabled={coveredByPreset}
                       label={group.label}
                       onClick={() =>
                         updateProfile({

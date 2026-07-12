@@ -43,12 +43,19 @@ export function buildEffectiveDiet(
   const presetGroups = profile.presetDietKeys.flatMap(
     (key) => presetByKey.get(key)?.excludedGroupKeys ?? [],
   );
-  const groupKeys = new Set([...presetGroups, ...profile.excludedGroupKeys]);
-  const excludedIngredientSlugs = new Set([
-    ...profile.excludedIngredientSlugs,
+  const presetGroupKeys = new Set(presetGroups);
+  const groupKeys = new Set([...presetGroupKeys, ...profile.excludedGroupKeys]);
+  const presetExcludedIngredientSlugs = new Set([
     ...profile.presetDietKeys.flatMap(
       (key) => presetByKey.get(key)?.excludedIngredientSlugs ?? [],
     ),
+    ...Array.from(presetGroupKeys).flatMap(
+      (key) => groupByKey.get(key)?.ingredientSlugs ?? [],
+    ),
+  ]);
+  const excludedIngredientSlugs = new Set([
+    ...profile.excludedIngredientSlugs,
+    ...presetExcludedIngredientSlugs,
     ...Array.from(groupKeys).flatMap(
       (key) => groupByKey.get(key)?.ingredientSlugs ?? [],
     ),
@@ -57,12 +64,12 @@ export function buildEffectiveDiet(
     ...profile.presetDietKeys.map(
       (key) => presetByKey.get(key)?.label ?? labelFromSlug(key),
     ),
-    ...profile.excludedGroupKeys.map(
-      (key) => `no ${groupByKey.get(key)?.label ?? labelFromSlug(key)}`,
-    ),
-    ...profile.excludedIngredientSlugs.map(
-      (slug) => `no ${ingredientNames.get(slug) ?? labelFromSlug(slug)}`,
-    ),
+    ...profile.excludedGroupKeys
+      .filter((key) => !presetGroupKeys.has(key))
+      .map((key) => `no ${groupByKey.get(key)?.label ?? labelFromSlug(key)}`),
+    ...profile.excludedIngredientSlugs
+      .filter((slug) => !presetExcludedIngredientSlugs.has(slug))
+      .map((slug) => `no ${ingredientNames.get(slug) ?? labelFromSlug(slug)}`),
   ];
 
   return {

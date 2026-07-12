@@ -18,8 +18,14 @@ export function DietListNotice({
   showingHidden: boolean;
   onToggleHidden?: () => void;
 }>) {
+  const displayedLabels = labels.slice(0, 2);
+  const remainingLabelCount = labels.length - displayedLabels.length;
   const summary =
-    labels.length > 0 ? labels.join(", ") : "your saved exclusions";
+    labels.length > 0
+      ? `${displayedLabels.join(", ")}${
+          remainingLabelCount > 0 ? ` +${remainingLabelCount} more` : ""
+        }`
+      : "your saved exclusions";
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-[var(--sage)] bg-[var(--sage)]/10 px-3 py-2.5">
       <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--sage)] text-white">
