@@ -455,6 +455,9 @@ importers:
       postgres:
         specifier: ^3.4.5
         version: 3.4.9
+      recipe-domain:
+        specifier: workspace:*
+        version: link:../../packages/recipe-domain
       zod:
         specifier: ^4.2.1
         version: 4.4.3

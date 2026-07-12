@@ -1,10 +1,19 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RecipeList } from "@/components/recipes/recipe-list";
 import type { RecipeCardView } from "@/lib/api/recipes";
 
 const replaceMock = vi.fn();
+const dietTestState = vi.hoisted(() => ({
+  mode: "none" as "none" | "hide" | "warn",
+}));
 
 let currentSearchParams = new URLSearchParams();
 
@@ -26,6 +35,28 @@ vi.mock("@/lib/integrations/cloudflare-images", () => ({
   getImageUrl: (image: string) => image,
 }));
 
+vi.mock("@/components/recipes/diet-provider", () => ({
+  useDiet: () => ({
+    diet: {
+      active: dietTestState.mode !== "none",
+      labels: ["Vegetarian"],
+      mode: dietTestState.mode === "warn" ? "warn" : "hide",
+    },
+    matchRecipe: (recipe: { ingredients: { slug: string }[] }) => {
+      const excludedIngredients = recipe.ingredients
+        .filter((ingredient) => ingredient.slug === "chicken-breast")
+        .map((ingredient) => ({
+          slug: ingredient.slug,
+          name: "Chicken breast",
+        }));
+      return {
+        matches: excludedIngredients.length === 0,
+        excludedIngredients,
+      };
+    },
+  }),
+}));
+
 const recipes: RecipeCardView[] = [
   {
     slug: "slow-cooker-mexican-chicken",
@@ -39,6 +70,7 @@ const recipes: RecipeCardView[] = [
     cookTime: 240,
     totalTime: 255,
     ingredientNames: ["chicken breast", "white onion"],
+    ingredientSlugs: ["chicken-breast", "white-onion"],
     cookware: ["fork", "oven", "slow cooker"],
   },
   {
@@ -53,6 +85,7 @@ const recipes: RecipeCardView[] = [
     cookTime: 30,
     totalTime: 50,
     ingredientNames: ["chicken breast", "cheddar cheese"],
+    ingredientSlugs: ["chicken-breast", "cheddar-cheese"],
     cookware: ["baking tray", "bowl", "fork", "frying pan", "oven", "spoon"],
   },
   {
@@ -67,6 +100,7 @@ const recipes: RecipeCardView[] = [
     cookTime: 30,
     totalTime: 40,
     ingredientNames: ["arborio rice", "pesto"],
+    ingredientSlugs: ["arborio-rice", "pesto"],
     cookware: ["bowl", "saucepan"],
   },
 ];
@@ -75,6 +109,45 @@ describe("RecipeList", () => {
   beforeEach(() => {
     currentSearchParams = new URLSearchParams();
     replaceMock.mockReset();
+    dietTestState.mode = "none";
+  });
+
+  it("hides diet mismatches and lets the user temporarily show them", async () => {
+    dietTestState.mode = "hide";
+    const user = userEvent.setup();
+    const onDietVisibleCountChange = vi.fn();
+
+    render(
+      <RecipeList
+        recipes={recipes}
+        onDietVisibleCountChange={onDietVisibleCountChange}
+      />,
+    );
+
+    expect(screen.queryByText("Chicken Quesadillas")).not.toBeInTheDocument();
+    expect(screen.getByText("Creamy Pesto Risotto")).toBeInTheDocument();
+    expect(screen.getByText(/2 recipes hidden/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(onDietVisibleCountChange).toHaveBeenCalledWith(1),
+    );
+
+    await user.click(screen.getByRole("button", { name: /show anyway/i }));
+
+    expect(screen.getByText("Chicken Quesadillas")).toBeInTheDocument();
+    expect(screen.getAllByText(/doesn't match your diet/i)).toHaveLength(2);
+    await waitFor(() =>
+      expect(onDietVisibleCountChange).toHaveBeenCalledWith(3),
+    );
+  });
+
+  it("keeps diet mismatches visible with warnings in warn mode", () => {
+    dietTestState.mode = "warn";
+
+    render(<RecipeList recipes={recipes} />);
+
+    expect(screen.getByText("Chicken Quesadillas")).toBeInTheDocument();
+    expect(screen.getAllByText(/doesn't match your diet/i)).toHaveLength(2);
+    expect(screen.getByText(/marked with a warning/i)).toBeInTheDocument();
   });
 
   it("shows an equipment filter with cookware options", async () => {
