@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createDb } from "../src/db";
+import { createDb } from "recipe-db";
 import {
   dietCatalogIngredients,
   dietGroupMembers,

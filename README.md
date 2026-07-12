@@ -38,7 +38,7 @@ Personal website with blog and interactive resume.
 - **Performance QA:** [Lighthouse](https://developer.chrome.com/docs/lighthouse) (via `mise //ui:lighthouse:serve`)
 - **Dependency Management:** Renovate (automated PRs)
 - **Code Review:** [CodeRabbit](https://coderabbit.ai/) (AI-powered PR reviews)
-- **Project Management:** Shortcut (see [ADR 034](ui/content/projects/personal-site/adrs/034-shortcut.mdx))
+- **Project Management:** Shortcut
 - **AI Pair Programming:** Claude (see [AGENTS.md](AGENTS.md) for agent guide)
 
 ## Setup

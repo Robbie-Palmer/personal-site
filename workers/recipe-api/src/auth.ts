@@ -2,8 +2,8 @@ import { betterAuth } from "better-auth";
 import { admin, lastLoginMethod } from "better-auth/plugins";
 import { withCloudflare } from "better-auth-cloudflare";
 import { eq } from "drizzle-orm";
-import type { createDb } from "./db";
-import * as schema from "./db/schema";
+import type { createDb } from "recipe-db";
+import * as schema from "recipe-db/schema";
 import { enforceRateLimit } from "./http/rate-limit";
 
 type Db = ReturnType<typeof createDb>["db"];

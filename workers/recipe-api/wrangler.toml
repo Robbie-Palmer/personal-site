@@ -36,3 +36,14 @@ binding = "HYPERDRIVE"
 id = "981c36e3ec8a48fda9a5de338e8d8257"
 # Local dev: set CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE in your shell environment.
 # Do NOT put the connection string in this file — it gets committed to git.
+
+# Source image uploads and the cross-script recipe ingestion binding.
+[[r2_buckets]]
+binding = "ARTIFACTS"
+bucket_name = "recipe-artifacts"
+
+[[workflows]]
+name = "recipe-ingest"
+binding = "RECIPE_INGEST_WORKFLOW"
+class_name = "RecipeIngestWorkflow"
+script_name = "recipe-ingest"
