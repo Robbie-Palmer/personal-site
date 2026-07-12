@@ -417,9 +417,9 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                 href={`/recipes/${recipe.slug}.json`}
                 download={`${recipe.slug}.json`}
                 className="block rounded-md px-3 py-2 text-sm hover:bg-accent"
-                title="Download as Open Recipe JSON, importable into most recipe apps"
+                title="Download as schema.org Recipe JSON-LD, importable into most recipe apps"
               >
-                Open Recipe (.json)
+                Recipe JSON (.json)
               </a>
               <a
                 href={`/recipes/${recipe.slug}.cook`}
