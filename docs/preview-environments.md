@@ -94,6 +94,8 @@ permissions:
 
 - **Account -> Workers Scripts -> Edit** (deploy/delete preview Workers and
   upload their secrets)
+- **Account -> Workers R2 Storage -> Read** (let Wrangler validate the shared
+  preview bucket while deploying its binding)
 - **Account -> Cloudflare Pages -> Edit** (deploy the canonical PR Pages alias)
 
 Scope it to this Cloudflare account. Cloudflare's Pages permission is
@@ -101,10 +103,11 @@ account-level only and cannot be narrowed to the `personal-site` project, so
 account scope is the tightest available. Do not reuse a global or DNS-capable
 production token.
 
-The preview token does not need R2 administration permission: Terraform owns
-the shared preview bucket, and the deployed Workers access it through bindings.
-Workflows are deployed as part of a Worker script, so there is no separate
-Workflow token permission.
+The preview token does not need R2 write or administration permission:
+Terraform owns the shared preview bucket. Wrangler does read the bucket while
+validating the Worker binding at deployment time, which is why read access is
+required. Workflows are deployed as part of a Worker script, so there is no
+separate Workflow token permission.
 
 After Terraform first creates `recipe-artifacts-preview`, configure its object
 expiry rule using an administrator's local Wrangler session. Cloudflare provider
