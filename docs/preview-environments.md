@@ -8,7 +8,7 @@ https://pr-<number>.<pages-host>
   -> recipe-api-pr-<number> Worker
   -> recipe-ingest-pr-<number> Workflow Worker
   -> preview-pr-<number> Neon branch
-  -> recipe-artifacts-pr-<number> R2 bucket
+  -> recipe-artifacts-preview R2 bucket (shared QA data only)
 ```
 
 The Neon branch is created with a schema-only copy of the project's primary
@@ -18,10 +18,11 @@ constraints](#neon-free-plan-constraints) below). Production rows, Better Auth
 sessions, OAuth tokens, and private recipes are therefore never copied into a
 preview. The workflow pushes the PR schema and adds deterministic QA fixtures.
 
-The database branch, Workers, Workflow, and artifact bucket survive updates to
-the PR so QA state is preserved. They are deleted when the PR closes. Neon also
-expires the branch after 30 days as a backstop; pushing another commit recreates
-an expired branch.
+The database branch, Workers, and Workflow survive updates to the PR so QA state
+is preserved. They are deleted when the PR closes. Neon also expires the branch
+after 30 days as a backstop; pushing another commit recreates an expired branch.
+The shared preview artifact bucket is persistent infrastructure and contains
+synthetic or QA-only data; a lifecycle rule expires objects after 30 days.
 
 Fork pull requests do not receive preview infrastructure. The workflow uses
 `pull_request_target` so its privileged control flow always comes from the
@@ -93,15 +94,28 @@ permissions:
 
 - **Account -> Workers Scripts -> Edit** (deploy/delete preview Workers and
   upload their secrets)
-- **Account -> Workers R2 Storage -> Edit** (create/delete preview artifact
-  buckets)
-- **Account -> Workers Workflows -> Edit** (deploy/delete preview Workflows)
 - **Account -> Cloudflare Pages -> Edit** (deploy the canonical PR Pages alias)
 
 Scope it to this Cloudflare account. Cloudflare's Pages permission is
 account-level only and cannot be narrowed to the `personal-site` project, so
 account scope is the tightest available. Do not reuse a global or DNS-capable
 production token.
+
+The preview token does not need R2 administration permission: Terraform owns
+the shared preview bucket, and the deployed Workers access it through bindings.
+Workflows are deployed as part of a Worker script, so there is no separate
+Workflow token permission.
+
+After Terraform first creates `recipe-artifacts-preview`, configure its object
+expiry rule using an administrator's local Wrangler session. Cloudflare provider
+v4 can create R2 buckets but cannot manage lifecycle rules:
+
+```bash
+cd workers/recipe-ingest
+mise x -- pnpm exec wrangler r2 bucket lifecycle add \
+  recipe-artifacts-preview expire-preview-artifacts \
+  --expire-days 30 --abort-multipart-days 1 --force
+```
 
 ### 4. Create the GitHub environments
 

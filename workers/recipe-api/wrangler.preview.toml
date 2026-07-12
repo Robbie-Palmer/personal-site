@@ -16,7 +16,7 @@ required = [
 
 [[r2_buckets]]
 binding = "ARTIFACTS"
-bucket_name = "__PREVIEW_BUCKET_NAME__"
+bucket_name = "recipe-artifacts-preview"
 
 [[workflows]]
 name = "__PREVIEW_INGEST_NAME__"

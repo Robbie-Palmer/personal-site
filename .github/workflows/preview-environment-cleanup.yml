@@ -53,14 +53,6 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Delete preview artifact bucket
-        continue-on-error: true
-        run: mise run //workers/recipe-ingest:preview:bucket:delete
-        env:
-          PREVIEW_BUCKET_NAME: recipe-artifacts-pr-${{ github.event.pull_request.number || inputs.pr_number }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
       - name: Delete Neon preview branch
         continue-on-error: true
         uses: neondatabase/delete-branch-action@4468d825d5a88ef4012f1705a82f02ec3072f776 # v3

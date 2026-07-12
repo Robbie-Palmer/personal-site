@@ -36,7 +36,7 @@ resource "cloudflare_pages_project" "personal_site" {
       deployments_enabled           = false
       production_deployment_enabled = false
       preview_deployment_setting    = "none"
-      preview_branch_includes       = []
+      preview_branch_includes       = ["*"]
       preview_branch_excludes       = []
     }
   }
@@ -98,6 +98,15 @@ resource "cloudflare_r2_bucket" "dvc" {
 resource "cloudflare_r2_bucket" "recipe_artifacts" {
   account_id = var.cloudflare_account_id
   name       = var.r2_recipe_artifacts_bucket_name
+  location   = "ENAM"
+}
+
+# Synthetic and QA-only artifacts from pull request preview environments.
+# Object expiry is configured out of band because Cloudflare provider v4 can
+# create R2 buckets but cannot manage lifecycle rules.
+resource "cloudflare_r2_bucket" "recipe_artifacts_preview" {
+  account_id = var.cloudflare_account_id
+  name       = var.r2_recipe_artifacts_preview_bucket_name
   location   = "ENAM"
 }
 

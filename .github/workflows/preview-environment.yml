@@ -90,7 +90,6 @@ jobs:
             echo "PREVIEW_BRANCH=preview-pr-$PR_NUMBER"
             echo "PREVIEW_WORKER_NAME=recipe-api-pr-$PR_NUMBER"
             echo "PREVIEW_INGEST_NAME=recipe-ingest-pr-$PR_NUMBER"
-            echo "PREVIEW_BUCKET_NAME=recipe-artifacts-pr-$PR_NUMBER"
             echo "PREVIEW_SITE_URL=https://pr-$PR_NUMBER.$PAGES_HOST"
             echo "BETTER_AUTH_URL=https://pr-$PR_NUMBER.$PAGES_HOST"
             echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET"
@@ -181,12 +180,6 @@ jobs:
             > "$INGEST_SECRETS_FILE"
           echo "api_secrets_file=$API_SECRETS_FILE" >> "$GITHUB_OUTPUT"
           echo "ingest_secrets_file=$INGEST_SECRETS_FILE" >> "$GITHUB_OUTPUT"
-
-      - name: Create isolated artifact bucket
-        run: mise run //workers/recipe-ingest:preview:bucket:create
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Deploy isolated ingestion Worker and Workflow
         run: mise run //workers/recipe-ingest:preview:deploy
@@ -297,7 +290,7 @@ jobs:
             if (requested && ok) {
               backendLines = [
                 `**API Worker:** \`${process.env.PREVIEW_WORKER_NAME}\``,
-                `**Ingestion:** isolated Worker, Workflow, and R2 bucket`,
+                `**Ingestion:** isolated Worker and Workflow; shared QA-only R2 bucket`,
                 `**Database:** Neon branch \`${process.env.PREVIEW_BRANCH}\``,
                 '',
                 'The site is protected by Cloudflare Access. Use the **Sign in** menu to choose a seeded QA scenario.',

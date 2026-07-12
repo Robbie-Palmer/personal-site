@@ -38,6 +38,11 @@ output "r2_recipe_artifacts_bucket_name" {
   value       = cloudflare_r2_bucket.recipe_artifacts.name
 }
 
+output "r2_recipe_artifacts_preview_bucket_name" {
+  description = "Name of the shared bucket for recipe ingestion preview artifacts"
+  value       = cloudflare_r2_bucket.recipe_artifacts_preview.name
+}
+
 # Neon
 
 output "neon_project_id" {

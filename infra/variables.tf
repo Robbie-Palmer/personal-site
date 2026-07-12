@@ -89,6 +89,12 @@ variable "r2_recipe_artifacts_bucket_name" {
   default     = "recipe-artifacts"
 }
 
+variable "r2_recipe_artifacts_preview_bucket_name" {
+  description = "Name of the shared R2 bucket for ephemeral recipe ingestion preview artifacts"
+  type        = string
+  default     = "recipe-artifacts-preview"
+}
+
 variable "recipe_api_url" {
   description = "URL of the recipe-api Worker for the auth proxy"
   type        = string

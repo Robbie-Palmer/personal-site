@@ -25,4 +25,4 @@ class_name = "RecipeIngestWorkflow"
 
 [[r2_buckets]]
 binding = "ARTIFACTS"
-bucket_name = "__PREVIEW_BUCKET_NAME__"
+bucket_name = "recipe-artifacts-preview"
