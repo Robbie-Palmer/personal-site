@@ -3,14 +3,12 @@ name: Trivy Security Scan
 on:
   pull_request:
     paths:
-      # Terraform roots (and any future *.tf / *.tfvars anywhere)
+      # IaC / config-shaped paths (keep broad enough that new roots are not
+      # silently skipped on PRs; weekly schedule is the full-tree backstop)
       - "infra/**"
       - "infra-bootstrap/**"
       - "**/*.tf"
       - "**/*.tfvars"
-      # Other config types Trivy config mode understands — keep path filters
-      # ahead of first use so new Docker/Helm/K8s configs are not silently
-      # skipped on PRs (scheduled scan still covers the full tree weekly)
       - "**/Dockerfile"
       - "**/Dockerfile.*"
       - "**/docker-compose*.yml"
@@ -48,10 +46,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # Scan the whole workspace so every Terraform root (infra/, infra-bootstrap/,
-      # and any future roots) and other supported config types are covered. Do not
-      # pin scan-ref to a single directory — that omission previously left
-      # infra-bootstrap unscanned.
+      # Whole workspace: never pin to a single Terraform root.
       - name: Run Trivy IaC scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -61,8 +56,6 @@ jobs:
           output: "trivy-iac-results.sarif"
           severity: "CRITICAL,HIGH"
           timeout: "10m"
-          # Avoid noise from dependency trees if present on the runner; config
-          # mode only needs IaC-like files, not installed packages.
           skip-dirs: "node_modules,.pnpm-store,.terraform"
 
       - name: Upload Trivy results to GitHub Security
