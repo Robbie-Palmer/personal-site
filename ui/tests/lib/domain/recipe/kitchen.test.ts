@@ -74,5 +74,13 @@ describe("kitchen helpers", () => {
         new Set(["bacon", "cheddar-cheese"]),
       ),
     ).toEqual([ingredients[2]]);
+
+    expect(
+      getDietRelevantKitchenIngredients(
+        ingredients,
+        new Set(["bacon", "cheddar-cheese"]),
+        true,
+      ),
+    ).toEqual(ingredients);
   });
 });

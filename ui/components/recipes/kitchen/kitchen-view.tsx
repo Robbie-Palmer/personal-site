@@ -7,6 +7,7 @@ import {
   ShoppingBasket,
   Sprout,
   Trash2,
+  TriangleAlert,
   Undo2,
   X,
 } from "lucide-react";
@@ -65,6 +66,8 @@ export function KitchenView({
 }>) {
   const { diet, matchRecipe } = useDiet();
   const [showHidden, setShowHidden] = useState(false);
+  const [showDietExcludedIngredients, setShowDietExcludedIngredients] =
+    useState(false);
   const ingredientBySlug = useMemo(
     () =>
       new Map(ingredients.map((ingredient) => [ingredient.slug, ingredient])),
@@ -95,11 +98,22 @@ export function KitchenView({
       getDietRelevantKitchenIngredients(
         ingredients,
         diet.excludedIngredientSlugs,
+        diet.mode === "warn" || showDietExcludedIngredients,
       ),
+    [
+      diet.excludedIngredientSlugs,
+      diet.mode,
+      ingredients,
+      showDietExcludedIngredients,
+    ],
+  );
+  const dietExcludedIngredientCount = useMemo(
+    () =>
+      ingredients.filter((ingredient) =>
+        diet.excludedIngredientSlugs.has(ingredient.slug),
+      ).length,
     [diet.excludedIngredientSlugs, ingredients],
   );
-  const dietHiddenIngredientCount =
-    ingredients.length - dietRelevantIngredients.length;
 
   const stockedSlugs = useMemo(
     () =>
@@ -356,12 +370,30 @@ export function KitchenView({
                 <CardTitle className="rt-display text-4xl">
                   Add to your kitchen.
                 </CardTitle>
-                {dietHiddenIngredientCount > 0 && (
-                  <p className="rt-body mt-1 text-sm text-[var(--ink-3)]">
-                    {dietHiddenIngredientCount} diet-excluded ingredient
-                    {dietHiddenIngredientCount === 1 ? " is" : "s are"} hidden
-                    from this catalog.
-                  </p>
+                {dietExcludedIngredientCount > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <p className="rt-body text-sm text-[var(--ink-3)]">
+                      {dietExcludedIngredientCount} diet-excluded ingredient
+                      {dietExcludedIngredientCount === 1 ? " is" : "s are"}{" "}
+                      {diet.mode === "warn" || showDietExcludedIngredients
+                        ? "shown with warnings."
+                        : "hidden from this catalog."}
+                    </p>
+                    {diet.mode === "hide" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setShowDietExcludedIngredients((current) => !current)
+                        }
+                      >
+                        {showDietExcludedIngredients
+                          ? "Hide diet exclusions"
+                          : "Show anyway"}
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
@@ -371,7 +403,7 @@ export function KitchenView({
                     ref={catalogSearchRef}
                     value={catalogQuery}
                     onChange={(event) => setCatalogQuery(event.target.value)}
-                    placeholder={`Search ${dietRelevantIngredients.length} ingredients...`}
+                    placeholder="Search ingredients..."
                     className="h-10 border-[var(--line-strong)] bg-[var(--paper)] pl-9"
                   />
                 </div>
@@ -398,28 +430,53 @@ export function KitchenView({
             </CardHeader>
             <CardContent>
               <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                {filteredCatalog.map((ingredient) => (
-                  <button
-                    key={ingredient.slug}
-                    type="button"
-                    onClick={() => addIngredient(ingredient)}
-                    className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-[var(--line)] bg-[var(--paper)] px-3 py-2 text-left transition-colors hover:border-[var(--terracotta)] hover:bg-[var(--butter-soft)]"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-[var(--ink)]">
-                        {ingredient.name}
+                {filteredCatalog.map((ingredient) => {
+                  const isDietExcluded = diet.excludedIngredientSlugs.has(
+                    ingredient.slug,
+                  );
+                  return (
+                    <button
+                      key={ingredient.slug}
+                      type="button"
+                      onClick={() => addIngredient(ingredient)}
+                      aria-label={`Add ${ingredient.name}${
+                        isDietExcluded ? " — diet warning" : ""
+                      }`}
+                      className={cn(
+                        "flex min-w-0 items-center justify-between gap-3 rounded-md border bg-[var(--paper)] px-3 py-2 text-left transition-colors hover:border-[var(--terracotta)] hover:bg-[var(--butter-soft)]",
+                        isDietExcluded
+                          ? "border-[var(--berry)]"
+                          : "border-[var(--line)]",
+                      )}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium text-[var(--ink)]">
+                          {ingredient.name}
+                        </span>
+                        <span
+                          className={cn(
+                            "rt-mono flex items-center gap-1 truncate",
+                            isDietExcluded
+                              ? "text-[var(--berry)]"
+                              : "text-[var(--ink-3)]",
+                          )}
+                        >
+                          {isDietExcluded && (
+                            <TriangleAlert className="size-3 shrink-0" />
+                          )}
+                          {isDietExcluded
+                            ? "Diet warning"
+                            : (ingredient.category ?? "ingredient")}
+                        </span>
                       </span>
-                      <span className="rt-mono block truncate text-[var(--ink-3)]">
-                        {ingredient.category ?? "ingredient"}
-                      </span>
-                    </span>
-                    <CirclePlus className="size-4 shrink-0 text-[var(--terracotta)]" />
-                  </button>
-                ))}
+                      <CirclePlus className="size-4 shrink-0 text-[var(--terracotta)]" />
+                    </button>
+                  );
+                })}
               </div>
               {isCatalogTruncated && (
                 <p className="rt-body mt-3 text-sm text-[var(--ink-3)]">
-                  Showing {filteredCatalog.length} of {catalogMatches.length}
+                  Showing {filteredCatalog.length} of {catalogMatches.length}{" "}
                   matching ingredients.
                 </p>
               )}
