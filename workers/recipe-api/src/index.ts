@@ -544,6 +544,46 @@ async function findUserHouseholdMembership(
   return member;
 }
 
+async function acceptPendingInvitation(
+  db: Db,
+  invitation: HouseholdInvitation,
+  userId: string,
+): Promise<HouseholdMember> {
+  return db.transaction(async (tx) => {
+    const mutationTime = new Date();
+    const [accepted] = await tx
+      .update(schema.invitation)
+      .set({ status: "accepted" })
+      .where(
+        and(
+          eq(schema.invitation.id, invitation.id),
+          eq(schema.invitation.status, "pending"),
+          gt(schema.invitation.expiresAt, mutationTime),
+        ),
+      )
+      .returning();
+    if (!accepted) {
+      throw new Error(
+        invitation.expiresAt <= mutationTime
+          ? "Invitation has expired"
+          : "Invitation is not pending",
+      );
+    }
+
+    const [member] = await tx
+      .insert(schema.member)
+      .values({
+        id: createId(),
+        organizationId: invitation.organizationId,
+        userId,
+        role: "member",
+      })
+      .returning();
+    if (!member) throw new Error("Member insert failed");
+    return member;
+  });
+}
+
 async function findHouseholdMemberUserIds(
   db: ReturnType<typeof createDb>["db"],
   householdId: string,
@@ -1524,39 +1564,11 @@ app.post("/households/invitations/:invitationId/accept", async (c) => {
       return c.json({ error: "User already belongs to a household" }, 409);
     }
 
-    const member = await db.transaction(async (tx) => {
-      const mutationTime = new Date();
-      const [accepted] = await tx
-        .update(schema.invitation)
-        .set({ status: "accepted" })
-        .where(
-          and(
-            eq(schema.invitation.id, invitationId),
-            eq(schema.invitation.status, "pending"),
-            gt(schema.invitation.expiresAt, mutationTime),
-          ),
-        )
-        .returning();
-      if (!accepted) {
-        throw new Error(
-          invitation.expiresAt <= mutationTime
-            ? "Invitation has expired"
-            : "Invitation is not pending",
-        );
-      }
-
-      const [createdMember] = await tx
-        .insert(schema.member)
-        .values({
-          id: createId(),
-          organizationId: invitation.organizationId,
-          userId: session.session.user.id,
-          role: "member",
-        })
-        .returning();
-      if (!createdMember) throw new Error("Member insert failed");
-      return createdMember;
-    });
+    const member = await acceptPendingInvitation(
+      db,
+      invitation,
+      session.session.user.id,
+    );
 
     return c.json({
       invitation: { ...invitationResponse(invitation), status: "accepted" },
