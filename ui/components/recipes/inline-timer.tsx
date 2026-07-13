@@ -2,6 +2,7 @@
 
 import { Pause, RotateCcw, Timer, X } from "lucide-react";
 import { useCallback } from "react";
+import { AddTimerPopover } from "@/components/recipes/add-timer-popover";
 import { badgeVariants } from "@/components/ui/badge";
 import { useCookingTimer } from "@/hooks/use-cooking-timers";
 import {
@@ -74,15 +75,37 @@ export function InlineTimer({
     label,
   ]);
 
+  // A timer the author marked without a resolvable duration (e.g. a
+  // "cook to package instructions" step). Rather than a dead badge, invite the
+  // cook to set their own time — the started timer joins the global store. The
+  // label can be empty for free-text markers, so fall back to a generic prompt.
   if (durationSeconds === null) {
+    const promptLabel = label.trim() || "set timer";
     return (
-      <span
-        data-recipe-pill
-        className={cn(badgeVariants({ variant: "outline" }), "align-baseline")}
-      >
-        <Timer className="size-3" />
-        {label}
-      </span>
+      <AddTimerPopover
+        defaultLabel={label.trim()}
+        recipeSlug={recipeSlug}
+        recipeTitle={recipeTitle}
+        stepIndex={stepIndex}
+        stepText={stepText}
+        trigger={
+          <button
+            type="button"
+            data-recipe-pill
+            className={cn(
+              badgeVariants({ variant: "outline", interactive: true }),
+              "align-baseline text-[0.8125rem] font-semibold",
+              "bg-[var(--butter-soft)] text-[var(--ink)]",
+            )}
+            aria-label={
+              label.trim() ? `Set a ${label.trim()} timer` : "Set a timer"
+            }
+          >
+            <Timer className="size-3" />
+            {promptLabel}
+          </button>
+        }
+      />
     );
   }
 

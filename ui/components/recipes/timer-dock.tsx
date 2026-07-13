@@ -6,6 +6,7 @@ import {
   GripVertical,
   Pause,
   Play,
+  Plus,
   X,
 } from "lucide-react";
 import {
@@ -16,6 +17,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { AddTimerPopover } from "@/components/recipes/add-timer-popover";
 import { useCookingTimers } from "@/hooks/use-cooking-timers";
 import {
   type CookingTimer,
@@ -89,9 +91,11 @@ function dotColor(timer: CookingTimer): string {
 /**
  * Link back to the timer's recipe, deep-linking straight into cook mode at the
  * step that started it when we know which step that was. Slug is encoded as
- * defense-in-depth even though recipe slugs are build-time safe.
+ * defense-in-depth even though recipe slugs are build-time safe. Null for
+ * free-standing custom timers, which have no recipe to return to.
  */
-function timerHref(timer: CookingTimer): string {
+function timerHref(timer: CookingTimer): string | null {
+  if (timer.recipeSlug === undefined) return null;
   const base = `/recipes/${encodeURIComponent(timer.recipeSlug)}`;
   return timer.stepIndex === undefined
     ? base
@@ -243,11 +247,13 @@ export function TimerDock() {
     [],
   );
 
-  if (!mounted || timers.length === 0) return null;
+  // Keep the dock out of the way on non-cooking pages, but while cook mode is
+  // open surface it even with no timers yet so "add a timer" is always one tap
+  // away — the whole point for recipes that say "cook to package instructions".
+  if (!mounted || (timers.length === 0 && !cookModeOpen)) return null;
 
   const sorted = [...timers].sort(byUrgency);
   const primary = sorted[0];
-  if (!primary) return null;
 
   // Positioning: default anchor comes from CSS classes; a dragged position is
   // applied inline. While cook mode is open, raise the bottom to clear its
@@ -262,6 +268,40 @@ export function TimerDock() {
     };
   } else if (cookModeOpen) {
     style = { bottom: cookModeFooterClearance() };
+  }
+
+  const addTimerControl = (
+    <AddTimerPopover
+      align="end"
+      trigger={
+        <button
+          type="button"
+          aria-label="Add a custom timer"
+          className="flex items-center gap-1.5 rounded-full px-2 py-1.5 text-[var(--paper)]/85 transition-colors hover:bg-[var(--paper)]/15 hover:text-[var(--paper)]"
+        >
+          <Plus className="size-4" />
+          <span className="rt-mono text-[11px]">add timer</span>
+        </button>
+      }
+    />
+  );
+
+  // Cook mode is open but nothing is running yet: show just the add-timer
+  // entry point so the user never has to leave the site for a stray timer.
+  if (!primary) {
+    return createPortal(
+      <section
+        ref={dockRef}
+        aria-label="Cooking timers"
+        className="rt-timer-dock fixed right-3 bottom-3 z-[80] sm:right-4 sm:bottom-4"
+        style={style}
+      >
+        <div className="flex items-center rounded-full bg-[var(--ink)] px-1 py-1 text-[var(--paper)] shadow-lg">
+          {addTimerControl}
+        </div>
+      </section>,
+      document.body,
+    );
   }
 
   const grip = (
@@ -314,6 +354,9 @@ export function TimerDock() {
               <DockRow key={timer.id} timer={timer} />
             ))}
           </div>
+          <div className="mt-1 border-t border-[var(--paper)]/10 pt-1">
+            {addTimerControl}
+          </div>
         </div>
       ) : (
         <div className="flex items-center rounded-full bg-[var(--ink)] py-1 pr-2.5 pl-1.5 text-[var(--paper)] shadow-lg">
@@ -360,6 +403,18 @@ export function TimerDock() {
             )}
             <ChevronUp className="size-3.5 opacity-60" />
           </button>
+          <AddTimerPopover
+            align="end"
+            trigger={
+              <button
+                type="button"
+                aria-label="Add a custom timer"
+                className="ml-1 rounded-full p-1.5 text-[var(--paper)]/80 transition-colors hover:bg-[var(--paper)]/15 hover:text-[var(--paper)]"
+              >
+                <Plus className="size-4" />
+              </button>
+            }
+          />
         </div>
       )}
     </section>,
@@ -371,6 +426,8 @@ function DockRow({ timer }: Readonly<{ timer: CookingTimer }>) {
   const completed = timer.state === "completed";
   const paused = timer.state === "paused";
   const tag = stepTag(timer);
+  const href = timerHref(timer);
+  const subtitle = timer.stepText || timer.recipeTitle || "custom timer";
   const tooltip = [
     timer.recipeTitle,
     tag && `${tag} of ${timer.recipeTitle}`,
@@ -379,39 +436,49 @@ function DockRow({ timer }: Readonly<{ timer: CookingTimer }>) {
     .filter(Boolean)
     .join(" — ");
 
+  const detailClassName = [
+    "flex min-w-0 flex-1 flex-col leading-tight",
+    completed ? "animate-pulse" : "",
+  ].join(" ");
+  const detail = (
+    <>
+      <span
+        className="rt-mono max-w-40 truncate text-[9px]"
+        style={{ color: dotColor(timer) }}
+      >
+        ● {timer.label}
+        {tag && <span className="text-[var(--ink-4)]"> · {tag}</span>}
+      </span>
+      <span className="max-w-40 truncate font-[family-name:var(--font-kalam)] text-[10px] text-[var(--ink-4)]">
+        {subtitle}
+      </span>
+      <span
+        className={[
+          "rt-display text-lg leading-none tabular-nums",
+          paused ? "opacity-60" : "",
+        ].join(" ")}
+      >
+        {completed ? "done!" : formatCountdown(timer.remainingSeconds)}
+      </span>
+    </>
+  );
+
   return (
     <div className="flex items-center gap-1.5 rounded-lg px-1 py-0.5">
       {/* A plain <a> (full navigation), not next/link: deep-linking into cook
           mode relies on RecipeContent reading ?cook=1&step=N on mount, which a
           client-side transition to the same recipe route wouldn't retrigger.
-          Timers persist across the reload, so the dock survives. */}
-      <a
-        href={timerHref(timer)}
-        className={[
-          "flex min-w-0 flex-1 flex-col leading-tight",
-          completed ? "animate-pulse" : "",
-        ].join(" ")}
-        title={tooltip}
-      >
-        <span
-          className="rt-mono max-w-40 truncate text-[9px]"
-          style={{ color: dotColor(timer) }}
-        >
-          ● {timer.label}
-          {tag && <span className="text-[var(--ink-4)]"> · {tag}</span>}
-        </span>
-        <span className="max-w-40 truncate font-[family-name:var(--font-kalam)] text-[10px] text-[var(--ink-4)]">
-          {timer.stepText || timer.recipeTitle}
-        </span>
-        <span
-          className={[
-            "rt-display text-lg leading-none tabular-nums",
-            paused ? "opacity-60" : "",
-          ].join(" ")}
-        >
-          {completed ? "done!" : formatCountdown(timer.remainingSeconds)}
-        </span>
-      </a>
+          Timers persist across the reload, so the dock survives. Custom timers
+          have no recipe to return to, so they render as a plain block. */}
+      {href === null ? (
+        <div className={detailClassName} title={tooltip || undefined}>
+          {detail}
+        </div>
+      ) : (
+        <a href={href} className={detailClassName} title={tooltip}>
+          {detail}
+        </a>
+      )}
       {!completed && (
         <button
           type="button"

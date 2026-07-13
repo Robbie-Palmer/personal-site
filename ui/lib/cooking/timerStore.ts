@@ -16,8 +16,9 @@ export type CookingTimerState = "running" | "paused" | "completed";
 
 export type CookingTimer = {
   id: string;
-  recipeSlug: string;
-  recipeTitle: string;
+  /** Recipe the timer belongs to; absent for free-standing custom timers. */
+  recipeSlug?: string;
+  recipeTitle?: string;
   label: string;
   /** Zero-based method step the timer belongs to, when known. */
   stepIndex?: number;
@@ -33,13 +34,16 @@ export type CookingTimer = {
 
 export type StartTimerInput = {
   id: string;
-  recipeSlug: string;
-  recipeTitle: string;
+  recipeSlug?: string;
+  recipeTitle?: string;
   label: string;
   stepIndex?: number;
   stepText?: string;
   durationSeconds: number;
 };
+
+/** A custom timer with no parsed-recipe origin; recipe context is optional. */
+export type CustomTimerInput = Omit<StartTimerInput, "id">;
 
 const STORAGE_KEY = "cooking-timers:v1";
 const WAKE_LOCK_KEY = "cooking-timers";
@@ -71,8 +75,8 @@ function isStoredTimer(value: unknown): value is CookingTimer {
   const t = value as Record<string, unknown>;
   return (
     typeof t.id === "string" &&
-    typeof t.recipeSlug === "string" &&
-    typeof t.recipeTitle === "string" &&
+    (t.recipeSlug === undefined || typeof t.recipeSlug === "string") &&
+    (t.recipeTitle === undefined || typeof t.recipeTitle === "string") &&
     typeof t.label === "string" &&
     typeof t.durationSeconds === "number" &&
     typeof t.remainingSeconds === "number" &&
@@ -231,6 +235,19 @@ export function startTimer(input: StartTimerInput): void {
     endTimeMs: Date.now() + input.durationSeconds * 1000,
   };
   commit([...timers.filter((t) => t.id !== input.id), timer]);
+}
+
+/**
+ * Start an ad-hoc timer the user typed in themselves (not parsed from a
+ * recipe). A fresh id is minted each call so repeated "add timer" taps stack
+ * rather than replacing one another, and it's returned for the caller to track.
+ */
+export function startCustomTimer(input: CustomTimerInput): string {
+  const id = `custom:${
+    globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
+  }`;
+  startTimer({ ...input, id });
+  return id;
 }
 
 export function pauseTimer(id: string): void {

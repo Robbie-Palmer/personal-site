@@ -8,10 +8,13 @@ import {
   ListChecks,
   Pause,
   Play,
+  Plus,
   RotateCcw,
+  Timer,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AddTimerPopover } from "@/components/recipes/add-timer-popover";
 import { Button } from "@/components/ui/button";
 import { useCookingTimer } from "@/hooks/use-cooking-timers";
 import {
@@ -263,6 +266,14 @@ export function CookMode({
       token.durationSeconds !== null,
   );
 
+  // Author-marked timers with no duration (e.g. `~pasta{}` for "cook to package
+  // instructions") — surfaced as prompts so the cook can set their own time
+  // without leaving cook mode.
+  const currentPrompts = (current.tokens ?? []).filter(
+    (token): token is CookToken & { type: "timer" } =>
+      token.type === "timer" && token.durationSeconds === null,
+  );
+
   const isLastStep = clampedStep === steps.length - 1;
 
   const ingredientPanel = (
@@ -370,6 +381,47 @@ export function CookMode({
                 stepText={current.text}
               />
             ))}
+
+            <div className="mt-7 flex flex-wrap items-center gap-2">
+              {currentPrompts.map((token, index) => {
+                const promptLabel = token.value.trim();
+                return (
+                  <AddTimerPopover
+                    key={`prompt-${index}:${token.value}`}
+                    defaultLabel={promptLabel}
+                    recipeSlug={recipeSlug}
+                    recipeTitle={recipeTitle}
+                    stepIndex={clampedStep}
+                    stepText={current.text}
+                    trigger={
+                      <Button
+                        size="sm"
+                        className="bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]"
+                      >
+                        <Timer className="size-4" />
+                        {promptLabel ? `Set ${promptLabel} timer` : "Set timer"}
+                      </Button>
+                    }
+                  />
+                );
+              })}
+              <AddTimerPopover
+                recipeSlug={recipeSlug}
+                recipeTitle={recipeTitle}
+                stepIndex={clampedStep}
+                stepText={current.text}
+                trigger={
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-[var(--ink-2)]"
+                  >
+                    <Plus className="size-4" />
+                    Add timer
+                  </Button>
+                }
+              />
+            </div>
           </div>
 
           {/* nav */}

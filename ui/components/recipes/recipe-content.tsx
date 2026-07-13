@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { AddTimerPopover } from "@/components/recipes/add-timer-popover";
 import {
   CookMode,
   type CookStep,
@@ -536,7 +537,27 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                           )}
                         </span>
                       ))
-                    : step.text}
+                    : step.text}{" "}
+                  <AddTimerPopover
+                    align="start"
+                    recipeSlug={recipe.slug}
+                    recipeTitle={recipe.title}
+                    stepIndex={stepIndex}
+                    stepText={step.text}
+                    trigger={
+                      <button
+                        type="button"
+                        // Low-emphasis so it never competes with the method
+                        // text, but always there for the "package instructions"
+                        // steps that carry no inline timer of their own.
+                        className="ml-0.5 inline-flex translate-y-[1px] items-center gap-0.5 align-baseline text-[0.6875rem] text-[var(--ink-4)] opacity-70 transition-opacity hover:opacity-100 hover:text-[var(--terracotta)]"
+                        aria-label="Add a timer for this step"
+                      >
+                        <Timer className="size-3" />
+                        timer
+                      </button>
+                    }
+                  />
                 </div>
               </div>
             </li>
