@@ -47,9 +47,7 @@ function resolveDestinationPath(
 
   try {
     const segments = destinationPath.split("/");
-    const hasEmptyMiddleSegment = segments
-      .slice(1, -1)
-      .some((segment) => segment === "");
+    const hasEmptyMiddleSegment = segments.slice(1, -1).includes("");
     const hasUnsafeSegment = segments.some(isUnsafePathSegment);
     return hasEmptyMiddleSegment || hasUnsafeSegment ? null : destinationPath;
   } catch {
