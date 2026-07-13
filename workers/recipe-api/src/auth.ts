@@ -5,6 +5,10 @@ import { eq } from "drizzle-orm";
 import type { createDb } from "recipe-db";
 import * as schema from "recipe-db/schema";
 import { enforceRateLimit } from "./http/rate-limit";
+import {
+  syncCanonicalUserEmail,
+  syncLinkedAccountEmails,
+} from "./user-emails";
 
 type Db = ReturnType<typeof createDb>["db"];
 
@@ -108,6 +112,24 @@ export function createAuth(
             enabled: true,
             trustedProviders: ["google", "github"],
             allowDifferentEmails: true,
+          },
+        },
+        databaseHooks: {
+          user: {
+            create: {
+              after: async (user) => syncCanonicalUserEmail(db, user),
+            },
+            update: {
+              after: async (user) => syncCanonicalUserEmail(db, user),
+            },
+          },
+          account: {
+            create: {
+              after: async (account) => syncLinkedAccountEmails(db, account),
+            },
+            update: {
+              after: async (account) => syncLinkedAccountEmails(db, account),
+            },
           },
         },
         session: { cookieCache: { enabled: false } },

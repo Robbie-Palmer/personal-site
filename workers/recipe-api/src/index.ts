@@ -24,6 +24,11 @@ import {
   findPreviewScenario,
   previewScenarios,
 } from "./preview-scenarios";
+import {
+  normalizeEmail,
+  userOwnsVerifiedEmail,
+  verifiedEmailsForUser,
+} from "./user-emails";
 
 type Bindings = {
   HYPERDRIVE?: Hyperdrive;
@@ -1121,6 +1126,9 @@ app.get("/households/invitations", async (c) => {
     "query",
     "GET /households/invitations failed",
     async ({ db, session }) => {
+      const verifiedEmails = await verifiedEmailsForUser(db, session.user);
+      if (verifiedEmails.length === 0) return c.json([]);
+
       const invitations = await db
         .select({
           invitation: schema.invitation,
@@ -1136,7 +1144,7 @@ app.get("/households/invitations", async (c) => {
         )
         .where(
           and(
-            eq(schema.invitation.email, session.user.email.toLowerCase()),
+            inArray(schema.invitation.email, verifiedEmails),
             eq(schema.invitation.status, "pending"),
             gt(schema.invitation.expiresAt, new Date()),
           ),
@@ -1421,7 +1429,7 @@ app.post("/households/:householdId/invitations", async (c) => {
     const body = await parseJsonBody(c, inviteHouseholdMemberBodySchema);
     if (!body.success) return body.response;
 
-    const email = body.data.email.toLowerCase();
+    const email = normalizeEmail(body.data.email);
 
     const [existingInvitation] = await db
       .select()
@@ -1431,6 +1439,7 @@ app.post("/households/:householdId/invitations", async (c) => {
           eq(schema.invitation.organizationId, householdId),
           eq(schema.invitation.email, email),
           eq(schema.invitation.status, "pending"),
+          gt(schema.invitation.expiresAt, new Date()),
         ),
       )
       .limit(1);
@@ -1497,7 +1506,13 @@ app.post("/households/invitations/:invitationId/accept", async (c) => {
     if (invitation.expiresAt.getTime() < Date.now()) {
       return c.json({ error: "Invitation has expired" }, 410);
     }
-    if (invitation.email.toLowerCase() !== session.session.user.email.toLowerCase()) {
+    if (
+      !(await userOwnsVerifiedEmail(
+        db,
+        session.session.user,
+        invitation.email,
+      ))
+    ) {
       return authorizationResponse(c, forbidden());
     }
 
@@ -1586,7 +1601,13 @@ app.post("/households/invitations/:invitationId/decline", async (c) => {
     if (invitation.expiresAt.getTime() < Date.now()) {
       return c.json({ error: "Invitation has expired" }, 410);
     }
-    if (invitation.email.toLowerCase() !== session.session.user.email.toLowerCase()) {
+    if (
+      !(await userOwnsVerifiedEmail(
+        db,
+        session.session.user,
+        invitation.email,
+      ))
+    ) {
       return authorizationResponse(c, forbidden());
     }
 

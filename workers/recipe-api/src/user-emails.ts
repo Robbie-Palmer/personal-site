@@ -1,0 +1,167 @@
+import { and, eq, ne } from "drizzle-orm";
+import type { createDb } from "recipe-db";
+import * as schema from "recipe-db/schema";
+
+type Db = ReturnType<typeof createDb>["db"];
+type UserEmailIdentity = {
+  id: string;
+  email: string;
+  emailVerified: boolean;
+};
+type LinkedAccountIdentity = {
+  providerId: string;
+  userId: string;
+  accessToken?: string | null;
+  idToken?: string | null;
+};
+type Fetch = typeof fetch;
+
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function googleEmail(idToken: string | null | undefined): string[] {
+  if (!idToken) return [];
+  try {
+    const encodedPayload = idToken.split(".")[1];
+    if (!encodedPayload) return [];
+    const base64 = encodedPayload.replaceAll("-", "+").replaceAll("_", "/");
+    const payload = JSON.parse(atob(base64)) as {
+      email?: unknown;
+      email_verified?: unknown;
+    };
+    return payload.email_verified === true && typeof payload.email === "string"
+      ? [normalizeEmail(payload.email)]
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+async function githubEmails(
+  accessToken: string | null | undefined,
+  fetchImpl: Fetch,
+): Promise<string[]> {
+  if (!accessToken) return [];
+  const response = await fetchImpl("https://api.github.com/user/emails", {
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${accessToken}`,
+      "User-Agent": "personal-site-recipe-api",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+  if (!response.ok) return [];
+  const body: unknown = await response.json();
+  if (!Array.isArray(body)) return [];
+  return body.flatMap((candidate) => {
+    if (
+      typeof candidate === "object" &&
+      candidate !== null &&
+      "email" in candidate &&
+      "verified" in candidate &&
+      typeof candidate.email === "string" &&
+      candidate.verified === true
+    ) {
+      return [normalizeEmail(candidate.email)];
+    }
+    return [];
+  });
+}
+
+export async function verifiedEmailsFromLinkedAccount(
+  account: LinkedAccountIdentity,
+  fetchImpl: Fetch = fetch,
+): Promise<string[]> {
+  if (account.providerId === "google") return googleEmail(account.idToken);
+  if (account.providerId === "github") {
+    return githubEmails(account.accessToken, fetchImpl);
+  }
+  return [];
+}
+
+export async function syncLinkedAccountEmails(
+  db: Db,
+  account: LinkedAccountIdentity,
+) {
+  try {
+    const emails = await verifiedEmailsFromLinkedAccount(account);
+    await Promise.all(
+      [...new Set(emails)].map((email) =>
+        db
+          .insert(schema.userEmail)
+          .values({
+            email,
+            userId: account.userId,
+            verified: true,
+            isPrimary: false,
+          })
+          .onConflictDoNothing({ target: schema.userEmail.email }),
+      ),
+    );
+  } catch (error) {
+    // Provider lookup failure must not break sign-in. Account update hooks retry
+    // the lookup on later sign-ins when Better Auth refreshes OAuth tokens.
+    console.error("Unable to sync linked account emails", error);
+  }
+}
+
+export async function syncCanonicalUserEmail(
+  db: Db,
+  user: UserEmailIdentity,
+) {
+  const email = normalizeEmail(user.email);
+  await db
+    .update(schema.userEmail)
+    .set({ isPrimary: false })
+    .where(
+      and(
+        eq(schema.userEmail.userId, user.id),
+        ne(schema.userEmail.email, email),
+      ),
+    );
+  await db
+    .update(schema.userEmail)
+    .set({ verified: user.emailVerified, isPrimary: true })
+    .where(
+      and(
+        eq(schema.userEmail.email, email),
+        eq(schema.userEmail.userId, user.id),
+      ),
+    );
+  await db
+    .insert(schema.userEmail)
+    .values({
+      email,
+      userId: user.id,
+      verified: user.emailVerified,
+      isPrimary: true,
+    })
+    .onConflictDoNothing({ target: schema.userEmail.email });
+}
+
+export async function verifiedEmailsForUser(
+  db: Db,
+  user: UserEmailIdentity,
+): Promise<string[]> {
+  await syncCanonicalUserEmail(db, user);
+  const emails = await db
+    .select({ email: schema.userEmail.email })
+    .from(schema.userEmail)
+    .where(
+      and(
+        eq(schema.userEmail.userId, user.id),
+        eq(schema.userEmail.verified, true),
+      ),
+    );
+  return emails.map(({ email }) => email);
+}
+
+export async function userOwnsVerifiedEmail(
+  db: Db,
+  user: UserEmailIdentity,
+  email: string,
+): Promise<boolean> {
+  const verifiedEmails = await verifiedEmailsForUser(db, user);
+  return verifiedEmails.includes(normalizeEmail(email));
+}

@@ -29,6 +29,14 @@ const dbMock = vi.hoisted(() => {
     createdAt: Date;
     updatedAt: Date;
   };
+  type UserEmailRow = {
+    email: string;
+    userId: string;
+    verified: boolean;
+    isPrimary: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  };
   type MemberRow = {
     id: string;
     organizationId: string;
@@ -87,6 +95,7 @@ const dbMock = vi.hoisted(() => {
 
   const state = {
     users: [] as UserRow[],
+    userEmails: [] as UserEmailRow[],
     organizations: [] as OrganizationRow[],
     members: [] as MemberRow[],
     invitations: [] as InvitationRow[],
@@ -160,6 +169,7 @@ const dbMock = vi.hoisted(() => {
 
   function reset() {
     state.users = [];
+    state.userEmails = [];
     state.organizations = [];
     state.members = [];
     state.invitations = [];
@@ -199,6 +209,22 @@ const dbMock = vi.hoisted(() => {
       };
       state.organizations.push(organization);
       return [organizationRow(organization)];
+    }
+
+    if (query.startsWith('insert into "user_email"')) {
+      const email = params[0] as string;
+      if (state.userEmails.some((candidate) => candidate.email === email)) {
+        return [];
+      }
+      state.userEmails.push({
+        email,
+        userId: params[1] as string,
+        verified: params[2] as boolean,
+        isPrimary: params[3] as boolean,
+        createdAt: date,
+        updatedAt: date,
+      });
+      return [];
     }
 
     if (query.startsWith('insert into "member"')) {
@@ -304,6 +330,32 @@ const dbMock = vi.hoisted(() => {
       return query.includes("returning") ? [invitationRow(invitation)] : [];
     }
 
+    if (query.startsWith('update "user_email"')) {
+      const setsPrimaryOnly = query.includes('set "is_primary" =');
+      if (setsPrimaryOnly) {
+        const userId = params.at(-2) as string;
+        const excludedEmail = params.at(-1) as string;
+        for (const candidate of state.userEmails) {
+          if (candidate.userId === userId && candidate.email !== excludedEmail) {
+            candidate.isPrimary = false;
+          }
+        }
+        return [];
+      }
+
+      const email = params.at(-2) as string;
+      const userId = params.at(-1) as string;
+      const candidate = state.userEmails.find(
+        (item) => item.email === email && item.userId === userId,
+      );
+      if (candidate) {
+        candidate.verified = params[0] as boolean;
+        candidate.isPrimary = params[1] as boolean;
+        candidate.updatedAt = date;
+      }
+      return [];
+    }
+
     if (query.startsWith('update "organization"')) {
       const householdId = params.at(-1) as string;
       const organization = state.organizations.find(
@@ -398,6 +450,17 @@ const dbMock = vi.hoisted(() => {
       return state.organizations
         .filter((organization) => organization.id === householdId)
         .map(organizationRow);
+    }
+
+    if (query.includes('from "user_email"')) {
+      const userId = params[0] as string;
+      const verified = params[1] as boolean;
+      return state.userEmails
+        .filter(
+          (candidate) =>
+            candidate.userId === userId && candidate.verified === verified,
+        )
+        .map((candidate) => [candidate.email]);
     }
 
     if (
@@ -515,12 +578,16 @@ const dbMock = vi.hoisted(() => {
       query.includes('from "invitation"') &&
       query.includes('inner join "organization"')
     ) {
-      const email = params[0] as string;
-      const status = params[1] as string;
+      const statusIndex = params.indexOf("pending");
+      const emails = new Set(params.slice(0, statusIndex) as string[]);
+      const status = params[statusIndex] as string;
+      const expiresAfter = new Date(params[statusIndex + 1] as string);
       return state.invitations
         .filter(
           (invitation) =>
-            invitation.email === email && invitation.status === status,
+            emails.has(invitation.email) &&
+            invitation.status === status &&
+            invitation.expiresAt > expiresAfter,
         )
         .map((invitation) => {
           const organization = state.organizations.find(
@@ -565,12 +632,17 @@ const dbMock = vi.hoisted(() => {
       const organizationId = params[0] as string;
       const email = params[1] as string;
       const status = params[2] as string;
+      const expiresAfterValue = params[3];
+      const expiresAfter = expiresAfterValue
+        ? new Date(expiresAfterValue as string)
+        : undefined;
       return state.invitations
         .filter(
           (invitation) =>
             invitation.organizationId === organizationId &&
             invitation.email === email &&
-            invitation.status === status,
+            invitation.status === status &&
+            (!expiresAfter || invitation.expiresAt > expiresAfter),
         )
         .map(invitationRow);
     }
@@ -1575,7 +1647,7 @@ describe("household membership flows", () => {
         email: "new@example.test",
         role: "member",
         status: "pending",
-        expiresAt: new Date("2026-01-03T00:00:00.000Z"),
+        expiresAt: new Date("2099-01-03T00:00:00.000Z"),
         inviterId: "owner-user",
         createdAt: dbMock.date,
       },
@@ -1585,7 +1657,7 @@ describe("household membership flows", () => {
         email: "old@example.test",
         role: "member",
         status: "accepted",
-        expiresAt: new Date("2026-01-03T00:00:00.000Z"),
+        expiresAt: new Date("2099-01-03T00:00:00.000Z"),
         inviterId: "owner-user",
         createdAt: dbMock.date,
       },
@@ -1619,7 +1691,7 @@ describe("household membership flows", () => {
       email: "invitee@example.test",
       role: "member",
       status: "pending",
-      expiresAt: new Date("2026-01-03T00:00:00.000Z"),
+      expiresAt: new Date("2099-01-03T00:00:00.000Z"),
       inviterId: "owner-user",
       createdAt: dbMock.date,
     });
@@ -1637,6 +1709,40 @@ describe("household membership flows", () => {
         id: "pending-invitation",
         household: { id: "household-1", name: "Owner household" },
       }),
+    ]);
+  });
+
+  it("returns invitations sent to another verified email owned by the account", async () => {
+    seedHousehold();
+    dbMock.state.userEmails.push({
+      email: "invitee.alias@example.test",
+      userId: "invitee-user",
+      verified: true,
+      isPrimary: false,
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    dbMock.state.invitations.push({
+      id: "alias-invitation",
+      organizationId: "household-1",
+      email: "invitee.alias@example.test",
+      role: "member",
+      status: "pending",
+      expiresAt: new Date("2099-01-03T00:00:00.000Z"),
+      inviterId: "owner-user",
+      createdAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "invitee-user",
+      email: "invitee@example.test",
+      name: "Invitee",
+    });
+
+    const res = await app.request("/households/invitations", {}, env);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([
+      expect.objectContaining({ id: "alias-invitation" }),
     ]);
   });
 
@@ -1771,7 +1877,7 @@ describe("household membership flows", () => {
       email: "newmember@example.test",
       role: "member",
       status: "pending",
-      expiresAt: new Date("2027-01-02T00:00:00.000Z"),
+      expiresAt: new Date("2099-01-02T00:00:00.000Z"),
       inviterId: "owner-user",
       createdAt: dbMock.date,
     });
@@ -1799,6 +1905,45 @@ describe("household membership flows", () => {
       error: "A pending invitation already exists for this email",
     });
     expect(dbMock.state.invitations).toHaveLength(1);
+  });
+
+  it("allows a new invitation when the previous pending row has expired", async () => {
+    seedHousehold();
+    dbMock.state.invitations.push({
+      id: "expired-invitation",
+      organizationId: "household-1",
+      email: "newmember@example.test",
+      role: "member",
+      status: "pending",
+      expiresAt: new Date("2020-01-02T00:00:00.000Z"),
+      inviterId: "owner-user",
+      createdAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/households/household-1/invitations",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ email: "newmember@example.test" }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(201);
+    expect(dbMock.state.invitations).toHaveLength(2);
+    expect(dbMock.state.invitations.at(-1)).toMatchObject({
+      email: "newmember@example.test",
+      status: "pending",
+    });
   });
 
   it("returns 403 when non-owners invite household members", async () => {
@@ -1865,6 +2010,92 @@ describe("household membership flows", () => {
           userId: "outsider-user",
           role: "member",
         }),
+      ]),
+    );
+  });
+
+  it("allows users to accept invitations sent to a verified email alias", async () => {
+    seedHousehold();
+    dbMock.state.userEmails.push({
+      email: "outsider.alias@example.test",
+      userId: "outsider-user",
+      verified: true,
+      isPrimary: false,
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    dbMock.state.invitations.push({
+      id: "alias-invitation",
+      organizationId: "household-1",
+      email: "outsider.alias@example.test",
+      role: "member",
+      status: "pending",
+      expiresAt: new Date("2099-01-02T00:00:00.000Z"),
+      inviterId: "owner-user",
+      createdAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "outsider-user",
+      email: "outsider@example.test",
+      name: "Outsider",
+    });
+
+    const res = await app.request(
+      "/households/invitations/alias-invitation/accept",
+      {
+        method: "POST",
+        headers: { origin: "http://localhost:3000" },
+      },
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    expect(dbMock.state.members).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: "outsider-user" }),
+      ]),
+    );
+  });
+
+  it("does not accept invitations sent to an unverified email alias", async () => {
+    seedHousehold();
+    dbMock.state.userEmails.push({
+      email: "outsider.alias@example.test",
+      userId: "outsider-user",
+      verified: false,
+      isPrimary: false,
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    dbMock.state.invitations.push({
+      id: "alias-invitation",
+      organizationId: "household-1",
+      email: "outsider.alias@example.test",
+      role: "member",
+      status: "pending",
+      expiresAt: new Date("2099-01-02T00:00:00.000Z"),
+      inviterId: "owner-user",
+      createdAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "outsider-user",
+      email: "outsider@example.test",
+      name: "Outsider",
+    });
+
+    const res = await app.request(
+      "/households/invitations/alias-invitation/accept",
+      {
+        method: "POST",
+        headers: { origin: "http://localhost:3000" },
+      },
+      env,
+    );
+
+    expect(res.status).toBe(403);
+    expect(dbMock.state.members).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: "outsider-user" }),
       ]),
     );
   });

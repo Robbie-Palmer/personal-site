@@ -19,7 +19,7 @@ depends = ["typecheck", "test"]
 [tasks."db:push"]
 description = "Push the recipe API schema to DATABASE_URL"
 depends = ["install"]
-run = "pnpm db:push:ci"
+run = "pnpm db:push:ci && pnpm db:backfill:user-emails"
 
 [tasks."db:seed:diet-catalog"]
 description = "Seed diet presets and ingredient groups into DATABASE_URL"
