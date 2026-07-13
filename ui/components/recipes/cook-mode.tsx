@@ -264,6 +264,7 @@ export function CookMode({
   );
 
   const isLastStep = clampedStep === steps.length - 1;
+  const nextStep = isLastStep ? null : steps[clampedStep + 1];
 
   const ingredientPanel = (
     <IngredientReference
@@ -371,6 +372,32 @@ export function CookMode({
               />
             ))}
           </div>
+
+          {/* persistent muted preview of the next step; tap to advance */}
+          {nextStep && (
+            <button
+              type="button"
+              onClick={() => goTo(clampedStep + 1)}
+              aria-label={`Skip to next step: ${nextStep.text}`}
+              className="flex w-full items-baseline gap-3 border-t border-dashed border-[var(--line-strong)] px-5 py-3 text-left transition-colors hover:bg-[var(--butter-soft)] active:bg-[var(--butter-soft)] sm:px-10"
+            >
+              <span className="rt-mono shrink-0 text-[var(--terracotta)]">
+                Up next
+              </span>
+              <span className="rt-display line-clamp-2 min-w-0 flex-1 text-lg text-[var(--ink-3)] opacity-80 sm:text-xl">
+                {nextStep.tokens
+                  ? nextStep.tokens.map((token, index) => (
+                      <StepToken
+                        key={`${index}:${token.type}:${token.value}`}
+                        token={token}
+                        scale={scale}
+                        system={system}
+                      />
+                    ))
+                  : nextStep.text}
+              </span>
+            </button>
+          )}
 
           {/* nav */}
           <div className="border-t border-dashed border-[var(--line-strong)] px-4 pt-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-8">
