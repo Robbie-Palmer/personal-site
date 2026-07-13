@@ -20,6 +20,18 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+export async function canonicalEmailIsAvailable(
+  db: Db,
+  email: string,
+): Promise<boolean> {
+  const [existing] = await db
+    .select({ userId: schema.userEmail.userId })
+    .from(schema.userEmail)
+    .where(eq(schema.userEmail.email, normalizeEmail(email)))
+    .limit(1);
+  return !existing;
+}
+
 function googleEmail(idToken: string | null | undefined): string[] {
   if (!idToken) return [];
   try {
@@ -160,7 +172,7 @@ export async function syncCanonicalUserEmail(
         eq(schema.userEmail.userId, user.id),
       ),
     );
-  await db
+  const [registered] = await db
     .insert(schema.userEmail)
     .values({
       email,
@@ -168,7 +180,15 @@ export async function syncCanonicalUserEmail(
       verified: user.emailVerified,
       isPrimary: true,
     })
-    .onConflictDoNothing({ target: schema.userEmail.email });
+    .onConflictDoUpdate({
+      target: schema.userEmail.email,
+      set: { verified: user.emailVerified, isPrimary: true },
+      setWhere: eq(schema.userEmail.userId, user.id),
+    })
+    .returning({ userId: schema.userEmail.userId });
+  if (!registered || registered.userId !== user.id) {
+    throw new Error("Canonical email is already owned by another account");
+  }
 }
 
 export async function verifiedEmailsForUser(
