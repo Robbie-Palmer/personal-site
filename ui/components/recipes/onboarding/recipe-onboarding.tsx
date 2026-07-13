@@ -449,6 +449,15 @@ export function RecipeOnboarding({
         </section>
       )}
 
+      {error && (
+        <p
+          role="alert"
+          className="rt-body mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-destructive"
+        >
+          {error}
+        </p>
+      )}
+
       {session && !loading && step > 0 && step < 3 && (
         <footer className="sticky bottom-0 -mx-4 mt-auto flex flex-wrap items-center gap-3 border-t border-[var(--line)] bg-[var(--paper)]/95 px-4 py-4 backdrop-blur">
           <div className="rt-body mr-auto text-[var(--ink-3)]">
@@ -483,14 +492,6 @@ export function RecipeOnboarding({
             </Button>
           )}
         </footer>
-      )}
-      {error && (
-        <p
-          role="alert"
-          className="rt-body mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-destructive"
-        >
-          {error}
-        </p>
       )}
     </div>
   );
