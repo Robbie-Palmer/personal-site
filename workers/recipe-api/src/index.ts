@@ -107,17 +107,17 @@ const HOUSEHOLD_INVITE_RATE_LIMIT = { max: 10, windowSeconds: 60 * 60 };
 
 const createRecipeBodySchema = z.object({
   slug: recipeSlugSchema,
-  title: z.string().trim().min(1),
-  description: z.string().trim().min(1).optional(),
-  body: z.string().trim().min(1).optional(),
+  title: z.string().trim().min(1).max(120),
+  description: z.string().trim().min(1).max(500).optional(),
+  body: z.string().trim().min(1).max(100_000).optional(),
   visibility: recipeVisibilitySchema.default("private"),
 });
 
 const updateRecipeBodySchema = z
   .object({
-    title: z.string().trim().min(1).optional(),
-    description: z.string().trim().min(1).nullable().optional(),
-    body: z.string().trim().min(1).nullable().optional(),
+    title: z.string().trim().min(1).max(120).optional(),
+    description: z.string().trim().min(1).max(500).nullable().optional(),
+    body: z.string().trim().min(1).max(100_000).nullable().optional(),
     visibility: recipeVisibilitySchema.optional(),
   })
   .strict()

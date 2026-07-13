@@ -51,7 +51,9 @@ describe("agent markdown generation", () => {
   it("generates a markdown twin for every recipe and technology page", () => {
     // Interactive, noindex app pages that intentionally have no Markdown twin.
     const nonContentPages = new Set([
+      "recipes/add.html",
       "recipes/kitchen.html",
+      "recipes/saved.html",
       "recipes/settings.html",
       "recipes/shopping.html",
     ]);
@@ -128,6 +130,8 @@ describe("agent markdown generation", () => {
     expect(routes.include).toContain("/api/auth/*");
     expect(routes.include).toContain("/api/profile/diet");
     expect(routes.include).toContain("/api/profile/diet/options");
+    expect(routes.include).toContain("/api/recipes");
+    expect(routes.include).toContain("/api/recipes/*");
     expect(routes.include).toContain("/ingest/*");
     expect(routes.include).toContain("/projects/*");
     expect(routes.exclude).toContain("/_next/*");

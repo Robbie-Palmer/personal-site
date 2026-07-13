@@ -60,6 +60,7 @@ export async function proxyRecipeApiRequest(
   context: RecipeApiProxyContext,
   invalidPreviewMessage: string,
   logLabel?: string,
+  rewritePath?: (path: string) => string,
 ): Promise<Response> {
   const url = new URL(context.request.url);
   const previewBase = previewApiBase(url, context.env);
@@ -75,7 +76,8 @@ export async function proxyRecipeApiRequest(
     );
   }
 
-  const destination = `${apiBase}${url.pathname}${url.search}`;
+  const destinationPath = rewritePath?.(url.pathname) ?? url.pathname;
+  const destination = `${apiBase}${destinationPath}${url.search}`;
   const headers = new Headers();
   for (const name of FORWARDED_REQUEST_HEADERS) {
     const value = context.request.headers.get(name);
@@ -88,7 +90,7 @@ export async function proxyRecipeApiRequest(
         message: `${logLabel} proxy request`,
         method: context.request.method,
         path: url.pathname,
-        destination: `${apiBase}${url.pathname}`,
+        destination: `${apiBase}${destinationPath}`,
       }),
     );
   }

@@ -42,6 +42,7 @@ import {
   buildDietRecipeMatches,
   type DietMatch,
 } from "@/lib/domain/diet";
+import type { RecipeGridItem } from "@/lib/domain/recipe/recipeDraft";
 import { formatDate } from "@/lib/generic/date";
 import { cycleFilterFromCard } from "@/lib/generic/filter-cycle";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
@@ -211,7 +212,7 @@ function TimeBadge({
 }
 
 interface RecipeCardProps {
-  recipe: RecipeCardView;
+  recipe: RecipeGridItem;
   index: number;
   selectedCuisines: string[];
   selectedPrepTimes: string[];
@@ -237,10 +238,11 @@ const RecipeCard = memo(function RecipeCard({
   onToggleTotalTime,
   dietMatch,
 }: RecipeCardProps) {
+  const href = recipe.href ?? `/recipes/${recipe.slug}`;
   return (
     <Card className="h-full flex flex-col overflow-hidden rounded-xl border-[1.25px] border-[var(--line-strong)] gap-0 py-0 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--paper-shadow)]">
       {recipe.image && (
-        <Link href={`/recipes/${recipe.slug}`} className="block">
+        <Link href={href} className="block">
           <div className="relative w-full h-48 bg-muted overflow-hidden">
             {/* biome-ignore lint/performance/noImgElement: Need native img for srcset control with SSG */}
             <img
@@ -259,11 +261,16 @@ const RecipeCard = memo(function RecipeCard({
         </Link>
       )}
       <CardHeader className="pt-4 pb-2 gap-1">
-        <Link href={`/recipes/${recipe.slug}`}>
+        <Link href={href}>
           <CardTitle className="rt-display text-2xl leading-tight hover:text-[var(--terracotta)] transition-colors">
             {recipe.title}
           </CardTitle>
         </Link>
+        {recipe.saved && (
+          <span className="rt-mono w-fit rounded-full bg-[var(--butter-soft)] px-2 py-0.5 text-[0.625rem] text-[var(--terracotta-deep)]">
+            Your recipe
+          </span>
+        )}
         <CardDescription className="rt-body line-clamp-2">
           {recipe.description}
         </CardDescription>
@@ -311,7 +318,7 @@ const RecipeCard = memo(function RecipeCard({
 });
 
 type RecipeListProps = Readonly<{
-  recipes: RecipeCardView[];
+  recipes: RecipeGridItem[];
   onDietVisibleCountChange?: (count: number) => void;
 }>;
 
