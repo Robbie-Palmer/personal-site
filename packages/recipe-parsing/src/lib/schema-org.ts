@@ -107,7 +107,9 @@ function findRecipe(value: unknown): JsonObject | undefined {
   return undefined;
 }
 
-const DURATION_PART_PATTERN = /(\d+(?:\.\d+)?)([DHMS])/gi;
+function isAsciiDigit(character: string | undefined): boolean {
+  return character !== undefined && character >= "0" && character <= "9";
+}
 
 function durationSectionMinutes(
   section: string,
@@ -116,18 +118,30 @@ function durationSectionMinutes(
   if (!section) return 0;
   let minutes = 0;
   let cursor = 0;
-  DURATION_PART_PATTERN.lastIndex = 0;
-  for (
-    let match = DURATION_PART_PATTERN.exec(section);
-    match;
-    match = DURATION_PART_PATTERN.exec(section)
-  ) {
-    const multiplier = multipliers[match[2]?.toUpperCase() ?? ""];
-    if (match.index !== cursor || multiplier === undefined) return undefined;
-    minutes += Number(match[1]) * multiplier;
-    cursor = DURATION_PART_PATTERN.lastIndex;
+  while (cursor < section.length) {
+    const numberStart = cursor;
+    let hasDigit = false;
+    let hasDecimalPoint = false;
+    while (cursor < section.length) {
+      const character = section[cursor];
+      if (isAsciiDigit(character)) {
+        hasDigit = true;
+        cursor += 1;
+      } else if (character === "." && !hasDecimalPoint) {
+        hasDecimalPoint = true;
+        cursor += 1;
+      } else {
+        break;
+      }
+    }
+    const multiplier = multipliers[section[cursor] ?? ""];
+    if (!hasDigit || multiplier === undefined) return undefined;
+    const amount = Number(section.slice(numberStart, cursor));
+    if (!Number.isFinite(amount)) return undefined;
+    minutes += amount * multiplier;
+    cursor += 1;
   }
-  return cursor === section.length ? minutes : undefined;
+  return minutes;
 }
 
 function durationMinutes(value: unknown): number | undefined {
