@@ -12,7 +12,13 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import {
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { RecipeAvatar } from "@/components/recipes/recipe-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +63,10 @@ function friendlyDate(value: string) {
   }).format(new Date(value));
 }
 
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 function Section({
   title,
   sub,
@@ -85,7 +95,9 @@ export function HouseholdPanel({
   const [invitations, setInvitations] = useState<HouseholdInvitation[]>([]);
   const [incoming, setIncoming] = useState<IncomingHouseholdInvitation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [mutation, setMutation] = useState<Mutation>(null);
+  const mutationRef = useRef<Mutation>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -93,42 +105,59 @@ export function HouseholdPanel({
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
+    setLoadFailed(false);
     setError(null);
     try {
-      const [households, nextIncoming] = await Promise.all([
-        getHouseholds(signal),
-        getIncomingHouseholdInvitations(signal),
-      ]);
-      setIncoming(nextIncoming);
-      const next = households[0] ?? null;
-      setHousehold(next);
-      setName(next?.name ?? "");
-      if (!next) {
-        setMembers([]);
-        setInvitations([]);
+      let households: Household[];
+      try {
+        households = await getHouseholds(signal);
+      } catch (loadError) {
+        if (signal?.aborted) return;
+        setLoadFailed(true);
+        setError(errorMessage(loadError, "Couldn't load your household."));
         return;
       }
 
-      const [nextMembers, nextInvitations] = await Promise.all([
-        getHouseholdMembers(next.id, signal),
-        next.membership.role === "owner"
-          ? getHouseholdInvitations(next.id, signal)
-          : Promise.resolve([]),
-      ]);
-      setMembers(nextMembers);
-      setInvitations(nextInvitations);
-    } catch (loadError) {
-      if (
-        loadError instanceof DOMException &&
-        loadError.name === "AbortError"
-      ) {
-        return;
+      const next = households[0] ?? null;
+      setHousehold(next);
+      setName(next?.name ?? "");
+      setMembers([]);
+      setInvitations([]);
+      setIncoming([]);
+
+      const [incomingResult, membersResult, invitationsResult] =
+        await Promise.allSettled([
+          getIncomingHouseholdInvitations(signal),
+          next ? getHouseholdMembers(next.id, signal) : Promise.resolve([]),
+          next?.membership.role === "owner"
+            ? getHouseholdInvitations(next.id, signal)
+            : Promise.resolve([]),
+        ]);
+      if (signal?.aborted) return;
+
+      if (incomingResult.status === "fulfilled") {
+        setIncoming(incomingResult.value);
       }
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Couldn't load your household.",
-      );
+      if (membersResult.status === "fulfilled") {
+        setMembers(membersResult.value);
+      }
+      if (invitationsResult.status === "fulfilled") {
+        setInvitations(invitationsResult.value);
+      }
+
+      const failedResult = [
+        incomingResult,
+        membersResult,
+        invitationsResult,
+      ].find((result) => result.status === "rejected");
+      if (failedResult?.status === "rejected") {
+        setError(
+          errorMessage(
+            failedResult.reason,
+            "Some household details couldn't be loaded.",
+          ),
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -144,6 +173,8 @@ export function HouseholdPanel({
     kind: Exclude<Mutation, null>,
     action: () => Promise<void>,
   ) {
+    if (mutationRef.current) return;
+    mutationRef.current = kind;
     setMutation(kind);
     setError(null);
     setNotice(null);
@@ -156,9 +187,12 @@ export function HouseholdPanel({
           : "Something went wrong. Please try again.",
       );
     } finally {
+      mutationRef.current = null;
       setMutation(null);
     }
   }
+
+  const busy = mutation !== null;
 
   function onCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -185,7 +219,9 @@ export function HouseholdPanel({
     if (nextName === household.name) return;
     void run("rename", async () => {
       const updated = await renameHousehold(household.id, nextName);
-      setHousehold({ ...household, ...updated });
+      setHousehold((current) =>
+        current ? { ...current, ...updated } : current,
+      );
       setName(updated.name);
       setNotice("Household name saved.");
     });
@@ -212,6 +248,29 @@ export function HouseholdPanel({
         aria-label="Loading household"
       >
         <LoaderCircle className="size-6 animate-spin text-[var(--ink-3)]" />
+      </div>
+    );
+  }
+
+  if (loadFailed) {
+    return (
+      <div>
+        <PanelHead
+          kicker="HOUSEHOLD"
+          title="We couldn't load your household."
+          sub="Your existing household information is unchanged. Try loading it again before creating or managing a household."
+        />
+        <p role="alert" className="rt-body mt-4 text-[var(--destructive)]">
+          {error}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          className="mt-4"
+          onClick={() => void load()}
+        >
+          Try again
+        </Button>
       </div>
     );
   }
@@ -247,7 +306,7 @@ export function HouseholdPanel({
                     <Button
                       type="button"
                       variant="outline"
-                      disabled={mutation === "decline"}
+                      disabled={busy}
                       onClick={() =>
                         void run("decline", async () => {
                           await declineHouseholdInvitation(invitation.id);
@@ -262,7 +321,7 @@ export function HouseholdPanel({
                     </Button>
                     <Button
                       type="button"
-                      disabled={mutation === "accept"}
+                      disabled={busy}
                       onClick={() =>
                         void run("accept", async () => {
                           await acceptHouseholdInvitation(invitation.id);
@@ -305,12 +364,12 @@ export function HouseholdPanel({
               placeholder={`${currentUser.name}'s kitchen`}
               aria-label="Household name"
               maxLength={120}
-              disabled={mutation === "create"}
+              disabled={busy}
               className="bg-white"
             />
             <Button
               type="submit"
-              disabled={mutation === "create"}
+              disabled={busy}
               className="bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]"
             >
               {mutation === "create" ? (
@@ -371,13 +430,13 @@ export function HouseholdPanel({
               onChange={(event) => setName(event.target.value)}
               maxLength={120}
               aria-label="Household name"
-              disabled={mutation === "rename"}
+              disabled={busy}
               className="bg-[var(--card)]"
             />
             <Button
               type="submit"
               variant="outline"
-              disabled={mutation === "rename" || name.trim() === household.name}
+              disabled={busy || name.trim() === household.name}
             >
               {mutation === "rename" ? (
                 <LoaderCircle className="animate-spin" />
@@ -426,7 +485,7 @@ export function HouseholdPanel({
                     variant="ghost"
                     size="icon-sm"
                     aria-label={`Remove ${member.user.name}`}
-                    disabled={mutation === "remove"}
+                    disabled={busy}
                     onClick={() => {
                       if (
                         !window.confirm(
@@ -468,13 +527,13 @@ export function HouseholdPanel({
               onChange={(event) => setInviteEmail(event.target.value)}
               placeholder="cook@example.com"
               aria-label="Email to invite"
-              disabled={mutation === "invite"}
+              disabled={busy}
               className="bg-[var(--card)]"
               required
             />
             <Button
               type="submit"
-              disabled={mutation === "invite" || !inviteEmail.trim()}
+              disabled={busy || !inviteEmail.trim()}
               className="bg-[var(--ink)] text-[var(--paper)] hover:bg-[var(--ink-2)]"
             >
               {mutation === "invite" ? (
@@ -506,7 +565,7 @@ export function HouseholdPanel({
                     variant="ghost"
                     size="icon-sm"
                     aria-label={`Revoke invitation for ${invitation.email}`}
-                    disabled={mutation === "revoke"}
+                    disabled={busy}
                     onClick={() =>
                       void run("revoke", async () => {
                         await revokeHouseholdInvitation(
@@ -544,7 +603,7 @@ export function HouseholdPanel({
           <Button
             type="button"
             variant="outline"
-            disabled={mutation === "delete"}
+            disabled={busy}
             onClick={() => {
               if (
                 !window.confirm(
@@ -574,14 +633,16 @@ export function HouseholdPanel({
           <Button
             type="button"
             variant="outline"
-            disabled={mutation === "leave"}
+            disabled={busy}
             onClick={() => {
               if (!window.confirm(`Leave ${household.name}?`)) return;
               void run("leave", async () => {
                 await leaveHousehold(household.id);
                 setHousehold(null);
                 setMembers([]);
+                setInvitations([]);
                 setName("");
+                setNotice("You've left the household.");
               });
             }}
             className="border-[var(--destructive)]/50 text-[var(--destructive)] hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"

@@ -534,13 +534,6 @@ const dbMock = vi.hoisted(() => {
         });
     }
 
-    if (query.includes('from "invitation"') && query.includes('"invitation"."id"')) {
-      const invitationId = params[0] as string;
-      return state.invitations
-        .filter((invitation) => invitation.id === invitationId)
-        .map(invitationRow);
-    }
-
     if (
       query.includes('from "invitation"') &&
       query.includes('"invitation"."organization_id"') &&
@@ -555,6 +548,13 @@ const dbMock = vi.hoisted(() => {
             invitation.organizationId === organizationId &&
             invitation.status === status,
         )
+        .map(invitationRow);
+    }
+
+    if (query.includes('from "invitation"') && query.includes('"invitation"."id"')) {
+      const invitationId = params[0] as string;
+      return state.invitations
+        .filter((invitation) => invitation.id === invitationId)
         .map(invitationRow);
     }
 

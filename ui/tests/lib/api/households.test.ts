@@ -4,6 +4,7 @@ import {
   getHouseholds,
   getIncomingHouseholdInvitations,
   removeHouseholdMember,
+  revokeHouseholdInvitation,
 } from "@/lib/api/households";
 
 describe("household API client", () => {
@@ -90,5 +91,15 @@ describe("household API client", () => {
     await expect(
       removeHouseholdMember("household-1", "owner-member"),
     ).rejects.toThrow("Household owner cannot be revoked");
+  });
+
+  it("accepts a successful no-content invitation revocation", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, { status: 204 }),
+    );
+
+    await expect(
+      revokeHouseholdInvitation("household-1", "invitation-1"),
+    ).resolves.toBeUndefined();
   });
 });

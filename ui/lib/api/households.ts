@@ -54,7 +54,9 @@ async function parseResponse<T>(
   fallback: string,
 ): Promise<T> {
   if (response.ok) {
-    return response.json() as Promise<T>;
+    if (response.status === 204) return undefined as T;
+    const text = await response.text();
+    return (text ? JSON.parse(text) : undefined) as T;
   }
 
   const body = (await response.json().catch(() => null)) as ApiErrorBody | null;

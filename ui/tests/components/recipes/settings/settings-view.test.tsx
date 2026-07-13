@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -81,6 +81,7 @@ describe("SettingsView", () => {
     mocks.getHouseholdMembers.mockResolvedValue([]);
     mocks.getHouseholdInvitations.mockResolvedValue([]);
     mocks.getIncomingHouseholdInvitations.mockResolvedValue([]);
+    mocks.createHousehold.mockResolvedValue({});
   });
 
   it("prompts to sign in when there is no session", () => {
@@ -153,6 +154,73 @@ describe("SettingsView", () => {
     expect(
       screen.getByRole("button", { name: /create household/i }),
     ).toBeInTheDocument();
+  });
+
+  it("requires a successful household lookup before offering creation", async () => {
+    const user = userEvent.setup();
+    mocks.getHouseholds
+      .mockRejectedValueOnce(new Error("Household service unavailable"))
+      .mockResolvedValueOnce([]);
+    renderSettingsView();
+
+    await user.click(screen.getByRole("button", { name: "Household" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Household service unavailable",
+    );
+    expect(screen.queryByText("Start a household.")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Start a household.")).toBeInTheDocument();
+  });
+
+  it("still offers creation when only incoming invitations fail to load", async () => {
+    const user = userEvent.setup();
+    mocks.getIncomingHouseholdInvitations.mockRejectedValueOnce(
+      new Error("Invitations unavailable"),
+    );
+    renderSettingsView();
+
+    await user.click(screen.getByRole("button", { name: "Household" }));
+
+    expect(await screen.findByText("Start a household.")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Invitations unavailable",
+    );
+  });
+
+  it("serializes household creation attempts", async () => {
+    const user = userEvent.setup();
+    let resolveCreate: (() => void) | undefined;
+    mocks.createHousehold.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveCreate = resolve;
+      }),
+    );
+    renderSettingsView();
+
+    await user.click(screen.getByRole("button", { name: "Household" }));
+    await user.type(
+      await screen.findByLabelText("Household name"),
+      "Park Road",
+    );
+    const createButton = screen.getByRole("button", {
+      name: /create household/i,
+    });
+    const form = createButton.closest("form");
+    expect(form).not.toBeNull();
+
+    fireEvent.submit(form as HTMLFormElement);
+    fireEvent.submit(form as HTMLFormElement);
+
+    expect(mocks.createHousehold).toHaveBeenCalledTimes(1);
+    expect(createButton).toBeDisabled();
+    resolveCreate?.();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /create household/i }),
+      ).not.toBeDisabled(),
+    );
   });
 
   it("opens on the security panel and surfaces a link error from the URL", async () => {
