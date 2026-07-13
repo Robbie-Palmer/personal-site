@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { and, eq, inArray, lt, or } from "drizzle-orm";
+import { and, eq, gt, inArray, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { createDb, schema } from "./db";
 import { createAuth } from "./auth";
@@ -125,6 +125,12 @@ const updateRecipeBodySchema = z
 const createHouseholdBodySchema = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
+  })
+  .strict();
+
+const updateHouseholdBodySchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
   })
   .strict();
 
@@ -1068,6 +1074,58 @@ app.get("/households", async (c) => {
   }
 });
 
+app.get("/households/invitations", async (c) => {
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
+
+    const invitations = await db
+      .select({
+        invitation: schema.invitation,
+        household: {
+          id: schema.organization.id,
+          name: schema.organization.name,
+        },
+      })
+      .from(schema.invitation)
+      .innerJoin(
+        schema.organization,
+        eq(schema.invitation.organizationId, schema.organization.id),
+      )
+      .where(
+        and(
+          eq(schema.invitation.email, session.session.user.email.toLowerCase()),
+          eq(schema.invitation.status, "pending"),
+          gt(schema.invitation.expiresAt, new Date()),
+        ),
+      );
+
+    return c.json(
+      invitations.map(({ invitation, household }) => ({
+        ...invitationResponse(invitation),
+        household,
+      })),
+    );
+  } catch (e) {
+    console.error("GET /households/invitations failed", e);
+    return c.json({ error: "Database query failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
 app.post("/households", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
@@ -1133,6 +1191,110 @@ app.post("/households", async (c) => {
   }
 });
 
+app.patch("/households/:householdId", async (c) => {
+  const householdId = c.req.param("householdId");
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
+
+    const ownerFailure = await authorizeHouseholdOwnerResponse(
+      c,
+      db,
+      householdId,
+      session.session,
+    );
+    if (ownerFailure) return ownerFailure;
+
+    const body = await parseJsonBody(c, updateHouseholdBodySchema);
+    if (!body.success) return body.response;
+
+    const [household] = await db
+      .update(schema.organization)
+      .set({ name: body.data.name })
+      .where(eq(schema.organization.id, householdId))
+      .returning();
+    if (!household) return c.notFound();
+
+    return c.json(householdResponse(household));
+  } catch (e) {
+    console.error("PATCH /households/:householdId failed", e);
+    return c.json({ error: "Database mutation failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
+app.delete("/households/:householdId", async (c) => {
+  const householdId = c.req.param("householdId");
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
+
+    const ownerFailure = await authorizeHouseholdOwnerResponse(
+      c,
+      db,
+      householdId,
+      session.session,
+    );
+    if (ownerFailure) return ownerFailure;
+
+    const memberUserIds = await findHouseholdMemberUserIds(db, householdId);
+    await db.transaction(async (tx) => {
+      if (memberUserIds.length > 0) {
+        await tx
+          .update(schema.recipe)
+          .set({ visibility: "private" })
+          .where(
+            and(
+              eq(schema.recipe.visibility, "household"),
+              inArray(schema.recipe.userId, memberUserIds),
+            ),
+          );
+      }
+      await tx
+        .delete(schema.organization)
+        .where(eq(schema.organization.id, householdId));
+    });
+
+    return c.body(null, 204);
+  } catch (e) {
+    console.error("DELETE /households/:householdId failed", e);
+    return c.json({ error: "Database mutation failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
 app.get("/households/:householdId/members", async (c) => {
   const householdId = c.req.param("householdId");
   const connectionString = databaseConnection(c.env);
@@ -1180,6 +1342,52 @@ app.get("/households/:householdId/members", async (c) => {
     return c.json(members.map(memberResponse));
   } catch (e) {
     console.error("GET /households/:householdId/members query failed", e);
+    return c.json({ error: "Database query failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
+app.get("/households/:householdId/invitations", async (c) => {
+  const householdId = c.req.param("householdId");
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
+
+    const ownerFailure = await authorizeHouseholdOwnerResponse(
+      c,
+      db,
+      householdId,
+      session.session,
+    );
+    if (ownerFailure) return ownerFailure;
+
+    const invitations = await db
+      .select()
+      .from(schema.invitation)
+      .where(
+        and(
+          eq(schema.invitation.organizationId, householdId),
+          eq(schema.invitation.status, "pending"),
+          gt(schema.invitation.expiresAt, new Date()),
+        ),
+      );
+
+    return c.json(invitations.map(invitationResponse));
+  } catch (e) {
+    console.error("GET /households/:householdId/invitations failed", e);
     return c.json({ error: "Database query failed" }, 502);
   } finally {
     await closeDbClient(client);

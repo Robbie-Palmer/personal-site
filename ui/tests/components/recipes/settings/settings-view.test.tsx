@@ -10,6 +10,11 @@ const mocks = vi.hoisted(() => ({
   linkSocial: vi.fn(),
   unlinkAccount: vi.fn(),
   revokeSession: vi.fn(),
+  getHouseholds: vi.fn(),
+  createHousehold: vi.fn(),
+  getHouseholdMembers: vi.fn(),
+  getHouseholdInvitations: vi.fn(),
+  getIncomingHouseholdInvitations: vi.fn(),
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -24,6 +29,15 @@ vi.mock("@/lib/auth-client", () => ({
   },
 }));
 
+vi.mock("@/lib/api/households", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/households")>()),
+  getHouseholds: mocks.getHouseholds,
+  createHousehold: mocks.createHousehold,
+  getHouseholdMembers: mocks.getHouseholdMembers,
+  getHouseholdInvitations: mocks.getHouseholdInvitations,
+  getIncomingHouseholdInvitations: mocks.getIncomingHouseholdInvitations,
+}));
+
 import { SettingsView } from "@/components/recipes/settings/settings-view";
 
 function renderSettingsView() {
@@ -32,7 +46,12 @@ function renderSettingsView() {
 
 const signedIn = {
   data: {
-    user: { name: "Robbie", email: "robbie@example.com", image: null },
+    user: {
+      id: "robbie-user",
+      name: "Robbie",
+      email: "robbie@example.com",
+      image: null,
+    },
     session: { token: "current-token" },
   },
   isPending: false,
@@ -58,6 +77,10 @@ describe("SettingsView", () => {
       ],
       error: null,
     });
+    mocks.getHouseholds.mockResolvedValue([]);
+    mocks.getHouseholdMembers.mockResolvedValue([]);
+    mocks.getHouseholdInvitations.mockResolvedValue([]);
+    mocks.getIncomingHouseholdInvitations.mockResolvedValue([]);
   });
 
   it("prompts to sign in when there is no session", () => {
@@ -117,6 +140,19 @@ describe("SettingsView", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /github/i })).toBeInTheDocument();
     expect(screen.getByText("this device")).toBeInTheDocument();
+  });
+
+  it("offers household creation when the user has no household", async () => {
+    const user = userEvent.setup();
+    renderSettingsView();
+
+    await user.click(screen.getByRole("button", { name: "Household" }));
+
+    expect(await screen.findByText("Start a household.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Household name")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /create household/i }),
+    ).toBeInTheDocument();
   });
 
   it("opens on the security panel and surfaces a link error from the URL", async () => {

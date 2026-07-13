@@ -304,6 +304,17 @@ const dbMock = vi.hoisted(() => {
       return query.includes("returning") ? [invitationRow(invitation)] : [];
     }
 
+    if (query.startsWith('update "organization"')) {
+      const householdId = params.at(-1) as string;
+      const organization = state.organizations.find(
+        (candidate) => candidate.id === householdId,
+      );
+      if (!organization) return [];
+      organization.name = params[0] as string;
+      organization.updatedAt = date;
+      return query.includes("returning") ? [organizationRow(organization)] : [];
+    }
+
     if (query.startsWith('delete from "app_rate_limit"')) {
       state.rateLimitSweeps += 1;
       return [];
@@ -312,6 +323,20 @@ const dbMock = vi.hoisted(() => {
     if (query.startsWith('delete from "member"')) {
       const memberId = params[0] as string;
       state.members = state.members.filter((member) => member.id !== memberId);
+      return [];
+    }
+
+    if (query.startsWith('delete from "organization"')) {
+      const householdId = params[0] as string;
+      state.organizations = state.organizations.filter(
+        (organization) => organization.id !== householdId,
+      );
+      state.members = state.members.filter(
+        (member) => member.organizationId !== householdId,
+      );
+      state.invitations = state.invitations.filter(
+        (invitation) => invitation.organizationId !== householdId,
+      );
       return [];
     }
 
@@ -486,10 +511,50 @@ const dbMock = vi.hoisted(() => {
         .map(memberRow);
     }
 
+    if (
+      query.includes('from "invitation"') &&
+      query.includes('inner join "organization"')
+    ) {
+      const email = params[0] as string;
+      const status = params[1] as string;
+      return state.invitations
+        .filter(
+          (invitation) =>
+            invitation.email === email && invitation.status === status,
+        )
+        .map((invitation) => {
+          const organization = state.organizations.find(
+            (candidate) => candidate.id === invitation.organizationId,
+          );
+          return [
+            ...invitationRow(invitation),
+            organization?.id,
+            organization?.name,
+          ];
+        });
+    }
+
     if (query.includes('from "invitation"') && query.includes('"invitation"."id"')) {
       const invitationId = params[0] as string;
       return state.invitations
         .filter((invitation) => invitation.id === invitationId)
+        .map(invitationRow);
+    }
+
+    if (
+      query.includes('from "invitation"') &&
+      query.includes('"invitation"."organization_id"') &&
+      query.includes('"invitation"."status"') &&
+      !query.includes('"invitation"."email"')
+    ) {
+      const organizationId = params[0] as string;
+      const status = params[1] as string;
+      return state.invitations
+        .filter(
+          (invitation) =>
+            invitation.organizationId === organizationId &&
+            invitation.status === status,
+        )
         .map(invitationRow);
     }
 
@@ -1407,6 +1472,130 @@ describe("household membership flows", () => {
     expect(await res.json()).toEqual({
       error: "User already belongs to a household",
     });
+  });
+
+  it("allows owners to rename their household", async () => {
+    seedHousehold();
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/households/household-1",
+      {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ name: "Park Road kitchen" }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      id: "household-1",
+      name: "Park Road kitchen",
+    });
+  });
+
+  it("returns pending invitations to household owners", async () => {
+    seedHousehold();
+    dbMock.state.invitations.push(
+      {
+        id: "pending-invitation",
+        organizationId: "household-1",
+        email: "new@example.test",
+        role: "member",
+        status: "pending",
+        expiresAt: new Date("2026-01-03T00:00:00.000Z"),
+        inviterId: "owner-user",
+        createdAt: dbMock.date,
+      },
+      {
+        id: "accepted-invitation",
+        organizationId: "household-1",
+        email: "old@example.test",
+        role: "member",
+        status: "accepted",
+        expiresAt: new Date("2026-01-03T00:00:00.000Z"),
+        inviterId: "owner-user",
+        createdAt: dbMock.date,
+      },
+    );
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/households/household-1/invitations",
+      {},
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([
+      expect.objectContaining({
+        id: "pending-invitation",
+        status: "pending",
+      }),
+    ]);
+  });
+
+  it("returns incoming invitations for the signed-in email", async () => {
+    seedHousehold();
+    dbMock.state.invitations.push({
+      id: "pending-invitation",
+      organizationId: "household-1",
+      email: "invitee@example.test",
+      role: "member",
+      status: "pending",
+      expiresAt: new Date("2026-01-03T00:00:00.000Z"),
+      inviterId: "owner-user",
+      createdAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "invitee-user",
+      email: "invitee@example.test",
+      name: "Invitee",
+    });
+
+    const res = await app.request("/households/invitations", {}, env);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([
+      expect.objectContaining({
+        id: "pending-invitation",
+        household: { id: "household-1", name: "Owner household" },
+      }),
+    ]);
+  });
+
+  it("allows owners to delete the household", async () => {
+    seedHousehold();
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/households/household-1",
+      {
+        method: "DELETE",
+        headers: { origin: "http://localhost:3000" },
+      },
+      env,
+    );
+
+    expect(res.status).toBe(204);
+    expect(dbMock.state.organizations).toHaveLength(0);
+    expect(dbMock.state.members).toHaveLength(0);
   });
 
   it("lists household members for existing members", async () => {
