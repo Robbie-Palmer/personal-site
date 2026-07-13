@@ -14,7 +14,7 @@ patchedDependencies:
     hash: 85b684e1c0e18dedb7ebd9e043c0c937dc04446f8417852c7f5af27b4b423ec7
     path: patches/@cooklang__cooklang@0.18.7.patch
   gray-matter@4.0.3:
-    hash: 82198c3ee34e2823c4e9793c5209cf97bd566d5610c3f6582dc3f044ca423d6f
+    hash: 7576f693c6e2d9a2125de73ab4d3d3a0dfc183d54c672602b06578229d88aee4
     path: patches/gray-matter@4.0.3.patch
 
 importers:
@@ -268,7 +268,7 @@ importers:
         version: 0.10.1(graphology-types@0.24.8)
       gray-matter:
         specifier: ^4.0.3
-        version: 4.0.3(patch_hash=82198c3ee34e2823c4e9793c5209cf97bd566d5610c3f6582dc3f044ca423d6f)
+        version: 4.0.3(patch_hash=7576f693c6e2d9a2125de73ab4d3d3a0dfc183d54c672602b06578229d88aee4)
       leaflet:
         specifier: ^1.9.4
         version: 1.9.4
@@ -9632,7 +9632,7 @@ snapshots:
       events: 3.3.0
       graphology-types: 0.24.8
 
-  gray-matter@4.0.3(patch_hash=82198c3ee34e2823c4e9793c5209cf97bd566d5610c3f6582dc3f044ca423d6f):
+  gray-matter@4.0.3(patch_hash=7576f693c6e2d9a2125de73ab4d3d3a0dfc183d54c672602b06578229d88aee4):
     dependencies:
       js-yaml: 5.2.1
       kind-of: 6.0.3

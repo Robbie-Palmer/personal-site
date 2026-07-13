@@ -13,7 +13,9 @@ packages:
 # merge-key handling). gray-matter@4.0.3 pins js-yaml ^3.13.1, which has no
 # patched 3.x release, so the override is paired with a patch (see
 # patchedDependencies) that swaps gray-matter's removed safeLoad/safeDump calls
-# for js-yaml 4.x's load/dump (safe by default, behaviour-compatible).
+# for js-yaml 5.x's load/dump. The patch explicitly enables only YAML merge
+# keys, preserving gray-matter's historical front-matter behaviour while
+# retaining v5's safer CORE_SCHEMA defaults for everything else.
 #
 # Patch @cooklang/cooklang's wasm-bindgen glue to instantiate the WebAssembly
 # module itself when the runtime resolves the .wasm import to a
