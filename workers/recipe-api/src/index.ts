@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
-import { and, eq, gt, inArray, lt, or } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, inArray, lt, or } from "drizzle-orm";
 import { z } from "zod";
-import { createDb, schema } from "./db";
+import { createDb, schema } from "recipe-db";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
 import {
@@ -36,9 +36,12 @@ type Bindings = {
   PREVIEW_AUTH_PASSWORD?: string;
   CF_ACCESS_TEAM_DOMAIN?: string;
   CF_ACCESS_AUD?: string;
+  ARTIFACTS?: R2Bucket;
+  RECIPE_INGEST_WORKFLOW?: Workflow;
 };
 
 type Recipe = typeof schema.recipe.$inferSelect;
+type RecipeImportJob = typeof schema.recipeImportJob.$inferSelect;
 type Household = typeof schema.organization.$inferSelect;
 type HouseholdMember = typeof schema.member.$inferSelect;
 type HouseholdInvitation = typeof schema.invitation.$inferSelect;
@@ -2127,6 +2130,351 @@ app.delete("/recipes/:slug", async (c) => {
   } catch (e) {
     console.error("DELETE /recipes/:slug mutation failed", e);
     return c.json({ error: "Database mutation failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
+// This API owns recipe photo import auth, quotas, job creation,
+// and status reads; the recipe-ingest Workflow owns the parsing chain.
+
+const RECIPE_IMPORT_MAX_IMAGES = 6;
+const RECIPE_IMPORT_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const RECIPE_IMPORT_MAX_ACTIVE_JOBS = 2;
+const RECIPE_IMPORT_DAILY_JOB_LIMIT = 10;
+const RECIPE_IMPORT_IMAGE_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+const recipeImportIdSchema = z.string().uuid();
+
+function importJobResponse(job: RecipeImportJob) {
+  return {
+    id: job.id,
+    status: job.status,
+    currentStage: job.currentStage,
+    progressLabel: job.progressLabel,
+    imageCount: job.imageCount,
+    error: job.errorMessage
+      ? { type: job.errorType, message: job.errorMessage }
+      : undefined,
+    createdAt: job.createdAt,
+    finishedAt: job.finishedAt,
+  };
+}
+
+function parseImportImages(
+  c: Context<AppEnv>,
+  form: FormData,
+):
+  | { success: true; images: { file: File; extension: string }[] }
+  | { success: false; response: Response } {
+  // workers-types declares FormData entries as string, but the runtime
+  // returns File objects for file uploads — widen and narrow via instanceof.
+  const entries: unknown[] = form.getAll("images");
+  if (entries.length === 0) {
+    return {
+      success: false,
+      response: c.json({ error: "At least one image is required" }, 400),
+    };
+  }
+  if (entries.length > RECIPE_IMPORT_MAX_IMAGES) {
+    return {
+      success: false,
+      response: c.json(
+        { error: `At most ${RECIPE_IMPORT_MAX_IMAGES} images are allowed` },
+        400,
+      ),
+    };
+  }
+
+  const images: { file: File; extension: string }[] = [];
+  for (const entry of entries) {
+    if (!(entry instanceof File)) {
+      return {
+        success: false,
+        response: c.json({ error: "images must be file uploads" }, 400),
+      };
+    }
+    const extension = RECIPE_IMPORT_IMAGE_EXTENSIONS[entry.type];
+    if (!extension) {
+      return {
+        success: false,
+        response: c.json(
+          { error: "Images must be JPEG, PNG, or WebP" },
+          415,
+        ),
+      };
+    }
+    if (entry.size === 0) {
+      return {
+        success: false,
+        response: c.json({ error: "Images must not be empty" }, 400),
+      };
+    }
+    if (entry.size > RECIPE_IMPORT_MAX_IMAGE_BYTES) {
+      return {
+        success: false,
+        response: c.json(
+          { error: "Each image must be 10MB or smaller" },
+          413,
+        ),
+      };
+    }
+    images.push({ file: entry, extension });
+  }
+  return { success: true, images };
+}
+
+app.post("/recipe-imports", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  const artifacts = c.env.ARTIFACTS;
+  const workflow = c.env.RECIPE_INGEST_WORKFLOW;
+  if (!artifacts || !workflow) {
+    return c.json({ error: "Recipe import is not configured" }, 503);
+  }
+
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
+    const userId = session.session.user.id;
+
+    const form = await c.req.formData().catch(() => undefined);
+    if (!form) {
+      return c.json(
+        { error: "Request body must be multipart/form-data" },
+        415,
+      );
+    }
+    const parsed = parseImportImages(c, form);
+    if (!parsed.success) return parsed.response;
+    const { images } = parsed;
+
+    const dayStart = new Date();
+    dayStart.setUTCHours(0, 0, 0, 0);
+
+    type QuotaOutcome =
+      | { ok: true; job: RecipeImportJob }
+      | { ok: false; reason: "active" | "daily" };
+
+    const outcome = await db.transaction(async (tx): Promise<QuotaOutcome> => {
+      // Serialize per-user job creation so concurrent uploads cannot slip past the limits.
+      await tx
+        .select({ id: schema.user.id })
+        .from(schema.user)
+        .where(eq(schema.user.id, userId))
+        .for("update");
+
+      const [active] = await tx
+        .select({ value: count() })
+        .from(schema.recipeImportJob)
+        .where(
+          and(
+            eq(schema.recipeImportJob.userId, userId),
+            inArray(schema.recipeImportJob.status, ["queued", "running"]),
+          ),
+        );
+      if ((active?.value ?? 0) >= RECIPE_IMPORT_MAX_ACTIVE_JOBS) {
+        return { ok: false, reason: "active" };
+      }
+
+      const [today] = await tx
+        .select({ value: count() })
+        .from(schema.recipeImportJob)
+        .where(
+          and(
+            eq(schema.recipeImportJob.userId, userId),
+            gte(schema.recipeImportJob.createdAt, dayStart),
+          ),
+        );
+      if ((today?.value ?? 0) >= RECIPE_IMPORT_DAILY_JOB_LIMIT) {
+        return { ok: false, reason: "daily" };
+      }
+
+      const [job] = await tx
+        .insert(schema.recipeImportJob)
+        .values({ userId, imageCount: images.length })
+        .returning();
+      if (!job) throw new Error("Recipe import job insert returned no row");
+      return { ok: true, job };
+    });
+
+    if (!outcome.ok) {
+      return c.json(
+        {
+          error:
+            outcome.reason === "active"
+              ? "Too many imports in progress"
+              : "Daily import limit reached",
+        },
+        429,
+      );
+    }
+    const job = outcome.job;
+
+    try {
+      await Promise.all(
+        images.map(({ file, extension }, index) =>
+          artifacts.put(
+            `imports/${job.id}/source/${index}.${extension}`,
+            file,
+            { httpMetadata: { contentType: file.type } },
+          ),
+        ),
+      );
+      await workflow.create({ id: job.id, params: { jobId: job.id } });
+    } catch (error) {
+      console.error("POST /recipe-imports failed to start workflow", error);
+      // Best-effort cleanup so partially uploaded images don't accumulate.
+      try {
+        const uploaded = await artifacts.list({
+          prefix: `imports/${job.id}/`,
+        });
+        await Promise.all(
+          uploaded.objects.map((object) => artifacts.delete(object.key)),
+        );
+      } catch (cleanupError) {
+        console.error(
+          `Failed to clean up R2 objects for import ${job.id}`,
+          cleanupError,
+        );
+      }
+      await db
+        .update(schema.recipeImportJob)
+        .set({
+          status: "failed",
+          progressLabel: "Import failed",
+          errorType: "StartError",
+          errorMessage: "Failed to start the import",
+          finishedAt: new Date(),
+        })
+        .where(eq(schema.recipeImportJob.id, job.id));
+      return c.json({ error: "Failed to start the import" }, 502);
+    }
+
+    return c.json(importJobResponse(job), 202);
+  } catch (e) {
+    console.error("POST /recipe-imports mutation failed", e);
+    return c.json({ error: "Database mutation failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
+app.get("/recipe-imports", async (c) => {
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
+
+    const jobs = await db
+      .select()
+      .from(schema.recipeImportJob)
+      .where(eq(schema.recipeImportJob.userId, session.session.user.id))
+      .orderBy(desc(schema.recipeImportJob.createdAt))
+      .limit(20);
+
+    return c.json({ imports: jobs.map(importJobResponse) });
+  } catch (e) {
+    console.error("GET /recipe-imports lookup failed", e);
+    return c.json({ error: "Database lookup failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
+app.get("/recipe-imports/:jobId", async (c) => {
+  const jobId = recipeImportIdSchema.safeParse(c.req.param("jobId"));
+  if (!jobId.success) return c.json({ error: "Import not found" }, 404);
+
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
+
+    const [job] = await db
+      .select()
+      .from(schema.recipeImportJob)
+      .where(eq(schema.recipeImportJob.id, jobId.data))
+      .limit(1);
+    if (!job || job.userId !== session.session.user.id) {
+      return c.json({ error: "Import not found" }, 404);
+    }
+
+    const artifacts = await db
+      .select({
+        stage: schema.recipeImportArtifact.stage,
+        kind: schema.recipeImportArtifact.kind,
+        r2Key: schema.recipeImportArtifact.r2Key,
+        checksum: schema.recipeImportArtifact.checksum,
+        schemaVersion: schema.recipeImportArtifact.schemaVersion,
+        model: schema.recipeImportArtifact.model,
+        provider: schema.recipeImportArtifact.provider,
+        createdAt: schema.recipeImportArtifact.createdAt,
+      })
+      .from(schema.recipeImportArtifact)
+      .where(eq(schema.recipeImportArtifact.jobId, job.id))
+      .orderBy(schema.recipeImportArtifact.createdAt);
+
+    const draft =
+      job.status === "succeeded"
+        ? (
+            await db
+              .select({ preview: schema.recipeImportArtifact.preview })
+              .from(schema.recipeImportArtifact)
+              .where(
+                and(
+                  eq(schema.recipeImportArtifact.jobId, job.id),
+                  eq(schema.recipeImportArtifact.stage, "finalize"),
+                  eq(schema.recipeImportArtifact.kind, "draft"),
+                ),
+              )
+              .limit(1)
+          )[0]?.preview
+        : undefined;
+
+    return c.json({ ...importJobResponse(job), artifacts, draft });
+  } catch (e) {
+    console.error("GET /recipe-imports/:jobId lookup failed", e);
+    return c.json({ error: "Database lookup failed" }, 502);
   } finally {
     await closeDbClient(client);
   }

@@ -8,9 +8,10 @@ import matter from "gray-matter";
  * replacing them, so we override the `javascript` sink — the only eval-based
  * engine, and the target that every `js`/`javascript` alias resolves to — with
  * a stub that refuses to run. `coffee`/`cson` have no built-in engine and
- * already throw. YAML is parsed by js-yaml (forced to >=4.2.0 via a pnpm
- * override), whose `load` is safe by default and not subject to the merge-key
- * DoS in GHSA-h67p-54hq-rp68.
+ * already throw. YAML is parsed by js-yaml (forced to >=5.0.0 via a pnpm
+ * override). Its gray-matter compatibility patch restores ordinary YAML merge
+ * keys while retaining v5's `CORE_SCHEMA` defaults and merge-key processing
+ * limit, protecting against GHSA-h67p-54hq-rp68.
  *
  * All front-matter parsing in the app must go through this helper rather than
  * calling gray-matter directly.

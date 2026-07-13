@@ -21,6 +21,7 @@ describe("profile diet proxy", () => {
         method: "PUT",
         headers: {
           authorization: "Bearer test-token",
+          "cf-access-jwt-assertion": "access-token",
           "content-type": "application/json",
           host: "robbiepalmer.me",
         },
@@ -43,6 +44,9 @@ describe("profile diet proxy", () => {
     expect(forwarded.method).toBe("PUT");
     expect(forwarded.headers.has("host")).toBe(false);
     expect(forwarded.headers.get("authorization")).toBe("Bearer test-token");
+    expect(forwarded.headers.get("cf-access-jwt-assertion")).toBe(
+      "access-token",
+    );
     expect(await forwarded.text()).toBe(
       JSON.stringify({ recipeMatchMode: "warn" }),
     );

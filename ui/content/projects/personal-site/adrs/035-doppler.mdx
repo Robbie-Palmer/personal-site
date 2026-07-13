@@ -1,7 +1,7 @@
 ---
 title: "ADR 035: Doppler"
 date: "2025-12-31"
-status: "Proposed"
+status: "Accepted"
 tech_stack: ["Doppler"]
 ---
 
@@ -23,14 +23,16 @@ However, as integrations expand, several challenges emerge:
 
 # Decision
 
-I **propose** using **Doppler** for centralized secret management, while **maintaining GitHub Secrets for the "Secret Zero" problem**.
+I use **Doppler** as the source of truth for centralized secret management,
+while publishing the values required by GitHub Actions to GitHub environments.
 
 ## Implementation Strategy
 
-1. **Doppler as Source of Truth**: All application secrets (API keys, database credentials, etc.) are stored in Doppler with appropriate environment scoping (development, staging, production)
-2. **GitHub Secrets for Bootstrap**: A single `DOPPLER_TOKEN` is stored in GitHub Secrets to authenticate GitHub Actions to Doppler
-3. **Scoped Access**: Within Doppler, create separate service tokens for different subsections of the system (e.g., separate tokens for Cloudflare Workers vs. Pages vs. Images) following the principle of least privilege
-4. **Local Development**: Use the Doppler CLI to inject secrets into local development sessions without storing them on disk
+1. **Doppler as Source of Truth**: Application secrets and deploy-time configuration are stored in Doppler with separate configs for development, staging, production, and deployment boundaries.
+2. **Scripted GitHub Sync**: `scripts/sync-doppler-github-envs.sh` maps Doppler configs to GitHub environments. Masked values become GitHub secrets and unmasked values become GitHub variables; stale values are removed.
+3. **GitHub as Deployment Boundary**: GitHub environment values are a generated mirror used by workflows, not a second source of truth. Changes are made in Doppler and then synchronized.
+4. **Scoped Access**: Separate Doppler configs and service tokens are used for different subsections of the system, following the principle of least privilege.
+5. **Local Development**: Use the Doppler CLI, including nested `doppler run` calls where shared values are needed, without storing secrets in `.env` files.
 
 This approach aligns with:
 
@@ -46,8 +48,9 @@ Doppler doesn't eliminate this problem—it shifts it:
 * This bootstrap token must be stored somewhere (GitHub Secrets)
 * If GitHub is compromised, the attacker gains access to Doppler
 
-This is why Doppler **complements** GitHub Secrets rather than fully replacing it.
-GitHub's native integration provides the trust anchor, while Doppler handles the complexity of managing dozens of application secrets.
+This is why Doppler **complements** GitHub Secrets rather than eliminating
+GitHub from the workflow. GitHub holds the deployment-facing mirror, while
+Doppler handles source-of-truth management and local secret injection.
 
 # Alternatives Considered
 
@@ -55,7 +58,13 @@ GitHub's native integration provides the trust anchor, while Doppler handles the
 
 * **Pros**: Native platform integration, solves Secret Zero by being the identity provider itself, supports OIDC for keyless authentication
 * **Cons**: Limited visibility once saved, poor UX for managing many secrets, no local development story, manual rotation process
-* **Decision**: **Keep for Secret Zero**, use alongside Doppler
+* **Decision**: **Keep as the deployment mirror and for bootstrap secrets**, use alongside Doppler
+
+## Doppler Paid Sync and Inheritance Features
+
+* **Pros**: Managed GitHub sync integrations, config inheritance, and shared credentials
+* **Cons**: These capabilities require a paid Doppler plan and add recurring cost for this solo project
+* **Decision**: **Rejected**. The repository's custom sync script and layered `doppler run` commands provide the required synchronization, inheritance, and shared-credential behavior on the current plan.
 
 ## [HashiCorp Vault](https://www.vaultproject.io/)
 
@@ -87,10 +96,10 @@ GitHub's native integration provides the trust anchor, while Doppler handles the
 
 * **Scalability**: Easily manage hundreds of secrets across multiple environments without GitHub UI limitations
 * **Developer Experience**: Doppler CLI provides seamless local development without `.env` file risks
-* **Secret Rotation**: Update a secret in one place, it propagates everywhere (CI/CD, local, cloud functions)
+* **Secret Rotation**: Update a secret in one place, then run the sync script to publish it to the relevant CI/CD environments
 * **Audit Trail**: Comprehensive logging of secret access and modifications
 * **Principle of Least Privilege**: Easy to create scoped service tokens for different subsections (e.g., different Cloudflare API keys for Workers vs. Pages vs. Images)
-* **Free for Solo Dev**: Doppler's free tier is sufficient for individual developers
+* **Free for Solo Dev**: Doppler's free tier is sufficient when paid sync and inheritance features are replaced with repository-owned scripts and CLI composition
 * **Reduced Risk**: Secrets are never written to disk in plain text during local development
 
 ## Negative
@@ -99,14 +108,11 @@ GitHub's native integration provides the trust anchor, while Doppler handles the
 * **Secret Zero Persists**: Still requires `DOPPLER_TOKEN` in GitHub Secrets, so we haven't eliminated the bootstrap problem
 * **Vendor Lock-in**: Migrating away from Doppler requires rewriting secret injection across all pipelines
 * **Internet Dependency**: Local development requires network access to Doppler (though CLI supports caching)
-* **Premature Optimization**: Currently only have 2-3 integrations, so the complexity may not yet justify the additional platform
+* **Operational Responsibility**: The sync script must be run after relevant Doppler changes, and its mappings must be maintained as environments evolve
 
-## When This Becomes Necessary
+## Adoption Note
 
-This transition should be considered when:
-
-* **Secret Rotation Pain**: Manually rotating secrets becomes a frequent, painful task
-* **Team Growth**: Multiple developers need synchronized access to secrets
-* **Multi-Environment Complexity**: Running staging/preview environments with different secret scopes
-
-Until then, maintaining the status quo (GitHub Secrets only) may be the better adherence to [Less Is More](/projects?tab=philosophy#less-is-more)—YAGNI.
+This decision is adopted. The repository uses Doppler configs as its source of
+truth, the custom sync script as the GitHub integration, and nested CLI commands
+to compose shared local configuration without duplicating credentials or paying
+for Doppler's managed sync and inheritance features.

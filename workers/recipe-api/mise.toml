@@ -39,13 +39,20 @@ run = """
 set -euo pipefail
 
 : "${PREVIEW_WORKER_NAME:?PREVIEW_WORKER_NAME is required}"
+: "${PREVIEW_INGEST_NAME:?PREVIEW_INGEST_NAME is required}"
 : "${PREVIEW_SITE_URL:?PREVIEW_SITE_URL is required}"
 : "${CF_ACCESS_TEAM_DOMAIN:?CF_ACCESS_TEAM_DOMAIN is required}"
 : "${CF_ACCESS_AUD:?CF_ACCESS_AUD is required}"
 : "${PREVIEW_SECRETS_FILE:?PREVIEW_SECRETS_FILE is required}"
 
+PREVIEW_CONFIG=$(mktemp ./wrangler.preview.generated.XXXXXX.toml)
+trap 'rm -f "$PREVIEW_CONFIG"' EXIT
+sed \
+  -e "s/__PREVIEW_INGEST_NAME__/$PREVIEW_INGEST_NAME/g" \
+  wrangler.preview.toml > "$PREVIEW_CONFIG"
+
 pnpm exec wrangler deploy \
-  --config wrangler.preview.toml \
+  --config "$PREVIEW_CONFIG" \
   --name "$PREVIEW_WORKER_NAME" \
   --var DEPLOYMENT_ENV:preview \
   --var BETTER_AUTH_URL:"$PREVIEW_SITE_URL" \

@@ -15,10 +15,13 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { DietListNotice, DietWarning } from "@/components/recipes/diet-notice";
+import { useDiet } from "@/components/recipes/diet-provider";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -34,6 +37,11 @@ import {
 } from "@/components/ui/filterable-card-grid";
 import { useFilterParams } from "@/hooks/use-filter-params";
 import type { RecipeCardView } from "@/lib/api/recipes";
+import {
+  applyDietRecipeVisibility,
+  buildDietRecipeMatches,
+  type DietMatch,
+} from "@/lib/domain/diet";
 import { formatDate } from "@/lib/generic/date";
 import { cycleFilterFromCard } from "@/lib/generic/filter-cycle";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
@@ -44,6 +52,11 @@ const TIME_RANGES = [
   { label: "30–60 min", min: 31, max: 60 },
   { label: "Over 60 min", min: 61 },
 ] as const;
+
+const MATCHING_DIET_MATCH: DietMatch = {
+  matches: true,
+  excludedIngredients: [],
+};
 
 function getTimeRangeLabel(minutes: number): string {
   for (const range of TIME_RANGES) {
@@ -206,6 +219,7 @@ interface RecipeCardProps {
   onToggleCuisine: (cuisine: string) => void;
   onTogglePrepTime: (rangeLabel: string) => void;
   onToggleTotalTime: (rangeLabel: string) => void;
+  dietMatch: DietMatch;
 }
 
 // Memoized so that toggling high-cardinality filters that don't affect a card's
@@ -221,6 +235,7 @@ const RecipeCard = memo(function RecipeCard({
   onToggleCuisine,
   onTogglePrepTime,
   onToggleTotalTime,
+  dietMatch,
 }: RecipeCardProps) {
   return (
     <Card className="h-full flex flex-col overflow-hidden rounded-xl border-[1.25px] border-[var(--line-strong)] gap-0 py-0 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--paper-shadow)]">
@@ -252,6 +267,7 @@ const RecipeCard = memo(function RecipeCard({
         <CardDescription className="rt-body line-clamp-2">
           {recipe.description}
         </CardDescription>
+        <DietWarning match={dietMatch} compact className="mt-2" />
       </CardHeader>
       <CardContent className="flex-1 flex flex-col justify-end pb-4">
         <div className="flex flex-wrap gap-2 mb-3">
@@ -294,13 +310,39 @@ const RecipeCard = memo(function RecipeCard({
   );
 });
 
-interface RecipeListProps {
+type RecipeListProps = Readonly<{
   recipes: RecipeCardView[];
-}
+  onDietVisibleCountChange?: (count: number) => void;
+}>;
 
-export function RecipeList({ recipes }: RecipeListProps) {
+export function RecipeList({
+  recipes,
+  onDietVisibleCountChange,
+}: RecipeListProps) {
+  const { diet, matchRecipe } = useDiet();
   const filterParams = useFilterParams({ filters: RECIPE_FILTER_PARAMS });
   const router = useRouter();
+  const [showHidden, setShowHidden] = useState(false);
+  const dietMatches = useMemo(
+    () =>
+      buildDietRecipeMatches(recipes, matchRecipe, (recipe) => ({
+        ingredients: recipe.ingredientSlugs.map((slug) => ({ slug })),
+      })),
+    [matchRecipe, recipes],
+  );
+  const { visibleRecipes, hiddenCount } = useMemo(
+    () =>
+      applyDietRecipeVisibility(
+        recipes,
+        dietMatches,
+        { active: diet.active, mode: diet.mode },
+        { showHidden },
+      ),
+    [diet.active, diet.mode, dietMatches, recipes, showHidden],
+  );
+  useLayoutEffect(() => {
+    onDietVisibleCountChange?.(visibleRecipes.length);
+  }, [onDietVisibleCountChange, visibleRecipes.length]);
 
   // Derive the selected values from the raw query strings so their array
   // identities stay stable while a given filter is unchanged — this lets the
@@ -315,9 +357,9 @@ export function RecipeList({ recipes }: RecipeListProps) {
   const searchConfig = useMemo(
     () => ({
       ...RECIPE_SEARCH_CONFIG,
-      placeholder: `Search ${recipes.length} recipes…`,
+      placeholder: `Search ${visibleRecipes.length} recipes…`,
     }),
-    [recipes.length],
+    [visibleRecipes.length],
   );
   const selectedCuisines = useMemo(
     () => (cuisineKey ? cuisineKey.split(",").filter(Boolean) : []),
@@ -403,29 +445,41 @@ export function RecipeList({ recipes }: RecipeListProps) {
   }, [searchParamQuery, searchQuery, searchParams, router]);
 
   return (
-    <FilterableCardGrid
-      items={recipes}
-      getItemKey={(recipe) => recipe.slug}
-      searchValue={searchQuery}
-      onSearchChange={setSearchQuery}
-      stackControls
-      searchConfig={searchConfig}
-      filterConfigs={RECIPE_FILTER_CONFIGS}
-      sortConfig={RECIPE_SORT_CONFIG}
-      emptyState={RECIPE_EMPTY_STATE}
-      itemName="recipes"
-      renderCard={(recipe, index) => (
-        <RecipeCard
-          recipe={recipe}
-          index={index}
-          selectedCuisines={selectedCuisines}
-          selectedPrepTimes={selectedPrepTimes}
-          selectedTotalTimes={selectedTotalTimes}
-          onToggleCuisine={onToggleCuisine}
-          onTogglePrepTime={onTogglePrepTime}
-          onToggleTotalTime={onToggleTotalTime}
+    <>
+      {diet.active && (
+        <DietListNotice
+          hiddenCount={hiddenCount}
+          labels={diet.labels}
+          mode={diet.mode}
+          showingHidden={showHidden}
+          onToggleHidden={() => setShowHidden((current) => !current)}
         />
       )}
-    />
+      <FilterableCardGrid
+        items={visibleRecipes}
+        getItemKey={(recipe) => recipe.slug}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        stackControls
+        searchConfig={searchConfig}
+        filterConfigs={RECIPE_FILTER_CONFIGS}
+        sortConfig={RECIPE_SORT_CONFIG}
+        emptyState={RECIPE_EMPTY_STATE}
+        itemName="recipes"
+        renderCard={(recipe, index) => (
+          <RecipeCard
+            recipe={recipe}
+            index={index}
+            selectedCuisines={selectedCuisines}
+            selectedPrepTimes={selectedPrepTimes}
+            selectedTotalTimes={selectedTotalTimes}
+            onToggleCuisine={onToggleCuisine}
+            onTogglePrepTime={onTogglePrepTime}
+            onToggleTotalTime={onToggleTotalTime}
+            dietMatch={dietMatches.get(recipe.slug) ?? MATCHING_DIET_MATCH}
+          />
+        )}
+      />
+    </>
   );
 }
