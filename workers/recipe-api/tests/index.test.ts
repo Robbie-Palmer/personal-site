@@ -1061,6 +1061,70 @@ describe("POST /recipes", () => {
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "Authentication required" });
   });
+
+  it("requires saved recipe content", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/recipes",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          slug: "private-draft",
+          title: "Private Draft",
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects malformed saved recipe payloads", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/recipes",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          slug: "private-draft",
+          title: "Private Draft",
+          body: JSON.stringify({ version: 1 }),
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as {
+      error: string;
+      details: Array<{ path: string[]; message: string }>;
+    };
+    expect(body.error).toBe("Invalid request body");
+    expect(body.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: ["body", "source"] }),
+        expect.objectContaining({ path: ["body", "recipe"] }),
+      ]),
+    );
+  });
 });
 
 describe("profile diet preferences", () => {

@@ -16,7 +16,9 @@ const STATIC_ASSET_SEGMENTS = new Set(["recipe-site-design"]);
 // Authenticated, noindex app pages (e.g. account settings) — served but kept
 // out of the sitemap on purpose.
 const NOINDEX_APP_PAGES = new Set([
+  "recipes/add",
   "recipes/kitchen",
+  "recipes/saved",
   "recipes/settings",
   "recipes/shopping",
 ]);
