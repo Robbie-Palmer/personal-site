@@ -5,6 +5,7 @@ import { createDb, schema } from "recipe-db";
 import { RecipeContentSchema } from "recipe-domain";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
+import { hasPostgresErrorCode } from "./db/errors";
 import {
   type AuthenticatedSession,
   type AuthorizationVariables,
@@ -429,21 +430,11 @@ async function withRecipeSession(
 }
 
 function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "23505"
-  );
+  return hasPostgresErrorCode(error, "23505");
 }
 
 function isForeignKeyViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "23503"
-  );
+  return hasPostgresErrorCode(error, "23503");
 }
 
 async function findRecipeBySlug(
@@ -1775,7 +1766,13 @@ app.post("/recipes", async (c) => {
     return c.json(recipeResponse(recipe), 201);
   } catch (e) {
     if (isUniqueViolation(e)) {
-      return c.json({ error: "Recipe slug already exists" }, 409);
+      return c.json(
+        {
+          error:
+            "A recipe with this name already exists. Choose a different name.",
+        },
+        409,
+      );
     }
     console.error("POST /recipes mutation failed", e);
     return c.json({ error: "Database mutation failed" }, 502);

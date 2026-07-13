@@ -130,6 +130,11 @@ export function AddRecipeView() {
         }),
       });
       if (!response.ok) {
+        if (response.status === 409) {
+          throw new Error(
+            "A recipe with this name already exists. Choose a different name.",
+          );
+        }
         const body = (await response.json().catch(() => null)) as {
           error?: string;
           details?: Array<{ message?: string }>;
