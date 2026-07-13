@@ -159,9 +159,7 @@ export function AddRecipeView() {
         window.location.origin,
       );
       router.push(
-        safeReturnTo
-          ? safeReturnTo
-          : `/recipes/saved?slug=${encodeURIComponent(saved.slug)}`,
+        safeReturnTo ?? `/recipes/saved?slug=${encodeURIComponent(saved.slug)}`,
       );
     } catch (error) {
       setSaveError(
