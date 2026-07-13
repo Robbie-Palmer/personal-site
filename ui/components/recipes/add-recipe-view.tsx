@@ -383,9 +383,9 @@ export function AddRecipeView() {
                   </p>
                 )}
                 {importedUrl && !importError && (
-                  <p role="status" className="text-sm text-[var(--sage)]">
+                  <output className="text-sm text-[var(--sage)]">
                     Imported successfully. You can edit any field before saving.
-                  </p>
+                  </output>
                 )}
               </div>
             )}

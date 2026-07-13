@@ -18,7 +18,8 @@ function isObject(value: unknown): value is JsonObject {
 }
 
 function values(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : value == null ? [] : [value];
+  if (Array.isArray(value)) return value;
+  return value == null ? [] : [value];
 }
 
 function text(value: unknown): string | undefined {
@@ -61,7 +62,19 @@ function decodeHtml(value: string): string {
 function plainText(value: unknown): string | undefined {
   const raw = text(value);
   if (!raw) return undefined;
-  return decodeHtml(raw.replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
+  let withoutTags = "";
+  let insideTag = false;
+  for (const character of raw) {
+    if (character === "<") {
+      insideTag = true;
+      withoutTags += " ";
+    } else if (character === ">") {
+      insideTag = false;
+    } else if (!insideTag) {
+      withoutTags += character;
+    }
+  }
+  return decodeHtml(withoutTags).replace(/\s+/g, " ").trim();
 }
 
 function isRecipeType(value: unknown): boolean {
@@ -94,18 +107,42 @@ function findRecipe(value: unknown): JsonObject | undefined {
   return undefined;
 }
 
+const DURATION_PART_PATTERN = /(\d+(?:\.\d+)?)([DHMS])/gi;
+
+function durationSectionMinutes(
+  section: string,
+  multipliers: Readonly<Record<string, number>>,
+): number | undefined {
+  if (!section) return 0;
+  let minutes = 0;
+  let cursor = 0;
+  DURATION_PART_PATTERN.lastIndex = 0;
+  for (
+    let match = DURATION_PART_PATTERN.exec(section);
+    match;
+    match = DURATION_PART_PATTERN.exec(section)
+  ) {
+    const multiplier = multipliers[match[2]?.toUpperCase() ?? ""];
+    if (match.index !== cursor || multiplier === undefined) return undefined;
+    minutes += Number(match[1]) * multiplier;
+    cursor = DURATION_PART_PATTERN.lastIndex;
+  }
+  return cursor === section.length ? minutes : undefined;
+}
+
 function durationMinutes(value: unknown): number | undefined {
-  const raw = text(value);
-  if (!raw) return undefined;
-  const match = raw.match(
-    /^P(?:(\d+(?:\.\d+)?)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$/i,
-  );
-  if (!match) return undefined;
-  const minutes =
-    Number(match[1] ?? 0) * 1440 +
-    Number(match[2] ?? 0) * 60 +
-    Number(match[3] ?? 0) +
-    Number(match[4] ?? 0) / 60;
+  const raw = text(value)?.toUpperCase();
+  if (!raw?.startsWith("P")) return undefined;
+  const sections = raw.slice(1).split("T");
+  if (sections.length > 2) return undefined;
+  const days = durationSectionMinutes(sections[0] ?? "", { D: 1440 });
+  const time = durationSectionMinutes(sections[1] ?? "", {
+    H: 60,
+    M: 1,
+    S: 1 / 60,
+  });
+  if (days === undefined || time === undefined) return undefined;
+  const minutes = days + time;
   return minutes > 0 ? Math.round(minutes) : undefined;
 }
 
@@ -114,7 +151,7 @@ function servings(value: unknown): number {
     if (typeof entry === "number" && Number.isFinite(entry) && entry > 0) {
       return Math.max(1, Math.round(entry));
     }
-    const match = text(entry)?.match(/\d+(?:\.\d+)?/);
+    const match = /\d+(?:\.\d+)?/.exec(text(entry) ?? "");
     if (match) return Math.max(1, Math.round(Number(match[0])));
   }
   return 1;
@@ -141,17 +178,26 @@ function instructionLines(value: unknown): string[] {
 
 function jsonLdBlocks(html: string): unknown[] {
   const blocks: unknown[] = [];
-  const pattern =
-    /<script\b[^>]*\btype\s*=\s*["']application\/ld\+json(?:\s*;[^"']*)?["'][^>]*>([\s\S]*?)<\/script\s*>/gi;
-  for (const match of html.matchAll(pattern)) {
-    const source = match[1]?.trim();
-    if (!source) continue;
-    try {
-      blocks.push(JSON.parse(source));
-    } catch {
-      // Pages commonly contain unrelated malformed JSON-LD. Keep looking for
-      // a valid Recipe block before reporting that the page is unsupported.
+  const lowercaseHtml = html.toLowerCase();
+  let cursor = 0;
+  while (cursor < html.length) {
+    const scriptStart = lowercaseHtml.indexOf("<script", cursor);
+    if (scriptStart === -1) break;
+    const openingEnd = lowercaseHtml.indexOf(">", scriptStart + 7);
+    if (openingEnd === -1) break;
+    const closingStart = lowercaseHtml.indexOf("</script", openingEnd + 1);
+    if (closingStart === -1) break;
+    const openingTag = lowercaseHtml.slice(scriptStart, openingEnd + 1);
+    if (openingTag.includes("application/ld+json")) {
+      const source = html.slice(openingEnd + 1, closingStart).trim();
+      try {
+        blocks.push(JSON.parse(source));
+      } catch {
+        // Pages commonly contain unrelated malformed JSON-LD. Keep looking for
+        // a valid Recipe block before reporting that the page is unsupported.
+      }
     }
+    cursor = closingStart + 8;
   }
   return blocks;
 }

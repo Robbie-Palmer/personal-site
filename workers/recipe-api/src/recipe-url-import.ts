@@ -103,6 +103,50 @@ async function readLimitedText(response: Response): Promise<string> {
   return new TextDecoder().decode(bytes);
 }
 
+function redirectUrl(
+  response: Response,
+  currentUrl: URL,
+  redirectCount: number,
+): URL | undefined {
+  if (response.status < 300 || response.status >= 400) return undefined;
+  const location = response.headers.get("location");
+  if (!location || redirectCount === MAX_REDIRECTS) {
+    throw new RecipeUrlImportError(
+      "The recipe page redirected too many times",
+      502,
+    );
+  }
+  return validateRecipeUrl(new URL(location, currentUrl));
+}
+
+function validateRecipePageResponse(response: Response): void {
+  if (!response.ok) {
+    throw new RecipeUrlImportError("The recipe page could not be fetched", 502);
+  }
+  const contentType = response.headers.get("content-type")?.toLowerCase();
+  if (
+    contentType &&
+    !contentType.includes("text/html") &&
+    !contentType.includes("application/xhtml+xml")
+  ) {
+    throw new RecipeUrlImportError(
+      "The URL does not point to an HTML page",
+      415,
+    );
+  }
+}
+
+function rethrowFetchError(error: unknown): never {
+  if (error instanceof RecipeUrlImportError) throw error;
+  if (error instanceof Error && error.name === "TimeoutError") {
+    throw new RecipeUrlImportError(
+      "The recipe page took too long to respond",
+      504,
+    );
+  }
+  throw new RecipeUrlImportError("The recipe page could not be fetched", 502);
+}
+
 export async function fetchRecipePage(
   rawUrl: string,
   fetcher: typeof fetch = fetch,
@@ -120,40 +164,16 @@ export async function fetchRecipePage(
         redirect: "manual",
         signal,
       });
-
-      if (response.status >= 300 && response.status < 400) {
-        const location = response.headers.get("location");
-        if (!location || redirect === MAX_REDIRECTS) {
-          throw new RecipeUrlImportError(
-            "The recipe page redirected too many times",
-            502,
-          );
-        }
-        url = validateRecipeUrl(new URL(location, url));
+      const nextUrl = redirectUrl(response, url, redirect);
+      if (nextUrl) {
+        url = nextUrl;
         continue;
       }
-      if (!response.ok) {
-        throw new RecipeUrlImportError("The recipe page could not be fetched", 502);
-      }
-      const contentType = response.headers.get("content-type")?.toLowerCase();
-      if (
-        contentType &&
-        !contentType.includes("text/html") &&
-        !contentType.includes("application/xhtml+xml")
-      ) {
-        throw new RecipeUrlImportError(
-          "The URL does not point to an HTML page",
-          415,
-        );
-      }
+      validateRecipePageResponse(response);
       return { html: await readLimitedText(response), url: url.toString() };
     }
   } catch (error) {
-    if (error instanceof RecipeUrlImportError) throw error;
-    if (error instanceof Error && error.name === "TimeoutError") {
-      throw new RecipeUrlImportError("The recipe page took too long to respond", 504);
-    }
-    throw new RecipeUrlImportError("The recipe page could not be fetched", 502);
+    rethrowFetchError(error);
   }
 
   throw new RecipeUrlImportError("The recipe page could not be fetched", 502);
