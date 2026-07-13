@@ -237,15 +237,20 @@ export function startTimer(input: StartTimerInput): void {
   commit([...timers.filter((t) => t.id !== input.id), timer]);
 }
 
+let customTimerSeq = 0;
+
 /**
  * Start an ad-hoc timer the user typed in themselves (not parsed from a
  * recipe). A fresh id is minted each call so repeated "add timer" taps stack
  * rather than replacing one another, and it's returned for the caller to track.
+ * The fallback uses a monotonic counter (not Math.random) so ids stay unique
+ * even for rapid taps in the same millisecond.
  */
 export function startCustomTimer(input: CustomTimerInput): string {
-  const id = `custom:${
-    globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
-  }`;
+  customTimerSeq += 1;
+  const unique =
+    globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${customTimerSeq}`;
+  const id = `custom:${unique}`;
   startTimer({ ...input, id });
   return id;
 }

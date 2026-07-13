@@ -95,11 +95,31 @@ function dotColor(timer: CookingTimer): string {
  * free-standing custom timers, which have no recipe to return to.
  */
 function timerHref(timer: CookingTimer): string | null {
-  if (timer.recipeSlug === undefined) return null;
+  if (!timer.recipeSlug) return null;
   const base = `/recipes/${encodeURIComponent(timer.recipeSlug)}`;
   return timer.stepIndex === undefined
     ? base
     : `${base}?cook=1&step=${timer.stepIndex + 1}`;
+}
+
+/**
+ * Inline positioning for a dragged dock. Default anchor comes from CSS classes,
+ * so this returns undefined until the user has moved it; while cook mode is open
+ * the bottom is raised to clear its footer without mutating the stored position.
+ */
+function dockStyle(
+  position: DockPosition | null,
+  cookModeOpen: boolean,
+): React.CSSProperties | undefined {
+  if (position) {
+    return {
+      right: position.right,
+      bottom: cookModeOpen
+        ? Math.max(position.bottom, cookModeFooterClearance())
+        : position.bottom,
+    };
+  }
+  return cookModeOpen ? { bottom: cookModeFooterClearance() } : undefined;
 }
 
 /** Short "step N" tag when the originating step is known. */
@@ -254,21 +274,7 @@ export function TimerDock() {
 
   const sorted = [...timers].sort(byUrgency);
   const primary = sorted[0];
-
-  // Positioning: default anchor comes from CSS classes; a dragged position is
-  // applied inline. While cook mode is open, raise the bottom to clear its
-  // footer without mutating the stored position.
-  let style: React.CSSProperties | undefined;
-  if (position) {
-    style = {
-      right: position.right,
-      bottom: cookModeOpen
-        ? Math.max(position.bottom, cookModeFooterClearance())
-        : position.bottom,
-    };
-  } else if (cookModeOpen) {
-    style = { bottom: cookModeFooterClearance() };
-  }
+  const style = dockStyle(position, cookModeOpen);
 
   const addTimerControl = (
     <AddTimerPopover

@@ -158,7 +158,9 @@ function timerQuantityText(timer: Timer): string | null {
   if (value && typeof value === "object" && "type" in value) {
     const inner = value as { type: string; value?: unknown };
     if (inner.type === "text" && typeof inner.value === "string") {
-      return inner.value.trim();
+      // Empty text falls through to the numeric path rather than blanking the
+      // display (defensive — the parser rejects `~{}` before we get here).
+      return inner.value.trim() || null;
     }
   }
   return null;

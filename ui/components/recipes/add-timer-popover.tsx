@@ -1,7 +1,7 @@
 "use client";
 
 import { Timer } from "lucide-react";
-import { type ReactNode, useId, useState } from "react";
+import { type ReactElement, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -43,7 +43,8 @@ export function AddTimerPopover({
   align = "center",
   onStarted,
 }: Readonly<{
-  trigger: ReactNode;
+  /** Radix `asChild` requires a single focusable element, so ReactElement (not ReactNode). */
+  trigger: ReactElement;
   defaultLabel?: string;
   defaultMinutes?: number;
   recipeSlug?: string;
@@ -117,6 +118,9 @@ export function AddTimerPopover({
                 max={999}
                 value={minutes}
                 onChange={(event) => setMinutes(event.target.value)}
+                // Snap the field to the value actually used, so a typed 1000
+                // doesn't read as 1000 while the timer starts at 999.
+                onBlur={() => setMinutes(String(clampInt(minutes, 999)))}
                 className="tabular-nums"
               />
             </label>
@@ -133,6 +137,7 @@ export function AddTimerPopover({
                 max={59}
                 value={seconds}
                 onChange={(event) => setSeconds(event.target.value)}
+                onBlur={() => setSeconds(String(clampInt(seconds, 59)))}
                 className="tabular-nums"
               />
             </label>
