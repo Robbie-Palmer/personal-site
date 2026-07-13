@@ -8,6 +8,7 @@ import {
   LogIn,
   LogOut,
   Settings,
+  UserPlus,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -19,6 +20,7 @@ import {
 import { RecipeAvatar } from "@/components/recipes/recipe-avatar";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
+import { cn } from "@/lib/generic/styles";
 import { isPreviewDeployment } from "@/lib/preview-environment";
 
 type PreviewScenario = {
@@ -27,7 +29,9 @@ type PreviewScenario = {
   description: string;
 };
 
-export function AuthButton() {
+export function AuthButton({
+  intent = "signin",
+}: Readonly<{ intent?: "signin" | "signup" }>) {
   const previewBackendDisabled =
     process.env.NEXT_PUBLIC_PREVIEW_BACKEND === "false";
   const { data: session, isPending } = authClient.useSession();
@@ -84,13 +88,16 @@ export function AuthButton() {
   }
 
   if (isPending) {
+    if (intent === "signup") return null;
     return (
       <Button variant="outline" size="sm" disabled aria-label="Loading session">
         <LoaderCircle className="animate-spin" />
-        <span className="hidden sm:inline">Sign in</span>
+        <span className="hidden sm:inline">Log in</span>
       </Button>
     );
   }
+
+  if (session && intent === "signup") return null;
 
   if (session) {
     return (
@@ -178,7 +185,10 @@ export function AuthButton() {
     setPendingSignIn(provider);
     setError(null);
 
-    const currentURL = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    const currentURL =
+      intent === "signup"
+        ? "/recipes/onboarding"
+        : `${window.location.pathname}${window.location.search}${window.location.hash}`;
     try {
       const result = await authClient.signIn.social({
         provider,
@@ -211,7 +221,11 @@ export function AuthButton() {
         setError(body?.error ?? "Preview sign-in failed.");
         return;
       }
-      window.location.reload();
+      if (intent === "signup") {
+        window.location.assign("/recipes/onboarding");
+      } else {
+        window.location.reload();
+      }
     } catch {
       setError("Preview sign-in failed.");
     } finally {
@@ -222,9 +236,17 @@ export function AuthButton() {
   return (
     <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
       <PopoverPrimitive.Trigger asChild>
-        <Button variant="outline" size="sm" aria-expanded={open}>
-          <LogIn />
-          <span className="hidden sm:inline">Sign in</span>
+        <Button
+          variant={intent === "signup" ? "default" : "outline"}
+          size="sm"
+          aria-expanded={open}
+          className={cn(
+            intent === "signup" &&
+              "rounded-full bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]",
+          )}
+        >
+          {intent === "signup" ? <UserPlus /> : <LogIn />}
+          <span>{intent === "signup" ? "Sign up — free" : "Log in"}</span>
           <ChevronDown className="size-3.5 opacity-60" />
         </Button>
       </PopoverPrimitive.Trigger>
@@ -239,7 +261,9 @@ export function AuthButton() {
               ? previewBackendDisabled
                 ? "Sign-in unavailable"
                 : "Choose a preview scenario"
-              : "Sign in to your recipes"}
+              : intent === "signup"
+                ? "Create your recipe box"
+                : "Log in to your recipes"}
           </p>
           <div className="flex flex-col gap-1">
             {isPreview

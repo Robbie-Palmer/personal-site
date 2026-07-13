@@ -44,7 +44,7 @@ describe("AuthButton", () => {
     const user = userEvent.setup();
     render(<AuthButton />);
 
-    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    await user.click(screen.getByRole("button", { name: /log in/i }));
 
     expect(
       screen.getByRole("button", { name: "Continue with Google" }),
@@ -59,7 +59,7 @@ describe("AuthButton", () => {
     mocks.getLastUsedLoginMethod.mockReturnValue("google");
     render(<AuthButton />);
 
-    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    await user.click(screen.getByRole("button", { name: /log in/i }));
 
     expect(
       screen.getByRole("button", { name: /Continue with Google/ }),
@@ -74,7 +74,7 @@ describe("AuthButton", () => {
     window.history.replaceState({}, "", "/recipes/pasta?servings=4#method");
     render(<AuthButton />);
 
-    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    await user.click(screen.getByRole("button", { name: /log in/i }));
     await user.click(
       screen.getByRole("button", { name: "Continue with GitHub" }),
     );
@@ -83,6 +83,22 @@ describe("AuthButton", () => {
       provider: "github",
       callbackURL: "/recipes/pasta?servings=4#method",
       errorCallbackURL: "/recipes/pasta?servings=4#method",
+    });
+  });
+
+  it("starts sign-up providers with onboarding as the callback", async () => {
+    const user = userEvent.setup();
+    render(<AuthButton intent="signup" />);
+
+    await user.click(screen.getByRole("button", { name: /sign up/i }));
+    await user.click(
+      screen.getByRole("button", { name: "Continue with Google" }),
+    );
+
+    expect(mocks.signInSocial).toHaveBeenCalledWith({
+      provider: "google",
+      callbackURL: "/recipes/onboarding",
+      errorCallbackURL: "/recipes/onboarding",
     });
   });
 
@@ -109,7 +125,7 @@ describe("AuthButton", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<AuthButton />);
 
-    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    await user.click(screen.getByRole("button", { name: /log in/i }));
     const scenarioButton = await screen.findByRole("button", {
       name: /Empty account/,
     });
@@ -141,7 +157,7 @@ describe("AuthButton", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<AuthButton />);
 
-    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    await user.click(screen.getByRole("button", { name: /log in/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Sign-in is disabled on this frontend-only preview.",

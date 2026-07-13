@@ -64,7 +64,7 @@ describe("SettingsView", () => {
     mocks.useSession.mockReturnValue({ data: null, isPending: false });
     renderSettingsView();
 
-    expect(screen.getByText("Sign in to open settings.")).toBeInTheDocument();
+    expect(screen.getByText("Log in to open settings.")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /back to recipes/i }),
     ).toHaveAttribute("href", "/recipes");

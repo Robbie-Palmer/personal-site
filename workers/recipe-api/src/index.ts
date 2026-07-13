@@ -102,6 +102,15 @@ const uniqueDietKeysSchema = z
   .max(80)
   .transform((values) => Array.from(new Set(values)));
 
+const recipeBoxBodySchema = z
+  .object({
+    staticRecipeSlugs: z
+      .array(recipeSlugSchema)
+      .max(100)
+      .transform((values) => Array.from(new Set(values))),
+  })
+  .strict();
+
 const MAX_RECIPE_BODY_BYTES = 100_000;
 const savedRecipePayloadSchema = z
   .object({
@@ -221,6 +230,27 @@ async function closeDbClient(client: DbClient | undefined) {
 function recipeResponse(recipe: Recipe) {
   const { userId: _userId, ...response } = recipe;
   return response;
+}
+
+async function recipeBoxResponse(db: Db, userId: string) {
+  const [profile, items] = await Promise.all([
+    db
+      .select({ completedAt: schema.userRecipeBox.completedAt })
+      .from(schema.userRecipeBox)
+      .where(eq(schema.userRecipeBox.userId, userId))
+      .limit(1),
+    db
+      .select({ recipeSlug: schema.userRecipeBoxItem.recipeSlug })
+      .from(schema.userRecipeBoxItem)
+      .where(eq(schema.userRecipeBoxItem.userId, userId)),
+  ]);
+
+  return {
+    completed: Boolean(profile[0]),
+    staticRecipeSlugs: items
+      .map((item) => item.recipeSlug)
+      .sort((first, second) => first.localeCompare(second)),
+  };
 }
 
 function householdResponse(household: Household) {
@@ -1056,6 +1086,53 @@ app.put("/api/profile/diet", async (c) => {
         }
         throw error;
       }
+    },
+  );
+});
+
+app.get("/api/profile/recipe-box", async (c) => {
+  return withRecipeSession(
+    c,
+    "query",
+    "GET /api/profile/recipe-box query failed",
+    async ({ db, session }) => c.json(await recipeBoxResponse(db, session.user.id)),
+  );
+});
+
+app.put("/api/profile/recipe-box", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "PUT /api/profile/recipe-box mutation failed",
+    async ({ db, session }) => {
+      const body = await parseJsonBody(c, recipeBoxBodySchema);
+      if (!body.success) return body.response;
+
+      await db.transaction(async (tx) => {
+        await tx
+          .insert(schema.userRecipeBox)
+          .values({ userId: session.user.id, completedAt: new Date() })
+          .onConflictDoUpdate({
+            target: schema.userRecipeBox.userId,
+            set: { updatedAt: new Date() },
+          });
+        await tx
+          .delete(schema.userRecipeBoxItem)
+          .where(eq(schema.userRecipeBoxItem.userId, session.user.id));
+        if (body.data.staticRecipeSlugs.length > 0) {
+          await tx.insert(schema.userRecipeBoxItem).values(
+            body.data.staticRecipeSlugs.map((recipeSlug) => ({
+              userId: session.user.id,
+              recipeSlug,
+            })),
+          );
+        }
+      });
+
+      return c.json(await recipeBoxResponse(db, session.user.id));
     },
   );
 });

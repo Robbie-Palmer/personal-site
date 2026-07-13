@@ -63,7 +63,8 @@ export default function RecipesLayout({
               <span>Robbie's</span>{" "}
               <span className="rt-logo-accent">recipes</span>
             </Link>
-            <div className="order-2 ms-auto sm:order-3">
+            <div className="order-2 ms-auto flex items-center gap-2 sm:order-3">
+              <AuthButton intent="signup" />
               <AuthButton />
             </div>
             <div className="order-3 w-full sm:order-2 sm:w-auto">

@@ -150,7 +150,14 @@ export function AddRecipeView() {
         );
       }
       const saved = (await response.json()) as { slug: string };
-      router.push(`/recipes/saved?slug=${encodeURIComponent(saved.slug)}`);
+      const returnTo = new URLSearchParams(window.location.search).get(
+        "returnTo",
+      );
+      router.push(
+        returnTo?.startsWith("/recipes/")
+          ? returnTo
+          : `/recipes/saved?slug=${encodeURIComponent(saved.slug)}`,
+      );
     } catch (error) {
       setSaveError(
         error instanceof Error
@@ -175,9 +182,9 @@ export function AddRecipeView() {
     return (
       <div className="container mx-auto max-w-2xl px-4 py-16 text-center">
         <FileText className="mx-auto size-10 text-[var(--terracotta)]" />
-        <h1 className="rt-display mt-4 text-5xl">Sign in to save a recipe</h1>
+        <h1 className="rt-display mt-4 text-5xl">Log in to save a recipe</h1>
         <p className="rt-body mt-3 text-[var(--ink-2)]">
-          Use the sign-in button above, then come back to add recipes to your
+          Use the log-in button above, then come back to add recipes to your
           private recipe box.
         </p>
         <Button asChild variant="outline" className="mt-6 rounded-full">
