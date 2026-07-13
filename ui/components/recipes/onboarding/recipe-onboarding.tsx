@@ -17,6 +17,7 @@ import { RecipeThumb, recipeMetaLabel } from "@/components/recipes/recipe-card";
 import { Button } from "@/components/ui/button";
 import {
   type DietOptions,
+  type DietPresetOption,
   type DietProfile,
   emptyDietOptions,
   emptyDietProfile,
@@ -108,6 +109,105 @@ function Intro() {
   );
 }
 
+async function fetchAuthoredRecipes(signal: AbortSignal) {
+  const response = await fetch("/api/recipes", { signal });
+  if (!response.ok) {
+    throw new Error("Your authored recipes could not be loaded.");
+  }
+  return (await response.json()) as SavedRecipeApiRecord[];
+}
+
+function toggleValue(values: string[], value: string): string[] {
+  return values.includes(value)
+    ? values.filter((current) => current !== value)
+    : [...values, value];
+}
+
+function DietPresetTile({
+  active,
+  onToggle,
+  preset,
+}: Readonly<{
+  active: boolean;
+  onToggle: (key: string) => void;
+  preset: DietPresetOption;
+}>) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={() => onToggle(preset.key)}
+      className={cn(
+        "flex items-start gap-3 rounded-xl border p-4 text-left transition-colors",
+        active
+          ? "border-[var(--terracotta)] bg-[var(--butter-soft)]"
+          : "border-[var(--line-strong)] bg-[var(--card)] hover:border-[var(--terracotta)]",
+      )}
+    >
+      <span
+        className={cn(
+          "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border",
+          active
+            ? "border-[var(--terracotta)] bg-[var(--terracotta)] text-white"
+            : "border-[var(--line-strong)]",
+        )}
+      >
+        <Check className="size-3.5" />
+      </span>
+      <span>
+        <span className="rt-body block font-bold">{preset.label}</span>
+        <span className="rt-mono mt-1 block text-[var(--ink-3)]">
+          {preset.sub}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function StarterRecipeTile({
+  onToggle,
+  recipe,
+  selected,
+}: Readonly<{
+  onToggle: (slug: string) => void;
+  recipe: RecipeCardView;
+  selected: boolean;
+}>) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={() => onToggle(recipe.slug)}
+      className={cn(
+        "flex items-center gap-3 rounded-xl border p-3 text-left transition-all",
+        selected
+          ? "border-[var(--terracotta)] bg-[var(--butter-soft)] ring-1 ring-[var(--terracotta)]"
+          : "border-[var(--line-strong)] bg-[var(--card)] hover:-translate-y-0.5 hover:shadow-[var(--paper-shadow)]",
+      )}
+    >
+      <RecipeThumb recipe={recipe} size={54} />
+      <span className="min-w-0 flex-1">
+        <span className="rt-display block text-xl leading-none">
+          {recipe.title}
+        </span>
+        <span className="rt-mono mt-1 block truncate text-[var(--ink-3)]">
+          {recipeMetaLabel(recipe)}
+        </span>
+      </span>
+      <span
+        className={cn(
+          "flex size-7 shrink-0 items-center justify-center rounded-full border",
+          selected
+            ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--butter)]"
+            : "border-[var(--line-strong)]",
+        )}
+      >
+        {selected ? <Check className="size-4" /> : "+"}
+      </span>
+    </button>
+  );
+}
+
 export function RecipeOnboarding({
   recipes,
 }: Readonly<{ recipes: RecipeCardView[] }>) {
@@ -135,13 +235,7 @@ export function RecipeOnboarding({
       getDietProfile(controller.signal),
       getDietOptions(controller.signal),
       getRecipeBoxProfile(controller.signal),
-      fetch("/api/recipes", { signal: controller.signal }).then(
-        async (response) => {
-          if (!response.ok)
-            throw new Error("Your authored recipes could not be loaded.");
-          return (await response.json()) as SavedRecipeApiRecord[];
-        },
-      ),
+      fetchAuthoredRecipes(controller.signal),
     ])
       .then(([profile, options, box, saved]) => {
         setDiet(profile);
@@ -149,11 +243,11 @@ export function RecipeOnboarding({
         setSelectedSlugs(box.staticRecipeSlugs);
         setAuthoredRecipes(saved.filter((record) => savedRecipeCard(record)));
       })
-      .catch((caught: unknown) => {
-        if (!(caught instanceof DOMException && caught.name === "AbortError")) {
+      .catch((error_: unknown) => {
+        if (!(error_ instanceof DOMException && error_.name === "AbortError")) {
           setError(
-            caught instanceof Error
-              ? caught.message
+            error_ instanceof Error
+              ? error_.message
               : "Setup could not be loaded.",
           );
         }
@@ -184,16 +278,27 @@ export function RecipeOnboarding({
   const selectedSet = useMemo(() => new Set(selectedSlugs), [selectedSlugs]);
   const boxCount = selectedSlugs.length + authoredRecipes.length;
 
+  function toggleDietPreset(key: string) {
+    setDiet((current) => ({
+      ...current,
+      presetDietKeys: toggleValue(current.presetDietKeys, key),
+    }));
+  }
+
+  function toggleSelectedRecipe(slug: string) {
+    setSelectedSlugs((current) => toggleValue(current, slug));
+  }
+
   async function continueFromDiet() {
     setSaving(true);
     setError(null);
     try {
       setDiet(await saveDietProfile(diet));
       setStep(2);
-    } catch (caught) {
+    } catch (error_) {
       setError(
-        caught instanceof Error
-          ? caught.message
+        error_ instanceof Error
+          ? error_.message
           : "Your diet could not be saved.",
       );
     } finally {
@@ -207,10 +312,10 @@ export function RecipeOnboarding({
     try {
       await saveRecipeBoxProfile(selectedSlugs);
       setStep(3);
-    } catch (caught) {
+    } catch (error_) {
       setError(
-        caught instanceof Error
-          ? caught.message
+        error_ instanceof Error
+          ? error_.message
           : "Your recipe box could not be saved.",
       );
     } finally {
@@ -256,51 +361,14 @@ export function RecipeOnboarding({
             change how matches are shown later in settings.
           </p>
           <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {dietOptions.presets.map((preset) => {
-              const active = diet.presetDietKeys.includes(preset.key);
-              return (
-                <button
-                  key={preset.key}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() =>
-                    setDiet((current) => ({
-                      ...current,
-                      presetDietKeys: active
-                        ? current.presetDietKeys.filter(
-                            (key) => key !== preset.key,
-                          )
-                        : [...current.presetDietKeys, preset.key],
-                    }))
-                  }
-                  className={cn(
-                    "flex items-start gap-3 rounded-xl border p-4 text-left transition-colors",
-                    active
-                      ? "border-[var(--terracotta)] bg-[var(--butter-soft)]"
-                      : "border-[var(--line-strong)] bg-[var(--card)] hover:border-[var(--terracotta)]",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border",
-                      active
-                        ? "border-[var(--terracotta)] bg-[var(--terracotta)] text-white"
-                        : "border-[var(--line-strong)]",
-                    )}
-                  >
-                    <Check className="size-3.5" />
-                  </span>
-                  <span>
-                    <span className="rt-body block font-bold">
-                      {preset.label}
-                    </span>
-                    <span className="rt-mono mt-1 block text-[var(--ink-3)]">
-                      {preset.sub}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
+            {dietOptions.presets.map((preset) => (
+              <DietPresetTile
+                key={preset.key}
+                preset={preset}
+                active={diet.presetDietKeys.includes(preset.key)}
+                onToggle={toggleDietPreset}
+              />
+            ))}
           </div>
           {dietOptions.presets.length === 0 && (
             <p className="rt-body mt-7 rounded-xl border border-dashed p-4 text-[var(--ink-3)]">
@@ -345,49 +413,14 @@ export function RecipeOnboarding({
             </div>
           )}
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {compatibleRecipes.map((recipe) => {
-              const selected = selectedSet.has(recipe.slug);
-              return (
-                <button
-                  key={recipe.slug}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() =>
-                    setSelectedSlugs((current) =>
-                      selected
-                        ? current.filter((slug) => slug !== recipe.slug)
-                        : [...current, recipe.slug],
-                    )
-                  }
-                  className={cn(
-                    "flex items-center gap-3 rounded-xl border p-3 text-left transition-all",
-                    selected
-                      ? "border-[var(--terracotta)] bg-[var(--butter-soft)] ring-1 ring-[var(--terracotta)]"
-                      : "border-[var(--line-strong)] bg-[var(--card)] hover:-translate-y-0.5 hover:shadow-[var(--paper-shadow)]",
-                  )}
-                >
-                  <RecipeThumb recipe={recipe} size={54} />
-                  <span className="min-w-0 flex-1">
-                    <span className="rt-display block text-xl leading-none">
-                      {recipe.title}
-                    </span>
-                    <span className="rt-mono mt-1 block truncate text-[var(--ink-3)]">
-                      {recipeMetaLabel(recipe)}
-                    </span>
-                  </span>
-                  <span
-                    className={cn(
-                      "flex size-7 shrink-0 items-center justify-center rounded-full border",
-                      selected
-                        ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--butter)]"
-                        : "border-[var(--line-strong)]",
-                    )}
-                  >
-                    {selected ? <Check className="size-4" /> : "+"}
-                  </span>
-                </button>
-              );
-            })}
+            {compatibleRecipes.map((recipe) => (
+              <StarterRecipeTile
+                key={recipe.slug}
+                recipe={recipe}
+                selected={selectedSet.has(recipe.slug)}
+                onToggle={toggleSelectedRecipe}
+              />
+            ))}
           </div>
         </section>
       )}

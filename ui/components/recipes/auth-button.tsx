@@ -29,6 +29,21 @@ type PreviewScenario = {
   description: string;
 };
 
+function authPrompt(
+  isPreview: boolean,
+  previewBackendDisabled: boolean,
+  intent: "signin" | "signup",
+): string {
+  if (isPreview) {
+    return previewBackendDisabled
+      ? "Sign-in unavailable"
+      : "Choose a preview scenario";
+  }
+  return intent === "signup"
+    ? "Create your recipe box"
+    : "Log in to your recipes";
+}
+
 export function AuthButton({
   intent = "signin",
 }: Readonly<{ intent?: "signin" | "signup" }>) {
@@ -257,13 +272,7 @@ export function AuthButton({
           className="bg-popover text-popover-foreground z-50 w-56 rounded-md border p-2 shadow-md outline-none"
         >
           <p className="px-2 pb-2 text-xs font-medium text-muted-foreground">
-            {isPreview
-              ? previewBackendDisabled
-                ? "Sign-in unavailable"
-                : "Choose a preview scenario"
-              : intent === "signup"
-                ? "Create your recipe box"
-                : "Log in to your recipes"}
+            {authPrompt(isPreview, previewBackendDisabled, intent)}
           </p>
           <div className="flex flex-col gap-1">
             {isPreview
