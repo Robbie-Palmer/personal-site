@@ -5,6 +5,7 @@ config_roots = [
     "ui",
     "infra",
     "infra-bootstrap",
+    "backups",
     "ml-pipelines",
     "packages/recipe-db",
     "packages/recipe-parsing",

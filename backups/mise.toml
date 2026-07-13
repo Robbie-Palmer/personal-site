@@ -1,0 +1,15 @@
+[tools]
+age = "1.3.1"
+awscli = "2.35.22"
+
+[tasks.backup]
+description = "Create an encrypted Neon pg_dump and upload it to R2"
+run = "bash scripts/backup-neon-to-r2.sh"
+
+[tasks.decrypt]
+description = "Decrypt an age-encrypted PostgreSQL backup"
+run = "bash scripts/decrypt-backup.sh"
+
+[tasks.verify]
+description = "Decrypt and inspect a PostgreSQL backup without restoring it"
+run = "bash scripts/verify-backup.sh"

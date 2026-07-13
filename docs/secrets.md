@@ -41,6 +41,7 @@ Configs are split by environment and runtime/control boundary:
 | `prd_recipe_ingest` | Production recipe ingest Worker LLM config | `production-recipe-ingest` |
 | `prd_infra` | Production Terraform/provider credentials | `production-infra` |
 | `prd_bootstrap_infra` | Production bootstrap Terraform credentials | `production-infra-bootstrap` |
+| `prd_database_backup` | Encrypted Neon-to-R2 backup credentials and public encryption recipient | `production-database-backup` |
 | `prd_ci_repo` | Repo-wide sensitive CI like AI review and DVC | `production-ci` |
 
 Doppler config inheritance is not available on this workspace plan, so local
@@ -180,6 +181,7 @@ The GitHub environments are runtime/job boundaries, not provider names:
 | `production-site-ui` | `prd_site_ui`, `prd_pages_env` | Production UI CI/CD and Cloudflare Images health check |
 | `production-infra` | `prd_infra` | Terraform CI/CD |
 | `production-infra-bootstrap` | `prd_bootstrap_infra` | Manual bootstrap Terraform |
+| `production-database-backup` | `prd_database_backup` | Scheduled encrypted Neon backup |
 | `production-ci` | `prd_ci_repo` | AI review and ML pipeline CI |
 
 Run `scripts/sync-doppler-github-envs.sh` after any Doppler change that should
@@ -278,6 +280,20 @@ runtime-specific Doppler config.
 - `GCP_TERRAFORM_SERVICE_ACCOUNT` (unmasked)
 - `TF_API_TOKEN`
 
+`prd_database_backup` should own:
+
+- `AGE_RECIPIENT` (unmasked; public age recipient, never the private identity)
+- `CLOUDFLARE_ACCOUNT_ID` (unmasked)
+- `NEON_DATABASE_URL_UNPOOLED`
+- `R2_ACCESS_KEY_ID`
+- `R2_DATABASE_BACKUPS_BUCKET_NAME` (unmasked)
+- `R2_SECRET_ACCESS_KEY`
+
+The Neon URL should use a dedicated read-only backup role and the direct,
+unpooled endpoint. Scope the R2 Object Read & Write token to only the database
+backup bucket. The private age identity must not be stored in Doppler or GitHub;
+keep it in a password manager plus a separate recovery copy.
+
 `prd_ci_repo` should own:
 
 - `OPENROUTER_API_KEY`
@@ -297,6 +313,7 @@ doppler secrets --project personal-site --config dev_pages_env --only-names
 doppler secrets --project personal-site --config dev_recipe_api --only-names
 doppler secrets --project personal-site --config dev_infra --only-names
 doppler secrets --project personal-site --config dev_bootstrap_infra --only-names
+doppler secrets --project personal-site --config prd_database_backup --only-names
 scripts/sync-doppler-github-envs.sh
 
 mise run //:dev

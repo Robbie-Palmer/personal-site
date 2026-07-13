@@ -110,6 +110,18 @@ resource "cloudflare_r2_bucket" "recipe_artifacts_preview" {
   location   = "ENAM"
 }
 
+# Private, provider-independent PostgreSQL backups. Objects are encrypted by
+# the backup runner before upload, so R2 only receives ciphertext.
+resource "cloudflare_r2_bucket" "database_backups" {
+  account_id = var.cloudflare_account_id
+  name       = var.r2_database_backups_bucket_name
+  location   = "ENAM"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
 # Neon
 
 resource "neon_project" "recipes" {

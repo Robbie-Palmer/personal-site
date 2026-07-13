@@ -43,6 +43,11 @@ output "r2_recipe_artifacts_preview_bucket_name" {
   value       = cloudflare_r2_bucket.recipe_artifacts_preview.name
 }
 
+output "r2_database_backups_bucket_name" {
+  description = "Name of the private bucket for encrypted PostgreSQL backups"
+  value       = cloudflare_r2_bucket.database_backups.name
+}
+
 # Neon
 
 output "neon_project_id" {

@@ -78,8 +78,9 @@ Create GitHub environments that match the Doppler config boundaries:
 
 1. Go to: Settings → Environments → New environment
 2. Create `production-infra`, `production-infra-bootstrap`, `production-site-ui`,
-   `production-recipe-api`, `production-recipe-ingest`, `production-ci`,
-   `preview-site-ui`, and `preview-recipe-api`
+   `production-recipe-api`, `production-recipe-ingest`,
+   `production-database-backup`, `production-ci`, `preview-site-ui`, and
+   `preview-recipe-api`
 3. (Optional) Add protection rules for production deployments
 
 PR infrastructure uses the `preview-*` environments with least-privilege
@@ -130,6 +131,12 @@ Manage R2 API Tokens → Create User API Token
 (Object Read & Write, scoped to `dvc` bucket).
 
 See [`ml-pipelines/README.md`](/ml-pipelines/README.md) for developer setup.
+
+### `personal-site-database-backups`
+
+Private bucket for age-encrypted PostgreSQL custom-format archives. Terraform
+creates the bucket with deletion protection; the scheduled backup and restore
+runbook lives in [`../backups/README.md`](../backups/README.md).
 
 ## PostHog
 
