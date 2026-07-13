@@ -85,6 +85,10 @@ function fulfilledValue<T>(result: PromiseSettledResult<T>, fallback: T): T {
   return result.status === "fulfilled" ? result.value : fallback;
 }
 
+function excludeById<T extends { id: string }>(items: T[], id: string): T[] {
+  return items.filter((item) => item.id !== id);
+}
+
 async function loadHouseholdData(
   signal?: AbortSignal,
 ): Promise<LoadedHouseholdData> {
@@ -856,9 +860,7 @@ export function HouseholdPanel({
   function declineInvitation(invitation: IncomingHouseholdInvitation) {
     run("decline", async () => {
       await declineHouseholdInvitation(invitation.id);
-      setIncoming((current) =>
-        current.filter((item) => item.id !== invitation.id),
-      );
+      setIncoming(excludeById(incoming, invitation.id));
       setNotice("Invitation declined.");
     });
   }
@@ -870,7 +872,7 @@ export function HouseholdPanel({
     }
     run("remove", async () => {
       await removeHouseholdMember(household.id, member.id);
-      setMembers((current) => current.filter((item) => item.id !== member.id));
+      setMembers(excludeById(members, member.id));
       setNotice(`${member.user.name} was removed.`);
     });
   }
@@ -879,9 +881,7 @@ export function HouseholdPanel({
     if (!household) return;
     run("revoke", async () => {
       await revokeHouseholdInvitation(household.id, invitation.id);
-      setInvitations((current) =>
-        current.filter((item) => item.id !== invitation.id),
-      );
+      setInvitations(excludeById(invitations, invitation.id));
       setNotice(`Invitation for ${invitation.email} revoked.`);
     });
   }
