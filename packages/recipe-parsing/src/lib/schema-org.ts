@@ -176,6 +176,21 @@ function instructionLines(value: unknown): string[] {
   return lines;
 }
 
+function unwrapJsonLdSource(source: string): string {
+  let cleaned = source.trim();
+  const wrappers = [
+    { prefix: "<!--", suffix: "-->" },
+    { prefix: "//<![CDATA[", suffix: "//]]>" },
+    { prefix: "<![CDATA[", suffix: "]]>" },
+  ];
+  for (const { prefix, suffix } of wrappers) {
+    if (cleaned.startsWith(prefix) && cleaned.endsWith(suffix)) {
+      cleaned = cleaned.slice(prefix.length, -suffix.length).trim();
+    }
+  }
+  return cleaned;
+}
+
 function jsonLdBlocks(html: string): unknown[] {
   const blocks: unknown[] = [];
   const lowercaseHtml = html.toLowerCase();
@@ -189,7 +204,9 @@ function jsonLdBlocks(html: string): unknown[] {
     if (closingStart === -1) break;
     const openingTag = lowercaseHtml.slice(scriptStart, openingEnd + 1);
     if (openingTag.includes("application/ld+json")) {
-      const source = html.slice(openingEnd + 1, closingStart).trim();
+      const source = unwrapJsonLdSource(
+        html.slice(openingEnd + 1, closingStart),
+      );
       try {
         blocks.push(JSON.parse(source));
       } catch {

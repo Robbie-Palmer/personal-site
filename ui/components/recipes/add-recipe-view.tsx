@@ -361,9 +361,9 @@ export function AddRecipeView() {
                       className="bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]"
                     >
                       {importing ? (
-                        <Loader2 className="animate-spin" />
+                        <Loader2 className="size-4 animate-spin" />
                       ) : (
-                        <Globe2 />
+                        <Globe2 className="size-4" />
                       )}
                       {importing ? "Importing…" : "Import recipe"}
                     </Button>

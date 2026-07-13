@@ -44,6 +44,18 @@ describe("parseSchemaOrgRecipeHtml", () => {
     });
   });
 
+  it.each([
+    ["HTML comments", "<!--", "-->"],
+    ["CDATA comments", "//<![CDATA[", "//]]>"],
+  ])("unwraps JSON-LD inside %s", (_name, prefix, suffix) => {
+    const html = `<script type="application/ld+json">${prefix}
+      {"@type":"Recipe","name":"Toast","recipeIngredient":["2 slices bread"],
+       "recipeInstructions":["Toast the bread."]}
+      ${suffix}</script>`;
+
+    expect(parseSchemaOrgRecipeHtml(html)).toMatchObject({ title: "Toast" });
+  });
+
   it("rejects pages without a complete Recipe", () => {
     expect(parseSchemaOrgRecipeHtml(`<script type="application/ld+json">{"@type":"Article"}</script>`)).toBeNull();
     expect(parseSchemaOrgRecipeHtml(`<script type="application/ld+json">{"@type":"Recipe","name":"Empty"}</script>`)).toBeNull();
