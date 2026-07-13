@@ -123,6 +123,15 @@ function toggleValue(values: string[], value: string): string[] {
     : [...values, value];
 }
 
+function authenticatedOnboardingStep(
+  completed: boolean,
+  requestedBoxStep: boolean,
+): number {
+  if (completed) return 3;
+  if (requestedBoxStep) return 2;
+  return 1;
+}
+
 function DietPresetTile({
   active,
   onToggle,
@@ -237,7 +246,7 @@ export function RecipeOnboarding({
       fetchAuthoredRecipes(controller.signal),
     ])
       .then(([profile, options, box, saved]) => {
-        setStep(box.completed ? 3 : requestedBoxStep ? 2 : 1);
+        setStep(authenticatedOnboardingStep(box.completed, requestedBoxStep));
         setDiet(profile);
         setDietOptions(options);
         setSelectedSlugs(box.staticRecipeSlugs);
