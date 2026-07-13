@@ -121,6 +121,7 @@ const dbMock = vi.hoisted(() => {
     userDietExcludedGroups: [] as { userId: string; groupKey: string }[],
     rateLimitCounts: new Map<string, number>(),
     rateLimitSweeps: 0,
+    expireInvitationOnUpdate: false,
   };
 
   const organizationRow = (organization: OrganizationRow) => [
@@ -186,6 +187,7 @@ const dbMock = vi.hoisted(() => {
     state.userDietExcludedGroups = [];
     state.rateLimitCounts.clear();
     state.rateLimitSweeps = 0;
+    state.expireInvitationOnUpdate = false;
   }
 
   function queryRows(query: string, params: unknown[] = []) {
@@ -308,6 +310,14 @@ const dbMock = vi.hoisted(() => {
     }
 
     if (query.startsWith('update "invitation" set "status"')) {
+      if (state.expireInvitationOnUpdate) {
+        const invitationId = params[1] as string;
+        const expiring = state.invitations.find(
+          (candidate) => candidate.id === invitationId,
+        );
+        if (expiring) expiring.expiresAt = new Date(0);
+        state.expireInvitationOnUpdate = false;
+      }
       const status = params[0] as string;
       const invitationId = params[1] as string;
       const hasHouseholdFilter = query.includes(
@@ -319,11 +329,15 @@ const dbMock = vi.hoisted(() => {
       const pendingStatus = hasHouseholdFilter
         ? (params[3] as string | undefined)
         : (params[2] as string | undefined);
+      const expiresAfter = query.includes('"invitation"."expires_at" >')
+        ? new Date(params[3] as string)
+        : undefined;
       const invitation = state.invitations.find(
         (candidate) =>
           candidate.id === invitationId &&
           (!householdId || candidate.organizationId === householdId) &&
-          (!pendingStatus || candidate.status === pendingStatus),
+          (!pendingStatus || candidate.status === pendingStatus) &&
+          (!expiresAfter || candidate.expiresAt > expiresAfter),
       );
       if (!invitation) return [];
       invitation.status = status;
@@ -833,10 +847,21 @@ vi.mock("jose", () => ({
 import handler, { app } from "../src/index";
 
 function sessionFor(user: { id: string; email: string; name: string }) {
+  const email = user.email.toLowerCase();
+  if (!dbMock.state.userEmails.some((candidate) => candidate.email === email)) {
+    dbMock.state.userEmails.push({
+      email,
+      userId: user.id,
+      verified: true,
+      isPrimary: true,
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+  }
   return {
     user: {
       id: user.id,
-      email: user.email,
+      email,
       name: user.name,
       emailVerified: true,
       createdAt: dbMock.date,
@@ -2051,6 +2076,43 @@ describe("household membership flows", () => {
 
     expect(res.status).toBe(200);
     expect(dbMock.state.members).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: "outsider-user" }),
+      ]),
+    );
+  });
+
+  it("does not accept an invitation that expires before its atomic update", async () => {
+    seedHousehold();
+    dbMock.state.invitations.push({
+      id: "expiring-invitation",
+      organizationId: "household-1",
+      email: "outsider@example.test",
+      role: "member",
+      status: "pending",
+      expiresAt: new Date("2099-01-02T00:00:00.000Z"),
+      inviterId: "owner-user",
+      createdAt: dbMock.date,
+    });
+    dbMock.state.expireInvitationOnUpdate = true;
+    authzMock.session = sessionFor({
+      id: "outsider-user",
+      email: "outsider@example.test",
+      name: "Outsider",
+    });
+
+    const res = await app.request(
+      "/households/invitations/expiring-invitation/accept",
+      {
+        method: "POST",
+        headers: { origin: "http://localhost:3000" },
+      },
+      env,
+    );
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "Invitation is not pending" });
+    expect(dbMock.state.members).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({ userId: "outsider-user" }),
       ]),

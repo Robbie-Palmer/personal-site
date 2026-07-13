@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import { verifiedEmailsFromLinkedAccount } from "../src/user-emails";
 
 function googleIdToken(payload: Record<string, unknown>): string {
-  return `header.${btoa(JSON.stringify(payload))}.signature`;
+  const encoded = btoa(JSON.stringify(payload))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+  return `header.${encoded}.signature`;
 }
 
 describe("linked account emails", () => {

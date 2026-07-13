@@ -1525,6 +1525,7 @@ app.post("/households/invitations/:invitationId/accept", async (c) => {
     }
 
     const member = await db.transaction(async (tx) => {
+      const mutationTime = new Date();
       const [accepted] = await tx
         .update(schema.invitation)
         .set({ status: "accepted" })
@@ -1532,10 +1533,17 @@ app.post("/households/invitations/:invitationId/accept", async (c) => {
           and(
             eq(schema.invitation.id, invitationId),
             eq(schema.invitation.status, "pending"),
+            gt(schema.invitation.expiresAt, mutationTime),
           ),
         )
         .returning();
-      if (!accepted) throw new Error("Invitation is not pending");
+      if (!accepted) {
+        throw new Error(
+          invitation.expiresAt <= mutationTime
+            ? "Invitation has expired"
+            : "Invitation is not pending",
+        );
+      }
 
       const [createdMember] = await tx
         .insert(schema.member)
@@ -1560,6 +1568,9 @@ app.post("/households/invitations/:invitationId/accept", async (c) => {
     }
     if (e instanceof Error && e.message === "Invitation is not pending") {
       return c.json({ error: "Invitation is not pending" }, 409);
+    }
+    if (e instanceof Error && e.message === "Invitation has expired") {
+      return c.json({ error: "Invitation has expired" }, 410);
     }
     console.error("POST /households/invitations/:invitationId/accept failed", e);
     return c.json({ error: "Database mutation failed" }, 502);
@@ -1611,6 +1622,7 @@ app.post("/households/invitations/:invitationId/decline", async (c) => {
       return authorizationResponse(c, forbidden());
     }
 
+    const mutationTime = new Date();
     const [declined] = await db
       .update(schema.invitation)
       .set({ status: "rejected" })
@@ -1618,12 +1630,15 @@ app.post("/households/invitations/:invitationId/decline", async (c) => {
         and(
           eq(schema.invitation.id, invitationId),
           eq(schema.invitation.status, "pending"),
+          gt(schema.invitation.expiresAt, mutationTime),
         ),
       )
       .returning();
 
     if (!declined) {
-      return c.json({ error: "Invitation is not pending" }, 409);
+      return invitation.expiresAt <= mutationTime
+        ? c.json({ error: "Invitation has expired" }, 410)
+        : c.json({ error: "Invitation is not pending" }, 409);
     }
     return c.json(invitationResponse(declined));
   } catch (e) {

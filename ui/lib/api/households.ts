@@ -56,7 +56,12 @@ async function parseResponse<T>(
   if (response.ok) {
     if (response.status === 204) return undefined as T;
     const text = await response.text();
-    return (text ? JSON.parse(text) : undefined) as T;
+    if (!text) throw new Error(fallback);
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new Error(fallback);
+    }
   }
 
   const body = (await response.json().catch(() => null)) as ApiErrorBody | null;

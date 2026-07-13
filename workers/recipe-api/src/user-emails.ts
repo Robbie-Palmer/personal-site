@@ -25,7 +25,11 @@ function googleEmail(idToken: string | null | undefined): string[] {
   try {
     const encodedPayload = idToken.split(".")[1];
     if (!encodedPayload) return [];
-    const base64 = encodedPayload.replaceAll("-", "+").replaceAll("_", "/");
+    const unpadded = encodedPayload.replaceAll("-", "+").replaceAll("_", "/");
+    const base64 = unpadded.padEnd(
+      unpadded.length + ((4 - (unpadded.length % 4)) % 4),
+      "=",
+    );
     const payload = JSON.parse(atob(base64)) as {
       email?: unknown;
       email_verified?: unknown;
@@ -87,8 +91,26 @@ export async function syncLinkedAccountEmails(
   try {
     const emails = await verifiedEmailsFromLinkedAccount(account);
     await Promise.all(
-      [...new Set(emails)].map((email) =>
-        db
+      [...new Set(emails)].map(async (email) => {
+        const [existing] = await db
+          .select({ userId: schema.userEmail.userId })
+          .from(schema.userEmail)
+          .where(eq(schema.userEmail.email, email))
+          .limit(1);
+        if (existing && existing.userId !== account.userId) return;
+        if (existing) {
+          await db
+            .update(schema.userEmail)
+            .set({ verified: true })
+            .where(
+              and(
+                eq(schema.userEmail.email, email),
+                eq(schema.userEmail.userId, account.userId),
+              ),
+            );
+          return;
+        }
+        await db
           .insert(schema.userEmail)
           .values({
             email,
@@ -96,8 +118,8 @@ export async function syncLinkedAccountEmails(
             verified: true,
             isPrimary: false,
           })
-          .onConflictDoNothing({ target: schema.userEmail.email }),
-      ),
+          .onConflictDoNothing({ target: schema.userEmail.email });
+      }),
     );
   } catch (error) {
     // Provider lookup failure must not break sign-in. Account update hooks retry
@@ -111,6 +133,15 @@ export async function syncCanonicalUserEmail(
   user: UserEmailIdentity,
 ) {
   const email = normalizeEmail(user.email);
+  const [existing] = await db
+    .select({ userId: schema.userEmail.userId })
+    .from(schema.userEmail)
+    .where(eq(schema.userEmail.email, email))
+    .limit(1);
+  if (existing && existing.userId !== user.id) {
+    throw new Error("Canonical email is already owned by another account");
+  }
+
   await db
     .update(schema.userEmail)
     .set({ isPrimary: false })
@@ -144,7 +175,6 @@ export async function verifiedEmailsForUser(
   db: Db,
   user: UserEmailIdentity,
 ): Promise<string[]> {
-  await syncCanonicalUserEmail(db, user);
   const emails = await db
     .select({ email: schema.userEmail.email })
     .from(schema.userEmail)

@@ -897,7 +897,7 @@ export function HouseholdPanel({
       setMembers([]);
       setInvitations([]);
       setName("");
-      setNotice(null);
+      setNotice("Household deleted.");
     });
   }
 

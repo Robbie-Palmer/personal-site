@@ -1,4 +1,5 @@
 import { createDb, schema } from "recipe-db";
+import { syncCanonicalUserEmail } from "../src/user-emails";
 
 const databaseURL = process.env.DATABASE_URL;
 if (!databaseURL) throw new Error("DATABASE_URL is required");
@@ -14,34 +15,8 @@ try {
     })
     .from(schema.user);
 
-  if (users.length > 0) {
-    await db
-      .insert(schema.userEmail)
-      .values(
-        users.map((user) => ({
-          email: user.email.trim().toLowerCase(),
-          userId: user.id,
-          verified: user.emailVerified,
-          isPrimary: true,
-        })),
-      )
-      .onConflictDoNothing({ target: schema.userEmail.email });
-  }
-
-  const registeredEmails = await db
-    .select({
-      email: schema.userEmail.email,
-      userId: schema.userEmail.userId,
-    })
-    .from(schema.userEmail);
-  const ownerByEmail = new Map(
-    registeredEmails.map(({ email, userId }) => [email, userId]),
-  );
-  const conflict = users.find(
-    (user) => ownerByEmail.get(user.email.trim().toLowerCase()) !== user.id,
-  );
-  if (conflict) {
-    throw new Error("Email ownership conflict detected while backfilling");
+  for (const user of users) {
+    await syncCanonicalUserEmail(db, user);
   }
 
   console.log(`Registered canonical emails for ${users.length} users.`);

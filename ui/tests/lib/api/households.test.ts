@@ -33,6 +33,26 @@ describe("household API client", () => {
     });
   });
 
+  it("reports an empty successful response as an API failure", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, { status: 200 }),
+    );
+
+    await expect(getHouseholds()).rejects.toThrow(
+      "Couldn't load your household.",
+    );
+  });
+
+  it("reports malformed successful JSON as an API failure", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("not json", { status: 200 }),
+    );
+
+    await expect(getHouseholds()).rejects.toThrow(
+      "Couldn't load your household.",
+    );
+  });
+
   it("creates a household with a JSON request", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       Response.json(
