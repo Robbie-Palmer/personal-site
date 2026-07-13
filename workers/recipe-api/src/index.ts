@@ -2,8 +2,10 @@ import { Hono, type Context } from "hono";
 import { and, count, desc, eq, gt, gte, inArray, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { createDb, schema } from "recipe-db";
+import { RecipeContentSchema } from "recipe-domain";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
+import { hasPostgresErrorCode } from "./db/errors";
 import {
   type AuthenticatedSession,
   type AuthorizationVariables,
@@ -100,6 +102,52 @@ const uniqueDietKeysSchema = z
   .max(80)
   .transform((values) => Array.from(new Set(values)));
 
+const MAX_RECIPE_BODY_BYTES = 100_000;
+const savedRecipePayloadSchema = z
+  .object({
+    version: z.literal(1),
+    source: z.string().trim().min(1).max(10_000),
+    recipe: RecipeContentSchema,
+  })
+  .strict();
+
+const savedRecipeBodySchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(MAX_RECIPE_BODY_BYTES)
+  .superRefine((value, context) => {
+    if (new TextEncoder().encode(value).byteLength > MAX_RECIPE_BODY_BYTES) {
+      context.addIssue({
+        code: "custom",
+        message: `Recipe body must be at most ${MAX_RECIPE_BODY_BYTES} bytes`,
+      });
+      return;
+    }
+
+    let payload: unknown;
+    try {
+      payload = JSON.parse(value);
+    } catch {
+      context.addIssue({
+        code: "custom",
+        message: "Recipe body must be valid JSON",
+      });
+      return;
+    }
+
+    const result = savedRecipePayloadSchema.safeParse(payload);
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        context.addIssue({
+          code: "custom",
+          path: issue.path,
+          message: issue.message,
+        });
+      }
+    }
+  });
+
 // Household invitations stay valid for 48 hours after they are created.
 const INVITATION_EXPIRY_MS = 48 * 60 * 60 * 1000;
 
@@ -107,17 +155,17 @@ const HOUSEHOLD_INVITE_RATE_LIMIT = { max: 10, windowSeconds: 60 * 60 };
 
 const createRecipeBodySchema = z.object({
   slug: recipeSlugSchema,
-  title: z.string().trim().min(1),
-  description: z.string().trim().min(1).optional(),
-  body: z.string().trim().min(1).optional(),
+  title: z.string().trim().min(1).max(120),
+  description: z.string().trim().min(1).max(500).optional(),
+  body: savedRecipeBodySchema,
   visibility: recipeVisibilitySchema.default("private"),
 });
 
 const updateRecipeBodySchema = z
   .object({
-    title: z.string().trim().min(1).optional(),
-    description: z.string().trim().min(1).nullable().optional(),
-    body: z.string().trim().min(1).nullable().optional(),
+    title: z.string().trim().min(1).max(120).optional(),
+    description: z.string().trim().min(1).max(500).nullable().optional(),
+    body: savedRecipeBodySchema.nullable().optional(),
     visibility: recipeVisibilitySchema.optional(),
   })
   .strict()
@@ -388,21 +436,11 @@ async function withRecipeSession(
 }
 
 function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "23505"
-  );
+  return hasPostgresErrorCode(error, "23505");
 }
 
 function isForeignKeyViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "23503"
-  );
+  return hasPostgresErrorCode(error, "23503");
 }
 
 async function findRecipeBySlug(
@@ -1881,7 +1919,13 @@ app.post("/recipes", async (c) => {
     return c.json(recipeResponse(recipe), 201);
   } catch (e) {
     if (isUniqueViolation(e)) {
-      return c.json({ error: "Recipe slug already exists" }, 409);
+      return c.json(
+        {
+          error:
+            "A recipe with this name already exists. Choose a different name.",
+        },
+        409,
+      );
     }
     console.error("POST /recipes mutation failed", e);
     return c.json({ error: "Database mutation failed" }, 502);
