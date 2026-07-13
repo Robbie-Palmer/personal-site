@@ -305,7 +305,10 @@ export function AddRecipeView() {
             >
               <button
                 type="button"
-                onClick={() => setMethod("write")}
+                onClick={() => {
+                  setMethod("write");
+                  setImportedUrl(null);
+                }}
                 aria-pressed={method === "write"}
                 className={`rt-mono inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
                   method === "write"

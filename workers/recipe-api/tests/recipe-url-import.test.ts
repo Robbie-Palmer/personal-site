@@ -12,6 +12,9 @@ describe("validateRecipeUrl", () => {
     "http://127.0.0.1/recipe",
     "http://10.1.2.3/recipe",
     "http://[::1]/recipe",
+    "http://[fc00::1]/recipe",
+    "http://[fe80::1]/recipe",
+    "http://[::ffff:127.0.0.1]/recipe",
     "https://example.com:8443/recipe",
     "https://user:secret@example.com/recipe",
   ])("rejects unsafe URL %s", (url) => {
@@ -22,6 +25,12 @@ describe("validateRecipeUrl", () => {
     expect(validateRecipeUrl("https://recipes.example.com/pasta").toString()).toBe(
       "https://recipes.example.com/pasta",
     );
+  });
+
+  it("allows a public IPv6 URL", () => {
+    expect(
+      validateRecipeUrl("https://[2606:4700:4700::1111]/recipe").toString(),
+    ).toBe("https://[2606:4700:4700::1111]/recipe");
   });
 });
 
@@ -58,6 +67,26 @@ describe("fetchRecipePage", () => {
     await expect(
       fetchRecipePage("https://recipes.example.com/start", fetcher),
     ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("distinguishes malformed redirects from redirect loops", async () => {
+    await expect(
+      fetchRecipePage(
+        "https://recipes.example.com/start",
+        vi.fn<typeof fetch>().mockResolvedValue(
+          new Response(null, { status: 302 }),
+        ),
+      ),
+    ).rejects.toThrow("redirect without a destination");
+
+    await expect(
+      fetchRecipePage(
+        "https://recipes.example.com/start",
+        vi.fn<typeof fetch>().mockResolvedValue(
+          new Response(null, { status: 302, headers: { location: "/again" } }),
+        ),
+      ),
+    ).rejects.toThrow("redirected too many times");
   });
 
   it("rejects non-HTML and oversized responses", async () => {

@@ -34,6 +34,85 @@ function isPrivateIpv4(hostname: string): boolean {
   );
 }
 
+function ipv4Groups(value: string): [number, number] | undefined {
+  const octets = value.split(".").map(Number);
+  if (
+    octets.length !== 4 ||
+    octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)
+  ) {
+    return undefined;
+  }
+  const [first, second, third, fourth] = octets as [
+    number,
+    number,
+    number,
+    number,
+  ];
+  return [(first << 8) | second, (third << 8) | fourth];
+}
+
+function ipv6SideGroups(value: string): number[] | undefined {
+  if (!value) return [];
+  const parts = value.split(":");
+  const groups: number[] = [];
+  for (const [index, part] of parts.entries()) {
+    if (part.includes(".")) {
+      if (index !== parts.length - 1) return undefined;
+      const tail = ipv4Groups(part);
+      if (!tail) return undefined;
+      groups.push(...tail);
+      continue;
+    }
+    if (!/^[0-9a-f]{1,4}$/i.test(part)) return undefined;
+    groups.push(Number.parseInt(part, 16));
+  }
+  return groups;
+}
+
+function ipv6Groups(hostname: string): number[] | undefined {
+  const sides = hostname.split("::");
+  if (sides.length > 2) return undefined;
+  const left = ipv6SideGroups(sides[0] ?? "");
+  const right = ipv6SideGroups(sides[1] ?? "");
+  if (!left || !right) return undefined;
+  if (sides.length === 1) return left.length === 8 ? left : undefined;
+  const omitted = 8 - left.length - right.length;
+  if (omitted < 1) return undefined;
+  return [...left, ...Array<number>(omitted).fill(0), ...right];
+}
+
+function isPrivateIpv6(hostname: string): boolean {
+  const groups = ipv6Groups(hostname);
+  if (!groups) return true;
+  const [first, , , , , sixth, seventh, eighth] = groups as [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ];
+  const isUnspecifiedOrCompatible = groups
+    .slice(0, 6)
+    .every((group) => group === 0);
+  const isIpv4Mapped =
+    groups.slice(0, 5).every((group) => group === 0) && sixth === 0xffff;
+  const mappedIpv4 = `${seventh >> 8}.${seventh & 0xff}.${eighth >> 8}.${
+    eighth & 0xff
+  }`;
+  return (
+    isUnspecifiedOrCompatible ||
+    (isIpv4Mapped && isPrivateIpv4(mappedIpv4)) ||
+    (first & 0xfe00) === 0xfc00 ||
+    (first & 0xffc0) === 0xfe80 ||
+    (first & 0xffc0) === 0xfec0 ||
+    (first & 0xff00) === 0xff00 ||
+    (first === 0x2001 && groups[1] === 0x0db8)
+  );
+}
+
 export function validateRecipeUrl(value: string | URL): URL {
   let url: URL;
   try {
@@ -62,7 +141,7 @@ export function validateRecipeUrl(value: string | URL): URL {
     hostname.endsWith(".localhost") ||
     hostname.endsWith(".local") ||
     hostname.endsWith(".internal") ||
-    hostname.includes(":") ||
+    (hostname.includes(":") && isPrivateIpv6(hostname)) ||
     isPrivateIpv4(hostname)
   ) {
     throw new RecipeUrlImportError("That recipe URL cannot be accessed", 400);
@@ -110,7 +189,13 @@ function redirectUrl(
 ): URL | undefined {
   if (response.status < 300 || response.status >= 400) return undefined;
   const location = response.headers.get("location");
-  if (!location || redirectCount === MAX_REDIRECTS) {
+  if (!location) {
+    throw new RecipeUrlImportError(
+      "The recipe page returned a redirect without a destination",
+      502,
+    );
+  }
+  if (redirectCount === MAX_REDIRECTS) {
     throw new RecipeUrlImportError(
       "The recipe page redirected too many times",
       502,
@@ -156,6 +241,9 @@ export async function fetchRecipePage(
 
   try {
     for (let redirect = 0; redirect <= MAX_REDIRECTS; redirect++) {
+      // Cloudflare owns DNS resolution and egress enforcement for Workers fetch.
+      // Literal and redirect targets are checked here; protection from a hostname
+      // resolving to a private address relies on Cloudflare's network boundary.
       const response = await fetcher(url, {
         headers: {
           accept: "text/html,application/xhtml+xml",
