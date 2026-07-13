@@ -584,6 +584,22 @@ async function acceptPendingInvitation(
   });
 }
 
+function invitationAcceptanceFailure(
+  c: Context<AppEnv>,
+  error: unknown,
+): Response | undefined {
+  if (isUniqueViolation(error)) {
+    return c.json({ error: "User already belongs to a household" }, 409);
+  }
+  if (error instanceof Error && error.message === "Invitation is not pending") {
+    return c.json({ error: "Invitation is not pending" }, 409);
+  }
+  if (error instanceof Error && error.message === "Invitation has expired") {
+    return c.json({ error: "Invitation has expired" }, 410);
+  }
+  return undefined;
+}
+
 async function findHouseholdMemberUserIds(
   db: ReturnType<typeof createDb>["db"],
   householdId: string,
@@ -1575,15 +1591,8 @@ app.post("/households/invitations/:invitationId/accept", async (c) => {
       membershipCreated: Boolean(member),
     });
   } catch (e) {
-    if (isUniqueViolation(e)) {
-      return c.json({ error: "User already belongs to a household" }, 409);
-    }
-    if (e instanceof Error && e.message === "Invitation is not pending") {
-      return c.json({ error: "Invitation is not pending" }, 409);
-    }
-    if (e instanceof Error && e.message === "Invitation has expired") {
-      return c.json({ error: "Invitation has expired" }, 410);
-    }
+    const failure = invitationAcceptanceFailure(c, e);
+    if (failure) return failure;
     console.error("POST /households/invitations/:invitationId/accept failed", e);
     return c.json({ error: "Database mutation failed" }, 502);
   } finally {

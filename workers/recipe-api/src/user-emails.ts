@@ -186,7 +186,7 @@ export async function syncCanonicalUserEmail(
       setWhere: eq(schema.userEmail.userId, user.id),
     })
     .returning({ userId: schema.userEmail.userId });
-  if (!registered || registered.userId !== user.id) {
+  if (registered?.userId !== user.id) {
     throw new Error("Canonical email is already owned by another account");
   }
 }
