@@ -34,4 +34,24 @@ describe("recipes proxy", () => {
     );
     expect(forwarded.headers.get("cookie")).toBe("session=test");
   });
+
+  it.each([
+    "..",
+    "%2e%2e",
+    "%ZZ",
+  ])("rejects an unsafe path segment: %s", async (segment) => {
+    const fetchMock = vi.fn(async () => new Response("ok"));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const context: RecipeApiProxyContext = {
+      request: new Request(
+        `https://robbiepalmer.me/api/recipes/${segment}/private`,
+      ),
+      env: { RECIPE_API_URL: "https://recipe-api.example.test" },
+    };
+
+    const response = await onRequest(context);
+
+    expect(response.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

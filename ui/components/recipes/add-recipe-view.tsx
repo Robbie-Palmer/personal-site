@@ -34,12 +34,12 @@ function NumberField({
   value,
   onChange,
   min = 0,
-}: {
+}: Readonly<{
   label: string;
   value: number | undefined;
   onChange: (value: number | undefined) => void;
   min?: number;
-}) {
+}>) {
   const id = useId();
   return (
     <label htmlFor={id} className="grid gap-1.5">
@@ -118,8 +118,15 @@ export function AddRecipeView() {
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as {
           error?: string;
+          details?: Array<{ message?: string }>;
         } | null;
-        throw new Error(body?.error ?? "The recipe could not be saved.");
+        const details = body?.details
+          ?.map((detail) => detail.message)
+          .filter((message): message is string => Boolean(message))
+          .join(" ");
+        throw new Error(
+          details || body?.error || "The recipe could not be saved.",
+        );
       }
       const saved = (await response.json()) as { slug: string };
       router.push(`/recipes/saved?slug=${encodeURIComponent(saved.slug)}`);
@@ -280,6 +287,7 @@ export function AddRecipeView() {
               value={source}
               onChange={(event) => setSource(event.target.value)}
               placeholder={EXAMPLE_RECIPE}
+              maxLength={10000}
               spellCheck
               className="rt-body min-h-[360px] w-full resize-y rounded-lg border border-[var(--line-strong)] bg-[var(--paper)] p-3 text-base leading-relaxed outline-none transition-shadow placeholder:text-[var(--ink-4)] focus:border-[var(--terracotta)] focus:ring-3 focus:ring-[var(--terracotta)]/15"
             />

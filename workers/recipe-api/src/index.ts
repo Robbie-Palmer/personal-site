@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import { and, count, desc, eq, gte, inArray, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { createDb, schema } from "recipe-db";
+import { RecipeContentSchema } from "recipe-domain";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
 import {
@@ -100,6 +101,49 @@ const uniqueDietKeysSchema = z
   .max(80)
   .transform((values) => Array.from(new Set(values)));
 
+const MAX_RECIPE_BODY_BYTES = 100_000;
+const savedRecipePayloadSchema = z
+  .object({
+    version: z.literal(1),
+    source: z.string().trim().min(1).max(10_000),
+    recipe: RecipeContentSchema,
+  })
+  .strict();
+
+const savedRecipeBodySchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(MAX_RECIPE_BODY_BYTES)
+  .superRefine((value, context) => {
+    if (new TextEncoder().encode(value).byteLength > MAX_RECIPE_BODY_BYTES) {
+      context.addIssue({
+        code: "custom",
+        message: `Recipe body must be at most ${MAX_RECIPE_BODY_BYTES} bytes`,
+      });
+      return;
+    }
+
+    let payload: unknown;
+    try {
+      payload = JSON.parse(value);
+    } catch {
+      context.addIssue({
+        code: "custom",
+        message: "Recipe body must be valid JSON",
+      });
+      return;
+    }
+
+    const result = savedRecipePayloadSchema.safeParse(payload);
+    if (!result.success) {
+      context.addIssue({
+        code: "custom",
+        message: "Recipe body must contain a valid saved recipe payload",
+      });
+    }
+  });
+
 // Household invitations stay valid for 48 hours after they are created.
 const INVITATION_EXPIRY_MS = 48 * 60 * 60 * 1000;
 
@@ -109,7 +153,7 @@ const createRecipeBodySchema = z.object({
   slug: recipeSlugSchema,
   title: z.string().trim().min(1).max(120),
   description: z.string().trim().min(1).max(500).optional(),
-  body: z.string().trim().min(1).max(100_000).optional(),
+  body: savedRecipeBodySchema.optional(),
   visibility: recipeVisibilitySchema.default("private"),
 });
 
@@ -117,7 +161,7 @@ const updateRecipeBodySchema = z
   .object({
     title: z.string().trim().min(1).max(120).optional(),
     description: z.string().trim().min(1).max(500).nullable().optional(),
-    body: z.string().trim().min(1).max(100_000).nullable().optional(),
+    body: savedRecipeBodySchema.nullable().optional(),
     visibility: recipeVisibilitySchema.optional(),
   })
   .strict()

@@ -26,7 +26,11 @@ export function SavedRecipeView() {
   const [state, setState] = useState<State>({ status: "loading" });
 
   useEffect(() => {
-    if (!slug) {
+    if (
+      !slug ||
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) ||
+      slug.length > 120
+    ) {
       setState({ status: "error", message: "No saved recipe was selected." });
       return;
     }

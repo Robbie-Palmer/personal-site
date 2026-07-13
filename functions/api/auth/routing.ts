@@ -77,7 +77,23 @@ export async function proxyRecipeApiRequest(
   }
 
   const destinationPath = rewritePath?.(url.pathname) ?? url.pathname;
-  const destination = `${apiBase}${destinationPath}${url.search}`;
+  let decodedSegments: string[];
+  try {
+    decodedSegments = destinationPath.split("/").map(decodeURIComponent);
+  } catch {
+    return Response.json({ error: "Invalid API path" }, { status: 400 });
+  }
+  if (
+    !destinationPath.startsWith("/") ||
+    decodedSegments.some((segment) => segment === "." || segment === "..")
+  ) {
+    return Response.json({ error: "Invalid API path" }, { status: 400 });
+  }
+
+  const destinationUrl = new URL(apiBase);
+  destinationUrl.pathname = destinationPath;
+  destinationUrl.search = url.search;
+  const destination = destinationUrl.toString();
   const headers = new Headers();
   for (const name of FORWARDED_REQUEST_HEADERS) {
     const value = context.request.headers.get(name);

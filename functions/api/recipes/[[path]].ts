@@ -8,5 +8,8 @@ export const onRequest = (context: RecipeApiProxyContext): Promise<Response> =>
     context,
     "Recipe APIs are available on the canonical PR preview URL only",
     "Recipes",
-    (path) => path.replace(/^\/api\/recipes/, "/recipes"),
+    (path) =>
+      path === "/api/recipes" || path.startsWith("/api/recipes/")
+        ? path.replace(/^\/api\/recipes/, "/recipes")
+        : "",
   );

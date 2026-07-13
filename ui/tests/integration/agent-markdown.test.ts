@@ -96,7 +96,9 @@ describe("agent markdown generation", () => {
 
   it("generates JSON and Cooklang exports for every recipe", () => {
     const nonRecipePages = new Set([
+      "add.html",
       "kitchen.html",
+      "saved.html",
       "settings.html",
       "shopping.html",
     ]);

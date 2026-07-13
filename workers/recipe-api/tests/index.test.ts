@@ -1061,6 +1061,42 @@ describe("POST /recipes", () => {
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "Authentication required" });
   });
+
+  it("rejects malformed saved recipe payloads", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/recipes",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          slug: "private-draft",
+          title: "Private Draft",
+          body: JSON.stringify({ version: 1 }),
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "Invalid request body",
+      details: [
+        {
+          path: ["body"],
+          message: "Recipe body must contain a valid saved recipe payload",
+        },
+      ],
+    });
+  });
 });
 
 describe("profile diet preferences", () => {

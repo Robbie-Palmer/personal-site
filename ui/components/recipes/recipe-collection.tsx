@@ -16,12 +16,19 @@ export function RecipeCollection({
   recipes: RecipeCardView[];
   onDietVisibleCountChange?: (count: number) => void;
 }>) {
-  const { isPending } = authClient.useSession();
+  const { data: session, isPending } = authClient.useSession();
   const [saved, setSaved] = useState<SavedRecipeApiRecord[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isPending) return;
+    if (!session) {
+      setSaved([]);
+      setLoadError(null);
+      return;
+    }
     const controller = new AbortController();
+    setLoadError(null);
     void fetch("/api/recipes", { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error("Saved recipes unavailable");
@@ -31,10 +38,13 @@ export function RecipeCollection({
       .catch((error: unknown) => {
         if (!(error instanceof DOMException && error.name === "AbortError")) {
           console.error("Failed to load saved recipes", error);
+          setLoadError(
+            "Your saved recipes could not be loaded. Static recipes are still available.",
+          );
         }
       });
     return () => controller.abort();
-  }, [isPending]);
+  }, [isPending, session]);
 
   const combined = useMemo(() => {
     const dynamic = saved.flatMap((record) => {
@@ -49,9 +59,19 @@ export function RecipeCollection({
   }, [recipes, saved]);
 
   return (
-    <RecipeList
-      recipes={combined}
-      onDietVisibleCountChange={onDietVisibleCountChange}
-    />
+    <>
+      {loadError ? (
+        <p
+          role="status"
+          className="rt-body mb-5 rounded-lg border border-[var(--terracotta)]/30 bg-[var(--terracotta)]/5 px-4 py-3 text-sm text-[var(--ink-2)]"
+        >
+          {loadError}
+        </p>
+      ) : null}
+      <RecipeList
+        recipes={combined}
+        onDietVisibleCountChange={onDietVisibleCountChange}
+      />
+    </>
   );
 }

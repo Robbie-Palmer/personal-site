@@ -41,7 +41,7 @@ export function normalizeRecipeSource(source: string): string {
 
 function displayName(value: string): string {
   return value
-    .replace(/-/g, " ")
+    .replaceAll("-", " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
@@ -154,14 +154,14 @@ export function savedRecipeCard(
         group.items.map((item) => item.name),
       ),
     ),
-  ).sort();
+  ).sort((left, right) => left.localeCompare(right));
   const ingredientSlugs = Array.from(
     new Set(
       recipe.ingredientGroups.flatMap((group) =>
         group.items.map((item) => item.ingredient),
       ),
     ),
-  ).sort();
+  ).sort((left, right) => left.localeCompare(right));
   return {
     ...recipe,
     ingredientNames,
