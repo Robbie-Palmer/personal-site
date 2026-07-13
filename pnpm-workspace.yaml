@@ -28,7 +28,7 @@ packages:
 # so other consumers (e.g. vite's esbuild 0.28) are untouched.
 overrides:
   '@esbuild-kit/core-utils>esbuild': '^0.28.0'
-  js-yaml: '^4.2.0'
+  js-yaml: '^5.0.0'
   postcss: '^8.5.10'
 patchedDependencies:
   '@cooklang/cooklang@0.18.7': patches/@cooklang__cooklang@0.18.7.patch
