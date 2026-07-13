@@ -8,9 +8,11 @@ export function hasPostgresErrorCode(
   while (typeof current === "object" && current !== null) {
     if (visited.has(current)) return false;
     visited.add(current);
+    const record = current as Record<string, unknown>;
 
-    if ("code" in current && current.code === expectedCode) return true;
-    current = "cause" in current ? current.cause : undefined;
+    if (Object.hasOwn(record, "code") && record.code === expectedCode)
+      return true;
+    current = Object.hasOwn(record, "cause") ? record.cause : undefined;
   }
 
   return false;

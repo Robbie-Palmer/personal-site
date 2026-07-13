@@ -28,8 +28,8 @@ export function SavedRecipeView() {
   useEffect(() => {
     if (
       !slug ||
-      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) ||
-      slug.length > 120
+      slug.length > 120 ||
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)
     ) {
       setState({ status: "error", message: "No saved recipe was selected." });
       return;
@@ -45,7 +45,11 @@ export function SavedRecipeView() {
             "That recipe was not found, or it belongs to another profile.",
           );
         if (!response.ok) throw new Error("The recipe could not be loaded.");
-        return (await response.json()) as SavedRecipeApiRecord;
+        try {
+          return (await response.json()) as SavedRecipeApiRecord;
+        } catch {
+          throw new Error("The recipe could not be loaded.");
+        }
       })
       .then((record) => {
         const recipe = parseSavedRecipe(record);

@@ -38,6 +38,10 @@ describe("recipes proxy", () => {
   it.each([
     "..",
     "%2e%2e",
+    "%252e%252e",
+    "..%2Fprivate",
+    "%00",
+    "%5C",
     "%ZZ",
   ])("rejects an unsafe path segment: %s", async (segment) => {
     const fetchMock = vi.fn(async () => new Response("ok"));

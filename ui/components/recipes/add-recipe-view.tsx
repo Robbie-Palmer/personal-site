@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { RecipeContent } from "@/components/recipes/recipe-content";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,6 +81,7 @@ export function AddRecipeView() {
   const [cookTime, setCookTime] = useState<number | undefined>();
   const [source, setSource] = useState("");
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const cooklang = useMemo(() => normalizeRecipeSource(source), [source]);
   const parse = useCooklangRecipe(cooklang);
@@ -113,7 +114,8 @@ export function AddRecipeView() {
   const preview = previewResult.recipe;
 
   async function saveRecipe() {
-    if (!preview) return;
+    if (!preview || savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     setSaveError(null);
     try {
@@ -156,6 +158,7 @@ export function AddRecipeView() {
           : "The recipe could not be saved.",
       );
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }

@@ -12,19 +12,46 @@ export type RecipeApiProxyContext = {
   env: RecipeApiProxyEnv;
 };
 
+const MAX_PROXY_PATH_LENGTH = 2_048;
+
+function isUnsafePathSegment(segment: string): boolean {
+  let decoded = segment;
+  for (let pass = 0; pass < 10; pass += 1) {
+    const next = decodeURIComponent(decoded);
+    if (next === decoded) {
+      return (
+        decoded === "." ||
+        decoded === ".." ||
+        decoded.includes("/") ||
+        decoded.includes("\\") ||
+        decoded.includes("\0")
+      );
+    }
+    decoded = next;
+  }
+
+  // Reject path segments that remain multiply encoded after a generous limit.
+  return true;
+}
+
 function resolveDestinationPath(
   pathname: string,
   rewritePath?: (path: string) => string,
 ): string | null {
   const destinationPath = rewritePath?.(pathname) ?? pathname;
-  if (!destinationPath.startsWith("/")) return null;
+  if (
+    !destinationPath.startsWith("/") ||
+    destinationPath.length > MAX_PROXY_PATH_LENGTH
+  )
+    return null;
 
   try {
-    const hasUnsafeSegment = destinationPath
-      .split("/")
-      .map(decodeURIComponent)
-      .some((segment) => segment === "." || segment === "..");
-    return hasUnsafeSegment ? null : destinationPath;
+    const segments = destinationPath.split("/");
+    const hasEmptyMiddleSegment = segments
+      .slice(1, -1)
+      .some((segment) => segment === "");
+    const hasUnsafeSegment = segments.some(isUnsafePathSegment);
+    return hasEmptyMiddleSegment || hasUnsafeSegment ? null : destinationPath;
   } catch {
     return null;
   }
