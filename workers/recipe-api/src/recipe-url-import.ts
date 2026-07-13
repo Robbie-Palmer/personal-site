@@ -78,7 +78,7 @@ function ipv6Groups(hostname: string): number[] | undefined {
   if (sides.length === 1) return left.length === 8 ? left : undefined;
   const omitted = 8 - left.length - right.length;
   if (omitted < 1) return undefined;
-  return [...left, ...Array<number>(omitted).fill(0), ...right];
+  return [...left, ...new Array<number>(omitted).fill(0), ...right];
 }
 
 function isPrivateIpv6(hostname: string): boolean {
