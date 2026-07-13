@@ -477,6 +477,9 @@ importers:
       recipe-domain:
         specifier: workspace:*
         version: link:../../packages/recipe-domain
+      recipe-parsing:
+        specifier: workspace:*
+        version: link:../../packages/recipe-parsing
       zod:
         specifier: ^4.2.1
         version: 4.4.3

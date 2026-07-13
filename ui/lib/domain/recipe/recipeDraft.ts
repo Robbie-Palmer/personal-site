@@ -17,6 +17,7 @@ export type RecipeDraftMetadata = {
   prepTime?: number;
   cookTime?: number;
   cuisine?: string;
+  canonical?: string;
 };
 
 export type SavedRecipePayload = {
@@ -62,6 +63,7 @@ export function buildRecipeDraft(
       servings: metadata.servings,
       prepTime: metadata.prepTime,
       cookTime: metadata.cookTime,
+      canonical: metadata.canonical,
       tags: [],
     },
     slug,

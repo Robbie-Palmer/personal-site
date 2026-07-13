@@ -4,7 +4,9 @@ import {
   AlertCircle,
   ArrowLeft,
   FileText,
+  Globe2,
   Loader2,
+  PenLine,
   Save,
   Sparkles,
 } from "lucide-react";
@@ -28,6 +30,19 @@ const EXAMPLE_RECIPE = `Bring a large #pot{} of salted water to the boil. Add @d
 Meanwhile, warm @olive oil{2%tbsp} in a #frying pan{}. Add @garlic{2%cloves} and cook for ~{2%minutes}.
 
 Stir in @chopped tomatoes{400%g} and simmer for ~{15%minutes}. Drain the pasta, toss it through the sauce, and serve.`;
+
+type AddMethod = "write" | "url";
+
+type ImportedRecipe = {
+  title: string;
+  description: string;
+  cuisine: string;
+  servings: number;
+  prepTime?: number;
+  cookTime?: number;
+  source: string;
+  url: string;
+};
 
 function NumberField({
   label,
@@ -73,6 +88,11 @@ export function AddRecipeView() {
   const cuisineId = useId();
   const router = useRouter();
   const { data: session, isPending: sessionPending } = authClient.useSession();
+  const [method, setMethod] = useState<AddMethod>("write");
+  const [recipeUrl, setRecipeUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importedUrl, setImportedUrl] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [cuisine, setCuisine] = useState("");
@@ -93,7 +113,15 @@ export function AddRecipeView() {
       return {
         recipe: buildRecipeDraft(
           parse.recipe,
-          { title, description, cuisine, servings, prepTime, cookTime },
+          {
+            title,
+            description,
+            cuisine,
+            servings,
+            prepTime,
+            cookTime,
+            canonical: importedUrl ?? undefined,
+          },
           source,
         ),
         error: false,
@@ -109,9 +137,51 @@ export function AddRecipeView() {
     servings,
     prepTime,
     cookTime,
+    importedUrl,
     source,
   ]);
   const preview = previewResult.recipe;
+
+  async function importRecipeUrl() {
+    if (!recipeUrl.trim() || importing) return;
+    setImporting(true);
+    setImportError(null);
+    try {
+      const response = await fetch("/api/recipes/import-url", {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: recipeUrl.trim() }),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | ImportedRecipe
+        | { error?: string }
+        | null;
+      if (!response.ok || !body || !("source" in body)) {
+        throw new Error(
+          (body && "error" in body && body.error) ||
+            "The recipe could not be imported.",
+        );
+      }
+      setTitle(body.title);
+      setDescription(body.description);
+      setCuisine(body.cuisine);
+      setServings(body.servings);
+      setPrepTime(body.prepTime);
+      setCookTime(body.cookTime);
+      setSource(body.source);
+      setRecipeUrl(body.url);
+      setImportedUrl(body.url);
+    } catch (error) {
+      setImportError(
+        error instanceof Error
+          ? error.message
+          : "The recipe could not be imported.",
+      );
+    } finally {
+      setImporting(false);
+    }
+  }
 
   async function saveRecipe() {
     if (!preview || savingRef.current) return;
@@ -203,8 +273,8 @@ export function AddRecipeView() {
             Add a <span className="text-[var(--terracotta)]">recipe</span>
           </h1>
           <p className="rt-body mt-2 text-[var(--ink-2)]">
-            Write the recipe naturally, adding Cooklang syntax inline. The
-            preview updates as you type.
+            Write a recipe with Cooklang or import one from a webpage. Both
+            methods feed the same editable preview.
           </p>
         </div>
         <Button
@@ -229,6 +299,97 @@ export function AddRecipeView() {
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(380px,0.8fr)_minmax(540px,1.2fr)]">
         <section className="rounded-xl border-[1.25px] border-[var(--line-strong)] bg-[var(--card)] p-4 shadow-[var(--paper-shadow)] xl:sticky xl:top-24">
           <div className="grid gap-4">
+            <fieldset
+              className="grid grid-cols-2 rounded-lg border border-[var(--line-strong)] bg-[var(--paper-warm)] p-1"
+              aria-label="Choose how to add a recipe"
+            >
+              <button
+                type="button"
+                onClick={() => setMethod("write")}
+                aria-pressed={method === "write"}
+                className={`rt-mono inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
+                  method === "write"
+                    ? "bg-[var(--card)] text-[var(--ink)] shadow-sm"
+                    : "text-[var(--ink-3)] hover:text-[var(--ink)]"
+                }`}
+              >
+                <PenLine className="size-4" /> Write with Cooklang
+              </button>
+              <button
+                type="button"
+                onClick={() => setMethod("url")}
+                aria-pressed={method === "url"}
+                className={`rt-mono inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
+                  method === "url"
+                    ? "bg-[var(--card)] text-[var(--ink)] shadow-sm"
+                    : "text-[var(--ink-3)] hover:text-[var(--ink)]"
+                }`}
+              >
+                <Globe2 className="size-4" /> Import from URL
+              </button>
+            </fieldset>
+
+            {method === "url" && (
+              <div className="grid gap-2 rounded-lg border border-dashed border-[var(--line-strong)] bg-[var(--paper-warm)] p-3">
+                <label htmlFor="recipe-import-url" className="grid gap-1.5">
+                  <span className="rt-mono text-[var(--ink-3)]">
+                    Recipe webpage URL
+                  </span>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      id="recipe-import-url"
+                      type="url"
+                      value={recipeUrl}
+                      onChange={(event) => {
+                        setRecipeUrl(event.target.value);
+                        setImportError(null);
+                        setImportedUrl(null);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          void importRecipeUrl();
+                        }
+                      }}
+                      placeholder="https://example.com/recipes/tomato-pasta"
+                      className="min-w-0 flex-1 border-[var(--line-strong)] bg-[var(--paper)]"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => void importRecipeUrl()}
+                      disabled={!recipeUrl.trim() || importing}
+                      className="bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]"
+                    >
+                      {importing ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <Globe2 />
+                      )}
+                      {importing ? "Importing…" : "Import recipe"}
+                    </Button>
+                  </div>
+                </label>
+                <p className="text-xs text-[var(--ink-3)]">
+                  The page must publish schema.org Recipe data with a name,
+                  ingredients and instructions.
+                </p>
+                {importError && (
+                  <p
+                    role="alert"
+                    className="flex items-start gap-1.5 text-sm text-destructive"
+                  >
+                    <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                    {importError}
+                  </p>
+                )}
+                {importedUrl && !importError && (
+                  <p role="status" className="text-sm text-[var(--sage)]">
+                    Imported successfully. You can edit any field before saving.
+                  </p>
+                )}
+              </div>
+            )}
+
             <label htmlFor={titleId} className="grid gap-1.5">
               <span className="rt-mono text-[var(--ink-3)]">Recipe name</span>
               <Input
@@ -285,7 +446,9 @@ export function AddRecipeView() {
               <div>
                 <p className="rt-mono text-[var(--ink-3)]">Recipe text</p>
                 <p className="text-xs text-[var(--ink-3)]">
-                  Use @ingredients, #cookware and ~timers directly in each step.
+                  {method === "url"
+                    ? "Imported as editable Cooklang. Adjust anything before saving."
+                    : "Use @ingredients, #cookware and ~timers directly in each step."}
                 </p>
               </div>
               <Button
@@ -300,6 +463,7 @@ export function AddRecipeView() {
                   setPrepTime(5);
                   setCookTime(25);
                   setSource(EXAMPLE_RECIPE);
+                  setImportedUrl(null);
                 }}
               >
                 <Sparkles /> Try example
@@ -335,7 +499,8 @@ export function AddRecipeView() {
               </h2>
               <p className="rt-body mt-2 max-w-md text-[var(--ink-3)]">
                 Add a name and write your steps with inline Cooklang—or use the
-                example to see ingredients and timers come alive.
+                example or URL importer to see ingredients and timers come
+                alive.
               </p>
               {(parse.error || previewResult.error) && (
                 <p role="alert" className="mt-4 text-sm text-destructive">

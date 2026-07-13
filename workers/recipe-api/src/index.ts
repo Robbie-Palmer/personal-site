@@ -3,6 +3,7 @@ import { and, count, desc, eq, gte, inArray, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { createDb, schema } from "recipe-db";
 import { RecipeContentSchema } from "recipe-domain";
+import { parseSchemaOrgRecipeHtml } from "recipe-parsing/schema-org";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
 import { hasPostgresErrorCode } from "./db/errors";
@@ -20,6 +21,10 @@ import {
 import { enforceRateLimit, rateLimitedResponse } from "./http/rate-limit";
 import { validateCsrf } from "./http/security";
 import { parseJsonBody } from "./http/validation";
+import {
+  fetchRecipePage,
+  RecipeUrlImportError,
+} from "./recipe-url-import";
 import {
   findPreviewScenario,
   previewScenarios,
@@ -152,6 +157,7 @@ const savedRecipeBodySchema = z
 const INVITATION_EXPIRY_MS = 48 * 60 * 60 * 1000;
 
 const HOUSEHOLD_INVITE_RATE_LIMIT = { max: 10, windowSeconds: 60 * 60 };
+const RECIPE_URL_IMPORT_RATE_LIMIT = { max: 20, windowSeconds: 60 * 60 };
 
 const createRecipeBodySchema = z.object({
   slug: recipeSlugSchema,
@@ -160,6 +166,10 @@ const createRecipeBodySchema = z.object({
   body: savedRecipeBodySchema,
   visibility: recipeVisibilitySchema.default("private"),
 });
+
+const importRecipeUrlBodySchema = z
+  .object({ url: z.string().trim().min(1).max(2_048) })
+  .strict();
 
 const updateRecipeBodySchema = z
   .object({
@@ -1674,6 +1684,69 @@ app.get("/recipes", async (c) => {
   } catch (e) {
     console.error("GET /recipes query failed", e);
     return c.json({ error: "Database query failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
+app.post("/recipes/import-url", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const session = await requireRecipeSession(c, connection.db);
+    if (!session.success) return session.response;
+
+    const body = await parseJsonBody(c, importRecipeUrlBodySchema);
+    if (!body.success) return body.response;
+
+    const importLimit = await enforceRateLimit(
+      connection.db,
+      `recipe-url-import:${session.session.user.id}`,
+      RECIPE_URL_IMPORT_RATE_LIMIT,
+    );
+    if (!importLimit.allowed) {
+      return rateLimitedResponse(c, importLimit.retryAfter);
+    }
+
+    const page = await fetchRecipePage(body.data.url);
+    const recipe = parseSchemaOrgRecipeHtml(page.html);
+    if (!recipe) {
+      return c.json(
+        {
+          error:
+            "No complete schema.org Recipe was found on that page. It must include a name, ingredients, and instructions.",
+        },
+        422,
+      );
+    }
+    if (recipe.source.length > 10_000) {
+      return c.json(
+        {
+          error:
+            "That recipe is too long to import. The Cooklang draft exceeds 10,000 characters.",
+        },
+        422,
+      );
+    }
+    return c.json({ ...recipe, url: page.url });
+  } catch (error) {
+    if (error instanceof RecipeUrlImportError) {
+      return c.json({ error: error.message }, error.status);
+    }
+    console.error("POST /recipes/import-url failed", error);
+    return c.json({ error: "The recipe could not be imported" }, 502);
   } finally {
     await closeDbClient(client);
   }

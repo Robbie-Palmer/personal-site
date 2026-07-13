@@ -26,6 +26,7 @@
     "postgres": "^3.4.5",
     "recipe-db": "workspace:*",
     "recipe-domain": "workspace:*",
+    "recipe-parsing": "workspace:*",
     "zod": "^4.2.1"
   },
   "devDependencies": {

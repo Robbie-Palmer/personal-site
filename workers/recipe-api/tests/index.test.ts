@@ -1127,6 +1127,112 @@ describe("POST /recipes", () => {
   });
 });
 
+describe("POST /recipes/import-url", () => {
+  it("requires authentication before fetching the page", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const res = await app.request(
+      "/recipes/import-url",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ url: "https://recipes.example.test/pasta" }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(401);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it("returns an editable Cooklang draft from schema.org Recipe data", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        `<script type="application/ld+json">${JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Recipe",
+          name: "Tomato pasta",
+          description: "A quick dinner.",
+          recipeYield: "2 servings",
+          prepTime: "PT5M",
+          cookTime: "PT20M",
+          recipeIngredient: ["200 g pasta", "400 g tomatoes"],
+          recipeInstructions: [
+            { "@type": "HowToStep", text: "Boil the pasta." },
+            { "@type": "HowToStep", text: "Add the tomatoes." },
+          ],
+        })}</script>`,
+        { headers: { "content-type": "text/html" } },
+      ),
+    );
+
+    const res = await app.request(
+      "/recipes/import-url",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ url: "https://recipes.example.test/pasta" }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      title: "Tomato pasta",
+      description: "A quick dinner.",
+      servings: 2,
+      prepTime: 5,
+      cookTime: 20,
+      url: "https://recipes.example.test/pasta",
+      source:
+        "@pasta{200%g}\n@tomatoes{400%g}\n\nBoil the pasta.\n\nAdd the tomatoes.",
+    });
+    fetchSpy.mockRestore();
+  });
+
+  it("reports pages without complete Recipe markup", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        '<script type="application/ld+json">{"@type":"Article"}</script>',
+        { headers: { "content-type": "text/html" } },
+      ),
+    );
+
+    const res = await app.request(
+      "/recipes/import-url",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ url: "https://recipes.example.test/article" }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(422);
+    expect(await res.json()).toMatchObject({ error: expect.any(String) });
+    fetchSpy.mockRestore();
+  });
+});
+
 describe("profile diet preferences", () => {
   it("requires authentication before returning a diet profile", async () => {
     const res = await app.request("/api/profile/diet", {}, env);
