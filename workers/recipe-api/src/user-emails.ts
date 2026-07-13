@@ -32,7 +32,11 @@ export async function canonicalEmailIsAvailable(
   return !existing;
 }
 
-function googleEmail(idToken: string | null | undefined): string[] {
+// Better Auth verifies Google's issuer, audience, signature, expiry, and nonce
+// before persisting the token and invoking the account database hook.
+function googleEmailFromVerifiedIdToken(
+  idToken: string | null | undefined,
+): string[] {
   if (!idToken) return [];
   try {
     const encodedPayload = idToken.split(".")[1];
@@ -89,7 +93,9 @@ export async function verifiedEmailsFromLinkedAccount(
   account: LinkedAccountIdentity,
   fetchImpl: Fetch = fetch,
 ): Promise<string[]> {
-  if (account.providerId === "google") return googleEmail(account.idToken);
+  if (account.providerId === "google") {
+    return googleEmailFromVerifiedIdToken(account.idToken);
+  }
   if (account.providerId === "github") {
     return githubEmails(account.accessToken, fetchImpl);
   }

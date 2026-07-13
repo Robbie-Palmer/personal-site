@@ -199,21 +199,15 @@ export async function removeHouseholdMember(
     `/api/households/${householdId}/members/${memberId}`,
     "DELETE",
   );
-  if (!response.ok) {
-    await parseResponse(response, "Couldn't remove the household member.");
-  }
+  await parseResponse<void>(response, "Couldn't remove the household member.");
 }
 
 export async function leaveHousehold(householdId: string): Promise<void> {
   const response = await mutate(`/api/households/${householdId}/leave`, "POST");
-  if (!response.ok) {
-    await parseResponse(response, "Couldn't leave the household.");
-  }
+  await parseResponse<void>(response, "Couldn't leave the household.");
 }
 
 export async function deleteHousehold(householdId: string): Promise<void> {
   const response = await mutate(`/api/households/${householdId}`, "DELETE");
-  if (!response.ok) {
-    await parseResponse(response, "Couldn't delete the household.");
-  }
+  await parseResponse<void>(response, "Couldn't delete the household.");
 }
