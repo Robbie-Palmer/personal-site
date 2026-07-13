@@ -368,10 +368,7 @@ export const userRecipeBoxItem = pgTable(
     recipeSlug: text().notNull(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    primaryKey({ columns: [table.userId, table.recipeSlug] }),
-    index("user_recipe_box_item_user_id_idx").on(table.userId),
-  ],
+  (table) => [primaryKey({ columns: [table.userId, table.recipeSlug] })],
 );
 
 export const appRateLimit = pgTable("app_rate_limit", {

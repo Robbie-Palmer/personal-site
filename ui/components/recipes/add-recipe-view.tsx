@@ -21,6 +21,7 @@ import {
   normalizeRecipeSource,
   serializeSavedRecipe,
 } from "@/lib/domain/recipe/recipeDraft";
+import { safeRecipeReturnPath } from "@/lib/generic/safe-return-path";
 import { normalizeSlug } from "@/lib/generic/slugs";
 
 const EXAMPLE_RECIPE = `Bring a large #pot{} of salted water to the boil. Add @dried pasta{200%g} and cook for ~{10%minutes}.
@@ -153,9 +154,13 @@ export function AddRecipeView() {
       const returnTo = new URLSearchParams(window.location.search).get(
         "returnTo",
       );
+      const safeReturnTo = safeRecipeReturnPath(
+        returnTo,
+        window.location.origin,
+      );
       router.push(
-        returnTo?.startsWith("/recipes/")
-          ? returnTo
+        safeReturnTo
+          ? safeReturnTo
           : `/recipes/saved?slug=${encodeURIComponent(saved.slug)}`,
       );
     } catch (error) {
