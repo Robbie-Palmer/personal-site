@@ -194,6 +194,11 @@ export function CookMode({
   // trapped inside the dialog.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      // An add-timer popover (portalled to <body>, outside the dialog) is open:
+      // let it own the keyboard. Otherwise our focus trap yanks Tab back into
+      // the dialog — leaving the popover's fields unreachable — and Escape would
+      // exit cook mode instead of closing the popover.
+      if (document.querySelector('[data-slot="popover-content"]')) return;
       if (event.key === "Tab") {
         trapFocus(event, containerRef.current);
         return;
