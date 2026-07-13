@@ -860,7 +860,7 @@ export function HouseholdPanel({
   function declineInvitation(invitation: IncomingHouseholdInvitation) {
     run("decline", async () => {
       await declineHouseholdInvitation(invitation.id);
-      setIncoming(excludeById(incoming, invitation.id));
+      setIncoming((current) => excludeById(current, invitation.id));
       setNotice("Invitation declined.");
     });
   }
@@ -872,7 +872,7 @@ export function HouseholdPanel({
     }
     run("remove", async () => {
       await removeHouseholdMember(household.id, member.id);
-      setMembers(excludeById(members, member.id));
+      setMembers((current) => excludeById(current, member.id));
       setNotice(`${member.user.name} was removed.`);
     });
   }
@@ -881,7 +881,7 @@ export function HouseholdPanel({
     if (!household) return;
     run("revoke", async () => {
       await revokeHouseholdInvitation(household.id, invitation.id);
-      setInvitations(excludeById(invitations, invitation.id));
+      setInvitations((current) => excludeById(current, invitation.id));
       setNotice(`Invitation for ${invitation.email} revoked.`);
     });
   }
