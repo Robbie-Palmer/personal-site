@@ -221,6 +221,7 @@ export function RecipeOnboarding({
   recipes,
 }: Readonly<{ recipes: RecipeCardView[] }>) {
   const { data: session, isPending: sessionPending } = authClient.useSession();
+  const userId = session?.user.id;
   const [step, setStep] = useState(0);
   const [diet, setDiet] = useState<DietProfile>(emptyDietProfile);
   const [dietOptions, setDietOptions] = useState<DietOptions>(emptyDietOptions);
@@ -231,9 +232,10 @@ export function RecipeOnboarding({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
-    if (sessionPending || !session) return;
+    if (!userId) return;
     const requestedBoxStep =
       new URLSearchParams(window.location.search).get("step") === "box";
     const controller = new AbortController();
@@ -254,6 +256,10 @@ export function RecipeOnboarding({
       })
       .catch((error_: unknown) => {
         if (!(error_ instanceof DOMException && error_.name === "AbortError")) {
+          console.error(
+            `Recipe onboarding load attempt ${loadAttempt + 1} failed`,
+            error_,
+          );
           setError(
             error_ instanceof Error
               ? error_.message
@@ -263,7 +269,7 @@ export function RecipeOnboarding({
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [session, sessionPending]);
+  }, [loadAttempt, userId]);
 
   const effectiveDiet = useMemo(
     () => buildEffectiveDiet(diet, dietOptions),
@@ -459,12 +465,22 @@ export function RecipeOnboarding({
       )}
 
       {error && (
-        <p
+        <div
           role="alert"
-          className="rt-body mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-destructive"
+          className="rt-body mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-destructive"
         >
-          {error}
-        </p>
+          <span>{error}</span>
+          {userId && step === 0 && !loading && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setLoadAttempt((current) => current + 1)}
+            >
+              Try again
+            </Button>
+          )}
+        </div>
       )}
 
       {session && !loading && step > 0 && step < 3 && (
