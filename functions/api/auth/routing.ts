@@ -12,6 +12,24 @@ export type RecipeApiProxyContext = {
   env: RecipeApiProxyEnv;
 };
 
+function resolveDestinationPath(
+  pathname: string,
+  rewritePath?: (path: string) => string,
+): string | null {
+  const destinationPath = rewritePath?.(pathname) ?? pathname;
+  if (!destinationPath.startsWith("/")) return null;
+
+  try {
+    const hasUnsafeSegment = destinationPath
+      .split("/")
+      .map(decodeURIComponent)
+      .some((segment) => segment === "." || segment === "..");
+    return hasUnsafeSegment ? null : destinationPath;
+  } catch {
+    return null;
+  }
+}
+
 const FORWARDED_REQUEST_HEADERS = [
   "accept",
   "authorization",
@@ -76,17 +94,8 @@ export async function proxyRecipeApiRequest(
     );
   }
 
-  const destinationPath = rewritePath?.(url.pathname) ?? url.pathname;
-  let decodedSegments: string[];
-  try {
-    decodedSegments = destinationPath.split("/").map(decodeURIComponent);
-  } catch {
-    return Response.json({ error: "Invalid API path" }, { status: 400 });
-  }
-  if (
-    !destinationPath.startsWith("/") ||
-    decodedSegments.some((segment) => segment === "." || segment === "..")
-  ) {
+  const destinationPath = resolveDestinationPath(url.pathname, rewritePath);
+  if (!destinationPath) {
     return Response.json({ error: "Invalid API path" }, { status: 400 });
   }
 

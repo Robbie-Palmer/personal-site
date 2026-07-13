@@ -22,7 +22,7 @@ export type RecipeDraftMetadata = {
 export type SavedRecipePayload = {
   version: 1;
   source: string;
-  recipe: RecipeDetailView;
+  recipe: RecipeContent;
 };
 
 export type SavedRecipeApiRecord = {
@@ -119,7 +119,7 @@ export function serializeSavedRecipe(
   return JSON.stringify({
     version: 1,
     source,
-    recipe,
+    recipe: RecipeContentSchema.parse(recipe),
   } satisfies SavedRecipePayload);
 }
 

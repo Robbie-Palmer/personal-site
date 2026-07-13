@@ -61,12 +61,9 @@ export function RecipeCollection({
   return (
     <>
       {loadError ? (
-        <p
-          role="status"
-          className="rt-body mb-5 rounded-lg border border-[var(--terracotta)]/30 bg-[var(--terracotta)]/5 px-4 py-3 text-sm text-[var(--ink-2)]"
-        >
+        <output className="rt-body mb-5 block rounded-lg border border-[var(--terracotta)]/30 bg-[var(--terracotta)]/5 px-4 py-3 text-sm text-[var(--ink-2)]">
           {loadError}
-        </p>
+        </output>
       ) : null}
       <RecipeList
         recipes={combined}

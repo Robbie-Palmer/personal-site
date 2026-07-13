@@ -137,10 +137,13 @@ const savedRecipeBodySchema = z
 
     const result = savedRecipePayloadSchema.safeParse(payload);
     if (!result.success) {
-      context.addIssue({
-        code: "custom",
-        message: "Recipe body must contain a valid saved recipe payload",
-      });
+      for (const issue of result.error.issues) {
+        context.addIssue({
+          code: "custom",
+          path: issue.path,
+          message: issue.message,
+        });
+      }
     }
   });
 
@@ -153,7 +156,7 @@ const createRecipeBodySchema = z.object({
   slug: recipeSlugSchema,
   title: z.string().trim().min(1).max(120),
   description: z.string().trim().min(1).max(500).optional(),
-  body: savedRecipeBodySchema.optional(),
+  body: savedRecipeBodySchema,
   visibility: recipeVisibilitySchema.default("private"),
 });
 

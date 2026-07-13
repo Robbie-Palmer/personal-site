@@ -49,9 +49,18 @@ function NumberField({
         type="number"
         min={min}
         value={value ?? ""}
-        onChange={(event) =>
-          onChange(event.target.value ? Number(event.target.value) : undefined)
-        }
+        onChange={(event) => {
+          if (!event.target.value) {
+            onChange(undefined);
+            return;
+          }
+          const nextValue = Number(event.target.value);
+          onChange(
+            Number.isInteger(nextValue) && nextValue >= min
+              ? nextValue
+              : undefined,
+          );
+        }}
         className="border-[var(--line-strong)] bg-[var(--card)]"
       />
     </label>
@@ -76,17 +85,20 @@ export function AddRecipeView() {
   const cooklang = useMemo(() => normalizeRecipeSource(source), [source]);
   const parse = useCooklangRecipe(cooklang);
 
-  const preview = useMemo(() => {
+  const previewResult = useMemo(() => {
     if (!parse.recipe || !title.trim() || !description.trim() || !servings)
-      return null;
+      return { recipe: null, error: false };
     try {
-      return buildRecipeDraft(
-        parse.recipe,
-        { title, description, cuisine, servings, prepTime, cookTime },
-        source,
-      );
+      return {
+        recipe: buildRecipeDraft(
+          parse.recipe,
+          { title, description, cuisine, servings, prepTime, cookTime },
+          source,
+        ),
+        error: false,
+      };
     } catch {
-      return null;
+      return { recipe: null, error: true };
     }
   }, [
     parse.recipe,
@@ -98,6 +110,7 @@ export function AddRecipeView() {
     cookTime,
     source,
   ]);
+  const preview = previewResult.recipe;
 
   async function saveRecipe() {
     if (!preview) return;
@@ -106,6 +119,7 @@ export function AddRecipeView() {
     try {
       const response = await fetch("/api/recipes", {
         method: "POST",
+        credentials: "include",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           slug: normalizeSlug(title),
@@ -315,7 +329,7 @@ export function AddRecipeView() {
                 Add a name and write your steps with inline Cooklang—or use the
                 example to see ingredients and timers come alive.
               </p>
-              {parse.error && (
+              {(parse.error || previewResult.error) && (
                 <p role="alert" className="mt-4 text-sm text-destructive">
                   We couldn&apos;t read that recipe yet. Check the Cooklang
                   syntax and try again.
