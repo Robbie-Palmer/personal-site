@@ -36,7 +36,7 @@ export function RecipeCollection({
     }
     const controller = new AbortController();
     setLoadError(null);
-    void Promise.all([
+    void Promise.allSettled([
       fetch("/api/recipes", { signal: controller.signal }).then(
         async (response) => {
           if (!response.ok) throw new Error("Saved recipes unavailable");
@@ -44,19 +44,28 @@ export function RecipeCollection({
         },
       ),
       getRecipeBoxProfile(controller.signal),
-    ])
-      .then(([records, profile]) => {
-        setSaved(records);
-        setBox(profile);
-      })
-      .catch((error: unknown) => {
-        if (!(error instanceof DOMException && error.name === "AbortError")) {
-          console.error("Failed to load saved recipes", error);
-          setLoadError(
-            "Your saved recipes could not be loaded. Static recipes are still available.",
-          );
-        }
-      });
+    ]).then(([savedResult, boxResult]) => {
+      if (savedResult.status === "fulfilled") {
+        setSaved(savedResult.value);
+      }
+      if (boxResult.status === "fulfilled") {
+        setBox(boxResult.value);
+      }
+
+      const errors = [savedResult, boxResult].flatMap((result) =>
+        result.status === "rejected" ? [result.reason] : [],
+      );
+      const nonAbortErrors = errors.filter(
+        (error) =>
+          !(error instanceof DOMException && error.name === "AbortError"),
+      );
+      if (nonAbortErrors.length > 0) {
+        console.error("Failed to load some recipe box data", nonAbortErrors);
+        setLoadError(
+          "Some recipe box data could not be loaded. Available recipes are still shown.",
+        );
+      }
+    });
     return () => controller.abort();
   }, [isPending, session]);
 

@@ -227,7 +227,6 @@ export function RecipeOnboarding({
     if (sessionPending || !session) return;
     const requestedBoxStep =
       new URLSearchParams(window.location.search).get("step") === "box";
-    setStep(requestedBoxStep ? 2 : 1);
     const controller = new AbortController();
     setLoading(true);
     setError(null);
@@ -238,6 +237,7 @@ export function RecipeOnboarding({
       fetchAuthoredRecipes(controller.signal),
     ])
       .then(([profile, options, box, saved]) => {
+        setStep(box.completed ? 3 : requestedBoxStep ? 2 : 1);
         setDiet(profile);
         setDietOptions(options);
         setSelectedSlugs(box.staticRecipeSlugs);
