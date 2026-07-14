@@ -48,6 +48,8 @@ const DEFAULT_THRESHOLD: Partial<Record<Unit, number>> = {
   kg: 4000,
 };
 
+const MAX_THRESHOLD = 10_000;
+
 const SAMPLE: { name: string; amount: number; unit: Unit }[] = [
   { name: "baking powder", amount: 5, unit: "ml" },
   { name: "olive oil", amount: 30, unit: "ml" },
@@ -120,7 +122,7 @@ function ThresholdInput({
         type="number"
         min={min}
         max={max}
-        step="1"
+        step="any"
         value={draft}
         onChange={(event) => setDraft(event.currentTarget.value)}
         onBlur={commit}
@@ -218,8 +220,8 @@ function Ladder({
           const previous = index === 0 ? 1 : (tiers[index - 1]?.upTo ?? 1) + 1;
           const next = tiers[index + 1];
           const max = Number.isFinite(next?.upTo)
-            ? Math.max(previous, (next?.upTo ?? 4000) - 1)
-            : 4000;
+            ? Math.max(previous, (next?.upTo ?? MAX_THRESHOLD) - 1)
+            : MAX_THRESHOLD;
           let step = 25;
           if (tier.upTo < 50) step = 1;
           else if (tier.upTo < 500) step = 5;
@@ -289,6 +291,19 @@ function formatSample(
 
 export function UnitsPanel() {
   const [preference, setPreference] = useUnitPreference();
+  const [undoPreference, setUndoPreference] = useState<UnitPreference | null>(
+    null,
+  );
+
+  const updatePreference = (next: UnitPreference) => {
+    setUndoPreference(null);
+    setPreference(next);
+  };
+
+  const applyPreset = (system: MeasurementSystem) => {
+    setUndoPreference(preference.preset === "custom" ? preference : null);
+    setPreference(preferenceForSystem(system));
+  };
 
   return (
     <div>
@@ -307,7 +322,7 @@ export function UnitsPanel() {
               <button
                 key={preset.id}
                 type="button"
-                onClick={() => setPreference(preferenceForSystem(preset.id))}
+                onClick={() => applyPreset(preset.id)}
                 aria-pressed={on}
                 aria-label={preset.label}
                 className={cn(
@@ -343,6 +358,28 @@ export function UnitsPanel() {
             <span className="rt-mono mt-1 block">your own ladder</span>
           </div>
         </div>
+        <p className="rt-body mt-2 text-sm text-[var(--ink-3)]">
+          Metric uses teaspoons and tablespoons for small volumes, then ml and
+          litres.
+        </p>
+        {undoPreference && (
+          <div
+            role="status"
+            className="rt-body mt-3 flex items-center gap-3 text-sm text-[var(--ink-2)]"
+          >
+            Custom ladder replaced.
+            <button
+              type="button"
+              onClick={() => {
+                setPreference(undoPreference);
+                setUndoPreference(null);
+              }}
+              className="font-semibold text-[var(--terracotta)] underline underline-offset-2"
+            >
+              Undo
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_19rem]">
@@ -350,16 +387,16 @@ export function UnitsPanel() {
           <Ladder
             dimension="weight"
             preference={preference}
-            onChange={setPreference}
+            onChange={updatePreference}
           />
           <Ladder
             dimension="volume"
             preference={preference}
-            onChange={setPreference}
+            onChange={updatePreference}
           />
           <button
             type="button"
-            onClick={() => setPreference(preferenceForSystem("uk"))}
+            onClick={() => applyPreset("uk")}
             className="rt-body inline-flex items-center gap-2 text-sm text-[var(--ink-3)] transition-colors hover:text-[var(--ink)]"
           >
             <RotateCcw className="size-4" /> Reset to UK defaults

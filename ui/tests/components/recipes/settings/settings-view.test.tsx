@@ -169,6 +169,7 @@ describe("SettingsView", () => {
     const threshold = screen.getByRole("spinbutton", {
       name: /oz upper threshold in grams/i,
     });
+    expect(threshold).toHaveAttribute("step", "any");
     fireEvent.change(threshold, { target: { value: "500" } });
 
     expect(
@@ -189,6 +190,31 @@ describe("SettingsView", () => {
 
     await user.click(screen.getByRole("button", { name: /remove lbs/i }));
     expect(screen.getByRole("button", { name: /remove oz/i })).toBeDisabled();
+  });
+
+  it("allows a custom ladder to be restored after choosing a preset", async () => {
+    const user = userEvent.setup();
+    renderSettingsView();
+
+    await user.click(
+      screen.getByRole("button", { name: /units & measurements/i }),
+    );
+    await user.click(screen.getByRole("button", { name: "US" }));
+    await user.click(screen.getByRole("button", { name: /add g/i }));
+    await user.click(screen.getByRole("button", { name: "Metric" }));
+
+    expect(screen.getByText("Custom ladder replaced.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+
+    expect(
+      JSON.parse(localStorage.getItem(UNIT_PREFERENCE_STORAGE_KEY) ?? "{}"),
+    ).toMatchObject({
+      preset: "custom",
+      weight: [{ unit: "g" }, { unit: "oz" }, { unit: "lb" }],
+    });
+    expect(
+      screen.queryByText("Custom ladder replaced."),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps thresholds increasing when units are added around an existing ladder", async () => {
