@@ -18,6 +18,7 @@ const STATIC_ASSET_SEGMENTS = new Set(["recipe-site-design"]);
 const NOINDEX_APP_PAGES = new Set([
   "recipes/add",
   "recipes/kitchen",
+  "recipes/onboarding",
   "recipes/saved",
   "recipes/settings",
   "recipes/shopping",

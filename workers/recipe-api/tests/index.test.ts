@@ -119,6 +119,8 @@ const dbMock = vi.hoisted(() => {
       ingredientSlug: string;
     }[],
     userDietExcludedGroups: [] as { userId: string; groupKey: string }[],
+    recipeBoxes: [] as { userId: string; completedAt: Date; updatedAt: Date }[],
+    recipeBoxItems: [] as { userId: string; recipeSlug: string }[],
     rateLimitCounts: new Map<string, number>(),
     rateLimitSweeps: 0,
     expireInvitationOnUpdate: false,
@@ -185,6 +187,8 @@ const dbMock = vi.hoisted(() => {
     state.userDietPresets = [];
     state.userDietExcludedIngredients = [];
     state.userDietExcludedGroups = [];
+    state.recipeBoxes = [];
+    state.recipeBoxItems = [];
     state.rateLimitCounts.clear();
     state.rateLimitSweeps = 0;
     state.expireInvitationOnUpdate = false;
@@ -277,6 +281,27 @@ const dbMock = vi.hoisted(() => {
       };
       state.dietProfiles.push(profile);
       return [dietProfileRow(profile)];
+    }
+
+    if (query.startsWith('insert into "user_recipe_box"')) {
+      const userId = params[0] as string;
+      const existing = state.recipeBoxes.find((box) => box.userId === userId);
+      if (existing) {
+        existing.updatedAt = date;
+      } else {
+        state.recipeBoxes.push({ userId, completedAt: date, updatedAt: date });
+      }
+      return [];
+    }
+
+    if (query.startsWith('insert into "user_recipe_box_item"')) {
+      for (let index = 0; index < params.length; index += 2) {
+        state.recipeBoxItems.push({
+          userId: params[index] as string,
+          recipeSlug: params[index + 1] as string,
+        });
+      }
+      return [];
     }
 
     if (query.startsWith('insert into "user_diet_preset"')) {
@@ -427,6 +452,14 @@ const dbMock = vi.hoisted(() => {
       const userId = params[0] as string;
       state.userDietExcludedGroups = state.userDietExcludedGroups.filter(
         (selection) => selection.userId !== userId,
+      );
+      return [];
+    }
+
+    if (query.startsWith('delete from "user_recipe_box_item"')) {
+      const userId = params[0] as string;
+      state.recipeBoxItems = state.recipeBoxItems.filter(
+        (item) => item.userId !== userId,
       );
       return [];
     }
@@ -663,8 +696,8 @@ const dbMock = vi.hoisted(() => {
 
     if (
       query.includes('from "recipe"') &&
-      query.includes('"recipe"."slug"') &&
-      query.includes('"recipe"."user_id"')
+      query.includes('"recipe"."slug" =') &&
+      query.includes('"recipe"."user_id" =')
     ) {
       const slug = params[0] as string;
       const userId = params[1] as string;
@@ -673,7 +706,20 @@ const dbMock = vi.hoisted(() => {
         .map(recipeRow);
     }
 
-    if (query.includes('from "recipe"') && query.includes('"recipe"."slug"')) {
+    if (
+      query.includes('from "recipe"') &&
+      query.includes('"recipe"."user_id" =')
+    ) {
+      const userId = params[0] as string;
+      return state.recipes
+        .filter((recipe) => recipe.userId === userId)
+        .map(recipeRow);
+    }
+
+    if (
+      query.includes('from "recipe"') &&
+      query.includes('"recipe"."slug" =')
+    ) {
       const slug = params[0] as string;
       return state.recipes
         .filter((recipe) => recipe.slug === slug)
@@ -789,6 +835,20 @@ const dbMock = vi.hoisted(() => {
       return state.dietProfiles
         .filter((profile) => profile.userId === userId)
         .map(dietProfileRow);
+    }
+
+    if (query.includes('from "user_recipe_box_item"')) {
+      const userId = params[0] as string;
+      return state.recipeBoxItems
+        .filter((item) => item.userId === userId)
+        .map((item) => [item.recipeSlug]);
+    }
+
+    if (query.includes('from "user_recipe_box"')) {
+      const userId = params[0] as string;
+      return state.recipeBoxes
+        .filter((box) => box.userId === userId)
+        .map((box) => [box.completedAt]);
     }
 
     if (query.startsWith('insert into "verification"')) {
@@ -1060,6 +1120,62 @@ describe("GET /recipes", () => {
     expect(await res.json()).toEqual({
       error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)",
     });
+  });
+
+  it("requires authentication for the owned scope", async () => {
+    const res = await app.request("/recipes?scope=owned", {}, env);
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Authentication required" });
+  });
+
+  it("returns only recipes authored by the signed-in user", async () => {
+    dbMock.state.recipes.push(
+      {
+        id: "recipe-owned",
+        slug: "my-lentil-soup",
+        title: "My Lentil Soup",
+        description: null,
+        body: null,
+        userId: "owner-user",
+        visibility: "private",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+      {
+        id: "recipe-public",
+        slug: "someone-elses-soup",
+        title: "Someone Else's Soup",
+        description: null,
+        body: null,
+        userId: "other-user",
+        visibility: "public",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+    );
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request("/recipes?scope=owned", {}, env);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([
+      expect.objectContaining({
+        slug: "my-lentil-soup",
+        title: "My Lentil Soup",
+      }),
+    ]);
+  });
+
+  it("rejects an unknown recipe scope", async () => {
+    const res = await app.request("/recipes?scope=household", {}, env);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid recipe scope" });
   });
 
   it("returns 502 when database query fails", async () => {
@@ -1557,6 +1673,91 @@ describe("profile diet preferences", () => {
         expect.objectContaining({ path: ["recipeMatchMode"] }),
       ]),
     });
+  });
+});
+
+describe("profile recipe box", () => {
+  it("requires authentication", async () => {
+    const res = await app.request("/api/profile/recipe-box", {}, env);
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Authentication required" });
+  });
+
+  it("distinguishes an unfinished setup from an intentionally empty box", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const initial = await app.request("/api/profile/recipe-box", {}, env);
+    expect(await initial.json()).toEqual({
+      completed: false,
+      staticRecipeSlugs: [],
+    });
+
+    const saved = await app.request(
+      "/api/profile/recipe-box",
+      {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ staticRecipeSlugs: [] }),
+      },
+      env,
+    );
+
+    expect(saved.status).toBe(200);
+    expect(await saved.json()).toEqual({
+      completed: true,
+      staticRecipeSlugs: [],
+    });
+  });
+
+  it("deduplicates and replaces selected static recipes", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    await app.request(
+      "/api/profile/recipe-box",
+      {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          staticRecipeSlugs: ["lentil-soup", "overnight-pizza", "lentil-soup"],
+        }),
+      },
+      env,
+    );
+    const updated = await app.request(
+      "/api/profile/recipe-box",
+      {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ staticRecipeSlugs: ["breakfast-flatbreads"] }),
+      },
+      env,
+    );
+
+    expect(await updated.json()).toEqual({
+      completed: true,
+      staticRecipeSlugs: ["breakfast-flatbreads"],
+    });
+    expect(dbMock.state.recipeBoxItems).toEqual([
+      { userId: "owner-user", recipeSlug: "breakfast-flatbreads" },
+    ]);
   });
 });
 
@@ -2792,6 +2993,15 @@ describe("preview authentication", () => {
     expect(res.status).toBe(404);
   });
 
+  it("does not expose fresh QA sign-up outside preview deployments", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-up",
+      { method: "POST" },
+      env,
+    );
+    expect(res.status).toBe(404);
+  });
+
   it("requires complete preview configuration", async () => {
     const res = await app.request(
       "/api/auth/preview/scenarios",
@@ -2808,6 +3018,40 @@ describe("preview authentication", () => {
       previewEnv,
     );
     expect(res.status).toBe(403);
+  });
+
+  it("protects fresh QA sign-up with Cloudflare Access", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-up",
+      {
+        method: "POST",
+        headers: { origin: previewEnv.BETTER_AUTH_URL },
+      },
+      previewEnv,
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("rejects fresh QA sign-up without a trusted CSRF signal", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-up",
+      {
+        method: "POST",
+        headers: { "cf-access-jwt-assertion": "test-assertion" },
+      },
+      previewEnv,
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({
+      error: "CSRF validation failed",
+      details: [
+        {
+          path: [],
+          message: "Unsafe browser mutations must come from a trusted origin",
+        },
+      ],
+    });
   });
 
   it("returns the allowlisted scenarios after Access authorization", async () => {

@@ -52,9 +52,9 @@ export function SettingsView() {
           <span className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--paper-warm)]">
             <Lock className="size-5 text-[var(--terracotta)]" />
           </span>
-          <h1 className="rt-display text-3xl">Sign in to open settings.</h1>
+          <h1 className="rt-display text-3xl">Log in to open settings.</h1>
           <p className="rt-body mt-2 text-[var(--ink-2)]">
-            Use the account menu in the top-right to sign in with Google or
+            Use the account menu in the top-right to log in with Google or
             GitHub, then manage your account here.
           </p>
           <Button
