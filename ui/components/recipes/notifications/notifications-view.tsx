@@ -58,7 +58,7 @@ function NotificationRow({
   acting,
   onRespond,
   onDismiss,
-}: {
+}: Readonly<{
   item: HouseholdNotification;
   acting: boolean;
   onRespond: (
@@ -66,7 +66,7 @@ function NotificationRow({
     response: "accept" | "decline",
   ) => void;
   onDismiss: (item: HouseholdNotification) => void;
-}) {
+}>) {
   return (
     <article
       className={`group flex gap-3 rounded-xl p-3 sm:p-4 ${item.readAt ? "" : "bg-[var(--butter)]/15"}`}
@@ -125,7 +125,7 @@ function NotificationGroup({
   actingId,
   onRespond,
   onDismiss,
-}: {
+}: Readonly<{
   label: string;
   items: HouseholdNotification[];
   actingId: string | null;
@@ -134,7 +134,7 @@ function NotificationGroup({
     response: "accept" | "decline",
   ) => void;
   onDismiss: (item: HouseholdNotification) => void;
-}) {
+}>) {
   if (items.length === 0) return null;
   return (
     <section className="mt-7">
