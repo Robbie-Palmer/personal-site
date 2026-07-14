@@ -132,6 +132,8 @@ describe("agent markdown generation", () => {
     expect(routes.include).toContain("/api/auth/*");
     expect(routes.include).toContain("/api/profile/diet");
     expect(routes.include).toContain("/api/profile/diet/options");
+    expect(routes.include).toContain("/api/households");
+    expect(routes.include).toContain("/api/households/*");
     expect(routes.include).toContain("/api/recipes");
     expect(routes.include).toContain("/api/recipes/*");
     expect(routes.include).toContain("/ingest/*");
