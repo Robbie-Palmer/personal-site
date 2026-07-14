@@ -241,6 +241,30 @@ describe("SettingsView", () => {
     });
   });
 
+  it("keeps the US pint last when editing the US volume ladder", async () => {
+    const user = userEvent.setup();
+    renderSettingsView();
+
+    await user.click(
+      screen.getByRole("button", { name: /units & measurements/i }),
+    );
+    await user.click(screen.getByRole("button", { name: "US" }));
+    await user.click(screen.getByRole("button", { name: /add ml/i }));
+
+    expect(
+      JSON.parse(localStorage.getItem(UNIT_PREFERENCE_STORAGE_KEY) ?? "{}"),
+    ).toMatchObject({
+      preset: "custom",
+      volume: [
+        { unit: "tsp" },
+        { unit: "tbsp" },
+        { unit: "ml" },
+        { unit: "us_cup" },
+        { unit: "us_pint", upTo: null },
+      ],
+    });
+  });
+
   it("offers household creation when the user has no household", async () => {
     const user = userEvent.setup();
     renderSettingsView();

@@ -24,12 +24,22 @@ const PRESETS: { id: MeasurementSystem; label: string; sub: string }[] = [
 
 const UNIT_OPTIONS: Record<MeasurementDimension, Unit[]> = {
   weight: ["g", "oz", "lb", "kg"],
-  volume: ["tsp", "tbsp", "us_fl_oz", "ml", "us_cup", "uk_pint", "l"],
+  volume: [
+    "tsp",
+    "tbsp",
+    "us_fl_oz",
+    "ml",
+    "us_cup",
+    "us_pint",
+    "uk_pint",
+    "l",
+  ],
 };
 
 const SHORT_LABELS: Partial<Record<Unit, string>> = {
   us_fl_oz: "fl oz",
   us_cup: "cups",
+  us_pint: "US pints",
   uk_pint: "pints",
   l: "litres",
 };
@@ -40,6 +50,7 @@ const DEFAULT_THRESHOLD: Partial<Record<Unit, number>> = {
   us_fl_oz: 120,
   ml: 1000,
   us_cup: 1000,
+  us_pint: 1200,
   uk_pint: 2000,
   l: 4000,
   g: 1000,

@@ -46,6 +46,7 @@ import type {
 import {
   MEASUREMENT_SYSTEM_LABELS,
   type MeasurementPreference,
+  type MeasurementSystem,
   preferenceForSystem,
 } from "@/lib/domain/recipe/unit";
 
@@ -173,7 +174,14 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
     isScaling,
     error: scalingError,
   } = useScaledRecipe(recipe, requestedScale);
-  const [unitPreference, setUnitPreference] = useUnitPreference();
+  const [unitPreference] = useUnitPreference();
+  const [displaySystem, setDisplaySystem] = useState<MeasurementSystem | null>(
+    null,
+  );
+  const displayPreference = useMemo(
+    () => (displaySystem ? preferenceForSystem(displaySystem) : unitPreference),
+    [displaySystem, unitPreference],
+  );
 
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(
     () => new Set(),
@@ -387,18 +395,33 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setUnitPreference(preferenceForSystem(s))}
+                  onClick={() => setDisplaySystem(s)}
                   className={[
                     "px-2 py-0.5 text-xs font-medium transition-colors first:rounded-l last:rounded-r",
-                    unitPreference.preset === s
+                    (displaySystem ?? unitPreference.preset) === s
                       ? "bg-foreground text-background"
                       : "text-muted-foreground hover:text-foreground",
                   ].join(" ")}
-                  aria-pressed={unitPreference.preset === s}
+                  aria-pressed={(displaySystem ?? unitPreference.preset) === s}
                 >
                   {MEASUREMENT_SYSTEM_LABELS[s]}
                 </button>
               ))}
+              {unitPreference.preset === "custom" && (
+                <button
+                  type="button"
+                  onClick={() => setDisplaySystem(null)}
+                  className={[
+                    "px-2 py-0.5 text-xs font-medium transition-colors first:rounded-l last:rounded-r",
+                    displaySystem === null
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:text-foreground",
+                  ].join(" ")}
+                  aria-pressed={displaySystem === null}
+                >
+                  Custom
+                </button>
+              )}
             </div>
           </div>
           {recipe.prepTime != null && (
@@ -503,7 +526,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                 <IngredientGroup
                   group={group}
                   scale={scale}
-                  system={unitPreference}
+                  system={displayPreference}
                   annotations={ingredientAnnotations}
                   checked={checkedIngredients}
                   onToggle={toggleIngredient}
@@ -573,7 +596,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                             formatInstructionIngredientToken(
                               token,
                               scale,
-                              unitPreference,
+                              displayPreference,
                             )
                           ) : (
                             token.value
@@ -602,7 +625,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
             ingredientGroups={effectiveRecipe.ingredientGroups}
             annotations={ingredientAnnotations}
             scale={scale}
-            system={unitPreference}
+            system={displayPreference}
             step={cookStep}
             onStepChange={changeCookStep}
             onExit={exitCookMode}
