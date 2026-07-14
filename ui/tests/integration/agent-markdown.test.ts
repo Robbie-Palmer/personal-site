@@ -134,8 +134,7 @@ describe("agent markdown generation", () => {
   it("scopes the middleware to page routes in _routes.json", () => {
     const routes = JSON.parse(read("_routes.json"));
     expect(routes.include).toContain("/api/auth/*");
-    expect(routes.include).toContain("/api/profile/diet");
-    expect(routes.include).toContain("/api/profile/diet/options");
+    expect(routes.include).toContain("/api/profile/*");
     expect(routes.include).toContain("/api/recipes");
     expect(routes.include).toContain("/api/recipes/*");
     expect(routes.include).toContain("/ingest/*");
