@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SettingsView } from "@/components/recipes/settings/settings-view";
 import {
+  parseUnitPreference,
   resetUnitPreferenceServerSnapshot,
   UNIT_PREFERENCE_STORAGE_KEY,
 } from "@/hooks/use-unit-preference";
@@ -42,10 +44,12 @@ vi.mock("@/lib/api/households", async (importOriginal) => ({
   getIncomingHouseholdInvitations: mocks.getIncomingHouseholdInvitations,
 }));
 
-import { SettingsView } from "@/components/recipes/settings/settings-view";
-
 function renderSettingsView() {
   return render(<SettingsView />);
+}
+
+function storedUnitPreference() {
+  return parseUnitPreference(localStorage.getItem(UNIT_PREFERENCE_STORAGE_KEY));
 }
 
 const signedIn = {
@@ -162,9 +166,7 @@ describe("SettingsView", () => {
       "aria-pressed",
       "true",
     );
-    expect(
-      JSON.parse(localStorage.getItem(UNIT_PREFERENCE_STORAGE_KEY) ?? "{}"),
-    ).toMatchObject({ preset: "us" });
+    expect(storedUnitPreference()).toMatchObject({ preset: "us" });
 
     const threshold = screen.getByRole("spinbutton", {
       name: /oz upper threshold in grams/i,
@@ -172,18 +174,14 @@ describe("SettingsView", () => {
     expect(threshold).toHaveAttribute("step", "any");
     fireEvent.change(threshold, { target: { value: "500" } });
 
-    expect(
-      JSON.parse(localStorage.getItem(UNIT_PREFERENCE_STORAGE_KEY) ?? "{}"),
-    ).toMatchObject({
+    expect(storedUnitPreference()).toMatchObject({
       preset: "us",
       weight: [{ unit: "oz", upTo: 453.592 }, { unit: "lb" }],
     });
 
     fireEvent.blur(threshold);
 
-    expect(
-      JSON.parse(localStorage.getItem(UNIT_PREFERENCE_STORAGE_KEY) ?? "{}"),
-    ).toMatchObject({
+    expect(storedUnitPreference()).toMatchObject({
       preset: "custom",
       weight: [{ unit: "oz", upTo: 500 }, { unit: "lb" }],
     });
@@ -206,9 +204,7 @@ describe("SettingsView", () => {
     expect(screen.getByText("Custom ladder replaced.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Undo" }));
 
-    expect(
-      JSON.parse(localStorage.getItem(UNIT_PREFERENCE_STORAGE_KEY) ?? "{}"),
-    ).toMatchObject({
+    expect(storedUnitPreference()).toMatchObject({
       preset: "custom",
       weight: [{ unit: "g" }, { unit: "oz" }, { unit: "lb" }],
     });
@@ -228,15 +224,13 @@ describe("SettingsView", () => {
     await user.click(screen.getByRole("button", { name: /add g/i }));
     await user.click(screen.getByRole("button", { name: /add kg/i }));
 
-    expect(
-      JSON.parse(localStorage.getItem(UNIT_PREFERENCE_STORAGE_KEY) ?? "{}"),
-    ).toMatchObject({
+    expect(storedUnitPreference()).toMatchObject({
       preset: "custom",
       weight: [
         { unit: "g", upTo: 1000 },
         { unit: "oz", upTo: 1001 },
         { unit: "lb", upTo: 2000 },
-        { unit: "kg", upTo: null },
+        { unit: "kg", upTo: Infinity },
       ],
     });
   });
@@ -251,16 +245,14 @@ describe("SettingsView", () => {
     await user.click(screen.getByRole("button", { name: "US" }));
     await user.click(screen.getByRole("button", { name: /add ml/i }));
 
-    expect(
-      JSON.parse(localStorage.getItem(UNIT_PREFERENCE_STORAGE_KEY) ?? "{}"),
-    ).toMatchObject({
+    expect(storedUnitPreference()).toMatchObject({
       preset: "custom",
       volume: [
         { unit: "tsp" },
         { unit: "tbsp" },
         { unit: "ml" },
         { unit: "us_cup" },
-        { unit: "us_pint", upTo: null },
+        { unit: "us_pint", upTo: Infinity },
       ],
     });
   });
@@ -284,9 +276,7 @@ describe("SettingsView", () => {
     });
     fireEvent.keyDown(weightDivider, { key: "ArrowRight" });
 
-    expect(
-      JSON.parse(localStorage.getItem(UNIT_PREFERENCE_STORAGE_KEY) ?? "{}"),
-    ).toMatchObject({
+    expect(storedUnitPreference()).toMatchObject({
       preset: "custom",
       weight: [{ unit: "oz", upTo: 458.592 }, { unit: "lb" }],
     });

@@ -157,10 +157,11 @@ function formatMeasurementNote(
   note: string,
   system: MeasurementPreference,
 ): string {
-  const match = note.trim().match(/^(\d+(?:\.\d+)?)\s*(.+)$/);
-  if (!match) return note;
-  const amount = Number(match[1]);
-  const unit = normalizeUnitToken(match[2]);
+  const trimmed = note.trim();
+  const amountMatch = /^\d+(?:\.\d+)?/.exec(trimmed);
+  if (!amountMatch) return note;
+  const amount = Number(amountMatch[0]);
+  const unit = normalizeUnitToken(trimmed.slice(amountMatch[0].length).trim());
   if (!Number.isFinite(amount) || !unit) return note;
   const converted = convertToSystem(amount, unit, system);
   if (!converted) return note;

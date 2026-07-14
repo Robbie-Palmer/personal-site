@@ -98,6 +98,12 @@ function thresholdLabel(
   return `${Number(value.toFixed(1))}${dimension === "weight" ? "g" : "ml"}`;
 }
 
+function thresholdStep(value: number): number {
+  if (value < 50) return 1;
+  if (value < 500) return 5;
+  return 25;
+}
+
 function normalizeTiers(tiers: UnitTier[]): UnitTier[] {
   let previous = 0;
   return tiers.map((tier, index) => {
@@ -271,7 +277,7 @@ function ThresholdRuler({
                 }
               }}
               onKeyDown={(event) => {
-                const step = tier.upTo < 50 ? 1 : tier.upTo < 500 ? 5 : 25;
+                const step = thresholdStep(tier.upTo);
                 let nextValue: number | null = null;
                 if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
                   nextValue = tier.upTo - step;

@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { RecipeContent } from "@/components/recipes/recipe-content";
 import type { RecipeDetailView } from "@/lib/domain/recipe/recipeViews";
 import { preferenceForSystem } from "@/lib/domain/recipe/unit";
 
@@ -37,8 +38,6 @@ vi.mock("@/hooks/use-unit-preference", () => ({
 vi.mock("@/lib/domain/recipe/instructionTokens", () => ({
   tokenizeInstructionSdk: mocks.tokenizeInstructionSdk,
 }));
-
-import { RecipeContent } from "@/components/recipes/recipe-content";
 
 const recipe: RecipeDetailView = {
   slug: "weeknight",

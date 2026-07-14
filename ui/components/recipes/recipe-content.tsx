@@ -152,6 +152,17 @@ function buildCookUrl(open: boolean, step: number): string {
   return url.toString();
 }
 
+interface MethodTokenProps {
+  readonly recipeSlug: string;
+  readonly recipeTitle: string;
+  readonly scale: number;
+  readonly stepIndex: number;
+  readonly stepText: string;
+  readonly system: MeasurementPreference;
+  readonly timersEnabled: boolean;
+  readonly token: CookToken;
+}
+
 function MethodToken({
   recipeSlug,
   recipeTitle,
@@ -161,16 +172,7 @@ function MethodToken({
   system,
   timersEnabled,
   token,
-}: Readonly<{
-  recipeSlug: string;
-  recipeTitle: string;
-  scale: number;
-  stepIndex: number;
-  stepText: string;
-  system: MeasurementPreference;
-  timersEnabled: boolean;
-  token: CookToken;
-}>) {
+}: MethodTokenProps) {
   if (token.type === "timer") {
     if (timersEnabled && token.timerId) {
       return (
@@ -202,6 +204,11 @@ function MethodToken({
     return formatInstructionIngredientToken(token, scale, system);
   }
   return token.value;
+}
+
+function ingredientGroupClassName(index: number, hasName: boolean) {
+  if (index === 0) return undefined;
+  return hasName ? "border-t border-border/50 pt-4 mt-4" : "mt-4";
 }
 
 export function RecipeContent({
@@ -576,13 +583,7 @@ export function RecipeContent({
             {effectiveRecipe.ingredientGroups.map((group, i) => (
               <div
                 key={group.name ?? i}
-                className={
-                  i > 0
-                    ? group.name
-                      ? "border-t border-border/50 pt-4 mt-4"
-                      : "mt-4"
-                    : undefined
-                }
+                className={ingredientGroupClassName(i, Boolean(group.name))}
               >
                 <IngredientGroup
                   group={group}
