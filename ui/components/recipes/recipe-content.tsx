@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { AddTimerPopover } from "@/components/recipes/add-timer-popover";
 import {
   CookMode,
   type CookStep,
@@ -151,7 +152,62 @@ function buildCookUrl(open: boolean, step: number): string {
   return url.toString();
 }
 
-export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
+function MethodToken({
+  recipeSlug,
+  recipeTitle,
+  scale,
+  stepIndex,
+  stepText,
+  system,
+  timersEnabled,
+  token,
+}: Readonly<{
+  recipeSlug: string;
+  recipeTitle: string;
+  scale: number;
+  stepIndex: number;
+  stepText: string;
+  system: MeasurementPreference;
+  timersEnabled: boolean;
+  token: CookToken;
+}>) {
+  if (token.type === "timer") {
+    if (timersEnabled && token.timerId) {
+      return (
+        <InlineTimer
+          timerId={token.timerId}
+          recipeSlug={recipeSlug}
+          recipeTitle={recipeTitle}
+          stepIndex={stepIndex}
+          stepText={stepText}
+          durationSeconds={token.durationSeconds}
+          label={token.value}
+        />
+      );
+    }
+    return (
+      <button
+        type="button"
+        disabled
+        data-recipe-pill
+        title="Timers are available after saving the recipe"
+        className="inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-[var(--line-strong)] px-2 py-0.5 align-baseline text-[0.8125rem] font-semibold text-[var(--ink-2)] opacity-70"
+      >
+        <Timer className="size-3" />
+        {token.value}
+      </button>
+    );
+  }
+  if (token.type === "ingredient") {
+    return formatInstructionIngredientToken(token, scale, system);
+  }
+  return token.value;
+}
+
+export function RecipeContent({
+  recipe,
+  timersEnabled = true,
+}: Readonly<{ recipe: RecipeDetailView; timersEnabled?: boolean }>) {
   const { diet, matchRecipe } = useDiet();
   const dietMatch = useMemo(
     () =>
@@ -243,7 +299,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
         // Step index keeps the key unique even when two steps read identically.
         key: `${stepIndex}:${tokens.map((token) => token.value).join("|")}`,
         tokens: tokens.map((token, tokenIndex): CookToken => {
-          if (token.type !== "timer") return token;
+          if (token.type !== "timer" || !timersEnabled) return token;
           return {
             ...token,
             timerId: `${recipe.slug}:s${stepIndex}:t${tokenIndex}`,
@@ -257,7 +313,12 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
       tokens: null,
       text: step,
     }));
-  }, [instructionTokenization, effectiveRecipe.instructions, recipe.slug]);
+  }, [
+    instructionTokenization,
+    effectiveRecipe.instructions,
+    recipe.slug,
+    timersEnabled,
+  ]);
 
   // Cook mode open/step state is mirrored into the URL (?cook=1&step=N) via
   // the history API: entering pushes an entry so the back button exits, step
@@ -582,28 +643,46 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                         <span
                           key={`${tokenIndex}:${token.type}:${token.value}`}
                         >
-                          {token.type === "timer" && token.timerId ? (
-                            <InlineTimer
-                              timerId={token.timerId}
-                              recipeSlug={recipe.slug}
-                              recipeTitle={recipe.title}
-                              stepIndex={stepIndex}
-                              stepText={step.text}
-                              durationSeconds={token.durationSeconds}
-                              label={token.value}
-                            />
-                          ) : token.type === "ingredient" ? (
-                            formatInstructionIngredientToken(
-                              token,
-                              scale,
-                              displayPreference,
-                            )
-                          ) : (
-                            token.value
-                          )}
+                          <MethodToken
+                            token={token}
+                            recipeSlug={recipe.slug}
+                            recipeTitle={recipe.title}
+                            stepIndex={stepIndex}
+                            stepText={step.text}
+                            scale={scale}
+                            system={displayPreference}
+                            timersEnabled={timersEnabled}
+                          />
                         </span>
                       ))
                     : step.text}
+                  {/* Only offer the generic add-timer on steps that have no
+                      timer of their own, so it never doubles up with a timer
+                      pill or a "set a timer" prompt already in the step. */}
+                  {step.tokens?.some(
+                    (token) => token.type === "timer",
+                  ) ? null : (
+                    <>
+                      {" "}
+                      <AddTimerPopover
+                        align="start"
+                        recipeSlug={recipe.slug}
+                        recipeTitle={recipe.title}
+                        stepIndex={stepIndex}
+                        stepText={step.text}
+                        trigger={
+                          <button
+                            type="button"
+                            className="ml-0.5 inline-flex translate-y-[1px] items-center gap-0.5 align-baseline text-[0.6875rem] text-[var(--ink-4)] opacity-70 transition-opacity hover:opacity-100 hover:text-[var(--terracotta)]"
+                            aria-label="Add a timer for this step"
+                          >
+                            <Timer className="size-3" />
+                            timer
+                          </button>
+                        }
+                      />
+                    </>
+                  )}
                 </div>
               </div>
             </li>

@@ -53,6 +53,7 @@ describe("agent markdown generation", () => {
     const nonContentPages = new Set([
       "recipes/add.html",
       "recipes/kitchen.html",
+      "recipes/onboarding.html",
       "recipes/saved.html",
       "recipes/settings.html",
       "recipes/shopping.html",
@@ -82,6 +83,8 @@ describe("agent markdown generation", () => {
     );
     expect(read("llms.txt")).not.toContain("/recipes/settings");
     expect(read("llms-full.txt")).not.toContain("/recipes/settings");
+    expect(read("llms.txt")).not.toContain("/recipes/onboarding");
+    expect(read("llms-full.txt")).not.toContain("/recipes/onboarding");
   });
 
   it("renders recipe ingredients and instructions as markdown", () => {
@@ -98,6 +101,7 @@ describe("agent markdown generation", () => {
     const nonRecipePages = new Set([
       "add.html",
       "kitchen.html",
+      "onboarding.html",
       "saved.html",
       "settings.html",
       "shopping.html",
@@ -130,8 +134,7 @@ describe("agent markdown generation", () => {
   it("scopes the middleware to page routes in _routes.json", () => {
     const routes = JSON.parse(read("_routes.json"));
     expect(routes.include).toContain("/api/auth/*");
-    expect(routes.include).toContain("/api/profile/diet");
-    expect(routes.include).toContain("/api/profile/diet/options");
+    expect(routes.include).toContain("/api/profile/*");
     expect(routes.include).toContain("/api/households");
     expect(routes.include).toContain("/api/households/*");
     expect(routes.include).toContain("/api/recipes");

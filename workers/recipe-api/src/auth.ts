@@ -25,6 +25,7 @@ type AuthEnv = {
 
 type CreateAuthOptions = {
   allowPreviewSignUp?: boolean;
+  autoSignInPreviewSignUp?: boolean;
 };
 
 function rateLimitStorage(db: Db) {
@@ -105,7 +106,7 @@ export function createAuth(
         emailAndPassword: {
           enabled: isPreview,
           disableSignUp: !options.allowPreviewSignUp,
-          autoSignIn: false,
+          autoSignIn: options.autoSignInPreviewSignUp ?? false,
         },
         socialProviders,
         account: {

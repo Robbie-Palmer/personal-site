@@ -6,6 +6,7 @@ import { preferenceForSystem } from "@/lib/domain/recipe/unit";
 
 const mocks = vi.hoisted(() => ({
   setUnitPreference: vi.fn(),
+  tokenizeInstructionSdk: vi.fn(),
 }));
 
 const customPreference = {
@@ -16,7 +17,7 @@ const customPreference = {
 vi.mock("@/components/recipes/diet-provider", () => ({
   useDiet: () => ({
     diet: { active: false },
-    matchRecipe: () => ({ matches: [] }),
+    matchRecipe: () => ({ matches: true, excludedIngredients: [] }),
   }),
 }));
 
@@ -33,25 +34,40 @@ vi.mock("@/hooks/use-unit-preference", () => ({
   useUnitPreference: () => [customPreference, mocks.setUnitPreference],
 }));
 
+vi.mock("@/lib/domain/recipe/instructionTokens", () => ({
+  tokenizeInstructionSdk: mocks.tokenizeInstructionSdk,
+}));
+
 import { RecipeContent } from "@/components/recipes/recipe-content";
 
 const recipe: RecipeDetailView = {
-  slug: "unit-test-recipe",
-  title: "Unit test recipe",
-  description: "A recipe used to test local unit overrides.",
+  slug: "weeknight",
+  title: "Weeknight pasta",
+  description: "A quick test recipe.",
   date: "2026-07-14",
   cuisine: [],
   tags: [],
   servings: 2,
-  cookBody: "",
+  cookBody: "Cook for ~{10%minutes}.",
   cookware: [],
   ingredientGroups: [],
-  instructions: [],
+  instructions: ["Cook for 10 minutes."],
+  instructionSdk: {} as NonNullable<RecipeDetailView["instructionSdk"]>,
 };
 
 describe("RecipeContent", () => {
   beforeEach(() => {
     mocks.setUnitPreference.mockClear();
+    mocks.tokenizeInstructionSdk.mockReturnValue({
+      ok: true,
+      steps: [
+        [
+          { type: "text", value: "Cook for " },
+          { type: "timer", value: "10 minutes", durationSeconds: 600 },
+          { type: "text", value: "." },
+        ],
+      ],
+    });
   });
 
   it("previews a preset without overwriting the saved custom ladder", async () => {
@@ -74,5 +90,14 @@ describe("RecipeContent", () => {
       "aria-pressed",
       "true",
     );
+  });
+
+  it("renders timers as disabled in an unsaved recipe preview", () => {
+    render(<RecipeContent recipe={recipe} timersEnabled={false} />);
+
+    expect(screen.getByRole("button", { name: "10 minutes" })).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: /start 10 minutes timer/i }),
+    ).not.toBeInTheDocument();
   });
 });

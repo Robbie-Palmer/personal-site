@@ -21,6 +21,7 @@ import {
   normalizeRecipeSource,
   serializeSavedRecipe,
 } from "@/lib/domain/recipe/recipeDraft";
+import { recipeSaveReturnPath } from "@/lib/generic/safe-return-path";
 import { normalizeSlug } from "@/lib/generic/slugs";
 
 const EXAMPLE_RECIPE = `Bring a large #pot{} of salted water to the boil. Add @dried pasta{200%g} and cook for ~{10%minutes}.
@@ -150,7 +151,17 @@ export function AddRecipeView() {
         );
       }
       const saved = (await response.json()) as { slug: string };
-      router.push(`/recipes/saved?slug=${encodeURIComponent(saved.slug)}`);
+      const returnTo = new URLSearchParams(window.location.search).get(
+        "returnTo",
+      );
+      const safeReturnTo = recipeSaveReturnPath(
+        returnTo,
+        saved.slug,
+        window.location.origin,
+      );
+      router.push(
+        safeReturnTo ?? `/recipes/saved?slug=${encodeURIComponent(saved.slug)}`,
+      );
     } catch (error) {
       setSaveError(
         error instanceof Error
@@ -175,9 +186,9 @@ export function AddRecipeView() {
     return (
       <div className="container mx-auto max-w-2xl px-4 py-16 text-center">
         <FileText className="mx-auto size-10 text-[var(--terracotta)]" />
-        <h1 className="rt-display mt-4 text-5xl">Sign in to save a recipe</h1>
+        <h1 className="rt-display mt-4 text-5xl">Log in to save a recipe</h1>
         <p className="rt-body mt-3 text-[var(--ink-2)]">
-          Use the sign-in button above, then come back to add recipes to your
+          Use the log-in button above, then come back to add recipes to your
           private recipe box.
         </p>
         <Button asChild variant="outline" className="mt-6 rounded-full">
@@ -319,13 +330,18 @@ export function AddRecipeView() {
         <section className="min-h-[600px] overflow-hidden rounded-xl border-[1.25px] border-[var(--line-strong)] bg-[var(--paper)]">
           <div className="flex items-center justify-between border-b border-[var(--line)] bg-[var(--paper-warm)] px-4 py-3">
             <p className="rt-mono text-[var(--ink-3)]">Live preview</p>
-            {parse.loading && (
-              <Loader2 className="size-4 animate-spin text-[var(--terracotta)]" />
-            )}
+            <div className="flex items-center gap-2">
+              <span className="rt-mono text-[var(--ink-4)]">
+                Timers activate after saving
+              </span>
+              {parse.loading && (
+                <Loader2 className="size-4 animate-spin text-[var(--terracotta)]" />
+              )}
+            </div>
           </div>
           {preview ? (
             <div className="px-4 py-6 md:px-8">
-              <RecipeContent recipe={preview} />
+              <RecipeContent recipe={preview} timersEnabled={false} />
             </div>
           ) : (
             <div className="flex min-h-[540px] flex-col items-center justify-center px-6 text-center">

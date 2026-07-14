@@ -8,10 +8,13 @@ import {
   ListChecks,
   Pause,
   Play,
+  Plus,
   RotateCcw,
+  Timer,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AddTimerPopover } from "@/components/recipes/add-timer-popover";
 import { Button } from "@/components/ui/button";
 import { useCookingTimer } from "@/hooks/use-cooking-timers";
 import {
@@ -191,6 +194,11 @@ export function CookMode({
   // trapped inside the dialog.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      // An add-timer popover (portalled to <body>, outside the dialog) is open:
+      // let it own the keyboard. Otherwise our focus trap yanks Tab back into
+      // the dialog — leaving the popover's fields unreachable — and Escape would
+      // exit cook mode instead of closing the popover.
+      if (document.querySelector('[data-slot="popover-content"]')) return;
       if (event.key === "Tab") {
         trapFocus(event, containerRef.current);
         return;
@@ -262,6 +270,17 @@ export function CookMode({
       token.timerId !== undefined &&
       token.durationSeconds !== null,
   );
+
+  // Timer tokens with no resolved duration render as "set a timer" prompts.
+  const currentPrompts = (current.tokens ?? []).filter(
+    (token): token is CookToken & { type: "timer" } =>
+      token.type === "timer" && token.durationSeconds === null,
+  );
+
+  // Offer the generic add-timer only when the step has no timer of its own, so
+  // it never doubles up with a timer control or a prompt.
+  const showAddTimer =
+    currentTimers.length === 0 && currentPrompts.length === 0;
 
   const isLastStep = clampedStep === steps.length - 1;
   const nextStep = isLastStep ? null : steps[clampedStep + 1];
@@ -371,6 +390,53 @@ export function CookMode({
                 stepText={current.text}
               />
             ))}
+
+            {(currentPrompts.length > 0 || showAddTimer) && (
+              <div className="mt-7 flex flex-wrap items-center gap-2">
+                {currentPrompts.map((token, index) => {
+                  const promptLabel = token.value.trim();
+                  return (
+                    <AddTimerPopover
+                      key={`prompt-${index}:${token.value}`}
+                      defaultLabel={promptLabel}
+                      recipeSlug={recipeSlug}
+                      recipeTitle={recipeTitle}
+                      stepIndex={clampedStep}
+                      stepText={current.text}
+                      trigger={
+                        <Button
+                          size="sm"
+                          className="bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]"
+                        >
+                          <Timer className="size-4" />
+                          {promptLabel
+                            ? `Set ${promptLabel} timer`
+                            : "Set timer"}
+                        </Button>
+                      }
+                    />
+                  );
+                })}
+                {showAddTimer && (
+                  <AddTimerPopover
+                    recipeSlug={recipeSlug}
+                    recipeTitle={recipeTitle}
+                    stepIndex={clampedStep}
+                    stepText={current.text}
+                    trigger={
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-[var(--ink-2)]"
+                      >
+                        <Plus className="size-4" />
+                        Add timer
+                      </Button>
+                    }
+                  />
+                )}
+              </div>
+            )}
           </div>
 
           {/* persistent muted preview of the next step; tap to advance */}
