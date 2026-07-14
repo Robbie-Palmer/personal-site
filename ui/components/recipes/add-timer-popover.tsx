@@ -92,7 +92,11 @@ export function AddTimerPopover({
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent align={align} className="w-64">
+      {/* Above the cook-mode dialog (z-60) and the floating dock (z-80): this
+          popover is opened from inside both, and the shared PopoverContent's
+          default z-50 would otherwise render it behind the opaque cook-mode
+          overlay — i.e. "nothing happens" when you tap add-timer while cooking. */}
+      <PopoverContent align={align} className="z-[90] w-64">
         <form
           onSubmit={(event) => {
             event.preventDefault();
