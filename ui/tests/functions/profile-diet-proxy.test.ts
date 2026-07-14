@@ -111,15 +111,20 @@ describe("profile diet proxy", () => {
 });
 
 describe("household proxy", () => {
-  it("forwards household administration requests to the recipe API Worker", async () => {
+  it.each([
+    ["/api/households?fresh=1", "/households?fresh=1"],
+    [
+      "/api/households/household-1/invitations",
+      "/households/household-1/invitations",
+    ],
+  ])("maps %s to the Worker path %s", async (sourcePath, workerPath) => {
     const fetchMock = vi.fn(async (_request: Request) => new Response("ok"));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     const response = await onHouseholdRequest({
-      request: new Request(
-        "https://robbiepalmer.me/api/households/household-1/invitations",
-        { method: "DELETE" },
-      ),
+      request: new Request(`https://robbiepalmer.me${sourcePath}`, {
+        method: "DELETE",
+      }),
       env: { RECIPE_API_URL: "https://recipe-api.example.test" },
     });
 
@@ -129,9 +134,7 @@ describe("household proxy", () => {
     if (!(forwarded instanceof Request)) {
       throw new Error("Expected household proxy to forward a Request");
     }
-    expect(forwarded.url).toBe(
-      "https://recipe-api.example.test/api/households/household-1/invitations",
-    );
+    expect(forwarded.url).toBe(`https://recipe-api.example.test${workerPath}`);
     expect(forwarded.method).toBe("DELETE");
   });
 });
