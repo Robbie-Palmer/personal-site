@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { and, eq, inArray, lt, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { createDb, schema } from "./db";
 import { createAuth } from "./auth";
@@ -42,6 +42,13 @@ type Recipe = typeof schema.recipe.$inferSelect;
 type Household = typeof schema.organization.$inferSelect;
 type HouseholdMember = typeof schema.member.$inferSelect;
 type HouseholdInvitation = typeof schema.invitation.$inferSelect;
+type NotificationType =
+  | "household_invited"
+  | "household_removed"
+  | "household_deleted"
+  | "household_invite_accepted"
+  | "household_invite_declined"
+  | "household_member_left";
 type DbClient = ReturnType<typeof createDb>["client"];
 type Db = ReturnType<typeof createDb>["db"];
 type AuthSessionResult =
@@ -200,6 +207,27 @@ function invitationResponse(invitation: HouseholdInvitation) {
     expiresAt: invitation.expiresAt,
     createdAt: invitation.createdAt,
   };
+}
+
+async function createNotification(
+  db: Pick<Db, "insert">,
+  values: {
+    userId: string;
+    type: NotificationType;
+    household: Household;
+    actorName?: string;
+    invitationId?: string;
+  },
+) {
+  await db.insert(schema.notification).values({
+    id: createId(),
+    userId: values.userId,
+    type: values.type,
+    actorName: values.actorName,
+    householdName: values.household.name,
+    householdId: values.household.id,
+    invitationId: values.invitationId,
+  });
 }
 
 function defaultDietProfile(userId: string) {
@@ -1261,6 +1289,21 @@ app.post("/households/:householdId/invitations", async (c) => {
       .returning();
 
     if (!invitation) return c.json({ error: "Database mutation failed" }, 502);
+    const [invitee] = await db
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.email, email))
+      .limit(1);
+    const household = await findHouseholdById(db, householdId);
+    if (invitee && household) {
+      await createNotification(db, {
+        userId: invitee.id,
+        type: "household_invited",
+        household,
+        actorName: session.session.user.name,
+        invitationId: invitation.id,
+      });
+    }
     return c.json(invitationResponse(invitation), 201);
   } catch (e) {
     console.error("POST /households/:householdId/invitations failed", e);
@@ -1341,6 +1384,19 @@ app.post("/households/invitations/:invitationId/accept", async (c) => {
       return createdMember;
     });
 
+    const [household, owner] = await Promise.all([
+      findHouseholdById(db, invitation.organizationId),
+      findHouseholdOwner(db, invitation.organizationId),
+    ]);
+    if (household && owner) {
+      await createNotification(db, {
+        userId: owner.userId,
+        type: "household_invite_accepted",
+        household,
+        actorName: session.session.user.name,
+      });
+    }
+
     return c.json({
       invitation: { ...invitationResponse(invitation), status: "accepted" },
       membershipCreated: Boolean(member),
@@ -1409,6 +1465,18 @@ app.post("/households/invitations/:invitationId/decline", async (c) => {
 
     if (!declined) {
       return c.json({ error: "Invitation is not pending" }, 409);
+    }
+    const [household, owner] = await Promise.all([
+      findHouseholdById(db, invitation.organizationId),
+      findHouseholdOwner(db, invitation.organizationId),
+    ]);
+    if (household && owner) {
+      await createNotification(db, {
+        userId: owner.userId,
+        type: "household_invite_declined",
+        household,
+        actorName: session.session.user.name,
+      });
     }
     return c.json(invitationResponse(declined));
   } catch (e) {
@@ -1550,6 +1618,15 @@ app.delete("/households/:householdId/members/:memberId", async (c) => {
         );
       await tx.delete(schema.member).where(eq(schema.member.id, memberId));
     });
+    const household = await findHouseholdById(db, householdId);
+    if (household) {
+      await createNotification(db, {
+        userId: member.userId,
+        type: "household_removed",
+        household,
+        actorName: session.session.user.name,
+      });
+    }
     return c.body(null, 204);
   } catch (e) {
     console.error("DELETE /households/:householdId/members/:memberId failed", e);
@@ -1605,10 +1682,169 @@ app.post("/households/:householdId/leave", async (c) => {
         );
       await tx.delete(schema.member).where(eq(schema.member.id, member.id));
     });
+    const owner = await findHouseholdOwner(db, householdId);
+    if (owner) {
+      await createNotification(db, {
+        userId: owner.userId,
+        type: "household_member_left",
+        household,
+        actorName: session.session.user.name,
+      });
+    }
     return c.body(null, 204);
   } catch (e) {
     console.error("POST /households/:householdId/leave failed", e);
     return c.json({ error: "Database mutation failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
+app.delete("/households/:householdId", async (c) => {
+  const householdId = c.req.param("householdId");
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) return c.json({ error: "No database connection configured" }, 503);
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
+    const ownerFailure = await authorizeHouseholdOwnerResponse(
+      c,
+      db,
+      householdId,
+      session.session,
+    );
+    if (ownerFailure) return ownerFailure;
+    const household = await findHouseholdById(db, householdId);
+    if (!household) return c.notFound();
+    const memberIds = await findHouseholdMemberUserIds(db, householdId);
+
+    await db.transaction(async (tx) => {
+      for (const userId of memberIds) {
+        if (userId !== session.session.user.id) {
+          await createNotification(tx, {
+            userId,
+            type: "household_deleted",
+            household,
+            actorName: session.session.user.name,
+          });
+        }
+      }
+      await tx
+        .update(schema.recipe)
+        .set({ visibility: "private" })
+        .where(
+          and(
+            eq(schema.recipe.visibility, "household"),
+            inArray(schema.recipe.userId, memberIds),
+          ),
+        );
+      await tx.delete(schema.organization).where(eq(schema.organization.id, householdId));
+    });
+    return c.body(null, 204);
+  } catch (e) {
+    console.error("DELETE /households/:householdId failed", e);
+    return c.json({ error: "Database mutation failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
+app.get("/notifications", async (c) => {
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) return c.json({ error: "No database connection configured" }, 503);
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
+    const notifications = await db
+      .select()
+      .from(schema.notification)
+      .where(
+        and(
+          eq(schema.notification.userId, session.session.user.id),
+          isNull(schema.notification.dismissedAt),
+        ),
+      )
+      .orderBy(desc(schema.notification.createdAt))
+      .limit(100);
+    return c.json(notifications.map(({ userId: _userId, dismissedAt: _dismissedAt, ...n }) => n));
+  } catch (e) {
+    console.error("GET /notifications failed", e);
+    return c.json({ error: "Database query failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
+app.post("/notifications/read-all", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) return c.json({ error: "No database connection configured" }, 503);
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
+    await db
+      .update(schema.notification)
+      .set({ readAt: new Date() })
+      .where(
+        and(
+          eq(schema.notification.userId, session.session.user.id),
+          isNull(schema.notification.readAt),
+        ),
+      );
+    return c.body(null, 204);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
+app.patch("/notifications/:notificationId", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) return c.json({ error: "No database connection configured" }, 503);
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
+    const body = await parseJsonBody(
+      c,
+      z.object({ read: z.boolean().optional(), dismissed: z.boolean().optional() }).strict(),
+    );
+    if (!body.success) return body.response;
+    await db
+      .update(schema.notification)
+      .set({
+        ...(body.data.read !== undefined ? { readAt: body.data.read ? new Date() : null } : {}),
+        ...(body.data.dismissed !== undefined
+          ? { dismissedAt: body.data.dismissed ? new Date() : null }
+          : {}),
+      })
+      .where(
+        and(
+          eq(schema.notification.id, c.req.param("notificationId")),
+          eq(schema.notification.userId, session.session.user.id),
+        ),
+      );
+    return c.body(null, 204);
   } finally {
     await closeDbClient(client);
   }

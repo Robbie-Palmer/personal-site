@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { admin, lastLoginMethod } from "better-auth/plugins";
 import { withCloudflare } from "better-auth-cloudflare";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { createDb } from "./db";
 import * as schema from "./db/schema";
 import { enforceRateLimit } from "./http/rate-limit";
@@ -85,6 +85,81 @@ export function createAuth(
         },
       };
 
+  async function handleAccountDeletion(deletedUser: { id: string; name: string }) {
+    const [membership] = await db
+      .select({
+        householdId: schema.member.organizationId,
+        role: schema.member.role,
+        householdName: schema.organization.name,
+      })
+      .from(schema.member)
+      .innerJoin(
+        schema.organization,
+        eq(schema.member.organizationId, schema.organization.id),
+      )
+      .where(eq(schema.member.userId, deletedUser.id))
+      .limit(1);
+    if (!membership) return;
+
+    if (membership.role !== "owner") {
+      const [owner] = await db
+        .select({ userId: schema.member.userId })
+        .from(schema.member)
+        .where(
+          and(
+            eq(schema.member.organizationId, membership.householdId),
+            eq(schema.member.role, "owner"),
+          ),
+        )
+        .limit(1);
+      if (owner) {
+        await db.insert(schema.notification).values({
+          id: crypto.randomUUID(),
+          userId: owner.userId,
+          type: "household_member_left",
+          actorName: deletedUser.name,
+          householdName: membership.householdName,
+          householdId: membership.householdId,
+        });
+      }
+      return;
+    }
+
+    const otherMembers = await db
+      .select({ userId: schema.member.userId })
+      .from(schema.member)
+      .where(eq(schema.member.organizationId, membership.householdId));
+    const otherUserIds = otherMembers
+      .map(({ userId }) => userId)
+      .filter((userId) => userId !== deletedUser.id);
+    await db.transaction(async (tx) => {
+      for (const userId of otherUserIds) {
+        await tx.insert(schema.notification).values({
+          id: crypto.randomUUID(),
+          userId,
+          type: "household_deleted",
+          actorName: deletedUser.name,
+          householdName: membership.householdName,
+          householdId: membership.householdId,
+        });
+      }
+      if (otherUserIds.length > 0) {
+        await tx
+          .update(schema.recipe)
+          .set({ visibility: "private" })
+          .where(
+            and(
+              eq(schema.recipe.visibility, "household"),
+              inArray(schema.recipe.userId, otherUserIds),
+            ),
+          );
+      }
+      await tx
+        .delete(schema.organization)
+        .where(eq(schema.organization.id, membership.householdId));
+    });
+  }
+
   return betterAuth({
     baseURL,
     basePath: "/api/auth",
@@ -108,6 +183,18 @@ export function createAuth(
             enabled: true,
             trustedProviders: ["google", "github"],
             allowDifferentEmails: true,
+          },
+        },
+        user: {
+          deleteUser: {
+            enabled: true,
+          },
+        },
+        databaseHooks: {
+          user: {
+            delete: {
+              before: async (user) => handleAccountDeletion(user),
+            },
           },
         },
         session: { cookieCache: { enabled: false } },

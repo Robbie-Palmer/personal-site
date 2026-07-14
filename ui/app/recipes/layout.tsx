@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Caveat, JetBrains_Mono, Kalam } from "next/font/google";
 import Link from "next/link";
 import { AuthButton } from "@/components/recipes/auth-button";
+import { NotificationBell } from "@/components/recipes/notifications/notification-bell";
 import { RecipeNavTabs } from "@/components/recipes/recipe-nav-tabs";
 import { RecipeThemeBody } from "@/components/recipes/recipe-theme-body";
 import { TimerDock } from "@/components/recipes/timer-dock";
@@ -62,7 +63,8 @@ export default function RecipesLayout({
               <span>Robbie's</span>{" "}
               <span className="rt-logo-accent">recipes</span>
             </Link>
-            <div className="order-2 ms-auto sm:order-3">
+            <div className="order-2 ms-auto flex items-center gap-1 sm:order-3">
+              <NotificationBell />
               <AuthButton />
             </div>
             <div className="order-3 w-full sm:order-2 sm:w-auto">
