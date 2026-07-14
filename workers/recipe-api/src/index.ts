@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { and, count, desc, eq, gte, inArray, lt, or } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, inArray, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { createDb, schema } from "recipe-db";
 import { RecipeContentSchema } from "recipe-domain";
@@ -24,6 +24,11 @@ import {
   findPreviewScenario,
   previewScenarios,
 } from "./preview-scenarios";
+import {
+  normalizeEmail,
+  userOwnsVerifiedEmail,
+  verifiedEmailsForUser,
+} from "./user-emails";
 
 type Bindings = {
   HYPERDRIVE?: Hyperdrive;
@@ -176,6 +181,12 @@ const updateRecipeBodySchema = z
 const createHouseholdBodySchema = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
+  })
+  .strict();
+
+const updateHouseholdBodySchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
   })
   .strict();
 
@@ -531,6 +542,62 @@ async function findUserHouseholdMembership(
     .where(eq(schema.member.userId, userId))
     .limit(1);
   return member;
+}
+
+async function acceptPendingInvitation(
+  db: Db,
+  invitation: HouseholdInvitation,
+  userId: string,
+): Promise<HouseholdMember> {
+  return db.transaction(async (tx) => {
+    const mutationTime = new Date();
+    const [accepted] = await tx
+      .update(schema.invitation)
+      .set({ status: "accepted" })
+      .where(
+        and(
+          eq(schema.invitation.id, invitation.id),
+          eq(schema.invitation.status, "pending"),
+          gt(schema.invitation.expiresAt, mutationTime),
+        ),
+      )
+      .returning();
+    if (!accepted) {
+      throw new Error(
+        invitation.expiresAt <= mutationTime
+          ? "Invitation has expired"
+          : "Invitation is not pending",
+      );
+    }
+
+    const [member] = await tx
+      .insert(schema.member)
+      .values({
+        id: createId(),
+        organizationId: invitation.organizationId,
+        userId,
+        role: "member",
+      })
+      .returning();
+    if (!member) throw new Error("Member insert failed");
+    return member;
+  });
+}
+
+function invitationAcceptanceFailure(
+  c: Context<AppEnv>,
+  error: unknown,
+): Response | undefined {
+  if (isUniqueViolation(error)) {
+    return c.json({ error: "User already belongs to a household" }, 409);
+  }
+  if (error instanceof Error && error.message === "Invitation is not pending") {
+    return c.json({ error: "Invitation is not pending" }, 409);
+  }
+  if (error instanceof Error && error.message === "Invitation has expired") {
+    return c.json({ error: "Invitation has expired" }, 410);
+  }
+  return undefined;
 }
 
 async function findHouseholdMemberUserIds(
@@ -1109,6 +1176,46 @@ app.get("/households", async (c) => {
   }
 });
 
+app.get("/households/invitations", async (c) => {
+  return withRecipeSession(
+    c,
+    "query",
+    "GET /households/invitations failed",
+    async ({ db, session }) => {
+      const verifiedEmails = await verifiedEmailsForUser(db, session.user);
+      if (verifiedEmails.length === 0) return c.json([]);
+
+      const invitations = await db
+        .select({
+          invitation: schema.invitation,
+          household: {
+            id: schema.organization.id,
+            name: schema.organization.name,
+          },
+        })
+        .from(schema.invitation)
+        .innerJoin(
+          schema.organization,
+          eq(schema.invitation.organizationId, schema.organization.id),
+        )
+        .where(
+          and(
+            inArray(schema.invitation.email, verifiedEmails),
+            eq(schema.invitation.status, "pending"),
+            gt(schema.invitation.expiresAt, new Date()),
+          ),
+        );
+
+      return c.json(
+        invitations.map(({ invitation, household }) => ({
+          ...invitationResponse(invitation),
+          household,
+        })),
+      );
+    },
+  );
+});
+
 app.post("/households", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
@@ -1174,6 +1281,85 @@ app.post("/households", async (c) => {
   }
 });
 
+app.patch("/households/:householdId", async (c) => {
+  const householdId = c.req.param("householdId");
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "PATCH /households/:householdId failed",
+    async ({ db, session }) => {
+      const ownerFailure = await authorizeHouseholdOwnerResponse(
+        c,
+        db,
+        householdId,
+        session,
+      );
+      if (ownerFailure) return ownerFailure;
+
+      const body = await parseJsonBody(c, updateHouseholdBodySchema);
+      if (!body.success) return body.response;
+
+      const [household] = await db
+        .update(schema.organization)
+        .set({ name: body.data.name })
+        .where(eq(schema.organization.id, householdId))
+        .returning();
+      if (!household) return c.notFound();
+
+      return c.json(householdResponse(household));
+    },
+  );
+});
+
+app.delete("/households/:householdId", async (c) => {
+  const householdId = c.req.param("householdId");
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "DELETE /households/:householdId failed",
+    async ({ db, session }) => {
+      const ownerFailure = await authorizeHouseholdOwnerResponse(
+        c,
+        db,
+        householdId,
+        session,
+      );
+      if (ownerFailure) return ownerFailure;
+
+      await db.transaction(async (tx) => {
+        const memberRows = await tx
+          .select({ userId: schema.member.userId })
+          .from(schema.member)
+          .where(eq(schema.member.organizationId, householdId));
+        const memberUserIds = memberRows.map((member) => member.userId);
+
+        if (memberUserIds.length > 0) {
+          await tx
+            .update(schema.recipe)
+            .set({ visibility: "private" })
+            .where(
+              and(
+                eq(schema.recipe.visibility, "household"),
+                inArray(schema.recipe.userId, memberUserIds),
+              ),
+            );
+        }
+        await tx
+          .delete(schema.organization)
+          .where(eq(schema.organization.id, householdId));
+      });
+
+      return c.body(null, 204);
+    },
+  );
+});
+
 app.get("/households/:householdId/members", async (c) => {
   const householdId = c.req.param("householdId");
   const connectionString = databaseConnection(c.env);
@@ -1227,6 +1413,37 @@ app.get("/households/:householdId/members", async (c) => {
   }
 });
 
+app.get("/households/:householdId/invitations", async (c) => {
+  const householdId = c.req.param("householdId");
+  return withRecipeSession(
+    c,
+    "query",
+    "GET /households/:householdId/invitations failed",
+    async ({ db, session }) => {
+      const ownerFailure = await authorizeHouseholdOwnerResponse(
+        c,
+        db,
+        householdId,
+        session,
+      );
+      if (ownerFailure) return ownerFailure;
+
+      const invitations = await db
+        .select()
+        .from(schema.invitation)
+        .where(
+          and(
+            eq(schema.invitation.organizationId, householdId),
+            eq(schema.invitation.status, "pending"),
+            gt(schema.invitation.expiresAt, new Date()),
+          ),
+        );
+
+      return c.json(invitations.map(invitationResponse));
+    },
+  );
+});
+
 app.post("/households/:householdId/invitations", async (c) => {
   const householdId = c.req.param("householdId");
   const csrfFailure = validateCsrf(c);
@@ -1268,7 +1485,7 @@ app.post("/households/:householdId/invitations", async (c) => {
     const body = await parseJsonBody(c, inviteHouseholdMemberBodySchema);
     if (!body.success) return body.response;
 
-    const email = body.data.email.toLowerCase();
+    const email = normalizeEmail(body.data.email);
 
     const [existingInvitation] = await db
       .select()
@@ -1278,6 +1495,7 @@ app.post("/households/:householdId/invitations", async (c) => {
           eq(schema.invitation.organizationId, householdId),
           eq(schema.invitation.email, email),
           eq(schema.invitation.status, "pending"),
+          gt(schema.invitation.expiresAt, new Date()),
         ),
       )
       .limit(1);
@@ -1344,7 +1562,13 @@ app.post("/households/invitations/:invitationId/accept", async (c) => {
     if (invitation.expiresAt.getTime() < Date.now()) {
       return c.json({ error: "Invitation has expired" }, 410);
     }
-    if (invitation.email.toLowerCase() !== session.session.user.email.toLowerCase()) {
+    if (
+      !(await userOwnsVerifiedEmail(
+        db,
+        session.session.user,
+        invitation.email,
+      ))
+    ) {
       return authorizationResponse(c, forbidden());
     }
 
@@ -1356,43 +1580,19 @@ app.post("/households/invitations/:invitationId/accept", async (c) => {
       return c.json({ error: "User already belongs to a household" }, 409);
     }
 
-    const member = await db.transaction(async (tx) => {
-      const [accepted] = await tx
-        .update(schema.invitation)
-        .set({ status: "accepted" })
-        .where(
-          and(
-            eq(schema.invitation.id, invitationId),
-            eq(schema.invitation.status, "pending"),
-          ),
-        )
-        .returning();
-      if (!accepted) throw new Error("Invitation is not pending");
-
-      const [createdMember] = await tx
-        .insert(schema.member)
-        .values({
-          id: createId(),
-          organizationId: invitation.organizationId,
-          userId: session.session.user.id,
-          role: "member",
-        })
-        .returning();
-      if (!createdMember) throw new Error("Member insert failed");
-      return createdMember;
-    });
+    const member = await acceptPendingInvitation(
+      db,
+      invitation,
+      session.session.user.id,
+    );
 
     return c.json({
       invitation: { ...invitationResponse(invitation), status: "accepted" },
       membershipCreated: Boolean(member),
     });
   } catch (e) {
-    if (isUniqueViolation(e)) {
-      return c.json({ error: "User already belongs to a household" }, 409);
-    }
-    if (e instanceof Error && e.message === "Invitation is not pending") {
-      return c.json({ error: "Invitation is not pending" }, 409);
-    }
+    const failure = invitationAcceptanceFailure(c, e);
+    if (failure) return failure;
     console.error("POST /households/invitations/:invitationId/accept failed", e);
     return c.json({ error: "Database mutation failed" }, 502);
   } finally {
@@ -1433,10 +1633,17 @@ app.post("/households/invitations/:invitationId/decline", async (c) => {
     if (invitation.expiresAt.getTime() < Date.now()) {
       return c.json({ error: "Invitation has expired" }, 410);
     }
-    if (invitation.email.toLowerCase() !== session.session.user.email.toLowerCase()) {
+    if (
+      !(await userOwnsVerifiedEmail(
+        db,
+        session.session.user,
+        invitation.email,
+      ))
+    ) {
       return authorizationResponse(c, forbidden());
     }
 
+    const mutationTime = new Date();
     const [declined] = await db
       .update(schema.invitation)
       .set({ status: "rejected" })
@@ -1444,12 +1651,15 @@ app.post("/households/invitations/:invitationId/decline", async (c) => {
         and(
           eq(schema.invitation.id, invitationId),
           eq(schema.invitation.status, "pending"),
+          gt(schema.invitation.expiresAt, mutationTime),
         ),
       )
       .returning();
 
     if (!declined) {
-      return c.json({ error: "Invitation is not pending" }, 409);
+      return invitation.expiresAt <= mutationTime
+        ? c.json({ error: "Invitation has expired" }, 410)
+        : c.json({ error: "Invitation is not pending" }, 409);
     }
     return c.json(invitationResponse(declined));
   } catch (e) {

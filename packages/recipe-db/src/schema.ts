@@ -29,6 +29,28 @@ export const user = pgTable("user", {
     .$onUpdate(() => new Date()),
 });
 
+// Better Auth keeps one canonical address on `user`. This table records every
+// verified address owned by that account so app features can resolve aliases
+// captured from linked identity providers without treating an email as the
+// user ID.
+export const userEmail = pgTable(
+  "user_email",
+  {
+    email: text().primaryKey(),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    verified: boolean().notNull().default(false),
+    isPrimary: boolean().notNull().default(false),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [index("user_email_user_id_idx").on(table.userId)],
+);
+
 export const session = pgTable(
   "session",
   {
