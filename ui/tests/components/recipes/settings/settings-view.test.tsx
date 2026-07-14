@@ -166,6 +166,12 @@ describe("SettingsView", () => {
       "aria-pressed",
       "true",
     );
+    expect(
+      screen.getByText(/US uses teaspoons and tablespoons/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Metric uses teaspoons and tablespoons/i),
+    ).not.toBeInTheDocument();
     expect(storedUnitPreference()).toMatchObject({ preset: "us" });
 
     const threshold = screen.getByRole("spinbutton", {
@@ -181,6 +187,7 @@ describe("SettingsView", () => {
 
     fireEvent.blur(threshold);
 
+    expect(screen.getByText(/Custom uses the units/i)).toBeInTheDocument();
     expect(storedUnitPreference()).toMatchObject({
       preset: "custom",
       weight: [{ unit: "oz", upTo: 500 }, { unit: "lb" }],

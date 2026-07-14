@@ -16,11 +16,37 @@ import {
 import { cn } from "@/lib/generic/styles";
 import { PanelHead } from "./panel-head";
 
-const PRESETS: { id: MeasurementSystem; label: string; sub: string }[] = [
-  { id: "metric", label: "Metric", sub: "tsp · ml · L · g" },
-  { id: "uk", label: "UK", sub: "tsp · ml · pints · g" },
-  { id: "us", label: "US", sub: "tsp · cups · oz · lb" },
+const PRESETS: {
+  id: MeasurementSystem;
+  label: string;
+  sub: string;
+  description: string;
+}[] = [
+  {
+    id: "metric",
+    label: "Metric",
+    sub: "tsp · ml · L · g",
+    description:
+      "Metric uses teaspoons and tablespoons for small volumes, then ml and litres; weights move from grams to kilograms.",
+  },
+  {
+    id: "uk",
+    label: "UK",
+    sub: "tsp · ml · pints · g",
+    description:
+      "UK uses teaspoons and tablespoons for small volumes, then ml, pints and litres; weights move from grams to kilograms.",
+  },
+  {
+    id: "us",
+    label: "US",
+    sub: "tsp · cups · oz · lb",
+    description:
+      "US uses teaspoons and tablespoons for small volumes, then cups and pints; weights move from ounces to pounds.",
+  },
 ];
+
+const CUSTOM_DESCRIPTION =
+  "Custom uses the units and hand-off thresholds shown in your ladders below.";
 
 const UNIT_OPTIONS: Record<MeasurementDimension, Unit[]> = {
   weight: ["g", "oz", "lb", "kg"],
@@ -479,6 +505,10 @@ export function UnitsPanel() {
     setPreference(preferenceForSystem(system));
   };
 
+  const presetDescription =
+    PRESETS.find((preset) => preset.id === preference.preset)?.description ??
+    CUSTOM_DESCRIPTION;
+
   return (
     <div>
       <PanelHead
@@ -489,7 +519,7 @@ export function UnitsPanel() {
 
       <div className="mb-6">
         <p className="rt-mono mb-2 text-[var(--ink-3)]">Start from</p>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {PRESETS.map((preset) => {
             const on = preference.preset === preset.id;
             return (
@@ -500,7 +530,7 @@ export function UnitsPanel() {
                 aria-pressed={on}
                 aria-label={preset.label}
                 className={cn(
-                  "min-w-28 rounded-xl border p-3 text-left transition-colors",
+                  "min-w-0 rounded-xl border p-3 text-left transition-colors",
                   on
                     ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
                     : "border-[var(--line-strong)] bg-[var(--card)] hover:border-[var(--ink)]",
@@ -522,7 +552,7 @@ export function UnitsPanel() {
           })}
           <div
             className={cn(
-              "min-w-28 rounded-xl border p-3",
+              "min-w-0 rounded-xl border p-3",
               preference.preset === "custom"
                 ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
                 : "border-[var(--line-strong)] bg-[var(--card)] text-[var(--ink-3)]",
@@ -532,9 +562,11 @@ export function UnitsPanel() {
             <span className="rt-mono mt-1 block">your own ladder</span>
           </div>
         </div>
-        <p className="rt-body mt-2 text-sm text-[var(--ink-3)]">
-          Metric uses teaspoons and tablespoons for small volumes, then ml and
-          litres.
+        <p
+          aria-live="polite"
+          className="rt-body mt-2 text-sm text-[var(--ink-3)]"
+        >
+          {presetDescription}
         </p>
         {undoPreference && (
           <output className="rt-body mt-3 flex items-center gap-3 text-sm text-[var(--ink-2)]">
