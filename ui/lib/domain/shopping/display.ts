@@ -1,4 +1,4 @@
-import type { MeasurementSystem } from "@/lib/domain/recipe";
+import type { MeasurementPreference } from "@/lib/domain/recipe";
 import { formatIngredientAmount } from "@/lib/domain/recipe/ingredientDisplay";
 import { formatIngredientName } from "@/lib/domain/recipe/ingredientText";
 import type { ShoppingLine, ShoppingQuantity } from "./aggregate";
@@ -10,7 +10,7 @@ import type { ShoppingLine, ShoppingQuantity } from "./aggregate";
  */
 export function formatShoppingQuantities(
   quantities: ShoppingQuantity[],
-  system: MeasurementSystem,
+  system: MeasurementPreference,
 ): string {
   return quantities
     .map((quantity) => formatIngredientAmount(quantity, 1, system))

@@ -46,7 +46,9 @@ import type {
 } from "@/lib/domain/recipe/recipeViews";
 import {
   MEASUREMENT_SYSTEM_LABELS,
+  type MeasurementPreference,
   type MeasurementSystem,
+  preferenceForSystem,
 } from "@/lib/domain/recipe/unit";
 
 function formatTime(minutes: number): string {
@@ -66,7 +68,7 @@ function IngredientGroup({
 }: {
   group: IngredientGroupView;
   scale: number;
-  system: MeasurementSystem;
+  system: MeasurementPreference;
   annotations: Map<string, IngredientAnnotation>;
   checked: Set<string>;
   onToggle: (ingredient: string) => void;
@@ -150,6 +152,17 @@ function buildCookUrl(open: boolean, step: number): string {
   return url.toString();
 }
 
+interface MethodTokenProps {
+  readonly recipeSlug: string;
+  readonly recipeTitle: string;
+  readonly scale: number;
+  readonly stepIndex: number;
+  readonly stepText: string;
+  readonly system: MeasurementPreference;
+  readonly timersEnabled: boolean;
+  readonly token: CookToken;
+}
+
 function MethodToken({
   recipeSlug,
   recipeTitle,
@@ -159,16 +172,7 @@ function MethodToken({
   system,
   timersEnabled,
   token,
-}: Readonly<{
-  recipeSlug: string;
-  recipeTitle: string;
-  scale: number;
-  stepIndex: number;
-  stepText: string;
-  system: MeasurementSystem;
-  timersEnabled: boolean;
-  token: CookToken;
-}>) {
+}: MethodTokenProps) {
   if (token.type === "timer") {
     if (timersEnabled && token.timerId) {
       return (
@@ -202,6 +206,11 @@ function MethodToken({
   return token.value;
 }
 
+function ingredientGroupClassName(index: number, hasName: boolean) {
+  if (index === 0) return undefined;
+  return hasName ? "border-t border-border/50 pt-4 mt-4" : "mt-4";
+}
+
 export function RecipeContent({
   recipe,
   timersEnabled = true,
@@ -228,7 +237,14 @@ export function RecipeContent({
     isScaling,
     error: scalingError,
   } = useScaledRecipe(recipe, requestedScale);
-  const [unitSystem, setUnitSystem] = useUnitPreference();
+  const [unitPreference] = useUnitPreference();
+  const [displaySystem, setDisplaySystem] = useState<MeasurementSystem | null>(
+    null,
+  );
+  const displayPreference = useMemo(
+    () => (displaySystem ? preferenceForSystem(displaySystem) : unitPreference),
+    [displaySystem, unitPreference],
+  );
 
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(
     () => new Set(),
@@ -447,18 +463,33 @@ export function RecipeContent({
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setUnitSystem(s)}
+                  onClick={() => setDisplaySystem(s)}
                   className={[
                     "px-2 py-0.5 text-xs font-medium transition-colors first:rounded-l last:rounded-r",
-                    unitSystem === s
+                    (displaySystem ?? unitPreference.preset) === s
                       ? "bg-foreground text-background"
                       : "text-muted-foreground hover:text-foreground",
                   ].join(" ")}
-                  aria-pressed={unitSystem === s}
+                  aria-pressed={(displaySystem ?? unitPreference.preset) === s}
                 >
                   {MEASUREMENT_SYSTEM_LABELS[s]}
                 </button>
               ))}
+              {unitPreference.preset === "custom" && (
+                <button
+                  type="button"
+                  onClick={() => setDisplaySystem(null)}
+                  className={[
+                    "px-2 py-0.5 text-xs font-medium transition-colors first:rounded-l last:rounded-r",
+                    displaySystem === null
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:text-foreground",
+                  ].join(" ")}
+                  aria-pressed={displaySystem === null}
+                >
+                  Custom
+                </button>
+              )}
             </div>
           </div>
           {recipe.prepTime != null && (
@@ -552,18 +583,12 @@ export function RecipeContent({
             {effectiveRecipe.ingredientGroups.map((group, i) => (
               <div
                 key={group.name ?? i}
-                className={
-                  i > 0
-                    ? group.name
-                      ? "border-t border-border/50 pt-4 mt-4"
-                      : "mt-4"
-                    : undefined
-                }
+                className={ingredientGroupClassName(i, Boolean(group.name))}
               >
                 <IngredientGroup
                   group={group}
                   scale={scale}
-                  system={unitSystem}
+                  system={displayPreference}
                   annotations={ingredientAnnotations}
                   checked={checkedIngredients}
                   onToggle={toggleIngredient}
@@ -626,7 +651,7 @@ export function RecipeContent({
                             stepIndex={stepIndex}
                             stepText={step.text}
                             scale={scale}
-                            system={unitSystem}
+                            system={displayPreference}
                             timersEnabled={timersEnabled}
                           />
                         </span>
@@ -680,7 +705,7 @@ export function RecipeContent({
             ingredientGroups={effectiveRecipe.ingredientGroups}
             annotations={ingredientAnnotations}
             scale={scale}
-            system={unitSystem}
+            system={displayPreference}
             step={cookStep}
             onStepChange={changeCookStep}
             onExit={exitCookMode}

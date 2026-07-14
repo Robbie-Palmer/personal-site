@@ -2,6 +2,7 @@ import {
   convertToSystem,
   convertUnit,
   getUnitDimension,
+  preferenceForSystem,
 } from "recipe-domain/conversion";
 import { describe, expect, it } from "vitest";
 
@@ -46,6 +47,29 @@ describe("convertUnit", () => {
   it("returns null for non-convertible units", () => {
     expect(convertUnit(1, "piece", "g")).toBeNull();
     expect(convertUnit(1, "pinch", "ml")).toBeNull();
+  });
+
+  it("uses a custom ladder and its hand-off thresholds", () => {
+    const preference = preferenceForSystem("metric");
+    preference.preset = "custom";
+    preference.volume = [
+      { unit: "tsp", upTo: 20 },
+      { unit: "ml", upTo: 750 },
+      { unit: "l", upTo: Infinity },
+    ];
+
+    expect(convertToSystem(15, "ml", preference)).toEqual({
+      amount: 3,
+      unit: "tsp",
+    });
+    expect(convertToSystem(20, "ml", preference)).toEqual({
+      amount: 20,
+      unit: "ml",
+    });
+    expect(convertToSystem(750, "ml", preference)).toEqual({
+      amount: 0.75,
+      unit: "l",
+    });
   });
 });
 
