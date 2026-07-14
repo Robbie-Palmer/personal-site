@@ -129,6 +129,6 @@ export function convertToSystem(
   if (!target) return null;
 
   const targetEntry = CONVERSIONS[target.unit];
-  if (!targetEntry || targetEntry.dimension !== entry.dimension) return null;
+  if (targetEntry?.dimension !== entry.dimension) return null;
   return { amount: baseAmount / targetEntry.toBase, unit: target.unit };
 }

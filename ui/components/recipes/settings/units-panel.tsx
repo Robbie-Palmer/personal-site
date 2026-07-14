@@ -90,14 +90,14 @@ function ThresholdInput({
   max,
   suffix,
   onCommit,
-}: {
+}: Readonly<{
   label: string;
   value: number;
   min: number;
   max: number;
   suffix: string;
   onCommit: (value: number) => void;
-}) {
+}>) {
   const [draft, setDraft] = useState(String(Number(value.toFixed(1))));
 
   useEffect(() => {
@@ -138,11 +138,11 @@ function Ladder({
   dimension,
   preference,
   onChange,
-}: {
+}: Readonly<{
   dimension: MeasurementDimension;
   preference: UnitPreference;
   onChange: (preference: UnitPreference) => void;
-}) {
+}>) {
   const tiers = preference[dimension];
   const active = new Set(tiers.map((tier) => tier.unit));
 
@@ -220,6 +220,9 @@ function Ladder({
           const max = Number.isFinite(next?.upTo)
             ? Math.max(previous, (next?.upTo ?? 4000) - 1)
             : 4000;
+          let step = 25;
+          if (tier.upTo < 50) step = 1;
+          else if (tier.upTo < 500) step = 5;
           return (
             <div key={tier.unit}>
               <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
@@ -240,7 +243,7 @@ function Ladder({
                   type="range"
                   min={previous}
                   max={max}
-                  step={tier.upTo < 50 ? 1 : tier.upTo < 500 ? 5 : 25}
+                  step={step}
                   value={Math.min(max, Math.max(previous, tier.upTo))}
                   onChange={(event) =>
                     setThreshold(index, event.currentTarget.valueAsNumber)
@@ -392,9 +395,9 @@ export function UnitsPanel() {
         </aside>
       </div>
 
-      <p role="status" className="rt-mono mt-5 text-[var(--sage)]">
+      <output className="rt-mono mt-5 block text-[var(--sage)]">
         ● Changes save automatically on this device
-      </p>
+      </output>
     </div>
   );
 }
