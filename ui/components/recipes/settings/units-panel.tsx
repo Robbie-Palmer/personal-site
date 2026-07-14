@@ -363,11 +363,8 @@ export function UnitsPanel() {
           litres.
         </p>
         {undoPreference && (
-          <div
-            role="status"
-            className="rt-body mt-3 flex items-center gap-3 text-sm text-[var(--ink-2)]"
-          >
-            Custom ladder replaced.
+          <output className="rt-body mt-3 flex items-center gap-3 text-sm text-[var(--ink-2)]">
+            <span>Custom ladder replaced.</span>
             <button
               type="button"
               onClick={() => {
@@ -378,7 +375,7 @@ export function UnitsPanel() {
             >
               Undo
             </button>
-          </div>
+          </output>
         )}
       </div>
 
