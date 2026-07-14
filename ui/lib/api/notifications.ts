@@ -13,6 +13,13 @@ export type HouseholdNotification = {
   householdName: string;
   householdId: string | null;
   invitationId: string | null;
+  invitationStatus:
+    | "pending"
+    | "accepted"
+    | "declined"
+    | "expired"
+    | "unavailable"
+    | null;
   readAt: string | null;
   createdAt: string;
 };
@@ -49,6 +56,15 @@ export async function updateNotification(
 export async function markAllNotificationsRead() {
   await checked(
     await fetch("/api/notifications/read-all", {
+      method: "POST",
+      credentials: "same-origin",
+    }),
+  );
+}
+
+export async function clearAllNotifications() {
+  await checked(
+    await fetch("/api/notifications/clear-all", {
       method: "POST",
       credentials: "same-origin",
     }),

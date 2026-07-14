@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
+  clearAllNotifications,
   getNotifications,
   type HouseholdNotification,
   markAllNotificationsRead,
@@ -17,6 +18,18 @@ function copyFor(item: HouseholdNotification) {
   const actor = item.actorName ?? "Someone";
   switch (item.type) {
     case "household_invited":
+      if (item.invitationStatus === "accepted") {
+        return `You accepted ${actor}'s invitation to join ${item.householdName}.`;
+      }
+      if (item.invitationStatus === "declined") {
+        return `You declined ${actor}'s invitation to join ${item.householdName}.`;
+      }
+      if (item.invitationStatus === "expired") {
+        return `${actor}'s invitation to join ${item.householdName} expired.`;
+      }
+      if (item.invitationStatus === "unavailable") {
+        return `${actor}'s invitation to join ${item.householdName} is no longer available.`;
+      }
       return `${actor} invited you to join ${item.householdName}.`;
     case "household_removed":
       return `${actor} removed you from ${item.householdName}.`;
@@ -67,6 +80,9 @@ function NotificationRow({
   ) => void;
   onDismiss: (item: HouseholdNotification) => void;
 }>) {
+  const invitationStatus =
+    item.type === "household_invited" ? item.invitationStatus : null;
+
   return (
     <article
       className={`group flex gap-3 rounded-xl p-3 sm:p-4 ${item.readAt ? "" : "bg-[var(--butter)]/15"}`}
@@ -82,24 +98,33 @@ function NotificationRow({
         <p className="rt-body text-[0.95rem] text-[var(--ink-2)]">
           {copyFor(item)}
         </p>
-        {item.type === "household_invited" && item.invitationId && (
-          <div className="mt-2 flex gap-2">
-            <Button
-              size="sm"
-              disabled={acting}
-              onClick={() => onRespond(item, "accept")}
-            >
-              Accept
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={acting}
-              onClick={() => onRespond(item, "decline")}
-            >
-              Decline
-            </Button>
-          </div>
+        {item.type === "household_invited" &&
+          item.invitationId &&
+          invitationStatus === "pending" && (
+            <div className="mt-2 flex gap-2">
+              <Button
+                size="sm"
+                disabled={acting}
+                onClick={() => onRespond(item, "accept")}
+              >
+                Accept
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={acting}
+                onClick={() => onRespond(item, "decline")}
+              >
+                Decline
+              </Button>
+            </div>
+          )}
+        {invitationStatus && invitationStatus !== "pending" && (
+          <p className="rt-mono mt-2 capitalize text-[var(--ink-3)]">
+            {invitationStatus === "unavailable"
+              ? "No longer available"
+              : invitationStatus}
+          </p>
         )}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
@@ -163,6 +188,7 @@ export function NotificationsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -195,9 +221,21 @@ export function NotificationsView() {
     if (!item.invitationId) return;
     setActing(item.id);
     try {
+      setError(null);
       await respondToHouseholdInvitation(item.invitationId, response);
-      await updateNotification(item.id, { read: true, dismissed: true });
-      setItems((current) => current.filter(({ id }) => id !== item.id));
+      const readAt = new Date().toISOString();
+      setItems((current) =>
+        current.map((candidate) =>
+          candidate.id === item.id
+            ? {
+                ...candidate,
+                readAt: candidate.readAt ?? readAt,
+                invitationStatus:
+                  response === "accept" ? "accepted" : "declined",
+              }
+            : candidate,
+        ),
+      );
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -237,6 +275,23 @@ export function NotificationsView() {
           ? cause.message
           : "Couldn't mark notifications as read.",
       );
+    }
+  }
+
+  async function clearAll() {
+    setClearing(true);
+    try {
+      setError(null);
+      await clearAllNotifications();
+      setItems([]);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Couldn't clear notifications.",
+      );
+    } finally {
+      setClearing(false);
     }
   }
 
@@ -280,10 +335,22 @@ export function NotificationsView() {
             {unread} unread · household invitations and activity.
           </p>
         </div>
-        {unread > 0 && (
-          <Button variant="outline" size="sm" onClick={markAllRead}>
-            Mark all read
-          </Button>
+        {items.length > 0 && (
+          <div className="flex items-center gap-2">
+            {unread > 0 && (
+              <Button variant="outline" size="sm" onClick={markAllRead}>
+                Mark all read
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={clearing}
+              onClick={clearAll}
+            >
+              {clearing ? "Clearing…" : "Clear all"}
+            </Button>
+          </div>
         )}
       </div>
 

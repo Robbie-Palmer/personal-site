@@ -59,6 +59,12 @@ type NotificationType =
   | "household_invite_accepted"
   | "household_invite_declined"
   | "household_member_left";
+type InvitationNotificationStatus =
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "expired"
+  | "unavailable";
 type DbClient = ReturnType<typeof createDb>["client"];
 type Db = ReturnType<typeof createDb>["db"];
 type AuthSessionResult =
@@ -648,8 +654,33 @@ async function acceptPendingInvitation(
       })
       .returning();
     if (!member) throw new Error("Member insert failed");
+
+    await tx
+      .update(schema.notification)
+      .set({ readAt: mutationTime })
+      .where(
+        and(
+          eq(schema.notification.userId, userId),
+          eq(schema.notification.invitationId, invitation.id),
+        ),
+      );
     return member;
   });
+}
+
+function invitationNotificationStatus(
+  type: string,
+  status: string | null,
+  expiresAt: Date | null,
+): InvitationNotificationStatus | null {
+  if (type !== "household_invited") return null;
+  if (status === "accepted") return "accepted";
+  if (status === "rejected") return "declined";
+  if (status === "pending" && expiresAt && expiresAt.getTime() <= Date.now()) {
+    return "expired";
+  }
+  if (status === "pending") return "pending";
+  return "unavailable";
 }
 
 function invitationAcceptanceFailure(
@@ -1833,17 +1864,31 @@ app.post("/households/invitations/:invitationId/decline", async (c) => {
     }
 
     const mutationTime = new Date();
-    const [declined] = await db
-      .update(schema.invitation)
-      .set({ status: "rejected" })
-      .where(
-        and(
-          eq(schema.invitation.id, invitationId),
-          eq(schema.invitation.status, "pending"),
-          gt(schema.invitation.expiresAt, mutationTime),
-        ),
-      )
-      .returning();
+    const declined = await db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(schema.invitation)
+        .set({ status: "rejected" })
+        .where(
+          and(
+            eq(schema.invitation.id, invitationId),
+            eq(schema.invitation.status, "pending"),
+            gt(schema.invitation.expiresAt, mutationTime),
+          ),
+        )
+        .returning();
+      if (!updated) return undefined;
+
+      await tx
+        .update(schema.notification)
+        .set({ readAt: mutationTime })
+        .where(
+          and(
+            eq(schema.notification.userId, session.session.user.id),
+            eq(schema.notification.invitationId, invitationId),
+          ),
+        );
+      return updated;
+    });
 
     if (!declined) {
       return invitation.expiresAt <= mutationTime
@@ -2152,8 +2197,23 @@ app.get("/notifications", async (c) => {
     const session = await requireRecipeSession(c, db);
     if (!session.success) return session.response;
     const notifications = await db
-      .select()
+      .select({
+        id: schema.notification.id,
+        type: schema.notification.type,
+        actorName: schema.notification.actorName,
+        householdName: schema.notification.householdName,
+        householdId: schema.notification.householdId,
+        invitationId: schema.notification.invitationId,
+        readAt: schema.notification.readAt,
+        createdAt: schema.notification.createdAt,
+        invitationStatus: schema.invitation.status,
+        invitationExpiresAt: schema.invitation.expiresAt,
+      })
       .from(schema.notification)
+      .leftJoin(
+        schema.invitation,
+        eq(schema.notification.invitationId, schema.invitation.id),
+      )
       .where(
         and(
           eq(schema.notification.userId, session.session.user.id),
@@ -2162,7 +2222,16 @@ app.get("/notifications", async (c) => {
       )
       .orderBy(desc(schema.notification.createdAt))
       .limit(100);
-    return c.json(notifications.map(({ userId: _userId, dismissedAt: _dismissedAt, ...n }) => n));
+    return c.json(
+      notifications.map(({ invitationExpiresAt, invitationStatus, ...notification }) => ({
+        ...notification,
+        invitationStatus: invitationNotificationStatus(
+          notification.type,
+          invitationStatus,
+          invitationExpiresAt,
+        ),
+      })),
+    );
   } catch (e) {
     console.error("GET /notifications failed", e);
     return c.json({ error: "Database query failed" }, 502);
@@ -2201,6 +2270,37 @@ app.post("/notifications/read-all", async (c) => {
   }
 });
 
+app.post("/notifications/clear-all", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) return c.json({ error: "No database connection configured" }, 503);
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
+    const clearedAt = new Date();
+    await db
+      .update(schema.notification)
+      .set({ readAt: clearedAt, dismissedAt: clearedAt })
+      .where(
+        and(
+          eq(schema.notification.userId, session.session.user.id),
+          isNull(schema.notification.dismissedAt),
+        ),
+      );
+    return c.body(null, 204);
+  } catch (e) {
+    console.error("POST /notifications/clear-all failed", e);
+    return c.json({ error: "Database mutation failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
 app.patch("/notifications/:notificationId", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
@@ -2218,12 +2318,16 @@ app.patch("/notifications/:notificationId", async (c) => {
       z.object({ read: z.boolean().optional(), dismissed: z.boolean().optional() }).strict(),
     );
     if (!body.success) return body.response;
+    const mutationTime = new Date();
     await db
       .update(schema.notification)
       .set({
-        ...(body.data.read !== undefined ? { readAt: body.data.read ? new Date() : null } : {}),
+        ...(body.data.read !== undefined
+          ? { readAt: body.data.read ? mutationTime : null }
+          : {}),
+        ...(body.data.dismissed ? { readAt: mutationTime } : {}),
         ...(body.data.dismissed !== undefined
-          ? { dismissedAt: body.data.dismissed ? new Date() : null }
+          ? { dismissedAt: body.data.dismissed ? mutationTime : null }
           : {}),
       })
       .where(
