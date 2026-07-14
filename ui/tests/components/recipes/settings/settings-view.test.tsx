@@ -265,6 +265,33 @@ describe("SettingsView", () => {
     });
   });
 
+  it("uses one keyboard-accessible ruler for each measurement ladder", async () => {
+    const user = userEvent.setup();
+    const { container } = renderSettingsView();
+
+    await user.click(
+      screen.getByRole("button", { name: /units & measurements/i }),
+    );
+    await user.click(screen.getByRole("button", { name: "US" }));
+
+    expect(container.querySelectorAll("[data-threshold-ruler]")).toHaveLength(
+      2,
+    );
+    expect(container.querySelector('input[type="range"]')).toBeNull();
+
+    const weightDivider = screen.getByRole("slider", {
+      name: /oz hands off to lbs/i,
+    });
+    fireEvent.keyDown(weightDivider, { key: "ArrowRight" });
+
+    expect(
+      JSON.parse(localStorage.getItem(UNIT_PREFERENCE_STORAGE_KEY) ?? "{}"),
+    ).toMatchObject({
+      preset: "custom",
+      weight: [{ unit: "oz", upTo: 458.592 }, { unit: "lb" }],
+    });
+  });
+
   it("offers household creation when the user has no household", async () => {
     const user = userEvent.setup();
     renderSettingsView();

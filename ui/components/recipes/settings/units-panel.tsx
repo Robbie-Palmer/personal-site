@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, RotateCcw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useUnitPreference } from "@/hooks/use-unit-preference";
 import {
   convertToSystem,
@@ -60,6 +60,21 @@ const DEFAULT_THRESHOLD: Partial<Record<Unit, number>> = {
 };
 
 const MAX_THRESHOLD = 10_000;
+const MIN_THRESHOLD = 2;
+const BAND_COLORS = [
+  "rgba(200, 105, 60, 0.18)",
+  "rgba(143, 166, 119, 0.22)",
+  "rgba(184, 138, 74, 0.20)",
+  "rgba(150, 110, 140, 0.18)",
+  "rgba(120, 150, 170, 0.18)",
+];
+const BAND_INK = [
+  "var(--terracotta-deep)",
+  "var(--sage)",
+  "#9a6b33",
+  "#7c5a78",
+  "#4f6e84",
+];
 
 const SAMPLE: { name: string; amount: number; unit: Unit }[] = [
   { name: "baking powder", amount: 5, unit: "ml" },
@@ -97,6 +112,7 @@ function normalizeTiers(tiers: UnitTier[]): UnitTier[] {
 }
 
 function ThresholdInput({
+  id,
   label,
   value,
   min,
@@ -104,6 +120,7 @@ function ThresholdInput({
   suffix,
   onCommit,
 }: Readonly<{
+  id: string;
   label: string;
   value: number;
   min: number;
@@ -129,6 +146,7 @@ function ThresholdInput({
   return (
     <div className="flex items-center rounded-lg border border-[var(--line-strong)] bg-[var(--paper-warm)] px-2">
       <input
+        id={id}
         aria-label={label}
         type="number"
         min={min}
@@ -143,6 +161,156 @@ function ThresholdInput({
         className="rt-mono min-w-0 flex-1 bg-transparent py-1.5 outline-none"
       />
       <span className="rt-mono text-[var(--ink-3)]">{suffix}</span>
+    </div>
+  );
+}
+
+function thresholdPosition(value: number): number {
+  const lower = Math.log10(MIN_THRESHOLD);
+  const upper = Math.log10(MAX_THRESHOLD);
+  const clamped = Math.min(MAX_THRESHOLD, Math.max(MIN_THRESHOLD, value));
+  return ((Math.log10(clamped) - lower) / (upper - lower)) * 100;
+}
+
+function tidyThreshold(value: number): number {
+  if (value < 50) return Math.round(value);
+  if (value < 500) return Math.round(value / 5) * 5;
+  return Math.round(value / 25) * 25;
+}
+
+function dividerBounds(
+  tiers: UnitTier[],
+  index: number,
+): { min: number; max: number } {
+  const previous =
+    index === 0
+      ? MIN_THRESHOLD
+      : Math.min(MAX_THRESHOLD - 1, (tiers[index - 1]?.upTo ?? 1) + 1);
+  const next = tiers[index + 1];
+  const max = Number.isFinite(next?.upTo)
+    ? Math.max(previous, (next?.upTo ?? MAX_THRESHOLD) - 1)
+    : MAX_THRESHOLD;
+  return { min: previous, max };
+}
+
+function ThresholdRuler({
+  dimension,
+  tiers,
+  onChange,
+}: Readonly<{
+  dimension: MeasurementDimension;
+  tiers: UnitTier[];
+  onChange: (index: number, value: number) => void;
+}>) {
+  const barRef = useRef<HTMLDivElement>(null);
+
+  const updateFromPointer = (index: number, clientX: number) => {
+    const bounds = barRef.current?.getBoundingClientRect();
+    if (!bounds || bounds.width === 0) return;
+    const ratio = Math.min(
+      1,
+      Math.max(0, (clientX - bounds.left) / bounds.width),
+    );
+    const lower = Math.log10(MIN_THRESHOLD);
+    const upper = Math.log10(MAX_THRESHOLD);
+    const raw = 10 ** (lower + ratio * (upper - lower));
+    const { min, max } = dividerBounds(tiers, index);
+    onChange(index, Math.min(max, Math.max(min, tidyThreshold(raw))));
+  };
+
+  return (
+    <div>
+      <div
+        ref={barRef}
+        data-threshold-ruler={dimension}
+        className="relative h-14 touch-none select-none overflow-hidden rounded-xl border border-[var(--line-strong)] bg-[var(--paper-warm)]"
+      >
+        {tiers.map((tier, index) => {
+          const lower =
+            index === 0 ? MIN_THRESHOLD : (tiers[index - 1]?.upTo ?? 1);
+          const upper = Number.isFinite(tier.upTo) ? tier.upTo : MAX_THRESHOLD;
+          const left = thresholdPosition(lower);
+          const width = thresholdPosition(upper) - left;
+          return (
+            <div
+              key={tier.unit}
+              className="absolute inset-y-0 flex items-center justify-center"
+              style={{
+                left: `${left}%`,
+                width: `${width}%`,
+                background: BAND_COLORS[index % BAND_COLORS.length],
+                color: BAND_INK[index % BAND_INK.length],
+              }}
+            >
+              <span className="rt-display truncate px-1 text-lg font-bold">
+                {shortLabel(tier.unit)}
+              </span>
+            </div>
+          );
+        })}
+        {tiers.slice(0, -1).map((tier, index) => {
+          const next = tiers[index + 1];
+          const { min, max } = dividerBounds(tiers, index);
+          const label = `${shortLabel(tier.unit)} hands off to ${next ? shortLabel(next.unit) : "the next unit"}`;
+          return (
+            <button
+              key={`${tier.unit}-divider`}
+              type="button"
+              role="slider"
+              aria-label={label}
+              aria-valuemin={min}
+              aria-valuemax={max}
+              aria-valuenow={tier.upTo}
+              aria-valuetext={thresholdLabel(tier.upTo, dimension)}
+              onPointerDown={(event) => {
+                event.currentTarget.setPointerCapture(event.pointerId);
+              }}
+              onPointerMove={(event) => {
+                if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                  updateFromPointer(index, event.clientX);
+                }
+              }}
+              onKeyDown={(event) => {
+                const step = tier.upTo < 50 ? 1 : tier.upTo < 500 ? 5 : 25;
+                let nextValue: number | null = null;
+                if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+                  nextValue = tier.upTo - step;
+                } else if (
+                  event.key === "ArrowRight" ||
+                  event.key === "ArrowUp"
+                ) {
+                  nextValue = tier.upTo + step;
+                } else if (event.key === "Home") {
+                  nextValue = min;
+                } else if (event.key === "End") {
+                  nextValue = max;
+                }
+                if (nextValue == null) return;
+                event.preventDefault();
+                onChange(index, Math.min(max, Math.max(min, nextValue)));
+              }}
+              className="absolute inset-y-0 z-10 w-5 -translate-x-1/2 cursor-ew-resize touch-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terracotta)] focus-visible:ring-offset-2"
+              style={{ left: `${thresholdPosition(tier.upTo)}%` }}
+            >
+              <span className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-[var(--ink)]" />
+              <span className="absolute top-1/2 left-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--card)] bg-[var(--ink)]" />
+            </button>
+          );
+        })}
+      </div>
+      <div className="rt-mono mt-2 flex items-start justify-between gap-3 text-[var(--ink-4)]">
+        <span>{thresholdLabel(MIN_THRESHOLD, dimension)}</span>
+        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-center text-[var(--terracotta)]">
+          {tiers.slice(0, -1).map((tier, index) => (
+            <span key={`${tier.unit}-label`}>
+              {shortLabel(tier.unit)}→
+              {shortLabel(tiers[index + 1]?.unit ?? tier.unit)} at{" "}
+              {thresholdLabel(tier.upTo, dimension)}
+            </span>
+          ))}
+        </div>
+        <span>{thresholdLabel(MAX_THRESHOLD, dimension)}</span>
+      </div>
     </div>
   );
 }
@@ -227,18 +395,20 @@ function Ladder({
       </div>
 
       <div className="space-y-4">
+        <ThresholdRuler
+          dimension={dimension}
+          tiers={tiers}
+          onChange={setThreshold}
+        />
         {tiers.slice(0, -1).map((tier, index) => {
-          const previous = index === 0 ? 1 : (tiers[index - 1]?.upTo ?? 1) + 1;
+          const { min, max } = dividerBounds(tiers, index);
           const next = tiers[index + 1];
-          const max = Number.isFinite(next?.upTo)
-            ? Math.max(previous, (next?.upTo ?? MAX_THRESHOLD) - 1)
-            : MAX_THRESHOLD;
-          let step = 25;
-          if (tier.upTo < 50) step = 1;
-          else if (tier.upTo < 500) step = 5;
           return (
-            <div key={tier.unit}>
-              <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
+            <div
+              key={tier.unit}
+              className="grid items-center gap-2 sm:grid-cols-[minmax(0,1fr)_7rem]"
+            >
+              <div className="flex items-center justify-between gap-3 text-sm">
                 <label
                   htmlFor={`${dimension}-${tier.unit}-threshold`}
                   className="rt-body text-[var(--ink-2)]"
@@ -250,28 +420,15 @@ function Ladder({
                   at {thresholdLabel(tier.upTo, dimension)}
                 </span>
               </div>
-              <div className="grid grid-cols-[1fr_5.5rem] items-center gap-3">
-                <input
-                  id={`${dimension}-${tier.unit}-threshold`}
-                  type="range"
-                  min={previous}
-                  max={max}
-                  step={step}
-                  value={Math.min(max, Math.max(previous, tier.upTo))}
-                  onChange={(event) =>
-                    setThreshold(index, event.currentTarget.valueAsNumber)
-                  }
-                  className="accent-[var(--terracotta)]"
-                />
-                <ThresholdInput
-                  label={`${shortLabel(tier.unit)} upper threshold in ${dimension === "weight" ? "grams" : "millilitres"}`}
-                  value={tier.upTo}
-                  min={previous}
-                  max={max}
-                  suffix={dimension === "weight" ? "g" : "ml"}
-                  onCommit={(value) => setThreshold(index, value)}
-                />
-              </div>
+              <ThresholdInput
+                id={`${dimension}-${tier.unit}-threshold`}
+                label={`${shortLabel(tier.unit)} upper threshold in ${dimension === "weight" ? "grams" : "millilitres"}`}
+                value={tier.upTo}
+                min={min}
+                max={max}
+                suffix={dimension === "weight" ? "g" : "ml"}
+                onCommit={(value) => setThreshold(index, value)}
+              />
             </div>
           );
         })}

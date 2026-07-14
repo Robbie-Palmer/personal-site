@@ -16,6 +16,7 @@ import type {
 import {
   convertToSystem,
   type MeasurementPreference,
+  normalizeUnitToken,
   UNIT_LABELS,
 } from "@/lib/domain/recipe/unit";
 import { normalizeSlug } from "@/lib/generic/slugs";
@@ -151,6 +152,21 @@ function formatAmount(
   return parts.join(" ");
 }
 
+/** Convert a note that consists solely of a measurement, leaving prose alone. */
+function formatMeasurementNote(
+  note: string,
+  system: MeasurementPreference,
+): string {
+  const match = note.trim().match(/^(\d+(?:\.\d+)?)\s*(.+)$/);
+  if (!match) return note;
+  const amount = Number(match[1]);
+  const unit = normalizeUnitToken(match[2]);
+  if (!Number.isFinite(amount) || !unit) return note;
+  const converted = convertToSystem(amount, unit, system);
+  if (!converted) return note;
+  return formatAmount({ amount, unit }, 1, system);
+}
+
 function hasRenderedUnitLabel(
   item: Pick<RecipeIngredientView, "amount" | "unit">,
   scale: number,
@@ -216,7 +232,7 @@ export function formatIngredient(
   }
 
   if (effectiveNote) {
-    parts.push(`– ${effectiveNote}`);
+    parts.push(`– ${formatMeasurementNote(effectiveNote, system)}`);
   }
 
   return parts.join(" ");
