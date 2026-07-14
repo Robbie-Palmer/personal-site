@@ -192,6 +192,17 @@ describe("AuthButton", () => {
     );
   });
 
+  it("can hide header auth text on narrow mobile screens", () => {
+    render(<AuthButton intent="signup" compactOnMobile />);
+
+    const trigger = screen.getByRole("button", { name: "Sign up" });
+    expect(trigger).toHaveAccessibleName("Sign up");
+    expect(screen.getByText("Sign up")).toHaveClass(
+      "hidden",
+      "min-[480px]:inline",
+    );
+  });
+
   it("disables sign-in on a frontend-only preview", async () => {
     const user = userEvent.setup();
     mocks.isPreviewDeployment.mockReturnValue(true);

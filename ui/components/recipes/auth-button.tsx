@@ -136,11 +136,16 @@ function AuthOptions({
 }
 
 export function AuthButton({
+  compactOnMobile = false,
   intent = "signin",
-}: Readonly<{ intent?: "signin" | "signup" }>) {
+}: Readonly<{
+  compactOnMobile?: boolean;
+  intent?: "signin" | "signup";
+}>) {
   const previewBackendDisabled =
     process.env.NEXT_PUBLIC_PREVIEW_BACKEND === "false";
   const { data: session, isPending } = authClient.useSession();
+  const triggerLabel = intent === "signup" ? "Sign up" : "Log in";
   const [open, setOpen] = useState(false);
   const [pendingSignIn, setPendingSignIn] = useState<string | null>(null);
   const [isPreview, setIsPreview] = useState(false);
@@ -369,6 +374,7 @@ export function AuthButton({
         <Button
           variant={intent === "signup" ? "default" : "outline"}
           size="sm"
+          aria-label={compactOnMobile ? triggerLabel : undefined}
           aria-expanded={open}
           className={cn(
             intent === "signup" &&
@@ -376,10 +382,20 @@ export function AuthButton({
           )}
         >
           {intent === "signup" ? <UserPlus /> : <LogIn />}
-          <span className="min-w-0 truncate">
-            {intent === "signup" ? "Sign up" : "Log in"}
+          <span
+            className={cn(
+              "min-w-0 truncate",
+              compactOnMobile && "hidden min-[480px]:inline",
+            )}
+          >
+            {triggerLabel}
           </span>
-          <ChevronDown className="size-3.5 shrink-0 opacity-60" />
+          <ChevronDown
+            className={cn(
+              "size-3.5 shrink-0 opacity-60",
+              compactOnMobile && "hidden min-[480px]:block",
+            )}
+          />
         </Button>
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
