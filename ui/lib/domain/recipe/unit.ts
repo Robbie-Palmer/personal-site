@@ -5,10 +5,18 @@ export {
   UNIT_LABELS,
   UnitSchema,
 } from "recipe-domain";
-export type { MeasurementSystem } from "recipe-domain/conversion";
+export type {
+  MeasurementDimension,
+  MeasurementPreference,
+  MeasurementPreset,
+  MeasurementSystem,
+  UnitPreference,
+  UnitTier,
+} from "recipe-domain/conversion";
 export {
   convertToSystem,
   convertUnit,
   getUnitDimension,
   MEASUREMENT_SYSTEM_LABELS,
+  preferenceForSystem,
 } from "recipe-domain/conversion";

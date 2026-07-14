@@ -38,7 +38,8 @@ import type {
 } from "@/lib/domain/recipe/recipeViews";
 import {
   MEASUREMENT_SYSTEM_LABELS,
-  type MeasurementSystem,
+  type MeasurementPreference,
+  preferenceForSystem,
 } from "@/lib/domain/recipe/unit";
 
 function formatTime(minutes: number): string {
@@ -58,7 +59,7 @@ function IngredientGroup({
 }: {
   group: IngredientGroupView;
   scale: number;
-  system: MeasurementSystem;
+  system: MeasurementPreference;
   annotations: Map<string, IngredientAnnotation>;
   checked: Set<string>;
   onToggle: (ingredient: string) => void;
@@ -152,7 +153,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
     isScaling,
     error: scalingError,
   } = useScaledRecipe(recipe, requestedScale);
-  const [unitSystem, setUnitSystem] = useUnitPreference();
+  const [unitPreference, setUnitPreference] = useUnitPreference();
 
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(
     () => new Set(),
@@ -364,14 +365,14 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setUnitSystem(s)}
+                  onClick={() => setUnitPreference(preferenceForSystem(s))}
                   className={[
                     "px-2 py-0.5 text-xs font-medium transition-colors first:rounded-l last:rounded-r",
-                    unitSystem === s
+                    unitPreference.preset === s
                       ? "bg-foreground text-background"
                       : "text-muted-foreground hover:text-foreground",
                   ].join(" ")}
-                  aria-pressed={unitSystem === s}
+                  aria-pressed={unitPreference.preset === s}
                 >
                   {MEASUREMENT_SYSTEM_LABELS[s]}
                 </button>
@@ -459,7 +460,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                 <IngredientGroup
                   group={group}
                   scale={scale}
-                  system={unitSystem}
+                  system={unitPreference}
                   annotations={ingredientAnnotations}
                   checked={checkedIngredients}
                   onToggle={toggleIngredient}
@@ -529,7 +530,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                             formatInstructionIngredientToken(
                               token,
                               scale,
-                              unitSystem,
+                              unitPreference,
                             )
                           ) : (
                             token.value
@@ -558,7 +559,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
             ingredientGroups={effectiveRecipe.ingredientGroups}
             annotations={ingredientAnnotations}
             scale={scale}
-            system={unitSystem}
+            system={unitPreference}
             step={cookStep}
             onStepChange={changeCookStep}
             onExit={exitCookMode}

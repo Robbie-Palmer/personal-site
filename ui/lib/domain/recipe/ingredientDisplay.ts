@@ -15,7 +15,7 @@ import type {
 } from "@/lib/domain/recipe/recipeViews";
 import {
   convertToSystem,
-  type MeasurementSystem,
+  type MeasurementPreference,
   UNIT_LABELS,
 } from "@/lib/domain/recipe/unit";
 import { normalizeSlug } from "@/lib/generic/slugs";
@@ -103,7 +103,7 @@ const SINGULAR_EPSILON = 1e-9;
 function resolveDisplay(
   item: Pick<RecipeIngredientView, "amount" | "unit">,
   scale: number,
-  system: MeasurementSystem,
+  system: MeasurementPreference,
 ): { amount: number | undefined; unit: RecipeIngredientView["unit"] } {
   const scaledAmount = item.amount == null ? undefined : item.amount * scale;
   if (scaledAmount != null && item.unit) {
@@ -130,7 +130,7 @@ function unitLabelFor(
 function formatAmount(
   item: Pick<RecipeIngredientView, "amount" | "unit">,
   scale: number,
-  system: MeasurementSystem,
+  system: MeasurementPreference,
 ): string {
   const { amount, unit } = resolveDisplay(item, scale, system);
   const parts: string[] = [];
@@ -154,7 +154,7 @@ function formatAmount(
 function hasRenderedUnitLabel(
   item: Pick<RecipeIngredientView, "amount" | "unit">,
   scale: number,
-  system: MeasurementSystem,
+  system: MeasurementPreference,
 ): boolean {
   const { amount, unit } = resolveDisplay(item, scale, system);
   if (!unit || unit === "piece") return false;
@@ -168,7 +168,7 @@ function hasRenderedUnitLabel(
 function amountText(
   item: Pick<RecipeIngredientView, "amount" | "unit">,
   scale: number,
-  system: MeasurementSystem,
+  system: MeasurementPreference,
 ): string {
   if (item.unit !== "piece") {
     return formatAmount(item, scale, system);
@@ -185,7 +185,7 @@ function amountText(
 export function formatIngredientAmount(
   item: Pick<RecipeIngredientView, "amount" | "unit">,
   scale: number,
-  system: MeasurementSystem,
+  system: MeasurementPreference,
 ): string {
   return amountText(item, scale, system);
 }
@@ -193,7 +193,7 @@ export function formatIngredientAmount(
 export function formatIngredient(
   item: RecipeIngredientView,
   scale: number,
-  system: MeasurementSystem,
+  system: MeasurementPreference,
   annotation?: IngredientAnnotation,
 ): string {
   const amount = amountText(item, scale, system);
@@ -225,7 +225,7 @@ export function formatIngredient(
 export function formatInstructionIngredientToken(
   token: Extract<InstructionDisplayToken, { type: "ingredient" }>,
   scale: number,
-  system: MeasurementSystem,
+  system: MeasurementPreference,
 ): string {
   const item = {
     ingredient: token.canonicalName,

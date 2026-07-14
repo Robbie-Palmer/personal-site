@@ -1,6 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  resetUnitPreferenceServerSnapshot,
+  UNIT_PREFERENCE_STORAGE_KEY,
+} from "@/hooks/use-unit-preference";
 
 const mocks = vi.hoisted(() => ({
   useSession: vi.fn(),
@@ -41,6 +45,8 @@ const signedIn = {
 describe("SettingsView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+    resetUnitPreferenceServerSnapshot();
     window.history.replaceState({}, "", "/recipes/settings");
     mocks.useSession.mockReturnValue(signedIn);
     mocks.updateUser.mockResolvedValue({ data: null, error: null });
@@ -117,6 +123,36 @@ describe("SettingsView", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /github/i })).toBeInTheDocument();
     expect(screen.getByText("this device")).toBeInTheDocument();
+  });
+
+  it("saves a custom units ladder from the units settings panel", async () => {
+    const user = userEvent.setup();
+    renderSettingsView();
+
+    await user.click(
+      screen.getByRole("button", { name: /units & measurements/i }),
+    );
+    await user.click(screen.getByRole("button", { name: "US" }));
+
+    expect(screen.getByRole("button", { name: "US" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(
+      JSON.parse(localStorage.getItem(UNIT_PREFERENCE_STORAGE_KEY) ?? "{}"),
+    ).toMatchObject({ preset: "us" });
+
+    const threshold = screen.getByRole("spinbutton", {
+      name: /oz upper threshold in grams/i,
+    });
+    fireEvent.change(threshold, { target: { value: "500" } });
+
+    expect(
+      JSON.parse(localStorage.getItem(UNIT_PREFERENCE_STORAGE_KEY) ?? "{}"),
+    ).toMatchObject({
+      preset: "custom",
+      weight: [{ unit: "oz", upTo: 500 }, { unit: "lb" }],
+    });
   });
 
   it("opens on the security panel and surfaces a link error from the URL", async () => {

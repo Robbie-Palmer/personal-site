@@ -19,7 +19,7 @@ import { useKitchenStock } from "@/hooks/use-kitchen-stock";
 import { useShoppingList } from "@/hooks/use-shopping-list";
 import { useUnitPreference } from "@/hooks/use-unit-preference";
 import type { ShoppingRecipe } from "@/lib/api/shopping";
-import type { MeasurementSystem } from "@/lib/domain/recipe";
+import type { MeasurementPreference } from "@/lib/domain/recipe";
 import type { KitchenLocation } from "@/lib/domain/recipe/kitchen";
 import {
   aggregateShoppingList,
@@ -106,7 +106,7 @@ function KitchenItemRow({
   checked,
 }: Readonly<{
   line: ShoppingLine;
-  system: MeasurementSystem;
+  system: MeasurementPreference;
   location: KitchenLocation;
   checked: boolean;
 }>) {
@@ -157,7 +157,7 @@ function ItemRow({
   showRecipes,
 }: {
   line: ShoppingLine;
-  system: MeasurementSystem;
+  system: MeasurementPreference;
   checked: boolean;
   kitchenLocation?: KitchenLocation;
   showRecipes: boolean;
