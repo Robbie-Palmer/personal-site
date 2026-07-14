@@ -35,15 +35,104 @@ function authPrompt(
   intent: "signin" | "signup",
 ): string {
   if (isPreview) {
-    return previewBackendDisabled
-      ? "Sign-in unavailable"
-      : intent === "signup"
-        ? "Start a fresh preview account"
-        : "Choose a preview scenario";
+    if (previewBackendDisabled) return "Sign-in unavailable";
+    if (intent === "signup") return "Start a fresh preview account";
+    return "Choose a preview scenario";
   }
   return intent === "signup"
     ? "Create your recipe box"
     : "Log in to your recipes";
+}
+
+type AuthOptionsProps = {
+  isPreview: boolean;
+  intent: "signin" | "signup";
+  pendingSignIn: string | null;
+  previewScenarios: PreviewScenario[] | null;
+  lastUsedProvider: Provider | null;
+  previewSignUp: () => Promise<void>;
+  previewSignIn: (scenario: PreviewScenario) => Promise<void>;
+  signIn: (provider: Provider) => Promise<void>;
+};
+
+function AuthOptions({
+  isPreview,
+  intent,
+  pendingSignIn,
+  previewScenarios,
+  lastUsedProvider,
+  previewSignUp,
+  previewSignIn,
+  signIn,
+}: Readonly<AuthOptionsProps>) {
+  if (isPreview && intent === "signup") {
+    return (
+      <Button
+        variant="ghost"
+        className="h-auto w-full justify-start py-2"
+        disabled={pendingSignIn !== null}
+        onClick={previewSignUp}
+      >
+        {pendingSignIn === "fresh-signup" ? (
+          <LoaderCircle className="animate-spin" />
+        ) : (
+          <FlaskConical />
+        )}
+        <span className="min-w-0 text-left">
+          <span className="block">Start fresh</span>
+          <span className="block whitespace-normal text-xs font-normal text-muted-foreground">
+            Create a new empty QA account
+          </span>
+        </span>
+      </Button>
+    );
+  }
+
+  if (isPreview) {
+    return previewScenarios?.map((scenario) => (
+      <Button
+        key={scenario.id}
+        variant="ghost"
+        className="h-auto w-full justify-start py-2"
+        disabled={pendingSignIn !== null}
+        onClick={() => previewSignIn(scenario)}
+      >
+        {pendingSignIn === scenario.id ? (
+          <LoaderCircle className="animate-spin" />
+        ) : (
+          <FlaskConical />
+        )}
+        <span className="min-w-0 text-left">
+          <span className="block">{scenario.name}</span>
+          <span className="block truncate text-xs font-normal text-muted-foreground">
+            {scenario.description}
+          </span>
+        </span>
+      </Button>
+    ));
+  }
+
+  return providers.map((provider) => (
+    <Button
+      key={provider.id}
+      variant="ghost"
+      className="w-full justify-start"
+      disabled={pendingSignIn !== null}
+      onClick={() => signIn(provider.id)}
+    >
+      {pendingSignIn === provider.id ? (
+        <LoaderCircle className="animate-spin" />
+      ) : (
+        <ProviderIcon path={provider.iconPath} />
+      )}
+      Continue with {provider.name}
+      {lastUsedProvider === provider.id && (
+        <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
+          Last used
+        </span>
+      )}
+    </Button>
+  ));
 }
 
 export function AuthButton({
@@ -304,72 +393,16 @@ export function AuthButton({
             {authPrompt(isPreview, previewBackendDisabled, intent)}
           </p>
           <div className="flex flex-col gap-1">
-            {isPreview ? (
-              intent === "signup" ? (
-                <Button
-                  variant="ghost"
-                  className="h-auto w-full justify-start py-2"
-                  disabled={pendingSignIn !== null}
-                  onClick={previewSignUp}
-                >
-                  {pendingSignIn === "fresh-signup" ? (
-                    <LoaderCircle className="animate-spin" />
-                  ) : (
-                    <FlaskConical />
-                  )}
-                  <span className="min-w-0 text-left">
-                    <span className="block">Start fresh</span>
-                    <span className="block whitespace-normal text-xs font-normal text-muted-foreground">
-                      Create a new empty QA account
-                    </span>
-                  </span>
-                </Button>
-              ) : (
-                previewScenarios?.map((scenario) => (
-                  <Button
-                    key={scenario.id}
-                    variant="ghost"
-                    className="h-auto w-full justify-start py-2"
-                    disabled={pendingSignIn !== null}
-                    onClick={() => previewSignIn(scenario)}
-                  >
-                    {pendingSignIn === scenario.id ? (
-                      <LoaderCircle className="animate-spin" />
-                    ) : (
-                      <FlaskConical />
-                    )}
-                    <span className="min-w-0 text-left">
-                      <span className="block">{scenario.name}</span>
-                      <span className="block truncate text-xs font-normal text-muted-foreground">
-                        {scenario.description}
-                      </span>
-                    </span>
-                  </Button>
-                ))
-              )
-            ) : (
-              providers.map((provider) => (
-                <Button
-                  key={provider.id}
-                  variant="ghost"
-                  className="w-full justify-start"
-                  disabled={pendingSignIn !== null}
-                  onClick={() => signIn(provider.id)}
-                >
-                  {pendingSignIn === provider.id ? (
-                    <LoaderCircle className="animate-spin" />
-                  ) : (
-                    <ProviderIcon path={provider.iconPath} />
-                  )}
-                  Continue with {provider.name}
-                  {lastUsedProvider === provider.id && (
-                    <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
-                      Last used
-                    </span>
-                  )}
-                </Button>
-              ))
-            )}
+            <AuthOptions
+              isPreview={isPreview}
+              intent={intent}
+              pendingSignIn={pendingSignIn}
+              previewScenarios={previewScenarios}
+              lastUsedProvider={lastUsedProvider}
+              previewSignUp={previewSignUp}
+              previewSignIn={previewSignIn}
+              signIn={signIn}
+            />
             {isPreview &&
               intent === "signin" &&
               previewScenarios === null &&
