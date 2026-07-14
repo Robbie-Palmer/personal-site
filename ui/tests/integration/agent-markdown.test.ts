@@ -53,6 +53,7 @@ describe("agent markdown generation", () => {
     const nonContentPages = new Set([
       "recipes/add.html",
       "recipes/kitchen.html",
+      "recipes/notifications.html",
       "recipes/saved.html",
       "recipes/settings.html",
       "recipes/shopping.html",
@@ -77,11 +78,13 @@ describe("agent markdown generation", () => {
   });
 
   it("keeps authenticated app pages out of agent markdown outputs", () => {
-    expect(fs.existsSync(path.join(OUT_DIR, "recipes", "settings.md"))).toBe(
-      false,
-    );
-    expect(read("llms.txt")).not.toContain("/recipes/settings");
-    expect(read("llms-full.txt")).not.toContain("/recipes/settings");
+    for (const page of ["notifications", "settings"]) {
+      expect(fs.existsSync(path.join(OUT_DIR, "recipes", `${page}.md`))).toBe(
+        false,
+      );
+      expect(read("llms.txt")).not.toContain(`/recipes/${page}`);
+      expect(read("llms-full.txt")).not.toContain(`/recipes/${page}`);
+    }
   });
 
   it("renders recipe ingredients and instructions as markdown", () => {
@@ -98,6 +101,7 @@ describe("agent markdown generation", () => {
     const nonRecipePages = new Set([
       "add.html",
       "kitchen.html",
+      "notifications.html",
       "saved.html",
       "settings.html",
       "shopping.html",
