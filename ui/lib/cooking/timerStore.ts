@@ -239,14 +239,10 @@ export function startTimer(input: StartTimerInput): void {
 
 let customTimerSeq = 0;
 
-/**
- * Start an ad-hoc timer the user typed in themselves (not parsed from a
- * recipe). A fresh id is minted each call so repeated "add timer" taps stack
- * rather than replacing one another, and it's returned for the caller to track.
- * The fallback uses a monotonic counter (not Math.random) so ids stay unique
- * even for rapid taps in the same millisecond.
- */
+/** Start an ad-hoc timer under a freshly minted id, which is returned. */
 export function startCustomTimer(input: CustomTimerInput): string {
+  // Monotonic counter (not Math.random) so the fallback stays collision-free
+  // for rapid taps within the same millisecond.
   customTimerSeq += 1;
   const unique =
     globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${customTimerSeq}`;

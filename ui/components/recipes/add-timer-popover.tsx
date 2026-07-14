@@ -12,7 +12,6 @@ import {
 import { startCustomTimer } from "@/lib/cooking/timerStore";
 import { cn } from "@/lib/generic/styles";
 
-/** Minute presets for the one-tap chips — the common "package instructions" spans. */
 const QUICK_MINUTES = [1, 3, 5, 10, 15] as const;
 
 function clampInt(value: string, max: number): number {
@@ -21,17 +20,6 @@ function clampInt(value: string, max: number): number {
   return Math.min(parsed, max);
 }
 
-/**
- * A tap-to-open popover for starting an ad-hoc timer the user types in
- * themselves — for the many recipes that say "cook according to package
- * instructions" with no inline duration to kick off. The started timer lands
- * in the same global store as parsed recipe timers, so it shows up in cook
- * mode and the floating dock and survives navigation.
- *
- * `trigger` is the visible control (rendered via Radix `asChild`, so it must be
- * a single focusable element). Recipe context is optional: pass it when adding
- * from within a recipe so the dock can deep-link back to the step.
- */
 export function AddTimerPopover({
   trigger,
   defaultLabel = "",
@@ -64,8 +52,6 @@ export function AddTimerPopover({
 
   const durationSeconds = clampInt(minutes, 999) * 60 + clampInt(seconds, 59);
 
-  // Reset the form each time the popover opens so a previous entry doesn't
-  // linger, and re-seed from the (possibly step-specific) defaults.
   const handleOpenChange = (next: boolean) => {
     if (next) {
       setMinutes(String(defaultMinutes));

@@ -267,9 +267,8 @@ export function TimerDock() {
     [],
   );
 
-  // Keep the dock out of the way on non-cooking pages, but while cook mode is
-  // open surface it even with no timers yet so "add a timer" is always one tap
-  // away — the whole point for recipes that say "cook to package instructions".
+  // Hide the dock when idle, but keep it while cook mode is open (even with no
+  // timers) so add-timer stays one tap away.
   if (!mounted || (timers.length === 0 && !cookModeOpen)) return null;
 
   const sorted = [...timers].sort(byUrgency);
@@ -292,8 +291,7 @@ export function TimerDock() {
     />
   );
 
-  // Cook mode is open but nothing is running yet: show just the add-timer
-  // entry point so the user never has to leave the site for a stray timer.
+  // Cook mode open with no timers yet: show just the add-timer entry point.
   if (!primary) {
     return createPortal(
       <section

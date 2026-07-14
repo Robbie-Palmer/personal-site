@@ -75,10 +75,8 @@ export function InlineTimer({
     label,
   ]);
 
-  // A timer the author marked without a resolvable duration (e.g. a
-  // "cook to package instructions" step). Rather than a dead badge, invite the
-  // cook to set their own time — the started timer joins the global store. The
-  // label can be empty for free-text markers, so fall back to a generic prompt.
+  // No resolved duration: offer to set a custom time. The label can be empty
+  // for free-text markers, so fall back to a generic prompt.
   if (durationSeconds === null) {
     const promptLabel = label.trim() || "set timer";
     return (

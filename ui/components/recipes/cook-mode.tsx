@@ -271,13 +271,16 @@ export function CookMode({
       token.durationSeconds !== null,
   );
 
-  // Author-marked timers with no duration (e.g. `~pasta{}` for "cook to package
-  // instructions") — surfaced as prompts so the cook can set their own time
-  // without leaving cook mode.
+  // Timer tokens with no resolved duration render as "set a timer" prompts.
   const currentPrompts = (current.tokens ?? []).filter(
     (token): token is CookToken & { type: "timer" } =>
       token.type === "timer" && token.durationSeconds === null,
   );
+
+  // Offer the generic add-timer only when the step has no timer of its own, so
+  // it never doubles up with a timer control or a prompt.
+  const showAddTimer =
+    currentTimers.length === 0 && currentPrompts.length === 0;
 
   const isLastStep = clampedStep === steps.length - 1;
 
@@ -387,13 +390,34 @@ export function CookMode({
               />
             ))}
 
-            <div className="mt-7 flex flex-wrap items-center gap-2">
-              {currentPrompts.map((token, index) => {
-                const promptLabel = token.value.trim();
-                return (
+            {(currentPrompts.length > 0 || showAddTimer) && (
+              <div className="mt-7 flex flex-wrap items-center gap-2">
+                {currentPrompts.map((token, index) => {
+                  const promptLabel = token.value.trim();
+                  return (
+                    <AddTimerPopover
+                      key={`prompt-${index}:${token.value}`}
+                      defaultLabel={promptLabel}
+                      recipeSlug={recipeSlug}
+                      recipeTitle={recipeTitle}
+                      stepIndex={clampedStep}
+                      stepText={current.text}
+                      trigger={
+                        <Button
+                          size="sm"
+                          className="bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]"
+                        >
+                          <Timer className="size-4" />
+                          {promptLabel
+                            ? `Set ${promptLabel} timer`
+                            : "Set timer"}
+                        </Button>
+                      }
+                    />
+                  );
+                })}
+                {showAddTimer && (
                   <AddTimerPopover
-                    key={`prompt-${index}:${token.value}`}
-                    defaultLabel={promptLabel}
                     recipeSlug={recipeSlug}
                     recipeTitle={recipeTitle}
                     stepIndex={clampedStep}
@@ -401,32 +425,17 @@ export function CookMode({
                     trigger={
                       <Button
                         size="sm"
-                        className="bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]"
+                        variant="outline"
+                        className="text-[var(--ink-2)]"
                       >
-                        <Timer className="size-4" />
-                        {promptLabel ? `Set ${promptLabel} timer` : "Set timer"}
+                        <Plus className="size-4" />
+                        Add timer
                       </Button>
                     }
                   />
-                );
-              })}
-              <AddTimerPopover
-                recipeSlug={recipeSlug}
-                recipeTitle={recipeTitle}
-                stepIndex={clampedStep}
-                stepText={current.text}
-                trigger={
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-[var(--ink-2)]"
-                  >
-                    <Plus className="size-4" />
-                    Add timer
-                  </Button>
-                }
-              />
-            </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* nav */}

@@ -147,11 +147,8 @@ function isIngredientOnlyStep(step: Step): boolean {
 }
 
 /**
- * A timer whose quantity is free text rather than a number, e.g.
- * `~{package instructions}`. The cooklang parser keeps the phrase as a text
- * quantity; we surface it verbatim so it both reads naturally in the step
- * ("cook the pasta according to package instructions") and gives the
- * duration-less "set a timer" prompt a meaningful label.
+ * The free-text form of a timer quantity (e.g. `~{package instructions}`),
+ * which the cooklang parser keeps as a text value; null for numeric timers.
  */
 function timerQuantityText(timer: Timer): string | null {
   const value = (timer.quantity as { value?: unknown } | null)?.value;
