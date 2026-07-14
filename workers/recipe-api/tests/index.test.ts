@@ -696,8 +696,8 @@ const dbMock = vi.hoisted(() => {
 
     if (
       query.includes('from "recipe"') &&
-      query.includes('"recipe"."slug"') &&
-      query.includes('"recipe"."user_id"')
+      query.includes('"recipe"."slug" =') &&
+      query.includes('"recipe"."user_id" =')
     ) {
       const slug = params[0] as string;
       const userId = params[1] as string;
@@ -706,7 +706,20 @@ const dbMock = vi.hoisted(() => {
         .map(recipeRow);
     }
 
-    if (query.includes('from "recipe"') && query.includes('"recipe"."slug"')) {
+    if (
+      query.includes('from "recipe"') &&
+      query.includes('"recipe"."user_id" =')
+    ) {
+      const userId = params[0] as string;
+      return state.recipes
+        .filter((recipe) => recipe.userId === userId)
+        .map(recipeRow);
+    }
+
+    if (
+      query.includes('from "recipe"') &&
+      query.includes('"recipe"."slug" =')
+    ) {
       const slug = params[0] as string;
       return state.recipes
         .filter((recipe) => recipe.slug === slug)
@@ -1107,6 +1120,62 @@ describe("GET /recipes", () => {
     expect(await res.json()).toEqual({
       error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)",
     });
+  });
+
+  it("requires authentication for the owned scope", async () => {
+    const res = await app.request("/recipes?scope=owned", {}, env);
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Authentication required" });
+  });
+
+  it("returns only recipes authored by the signed-in user", async () => {
+    dbMock.state.recipes.push(
+      {
+        id: "recipe-owned",
+        slug: "my-lentil-soup",
+        title: "My Lentil Soup",
+        description: null,
+        body: null,
+        userId: "owner-user",
+        visibility: "private",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+      {
+        id: "recipe-public",
+        slug: "someone-elses-soup",
+        title: "Someone Else's Soup",
+        description: null,
+        body: null,
+        userId: "other-user",
+        visibility: "public",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+    );
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request("/recipes?scope=owned", {}, env);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([
+      expect.objectContaining({
+        slug: "my-lentil-soup",
+        title: "My Lentil Soup",
+      }),
+    ]);
+  });
+
+  it("rejects an unknown recipe scope", async () => {
+    const res = await app.request("/recipes?scope=household", {}, env);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid recipe scope" });
   });
 
   it("returns 502 when database query fails", async () => {

@@ -18,3 +18,18 @@ export function safeRecipeReturnPath(
     return null;
   }
 }
+
+export function recipeSaveReturnPath(
+  value: string | null,
+  savedSlug: string,
+  origin: string,
+): string | null {
+  const safePath = safeRecipeReturnPath(value, origin);
+  if (!safePath) return null;
+
+  const url = new URL(safePath, origin);
+  if (url.pathname === "/recipes/onboarding") {
+    url.searchParams.set("authored", savedSlug);
+  }
+  return `${url.pathname}${url.search}${url.hash}`;
+}

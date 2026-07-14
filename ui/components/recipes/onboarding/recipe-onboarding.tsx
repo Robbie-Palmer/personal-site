@@ -31,7 +31,7 @@ import {
 } from "@/lib/api/recipe-box";
 import type { RecipeCardView } from "@/lib/api/recipes";
 import { authClient } from "@/lib/auth-client";
-import { buildEffectiveDiet, matchRecipeToDiet } from "@/lib/domain/diet";
+import { buildEffectiveDiet, filterRecipesForDiet } from "@/lib/domain/diet";
 import {
   type SavedRecipeApiRecord,
   savedRecipeCard,
@@ -110,7 +110,11 @@ function Intro() {
 }
 
 async function fetchAuthoredRecipes(signal: AbortSignal) {
-  const response = await fetch("/api/recipes", { signal });
+  const response = await fetch("/api/recipes?scope=owned", {
+    cache: "no-store",
+    credentials: "include",
+    signal,
+  });
   if (!response.ok) {
     throw new Error("Your authored recipes could not be loaded.");
   }
@@ -226,9 +230,7 @@ export function RecipeOnboarding({
   const [diet, setDiet] = useState<DietProfile>(emptyDietProfile);
   const [dietOptions, setDietOptions] = useState<DietOptions>(emptyDietOptions);
   const [selectedSlugs, setSelectedSlugs] = useState<string[]>([]);
-  const [authoredRecipes, setAuthoredRecipes] = useState<
-    SavedRecipeApiRecord[]
-  >([]);
+  const [authoredRecipeSlugs, setAuthoredRecipeSlugs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -236,8 +238,9 @@ export function RecipeOnboarding({
 
   useEffect(() => {
     if (!userId) return;
-    const requestedBoxStep =
-      new URLSearchParams(window.location.search).get("step") === "box";
+    const searchParams = new URLSearchParams(window.location.search);
+    const requestedBoxStep = searchParams.get("step") === "box";
+    const returnedAuthoredSlug = searchParams.get("authored");
     const controller = new AbortController();
     setLoading(true);
     setError(null);
@@ -252,7 +255,16 @@ export function RecipeOnboarding({
         setDiet(profile);
         setDietOptions(options);
         setSelectedSlugs(box.staticRecipeSlugs);
-        setAuthoredRecipes(saved.filter((record) => savedRecipeCard(record)));
+        const authoredSlugs = saved.flatMap((record) =>
+          savedRecipeCard(record) ? [record.slug] : [],
+        );
+        if (
+          returnedAuthoredSlug &&
+          /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(returnedAuthoredSlug)
+        ) {
+          authoredSlugs.push(returnedAuthoredSlug);
+        }
+        setAuthoredRecipeSlugs(Array.from(new Set(authoredSlugs)));
       })
       .catch((error_: unknown) => {
         if (!(error_ instanceof DOMException && error_.name === "AbortError")) {
@@ -275,23 +287,30 @@ export function RecipeOnboarding({
     () => buildEffectiveDiet(diet, dietOptions),
     [diet, dietOptions],
   );
-  const compatibleRecipes = useMemo(() => {
-    const matching = recipes.filter(
-      (recipe) =>
-        matchRecipeToDiet(
-          {
-            ingredients: recipe.ingredientSlugs.map((slug, index) => ({
-              slug,
-              name: recipe.ingredientNames[index],
-            })),
-          },
-          effectiveDiet,
-        ).matches,
-    );
-    return (matching.length >= 6 ? matching : recipes).slice(0, 12);
-  }, [effectiveDiet, recipes]);
-  const selectedSet = useMemo(() => new Set(selectedSlugs), [selectedSlugs]);
-  const boxCount = selectedSlugs.length + authoredRecipes.length;
+  const allCompatibleRecipes = useMemo(
+    () =>
+      filterRecipesForDiet(recipes, effectiveDiet, (recipe) => ({
+        ingredients: recipe.ingredientSlugs.map((slug, index) => ({
+          slug,
+          name: recipe.ingredientNames[index],
+        })),
+      })),
+    [effectiveDiet, recipes],
+  );
+  const compatibleRecipes = allCompatibleRecipes.slice(0, 12);
+  const compatibleRecipeSlugs = useMemo(
+    () => new Set(allCompatibleRecipes.map((recipe) => recipe.slug)),
+    [allCompatibleRecipes],
+  );
+  const compatibleSelectedSlugs = useMemo(
+    () => selectedSlugs.filter((slug) => compatibleRecipeSlugs.has(slug)),
+    [compatibleRecipeSlugs, selectedSlugs],
+  );
+  const selectedSet = useMemo(
+    () => new Set(compatibleSelectedSlugs),
+    [compatibleSelectedSlugs],
+  );
+  const boxCount = compatibleSelectedSlugs.length + authoredRecipeSlugs.length;
 
   function toggleDietPreset(key: string) {
     setDiet((current) => ({
@@ -325,7 +344,7 @@ export function RecipeOnboarding({
     setSaving(true);
     setError(null);
     try {
-      await saveRecipeBoxProfile(selectedSlugs);
+      await saveRecipeBoxProfile(compatibleSelectedSlugs);
       setStep(3);
     } catch (error_) {
       setError(
@@ -415,13 +434,13 @@ export function RecipeOnboarding({
               </Link>
             </Button>
           </div>
-          {authoredRecipes.length > 0 && (
+          {authoredRecipeSlugs.length > 0 && (
             <div className="mt-6 flex items-center gap-3 rounded-xl border border-[var(--sage)]/50 bg-[var(--sage)]/10 px-4 py-3">
               <PenLine className="size-5 text-[var(--sage)]" />
               <p className="rt-body">
                 <b>
-                  {authoredRecipes.length} authored{" "}
-                  {authoredRecipes.length === 1 ? "recipe" : "recipes"}
+                  {authoredRecipeSlugs.length} authored{" "}
+                  {authoredRecipeSlugs.length === 1 ? "recipe" : "recipes"}
                 </b>{" "}
                 already in your box.
               </p>
@@ -437,6 +456,12 @@ export function RecipeOnboarding({
               />
             ))}
           </div>
+          {compatibleRecipes.length === 0 && (
+            <p className="rt-body mt-6 rounded-xl border border-dashed border-[var(--line-strong)] p-4 text-[var(--ink-3)]">
+              No recipes in the current collection match your diet yet. You can
+              still write one of your own with Cooklang.
+            </p>
+          )}
         </section>
       )}
 

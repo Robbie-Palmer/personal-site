@@ -531,6 +531,16 @@ async function findReadableRecipes(
     );
 }
 
+async function findOwnedRecipes(
+  db: ReturnType<typeof createDb>["db"],
+  userId: string,
+): Promise<Recipe[]> {
+  return db
+    .select()
+    .from(schema.recipe)
+    .where(eq(schema.recipe.userId, userId));
+}
+
 async function findOwnedRecipeBySlug(
   db: ReturnType<typeof createDb>["db"],
   slug: string,
@@ -1943,6 +1953,11 @@ app.post("/households/:householdId/leave", async (c) => {
 });
 
 app.get("/recipes", async (c) => {
+  const scope = c.req.query("scope");
+  if (scope && scope !== "owned") {
+    return c.json({ error: "Invalid recipe scope" }, 400);
+  }
+
   const connectionString = databaseConnection(c.env);
   if (!connectionString) {
     return c.json(
@@ -1955,8 +1970,15 @@ app.get("/recipes", async (c) => {
     const connection = createDb(connectionString);
     client = connection.client;
     const { db } = connection;
-    const session = await loadOptionalRecipeSession(c, db);
-    const recipes = await findReadableRecipes(db, session?.user.id);
+    let recipes: Recipe[];
+    if (scope === "owned") {
+      const session = await requireRecipeSession(c, db);
+      if (!session.success) return session.response;
+      recipes = await findOwnedRecipes(db, session.session.user.id);
+    } else {
+      const session = await loadOptionalRecipeSession(c, db);
+      recipes = await findReadableRecipes(db, session?.user.id);
+    }
     return c.json(recipes.map(recipeResponse));
   } catch (e) {
     console.error("GET /recipes query failed", e);
