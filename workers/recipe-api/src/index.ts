@@ -1615,6 +1615,9 @@ app.delete("/households/:householdId/members/:memberId", async (c) => {
       return c.json({ error: "Household owner cannot be revoked" }, 400);
     }
 
+    const household = await findHouseholdById(db, householdId);
+    if (!household) return c.notFound();
+
     await db.transaction(async (tx) => {
       await tx
         .update(schema.recipe)
@@ -1625,17 +1628,14 @@ app.delete("/households/:householdId/members/:memberId", async (c) => {
             eq(schema.recipe.userId, member.userId),
           ),
         );
-      await tx.delete(schema.member).where(eq(schema.member.id, memberId));
-    });
-    const household = await findHouseholdById(db, householdId);
-    if (household) {
-      await createNotification(db, {
+      await createNotification(tx, {
         userId: member.userId,
         type: "household_removed",
         household,
         actorName: session.session.user.name,
       });
-    }
+      await tx.delete(schema.member).where(eq(schema.member.id, memberId));
+    });
     return c.body(null, 204);
   } catch (e) {
     console.error("DELETE /households/:householdId/members/:memberId failed", e);
@@ -1679,6 +1679,8 @@ app.post("/households/:householdId/leave", async (c) => {
       return c.json({ error: "Household owner cannot leave" }, 400);
     }
 
+    const owner = await findHouseholdOwner(db, householdId);
+
     await db.transaction(async (tx) => {
       await tx
         .update(schema.recipe)
@@ -1689,17 +1691,16 @@ app.post("/households/:householdId/leave", async (c) => {
             eq(schema.recipe.userId, session.session.user.id),
           ),
         );
+      if (owner) {
+        await createNotification(tx, {
+          userId: owner.userId,
+          type: "household_member_left",
+          household,
+          actorName: session.session.user.name,
+        });
+      }
       await tx.delete(schema.member).where(eq(schema.member.id, member.id));
     });
-    const owner = await findHouseholdOwner(db, householdId);
-    if (owner) {
-      await createNotification(db, {
-        userId: owner.userId,
-        type: "household_member_left",
-        household,
-        actorName: session.session.user.name,
-      });
-    }
     return c.body(null, 204);
   } catch (e) {
     console.error("POST /households/:householdId/leave failed", e);
@@ -1817,6 +1818,9 @@ app.post("/notifications/read-all", async (c) => {
         ),
       );
     return c.body(null, 204);
+  } catch (e) {
+    console.error("POST /notifications/read-all failed", e);
+    return c.json({ error: "Database mutation failed" }, 502);
   } finally {
     await closeDbClient(client);
   }
@@ -1854,6 +1858,9 @@ app.patch("/notifications/:notificationId", async (c) => {
         ),
       );
     return c.body(null, 204);
+  } catch (e) {
+    console.error("PATCH /notifications/:notificationId failed", e);
+    return c.json({ error: "Database mutation failed" }, 502);
   } finally {
     await closeDbClient(client);
   }

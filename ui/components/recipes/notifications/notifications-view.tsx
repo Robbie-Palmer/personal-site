@@ -210,16 +210,34 @@ export function NotificationsView() {
   }
 
   async function dismiss(item: HouseholdNotification) {
-    await updateNotification(item.id, { dismissed: true });
-    setItems((current) => current.filter(({ id }) => id !== item.id));
+    try {
+      setError(null);
+      await updateNotification(item.id, { dismissed: true });
+      setItems((current) => current.filter(({ id }) => id !== item.id));
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Couldn't dismiss notification.",
+      );
+    }
   }
 
   async function markAllRead() {
-    await markAllNotificationsRead();
-    const readAt = new Date().toISOString();
-    setItems((current) =>
-      current.map((item) => ({ ...item, readAt: item.readAt ?? readAt })),
-    );
+    try {
+      setError(null);
+      await markAllNotificationsRead();
+      const readAt = new Date().toISOString();
+      setItems((current) =>
+        current.map((item) => ({ ...item, readAt: item.readAt ?? readAt })),
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Couldn't mark notifications as read.",
+      );
+    }
   }
 
   if (sessionPending || (session && loading)) {
