@@ -2240,7 +2240,10 @@ app.get("/notifications", async (c) => {
   }
 });
 
-app.post("/notifications/read-all", async (c) => {
+async function mutateAllNotifications(
+  c: Context<AppEnv>,
+  action: "read" | "clear",
+): Promise<Response> {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
   const connectionString = databaseConnection(c.env);
@@ -2252,54 +2255,35 @@ app.post("/notifications/read-all", async (c) => {
     const { db } = connection;
     const session = await requireRecipeSession(c, db);
     if (!session.success) return session.response;
+    const mutationTime = new Date();
     await db
       .update(schema.notification)
-      .set({ readAt: new Date() })
+      .set(
+        action === "clear"
+          ? { readAt: mutationTime, dismissedAt: mutationTime }
+          : { readAt: mutationTime },
+      )
       .where(
         and(
           eq(schema.notification.userId, session.session.user.id),
-          isNull(schema.notification.readAt),
+          isNull(
+            action === "clear"
+              ? schema.notification.dismissedAt
+              : schema.notification.readAt,
+          ),
         ),
       );
     return c.body(null, 204);
   } catch (e) {
-    console.error("POST /notifications/read-all failed", e);
+    console.error(`POST /notifications/${action}-all failed`, e);
     return c.json({ error: "Database mutation failed" }, 502);
   } finally {
     await closeDbClient(client);
   }
-});
+}
 
-app.post("/notifications/clear-all", async (c) => {
-  const csrfFailure = validateCsrf(c);
-  if (csrfFailure) return csrfFailure;
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) return c.json({ error: "No database connection configured" }, 503);
-  let client: DbClient | undefined;
-  try {
-    const connection = createDb(connectionString);
-    client = connection.client;
-    const { db } = connection;
-    const session = await requireRecipeSession(c, db);
-    if (!session.success) return session.response;
-    const clearedAt = new Date();
-    await db
-      .update(schema.notification)
-      .set({ readAt: clearedAt, dismissedAt: clearedAt })
-      .where(
-        and(
-          eq(schema.notification.userId, session.session.user.id),
-          isNull(schema.notification.dismissedAt),
-        ),
-      );
-    return c.body(null, 204);
-  } catch (e) {
-    console.error("POST /notifications/clear-all failed", e);
-    return c.json({ error: "Database mutation failed" }, 502);
-  } finally {
-    await closeDbClient(client);
-  }
-});
+app.post("/notifications/read-all", (c) => mutateAllNotifications(c, "read"));
+app.post("/notifications/clear-all", (c) => mutateAllNotifications(c, "clear"));
 
 app.patch("/notifications/:notificationId", async (c) => {
   const csrfFailure = validateCsrf(c);
