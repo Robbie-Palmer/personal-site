@@ -39,6 +39,31 @@ describe("buildScaledRecipeParts", () => {
     ]);
   });
 
+  it("renders a free-text timer as its phrase with no resolved duration", () => {
+    const parts = buildScaledRecipeParts(
+      parsedAt(
+        `Cook the @pasta{100%g} according to ~{package instructions}.\n`,
+      ),
+    );
+
+    // The phrase reads naturally in the step text...
+    expect(parts.instructions).toEqual([
+      "Cook the 100g of pasta according to package instructions.",
+    ]);
+    // ...and is carried as the timer's display value with no duration, which is
+    // what turns it into a tap-to-set "custom timer" prompt in the UI.
+    expect(parts.instructionSdk.timerDisplayValues).toEqual([
+      "package instructions",
+    ]);
+    expect(parts.instructionSdk.timerDurationSeconds).toEqual([null]);
+  });
+
+  it("still resolves numeric timers to a duration", () => {
+    const parts = buildScaledRecipeParts(parsedAt(`Bake for ~{12%minutes}.\n`));
+    expect(parts.instructionSdk.timerDisplayValues).toEqual(["12 minutes"]);
+    expect(parts.instructionSdk.timerDurationSeconds).toEqual([720]);
+  });
+
   it("honours the = fixed-quantity prefix when scaling", () => {
     const parts = buildScaledRecipeParts(
       parsedAt(`Mix @flour{200%g} with @salt{=1%tsp}.\n`, 3),

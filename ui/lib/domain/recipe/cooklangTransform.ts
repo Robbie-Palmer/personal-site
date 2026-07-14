@@ -146,7 +146,26 @@ function isIngredientOnlyStep(step: Step): boolean {
   return hasIngredient;
 }
 
+/**
+ * The free-text form of a timer quantity (e.g. `~{package instructions}`),
+ * which the cooklang parser keeps as a text value; null for numeric timers.
+ */
+function timerQuantityText(timer: Timer): string | null {
+  const value = (timer.quantity as { value?: unknown } | null)?.value;
+  if (value && typeof value === "object" && "type" in value) {
+    const inner = value as { type: string; value?: unknown };
+    if (inner.type === "text" && typeof inner.value === "string") {
+      // Empty text falls through to the numeric path rather than blanking the
+      // display (defensive — the parser rejects `~{}` before we get here).
+      return inner.value.trim() || null;
+    }
+  }
+  return null;
+}
+
 function formatTimerDisplay(timer: Timer): string {
+  const text = timerQuantityText(timer);
+  if (text !== null) return text;
   const qty = resolveQuantityValue(timer.quantity);
   const unit = getQuantityUnit(timer.quantity);
   return [qty !== undefined ? String(qty) : null, unit]

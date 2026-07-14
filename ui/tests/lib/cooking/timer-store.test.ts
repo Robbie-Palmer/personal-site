@@ -7,6 +7,7 @@ import {
   getTimersSnapshot,
   pauseTimer,
   resumeTimer,
+  startCustomTimer,
   startTimer,
   subscribeTimers,
 } from "@/lib/cooking/timerStore";
@@ -166,6 +167,42 @@ describe("timerStore", () => {
     expect(listener).toHaveBeenCalledTimes(4);
 
     unsubscribe();
+  });
+
+  it("starts a custom timer with a minted id and no recipe context", () => {
+    const id = startCustomTimer({ label: "Pasta", durationSeconds: 300 });
+    expect(id).toMatch(/^custom:/);
+    const timer = firstTimer();
+    expect(timer).toMatchObject({
+      id,
+      label: "Pasta",
+      state: "running",
+      remainingSeconds: 300,
+    });
+    expect(timer.recipeSlug).toBeUndefined();
+    expect(timer.recipeTitle).toBeUndefined();
+  });
+
+  it("mints a distinct id for each custom timer so they stack", () => {
+    const first = startCustomTimer({ label: "One", durationSeconds: 60 });
+    const second = startCustomTimer({ label: "Two", durationSeconds: 120 });
+    expect(first).not.toBe(second);
+    expect(getTimersSnapshot()).toHaveLength(2);
+  });
+
+  it("persists and restores custom timers with no recipe fields", () => {
+    startCustomTimer({ label: "Rice", durationSeconds: 600 });
+    vi.advanceTimersByTime(60_000);
+
+    __resetTimerStoreForTests();
+    const timers = getTimersSnapshot();
+    expect(timers).toHaveLength(1);
+    expect(timers[0]).toMatchObject({
+      label: "Rice",
+      state: "running",
+      remainingSeconds: 540,
+    });
+    expect(timers[0]?.recipeSlug).toBeUndefined();
   });
 
   it("formats countdowns", () => {
