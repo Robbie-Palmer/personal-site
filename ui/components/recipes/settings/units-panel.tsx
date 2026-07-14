@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, RotateCcw } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useUnitPreference } from "@/hooks/use-unit-preference";
 import {
   convertToSystem,
@@ -70,11 +71,67 @@ function thresholdLabel(
 }
 
 function normalizeTiers(tiers: UnitTier[]): UnitTier[] {
+  let previous = 0;
   return tiers.map((tier, index) => {
     if (index === tiers.length - 1) return { ...tier, upTo: Infinity };
-    const previous = index === 0 ? 0 : (tiers[index - 1]?.upTo ?? 0);
-    return { ...tier, upTo: Math.max(previous + 1, tier.upTo) };
+    const requested = Number.isFinite(tier.upTo)
+      ? tier.upTo
+      : (DEFAULT_THRESHOLD[tier.unit] ?? previous + 1);
+    const upTo = Math.max(previous + 1, requested);
+    previous = upTo;
+    return { ...tier, upTo };
   });
+}
+
+function ThresholdInput({
+  label,
+  value,
+  min,
+  max,
+  suffix,
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  suffix: string;
+  onCommit: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(Number(value.toFixed(1))));
+
+  useEffect(() => {
+    setDraft(String(Number(value.toFixed(1))));
+  }, [value]);
+
+  const commit = () => {
+    const parsed = Number(draft);
+    if (!Number.isFinite(parsed)) {
+      setDraft(String(Number(value.toFixed(1))));
+      return;
+    }
+    onCommit(Math.min(max, Math.max(min, parsed)));
+  };
+
+  return (
+    <div className="flex items-center rounded-lg border border-[var(--line-strong)] bg-[var(--paper-warm)] px-2">
+      <input
+        aria-label={label}
+        type="number"
+        min={min}
+        max={max}
+        step="1"
+        value={draft}
+        onChange={(event) => setDraft(event.currentTarget.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.currentTarget.blur();
+        }}
+        className="rt-mono min-w-0 flex-1 bg-transparent py-1.5 outline-none"
+      />
+      <span className="rt-mono text-[var(--ink-3)]">{suffix}</span>
+    </div>
+  );
 }
 
 function Ladder({
@@ -129,18 +186,24 @@ function Ladder({
       <div className="mb-5 flex flex-wrap gap-2">
         {UNIT_OPTIONS[dimension].map((unit) => {
           const on = active.has(unit);
+          const isOnlyUnit = on && tiers.length === 1;
           return (
             <button
               key={unit}
               type="button"
               onClick={() => toggle(unit)}
+              disabled={isOnlyUnit}
               aria-pressed={on}
               aria-label={`${on ? "Remove" : "Add"} ${shortLabel(unit)}`}
+              title={
+                isOnlyUnit ? "A ladder needs at least one unit" : undefined
+              }
               className={cn(
                 "rt-mono rounded-full border px-3 py-1.5 transition-colors",
                 on
                   ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
                   : "border-[var(--line-strong)] text-[var(--ink-3)] hover:border-[var(--ink)] hover:text-[var(--ink)]",
+                isOnlyUnit && "cursor-not-allowed opacity-50",
               )}
             >
               {on ? <Check className="mr-1 inline size-3" /> : "+ "}
@@ -184,25 +247,14 @@ function Ladder({
                   }
                   className="accent-[var(--terracotta)]"
                 />
-                <div className="flex items-center rounded-lg border border-[var(--line-strong)] bg-[var(--paper-warm)] px-2">
-                  <input
-                    aria-label={`${shortLabel(tier.unit)} upper threshold in ${dimension === "weight" ? "grams" : "millilitres"}`}
-                    type="number"
-                    min={previous}
-                    max={max}
-                    step="1"
-                    value={Number(tier.upTo.toFixed(1))}
-                    onChange={(event) => {
-                      if (Number.isFinite(event.currentTarget.valueAsNumber)) {
-                        setThreshold(index, event.currentTarget.valueAsNumber);
-                      }
-                    }}
-                    className="rt-mono min-w-0 flex-1 bg-transparent py-1.5 outline-none"
-                  />
-                  <span className="rt-mono text-[var(--ink-3)]">
-                    {dimension === "weight" ? "g" : "ml"}
-                  </span>
-                </div>
+                <ThresholdInput
+                  label={`${shortLabel(tier.unit)} upper threshold in ${dimension === "weight" ? "grams" : "millilitres"}`}
+                  value={tier.upTo}
+                  min={previous}
+                  max={max}
+                  suffix={dimension === "weight" ? "g" : "ml"}
+                  onCommit={(value) => setThreshold(index, value)}
+                />
               </div>
             </div>
           );

@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "workers/recipe-api/**"
+      - "packages/recipe-db/**"
       - ".github/workflows/recipe-api-ci.yml"
 
 permissions:

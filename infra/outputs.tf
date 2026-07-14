@@ -33,6 +33,16 @@ output "r2_dvc_endpoint_url" {
   value       = "https://${var.cloudflare_account_id}.r2.cloudflarestorage.com"
 }
 
+output "r2_recipe_artifacts_bucket_name" {
+  description = "Name of the R2 bucket for recipe ingestion artifacts"
+  value       = cloudflare_r2_bucket.recipe_artifacts.name
+}
+
+output "r2_recipe_artifacts_preview_bucket_name" {
+  description = "Name of the shared bucket for recipe ingestion preview artifacts"
+  value       = cloudflare_r2_bucket.recipe_artifacts_preview.name
+}
+
 # Neon
 
 output "neon_project_id" {

@@ -1,6 +1,4 @@
-import type { IngredientContent } from "@/lib/domain/recipe/ingredient";
-
-export const ingredients: IngredientContent[] = [
+export const ingredients = [
   // Proteins
   { name: "chicken breast", category: "protein" },
   { name: "turkey mince", category: "protein" },
@@ -235,4 +233,4 @@ export const ingredients: IngredientContent[] = [
   { name: "sesame oil", category: "oil-fat" },
   { name: "chicken thigh", category: "protein" },
   { name: "frozen raspberries", category: "fruit" },
-];
+] as const;

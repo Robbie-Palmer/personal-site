@@ -4,7 +4,7 @@ import { SettingsView } from "@/components/recipes/settings/settings-view";
 export const metadata: Metadata = {
   title: "Settings",
   description:
-    "Manage your account, preferred measurement units, sign-in, and diet for Robbie's Recipes.",
+    "Manage your account, household, preferred measurement units, sign-in, and diet for Robbie's Recipes.",
   robots: { index: false, follow: false },
 };
 

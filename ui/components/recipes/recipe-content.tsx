@@ -20,8 +20,15 @@ import {
   type CookStep,
   type CookToken,
 } from "@/components/recipes/cook-mode";
+import { DietWarning } from "@/components/recipes/diet-notice";
+import { useDiet } from "@/components/recipes/diet-provider";
 import { InlineTimer } from "@/components/recipes/inline-timer";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useScaledRecipe } from "@/hooks/use-scaled-recipe";
 import { useUnitPreference } from "@/hooks/use-unit-preference";
 import {
@@ -144,6 +151,19 @@ function buildCookUrl(open: boolean, step: number): string {
 }
 
 export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
+  const { diet, matchRecipe } = useDiet();
+  const dietMatch = useMemo(
+    () =>
+      matchRecipe({
+        ingredients: recipe.ingredientGroups.flatMap((group) =>
+          group.items.map((item) => ({
+            slug: item.ingredient,
+            name: item.name,
+          })),
+        ),
+      }),
+    [matchRecipe, recipe.ingredientGroups],
+  );
   const baseServings = Math.max(1, recipe.servings);
   const [portions, setPortions] = useState(baseServings);
   const requestedScale = portions / baseServings;
@@ -285,6 +305,8 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
           {recipe.description}
         </p>
 
+        {diet.active && <DietWarning match={dietMatch} className="mb-4" />}
+
         {recipe.canonical && (
           <p className="rt-body text-sm text-[var(--ink-2)] italic mb-4 inline-flex items-center gap-2 rounded-lg border border-dashed border-[var(--line-strong)] bg-[var(--paper-warm)] px-3 py-2">
             <Globe className="h-4 w-4 not-italic" />
@@ -397,15 +419,36 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
               <span>Total: {formatTime(recipe.totalTime)}</span>
             </div>
           )}
-          <a
-            href={`/recipes/${recipe.slug}.json`}
-            download={`${recipe.slug}.json`}
-            className="flex items-center gap-1 hover:text-foreground transition-colors"
-            title="Download as schema.org Recipe JSON, importable into most recipe apps"
-          >
-            <Download className="h-4 w-4" />
-            <span>Export</span>
-          </a>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-1 hover:text-foreground transition-colors"
+                aria-label="Choose recipe export format"
+              >
+                <Download className="h-4 w-4" />
+                <span>Export</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-60 p-1.5">
+              <a
+                href={`/recipes/${recipe.slug}.json`}
+                download={`${recipe.slug}.json`}
+                className="block rounded-md px-3 py-2 text-sm hover:bg-accent"
+                title="Download as schema.org Recipe JSON-LD, importable into most recipe apps"
+              >
+                Recipe JSON (.json)
+              </a>
+              <a
+                href={`/recipes/${recipe.slug}.cook`}
+                download={`${recipe.slug}.cook`}
+                className="block rounded-md px-3 py-2 text-sm hover:bg-accent"
+                title="Download as a Cooklang recipe"
+              >
+                Cooklang (.cook)
+              </a>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {recipe.cuisine.length > 0 && (

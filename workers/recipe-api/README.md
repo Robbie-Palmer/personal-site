@@ -57,9 +57,7 @@ server-side scenario endpoint guarded by Cloudflare Access.
 
 ## Rate limiting
 
-Rate limiting is layered, with counters in Postgres. See
-[ADR 035](https://robbiepalmer.me/projects/recipe-site/adrs/035-application-security-baseline)
-for the storage rationale and tier design.
+Rate limiting is layered, with counters in Postgres.
 
 | Tier                 | Where                                       | Scope                     | Default            |
 | -------------------- | ------------------------------------------- | ------------------------- | ------------------ |

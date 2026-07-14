@@ -95,9 +95,15 @@ function PlanCell({
   );
 }
 
-type MealPlannerProps = Readonly<{ recipes: ShoppingRecipe[] }>;
+type MealPlannerProps = Readonly<{
+  recipes: ShoppingRecipe[];
+  availableRecipes?: ShoppingRecipe[];
+}>;
 
-export function MealPlanner({ recipes }: MealPlannerProps) {
+export function MealPlanner({
+  recipes,
+  availableRecipes = recipes,
+}: MealPlannerProps) {
   const state = useShoppingList();
 
   const bySlug = useMemo(() => {
@@ -107,8 +113,8 @@ export function MealPlanner({ recipes }: MealPlannerProps) {
   }, [recipes]);
 
   const sortedRecipes = useMemo(() => {
-    return [...recipes].sort((a, b) => a.title.localeCompare(b.title));
-  }, [recipes]);
+    return [...availableRecipes].sort((a, b) => a.title.localeCompare(b.title));
+  }, [availableRecipes]);
 
   const planBySlot = useMemo(() => {
     const map = new Map<string, ShoppingRecipe>();

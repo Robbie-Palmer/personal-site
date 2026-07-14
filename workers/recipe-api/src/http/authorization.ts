@@ -1,6 +1,6 @@
 import type { Context, MiddlewareHandler } from "hono";
 import { createAuth, type Auth } from "../auth";
-import type { createDb } from "../db";
+import type { createDb } from "recipe-db";
 
 type AuthorizationEnv = Parameters<typeof createAuth>[1];
 type Db = ReturnType<typeof createDb>["db"];
