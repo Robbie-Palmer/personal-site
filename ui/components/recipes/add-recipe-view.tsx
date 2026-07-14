@@ -330,13 +330,18 @@ export function AddRecipeView() {
         <section className="min-h-[600px] overflow-hidden rounded-xl border-[1.25px] border-[var(--line-strong)] bg-[var(--paper)]">
           <div className="flex items-center justify-between border-b border-[var(--line)] bg-[var(--paper-warm)] px-4 py-3">
             <p className="rt-mono text-[var(--ink-3)]">Live preview</p>
-            {parse.loading && (
-              <Loader2 className="size-4 animate-spin text-[var(--terracotta)]" />
-            )}
+            <div className="flex items-center gap-2">
+              <span className="rt-mono text-[var(--ink-4)]">
+                Timers activate after saving
+              </span>
+              {parse.loading && (
+                <Loader2 className="size-4 animate-spin text-[var(--terracotta)]" />
+              )}
+            </div>
           </div>
           {preview ? (
             <div className="px-4 py-6 md:px-8">
-              <RecipeContent recipe={preview} />
+              <RecipeContent recipe={preview} timersEnabled={false} />
             </div>
           ) : (
             <div className="flex min-h-[540px] flex-col items-center justify-center px-6 text-center">

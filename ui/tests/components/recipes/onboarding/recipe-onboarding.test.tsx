@@ -135,4 +135,35 @@ describe("RecipeOnboarding", () => {
       "true",
     );
   });
+
+  it("uses completed progress steps as back navigation", async () => {
+    const user = userEvent.setup();
+    render(<RecipeOnboarding recipes={[recipe]} />);
+    await screen.findByRole("heading", { name: /anything you don't eat/i });
+    await user.click(screen.getByRole("button", { name: /continue/i }));
+
+    await user.click(
+      screen.getByRole("button", { name: /go back to your diet/i }),
+    );
+    expect(
+      screen.getByRole("heading", { name: /anything you don't eat/i }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /continue/i }));
+    await user.click(screen.getByRole("button", { name: /vegan soup/i }));
+    await user.click(screen.getByRole("button", { name: /finish setup/i }));
+    await user.click(
+      await screen.findByRole("button", {
+        name: /go back to fill your box/i,
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: /put a few recipes in/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /vegan soup/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
 });

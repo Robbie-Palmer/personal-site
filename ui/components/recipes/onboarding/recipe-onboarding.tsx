@@ -44,24 +44,23 @@ import { cn } from "@/lib/generic/styles";
 
 const STEPS = ["sign up", "your diet", "fill your box", "ready"];
 
-function StepRail({ step }: Readonly<{ step: number }>) {
+function StepRail({
+  disabled,
+  onStepChange,
+  step,
+}: Readonly<{
+  disabled: boolean;
+  onStepChange: (step: number) => void;
+  step: number;
+}>) {
   return (
     <ol
       aria-label="Onboarding progress"
       className="flex shrink-0 items-center gap-2"
     >
-      {STEPS.map((label, index) => (
-        <li key={label} className="flex items-center gap-2">
-          {index > 0 && (
-            <span
-              aria-hidden="true"
-              className={cn(
-                "hidden h-px w-5 sm:block",
-                index <= step ? "bg-[var(--ink)]" : "bg-[var(--line-strong)]",
-              )}
-            />
-          )}
-          <span className="flex items-center gap-1.5">
+      {STEPS.map((label, index) => {
+        const marker = (
+          <>
             <span
               className={cn(
                 "rt-mono flex size-6 items-center justify-center rounded-full border text-[0.65rem]",
@@ -84,9 +83,40 @@ function StepRail({ step }: Readonly<{ step: number }>) {
             >
               {label}
             </span>
-          </span>
-        </li>
-      ))}
+          </>
+        );
+        const canGoBack = index > 0 && index < step && !disabled;
+        return (
+          <li key={label} className="flex items-center gap-2">
+            {index > 0 && (
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "hidden h-px w-5 sm:block",
+                  index <= step ? "bg-[var(--ink)]" : "bg-[var(--line-strong)]",
+                )}
+              />
+            )}
+            {canGoBack ? (
+              <button
+                type="button"
+                aria-label={`Go back to ${label}`}
+                onClick={() => onStepChange(index)}
+                className="flex items-center gap-1.5 rounded-full outline-none transition-opacity hover:opacity-70 focus-visible:ring-2 focus-visible:ring-[var(--terracotta)] focus-visible:ring-offset-2"
+              >
+                {marker}
+              </button>
+            ) : (
+              <span
+                aria-current={index === step ? "step" : undefined}
+                className="flex items-center gap-1.5"
+              >
+                {marker}
+              </span>
+            )}
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -337,6 +367,12 @@ export function RecipeOnboarding({
     setSelectedSlugs((current) => toggleValue(current, slug));
   }
 
+  function goBackToStep(nextStep: number) {
+    if (nextStep <= 0 || nextStep >= step || loading || saving) return;
+    setError(null);
+    setStep(nextStep);
+  }
+
   async function continueFromDiet() {
     setSaving(true);
     setError(null);
@@ -385,7 +421,11 @@ export function RecipeOnboarding({
         <Link href="/recipes" className="rt-display min-w-0 truncate text-2xl">
           Your recipe box
         </Link>
-        <StepRail step={step} />
+        <StepRail
+          step={step}
+          disabled={loading || saving}
+          onStepChange={goBackToStep}
+        />
       </div>
 
       {!session && <Intro />}
