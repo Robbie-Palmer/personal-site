@@ -288,7 +288,7 @@ export function AuthButton({
         >
           {intent === "signup" ? <UserPlus /> : <LogIn />}
           <span className="min-w-0 truncate">
-            {intent === "signup" ? "Sign up — free" : "Log in"}
+            {intent === "signup" ? "Sign up" : "Log in"}
           </span>
           <ChevronDown className="size-3.5 shrink-0 opacity-60" />
         </Button>
