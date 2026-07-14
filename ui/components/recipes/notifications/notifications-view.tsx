@@ -53,6 +53,110 @@ function relativeTime(date: string) {
   }).format(new Date(date));
 }
 
+function NotificationRow({
+  item,
+  acting,
+  onRespond,
+  onDismiss,
+}: {
+  item: HouseholdNotification;
+  acting: boolean;
+  onRespond: (
+    item: HouseholdNotification,
+    response: "accept" | "decline",
+  ) => void;
+  onDismiss: (item: HouseholdNotification) => void;
+}) {
+  return (
+    <article
+      className={`group flex gap-3 rounded-xl p-3 sm:p-4 ${item.readAt ? "" : "bg-[var(--butter)]/15"}`}
+    >
+      <span
+        className="mt-4 size-2 shrink-0 rounded-full bg-[var(--terracotta)]"
+        style={{ visibility: item.readAt ? "hidden" : "visible" }}
+      />
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--ink)] bg-[var(--sage)] text-white">
+        <House className="size-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="rt-body text-[0.95rem] text-[var(--ink-2)]">
+          {copyFor(item)}
+        </p>
+        {item.type === "household_invited" && item.invitationId && (
+          <div className="mt-2 flex gap-2">
+            <Button
+              size="sm"
+              disabled={acting}
+              onClick={() => onRespond(item, "accept")}
+            >
+              Accept
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={acting}
+              onClick={() => onRespond(item, "decline")}
+            >
+              Decline
+            </Button>
+          </div>
+        )}
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <time className="rt-mono text-[var(--ink-4)]">
+          {relativeTime(item.createdAt)}
+        </time>
+        <button
+          type="button"
+          aria-label="Dismiss notification"
+          className="flex size-6 items-center justify-center rounded-full border border-[var(--line-strong)] text-[var(--ink-3)] opacity-100 transition-colors hover:bg-[var(--terracotta)] hover:text-white sm:opacity-0 sm:group-hover:opacity-100"
+          onClick={() => onDismiss(item)}
+        >
+          <X className="size-3" />
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function NotificationGroup({
+  label,
+  items,
+  actingId,
+  onRespond,
+  onDismiss,
+}: {
+  label: string;
+  items: HouseholdNotification[];
+  actingId: string | null;
+  onRespond: (
+    item: HouseholdNotification,
+    response: "accept" | "decline",
+  ) => void;
+  onDismiss: (item: HouseholdNotification) => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section className="mt-7">
+      <div className="mb-1 flex items-center gap-3">
+        <h2 className="rt-mono text-[var(--ink-3)]">{label}</h2>
+        <span className="h-px flex-1 bg-[var(--line)]" />
+      </div>
+      <div className="space-y-1">
+        {items.map((item) => (
+          <NotificationRow
+            key={item.id}
+            item={item}
+            acting={actingId === item.id}
+            onRespond={onRespond}
+            onDismiss={onDismiss}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function NotificationsView() {
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const [items, setItems] = useState<HouseholdNotification[]>([]);
@@ -80,7 +184,7 @@ export function NotificationsView() {
   useEffect(() => {
     if (!session) return;
     const controller = new AbortController();
-    void load(controller.signal);
+    load(controller.signal);
     return () => controller.abort();
   }, [load, session]);
 
@@ -103,6 +207,19 @@ export function NotificationsView() {
     } finally {
       setActing(null);
     }
+  }
+
+  async function dismiss(item: HouseholdNotification) {
+    await updateNotification(item.id, { dismissed: true });
+    setItems((current) => current.filter(({ id }) => id !== item.id));
+  }
+
+  async function markAllRead() {
+    await markAllNotificationsRead();
+    const readAt = new Date().toISOString();
+    setItems((current) =>
+      current.map((item) => ({ ...item, readAt: item.readAt ?? readAt })),
+    );
   }
 
   if (sessionPending || (session && loading)) {
@@ -146,19 +263,7 @@ export function NotificationsView() {
           </p>
         </div>
         {unread > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              await markAllNotificationsRead();
-              setItems((current) =>
-                current.map((item) => ({
-                  ...item,
-                  readAt: item.readAt ?? new Date().toISOString(),
-                })),
-              );
-            }}
-          >
+          <Button variant="outline" size="sm" onClick={markAllRead}>
             Mark all read
           </Button>
         )}
@@ -181,80 +286,16 @@ export function NotificationsView() {
           </p>
         </div>
       ) : (
-        groups.map(
-          (group) =>
-            group.items.length > 0 && (
-              <section key={group.label} className="mt-7">
-                <div className="mb-1 flex items-center gap-3">
-                  <h2 className="rt-mono text-[var(--ink-3)]">{group.label}</h2>
-                  <span className="h-px flex-1 bg-[var(--line)]" />
-                </div>
-                <div className="space-y-1">
-                  {group.items.map((item) => (
-                    <article
-                      key={item.id}
-                      className={`group flex gap-3 rounded-xl p-3 sm:p-4 ${item.readAt ? "" : "bg-[var(--butter)]/15"}`}
-                    >
-                      <span
-                        className="mt-4 size-2 shrink-0 rounded-full bg-[var(--terracotta)]"
-                        style={{
-                          visibility: item.readAt ? "hidden" : "visible",
-                        }}
-                      />
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--ink)] bg-[var(--sage)] text-white">
-                        <House className="size-5" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="rt-body text-[0.95rem] text-[var(--ink-2)]">
-                          {copyFor(item)}
-                        </p>
-                        {item.type === "household_invited" &&
-                          item.invitationId && (
-                            <div className="mt-2 flex gap-2">
-                              <Button
-                                size="sm"
-                                disabled={acting === item.id}
-                                onClick={() => void respond(item, "accept")}
-                              >
-                                Accept
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={acting === item.id}
-                                onClick={() => void respond(item, "decline")}
-                              >
-                                Decline
-                              </Button>
-                            </div>
-                          )}
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-2">
-                        <time className="rt-mono text-[var(--ink-4)]">
-                          {relativeTime(item.createdAt)}
-                        </time>
-                        <button
-                          type="button"
-                          aria-label="Dismiss notification"
-                          className="flex size-6 items-center justify-center rounded-full border border-[var(--line-strong)] text-[var(--ink-3)] opacity-100 transition-colors hover:bg-[var(--terracotta)] hover:text-white sm:opacity-0 sm:group-hover:opacity-100"
-                          onClick={async () => {
-                            await updateNotification(item.id, {
-                              dismissed: true,
-                            });
-                            setItems((current) =>
-                              current.filter(({ id }) => id !== item.id),
-                            );
-                          }}
-                        >
-                          <X className="size-3" />
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            ),
-        )
+        groups.map((group) => (
+          <NotificationGroup
+            key={group.label}
+            label={group.label}
+            items={group.items}
+            actingId={acting}
+            onRespond={(item, response) => respond(item, response)}
+            onDismiss={(item) => dismiss(item)}
+          />
+        ))
       )}
     </div>
   );

@@ -209,6 +209,22 @@ function invitationResponse(invitation: HouseholdInvitation) {
   };
 }
 
+function pendingInvitationFailure(
+  c: Context<AppEnv>,
+  invitation: HouseholdInvitation,
+  session: AuthenticatedSession,
+) {
+  if (invitation.status !== "pending") {
+    return c.json({ error: "Invitation is not pending" }, 409);
+  }
+  if (invitation.expiresAt.getTime() < Date.now()) {
+    return c.json({ error: "Invitation has expired" }, 410);
+  }
+  if (invitation.email.toLowerCase() !== session.user.email.toLowerCase()) {
+    return authorizationResponse(c, forbidden());
+  }
+}
+
 async function createNotification(
   db: Pick<Db, "insert">,
   values: {
@@ -1340,15 +1356,8 @@ app.post("/households/invitations/:invitationId/accept", async (c) => {
       .where(eq(schema.invitation.id, invitationId))
       .limit(1);
     if (!invitation) return c.notFound();
-    if (invitation.status !== "pending") {
-      return c.json({ error: "Invitation is not pending" }, 409);
-    }
-    if (invitation.expiresAt.getTime() < Date.now()) {
-      return c.json({ error: "Invitation has expired" }, 410);
-    }
-    if (invitation.email.toLowerCase() !== session.session.user.email.toLowerCase()) {
-      return authorizationResponse(c, forbidden());
-    }
+    const invitationFailure = pendingInvitationFailure(c, invitation, session.session);
+    if (invitationFailure) return invitationFailure;
 
     const existingMembership = await findUserHouseholdMembership(
       db,
