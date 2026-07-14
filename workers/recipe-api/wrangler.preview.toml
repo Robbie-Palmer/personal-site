@@ -11,5 +11,15 @@ required = [
   "PREVIEW_AUTH_PASSWORD",
 ]
 
-# Preview deployments intentionally have no Hyperdrive binding. The workflow
-# injects the isolated Neon branch's pooled DATABASE_URL as a Worker secret.
+# The preview workflow injects the isolated Neon branch's pooled DATABASE_URL
+# as a Worker secret instead of binding production Hyperdrive.
+
+[[r2_buckets]]
+binding = "ARTIFACTS"
+bucket_name = "recipe-artifacts-preview"
+
+[[workflows]]
+name = "__PREVIEW_INGEST_NAME__"
+binding = "RECIPE_INGEST_WORKFLOW"
+class_name = "RecipeIngestWorkflow"
+script_name = "__PREVIEW_INGEST_NAME__"

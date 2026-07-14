@@ -6,8 +6,10 @@ config_roots = [
     "infra",
     "infra-bootstrap",
     "ml-pipelines",
+    "packages/recipe-db",
     "packages/recipe-parsing",
     "workers/recipe-api",
+    "workers/recipe-ingest",
 ]
 
 [settings]

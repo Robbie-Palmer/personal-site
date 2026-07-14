@@ -13,6 +13,7 @@ function makeRecipe(slug: string, title: string): RecipeCardView {
     tags: [],
     servings: 4,
     ingredientNames: [],
+    ingredientSlugs: [],
     cookware: [],
   };
 }

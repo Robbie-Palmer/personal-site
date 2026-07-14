@@ -6,8 +6,8 @@
  * Neon's docs: append `.md` to a page URL to get plain Markdown, and fetch
  * /llms.txt for a structured index of everything available.
  *
- * Recipe pages additionally get a schema.org Recipe JSON twin (append
- * `.json` instead), the interchange format most recipe apps can import.
+ * Recipe pages additionally get schema.org Recipe JSON and Cooklang twins
+ * (append `.json` or `.cook` respectively) for portable recipe export.
  */
 
 import fs from "node:fs";
@@ -44,6 +44,43 @@ import {
 } from "@/lib/domain/technology";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
 import { buildRecipeJsonLd } from "@/lib/seo/recipe-jsonld";
+
+function formatCooklangExport(recipe: RecipeDetailView): string {
+  const ingredientAnnotations = Object.fromEntries(
+    recipe.ingredientGroups
+      .flatMap((group) => group.items)
+      .filter((item) => item.preparation || item.note)
+      .map((item) => [
+        item.ingredient,
+        {
+          ...(item.preparation ? { preparation: item.preparation } : {}),
+          ...(item.note ? { note: item.note } : {}),
+        },
+      ]),
+  );
+  const frontmatter = [
+    "---",
+    `title: ${JSON.stringify(recipe.title)}`,
+    `description: ${JSON.stringify(recipe.description)}`,
+    `date: ${JSON.stringify(recipe.date)}`,
+    `cuisine: ${JSON.stringify(recipe.cuisine)}`,
+    `servings: ${recipe.servings}`,
+    ...(recipe.prepTime != null ? [`prepTime: ${recipe.prepTime}`] : []),
+    ...(recipe.cookTime != null ? [`cookTime: ${recipe.cookTime}`] : []),
+    `tags: ${JSON.stringify(recipe.tags)}`,
+    ...(recipe.image ? [`image: ${JSON.stringify(recipe.image)}`] : []),
+    ...(recipe.imageAlt ? [`imageAlt: ${JSON.stringify(recipe.imageAlt)}`] : []),
+    ...(recipe.canonical
+      ? [`canonical: ${JSON.stringify(recipe.canonical)}`]
+      : []),
+    ...(Object.keys(ingredientAnnotations).length > 0
+      ? [`ingredientAnnotations: ${JSON.stringify(ingredientAnnotations)}`]
+      : []),
+    "---",
+  ];
+
+  return `${frontmatter.join("\n")}\n${recipe.cookBody.trim()}\n`;
+}
 
 const OUT_DIR = path.join(process.cwd(), "out");
 
@@ -535,6 +572,10 @@ function buildRoutesJson(): string {
         "/api/auth/*",
         "/api/profile/diet",
         "/api/profile/diet/options",
+        "/api/households",
+        "/api/households/*",
+        "/api/recipes",
+        "/api/recipes/*",
         "/ingest/*",
         "/",
         "/experience",
@@ -625,8 +666,7 @@ function main(): void {
     );
   }
 
-  // Recipe twins in schema.org Recipe JSON-LD, the interchange format most
-  // recipe apps import; same URL convention as the Markdown twins
+  // Recipe twins provide machine-readable JSON and portable Cooklang source.
   for (const recipe of recipeDetails) {
     const jsonLd = buildRecipeJsonLd(
       recipe,
@@ -637,6 +677,7 @@ function main(): void {
       `recipes/${recipe.slug}.json`,
       `${JSON.stringify(jsonLd, null, 2)}\n`,
     );
+    writeFile(`recipes/${recipe.slug}.cook`, formatCooklangExport(recipe));
   }
 
   writeFile("llms.txt", buildLlmsTxt(projects, posts, recipes, technologyPages));
@@ -652,7 +693,7 @@ function main(): void {
   writeFile("_routes.json", buildRoutesJson());
 
   console.log(
-    `Generated ${pages.length} Markdown pages, ${recipeDetails.length} recipe JSON exports, llms.txt, llms-full.txt, _headers, and _routes.json in out/`,
+    `Generated ${pages.length} Markdown pages and ${recipeDetails.length} recipe JSON/Cooklang exports, llms.txt, llms-full.txt, _headers, and _routes.json in out/`,
   );
 }
 

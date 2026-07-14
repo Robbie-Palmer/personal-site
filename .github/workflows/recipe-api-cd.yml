@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "workers/recipe-api/**"
+      - "packages/recipe-db/**"
       - ".github/workflows/recipe-api-cd.yml"
   workflow_dispatch:
 

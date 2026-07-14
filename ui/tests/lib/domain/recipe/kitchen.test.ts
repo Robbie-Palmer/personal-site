@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getDietRelevantKitchenIngredients,
   getKitchenRecipeMatches,
   isKitchenLocation,
   KITCHEN_LOCATIONS,
@@ -54,5 +55,32 @@ describe("kitchen helpers", () => {
     expect(matches[1]?.missingIngredients).toEqual([
       { slug: "tomatoes", name: "tomatoes" },
     ]);
+  });
+
+  it("removes diet-excluded ingredients from pantry suggestions", () => {
+    const ingredients = [
+      { slug: "bacon", name: "Bacon", category: "protein" as const },
+      {
+        slug: "cheddar-cheese",
+        name: "Cheddar cheese",
+        category: "dairy" as const,
+      },
+      { slug: "chickpeas", name: "Chickpeas", category: "legume" as const },
+    ];
+
+    expect(
+      getDietRelevantKitchenIngredients(
+        ingredients,
+        new Set(["bacon", "cheddar-cheese"]),
+      ),
+    ).toEqual([ingredients[2]]);
+
+    expect(
+      getDietRelevantKitchenIngredients(
+        ingredients,
+        new Set(["bacon", "cheddar-cheese"]),
+        true,
+      ),
+    ).toEqual(ingredients);
   });
 });

@@ -13,62 +13,22 @@ import {
   type IngredientCanonicalizationDecision,
 } from "recipe-parsing/ingredient-canonicalization";
 import {
+  applyDisambiguationChoices,
+  applyLlmDecisionsToEntry,
+  buildCategoryMap,
+  collectUnresolved,
+  extractRecipeContext,
+} from "recipe-parsing/disambiguation";
+import {
   disambiguateIngredients,
   type DisambiguationChoice,
-  type UnresolvedItem,
 } from "recipe-parsing/openrouter";
 import { computeBackoffDelayMs, sleep } from "recipe-parsing/attempts";
 import { requiredEnv } from "../lib/env.js";
-import type { CanonicalIngredient } from "recipe-parsing/schemas/canonical-ingredients";
 import type { PredictionEntry } from "recipe-parsing/schemas/ground-truth";
 
 function hasApiKey(): boolean {
   return Boolean(process.env.OPENROUTER_API_KEY);
-}
-
-function buildCategoryMap(
-  ingredients: CanonicalIngredient[],
-): Map<string, string> {
-  const map = new Map<string, string>();
-  for (const { slug, category } of ingredients) {
-    map.set(slug, category);
-  }
-  return map;
-}
-
-function collectUnresolved(
-  decisions: IngredientCanonicalizationDecision[],
-  categoryMap: Map<string, string>,
-): UnresolvedItem[] {
-  const seen = new Set<string>();
-  const items: UnresolvedItem[] = [];
-  for (const d of decisions) {
-    if (d.method !== "none" || d.candidates.length === 0) continue;
-    if (seen.has(d.baseSlug)) continue;
-    seen.add(d.baseSlug);
-    items.push({
-      slug: d.baseSlug,
-      candidates: d.candidates.map((c) => ({
-        slug: c.slug,
-        category: categoryMap.get(c.slug) ?? "other",
-      })),
-    });
-  }
-  return items;
-}
-
-function extractRecipeContext(
-  entry: PredictionEntry,
-  decisions: IngredientCanonicalizationDecision[],
-): { title: string; cuisine: string[]; otherIngredients: string[] } {
-  const resolved = decisions
-    .filter((d) => d.method !== "none")
-    .map((d) => d.canonicalSlug);
-  return {
-    title: entry.predicted.title,
-    cuisine: entry.predicted.cuisine,
-    otherIngredients: [...new Set(resolved)],
-  };
 }
 
 async function runLlmDisambiguation(
@@ -82,14 +42,6 @@ async function runLlmDisambiguation(
   if (unresolved.length === 0) return;
 
   const recipeContext = extractRecipeContext(entry, decisions);
-
-  const validCandidateSlugs = new Map<string, Set<string>>();
-  for (const item of unresolved) {
-    validCandidateSlugs.set(
-      item.slug,
-      new Set(item.candidates.map((c) => c.slug)),
-    );
-  }
 
   let choices: DisambiguationChoice[] | undefined;
 
@@ -127,65 +79,7 @@ async function runLlmDisambiguation(
 
   if (!choices) return;
 
-  for (const choice of choices) {
-    const allowed = validCandidateSlugs.get(choice.slug);
-    if (!allowed) {
-      console.warn(
-        `  LLM returned unknown ingredient slug "${choice.slug}", skipping`,
-      );
-      continue;
-    }
-    if (!allowed.has(choice.canonicalSlug)) {
-      console.warn(
-        `  LLM returned "${choice.canonicalSlug}" for "${choice.slug}" which is not in the candidate list, skipping`,
-      );
-      continue;
-    }
-
-    for (const d of decisions) {
-      if (d.method === "none" && d.baseSlug === choice.slug) {
-        d.canonicalSlug = choice.canonicalSlug;
-        (d as IngredientCanonicalizationDecision).method = "llm";
-        d.reason = undefined;
-        console.log(
-          `  LLM: "${choice.slug}" → ${choice.canonicalSlug} (${choice.confidence})`,
-        );
-      }
-    }
-  }
-}
-
-function applyLlmDecisionsToEntry(
-  entry: PredictionEntry,
-  decisions: IngredientCanonicalizationDecision[],
-): PredictionEntry {
-  const decisionByOriginal = new Map<string, string>();
-  for (const d of decisions) {
-    if (d.method === "llm") {
-      decisionByOriginal.set(d.originalSlug, d.canonicalSlug);
-    }
-  }
-
-  if (decisionByOriginal.size === 0) return entry;
-
-  return {
-    ...entry,
-    predicted: {
-      ...entry.predicted,
-      ingredientGroups: entry.predicted.ingredientGroups.map((group) => ({
-        ...group,
-        items: group.items.map((item) => {
-          const resolved = decisionByOriginal.get(item.ingredient) ??
-            decisionByOriginal.get(
-              decisions.find(
-                (d) => d.method === "llm" && d.baseSlug === item.ingredient,
-              )?.originalSlug ?? "",
-            );
-          return resolved ? { ...item, ingredient: resolved } : item;
-        }),
-      })),
-    },
-  };
+  applyDisambiguationChoices(decisions, unresolved, choices);
 }
 
 async function main() {

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { DIET_PROFILE_UPDATED_EVENT } from "@/components/recipes/diet-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -183,12 +184,14 @@ function SelectableTile({
   active,
   children,
   className,
+  disabled = false,
   label,
   onClick,
 }: Readonly<{
   active: boolean;
   children: ReactNode;
   className?: string;
+  disabled?: boolean;
   label: string;
   onClick: () => void;
 }>) {
@@ -196,12 +199,14 @@ function SelectableTile({
     <button
       type="button"
       aria-pressed={active}
+      disabled={disabled}
       onClick={onClick}
       className={cn(
         "flex items-start gap-3 rounded-lg border px-3 py-3 text-left transition-colors",
         active
           ? "border-[var(--terracotta)] bg-[var(--butter-soft)]"
           : "border-[var(--line)] bg-[var(--card)] hover:border-[var(--line-strong)]",
+        disabled && "cursor-default",
         className,
       )}
     >
@@ -249,6 +254,7 @@ function IngredientPicker({
 }>) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const closeTimeoutRef = useRef<number | null>(null);
   const hasIngredients = ingredients.length > 0;
   const selected = useMemo(() => new Set(selectedSlugs), [selectedSlugs]);
   const matches = useMemo(() => {
@@ -264,7 +270,30 @@ function IngredientPicker({
       .slice(0, INGREDIENT_RESULT_LIMIT);
   }, [ingredients, query, selected]);
 
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current !== null) {
+        window.clearTimeout(closeTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function cancelScheduledClose() {
+    if (closeTimeoutRef.current === null) return;
+    window.clearTimeout(closeTimeoutRef.current);
+    closeTimeoutRef.current = null;
+  }
+
+  function scheduleClose() {
+    cancelScheduledClose();
+    closeTimeoutRef.current = window.setTimeout(() => {
+      setOpen(false);
+      closeTimeoutRef.current = null;
+    }, 120);
+  }
+
   function addIngredient(ingredient: DietIngredientOption) {
+    cancelScheduledClose();
     onAdd(ingredient);
     setQuery("");
     setOpen(false);
@@ -276,12 +305,15 @@ function IngredientPicker({
       <Input
         value={query}
         disabled={!hasIngredients}
-        onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+        onBlur={scheduleClose}
         onChange={(event) => {
           setQuery(event.target.value);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          cancelScheduledClose();
+          setOpen(true);
+        }}
         placeholder={
           hasIngredients
             ? `Search ${ingredients.length} canonical ingredients...`
@@ -437,6 +469,7 @@ export function DietPanel() {
       setProfile(saved);
       setSavedProfile(saved);
       setSaveState("saved");
+      globalThis.dispatchEvent(new Event(DIET_PROFILE_UPDATED_EVENT));
     } catch (saveError) {
       if (controller.signal.aborted) return;
       setSaveState("error");
@@ -527,7 +560,11 @@ export function DietPanel() {
                   return (
                     <SelectableTile
                       key={group.key}
-                      active={profile.excludedGroupKeys.includes(group.key)}
+                      active={
+                        coveredByPreset ||
+                        profile.excludedGroupKeys.includes(group.key)
+                      }
+                      disabled={coveredByPreset}
                       label={group.label}
                       onClick={() =>
                         updateProfile({

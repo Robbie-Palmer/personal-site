@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RecipeApiProxyContext } from "../../../functions/api/auth/routing";
+import { onRequest as onHouseholdRequest } from "../../../functions/api/households/[[path]]";
 import { onRequest } from "../../../functions/api/profile/diet";
 import { onRequest as onOptionsRequest } from "../../../functions/api/profile/diet/options";
 
@@ -20,6 +21,7 @@ describe("profile diet proxy", () => {
         method: "PUT",
         headers: {
           authorization: "Bearer test-token",
+          "cf-access-jwt-assertion": "access-token",
           "content-type": "application/json",
           host: "robbiepalmer.me",
         },
@@ -42,6 +44,9 @@ describe("profile diet proxy", () => {
     expect(forwarded.method).toBe("PUT");
     expect(forwarded.headers.has("host")).toBe(false);
     expect(forwarded.headers.get("authorization")).toBe("Bearer test-token");
+    expect(forwarded.headers.get("cf-access-jwt-assertion")).toBe(
+      "access-token",
+    );
     expect(await forwarded.text()).toBe(
       JSON.stringify({ recipeMatchMode: "warn" }),
     );
@@ -102,5 +107,34 @@ describe("profile diet proxy", () => {
     expect(await response.json()).toEqual({
       error: "Failed to reach the recipe API",
     });
+  });
+});
+
+describe("household proxy", () => {
+  it.each([
+    ["/api/households?fresh=1", "/households?fresh=1"],
+    [
+      "/api/households/household-1/invitations",
+      "/households/household-1/invitations",
+    ],
+  ])("maps %s to the Worker path %s", async (sourcePath, workerPath) => {
+    const fetchMock = vi.fn(async (_request: Request) => new Response("ok"));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onHouseholdRequest({
+      request: new Request(`https://robbiepalmer.me${sourcePath}`, {
+        method: "DELETE",
+      }),
+      env: { RECIPE_API_URL: "https://recipe-api.example.test" },
+    });
+
+    expect(response.status).toBe(200);
+    const forwarded = fetchMock.mock.calls[0]?.[0];
+    expect(forwarded).toBeInstanceOf(Request);
+    if (!(forwarded instanceof Request)) {
+      throw new Error("Expected household proxy to forward a Request");
+    }
+    expect(forwarded.url).toBe(`https://recipe-api.example.test${workerPath}`);
+    expect(forwarded.method).toBe("DELETE");
   });
 });

@@ -3,7 +3,25 @@ name: Trivy Security Scan
 on:
   pull_request:
     paths:
+      # IaC / config-shaped paths (keep broad enough that new roots are not
+      # silently skipped on PRs; weekly schedule is the full-tree backstop)
       - "infra/**"
+      - "infra-bootstrap/**"
+      - "**/*.tf"
+      - "**/*.tfvars"
+      - "**/Dockerfile"
+      - "**/Dockerfile.*"
+      - "**/docker-compose*.yml"
+      - "**/docker-compose*.yaml"
+      - "**/compose.yml"
+      - "**/compose.yaml"
+      - "**/Chart.yaml"
+      - "**/values.yml"
+      - "**/values.yaml"
+      - "**/kubernetes/**"
+      - "**/k8s/**"
+      - "**/helm/**"
+      # Dependencies
       - "**/pnpm-lock.yaml"
       - "**/package.json"
       - ".github/workflows/trivy-security.yml"
@@ -28,15 +46,17 @@ jobs:
         with:
           persist-credentials: false
 
+      # Whole workspace: never pin to a single Terraform root.
       - name: Run Trivy IaC scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: "config"
-          scan-ref: "./infra"
+          scan-ref: "."
           format: "sarif"
           output: "trivy-iac-results.sarif"
           severity: "CRITICAL,HIGH"
           timeout: "10m"
+          skip-dirs: "node_modules,.pnpm-store,.terraform"
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4

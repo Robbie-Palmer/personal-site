@@ -51,7 +51,9 @@ describe("agent markdown generation", () => {
   it("generates a markdown twin for every recipe and technology page", () => {
     // Interactive, noindex app pages that intentionally have no Markdown twin.
     const nonContentPages = new Set([
+      "recipes/add.html",
       "recipes/kitchen.html",
+      "recipes/saved.html",
       "recipes/settings.html",
       "recipes/shopping.html",
     ]);
@@ -92,11 +94,48 @@ describe("agent markdown generation", () => {
     expect(recipe).not.toContain("{%"); // no leftover cooklang markup
   });
 
+  it("generates JSON and Cooklang exports for every recipe", () => {
+    const nonRecipePages = new Set([
+      "add.html",
+      "kitchen.html",
+      "saved.html",
+      "settings.html",
+      "shopping.html",
+    ]);
+    const recipePages = fs
+      .readdirSync(path.join(OUT_DIR, "recipes"))
+      .filter((file) => file.endsWith(".html") && !nonRecipePages.has(file));
+
+    for (const recipePage of recipePages) {
+      const slug = recipePage.replace(/\.html$/, "");
+      expect(
+        fs.existsSync(path.join(OUT_DIR, "recipes", `${slug}.json`)),
+        `recipes/${slug}.json`,
+      ).toBe(true);
+      expect(
+        fs.existsSync(path.join(OUT_DIR, "recipes", `${slug}.cook`)),
+        `recipes/${slug}.cook`,
+      ).toBe(true);
+    }
+  });
+
+  it("preserves ingredient annotations in Cooklang exports", () => {
+    const recipe = read("recipes/breakfast-flatbreads.cook");
+
+    expect(recipe).toContain("ingredientAnnotations:");
+    expect(recipe).toContain('"cherry-tomato":{"preparation":"halved"}');
+    expect(recipe).toContain('"naan":{"note":"plain"}');
+  });
+
   it("scopes the middleware to page routes in _routes.json", () => {
     const routes = JSON.parse(read("_routes.json"));
     expect(routes.include).toContain("/api/auth/*");
     expect(routes.include).toContain("/api/profile/diet");
     expect(routes.include).toContain("/api/profile/diet/options");
+    expect(routes.include).toContain("/api/households");
+    expect(routes.include).toContain("/api/households/*");
+    expect(routes.include).toContain("/api/recipes");
+    expect(routes.include).toContain("/api/recipes/*");
     expect(routes.include).toContain("/ingest/*");
     expect(routes.include).toContain("/projects/*");
     expect(routes.exclude).toContain("/_next/*");

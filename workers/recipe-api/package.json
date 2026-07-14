@@ -13,6 +13,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:push:ci": "drizzle-kit push",
+    "db:backfill:user-emails": "tsx scripts/backfill-user-emails.ts",
     "db:seed:diet-catalog": "tsx scripts/seed-diet-catalog.ts",
     "db:studio": "drizzle-kit studio",
     "preview:seed": "tsx scripts/seed-preview.ts"
@@ -24,6 +25,8 @@
     "hono": "^4.7.11",
     "jose": "^6.1.3",
     "postgres": "^3.4.5",
+    "recipe-db": "workspace:*",
+    "recipe-domain": "workspace:*",
     "zod": "^4.2.1"
   },
   "devDependencies": {

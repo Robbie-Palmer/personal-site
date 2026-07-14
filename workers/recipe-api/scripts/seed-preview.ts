@@ -1,7 +1,8 @@
 import { eq, inArray } from "drizzle-orm";
 import { createAuth } from "../src/auth";
-import { createDb, schema } from "../src/db";
+import { createDb, schema } from "recipe-db";
 import { previewScenarios } from "../src/preview-scenarios";
+import { syncCanonicalUserEmail } from "../src/user-emails";
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -55,7 +56,11 @@ try {
   }
 
   const seededUsers = await db
-    .select({ id: schema.user.id, email: schema.user.email })
+    .select({
+      id: schema.user.id,
+      email: schema.user.email,
+      emailVerified: schema.user.emailVerified,
+    })
     .from(schema.user)
     .where(
       inArray(
@@ -63,6 +68,11 @@ try {
         previewScenarios.map((scenario) => scenario.email),
       ),
     );
+  await Promise.all(
+    seededUsers.map((seededUser) =>
+      syncCanonicalUserEmail(db, seededUser),
+    ),
+  );
   const userIdByEmail = new Map(
     seededUsers.map((seededUser) => [seededUser.email, seededUser.id]),
   );

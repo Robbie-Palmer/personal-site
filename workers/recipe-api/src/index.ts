@@ -1,9 +1,11 @@
 import { Hono, type Context } from "hono";
-import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, inArray, isNull, lt, or } from "drizzle-orm";
 import { z } from "zod";
-import { createDb, schema } from "./db";
+import { createDb, schema } from "recipe-db";
+import { RecipeContentSchema } from "recipe-domain";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
+import { hasPostgresErrorCode } from "./db/errors";
 import {
   type AuthenticatedSession,
   type AuthorizationVariables,
@@ -22,6 +24,11 @@ import {
   findPreviewScenario,
   previewScenarios,
 } from "./preview-scenarios";
+import {
+  normalizeEmail,
+  userOwnsVerifiedEmail,
+  verifiedEmailsForUser,
+} from "./user-emails";
 
 type Bindings = {
   HYPERDRIVE?: Hyperdrive;
@@ -36,9 +43,12 @@ type Bindings = {
   PREVIEW_AUTH_PASSWORD?: string;
   CF_ACCESS_TEAM_DOMAIN?: string;
   CF_ACCESS_AUD?: string;
+  ARTIFACTS?: R2Bucket;
+  RECIPE_INGEST_WORKFLOW?: Workflow;
 };
 
 type Recipe = typeof schema.recipe.$inferSelect;
+type RecipeImportJob = typeof schema.recipeImportJob.$inferSelect;
 type Household = typeof schema.organization.$inferSelect;
 type HouseholdMember = typeof schema.member.$inferSelect;
 type HouseholdInvitation = typeof schema.invitation.$inferSelect;
@@ -104,6 +114,52 @@ const uniqueDietKeysSchema = z
   .max(80)
   .transform((values) => Array.from(new Set(values)));
 
+const MAX_RECIPE_BODY_BYTES = 100_000;
+const savedRecipePayloadSchema = z
+  .object({
+    version: z.literal(1),
+    source: z.string().trim().min(1).max(10_000),
+    recipe: RecipeContentSchema,
+  })
+  .strict();
+
+const savedRecipeBodySchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(MAX_RECIPE_BODY_BYTES)
+  .superRefine((value, context) => {
+    if (new TextEncoder().encode(value).byteLength > MAX_RECIPE_BODY_BYTES) {
+      context.addIssue({
+        code: "custom",
+        message: `Recipe body must be at most ${MAX_RECIPE_BODY_BYTES} bytes`,
+      });
+      return;
+    }
+
+    let payload: unknown;
+    try {
+      payload = JSON.parse(value);
+    } catch {
+      context.addIssue({
+        code: "custom",
+        message: "Recipe body must be valid JSON",
+      });
+      return;
+    }
+
+    const result = savedRecipePayloadSchema.safeParse(payload);
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        context.addIssue({
+          code: "custom",
+          path: issue.path,
+          message: issue.message,
+        });
+      }
+    }
+  });
+
 // Household invitations stay valid for 48 hours after they are created.
 const INVITATION_EXPIRY_MS = 48 * 60 * 60 * 1000;
 
@@ -111,17 +167,17 @@ const HOUSEHOLD_INVITE_RATE_LIMIT = { max: 10, windowSeconds: 60 * 60 };
 
 const createRecipeBodySchema = z.object({
   slug: recipeSlugSchema,
-  title: z.string().trim().min(1),
-  description: z.string().trim().min(1).optional(),
-  body: z.string().trim().min(1).optional(),
+  title: z.string().trim().min(1).max(120),
+  description: z.string().trim().min(1).max(500).optional(),
+  body: savedRecipeBodySchema,
   visibility: recipeVisibilitySchema.default("private"),
 });
 
 const updateRecipeBodySchema = z
   .object({
-    title: z.string().trim().min(1).optional(),
-    description: z.string().trim().min(1).nullable().optional(),
-    body: z.string().trim().min(1).nullable().optional(),
+    title: z.string().trim().min(1).max(120).optional(),
+    description: z.string().trim().min(1).max(500).nullable().optional(),
+    body: savedRecipeBodySchema.nullable().optional(),
     visibility: recipeVisibilitySchema.optional(),
   })
   .strict()
@@ -132,6 +188,12 @@ const updateRecipeBodySchema = z
 const createHouseholdBodySchema = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
+  })
+  .strict();
+
+const updateHouseholdBodySchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
   })
   .strict();
 
@@ -207,22 +269,6 @@ function invitationResponse(invitation: HouseholdInvitation) {
     expiresAt: invitation.expiresAt,
     createdAt: invitation.createdAt,
   };
-}
-
-function pendingInvitationFailure(
-  c: Context<AppEnv>,
-  invitation: HouseholdInvitation,
-  session: AuthenticatedSession,
-) {
-  if (invitation.status !== "pending") {
-    return c.json({ error: "Invitation is not pending" }, 409);
-  }
-  if (invitation.expiresAt.getTime() < Date.now()) {
-    return c.json({ error: "Invitation has expired" }, 410);
-  }
-  if (invitation.email.toLowerCase() !== session.user.email.toLowerCase()) {
-    return authorizationResponse(c, forbidden());
-  }
 }
 
 async function createNotification(
@@ -423,21 +469,11 @@ async function withRecipeSession(
 }
 
 function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "23505"
-  );
+  return hasPostgresErrorCode(error, "23505");
 }
 
 function isForeignKeyViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "23503"
-  );
+  return hasPostgresErrorCode(error, "23503");
 }
 
 async function findRecipeBySlug(
@@ -534,6 +570,62 @@ async function findUserHouseholdMembership(
     .where(eq(schema.member.userId, userId))
     .limit(1);
   return member;
+}
+
+async function acceptPendingInvitation(
+  db: Db,
+  invitation: HouseholdInvitation,
+  userId: string,
+): Promise<HouseholdMember> {
+  return db.transaction(async (tx) => {
+    const mutationTime = new Date();
+    const [accepted] = await tx
+      .update(schema.invitation)
+      .set({ status: "accepted" })
+      .where(
+        and(
+          eq(schema.invitation.id, invitation.id),
+          eq(schema.invitation.status, "pending"),
+          gt(schema.invitation.expiresAt, mutationTime),
+        ),
+      )
+      .returning();
+    if (!accepted) {
+      throw new Error(
+        invitation.expiresAt <= mutationTime
+          ? "Invitation has expired"
+          : "Invitation is not pending",
+      );
+    }
+
+    const [member] = await tx
+      .insert(schema.member)
+      .values({
+        id: createId(),
+        organizationId: invitation.organizationId,
+        userId,
+        role: "member",
+      })
+      .returning();
+    if (!member) throw new Error("Member insert failed");
+    return member;
+  });
+}
+
+function invitationAcceptanceFailure(
+  c: Context<AppEnv>,
+  error: unknown,
+): Response | undefined {
+  if (isUniqueViolation(error)) {
+    return c.json({ error: "User already belongs to a household" }, 409);
+  }
+  if (error instanceof Error && error.message === "Invitation is not pending") {
+    return c.json({ error: "Invitation is not pending" }, 409);
+  }
+  if (error instanceof Error && error.message === "Invitation has expired") {
+    return c.json({ error: "Invitation has expired" }, 410);
+  }
+  return undefined;
 }
 
 async function findHouseholdMemberUserIds(
@@ -1112,6 +1204,46 @@ app.get("/households", async (c) => {
   }
 });
 
+app.get("/households/invitations", async (c) => {
+  return withRecipeSession(
+    c,
+    "query",
+    "GET /households/invitations failed",
+    async ({ db, session }) => {
+      const verifiedEmails = await verifiedEmailsForUser(db, session.user);
+      if (verifiedEmails.length === 0) return c.json([]);
+
+      const invitations = await db
+        .select({
+          invitation: schema.invitation,
+          household: {
+            id: schema.organization.id,
+            name: schema.organization.name,
+          },
+        })
+        .from(schema.invitation)
+        .innerJoin(
+          schema.organization,
+          eq(schema.invitation.organizationId, schema.organization.id),
+        )
+        .where(
+          and(
+            inArray(schema.invitation.email, verifiedEmails),
+            eq(schema.invitation.status, "pending"),
+            gt(schema.invitation.expiresAt, new Date()),
+          ),
+        );
+
+      return c.json(
+        invitations.map(({ invitation, household }) => ({
+          ...invitationResponse(invitation),
+          household,
+        })),
+      );
+    },
+  );
+});
+
 app.post("/households", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
@@ -1177,6 +1309,85 @@ app.post("/households", async (c) => {
   }
 });
 
+app.patch("/households/:householdId", async (c) => {
+  const householdId = c.req.param("householdId");
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "PATCH /households/:householdId failed",
+    async ({ db, session }) => {
+      const ownerFailure = await authorizeHouseholdOwnerResponse(
+        c,
+        db,
+        householdId,
+        session,
+      );
+      if (ownerFailure) return ownerFailure;
+
+      const body = await parseJsonBody(c, updateHouseholdBodySchema);
+      if (!body.success) return body.response;
+
+      const [household] = await db
+        .update(schema.organization)
+        .set({ name: body.data.name })
+        .where(eq(schema.organization.id, householdId))
+        .returning();
+      if (!household) return c.notFound();
+
+      return c.json(householdResponse(household));
+    },
+  );
+});
+
+app.delete("/households/:householdId", async (c) => {
+  const householdId = c.req.param("householdId");
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "DELETE /households/:householdId failed",
+    async ({ db, session }) => {
+      const ownerFailure = await authorizeHouseholdOwnerResponse(
+        c,
+        db,
+        householdId,
+        session,
+      );
+      if (ownerFailure) return ownerFailure;
+
+      await db.transaction(async (tx) => {
+        const memberRows = await tx
+          .select({ userId: schema.member.userId })
+          .from(schema.member)
+          .where(eq(schema.member.organizationId, householdId));
+        const memberUserIds = memberRows.map((member) => member.userId);
+
+        if (memberUserIds.length > 0) {
+          await tx
+            .update(schema.recipe)
+            .set({ visibility: "private" })
+            .where(
+              and(
+                eq(schema.recipe.visibility, "household"),
+                inArray(schema.recipe.userId, memberUserIds),
+              ),
+            );
+        }
+        await tx
+          .delete(schema.organization)
+          .where(eq(schema.organization.id, householdId));
+      });
+
+      return c.body(null, 204);
+    },
+  );
+});
+
 app.get("/households/:householdId/members", async (c) => {
   const householdId = c.req.param("householdId");
   const connectionString = databaseConnection(c.env);
@@ -1230,6 +1441,37 @@ app.get("/households/:householdId/members", async (c) => {
   }
 });
 
+app.get("/households/:householdId/invitations", async (c) => {
+  const householdId = c.req.param("householdId");
+  return withRecipeSession(
+    c,
+    "query",
+    "GET /households/:householdId/invitations failed",
+    async ({ db, session }) => {
+      const ownerFailure = await authorizeHouseholdOwnerResponse(
+        c,
+        db,
+        householdId,
+        session,
+      );
+      if (ownerFailure) return ownerFailure;
+
+      const invitations = await db
+        .select()
+        .from(schema.invitation)
+        .where(
+          and(
+            eq(schema.invitation.organizationId, householdId),
+            eq(schema.invitation.status, "pending"),
+            gt(schema.invitation.expiresAt, new Date()),
+          ),
+        );
+
+      return c.json(invitations.map(invitationResponse));
+    },
+  );
+});
+
 app.post("/households/:householdId/invitations", async (c) => {
   const householdId = c.req.param("householdId");
   const csrfFailure = validateCsrf(c);
@@ -1271,7 +1513,7 @@ app.post("/households/:householdId/invitations", async (c) => {
     const body = await parseJsonBody(c, inviteHouseholdMemberBodySchema);
     if (!body.success) return body.response;
 
-    const email = body.data.email.toLowerCase();
+    const email = normalizeEmail(body.data.email);
 
     const [existingInvitation] = await db
       .select()
@@ -1281,6 +1523,7 @@ app.post("/households/:householdId/invitations", async (c) => {
           eq(schema.invitation.organizationId, householdId),
           eq(schema.invitation.email, email),
           eq(schema.invitation.status, "pending"),
+          gt(schema.invitation.expiresAt, new Date()),
         ),
       )
       .limit(1);
@@ -1356,8 +1599,21 @@ app.post("/households/invitations/:invitationId/accept", async (c) => {
       .where(eq(schema.invitation.id, invitationId))
       .limit(1);
     if (!invitation) return c.notFound();
-    const invitationFailure = pendingInvitationFailure(c, invitation, session.session);
-    if (invitationFailure) return invitationFailure;
+    if (invitation.status !== "pending") {
+      return c.json({ error: "Invitation is not pending" }, 409);
+    }
+    if (invitation.expiresAt.getTime() < Date.now()) {
+      return c.json({ error: "Invitation has expired" }, 410);
+    }
+    if (
+      !(await userOwnsVerifiedEmail(
+        db,
+        session.session.user,
+        invitation.email,
+      ))
+    ) {
+      return authorizationResponse(c, forbidden());
+    }
 
     const existingMembership = await findUserHouseholdMembership(
       db,
@@ -1367,31 +1623,11 @@ app.post("/households/invitations/:invitationId/accept", async (c) => {
       return c.json({ error: "User already belongs to a household" }, 409);
     }
 
-    const member = await db.transaction(async (tx) => {
-      const [accepted] = await tx
-        .update(schema.invitation)
-        .set({ status: "accepted" })
-        .where(
-          and(
-            eq(schema.invitation.id, invitationId),
-            eq(schema.invitation.status, "pending"),
-          ),
-        )
-        .returning();
-      if (!accepted) throw new Error("Invitation is not pending");
-
-      const [createdMember] = await tx
-        .insert(schema.member)
-        .values({
-          id: createId(),
-          organizationId: invitation.organizationId,
-          userId: session.session.user.id,
-          role: "member",
-        })
-        .returning();
-      if (!createdMember) throw new Error("Member insert failed");
-      return createdMember;
-    });
+    const member = await acceptPendingInvitation(
+      db,
+      invitation,
+      session.session.user.id,
+    );
 
     const [household, owner] = await Promise.all([
       findHouseholdById(db, invitation.organizationId),
@@ -1411,12 +1647,8 @@ app.post("/households/invitations/:invitationId/accept", async (c) => {
       membershipCreated: Boolean(member),
     });
   } catch (e) {
-    if (isUniqueViolation(e)) {
-      return c.json({ error: "User already belongs to a household" }, 409);
-    }
-    if (e instanceof Error && e.message === "Invitation is not pending") {
-      return c.json({ error: "Invitation is not pending" }, 409);
-    }
+    const failure = invitationAcceptanceFailure(c, e);
+    if (failure) return failure;
     console.error("POST /households/invitations/:invitationId/accept failed", e);
     return c.json({ error: "Database mutation failed" }, 502);
   } finally {
@@ -1457,10 +1689,17 @@ app.post("/households/invitations/:invitationId/decline", async (c) => {
     if (invitation.expiresAt.getTime() < Date.now()) {
       return c.json({ error: "Invitation has expired" }, 410);
     }
-    if (invitation.email.toLowerCase() !== session.session.user.email.toLowerCase()) {
+    if (
+      !(await userOwnsVerifiedEmail(
+        db,
+        session.session.user,
+        invitation.email,
+      ))
+    ) {
       return authorizationResponse(c, forbidden());
     }
 
+    const mutationTime = new Date();
     const [declined] = await db
       .update(schema.invitation)
       .set({ status: "rejected" })
@@ -1468,12 +1707,15 @@ app.post("/households/invitations/:invitationId/decline", async (c) => {
         and(
           eq(schema.invitation.id, invitationId),
           eq(schema.invitation.status, "pending"),
+          gt(schema.invitation.expiresAt, mutationTime),
         ),
       )
       .returning();
 
     if (!declined) {
-      return c.json({ error: "Invitation is not pending" }, 409);
+      return invitation.expiresAt <= mutationTime
+        ? c.json({ error: "Invitation has expired" }, 410)
+        : c.json({ error: "Invitation is not pending" }, 409);
     }
     const [household, owner] = await Promise.all([
       findHouseholdById(db, invitation.organizationId),
@@ -1977,7 +2219,13 @@ app.post("/recipes", async (c) => {
     return c.json(recipeResponse(recipe), 201);
   } catch (e) {
     if (isUniqueViolation(e)) {
-      return c.json({ error: "Recipe slug already exists" }, 409);
+      return c.json(
+        {
+          error:
+            "A recipe with this name already exists. Choose a different name.",
+        },
+        409,
+      );
     }
     console.error("POST /recipes mutation failed", e);
     return c.json({ error: "Database mutation failed" }, 502);
@@ -2226,6 +2474,351 @@ app.delete("/recipes/:slug", async (c) => {
   } catch (e) {
     console.error("DELETE /recipes/:slug mutation failed", e);
     return c.json({ error: "Database mutation failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
+// This API owns recipe photo import auth, quotas, job creation,
+// and status reads; the recipe-ingest Workflow owns the parsing chain.
+
+const RECIPE_IMPORT_MAX_IMAGES = 6;
+const RECIPE_IMPORT_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const RECIPE_IMPORT_MAX_ACTIVE_JOBS = 2;
+const RECIPE_IMPORT_DAILY_JOB_LIMIT = 10;
+const RECIPE_IMPORT_IMAGE_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+const recipeImportIdSchema = z.string().uuid();
+
+function importJobResponse(job: RecipeImportJob) {
+  return {
+    id: job.id,
+    status: job.status,
+    currentStage: job.currentStage,
+    progressLabel: job.progressLabel,
+    imageCount: job.imageCount,
+    error: job.errorMessage
+      ? { type: job.errorType, message: job.errorMessage }
+      : undefined,
+    createdAt: job.createdAt,
+    finishedAt: job.finishedAt,
+  };
+}
+
+function parseImportImages(
+  c: Context<AppEnv>,
+  form: FormData,
+):
+  | { success: true; images: { file: File; extension: string }[] }
+  | { success: false; response: Response } {
+  // workers-types declares FormData entries as string, but the runtime
+  // returns File objects for file uploads — widen and narrow via instanceof.
+  const entries: unknown[] = form.getAll("images");
+  if (entries.length === 0) {
+    return {
+      success: false,
+      response: c.json({ error: "At least one image is required" }, 400),
+    };
+  }
+  if (entries.length > RECIPE_IMPORT_MAX_IMAGES) {
+    return {
+      success: false,
+      response: c.json(
+        { error: `At most ${RECIPE_IMPORT_MAX_IMAGES} images are allowed` },
+        400,
+      ),
+    };
+  }
+
+  const images: { file: File; extension: string }[] = [];
+  for (const entry of entries) {
+    if (!(entry instanceof File)) {
+      return {
+        success: false,
+        response: c.json({ error: "images must be file uploads" }, 400),
+      };
+    }
+    const extension = RECIPE_IMPORT_IMAGE_EXTENSIONS[entry.type];
+    if (!extension) {
+      return {
+        success: false,
+        response: c.json(
+          { error: "Images must be JPEG, PNG, or WebP" },
+          415,
+        ),
+      };
+    }
+    if (entry.size === 0) {
+      return {
+        success: false,
+        response: c.json({ error: "Images must not be empty" }, 400),
+      };
+    }
+    if (entry.size > RECIPE_IMPORT_MAX_IMAGE_BYTES) {
+      return {
+        success: false,
+        response: c.json(
+          { error: "Each image must be 10MB or smaller" },
+          413,
+        ),
+      };
+    }
+    images.push({ file: entry, extension });
+  }
+  return { success: true, images };
+}
+
+app.post("/recipe-imports", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  const artifacts = c.env.ARTIFACTS;
+  const workflow = c.env.RECIPE_INGEST_WORKFLOW;
+  if (!artifacts || !workflow) {
+    return c.json({ error: "Recipe import is not configured" }, 503);
+  }
+
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
+    const userId = session.session.user.id;
+
+    const form = await c.req.formData().catch(() => undefined);
+    if (!form) {
+      return c.json(
+        { error: "Request body must be multipart/form-data" },
+        415,
+      );
+    }
+    const parsed = parseImportImages(c, form);
+    if (!parsed.success) return parsed.response;
+    const { images } = parsed;
+
+    const dayStart = new Date();
+    dayStart.setUTCHours(0, 0, 0, 0);
+
+    type QuotaOutcome =
+      | { ok: true; job: RecipeImportJob }
+      | { ok: false; reason: "active" | "daily" };
+
+    const outcome = await db.transaction(async (tx): Promise<QuotaOutcome> => {
+      // Serialize per-user job creation so concurrent uploads cannot slip past the limits.
+      await tx
+        .select({ id: schema.user.id })
+        .from(schema.user)
+        .where(eq(schema.user.id, userId))
+        .for("update");
+
+      const [active] = await tx
+        .select({ value: count() })
+        .from(schema.recipeImportJob)
+        .where(
+          and(
+            eq(schema.recipeImportJob.userId, userId),
+            inArray(schema.recipeImportJob.status, ["queued", "running"]),
+          ),
+        );
+      if ((active?.value ?? 0) >= RECIPE_IMPORT_MAX_ACTIVE_JOBS) {
+        return { ok: false, reason: "active" };
+      }
+
+      const [today] = await tx
+        .select({ value: count() })
+        .from(schema.recipeImportJob)
+        .where(
+          and(
+            eq(schema.recipeImportJob.userId, userId),
+            gte(schema.recipeImportJob.createdAt, dayStart),
+          ),
+        );
+      if ((today?.value ?? 0) >= RECIPE_IMPORT_DAILY_JOB_LIMIT) {
+        return { ok: false, reason: "daily" };
+      }
+
+      const [job] = await tx
+        .insert(schema.recipeImportJob)
+        .values({ userId, imageCount: images.length })
+        .returning();
+      if (!job) throw new Error("Recipe import job insert returned no row");
+      return { ok: true, job };
+    });
+
+    if (!outcome.ok) {
+      return c.json(
+        {
+          error:
+            outcome.reason === "active"
+              ? "Too many imports in progress"
+              : "Daily import limit reached",
+        },
+        429,
+      );
+    }
+    const job = outcome.job;
+
+    try {
+      await Promise.all(
+        images.map(({ file, extension }, index) =>
+          artifacts.put(
+            `imports/${job.id}/source/${index}.${extension}`,
+            file,
+            { httpMetadata: { contentType: file.type } },
+          ),
+        ),
+      );
+      await workflow.create({ id: job.id, params: { jobId: job.id } });
+    } catch (error) {
+      console.error("POST /recipe-imports failed to start workflow", error);
+      // Best-effort cleanup so partially uploaded images don't accumulate.
+      try {
+        const uploaded = await artifacts.list({
+          prefix: `imports/${job.id}/`,
+        });
+        await Promise.all(
+          uploaded.objects.map((object) => artifacts.delete(object.key)),
+        );
+      } catch (cleanupError) {
+        console.error(
+          `Failed to clean up R2 objects for import ${job.id}`,
+          cleanupError,
+        );
+      }
+      await db
+        .update(schema.recipeImportJob)
+        .set({
+          status: "failed",
+          progressLabel: "Import failed",
+          errorType: "StartError",
+          errorMessage: "Failed to start the import",
+          finishedAt: new Date(),
+        })
+        .where(eq(schema.recipeImportJob.id, job.id));
+      return c.json({ error: "Failed to start the import" }, 502);
+    }
+
+    return c.json(importJobResponse(job), 202);
+  } catch (e) {
+    console.error("POST /recipe-imports mutation failed", e);
+    return c.json({ error: "Database mutation failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
+app.get("/recipe-imports", async (c) => {
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
+
+    const jobs = await db
+      .select()
+      .from(schema.recipeImportJob)
+      .where(eq(schema.recipeImportJob.userId, session.session.user.id))
+      .orderBy(desc(schema.recipeImportJob.createdAt))
+      .limit(20);
+
+    return c.json({ imports: jobs.map(importJobResponse) });
+  } catch (e) {
+    console.error("GET /recipe-imports lookup failed", e);
+    return c.json({ error: "Database lookup failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
+app.get("/recipe-imports/:jobId", async (c) => {
+  const jobId = recipeImportIdSchema.safeParse(c.req.param("jobId"));
+  if (!jobId.success) return c.json({ error: "Import not found" }, 404);
+
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await requireRecipeSession(c, db);
+    if (!session.success) return session.response;
+
+    const [job] = await db
+      .select()
+      .from(schema.recipeImportJob)
+      .where(eq(schema.recipeImportJob.id, jobId.data))
+      .limit(1);
+    if (!job || job.userId !== session.session.user.id) {
+      return c.json({ error: "Import not found" }, 404);
+    }
+
+    const artifacts = await db
+      .select({
+        stage: schema.recipeImportArtifact.stage,
+        kind: schema.recipeImportArtifact.kind,
+        r2Key: schema.recipeImportArtifact.r2Key,
+        checksum: schema.recipeImportArtifact.checksum,
+        schemaVersion: schema.recipeImportArtifact.schemaVersion,
+        model: schema.recipeImportArtifact.model,
+        provider: schema.recipeImportArtifact.provider,
+        createdAt: schema.recipeImportArtifact.createdAt,
+      })
+      .from(schema.recipeImportArtifact)
+      .where(eq(schema.recipeImportArtifact.jobId, job.id))
+      .orderBy(schema.recipeImportArtifact.createdAt);
+
+    const draft =
+      job.status === "succeeded"
+        ? (
+            await db
+              .select({ preview: schema.recipeImportArtifact.preview })
+              .from(schema.recipeImportArtifact)
+              .where(
+                and(
+                  eq(schema.recipeImportArtifact.jobId, job.id),
+                  eq(schema.recipeImportArtifact.stage, "finalize"),
+                  eq(schema.recipeImportArtifact.kind, "draft"),
+                ),
+              )
+              .limit(1)
+          )[0]?.preview
+        : undefined;
+
+    return c.json({ ...importJobResponse(job), artifacts, draft });
+  } catch (e) {
+    console.error("GET /recipe-imports/:jobId lookup failed", e);
+    return c.json({ error: "Database lookup failed" }, 502);
   } finally {
     await closeDbClient(client);
   }

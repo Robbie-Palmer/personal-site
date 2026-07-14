@@ -12,9 +12,53 @@ export type RecipeApiProxyContext = {
   env: RecipeApiProxyEnv;
 };
 
+const MAX_PROXY_PATH_LENGTH = 2_048;
+
+function isUnsafePathSegment(segment: string): boolean {
+  let decoded = segment;
+  for (let pass = 0; pass < 10; pass += 1) {
+    const next = decodeURIComponent(decoded);
+    if (next === decoded) {
+      return (
+        decoded === "." ||
+        decoded === ".." ||
+        decoded.includes("/") ||
+        decoded.includes("\\") ||
+        decoded.includes("\0")
+      );
+    }
+    decoded = next;
+  }
+
+  // Reject path segments that remain multiply encoded after a generous limit.
+  return true;
+}
+
+function resolveDestinationPath(
+  pathname: string,
+  rewritePath?: (path: string) => string,
+): string | null {
+  const destinationPath = rewritePath?.(pathname) ?? pathname;
+  if (
+    !destinationPath.startsWith("/") ||
+    destinationPath.length > MAX_PROXY_PATH_LENGTH
+  )
+    return null;
+
+  try {
+    const segments = destinationPath.split("/");
+    const hasEmptyMiddleSegment = segments.slice(1, -1).includes("");
+    const hasUnsafeSegment = segments.some(isUnsafePathSegment);
+    return hasEmptyMiddleSegment || hasUnsafeSegment ? null : destinationPath;
+  } catch {
+    return null;
+  }
+}
+
 const FORWARDED_REQUEST_HEADERS = [
   "accept",
   "authorization",
+  "cf-access-jwt-assertion",
   "cf-connecting-ip",
   "content-type",
   "cookie",
@@ -59,6 +103,7 @@ export async function proxyRecipeApiRequest(
   context: RecipeApiProxyContext,
   invalidPreviewMessage: string,
   logLabel?: string,
+  rewritePath?: (path: string) => string,
 ): Promise<Response> {
   const url = new URL(context.request.url);
   const previewBase = previewApiBase(url, context.env);
@@ -74,7 +119,15 @@ export async function proxyRecipeApiRequest(
     );
   }
 
-  const destination = `${apiBase}${url.pathname}${url.search}`;
+  const destinationPath = resolveDestinationPath(url.pathname, rewritePath);
+  if (!destinationPath) {
+    return Response.json({ error: "Invalid API path" }, { status: 400 });
+  }
+
+  const destinationUrl = new URL(apiBase);
+  destinationUrl.pathname = destinationPath;
+  destinationUrl.search = url.search;
+  const destination = destinationUrl.toString();
   const headers = new Headers();
   for (const name of FORWARDED_REQUEST_HEADERS) {
     const value = context.request.headers.get(name);
@@ -87,7 +140,7 @@ export async function proxyRecipeApiRequest(
         message: `${logLabel} proxy request`,
         method: context.request.method,
         path: url.pathname,
-        destination: `${apiBase}${url.pathname}`,
+        destination: `${apiBase}${destinationPath}`,
       }),
     );
   }
