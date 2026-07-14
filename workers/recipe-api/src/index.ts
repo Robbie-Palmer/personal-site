@@ -177,6 +177,7 @@ const savedRecipeBodySchema = z
 
 // Household invitations stay valid for 48 hours after they are created.
 const INVITATION_EXPIRY_MS = 48 * 60 * 60 * 1000;
+const NOTIFICATION_PAGE_SIZE = 100;
 
 const HOUSEHOLD_INVITE_RATE_LIMIT = { max: 10, windowSeconds: 60 * 60 };
 
@@ -622,6 +623,11 @@ async function acceptPendingInvitation(
   db: Db,
   invitation: HouseholdInvitation,
   userId: string,
+  ownerNotification?: {
+    userId: string;
+    household: Household;
+    actorName: string;
+  },
 ): Promise<HouseholdMember> {
   return db.transaction(async (tx) => {
     const mutationTime = new Date();
@@ -664,6 +670,12 @@ async function acceptPendingInvitation(
           eq(schema.notification.invitationId, invitation.id),
         ),
       );
+    if (ownerNotification) {
+      await createNotification(tx, {
+        ...ownerNotification,
+        type: "household_invite_accepted",
+      });
+    }
     return member;
   });
 }
@@ -700,7 +712,7 @@ function invitationAcceptanceFailure(
 }
 
 async function findHouseholdMemberUserIds(
-  db: ReturnType<typeof createDb>["db"],
+  db: Pick<Db, "select">,
   householdId: string,
 ): Promise<string[]> {
   const members = await db
@@ -1698,35 +1710,39 @@ app.post("/households/:householdId/invitations", async (c) => {
       );
     }
 
-    const [invitation] = await db
-      .insert(schema.invitation)
-      .values({
-        id: createId(),
-        organizationId: householdId,
-        email,
-        role: "member",
-        status: "pending",
-        expiresAt: new Date(Date.now() + INVITATION_EXPIRY_MS),
-        inviterId: session.session.user.id,
-      })
-      .returning();
-
-    if (!invitation) return c.json({ error: "Database mutation failed" }, 502);
-    const [invitee] = await db
-      .select({ id: schema.user.id })
-      .from(schema.user)
-      .where(eq(schema.user.email, email))
-      .limit(1);
-    const household = await findHouseholdById(db, householdId);
-    if (invitee && household) {
-      await createNotification(db, {
-        userId: invitee.id,
-        type: "household_invited",
-        household,
-        actorName: session.session.user.name,
-        invitationId: invitation.id,
-      });
-    }
+    const [[invitee], household] = await Promise.all([
+      db
+        .select({ id: schema.user.id })
+        .from(schema.user)
+        .where(eq(schema.user.email, email))
+        .limit(1),
+      findHouseholdById(db, householdId),
+    ]);
+    const invitation = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(schema.invitation)
+        .values({
+          id: createId(),
+          organizationId: householdId,
+          email,
+          role: "member",
+          status: "pending",
+          expiresAt: new Date(Date.now() + INVITATION_EXPIRY_MS),
+          inviterId: session.session.user.id,
+        })
+        .returning();
+      if (!created) throw new Error("Invitation insert failed");
+      if (invitee && household) {
+        await createNotification(tx, {
+          userId: invitee.id,
+          type: "household_invited",
+          household,
+          actorName: session.session.user.name,
+          invitationId: created.id,
+        });
+      }
+      return created;
+    });
     return c.json(invitationResponse(invitation), 201);
   } catch (e) {
     console.error("POST /households/:householdId/invitations failed", e);
@@ -1787,24 +1803,22 @@ app.post("/households/invitations/:invitationId/accept", async (c) => {
       return c.json({ error: "User already belongs to a household" }, 409);
     }
 
-    const member = await acceptPendingInvitation(
-      db,
-      invitation,
-      session.session.user.id,
-    );
-
     const [household, owner] = await Promise.all([
       findHouseholdById(db, invitation.organizationId),
       findHouseholdOwner(db, invitation.organizationId),
     ]);
-    if (household && owner) {
-      await createNotification(db, {
-        userId: owner.userId,
-        type: "household_invite_accepted",
-        household,
-        actorName: session.session.user.name,
-      });
-    }
+    const member = await acceptPendingInvitation(
+      db,
+      invitation,
+      session.session.user.id,
+      household && owner
+        ? {
+            userId: owner.userId,
+            household,
+            actorName: session.session.user.name,
+          }
+        : undefined,
+    );
 
     return c.json({
       invitation: { ...invitationResponse(invitation), status: "accepted" },
@@ -1863,6 +1877,10 @@ app.post("/households/invitations/:invitationId/decline", async (c) => {
       return authorizationResponse(c, forbidden());
     }
 
+    const [household, owner] = await Promise.all([
+      findHouseholdById(db, invitation.organizationId),
+      findHouseholdOwner(db, invitation.organizationId),
+    ]);
     const mutationTime = new Date();
     const declined = await db.transaction(async (tx) => {
       const [updated] = await tx
@@ -1887,6 +1905,14 @@ app.post("/households/invitations/:invitationId/decline", async (c) => {
             eq(schema.notification.invitationId, invitationId),
           ),
         );
+      if (household && owner) {
+        await createNotification(tx, {
+          userId: owner.userId,
+          type: "household_invite_declined",
+          household,
+          actorName: session.session.user.name,
+        });
+      }
       return updated;
     });
 
@@ -1894,18 +1920,6 @@ app.post("/households/invitations/:invitationId/decline", async (c) => {
       return invitation.expiresAt <= mutationTime
         ? c.json({ error: "Invitation has expired" }, 410)
         : c.json({ error: "Invitation is not pending" }, 409);
-    }
-    const [household, owner] = await Promise.all([
-      findHouseholdById(db, invitation.organizationId),
-      findHouseholdOwner(db, invitation.organizationId),
-    ]);
-    if (household && owner) {
-      await createNotification(db, {
-        userId: owner.userId,
-        type: "household_invite_declined",
-        household,
-        actorName: session.session.user.name,
-      });
     }
     return c.json(invitationResponse(declined));
   } catch (e) {
@@ -2153,9 +2167,17 @@ app.delete("/households/:householdId", async (c) => {
     if (ownerFailure) return ownerFailure;
     const household = await findHouseholdById(db, householdId);
     if (!household) return c.notFound();
-    const memberIds = await findHouseholdMemberUserIds(db, householdId);
 
     await db.transaction(async (tx) => {
+      const [lockedHousehold] = await tx
+        .select({ id: schema.organization.id })
+        .from(schema.organization)
+        .where(eq(schema.organization.id, householdId))
+        .for("update")
+        .limit(1);
+      if (!lockedHousehold) throw new Error("Household no longer exists");
+      const memberIds = await findHouseholdMemberUserIds(tx, householdId);
+
       for (const userId of memberIds) {
         if (userId !== session.session.user.id) {
           await createNotification(tx, {
@@ -2187,6 +2209,10 @@ app.delete("/households/:householdId", async (c) => {
 });
 
 app.get("/notifications", async (c) => {
+  const offset = Number(c.req.query("offset") ?? "0");
+  if (!Number.isSafeInteger(offset) || offset < 0) {
+    return c.json({ error: "Invalid notification offset" }, 400);
+  }
   const connectionString = databaseConnection(c.env);
   if (!connectionString) return c.json({ error: "No database connection configured" }, 503);
   let client: DbClient | undefined;
@@ -2220,17 +2246,29 @@ app.get("/notifications", async (c) => {
           isNull(schema.notification.dismissedAt),
         ),
       )
-      .orderBy(desc(schema.notification.createdAt))
-      .limit(100);
+      .orderBy(
+        desc(schema.notification.createdAt),
+        desc(schema.notification.id),
+      )
+      .limit(NOTIFICATION_PAGE_SIZE + 1)
+      .offset(offset);
+    const hasMore = notifications.length > NOTIFICATION_PAGE_SIZE;
     return c.json(
-      notifications.map(({ invitationExpiresAt, invitationStatus, ...notification }) => ({
-        ...notification,
-        invitationStatus: invitationNotificationStatus(
-          notification.type,
-          invitationStatus,
-          invitationExpiresAt,
-        ),
-      })),
+      {
+        items: notifications
+          .slice(0, NOTIFICATION_PAGE_SIZE)
+          .map(
+            ({ invitationExpiresAt, invitationStatus, ...notification }) => ({
+              ...notification,
+              invitationStatus: invitationNotificationStatus(
+                notification.type,
+                invitationStatus,
+                invitationExpiresAt,
+              ),
+            }),
+          ),
+        nextOffset: hasMore ? offset + NOTIFICATION_PAGE_SIZE : null,
+      },
     );
   } catch (e) {
     console.error("GET /notifications failed", e);

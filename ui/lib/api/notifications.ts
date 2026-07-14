@@ -24,6 +24,11 @@ export type HouseholdNotification = {
   createdAt: string;
 };
 
+export type NotificationPage = {
+  items: HouseholdNotification[];
+  nextOffset: number | null;
+};
+
 async function checked(response: Response) {
   if (response.ok) return response;
   const body = (await response.json().catch(() => null)) as {
@@ -32,11 +37,21 @@ async function checked(response: Response) {
   throw new Error(body?.error ?? "Notification request failed.");
 }
 
-export async function getNotifications(signal?: AbortSignal) {
+export async function getNotificationPage(
+  offset = 0,
+  signal?: AbortSignal,
+): Promise<NotificationPage> {
   const response = await checked(
-    await fetch("/api/notifications", { credentials: "same-origin", signal }),
+    await fetch(`/api/notifications?offset=${offset}`, {
+      credentials: "same-origin",
+      signal,
+    }),
   );
-  return response.json() as Promise<HouseholdNotification[]>;
+  return response.json() as Promise<NotificationPage>;
+}
+
+export async function getNotifications(signal?: AbortSignal) {
+  return (await getNotificationPage(0, signal)).items;
 }
 
 export async function updateNotification(

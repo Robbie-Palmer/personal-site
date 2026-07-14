@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   clearAllNotifications,
-  getNotifications,
+  getNotificationPage,
   type HouseholdNotification,
   markAllNotificationsRead,
   respondToHouseholdInvitation,
@@ -134,7 +134,8 @@ function NotificationRow({
         <button
           type="button"
           aria-label="Dismiss notification"
-          className="flex size-6 items-center justify-center rounded-full border border-[var(--line-strong)] text-[var(--ink-3)] opacity-100 transition-colors hover:bg-[var(--terracotta)] hover:text-white sm:opacity-0 sm:group-hover:opacity-100"
+          disabled={acting}
+          className="flex size-6 items-center justify-center rounded-full border border-[var(--line-strong)] text-[var(--ink-3)] opacity-100 transition-colors hover:bg-[var(--terracotta)] hover:text-white focus-visible:opacity-100 disabled:cursor-not-allowed disabled:opacity-40 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
           onClick={() => onDismiss(item)}
         >
           <X className="size-3" />
@@ -189,11 +190,15 @@ export function NotificationsView() {
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
+  const [nextOffset, setNextOffset] = useState<number | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
       setError(null);
-      setItems(await getNotifications(signal));
+      const page = await getNotificationPage(0, signal);
+      setItems(page.items);
+      setNextOffset(page.nextOffset);
     } catch (cause) {
       if (!(cause instanceof DOMException && cause.name === "AbortError")) {
         setError(
@@ -248,16 +253,23 @@ export function NotificationsView() {
   }
 
   async function dismiss(item: HouseholdNotification) {
+    if (acting === item.id) return;
+    setActing(item.id);
     try {
       setError(null);
       await updateNotification(item.id, { dismissed: true });
       setItems((current) => current.filter(({ id }) => id !== item.id));
+      setNextOffset((current) =>
+        current === null ? null : Math.max(0, current - 1),
+      );
     } catch (cause) {
       setError(
         cause instanceof Error
           ? cause.message
           : "Couldn't dismiss notification.",
       );
+    } finally {
+      setActing(null);
     }
   }
 
@@ -284,6 +296,7 @@ export function NotificationsView() {
       setError(null);
       await clearAllNotifications();
       setItems([]);
+      setNextOffset(null);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -292,6 +305,31 @@ export function NotificationsView() {
       );
     } finally {
       setClearing(false);
+    }
+  }
+
+  async function loadMore() {
+    if (nextOffset === null || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      setError(null);
+      const page = await getNotificationPage(nextOffset);
+      setItems((current) => {
+        const existingIds = new Set(current.map(({ id }) => id));
+        return [
+          ...current,
+          ...page.items.filter(({ id }) => !existingIds.has(id)),
+        ];
+      });
+      setNextOffset(page.nextOffset);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Couldn't load more notifications.",
+      );
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -371,16 +409,29 @@ export function NotificationsView() {
           </p>
         </div>
       ) : (
-        groups.map((group) => (
-          <NotificationGroup
-            key={group.label}
-            label={group.label}
-            items={group.items}
-            actingId={acting}
-            onRespond={(item, response) => respond(item, response)}
-            onDismiss={(item) => dismiss(item)}
-          />
-        ))
+        <>
+          {groups.map((group) => (
+            <NotificationGroup
+              key={group.label}
+              label={group.label}
+              items={group.items}
+              actingId={acting}
+              onRespond={(item, response) => respond(item, response)}
+              onDismiss={(item) => dismiss(item)}
+            />
+          ))}
+          {nextOffset !== null && (
+            <div className="mt-8 text-center">
+              <Button
+                variant="outline"
+                disabled={loadingMore}
+                onClick={loadMore}
+              >
+                {loadingMore ? "Loading…" : "Load more"}
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

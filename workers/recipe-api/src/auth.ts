@@ -131,21 +131,29 @@ export function createAuth(
       return;
     }
 
-    const otherMembers = await db
-      .select({ userId: schema.member.userId })
-      .from(schema.member)
-      .where(eq(schema.member.organizationId, membership.householdId));
-    const otherUserIds = otherMembers
-      .map(({ userId }) => userId)
-      .filter((userId) => userId !== deletedUser.id);
     await db.transaction(async (tx) => {
+      const [lockedHousehold] = await tx
+        .select({ id: schema.organization.id, name: schema.organization.name })
+        .from(schema.organization)
+        .where(eq(schema.organization.id, membership.householdId))
+        .for("update")
+        .limit(1);
+      if (!lockedHousehold) return;
+
+      const otherMembers = await tx
+        .select({ userId: schema.member.userId })
+        .from(schema.member)
+        .where(eq(schema.member.organizationId, membership.householdId));
+      const otherUserIds = otherMembers
+        .map(({ userId }) => userId)
+        .filter((userId) => userId !== deletedUser.id);
       for (const userId of otherUserIds) {
         await tx.insert(schema.notification).values({
           id: crypto.randomUUID(),
           userId,
           type: "household_deleted",
           actorName: deletedUser.name,
-          householdName: membership.householdName,
+          householdName: lockedHousehold.name,
           householdId: membership.householdId,
         });
       }
