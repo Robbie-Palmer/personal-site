@@ -58,12 +58,12 @@ export default function RecipesLayout({
           <nav className="container mx-auto px-4 py-3 max-w-7xl flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link
               href="/recipes"
-              className="order-1 shrink-0 rt-display text-3xl leading-none text-foreground"
+              className="order-1 w-full shrink-0 rt-display text-3xl leading-none text-foreground sm:w-auto"
             >
               <span>Robbie's</span>{" "}
               <span className="rt-logo-accent">recipes</span>
             </Link>
-            <div className="order-2 ms-auto flex items-center gap-2 sm:order-3">
+            <div className="order-2 flex w-full items-center justify-end gap-2 sm:order-3 sm:ms-auto sm:w-auto">
               <AuthButton intent="signup" />
               <AuthButton />
             </div>
