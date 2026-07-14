@@ -135,6 +135,8 @@ describe("agent markdown generation", () => {
     const routes = JSON.parse(read("_routes.json"));
     expect(routes.include).toContain("/api/auth/*");
     expect(routes.include).toContain("/api/profile/*");
+    expect(routes.include).toContain("/api/households");
+    expect(routes.include).toContain("/api/households/*");
     expect(routes.include).toContain("/api/recipes");
     expect(routes.include).toContain("/api/recipes/*");
     expect(routes.include).toContain("/ingest/*");

@@ -571,6 +571,8 @@ function buildRoutesJson(): string {
       include: [
         "/api/auth/*",
         "/api/profile/*",
+        "/api/households",
+        "/api/households/*",
         "/api/recipes",
         "/api/recipes/*",
         "/ingest/*",
