@@ -54,6 +54,7 @@ describe("agent markdown generation", () => {
       "recipes/add.html",
       "recipes/kitchen.html",
       "recipes/notifications.html",
+      "recipes/onboarding.html",
       "recipes/saved.html",
       "recipes/settings.html",
       "recipes/shopping.html",
@@ -78,7 +79,7 @@ describe("agent markdown generation", () => {
   });
 
   it("keeps authenticated app pages out of agent markdown outputs", () => {
-    for (const page of ["notifications", "settings"]) {
+    for (const page of ["notifications", "onboarding", "settings"]) {
       expect(fs.existsSync(path.join(OUT_DIR, "recipes", `${page}.md`))).toBe(
         false,
       );
@@ -102,6 +103,7 @@ describe("agent markdown generation", () => {
       "add.html",
       "kitchen.html",
       "notifications.html",
+      "onboarding.html",
       "saved.html",
       "settings.html",
       "shopping.html",
@@ -134,8 +136,7 @@ describe("agent markdown generation", () => {
   it("scopes the middleware to page routes in _routes.json", () => {
     const routes = JSON.parse(read("_routes.json"));
     expect(routes.include).toContain("/api/auth/*");
-    expect(routes.include).toContain("/api/profile/diet");
-    expect(routes.include).toContain("/api/profile/diet/options");
+    expect(routes.include).toContain("/api/profile/*");
     expect(routes.include).toContain("/api/households");
     expect(routes.include).toContain("/api/households/*");
     expect(routes.include).toContain("/api/recipes");

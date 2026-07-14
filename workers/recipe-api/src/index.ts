@@ -114,6 +114,15 @@ const uniqueDietKeysSchema = z
   .max(80)
   .transform((values) => Array.from(new Set(values)));
 
+const recipeBoxBodySchema = z
+  .object({
+    staticRecipeSlugs: z
+      .array(recipeSlugSchema)
+      .max(100)
+      .transform((values) => Array.from(new Set(values))),
+  })
+  .strict();
+
 const MAX_RECIPE_BODY_BYTES = 100_000;
 const savedRecipePayloadSchema = z
   .object({
@@ -239,6 +248,27 @@ async function closeDbClient(client: DbClient | undefined) {
 function recipeResponse(recipe: Recipe) {
   const { userId: _userId, ...response } = recipe;
   return response;
+}
+
+async function recipeBoxResponse(db: Db, userId: string) {
+  const [profile, items] = await Promise.all([
+    db
+      .select({ completedAt: schema.userRecipeBox.completedAt })
+      .from(schema.userRecipeBox)
+      .where(eq(schema.userRecipeBox.userId, userId))
+      .limit(1),
+    db
+      .select({ recipeSlug: schema.userRecipeBoxItem.recipeSlug })
+      .from(schema.userRecipeBoxItem)
+      .where(eq(schema.userRecipeBoxItem.userId, userId)),
+  ]);
+
+  return {
+    completed: Boolean(profile[0]),
+    staticRecipeSlugs: items
+      .map((item) => item.recipeSlug)
+      .sort((first, second) => first.localeCompare(second)),
+  };
 }
 
 function householdResponse(household: Household) {
@@ -527,6 +557,16 @@ async function findReadableRecipes(
           )
         : or(eq(schema.recipe.visibility, "public"), eq(schema.recipe.userId, userId)),
     );
+}
+
+async function findOwnedRecipes(
+  db: ReturnType<typeof createDb>["db"],
+  userId: string,
+): Promise<Recipe[]> {
+  return db
+    .select()
+    .from(schema.recipe)
+    .where(eq(schema.recipe.userId, userId));
 }
 
 async function findOwnedRecipeBySlug(
@@ -940,6 +980,52 @@ app.get("/api/auth/preview/scenarios", async (c) => {
   );
 });
 
+app.post("/api/auth/preview/sign-up", async (c) => {
+  if (c.env.DEPLOYMENT_ENV !== "preview") return c.notFound();
+  if (!hasAuthConfiguration(c.env)) {
+    return c.json({ error: "Preview auth configuration is incomplete" }, 503);
+  }
+  if (!(await hasPreviewAccess(c.req.raw, c.env))) {
+    return c.json({ error: "Cloudflare Access authorization required" }, 403);
+  }
+
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json({ error: "No database connection configured" }, 503);
+  }
+
+  const { db, client } = createDb(connectionString);
+  const suffix = crypto.randomUUID();
+  const credentials = {
+    email: `qa-${suffix}@preview.invalid`,
+    name: `Fresh QA account ${suffix.slice(0, 8)}`,
+    password: c.env.PREVIEW_AUTH_PASSWORD!,
+  };
+  try {
+    const auth = createAuth(db, c.env, {
+      allowPreviewSignUp: true,
+      autoSignInPreviewSignUp: true,
+    });
+    return await auth.api.signUpEmail({
+      body: credentials,
+      headers: c.req.raw.headers,
+      asResponse: true,
+    });
+  } catch (error) {
+    console.error("Preview sign-up failed", error);
+    return c.json({ error: "Preview sign-up failed" }, 502);
+  } finally {
+    try {
+      await client.end({ timeout: 5 });
+    } catch (error) {
+      console.error("client.end() cleanup failed", error);
+    }
+  }
+});
+
 app.post("/api/auth/preview/sign-in", async (c) => {
   if (c.env.DEPLOYMENT_ENV !== "preview") return c.notFound();
   if (!hasAuthConfiguration(c.env)) {
@@ -1151,6 +1237,53 @@ app.put("/api/profile/diet", async (c) => {
         }
         throw error;
       }
+    },
+  );
+});
+
+app.get("/api/profile/recipe-box", async (c) => {
+  return withRecipeSession(
+    c,
+    "query",
+    "GET /api/profile/recipe-box query failed",
+    async ({ db, session }) => c.json(await recipeBoxResponse(db, session.user.id)),
+  );
+});
+
+app.put("/api/profile/recipe-box", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "PUT /api/profile/recipe-box mutation failed",
+    async ({ db, session }) => {
+      const body = await parseJsonBody(c, recipeBoxBodySchema);
+      if (!body.success) return body.response;
+
+      await db.transaction(async (tx) => {
+        await tx
+          .insert(schema.userRecipeBox)
+          .values({ userId: session.user.id, completedAt: new Date() })
+          .onConflictDoUpdate({
+            target: schema.userRecipeBox.userId,
+            set: { updatedAt: new Date() },
+          });
+        await tx
+          .delete(schema.userRecipeBoxItem)
+          .where(eq(schema.userRecipeBoxItem.userId, session.user.id));
+        if (body.data.staticRecipeSlugs.length > 0) {
+          await tx.insert(schema.userRecipeBoxItem).values(
+            body.data.staticRecipeSlugs.map((recipeSlug) => ({
+              userId: session.user.id,
+              recipeSlug,
+            })),
+          );
+        }
+      });
+
+      return c.json(await recipeBoxResponse(db, session.user.id));
     },
   );
 });
@@ -2109,6 +2242,11 @@ app.patch("/notifications/:notificationId", async (c) => {
 });
 
 app.get("/recipes", async (c) => {
+  const scope = c.req.query("scope");
+  if (scope && scope !== "owned") {
+    return c.json({ error: "Invalid recipe scope" }, 400);
+  }
+
   const connectionString = databaseConnection(c.env);
   if (!connectionString) {
     return c.json(
@@ -2121,8 +2259,15 @@ app.get("/recipes", async (c) => {
     const connection = createDb(connectionString);
     client = connection.client;
     const { db } = connection;
-    const session = await loadOptionalRecipeSession(c, db);
-    const recipes = await findReadableRecipes(db, session?.user.id);
+    let recipes: Recipe[];
+    if (scope === "owned") {
+      const session = await requireRecipeSession(c, db);
+      if (!session.success) return session.response;
+      recipes = await findOwnedRecipes(db, session.session.user.id);
+    } else {
+      const session = await loadOptionalRecipeSession(c, db);
+      recipes = await findReadableRecipes(db, session?.user.id);
+    }
     return c.json(recipes.map(recipeResponse));
   } catch (e) {
     console.error("GET /recipes query failed", e);

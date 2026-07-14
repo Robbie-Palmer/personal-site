@@ -387,6 +387,34 @@ export const userDietExcludedIngredient = pgTable(
   ],
 );
 
+/**
+ * The static recipes a user has chosen for their personal recipe box. The
+ * recipe content remains in the versioned Cooklang catalog; this table only
+ * stores the user's selection so the same recipe can be used by many people.
+ */
+export const userRecipeBox = pgTable("user_recipe_box", {
+  userId: text()
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  completedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp({ withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const userRecipeBoxItem = pgTable(
+  "user_recipe_box_item",
+  {
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    recipeSlug: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.recipeSlug] })],
+);
+
 export const appRateLimit = pgTable("app_rate_limit", {
   key: text().primaryKey(),
   count: integer().notNull().default(0),
