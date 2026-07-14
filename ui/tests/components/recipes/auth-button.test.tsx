@@ -149,6 +149,49 @@ describe("AuthButton", () => {
     );
   });
 
+  it("starts each preview sign-up with a fresh QA account", async () => {
+    const user = userEvent.setup();
+    mocks.isPreviewDeployment.mockReturnValue(true);
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ error: "Preview sign-up failed" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AuthButton intent="signup" />);
+
+    await user.click(screen.getByRole("button", { name: /sign up/i }));
+    expect(
+      screen.getByText("Start a fresh preview account"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Choose a preview scenario"),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /start fresh/i }));
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith("/api/auth/preview/sign-up", {
+      method: "POST",
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Preview sign-up failed",
+    );
+  });
+
+  it("constrains the sign-up control and menu to a mobile viewport", async () => {
+    const user = userEvent.setup();
+    render(<AuthButton intent="signup" />);
+
+    const trigger = screen.getByRole("button", { name: /sign up/i });
+    expect(trigger).toHaveClass("max-w-full");
+    await user.click(trigger);
+
+    expect(screen.getByRole("dialog")).toHaveClass(
+      "w-[calc(100vw-2rem)]",
+      "max-w-56",
+    );
+  });
+
   it("disables sign-in on a frontend-only preview", async () => {
     const user = userEvent.setup();
     mocks.isPreviewDeployment.mockReturnValue(true);

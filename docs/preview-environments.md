@@ -191,7 +191,8 @@ open or update an internal PR — the workflow runs from `main`. Confirm:
 3. Cloudflare contains `recipe-api-pr-<number>` with no Hyperdrive binding.
 4. The canonical `https://pr-<number>.<pages-host>` URL requires Access.
 5. The sign-in menu offers the empty, populated, and administrator scenarios.
-6. Closing the PR removes both the Neon branch and Worker.
+6. The onboarding sign-up button creates a new empty QA account on every use.
+7. Closing the PR removes both the Neon branch and Worker.
 
 If event-driven cleanup fails, run the **Preview Environment Cleanup** workflow
 manually with the PR number. Neon branch expiry is an additional database-only
@@ -204,6 +205,8 @@ backstop.
 - OAuth providers are disabled in preview.
 - Public email/password endpoints return `404`.
 - The scenario login exists only when `DEPLOYMENT_ENV=preview`.
+- Fresh QA sign-up exists only in previews, requires Access, and creates an
+  isolated account so onboarding can be repeated without resetting fixtures.
 - Scenario login requires a valid Access JWT and accepts only compiled-in IDs.
 - The browser never receives the generated test password.
 - Preview secrets are derived independently per PR and uploaded atomically with

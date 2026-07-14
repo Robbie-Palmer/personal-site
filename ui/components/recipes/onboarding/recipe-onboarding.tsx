@@ -33,6 +33,10 @@ import type { RecipeCardView } from "@/lib/api/recipes";
 import { authClient } from "@/lib/auth-client";
 import { buildEffectiveDiet, filterRecipesForDiet } from "@/lib/domain/diet";
 import {
+  buildRecipeAuthoringHref,
+  resolveOnboardingRecipeSelection,
+} from "@/lib/domain/recipe/onboarding";
+import {
   type SavedRecipeApiRecord,
   savedRecipeCard,
 } from "@/lib/domain/recipe/recipeDraft";
@@ -42,7 +46,10 @@ const STEPS = ["sign up", "your diet", "fill your box", "ready"];
 
 function StepRail({ step }: Readonly<{ step: number }>) {
   return (
-    <ol aria-label="Onboarding progress" className="flex items-center gap-2">
+    <ol
+      aria-label="Onboarding progress"
+      className="flex shrink-0 items-center gap-2"
+    >
       {STEPS.map((label, index) => (
         <li key={label} className="flex items-center gap-2">
           {index > 0 && (
@@ -86,7 +93,7 @@ function StepRail({ step }: Readonly<{ step: number }>) {
 
 function Intro() {
   return (
-    <div className="mx-auto flex max-w-xl flex-1 flex-col items-center justify-center py-12 text-center">
+    <div className="mx-auto flex max-w-full flex-1 flex-col items-center justify-center py-12 text-center sm:max-w-xl">
       <ChefHat className="size-12 text-[var(--terracotta)]" />
       <p className="rt-mono mt-5 text-[var(--terracotta)]">
         Welcome — let&apos;s set up your box
@@ -99,7 +106,7 @@ function Intro() {
         Create a free account, set your diet, then choose a few recipes or write
         one of your own with Cooklang.
       </p>
-      <div className="mt-7">
+      <div className="mt-7 max-w-full">
         <AuthButton intent="signup" />
       </div>
       <p className="rt-mono mt-4 text-[var(--ink-4)]">
@@ -254,7 +261,13 @@ export function RecipeOnboarding({
         setStep(authenticatedOnboardingStep(box.completed, requestedBoxStep));
         setDiet(profile);
         setDietOptions(options);
-        setSelectedSlugs(box.staticRecipeSlugs);
+        setSelectedSlugs(
+          resolveOnboardingRecipeSelection(
+            window.location.search,
+            box.staticRecipeSlugs,
+            new Set(recipes.map((recipe) => recipe.slug)),
+          ),
+        );
         const authoredSlugs = saved.flatMap((record) =>
           savedRecipeCard(record) ? [record.slug] : [],
         );
@@ -281,7 +294,7 @@ export function RecipeOnboarding({
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [loadAttempt, userId]);
+  }, [loadAttempt, recipes, userId]);
 
   const effectiveDiet = useMemo(
     () => buildEffectiveDiet(diet, dietOptions),
@@ -311,6 +324,7 @@ export function RecipeOnboarding({
     [compatibleSelectedSlugs],
   );
   const boxCount = compatibleSelectedSlugs.length + authoredRecipeSlugs.length;
+  const authorRecipeHref = buildRecipeAuthoringHref(compatibleSelectedSlugs);
 
   function toggleDietPreset(key: string) {
     setDiet((current) => ({
@@ -367,8 +381,8 @@ export function RecipeOnboarding({
 
   return (
     <div className="container mx-auto flex min-h-[calc(100vh-10rem)] max-w-6xl flex-col px-4 py-5 md:py-8">
-      <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
-        <Link href="/recipes" className="rt-display text-2xl">
+      <div className="flex min-w-0 items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
+        <Link href="/recipes" className="rt-display min-w-0 truncate text-2xl">
           Your recipe box
         </Link>
         <StepRail step={step} />
@@ -429,7 +443,7 @@ export function RecipeOnboarding({
               </p>
             </div>
             <Button asChild variant="outline" className="rounded-full">
-              <Link href="/recipes/add?returnTo=%2Frecipes%2Fonboarding%3Fstep%3Dbox">
+              <Link href={authorRecipeHref}>
                 <PenLine /> Write your own
               </Link>
             </Button>
@@ -478,14 +492,19 @@ export function RecipeOnboarding({
             Your diet will filter the collection, and you can keep writing
             recipes in Cooklang whenever inspiration strikes.
           </p>
-          <Button
-            asChild
-            className="mt-7 rounded-full bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]"
-          >
-            <Link href="/recipes">
-              <BookOpen /> Open my recipe box <ArrowRight />
-            </Link>
-          </Button>
+          <div className="mt-7 flex flex-wrap justify-center gap-3">
+            <Button variant="outline" onClick={() => setStep(2)}>
+              <ArrowLeft /> Back to choices
+            </Button>
+            <Button
+              asChild
+              className="rounded-full bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]"
+            >
+              <Link href="/recipes">
+                <BookOpen /> Open my recipe box <ArrowRight />
+              </Link>
+            </Button>
+          </div>
         </section>
       )}
 
@@ -512,7 +531,7 @@ export function RecipeOnboarding({
         <footer className="sticky bottom-0 -mx-4 mt-auto flex flex-wrap items-center gap-3 border-t border-[var(--line)] bg-[var(--paper)]/95 px-4 py-4 backdrop-blur">
           <div className="rt-body mr-auto text-[var(--ink-3)]">
             {step === 1 ? (
-              "You can skip this and set it later."
+              "Select any that apply, or continue with none."
             ) : (
               <>
                 <b className="text-[var(--ink)]">{boxCount}</b>{" "}
@@ -523,11 +542,6 @@ export function RecipeOnboarding({
           {step === 2 && (
             <Button variant="ghost" onClick={() => setStep(1)}>
               <ArrowLeft /> Back
-            </Button>
-          )}
-          {step === 1 && (
-            <Button variant="outline" onClick={() => setStep(2)}>
-              Skip
             </Button>
           )}
           {step === 1 ? (

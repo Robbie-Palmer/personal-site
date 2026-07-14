@@ -2993,6 +2993,15 @@ describe("preview authentication", () => {
     expect(res.status).toBe(404);
   });
 
+  it("does not expose fresh QA sign-up outside preview deployments", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-up",
+      { method: "POST" },
+      env,
+    );
+    expect(res.status).toBe(404);
+  });
+
   it("requires complete preview configuration", async () => {
     const res = await app.request(
       "/api/auth/preview/scenarios",
@@ -3009,6 +3018,40 @@ describe("preview authentication", () => {
       previewEnv,
     );
     expect(res.status).toBe(403);
+  });
+
+  it("protects fresh QA sign-up with Cloudflare Access", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-up",
+      {
+        method: "POST",
+        headers: { origin: previewEnv.BETTER_AUTH_URL },
+      },
+      previewEnv,
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("rejects fresh QA sign-up without a trusted CSRF signal", async () => {
+    const res = await app.request(
+      "/api/auth/preview/sign-up",
+      {
+        method: "POST",
+        headers: { "cf-access-jwt-assertion": "test-assertion" },
+      },
+      previewEnv,
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({
+      error: "CSRF validation failed",
+      details: [
+        {
+          path: [],
+          message: "Unsafe browser mutations must come from a trusted origin",
+        },
+      ],
+    });
   });
 
   it("returns the allowlisted scenarios after Access authorization", async () => {

@@ -37,7 +37,9 @@ function authPrompt(
   if (isPreview) {
     return previewBackendDisabled
       ? "Sign-in unavailable"
-      : "Choose a preview scenario";
+      : intent === "signup"
+        ? "Start a fresh preview account"
+        : "Choose a preview scenario";
   }
   return intent === "signup"
     ? "Create your recipe box"
@@ -79,6 +81,8 @@ export function AuthButton({
       return;
     }
 
+    if (intent === "signup") return;
+
     void fetch("/api/auth/preview/scenarios")
       .then(async (response) => {
         if (!response.ok) throw new Error("Preview scenarios unavailable");
@@ -86,7 +90,7 @@ export function AuthButton({
       })
       .then(setPreviewScenarios)
       .catch(() => setError("Preview sign-in is not configured."));
-  }, [previewBackendDisabled]);
+  }, [intent, previewBackendDisabled]);
 
   async function signOut() {
     setError(null);
@@ -248,6 +252,28 @@ export function AuthButton({
     }
   }
 
+  async function previewSignUp() {
+    setPendingSignIn("fresh-signup");
+    setError(null);
+    try {
+      const response = await fetch("/api/auth/preview/sign-up", {
+        method: "POST",
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        setError(body?.error ?? "Preview sign-up failed.");
+        return;
+      }
+      window.location.assign("/recipes/onboarding");
+    } catch {
+      setError("Preview sign-up failed.");
+    } finally {
+      setPendingSignIn(null);
+    }
+  }
+
   return (
     <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
       <PopoverPrimitive.Trigger asChild>
@@ -257,26 +283,49 @@ export function AuthButton({
           aria-expanded={open}
           className={cn(
             intent === "signup" &&
-              "rounded-full bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]",
+              "max-w-full rounded-full bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]",
           )}
         >
           {intent === "signup" ? <UserPlus /> : <LogIn />}
-          <span>{intent === "signup" ? "Sign up — free" : "Log in"}</span>
-          <ChevronDown className="size-3.5 opacity-60" />
+          <span className="min-w-0 truncate">
+            {intent === "signup" ? "Sign up — free" : "Log in"}
+          </span>
+          <ChevronDown className="size-3.5 shrink-0 opacity-60" />
         </Button>
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content
           align="end"
           sideOffset={6}
-          className="bg-popover text-popover-foreground z-50 w-56 rounded-md border p-2 shadow-md outline-none"
+          collisionPadding={16}
+          className="bg-popover text-popover-foreground z-50 w-[calc(100vw-2rem)] max-w-56 rounded-md border p-2 shadow-md outline-none"
         >
           <p className="px-2 pb-2 text-xs font-medium text-muted-foreground">
             {authPrompt(isPreview, previewBackendDisabled, intent)}
           </p>
           <div className="flex flex-col gap-1">
-            {isPreview
-              ? previewScenarios?.map((scenario) => (
+            {isPreview ? (
+              intent === "signup" ? (
+                <Button
+                  variant="ghost"
+                  className="h-auto w-full justify-start py-2"
+                  disabled={pendingSignIn !== null}
+                  onClick={previewSignUp}
+                >
+                  {pendingSignIn === "fresh-signup" ? (
+                    <LoaderCircle className="animate-spin" />
+                  ) : (
+                    <FlaskConical />
+                  )}
+                  <span className="min-w-0 text-left">
+                    <span className="block">Start fresh</span>
+                    <span className="block whitespace-normal text-xs font-normal text-muted-foreground">
+                      Create a new empty QA account
+                    </span>
+                  </span>
+                </Button>
+              ) : (
+                previewScenarios?.map((scenario) => (
                   <Button
                     key={scenario.id}
                     variant="ghost"
@@ -297,33 +346,39 @@ export function AuthButton({
                     </span>
                   </Button>
                 ))
-              : providers.map((provider) => (
-                  <Button
-                    key={provider.id}
-                    variant="ghost"
-                    className="w-full justify-start"
-                    disabled={pendingSignIn !== null}
-                    onClick={() => signIn(provider.id)}
-                  >
-                    {pendingSignIn === provider.id ? (
-                      <LoaderCircle className="animate-spin" />
-                    ) : (
-                      <ProviderIcon path={provider.iconPath} />
-                    )}
-                    Continue with {provider.name}
-                    {lastUsedProvider === provider.id && (
-                      <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
-                        Last used
-                      </span>
-                    )}
-                  </Button>
-                ))}
-            {isPreview && previewScenarios === null && !error && (
-              <div className="flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground">
-                <LoaderCircle className="animate-spin" />
-                Loading scenarios…
-              </div>
+              )
+            ) : (
+              providers.map((provider) => (
+                <Button
+                  key={provider.id}
+                  variant="ghost"
+                  className="w-full justify-start"
+                  disabled={pendingSignIn !== null}
+                  onClick={() => signIn(provider.id)}
+                >
+                  {pendingSignIn === provider.id ? (
+                    <LoaderCircle className="animate-spin" />
+                  ) : (
+                    <ProviderIcon path={provider.iconPath} />
+                  )}
+                  Continue with {provider.name}
+                  {lastUsedProvider === provider.id && (
+                    <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
+                      Last used
+                    </span>
+                  )}
+                </Button>
+              ))
             )}
+            {isPreview &&
+              intent === "signin" &&
+              previewScenarios === null &&
+              !error && (
+                <div className="flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground">
+                  <LoaderCircle className="animate-spin" />
+                  Loading scenarios…
+                </div>
+              )}
           </div>
           {error && (
             <p role="alert" className="px-2 pt-2 text-xs text-destructive">

@@ -952,6 +952,52 @@ app.get("/api/auth/preview/scenarios", async (c) => {
   );
 });
 
+app.post("/api/auth/preview/sign-up", async (c) => {
+  if (c.env.DEPLOYMENT_ENV !== "preview") return c.notFound();
+  if (!hasAuthConfiguration(c.env)) {
+    return c.json({ error: "Preview auth configuration is incomplete" }, 503);
+  }
+  if (!(await hasPreviewAccess(c.req.raw, c.env))) {
+    return c.json({ error: "Cloudflare Access authorization required" }, 403);
+  }
+
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json({ error: "No database connection configured" }, 503);
+  }
+
+  const { db, client } = createDb(connectionString);
+  const suffix = crypto.randomUUID();
+  const credentials = {
+    email: `qa-${suffix}@preview.invalid`,
+    name: `Fresh QA account ${suffix.slice(0, 8)}`,
+    password: c.env.PREVIEW_AUTH_PASSWORD!,
+  };
+  try {
+    const auth = createAuth(db, c.env, {
+      allowPreviewSignUp: true,
+      autoSignInPreviewSignUp: true,
+    });
+    return await auth.api.signUpEmail({
+      body: credentials,
+      headers: c.req.raw.headers,
+      asResponse: true,
+    });
+  } catch (error) {
+    console.error("Preview sign-up failed", error);
+    return c.json({ error: "Preview sign-up failed" }, 502);
+  } finally {
+    try {
+      await client.end({ timeout: 5 });
+    } catch (error) {
+      console.error("client.end() cleanup failed", error);
+    }
+  }
+});
+
 app.post("/api/auth/preview/sign-in", async (c) => {
   if (c.env.DEPLOYMENT_ENV !== "preview") return c.notFound();
   if (!hasAuthConfiguration(c.env)) {
