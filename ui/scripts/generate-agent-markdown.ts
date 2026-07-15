@@ -575,6 +575,8 @@ function buildRoutesJson(): string {
         "/api/households/*",
         "/api/recipes",
         "/api/recipes/*",
+        "/api/recipe-imports",
+        "/api/recipe-imports/*",
         "/ingest/*",
         "/",
         "/experience",

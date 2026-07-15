@@ -83,7 +83,9 @@ function importButtonLabel(
 function importProgressLabel(job: PhotoImportJob): string {
   if (job.progressLabel) return job.progressLabel;
   if (job.status === "queued") return "Waiting to read your photos";
-  return "Processing your recipe";
+  if (job.status === "running") return "Processing your recipe";
+  if (job.status === "succeeded") return "Draft ready";
+  return "Import failed";
 }
 
 function SelectedPhoto({
@@ -127,19 +129,18 @@ export function PhotoRecipeImport({
   const [uploading, setUploading] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const onDraftReadyRef = useRef(onDraftReady);
   const jobId = job?.id;
   const jobStatus = job?.status;
   const processing =
     uploading || jobStatus === "queued" || jobStatus === "running";
 
   useEffect(() => {
-    if (
-      !active ||
-      !jobId ||
-      (jobStatus !== "queued" && jobStatus !== "running")
-    ) {
-      return;
-    }
+    onDraftReadyRef.current = onDraftReady;
+  }, [onDraftReady]);
+
+  useEffect(() => {
+    if (!active || !jobId) return;
 
     let activeRequest = true;
     let pollTimeout: number | undefined;
@@ -167,7 +168,7 @@ export function PhotoRecipeImport({
             setError("The import finished without an editable recipe draft.");
             return;
           }
-          onDraftReady(body.draft);
+          onDraftReadyRef.current(body.draft);
           return;
         }
         if (body.status === "failed") {
@@ -195,7 +196,7 @@ export function PhotoRecipeImport({
       controller.abort();
       if (pollTimeout !== undefined) window.clearTimeout(pollTimeout);
     };
-  }, [active, jobId, jobStatus, onDraftReady]);
+  }, [active, jobId]);
 
   function addFiles(selectedFiles: FileList | null) {
     if (!selectedFiles?.length) return;

@@ -223,8 +223,8 @@ export function AddRecipeView() {
     setDescription(frontmatter.description ?? draft.recipe.description);
     setCuisine((frontmatter.cuisine ?? draft.recipe.cuisine)[0] ?? "");
     setServings(frontmatter.servings ?? draft.recipe.servings);
-    setPrepTime(frontmatter.prepTime ?? draft.recipe.prepTime);
-    setCookTime(frontmatter.cookTime ?? draft.recipe.cookTime);
+    setPrepTime(draft.recipe.prepTime);
+    setCookTime(draft.recipe.cookTime);
     setSource(body);
     setImportedUrl(null);
   }, []);
