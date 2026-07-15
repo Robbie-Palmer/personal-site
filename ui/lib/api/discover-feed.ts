@@ -21,7 +21,7 @@ export async function getDiscoverFeedPage(
 ): Promise<DiscoverFeedPage> {
   const params = new URLSearchParams({ scope });
   if (cursor) params.set("cursor", cursor);
-  const response = await fetch(`/api/recipes/feed?${params}`, {
+  const response = await fetch(`/api/discover-feed?${params}`, {
     credentials: "same-origin",
     signal,
   });

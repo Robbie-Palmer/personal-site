@@ -2075,7 +2075,7 @@ app.get("/recipes", async (c) => {
   }
 });
 
-app.get("/recipes/feed", async (c) => {
+app.get("/discover-feed", async (c) => {
   const scope = feedScopeSchema.safeParse(c.req.query("scope") ?? "public");
   const limit = feedLimitSchema.safeParse(c.req.query("limit"));
   const cursorValue = c.req.query("cursor");
@@ -2151,7 +2151,7 @@ app.get("/recipes/feed", async (c) => {
           : null,
     });
   } catch (e) {
-    console.error("GET /recipes/feed query failed", e);
+    console.error("GET /discover-feed query failed", e);
     return c.json({ error: "Database query failed" }, 502);
   } finally {
     await closeDbClient(client);
