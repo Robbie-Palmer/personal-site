@@ -17,15 +17,25 @@ function servings(value: string): string {
   return /\d+(?:\.\d+)?/.exec(value)?.[0] ?? "1";
 }
 
+function unwrapJsonLd(source: string): string {
+  let cleaned = source.trim();
+  if (cleaned.startsWith("<!--")) cleaned = cleaned.slice(4).trimStart();
+  if (cleaned.endsWith("--!>")) cleaned = cleaned.slice(0, -4).trimEnd();
+  else if (cleaned.endsWith("-->")) cleaned = cleaned.slice(0, -3).trimEnd();
+  if (cleaned.startsWith("//<![CDATA[")) {
+    cleaned = cleaned.slice("//<![CDATA[".length).trimStart();
+  }
+  if (cleaned.endsWith("//]]>")) {
+    cleaned = cleaned.slice(0, -"//]]>".length).trimEnd();
+  }
+  return cleaned;
+}
+
 function normalizeRecipeMarkup(html: string, url: string): string {
   const $ = cheerio.load(html);
   $("script[type='application/ld+json']").each((_, element) => {
-    const source = $(element)
-      .html()
-      ?.trim()
-      .replace(/^<!--|-->$/g, "")
-      .replace(/^\/\/<!\[CDATA\[|\/\/\]\]>$/g, "")
-      .trim();
+    const rawSource = $(element).html();
+    const source = rawSource ? unwrapJsonLd(rawSource) : "";
     if (!source) return;
 
     try {

@@ -48,6 +48,7 @@ describe("parseSchemaOrgRecipeHtml", () => {
 
   it.each([
     ["HTML comments", "<!--", "-->"],
+    ["HTML comments with a bang", "<!--", "--!>"],
     ["CDATA comments", "//<![CDATA[", "//]]>"],
   ])("unwraps JSON-LD inside %s", async (_name, prefix, suffix) => {
     const html = `<script type="application/ld+json">${prefix}

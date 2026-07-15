@@ -113,4 +113,16 @@ describe("fetchRecipePage", () => {
       ),
     ).rejects.toMatchObject({ status: 413 });
   });
+
+  it.each([
+    ["a missing content type", {}],
+    ["a deceptive HTML content type", { "content-type": "text/html-malicious" }],
+  ])("rejects %s", async (_name, headers) => {
+    await expect(
+      fetchRecipePage(
+        "https://recipes.example.com/file",
+        vi.fn<typeof fetch>().mockResolvedValue(new Response("recipe", { headers })),
+      ),
+    ).rejects.toMatchObject({ status: 415 });
+  });
 });

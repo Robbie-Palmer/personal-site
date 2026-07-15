@@ -102,6 +102,11 @@ export function AddRecipeView() {
   const [source, setSource] = useState("");
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
+  const importRequestRef = useRef<{
+    id: number;
+    controller: AbortController;
+  } | null>(null);
+  const nextImportRequestIdRef = useRef(0);
   const [saveError, setSaveError] = useState<string | null>(null);
   const cooklang = useMemo(() => normalizeRecipeSource(source), [source]);
   const parse = useCooklangRecipe(cooklang);
@@ -144,6 +149,12 @@ export function AddRecipeView() {
 
   async function importRecipeUrl() {
     if (!recipeUrl.trim() || importing) return;
+    importRequestRef.current?.controller.abort();
+    const request = {
+      id: ++nextImportRequestIdRef.current,
+      controller: new AbortController(),
+    };
+    importRequestRef.current = request;
     setImporting(true);
     setImportError(null);
     try {
@@ -152,6 +163,7 @@ export function AddRecipeView() {
         credentials: "include",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ url: recipeUrl.trim() }),
+        signal: request.controller.signal,
       });
       const body = (await response.json().catch(() => null)) as
         | ImportedRecipe
@@ -163,6 +175,7 @@ export function AddRecipeView() {
             "The recipe could not be imported.",
         );
       }
+      if (importRequestRef.current?.id !== request.id) return;
       setTitle(body.title);
       setDescription(body.description);
       setCuisine(body.cuisine);
@@ -173,14 +186,29 @@ export function AddRecipeView() {
       setRecipeUrl(body.url);
       setImportedUrl(body.url);
     } catch (error) {
+      if (
+        request.controller.signal.aborted ||
+        importRequestRef.current?.id !== request.id
+      ) {
+        return;
+      }
       setImportError(
         error instanceof Error
           ? error.message
           : "The recipe could not be imported.",
       );
     } finally {
-      setImporting(false);
+      if (importRequestRef.current?.id === request.id) {
+        importRequestRef.current = null;
+        setImporting(false);
+      }
     }
+  }
+
+  function invalidateImportRequest() {
+    importRequestRef.current?.controller.abort();
+    importRequestRef.current = null;
+    setImporting(false);
   }
 
   async function saveRecipe() {
@@ -306,8 +334,8 @@ export function AddRecipeView() {
               <button
                 type="button"
                 onClick={() => {
+                  invalidateImportRequest();
                   setMethod("write");
-                  setImportedUrl(null);
                 }}
                 aria-pressed={method === "write"}
                 className={`rt-mono inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
@@ -344,9 +372,9 @@ export function AddRecipeView() {
                       type="url"
                       value={recipeUrl}
                       onChange={(event) => {
+                        invalidateImportRequest();
                         setRecipeUrl(event.target.value);
                         setImportError(null);
-                        setImportedUrl(null);
                       }}
                       onKeyDown={(event) => {
                         if (event.key === "Enter") {
@@ -460,6 +488,7 @@ export function AddRecipeView() {
                 size="sm"
                 className="rounded-full"
                 onClick={() => {
+                  invalidateImportRequest();
                   setTitle("Weeknight tomato pasta");
                   setDescription("A quick, cosy pasta for busy evenings.");
                   setCuisine("Italian");

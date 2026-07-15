@@ -113,11 +113,14 @@ function validateRecipePageResponse(response: Response): void {
   if (!response.ok) {
     throw new RecipeUrlImportError("The recipe page could not be fetched", 502);
   }
-  const contentType = response.headers.get("content-type")?.toLowerCase();
+  const contentType = response.headers
+    .get("content-type")
+    ?.split(";", 1)[0]
+    ?.trim()
+    .toLowerCase();
   if (
-    contentType &&
-    !contentType.includes("text/html") &&
-    !contentType.includes("application/xhtml+xml")
+    contentType !== "text/html" &&
+    contentType !== "application/xhtml+xml"
   ) {
     throw new RecipeUrlImportError(
       "The URL does not point to an HTML page",
