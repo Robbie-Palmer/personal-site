@@ -3,6 +3,7 @@ import { Caveat, JetBrains_Mono, Kalam } from "next/font/google";
 import Link from "next/link";
 import { AuthButton } from "@/components/recipes/auth-button";
 import { DietProvider } from "@/components/recipes/diet-provider";
+import { NotificationBell } from "@/components/recipes/notifications/notification-bell";
 import { RecipeNavTabs } from "@/components/recipes/recipe-nav-tabs";
 import { RecipeThemeBody } from "@/components/recipes/recipe-theme-body";
 import { TimerDock } from "@/components/recipes/timer-dock";
@@ -64,6 +65,7 @@ export default function RecipesLayout({
               <span className="rt-logo-accent">recipes</span>
             </Link>
             <div className="order-2 ms-auto flex shrink-0 items-center gap-2 sm:order-3">
+              <NotificationBell />
               <AuthButton intent="signup" compactOnMobile />
               <AuthButton compactOnMobile />
             </div>
