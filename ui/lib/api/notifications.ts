@@ -1,4 +1,4 @@
-export type HouseholdNotificationType =
+export type HouseholdNotificationKind =
   | "household_invited"
   | "household_removed"
   | "household_deleted"
@@ -6,26 +6,39 @@ export type HouseholdNotificationType =
   | "household_invite_declined"
   | "household_member_left";
 
-export type HouseholdNotification = {
+type NotificationBase = {
   id: string;
-  type: HouseholdNotificationType;
-  actorName: string | null;
-  householdName: string;
-  householdId: string | null;
-  invitationId: string | null;
-  invitationStatus:
-    | "pending"
-    | "accepted"
-    | "declined"
-    | "expired"
-    | "unavailable"
-    | null;
+  eventId: string;
+  kind: string;
+  actor: { id: string | null; name: string | null } | null;
+  actions: string[];
   readAt: string | null;
-  createdAt: string;
+  occurredAt: string;
 };
 
+export type HouseholdNotification = NotificationBase & {
+  kind: HouseholdNotificationKind;
+  detail: {
+    type: "household";
+    household: { id: string | null; name: string };
+    invitationStatus:
+      | "pending"
+      | "accepted"
+      | "declined"
+      | "expired"
+      | "unavailable"
+      | null;
+  };
+};
+
+export type UnsupportedNotification = NotificationBase & {
+  detail: null;
+};
+
+export type InAppNotification = HouseholdNotification | UnsupportedNotification;
+
 export type NotificationPage = {
-  items: HouseholdNotification[];
+  items: InAppNotification[];
   nextOffset: number | null;
 };
 
@@ -68,6 +81,20 @@ export async function updateNotification(
   );
 }
 
+export async function performNotificationAction(
+  id: string,
+  actionKey: string,
+): Promise<InAppNotification> {
+  const response = await checked(
+    await fetch(`/api/notifications/${id}/actions/${actionKey}`, {
+      method: "POST",
+      credentials: "same-origin",
+    }),
+  );
+  const body = (await response.json()) as { item: InAppNotification };
+  return body.item;
+}
+
 export async function markAllNotificationsRead() {
   await checked(
     await fetch("/api/notifications/read-all", {
@@ -80,18 +107,6 @@ export async function markAllNotificationsRead() {
 export async function clearAllNotifications() {
   await checked(
     await fetch("/api/notifications/clear-all", {
-      method: "POST",
-      credentials: "same-origin",
-    }),
-  );
-}
-
-export async function respondToHouseholdInvitation(
-  invitationId: string,
-  response: "accept" | "decline",
-) {
-  await checked(
-    await fetch(`/api/households/invitations/${invitationId}/${response}`, {
       method: "POST",
       credentials: "same-origin",
     }),

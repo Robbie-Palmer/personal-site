@@ -14,13 +14,21 @@ describe("notifications proxy", () => {
     ["/api/notifications?fresh=1", "/notifications?fresh=1"],
     ["/api/notifications/read-all", "/notifications/read-all"],
     ["/api/notifications/notification-1", "/notifications/notification-1"],
+    [
+      "/api/notifications/notification-1/actions/accept",
+      "/notifications/notification-1/actions/accept",
+    ],
   ])("maps %s to the Worker path %s", async (sourcePath, workerPath) => {
     const fetchMock = vi.fn(async (_request: Request) => new Response("ok"));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     const response = await onRequest({
       request: new Request(`https://robbiepalmer.me${sourcePath}`, {
-        method: sourcePath.includes("notification-1") ? "PATCH" : "GET",
+        method: sourcePath.includes("/actions/")
+          ? "POST"
+          : sourcePath.includes("notification-1")
+            ? "PATCH"
+            : "GET",
         headers: { cookie: "session=test" },
       }),
       env: { RECIPE_API_URL: "https://recipe-api.example.test" },

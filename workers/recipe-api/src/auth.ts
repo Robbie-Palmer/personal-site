@@ -5,6 +5,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { createDb } from "recipe-db";
 import * as schema from "recipe-db/schema";
 import { enforceRateLimit } from "./http/rate-limit";
+import { createHouseholdNotification } from "./notifications";
 import {
   canonicalEmailIsAvailable,
   syncCanonicalUserEmail,
@@ -119,13 +120,16 @@ export function createAuth(
         )
         .limit(1);
       if (owner) {
-        await db.insert(schema.notification).values({
-          id: crypto.randomUUID(),
-          userId: owner.userId,
-          type: "household_member_left",
-          actorName: deletedUser.name,
-          householdName: membership.householdName,
-          householdId: membership.householdId,
+        await db.transaction(async (tx) => {
+          await createHouseholdNotification(tx, {
+            recipientUserIds: [owner.userId],
+            kind: "household_member_left",
+            actor: deletedUser,
+            household: {
+              id: membership.householdId,
+              name: membership.householdName,
+            },
+          });
         });
       }
       return;
@@ -147,16 +151,15 @@ export function createAuth(
       const otherUserIds = otherMembers
         .map(({ userId }) => userId)
         .filter((userId) => userId !== deletedUser.id);
-      for (const userId of otherUserIds) {
-        await tx.insert(schema.notification).values({
-          id: crypto.randomUUID(),
-          userId,
-          type: "household_deleted",
-          actorName: deletedUser.name,
-          householdName: lockedHousehold.name,
-          householdId: membership.householdId,
-        });
-      }
+      await createHouseholdNotification(tx, {
+        recipientUserIds: otherUserIds,
+        kind: "household_deleted",
+        actor: deletedUser,
+        household: {
+          id: membership.householdId,
+          name: lockedHousehold.name,
+        },
+      });
       if (otherUserIds.length > 0) {
         await tx
           .update(schema.recipe)

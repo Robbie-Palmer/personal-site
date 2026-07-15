@@ -1,48 +1,19 @@
 "use client";
 
-import { Bell, House, LoaderCircle, Lock, X } from "lucide-react";
+import { Bell, LoaderCircle, Lock, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { NotificationContent } from "@/components/recipes/notifications/notification-content";
 import { Button } from "@/components/ui/button";
 import {
   clearAllNotifications,
   getNotificationPage,
-  type HouseholdNotification,
+  type InAppNotification,
   markAllNotificationsRead,
-  respondToHouseholdInvitation,
+  performNotificationAction,
   updateNotification,
 } from "@/lib/api/notifications";
 import { authClient } from "@/lib/auth-client";
-
-function copyFor(item: HouseholdNotification) {
-  const actor = item.actorName ?? "Someone";
-  switch (item.type) {
-    case "household_invited":
-      if (item.invitationStatus === "accepted") {
-        return `You accepted ${actor}'s invitation to join ${item.householdName}.`;
-      }
-      if (item.invitationStatus === "declined") {
-        return `You declined ${actor}'s invitation to join ${item.householdName}.`;
-      }
-      if (item.invitationStatus === "expired") {
-        return `${actor}'s invitation to join ${item.householdName} expired.`;
-      }
-      if (item.invitationStatus === "unavailable") {
-        return `${actor}'s invitation to join ${item.householdName} is no longer available.`;
-      }
-      return `${actor} invited you to join ${item.householdName}.`;
-    case "household_removed":
-      return `${actor} removed you from ${item.householdName}.`;
-    case "household_deleted":
-      return `${actor} deleted ${item.householdName}.`;
-    case "household_invite_accepted":
-      return `${actor} accepted your invitation to ${item.householdName}.`;
-    case "household_invite_declined":
-      return `${actor} declined your invitation to ${item.householdName}.`;
-    case "household_member_left":
-      return `${actor} left ${item.householdName}.`;
-  }
-}
 
 function bucket(date: string) {
   const age = Date.now() - new Date(date).getTime();
@@ -72,17 +43,11 @@ function NotificationRow({
   onRespond,
   onDismiss,
 }: Readonly<{
-  item: HouseholdNotification;
+  item: InAppNotification;
   acting: boolean;
-  onRespond: (
-    item: HouseholdNotification,
-    response: "accept" | "decline",
-  ) => void;
-  onDismiss: (item: HouseholdNotification) => void;
+  onRespond: (item: InAppNotification, actionKey: string) => void;
+  onDismiss: (item: InAppNotification) => void;
 }>) {
-  const invitationStatus =
-    item.type === "household_invited" ? item.invitationStatus : null;
-
   return (
     <article
       className={`group flex gap-3 rounded-xl p-3 sm:p-4 ${item.readAt ? "" : "bg-[var(--butter)]/15"}`}
@@ -91,45 +56,16 @@ function NotificationRow({
         className="mt-4 size-2 shrink-0 rounded-full bg-[var(--terracotta)]"
         style={{ visibility: item.readAt ? "hidden" : "visible" }}
       />
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--ink)] bg-[var(--sage)] text-white">
-        <House className="size-5" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="rt-body text-[0.95rem] text-[var(--ink-2)]">
-          {copyFor(item)}
-        </p>
-        {item.type === "household_invited" &&
-          item.invitationId &&
-          invitationStatus === "pending" && (
-            <div className="mt-2 flex gap-2">
-              <Button
-                size="sm"
-                disabled={acting}
-                onClick={() => onRespond(item, "accept")}
-              >
-                Accept
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={acting}
-                onClick={() => onRespond(item, "decline")}
-              >
-                Decline
-              </Button>
-            </div>
-          )}
-        {invitationStatus && invitationStatus !== "pending" && (
-          <p className="rt-mono mt-2 capitalize text-[var(--ink-3)]">
-            {invitationStatus === "unavailable"
-              ? "No longer available"
-              : invitationStatus}
-          </p>
-        )}
+      <div className="flex min-w-0 flex-1 gap-3">
+        <NotificationContent
+          item={item}
+          acting={acting}
+          onAction={(actionKey) => onRespond(item, actionKey)}
+        />
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <time className="rt-mono text-[var(--ink-4)]">
-          {relativeTime(item.createdAt)}
+          {relativeTime(item.occurredAt)}
         </time>
         <button
           type="button"
@@ -153,13 +89,10 @@ function NotificationGroup({
   onDismiss,
 }: Readonly<{
   label: string;
-  items: HouseholdNotification[];
+  items: InAppNotification[];
   actingId: string | null;
-  onRespond: (
-    item: HouseholdNotification,
-    response: "accept" | "decline",
-  ) => void;
-  onDismiss: (item: HouseholdNotification) => void;
+  onRespond: (item: InAppNotification, actionKey: string) => void;
+  onDismiss: (item: InAppNotification) => void;
 }>) {
   if (items.length === 0) return null;
   return (
@@ -185,7 +118,7 @@ function NotificationGroup({
 
 export function NotificationsView() {
   const { data: session, isPending: sessionPending } = authClient.useSession();
-  const [items, setItems] = useState<HouseholdNotification[]>([]);
+  const [items, setItems] = useState<InAppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState<string | null>(null);
@@ -219,40 +152,28 @@ export function NotificationsView() {
     return () => controller.abort();
   }, [load, session]);
 
-  async function respond(
-    item: HouseholdNotification,
-    response: "accept" | "decline",
-  ) {
-    if (!item.invitationId) return;
+  async function performAction(item: InAppNotification, actionKey: string) {
     setActing(item.id);
     try {
       setError(null);
-      await respondToHouseholdInvitation(item.invitationId, response);
-      const readAt = new Date().toISOString();
+      const updated = await performNotificationAction(item.id, actionKey);
       setItems((current) =>
         current.map((candidate) =>
-          candidate.id === item.id
-            ? {
-                ...candidate,
-                readAt: candidate.readAt ?? readAt,
-                invitationStatus:
-                  response === "accept" ? "accepted" : "declined",
-              }
-            : candidate,
+          candidate.id === item.id ? updated : candidate,
         ),
       );
     } catch (cause) {
       setError(
         cause instanceof Error
           ? cause.message
-          : "Couldn't respond to invitation.",
+          : "Couldn't complete notification action.",
       );
     } finally {
       setActing(null);
     }
   }
 
-  async function dismiss(item: HouseholdNotification) {
+  async function dismiss(item: InAppNotification) {
     if (acting === item.id) return;
     setActing(item.id);
     try {
@@ -355,7 +276,7 @@ export function NotificationsView() {
   const unread = items.filter((item) => !item.readAt).length;
   const groups = ["Today", "This week", "Earlier"].map((label) => ({
     label,
-    items: items.filter((item) => bucket(item.createdAt) === label),
+    items: items.filter((item) => bucket(item.occurredAt) === label),
   }));
 
   return (
@@ -370,7 +291,7 @@ export function NotificationsView() {
             <span className="text-[var(--terracotta)]">in one place.</span>
           </h1>
           <p className="rt-body mt-2 text-[var(--ink-2)]">
-            {unread} unread · household invitations and activity.
+            {unread} unread · activity across your recipes and account.
           </p>
         </div>
         {items.length > 0 && (
@@ -402,10 +323,10 @@ export function NotificationsView() {
       )}
       {items.length === 0 ? (
         <div className="mt-10 rounded-2xl border border-dashed border-[var(--line-strong)] bg-[var(--card)] px-6 py-14 text-center">
-          <House className="mx-auto size-9 text-[var(--sage)]" />
+          <Bell className="mx-auto size-9 text-[var(--sage)]" />
           <h2 className="rt-display mt-3 text-3xl">You're all caught up.</h2>
           <p className="rt-body mt-1 text-[var(--ink-3)]">
-            Household updates will land here.
+            New activity will land here.
           </p>
         </div>
       ) : (
@@ -416,7 +337,7 @@ export function NotificationsView() {
               label={group.label}
               items={group.items}
               actingId={acting}
-              onRespond={(item, response) => respond(item, response)}
+              onRespond={(item, actionKey) => performAction(item, actionKey)}
               onDismiss={(item) => dismiss(item)}
             />
           ))}

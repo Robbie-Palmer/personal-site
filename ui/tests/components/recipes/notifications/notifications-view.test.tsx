@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   getNotificationPage: vi.fn(),
   markAllNotificationsRead: vi.fn(),
   clearAllNotifications: vi.fn(),
-  respondToHouseholdInvitation: vi.fn(),
+  performNotificationAction: vi.fn(),
   updateNotification: vi.fn(),
 }));
 
@@ -21,7 +21,7 @@ vi.mock("@/lib/api/notifications", async (importOriginal) => ({
   getNotificationPage: mocks.getNotificationPage,
   markAllNotificationsRead: mocks.markAllNotificationsRead,
   clearAllNotifications: mocks.clearAllNotifications,
-  respondToHouseholdInvitation: mocks.respondToHouseholdInvitation,
+  performNotificationAction: mocks.performNotificationAction,
   updateNotification: mocks.updateNotification,
 }));
 
@@ -29,14 +29,24 @@ import { NotificationsView } from "@/components/recipes/notifications/notificati
 
 const invitation = {
   id: "notification-1",
-  type: "household_invited",
-  actorName: "Alex",
-  householdName: "Park Road",
-  householdId: "household-1",
-  invitationId: "invitation-1",
-  invitationStatus: "pending",
+  eventId: "event-1",
+  kind: "household_invited",
+  actor: { id: "user-alex", name: "Alex" },
+  actions: ["accept", "decline"],
+  detail: {
+    type: "household",
+    household: { id: "household-1", name: "Park Road" },
+    invitationStatus: "pending",
+  },
   readAt: null,
-  createdAt: "2026-07-14T12:00:00.000Z",
+  occurredAt: "2026-07-14T12:00:00.000Z",
+} satisfies HouseholdNotification;
+
+const acceptedInvitation = {
+  ...invitation,
+  actions: [],
+  detail: { ...invitation.detail, invitationStatus: "accepted" },
+  readAt: "2026-07-14T12:01:00.000Z",
 } satisfies HouseholdNotification;
 
 describe("NotificationsView", () => {
@@ -52,7 +62,7 @@ describe("NotificationsView", () => {
     });
     mocks.markAllNotificationsRead.mockResolvedValue(undefined);
     mocks.clearAllNotifications.mockResolvedValue(undefined);
-    mocks.respondToHouseholdInvitation.mockResolvedValue(undefined);
+    mocks.performNotificationAction.mockResolvedValue(acceptedInvitation);
     mocks.updateNotification.mockResolvedValue(undefined);
   });
 
@@ -70,17 +80,19 @@ describe("NotificationsView", () => {
     expect(screen.getByText("accepted", { exact: true })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
     expect(screen.getByText(/0 unread/)).toBeInTheDocument();
-    expect(mocks.respondToHouseholdInvitation).toHaveBeenCalledWith(
-      "invitation-1",
+    expect(mocks.performNotificationAction).toHaveBeenCalledWith(
+      "notification-1",
       "accept",
     );
     expect(mocks.updateNotification).not.toHaveBeenCalled();
   });
 
   it("prevents dismissing an invitation while its response is pending", async () => {
-    let resolveResponse: (() => void) | undefined;
-    mocks.respondToHouseholdInvitation.mockReturnValue(
-      new Promise<void>((resolve) => {
+    let resolveResponse:
+      | ((notification: HouseholdNotification) => void)
+      | undefined;
+    mocks.performNotificationAction.mockReturnValue(
+      new Promise<HouseholdNotification>((resolve) => {
         resolveResponse = resolve;
       }),
     );
@@ -92,7 +104,7 @@ describe("NotificationsView", () => {
     expect(
       screen.getByRole("button", { name: "Dismiss notification" }),
     ).toBeDisabled();
-    resolveResponse?.();
+    resolveResponse?.(acceptedInvitation);
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Dismiss notification" }),
@@ -134,12 +146,13 @@ describe("NotificationsView", () => {
     const older = {
       ...invitation,
       id: "notification-2",
-      type: "household_member_left",
-      actorName: "Sam",
-      invitationId: null,
-      invitationStatus: null,
+      eventId: "event-2",
+      kind: "household_member_left",
+      actor: { id: "user-sam", name: "Sam" },
+      actions: [],
+      detail: { ...invitation.detail, invitationStatus: null },
       readAt: "2026-07-14T13:00:00.000Z",
-      createdAt: "2026-06-01T12:00:00.000Z",
+      occurredAt: "2026-06-01T12:00:00.000Z",
     } satisfies HouseholdNotification;
     mocks.getNotificationPage
       .mockResolvedValueOnce({ items: [invitation], nextOffset: 100 })

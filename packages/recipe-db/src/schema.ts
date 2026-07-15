@@ -176,25 +176,78 @@ export const invitation = pgTable(
   ],
 );
 
-export const notification = pgTable(
-  "notification",
+// Notification data uses class-table inheritance: every occurrence is a
+// generic event, each recipient gets an independent delivery, and richer
+// domains add relational subtype rows without widening the generic tables.
+export const notificationEvent = pgTable(
+  "notification_event",
   {
     id: text().primaryKey(),
-    userId: text()
+    kind: text().notNull(),
+    actorUserId: text().references(() => user.id, { onDelete: "set null" }),
+    actorNameSnapshot: text(),
+    occurredAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("notification_event_kind_idx").on(table.kind)],
+);
+
+export const notificationDelivery = pgTable(
+  "notification_delivery",
+  {
+    id: text().primaryKey(),
+    eventId: text()
+      .notNull()
+      .references(() => notificationEvent.id, { onDelete: "cascade" }),
+    recipientUserId: text()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    type: text().notNull(),
-    actorName: text(),
-    householdName: text().notNull(),
-    householdId: text().references(() => organization.id, { onDelete: "set null" }),
-    invitationId: text(),
     readAt: timestamp({ withTimezone: true }),
     dismissedAt: timestamp({ withTimezone: true }),
-    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index("notification_user_created_at_idx").on(table.userId, table.createdAt),
-    index("notification_user_read_at_idx").on(table.userId, table.readAt),
+    index("notification_delivery_recipient_event_idx").on(
+      table.recipientUserId,
+      table.eventId,
+    ),
+    index("notification_delivery_recipient_read_at_idx").on(
+      table.recipientUserId,
+      table.readAt,
+    ),
+  ],
+);
+
+export const notificationHouseholdEvent = pgTable(
+  "notification_household_event",
+  {
+    eventId: text()
+      .primaryKey()
+      .references(() => notificationEvent.id, { onDelete: "cascade" }),
+    householdId: text().references(() => organization.id, {
+      onDelete: "set null",
+    }),
+    householdNameSnapshot: text().notNull(),
+  },
+  (table) => [
+    index("notification_household_event_household_idx").on(table.householdId),
+  ],
+);
+
+export const notificationHouseholdInvitationEvent = pgTable(
+  "notification_household_invitation_event",
+  {
+    eventId: text()
+      .primaryKey()
+      .references(() => notificationHouseholdEvent.eventId, {
+        onDelete: "cascade",
+      }),
+    invitationId: text().references(() => invitation.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    index("notification_household_invitation_event_invitation_idx").on(
+      table.invitationId,
+    ),
   ],
 );
 

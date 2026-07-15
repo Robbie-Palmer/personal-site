@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearAllNotifications,
   getNotificationPage,
+  performNotificationAction,
 } from "@/lib/api/notifications";
 
 describe("notification API client", () => {
@@ -32,5 +33,20 @@ describe("notification API client", () => {
       credentials: "same-origin",
       signal: undefined,
     });
+  });
+
+  it("performs a notification action through the generic action route", async () => {
+    const item = { id: "notification-1" };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ item }));
+
+    await expect(
+      performNotificationAction("notification-1", "accept"),
+    ).resolves.toEqual(item);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/notifications/notification-1/actions/accept",
+      { method: "POST", credentials: "same-origin" },
+    );
   });
 });

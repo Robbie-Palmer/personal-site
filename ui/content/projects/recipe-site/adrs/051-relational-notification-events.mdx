@@ -1,0 +1,72 @@
+---
+title: "ADR 051: Relational Notification Events and Subtypes"
+date: "2026-07-15"
+status: "Accepted"
+tech_stack: ["PostgreSQL", "Drizzle", "React"]
+---
+
+# Summary
+
+Model in-app notifications as generic events and per-recipient deliveries, with relational subtype
+tables for domain-specific data and renderer/action registries for rich notification behaviour.
+
+# Context
+
+The first notification types describe household invitations and membership changes, but the planned
+system also includes recipe forks, cooking-log comments, upstream recipe updates, recommendations,
+and other activity. Those types have different data, links, visual treatments, and actions.
+
+Putting household IDs, invitation IDs, and household names on a single notification table makes the
+generic archive household-specific and creates increasingly sparse columns as new domains arrive.
+A JSON payload would avoid widening the table, but it would move important relationships and
+validation outside PostgreSQL.
+
+# Decision
+
+Use class-table inheritance:
+
+* `notification_event` records the kind, actor reference, actor-name snapshot, and occurrence time
+* `notification_delivery` records the recipient's read and dismissed state
+* `notification_household_event` stores household-specific references and historical display data
+* `notification_household_invitation_event` adds the invitation reference only for invitation events
+
+Foreign keys to mutable or deletable domain records use `ON DELETE SET NULL`, while snapshots retain
+the text required to explain historical activity. One event can have multiple deliveries, so a
+household deletion is recorded once even when several members are notified.
+
+The API pages generic deliveries and events first, groups event IDs by represented subtype, and runs
+one hydration query per subtype family. It does not issue one query per notification.
+
+Interactive notifications use `POST /notifications/:deliveryId/actions/:actionKey`. The server
+checks that the delivery belongs to the current user, dispatches by event kind, and returns the
+rehydrated notification. Each frontend subtype renderer owns its rich content, links, and available
+actions; the archive shell only owns shared list behaviour.
+
+# Consequences
+
+## Positive
+
+* Domain foreign keys and constraints remain relational.
+* Generic delivery state stays independent of notification content.
+* One event can fan out to several recipients without duplicating event data.
+* New rich types add subtype tables, hydration, an action handler when needed, and a renderer without
+  changing the archive shell.
+* Deleted actors and targets do not erase the historical explanation shown to recipients.
+* Batched subtype hydration avoids N+1 queries.
+
+## Negative
+
+* Each new subtype family requires a migration and explicit hydration code.
+* Reading a heterogeneous page takes more than one query.
+* Cross-table rules, such as matching an event kind to its required subtype row, are enforced by the
+  write path rather than a simple single-table constraint.
+* Orphaned events whose last delivery is deleted may need periodic cleanup if their volume becomes
+  material.
+
+# When To Revisit
+
+* Notification volume makes the joined occurrence-time ordering or batched hydration measurably slow.
+* A large number of types have truly schema-less, non-queryable payloads where relational subtypes no
+  longer provide useful integrity.
+* Multiple delivery channels need channel-specific state beyond the current in-app delivery record.
+* A rules engine or user-configurable action model requires actions to become persisted entities.
