@@ -12,7 +12,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:push:ci": "drizzle-kit push",
+    "db:push:ci": "bash scripts/push-schema-ci.sh",
     "db:backfill:user-emails": "tsx scripts/backfill-user-emails.ts",
     "db:seed:diet-catalog": "tsx scripts/seed-diet-catalog.ts",
     "db:studio": "drizzle-kit studio",
