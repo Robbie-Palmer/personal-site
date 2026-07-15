@@ -54,6 +54,7 @@ describe("agent markdown generation", () => {
       "recipes/add.html",
       "recipes/kitchen.html",
       "recipes/onboarding.html",
+      "recipes/profile.html",
       "recipes/saved.html",
       "recipes/settings.html",
       "recipes/shopping.html",
@@ -85,6 +86,8 @@ describe("agent markdown generation", () => {
     expect(read("llms-full.txt")).not.toContain("/recipes/settings");
     expect(read("llms.txt")).not.toContain("/recipes/onboarding");
     expect(read("llms-full.txt")).not.toContain("/recipes/onboarding");
+    expect(read("llms.txt")).not.toContain("/recipes/profile");
+    expect(read("llms-full.txt")).not.toContain("/recipes/profile");
   });
 
   it("renders recipe ingredients and instructions as markdown", () => {
@@ -102,6 +105,7 @@ describe("agent markdown generation", () => {
       "add.html",
       "kitchen.html",
       "onboarding.html",
+      "profile.html",
       "saved.html",
       "settings.html",
       "shopping.html",
