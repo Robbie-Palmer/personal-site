@@ -13,8 +13,10 @@
   },
   "dependencies": {
     "@cooklang/cooklang": "^0.18.0",
+    "cheerio": "^1.2.0",
     "numeric-quantity": "^3.2.1",
     "openai": "^6.6.0",
+    "recipe-scrapers": "^1.9.0",
     "recipe-domain": "workspace:*",
     "zod": "^4.2.1"
   },
