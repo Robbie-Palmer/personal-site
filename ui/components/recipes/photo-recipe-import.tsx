@@ -228,6 +228,14 @@ export function PhotoRecipeImport({
     );
   }
 
+  function openCamera() {
+    cameraInputRef.current?.click();
+  }
+
+  function openPhotoPicker() {
+    photoInputRef.current?.click();
+  }
+
   async function importPhotos() {
     if (!files.length || processing) return;
     setUploading(true);
@@ -288,18 +296,10 @@ export function PhotoRecipeImport({
         onChange={selectFiles}
       />
       <div className="grid grid-cols-2 gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => cameraInputRef.current?.click()}
-        >
+        <Button type="button" variant="outline" onClick={openCamera}>
           <Camera /> Take photo
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => photoInputRef.current?.click()}
-        >
+        <Button type="button" variant="outline" onClick={openPhotoPicker}>
           <Images /> Choose photos
         </Button>
       </div>
