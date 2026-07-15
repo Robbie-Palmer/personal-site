@@ -163,7 +163,7 @@ export function NotificationsView() {
     }
     setLoading(true);
     const controller = new AbortController();
-    void load(sessionUserId, controller.signal);
+    load(sessionUserId, controller.signal);
     return () => controller.abort();
   }, [load, sessionUserId]);
 

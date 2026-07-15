@@ -933,44 +933,29 @@ async function dispatchNotificationAction(
   event: { id: string; kind: string },
   actionKey: string,
 ) {
-  switch (event.kind) {
-    case "household_invited": {
-      if (actionKey !== "accept" && actionKey !== "decline") {
-        throw new InvitationActionError(
-          400,
-          "Unknown notification action",
-        );
-      }
-      const [detail] = await db
-        .select({
-          invitationId:
-            schema.notificationHouseholdInvitationEvent.invitationId,
-        })
-        .from(schema.notificationHouseholdInvitationEvent)
-        .where(
-          eq(schema.notificationHouseholdInvitationEvent.eventId, event.id),
-        )
-        .limit(1);
-      if (!detail?.invitationId) {
-        throw new InvitationActionError(
-          409,
-          "Notification action is no longer available",
-        );
-      }
-      await performInvitationAction(
-        db,
-        user,
-        detail.invitationId,
-        actionKey,
-      );
-      return;
-    }
-    default:
-      throw new InvitationActionError(
-        409,
-        "Notification action is no longer available",
-      );
+  if (event.kind !== "household_invited") {
+    throw new InvitationActionError(
+      409,
+      "Notification action is no longer available",
+    );
   }
+  if (actionKey !== "accept" && actionKey !== "decline") {
+    throw new InvitationActionError(400, "Unknown notification action");
+  }
+  const [detail] = await db
+    .select({
+      invitationId: schema.notificationHouseholdInvitationEvent.invitationId,
+    })
+    .from(schema.notificationHouseholdInvitationEvent)
+    .where(eq(schema.notificationHouseholdInvitationEvent.eventId, event.id))
+    .limit(1);
+  if (!detail?.invitationId) {
+    throw new InvitationActionError(
+      409,
+      "Notification action is no longer available",
+    );
+  }
+  await performInvitationAction(db, user, detail.invitationId, actionKey);
 }
 
 async function findHouseholdMemberUserIds(

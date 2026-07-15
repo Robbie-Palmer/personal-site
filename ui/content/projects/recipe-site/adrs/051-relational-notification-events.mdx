@@ -32,51 +32,53 @@ Use class-table inheritance:
 
 <Mermaid
   chart={`erDiagram
-  USER {
-    text id PK
-  }
-  ORGANIZATION {
-    text id PK
-  }
-  INVITATION {
-    text id PK
-  }
-  NOTIFICATION_EVENT {
-    text id PK
-    text kind
-    text actor_user_id FK "nullable"
-    text actor_name_snapshot "nullable"
-    timestamp occurred_at
-  }
-  NOTIFICATION_DELIVERY {
-    text id PK
-    text event_id FK
-    text recipient_user_id FK
-    timestamp read_at "nullable"
-    timestamp dismissed_at "nullable"
-  }
-  NOTIFICATION_HOUSEHOLD_EVENT {
-    text event_id PK, FK
-    text household_id FK "nullable"
-    text household_name_snapshot
-  }
-  NOTIFICATION_HOUSEHOLD_INVITATION_EVENT {
-    text event_id PK, FK
-    text invitation_id FK "nullable"
-  }
+USER {
+  text id PK
+}
+ORGANIZATION {
+  text id PK
+}
+INVITATION {
+  text id PK
+}
+NOTIFICATION_EVENT {
+  text id PK
+  text kind
+  text actor_user_id FK "nullable"
+  text actor_name_snapshot "nullable"
+  timestamp occurred_at
+}
+NOTIFICATION_DELIVERY {
+  text id PK
+  text event_id FK
+  text recipient_user_id FK
+  timestamp read_at "nullable"
+  timestamp dismissed_at "nullable"
+}
+NOTIFICATION_HOUSEHOLD_EVENT {
+  text event_id PK, FK
+  text household_id FK "nullable"
+  text household_name_snapshot
+}
+NOTIFICATION_HOUSEHOLD_INVITATION_EVENT {
+  text event_id PK, FK
+  text invitation_id FK "nullable"
+}
 
-  USER o|--o{ NOTIFICATION_EVENT : acts_in
-  USER ||--o{ NOTIFICATION_DELIVERY : receives
-  NOTIFICATION_EVENT ||--o{ NOTIFICATION_DELIVERY : fans_out_as
-  NOTIFICATION_EVENT ||--o| NOTIFICATION_HOUSEHOLD_EVENT : specializes_as
-  NOTIFICATION_EVENT ||--o| NOTIFICATION_HOUSEHOLD_INVITATION_EVENT : adds_invitation_context
-  ORGANIZATION o|--o{ NOTIFICATION_HOUSEHOLD_EVENT : describes
-  INVITATION o|--o{ NOTIFICATION_HOUSEHOLD_INVITATION_EVENT : references`}
+USER o|--o{ NOTIFICATION_EVENT : acts_in
+USER ||--o{ NOTIFICATION_DELIVERY : receives
+NOTIFICATION_EVENT ||--o{ NOTIFICATION_DELIVERY : fans_out_as
+NOTIFICATION_EVENT ||--o| NOTIFICATION_HOUSEHOLD_EVENT : specializes_as
+  NOTIFICATION_HOUSEHOLD_EVENT ||--o| NOTIFICATION_HOUSEHOLD_INVITATION_EVENT : adds_invitation_context
+ORGANIZATION o|--o{ NOTIFICATION_HOUSEHOLD_EVENT : describes
+INVITATION o|--o{ NOTIFICATION_HOUSEHOLD_INVITATION_EVENT : references`}
 />
 
-The subtype primary keys are also foreign keys to `notification_event`, enforcing at most one row
-of each subtype per event. The unique `(event_id, recipient_user_id)` index prevents the same event
-being delivered to one recipient twice.
+Each subtype primary key is also a foreign key to its immediate parent: household subtypes reference
+`notification_event`, while invitation subtypes reference `notification_household_event`. This
+enforces at most one row at each level and ensures invitation context cannot exist without household
+context. The unique `(event_id, recipient_user_id)` index prevents the same event being delivered to
+one recipient twice.
 
 Foreign keys to mutable or deletable domain records use `ON DELETE SET NULL`, while snapshots retain
 the text required to explain historical activity. One event can have multiple deliveries, so a
@@ -97,10 +99,11 @@ and subtype rows reference real events, users, households, and invitations. Prim
 indexes, and `ON DELETE` actions enforce the other local cardinality and lifecycle rules shown in
 the diagram.
 
-The awkward rule is bidirectional: for example, a `household_invited` event must have exactly one
+The invitation subtype's foreign key already ensures it has household context. The remaining
+awkward rule is bidirectional: for example, a `household_invited` event must have exactly one
 household subtype row and exactly one invitation subtype row, while a future recipe-comment event
-must not have either. A foreign key enforces subtype-to-event existence, but not the reverse
-event-to-required-subtype existence. PostgreSQL `CHECK` constraints only inspect the row being
+must not have either. Foreign keys enforce child-to-parent existence, but not the reverse
+parent-to-required-child existence. PostgreSQL `CHECK` constraints only inspect the row being
 written and cannot contain a query that checks another table. PostgreSQL also does not implement
 the SQL-standard database-wide `ASSERTION` feature.
 
@@ -164,25 +167,25 @@ label, order, policy, or workflow attached to a particular event. One possible e
 
 <Mermaid
   chart={`erDiagram
-  NOTIFICATION_EVENT {
-    text id PK
-    text kind
-  }
-  NOTIFICATION_ACTION_DEFINITION {
-    text id PK
-    text key
-    text label
-    text handler_type
-  }
-  NOTIFICATION_EVENT_ACTION {
-    text event_id PK, FK
-    text action_definition_id PK, FK
-    integer position
-    timestamp available_until "nullable"
-  }
+NOTIFICATION_EVENT {
+  text id PK
+  text kind
+}
+NOTIFICATION_ACTION_DEFINITION {
+  text id PK
+  text key
+  text label
+  text handler_type
+}
+NOTIFICATION_EVENT_ACTION {
+  text event_id PK, FK
+  text action_definition_id PK, FK
+  integer position
+  timestamp available_until "nullable"
+}
 
-  NOTIFICATION_EVENT ||--o{ NOTIFICATION_EVENT_ACTION : offers
-  NOTIFICATION_ACTION_DEFINITION ||--o{ NOTIFICATION_EVENT_ACTION : instantiates`}
+NOTIFICATION_EVENT ||--o{ NOTIFICATION_EVENT_ACTION : offers
+NOTIFICATION_ACTION_DEFINITION ||--o{ NOTIFICATION_EVENT_ACTION : instantiates`}
 />
 
 Even then, executable handlers and authorization would remain trusted server code; storing an

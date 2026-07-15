@@ -8,20 +8,20 @@ import { authClient } from "@/lib/auth-client";
 
 export function NotificationBell() {
   const { data: session } = authClient.useSession();
-  const [count, setCount] = useState(0);
+  const sessionUserId = session?.user.id;
+  const [unread, setUnread] = useState({ userId: "", count: 0 });
+  const count = unread.userId === sessionUserId ? unread.count : 0;
 
   useEffect(() => {
-    if (!session) {
-      setCount(0);
-      return;
-    }
-    setCount(0);
+    if (!sessionUserId) return;
     const controller = new AbortController();
     void getNotificationPage(0, controller.signal)
-      .then((page) => setCount(page.unreadCount))
+      .then((page) =>
+        setUnread({ userId: sessionUserId, count: page.unreadCount }),
+      )
       .catch(() => undefined);
     return () => controller.abort();
-  }, [session]);
+  }, [sessionUserId]);
 
   if (!session) return null;
   return (
