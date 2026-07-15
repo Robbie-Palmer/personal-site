@@ -203,6 +203,7 @@ export function DiscoverFeed() {
       <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl border border-[var(--line)] bg-[var(--paper-warm)] p-1.5">
         <button
           type="button"
+          aria-pressed={scope === "public"}
           onClick={() => setScope("public")}
           className={cn(
             "rt-body flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors",
@@ -215,6 +216,7 @@ export function DiscoverFeed() {
         </button>
         <button
           type="button"
+          aria-pressed={scope === "household"}
           disabled={!mounted || !session}
           onClick={() => setScope("household")}
           className={cn(

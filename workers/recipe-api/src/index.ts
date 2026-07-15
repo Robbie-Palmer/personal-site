@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { and, count, desc, eq, gt, gte, inArray, lt, or } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, inArray, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { createDb, schema } from "recipe-db";
 import { RecipeContentSchema } from "recipe-domain";
@@ -2097,10 +2097,9 @@ app.get("/recipes/feed", async (c) => {
     const connection = createDb(connectionString);
     client = connection.client;
     const { db } = connection;
-    const session = await loadOptionalRecipeSession(c, db);
-
     let visibilityFilter = eq(schema.recipe.visibility, "public");
     if (scope.data === "household") {
+      const session = await loadOptionalRecipeSession(c, db);
       if (!session) return authorizationResponse(c, unauthenticated());
       const membership = await findUserHouseholdMembership(db, session.user.id);
       if (!membership) return c.json({ items: [], nextCursor: null });
@@ -2115,17 +2114,12 @@ app.get("/recipes/feed", async (c) => {
     }
 
     const cursorFilter = cursor
-      ? or(
-          lt(schema.recipe.createdAt, new Date(cursor.createdAt)),
-          and(
-            eq(schema.recipe.createdAt, new Date(cursor.createdAt)),
-            lt(schema.recipe.id, cursor.id),
-          ),
-        )
+      ? sql`(${schema.recipe.createdAt} < ${cursor.createdAt}::timestamptz OR (${schema.recipe.createdAt} = ${cursor.createdAt}::timestamptz AND ${schema.recipe.id} < ${cursor.id}))`
       : undefined;
     const rows = await db
       .select({
         recipe: schema.recipe,
+        cursorCreatedAt: sql<string>`${schema.recipe.createdAt}::text`,
         author: {
           id: schema.user.id,
           name: schema.user.name,
@@ -2140,7 +2134,7 @@ app.get("/recipes/feed", async (c) => {
 
     const hasMore = rows.length > limit.data;
     const page = rows.slice(0, limit.data);
-    const last = page.at(-1)?.recipe;
+    const last = page.at(-1);
     return c.json({
       items: page.map(({ recipe, author }) => ({
         type: "recipe_added" as const,
@@ -2151,8 +2145,8 @@ app.get("/recipes/feed", async (c) => {
       nextCursor:
         hasMore && last
           ? encodeFeedCursor({
-              createdAt: last.createdAt.toISOString(),
-              id: last.id,
+              createdAt: last.cursorCreatedAt,
+              id: last.recipe.id,
             })
           : null,
     });
