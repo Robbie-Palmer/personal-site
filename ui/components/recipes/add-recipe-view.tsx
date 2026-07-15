@@ -221,7 +221,7 @@ export function AddRecipeView() {
     const { frontmatter, body } = draft.cooklang;
     setTitle(frontmatter.title ?? draft.recipe.title);
     setDescription(frontmatter.description ?? draft.recipe.description);
-    setCuisine((frontmatter.cuisine ?? draft.recipe.cuisine)[0] ?? "");
+    setCuisine((frontmatter.cuisine ?? draft.recipe.cuisine).join(", "));
     setServings(frontmatter.servings ?? draft.recipe.servings);
     setPrepTime(draft.recipe.prepTime);
     setCookTime(draft.recipe.cookTime);
@@ -464,9 +464,12 @@ export function AddRecipeView() {
               </div>
             )}
 
-            {method === "photo" && (
-              <PhotoRecipeImport active onDraftReady={applyPhotoDraft} />
-            )}
+            <div className={method === "photo" ? undefined : "hidden"}>
+              <PhotoRecipeImport
+                active={method === "photo"}
+                onDraftReady={applyPhotoDraft}
+              />
+            </div>
 
             <label htmlFor={titleId} className="grid gap-1.5">
               <span className="rt-mono text-[var(--ink-3)]">Recipe name</span>

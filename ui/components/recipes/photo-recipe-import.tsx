@@ -10,7 +10,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 type PhotoImportStatus = "queued" | "running" | "succeeded" | "failed";
@@ -92,10 +92,12 @@ function SelectedPhoto({
   file,
   index,
   onRemove,
+  disabled,
 }: Readonly<{
   file: File;
   index: number;
   onRemove: (index: number) => void;
+  disabled: boolean;
 }>) {
   return (
     <li className="flex items-center gap-2 rounded-md border border-[var(--line)] bg-[var(--card)] px-2.5 py-2 text-sm">
@@ -108,6 +110,7 @@ function SelectedPhoto({
         type="button"
         aria-label={`Remove ${file.name}`}
         className="rounded p-1 text-[var(--ink-3)] hover:bg-[var(--paper-warm)] hover:text-[var(--ink)]"
+        disabled={disabled}
         onClick={() => onRemove(index)}
       >
         <X className="size-3.5" />
@@ -218,7 +221,7 @@ export function PhotoRecipeImport({
     setFiles((current) => [...current, ...incoming]);
   }
 
-  function selectFiles(event: React.ChangeEvent<HTMLInputElement>) {
+  function selectFiles(event: ChangeEvent<HTMLInputElement>) {
     addFiles(event.target.files);
     event.target.value = "";
   }
@@ -297,10 +300,20 @@ export function PhotoRecipeImport({
         onChange={selectFiles}
       />
       <div className="grid grid-cols-2 gap-2">
-        <Button type="button" variant="outline" onClick={openCamera}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={openCamera}
+          disabled={processing}
+        >
           <Camera /> Take photo
         </Button>
-        <Button type="button" variant="outline" onClick={openPhotoPicker}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={openPhotoPicker}
+          disabled={processing}
+        >
           <Images /> Choose photos
         </Button>
       </div>
@@ -312,6 +325,7 @@ export function PhotoRecipeImport({
               file={file}
               index={index}
               onRemove={removeFile}
+              disabled={processing}
             />
           ))}
         </ul>
