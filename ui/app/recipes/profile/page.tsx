@@ -1,15 +1,12 @@
-"use client";
-
-import { useSearchParams } from "next/navigation";
+import type { Metadata } from "next";
 import { Suspense } from "react";
-import { ProfileView } from "@/components/recipes/profile/profile-view";
+import { SelectedProfile } from "@/components/recipes/profile/selected-profile";
 
-function SelectedProfile() {
-  const searchParams = useSearchParams();
-  const userId = searchParams.get("user") ?? undefined;
-
-  return <ProfileView userId={userId} />;
-}
+export const metadata: Metadata = {
+  title: "Profile",
+  description: "See who you share a household and kitchen with.",
+  robots: { index: false, follow: false },
+};
 
 export default function ProfilePage() {
   return (

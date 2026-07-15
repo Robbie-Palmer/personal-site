@@ -59,7 +59,9 @@ export function ProfileView({ userId }: Readonly<{ userId?: string | null }>) {
         if (!profile) {
           throw new Error("This profile isn't part of your household.");
         }
-        setData({ household, members, profile });
+        if (!controller.signal.aborted) {
+          setData({ household, members, profile });
+        }
       })
       .catch((loadError: unknown) => {
         if (!controller.signal.aborted) setError(loadErrorMessage(loadError));

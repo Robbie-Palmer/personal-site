@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -125,5 +125,30 @@ describe("ProfileView", () => {
     expect(
       await screen.findByRole("heading", { name: /Chef's kitchen/i }),
     ).toBeInTheDocument();
+  });
+
+  it("ignores a stale response after navigating to another profile", async () => {
+    let resolveFirstMembers: ((value: typeof members) => void) | undefined;
+    const firstMembers = new Promise<typeof members>((resolve) => {
+      resolveFirstMembers = resolve;
+    });
+    mocks.getHouseholdMembers
+      .mockReturnValueOnce(firstMembers)
+      .mockResolvedValueOnce(members);
+
+    const { rerender } = render(<ProfileView userId="user-1" />);
+    await waitFor(() =>
+      expect(mocks.getHouseholdMembers).toHaveBeenCalledOnce(),
+    );
+
+    rerender(<ProfileView userId="user-2" />);
+    expect(
+      await screen.findByRole("heading", { name: /Ellie's kitchen/i }),
+    ).toBeInTheDocument();
+
+    await act(async () => resolveFirstMembers?.(members));
+    expect(
+      screen.queryByRole("heading", { name: /Robbie's kitchen/i }),
+    ).not.toBeInTheDocument();
   });
 });
