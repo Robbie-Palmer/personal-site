@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 import { parseSchemaOrgRecipeHtml } from "../../src/lib/schema-org.js";
 
 describe("parseSchemaOrgRecipeHtml", () => {
-  it("imports a Recipe from a JSON-LD graph into Cooklang source", () => {
+  it("imports a Recipe from a JSON-LD graph into Cooklang source", async () => {
     const html = `<!doctype html><script type="application/ld+json">
       {"@context":"https://schema.org","@graph":[
         {"@type":"WebPage","name":"Dinner"},
-        {"@type":["Thing","Recipe"],"name":"Tomato &amp; Basil Pasta",
+        {"@type":["Thing","Recipe"],"name":"Tomato &amp; Basil Pasta","author":"Test Cook",
+         "image":"https://example.com/pasta.jpg",
          "description":"A <b>quick</b> supper.","recipeCuisine":["Italian"],
          "recipeYield":"Serves 4","prepTime":"PT10M","cookTime":"PT1H5M",
          "recipeIngredient":["200 g dried pasta","2 tbsp olive oil","400g chopped tomatoes"],
@@ -18,7 +19,7 @@ describe("parseSchemaOrgRecipeHtml", () => {
          ]}
       ]}</script>`;
 
-    expect(parseSchemaOrgRecipeHtml(html)).toEqual({
+    await expect(parseSchemaOrgRecipeHtml(html)).resolves.toEqual({
       title: "Tomato & Basil Pasta",
       description: "A quick supper.",
       cuisine: "Italian",
@@ -30,14 +31,15 @@ describe("parseSchemaOrgRecipeHtml", () => {
     });
   });
 
-  it("supports a top-level array and plain instruction strings", () => {
+  it("supports a top-level array and plain instruction strings", async () => {
     const html = `<script TYPE='application/ld+json'>[
       {"@type":"BreadcrumbList"},
-      {"@type":"https://schema.org/Recipe","name":"Toast","recipeIngredient":["2 slices bread"],
+      {"@type":"https://schema.org/Recipe","name":"Toast","author":"Test Cook",
+       "image":"https://example.com/toast.jpg","description":"Toast.","recipeIngredient":["2 slices bread"],
        "recipeInstructions":["Toast the bread."],"recipeYield":2}
     ]</script>`;
 
-    expect(parseSchemaOrgRecipeHtml(html)).toMatchObject({
+    await expect(parseSchemaOrgRecipeHtml(html)).resolves.toMatchObject({
       title: "Toast",
       servings: 2,
       source: "@bread{2%slice}\n\nToast the bread.",
@@ -47,17 +49,18 @@ describe("parseSchemaOrgRecipeHtml", () => {
   it.each([
     ["HTML comments", "<!--", "-->"],
     ["CDATA comments", "//<![CDATA[", "//]]>"],
-  ])("unwraps JSON-LD inside %s", (_name, prefix, suffix) => {
+  ])("unwraps JSON-LD inside %s", async (_name, prefix, suffix) => {
     const html = `<script type="application/ld+json">${prefix}
-      {"@type":"Recipe","name":"Toast","recipeIngredient":["2 slices bread"],
+      {"@type":"Recipe","name":"Toast","author":"Test Cook",
+       "image":"https://example.com/toast.jpg","description":"Toast.","recipeIngredient":["2 slices bread"],
        "recipeInstructions":["Toast the bread."]}
       ${suffix}</script>`;
 
-    expect(parseSchemaOrgRecipeHtml(html)).toMatchObject({ title: "Toast" });
+    await expect(parseSchemaOrgRecipeHtml(html)).resolves.toMatchObject({ title: "Toast" });
   });
 
-  it("rejects pages without a complete Recipe", () => {
-    expect(parseSchemaOrgRecipeHtml(`<script type="application/ld+json">{"@type":"Article"}</script>`)).toBeNull();
-    expect(parseSchemaOrgRecipeHtml(`<script type="application/ld+json">{"@type":"Recipe","name":"Empty"}</script>`)).toBeNull();
+  it("rejects pages without a complete Recipe", async () => {
+    await expect(parseSchemaOrgRecipeHtml(`<script type="application/ld+json">{"@type":"Article"}</script>`)).resolves.toBeNull();
+    await expect(parseSchemaOrgRecipeHtml(`<script type="application/ld+json">{"@type":"Recipe","name":"Empty"}</script>`)).resolves.toBeNull();
   });
 });

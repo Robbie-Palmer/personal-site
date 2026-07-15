@@ -1721,7 +1721,7 @@ app.post("/recipes/import-url", async (c) => {
     }
 
     const page = await fetchRecipePage(body.data.url);
-    const recipe = parseSchemaOrgRecipeHtml(page.html);
+    const recipe = await parseSchemaOrgRecipeHtml(page.html, page.url);
     if (!recipe) {
       return c.json(
         {
