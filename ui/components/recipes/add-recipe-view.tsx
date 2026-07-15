@@ -4,20 +4,20 @@ import {
   AlertCircle,
   ArrowLeft,
   Camera,
-  CheckCircle2,
   FileText,
   Globe2,
-  Images,
   Loader2,
   PenLine,
   Save,
   Sparkles,
-  Upload,
-  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
+import {
+  PhotoRecipeImport,
+  type PhotoRecipeImportDraft,
+} from "@/components/recipes/photo-recipe-import";
 import { RecipeContent } from "@/components/recipes/recipe-content";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,44 +49,6 @@ type ImportedRecipe = {
   source: string;
   url: string;
 };
-
-type PhotoImportStatus = "queued" | "running" | "succeeded" | "failed";
-
-type PhotoImportDraft = {
-  cooklang: {
-    frontmatter: {
-      title?: string;
-      description?: string;
-      cuisine?: string[];
-      servings?: number;
-      prepTime?: number;
-      cookTime?: number;
-    };
-    body: string;
-  };
-  recipe: {
-    title: string;
-    description: string;
-    cuisine: string[];
-    servings: number;
-    prepTime?: number;
-    cookTime?: number;
-  };
-};
-
-type PhotoImportJob = {
-  id: string;
-  status: PhotoImportStatus;
-  currentStage?: "extract" | "normalize" | "canonicalize" | "finalize";
-  progressLabel?: string;
-  error?: { message?: string };
-  draft?: PhotoImportDraft;
-};
-
-const PHOTO_IMPORT_POLL_INTERVAL_MS = 1_500;
-const MAX_PHOTO_COUNT = 6;
-const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
-const ACCEPTED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function NumberField({
   label,
@@ -137,10 +99,6 @@ export function AddRecipeView() {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importedUrl, setImportedUrl] = useState<string | null>(null);
-  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
-  const [photoJob, setPhotoJob] = useState<PhotoImportJob | null>(null);
-  const [photoError, setPhotoError] = useState<string | null>(null);
-  const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [cuisine, setCuisine] = useState("");
@@ -155,9 +113,6 @@ export function AddRecipeView() {
     controller: AbortController;
   } | null>(null);
   const nextImportRequestIdRef = useRef(0);
-  const photoRequestRef = useRef<AbortController | null>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const photoInputRef = useRef<HTMLInputElement>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const cooklang = useMemo(() => normalizeRecipeSource(source), [source]);
   const parse = useCooklangRecipe(cooklang);
@@ -197,86 +152,6 @@ export function AddRecipeView() {
     source,
   ]);
   const preview = previewResult.recipe;
-  const photoJobId = photoJob?.id;
-  const photoJobStatus = photoJob?.status;
-
-  useEffect(() => {
-    if (
-      !photoJobId ||
-      !photoJobStatus ||
-      !["queued", "running"].includes(photoJobStatus)
-    )
-      return;
-
-    let active = true;
-    const controller = new AbortController();
-    photoRequestRef.current = controller;
-
-    async function poll() {
-      try {
-        const response = await fetch(`/api/recipe-imports/${photoJobId}`, {
-          credentials: "include",
-          signal: controller.signal,
-        });
-        const body = (await response.json().catch(() => null)) as
-          | PhotoImportJob
-          | { error?: string }
-          | null;
-        if (!response.ok || !body || !("status" in body)) {
-          throw new Error(
-            (body && "error" in body && body.error) ||
-              "We couldn't check the photo import status.",
-          );
-        }
-        if (!active) return;
-        setPhotoJob(body);
-        if (body.status === "succeeded") {
-          if (!body.draft) {
-            setPhotoError(
-              "The import finished without an editable recipe draft.",
-            );
-            return;
-          }
-          const { frontmatter, body: cooklangBody } = body.draft.cooklang;
-          const recipe = body.draft.recipe;
-          setTitle(frontmatter.title ?? recipe.title);
-          setDescription(frontmatter.description ?? recipe.description);
-          setCuisine((frontmatter.cuisine ?? recipe.cuisine)[0] ?? "");
-          setServings(frontmatter.servings ?? recipe.servings);
-          setPrepTime(frontmatter.prepTime ?? recipe.prepTime);
-          setCookTime(frontmatter.cookTime ?? recipe.cookTime);
-          setSource(cooklangBody);
-          setImportedUrl(null);
-        } else if (body.status === "failed") {
-          setPhotoError(
-            body.error?.message ||
-              "We couldn't read a recipe from those photos. Try clearer, well-lit images.",
-          );
-        }
-      } catch (error) {
-        if (!controller.signal.aborted && active) {
-          setPhotoError(
-            error instanceof Error
-              ? error.message
-              : "We couldn't check the photo import status.",
-          );
-        }
-      }
-    }
-
-    void poll();
-    const interval = window.setInterval(
-      () => void poll(),
-      PHOTO_IMPORT_POLL_INTERVAL_MS,
-    );
-    return () => {
-      active = false;
-      controller.abort();
-      window.clearInterval(interval);
-      if (photoRequestRef.current === controller)
-        photoRequestRef.current = null;
-    };
-  }, [photoJobId, photoJobStatus]);
 
   async function importRecipeUrl() {
     if (!recipeUrl.trim() || importing) return;
@@ -342,69 +217,17 @@ export function AddRecipeView() {
     setImporting(false);
   }
 
-  function addPhotoFiles(files: FileList | null) {
-    if (!files?.length) return;
-    setPhotoError(null);
-    const incoming = Array.from(files);
-    const unsupported = incoming.find(
-      (file) => !ACCEPTED_PHOTO_TYPES.has(file.type),
-    );
-    if (unsupported) {
-      setPhotoError("Choose JPEG, PNG, or WebP images.");
-      return;
-    }
-    const oversized = incoming.find((file) => file.size > MAX_PHOTO_BYTES);
-    if (oversized) {
-      setPhotoError(`“${oversized.name}” is larger than 10 MB.`);
-      return;
-    }
-    setPhotoFiles((current) => {
-      const combined = [...current, ...incoming];
-      if (combined.length > MAX_PHOTO_COUNT) {
-        setPhotoError(
-          `You can import up to ${MAX_PHOTO_COUNT} photos at once.`,
-        );
-        return current;
-      }
-      return combined;
-    });
-  }
-
-  async function importRecipePhotos() {
-    if (!photoFiles.length || uploadingPhotos || photoJob?.status === "running")
-      return;
-    setUploadingPhotos(true);
-    setPhotoError(null);
-    setPhotoJob(null);
-    const form = new FormData();
-    for (const file of photoFiles) form.append("images", file);
-    try {
-      const response = await fetch("/api/recipe-imports", {
-        method: "POST",
-        credentials: "include",
-        body: form,
-      });
-      const body = (await response.json().catch(() => null)) as
-        | PhotoImportJob
-        | { error?: string }
-        | null;
-      if (!response.ok || !body || !("status" in body)) {
-        throw new Error(
-          (body && "error" in body && body.error) ||
-            "The photos could not be uploaded.",
-        );
-      }
-      setPhotoJob(body);
-    } catch (error) {
-      setPhotoError(
-        error instanceof Error
-          ? error.message
-          : "The photos could not be uploaded.",
-      );
-    } finally {
-      setUploadingPhotos(false);
-    }
-  }
+  const applyPhotoDraft = useCallback((draft: PhotoRecipeImportDraft) => {
+    const { frontmatter, body } = draft.cooklang;
+    setTitle(frontmatter.title ?? draft.recipe.title);
+    setDescription(frontmatter.description ?? draft.recipe.description);
+    setCuisine((frontmatter.cuisine ?? draft.recipe.cuisine)[0] ?? "");
+    setServings(frontmatter.servings ?? draft.recipe.servings);
+    setPrepTime(frontmatter.prepTime ?? draft.recipe.prepTime);
+    setCookTime(frontmatter.cookTime ?? draft.recipe.cookTime);
+    setSource(body);
+    setImportedUrl(null);
+  }, []);
 
   async function saveRecipe() {
     if (!preview || savingRef.current) return;
@@ -642,145 +465,7 @@ export function AddRecipeView() {
             )}
 
             {method === "photo" && (
-              <div className="grid gap-3 rounded-lg border border-dashed border-[var(--line-strong)] bg-[var(--paper-warm)] p-3">
-                <div>
-                  <p className="rt-mono text-[var(--ink-3)]">Recipe photos</p>
-                  <p className="mt-1 text-xs text-[var(--ink-3)]">
-                    Add up to six clear photos. Include every ingredient list
-                    and instruction page.
-                  </p>
-                </div>
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  capture="environment"
-                  className="sr-only"
-                  onChange={(event) => {
-                    addPhotoFiles(event.target.files);
-                    event.target.value = "";
-                  }}
-                />
-                <input
-                  ref={photoInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  className="sr-only"
-                  onChange={(event) => {
-                    addPhotoFiles(event.target.files);
-                    event.target.value = "";
-                  }}
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => cameraInputRef.current?.click()}
-                  >
-                    <Camera /> Take photo
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => photoInputRef.current?.click()}
-                  >
-                    <Images /> Choose photos
-                  </Button>
-                </div>
-                {photoFiles.length > 0 && (
-                  <ul
-                    className="grid gap-1.5"
-                    aria-label="Selected recipe photos"
-                  >
-                    {photoFiles.map((file, index) => (
-                      <li
-                        key={`${file.name}-${file.lastModified}-${index}`}
-                        className="flex items-center gap-2 rounded-md border border-[var(--line)] bg-[var(--card)] px-2.5 py-2 text-sm"
-                      >
-                        <FileText className="size-4 shrink-0 text-[var(--terracotta)]" />
-                        <span className="min-w-0 flex-1 truncate">
-                          {file.name}
-                        </span>
-                        <span className="text-xs text-[var(--ink-4)]">
-                          {(file.size / 1024 / 1024).toFixed(1)} MB
-                        </span>
-                        <button
-                          type="button"
-                          aria-label={`Remove ${file.name}`}
-                          className="rounded p-1 text-[var(--ink-3)] hover:bg-[var(--paper-warm)] hover:text-[var(--ink)]"
-                          onClick={() =>
-                            setPhotoFiles((files) =>
-                              files.filter(
-                                (_, fileIndex) => fileIndex !== index,
-                              ),
-                            )
-                          }
-                        >
-                          <X className="size-3.5" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <Button
-                  type="button"
-                  onClick={() => void importRecipePhotos()}
-                  disabled={
-                    !photoFiles.length ||
-                    uploadingPhotos ||
-                    photoJob?.status === "queued" ||
-                    photoJob?.status === "running"
-                  }
-                  className="bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]"
-                >
-                  {uploadingPhotos ||
-                  photoJob?.status === "queued" ||
-                  photoJob?.status === "running" ? (
-                    <Loader2 className="animate-spin" />
-                  ) : (
-                    <Upload />
-                  )}
-                  {uploadingPhotos
-                    ? "Uploading…"
-                    : photoJob?.status === "queued" ||
-                        photoJob?.status === "running"
-                      ? "Reading recipe…"
-                      : "Import from photos"}
-                </Button>
-                {photoJob && (
-                  <div
-                    className="flex items-start gap-2 rounded-md border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-sm"
-                    role="status"
-                    aria-live="polite"
-                  >
-                    {photoJob.status === "succeeded" ? (
-                      <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[var(--sage)]" />
-                    ) : photoJob.status === "failed" ? (
-                      <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
-                    ) : (
-                      <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-[var(--terracotta)]" />
-                    )}
-                    <span>
-                      {photoJob.progressLabel ??
-                        (photoJob.status === "queued"
-                          ? "Waiting to read your photos"
-                          : "Processing your recipe")}
-                      {photoJob.status === "succeeded" &&
-                        " — refine it below, then save it to your recipe box."}
-                    </span>
-                  </div>
-                )}
-                {photoError && (
-                  <p
-                    role="alert"
-                    className="flex items-start gap-1.5 text-sm text-destructive"
-                  >
-                    <AlertCircle className="mt-0.5 size-4 shrink-0" />
-                    {photoError}
-                  </p>
-                )}
-              </div>
+              <PhotoRecipeImport active onDraftReady={applyPhotoDraft} />
             )}
 
             <label htmlFor={titleId} className="grid gap-1.5">
