@@ -25,7 +25,7 @@ function loadErrorMessage(error: unknown) {
     : "We couldn't load this profile.";
 }
 
-export function ProfileView({ userId }: Readonly<{ userId: string }>) {
+export function ProfileView({ userId }: Readonly<{ userId?: string | null }>) {
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const [data, setData] = useState<ProfileData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +41,7 @@ export function ProfileView({ userId }: Readonly<{ userId: string }>) {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
+    const currentUserId = session.user.id;
 
     void getHouseholds(controller.signal)
       .then(async (households) => {
@@ -51,7 +52,7 @@ export function ProfileView({ userId }: Readonly<{ userId: string }>) {
           household.id,
           controller.signal,
         );
-        const selectedUserId = userId || session.user.id;
+        const selectedUserId = userId || currentUserId;
         const profile = members.find(
           (member) => member.user.id === selectedUserId,
         );
@@ -108,8 +109,9 @@ export function ProfileView({ userId }: Readonly<{ userId: string }>) {
   }
 
   const { household, members, profile } = data;
-  const isSelf = profile.user.id === session.user.id;
-  const firstName = profile.user.name.trim().split(/\s+/)[0] || "Their";
+  const currentUserId = session.user.id;
+  const isSelf = profile.user.id === currentUserId;
+  const firstName = profile.user.name.trim().split(/\s+/)[0] || "Chef";
 
   return (
     <div className="container mx-auto w-full max-w-5xl flex-1 px-4 py-8 md:py-12">
@@ -162,7 +164,7 @@ export function ProfileView({ userId }: Readonly<{ userId: string }>) {
 
         <div className="mt-5 divide-y divide-dashed divide-[var(--line)] border-t border-dashed border-[var(--line)]">
           {members.map((member) => {
-            const memberIsSelf = member.user.id === session.user.id;
+            const memberIsSelf = member.user.id === currentUserId;
             const active = member.user.id === profile.user.id;
             return (
               <Link

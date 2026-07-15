@@ -111,4 +111,19 @@ describe("ProfileView", () => {
       screen.getByText("This profile isn't part of your household."),
     ).toBeInTheDocument();
   });
+
+  it("uses a grammatical fallback when a member has no display name", async () => {
+    mocks.getHouseholdMembers.mockResolvedValue([
+      {
+        ...members[1],
+        user: { ...members[1]?.user, name: "" },
+      },
+    ]);
+
+    render(<ProfileView userId="user-2" />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Chef's kitchen/i }),
+    ).toBeInTheDocument();
+  });
 });
