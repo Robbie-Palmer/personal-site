@@ -106,9 +106,14 @@ export function DiscoverFeed() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [mounted, setMounted] = useState(false);
   const sentinel = useRef<HTMLDivElement>(null);
   const requestId = useRef(0);
   const signedIn = Boolean(session);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
@@ -170,8 +175,8 @@ export function DiscoverFeed() {
     const node = sentinel.current;
     if (!node || !hasMore || loading || error) return;
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) void loadMore();
+      async ([entry]) => {
+        if (entry?.isIntersecting) await loadMore();
       },
       { rootMargin: "300px" },
     );
@@ -183,7 +188,7 @@ export function DiscoverFeed() {
     <div className="container mx-auto w-full max-w-3xl px-4 py-7 sm:py-10">
       <div className="mb-7 sm:mb-9">
         <p className="rt-mono text-[var(--terracotta)]">
-          Discover {session ? "· your feed" : "· no account needed"}
+          Discover {mounted && session ? "· your feed" : "· no account needed"}
         </p>
         <h1 className="rt-display mt-2 text-5xl leading-none sm:text-6xl">
           Fresh from other{" "}
@@ -210,7 +215,7 @@ export function DiscoverFeed() {
         </button>
         <button
           type="button"
-          disabled={!session}
+          disabled={!mounted || !session}
           onClick={() => setScope("household")}
           className={cn(
             "rt-body flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-45",
@@ -223,7 +228,7 @@ export function DiscoverFeed() {
         </button>
       </div>
 
-      {!session && !sessionPending ? (
+      {mounted && !session && !sessionPending ? (
         <p className="rt-body mb-5 text-center text-sm text-[var(--ink-3)]">
           You’re seeing public additions. Sign in to unlock your household feed.
         </p>
@@ -253,24 +258,25 @@ export function DiscoverFeed() {
           <Button
             variant="outline"
             className="mt-3"
-            onClick={() =>
-              items.length === 0
-                ? setReloadKey((current) => current + 1)
-                : void loadMore()
-            }
+            onClick={async () => {
+              if (items.length === 0) {
+                setReloadKey((current) => current + 1);
+              } else {
+                await loadMore();
+              }
+            }}
           >
             Try again
           </Button>
         </div>
       ) : null}
       {loading ? (
-        <div
+        <output
           className="flex justify-center py-8"
-          role="status"
           aria-label="Loading more recipes"
         >
           <LoaderCircle className="size-6 animate-spin text-[var(--terracotta)]" />
-        </div>
+        </output>
       ) : null}
       {!hasMore && items.length > 0 ? (
         <p className="rt-mono py-8 text-center text-xs text-[var(--ink-3)]">

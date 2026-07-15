@@ -101,10 +101,11 @@ const feedLimitSchema = z.coerce.number().int().min(1).max(30).default(12);
 type FeedCursor = { createdAt: string; id: string };
 
 function encodeFeedCursor(cursor: FeedCursor): string {
-  return btoa(JSON.stringify(cursor))
+  let encoded = btoa(JSON.stringify(cursor))
     .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replace(/=+$/, "");
+    .replaceAll("/", "_");
+  while (encoded.endsWith("=")) encoded = encoded.slice(0, -1);
+  return encoded;
 }
 
 function decodeFeedCursor(value: string | undefined): FeedCursor | undefined {
