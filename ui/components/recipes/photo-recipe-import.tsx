@@ -86,6 +86,34 @@ function importProgressLabel(job: PhotoImportJob): string {
   return "Processing your recipe";
 }
 
+function SelectedPhoto({
+  file,
+  index,
+  onRemove,
+}: Readonly<{
+  file: File;
+  index: number;
+  onRemove: (index: number) => void;
+}>) {
+  return (
+    <li className="flex items-center gap-2 rounded-md border border-[var(--line)] bg-[var(--card)] px-2.5 py-2 text-sm">
+      <FileText className="size-4 shrink-0 text-[var(--terracotta)]" />
+      <span className="min-w-0 flex-1 truncate">{file.name}</span>
+      <span className="text-xs text-[var(--ink-4)]">
+        {(file.size / 1024 / 1024).toFixed(1)} MB
+      </span>
+      <button
+        type="button"
+        aria-label={`Remove ${file.name}`}
+        className="rounded p-1 text-[var(--ink-3)] hover:bg-[var(--paper-warm)] hover:text-[var(--ink)]"
+        onClick={() => onRemove(index)}
+      >
+        <X className="size-3.5" />
+      </button>
+    </li>
+  );
+}
+
 export function PhotoRecipeImport({
   active,
   onDraftReady,
@@ -194,6 +222,12 @@ export function PhotoRecipeImport({
     event.target.value = "";
   }
 
+  function removeFile(index: number) {
+    setFiles((current) =>
+      current.filter((_, itemIndex) => itemIndex !== index),
+    );
+  }
+
   async function importPhotos() {
     if (!files.length || processing) return;
     setUploading(true);
@@ -272,28 +306,12 @@ export function PhotoRecipeImport({
       {files.length > 0 && (
         <ul className="grid gap-1.5" aria-label="Selected recipe photos">
           {files.map((file, index) => (
-            <li
+            <SelectedPhoto
               key={`${file.name}-${file.lastModified}-${index}`}
-              className="flex items-center gap-2 rounded-md border border-[var(--line)] bg-[var(--card)] px-2.5 py-2 text-sm"
-            >
-              <FileText className="size-4 shrink-0 text-[var(--terracotta)]" />
-              <span className="min-w-0 flex-1 truncate">{file.name}</span>
-              <span className="text-xs text-[var(--ink-4)]">
-                {(file.size / 1024 / 1024).toFixed(1)} MB
-              </span>
-              <button
-                type="button"
-                aria-label={`Remove ${file.name}`}
-                className="rounded p-1 text-[var(--ink-3)] hover:bg-[var(--paper-warm)] hover:text-[var(--ink)]"
-                onClick={() =>
-                  setFiles((current) =>
-                    current.filter((_, itemIndex) => itemIndex !== index),
-                  )
-                }
-              >
-                <X className="size-3.5" />
-              </button>
-            </li>
+              file={file}
+              index={index}
+              onRemove={removeFile}
+            />
           ))}
         </ul>
       )}
