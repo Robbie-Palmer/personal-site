@@ -34,6 +34,7 @@ import {
 import {
   normalizeEmail,
   userOwnsVerifiedEmail,
+  verifiedEmailOwnerId,
   verifiedEmailsForUser,
 } from "./user-emails";
 
@@ -1971,12 +1972,8 @@ app.post("/households/:householdId/invitations", async (c) => {
       );
     }
 
-    const [[invitee], household] = await Promise.all([
-      db
-        .select({ id: schema.user.id })
-        .from(schema.user)
-        .where(eq(schema.user.email, email))
-        .limit(1),
+    const [inviteeUserId, household] = await Promise.all([
+      verifiedEmailOwnerId(db, email),
       findHouseholdById(db, householdId),
     ]);
     const invitation = await db.transaction(async (tx) => {
@@ -1993,9 +1990,9 @@ app.post("/households/:householdId/invitations", async (c) => {
         })
         .returning();
       if (!created) throw new Error("Invitation insert failed");
-      if (invitee && household) {
+      if (inviteeUserId && household) {
         await createHouseholdNotification(tx, {
-          recipientUserIds: [invitee.id],
+          recipientUserIds: [inviteeUserId],
           kind: "household_invited",
           household,
           actor: {
@@ -2394,28 +2391,43 @@ app.get("/notifications", async (c) => {
     const { db } = connection;
     const session = await requireRecipeSession(c, db);
     if (!session.success) return session.response;
-    const deliveries = await db
-      .select(notificationBaseSelection)
-      .from(schema.notificationDelivery)
-      .innerJoin(
-        schema.notificationEvent,
-        eq(schema.notificationDelivery.eventId, schema.notificationEvent.id),
-      )
-      .where(
-        and(
-          eq(
-            schema.notificationDelivery.recipientUserId,
-            session.session.user.id,
+    const [deliveries, [unread]] = await Promise.all([
+      db
+        .select(notificationBaseSelection)
+        .from(schema.notificationDelivery)
+        .innerJoin(
+          schema.notificationEvent,
+          eq(schema.notificationDelivery.eventId, schema.notificationEvent.id),
+        )
+        .where(
+          and(
+            eq(
+              schema.notificationDelivery.recipientUserId,
+              session.session.user.id,
+            ),
+            isNull(schema.notificationDelivery.dismissedAt),
           ),
-          isNull(schema.notificationDelivery.dismissedAt),
+        )
+        .orderBy(
+          desc(schema.notificationEvent.occurredAt),
+          desc(schema.notificationDelivery.id),
+        )
+        .limit(NOTIFICATION_PAGE_SIZE + 1)
+        .offset(offset),
+      db
+        .select({ value: count() })
+        .from(schema.notificationDelivery)
+        .where(
+          and(
+            eq(
+              schema.notificationDelivery.recipientUserId,
+              session.session.user.id,
+            ),
+            isNull(schema.notificationDelivery.readAt),
+            isNull(schema.notificationDelivery.dismissedAt),
+          ),
         ),
-      )
-      .orderBy(
-        desc(schema.notificationEvent.occurredAt),
-        desc(schema.notificationDelivery.id),
-      )
-      .limit(NOTIFICATION_PAGE_SIZE + 1)
-      .offset(offset);
+    ]);
     const hasMore = deliveries.length > NOTIFICATION_PAGE_SIZE;
     const items = await hydrateNotifications(
       db,
@@ -2425,6 +2437,7 @@ app.get("/notifications", async (c) => {
       {
         items,
         nextOffset: hasMore ? offset + NOTIFICATION_PAGE_SIZE : null,
+        unreadCount: unread?.value ?? 0,
       },
     );
   } catch (e) {

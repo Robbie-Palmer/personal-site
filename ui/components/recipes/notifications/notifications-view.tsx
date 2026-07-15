@@ -118,22 +118,29 @@ function NotificationGroup({
 
 export function NotificationsView() {
   const { data: session, isPending: sessionPending } = authClient.useSession();
+  const sessionUserId = session?.user.id;
   const [items, setItems] = useState<InAppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const load = useCallback(async (signal?: AbortSignal) => {
+  const load = useCallback(async (userId: string, signal?: AbortSignal) => {
     try {
       setError(null);
       const page = await getNotificationPage(0, signal);
+      if (signal?.aborted) return;
       setItems(page.items);
       setNextOffset(page.nextOffset);
+      setUnreadCount(page.unreadCount);
+      setLoadedUserId(userId);
     } catch (cause) {
       if (!(cause instanceof DOMException && cause.name === "AbortError")) {
+        setLoadedUserId(userId);
         setError(
           cause instanceof Error
             ? cause.message
@@ -141,16 +148,24 @@ export function NotificationsView() {
         );
       }
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (!session) return;
+    setItems([]);
+    setNextOffset(null);
+    setUnreadCount(0);
+    setLoadedUserId(null);
+    if (!sessionUserId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     const controller = new AbortController();
-    load(controller.signal);
+    void load(sessionUserId, controller.signal);
     return () => controller.abort();
-  }, [load, session]);
+  }, [load, sessionUserId]);
 
   async function performAction(item: InAppNotification, actionKey: string) {
     setActing(item.id);
@@ -162,6 +177,9 @@ export function NotificationsView() {
           candidate.id === item.id ? updated : candidate,
         ),
       );
+      if (!item.readAt && updated.readAt) {
+        setUnreadCount((current) => Math.max(0, current - 1));
+      }
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -180,6 +198,9 @@ export function NotificationsView() {
       setError(null);
       await updateNotification(item.id, { dismissed: true });
       setItems((current) => current.filter(({ id }) => id !== item.id));
+      if (!item.readAt) {
+        setUnreadCount((current) => Math.max(0, current - 1));
+      }
       setNextOffset((current) =>
         current === null ? null : Math.max(0, current - 1),
       );
@@ -202,6 +223,7 @@ export function NotificationsView() {
       setItems((current) =>
         current.map((item) => ({ ...item, readAt: item.readAt ?? readAt })),
       );
+      setUnreadCount(0);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -218,6 +240,7 @@ export function NotificationsView() {
       await clearAllNotifications();
       setItems([]);
       setNextOffset(null);
+      setUnreadCount(0);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -243,6 +266,7 @@ export function NotificationsView() {
         ];
       });
       setNextOffset(page.nextOffset);
+      setUnreadCount(page.unreadCount);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -254,7 +278,10 @@ export function NotificationsView() {
     }
   }
 
-  if (sessionPending || (session && loading)) {
+  if (
+    sessionPending ||
+    (session && (loading || loadedUserId !== session.user.id))
+  ) {
     return (
       <div className="flex flex-1 items-center justify-center py-24">
         <LoaderCircle className="size-6 animate-spin text-[var(--ink-3)]" />
@@ -273,7 +300,6 @@ export function NotificationsView() {
     );
   }
 
-  const unread = items.filter((item) => !item.readAt).length;
   const groups = ["Today", "This week", "Earlier"].map((label) => ({
     label,
     items: items.filter((item) => bucket(item.occurredAt) === label),
@@ -291,12 +317,12 @@ export function NotificationsView() {
             <span className="text-[var(--terracotta)]">in one place.</span>
           </h1>
           <p className="rt-body mt-2 text-[var(--ink-2)]">
-            {unread} unread · activity across your recipes and account.
+            {unreadCount} unread · activity across your recipes and account.
           </p>
         </div>
         {items.length > 0 && (
           <div className="flex items-center gap-2">
-            {unread > 0 && (
+            {unreadCount > 0 && (
               <Button variant="outline" size="sm" onClick={markAllRead}>
                 Mark all read
               </Button>

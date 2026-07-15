@@ -1,7 +1,10 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { HouseholdNotification } from "@/lib/api/notifications";
+import type {
+  HouseholdNotification,
+  NotificationPage,
+} from "@/lib/api/notifications";
 
 const mocks = vi.hoisted(() => ({
   useSession: vi.fn(),
@@ -59,6 +62,7 @@ describe("NotificationsView", () => {
     mocks.getNotificationPage.mockResolvedValue({
       items: [invitation],
       nextOffset: null,
+      unreadCount: 1,
     });
     mocks.markAllNotificationsRead.mockResolvedValue(undefined);
     mocks.clearAllNotifications.mockResolvedValue(undefined);
@@ -129,6 +133,51 @@ describe("NotificationsView", () => {
     expect(screen.getByText(/0 unread/)).toBeInTheDocument();
   });
 
+  it("uses the complete archive unread count instead of the loaded page", async () => {
+    mocks.getNotificationPage.mockResolvedValue({
+      items: [acceptedInvitation],
+      nextOffset: 100,
+      unreadCount: 4,
+    });
+
+    render(<NotificationsView />);
+
+    expect(await screen.findByText(/4 unread/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Mark all read" }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the previous user's archive while the replacement session loads", async () => {
+    let resolveReplacement: ((page: NotificationPage) => void) | undefined;
+    const replacementPage = new Promise<NotificationPage>((resolve) => {
+      resolveReplacement = resolve;
+    });
+    mocks.getNotificationPage
+      .mockResolvedValueOnce({
+        items: [invitation],
+        nextOffset: null,
+        unreadCount: 1,
+      })
+      .mockReturnValueOnce(replacementPage);
+    const { rerender } = render(<NotificationsView />);
+    expect(
+      await screen.findByText(/invited you to join Park Road/),
+    ).toBeInTheDocument();
+
+    mocks.useSession.mockReturnValue({
+      data: { user: { id: "user-2" } },
+      isPending: false,
+    });
+    rerender(<NotificationsView />);
+
+    expect(screen.queryByText(/invited you to join Park Road/)).toBeNull();
+    resolveReplacement?.({ items: [], nextOffset: null, unreadCount: 0 });
+    expect(
+      await screen.findByText("You're all caught up."),
+    ).toBeInTheDocument();
+  });
+
   it("clears every notification from the archive", async () => {
     const user = userEvent.setup();
     render(<NotificationsView />);
@@ -155,8 +204,16 @@ describe("NotificationsView", () => {
       occurredAt: "2026-06-01T12:00:00.000Z",
     } satisfies HouseholdNotification;
     mocks.getNotificationPage
-      .mockResolvedValueOnce({ items: [invitation], nextOffset: 100 })
-      .mockResolvedValueOnce({ items: [older], nextOffset: null });
+      .mockResolvedValueOnce({
+        items: [invitation],
+        nextOffset: 100,
+        unreadCount: 1,
+      })
+      .mockResolvedValueOnce({
+        items: [older],
+        nextOffset: null,
+        unreadCount: 1,
+      });
     const user = userEvent.setup();
     render(<NotificationsView />);
 

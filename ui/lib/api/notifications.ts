@@ -40,6 +40,7 @@ export type InAppNotification = HouseholdNotification | UnsupportedNotification;
 export type NotificationPage = {
   items: InAppNotification[];
   nextOffset: number | null;
+  unreadCount: number;
 };
 
 async function checked(response: Response) {

@@ -205,9 +205,9 @@ export const notificationDelivery = pgTable(
     dismissedAt: timestamp({ withTimezone: true }),
   },
   (table) => [
-    index("notification_delivery_recipient_event_idx").on(
-      table.recipientUserId,
+    uniqueIndex("notification_delivery_event_recipient_uidx").on(
       table.eventId,
+      table.recipientUserId,
     ),
     index("notification_delivery_recipient_read_at_idx").on(
       table.recipientUserId,

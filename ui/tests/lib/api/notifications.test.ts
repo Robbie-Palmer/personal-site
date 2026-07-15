@@ -23,7 +23,7 @@ describe("notification API client", () => {
   });
 
   it("loads a requested archive page", async () => {
-    const page = { items: [], nextOffset: null };
+    const page = { items: [], nextOffset: null, unreadCount: 0 };
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(Response.json(page));

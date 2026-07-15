@@ -41,7 +41,7 @@ ALTER TABLE "notification_household_invitation_event" ADD CONSTRAINT "notificati
 --> statement-breakpoint
 CREATE INDEX "notification_event_kind_idx" ON "notification_event" USING btree ("kind");
 --> statement-breakpoint
-CREATE INDEX "notification_delivery_recipient_event_idx" ON "notification_delivery" USING btree ("recipient_user_id","event_id");
+CREATE UNIQUE INDEX "notification_delivery_event_recipient_uidx" ON "notification_delivery" USING btree ("event_id","recipient_user_id");
 --> statement-breakpoint
 CREATE INDEX "notification_delivery_recipient_read_at_idx" ON "notification_delivery" USING btree ("recipient_user_id","read_at");
 --> statement-breakpoint

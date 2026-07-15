@@ -32,6 +32,23 @@ export async function canonicalEmailIsAvailable(
   return !existing;
 }
 
+export async function verifiedEmailOwnerId(
+  db: Db,
+  email: string,
+): Promise<string | undefined> {
+  const [owner] = await db
+    .select({ userId: schema.userEmail.userId })
+    .from(schema.userEmail)
+    .where(
+      and(
+        eq(schema.userEmail.email, normalizeEmail(email)),
+        eq(schema.userEmail.verified, true),
+      ),
+    )
+    .limit(1);
+  return owner?.userId;
+}
+
 // Better Auth verifies Google's issuer, audience, signature, expiry, and nonce
 // before persisting the token and invoking the account database hook.
 function googleEmailFromVerifiedIdToken(

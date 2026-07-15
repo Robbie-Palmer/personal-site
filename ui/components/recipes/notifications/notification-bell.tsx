@@ -3,7 +3,7 @@
 import { Bell } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getNotifications } from "@/lib/api/notifications";
+import { getNotificationPage } from "@/lib/api/notifications";
 import { authClient } from "@/lib/auth-client";
 
 export function NotificationBell() {
@@ -15,9 +15,10 @@ export function NotificationBell() {
       setCount(0);
       return;
     }
+    setCount(0);
     const controller = new AbortController();
-    void getNotifications(controller.signal)
-      .then((items) => setCount(items.filter((item) => !item.readAt).length))
+    void getNotificationPage(0, controller.signal)
+      .then((page) => setCount(page.unreadCount))
       .catch(() => undefined);
     return () => controller.abort();
   }, [session]);

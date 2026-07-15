@@ -443,15 +443,41 @@ const dbMock = vi.hoisted(() => {
     }
 
     if (query.startsWith('update "notification_delivery"')) {
-      const readAt = params[0] instanceof Date ? params[0] : date;
-      const recipientUserId = params[1] as string | undefined;
-      const eventIds = new Set(params.slice(2) as string[]);
+      const placeholderValue = (pattern: RegExp) => {
+        const match = query.match(pattern);
+        return match ? params[Number(match[1]) - 1] : undefined;
+      };
+      const readAt = placeholderValue(/set[\s\S]*?"read_at" = \$(\d+)/);
+      const dismissedAt = placeholderValue(
+        /set[\s\S]*?"dismissed_at" = \$(\d+)/,
+      );
+      const deliveryId = placeholderValue(
+        /where[\s\S]*?"notification_delivery"\."id" = \$(\d+)/,
+      ) as string | undefined;
+      const recipientUserId = placeholderValue(
+        /where[\s\S]*?"notification_delivery"\."recipient_user_id" = \$(\d+)/,
+      ) as string | undefined;
+      const eventPlaceholders =
+        query
+          .match(/"notification_delivery"\."event_id" in \(([^)]+)\)/)?.[1]
+          ?.match(/\$(\d+)/g) ?? [];
+      const eventIds = new Set(
+        eventPlaceholders.map(
+          (placeholder) => params[Number(placeholder.slice(1)) - 1] as string,
+        ),
+      );
       for (const delivery of state.notificationDeliveries) {
         if (
+          (!deliveryId || delivery.id === deliveryId) &&
           (!recipientUserId || delivery.recipientUserId === recipientUserId) &&
-          (eventIds.size === 0 || eventIds.has(delivery.eventId))
+          (eventIds.size === 0 || eventIds.has(delivery.eventId)) &&
+          (!query.includes('"read_at" is null') || !delivery.readAt) &&
+          (!query.includes('"dismissed_at" is null') || !delivery.dismissedAt)
         ) {
-          delivery.readAt = readAt;
+          if (readAt !== undefined) delivery.readAt = readAt as Date | null;
+          if (dismissedAt !== undefined) {
+            delivery.dismissedAt = dismissedAt as Date | null;
+          }
         }
       }
       return [];
@@ -588,6 +614,24 @@ const dbMock = vi.hoisted(() => {
     }
 
     if (
+      query.includes('count(*)') &&
+      query.includes('from "notification_delivery"')
+    ) {
+      const recipientUserId = params[0] as string | undefined;
+      return [
+        [
+          state.notificationDeliveries.filter(
+            (delivery) =>
+              (!recipientUserId ||
+                delivery.recipientUserId === recipientUserId) &&
+              !delivery.readAt &&
+              !delivery.dismissedAt,
+          ).length,
+        ],
+      ];
+    }
+
+    if (
       query.includes('from "notification_delivery"') &&
       query.includes('inner join "notification_event"')
     ) {
@@ -672,6 +716,21 @@ const dbMock = vi.hoisted(() => {
       return state.users
         .filter((candidate) => candidate.email === email)
         .map((candidate) => [candidate.id]);
+    }
+
+    if (
+      query.includes('from "user_email"') &&
+      query.includes('"user_email"."email" =')
+    ) {
+      const email = params[0] as string;
+      const verified = params[1] as boolean | undefined;
+      return state.userEmails
+        .filter(
+          (candidate) =>
+            candidate.email === email &&
+            (verified === undefined || candidate.verified === verified),
+        )
+        .map((candidate) => [candidate.userId]);
     }
 
     if (query.includes('from "user_email"')) {
@@ -1164,6 +1223,16 @@ function seedHousehold() {
     createdAt: dbMock.date,
     updatedAt: dbMock.date,
   });
+  dbMock.state.userEmails.push(
+    ...dbMock.state.users.map((user) => ({
+      email: user.email,
+      userId: user.id,
+      verified: user.emailVerified,
+      isPrimary: true,
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    })),
+  );
   dbMock.state.members.push(
     {
       id: "owner-member",
@@ -2346,6 +2415,77 @@ describe("household membership flows", () => {
     });
   });
 
+  it("notifies the account that owns an invited verified email alias", async () => {
+    seedHousehold();
+    dbMock.state.userEmails.push({
+      email: "outsider.alias@example.test",
+      userId: "outsider-user",
+      verified: true,
+      isPrimary: false,
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/households/household-1/invitations",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ email: "Outsider.Alias@Example.test" }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(201);
+    expect(dbMock.state.notificationDeliveries).toEqual([
+      expect.objectContaining({ recipientUserId: "outsider-user" }),
+    ]);
+  });
+
+  it("does not notify an account for an invited unverified primary email", async () => {
+    seedHousehold();
+    const outsider = dbMock.state.users.find(
+      (candidate) => candidate.id === "outsider-user",
+    );
+    const outsiderEmail = dbMock.state.userEmails.find(
+      (candidate) => candidate.userId === "outsider-user" && candidate.isPrimary,
+    );
+    if (!outsider || !outsiderEmail) throw new Error("Missing seeded outsider");
+    outsider.email = "unverified@example.test";
+    outsider.emailVerified = false;
+    outsiderEmail.email = outsider.email;
+    outsiderEmail.verified = false;
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/households/household-1/invitations",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ email: outsider.email }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(201);
+    expect(dbMock.state.notificationDeliveries).toHaveLength(0);
+  });
+
   it("hydrates and accepts an invitation through its generic notification action", async () => {
     seedHousehold();
     authzMock.session = sessionFor({
@@ -2421,6 +2561,43 @@ describe("household membership flows", () => {
         expect.objectContaining({ userId: "outsider-user" }),
       ]),
     );
+  });
+
+  it("returns an unread count for the complete notification archive", async () => {
+    seedHousehold();
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+    for (let index = 0; index < 101; index += 1) {
+      dbMock.state.notificationEvents.push({
+        id: `event-${index}`,
+        kind: "future_activity",
+        actorUserId: null,
+        actorNameSnapshot: null,
+        occurredAt: new Date(dbMock.date.getTime() - index),
+      });
+      dbMock.state.notificationDeliveries.push({
+        id: `delivery-${index}`,
+        eventId: `event-${index}`,
+        recipientUserId: "owner-user",
+        readAt: null,
+        dismissedAt: null,
+      });
+    }
+
+    const res = await app.request("/notifications", {}, env);
+    const body = (await res.json()) as {
+      items: unknown[];
+      nextOffset: number | null;
+      unreadCount: number;
+    };
+
+    expect(res.status).toBe(200);
+    expect(body.items).toHaveLength(100);
+    expect(body.nextOffset).toBe(100);
+    expect(body.unreadCount).toBe(101);
   });
 
   it("returns 429 once the owner exceeds the invite rate limit", async () => {
