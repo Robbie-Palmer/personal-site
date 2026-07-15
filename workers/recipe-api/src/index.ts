@@ -95,6 +95,36 @@ const recipeSlugSchema = z
 
 const recipeVisibilitySchema = z.enum(["public", "private", "household"]);
 const dietRecipeMatchModeSchema = z.enum(["hide", "warn"]);
+const feedScopeSchema = z.enum(["public", "household"]);
+const feedLimitSchema = z.coerce.number().int().min(1).max(30).default(12);
+
+type FeedCursor = { createdAt: string; id: string };
+
+function encodeFeedCursor(cursor: FeedCursor): string {
+  return btoa(JSON.stringify(cursor))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+}
+
+function decodeFeedCursor(value: string | undefined): FeedCursor | undefined {
+  if (!value) return undefined;
+  try {
+    const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
+    const parsed = JSON.parse(atob(base64)) as Partial<FeedCursor>;
+    if (
+      typeof parsed.createdAt !== "string" ||
+      Number.isNaN(Date.parse(parsed.createdAt)) ||
+      typeof parsed.id !== "string" ||
+      parsed.id.length === 0
+    ) {
+      return undefined;
+    }
+    return { createdAt: parsed.createdAt, id: parsed.id };
+  } catch {
+    return undefined;
+  }
+}
 
 const dietKeySchema = z
   .string()
@@ -2038,6 +2068,95 @@ app.get("/recipes", async (c) => {
     return c.json(recipes.map(recipeResponse));
   } catch (e) {
     console.error("GET /recipes query failed", e);
+    return c.json({ error: "Database query failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
+app.get("/recipes/feed", async (c) => {
+  const scope = feedScopeSchema.safeParse(c.req.query("scope") ?? "public");
+  const limit = feedLimitSchema.safeParse(c.req.query("limit"));
+  const cursorValue = c.req.query("cursor");
+  const cursor = decodeFeedCursor(cursorValue);
+  if (!scope.success || !limit.success || (cursorValue && !cursor)) {
+    return c.json({ error: "Invalid feed query" }, 400);
+  }
+
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    const session = await loadOptionalRecipeSession(c, db);
+
+    let visibilityFilter = eq(schema.recipe.visibility, "public");
+    if (scope.data === "household") {
+      if (!session) return authorizationResponse(c, unauthenticated());
+      const membership = await findUserHouseholdMembership(db, session.user.id);
+      if (!membership) return c.json({ items: [], nextCursor: null });
+      const memberIds = await findHouseholdMemberUserIds(
+        db,
+        membership.organizationId,
+      );
+      visibilityFilter = and(
+        inArray(schema.recipe.userId, memberIds),
+        inArray(schema.recipe.visibility, ["public", "household"]),
+      )!;
+    }
+
+    const cursorFilter = cursor
+      ? or(
+          lt(schema.recipe.createdAt, new Date(cursor.createdAt)),
+          and(
+            eq(schema.recipe.createdAt, new Date(cursor.createdAt)),
+            lt(schema.recipe.id, cursor.id),
+          ),
+        )
+      : undefined;
+    const rows = await db
+      .select({
+        recipe: schema.recipe,
+        author: {
+          id: schema.user.id,
+          name: schema.user.name,
+          image: schema.user.image,
+        },
+      })
+      .from(schema.recipe)
+      .innerJoin(schema.user, eq(schema.recipe.userId, schema.user.id))
+      .where(cursorFilter ? and(visibilityFilter, cursorFilter) : visibilityFilter)
+      .orderBy(desc(schema.recipe.createdAt), desc(schema.recipe.id))
+      .limit(limit.data + 1);
+
+    const hasMore = rows.length > limit.data;
+    const page = rows.slice(0, limit.data);
+    const last = page.at(-1)?.recipe;
+    return c.json({
+      items: page.map(({ recipe, author }) => ({
+        type: "recipe_added" as const,
+        recipe: recipeResponse(recipe),
+        author,
+        createdAt: recipe.createdAt,
+      })),
+      nextCursor:
+        hasMore && last
+          ? encodeFeedCursor({
+              createdAt: last.createdAt.toISOString(),
+              id: last.id,
+            })
+          : null,
+    });
+  } catch (e) {
+    console.error("GET /recipes/feed query failed", e);
     return c.json({ error: "Database query failed" }, 502);
   } finally {
     await closeDbClient(client);
