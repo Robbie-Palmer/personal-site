@@ -89,7 +89,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${siteConfig.url}/recipes/discover`,
-      lastModified: new Date().toISOString(),
+      lastModified: latestRecipeDate.toISOString(),
       priority: 0.4,
     },
     ...blogPosts,

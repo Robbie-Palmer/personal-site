@@ -116,7 +116,7 @@ export function DiscoverFeed() {
   }, []);
 
   const loadMore = useCallback(async () => {
-    if (loading || !hasMore) return;
+    if (loading || !hasMore || sessionPending) return;
     const id = ++requestId.current;
     setLoading(true);
     setError(null);
@@ -136,7 +136,7 @@ export function DiscoverFeed() {
     } finally {
       if (id === requestId.current) setLoading(false);
     }
-  }, [cursor, hasMore, loading, scope]);
+  }, [cursor, hasMore, loading, scope, sessionPending]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey intentionally retriggers a failed first-page request.
   useEffect(() => {
