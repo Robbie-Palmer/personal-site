@@ -1,6 +1,22 @@
 import type { Unit } from "./unit";
 
 export type MeasurementSystem = "metric" | "us" | "uk";
+export type MeasurementPreset = MeasurementSystem | "custom";
+export type MeasurementDimension = "volume" | "weight";
+
+export type UnitTier = {
+  unit: Unit;
+  /** Exclusive upper bound in the dimension's base unit (ml or g). */
+  upTo: number;
+};
+
+export type UnitPreference = {
+  preset: MeasurementPreset;
+  weight: UnitTier[];
+  volume: UnitTier[];
+};
+
+export type MeasurementPreference = MeasurementSystem | UnitPreference;
 
 export const MEASUREMENT_SYSTEM_LABELS: Record<MeasurementSystem, string> = {
   metric: "Metric",
@@ -8,22 +24,19 @@ export const MEASUREMENT_SYSTEM_LABELS: Record<MeasurementSystem, string> = {
   uk: "UK",
 };
 
-type Dimension = "volume" | "weight";
-
 type ConversionEntry = {
   /** Multiply amount by this to reach the base unit (ml for volume, g for weight). */
   toBase: number;
-  dimension: Dimension;
+  dimension: MeasurementDimension;
 };
 
 // prettier-ignore
 const CONVERSIONS: Partial<Record<Unit, ConversionEntry>> = {
-  // Volume – base: ml
   ml:              { toBase: 1,          dimension: "volume" },
   l:               { toBase: 1000,       dimension: "volume" },
-  tsp:             { toBase: 5,          dimension: "volume" }, // UK/metric standard (5 ml exactly)
-  tbsp:            { toBase: 15,         dimension: "volume" }, // UK/metric standard (3 tsp)
-  au_tbsp:         { toBase: 20,         dimension: "volume" }, // Australian tablespoon
+  tsp:             { toBase: 5,          dimension: "volume" },
+  tbsp:            { toBase: 15,         dimension: "volume" },
+  au_tbsp:         { toBase: 20,         dimension: "volume" },
   us_cup:          { toBase: 236.588,    dimension: "volume" },
   uk_cup:          { toBase: 250,        dimension: "volume" },
   au_cup:          { toBase: 250,        dimension: "volume" },
@@ -32,23 +45,57 @@ const CONVERSIONS: Partial<Record<Unit, ConversionEntry>> = {
   us_pint:         { toBase: 473.176,    dimension: "volume" },
   us_fl_oz:        { toBase: 29.5735,    dimension: "volume" },
   uk_fl_oz:        { toBase: 28.4131,    dimension: "volume" },
-  // Weight – base: g
   g:               { toBase: 1,          dimension: "weight" },
   kg:              { toBase: 1000,       dimension: "weight" },
   oz:              { toBase: 28.3495,    dimension: "weight" },
   lb:              { toBase: 453.592,    dimension: "weight" },
 };
 
-/**
- * Convert `amount` of `from` units to `to` units.
- * Returns null if the units are not compatible (different physical dimensions
- * or either unit is not in the conversion table).
- */
-export function convertUnit(
-  amount: number,
-  from: Unit,
-  to: Unit,
-): number | null {
+const PRESET_LADDERS: Record<MeasurementSystem, Omit<UnitPreference, "preset">> = {
+  metric: {
+    weight: [{ unit: "g", upTo: 1000 }, { unit: "kg", upTo: Infinity }],
+    volume: [
+      { unit: "tsp", upTo: 15 },
+      { unit: "tbsp", upTo: 45 },
+      { unit: "ml", upTo: 1000 },
+      { unit: "l", upTo: Infinity },
+    ],
+  },
+  uk: {
+    weight: [{ unit: "g", upTo: 1000 }, { unit: "kg", upTo: Infinity }],
+    volume: [
+      { unit: "tsp", upTo: 15 },
+      { unit: "tbsp", upTo: 60 },
+      { unit: "ml", upTo: 300 },
+      { unit: "uk_pint", upTo: 1200 },
+      { unit: "l", upTo: Infinity },
+    ],
+  },
+  us: {
+    weight: [{ unit: "oz", upTo: 453.592 }, { unit: "lb", upTo: Infinity }],
+    volume: [
+      { unit: "tsp", upTo: 15 },
+      { unit: "tbsp", upTo: 60 },
+      { unit: "us_cup", upTo: 473.176 },
+      { unit: "us_pint", upTo: Infinity },
+    ],
+  },
+};
+
+function copyTiers(tiers: UnitTier[]): UnitTier[] {
+  return tiers.map((tier) => ({ ...tier }));
+}
+
+export function preferenceForSystem(system: MeasurementSystem): UnitPreference {
+  const preset = PRESET_LADDERS[system];
+  return {
+    preset: system,
+    weight: copyTiers(preset.weight),
+    volume: copyTiers(preset.volume),
+  };
+}
+
+export function convertUnit(amount: number, from: Unit, to: Unit): number | null {
   const fromEntry = CONVERSIONS[from];
   const toEntry = CONVERSIONS[to];
   if (!fromEntry || !toEntry || fromEntry.dimension !== toEntry.dimension)
@@ -56,66 +103,32 @@ export function convertUnit(
   return (amount * fromEntry.toBase) / toEntry.toBase;
 }
 
-/** Returns the physical dimension for a unit, or null for non-convertible units. */
-export function getUnitDimension(unit: Unit): Dimension | null {
+export function getUnitDimension(unit: Unit): MeasurementDimension | null {
   return CONVERSIONS[unit]?.dimension ?? null;
 }
 
-// Volume thresholds (in ml) for selecting the display unit in each system.
-// The goal is a human-readable amount (e.g. "1 cup" rather than "237 ml").
-function preferredVolumeUnit(ml: number, system: MeasurementSystem): Unit {
-  switch (system) {
-    case "metric":
-      return ml >= 1000 ? "l" : "ml";
-
-    case "us":
-      // < 1 tbsp → tsp; < 4 tbsp → tbsp; < ~2 US cups → cup; else pint
-      if (ml < 15) return "tsp";
-      if (ml < 60) return "tbsp";
-      if (ml < 473) return "us_cup";
-      return "us_pint";
-
-    case "uk":
-      // UK cooking is metric for small/large volumes; pint for the middle band
-      if (ml < 15) return "tsp";
-      if (ml < 60) return "tbsp";
-      if (ml < 300) return "ml";
-      if (ml < 1200) return "uk_pint";
-      return "l";
-  }
-}
-
-function preferredWeightUnit(g: number, system: MeasurementSystem): Unit {
-  switch (system) {
-    case "metric":
-    case "uk":
-      return g >= 1000 ? "kg" : "g";
-
-    case "us":
-      return g >= 453.592 ? "lb" : "oz";
-  }
+function preferenceFrom(value: MeasurementPreference): UnitPreference {
+  return typeof value === "string" ? preferenceForSystem(value) : value;
 }
 
 /**
- * Convert `amount` of `unit` to the most appropriate display unit for
- * `system`. Returns null for non-convertible units (countable, approximate).
+ * Convert an amount to the first preferred tier whose base-unit threshold has
+ * not been reached. The last tier is always the catch-all.
  */
 export function convertToSystem(
   amount: number,
   unit: Unit,
-  system: MeasurementSystem,
+  preference: MeasurementPreference,
 ): { amount: number; unit: Unit } | null {
   const entry = CONVERSIONS[unit];
   if (!entry) return null;
 
   const baseAmount = amount * entry.toBase;
-  const targetUnit =
-    entry.dimension === "volume"
-      ? preferredVolumeUnit(baseAmount, system)
-      : preferredWeightUnit(baseAmount, system);
+  const tiers = preferenceFrom(preference)[entry.dimension];
+  const target = tiers.find((tier) => baseAmount < tier.upTo) ?? tiers.at(-1);
+  if (!target) return null;
 
-  const targetEntry = CONVERSIONS[targetUnit];
-  if (!targetEntry) return null;
-
-  return { amount: baseAmount / targetEntry.toBase, unit: targetUnit };
+  const targetEntry = CONVERSIONS[target.unit];
+  if (targetEntry?.dimension !== entry.dimension) return null;
+  return { amount: baseAmount / targetEntry.toBase, unit: target.unit };
 }

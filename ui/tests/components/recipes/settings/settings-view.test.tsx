@@ -1,6 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SettingsView } from "@/components/recipes/settings/settings-view";
+import {
+  parseUnitPreference,
+  resetUnitPreferenceServerSnapshot,
+  UNIT_PREFERENCE_STORAGE_KEY,
+} from "@/hooks/use-unit-preference";
 
 const mocks = vi.hoisted(() => ({
   useSession: vi.fn(),
@@ -38,10 +44,12 @@ vi.mock("@/lib/api/households", async (importOriginal) => ({
   getIncomingHouseholdInvitations: mocks.getIncomingHouseholdInvitations,
 }));
 
-import { SettingsView } from "@/components/recipes/settings/settings-view";
-
 function renderSettingsView() {
   return render(<SettingsView />);
+}
+
+function storedUnitPreference() {
+  return parseUnitPreference(localStorage.getItem(UNIT_PREFERENCE_STORAGE_KEY));
 }
 
 const signedIn = {
@@ -60,6 +68,8 @@ const signedIn = {
 describe("SettingsView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+    resetUnitPreferenceServerSnapshot();
     window.history.replaceState({}, "", "/recipes/settings");
     mocks.useSession.mockReturnValue(signedIn);
     mocks.updateUser.mockResolvedValue({ data: null, error: null });
@@ -141,6 +151,142 @@ describe("SettingsView", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /github/i })).toBeInTheDocument();
     expect(screen.getByText("this device")).toBeInTheDocument();
+  });
+
+  it("saves a custom units ladder from the units settings panel", async () => {
+    const user = userEvent.setup();
+    renderSettingsView();
+
+    await user.click(
+      screen.getByRole("button", { name: /units & measurements/i }),
+    );
+    await user.click(screen.getByRole("button", { name: "US" }));
+
+    expect(screen.getByRole("button", { name: "US" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(
+      screen.getByText(/US uses teaspoons and tablespoons/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Metric uses teaspoons and tablespoons/i),
+    ).not.toBeInTheDocument();
+    expect(storedUnitPreference()).toMatchObject({ preset: "us" });
+
+    const threshold = screen.getByRole("spinbutton", {
+      name: /oz upper threshold in grams/i,
+    });
+    expect(threshold).toHaveAttribute("step", "any");
+    fireEvent.change(threshold, { target: { value: "500" } });
+
+    expect(storedUnitPreference()).toMatchObject({
+      preset: "us",
+      weight: [{ unit: "oz", upTo: 453.592 }, { unit: "lb" }],
+    });
+
+    fireEvent.blur(threshold);
+
+    expect(screen.getByText(/Custom uses the units/i)).toBeInTheDocument();
+    expect(storedUnitPreference()).toMatchObject({
+      preset: "custom",
+      weight: [{ unit: "oz", upTo: 500 }, { unit: "lb" }],
+    });
+
+    await user.click(screen.getByRole("button", { name: /remove lbs/i }));
+    expect(screen.getByRole("button", { name: /remove oz/i })).toBeDisabled();
+  });
+
+  it("allows a custom ladder to be restored after choosing a preset", async () => {
+    const user = userEvent.setup();
+    renderSettingsView();
+
+    await user.click(
+      screen.getByRole("button", { name: /units & measurements/i }),
+    );
+    await user.click(screen.getByRole("button", { name: "US" }));
+    await user.click(screen.getByRole("button", { name: /add g/i }));
+    await user.click(screen.getByRole("button", { name: "Metric" }));
+
+    expect(screen.getByText("Custom ladder replaced.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+
+    expect(storedUnitPreference()).toMatchObject({
+      preset: "custom",
+      weight: [{ unit: "g" }, { unit: "oz" }, { unit: "lb" }],
+    });
+    expect(
+      screen.queryByText("Custom ladder replaced."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps thresholds increasing when units are added around an existing ladder", async () => {
+    const user = userEvent.setup();
+    renderSettingsView();
+
+    await user.click(
+      screen.getByRole("button", { name: /units & measurements/i }),
+    );
+    await user.click(screen.getByRole("button", { name: "US" }));
+    await user.click(screen.getByRole("button", { name: /add g/i }));
+    await user.click(screen.getByRole("button", { name: /add kg/i }));
+
+    expect(storedUnitPreference()).toMatchObject({
+      preset: "custom",
+      weight: [
+        { unit: "g", upTo: 1000 },
+        { unit: "oz", upTo: 1001 },
+        { unit: "lb", upTo: 2000 },
+        { unit: "kg", upTo: Infinity },
+      ],
+    });
+  });
+
+  it("keeps the US pint last when editing the US volume ladder", async () => {
+    const user = userEvent.setup();
+    renderSettingsView();
+
+    await user.click(
+      screen.getByRole("button", { name: /units & measurements/i }),
+    );
+    await user.click(screen.getByRole("button", { name: "US" }));
+    await user.click(screen.getByRole("button", { name: /add ml/i }));
+
+    expect(storedUnitPreference()).toMatchObject({
+      preset: "custom",
+      volume: [
+        { unit: "tsp" },
+        { unit: "tbsp" },
+        { unit: "ml" },
+        { unit: "us_cup" },
+        { unit: "us_pint", upTo: Infinity },
+      ],
+    });
+  });
+
+  it("uses one keyboard-accessible ruler for each measurement ladder", async () => {
+    const user = userEvent.setup();
+    const { container } = renderSettingsView();
+
+    await user.click(
+      screen.getByRole("button", { name: /units & measurements/i }),
+    );
+    await user.click(screen.getByRole("button", { name: "US" }));
+
+    expect(container.querySelectorAll("[data-threshold-ruler]")).toHaveLength(
+      2,
+    );
+    expect(container.querySelector('input[type="range"]')).toBeNull();
+
+    const weightDivider = screen.getByRole("slider", {
+      name: /oz hands off to lbs/i,
+    });
+    fireEvent.keyDown(weightDivider, { key: "ArrowRight" });
+
+    expect(storedUnitPreference()).toMatchObject({
+      preset: "custom",
+      weight: [{ unit: "oz", upTo: 458.592 }, { unit: "lb" }],
+    });
   });
 
   it("offers household creation when the user has no household", async () => {

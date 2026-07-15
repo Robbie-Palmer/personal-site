@@ -39,7 +39,7 @@ import {
 } from "@/lib/domain/recipe/ingredientDisplay";
 import type { InstructionDisplayToken } from "@/lib/domain/recipe/instructionTokens";
 import type { IngredientGroupView } from "@/lib/domain/recipe/recipeViews";
-import type { MeasurementSystem } from "@/lib/domain/recipe/unit";
+import type { MeasurementPreference } from "@/lib/domain/recipe/unit";
 import { normalizeSlug } from "@/lib/generic/slugs";
 
 /** An instruction token enriched with the id of its global timer (timer tokens only). */
@@ -121,7 +121,7 @@ export function CookMode({
   ingredientGroups: IngredientGroupView[];
   annotations: Map<string, IngredientAnnotation>;
   scale: number;
-  system: MeasurementSystem;
+  system: MeasurementPreference;
   step: number;
   onStepChange: (step: number) => void;
   onExit: () => void;
@@ -560,7 +560,7 @@ function StepToken({
 }: Readonly<{
   token: CookToken;
   scale: number;
-  system: MeasurementSystem;
+  system: MeasurementPreference;
 }>) {
   if (token.type === "ingredient") {
     return (
@@ -589,7 +589,7 @@ function IngredientReference({
   ingredientGroups: IngredientGroupView[];
   annotations: Map<string, IngredientAnnotation>;
   scale: number;
-  system: MeasurementSystem;
+  system: MeasurementPreference;
   highlighted: Set<string>;
 }>) {
   return (

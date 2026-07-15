@@ -3,7 +3,7 @@ import { AddRecipeView } from "@/components/recipes/add-recipe-view";
 
 export const metadata: Metadata = {
   title: "Add Recipe",
-  description: "Add a recipe using inline Cooklang syntax.",
+  description: "Add a recipe using Cooklang or import schema.org Recipe data.",
   robots: { index: false, follow: false },
 };
 

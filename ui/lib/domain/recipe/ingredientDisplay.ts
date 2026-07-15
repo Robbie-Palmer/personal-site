@@ -15,7 +15,8 @@ import type {
 } from "@/lib/domain/recipe/recipeViews";
 import {
   convertToSystem,
-  type MeasurementSystem,
+  type MeasurementPreference,
+  normalizeUnitToken,
   UNIT_LABELS,
 } from "@/lib/domain/recipe/unit";
 import { normalizeSlug } from "@/lib/generic/slugs";
@@ -103,7 +104,7 @@ const SINGULAR_EPSILON = 1e-9;
 function resolveDisplay(
   item: Pick<RecipeIngredientView, "amount" | "unit">,
   scale: number,
-  system: MeasurementSystem,
+  system: MeasurementPreference,
 ): { amount: number | undefined; unit: RecipeIngredientView["unit"] } {
   const scaledAmount = item.amount == null ? undefined : item.amount * scale;
   if (scaledAmount != null && item.unit) {
@@ -130,7 +131,7 @@ function unitLabelFor(
 function formatAmount(
   item: Pick<RecipeIngredientView, "amount" | "unit">,
   scale: number,
-  system: MeasurementSystem,
+  system: MeasurementPreference,
 ): string {
   const { amount, unit } = resolveDisplay(item, scale, system);
   const parts: string[] = [];
@@ -151,10 +152,26 @@ function formatAmount(
   return parts.join(" ");
 }
 
+/** Convert a note that consists solely of a measurement, leaving prose alone. */
+function formatMeasurementNote(
+  note: string,
+  system: MeasurementPreference,
+): string {
+  const trimmed = note.trim();
+  const amountMatch = /^\d+(?:\.\d+)?/.exec(trimmed);
+  if (!amountMatch) return note;
+  const amount = Number(amountMatch[0]);
+  const unit = normalizeUnitToken(trimmed.slice(amountMatch[0].length).trim());
+  if (!Number.isFinite(amount) || !unit) return note;
+  const converted = convertToSystem(amount, unit, system);
+  if (!converted) return note;
+  return formatAmount({ amount, unit }, 1, system);
+}
+
 function hasRenderedUnitLabel(
   item: Pick<RecipeIngredientView, "amount" | "unit">,
   scale: number,
-  system: MeasurementSystem,
+  system: MeasurementPreference,
 ): boolean {
   const { amount, unit } = resolveDisplay(item, scale, system);
   if (!unit || unit === "piece") return false;
@@ -168,7 +185,7 @@ function hasRenderedUnitLabel(
 function amountText(
   item: Pick<RecipeIngredientView, "amount" | "unit">,
   scale: number,
-  system: MeasurementSystem,
+  system: MeasurementPreference,
 ): string {
   if (item.unit !== "piece") {
     return formatAmount(item, scale, system);
@@ -185,7 +202,7 @@ function amountText(
 export function formatIngredientAmount(
   item: Pick<RecipeIngredientView, "amount" | "unit">,
   scale: number,
-  system: MeasurementSystem,
+  system: MeasurementPreference,
 ): string {
   return amountText(item, scale, system);
 }
@@ -193,7 +210,7 @@ export function formatIngredientAmount(
 export function formatIngredient(
   item: RecipeIngredientView,
   scale: number,
-  system: MeasurementSystem,
+  system: MeasurementPreference,
   annotation?: IngredientAnnotation,
 ): string {
   const amount = amountText(item, scale, system);
@@ -216,7 +233,7 @@ export function formatIngredient(
   }
 
   if (effectiveNote) {
-    parts.push(`– ${effectiveNote}`);
+    parts.push(`– ${formatMeasurementNote(effectiveNote, system)}`);
   }
 
   return parts.join(" ");
@@ -225,7 +242,7 @@ export function formatIngredient(
 export function formatInstructionIngredientToken(
   token: Extract<InstructionDisplayToken, { type: "ingredient" }>,
   scale: number,
-  system: MeasurementSystem,
+  system: MeasurementPreference,
 ): string {
   const item = {
     ingredient: token.canonicalName,

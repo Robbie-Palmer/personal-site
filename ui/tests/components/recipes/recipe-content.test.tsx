@@ -1,10 +1,19 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { RecipeContent } from "@/components/recipes/recipe-content";
 import type { RecipeDetailView } from "@/lib/domain/recipe/recipeViews";
+import { preferenceForSystem } from "@/lib/domain/recipe/unit";
 
 const mocks = vi.hoisted(() => ({
+  setUnitPreference: vi.fn(),
   tokenizeInstructionSdk: vi.fn(),
 }));
+
+const customPreference = {
+  ...preferenceForSystem("uk"),
+  preset: "custom" as const,
+};
 
 vi.mock("@/components/recipes/diet-provider", () => ({
   useDiet: () => ({
@@ -23,14 +32,12 @@ vi.mock("@/hooks/use-scaled-recipe", () => ({
 }));
 
 vi.mock("@/hooks/use-unit-preference", () => ({
-  useUnitPreference: () => ["metric", vi.fn()],
+  useUnitPreference: () => [customPreference, mocks.setUnitPreference],
 }));
 
 vi.mock("@/lib/domain/recipe/instructionTokens", () => ({
   tokenizeInstructionSdk: mocks.tokenizeInstructionSdk,
 }));
-
-import { RecipeContent } from "@/components/recipes/recipe-content";
 
 const recipe: RecipeDetailView = {
   slug: "weeknight",
@@ -49,6 +56,7 @@ const recipe: RecipeDetailView = {
 
 describe("RecipeContent", () => {
   beforeEach(() => {
+    mocks.setUnitPreference.mockClear();
     mocks.tokenizeInstructionSdk.mockReturnValue({
       ok: true,
       steps: [
@@ -59,6 +67,28 @@ describe("RecipeContent", () => {
         ],
       ],
     });
+  });
+
+  it("previews a preset without overwriting the saved custom ladder", async () => {
+    const user = userEvent.setup();
+    render(<RecipeContent recipe={recipe} />);
+
+    expect(screen.getByRole("button", { name: "Custom" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await user.click(screen.getByRole("button", { name: "Metric" }));
+
+    expect(screen.getByRole("button", { name: "Metric" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(mocks.setUnitPreference).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Custom" }));
+    expect(screen.getByRole("button", { name: "Custom" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   it("renders timers as disabled in an unsaved recipe preview", () => {
