@@ -23,6 +23,7 @@ type PublicCook = {
 function groupCooks(items: DiscoverFeedItem[]): PublicCook[] {
   const cooks = new Map<string, PublicCook>();
   for (const item of items) {
+    if (!item.author?.id) continue;
     const current = cooks.get(item.author.id);
     if (current) {
       current.activity.push(item);
@@ -128,6 +129,91 @@ function CookProfile({ cook }: Readonly<{ cook: PublicCook }>) {
   );
 }
 
+function CookNotFound() {
+  return (
+    <div className="rounded-xl border border-dashed border-[var(--line-strong)] p-8 text-center">
+      <p className="rt-display text-3xl">Cook not found.</p>
+      <p className="rt-body mt-2 text-sm text-[var(--ink-3)]">
+        This cook has no recent public recipe activity.
+      </p>
+      <Button asChild variant="outline" className="mt-5">
+        <Link href="/recipes/cooks">Browse all cooks</Link>
+      </Button>
+    </div>
+  );
+}
+
+function CookDirectoryResults({
+  cooks,
+  error,
+}: Readonly<{ cooks: PublicCook[]; error: string | null }>) {
+  if (error) {
+    return (
+      <div className="mt-10 rounded-xl border border-dashed border-[var(--line-strong)] p-8 text-center">
+        <p className="rt-display text-3xl">The kitchen is quiet.</p>
+        <p className="rt-body mt-2 text-sm text-[var(--ink-3)]">{error}</p>
+      </div>
+    );
+  }
+
+  if (cooks.length === 0) {
+    return (
+      <div className="mt-10 rounded-xl border border-dashed border-[var(--line-strong)] p-8 text-center">
+        <Users className="mx-auto size-7 text-[var(--terracotta)]" />
+        <p className="rt-display mt-3 text-3xl">No public cooks yet.</p>
+        <p className="rt-body mt-2 text-sm text-[var(--ink-3)]">
+          Profiles appear here when someone adds a public recipe.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-10 grid gap-4 md:grid-cols-2">
+      {cooks.map((cook) => (
+        <CookCard key={cook.id} cook={cook} />
+      ))}
+    </div>
+  );
+}
+
+function CookDirectory({
+  cooks,
+  error,
+}: Readonly<{ cooks: PublicCook[]; error: string | null }>) {
+  return (
+    <>
+      <header className="max-w-3xl">
+        <p className="rt-mono text-[var(--terracotta)]">Cooks</p>
+        <h1 className="rt-display mt-3 text-6xl sm:text-7xl">
+          Meet the people{" "}
+          <span className="text-[var(--terracotta)]">behind the recipes.</span>
+        </h1>
+        <p className="rt-body mt-4 text-lg text-[var(--ink-2)]">
+          Explore home cooks through the public recipes they’ve been adding.
+        </p>
+      </header>
+      <CookDirectoryResults cooks={cooks} error={error} />
+    </>
+  );
+}
+
+function CooksContent({
+  cooks,
+  error,
+  selectedCook,
+  selectedCookId,
+}: Readonly<{
+  cooks: PublicCook[];
+  error: string | null;
+  selectedCook: PublicCook | null;
+  selectedCookId: string | null;
+}>) {
+  if (selectedCook) return <CookProfile cook={selectedCook} />;
+  if (selectedCookId) return <CookNotFound />;
+  return <CookDirectory cooks={cooks} error={error} />;
+}
+
 export function PublicCooksView() {
   const searchParams = useSearchParams();
   const selectedCookId = searchParams.get("cook");
@@ -140,7 +226,9 @@ export function PublicCooksView() {
     setLoading(true);
     setError(null);
     void getDiscoverFeedPage("public", null, controller.signal, 30)
-      .then((page) => setItems(page.items))
+      .then((page) => {
+        if (!controller.signal.aborted) setItems(page.items);
+      })
       .catch((cause: unknown) => {
         if (cause instanceof DOMException && cause.name === "AbortError")
           return;
@@ -174,57 +262,12 @@ export function PublicCooksView() {
 
   return (
     <div className="container mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:py-14">
-      {selectedCook ? (
-        <CookProfile cook={selectedCook} />
-      ) : selectedCookId ? (
-        <div className="rounded-xl border border-dashed border-[var(--line-strong)] p-8 text-center">
-          <p className="rt-display text-3xl">Cook not found.</p>
-          <p className="rt-body mt-2 text-sm text-[var(--ink-3)]">
-            This cook has no recent public recipe activity.
-          </p>
-          <Button asChild variant="outline" className="mt-5">
-            <Link href="/recipes/cooks">Browse all cooks</Link>
-          </Button>
-        </div>
-      ) : (
-        <>
-          <header className="max-w-3xl">
-            <p className="rt-mono text-[var(--terracotta)]">Cooks</p>
-            <h1 className="rt-display mt-3 text-6xl sm:text-7xl">
-              Meet the people{" "}
-              <span className="text-[var(--terracotta)]">
-                behind the recipes.
-              </span>
-            </h1>
-            <p className="rt-body mt-4 text-lg text-[var(--ink-2)]">
-              Explore home cooks through the public recipes they’ve been adding.
-            </p>
-          </header>
-
-          {error ? (
-            <div className="mt-10 rounded-xl border border-dashed border-[var(--line-strong)] p-8 text-center">
-              <p className="rt-display text-3xl">The kitchen is quiet.</p>
-              <p className="rt-body mt-2 text-sm text-[var(--ink-3)]">
-                {error}
-              </p>
-            </div>
-          ) : cooks.length === 0 ? (
-            <div className="mt-10 rounded-xl border border-dashed border-[var(--line-strong)] p-8 text-center">
-              <Users className="mx-auto size-7 text-[var(--terracotta)]" />
-              <p className="rt-display mt-3 text-3xl">No public cooks yet.</p>
-              <p className="rt-body mt-2 text-sm text-[var(--ink-3)]">
-                Profiles appear here when someone adds a public recipe.
-              </p>
-            </div>
-          ) : (
-            <div className="mt-10 grid gap-4 md:grid-cols-2">
-              {cooks.map((cook) => (
-                <CookCard key={cook.id} cook={cook} />
-              ))}
-            </div>
-          )}
-        </>
-      )}
+      <CooksContent
+        cooks={cooks}
+        error={error}
+        selectedCook={selectedCook ?? null}
+        selectedCookId={selectedCookId}
+      />
     </div>
   );
 }

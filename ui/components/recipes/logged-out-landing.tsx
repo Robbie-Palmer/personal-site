@@ -34,6 +34,12 @@ const steps = [
   },
 ] as const;
 
+function previewActionLabel(index: number) {
+  if (index === 0) return "Save it";
+  if (index === 1) return "Cook it";
+  return "Make it yours";
+}
+
 export function LoggedOutLanding({
   recipes,
 }: Readonly<{ recipes: RecipeCardView[] }>) {
@@ -99,11 +105,7 @@ export function LoggedOutLanding({
                   <RecipeThumb recipe={recipe} size={72} />
                   <div className="min-w-0 flex-1">
                     <p className="rt-mono text-[var(--ink-3)]">
-                      {index === 0
-                        ? "Save it"
-                        : index === 1
-                          ? "Cook it"
-                          : "Make it yours"}
+                      {previewActionLabel(index)}
                     </p>
                     <h2 className="rt-display mt-1 truncate text-2xl transition-colors group-hover:text-[var(--terracotta)] sm:text-3xl">
                       {recipe.title}
