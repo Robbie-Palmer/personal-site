@@ -22,6 +22,7 @@ import { RecipeHome } from "@/components/recipes/recipe-home";
 describe("RecipeHome", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    document.title = "";
   });
 
   it("shows the public landing page to logged-out visitors", () => {
@@ -33,7 +34,7 @@ describe("RecipeHome", () => {
     expect(screen.queryByText("Your recipe box")).not.toBeInTheDocument();
   });
 
-  it("keeps the personal recipe box for signed-in users", () => {
+  it("keeps the personal recipe box and title for signed-in users", () => {
     mocks.useSession.mockReturnValue({
       data: { user: { id: "user-1" } },
       isPending: false,
@@ -43,6 +44,7 @@ describe("RecipeHome", () => {
 
     expect(screen.getByText("Your recipe box")).toBeInTheDocument();
     expect(screen.queryByText("Public landing")).not.toBeInTheDocument();
+    expect(document.title).toBe("Your recipe box | Robbie's Recipes");
   });
 
   it("renders the public landing while the session is loading", () => {
@@ -52,5 +54,6 @@ describe("RecipeHome", () => {
 
     expect(screen.getByText("Public landing")).toBeInTheDocument();
     expect(screen.queryByText("Your recipe box")).not.toBeInTheDocument();
+    expect(document.title).toBe("Recipes for real life | Robbie's Recipes");
   });
 });

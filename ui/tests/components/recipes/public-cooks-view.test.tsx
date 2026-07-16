@@ -7,10 +7,11 @@ import type {
 
 const mocks = vi.hoisted(() => ({
   getDiscoverFeedPage: vi.fn(),
+  useSearchParams: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: mocks.useSearchParams,
 }));
 
 vi.mock("@/lib/api/discover-feed", async (importOriginal) => ({
@@ -38,6 +39,7 @@ const validItem = {
 describe("PublicCooksView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams());
   });
 
   it("ignores malformed activity without an author", async () => {
@@ -74,5 +76,24 @@ describe("PublicCooksView", () => {
     await act(async () => {
       resolvePage?.({ items: [validItem], nextCursor: null });
     });
+  });
+
+  it("explains that a missing cook may be outside the activity window", async () => {
+    mocks.useSearchParams.mockReturnValue(
+      new URLSearchParams("cook=older-cook"),
+    );
+    mocks.getDiscoverFeedPage.mockResolvedValue({
+      items: [validItem],
+      nextCursor: null,
+    } satisfies DiscoverFeedPage);
+
+    render(<PublicCooksView />);
+
+    expect(
+      await screen.findByText("No recent activity found."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/30 most recent public recipe additions/),
+    ).toBeInTheDocument();
   });
 });

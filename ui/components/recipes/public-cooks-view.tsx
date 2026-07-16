@@ -132,9 +132,10 @@ function CookProfile({ cook }: Readonly<{ cook: PublicCook }>) {
 function CookNotFound() {
   return (
     <div className="rounded-xl border border-dashed border-[var(--line-strong)] p-8 text-center">
-      <p className="rt-display text-3xl">Cook not found.</p>
+      <p className="rt-display text-3xl">No recent activity found.</p>
       <p className="rt-body mt-2 text-sm text-[var(--ink-3)]">
-        This cook has no recent public recipe activity.
+        Profiles are built from the 30 most recent public recipe additions, so
+        this cook may be outside the current activity window.
       </p>
       <Button asChild variant="outline" className="mt-5">
         <Link href="/recipes/cooks">Browse all cooks</Link>
