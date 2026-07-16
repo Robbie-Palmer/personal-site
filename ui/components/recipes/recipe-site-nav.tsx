@@ -13,11 +13,7 @@ const publicTabs = [
 
 export function RecipeSiteNav() {
   const pathname = usePathname();
-  const { data: session, isPending } = authClient.useSession();
-
-  if (isPending) {
-    return <div className="h-6 w-56" aria-hidden="true" />;
-  }
+  const { data: session } = authClient.useSession();
 
   if (session) return <RecipeNavTabs />;
 
