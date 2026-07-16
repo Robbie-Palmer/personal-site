@@ -137,9 +137,11 @@ function AuthOptions({
 }
 
 export function AuthButton({
+  className,
   compactOnMobile = false,
   intent = "signin",
 }: Readonly<{
+  className?: string;
   compactOnMobile?: boolean;
   intent?: "signin" | "signup";
 }>) {
@@ -391,6 +393,7 @@ export function AuthButton({
           className={cn(
             intent === "signup" &&
               "max-w-full rounded-full bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]",
+            className,
           )}
         >
           {intent === "signup" ? <UserPlus /> : <LogIn />}
