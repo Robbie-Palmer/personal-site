@@ -111,6 +111,7 @@ export function AddRecipeView() {
   const [hasHousehold, setHasHousehold] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
+  const visibilityTouchedRef = useRef(false);
   const importRequestRef = useRef<{
     id: number;
     controller: AbortController;
@@ -123,6 +124,7 @@ export function AddRecipeView() {
   useEffect(() => {
     if (sessionPending) return;
     if (!sessionUserId) {
+      visibilityTouchedRef.current = false;
       setHouseholdPending(false);
       setHasHousehold(false);
       setVisibility("private");
@@ -130,18 +132,21 @@ export function AddRecipeView() {
     }
 
     const controller = new AbortController();
+    visibilityTouchedRef.current = false;
     setHouseholdPending(true);
     void getHouseholds(controller.signal)
       .then((households) => {
         const available = households.length > 0;
         setHasHousehold(available);
-        setVisibility(available ? "household" : "private");
+        if (!visibilityTouchedRef.current) {
+          setVisibility(available ? "household" : "private");
+        }
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError")
           return;
         setHasHousehold(false);
-        setVisibility("private");
+        if (!visibilityTouchedRef.current) setVisibility("private");
       })
       .finally(() => {
         if (!controller.signal.aborted) setHouseholdPending(false);
@@ -542,7 +547,10 @@ export function AddRecipeView() {
                       type="button"
                       aria-pressed={visibility === value}
                       disabled={disabled}
-                      onClick={() => setVisibility(value)}
+                      onClick={() => {
+                        visibilityTouchedRef.current = true;
+                        setVisibility(value);
+                      }}
                       className={`rt-body inline-flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                         visibility === value
                           ? "border-[var(--terracotta)] bg-[var(--butter-soft)] text-[var(--terracotta-deep)]"

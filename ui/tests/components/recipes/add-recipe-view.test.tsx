@@ -68,4 +68,21 @@ describe("AddRecipeView visibility", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Household" })).toBeDisabled();
   });
+
+  it("preserves a visibility selected while household membership loads", async () => {
+    let resolveHouseholds: (value: (typeof household)[]) => void = () => {};
+    mocks.getHouseholds.mockReturnValue(
+      new Promise((resolve) => {
+        resolveHouseholds = resolve;
+      }),
+    );
+
+    render(<AddRecipeView />);
+    fireEvent.click(screen.getByRole("button", { name: "Public" }));
+    resolveHouseholds([household]);
+
+    expect(
+      await screen.findByRole("button", { name: "Public", pressed: true }),
+    ).toBeInTheDocument();
+  });
 });
