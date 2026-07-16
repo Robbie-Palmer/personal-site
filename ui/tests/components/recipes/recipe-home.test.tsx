@@ -45,13 +45,12 @@ describe("RecipeHome", () => {
     expect(screen.queryByText("Public landing")).not.toBeInTheDocument();
   });
 
-  it("does not flash either view while the session is loading", () => {
+  it("renders the public landing while the session is loading", () => {
     mocks.useSession.mockReturnValue({ data: null, isPending: true });
 
     render(<RecipeHome recipes={[]} catalogStats={[]} />);
 
-    expect(screen.getByLabelText("Loading recipes")).toBeInTheDocument();
-    expect(screen.queryByText("Public landing")).not.toBeInTheDocument();
+    expect(screen.getByText("Public landing")).toBeInTheDocument();
     expect(screen.queryByText("Your recipe box")).not.toBeInTheDocument();
   });
 });
