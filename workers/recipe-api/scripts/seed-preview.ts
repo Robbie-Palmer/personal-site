@@ -1,8 +1,33 @@
 import { eq, inArray } from "drizzle-orm";
 import { createAuth } from "../src/auth";
 import { createDb, schema } from "recipe-db";
+import { RecipeContentSchema } from "recipe-domain";
 import { previewScenarios } from "../src/preview-scenarios";
 import { syncCanonicalUserEmail } from "../src/user-emails";
+
+function previewRecipeBody(
+  slug: string,
+  title: string,
+  description: string,
+  cookBody: string,
+  ingredients: Array<{ ingredient: string; amount: number; unit?: string }>,
+  instructions: string[],
+): string {
+  const recipe = RecipeContentSchema.parse({
+    slug,
+    title,
+    description,
+    cookBody,
+    date: "2026-07-15",
+    cuisine: [],
+    servings: 2,
+    tags: [],
+    cookware: [],
+    ingredientGroups: [{ items: ingredients }],
+    instructions,
+  });
+  return JSON.stringify({ version: 1, source: cookBody, recipe });
+}
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -82,35 +107,72 @@ try {
     throw new Error("Preview users were not created correctly");
   }
 
-  await db
-    .insert(schema.recipe)
-    .values([
-      {
+  const previewRecipes: Array<typeof schema.recipe.$inferInsert> = [
+    {
         slug: "preview-private-weeknight-pasta",
         title: "Preview Weeknight Pasta",
         description: "Private fixture for authenticated recipe QA.",
-        body: "Cook the @pasta{200%g}, then combine with @tomato sauce{150%g}.",
+        body: previewRecipeBody(
+          "preview-private-weeknight-pasta",
+          "Preview Weeknight Pasta",
+          "Private fixture for authenticated recipe QA.",
+          "Cook the @pasta{200%g}, then combine with @tomato sauce{150%g}.",
+          [
+            { ingredient: "pasta", amount: 200, unit: "g" },
+            { ingredient: "tomato-sauce", amount: 150, unit: "g" },
+          ],
+          ["Cook the pasta, then combine with tomato sauce."],
+        ),
         userId: recipesUserId,
         visibility: "private",
-      },
-      {
+    },
+    {
         slug: "preview-public-tomato-toast",
         title: "Preview Tomato Toast",
         description: "Public fixture for visibility and listing QA.",
-        body: "Toast the @bread{2%slices} and top with @tomato{1}.",
+        body: previewRecipeBody(
+          "preview-public-tomato-toast",
+          "Preview Tomato Toast",
+          "Public fixture for visibility and listing QA.",
+          "Toast the @bread{2%slices} and top with @tomato{1}.",
+          [
+            { ingredient: "bread", amount: 2 },
+            { ingredient: "tomato", amount: 1 },
+          ],
+          ["Toast the bread and top with tomato."],
+        ),
         userId: recipesUserId,
         visibility: "public",
-      },
-      {
+    },
+    {
         slug: "preview-admin-soup",
         title: "Preview Admin Soup",
         description: "Administrator-owned fixture.",
-        body: "Simmer @stock{500%ml} with @vegetables{300%g}.",
+        body: previewRecipeBody(
+          "preview-admin-soup",
+          "Preview Admin Soup",
+          "Administrator-owned fixture.",
+          "Simmer @stock{500%ml} with @vegetables{300%g}.",
+          [
+            { ingredient: "stock", amount: 500, unit: "ml" },
+            { ingredient: "vegetables", amount: 300, unit: "g" },
+          ],
+          ["Simmer the stock with the vegetables."],
+        ),
         userId: adminUserId,
         visibility: "private",
-      },
-    ])
-    .onConflictDoNothing({ target: schema.recipe.slug });
+    },
+  ];
+
+  for (const previewRecipe of previewRecipes) {
+    await db
+      .insert(schema.recipe)
+      .values(previewRecipe)
+      .onConflictDoUpdate({
+        target: schema.recipe.slug,
+        set: previewRecipe,
+      });
+  }
 
   console.log(`Seeded ${previewScenarios.length} preview scenarios.`);
 } finally {
