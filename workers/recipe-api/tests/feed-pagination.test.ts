@@ -8,7 +8,7 @@ import {
 
 const firstCursor = {
   createdAt: "2026-07-16 20:58:55.123456+00",
-  id: "00000000-0000-0000-0000-000000000003",
+  id: "00000000-0000-4000-8000-000000000003",
 };
 
 describe("feed pagination", () => {
@@ -26,11 +26,26 @@ describe("feed pagination", () => {
     },
   );
 
+  it("rejects a cursor with a non-UUID recipe ID", () => {
+    const cursor = encodeFeedCursor({ ...firstCursor, id: "not-a-uuid" });
+
+    expect(decodeFeedCursor(cursor)).toBeUndefined();
+  });
+
   it("returns one extra row as a next-page cursor", () => {
     const rows = [
-      { recipe: { id: "3" }, cursorCreatedAt: "2026-07-16 03:00:00+00" },
-      { recipe: { id: "2" }, cursorCreatedAt: "2026-07-16 02:00:00+00" },
-      { recipe: { id: "1" }, cursorCreatedAt: "2026-07-16 01:00:00+00" },
+      {
+        recipe: { id: "00000000-0000-4000-8000-000000000003" },
+        cursorCreatedAt: "2026-07-16 03:00:00+00",
+      },
+      {
+        recipe: { id: "00000000-0000-4000-8000-000000000002" },
+        cursorCreatedAt: "2026-07-16 02:00:00+00",
+      },
+      {
+        recipe: { id: "00000000-0000-4000-8000-000000000001" },
+        cursorCreatedAt: "2026-07-16 01:00:00+00",
+      },
     ];
 
     const page = paginateRecipeFeed(rows, 2);
@@ -43,7 +58,7 @@ describe("feed pagination", () => {
   });
 
   it("omits the cursor on the final page", () => {
-    const rows = [{ recipe: { id: "1" }, cursorCreatedAt: firstCursor.createdAt }];
+    const rows = [{ recipe: { id: firstCursor.id }, cursorCreatedAt: firstCursor.createdAt }];
 
     expect(paginateRecipeFeed(rows, 2)).toEqual({
       items: rows,

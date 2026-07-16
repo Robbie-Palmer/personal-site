@@ -1,7 +1,13 @@
 import { sql, type SQL } from "drizzle-orm";
 import { schema } from "recipe-db";
+import { z } from "zod";
 
 export type FeedCursor = Readonly<{ createdAt: string; id: string }>;
+
+const feedCursorSchema = z.object({
+  createdAt: z.string().refine((value) => !Number.isNaN(Date.parse(value))),
+  id: z.string().uuid(),
+});
 
 type FeedRow = Readonly<{
   recipe: Readonly<{ id: string }>;
@@ -23,16 +29,8 @@ export function decodeFeedCursor(
   try {
     let base64 = value.replaceAll("-", "+").replaceAll("_", "/");
     while (base64.length % 4 !== 0) base64 += "=";
-    const parsed = JSON.parse(atob(base64)) as Partial<FeedCursor>;
-    if (
-      typeof parsed.createdAt !== "string" ||
-      Number.isNaN(Date.parse(parsed.createdAt)) ||
-      typeof parsed.id !== "string" ||
-      parsed.id.length === 0
-    ) {
-      return undefined;
-    }
-    return { createdAt: parsed.createdAt, id: parsed.id };
+    const parsed = feedCursorSchema.safeParse(JSON.parse(atob(base64)));
+    return parsed.success ? parsed.data : undefined;
   } catch {
     return undefined;
   }
