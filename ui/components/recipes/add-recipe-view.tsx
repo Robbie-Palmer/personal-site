@@ -5,18 +5,21 @@ import {
   ArrowLeft,
   FileText,
   Globe2,
+  Home,
   Loader2,
+  LockKeyhole,
   PenLine,
   Save,
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { RecipeContent } from "@/components/recipes/recipe-content";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCooklangRecipe } from "@/hooks/use-cooklang-recipe";
+import { getHouseholds } from "@/lib/api/households";
 import { authClient } from "@/lib/auth-client";
 import {
   buildRecipeDraft,
@@ -33,6 +36,7 @@ Meanwhile, warm @olive oil{2%tbsp} in a #frying pan{}. Add @garlic{2%cloves} and
 Stir in @chopped tomatoes{400%g} and simmer for ~{15%minutes}. Drain the pasta, toss it through the sauce, and serve.`;
 
 type AddMethod = "write" | "url";
+type RecipeVisibility = "private" | "household" | "public";
 
 type ImportedRecipe = {
   title: string;
@@ -89,6 +93,7 @@ export function AddRecipeView() {
   const cuisineId = useId();
   const router = useRouter();
   const { data: session, isPending: sessionPending } = authClient.useSession();
+  const sessionUserId = session?.user.id;
   const [method, setMethod] = useState<AddMethod>("write");
   const [recipeUrl, setRecipeUrl] = useState("");
   const [importing, setImporting] = useState(false);
@@ -101,6 +106,9 @@ export function AddRecipeView() {
   const [prepTime, setPrepTime] = useState<number | undefined>();
   const [cookTime, setCookTime] = useState<number | undefined>();
   const [source, setSource] = useState("");
+  const [visibility, setVisibility] = useState<RecipeVisibility>("private");
+  const [householdPending, setHouseholdPending] = useState(true);
+  const [hasHousehold, setHasHousehold] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const importRequestRef = useRef<{
@@ -111,6 +119,35 @@ export function AddRecipeView() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const cooklang = useMemo(() => normalizeRecipeSource(source), [source]);
   const parse = useCooklangRecipe(cooklang);
+
+  useEffect(() => {
+    if (sessionPending) return;
+    if (!sessionUserId) {
+      setHouseholdPending(false);
+      setHasHousehold(false);
+      setVisibility("private");
+      return;
+    }
+
+    const controller = new AbortController();
+    setHouseholdPending(true);
+    void getHouseholds(controller.signal)
+      .then((households) => {
+        const available = households.length > 0;
+        setHasHousehold(available);
+        setVisibility(available ? "household" : "private");
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+        setHasHousehold(false);
+        setVisibility("private");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setHouseholdPending(false);
+      });
+    return () => controller.abort();
+  }, [sessionPending, sessionUserId]);
 
   const previewResult = useMemo(() => {
     if (!parse.recipe || !title.trim() || !description.trim() || !servings)
@@ -227,7 +264,7 @@ export function AddRecipeView() {
           title: title.trim(),
           description: description.trim(),
           body: serializeSavedRecipe(source, preview),
-          visibility: "private",
+          visibility,
         }),
       });
       if (!response.ok) {
@@ -318,7 +355,7 @@ export function AddRecipeView() {
         </div>
         <Button
           onClick={saveRecipe}
-          disabled={!preview || saving}
+          disabled={!preview || saving || householdPending}
           className="rounded-full bg-[var(--ink)] px-5 text-[var(--paper)] hover:bg-[var(--terracotta-deep)]"
         >
           {saving ? <Loader2 className="animate-spin" /> : <Save />} Save recipe
@@ -484,6 +521,50 @@ export function AddRecipeView() {
                 />
               </label>
             </div>
+            <fieldset className="grid gap-2">
+              <legend className="rt-mono text-[var(--ink-3)]">
+                Who can see this recipe?
+              </legend>
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    ["private", LockKeyhole, "Private"],
+                    ["household", Home, "Household"],
+                    ["public", Globe2, "Public"],
+                  ] as const
+                ).map(([value, Icon, label]) => {
+                  const disabled =
+                    value === "household" &&
+                    (householdPending || !hasHousehold);
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={visibility === value}
+                      disabled={disabled}
+                      onClick={() => setVisibility(value)}
+                      className={`rt-body inline-flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                        visibility === value
+                          ? "border-[var(--terracotta)] bg-[var(--butter-soft)] text-[var(--terracotta-deep)]"
+                          : "border-[var(--line-strong)] bg-[var(--paper)] text-[var(--ink-3)] hover:text-[var(--ink)]"
+                      }`}
+                    >
+                      <Icon className="size-4" /> {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-[var(--ink-3)]">
+                {visibility === "private" && "Only you can open this recipe."}
+                {visibility === "household" &&
+                  "Everyone in your household can open this recipe."}
+                {visibility === "public" &&
+                  "Anyone can open this recipe from the public feed."}
+                {!householdPending && !hasHousehold && (
+                  <> Join a household to share recipes with its members.</>
+                )}
+              </p>
+            </fieldset>
             <div className="flex items-center justify-between gap-3 border-t border-dashed border-[var(--line-strong)] pt-3">
               <div>
                 <p className="rt-mono text-[var(--ink-3)]">Recipe text</p>

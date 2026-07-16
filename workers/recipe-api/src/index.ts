@@ -10,7 +10,6 @@ import {
   isNull,
   lt,
   or,
-  sql,
 } from "drizzle-orm";
 import { z } from "zod";
 import { createDb, schema } from "recipe-db";
@@ -19,6 +18,12 @@ import { parseSchemaOrgRecipeHtml } from "recipe-parsing/schema-org";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
 import { hasPostgresErrorCode } from "./db/errors";
+import {
+  decodeFeedCursor,
+  paginateRecipeFeed,
+  recipeFeedCursorFilter,
+  recipeFeedCursorTimestamp,
+} from "./feed-pagination";
 import {
   type AuthenticatedSession,
   type AuthorizationVariables,
@@ -118,35 +123,6 @@ const recipeVisibilitySchema = z.enum(["public", "private", "household"]);
 const dietRecipeMatchModeSchema = z.enum(["hide", "warn"]);
 const feedScopeSchema = z.enum(["public", "household"]);
 const feedLimitSchema = z.coerce.number().int().min(1).max(30).default(12);
-
-type FeedCursor = { createdAt: string; id: string };
-
-function encodeFeedCursor(cursor: FeedCursor): string {
-  let encoded = btoa(JSON.stringify(cursor))
-    .replaceAll("+", "-")
-    .replaceAll("/", "_");
-  while (encoded.endsWith("=")) encoded = encoded.slice(0, -1);
-  return encoded;
-}
-
-function decodeFeedCursor(value: string | undefined): FeedCursor | undefined {
-  if (!value) return undefined;
-  try {
-    const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
-    const parsed = JSON.parse(atob(base64)) as Partial<FeedCursor>;
-    if (
-      typeof parsed.createdAt !== "string" ||
-      Number.isNaN(Date.parse(parsed.createdAt)) ||
-      typeof parsed.id !== "string" ||
-      parsed.id.length === 0
-    ) {
-      return undefined;
-    }
-    return { createdAt: parsed.createdAt, id: parsed.id };
-  } catch {
-    return undefined;
-  }
-}
 
 const dietKeySchema = z
   .string()
@@ -2724,13 +2700,11 @@ app.get("/recipes/discover/feed", async (c) => {
       )!;
     }
 
-    const cursorFilter = cursor
-      ? sql`(${schema.recipe.createdAt} < ${cursor.createdAt}::timestamptz OR (${schema.recipe.createdAt} = ${cursor.createdAt}::timestamptz AND ${schema.recipe.id} < ${cursor.id}))`
-      : undefined;
+    const cursorFilter = recipeFeedCursorFilter(cursor);
     const rows = await db
       .select({
         recipe: schema.recipe,
-        cursorCreatedAt: sql<string>`${schema.recipe.createdAt}::text`,
+        cursorCreatedAt: recipeFeedCursorTimestamp(),
         author: {
           id: schema.user.id,
           name: schema.user.name,
@@ -2743,23 +2717,15 @@ app.get("/recipes/discover/feed", async (c) => {
       .orderBy(desc(schema.recipe.createdAt), desc(schema.recipe.id))
       .limit(limit.data + 1);
 
-    const hasMore = rows.length > limit.data;
-    const page = rows.slice(0, limit.data);
-    const last = page.at(-1);
+    const page = paginateRecipeFeed(rows, limit.data);
     return c.json({
-      items: page.map(({ recipe, author }) => ({
+      items: page.items.map(({ recipe, author }) => ({
         type: "recipe_added" as const,
         recipe: recipeResponse(recipe),
         author,
         createdAt: recipe.createdAt,
       })),
-      nextCursor:
-        hasMore && last
-          ? encodeFeedCursor({
-              createdAt: last.cursorCreatedAt,
-              id: last.recipe.id,
-            })
-          : null,
+      nextCursor: page.nextCursor,
     });
   } catch (e) {
     console.error("GET /recipes/discover/feed query failed", e);
