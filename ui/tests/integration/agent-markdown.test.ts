@@ -54,7 +54,9 @@ describe("agent markdown generation", () => {
       "recipes/add.html",
       "recipes/discover.html",
       "recipes/kitchen.html",
+      "recipes/notifications.html",
       "recipes/onboarding.html",
+      "recipes/profile.html",
       "recipes/saved.html",
       "recipes/settings.html",
       "recipes/shopping.html",
@@ -79,13 +81,13 @@ describe("agent markdown generation", () => {
   });
 
   it("keeps authenticated app pages out of agent markdown outputs", () => {
-    expect(fs.existsSync(path.join(OUT_DIR, "recipes", "settings.md"))).toBe(
-      false,
-    );
-    expect(read("llms.txt")).not.toContain("/recipes/settings");
-    expect(read("llms-full.txt")).not.toContain("/recipes/settings");
-    expect(read("llms.txt")).not.toContain("/recipes/onboarding");
-    expect(read("llms-full.txt")).not.toContain("/recipes/onboarding");
+    for (const page of ["notifications", "onboarding", "profile", "settings"]) {
+      expect(fs.existsSync(path.join(OUT_DIR, "recipes", `${page}.md`))).toBe(
+        false,
+      );
+      expect(read("llms.txt")).not.toContain(`/recipes/${page}`);
+      expect(read("llms-full.txt")).not.toContain(`/recipes/${page}`);
+    }
   });
 
   it("renders recipe ingredients and instructions as markdown", () => {
@@ -103,7 +105,9 @@ describe("agent markdown generation", () => {
       "add.html",
       "discover.html",
       "kitchen.html",
+      "notifications.html",
       "onboarding.html",
+      "profile.html",
       "saved.html",
       "settings.html",
       "shopping.html",
@@ -139,6 +143,8 @@ describe("agent markdown generation", () => {
     expect(routes.include).toContain("/api/profile/*");
     expect(routes.include).toContain("/api/households");
     expect(routes.include).toContain("/api/households/*");
+    expect(routes.include).toContain("/api/notifications");
+    expect(routes.include).toContain("/api/notifications/*");
     expect(routes.include).toContain("/api/recipes");
     expect(routes.include).toContain("/api/recipes/*");
     expect(routes.include).toContain("/ingest/*");

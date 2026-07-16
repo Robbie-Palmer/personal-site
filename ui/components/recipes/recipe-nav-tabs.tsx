@@ -12,9 +12,12 @@ export function RecipeNavTabs() {
   const onKitchen = pathname === "/recipes/kitchen";
   const onDiscover = pathname === "/recipes/discover";
   const onSettings = pathname?.startsWith("/recipes/settings") ?? false;
+  const onNotifications =
+    pathname?.startsWith("/recipes/notifications") ?? false;
   // Recipes covers the index and individual recipe pages, but not the shopping
   // or utility sections.
-  const onRecipes = !onShopping && !onKitchen && !onDiscover && !onSettings;
+  const onRecipes =
+    !onShopping && !onKitchen && !onDiscover && !onSettings && !onNotifications;
 
   return (
     <div className="flex items-baseline gap-2 md:gap-4">
