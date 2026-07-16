@@ -10,6 +10,7 @@ import {
   isNull,
   lt,
   or,
+  sql,
 } from "drizzle-orm";
 import { z } from "zod";
 import { createDb, schema } from "recipe-db";
@@ -123,6 +124,7 @@ const recipeVisibilitySchema = z.enum(["public", "private", "household"]);
 const dietRecipeMatchModeSchema = z.enum(["hide", "warn"]);
 const feedScopeSchema = z.enum(["public", "household"]);
 const feedLimitSchema = z.coerce.number().int().min(1).max(30).default(12);
+const publicCookIdSchema = z.string().trim().min(1).max(128);
 
 const dietKeySchema = z
   .string()
@@ -2729,6 +2731,91 @@ app.get("/recipes/discover/feed", async (c) => {
     });
   } catch (e) {
     console.error("GET /recipes/discover/feed query failed", e);
+    return c.json({ error: "Database query failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
+app.get("/recipes/cooks", async (c) => {
+  const cookValue = c.req.query("cook");
+  const cookId =
+    cookValue === undefined ? null : publicCookIdSchema.safeParse(cookValue);
+  if (cookId && !cookId.success) {
+    return c.json({ error: "Invalid cook query" }, 400);
+  }
+
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      {
+        error:
+          "No database connection configured (HYPERDRIVE or DATABASE_URL required)",
+      },
+      503,
+    );
+  }
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+
+    if (cookId?.success) {
+      const rows = await db
+        .select({
+          recipe: schema.recipe,
+          author: {
+            id: schema.user.id,
+            name: schema.user.name,
+            image: schema.user.image,
+          },
+        })
+        .from(schema.recipe)
+        .innerJoin(schema.user, eq(schema.recipe.userId, schema.user.id))
+        .where(
+          and(
+            eq(schema.recipe.visibility, "public"),
+            eq(schema.user.id, cookId.data),
+          ),
+        )
+        .orderBy(desc(schema.recipe.createdAt), desc(schema.recipe.id))
+        .limit(30);
+      const first = rows[0];
+      return c.json({
+        cook: first
+          ? {
+              ...first.author,
+              activity: rows.map(({ recipe }) => ({
+                type: "recipe_added" as const,
+                recipe: recipeResponse(recipe),
+                createdAt: recipe.createdAt,
+              })),
+            }
+          : null,
+      });
+    }
+
+    const latestActivityAt = sql<string>`max(${schema.recipe.createdAt})`;
+    const latestRecipeTitle =
+      sql<string>`(array_agg(${schema.recipe.title} order by ${schema.recipe.createdAt} desc, ${schema.recipe.id} desc))[1]`;
+    const cooks = await db
+      .select({
+        id: schema.user.id,
+        name: schema.user.name,
+        image: schema.user.image,
+        activityCount: count(),
+        latestRecipeTitle,
+      })
+      .from(schema.recipe)
+      .innerJoin(schema.user, eq(schema.recipe.userId, schema.user.id))
+      .where(eq(schema.recipe.visibility, "public"))
+      .groupBy(schema.user.id, schema.user.name, schema.user.image)
+      .orderBy(desc(latestActivityAt));
+    return c.json({ cooks });
+  } catch (e) {
+    console.error("GET /recipes/cooks query failed", e);
     return c.json({ error: "Database query failed" }, 502);
   } finally {
     await closeDbClient(client);

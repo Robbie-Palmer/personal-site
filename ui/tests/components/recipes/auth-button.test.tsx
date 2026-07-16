@@ -102,6 +102,18 @@ describe("AuthButton", () => {
     });
   });
 
+  it("keeps sign-up available while the session is loading", async () => {
+    const user = userEvent.setup();
+    mocks.useSession.mockReturnValue({ data: null, isPending: true });
+
+    render(<AuthButton intent="signup" />);
+
+    await user.click(screen.getByRole("button", { name: /sign up/i }));
+    expect(
+      screen.getByRole("button", { name: "Continue with Google" }),
+    ).toBeInTheDocument();
+  });
+
   it("offers Access-protected test scenarios on PR previews", async () => {
     const user = userEvent.setup();
     mocks.isPreviewDeployment.mockReturnValue(true);

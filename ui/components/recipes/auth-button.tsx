@@ -204,13 +204,19 @@ export function AuthButton({
   }
 
   if (isPending) {
-    if (intent === "signup") return null;
-    return (
-      <Button variant="outline" size="sm" disabled aria-label="Loading session">
-        <LoaderCircle className="animate-spin" />
-        <span className="hidden sm:inline">Log in</span>
-      </Button>
-    );
+    if (intent === "signin") {
+      return (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled
+          aria-label="Loading session"
+        >
+          <LoaderCircle className="animate-spin" />
+          <span className="hidden sm:inline">Log in</span>
+        </Button>
+      );
+    }
   }
 
   if (session && intent === "signup") return null;

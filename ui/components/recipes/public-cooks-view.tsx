@@ -3,68 +3,19 @@
 import { ArrowLeft, ArrowRight, LoaderCircle, Users } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { RecipeAvatar } from "@/components/recipes/recipe-avatar";
 import { RecipeThumb } from "@/components/recipes/recipe-card";
 import { Button } from "@/components/ui/button";
 import {
-  type DiscoverFeedItem,
-  getDiscoverFeedPage,
-} from "@/lib/api/discover-feed";
+  getPublicCook,
+  getPublicCooks,
+  type PublicCookProfile,
+  type PublicCookSummary,
+} from "@/lib/api/public-cooks";
 import { savedRecipeCard } from "@/lib/domain/recipe/recipeDraft";
 
-type PublicCook = {
-  id: string;
-  name: string;
-  image: string | null;
-  activity: DiscoverFeedItem[];
-};
-
-const COOKS_FEED_PAGE_SIZE = 30;
-
-async function loadPublicActivity(signal: AbortSignal) {
-  const items: DiscoverFeedItem[] = [];
-  const seenCursors = new Set<string>();
-  let cursor: string | null = null;
-
-  do {
-    const page = await getDiscoverFeedPage(
-      "public",
-      cursor,
-      signal,
-      COOKS_FEED_PAGE_SIZE,
-    );
-    items.push(...page.items);
-    if (!page.nextCursor) return items;
-    if (seenCursors.has(page.nextCursor)) {
-      throw new Error("The cooks directory returned a repeated page.");
-    }
-    seenCursors.add(page.nextCursor);
-    cursor = page.nextCursor;
-  } while (!signal.aborted);
-
-  throw new DOMException("The request was aborted.", "AbortError");
-}
-
-function groupCooks(items: DiscoverFeedItem[]): PublicCook[] {
-  const cooks = new Map<string, PublicCook>();
-  for (const item of items) {
-    if (!item.author?.id) continue;
-    const current = cooks.get(item.author.id);
-    if (current) {
-      current.activity.push(item);
-      continue;
-    }
-    cooks.set(item.author.id, {
-      ...item.author,
-      activity: [item],
-    });
-  }
-  return Array.from(cooks.values());
-}
-
-function CookCard({ cook }: Readonly<{ cook: PublicCook }>) {
-  const latest = cook.activity[0];
+function CookCard({ cook }: Readonly<{ cook: PublicCookSummary }>) {
   return (
     <Link
       href={`/recipes/cooks?cook=${encodeURIComponent(cook.id)}`}
@@ -80,25 +31,23 @@ function CookCard({ cook }: Readonly<{ cook: PublicCook }>) {
         <div className="min-w-0 flex-1">
           <h2 className="rt-display truncate text-3xl">{cook.name}</h2>
           <p className="rt-mono mt-1 text-[var(--ink-3)]">
-            {cook.activity.length} recent{" "}
-            {cook.activity.length === 1 ? "addition" : "additions"}
+            {cook.activityCount} public{" "}
+            {cook.activityCount === 1 ? "addition" : "additions"}
           </p>
         </div>
         <ArrowRight className="size-4 text-[var(--ink-3)] transition-transform group-hover:translate-x-1 group-hover:text-[var(--terracotta)]" />
       </div>
-      {latest ? (
-        <p className="rt-body mt-5 border-t border-dashed border-[var(--line)] pt-4 text-sm text-[var(--ink-2)]">
-          Recently added{" "}
-          <span className="font-bold text-[var(--ink)]">
-            {latest.recipe.title}
-          </span>
-        </p>
-      ) : null}
+      <p className="rt-body mt-5 border-t border-dashed border-[var(--line)] pt-4 text-sm text-[var(--ink-2)]">
+        Recently added{" "}
+        <span className="font-bold text-[var(--ink)]">
+          {cook.latestRecipeTitle}
+        </span>
+      </p>
     </Link>
   );
 }
 
-function CookProfile({ cook }: Readonly<{ cook: PublicCook }>) {
+function CookProfile({ cook }: Readonly<{ cook: PublicCookProfile }>) {
   const firstName = cook.name.trim().split(/\s+/)[0] || "This cook";
   return (
     <div>
@@ -169,7 +118,9 @@ function CookNotFound() {
   );
 }
 
-function CookDirectoryResults({ cooks }: Readonly<{ cooks: PublicCook[] }>) {
+function CookDirectoryResults({
+  cooks,
+}: Readonly<{ cooks: PublicCookSummary[] }>) {
   if (cooks.length === 0) {
     return (
       <div className="mt-10 rounded-xl border border-dashed border-[var(--line-strong)] p-8 text-center">
@@ -191,7 +142,7 @@ function CookDirectoryResults({ cooks }: Readonly<{ cooks: PublicCook[] }>) {
   );
 }
 
-function CookDirectory({ cooks }: Readonly<{ cooks: PublicCook[] }>) {
+function CookDirectory({ cooks }: Readonly<{ cooks: PublicCookSummary[] }>) {
   return (
     <>
       <header className="max-w-3xl">
@@ -224,9 +175,9 @@ function CooksContent({
   selectedCook,
   selectedCookId,
 }: Readonly<{
-  cooks: PublicCook[];
+  cooks: PublicCookSummary[];
   error: string | null;
-  selectedCook: PublicCook | null;
+  selectedCook: PublicCookProfile | null;
   selectedCookId: string | null;
 }>) {
   if (error) return <CooksError error={error} />;
@@ -238,7 +189,10 @@ function CooksContent({
 export function PublicCooksView() {
   const searchParams = useSearchParams();
   const selectedCookId = searchParams.get("cook");
-  const [items, setItems] = useState<DiscoverFeedItem[]>([]);
+  const [cooks, setCooks] = useState<PublicCookSummary[]>([]);
+  const [selectedCook, setSelectedCook] = useState<PublicCookProfile | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -246,13 +200,17 @@ export function PublicCooksView() {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
-    void loadPublicActivity(controller.signal)
-      .then((activity) => {
-        if (!controller.signal.aborted) setItems(activity);
-      })
+    setSelectedCook(null);
+    const request = selectedCookId
+      ? getPublicCook(selectedCookId, controller.signal).then((cook) => {
+          if (!controller.signal.aborted) setSelectedCook(cook);
+        })
+      : getPublicCooks(controller.signal).then((nextCooks) => {
+          if (!controller.signal.aborted) setCooks(nextCooks);
+        });
+    void request
       .catch((cause: unknown) => {
-        if (cause instanceof DOMException && cause.name === "AbortError")
-          return;
+        if (controller.signal.aborted) return;
         setError(
           cause instanceof Error
             ? cause.message
@@ -263,12 +221,7 @@ export function PublicCooksView() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, []);
-
-  const cooks = useMemo(() => groupCooks(items), [items]);
-  const selectedCook = selectedCookId
-    ? cooks.find((cook) => cook.id === selectedCookId)
-    : null;
+  }, [selectedCookId]);
 
   if (loading) {
     return (

@@ -1,12 +1,13 @@
 import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
-  DiscoverFeedItem,
-  DiscoverFeedPage,
-} from "@/lib/api/discover-feed";
+  PublicCookProfile,
+  PublicCookSummary,
+} from "@/lib/api/public-cooks";
 
 const mocks = vi.hoisted(() => ({
-  getDiscoverFeedPage: vi.fn(),
+  getPublicCook: vi.fn(),
+  getPublicCooks: vi.fn(),
   useSearchParams: vi.fn(),
 }));
 
@@ -14,111 +15,101 @@ vi.mock("next/navigation", () => ({
   useSearchParams: mocks.useSearchParams,
 }));
 
-vi.mock("@/lib/api/discover-feed", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api/discover-feed")>()),
-  getDiscoverFeedPage: mocks.getDiscoverFeedPage,
+vi.mock("@/lib/api/public-cooks", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/public-cooks")>()),
+  getPublicCook: mocks.getPublicCook,
+  getPublicCooks: mocks.getPublicCooks,
 }));
 
 import { PublicCooksView } from "@/components/recipes/public-cooks-view";
 
-const validItem = {
-  type: "recipe_added",
-  author: { id: "cook-1", name: "Ada Cook", image: null },
-  recipe: {
-    slug: "ada-stew",
-    title: "Ada's Stew",
-    description: null,
-    body: null,
-    visibility: "public",
-    createdAt: "2026-07-16T12:00:00.000Z",
-    updatedAt: "2026-07-16T12:00:00.000Z",
-  },
-  createdAt: "2026-07-16T12:00:00.000Z",
-} satisfies DiscoverFeedItem;
+const summary = {
+  id: "cook-1",
+  name: "Ada Cook",
+  image: null,
+  activityCount: 2,
+  latestRecipeTitle: "Ada's Stew",
+} satisfies PublicCookSummary;
 
-const olderItem = {
-  ...validItem,
-  author: { id: "cook-2", name: "Grace Baker", image: null },
-  recipe: {
-    ...validItem.recipe,
-    slug: "grace-pie",
-    title: "Grace's Pie",
-  },
-  createdAt: "2026-07-15T12:00:00.000Z",
-} satisfies DiscoverFeedItem;
+const profile = {
+  id: "cook-1",
+  name: "Ada Cook",
+  image: null,
+  activity: [
+    {
+      type: "recipe_added",
+      recipe: {
+        slug: "ada-stew",
+        title: "Ada's Stew",
+        description: null,
+        body: null,
+        visibility: "public",
+        createdAt: "2026-07-16T12:00:00.000Z",
+        updatedAt: "2026-07-16T12:00:00.000Z",
+      },
+      createdAt: "2026-07-16T12:00:00.000Z",
+    },
+  ],
+} satisfies PublicCookProfile;
 
 describe("PublicCooksView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.useSearchParams.mockReturnValue(new URLSearchParams());
+    mocks.getPublicCooks.mockResolvedValue([summary]);
+    mocks.getPublicCook.mockResolvedValue(profile);
   });
 
-  it("ignores malformed activity without an author", async () => {
-    const malformedItem = {
-      ...validItem,
-      author: null,
-      recipe: { ...validItem.recipe, slug: "broken", title: "Broken Dish" },
-    } as unknown as DiscoverFeedItem;
-    mocks.getDiscoverFeedPage.mockResolvedValue({
-      items: [malformedItem, validItem],
-      nextCursor: null,
-    } satisfies DiscoverFeedPage);
-
+  it("renders lightweight cook summaries", async () => {
     render(<PublicCooksView />);
 
     expect(await screen.findByText("Ada Cook")).toBeInTheDocument();
-    expect(screen.queryByText("Broken Dish")).not.toBeInTheDocument();
+    expect(screen.getByText("Ada's Stew")).toBeInTheDocument();
+    expect(mocks.getPublicCooks).toHaveBeenCalledWith(expect.any(AbortSignal));
+    expect(mocks.getPublicCook).not.toHaveBeenCalled();
   });
 
-  it("aborts the feed request when unmounted", async () => {
-    let resolvePage: ((page: DiscoverFeedPage) => void) | undefined;
-    mocks.getDiscoverFeedPage.mockReturnValue(
-      new Promise<DiscoverFeedPage>((resolve) => {
-        resolvePage = resolve;
+  it("aborts the cooks request when unmounted", async () => {
+    let resolveCooks: ((cooks: PublicCookSummary[]) => void) | undefined;
+    mocks.getPublicCooks.mockReturnValue(
+      new Promise<PublicCookSummary[]>((resolve) => {
+        resolveCooks = resolve;
       }),
     );
 
     const { unmount } = render(<PublicCooksView />);
-    const signal = mocks.getDiscoverFeedPage.mock.calls[0]?.[2] as AbortSignal;
+    const signal = mocks.getPublicCooks.mock.calls[0]?.[0] as AbortSignal;
 
     unmount();
     expect(signal.aborted).toBe(true);
 
     await act(async () => {
-      resolvePage?.({ items: [validItem], nextCursor: null });
+      resolveCooks?.([summary]);
     });
   });
 
-  it("loads every feed page so older cooks remain discoverable", async () => {
-    mocks.getDiscoverFeedPage
-      .mockResolvedValueOnce({
-        items: [validItem],
-        nextCursor: "older-page",
-      } satisfies DiscoverFeedPage)
-      .mockResolvedValueOnce({
-        items: [olderItem],
-        nextCursor: null,
-      } satisfies DiscoverFeedPage);
+  it("loads a selected cook directly", async () => {
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams("cook=cook-1"));
 
     render(<PublicCooksView />);
 
-    expect(await screen.findByText("Grace Baker")).toBeInTheDocument();
-    expect(mocks.getDiscoverFeedPage).toHaveBeenNthCalledWith(
-      2,
-      "public",
-      "older-page",
+    expect(
+      await screen.findByRole("heading", {
+        name: /Ada.*recipe activity/,
+      }),
+    ).toBeInTheDocument();
+    expect(mocks.getPublicCook).toHaveBeenCalledWith(
+      "cook-1",
       expect.any(AbortSignal),
-      30,
     );
+    expect(mocks.getPublicCooks).not.toHaveBeenCalled();
   });
 
   it("shows request errors instead of a missing-cook message", async () => {
     mocks.useSearchParams.mockReturnValue(
       new URLSearchParams("cook=older-cook"),
     );
-    mocks.getDiscoverFeedPage.mockRejectedValue(
-      new Error("Service unavailable"),
-    );
+    mocks.getPublicCook.mockRejectedValue(new Error("Service unavailable"));
 
     render(<PublicCooksView />);
 
