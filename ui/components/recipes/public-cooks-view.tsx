@@ -20,6 +20,32 @@ type PublicCook = {
   activity: DiscoverFeedItem[];
 };
 
+const COOKS_FEED_PAGE_SIZE = 30;
+
+async function loadPublicActivity(signal: AbortSignal) {
+  const items: DiscoverFeedItem[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | null = null;
+
+  do {
+    const page = await getDiscoverFeedPage(
+      "public",
+      cursor,
+      signal,
+      COOKS_FEED_PAGE_SIZE,
+    );
+    items.push(...page.items);
+    if (!page.nextCursor) return items;
+    if (seenCursors.has(page.nextCursor)) {
+      throw new Error("The cooks directory returned a repeated page.");
+    }
+    seenCursors.add(page.nextCursor);
+    cursor = page.nextCursor;
+  } while (!signal.aborted);
+
+  throw new DOMException("The request was aborted.", "AbortError");
+}
+
 function groupCooks(items: DiscoverFeedItem[]): PublicCook[] {
   const cooks = new Map<string, PublicCook>();
   for (const item of items) {
@@ -132,10 +158,9 @@ function CookProfile({ cook }: Readonly<{ cook: PublicCook }>) {
 function CookNotFound() {
   return (
     <div className="rounded-xl border border-dashed border-[var(--line-strong)] p-8 text-center">
-      <p className="rt-display text-3xl">No recent activity found.</p>
+      <p className="rt-display text-3xl">Cook not found.</p>
       <p className="rt-body mt-2 text-sm text-[var(--ink-3)]">
-        Profiles are built from the 30 most recent public recipe additions, so
-        this cook may be outside the current activity window.
+        This cook has no public recipe activity.
       </p>
       <Button asChild variant="outline" className="mt-5">
         <Link href="/recipes/cooks">Browse all cooks</Link>
@@ -144,19 +169,7 @@ function CookNotFound() {
   );
 }
 
-function CookDirectoryResults({
-  cooks,
-  error,
-}: Readonly<{ cooks: PublicCook[]; error: string | null }>) {
-  if (error) {
-    return (
-      <div className="mt-10 rounded-xl border border-dashed border-[var(--line-strong)] p-8 text-center">
-        <p className="rt-display text-3xl">The kitchen is quiet.</p>
-        <p className="rt-body mt-2 text-sm text-[var(--ink-3)]">{error}</p>
-      </div>
-    );
-  }
-
+function CookDirectoryResults({ cooks }: Readonly<{ cooks: PublicCook[] }>) {
   if (cooks.length === 0) {
     return (
       <div className="mt-10 rounded-xl border border-dashed border-[var(--line-strong)] p-8 text-center">
@@ -178,10 +191,7 @@ function CookDirectoryResults({
   );
 }
 
-function CookDirectory({
-  cooks,
-  error,
-}: Readonly<{ cooks: PublicCook[]; error: string | null }>) {
+function CookDirectory({ cooks }: Readonly<{ cooks: PublicCook[] }>) {
   return (
     <>
       <header className="max-w-3xl">
@@ -194,8 +204,17 @@ function CookDirectory({
           Explore home cooks through the public recipes they’ve been adding.
         </p>
       </header>
-      <CookDirectoryResults cooks={cooks} error={error} />
+      <CookDirectoryResults cooks={cooks} />
     </>
+  );
+}
+
+function CooksError({ error }: Readonly<{ error: string }>) {
+  return (
+    <div className="rounded-xl border border-dashed border-[var(--line-strong)] p-8 text-center">
+      <p className="rt-display text-3xl">The kitchen is quiet.</p>
+      <p className="rt-body mt-2 text-sm text-[var(--ink-3)]">{error}</p>
+    </div>
   );
 }
 
@@ -210,9 +229,10 @@ function CooksContent({
   selectedCook: PublicCook | null;
   selectedCookId: string | null;
 }>) {
+  if (error) return <CooksError error={error} />;
   if (selectedCook) return <CookProfile cook={selectedCook} />;
   if (selectedCookId) return <CookNotFound />;
-  return <CookDirectory cooks={cooks} error={error} />;
+  return <CookDirectory cooks={cooks} />;
 }
 
 export function PublicCooksView() {
@@ -226,9 +246,9 @@ export function PublicCooksView() {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
-    void getDiscoverFeedPage("public", null, controller.signal, 30)
-      .then((page) => {
-        if (!controller.signal.aborted) setItems(page.items);
+    void loadPublicActivity(controller.signal)
+      .then((activity) => {
+        if (!controller.signal.aborted) setItems(activity);
       })
       .catch((cause: unknown) => {
         if (cause instanceof DOMException && cause.name === "AbortError")

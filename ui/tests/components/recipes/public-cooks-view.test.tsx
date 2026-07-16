@@ -36,6 +36,17 @@ const validItem = {
   createdAt: "2026-07-16T12:00:00.000Z",
 } satisfies DiscoverFeedItem;
 
+const olderItem = {
+  ...validItem,
+  author: { id: "cook-2", name: "Grace Baker", image: null },
+  recipe: {
+    ...validItem.recipe,
+    slug: "grace-pie",
+    title: "Grace's Pie",
+  },
+  createdAt: "2026-07-15T12:00:00.000Z",
+} satisfies DiscoverFeedItem;
+
 describe("PublicCooksView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -78,22 +89,43 @@ describe("PublicCooksView", () => {
     });
   });
 
-  it("explains that a missing cook may be outside the activity window", async () => {
+  it("loads every feed page so older cooks remain discoverable", async () => {
+    mocks.getDiscoverFeedPage
+      .mockResolvedValueOnce({
+        items: [validItem],
+        nextCursor: "older-page",
+      } satisfies DiscoverFeedPage)
+      .mockResolvedValueOnce({
+        items: [olderItem],
+        nextCursor: null,
+      } satisfies DiscoverFeedPage);
+
+    render(<PublicCooksView />);
+
+    expect(await screen.findByText("Grace Baker")).toBeInTheDocument();
+    expect(mocks.getDiscoverFeedPage).toHaveBeenNthCalledWith(
+      2,
+      "public",
+      "older-page",
+      expect.any(AbortSignal),
+      30,
+    );
+  });
+
+  it("shows request errors instead of a missing-cook message", async () => {
     mocks.useSearchParams.mockReturnValue(
       new URLSearchParams("cook=older-cook"),
     );
-    mocks.getDiscoverFeedPage.mockResolvedValue({
-      items: [validItem],
-      nextCursor: null,
-    } satisfies DiscoverFeedPage);
+    mocks.getDiscoverFeedPage.mockRejectedValue(
+      new Error("Service unavailable"),
+    );
 
     render(<PublicCooksView />);
 
     expect(
-      await screen.findByText("No recent activity found."),
+      await screen.findByText("The kitchen is quiet."),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/30 most recent public recipe additions/),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Service unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("Cook not found.")).not.toBeInTheDocument();
   });
 });
