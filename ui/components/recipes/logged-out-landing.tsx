@@ -41,7 +41,7 @@ export function LoggedOutLanding({
 
   return (
     <div className="w-full max-w-full overflow-x-clip">
-      <section className="container mx-auto grid min-w-0 max-w-7xl items-center gap-12 overflow-x-clip px-4 py-14 lg:min-h-[calc(100svh-9rem)] lg:grid-cols-[1.08fr_0.92fr] lg:gap-16 lg:py-20">
+      <section className="container mx-auto grid min-w-0 max-w-7xl items-center gap-12 overflow-x-clip px-4 pt-8 pb-10 sm:pt-10 sm:pb-12 lg:grid-cols-[1.08fr_0.92fr] lg:gap-16 lg:py-8">
         <div className="min-w-0 max-w-3xl">
           <p className="rt-mono text-[var(--terracotta)]">
             A recipe box built for real life
@@ -130,7 +130,7 @@ export function LoggedOutLanding({
         id="how-it-works"
         className="scroll-mt-32 border-y border-[var(--line)] bg-[var(--paper-warm)]/65"
       >
-        <div className="container mx-auto max-w-7xl px-4 py-16 sm:py-20">
+        <div className="container mx-auto max-w-7xl px-4 py-10 sm:py-12 lg:py-10">
           <div className="max-w-2xl">
             <p className="rt-mono text-[var(--terracotta)]">How it works</p>
             <h2 className="rt-display mt-3 text-5xl sm:text-6xl">
@@ -162,7 +162,7 @@ export function LoggedOutLanding({
         </div>
       </section>
 
-      <section className="container mx-auto max-w-7xl px-4 py-16 sm:py-20">
+      <section className="container mx-auto max-w-7xl px-4 py-10 sm:py-12 lg:py-10">
         <div className="flex flex-col items-start justify-between gap-8 rounded-[2rem] border border-[var(--terracotta)] bg-[var(--butter-soft)] p-7 sm:p-10 lg:flex-row lg:items-center">
           <div className="max-w-2xl">
             <p className="rt-mono text-[var(--terracotta-deep)]">
