@@ -195,8 +195,7 @@ export function DiscoverFeed() {
           <span className="text-[var(--terracotta)]">kitchens.</span>
         </h1>
         <p className="rt-body mt-3 max-w-2xl text-base text-[var(--ink-2)] sm:text-lg">
-          See the newest recipes people have added. More kinds of activity will
-          appear here as those features arrive.
+          See the newest recipes people have added.
         </p>
       </div>
 
