@@ -40,13 +40,13 @@ export function LoggedOutLanding({
   const previewRecipes = recipes.slice(0, 3);
 
   return (
-    <div className="overflow-hidden">
-      <section className="container mx-auto grid min-h-[calc(100svh-9rem)] max-w-7xl items-center gap-12 px-4 py-14 lg:grid-cols-[1.08fr_0.92fr] lg:gap-16 lg:py-20">
-        <div className="max-w-3xl">
+    <div className="w-full max-w-full overflow-x-clip">
+      <section className="container mx-auto grid min-w-0 max-w-7xl items-center gap-12 overflow-x-clip px-4 py-14 lg:min-h-[calc(100svh-9rem)] lg:grid-cols-[1.08fr_0.92fr] lg:gap-16 lg:py-20">
+        <div className="min-w-0 max-w-3xl">
           <p className="rt-mono text-[var(--terracotta)]">
             A recipe box built for real life
           </p>
-          <h1 className="rt-display mt-4 text-[clamp(4.25rem,10vw,7.75rem)] leading-[0.78] tracking-[-0.035em]">
+          <h1 className="rt-display mt-4 break-words text-6xl leading-[0.82] tracking-[-0.035em] min-[380px]:text-[4.25rem] sm:text-[clamp(4.25rem,10vw,7.75rem)] sm:leading-[0.78]">
             Find something worth cooking.{" "}
             <span className="text-[var(--terracotta)]">
               Keep what you love.
@@ -74,10 +74,10 @@ export function LoggedOutLanding({
           </p>
         </div>
 
-        <div className="relative mx-auto w-full max-w-xl lg:mx-0">
-          <div className="absolute -top-12 -right-16 size-56 rounded-full bg-[var(--butter)]/30 blur-3xl" />
-          <div className="absolute -bottom-12 -left-16 size-56 rounded-full bg-[var(--sage)]/20 blur-3xl" />
-          <div className="relative rotate-[0.6deg] rounded-[2rem] border border-[var(--line-strong)] bg-[var(--card)] p-5 shadow-[0_24px_70px_rgba(31,26,20,0.14)] sm:p-7">
+        <div className="relative mx-auto min-w-0 w-full max-w-xl lg:mx-0">
+          <div className="absolute -top-12 -right-16 hidden size-56 rounded-full bg-[var(--butter)]/30 blur-3xl sm:block" />
+          <div className="absolute -bottom-12 -left-16 hidden size-56 rounded-full bg-[var(--sage)]/20 blur-3xl sm:block" />
+          <div className="relative max-w-full rounded-[2rem] border border-[var(--line-strong)] bg-[var(--card)] p-5 shadow-[0_24px_70px_rgba(31,26,20,0.14)] sm:rotate-[0.6deg] sm:p-7">
             <div className="flex items-center justify-between border-b border-dashed border-[var(--line-strong)] pb-4">
               <div>
                 <p className="rt-mono text-[var(--terracotta)]">
