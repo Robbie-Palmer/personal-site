@@ -33,43 +33,43 @@ Use class-table inheritance:
 <Mermaid
   chart={`erDiagram
 USER {
-  text id PK
+text id PK
 }
 ORGANIZATION {
-  text id PK
+text id PK
 }
 INVITATION {
-  text id PK
+text id PK
 }
 NOTIFICATION_EVENT {
-  text id PK
-  text kind
-  text actor_user_id FK "nullable"
-  text actor_name_snapshot "nullable"
-  timestamp occurred_at
+text id PK
+text kind
+text actor_user_id FK "nullable"
+text actor_name_snapshot "nullable"
+timestamp occurred_at
 }
 NOTIFICATION_DELIVERY {
-  text id PK
-  text event_id FK
-  text recipient_user_id FK
-  timestamp read_at "nullable"
-  timestamp dismissed_at "nullable"
+text id PK
+text event_id FK
+text recipient_user_id FK
+timestamp read_at "nullable"
+timestamp dismissed_at "nullable"
 }
 NOTIFICATION_HOUSEHOLD_EVENT {
-  text event_id PK, FK
-  text household_id FK "nullable"
-  text household_name_snapshot
+text event_id PK, FK
+text household_id FK "nullable"
+text household_name_snapshot
 }
 NOTIFICATION_HOUSEHOLD_INVITATION_EVENT {
-  text event_id PK, FK
-  text invitation_id FK "nullable"
+text event_id PK, FK
+text invitation_id FK "nullable"
 }
 
 USER o|--o{ NOTIFICATION_EVENT : acts_in
 USER ||--o{ NOTIFICATION_DELIVERY : receives
 NOTIFICATION_EVENT ||--o{ NOTIFICATION_DELIVERY : fans_out_as
 NOTIFICATION_EVENT ||--o| NOTIFICATION_HOUSEHOLD_EVENT : specializes_as
-  NOTIFICATION_HOUSEHOLD_EVENT ||--o| NOTIFICATION_HOUSEHOLD_INVITATION_EVENT : adds_invitation_context
+NOTIFICATION_HOUSEHOLD_EVENT ||--o| NOTIFICATION_HOUSEHOLD_INVITATION_EVENT : adds_invitation_context
 ORGANIZATION o|--o{ NOTIFICATION_HOUSEHOLD_EVENT : describes
 INVITATION o|--o{ NOTIFICATION_HOUSEHOLD_INVITATION_EVENT : references`}
 />
@@ -168,20 +168,20 @@ label, order, policy, or workflow attached to a particular event. One possible e
 <Mermaid
   chart={`erDiagram
 NOTIFICATION_EVENT {
-  text id PK
-  text kind
+text id PK
+text kind
 }
 NOTIFICATION_ACTION_DEFINITION {
-  text id PK
-  text key
-  text label
-  text handler_type
+text id PK
+text key
+text label
+text handler_type
 }
 NOTIFICATION_EVENT_ACTION {
-  text event_id PK, FK
-  text action_definition_id PK, FK
-  integer position
-  timestamp available_until "nullable"
+text event_id PK, FK
+text action_definition_id PK, FK
+integer position
+timestamp available_until "nullable"
 }
 
 NOTIFICATION_EVENT ||--o{ NOTIFICATION_EVENT_ACTION : offers

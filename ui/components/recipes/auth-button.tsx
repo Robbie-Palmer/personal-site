@@ -9,6 +9,7 @@ import {
   LogOut,
   Settings,
   UserPlus,
+  UserRound,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -259,6 +260,17 @@ export function AuthButton({
             </div>
 
             <div className="p-1.5">
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                asChild
+                onClick={() => setOpen(false)}
+              >
+                <Link href="/recipes/profile">
+                  <UserRound />
+                  Profile
+                </Link>
+              </Button>
               <Button
                 variant="ghost"
                 className="w-full justify-start"

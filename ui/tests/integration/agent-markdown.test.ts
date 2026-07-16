@@ -55,6 +55,7 @@ describe("agent markdown generation", () => {
       "recipes/kitchen.html",
       "recipes/notifications.html",
       "recipes/onboarding.html",
+      "recipes/profile.html",
       "recipes/saved.html",
       "recipes/settings.html",
       "recipes/shopping.html",
@@ -79,7 +80,7 @@ describe("agent markdown generation", () => {
   });
 
   it("keeps authenticated app pages out of agent markdown outputs", () => {
-    for (const page of ["notifications", "onboarding", "settings"]) {
+    for (const page of ["notifications", "onboarding", "profile", "settings"]) {
       expect(fs.existsSync(path.join(OUT_DIR, "recipes", `${page}.md`))).toBe(
         false,
       );
@@ -104,6 +105,7 @@ describe("agent markdown generation", () => {
       "kitchen.html",
       "notifications.html",
       "onboarding.html",
+      "profile.html",
       "saved.html",
       "settings.html",
       "shopping.html",
