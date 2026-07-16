@@ -13,10 +13,11 @@ const SUBDOMAIN_PROJECTS = new Set(["assettracker"]);
 // are intentionally excluded from the sitemap.
 const STATIC_ASSET_SEGMENTS = new Set(["recipe-site-design"]);
 
-// Authenticated, noindex app pages (e.g. account settings) — served but kept
-// out of the sitemap on purpose.
+// Interactive, noindex app pages (e.g. account settings and personalized
+// feeds) — served but kept out of the sitemap on purpose.
 const NOINDEX_APP_PAGES = new Set([
   "recipes/add",
+  "recipes/discover",
   "recipes/kitchen",
   "recipes/notifications",
   "recipes/onboarding",

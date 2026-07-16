@@ -52,6 +52,7 @@ describe("agent markdown generation", () => {
     // Interactive, noindex app pages that intentionally have no Markdown twin.
     const nonContentPages = new Set([
       "recipes/add.html",
+      "recipes/discover.html",
       "recipes/kitchen.html",
       "recipes/notifications.html",
       "recipes/onboarding.html",
@@ -102,6 +103,7 @@ describe("agent markdown generation", () => {
   it("generates JSON and Cooklang exports for every recipe", () => {
     const nonRecipePages = new Set([
       "add.html",
+      "discover.html",
       "kitchen.html",
       "notifications.html",
       "onboarding.html",

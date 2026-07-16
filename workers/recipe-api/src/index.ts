@@ -1,5 +1,16 @@
 import { Hono, type Context } from "hono";
-import { and, count, desc, eq, gt, gte, inArray, isNull, lt, or } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  or,
+} from "drizzle-orm";
 import { z } from "zod";
 import { createDb, schema } from "recipe-db";
 import { RecipeContentSchema } from "recipe-domain";
@@ -7,6 +18,12 @@ import { parseSchemaOrgRecipeHtml } from "recipe-parsing/schema-org";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
 import { hasPostgresErrorCode } from "./db/errors";
+import {
+  decodeFeedCursor,
+  paginateRecipeFeed,
+  recipeFeedCursorFilter,
+  recipeFeedCursorTimestamp,
+} from "./feed-pagination";
 import {
   type AuthenticatedSession,
   type AuthorizationVariables,
@@ -104,6 +121,8 @@ const recipeSlugSchema = z
 
 const recipeVisibilitySchema = z.enum(["public", "private", "household"]);
 const dietRecipeMatchModeSchema = z.enum(["hide", "warn"]);
+const feedScopeSchema = z.enum(["public", "household"]);
+const feedLimitSchema = z.coerce.number().int().min(1).max(30).default(12);
 
 const dietKeySchema = z
   .string()
@@ -2637,6 +2656,79 @@ app.get("/recipes", async (c) => {
     return c.json(recipes.map(recipeResponse));
   } catch (e) {
     console.error("GET /recipes query failed", e);
+    return c.json({ error: "Database query failed" }, 502);
+  } finally {
+    await closeDbClient(client);
+  }
+});
+
+app.get("/recipes/discover/feed", async (c) => {
+  const scope = feedScopeSchema.safeParse(c.req.query("scope") ?? "public");
+  const limit = feedLimitSchema.safeParse(c.req.query("limit"));
+  const cursorValue = c.req.query("cursor");
+  const cursor = decodeFeedCursor(cursorValue);
+  if (!scope.success || !limit.success || (cursorValue && !cursor)) {
+    return c.json({ error: "Invalid feed query" }, 400);
+  }
+
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json(
+      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
+      503,
+    );
+  }
+
+  let client: DbClient | undefined;
+  try {
+    const connection = createDb(connectionString);
+    client = connection.client;
+    const { db } = connection;
+    let visibilityFilter = eq(schema.recipe.visibility, "public");
+    if (scope.data === "household") {
+      const session = await loadOptionalRecipeSession(c, db);
+      if (!session) return authorizationResponse(c, unauthenticated());
+      const membership = await findUserHouseholdMembership(db, session.user.id);
+      if (!membership) return c.json({ items: [], nextCursor: null });
+      const memberIds = await findHouseholdMemberUserIds(
+        db,
+        membership.organizationId,
+      );
+      visibilityFilter = and(
+        inArray(schema.recipe.userId, memberIds),
+        inArray(schema.recipe.visibility, ["public", "household"]),
+      )!;
+    }
+
+    const cursorFilter = recipeFeedCursorFilter(cursor);
+    const rows = await db
+      .select({
+        recipe: schema.recipe,
+        cursorCreatedAt: recipeFeedCursorTimestamp(),
+        author: {
+          id: schema.user.id,
+          name: schema.user.name,
+          image: schema.user.image,
+        },
+      })
+      .from(schema.recipe)
+      .innerJoin(schema.user, eq(schema.recipe.userId, schema.user.id))
+      .where(cursorFilter ? and(visibilityFilter, cursorFilter) : visibilityFilter)
+      .orderBy(desc(schema.recipe.createdAt), desc(schema.recipe.id))
+      .limit(limit.data + 1);
+
+    const page = paginateRecipeFeed(rows, limit.data);
+    return c.json({
+      items: page.items.map(({ recipe, author }) => ({
+        type: "recipe_added" as const,
+        recipe: recipeResponse(recipe),
+        author,
+        createdAt: recipe.createdAt,
+      })),
+      nextCursor: page.nextCursor,
+    });
+  } catch (e) {
+    console.error("GET /recipes/discover/feed query failed", e);
     return c.json({ error: "Database query failed" }, 502);
   } finally {
     await closeDbClient(client);

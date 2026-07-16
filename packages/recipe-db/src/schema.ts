@@ -269,7 +269,20 @@ export const recipe = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [index("recipe_user_id_idx").on(table.userId)],
+  (table) => [
+    index("recipe_user_id_idx").on(table.userId),
+    index("recipe_public_feed_idx").on(
+      table.visibility,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+    index("recipe_household_feed_idx").on(
+      table.userId,
+      table.visibility,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+  ],
 );
 
 export const ingredient = pgTable("ingredient", {
