@@ -103,6 +103,22 @@ describe("ProfileView", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows the signed-in user's profile without a household", async () => {
+    mocks.getHouseholds.mockResolvedValue([]);
+
+    render(<ProfileView />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Robbie's kitchen/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /settings/i })).toHaveAttribute(
+      "href",
+      "/recipes/settings",
+    );
+    expect(screen.queryByText("Household")).not.toBeInTheDocument();
+    expect(mocks.getHouseholdMembers).not.toHaveBeenCalled();
+  });
+
   it("does not expose profiles outside the current household", async () => {
     render(<ProfileView userId="unknown-user" />);
 

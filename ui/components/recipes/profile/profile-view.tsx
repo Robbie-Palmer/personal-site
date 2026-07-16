@@ -14,9 +14,10 @@ import {
 import { authClient } from "@/lib/auth-client";
 
 type ProfileData = {
-  household: Household;
+  household: Household | null;
   members: HouseholdMember[];
-  profile: HouseholdMember;
+  profile: HouseholdMember["user"];
+  role: HouseholdMember["role"] | null;
 };
 
 function loadErrorMessage(error: unknown) {
@@ -46,21 +47,43 @@ export function ProfileView({ userId }: Readonly<{ userId?: string | null }>) {
     void getHouseholds(controller.signal)
       .then(async (households) => {
         const household = households[0];
-        if (!household)
-          throw new Error("This account isn't in a household yet.");
+        const selectedUserId = userId || currentUserId;
+        if (!household) {
+          if (selectedUserId !== currentUserId) {
+            throw new Error("This profile isn't part of your household.");
+          }
+          if (!controller.signal.aborted) {
+            setData({
+              household: null,
+              members: [],
+              profile: {
+                id: session.user.id,
+                email: session.user.email,
+                name: session.user.name,
+                image: session.user.image ?? null,
+              },
+              role: null,
+            });
+          }
+          return;
+        }
         const members = await getHouseholdMembers(
           household.id,
           controller.signal,
         );
-        const selectedUserId = userId || currentUserId;
-        const profile = members.find(
+        const membership = members.find(
           (member) => member.user.id === selectedUserId,
         );
-        if (!profile) {
+        if (!membership) {
           throw new Error("This profile isn't part of your household.");
         }
         if (!controller.signal.aborted) {
-          setData({ household, members, profile });
+          setData({
+            household,
+            members,
+            profile: membership.user,
+            role: membership.role,
+          });
         }
       })
       .catch((loadError: unknown) => {
@@ -110,24 +133,25 @@ export function ProfileView({ userId }: Readonly<{ userId?: string | null }>) {
     );
   }
 
-  const { household, members, profile } = data;
+  const { household, members, profile, role } = data;
   const currentUserId = session.user.id;
-  const isSelf = profile.user.id === currentUserId;
-  const firstName = profile.user.name.trim().split(/\s+/)[0] || "Chef";
+  const isSelf = profile.id === currentUserId;
+  const firstName = profile.name.trim().split(/\s+/)[0] || "Chef";
 
   return (
     <div className="container mx-auto w-full max-w-5xl flex-1 px-4 py-8 md:py-12">
       <header className="flex flex-col gap-5 border-b border-dashed border-[var(--line-strong)] pb-8 sm:flex-row sm:items-center">
         <RecipeAvatar
-          name={profile.user.name}
-          email={profile.user.email}
-          image={profile.user.image}
+          name={profile.name}
+          email={profile.email}
+          image={profile.image}
           size={88}
           className="shadow-[var(--paper-shadow)]"
         />
         <div className="min-w-0 flex-1">
           <p className="rt-mono text-[var(--terracotta)]">
-            {isSelf ? "Your profile" : "Household profile"} · {profile.role}
+            {isSelf ? "Your profile" : "Household profile"}
+            {role ? ` · ${role}` : ""}
           </p>
           <h1 className="rt-display mt-2 text-5xl sm:text-6xl">
             {firstName}&apos;s{" "}
@@ -136,7 +160,7 @@ export function ProfileView({ userId }: Readonly<{ userId?: string | null }>) {
           <p className="rt-body mt-2 text-sm text-[var(--ink-2)]">
             {isSelf
               ? "Your home for the recipes and people you cook with."
-              : `You and ${firstName} share ${household.name}.`}
+              : `You and ${firstName} share ${household?.name}.`}
           </p>
         </div>
         {isSelf && (
@@ -148,61 +172,63 @@ export function ProfileView({ userId }: Readonly<{ userId?: string | null }>) {
         )}
       </header>
 
-      <section className="mt-8 rounded-xl border border-[var(--line-strong)] bg-[var(--card)] p-5 shadow-[var(--paper-shadow)] sm:p-6">
-        <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--paper-warm)] text-[var(--terracotta-deep)]">
-            <Home aria-hidden="true" className="size-5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="rt-mono text-[var(--terracotta)]">Household</p>
-            <h2 className="rt-display mt-1 text-3xl">{household.name}</h2>
-            <p className="rt-body mt-1 text-sm text-[var(--ink-3)]">
-              {members.length} {members.length === 1 ? "person" : "people"}{" "}
-              sharing a kitchen
-            </p>
+      {household && (
+        <section className="mt-8 rounded-xl border border-[var(--line-strong)] bg-[var(--card)] p-5 shadow-[var(--paper-shadow)] sm:p-6">
+          <div className="flex items-start gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--paper-warm)] text-[var(--terracotta-deep)]">
+              <Home aria-hidden="true" className="size-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="rt-mono text-[var(--terracotta)]">Household</p>
+              <h2 className="rt-display mt-1 text-3xl">{household.name}</h2>
+              <p className="rt-body mt-1 text-sm text-[var(--ink-3)]">
+                {members.length} {members.length === 1 ? "person" : "people"}{" "}
+                sharing a kitchen
+              </p>
+            </div>
+            <Users aria-hidden="true" className="size-5 text-[var(--ink-3)]" />
           </div>
-          <Users aria-hidden="true" className="size-5 text-[var(--ink-3)]" />
-        </div>
 
-        <div className="mt-5 divide-y divide-dashed divide-[var(--line)] border-t border-dashed border-[var(--line)]">
-          {members.map((member) => {
-            const memberIsSelf = member.user.id === currentUserId;
-            const active = member.user.id === profile.user.id;
-            return (
-              <Link
-                key={member.id}
-                href={`/recipes/profile?user=${encodeURIComponent(member.user.id)}`}
-                aria-current={active ? "page" : undefined}
-                className="group flex items-center gap-3 rounded-lg px-2 py-4 transition-colors hover:bg-[var(--paper-warm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terracotta)]"
-              >
-                <RecipeAvatar
-                  name={member.user.name}
-                  email={member.user.email}
-                  image={member.user.image}
-                  size={44}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="rt-body truncate font-semibold text-[var(--ink)]">
-                    {member.user.name}
-                    {memberIsSelf ? " · you" : ""}
-                  </p>
-                  <p className="rt-mono text-[var(--ink-3)]">{member.role}</p>
-                </div>
-                {active ? (
-                  <span className="rt-mono rounded-full bg-[var(--sage)] px-2 py-1 text-white">
-                    Viewing
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-sm text-[var(--ink-3)] group-hover:text-[var(--terracotta-deep)]">
-                    View profile{" "}
-                    <ArrowRight aria-hidden="true" className="size-4" />
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-        </div>
-      </section>
+          <div className="mt-5 divide-y divide-dashed divide-[var(--line)] border-t border-dashed border-[var(--line)]">
+            {members.map((member) => {
+              const memberIsSelf = member.user.id === currentUserId;
+              const active = member.user.id === profile.id;
+              return (
+                <Link
+                  key={member.id}
+                  href={`/recipes/profile?user=${encodeURIComponent(member.user.id)}`}
+                  aria-current={active ? "page" : undefined}
+                  className="group flex items-center gap-3 rounded-lg px-2 py-4 transition-colors hover:bg-[var(--paper-warm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terracotta)]"
+                >
+                  <RecipeAvatar
+                    name={member.user.name}
+                    email={member.user.email}
+                    image={member.user.image}
+                    size={44}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="rt-body truncate font-semibold text-[var(--ink)]">
+                      {member.user.name}
+                      {memberIsSelf ? " · you" : ""}
+                    </p>
+                    <p className="rt-mono text-[var(--ink-3)]">{member.role}</p>
+                  </div>
+                  {active ? (
+                    <span className="rt-mono rounded-full bg-[var(--sage)] px-2 py-1 text-white">
+                      Viewing
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-sm text-[var(--ink-3)] group-hover:text-[var(--terracotta-deep)]">
+                      View profile{" "}
+                      <ArrowRight aria-hidden="true" className="size-4" />
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
