@@ -33,9 +33,12 @@ const repoRoot = path.resolve(
   "../../..",
 );
 const journalPath = "workers/recipe-api/drizzle/meta/_journal.json";
+// This deployment helper runs on GitHub's Ubuntu workers. Use the immutable
+// system binary instead of resolving an executable through a mutable PATH.
+const gitExecutable = "/usr/bin/git";
 
 try {
-  execFileSync("git", ["cat-file", "-e", `${baseRef}^{commit}`], {
+  execFileSync(gitExecutable, ["cat-file", "-e", `${baseRef}^{commit}`], {
     cwd: repoRoot,
     stdio: "ignore",
   });
@@ -45,7 +48,7 @@ try {
 
 function readFromGit(ref: string, filePath: string): string | undefined {
   try {
-    return execFileSync("git", ["show", `${ref}:${filePath}`], {
+    return execFileSync(gitExecutable, ["show", `${ref}:${filePath}`], {
       cwd: repoRoot,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],

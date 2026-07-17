@@ -58,7 +58,9 @@ else
     sleep 1
   done
 
-  published_port=$(docker port "$container_id" 5432/tcp | sed -E 's/.*:([0-9]+)$/\1/')
+  published_port=$(docker inspect \
+    --format '{{(index (index .NetworkSettings.Ports "5432/tcp") 0).HostPort}}' \
+    "$container_id")
   if [[ ! "$published_port" =~ ^[0-9]+$ ]]; then
     echo "Could not determine the disposable PostgreSQL port." >&2
     exit 1
