@@ -9,6 +9,21 @@ import { describe, expect, it } from "vitest";
 
 const OUT_DIR = path.join(process.cwd(), "out");
 
+// Runtime-backed recipe app pages are static export shells, not recipe content.
+// They intentionally have no Markdown, JSON, or Cooklang twins.
+const RECIPE_APP_PAGES = new Set([
+  "add",
+  "cooks",
+  "discover",
+  "kitchen",
+  "notifications",
+  "onboarding",
+  "profile",
+  "saved",
+  "settings",
+  "shopping",
+]);
+
 function read(relativePath: string): string {
   return fs.readFileSync(path.join(OUT_DIR, relativePath), "utf-8");
 }
@@ -49,25 +64,14 @@ describe("agent markdown generation", () => {
   });
 
   it("generates a markdown twin for every recipe and technology page", () => {
-    // Interactive, noindex app pages that intentionally have no Markdown twin.
-    const nonContentPages = new Set([
-      "recipes/add.html",
-      "recipes/discover.html",
-      "recipes/kitchen.html",
-      "recipes/notifications.html",
-      "recipes/onboarding.html",
-      "recipes/profile.html",
-      "recipes/saved.html",
-      "recipes/settings.html",
-      "recipes/shopping.html",
-    ]);
     for (const section of ["recipes", "technologies"]) {
       const htmlPages = fs
         .readdirSync(path.join(OUT_DIR, section))
         .filter(
           (file) =>
             file.endsWith(".html") &&
-            !nonContentPages.has(`${section}/${file}`),
+            (section !== "recipes" ||
+              !RECIPE_APP_PAGES.has(file.replace(/\.html$/, ""))),
         );
       expect(htmlPages.length).toBeGreaterThan(0);
       for (const htmlPage of htmlPages) {
@@ -80,8 +84,14 @@ describe("agent markdown generation", () => {
     }
   });
 
-  it("keeps authenticated app pages out of agent markdown outputs", () => {
-    for (const page of ["notifications", "onboarding", "profile", "settings"]) {
+  it("keeps runtime-backed app pages out of agent markdown outputs", () => {
+    for (const page of [
+      "cooks",
+      "notifications",
+      "onboarding",
+      "profile",
+      "settings",
+    ]) {
       expect(fs.existsSync(path.join(OUT_DIR, "recipes", `${page}.md`))).toBe(
         false,
       );
@@ -101,20 +111,13 @@ describe("agent markdown generation", () => {
   });
 
   it("generates JSON and Cooklang exports for every recipe", () => {
-    const nonRecipePages = new Set([
-      "add.html",
-      "discover.html",
-      "kitchen.html",
-      "notifications.html",
-      "onboarding.html",
-      "profile.html",
-      "saved.html",
-      "settings.html",
-      "shopping.html",
-    ]);
     const recipePages = fs
       .readdirSync(path.join(OUT_DIR, "recipes"))
-      .filter((file) => file.endsWith(".html") && !nonRecipePages.has(file));
+      .filter(
+        (file) =>
+          file.endsWith(".html") &&
+          !RECIPE_APP_PAGES.has(file.replace(/\.html$/, "")),
+      );
 
     for (const recipePage of recipePages) {
       const slug = recipePage.replace(/\.html$/, "");

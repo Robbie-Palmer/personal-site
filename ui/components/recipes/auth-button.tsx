@@ -137,9 +137,11 @@ function AuthOptions({
 }
 
 export function AuthButton({
+  className,
   compactOnMobile = false,
   intent = "signin",
 }: Readonly<{
+  className?: string;
   compactOnMobile?: boolean;
   intent?: "signin" | "signup";
 }>) {
@@ -202,13 +204,19 @@ export function AuthButton({
   }
 
   if (isPending) {
-    if (intent === "signup") return null;
-    return (
-      <Button variant="outline" size="sm" disabled aria-label="Loading session">
-        <LoaderCircle className="animate-spin" />
-        <span className="hidden sm:inline">Log in</span>
-      </Button>
-    );
+    if (intent === "signin") {
+      return (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled
+          aria-label="Loading session"
+        >
+          <LoaderCircle className="animate-spin" />
+          <span className="hidden sm:inline">Log in</span>
+        </Button>
+      );
+    }
   }
 
   if (session && intent === "signup") return null;
@@ -391,6 +399,7 @@ export function AuthButton({
           className={cn(
             intent === "signup" &&
               "max-w-full rounded-full bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]",
+            className,
           )}
         >
           {intent === "signup" ? <UserPlus /> : <LogIn />}

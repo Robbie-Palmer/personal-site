@@ -4,7 +4,7 @@ import Link from "next/link";
 import { AuthButton } from "@/components/recipes/auth-button";
 import { DietProvider } from "@/components/recipes/diet-provider";
 import { NotificationBell } from "@/components/recipes/notifications/notification-bell";
-import { RecipeNavTabs } from "@/components/recipes/recipe-nav-tabs";
+import { RecipeSiteNav } from "@/components/recipes/recipe-site-nav";
 import { RecipeThemeBody } from "@/components/recipes/recipe-theme-body";
 import { TimerDock } from "@/components/recipes/timer-dock";
 import { siteConfig } from "@/lib/config/site-config";
@@ -70,7 +70,7 @@ export default function RecipesLayout({
               <AuthButton compactOnMobile />
             </div>
             <div className="order-3 w-full sm:order-2 sm:w-auto">
-              <RecipeNavTabs />
+              <RecipeSiteNav />
             </div>
           </nav>
         </header>

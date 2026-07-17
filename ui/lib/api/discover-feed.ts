@@ -18,9 +18,11 @@ export async function getDiscoverFeedPage(
   scope: DiscoverFeedScope,
   cursor: string | null,
   signal?: AbortSignal,
+  limit?: number,
 ): Promise<DiscoverFeedPage> {
   const params = new URLSearchParams({ scope });
   if (cursor) params.set("cursor", cursor);
+  if (limit !== undefined) params.set("limit", String(limit));
   const response = await fetch(`/api/recipes/discover/feed?${params}`, {
     credentials: "same-origin",
     signal,

@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
-import { RecipeBoxView } from "@/components/recipes/recipe-box-view";
+import { RecipeHome } from "@/components/recipes/recipe-home";
 import { JsonLdScript } from "@/components/seo/json-ld-script";
 import { getAllRecipes } from "@/lib/api/recipes";
 import { siteConfig } from "@/lib/config/site-config";
 import { buildRecipeListJsonLd } from "@/lib/seo/recipe-jsonld";
 
 export const metadata: Metadata = {
-  title: "All Recipes",
-  description: "Browse all of my favorite recipes",
+  title: "Recipes for real life",
+  description:
+    "Discover what home cooks are making and keep the recipes you want to cook again.",
 };
 
 export default function RecipesPage() {
@@ -31,7 +32,7 @@ export default function RecipesPage() {
   return (
     <>
       <JsonLdScript data={jsonLd} />
-      <RecipeBoxView recipes={recipes} catalogStats={catalogStats} />
+      <RecipeHome recipes={recipes} catalogStats={catalogStats} />
     </>
   );
 }

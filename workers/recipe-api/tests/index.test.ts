@@ -930,6 +930,58 @@ const dbMock = vi.hoisted(() => {
 
     if (
       query.includes('from "recipe"') &&
+      query.includes('inner join "user"') &&
+      query.includes('group by')
+    ) {
+      const publicRecipes = state.recipes.filter(
+        (recipe) => recipe.visibility === "public",
+      );
+      const grouped = new Map<string, RecipeRow[]>();
+      for (const recipe of publicRecipes) {
+        const recipes = grouped.get(recipe.userId) ?? [];
+        recipes.push(recipe);
+        grouped.set(recipe.userId, recipes);
+      }
+      return Array.from(grouped, ([userId, recipes]) => {
+        const user = state.users.find((candidate) => candidate.id === userId)!;
+        const latest = [...recipes].sort(
+          (first, second) =>
+            second.createdAt.getTime() - first.createdAt.getTime() ||
+            second.id.localeCompare(first.id),
+        )[0]!;
+        return [user.id, user.name, user.image, recipes.length, latest.title];
+      });
+    }
+
+    if (
+      query.includes('from "recipe"') &&
+      query.includes('inner join "user"') &&
+      query.includes('"user"."id" =')
+    ) {
+      const cookId = params[1] as string;
+      const user = state.users.find((candidate) => candidate.id === cookId);
+      if (!user) return [];
+      return state.recipes
+        .filter(
+          (recipe) =>
+            recipe.userId === cookId && recipe.visibility === "public",
+        )
+        .sort(
+          (first, second) =>
+            second.createdAt.getTime() - first.createdAt.getTime() ||
+            second.id.localeCompare(first.id),
+        )
+        .slice(0, 30)
+        .map((recipe) => [
+          ...recipeRow(recipe),
+          user.id,
+          user.name,
+          user.image,
+        ]);
+    }
+
+    if (
+      query.includes('from "recipe"') &&
       query.includes('"recipe"."slug" =') &&
       query.includes('"recipe"."user_id" =')
     ) {
@@ -1441,6 +1493,98 @@ describe("GET /recipes", () => {
     expect(res.status).toBe(502);
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe("Database query failed");
+  });
+});
+
+describe("GET /recipes/cooks", () => {
+  function seedCook() {
+    dbMock.state.users.push({
+      id: "cook-1",
+      name: "Ada Cook",
+      email: "ada@example.test",
+      emailVerified: true,
+      image: null,
+      role: null,
+      banned: null,
+      banReason: null,
+      banExpires: null,
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    dbMock.state.recipes.push(
+      {
+        id: "recipe-1",
+        slug: "ada-stew",
+        title: "Ada's Stew",
+        description: null,
+        body: null,
+        userId: "cook-1",
+        visibility: "public",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+      {
+        id: "recipe-private",
+        slug: "private-soup",
+        title: "Private Soup",
+        description: null,
+        body: null,
+        userId: "cook-1",
+        visibility: "private",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+    );
+  }
+
+  it("returns lightweight summaries of cooks with public recipes", async () => {
+    seedCook();
+
+    const res = await app.request("/recipes/cooks", {}, env);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      cooks: [
+        {
+          id: "cook-1",
+          name: "Ada Cook",
+          image: null,
+          activityCount: 1,
+          latestRecipeTitle: "Ada's Stew",
+        },
+      ],
+    });
+  });
+
+  it("returns recent public activity for one cook", async () => {
+    seedCook();
+
+    const res = await app.request("/recipes/cooks?cook=cook-1", {}, env);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      cook: {
+        id: "cook-1",
+        name: "Ada Cook",
+        image: null,
+        activity: [
+          expect.objectContaining({
+            type: "recipe_added",
+            recipe: expect.objectContaining({
+              slug: "ada-stew",
+              title: "Ada's Stew",
+            }),
+          }),
+        ],
+      },
+    });
+  });
+
+  it("returns null for a cook without public activity", async () => {
+    const res = await app.request("/recipes/cooks?cook=missing", {}, env);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ cook: null });
   });
 });
 
