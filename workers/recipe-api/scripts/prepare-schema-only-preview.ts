@@ -20,7 +20,7 @@ function requiredEnv(name: string): string {
 }
 
 const databaseURL = requiredEnv("DATABASE_URL");
-const baseRef = requiredEnv("MIGRATIONS_BASE_REF");
+const sourceRef = requiredEnv("MIGRATIONS_SOURCE_REF");
 
 if (process.env.ALLOW_SCHEMA_ONLY_PREVIEW_HISTORY !== "1") {
   throw new Error(
@@ -38,12 +38,14 @@ const journalPath = "workers/recipe-api/drizzle/meta/_journal.json";
 const gitExecutable = "/usr/bin/git";
 
 try {
-  execFileSync(gitExecutable, ["cat-file", "-e", `${baseRef}^{commit}`], {
+  execFileSync(gitExecutable, ["cat-file", "-e", `${sourceRef}^{commit}`], {
     cwd: repoRoot,
     stdio: "ignore",
   });
 } catch {
-  throw new Error(`MIGRATIONS_BASE_REF is not an available commit: ${baseRef}`);
+  throw new Error(
+    `MIGRATIONS_SOURCE_REF is not an available commit: ${sourceRef}`,
+  );
 }
 
 function readFromGit(ref: string, filePath: string): string | undefined {
@@ -57,24 +59,6 @@ function readFromGit(ref: string, filePath: string): string | undefined {
     return undefined;
   }
 }
-
-const journalSource = readFromGit(baseRef, journalPath);
-const journal: Journal = journalSource
-  ? (JSON.parse(journalSource) as Journal)
-  : { entries: [] };
-
-const migrations = journal.entries.map((entry) => {
-  const sqlPath = `workers/recipe-api/drizzle/${entry.tag}.sql`;
-  const sql = readFromGit(baseRef, sqlPath);
-  if (sql === undefined) {
-    throw new Error(`Migration ${sqlPath} is missing at ${baseRef}`);
-  }
-
-  return {
-    createdAt: entry.when,
-    hash: createHash("sha256").update(sql).digest("hex"),
-  };
-});
 
 const client = postgres(databaseURL, { max: 1 });
 
@@ -106,6 +90,37 @@ try {
       return;
     }
 
+    const [manifestRelation] = await sql<{ exists: boolean }[]>`
+      select to_regclass('drizzle.__schema_migration_manifest') is not null as exists
+    `;
+    const entries: JournalEntry[] = manifestRelation?.exists
+      ? await sql<{ tag: string; when: number }[]>`
+          select tag, created_at::bigint as "when"
+          from drizzle.__schema_migration_manifest
+          order by created_at
+        `
+      : (() => {
+          // Transitional fallback for a schema-only branch copied before the
+          // first deployment that installs the schema-level manifest.
+          const source = readFromGit(sourceRef, journalPath);
+          return source
+            ? (JSON.parse(source) as Journal).entries
+            : ([] satisfies JournalEntry[]);
+        })();
+
+    const migrations = entries.map((entry) => {
+      const sqlPath = `workers/recipe-api/drizzle/${entry.tag}.sql`;
+      const migrationSQL = readFromGit(sourceRef, sqlPath);
+      if (migrationSQL === undefined) {
+        throw new Error(`Migration ${sqlPath} is missing at ${sourceRef}`);
+      }
+
+      return {
+        createdAt: entry.when,
+        hash: createHash("sha256").update(migrationSQL).digest("hex"),
+      };
+    });
+
     for (const migration of migrations) {
       await sql`
         insert into drizzle.__drizzle_migrations (hash, created_at)
@@ -114,7 +129,7 @@ try {
     }
 
     console.log(
-      `Restored ${migrations.length} migration history entries from ${baseRef}.`,
+      `Restored ${migrations.length} migration history entries using ${sourceRef}.`,
     );
   });
 } finally {

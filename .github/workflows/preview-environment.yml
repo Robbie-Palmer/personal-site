@@ -119,8 +119,8 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          # The schema-only migration-history step reads migrations from the
-          # PR base commit before applying this branch's migrations.
+          # The schema-only migration-history step reads migration SQL from the
+          # current base ref before applying this branch's migrations.
           fetch-depth: 0
           persist-credentials: false
 
@@ -149,7 +149,7 @@ jobs:
         run: mise run //workers/recipe-api:db:prepare-schema-only-preview
         env:
           DATABASE_URL: ${{ steps.neon.outputs.db_url }}
-          MIGRATIONS_BASE_REF: ${{ github.event.pull_request.base.sha }}
+          MIGRATIONS_SOURCE_REF: ${{ github.event.pull_request.base.sha }}
           ALLOW_SCHEMA_ONLY_PREVIEW_HISTORY: "1"
 
       - name: Migrate preview branch

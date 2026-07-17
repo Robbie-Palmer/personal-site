@@ -163,8 +163,13 @@ backfill, then remove the old shape in a later deployment.
 
 PR previews remain schema-only Neon branches because production identity,
 sessions, tokens, and private content must not be copied. Before migrating a new
-schema-only branch, the workflow restores the checked-in migration history from
-the PR base commit. It then runs the PR's unrecorded migrations normally.
+schema-only branch, the workflow restores the migration history represented by
+a cumulative `drizzle.__schema_migration_manifest` view. Neon copies this view
+as part of the parent schema even though it omits the Drizzle journal's rows.
+The workflow reconstructs the corresponding hashes from migration SQL at the
+current base commit, then runs the PR's unrecorded migrations normally. The
+migration checker requires the latest migration to refresh the view with every
+journal entry.
 
 A reused preview with a non-empty journal keeps its own history. This matters
 when `main` advances after the preview was created: those newer base migrations

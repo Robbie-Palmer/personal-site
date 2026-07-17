@@ -22,8 +22,9 @@ The database branch, Workers, and Workflow survive updates to the PR so QA state
 is preserved. They are deleted when the PR closes. Neon also expires the branch
 after 30 days as a backstop; pushing another commit recreates an expired branch.
 Because schema-only copies omit table rows, the workflow first restores the
-Drizzle migration-history rows from the PR base commit, then applies migrations
-introduced by the PR. The shared preview artifact bucket is persistent
+Drizzle migration-history rows represented by a schema-level manifest copied
+from the parent database, then applies migrations introduced by the PR. The
+shared preview artifact bucket is persistent
 infrastructure and contains synthetic or QA-only data; a lifecycle rule expires
 objects after 30 days.
 
@@ -237,11 +238,14 @@ rejected with `412 Precondition Failed`.
 
 ## Database migrations
 
-Schema changes use committed Drizzle migrations. The preview workflow restores
-the history that a schema-only Neon copy omits, based on the PR base commit, and
-then runs `drizzle-kit migrate`. A reused preview keeps its own non-empty
-history so migrations added to `main` after the preview was created still run
-against its older schema.
+Schema changes use committed Drizzle migrations. Every migration refreshes a
+cumulative `drizzle.__schema_migration_manifest` view. Neon copies that view
+with the parent schema, allowing the preview workflow to restore exactly the
+history whose table rows a schema-only copy omitted before it runs
+`drizzle-kit migrate`. The migration check enforces that the latest migration
+lists every journal entry. A reused preview keeps its own non-empty history so
+migrations added to `main` after the preview was created still run against its
+older schema.
 
 The initial baseline migration is intentionally idempotent because it adopts
 the tables that were previously managed with `drizzle-kit push`. Later

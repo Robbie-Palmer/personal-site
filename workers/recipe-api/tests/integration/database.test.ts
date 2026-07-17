@@ -140,9 +140,19 @@ beforeAll(async () => {
     from information_schema.tables
     where table_schema = 'public'
   `;
+  const migrationManifest = await client<{ createdAt: string; tag: string }[]>`
+    select created_at::text as "createdAt", tag
+    from drizzle.__schema_migration_manifest
+    order by created_at
+  `;
 
   expect(migrationCount?.count).toBeGreaterThan(0);
   expect(tableCount?.count).toBe(29);
+  expect(migrationManifest).toEqual([
+    { createdAt: "1784267759415", tag: "0000_baseline" },
+    { createdAt: "1784270301462", tag: "0001_diet_catalog" },
+    { createdAt: "1784272689191", tag: "0002_complete_diet_catalog" },
+  ]);
 });
 
 beforeEach(async () => {
@@ -463,6 +473,15 @@ describe("recipe API PostgreSQL integration", () => {
     expect(
       options.groups.find((group) => group.key === "dairy")?.ingredientSlugs,
     ).not.toContain("coconut-milk");
+    expect(
+      options.groups.find((group) => group.key === "dairy")?.ingredientSlugs,
+    ).toEqual(
+      expect.arrayContaining([
+        "milk-chocolate",
+        "white-chocolate",
+        "white-chocolate-chips",
+      ]),
+    );
     expect(
       options.groups.find((group) => group.key === "onion")?.ingredientSlugs,
     ).toContain("shallots");

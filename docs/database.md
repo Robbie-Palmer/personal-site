@@ -16,7 +16,9 @@ Production and previews run those migrations before deploying the Worker.
 
 3. Review both the generated SQL and snapshot. Add explicit SQL for any data
    backfill required by the new shape. Generated SQL is a starting point, not
-   an automatically approved change.
+   an automatically approved change. Refresh the cumulative
+   `drizzle.__schema_migration_manifest` view in the new migration; `db:check`
+   fails if the latest migration does not list every journal entry.
 4. Run the database package and API checks:
 
    ```bash
@@ -145,7 +147,10 @@ Later migrations must be strict. A missing table, column, or constraint should
 fail deployment instead of being silently ignored.
 
 Neon schema-only branches copy structure but omit all table rows, including the
-Drizzle journal. The preview workflow restores journal entries that existed at
-the PR base commit before applying the PR's migrations. If a preview is reused,
+Drizzle journal. Each migration refreshes a cumulative schema-level manifest,
+which is copied with the parent schema. The preview workflow uses that manifest
+to restore exactly the journal entries represented by the copied schema, then
+applies the PR's migrations. It reads the matching migration SQL from the
+current base commit to reconstruct Drizzle's hashes. If a preview is reused,
 its non-empty journal is preserved so it can migrate forward from its actual
 older state.
