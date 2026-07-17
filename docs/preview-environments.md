@@ -21,8 +21,11 @@ preview. The workflow pushes the PR schema and adds deterministic QA fixtures.
 The database branch, Workers, and Workflow survive updates to the PR so QA state
 is preserved. They are deleted when the PR closes. Neon also expires the branch
 after 30 days as a backstop; pushing another commit recreates an expired branch.
-The shared preview artifact bucket is persistent infrastructure and contains
-synthetic or QA-only data; a lifecycle rule expires objects after 30 days.
+Because schema-only copies omit table rows, the workflow first restores the
+Drizzle migration-history rows from the PR base commit, then applies migrations
+introduced by the PR. The shared preview artifact bucket is persistent
+infrastructure and contains synthetic or QA-only data; a lifecycle rule expires
+objects after 30 days.
 
 Fork pull requests do not receive preview infrastructure. The workflow uses
 `pull_request_target` so its privileged control flow always comes from the
@@ -232,10 +235,15 @@ Scale-to-zero is fixed at 5 minutes on the Free plan and cannot be configured.
 The Neon branch action must not pass `suspend_timeout`; any explicit value is
 rejected with `412 Precondition Failed`.
 
-## Known follow-up: committed migrations
+## Database migrations
 
-The workflow currently uses `drizzle-kit push`, matching production. Before
-multiple schema-changing PRs become common, adopt committed Drizzle migrations
-and baseline the existing production schema. Do not simply run an initial
-generated migration against production: the tables already exist and the
-migration journal must first be baselined safely.
+Schema changes use committed Drizzle migrations. The preview workflow restores
+the history that a schema-only Neon copy omits, based on the PR base commit, and
+then runs `drizzle-kit migrate`. A reused preview keeps its own non-empty
+history so migrations added to `main` after the preview was created still run
+against its older schema.
+
+The initial baseline migration is intentionally idempotent because it adopts
+the tables that were previously managed with `drizzle-kit push`. Later
+migrations are strict and should fail when their expected starting state is not
+present.

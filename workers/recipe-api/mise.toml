@@ -12,24 +12,44 @@ description = "Run recipe API tests"
 depends = ["install"]
 run = "pnpm test"
 
+[tasks."test:integration"]
+description = "Run recipe API integration tests against disposable PostgreSQL"
+depends = ["install"]
+run = "pnpm test:integration"
+
 [tasks.check]
 description = "Run all recipe API checks"
-depends = ["typecheck", "test"]
+depends = ["typecheck", "test", "db:check"]
 
-[tasks."db:push"]
-description = "Push the recipe API schema to DATABASE_URL"
+[tasks."db:check"]
+description = "Validate the Drizzle migration history and schema snapshot"
 depends = ["install"]
-run = "pnpm db:push:ci && pnpm db:backfill:user-emails"
+run = "pnpm db:check"
 
-[tasks."db:seed:diet-catalog"]
-description = "Seed diet presets and ingredient groups into DATABASE_URL"
+[tasks."db:generate"]
+description = "Generate a Drizzle migration from schema changes"
 depends = ["install"]
-run = "pnpm db:seed:diet-catalog"
+run = "pnpm db:generate"
+
+[tasks."db:migrate"]
+description = "Apply committed Drizzle migrations to DATABASE_URL"
+depends = ["install"]
+run = "pnpm db:migrate"
+
+[tasks."db:prepare-schema-only-preview"]
+description = "Restore migration history omitted from a schema-only Neon branch"
+depends = ["install"]
+run = "pnpm db:prepare-schema-only-preview"
 
 [tasks."db:seed:preview"]
 description = "Seed deterministic preview users and data"
 depends = ["install"]
 run = "pnpm preview:seed"
+
+[tasks."db:studio"]
+description = "Open Drizzle Studio for DATABASE_URL"
+depends = ["install"]
+run = "pnpm db:studio"
 
 [tasks."preview:deploy"]
 description = "Deploy an isolated preview Worker"

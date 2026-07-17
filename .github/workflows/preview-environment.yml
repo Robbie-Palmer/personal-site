@@ -119,6 +119,9 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          # The schema-only migration-history step reads migrations from the
+          # PR base commit before applying this branch's migrations.
+          fetch-depth: 0
           persist-credentials: false
 
       - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
@@ -142,15 +145,17 @@ jobs:
       - name: Check preview backend
         run: mise run //workers/recipe-api:check
 
-      - name: Push schema to preview branch
-        run: mise run //workers/recipe-api:db:push
+      - name: Restore schema-only branch migration history
+        run: mise run //workers/recipe-api:db:prepare-schema-only-preview
         env:
-          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
+          MIGRATIONS_BASE_REF: ${{ github.event.pull_request.base.sha }}
+          ALLOW_SCHEMA_ONLY_PREVIEW_HISTORY: "1"
 
-      - name: Seed diet catalog
-        run: mise run //workers/recipe-api:db:seed:diet-catalog
+      - name: Migrate preview branch
+        run: mise run //workers/recipe-api:db:migrate
         env:
-          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
 
       - name: Seed preview scenarios
         run: mise run //workers/recipe-api:db:seed:preview
