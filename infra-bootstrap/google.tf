@@ -21,6 +21,23 @@ import {
   id = var.gcp_project_id
 }
 
+resource "google_project_iam_audit_config" "all_services" {
+  project = google_project.recipes.project_id
+  service = "allServices"
+
+  audit_log_config {
+    log_type = "ADMIN_READ"
+  }
+
+  audit_log_config {
+    log_type = "DATA_READ"
+  }
+
+  audit_log_config {
+    log_type = "DATA_WRITE"
+  }
+}
+
 locals {
   github_repository = "${var.github_repo_owner}/${var.github_repo_name}"
 
