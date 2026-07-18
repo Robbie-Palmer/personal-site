@@ -16,6 +16,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddTimerPopover } from "@/components/recipes/add-timer-popover";
 import { Button } from "@/components/ui/button";
+import { useCookMode } from "@/contexts/cook-mode-context";
 import { useCookingTimer } from "@/hooks/use-cooking-timers";
 import {
   type CookingTimer,
@@ -126,6 +127,7 @@ export function CookMode({
   onStepChange: (step: number) => void;
   onExit: () => void;
 }>) {
+  const { setCookModeOpen } = useCookMode();
   const clampedStep = Math.min(Math.max(step, 0), steps.length - 1);
   const current = steps[clampedStep];
   const [showIngredients, setShowIngredients] = useState(false);
@@ -146,18 +148,18 @@ export function CookMode({
     return () => releaseWakeLock(WAKE_LOCK_KEY);
   }, []);
 
-  // Lock page scroll behind the overlay and flag the body so the timer dock
-  // can float above the cook-mode footer instead of covering it.
+  // Lock page scroll behind the overlay and share the open state so the
+  // timer dock can float above the cook-mode footer instead of covering it.
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    document.body.classList.add("rt-cook-mode-open");
+    setCookModeOpen(true);
     containerRef.current?.focus();
     return () => {
       document.body.style.overflow = previousOverflow;
-      document.body.classList.remove("rt-cook-mode-open");
+      setCookModeOpen(false);
     };
-  }, []);
+  }, [setCookModeOpen]);
 
   // A non-modal <dialog> (see below) doesn't make the rest of the page inert,
   // so assistive tech could still reach the covered content. Mark every other
