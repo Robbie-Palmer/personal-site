@@ -202,6 +202,52 @@ export type ProjectionPoint = {
   real?: number;
 };
 
+type ProjectionInput = {
+  accountId: AccountId;
+  schedule: ReturnSchedule;
+  startDate: string;
+  startBalance: number;
+  flows: RecurringFlow[];
+  months: number;
+  /** Latest balances of other accounts, for formula flows leaving this one */
+  liabilityBalances?: Record<AccountId, number>;
+  /** For liabilities: once paid off, payments stop instead of accumulating */
+  clampAtZero?: boolean;
+};
+
+function isFlowActive(flow: RecurringFlow, date: string): boolean {
+  return (
+    flow.startDate <= date && (flow.endDate == null || date <= flow.endDate)
+  );
+}
+
+function applyFlow(
+  balance: number,
+  flow: RecurringFlow,
+  input: ProjectionInput,
+): number {
+  if (flow.toAccountId === input.accountId) {
+    return balance + monthlyAmount(flow, balance);
+  }
+  if (flow.fromAccountId !== input.accountId) return balance;
+
+  const counterpartBalance =
+    flow.toAccountId == null
+      ? undefined
+      : input.liabilityBalances?.[flow.toAccountId];
+  return balance - monthlyAmount(flow, counterpartBalance);
+}
+
+function applyActiveFlows(
+  balance: number,
+  date: string,
+  input: ProjectionInput,
+): number {
+  return input.flows
+    .filter((flow) => isFlowActive(flow, date))
+    .reduce((current, flow) => applyFlow(current, flow, input), balance);
+}
+
 /**
  * Projects an account balance forward month by month: compound at the
  * expected return in force that month (rate changes respected), then apply
@@ -213,18 +259,7 @@ export type ProjectionPoint = {
  * liability's latest balance (from `liabilityBalances`) is used as a
  * constant approximation.
  */
-export function buildProjection(input: {
-  accountId: AccountId;
-  schedule: ReturnSchedule;
-  startDate: string;
-  startBalance: number;
-  flows: RecurringFlow[];
-  months: number;
-  /** Latest balances of other accounts, for formula flows leaving this one */
-  liabilityBalances?: Record<AccountId, number>;
-  /** For liabilities: once paid off, payments stop instead of accumulating */
-  clampAtZero?: boolean;
-}): ProjectionPoint[] {
+export function buildProjection(input: ProjectionInput): ProjectionPoint[] {
   const start = parseISO(input.startDate);
   let balance = input.startBalance;
   const points: ProjectionPoint[] = [
@@ -234,21 +269,7 @@ export function buildProjection(input: {
     const date = format(addMonths(start, month), "yyyy-MM-dd");
     const rate = effectiveExpectedReturn(input.schedule, date);
     balance *= (1 + rate) ** (1 / 12);
-    for (const flow of input.flows) {
-      const active =
-        flow.startDate <= date &&
-        (flow.endDate == null || date <= flow.endDate);
-      if (!active) continue;
-      if (flow.toAccountId === input.accountId) {
-        balance += monthlyAmount(flow, balance);
-      } else if (flow.fromAccountId === input.accountId) {
-        const counterpartBalance =
-          flow.toAccountId != null
-            ? input.liabilityBalances?.[flow.toAccountId]
-            : undefined;
-        balance -= monthlyAmount(flow, counterpartBalance);
-      }
-    }
+    balance = applyActiveFlows(balance, date, input);
     if (input.clampAtZero && balance > 0) balance = 0;
     points.push({ date, projected: Math.round(balance * 100) / 100 });
   }

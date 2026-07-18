@@ -140,18 +140,11 @@ export function PortfolioGoal() {
                 {Math.round(goal.progress * 100)}%)
               </p>
             </div>
-            <div
-              role="progressbar"
-              aria-valuenow={Math.round(goal.progress * 100)}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              className="h-2 w-full overflow-hidden rounded-full bg-muted"
-            >
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${goal.progress * 100}%` }}
-              />
-            </div>
+            <progress
+              value={goal.progress}
+              max={1}
+              className="h-2 w-full overflow-hidden rounded-full bg-muted [appearance:none] [&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-primary [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-muted [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-primary"
+            />
             {statusMessage && <p className="text-sm">{statusMessage}</p>}
             <Button
               variant="ghost"
@@ -195,7 +188,7 @@ export function PortfolioGoal() {
                 checked={draftIsReal}
                 onChange={(e) => setDraftIsReal(e.target.checked)}
               />
-              In today's money — the projection must beat inflation
+              <span>In today's money — the projection must beat inflation</span>
             </label>
           </form>
         )}
