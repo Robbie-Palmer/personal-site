@@ -111,6 +111,26 @@ jobs:
           api_key: ${{ secrets.NEON_API_KEY }}
           branch: preview-pr-${{ github.event.pull_request.number }}
 
+      - name: Wait for previous Neon preview branch deletion
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          for attempt in {1..30}; do
+            response=$(curl --fail-with-body --silent --show-error --get \
+              --url "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches" \
+              --header "Authorization: Bearer $NEON_API_KEY" \
+              --data-urlencode "search=$PREVIEW_BRANCH")
+            if ! jq -e --arg name "$PREVIEW_BRANCH" \
+              'any(.branches[]?; .name == $name)' <<< "$response" >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Neon branch $PREVIEW_BRANCH still exists after 30 seconds."
+          exit 1
+
       - name: Create empty Neon preview branch
         id: neon
         uses: neondatabase/create-branch-action@72ed4f69a12b6be9c16aebfad893f6a21e9aba8b # v6.4.0
