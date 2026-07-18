@@ -314,46 +314,45 @@ export function FilterableCardGrid<T>({
     [pathname],
   );
 
-  const mobileFilterSections: MobileFilterSection[] = useMemo(() => {
+  const filterOptions = useMemo(() => {
     if (!filterConfigs) return [];
-    return filterConfigs.map((fc) => {
+    return filterConfigs.map((config) => {
       const uniqueValues = new Map<string, string>();
       for (const item of items) {
-        const itemValues = fc.getItemValues(item);
-        for (const value of itemValues) {
+        for (const value of config.getItemValues(item)) {
           if (!uniqueValues.has(value)) {
-            uniqueValues.set(value, fc.getValueLabel?.(value) ?? value);
+            uniqueValues.set(value, config.getValueLabel?.(value) ?? value);
           }
         }
       }
+      const options: MultiSelectOption[] = Array.from(uniqueValues.entries())
+        .map(([value, label]) => ({
+          value,
+          label,
+          icon: config.getOptionIcon?.(value) ?? config.icon,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+      return { config, options };
+    });
+  }, [filterConfigs, items]);
+
+  const mobileFilterSections: MobileFilterSection[] = useMemo(() => {
+    return filterOptions.map(({ config, options }) => {
       return {
-        paramName: fc.paramName,
-        label: fc.label,
-        options: Array.from(uniqueValues.entries())
-          .map(([value, label]) => ({
-            value,
-            label,
-            icon: fc.getOptionIcon?.(value) ?? fc.icon,
-          }))
-          .sort((a, b) => a.label.localeCompare(b.label)),
-        getOptionState: (value: string) => getState(fc.paramName, value),
+        paramName: config.paramName,
+        label: config.label,
+        options,
+        getOptionState: (value: string) => getState(config.paramName, value),
         onCycleOption: (value: string) => {
           // Derive the analytics action from the same latest read cycleValue
           // writes from, so the recorded action can't drift from the URL.
-          const next = nextFilterState(peekState(fc.paramName, value));
-          captureFilterChange(fc.paramName, value, next);
-          cycleValue(fc.paramName, value);
+          const next = nextFilterState(peekState(config.paramName, value));
+          captureFilterChange(config.paramName, value, next);
+          cycleValue(config.paramName, value);
         },
       };
     });
-  }, [
-    filterConfigs,
-    items,
-    getState,
-    peekState,
-    cycleValue,
-    captureFilterChange,
-  ]);
+  }, [filterOptions, getState, peekState, cycleValue, captureFilterChange]);
 
   const handleRemoveFilter = (paramName: string, value: string) => {
     captureFilterChange(paramName, value, "off");
@@ -410,28 +409,7 @@ export function FilterableCardGrid<T>({
         ) : (
           <>
             {/* Auto-generated desktop filters */}
-            {filterConfigs?.map((fc) => {
-              // Generate options from unique values in items
-              const uniqueValues = new Map<string, string>();
-              for (const item of items) {
-                const itemValues = fc.getItemValues(item);
-                for (const value of itemValues) {
-                  if (!uniqueValues.has(value)) {
-                    uniqueValues.set(value, fc.getValueLabel?.(value) ?? value);
-                  }
-                }
-              }
-
-              const options: MultiSelectOption[] = Array.from(
-                uniqueValues.entries(),
-              )
-                .map(([value, label]) => ({
-                  value,
-                  label,
-                  icon: fc.getOptionIcon?.(value),
-                }))
-                .sort((a, b) => a.label.localeCompare(b.label));
-
+            {filterOptions.map(({ config: fc, options }) => {
               return (
                 <MultiSelect
                   key={fc.paramName}

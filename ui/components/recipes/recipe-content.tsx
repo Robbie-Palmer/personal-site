@@ -44,19 +44,13 @@ import type {
   IngredientGroupView,
   RecipeDetailView,
 } from "@/lib/domain/recipe/recipeViews";
+import { formatRecipeTime } from "@/lib/domain/recipe/time";
 import {
   MEASUREMENT_SYSTEM_LABELS,
   type MeasurementPreference,
   type MeasurementSystem,
   preferenceForSystem,
 } from "@/lib/domain/recipe/unit";
-
-function formatTime(minutes: number): string {
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-}
 
 function IngredientGroup({
   group,
@@ -495,19 +489,19 @@ export function RecipeContent({
           {recipe.prepTime != null && (
             <div className="flex items-center gap-1">
               <Timer className="h-4 w-4" />
-              <span>Prep: {formatTime(recipe.prepTime)}</span>
+              <span>Prep: {formatRecipeTime(recipe.prepTime)}</span>
             </div>
           )}
           {recipe.cookTime != null && (
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
-              <span>Cook: {formatTime(recipe.cookTime)}</span>
+              <span>Cook: {formatRecipeTime(recipe.cookTime)}</span>
             </div>
           )}
           {recipe.totalTime != null && (
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
-              <span>Total: {formatTime(recipe.totalTime)}</span>
+              <span>Total: {formatRecipeTime(recipe.totalTime)}</span>
             </div>
           )}
           <Popover>

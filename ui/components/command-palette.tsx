@@ -1,5 +1,6 @@
 "use client";
 
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Command } from "cmdk";
 import {
   BookOpen,
@@ -158,14 +159,11 @@ export function CommandPaletteProvider({
           return !prev;
         });
       }
-      if (e.key === "Escape" && open) {
-        setOpen(false);
-      }
     };
 
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
-  }, [open]);
+  }, []);
 
   const contextValue = useMemo(
     () => ({
@@ -211,28 +209,14 @@ function CommandPaletteDialog({
   const inputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    if (!open) return;
+  const handleOpenAutoFocus = useCallback((event: Event) => {
+    event.preventDefault();
     setSearch("");
     // Skip auto-focus on touch devices so opening the palette doesn't force
     // the on-screen keyboard up before the user chooses to type.
     if (window.matchMedia("(pointer: coarse)").matches) return;
-    requestAnimationFrame(() => {
-      inputRef.current?.focus();
-    });
-  }, [open]);
-
-  // Prevent arrow keys from scrolling page when dialog is open
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-        e.preventDefault();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open]);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, []);
 
   const handleSelect = useCallback(
     (callback: () => void) => {
@@ -313,191 +297,194 @@ function CommandPaletteDialog({
       .slice(0, 10);
   }, [search, technologies]);
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in-0"
-        onClick={() => onOpenChange(false)}
-        aria-hidden="true"
-      />
-
-      {/* Dialog */}
-      <div className="fixed left-1/2 top-1/4 -translate-x-1/2 w-full max-w-lg animate-in fade-in-0 zoom-in-95 slide-in-from-top-2">
-        <Command
-          className="bg-popover text-popover-foreground rounded-lg border shadow-2xl overflow-hidden"
-          shouldFilter={true}
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm animate-in fade-in-0" />
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
+          onOpenAutoFocus={handleOpenAutoFocus}
+          className="fixed left-1/2 top-1/4 z-50 w-full max-w-lg -translate-x-1/2 animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 outline-none"
         >
-          <div className="flex items-center border-b px-3">
-            <Search className="size-4 text-muted-foreground shrink-0" />
-            <Command.Input
-              ref={inputRef}
-              value={search}
-              onValueChange={setSearch}
-              placeholder="Search or type a command..."
-              className="flex-1 bg-transparent py-3 px-2 text-sm outline-none placeholder:text-muted-foreground"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="rounded-full p-1 hover:bg-muted transition-colors"
-                aria-label="Clear search"
-              >
-                <X className="size-3" />
-              </button>
-            )}
-            <HotkeyHint className="hidden sm:inline-flex ml-2 text-muted-foreground" />
-          </div>
-
-          <Command.List className="max-h-80 overflow-y-auto p-2">
-            <Command.Empty className="py-6 text-center text-sm text-muted-foreground">
-              No results found.
-            </Command.Empty>
-
-            {/* Navigation section */}
-            <Command.Group
-              heading="Navigation"
-              className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground"
-            >
-              {NAVIGATION_ITEMS.map((item) => (
-                <Command.Item
-                  key={item.href}
-                  value={`${item.label} ${item.keywords?.join(" ") ?? ""}`}
-                  onSelect={() => handleNavigation(item.href)}
-                  className={cn(
-                    "flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer",
-                    "aria-selected:bg-accent aria-selected:text-accent-foreground",
-                    pathname === item.href && "text-primary",
-                  )}
+          <DialogPrimitive.Title className="sr-only">
+            Command palette
+          </DialogPrimitive.Title>
+          <Command
+            className="bg-popover text-popover-foreground rounded-lg border shadow-2xl overflow-hidden"
+            shouldFilter={true}
+          >
+            <div className="flex items-center border-b px-3">
+              <Search className="size-4 text-muted-foreground shrink-0" />
+              <Command.Input
+                ref={inputRef}
+                value={search}
+                onValueChange={setSearch}
+                placeholder="Search or type a command..."
+                className="flex-1 bg-transparent py-3 px-2 text-sm outline-none placeholder:text-muted-foreground"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="rounded-full p-1 hover:bg-muted transition-colors"
+                  aria-label="Clear search"
                 >
-                  {item.icon}
-                  <span>{item.label}</span>
-                  {pathname === item.href && (
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      Current
-                    </span>
-                  )}
-                </Command.Item>
-              ))}
-            </Command.Group>
+                  <X className="size-3" />
+                </button>
+              )}
+              <HotkeyHint className="hidden sm:inline-flex ml-2 text-muted-foreground" />
+            </div>
 
-            {matchedTechnologies.length > 0 && (
+            <Command.List className="max-h-80 overflow-y-auto p-2">
+              <Command.Empty className="py-6 text-center text-sm text-muted-foreground">
+                No results found.
+              </Command.Empty>
+
+              {/* Navigation section */}
               <Command.Group
-                heading="Technologies"
+                heading="Navigation"
                 className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground"
               >
-                {matchedTechnologies.map((tech) => (
+                {NAVIGATION_ITEMS.map((item) => (
                   <Command.Item
-                    key={tech.slug}
-                    value={`${tech.name} ${tech.slug}`}
-                    onSelect={() =>
-                      handleNavigation(`/technologies/${tech.slug}`)
-                    }
-                    className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer aria-selected:bg-accent aria-selected:text-accent-foreground"
-                  >
-                    {tech.hasIcon ? (
-                      <TechIcon
-                        name={tech.name}
-                        iconSlug={tech.iconSlug}
-                        className="size-4"
-                      />
-                    ) : (
-                      <Code2 className="size-4" />
+                    key={item.href}
+                    value={`${item.label} ${item.keywords?.join(" ") ?? ""}`}
+                    onSelect={() => handleNavigation(item.href)}
+                    className={cn(
+                      "flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer",
+                      "aria-selected:bg-accent aria-selected:text-accent-foreground",
+                      pathname === item.href && "text-primary",
                     )}
-                    <span>{tech.name}</span>
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                    {pathname === item.href && (
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        Current
+                      </span>
+                    )}
                   </Command.Item>
                 ))}
               </Command.Group>
-            )}
 
-            {/* Page-specific filters */}
-            {Array.from(groupedFilters.entries()).map(([group, filters]) => (
+              {matchedTechnologies.length > 0 && (
+                <Command.Group
+                  heading="Technologies"
+                  className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground"
+                >
+                  {matchedTechnologies.map((tech) => (
+                    <Command.Item
+                      key={tech.slug}
+                      value={`${tech.name} ${tech.slug}`}
+                      onSelect={() =>
+                        handleNavigation(`/technologies/${tech.slug}`)
+                      }
+                      className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer aria-selected:bg-accent aria-selected:text-accent-foreground"
+                    >
+                      {tech.hasIcon ? (
+                        <TechIcon
+                          name={tech.name}
+                          iconSlug={tech.iconSlug}
+                          className="size-4"
+                        />
+                      ) : (
+                        <Code2 className="size-4" />
+                      )}
+                      <span>{tech.name}</span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
+
+              {/* Page-specific filters */}
+              {Array.from(groupedFilters.entries()).map(([group, filters]) => (
+                <Command.Group
+                  key={group}
+                  heading={`Filter by ${group}`}
+                  className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground"
+                >
+                  {filters.map((filter) => {
+                    const active = isFilterActive(
+                      filter.paramName,
+                      filter.value,
+                    );
+                    return (
+                      <Command.Item
+                        key={`${filter.paramName}-${filter.value}`}
+                        value={`${filter.group} ${filter.label}`}
+                        onSelect={() =>
+                          handleFilter(filter.paramName, filter.value)
+                        }
+                        className={cn(
+                          "flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer",
+                          "aria-selected:bg-accent aria-selected:text-accent-foreground",
+                        )}
+                      >
+                        {filter.icon}
+                        <span>{filter.label}</span>
+                        {active && (
+                          <span className="ml-auto flex items-center gap-1 text-xs text-primary">
+                            <span className="size-1.5 rounded-full bg-primary" />
+                            Active
+                          </span>
+                        )}
+                      </Command.Item>
+                    );
+                  })}
+                </Command.Group>
+              ))}
+
               <Command.Group
-                key={group}
-                heading={`Filter by ${group}`}
+                heading="Quick Actions"
                 className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground"
               >
-                {filters.map((filter) => {
-                  const active = isFilterActive(filter.paramName, filter.value);
-                  return (
-                    <Command.Item
-                      key={`${filter.paramName}-${filter.value}`}
-                      value={`${filter.group} ${filter.label}`}
-                      onSelect={() =>
-                        handleFilter(filter.paramName, filter.value)
-                      }
-                      className={cn(
-                        "flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer",
-                        "aria-selected:bg-accent aria-selected:text-accent-foreground",
-                      )}
-                    >
-                      {filter.icon}
-                      <span>{filter.label}</span>
-                      {active && (
-                        <span className="ml-auto flex items-center gap-1 text-xs text-primary">
-                          <span className="size-1.5 rounded-full bg-primary" />
-                          Active
-                        </span>
-                      )}
-                    </Command.Item>
-                  );
-                })}
+                <Command.Item
+                  value="view source code github"
+                  onSelect={() => {
+                    posthog.capture("command_palette_action", {
+                      action_type: "view_source",
+                      value: siteConfig.author.sourceRepo,
+                    });
+                    handleSelect(() =>
+                      window.open(
+                        siteConfig.author.sourceRepo,
+                        "_blank",
+                        "noopener,noreferrer",
+                      ),
+                    );
+                  }}
+                  className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer aria-selected:bg-accent aria-selected:text-accent-foreground"
+                >
+                  <Code2 className="size-4" />
+                  <span>View Source Code</span>
+                </Command.Item>
               </Command.Group>
-            ))}
+            </Command.List>
 
-            <Command.Group
-              heading="Quick Actions"
-              className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground"
-            >
-              <Command.Item
-                value="view source code github"
-                onSelect={() => {
-                  posthog.capture("command_palette_action", {
-                    action_type: "view_source",
-                    value: siteConfig.author.sourceRepo,
-                  });
-                  handleSelect(() =>
-                    window.open(
-                      siteConfig.author.sourceRepo,
-                      "_blank",
-                      "noopener,noreferrer",
-                    ),
-                  );
-                }}
-                className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer aria-selected:bg-accent aria-selected:text-accent-foreground"
-              >
-                <Code2 className="size-4" />
-                <span>View Source Code</span>
-              </Command.Item>
-            </Command.Group>
-          </Command.List>
-
-          <div className="border-t px-3 py-2 text-xs text-muted-foreground hidden sm:flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono">
-                ↑↓
-              </kbd>
-              <span>Navigate</span>
+            <div className="border-t px-3 py-2 text-xs text-muted-foreground hidden sm:flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono">
+                  ↑↓
+                </kbd>
+                <span>Navigate</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono">
+                  ↵
+                </kbd>
+                <span>Select</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono">
+                  Esc
+                </kbd>
+                <span>Close</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono">
-                ↵
-              </kbd>
-              <span>Select</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono">
-                Esc
-              </kbd>
-              <span>Close</span>
-            </div>
-          </div>
-        </Command>
-      </div>
-    </div>
+          </Command>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
@@ -585,7 +572,7 @@ export function createRoleFilterOptions(
     value: role.slug,
     label: role.company,
     icon: (
-      // eslint-disable-next-line @next/next/no-img-element
+      // biome-ignore lint/performance/noImgElement: Tiny local logos do not benefit from Next image optimisation.
       <img
         src={role.logoPath}
         alt={`${role.company} logo`}
