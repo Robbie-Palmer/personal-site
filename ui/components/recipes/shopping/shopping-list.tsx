@@ -378,13 +378,11 @@ export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
     (total, group) => total + group.servings,
     0,
   );
+  const recipeLabel = selected.length === 1 ? "recipe" : "recipes";
+  const servingLabel = servingCount === 1 ? "serving" : "servings";
   const stats = [
-    selected.length > 0
-      ? `${selected.length} ${selected.length === 1 ? "recipe" : "recipes"}`
-      : null,
-    selected.length > 0
-      ? `${servingCount} ${servingCount === 1 ? "serving" : "servings"}`
-      : null,
+    selected.length > 0 ? `${selected.length} ${recipeLabel}` : null,
+    selected.length > 0 ? `${servingCount} ${servingLabel}` : null,
     `${itemCount} ${itemCount === 1 ? "item" : "items"}`,
     inKitchenCount > 0 ? `${inKitchenCount} in kitchen` : null,
     `${tickedCount} ticked`,

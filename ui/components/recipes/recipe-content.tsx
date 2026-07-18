@@ -615,13 +615,9 @@ export function RecipeContent({
         <h2 className="rt-display text-4xl text-[var(--terracotta)] mb-4">
           Method
         </h2>
-        {/* Real ordered list whose visible numeral is decorative generated
-            content via a CSS counter (aria-hidden), so screen readers rely on
-            list position. role="list" is redundant per spec but kept on purpose:
-            Safari/VoiceOver drop list semantics when the marker is removed with
-            list-style:none, and reasserting the role restores them. */}
-        {/* biome-ignore lint/a11y/noRedundantRoles: intentional Safari/VoiceOver list-semantics workaround (see above) */}
-        <ol role="list" className="rt-method-steps list-none p-0 m-0">
+        {/* The visible numeral is decorative generated content via a CSS
+            counter, while the ordered list retains the document semantics. */}
+        <ol className="rt-method-steps list-none p-0 m-0">
           {cookSteps.map((step, stepIndex) => (
             <li
               key={step.key}
