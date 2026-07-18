@@ -13,6 +13,8 @@ import type { BalanceSnapshot } from "./balanceSnapshot";
 import type { Transfer } from "./transfer";
 
 function compareIsoDates(a: string, b: string): number {
+  // BalanceSnapshotSchema guarantees canonical YYYY-MM-DD strings, for which
+  // code-unit order is chronological and avoids timezone-dependent parsing.
   if (a < b) return -1;
   if (a > b) return 1;
   return 0;

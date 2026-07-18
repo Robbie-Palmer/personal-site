@@ -49,6 +49,8 @@ const NODE_TYPE_LABELS: Record<string, string> = {
 };
 
 function compareCodeUnitOrder(a: string, b: string): number {
+  // Graph IDs are identifiers rather than user-facing text. Code-unit order
+  // keeps fingerprints independent of the host locale.
   if (a < b) return -1;
   if (a > b) return 1;
   return 0;
