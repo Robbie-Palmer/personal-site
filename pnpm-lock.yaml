@@ -537,6 +537,12 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^4
         version: 4.20260702.1
+      '@types/node':
+        specifier: ^24
+        version: 24.13.3
+      smol-toml:
+        specifier: ^1.7.0
+        version: 1.7.0
       typescript:
         specifier: ^5
         version: 5.9.3
@@ -546,6 +552,9 @@ importers:
       wrangler:
         specifier: ^4
         version: 4.111.0(@cloudflare/workers-types@4.20260702.1)
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
 
 packages:
 
