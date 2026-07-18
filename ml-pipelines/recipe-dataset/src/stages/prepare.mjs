@@ -420,11 +420,10 @@ for (const ebookId of gutenbergIds) {
   }
 }
 
-function consumeQuotedCharacter(source, index) {
-  const character = source[index];
-  if (character !== '"') return { text: character, index, quoted: true };
-  if (source[index + 1] === '"') return { text: '"', index: index + 1, quoted: true };
-  return { text: "", index, quoted: false };
+function consumeQuotedCharacter(character, nextCharacter) {
+  if (character !== '"') return { text: character, quoted: true, skipNext: false };
+  if (nextCharacter === '"') return { text: '"', quoted: true, skipNext: true };
+  return { text: "", quoted: false, skipNext: false };
 }
 
 function appendCsvRow(rows, row, field) {
@@ -440,9 +439,9 @@ function csvRows(source) {
   for (let index = 0; index < source.length; index += 1) {
     const character = source[index];
     if (quoted) {
-      const consumed = consumeQuotedCharacter(source, index);
+      const consumed = consumeQuotedCharacter(character, source[index + 1]);
       field += consumed.text;
-      index = consumed.index;
+      if (consumed.skipNext) index += 1;
       quoted = consumed.quoted;
       continue;
     }
