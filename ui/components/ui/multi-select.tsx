@@ -205,12 +205,6 @@ export function MultiSelect({
               <button
                 type="button"
                 onClick={handleClear}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    handleClear(e as unknown as React.MouseEvent);
-                  }
-                }}
                 className="rounded-full p-0.5 hover:bg-muted transition-colors cursor-pointer"
                 aria-label="Clear all selections"
               >

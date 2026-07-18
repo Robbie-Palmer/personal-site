@@ -8,9 +8,11 @@ export function prioritiseSelected<T>(
   getKey: (item: T) => string,
 ): T[] {
   if (selectedKeys.length === 0) return items;
-  const selected = items.filter((item) => selectedKeys.includes(getKey(item)));
-  const unselected = items.filter(
-    (item) => !selectedKeys.includes(getKey(item)),
-  );
+  const selectedKeySet = new Set(selectedKeys);
+  const selected: T[] = [];
+  const unselected: T[] = [];
+  for (const item of items) {
+    (selectedKeySet.has(getKey(item)) ? selected : unselected).push(item);
+  }
   return [...selected, ...unselected];
 }
