@@ -13,7 +13,6 @@
     "db:check": "bash scripts/check-migrations.sh",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:prepare-schema-only-preview": "tsx scripts/prepare-schema-only-preview.ts",
     "db:studio": "drizzle-kit studio",
     "preview:seed": "tsx scripts/seed-preview.ts"
   },

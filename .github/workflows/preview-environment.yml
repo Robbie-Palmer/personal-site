@@ -100,14 +100,25 @@ jobs:
         id: neon-expiry
         run: echo "expires_at=$(date -u --date '+30 days' +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
 
-      - name: Create or reuse schema-only Neon branch
+      # Recreate the branch from the empty preview-project root on every run.
+      # This makes edited, unmerged migrations execute again from a genuinely
+      # empty database instead of being skipped by stale migration history.
+      - name: Delete previous Neon preview branch
+        continue-on-error: true
+        uses: neondatabase/delete-branch-action@4468d825d5a88ef4012f1705a82f02ec3072f776 # v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          branch: preview-pr-${{ github.event.pull_request.number }}
+
+      - name: Create empty Neon preview branch
         id: neon
         uses: neondatabase/create-branch-action@72ed4f69a12b6be9c16aebfad893f6a21e9aba8b # v6.4.0
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           api_key: ${{ secrets.NEON_API_KEY }}
           branch_name: preview-pr-${{ github.event.pull_request.number }}
-          branch_type: schema-only
+          parent_branch: preview-base
           database: recipes
           role: recipes_owner
           # Neon Free plan fixes scale-to-zero at 5 minutes and rejects any
@@ -119,9 +130,6 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          # The schema-only migration-history step reads migration SQL from the
-          # current base ref before applying this branch's migrations.
-          fetch-depth: 0
           persist-credentials: false
 
       - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
@@ -144,13 +152,6 @@ jobs:
 
       - name: Check preview backend
         run: mise run //workers/recipe-api:check
-
-      - name: Restore schema-only branch migration history
-        run: mise run //workers/recipe-api:db:prepare-schema-only-preview
-        env:
-          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
-          MIGRATIONS_SOURCE_REF: ${{ github.event.pull_request.base.sha }}
-          ALLOW_SCHEMA_ONLY_PREVIEW_HISTORY: "1"
 
       - name: Migrate preview branch
         run: mise run //workers/recipe-api:db:migrate

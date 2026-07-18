@@ -16,9 +16,7 @@ Production and previews run those migrations before deploying the Worker.
 
 3. Review both the generated SQL and snapshot. Add explicit SQL for any data
    backfill required by the new shape. Generated SQL is a starting point, not
-   an automatically approved change. Refresh the cumulative
-   `drizzle.__schema_migration_manifest` view in the new migration; `db:check`
-   fails if the latest migration does not list every journal entry.
+   an automatically approved change.
 4. Run the database package and API checks:
 
    ```bash
@@ -26,8 +24,9 @@ Production and previews run those migrations before deploying the Worker.
    mise run //workers/recipe-api:check
    ```
 
-5. Exercise the migration through the PR preview. The preview is a schema-only
-   Neon branch with synthetic data, so it does not expose production rows.
+5. Exercise the migration through the PR preview. Its database is rebuilt from
+   every committed migration in the empty, dedicated Neon preview project, then
+   populated with synthetic data.
 
 Migration files are append-only after they reach `main`. Fix a deployed
 migration with a new migration; editing history makes environments disagree
@@ -135,22 +134,35 @@ the checked-in journal before redeploying. Restoring data also restores the
 migration history from that point in time, so CD will reapply later committed
 migrations.
 
-## Initial baseline
+## Initial baseline and one-time cutover
 
-`0000_baseline.sql` captures the complete schema as it existed when migrations
-were adopted. It is the only intentionally idempotent migration: that lets the
-first production deployment record the baseline over tables previously created
-by `drizzle-kit push`, while the same file creates a fresh database from
-nothing. It also contains the former canonical-user-email backfill.
+`0000_baseline.sql` is a normal strict initial migration generated from the
+complete TypeScript schema. It assumes an empty database and deliberately fails
+if a conflicting type, table, constraint, or index already exists.
 
-Later migrations must be strict. A missing table, column, or constraint should
-fail deployment instead of being silently ignored.
+Before merging the first migration-based deployment, reset the existing
+push-managed production schemas while their contents remain disposable. With
+`DATABASE_URL` connected as `recipes_owner`, run:
 
-Neon schema-only branches copy structure but omit all table rows, including the
-Drizzle journal. Each migration refreshes a cumulative schema-level manifest,
-which is copied with the parent schema. The preview workflow uses that manifest
-to restore exactly the journal entries represented by the copied schema, then
-applies the PR's migrations. It reads the matching migration SQL from the
-current base commit to reconstruct Drizzle's hashes. If a preview is reused,
-its non-empty journal is preserved so it can migrate forward from its actual
-older state.
+```sql
+begin;
+drop schema if exists drizzle cascade;
+drop schema if exists public cascade;
+create schema public authorization current_user;
+commit;
+```
+
+Then apply the committed history before deploying the Worker:
+
+```bash
+mise run //workers/recipe-api:db:migrate
+```
+
+This reset is a one-time migration cutover, not part of normal CD. Later schema
+changes are always expressed as new migrations and migrate forward from the
+history recorded in `drizzle.__drizzle_migrations`.
+
+Preview branches start from the empty `preview-base` root in a dedicated Neon
+project. Each PR update recreates its child branch, applies the complete
+migration history, and loads synthetic fixtures. No production schema or data
+is copied, so preview migration-history reconstruction is unnecessary.

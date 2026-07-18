@@ -7,8 +7,8 @@ same-origin and are proxied to this Worker:
 - production: the Pages Function at `functions/api/auth/[[path]].ts` proxies
   `/api/auth/*` to the deployed Worker
 
-PR previews use an isolated Worker, schema-only Neon branch, and
-Access-protected test-user login. See the
+PR previews use an isolated Worker, an empty child branch in the dedicated Neon
+preview project, and Access-protected test-user login. See the
 [preview environment runbook](../../docs/preview-environments.md).
 
 Schema changes use committed Drizzle migrations. See the

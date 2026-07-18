@@ -1,11 +1,17 @@
 ---
 title: "ADR 052: Committed PostgreSQL Migrations and Data Operations"
 date: "2026-07-17"
-status: "Accepted"
+status: "Deprecated"
 tech_stack: ["PostgreSQL", "Drizzle", "Neon"]
 ---
 
 # Summary
+
+This decision was superseded by
+[ADR 053](/projects/recipe-site/adrs/053-fresh-migration-baseline-and-isolated-preview-database-project),
+which keeps committed migrations but replaces the adoption-safe baseline and
+schema-only preview-history restoration with a fresh cutover and an empty,
+dedicated Neon preview project.
 
 Adopt code-first, committed Drizzle migrations for every shared PostgreSQL
 environment, starting with one idempotent baseline of the current schema. Keep

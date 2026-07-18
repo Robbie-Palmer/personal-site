@@ -15,5 +15,3 @@ if [[ "$before" != "$after" ]]; then
   echo "Review the generated migration, rename it if useful, and commit it." >&2
   exit 1
 fi
-
-pnpm exec tsx scripts/check-migration-manifest.ts

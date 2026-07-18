@@ -420,6 +420,9 @@ values
   ('dairy', 'greek-yoghurt'),
   ('dairy', 'light-cream-cheese'),
   ('dairy', 'yoghurt'),
+  ('dairy', 'milk-chocolate'),
+  ('dairy', 'white-chocolate'),
+  ('dairy', 'white-chocolate-chips'),
   ('legumes', 'mixed-beans'),
   ('legumes', 'chickpeas'),
   ('legumes', 'red-lentils')
