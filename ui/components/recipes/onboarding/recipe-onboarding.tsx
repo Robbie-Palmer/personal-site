@@ -30,16 +30,14 @@ import {
   saveRecipeBoxProfile,
 } from "@/lib/api/recipe-box";
 import type { RecipeCardView } from "@/lib/api/recipes";
+import { fetchAllSavedRecipes } from "@/lib/api/saved-recipes";
 import { authClient } from "@/lib/auth-client";
 import { buildEffectiveDiet, filterRecipesForDiet } from "@/lib/domain/diet";
 import {
   buildRecipeAuthoringHref,
   resolveOnboardingRecipeSelection,
 } from "@/lib/domain/recipe/onboarding";
-import {
-  type SavedRecipeApiRecord,
-  savedRecipeCard,
-} from "@/lib/domain/recipe/recipeDraft";
+import { savedRecipeCard } from "@/lib/domain/recipe/recipeDraft";
 import { cn } from "@/lib/generic/styles";
 
 const STEPS = ["sign up", "your diet", "fill your box", "ready"];
@@ -147,15 +145,18 @@ function Intro() {
 }
 
 async function fetchAuthoredRecipes(signal: AbortSignal) {
-  const response = await fetch("/api/recipes?scope=owned", {
-    cache: "no-store",
-    credentials: "include",
-    signal,
-  });
-  if (!response.ok) {
+  try {
+    return await fetchAllSavedRecipes({
+      scope: "owned",
+      credentials: "include",
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
     throw new Error("Your authored recipes could not be loaded.");
   }
-  return (await response.json()) as SavedRecipeApiRecord[];
 }
 
 function toggleValue(values: string[], value: string): string[] {

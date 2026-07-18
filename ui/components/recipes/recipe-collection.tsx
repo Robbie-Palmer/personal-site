@@ -8,6 +8,7 @@ import {
   type RecipeBoxProfile,
 } from "@/lib/api/recipe-box";
 import type { RecipeCardView } from "@/lib/api/recipes";
+import { fetchAllSavedRecipes } from "@/lib/api/saved-recipes";
 import { authClient } from "@/lib/auth-client";
 import {
   type SavedRecipeApiRecord,
@@ -37,12 +38,7 @@ export function RecipeCollection({
     const controller = new AbortController();
     setLoadError(null);
     void Promise.allSettled([
-      fetch("/api/recipes", { signal: controller.signal }).then(
-        async (response) => {
-          if (!response.ok) throw new Error("Saved recipes unavailable");
-          return (await response.json()) as SavedRecipeApiRecord[];
-        },
-      ),
+      fetchAllSavedRecipes({ signal: controller.signal }),
       getRecipeBoxProfile(controller.signal),
     ]).then(([savedResult, boxResult]) => {
       if (savedResult.status === "fulfilled") {

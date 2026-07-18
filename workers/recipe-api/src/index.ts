@@ -11,9 +11,10 @@ import {
   lt,
   or,
   sql,
+  type SQL,
 } from "drizzle-orm";
 import { z } from "zod";
-import { createDb, schema } from "recipe-db";
+import { createDb, type Db, type DbClient, schema } from "recipe-db";
 import { RecipeContentSchema } from "recipe-domain";
 import { parseSchemaOrgRecipeHtml } from "recipe-parsing/schema-org";
 import { createAuth } from "./auth";
@@ -21,6 +22,7 @@ import { verifyCloudflareAccess } from "./cloudflare-access";
 import { hasPostgresErrorCode } from "./db/errors";
 import {
   decodeFeedCursor,
+  type FeedCursor,
   paginateRecipeFeed,
   recipeFeedCursorFilter,
   recipeFeedCursorTimestamp,
@@ -84,8 +86,6 @@ type InvitationNotificationStatus =
   | "declined"
   | "expired"
   | "unavailable";
-type DbClient = ReturnType<typeof createDb>["client"];
-type Db = ReturnType<typeof createDb>["db"];
 type AuthSessionResult =
   | { success: true; session: AuthenticatedSession }
   | { success: false; response: Response };
@@ -124,6 +124,7 @@ const recipeVisibilitySchema = z.enum(["public", "private", "household"]);
 const dietRecipeMatchModeSchema = z.enum(["hide", "warn"]);
 const feedScopeSchema = z.enum(["public", "household"]);
 const feedLimitSchema = z.coerce.number().int().min(1).max(30).default(12);
+const recipeListLimitSchema = z.coerce.number().int().min(1).max(100).default(100);
 const publicCookIdSchema = z.string().trim().min(1).max(128);
 
 const dietKeySchema = z
@@ -270,6 +271,17 @@ function databaseConnection(env: Bindings): string | undefined {
   return env.HYPERDRIVE?.connectionString ?? env.DATABASE_URL;
 }
 
+const NO_DATABASE_CONNECTION_ERROR =
+  "No database connection configured (HYPERDRIVE or DATABASE_URL required)";
+
+function requireDatabaseConnection(c: Context<AppEnv>): string | Response {
+  const connectionString = databaseConnection(c.env);
+  if (!connectionString) {
+    return c.json({ error: NO_DATABASE_CONNECTION_ERROR }, 503);
+  }
+  return connectionString;
+}
+
 async function closeDbClient(client: DbClient | undefined) {
   if (!client) return;
   try {
@@ -413,6 +425,19 @@ function parseRecipeSlug(c: Context<AppEnv>) {
   return { success: true, slug: result.data } as const;
 }
 
+const uuidIdSchema = z.string().uuid();
+
+function uuidParam(
+  c: Context<AppEnv>,
+  name: "householdId" | "invitationId" | "memberId" | "notificationId",
+  label: string,
+): string | Response {
+  const result = uuidIdSchema.safeParse(c.req.param(name));
+  return result.success
+    ? result.data
+    : c.json({ error: `Invalid ${label}` }, 400);
+}
+
 function hasAuthConfiguration(env: Bindings): boolean {
   if (!env.BETTER_AUTH_URL || !env.BETTER_AUTH_SECRET) return false;
   if (env.DEPLOYMENT_ENV === "preview") {
@@ -436,7 +461,7 @@ function hasLoadableAuthConfiguration(env: Bindings): boolean {
 
 async function loadOptionalRecipeSession(
   c: Context<AppEnv>,
-  db: ReturnType<typeof createDb>["db"],
+  db: Db,
 ): Promise<AuthenticatedSession | null> {
   if (!hasLoadableAuthConfiguration(c.env)) return null;
   try {
@@ -488,13 +513,8 @@ async function withRecipeSession(
   logMessage: string,
   action: (context: RecipeSessionContext) => Promise<Response> | Response,
 ): Promise<Response> {
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -520,7 +540,7 @@ function isForeignKeyViolation(error: unknown): boolean {
 }
 
 async function findRecipeBySlug(
-  db: ReturnType<typeof createDb>["db"],
+  db: Db,
   slug: string,
 ): Promise<Recipe | undefined> {
   const [recipe] = await db
@@ -531,16 +551,11 @@ async function findRecipeBySlug(
   return recipe;
 }
 
-async function findReadableRecipes(
-  db: ReturnType<typeof createDb>["db"],
+async function readableRecipeFilter(
+  db: Db,
   userId: string | undefined,
-): Promise<Recipe[]> {
-  if (!userId) {
-    return db
-      .select()
-      .from(schema.recipe)
-      .where(eq(schema.recipe.visibility, "public"));
-  }
+): Promise<SQL | undefined> {
+  if (!userId) return eq(schema.recipe.visibility, "public");
 
   const householdMembership = await findUserHouseholdMembership(db, userId);
   const householdMemberIds = householdMembership
@@ -558,32 +573,44 @@ async function findReadableRecipes(
         )
       : undefined;
 
-  return db
-    .select()
-    .from(schema.recipe)
-    .where(
-      householdFilter
-        ? or(
-            eq(schema.recipe.visibility, "public"),
-            eq(schema.recipe.userId, userId),
-            householdFilter,
-          )
-        : or(eq(schema.recipe.visibility, "public"), eq(schema.recipe.userId, userId)),
-    );
+  return householdFilter
+    ? or(
+        eq(schema.recipe.visibility, "public"),
+        eq(schema.recipe.userId, userId),
+        householdFilter,
+      )
+    : or(eq(schema.recipe.visibility, "public"), eq(schema.recipe.userId, userId));
 }
 
-async function findOwnedRecipes(
-  db: ReturnType<typeof createDb>["db"],
-  userId: string,
-): Promise<Recipe[]> {
-  return db
-    .select()
+async function listRecipesPage(
+  db: Db,
+  visibilityFilter: SQL | undefined,
+  cursor: FeedCursor | undefined,
+  limit: number,
+): Promise<{ recipes: Recipe[]; nextCursor: string | null }> {
+  const cursorFilter = recipeFeedCursorFilter(cursor);
+  const rows = await db
+    .select({
+      recipe: schema.recipe,
+      cursorCreatedAt: recipeFeedCursorTimestamp(),
+    })
     .from(schema.recipe)
-    .where(eq(schema.recipe.userId, userId));
+    .where(
+      visibilityFilter && cursorFilter
+        ? and(visibilityFilter, cursorFilter)
+        : (cursorFilter ?? visibilityFilter),
+    )
+    .orderBy(desc(schema.recipe.createdAt), desc(schema.recipe.id))
+    .limit(limit + 1);
+  const page = paginateRecipeFeed(rows, limit);
+  return {
+    recipes: page.items.map(({ recipe }) => recipe),
+    nextCursor: page.nextCursor,
+  };
 }
 
 async function findOwnedRecipeBySlug(
-  db: ReturnType<typeof createDb>["db"],
+  db: Db,
   slug: string,
   userId: string,
 ): Promise<Recipe | undefined> {
@@ -596,7 +623,7 @@ async function findOwnedRecipeBySlug(
 }
 
 async function usersShareHousehold(
-  db: ReturnType<typeof createDb>["db"],
+  db: Db,
   firstUserId: string,
   secondUserId: string,
 ): Promise<boolean> {
@@ -614,7 +641,7 @@ async function usersShareHousehold(
 }
 
 async function findUserHouseholdMembership(
-  db: ReturnType<typeof createDb>["db"],
+  db: Db,
   userId: string,
 ): Promise<HouseholdMember | undefined> {
   const [member] = await db
@@ -991,7 +1018,7 @@ async function findHouseholdMemberUserIds(
 }
 
 async function findHouseholdById(
-  db: ReturnType<typeof createDb>["db"],
+  db: Db,
   householdId: string,
 ): Promise<Household | undefined> {
   const [household] = await db
@@ -1003,7 +1030,7 @@ async function findHouseholdById(
 }
 
 async function findHouseholdOwner(
-  db: ReturnType<typeof createDb>["db"],
+  db: Db,
   householdId: string,
 ): Promise<HouseholdMember | undefined> {
   const [owner] = await db
@@ -1020,7 +1047,7 @@ async function findHouseholdOwner(
 }
 
 async function findHouseholdMembership(
-  db: ReturnType<typeof createDb>["db"],
+  db: Db,
   householdId: string,
   userId: string,
 ): Promise<HouseholdMember | undefined> {
@@ -1231,7 +1258,7 @@ async function findMissingDietReferences(
 
 async function authorizeHouseholdOwnerResponse(
   c: Context<AppEnv>,
-  db: ReturnType<typeof createDb>["db"],
+  db: Db,
   householdId: string,
   session: AuthenticatedSession,
 ): Promise<Response | undefined> {
@@ -1250,7 +1277,7 @@ async function authorizeHouseholdOwnerResponse(
 
 async function requireHouseholdMemberResponse(
   c: Context<AppEnv>,
-  db: ReturnType<typeof createDb>["db"],
+  db: Db,
   householdId: string,
   session: AuthenticatedSession,
 ): Promise<Response | undefined> {
@@ -1303,10 +1330,8 @@ app.post("/api/auth/preview/sign-up", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json({ error: "No database connection configured" }, 503);
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   const { db, client } = createDb(connectionString);
   const suffix = crypto.randomUUID();
@@ -1355,10 +1380,8 @@ app.post("/api/auth/preview/sign-in", async (c) => {
   const scenario = findPreviewScenario(body.data.scenario);
   if (!scenario) return c.json({ error: "Unknown preview scenario" }, 400);
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json({ error: "No database connection configured" }, 503);
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   const { db, client } = createDb(connectionString);
   try {
@@ -1398,10 +1421,8 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => {
     return c.notFound();
   }
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json({ error: "No database connection configured" }, 503);
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
   if (!hasAuthConfiguration(c.env)) {
     return c.json({ error: "Auth configuration is incomplete" }, 503);
   }
@@ -1600,13 +1621,8 @@ app.put("/api/profile/recipe-box", async (c) => {
 });
 
 app.get("/households", async (c) => {
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -1692,13 +1708,8 @@ app.post("/households", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -1754,7 +1765,8 @@ app.post("/households", async (c) => {
 });
 
 app.patch("/households/:householdId", async (c) => {
-  const householdId = c.req.param("householdId");
+  const householdId = uuidParam(c, "householdId", "household ID");
+  if (householdId instanceof Response) return householdId;
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -1787,14 +1799,10 @@ app.patch("/households/:householdId", async (c) => {
 });
 
 app.get("/households/:householdId/members", async (c) => {
-  const householdId = c.req.param("householdId");
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const householdId = uuidParam(c, "householdId", "household ID");
+  if (householdId instanceof Response) return householdId;
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -1840,7 +1848,8 @@ app.get("/households/:householdId/members", async (c) => {
 });
 
 app.get("/households/:householdId/invitations", async (c) => {
-  const householdId = c.req.param("householdId");
+  const householdId = uuidParam(c, "householdId", "household ID");
+  if (householdId instanceof Response) return householdId;
   return withRecipeSession(
     c,
     "query",
@@ -1871,17 +1880,13 @@ app.get("/households/:householdId/invitations", async (c) => {
 });
 
 app.post("/households/:householdId/invitations", async (c) => {
-  const householdId = c.req.param("householdId");
+  const householdId = uuidParam(c, "householdId", "household ID");
+  if (householdId instanceof Response) return householdId;
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -1974,17 +1979,13 @@ app.post("/households/:householdId/invitations", async (c) => {
 });
 
 app.post("/households/invitations/:invitationId/accept", async (c) => {
-  const invitationId = c.req.param("invitationId");
+  const invitationId = uuidParam(c, "invitationId", "invitation ID");
+  if (invitationId instanceof Response) return invitationId;
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -2015,17 +2016,13 @@ app.post("/households/invitations/:invitationId/accept", async (c) => {
 });
 
 app.post("/households/invitations/:invitationId/decline", async (c) => {
-  const invitationId = c.req.param("invitationId");
+  const invitationId = uuidParam(c, "invitationId", "invitation ID");
+  if (invitationId instanceof Response) return invitationId;
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -2055,18 +2052,15 @@ app.post("/households/invitations/:invitationId/decline", async (c) => {
 app.delete(
   "/households/:householdId/invitations/:invitationId",
   async (c) => {
-    const householdId = c.req.param("householdId");
-    const invitationId = c.req.param("invitationId");
+    const householdId = uuidParam(c, "householdId", "household ID");
+    if (householdId instanceof Response) return householdId;
+    const invitationId = uuidParam(c, "invitationId", "invitation ID");
+    if (invitationId instanceof Response) return invitationId;
     const csrfFailure = validateCsrf(c);
     if (csrfFailure) return csrfFailure;
 
-    const connectionString = databaseConnection(c.env);
-    if (!connectionString) {
-      return c.json(
-        { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-        503,
-      );
-    }
+    const connectionString = requireDatabaseConnection(c);
+    if (connectionString instanceof Response) return connectionString;
 
     let client: DbClient | undefined;
     try {
@@ -2127,18 +2121,15 @@ app.delete(
 );
 
 app.delete("/households/:householdId/members/:memberId", async (c) => {
-  const householdId = c.req.param("householdId");
-  const memberId = c.req.param("memberId");
+  const householdId = uuidParam(c, "householdId", "household ID");
+  if (householdId instanceof Response) return householdId;
+  const memberId = uuidParam(c, "memberId", "member ID");
+  if (memberId instanceof Response) return memberId;
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -2205,17 +2196,13 @@ app.delete("/households/:householdId/members/:memberId", async (c) => {
 });
 
 app.post("/households/:householdId/leave", async (c) => {
-  const householdId = c.req.param("householdId");
+  const householdId = uuidParam(c, "householdId", "household ID");
+  if (householdId instanceof Response) return householdId;
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -2273,11 +2260,12 @@ app.post("/households/:householdId/leave", async (c) => {
 });
 
 app.delete("/households/:householdId", async (c) => {
-  const householdId = c.req.param("householdId");
+  const householdId = uuidParam(c, "householdId", "household ID");
+  if (householdId instanceof Response) return householdId;
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) return c.json({ error: "No database connection configured" }, 503);
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -2342,8 +2330,8 @@ app.get("/notifications", async (c) => {
   if (!Number.isSafeInteger(offset) || offset < 0) {
     return c.json({ error: "Invalid notification offset" }, 400);
   }
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) return c.json({ error: "No database connection configured" }, 503);
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
   let client: DbClient | undefined;
   try {
     const connection = createDb(connectionString);
@@ -2414,8 +2402,8 @@ async function mutateAllNotifications(
 ): Promise<Response> {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) return c.json({ error: "No database connection configured" }, 503);
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
   let client: DbClient | undefined;
   try {
     const connection = createDb(connectionString);
@@ -2460,10 +2448,10 @@ app.post("/notifications/:notificationId/actions/:actionKey", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
   const action = c.req.param("actionKey");
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json({ error: "No database connection configured" }, 503);
-  }
+  const notificationId = uuidParam(c, "notificationId", "notification ID");
+  if (notificationId instanceof Response) return notificationId;
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -2473,7 +2461,6 @@ app.post("/notifications/:notificationId/actions/:actionKey", async (c) => {
     const session = await requireRecipeSession(c, db);
     if (!session.success) return session.response;
 
-    const notificationId = c.req.param("notificationId");
     const [target] = await db
       .select({
         eventId: schema.notificationEvent.id,
@@ -2535,8 +2522,10 @@ app.post("/notifications/:notificationId/actions/:actionKey", async (c) => {
 app.patch("/notifications/:notificationId", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) return c.json({ error: "No database connection configured" }, 503);
+  const notificationId = uuidParam(c, "notificationId", "notification ID");
+  if (notificationId instanceof Response) return notificationId;
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
   let client: DbClient | undefined;
   try {
     const connection = createDb(connectionString);
@@ -2563,10 +2552,7 @@ app.patch("/notifications/:notificationId", async (c) => {
       })
       .where(
         and(
-          eq(
-            schema.notificationDelivery.id,
-            c.req.param("notificationId"),
-          ),
+          eq(schema.notificationDelivery.id, notificationId),
           eq(
             schema.notificationDelivery.recipientUserId,
             session.session.user.id,
@@ -2587,29 +2573,36 @@ app.get("/recipes", async (c) => {
   if (scope && scope !== "owned") {
     return c.json({ error: "Invalid recipe scope" }, 400);
   }
-
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
+  const limitValue = c.req.query("limit");
+  const cursorValue = c.req.query("cursor");
+  const limit = recipeListLimitSchema.safeParse(limitValue);
+  const cursor = decodeFeedCursor(cursorValue);
+  if (!limit.success || (cursorValue && !cursor)) {
+    return c.json({ error: "Invalid recipe query" }, 400);
   }
+  // Requests that opt into pagination get an { items, nextCursor } envelope;
+  // bare requests keep the legacy array shape, bounded to the default limit.
+  const paginated = limitValue !== undefined || cursorValue !== undefined;
+
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
   let client: DbClient | undefined;
   try {
     const connection = createDb(connectionString);
     client = connection.client;
     const { db } = connection;
-    let recipes: Recipe[];
+    let visibilityFilter: SQL | undefined;
     if (scope === "owned") {
       const session = await requireRecipeSession(c, db);
       if (!session.success) return session.response;
-      recipes = await findOwnedRecipes(db, session.session.user.id);
+      visibilityFilter = eq(schema.recipe.userId, session.session.user.id);
     } else {
       const session = await loadOptionalRecipeSession(c, db);
-      recipes = await findReadableRecipes(db, session?.user.id);
+      visibilityFilter = await readableRecipeFilter(db, session?.user.id);
     }
-    return c.json(recipes.map(recipeResponse));
+    const page = await listRecipesPage(db, visibilityFilter, cursor, limit.data);
+    const items = page.recipes.map(recipeResponse);
+    return c.json(paginated ? { items, nextCursor: page.nextCursor } : items);
   } catch (e) {
     console.error("GET /recipes query failed", e);
     return c.json({ error: "Database query failed" }, 502);
@@ -2627,13 +2620,8 @@ app.get("/recipes/discover/feed", async (c) => {
     return c.json({ error: "Invalid feed query" }, 400);
   }
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -2699,16 +2687,8 @@ app.get("/recipes/cooks", async (c) => {
     return c.json({ error: "Invalid cook query" }, 400);
   }
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      {
-        error:
-          "No database connection configured (HYPERDRIVE or DATABASE_URL required)",
-      },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -2780,13 +2760,8 @@ app.post("/recipes/import-url", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -2843,13 +2818,8 @@ app.get("/recipes/:slug", async (c) => {
   const slug = parseRecipeSlug(c);
   if (!slug.success) return slug.response;
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -2886,13 +2856,8 @@ app.post("/recipes", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -2948,13 +2913,8 @@ app.patch("/recipes/:slug", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -3018,13 +2978,8 @@ app.post("/recipes/:slug/household-share", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -3046,14 +3001,6 @@ app.post("/recipes/:slug/household-share", async (c) => {
       session.session.user.id,
     );
     if (!membership) return authorizationResponse(c, forbidden());
-
-    const memberFailure = await requireHouseholdMemberResponse(
-      c,
-      db,
-      membership.organizationId,
-      session.session,
-    );
-    if (memberFailure) return memberFailure;
 
     const [updatedRecipe] = await db
       .update(schema.recipe)
@@ -3085,13 +3032,8 @@ app.delete("/recipes/:slug/household-share", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -3143,13 +3085,8 @@ app.delete("/recipes/:slug", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -3289,13 +3226,8 @@ app.post("/recipe-imports", async (c) => {
     return c.json({ error: "Recipe import is not configured" }, 503);
   }
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -3429,13 +3361,8 @@ app.post("/recipe-imports", async (c) => {
 });
 
 app.get("/recipe-imports", async (c) => {
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
@@ -3465,13 +3392,8 @@ app.get("/recipe-imports/:jobId", async (c) => {
   const jobId = recipeImportIdSchema.safeParse(c.req.param("jobId"));
   if (!jobId.success) return c.json({ error: "Import not found" }, 404);
 
-  const connectionString = databaseConnection(c.env);
-  if (!connectionString) {
-    return c.json(
-      { error: "No database connection configured (HYPERDRIVE or DATABASE_URL required)" },
-      503,
-    );
-  }
+  const connectionString = requireDatabaseConnection(c);
+  if (connectionString instanceof Response) return connectionString;
 
   let client: DbClient | undefined;
   try {
