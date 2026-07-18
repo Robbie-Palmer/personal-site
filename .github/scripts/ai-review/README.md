@@ -1,7 +1,7 @@
 # AI code review
 
 This directory contains the repository's custom multi-model pull-request
-reviewer. Four OpenRouter models independently produce structured findings. A
+reviewer. Two OpenRouter models independently produce structured findings. A
 merger model only deduplicates those findings and reconciles them with resolved
 GitHub review threads; it does not judge correctness.
 
@@ -19,7 +19,7 @@ Outside contributors cannot trigger a paid run themselves.
 Optional Actions repository variables:
 
 - `AI_REVIEW_MODELS`: comma-separated scout models. Defaults to
-  `moonshotai/kimi-k2.6,deepseek/deepseek-v4-pro,z-ai/glm-5.2,qwen/qwen3-coder`.
+  `moonshotai/kimi-k2.6,deepseek/deepseek-v4-pro`.
 - `AI_REVIEW_MERGER_MODEL`: defaults to `anthropic/claude-sonnet-4.6`.
 - `AI_REVIEW_IGNORED_AUTHORS`: comma-separated PR authors to skip. Defaults to
   `renovate[bot],dependabot[bot]`.
