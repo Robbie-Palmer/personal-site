@@ -167,7 +167,7 @@ jobs:
       - name: Seed preview scenarios
         run: mise run //workers/recipe-api:db:seed:preview
         env:
-          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
           BETTER_AUTH_URL: https://pr-${{ github.event.pull_request.number }}.${{ vars.CLOUDFLARE_PAGES_HOST }}
 
       - name: Create atomic Worker secrets files

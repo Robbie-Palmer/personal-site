@@ -2,16 +2,18 @@
 set -euo pipefail
 
 container_id=""
+container_name=""
 
 cleanup() {
-  if [[ -n "$container_id" ]]; then
+  container_ref="${container_id:-$container_name}"
+  if [[ -n "$container_ref" ]]; then
     integration_label=$(
       docker inspect \
         --format '{{ index .Config.Labels "personal-site.recipe-api-integration" }}' \
-        "$container_id" 2>/dev/null || true
+        "$container_ref" 2>/dev/null || true
     )
     if [[ "$integration_label" == "true" ]]; then
-      docker rm --force "$container_id" >/dev/null 2>&1 || true
+      docker rm --force "$container_ref" >/dev/null 2>&1 || true
     fi
   fi
 }
@@ -34,7 +36,11 @@ else
     exit 1
   fi
 
+  # Set the exact cleanup target before Docker starts, so an interrupt between
+  # container creation and ID capture cannot leave the labelled container behind.
+  container_name="personal-site-recipe-api-integration-$BASHPID"
   container_id=$(docker run --detach --rm \
+    --name "$container_name" \
     --env POSTGRES_DB=recipes_integration \
     --env POSTGRES_PASSWORD=integration-password \
     --label personal-site.recipe-api-integration=true \

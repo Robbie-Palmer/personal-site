@@ -51,6 +51,8 @@ jobs:
       - name: Migrate database
         run: mise run //workers/recipe-api:db:migrate
         env:
+          # This secret is the direct Neon URL; the Worker uses Hyperdrive for
+          # pooled application traffic after deployment.
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
 
       - name: Create Worker secrets file
