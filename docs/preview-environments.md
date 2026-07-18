@@ -249,8 +249,9 @@ no other branches. This avoids the three-root-branch limit that constrained the
 previous schema-only design to two concurrent previews.
 
 Scale-to-zero is fixed at 5 minutes on the Free plan and cannot be configured.
-The Neon branch action must not pass `suspend_timeout`; any explicit value is
-rejected with `412 Precondition Failed`.
+Leave the Neon branch action's `suspend_timeout` input unset. The action then
+forwards its default `0` sentinel so Neon uses the project's fixed setting;
+positive overrides such as `300` are rejected with `412 Precondition Failed`.
 
 ## Database migrations
 

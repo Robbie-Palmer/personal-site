@@ -23,7 +23,7 @@ with keys as (
     'vegetarian'::text as vegetarian,
     'wheat'::text as wheat
 ),
-upsert_groups as (
+insert_groups as (
   insert into "ingredient_group" ("key", "label", "description")
   select groups."key", groups."label", groups."description"
   from keys
@@ -46,13 +46,9 @@ upsert_groups as (
       (keys.chilli, 'Chilli', 'fresh or dried'),
       (keys.alcohol, 'Alcohol', 'wine, beer, spirits')
   ) as groups("key", "label", "description")
-  on conflict ("key") do update set
-    "label" = excluded."label",
-    "description" = excluded."description",
-    "updated_at" = now()
   returning "key"
 ),
-upsert_presets as (
+insert_presets as (
   insert into "diet_preset" ("key", "label", "description")
   select presets."key", presets."label", presets."description"
   from keys
@@ -65,10 +61,6 @@ upsert_presets as (
       (keys.gluten_free, 'Gluten-free', 'no wheat or gluten'),
       (keys.low_fodmap, 'Low-FODMAP review', 'flag common triggers')
   ) as presets("key", "label", "description")
-  on conflict ("key") do update set
-    "label" = excluded."label",
-    "description" = excluded."description",
-    "updated_at" = now()
   returning "key"
 )
 insert into "diet_preset_excluded_group" ("preset_key", "group_key")
@@ -95,9 +87,8 @@ cross join lateral (
     (keys.low_fodmap, keys.wheat),
     (keys.low_fodmap, keys.legumes)
 ) as exclusions(preset_key, group_key)
-inner join upsert_presets on upsert_presets."key" = exclusions.preset_key
-inner join upsert_groups on upsert_groups."key" = exclusions.group_key
-on conflict ("preset_key", "group_key") do nothing;
+inner join insert_presets on insert_presets."key" = exclusions.preset_key
+inner join insert_groups on insert_groups."key" = exclusions.group_key;
 --> statement-breakpoint
 insert into "ingredient" ("slug", "name", "category")
 values
@@ -309,11 +300,7 @@ values
   ('light-brown-sugar', 'light brown sugar', 'sweets'),
   ('sesame-oil', 'sesame oil', 'oil-fat'),
   ('chicken-thigh', 'chicken thigh', 'protein'),
-  ('frozen-raspberries', 'frozen raspberries', 'fruit')
-on conflict ("slug") do update set
-  "name" = excluded."name",
-  "category" = excluded."category",
-  "updated_at" = now();
+  ('frozen-raspberries', 'frozen raspberries', 'fruit');
 --> statement-breakpoint
 insert into "ingredient_group_member" ("group_key", "ingredient_slug")
 values
@@ -425,10 +412,8 @@ values
   ('dairy', 'white-chocolate-chips'),
   ('legumes', 'mixed-beans'),
   ('legumes', 'chickpeas'),
-  ('legumes', 'red-lentils')
-on conflict ("group_key", "ingredient_slug") do nothing;
+  ('legumes', 'red-lentils');
 --> statement-breakpoint
 insert into "diet_preset_excluded_ingredient" ("preset_key", "ingredient_slug")
 values
-  ('vegan', 'honey')
-on conflict ("preset_key", "ingredient_slug") do nothing;
+  ('vegan', 'honey');

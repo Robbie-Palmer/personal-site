@@ -121,8 +121,8 @@ jobs:
           parent_branch: preview-base
           database: recipes
           role: recipes_owner
-          # Neon Free plan fixes scale-to-zero at 5 minutes and rejects any
-          # explicit suspend_timeout with HTTP 412, so it must be omitted.
+          # Leave suspend_timeout unset so the action forwards its 0 sentinel
+          # and Neon uses the Free plan's fixed 5-minute scale-to-zero setting.
           expires_at: ${{ steps.neon-expiry.outputs.expires_at }}
 
       - name: Require a newly created Neon preview branch
