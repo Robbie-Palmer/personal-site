@@ -12,6 +12,12 @@ import {
 import type { BalanceSnapshot } from "./balanceSnapshot";
 import type { Transfer } from "./transfer";
 
+function compareIsoDates(a: string, b: string): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
 /**
  * Mortgages secured on a property are netted into that property so a home
  * shows as equity, not gross value, in totals and charts. Returns the set of
@@ -206,9 +212,7 @@ export function toNetWorthTimeSeries(
   snapshots: BalanceSnapshot[],
 ): NetWorthDataPoint[] {
   const dateSet = new Set(snapshots.map((s) => s.date));
-  const sortedDates = Array.from(dateSet).sort((a, b) =>
-    a.localeCompare(b, "en"),
-  );
+  const sortedDates = Array.from(dateSet).sort(compareIsoDates);
 
   const sortedSnapshots = [...snapshots].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),

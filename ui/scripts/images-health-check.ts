@@ -17,10 +17,10 @@ async function main() {
 		if (images.length > 0) {
 			const allIds = images
 				.map((img) => img.id)
-				.filter((id): id is string => id !== undefined)
+				.filter((id): id is string => typeof id === "string")
 				.sort((a, b) => a.localeCompare(b, "en"));
-			const featured = allIds.filter((id) => id?.includes("-featured-"));
-			const embedded = allIds.filter((id) => !id?.includes("-featured-"));
+			const featured = allIds.filter((id) => id.includes("-featured-"));
+			const embedded = allIds.filter((id) => !id.includes("-featured-"));
 
 			if (featured.length > 0) {
 				console.log(`   📸 Featured images (${featured.length}):`);
