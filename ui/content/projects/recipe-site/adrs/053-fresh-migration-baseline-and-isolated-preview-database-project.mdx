@@ -79,11 +79,12 @@ users and recipes remain seed-owned.
 
 ## Use a dedicated empty Neon preview project
 
-Create a separate Neon project for preview databases. Its default root branch
-is named `preview-base` and contains an empty `recipes` database plus the
-preview-only `recipes_owner` role, but no application tables, production rows,
-or Drizzle migration history. The GitHub preview environment receives a
-project-scoped API key for this project only.
+Create a separate, Terraform-managed Neon project for preview databases. Its
+default root branch is named `preview-base` and contains an empty `recipes`
+database plus the preview-only `recipes_owner` role, but no application tables,
+production rows, or Drizzle migration history. Terraform also creates the
+project-scoped API key supplied to the GitHub preview environment through
+Doppler.
 
 Each backend PR preview is an ordinary child branch named
 `preview-pr-<number>` whose parent is `preview-base`. The workflow deletes any

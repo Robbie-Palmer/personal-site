@@ -32,12 +32,9 @@ the deployed application code is still the PR's code.
 
 ## Operational setup & runbook
 
-The Cloudflare portions of this environment are already provisioned. The
-dedicated Neon preview project and its GitHub credentials must be created as
-part of adopting this ADR. The steps below are also the recovery and rotation
-runbook. These pieces are configured out of band; their sensitive values are
-not stored in the repository (the Terraform configuration itself is, under
-`infra/`).
+The Cloudflare and Neon resources are provisioned by Terraform. The steps below
+are also the recovery and rotation runbook. Credentials are configured out of
+band through Doppler; their sensitive values are not stored in the repository.
 
 ### 1. Apply the Terraform configuration
 
@@ -121,17 +118,21 @@ mise x -- pnpm exec wrangler r2 bucket lifecycle add \
   --expire-days 30 --abort-multipart-days 1 --force
 ```
 
-### 4. Create the dedicated Neon preview project
+### 4. Provision the dedicated Neon preview project
 
-Create a separate Neon project for preview databases. Do not reuse the
-production `recipes` project.
+Terraform creates a separate `recipes-preview` Neon project; previews must not
+reuse the production `recipes` project. Apply the infrastructure configuration
+as described in step 1, then publish its outputs to Doppler:
 
-1. Rename the project's default root branch to `preview-base`.
-2. Create an empty database named `recipes` owned by a role named
-   `recipes_owner`.
-3. Leave the database empty: it must contain neither application tables nor a
-   `drizzle.__drizzle_migrations` table.
-4. Create a project-scoped API key for this preview project.
+1. Set `NEON_PROJECT_ID` in `stg_recipe_api` from the
+   `neon_preview_project_id` output, with unmasked visibility.
+2. Set masked `NEON_API_KEY` in `stg_recipe_api` from the sensitive
+   `neon_preview_api_key` output.
+3. Run `scripts/sync-doppler-github-envs.sh` to update the GitHub environment.
+
+The Terraform resource creates the empty `preview-base` root, a `recipes`
+database owned by `recipes_owner`, and the project-scoped API key. Do not add
+application tables or a `drizzle.__drizzle_migrations` table to the root.
 
 Every PR database is a normal child branch of `preview-base`. Ordinary child
 branches use the project's general branch allowance and inherit only this empty
