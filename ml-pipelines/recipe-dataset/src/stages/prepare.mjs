@@ -435,6 +435,10 @@ function isLineBreak(character) {
   return character === "\n" || character === "\r";
 }
 
+function lineBreakWidth(character, nextCharacter) {
+  return character === "\r" && nextCharacter === "\n" ? 2 : 1;
+}
+
 function csvRows(source) {
   const rows = [];
   let row = [];
@@ -455,7 +459,7 @@ function csvRows(source) {
       row.push(field);
       field = "";
     } else if (isLineBreak(character)) {
-      if (character === "\r" && source[index + 1] === "\n") index += 1;
+      index += lineBreakWidth(character, source[index + 1]) - 1;
       appendCsvRow(rows, row, field);
       row = [];
       field = "";

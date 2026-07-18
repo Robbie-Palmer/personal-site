@@ -31,8 +31,8 @@ stages:
       size: 2134
     - path: src/stages/prepare.mjs
       hash: md5
-      md5: f7783ce1feaa62042643d5a5aaa5226d
-      size: 20407
+      md5: 8d28e50157f639817f219aba9e4cd894
+      size: 20518
     outs:
     - path: outputs/gutenberg-candidates.jsonl
       hash: md5
