@@ -15,9 +15,12 @@ async function main() {
 		console.log("   ✅ API connection successful");
 		console.log(`   📊 Total images in account: ${images.length}`);
 		if (images.length > 0) {
-			const allIds = images.map((img) => img.id).sort();
-			const featured = allIds.filter((id) => id?.includes("-featured-"));
-			const embedded = allIds.filter((id) => !id?.includes("-featured-"));
+			const allIds = images
+				.map((img) => img.id)
+				.filter((id): id is string => typeof id === "string")
+				.sort((a, b) => a.localeCompare(b, "en"));
+			const featured = allIds.filter((id) => id.includes("-featured-"));
+			const embedded = allIds.filter((id) => !id.includes("-featured-"));
 
 			if (featured.length > 0) {
 				console.log(`   📸 Featured images (${featured.length}):`);

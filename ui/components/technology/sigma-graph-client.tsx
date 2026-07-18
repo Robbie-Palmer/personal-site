@@ -48,6 +48,14 @@ const NODE_TYPE_LABELS: Record<string, string> = {
   tag: "Tags",
 };
 
+function compareCodeUnitOrder(a: string, b: string): number {
+  // Graph IDs are identifiers rather than user-facing text. Code-unit order
+  // keeps fingerprints independent of the host locale.
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
 interface SigmaGraphClientProps {
   data: GraphData;
 }
@@ -74,11 +82,11 @@ const GraphDataController = memo(function GraphDataController({
       edgeCount: filteredData.edges.length,
       nodeIds: filteredData.nodes
         .map((n) => n.id)
-        .sort()
+        .sort(compareCodeUnitOrder)
         .join(","),
       edgeIds: filteredData.edges
         .map((e) => `${e.source}|${e.target}`)
-        .sort()
+        .sort(compareCodeUnitOrder)
         .join(","),
     });
     // If data hasn't meaningfully changed, skipping reload prevents layout reset
@@ -352,10 +360,10 @@ export function SigmaGraphClient({ data }: SigmaGraphClientProps) {
   // Stabilize data prop to prevent re-renders on hover (due to parent passing new object references)
   const dataFingerprint = `${data.nodes.length}|${data.edges.length}|${data.nodes
     .map((n) => n.id)
-    .sort()
+    .sort(compareCodeUnitOrder)
     .join(",")}|${data.edges
     .map((e) => `${e.source}>${e.target}`)
-    .sort()
+    .sort(compareCodeUnitOrder)
     .join(",")}`;
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally using lightweight fingerprint instead of object identity for deep equality
   const stableData = useMemo(() => data, [dataFingerprint]);
@@ -523,7 +531,7 @@ export function SigmaGraphClient({ data }: SigmaGraphClientProps) {
     for (const node of stableData.nodes) {
       types.add(node.type);
     }
-    return Array.from(types).sort();
+    return Array.from(types).sort((a, b) => a.localeCompare(b, "en"));
   }, [stableData]);
 
   /*

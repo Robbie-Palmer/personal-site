@@ -15,14 +15,26 @@ export function ImagePanel({ imagePaths, onClickImage }: ImagePanelProps) {
           key={path}
           className="bg-gray-100 rounded-lg overflow-hidden border border-gray-200"
         >
-          <img
-            src={imageUrl(path)}
-            alt=""
-            className={`w-full h-auto max-h-[500px] object-contain ${
-              onClickImage ? "cursor-zoom-in" : ""
-            }`}
-            onClick={onClickImage ? () => onClickImage(i) : undefined}
-          />
+          {onClickImage ? (
+            <button
+              type="button"
+              className="block w-full cursor-zoom-in"
+              onClick={() => onClickImage(i)}
+              aria-label={`Open image ${i + 1} at full size`}
+            >
+              <img
+                src={imageUrl(path)}
+                alt=""
+                className="w-full h-auto max-h-[500px] object-contain"
+              />
+            </button>
+          ) : (
+            <img
+              src={imageUrl(path)}
+              alt=""
+              className="w-full h-auto max-h-[500px] object-contain"
+            />
+          )}
         </div>
       ))}
     </div>
