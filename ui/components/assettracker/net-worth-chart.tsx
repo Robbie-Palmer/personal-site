@@ -120,9 +120,14 @@ export function NetWorthChart({ data }: NetWorthChartProps) {
     change != null && first && first.total !== 0
       ? change / Math.abs(first.total)
       : null;
-  let rangeLabel = `past ${rangeYears} years`;
-  if (rangeYears == null) rangeLabel = "all time";
-  if (rangeYears === 1) rangeLabel = "past year";
+  let rangeLabel: string;
+  if (rangeYears == null) {
+    rangeLabel = "all time";
+  } else if (rangeYears === 1) {
+    rangeLabel = "past year";
+  } else {
+    rangeLabel = `past ${rangeYears} years`;
+  }
 
   function soloSeries(name: string) {
     setHidden((previous) => {

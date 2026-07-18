@@ -615,9 +615,10 @@ export function RecipeContent({
         <h2 className="rt-display text-4xl text-[var(--terracotta)] mb-4">
           Method
         </h2>
-        {/* The visible numeral is decorative generated content via a CSS
-            counter, while the ordered list retains the document semantics. */}
-        <ol className="rt-method-steps list-none p-0 m-0">
+        {/* Keep a native decimal marker so Safari/VoiceOver retain the list
+            semantics. Its text is transparent because the visible numeral is
+            decorative generated content from the CSS counter below. */}
+        <ol className="rt-method-steps list-decimal marker:text-transparent p-0 m-0">
           {cookSteps.map((step, stepIndex) => (
             <li
               key={step.key}

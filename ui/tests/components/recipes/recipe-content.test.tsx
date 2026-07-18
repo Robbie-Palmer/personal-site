@@ -99,4 +99,12 @@ describe("RecipeContent", () => {
       screen.queryByRole("button", { name: /start 10 minutes timer/i }),
     ).not.toBeInTheDocument();
   });
+
+  it("retains native list markers for Safari accessibility", () => {
+    const { container } = render(<RecipeContent recipe={recipe} />);
+
+    const method = container.querySelector(".rt-method-steps");
+    expect(method).toHaveClass("list-decimal", "marker:text-transparent");
+    expect(method).not.toHaveClass("list-none");
+  });
 });
