@@ -37,7 +37,7 @@ interface AccountFlowsProps {
   account: AccountDetailView;
 }
 
-export function AccountFlows({ account }: AccountFlowsProps) {
+export function AccountFlows({ account }: Readonly<AccountFlowsProps>) {
   const {
     accounts,
     recurringFlows,

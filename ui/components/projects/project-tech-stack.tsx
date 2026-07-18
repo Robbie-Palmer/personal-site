@@ -27,7 +27,7 @@ interface ProjectTechStackProps {
 export function ProjectTechStack({
   techStack,
   className,
-}: ProjectTechStackProps) {
+}: Readonly<ProjectTechStackProps>) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const itemsWithIcons = techStack.filter((tech) => hasTechIcon(tech.name));

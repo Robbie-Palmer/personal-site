@@ -40,7 +40,7 @@ export function ProjectCard({
   onStatusClick,
   selectedRoles = [],
   onRoleClick,
-}: ProjectCardProps) {
+}: Readonly<ProjectCardProps>) {
   const sortedTechnologies = useMemo(
     () => prioritiseSelected(project.technologies, selectedTech, (t) => t.slug),
     [project.technologies, selectedTech],

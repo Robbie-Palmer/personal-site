@@ -102,7 +102,7 @@ export function TechIcon({
   name,
   iconSlug,
   className = "w-3 h-3",
-}: TechIconProps) {
+}: Readonly<TechIconProps>) {
   const iconData = resolveIconData(name, iconSlug);
   if (!iconData) return null;
 

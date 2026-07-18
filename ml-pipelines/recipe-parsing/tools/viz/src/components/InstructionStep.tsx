@@ -37,7 +37,7 @@ export function InstructionStep({
   index,
   highlightWords,
   highlightClass = "bg-red-200 text-red-900 rounded px-0.5",
-}: InstructionStepProps) {
+}: Readonly<InstructionStepProps>) {
   return (
     <li className="text-sm leading-relaxed pl-1">
       <span className="text-gray-400 mr-1.5">{index + 1}.</span>

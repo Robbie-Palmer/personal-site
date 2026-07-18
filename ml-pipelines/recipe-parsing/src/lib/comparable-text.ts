@@ -86,8 +86,7 @@ function isCandidateNumberToken(token: string): boolean {
 }
 
 function formatCanonicalNumber(value: number): string {
-  if (Number.isInteger(value)) return String(value);
-  return value.toString().replace(/(?:\.0+|(\.\d*?)0+)$/, "$1");
+  return String(value);
 }
 
 function parseDigitWord(token: string): number | undefined {

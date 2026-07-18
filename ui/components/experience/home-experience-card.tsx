@@ -12,7 +12,9 @@ interface HomeExperienceCardProps {
   experience: Experience;
 }
 
-export function HomeExperienceCard({ experience }: HomeExperienceCardProps) {
+export function HomeExperienceCard({
+  experience,
+}: Readonly<HomeExperienceCardProps>) {
   return (
     <Link
       href={`/experience#${getExperienceSlug(experience)}`}

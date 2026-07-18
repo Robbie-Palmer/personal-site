@@ -26,7 +26,7 @@ interface ExtractionListViewProps {
 
 export function ExtractionListView({
   onSelectEntry,
-}: ExtractionListViewProps) {
+}: Readonly<ExtractionListViewProps>) {
   const [groundTruth, setGroundTruth] = useState<GroundTruthDataset | null>(null);
   const [extractions, setExtractions] = useState<ExtractionPredictionsDataset | null>(null);
   const [scores, setScores] = useState<PerImageScoreEntry[]>([]);

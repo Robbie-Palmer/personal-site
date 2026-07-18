@@ -2,11 +2,11 @@ export function PanelHead({
   kicker,
   title,
   sub,
-}: {
+}: Readonly<{
   kicker: string;
   title: string;
   sub?: string;
-}) {
+}>) {
   return (
     <div className="mb-6">
       <p className="rt-mono text-[var(--terracotta)]">{kicker}</p>

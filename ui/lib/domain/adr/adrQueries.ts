@@ -23,10 +23,25 @@ import {
   toADRListItemView,
 } from "./adrViews";
 
+function replaceMarkdownLinks(markdown: string): string {
+  let result = "";
+  let cursor = 0;
+  let labelStart = markdown.indexOf("[", cursor);
+  while (labelStart >= 0) {
+    const labelEnd = markdown.indexOf("](", labelStart + 1);
+    const urlEnd = labelEnd < 0 ? -1 : markdown.indexOf(")", labelEnd + 2);
+    if (labelEnd < 0 || urlEnd < 0) break;
+    result += markdown.slice(cursor, labelStart);
+    result += markdown.slice(labelStart + 1, labelEnd);
+    cursor = urlEnd + 1;
+    labelStart = markdown.indexOf("[", cursor);
+  }
+  return result + markdown.slice(cursor);
+}
+
 function stripMarkdown(markdown: string): string {
-  return markdown
-    .replace(/!\[[^\]]*]\([^)]+\)/g, "")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+  const withoutImages = markdown.replace(/!\[[^\]]*]\([^)]+\)/g, "");
+  return replaceMarkdownLinks(withoutImages)
     .replace(/`([^`]+)`/g, "$1")
     .replace(/^>\s?/gm, "")
     .replace(/(^|\s)>\s?/g, "$1")

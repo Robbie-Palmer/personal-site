@@ -43,11 +43,10 @@ export function formatAmount(item: RecipeIngredient, scale = 1): string {
 
 export function formatIngredient(item: RecipeIngredient, scale = 1): string {
   const isPiece = item.unit === "piece";
-  const amount = isPiece
-    ? item.amount != null
-      ? formatScaled(item.amount * scale)
-      : ""
-    : formatAmount(item, scale);
+  let amount = formatAmount(item, scale);
+  if (isPiece) {
+    amount = item.amount == null ? "" : formatScaled(item.amount * scale);
+  }
 
   const parts: string[] = [];
 

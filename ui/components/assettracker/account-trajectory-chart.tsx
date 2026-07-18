@@ -49,7 +49,7 @@ interface AccountTrajectoryChartProps {
 
 export function AccountTrajectoryChart({
   account,
-}: AccountTrajectoryChartProps) {
+}: Readonly<AccountTrajectoryChartProps>) {
   const { transfers } = useAssetTracker();
   const externalFlows = transfers
     .filter(

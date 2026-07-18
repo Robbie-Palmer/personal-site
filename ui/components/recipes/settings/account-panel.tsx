@@ -47,11 +47,11 @@ function Field({
   label,
   hint,
   children,
-}: {
+}: Readonly<{
   label: string;
   hint?: string;
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <div className="flex flex-col gap-1.5 border-b border-dashed border-[var(--line)] py-4 sm:flex-row sm:items-baseline sm:gap-4">
       <div className="rt-body pt-1 text-[0.95rem] text-[var(--ink)] sm:w-36 sm:shrink-0">
@@ -67,9 +67,9 @@ function Field({
 
 export function AccountPanel({
   user,
-}: {
+}: Readonly<{
   user: { name: string; email: string; image?: string | null };
-}) {
+}>) {
   const [name, setName] = useState(user.name);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);

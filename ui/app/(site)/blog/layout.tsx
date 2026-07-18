@@ -2,9 +2,9 @@ import { siteConfig } from "@/lib/config/site-config";
 
 export default function BlogLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <>
       {/* Preconnect to Cloudflare Images for faster image loading */}

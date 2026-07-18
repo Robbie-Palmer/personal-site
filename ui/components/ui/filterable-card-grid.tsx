@@ -98,7 +98,7 @@ export function FilterableCardGrid<T>({
   onSearchChange,
   hideInlineSearch = false,
   stackControls = false,
-}: FilterableCardGridProps<T>) {
+}: Readonly<FilterableCardGridProps<T>>) {
   const { currentSort, cycleSortOrder } = useSortParam<SortOption>(
     SORT_OPTIONS,
     "newest",

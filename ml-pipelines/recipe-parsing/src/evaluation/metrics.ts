@@ -468,12 +468,12 @@ export function evaluateInstructions(
 
   const predCount = predicted.instructions.length;
   const expCount = expected.instructions.length;
-  const stepRatio =
-    predCount === 0 && expCount === 0
-      ? 1
-      : predCount === 0 || expCount === 0
-        ? 0
-        : Math.min(predCount, expCount) / Math.max(predCount, expCount);
+  let stepRatio = 0;
+  if (predCount === 0 && expCount === 0) {
+    stepRatio = 1;
+  } else if (predCount > 0 && expCount > 0) {
+    stepRatio = Math.min(predCount, expCount) / Math.max(predCount, expCount);
+  }
 
   const scale = 1 - STEP_COUNT_PENALTY_WEIGHT * (1 - stepRatio);
   return {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import type { IngredientGroup, ParsedRecipe, RecipeIngredient, Unit } from "recipe-domain";
 import { UNIT_LABELS } from "recipe-domain";
@@ -49,15 +49,35 @@ function updateField<K extends keyof ParsedRecipe>(
   return { ...recipe, [key]: next };
 }
 
+function ensureStableKeys(
+  keys: string[],
+  count: number,
+  createKey: () => string,
+): void {
+  while (keys.length < count) keys.push(createKey());
+  if (keys.length > count) keys.splice(count);
+}
+
+function ontologyStatusClass(
+  slugChanged: boolean,
+  isInOntology: boolean,
+  ingredient: string,
+): string {
+  if (slugChanged) return "bg-blue-400";
+  if (isInOntology) return "bg-green-400";
+  if (ingredient) return "bg-amber-400";
+  return "bg-gray-200";
+}
+
 function AddToOntologyForm({
   slug,
   onAdd,
   onCancel,
-}: {
+}: Readonly<{
   slug: string;
   onAdd: (slug: string, category: string) => void;
   onCancel: () => void;
-}) {
+}>) {
   const [category, setCategory] = useState("other");
   return (
     <div className="flex items-center gap-1.5 mt-1 ml-1">
@@ -94,9 +114,27 @@ export function ParsedRecipeEditor({
   diagnostics = [],
   onChange,
   canonicalization,
-}: ParsedRecipeEditorProps) {
+}: Readonly<ParsedRecipeEditorProps>) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [addingRowKey, setAddingRowKey] = useState<string | null>(null);
+  const editorId = useId();
+  const keySequence = useRef(0);
+  const groupKeys = useRef<string[]>([]);
+  const ingredientKeys = useRef(new Map<string, string[]>());
+  const cookwareKeys = useRef<string[]>([]);
+  const createKey = (kind: string) =>
+    `${editorId}-${kind}-${keySequence.current++}`;
+
+  ensureStableKeys(
+    groupKeys.current,
+    value.ingredientGroups.length,
+    () => createKey("group"),
+  );
+  ensureStableKeys(
+    cookwareKeys.current,
+    value.cookware.length,
+    () => createKey("cookware"),
+  );
 
   function toggleRow(key: string) {
     setExpandedRows((prev) => {
@@ -259,9 +297,18 @@ export function ParsedRecipeEditor({
           </button>
         </div>
 
-        {value.ingredientGroups.map((group, groupIndex) => (
+        {value.ingredientGroups.map((group, groupIndex) => {
+          const groupKey = groupKeys.current[groupIndex]!;
+          const stableIngredientKeys = ingredientKeys.current.get(groupKey) ?? [];
+          ingredientKeys.current.set(groupKey, stableIngredientKeys);
+          ensureStableKeys(
+            stableIngredientKeys,
+            group.items.length,
+            () => createKey("ingredient"),
+          );
+          return (
           <div
-            key={groupIndex}
+            key={groupKey}
             className="border border-gray-200 rounded overflow-hidden"
           >
             <div className="flex items-center gap-2 bg-gray-50 px-2 py-1.5">
@@ -276,12 +323,14 @@ export function ParsedRecipeEditor({
               />
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  groupKeys.current.splice(groupIndex, 1);
+                  ingredientKeys.current.delete(groupKey);
                   onChange({
                     ...value,
                     ingredientGroups: value.ingredientGroups.filter((_, i) => i !== groupIndex),
-                  })
-                }
+                  });
+                }}
                 className="px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-100"
               >
                 Remove
@@ -309,7 +358,7 @@ export function ParsedRecipeEditor({
             {/* Ingredient rows */}
             <div className="divide-y divide-gray-100">
               {group.items.map((item, itemIndex) => {
-                const rowKey = `${groupIndex}-${itemIndex}`;
+                const rowKey = stableIngredientKeys[itemIndex]!;
                 const isExpanded = expandedRows.has(rowKey);
 
                 // Canonicalization-specific data
@@ -323,19 +372,11 @@ export function ParsedRecipeEditor({
                 if (isCanon) {
                   // Canonicalization mode: slug-focused compact row
                   return (
-                    <div key={itemIndex} className="px-2 py-1.5 space-y-1">
+                    <div key={rowKey} className="px-2 py-1.5 space-y-1">
                       <div className="grid grid-cols-[3px_1fr_auto_auto_auto] gap-1.5 items-center">
                         {/* Status indicator bar */}
                         <div
-                          className={`h-full rounded-full ${
-                            slugChanged
-                              ? "bg-blue-400"
-                              : isInOntology
-                                ? "bg-green-400"
-                                : item.ingredient
-                                  ? "bg-amber-400"
-                                  : "bg-gray-200"
-                          }`}
+                          className={`h-full rounded-full ${ontologyStatusClass(slugChanged, isInOntology, item.ingredient)}`}
                         />
 
                         {/* Slug input with datalist + status */}
@@ -425,12 +466,13 @@ export function ParsedRecipeEditor({
                         {/* Remove */}
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={() => {
+                            stableIngredientKeys.splice(itemIndex, 1);
                             updateGroup(groupIndex, {
                               ...group,
                               items: group.items.filter((_, i) => i !== itemIndex),
-                            })
-                          }
+                            });
+                          }}
                           className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 text-xs"
                         >
                           &times;
@@ -518,7 +560,7 @@ export function ParsedRecipeEditor({
 
                 // Non-canonicalization mode: full editing (used if editor is reused elsewhere)
                 return (
-                  <div key={itemIndex} className="px-2 py-1.5 space-y-1">
+                  <div key={rowKey} className="px-2 py-1.5 space-y-1">
                     <div className="grid grid-cols-[1fr_auto_auto_auto] gap-1.5 items-center">
                       <input
                         type="text"
@@ -561,12 +603,13 @@ export function ParsedRecipeEditor({
                       </select>
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          stableIngredientKeys.splice(itemIndex, 1);
                           updateGroup(groupIndex, {
                             ...group,
                             items: group.items.filter((_, i) => i !== itemIndex),
-                          })
-                        }
+                          });
+                        }}
                         className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 text-xs"
                       >
                         &times;
@@ -620,7 +663,8 @@ export function ParsedRecipeEditor({
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Equipment */}
@@ -629,7 +673,7 @@ export function ParsedRecipeEditor({
         <div className="border border-gray-200 rounded overflow-hidden">
           <div className="divide-y divide-gray-100">
             {value.cookware.map((item, i) => (
-              <div key={i} className="flex items-center gap-1.5 px-2 py-1">
+              <div key={cookwareKeys.current[i]} className="flex items-center gap-1.5 px-2 py-1">
                 <input
                   type="text"
                   value={item}
@@ -642,9 +686,10 @@ export function ParsedRecipeEditor({
                 />
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    cookwareKeys.current.splice(i, 1);
                     onChange(updateField(value, "cookware", value.cookware.filter((_, idx) => idx !== i)))
-                  }
+                  }}
                   className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 text-xs"
                 >
                   &times;

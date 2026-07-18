@@ -101,7 +101,9 @@ function Badge({
   ...props
 }: React.HTMLAttributes<HTMLElement> &
   VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot : props.onClick ? "button" : "span";
+  let Comp: typeof Slot | "button" | "span" = "span";
+  if (asChild) Comp = Slot;
+  else if (props.onClick) Comp = "button";
 
   return (
     <Comp

@@ -33,7 +33,7 @@ export function ADRCarousel({
   scrollSpeed = defaultCarouselConfig.scrollSpeed,
   stopOnInteraction = defaultCarouselConfig.stopOnInteraction,
   stopOnMouseEnter = defaultCarouselConfig.stopOnMouseEnter,
-}: ADRCarouselProps) {
+}: Readonly<ADRCarouselProps>) {
   const techIconsByADRKey = useMemo(
     () =>
       new Map(

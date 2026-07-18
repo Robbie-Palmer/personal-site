@@ -32,7 +32,9 @@ interface AssetAllocationChartProps {
   data: { assetType: AssetType; total: number }[];
 }
 
-export function AssetAllocationChart({ data }: AssetAllocationChartProps) {
+export function AssetAllocationChart({
+  data,
+}: Readonly<AssetAllocationChartProps>) {
   // Largest magnitude first so assets and liabilities read top-to-bottom
   const chartData = [...data]
     .filter((item) => item.total !== 0)

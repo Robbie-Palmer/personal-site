@@ -8,10 +8,10 @@ import { Check } from "lucide-react";
 export function ShoppingCheckbox({
   checked,
   className,
-}: {
+}: Readonly<{
   checked: boolean;
   className?: string;
-}) {
+}>) {
   return (
     <span
       aria-hidden="true"

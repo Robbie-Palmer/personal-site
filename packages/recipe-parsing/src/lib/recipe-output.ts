@@ -1,5 +1,18 @@
 import { RecipeSchema, type Recipe } from "../schemas/ground-truth.js";
 
+export function stripJsonCodeFence(value: string): string {
+  let result = value.trim();
+  if (result.startsWith("```")) {
+    result = result.slice(3);
+    if (result.slice(0, 4).toLowerCase() === "json") result = result.slice(4);
+    result = result.trimStart();
+  }
+  if (result.endsWith("```")) {
+    result = result.slice(0, -3).trimEnd();
+  }
+  return result;
+}
+
 function sanitizeOptionalPositiveNumber(
   obj: Record<string, unknown>,
   key: string,
@@ -48,10 +61,7 @@ export function parseRecipeJsonFromText(raw: string | null | undefined): Recipe 
   if (!raw) {
     throw new Error("Model returned empty content");
   }
-  const trimmed = raw.trim();
-  const withoutFence = trimmed
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/, "");
+  const withoutFence = stripJsonCodeFence(raw);
   const parsed = JSON.parse(withoutFence);
   return RecipeSchema.parse(sanitizeParsedRecipe(parsed));
 }

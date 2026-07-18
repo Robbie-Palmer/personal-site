@@ -94,7 +94,9 @@ function downloadFile(filename: string, content: string, mime: string): void {
   URL.revokeObjectURL(url);
 }
 
-export function AssetTrackerProvider({ children }: { children: ReactNode }) {
+export function AssetTrackerProvider({
+  children,
+}: Readonly<{ children: ReactNode }>) {
   // Seed synchronously so the static build renders the full demo dashboard;
   // locally saved changes are applied after mount to avoid hydration mismatch
   const [data, setData] = useState<AssetTrackerData>(getSeedData);

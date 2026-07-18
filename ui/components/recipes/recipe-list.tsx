@@ -157,11 +157,11 @@ function CuisineBadge({
   cuisine,
   isActive,
   onToggle,
-}: {
+}: Readonly<{
   cuisine: string;
   isActive: boolean;
   onToggle: (cuisine: string) => void;
-}) {
+}>) {
   return (
     <Badge
       variant={isActive ? "default" : "secondary"}
@@ -182,13 +182,13 @@ function TimeBadge({
   icon,
   isActive,
   onToggle,
-}: {
+}: Readonly<{
   label: string;
   minutes: number;
   icon: ReactNode;
   isActive: boolean;
   onToggle: (rangeLabel: string) => void;
-}) {
+}>) {
   const rangeLabel = getTimeRangeLabel(minutes);
   return (
     <Badge

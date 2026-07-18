@@ -21,7 +21,7 @@ function compareIsoDates(a: string, b: string): number {
 }
 
 function extractValidDateSuffix(imageId: string): string | null {
-	const date = imageId.match(/(\d{4}-\d{2}-\d{2})$/)?.[1];
+	const date = /(\d{4}-\d{2}-\d{2})$/.exec(imageId)?.[1];
 	return date && validateDate(date) ? date : null;
 }
 

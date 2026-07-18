@@ -8,7 +8,7 @@ interface EntryCardProps {
   onClick: () => void;
 }
 
-export function EntryCard({ entry, onClick }: EntryCardProps) {
+export function EntryCard({ entry, onClick }: Readonly<EntryCardProps>) {
   const { scores, images } = entry;
 
   const bars = [

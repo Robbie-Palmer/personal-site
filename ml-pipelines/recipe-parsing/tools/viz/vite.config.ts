@@ -49,6 +49,15 @@ function collectBody(req: import("node:http").IncomingMessage): Promise<string> 
   });
 }
 
+function contentTypeFor(filePath: string): string {
+  if (filePath.endsWith(".json")) return "application/json";
+  if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) {
+    return "image/jpeg";
+  }
+  if (filePath.endsWith(".png")) return "image/png";
+  return "application/octet-stream";
+}
+
 /**
  * Serves files from the pipeline root under the /pipeline/ URL prefix.
  * e.g. /pipeline/data/recipe-images/PXL_123.jpg -> ../../data/recipe-images/PXL_123.jpg
@@ -138,16 +147,7 @@ function servePipelineFiles(): Plugin {
           return;
         }
         if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) {
-          res.setHeader(
-            "Content-Type",
-            resolved.endsWith(".json")
-              ? "application/json"
-              : resolved.endsWith(".jpg") || resolved.endsWith(".jpeg")
-                ? "image/jpeg"
-                : resolved.endsWith(".png")
-                  ? "image/png"
-                  : "application/octet-stream",
-          );
+          res.setHeader("Content-Type", contentTypeFor(resolved));
           const stream = fs.createReadStream(resolved);
           function cleanup() {
             stream.off("error", onStreamError);

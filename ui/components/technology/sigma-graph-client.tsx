@@ -19,6 +19,10 @@ import {
   type GraphNode,
   NON_NAVIGABLE_HREF,
 } from "@/lib/api/graph-data";
+import {
+  type FilteredGraphData,
+  filterGraphData,
+} from "@/lib/domain/technology/graphFilter";
 
 const NODE_COLORS: Record<string, string> = {
   project: "#3b82f6",
@@ -61,13 +65,7 @@ interface SigmaGraphClientProps {
 }
 
 interface GraphDataControllerProps {
-  filteredData: {
-    nodes: (GraphNode & {
-      connections: number;
-      totalConnections?: number;
-    })[];
-    edges: { source: string; target: string; type: string }[];
-  };
+  filteredData: FilteredGraphData;
 }
 
 const GraphDataController = memo(function GraphDataController({
@@ -334,7 +332,7 @@ function drawHover(
   context.fillText(data.label, data.x + data.size + 3, data.y + size / 3);
 }
 
-export function SigmaGraphClient({ data }: SigmaGraphClientProps) {
+export function SigmaGraphClient({ data }: Readonly<SigmaGraphClientProps>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
   const [selectedNode, setSelectedNode] = useState<
@@ -368,143 +366,10 @@ export function SigmaGraphClient({ data }: SigmaGraphClientProps) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally using lightweight fingerprint instead of object identity for deep equality
   const stableData = useMemo(() => data, [dataFingerprint]);
 
-  const filteredData = useMemo(() => {
-    const typeFilteredNodes =
-      hiddenTypes.size === 0
-        ? stableData.nodes
-        : stableData.nodes.filter((n) => !hiddenTypes.has(n.type));
-    const typeFilteredIds = new Set(typeFilteredNodes.map((n) => n.id));
-    const hiddenNodeIds = new Set(
-      stableData.nodes
-        .filter((n) => !typeFilteredIds.has(n.id))
-        .map((n) => n.id),
-    );
-
-    const edgeSet = new Set<string>();
-    const resultEdges: { source: string; target: string; type: string }[] = [];
-
-    function addEdge(source: string, target: string, type: string) {
-      if (source === target) return;
-      const key =
-        source < target ? `${source}|${target}` : `${target}|${source}`;
-      if (edgeSet.has(key)) return;
-      edgeSet.add(key);
-      resultEdges.push({ source, target, type });
-    }
-
-    for (const e of stableData.edges) {
-      if (typeFilteredIds.has(e.source) && typeFilteredIds.has(e.target)) {
-        addEdge(e.source, e.target, e.type);
-      }
-    }
-
-    // Synthesize transitive technology links through hidden nodes
-    if (hiddenNodeIds.size > 0 && !hiddenTypes.has("technology")) {
-      const neighbors = new Map<
-        string,
-        { target: string; type: string; direction: "in" | "out" }[]
-      >();
-      for (const e of stableData.edges) {
-        if (!neighbors.has(e.source)) neighbors.set(e.source, []);
-        if (!neighbors.has(e.target)) neighbors.set(e.target, []);
-        neighbors.get(e.source)?.push({
-          target: e.target,
-          type: e.type,
-          direction: "out",
-        });
-        neighbors.get(e.target)?.push({
-          target: e.source,
-          type: e.type,
-          direction: "in",
-        });
-      }
-
-      const techPrefix = "technology:";
-
-      for (const node of typeFilteredNodes) {
-        if (node.id.startsWith(techPrefix)) continue;
-
-        const visited = new Set<string>();
-        const queue = [node.id];
-        visited.add(node.id);
-
-        let current = queue.shift();
-        while (current !== undefined) {
-          const currentNeighbors = neighbors.get(current) ?? [];
-          for (const edge of currentNeighbors) {
-            const neighbor = edge.target;
-
-            if (visited.has(neighbor)) continue;
-
-            // Transitive Logic Constraints:
-
-            // 1. Do NOT traverse HAS_TAG edges.
-            //    Tags are for grouping and should not create transitive "usage" relationships.
-            //    This prevents Role -> Project A -> Tag -> Project B -> Tech traversal.
-            if (edge.type === "HAS_TAG") {
-              continue;
-            }
-
-            // 2. Do NOT traverse OUTWARD edges to container/context entities.
-            //    This prevents child entities from inheriting technologies from their parents.
-            //    - Block ADR -> Project (PART_OF_PROJECT)
-            //    - Block Project -> Role (CREATED_AT_ROLE)
-            //    - Block Blog -> Role (WRITTEN_AT_ROLE)
-            if (
-              edge.direction === "out" &&
-              (edge.type === "PART_OF_PROJECT" ||
-                edge.type === "CREATED_AT_ROLE" ||
-                edge.type === "WRITTEN_AT_ROLE")
-            ) {
-              continue;
-            }
-
-            visited.add(neighbor);
-
-            if (
-              neighbor.startsWith(techPrefix) &&
-              typeFilteredIds.has(neighbor)
-            ) {
-              addEdge(node.id, neighbor, "USES_TECHNOLOGY");
-            } else if (hiddenNodeIds.has(neighbor)) {
-              queue.push(neighbor);
-            }
-          }
-          current = queue.shift();
-        }
-      }
-    }
-
-    const connectionCounts = new Map<string, number>();
-    for (const edge of resultEdges) {
-      connectionCounts.set(
-        edge.source,
-        (connectionCounts.get(edge.source) ?? 0) + 1,
-      );
-      connectionCounts.set(
-        edge.target,
-        (connectionCounts.get(edge.target) ?? 0) + 1,
-      );
-    }
-    const finalNodeIds = new Set(
-      typeFilteredNodes
-        .filter((n) => (connectionCounts.get(n.id) ?? 0) >= minConnections)
-        .map((n) => n.id),
-    );
-
-    return {
-      nodes: typeFilteredNodes
-        .filter((n) => finalNodeIds.has(n.id))
-        .map((n) => ({
-          ...n,
-          connections: connectionCounts.get(n.id) ?? 0,
-          totalConnections: n.connections,
-        })),
-      edges: resultEdges.filter(
-        (e) => finalNodeIds.has(e.source) && finalNodeIds.has(e.target),
-      ),
-    };
-  }, [stableData, hiddenTypes, minConnections]);
+  const filteredData = useMemo(
+    () => filterGraphData(stableData, hiddenTypes, minConnections),
+    [stableData, hiddenTypes, minConnections],
+  );
 
   const maxConnections = useMemo(() => {
     let max = 0;

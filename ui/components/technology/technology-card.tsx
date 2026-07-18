@@ -18,7 +18,7 @@ interface TechnologyCardProps {
 export function TechnologyCard({
   technology,
   description,
-}: TechnologyCardProps) {
+}: Readonly<TechnologyCardProps>) {
   const iconUrl = getTechIconUrl(technology.name, technology.iconSlug);
 
   const cardContent = (

@@ -37,7 +37,7 @@ interface LogBalanceDrawerProps {
 export function LogBalanceDrawer({
   accountId,
   trigger,
-}: LogBalanceDrawerProps) {
+}: Readonly<LogBalanceDrawerProps>) {
   const { accounts, recordBalance } = useAssetTracker();
   const openAccounts = accounts.filter((account) => account.isOpen);
 

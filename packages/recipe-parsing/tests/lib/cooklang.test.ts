@@ -5,10 +5,23 @@ import {
 	deriveRecipeFromCooklang,
 	deriveRecipeFromStructuredText,
 	extractIngredientSlugsFromBody,
+	inferCooklangIngredientLine,
 	recipeToCooklang,
 } from "../../src/lib/cooklang.js";
 
 describe("cooklang helpers", () => {
+	it.each([
+		["200g flour", "@flour{200%g}"],
+		["200 grams flour", "@flour{200%g}"],
+		["2 red onions", "@red onions{2}"],
+		["red onions - 2 g sliced", "@red onions{2%g} sliced"],
+		["red onions 2 sliced", "@red onions{2} sliced"],
+		["salt", "@salt{}"],
+		["@salt{}", "@salt{}"],
+	])("infers a bounded Cooklang token from %s", (line, expected) => {
+		expect(inferCooklangIngredientLine(line)).toBe(expected);
+	});
+
 	it("round-trips a normalized recipe through Cooklang text", () => {
 		const input = {
 			title: "Tomato Pasta",

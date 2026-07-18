@@ -1,6 +1,9 @@
 import OpenAI from "openai";
 import { z } from "zod";
-import { parseRecipeJsonFromText } from "./recipe-output.js";
+import {
+  parseRecipeJsonFromText,
+  stripJsonCodeFence,
+} from "./recipe-output.js";
 import {
   ExtractionRecipeSchema,
   RecipeSchema,
@@ -110,10 +113,7 @@ function parseSchemaJsonFromText<T>(raw: string | null | undefined, schema: z.Zo
   if (!raw) {
     throw new Error("Model returned empty content");
   }
-  const trimmed = raw.trim();
-  const withoutFence = trimmed
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/, "");
+  const withoutFence = stripJsonCodeFence(raw);
   return schema.parse(JSON.parse(withoutFence));
 }
 

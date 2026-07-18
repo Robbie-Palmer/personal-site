@@ -11,7 +11,7 @@ interface ProjectsPageTabsProps {
 export function ProjectsPageTabs({
   projects,
   philosophy,
-}: ProjectsPageTabsProps) {
+}: Readonly<ProjectsPageTabsProps>) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();

@@ -13,7 +13,7 @@ export function ScrollProgress({
   className,
   ref,
   ...props
-}: ScrollProgressProps) {
+}: Readonly<ScrollProgressProps>) {
   const { scrollYProgress } = useScroll();
 
   return (
