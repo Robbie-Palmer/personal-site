@@ -23,7 +23,7 @@ describe("PostHog ingest proxy", () => {
   it("forwards the request without first-party credentials", async () => {
     const fetchMock = vi.fn(async (_request: Request) => new Response("ok"));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
-    vi.spyOn(console, "log").mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const context = createContext(
       new Request("https://robbiepalmer.me/ingest/e/?ip=1", {
         method: "POST",
@@ -49,6 +49,10 @@ describe("PostHog ingest proxy", () => {
     expect(forwarded.headers.get("x-forwarded-for")).toBeNull();
     expect(forwarded.headers.get("content-type")).toBe("application/json");
     expect(await forwarded.json()).toEqual({ event: "pageview" });
+    expect(JSON.parse(String(logSpy.mock.calls[0]?.[0]))).toMatchObject({
+      path: "/e/",
+      status: 200,
+    });
   });
 
   it("returns a generic 502 when the upstream request fails", async () => {

@@ -329,7 +329,7 @@ export function FilterableCardGrid<T>({
         .map(([value, label]) => ({
           value,
           label,
-          icon: config.getOptionIcon?.(value) ?? config.icon,
+          icon: config.getOptionIcon?.(value),
         }))
         .sort((a, b) => a.label.localeCompare(b.label));
       return { config, options };
@@ -341,7 +341,10 @@ export function FilterableCardGrid<T>({
       return {
         paramName: config.paramName,
         label: config.label,
-        options,
+        options: options.map((option) => ({
+          ...option,
+          icon: option.icon ?? config.icon,
+        })),
         getOptionState: (value: string) => getState(config.paramName, value),
         onCycleOption: (value: string) => {
           // Derive the analytics action from the same latest read cycleValue

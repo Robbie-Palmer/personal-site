@@ -53,7 +53,7 @@ export const onRequest = async (
       JSON.stringify({
         message: "PostHog proxy request",
         method: context.request.method,
-        path: `${pathname}${search}`,
+        path: pathname,
         status: response.status,
       }),
     );
@@ -63,7 +63,7 @@ export const onRequest = async (
       JSON.stringify({
         message: "PostHog proxy request failed",
         method: context.request.method,
-        path: `${pathname}${search}`,
+        path: pathname,
         error: error instanceof Error ? error.message : "Unknown error",
       }),
     );

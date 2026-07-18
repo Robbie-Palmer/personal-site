@@ -207,6 +207,7 @@ function CommandPaletteDialog({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const inputRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [search, setSearch] = useState("");
 
   const handleOpenAutoFocus = useCallback((event: Event) => {
@@ -214,7 +215,10 @@ function CommandPaletteDialog({
     setSearch("");
     // Skip auto-focus on touch devices so opening the palette doesn't force
     // the on-screen keyboard up before the user chooses to type.
-    if (window.matchMedia("(pointer: coarse)").matches) return;
+    if (window.matchMedia("(pointer: coarse)").matches) {
+      contentRef.current?.focus();
+      return;
+    }
     requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
 
@@ -302,6 +306,8 @@ function CommandPaletteDialog({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm animate-in fade-in-0" />
         <DialogPrimitive.Content
+          ref={contentRef}
+          tabIndex={-1}
           aria-describedby={undefined}
           onOpenAutoFocus={handleOpenAutoFocus}
           className="fixed left-1/2 top-1/4 z-50 w-full max-w-lg -translate-x-1/2 animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 outline-none"

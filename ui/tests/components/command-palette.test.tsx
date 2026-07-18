@@ -53,18 +53,49 @@ describe("CommandPalette", () => {
     if (!trigger) throw new Error("Expected a command-palette trigger");
     await user.click(trigger);
 
-    expect(
-      screen.getByRole("dialog", { name: "Command palette" }),
-    ).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: "Command palette" });
+    expect(dialog).toBeInTheDocument();
     await waitFor(() =>
       expect(
         screen.getByPlaceholderText("Search or type a command..."),
       ).toHaveFocus(),
     );
 
+    await user.tab();
+    expect(dialog).toContainElement(
+      document.activeElement as HTMLElement | null,
+    );
+    await user.tab({ shift: true });
+    expect(dialog).toContainElement(
+      document.activeElement as HTMLElement | null,
+    );
+
     await user.keyboard("{Escape}");
     expect(
       screen.queryByRole("dialog", { name: "Command palette" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("focuses the dialog without opening the search input on touch devices", async () => {
+    vi.spyOn(window, "matchMedia").mockReturnValue({
+      matches: true,
+    } as MediaQueryList);
+    const user = userEvent.setup();
+    render(
+      <CommandPaletteProvider>
+        <CommandPaletteTrigger />
+      </CommandPaletteProvider>,
+    );
+
+    const trigger = screen.getAllByRole("button", { name: "Search" })[0];
+    if (!trigger) throw new Error("Expected a command-palette trigger");
+    await user.click(trigger);
+
+    expect(
+      screen.getByRole("dialog", { name: "Command palette" }),
+    ).toHaveFocus();
+    expect(
+      screen.getByPlaceholderText("Search or type a command..."),
+    ).not.toHaveFocus();
   });
 });
