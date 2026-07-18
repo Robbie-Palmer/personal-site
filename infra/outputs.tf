@@ -60,6 +60,17 @@ output "neon_database_name" {
   value       = neon_project.recipes.database_name
 }
 
+output "neon_preview_project_id" {
+  description = "Dedicated Neon project ID for pull request preview databases"
+  value       = neon_project.recipes_preview.id
+}
+
+output "neon_preview_api_key" {
+  description = "Project-scoped Neon API key for preview branch automation"
+  value       = neon_org_api_key.recipes_preview_github_actions.key
+  sensitive   = true
+}
+
 # Hyperdrive
 
 output "hyperdrive_config_id" {

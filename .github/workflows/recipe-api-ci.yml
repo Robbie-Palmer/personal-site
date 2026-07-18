@@ -36,11 +36,8 @@ jobs:
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: pnpm-store-${{ runner.os }}-
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --filter recipe-api...
+      - name: Check API and migration history
+        run: mise run //workers/recipe-api:check
 
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Test
-        run: pnpm test
+      - name: Test API against PostgreSQL
+        run: mise run //workers/recipe-api:test:integration

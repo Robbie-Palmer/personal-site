@@ -56,7 +56,7 @@ import {
   verifiedEmailsForUser,
 } from "./user-emails";
 
-type Bindings = {
+export type Bindings = {
   HYPERDRIVE?: Hyperdrive;
   DATABASE_URL?: string;
   DEPLOYMENT_ENV?: string;
@@ -1782,52 +1782,6 @@ app.patch("/households/:householdId", async (c) => {
       if (!household) return c.notFound();
 
       return c.json(householdResponse(household));
-    },
-  );
-});
-
-app.delete("/households/:householdId", async (c) => {
-  const householdId = c.req.param("householdId");
-  const csrfFailure = validateCsrf(c);
-  if (csrfFailure) return csrfFailure;
-
-  return withRecipeSession(
-    c,
-    "mutation",
-    "DELETE /households/:householdId failed",
-    async ({ db, session }) => {
-      const ownerFailure = await authorizeHouseholdOwnerResponse(
-        c,
-        db,
-        householdId,
-        session,
-      );
-      if (ownerFailure) return ownerFailure;
-
-      await db.transaction(async (tx) => {
-        const memberRows = await tx
-          .select({ userId: schema.member.userId })
-          .from(schema.member)
-          .where(eq(schema.member.organizationId, householdId));
-        const memberUserIds = memberRows.map((member) => member.userId);
-
-        if (memberUserIds.length > 0) {
-          await tx
-            .update(schema.recipe)
-            .set({ visibility: "private" })
-            .where(
-              and(
-                eq(schema.recipe.visibility, "household"),
-                inArray(schema.recipe.userId, memberUserIds),
-              ),
-            );
-        }
-        await tx
-          .delete(schema.organization)
-          .where(eq(schema.organization.id, householdId));
-      });
-
-      return c.body(null, 204);
     },
   );
 });

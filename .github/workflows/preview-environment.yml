@@ -100,19 +100,56 @@ jobs:
         id: neon-expiry
         run: echo "expires_at=$(date -u --date '+30 days' +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
 
-      - name: Create or reuse schema-only Neon branch
+      # Recreate the branch from the empty preview-project root on every run.
+      # This makes edited, unmerged migrations execute again from a genuinely
+      # empty database instead of being skipped by stale migration history.
+      - name: Delete previous Neon preview branch
+        continue-on-error: true
+        uses: neondatabase/delete-branch-action@4468d825d5a88ef4012f1705a82f02ec3072f776 # v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          branch: preview-pr-${{ github.event.pull_request.number }}
+
+      - name: Wait for previous Neon preview branch deletion
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          for _ in {1..30}; do
+            response=$(curl --fail-with-body --silent --show-error --get \
+              --url "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches" \
+              --header "Authorization: Bearer $NEON_API_KEY" \
+              --data-urlencode "search=$PREVIEW_BRANCH")
+            if ! jq -e --arg name "$PREVIEW_BRANCH" \
+              'any(.branches[]?; .name == $name)' <<< "$response" >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Neon branch $PREVIEW_BRANCH still exists after 30 seconds."
+          exit 1
+
+      - name: Create empty Neon preview branch
         id: neon
         uses: neondatabase/create-branch-action@72ed4f69a12b6be9c16aebfad893f6a21e9aba8b # v6.4.0
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           api_key: ${{ secrets.NEON_API_KEY }}
           branch_name: preview-pr-${{ github.event.pull_request.number }}
-          branch_type: schema-only
+          parent_branch: preview-base
           database: recipes
           role: recipes_owner
-          # Neon Free plan fixes scale-to-zero at 5 minutes and rejects any
-          # explicit suspend_timeout with HTTP 412, so it must be omitted.
+          # Leave suspend_timeout unset so the action forwards its 0 sentinel
+          # and Neon uses the Free plan's fixed 5-minute scale-to-zero setting.
           expires_at: ${{ steps.neon-expiry.outputs.expires_at }}
+
+      - name: Require a newly created Neon preview branch
+        if: steps.neon.outputs.created != 'true'
+        run: |
+          echo "::error::Neon reused $PREVIEW_BRANCH; expected a fresh branch from preview-base."
+          exit 1
 
       # Check out and build the PR only after provisioning, so the build steps
       # never see the Neon API key.
@@ -142,20 +179,15 @@ jobs:
       - name: Check preview backend
         run: mise run //workers/recipe-api:check
 
-      - name: Push schema to preview branch
-        run: mise run //workers/recipe-api:db:push
+      - name: Migrate preview branch
+        run: mise run //workers/recipe-api:db:migrate
         env:
-          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
-
-      - name: Seed diet catalog
-        run: mise run //workers/recipe-api:db:seed:diet-catalog
-        env:
-          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
 
       - name: Seed preview scenarios
         run: mise run //workers/recipe-api:db:seed:preview
         env:
-          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
           BETTER_AUTH_URL: https://pr-${{ github.event.pull_request.number }}.${{ vars.CLOUDFLARE_PAGES_HOST }}
 
       - name: Create atomic Worker secrets files
