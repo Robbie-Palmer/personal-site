@@ -18,7 +18,7 @@ async function main() {
 			const allIds = images
 				.map((img) => img.id)
 				.filter((id): id is string => id !== undefined)
-				.sort((a, b) => a.localeCompare(b));
+				.sort((a, b) => a.localeCompare(b, "en"));
 			const featured = allIds.filter((id) => id?.includes("-featured-"));
 			const embedded = allIds.filter((id) => !id?.includes("-featured-"));
 

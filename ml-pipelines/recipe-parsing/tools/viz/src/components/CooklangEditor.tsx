@@ -44,7 +44,7 @@ export function CooklangEditor({
     for (const key of Object.keys(value.frontmatter.ingredientAnnotations ?? {})) {
       set.add(key);
     }
-    return [...set].sort((a, b) => a.localeCompare(b));
+    return [...set].sort((a, b) => a.localeCompare(b, "en"));
   }, [bodySlugs, value.frontmatter.ingredientAnnotations]);
 
   function renameAnnotation(oldSlug: string, newSlug: string) {

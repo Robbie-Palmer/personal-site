@@ -529,7 +529,7 @@ export function SigmaGraphClient({ data }: SigmaGraphClientProps) {
     for (const node of stableData.nodes) {
       types.add(node.type);
     }
-    return Array.from(types).sort((a, b) => a.localeCompare(b));
+    return Array.from(types).sort((a, b) => a.localeCompare(b, "en"));
   }, [stableData]);
 
   /*

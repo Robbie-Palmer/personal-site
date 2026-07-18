@@ -143,8 +143,7 @@ async function main() {
 				return match?.[1] ?? "";
 			})
 			.filter((date) => date !== "")
-				.sort((a, b) => a.localeCompare(b))
-				.reverse()[0];
+				.sort((a, b) => b.localeCompare(a, "en"))[0];
 			if (latestExisting && dateStr <= latestExisting) {
 				console.log("   ❌ Version validation failed:");
 				console.log(`      Latest existing version: ${latestExisting}`);

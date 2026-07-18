@@ -144,7 +144,7 @@ export function ParsedRecipeEditor({
   const sortedCanonicalSlugs = useMemo(() => {
     if (!canonicalization) return [];
     return [...canonicalization.canonicalSlugs].sort((a, b) =>
-      a.localeCompare(b),
+      a.localeCompare(b, "en"),
     );
   }, [canonicalization?.canonicalSlugs]);
 

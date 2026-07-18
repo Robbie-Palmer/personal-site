@@ -166,7 +166,7 @@ export function validateTechnologyReferences(
       "\n❌ ERROR: The following technologies are referenced but not defined in content/technologies.ts:",
       "",
       ...Array.from(missingTechs)
-        .sort((a, b) => a.localeCompare(b))
+        .sort((a, b) => a.localeCompare(b, "en"))
         .map((tech) => `  - ${tech}`),
       "",
       "Please add these technologies to content/technologies.ts",
