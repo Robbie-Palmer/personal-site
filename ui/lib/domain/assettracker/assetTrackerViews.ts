@@ -216,8 +216,8 @@ export function toNetWorthTimeSeries(
   const dateSet = new Set(snapshots.map((s) => s.date));
   const sortedDates = Array.from(dateSet).sort(compareIsoDates);
 
-  const sortedSnapshots = [...snapshots].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  const sortedSnapshots = [...snapshots].sort((a, b) =>
+    compareIsoDates(a.date, b.date),
   );
 
   // Two-pointer approach: process each snapshot only once

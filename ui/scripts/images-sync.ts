@@ -14,9 +14,9 @@ export function validateDate(dateStr: string): boolean {
 	return format(parsed, "yyyy-MM-dd") === dateStr;
 }
 
-function compareIsoDatesDescending(a: string, b: string): number {
-	if (a > b) return -1;
-	if (a < b) return 1;
+function compareIsoDates(a: string, b: string): number {
+	if (a < b) return -1;
+	if (a > b) return 1;
 	return 0;
 }
 
@@ -150,10 +150,10 @@ async function main() {
 			const latestExisting = existingVersions
 				.map(extractValidDateSuffix)
 				.filter((date): date is string => date !== null)
-				.sort(compareIsoDatesDescending)[0];
+				.sort((a, b) => compareIsoDates(b, a))[0];
 			// Both values are validated canonical dates, so code-unit comparison is
 			// chronological without timezone-dependent Date parsing.
-			if (latestExisting && dateStr <= latestExisting) {
+			if (latestExisting && compareIsoDates(dateStr, latestExisting) <= 0) {
 				console.log("   ❌ Version validation failed:");
 				console.log(`      Latest existing version: ${latestExisting}`);
 				console.log(`      New version: ${dateStr}`);

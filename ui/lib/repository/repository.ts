@@ -340,7 +340,7 @@ export function loadProjects(): ProjectLoadResult {
       const adrFiles = fs
         .readdirSync(adrsDir)
         .filter((f) => f.endsWith(".mdx"))
-        .sort();
+        .sort((a, b) => a.localeCompare(b, "en"));
       adrFiles.forEach((adrFile) => {
         const adrSlug = adrFile.replace(/\.mdx$/, "");
         adrRefs.push(makeADRRef(projectSlug, adrSlug));
