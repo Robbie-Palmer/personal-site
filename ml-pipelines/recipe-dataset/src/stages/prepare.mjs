@@ -431,6 +431,10 @@ function appendCsvRow(rows, row, field) {
   if (completed.some(Boolean)) rows.push(completed);
 }
 
+function isLineBreak(character) {
+  return character === "\n" || character === "\r";
+}
+
 function csvRows(source) {
   const rows = [];
   let row = [];
@@ -450,7 +454,7 @@ function csvRows(source) {
     } else if (character === ",") {
       row.push(field);
       field = "";
-    } else if (character === "\n" || character === "\r") {
+    } else if (isLineBreak(character)) {
       if (character === "\r" && source[index + 1] === "\n") index += 1;
       appendCsvRow(rows, row, field);
       row = [];
