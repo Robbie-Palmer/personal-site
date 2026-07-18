@@ -82,7 +82,7 @@ function validateIngredientReferences(
       "\n❌ ERROR: The following ingredients are referenced but not defined in content/recipes/ingredients.ts:",
       "",
       ...Array.from(missing)
-        .sort()
+        .sort((a, b) => a.localeCompare(b))
         .map((item) => `  - ${item}`),
       "",
       "Please add these ingredients to content/recipes/ingredients.ts",

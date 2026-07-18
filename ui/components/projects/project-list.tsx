@@ -63,7 +63,10 @@ export function ProjectList({ projects }: ProjectListProps) {
   );
 
   const allTags = useMemo(
-    () => Array.from(new Set(projects.flatMap((p) => p.tags))).sort(),
+    () =>
+      Array.from(new Set(projects.flatMap((p) => p.tags))).sort((a, b) =>
+        a.localeCompare(b),
+      ),
     [projects],
   );
 

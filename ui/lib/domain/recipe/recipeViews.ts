@@ -101,7 +101,7 @@ function extractIngredientNames(
       }
     }
   }
-  return Array.from(names).sort();
+  return Array.from(names).sort((a, b) => a.localeCompare(b));
 }
 
 function extractIngredientSlugs(recipe: Recipe): IngredientSlug[] {

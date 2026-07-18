@@ -206,7 +206,7 @@ export function toNetWorthTimeSeries(
   snapshots: BalanceSnapshot[],
 ): NetWorthDataPoint[] {
   const dateSet = new Set(snapshots.map((s) => s.date));
-  const sortedDates = Array.from(dateSet).sort();
+  const sortedDates = Array.from(dateSet).sort((a, b) => a.localeCompare(b));
 
   const sortedSnapshots = [...snapshots].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),

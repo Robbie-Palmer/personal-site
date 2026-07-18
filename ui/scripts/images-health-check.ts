@@ -15,7 +15,10 @@ async function main() {
 		console.log("   ✅ API connection successful");
 		console.log(`   📊 Total images in account: ${images.length}`);
 		if (images.length > 0) {
-			const allIds = images.map((img) => img.id).sort();
+			const allIds = images
+				.map((img) => img.id)
+				.filter((id): id is string => id !== undefined)
+				.sort((a, b) => a.localeCompare(b));
 			const featured = allIds.filter((id) => id?.includes("-featured-"));
 			const embedded = allIds.filter((id) => !id?.includes("-featured-"));
 

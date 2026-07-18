@@ -73,7 +73,7 @@ export function BlogList({ posts }: BlogListProps) {
         tags.add(tag);
       }
     }
-    return Array.from(tags).sort();
+    return Array.from(tags).sort((a, b) => a.localeCompare(b));
   }, [posts]);
   const { allTechnologies, allTechnologiesMap } = useMemo(() => {
     const techMap = new Map<

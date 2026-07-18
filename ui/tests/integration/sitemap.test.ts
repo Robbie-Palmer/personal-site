@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 const OUT_DIR = path.resolve(__dirname, "../../out");
 const SITEMAP_PATH = path.join(OUT_DIR, "sitemap.xml");
@@ -30,9 +30,10 @@ const NOINDEX_APP_PAGES = new Set([
 
 describe("Sitemap Integration Test", () => {
   it("should have a sitemap.xml that includes all generated pages", () => {
-    if (!fs.existsSync(SITEMAP_PATH)) {
-      throw new Error("sitemap.xml not found. Ensure build has been run.");
-    }
+    expect(
+      fs.existsSync(SITEMAP_PATH),
+      "sitemap.xml not found. Ensure build has been run.",
+    ).toBe(true);
     const sitemapContent = fs.readFileSync(SITEMAP_PATH, "utf8");
     const urls = new Set<string>();
     const urlRegex = /<loc>(.*?)<\/loc>/g;
@@ -86,11 +87,7 @@ describe("Sitemap Integration Test", () => {
       }
     });
 
-    if (missingUrls.length > 0) {
-      throw new Error(
-        `Sitemap is missing URLs for the following generated files:\n${missingUrls.join("\n")}`,
-      );
-    }
+    expect(missingUrls).toEqual([]);
   });
 });
 

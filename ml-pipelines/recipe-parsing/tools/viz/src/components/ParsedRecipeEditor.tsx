@@ -143,7 +143,9 @@ export function ParsedRecipeEditor({
   // Sorted canonical slugs for datalist
   const sortedCanonicalSlugs = useMemo(() => {
     if (!canonicalization) return [];
-    return [...canonicalization.canonicalSlugs].sort();
+    return [...canonicalization.canonicalSlugs].sort((a, b) =>
+      a.localeCompare(b),
+    );
   }, [canonicalization?.canonicalSlugs]);
 
   const isCanon = canonicalization != null;
