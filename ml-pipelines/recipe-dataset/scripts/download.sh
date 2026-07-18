@@ -12,7 +12,7 @@ download() {
   local destination="$2"
   local temporary="${destination}.part"
   mkdir -p "$(dirname "$destination")"
-  if [ -s "$destination" ]; then
+  if [[ -s "$destination" ]]; then
     echo "Already downloaded: ${destination#"$project_root/"}"
     return
   fi
@@ -22,7 +22,7 @@ download() {
 }
 
 # Reuse files acquired by the earlier prototype checkout when present.
-if [ -d "$legacy_raw" ]; then
+if [[ -d "$legacy_raw" ]]; then
   cp -nR "$legacy_raw"/. "$raw_dir"/ || true
 fi
 
@@ -51,12 +51,12 @@ download \
   "https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-09-16/cuisines.csv" \
   "$raw_dir/tastyr/cuisines.csv"
 
-if [ ! -s "$raw_dir/usda-myplate/recipes.jsonl" ]; then
-  node "$project_root/scripts/download-myplate.mjs" "$raw_dir/usda-myplate"
+if [[ ! -s "$raw_dir/usda-myplate/recipes.jsonl" ]]; then
+  node "$project_root/scripts/download-myplate.mjs"
 fi
-node "$project_root/scripts/download-gutenberg.mjs" "$raw_dir/gutenberg-cookbooks"
-if [ ! -s "$raw_dir/icn-child-nutrition/recipes.jsonl" ]; then
-  node "$project_root/scripts/download-icn.mjs" "$raw_dir/icn-child-nutrition"
+node "$project_root/scripts/download-gutenberg.mjs"
+if [[ ! -s "$raw_dir/icn-child-nutrition/recipes.jsonl" ]]; then
+  node "$project_root/scripts/download-icn.mjs"
 fi
 
 (

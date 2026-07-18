@@ -2,9 +2,28 @@ import { createHash } from "node:crypto";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { createWriteStream } from "node:fs";
 
-const outputDirectory = process.argv[2];
-if (!outputDirectory) throw new Error("Output directory is required");
+const projectRoot = new URL("..", import.meta.url).pathname;
+const outputDirectory = `${projectRoot}/data/raw/usda-myplate`;
 await mkdir(outputDirectory, { recursive: true });
+
+function hasRecipeType(value) {
+  const type = value?.["@type"];
+  return type === "Recipe" || (Array.isArray(type) && type.includes("Recipe"));
+}
+
+function findRecipe(value) {
+  if (hasRecipeType(value)) return value;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const recipe = findRecipe(item);
+      if (recipe) return recipe;
+    }
+  }
+  if (value && typeof value === "object" && value["@graph"]) {
+    return findRecipe(value["@graph"]);
+  }
+  return undefined;
+}
 
 const sitemapUrl = "https://myplate.food/sitemap-recipes-en.xml";
 const sitemap = await fetch(sitemapUrl).then((response) => {
@@ -34,12 +53,13 @@ async function worker() {
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const html = await response.text();
-        const scripts = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+        const scripts = [...html.matchAll(/<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
         const recipe = scripts
           .map((match) => {
             try { return JSON.parse(match[1]); } catch { return null; }
           })
-          .find((value) => value?.["@type"] === "Recipe");
+          .map(findRecipe)
+          .find(Boolean);
         if (!recipe) throw new Error("Recipe JSON-LD missing");
         output.write(`${JSON.stringify({
           sourceUrl: url,

@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { createWriteStream } from "node:fs";
 import { mkdir, rename } from "node:fs/promises";
 
-const outputDirectory = process.argv[2];
-if (!outputDirectory) throw new Error("Output directory is required");
+const projectRoot = new URL("..", import.meta.url).pathname;
+const outputDirectory = `${projectRoot}/data/raw/icn-child-nutrition`;
 await mkdir(outputDirectory, { recursive: true });
 const outputPath = `${outputDirectory}/recipes.jsonl`;
 const temporaryPath = `${outputPath}.part`;

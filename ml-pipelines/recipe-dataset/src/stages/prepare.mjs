@@ -31,10 +31,23 @@ function instructionText(value) {
     : "";
 }
 
+function stripTags(value) {
+  let text = "";
+  let insideTag = false;
+  for (const character of String(value || "")) {
+    if (character === "<") {
+      insideTag = true;
+      if (text && !text.endsWith(" ")) text += " ";
+    }
+    else if (character === ">") insideTag = false;
+    else if (!insideTag) text += character;
+  }
+  return text;
+}
+
 function htmlText(value) {
   const entities = { amp: "&", quot: '"', apos: "'", lt: "<", gt: ">", nbsp: " " };
-  return String(value || "")
-    .replace(/<[^>]+>/g, " ")
+  return stripTags(value)
     .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
     .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(Number.parseInt(code, 16)))
     .replace(/&([a-z]+);/gi, (match, name) => entities[name.toLowerCase()] ?? match)
@@ -43,8 +56,18 @@ function htmlText(value) {
 }
 
 function htmlClassItems(html, className) {
-  const pattern = new RegExp(`<li[^>]+class=["'][^"']*${className}[^"']*["'][^>]*>([\\s\\S]*?)<\\/li>`, "gi");
+  const pattern = new RegExp(String.raw`<li[^>]+class=["'][^"']*${className}[^"']*["'][^>]*>([\s\S]*?)<\/li>`, "gi");
   return [...html.matchAll(pattern)].map((match) => htmlText(match[1])).filter(Boolean);
+}
+
+function schemaInstructionTexts(value) {
+  const items = Array.isArray(value) ? value : value == null ? [] : [value];
+  return items.flatMap((item) => {
+    if (typeof item === "string") return [item];
+    if (!item || typeof item !== "object") return [];
+    if (typeof item.text === "string") return [item.text];
+    return schemaInstructionTexts(item.itemListElement);
+  });
 }
 
 function emit(source, value) {
@@ -96,8 +119,11 @@ async function linesFromStream(stream, callback) {
 }
 
 const kaggle = { id: "kaggle-64k", url: "https://www.kaggle.com/datasets/prashantsingh001/recipes-dataset-64k-dishes", license: "CC0-1.0" };
-const unzip = spawn("unzip", ["-p", `${raw}/kaggle-64k/archive.zip`, "2_Recipe_json.json"]);
-const unzipClosed = new Promise((resolve) => unzip.on("close", resolve));
+const unzip = spawn("/usr/bin/unzip", ["-p", `${raw}/kaggle-64k/archive.zip`, "2_Recipe_json.json"]);
+const unzipClosed = new Promise((resolve, reject) => {
+  unzip.on("close", resolve);
+  unzip.on("error", reject);
+});
 await linesFromStream(unzip.stdout, (row) => emit(kaggle, {
   sourceRecordId: createHash("sha256").update(JSON.stringify(row)).digest("hex"),
   title: row.recipe_title,
@@ -123,7 +149,7 @@ await linesFromStream(createReadStream(`${raw}/usda-myplate/recipes.jsonl`), (ro
     prepTime: recipe.prepTime,
     cookTime: recipe.cookTime,
     ingredientGroups: [{ items: recipe.recipeIngredient }],
-    instructions: (recipe.recipeInstructions || []).map((step) => typeof step === "string" ? step : step.text),
+    instructions: schemaInstructionTexts(recipe.recipeInstructions),
     nutrition: recipe.nutrition,
   });
 });
@@ -195,13 +221,13 @@ for (const row of wikibooksRows) {
 }
 
 function archiveFiles(archive, pattern) {
-  const result = spawnSync("tar", ["-tzf", archive], { encoding: "utf8" });
+  const result = spawnSync("/usr/bin/tar", ["-tzf", archive], { encoding: "utf8" });
   if (result.status !== 0) throw new Error(result.stderr || `Could not list ${archive}`);
   return result.stdout.split("\n").filter((name) => pattern.test(name));
 }
 
 function archiveText(archive, name) {
-  const result = spawnSync("tar", ["-xOzf", archive, name], {
+  const result = spawnSync("/usr/bin/tar", ["-xOzf", archive, name], {
     encoding: "utf8",
     maxBuffer: 10 * 1024 * 1024,
   });
@@ -209,24 +235,90 @@ function archiveText(archive, name) {
   return result.stdout;
 }
 
+function markdownHeading(line) {
+  let hashes = 0;
+  while (line[hashes] === "#") hashes += 1;
+  if (hashes < 1 || hashes > 2 || !/\s/.test(line[hashes] || "")) return undefined;
+  const heading = line.slice(hashes).trim();
+  return heading.endsWith(":") ? heading.slice(0, -1).trim() : heading;
+}
+
 function markdownSection(source, heading) {
   const lines = source.split("\n");
   const headingPattern = new RegExp(`^(?:${heading})$`, "i");
-  const start = lines.findIndex((line) => {
-    const match = /^#{1,2}\s+(.+?)\s*$/.exec(line);
-    return match && headingPattern.test(match[1].replace(/:\s*$/, ""));
-  });
+  const start = lines.findIndex((line) => headingPattern.test(markdownHeading(line) || ""));
   if (start < 0) return "";
-  const endOffset = lines.slice(start + 1).findIndex((line) => /^#{1,2}\s+/.test(line));
+  const endOffset = lines.slice(start + 1).findIndex((line) => markdownHeading(line));
   const end = endOffset < 0 ? lines.length : start + 1 + endOffset;
   return lines.slice(start + 1, end).join("\n");
+}
+
+function frontmatterValue(source, key) {
+  const prefix = `${key}:`;
+  const line = source.split("\n").find((candidate) => candidate.startsWith(prefix));
+  return line?.slice(prefix.length).trim();
+}
+
+function bulletItems(source) {
+  return source.split("\n").flatMap((line) => {
+    const trimmed = line.trimStart();
+    return trimmed.startsWith("- ") || trimmed.startsWith("* ")
+      ? [trimmed.slice(2).trim()]
+      : [];
+  }).filter(Boolean);
+}
+
+function removeListMarker(value) {
+  const text = value.trimStart();
+  if (text.startsWith("- ") || text.startsWith("* ")) return text.slice(2).trim();
+  let index = 0;
+  while (/\d/.test(text[index] || "")) index += 1;
+  if (index && (text[index] === "." || text[index] === ")") && /\s/.test(text[index + 1] || "")) {
+    return text.slice(index + 2).trim();
+  }
+  return text.trim();
+}
+
+function paragraphBlocks(source) {
+  const blocks = [];
+  let lines = [];
+  for (const line of source.split("\n")) {
+    if (line.trim()) lines.push(line.trim());
+    else if (lines.length) {
+      blocks.push(lines.join(" "));
+      lines = [];
+    }
+  }
+  if (lines.length) blocks.push(lines.join(" "));
+  return blocks;
+}
+
+function numberedList(source) {
+  const steps = [];
+  let current;
+  for (const line of source.split("\n")) {
+    const text = line.trimStart();
+    const withoutMarker = removeListMarker(text);
+    const isNumbered = withoutMarker !== text.trim() && /^\d/.test(text);
+    if (isNumbered) {
+      if (current) steps.push(current);
+      current = withoutMarker;
+    } else if (current && /^\s/.test(line) && text && !text.startsWith(".. ")) {
+      current += ` ${text}`;
+    } else if (current && text && !/^\s/.test(line)) {
+      steps.push(current);
+      current = undefined;
+    }
+  }
+  if (current) steps.push(current);
+  return steps;
 }
 
 const foss = { id: "fossrecipes", url: "https://github.com/thenaterhood/fossrecipes", license: "CC0-1.0" };
 const fossArchive = `${raw}/fossrecipes/a6d8d27ba1cd7a2dcaf4dc5d84b7d5a7ab0eaf9c.tar.gz`;
 for (const name of archiveFiles(fossArchive, /\/_recipes\/.*\.md$/)) {
   const source = archiveText(fossArchive, name);
-  const title = /^title:\s*(.+)$/m.exec(source)?.[1]?.trim();
+  const title = frontmatterValue(source, "title");
   const ingredientSource = markdownSection(source, "Ingredients");
   const directionSource = markdownSection(source, "Directions?|Instructions?|Method|Preparation");
   const equipmentSource = markdownSection(source, "Equipment|Utensils?|Cookware");
@@ -234,12 +326,11 @@ for (const name of archiveFiles(fossArchive, /\/_recipes\/.*\.md$/)) {
     sourceRecordId: name.split("/").pop(),
     sourceUrl: `${foss.url}/blob/a6d8d27ba1cd7a2dcaf4dc5d84b7d5a7ab0eaf9c/${name.split("/").slice(1).join("/")}`,
     title,
-    ingredientGroups: [{ items: [...ingredientSource.matchAll(/^\s*[*-]\s+(.+)$/gm)].map((match) => match[1]) }],
-    instructions: directionSource
-      .split(/\n\s*\n/)
-      .map((block) => block.replace(/^\s*(?:\d+[.)]|[*-])\s+/, "").replace(/\s*\n\s*/g, " ").trim())
+    ingredientGroups: [{ items: bulletItems(ingredientSource) }],
+    instructions: paragraphBlocks(directionSource)
+      .map(removeListMarker)
       .filter((block) => block && !/^#{1,6}\s/.test(block)),
-    equipment: [...equipmentSource.matchAll(/^\s*[*-]\s+(.+)$/gm)].map((match) => match[1]),
+    equipment: bulletItems(equipmentSource),
   });
 }
 
@@ -261,7 +352,7 @@ for (const name of archiveFiles(kohaArchive, /\/source\/(?!index|conf)[^/]+\.rst
     sourceUrl: `${koha.url}/-/blob/908b2244/${name.split("/").slice(1).join("/")}`,
     title,
     ingredientGroups: [{ items: ingredientLines.filter((line) => /^\s*-\s+\S/.test(line)).map((line) => line.replace(/^\s*-\s+/, "").trim()) }],
-    instructions: instructionLines.filter((line) => /^\s*\d+[.)]\s+\S/.test(line)).map((line) => instructionText(line)),
+    instructions: numberedList(instructionLines.join("\n")),
   });
 }
 
@@ -334,15 +425,25 @@ function csvRows(source) {
   let quoted = false;
   for (let index = 0; index < source.length; index += 1) {
     const character = source[index];
-    if (quoted && character === '"' && source[index + 1] === '"') {
-      field += '"';
-      index += 1;
-    } else if (character === '"') {
-      quoted = !quoted;
-    } else if (character === "," && !quoted) {
+    if (quoted) {
+      if (character !== '"') {
+        field += character;
+        continue;
+      }
+      if (source[index + 1] === '"') {
+        field += '"';
+        index += 1;
+      } else {
+        quoted = false;
+      }
+      continue;
+    }
+    if (character === '"') {
+      quoted = true;
+    } else if (character === ",") {
       row.push(field);
       field = "";
-    } else if ((character === "\n" || character === "\r") && !quoted) {
+    } else if (character === "\n" || character === "\r") {
       if (character === "\r" && source[index + 1] === "\n") index += 1;
       row.push(field);
       if (row.some(Boolean)) rows.push(row);

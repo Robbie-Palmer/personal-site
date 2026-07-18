@@ -1,5 +1,5 @@
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rename, writeFile } from "node:fs/promises";
 import { createInterface } from "node:readline";
 
 const projectRoot = new URL("../..", import.meta.url).pathname;
@@ -63,7 +63,7 @@ const deduplicatedPath = `${outputs}/recipes-deduplicated.jsonl.part`;
 const deduplicated = createWriteStream(deduplicatedPath, { encoding: "utf8" });
 for (const recipe of canonicalBySignature.values()) deduplicated.write(`${JSON.stringify(recipe)}\n`);
 await new Promise((resolve, reject) => deduplicated.end((error) => error ? reject(error) : resolve()));
-await import("node:fs/promises").then(({ rename }) => rename(deduplicatedPath, `${outputs}/recipes-deduplicated.jsonl`));
+await rename(deduplicatedPath, `${outputs}/recipes-deduplicated.jsonl`);
 let rejects = 0;
 for await (const line of createInterface({ input: createReadStream(`${outputs}/rejects.jsonl`), crlfDelay: Infinity })) {
   if (line.trim()) rejects += 1;
@@ -79,7 +79,7 @@ const duplicateContent = [...signatureCounts.values()].filter((count) => count >
 const metrics = {
   recipes,
   rejects,
-  sources: Object.fromEntries([...bySource].sort()),
+  sources: Object.fromEntries([...bySource].sort(([left], [right]) => left.localeCompare(right))),
   duplicateTitleGroups: duplicateTitles,
   duplicateContentGroups: duplicateContent,
   uniqueContentRecipes: seenSignatures.size,

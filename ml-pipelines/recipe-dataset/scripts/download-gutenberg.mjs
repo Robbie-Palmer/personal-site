@@ -1,8 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 
-const outputDirectory = process.argv[2];
-if (!outputDirectory) throw new Error("Output directory is required");
+const projectRoot = new URL("..", import.meta.url).pathname;
+const outputDirectory = `${projectRoot}/data/raw/gutenberg-cookbooks`;
 const booksDirectory = `${outputDirectory}/books`;
 await mkdir(booksDirectory, { recursive: true });
 
@@ -33,12 +33,16 @@ async function worker() {
     ];
     let text;
     for (const url of candidates) {
-      const response = await fetch(url, {
-        headers: { "user-agent": "RecipeDatasetResearch/1.0" },
-      });
-      if (response.ok) {
-        text = await response.text();
-        break;
+      try {
+        const response = await fetch(url, {
+          headers: { "user-agent": "RecipeDatasetResearch/1.0" },
+        });
+        if (response.ok) {
+          text = await response.text();
+          break;
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch ${url}: ${error.message}`);
       }
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
