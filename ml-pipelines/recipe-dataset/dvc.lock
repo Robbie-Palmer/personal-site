@@ -1,0 +1,88 @@
+schema: '2.0'
+stages:
+  download:
+    cmd: bash scripts/download.sh
+    deps:
+    - path: scripts/download.sh
+      hash: md5
+      md5: ad8173ef907af1329608f4dfc9f7e2e6
+      size: 2586
+    - path: sources.json
+      hash: md5
+      md5: d1f4fff8085c3b4cff9fe9311be70757
+      size: 2134
+    outs:
+    - path: data/raw
+      hash: md5
+      md5: 073f83c831b37558d0672772c6ab1837.dir
+      size: 262936030
+      nfiles: 140
+  prepare:
+    cmd: node src/stages/prepare.mjs
+    deps:
+    - path: data/raw
+      hash: md5
+      md5: 073f83c831b37558d0672772c6ab1837.dir
+      size: 262936030
+      nfiles: 140
+    - path: sources.json
+      hash: md5
+      md5: d1f4fff8085c3b4cff9fe9311be70757
+      size: 2134
+    - path: src/stages/prepare.mjs
+      hash: md5
+      md5: 1fb82dbc244f70c72de397b3fe795abe
+      size: 17343
+    outs:
+    - path: outputs/gutenberg-candidates.jsonl
+      hash: md5
+      md5: 9cf4dc8b1337c7a219c8edf04c97e1cd
+      size: 11308121
+    - path: outputs/ingredient-only.jsonl
+      hash: md5
+      md5: 5a50a50ed000fa1cfcf0ae8fcc5013ed
+      size: 14099848
+    - path: outputs/recipes.jsonl
+      hash: md5
+      md5: 88433ae30c696020aedb84920053adc8
+      size: 128399217
+    - path: outputs/rejects.jsonl
+      hash: md5
+      md5: a8ab636f988864a2ca978bc9b6b4379e
+      size: 120318
+  stats:
+    cmd: node src/stages/stats.mjs
+    deps:
+    - path: outputs/gutenberg-candidates.jsonl
+      hash: md5
+      md5: 9cf4dc8b1337c7a219c8edf04c97e1cd
+      size: 11308121
+    - path: outputs/ingredient-only.jsonl
+      hash: md5
+      md5: 5a50a50ed000fa1cfcf0ae8fcc5013ed
+      size: 14099848
+    - path: outputs/recipes.jsonl
+      hash: md5
+      md5: 88433ae30c696020aedb84920053adc8
+      size: 128399217
+    - path: outputs/rejects.jsonl
+      hash: md5
+      md5: a8ab636f988864a2ca978bc9b6b4379e
+      size: 120318
+    - path: src/stages/stats.mjs
+      hash: md5
+      md5: 77262cb2e178cbf3bfe3f45a10b185de
+      size: 4477
+    outs:
+    - path: outputs/metrics.json
+      hash: md5
+      md5: 491a59e0ae72bfe7114637b98a7ef7e2
+      size: 576
+    - path: outputs/recipes-deduplicated.jsonl
+      hash: md5
+      md5: 3d338c953aa1ad6e205807d2f6994cb7
+      size: 80889018
+    - path: outputs/source-distribution.json
+      hash: md5
+      md5: bc91857fb2394ce07f3ff0cb2faf8cf2
+      size: 351

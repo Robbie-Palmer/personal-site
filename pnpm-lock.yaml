@@ -53,6 +53,8 @@ importers:
         specifier: ^1.7.0
         version: 1.7.0
 
+  ml-pipelines/recipe-dataset: {}
+
   ml-pipelines/recipe-parsing:
     dependencies:
       dotenv:

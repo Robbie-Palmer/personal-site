@@ -1,0 +1,74 @@
+[
+  {
+    "id": "kaggle-64k",
+    "name": "Recipes Dataset: 64k Dishes",
+    "url": "https://www.kaggle.com/datasets/prashantsingh001/recipes-dataset-64k-dishes",
+    "license": "CC0-1.0",
+    "format": "JSONL in ZIP",
+    "priority": 1
+  },
+  {
+    "id": "usda-myplate",
+    "name": "USDA MyPlate Kitchen preservation",
+    "url": "https://myplate.food/recipes",
+    "license": "Public Domain Mark / US federal works",
+    "format": "schema.org Recipe JSON-LD",
+    "priority": 2
+  },
+  {
+    "id": "fossrecipes",
+    "name": "FOSS Recipes",
+    "url": "https://github.com/thenaterhood/fossrecipes",
+    "license": "CC0-1.0",
+    "format": "Markdown",
+    "priority": 3
+  },
+  {
+    "id": "wikibooks-cookbook",
+    "name": "Wikibooks Cookbook snapshot",
+    "url": "https://huggingface.co/datasets/gossminn/wikibooks-cookbook",
+    "license": "CC-BY-SA-4.0",
+    "format": "JSON",
+    "priority": 4
+  },
+  {
+    "id": "gutenberg-cookbooks",
+    "name": "Project Gutenberg Cookbooks and Cooking bookshelf",
+    "url": "https://www.gutenberg.org/ebooks/bookshelf/419",
+    "license": "Public domain in the USA; ebook-specific headers retained",
+    "format": "UTF-8 text",
+    "priority": 5
+  },
+  {
+    "id": "openrecipes",
+    "name": "Open Recipes",
+    "url": "https://github.com/fictive-kin/openrecipes",
+    "license": "CC-BY-3.0",
+    "format": "Historical bookmark dump and source archive",
+    "priority": 6
+  },
+  {
+    "id": "icn-child-nutrition",
+    "name": "Child Nutrition Recipe Box",
+    "url": "https://theicn.org/cnrb/",
+    "license": "Per-record provenance; includes USDA and state agency recipes",
+    "format": "schema.org Recipe JSON-LD",
+    "priority": 2
+  },
+  {
+    "id": "koha-cookbook",
+    "name": "Koha Cookbook",
+    "url": "https://gitlab.com/koha-community/koha-cookbook",
+    "license": "CC0-1.0",
+    "format": "reStructuredText",
+    "priority": 3
+  },
+  {
+    "id": "tastyr",
+    "name": "tastyR Allrecipes and cuisines datasets",
+    "url": "https://github.com/owlzyseyes/tastyR",
+    "license": "CC0",
+    "format": "CSV; ingredients and metadata without instructions",
+    "priority": 7
+  }
+]
