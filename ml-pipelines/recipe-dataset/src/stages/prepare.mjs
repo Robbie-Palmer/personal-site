@@ -61,7 +61,9 @@ function htmlClassItems(html, className) {
 }
 
 function schemaInstructionTexts(value) {
-  const items = Array.isArray(value) ? value : value == null ? [] : [value];
+  let items = [];
+  if (Array.isArray(value)) items = value;
+  else if (value != null) items = [value];
   return items.flatMap((item) => {
     if (typeof item === "string") return [item];
     if (!item || typeof item !== "object") return [];
@@ -418,6 +420,18 @@ for (const ebookId of gutenbergIds) {
   }
 }
 
+function consumeQuotedCharacter(source, index) {
+  const character = source[index];
+  if (character !== '"') return { text: character, index, quoted: true };
+  if (source[index + 1] === '"') return { text: '"', index: index + 1, quoted: true };
+  return { text: "", index, quoted: false };
+}
+
+function appendCsvRow(rows, row, field) {
+  const completed = [...row, field];
+  if (completed.some(Boolean)) rows.push(completed);
+}
+
 function csvRows(source) {
   const rows = [];
   let row = [];
@@ -426,16 +440,10 @@ function csvRows(source) {
   for (let index = 0; index < source.length; index += 1) {
     const character = source[index];
     if (quoted) {
-      if (character !== '"') {
-        field += character;
-        continue;
-      }
-      if (source[index + 1] === '"') {
-        field += '"';
-        index += 1;
-      } else {
-        quoted = false;
-      }
+      const consumed = consumeQuotedCharacter(source, index);
+      field += consumed.text;
+      index = consumed.index;
+      quoted = consumed.quoted;
       continue;
     }
     if (character === '"') {
@@ -445,18 +453,14 @@ function csvRows(source) {
       field = "";
     } else if (character === "\n" || character === "\r") {
       if (character === "\r" && source[index + 1] === "\n") index += 1;
-      row.push(field);
-      if (row.some(Boolean)) rows.push(row);
+      appendCsvRow(rows, row, field);
       row = [];
       field = "";
     } else {
       field += character;
     }
   }
-  if (field || row.length) {
-    row.push(field);
-    rows.push(row);
-  }
+  if (field || row.length) appendCsvRow(rows, row, field);
   return rows;
 }
 
