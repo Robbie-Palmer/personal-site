@@ -41,12 +41,49 @@ describe("ADR utilities", () => {
   it("summarizes markdown to clean plain text", () => {
     const markdown = `# Heading
 
-**Bold** with [link](https://example.com), \`inline code\`, and > quoted text.
+**Bold** with [link](https://example.com) and \`inline code\`.
 
 Second paragraph.`;
 
-    expect(summarizeMarkdown(markdown)).toBe(
-      "Bold with link, inline code, and quoted text.",
-    );
+    expect(summarizeMarkdown(markdown)).toBe("Bold with link and inline code.");
+  });
+
+  it("summarizes a leading blockquote without quote markers", () => {
+    const markdown = `# Heading
+
+> Decision quoted from the RFC.
+
+Details follow.`;
+
+    expect(summarizeMarkdown(markdown)).toBe("Decision quoted from the RFC.");
+  });
+
+  it("skips code fences and MDX imports before the first paragraph", () => {
+    const markdown = `import { Chart } from "@/components/chart";
+
+\`\`\`ts
+const ignored = true;
+\`\`\`
+
+The real opening paragraph.`;
+
+    expect(summarizeMarkdown(markdown)).toBe("The real opening paragraph.");
+  });
+
+  it("flattens MDX components to their text content", () => {
+    const markdown = `<Callout kind="info">Ship the smallest change.</Callout>`;
+
+    expect(summarizeMarkdown(markdown)).toBe("Ship the smallest change.");
+  });
+
+  it("returns an empty summary when only headings exist", () => {
+    expect(summarizeMarkdown("# Only a heading")).toBe("");
+  });
+
+  it("truncates summaries to 280 characters with an ellipsis", () => {
+    const summary = summarizeMarkdown(`${"word ".repeat(80)}end`);
+
+    expect(summary).toHaveLength(280);
+    expect(summary.endsWith("...")).toBe(true);
   });
 });

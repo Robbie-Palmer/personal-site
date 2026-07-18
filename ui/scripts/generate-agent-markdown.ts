@@ -37,6 +37,7 @@ import {
   renderPage,
 } from "@/lib/content/agent-markdown";
 import { loadDomainRepository } from "@/lib/domain";
+import { formatIngredientStaticText } from "@/lib/domain/recipe/ingredientText";
 import {
   getAllTechnologySlugs,
   getRelatedContentForTechnology,
@@ -301,16 +302,6 @@ function buildExperiencePage(): GeneratedPage {
   };
 }
 
-function formatIngredient(
-  item: RecipeDetailView["ingredientGroups"][number]["items"][number],
-): string {
-  const quantity = [item.amount, item.unit].filter(Boolean).join(" ");
-  const name = quantity ? `${quantity} ${item.name}` : item.name;
-  const preparation = item.preparation ? `, ${item.preparation}` : "";
-  const note = item.note ? ` (${item.note})` : "";
-  return `- ${name}${preparation}${note}`;
-}
-
 function buildRecipePage(recipe: RecipeDetailView): GeneratedPage {
   const facts: [string, string][] = [["Servings", String(recipe.servings)]];
   if (recipe.prepTime) facts.push(["Prep time", `${recipe.prepTime} min`]);
@@ -323,7 +314,9 @@ function buildRecipePage(recipe: RecipeDetailView): GeneratedPage {
 
   const ingredients = recipe.ingredientGroups.flatMap((group) => [
     ...(group.name ? [`### ${group.name}`, ""] : []),
-    ...group.items.map(formatIngredient),
+    ...group.items.map(
+      (item) => `- ${formatIngredientStaticText(item, { includeNote: true })}`,
+    ),
     "",
   ]);
   const cookware =

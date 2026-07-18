@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatIngredientName,
+  formatIngredientStaticText,
   pluralizeIngredientName,
 } from "@/lib/domain/recipe/ingredientText";
 
@@ -138,6 +139,67 @@ describe("ingredientText", () => {
           1,
         ),
       ).toBe("white onions");
+    });
+  });
+
+  describe("formatIngredientStaticText", () => {
+    it("joins metric amounts to noSpace units", () => {
+      expect(
+        formatIngredientStaticText({
+          ingredient: "plain-flour",
+          name: "plain flour",
+          amount: 500,
+          unit: "g",
+        }),
+      ).toBe("500g plain flour");
+    });
+
+    it("renders fractional amounts with unicode fractions", () => {
+      expect(
+        formatIngredientStaticText({
+          ingredient: "milk",
+          name: "milk",
+          amount: 0.5,
+          unit: "us_cup",
+        }),
+      ).toBe("½ cup milk");
+    });
+
+    it("pluralises units and names for amounts above one", () => {
+      expect(
+        formatIngredientStaticText({
+          ingredient: "chopped-tomatoes",
+          name: "tin of tomatoes",
+          pluralName: "tins of tomatoes",
+          amount: 2,
+          unit: "tin",
+        }),
+      ).toBe("2 tins tins of tomatoes");
+    });
+
+    it("appends preparation in parentheses", () => {
+      expect(
+        formatIngredientStaticText({
+          ingredient: "onion",
+          name: "onion",
+          amount: 1,
+          preparation: "finely diced",
+        }),
+      ).toBe("1 onion (finely diced)");
+    });
+
+    it("omits notes unless asked to include them", () => {
+      const item = {
+        ingredient: "feta",
+        name: "feta",
+        amount: 200,
+        unit: "g" as const,
+        note: "or a vegan alternative",
+      };
+      expect(formatIngredientStaticText(item)).toBe("200g feta");
+      expect(formatIngredientStaticText(item, { includeNote: true })).toBe(
+        "200g feta – or a vegan alternative",
+      );
     });
   });
 });
