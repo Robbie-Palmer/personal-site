@@ -125,6 +125,12 @@ jobs:
           # explicit suspend_timeout with HTTP 412, so it must be omitted.
           expires_at: ${{ steps.neon-expiry.outputs.expires_at }}
 
+      - name: Require a newly created Neon preview branch
+        if: steps.neon.outputs.created != 'true'
+        run: |
+          echo "::error::Neon reused $PREVIEW_BRANCH; expected a fresh branch from preview-base."
+          exit 1
+
       # Check out and build the PR only after provisioning, so the build steps
       # never see the Neon API key.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0

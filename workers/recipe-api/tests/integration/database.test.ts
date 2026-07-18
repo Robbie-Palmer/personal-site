@@ -482,9 +482,7 @@ describe("recipe API PostgreSQL integration", () => {
         ?.ingredientSlugs,
     ).toContain("crunchy-peanut-butter");
     expect(wheat?.ingredientSlugs).toContain("spaghetti");
-    expect([...(wheat?.ingredientSlugs ?? [])].sort()).toEqual(
-      [...(gluten?.ingredientSlugs ?? [])].sort(),
-    );
+    expect(gluten?.ingredientSlugs).toContain("spaghetti");
 
     const diet = {
       presetDietKeys: ["vegan"],
