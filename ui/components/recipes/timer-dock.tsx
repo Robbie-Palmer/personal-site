@@ -100,7 +100,7 @@ function completedTimerIdsKey(timers: readonly CookingTimer[]): string {
     timers
       .filter((timer) => timer.state === "completed")
       .map((timer) => timer.id)
-      .sort(),
+      .sort((a, b) => a.localeCompare(b)),
   );
 }
 
@@ -245,6 +245,7 @@ export function TimerDock() {
   const [announcement, setAnnouncement] = useState("");
   const [attentionRevision, setAttentionRevision] = useState(0);
   const dockRef = useRef<HTMLElement>(null);
+  const attentionRef = useRef<HTMLDivElement>(null);
   const previousCompletedIdsRef = useRef<ReadonlySet<string>>(new Set());
   const dragRef = useRef<{
     pointerId: number;
@@ -287,6 +288,19 @@ export function TimerDock() {
     );
     return () => globalThis.clearTimeout(announceHandle);
   }, [completedIdsKey, nextAnnouncement]);
+
+  // Replay the finite attention animation whenever a new timer completes.
+  // Restarting it in place — rather than remounting the dock via a changing
+  // key — keeps the interactive subtree (notably AddTimerPopover's open state
+  // and typed-in values) intact while a later timer expires.
+  useLayoutEffect(() => {
+    if (attentionRevision === 0) return;
+    const node = attentionRef.current;
+    if (!node) return;
+    node.classList.remove("rt-timer-attention");
+    void node.offsetWidth; // force reflow so the re-added class restarts the animation
+    node.classList.add("rt-timer-attention");
+  }, [attentionRevision]);
 
   // A dragged position is stored as bottom-right offsets measured at the
   // dock's size at drag time. Expanding, gaining timers, or rotating the
@@ -458,7 +472,7 @@ export function TimerDock() {
         {announcement}
       </span>
       <div
-        key={attentionRevision}
+        ref={attentionRef}
         className={[
           expanded ? "rounded-2xl" : "rounded-full",
           attentionRevision > 0 && completedTimers.length > 0

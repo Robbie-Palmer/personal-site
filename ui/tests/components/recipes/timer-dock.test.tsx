@@ -99,11 +99,45 @@ describe("TimerDock", () => {
       vi.advanceTimersByTime(100);
     });
 
-    expect(document.querySelector(".rt-timer-attention")).not.toBe(
+    // The attention cue replays in place rather than remounting the dock, so
+    // the same node keeps carrying the persistent completion state.
+    expect(document.querySelector(".rt-timer-attention")).toBe(
       firstAttentionCue,
     );
     expect(screen.getByRole("alert")).toHaveTextContent(
       "2 cooking timers are complete.",
     );
+  });
+
+  it("keeps the add-timer popover and its typed values while another timer completes", () => {
+    vi.useFakeTimers();
+    startTimer({
+      id: "roast-timer",
+      label: "roast",
+      durationSeconds: 3,
+    });
+
+    render(
+      <CookModeProvider>
+        <TimerDock />
+      </CookModeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add a custom timer" }));
+
+    const labelInput = screen.getByPlaceholderText("e.g. pasta");
+    fireEvent.change(labelInput, { target: { value: "pasta" } });
+    expect(labelInput).toHaveValue("pasta");
+
+    act(() => {
+      vi.advanceTimersByTime(3_000);
+    });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Time's up for roast.");
+    // The completion must not tear down the open popover or discard the label.
+    expect(screen.getByPlaceholderText("e.g. pasta")).toHaveValue("pasta");
   });
 });
