@@ -7,6 +7,18 @@ stages:
       hash: md5
       md5: ddc5d10c3241b439f1c6dd485726bfb6
       size: 2916
+    - path: scripts/download-gutenberg.mjs
+      hash: md5
+      md5: cae88809ceab34f4a6d254bde01e2e1e
+      size: 2223
+    - path: scripts/download-icn.mjs
+      hash: md5
+      md5: 9d3136b0d803be4d31ec42d1b17974a4
+      size: 1636
+    - path: scripts/download-myplate.mjs
+      hash: md5
+      md5: 2613e6f3a93b34147ece4bde2d6a03bf
+      size: 3099
     - path: scripts/download.sh
       hash: md5
       md5: 98ca041bf867015fb584d901eb19e23e
@@ -18,7 +30,7 @@ stages:
     outs:
     - path: data/raw
       hash: md5
-      md5: 0f6dcbcdca898ed2f765af1cb6dfd718.dir
+      md5: 7179ca890d0b3f9e778aabb0bc63de63.dir
       size: 265110995
       nfiles: 151
   prepare:
@@ -26,7 +38,7 @@ stages:
     deps:
     - path: data/raw
       hash: md5
-      md5: 0f6dcbcdca898ed2f765af1cb6dfd718.dir
+      md5: 7179ca890d0b3f9e778aabb0bc63de63.dir
       size: 265110995
       nfiles: 151
     - path: sources.json
@@ -48,7 +60,7 @@ stages:
       size: 14099848
     - path: outputs/recipes.jsonl
       hash: md5
-      md5: ee923a72a504877be7e0c2a617ea29cc
+      md5: e680e19c454d30e50386db008f0cd4f2
       size: 135766310
     - path: outputs/rejects.jsonl
       hash: md5
@@ -67,7 +79,7 @@ stages:
       size: 14099848
     - path: outputs/recipes.jsonl
       hash: md5
-      md5: ee923a72a504877be7e0c2a617ea29cc
+      md5: e680e19c454d30e50386db008f0cd4f2
       size: 135766310
     - path: outputs/rejects.jsonl
       hash: md5
@@ -84,7 +96,7 @@ stages:
       size: 1258
     - path: outputs/recipes-deduplicated.jsonl
       hash: md5
-      md5: 94715c315af90f5d36f7ca2acfc22164
+      md5: a3269e4a9fc1485996453250eb081199
       size: 88748069
     - path: outputs/source-distribution.json
       hash: md5

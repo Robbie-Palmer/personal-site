@@ -4,6 +4,9 @@ stages:
     deps:
       - scripts/download.sh
       - scripts/download-cooklang.mjs
+      - scripts/download-gutenberg.mjs
+      - scripts/download-icn.mjs
+      - scripts/download-myplate.mjs
       - sources.json
     outs:
       - data/raw

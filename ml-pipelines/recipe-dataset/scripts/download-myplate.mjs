@@ -37,9 +37,8 @@ const urls = [...sitemap.matchAll(/<loc>(https:\/\/myplate\.food\/recipes\/[^<]+
   .filter(Boolean);
 const outputPath = `${outputDirectory}/recipes.jsonl`;
 const temporaryPath = `${outputPath}.part`;
-const output = createWriteStream(temporaryPath, { encoding: "utf8" });
+const records = new Array(urls.length);
 let nextIndex = 0;
-let written = 0;
 
 async function worker() {
   while (nextIndex < urls.length) {
@@ -61,12 +60,11 @@ async function worker() {
           .map(findRecipe)
           .find(Boolean);
         if (!recipe) throw new Error("Recipe JSON-LD missing");
-        output.write(`${JSON.stringify({
+        records[index] = {
           sourceUrl: url,
           sourceChecksum: createHash("sha256").update(html).digest("hex"),
           recipe,
-        })}\n`);
-        written += 1;
+        };
         lastError = undefined;
         break;
       } catch (error) {
@@ -79,6 +77,8 @@ async function worker() {
 }
 
 await Promise.all(Array.from({ length: 8 }, () => worker()));
+const output = createWriteStream(temporaryPath, { encoding: "utf8" });
+for (const record of records) output.write(`${JSON.stringify(record)}\n`);
 await new Promise((resolve, reject) => output.end((error) => error ? reject(error) : resolve()));
 await rename(temporaryPath, outputPath);
-console.log(`Downloaded ${written} USDA MyPlate recipes.`);
+console.log(`Downloaded ${records.length} USDA MyPlate recipes.`);
