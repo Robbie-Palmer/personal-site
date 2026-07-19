@@ -73,7 +73,7 @@ describe("RecipeOnboarding", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve([]),
+        json: () => Promise.resolve({ items: [], nextCursor: null }),
       }),
     );
   });

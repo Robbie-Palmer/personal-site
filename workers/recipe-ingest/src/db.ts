@@ -1,7 +1,7 @@
-import { createDb } from "recipe-db";
+import { createDb, type Db } from "recipe-db";
 import type { Env } from "./env";
 
-export type Db = ReturnType<typeof createDb>["db"];
+export type { Db };
 
 export async function withDb<T>(
   env: Env,
