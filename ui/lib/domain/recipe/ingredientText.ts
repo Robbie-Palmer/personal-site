@@ -95,9 +95,12 @@ export function formatIngredientStaticText(
     parts.push(formatStaticAmount(item.amount));
   }
 
-  // "piece" is a counting placeholder, not a label the UI ever renders.
-  if (item.unit && item.unit !== "piece") {
-    const label = UNIT_LABELS[item.unit];
+  // "piece" is a counting placeholder, not a label the UI ever renders. The
+  // label lookup is guarded so an unrecognised unit degrades to no label
+  // instead of crashing a build-time export.
+  const label =
+    item.unit && item.unit !== "piece" ? UNIT_LABELS[item.unit] : undefined;
+  if (label) {
     const isPluralUnit = item.amount != null && item.amount > 1;
     const unitStr = isPluralUnit ? label.plural : label.singular;
     if (label.noSpace && parts.length > 0) {
