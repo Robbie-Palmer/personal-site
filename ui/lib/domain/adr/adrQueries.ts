@@ -1,3 +1,8 @@
+import type { RootContent } from "mdast";
+import { toString as mdastToString } from "mdast-util-to-string";
+import { remark } from "remark";
+import remarkGfm from "remark-gfm";
+import remarkMdx from "remark-mdx";
 import {
   type DomainRepository,
   getADRSlugsForProject,
@@ -23,65 +28,33 @@ import {
   toADRListItemView,
 } from "./adrViews";
 
-function closingDelimiter(
-  markdown: string,
-  start: number,
-  open: string,
-  close: string,
-): number {
-  let depth = 1;
-  for (let index = start + 1; index < markdown.length; index++) {
-    if (markdown[index] === open) depth++;
-    if (markdown[index] !== close) continue;
-    depth--;
-    if (depth === 0) return index;
-  }
-  return -1;
-}
+const SUMMARY_CHARACTER_LIMIT = 280;
+const summaryProcessor = remark().use(remarkMdx).use(remarkGfm);
 
-function replaceMarkdownLinks(markdown: string): string {
-  let result = "";
-  let cursor = 0;
-  let labelStart = markdown.indexOf("[", cursor);
-  while (labelStart >= 0) {
-    const labelEnd = closingDelimiter(markdown, labelStart, "[", "]");
-    const urlStart = labelEnd + 1;
-    const isLink = labelEnd >= 0 && markdown[urlStart] === "(";
-    const urlEnd = isLink ? closingDelimiter(markdown, urlStart, "(", ")") : -1;
-    if (urlEnd < 0) {
-      result += markdown.slice(cursor, labelStart + 1);
-      cursor = labelStart + 1;
-      labelStart = markdown.indexOf("[", cursor);
-      continue;
-    }
-    result += markdown.slice(cursor, labelStart);
-    result += markdown.slice(labelStart + 1, labelEnd);
-    cursor = urlEnd + 1;
-    labelStart = markdown.indexOf("[", cursor);
+// Prose blocks that can open a summary; structural or non-prose blocks
+// (headings, code fences, imports, MDX expressions) are skipped.
+function isSummaryContent(node: RootContent): boolean {
+  switch (node.type) {
+    case "heading":
+    case "thematicBreak":
+    case "code":
+    case "html":
+    case "mdxjsEsm":
+    case "mdxFlowExpression":
+      return false;
+    default:
+      return true;
   }
-  return result + markdown.slice(cursor);
-}
-
-function stripMarkdown(markdown: string): string {
-  const withoutImages = markdown.replace(/!\[[^\]]*]\([^)]+\)/g, "");
-  return replaceMarkdownLinks(withoutImages)
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/^>\s?/gm, "")
-    .replace(/(^|\s)>\s?/g, "$1")
-    .replace(/[*_~]+/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 export function summarizeMarkdown(markdown: string): string {
-  const paragraphs = markdown
-    .split(/\n\s*\n/)
-    .map((chunk) => chunk.trim())
-    .filter(Boolean)
-    .filter((chunk) => !chunk.startsWith("#"));
-  if (paragraphs.length === 0) return "";
-  const first = stripMarkdown(paragraphs[0] ?? "");
-  return first.length > 280 ? `${first.slice(0, 277)}...` : first;
+  const root = summaryProcessor.parse(markdown);
+  const first = root.children.find(isSummaryContent);
+  if (!first) return "";
+  const text = mdastToString(first).replace(/\s+/g, " ").trim();
+  return text.length > SUMMARY_CHARACTER_LIMIT
+    ? `${text.slice(0, SUMMARY_CHARACTER_LIMIT - 3)}...`
+    : text;
 }
 
 function getADRByRef(repository: DomainRepository, adrRef: ADRRef) {

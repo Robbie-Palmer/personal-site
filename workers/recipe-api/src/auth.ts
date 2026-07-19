@@ -2,7 +2,7 @@ import { betterAuth } from "better-auth";
 import { admin, lastLoginMethod } from "better-auth/plugins";
 import { withCloudflare } from "better-auth-cloudflare";
 import { and, eq, inArray } from "drizzle-orm";
-import type { createDb } from "recipe-db";
+import type { Db } from "recipe-db";
 import * as schema from "recipe-db/schema";
 import { enforceRateLimit } from "./http/rate-limit";
 import { createHouseholdNotification } from "./notifications";
@@ -12,7 +12,6 @@ import {
   syncLinkedAccountEmails,
 } from "./user-emails";
 
-type Db = ReturnType<typeof createDb>["db"];
 
 type AuthEnv = {
   BETTER_AUTH_URL: string;
@@ -72,7 +71,7 @@ function rateLimitStorage(db: Db) {
 }
 
 export function createAuth(
-  db: ReturnType<typeof createDb>["db"],
+  db: Db,
   env: AuthEnv,
   options: CreateAuthOptions = {},
 ) {

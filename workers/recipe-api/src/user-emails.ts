@@ -1,8 +1,6 @@
 import { and, eq, ne } from "drizzle-orm";
-import type { createDb } from "recipe-db";
+import type { Db } from "recipe-db";
 import * as schema from "recipe-db/schema";
-
-type Db = ReturnType<typeof createDb>["db"];
 type UserEmailIdentity = {
   id: string;
   email: string;

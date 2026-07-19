@@ -1,9 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { Context } from "hono";
-import type { createDb } from "recipe-db";
+import type { Db } from "recipe-db";
 import { appRateLimit } from "recipe-db/schema";
-
-type Db = ReturnType<typeof createDb>["db"];
 
 export type RateLimitRule = {
   max: number;

@@ -7,6 +7,7 @@ import { NotificationBell } from "@/components/recipes/notifications/notificatio
 import { RecipeSiteNav } from "@/components/recipes/recipe-site-nav";
 import { RecipeThemeBody } from "@/components/recipes/recipe-theme-body";
 import { TimerDock } from "@/components/recipes/timer-dock";
+import { CookModeProvider } from "@/contexts/cook-mode-context";
 import { siteConfig } from "@/lib/config/site-config";
 import "./recipe-theme.css";
 
@@ -48,7 +49,7 @@ export default function RecipesLayout({
   const fontVars = `${caveat.variable} ${kalam.variable} ${jetBrainsMono.variable}`;
 
   return (
-    <>
+    <CookModeProvider>
       {/* Mirror the theme + fonts onto <body> so portaled UI (mobile filter
           drawer, popovers) inherits the warm palette instead of the dark base. */}
       <RecipeThemeBody classNames={`recipe-theme ${fontVars}`} />
@@ -94,6 +95,6 @@ export default function RecipesLayout({
           above the cook-mode overlay (which portals to <body>). Theme tokens
           come from the classes RecipeThemeBody mirrors onto <body>. */}
       <TimerDock />
-    </>
+    </CookModeProvider>
   );
 }
