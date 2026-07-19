@@ -15,6 +15,13 @@
       "when": 1784270301462,
       "tag": "0001_diet_catalog",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784454971808,
+      "tag": "0002_normalize_cajun_and_almond_milk",
+      "breakpoints": true
     }
   ]
 }

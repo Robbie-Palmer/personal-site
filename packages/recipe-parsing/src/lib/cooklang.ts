@@ -566,6 +566,23 @@ function isIngredientOnlyStep(step: Step): boolean {
   return hasIngredient;
 }
 
+function findDeclaredIngredientSlugs(parsed: CkParsedRecipe): Set<string> {
+  const declaredSlugs = new Set<string>();
+  for (const section of parsed.sections) {
+    for (const content of section.content) {
+      if (content.type !== "step" || !isIngredientOnlyStep(content.value)) {
+        continue;
+      }
+      for (const item of content.value.items) {
+        if (item.type !== "ingredient") continue;
+        const ingredient = parsed.ingredients[item.index]!;
+        declaredSlugs.add(normalizeIngredientName(ingredient.name));
+      }
+    }
+  }
+  return declaredSlugs;
+}
+
 function resolveQuantityValue(ingredient: CkIngredient): number | undefined {
   const value = getQuantityValue(ingredient.quantity);
   if (value !== null && !isNaN(value)) return value;
@@ -646,38 +663,55 @@ type IngredientGroupAccumulator = ReturnType<
   typeof createIngredientGroupAccumulator
 >;
 
+type IngredientAnnotation = NonNullable<
+  CooklangRecipe["frontmatter"]["ingredientAnnotations"]
+>[string];
+
+function buildGroupIngredient(
+  slug: string,
+  ingredient: CkIngredient,
+  annotation: IngredientAnnotation | undefined,
+): RecipeIngredient {
+  const amount = resolveQuantityValue(ingredient);
+  const unit = normalizeUnitToken(
+    getQuantityUnit(ingredient.quantity) ?? undefined,
+  );
+  return {
+    ingredient: slug,
+    ...(amount !== undefined ? { amount } : {}),
+    ...(unit ? { unit } : {}),
+    ...(annotation?.preparation
+      ? { preparation: annotation.preparation }
+      : {}),
+    ...(annotation?.note ? { note: annotation.note } : {}),
+  };
+}
+
 function collectStepIngredients(
   step: Step,
   parsed: CkParsedRecipe,
   annotations: CooklangRecipe["frontmatter"]["ingredientAnnotations"],
   groups: IngredientGroupAccumulator[],
   currentGroup: IngredientGroupAccumulator | null,
+  declaredSlugs: Set<string>,
+  isDeclaration: boolean,
 ): IngredientGroupAccumulator | null {
   let group = currentGroup;
   for (const item of step.items) {
     if (item.type !== "ingredient") continue;
     const ingredient = parsed.ingredients[item.index]!;
     const slug = normalizeIngredientName(ingredient.name);
+    if (!isDeclaration && declaredSlugs.has(slug)) continue;
 
     if (!group) {
       group = createIngredientGroupAccumulator();
       groups.push(group);
     }
 
-    const amount = resolveQuantityValue(ingredient);
-    const unit = normalizeUnitToken(
-      getQuantityUnit(ingredient.quantity) ?? undefined,
+    mergeIngredientIntoGroup(
+      group,
+      buildGroupIngredient(slug, ingredient, annotations?.[slug]),
     );
-    const annotation = annotations?.[slug];
-    mergeIngredientIntoGroup(group, {
-      ingredient: slug,
-      ...(amount !== undefined ? { amount } : {}),
-      ...(unit ? { unit } : {}),
-      ...(annotation?.preparation
-        ? { preparation: annotation.preparation }
-        : {}),
-      ...(annotation?.note ? { note: annotation.note } : {}),
-    });
   }
   return group;
 }
@@ -723,6 +757,7 @@ export function deriveRecipeFromCooklang(cooklang: CooklangRecipe): CooklangReci
   const cookware = normalizeCookwareList(
     parsed.cookware.map((item) => cookware_display_name(item)),
   );
+  const declaredIngredientSlugs = findDeclaredIngredientSlugs(parsed);
 
   for (const section of parsed.sections) {
     if (section.name !== null) {
@@ -733,27 +768,34 @@ export function deriveRecipeFromCooklang(cooklang: CooklangRecipe): CooklangReci
     for (const content of section.content) {
       if (content.type === "text") continue;
       const step = content.value;
+      const isDeclaration = isIngredientOnlyStep(step);
 
+      // Explicit declarations are authoritative for their own slugs, while
+      // inline-only ingredients still join the current group.
       currentGroup = collectStepIngredients(
         step,
         parsed,
         annotations,
         groups,
         currentGroup,
+        declaredIngredientSlugs,
+        isDeclaration,
       );
 
       // Add instruction text for non-ingredient-only steps
-      if (!isIngredientOnlyStep(step)) {
+      if (!isDeclaration) {
         const text = stepToInstructionText(step, parsed);
         if (text) instructions.push(text);
       }
     }
   }
 
-  const ingredientGroups: Recipe["ingredientGroups"] = groups.map((g) => ({
-    ...(g.name ? { name: g.name } : {}),
-    items: g.items,
-  }));
+  const ingredientGroups: Recipe["ingredientGroups"] = groups
+    .filter((g) => g.items.length > 0)
+    .map((g) => ({
+      ...(g.name ? { name: g.name } : {}),
+      items: g.items,
+    }));
 
   if (ingredientGroups.length === 0) {
     diagnostics.push("No ingredient groups detected in Cooklang body.");
