@@ -8,6 +8,7 @@
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit && tsc --project tsconfig.config-parity.json",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -20,6 +21,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.0.0",
     "smol-toml": "^1.7.0",
+    "@vitest/coverage-v8": "^4.1.10",
     "typescript": "^5",
     "vitest": "^4.1.7",
     "wrangler": "^4",

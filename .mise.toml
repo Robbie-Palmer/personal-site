@@ -8,6 +8,7 @@ config_roots = [
     "backups",
     "ml-pipelines",
     "ml-pipelines/recipe-dataset",
+    "ml-pipelines/recipe-parsing",
     "packages/recipe-db",
     "packages/recipe-parsing",
     "workers/recipe-api",
@@ -242,3 +243,13 @@ exit "$STATUS"
 [tasks.install]
 description = "Install all dependencies (root and workspaces)"
 run = "pnpm install"
+
+[tasks."sonar:coverage"]
+description = "Generate all LCOV reports imported by SonarQube Cloud"
+depends = [
+    "//ui:test:coverage",
+    "//packages/recipe-parsing:test:coverage",
+    "//ml-pipelines/recipe-parsing:test:coverage",
+    "//workers/recipe-api:test:coverage",
+    "//workers/recipe-ingest:test:coverage",
+]

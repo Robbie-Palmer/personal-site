@@ -1,4 +1,4 @@
-import { configDefaults, defineConfig } from "vitest/config";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
@@ -7,7 +7,5 @@ export default defineConfig({
       reporter: ["text", ["lcovonly", { projectRoot: "../.." }]],
       reportsDirectory: "coverage",
     },
-    exclude: [...configDefaults.exclude, "tests/integration/**"],
-    globals: true,
   },
 });

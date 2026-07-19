@@ -8,6 +8,7 @@
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit && tsc --project tsconfig.scripts.json",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:integration": "bash scripts/test-integration.sh",
     "test:watch": "vitest",
     "db:check": "bash scripts/check-migrations.sh",
@@ -32,6 +33,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.0.0",
     "@types/node": "^24",
+    "@vitest/coverage-v8": "^4.1.10",
     "drizzle-kit": "^0.31.0",
     "tsx": "^4.21.0",
     "typescript": "^5",
