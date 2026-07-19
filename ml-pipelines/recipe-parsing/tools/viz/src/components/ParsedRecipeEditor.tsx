@@ -41,6 +41,10 @@ function updateArrayItem<T>(items: T[], index: number, next: T): T[] {
   return items.map((item, i) => (i === index ? next : item));
 }
 
+function removeArrayItem<T>(items: T[], index: number): T[] {
+  return [...items.slice(0, index), ...items.slice(index + 1)];
+}
+
 function updateField<K extends keyof ParsedRecipe>(
   recipe: ParsedRecipe,
   key: K,
@@ -251,9 +255,7 @@ export function ParsedRecipeEditor({
         index === groupIndex
           ? {
               ...keys,
-              itemKeys: keys.itemKeys.filter(
-                (_, keyIndex) => keyIndex !== itemIndex,
-              ),
+              itemKeys: removeArrayItem(keys.itemKeys, itemIndex),
             }
           : keys,
       ),
@@ -456,13 +458,14 @@ export function ParsedRecipeEditor({
                 onClick={() => {
                   updateKeys((current) => ({
                     ...current,
-                    groups: current.groups.filter(
-                      (_, index) => index !== groupIndex,
-                    ),
+                    groups: removeArrayItem(current.groups, groupIndex),
                   }));
                   onChange({
                     ...value,
-                    ingredientGroups: value.ingredientGroups.filter((_, i) => i !== groupIndex),
+                    ingredientGroups: removeArrayItem(
+                      value.ingredientGroups,
+                      groupIndex,
+                    ),
                   });
                 }}
                 className="px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-100"
@@ -824,11 +827,15 @@ export function ParsedRecipeEditor({
                   onClick={() => {
                     updateKeys((current) => ({
                       ...current,
-                      cookwareKeys: current.cookwareKeys.filter(
-                        (_, index) => index !== i,
-                      ),
+                      cookwareKeys: removeArrayItem(current.cookwareKeys, i),
                     }));
-                    onChange(updateField(value, "cookware", value.cookware.filter((_, idx) => idx !== i)))
+                    onChange(
+                      updateField(
+                        value,
+                        "cookware",
+                        removeArrayItem(value.cookware, i),
+                      ),
+                    );
                   }}
                   className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 text-xs"
                 >
