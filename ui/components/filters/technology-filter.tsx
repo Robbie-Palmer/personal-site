@@ -34,7 +34,7 @@ export function TechnologyFilter({
   disabled = false,
   size = "default",
   ...triState
-}: TechnologyFilterProps) {
+}: Readonly<TechnologyFilterProps>) {
   const options: MultiSelectOption[] = technologies.map((tech) => ({
     value: tech.slug,
     label: tech.name,

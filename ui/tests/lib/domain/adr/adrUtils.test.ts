@@ -86,4 +86,12 @@ The real opening paragraph.`;
     expect(summary).toHaveLength(280);
     expect(summary.endsWith("...")).toBe(true);
   });
+
+  it("preserves nested link labels and continues past non-link brackets", () => {
+    expect(
+      summarizeMarkdown(
+        "[not a link] then [text [nested]](https://example.com/a_(b)).",
+      ),
+    ).toBe("[not a link] then text [nested].");
+  });
 });

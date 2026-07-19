@@ -85,11 +85,6 @@ function isCandidateNumberToken(token: string): boolean {
     token === DECIMAL_WORD;
 }
 
-function formatCanonicalNumber(value: number): string {
-  if (Number.isInteger(value)) return String(value);
-  return value.toString().replace(/(?:\.0+|(\.\d*?)0+)$/, "$1");
-}
-
 function parseDigitWord(token: string): number | undefined {
   const small = SMALL_NUMBER_WORDS[token];
   if (small != null && small >= 0 && small <= 9) return small;
@@ -237,7 +232,8 @@ function canonicalizeNumberWordTokens(tokens: string[]): string[] {
     }
 
     if (matchedEnd > index && matchedValue != null) {
-      result.push(formatCanonicalNumber(matchedValue));
+      // matchedValue is numeric, so String also canonicalizes trailing zeroes.
+      result.push(String(matchedValue));
       index = matchedEnd;
       continue;
     }

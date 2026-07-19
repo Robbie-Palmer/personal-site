@@ -39,7 +39,7 @@ interface AccountsTableProps {
 export function AccountsTable({
   accounts,
   onSelectAccount,
-}: AccountsTableProps) {
+}: Readonly<AccountsTableProps>) {
   const assets = accounts.filter((a) => !isLiability(a.assetType));
   const liabilities = accounts.filter((a) => isLiability(a.assetType));
 
@@ -92,11 +92,11 @@ function AccountsSection({
   label,
   accounts,
   onSelectAccount,
-}: {
+}: Readonly<{
   label: string;
   accounts: AccountDetailView[];
   onSelectAccount?: (accountId: string) => void;
-}) {
+}>) {
   if (accounts.length === 0) return null;
   return (
     <>
@@ -131,10 +131,10 @@ function AccountsSection({
 function AccountRow({
   account,
   onSelectAccount,
-}: {
+}: Readonly<{
   account: AccountDetailView;
   onSelectAccount?: (accountId: string) => void;
-}) {
+}>) {
   return (
     <tr className="border-b hover:bg-muted/30">
       <td className="p-3 font-medium">
@@ -184,7 +184,9 @@ function AccountRow({
  * The retention loop for a manual-entry tracker: surface how stale each
  * balance is and make the fix one tap away (a prefilled log-balance drawer).
  */
-function StaleBalanceNudge({ account }: { account: AccountDetailView }) {
+function StaleBalanceNudge({
+  account,
+}: Readonly<{ account: AccountDetailView }>) {
   if (!account.isOpen) return null;
   let message: string | null = null;
   if (account.latestSnapshotDate == null) {
@@ -217,7 +219,9 @@ function StaleBalanceNudge({ account }: { account: AccountDetailView }) {
 const SPARK_WIDTH = 72;
 const SPARK_HEIGHT = 22;
 
-function Sparkline({ snapshots }: { snapshots: BalanceSnapshotView[] }) {
+function Sparkline({
+  snapshots,
+}: Readonly<{ snapshots: BalanceSnapshotView[] }>) {
   if (snapshots.length < 2) {
     return <span className="text-xs text-muted-foreground">—</span>;
   }

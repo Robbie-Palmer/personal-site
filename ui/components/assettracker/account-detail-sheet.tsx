@@ -41,7 +41,7 @@ interface AccountDetailSheetProps {
 export function AccountDetailSheet({
   accountId,
   onClose,
-}: AccountDetailSheetProps) {
+}: Readonly<AccountDetailSheetProps>) {
   const { accounts, accountDetails, recurringFlows, inflation } =
     useAssetTracker();
 
@@ -114,7 +114,9 @@ export function AccountDetailSheet({
   );
 }
 
-function AccountSheetHeader({ account }: { account: AccountDetailView }) {
+function AccountSheetHeader({
+  account,
+}: Readonly<{ account: AccountDetailView }>) {
   const closedSuffix = account.closedAt ? ` · closed ${account.closedAt}` : "";
   return (
     <SheetHeader>
@@ -136,10 +138,10 @@ function AccountSheetHeader({ account }: { account: AccountDetailView }) {
 function StatsCards({
   account,
   inflation,
-}: {
+}: Readonly<{
   account: AccountDetailView;
   inflation: number;
-}) {
+}>) {
   const liability = isLiability(account.assetType);
   const currentRate = effectiveExpectedReturn(account, todayIsoDate());
   const balanceText =
@@ -181,10 +183,10 @@ function StatsCards({
 function EquityCard({
   account,
   equity,
-}: {
+}: Readonly<{
   account: AccountDetailView;
   equity: EquitySummary;
-}) {
+}>) {
   return (
     <div className="rounded-lg border bg-muted/30 p-3">
       <p className="text-xs text-muted-foreground">
@@ -197,7 +199,7 @@ function EquityCard({
   );
 }
 
-function BalanceHistory({ account }: { account: AccountDetailView }) {
+function BalanceHistory({ account }: Readonly<{ account: AccountDetailView }>) {
   const { deleteSnapshot } = useAssetTracker();
   const [error, setError] = useState<string | null>(null);
 
@@ -245,7 +247,7 @@ function BalanceHistory({ account }: { account: AccountDetailView }) {
   );
 }
 
-function TransfersList({ account }: { account: AccountDetailView }) {
+function TransfersList({ account }: Readonly<{ account: AccountDetailView }>) {
   const { accounts, transfers } = useAssetTracker();
   const accountTransfers = transfers.filter(
     (t) => t.fromAccountId === account.id || t.toAccountId === account.id,

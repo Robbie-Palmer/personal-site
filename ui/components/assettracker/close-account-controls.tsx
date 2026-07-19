@@ -26,7 +26,9 @@ interface CloseAccountControlsProps {
  * Render with key={account.id} so the pending confirmation resets when the
  * displayed account changes.
  */
-export function CloseAccountControls({ account }: CloseAccountControlsProps) {
+export function CloseAccountControls({
+  account,
+}: Readonly<CloseAccountControlsProps>) {
   const { accounts, closeAccount } = useAssetTracker();
   const [confirming, setConfirming] = useState(false);
   const [transferTargetId, setTransferTargetId] = useState(KEEP_BALANCE);

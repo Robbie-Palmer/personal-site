@@ -28,7 +28,8 @@ export function useSortParam<T extends string>(
       params.set("sort", nextSort);
     }
     const queryString = params.toString();
-    router.replace(`${pathname}${queryString ? `?${queryString}` : ""}`, {
+    const querySuffix = queryString ? `?${queryString}` : "";
+    router.replace(pathname + querySuffix, {
       scroll: false,
     });
   };

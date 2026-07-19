@@ -6,7 +6,7 @@ interface ScoresPanelProps {
   scores: DetailScoreBreakdown;
 }
 
-export function ScoresPanel({ scores }: ScoresPanelProps) {
+export function ScoresPanel({ scores }: Readonly<ScoresPanelProps>) {
   const items = [
     { label: "Structured Score", value: scores.overall },
     ...(scores.scalarFields != null

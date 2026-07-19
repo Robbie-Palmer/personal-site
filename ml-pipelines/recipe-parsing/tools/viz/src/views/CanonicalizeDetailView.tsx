@@ -32,7 +32,7 @@ export function CanonicalizeDetailView({
   entryIndex,
   onBack,
   onNavigate,
-}: CanonicalizeDetailViewProps) {
+}: Readonly<CanonicalizeDetailViewProps>) {
   const [groundTruth, setGroundTruth] = useState<GroundTruthDataset | null>(null);
   const [canonicalizedPredictions, setCanonicalizedPredictions] = useState<PredictionsDataset | null>(null);
   const [canonicalizationFile, setCanonicalizationFile] = useState<CanonicalizationFile | null>(null);
@@ -216,6 +216,40 @@ export function CanonicalizeDetailView({
   }
 
   const totalEntries = groundTruth.entries.length;
+  const saveButtonContent = (() => {
+    if (saveStatus === "saving") return "Saving...";
+    if (saveStatus === "saved") {
+      return <><Check className="h-3.5 w-3.5" /> Saved</>;
+    }
+    if (saveStatus === "error") {
+      return <><AlertCircle className="h-3.5 w-3.5" /> Error</>;
+    }
+    return <><Save className="h-3.5 w-3.5" /> Save</>;
+  })();
+  const diffContent = (() => {
+    if (expectedCanonicalized && predictedCanonicalized) {
+      return (
+        <ParsedRecipeDiff
+          expected={expectedCanonicalized}
+          predicted={predictedCanonicalized}
+          scalarFields={["cuisine"]}
+          showInstructions={false}
+        />
+      );
+    }
+    if (expectedCanonicalized) {
+      return (
+        <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">
+          No canonicalized prediction available.
+        </div>
+      );
+    }
+    return (
+      <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">
+        Fix validation issues to preview the diff.
+      </div>
+    );
+  })();
 
   return (
     <div className="space-y-4">
@@ -295,21 +329,7 @@ export function CanonicalizeDetailView({
                 : "bg-gray-100 text-gray-400 cursor-not-allowed"
             }`}
           >
-            {saveStatus === "saving" ? (
-              "Saving..."
-            ) : saveStatus === "saved" ? (
-              <>
-                <Check className="h-3.5 w-3.5" /> Saved
-              </>
-            ) : saveStatus === "error" ? (
-              <>
-                <AlertCircle className="h-3.5 w-3.5" /> Error
-              </>
-            ) : (
-              <>
-                <Save className="h-3.5 w-3.5" /> Save
-              </>
-            )}
+            {saveButtonContent}
           </button>
           <button
             type="button"
@@ -363,6 +383,7 @@ export function CanonicalizeDetailView({
         {/* Middle: editable ground truth */}
         <div>
           <ParsedRecipeEditor
+            identity={predictionKey ?? `entry-${entryIndex}`}
             value={edited}
             diagnostics={validationDiagnostics}
             onChange={(next) => {
@@ -384,22 +405,7 @@ export function CanonicalizeDetailView({
         {/* Right: diff */}
         <div className="space-y-4">
           {scoreBreakdown && <ScoresPanel scores={scoreBreakdown} />}
-          {expectedCanonicalized && predictedCanonicalized ? (
-            <ParsedRecipeDiff
-              expected={expectedCanonicalized}
-              predicted={predictedCanonicalized}
-              scalarFields={["cuisine"]}
-              showInstructions={false}
-            />
-          ) : expectedCanonicalized ? (
-            <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">
-              No canonicalized prediction available.
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">
-              Fix validation issues to preview the diff.
-            </div>
-          )}
+          {diffContent}
         </div>
       </div>
     </div>

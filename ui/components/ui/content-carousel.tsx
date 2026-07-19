@@ -38,7 +38,7 @@ export function ContentCarousel<T>({
   className,
   itemClassName,
   getItemKey,
-}: ContentCarouselProps<T>) {
+}: Readonly<ContentCarouselProps<T>>) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const plugins = autoScroll

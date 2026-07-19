@@ -31,7 +31,7 @@ function yearsBetween(fromDate: string, toDate: string): number {
 export function computeCagr(snapshots: BalanceSnapshotView[]): number | null {
   const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
   const start = sorted.find((s) => s.balance > 0);
-  const end = sorted[sorted.length - 1];
+  const end = sorted.at(-1);
   if (!start || !end) return null;
   const years = yearsBetween(start.date, end.date);
   if (years <= 0) return null;
@@ -65,7 +65,7 @@ export function computeMoneyWeightedReturn(
 ): number | null {
   const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
   const start = sorted.find((s) => s.balance > 0);
-  const end = sorted[sorted.length - 1];
+  const end = sorted.at(-1);
   if (!start || !end) return null;
   const years = yearsBetween(start.date, end.date);
   if (years <= 0) return null;
@@ -361,7 +361,7 @@ export function dateTargetReached(
   target: number,
 ): string | null {
   const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
-  const last = sorted[sorted.length - 1];
+  const last = sorted.at(-1);
   if (!last || last.balance < target) return null;
   let reached = last.date;
   for (let i = sorted.length - 1; i >= 0; i--) {

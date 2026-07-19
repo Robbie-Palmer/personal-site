@@ -10,7 +10,7 @@ interface MetricsSummaryBarProps {
 export function MetricsSummaryBar({
   metrics,
   inferFailuresCount,
-}: MetricsSummaryBarProps) {
+}: Readonly<MetricsSummaryBarProps>) {
   const items = [
     { label: "Structured Score", value: metrics.overallScore },
     { label: "Ingredients F1", value: metrics.ingredientParsingF1 },

@@ -11,7 +11,7 @@ interface CanonicalizationPanelProps {
   images: string[];
 }
 
-function DecisionRow({ decision }: { decision: CanonicalizationDecision }) {
+function DecisionRow({ decision }: Readonly<{ decision: CanonicalizationDecision }>) {
   const [expanded, setExpanded] = useState(false);
   const changed = decision.originalSlug !== decision.canonicalSlug;
 
@@ -64,7 +64,7 @@ function DecisionRow({ decision }: { decision: CanonicalizationDecision }) {
   );
 }
 
-export function CanonicalizationPanel({ images }: CanonicalizationPanelProps) {
+export function CanonicalizationPanel({ images }: Readonly<CanonicalizationPanelProps>) {
   const [entry, setEntry] = useState<CanonicalizationEntry | null>(null);
   const [loading, setLoading] = useState(true);
 

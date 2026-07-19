@@ -28,7 +28,7 @@ interface SearchableTechnologyGridProps {
 
 export function SearchableTechnologyGrid({
   technologies,
-}: SearchableTechnologyGridProps) {
+}: Readonly<SearchableTechnologyGridProps>) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [excludedTypes, setExcludedTypes] = useState<string[]>([]);

@@ -32,7 +32,7 @@ export function BlogCarousel({
   scrollSpeed = defaultCarouselConfig.scrollSpeed,
   stopOnInteraction = defaultCarouselConfig.stopOnInteraction,
   stopOnMouseEnter = defaultCarouselConfig.stopOnMouseEnter,
-}: BlogCarouselProps) {
+}: Readonly<BlogCarouselProps>) {
   return (
     <ContentCarousel
       items={posts}

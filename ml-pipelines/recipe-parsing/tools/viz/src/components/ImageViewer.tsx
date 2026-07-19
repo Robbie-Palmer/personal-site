@@ -22,7 +22,7 @@ export function ImageViewer({
   sources,
   initialIndex,
   onClose,
-}: ImageViewerProps) {
+}: Readonly<ImageViewerProps>) {
   const [index, setIndex] = useState(initialIndex);
   const [scale, setScale] = useState(1);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });

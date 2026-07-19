@@ -98,6 +98,7 @@ function resolveImageUrl(src: string): string | null {
 }
 
 const convert = (mdx: string) => mdxToAgentMarkdown(mdx, { resolveImageUrl });
+const routePath = (...segments: string[]) => `/${segments.join("/")}`;
 
 interface GeneratedPage {
   /** HTML route the markdown twin belongs to, e.g. "/projects" */
@@ -141,7 +142,7 @@ function buildProjectsIndexPage(
           ? ` ${project.adrs.length} architecture decision records (ADRs) are listed on the project page.`
           : "";
       return [
-        `### [${project.title}](${markdownUrl(`/projects/${project.slug}`)})`,
+        `### [${project.title}](${markdownUrl(routePath("projects", project.slug))})`,
         "",
         `${project.description} (status: ${project.status}).${adrNote}`,
         "",
@@ -191,7 +192,7 @@ function buildAdrPages(project: ProjectWithADRs): GeneratedPage[] {
   return project.adrs.map((adrCard) => {
     const adr = getProjectADR(project.slug, adrCard.slug);
     const facts: [string, string][] = [
-      ["Project", `${project.title} (${markdownUrl(`/projects/${project.slug}`)})`],
+      ["Project", `${project.title} (${markdownUrl(routePath("projects", project.slug))})`],
       ["Status", adr.status],
       ["Date", adr.date],
     ];
@@ -199,7 +200,7 @@ function buildAdrPages(project: ProjectWithADRs): GeneratedPage[] {
     if (adr.isInherited) {
       facts.push([
         "Inherited from project",
-        `${adr.originProjectSlug} (${markdownUrl(`/projects/${adr.originProjectSlug}/adrs/${adr.originAdrSlug}`)})`,
+        `${adr.originProjectSlug} (${markdownUrl(routePath("projects", adr.originProjectSlug, "adrs", adr.originAdrSlug))})`,
       ]);
     }
     const notes = adr.inheritedProjectNotes
@@ -225,14 +226,18 @@ function buildBlogIndexPage(
     title: siteConfig.blog.title,
     description: siteConfig.blog.description,
     content: posts
-      .flatMap((post) => [
-        `### [${post.title}](${markdownUrl(`/blog/${post.slug}`)})`,
-        "",
-        `${post.date} · ${post.readingTime}${post.tags.length > 0 ? ` · ${post.tags.join(", ")}` : ""}`,
-        "",
-        post.description,
-        "",
-      ])
+      .flatMap((post) => {
+        const tagSuffix =
+          post.tags.length > 0 ? ` · ${post.tags.join(", ")}` : "";
+        return [
+          `### [${post.title}](${markdownUrl(routePath("blog", post.slug))})`,
+          "",
+          `${post.date} · ${post.readingTime}${tagSuffix}`,
+          "",
+          post.description,
+          "",
+        ];
+      })
       .join("\n"),
   };
 }
@@ -360,7 +365,7 @@ function buildRecipesIndexPage(
         const cuisine =
           recipe.cuisine.length > 0 ? ` · ${recipe.cuisine.join(", ")}` : "";
         return [
-          `### [${recipe.title}](${markdownUrl(`/recipes/${recipe.slug}`)})`,
+          `### [${recipe.title}](${markdownUrl(routePath("recipes", recipe.slug))})`,
           "",
           `Serves ${recipe.servings}${time}${cuisine}`,
           "",
@@ -409,7 +414,7 @@ function buildTechnologyPages(projects: ProjectWithADRs[]): GeneratedPage[] {
         "",
         ...related.projects.map(
           (project) =>
-            `- [${project.title}](${markdownUrl(`/projects/${project.slug}`)})`,
+            `- [${project.title}](${markdownUrl(routePath("projects", project.slug))})`,
         ),
         "",
       );
@@ -421,7 +426,7 @@ function buildTechnologyPages(projects: ProjectWithADRs[]): GeneratedPage[] {
         "",
         ...adrs.map(
           (adr) =>
-            `- [${adr.title}](${markdownUrl(`/projects/${adr.projectSlug}/adrs/${adr.adrSlug}`)})`,
+            `- [${adr.title}](${markdownUrl(routePath("projects", adr.projectSlug, "adrs", adr.adrSlug))})`,
         ),
         "",
       );
@@ -432,7 +437,7 @@ function buildTechnologyPages(projects: ProjectWithADRs[]): GeneratedPage[] {
         "",
         ...related.blogs.map(
           (post) =>
-            `- [${post.title}](${markdownUrl(`/blog/${post.slug}`)}) — ${post.date}`,
+            `- [${post.title}](${markdownUrl(routePath("blog", post.slug))}) — ${post.date}`,
         ),
         "",
       );
@@ -508,7 +513,7 @@ function buildLlmsTxt(
     "",
     ...projects.map(
       (project) =>
-        `- [${project.title}](${markdownUrl(`/projects/${project.slug}`)}): ${project.description}`,
+        `- [${project.title}](${markdownUrl(routePath("projects", project.slug))}): ${project.description}`,
     ),
     "",
     "## Architecture Decision Records",
@@ -518,7 +523,7 @@ function buildLlmsTxt(
         .filter((adr) => !adr.isInherited)
         .map(
           (adr) =>
-            `- [${project.title} — ${adr.title}](${markdownUrl(`/projects/${project.slug}/adrs/${adr.slug}`)})`,
+            `- [${project.title} — ${adr.title}](${markdownUrl(routePath("projects", project.slug, "adrs", adr.slug))})`,
         ),
     ),
     "",
@@ -527,17 +532,17 @@ function buildLlmsTxt(
     `- [Blog index](${markdownUrl("/blog")}): all posts with summaries`,
     ...posts.map(
       (post) =>
-        `- [${post.title}](${markdownUrl(`/blog/${post.slug}`)}): ${post.description}`,
+        `- [${post.title}](${markdownUrl(routePath("blog", post.slug))}): ${post.description}`,
     ),
     "",
     "## Technologies",
     "",
     "Each page lists the projects, ADRs, blog posts, and roles using that technology.",
     "",
-    ...technologyPages.map(
-      (page) =>
-        `- [${page.title}](${markdownUrl(page.htmlPath)})${page.description ? `: ${page.description}` : ""}`,
-    ),
+    ...technologyPages.map((page) => {
+      const descriptionSuffix = page.description ? `: ${page.description}` : "";
+      return `- [${page.title}](${markdownUrl(page.htmlPath)})${descriptionSuffix}`;
+    }),
     "",
     "## Recipes",
     "",
@@ -546,7 +551,7 @@ function buildLlmsTxt(
     `- [Recipe index](${markdownUrl("/recipes")}): a digital recipe book`,
     ...recipes.map(
       (recipe) =>
-        `- [${recipe.title}](${markdownUrl(`/recipes/${recipe.slug}`)}): ${recipe.description}`,
+        `- [${recipe.title}](${markdownUrl(routePath("recipes", recipe.slug))}): ${recipe.description}`,
     ),
     "",
   ];

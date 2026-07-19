@@ -11,7 +11,12 @@ interface CTAButtonProps {
   animationDelay: string;
 }
 
-function CTAButton({ href, label, variant, animationDelay }: CTAButtonProps) {
+function CTAButton({
+  href,
+  label,
+  variant,
+  animationDelay,
+}: Readonly<CTAButtonProps>) {
   return (
     <Button
       size="lg"

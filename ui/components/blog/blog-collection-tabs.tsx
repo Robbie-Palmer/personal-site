@@ -24,7 +24,7 @@ export function BlogCollectionTabs({
   collections,
   collectionPosts,
   defaultCollectionId,
-}: BlogCollectionTabsProps) {
+}: Readonly<BlogCollectionTabsProps>) {
   const [activeCollection, setActiveCollection] = useState(
     defaultCollectionId || collections[0]?.id || "all",
   );

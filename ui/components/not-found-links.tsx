@@ -19,7 +19,7 @@ interface NotFoundLinksProps {
   sections: Section[];
 }
 
-export function NotFoundLinks({ sections }: NotFoundLinksProps) {
+export function NotFoundLinks({ sections }: Readonly<NotFoundLinksProps>) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {sections.map((section) => (

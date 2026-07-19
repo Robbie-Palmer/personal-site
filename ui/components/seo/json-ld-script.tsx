@@ -1,6 +1,6 @@
 type Props = { data: object };
 
-export function JsonLdScript({ data }: Props) {
+export function JsonLdScript({ data }: Readonly<Props>) {
   return (
     <script
       type="application/ld+json"

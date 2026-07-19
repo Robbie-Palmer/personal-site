@@ -14,10 +14,10 @@ export const AUTH_PROVIDERS: ReadonlyArray<{
 export function ProviderIcon({
   path,
   className = "size-4",
-}: {
+}: Readonly<{
   path: string;
   className?: string;
-}) {
+}>) {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" className={className}>
       <path d={path} fill="currentColor" />

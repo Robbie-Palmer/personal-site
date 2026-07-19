@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NotificationPage } from "@/lib/api/notifications";
 
@@ -68,10 +68,8 @@ describe("NotificationBell", () => {
       screen.getByRole("link", { name: "Notifications" }),
     ).toBeInTheDocument();
     resolveReplacement?.({ items: [], nextOffset: null, unreadCount: 2 });
-    await waitFor(() =>
-      expect(
-        screen.getByRole("link", { name: "Notifications, 2 unread" }),
-      ).toBeInTheDocument(),
-    );
+    expect(
+      await screen.findByRole("link", { name: "Notifications, 2 unread" }),
+    ).toBeInTheDocument();
   });
 });

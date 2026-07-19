@@ -41,13 +41,17 @@ export function formatAmount(item: RecipeIngredient, scale = 1): string {
   return parts.join(" ");
 }
 
+function formatIngredientAmount(
+  item: RecipeIngredient,
+  scale: number,
+): string {
+  if (item.unit !== "piece") return formatAmount(item, scale);
+  if (item.amount == null) return "";
+  return formatScaled(item.amount * scale);
+}
+
 export function formatIngredient(item: RecipeIngredient, scale = 1): string {
-  const isPiece = item.unit === "piece";
-  const amount = isPiece
-    ? item.amount != null
-      ? formatScaled(item.amount * scale)
-      : ""
-    : formatAmount(item, scale);
+  const amount = formatIngredientAmount(item, scale);
 
   const parts: string[] = [];
 

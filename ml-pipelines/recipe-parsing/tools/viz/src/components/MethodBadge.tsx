@@ -10,7 +10,7 @@ interface MethodBadgeProps {
   method: CanonicalizationMethod;
 }
 
-export function MethodBadge({ method }: MethodBadgeProps) {
+export function MethodBadge({ method }: Readonly<MethodBadgeProps>) {
   return (
     <span
       className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${METHOD_COLORS[method] ?? "bg-gray-100 text-gray-800"}`}

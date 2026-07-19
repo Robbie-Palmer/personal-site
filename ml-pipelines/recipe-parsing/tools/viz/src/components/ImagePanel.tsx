@@ -5,7 +5,7 @@ interface ImagePanelProps {
   onClickImage?: (index: number) => void;
 }
 
-export function ImagePanel({ imagePaths, onClickImage }: ImagePanelProps) {
+export function ImagePanel({ imagePaths, onClickImage }: Readonly<ImagePanelProps>) {
   return (
     <div
       className={`grid gap-4 ${imagePaths.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}

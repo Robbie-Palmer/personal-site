@@ -13,7 +13,7 @@ export function RecipePagination({
   prevRecipe,
   nextRecipe,
   className,
-}: RecipePaginationProps) {
+}: Readonly<RecipePaginationProps>) {
   if (!prevRecipe && !nextRecipe) return null;
 
   const hasBothDirections = Boolean(prevRecipe && nextRecipe);

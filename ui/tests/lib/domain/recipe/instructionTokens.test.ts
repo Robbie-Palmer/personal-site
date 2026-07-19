@@ -200,4 +200,68 @@ describe("tokenizeInstructionSdk", () => {
       reason: "Malformed inline quantity item index: 4",
     });
   });
+
+  it("fails for malformed timer indexes so caller can fallback", () => {
+    const sdk = makeSdk({
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: "step",
+              value: {
+                number: 1,
+                items: [{ type: "timer", index: 4 }],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(tokenizeInstructionSdk(sdk)).toEqual({
+      ok: false,
+      reason: "Malformed timer item index: 4",
+    });
+  });
+
+  it("trims empty boundary text while retaining meaningful spacing", () => {
+    const sdk = makeSdk({
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: "step",
+              value: {
+                number: 1,
+                items: [
+                  { type: "text", value: "  " },
+                  { type: "text", value: "  Cook " },
+                  { type: "ingredient", index: 0 },
+                  { type: "text", value: "  " },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(tokenizeInstructionSdk(sdk)).toEqual({
+      ok: true,
+      steps: [
+        [
+          { type: "text", value: "Cook " },
+          {
+            type: "ingredient",
+            value: "red onion",
+            canonicalName: "onion",
+            amount: 2,
+            unit: "piece",
+          },
+        ],
+      ],
+    });
+  });
 });

@@ -24,12 +24,12 @@ function ScalarRow({
   expected,
   predicted,
   match: matchOverride,
-}: {
+}: Readonly<{
   label: string;
   expected: string | number | undefined | null;
   predicted: string | number | undefined | null;
   match?: boolean;
-}) {
+}>) {
   const match =
     matchOverride ??
     (normalizeComparableText(String(expected ?? "")) ===
@@ -181,7 +181,7 @@ export function ParsedRecipeDiff({
   predictedCookware,
   scalarFields,
   showInstructions = true,
-}: ParsedRecipeDiffProps) {
+}: Readonly<ParsedRecipeDiffProps>) {
   const showScalar = (field: ScalarField) => !scalarFields || scalarFields.includes(field);
   const expectedEquipment = expectedCookware ?? expected.cookware;
   const predictedEquipment = predictedCookware ?? predicted.cookware;

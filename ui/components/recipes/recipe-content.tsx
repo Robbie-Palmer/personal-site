@@ -59,14 +59,14 @@ function IngredientGroup({
   annotations,
   checked,
   onToggle,
-}: {
+}: Readonly<{
   group: IngredientGroupView;
   scale: number;
   system: MeasurementPreference;
   annotations: Map<string, IngredientAnnotation>;
   checked: Set<string>;
   onToggle: (ingredient: string) => void;
-}) {
+}>) {
   return (
     <div>
       {group.name && (
@@ -365,6 +365,26 @@ export function RecipeContent({
     setCookStep(step);
   }, []);
 
+  const scalingStatus = (() => {
+    if (scalingError) {
+      return (
+        <AlertTriangle
+          className="h-3 w-3 text-destructive"
+          aria-label="Precise scaling unavailable; showing an approximation"
+        />
+      );
+    }
+    if (isScaling) {
+      return (
+        <Loader2
+          className="h-3 w-3 animate-spin text-muted-foreground"
+          aria-label="Scaling recipe"
+        />
+      );
+    }
+    return null;
+  })();
+
   return (
     <>
       <header className="mb-8">
@@ -437,17 +457,7 @@ export function RecipeContent({
               >
                 <Plus className="h-3 w-3" />
               </Button>
-              {scalingError ? (
-                <AlertTriangle
-                  className="h-3 w-3 text-destructive"
-                  aria-label="Precise scaling unavailable; showing an approximation"
-                />
-              ) : isScaling ? (
-                <Loader2
-                  className="h-3 w-3 animate-spin text-muted-foreground"
-                  aria-label="Scaling recipe"
-                />
-              ) : null}
+              {scalingStatus}
             </div>
           </div>
           <div className="flex items-center gap-1.5">

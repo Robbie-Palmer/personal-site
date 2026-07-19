@@ -30,7 +30,9 @@ interface AccountBalanceChartProps {
   accounts: AccountDetailView[];
 }
 
-export function AccountBalanceChart({ accounts }: AccountBalanceChartProps) {
+export function AccountBalanceChart({
+  accounts,
+}: Readonly<AccountBalanceChartProps>) {
   // Build chart data in single pass through all snapshots
   const chartDataMap = new Map<string, Record<string, string | number>>();
   for (const account of accounts) {

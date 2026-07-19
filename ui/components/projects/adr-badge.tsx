@@ -8,7 +8,7 @@ interface ADRBadgeProps {
   className?: string;
 }
 
-export function ADRBadge({ status, className }: ADRBadgeProps) {
+export function ADRBadge({ status, className }: Readonly<ADRBadgeProps>) {
   return (
     <Badge
       className={cn(ADR_STATUS_CONFIG[status].badgeClass, className)}
