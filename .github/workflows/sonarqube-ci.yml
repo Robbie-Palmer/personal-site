@@ -18,6 +18,8 @@ jobs:
   analysis:
     name: Analysis and coverage
     runs-on: ubuntu-latest
+    environment:
+      name: production-ci
     timeout-minutes: 20
     steps:
       - name: Checkout repository

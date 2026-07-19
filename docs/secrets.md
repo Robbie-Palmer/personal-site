@@ -283,6 +283,7 @@ runtime-specific Doppler config.
 - `OPENROUTER_API_KEY`
 - `R2_ACCESS_KEY_ID`
 - `R2_SECRET_ACCESS_KEY`
+- `SONAR_TOKEN`
 
 This OpenRouter key is for repo-wide CI, such as AI review and ML pipeline
 jobs. Recipe ingestion uses the separate key in `prd_recipe_ingest` so its
