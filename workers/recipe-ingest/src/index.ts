@@ -301,6 +301,7 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
           sourceKeys,
           cooklang,
           canonical.recipe,
+          canonical.cookwareDecisions,
         );
         await withDb(env, async (db) => {
           await writeArtifact({

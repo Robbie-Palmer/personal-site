@@ -18,8 +18,8 @@ describe("buildFinalDraft", () => {
           ],
         },
       ],
-      instructions: ["Cook capsicum in a pan for 10 minutes."],
-      cookware: ["pan"],
+      instructions: ["Cook capsicum in a skillet for 10 minutes."],
+      cookware: ["skillet"],
     };
     const draft = buildFinalDraft(
       ["imports/job/source/1.jpg"],
@@ -33,7 +33,7 @@ describe("buildFinalDraft", () => {
           cookTime: normalizedRecipe.cookTime,
           tags: [],
         },
-        body: "@capsicum{1%piece}\n\nCook @capsicum in a #pan{} for ~{10%minutes}.",
+        body: "@capsicum{1%piece}\n\nCook @capsicum in a #skillet{} for ~{10%minutes}.",
         diagnostics: ["Normalization used a deterministic fallback."],
         derived: normalizedRecipe,
       },
@@ -47,12 +47,28 @@ describe("buildFinalDraft", () => {
             ],
           },
         ],
+        cookware: ["frying pan"],
       },
+      [
+        {
+          originalName: "skillet",
+          baseName: "skillet",
+          canonicalName: "frying pan",
+          method: "exact",
+          candidates: [
+            { name: "skillet", score: 0.95 },
+            { name: "frying pan", score: 1 },
+          ],
+        },
+      ],
     );
 
     expect(draft.cooklang.body).toContain("@bell pepper{1%piece}");
     expect(draft.cooklang.body).not.toContain("@capsicum");
-    expect(draft.cooklang.body).toContain("#pan{}");
+    expect(draft.cooklang.body).toContain(
+      "Cook @bell pepper{} in a #frying pan{} for ~{10%minutes}.",
+    );
+    expect(draft.cooklang.body).not.toContain("#skillet{}");
     expect(draft.cooklang.body).toContain("~{10%minutes}");
     expect(draft.cooklang.frontmatter.cuisine).toEqual([
       "Italian",
@@ -69,9 +85,9 @@ describe("buildFinalDraft", () => {
     expect(reparsed.derived?.ingredientGroups[0]?.items[0]?.ingredient).toBe(
       "bell-pepper",
     );
-    expect(reparsed.derived?.cookware).toEqual(["pan"]);
+    expect(reparsed.derived?.cookware).toEqual(["frying pan"]);
     expect(reparsed.derived?.instructions).toEqual([
-      "Cook bell pepper in a pan for 10 minutes.",
+      "Cook bell pepper in a frying pan for 10 minutes.",
     ]);
   });
 });

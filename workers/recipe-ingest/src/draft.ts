@@ -1,4 +1,7 @@
 import { recipeToCooklang } from "recipe-parsing/cooklang";
+import type {
+  EquipmentCanonicalizationDecision,
+} from "recipe-parsing/equipment-canonicalization";
 import type { Recipe } from "recipe-parsing/schemas/ground-truth";
 import type { CooklangRecipe } from "recipe-parsing/schemas/stage-artifacts";
 
@@ -32,15 +35,38 @@ function canonicalIngredientReplacements(
         finalizedIngredient &&
         originalIngredient !== finalizedIngredient
       ) {
-        replacements.set(originalIngredient.toLowerCase(), finalizedIngredient);
+        replacements.set(
+          normalizeTokenName(originalIngredient),
+          finalizedIngredient,
+        );
       }
     }
   }
   return replacements;
 }
 
-function applyCanonicalIngredients(
+function canonicalCookwareReplacements(
+  decisions: EquipmentCanonicalizationDecision[],
+): Map<string, string> {
+  const replacements = new Map<string, string>();
+  for (const decision of decisions) {
+    if (decision.originalName !== decision.canonicalName) {
+      replacements.set(
+        normalizeTokenName(decision.originalName),
+        decision.canonicalName,
+      );
+    }
+  }
+  return replacements;
+}
+
+function normalizeTokenName(value: string): string {
+  return value.trim().replace(/[-\s]+/gu, "-").toLowerCase();
+}
+
+function applyCanonicalTokens(
   body: string,
+  marker: "@" | "#",
   replacements: Map<string, string>,
 ): string {
   if (replacements.size === 0) return body;
@@ -53,19 +79,20 @@ function applyCanonicalIngredients(
         .map(escapeRegExp)
         .join("[\\s-]+"),
     );
-  const ingredientToken = new RegExp(
-    `@(?:${alternatives.join("|")})(?=\\{|[\\s.,;:()!?]|$)`,
+  const token = new RegExp(
+    `${escapeRegExp(marker)}(?:${alternatives.join("|")})(?=\\{|[\\s.,;:()!?]|$)`,
     "giu",
   );
 
-  return body.replace(ingredientToken, (match) => {
-    const originalSlug = match
-      .slice(1)
-      .trim()
-      .replace(/[-\s]+/gu, "-")
-      .toLowerCase();
-    const canonicalSlug = replacements.get(originalSlug);
-    return canonicalSlug ? `@${canonicalSlug.replaceAll("-", " ")}` : match;
+  return body.replace(token, (match, offset: number) => {
+    const originalName = normalizeTokenName(match.slice(1));
+    const canonicalName = replacements.get(originalName);
+    if (!canonicalName) return match;
+
+    const displayName = canonicalName.replaceAll("-", " ");
+    const alreadyBraced = body[offset + match.length] === "{";
+    const emptyBraces = !alreadyBraced && displayName.includes(" ") ? "{}" : "";
+    return `${marker}${displayName}${emptyBraces}`;
   });
 }
 
@@ -73,15 +100,22 @@ export function buildFinalDraft(
   sourceImageKeys: string[],
   normalizedCooklang: CooklangRecipe,
   recipe: Recipe,
+  cookwareDecisions: EquipmentCanonicalizationDecision[],
 ) {
   const canonicalCooklang = recipeToCooklang(recipe);
   const originalRecipe = normalizedCooklang.derived;
-  const body = originalRecipe
-    ? applyCanonicalIngredients(
+  const ingredientBody = originalRecipe
+    ? applyCanonicalTokens(
         normalizedCooklang.body,
+        "@",
         canonicalIngredientReplacements(originalRecipe, recipe),
       )
     : normalizedCooklang.body;
+  const body = applyCanonicalTokens(
+    ingredientBody,
+    "#",
+    canonicalCookwareReplacements(cookwareDecisions),
+  );
 
   return {
     sourceImageKeys,
