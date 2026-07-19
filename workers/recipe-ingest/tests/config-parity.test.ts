@@ -7,6 +7,10 @@ import { parse as parseYaml } from "yaml";
 import type { Env } from "../src/env";
 import { type LlmStage, stageParams } from "../src/params";
 
+// Only the secret is required; stage vars are intentionally unset so the
+// code-default path is what gets compared against params.yaml.
+const defaultsEnv = { OPENROUTER_API_KEY: "test" } as Env;
+
 /**
  * Model names, R2 bucket names, and the Hyperdrive id are declared
  * independently in Wrangler config, Terraform, the ML evaluation pipeline,
@@ -88,7 +92,7 @@ describe("LLM stage parameters", () => {
     (stage) => {
       const expected = pipelineParams[stage];
 
-      expect(stageParams({} as Env, stage)).toEqual({
+      expect(stageParams(defaultsEnv, stage)).toEqual({
         model: expected.model,
         requestTimeoutMs: expected.request_timeout_ms,
         retryLimit: expected.max_retries,
@@ -99,18 +103,18 @@ describe("LLM stage parameters", () => {
 
 describe("shared infrastructure bindings", () => {
   it("recipe-api and recipe-ingest bind the same production Hyperdrive", () => {
-    const apiHyperdrive = apiWrangler.hyperdrive?.[0]?.id;
-    const ingestHyperdrive = ingestWrangler.hyperdrive?.[0]?.id;
-
-    expect(apiHyperdrive).toBeTruthy();
-    expect(ingestHyperdrive).toBe(apiHyperdrive);
+    expect(apiWrangler.hyperdrive).toHaveLength(1);
+    expect(apiWrangler.hyperdrive?.[0]?.id).toBeTruthy();
+    expect(ingestWrangler.hyperdrive).toEqual(apiWrangler.hyperdrive);
   });
 
   it("production R2 bucket names match the Terraform default", () => {
     const bucketName = terraformDefault("r2_recipe_artifacts_bucket_name");
 
-    expect(apiWrangler.r2_buckets?.[0]?.bucket_name).toBe(bucketName);
-    expect(ingestWrangler.r2_buckets?.[0]?.bucket_name).toBe(bucketName);
+    for (const config of [apiWrangler, ingestWrangler]) {
+      expect(config.r2_buckets).toHaveLength(1);
+      expect(config.r2_buckets?.[0]?.bucket_name).toBe(bucketName);
+    }
   });
 
   it("preview R2 bucket names match the Terraform default", () => {
@@ -118,7 +122,9 @@ describe("shared infrastructure bindings", () => {
       "r2_recipe_artifacts_preview_bucket_name",
     );
 
-    expect(apiPreviewWrangler.r2_buckets?.[0]?.bucket_name).toBe(bucketName);
-    expect(ingestPreviewWrangler.r2_buckets?.[0]?.bucket_name).toBe(bucketName);
+    for (const config of [apiPreviewWrangler, ingestPreviewWrangler]) {
+      expect(config.r2_buckets).toHaveLength(1);
+      expect(config.r2_buckets?.[0]?.bucket_name).toBe(bucketName);
+    }
   });
 });
