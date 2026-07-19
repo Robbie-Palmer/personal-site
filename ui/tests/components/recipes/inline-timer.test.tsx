@@ -66,7 +66,7 @@ describe("InlineTimer", () => {
   it.each([
     ["running", "Pause timer, 2:00 remaining", pauseTimer],
     ["paused", "Resume timer, 2:00 remaining", resumeTimer],
-    ["completed", "Timer complete, click to dismiss", dismissTimer],
+    ["completed", "Time's up for 5 minutes. Dismiss timer", dismissTimer],
   ] as const)("routes the %s action", async (state, accessibleName, action) => {
     const user = userEvent.setup();
     mockUseCookingTimer.mockReturnValue({

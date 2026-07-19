@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BellRing,
   ChevronDown,
   ChevronUp,
   GripVertical,
@@ -84,7 +85,7 @@ function byUrgency(a: CookingTimer, b: CookingTimer): number {
 }
 
 function dotColor(timer: CookingTimer): string {
-  if (timer.state === "completed") return "var(--terracotta)";
+  if (timer.state === "completed") return "var(--butter)";
   if (timer.state === "paused") return "var(--ink-4)";
   return "var(--butter)";
 }
@@ -296,6 +297,8 @@ export function TimerDock() {
     );
   }
 
+  const completedTimers = sorted.filter((timer) => timer.state === "completed");
+
   const grip = (
     <button
       type="button"
@@ -322,8 +325,20 @@ export function TimerDock() {
       className="rt-timer-dock fixed right-3 bottom-3 z-[80] sm:right-4 sm:bottom-4"
       style={style}
     >
+      {completedTimers.length > 0 && (
+        <span role="alert" aria-atomic="true" className="sr-only">
+          {completedTimers.length === 1
+            ? `Time's up for ${completedTimers[0]?.label}.`
+            : `${completedTimers.length} cooking timers are complete.`}
+        </span>
+      )}
       {expanded ? (
-        <div className="flex min-w-60 max-w-[calc(100vw-1rem)] flex-col rounded-2xl bg-[var(--ink)] p-2 text-[var(--paper)] shadow-lg">
+        <div
+          className={[
+            "flex min-w-60 max-w-[calc(100vw-1rem)] flex-col rounded-2xl bg-[var(--ink)] p-2 text-[var(--paper)] shadow-lg",
+            completedTimers.length > 0 ? "rt-timer-attention" : "",
+          ].join(" ")}
+        >
           <div className="flex items-center gap-1">
             {grip}
             <span className="rt-mono flex-1 text-[9px] text-[var(--ink-4)]">
@@ -351,26 +366,43 @@ export function TimerDock() {
           </div>
         </div>
       ) : (
-        <div className="flex items-center rounded-full bg-[var(--ink)] py-1 pr-2.5 pl-1.5 text-[var(--paper)] shadow-lg">
+        <div
+          className={[
+            "flex items-center rounded-full py-1 pr-2.5 pl-1.5 text-[var(--paper)] shadow-lg",
+            primary.state === "completed"
+              ? "rt-timer-attention bg-[var(--berry)]"
+              : "bg-[var(--ink)]",
+          ].join(" ")}
+        >
           {grip}
           <button
             type="button"
             onClick={() => setExpanded(true)}
             aria-expanded="false"
-            aria-label={`Expand cooking timers (${sorted.length})`}
+            aria-label={
+              primary.state === "completed"
+                ? `Time's up for ${primary.label}. Expand cooking timers (${sorted.length})`
+                : `Expand cooking timers (${sorted.length})`
+            }
             className="flex items-center gap-2 py-0.5 pl-1"
           >
+            {primary.state === "completed" && (
+              <BellRing className="size-5 shrink-0 text-[var(--butter)]" />
+            )}
             <span className="flex min-w-0 flex-col text-left leading-tight">
               <span
-                className={[
-                  "rt-mono max-w-40 truncate text-[9px]",
-                  primary.state === "completed" ? "animate-pulse" : "",
-                ].join(" ")}
+                className="rt-mono max-w-40 truncate text-[9px]"
                 style={{ color: dotColor(primary) }}
               >
                 ● {primary.label}
                 {stepTag(primary) && (
-                  <span className="text-[var(--ink-4)]">
+                  <span
+                    className={
+                      primary.state === "completed"
+                        ? "text-[var(--paper)]/75"
+                        : "text-[var(--ink-4)]"
+                    }
+                  >
                     {" "}
                     · {stepTag(primary)}
                   </span>
@@ -380,11 +412,10 @@ export function TimerDock() {
                 className={[
                   "rt-display text-xl leading-none tabular-nums",
                   primary.state === "paused" ? "opacity-60" : "",
-                  primary.state === "completed" ? "animate-pulse" : "",
                 ].join(" ")}
               >
                 {primary.state === "completed"
-                  ? "done!"
+                  ? "time's up!"
                   : formatCountdown(primary.remainingSeconds)}
               </span>
             </span>
@@ -428,10 +459,7 @@ function DockRow({ timer }: Readonly<{ timer: CookingTimer }>) {
     .filter(Boolean)
     .join(" — ");
 
-  const detailClassName = [
-    "flex min-w-0 flex-1 flex-col leading-tight",
-    completed ? "animate-pulse" : "",
-  ].join(" ");
+  const detailClassName = "flex min-w-0 flex-1 flex-col leading-tight";
   const detail = (
     <>
       <span
@@ -439,9 +467,23 @@ function DockRow({ timer }: Readonly<{ timer: CookingTimer }>) {
         style={{ color: dotColor(timer) }}
       >
         ● {timer.label}
-        {tag && <span className="text-[var(--ink-4)]"> · {tag}</span>}
+        {tag && (
+          <span
+            className={
+              completed ? "text-[var(--paper)]/75" : "text-[var(--ink-4)]"
+            }
+          >
+            {" "}
+            · {tag}
+          </span>
+        )}
       </span>
-      <span className="max-w-40 truncate font-[family-name:var(--font-kalam)] text-[10px] text-[var(--ink-4)]">
+      <span
+        className={[
+          "max-w-40 truncate font-[family-name:var(--font-kalam)] text-[10px]",
+          completed ? "text-[var(--paper)]/75" : "text-[var(--ink-4)]",
+        ].join(" ")}
+      >
         {subtitle}
       </span>
       <span
@@ -450,13 +492,18 @@ function DockRow({ timer }: Readonly<{ timer: CookingTimer }>) {
           paused ? "opacity-60" : "",
         ].join(" ")}
       >
-        {completed ? "done!" : formatCountdown(timer.remainingSeconds)}
+        {completed ? "time's up!" : formatCountdown(timer.remainingSeconds)}
       </span>
     </>
   );
 
   return (
-    <div className="flex items-center gap-1.5 rounded-lg px-1 py-0.5">
+    <div
+      className={[
+        "flex items-center gap-1.5 rounded-lg px-1 py-0.5",
+        completed ? "bg-[var(--berry)]" : "",
+      ].join(" ")}
+    >
       {/* A plain <a> (full navigation), not next/link: deep-linking into cook
           mode relies on RecipeContent reading ?cook=1&step=N on mount, which a
           client-side transition to the same recipe route wouldn't retrigger.

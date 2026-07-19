@@ -673,7 +673,7 @@ function CookModeTimer({
       <div
         className={[
           "flex size-32 shrink-0 items-center justify-center rounded-full border-[3px] border-[var(--ink)]",
-          state === "completed" ? "animate-pulse" : "",
+          state === "completed" ? "rt-timer-attention" : "",
         ].join(" ")}
         style={{ background: circleBackground }}
       >

@@ -1,6 +1,6 @@
 "use client";
 
-import { Pause, RotateCcw, Timer, X } from "lucide-react";
+import { BellRing, Pause, Timer, X } from "lucide-react";
 import { useCallback } from "react";
 import { AddTimerPopover } from "@/components/recipes/add-timer-popover";
 import { badgeVariants } from "@/components/ui/badge";
@@ -56,13 +56,13 @@ function getTimerAriaLabel(
     case "paused":
       return `Resume timer, ${formatCountdown(remaining)} remaining`;
     case "completed":
-      return "Timer complete, click to dismiss";
+      return `Time's up for ${label}. Dismiss timer`;
   }
 }
 
 function TimerStateIcon({ state }: Readonly<{ state: InlineTimerState }>) {
   if (state === "paused") return <Pause className="size-3" />;
-  if (state === "completed") return <RotateCcw className="size-3" />;
+  if (state === "completed") return <BellRing className="size-3" />;
   return <Timer className="size-3" />;
 }
 
@@ -162,7 +162,7 @@ export function InlineTimer({
         // The idle timer should read as an inviting, tappable control rather
         // than recede into the method text — warm fill + emphasised label.
         state === "idle" && "bg-[var(--butter-soft)] text-[var(--ink)]",
-        state === "completed" && "animate-pulse",
+        state === "completed" && "rt-timer-attention",
       )}
     >
       <button
@@ -172,7 +172,11 @@ export function InlineTimer({
         aria-label={getTimerAriaLabel(state, label, remaining)}
       >
         <TimerStateIcon state={state} />
-        {state === "idle" ? label : formatCountdown(remaining)}
+        {state === "idle"
+          ? label
+          : state === "completed"
+            ? "Time's up!"
+            : formatCountdown(remaining)}
       </button>
       {showReset && (
         <button
