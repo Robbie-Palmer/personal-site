@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ "$#" -ne 1 ]; then
+if [[ "$#" -ne 1 ]]; then
   echo "Usage: AGE_IDENTITY_FILE=/path/to/key.txt $0 <backup.dump.age>" >&2
   exit 1
 fi
 
-if [ -z "${AGE_IDENTITY_FILE:-}" ]; then
+if [[ -z "${AGE_IDENTITY_FILE:-}" ]]; then
   echo "Missing required environment variable: AGE_IDENTITY_FILE" >&2
   exit 1
 fi

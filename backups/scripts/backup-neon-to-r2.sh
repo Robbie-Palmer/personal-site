@@ -74,7 +74,7 @@ docker run \
       --recipient "$AGE_RECIPIENT" \
       --output "$archive_path"
 
-sha256sum "$archive_path" | sed "s|${archive_path}|${basename}|" > "$checksum_path"
+(cd "$temp_dir" && sha256sum "$basename" > "${basename}.sha256")
 
 echo "Uploading encrypted backup to s3://${R2_DATABASE_BACKUPS_BUCKET_NAME}/${weekly_key}"
 aws s3 cp \
@@ -92,7 +92,7 @@ aws s3 cp \
   --no-progress \
   --only-show-errors
 
-local_size=$(stat --format="%s" "$archive_path")
+local_size=$(wc -c < "$archive_path" | tr -d ' ')
 remote_size=$(aws s3api head-object \
   --bucket "$R2_DATABASE_BACKUPS_BUCKET_NAME" \
   --key "$weekly_key" \
