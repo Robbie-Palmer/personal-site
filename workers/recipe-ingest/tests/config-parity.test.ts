@@ -53,8 +53,10 @@ const pipelineParams = parseYaml(
 const terraformVariables = readRepoFile("infra/variables.tf");
 
 function terraformDefault(variableName: string): string {
+  // Skips over one level of nested blocks (validation, etc.) so a default
+  // declared after them is still found.
   const match = new RegExp(
-    `variable "${variableName}" \\{[^}]*default\\s*=\\s*"([^"]+)"`,
+    `variable "${variableName}" \\{(?:[^{}]|\\{[^{}]*\\})*?default\\s*=\\s*"([^"]+)"`,
     "s",
   ).exec(terraformVariables);
   if (!match?.[1]) {
