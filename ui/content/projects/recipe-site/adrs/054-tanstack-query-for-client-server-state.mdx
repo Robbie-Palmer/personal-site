@@ -74,7 +74,7 @@ their domain:
 export const recipeBoxQuery = (userId: string) =>
   queryOptions({
     queryKey: ["recipe-box", userId],
-    queryFn: getRecipeBoxProfile,
+    queryFn: ({ signal }) => getRecipeBoxProfile(signal),
     staleTime: 5 * 60_000,
   });
 ```
