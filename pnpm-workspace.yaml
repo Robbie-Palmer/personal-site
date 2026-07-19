@@ -5,6 +5,16 @@ packages:
   - 'ml-pipelines/recipe-parsing'
   - 'ml-pipelines/recipe-parsing/tools/viz'
 
+# pnpm 10 already skipped these dependency lifecycle scripts. pnpm 11 requires
+# the policy to be explicit; keep installs reproducible without expanding the
+# set of third-party code allowed to execute during dependency installation.
+allowBuilds:
+  core-js: false
+  esbuild: false
+  puppeteer: false
+  sharp: false
+  workerd: false
+
 # Dedupe postcss onto the patched 8.5.x line. Next pulls in 8.4.31, which is
 # affected by GHSA-qx2v-qp2m-jg93 (XSS via unescaped </style> in stringify);
 # 8.5.x is already in the tree via @tailwindcss/postcss and is API-compatible.
@@ -38,6 +48,7 @@ overrides:
   'lighthouse>@sentry/node': '^10.66.0'
   js-yaml: '^5.0.0'
   postcss: '^8.5.10'
+
 patchedDependencies:
   '@cooklang/cooklang@0.18.7': patches/@cooklang__cooklang@0.18.7.patch
   gray-matter@4.0.3: patches/gray-matter@4.0.3.patch
