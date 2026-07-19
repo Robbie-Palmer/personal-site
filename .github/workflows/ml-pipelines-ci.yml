@@ -25,6 +25,7 @@ jobs:
       matrix:
         pipeline:
           - recipe-parsing
+          - recipe-dataset
     defaults:
       run:
         working-directory: ml-pipelines/${{ matrix.pipeline }}
@@ -45,30 +46,37 @@ jobs:
         run: dvc pull
 
       - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+        if: matrix.pipeline == 'recipe-parsing'
         with:
           experimental: true
 
       - name: Get pnpm store directory
+        if: matrix.pipeline == 'recipe-parsing'
         id: pnpm-store
         shell: bash
         run: echo "dir=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: matrix.pipeline == 'recipe-parsing'
         with:
           path: ${{ steps.pnpm-store.outputs.dir }}
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: pnpm-store-${{ runner.os }}-
 
       - name: Install dependencies
+        if: matrix.pipeline == 'recipe-parsing'
         run: mise run //:install
 
       - name: Check shared parsing package
+        if: matrix.pipeline == 'recipe-parsing'
         run: mise run //packages/recipe-parsing:check
 
       - name: Run tests
+        if: matrix.pipeline == 'recipe-parsing'
         run: mise :test
 
       - name: Comment metrics on PR
+        if: matrix.pipeline == 'recipe-parsing'
         run: |
           # Fetch main to ensure we have a reference for diff
           git fetch origin main:refs/remotes/origin/main || echo "Failed to fetch origin/main"
