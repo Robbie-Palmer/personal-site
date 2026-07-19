@@ -152,7 +152,7 @@ async function fetchAuthoredRecipes(signal: AbortSignal) {
       signal,
     });
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
+    if (error instanceof Error && error.name === "AbortError") {
       throw error;
     }
     throw new Error("Your authored recipes could not be loaded.");

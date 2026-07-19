@@ -1523,25 +1523,15 @@ describe("GET /recipes", () => {
     ]);
   });
 
-  it("rejects an unknown recipe scope", async () => {
-    const res = await app.request("/recipes?scope=household", {}, env);
+  it.each([
+    ["an unknown scope", "/recipes?scope=household", "Invalid recipe scope"],
+    ["an invalid cursor", "/recipes?cursor=not-a-cursor", "Invalid recipe query"],
+    ["an out-of-range limit", "/recipes?limit=0", "Invalid recipe query"],
+  ])("rejects %s with a 400", async (_case, url, error) => {
+    const res = await app.request(url, {}, env);
 
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid recipe scope" });
-  });
-
-  it("rejects an invalid cursor", async () => {
-    const res = await app.request("/recipes?cursor=not-a-cursor", {}, env);
-
-    expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid recipe query" });
-  });
-
-  it("rejects an out-of-range limit", async () => {
-    const res = await app.request("/recipes?limit=0", {}, env);
-
-    expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid recipe query" });
+    expect(await res.json()).toEqual({ error });
   });
 
   it("pages newest-first through recipes when a limit is provided", async () => {
