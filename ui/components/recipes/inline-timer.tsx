@@ -66,6 +66,16 @@ function TimerStateIcon({ state }: Readonly<{ state: InlineTimerState }>) {
   return <Timer className="size-3" />;
 }
 
+function timerDisplayText(
+  state: InlineTimerState,
+  label: string,
+  remaining: number,
+): string {
+  if (state === "idle") return label;
+  if (state === "completed") return "Time's up!";
+  return formatCountdown(remaining);
+}
+
 /**
  * Tap-to-start countdown pill rendered inline in a method step. State lives
  * in the global timer store, so the same countdown is mirrored in cook mode
@@ -172,11 +182,7 @@ export function InlineTimer({
         aria-label={getTimerAriaLabel(state, label, remaining)}
       >
         <TimerStateIcon state={state} />
-        {state === "idle"
-          ? label
-          : state === "completed"
-            ? "Time's up!"
-            : formatCountdown(remaining)}
+        {timerDisplayText(state, label, remaining)}
       </button>
       {showReset && (
         <button
