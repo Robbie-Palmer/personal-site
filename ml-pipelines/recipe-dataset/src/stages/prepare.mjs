@@ -145,14 +145,18 @@ const unzipClosed = new Promise((resolve, reject) => {
   unzip.on("close", resolve);
   unzip.on("error", reject);
 });
-await linesFromStream(unzip.stdout, (row) => emit(kaggle, {
-  sourceRecordId: createHash("sha256").update(JSON.stringify(row)).digest("hex"),
-  title: row.recipe_title,
-  description: row.description,
-  category: row.category,
-  ingredientGroups: [{ items: row.ingredients }],
-  instructions: row.directions,
-}));
+await linesFromStream(unzip.stdout, (row) => {
+  const sourceChecksum = createHash("sha256").update(JSON.stringify(row)).digest("hex");
+  emit(kaggle, {
+    sourceRecordId: sourceChecksum,
+    sourceChecksum,
+    title: row.recipe_title,
+    description: row.description,
+    category: row.category,
+    ingredientGroups: [{ items: row.ingredients }],
+    instructions: row.directions,
+  });
+});
 if ((await unzipClosed) !== 0) throw new Error("unzip failed");
 
 const myplate = { id: "usda-myplate", url: "https://myplate.food/recipes", license: "Public Domain Mark" };
@@ -232,6 +236,7 @@ for (const row of wikibooksRows) {
   emit(wikibooks, {
     sourceRecordId: row.filename,
     sourceUrl: data.url,
+    sourceChecksum: createHash("sha256").update(JSON.stringify(row)).digest("hex"),
     title: data.title,
     category: data.infobox?.category,
     servings: data.infobox?.servings,
@@ -420,6 +425,7 @@ for (const name of archiveFiles(fossArchive, /\/_recipes\/.*\.md$/)) {
   emit(foss, {
     sourceRecordId: name.split("/").pop(),
     sourceUrl: `${foss.url}/blob/a6d8d27ba1cd7a2dcaf4dc5d84b7d5a7ab0eaf9c/${name.split("/").slice(1).join("/")}`,
+    sourceChecksum: createHash("sha256").update(source).digest("hex"),
     title,
     ingredientGroups: [{ items: bulletItems(ingredientSource) }],
     instructions: paragraphBlocks(directionSource)
@@ -445,6 +451,7 @@ for (const name of archiveFiles(kohaArchive, /\/source\/(?!index|conf)[^/]+\.rst
   emit(koha, {
     sourceRecordId: name.split("/").pop(),
     sourceUrl: `${koha.url}/-/blob/908b2244/${name.split("/").slice(1).join("/")}`,
+    sourceChecksum: createHash("sha256").update(source).digest("hex"),
     title,
     ingredientGroups: [{ items: ingredientLines.filter((line) => /^\s*-\s+\S/.test(line)).map((line) => line.replace(/^\s*-\s+/, "").trim()) }],
     instructions: numberedList(instructionLines.join("\n")),
