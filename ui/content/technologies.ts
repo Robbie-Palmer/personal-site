@@ -197,6 +197,14 @@ export const technologies: TechnologyContent[] = [
     type: "tool",
   },
   {
+    name: "age",
+    added: "2026-07-13",
+    description:
+      "Modern file encryption with explicit recipient keys and Unix-style pipelines",
+    website: "https://github.com/FiloSottile/age",
+    type: "tool",
+  },
+  {
     name: "Recharts",
     added: "2026-01-04",
     description: "A composable charting library built on React components",
