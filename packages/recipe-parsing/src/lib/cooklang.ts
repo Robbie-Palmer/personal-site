@@ -566,6 +566,15 @@ function isIngredientOnlyStep(step: Step): boolean {
   return hasIngredient;
 }
 
+function sectionDeclaresIngredients(
+  section: CkParsedRecipe["sections"][number],
+): boolean {
+  return section.content.some(
+    (content) =>
+      content.type === "step" && isIngredientOnlyStep(content.value),
+  );
+}
+
 function resolveQuantityValue(ingredient: CkIngredient): number | undefined {
   const value = getQuantityValue(ingredient.quantity);
   if (value !== null && !isNaN(value)) return value;
@@ -725,6 +734,8 @@ export function deriveRecipeFromCooklang(cooklang: CooklangRecipe): CooklangReci
   );
 
   for (const section of parsed.sections) {
+    const hasIngredientDeclarations = sectionDeclaresIngredients(section);
+
     if (section.name !== null) {
       currentGroup = createIngredientGroupAccumulator(section.name);
       groups.push(currentGroup);
@@ -734,13 +745,18 @@ export function deriveRecipeFromCooklang(cooklang: CooklangRecipe): CooklangReci
       if (content.type === "text") continue;
       const step = content.value;
 
-      currentGroup = collectStepIngredients(
-        step,
-        parsed,
-        annotations,
-        groups,
-        currentGroup,
-      );
+      // When a section contains explicit ingredient-only declarations, those
+      // declarations are the source of truth for its ingredient group. Later
+      // inline mentions are instructions, not additional quantities.
+      if (!hasIngredientDeclarations || isIngredientOnlyStep(step)) {
+        currentGroup = collectStepIngredients(
+          step,
+          parsed,
+          annotations,
+          groups,
+          currentGroup,
+        );
+      }
 
       // Add instruction text for non-ingredient-only steps
       if (!isIngredientOnlyStep(step)) {

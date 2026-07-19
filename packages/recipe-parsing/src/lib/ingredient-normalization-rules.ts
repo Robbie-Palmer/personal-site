@@ -10,6 +10,7 @@ export const TOKEN_FIXUPS: Record<string, string> = {
 };
 
 export const EXACT_ALIASES: Record<string, string> = {
+  "cajun-powder": "cajun-seasoning",
   "chicken-fillet": "chicken-breast",
   "garlic-clove": "garlic",
   "red-pepper": "bell-pepper",

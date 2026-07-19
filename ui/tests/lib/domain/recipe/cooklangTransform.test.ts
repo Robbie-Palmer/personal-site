@@ -21,6 +21,35 @@ describe("buildScaledRecipeParts", () => {
     expect(parts.instructions).toEqual(["Add 200g of flour to the bowl."]);
   });
 
+  it("does not count instruction references after grouped ingredient declarations", () => {
+    const parts = buildScaledRecipeParts(
+      parsedAt(
+        [
+          "== Main ==",
+          "@dried noodles{250%g}",
+          "",
+          "== Sauce ==",
+          "@soy sauce{2%tbsp}",
+          "",
+          "Cook the @dried noodles{}.",
+          "",
+          "Stir in the @soy sauce{2%tbsp}.",
+        ].join("\n"),
+      ),
+    );
+
+    expect(parts.ingredientGroups).toEqual([
+      {
+        name: "Main",
+        items: [{ ingredient: "dried-noodles", amount: 250, unit: "g" }],
+      },
+      {
+        name: "Sauce",
+        items: [{ ingredient: "soy-sauce", amount: 2, unit: "tbsp" }],
+      },
+    ]);
+  });
+
   it("propagates cooklang-rs scaling to ingredient groups and instructions", () => {
     const parts = buildScaledRecipeParts(
       parsedAt(`Add @flour{200%g} and @sugar{100%g} to the #bowl{}.\n`, 2),

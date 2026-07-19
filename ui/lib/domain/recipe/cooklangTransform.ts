@@ -146,6 +146,14 @@ function isIngredientOnlyStep(step: Step): boolean {
   return hasIngredient;
 }
 
+function sectionDeclaresIngredients(
+  section: ParsedCooklangRecipe["sections"][number],
+): boolean {
+  return section.content.some(
+    (content) => content.type === "step" && isIngredientOnlyStep(content.value),
+  );
+}
+
 /**
  * The free-text form of a timer quantity (e.g. `~{package instructions}`),
  * which the cooklang parser keeps as a text value; null for numeric timers.
@@ -354,6 +362,8 @@ export function buildScaledRecipeParts(
   const timerDurations = timers.map(timerDurationSeconds);
 
   for (const section of sections) {
+    const hasIngredientDeclarations = sectionDeclaresIngredients(section);
+
     if (section.name !== null) {
       currentGroup = getOrCreateNamedGroup(section.name, groups, namedGroups);
     }
@@ -362,13 +372,17 @@ export function buildScaledRecipeParts(
       if (content.type === "text") continue;
 
       const step = content.value;
-      collectStepIngredients(
-        step,
-        ingredients,
-        resolvedIngredients,
-        currentGroup,
-        annotations,
-      );
+      // Ingredient-only rows form the section's declared ingredient list.
+      // Once present, inline instruction references must not be counted again.
+      if (!hasIngredientDeclarations || isIngredientOnlyStep(step)) {
+        collectStepIngredients(
+          step,
+          ingredients,
+          resolvedIngredients,
+          currentGroup,
+          annotations,
+        );
+      }
 
       if (isIngredientOnlyStep(step)) {
         continue;
