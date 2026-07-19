@@ -64,9 +64,10 @@ results land in GitHub and there is no external console to monitor day to day.
 # CI And Credentials
 
 CI-based analysis is required because Automatic Analysis does not import external coverage reports
-or expose the scanner logs needed to diagnose analysis warnings. The workflow generates coverage
-before invoking the scanner, so the GitHub Actions log is the complete record of how an analysis
-was assembled and uploaded.
+or expose the scanner logs needed to diagnose analysis warnings. An unrestricted job generates
+coverage first, then a separate environment-bound job downloads those reports and invokes the
+scanner. Fork pull requests therefore run the full test suite without waiting on protection rules
+or receiving the upload credential.
 
 The workflow caches Sonar's downloaded analyzer packages between GitHub-hosted runners and marks
 `**/tests/**` as test code rather than production source. The latter keeps tests out of production
@@ -158,11 +159,12 @@ philosophy ("Pre-product-market fit? Incomplete test coverage is fine - ship and
 imports LCOV reports from each Vitest workspace and displays the combined trend, but it never
 blocks a merge on it.
 
-Vitest reporter tuples pass their options to Istanbul's `lcov` reporter. Each workspace therefore
-sets `projectRoot` so the generated `SF:` records are relative to the monorepo root and Sonar can
-resolve them without a post-processing rewrite. This was verified against the installed Vitest and
-Istanbul implementations and the generated reports after an automated reviewer incorrectly claimed
-that the option was ignored.
+Vitest reporter tuples pass their options to Istanbul's `lcovonly` reporter. Each workspace
+therefore sets `projectRoot` so the generated `SF:` records are relative to the monorepo root and
+Sonar can resolve them without a post-processing rewrite. `lcovonly` avoids generating an unused
+HTML coverage site, and coverage output directories are excluded from analysis defensively. This
+was verified against the installed Vitest and Istanbul implementations and the generated reports
+after an automated reviewer incorrectly claimed that the option was ignored.
 
 # Alternatives Considered
 
