@@ -1,6 +1,7 @@
 import type { SavedRecipeApiRecord } from "@/lib/domain/recipe/recipeDraft";
 
 const PAGE_LIMIT = 100;
+const MAX_PAGES = 100;
 
 type SavedRecipesPage = {
   items: SavedRecipeApiRecord[];
@@ -18,7 +19,11 @@ export async function fetchAllSavedRecipes(options?: {
 }): Promise<SavedRecipeApiRecord[]> {
   const records: SavedRecipeApiRecord[] = [];
   let cursor: string | null = null;
+  let pages = 0;
   do {
+    // Bound the walk so a buggy nextCursor can never loop the browser forever.
+    pages += 1;
+    if (pages > MAX_PAGES) throw new Error("Saved recipes unavailable");
     const params = new URLSearchParams({ limit: String(PAGE_LIMIT) });
     if (options?.scope) params.set("scope", options.scope);
     if (cursor) params.set("cursor", cursor);
