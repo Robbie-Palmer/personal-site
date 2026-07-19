@@ -19,6 +19,15 @@ type DeviceSession = {
 };
 
 const KNOWN_PROVIDER_IDS = new Set<string>(AUTH_PROVIDERS.map((p) => p.id));
+const ACCOUNT_LINK_ERROR_MESSAGES = new Map<string, string>([
+  ["account_already_linked", "Email already linked to an account."],
+  [
+    "account_already_linked_to_different_user",
+    "Email already linked to an account.",
+  ],
+]);
+const DEFAULT_ACCOUNT_LINK_ERROR =
+  "Couldn't link that account. It may already be linked elsewhere.";
 
 const BROWSER_MATCHERS: ReadonlyArray<[RegExp, string]> = [
   [/Edg/, "Edge"],
@@ -135,9 +144,9 @@ export function SecurityPanel({
   useEffect(() => {
     const params = new URLSearchParams(globalThis.location.search);
     if (!params.has("error")) return;
+    const errorCode = params.get("error") ?? "";
     setError(
-      params.get("error_description")?.trim() ||
-        "Couldn't link that account. It may already be linked elsewhere.",
+      ACCOUNT_LINK_ERROR_MESSAGES.get(errorCode) ?? DEFAULT_ACCOUNT_LINK_ERROR,
     );
     params.delete("error");
     params.delete("error_description");

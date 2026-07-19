@@ -373,7 +373,7 @@ describe("SettingsView", () => {
     window.history.replaceState(
       {},
       "",
-      "/recipes/settings?error=account_already_linked&error_description=Email+already+linked+to+an+account",
+      "/recipes/settings?error=account_already_linked_to_different_user&error_description=Visit+https%3A%2F%2Fexample.com+for+help",
     );
     renderSettingsView();
 
@@ -381,6 +381,7 @@ describe("SettingsView", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Email already linked to an account",
     );
+    expect(screen.queryByText(/example.com/i)).not.toBeInTheDocument();
     expect(await screen.findByText("Google")).toBeInTheDocument();
     expect(window.location.search).toBe("");
   });
@@ -389,12 +390,13 @@ describe("SettingsView", () => {
     window.history.replaceState(
       {},
       "",
-      "/recipes/settings?error=account_already_linked",
+      "/recipes/settings?error=access_denied",
     );
     renderSettingsView();
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /couldn't link that account/i,
     );
+    expect(window.location.search).toBe("");
   });
 });
