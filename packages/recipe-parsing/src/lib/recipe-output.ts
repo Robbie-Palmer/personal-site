@@ -5,12 +5,8 @@ export function stripJsonCodeFence(value: string): string {
   if (!(result.startsWith("```") && result.endsWith("```"))) return result;
 
   let content = result.slice(3, -3).trim();
-  const languageEnd = content.search(/\s/u);
-  if (
-    languageEnd >= 0 &&
-    content.slice(0, languageEnd).toLowerCase() === "json"
-  ) {
-    content = content.slice(languageEnd).trim();
+  if (content.slice(0, 4).toLowerCase() === "json") {
+    content = content.slice(4).trim();
   }
   return content;
 }

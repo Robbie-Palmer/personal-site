@@ -15,6 +15,9 @@ describe("stripJsonCodeFence", () => {
     expect(stripJsonCodeFence('```json {"title":"Soup"} ```')).toBe(
       '{"title":"Soup"}',
     );
+    expect(stripJsonCodeFence('```json{"title":"Soup"}```')).toBe(
+      '{"title":"Soup"}',
+    );
   });
 
   it("preserves unpaired fences", () => {
