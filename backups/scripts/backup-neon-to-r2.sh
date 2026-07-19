@@ -68,8 +68,8 @@ export PGDATABASE="$NEON_DATABASE_URL_UNPOOLED"
 endpoint="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
 postgres_image="postgres@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193"
 timestamp=$(date -u +"%Y-%m-%dT%H-%M-%SZ")
-year=$(date -u +"%Y")
-month=$(date -u +"%m")
+year="${timestamp:0:4}"
+month="${timestamp:5:2}"
 basename="recipes-${timestamp}.dump.age"
 weekly_key="weekly/${year}/${month}/${basename}"
 

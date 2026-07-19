@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 concurrency:
   group: neon-database-backup
@@ -17,6 +16,7 @@ concurrency:
 jobs:
   backup:
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     environment:
       name: production-database-backup
     steps:
@@ -41,8 +41,15 @@ jobs:
           R2_DATABASE_BACKUPS_BUCKET_NAME: ${{ vars.R2_DATABASE_BACKUPS_BUCKET_NAME }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
+  notify-failure:
+    needs: backup
+    if: ${{ always() && needs.backup.result == 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
       - name: Create issue on failure
-        if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
