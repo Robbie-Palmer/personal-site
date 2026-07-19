@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -125,11 +125,9 @@ describe("RecipeCollection", () => {
     mocks.fetchBox.mockReturnValueOnce(new Promise(() => undefined));
     view.rerender(<RecipeCollection recipes={staticRecipes} />);
 
-    await waitFor(() =>
-      expect(
-        screen.getByText("Loading personalized recipes"),
-      ).toBeInTheDocument(),
-    );
+    expect(
+      await screen.findByText("Loading personalized recipes"),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/First user's recipe/)).not.toBeInTheDocument();
   });
 

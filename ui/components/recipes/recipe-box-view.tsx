@@ -7,6 +7,12 @@ import { CardGridSkeleton } from "@/components/ui/card-grid-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { RecipeCardView } from "@/lib/api/recipes";
 
+function formatRecipeCount(count: number | null) {
+  if (count == null) return null;
+  const label = count === 1 ? "recipe" : "recipes";
+  return `${count.toLocaleString()} ${label}`;
+}
+
 export function RecipeBoxView({
   recipes,
   catalogStats,
@@ -21,12 +27,7 @@ export function RecipeBoxView({
     (count: number) => setVisibleRecipeCount(count),
     [],
   );
-  const recipeCountLabel =
-    visibleRecipeCount == null
-      ? null
-      : `${visibleRecipeCount.toLocaleString()} ${
-          visibleRecipeCount === 1 ? "recipe" : "recipes"
-        }`;
+  const recipeCountLabel = formatRecipeCount(visibleRecipeCount);
   const stats = recipeCountLabel
     ? [recipeCountLabel, ...catalogStats]
     : catalogStats;

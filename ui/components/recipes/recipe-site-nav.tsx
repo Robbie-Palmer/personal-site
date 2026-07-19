@@ -18,14 +18,13 @@ export function RecipeSiteNav() {
 
   if (isPending) {
     return (
-      <div
-        role="status"
-        aria-label="Loading recipe navigation"
-        className="flex items-center gap-3 sm:gap-4"
-      >
+      <div className="flex items-center gap-3 sm:gap-4">
         <Skeleton className="h-6 w-20" />
         <Skeleton className="h-6 w-16" />
         <Skeleton className="h-6 w-24" />
+        <output aria-label="Loading recipe navigation" className="sr-only">
+          Loading recipe navigation…
+        </output>
       </div>
     );
   }

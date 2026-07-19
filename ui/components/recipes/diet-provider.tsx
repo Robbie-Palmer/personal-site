@@ -43,6 +43,14 @@ type DietState = {
   status: "idle" | "loading" | "ready" | "error";
 };
 
+async function fetchEffectiveDiet(signal: AbortSignal) {
+  const [profile, options] = await Promise.all([
+    getDietProfile(signal),
+    getDietOptions(signal),
+  ]);
+  return buildEffectiveDiet(profile, options);
+}
+
 export function DietProvider({ children }: Readonly<{ children: ReactNode }>) {
   const { data: session, isPending } = authClient.useSession();
   const sessionUserId = session?.user.id;
@@ -60,36 +68,37 @@ export function DietProvider({ children }: Readonly<{ children: ReactNode }>) {
     }
 
     let controller: AbortController | null = null;
+    let retainedDiet = fallbackDiet;
     const load = () => {
       controller?.abort();
       controller = new AbortController();
       const signal = controller.signal;
-      setState((current) => ({
+      setState({
         userId: sessionUserId,
-        diet: current.userId === sessionUserId ? current.diet : fallbackDiet,
+        diet: retainedDiet,
         status: "loading",
-      }));
-      void Promise.all([getDietProfile(signal), getDietOptions(signal)])
-        .then(([profile, options]) => {
+      });
+      void fetchEffectiveDiet(signal)
+        .then((diet) => {
+          if (signal.aborted) return;
+          retainedDiet = diet;
           setState({
             userId: sessionUserId,
-            diet: buildEffectiveDiet(profile, options),
+            diet,
             status: "ready",
           });
         })
         .catch((error: unknown) => {
-          if (!signal.aborted) {
-            setState((current) => ({
-              userId: sessionUserId,
-              diet:
-                current.userId === sessionUserId ? current.diet : fallbackDiet,
-              status: "error",
-            }));
-            console.error(
-              "[DietProvider] Failed to load diet preferences.",
-              error,
-            );
-          }
+          if (signal.aborted) return;
+          setState({
+            userId: sessionUserId,
+            diet: retainedDiet,
+            status: "error",
+          });
+          console.error(
+            "[DietProvider] Failed to load diet preferences.",
+            error,
+          );
         });
     };
 

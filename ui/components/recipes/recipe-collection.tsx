@@ -123,9 +123,11 @@ export function RecipeCollection({
 
   if (isPending || personalizationLoading) {
     return (
-      <div role="status" aria-label="Loading personalized recipes">
+      <div>
         <CardGridSkeleton variant="filters" />
-        <span className="sr-only">Loading personalized recipes…</span>
+        <output aria-label="Loading personalized recipes" className="sr-only">
+          Loading personalized recipes…
+        </output>
       </div>
     );
   }
