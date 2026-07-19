@@ -67,6 +67,41 @@ describe("PhotoRecipeImport", () => {
     expect(onDraftReady).toHaveBeenCalledOnce();
   });
 
+  it("rejects an imported draft that is too long to save", async () => {
+    const onDraftReady = vi.fn();
+    const oversizedDraft: PhotoRecipeImportDraft = {
+      ...draft,
+      cooklang: { ...draft.cooklang, body: "a".repeat(10_001) },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ id: "job-1", status: "queued" }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: "job-1",
+          status: "succeeded",
+          draft: oversizedDraft,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<PhotoRecipeImport active onDraftReady={onDraftReady} />);
+    fireEvent.change(screen.getByLabelText("Choose recipe photos"), {
+      target: {
+        files: [new File(["photo"], "recipe.jpg", { type: "image/jpeg" })],
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import from photos" }));
+
+    expect(
+      await screen.findByText(
+        "The imported recipe is too long to save. Try fewer photos or import the recipe in sections.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Imported recipe is too long")).toBeInTheDocument();
+    expect(onDraftReady).not.toHaveBeenCalled();
+  });
+
   it("recovers after a transient polling failure", async () => {
     const onDraftReady = vi.fn();
     const fetchMock = vi

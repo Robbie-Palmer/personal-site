@@ -50,6 +50,7 @@ const MAX_PHOTO_POLL_FAILURES = 3;
 const MAX_PHOTO_COUNT = 6;
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 const MAX_TOTAL_PHOTO_BYTES = 30 * 1024 * 1024;
+const MAX_RECIPE_SOURCE_LENGTH = 10_000;
 const ACCEPTED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -252,6 +253,17 @@ export function PhotoRecipeImport({
           handledJobIdRef.current = body.id;
           if (!body.draft) {
             setError("The import finished without an editable recipe draft.");
+            return;
+          }
+          if (body.draft.cooklang.body.length > MAX_RECIPE_SOURCE_LENGTH) {
+            setJob({
+              ...body,
+              status: "failed",
+              progressLabel: "Imported recipe is too long",
+            });
+            setError(
+              "The imported recipe is too long to save. Try fewer photos or import the recipe in sections.",
+            );
             return;
           }
           onDraftReadyRef.current(body.draft);
