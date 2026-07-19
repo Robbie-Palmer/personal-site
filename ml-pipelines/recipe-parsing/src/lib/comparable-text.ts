@@ -232,6 +232,7 @@ function canonicalizeNumberWordTokens(tokens: string[]): string[] {
     }
 
     if (matchedEnd > index && matchedValue != null) {
+      // matchedValue is numeric, so String also canonicalizes trailing zeroes.
       result.push(String(matchedValue));
       index = matchedEnd;
       continue;

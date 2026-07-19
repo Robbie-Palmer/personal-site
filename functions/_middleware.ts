@@ -19,9 +19,8 @@ const AGENT_USER_AGENTS =
   /\b(gptbot|chatgpt|oai-searchbot|claude|anthropic|perplexity|gemini|copilot|duckassist|cursor|devin|curl|wget|httpie|python-requests|python-httpx|aiohttp|go-http-client|axios|node-fetch|undici|got|libcurl|java\/|okhttp)\b/i;
 
 function markdownPathFor(pathname: string): string | null {
-  let end = pathname.length;
-  while (end > 0 && pathname.codePointAt(end - 1) === 47) end--;
-  const normalized = pathname.slice(0, end);
+  let normalized = pathname;
+  while (normalized.endsWith("/")) normalized = normalized.slice(0, -1);
   if (normalized === "") return "/index.md";
   // Paths with a file extension (.md, .js, .png, ...) have no twin
   const lastSegment = normalized.slice(normalized.lastIndexOf("/") + 1);

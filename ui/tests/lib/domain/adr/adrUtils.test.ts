@@ -49,4 +49,12 @@ Second paragraph.`;
       "Bold with link, inline code, and quoted text.",
     );
   });
+
+  it("preserves nested link labels and continues past non-link brackets", () => {
+    expect(
+      summarizeMarkdown(
+        "[not a link] then [text [nested]](https://example.com/a_(b)).",
+      ),
+    ).toBe("[not a link] then text [nested].");
+  });
 });

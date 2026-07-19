@@ -383,6 +383,7 @@ export function CanonicalizeDetailView({
         {/* Middle: editable ground truth */}
         <div>
           <ParsedRecipeEditor
+            identity={predictionKey ?? `entry-${entryIndex}`}
             value={edited}
             diagnostics={validationDiagnostics}
             onChange={(next) => {

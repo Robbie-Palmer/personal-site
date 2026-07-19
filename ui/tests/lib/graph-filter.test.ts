@@ -75,4 +75,40 @@ describe("filterGraphData", () => {
 
     expect(filtered.edges).toEqual([]);
   });
+
+  it("bounds traversal when hidden context nodes contain a cycle", () => {
+    const cyclicData: GraphData = {
+      nodes: [
+        ...data.nodes,
+        {
+          id: "project:other",
+          name: "Other",
+          type: "project",
+          href: "/projects/other",
+          connections: 2,
+        },
+      ],
+      edges: [
+        ...data.edges,
+        {
+          source: "project:site",
+          target: "project:other",
+          type: "RELATED_TO",
+        },
+        {
+          source: "project:other",
+          target: "project:site",
+          type: "RELATED_TO",
+        },
+      ],
+    };
+
+    const filtered = filterGraphData(cyclicData, new Set(["project"]), 0);
+
+    expect(filtered.edges).toContainEqual({
+      source: "role:engineer",
+      target: "technology:react",
+      type: "USES_TECHNOLOGY",
+    });
+  });
 });

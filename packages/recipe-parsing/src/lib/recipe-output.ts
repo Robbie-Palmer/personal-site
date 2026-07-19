@@ -1,16 +1,18 @@
 import { RecipeSchema, type Recipe } from "../schemas/ground-truth.js";
 
 export function stripJsonCodeFence(value: string): string {
-  let result = value.trim();
-  if (result.startsWith("```")) {
-    result = result.slice(3);
-    if (result.slice(0, 4).toLowerCase() === "json") result = result.slice(4);
-    result = result.trimStart();
+  const result = value.trim();
+  if (!(result.startsWith("```") && result.endsWith("```"))) return result;
+
+  let content = result.slice(3, -3).trim();
+  const firstLineEnd = content.search(/\r?\n/);
+  if (
+    firstLineEnd >= 0 &&
+    content.slice(0, firstLineEnd).trim().toLowerCase() === "json"
+  ) {
+    content = content.slice(firstLineEnd).trim();
   }
-  if (result.endsWith("```")) {
-    result = result.slice(0, -3).trimEnd();
-  }
-  return result;
+  return content;
 }
 
 function sanitizeOptionalPositiveNumber(

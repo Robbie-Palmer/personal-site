@@ -6,6 +6,7 @@ import { formatAmount } from "../lib/format";
 import type { CanonicalizationDecision } from "../types/canonicalization";
 
 interface ParsedRecipeEditorProps {
+  identity: string;
   value: ParsedRecipe;
   diagnostics?: string[];
   onChange: (value: ParsedRecipe) => void;
@@ -59,7 +60,7 @@ interface IngredientGroupKeys {
 }
 
 interface EditorKeyState {
-  recipeIdentity: string;
+  identity: string;
   groups: IngredientGroupKeys[];
   cookwareKeys: string[];
   nextSequence: number;
@@ -69,13 +70,10 @@ function editorKey(editorId: string, kind: string, sequence: number): string {
   return `${editorId}-${kind}-${sequence}`;
 }
 
-function recipeIdentity(recipe: ParsedRecipe): string {
-  return `${recipe.title}\0${recipe.description ?? ""}`;
-}
-
 function initialEditorKeyState(
   recipe: ParsedRecipe,
   editorId: string,
+  identity: string,
 ): EditorKeyState {
   let nextSequence = 0;
   const groups = recipe.ingredientGroups.map((group) => ({
@@ -88,7 +86,7 @@ function initialEditorKeyState(
     editorKey(editorId, "cookware", nextSequence++),
   );
   return {
-    recipeIdentity: recipeIdentity(recipe),
+    identity,
     groups,
     cookwareKeys,
     nextSequence,
@@ -99,9 +97,10 @@ function reconcileEditorKeyState(
   state: EditorKeyState,
   recipe: ParsedRecipe,
   editorId: string,
+  identity: string,
 ): EditorKeyState {
-  if (state.recipeIdentity !== recipeIdentity(recipe)) {
-    return initialEditorKeyState(recipe, editorId);
+  if (state.identity !== identity) {
+    return initialEditorKeyState(recipe, editorId, identity);
   }
 
   let nextSequence = state.nextSequence;
@@ -188,6 +187,7 @@ function AddToOntologyForm({
 }
 
 export function ParsedRecipeEditor({
+  identity,
   value,
   diagnostics = [],
   onChange,
@@ -197,20 +197,25 @@ export function ParsedRecipeEditor({
   const [addingRowKey, setAddingRowKey] = useState<string | null>(null);
   const editorId = useId();
   const [keyState, setKeyState] = useState(() =>
-    initialEditorKeyState(value, editorId),
+    initialEditorKeyState(value, editorId, identity),
   );
-  const renderedKeyState = reconcileEditorKeyState(keyState, value, editorId);
+  const renderedKeyState = reconcileEditorKeyState(
+    keyState,
+    value,
+    editorId,
+    identity,
+  );
 
   useEffect(() => {
     setExpandedRows(new Set());
     setAddingRowKey(null);
-  }, [value.title, value.description]);
+  }, [identity]);
 
   function updateKeys(
     update: (current: EditorKeyState) => EditorKeyState,
   ): void {
     setKeyState((current) =>
-      update(reconcileEditorKeyState(current, value, editorId)),
+      update(reconcileEditorKeyState(current, value, editorId, identity)),
     );
   }
 

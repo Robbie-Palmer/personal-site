@@ -61,6 +61,8 @@ function findReachableTechnologies(
   while (current !== undefined) {
     for (const edge of neighbors.get(current) ?? []) {
       if (visited.has(edge.target) || !canTraverse(edge)) continue;
+      // Mark nodes when enqueued, bounding the queue to the finite input graph
+      // even when malformed data contains cycles or duplicate edges.
       visited.add(edge.target);
       if (
         edge.target.startsWith("technology:") &&

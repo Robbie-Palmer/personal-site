@@ -23,14 +23,37 @@ import {
   toADRListItemView,
 } from "./adrViews";
 
+function closingDelimiter(
+  markdown: string,
+  start: number,
+  open: string,
+  close: string,
+): number {
+  let depth = 1;
+  for (let index = start + 1; index < markdown.length; index++) {
+    if (markdown[index] === open) depth++;
+    if (markdown[index] !== close) continue;
+    depth--;
+    if (depth === 0) return index;
+  }
+  return -1;
+}
+
 function replaceMarkdownLinks(markdown: string): string {
   let result = "";
   let cursor = 0;
   let labelStart = markdown.indexOf("[", cursor);
   while (labelStart >= 0) {
-    const labelEnd = markdown.indexOf("](", labelStart + 1);
-    const urlEnd = labelEnd < 0 ? -1 : markdown.indexOf(")", labelEnd + 2);
-    if (labelEnd < 0 || urlEnd < 0) break;
+    const labelEnd = closingDelimiter(markdown, labelStart, "[", "]");
+    const urlStart = labelEnd + 1;
+    const isLink = labelEnd >= 0 && markdown[urlStart] === "(";
+    const urlEnd = isLink ? closingDelimiter(markdown, urlStart, "(", ")") : -1;
+    if (urlEnd < 0) {
+      result += markdown.slice(cursor, labelStart + 1);
+      cursor = labelStart + 1;
+      labelStart = markdown.indexOf("[", cursor);
+      continue;
+    }
     result += markdown.slice(cursor, labelStart);
     result += markdown.slice(labelStart + 1, labelEnd);
     cursor = urlEnd + 1;

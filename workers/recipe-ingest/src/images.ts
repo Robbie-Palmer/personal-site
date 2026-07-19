@@ -5,6 +5,8 @@ function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
   const chunkSize = 0x8000;
   for (let i = 0; i < bytes.length; i += chunkSize) {
+    // Uint8Array elements are always 0–255, so every value is a valid code point
+    // and maps one-to-one to the binary string expected by btoa.
     binary += String.fromCodePoint(...bytes.subarray(i, i + chunkSize));
   }
   return btoa(binary);

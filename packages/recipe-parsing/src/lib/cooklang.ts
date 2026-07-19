@@ -148,10 +148,11 @@ function inferLeadingAmount(line: string): string | undefined {
 function nameBeforeAmount(line: string, amountStart: number): string | undefined {
   let nameEnd = amountStart;
   while (nameEnd > 0 && /\s/u.test(line[nameEnd - 1]!)) nameEnd--;
-  if (nameEnd === amountStart) return undefined;
   if ("-:,".includes(line[nameEnd - 1]!)) {
     nameEnd--;
     while (nameEnd > 0 && /\s/u.test(line[nameEnd - 1]!)) nameEnd--;
+  } else if (nameEnd === amountStart) {
+    return undefined;
   }
   return line.slice(0, nameEnd) || undefined;
 }

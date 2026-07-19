@@ -468,10 +468,10 @@ export function evaluateInstructions(
 
   const predCount = predicted.instructions.length;
   const expCount = expected.instructions.length;
-  let stepRatio = 0;
-  if (predCount === 0 && expCount === 0) {
-    stepRatio = 1;
-  } else if (predCount > 0 && expCount > 0) {
+  let stepRatio = 1;
+  if (predCount === 0 || expCount === 0) {
+    stepRatio = predCount === expCount ? 1 : 0;
+  } else {
     stepRatio = Math.min(predCount, expCount) / Math.max(predCount, expCount);
   }
 
