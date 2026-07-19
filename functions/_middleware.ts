@@ -20,7 +20,7 @@ const AGENT_USER_AGENTS =
 
 function markdownPathFor(pathname: string): string | null {
   let end = pathname.length;
-  while (end > 0 && pathname.charCodeAt(end - 1) === 47) end--;
+  while (end > 0 && pathname.codePointAt(end - 1) === 47) end--;
   const normalized = pathname.slice(0, end);
   if (normalized === "") return "/index.md";
   // Paths with a file extension (.md, .js, .png, ...) have no twin

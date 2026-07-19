@@ -107,67 +107,74 @@ function formatInferredIngredient(
   return `@${toCooklangToken(name)}${quantity}${ingredientSuffix}`;
 }
 
+function ingredientWithKnownUnit(
+  line: string,
+  amount: TokenSpan,
+  unitSpan: TokenSpan | undefined,
+): string | undefined {
+  if (!unitSpan) return undefined;
+  const unit = normalizeUnitToken(unitSpan.value);
+  if (!unit) return undefined;
+  const nameStart = skipWhitespace(line, unitSpan.end);
+  if (nameStart === unitSpan.end || nameStart === line.length) {
+    return undefined;
+  }
+  return formatInferredIngredient(line.slice(nameStart), amount.value, unit);
+}
+
 function inferLeadingAmount(line: string): string | undefined {
   const amount = readAmount(line, 0);
   if (!amount) return undefined;
 
-  const attachedUnit = readAsciiWord(line, amount.end);
-  if (attachedUnit) {
-    const nameStart = skipWhitespace(line, attachedUnit.end);
-    if (nameStart > attachedUnit.end && nameStart < line.length) {
-      const unit = normalizeUnitToken(attachedUnit.value);
-      if (unit) {
-        return formatInferredIngredient(
-          line.slice(nameStart),
-          amount.value,
-          unit,
-        );
-      }
-    }
-  }
+  const attachedUnitIngredient = ingredientWithKnownUnit(
+    line,
+    amount,
+    readAsciiWord(line, amount.end),
+  );
+  if (attachedUnitIngredient) return attachedUnitIngredient;
 
   const nextStart = skipWhitespace(line, amount.end);
   if (nextStart === amount.end || nextStart === line.length) return undefined;
-  const possibleUnit = readAsciiWord(line, nextStart);
-  if (possibleUnit) {
-    const nameStart = skipWhitespace(line, possibleUnit.end);
-    if (nameStart > possibleUnit.end && nameStart < line.length) {
-      const unit = normalizeUnitToken(possibleUnit.value);
-      if (unit) {
-        return formatInferredIngredient(
-          line.slice(nameStart),
-          amount.value,
-          unit,
-        );
-      }
-    }
-  }
+  const spacedUnitIngredient = ingredientWithKnownUnit(
+    line,
+    amount,
+    readAsciiWord(line, nextStart),
+  );
+  if (spacedUnitIngredient) return spacedUnitIngredient;
 
   return formatInferredIngredient(line.slice(nextStart), amount.value);
+}
+
+function nameBeforeAmount(line: string, amountStart: number): string | undefined {
+  let nameEnd = amountStart;
+  while (nameEnd > 0 && /\s/u.test(line[nameEnd - 1]!)) nameEnd--;
+  if (nameEnd === amountStart) return undefined;
+  if ("-:,".includes(line[nameEnd - 1]!)) {
+    nameEnd--;
+    while (nameEnd > 0 && /\s/u.test(line[nameEnd - 1]!)) nameEnd--;
+  }
+  return line.slice(0, nameEnd) || undefined;
+}
+
+function trailingQuantity(
+  line: string,
+  amount: TokenSpan,
+): { unit?: string; suffix?: string } {
+  const suffixStart = skipWhitespace(line, amount.end);
+  const possibleUnit = readAsciiWord(line, suffixStart);
+  const unit = normalizeUnitToken(possibleUnit?.value);
+  let restStart = suffixStart;
+  if (unit && possibleUnit) restStart = skipWhitespace(line, possibleUnit.end);
+  return { unit, suffix: line.slice(restStart).trim() || undefined };
 }
 
 function inferTrailingAmount(line: string): string | undefined {
   for (let index = 1; index < line.length; index++) {
     const amount = readAmount(line, index);
     if (!amount) continue;
-
-    let nameEnd = index;
-    while (nameEnd > 0 && /\s/u.test(line[nameEnd - 1]!)) nameEnd--;
-    if (nameEnd === index) continue;
-    if ("-:,".includes(line[nameEnd - 1]!)) {
-      nameEnd--;
-      while (nameEnd > 0 && /\s/u.test(line[nameEnd - 1]!)) nameEnd--;
-    }
-    const name = line.slice(0, nameEnd);
+    const name = nameBeforeAmount(line, index);
     if (!name) continue;
-
-    const suffixStart = skipWhitespace(line, amount.end);
-    const possibleUnit = readAsciiWord(line, suffixStart);
-    const unit = normalizeUnitToken(possibleUnit?.value);
-    const restStart = unit
-      ? skipWhitespace(line, possibleUnit!.end)
-      : suffixStart;
-    const suffix = line.slice(restStart).trim();
+    const { unit, suffix } = trailingQuantity(line, amount);
     return formatInferredIngredient(name, amount.value, unit, suffix);
   }
   return undefined;
