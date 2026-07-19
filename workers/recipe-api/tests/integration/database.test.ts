@@ -140,8 +140,20 @@ beforeAll(async () => {
     from information_schema.tables
     where table_schema = 'public'
   `;
-  expect(migrationCount?.count).toBe(2);
+  const catalogRows = await client<
+    { category: string | null; slug: string }[]
+  >`
+    select slug, category
+    from ingredient
+    where slug in ('almond-milk', 'cajun-powder', 'cajun-seasoning')
+    order by slug
+  `;
+  expect(migrationCount?.count).toBe(3);
   expect(tableCount?.count).toBe(29);
+  expect(catalogRows).toEqual([
+    { category: "dairy", slug: "almond-milk" },
+    { category: "spice", slug: "cajun-seasoning" },
+  ]);
 });
 
 beforeEach(async () => {

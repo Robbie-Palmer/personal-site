@@ -21,11 +21,13 @@ describe("buildScaledRecipeParts", () => {
     expect(parts.instructions).toEqual(["Add 200g of flour to the bowl."]);
   });
 
-  it("does not count instruction references after grouped ingredient declarations", () => {
+  it("suppresses declared references but keeps inline-only ingredients", () => {
     const parts = buildScaledRecipeParts(
       parsedAt(
         [
           "== Main ==",
+          "Cook the @chicken breast{2}.",
+          "",
           "@dried noodles{250%g}",
           "",
           "== Sauce ==",
@@ -34,6 +36,8 @@ describe("buildScaledRecipeParts", () => {
           "Cook the @dried noodles{}.",
           "",
           "Stir in the @soy sauce{2%tbsp}.",
+          "",
+          "Drizzle over @sesame oil{1%tbsp}.",
         ].join("\n"),
       ),
     );
@@ -41,11 +45,17 @@ describe("buildScaledRecipeParts", () => {
     expect(parts.ingredientGroups).toEqual([
       {
         name: "Main",
-        items: [{ ingredient: "dried-noodles", amount: 250, unit: "g" }],
+        items: [
+          { ingredient: "chicken-breast", amount: 2 },
+          { ingredient: "dried-noodles", amount: 250, unit: "g" },
+        ],
       },
       {
         name: "Sauce",
-        items: [{ ingredient: "soy-sauce", amount: 2, unit: "tbsp" }],
+        items: [
+          { ingredient: "soy-sauce", amount: 2, unit: "tbsp" },
+          { ingredient: "sesame-oil", amount: 1, unit: "tbsp" },
+        ],
       },
     ]);
   });

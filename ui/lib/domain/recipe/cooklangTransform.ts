@@ -146,12 +146,24 @@ function isIngredientOnlyStep(step: Step): boolean {
   return hasIngredient;
 }
 
-function sectionDeclaresIngredients(
-  section: ParsedCooklangRecipe["sections"][number],
-): boolean {
-  return section.content.some(
-    (content) => content.type === "step" && isIngredientOnlyStep(content.value),
-  );
+function findDeclaredIngredientSlugs(
+  sections: ParsedCooklangRecipe["sections"],
+  ingredients: Ingredient[],
+): Set<IngredientSlug> {
+  const declaredSlugs = new Set<IngredientSlug>();
+  for (const section of sections) {
+    for (const content of section.content) {
+      if (content.type !== "step" || !isIngredientOnlyStep(content.value)) {
+        continue;
+      }
+      for (const item of content.value.items) {
+        if (item.type !== "ingredient") continue;
+        const ingredient = ingredients[item.index]!;
+        declaredSlugs.add(normalizeSlug(ingredient.name) as IngredientSlug);
+      }
+    }
+  }
+  return declaredSlugs;
 }
 
 /**
@@ -266,11 +278,15 @@ function collectStepIngredients(
   resolved: ResolvedIngredient[],
   currentGroup: GroupAccumulator,
   annotations: IngredientAnnotations,
+  declaredSlugs: Set<IngredientSlug>,
+  isDeclaration: boolean,
 ): void {
   for (const item of step.items) {
     if (item.type !== "ingredient") continue;
 
     const ingredient = ingredients[item.index]!;
+    const ingredientSlug = normalizeSlug(ingredient.name) as IngredientSlug;
+    if (!isDeclaration && declaredSlugs.has(ingredientSlug)) continue;
     mergeIngredientIntoGroup(
       currentGroup,
       buildIngredientGroupItem(ingredient, resolved[item.index]!, annotations),
@@ -360,10 +376,12 @@ export function buildScaledRecipeParts(
   const cookwareDisplayValues = cookware.map(formatCookwareDisplay);
   const timerDisplayValues = timers.map(formatTimerDisplay);
   const timerDurations = timers.map(timerDurationSeconds);
+  const declaredIngredientSlugs = findDeclaredIngredientSlugs(
+    sections,
+    ingredients,
+  );
 
   for (const section of sections) {
-    const hasIngredientDeclarations = sectionDeclaresIngredients(section);
-
     if (section.name !== null) {
       currentGroup = getOrCreateNamedGroup(section.name, groups, namedGroups);
     }
@@ -372,19 +390,20 @@ export function buildScaledRecipeParts(
       if (content.type === "text") continue;
 
       const step = content.value;
-      // Ingredient-only rows form the section's declared ingredient list.
-      // Once present, inline instruction references must not be counted again.
-      if (!hasIngredientDeclarations || isIngredientOnlyStep(step)) {
-        collectStepIngredients(
-          step,
-          ingredients,
-          resolvedIngredients,
-          currentGroup,
-          annotations,
-        );
-      }
+      const isDeclaration = isIngredientOnlyStep(step);
+      // Declared slugs are counted only from their declaration row; ingredients
+      // without declarations are still collected from instruction steps.
+      collectStepIngredients(
+        step,
+        ingredients,
+        resolvedIngredients,
+        currentGroup,
+        annotations,
+        declaredIngredientSlugs,
+        isDeclaration,
+      );
 
-      if (isIngredientOnlyStep(step)) {
+      if (isDeclaration) {
         continue;
       }
 

@@ -566,13 +566,21 @@ function isIngredientOnlyStep(step: Step): boolean {
   return hasIngredient;
 }
 
-function sectionDeclaresIngredients(
-  section: CkParsedRecipe["sections"][number],
-): boolean {
-  return section.content.some(
-    (content) =>
-      content.type === "step" && isIngredientOnlyStep(content.value),
-  );
+function findDeclaredIngredientSlugs(parsed: CkParsedRecipe): Set<string> {
+  const declaredSlugs = new Set<string>();
+  for (const section of parsed.sections) {
+    for (const content of section.content) {
+      if (content.type !== "step" || !isIngredientOnlyStep(content.value)) {
+        continue;
+      }
+      for (const item of content.value.items) {
+        if (item.type !== "ingredient") continue;
+        const ingredient = parsed.ingredients[item.index]!;
+        declaredSlugs.add(normalizeIngredientName(ingredient.name));
+      }
+    }
+  }
+  return declaredSlugs;
 }
 
 function resolveQuantityValue(ingredient: CkIngredient): number | undefined {
@@ -661,12 +669,15 @@ function collectStepIngredients(
   annotations: CooklangRecipe["frontmatter"]["ingredientAnnotations"],
   groups: IngredientGroupAccumulator[],
   currentGroup: IngredientGroupAccumulator | null,
+  declaredSlugs: Set<string>,
+  isDeclaration: boolean,
 ): IngredientGroupAccumulator | null {
   let group = currentGroup;
   for (const item of step.items) {
     if (item.type !== "ingredient") continue;
     const ingredient = parsed.ingredients[item.index]!;
     const slug = normalizeIngredientName(ingredient.name);
+    if (!isDeclaration && declaredSlugs.has(slug)) continue;
 
     if (!group) {
       group = createIngredientGroupAccumulator();
@@ -732,10 +743,9 @@ export function deriveRecipeFromCooklang(cooklang: CooklangRecipe): CooklangReci
   const cookware = normalizeCookwareList(
     parsed.cookware.map((item) => cookware_display_name(item)),
   );
+  const declaredIngredientSlugs = findDeclaredIngredientSlugs(parsed);
 
   for (const section of parsed.sections) {
-    const hasIngredientDeclarations = sectionDeclaresIngredients(section);
-
     if (section.name !== null) {
       currentGroup = createIngredientGroupAccumulator(section.name);
       groups.push(currentGroup);
@@ -744,22 +754,22 @@ export function deriveRecipeFromCooklang(cooklang: CooklangRecipe): CooklangReci
     for (const content of section.content) {
       if (content.type === "text") continue;
       const step = content.value;
+      const isDeclaration = isIngredientOnlyStep(step);
 
-      // When a section contains explicit ingredient-only declarations, those
-      // declarations are the source of truth for its ingredient group. Later
-      // inline mentions are instructions, not additional quantities.
-      if (!hasIngredientDeclarations || isIngredientOnlyStep(step)) {
-        currentGroup = collectStepIngredients(
-          step,
-          parsed,
-          annotations,
-          groups,
-          currentGroup,
-        );
-      }
+      // Explicit declarations are authoritative for their own slugs, while
+      // inline-only ingredients still join the current group.
+      currentGroup = collectStepIngredients(
+        step,
+        parsed,
+        annotations,
+        groups,
+        currentGroup,
+        declaredIngredientSlugs,
+        isDeclaration,
+      );
 
       // Add instruction text for non-ingredient-only steps
-      if (!isIngredientOnlyStep(step)) {
+      if (!isDeclaration) {
         const text = stepToInstructionText(step, parsed);
         if (text) instructions.push(text);
       }
