@@ -6,7 +6,7 @@ import type { Recipe } from "recipe-parsing/schemas/ground-truth";
 import type { CooklangRecipe } from "recipe-parsing/schemas/stage-artifacts";
 
 function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
 function canonicalIngredientReplacements(
@@ -77,10 +77,10 @@ function applyCanonicalTokens(
       slug
         .split(/[-\s]+/u)
         .map(escapeRegExp)
-        .join("[\\s-]+"),
+        .join(String.raw`[\s-]+`),
     );
   const token = new RegExp(
-    `${escapeRegExp(marker)}(?:${alternatives.join("|")})(?=\\{|[\\s.,;:()!?]|$)`,
+    String.raw`${escapeRegExp(marker)}(?:${alternatives.join("|")})(?=\{|[.,;:()!?]|$|\s(?![^@#~{}\n]*\{))`,
     "giu",
   );
 

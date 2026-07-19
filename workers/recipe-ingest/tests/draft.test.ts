@@ -90,4 +90,61 @@ describe("buildFinalDraft", () => {
       "Cook bell pepper in a frying pan for 10 minutes.",
     ]);
   });
+
+  it("does not replace prefixes of longer braced tokens", () => {
+    const normalizedRecipe = {
+      title: "Rice Dressing",
+      description: "A simple dressing.",
+      cuisine: [],
+      servings: 2,
+      ingredientGroups: [
+        {
+          items: [
+            { ingredient: "rice", amount: 1 },
+            {
+              ingredient: "rice-wine-vinegar",
+              amount: 2,
+              unit: "tbsp" as const,
+            },
+          ],
+        },
+      ],
+      instructions: ["Combine the ingredients."],
+      cookware: [],
+    };
+    const draft = buildFinalDraft(
+      ["imports/job/source/1.jpg"],
+      {
+        frontmatter: {
+          title: normalizedRecipe.title,
+          description: normalizedRecipe.description,
+          servings: normalizedRecipe.servings,
+          tags: [],
+        },
+        body: "@rice{1}\n@rice wine vinegar{2%tbsp}\n\nCombine the ingredients.",
+        diagnostics: [],
+        derived: normalizedRecipe,
+      },
+      {
+        ...normalizedRecipe,
+        ingredientGroups: [
+          {
+            items: [
+              { ingredient: "white-rice", amount: 1 },
+              {
+                ingredient: "rice-wine-vinegar",
+                amount: 2,
+                unit: "tbsp",
+              },
+            ],
+          },
+        ],
+      },
+      [],
+    );
+
+    expect(draft.cooklang.body).toContain("@white rice{1}");
+    expect(draft.cooklang.body).toContain("@rice wine vinegar{2%tbsp}");
+    expect(draft.cooklang.body).not.toContain("@white rice wine vinegar");
+  });
 });

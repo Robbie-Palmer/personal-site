@@ -122,6 +122,23 @@ function apiErrorMessage(body: unknown, fallback: string): string {
     : fallback;
 }
 
+async function fetchPhotoImportJob(
+  jobId: string,
+  signal: AbortSignal,
+): Promise<PhotoImportJob> {
+  const response = await fetch(`/api/recipe-imports/${jobId}`, {
+    credentials: "include",
+    signal,
+  });
+  const body: unknown = await response.json().catch(() => null);
+  if (!response.ok || !isPhotoImportJob(body) || body.id !== jobId) {
+    throw new Error(
+      apiErrorMessage(body, "We couldn't check the photo import status."),
+    );
+  }
+  return body;
+}
+
 function ImportStatusIcon({ status }: Readonly<{ status: PhotoImportStatus }>) {
   if (status === "succeeded") {
     return (
@@ -219,20 +236,7 @@ export function PhotoRecipeImport({
 
     async function poll() {
       try {
-        const response = await fetch(`/api/recipe-imports/${currentJobId}`, {
-          credentials: "include",
-          signal: controller.signal,
-        });
-        const body: unknown = await response.json().catch(() => null);
-        if (
-          !response.ok ||
-          !isPhotoImportJob(body) ||
-          body.id !== currentJobId
-        ) {
-          throw new Error(
-            apiErrorMessage(body, "We couldn't check the photo import status."),
-          );
-        }
+        const body = await fetchPhotoImportJob(currentJobId, controller.signal);
         if (!activeRequest) return;
         consecutiveFailures = 0;
         setError(null);
