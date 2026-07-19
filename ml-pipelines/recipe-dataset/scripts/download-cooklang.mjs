@@ -50,7 +50,7 @@ for (const source of sources) {
   await mkdir(outputDirectory, { recursive: true });
   const temporaryPath = `${outputPath}.part`;
   const output = createWriteStream(temporaryPath, { encoding: "utf8" });
-  const recipes = Array(paths.length);
+  const recipes = new Array(paths.length);
   let nextIndex = 0;
   async function worker() {
     while (nextIndex < paths.length) {

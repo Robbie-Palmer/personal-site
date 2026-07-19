@@ -5,8 +5,8 @@ stages:
     deps:
     - path: scripts/download-cooklang.mjs
       hash: md5
-      md5: 32cb9b8fb30f6c00a7cb178b1ecca8d6
-      size: 2912
+      md5: ddc5d10c3241b439f1c6dd485726bfb6
+      size: 2916
     - path: scripts/download.sh
       hash: md5
       md5: 98ca041bf867015fb584d901eb19e23e
