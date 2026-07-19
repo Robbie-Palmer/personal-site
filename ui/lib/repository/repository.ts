@@ -862,7 +862,7 @@ function buildRelationDataFromLoaders(loaders: LoaderResults): RelationData {
   return relations;
 }
 
-export function loadDomainRepository(): DomainRepository {
+function buildDomainRepository(): DomainRepository {
   const technologies = loadTechnologies();
   validateTechnologyReferences(technologies);
   const blogsResult = loadBlogPosts();
@@ -915,4 +915,17 @@ export function loadDomainRepository(): DomainRepository {
     buildingPhilosophy,
     referentialIntegrityErrors,
   };
+}
+
+// Loading reparses and validates every content file, so the result is cached
+// for the lifetime of the process (a build, a server, or a test run).
+let cachedRepository: DomainRepository | undefined;
+
+export function loadDomainRepository(): DomainRepository {
+  cachedRepository ??= buildDomainRepository();
+  return cachedRepository;
+}
+
+export function resetDomainRepositoryCache(): void {
+  cachedRepository = undefined;
 }

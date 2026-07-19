@@ -1,3 +1,8 @@
+import type { RootContent } from "mdast";
+import { toString as mdastToString } from "mdast-util-to-string";
+import { remark } from "remark";
+import remarkGfm from "remark-gfm";
+import remarkMdx from "remark-mdx";
 import {
   type DomainRepository,
   getADRSlugsForProject,
@@ -23,27 +28,33 @@ import {
   toADRListItemView,
 } from "./adrViews";
 
-function stripMarkdown(markdown: string): string {
-  return markdown
-    .replace(/!\[[^\]]*]\([^)]+\)/g, "")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/^>\s?/gm, "")
-    .replace(/(^|\s)>\s?/g, "$1")
-    .replace(/[*_~]+/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+const SUMMARY_CHARACTER_LIMIT = 280;
+const summaryProcessor = remark().use(remarkMdx).use(remarkGfm);
+
+// Prose blocks that can open a summary; structural or non-prose blocks
+// (headings, code fences, imports, MDX expressions) are skipped.
+function isSummaryContent(node: RootContent): boolean {
+  switch (node.type) {
+    case "heading":
+    case "thematicBreak":
+    case "code":
+    case "html":
+    case "mdxjsEsm":
+    case "mdxFlowExpression":
+      return false;
+    default:
+      return true;
+  }
 }
 
 export function summarizeMarkdown(markdown: string): string {
-  const paragraphs = markdown
-    .split(/\n\s*\n/)
-    .map((chunk) => chunk.trim())
-    .filter(Boolean)
-    .filter((chunk) => !chunk.startsWith("#"));
-  if (paragraphs.length === 0) return "";
-  const first = stripMarkdown(paragraphs[0] ?? "");
-  return first.length > 280 ? `${first.slice(0, 277)}...` : first;
+  const root = summaryProcessor.parse(markdown);
+  const first = root.children.find(isSummaryContent);
+  if (!first) return "";
+  const text = mdastToString(first).replace(/\s+/g, " ").trim();
+  return text.length > SUMMARY_CHARACTER_LIMIT
+    ? `${text.slice(0, SUMMARY_CHARACTER_LIMIT - 3)}...`
+    : text;
 }
 
 function getADRByRef(repository: DomainRepository, adrRef: ADRRef) {
