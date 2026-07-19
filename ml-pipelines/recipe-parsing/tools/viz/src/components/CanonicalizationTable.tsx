@@ -31,7 +31,7 @@ export function CanonicalizationTable({
   data,
   onSelectEntry,
   imageToEntryId,
-}: CanonicalizationTableProps) {
+}: Readonly<CanonicalizationTableProps>) {
   const [methodFilter, setMethodFilter] = useState<CanonicalizationMethod | "all">(
     "all",
   );
@@ -80,11 +80,15 @@ export function CanonicalizationTable({
     }
   }
 
-  const sortIndicator = (field: SortField) =>
-    sortField === field ? (sortAsc ? " \u25B2" : " \u25BC") : "";
+  const sortIndicator = (field: SortField) => {
+    if (sortField !== field) return "";
+    return sortAsc ? " \u25B2" : " \u25BC";
+  };
 
-  const ariaSort = (field: SortField) =>
-    sortField === field ? (sortAsc ? "ascending" : "descending") : "none";
+  const ariaSort = (field: SortField) => {
+    if (sortField !== field) return "none";
+    return sortAsc ? "ascending" : "descending";
+  };
 
   return (
     <div className="space-y-3">

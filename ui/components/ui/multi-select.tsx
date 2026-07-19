@@ -67,7 +67,7 @@ export function MultiSelect({
   excludedValues = [],
   onSetState,
   onClearAll,
-}: MultiSelectProps) {
+}: Readonly<MultiSelectProps>) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const isTri = triState && typeof onSetState === "function";

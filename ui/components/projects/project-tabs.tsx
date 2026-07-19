@@ -10,7 +10,11 @@ interface ProjectTabsProps {
   adrCount: number;
 }
 
-export function ProjectTabs({ overview, adrs, adrCount }: ProjectTabsProps) {
+export function ProjectTabs({
+  overview,
+  adrs,
+  adrCount,
+}: Readonly<ProjectTabsProps>) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();

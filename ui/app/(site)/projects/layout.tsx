@@ -2,9 +2,9 @@ import { siteConfig } from "@/lib/config/site-config";
 
 export default function ProjectsLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <>
       <link

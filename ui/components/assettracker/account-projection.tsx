@@ -93,7 +93,7 @@ export function AccountProjection({
   flows,
   liabilityBalances,
   inflation,
-}: AccountProjectionProps) {
+}: Readonly<AccountProjectionProps>) {
   const [target, setTarget] = useState("");
   const [horizonYears, setHorizonYears] = useState(5);
 

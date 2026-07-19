@@ -44,11 +44,11 @@ function RelatedContentSection({
   icon: Icon,
   heading,
   items,
-}: {
+}: Readonly<{
   icon: LucideIcon;
   heading: string;
   items: RelatedItem[];
-}) {
+}>) {
   if (items.length === 0) return null;
   return (
     <section>
@@ -139,7 +139,7 @@ const TECHNOLOGY_DEMOS: Record<
   shiki: { icon: Play, component: <ShikiDemo /> },
 };
 
-export default async function TechnologyPage({ params }: PageProps) {
+export default async function TechnologyPage({ params }: Readonly<PageProps>) {
   const { slug } = await params;
   const repository = loadDomainRepository();
   const technology = getTechnologyDetail(repository, slug);

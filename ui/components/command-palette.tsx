@@ -84,7 +84,7 @@ export function useRegisterFilters(filters: FilterOption[]) {
   }, [filters, registerFilters, unregisterFilters]);
 }
 
-function HotkeyHint({ className }: { className?: string }) {
+function HotkeyHint({ className }: Readonly<{ className?: string }>) {
   const isMac = useIsMac();
   return (
     <kbd
@@ -134,7 +134,7 @@ interface CommandPaletteProviderProps {
 export function CommandPaletteProvider({
   children,
   technologies = [],
-}: CommandPaletteProviderProps) {
+}: Readonly<CommandPaletteProviderProps>) {
   const [open, setOpen] = useState(false);
   const [pageFilters, setPageFilters] = useState<FilterOption[]>([]);
 
@@ -202,7 +202,7 @@ function CommandPaletteDialog({
   onOpenChange,
   pageFilters,
   technologies,
-}: CommandPaletteDialogProps) {
+}: Readonly<CommandPaletteDialogProps>) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -266,7 +266,8 @@ function CommandPaletteDialog({
         }
 
         const queryString = params.toString();
-        router.replace(`${pathname}${queryString ? `?${queryString}` : ""}`);
+        const querySuffix = queryString ? `?${queryString}` : "";
+        router.replace(pathname + querySuffix);
       });
     },
     [router, pathname, searchParams, handleSelect],
@@ -494,7 +495,9 @@ function CommandPaletteDialog({
   );
 }
 
-export function CommandPaletteTrigger({ className }: { className?: string }) {
+export function CommandPaletteTrigger({
+  className,
+}: Readonly<{ className?: string }>) {
   const { setOpen } = useCommandPalette();
 
   const handleOpen = useCallback(() => {

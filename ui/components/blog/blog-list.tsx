@@ -32,11 +32,11 @@ function RoleBadge({
   role,
   isActive,
   onToggle,
-}: {
+}: Readonly<{
   role: BlogRoleView;
   isActive: boolean;
   onToggle: (slug: string) => void;
-}) {
+}>) {
   return (
     <>
       <span>&middot;</span>
@@ -65,7 +65,7 @@ interface BlogListProps {
   posts: BlogPost[];
 }
 
-export function BlogList({ posts }: BlogListProps) {
+export function BlogList({ posts }: Readonly<BlogListProps>) {
   const allTags = useMemo(() => {
     const tags = new Set<string>();
     for (const post of posts) {

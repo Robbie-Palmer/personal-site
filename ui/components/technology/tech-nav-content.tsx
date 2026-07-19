@@ -24,7 +24,7 @@ export function TechNavContent({
   technologies,
   className,
   onLinkClick,
-}: TechNavContentProps) {
+}: Readonly<TechNavContentProps>) {
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState("");
 

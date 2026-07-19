@@ -180,6 +180,14 @@ function deltaClasses(delta: number | null): string {
   return "bg-gray-100 text-gray-700";
 }
 
+function deltaTone(
+  delta: number | null,
+): "positive" | "negative" | "neutral" {
+  if ((delta ?? 0) > SIGNIFICANT_DELTA) return "positive";
+  if ((delta ?? 0) < -SIGNIFICANT_DELTA) return "negative";
+  return "neutral";
+}
+
 function scoreFill(score: number): string {
   if (score >= 0.85) return "#16a34a";
   if (score >= 0.7) return "#d97706";
@@ -196,12 +204,12 @@ function MetricValue({
   value,
   kind = "score",
   precision = 0,
-}: {
+}: Readonly<{
   label: string;
   value: number | null;
   kind?: "score" | "error";
   precision?: number;
-}) {
+}>) {
   const normalizedForColor =
     kind === "error"
       ? Math.max(0, Math.min(1, 1 - (value ?? 0)))
@@ -227,9 +235,9 @@ function MetricValue({
 
 function ToplineComparisonChart({
   data,
-}: {
+}: Readonly<{
   data: ToplineComparisonDatum[];
-}) {
+}>) {
   return (
     <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-4">
@@ -307,7 +315,7 @@ function StageOverviewCard({
   href,
   delta,
   accentClassName,
-}: {
+}: Readonly<{
   eyebrow: string;
   title: string;
   summary: string;
@@ -316,7 +324,7 @@ function StageOverviewCard({
   href: string;
   delta?: number | null;
   accentClassName: string;
-}) {
+}>) {
   return (
     <a
       href={href}
@@ -375,9 +383,9 @@ function StageOverviewCard({
 
 function PipelineStageSummary({
   totalEntries,
-}: {
+}: Readonly<{
   totalEntries: number | null;
-}) {
+}>) {
   return (
     <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
@@ -406,9 +414,9 @@ function PipelineStageSummary({
 
 function PipelineFlow({
   canonicalizationDelta,
-}: {
+}: Readonly<{
   canonicalizationDelta: number | null;
-}) {
+}>) {
   return (
     <section className="rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -443,11 +451,11 @@ function InsightStat({
   label,
   value,
   tone = "neutral",
-}: {
+}: Readonly<{
   label: string;
   value: string;
   tone?: "positive" | "negative" | "neutral";
-}) {
+}>) {
   const tones = {
     positive: "bg-green-50 border-green-200 text-green-800",
     negative: "bg-red-50 border-red-200 text-red-800",
@@ -467,10 +475,10 @@ function InsightStat({
 function WeightPill({
   label,
   value,
-}: {
+}: Readonly<{
   label: string;
   value: string;
-}) {
+}>) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2">
       <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
@@ -483,9 +491,9 @@ function WeightPill({
 
 function ScoreWeightingCard({
   contributions,
-}: {
+}: Readonly<{
   contributions: WeightedContributionDatum[];
-}) {
+}>) {
   return (
     <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-4">
@@ -556,9 +564,9 @@ function ScoreWeightingCard({
 
 function MetricDeltaChart({
   data,
-}: {
+}: Readonly<{
   data: MetricDeltaDatum[];
-}) {
+}>) {
   const maxAbsDelta = Math.max(
     0.05,
     ...data.map((item) => Math.abs(item.delta)),
@@ -631,9 +639,9 @@ function MetricDeltaChart({
 
 function RecipeScoreChart({
   data,
-}: {
+}: Readonly<{
   data: RecipeScoreDatum[];
-}) {
+}>) {
   return (
     <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-start justify-between gap-4">
@@ -703,9 +711,9 @@ function RecipeScoreChart({
 
 function RecipeDeltaChart({
   data,
-}: {
+}: Readonly<{
   data: RecipeDeltaDatum[];
-}) {
+}>) {
   const maxAbsDelta = Math.max(
     0.05,
     ...data.map((item) => Math.abs(item.delta)),
@@ -781,7 +789,7 @@ function RecipeDeltaChart({
   );
 }
 
-export function StatsView({ onSelectCanonicalizeEntry }: StatsViewProps) {
+export function StatsView({ onSelectCanonicalizeEntry }: Readonly<StatsViewProps>) {
   const [groundTruth, setGroundTruth] = useState<GroundTruthDataset | null>(null);
   const [extractionPredictions, setExtractionPredictions] = useState<ExtractionPredictionsDataset | null>(null);
 
@@ -1392,13 +1400,7 @@ export function StatsView({ onSelectCanonicalizeEntry }: StatsViewProps) {
               <InsightStat
                 label="Canonicalization uplift"
                 value={formatDeltaPoints(canonicalizationDelta)}
-                tone={
-                  (canonicalizationDelta ?? 0) > SIGNIFICANT_DELTA
-                    ? "positive"
-                    : (canonicalizationDelta ?? 0) < -SIGNIFICANT_DELTA
-                      ? "negative"
-                      : "neutral"
-                }
+                tone={deltaTone(canonicalizationDelta)}
               />
               <InsightStat
                 label="Improved"

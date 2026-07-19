@@ -137,6 +137,42 @@ resource "neon_project" "recipes" {
   }
 }
 
+# Disposable, synthetic-only databases for pull request previews. The default
+# branch remains empty; CI creates a short-lived child branch and applies the
+# complete migration history for each preview run.
+resource "neon_project" "recipes_preview" {
+  name       = "recipes-preview"
+  region_id  = var.neon_region
+  pg_version = var.neon_pg_version
+  org_id     = var.neon_org_id
+
+  history_retention_seconds = 0
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  branch {
+    name          = "preview-base"
+    database_name = "recipes"
+    role_name     = "recipes_owner"
+  }
+
+  quota {
+    compute_time_seconds = 360000     # 100 CU-hours (free plan limit)
+    data_transfer_bytes  = 5368709120 # 5 GB (free plan limit)
+    logical_size_bytes   = 536870912  # 512 MB per branch (free plan limit)
+  }
+}
+
+# CI can create and delete branches in the preview project, but cannot access
+# or mutate the production project through this credential.
+resource "neon_org_api_key" "recipes_preview_github_actions" {
+  name       = "personal-site-preview-github-actions"
+  org_id     = var.neon_org_id
+  project_id = neon_project.recipes_preview.id
+}
+
 # Hyperdrive — connection pooling from Workers to Neon.
 # Uses the direct host (not pooler) because Hyperdrive does its own pooling.
 

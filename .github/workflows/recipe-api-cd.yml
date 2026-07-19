@@ -13,9 +13,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: recipe-api-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment:
       name: production-recipe-api
     defaults:
@@ -26,7 +31,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+      - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
         with:
           experimental: true
 
@@ -44,14 +49,11 @@ jobs:
       - name: Install dependencies
         run: mise run //workers/recipe-api:install
 
-      - name: Push database schema
-        run: mise run //workers/recipe-api:db:push
+      - name: Migrate database
+        run: mise run //workers/recipe-api:db:migrate
         env:
-          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-
-      - name: Seed diet catalog
-        run: mise run //workers/recipe-api:db:seed:diet-catalog
-        env:
+          # This secret is the direct Neon URL; the Worker uses Hyperdrive for
+          # pooled application traffic after deployment.
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
 
       - name: Create Worker secrets file

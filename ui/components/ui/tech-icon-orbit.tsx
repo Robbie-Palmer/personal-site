@@ -29,7 +29,7 @@ export function TechOrbit({
   centerImage,
   centerText,
   centerContent,
-}: TechOrbitProps) {
+}: Readonly<TechOrbitProps>) {
   const [activeTech, setActiveTech] = useState<TechOrbitItem | null>(null);
   const [containerWidth, setContainerWidth] = useState(600);
   const [isVisible, setIsVisible] = useState(false);
@@ -170,6 +170,34 @@ export function TechOrbit({
     </div>
   );
 
+  const centerDisplay = (() => {
+    if (!isMobile && activeTech) return selectedTechContent;
+    if (centerContent) {
+      return <div className="z-10 relative">{centerContent}</div>;
+    }
+    if (centerImage) {
+      return (
+        <div className="z-10 relative size-20 rounded-full border border-border bg-background p-1 shadow-lg">
+          <Image
+            src={centerImage}
+            alt="Center"
+            fill
+            className="rounded-full object-cover"
+          />
+        </div>
+      );
+    }
+    return (
+      <span
+        key="default-center"
+        className="pointer-events-none text-center font-semibold text-foreground whitespace-pre-wrap animate-in fade-in zoom-in duration-300"
+        style={{ fontSize: `${Math.max(16, Math.round(24 * scale))}px` }}
+      >
+        {centerText || "Tech\nStack"}
+      </span>
+    );
+  })();
+
   return (
     <div className={cn("flex flex-col items-center", className)}>
       {/* biome-ignore lint/a11y/noStaticElementInteractions: Background click handler for clearing selection */}
@@ -189,28 +217,7 @@ export function TechOrbit({
         className="relative flex w-full flex-col items-center justify-center overflow-hidden rounded-lg"
       >
         {/* Show selected tech in center on desktop only */}
-        {!isMobile && activeTech ? (
-          selectedTechContent
-        ) : centerContent ? (
-          <div className="z-10 relative">{centerContent}</div>
-        ) : centerImage ? (
-          <div className="z-10 relative size-20 rounded-full border border-border bg-background p-1 shadow-lg">
-            <Image
-              src={centerImage}
-              alt="Center"
-              fill
-              className="rounded-full object-cover"
-            />
-          </div>
-        ) : (
-          <span
-            key="default-center"
-            className="pointer-events-none text-center font-semibold text-foreground whitespace-pre-wrap animate-in fade-in zoom-in duration-300"
-            style={{ fontSize: `${Math.max(16, Math.round(24 * scale))}px` }}
-          >
-            {centerText || "Tech\nStack"}
-          </span>
-        )}
+        {centerDisplay}
 
         {/* Dynamic rings */}
         {rings.map((ring, ringIndex) =>

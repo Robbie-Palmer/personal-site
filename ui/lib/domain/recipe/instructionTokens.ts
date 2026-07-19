@@ -1,4 +1,7 @@
-import type { RecipeInstructionSdk } from "@/lib/domain/recipe/recipe";
+import type {
+  RecipeInstructionItem,
+  RecipeInstructionSdk,
+} from "@/lib/domain/recipe/recipe";
 
 export type InstructionDisplayToken =
   | {
@@ -35,6 +38,143 @@ function fromIndex(values: string[], index: number): string | null {
   return typeof value === "string" ? value : null;
 }
 
+type DisplayTokenResult =
+  | { ok: true; token: InstructionDisplayToken }
+  | { ok: false; reason: string };
+
+function indexedDisplayToken(
+  values: string[],
+  index: number,
+  type: "cookware" | "inlineQuantity",
+  malformedLabel: string,
+): DisplayTokenResult {
+  const value = fromIndex(values, index);
+  if (value === null) {
+    return {
+      ok: false,
+      reason: `Malformed ${malformedLabel} item index: ${index}`,
+    };
+  }
+  return { ok: true, token: { type, value } };
+}
+
+function ingredientToken(
+  instructionSdk: RecipeInstructionSdk,
+  index: number,
+): DisplayTokenResult {
+  const canonicalName = fromIndex(instructionSdk.ingredientNames, index);
+  if (canonicalName === null) {
+    return { ok: false, reason: `Malformed ingredient item index: ${index}` };
+  }
+
+  const value = fromIndex(instructionSdk.ingredientDisplayValues, index);
+  if (value === null) {
+    return {
+      ok: false,
+      reason: `Malformed ingredient display item index: ${index}`,
+    };
+  }
+  return {
+    ok: true,
+    token: {
+      type: "ingredient",
+      value,
+      canonicalName,
+      amount: instructionSdk.ingredientAmounts[index] ?? null,
+      unit: instructionSdk.ingredientUnits[index] ?? null,
+    },
+  };
+}
+
+function timerToken(
+  instructionSdk: RecipeInstructionSdk,
+  index: number,
+): DisplayTokenResult {
+  const value = fromIndex(instructionSdk.timerDisplayValues, index);
+  if (value === null) {
+    return { ok: false, reason: `Malformed timer item index: ${index}` };
+  }
+  return {
+    ok: true,
+    token: {
+      type: "timer",
+      value,
+      durationSeconds: instructionSdk.timerDurationSeconds[index] ?? null,
+    },
+  };
+}
+
+function displayTokenForItem(
+  item: RecipeInstructionItem,
+  instructionSdk: RecipeInstructionSdk,
+): DisplayTokenResult {
+  switch (item.type) {
+    case "text":
+      return { ok: true, token: { type: "text", value: item.value } };
+    case "ingredient":
+      return ingredientToken(instructionSdk, item.index);
+    case "cookware":
+      return indexedDisplayToken(
+        instructionSdk.cookwareDisplayValues,
+        item.index,
+        "cookware",
+        "cookware",
+      );
+    case "inlineQuantity":
+      return indexedDisplayToken(
+        instructionSdk.inlineQuantityDisplayValues,
+        item.index,
+        "inlineQuantity",
+        "inline quantity",
+      );
+    case "timer":
+      return timerToken(instructionSdk, item.index);
+    default:
+      return {
+        ok: false,
+        reason: `Unknown step item type: ${String((item as { type?: unknown }).type)}`,
+      };
+  }
+}
+
+function trimBoundaryText(tokens: InstructionDisplayToken[]): void {
+  while (tokens[0]?.type === "text" && tokens[0].value.trimStart() === "") {
+    tokens.shift();
+  }
+  const first = tokens[0];
+  if (first?.type === "text") {
+    tokens[0] = { type: "text", value: first.value.trimStart() };
+  }
+
+  while (
+    tokens.at(-1)?.type === "text" &&
+    tokens.at(-1)?.value.trimEnd() === ""
+  ) {
+    tokens.pop();
+  }
+  const lastIndex = tokens.length - 1;
+  const last = tokens[lastIndex];
+  if (last?.type === "text") {
+    tokens[lastIndex] = { type: "text", value: last.value.trimEnd() };
+  }
+}
+
+function tokenizeStep(
+  items: RecipeInstructionItem[],
+  instructionSdk: RecipeInstructionSdk,
+):
+  | { ok: true; tokens: InstructionDisplayToken[] }
+  | { ok: false; reason: string } {
+  const tokens: InstructionDisplayToken[] = [];
+  for (const item of items) {
+    const result = displayTokenForItem(item, instructionSdk);
+    if (!result.ok) return result;
+    tokens.push(result.token);
+  }
+  trimBoundaryText(tokens);
+  return { ok: true, tokens };
+}
+
 export function tokenizeInstructionSdk(
   instructionSdk: RecipeInstructionSdk,
 ): InstructionTokenizationResult {
@@ -53,127 +193,9 @@ export function tokenizeInstructionSdk(
         };
       }
 
-      const tokens: InstructionDisplayToken[] = [];
-
-      for (const item of content.value.items) {
-        if (item.type === "text") {
-          tokens.push({ type: "text", value: item.value });
-          continue;
-        }
-
-        if (item.type === "ingredient") {
-          const canonicalName = fromIndex(
-            instructionSdk.ingredientNames,
-            item.index,
-          );
-          const displayValue = fromIndex(
-            instructionSdk.ingredientDisplayValues,
-            item.index,
-          );
-          const amount = instructionSdk.ingredientAmounts[item.index] ?? null;
-          const unit = instructionSdk.ingredientUnits[item.index] ?? null;
-          if (canonicalName === null) {
-            return {
-              ok: false,
-              reason: `Malformed ingredient item index: ${item.index}`,
-            };
-          }
-          if (displayValue === null) {
-            return {
-              ok: false,
-              reason: `Malformed ingredient display item index: ${item.index}`,
-            };
-          }
-          tokens.push({
-            type: "ingredient",
-            value: displayValue,
-            canonicalName,
-            amount,
-            unit,
-          });
-          continue;
-        }
-
-        if (item.type === "cookware") {
-          const cookware = fromIndex(
-            instructionSdk.cookwareDisplayValues,
-            item.index,
-          );
-          if (cookware === null) {
-            return {
-              ok: false,
-              reason: `Malformed cookware item index: ${item.index}`,
-            };
-          }
-          tokens.push({ type: "cookware", value: cookware });
-          continue;
-        }
-
-        if (item.type === "inlineQuantity") {
-          const inlineQuantity = fromIndex(
-            instructionSdk.inlineQuantityDisplayValues,
-            item.index,
-          );
-          if (inlineQuantity === null) {
-            return {
-              ok: false,
-              reason: `Malformed inline quantity item index: ${item.index}`,
-            };
-          }
-          tokens.push({ type: "inlineQuantity", value: inlineQuantity });
-          continue;
-        }
-
-        if (item.type === "timer") {
-          const timer = fromIndex(
-            instructionSdk.timerDisplayValues,
-            item.index,
-          );
-          if (timer === null) {
-            return {
-              ok: false,
-              reason: `Malformed timer item index: ${item.index}`,
-            };
-          }
-          const durationSeconds =
-            instructionSdk.timerDurationSeconds[item.index] ?? null;
-          tokens.push({ type: "timer", value: timer, durationSeconds });
-          continue;
-        }
-
-        return {
-          ok: false,
-          reason: `Unknown step item type: ${String((item as { type?: unknown }).type)}`,
-        };
-      }
-
-      // Trim leading/trailing whitespace from boundary text tokens
-      // to match the canonical stepToText output
-      let first = tokens[0];
-      while (first?.type === "text" && first.value.trimStart() === "") {
-        tokens.shift();
-        first = tokens[0];
-      }
-      if (first?.type === "text") {
-        tokens[0] = { type: "text", value: first.value.trimStart() };
-      }
-      let last = tokens[tokens.length - 1];
-      while (last?.type === "text" && last.value.trimEnd() === "") {
-        tokens.pop();
-        last = tokens[tokens.length - 1];
-      }
-      if (last?.type === "text") {
-        tokens[tokens.length - 1] = {
-          type: "text",
-          value: last.value.trimEnd(),
-        };
-      }
-
-      if (tokens.length === 0) {
-        continue;
-      }
-
-      steps.push(tokens);
+      const result = tokenizeStep(content.value.items, instructionSdk);
+      if (!result.ok) return result;
+      if (result.tokens.length > 0) steps.push(result.tokens);
     }
   }
 

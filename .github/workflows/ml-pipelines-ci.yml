@@ -45,7 +45,7 @@ jobs:
       - name: Validate DVC remote
         run: dvc pull
 
-      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+      - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
         if: matrix.pipeline == 'recipe-parsing'
         with:
           experimental: true
@@ -76,7 +76,6 @@ jobs:
         run: mise :test
 
       - name: Comment metrics on PR
-        if: matrix.pipeline == 'recipe-parsing'
         run: |
           # Fetch main to ensure we have a reference for diff
           git fetch origin main:refs/remotes/origin/main || echo "Failed to fetch origin/main"
@@ -100,11 +99,25 @@ jobs:
              BODY="## ${{ matrix.pipeline }} metrics"$'\n\n'"$SHOW"
           fi
           
-          # Write body to a temporary file to handle special characters robustly
+          MARKER="<!-- dvc-metrics:${{ matrix.pipeline }} -->"
+          BODY="$MARKER"$'\n'"$BODY"
+
+          # Update only this pipeline's comment so matrix jobs cannot overwrite
+          # one another.
           BODY_FILE=$(mktemp)
           echo "$BODY" > "$BODY_FILE"
-          
-          gh pr comment "${{ github.event.pull_request.number }}" --body-file "$BODY_FILE" --edit-last \
-            || gh pr comment "${{ github.event.pull_request.number }}" --body-file "$BODY_FILE"
-          
+
+          COMMENT_ID=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/issues/${{ github.event.pull_request.number }}/comments" \
+            --paginate \
+            --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" \
+            | tail -n 1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method PATCH \
+              "repos/${GITHUB_REPOSITORY}/issues/comments/$COMMENT_ID" \
+              -F "body=@$BODY_FILE" > /dev/null
+          else
+            gh pr comment "${{ github.event.pull_request.number }}" --body-file "$BODY_FILE"
+          fi
+
           rm -f "$BODY_FILE"

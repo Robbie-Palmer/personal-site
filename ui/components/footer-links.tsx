@@ -14,7 +14,7 @@ export function FooterLinks({
   linkedInUrl,
   sourceUrl,
   githubUrl,
-}: FooterLinksProps) {
+}: Readonly<FooterLinksProps>) {
   return (
     <>
       <div className="flex items-center gap-6">

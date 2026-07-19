@@ -12,7 +12,7 @@ export function CooklangEditor({
   value,
   diagnostics = [],
   onChange,
-}: CooklangEditorProps) {
+}: Readonly<CooklangEditorProps>) {
   function updateFrontmatter<K extends keyof CooklangRecipe["frontmatter"]>(
     key: K,
     next: CooklangRecipe["frontmatter"][K],

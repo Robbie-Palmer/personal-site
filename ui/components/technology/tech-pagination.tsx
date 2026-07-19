@@ -18,7 +18,7 @@ export function TechPagination({
   variant = "full",
   compact = false,
   className,
-}: TechPaginationProps) {
+}: Readonly<TechPaginationProps>) {
   if (!prevTech && !nextTech) return null;
   return (
     <div

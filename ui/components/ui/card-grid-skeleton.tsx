@@ -2,14 +2,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function CardGridSkeleton({
   variant = "search",
-}: {
+}: Readonly<{
   /**
    * "search" mirrors a search-input + sort header (blog, projects, …).
    * "filters" mirrors a row of filter dropdowns + sort, for surfaces whose
    * search lives elsewhere (the recipe list hosts search in the nav).
    */
   variant?: "search" | "filters";
-}) {
+}>) {
   const skeletonIds: string[] = Array.from(
     { length: 6 },
     (_, i) => `skeleton-${i}`,

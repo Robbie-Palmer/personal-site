@@ -23,7 +23,7 @@ interface ProjectListProps {
   projects: Project[];
 }
 
-export function ProjectList({ projects }: ProjectListProps) {
+export function ProjectList({ projects }: Readonly<ProjectListProps>) {
   const allTechnologies = useMemo(() => {
     const techMap = new Map<
       string,

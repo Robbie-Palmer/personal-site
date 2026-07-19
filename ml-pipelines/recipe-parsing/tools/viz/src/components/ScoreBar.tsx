@@ -4,7 +4,7 @@ interface ScoreBarProps {
   scores: { label: string; value: number }[];
 }
 
-export function ScoreBar({ scores }: ScoreBarProps) {
+export function ScoreBar({ scores }: Readonly<ScoreBarProps>) {
   return (
     <div className="flex gap-1 h-2 rounded overflow-hidden bg-gray-200">
       {scores.map((s) => (

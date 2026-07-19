@@ -26,7 +26,7 @@ export function OrbitingCircles({
   iconSize = 30,
   style,
   paused = false,
-}: OrbitingCirclesProps) {
+}: Readonly<OrbitingCirclesProps>) {
   return (
     <>
       {path && (

@@ -15,7 +15,7 @@ export function StageEntryCard({
   score,
   annotated,
   onClick,
-}: StageEntryCardProps) {
+}: Readonly<StageEntryCardProps>) {
   return (
     <button
       type="button"

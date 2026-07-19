@@ -24,7 +24,7 @@ export function ADRNavContent({
   project,
   className,
   onLinkClick,
-}: ADRNavContentProps) {
+}: Readonly<ADRNavContentProps>) {
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState("");
 

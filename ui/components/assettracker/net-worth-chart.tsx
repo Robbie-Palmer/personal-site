@@ -55,7 +55,7 @@ function windowToRange(
   data: NetWorthDataPoint[],
   years: number | null,
 ): NetWorthDataPoint[] {
-  const last = data[data.length - 1];
+  const last = data.at(-1);
   if (!last) return data;
   const today = todayIsoDate();
   const extended =
@@ -79,7 +79,7 @@ interface NetWorthChartProps {
   data: NetWorthDataPoint[];
 }
 
-export function NetWorthChart({ data }: NetWorthChartProps) {
+export function NetWorthChart({ data }: Readonly<NetWorthChartProps>) {
   const [rangeYears, setRangeYears] = useState<number | null>(null);
   const rangedData = useMemo(
     () => windowToRange(data, rangeYears),
@@ -296,7 +296,7 @@ function LegendPill({
   isHidden,
   onSolo,
   onToggle,
-}: LegendPillProps) {
+}: Readonly<LegendPillProps>) {
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
 
