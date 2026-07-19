@@ -17,7 +17,6 @@ concurrency:
 jobs:
   backup:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     environment:
       name: production-database-backup
     steps:
@@ -32,6 +31,7 @@ jobs:
           experimental: true
 
       - name: Create and upload encrypted backup
+        timeout-minutes: 30
         run: mise run //backups:backup
         env:
           AGE_RECIPIENT: ${{ vars.AGE_RECIPIENT }}
