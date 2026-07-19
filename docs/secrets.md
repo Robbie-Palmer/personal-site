@@ -187,7 +187,8 @@ The GitHub environments are runtime/job boundaries, not provider names:
 Run `scripts/sync-doppler-github-envs.sh` after any Doppler change that should
 reach GitHub Actions. The script reads Doppler visibility metadata: unmasked
 values become GitHub environment variables, while masked/restricted values
-become GitHub environment secrets.
+become GitHub environment secrets. Pass one or more GitHub environment names to
+sync only those environments; omit them to sync every mapped environment.
 
 ## Preview Values
 
@@ -316,7 +317,7 @@ doppler secrets --project personal-site --config dev_recipe_api --only-names
 doppler secrets --project personal-site --config dev_infra --only-names
 doppler secrets --project personal-site --config dev_bootstrap_infra --only-names
 doppler secrets --project personal-site --config prd_database_backup --only-names
-scripts/sync-doppler-github-envs.sh
+scripts/sync-doppler-github-envs.sh production-database-backup
 
 mise run //:dev
 mise run //infra:format:check

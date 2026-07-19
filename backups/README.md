@@ -138,7 +138,7 @@ Create the `production-database-backup` GitHub environment without required
 reviewers, because approval gates would block scheduled runs. Then sync it:
 
 ```bash
-scripts/sync-doppler-github-envs.sh
+scripts/sync-doppler-github-envs.sh production-database-backup
 ```
 
 Apply the Terraform bucket before manually dispatching the first workflow.
