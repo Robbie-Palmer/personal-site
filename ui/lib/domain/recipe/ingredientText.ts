@@ -95,10 +95,11 @@ export function formatIngredientStaticText(
     parts.push(formatStaticAmount(item.amount));
   }
 
-  if (item.unit) {
+  // "piece" is a counting placeholder, not a label the UI ever renders.
+  if (item.unit && item.unit !== "piece") {
     const label = UNIT_LABELS[item.unit];
-    const isPlural = item.amount != null && item.amount > 1;
-    const unitStr = isPlural ? label.plural : label.singular;
+    const isPluralUnit = item.amount != null && item.amount > 1;
+    const unitStr = isPluralUnit ? label.plural : label.singular;
     if (label.noSpace && parts.length > 0) {
       parts[parts.length - 1] += unitStr;
     } else {
@@ -106,10 +107,16 @@ export function formatIngredientStaticText(
     }
   }
 
-  const name =
-    item.amount != null && item.amount !== 1 && item.pluralName
-      ? item.pluralName
-      : item.name;
+  // Mirror the UI formatter: names auto-pluralise only for bare "piece"
+  // counts; measured units rely on an explicit pluralName override.
+  const isPlural = item.amount != null && item.amount !== 1;
+  let name = item.name;
+  if (isPlural) {
+    name =
+      item.unit == null || item.unit === "piece"
+        ? pluralizeIngredientName(item)
+        : (item.pluralName ?? item.name);
+  }
   parts.push(name);
 
   if (item.preparation) {

@@ -177,6 +177,28 @@ describe("ingredientText", () => {
       ).toBe("2 tins tins of tomatoes");
     });
 
+    it("auto-pluralises bare piece counts like the UI formatter", () => {
+      expect(
+        formatIngredientStaticText({
+          ingredient: "white-onion",
+          name: "white onion",
+          amount: 2,
+          unit: "piece",
+        }),
+      ).toBe("2 white onions");
+    });
+
+    it("does not pluralise measured ingredient names without an override", () => {
+      expect(
+        formatIngredientStaticText({
+          ingredient: "plain-flour",
+          name: "plain flour",
+          amount: 2,
+          unit: "tbsp",
+        }),
+      ).toBe("2 tbsp plain flour");
+    });
+
     it("appends preparation in parentheses", () => {
       expect(
         formatIngredientStaticText({
