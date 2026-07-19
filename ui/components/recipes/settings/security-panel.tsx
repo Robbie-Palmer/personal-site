@@ -135,7 +135,10 @@ export function SecurityPanel({
   useEffect(() => {
     const params = new URLSearchParams(globalThis.location.search);
     if (!params.has("error")) return;
-    setError("Couldn't link that account. It may already be linked elsewhere.");
+    setError(
+      params.get("error_description")?.trim() ||
+        "Couldn't link that account. It may already be linked elsewhere.",
+    );
     params.delete("error");
     params.delete("error_description");
     const query = params.toString();

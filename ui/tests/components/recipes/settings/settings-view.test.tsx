@@ -373,15 +373,28 @@ describe("SettingsView", () => {
     window.history.replaceState(
       {},
       "",
-      "/recipes/settings?error=account_already_linked",
+      "/recipes/settings?error=account_already_linked&error_description=Email+already+linked+to+an+account",
     );
     renderSettingsView();
 
     // Lands on Sign-in & security without a manual tab switch.
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      /couldn't link that account/i,
+      "Email already linked to an account",
     );
     expect(await screen.findByText("Google")).toBeInTheDocument();
     expect(window.location.search).toBe("");
+  });
+
+  it("falls back to a useful link error when the URL has no description", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/recipes/settings?error=account_already_linked",
+    );
+    renderSettingsView();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /couldn't link that account/i,
+    );
   });
 });
