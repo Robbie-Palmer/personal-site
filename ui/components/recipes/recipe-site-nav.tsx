@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { RecipeNavTabs } from "@/components/recipes/recipe-nav-tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { authClient } from "@/lib/auth-client";
 
 const publicTabs = [
@@ -13,7 +14,21 @@ const publicTabs = [
 
 export function RecipeSiteNav() {
   const pathname = usePathname();
-  const { data: session } = authClient.useSession();
+  const { data: session, isPending } = authClient.useSession();
+
+  if (isPending) {
+    return (
+      <div
+        role="status"
+        aria-label="Loading recipe navigation"
+        className="flex items-center gap-3 sm:gap-4"
+      >
+        <Skeleton className="h-6 w-20" />
+        <Skeleton className="h-6 w-16" />
+        <Skeleton className="h-6 w-24" />
+      </div>
+    );
+  }
 
   if (session) return <RecipeNavTabs />;
 

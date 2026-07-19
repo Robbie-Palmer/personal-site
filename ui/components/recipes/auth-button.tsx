@@ -20,6 +20,7 @@ import {
 } from "@/components/recipes/auth-providers";
 import { RecipeAvatar } from "@/components/recipes/recipe-avatar";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/generic/styles";
 import { isPreviewDeployment } from "@/lib/preview-environment";
@@ -204,19 +205,12 @@ export function AuthButton({
   }
 
   if (isPending) {
-    if (intent === "signin") {
-      return (
-        <Button
-          variant="outline"
-          size="sm"
-          disabled
-          aria-label="Loading session"
-        >
-          <LoaderCircle className="animate-spin" />
-          <span className="hidden sm:inline">Log in</span>
-        </Button>
-      );
-    }
+    return (
+      <Skeleton
+        aria-hidden="true"
+        className={intent === "signup" ? "h-9 w-20" : "h-9 w-16"}
+      />
+    );
   }
 
   if (session && intent === "signup") return null;

@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useDiet } from "@/components/recipes/diet-provider";
 import { RecipeList } from "@/components/recipes/recipe-list";
+import { CardGridSkeleton } from "@/components/ui/card-grid-skeleton";
 import {
   getRecipeBoxProfile,
   type RecipeBoxProfile,
@@ -15,6 +17,14 @@ import {
   savedRecipeCard,
 } from "@/lib/domain/recipe/recipeDraft";
 
+type RecipeCollectionState = {
+  userId: string | null;
+  status: "idle" | "loading" | "ready";
+  saved: SavedRecipeApiRecord[];
+  box: RecipeBoxProfile | null;
+  loadError: string | null;
+};
+
 export function RecipeCollection({
   recipes,
   onDietVisibleCountChange,
@@ -23,31 +33,42 @@ export function RecipeCollection({
   onDietVisibleCountChange?: (count: number) => void;
 }>) {
   const { data: session, isPending } = authClient.useSession();
-  const [saved, setSaved] = useState<SavedRecipeApiRecord[]>([]);
-  const [box, setBox] = useState<RecipeBoxProfile | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const { loading: dietLoading } = useDiet();
+  const sessionUserId = session?.user.id;
+  const [state, setState] = useState<RecipeCollectionState>({
+    userId: null,
+    status: "idle",
+    saved: [],
+    box: null,
+    loadError: null,
+  });
 
   useEffect(() => {
     if (isPending) return;
-    if (!session) {
-      setSaved([]);
-      setBox(null);
-      setLoadError(null);
+    if (!sessionUserId) {
+      setState({
+        userId: null,
+        status: "idle",
+        saved: [],
+        box: null,
+        loadError: null,
+      });
       return;
     }
     const controller = new AbortController();
-    setLoadError(null);
+    const userId = sessionUserId;
+    setState({
+      userId,
+      status: "loading",
+      saved: [],
+      box: null,
+      loadError: null,
+    });
     void Promise.allSettled([
       fetchAllSavedRecipes({ signal: controller.signal }),
       getRecipeBoxProfile(controller.signal),
     ]).then(([savedResult, boxResult]) => {
-      if (savedResult.status === "fulfilled") {
-        setSaved(savedResult.value);
-      }
-      if (boxResult.status === "fulfilled") {
-        setBox(boxResult.value);
-      }
-
+      if (controller.signal.aborted) return;
       const errors = [savedResult, boxResult].flatMap((result) =>
         result.status === "rejected" ? [result.reason] : [],
       );
@@ -57,13 +78,29 @@ export function RecipeCollection({
       );
       if (nonAbortErrors.length > 0) {
         console.error("Failed to load some recipe box data", nonAbortErrors);
-        setLoadError(
-          "Some recipe box data could not be loaded. Available recipes are still shown.",
-        );
       }
+      setState({
+        userId,
+        status: "ready",
+        saved: savedResult.status === "fulfilled" ? savedResult.value : [],
+        box: boxResult.status === "fulfilled" ? boxResult.value : null,
+        loadError:
+          nonAbortErrors.length > 0
+            ? "Some recipe box data could not be loaded. Available recipes are still shown."
+            : null,
+      });
     });
     return () => controller.abort();
-  }, [isPending, session]);
+  }, [isPending, sessionUserId]);
+
+  const stateMatchesSession = state.userId === sessionUserId;
+  const personalizationLoading = Boolean(
+    sessionUserId &&
+      (!stateMatchesSession || state.status !== "ready" || dietLoading),
+  );
+  const saved = stateMatchesSession ? state.saved : [];
+  const box = stateMatchesSession ? state.box : null;
+  const loadError = stateMatchesSession ? state.loadError : null;
 
   const combined = useMemo(() => {
     const dynamic = saved.flatMap((record) => {
@@ -83,6 +120,15 @@ export function RecipeCollection({
       ),
     ];
   }, [box, recipes, saved]);
+
+  if (isPending || personalizationLoading) {
+    return (
+      <div role="status" aria-label="Loading personalized recipes">
+        <CardGridSkeleton variant="filters" />
+        <span className="sr-only">Loading personalized recipes…</span>
+      </div>
+    );
+  }
 
   return (
     <>
