@@ -49,6 +49,7 @@ const PHOTO_IMPORT_POLL_INTERVAL_MS = 1_500;
 const MAX_PHOTO_POLL_FAILURES = 3;
 const MAX_PHOTO_COUNT = 6;
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+const MAX_TOTAL_PHOTO_BYTES = 30 * 1024 * 1024;
 const ACCEPTED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -223,7 +224,11 @@ export function PhotoRecipeImport({
           signal: controller.signal,
         });
         const body: unknown = await response.json().catch(() => null);
-        if (!response.ok || !isPhotoImportJob(body)) {
+        if (
+          !response.ok ||
+          !isPhotoImportJob(body) ||
+          body.id !== currentJobId
+        ) {
           throw new Error(
             apiErrorMessage(body, "We couldn't check the photo import status."),
           );
@@ -304,6 +309,14 @@ export function PhotoRecipeImport({
     }
     if (files.length + incoming.length > MAX_PHOTO_COUNT) {
       setError(`You can import up to ${MAX_PHOTO_COUNT} photos at once.`);
+      return;
+    }
+    const totalBytes = [...files, ...incoming].reduce(
+      (total, file) => total + file.size,
+      0,
+    );
+    if (totalBytes > MAX_TOTAL_PHOTO_BYTES) {
+      setError("Selected photos must total 30 MB or less.");
       return;
     }
     setFiles((current) => [...current, ...incoming]);

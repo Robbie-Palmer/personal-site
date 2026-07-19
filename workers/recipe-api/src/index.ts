@@ -205,6 +205,7 @@ const NOTIFICATION_PAGE_SIZE = 100;
 
 const HOUSEHOLD_INVITE_RATE_LIMIT = { max: 10, windowSeconds: 60 * 60 };
 const RECIPE_URL_IMPORT_RATE_LIMIT = { max: 20, windowSeconds: 60 * 60 };
+const RECIPE_PHOTO_IMPORT_RATE_LIMIT = { max: 20, windowSeconds: 60 * 60 };
 
 const createRecipeBodySchema = z.object({
   slug: recipeSlugSchema,
@@ -2940,6 +2941,7 @@ const RECIPE_IMPORT_MAX_IMAGES = 6;
 const RECIPE_IMPORT_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const RECIPE_IMPORT_MAX_ACTIVE_JOBS = 2;
 const RECIPE_IMPORT_DAILY_JOB_LIMIT = 10;
+const RECIPE_IMPORT_MAX_TOTAL_BYTES = 30 * 1024 * 1024;
 const RECIPE_IMPORT_IMAGE_EXTENSIONS: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -2990,6 +2992,7 @@ async function parseImportImages(
   }
 
   const images: { file: File; extension: string }[] = [];
+  let totalBytes = 0;
   for (const entry of entries) {
     if (!(entry instanceof File)) {
       return {
@@ -3018,6 +3021,16 @@ async function parseImportImages(
         success: false,
         response: c.json(
           { error: "Each image must be 10MB or smaller" },
+          413,
+        ),
+      };
+    }
+    totalBytes += entry.size;
+    if (totalBytes > RECIPE_IMPORT_MAX_TOTAL_BYTES) {
+      return {
+        success: false,
+        response: c.json(
+          { error: "Images must total 30MB or less" },
           413,
         ),
       };
@@ -3052,6 +3065,15 @@ app.post("/recipe-imports", async (c) => {
     "POST /recipe-imports mutation failed",
     async ({ db, session }) => {
       const userId = session.user.id;
+
+      const importLimit = await enforceRateLimit(
+        db,
+        `recipe-photo-import:${userId}`,
+        RECIPE_PHOTO_IMPORT_RATE_LIMIT,
+      );
+      if (!importLimit.allowed) {
+        return rateLimitedResponse(c, importLimit.retryAfter);
+      }
 
       const form = await c.req.formData().catch(() => undefined);
       if (!form) {

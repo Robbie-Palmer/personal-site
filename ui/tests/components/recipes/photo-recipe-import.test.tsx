@@ -128,6 +128,52 @@ describe("PhotoRecipeImport", () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
+  it("rejects a status response for a different job", async () => {
+    const onDraftReady = vi.fn();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ id: "job-1", status: "queued" }))
+      .mockResolvedValueOnce(
+        jsonResponse({ id: "job-2", status: "succeeded", draft }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<PhotoRecipeImport active onDraftReady={onDraftReady} />);
+    fireEvent.change(screen.getByLabelText("Choose recipe photos"), {
+      target: {
+        files: [new File(["photo"], "recipe.jpg", { type: "image/jpeg" })],
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import from photos" }));
+
+    expect(
+      await screen.findByText(
+        "We couldn't check the photo import status. Retrying…",
+      ),
+    ).toBeInTheDocument();
+    expect(onDraftReady).not.toHaveBeenCalled();
+  });
+
+  it("rejects photo selections over the combined size limit", () => {
+    render(<PhotoRecipeImport active onDraftReady={vi.fn()} />);
+    const files = ["first", "second", "third", "fourth"].map((name) => {
+      const file = new File(["photo"], `${name}.jpg`, { type: "image/jpeg" });
+      Object.defineProperty(file, "size", { value: 8 * 1024 * 1024 });
+      return file;
+    });
+
+    fireEvent.change(screen.getByLabelText("Choose recipe photos"), {
+      target: { files },
+    });
+
+    expect(
+      screen.getByText("Selected photos must total 30 MB or less."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Import from photos" }),
+    ).toBeDisabled();
+  });
+
   it("keeps the hidden file inputs out of sequential keyboard navigation", () => {
     render(<PhotoRecipeImport active onDraftReady={vi.fn()} />);
 
