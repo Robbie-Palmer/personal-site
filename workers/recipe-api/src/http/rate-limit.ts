@@ -22,6 +22,14 @@ export async function enforceRateLimit(
 ): Promise<RateLimitResult> {
   const now = new Date();
   const windowExpiry = new Date(now.getTime() - rule.windowSeconds * 1000);
+  // Values interpolated into raw SQL do not inherit the column encoder. Bind
+  // these Dates through the timestamp column so postgres.js receives strings
+  // rather than raw Date objects.
+  const encodedNow = sql.param(now, appRateLimit.windowStart);
+  const encodedWindowExpiry = sql.param(
+    windowExpiry,
+    appRateLimit.windowStart,
+  );
 
   try {
     const [row] = await db
@@ -30,8 +38,8 @@ export async function enforceRateLimit(
       .onConflictDoUpdate({
         target: appRateLimit.key,
         set: {
-          count: sql`case when ${appRateLimit.windowStart} <= ${windowExpiry} then 1 else ${appRateLimit.count} + 1 end`,
-          windowStart: sql`case when ${appRateLimit.windowStart} <= ${windowExpiry} then ${now} else ${appRateLimit.windowStart} end`,
+          count: sql`case when ${appRateLimit.windowStart} <= ${encodedWindowExpiry} then 1 else ${appRateLimit.count} + 1 end`,
+          windowStart: sql`case when ${appRateLimit.windowStart} <= ${encodedWindowExpiry} then ${encodedNow} else ${appRateLimit.windowStart} end`,
         },
       })
       .returning({

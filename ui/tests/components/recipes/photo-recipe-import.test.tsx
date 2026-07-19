@@ -33,7 +33,14 @@ describe("PhotoRecipeImport", () => {
     const onDraftReady = vi.fn();
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ id: "job-1", status: "queued" }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: "job-1",
+          status: "queued",
+          currentStage: null,
+          progressLabel: null,
+        }),
+      )
       .mockResolvedValueOnce(
         jsonResponse({ id: "job-1", status: "succeeded", draft }),
       );

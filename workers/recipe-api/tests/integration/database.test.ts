@@ -569,6 +569,12 @@ describe("recipe API PostgreSQL integration", () => {
       id: importJob.id,
       params: { jobId: importJob.id },
     });
+    expect(
+      await db
+        .select({ count: schema.appRateLimit.count })
+        .from(schema.appRateLimit)
+        .where(eq(schema.appRateLimit.key, `recipe-photo-import:${cook.id}`)),
+    ).toEqual([{ count: 1 }]);
 
     await db.insert(schema.recipeImportArtifact).values({
       jobId: importJob.id,

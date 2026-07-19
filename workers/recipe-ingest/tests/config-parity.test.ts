@@ -32,6 +32,10 @@ type WranglerConfig = {
   vars?: Record<string, string>;
   hyperdrive?: Array<{ id: string }>;
   r2_buckets?: Array<{ bucket_name: string }>;
+  observability?: {
+    enabled?: boolean;
+    logs?: { enabled?: boolean; destinations?: string[] };
+  };
 };
 
 type StageParamsYaml = Record<
@@ -113,6 +117,20 @@ describe("LLM stage parameters", () => {
 });
 
 describe("shared infrastructure bindings", () => {
+  it("production and preview workers retain and export logs", () => {
+    for (const config of [
+      apiWrangler,
+      ingestWrangler,
+      apiPreviewWrangler,
+      ingestPreviewWrangler,
+    ]) {
+      expect(config.observability).toMatchObject({
+        enabled: true,
+        logs: { enabled: true, destinations: ["posthog-logs"] },
+      });
+    }
+  });
+
   it("recipe-api and recipe-ingest bind the same production Hyperdrive", () => {
     expect(apiWrangler.hyperdrive).toHaveLength(1);
     expect(apiWrangler.hyperdrive?.[0]?.id).toBeTruthy();

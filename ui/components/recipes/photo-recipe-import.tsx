@@ -40,7 +40,7 @@ export type PhotoRecipeImportDraft = {
 type PhotoImportJob = {
   id: string;
   status: PhotoImportStatus;
-  progressLabel?: string;
+  progressLabel?: string | null;
   error?: { message?: string };
   draft?: PhotoRecipeImportDraft;
 };
@@ -58,6 +58,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function hasOptionalString(record: Record<string, unknown>, key: string) {
   return record[key] === undefined || typeof record[key] === "string";
+}
+
+function hasNullableOptionalString(
+  record: Record<string, unknown>,
+  key: string,
+) {
+  return record[key] === null || hasOptionalString(record, key);
 }
 
 function hasOptionalNumber(record: Record<string, unknown>, key: string) {
@@ -108,7 +115,7 @@ function isPhotoImportJob(value: unknown): value is PhotoImportJob {
   return (
     typeof value.id === "string" &&
     validStatus &&
-    hasOptionalString(value, "progressLabel") &&
+    hasNullableOptionalString(value, "progressLabel") &&
     validError &&
     (value.draft === undefined || isPhotoRecipeImportDraft(value.draft))
   );
