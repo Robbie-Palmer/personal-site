@@ -91,7 +91,36 @@ function readAmount(value: string, start: number): TokenSpan | undefined {
     end += 2;
     while (isAsciiDigit(value[end])) end++;
   }
+
+  const fractionStart = skipWhitespace(value, end);
+  if (fractionStart > end && isAsciiDigit(value[fractionStart])) {
+    let numeratorEnd = fractionStart + 1;
+    while (isAsciiDigit(value[numeratorEnd])) numeratorEnd++;
+    if (value[numeratorEnd] === "/" && isAsciiDigit(value[numeratorEnd + 1])) {
+      end = numeratorEnd + 2;
+      while (isAsciiDigit(value[end])) end++;
+    }
+  }
   return { value: value.slice(start, end), end };
+}
+
+function isRangeSeparator(character: string | undefined): boolean {
+  return character === "-" || character === "–" || character === "—";
+}
+
+function isRangeAmount(line: string, start: number, amount: TokenSpan): boolean {
+  let left = start;
+  while (left > 0 && /\s/u.test(line[left - 1]!)) left--;
+  if (isRangeSeparator(line[left - 1])) {
+    let previous = left - 1;
+    while (previous > 0 && /\s/u.test(line[previous - 1]!)) previous--;
+    if (isAsciiDigit(line[previous - 1])) return true;
+  }
+
+  let right = skipWhitespace(line, amount.end);
+  if (!isRangeSeparator(line[right])) return false;
+  right = skipWhitespace(line, right + 1);
+  return isAsciiDigit(line[right]);
 }
 
 function formatInferredIngredient(
@@ -124,7 +153,7 @@ function ingredientWithKnownUnit(
 
 function inferLeadingAmount(line: string): string | undefined {
   const amount = readAmount(line, 0);
-  if (!amount) return undefined;
+  if (!amount || isRangeAmount(line, 0, amount)) return undefined;
 
   const attachedUnitIngredient = ingredientWithKnownUnit(
     line,
@@ -172,7 +201,7 @@ function trailingQuantity(
 function inferTrailingAmount(line: string): string | undefined {
   for (let index = 1; index < line.length; index++) {
     const amount = readAmount(line, index);
-    if (!amount) continue;
+    if (!amount || isRangeAmount(line, index, amount)) continue;
     const name = nameBeforeAmount(line, index);
     if (!name) continue;
     const { unit, suffix } = trailingQuantity(line, amount);
