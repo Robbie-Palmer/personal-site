@@ -21,6 +21,45 @@ describe("buildScaledRecipeParts", () => {
     expect(parts.instructions).toEqual(["Add 200g of flour to the bowl."]);
   });
 
+  it("suppresses declared references but keeps inline-only ingredients", () => {
+    const parts = buildScaledRecipeParts(
+      parsedAt(
+        [
+          "== Main ==",
+          "Cook the @chicken breast{2}.",
+          "",
+          "@dried noodles{250%g}",
+          "",
+          "== Sauce ==",
+          "@soy sauce{2%tbsp}",
+          "",
+          "Cook the @dried noodles{}.",
+          "",
+          "Stir in the @soy sauce{2%tbsp}.",
+          "",
+          "Drizzle over @sesame oil{1%tbsp}.",
+        ].join("\n"),
+      ),
+    );
+
+    expect(parts.ingredientGroups).toEqual([
+      {
+        name: "Main",
+        items: [
+          { ingredient: "chicken-breast", amount: 2 },
+          { ingredient: "dried-noodles", amount: 250, unit: "g" },
+        ],
+      },
+      {
+        name: "Sauce",
+        items: [
+          { ingredient: "soy-sauce", amount: 2, unit: "tbsp" },
+          { ingredient: "sesame-oil", amount: 1, unit: "tbsp" },
+        ],
+      },
+    ]);
+  });
+
   it("propagates cooklang-rs scaling to ingredient groups and instructions", () => {
     const parts = buildScaledRecipeParts(
       parsedAt(`Add @flour{200%g} and @sugar{100%g} to the #bowl{}.\n`, 2),
@@ -150,6 +189,17 @@ describe("buildScaledRecipeParts", () => {
       { ingredient: "cajun-seasoning", amount: 6, unit: "tsp" },
     ]);
     expect(parts.instructions).toEqual(["Add 6 tsp of cajun seasoning."]);
+  });
+
+  it("canonicalizes alias ingredient names to catalog slugs", () => {
+    const parts = buildScaledRecipeParts(
+      parsedAt(`Add @cajun powder{2%tsp} and @scallions{3}.\n`),
+    );
+
+    expect(parts.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "cajun-seasoning", amount: 2, unit: "tsp" },
+      { ingredient: "spring-onion", amount: 3 },
+    ]);
   });
 
   it("trusts cooklang for fixed-quantity ingredients (= prefix is no-op for unit conversion)", () => {

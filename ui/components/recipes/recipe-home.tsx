@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { LoggedOutLanding } from "@/components/recipes/logged-out-landing";
 import { RecipeBoxView } from "@/components/recipes/recipe-box-view";
+import { RecipeHomeSkeleton } from "@/components/recipes/recipe-home-skeleton";
 import type { RecipeCardView } from "@/lib/api/recipes";
 import { authClient } from "@/lib/auth-client";
 
@@ -13,13 +14,18 @@ export function RecipeHome({
   recipes: RecipeCardView[];
   catalogStats: string[];
 }>) {
-  const { data: session } = authClient.useSession();
+  const { data: session, isPending } = authClient.useSession();
 
   useEffect(() => {
+    if (isPending) return;
     document.title = session
       ? "Your recipe box | Robbie's Recipes"
       : "Recipes for real life | Robbie's Recipes";
-  }, [session]);
+  }, [isPending, session]);
+
+  if (isPending) {
+    return <RecipeHomeSkeleton />;
+  }
 
   if (session) {
     return <RecipeBoxView recipes={recipes} catalogStats={catalogStats} />;

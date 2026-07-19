@@ -140,8 +140,20 @@ beforeAll(async () => {
     from information_schema.tables
     where table_schema = 'public'
   `;
-  expect(migrationCount?.count).toBe(2);
+  const catalogRows = await client<
+    { category: string | null; slug: string }[]
+  >`
+    select slug, category
+    from ingredient
+    where slug in ('almond-milk', 'cajun-powder', 'cajun-seasoning')
+    order by slug
+  `;
+  expect(migrationCount?.count).toBe(3);
   expect(tableCount?.count).toBe(29);
+  expect(catalogRows).toEqual([
+    { category: "dairy", slug: "almond-milk" },
+    { category: "spice", slug: "cajun-seasoning" },
+  ]);
 });
 
 beforeEach(async () => {
@@ -543,7 +555,15 @@ describe("recipe API PostgreSQL integration", () => {
     const form = new FormData();
     form.append(
       "images",
-      new File(["integration-image"], "recipe.png", { type: "image/png" }),
+      new File(
+        [
+          new Uint8Array([
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00,
+          ]),
+        ],
+        "recipe.png",
+        { type: "image/png" },
+      ),
     );
     const importResponse = await app.request(
       "/recipe-imports",
@@ -561,6 +581,12 @@ describe("recipe API PostgreSQL integration", () => {
       id: importJob.id,
       params: { jobId: importJob.id },
     });
+    expect(
+      await db
+        .select({ count: schema.appRateLimit.count })
+        .from(schema.appRateLimit)
+        .where(eq(schema.appRateLimit.key, `recipe-photo-import:${cook.id}`)),
+    ).toEqual([{ count: 1 }]);
 
     await db.insert(schema.recipeImportArtifact).values({
       jobId: importJob.id,

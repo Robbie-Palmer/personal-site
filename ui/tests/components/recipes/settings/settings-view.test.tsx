@@ -373,15 +373,30 @@ describe("SettingsView", () => {
     window.history.replaceState(
       {},
       "",
-      "/recipes/settings?error=account_already_linked",
+      "/recipes/settings?error=account_already_linked_to_different_user&error_description=Visit+https%3A%2F%2Fexample.com+for+help",
     );
     renderSettingsView();
 
     // Lands on Sign-in & security without a manual tab switch.
     expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Email already linked to an account",
+    );
+    expect(screen.queryByText(/example.com/i)).not.toBeInTheDocument();
+    expect(await screen.findByText("Google")).toBeInTheDocument();
+    expect(window.location.search).toBe("");
+  });
+
+  it("falls back to a useful link error when the URL has no description", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/recipes/settings?error=access_denied",
+    );
+    renderSettingsView();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       /couldn't link that account/i,
     );
-    expect(await screen.findByText("Google")).toBeInTheDocument();
     expect(window.location.search).toBe("");
   });
 });

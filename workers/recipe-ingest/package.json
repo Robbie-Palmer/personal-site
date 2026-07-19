@@ -19,7 +19,7 @@
     "zod": "^4.2.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4",
+    "@cloudflare/workers-types": "^5.0.0",
     "smol-toml": "^1.7.0",
     "@vitest/coverage-v8": "^4.1.10",
     "typescript": "^5",

@@ -1,0 +1,67 @@
+name: Neon Database Backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly while Neon is on the Free plan to stay within its 5 GB egress cap.
+    - cron: "17 3 * * 0"
+
+concurrency:
+  group: neon-database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    environment:
+      name: production-database-backup
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup mise
+        uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+        with:
+          experimental: true
+
+      - name: Create and upload encrypted backup
+        timeout-minutes: 30
+        run: mise run //backups:backup
+        env:
+          AGE_RECIPIENT: ${{ vars.AGE_RECIPIENT }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          NEON_DATABASE_URL_UNPOOLED: ${{ secrets.NEON_DATABASE_URL_UNPOOLED }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_DATABASE_BACKUPS_BUCKET_NAME: ${{ vars.R2_DATABASE_BACKUPS_BUCKET_NAME }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+  notify-failure:
+    needs: backup
+    if: ${{ always() && needs.backup.result == 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Create issue on failure
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          existing=$(gh issue list --search "Neon database backup failed in:title" --state open --json number --jq '.[0].number // empty')
+          if [[ -n "$existing" ]]; then
+            echo "Issue #$existing already exists, skipping"
+          else
+            gh issue create \
+              --title "Neon database backup failed" \
+              --body "The scheduled encrypted Neon database backup failed.
+
+          **Workflow run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          The most recent successful R2 backup may now be stale. Please investigate and rerun the workflow."
+          fi

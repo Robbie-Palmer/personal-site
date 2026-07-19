@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BellRing,
   ChevronDown,
   ChevronUp,
   GripVertical,
@@ -84,9 +85,23 @@ function byUrgency(a: CookingTimer, b: CookingTimer): number {
 }
 
 function dotColor(timer: CookingTimer): string {
-  if (timer.state === "completed") return "var(--terracotta)";
   if (timer.state === "paused") return "var(--ink-4)";
   return "var(--butter)";
+}
+
+function completionAnnouncement(timers: readonly CookingTimer[]): string {
+  if (timers.length === 0) return "";
+  if (timers.length === 1) return `Time's up for ${timers[0]?.label}.`;
+  return `${timers.length} cooking timers are complete.`;
+}
+
+function completedTimerIdsKey(timers: readonly CookingTimer[]): string {
+  return JSON.stringify(
+    timers
+      .filter((timer) => timer.state === "completed")
+      .map((timer) => timer.id)
+      .sort((a, b) => a.localeCompare(b)),
+  );
 }
 
 /**
@@ -128,6 +143,95 @@ function stepTag(timer: CookingTimer): string | null {
   return timer.stepIndex === undefined ? null : `step ${timer.stepIndex + 1}`;
 }
 
+function CollapsedTimerDock({
+  grip,
+  primary,
+  timerCount,
+  onExpand,
+}: Readonly<{
+  grip: React.ReactNode;
+  primary: CookingTimer;
+  timerCount: number;
+  onExpand: () => void;
+}>) {
+  const completed = primary.state === "completed";
+  const tag = stepTag(primary);
+
+  return (
+    <div
+      className={[
+        "flex items-center rounded-full py-1 pr-2.5 pl-1.5 text-[var(--paper)] shadow-lg",
+        completed ? "bg-[var(--berry)]" : "bg-[var(--ink)]",
+      ].join(" ")}
+    >
+      {grip}
+      <button
+        type="button"
+        onClick={onExpand}
+        aria-expanded="false"
+        aria-label={
+          completed
+            ? `Time's up for ${primary.label}. Expand cooking timers (${timerCount})`
+            : `Expand cooking timers (${timerCount})`
+        }
+        className="flex items-center gap-2 py-0.5 pl-1"
+      >
+        {completed && (
+          <BellRing className="size-5 shrink-0 text-[var(--butter)]" />
+        )}
+        <span className="flex min-w-0 flex-col text-left leading-tight">
+          <span
+            className="rt-mono max-w-40 truncate text-[9px]"
+            style={{ color: dotColor(primary) }}
+          >
+            ● {primary.label}
+            {tag && (
+              <span
+                className={
+                  completed
+                    ? "text-[var(--paper)] opacity-75"
+                    : "text-[var(--ink-4)]"
+                }
+              >
+                {" "}
+                · {tag}
+              </span>
+            )}
+          </span>
+          <span
+            className={[
+              "rt-display text-xl leading-none tabular-nums",
+              primary.state === "paused" ? "opacity-60" : "",
+            ].join(" ")}
+          >
+            {completed
+              ? "time's up!"
+              : formatCountdown(primary.remainingSeconds)}
+          </span>
+        </span>
+        {timerCount > 1 && (
+          <span className="rt-mono rounded-full bg-[var(--paper)]/15 px-1.5 py-0.5 text-[9px]">
+            +{timerCount - 1}
+          </span>
+        )}
+        <ChevronUp className="size-3.5 opacity-60" />
+      </button>
+      <AddTimerPopover
+        align="end"
+        trigger={
+          <button
+            type="button"
+            aria-label="Add a custom timer"
+            className="ml-1 rounded-full p-1.5 text-[var(--paper)]/80 transition-colors hover:bg-[var(--paper)]/15 hover:text-[var(--paper)]"
+          >
+            <Plus className="size-4" />
+          </button>
+        }
+      />
+    </div>
+  );
+}
+
 /**
  * Floating dock for every active cooking timer. Collapsed (the default) it is
  * a single compact pill showing the most urgent timer plus a count of the
@@ -138,7 +242,11 @@ export function TimerDock() {
   const timers = useCookingTimers();
   const [expanded, setExpanded] = useState(false);
   const [position, setPosition] = useState<DockPosition | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+  const [attentionRevision, setAttentionRevision] = useState(0);
   const dockRef = useRef<HTMLElement>(null);
+  const attentionRef = useRef<HTMLDivElement>(null);
+  const previousCompletedIdsRef = useRef<ReadonlySet<string>>(new Set());
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -155,6 +263,44 @@ export function TimerDock() {
     setMounted(true);
     setPosition(loadPosition());
   }, []);
+
+  const completedTimers = timers.filter((timer) => timer.state === "completed");
+  const completedIdsKey = completedTimerIdsKey(timers);
+  const nextAnnouncement = completionAnnouncement(completedTimers);
+
+  // Keep the live region empty before inserting its message so restored
+  // completions are announced too. Track newly completed ids separately from
+  // dock expansion, so the visual cue replays for a later timer but not when
+  // someone opens or closes the dock to act on an existing alert.
+  useEffect(() => {
+    const completedIds = new Set<string>(JSON.parse(completedIdsKey));
+    const hasNewCompletion = [...completedIds].some(
+      (id) => !previousCompletedIdsRef.current.has(id),
+    );
+    previousCompletedIdsRef.current = completedIds;
+    setAnnouncement("");
+    if (!hasNewCompletion) return;
+
+    setAttentionRevision((revision) => revision + 1);
+    const announceHandle = globalThis.setTimeout(
+      () => setAnnouncement(nextAnnouncement),
+      100,
+    );
+    return () => globalThis.clearTimeout(announceHandle);
+  }, [completedIdsKey, nextAnnouncement]);
+
+  // Replay the finite attention animation whenever a new timer completes.
+  // Restarting it in place — rather than remounting the dock via a changing
+  // key — keeps the interactive subtree (notably AddTimerPopover's open state
+  // and typed-in values) intact while a later timer expires.
+  useLayoutEffect(() => {
+    if (attentionRevision === 0) return;
+    const node = attentionRef.current;
+    if (!node) return;
+    node.classList.remove("rt-timer-attention");
+    void node.offsetWidth; // force reflow so the re-added class restarts the animation
+    node.classList.add("rt-timer-attention");
+  }, [attentionRevision]);
 
   // A dragged position is stored as bottom-right offsets measured at the
   // dock's size at drag time. Expanding, gaining timers, or rotating the
@@ -322,93 +468,55 @@ export function TimerDock() {
       className="rt-timer-dock fixed right-3 bottom-3 z-[80] sm:right-4 sm:bottom-4"
       style={style}
     >
-      {expanded ? (
-        <div className="flex min-w-60 max-w-[calc(100vw-1rem)] flex-col rounded-2xl bg-[var(--ink)] p-2 text-[var(--paper)] shadow-lg">
-          <div className="flex items-center gap-1">
-            {grip}
-            <span className="rt-mono flex-1 text-[9px] text-[var(--ink-4)]">
-              cooking timers
-            </span>
-            <button
-              type="button"
-              onClick={() => setExpanded(false)}
-              aria-expanded="true"
-              aria-label="Collapse timers"
-              className="rounded-full p-2 opacity-70 transition-opacity hover:opacity-100"
-            >
-              <ChevronDown className="size-4" />
-            </button>
-          </div>
-          {/* Many timers must scroll inside the panel rather than grow it
-              past the top of the screen. */}
-          <div className="max-h-[45vh] overflow-y-auto overscroll-contain">
-            {sorted.map((timer) => (
-              <DockRow key={timer.id} timer={timer} />
-            ))}
-          </div>
-          <div className="mt-1 border-t border-[var(--paper)]/10 pt-1">
-            {addTimerControl}
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center rounded-full bg-[var(--ink)] py-1 pr-2.5 pl-1.5 text-[var(--paper)] shadow-lg">
-          {grip}
-          <button
-            type="button"
-            onClick={() => setExpanded(true)}
-            aria-expanded="false"
-            aria-label={`Expand cooking timers (${sorted.length})`}
-            className="flex items-center gap-2 py-0.5 pl-1"
-          >
-            <span className="flex min-w-0 flex-col text-left leading-tight">
-              <span
-                className={[
-                  "rt-mono max-w-40 truncate text-[9px]",
-                  primary.state === "completed" ? "animate-pulse" : "",
-                ].join(" ")}
-                style={{ color: dotColor(primary) }}
-              >
-                ● {primary.label}
-                {stepTag(primary) && (
-                  <span className="text-[var(--ink-4)]">
-                    {" "}
-                    · {stepTag(primary)}
-                  </span>
-                )}
+      <span role="alert" aria-atomic="true" className="sr-only">
+        {announcement}
+      </span>
+      <div
+        ref={attentionRef}
+        className={[
+          expanded ? "rounded-2xl" : "rounded-full",
+          attentionRevision > 0 && completedTimers.length > 0
+            ? "rt-timer-attention"
+            : "",
+        ].join(" ")}
+      >
+        {expanded ? (
+          <div className="flex min-w-60 max-w-[calc(100vw-1rem)] flex-col rounded-2xl bg-[var(--ink)] p-2 text-[var(--paper)] shadow-lg">
+            <div className="flex items-center gap-1">
+              {grip}
+              <span className="rt-mono flex-1 text-[9px] text-[var(--ink-4)]">
+                cooking timers
               </span>
-              <span
-                className={[
-                  "rt-display text-xl leading-none tabular-nums",
-                  primary.state === "paused" ? "opacity-60" : "",
-                  primary.state === "completed" ? "animate-pulse" : "",
-                ].join(" ")}
-              >
-                {primary.state === "completed"
-                  ? "done!"
-                  : formatCountdown(primary.remainingSeconds)}
-              </span>
-            </span>
-            {sorted.length > 1 && (
-              <span className="rt-mono rounded-full bg-[var(--paper)]/15 px-1.5 py-0.5 text-[9px]">
-                +{sorted.length - 1}
-              </span>
-            )}
-            <ChevronUp className="size-3.5 opacity-60" />
-          </button>
-          <AddTimerPopover
-            align="end"
-            trigger={
               <button
                 type="button"
-                aria-label="Add a custom timer"
-                className="ml-1 rounded-full p-1.5 text-[var(--paper)]/80 transition-colors hover:bg-[var(--paper)]/15 hover:text-[var(--paper)]"
+                onClick={() => setExpanded(false)}
+                aria-expanded="true"
+                aria-label="Collapse timers"
+                className="rounded-full p-2 opacity-70 transition-opacity hover:opacity-100"
               >
-                <Plus className="size-4" />
+                <ChevronDown className="size-4" />
               </button>
-            }
+            </div>
+            {/* Many timers must scroll inside the panel rather than grow it
+              past the top of the screen. */}
+            <div className="max-h-[45vh] overflow-y-auto overscroll-contain">
+              {sorted.map((timer) => (
+                <DockRow key={timer.id} timer={timer} />
+              ))}
+            </div>
+            <div className="mt-1 border-t border-[var(--paper)]/10 pt-1">
+              {addTimerControl}
+            </div>
+          </div>
+        ) : (
+          <CollapsedTimerDock
+            grip={grip}
+            primary={primary}
+            timerCount={sorted.length}
+            onExpand={() => setExpanded(true)}
           />
-        </div>
-      )}
+        )}
+      </div>
     </section>,
     document.body,
   );
@@ -428,10 +536,7 @@ function DockRow({ timer }: Readonly<{ timer: CookingTimer }>) {
     .filter(Boolean)
     .join(" — ");
 
-  const detailClassName = [
-    "flex min-w-0 flex-1 flex-col leading-tight",
-    completed ? "animate-pulse" : "",
-  ].join(" ");
+  const detailClassName = "flex min-w-0 flex-1 flex-col leading-tight";
   const detail = (
     <>
       <span
@@ -439,9 +544,25 @@ function DockRow({ timer }: Readonly<{ timer: CookingTimer }>) {
         style={{ color: dotColor(timer) }}
       >
         ● {timer.label}
-        {tag && <span className="text-[var(--ink-4)]"> · {tag}</span>}
+        {tag && (
+          <span
+            className={
+              completed
+                ? "text-[var(--paper)] opacity-75"
+                : "text-[var(--ink-4)]"
+            }
+          >
+            {" "}
+            · {tag}
+          </span>
+        )}
       </span>
-      <span className="max-w-40 truncate font-[family-name:var(--font-kalam)] text-[10px] text-[var(--ink-4)]">
+      <span
+        className={[
+          "max-w-40 truncate font-[family-name:var(--font-kalam)] text-[10px]",
+          completed ? "text-[var(--paper)] opacity-75" : "text-[var(--ink-4)]",
+        ].join(" ")}
+      >
         {subtitle}
       </span>
       <span
@@ -450,13 +571,18 @@ function DockRow({ timer }: Readonly<{ timer: CookingTimer }>) {
           paused ? "opacity-60" : "",
         ].join(" ")}
       >
-        {completed ? "done!" : formatCountdown(timer.remainingSeconds)}
+        {completed ? "time's up!" : formatCountdown(timer.remainingSeconds)}
       </span>
     </>
   );
 
   return (
-    <div className="flex items-center gap-1.5 rounded-lg px-1 py-0.5">
+    <div
+      className={[
+        "flex items-center gap-1.5 rounded-lg px-1 py-0.5",
+        completed ? "bg-[var(--berry)]" : "",
+      ].join(" ")}
+    >
       {/* A plain <a> (full navigation), not next/link: deep-linking into cook
           mode relies on RecipeContent reading ?cook=1&step=N on mount, which a
           client-side transition to the same recipe route wouldn't retrigger.

@@ -31,7 +31,7 @@
     "zod": "^4.2.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4",
+    "@cloudflare/workers-types": "^5.0.0",
     "@types/node": "^24",
     "@vitest/coverage-v8": "^4.1.10",
     "drizzle-kit": "^0.31.0",

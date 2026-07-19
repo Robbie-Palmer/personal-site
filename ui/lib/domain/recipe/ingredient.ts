@@ -11,5 +11,6 @@ export {
   IngredientSchema,
   IngredientSlugSchema,
   mergeIngredientIntoGroup,
+  normalizeIngredientSlugForOutput,
   resolveIngredientSlug,
 } from "recipe-domain";

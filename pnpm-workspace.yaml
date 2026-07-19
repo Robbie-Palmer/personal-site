@@ -3,7 +3,25 @@ packages:
   - 'packages/*'
   - 'workers/*'
   - 'ml-pipelines/recipe-parsing'
+  - 'ml-pipelines/recipe-dataset'
   - 'ml-pipelines/recipe-parsing/tools/viz'
+
+# pnpm 10 already skipped these dependency lifecycle scripts. pnpm 11 requires
+# the policy to be explicit; keep installs reproducible without expanding the
+# set of third-party code allowed to execute during dependency installation.
+allowBuilds:
+  core-js: false
+  esbuild: false
+  puppeteer: false
+  sharp: false
+  workerd: false
+
+# better-auth-cloudflare 0.3.0 is compatible with workers-types v5, but its
+# peer range has not yet been widened from v4. Keep this exception scoped to
+# that package; the recipe API typecheck and tests exercise the integration.
+peerDependencyRules:
+  allowedVersions:
+    'better-auth-cloudflare>@cloudflare/workers-types': '5'
 
 # Dedupe postcss onto the patched 8.5.x line. Next pulls in 8.4.31, which is
 # affected by GHSA-qx2v-qp2m-jg93 (XSS via unescaped </style> in stringify);
@@ -38,6 +56,7 @@ overrides:
   'lighthouse>@sentry/node': '^10.66.0'
   js-yaml: '^5.0.0'
   postcss: '^8.5.10'
+
 patchedDependencies:
   '@cooklang/cooklang@0.18.7': patches/@cooklang__cooklang@0.18.7.patch
   gray-matter@4.0.3: patches/gray-matter@4.0.3.patch

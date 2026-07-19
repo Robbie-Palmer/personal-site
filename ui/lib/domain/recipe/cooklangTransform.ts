@@ -20,6 +20,7 @@ import type {
 import {
   createIngredientGroupAccumulator,
   mergeIngredientIntoGroup,
+  normalizeIngredientSlugForOutput,
 } from "@/lib/domain/recipe/ingredient";
 import type {
   IngredientGroup,
@@ -34,7 +35,6 @@ import {
   UNIT_LABELS,
   type Unit,
 } from "@/lib/domain/recipe/unit";
-import { normalizeSlug } from "@/lib/generic/slugs";
 
 type GroupAccumulator = IngredientGroupAccumulator;
 type IngredientAnnotations = NonNullable<
@@ -146,6 +146,28 @@ function isIngredientOnlyStep(step: Step): boolean {
   return hasIngredient;
 }
 
+function findDeclaredIngredientSlugs(
+  sections: ParsedCooklangRecipe["sections"],
+  ingredients: Ingredient[],
+): Set<IngredientSlug> {
+  const declaredSlugs = new Set<IngredientSlug>();
+  for (const section of sections) {
+    for (const content of section.content) {
+      if (content.type !== "step" || !isIngredientOnlyStep(content.value)) {
+        continue;
+      }
+      for (const item of content.value.items) {
+        if (item.type !== "ingredient") continue;
+        const ingredient = ingredients[item.index]!;
+        declaredSlugs.add(
+          normalizeIngredientSlugForOutput(ingredient.name) as IngredientSlug,
+        );
+      }
+    }
+  }
+  return declaredSlugs;
+}
+
 /**
  * The free-text form of a timer quantity (e.g. `~{package instructions}`),
  * which the cooklang parser keeps as a text value; null for numeric timers.
@@ -240,7 +262,9 @@ function buildIngredientGroupItem(
   resolved: ResolvedIngredient,
   annotations: IngredientAnnotations,
 ): RecipeIngredient {
-  const ingSlug = normalizeSlug(ingredient.name) as IngredientSlug;
+  const ingSlug = normalizeIngredientSlugForOutput(
+    ingredient.name,
+  ) as IngredientSlug;
   const ann = annotations[ingSlug];
 
   return {
@@ -258,11 +282,17 @@ function collectStepIngredients(
   resolved: ResolvedIngredient[],
   currentGroup: GroupAccumulator,
   annotations: IngredientAnnotations,
+  declaredSlugs: Set<IngredientSlug>,
+  isDeclaration: boolean,
 ): void {
   for (const item of step.items) {
     if (item.type !== "ingredient") continue;
 
     const ingredient = ingredients[item.index]!;
+    const ingredientSlug = normalizeIngredientSlugForOutput(
+      ingredient.name,
+    ) as IngredientSlug;
+    if (!isDeclaration && declaredSlugs.has(ingredientSlug)) continue;
     mergeIngredientIntoGroup(
       currentGroup,
       buildIngredientGroupItem(ingredient, resolved[item.index]!, annotations),
@@ -352,6 +382,10 @@ export function buildScaledRecipeParts(
   const cookwareDisplayValues = cookware.map(formatCookwareDisplay);
   const timerDisplayValues = timers.map(formatTimerDisplay);
   const timerDurations = timers.map(timerDurationSeconds);
+  const declaredIngredientSlugs = findDeclaredIngredientSlugs(
+    sections,
+    ingredients,
+  );
 
   for (const section of sections) {
     if (section.name !== null) {
@@ -362,15 +396,20 @@ export function buildScaledRecipeParts(
       if (content.type === "text") continue;
 
       const step = content.value;
+      const isDeclaration = isIngredientOnlyStep(step);
+      // Declared slugs are counted only from their declaration row; ingredients
+      // without declarations are still collected from instruction steps.
       collectStepIngredients(
         step,
         ingredients,
         resolvedIngredients,
         currentGroup,
         annotations,
+        declaredIngredientSlugs,
+        isDeclaration,
       );
 
-      if (isIngredientOnlyStep(step)) {
+      if (isDeclaration) {
         continue;
       }
 

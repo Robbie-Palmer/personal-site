@@ -13,15 +13,15 @@ verifying it at volume.
 
 The existing quality and security stack is already dense:
 
-| Tool | Scope | Determinism | Notes |
-| --- | --- | --- | --- |
-| **Biome** | Lint + format | Deterministic | Style and intra-file correctness. No cross-file or whole-program analysis. |
-| **CodeQL** ([ADR 024](/projects/recipe-site/adrs/024-codeql) → [personal-site 032](/projects/personal-site/adrs/032-codeql)) | Security SAST | Deterministic | Deep dataflow for injection/XSS classes. Security only; not maintainability. |
-| **Trivy** ([ADR 044](/projects/recipe-site/adrs/044-trivy) → [personal-site 047](/projects/personal-site/adrs/047-trivy)) | IaC, deps, containers | Deterministic | CVE/misconfig scanning. Not source quality. |
-| **Renovate** ([ADR 020](/projects/recipe-site/adrs/020-renovate)) | Dependency updates | Deterministic | Update proposals + CVE visibility. |
-| **GitHub Secret Scanning** | Committed secrets | Deterministic | Narrow. |
-| **Vitest** ([ADR 008](/projects/recipe-site/adrs/008-vitest)) | Unit tests | Deterministic | Tests; no static code-health analysis. |
-| **CodeRabbit / Greptile / Codex / Qodo / Gemini / custom agentic review** (ADRs 009, 038–043) | AI PR review | **Non-deterministic** | Contextual prose review. Varies run to run; no objective trend. |
+| Tool                                                                                                                         | Scope                 | Determinism           | Notes                                                                        |
+| ---------------------------------------------------------------------------------------------------------------------------- | --------------------- | --------------------- | ---------------------------------------------------------------------------- |
+| **Biome**                                                                                                                    | Lint + format         | Deterministic         | Style and intra-file correctness. No cross-file or whole-program analysis.   |
+| **CodeQL** ([ADR 024](/projects/recipe-site/adrs/024-codeql) → [personal-site 032](/projects/personal-site/adrs/032-codeql)) | Security SAST         | Deterministic         | Deep dataflow for injection/XSS classes. Security only; not maintainability. |
+| **Trivy** ([ADR 044](/projects/recipe-site/adrs/044-trivy) → [personal-site 047](/projects/personal-site/adrs/047-trivy))    | IaC, deps, containers | Deterministic         | CVE/misconfig scanning. Not source quality.                                  |
+| **Renovate** ([ADR 020](/projects/recipe-site/adrs/020-renovate))                                                            | Dependency updates    | Deterministic         | Update proposals + CVE visibility.                                           |
+| **GitHub Secret Scanning**                                                                                                   | Committed secrets     | Deterministic         | Narrow.                                                                      |
+| **Vitest** ([ADR 008](/projects/recipe-site/adrs/008-vitest))                                                                | Unit tests            | Deterministic         | Tests; no static code-health analysis.                                       |
+| **CodeRabbit / Greptile / Codex / Qodo / Gemini / custom agentic review** (ADRs 009, 038–043)                                | AI PR review          | **Non-deterministic** | Contextual prose review. Varies run to run; no objective trend.              |
 
 These leave two structural gaps:
 
@@ -46,7 +46,8 @@ is free, GitHub-native, and additive over what we run today, which is reason eno
 The operational posture matches CodeQL and Trivy ([ADR 044](/projects/recipe-site/adrs/044-trivy)):
 results land in GitHub and there is no external console to monitor day to day.
 
-* Runs in CI via the `sonarqube-scan` GitHub Action on each PR.
+* Automatic Analysis is disabled. Analysis runs in CI via the official
+  `SonarSource/sonarqube-scan-action`, pinned to a full commit SHA, on each PR and on `main`.
 * PR decoration via the GitHub App posts results as a Check Run with inline annotations on the
   changed lines, so review happens next to the diff.
 * Full analysis runs: TS/JS bug detection, security rules, security hotspots, cognitive
@@ -59,6 +60,20 @@ results land in GitHub and there is no external console to monitor day to day.
 * No coverage condition (see [On Coverage](#on-coverage)).
 * The Sonar web project is used for occasional trend drill-down, the role the GitHub Security tab
   already plays. Day-to-day work stays in GitHub.
+
+# CI And Credentials
+
+CI-based analysis is required because Automatic Analysis does not import external coverage reports
+or expose the scanner logs needed to diagnose analysis warnings. The workflow generates coverage
+before invoking the scanner, so the GitHub Actions log is the complete record of how an analysis
+was assembled and uploaded.
+
+`SONAR_TOKEN` is an authentication credential even though the repository and Sonar project are
+public. Doppler remains its source of truth: the token is a masked value in `prd_ci_repo`, the sync
+script publishes it as an environment secret in GitHub's `production-ci` environment, and only the
+scanner step receives it. Trusted runs fail visibly when the token is absent. Fork pull requests
+still run tests and generate coverage, but skip the upload because GitHub does not provide
+environment secrets to forks.
 
 Out of scope: self-hosting the Community Edition (a JVM server plus its own Postgres), and treating
 the Sonar dashboard as a place work moves into. Both reintroduce the platform-sprawl cost
@@ -89,11 +104,11 @@ Together these let the coding agent fix Sonar's findings before a PR is opened r
 
 ADR 032 evaluated SonarQube as a platform. This ADR adopts it as a GitHub status check:
 
-| ADR 032 evaluated SonarQube as… | This ADR adopts SonarQube as… |
-| --- | --- |
-| An external dashboard + login to maintain | A Check Run + inline annotations in the PR |
-| Cost that scales poorly for a small team | Free for the public repo, like CodeQL/Trivy |
-| Net-new platform sprawl | The same GitHub-native posture as tools already accepted |
+| ADR 032 evaluated SonarQube as…           | This ADR adopts SonarQube as…                            |
+| ----------------------------------------- | -------------------------------------------------------- |
+| An external dashboard + login to maintain | A Check Run + inline annotations in the PR               |
+| Cost that scales poorly for a small team  | Free for the public repo, like CodeQL/Trivy              |
+| Net-new platform sprawl                   | The same GitHub-native posture as tools already accepted |
 
 The other change since ADR 032: the site grew a backend and an auth surface, and code is now
 agent-authored at volume, so the gap SonarQube fills (a deterministic code-health signal) became
@@ -104,10 +119,10 @@ material rather than hypothetical.
 The distinctive property is determinism applied to code health, which nothing in the current stack
 covers:
 
-| | Security | Code health (maintainability / duplication / complexity) |
-| --- | --- | --- |
-| **Deterministic** | CodeQL, Trivy | Biome (line-level only) → gap → SonarQube |
-| **Non-deterministic** | AI reviewers | AI reviewers |
+|                       | Security      | Code health (maintainability / duplication / complexity) |
+| --------------------- | ------------- | -------------------------------------------------------- |
+| **Deterministic**     | CodeQL, Trivy | Biome (line-level only) → gap → SonarQube                |
+| **Non-deterministic** | AI reviewers  | AI reviewers                                             |
 
 Sonar's TS/JS engine is additive over Biome. Biome is a fast linter and formatter working at the
 line and AST level; Sonar adds cognitive-complexity scoring, cross-file duplication detection,
@@ -133,23 +148,30 @@ convention, and Sonar's overlapping findings are accepted as redundant.
 
 The gate has no coverage condition. Coverage thresholds are a Goodhart target: a number an agent
 will farm rather than a measure of real test quality, and gating on them contradicts the building
-philosophy ("Pre-product-market fit? Incomplete test coverage is fine - ship and learn"). Sonar can
-display a coverage trend if a report is imported, but it never blocks a merge on it.
+philosophy ("Pre-product-market fit? Incomplete test coverage is fine - ship and learn"). Sonar
+imports LCOV reports from each Vitest workspace and displays the combined trend, but it never
+blocks a merge on it.
+
+Vitest reporter tuples pass their options to Istanbul's `lcov` reporter. Each workspace therefore
+sets `projectRoot` so the generated `SF:` records are relative to the monorepo root and Sonar can
+resolve them without a post-processing rewrite. This was verified against the installed Vitest and
+Istanbul implementations and the generated reports after an automated reviewer incorrectly claimed
+that the option was ignored.
 
 # Alternatives Considered
 
 Weighted toward the test ADR 032 applied: does it surface in GitHub, or does it bring in a separate
 platform?
 
-| Tool | GitHub-native? | Pros | Cons | Verdict |
-| --- | --- | --- | --- | --- |
-| **SonarQube Cloud + GitHub App** *(accepted)* | Yes (PR check + annotations) | Free for public repos; mature TS/JS engine, additive over Biome; large LLM corpus. | Security rules overlap CodeQL (redundant, not harmful); gate metrics invite Goodhart gaming. | **Accepted** |
-| **Qodana** (JetBrains) | Weaker PR annotations | Strong analysis; free for OSS. | Best inside the JetBrains IDEs we don't use; thinner community and LLM corpus. | Rejected: weaker fit, less established ([Goldilocks](/projects?tab=philosophy#the-goldilocks-zone)). |
-| **Codacy** | Yes (PR check) | Free OSS tier; one gate. | Mostly wraps linters we already run (Biome) plus Semgrep; little net-new signal. | Rejected: duplicates Biome without filling the health quadrant. |
-| **Qlty** (Code Climate successor) | Yes | Modern maintainability/duplication metrics. | 2024 relaunch mid-pivot from Code Climate; smaller corpus; churn risk. | Rejected: [Build Flywheels](/projects?tab=philosophy#build-flywheels) favours not betting learning on a product mid-transition. |
-| **CodeScene** | Partial | Behavioural/hotspot analysis from git history. | Niche, premium, little LLM data; orthogonal to a PR gate. | Rejected: past the early-majority window, weak [LLM-Optimized](/projects?tab=philosophy#llm-optimized) fit. |
-| **Semgrep** | Yes (SARIF) | Fast custom rules; named future SAST candidate in [ADR 032](/projects/personal-site/adrs/032-codeql). | A SAST/rules engine, not a code-health gate; overlaps CodeQL. | Rejected for this gap; remains the separate CodeQL-successor question. |
-| **Status quo** (Biome + CodeQL + AI review) | n/a | Zero new check. | Code-health gate stays missing; the only decay watcher stays non-deterministic. | Rejected: closing that gap is the point of this ADR. |
+| Tool                                          | GitHub-native?               | Pros                                                                                                  | Cons                                                                                         | Verdict                                                                                                                         |
+| --------------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **SonarQube Cloud + GitHub App** *(accepted)* | Yes (PR check + annotations) | Free for public repos; mature TS/JS engine, additive over Biome; large LLM corpus.                    | Security rules overlap CodeQL (redundant, not harmful); gate metrics invite Goodhart gaming. | **Accepted**                                                                                                                    |
+| **Qodana** (JetBrains)                        | Weaker PR annotations        | Strong analysis; free for OSS.                                                                        | Best inside the JetBrains IDEs we don't use; thinner community and LLM corpus.               | Rejected: weaker fit, less established ([Goldilocks](/projects?tab=philosophy#the-goldilocks-zone)).                            |
+| **Codacy**                                    | Yes (PR check)               | Free OSS tier; one gate.                                                                              | Mostly wraps linters we already run (Biome) plus Semgrep; little net-new signal.             | Rejected: duplicates Biome without filling the health quadrant.                                                                 |
+| **Qlty** (Code Climate successor)             | Yes                          | Modern maintainability/duplication metrics.                                                           | 2024 relaunch mid-pivot from Code Climate; smaller corpus; churn risk.                       | Rejected: [Build Flywheels](/projects?tab=philosophy#build-flywheels) favours not betting learning on a product mid-transition. |
+| **CodeScene**                                 | Partial                      | Behavioural/hotspot analysis from git history.                                                        | Niche, premium, little LLM data; orthogonal to a PR gate.                                    | Rejected: past the early-majority window, weak [LLM-Optimized](/projects?tab=philosophy#llm-optimized) fit.                     |
+| **Semgrep**                                   | Yes (SARIF)                  | Fast custom rules; named future SAST candidate in [ADR 032](/projects/personal-site/adrs/032-codeql). | A SAST/rules engine, not a code-health gate; overlaps CodeQL.                                | Rejected for this gap; remains the separate CodeQL-successor question.                                                          |
+| **Status quo** (Biome + CodeQL + AI review)   | n/a                          | Zero new check.                                                                                       | Code-health gate stays missing; the only decay watcher stays non-deterministic.              | Rejected: closing that gap is the point of this ADR.                                                                            |
 
 # Where It Sits On The Adoption Curve
 

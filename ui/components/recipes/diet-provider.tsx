@@ -37,45 +37,68 @@ export const DIET_PROFILE_UPDATED_EVENT = "recipe-diet-profile-updated";
 const fallbackDiet = buildEffectiveDiet(emptyDietProfile, emptyDietOptions);
 const DietContext = createContext<DietContextValue | null>(null);
 
+type DietState = {
+  userId: string | null;
+  diet: EffectiveDiet;
+  status: "idle" | "loading" | "ready" | "error";
+};
+
+async function fetchEffectiveDiet(signal: AbortSignal) {
+  const [profile, options] = await Promise.all([
+    getDietProfile(signal),
+    getDietOptions(signal),
+  ]);
+  return buildEffectiveDiet(profile, options);
+}
+
 export function DietProvider({ children }: Readonly<{ children: ReactNode }>) {
   const { data: session, isPending } = authClient.useSession();
   const sessionUserId = session?.user.id;
-  const [diet, setDiet] = useState(fallbackDiet);
-  const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [state, setState] = useState<DietState>({
+    userId: null,
+    diet: fallbackDiet,
+    status: "idle",
+  });
 
   useEffect(() => {
     if (isPending) return;
     if (!sessionUserId) {
-      setDiet(fallbackDiet);
-      setError(false);
-      setLoading(false);
+      setState({ userId: null, diet: fallbackDiet, status: "idle" });
       return;
     }
 
     let controller: AbortController | null = null;
+    let retainedDiet = fallbackDiet;
     const load = () => {
       controller?.abort();
       controller = new AbortController();
       const signal = controller.signal;
-      setError(false);
-      setLoading(true);
-      void Promise.all([getDietProfile(signal), getDietOptions(signal)])
-        .then(([profile, options]) => {
-          setDiet(buildEffectiveDiet(profile, options));
-          setError(false);
+      setState({
+        userId: sessionUserId,
+        diet: retainedDiet,
+        status: "loading",
+      });
+      void fetchEffectiveDiet(signal)
+        .then((diet) => {
+          if (signal.aborted) return;
+          retainedDiet = diet;
+          setState({
+            userId: sessionUserId,
+            diet,
+            status: "ready",
+          });
         })
         .catch((error: unknown) => {
-          if (!signal.aborted) {
-            setError(true);
-            console.error(
-              "[DietProvider] Failed to load diet preferences.",
-              error,
-            );
-          }
-        })
-        .finally(() => {
-          if (!signal.aborted) setLoading(false);
+          if (signal.aborted) return;
+          setState({
+            userId: sessionUserId,
+            diet: retainedDiet,
+            status: "error",
+          });
+          console.error(
+            "[DietProvider] Failed to load diet preferences.",
+            error,
+          );
         });
     };
 
@@ -87,6 +110,18 @@ export function DietProvider({ children }: Readonly<{ children: ReactNode }>) {
     };
   }, [isPending, sessionUserId]);
 
+  const diet =
+    sessionUserId && state.userId === sessionUserId ? state.diet : fallbackDiet;
+  const loading =
+    isPending ||
+    Boolean(
+      sessionUserId &&
+        (state.userId !== sessionUserId || state.status === "loading"),
+    );
+  const error = Boolean(
+    sessionUserId && state.userId === sessionUserId && state.status === "error",
+  );
+
   const matchRecipe = useCallback(
     (recipe: DietRecipe) => matchRecipeToDiet(recipe, diet),
     [diet],
@@ -96,15 +131,15 @@ export function DietProvider({ children }: Readonly<{ children: ReactNode }>) {
     () => ({
       diet,
       error,
-      loading: isPending || loading,
+      loading,
       matchRecipe,
     }),
-    [diet, error, isPending, loading, matchRecipe],
+    [diet, error, loading, matchRecipe],
   );
 
   return (
     <DietContext.Provider value={value}>
-      {error && !isPending && <DietLoadErrorNotice />}
+      {error && <DietLoadErrorNotice />}
       {children}
     </DietContext.Provider>
   );

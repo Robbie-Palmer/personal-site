@@ -69,7 +69,8 @@ describe("cooklang helpers", () => {
 				{
 					name: "Sauce",
 					items: [
-						{ ingredient: "olive-oil", amount: 2, unit: "tbsp" },
+						// The instruction is a back-reference, so only the declaration counts.
+						{ ingredient: "olive-oil", amount: 1, unit: "tbsp" },
 						{ ingredient: "fresh-tomatoes", amount: 400, unit: "g" },
 					],
 				},
@@ -250,6 +251,76 @@ describe("cooklang helpers", () => {
 		]);
 	});
 
+	it("suppresses declared references but keeps inline-only ingredients", () => {
+		const derived = deriveRecipeFromCooklang({
+			frontmatter: {
+				title: "Fried Noodles",
+				description: "Quick fried noodles.",
+				servings: 2,
+				tags: [],
+			},
+			body: [
+				"== Main ==",
+				"Cook the @chicken breast{2}.",
+				"",
+				"@dried noodles{250%g}",
+				"",
+				"== Sauce ==",
+				"@soy sauce{2%tbsp}",
+				"",
+				"Cook the @dried noodles{}.",
+				"",
+				"Stir in the @soy sauce{2%tbsp}.",
+				"",
+				"Drizzle over @sesame oil{1%tbsp}.",
+			].join("\n"),
+			diagnostics: [],
+		});
+
+		expect(derived.derived?.ingredientGroups).toEqual([
+			{
+				name: "Main",
+				items: [
+					{ ingredient: "chicken-breast", amount: 2 },
+					{ ingredient: "dried-noodles", amount: 250, unit: "g" },
+				],
+			},
+			{
+				name: "Sauce",
+				items: [
+					{ ingredient: "soy-sauce", amount: 2, unit: "tbsp" },
+					{ ingredient: "sesame-oil", amount: 1, unit: "tbsp" },
+				],
+			},
+		]);
+	});
+
+	it("drops groups left empty after declaration suppression", () => {
+		const derived = deriveRecipeFromCooklang({
+			frontmatter: {
+				title: "Steamed Rice",
+				description: "Plain steamed rice.",
+				servings: 2,
+				tags: [],
+			},
+			body: [
+				"== Ingredients ==",
+				"@rice{200%g}",
+				"",
+				"== Method ==",
+				"Cook the @rice{}.",
+			].join("\n"),
+			diagnostics: [],
+		});
+
+		expect(derived.derived?.ingredientGroups).toEqual([
+			{
+				name: "Ingredients",
+				items: [{ ingredient: "rice", amount: 200, unit: "g" }],
+			},
+		]);
+	});
+
 	it("postprocesses safe ingredient aliases in derived output", () => {
 		const derived = deriveRecipeFromCooklang({
 			frontmatter: {
@@ -258,7 +329,7 @@ describe("cooklang helpers", () => {
 				servings: 2,
 				tags: [],
 			},
-			body: "@cheddar{80%g}\n@chicken fillets{2%piece}\n@garlic powder{1%tsp}\n\nCook and stir—serve.",
+			body: "@cheddar{80%g}\n@chicken fillets{2%piece}\n@garlic powder{1%tsp}\n@cajun powder{1%tbsp}\n\nCook and stir—serve.",
 			diagnostics: [],
 		});
 
@@ -266,6 +337,7 @@ describe("cooklang helpers", () => {
 			{ ingredient: "cheddar-cheese", amount: 80, unit: "g" },
 			{ ingredient: "chicken-breast", amount: 2, unit: "piece" },
 			{ ingredient: "garlic-powder", amount: 1, unit: "tsp" },
+			{ ingredient: "cajun-seasoning", amount: 1, unit: "tbsp" },
 		]);
 		expect(derived.derived?.instructions).toEqual(["Cook and stir-serve."]);
 	});

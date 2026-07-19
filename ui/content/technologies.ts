@@ -8,6 +8,14 @@ export const technologies: TechnologyContent[] = [
     type: "library",
   },
   {
+    name: "TanStack Query",
+    added: "2026-07-19",
+    description: "Async server-state synchronization and caching for web apps",
+    website: "https://tanstack.com/query/latest",
+    iconSlug: "tanstack",
+    type: "library",
+  },
+  {
     name: "Next.js",
     added: "2026-01-04",
     description: "Full-stack web development built on React",
@@ -186,6 +194,14 @@ export const technologies: TechnologyContent[] = [
     added: "2026-01-04",
     description: "SecretOps platform for managing environment variables",
     website: "https://www.doppler.com",
+    type: "tool",
+  },
+  {
+    name: "age",
+    added: "2026-07-13",
+    description:
+      "Modern file encryption with explicit recipient keys and Unix-style pipelines",
+    website: "https://github.com/FiloSottile/age",
     type: "tool",
   },
   {

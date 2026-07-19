@@ -2,6 +2,7 @@
 set -euo pipefail
 
 project="${DOPPLER_PROJECT:-personal-site}"
+requested_environments=("$@")
 
 require_command() {
   local command_name="$1"
@@ -117,17 +118,68 @@ sync_env() {
   done < <(jq -r '.[].name' <<<"$existing_vars_json")
 }
 
+should_sync_env() {
+  local github_env="$1"
+  local requested_environment
+
+  if ((${#requested_environments[@]} == 0)); then
+    return 0
+  fi
+
+  for requested_environment in "${requested_environments[@]}"; do
+    if [[ "$requested_environment" == "$github_env" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+sync_requested_env() {
+  local github_env="$1"
+  shift
+
+  if should_sync_env "$github_env"; then
+    sync_env "$github_env" "$@"
+  fi
+}
+
 require_command doppler
 require_command gh
 require_command jq
 
-sync_env preview-recipe-api stg_recipe_api
-sync_env preview-site-ui stg_site_ui stg_pages_env
-sync_env production-recipe-api prd_recipe_api prd_site_ui
-sync_env production-recipe-ingest prd_recipe_ingest prd_site_ui
-sync_env production-site-ui prd_site_ui prd_pages_env
-sync_env production-infra prd_infra
-sync_env production-infra-bootstrap prd_bootstrap_infra
-sync_env production-ci prd_ci_repo
+known_environments=(
+  preview-recipe-api
+  preview-site-ui
+  production-recipe-api
+  production-recipe-ingest
+  production-site-ui
+  production-infra
+  production-infra-bootstrap
+  production-database-backup
+  production-ci
+)
 
-echo "Manual Doppler to GitHub environment sync complete."
+for requested_environment in "${requested_environments[@]}"; do
+  if ! contains_name "$requested_environment" "$(printf '%s\n' "${known_environments[@]}")"; then
+    echo "Unknown GitHub environment: $requested_environment" >&2
+    echo "Known environments: ${known_environments[*]}" >&2
+    exit 1
+  fi
+done
+
+sync_requested_env preview-recipe-api stg_recipe_api
+sync_requested_env preview-site-ui stg_site_ui stg_pages_env
+sync_requested_env production-recipe-api prd_recipe_api prd_site_ui
+sync_requested_env production-recipe-ingest prd_recipe_ingest prd_site_ui
+sync_requested_env production-site-ui prd_site_ui prd_pages_env
+sync_requested_env production-infra prd_infra
+sync_requested_env production-infra-bootstrap prd_bootstrap_infra
+sync_requested_env production-database-backup prd_database_backup
+sync_requested_env production-ci prd_ci_repo
+
+if ((${#requested_environments[@]} == 0)); then
+  echo "Manual Doppler to GitHub environment sync complete."
+else
+  echo "Manual Doppler to GitHub environment sync complete for: ${requested_environments[*]}"
+fi

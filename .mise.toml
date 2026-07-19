@@ -5,7 +5,9 @@ config_roots = [
     "ui",
     "infra",
     "infra-bootstrap",
+    "backups",
     "ml-pipelines",
+    "ml-pipelines/recipe-dataset",
     "ml-pipelines/recipe-parsing",
     "packages/recipe-db",
     "packages/recipe-parsing",
@@ -19,7 +21,7 @@ verbose = false
 
 [tools]
 node = "lts"
-pnpm = "10.34.5"
+"github:pnpm/pnpm" = "11.15.0"
 terraform = "1.15.8"
 actionlint = "1.7.12"
 zizmor = "1.26.1"

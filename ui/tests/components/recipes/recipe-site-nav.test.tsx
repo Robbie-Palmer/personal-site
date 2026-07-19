@@ -24,16 +24,17 @@ describe("RecipeSiteNav", () => {
     vi.clearAllMocks();
   });
 
-  it("renders public navigation while the session is loading", () => {
+  it("renders neutral navigation while the session is loading", () => {
     mocks.useSession.mockReturnValue({ data: null, isPending: true });
 
     render(<RecipeSiteNav />);
 
-    expect(screen.getByRole("link", { name: "Discover" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Cooks" })).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "How it works" }),
+      screen.getByRole("status", { name: "Loading recipe navigation" }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Discover" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Personal recipe tabs")).not.toBeInTheDocument();
   });
 
