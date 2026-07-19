@@ -87,11 +87,6 @@ Follow the parent [ML pipeline setup](../README.md) to configure
 mise //ml-pipelines/recipe-dataset:push
 ```
 
-The push task accepts either the standard AWS variable names documented by the
-parent project or Doppler's `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` names.
-The `prd_ci_repo` token is intentionally read-only and can pull but cannot push;
-use a local R2 Object Read & Write token for dataset publication.
-
 The committed `dvc.lock` identifies the exact raw and derived dataset versions;
 `dvc pull` restores them without reacquiring upstream sites.
 
@@ -103,5 +98,4 @@ evaluate Gutenberg candidate boundaries before promoting them. The
 `ingredientGroups`, `instructions`, and `equipment` fields intentionally align
 with shared `recipe-parsing` artifacts, so Cooklang and schema.org Recipe
 normalization, canonicalization, retry accounting, and evaluation metrics can
-move into shared pipeline utilities rather than being reimplemented here. No
-LLM or OpenRouter call is made by this pipeline.
+move into shared pipeline utilities rather than being reimplemented here.
