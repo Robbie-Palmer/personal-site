@@ -111,12 +111,13 @@ export function formatIngredientStaticText(
   }
 
   // Mirror the UI formatter: names auto-pluralise only for bare "piece"
-  // counts; measured units rely on an explicit pluralName override.
+  // counts. Measured and unitless ingredients rely on an explicit pluralName
+  // override, so unitless fractions like "½ red onion" stay singular.
   const isPlural = item.amount != null && item.amount !== 1;
   let name = item.name;
   if (isPlural) {
     name =
-      item.unit == null || item.unit === "piece"
+      item.unit === "piece"
         ? pluralizeIngredientName(item)
         : (item.pluralName ?? item.name);
   }

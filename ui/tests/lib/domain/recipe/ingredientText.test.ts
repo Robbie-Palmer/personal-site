@@ -165,16 +165,36 @@ describe("ingredientText", () => {
       ).toBe("½ cup milk");
     });
 
-    it("pluralises units and names for amounts above one", () => {
+    it("pluralises unit labels for amounts above one", () => {
       expect(
         formatIngredientStaticText({
           ingredient: "chopped-tomatoes",
-          name: "tin of tomatoes",
-          pluralName: "tins of tomatoes",
+          name: "chopped tomatoes",
           amount: 2,
           unit: "tin",
         }),
-      ).toBe("2 tins tins of tomatoes");
+      ).toBe("2 tins chopped tomatoes");
+    });
+
+    it("keeps unitless fractional ingredients singular", () => {
+      expect(
+        formatIngredientStaticText({
+          ingredient: "red-onion",
+          name: "red onion",
+          amount: 0.5,
+        }),
+      ).toBe("½ red onion");
+    });
+
+    it("uses pluralName for unitless counts when provided", () => {
+      expect(
+        formatIngredientStaticText({
+          ingredient: "lemon",
+          name: "lemon",
+          pluralName: "lemons",
+          amount: 2,
+        }),
+      ).toBe("2 lemons");
     });
 
     it("auto-pluralises bare piece counts like the UI formatter", () => {
