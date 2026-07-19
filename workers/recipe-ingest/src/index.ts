@@ -299,8 +299,8 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
       await step.do("finalize", async () => {
         const draft = buildFinalDraft(
           sourceKeys,
+          cooklang,
           canonical.recipe,
-          cooklang.diagnostics,
         );
         await withDb(env, async (db) => {
           await writeArtifact({

@@ -1,17 +1,45 @@
 import { describe, expect, it } from "vitest";
+import { deriveRecipeFromCooklang } from "recipe-parsing/cooklang";
 import { buildFinalDraft } from "../src/draft";
 
 describe("buildFinalDraft", () => {
-  it("serializes the finalized recipe into the editable Cooklang source", () => {
+  it("applies finalized ingredients without losing Cooklang structure", () => {
+    const normalizedRecipe = {
+      title: "Pepper Pasta",
+      description: "A quick pasta.",
+      cuisine: ["Italian-American"],
+      servings: 2,
+      prepTime: 10,
+      cookTime: 20,
+      ingredientGroups: [
+        {
+          items: [
+            { ingredient: "capsicum", amount: 1, unit: "piece" as const },
+          ],
+        },
+      ],
+      instructions: ["Cook capsicum in a pan for 10 minutes."],
+      cookware: ["pan"],
+    };
     const draft = buildFinalDraft(
       ["imports/job/source/1.jpg"],
       {
-        title: "Pepper Pasta",
-        description: "A quick pasta.",
-        cuisine: ["Italian"],
-        servings: 2,
-        prepTime: 10,
-        cookTime: 20,
+        frontmatter: {
+          title: normalizedRecipe.title,
+          description: normalizedRecipe.description,
+          cuisine: normalizedRecipe.cuisine,
+          servings: normalizedRecipe.servings,
+          prepTime: normalizedRecipe.prepTime,
+          cookTime: normalizedRecipe.cookTime,
+          tags: [],
+        },
+        body: "@capsicum{1%piece}\n\nCook @capsicum in a #pan{} for ~{10%minutes}.",
+        diagnostics: ["Normalization used a deterministic fallback."],
+        derived: normalizedRecipe,
+      },
+      {
+        ...normalizedRecipe,
+        cuisine: ["Italian", "American"],
         ingredientGroups: [
           {
             items: [
@@ -19,20 +47,31 @@ describe("buildFinalDraft", () => {
             ],
           },
         ],
-        instructions: ["Cook the pepper with the pasta."],
-        cookware: ["frying pan"],
       },
-      ["Normalization used a deterministic fallback."],
     );
 
     expect(draft.cooklang.body).toContain("@bell pepper{1%piece}");
     expect(draft.cooklang.body).not.toContain("@capsicum");
-    expect(draft.cooklang.frontmatter.cuisine).toEqual(["Italian"]);
+    expect(draft.cooklang.body).toContain("#pan{}");
+    expect(draft.cooklang.body).toContain("~{10%minutes}");
+    expect(draft.cooklang.frontmatter.cuisine).toEqual([
+      "Italian",
+      "American",
+    ]);
     expect(draft.cooklang.diagnostics).toEqual([
       "Normalization used a deterministic fallback.",
     ]);
     expect(draft.recipe.ingredientGroups[0]?.items[0]?.ingredient).toBe(
       "bell-pepper",
     );
+
+    const reparsed = deriveRecipeFromCooklang(draft.cooklang);
+    expect(reparsed.derived?.ingredientGroups[0]?.items[0]?.ingredient).toBe(
+      "bell-pepper",
+    );
+    expect(reparsed.derived?.cookware).toEqual(["pan"]);
+    expect(reparsed.derived?.instructions).toEqual([
+      "Cook bell pepper in a pan for 10 minutes.",
+    ]);
   });
 });
