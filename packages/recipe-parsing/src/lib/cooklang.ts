@@ -48,53 +48,187 @@ function toCooklangToken(name: string): string {
   return name.trim().replace(/\s+/g, " ");
 }
 
+interface TokenSpan {
+  value: string;
+  end: number;
+}
+
+function isAsciiDigit(character: string | undefined): boolean {
+  return character !== undefined && character >= "0" && character <= "9";
+}
+
+function isAsciiLetter(character: string | undefined): boolean {
+  return (
+    character !== undefined &&
+    ((character >= "A" && character <= "Z") ||
+      (character >= "a" && character <= "z"))
+  );
+}
+
+function skipWhitespace(value: string, start: number): number {
+  let index = start;
+  while (index < value.length && /\s/u.test(value[index]!)) index++;
+  return index;
+}
+
+function readAsciiWord(value: string, start: number): TokenSpan | undefined {
+  if (!isAsciiLetter(value[start])) return undefined;
+  let end = start + 1;
+  while (isAsciiLetter(value[end])) end++;
+  return { value: value.slice(start, end), end };
+}
+
+function readDigitsEnd(value: string, start: number): number {
+  let end = start;
+  while (isAsciiDigit(value[end])) end++;
+  return end;
+}
+
+function readBasicAmountEnd(value: string, start: number): number {
+  const integerEnd = readDigitsEnd(value, start);
+  const delimiter = value[integerEnd];
+  const hasDecimalOrFraction =
+    (delimiter === "." || delimiter === "/") &&
+    isAsciiDigit(value[integerEnd + 1]);
+  return hasDecimalOrFraction
+    ? readDigitsEnd(value, integerEnd + 1)
+    : integerEnd;
+}
+
+function readCompoundFractionEnd(value: string, integerEnd: number): number {
+  const fractionStart = skipWhitespace(value, integerEnd);
+  if (fractionStart === integerEnd || !isAsciiDigit(value[fractionStart])) {
+    return integerEnd;
+  }
+  const numeratorEnd = readDigitsEnd(value, fractionStart);
+  if (value[numeratorEnd] !== "/" || !isAsciiDigit(value[numeratorEnd + 1])) {
+    return integerEnd;
+  }
+  return readDigitsEnd(value, numeratorEnd + 1);
+}
+
+function readAmount(value: string, start: number): TokenSpan | undefined {
+  if (!isAsciiDigit(value[start])) return undefined;
+  const basicEnd = readBasicAmountEnd(value, start);
+  const end = readCompoundFractionEnd(value, basicEnd);
+  return { value: value.slice(start, end), end };
+}
+
+function isRangeSeparator(character: string | undefined): boolean {
+  return character === "-" || character === "–" || character === "—";
+}
+
+function isRangeAmount(line: string, start: number, amount: TokenSpan): boolean {
+  let left = start;
+  while (left > 0 && /\s/u.test(line[left - 1]!)) left--;
+  if (isRangeSeparator(line[left - 1])) {
+    let previous = left - 1;
+    while (previous > 0 && /\s/u.test(line[previous - 1]!)) previous--;
+    if (isAsciiDigit(line[previous - 1])) return true;
+  }
+
+  let right = skipWhitespace(line, amount.end);
+  if (!isRangeSeparator(line[right])) return false;
+  right = skipWhitespace(line, right + 1);
+  return isAsciiDigit(line[right]);
+}
+
+function formatInferredIngredient(
+  name: string,
+  amount: string,
+  unit?: string,
+  suffix?: string,
+): string {
+  const normalizedUnit = normalizeUnitToken(unit);
+  const unitSuffix = normalizedUnit ? `%${normalizedUnit}` : "";
+  const quantity = `{${amount}${unitSuffix}}`;
+  const ingredientSuffix = suffix ? ` ${suffix}` : "";
+  return `@${toCooklangToken(name)}${quantity}${ingredientSuffix}`;
+}
+
+function ingredientWithKnownUnit(
+  line: string,
+  amount: TokenSpan,
+  unitSpan: TokenSpan | undefined,
+): string | undefined {
+  if (!unitSpan) return undefined;
+  const unit = normalizeUnitToken(unitSpan.value);
+  if (!unit) return undefined;
+  const nameStart = skipWhitespace(line, unitSpan.end);
+  if (nameStart === unitSpan.end || nameStart === line.length) {
+    return undefined;
+  }
+  return formatInferredIngredient(line.slice(nameStart), amount.value, unit);
+}
+
+function inferLeadingAmount(line: string): string | undefined {
+  const amount = readAmount(line, 0);
+  if (!amount || isRangeAmount(line, 0, amount)) return undefined;
+
+  const attachedUnitIngredient = ingredientWithKnownUnit(
+    line,
+    amount,
+    readAsciiWord(line, amount.end),
+  );
+  if (attachedUnitIngredient) return attachedUnitIngredient;
+
+  const nextStart = skipWhitespace(line, amount.end);
+  if (nextStart === amount.end || nextStart === line.length) return undefined;
+  const spacedUnitIngredient = ingredientWithKnownUnit(
+    line,
+    amount,
+    readAsciiWord(line, nextStart),
+  );
+  if (spacedUnitIngredient) return spacedUnitIngredient;
+
+  return formatInferredIngredient(line.slice(nextStart), amount.value);
+}
+
+function nameBeforeAmount(line: string, amountStart: number): string | undefined {
+  let nameEnd = amountStart;
+  while (nameEnd > 0 && /\s/u.test(line[nameEnd - 1]!)) nameEnd--;
+  if ("-:,".includes(line[nameEnd - 1]!)) {
+    nameEnd--;
+    while (nameEnd > 0 && /\s/u.test(line[nameEnd - 1]!)) nameEnd--;
+  } else if (nameEnd === amountStart) {
+    return undefined;
+  }
+  return line.slice(0, nameEnd) || undefined;
+}
+
+function trailingQuantity(
+  line: string,
+  amount: TokenSpan,
+): { unit?: string; suffix?: string } {
+  const suffixStart = skipWhitespace(line, amount.end);
+  const possibleUnit = readAsciiWord(line, suffixStart);
+  const unit = normalizeUnitToken(possibleUnit?.value);
+  let restStart = suffixStart;
+  if (unit && possibleUnit) restStart = skipWhitespace(line, possibleUnit.end);
+  return { unit, suffix: line.slice(restStart).trim() || undefined };
+}
+
+function inferTrailingAmount(line: string): string | undefined {
+  for (let index = 1; index < line.length; index++) {
+    const amount = readAmount(line, index);
+    if (!amount || isRangeAmount(line, index, amount)) continue;
+    const name = nameBeforeAmount(line, index);
+    if (!name) continue;
+    const { unit, suffix } = trailingQuantity(line, amount);
+    return formatInferredIngredient(name, amount.value, unit, suffix);
+  }
+  return undefined;
+}
+
 export function inferCooklangIngredientLine(line: string): string {
   const trimmed = line.trim();
   if (!trimmed) return trimmed;
   if (trimmed.includes("@")) return trimmed;
-
-  const prefixedAmountWithUnit = trimmed.match(
-    /^(?<amount>\d+(?:\.\d+)?(?:\/\d+)?)(?<unit>[A-Za-z]+)\s+(?<name>.+)$/u,
+  return (
+    inferLeadingAmount(trimmed) ??
+    inferTrailingAmount(trimmed) ??
+    `@${toCooklangToken(trimmed)}{}`
   );
-  if (prefixedAmountWithUnit?.groups?.name) {
-    const unit = normalizeUnitToken(prefixedAmountWithUnit.groups.unit);
-    if (unit) {
-      return `@${toCooklangToken(prefixedAmountWithUnit.groups.name)}{${prefixedAmountWithUnit.groups.amount}%${unit}}`;
-    }
-  }
-
-  const prefixedAmountWithSpacedUnit = trimmed.match(
-    /^(?<amount>\d+(?:\.\d+)?(?:\/\d+)?)\s+(?<unit>[A-Za-z]+)\s+(?<name>.+)$/u,
-  );
-  if (prefixedAmountWithSpacedUnit?.groups?.name) {
-    const unit = normalizeUnitToken(prefixedAmountWithSpacedUnit.groups.unit);
-    if (unit) {
-      return `@${toCooklangToken(prefixedAmountWithSpacedUnit.groups.name)}{${prefixedAmountWithSpacedUnit.groups.amount}%${unit}}`;
-    }
-  }
-
-  const prefixedAmount = trimmed.match(
-    /^(?<amount>\d+(?:\.\d+)?)\s+(?<name>.+)$/u,
-  );
-  if (prefixedAmount?.groups?.name) {
-    return `@${toCooklangToken(prefixedAmount.groups.name)}{${prefixedAmount.groups.amount}}`;
-  }
-
-  const match = trimmed.match(
-    /^(?<name>.+?)(?:\s*[-:,]\s*|\s+)(?<amount>\d+(?:\.\d+)?(?:\/\d+)?)\s*(?<unit>[A-Za-z]+)?(?:\s+(?<rest>.*))?$/u,
-  );
-  if (!match?.groups?.name) {
-    return `@${toCooklangToken(trimmed)}{}`;
-  }
-
-  const name = toCooklangToken(match.groups.name);
-  const amount = match.groups.amount?.trim();
-  const unit = normalizeUnitToken(match.groups.unit?.trim());
-  const rest = match.groups.rest?.trim();
-  const quantity =
-    amount || unit ? `{${amount ?? ""}${unit ? `%${unit}` : ""}}` : "";
-  const suffix = rest ? ` ${rest}` : "";
-  return `@${name}${quantity}${suffix}`.trim();
 }
 
 export function parseScalarTextNumber(value: string | undefined): number | undefined {
@@ -144,10 +278,12 @@ function inferStructuredTextServings(
 
 function ingredientToCooklang(item: RecipeIngredient): string {
   const name = item.ingredient.replace(/-/g, " ");
-  const quantity =
-    item.amount !== undefined || item.unit
-      ? `{${item.amount !== undefined ? String(item.amount) : ""}${item.unit ? `%${item.unit}` : ""}}`
-      : "";
+  let quantity = "";
+  if (item.amount !== undefined || item.unit) {
+    const amount = item.amount === undefined ? "" : String(item.amount);
+    const unit = item.unit ? `%${item.unit}` : "";
+    quantity = `{${amount}${unit}}`;
+  }
   return `@${name}${quantity}`;
 }
 
@@ -506,12 +642,81 @@ function fixBareMultiWordIngredients(body: string): string {
   return body.replace(pattern, "@$1{}");
 }
 
+type IngredientGroupAccumulator = ReturnType<
+  typeof createIngredientGroupAccumulator
+>;
+
+function collectStepIngredients(
+  step: Step,
+  parsed: CkParsedRecipe,
+  annotations: CooklangRecipe["frontmatter"]["ingredientAnnotations"],
+  groups: IngredientGroupAccumulator[],
+  currentGroup: IngredientGroupAccumulator | null,
+): IngredientGroupAccumulator | null {
+  let group = currentGroup;
+  for (const item of step.items) {
+    if (item.type !== "ingredient") continue;
+    const ingredient = parsed.ingredients[item.index]!;
+    const slug = normalizeIngredientName(ingredient.name);
+
+    if (!group) {
+      group = createIngredientGroupAccumulator();
+      groups.push(group);
+    }
+
+    const amount = resolveQuantityValue(ingredient);
+    const unit = normalizeUnitToken(
+      getQuantityUnit(ingredient.quantity) ?? undefined,
+    );
+    const annotation = annotations?.[slug];
+    mergeIngredientIntoGroup(group, {
+      ingredient: slug,
+      ...(amount !== undefined ? { amount } : {}),
+      ...(unit ? { unit } : {}),
+      ...(annotation?.preparation
+        ? { preparation: annotation.preparation }
+        : {}),
+      ...(annotation?.note ? { note: annotation.note } : {}),
+    });
+  }
+  return group;
+}
+
+function createDerivedRecipe(
+  frontmatter: CooklangRecipe["frontmatter"],
+  ingredientGroups: Recipe["ingredientGroups"],
+  instructions: string[],
+  cookware: string[],
+): Recipe | undefined {
+  if (!frontmatter.title || frontmatter.description == null) return undefined;
+  if (!frontmatter.servings || ingredientGroups.length === 0) return undefined;
+  if (instructions.length === 0) return undefined;
+
+  return {
+    title: frontmatter.title,
+    description: frontmatter.description,
+    cuisine: frontmatter.cuisine ?? [],
+    servings: Math.round(frontmatter.servings),
+    prepTime:
+      frontmatter.prepTime == null
+        ? undefined
+        : Math.round(frontmatter.prepTime),
+    cookTime:
+      frontmatter.cookTime == null
+        ? undefined
+        : Math.round(frontmatter.cookTime),
+    ingredientGroups,
+    instructions,
+    cookware,
+  };
+}
+
 export function deriveRecipeFromCooklang(cooklang: CooklangRecipe): CooklangRecipe {
   const diagnostics = [...cooklang.diagnostics];
   const fixedBody = fixBareMultiWordIngredients(cooklang.body);
   const [parsed] = _cooklangParser.parse(fixedBody);
 
-  const groups: ReturnType<typeof createIngredientGroupAccumulator>[] = [];
+  const groups: IngredientGroupAccumulator[] = [];
   const instructions: string[] = [];
   let currentGroup: ReturnType<typeof createIngredientGroupAccumulator> | null = null;
   const annotations = cooklang.frontmatter.ingredientAnnotations;
@@ -529,30 +734,13 @@ export function deriveRecipeFromCooklang(cooklang: CooklangRecipe): CooklangReci
       if (content.type === "text") continue;
       const step = content.value;
 
-      // Collect ingredients from this step
-      for (const item of step.items) {
-        if (item.type !== "ingredient") continue;
-        const ingredient = parsed.ingredients[item.index]!;
-        const slug = normalizeIngredientName(ingredient.name);
-
-        if (!currentGroup) {
-          currentGroup = createIngredientGroupAccumulator();
-          groups.push(currentGroup);
-        }
-
-        const amount = resolveQuantityValue(ingredient);
-        const unit = normalizeUnitToken(
-          getQuantityUnit(ingredient.quantity) ?? undefined,
-        );
-        const ann = annotations?.[slug];
-        mergeIngredientIntoGroup(currentGroup, {
-          ingredient: slug,
-          ...(amount !== undefined ? { amount } : {}),
-          ...(unit ? { unit } : {}),
-          ...(ann?.preparation ? { preparation: ann.preparation } : {}),
-          ...(ann?.note ? { note: ann.note } : {}),
-        });
-      }
+      currentGroup = collectStepIngredients(
+        step,
+        parsed,
+        annotations,
+        groups,
+        currentGroup,
+      );
 
       // Add instruction text for non-ingredient-only steps
       if (!isIngredientOnlyStep(step)) {
@@ -574,24 +762,12 @@ export function deriveRecipeFromCooklang(cooklang: CooklangRecipe): CooklangReci
     diagnostics.push("No instruction lines detected in Cooklang body.");
   }
 
-  const derivedRecipe =
-    cooklang.frontmatter.title &&
-    cooklang.frontmatter.description != null &&
-    cooklang.frontmatter.servings &&
-    ingredientGroups.length > 0 &&
-    instructions.length > 0
-      ? {
-          title: cooklang.frontmatter.title,
-          description: cooklang.frontmatter.description,
-          cuisine: cooklang.frontmatter.cuisine ?? [],
-          servings: Math.round(cooklang.frontmatter.servings),
-          prepTime: cooklang.frontmatter.prepTime != null ? Math.round(cooklang.frontmatter.prepTime) : undefined,
-          cookTime: cooklang.frontmatter.cookTime != null ? Math.round(cooklang.frontmatter.cookTime) : undefined,
-          ingredientGroups,
-          instructions,
-          cookware,
-        }
-      : undefined;
+  const derivedRecipe = createDerivedRecipe(
+    cooklang.frontmatter,
+    ingredientGroups,
+    instructions,
+    cookware,
+  );
 
   if (!derivedRecipe) {
     diagnostics.push(

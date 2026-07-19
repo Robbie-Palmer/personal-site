@@ -87,7 +87,7 @@ export function FilterBar({
   sortButton,
   mobileFilterSections,
   mobileExtraContent,
-}: FilterBarProps) {
+}: Readonly<FilterBarProps>) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const searchControl = showSearch && onSearchChange && (
     <div

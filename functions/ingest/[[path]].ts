@@ -3,7 +3,14 @@ interface Env {
   POSTHOG_ASSETS_HOST?: string;
 }
 
-export const onRequest: PagesFunction<Env> = async (context) => {
+export interface IngestProxyContext {
+  request: Request;
+  env: Env;
+}
+
+export const onRequest = async (
+  context: IngestProxyContext,
+): Promise<Response> => {
   const apiHost = context.env.POSTHOG_API_HOST || "https://eu.i.posthog.com";
   const assetsHost =
     context.env.POSTHOG_ASSETS_HOST || "https://eu-assets.i.posthog.com";
@@ -16,8 +23,53 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     ? `${assetsHost}${pathname}${search}`
     : `${apiHost}${pathname}${search}`;
 
-  console.log(`[PostHog Proxy] ${context.request.method} ${pathname}${search} -> ${destination}`);
-  const response = await fetch(new Request(destination, context.request));
-  console.log(`[PostHog Proxy] Response: ${response.status}`);
-  return response;
+  const requestInit: RequestInit & { duplex?: "half" } = {
+    method: context.request.method,
+    headers: context.request.headers,
+    body: ["GET", "HEAD"].includes(context.request.method)
+      ? undefined
+      : context.request.body,
+    redirect: "manual",
+  };
+  // Node's Fetch implementation requires this for streaming request bodies;
+  // Workers ignores unknown RequestInit dictionary members.
+  if (requestInit.body) requestInit.duplex = "half";
+  const upstreamRequest = new Request(destination, requestInit);
+  // Same-origin browser requests can carry credentials for this site. They are
+  // not needed by PostHog and must not be forwarded to a third-party origin.
+  for (const header of [
+    "authorization",
+    "cookie",
+    "cf-connecting-ip",
+    "x-forwarded-for",
+    "x-real-ip",
+  ]) {
+    upstreamRequest.headers.delete(header);
+  }
+
+  try {
+    const response = await fetch(upstreamRequest);
+    console.log(
+      JSON.stringify({
+        message: "PostHog proxy request",
+        method: context.request.method,
+        path: pathname,
+        status: response.status,
+      }),
+    );
+    return response;
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        message: "PostHog proxy request failed",
+        method: context.request.method,
+        path: pathname,
+        error: error instanceof Error ? error.message : "Unknown error",
+      }),
+    );
+    return Response.json(
+      { error: "Analytics upstream unavailable" },
+      { status: 502 },
+    );
+  }
 };

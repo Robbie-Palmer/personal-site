@@ -6,7 +6,7 @@ interface EntryGridProps {
   onSelectEntry: (entryId: string) => void;
 }
 
-export function EntryGrid({ entries, onSelectEntry }: EntryGridProps) {
+export function EntryGrid({ entries, onSelectEntry }: Readonly<EntryGridProps>) {
   const sorted = [...entries].sort(
     (a, b) => a.scores.overall - b.scores.overall,
   );

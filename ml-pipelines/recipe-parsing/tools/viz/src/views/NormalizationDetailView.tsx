@@ -41,9 +41,9 @@ type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 function ExtractionContextPanel({
   extraction,
-}: {
+}: Readonly<{
   extraction: ExtractionRecipe;
-}) {
+}>) {
   const cuisineText = extraction.cuisine?.join(", ");
 
   return (
@@ -110,7 +110,7 @@ export function NormalizationDetailView({
   entryIndex,
   onBack,
   onNavigate,
-}: NormalizationDetailViewProps) {
+}: Readonly<NormalizationDetailViewProps>) {
   const [groundTruth, setGroundTruth] = useState<GroundTruthDataset | null>(null);
   const [predictions, setPredictions] = useState<PredictionsDataset | null>(null);
   const [extractions, setExtractions] = useState<ExtractionPredictionsDataset | null>(null);
@@ -253,6 +253,73 @@ export function NormalizationDetailView({
   }
 
   const totalEntries = groundTruth.entries.length;
+  const saveButtonContent = (() => {
+    if (saveStatus === "saving") return "Saving...";
+    if (saveStatus === "saved") {
+      return <><Check className="h-3.5 w-3.5" /> Saved</>;
+    }
+    if (saveStatus === "error") {
+      return <><AlertCircle className="h-3.5 w-3.5" /> Error</>;
+    }
+    return <><Save className="h-3.5 w-3.5" /> Save</>;
+  })();
+  const middleContent = (() => {
+    if (edited) {
+      return (
+        <CooklangEditor
+          value={edited}
+          diagnostics={previewDiagnostics}
+          onChange={(next) => {
+            setEdited(next);
+            setDirty(true);
+            setSaveStatus("idle");
+            setSaveMessage(null);
+          }}
+        />
+      );
+    }
+    if (predictedNormalization) {
+      return (
+        <RecipePanel
+          recipe={predictedNormalization}
+          label="Predicted Normalization"
+        />
+      );
+    }
+    return (
+      <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">
+        No normalization prediction available.
+      </div>
+    );
+  })();
+  const diffContent = (() => {
+    if (edited && expectedNormalized && predictedNormalization) {
+      return (
+        <ParsedRecipeDiff
+          expected={expectedNormalized}
+          predicted={predictedNormalization}
+          expectedCookware={edited.body ? extractCookwareFromBody(edited.body) : []}
+          predictedCookware={predictedCooklang?.body ? extractCookwareFromBody(predictedCooklang.body) : []}
+          scalarFields={["title", "cuisine", "servings", "prepTime", "cookTime"]}
+        />
+      );
+    }
+    if (edited) {
+      const message = expectedNormalized
+        ? "No normalization prediction to diff against."
+        : "Cooklang cannot be derived yet — check for diagnostics.";
+      return (
+        <div className="bg-white rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
+          {message}
+        </div>
+      );
+    }
+    return (
+      <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">
+        Click "Copy Prediction" or "Init Empty" to start annotating ground truth.
+      </div>
+    );
+  })();
 
   return (
     <div className="space-y-4">
@@ -310,21 +377,7 @@ export function NormalizationDetailView({
                 : "bg-gray-100 text-gray-400 cursor-not-allowed"
             }`}
           >
-            {saveStatus === "saving" ? (
-              "Saving..."
-            ) : saveStatus === "saved" ? (
-              <>
-                <Check className="h-3.5 w-3.5" /> Saved
-              </>
-            ) : saveStatus === "error" ? (
-              <>
-                <AlertCircle className="h-3.5 w-3.5" /> Error
-              </>
-            ) : (
-              <>
-                <Save className="h-3.5 w-3.5" /> Save
-              </>
-            )}
+            {saveButtonContent}
           </button>
           <div className="flex items-center gap-1">
             <button
@@ -376,48 +429,13 @@ export function NormalizationDetailView({
 
         {/* Middle: CooklangEditor (editing) or predicted normalization (read-only) */}
         <div>
-          {edited ? (
-            <CooklangEditor
-              value={edited}
-              diagnostics={previewDiagnostics}
-              onChange={(next) => {
-                setEdited(next);
-                setDirty(true);
-                setSaveStatus("idle");
-                setSaveMessage(null);
-              }}
-            />
-          ) : predictedNormalization ? (
-            <RecipePanel recipe={predictedNormalization} label="Predicted Normalization" />
-          ) : (
-            <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">
-              No normalization prediction available.
-            </div>
-          )}
+          {middleContent}
         </div>
 
         {/* Right: diff (when editing) or empty prompt */}
         <div className="space-y-4">
           {scoreBreakdown && <ScoresPanel scores={scoreBreakdown} />}
-          {edited && expectedNormalized && predictedNormalization ? (
-            <ParsedRecipeDiff
-              expected={expectedNormalized}
-              predicted={predictedNormalization}
-              expectedCookware={edited.body ? extractCookwareFromBody(edited.body) : []}
-              predictedCookware={predictedCooklang?.body ? extractCookwareFromBody(predictedCooklang.body) : []}
-              scalarFields={["title", "cuisine", "servings", "prepTime", "cookTime"]}
-            />
-          ) : edited ? (
-            <div className="bg-white rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
-              {!expectedNormalized
-                ? "Cooklang cannot be derived yet — check for diagnostics."
-                : "No normalization prediction to diff against."}
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">
-              Click "Copy Prediction" or "Init Empty" to start annotating ground truth.
-            </div>
-          )}
+          {diffContent}
           {previewDiagnostics.length > 0 && (
             <div className="rounded border border-amber-200 bg-amber-50 p-3">
               <div className="text-xs font-medium uppercase tracking-wide text-amber-700 mb-2">

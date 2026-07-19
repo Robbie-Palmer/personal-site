@@ -149,7 +149,12 @@ async function main() {
 	await mkdir(REPORTS_DIR, { recursive: true });
 
 	console.log("Launching Chrome...");
-	const chromePath = puppeteer.executablePath();
+	let chromePath;
+	try {
+		chromePath = await puppeteer.executablePath("chrome");
+	} catch {
+		chromePath = await puppeteer.executablePath();
+	}
 	const chrome = await launch({
 		chromePath,
 		chromeFlags: ["--headless", "--disable-gpu", "--no-sandbox"],

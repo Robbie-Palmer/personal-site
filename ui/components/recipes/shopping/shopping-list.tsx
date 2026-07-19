@@ -19,7 +19,7 @@ import { useKitchenStock } from "@/hooks/use-kitchen-stock";
 import { useShoppingList } from "@/hooks/use-shopping-list";
 import { useUnitPreference } from "@/hooks/use-unit-preference";
 import type { ShoppingRecipe } from "@/lib/api/shopping";
-import type { MeasurementSystem } from "@/lib/domain/recipe";
+import type { MeasurementPreference } from "@/lib/domain/recipe";
 import type { KitchenLocation } from "@/lib/domain/recipe/kitchen";
 import {
   aggregateShoppingList,
@@ -106,7 +106,7 @@ function KitchenItemRow({
   checked,
 }: Readonly<{
   line: ShoppingLine;
-  system: MeasurementSystem;
+  system: MeasurementPreference;
   location: KitchenLocation;
   checked: boolean;
 }>) {
@@ -155,13 +155,13 @@ function ItemRow({
   checked,
   kitchenLocation,
   showRecipes,
-}: {
+}: Readonly<{
   line: ShoppingLine;
-  system: MeasurementSystem;
+  system: MeasurementPreference;
   checked: boolean;
   kitchenLocation?: KitchenLocation;
   showRecipes: boolean;
-}) {
+}>) {
   if (kitchenLocation) {
     return (
       <KitchenItemRow
@@ -203,7 +203,10 @@ function ItemRow({
   );
 }
 
-function SectionHeading({ title, hint }: { title: string; hint?: string }) {
+function SectionHeading({
+  title,
+  hint,
+}: Readonly<{ title: string; hint?: string }>) {
   return (
     <div className="flex items-baseline justify-between border-b border-[var(--line)] pb-1 mt-5 first:mt-0">
       <h3 className="rt-display text-2xl text-[var(--terracotta)]">
@@ -216,9 +219,9 @@ function SectionHeading({ title, hint }: { title: string; hint?: string }) {
 
 function ExtrasSection({
   extras,
-}: {
+}: Readonly<{
   extras: { id: string; text: string; checked: boolean }[];
-}) {
+}>) {
   const [text, setText] = useState("");
   const submit = () => {
     addExtra(text);
@@ -295,7 +298,9 @@ function ExtrasSection({
   );
 }
 
-export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
+export function ShoppingList({
+  recipes,
+}: Readonly<{ recipes: ShoppingRecipe[] }>) {
   const state = useShoppingList();
   const stock = useKitchenStock();
   const [system] = useUnitPreference();
@@ -378,13 +383,11 @@ export function ShoppingList({ recipes }: { recipes: ShoppingRecipe[] }) {
     (total, group) => total + group.servings,
     0,
   );
+  const recipeLabel = selected.length === 1 ? "recipe" : "recipes";
+  const servingLabel = servingCount === 1 ? "serving" : "servings";
   const stats = [
-    selected.length > 0
-      ? `${selected.length} ${selected.length === 1 ? "recipe" : "recipes"}`
-      : null,
-    selected.length > 0
-      ? `${servingCount} ${servingCount === 1 ? "serving" : "servings"}`
-      : null,
+    selected.length > 0 ? `${selected.length} ${recipeLabel}` : null,
+    selected.length > 0 ? `${servingCount} ${servingLabel}` : null,
     `${itemCount} ${itemCount === 1 ? "item" : "items"}`,
     inKitchenCount > 0 ? `${inKitchenCount} in kitchen` : null,
     `${tickedCount} ticked`,

@@ -44,7 +44,7 @@ export async function generateMetadata({ params }: PageProps) {
   }
 }
 
-export default async function ProjectPage({ params }: PageProps) {
+export default async function ProjectPage({ params }: Readonly<PageProps>) {
   const { slug } = await params;
   let project: ProjectWithADRs;
 

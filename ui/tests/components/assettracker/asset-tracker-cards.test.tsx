@@ -99,6 +99,17 @@ describe("PortfolioGoal", () => {
       "sm:w-auto",
     );
   });
+
+  it("uses a native progress element for an active goal", () => {
+    mockAssetTracker({ netWorthTarget: 500_000 });
+
+    render(<PortfolioGoal />);
+
+    const progress = screen.getByRole("progressbar");
+    expect(progress.tagName).toBe("PROGRESS");
+    expect(progress).toHaveAttribute("max", "1");
+    expect(progress).toHaveAttribute("value", "0");
+  });
 });
 
 describe("UpcomingFlows", () => {

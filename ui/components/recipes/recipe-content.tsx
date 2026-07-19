@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { AddTimerPopover } from "@/components/recipes/add-timer-popover";
 import {
   CookMode,
   type CookStep,
@@ -43,17 +44,13 @@ import type {
   IngredientGroupView,
   RecipeDetailView,
 } from "@/lib/domain/recipe/recipeViews";
+import { formatRecipeTime } from "@/lib/domain/recipe/time";
 import {
   MEASUREMENT_SYSTEM_LABELS,
+  type MeasurementPreference,
   type MeasurementSystem,
+  preferenceForSystem,
 } from "@/lib/domain/recipe/unit";
-
-function formatTime(minutes: number): string {
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-}
 
 function IngredientGroup({
   group,
@@ -62,14 +59,14 @@ function IngredientGroup({
   annotations,
   checked,
   onToggle,
-}: {
+}: Readonly<{
   group: IngredientGroupView;
   scale: number;
-  system: MeasurementSystem;
+  system: MeasurementPreference;
   annotations: Map<string, IngredientAnnotation>;
   checked: Set<string>;
   onToggle: (ingredient: string) => void;
-}) {
+}>) {
   return (
     <div>
       {group.name && (
@@ -149,7 +146,69 @@ function buildCookUrl(open: boolean, step: number): string {
   return url.toString();
 }
 
-export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
+interface MethodTokenProps {
+  readonly recipeSlug: string;
+  readonly recipeTitle: string;
+  readonly scale: number;
+  readonly stepIndex: number;
+  readonly stepText: string;
+  readonly system: MeasurementPreference;
+  readonly timersEnabled: boolean;
+  readonly token: CookToken;
+}
+
+function MethodToken({
+  recipeSlug,
+  recipeTitle,
+  scale,
+  stepIndex,
+  stepText,
+  system,
+  timersEnabled,
+  token,
+}: MethodTokenProps) {
+  if (token.type === "timer") {
+    if (timersEnabled && token.timerId) {
+      return (
+        <InlineTimer
+          timerId={token.timerId}
+          recipeSlug={recipeSlug}
+          recipeTitle={recipeTitle}
+          stepIndex={stepIndex}
+          stepText={stepText}
+          durationSeconds={token.durationSeconds}
+          label={token.value}
+        />
+      );
+    }
+    return (
+      <button
+        type="button"
+        disabled
+        data-recipe-pill
+        title="Timers are available after saving the recipe"
+        className="inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-[var(--line-strong)] px-2 py-0.5 align-baseline text-[0.8125rem] font-semibold text-[var(--ink-2)] opacity-70"
+      >
+        <Timer className="size-3" />
+        {token.value}
+      </button>
+    );
+  }
+  if (token.type === "ingredient") {
+    return formatInstructionIngredientToken(token, scale, system);
+  }
+  return token.value;
+}
+
+function ingredientGroupClassName(index: number, hasName: boolean) {
+  if (index === 0) return undefined;
+  return hasName ? "border-t border-border/50 pt-4 mt-4" : "mt-4";
+}
+
+export function RecipeContent({
+  recipe,
+  timersEnabled = true,
+}: Readonly<{ recipe: RecipeDetailView; timersEnabled?: boolean }>) {
   const { diet, matchRecipe } = useDiet();
   const dietMatch = useMemo(
     () =>
@@ -172,7 +231,14 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
     isScaling,
     error: scalingError,
   } = useScaledRecipe(recipe, requestedScale);
-  const [unitSystem, setUnitSystem] = useUnitPreference();
+  const [unitPreference] = useUnitPreference();
+  const [displaySystem, setDisplaySystem] = useState<MeasurementSystem | null>(
+    null,
+  );
+  const displayPreference = useMemo(
+    () => (displaySystem ? preferenceForSystem(displaySystem) : unitPreference),
+    [displaySystem, unitPreference],
+  );
 
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(
     () => new Set(),
@@ -234,7 +300,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
         // Step index keeps the key unique even when two steps read identically.
         key: `${stepIndex}:${tokens.map((token) => token.value).join("|")}`,
         tokens: tokens.map((token, tokenIndex): CookToken => {
-          if (token.type !== "timer") return token;
+          if (token.type !== "timer" || !timersEnabled) return token;
           return {
             ...token,
             timerId: `${recipe.slug}:s${stepIndex}:t${tokenIndex}`,
@@ -248,7 +314,12 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
       tokens: null,
       text: step,
     }));
-  }, [instructionTokenization, effectiveRecipe.instructions, recipe.slug]);
+  }, [
+    instructionTokenization,
+    effectiveRecipe.instructions,
+    recipe.slug,
+    timersEnabled,
+  ]);
 
   // Cook mode open/step state is mirrored into the URL (?cook=1&step=N) via
   // the history API: entering pushes an entry so the back button exits, step
@@ -293,6 +364,26 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
     globalThis.history.replaceState(null, "", buildCookUrl(true, step));
     setCookStep(step);
   }, []);
+
+  const scalingStatus = (() => {
+    if (scalingError) {
+      return (
+        <AlertTriangle
+          className="h-3 w-3 text-destructive"
+          aria-label="Precise scaling unavailable; showing an approximation"
+        />
+      );
+    }
+    if (isScaling) {
+      return (
+        <Loader2
+          className="h-3 w-3 animate-spin text-muted-foreground"
+          aria-label="Scaling recipe"
+        />
+      );
+    }
+    return null;
+  })();
 
   return (
     <>
@@ -366,17 +457,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
               >
                 <Plus className="h-3 w-3" />
               </Button>
-              {scalingError ? (
-                <AlertTriangle
-                  className="h-3 w-3 text-destructive"
-                  aria-label="Precise scaling unavailable; showing an approximation"
-                />
-              ) : isScaling ? (
-                <Loader2
-                  className="h-3 w-3 animate-spin text-muted-foreground"
-                  aria-label="Scaling recipe"
-                />
-              ) : null}
+              {scalingStatus}
             </div>
           </div>
           <div className="flex items-center gap-1.5">
@@ -386,36 +467,51 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setUnitSystem(s)}
+                  onClick={() => setDisplaySystem(s)}
                   className={[
                     "px-2 py-0.5 text-xs font-medium transition-colors first:rounded-l last:rounded-r",
-                    unitSystem === s
+                    (displaySystem ?? unitPreference.preset) === s
                       ? "bg-foreground text-background"
                       : "text-muted-foreground hover:text-foreground",
                   ].join(" ")}
-                  aria-pressed={unitSystem === s}
+                  aria-pressed={(displaySystem ?? unitPreference.preset) === s}
                 >
                   {MEASUREMENT_SYSTEM_LABELS[s]}
                 </button>
               ))}
+              {unitPreference.preset === "custom" && (
+                <button
+                  type="button"
+                  onClick={() => setDisplaySystem(null)}
+                  className={[
+                    "px-2 py-0.5 text-xs font-medium transition-colors first:rounded-l last:rounded-r",
+                    displaySystem === null
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:text-foreground",
+                  ].join(" ")}
+                  aria-pressed={displaySystem === null}
+                >
+                  Custom
+                </button>
+              )}
             </div>
           </div>
           {recipe.prepTime != null && (
             <div className="flex items-center gap-1">
               <Timer className="h-4 w-4" />
-              <span>Prep: {formatTime(recipe.prepTime)}</span>
+              <span>Prep: {formatRecipeTime(recipe.prepTime)}</span>
             </div>
           )}
           {recipe.cookTime != null && (
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
-              <span>Cook: {formatTime(recipe.cookTime)}</span>
+              <span>Cook: {formatRecipeTime(recipe.cookTime)}</span>
             </div>
           )}
           {recipe.totalTime != null && (
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
-              <span>Total: {formatTime(recipe.totalTime)}</span>
+              <span>Total: {formatRecipeTime(recipe.totalTime)}</span>
             </div>
           )}
           <Popover>
@@ -491,18 +587,12 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
             {effectiveRecipe.ingredientGroups.map((group, i) => (
               <div
                 key={group.name ?? i}
-                className={
-                  i > 0
-                    ? group.name
-                      ? "border-t border-border/50 pt-4 mt-4"
-                      : "mt-4"
-                    : undefined
-                }
+                className={ingredientGroupClassName(i, Boolean(group.name))}
               >
                 <IngredientGroup
                   group={group}
                   scale={scale}
-                  system={unitSystem}
+                  system={displayPreference}
                   annotations={ingredientAnnotations}
                   checked={checkedIngredients}
                   onToggle={toggleIngredient}
@@ -535,13 +625,10 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
         <h2 className="rt-display text-4xl text-[var(--terracotta)] mb-4">
           Method
         </h2>
-        {/* Real ordered list whose visible numeral is decorative generated
-            content via a CSS counter (aria-hidden), so screen readers rely on
-            list position. role="list" is redundant per spec but kept on purpose:
-            Safari/VoiceOver drop list semantics when the marker is removed with
-            list-style:none, and reasserting the role restores them. */}
-        {/* biome-ignore lint/a11y/noRedundantRoles: intentional Safari/VoiceOver list-semantics workaround (see above) */}
-        <ol role="list" className="rt-method-steps list-none p-0 m-0">
+        {/* Keep a native decimal marker so Safari/VoiceOver retain the list
+            semantics. Its text is transparent because the visible numeral is
+            decorative generated content from the CSS counter below. */}
+        <ol className="rt-method-steps list-decimal marker:text-transparent p-0 m-0">
           {cookSteps.map((step, stepIndex) => (
             <li
               key={step.key}
@@ -558,28 +645,46 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
                         <span
                           key={`${tokenIndex}:${token.type}:${token.value}`}
                         >
-                          {token.type === "timer" && token.timerId ? (
-                            <InlineTimer
-                              timerId={token.timerId}
-                              recipeSlug={recipe.slug}
-                              recipeTitle={recipe.title}
-                              stepIndex={stepIndex}
-                              stepText={step.text}
-                              durationSeconds={token.durationSeconds}
-                              label={token.value}
-                            />
-                          ) : token.type === "ingredient" ? (
-                            formatInstructionIngredientToken(
-                              token,
-                              scale,
-                              unitSystem,
-                            )
-                          ) : (
-                            token.value
-                          )}
+                          <MethodToken
+                            token={token}
+                            recipeSlug={recipe.slug}
+                            recipeTitle={recipe.title}
+                            stepIndex={stepIndex}
+                            stepText={step.text}
+                            scale={scale}
+                            system={displayPreference}
+                            timersEnabled={timersEnabled}
+                          />
                         </span>
                       ))
                     : step.text}
+                  {/* Only offer the generic add-timer on steps that have no
+                      timer of their own, so it never doubles up with a timer
+                      pill or a "set a timer" prompt already in the step. */}
+                  {step.tokens?.some(
+                    (token) => token.type === "timer",
+                  ) ? null : (
+                    <>
+                      {" "}
+                      <AddTimerPopover
+                        align="start"
+                        recipeSlug={recipe.slug}
+                        recipeTitle={recipe.title}
+                        stepIndex={stepIndex}
+                        stepText={step.text}
+                        trigger={
+                          <button
+                            type="button"
+                            className="ml-0.5 inline-flex translate-y-[1px] items-center gap-0.5 align-baseline text-[0.6875rem] text-[var(--ink-4)] opacity-70 transition-opacity hover:opacity-100 hover:text-[var(--terracotta)]"
+                            aria-label="Add a timer for this step"
+                          >
+                            <Timer className="size-3" />
+                            timer
+                          </button>
+                        }
+                      />
+                    </>
+                  )}
                 </div>
               </div>
             </li>
@@ -601,7 +706,7 @@ export function RecipeContent({ recipe }: { recipe: RecipeDetailView }) {
             ingredientGroups={effectiveRecipe.ingredientGroups}
             annotations={ingredientAnnotations}
             scale={scale}
-            system={unitSystem}
+            system={displayPreference}
             step={cookStep}
             onStepChange={changeCookStep}
             onExit={exitCookMode}

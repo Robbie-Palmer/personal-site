@@ -5,8 +5,9 @@
 # they must not be available to routine Cloudflare/Neon/PostHog deployments.
 
 resource "google_project" "recipes" {
-  name       = var.gcp_project_name
-  project_id = var.gcp_project_id
+  name                = var.gcp_project_name
+  project_id          = var.gcp_project_id
+  auto_create_network = false
 
   lifecycle {
     prevent_destroy = true
@@ -19,6 +20,23 @@ resource "google_project" "recipes" {
 import {
   to = google_project.recipes
   id = var.gcp_project_id
+}
+
+resource "google_project_iam_audit_config" "all_services" {
+  project = google_project.recipes.project_id
+  service = "allServices"
+
+  audit_log_config {
+    log_type = "ADMIN_READ"
+  }
+
+  audit_log_config {
+    log_type = "DATA_READ"
+  }
+
+  audit_log_config {
+    log_type = "DATA_WRITE"
+  }
 }
 
 locals {

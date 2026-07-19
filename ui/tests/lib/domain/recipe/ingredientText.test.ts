@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatIngredientName,
+  formatIngredientStaticText,
   pluralizeIngredientName,
 } from "@/lib/domain/recipe/ingredientText";
 
@@ -138,6 +139,109 @@ describe("ingredientText", () => {
           1,
         ),
       ).toBe("white onions");
+    });
+  });
+
+  describe("formatIngredientStaticText", () => {
+    it("joins metric amounts to noSpace units", () => {
+      expect(
+        formatIngredientStaticText({
+          ingredient: "plain-flour",
+          name: "plain flour",
+          amount: 500,
+          unit: "g",
+        }),
+      ).toBe("500g plain flour");
+    });
+
+    it("renders fractional amounts with unicode fractions", () => {
+      expect(
+        formatIngredientStaticText({
+          ingredient: "milk",
+          name: "milk",
+          amount: 0.5,
+          unit: "us_cup",
+        }),
+      ).toBe("½ cup milk");
+    });
+
+    it("pluralises unit labels for amounts above one", () => {
+      expect(
+        formatIngredientStaticText({
+          ingredient: "chopped-tomatoes",
+          name: "chopped tomatoes",
+          amount: 2,
+          unit: "tin",
+        }),
+      ).toBe("2 tins chopped tomatoes");
+    });
+
+    it("keeps unitless fractional ingredients singular", () => {
+      expect(
+        formatIngredientStaticText({
+          ingredient: "red-onion",
+          name: "red onion",
+          amount: 0.5,
+        }),
+      ).toBe("½ red onion");
+    });
+
+    it("uses pluralName for unitless counts when provided", () => {
+      expect(
+        formatIngredientStaticText({
+          ingredient: "lemon",
+          name: "lemon",
+          pluralName: "lemons",
+          amount: 2,
+        }),
+      ).toBe("2 lemons");
+    });
+
+    it("auto-pluralises bare piece counts like the UI formatter", () => {
+      expect(
+        formatIngredientStaticText({
+          ingredient: "white-onion",
+          name: "white onion",
+          amount: 2,
+          unit: "piece",
+        }),
+      ).toBe("2 white onions");
+    });
+
+    it("does not pluralise measured ingredient names without an override", () => {
+      expect(
+        formatIngredientStaticText({
+          ingredient: "plain-flour",
+          name: "plain flour",
+          amount: 2,
+          unit: "tbsp",
+        }),
+      ).toBe("2 tbsp plain flour");
+    });
+
+    it("appends preparation in parentheses", () => {
+      expect(
+        formatIngredientStaticText({
+          ingredient: "onion",
+          name: "onion",
+          amount: 1,
+          preparation: "finely diced",
+        }),
+      ).toBe("1 onion (finely diced)");
+    });
+
+    it("omits notes unless asked to include them", () => {
+      const item = {
+        ingredient: "feta",
+        name: "feta",
+        amount: 200,
+        unit: "g" as const,
+        note: "or a vegan alternative",
+      };
+      expect(formatIngredientStaticText(item)).toBe("200g feta");
+      expect(formatIngredientStaticText(item, { includeNote: true })).toBe(
+        "200g feta – or a vegan alternative",
+      );
     });
   });
 });

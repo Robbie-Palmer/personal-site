@@ -70,7 +70,7 @@ export function DateRangeFilter({
   className,
   disabled = false,
   size = "default",
-}: DateRangeFilterProps) {
+}: Readonly<DateRangeFilterProps>) {
   const [open, setOpen] = useState(false);
   const [localFrom, setLocalFrom] = useState(from ?? "");
   const [localTo, setLocalTo] = useState(to ?? "");

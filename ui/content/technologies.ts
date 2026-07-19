@@ -8,6 +8,14 @@ export const technologies: TechnologyContent[] = [
     type: "library",
   },
   {
+    name: "TanStack Query",
+    added: "2026-07-19",
+    description: "Async server-state synchronization and caching for web apps",
+    website: "https://tanstack.com/query/latest",
+    iconSlug: "tanstack",
+    type: "library",
+  },
+  {
     name: "Next.js",
     added: "2026-01-04",
     description: "Full-stack web development built on React",

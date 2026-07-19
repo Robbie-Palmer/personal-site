@@ -55,7 +55,7 @@ function windowToRange(
   data: NetWorthDataPoint[],
   years: number | null,
 ): NetWorthDataPoint[] {
-  const last = data[data.length - 1];
+  const last = data.at(-1);
   if (!last) return data;
   const today = todayIsoDate();
   const extended =
@@ -79,7 +79,7 @@ interface NetWorthChartProps {
   data: NetWorthDataPoint[];
 }
 
-export function NetWorthChart({ data }: NetWorthChartProps) {
+export function NetWorthChart({ data }: Readonly<NetWorthChartProps>) {
   const [rangeYears, setRangeYears] = useState<number | null>(null);
   const rangedData = useMemo(
     () => windowToRange(data, rangeYears),
@@ -120,12 +120,14 @@ export function NetWorthChart({ data }: NetWorthChartProps) {
     change != null && first && first.total !== 0
       ? change / Math.abs(first.total)
       : null;
-  const rangeLabel =
-    rangeYears == null
-      ? "all time"
-      : rangeYears === 1
-        ? "past year"
-        : `past ${rangeYears} years`;
+  let rangeLabel: string;
+  if (rangeYears == null) {
+    rangeLabel = "all time";
+  } else if (rangeYears === 1) {
+    rangeLabel = "past year";
+  } else {
+    rangeLabel = `past ${rangeYears} years`;
+  }
 
   function soloSeries(name: string) {
     setHidden((previous) => {
@@ -294,7 +296,7 @@ function LegendPill({
   isHidden,
   onSolo,
   onToggle,
-}: LegendPillProps) {
+}: Readonly<LegendPillProps>) {
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
 

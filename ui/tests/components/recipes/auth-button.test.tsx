@@ -44,7 +44,7 @@ describe("AuthButton", () => {
     const user = userEvent.setup();
     render(<AuthButton />);
 
-    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    await user.click(screen.getByRole("button", { name: /log in/i }));
 
     expect(
       screen.getByRole("button", { name: "Continue with Google" }),
@@ -59,7 +59,7 @@ describe("AuthButton", () => {
     mocks.getLastUsedLoginMethod.mockReturnValue("google");
     render(<AuthButton />);
 
-    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    await user.click(screen.getByRole("button", { name: /log in/i }));
 
     expect(
       screen.getByRole("button", { name: /Continue with Google/ }),
@@ -74,7 +74,7 @@ describe("AuthButton", () => {
     window.history.replaceState({}, "", "/recipes/pasta?servings=4#method");
     render(<AuthButton />);
 
-    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    await user.click(screen.getByRole("button", { name: /log in/i }));
     await user.click(
       screen.getByRole("button", { name: "Continue with GitHub" }),
     );
@@ -84,6 +84,34 @@ describe("AuthButton", () => {
       callbackURL: "/recipes/pasta?servings=4#method",
       errorCallbackURL: "/recipes/pasta?servings=4#method",
     });
+  });
+
+  it("starts sign-up providers with onboarding as the callback", async () => {
+    const user = userEvent.setup();
+    render(<AuthButton intent="signup" />);
+
+    await user.click(screen.getByRole("button", { name: /sign up/i }));
+    await user.click(
+      screen.getByRole("button", { name: "Continue with Google" }),
+    );
+
+    expect(mocks.signInSocial).toHaveBeenCalledWith({
+      provider: "google",
+      callbackURL: "/recipes/onboarding",
+      errorCallbackURL: "/recipes/onboarding",
+    });
+  });
+
+  it("keeps sign-up available while the session is loading", async () => {
+    const user = userEvent.setup();
+    mocks.useSession.mockReturnValue({ data: null, isPending: true });
+
+    render(<AuthButton intent="signup" />);
+
+    await user.click(screen.getByRole("button", { name: /sign up/i }));
+    expect(
+      screen.getByRole("button", { name: "Continue with Google" }),
+    ).toBeInTheDocument();
   });
 
   it("offers Access-protected test scenarios on PR previews", async () => {
@@ -109,7 +137,7 @@ describe("AuthButton", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<AuthButton />);
 
-    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    await user.click(screen.getByRole("button", { name: /log in/i }));
     const scenarioButton = await screen.findByRole("button", {
       name: /Empty account/,
     });
@@ -133,6 +161,60 @@ describe("AuthButton", () => {
     );
   });
 
+  it("starts each preview sign-up with a fresh QA account", async () => {
+    const user = userEvent.setup();
+    mocks.isPreviewDeployment.mockReturnValue(true);
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ error: "Preview sign-up failed" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AuthButton intent="signup" />);
+
+    await user.click(screen.getByRole("button", { name: /sign up/i }));
+    expect(
+      screen.getByText("Start a fresh preview account"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Choose a preview scenario"),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /start fresh/i }));
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith("/api/auth/preview/sign-up", {
+      method: "POST",
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Preview sign-up failed",
+    );
+  });
+
+  it("constrains the sign-up control and menu to a mobile viewport", async () => {
+    const user = userEvent.setup();
+    render(<AuthButton intent="signup" />);
+
+    const trigger = screen.getByRole("button", { name: /sign up/i });
+    expect(trigger).toHaveClass("max-w-full");
+    await user.click(trigger);
+
+    expect(screen.getByRole("dialog")).toHaveClass(
+      "w-[calc(100vw-2rem)]",
+      "max-w-56",
+    );
+  });
+
+  it("can hide header auth text on narrow mobile screens", () => {
+    render(<AuthButton intent="signup" compactOnMobile />);
+
+    const trigger = screen.getByRole("button", { name: "Sign up" });
+    expect(trigger).toHaveAccessibleName("Sign up");
+    expect(screen.getByText("Sign up")).toHaveClass(
+      "hidden",
+      "min-[480px]:inline",
+    );
+  });
+
   it("disables sign-in on a frontend-only preview", async () => {
     const user = userEvent.setup();
     mocks.isPreviewDeployment.mockReturnValue(true);
@@ -141,7 +223,7 @@ describe("AuthButton", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<AuthButton />);
 
-    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    await user.click(screen.getByRole("button", { name: /log in/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Sign-in is disabled on this frontend-only preview.",

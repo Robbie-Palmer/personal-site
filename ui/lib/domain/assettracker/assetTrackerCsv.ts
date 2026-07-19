@@ -3,7 +3,7 @@ import type { AssetTrackerData } from "./assetTrackerData";
 function csvField(value: string | number): string {
   const text = String(value);
   if (/[",\n]/.test(text)) {
-    return `"${text.replace(/"/g, '""')}"`;
+    return `"${text.replaceAll('"', '""')}"`;
   }
   return text;
 }

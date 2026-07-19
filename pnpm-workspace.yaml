@@ -5,6 +5,23 @@ packages:
   - 'ml-pipelines/recipe-parsing'
   - 'ml-pipelines/recipe-parsing/tools/viz'
 
+# pnpm 10 already skipped these dependency lifecycle scripts. pnpm 11 requires
+# the policy to be explicit; keep installs reproducible without expanding the
+# set of third-party code allowed to execute during dependency installation.
+allowBuilds:
+  core-js: false
+  esbuild: false
+  puppeteer: false
+  sharp: false
+  workerd: false
+
+# better-auth-cloudflare 0.3.0 is compatible with workers-types v5, but its
+# peer range has not yet been widened from v4. Keep this exception scoped to
+# that package; the recipe API typecheck and tests exercise the integration.
+peerDependencyRules:
+  allowedVersions:
+    'better-auth-cloudflare>@cloudflare/workers-types': '5'
+
 # Dedupe postcss onto the patched 8.5.x line. Next pulls in 8.4.31, which is
 # affected by GHSA-qx2v-qp2m-jg93 (XSS via unescaped </style> in stringify);
 # 8.5.x is already in the tree via @tailwindcss/postcss and is API-compatible.
@@ -28,10 +45,17 @@ packages:
 # 0.18.x even on its latest release; it already uses esbuild 0.25 directly, so
 # the loader's transform/build calls are API-compatible with the bump. Scoped
 # so other consumers (e.g. vite's esbuild 0.28) are untouched.
+#
+# Lighthouse 13.4.0 still requests Sentry 9, which pulls in the vulnerable
+# @opentelemetry/core 1.30.1 (GHSA-8988-4f7v-96qf). Sentry 10 retains the APIs
+# Lighthouse uses for optional error reporting and has moved to the patched
+# OpenTelemetry 2.x line. Scope the major-version override to Lighthouse.
 overrides:
   '@esbuild-kit/core-utils>esbuild': '^0.28.0'
+  'lighthouse>@sentry/node': '^10.66.0'
   js-yaml: '^5.0.0'
   postcss: '^8.5.10'
+
 patchedDependencies:
   '@cooklang/cooklang@0.18.7': patches/@cooklang__cooklang@0.18.7.patch
   gray-matter@4.0.3: patches/gray-matter@4.0.3.patch

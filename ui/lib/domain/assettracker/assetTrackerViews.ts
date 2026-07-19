@@ -12,6 +12,14 @@ import {
 import type { BalanceSnapshot } from "./balanceSnapshot";
 import type { Transfer } from "./transfer";
 
+function compareIsoDates(a: string, b: string): number {
+  // BalanceSnapshotSchema guarantees canonical YYYY-MM-DD strings, for which
+  // code-unit order is chronological and avoids timezone-dependent parsing.
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
 /**
  * Mortgages secured on a property are netted into that property so a home
  * shows as equity, not gross value, in totals and charts. Returns the set of
@@ -206,10 +214,10 @@ export function toNetWorthTimeSeries(
   snapshots: BalanceSnapshot[],
 ): NetWorthDataPoint[] {
   const dateSet = new Set(snapshots.map((s) => s.date));
-  const sortedDates = Array.from(dateSet).sort();
+  const sortedDates = Array.from(dateSet).sort(compareIsoDates);
 
-  const sortedSnapshots = [...snapshots].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  const sortedSnapshots = [...snapshots].sort((a, b) =>
+    compareIsoDates(a.date, b.date),
   );
 
   // Two-pointer approach: process each snapshot only once

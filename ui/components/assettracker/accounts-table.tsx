@@ -6,9 +6,9 @@ import {
   ASSET_TYPE_LABELS,
   type AssetType,
   type BalanceSnapshotView,
-  computeTotalBalance,
   formatAccountCurrency,
   formatAnnualRate,
+  formatTotalBalances,
   isLiability,
   todayIsoDate,
 } from "@/lib/domain/assettracker";
@@ -39,12 +39,9 @@ interface AccountsTableProps {
 export function AccountsTable({
   accounts,
   onSelectAccount,
-}: AccountsTableProps) {
+}: Readonly<AccountsTableProps>) {
   const assets = accounts.filter((a) => !isLiability(a.assetType));
   const liabilities = accounts.filter((a) => isLiability(a.assetType));
-  const totalBalance = computeTotalBalance(accounts);
-  // Use first account's currency for totals (assumes homogeneous currency)
-  const totalCurrency = accounts[0]?.currency ?? "GBP";
 
   return (
     <div className="border rounded-lg overflow-hidden">
@@ -66,13 +63,11 @@ export function AccountsTable({
             <AccountsSection
               label="Assets"
               accounts={assets}
-              currency={totalCurrency}
               onSelectAccount={onSelectAccount}
             />
             <AccountsSection
               label="Liabilities"
               accounts={liabilities}
-              currency={totalCurrency}
               onSelectAccount={onSelectAccount}
             />
           </tbody>
@@ -82,7 +77,7 @@ export function AccountsTable({
                 Net worth
               </td>
               <td className="p-3 text-right font-mono font-semibold">
-                {formatAccountCurrency(totalBalance, totalCurrency)}
+                {formatTotalBalances(accounts)}
               </td>
               <td colSpan={3} />
             </tr>
@@ -96,16 +91,13 @@ export function AccountsTable({
 function AccountsSection({
   label,
   accounts,
-  currency,
   onSelectAccount,
-}: {
+}: Readonly<{
   label: string;
   accounts: AccountDetailView[];
-  currency: AccountDetailView["currency"];
   onSelectAccount?: (accountId: string) => void;
-}) {
+}>) {
   if (accounts.length === 0) return null;
-  const subtotal = computeTotalBalance(accounts);
   return (
     <>
       <tr className="border-b bg-muted/20">
@@ -128,7 +120,7 @@ function AccountsSection({
           {label} total
         </td>
         <td className="p-3 text-right font-mono text-muted-foreground">
-          {formatAccountCurrency(subtotal, currency)}
+          {formatTotalBalances(accounts)}
         </td>
         <td colSpan={3} />
       </tr>
@@ -139,10 +131,10 @@ function AccountsSection({
 function AccountRow({
   account,
   onSelectAccount,
-}: {
+}: Readonly<{
   account: AccountDetailView;
   onSelectAccount?: (accountId: string) => void;
-}) {
+}>) {
   return (
     <tr className="border-b hover:bg-muted/30">
       <td className="p-3 font-medium">
@@ -192,7 +184,9 @@ function AccountRow({
  * The retention loop for a manual-entry tracker: surface how stale each
  * balance is and make the fix one tap away (a prefilled log-balance drawer).
  */
-function StaleBalanceNudge({ account }: { account: AccountDetailView }) {
+function StaleBalanceNudge({
+  account,
+}: Readonly<{ account: AccountDetailView }>) {
   if (!account.isOpen) return null;
   let message: string | null = null;
   if (account.latestSnapshotDate == null) {
@@ -225,7 +219,9 @@ function StaleBalanceNudge({ account }: { account: AccountDetailView }) {
 const SPARK_WIDTH = 72;
 const SPARK_HEIGHT = 22;
 
-function Sparkline({ snapshots }: { snapshots: BalanceSnapshotView[] }) {
+function Sparkline({
+  snapshots,
+}: Readonly<{ snapshots: BalanceSnapshotView[] }>) {
   if (snapshots.length < 2) {
     return <span className="text-xs text-muted-foreground">—</span>;
   }

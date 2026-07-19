@@ -18,6 +18,6 @@ const SigmaGraphClient = dynamic(
   },
 );
 
-export function LazyKnowledgeGraph({ data }: { data: GraphData }) {
+export function LazyKnowledgeGraph({ data }: Readonly<{ data: GraphData }>) {
   return <SigmaGraphClient data={data} />;
 }

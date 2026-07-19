@@ -29,11 +29,11 @@ function ScalarRow({
   label,
   expected,
   predicted,
-}: {
+}: Readonly<{
   label: string;
   expected: string | undefined;
   predicted: string | undefined;
-}) {
+}>) {
   const match =
     normalize(expected ?? "") === normalize(predicted ?? "");
   return (
@@ -92,11 +92,11 @@ function LineDiffSection({
   title,
   expectedLines,
   predictedLines,
-}: {
+}: Readonly<{
   title: string;
   expectedLines: string[];
   predictedLines: string[];
-}) {
+}>) {
   const { expectedStatuses, predictedStatuses } = diffLines(
     expectedLines,
     predictedLines,
@@ -167,7 +167,7 @@ function LineDiffSection({
 export function ExtractionDiff({
   expected,
   predicted,
-}: ExtractionDiffProps) {
+}: Readonly<ExtractionDiffProps>) {
   // Flatten all ingredient lines from all groups, including group names
   const flattenIngredientGroups = (groups: ExtractionRecipe["ingredientGroups"]) =>
     groups.flatMap((g) => [...(g.name ? [g.name] : []), ...g.lines]);

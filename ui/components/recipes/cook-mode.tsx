@@ -8,11 +8,15 @@ import {
   ListChecks,
   Pause,
   Play,
+  Plus,
   RotateCcw,
+  Timer,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AddTimerPopover } from "@/components/recipes/add-timer-popover";
 import { Button } from "@/components/ui/button";
+import { useCookMode } from "@/contexts/cook-mode-context";
 import { useCookingTimer } from "@/hooks/use-cooking-timers";
 import {
   type CookingTimer,
@@ -36,7 +40,7 @@ import {
 } from "@/lib/domain/recipe/ingredientDisplay";
 import type { InstructionDisplayToken } from "@/lib/domain/recipe/instructionTokens";
 import type { IngredientGroupView } from "@/lib/domain/recipe/recipeViews";
-import type { MeasurementSystem } from "@/lib/domain/recipe/unit";
+import type { MeasurementPreference } from "@/lib/domain/recipe/unit";
 import { normalizeSlug } from "@/lib/generic/slugs";
 
 /** An instruction token enriched with the id of its global timer (timer tokens only). */
@@ -118,11 +122,12 @@ export function CookMode({
   ingredientGroups: IngredientGroupView[];
   annotations: Map<string, IngredientAnnotation>;
   scale: number;
-  system: MeasurementSystem;
+  system: MeasurementPreference;
   step: number;
   onStepChange: (step: number) => void;
   onExit: () => void;
 }>) {
+  const { setCookModeOpen } = useCookMode();
   const clampedStep = Math.min(Math.max(step, 0), steps.length - 1);
   const current = steps[clampedStep];
   const [showIngredients, setShowIngredients] = useState(false);
@@ -143,18 +148,18 @@ export function CookMode({
     return () => releaseWakeLock(WAKE_LOCK_KEY);
   }, []);
 
-  // Lock page scroll behind the overlay and flag the body so the timer dock
-  // can float above the cook-mode footer instead of covering it.
+  // Lock page scroll behind the overlay and share the open state so the
+  // timer dock can float above the cook-mode footer instead of covering it.
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    document.body.classList.add("rt-cook-mode-open");
+    setCookModeOpen(true);
     containerRef.current?.focus();
     return () => {
       document.body.style.overflow = previousOverflow;
-      document.body.classList.remove("rt-cook-mode-open");
+      setCookModeOpen(false);
     };
-  }, []);
+  }, [setCookModeOpen]);
 
   // A non-modal <dialog> (see below) doesn't make the rest of the page inert,
   // so assistive tech could still reach the covered content. Mark every other
@@ -191,6 +196,11 @@ export function CookMode({
   // trapped inside the dialog.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      // An add-timer popover (portalled to <body>, outside the dialog) is open:
+      // let it own the keyboard. Otherwise our focus trap yanks Tab back into
+      // the dialog — leaving the popover's fields unreachable — and Escape would
+      // exit cook mode instead of closing the popover.
+      if (document.querySelector('[data-slot="popover-content"]')) return;
       if (event.key === "Tab") {
         trapFocus(event, containerRef.current);
         return;
@@ -262,6 +272,17 @@ export function CookMode({
       token.timerId !== undefined &&
       token.durationSeconds !== null,
   );
+
+  // Timer tokens with no resolved duration render as "set a timer" prompts.
+  const currentPrompts = (current.tokens ?? []).filter(
+    (token): token is CookToken & { type: "timer" } =>
+      token.type === "timer" && token.durationSeconds === null,
+  );
+
+  // Offer the generic add-timer only when the step has no timer of its own, so
+  // it never doubles up with a timer control or a prompt.
+  const showAddTimer =
+    currentTimers.length === 0 && currentPrompts.length === 0;
 
   const isLastStep = clampedStep === steps.length - 1;
   const nextStep = isLastStep ? null : steps[clampedStep + 1];
@@ -371,6 +392,53 @@ export function CookMode({
                 stepText={current.text}
               />
             ))}
+
+            {(currentPrompts.length > 0 || showAddTimer) && (
+              <div className="mt-7 flex flex-wrap items-center gap-2">
+                {currentPrompts.map((token, index) => {
+                  const promptLabel = token.value.trim();
+                  return (
+                    <AddTimerPopover
+                      key={`prompt-${index}:${token.value}`}
+                      defaultLabel={promptLabel}
+                      recipeSlug={recipeSlug}
+                      recipeTitle={recipeTitle}
+                      stepIndex={clampedStep}
+                      stepText={current.text}
+                      trigger={
+                        <Button
+                          size="sm"
+                          className="bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]"
+                        >
+                          <Timer className="size-4" />
+                          {promptLabel
+                            ? `Set ${promptLabel} timer`
+                            : "Set timer"}
+                        </Button>
+                      }
+                    />
+                  );
+                })}
+                {showAddTimer && (
+                  <AddTimerPopover
+                    recipeSlug={recipeSlug}
+                    recipeTitle={recipeTitle}
+                    stepIndex={clampedStep}
+                    stepText={current.text}
+                    trigger={
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-[var(--ink-2)]"
+                      >
+                        <Plus className="size-4" />
+                        Add timer
+                      </Button>
+                    }
+                  />
+                )}
+              </div>
+            )}
           </div>
 
           {/* persistent muted preview of the next step; tap to advance */}
@@ -494,7 +562,7 @@ function StepToken({
 }: Readonly<{
   token: CookToken;
   scale: number;
-  system: MeasurementSystem;
+  system: MeasurementPreference;
 }>) {
   if (token.type === "ingredient") {
     return (
@@ -523,7 +591,7 @@ function IngredientReference({
   ingredientGroups: IngredientGroupView[];
   annotations: Map<string, IngredientAnnotation>;
   scale: number;
-  system: MeasurementSystem;
+  system: MeasurementPreference;
   highlighted: Set<string>;
 }>) {
   return (

@@ -80,8 +80,6 @@ const BOT_LOGINS = new Set(["github-actions[bot]"]);
 const DEFAULT_SCOUTS = [
   "moonshotai/kimi-k2.6",
   "deepseek/deepseek-v4-pro",
-  "z-ai/glm-5.2",
-  "qwen/qwen3-coder",
 ];
 const REASONING_DISABLED_MODELS = new Set(["moonshotai/kimi-k2.6"]);
 const DEFAULT_MERGER = "anthropic/claude-sonnet-4.6";

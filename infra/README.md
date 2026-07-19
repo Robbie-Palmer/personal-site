@@ -177,6 +177,15 @@ Terraform provider.
 - **Connection:** Use the pooled connection URI (`neon_connection_uri_pooler` output)
   for serverless/Workers environments
 
+### `recipes-preview`
+
+Synthetic-only Postgres project for pull request previews. Its empty
+`preview-base` branch is the parent of disposable PR branches. Terraform also
+creates a project-scoped API key for GitHub branch automation; publish the
+`neon_preview_project_id` and sensitive `neon_preview_api_key` outputs to the
+`stg_recipe_api` Doppler config as `NEON_PROJECT_ID` and `NEON_API_KEY`, then run
+`scripts/sync-doppler-github-envs.sh`.
+
 ## Rotating `POSTHOG_KEY`
 
 `POSTHOG_KEY` lives in Doppler, but it lands in **three** places — two are

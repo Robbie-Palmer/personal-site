@@ -1,7 +1,7 @@
 {
   "name": "personal-site",
   "version": "0.1.0",
-  "packageManager": "pnpm@10.34.4",
+  "packageManager": "pnpm@11.15.0",
   "private": true,
   "type": "module",
   "description": "Personal website mono-repo - root package for repo-wide tooling",
@@ -10,7 +10,7 @@
   },
   "devDependencies": {
     "husky": "^9.1.7",
-    "lint-staged": "^16.2.6",
+    "lint-staged": "^17.0.0",
     "markdownlint-cli": "^0.49.0",
     "remark-cli": "^12.0.1",
     "remark-frontmatter": "^5.0.0",

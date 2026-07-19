@@ -24,6 +24,13 @@ Worker. `RECIPE_API_URL` configures the deployed Worker URL.
 Proxies same-origin diet profile reads and writes to the recipe API Worker so
 the browser can use the same session cookies and CSRF origin checks as auth.
 
+### `/api/notifications/*` - Recipe Notifications Proxy
+
+**File:** `api/notifications/[[path]].ts`
+
+Proxies notification archive, read-state, and dismissal requests to the recipe
+API Worker using the same-origin session cookie.
+
 ### `_middleware.ts` - Markdown Content Negotiation
 
 Serves each page's agent-friendly Markdown twin from its canonical URL

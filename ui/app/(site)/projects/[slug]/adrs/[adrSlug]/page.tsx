@@ -73,7 +73,7 @@ export async function generateMetadata({ params }: PageProps) {
   }
 }
 
-export default async function ADRPage({ params }: PageProps) {
+export default async function ADRPage({ params }: Readonly<PageProps>) {
   const { slug, adrSlug } = await params;
   let project: ProjectWithADRs;
   let adr: ADRDetailView;
@@ -99,6 +99,28 @@ export default async function ADRPage({ params }: PageProps) {
   const displayIndex = formatADRIndex(currentIndex >= 0 ? currentIndex : 0);
   const displayTitle = normalizeADRTitle(adr.title);
   const supersedesRef = adr.supersedes ? parseADRRef(adr.supersedes) : null;
+
+  const adrContent = (() => {
+    if (!adr.isInherited) {
+      return <Markdown source={adr.content} components={adrComponents} />;
+    }
+    if (!adr.inheritedProjectNotes) {
+      return (
+        <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+          No project-specific notes have been added for this inherited ADR.
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-3">
+        <h2 className="text-xl font-semibold">Project Notes</h2>
+        <Markdown
+          source={adr.inheritedProjectNotes}
+          components={adrComponents}
+        />
+      </div>
+    );
+  })();
 
   return (
     <div className="max-w-4xl">
@@ -232,23 +254,7 @@ export default async function ADRPage({ params }: PageProps) {
 
         <Separator className="my-8" />
 
-        {adr.isInherited ? (
-          adr.inheritedProjectNotes ? (
-            <div className="space-y-3">
-              <h2 className="text-xl font-semibold">Project Notes</h2>
-              <Markdown
-                source={adr.inheritedProjectNotes}
-                components={adrComponents}
-              />
-            </div>
-          ) : (
-            <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-              No project-specific notes have been added for this inherited ADR.
-            </div>
-          )
-        ) : (
-          <Markdown source={adr.content} components={adrComponents} />
-        )}
+        {adrContent}
       </div>
     </div>
   );

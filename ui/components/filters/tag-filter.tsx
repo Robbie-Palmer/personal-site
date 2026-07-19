@@ -26,7 +26,7 @@ export function TagFilter({
   className,
   disabled = false,
   size = "default",
-}: TagFilterProps) {
+}: Readonly<TagFilterProps>) {
   const options: MultiSelectOption[] = useMemo(
     () =>
       tags.map((tag) => ({

@@ -54,7 +54,7 @@ export function LineChartCard({
   lines,
   yAxisTickFormatter,
   tooltipFormatter,
-}: LineChartCardProps) {
+}: Readonly<LineChartCardProps>) {
   return (
     <Card>
       <CardHeader>

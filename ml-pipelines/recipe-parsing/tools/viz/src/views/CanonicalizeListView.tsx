@@ -18,7 +18,7 @@ interface CanonicalizeListViewProps {
 
 export function CanonicalizeListView({
   onSelectEntry,
-}: CanonicalizeListViewProps) {
+}: Readonly<CanonicalizeListViewProps>) {
   const [groundTruth, setGroundTruth] = useState<GroundTruthDataset | null>(null);
   const [predictions, setPredictions] = useState<PredictionsDataset | null>(null);
   const [pipelineScores, setPipelineScores] = useState<PerImageScoreEntry[]>([]);

@@ -14,6 +14,17 @@ export function validateDate(dateStr: string): boolean {
 	return format(parsed, "yyyy-MM-dd") === dateStr;
 }
 
+function compareIsoDates(a: string, b: string): number {
+	if (a < b) return -1;
+	if (a > b) return 1;
+	return 0;
+}
+
+function extractValidDateSuffix(imageId: string): string | null {
+	const date = /(\d{4}-\d{2}-\d{2})$/.exec(imageId)?.[1];
+	return date && validateDate(date) ? date : null;
+}
+
 export interface ImageParts {
 	rootName: string;
 	date: string;
@@ -137,15 +148,12 @@ async function main() {
 		);
 		if (existingVersions.length > 0) {
 			const latestExisting = existingVersions
-				.map((id) => {
-				// Extract full YYYY-MM-DD from the end of the ID
-				const match = id.match(/(\d{4}-\d{2}-\d{2})$/);
-				return match ? match[1] : "";
-			})
-			.filter((date) => date !== "")
-				.sort()
-				.reverse()[0];
-			if (latestExisting && dateStr <= latestExisting) {
+				.map(extractValidDateSuffix)
+				.filter((date): date is string => date !== null)
+				.sort((a, b) => compareIsoDates(b, a))[0];
+			// Both values are validated canonical dates, so code-unit comparison is
+			// chronological without timezone-dependent Date parsing.
+			if (latestExisting && compareIsoDates(dateStr, latestExisting) <= 0) {
 				console.log("   ❌ Version validation failed:");
 				console.log(`      Latest existing version: ${latestExisting}`);
 				console.log(`      New version: ${dateStr}`);

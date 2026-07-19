@@ -16,7 +16,7 @@ export function BlogBadge({
   blog,
   className,
   source_type = "experience",
-}: BlogBadgeProps) {
+}: Readonly<BlogBadgeProps>) {
   return (
     <Link
       href={`/blog/${blog.slug}`}

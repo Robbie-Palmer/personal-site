@@ -29,6 +29,28 @@ export const user = pgTable("user", {
     .$onUpdate(() => new Date()),
 });
 
+// Better Auth keeps one canonical address on `user`. This table records every
+// verified address owned by that account so app features can resolve aliases
+// captured from linked identity providers without treating an email as the
+// user ID.
+export const userEmail = pgTable(
+  "user_email",
+  {
+    email: text().primaryKey(),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    verified: boolean().notNull().default(false),
+    isPrimary: boolean().notNull().default(false),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [index("user_email_user_id_idx").on(table.userId)],
+);
+
 export const session = pgTable(
   "session",
   {
@@ -154,6 +176,81 @@ export const invitation = pgTable(
   ],
 );
 
+// Notification data uses class-table inheritance: every occurrence is a
+// generic event, each recipient gets an independent delivery, and richer
+// domains add relational subtype rows without widening the generic tables.
+export const notificationEvent = pgTable(
+  "notification_event",
+  {
+    id: text().primaryKey(),
+    kind: text().notNull(),
+    actorUserId: text().references(() => user.id, { onDelete: "set null" }),
+    actorNameSnapshot: text(),
+    occurredAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("notification_event_kind_idx").on(table.kind)],
+);
+
+export const notificationDelivery = pgTable(
+  "notification_delivery",
+  {
+    id: text().primaryKey(),
+    eventId: text()
+      .notNull()
+      .references(() => notificationEvent.id, { onDelete: "cascade" }),
+    recipientUserId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    readAt: timestamp({ withTimezone: true }),
+    dismissedAt: timestamp({ withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("notification_delivery_event_recipient_uidx").on(
+      table.eventId,
+      table.recipientUserId,
+    ),
+    index("notification_delivery_recipient_read_at_idx").on(
+      table.recipientUserId,
+      table.readAt,
+    ),
+  ],
+);
+
+export const notificationHouseholdEvent = pgTable(
+  "notification_household_event",
+  {
+    eventId: text()
+      .primaryKey()
+      .references(() => notificationEvent.id, { onDelete: "cascade" }),
+    householdId: text().references(() => organization.id, {
+      onDelete: "set null",
+    }),
+    householdNameSnapshot: text().notNull(),
+  },
+  (table) => [
+    index("notification_household_event_household_idx").on(table.householdId),
+  ],
+);
+
+export const notificationHouseholdInvitationEvent = pgTable(
+  "notification_household_invitation_event",
+  {
+    eventId: text()
+      .primaryKey()
+      .references(() => notificationHouseholdEvent.eventId, {
+        onDelete: "cascade",
+      }),
+    invitationId: text().references(() => invitation.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    index("notification_household_invitation_event_invitation_idx").on(
+      table.invitationId,
+    ),
+  ],
+);
+
 export const recipe = pgTable(
   "recipe",
   {
@@ -172,7 +269,20 @@ export const recipe = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [index("recipe_user_id_idx").on(table.userId)],
+  (table) => [
+    index("recipe_user_id_idx").on(table.userId),
+    index("recipe_public_feed_idx").on(
+      table.visibility,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+    index("recipe_household_feed_idx").on(
+      table.userId,
+      table.visibility,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+  ],
 );
 
 export const ingredient = pgTable("ingredient", {
@@ -341,6 +451,34 @@ export const userDietExcludedIngredient = pgTable(
     }),
     index("user_diet_excluded_ingredient_slug_idx").on(table.ingredientSlug),
   ],
+);
+
+/**
+ * The static recipes a user has chosen for their personal recipe box. The
+ * recipe content remains in the versioned Cooklang catalog; this table only
+ * stores the user's selection so the same recipe can be used by many people.
+ */
+export const userRecipeBox = pgTable("user_recipe_box", {
+  userId: text()
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  completedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp({ withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const userRecipeBoxItem = pgTable(
+  "user_recipe_box_item",
+  {
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    recipeSlug: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.recipeSlug] })],
 );
 
 export const appRateLimit = pgTable("app_rate_limit", {

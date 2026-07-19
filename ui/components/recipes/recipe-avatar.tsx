@@ -6,13 +6,13 @@ export function RecipeAvatar({
   image,
   size = 40,
   className,
-}: {
+}: Readonly<{
   name?: string | null;
   email?: string | null;
   image?: string | null;
   size?: number;
   className?: string;
-}) {
+}>) {
   const initial = (
     name?.trim()?.[0] ??
     email?.trim()?.[0] ??

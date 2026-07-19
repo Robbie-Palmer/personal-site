@@ -36,7 +36,7 @@ export function RoleFilter({
   className,
   disabled = false,
   size = "default",
-}: RoleFilterProps) {
+}: Readonly<RoleFilterProps>) {
   const options: MultiSelectOption[] = useMemo(() => {
     return roles.map((role) => ({
       value: role.slug,

@@ -36,7 +36,7 @@ export function StatusFilter<T extends StatusType>({
   disabled = false,
   size = "default",
   ...triState
-}: StatusFilterProps<T>) {
+}: Readonly<StatusFilterProps<T>>) {
   const options: MultiSelectOption[] =
     type === "project"
       ? PROJECT_STATUSES.map((status) => {

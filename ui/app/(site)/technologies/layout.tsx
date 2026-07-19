@@ -8,7 +8,9 @@ interface TechnologyLayoutProps {
   children: React.ReactNode;
 }
 
-export default function TechnologyLayout({ children }: TechnologyLayoutProps) {
+export default function TechnologyLayout({
+  children,
+}: Readonly<TechnologyLayoutProps>) {
   const repository = loadDomainRepository();
   const technologies = getAllTechnologyBadgesSorted(repository);
 

@@ -41,7 +41,7 @@ export function IngredientRow({
   ingredient,
   diffStatus = "matched",
   category,
-}: IngredientRowProps) {
+}: Readonly<IngredientRowProps>) {
   return (
     <li
       className={`text-sm flex items-start gap-1.5 px-2 py-0.5 rounded ${DIFF_STYLES[diffStatus]}`}

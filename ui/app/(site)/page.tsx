@@ -14,6 +14,12 @@ import { siteConfig } from "@/lib/config/site-config";
 import { loadDomainRepository } from "@/lib/domain";
 import { getTechnologiesWithConnectionWeights } from "@/lib/domain/technology";
 
+function experienceOrder(index: number): string {
+  if (index === 0) return "md:order-3";
+  if (index === 2) return "md:order-1";
+  return "md:order-2";
+}
+
 export default function Home() {
   const collections = getCollectionsWithIds();
   const collectionPosts = Object.fromEntries(
@@ -140,13 +146,7 @@ export default function Home() {
               .map((role, i) => (
                 <div
                   key={`${role.company}-${role.startDate}`}
-                  className={
-                    i === 0
-                      ? "md:order-3"
-                      : i === 2
-                        ? "md:order-1"
-                        : "md:order-2"
-                  }
+                  className={experienceOrder(i)}
                 >
                   <HomeExperienceCard experience={role} />
                 </div>

@@ -25,7 +25,7 @@ export function ADRPagination({
   variant = "full",
   compact = false,
   className,
-}: ADRPaginationProps) {
+}: Readonly<ADRPaginationProps>) {
   // If no nav is possible, render nothing
   if (!prevAdr && !nextAdr) return null;
   return (

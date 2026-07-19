@@ -129,6 +129,16 @@ export function matchRecipeToDiet(
   };
 }
 
+export function filterRecipesForDiet<T>(
+  recipes: T[],
+  diet: EffectiveDiet,
+  toDietRecipe: (recipe: T) => DietRecipe,
+): T[] {
+  return recipes.filter(
+    (recipe) => matchRecipeToDiet(toDietRecipe(recipe), diet).matches,
+  );
+}
+
 export function applyDietRecipeVisibility<T extends { slug: string }>(
   recipes: T[],
   matches: ReadonlyMap<string, DietMatch>,

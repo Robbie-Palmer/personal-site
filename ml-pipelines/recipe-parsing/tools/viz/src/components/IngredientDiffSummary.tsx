@@ -4,7 +4,7 @@ interface IngredientDiffSummaryProps {
   diff: IngredientDiff;
 }
 
-export function IngredientDiffSummary({ diff }: IngredientDiffSummaryProps) {
+export function IngredientDiffSummary({ diff }: Readonly<IngredientDiffSummaryProps>) {
   return (
     <div className="flex flex-wrap gap-3 text-xs">
       <span className="px-2 py-1 rounded bg-green-50 text-green-700">

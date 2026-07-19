@@ -19,7 +19,7 @@ export function ProjectRoleBadge({
   interactive: interactiveProp,
   active,
   onClick,
-}: ProjectRoleBadgeProps) {
+}: Readonly<ProjectRoleBadgeProps>) {
   const badge = (
     <Badge
       variant={active ? "default" : "outline"}

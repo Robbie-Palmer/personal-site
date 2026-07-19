@@ -6,7 +6,7 @@ interface RecipePanelProps {
   label: string;
 }
 
-export function RecipePanel({ recipe, label }: RecipePanelProps) {
+export function RecipePanel({ recipe, label }: Readonly<RecipePanelProps>) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-5">
       <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">

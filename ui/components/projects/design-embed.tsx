@@ -22,7 +22,7 @@ export function DesignEmbed({
   title,
   caption,
   height = 720,
-}: DesignEmbedProps) {
+}: Readonly<DesignEmbedProps>) {
   return (
     <div className="not-prose my-8 overflow-hidden rounded-lg border bg-muted/30">
       <div className="flex items-center justify-between gap-4 border-b bg-muted/50 px-4 py-2.5">

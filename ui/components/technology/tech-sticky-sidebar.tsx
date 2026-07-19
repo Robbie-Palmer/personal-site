@@ -13,7 +13,7 @@ interface TechStickySidebarProps {
 export function TechStickySidebar({
   technologies,
   className,
-}: TechStickySidebarProps) {
+}: Readonly<TechStickySidebarProps>) {
   const isNavbarVisible = useNavbarVisibility();
   return (
     <aside

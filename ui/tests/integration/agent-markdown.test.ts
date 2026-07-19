@@ -9,6 +9,21 @@ import { describe, expect, it } from "vitest";
 
 const OUT_DIR = path.join(process.cwd(), "out");
 
+// Runtime-backed recipe app pages are static export shells, not recipe content.
+// They intentionally have no Markdown, JSON, or Cooklang twins.
+const RECIPE_APP_PAGES = new Set([
+  "add",
+  "cooks",
+  "discover",
+  "kitchen",
+  "notifications",
+  "onboarding",
+  "profile",
+  "saved",
+  "settings",
+  "shopping",
+]);
+
 function read(relativePath: string): string {
   return fs.readFileSync(path.join(OUT_DIR, relativePath), "utf-8");
 }
@@ -49,21 +64,14 @@ describe("agent markdown generation", () => {
   });
 
   it("generates a markdown twin for every recipe and technology page", () => {
-    // Interactive, noindex app pages that intentionally have no Markdown twin.
-    const nonContentPages = new Set([
-      "recipes/add.html",
-      "recipes/kitchen.html",
-      "recipes/saved.html",
-      "recipes/settings.html",
-      "recipes/shopping.html",
-    ]);
     for (const section of ["recipes", "technologies"]) {
       const htmlPages = fs
         .readdirSync(path.join(OUT_DIR, section))
         .filter(
           (file) =>
             file.endsWith(".html") &&
-            !nonContentPages.has(`${section}/${file}`),
+            (section !== "recipes" ||
+              !RECIPE_APP_PAGES.has(file.replace(/\.html$/, ""))),
         );
       expect(htmlPages.length).toBeGreaterThan(0);
       for (const htmlPage of htmlPages) {
@@ -76,12 +84,20 @@ describe("agent markdown generation", () => {
     }
   });
 
-  it("keeps authenticated app pages out of agent markdown outputs", () => {
-    expect(fs.existsSync(path.join(OUT_DIR, "recipes", "settings.md"))).toBe(
-      false,
-    );
-    expect(read("llms.txt")).not.toContain("/recipes/settings");
-    expect(read("llms-full.txt")).not.toContain("/recipes/settings");
+  it("keeps runtime-backed app pages out of agent markdown outputs", () => {
+    for (const page of [
+      "cooks",
+      "notifications",
+      "onboarding",
+      "profile",
+      "settings",
+    ]) {
+      expect(fs.existsSync(path.join(OUT_DIR, "recipes", `${page}.md`))).toBe(
+        false,
+      );
+      expect(read("llms.txt")).not.toContain(`/recipes/${page}`);
+      expect(read("llms-full.txt")).not.toContain(`/recipes/${page}`);
+    }
   });
 
   it("renders recipe ingredients and instructions as markdown", () => {
@@ -95,16 +111,13 @@ describe("agent markdown generation", () => {
   });
 
   it("generates JSON and Cooklang exports for every recipe", () => {
-    const nonRecipePages = new Set([
-      "add.html",
-      "kitchen.html",
-      "saved.html",
-      "settings.html",
-      "shopping.html",
-    ]);
     const recipePages = fs
       .readdirSync(path.join(OUT_DIR, "recipes"))
-      .filter((file) => file.endsWith(".html") && !nonRecipePages.has(file));
+      .filter(
+        (file) =>
+          file.endsWith(".html") &&
+          !RECIPE_APP_PAGES.has(file.replace(/\.html$/, "")),
+      );
 
     for (const recipePage of recipePages) {
       const slug = recipePage.replace(/\.html$/, "");
@@ -130,8 +143,11 @@ describe("agent markdown generation", () => {
   it("scopes the middleware to page routes in _routes.json", () => {
     const routes = JSON.parse(read("_routes.json"));
     expect(routes.include).toContain("/api/auth/*");
-    expect(routes.include).toContain("/api/profile/diet");
-    expect(routes.include).toContain("/api/profile/diet/options");
+    expect(routes.include).toContain("/api/profile/*");
+    expect(routes.include).toContain("/api/households");
+    expect(routes.include).toContain("/api/households/*");
+    expect(routes.include).toContain("/api/notifications");
+    expect(routes.include).toContain("/api/notifications/*");
     expect(routes.include).toContain("/api/recipes");
     expect(routes.include).toContain("/api/recipes/*");
     expect(routes.include).toContain("/ingest/*");

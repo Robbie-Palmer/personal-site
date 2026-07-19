@@ -6,7 +6,7 @@ interface CategoryAggregateTableProps {
 
 export function CategoryAggregateTable({
   aggregates,
-}: CategoryAggregateTableProps) {
+}: Readonly<CategoryAggregateTableProps>) {
   const sorted = [...aggregates].sort(
     (a, b) => b.expectedCount - a.expectedCount,
   );

@@ -13,12 +13,12 @@ function ScalarField({
   expected,
   predicted,
   match,
-}: {
+}: Readonly<{
   label: string;
   expected: string | number | undefined;
   predicted?: string | number;
   match: boolean;
-}) {
+}>) {
   return (
     <div className="flex items-start gap-2 text-sm">
       <span className="text-gray-400 w-20 shrink-0 text-xs">{label}</span>
@@ -38,7 +38,7 @@ function ScalarField({
   );
 }
 
-export function SideBySideRecipe({ entry }: SideBySideRecipeProps) {
+export function SideBySideRecipe({ entry }: Readonly<SideBySideRecipeProps>) {
   const { expectedRecipe, predictedRecipe, ingredients, instructions } = entry;
 
   // Build a set of ingredient slugs that have mismatches for quick lookup

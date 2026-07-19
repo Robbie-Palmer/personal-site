@@ -3,6 +3,7 @@ import type { DietOptions, DietProfile } from "@/lib/api/diet";
 import {
   applyDietRecipeVisibility,
   buildEffectiveDiet,
+  filterRecipesForDiet,
   matchRecipeToDiet,
 } from "@/lib/domain/diet";
 
@@ -126,6 +127,22 @@ describe("diet recipe matching", () => {
         diet,
       ).matches,
     ).toBe(true);
+  });
+
+  it("keeps a small starter list diet-compatible instead of filling it with excluded recipes", () => {
+    const diet = buildEffectiveDiet(
+      profile({ presetDietKeys: ["vegan"] }),
+      options,
+    );
+    const recipes = [
+      { slug: "chickpea-stew", ingredients: [{ slug: "chickpeas" }] },
+      { slug: "chicken-pie", ingredients: [{ slug: "chicken-breast" }] },
+      { slug: "cheese-toast", ingredients: [{ slug: "cheddar-cheese" }] },
+    ];
+
+    expect(filterRecipesForDiet(recipes, diet, (recipe) => recipe)).toEqual([
+      recipes[0],
+    ]);
   });
 
   it("does not repeat custom exclusions already covered by a preset", () => {

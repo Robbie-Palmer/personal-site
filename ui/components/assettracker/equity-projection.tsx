@@ -57,7 +57,7 @@ export function EquityProjection({
   flows,
   liabilityBalances,
   inflation,
-}: EquityProjectionProps) {
+}: Readonly<EquityProjectionProps>) {
   const { points, equityReturn } = useMemo(() => {
     const startDate = todayIsoDate();
     const propertyPoints = buildProjection({
@@ -94,7 +94,7 @@ export function EquityProjection({
       };
     });
     const first = combined[0];
-    const last = combined[combined.length - 1];
+    const last = combined.at(-1);
     const years = EQUITY_MONTHS / 12;
     const annualised =
       first && last && first.equity > 0 && last.equity > 0
