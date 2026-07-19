@@ -71,9 +71,12 @@ export function computeTotalBalancesByCurrency(
 ): Array<{ currency: Currency; total: number }> {
   const totals = new Map<Currency, number>();
   for (const account of accounts) {
+    // No logged balance is "no data", not a zero — a freshly added account
+    // shouldn't put its currency into the totals.
+    if (account.latestBalance == null) continue;
     totals.set(
       account.currency,
-      (totals.get(account.currency) ?? 0) + (account.latestBalance ?? 0),
+      (totals.get(account.currency) ?? 0) + account.latestBalance,
     );
   }
   return Array.from(totals, ([currency, total]) => ({ currency, total })).sort(

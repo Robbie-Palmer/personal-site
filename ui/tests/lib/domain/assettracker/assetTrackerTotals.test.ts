@@ -38,9 +38,18 @@ describe("computeTotalBalancesByCurrency", () => {
     ]);
   });
 
-  it("treats missing balances as zero within their currency", () => {
+  it("ignores accounts with no logged balance", () => {
     expect(
-      computeTotalBalancesByCurrency([account("usd-1", "USD", null)]),
+      computeTotalBalancesByCurrency([
+        account("usd-1", "USD", null),
+        account("gbp-1", "GBP", 100),
+      ]),
+    ).toEqual([{ currency: "GBP", total: 100 }]);
+  });
+
+  it("keeps genuine zero balances", () => {
+    expect(
+      computeTotalBalancesByCurrency([account("usd-1", "USD", 0)]),
     ).toEqual([{ currency: "USD", total: 0 }]);
   });
 });
@@ -64,7 +73,8 @@ describe("formatTotalBalances", () => {
     ).toBe("£1,200.00 + US$300.00");
   });
 
-  it("falls back to zero GBP with no accounts", () => {
+  it("falls back to zero GBP with no accounts or no logged balances", () => {
     expect(formatTotalBalances([])).toBe("£0.00");
+    expect(formatTotalBalances([account("usd-1", "USD", null)])).toBe("£0.00");
   });
 });
