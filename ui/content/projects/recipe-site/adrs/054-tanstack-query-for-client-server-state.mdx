@@ -35,10 +35,6 @@ That code is not merely HTTP transport. It is a growing, distributed implementat
 * needs pagination, retry, cancellation, garbage-collection, and focus/reconnect policies;
 * must never reuse private data across authenticated users.
 
-The immediate auth-loading fix establishes correct neutral states, but it intentionally retains
-manual request orchestration. Repeating that orchestration for each new backend feature increases
-race-condition risk and makes refresh policy implicit.
-
 The current static export also creates an important boundary. Client-side caching can make the
 authenticated SPA coherent after JavaScript starts, but it cannot inspect an `HttpOnly` session
 cookie while generating static HTML. TanStack Query can delay the need for SSR by producing a good
@@ -95,9 +91,9 @@ The cache must preserve the auth-gating invariant:
 5. background refetch → keep correct cached content visible and expose only subtle refresh state.
 
 Do not use `initialData` or `placeholderData` to insert an empty recipe box, the full static
-catalogue, or a fallback diet when those values are semantically unknown. Those values create the
-same incorrect intermediate screens that the auth-loading fix removes. A skeleton is more honest
-than confidently displaying another state.
+catalogue, or a fallback diet when those values are semantically unknown. Those values assert
+meaning the server has not supplied and can produce incorrect intermediate screens. A skeleton is
+more honest than confidently displaying another state.
 
 Use a single bootstrap query if measurements show that the initial collection of authenticated
 requests is latency- or connection-bound. The bootstrap endpoint may aggregate recipe-box
