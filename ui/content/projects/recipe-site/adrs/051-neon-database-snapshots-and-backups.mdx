@@ -58,8 +58,10 @@ validated. The snapshot stays inside Neon, so it improves recovery time but does
 external archive.
 
 Create an external archive every Sunday at 03:17 UTC. Store weekly archives for 60 days. Copy the
-first weekly archive of each month to a monthly prefix without exporting Neon a second time, and
-retain monthly archives for 400 days.
+first successful backup of each month to a monthly prefix without exporting Neon a second time, and
+retain monthly archives for 400 days. Check that the monthly prefix is empty before promotion so a
+manual retry can fill a missed month without creating duplicates; workflow concurrency serializes
+the check and copy.
 
 Revisit the weekly cadence when the database holds irreplaceable user data. At that point, either
 run the external archive daily or upgrade to a paid Neon plan with a seven-day restore window and
@@ -77,7 +79,11 @@ objects correctly, restore in parallel, and apply destination-specific ownership
 choices. It is compressed but not encrypted.
 
 The backup login is separate from the application login and receives only the database access
-required to produce a complete dump. Initially it is granted `CONNECT` and `pg_read_all_data`.
+required to produce a complete dump. Its direct connection string must use either
+`sslmode=verify-full`, or `sslmode=require` with `channel_binding=require`, and `pg_dump` runs with
+`--no-password` so missing URI credentials fail instead of prompting. Initially the login is granted
+`CONNECT` and `pg_read_all_data`.
+
 Because `pg_read_all_data` does not bypass row-level security, introducing RLS requires a new restore
 test and possibly a different backup-role design. Schema migrations and role definitions remain in
 source control because `pg_dump` archives one database and not cluster-global roles.
@@ -129,8 +135,9 @@ The public `AGE_RECIPIENT` is non-secret and belongs in `prd_database_backup`, t
 * a bucket-scoped R2 Object Read & Write access key
 * the Cloudflare account ID and backup bucket name
 
-Read access is required only to copy the first weekly object into the monthly prefix. The R2 token
-is scoped to the backup bucket and cannot administer unrelated R2 data.
+Read access is required to detect an existing monthly archive and copy the first successful backup
+of the month into the monthly prefix. The R2 token is scoped to the backup bucket and cannot
+administer unrelated R2 data.
 
 ## Storage protection
 
@@ -155,10 +162,11 @@ CLI through the repository's mise configuration.
 
 The job:
 
-1. rejects a Neon URL whose hostname is a pooled endpoint
-2. fails if `pg_dump`, encryption, checksum generation, upload, or size verification fails
-3. opens one deduplicated GitHub issue when a run fails
-4. supports manual dispatch for setup and recovery testing
+1. rejects a Neon URL that is pooled or does not authenticate its TLS connection
+2. fails if `pg_dump`, encryption, checksum generation, either upload, or size verification fails
+3. promotes at most one successful backup into each monthly prefix
+4. opens one deduplicated GitHub issue when a run fails
+5. supports manual dispatch for setup and recovery testing
 
 Periodically download an archive, verify its checksum and `age` authentication, decrypt it with the
 break-glass identity, and restore it into a new scratch PostgreSQL 17 database. Listing the archive

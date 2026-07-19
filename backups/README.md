@@ -20,10 +20,13 @@ Neon's Free plan: a 512 MB full export every day would use roughly 15 GB/month,
 well over the plan's 5 GB public-transfer allowance. A weekly export uses
 roughly 2 to 2.5 GB/month at that database-size ceiling.
 
-The workflow writes every archive under `weekly/`. The first weekly archive of
-each month is copied to `monthly/` inside R2 without exporting the database a
-second time. When the project moves to a paid Neon plan, change the cron to a
-daily schedule and adjust the prefix policy if a one-day external recovery
+The workflow writes every archive under `weekly/`. The first successful backup
+of each month is copied to `monthly/` inside R2 without exporting the database a
+second time. Before promotion, the script checks that the month's prefix is
+empty, so manual retries cannot create duplicate monthly archives and can fill a
+month whose scheduled run failed. The workflow concurrency group serializes
+that check and copy. When the project moves to a paid Neon plan, change the cron
+to a daily schedule and adjust the prefix policy if a one-day external recovery
 point objective is required.
 
 The Cloudflare Terraform provider v4 can create the bucket but cannot manage R2
@@ -82,8 +85,10 @@ The default bucket name is `personal-site-database-backups`.
 
 ### 2. Create scoped credentials
 
-Create a dedicated Neon login on the direct, unpooled endpoint. A minimal
-starting point is:
+Create a dedicated Neon login on the direct, unpooled endpoint. Use the complete
+Neon connection string with either `sslmode=verify-full`, or
+`sslmode=require&channel_binding=require`; the script rejects a URL that does
+not authenticate its TLS connection. A minimal starting point is:
 
 ```sql
 CREATE ROLE database_backup LOGIN PASSWORD '<generated password>';
@@ -97,8 +102,9 @@ backup. Keep schema migrations and role creation in source control because
 `pg_dump` archives one database, not cluster-global roles.
 
 Create an R2 API token with **Object Read & Write**, scoped only to
-`personal-site-database-backups`. Read access is needed for the server-side copy
-that preserves the first weekly archive as the monthly archive.
+`personal-site-database-backups`. Read access is needed to detect an existing
+monthly archive and for the server-side copy that preserves the first successful
+backup of the month.
 
 ### 3. Generate the age key pair
 

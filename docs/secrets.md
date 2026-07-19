@@ -289,10 +289,12 @@ runtime-specific Doppler config.
 - `R2_DATABASE_BACKUPS_BUCKET_NAME` (unmasked)
 - `R2_SECRET_ACCESS_KEY`
 
-The Neon URL should use a dedicated read-only backup role and the direct,
-unpooled endpoint. Scope the R2 Object Read & Write token to only the database
-backup bucket. The private age identity must not be stored in Doppler or GitHub;
-keep it in a password manager plus a separate recovery copy.
+The Neon URL should use a dedicated read-only backup role, the direct unpooled
+endpoint, and either `sslmode=verify-full` or
+`sslmode=require&channel_binding=require`. Scope the R2 Object Read & Write
+token to only the database backup bucket. The private age identity must not be
+stored in Doppler or GitHub; keep it in a password manager plus a separate
+recovery copy.
 
 `prd_ci_repo` should own:
 

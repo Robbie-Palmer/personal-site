@@ -4,8 +4,10 @@ set -euo pipefail
 project="${DOPPLER_PROJECT:-personal-site}"
 
 require_command() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    echo "Missing required command: $1" >&2
+  local command_name="$1"
+
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    echo "Missing required command: $command_name" >&2
     exit 1
   fi
 }
@@ -62,7 +64,7 @@ sync_env() {
     | map(.source + ":" + .name)
     | join(", ")
   ' <<<"$entries_json")
-  if [ -n "$duplicate_names" ]; then
+  if [[ -n "$duplicate_names" ]]; then
     echo "Refusing to sync duplicate keys with different values or visibility: $duplicate_names" >&2
     exit 1
   fi
@@ -83,12 +85,12 @@ sync_env() {
     value=$(jq -r '.value // ""' <<<"$entry")
     visibility=$(jq -r '.visibility' <<<"$entry")
 
-    if [ -z "$value" ]; then
+    if [[ -z "$value" ]]; then
       echo "Refusing to sync empty value: $source:$name" >&2
       exit 1
     fi
 
-    if [ "$visibility" = "unmasked" ]; then
+    if [[ "$visibility" == "unmasked" ]]; then
       gh variable set "$name" --env "$github_env" --body "$value" >/dev/null
       gh secret delete "$name" --env "$github_env" >/dev/null 2>&1 || true
     else

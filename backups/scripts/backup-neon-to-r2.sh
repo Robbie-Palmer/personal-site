@@ -4,17 +4,23 @@ set -euo pipefail
 require_env() {
   local name="$1"
 
-  if [ -z "${!name:-}" ]; then
+  if [[ -z "${!name:-}" ]]; then
     echo "Missing required environment variable: $name" >&2
     exit 1
   fi
 }
 
 require_command() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    echo "Missing required command: $1" >&2
+  local command_name="$1"
+
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    echo "Missing required command: $command_name" >&2
     exit 1
   fi
+}
+
+file_size() {
+  wc -c < "$1" | tr -d '[:space:]'
 }
 
 require_env AGE_RECIPIENT
@@ -35,6 +41,20 @@ if [[ "$NEON_DATABASE_URL_UNPOOLED" == *"-pooler."* ]]; then
   exit 1
 fi
 
+secure_transport=0
+if [[ "$NEON_DATABASE_URL_UNPOOLED" =~ [\?\&]sslmode=verify-full([\&]|$) ]]; then
+  secure_transport=1
+elif [[ "$NEON_DATABASE_URL_UNPOOLED" =~ [\?\&]sslmode=require([\&]|$) ]] \
+  && [[ "$NEON_DATABASE_URL_UNPOOLED" =~ [\?\&]channel_binding=require([\&]|$) ]]; then
+  secure_transport=1
+fi
+
+if (( secure_transport == 0 )); then
+  echo "NEON_DATABASE_URL_UNPOOLED does not enforce authenticated TLS." >&2
+  echo "Use sslmode=verify-full, or sslmode=require with channel_binding=require." >&2
+  exit 1
+fi
+
 export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
 export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
 export AWS_DEFAULT_REGION="auto"
@@ -47,7 +67,6 @@ postgres_image="postgres@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e1744
 timestamp=$(date -u +"%Y-%m-%dT%H-%M-%SZ")
 year=$(date -u +"%Y")
 month=$(date -u +"%m")
-day=$(date -u +"%d")
 basename="recipes-${timestamp}.dump.age"
 weekly_key="weekly/${year}/${month}/${basename}"
 
@@ -60,6 +79,39 @@ cleanup() {
 }
 trap cleanup EXIT
 
+verify_uploaded_size() {
+  local local_path="$1"
+  local object_key="$2"
+  local local_size
+  local remote_size
+
+  local_size=$(file_size "$local_path")
+  if [[ "$local_size" == "0" ]]; then
+    echo "Refusing to verify empty local file: $local_path" >&2
+    return 1
+  fi
+
+  if ! remote_size=$(aws s3api head-object \
+    --bucket "$R2_DATABASE_BACKUPS_BUCKET_NAME" \
+    --key "$object_key" \
+    --endpoint-url "$endpoint" \
+    --query "ContentLength" \
+    --output text); then
+    echo "Failed to read uploaded object metadata: $object_key" >&2
+    return 1
+  fi
+
+  if [[ ! "$remote_size" =~ ^[0-9]+$ ]]; then
+    echo "Uploaded object returned an invalid size: key=$object_key size=$remote_size" >&2
+    return 1
+  fi
+
+  if [[ "$local_size" != "$remote_size" ]]; then
+    echo "Uploaded object size mismatch: key=$object_key local=$local_size remote=$remote_size" >&2
+    return 1
+  fi
+}
+
 echo "Creating a PostgreSQL custom-format archive and encrypting it with age"
 docker run \
     --rm \
@@ -70,6 +122,7 @@ docker run \
     --format=custom \
     --compress=gzip:6 \
     --lock-wait-timeout=30s \
+    --no-password \
   | age \
       --recipient "$AGE_RECIPIENT" \
       --output "$archive_path"
@@ -92,24 +145,29 @@ aws s3 cp \
   --no-progress \
   --only-show-errors
 
-local_size=$(wc -c < "$archive_path" | tr -d ' ')
-remote_size=$(aws s3api head-object \
+verify_uploaded_size "$archive_path" "$weekly_key"
+verify_uploaded_size "$checksum_path" "${weekly_key}.sha256"
+
+monthly_prefix="monthly/${year}/${month}/"
+monthly_object_count=$(aws s3api list-objects-v2 \
   --bucket "$R2_DATABASE_BACKUPS_BUCKET_NAME" \
-  --key "$weekly_key" \
+  --prefix "$monthly_prefix" \
+  --max-keys 1 \
   --endpoint-url "$endpoint" \
-  --query "ContentLength" \
+  --query "KeyCount" \
   --output text)
 
-if [ "$local_size" != "$remote_size" ]; then
-  echo "Uploaded backup size mismatch: local=$local_size remote=$remote_size" >&2
+if [[ ! "$monthly_object_count" =~ ^[0-9]+$ ]]; then
+  echo "Monthly prefix returned an invalid object count: $monthly_object_count" >&2
   exit 1
 fi
 
-# Preserve the first scheduled weekly backup of each month as a longer-lived
-# monthly archive without reading Neon a second time.
-if [ "$((10#$day))" -le 7 ]; then
-  monthly_key="monthly/${year}/${month}/${basename}"
-  echo "Copying first weekly backup of the month to s3://${R2_DATABASE_BACKUPS_BUCKET_NAME}/${monthly_key}"
+# Preserve the first successful backup of each month as a longer-lived archive.
+# The workflow concurrency group makes the prefix check and copy effectively
+# serial, while allowing a manual run to fill a month whose scheduled run failed.
+if (( monthly_object_count == 0 )); then
+  monthly_key="${monthly_prefix}${basename}"
+  echo "Copying first successful backup of the month to s3://${R2_DATABASE_BACKUPS_BUCKET_NAME}/${monthly_key}"
 
   aws s3 cp \
     "s3://${R2_DATABASE_BACKUPS_BUCKET_NAME}/${weekly_key}" \
@@ -124,6 +182,9 @@ if [ "$((10#$day))" -le 7 ]; then
     --endpoint-url "$endpoint" \
     --no-progress \
     --only-show-errors
+else
+  echo "Monthly archive already exists under s3://${R2_DATABASE_BACKUPS_BUCKET_NAME}/${monthly_prefix}; skipping promotion"
 fi
 
-echo "Backup completed: ${weekly_key} (${remote_size} bytes)"
+archive_size=$(file_size "$archive_path")
+echo "Backup completed: ${weekly_key} (${archive_size} bytes)"
