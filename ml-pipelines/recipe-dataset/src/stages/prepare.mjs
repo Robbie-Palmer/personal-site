@@ -3,10 +3,18 @@ import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, readFile, rename } from "node:fs/promises";
 import { spawn, spawnSync } from "node:child_process";
 import { createInterface } from "node:readline";
+import {
+  CooklangParser,
+  getFlatCookware,
+  getFlatIngredients,
+  getFlatTimers,
+  quantity_display,
+} from "@cooklang/cooklang";
 
 const projectRoot = new URL("../..", import.meta.url).pathname;
 const raw = `${projectRoot}/data/raw`;
 const outputs = `${projectRoot}/outputs`;
+const sourceCatalog = JSON.parse(await readFile(`${projectRoot}/sources.json`, "utf8"));
 await mkdir(outputs, { recursive: true });
 const recipesTemporary = `${outputs}/recipes.jsonl.part`;
 const rejectsTemporary = `${outputs}/rejects.jsonl.part`;
@@ -18,6 +26,11 @@ const ingredientOnlyTemporary = `${outputs}/ingredient-only.jsonl.part`;
 const ingredientOnly = createWriteStream(ingredientOnlyTemporary, { encoding: "utf8" });
 let accepted = 0;
 let rejected = 0;
+
+function emitReject(source, error, value) {
+  rejects.write(`${JSON.stringify({ sourceDataset: source.id, error: error.message, value })}\n`);
+  rejected += 1;
+}
 
 function strings(value) {
   return Array.isArray(value)
@@ -106,11 +119,13 @@ function emit(source, value) {
       instructions,
       nutrition: value.nutrition,
       equipment: strings(value.equipment),
+      cooklangSource: typeof value.cooklangSource === "string" ? value.cooklangSource : undefined,
+      parserDiagnostics: typeof value.parserDiagnostics === "string" ? value.parserDiagnostics : undefined,
+      originalSource: value.originalSource,
     })}\n`);
     accepted += 1;
   } catch (error) {
-    rejects.write(`${JSON.stringify({ sourceDataset: source.id, error: error.message, value })}\n`);
-    rejected += 1;
+    emitReject(source, error, value);
   }
 }
 
@@ -235,6 +250,80 @@ function archiveText(archive, name) {
   });
   if (result.status !== 0) throw new Error(result.stderr || `Could not read ${name}`);
   return result.stdout;
+}
+
+function cooklangStepText(step, parsed, flatIngredients, flatCookware, flatTimers) {
+  return step.items.map((item) => {
+    if (item.type === "text") return item.value;
+    if (item.type === "ingredient") return flatIngredients[item.index]?.name || "";
+    if (item.type === "cookware") return flatCookware[item.index]?.name || "";
+    if (item.type === "timer") {
+      const timer = flatTimers[item.index];
+      return timer?.displayText || timer?.name || "";
+    }
+    if (item.type === "inlineQuantity") {
+      const quantity = parsed.inlineQuantities[item.index];
+      return quantity ? quantity_display(quantity) : "";
+    }
+    return "";
+  }).join("").trim();
+}
+
+function isCooklangIngredientListStep(step) {
+  let ingredientFound = false;
+  for (const item of step.items) {
+    if (item.type === "ingredient") ingredientFound = true;
+    else if (item.type !== "text" || !/^[\s,;:.]*$/.test(item.value)) return false;
+  }
+  return ingredientFound;
+}
+
+function normalizeCooklangSource(source) {
+  // A bare tilde before a number is commonly used to mean "approximately",
+  // but Cooklang reserves it for timers and its parser aborts on forms such as ~5cm.
+  return source.replace(/~(?=\d+(?:[.,]\d+)?\s*(?:cm|mm|m|in)\b)/gi, "");
+}
+
+const cooklangParser = new CooklangParser();
+for (const source of sourceCatalog.filter((item) => item.format === "Cooklang")) {
+  await linesFromStream(createReadStream(`${raw}/${source.id}/recipes.jsonl`), (row) => {
+    try {
+      const [parsed, diagnostics] = cooklangParser.parse(normalizeCooklangSource(row.text));
+      const flatIngredients = getFlatIngredients(parsed);
+      const flatCookware = getFlatCookware(parsed);
+      const flatTimers = getFlatTimers(parsed);
+      const instructions = parsed.sections.flatMap((section) => section.content.flatMap((content) => {
+        if (content.type !== "step" || isCooklangIngredientListStep(content.value)) return [];
+        const text = cooklangStepText(content.value, parsed, flatIngredients, flatCookware, flatTimers);
+        return text ? [text] : [];
+      }));
+      const title = parsed.title || row.path.split("/").pop().replace(/\.cook$/i, "");
+      emit(source, {
+        sourceRecordId: row.path,
+        sourceUrl: row.sourceUrl,
+        sourceChecksum: row.sourceChecksum,
+        title,
+        description: parsed.description,
+        cuisine: typeof parsed.cuisine === "string" ? [parsed.cuisine] : parsed.cuisine,
+        category: [...parsed.tags].join(", "),
+        servings: parsed.servings,
+        ingredientGroups: [{
+          items: flatIngredients.map((ingredient) => [
+            ingredient.displayText,
+            ingredient.name,
+            ingredient.note ? `(${ingredient.note})` : undefined,
+          ].filter(Boolean).join(" ")),
+        }],
+        instructions,
+        equipment: flatCookware.map((item) => item.name),
+        cooklangSource: row.text,
+        parserDiagnostics: diagnostics,
+        originalSource: parsed.source,
+      });
+    } catch (error) {
+      emitReject(source, error, row);
+    }
+  });
 }
 
 function markdownHeading(line) {

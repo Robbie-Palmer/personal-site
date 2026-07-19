@@ -19,22 +19,27 @@ dataset contains:
 - 664 Child Nutrition Recipe Box records from the Institute of Child
   Nutrition, preserving each recipe's first-party URL and attribution.
 - Six CC0 recipes from a pinned Koha Cookbook revision.
+- 1,412 Cooklang files from 11 pinned Apache 2.0, MIT, and CC0 recipe
+  repositories. The original Cooklang source is retained alongside normalized
+  ingredients, instructions, equipment, metadata, and upstream provenance.
 - 16,644 CC0 tastyR rows with ingredients and metadata. Because these rows do
   not contain instructions, they are kept separately as ingredient-only data.
 - The pinned Open Recipes source and its current historical dump. The latest
   published dump is an empty gzip file, but it is retained for provenance.
 
-The prepared dataset contains 67,713 complete structured recipes and a
-30,608-row canonical content view. It also contains 10,464 conservative
+The prepared dataset contains 69,118 complete structured recipes and a
+32,012-row canonical content view. It also contains 10,464 conservative
 Gutenberg recipe-boundary candidates for future extraction evaluation. These
 candidates are not promoted as complete recipes until their boundaries and
-fields can be evaluated. All 71 rejects are Wikibooks records whose source
-snapshot has no ingredient items; they remain in `outputs/rejects.jsonl` as
-parser evaluation and regression fixtures.
+fields can be evaluated. Its 78 rejects comprise 71 Wikibooks records whose
+source snapshot has no ingredient items and seven empty, metadata-only, or TODO
+Cooklang files; they remain in `outputs/rejects.jsonl` as parser evaluation and
+regression fixtures.
 
 Equipment is part of the normalized recipe model. The current corpus preserves
-2,194 equipment items across 540 FOSS and Wikibooks recipes. Other adapters can
-populate the same field whenever their source exposes equipment explicitly.
+6,460 equipment items across 1,815 Cooklang, FOSS, and Wikibooks recipes. Other
+adapters can populate the same field whenever their source exposes equipment
+explicitly.
 
 ## Kaggle duplicate structure
 

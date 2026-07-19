@@ -6,6 +6,7 @@ const projectRoot = new URL("../..", import.meta.url).pathname;
 const outputs = `${projectRoot}/outputs`;
 await mkdir(outputs, { recursive: true });
 const bySource = new Map();
+const rejectsBySource = new Map();
 const titleCounts = new Map();
 const signatureCounts = new Map();
 let recipes = 0;
@@ -66,7 +67,10 @@ await new Promise((resolve, reject) => deduplicated.end((error) => error ? rejec
 await rename(deduplicatedPath, `${outputs}/recipes-deduplicated.jsonl`);
 let rejects = 0;
 for await (const line of createInterface({ input: createReadStream(`${outputs}/rejects.jsonl`), crlfDelay: Infinity })) {
-  if (line.trim()) rejects += 1;
+  if (!line.trim()) continue;
+  rejects += 1;
+  const reject = JSON.parse(line);
+  rejectsBySource.set(reject.sourceDataset, (rejectsBySource.get(reject.sourceDataset) || 0) + 1);
 }
 for await (const line of createInterface({ input: createReadStream(`${outputs}/gutenberg-candidates.jsonl`), crlfDelay: Infinity })) {
   if (line.trim()) gutenbergCandidates += 1;
@@ -76,10 +80,20 @@ for await (const line of createInterface({ input: createReadStream(`${outputs}/i
 }
 const duplicateTitles = [...titleCounts.values()].filter((count) => count > 1).length;
 const duplicateContent = [...signatureCounts.values()].filter((count) => count > 1).length;
+const cooklangAcceptedRecipes = [...bySource]
+  .filter(([source]) => source.startsWith("cooklang-"))
+  .reduce((sum, [, count]) => sum + count, 0);
+const cooklangRejectedRecords = [...rejectsBySource]
+  .filter(([source]) => source.startsWith("cooklang-"))
+  .reduce((sum, [, count]) => sum + count, 0);
 const metrics = {
   recipes,
   rejects,
   sources: Object.fromEntries([...bySource].sort(([left], [right]) => left.localeCompare(right))),
+  rejectsBySource: Object.fromEntries([...rejectsBySource].sort(([left], [right]) => left.localeCompare(right))),
+  cooklangSourceRecords: cooklangAcceptedRecipes + cooklangRejectedRecords,
+  cooklangAcceptedRecipes,
+  cooklangRejectedRecords,
   duplicateTitleGroups: duplicateTitles,
   duplicateContentGroups: duplicateContent,
   uniqueContentRecipes: seenSignatures.size,

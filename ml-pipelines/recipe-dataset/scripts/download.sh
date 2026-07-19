@@ -44,6 +44,8 @@ download \
   "https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-09-16/cuisines.csv" \
   "$raw_dir/tastyr/cuisines.csv"
 
+node "$project_root/scripts/download-cooklang.mjs"
+
 if [[ ! -s "$raw_dir/usda-myplate/recipes.jsonl" ]]; then
   node "$project_root/scripts/download-myplate.mjs"
 fi

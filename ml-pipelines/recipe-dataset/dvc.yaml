@@ -3,6 +3,7 @@ stages:
     cmd: bash scripts/download.sh
     deps:
       - scripts/download.sh
+      - scripts/download-cooklang.mjs
       - sources.json
     outs:
       - data/raw

@@ -70,5 +70,104 @@
     "license": "CC0",
     "format": "CSV; ingredients and metadata without instructions",
     "priority": 7
+  },
+  {
+    "id": "cooklang-nicholaswilde-recipes",
+    "name": "Nicholas Wilde Cooklang Recipes",
+    "url": "https://github.com/nicholaswilde/recipes",
+    "license": "Apache-2.0",
+    "format": "Cooklang",
+    "revision": "3d59975f18cee97be40c052ff05cdc1d046d12fe",
+    "priority": 3
+  },
+  {
+    "id": "cooklang-albe2669-recipes",
+    "name": "albe2669 Cooklang Recipes",
+    "url": "https://github.com/albe2669/recipes",
+    "license": "Apache-2.0",
+    "format": "Cooklang",
+    "revision": "3afe0027ea50e46d0b11fcf45112c132da155a97",
+    "priority": 3
+  },
+  {
+    "id": "cooklang-ketheroth-cooking",
+    "name": "Ketheroth Cooking",
+    "url": "https://github.com/Ketheroth/cooking",
+    "license": "MIT",
+    "format": "Cooklang",
+    "revision": "e4dee514ea39b34f9e51aec349d161c6576add3f",
+    "priority": 3
+  },
+  {
+    "id": "cooklang-demosjarco-recipes",
+    "name": "demosjarco Recipes",
+    "url": "https://github.com/demosjarco/recipes",
+    "license": "MIT",
+    "format": "Cooklang",
+    "revision": "35cd426a447dec1af5f1778f57352ee7afbd6e4b",
+    "priority": 3
+  },
+  {
+    "id": "cooklang-gunde-recipes",
+    "name": "Gunde Recipes",
+    "url": "https://github.com/Gunde/recipes",
+    "license": "MIT",
+    "format": "Cooklang",
+    "revision": "4ef42b2d72d83b75eca1e6ea958061d06265e05d",
+    "priority": 3
+  },
+  {
+    "id": "cooklang-lihram-recipes",
+    "name": "LiHRaM Cooklang Recipes",
+    "url": "https://github.com/LiHRaM/cooklang-recipes",
+    "license": "MIT",
+    "format": "Cooklang",
+    "revision": "52146861b289c4d951d9cd9b26e7bc74287ed387",
+    "priority": 3
+  },
+  {
+    "id": "cooklang-2xaa-cookbook",
+    "name": "2xAA Cookbook",
+    "url": "https://github.com/2xAA/cookbook",
+    "license": "MIT",
+    "format": "Cooklang",
+    "revision": "8b432097d799ea99e3948d91b3de3e66664a5852",
+    "priority": 3
+  },
+  {
+    "id": "cooklang-tdstein-recipes",
+    "name": "tdstein Recipes",
+    "url": "https://github.com/tdstein/recipes",
+    "license": "MIT",
+    "format": "Cooklang",
+    "revision": "5707f40df847778094aaac931f6fc1b05e69745b",
+    "priority": 3
+  },
+  {
+    "id": "cooklang-abyrne55-recipes",
+    "name": "abyrne55 Cooklang Recipes",
+    "url": "https://github.com/abyrne55/cooklang-recipes",
+    "license": "CC0-1.0",
+    "format": "Cooklang",
+    "revision": "c0ec0925b51722f68181d3b097dd53ca57b92bdb",
+    "priority": 3
+  },
+  {
+    "id": "cooklang-crspybits-recipes",
+    "name": "crspybits Recipes",
+    "url": "https://github.com/crspybits/Recipes",
+    "license": "Apache-2.0",
+    "format": "Cooklang",
+    "revision": "a604b2714a88c83fc92ccd79f0eda21fa3d85064",
+    "priority": 3
+  },
+  {
+    "id": "cooklang-samuelfaure-recipes",
+    "name": "Samuelfaure Cooklang Recipes",
+    "url": "https://github.com/Samuelfaure/Cooklang-recipes",
+    "license": "CC0-1.0",
+    "format": "Cooklang",
+    "revision": "68cfcc20fba3be283438121b95fe1936d8e5c446",
+    "priority": 3
   }
 ]

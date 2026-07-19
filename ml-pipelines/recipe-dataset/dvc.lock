@@ -3,36 +3,40 @@ stages:
   download:
     cmd: bash scripts/download.sh
     deps:
+    - path: scripts/download-cooklang.mjs
+      hash: md5
+      md5: 32cb9b8fb30f6c00a7cb178b1ecca8d6
+      size: 2912
     - path: scripts/download.sh
       hash: md5
-      md5: 0781f7b33d35e833432250aac3fe1ed4
-      size: 2263
+      md5: 98ca041bf867015fb584d901eb19e23e
+      size: 2315
     - path: sources.json
       hash: md5
-      md5: d1f4fff8085c3b4cff9fe9311be70757
-      size: 2134
+      md5: c3415a25d50530b74bc1affdcc1f0137
+      size: 5061
     outs:
     - path: data/raw
       hash: md5
-      md5: dc92f10f96cb9defcbffb3cbdae45c48.dir
-      size: 262936030
-      nfiles: 140
+      md5: 0f6dcbcdca898ed2f765af1cb6dfd718.dir
+      size: 265110995
+      nfiles: 151
   prepare:
     cmd: node src/stages/prepare.mjs
     deps:
     - path: data/raw
       hash: md5
-      md5: dc92f10f96cb9defcbffb3cbdae45c48.dir
-      size: 262936030
-      nfiles: 140
+      md5: 0f6dcbcdca898ed2f765af1cb6dfd718.dir
+      size: 265110995
+      nfiles: 151
     - path: sources.json
       hash: md5
-      md5: d1f4fff8085c3b4cff9fe9311be70757
-      size: 2134
+      md5: c3415a25d50530b74bc1affdcc1f0137
+      size: 5061
     - path: src/stages/prepare.mjs
       hash: md5
-      md5: 8d28e50157f639817f219aba9e4cd894
-      size: 20518
+      md5: 1fc85a89e59c96104b89833b6912b136
+      size: 24139
     outs:
     - path: outputs/gutenberg-candidates.jsonl
       hash: md5
@@ -44,12 +48,12 @@ stages:
       size: 14099848
     - path: outputs/recipes.jsonl
       hash: md5
-      md5: 7f724d8ccd0f13a4dffc76c62a59f716
-      size: 128401092
+      md5: ee923a72a504877be7e0c2a617ea29cc
+      size: 135766310
     - path: outputs/rejects.jsonl
       hash: md5
-      md5: a8ab636f988864a2ca978bc9b6b4379e
-      size: 120318
+      md5: 2971be4c2f68d262e6da3092069fc8de
+      size: 139367
   stats:
     cmd: node src/stages/stats.mjs
     deps:
@@ -63,26 +67,26 @@ stages:
       size: 14099848
     - path: outputs/recipes.jsonl
       hash: md5
-      md5: 7f724d8ccd0f13a4dffc76c62a59f716
-      size: 128401092
+      md5: ee923a72a504877be7e0c2a617ea29cc
+      size: 135766310
     - path: outputs/rejects.jsonl
       hash: md5
-      md5: a8ab636f988864a2ca978bc9b6b4379e
-      size: 120318
+      md5: 2971be4c2f68d262e6da3092069fc8de
+      size: 139367
     - path: src/stages/stats.mjs
       hash: md5
-      md5: 08110c811bfee2975ff83c660898ceea
-      size: 4482
+      md5: 588c6dba18f40a878f5c5972c723b836
+      size: 5213
     outs:
     - path: outputs/metrics.json
       hash: md5
-      md5: 491a59e0ae72bfe7114637b98a7ef7e2
-      size: 576
+      md5: d1d2f26bd4f00a8fc36e6a83a6b0b9e0
+      size: 1258
     - path: outputs/recipes-deduplicated.jsonl
       hash: md5
-      md5: 08a1ca8eaadfff1f9cf661e1a4fb400f
-      size: 80890893
+      md5: 94715c315af90f5d36f7ca2acfc22164
+      size: 88748069
     - path: outputs/source-distribution.json
       hash: md5
-      md5: bc91857fb2394ce07f3ff0cb2faf8cf2
-      size: 351
+      md5: 520ace6370c50c6f1ec2497cc210bb86
+      size: 1100
