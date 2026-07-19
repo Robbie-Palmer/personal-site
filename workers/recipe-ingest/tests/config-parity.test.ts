@@ -57,12 +57,21 @@ const pipelineParams = parseYaml(
 const terraformVariables = readRepoFile("infra/variables.tf");
 
 function terraformDefault(variableName: string): string {
-  // Skips over one level of nested blocks (validation, etc.) so a default
-  // declared after them is still found.
-  const match = new RegExp(
-    `variable "${variableName}" \\{(?:[^{}]|\\{[^{}]*\\})*?default\\s*=\\s*"([^"]+)"`,
-    "s",
-  ).exec(terraformVariables);
+  // Slice out the variable's block (up to the next top-level declaration)
+  // before matching, so nested blocks at any depth can't derail the search.
+  const blockStart = terraformVariables.indexOf(`variable "${variableName}" {`);
+  if (blockStart === -1) {
+    throw new Error(`Terraform variable ${variableName} not found`);
+  }
+  const blockEnd = terraformVariables.indexOf(
+    "\nvariable ",
+    blockStart + 1,
+  );
+  const block = terraformVariables.slice(
+    blockStart,
+    blockEnd === -1 ? undefined : blockEnd,
+  );
+  const match = /default\s*=\s*"([^"]+)"/.exec(block);
   if (!match?.[1]) {
     throw new Error(`No default found for Terraform variable ${variableName}`);
   }
@@ -73,17 +82,19 @@ const LLM_STAGES: LlmStage[] = ["extract", "normalize", "canonicalize"];
 
 describe("LLM stage parameters", () => {
   it.each(LLM_STAGES)(
-    "wrangler.toml %s vars match ml-pipelines params.yaml",
+    "production and preview wrangler %s vars match ml-pipelines params.yaml",
     (stage) => {
-      const vars = ingestWrangler.vars ?? {};
       const prefix = stage.toUpperCase();
       const expected = pipelineParams[stage];
 
-      expect(vars[`${prefix}_MODEL`]).toBe(expected.model);
-      expect(Number(vars[`${prefix}_TIMEOUT_MS`])).toBe(
-        expected.request_timeout_ms,
-      );
-      expect(Number(vars[`${prefix}_RETRIES`])).toBe(expected.max_retries);
+      for (const config of [ingestWrangler, ingestPreviewWrangler]) {
+        const vars = config.vars ?? {};
+        expect(vars[`${prefix}_MODEL`]).toBe(expected.model);
+        expect(Number(vars[`${prefix}_TIMEOUT_MS`])).toBe(
+          expected.request_timeout_ms,
+        );
+        expect(Number(vars[`${prefix}_RETRIES`])).toBe(expected.max_retries);
+      }
     },
   );
 
