@@ -40,6 +40,15 @@ export function normalizeRecipeSource(source: string): string {
   return source.trim();
 }
 
+function parseCuisineLabels(value: string | undefined): string[] {
+  return value
+    ? value
+        .split(",")
+        .map((label) => label.trim())
+        .filter(Boolean)
+    : [];
+}
+
 function displayName(value: string): string {
   return value
     .replaceAll("-", " ")
@@ -59,7 +68,7 @@ export function buildRecipeDraft(
       title: metadata.title.trim(),
       description: metadata.description.trim(),
       date: new Date().toISOString().slice(0, 10),
-      cuisine: metadata.cuisine?.trim() ? [metadata.cuisine.trim()] : [],
+      cuisine: parseCuisineLabels(metadata.cuisine),
       servings: metadata.servings,
       prepTime: metadata.prepTime,
       cookTime: metadata.cookTime,
