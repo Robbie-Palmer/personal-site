@@ -6,6 +6,9 @@ on:
       - "ml-pipelines/**"
       - "packages/recipe-parsing/**"
       - "packages/recipe-domain/**"
+      - "patches/@cooklang__cooklang@*.patch"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
       - ".github/workflows/ml-pipelines-ci.yml"
 
 permissions:
@@ -100,7 +103,10 @@ jobs:
           fi
           
           MARKER="<!-- dvc-metrics:${{ matrix.pipeline }} -->"
-          BODY="$MARKER"$'\n'"$BODY"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          UPDATED_AT=$(date -u '+%Y-%m-%d %H:%M UTC')
+          BODY="$MARKER"$'\n'"$BODY"$'\n\n'\
+          "_Updated by [ML Pipelines CI run ${GITHUB_RUN_NUMBER}]($RUN_URL) at $UPDATED_AT._"
 
           # Update only this pipeline's comment so matrix jobs cannot overwrite
           # one another.
