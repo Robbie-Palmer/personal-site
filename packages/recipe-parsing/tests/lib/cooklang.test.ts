@@ -295,6 +295,32 @@ describe("cooklang helpers", () => {
 		]);
 	});
 
+	it("drops groups left empty after declaration suppression", () => {
+		const derived = deriveRecipeFromCooklang({
+			frontmatter: {
+				title: "Steamed Rice",
+				description: "Plain steamed rice.",
+				servings: 2,
+				tags: [],
+			},
+			body: [
+				"== Ingredients ==",
+				"@rice{200%g}",
+				"",
+				"== Method ==",
+				"Cook the @rice{}.",
+			].join("\n"),
+			diagnostics: [],
+		});
+
+		expect(derived.derived?.ingredientGroups).toEqual([
+			{
+				name: "Ingredients",
+				items: [{ ingredient: "rice", amount: 200, unit: "g" }],
+			},
+		]);
+	});
+
 	it("postprocesses safe ingredient aliases in derived output", () => {
 		const derived = deriveRecipeFromCooklang({
 			frontmatter: {

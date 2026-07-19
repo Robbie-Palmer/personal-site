@@ -663,6 +663,30 @@ type IngredientGroupAccumulator = ReturnType<
   typeof createIngredientGroupAccumulator
 >;
 
+type IngredientAnnotation = NonNullable<
+  CooklangRecipe["frontmatter"]["ingredientAnnotations"]
+>[string];
+
+function buildGroupIngredient(
+  slug: string,
+  ingredient: CkIngredient,
+  annotation: IngredientAnnotation | undefined,
+): RecipeIngredient {
+  const amount = resolveQuantityValue(ingredient);
+  const unit = normalizeUnitToken(
+    getQuantityUnit(ingredient.quantity) ?? undefined,
+  );
+  return {
+    ingredient: slug,
+    ...(amount !== undefined ? { amount } : {}),
+    ...(unit ? { unit } : {}),
+    ...(annotation?.preparation
+      ? { preparation: annotation.preparation }
+      : {}),
+    ...(annotation?.note ? { note: annotation.note } : {}),
+  };
+}
+
 function collectStepIngredients(
   step: Step,
   parsed: CkParsedRecipe,
@@ -684,20 +708,10 @@ function collectStepIngredients(
       groups.push(group);
     }
 
-    const amount = resolveQuantityValue(ingredient);
-    const unit = normalizeUnitToken(
-      getQuantityUnit(ingredient.quantity) ?? undefined,
+    mergeIngredientIntoGroup(
+      group,
+      buildGroupIngredient(slug, ingredient, annotations?.[slug]),
     );
-    const annotation = annotations?.[slug];
-    mergeIngredientIntoGroup(group, {
-      ingredient: slug,
-      ...(amount !== undefined ? { amount } : {}),
-      ...(unit ? { unit } : {}),
-      ...(annotation?.preparation
-        ? { preparation: annotation.preparation }
-        : {}),
-      ...(annotation?.note ? { note: annotation.note } : {}),
-    });
   }
   return group;
 }
@@ -776,10 +790,12 @@ export function deriveRecipeFromCooklang(cooklang: CooklangRecipe): CooklangReci
     }
   }
 
-  const ingredientGroups: Recipe["ingredientGroups"] = groups.map((g) => ({
-    ...(g.name ? { name: g.name } : {}),
-    items: g.items,
-  }));
+  const ingredientGroups: Recipe["ingredientGroups"] = groups
+    .filter((g) => g.items.length > 0)
+    .map((g) => ({
+      ...(g.name ? { name: g.name } : {}),
+      items: g.items,
+    }));
 
   if (ingredientGroups.length === 0) {
     diagnostics.push("No ingredient groups detected in Cooklang body.");

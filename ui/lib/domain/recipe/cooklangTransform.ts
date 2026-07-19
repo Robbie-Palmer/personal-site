@@ -20,6 +20,7 @@ import type {
 import {
   createIngredientGroupAccumulator,
   mergeIngredientIntoGroup,
+  normalizeIngredientSlugForOutput,
 } from "@/lib/domain/recipe/ingredient";
 import type {
   IngredientGroup,
@@ -34,7 +35,6 @@ import {
   UNIT_LABELS,
   type Unit,
 } from "@/lib/domain/recipe/unit";
-import { normalizeSlug } from "@/lib/generic/slugs";
 
 type GroupAccumulator = IngredientGroupAccumulator;
 type IngredientAnnotations = NonNullable<
@@ -159,7 +159,9 @@ function findDeclaredIngredientSlugs(
       for (const item of content.value.items) {
         if (item.type !== "ingredient") continue;
         const ingredient = ingredients[item.index]!;
-        declaredSlugs.add(normalizeSlug(ingredient.name) as IngredientSlug);
+        declaredSlugs.add(
+          normalizeIngredientSlugForOutput(ingredient.name) as IngredientSlug,
+        );
       }
     }
   }
@@ -260,7 +262,9 @@ function buildIngredientGroupItem(
   resolved: ResolvedIngredient,
   annotations: IngredientAnnotations,
 ): RecipeIngredient {
-  const ingSlug = normalizeSlug(ingredient.name) as IngredientSlug;
+  const ingSlug = normalizeIngredientSlugForOutput(
+    ingredient.name,
+  ) as IngredientSlug;
   const ann = annotations[ingSlug];
 
   return {
@@ -285,7 +289,9 @@ function collectStepIngredients(
     if (item.type !== "ingredient") continue;
 
     const ingredient = ingredients[item.index]!;
-    const ingredientSlug = normalizeSlug(ingredient.name) as IngredientSlug;
+    const ingredientSlug = normalizeIngredientSlugForOutput(
+      ingredient.name,
+    ) as IngredientSlug;
     if (!isDeclaration && declaredSlugs.has(ingredientSlug)) continue;
     mergeIngredientIntoGroup(
       currentGroup,

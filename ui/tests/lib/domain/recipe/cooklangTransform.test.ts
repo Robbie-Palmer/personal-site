@@ -191,6 +191,17 @@ describe("buildScaledRecipeParts", () => {
     expect(parts.instructions).toEqual(["Add 6 tsp of cajun seasoning."]);
   });
 
+  it("canonicalizes alias ingredient names to catalog slugs", () => {
+    const parts = buildScaledRecipeParts(
+      parsedAt(`Add @cajun powder{2%tsp} and @scallions{3}.\n`),
+    );
+
+    expect(parts.ingredientGroups[0]?.items).toEqual([
+      { ingredient: "cajun-seasoning", amount: 2, unit: "tsp" },
+      { ingredient: "spring-onion", amount: 3 },
+    ]);
+  });
+
   it("trusts cooklang for fixed-quantity ingredients (= prefix is no-op for unit conversion)", () => {
     // The recovery branch only fires when units differ; cooklang preserves
     // both unit and amount for `=` ingredients, so we should pass them through.
