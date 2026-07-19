@@ -68,6 +68,12 @@ or expose the scanner logs needed to diagnose analysis warnings. The workflow ge
 before invoking the scanner, so the GitHub Actions log is the complete record of how an analysis
 was assembled and uploaded.
 
+The workflow caches Sonar's downloaded analyzer packages between GitHub-hosted runners and marks
+`**/tests/**` as test code rather than production source. The latter keeps tests out of production
+metrics and lets Sonar apply its test-specific rules. Sonar's server-backed sensor cache still owns
+incremental code-analysis results; local CI caching is deliberately limited to the documented
+package cache rather than persisting scanner working state.
+
 `SONAR_TOKEN` is an authentication credential even though the repository and Sonar project are
 public. Doppler remains its source of truth: the token is a masked value in `prd_ci_repo`, the sync
 script publishes it as an environment secret in GitHub's `production-ci` environment, and only the
