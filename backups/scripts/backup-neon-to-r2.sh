@@ -156,7 +156,10 @@ docker run \
     --env PGAPPNAME \
     --env PGDATABASE \
     "$postgres_image" \
-    pg_dump \
+    sh \
+    -c \
+    'exec pg_dump --dbname "$PGDATABASE" "$@"' \
+    sh \
     --format=custom \
     --compress=gzip:6 \
     --lock-wait-timeout=30s \
