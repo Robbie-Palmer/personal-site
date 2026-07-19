@@ -15,6 +15,7 @@ stages:
     cmd: node src/stages/prepare.mjs
     deps:
       - data/raw
+      - snapshot.json
       - sources.json
       - src/stages/prepare.mjs
     outs:

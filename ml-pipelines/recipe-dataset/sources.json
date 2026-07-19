@@ -52,7 +52,7 @@
     "name": "Child Nutrition Recipe Box",
     "url": "https://theicn.org/cnrb/",
     "license": "Per-record provenance; includes USDA and state agency recipes",
-    "format": "schema.org Recipe JSON-LD",
+    "format": "WordPress REST API HTML (WPRM plugin markup)",
     "priority": 2
   },
   {

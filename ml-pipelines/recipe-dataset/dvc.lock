@@ -25,30 +25,34 @@ stages:
       size: 2315
     - path: sources.json
       hash: md5
-      md5: c3415a25d50530b74bc1affdcc1f0137
-      size: 5061
+      md5: 6fd915a96d4d9537a7a1154ac0f9bb0b
+      size: 5080
     outs:
     - path: data/raw
       hash: md5
-      md5: 7179ca890d0b3f9e778aabb0bc63de63.dir
-      size: 265110995
-      nfiles: 151
+      md5: bbdbc5b73cad67fb0efa48c43c10f555.dir
+      size: 265095372
+      nfiles: 150
   prepare:
     cmd: node src/stages/prepare.mjs
     deps:
     - path: data/raw
       hash: md5
-      md5: 7179ca890d0b3f9e778aabb0bc63de63.dir
-      size: 265110995
-      nfiles: 151
+      md5: bbdbc5b73cad67fb0efa48c43c10f555.dir
+      size: 265095372
+      nfiles: 150
+    - path: snapshot.json
+      hash: md5
+      md5: 554e9df691a7d855470b8d4588299071
+      size: 34
     - path: sources.json
       hash: md5
-      md5: c3415a25d50530b74bc1affdcc1f0137
-      size: 5061
+      md5: 6fd915a96d4d9537a7a1154ac0f9bb0b
+      size: 5080
     - path: src/stages/prepare.mjs
       hash: md5
-      md5: 1fc85a89e59c96104b89833b6912b136
-      size: 24139
+      md5: cfd57d39e9118b07d8a4c0a88921ce20
+      size: 24374
     outs:
     - path: outputs/gutenberg-candidates.jsonl
       hash: md5

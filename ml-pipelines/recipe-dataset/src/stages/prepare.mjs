@@ -15,6 +15,10 @@ const projectRoot = new URL("../..", import.meta.url).pathname;
 const raw = `${projectRoot}/data/raw`;
 const outputs = `${projectRoot}/outputs`;
 const sourceCatalog = JSON.parse(await readFile(`${projectRoot}/sources.json`, "utf8"));
+const snapshot = JSON.parse(await readFile(`${projectRoot}/snapshot.json`, "utf8"));
+if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshot.retrievedAt)) {
+  throw new Error("snapshot.json retrievedAt must use YYYY-MM-DD format");
+}
 await mkdir(outputs, { recursive: true });
 const recipesTemporary = `${outputs}/recipes.jsonl.part`;
 const rejectsTemporary = `${outputs}/rejects.jsonl.part`;
@@ -105,7 +109,7 @@ function emit(source, value) {
       sourceRecordId: value.sourceRecordId || signature,
       sourceUrl: value.sourceUrl || source.url,
       license: source.license,
-      retrievedAt: "2026-07-18",
+      retrievedAt: snapshot.retrievedAt,
       sourceChecksum: value.sourceChecksum || signature,
       contentSignature: signature,
       title,
@@ -573,7 +577,7 @@ for (const filename of ["all_recipes.csv", "cuisines.csv"]) {
       sourceRecordId: sourceChecksum,
       sourceUrl: value.url,
       license: "CC0",
-      retrievedAt: "2026-07-18",
+      retrievedAt: snapshot.retrievedAt,
       sourceChecksum,
       collection: filename.replace(".csv", ""),
       title: value.name,
