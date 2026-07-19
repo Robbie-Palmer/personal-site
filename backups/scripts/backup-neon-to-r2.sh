@@ -20,7 +20,9 @@ require_command() {
 }
 
 file_size() {
-  wc -c < "$1" | tr -d '[:space:]'
+  local file_path="$1"
+
+  wc -c < "$file_path" | tr -d '[:space:]'
 }
 
 require_env AGE_RECIPIENT
