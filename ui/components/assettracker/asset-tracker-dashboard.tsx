@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import {
-  computeTotalBalance,
   formatAnnualRate,
-  formatCurrency,
+  formatTotalBalances,
   realRate,
 } from "@/lib/domain/assettracker";
 import { AccountBalanceChart } from "./account-balance-chart";
@@ -34,7 +33,6 @@ export function AssetTrackerDashboard() {
     null,
   );
 
-  const totalBalance = computeTotalBalance(accounts);
   const openAccounts = accounts.filter((a) => a.isOpen);
 
   return (
@@ -57,7 +55,7 @@ export function AssetTrackerDashboard() {
         <div className="border rounded-lg p-6">
           <p className="text-sm text-muted-foreground">Total Net Worth</p>
           <p className="text-3xl font-bold mt-1">
-            {formatCurrency(totalBalance)}
+            {formatTotalBalances(accounts)}
           </p>
         </div>
         <div className="border rounded-lg p-6">

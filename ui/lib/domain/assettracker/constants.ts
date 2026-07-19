@@ -65,3 +65,33 @@ export function formatAnnualRate(rate: number): string {
 export function computeTotalBalance(accounts: AccountSummaryView[]): number {
   return accounts.reduce((sum, a) => sum + (a.latestBalance ?? 0), 0);
 }
+
+export function computeTotalBalancesByCurrency(
+  accounts: AccountSummaryView[],
+): Array<{ currency: Currency; total: number }> {
+  const totals = new Map<Currency, number>();
+  for (const account of accounts) {
+    // No logged balance is "no data", not a zero — a freshly added account
+    // shouldn't put its currency into the totals.
+    if (account.latestBalance == null) continue;
+    totals.set(
+      account.currency,
+      (totals.get(account.currency) ?? 0) + account.latestBalance,
+    );
+  }
+  return Array.from(totals, ([currency, total]) => ({ currency, total })).sort(
+    (a, b) => a.currency.localeCompare(b.currency, "en"),
+  );
+}
+
+/**
+ * One formatted amount per currency (e.g. "£1,200 + $300"), so accounts held
+ * in different currencies are never summed into a single mislabelled number.
+ */
+export function formatTotalBalances(accounts: AccountSummaryView[]): string {
+  const totals = computeTotalBalancesByCurrency(accounts);
+  if (totals.length === 0) return formatAccountCurrency(0, "GBP");
+  return totals
+    .map(({ currency, total }) => formatAccountCurrency(total, currency))
+    .join(" + ");
+}
