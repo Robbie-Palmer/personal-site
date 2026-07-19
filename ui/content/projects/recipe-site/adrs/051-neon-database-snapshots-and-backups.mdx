@@ -144,8 +144,8 @@ administer unrelated R2 data.
 
 Terraform creates the private `personal-site-database-backups` R2 bucket in Eastern North America
 and sets `prevent_destroy`. The Cloudflare Terraform provider version currently used by the project
-cannot manage R2 lifecycle or bucket-lock rules, so configure those rules once through the R2
-control plane:
+cannot manage R2 lifecycle or bucket-lock rules, so configure those rules once with Wrangler after
+the bucket is created:
 
 * expire `weekly/` after 60 days
 * expire `monthly/` after 400 days

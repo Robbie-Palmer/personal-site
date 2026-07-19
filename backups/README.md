@@ -32,11 +32,26 @@ adjust the prefix policy if a one-day external recovery point objective is
 required.
 
 The Cloudflare Terraform provider v4 can create the bucket but cannot manage R2
-object lifecycle rules. Configure these once in the R2 dashboard:
+object lifecycle or bucket-lock rules. Configure these once with Wrangler after
+Terraform creates the bucket:
+
+```bash
+doppler run --project personal-site --config prd_infra -- bash -c \
+  'mise x -- pnpm --dir workers/recipe-api exec wrangler r2 bucket lifecycle add personal-site-database-backups expire-weekly-60d weekly/ --expire-days 60 --force'
+doppler run --project personal-site --config prd_infra -- bash -c \
+  'mise x -- pnpm --dir workers/recipe-api exec wrangler r2 bucket lifecycle add personal-site-database-backups expire-monthly-400d monthly/ --expire-days 400 --force'
+doppler run --project personal-site --config prd_infra -- bash -c \
+  'mise x -- pnpm --dir workers/recipe-api exec wrangler r2 bucket lock add personal-site-database-backups lock-weekly-8d weekly/ --retention-days 8 --force'
+doppler run --project personal-site --config prd_infra -- bash -c \
+  'mise x -- pnpm --dir workers/recipe-api exec wrangler r2 bucket lock add personal-site-database-backups lock-monthly-8d monthly/ --retention-days 8 --force'
+```
+
+Verify both policy sets with `wrangler r2 bucket lifecycle list` and
+`wrangler r2 bucket lock list`. The intended result is:
 
 - Expire `weekly/` after 60 days.
 - Expire `monthly/` after 400 days.
-- Lock both prefixes against deletion or overwrite for at least eight days.
+- Lock both prefixes against deletion or overwrite for eight days.
 
 The bucket's Terraform resource has `prevent_destroy`, but that only protects
 Terraform-driven deletion.
