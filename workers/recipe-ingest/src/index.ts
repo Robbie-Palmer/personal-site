@@ -31,6 +31,7 @@ import type { CooklangRecipe } from "recipe-parsing/schemas/stage-artifacts";
 import { writeArtifact } from "./artifacts";
 import { runLlmCall } from "./attempts";
 import { withDb } from "./db";
+import { buildFinalDraft } from "./draft";
 import type { Env } from "./env";
 import { listSourceImageKeys, loadImageDataUrls } from "./images";
 import {
@@ -296,15 +297,11 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
       });
 
       await step.do("finalize", async () => {
-        const draft = {
-          sourceImageKeys: sourceKeys,
-          cooklang: {
-            frontmatter: cooklang.frontmatter,
-            body: cooklang.body,
-            diagnostics: cooklang.diagnostics,
-          },
-          recipe: canonical.recipe,
-        };
+        const draft = buildFinalDraft(
+          sourceKeys,
+          canonical.recipe,
+          cooklang.diagnostics,
+        );
         await withDb(env, async (db) => {
           await writeArtifact({
             env,
