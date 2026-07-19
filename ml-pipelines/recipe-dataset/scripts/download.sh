@@ -2,9 +2,7 @@
 set -euo pipefail
 
 project_root=$(cd "$(dirname "$0")/.." && pwd)
-repo_root=$(cd "$project_root/../.." && pwd)
 raw_dir="$project_root/data/raw"
-legacy_raw="$repo_root/data/recipe-sources/raw"
 mkdir -p "$raw_dir"
 
 download() {
@@ -20,11 +18,6 @@ download() {
     --output "$temporary" "$url"
   mv "$temporary" "$destination"
 }
-
-# Reuse files acquired by the earlier prototype checkout when present.
-if [[ -d "$legacy_raw" ]]; then
-  cp -nR "$legacy_raw"/. "$raw_dir"/ || true
-fi
 
 download \
   "https://www.kaggle.com/api/v1/datasets/download/prashantsingh001/recipes-dataset-64k-dishes" \

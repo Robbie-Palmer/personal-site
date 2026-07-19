@@ -5,8 +5,8 @@ stages:
     deps:
     - path: scripts/download.sh
       hash: md5
-      md5: b7982e096bbb0969729925e1e33e2169
-      size: 2508
+      md5: 0781f7b33d35e833432250aac3fe1ed4
+      size: 2263
     - path: sources.json
       hash: md5
       md5: d1f4fff8085c3b4cff9fe9311be70757
