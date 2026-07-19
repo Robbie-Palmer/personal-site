@@ -78,29 +78,39 @@ function readAsciiWord(value: string, start: number): TokenSpan | undefined {
   return { value: value.slice(start, end), end };
 }
 
+function readDigitsEnd(value: string, start: number): number {
+  let end = start;
+  while (isAsciiDigit(value[end])) end++;
+  return end;
+}
+
+function readBasicAmountEnd(value: string, start: number): number {
+  const integerEnd = readDigitsEnd(value, start);
+  const delimiter = value[integerEnd];
+  const hasDecimalOrFraction =
+    (delimiter === "." || delimiter === "/") &&
+    isAsciiDigit(value[integerEnd + 1]);
+  return hasDecimalOrFraction
+    ? readDigitsEnd(value, integerEnd + 1)
+    : integerEnd;
+}
+
+function readCompoundFractionEnd(value: string, integerEnd: number): number {
+  const fractionStart = skipWhitespace(value, integerEnd);
+  if (fractionStart === integerEnd || !isAsciiDigit(value[fractionStart])) {
+    return integerEnd;
+  }
+  const numeratorEnd = readDigitsEnd(value, fractionStart);
+  if (value[numeratorEnd] !== "/" || !isAsciiDigit(value[numeratorEnd + 1])) {
+    return integerEnd;
+  }
+  return readDigitsEnd(value, numeratorEnd + 1);
+}
+
 function readAmount(value: string, start: number): TokenSpan | undefined {
   if (!isAsciiDigit(value[start])) return undefined;
-
-  let end = start + 1;
-  while (isAsciiDigit(value[end])) end++;
-  if (value[end] === "." && isAsciiDigit(value[end + 1])) {
-    end += 2;
-    while (isAsciiDigit(value[end])) end++;
-  }
-  if (value[end] === "/" && isAsciiDigit(value[end + 1])) {
-    end += 2;
-    while (isAsciiDigit(value[end])) end++;
-  }
-
-  const fractionStart = skipWhitespace(value, end);
-  if (fractionStart > end && isAsciiDigit(value[fractionStart])) {
-    let numeratorEnd = fractionStart + 1;
-    while (isAsciiDigit(value[numeratorEnd])) numeratorEnd++;
-    if (value[numeratorEnd] === "/" && isAsciiDigit(value[numeratorEnd + 1])) {
-      end = numeratorEnd + 2;
-      while (isAsciiDigit(value[end])) end++;
-    }
-  }
+  const basicEnd = readBasicAmountEnd(value, start);
+  const end = readCompoundFractionEnd(value, basicEnd);
   return { value: value.slice(start, end), end };
 }
 
