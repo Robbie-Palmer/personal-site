@@ -59,9 +59,10 @@ external archive.
 
 Create an external archive every Sunday at 03:17 UTC. Store weekly archives for 60 days. Copy the
 first successful backup of each month to a monthly prefix without exporting Neon a second time, and
-retain monthly archives for 400 days. Check that the monthly prefix is empty before promotion so a
-manual retry can fill a missed month without creating duplicates; workflow concurrency serializes
-the check and copy.
+retain monthly archives for 400 days. Inspect the monthly archive/checksum pair before promotion so
+a manual retry can fill a missed month without creating duplicates. If a run copied only the
+archive, the next run repairs its checksum from the corresponding weekly backup. Workflow
+concurrency serializes this idempotent promotion.
 
 Revisit the weekly cadence when the database holds irreplaceable user data. At that point, either
 run the external archive daily or upgrade to a paid Neon plan with a seven-day restore window and
@@ -158,7 +159,7 @@ protects confidentiality independently.
 
 Use the public repository's included GitHub Actions minutes for the scheduled job. Pin third-party
 Actions and the PostgreSQL container by immutable commit or image digest. Install `age` and the AWS
-CLI through the repository's mise configuration.
+CLI, plus `jq` for inspecting R2 object listings, through the repository's mise configuration.
 
 The job:
 

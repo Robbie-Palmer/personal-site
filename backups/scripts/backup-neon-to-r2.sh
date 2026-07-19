@@ -33,6 +33,7 @@ require_env R2_SECRET_ACCESS_KEY
 require_command age
 require_command aws
 require_command docker
+require_command jq
 require_command sha256sum
 
 if [[ "$NEON_DATABASE_URL_UNPOOLED" == *"-pooler."* ]]; then
@@ -79,17 +80,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-verify_uploaded_size() {
-  local local_path="$1"
-  local object_key="$2"
-  local local_size
+object_size() {
+  local object_key="$1"
   local remote_size
-
-  local_size=$(file_size "$local_path")
-  if [[ "$local_size" == "0" ]]; then
-    echo "Refusing to verify empty local file: $local_path" >&2
-    return 1
-  fi
 
   if ! remote_size=$(aws s3api head-object \
     --bucket "$R2_DATABASE_BACKUPS_BUCKET_NAME" \
@@ -106,8 +99,51 @@ verify_uploaded_size() {
     return 1
   fi
 
+  if [[ "$remote_size" == "0" ]]; then
+    echo "Refusing to accept empty object: $object_key" >&2
+    return 1
+  fi
+
+  printf '%s\n' "$remote_size"
+}
+
+verify_uploaded_size() {
+  local local_path="$1"
+  local object_key="$2"
+  local local_size
+  local remote_size
+
+  local_size=$(file_size "$local_path")
+  if [[ "$local_size" == "0" ]]; then
+    echo "Refusing to verify empty local file: $local_path" >&2
+    return 1
+  fi
+
+  remote_size=$(object_size "$object_key")
+
   if [[ "$local_size" != "$remote_size" ]]; then
     echo "Uploaded object size mismatch: key=$object_key local=$local_size remote=$remote_size" >&2
+    return 1
+  fi
+}
+
+copy_object() {
+  local source_key="$1"
+  local destination_key="$2"
+  local source_size
+  local destination_size
+
+  source_size=$(object_size "$source_key")
+  aws s3 cp \
+    "s3://${R2_DATABASE_BACKUPS_BUCKET_NAME}/${source_key}" \
+    "s3://${R2_DATABASE_BACKUPS_BUCKET_NAME}/${destination_key}" \
+    --endpoint-url "$endpoint" \
+    --no-progress \
+    --only-show-errors
+  destination_size=$(object_size "$destination_key")
+
+  if [[ "$source_size" != "$destination_size" ]]; then
+    echo "Copied object size mismatch: source=$source_key destination=$destination_key" >&2
     return 1
   fi
 }
@@ -149,41 +185,54 @@ verify_uploaded_size "$archive_path" "$weekly_key"
 verify_uploaded_size "$checksum_path" "${weekly_key}.sha256"
 
 monthly_prefix="monthly/${year}/${month}/"
-monthly_object_count=$(aws s3api list-objects-v2 \
+monthly_response_json=$(aws s3api list-objects-v2 \
   --bucket "$R2_DATABASE_BACKUPS_BUCKET_NAME" \
   --prefix "$monthly_prefix" \
-  --max-keys 1 \
   --endpoint-url "$endpoint" \
-  --query "KeyCount" \
-  --output text)
+  --output json)
+monthly_objects_json=$(jq -c '(.Contents // []) | map(.Key)' <<<"$monthly_response_json")
 
-if [[ ! "$monthly_object_count" =~ ^[0-9]+$ ]]; then
-  echo "Monthly prefix returned an invalid object count: $monthly_object_count" >&2
+if ! jq -e 'type == "array" and all(.[]; type == "string")' <<<"$monthly_objects_json" >/dev/null; then
+  echo "Monthly prefix returned an invalid object listing." >&2
   exit 1
 fi
 
+monthly_object_count=$(jq 'length' <<<"$monthly_objects_json")
+monthly_archive_count=$(jq '[.[] | select(endswith(".sha256") | not)] | length' <<<"$monthly_objects_json")
+
 # Preserve the first successful backup of each month as a longer-lived archive.
-# The workflow concurrency group makes the prefix check and copy effectively
-# serial, while allowing a manual run to fill a month whose scheduled run failed.
-if (( monthly_object_count == 0 )); then
+# The workflow concurrency group serializes promotion. If a previous run copied
+# only the archive, a retry repairs its missing checksum from the weekly prefix.
+if (( monthly_archive_count == 0 && monthly_object_count == 0 )); then
   monthly_key="${monthly_prefix}${basename}"
   echo "Copying first successful backup of the month to s3://${R2_DATABASE_BACKUPS_BUCKET_NAME}/${monthly_key}"
 
-  aws s3 cp \
-    "s3://${R2_DATABASE_BACKUPS_BUCKET_NAME}/${weekly_key}" \
-    "s3://${R2_DATABASE_BACKUPS_BUCKET_NAME}/${monthly_key}" \
-    --endpoint-url "$endpoint" \
-    --no-progress \
-    --only-show-errors
+  copy_object "$weekly_key" "$monthly_key"
+  copy_object "${weekly_key}.sha256" "${monthly_key}.sha256"
+elif (( monthly_archive_count == 1 )); then
+  existing_monthly_key=$(jq -r '.[] | select(endswith(".sha256") | not)' <<<"$monthly_objects_json")
+  existing_monthly_checksum_key="${existing_monthly_key}.sha256"
 
-  aws s3 cp \
-    "s3://${R2_DATABASE_BACKUPS_BUCKET_NAME}/${weekly_key}.sha256" \
-    "s3://${R2_DATABASE_BACKUPS_BUCKET_NAME}/${monthly_key}.sha256" \
-    --endpoint-url "$endpoint" \
-    --no-progress \
-    --only-show-errors
+  if jq -e --arg key "$existing_monthly_checksum_key" 'index($key) != null' \
+    <<<"$monthly_objects_json" >/dev/null; then
+    if (( monthly_object_count != 2 )); then
+      echo "Monthly prefix contains unexpected objects: $monthly_prefix" >&2
+      exit 1
+    fi
+
+    echo "Monthly archive already exists under s3://${R2_DATABASE_BACKUPS_BUCKET_NAME}/${monthly_prefix}; skipping promotion"
+  elif (( monthly_object_count == 1 )); then
+    existing_basename="${existing_monthly_key#"$monthly_prefix"}"
+    existing_weekly_checksum_key="weekly/${year}/${month}/${existing_basename}.sha256"
+    echo "Repairing missing monthly checksum at s3://${R2_DATABASE_BACKUPS_BUCKET_NAME}/${existing_monthly_checksum_key}"
+    copy_object "$existing_weekly_checksum_key" "$existing_monthly_checksum_key"
+  else
+    echo "Monthly prefix contains an incomplete or unexpected archive pair: $monthly_prefix" >&2
+    exit 1
+  fi
 else
-  echo "Monthly archive already exists under s3://${R2_DATABASE_BACKUPS_BUCKET_NAME}/${monthly_prefix}; skipping promotion"
+  echo "Monthly prefix contains an incomplete or unexpected archive pair: $monthly_prefix" >&2
+  exit 1
 fi
 
 archive_size=$(file_size "$archive_path")

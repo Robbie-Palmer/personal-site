@@ -22,12 +22,14 @@ roughly 2 to 2.5 GB/month at that database-size ceiling.
 
 The workflow writes every archive under `weekly/`. The first successful backup
 of each month is copied to `monthly/` inside R2 without exporting the database a
-second time. Before promotion, the script checks that the month's prefix is
-empty, so manual retries cannot create duplicate monthly archives and can fill a
-month whose scheduled run failed. The workflow concurrency group serializes
-that check and copy. When the project moves to a paid Neon plan, change the cron
-to a daily schedule and adjust the prefix policy if a one-day external recovery
-point objective is required.
+second time. Before promotion, the script inspects the month's archive/checksum
+pair, so manual retries cannot create duplicates and can fill a month whose
+scheduled run failed. If a run copied the monthly archive but failed before
+copying its checksum, the next run repairs that same pair from `weekly/`. The
+workflow concurrency group serializes this idempotent promotion. When the
+project moves to a paid Neon plan, change the cron to a daily schedule and
+adjust the prefix policy if a one-day external recovery point objective is
+required.
 
 The Cloudflare Terraform provider v4 can create the bucket but cannot manage R2
 object lifecycle rules. Configure these once in the R2 dashboard:
