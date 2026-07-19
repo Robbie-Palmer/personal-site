@@ -543,7 +543,15 @@ describe("recipe API PostgreSQL integration", () => {
     const form = new FormData();
     form.append(
       "images",
-      new File(["integration-image"], "recipe.png", { type: "image/png" }),
+      new File(
+        [
+          new Uint8Array([
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00,
+          ]),
+        ],
+        "recipe.png",
+        { type: "image/png" },
+      ),
     );
     const importResponse = await app.request(
       "/recipe-imports",
@@ -561,6 +569,12 @@ describe("recipe API PostgreSQL integration", () => {
       id: importJob.id,
       params: { jobId: importJob.id },
     });
+    expect(
+      await db
+        .select({ count: schema.appRateLimit.count })
+        .from(schema.appRateLimit)
+        .where(eq(schema.appRateLimit.key, `recipe-photo-import:${cook.id}`)),
+    ).toEqual([{ count: 1 }]);
 
     await db.insert(schema.recipeImportArtifact).values({
       jobId: importJob.id,

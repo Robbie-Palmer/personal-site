@@ -197,8 +197,10 @@ Keep it in the `preview-recipe-api` environment only and rotate it if GitHub
 reports any exposure.
 
 `POSTHOG_KEY` and `POSTHOG_HOST` are currently omitted, so previews run without
-analytics. The UI build only requires `CF_IMAGES_ACCOUNT_HASH`; the PostHog
-client no-ops when its key is unset.
+browser analytics. The UI build only requires `CF_IMAGES_ACCOUNT_HASH`; the
+PostHog client no-ops when its key is unset. Preview API and ingestion Worker
+logs are still retained in Cloudflare Workers Logs and exported through the
+account-level `posthog-logs` observability destination.
 
 ### 6. Smoke-test a preview
 

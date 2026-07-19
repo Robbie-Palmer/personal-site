@@ -4,6 +4,15 @@ compatibility_date = "2026-05-28"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
+# Retain preview logs in Cloudflare Workers Logs and export them through the
+# same account-level OTLP destination as production.
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+destinations = ["posthog-logs"]
+
 [vars]
 EXTRACT_MODEL = "google/gemini-3-flash-preview"
 EXTRACT_TIMEOUT_MS = "30000"

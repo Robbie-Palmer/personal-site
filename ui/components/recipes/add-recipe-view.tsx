@@ -3,6 +3,7 @@
 import {
   AlertCircle,
   ArrowLeft,
+  Camera,
   FileText,
   Globe2,
   Home,
@@ -14,7 +15,18 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  PhotoRecipeImport,
+  type PhotoRecipeImportDraft,
+} from "@/components/recipes/photo-recipe-import";
 import { RecipeContent } from "@/components/recipes/recipe-content";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +47,7 @@ Meanwhile, warm @olive oil{2%tbsp} in a #frying pan{}. Add @garlic{2%cloves} and
 
 Stir in @chopped tomatoes{400%g} and simmer for ~{15%minutes}. Drain the pasta, toss it through the sauce, and serve.`;
 
-type AddMethod = "write" | "url";
+type AddMethod = "write" | "url" | "photo";
 type RecipeVisibility = "private" | "household" | "public";
 
 type ImportedRecipe = {
@@ -254,6 +266,18 @@ export function AddRecipeView() {
     setImporting(false);
   }
 
+  const applyPhotoDraft = useCallback((draft: PhotoRecipeImportDraft) => {
+    const { frontmatter, body } = draft.cooklang;
+    setTitle(frontmatter.title ?? draft.recipe.title);
+    setDescription(frontmatter.description ?? draft.recipe.description);
+    setCuisine((frontmatter.cuisine ?? draft.recipe.cuisine ?? []).join(", "));
+    setServings(frontmatter.servings ?? draft.recipe.servings);
+    setPrepTime(draft.recipe.prepTime);
+    setCookTime(draft.recipe.cookTime);
+    setSource(body);
+    setImportedUrl(null);
+  }, []);
+
   async function saveRecipe() {
     if (!preview || savingRef.current) return;
     savingRef.current = true;
@@ -354,8 +378,8 @@ export function AddRecipeView() {
             Add a <span className="text-[var(--terracotta)]">recipe</span>
           </h1>
           <p className="rt-body mt-2 text-[var(--ink-2)]">
-            Write a recipe with Cooklang or import one from a webpage. Both
-            methods feed the same editable preview.
+            Write with Cooklang, import a webpage, or scan a recipe photo. Every
+            method feeds the same editable preview.
           </p>
         </div>
         <Button
@@ -381,7 +405,7 @@ export function AddRecipeView() {
         <section className="rounded-xl border-[1.25px] border-[var(--line-strong)] bg-[var(--card)] p-4 shadow-[var(--paper-shadow)] xl:sticky xl:top-24">
           <div className="grid gap-4">
             <fieldset
-              className="grid grid-cols-2 rounded-lg border border-[var(--line-strong)] bg-[var(--paper-warm)] p-1"
+              className="grid grid-cols-3 rounded-lg border border-[var(--line-strong)] bg-[var(--paper-warm)] p-1"
               aria-label="Choose how to add a recipe"
             >
               <button
@@ -410,6 +434,21 @@ export function AddRecipeView() {
                 }`}
               >
                 <Globe2 className="size-4" /> Import from URL
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  invalidateImportRequest();
+                  setMethod("photo");
+                }}
+                aria-pressed={method === "photo"}
+                className={`rt-mono inline-flex items-center justify-center gap-2 rounded-md px-2 py-2 text-sm transition-colors ${
+                  method === "photo"
+                    ? "bg-[var(--card)] text-[var(--ink)] shadow-sm"
+                    : "text-[var(--ink-3)] hover:text-[var(--ink)]"
+                }`}
+              >
+                <Camera className="size-4" /> Scan photo
               </button>
             </fieldset>
 
@@ -473,6 +512,13 @@ export function AddRecipeView() {
                 )}
               </div>
             )}
+
+            <div className={method === "photo" ? undefined : "hidden"}>
+              <PhotoRecipeImport
+                active={method === "photo"}
+                onDraftReady={applyPhotoDraft}
+              />
+            </div>
 
             <label htmlFor={titleId} className="grid gap-1.5">
               <span className="rt-mono text-[var(--ink-3)]">Recipe name</span>
@@ -577,7 +623,7 @@ export function AddRecipeView() {
               <div>
                 <p className="rt-mono text-[var(--ink-3)]">Recipe text</p>
                 <p className="text-xs text-[var(--ink-3)]">
-                  {method === "url"
+                  {method === "url" || method === "photo"
                     ? "Imported as editable Cooklang. Adjust anything before saving."
                     : "Use @ingredients, #cookware and ~timers directly in each step."}
                 </p>
@@ -636,8 +682,8 @@ export function AddRecipeView() {
               </h2>
               <p className="rt-body mt-2 max-w-md text-[var(--ink-3)]">
                 Add a name and write your steps with inline Cooklang—or use the
-                example or URL importer to see ingredients and timers come
-                alive.
+                example, URL importer, or a recipe photo to see ingredients and
+                timers come alive.
               </p>
               {(parse.error || previewResult.error) && (
                 <p role="alert" className="mt-4 text-sm text-destructive">
