@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - agent/migrate-sonarcloud-to-ci
   workflow_dispatch:
 
 permissions:
@@ -74,5 +75,10 @@ jobs:
       - name: Scan with SonarQube Cloud
         if: steps.sonar-upload.outputs.enabled == 'true'
         uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2 # v7
+        with:
+          args: >-
+            -Dsonar.pullrequest.key=751
+            -Dsonar.pullrequest.branch=agent/migrate-sonarcloud-to-ci
+            -Dsonar.pullrequest.base=main
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
