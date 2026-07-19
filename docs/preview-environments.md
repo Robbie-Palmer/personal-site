@@ -11,32 +11,30 @@ https://pr-<number>.<pages-host>
   -> recipe-artifacts-preview R2 bucket (shared QA data only)
 ```
 
-The Neon branch is created with a schema-only copy of the project's primary
-branch. It copies the structure but none of the rows, so it is technically an
-independent root branch rather than a child (see [Neon Free plan
-constraints](#neon-free-plan-constraints) below). Production rows, Better Auth
-sessions, OAuth tokens, and private recipes are therefore never copied into a
-preview. The workflow pushes the PR schema and adds deterministic QA fixtures.
+The Neon branch is an ordinary child of the empty `preview-base` root in a
+dedicated preview project. That project has preview-only credentials and never
+contains production rows, Better Auth sessions, OAuth tokens, or private
+recipes. The workflow applies every committed migration to the empty branch and
+then adds deterministic QA fixtures.
 
-The database branch, Workers, and Workflow survive updates to the PR so QA state
-is preserved. They are deleted when the PR closes. Neon also expires the branch
-after 30 days as a backstop; pushing another commit recreates an expired branch.
-The shared preview artifact bucket is persistent infrastructure and contains
-synthetic or QA-only data; a lifecycle rule expires objects after 30 days.
+The database branch is deleted and recreated on every PR update so edited,
+unmerged migration SQL is always exercised from zero. QA changes made in a
+preview are therefore disposable between pushes. The Workers and Workflow are
+redeployed to use the fresh branch and all resources are deleted when the PR
+closes. Neon also expires branches after 30 days as a cleanup backstop. The
+shared preview artifact bucket is persistent infrastructure and contains only
+synthetic or QA data; a lifecycle rule expires objects after 30 days.
 
 Fork pull requests do not receive preview infrastructure. The workflow uses
-`pull_request_target` so its privileged control flow always comes from the
-default branch, then explicitly checks out the internal PR commit. Only
-preview-scoped credentials should be stored in the preview environment because
+`pull_request` and explicitly gates every job to same-repository pull requests.
+Only preview-scoped credentials are stored in the preview environment because
 the deployed application code is still the PR's code.
 
 ## Operational setup & runbook
 
-This environment is already provisioned. The steps below are retained as a
-recovery and rotation runbook — how to recreate the GitHub environment, rotate
-the scoped credentials, and rebuild the Cloudflare Access application. These
-pieces are configured out of band; their sensitive values are not stored in the
-repository (the Terraform configuration itself is, under `infra/`).
+The Cloudflare and Neon resources are provisioned by Terraform. The steps below
+are also the recovery and rotation runbook. Credentials are configured out of
+band through Doppler; their sensitive values are not stored in the repository.
 
 ### 1. Apply the Terraform configuration
 
@@ -120,7 +118,28 @@ mise x -- pnpm exec wrangler r2 bucket lifecycle add \
   --expire-days 30 --abort-multipart-days 1 --force
 ```
 
-### 4. Create the GitHub environments
+### 4. Provision the dedicated Neon preview project
+
+Terraform creates a separate `recipes-preview` Neon project; previews must not
+reuse the production `recipes` project. Apply the infrastructure configuration
+as described in step 1, then publish its outputs to Doppler:
+
+1. Set `NEON_PROJECT_ID` in `stg_recipe_api` from the
+   `neon_preview_project_id` output, with unmasked visibility.
+2. Set masked `NEON_API_KEY` in `stg_recipe_api` from the sensitive
+   `neon_preview_api_key` output.
+3. Run `scripts/sync-doppler-github-envs.sh` to update the GitHub environment.
+
+The Terraform resource creates the empty `preview-base` root, a `recipes`
+database owned by `recipes_owner`, and the project-scoped API key. Do not add
+application tables or a `drizzle.__drizzle_migrations` table to the root.
+
+Every PR database is a normal child branch of `preview-base`. Ordinary child
+branches use the project's general branch allowance and inherit only this empty
+preview state. Keeping the preview root and credentials in a separate project
+also prevents a preview Worker or workflow from connecting to production.
+
+### 5. Create the GitHub environments
 
 Create GitHub environments named `preview-recipe-api` and `preview-site-ui`.
 Populate them from Doppler by running `scripts/sync-doppler-github-envs.sh`;
@@ -134,7 +153,7 @@ do not use the Doppler GitHub sync integration on the free plan.
 | --- | --- |
 | `CLOUDFLARE_API_TOKEN` | Least-privilege preview deployment token |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account containing Pages and Workers |
-| `NEON_API_KEY` | Creates and deletes preview branches |
+| `NEON_API_KEY` | Project-scoped key for the dedicated preview Neon project |
 | `PREVIEW_AUTH_SEED` | Derives stable, per-PR Better Auth secrets and test passwords |
 | `OPENROUTER_API_KEY` | Preview-only key for end-to-end recipe import QA |
 
@@ -148,7 +167,7 @@ openssl rand -base64 48
 
 | Variable | Example |
 | --- | --- |
-| `NEON_PROJECT_ID` | Neon project ID from project settings |
+| `NEON_PROJECT_ID` | Dedicated preview project ID from Neon settings |
 | `CLOUDFLARE_PAGES_HOST` | `personal-site-bu5.pages.dev` |
 | `CF_ACCESS_TEAM_DOMAIN` | `https://your-team.cloudflareaccess.com` |
 | `CF_ACCESS_AUD` | Audience tag from the Pages preview Access application |
@@ -171,7 +190,7 @@ openssl rand -base64 48
 | `POSTHOG_KEY` | Existing public PostHog project key, if preview analytics remain enabled |
 | `POSTHOG_HOST` | Existing PostHog host, if preview analytics remain enabled |
 
-`NEON_API_KEY` is a **project-scoped** key for the `recipes` project (Neon
+`NEON_API_KEY` is a **project-scoped** key for the dedicated preview project (Neon
 Console -> organization -> Settings -> API keys -> Create API key ->
 Project-scoped), so it can manage branches in that project and nothing else.
 Keep it in the `preview-recipe-api` environment only and rotate it if GitHub
@@ -181,13 +200,14 @@ reports any exposure.
 analytics. The UI build only requires `CF_IMAGES_ACCOUNT_HASH`; the PostHog
 client no-ops when its key is unset.
 
-### 5. Smoke-test a preview
+### 6. Smoke-test a preview
 
 To validate the pipeline (after recreating any of the above, or when debugging),
 open or update an internal PR — the workflow runs from `main`. Confirm:
 
 1. The PR receives one `Preview environment` comment.
-2. Neon contains `preview-pr-<number>` and it has no production rows.
+2. The dedicated Neon preview project contains `preview-pr-<number>` as a child
+   of `preview-base`, with no production rows.
 3. Cloudflare contains `recipe-api-pr-<number>` with no Hyperdrive binding.
 4. The canonical `https://pr-<number>.<pages-host>` URL requires Access.
 5. The sign-in menu offers the empty, populated, and administrator scenarios.
@@ -217,25 +237,29 @@ backstop.
 Add the scenario to
 `workers/recipe-api/src/preview-scenarios.ts` and its deterministic domain data
 to `workers/recipe-api/scripts/seed-preview.ts`. Seeds must be idempotent and
-must not erase QA changes on subsequent pushes.
+safe to retry within one workflow run. A new push deliberately replaces the
+database and any manual QA changes in it.
 
 ## Neon Free plan constraints
 
-The preview branch is a schema-only branch, which Neon implements as an
-independent **root branch**. The Free plan permits only **3 root branches per
-project**, and the project's `main` branch consumes one. Previews therefore
-support at most **two concurrent internal PRs**; a third preview branch fails
-with `ROOT_BRANCHES_LIMIT_EXCEEDED` until an open preview closes. Upgrading to a
-paid plan (Launch allows 5 root branches) raises this ceiling.
+The dedicated preview project uses one root branch, `preview-base`, and ordinary
+child branches for PRs. Neon's current Free plan allows 10 branches per project,
+so the project supports up to nine simultaneous PR databases when it contains
+no other branches. This avoids the three-root-branch limit that constrained the
+previous schema-only design to two concurrent previews.
 
 Scale-to-zero is fixed at 5 minutes on the Free plan and cannot be configured.
-The Neon branch action must not pass `suspend_timeout`; any explicit value is
-rejected with `412 Precondition Failed`.
+Leave the Neon branch action's `suspend_timeout` input unset. The action then
+forwards its default `0` sentinel so Neon uses the project's fixed setting;
+positive overrides such as `300` are rejected with `412 Precondition Failed`.
 
-## Known follow-up: committed migrations
+## Database migrations
 
-The workflow currently uses `drizzle-kit push`, matching production. Before
-multiple schema-changing PRs become common, adopt committed Drizzle migrations
-and baseline the existing production schema. Do not simply run an initial
-generated migration against production: the tables already exist and the
-migration journal must first be baselined safely.
+Schema changes use committed Drizzle migrations. Every preview branch starts
+without application objects or migration history, so `drizzle-kit migrate`
+applies the complete history beginning with the strict `0000_baseline.sql`.
+The branch is recreated on every PR update; this is important because migration
+files can still be edited before they reach `main`.
+
+Once a migration reaches `main`, it is append-only. A missing table, column, or
+constraint must fail deployment rather than being silently ignored.

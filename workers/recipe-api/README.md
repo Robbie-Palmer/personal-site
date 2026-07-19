@@ -7,9 +7,13 @@ same-origin and are proxied to this Worker:
 - production: the Pages Function at `functions/api/auth/[[path]].ts` proxies
   `/api/auth/*` to the deployed Worker
 
-PR previews use an isolated Worker, schema-only Neon branch, and
-Access-protected test-user login. See the
+PR previews use an isolated Worker, an empty child branch in the dedicated Neon
+preview project, and Access-protected test-user login. See the
 [preview environment runbook](../../docs/preview-environments.md).
+
+Schema changes use committed Drizzle migrations. See the
+[database operations runbook](../../docs/database.md) for generation, seeding,
+integration testing, content inspection, deployment, and recovery.
 
 ## Local OAuth setup
 
@@ -71,7 +75,8 @@ The shared limiter lives in `src/http/rate-limit.ts`. It does a single
 requests cannot race a stale counter, and it fails open if the store errors.
 Exceeding any tier returns `429` with a `Retry-After`/`X-Retry-After` header.
 
-The `app_rate_limit` table is created by `drizzle-kit push` like the rest of the
-schema, and a daily Cron Trigger sweeps counters idle for over 24h so it stays
-bounded. Edge thresholds are tunable via the `auth_rate_limit_*` Terraform
-variables; application thresholds live alongside the code above.
+The `app_rate_limit` table is managed by the committed Drizzle migrations like
+the rest of the schema, and a daily Cron Trigger sweeps counters idle for over
+24h so it stays bounded. Edge thresholds are tunable via the
+`auth_rate_limit_*` Terraform variables; application thresholds live alongside
+the code above.
