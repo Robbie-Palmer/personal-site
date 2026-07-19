@@ -15,6 +15,13 @@ allowBuilds:
   sharp: false
   workerd: false
 
+# better-auth-cloudflare 0.3.0 is compatible with workers-types v5, but its
+# peer range has not yet been widened from v4. Keep this exception scoped to
+# that package; the recipe API typecheck and tests exercise the integration.
+peerDependencyRules:
+  allowedVersions:
+    'better-auth-cloudflare>@cloudflare/workers-types': '5'
+
 # Dedupe postcss onto the patched 8.5.x line. Next pulls in 8.4.31, which is
 # affected by GHSA-qx2v-qp2m-jg93 (XSS via unescaped </style> in stringify);
 # 8.5.x is already in the tree via @tailwindcss/postcss and is API-compatible.
