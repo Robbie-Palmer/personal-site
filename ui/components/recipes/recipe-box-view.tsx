@@ -6,6 +6,12 @@ import { RecipeCollection } from "@/components/recipes/recipe-collection";
 import { CardGridSkeleton } from "@/components/ui/card-grid-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { RecipeCardView } from "@/lib/api/recipes";
+import { authClient } from "@/lib/auth-client";
+
+type VisibleRecipeCountState = {
+  userId: string | null;
+  count: number;
+};
 
 function formatRecipeCount(count: number | null) {
   if (count == null) return null;
@@ -20,13 +26,19 @@ export function RecipeBoxView({
   recipes: RecipeCardView[];
   catalogStats: string[];
 }>) {
-  const [visibleRecipeCount, setVisibleRecipeCount] = useState<number | null>(
+  const { data: session, isPending } = authClient.useSession();
+  const sessionUserId = session?.user.id ?? null;
+  const [countState, setCountState] = useState<VisibleRecipeCountState | null>(
     null,
   );
   const updateVisibleRecipeCount = useCallback(
-    (count: number) => setVisibleRecipeCount(count),
-    [],
+    (count: number) => setCountState({ userId: sessionUserId, count }),
+    [sessionUserId],
   );
+  const visibleRecipeCount =
+    !isPending && countState?.userId === sessionUserId
+      ? countState.count
+      : null;
   const recipeCountLabel = formatRecipeCount(visibleRecipeCount);
   const stats = recipeCountLabel
     ? [recipeCountLabel, ...catalogStats]

@@ -206,10 +206,19 @@ export function AuthButton({
 
   if (isPending) {
     return (
-      <Skeleton
-        aria-hidden="true"
-        className={intent === "signup" ? "h-9 w-20" : "h-9 w-16"}
-      />
+      <>
+        <Skeleton
+          aria-hidden="true"
+          className={intent === "signup" ? "h-9 w-20" : "h-9 w-16"}
+        />
+        <output
+          aria-label="Loading session"
+          aria-live="polite"
+          className="sr-only"
+        >
+          Loading session…
+        </output>
+      </>
     );
   }
 

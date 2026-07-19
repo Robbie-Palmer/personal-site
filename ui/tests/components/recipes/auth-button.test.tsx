@@ -110,6 +110,9 @@ describe("AuthButton", () => {
     expect(
       screen.queryByRole("button", { name: /sign up/i }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Loading session" }),
+    ).toBeInTheDocument();
     expect(container.querySelector('[data-slot="skeleton"]')).toBeTruthy();
   });
 
