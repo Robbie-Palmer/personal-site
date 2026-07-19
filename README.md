@@ -1,5 +1,10 @@
 # personal-site
 
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=Robbie-Palmer_personal-site&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=Robbie-Palmer_personal-site)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=Robbie-Palmer_personal-site&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=Robbie-Palmer_personal-site)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=Robbie-Palmer_personal-site&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=Robbie-Palmer_personal-site)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=Robbie-Palmer_personal-site&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=Robbie-Palmer_personal-site)
+
 Personal website with blog and interactive resume.
 
 **Live:** [robbiepalmer.me](https://robbiepalmer.me)
