@@ -270,7 +270,7 @@ export function AddRecipeView() {
     const { frontmatter, body } = draft.cooklang;
     setTitle(frontmatter.title ?? draft.recipe.title);
     setDescription(frontmatter.description ?? draft.recipe.description);
-    setCuisine((frontmatter.cuisine ?? draft.recipe.cuisine).join(", "));
+    setCuisine((frontmatter.cuisine ?? draft.recipe.cuisine ?? []).join(", "));
     setServings(frontmatter.servings ?? draft.recipe.servings);
     setPrepTime(draft.recipe.prepTime);
     setCookTime(draft.recipe.cookTime);

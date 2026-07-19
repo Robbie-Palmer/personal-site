@@ -41,6 +41,7 @@ import {
 import { enforceRateLimit, rateLimitedResponse } from "./http/rate-limit";
 import { validateCsrf } from "./http/security";
 import { parseJsonBody } from "./http/validation";
+import { hasExpectedImageSignature } from "./image-signature";
 import {
   createHouseholdNotification,
   type HouseholdNotificationKind,
@@ -2962,12 +2963,13 @@ function importJobResponse(job: RecipeImportJob) {
   };
 }
 
-function parseImportImages(
+async function parseImportImages(
   c: Context<AppEnv>,
   form: FormData,
-):
+): Promise<
   | { success: true; images: { file: File; extension: string }[] }
-  | { success: false; response: Response } {
+  | { success: false; response: Response }
+> {
   // workers-types declares FormData entries as string, but the runtime
   // returns File objects for file uploads — widen and narrow via instanceof.
   const entries: unknown[] = form.getAll("images");
@@ -3020,6 +3022,15 @@ function parseImportImages(
         ),
       };
     }
+    if (!(await hasExpectedImageSignature(entry, entry.type))) {
+      return {
+        success: false,
+        response: c.json(
+          { error: "Image contents do not match the declared file type" },
+          415,
+        ),
+      };
+    }
     images.push({ file: entry, extension });
   }
   return { success: true, images };
@@ -3049,7 +3060,7 @@ app.post("/recipe-imports", async (c) => {
           415,
         );
       }
-      const parsed = parseImportImages(c, form);
+      const parsed = await parseImportImages(c, form);
       if (!parsed.success) return parsed.response;
       const { images } = parsed;
 

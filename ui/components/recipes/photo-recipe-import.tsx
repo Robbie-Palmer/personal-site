@@ -45,16 +45,80 @@ type PhotoImportJob = {
   draft?: PhotoRecipeImportDraft;
 };
 
-type ApiErrorBody = { error?: string | { message?: string } };
-
 const PHOTO_IMPORT_POLL_INTERVAL_MS = 1_500;
+const MAX_PHOTO_POLL_FAILURES = 3;
 const MAX_PHOTO_COUNT = 6;
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 const ACCEPTED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-function apiErrorMessage(body: ApiErrorBody | null, fallback: string): string {
-  if (typeof body?.error === "string") return body.error;
-  return body?.error?.message || fallback;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function hasOptionalString(record: Record<string, unknown>, key: string) {
+  return record[key] === undefined || typeof record[key] === "string";
+}
+
+function hasOptionalNumber(record: Record<string, unknown>, key: string) {
+  return record[key] === undefined || typeof record[key] === "number";
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
+}
+
+function isPhotoRecipeImportDraft(
+  value: unknown,
+): value is PhotoRecipeImportDraft {
+  if (!isRecord(value) || !isRecord(value.cooklang) || !isRecord(value.recipe))
+    return false;
+  const { cooklang, recipe } = value;
+  if (!isRecord(cooklang.frontmatter)) return false;
+  const frontmatter = cooklang.frontmatter;
+  return (
+    typeof cooklang.body === "string" &&
+    hasOptionalString(frontmatter, "title") &&
+    hasOptionalString(frontmatter, "description") &&
+    (frontmatter.cuisine === undefined || isStringArray(frontmatter.cuisine)) &&
+    hasOptionalNumber(frontmatter, "servings") &&
+    hasOptionalNumber(frontmatter, "prepTime") &&
+    hasOptionalNumber(frontmatter, "cookTime") &&
+    typeof recipe.title === "string" &&
+    typeof recipe.description === "string" &&
+    isStringArray(recipe.cuisine) &&
+    typeof recipe.servings === "number" &&
+    hasOptionalNumber(recipe, "prepTime") &&
+    hasOptionalNumber(recipe, "cookTime")
+  );
+}
+
+function isPhotoImportJob(value: unknown): value is PhotoImportJob {
+  if (!isRecord(value)) return false;
+  const validStatus =
+    value.status === "queued" ||
+    value.status === "running" ||
+    value.status === "succeeded" ||
+    value.status === "failed";
+  const validError =
+    value.error === undefined ||
+    (isRecord(value.error) && hasOptionalString(value.error, "message"));
+  return (
+    typeof value.id === "string" &&
+    validStatus &&
+    hasOptionalString(value, "progressLabel") &&
+    validError &&
+    (value.draft === undefined || isPhotoRecipeImportDraft(value.draft))
+  );
+}
+
+function apiErrorMessage(body: unknown, fallback: string): string {
+  if (!isRecord(body)) return fallback;
+  if (typeof body.error === "string") return body.error;
+  return isRecord(body.error) && typeof body.error.message === "string"
+    ? body.error.message
+    : fallback;
 }
 
 function ImportStatusIcon({ status }: Readonly<{ status: PhotoImportStatus }>) {
@@ -145,27 +209,28 @@ export function PhotoRecipeImport({
 
   useEffect(() => {
     if (!active || !jobId || handledJobIdRef.current === jobId) return;
+    const currentJobId = jobId;
 
     let activeRequest = true;
     let pollTimeout: number | undefined;
+    let consecutiveFailures = 0;
     const controller = new AbortController();
 
     async function poll() {
       try {
-        const response = await fetch(`/api/recipe-imports/${jobId}`, {
+        const response = await fetch(`/api/recipe-imports/${currentJobId}`, {
           credentials: "include",
           signal: controller.signal,
         });
-        const body = (await response.json().catch(() => null)) as
-          | PhotoImportJob
-          | ApiErrorBody
-          | null;
-        if (!response.ok || !body || !("status" in body)) {
+        const body: unknown = await response.json().catch(() => null);
+        if (!response.ok || !isPhotoImportJob(body)) {
           throw new Error(
             apiErrorMessage(body, "We couldn't check the photo import status."),
           );
         }
         if (!activeRequest) return;
+        consecutiveFailures = 0;
+        setError(null);
         setJob(body);
         if (body.status === "succeeded") {
           handledJobIdRef.current = body.id;
@@ -187,11 +252,31 @@ export function PhotoRecipeImport({
         pollTimeout = window.setTimeout(poll, PHOTO_IMPORT_POLL_INTERVAL_MS);
       } catch (pollError) {
         if (!controller.signal.aborted && activeRequest) {
-          setError(
+          const message =
             pollError instanceof Error
               ? pollError.message
-              : "We couldn't check the photo import status.",
+              : "We couldn't check the photo import status.";
+          consecutiveFailures += 1;
+          if (consecutiveFailures < MAX_PHOTO_POLL_FAILURES) {
+            setError(`${message} Retrying…`);
+            pollTimeout = window.setTimeout(
+              poll,
+              PHOTO_IMPORT_POLL_INTERVAL_MS,
+            );
+            return;
+          }
+          handledJobIdRef.current = currentJobId;
+          setJob((current) =>
+            current?.id === currentJobId
+              ? {
+                  ...current,
+                  status: "failed",
+                  progressLabel: "Status check failed",
+                  error: { message },
+                }
+              : current,
           );
+          setError(`${message} Start the import again to retry.`);
         }
       }
     }
@@ -257,11 +342,8 @@ export function PhotoRecipeImport({
         credentials: "include",
         body: form,
       });
-      const body = (await response.json().catch(() => null)) as
-        | PhotoImportJob
-        | ApiErrorBody
-        | null;
-      if (!response.ok || !body || !("status" in body)) {
+      const body: unknown = await response.json().catch(() => null);
+      if (!response.ok || !isPhotoImportJob(body)) {
         throw new Error(
           apiErrorMessage(body, "The photos could not be uploaded."),
         );

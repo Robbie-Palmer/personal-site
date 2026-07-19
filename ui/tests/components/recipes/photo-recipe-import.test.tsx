@@ -60,6 +60,74 @@ describe("PhotoRecipeImport", () => {
     expect(onDraftReady).toHaveBeenCalledOnce();
   });
 
+  it("recovers after a transient polling failure", async () => {
+    const onDraftReady = vi.fn();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ id: "job-1", status: "queued" }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: "Temporary status failure" }), {
+          status: 502,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ id: "job-1", status: "succeeded", draft }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<PhotoRecipeImport active onDraftReady={onDraftReady} />);
+    fireEvent.change(screen.getByLabelText("Choose recipe photos"), {
+      target: {
+        files: [new File(["photo"], "recipe.jpg", { type: "image/jpeg" })],
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import from photos" }));
+
+    expect(
+      await screen.findByText("Temporary status failure Retrying…"),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(onDraftReady).toHaveBeenCalledOnce(), {
+      timeout: 3_000,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("allows a new import after repeated polling failures", async () => {
+    const failedStatusResponse = () =>
+      new Response(JSON.stringify({ error: "Status unavailable" }), {
+        status: 502,
+        headers: { "content-type": "application/json" },
+      });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ id: "job-1", status: "queued" }))
+      .mockResolvedValueOnce(failedStatusResponse())
+      .mockResolvedValueOnce(failedStatusResponse())
+      .mockResolvedValueOnce(failedStatusResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<PhotoRecipeImport active onDraftReady={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Choose recipe photos"), {
+      target: {
+        files: [new File(["photo"], "recipe.jpg", { type: "image/jpeg" })],
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import from photos" }));
+
+    expect(
+      await screen.findByText(
+        "Status unavailable Start the import again to retry.",
+        undefined,
+        { timeout: 5_000 },
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Import from photos" }),
+    ).toBeEnabled();
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
   it("keeps the hidden file inputs out of sequential keyboard navigation", () => {
     render(<PhotoRecipeImport active onDraftReady={vi.fn()} />);
 
