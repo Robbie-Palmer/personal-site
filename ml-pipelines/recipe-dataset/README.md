@@ -98,6 +98,8 @@ as either `R2_*` or standard `AWS_*` variables take precedence.
 
 The committed `dvc.lock` identifies the exact raw and derived dataset versions;
 `dvc pull` restores them without reacquiring upstream sites.
+Pull-request CI runs that pull in a clean environment, so the check fails when
+any object referenced by the lock file is absent from R2.
 
 ## Future shared parsing work
 
