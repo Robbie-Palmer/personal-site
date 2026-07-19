@@ -1,0 +1,23 @@
+[tasks.download]
+description = "Download all catalogued recipe source datasets"
+run = "bash scripts/download.sh"
+
+[tasks.prepare]
+description = "Normalize downloaded recipe datasets into one JSONL corpus"
+run = "node src/stages/prepare.mjs"
+
+[tasks.stats]
+description = "Compute corpus quality and source metrics"
+run = "node src/stages/stats.mjs"
+
+[tasks.repro]
+description = "Reproduce the complete recipe dataset pipeline"
+run = "dvc repro"
+
+[tasks.push]
+description = "Push the recipe dataset DVC cache to its R2 prefix"
+run = "bash scripts/push.sh"
+
+[tasks.check]
+description = "Check recipe dataset pipeline scripts"
+run = "bash -n scripts/download.sh scripts/push.sh && node --check src/stages/prepare.mjs && node --check src/stages/stats.mjs"

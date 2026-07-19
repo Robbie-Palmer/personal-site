@@ -1,0 +1,124 @@
+schema: '2.0'
+stages:
+  download:
+    cmd: bash scripts/download.sh
+    deps:
+    - path: scripts/download-cooklang.mjs
+      hash: md5
+      md5: ddc5d10c3241b439f1c6dd485726bfb6
+      size: 2916
+    - path: scripts/download-gutenberg.mjs
+      hash: md5
+      md5: cae88809ceab34f4a6d254bde01e2e1e
+      size: 2223
+    - path: scripts/download-icn.mjs
+      hash: md5
+      md5: 9d3136b0d803be4d31ec42d1b17974a4
+      size: 1636
+    - path: scripts/download-myplate.mjs
+      hash: md5
+      md5: 2613e6f3a93b34147ece4bde2d6a03bf
+      size: 3099
+    - path: scripts/download.sh
+      hash: md5
+      md5: 98ca041bf867015fb584d901eb19e23e
+      size: 2315
+    - path: sources.json
+      hash: md5
+      md5: 6fd915a96d4d9537a7a1154ac0f9bb0b
+      size: 5080
+    outs:
+    - path: data/raw
+      hash: md5
+      md5: bbdbc5b73cad67fb0efa48c43c10f555.dir
+      size: 265095372
+      nfiles: 150
+  prepare:
+    cmd: node src/stages/prepare.mjs
+    deps:
+    - path: ../../patches/@cooklang__cooklang@0.18.7.patch
+      hash: md5
+      md5: 37584634a5b344a0b223e5263d455c21
+      size: 1284
+    - path: ../../pnpm-lock.yaml
+      hash: md5
+      md5: 827f53aaf1dac9b4b4526a3c967231a9
+      size: 402658
+    - path: ../../pnpm-workspace.yaml
+      hash: md5
+      md5: 7eeea087ac1d9d7282b48a80205c8549
+      size: 2253
+    - path: data/raw
+      hash: md5
+      md5: bbdbc5b73cad67fb0efa48c43c10f555.dir
+      size: 265095372
+      nfiles: 150
+    - path: package.json
+      hash: md5
+      md5: 4911a6f93a43c7bbff9460e47071c67c
+      size: 162
+    - path: snapshot.json
+      hash: md5
+      md5: 554e9df691a7d855470b8d4588299071
+      size: 34
+    - path: sources.json
+      hash: md5
+      md5: 6fd915a96d4d9537a7a1154ac0f9bb0b
+      size: 5080
+    - path: src/stages/prepare.mjs
+      hash: md5
+      md5: 59f0e049a5e20263958346a7ae40aa04
+      size: 24682
+    outs:
+    - path: outputs/gutenberg-candidates.jsonl
+      hash: md5
+      md5: 9cf4dc8b1337c7a219c8edf04c97e1cd
+      size: 11308121
+    - path: outputs/ingredient-only.jsonl
+      hash: md5
+      md5: 5a50a50ed000fa1cfcf0ae8fcc5013ed
+      size: 14099848
+    - path: outputs/recipes.jsonl
+      hash: md5
+      md5: a81b7c9a00d084f17533a3836305af8b
+      size: 135766310
+    - path: outputs/rejects.jsonl
+      hash: md5
+      md5: fbc294451d8410d74024552b54300783
+      size: 145331
+  stats:
+    cmd: node src/stages/stats.mjs
+    deps:
+    - path: outputs/gutenberg-candidates.jsonl
+      hash: md5
+      md5: 9cf4dc8b1337c7a219c8edf04c97e1cd
+      size: 11308121
+    - path: outputs/ingredient-only.jsonl
+      hash: md5
+      md5: 5a50a50ed000fa1cfcf0ae8fcc5013ed
+      size: 14099848
+    - path: outputs/recipes.jsonl
+      hash: md5
+      md5: a81b7c9a00d084f17533a3836305af8b
+      size: 135766310
+    - path: outputs/rejects.jsonl
+      hash: md5
+      md5: fbc294451d8410d74024552b54300783
+      size: 145331
+    - path: src/stages/stats.mjs
+      hash: md5
+      md5: 588c6dba18f40a878f5c5972c723b836
+      size: 5213
+    outs:
+    - path: outputs/metrics.json
+      hash: md5
+      md5: d1d2f26bd4f00a8fc36e6a83a6b0b9e0
+      size: 1258
+    - path: outputs/recipes-deduplicated.jsonl
+      hash: md5
+      md5: 7f2cef765bf8b90a5b813e73dcc01bce
+      size: 88748069
+    - path: outputs/source-distribution.json
+      hash: md5
+      md5: 520ace6370c50c6f1ec2497cc210bb86
+      size: 1100

@@ -4,6 +4,13 @@ ML projects in this directory use [DVC](https://dvc.org/) to version data,
 with a shared private Cloudflare R2 bucket (`dvc`) as remote storage.
 Each project stores data under its own prefix (e.g. `s3://dvc/recipe-parsing`).
 
+Current projects:
+
+- `recipe-parsing`: image extraction, normalization, canonicalization, and
+  evaluation.
+- `recipe-dataset`: acquisition and preparation of reusable recipe text
+  corpora for site seeding and future parsing evaluation.
+
 ## Prerequisites
 
 Install DVC with S3 support:

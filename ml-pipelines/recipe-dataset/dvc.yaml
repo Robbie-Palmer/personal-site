@@ -1,0 +1,50 @@
+stages:
+  download:
+    cmd: bash scripts/download.sh
+    deps:
+      - scripts/download.sh
+      - scripts/download-cooklang.mjs
+      - scripts/download-gutenberg.mjs
+      - scripts/download-icn.mjs
+      - scripts/download-myplate.mjs
+      - sources.json
+    outs:
+      - data/raw
+
+  prepare:
+    cmd: node src/stages/prepare.mjs
+    deps:
+      - ../../patches/@cooklang__cooklang@0.18.7.patch
+      - ../../pnpm-lock.yaml
+      - ../../pnpm-workspace.yaml
+      - data/raw
+      - package.json
+      - snapshot.json
+      - sources.json
+      - src/stages/prepare.mjs
+    outs:
+      - outputs/recipes.jsonl
+      - outputs/rejects.jsonl
+      - outputs/gutenberg-candidates.jsonl
+      - outputs/ingredient-only.jsonl
+
+  stats:
+    cmd: node src/stages/stats.mjs
+    deps:
+      - outputs/recipes.jsonl
+      - outputs/rejects.jsonl
+      - outputs/gutenberg-candidates.jsonl
+      - outputs/ingredient-only.jsonl
+      - src/stages/stats.mjs
+    outs:
+      - outputs/recipes-deduplicated.jsonl
+    metrics:
+      - outputs/metrics.json
+    plots:
+      - outputs/source-distribution.json:
+          template: bar_horizontal_sorted
+          x: count
+          y: source
+          title: Recipes by source
+          x_label: Recipes
+          y_label: Source

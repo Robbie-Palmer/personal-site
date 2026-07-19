@@ -1,0 +1,9 @@
+{
+  "name": "recipe-dataset-pipeline",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@cooklang/cooklang": "^0.18.0"
+  }
+}

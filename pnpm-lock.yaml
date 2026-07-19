@@ -49,6 +49,12 @@ importers:
         specifier: ^1.7.0
         version: 1.7.0
 
+  ml-pipelines/recipe-dataset:
+    dependencies:
+      '@cooklang/cooklang':
+        specifier: ^0.18.0
+        version: 0.18.7(patch_hash=85b684e1c0e18dedb7ebd9e043c0c937dc04446f8417852c7f5af27b4b423ec7)
+
   ml-pipelines/recipe-parsing:
     dependencies:
       dotenv:

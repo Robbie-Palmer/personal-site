@@ -6,6 +6,9 @@ on:
       - "ml-pipelines/**"
       - "packages/recipe-parsing/**"
       - "packages/recipe-domain/**"
+      - "patches/@cooklang__cooklang@*.patch"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
       - ".github/workflows/ml-pipelines-ci.yml"
 
 permissions:
@@ -25,6 +28,7 @@ jobs:
       matrix:
         pipeline:
           - recipe-parsing
+          - recipe-dataset
     defaults:
       run:
         working-directory: ml-pipelines/${{ matrix.pipeline }}
@@ -45,27 +49,33 @@ jobs:
         run: dvc pull
 
       - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
+        if: matrix.pipeline == 'recipe-parsing'
         with:
           experimental: true
 
       - name: Get pnpm store directory
+        if: matrix.pipeline == 'recipe-parsing'
         id: pnpm-store
         shell: bash
         run: echo "dir=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: matrix.pipeline == 'recipe-parsing'
         with:
           path: ${{ steps.pnpm-store.outputs.dir }}
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: pnpm-store-${{ runner.os }}-
 
       - name: Install dependencies
+        if: matrix.pipeline == 'recipe-parsing'
         run: mise run //:install
 
       - name: Check shared parsing package
+        if: matrix.pipeline == 'recipe-parsing'
         run: mise run //packages/recipe-parsing:check
 
       - name: Run tests
+        if: matrix.pipeline == 'recipe-parsing'
         run: mise :test
 
       - name: Comment metrics on PR
@@ -92,11 +102,28 @@ jobs:
              BODY="## ${{ matrix.pipeline }} metrics"$'\n\n'"$SHOW"
           fi
           
-          # Write body to a temporary file to handle special characters robustly
+          MARKER="<!-- dvc-metrics:${{ matrix.pipeline }} -->"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          UPDATED_AT=$(date -u '+%Y-%m-%d %H:%M UTC')
+          BODY="$MARKER"$'\n'"$BODY"$'\n\n'\
+          "_Updated by [ML Pipelines CI run ${GITHUB_RUN_NUMBER}]($RUN_URL) at $UPDATED_AT._"
+
+          # Update only this pipeline's comment so matrix jobs cannot overwrite
+          # one another.
           BODY_FILE=$(mktemp)
           echo "$BODY" > "$BODY_FILE"
-          
-          gh pr comment "${{ github.event.pull_request.number }}" --body-file "$BODY_FILE" --edit-last \
-            || gh pr comment "${{ github.event.pull_request.number }}" --body-file "$BODY_FILE"
-          
+
+          COMMENT_ID=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/issues/${{ github.event.pull_request.number }}/comments" \
+            --paginate \
+            --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" \
+            | tail -n 1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method PATCH \
+              "repos/${GITHUB_REPOSITORY}/issues/comments/$COMMENT_ID" \
+              -F "body=@$BODY_FILE" > /dev/null
+          else
+            gh pr comment "${{ github.event.pull_request.number }}" --body-file "$BODY_FILE"
+          fi
+
           rm -f "$BODY_FILE"
