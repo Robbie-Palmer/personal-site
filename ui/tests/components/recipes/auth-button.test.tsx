@@ -102,16 +102,18 @@ describe("AuthButton", () => {
     });
   });
 
-  it("keeps sign-up available while the session is loading", async () => {
-    const user = userEvent.setup();
+  it("does not expose anonymous auth actions while the session is loading", () => {
     mocks.useSession.mockReturnValue({ data: null, isPending: true });
 
-    render(<AuthButton intent="signup" />);
+    const { container } = render(<AuthButton intent="signup" />);
 
-    await user.click(screen.getByRole("button", { name: /sign up/i }));
     expect(
-      screen.getByRole("button", { name: "Continue with Google" }),
+      screen.queryByRole("button", { name: /sign up/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Loading session" }),
     ).toBeInTheDocument();
+    expect(container.querySelector('[data-slot="skeleton"]')).toBeTruthy();
   });
 
   it("offers Access-protected test scenarios on PR previews", async () => {

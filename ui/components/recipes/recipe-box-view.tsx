@@ -4,7 +4,20 @@ import { Suspense, useCallback, useState } from "react";
 import { AddRecipeButton } from "@/components/recipes/add-recipe-button";
 import { RecipeCollection } from "@/components/recipes/recipe-collection";
 import { CardGridSkeleton } from "@/components/ui/card-grid-skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { RecipeCardView } from "@/lib/api/recipes";
+import { authClient } from "@/lib/auth-client";
+
+type VisibleRecipeCountState = {
+  userId: string | null;
+  count: number;
+};
+
+function formatRecipeCount(count: number | null) {
+  if (count == null) return null;
+  const label = count === 1 ? "recipe" : "recipes";
+  return `${count.toLocaleString()} ${label}`;
+}
 
 export function RecipeBoxView({
   recipes,
@@ -13,15 +26,23 @@ export function RecipeBoxView({
   recipes: RecipeCardView[];
   catalogStats: string[];
 }>) {
-  const [visibleRecipeCount, setVisibleRecipeCount] = useState(recipes.length);
-  const updateVisibleRecipeCount = useCallback(
-    (count: number) => setVisibleRecipeCount(count),
-    [],
+  const { data: session, isPending } = authClient.useSession();
+  const sessionUserId = session?.user.id ?? null;
+  const [countState, setCountState] = useState<VisibleRecipeCountState | null>(
+    null,
   );
-  const recipeCountLabel = `${visibleRecipeCount.toLocaleString()} ${
-    visibleRecipeCount === 1 ? "recipe" : "recipes"
-  }`;
-  const stats = [recipeCountLabel, ...catalogStats];
+  const updateVisibleRecipeCount = useCallback(
+    (count: number) => setCountState({ userId: sessionUserId, count }),
+    [sessionUserId],
+  );
+  const visibleRecipeCount =
+    !isPending && countState?.userId === sessionUserId
+      ? countState.count
+      : null;
+  const recipeCountLabel = formatRecipeCount(visibleRecipeCount);
+  const stats = recipeCountLabel
+    ? [recipeCountLabel, ...catalogStats]
+    : catalogStats;
 
   return (
     <div className="container mx-auto min-h-screen max-w-7xl px-4 pt-5 pb-10 md:pt-7 md:pb-14">
@@ -31,16 +52,23 @@ export function RecipeBoxView({
           <h1 className="rt-display mt-2 text-5xl sm:text-6xl lg:text-7xl">
             What's <span className="text-[var(--terracotta)]">cooking?</span>
           </h1>
-          <p className="rt-body mt-3 flex flex-wrap gap-x-2 gap-y-1 text-base leading-snug text-[var(--ink-2)] sm:text-lg">
-            {stats.map((stat, index) => (
-              <span key={stat} className="whitespace-nowrap">
-                {stat}
-                {index < stats.length - 1 && (
-                  <span className="text-[var(--ink-3)]"> ·</span>
-                )}
-              </span>
-            ))}
-          </p>
+          <div className="rt-body mt-3 flex flex-wrap gap-x-2 gap-y-1 text-base leading-snug text-[var(--ink-2)] sm:text-lg">
+            {recipeCountLabel == null ? (
+              <Skeleton
+                aria-label="Loading recipe count"
+                className="h-5 w-52"
+              />
+            ) : (
+              stats.map((stat, index) => (
+                <span key={stat} className="whitespace-nowrap">
+                  {stat}
+                  {index < stats.length - 1 && (
+                    <span className="text-[var(--ink-3)]"> ·</span>
+                  )}
+                </span>
+              ))
+            )}
+          </div>
         </div>
         <AddRecipeButton />
       </div>

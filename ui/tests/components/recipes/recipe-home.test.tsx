@@ -17,6 +17,10 @@ vi.mock("@/components/recipes/recipe-box-view", () => ({
   RecipeBoxView: () => <div>Your recipe box</div>,
 }));
 
+vi.mock("@/components/recipes/recipe-home-skeleton", () => ({
+  RecipeHomeSkeleton: () => <div>Neutral recipe shell</div>,
+}));
+
 import { RecipeHome } from "@/components/recipes/recipe-home";
 
 describe("RecipeHome", () => {
@@ -47,13 +51,14 @@ describe("RecipeHome", () => {
     expect(document.title).toBe("Your recipe box | Robbie's Recipes");
   });
 
-  it("renders the public landing while the session is loading", () => {
+  it("renders a neutral shell while the session is loading", () => {
     mocks.useSession.mockReturnValue({ data: null, isPending: true });
 
     render(<RecipeHome recipes={[]} catalogStats={[]} />);
 
-    expect(screen.getByText("Public landing")).toBeInTheDocument();
+    expect(screen.getByText("Neutral recipe shell")).toBeInTheDocument();
+    expect(screen.queryByText("Public landing")).not.toBeInTheDocument();
     expect(screen.queryByText("Your recipe box")).not.toBeInTheDocument();
-    expect(document.title).toBe("Recipes for real life | Robbie's Recipes");
+    expect(document.title).toBe("");
   });
 });
