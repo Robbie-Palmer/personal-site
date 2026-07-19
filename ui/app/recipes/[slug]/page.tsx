@@ -45,7 +45,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   }
 }
 
-export default async function RecipePage(props: PageProps) {
+export default async function RecipePage(props: Readonly<PageProps>) {
   const params = await props.params;
   const { slug } = params;
 

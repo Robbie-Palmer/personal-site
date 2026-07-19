@@ -15,7 +15,6 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -43,6 +42,7 @@ import {
   type DietMatch,
 } from "@/lib/domain/diet";
 import type { RecipeGridItem } from "@/lib/domain/recipe/recipeDraft";
+import { formatRecipeTime } from "@/lib/domain/recipe/time";
 import { formatDate } from "@/lib/generic/date";
 import { cycleFilterFromCard } from "@/lib/generic/filter-cycle";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
@@ -67,13 +67,6 @@ function getTimeRangeLabel(minutes: number): string {
   }
   // Fallback to last range (should never reach here given the ranges cover all values)
   return TIME_RANGES[TIME_RANGES.length - 1]?.label ?? "";
-}
-
-function formatTime(minutes: number): string {
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
 
 // These configs are static. Defining them at module scope (rather than inline
@@ -164,11 +157,11 @@ function CuisineBadge({
   cuisine,
   isActive,
   onToggle,
-}: {
+}: Readonly<{
   cuisine: string;
   isActive: boolean;
   onToggle: (cuisine: string) => void;
-}) {
+}>) {
   return (
     <Badge
       variant={isActive ? "default" : "secondary"}
@@ -189,13 +182,13 @@ function TimeBadge({
   icon,
   isActive,
   onToggle,
-}: {
+}: Readonly<{
   label: string;
   minutes: number;
   icon: ReactNode;
   isActive: boolean;
   onToggle: (rangeLabel: string) => void;
-}) {
+}>) {
   const rangeLabel = getTimeRangeLabel(minutes);
   return (
     <Badge
@@ -206,7 +199,7 @@ function TimeBadge({
       onClick={() => onToggle(rangeLabel)}
     >
       {icon}
-      {label}: {formatTime(minutes)}
+      {label}: {formatRecipeTime(minutes)}
     </Badge>
   );
 }
@@ -347,7 +340,7 @@ export function RecipeList({
       ),
     [diet.active, diet.mode, dietMatches, recipes, showHidden],
   );
-  useLayoutEffect(() => {
+  useEffect(() => {
     onDietVisibleCountChange?.(visibleRecipes.length);
   }, [onDietVisibleCountChange, visibleRecipes.length]);
 

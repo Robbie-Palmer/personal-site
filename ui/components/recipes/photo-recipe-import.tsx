@@ -133,6 +133,7 @@ export function PhotoRecipeImport({
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const onDraftReadyRef = useRef(onDraftReady);
+  const handledJobIdRef = useRef<string | null>(null);
   const jobId = job?.id;
   const jobStatus = job?.status;
   const processing =
@@ -143,7 +144,7 @@ export function PhotoRecipeImport({
   }, [onDraftReady]);
 
   useEffect(() => {
-    if (!active || !jobId) return;
+    if (!active || !jobId || handledJobIdRef.current === jobId) return;
 
     let activeRequest = true;
     let pollTimeout: number | undefined;
@@ -167,6 +168,7 @@ export function PhotoRecipeImport({
         if (!activeRequest) return;
         setJob(body);
         if (body.status === "succeeded") {
+          handledJobIdRef.current = body.id;
           if (!body.draft) {
             setError("The import finished without an editable recipe draft.");
             return;
@@ -175,6 +177,7 @@ export function PhotoRecipeImport({
           return;
         }
         if (body.status === "failed") {
+          handledJobIdRef.current = body.id;
           setError(
             body.error?.message ||
               "We couldn't read a recipe from those photos. Try clearer, well-lit images.",
@@ -245,6 +248,7 @@ export function PhotoRecipeImport({
     setUploading(true);
     setError(null);
     setJob(null);
+    handledJobIdRef.current = null;
     const form = new FormData();
     for (const file of files) form.append("images", file);
     try {
@@ -289,6 +293,8 @@ export function PhotoRecipeImport({
         accept="image/jpeg,image/png,image/webp"
         capture="environment"
         className="sr-only"
+        aria-label="Take a recipe photo"
+        tabIndex={-1}
         onChange={selectFiles}
       />
       <input
@@ -297,6 +303,8 @@ export function PhotoRecipeImport({
         accept="image/jpeg,image/png,image/webp"
         multiple
         className="sr-only"
+        aria-label="Choose recipe photos"
+        tabIndex={-1}
         onChange={selectFiles}
       />
       <div className="grid grid-cols-2 gap-2">

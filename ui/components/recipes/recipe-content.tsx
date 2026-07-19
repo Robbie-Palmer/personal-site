@@ -44,19 +44,13 @@ import type {
   IngredientGroupView,
   RecipeDetailView,
 } from "@/lib/domain/recipe/recipeViews";
+import { formatRecipeTime } from "@/lib/domain/recipe/time";
 import {
   MEASUREMENT_SYSTEM_LABELS,
   type MeasurementPreference,
   type MeasurementSystem,
   preferenceForSystem,
 } from "@/lib/domain/recipe/unit";
-
-function formatTime(minutes: number): string {
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-}
 
 function IngredientGroup({
   group,
@@ -65,14 +59,14 @@ function IngredientGroup({
   annotations,
   checked,
   onToggle,
-}: {
+}: Readonly<{
   group: IngredientGroupView;
   scale: number;
   system: MeasurementPreference;
   annotations: Map<string, IngredientAnnotation>;
   checked: Set<string>;
   onToggle: (ingredient: string) => void;
-}) {
+}>) {
   return (
     <div>
       {group.name && (
@@ -371,6 +365,26 @@ export function RecipeContent({
     setCookStep(step);
   }, []);
 
+  const scalingStatus = (() => {
+    if (scalingError) {
+      return (
+        <AlertTriangle
+          className="h-3 w-3 text-destructive"
+          aria-label="Precise scaling unavailable; showing an approximation"
+        />
+      );
+    }
+    if (isScaling) {
+      return (
+        <Loader2
+          className="h-3 w-3 animate-spin text-muted-foreground"
+          aria-label="Scaling recipe"
+        />
+      );
+    }
+    return null;
+  })();
+
   return (
     <>
       <header className="mb-8">
@@ -443,17 +457,7 @@ export function RecipeContent({
               >
                 <Plus className="h-3 w-3" />
               </Button>
-              {scalingError ? (
-                <AlertTriangle
-                  className="h-3 w-3 text-destructive"
-                  aria-label="Precise scaling unavailable; showing an approximation"
-                />
-              ) : isScaling ? (
-                <Loader2
-                  className="h-3 w-3 animate-spin text-muted-foreground"
-                  aria-label="Scaling recipe"
-                />
-              ) : null}
+              {scalingStatus}
             </div>
           </div>
           <div className="flex items-center gap-1.5">
@@ -495,19 +499,19 @@ export function RecipeContent({
           {recipe.prepTime != null && (
             <div className="flex items-center gap-1">
               <Timer className="h-4 w-4" />
-              <span>Prep: {formatTime(recipe.prepTime)}</span>
+              <span>Prep: {formatRecipeTime(recipe.prepTime)}</span>
             </div>
           )}
           {recipe.cookTime != null && (
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
-              <span>Cook: {formatTime(recipe.cookTime)}</span>
+              <span>Cook: {formatRecipeTime(recipe.cookTime)}</span>
             </div>
           )}
           {recipe.totalTime != null && (
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
-              <span>Total: {formatTime(recipe.totalTime)}</span>
+              <span>Total: {formatRecipeTime(recipe.totalTime)}</span>
             </div>
           )}
           <Popover>
@@ -621,13 +625,10 @@ export function RecipeContent({
         <h2 className="rt-display text-4xl text-[var(--terracotta)] mb-4">
           Method
         </h2>
-        {/* Real ordered list whose visible numeral is decorative generated
-            content via a CSS counter (aria-hidden), so screen readers rely on
-            list position. role="list" is redundant per spec but kept on purpose:
-            Safari/VoiceOver drop list semantics when the marker is removed with
-            list-style:none, and reasserting the role restores them. */}
-        {/* biome-ignore lint/a11y/noRedundantRoles: intentional Safari/VoiceOver list-semantics workaround (see above) */}
-        <ol role="list" className="rt-method-steps list-none p-0 m-0">
+        {/* Keep a native decimal marker so Safari/VoiceOver retain the list
+            semantics. Its text is transparent because the visible numeral is
+            decorative generated content from the CSS counter below. */}
+        <ol className="rt-method-steps list-decimal marker:text-transparent p-0 m-0">
           {cookSteps.map((step, stepIndex) => (
             <li
               key={step.key}

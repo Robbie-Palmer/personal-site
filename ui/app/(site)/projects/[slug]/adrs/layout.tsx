@@ -8,7 +8,10 @@ interface ADRLayoutProps {
   params: Promise<{ slug: string }>;
 }
 
-export default async function ADRLayout({ children, params }: ADRLayoutProps) {
+export default async function ADRLayout({
+  children,
+  params,
+}: Readonly<ADRLayoutProps>) {
   const { slug } = await params;
   let project: ProjectWithADRs;
   try {

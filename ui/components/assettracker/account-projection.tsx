@@ -54,12 +54,46 @@ interface AccountProjectionProps {
   inflation: number;
 }
 
+function getTargetMessage(
+  account: AccountDetailView,
+  projection: { date: string; projected: number }[],
+  targetAmount: number | null,
+  horizonYears: number,
+): string | null {
+  if (targetAmount == null || !Number.isFinite(targetAmount)) return null;
+
+  const formattedTarget = formatAccountCurrency(targetAmount, account.currency);
+  const reachedOn = dateTargetReached(account.snapshots, targetAmount);
+  if (reachedOn) {
+    return `Already at ${formattedTarget} — reached on ${reachedOn}.`;
+  }
+
+  const projectedBy = projectedDateForTarget(projection, targetAmount);
+  if (projectedBy) {
+    return `Projected to reach ${formattedTarget} by ${projectedBy}.`;
+  }
+  return `Not projected to reach ${formattedTarget} within ${horizonYears} years.`;
+}
+
+function getPayoffMessage(
+  account: AccountDetailView,
+  isLiabilityBalance: boolean,
+  payoffDate: string | null,
+): string | null {
+  if (!isLiabilityBalance) return null;
+
+  const paidOffOn = dateTargetReached(account.snapshots, 0);
+  if (paidOffOn) return `Paid off on ${paidOffOn}.`;
+  if (payoffDate) return `Projected to be paid off by ${payoffDate}.`;
+  return `Not projected to be paid off within ${PAYOFF_SEARCH_MONTHS / 12} years.`;
+}
+
 export function AccountProjection({
   account,
   flows,
   liabilityBalances,
   inflation,
-}: AccountProjectionProps) {
+}: Readonly<AccountProjectionProps>) {
   const [target, setTarget] = useState("");
   const [horizonYears, setHorizonYears] = useState(5);
 
@@ -98,41 +132,17 @@ export function AccountProjection({
   if (projection.length === 0) return null;
 
   const targetAmount = target === "" ? null : Number(target);
-  const hasTarget = targetAmount != null && Number.isFinite(targetAmount);
-
-  let targetMessage: string | null = null;
-  if (hasTarget) {
-    const formattedTarget = formatAccountCurrency(
-      targetAmount,
-      account.currency,
-    );
-    // If the current balance already meets the target, report when it was hit
-    // from the recorded history; otherwise project a future date
-    const reachedOn = dateTargetReached(account.snapshots, targetAmount);
-    const projectedBy =
-      reachedOn == null
-        ? projectedDateForTarget(projection, targetAmount)
-        : null;
-    if (reachedOn) {
-      targetMessage = `Already at ${formattedTarget} — reached on ${reachedOn}.`;
-    } else if (projectedBy) {
-      targetMessage = `Projected to reach ${formattedTarget} by ${projectedBy}.`;
-    } else {
-      targetMessage = `Not projected to reach ${formattedTarget} within ${horizonYears} years.`;
-    }
-  }
-
-  let payoffMessage: string | null = null;
-  if (isLiabilityBalance) {
-    const paidOffOn = dateTargetReached(account.snapshots, 0);
-    if (paidOffOn) {
-      payoffMessage = `Paid off on ${paidOffOn}.`;
-    } else if (payoffDate) {
-      payoffMessage = `Projected to be paid off by ${payoffDate}.`;
-    } else {
-      payoffMessage = `Not projected to be paid off within ${PAYOFF_SEARCH_MONTHS / 12} years.`;
-    }
-  }
+  const targetMessage = getTargetMessage(
+    account,
+    projection,
+    targetAmount,
+    horizonYears,
+  );
+  const payoffMessage = getPayoffMessage(
+    account,
+    isLiabilityBalance,
+    payoffDate,
+  );
 
   return (
     <div>

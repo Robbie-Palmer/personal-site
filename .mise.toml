@@ -18,8 +18,8 @@ verbose = false
 
 [tools]
 node = "lts"
-pnpm = "10.34.4"
-terraform = "1.15.7"
+pnpm = "10.34.5"
+terraform = "1.15.8"
 actionlint = "1.7.12"
 zizmor = "1.26.1"
 

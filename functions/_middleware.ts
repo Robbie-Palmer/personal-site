@@ -9,11 +9,19 @@ interface Env {
   ASSETS: { fetch: typeof fetch };
 }
 
+export interface MarkdownMiddlewareContext {
+  request: Request;
+  env: Env;
+  next: () => Promise<Response>;
+}
+
 const AGENT_USER_AGENTS =
   /\b(gptbot|chatgpt|oai-searchbot|claude|anthropic|perplexity|gemini|copilot|duckassist|cursor|devin|curl|wget|httpie|python-requests|python-httpx|aiohttp|go-http-client|axios|node-fetch|undici|got|libcurl|java\/|okhttp)\b/i;
 
 function markdownPathFor(pathname: string): string | null {
-  const normalized = pathname.replace(/\/+$/, "");
+  let end = pathname.length;
+  while (end > 0 && pathname[end - 1] === "/") end--;
+  const normalized = pathname.slice(0, end);
   if (normalized === "") return "/index.md";
   // Paths with a file extension (.md, .js, .png, ...) have no twin
   const lastSegment = normalized.slice(normalized.lastIndexOf("/") + 1);
@@ -21,7 +29,9 @@ function markdownPathFor(pathname: string): string | null {
   return `${normalized}.md`;
 }
 
-export const onRequest: PagesFunction<Env> = async (context) => {
+export const onRequest = async (
+  context: MarkdownMiddlewareContext,
+): Promise<Response> => {
   const { request } = context;
   const url = new URL(request.url);
 
@@ -50,7 +60,11 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   // Forward the original request (headers included) so conditional caching
   // (If-None-Match -> 304) keeps working for the negotiated Markdown
   const asset = await context.env.ASSETS.fetch(
-    new Request(markdownUrl, request),
+    new Request(markdownUrl, {
+      method: request.method,
+      headers: request.headers,
+      redirect: "manual",
+    }),
   );
   if (!asset.ok && asset.status !== 304) {
     return context.next();
@@ -60,5 +74,10 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   headers.set("Content-Type", "text/markdown; charset=utf-8");
   headers.set("Vary", "Accept, User-Agent");
   headers.set("X-Markdown-Source", markdownUrl.toString());
-  return new Response(asset.body, { status: asset.status, headers });
+  // Fetch forbids response bodies for 304 responses. Passing the asset's body
+  // through here can throw at runtime even though the body will never be read.
+  return new Response(asset.status === 304 ? null : asset.body, {
+    status: asset.status,
+    headers,
+  });
 };

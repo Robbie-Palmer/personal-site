@@ -42,7 +42,7 @@ export function ExperienceCard({
   id,
   projects = [],
   blogs = [],
-}: ExperienceCardProps) {
+}: Readonly<ExperienceCardProps>) {
   const [isExpanded, setIsExpanded] = useState(false);
   const titleTimeline = getTitleTimeline(experience);
 

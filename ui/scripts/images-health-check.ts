@@ -8,15 +8,19 @@ async function main() {
 	console.log("");
 
 	console.log("1️⃣  Testing API connectivity...");
+	let images: Awaited<ReturnType<typeof listImages>> | undefined;
 	try {
-		const images = await listImages();
+		images = await listImages();
 
 		console.log("   ✅ API connection successful");
 		console.log(`   📊 Total images in account: ${images.length}`);
 		if (images.length > 0) {
-			const allIds = images.map((img) => img.id).sort();
-			const featured = allIds.filter((id) => id?.includes("-featured-"));
-			const embedded = allIds.filter((id) => !id?.includes("-featured-"));
+			const allIds = images
+				.map((img) => img.id)
+				.filter((id): id is string => typeof id === "string")
+				.sort((a, b) => a.localeCompare(b, "en"));
+			const featured = allIds.filter((id) => id.includes("-featured-"));
+			const embedded = allIds.filter((id) => !id.includes("-featured-"));
 
 			if (featured.length > 0) {
 				console.log(`   📸 Featured images (${featured.length}):`);
@@ -40,9 +44,7 @@ async function main() {
 
 	console.log("");
 	console.log("2️⃣  Checking image variants...");
-	try {
-		const images = await listImages();
-
+	if (images) {
 		if (images.length > 0 && images[0]?.variants) {
 			const variantNames = images[0].variants.map((url) => {
 				const parts = url.split("/");
@@ -73,18 +75,13 @@ async function main() {
 				"   ⚠️  No images found - upload images to verify variants",
 			);
 		}
-	} catch (error) {
-		console.log("   ❌ Failed to check variants");
-		const errorMessage =
-			error instanceof Error ? error.message : "Unknown error";
-		console.log(`   Error: ${errorMessage}`);
+	} else {
+		console.log("   ⚠️  Skipped because the image list could not be loaded");
 	}
 	console.log("");
 
 	console.log("3️⃣  Testing image URL generation...");
-	try {
-		const images = await listImages();
-
+	if (images) {
 		if (images.length > 0 && images[0]?.id) {
 			const firstImageId = images[0].id;
 			console.log(`   🧪 Test image ID: ${firstImageId}`);
@@ -96,11 +93,8 @@ async function main() {
 				"   ⚠️  No images found in account (upload some with 'mise run //ui:images:sync')",
 			);
 		}
-	} catch (error) {
-		console.log("   ⚠️  Could not generate test URL");
-		const errorMessage =
-			error instanceof Error ? error.message : "Unknown error";
-		console.log(`   Error: ${errorMessage}`);
+	} else {
+		console.log("   ⚠️  Skipped because the image list could not be loaded");
 	}
 
 	console.log("");

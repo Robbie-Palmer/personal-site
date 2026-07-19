@@ -66,10 +66,10 @@ function timeAgo(date: Date): string {
 function SectionLabel({
   children,
   className,
-}: {
+}: Readonly<{
   children: React.ReactNode;
   className?: string;
-}) {
+}>) {
   return (
     <p className={`rt-mono mb-2 text-[var(--terracotta)] ${className ?? ""}`}>
       {children}
@@ -79,9 +79,9 @@ function SectionLabel({
 
 export function SecurityPanel({
   currentSessionToken,
-}: {
+}: Readonly<{
   currentSessionToken: string;
-}) {
+}>) {
   const [accounts, setAccounts] = useState<LinkedAccount[] | null>(null);
   const [accountsError, setAccountsError] = useState(false);
   const [sessions, setSessions] = useState<DeviceSession[] | null>(null);

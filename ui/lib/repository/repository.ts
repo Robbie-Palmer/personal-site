@@ -166,7 +166,7 @@ export function validateTechnologyReferences(
       "\n❌ ERROR: The following technologies are referenced but not defined in content/technologies.ts:",
       "",
       ...Array.from(missingTechs)
-        .sort()
+        .sort((a, b) => a.localeCompare(b, "en"))
         .map((tech) => `  - ${tech}`),
       "",
       "Please add these technologies to content/technologies.ts",
@@ -340,7 +340,7 @@ export function loadProjects(): ProjectLoadResult {
       const adrFiles = fs
         .readdirSync(adrsDir)
         .filter((f) => f.endsWith(".mdx"))
-        .sort();
+        .sort((a, b) => a.localeCompare(b, "en"));
       adrFiles.forEach((adrFile) => {
         const adrSlug = adrFile.replace(/\.mdx$/, "");
         adrRefs.push(makeADRRef(projectSlug, adrSlug));
@@ -862,7 +862,7 @@ function buildRelationDataFromLoaders(loaders: LoaderResults): RelationData {
   return relations;
 }
 
-export function loadDomainRepository(): DomainRepository {
+function buildDomainRepository(): DomainRepository {
   const technologies = loadTechnologies();
   validateTechnologyReferences(technologies);
   const blogsResult = loadBlogPosts();
@@ -915,4 +915,17 @@ export function loadDomainRepository(): DomainRepository {
     buildingPhilosophy,
     referentialIntegrityErrors,
   };
+}
+
+// Loading reparses and validates every content file, so the result is cached
+// for the lifetime of the process (a build, a server, or a test run).
+let cachedRepository: DomainRepository | undefined;
+
+export function loadDomainRepository(): DomainRepository {
+  cachedRepository ??= buildDomainRepository();
+  return cachedRepository;
+}
+
+export function resetDomainRepositoryCache(): void {
+  cachedRepository = undefined;
 }

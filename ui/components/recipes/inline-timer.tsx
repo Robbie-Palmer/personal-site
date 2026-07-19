@@ -6,6 +6,7 @@ import { AddTimerPopover } from "@/components/recipes/add-timer-popover";
 import { badgeVariants } from "@/components/ui/badge";
 import { useCookingTimer } from "@/hooks/use-cooking-timers";
 import {
+  type CookingTimerState,
   dismissTimer,
   formatCountdown,
   pauseTimer,
@@ -13,6 +14,57 @@ import {
   startTimer,
 } from "@/lib/cooking/timerStore";
 import { cn } from "@/lib/generic/styles";
+
+type InlineTimerState = CookingTimerState | "idle";
+
+function runTimerAction(
+  state: InlineTimerState,
+  input: Parameters<typeof startTimer>[0],
+) {
+  switch (state) {
+    case "idle":
+      startTimer(input);
+      break;
+    case "running":
+      pauseTimer(input.id);
+      break;
+    case "paused":
+      resumeTimer(input.id);
+      break;
+    case "completed":
+      dismissTimer(input.id);
+      break;
+  }
+}
+
+function getTimerVariant(state: InlineTimerState) {
+  if (state === "completed") return "destructive";
+  if (state === "running" || state === "paused") return "default";
+  return "outline";
+}
+
+function getTimerAriaLabel(
+  state: InlineTimerState,
+  label: string,
+  remaining: number,
+): string {
+  switch (state) {
+    case "idle":
+      return `Start ${label} timer`;
+    case "running":
+      return `Pause timer, ${formatCountdown(remaining)} remaining`;
+    case "paused":
+      return `Resume timer, ${formatCountdown(remaining)} remaining`;
+    case "completed":
+      return "Timer complete, click to dismiss";
+  }
+}
+
+function TimerStateIcon({ state }: Readonly<{ state: InlineTimerState }>) {
+  if (state === "paused") return <Pause className="size-3" />;
+  if (state === "completed") return <RotateCcw className="size-3" />;
+  return <Timer className="size-3" />;
+}
 
 /**
  * Tap-to-start countdown pill rendered inline in a method step. State lives
@@ -42,28 +94,15 @@ export function InlineTimer({
 
   const handleClick = useCallback(() => {
     if (durationSeconds === null) return;
-    switch (state) {
-      case "idle":
-        startTimer({
-          id: timerId,
-          recipeSlug,
-          recipeTitle,
-          label,
-          stepIndex,
-          stepText,
-          durationSeconds,
-        });
-        break;
-      case "running":
-        pauseTimer(timerId);
-        break;
-      case "paused":
-        resumeTimer(timerId);
-        break;
-      case "completed":
-        dismissTimer(timerId);
-        break;
-    }
+    runTimerAction(state, {
+      id: timerId,
+      recipeSlug,
+      recipeTitle,
+      label,
+      stepIndex,
+      stepText,
+      durationSeconds,
+    });
   }, [
     state,
     durationSeconds,
@@ -107,13 +146,7 @@ export function InlineTimer({
     );
   }
 
-  const variant =
-    state === "completed"
-      ? "destructive"
-      : state === "running" || state === "paused"
-        ? "default"
-        : "outline";
-
+  const variant = getTimerVariant(state);
   const showReset = state === "running" || state === "paused";
 
   return (
@@ -136,23 +169,9 @@ export function InlineTimer({
         type="button"
         onClick={handleClick}
         className="inline-flex items-center gap-1"
-        aria-label={
-          state === "idle"
-            ? `Start ${label} timer`
-            : state === "running"
-              ? `Pause timer, ${formatCountdown(remaining)} remaining`
-              : state === "paused"
-                ? `Resume timer, ${formatCountdown(remaining)} remaining`
-                : "Timer complete, click to dismiss"
-        }
+        aria-label={getTimerAriaLabel(state, label, remaining)}
       >
-        {state === "paused" ? (
-          <Pause className="size-3" />
-        ) : state === "completed" ? (
-          <RotateCcw className="size-3" />
-        ) : (
-          <Timer className="size-3" />
-        )}
+        <TimerStateIcon state={state} />
         {state === "idle" ? label : formatCountdown(remaining)}
       </button>
       {showReset && (

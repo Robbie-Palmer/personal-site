@@ -18,6 +18,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { AddTimerPopover } from "@/components/recipes/add-timer-popover";
+import { useCookMode } from "@/contexts/cook-mode-context";
 import { useCookingTimers } from "@/hooks/use-cooking-timers";
 import {
   type CookingTimer,
@@ -147,25 +148,12 @@ export function TimerDock() {
     moved: boolean;
   } | null>(null);
 
-  const [cookModeOpen, setCookModeOpen] = useState(false);
+  const { cookModeOpen } = useCookMode();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     setPosition(loadPosition());
-  }, []);
-
-  // Track whether cook mode is open so we can lift the dock above its footer
-  // even after the user has dragged (an inline style would otherwise beat a
-  // stylesheet rule).
-  useEffect(() => {
-    const body = document.body;
-    const update = () =>
-      setCookModeOpen(body.classList.contains("rt-cook-mode-open"));
-    update();
-    const observer = new MutationObserver(update);
-    observer.observe(body, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
   }, []);
 
   // A dragged position is stored as bottom-right offsets measured at the

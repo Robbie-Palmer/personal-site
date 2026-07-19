@@ -13,7 +13,7 @@ iterates on and scores.
 - **Postgres (Neon via Hyperdrive)** — `recipe_import_job` status/stage,
   `recipe_import_artifact` manifests, and `recipe_import_attempt` usage rows.
   The schema lives in [`recipe-db`](../../packages/recipe-db/); `recipe-api`'s
-  CD owns `db:push`.
+  CD owns the committed Drizzle migrations.
 - **R2 (`recipe-artifacts`)** — source images under
   `imports/{jobId}/source/`, immutable stage snapshots under
   `imports/{jobId}/{stage}/`.

@@ -109,7 +109,9 @@ export function getRecipesByIngredient(
 }
 
 export function getAllCuisines(repository: RecipeRepository): string[] {
-  return Array.from(repository.graph.reverse.cuisineUsedBy.keys()).sort();
+  return Array.from(repository.graph.reverse.cuisineUsedBy.keys()).sort(
+    (a, b) => a.localeCompare(b, "en"),
+  );
 }
 
 export function getAllUsedIngredientSlugs(

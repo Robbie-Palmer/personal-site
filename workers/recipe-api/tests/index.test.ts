@@ -65,6 +65,13 @@ const dbMock = vi.hoisted(() => {
     createdAt: Date;
     updatedAt: Date;
   };
+  type NotificationEventRow = {
+    id: string;
+    kind: string;
+    actorUserId: string | null;
+    actorNameSnapshot: string | null;
+    occurredAt: Date;
+  };
   type DietProfileRow = {
     userId: string;
     recipeMatchMode: "hide" | "warn";
@@ -99,6 +106,23 @@ const dbMock = vi.hoisted(() => {
     organizations: [] as OrganizationRow[],
     members: [] as MemberRow[],
     invitations: [] as InvitationRow[],
+    notificationEvents: [] as NotificationEventRow[],
+    notificationDeliveries: [] as {
+      id: string;
+      eventId: string;
+      recipientUserId: string;
+      readAt: Date | null;
+      dismissedAt: Date | null;
+    }[],
+    notificationHouseholdEvents: [] as {
+      eventId: string;
+      householdId: string | null;
+      householdNameSnapshot: string;
+    }[],
+    notificationHouseholdInvitationEvents: [] as {
+      eventId: string;
+      invitationId: string | null;
+    }[],
     recipes: [] as RecipeRow[],
     dietProfiles: [] as DietProfileRow[],
     dietPresets: [] as DietPresetRow[],
@@ -163,6 +187,40 @@ const dbMock = vi.hoisted(() => {
     recipe.createdAt,
     recipe.updatedAt,
   ];
+  // Emulates the paginated recipe list query: newest-first ordering, an
+  // optional keyset cursor (three params), a limit param, and the trailing
+  // created_at::text cursor column.
+  const paginatedRecipeRows = (
+    recipes: RecipeRow[],
+    query: string,
+    params: unknown[],
+    cursorParamIndex: number,
+  ) => {
+    let page = [...recipes].sort(
+      (first, second) =>
+        second.createdAt.getTime() - first.createdAt.getTime() ||
+        second.id.localeCompare(first.id),
+    );
+    let index = cursorParamIndex;
+    if (query.includes("::timestamptz")) {
+      const cursorCreatedAt = new Date(params[index] as string).getTime();
+      const cursorId = params[index + 2] as string;
+      index += 3;
+      page = page.filter(
+        (recipe) =>
+          recipe.createdAt.getTime() < cursorCreatedAt ||
+          (recipe.createdAt.getTime() === cursorCreatedAt &&
+            recipe.id.localeCompare(cursorId) < 0),
+      );
+    }
+    const limit = params[index];
+    if (typeof limit === "number") page = page.slice(0, limit);
+    return page.map((recipe) => [
+      ...recipeRow(recipe),
+      recipe.createdAt.toISOString(),
+    ]);
+  };
+
   const dietProfileRow = (profile: DietProfileRow) => [
     profile.userId,
     profile.recipeMatchMode,
@@ -176,6 +234,10 @@ const dbMock = vi.hoisted(() => {
     state.organizations = [];
     state.members = [];
     state.invitations = [];
+    state.notificationEvents = [];
+    state.notificationDeliveries = [];
+    state.notificationHouseholdEvents = [];
+    state.notificationHouseholdInvitationEvents = [];
     state.recipes = [];
     state.dietProfiles = [];
     state.dietPresets = [];
@@ -217,6 +279,51 @@ const dbMock = vi.hoisted(() => {
       return [organizationRow(organization)];
     }
 
+    if (query.startsWith('insert into "notification_event"')) {
+      state.notificationEvents.push({
+        id: params[0] as string,
+        kind: params[1] as string,
+        actorUserId: (params[2] as string | undefined) ?? null,
+        actorNameSnapshot: (params[3] as string | undefined) ?? null,
+        occurredAt: date,
+      });
+      return [];
+    }
+
+    if (query.startsWith('insert into "notification_household_event"')) {
+      state.notificationHouseholdEvents.push({
+        eventId: params[0] as string,
+        householdId: (params[1] as string | undefined) ?? null,
+        householdNameSnapshot: params[2] as string,
+      });
+      return [];
+    }
+
+    if (
+      query.startsWith(
+        'insert into "notification_household_invitation_event"',
+      )
+    ) {
+      state.notificationHouseholdInvitationEvents.push({
+        eventId: params[0] as string,
+        invitationId: (params[1] as string | undefined) ?? null,
+      });
+      return [];
+    }
+
+    if (query.startsWith('insert into "notification_delivery"')) {
+      for (let index = 0; index < params.length; index += 3) {
+        state.notificationDeliveries.push({
+          id: params[index] as string,
+          eventId: params[index + 1] as string,
+          recipientUserId: params[index + 2] as string,
+          readAt: null,
+          dismissedAt: null,
+        });
+      }
+      return [];
+    }
+
     if (query.startsWith('insert into "user_email"')) {
       const email = params[0] as string;
       if (state.userEmails.some((candidate) => candidate.email === email)) {
@@ -256,7 +363,7 @@ const dbMock = vi.hoisted(() => {
         email: params[2] as string,
         role: params[3] as string,
         status: params[4] as string,
-        expiresAt: params[5] as Date,
+        expiresAt: new Date(params[5] as string | Date),
         inviterId: params[6] as string,
         createdAt: date,
       };
@@ -367,6 +474,47 @@ const dbMock = vi.hoisted(() => {
       if (!invitation) return [];
       invitation.status = status;
       return query.includes("returning") ? [invitationRow(invitation)] : [];
+    }
+
+    if (query.startsWith('update "notification_delivery"')) {
+      const placeholderValue = (pattern: RegExp) => {
+        const match = query.match(pattern);
+        return match ? params[Number(match[1]) - 1] : undefined;
+      };
+      const readAt = placeholderValue(/set[\s\S]*?"read_at" = \$(\d+)/);
+      const dismissedAt = placeholderValue(
+        /set[\s\S]*?"dismissed_at" = \$(\d+)/,
+      );
+      const deliveryId = placeholderValue(
+        /where[\s\S]*?"notification_delivery"\."id" = \$(\d+)/,
+      ) as string | undefined;
+      const recipientUserId = placeholderValue(
+        /where[\s\S]*?"notification_delivery"\."recipient_user_id" = \$(\d+)/,
+      ) as string | undefined;
+      const eventPlaceholders =
+        query
+          .match(/"notification_delivery"\."event_id" in \(([^)]+)\)/)?.[1]
+          ?.match(/\$(\d+)/g) ?? [];
+      const eventIds = new Set(
+        eventPlaceholders.map(
+          (placeholder) => params[Number(placeholder.slice(1)) - 1] as string,
+        ),
+      );
+      for (const delivery of state.notificationDeliveries) {
+        if (
+          (!deliveryId || delivery.id === deliveryId) &&
+          (!recipientUserId || delivery.recipientUserId === recipientUserId) &&
+          (eventIds.size === 0 || eventIds.has(delivery.eventId)) &&
+          (!query.includes('"read_at" is null') || !delivery.readAt) &&
+          (!query.includes('"dismissed_at" is null') || !delivery.dismissedAt)
+        ) {
+          if (readAt !== undefined) delivery.readAt = readAt as Date | null;
+          if (dismissedAt !== undefined) {
+            delivery.dismissedAt = dismissedAt as Date | null;
+          }
+        }
+      }
+      return [];
     }
 
     if (query.startsWith('update "user_email"')) {
@@ -497,6 +645,126 @@ const dbMock = vi.hoisted(() => {
       return state.organizations
         .filter((organization) => organization.id === householdId)
         .map(organizationRow);
+    }
+
+    if (
+      query.includes('count(*)') &&
+      query.includes('from "notification_delivery"')
+    ) {
+      const recipientUserId = params[0] as string | undefined;
+      return [
+        [
+          state.notificationDeliveries.filter(
+            (delivery) =>
+              (!recipientUserId ||
+                delivery.recipientUserId === recipientUserId) &&
+              !delivery.readAt &&
+              !delivery.dismissedAt,
+          ).length,
+        ],
+      ];
+    }
+
+    if (
+      query.includes('from "notification_delivery"') &&
+      query.includes('inner join "notification_event"')
+    ) {
+      const selectsBase = query.includes('"notification_event"."actor_user_id"');
+      const notificationId = query.includes('"notification_delivery"."id" =')
+        ? (params[0] as string)
+        : undefined;
+      const recipientUserId = (notificationId ? params[1] : params[0]) as
+        | string
+        | undefined;
+      return state.notificationDeliveries
+        .filter(
+          (delivery) =>
+            (!notificationId || delivery.id === notificationId) &&
+            (!recipientUserId || delivery.recipientUserId === recipientUserId) &&
+            !delivery.dismissedAt,
+        )
+        .map((delivery) => {
+          const event = state.notificationEvents.find(
+            (candidate) => candidate.id === delivery.eventId,
+          )!;
+          return selectsBase
+            ? [
+                delivery.id,
+                event.id,
+                event.kind,
+                event.actorUserId,
+                event.actorNameSnapshot,
+                delivery.readAt,
+                event.occurredAt,
+              ]
+            : [event.id, event.kind];
+        });
+    }
+
+    if (
+      query.includes('from "notification_household_invitation_event"') &&
+      !query.includes('join')
+    ) {
+      if (query.includes('"invitation_id" =')) {
+        const invitationId = params[0] as string;
+        return state.notificationHouseholdInvitationEvents
+          .filter((row) => row.invitationId === invitationId)
+          .map((row) => [row.eventId]);
+      }
+      const eventId = params[0] as string;
+      return state.notificationHouseholdInvitationEvents
+        .filter((row) => row.eventId === eventId)
+        .map((row) => [row.invitationId]);
+    }
+
+    if (
+      query.includes('from "notification_household_event"') &&
+      query.includes('left join "notification_household_invitation_event"')
+    ) {
+      const eventIds = new Set(params as string[]);
+      return state.notificationHouseholdEvents
+        .filter((row) => eventIds.has(row.eventId))
+        .map((row) => {
+          const invitationEvent =
+            state.notificationHouseholdInvitationEvents.find(
+              (candidate) => candidate.eventId === row.eventId,
+            );
+          const invitation = state.invitations.find(
+            (candidate) => candidate.id === invitationEvent?.invitationId,
+          );
+          return [
+            row.eventId,
+            row.householdId,
+            row.householdNameSnapshot,
+            invitation?.status ?? null,
+            invitation?.expiresAt ?? null,
+          ];
+        });
+    }
+
+    if (
+      query.includes('from "user"') &&
+      query.includes('"user"."email" =')
+    ) {
+      const email = params[0] as string;
+      return state.users
+        .filter((candidate) => candidate.email === email)
+        .map((candidate) => [candidate.id]);
+    }
+
+    if (
+      query.includes('from "user_email"') &&
+      query.includes('"user_email"."email" =')
+    ) {
+      const email = params[0] as string;
+      const verified = params[1] as boolean | undefined;
+      return state.userEmails
+        .filter(
+          (candidate) =>
+            candidate.email === email &&
+            (verified === undefined || candidate.verified === verified),
+        )
+        .map((candidate) => [candidate.userId]);
     }
 
     if (query.includes('from "user_email"')) {
@@ -696,6 +964,58 @@ const dbMock = vi.hoisted(() => {
 
     if (
       query.includes('from "recipe"') &&
+      query.includes('inner join "user"') &&
+      query.includes('group by')
+    ) {
+      const publicRecipes = state.recipes.filter(
+        (recipe) => recipe.visibility === "public",
+      );
+      const grouped = new Map<string, RecipeRow[]>();
+      for (const recipe of publicRecipes) {
+        const recipes = grouped.get(recipe.userId) ?? [];
+        recipes.push(recipe);
+        grouped.set(recipe.userId, recipes);
+      }
+      return Array.from(grouped, ([userId, recipes]) => {
+        const user = state.users.find((candidate) => candidate.id === userId)!;
+        const latest = [...recipes].sort(
+          (first, second) =>
+            second.createdAt.getTime() - first.createdAt.getTime() ||
+            second.id.localeCompare(first.id),
+        )[0]!;
+        return [user.id, user.name, user.image, recipes.length, latest.title];
+      });
+    }
+
+    if (
+      query.includes('from "recipe"') &&
+      query.includes('inner join "user"') &&
+      query.includes('"user"."id" =')
+    ) {
+      const cookId = params[1] as string;
+      const user = state.users.find((candidate) => candidate.id === cookId);
+      if (!user) return [];
+      return state.recipes
+        .filter(
+          (recipe) =>
+            recipe.userId === cookId && recipe.visibility === "public",
+        )
+        .sort(
+          (first, second) =>
+            second.createdAt.getTime() - first.createdAt.getTime() ||
+            second.id.localeCompare(first.id),
+        )
+        .slice(0, 30)
+        .map((recipe) => [
+          ...recipeRow(recipe),
+          user.id,
+          user.name,
+          user.image,
+        ]);
+    }
+
+    if (
+      query.includes('from "recipe"') &&
       query.includes('"recipe"."slug" =') &&
       query.includes('"recipe"."user_id" =')
     ) {
@@ -708,12 +1028,16 @@ const dbMock = vi.hoisted(() => {
 
     if (
       query.includes('from "recipe"') &&
-      query.includes('"recipe"."user_id" =')
+      query.includes('"recipe"."user_id" =') &&
+      !query.includes('"recipe"."visibility" =')
     ) {
       const userId = params[0] as string;
-      return state.recipes
-        .filter((recipe) => recipe.userId === userId)
-        .map(recipeRow);
+      return paginatedRecipeRows(
+        state.recipes.filter((recipe) => recipe.userId === userId),
+        query,
+        params,
+        1,
+      );
     }
 
     if (
@@ -727,23 +1051,30 @@ const dbMock = vi.hoisted(() => {
     }
 
     if (query.includes('from "recipe"')) {
-      const publicVisibility = params[0] as string | undefined;
-      const ownerUserId = params[1] as string | undefined;
-      const householdVisibilityIndex = params.indexOf("household");
+      const trailingParams =
+        (query.includes("::timestamptz") ? 3 : 0) +
+        (query.includes("limit ") ? 1 : 0);
+      const filterParams = params.slice(0, params.length - trailingParams);
+      const publicVisibility = filterParams[0] as string | undefined;
+      const ownerUserId = filterParams[1] as string | undefined;
+      const householdVisibilityIndex = filterParams.indexOf("household");
       const householdUserIds =
         householdVisibilityIndex >= 0
-          ? new Set(params.slice(householdVisibilityIndex + 1))
+          ? new Set(filterParams.slice(householdVisibilityIndex + 1))
           : new Set();
 
-      return state.recipes
-        .filter(
+      return paginatedRecipeRows(
+        state.recipes.filter(
           (recipe) =>
             recipe.visibility === publicVisibility ||
             recipe.userId === ownerUserId ||
             (recipe.visibility === "household" &&
               householdUserIds.has(recipe.userId)),
-        )
-        .map(recipeRow);
+        ),
+        query,
+        params,
+        filterParams.length,
+      );
     }
 
     if (query.includes('from "diet_preset_excluded_group"')) {
@@ -906,6 +1237,17 @@ vi.mock("jose", () => ({
 
 import handler, { app } from "../src/index";
 
+// Route ids are validated as UUIDs before any query runs, so seeded rows and
+// request paths use fixed UUID ids.
+const HOUSEHOLD_ID = "11111111-1111-4111-8111-111111111111";
+const MISSING_HOUSEHOLD_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const OWNER_MEMBER_ID = "33333333-3333-4333-8333-333333333333";
+const MEMBER_MEMBER_ID = "44444444-4444-4444-8444-444444444444";
+const INVITATION_ID = "22222222-2222-4222-8222-222222222222";
+const PENDING_INVITATION_ID = "55555555-5555-4555-8555-555555555555";
+const ALIAS_INVITATION_ID = "66666666-6666-4666-8666-666666666666";
+const EXPIRING_INVITATION_ID = "77777777-7777-4777-8777-777777777777";
+
 function sessionFor(user: { id: string; email: string; name: string }) {
   const email = user.email.toLowerCase();
   if (!dbMock.state.userEmails.some((candidate) => candidate.email === email)) {
@@ -981,7 +1323,7 @@ function seedHousehold() {
     },
   );
   dbMock.state.organizations.push({
-    id: "household-1",
+    id: HOUSEHOLD_ID,
     name: "Owner household",
     slug: "owner-household",
     logo: null,
@@ -989,17 +1331,27 @@ function seedHousehold() {
     createdAt: dbMock.date,
     updatedAt: dbMock.date,
   });
+  dbMock.state.userEmails.push(
+    ...dbMock.state.users.map((user) => ({
+      email: user.email,
+      userId: user.id,
+      verified: user.emailVerified,
+      isPrimary: true,
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    })),
+  );
   dbMock.state.members.push(
     {
-      id: "owner-member",
-      organizationId: "household-1",
+      id: OWNER_MEMBER_ID,
+      organizationId: HOUSEHOLD_ID,
       userId: "owner-user",
       role: "owner",
       createdAt: dbMock.date,
     },
     {
-      id: "member-member",
-      organizationId: "household-1",
+      id: MEMBER_MEMBER_ID,
+      organizationId: HOUSEHOLD_ID,
       userId: "member-user",
       role: "member",
       createdAt: dbMock.date,
@@ -1171,11 +1523,61 @@ describe("GET /recipes", () => {
     ]);
   });
 
-  it("rejects an unknown recipe scope", async () => {
-    const res = await app.request("/recipes?scope=household", {}, env);
+  it.each([
+    ["an unknown scope", "/recipes?scope=household", "Invalid recipe scope"],
+    ["an invalid cursor", "/recipes?cursor=not-a-cursor", "Invalid recipe query"],
+    ["an out-of-range limit", "/recipes?limit=0", "Invalid recipe query"],
+  ])("rejects %s with a 400", async (_case, url, error) => {
+    const res = await app.request(url, {}, env);
 
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Invalid recipe scope" });
+    expect(await res.json()).toEqual({ error });
+  });
+
+  it("pages newest-first through recipes when a limit is provided", async () => {
+    const recipeIds = [
+      "0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b01",
+      "0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b02",
+      "0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b03",
+    ];
+    dbMock.state.recipes.push(
+      ...recipeIds.map((id, index) => ({
+        id,
+        slug: `soup-${index + 1}`,
+        title: `Soup ${index + 1}`,
+        description: null,
+        body: null,
+        userId: "other-user",
+        visibility: "public" as const,
+        createdAt: new Date(`2026-01-0${index + 1}T00:00:00.000Z`),
+        updatedAt: dbMock.date,
+      })),
+    );
+
+    const firstRes = await app.request("/recipes?limit=2", {}, env);
+    expect(firstRes.status).toBe(200);
+    const firstPage = (await firstRes.json()) as {
+      items: { slug: string }[];
+      nextCursor: string | null;
+    };
+    expect(firstPage.items.map((recipe) => recipe.slug)).toEqual([
+      "soup-3",
+      "soup-2",
+    ]);
+    expect(firstPage.nextCursor).toBeTruthy();
+
+    const secondRes = await app.request(
+      `/recipes?limit=2&cursor=${firstPage.nextCursor}`,
+      {},
+      env,
+    );
+    expect(secondRes.status).toBe(200);
+    const secondPage = (await secondRes.json()) as {
+      items: { slug: string }[];
+      nextCursor: string | null;
+    };
+    expect(secondPage.items.map((recipe) => recipe.slug)).toEqual(["soup-1"]);
+    expect(secondPage.nextCursor).toBeNull();
   });
 
   it("returns 502 when database query fails", async () => {
@@ -1197,6 +1599,98 @@ describe("GET /recipes", () => {
     expect(res.status).toBe(502);
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe("Database query failed");
+  });
+});
+
+describe("GET /recipes/cooks", () => {
+  function seedCook() {
+    dbMock.state.users.push({
+      id: "cook-1",
+      name: "Ada Cook",
+      email: "ada@example.test",
+      emailVerified: true,
+      image: null,
+      role: null,
+      banned: null,
+      banReason: null,
+      banExpires: null,
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    dbMock.state.recipes.push(
+      {
+        id: "recipe-1",
+        slug: "ada-stew",
+        title: "Ada's Stew",
+        description: null,
+        body: null,
+        userId: "cook-1",
+        visibility: "public",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+      {
+        id: "recipe-private",
+        slug: "private-soup",
+        title: "Private Soup",
+        description: null,
+        body: null,
+        userId: "cook-1",
+        visibility: "private",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+    );
+  }
+
+  it("returns lightweight summaries of cooks with public recipes", async () => {
+    seedCook();
+
+    const res = await app.request("/recipes/cooks", {}, env);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      cooks: [
+        {
+          id: "cook-1",
+          name: "Ada Cook",
+          image: null,
+          activityCount: 1,
+          latestRecipeTitle: "Ada's Stew",
+        },
+      ],
+    });
+  });
+
+  it("returns recent public activity for one cook", async () => {
+    seedCook();
+
+    const res = await app.request("/recipes/cooks?cook=cook-1", {}, env);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      cook: {
+        id: "cook-1",
+        name: "Ada Cook",
+        image: null,
+        activity: [
+          expect.objectContaining({
+            type: "recipe_added",
+            recipe: expect.objectContaining({
+              slug: "ada-stew",
+              title: "Ada's Stew",
+            }),
+          }),
+        ],
+      },
+    });
+  });
+
+  it("returns null for a cook without public activity", async () => {
+    const res = await app.request("/recipes/cooks?cook=missing", {}, env);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ cook: null });
   });
 });
 
@@ -1951,7 +2445,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/household-1",
+      `/households/${HOUSEHOLD_ID}`,
       {
         method: "PATCH",
         headers: {
@@ -1965,7 +2459,7 @@ describe("household membership flows", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
-      id: "household-1",
+      id: HOUSEHOLD_ID,
       name: "Park Road kitchen",
     });
   });
@@ -1974,8 +2468,8 @@ describe("household membership flows", () => {
     seedHousehold();
     dbMock.state.invitations.push(
       {
-        id: "pending-invitation",
-        organizationId: "household-1",
+        id: PENDING_INVITATION_ID,
+        organizationId: HOUSEHOLD_ID,
         email: "new@example.test",
         role: "member",
         status: "pending",
@@ -1985,7 +2479,7 @@ describe("household membership flows", () => {
       },
       {
         id: "accepted-invitation",
-        organizationId: "household-1",
+        organizationId: HOUSEHOLD_ID,
         email: "old@example.test",
         role: "member",
         status: "accepted",
@@ -2001,7 +2495,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/household-1/invitations",
+      `/households/${HOUSEHOLD_ID}/invitations`,
       {},
       env,
     );
@@ -2009,7 +2503,7 @@ describe("household membership flows", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual([
       expect.objectContaining({
-        id: "pending-invitation",
+        id: PENDING_INVITATION_ID,
         status: "pending",
       }),
     ]);
@@ -2018,8 +2512,8 @@ describe("household membership flows", () => {
   it("returns incoming invitations for the signed-in email", async () => {
     seedHousehold();
     dbMock.state.invitations.push({
-      id: "pending-invitation",
-      organizationId: "household-1",
+      id: PENDING_INVITATION_ID,
+      organizationId: HOUSEHOLD_ID,
       email: "invitee@example.test",
       role: "member",
       status: "pending",
@@ -2038,8 +2532,8 @@ describe("household membership flows", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual([
       expect.objectContaining({
-        id: "pending-invitation",
-        household: { id: "household-1", name: "Owner household" },
+        id: PENDING_INVITATION_ID,
+        household: { id: HOUSEHOLD_ID, name: "Owner household" },
       }),
     ]);
   });
@@ -2055,8 +2549,8 @@ describe("household membership flows", () => {
       updatedAt: dbMock.date,
     });
     dbMock.state.invitations.push({
-      id: "alias-invitation",
-      organizationId: "household-1",
+      id: ALIAS_INVITATION_ID,
+      organizationId: HOUSEHOLD_ID,
       email: "invitee.alias@example.test",
       role: "member",
       status: "pending",
@@ -2074,7 +2568,7 @@ describe("household membership flows", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual([
-      expect.objectContaining({ id: "alias-invitation" }),
+      expect.objectContaining({ id: ALIAS_INVITATION_ID }),
     ]);
   });
 
@@ -2087,7 +2581,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/household-1",
+      `/households/${HOUSEHOLD_ID}`,
       {
         method: "DELETE",
         headers: { origin: "http://localhost:3000" },
@@ -2098,6 +2592,12 @@ describe("household membership flows", () => {
     expect(res.status).toBe(204);
     expect(dbMock.state.organizations).toHaveLength(0);
     expect(dbMock.state.members).toHaveLength(0);
+    expect(dbMock.state.notificationEvents).toEqual([
+      expect.objectContaining({ kind: "household_deleted" }),
+    ]);
+    expect(dbMock.state.notificationDeliveries).toEqual([
+      expect.objectContaining({ recipientUserId: "member-user" }),
+    ]);
   });
 
   it("lists household members for existing members", async () => {
@@ -2108,18 +2608,18 @@ describe("household membership flows", () => {
       name: "Member",
     });
 
-    const res = await app.request("/households/household-1/members", {}, env);
+    const res = await app.request(`/households/${HOUSEHOLD_ID}/members`, {}, env);
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          id: "owner-member",
+          id: OWNER_MEMBER_ID,
           role: "owner",
           user: expect.objectContaining({ email: "owner@example.test" }),
         }),
         expect.objectContaining({
-          id: "member-member",
+          id: MEMBER_MEMBER_ID,
           role: "member",
           user: expect.objectContaining({ email: "member@example.test" }),
         }),
@@ -2135,7 +2635,7 @@ describe("household membership flows", () => {
       name: "Outsider",
     });
 
-    const res = await app.request("/households/household-1/members", {}, env);
+    const res = await app.request(`/households/${HOUSEHOLD_ID}/members`, {}, env);
 
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: "Authorization required" });
@@ -2150,7 +2650,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/household-1/invitations",
+      `/households/${HOUSEHOLD_ID}/invitations`,
       {
         method: "POST",
         headers: {
@@ -2164,11 +2664,196 @@ describe("household membership flows", () => {
 
     expect(res.status).toBe(201);
     expect(await res.json()).toMatchObject({
-      householdId: "household-1",
+      householdId: HOUSEHOLD_ID,
       email: "newmember@example.test",
       role: "member",
       status: "pending",
     });
+  });
+
+  it("notifies the account that owns an invited verified email alias", async () => {
+    seedHousehold();
+    dbMock.state.userEmails.push({
+      email: "outsider.alias@example.test",
+      userId: "outsider-user",
+      verified: true,
+      isPrimary: false,
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      `/households/${HOUSEHOLD_ID}/invitations`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ email: "Outsider.Alias@Example.test" }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(201);
+    expect(dbMock.state.notificationDeliveries).toEqual([
+      expect.objectContaining({ recipientUserId: "outsider-user" }),
+    ]);
+  });
+
+  it("does not notify an account for an invited unverified primary email", async () => {
+    seedHousehold();
+    const outsider = dbMock.state.users.find(
+      (candidate) => candidate.id === "outsider-user",
+    );
+    const outsiderEmail = dbMock.state.userEmails.find(
+      (candidate) => candidate.userId === "outsider-user" && candidate.isPrimary,
+    );
+    if (!outsider || !outsiderEmail) throw new Error("Missing seeded outsider");
+    outsider.email = "unverified@example.test";
+    outsider.emailVerified = false;
+    outsiderEmail.email = outsider.email;
+    outsiderEmail.verified = false;
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      `/households/${HOUSEHOLD_ID}/invitations`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ email: outsider.email }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(201);
+    expect(dbMock.state.notificationDeliveries).toHaveLength(0);
+  });
+
+  it("hydrates and accepts an invitation through its generic notification action", async () => {
+    seedHousehold();
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+    const inviteResponse = await app.request(
+      `/households/${HOUSEHOLD_ID}/invitations`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ email: "outsider@example.test" }),
+      },
+      env,
+    );
+    expect(inviteResponse.status).toBe(201);
+
+    authzMock.session = sessionFor({
+      id: "outsider-user",
+      email: "outsider@example.test",
+      name: "Outsider",
+    });
+    const archiveResponse = await app.request("/notifications", {}, env);
+    expect(archiveResponse.status).toBe(200);
+    const archive = (await archiveResponse.json()) as {
+      items: Array<{
+        id: string;
+        kind: string;
+        actions: string[];
+        detail: { household: { name: string }; invitationStatus: string };
+      }>;
+    };
+    expect(archive.items).toHaveLength(1);
+    expect(archive.items[0]).toMatchObject({
+      kind: "household_invited",
+      actions: ["accept", "decline"],
+      detail: {
+        household: { name: "Owner household" },
+        invitationStatus: "pending",
+      },
+    });
+    expect(dbMock.state.invitations[0]).toMatchObject({
+      status: "pending",
+      email: "outsider@example.test",
+    });
+    expect(dbMock.state.invitations[0]?.expiresAt.getTime()).toBeGreaterThan(
+      Date.now(),
+    );
+
+    const notificationId = archive.items[0]?.id;
+    expect(notificationId).toBeTruthy();
+    const actionResponse = await app.request(
+      `/notifications/${notificationId}/actions/accept`,
+      { method: "POST", headers: { origin: "http://localhost:3000" } },
+      env,
+    );
+
+    const actionBody = await actionResponse.json();
+    expect(actionResponse.status, JSON.stringify(actionBody)).toBe(200);
+    expect(actionBody).toMatchObject({
+      item: {
+        id: notificationId,
+        actions: [],
+        detail: { invitationStatus: "accepted" },
+      },
+    });
+    expect(dbMock.state.members).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: "outsider-user" }),
+      ]),
+    );
+  });
+
+  it("returns an unread count for the complete notification archive", async () => {
+    seedHousehold();
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+    for (let index = 0; index < 101; index += 1) {
+      dbMock.state.notificationEvents.push({
+        id: `event-${index}`,
+        kind: "future_activity",
+        actorUserId: null,
+        actorNameSnapshot: null,
+        occurredAt: new Date(dbMock.date.getTime() - index),
+      });
+      dbMock.state.notificationDeliveries.push({
+        id: `delivery-${index}`,
+        eventId: `event-${index}`,
+        recipientUserId: "owner-user",
+        readAt: null,
+        dismissedAt: null,
+      });
+    }
+
+    const res = await app.request("/notifications", {}, env);
+    const body = (await res.json()) as {
+      items: unknown[];
+      nextOffset: number | null;
+      unreadCount: number;
+    };
+
+    expect(res.status).toBe(200);
+    expect(body.items).toHaveLength(100);
+    expect(body.nextOffset).toBe(100);
+    expect(body.unreadCount).toBe(101);
   });
 
   it("returns 429 once the owner exceeds the invite rate limit", async () => {
@@ -2182,7 +2867,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/household-1/invitations",
+      `/households/${HOUSEHOLD_ID}/invitations`,
       {
         method: "POST",
         headers: {
@@ -2204,8 +2889,8 @@ describe("household membership flows", () => {
   it("returns 409 when a pending invitation already exists for the email", async () => {
     seedHousehold();
     dbMock.state.invitations.push({
-      id: "invitation-1",
-      organizationId: "household-1",
+      id: INVITATION_ID,
+      organizationId: HOUSEHOLD_ID,
       email: "newmember@example.test",
       role: "member",
       status: "pending",
@@ -2220,7 +2905,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/household-1/invitations",
+      `/households/${HOUSEHOLD_ID}/invitations`,
       {
         method: "POST",
         headers: {
@@ -2243,7 +2928,7 @@ describe("household membership flows", () => {
     seedHousehold();
     dbMock.state.invitations.push({
       id: "expired-invitation",
-      organizationId: "household-1",
+      organizationId: HOUSEHOLD_ID,
       email: "newmember@example.test",
       role: "member",
       status: "pending",
@@ -2258,7 +2943,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/household-1/invitations",
+      `/households/${HOUSEHOLD_ID}/invitations`,
       {
         method: "POST",
         headers: {
@@ -2287,7 +2972,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/household-1/invitations",
+      `/households/${HOUSEHOLD_ID}/invitations`,
       {
         method: "POST",
         headers: {
@@ -2306,8 +2991,8 @@ describe("household membership flows", () => {
   it("allows invited users to accept invitations", async () => {
     seedHousehold();
     dbMock.state.invitations.push({
-      id: "invitation-1",
-      organizationId: "household-1",
+      id: INVITATION_ID,
+      organizationId: HOUSEHOLD_ID,
       email: "outsider@example.test",
       role: "member",
       status: "pending",
@@ -2322,7 +3007,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/invitations/invitation-1/accept",
+      `/households/invitations/${INVITATION_ID}/accept`,
       {
         method: "POST",
         headers: { origin: "http://localhost:3000" },
@@ -2332,13 +3017,13 @@ describe("household membership flows", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
-      invitation: { id: "invitation-1", status: "accepted" },
+      invitation: { id: INVITATION_ID, status: "accepted" },
       membershipCreated: true,
     });
     expect(dbMock.state.members).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          organizationId: "household-1",
+          organizationId: HOUSEHOLD_ID,
           userId: "outsider-user",
           role: "member",
         }),
@@ -2357,8 +3042,8 @@ describe("household membership flows", () => {
       updatedAt: dbMock.date,
     });
     dbMock.state.invitations.push({
-      id: "alias-invitation",
-      organizationId: "household-1",
+      id: ALIAS_INVITATION_ID,
+      organizationId: HOUSEHOLD_ID,
       email: "outsider.alias@example.test",
       role: "member",
       status: "pending",
@@ -2373,7 +3058,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/invitations/alias-invitation/accept",
+      `/households/invitations/${ALIAS_INVITATION_ID}/accept`,
       {
         method: "POST",
         headers: { origin: "http://localhost:3000" },
@@ -2392,8 +3077,8 @@ describe("household membership flows", () => {
   it("does not accept an invitation that expires before its atomic update", async () => {
     seedHousehold();
     dbMock.state.invitations.push({
-      id: "expiring-invitation",
-      organizationId: "household-1",
+      id: EXPIRING_INVITATION_ID,
+      organizationId: HOUSEHOLD_ID,
       email: "outsider@example.test",
       role: "member",
       status: "pending",
@@ -2409,7 +3094,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/invitations/expiring-invitation/accept",
+      `/households/invitations/${EXPIRING_INVITATION_ID}/accept`,
       {
         method: "POST",
         headers: { origin: "http://localhost:3000" },
@@ -2437,8 +3122,8 @@ describe("household membership flows", () => {
       updatedAt: dbMock.date,
     });
     dbMock.state.invitations.push({
-      id: "alias-invitation",
-      organizationId: "household-1",
+      id: ALIAS_INVITATION_ID,
+      organizationId: HOUSEHOLD_ID,
       email: "outsider.alias@example.test",
       role: "member",
       status: "pending",
@@ -2453,7 +3138,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/invitations/alias-invitation/accept",
+      `/households/invitations/${ALIAS_INVITATION_ID}/accept`,
       {
         method: "POST",
         headers: { origin: "http://localhost:3000" },
@@ -2472,8 +3157,8 @@ describe("household membership flows", () => {
   it("returns 403 when a different user accepts an invitation", async () => {
     seedHousehold();
     dbMock.state.invitations.push({
-      id: "invitation-1",
-      organizationId: "household-1",
+      id: INVITATION_ID,
+      organizationId: HOUSEHOLD_ID,
       email: "member@example.test",
       role: "member",
       status: "pending",
@@ -2488,7 +3173,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/invitations/invitation-1/accept",
+      `/households/invitations/${INVITATION_ID}/accept`,
       {
         method: "POST",
         headers: { origin: "http://localhost:3000" },
@@ -2503,7 +3188,7 @@ describe("household membership flows", () => {
   it("prevents a user from accepting an invite while already in a household", async () => {
     seedHousehold();
     dbMock.state.invitations.push({
-      id: "invitation-1",
+      id: INVITATION_ID,
       organizationId: "other-household",
       email: "member@example.test",
       role: "member",
@@ -2519,7 +3204,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/invitations/invitation-1/accept",
+      `/households/invitations/${INVITATION_ID}/accept`,
       {
         method: "POST",
         headers: { origin: "http://localhost:3000" },
@@ -2536,8 +3221,8 @@ describe("household membership flows", () => {
   it("allows invited users to decline invitations", async () => {
     seedHousehold();
     dbMock.state.invitations.push({
-      id: "invitation-1",
-      organizationId: "household-1",
+      id: INVITATION_ID,
+      organizationId: HOUSEHOLD_ID,
       email: "member@example.test",
       role: "member",
       status: "pending",
@@ -2552,7 +3237,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/invitations/invitation-1/decline",
+      `/households/invitations/${INVITATION_ID}/decline`,
       {
         method: "POST",
         headers: { origin: "http://localhost:3000" },
@@ -2562,7 +3247,7 @@ describe("household membership flows", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
-      id: "invitation-1",
+      id: INVITATION_ID,
       status: "rejected",
     });
   });
@@ -2570,8 +3255,8 @@ describe("household membership flows", () => {
   it("prevents declining finalized invitations", async () => {
     seedHousehold();
     dbMock.state.invitations.push({
-      id: "invitation-1",
-      organizationId: "household-1",
+      id: INVITATION_ID,
+      organizationId: HOUSEHOLD_ID,
       email: "member@example.test",
       role: "member",
       status: "accepted",
@@ -2586,7 +3271,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/invitations/invitation-1/decline",
+      `/households/invitations/${INVITATION_ID}/decline`,
       {
         method: "POST",
         headers: { origin: "http://localhost:3000" },
@@ -2603,8 +3288,8 @@ describe("household membership flows", () => {
   it("allows owners to revoke pending invitations", async () => {
     seedHousehold();
     dbMock.state.invitations.push({
-      id: "invitation-1",
-      organizationId: "household-1",
+      id: INVITATION_ID,
+      organizationId: HOUSEHOLD_ID,
       email: "outsider@example.test",
       role: "member",
       status: "pending",
@@ -2619,7 +3304,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/household-1/invitations/invitation-1",
+      `/households/${HOUSEHOLD_ID}/invitations/${INVITATION_ID}`,
       {
         method: "DELETE",
         headers: { origin: "http://localhost:3000" },
@@ -2629,7 +3314,7 @@ describe("household membership flows", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
-      id: "invitation-1",
+      id: INVITATION_ID,
       status: "canceled",
     });
   });
@@ -2637,8 +3322,8 @@ describe("household membership flows", () => {
   it("prevents owners from revoking finalized invitations", async () => {
     seedHousehold();
     dbMock.state.invitations.push({
-      id: "invitation-1",
-      organizationId: "household-1",
+      id: INVITATION_ID,
+      organizationId: HOUSEHOLD_ID,
       email: "outsider@example.test",
       role: "member",
       status: "accepted",
@@ -2653,7 +3338,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/household-1/invitations/invitation-1",
+      `/households/${HOUSEHOLD_ID}/invitations/${INVITATION_ID}`,
       {
         method: "DELETE",
         headers: { origin: "http://localhost:3000" },
@@ -2687,7 +3372,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/household-1/members/member-member",
+      `/households/${HOUSEHOLD_ID}/members/${MEMBER_MEMBER_ID}`,
       {
         method: "DELETE",
         headers: { origin: "http://localhost:3000" },
@@ -2697,7 +3382,7 @@ describe("household membership flows", () => {
 
     expect(res.status).toBe(204);
     expect(dbMock.state.members).not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: "member-member" })]),
+      expect.arrayContaining([expect.objectContaining({ id: MEMBER_MEMBER_ID })]),
     );
     expect(dbMock.state.recipes).toEqual(
       expect.arrayContaining([
@@ -2729,7 +3414,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/household-1/leave",
+      `/households/${HOUSEHOLD_ID}/leave`,
       {
         method: "POST",
         headers: { origin: "http://localhost:3000" },
@@ -2739,7 +3424,7 @@ describe("household membership flows", () => {
 
     expect(res.status).toBe(204);
     expect(dbMock.state.members).not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: "member-member" })]),
+      expect.arrayContaining([expect.objectContaining({ id: MEMBER_MEMBER_ID })]),
     );
     expect(dbMock.state.recipes).toEqual(
       expect.arrayContaining([
@@ -2760,7 +3445,7 @@ describe("household membership flows", () => {
     });
 
     const res = await app.request(
-      "/households/missing-household/leave",
+      `/households/${MISSING_HOUSEHOLD_ID}/leave`,
       {
         method: "POST",
         headers: { origin: "http://localhost:3000" },
@@ -2769,6 +3454,59 @@ describe("household membership flows", () => {
     );
 
     expect(res.status).toBe(404);
+  });
+});
+
+describe("route id validation", () => {
+  it("rejects a malformed household id before any database access", async () => {
+    const res = await app.request(
+      "/households/not-a-uuid/members",
+      {},
+      { DATABASE_URL: "" },
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid household ID" });
+  });
+
+  it("rejects a malformed invitation id", async () => {
+    const res = await app.request(
+      "/households/invitations/not-a-uuid/accept",
+      { method: "POST", headers: { origin: "http://localhost:3000" } },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid invitation ID" });
+  });
+
+  it("rejects a malformed member id", async () => {
+    const res = await app.request(
+      `/households/${HOUSEHOLD_ID}/members/not-a-uuid`,
+      { method: "DELETE", headers: { origin: "http://localhost:3000" } },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid member ID" });
+  });
+
+  it("rejects a malformed notification id", async () => {
+    const res = await app.request(
+      "/notifications/not-a-uuid",
+      {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ read: true }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid notification ID" });
   });
 });
 

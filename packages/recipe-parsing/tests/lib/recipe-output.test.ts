@@ -1,5 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeParsedRecipe } from "../../src/lib/recipe-output.js";
+import {
+  sanitizeParsedRecipe,
+  stripJsonCodeFence,
+} from "../../src/lib/recipe-output.js";
+
+describe("stripJsonCodeFence", () => {
+  it("strips a paired JSON fence with CRLF line endings", () => {
+    expect(stripJsonCodeFence('```JSON\r\n{"title":"Soup"}\r\n```')).toBe(
+      '{"title":"Soup"}',
+    );
+  });
+
+  it("strips a compact paired JSON fence", () => {
+    expect(stripJsonCodeFence('```json {"title":"Soup"} ```')).toBe(
+      '{"title":"Soup"}',
+    );
+    expect(stripJsonCodeFence('```json{"title":"Soup"}```')).toBe(
+      '{"title":"Soup"}',
+    );
+  });
+
+  it("preserves unpaired fences", () => {
+    expect(stripJsonCodeFence('```json\n{"title":"Soup"}')).toBe(
+      '```json\n{"title":"Soup"}',
+    );
+    expect(stripJsonCodeFence('{"title":"Soup"}\n```')).toBe(
+      '{"title":"Soup"}\n```',
+    );
+  });
+});
 
 describe("sanitizeParsedRecipe", () => {
   it("drops non-finite optional scalar fields", () => {

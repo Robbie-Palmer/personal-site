@@ -151,7 +151,8 @@ export function useFilterParams(
   const updateUrl = useCallback(
     (newParams: URLSearchParams) => {
       const queryString = newParams.toString();
-      const newUrl = `${pathname}${queryString ? `?${queryString}` : ""}`;
+      const querySuffix = queryString ? `?${queryString}` : "";
+      const newUrl = pathname + querySuffix;
       router.replace(newUrl, { scroll: !preserveScroll });
     },
     [pathname, router, preserveScroll],

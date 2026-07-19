@@ -7,11 +7,19 @@ import { env } from "./env";
 const client = new Cloudflare({ apiToken: env.CF_API_TOKEN });
 
 export async function listImages(): Promise<Image[]> {
-	const response = await client.images.v1.list({
-		account_id: env.CF_ACCOUNT_ID,
-	});
-	// @ts-expect-error SDK types don't match actual response structure
-	return response.body?.result?.images || [];
+	const images: Image[] = [];
+	let continuationToken: string | null | undefined;
+
+	do {
+		const response = await client.images.v2.list({
+			account_id: env.CF_ACCOUNT_ID,
+			continuation_token: continuationToken,
+		});
+		images.push(...(response.images ?? []));
+		continuationToken = response.continuation_token;
+	} while (continuationToken);
+
+	return images;
 }
 
 export async function uploadImage(

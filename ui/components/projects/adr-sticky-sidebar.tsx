@@ -13,7 +13,7 @@ interface ADRStickySidebarProps {
 export function ADRStickySidebar({
   project,
   className,
-}: ADRStickySidebarProps) {
+}: Readonly<ADRStickySidebarProps>) {
   const isNavbarVisible = useNavbarVisibility();
   return (
     <aside

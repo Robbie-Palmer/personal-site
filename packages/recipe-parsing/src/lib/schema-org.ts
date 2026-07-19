@@ -61,7 +61,9 @@ function normalizeRecipeMarkup(html: string, url: string): string {
             ),
           ];
           object.author ??= "Imported recipe";
-          object.description ??= `Recipe for ${String(object.name ?? "this dish")}, imported from the web.`;
+          const recipeName =
+            typeof object.name === "string" ? object.name : "this dish";
+          object.description ??= `Recipe for ${recipeName}, imported from the web.`;
           object.image ??= url;
           object.recipeYield ??= "1 serving";
         }

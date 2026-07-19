@@ -11,7 +11,7 @@ const NavbarActionsContext = createContext<
   NavbarActionsContextType | undefined
 >(undefined);
 
-export function NavbarActionsProvider({ children }: { children: ReactNode }) {
+export function NavbarActionsProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [hasActions, setHasActions] = useState(false);
 
   return (

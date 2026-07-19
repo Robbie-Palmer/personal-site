@@ -9,7 +9,7 @@ interface MermaidProps {
   className?: string;
 }
 
-export function Mermaid({ chart, className = "" }: MermaidProps) {
+export function Mermaid({ chart, className = "" }: Readonly<MermaidProps>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);

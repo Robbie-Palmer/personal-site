@@ -33,11 +33,11 @@ function TextFidelityCard({
   rougeLF1,
   wordErrorRate,
   charErrorRate,
-}: {
+}: Readonly<{
   rougeLF1: number;
   wordErrorRate: number;
   charErrorRate: number;
-}) {
+}>) {
   function formatPrecisePercent(value: number): string {
     return `${(value * 100).toFixed(1)}%`;
   }
@@ -77,10 +77,10 @@ function TextFidelityCard({
 function ExtractionPanel({
   extraction,
   label,
-}: {
+}: Readonly<{
   extraction: ExtractionRecipe;
   label: string;
-}) {
+}>) {
   const cuisineText = extraction.cuisine?.join(", ");
 
   return (
@@ -147,7 +147,7 @@ export function ExtractionDetailView({
   entryIndex,
   onBack,
   onNavigate,
-}: ExtractionDetailViewProps) {
+}: Readonly<ExtractionDetailViewProps>) {
   const [groundTruth, setGroundTruth] = useState<GroundTruthDataset | null>(null);
   const [extractions, setExtractions] = useState<ExtractionPredictionsDataset | null>(
     null,

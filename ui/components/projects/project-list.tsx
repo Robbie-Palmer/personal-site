@@ -23,7 +23,7 @@ interface ProjectListProps {
   projects: Project[];
 }
 
-export function ProjectList({ projects }: ProjectListProps) {
+export function ProjectList({ projects }: Readonly<ProjectListProps>) {
   const allTechnologies = useMemo(() => {
     const techMap = new Map<
       string,
@@ -63,7 +63,10 @@ export function ProjectList({ projects }: ProjectListProps) {
   );
 
   const allTags = useMemo(
-    () => Array.from(new Set(projects.flatMap((p) => p.tags))).sort(),
+    () =>
+      Array.from(new Set(projects.flatMap((p) => p.tags))).sort((a, b) =>
+        a.localeCompare(b, "en"),
+      ),
     [projects],
   );
 

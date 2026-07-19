@@ -30,7 +30,7 @@ export function TechnologyTypeFilter({
   disabled = false,
   size = "default",
   ...triState
-}: TechnologyTypeFilterProps) {
+}: Readonly<TechnologyTypeFilterProps>) {
   const options: MultiSelectOption[] = TECHNOLOGY_TYPES.map((type) => {
     const typeConfig = TECHNOLOGY_TYPE_CONFIG[type];
     return {

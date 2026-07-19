@@ -23,18 +23,33 @@ export interface GraphData {
   edges: GraphEdge[];
 }
 
-export function extractGraphData(repository: DomainRepository): GraphData {
-  const { graph, technologies, projects, blogs, adrs, roles } = repository;
-  const nodes: GraphNode[] = [];
-  const edges: GraphEdge[] = [];
-  const connectionCounts = new Map<string, number>();
+type GraphBuildState = {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  connectionCounts: Map<string, number>;
+};
 
-  function addConnection(id: string) {
-    connectionCounts.set(id, (connectionCounts.get(id) ?? 0) + 1);
-  }
+function addConnection(state: GraphBuildState, id: string): void {
+  state.connectionCounts.set(id, (state.connectionCounts.get(id) ?? 0) + 1);
+}
 
-  for (const [slug, project] of projects) {
-    nodes.push({
+function addEdge(
+  state: GraphBuildState,
+  source: string,
+  target: string,
+  type: string,
+): void {
+  state.edges.push({ source, target, type });
+  addConnection(state, source);
+  addConnection(state, target);
+}
+
+function addContentNodes(
+  repository: DomainRepository,
+  state: GraphBuildState,
+): void {
+  for (const [slug, project] of repository.projects) {
+    state.nodes.push({
       id: `project:${slug}`,
       name: project.title,
       type: "project",
@@ -42,8 +57,8 @@ export function extractGraphData(repository: DomainRepository): GraphData {
       connections: 0,
     });
   }
-  for (const [slug, blog] of blogs) {
-    nodes.push({
+  for (const [slug, blog] of repository.blogs) {
+    state.nodes.push({
       id: `blog:${slug}`,
       name: blog.title,
       type: "blog",
@@ -51,8 +66,8 @@ export function extractGraphData(repository: DomainRepository): GraphData {
       connections: 0,
     });
   }
-  for (const [slug, role] of roles) {
-    nodes.push({
+  for (const [slug, role] of repository.roles) {
+    state.nodes.push({
       id: `role:${slug}`,
       name: `${role.title} @ ${role.company}`,
       type: "role",
@@ -60,13 +75,19 @@ export function extractGraphData(repository: DomainRepository): GraphData {
       connections: 0,
     });
   }
-  for (const [adrRef, adr] of adrs) {
-    const projectSlug = graph.edges.partOfProject.get(adrRef);
+}
+
+function addAdrNodes(
+  repository: DomainRepository,
+  state: GraphBuildState,
+): void {
+  for (const [adrRef, adr] of repository.adrs) {
+    const projectSlug = repository.graph.edges.partOfProject.get(adrRef);
     if (!projectSlug) continue;
     const { adrSlug } = parseADRRef(adrRef);
     const displayTitle = normalizeADRTitle(adr.title);
-    const localIndex = adrSlug.match(/^(\d+)/)?.[1];
-    nodes.push({
+    const localIndex = /^(\d+)/.exec(adrSlug)?.[1];
+    state.nodes.push({
       id: `adr:${adrRef}`,
       name: localIndex ? `ADR ${localIndex}: ${displayTitle}` : adr.title,
       type: "adr",
@@ -74,100 +95,137 @@ export function extractGraphData(repository: DomainRepository): GraphData {
       connections: 0,
     });
   }
+}
+
+function addTechnologyAndTagNodes(
+  repository: DomainRepository,
+  state: GraphBuildState,
+): Set<string> {
   const connectedTechs = new Set<string>();
-  for (const [techSlug, usedBy] of graph.reverse.technologyUsedBy) {
-    if (usedBy.size > 0) {
-      const tech = technologies.get(techSlug);
-      if (tech) {
-        connectedTechs.add(techSlug);
-        nodes.push({
-          id: `technology:${techSlug}`,
-          name: tech.name,
-          type: "technology",
-          href: `/technologies/${techSlug}`,
-          connections: 0,
-        });
-      }
-    }
+  for (const [techSlug, usedBy] of repository.graph.reverse.technologyUsedBy) {
+    if (usedBy.size === 0) continue;
+    const tech = repository.technologies.get(techSlug);
+    if (!tech) continue;
+    connectedTechs.add(techSlug);
+    state.nodes.push({
+      id: `technology:${techSlug}`,
+      name: tech.name,
+      type: "technology",
+      href: `/technologies/${techSlug}`,
+      connections: 0,
+    });
   }
-  for (const [tag, usedBy] of graph.reverse.tagUsedBy) {
-    if (usedBy.size > 0) {
-      nodes.push({
-        id: `tag:${tag}`,
-        name: `#${tag}`,
-        type: "tag",
-        href: NON_NAVIGABLE_HREF,
-        connections: 0,
-      });
-    }
+  for (const [tag, usedBy] of repository.graph.reverse.tagUsedBy) {
+    if (usedBy.size === 0) continue;
+    state.nodes.push({
+      id: `tag:${tag}`,
+      name: `#${tag}`,
+      type: "tag",
+      href: NON_NAVIGABLE_HREF,
+      connections: 0,
+    });
   }
-  for (const [nodeId, techSlugs] of graph.edges.usesTechnology) {
+  return connectedTechs;
+}
+
+function addTechnologyEdges(
+  repository: DomainRepository,
+  state: GraphBuildState,
+  connectedTechs: ReadonlySet<string>,
+): void {
+  for (const [nodeId, techSlugs] of repository.graph.edges.usesTechnology) {
     for (const techSlug of techSlugs) {
       if (connectedTechs.has(techSlug)) {
-        edges.push({
-          source: nodeId,
-          target: `technology:${techSlug}`,
-          type: "USES_TECHNOLOGY",
-        });
-        addConnection(nodeId);
-        addConnection(`technology:${techSlug}`);
+        addEdge(state, nodeId, `technology:${techSlug}`, "USES_TECHNOLOGY");
       }
     }
   }
-  const nodeIds = new Set(nodes.map((n) => n.id));
-  for (const [adrRef, projectSlug] of graph.edges.partOfProject) {
-    const source = `adr:${adrRef}`;
-    const target = `project:${projectSlug}`;
-    if (!nodeIds.has(source) || !nodeIds.has(target)) continue;
-    edges.push({ source, target, type: "PART_OF_PROJECT" });
-    addConnection(source);
-    addConnection(target);
-  }
-  for (const [supersedingRef, supersededRef] of graph.edges.supersedes) {
-    const source = `adr:${supersedingRef}`;
-    const target = `adr:${supersededRef}`;
-    if (!nodeIds.has(source) || !nodeIds.has(target)) continue;
-    edges.push({ source, target, type: "SUPERSEDES" });
-    addConnection(source);
-    addConnection(target);
-  }
-  for (const [childRef, parentRef] of graph.edges.inheritsFrom) {
-    const source = `adr:${childRef}`;
-    const target = `adr:${parentRef}`;
-    if (!nodeIds.has(source) || !nodeIds.has(target)) continue;
-    edges.push({ source, target, type: "INHERITS_FROM" });
-    addConnection(source);
-    addConnection(target);
-  }
-  for (const [projectSlug, roleSlug] of graph.edges.createdAtRole) {
-    const source = `project:${projectSlug}`;
-    const target = `role:${roleSlug}`;
-    if (!nodeIds.has(source) || !nodeIds.has(target)) continue;
-    edges.push({ source, target, type: "CREATED_AT_ROLE" });
-    addConnection(source);
-    addConnection(target);
-  }
-  for (const [blogSlug, roleSlug] of graph.edges.writtenAtRole) {
-    const source = `blog:${blogSlug}`;
-    const target = `role:${roleSlug}`;
-    if (!nodeIds.has(source) || !nodeIds.has(target)) continue;
-    edges.push({ source, target, type: "WRITTEN_AT_ROLE" });
-    addConnection(source);
-    addConnection(target);
-  }
-  for (const [nodeId, tags] of graph.edges.hasTag) {
-    for (const tag of tags) {
-      edges.push({
-        source: nodeId,
-        target: `tag:${tag}`,
-        type: "HAS_TAG",
-      });
-      addConnection(nodeId);
-      addConnection(`tag:${tag}`);
+}
+
+function addMappedEdges(
+  state: GraphBuildState,
+  entries: ReadonlyMap<string, string>,
+  sourceId: (value: string) => string,
+  targetId: (value: string) => string,
+  type: string,
+): void {
+  const nodeIds = new Set(state.nodes.map((node) => node.id));
+  for (const [sourceValue, targetValue] of entries) {
+    const source = sourceId(sourceValue);
+    const target = targetId(targetValue);
+    if (nodeIds.has(source) && nodeIds.has(target)) {
+      addEdge(state, source, target, type);
     }
   }
-  for (const node of nodes) {
-    node.connections = connectionCounts.get(node.id) ?? 0;
+}
+
+function addRelationshipEdges(
+  repository: DomainRepository,
+  state: GraphBuildState,
+): void {
+  addMappedEdges(
+    state,
+    repository.graph.edges.partOfProject,
+    (ref) => `adr:${ref}`,
+    (slug) => `project:${slug}`,
+    "PART_OF_PROJECT",
+  );
+  addMappedEdges(
+    state,
+    repository.graph.edges.supersedes,
+    (ref) => `adr:${ref}`,
+    (ref) => `adr:${ref}`,
+    "SUPERSEDES",
+  );
+  addMappedEdges(
+    state,
+    repository.graph.edges.inheritsFrom,
+    (ref) => `adr:${ref}`,
+    (ref) => `adr:${ref}`,
+    "INHERITS_FROM",
+  );
+  addMappedEdges(
+    state,
+    repository.graph.edges.createdAtRole,
+    (slug) => `project:${slug}`,
+    (slug) => `role:${slug}`,
+    "CREATED_AT_ROLE",
+  );
+  addMappedEdges(
+    state,
+    repository.graph.edges.writtenAtRole,
+    (slug) => `blog:${slug}`,
+    (slug) => `role:${slug}`,
+    "WRITTEN_AT_ROLE",
+  );
+}
+
+function addTagEdges(
+  repository: DomainRepository,
+  state: GraphBuildState,
+): void {
+  for (const [nodeId, tags] of repository.graph.edges.hasTag) {
+    for (const tag of tags) {
+      addEdge(state, nodeId, `tag:${tag}`, "HAS_TAG");
+    }
   }
-  return { nodes, edges };
+}
+
+export function extractGraphData(repository: DomainRepository): GraphData {
+  const state: GraphBuildState = {
+    nodes: [],
+    edges: [],
+    connectionCounts: new Map(),
+  };
+  addContentNodes(repository, state);
+  addAdrNodes(repository, state);
+  const connectedTechs = addTechnologyAndTagNodes(repository, state);
+  addTechnologyEdges(repository, state, connectedTechs);
+  addRelationshipEdges(repository, state);
+  addTagEdges(repository, state);
+
+  for (const node of state.nodes) {
+    node.connections = state.connectionCounts.get(node.id) ?? 0;
+  }
+  return { nodes: state.nodes, edges: state.edges };
 }

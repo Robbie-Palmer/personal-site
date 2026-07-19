@@ -16,7 +16,7 @@ export function ProjectBadge({
   project,
   className,
   source_type = "experience",
-}: ProjectBadgeProps) {
+}: Readonly<ProjectBadgeProps>) {
   return (
     <Link
       href={`/projects/${project.slug}`}

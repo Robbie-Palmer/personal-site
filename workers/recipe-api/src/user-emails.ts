@@ -1,8 +1,6 @@
 import { and, eq, ne } from "drizzle-orm";
-import type { createDb } from "recipe-db";
+import type { Db } from "recipe-db";
 import * as schema from "recipe-db/schema";
-
-type Db = ReturnType<typeof createDb>["db"];
 type UserEmailIdentity = {
   id: string;
   email: string;
@@ -30,6 +28,23 @@ export async function canonicalEmailIsAvailable(
     .where(eq(schema.userEmail.email, normalizeEmail(email)))
     .limit(1);
   return !existing;
+}
+
+export async function verifiedEmailOwnerId(
+  db: Db,
+  email: string,
+): Promise<string | undefined> {
+  const [owner] = await db
+    .select({ userId: schema.userEmail.userId })
+    .from(schema.userEmail)
+    .where(
+      and(
+        eq(schema.userEmail.email, normalizeEmail(email)),
+        eq(schema.userEmail.verified, true),
+      ),
+    )
+    .limit(1);
+  return owner?.userId;
 }
 
 // Better Auth verifies Google's issuer, audience, signature, expiry, and nonce

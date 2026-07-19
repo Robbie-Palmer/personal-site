@@ -9,6 +9,7 @@ import {
   LogOut,
   Settings,
   UserPlus,
+  UserRound,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -136,9 +137,11 @@ function AuthOptions({
 }
 
 export function AuthButton({
+  className,
   compactOnMobile = false,
   intent = "signin",
 }: Readonly<{
+  className?: string;
   compactOnMobile?: boolean;
   intent?: "signin" | "signup";
 }>) {
@@ -201,13 +204,19 @@ export function AuthButton({
   }
 
   if (isPending) {
-    if (intent === "signup") return null;
-    return (
-      <Button variant="outline" size="sm" disabled aria-label="Loading session">
-        <LoaderCircle className="animate-spin" />
-        <span className="hidden sm:inline">Log in</span>
-      </Button>
-    );
+    if (intent === "signin") {
+      return (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled
+          aria-label="Loading session"
+        >
+          <LoaderCircle className="animate-spin" />
+          <span className="hidden sm:inline">Log in</span>
+        </Button>
+      );
+    }
   }
 
   if (session && intent === "signup") return null;
@@ -259,6 +268,17 @@ export function AuthButton({
             </div>
 
             <div className="p-1.5">
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                asChild
+                onClick={() => setOpen(false)}
+              >
+                <Link href="/recipes/profile">
+                  <UserRound />
+                  Profile
+                </Link>
+              </Button>
               <Button
                 variant="ghost"
                 className="w-full justify-start"
@@ -379,6 +399,7 @@ export function AuthButton({
           className={cn(
             intent === "signup" &&
               "max-w-full rounded-full bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]",
+            className,
           )}
         >
           {intent === "signup" ? <UserPlus /> : <LogIn />}

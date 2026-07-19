@@ -26,7 +26,7 @@ export function FilterChip({
   variant = "secondary",
   className,
   ...props
-}: FilterChipProps) {
+}: Readonly<FilterChipProps>) {
   const handleRemove = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();

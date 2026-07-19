@@ -70,7 +70,7 @@ export function Markdown({
   source,
   components,
   className = defaultClassName,
-}: MarkdownProps) {
+}: Readonly<MarkdownProps>) {
   // Preprocess MDX to convert Cloudflare Images IDs to URLs with srcset
   // Match pattern: {namespace}/{name}-YYYY-MM-DD (e.g., blog/image-2025-12-14)
   const processedContent = source.replace(

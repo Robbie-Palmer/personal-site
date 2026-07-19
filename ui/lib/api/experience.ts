@@ -8,15 +8,22 @@ export function getExperienceSlug(experience: Experience): string {
   return normalizeSlug(experience.company);
 }
 
+const EXPERIENCE_DATE_PATTERN = /^(\d{4})-(\d{2})$/;
+
 function parseDateString(dateStr: string): Date {
-  const [yearStr, monthStr] = dateStr.split("-");
-  if (!yearStr || !monthStr) {
+  const match = EXPERIENCE_DATE_PATTERN.exec(dateStr);
+  if (!match) {
     throw new Error(
       `Invalid date format: ${dateStr}. Expected YYYY-MM format.`,
     );
   }
-  const year = parseInt(yearStr, 10);
-  const month = parseInt(monthStr, 10);
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) {
+    throw new Error(
+      `Invalid date format: ${dateStr}. Month must be between 01 and 12.`,
+    );
+  }
   return new Date(Date.UTC(year, month - 1, 1));
 }
 

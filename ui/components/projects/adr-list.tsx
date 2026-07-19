@@ -34,7 +34,11 @@ interface ADRListProps {
 const SORT_OPTIONS = ["newest", "oldest"] as const;
 type SortOption = (typeof SORT_OPTIONS)[number];
 
-export function ADRList({ projectSlug, adrs, description }: ADRListProps) {
+export function ADRList({
+  projectSlug,
+  adrs,
+  description,
+}: Readonly<ADRListProps>) {
   const { currentSort, cycleSortOrder } = useSortParam<SortOption>(
     SORT_OPTIONS,
     "newest",

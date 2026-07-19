@@ -24,7 +24,7 @@ interface NormalizationListViewProps {
 
 export function NormalizationListView({
   onSelectEntry,
-}: NormalizationListViewProps) {
+}: Readonly<NormalizationListViewProps>) {
   const [groundTruth, setGroundTruth] = useState<GroundTruthDataset | null>(null);
   const [predictions, setPredictions] = useState<PredictionsDataset | null>(null);
   const [error, setError] = useState<string | null>(null);

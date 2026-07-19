@@ -15,7 +15,9 @@ interface ExpectedReturnEditorProps {
   account: AccountDetailView;
 }
 
-export function ExpectedReturnEditor({ account }: ExpectedReturnEditorProps) {
+export function ExpectedReturnEditor({
+  account,
+}: Readonly<ExpectedReturnEditorProps>) {
   const { setExpectedReturn } = useAssetTracker();
   const [ratePercent, setRatePercent] = useState("");
   const [effectiveFrom, setEffectiveFrom] = useState(todayIsoDate());

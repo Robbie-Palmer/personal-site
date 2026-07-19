@@ -246,7 +246,7 @@ export function balanceAsOf(
   const applicable = snapshots
     .filter((s) => s.accountId === accountId && s.date <= date)
     .sort((a, b) => a.date.localeCompare(b.date));
-  return applicable[applicable.length - 1]?.balance ?? 0;
+  return applicable.at(-1)?.balance ?? 0;
 }
 
 export function applyCreateAccount(

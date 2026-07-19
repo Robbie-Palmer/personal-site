@@ -95,7 +95,7 @@ export function LightRays({
   length = "70vh",
   ref,
   ...props
-}: LightRaysProps) {
+}: Readonly<LightRaysProps>) {
   const [rays, setRays] = useState<LightRay[]>([]);
   const [mounted, setMounted] = useState(false);
   // Disable on tablets and smaller (<1024px) for performance

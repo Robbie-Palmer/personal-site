@@ -17,7 +17,7 @@ export function ProjectStatusBadge({
   interactive,
   active,
   onClick,
-}: ProjectStatusBadgeProps) {
+}: Readonly<ProjectStatusBadgeProps>) {
   return (
     <Badge
       className={cn(
