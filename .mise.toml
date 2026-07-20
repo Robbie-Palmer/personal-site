@@ -26,6 +26,7 @@ terraform = "1.15.8"
 tflint = "0.64.0"
 actionlint = "1.7.12"
 zizmor = "1.26.1"
+gitleaks = "8.30.1"
 
 [env]
 MISE_EXPERIMENTAL = "1"
@@ -103,9 +104,17 @@ run = "actionlint"
 description = "Audit GitHub Actions workflows for security issues with zizmor"
 run = "zizmor ."
 
+[tasks."security:secrets"]
+description = "Scan staged changes for secrets with gitleaks"
+run = "gitleaks git --pre-commit --staged --redact --verbose"
+
+[tasks."security:secrets:history"]
+description = "Scan the full git history for secrets with gitleaks"
+run = "gitleaks git --redact"
+
 [tasks.pre-commit]
 description = "Run pre-commit checks (called by Husky)"
-run = "pnpm lint-staged"
+run = ["pnpm lint-staged", "mise run //:security:secrets"]
 depends = ["//:install"]
 
 [tasks.dev]
