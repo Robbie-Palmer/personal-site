@@ -1,0 +1,119 @@
+---
+title: "ADR 053: OpenSSF Scorecard (Repo Security Posture)"
+date: "2026-07-20"
+status: "Accepted"
+tech_stack: ["OpenSSF Scorecard"]
+---
+
+# Context
+
+The security stack now covers source code (CodeQL,
+[ADR 032](/projects/personal-site/adrs/032-codeql)), dependencies and IaC
+(Trivy, [ADR 047](/projects/personal-site/adrs/047-trivy)), and workflows
+(zizmor, [ADR 049](/projects/personal-site/adrs/049-zizmor)). Each tool watches
+*artifacts in the repository*. None of them watches **the repository itself**:
+branch protection, token permission defaults, whether dependencies and actions
+stay pinned, whether a security policy exists, whether releases are signed.
+
+Those settings are exactly the ones that decay silently. A branch-protection
+rule relaxed during an incident, a default `GITHUB_TOKEN` permission widened by
+a new workflow, an unpinned action reintroduced by a copy-paste — no existing
+check would say anything, because each individual scanner assumes the
+repo-level ground it stands on.
+
+There is also an outward-facing angle: this repo is public and doubles as a
+portfolio. Its security posture is part of what it demonstrates, and much of
+the hardening Scorecard measures (SHA-pinned actions, scoped permissions,
+active dependency update tooling) has already been done deliberately across
+ADRs 013, 018, 024, 032, 047, and 049 — currently with nothing measuring or
+displaying it.
+
+# Decision
+
+Adopt **OpenSSF Scorecard** via its official GitHub Action:
+
+* A scheduled weekly workflow (Tuesdays — Trivy owns Mondays), also triggered
+  on pushes to `main` and branch-protection changes, uploading SARIF to the
+  **GitHub Security tab** like Trivy and zizmor — findings live where every
+  other scanner's findings live, no new console.
+* `publish_results: true`, so the score is verifiable at scorecard.dev and the
+  README carries a live badge alongside the SonarQube ones.
+* Actions SHA-pinned like everything else
+  ([ADR 049](/projects/personal-site/adrs/049-zizmor)); Renovate keeps the
+  digests fresh.
+
+Scorecard is a *meta-check*: it is deliberately **not blocking** on PRs. Its
+findings are posture regressions to triage weekly, not diff-level defects —
+the same Security-tab role Trivy's scheduled scan plays, and several of its
+checks (branch protection, token permissions) are about settings PRs cannot
+change anyway.
+
+# Why It Adds Something New
+
+Every existing scanner answers "is this artifact safe?"; Scorecard answers
+"is this repository configured so that unsafe artifacts get caught?" — it
+audits the layer the other tools depend on. The overlaps are intentional
+agreement rather than redundancy: its pinned-dependencies check confirms what
+zizmor enforces per-PR, its SAST/dependency-update checks confirm CodeQL and
+Renovate are actually wired in and running. Where zizmor audits workflow
+*content*, Scorecard audits repo *settings* — adjacent layers, no substitute
+relationship in either direction.
+
+# Alternatives Considered
+
+| Tool | Role | Pros | Cons | Verdict |
+| --- | --- | --- | --- | --- |
+| **OpenSSF Scorecard** *(accepted)* | Posture meta-check | Industry-standard rubric (OpenSSF/Linux Foundation); SARIF + badge; zero config to maintain. | Some checks are heuristic; a few (fuzzing, CII badge) will never apply to a personal site. | **Accepted.** |
+| **GitHub security overview** | Native settings page | Zero setup. | A dashboard to remember to read, not a check with history, alerts, or a public score. | Rejected: watch-it-or-lose-it. |
+| **allstar** (OpenSSF) | Posture *enforcement* | Can auto-enforce policies. | An installed GitHub App with write access — heavier trust footprint than a read-only weekly scan warrants here. | Rejected: [Less Is More](/projects?tab=philosophy#less-is-more). |
+| **Manual periodic review** | n/a | No tooling. | Exactly the silent-decay failure mode this closes. | Rejected. |
+
+# Where It Sits On The Adoption Curve
+
+**Early-to-late majority.** Scorecard has run at scale since 2020, scores a
+million-plus repos, and its rubric is referenced by supply-chain frameworks
+(SLSA, S2C2F); the scoring heuristics still evolve between releases. Mature
+enough to trust, standard enough that the badge means something to a reader —
+comfortably inside the [Goldilocks zone](/projects?tab=philosophy#the-goldilocks-zone).
+
+# Relation To Building Philosophy
+
+* [Less Is More](/projects?tab=philosophy#less-is-more). One workflow file, one
+  badge; findings in the same Security tab as Trivy and zizmor. The rejected
+  alternative (allstar) would have added an app with write access.
+* [Short Feedback Loops](/projects?tab=philosophy#short-feedback-loops). A
+  posture regression surfaces within a week, with the specific check and
+  remediation named, instead of at the next manual audit (i.e. never).
+* [Build Flywheels](/projects?tab=philosophy#build-flywheels). The hardening
+  work of ADRs 013–049 becomes a measured, maintained score rather than a
+  one-time effort; each future repo inherits the rubric for free.
+* [Respect Goodhart's Law](/projects?tab=philosophy#respect-goodharts-and-conways-laws).
+  The score is a diagnostic, not a target: checks that don't apply (fuzzing a
+  content site) stay red rather than being gamed green, and the number is
+  published so the incentive is honesty.
+
+# Gaps & Risks
+
+* **Heuristic checks.** Scorecard infers some practices (e.g. code review) from
+  public signals and can under- or over-credit them; scores move between
+  Scorecard releases. Accepted: the value is the trend and the named
+  regressions, not the absolute number.
+* **Weekly cadence.** A posture regression can live for up to a week before the
+  scheduled run flags it; the `main`-push and branch-protection triggers narrow
+  the common cases.
+* **Public score.** A visibly imperfect score is by design — see Goodhart above.
+
+# Consequences
+
+## Positive
+
+* The repo-settings layer every other scanner assumes is now itself monitored,
+  with regressions surfacing in the Security tab.
+* Existing hardening becomes externally verifiable (badge + scorecard.dev).
+* Free, no new platform, no config to maintain.
+
+## Negative
+
+* One more scheduled workflow and Security-tab category to triage.
+* Some rubric checks will permanently not apply to a personal static site,
+  capping the headline score below 10.

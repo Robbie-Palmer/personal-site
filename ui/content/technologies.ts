@@ -880,4 +880,12 @@ export const technologies: TechnologyContent[] = [
     website: "https://knip.dev",
     type: "tool",
   },
+  {
+    name: "OpenSSF Scorecard",
+    added: "2026-07-20",
+    description:
+      "Weekly automated audit of repository security posture: branch protection, token permissions, pinned dependencies, and update hygiene",
+    website: "https://scorecard.dev",
+    type: "tool",
+  },
 ];

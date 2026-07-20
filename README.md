@@ -4,6 +4,7 @@
 [![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=Robbie-Palmer_personal-site&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=Robbie-Palmer_personal-site)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=Robbie-Palmer_personal-site&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=Robbie-Palmer_personal-site)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=Robbie-Palmer_personal-site&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=Robbie-Palmer_personal-site)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Robbie-Palmer/personal-site/badge)](https://scorecard.dev/viewer/?uri=github.com/Robbie-Palmer/personal-site)
 
 Personal website with blog and interactive resume.
 
