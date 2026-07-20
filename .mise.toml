@@ -33,7 +33,7 @@ MISE_EXPERIMENTAL = "1"
 # Root-level tasks for repo-wide tooling
 [tasks.lint]
 description = "Lint all files across the entire repo"
-depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:actions", "//ui:lint", "//infra:lint", "//infra:lint:tflint", "//infra-bootstrap:lint", "//infra-bootstrap:lint:tflint"]
+depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:actions", "//:lint:knip", "//ui:lint", "//infra:lint", "//infra:lint:tflint", "//infra-bootstrap:lint", "//infra-bootstrap:lint:tflint"]
 
 [tasks."lint:markdown"]
 description = "Lint and fix Markdown files (optionally pass files as args)"
@@ -89,6 +89,11 @@ else
   pnpm exec yamllint --ignore '**/node_modules/**' "$@"
 fi
 """
+
+[tasks."lint:knip"]
+description = "Detect unused files, dependencies, and exports across the monorepo with Knip"
+run = "pnpm exec knip"
+depends = ["//:install"]
 
 [tasks."lint:actions"]
 description = "Lint GitHub Actions workflows with actionlint"

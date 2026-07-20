@@ -872,4 +872,12 @@ export const technologies: TechnologyContent[] = [
     website: "https://github.com/terraform-linters/tflint",
     type: "tool",
   },
+  {
+    name: "Knip",
+    added: "2026-07-20",
+    description:
+      "Finds unused files, exports, and dependencies across JS/TS monorepo workspaces via reachability analysis",
+    website: "https://knip.dev",
+    type: "tool",
+  },
 ];

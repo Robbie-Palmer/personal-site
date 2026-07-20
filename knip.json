@@ -1,0 +1,24 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "exclude": ["exports", "types", "nsExports", "nsTypes", "enumMembers"],
+  "ignoreBinaries": ["mise", "typecheck", "wrangler"],
+  "workspaces": {
+    ".": {
+      "entry": ["functions/**/*.ts"],
+      "ignoreDependencies": ["lint-staged", "markdownlint-cli", "remark-cli", "remark-lint", "yaml-lint"]
+    },
+    "ui": {
+      "ignore": ["content/**"],
+      "ignoreDependencies": ["serve"]
+    },
+    "workers/recipe-api": {
+      "entry": ["vitest.integration.config.ts", "scripts/**/*.ts"]
+    },
+    "ml-pipelines/recipe-dataset": {
+      "entry": ["src/stages/*.mjs", "scripts/*.mjs"]
+    },
+    "ml-pipelines/recipe-parsing": {
+      "entry": ["src/stages/*.ts"]
+    }
+  }
+}

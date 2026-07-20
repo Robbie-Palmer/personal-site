@@ -1,0 +1,32 @@
+---
+inherits_from: "personal-site:052-knip"
+---
+
+# Additional Context for Recipe Site
+
+The recipe-site backend is where Knip's first run found its highest-stakes
+defect: `workers/recipe-ingest` imports the `cloudflare` SDK at runtime but
+never declared it — the import resolved only through another workspace's copy,
+so a routine lockfile reshuffle could have broken the deployed ingest Worker.
+Knip's unlisted-dependency check turns that class of accident into a blocking
+CI failure (see [personal-site ADR 052](/projects/personal-site/adrs/052-knip)).
+
+The recipe pipeline also relies on entry points invisible to static import
+analysis — DVC stages in `ml-pipelines/*` and the viz tool's Vite app — which
+`knip.json` now declares explicitly. That configuration is what let Knip
+confidently identify a superseded 12-component cluster in the viz tool as dead,
+deleted on adoption.
+
+# Consequences
+
+## Positive
+
+* Undeclared runtime dependencies in deployed Workers now fail CI instead of
+  waiting for a lockfile change to expose them.
+* The recipe pipeline's non-obvious entry points (DVC stages, Pages Functions,
+  worker scripts) are documented in one config.
+
+## Negative
+
+* New pipeline stages or workers must be added to `knip.json` when their entry
+  points aren't plain imports; the failure mode is a loud false positive.

@@ -12,11 +12,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "cloudflare": "^7.0.0",
     "drizzle-orm": "^0.45.0",
     "postgres": "^3.4.5",
     "recipe-db": "workspace:*",
-    "recipe-parsing": "workspace:*",
-    "zod": "^4.2.1"
+    "recipe-parsing": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.0.0",
