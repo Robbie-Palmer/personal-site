@@ -888,4 +888,12 @@ export const technologies: TechnologyContent[] = [
     website: "https://scorecard.dev",
     type: "tool",
   },
+  {
+    name: "Gitleaks",
+    added: "2026-07-20",
+    description:
+      "Secret scanner blocking credentials at pre-commit and auditing full git history with generic and entropy-based rules",
+    website: "https://gitleaks.io",
+    type: "tool",
+  },
 ];

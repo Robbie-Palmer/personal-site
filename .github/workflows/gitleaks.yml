@@ -1,0 +1,49 @@
+name: Gitleaks Secret Scan
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    # Weekly full-history scan every Wednesday at 00:00 UTC
+    # (Trivy owns Monday, Scorecard owns Tuesday)
+    - cron: "0 0 * * 3"
+  workflow_dispatch: # Allow manual trigger
+
+permissions: {}
+
+jobs:
+  gitleaks:
+    name: Scan git history for secrets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          # Full history: gitleaks scans every commit, not just the checkout
+          fetch-depth: 0
+
+      - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
+        with:
+          experimental: true
+
+      - name: Run gitleaks
+        # Advisory on findings, but not on failure. --exit-code 0 makes
+        # gitleaks exit 0 when it *finds* leaks (they surface in the Security
+        # tab rather than gating the PR, matching the zizmor/Trivy posture,
+        # ADRs 047/049) — historical findings cannot be fixed by the PR that
+        # trips over them. A genuine tool failure still exits non-zero, so the
+        # scan cannot silently skip its job. --redact keeps candidate secrets
+        # out of logs and the SARIF report.
+        run: mise exec -- gitleaks git --redact --exit-code 0 --report-format sarif --report-path gitleaks.sarif
+
+      - name: Upload gitleaks results to GitHub Security
+        uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks
