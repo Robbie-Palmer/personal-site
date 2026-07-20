@@ -4,12 +4,22 @@ on:
   pull_request:
     paths:
       - "**/*.md"
+      - "**/*.mdx"
       - "**/*.yml"
       - "**/*.yaml"
+      # Code files: only the spelling step checks these, but without them a
+      # code-only PR would skip the typos gate entirely
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.js"
+      - "**/*.jsx"
+      - "**/*.mjs"
+      - "**/*.cjs"
       - ".github/workflows/lint-ci.yml"
       - ".mise.toml"
       - ".markdownlint.json"
       - ".yamllint"
+      - "_typos.toml"
       - "package.json"
 
 permissions:
@@ -49,3 +59,6 @@ jobs:
 
       - name: Lint GitHub Actions workflows
         run: mise run //:lint:actions
+
+      - name: Check spelling
+        run: mise run //:lint:typos
