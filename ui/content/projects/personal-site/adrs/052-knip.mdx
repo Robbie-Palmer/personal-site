@@ -20,11 +20,10 @@ found, after configuration to teach it the repo's dynamic entry points:
 * **18 dead source files** — a superseded 12-component cluster in the
   recipe-parsing viz tool, an orphaned filter-component trio plus its types
   module in the UI, an unused shadcn accordion, and a dangling MDX helper.
-* **8 dependency-graph errors** — six unused dependencies (including two
-  Radix packages and a stale `zod`), and `cloudflare` imported by
-  `workers/recipe-ingest` while declared only in `ui/` — an undeclared
-  dependency that worked by accident of hoisting and could break on any
-  lockfile reshuffle.
+* **8 dependency-manifest errors** — seven unused dependency declarations
+  (including two Radix packages and a stale `zod`), and a remark plugin
+  referenced by `.remarkrc.js` that only resolved through another package's
+  transitive dependencies.
 
 Dead code is not just clutter: it is surface area every reviewer, scanner, AI
 agent, and dependency-update PR pays for on every pass. In an agent-heavy
@@ -59,9 +58,10 @@ Adopt **Knip** as the monorepo's dead-code and dependency-hygiene check:
 Reachability analysis across module and workspace boundaries is a different
 axis from everything already running. SonarQube's dead-code rules are
 file-local (an unused private function), and no existing tool relates
-`package.json` declarations to actual imports in both directions — Knip's
-unused *and* unlisted dependency checks caught real defects of each kind in
-the first run. On the determinism axis of
+`package.json` declarations to actual imports in both directions — the unused
+side caught seven dead declarations in the first run, and the unlisted side
+now guards against the inverse accident (importing a package another workspace
+happens to provide). On the determinism axis of
 [ADR 048](/projects/personal-site/adrs/048-sonarqube) it lands in the
 deterministic column: the same orphaned file fails the same check every time,
 where an AI reviewer might or might not notice one in a diff's blast radius.
@@ -103,10 +103,12 @@ because the alternatives are unmaintained rather than merely older.
 
 # Gaps & Risks
 
-* **Dynamic usage is invisible.** Anything referenced only via filesystem
-  reads, string-built imports, or mise tasks needs declaring in `knip.json`;
-  a missed declaration surfaces as a false positive to triage. The config
-  carries comments-by-structure for the known cases.
+* **Dynamic and runtime-provided modules are invisible.** Anything referenced
+  only via filesystem reads, string-built imports, or mise tasks needs
+  declaring in `knip.json`; a missed declaration surfaces as a false positive
+  to triage. The first run supplied the canonical example: workerd's
+  `cloudflare:workers`/`cloudflare:workflows` virtual modules were reported as
+  an unlisted `cloudflare` dependency and are now declared in the config.
 * **The exports backlog is deferred**, so unused exports keep accumulating
   until that category is enabled — bounded by the follow-up to work through
   the ~220 findings and tighten the gate.
@@ -117,8 +119,7 @@ because the alternatives are unmaintained rather than merely older.
 
 ## Positive
 
-* Deleted 18 dead files and fixed 8 dependency-manifest errors on adoption,
-  including an undeclared runtime dependency in a deployed Worker.
+* Deleted 18 dead files and fixed 8 dependency-manifest errors on adoption.
 * Deterministic, blocking reachability check on every JS/TS change; free, no
   platform, mise/CI parity.
 * `knip.json` documents the monorepo's real entry-point graph in one place.

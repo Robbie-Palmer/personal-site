@@ -14,6 +14,9 @@
     "workers/recipe-api": {
       "entry": ["vitest.integration.config.ts", "scripts/**/*.ts"]
     },
+    "workers/recipe-ingest": {
+      "ignoreDependencies": ["cloudflare"]
+    },
     "ml-pipelines/recipe-dataset": {
       "entry": ["src/stages/*.mjs", "scripts/*.mjs"]
     },
