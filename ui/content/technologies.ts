@@ -896,4 +896,12 @@ export const technologies: TechnologyContent[] = [
     website: "https://gitleaks.io",
     type: "tool",
   },
+  {
+    name: "typos",
+    added: "2026-07-20",
+    description:
+      "Low-noise spell checker flagging known misspellings across code, docs, and content instead of everything outside a dictionary",
+    website: "https://github.com/crate-ci/typos",
+    type: "tool",
+  },
 ];

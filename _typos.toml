@@ -1,0 +1,20 @@
+# Config for the typos spell-checker (mise run //:lint:typos)
+
+[default.extend-words]
+# Legitimate words and proper nouns the dictionary would "correct"
+unparseable = "unparseable" # valid English; also a user-facing diagnostic string in recipe-parsing
+Hashi = "Hashi" # HashiCorp
+Juni = "Juni" # coding agent referenced in ADR 012
+Symetry = "Symetry" # SymetryML, streaming ML product
+Vertica = "Vertica" # Vertica analytics database
+SIE = "SIE" # split from the SIEM(s) acronym
+
+[files]
+extend-exclude = [
+    # Deliberate typo examples demonstrating fuzzy search ("machne" -> "machine")
+    "ui/content/projects/personal-site/adrs/022-fuse-js.mdx",
+    # The typos ADR quotes the misspellings it fixed
+    "ui/content/projects/personal-site/adrs/055-typos.mdx",
+    # Standalone design artifact full of encoded SVG/data strings
+    "ui/public/recipe-site-design/",
+]
