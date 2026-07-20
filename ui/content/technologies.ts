@@ -884,7 +884,7 @@ export const technologies: TechnologyContent[] = [
     name: "OpenSSF Scorecard",
     added: "2026-07-20",
     description:
-      "Weekly automated audit of repository security posture: branch protection, token permissions, pinned dependencies, and update hygiene",
+      "Automated audit of a repository's security posture: branch protection, token permissions, pinned dependencies, and update-tooling hygiene",
     website: "https://scorecard.dev",
     type: "tool",
   },
