@@ -45,15 +45,17 @@ pinned version:
 * `mise run //infra:lint:tflint` / `//infra-bootstrap:lint:tflint` tasks, wired
   into the root `lint` aggregate, each root's `check` aggregate, and lint-staged
   so a finding blocks the commit locally before it blocks the PR.
-* A dedicated `tflint` job in the Infrastructure CI workflow. It runs as a
-  **blocking** check (the actionlint role from ADR 049, not the Security-tab
-  role), because lint findings here are correctness issues to fix, not risk
-  findings to triage. The job needs no Terraform Cloud token and no
-  `production-infra` environment, so it also gives infra PRs a fast secrets-free
-  signal before the plan job runs.
+* A dedicated **TFLint CI** workflow, triggered by any `*.tf` or `.tflint.hcl`
+  change across the monorepo. It runs as a **blocking** check (the actionlint
+  role from ADR 049, not the Security-tab role), because lint findings here are
+  correctness issues to fix, not risk findings to triage. A separate workflow
+  rather than a job in Infrastructure CI keeps two properties: the lint needs no
+  Terraform Cloud token and no `production-infra` environment, and
+  `infra-bootstrap/`-only changes don't trigger a no-op plan of `infra/` behind
+  that environment's gate.
 
-The CI workflow now also triggers on `infra-bootstrap/**`, which previously had
-no pull-request check at all (its workflow is `workflow_dispatch`-only).
+This gives `infra-bootstrap/**` its first pull-request check of any kind (its
+own workflow is `workflow_dispatch`-only).
 
 # Why It Adds Something New
 
