@@ -33,7 +33,11 @@ run = "terraform validate"
 
 [tasks."lint:tflint"]
 description = "Lint Terraform with TFLint (provider-agnostic correctness rules)"
-run = "tflint --format compact"
+run = """
+#!/usr/bin/env bash
+# Lints the whole root; ignores file args appended by lint-staged
+tflint --format compact
+"""
 
 [tasks.precommit-lint]
 description = "Validate Terraform configuration (lightweight for pre-commit)"
