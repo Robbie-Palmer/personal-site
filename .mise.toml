@@ -23,6 +23,7 @@ verbose = false
 node = "lts"
 "github:pnpm/pnpm" = "11.15.0"
 terraform = "1.15.8"
+tflint = "0.64.0"
 actionlint = "1.7.12"
 zizmor = "1.26.1"
 
@@ -32,7 +33,7 @@ MISE_EXPERIMENTAL = "1"
 # Root-level tasks for repo-wide tooling
 [tasks.lint]
 description = "Lint all files across the entire repo"
-depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:actions", "//ui:lint", "//infra:lint", "//infra-bootstrap:lint"]
+depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:actions", "//ui:lint", "//infra:lint", "//infra:lint:tflint", "//infra-bootstrap:lint", "//infra-bootstrap:lint:tflint"]
 
 [tasks."lint:markdown"]
 description = "Lint and fix Markdown files (optionally pass files as args)"

@@ -4,15 +4,36 @@ on:
   pull_request:
     paths:
       - "infra/**"
+      - "infra-bootstrap/**"
       - ".github/workflows/infra-ci.yml"
 
-permissions:
-  contents: read
-  pull-requests: write
+permissions: {}
 
 jobs:
+  tflint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
+        with:
+          experimental: true
+
+      - name: Lint infra with TFLint
+        run: mise run //infra:lint:tflint
+
+      - name: Lint infra-bootstrap with TFLint
+        run: mise run //infra-bootstrap:lint:tflint
+
   terraform:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     environment:
       name: production-infra
     defaults:

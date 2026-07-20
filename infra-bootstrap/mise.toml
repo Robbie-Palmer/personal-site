@@ -31,6 +31,10 @@ description = "Validate bootstrap Terraform configuration"
 depends = ["//infra-bootstrap:init"]
 run = "terraform validate"
 
+[tasks."lint:tflint"]
+description = "Lint bootstrap Terraform with TFLint (provider-agnostic correctness rules)"
+run = "tflint --format compact"
+
 [tasks.precommit-lint]
 description = "Validate bootstrap Terraform configuration (lightweight for pre-commit)"
 run = """
@@ -52,4 +56,4 @@ run = "bash scripts/doppler-terraform-env terraform apply -auto-approve .planfil
 
 [tasks.check]
 description = "Run all bootstrap Terraform checks"
-depends = ["//infra-bootstrap:format:check", "//infra-bootstrap:lint", "//infra-bootstrap:plan"]
+depends = ["//infra-bootstrap:format:check", "//infra-bootstrap:lint", "//infra-bootstrap:lint:tflint", "//infra-bootstrap:plan"]
