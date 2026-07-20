@@ -7,6 +7,14 @@ on:
       - "**/*.mdx"
       - "**/*.yml"
       - "**/*.yaml"
+      # Code files: only the spelling step checks these, but without them a
+      # code-only PR would skip the typos gate entirely
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.js"
+      - "**/*.jsx"
+      - "**/*.mjs"
+      - "**/*.cjs"
       - ".github/workflows/lint-ci.yml"
       - ".mise.toml"
       - ".markdownlint.json"
