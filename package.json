@@ -26,11 +26,13 @@
     ],
     "infra/**/*.tf": [
       "mise run //infra:format",
-      "mise run //infra:precommit-lint"
+      "mise run //infra:precommit-lint",
+      "mise run //infra:lint:tflint"
     ],
     "infra-bootstrap/**/*.tf": [
       "mise run //infra-bootstrap:format",
-      "mise run //infra-bootstrap:precommit-lint"
+      "mise run //infra-bootstrap:precommit-lint",
+      "mise run //infra-bootstrap:lint:tflint"
     ],
     "**/*.md": [
       "mise run //:lint:markdown"

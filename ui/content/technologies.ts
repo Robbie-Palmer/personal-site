@@ -864,4 +864,12 @@ export const technologies: TechnologyContent[] = [
     website: "https://opentelemetry.io",
     type: "tool",
   },
+  {
+    name: "TFLint",
+    added: "2026-07-20",
+    description:
+      "Terraform linter catching what validate accepts: deprecated syntax, unused declarations, and missing version constraints",
+    website: "https://github.com/terraform-linters/tflint",
+    type: "tool",
+  },
 ];
