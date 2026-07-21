@@ -22,7 +22,9 @@ export async function listSourceImageKeys(
       `Unexpectedly many source objects for job ${jobId}; listing truncated`,
     );
   }
-  return listing.objects.map((object) => object.key).sort();
+  return listing.objects
+    .map((object) => object.key)
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 export async function loadImageDataUrls(
