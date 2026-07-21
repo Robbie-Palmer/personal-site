@@ -20,6 +20,10 @@ environment and a read-only Google service account. Its Workload Identity
 Provider accepts only `pull_request` tokens for this repository and environment;
 it cannot authenticate the main-only apply workflow.
 
+The GitHub environment requires reviewer approval before releasing its
+Terraform Cloud token. Review the PR's Terraform and workflow changes before
+approving the deployment.
+
 The environment needs:
 
 - `TF_API_TOKEN`

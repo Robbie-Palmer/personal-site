@@ -186,6 +186,10 @@ The GitHub environments are runtime/job boundaries, not provider names:
 | `production-database-backup` | `prd_database_backup` | Scheduled encrypted Neon backup |
 | `production-ci` | `prd_ci_repo` | AI review and ML pipeline CI |
 
+`production-infra-bootstrap-plan` must require environment approval before its
+Terraform Cloud token is released. The Google identity is read-only, but the
+token still permits the local Terraform process to read the bootstrap state.
+
 Run `scripts/sync-doppler-github-envs.sh` after any Doppler change that should
 reach GitHub Actions. The script reads Doppler visibility metadata: unmasked
 values become GitHub environment variables, while masked/restricted values
