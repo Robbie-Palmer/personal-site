@@ -15,6 +15,11 @@ The `.github/workflows/infra-bootstrap.yml` workflow uses the
 it for reviewing or applying changes to foundational IAM, identity trust, and
 provider bootstrap resources.
 
+Pull-request plans use the separate `production-infra-bootstrap-plan`
+environment and a read-only Google service account. Its Workload Identity
+Provider accepts only `pull_request` tokens for this repository and environment;
+it cannot authenticate the main-only apply workflow.
+
 The environment needs:
 
 - `TF_API_TOKEN`
@@ -26,6 +31,11 @@ The GCP values are identifiers for the current bootstrap resources, not
 secrets. Store them as unmasked Doppler values so
 `scripts/sync-doppler-github-envs.sh` publishes them as GitHub environment
 variables.
+
+The plan environment uses the same names, populated from the dedicated
+`prd_bootstrap_plan` Doppler config. `GCP_WORKLOAD_IDENTITY_PROVIDER` and
+`GCP_TERRAFORM_SERVICE_ACCOUNT` identify the plan-only provider and service
+account.
 
 ## Local Commands
 

@@ -50,7 +50,8 @@ locals {
     "sts.googleapis.com",
   ])
 
-  github_actions_principal = "principal://iam.googleapis.com/projects/${google_project.recipes.number}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.github_actions.workload_identity_pool_id}/subject/repo:${local.github_repository}:environment:production-infra-bootstrap"
+  github_actions_principal      = "principal://iam.googleapis.com/projects/${google_project.recipes.number}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.github_actions.workload_identity_pool_id}/subject/repo:${local.github_repository}:environment:production-infra-bootstrap"
+  github_actions_plan_principal = "principal://iam.googleapis.com/projects/${google_project.recipes.number}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.github_actions.workload_identity_pool_id}/subject/repo:${local.github_repository}:environment:production-infra-bootstrap-plan"
 }
 
 resource "google_project_service" "required" {
@@ -78,6 +79,23 @@ resource "google_project_iam_member" "github_terraform" {
   project = google_project.recipes.project_id
   role    = each.value
   member  = "serviceAccount:${google_service_account.github_terraform.email}"
+}
+
+resource "google_service_account" "github_terraform_plan" {
+  project      = google_project.recipes.project_id
+  account_id   = var.gcp_terraform_plan_service_account_id
+  display_name = "GitHub Actions read-only GCP Terraform plan"
+  description  = "Impersonated by pull-request bootstrap plans via Workload Identity Federation."
+
+  depends_on = [google_project_service.required]
+}
+
+resource "google_project_iam_member" "github_terraform_plan" {
+  for_each = var.gcp_terraform_plan_service_account_roles
+
+  project = google_project.recipes.project_id
+  role    = each.value
+  member  = "serviceAccount:${google_service_account.github_terraform_plan.email}"
 }
 
 resource "google_iam_workload_identity_pool" "github_actions" {
@@ -112,6 +130,28 @@ resource "google_iam_workload_identity_pool_provider" "bootstrap" {
   }
 }
 
+resource "google_iam_workload_identity_pool_provider" "bootstrap_plan" {
+  project                            = google_project.recipes.project_id
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github_actions.workload_identity_pool_id
+  workload_identity_pool_provider_id = var.gcp_github_workload_identity_plan_provider_id
+  display_name                       = "personal-site-bootstrap-plan"
+  description                        = "GitHub Actions OIDC provider for read-only bootstrap plans in ${local.github_repository}."
+
+  attribute_mapping = {
+    "google.subject"        = "assertion.sub"
+    "attribute.actor"       = "assertion.actor"
+    "attribute.environment" = "assertion.environment"
+    "attribute.repository"  = "assertion.repository"
+    "attribute.ref"         = "assertion.ref"
+  }
+
+  attribute_condition = "assertion.repository == '${local.github_repository}' && assertion.environment == 'production-infra-bootstrap-plan' && assertion.event_name == 'pull_request' && assertion.base_ref == 'refs/heads/main' && assertion.ref.startsWith('refs/pull/')"
+
+  oidc {
+    issuer_uri = "https://token.actions.githubusercontent.com"
+  }
+}
+
 moved {
   from = google_iam_workload_identity_pool_provider.gcp_infra
   to   = google_iam_workload_identity_pool_provider.bootstrap
@@ -121,4 +161,10 @@ resource "google_service_account_iam_member" "github_actions_workload_identity_u
   service_account_id = google_service_account.github_terraform.name
   role               = "roles/iam.workloadIdentityUser"
   member             = local.github_actions_principal
+}
+
+resource "google_service_account_iam_member" "github_actions_plan_workload_identity_user" {
+  service_account_id = google_service_account.github_terraform_plan.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = local.github_actions_plan_principal
 }

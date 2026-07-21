@@ -41,6 +41,7 @@ Configs are split by environment and runtime/control boundary:
 | `prd_recipe_ingest` | Production recipe ingest Worker LLM config | `production-recipe-ingest` |
 | `prd_infra` | Production Terraform/provider credentials | `production-infra` |
 | `prd_bootstrap_infra` | Production bootstrap Terraform credentials | `production-infra-bootstrap` |
+| `prd_bootstrap_plan` | Read-only bootstrap Terraform plan credentials | `production-infra-bootstrap-plan` |
 | `prd_database_backup` | Encrypted Neon-to-R2 backup credentials and public encryption recipient | `production-database-backup` |
 | `prd_ci_repo` | Repo-wide sensitive CI like AI review and DVC | `production-ci` |
 
@@ -181,6 +182,7 @@ The GitHub environments are runtime/job boundaries, not provider names:
 | `production-site-ui` | `prd_site_ui`, `prd_pages_env` | Production UI CI/CD and Cloudflare Images health check |
 | `production-infra` | `prd_infra` | Terraform CI/CD |
 | `production-infra-bootstrap` | `prd_bootstrap_infra` | Manual bootstrap Terraform |
+| `production-infra-bootstrap-plan` | `prd_bootstrap_plan` | Read-only bootstrap Terraform PR plans |
 | `production-database-backup` | `prd_database_backup` | Scheduled encrypted Neon backup |
 | `production-ci` | `prd_ci_repo` | AI review and ML pipeline CI |
 
@@ -281,6 +283,13 @@ runtime-specific Doppler config.
 - `GCP_TERRAFORM_SERVICE_ACCOUNT` (unmasked)
 - `TF_API_TOKEN`
 
+`prd_bootstrap_plan` should own:
+
+- `GCP_PROJECT_ID` (unmasked)
+- `GCP_WORKLOAD_IDENTITY_PROVIDER` (unmasked; PR-only provider)
+- `GCP_TERRAFORM_SERVICE_ACCOUNT` (unmasked; read-only plan identity)
+- `TF_API_TOKEN`
+
 `prd_database_backup` should own:
 
 - `AGE_RECIPIENT` (unmasked; public age recipient, never the private identity)
@@ -317,7 +326,9 @@ doppler secrets --project personal-site --config dev_pages_env --only-names
 doppler secrets --project personal-site --config dev_recipe_api --only-names
 doppler secrets --project personal-site --config dev_infra --only-names
 doppler secrets --project personal-site --config dev_bootstrap_infra --only-names
+doppler secrets --project personal-site --config prd_bootstrap_plan --only-names
 doppler secrets --project personal-site --config prd_database_backup --only-names
+scripts/sync-doppler-github-envs.sh production-infra-bootstrap-plan
 scripts/sync-doppler-github-envs.sh production-database-backup
 
 mise run //:dev
