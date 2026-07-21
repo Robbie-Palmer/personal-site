@@ -10,10 +10,11 @@ deployments.
 
 ## GitHub Actions
 
-The `.github/workflows/infra-bootstrap.yml` workflow uses the
-`production-infra-bootstrap` environment and runs only by manual dispatch. Use
-it for reviewing or applying changes to foundational IAM, identity trust, and
-provider bootstrap resources.
+The `.github/workflows/infra-bootstrap-ci.yml` workflow plans pull requests that
+change this root. The `.github/workflows/infra-bootstrap.yml` workflow runs by
+manual dispatch and can apply the reviewed plan. Both use the
+`production-infra-bootstrap` environment for foundational IAM, identity trust,
+and provider bootstrap resources.
 
 The environment needs:
 
