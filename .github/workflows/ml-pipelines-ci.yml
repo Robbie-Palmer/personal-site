@@ -46,7 +46,7 @@ jobs:
         # Pin the resolved version and install wheels only, so no source-package
         # setup scripts run during dependency installation. Renovate keeps the
         # pin current.
-        run: pip install --only-binary :all: 'dvc[s3]==3.67.1'
+        run: "pip install --only-binary :all: 'dvc[s3]==3.67.1'"
 
       - name: Validate DVC remote
         run: dvc pull
