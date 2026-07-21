@@ -45,8 +45,11 @@ jobs:
       - name: Install DVC
         # Pin the resolved version and install wheels only, so no source-package
         # setup scripts run during dependency installation. Renovate keeps the
-        # pin current.
-        run: "pip install --only-binary :all: 'dvc[s3]==3.67.1'"
+        # pin current. antlr4-python3-runtime (pulled in transitively via
+        # hydra-core, which pins it to 4.9.*) publishes no wheel for that range,
+        # so it is the sole allowed source build; it is a trivial pure-Python
+        # package. Quotes keep the ":all:" colon from parsing as YAML.
+        run: "pip install --only-binary :all: --no-binary antlr4-python3-runtime 'dvc[s3]==3.67.1'"
 
       - name: Validate DVC remote
         run: dvc pull
