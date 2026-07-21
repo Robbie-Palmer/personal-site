@@ -245,7 +245,7 @@ async function main() {
     if (matches.length === 0) {
       const available = extractionPredictions.entries
         .map((entry) => entry.images.join(", "))
-        .sort()
+        .sort((a, b) => a.localeCompare(b))
         .join("\n  - ");
       throw new Error(
         `No entry matched NORMALIZE_TARGET_IMAGES=${targetImages.join(", ")}.\nAvailable image sets:\n  - ${available}`,
