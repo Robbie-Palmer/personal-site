@@ -36,13 +36,18 @@ else
     exit 1
   fi
 
+  # Generate a throwaway password per run so no credential is hardcoded. The
+  # container is disposable, published only on loopback, and removed on exit,
+  # but keeping the secret out of source avoids it ever being reused elsewhere.
+  db_password="$(head -c 24 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9')"
+
   # Set the exact cleanup target before Docker starts, so an interrupt between
   # container creation and ID capture cannot leave the labelled container behind.
   container_name="personal-site-recipe-api-integration-$BASHPID"
   container_id=$(docker run --detach --rm \
     --name "$container_name" \
     --env POSTGRES_DB=recipes_integration \
-    --env POSTGRES_PASSWORD=integration-password \
+    --env POSTGRES_PASSWORD="$db_password" \
     --label personal-site.recipe-api-integration=true \
     --publish 127.0.0.1::5432 \
     postgres:17-alpine)
@@ -71,7 +76,7 @@ else
     echo "Could not determine the disposable PostgreSQL port." >&2
     exit 1
   fi
-  export DATABASE_URL="postgresql://postgres:integration-password@127.0.0.1:${published_port}/recipes_integration"
+  export DATABASE_URL="postgresql://postgres:${db_password}@127.0.0.1:${published_port}/recipes_integration"
 fi
 
 pnpm db:migrate
