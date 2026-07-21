@@ -46,7 +46,7 @@ jobs:
           restore-keys: pnpm-store-${{ runner.os }}-
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile --filter recipe-ingest...
+        run: pnpm install --frozen-lockfile --ignore-scripts --filter recipe-ingest...
 
       - name: Typecheck
         run: pnpm typecheck
