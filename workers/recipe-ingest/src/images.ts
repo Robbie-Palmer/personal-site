@@ -24,7 +24,7 @@ export async function listSourceImageKeys(
   }
   return listing.objects
     .map((object) => object.key)
-    .sort((a, b) => a.localeCompare(b));
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 export async function loadImageDataUrls(

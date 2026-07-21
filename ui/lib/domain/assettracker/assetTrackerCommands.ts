@@ -356,7 +356,7 @@ export function applyMaterializeFlow(
   const lastRecorded = data.transfers
     .filter((t) => t.flowId === flow.id)
     .map((t) => t.date)
-    .sort((a, b) => a.localeCompare(b))
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
     .at(-1);
   const dates = flowOccurrenceDates(flow, parsed.throughDate, lastRecorded);
 
