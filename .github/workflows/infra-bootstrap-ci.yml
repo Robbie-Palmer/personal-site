@@ -16,7 +16,7 @@ jobs:
       id-token: write
       pull-requests: write
     environment:
-      name: production-infra-bootstrap
+      name: production-infra-bootstrap-plan
     defaults:
       run:
         working-directory: infra-bootstrap
@@ -45,7 +45,7 @@ jobs:
       - name: Terraform Plan
         run: mise run //infra-bootstrap:plan
         env:
-          DOPPLER_BOOTSTRAP_INFRA_CONFIG: prd_bootstrap_infra
+          DOPPLER_BOOTSTRAP_INFRA_CONFIG: prd_bootstrap_plan
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
           TF_VAR_gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
 
