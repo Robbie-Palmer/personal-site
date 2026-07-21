@@ -6,6 +6,17 @@
   ],
   "dependencyDashboard": true,
   "minimumReleaseAge": "7 days",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track pip packages pinned in workflow run steps (e.g. dvc[s3]==x.y.z)",
+      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": [
+        "pip install[^']*'(?<depName>[a-zA-Z0-9._-]+)(?:\\[[a-zA-Z0-9,_-]+\\])?==(?<currentValue>[0-9][^']+)'"
+      ],
+      "datasourceTemplate": "pypi"
+    }
+  ],
   "lockFileMaintenance": {
     "enabled": true,
     "automerge": true
