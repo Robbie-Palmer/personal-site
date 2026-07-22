@@ -25,10 +25,9 @@ import {
   getProjectADR,
   type ProjectWithADRs,
 } from "@/lib/api/projects";
-import {
-  getAllRecipes,
-  getRecipeBySlug,
-  type RecipeDetailView,
+import type {
+  RecipeCardView,
+  RecipeDetailView,
 } from "@/lib/api/recipes";
 import { siteConfig } from "@/lib/config/site-config";
 import {
@@ -351,7 +350,7 @@ function buildRecipePage(recipe: RecipeDetailView): GeneratedPage {
 }
 
 function buildRecipesIndexPage(
-  recipes: ReturnType<typeof getAllRecipes>,
+  recipes: RecipeCardView[],
 ): GeneratedPage {
   return {
     htmlPath: "/recipes",
@@ -493,7 +492,7 @@ function buildHomePage(): GeneratedPage {
 function buildLlmsTxt(
   projects: ProjectWithADRs[],
   posts: ReturnType<typeof getAllPosts>,
-  recipes: ReturnType<typeof getAllRecipes>,
+  recipes: RecipeCardView[],
   technologyPages: GeneratedPage[],
 ): string {
   const lines = [
@@ -635,8 +634,9 @@ function main(): void {
   const projects = getAllProjects();
   const posts = getAllPosts();
   const philosophy = getBuildingPhilosophy();
-  const recipes = getAllRecipes();
-  const recipeDetails = recipes.map((recipe) => getRecipeBySlug(recipe.slug));
+  // Recipes are database-backed and served dynamically by the Pages Function.
+  const recipes: RecipeCardView[] = [];
+  const recipeDetails: RecipeDetailView[] = [];
   const technologyPages = buildTechnologyPages(projects);
 
   const pages: GeneratedPage[] = [

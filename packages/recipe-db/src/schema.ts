@@ -453,11 +453,7 @@ export const userDietExcludedIngredient = pgTable(
   ],
 );
 
-/**
- * The static recipes a user has chosen for their personal recipe box. The
- * recipe content remains in the versioned Cooklang catalog; this table only
- * stores the user's selection so the same recipe can be used by many people.
- */
+/** Public recipes a user has chosen alongside recipes they own. */
 export const userRecipeBox = pgTable("user_recipe_box", {
   userId: text()
     .primaryKey()

@@ -180,7 +180,7 @@ describe("recipe API PostgreSQL integration", () => {
 
     const boxResponse = await authenticatedRequest(cook, "/api/profile/recipe-box", {
       method: "PUT",
-      body: { staticRecipeSlugs: ["breakfast-flatbreads"] },
+      body: { recipeSlugs: ["breakfast-flatbreads"] },
     });
     expect(boxResponse.status).toBe(200);
 

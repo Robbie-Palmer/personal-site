@@ -8,6 +8,7 @@ import {
 import Link from "next/link";
 import { AuthButton } from "@/components/recipes/auth-button";
 import { RecipeThumb, recipeMetaLabel } from "@/components/recipes/recipe-card";
+import { RecipeList } from "@/components/recipes/recipe-list";
 import type { RecipeCardView } from "@/lib/api/recipes";
 
 const steps = [
@@ -126,6 +127,19 @@ export function LoggedOutLanding({
             </Link>
           </div>
         </div>
+      </section>
+
+      <section className="container mx-auto max-w-7xl px-4 py-10 sm:py-12 lg:py-14">
+        <div className="mb-7 max-w-2xl">
+          <p className="rt-mono text-[var(--terracotta)]">Public recipes</p>
+          <h2 className="rt-display mt-3 text-5xl sm:text-6xl">
+            Browse the whole collection.
+          </h2>
+          <p className="rt-body mt-3 text-[var(--ink-2)]">
+            Every public recipe is here to search, filter and cook.
+          </p>
+        </div>
+        <RecipeList recipes={recipes} />
       </section>
 
       <section

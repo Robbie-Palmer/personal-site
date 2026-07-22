@@ -107,7 +107,7 @@ function completedTimerIdsKey(timers: readonly CookingTimer[]): string {
 /**
  * Link back to the timer's recipe, deep-linking straight into cook mode at the
  * step that started it when we know which step that was. Slug is encoded as
- * defense-in-depth even though recipe slugs are build-time safe. Null for
+ * defense-in-depth even though recipe slugs are API-validated. Null for
  * free-standing custom timers, which have no recipe to return to.
  */
 function timerHref(timer: CookingTimer): string | null {

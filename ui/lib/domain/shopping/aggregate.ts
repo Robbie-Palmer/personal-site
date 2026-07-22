@@ -3,9 +3,6 @@ import type {
   IngredientCategory,
   IngredientSlug,
 } from "@/lib/domain/recipe/ingredient";
-// Import from the specific unit module, not the domain barrel: the barrel
-// re-exports recipeRepository → cooklang → Node fs/url, which must never reach
-// the client bundle (this module is used by the client shopping list).
 import {
   convertUnit,
   getUnitDimension,

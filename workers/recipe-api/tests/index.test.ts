@@ -2294,6 +2294,7 @@ describe("profile recipe box", () => {
     const initial = await app.request("/api/profile/recipe-box", {}, env);
     expect(await initial.json()).toEqual({
       completed: false,
+      recipeSlugs: [],
       staticRecipeSlugs: [],
     });
 
@@ -2305,7 +2306,7 @@ describe("profile recipe box", () => {
           "content-type": "application/json",
           origin: "http://localhost:3000",
         },
-        body: JSON.stringify({ staticRecipeSlugs: [] }),
+        body: JSON.stringify({ recipeSlugs: [] }),
       },
       env,
     );
@@ -2313,11 +2314,12 @@ describe("profile recipe box", () => {
     expect(saved.status).toBe(200);
     expect(await saved.json()).toEqual({
       completed: true,
+      recipeSlugs: [],
       staticRecipeSlugs: [],
     });
   });
 
-  it("deduplicates and replaces selected static recipes", async () => {
+  it("deduplicates and replaces selected recipes", async () => {
     authzMock.session = sessionFor({
       id: "owner-user",
       email: "owner@example.test",
@@ -2333,7 +2335,7 @@ describe("profile recipe box", () => {
           origin: "http://localhost:3000",
         },
         body: JSON.stringify({
-          staticRecipeSlugs: ["lentil-soup", "overnight-pizza", "lentil-soup"],
+          recipeSlugs: ["lentil-soup", "overnight-pizza", "lentil-soup"],
         }),
       },
       env,
@@ -2346,13 +2348,14 @@ describe("profile recipe box", () => {
           "content-type": "application/json",
           origin: "http://localhost:3000",
         },
-        body: JSON.stringify({ staticRecipeSlugs: ["breakfast-flatbreads"] }),
+        body: JSON.stringify({ recipeSlugs: ["breakfast-flatbreads"] }),
       },
       env,
     );
 
     expect(await updated.json()).toEqual({
       completed: true,
+      recipeSlugs: ["breakfast-flatbreads"],
       staticRecipeSlugs: ["breakfast-flatbreads"],
     });
     expect(dbMock.state.recipeBoxItems).toEqual([

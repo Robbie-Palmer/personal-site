@@ -177,7 +177,7 @@ export function savedRecipeCard(
     ...recipe,
     ingredientNames,
     ingredientSlugs,
-    href: `/recipes/saved?slug=${encodeURIComponent(record.slug)}`,
+    href: `/recipes/${encodeURIComponent(record.slug)}`,
     saved: true,
   };
 }

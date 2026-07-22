@@ -1,84 +1,93 @@
+import { ingredients as definedIngredients } from "@/content/recipes/ingredients";
+import type { IngredientCategory } from "@/lib/domain/recipe/ingredient";
+import { resolveIngredientSlug } from "@/lib/domain/recipe/ingredient";
+import type {
+  KitchenIngredientView,
+  KitchenRecipeView,
+} from "@/lib/domain/recipe/kitchen";
 import {
-  compareRecipesByDateAndSlug,
-  getAllRecipeCards,
-  getRecipeDetail,
-  getRecipeNeighbors,
-  type IngredientSlug,
-  type KitchenIngredientView,
-  type KitchenRecipeView,
-  loadRecipeRepository,
-  type RecipeCardView,
-  type RecipeDetailView,
-  toKitchenIngredientView,
-} from "@/lib/domain/recipe";
-
-const repository = loadRecipeRepository();
+  parseSavedRecipe,
+  type SavedRecipeApiRecord,
+  savedRecipeCard,
+} from "@/lib/domain/recipe/recipeDraft";
+import type {
+  RecipeCardView,
+  RecipeDetailView,
+} from "@/lib/domain/recipe/recipeViews";
 
 export type { RecipeCardView, RecipeDetailView };
 
-export function getAllRecipeSlugs(): string[] {
-  return Array.from(repository.recipes.keys());
+export function recipeRecordsToCards(
+  records: SavedRecipeApiRecord[],
+): RecipeCardView[] {
+  return records
+    .flatMap((record) => {
+      const card = savedRecipeCard(record);
+      return card ? [card] : [];
+    })
+    .sort(
+      (left, right) =>
+        right.date.localeCompare(left.date) ||
+        left.slug.localeCompare(right.slug),
+    );
 }
 
-export function getRecipeBySlug(slug: string): RecipeDetailView {
-  const recipe = getRecipeDetail(repository, slug);
-  if (!recipe) {
-    throw new Error(`Recipe not found: ${slug}`);
-  }
-  return recipe;
+export function recipeRecordsToDetails(
+  records: SavedRecipeApiRecord[],
+): RecipeDetailView[] {
+  return records.flatMap((record) => {
+    const recipe = parseSavedRecipe(record);
+    return recipe ? [recipe] : [];
+  });
 }
 
-export function getAllRecipes(): RecipeCardView[] {
-  return getAllRecipeCards(repository).sort(compareRecipesByDateAndSlug);
-}
-
-export function getKitchenIngredients(): KitchenIngredientView[] {
-  return Array.from(repository.ingredients.values())
-    .map(toKitchenIngredientView)
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
-
-export function getKitchenRecipes(): KitchenRecipeView[] {
-  return Array.from(repository.recipes.values())
-    .sort(compareRecipesByDateAndSlug)
-    .map((recipe) => {
-      const ingredientsBySlug = new Map<
-        IngredientSlug,
-        KitchenRecipeView["ingredients"][number]
-      >();
-
-      for (const group of recipe.ingredientGroups) {
-        for (const item of group.items) {
-          const ingredient = repository.ingredients.get(item.ingredient);
-          ingredientsBySlug.set(item.ingredient, {
-            slug: item.ingredient,
-            name: ingredient?.name ?? item.ingredient,
-          });
-        }
-      }
-
-      const totalTime =
-        recipe.prepTime != null && recipe.cookTime != null
-          ? recipe.prepTime + recipe.cookTime
-          : (recipe.prepTime ?? recipe.cookTime);
-
-      return {
-        slug: recipe.slug,
-        title: recipe.title,
-        cuisine: recipe.cuisine,
-        totalTime,
-        image: recipe.image,
-        imageAlt: recipe.imageAlt,
-        ingredients: Array.from(ingredientsBySlug.values()).sort((a, b) =>
-          a.name.localeCompare(b.name),
-        ),
-      };
-    });
-}
-
-export function getRecipeNavigation(slug: string): {
-  prevRecipe?: RecipeCardView;
-  nextRecipe?: RecipeCardView;
+export function buildKitchenCatalog(records: SavedRecipeApiRecord[]): {
+  ingredients: KitchenIngredientView[];
+  recipes: KitchenRecipeView[];
 } {
-  return getRecipeNeighbors(repository, slug);
+  const details = recipeRecordsToDetails(records);
+  const ingredientCategories = new Map(
+    definedIngredients.map((ingredient) => [
+      resolveIngredientSlug(ingredient),
+      ingredient.category as IngredientCategory,
+    ]),
+  );
+  const ingredients = new Map<string, KitchenIngredientView>();
+  const recipes = details.map((recipe): KitchenRecipeView => {
+    const recipeIngredients = new Map<
+      string,
+      KitchenRecipeView["ingredients"][number]
+    >();
+    for (const group of recipe.ingredientGroups) {
+      for (const item of group.items) {
+        recipeIngredients.set(item.ingredient, {
+          slug: item.ingredient,
+          name: item.name,
+        });
+        ingredients.set(item.ingredient, {
+          slug: item.ingredient,
+          name: item.name,
+          category: ingredientCategories.get(item.ingredient),
+        });
+      }
+    }
+    return {
+      slug: recipe.slug,
+      title: recipe.title,
+      cuisine: recipe.cuisine,
+      totalTime: recipe.totalTime,
+      image: recipe.image,
+      imageAlt: recipe.imageAlt,
+      ingredients: Array.from(recipeIngredients.values()).sort((left, right) =>
+        left.name.localeCompare(right.name),
+      ),
+    };
+  });
+
+  return {
+    ingredients: Array.from(ingredients.values()).sort((left, right) =>
+      left.name.localeCompare(right.name),
+    ),
+    recipes,
+  };
 }

@@ -1,6 +1,6 @@
 export type RecipeBoxProfile = {
   completed: boolean;
-  staticRecipeSlugs: string[];
+  recipeSlugs: string[];
 };
 
 async function parseRecipeBoxResponse(response: Response) {
@@ -10,7 +10,13 @@ async function parseRecipeBoxResponse(response: Response) {
     } | null;
     throw new Error(body?.error ?? "Recipe box request failed.");
   }
-  return response.json() as Promise<RecipeBoxProfile>;
+  const body = (await response.json()) as RecipeBoxProfile & {
+    staticRecipeSlugs?: string[];
+  };
+  return {
+    completed: body.completed,
+    recipeSlugs: body.recipeSlugs ?? body.staticRecipeSlugs ?? [],
+  };
 }
 
 export async function getRecipeBoxProfile(signal?: AbortSignal) {
@@ -22,13 +28,13 @@ export async function getRecipeBoxProfile(signal?: AbortSignal) {
   );
 }
 
-export async function saveRecipeBoxProfile(staticRecipeSlugs: string[]) {
+export async function saveRecipeBoxProfile(recipeSlugs: string[]) {
   return parseRecipeBoxResponse(
     await fetch("/api/profile/recipe-box", {
       method: "PUT",
       credentials: "same-origin",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ staticRecipeSlugs }),
+      body: JSON.stringify({ recipeSlugs }),
     }),
   );
 }

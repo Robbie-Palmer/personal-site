@@ -22,10 +22,14 @@ type State =
     };
 
 export function SavedRecipeView() {
-  const slug = useSearchParams().get("slug");
+  const searchSlug = useSearchParams().get("slug");
   const [state, setState] = useState<State>({ status: "loading" });
 
   useEffect(() => {
+    const pathSlug = window.location.pathname.match(
+      /^\/recipes\/([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/,
+    )?.[1];
+    const slug = searchSlug ?? pathSlug;
     if (
       !slug ||
       slug.length > 120 ||
@@ -69,7 +73,7 @@ export function SavedRecipeView() {
         });
       });
     return () => controller.abort();
-  }, [slug]);
+  }, [searchSlug]);
 
   if (state.status === "loading") {
     return (

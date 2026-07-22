@@ -5,12 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useDiet } from "@/components/recipes/diet-provider";
 import { RecipeList } from "@/components/recipes/recipe-list";
 import { CardGridSkeleton } from "@/components/ui/card-grid-skeleton";
-import {
-  getRecipeBoxProfile,
-  type RecipeBoxProfile,
-} from "@/lib/api/recipe-box";
-import type { RecipeCardView } from "@/lib/api/recipes";
-import { fetchAllSavedRecipes } from "@/lib/api/saved-recipes";
+import type { RecipeBoxProfile } from "@/lib/api/recipe-box";
+import { fetchRecipeBoxRecipes } from "@/lib/api/saved-recipes";
 import { authClient } from "@/lib/auth-client";
 import {
   type SavedRecipeApiRecord,
@@ -26,10 +22,8 @@ type RecipeCollectionState = {
 };
 
 export function RecipeCollection({
-  recipes,
   onDietVisibleCountChange,
 }: Readonly<{
-  recipes: RecipeCardView[];
   onDietVisibleCountChange?: (count: number) => void;
 }>) {
   const { data: session, isPending } = authClient.useSession();
@@ -64,32 +58,29 @@ export function RecipeCollection({
       box: null,
       loadError: null,
     });
-    void Promise.allSettled([
-      fetchAllSavedRecipes({ signal: controller.signal }),
-      getRecipeBoxProfile(controller.signal),
-    ]).then(([savedResult, boxResult]) => {
-      if (controller.signal.aborted) return;
-      const errors = [savedResult, boxResult].flatMap((result) =>
-        result.status === "rejected" ? [result.reason] : [],
-      );
-      const nonAbortErrors = errors.filter(
-        (error) =>
-          !(error instanceof DOMException && error.name === "AbortError"),
-      );
-      if (nonAbortErrors.length > 0) {
-        console.error("Failed to load some recipe box data", nonAbortErrors);
-      }
-      setState({
-        userId,
-        status: "ready",
-        saved: savedResult.status === "fulfilled" ? savedResult.value : [],
-        box: boxResult.status === "fulfilled" ? boxResult.value : null,
-        loadError:
-          nonAbortErrors.length > 0
-            ? "Some recipe box data could not be loaded. Available recipes are still shown."
-            : null,
+    void fetchRecipeBoxRecipes(controller.signal)
+      .then(({ recipes, box }) => {
+        if (controller.signal.aborted) return;
+        setState({
+          userId,
+          status: "ready",
+          saved: recipes,
+          box,
+          loadError: null,
+        });
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+        console.error("Failed to load recipe box data", error);
+        setState({
+          userId,
+          status: "ready",
+          saved: [],
+          box: null,
+          loadError: "Your recipe box could not be loaded.",
+        });
       });
-    });
     return () => controller.abort();
   }, [isPending, sessionUserId]);
 
@@ -102,24 +93,14 @@ export function RecipeCollection({
   const box = stateMatchesSession ? state.box : null;
   const loadError = stateMatchesSession ? state.loadError : null;
 
-  const combined = useMemo(() => {
-    const dynamic = saved.flatMap((record) => {
-      const card = savedRecipeCard(record);
-      return card ? [card] : [];
-    });
-    const dynamicSlugs = new Set(dynamic.map((recipe) => recipe.slug));
-    const selectedStaticSlugs = box?.completed
-      ? new Set(box.staticRecipeSlugs)
-      : null;
-    return [
-      ...dynamic,
-      ...recipes.filter(
-        (recipe) =>
-          !dynamicSlugs.has(recipe.slug) &&
-          (!selectedStaticSlugs || selectedStaticSlugs.has(recipe.slug)),
-      ),
-    ];
-  }, [box, recipes, saved]);
+  const combined = useMemo(
+    () =>
+      saved.flatMap((record) => {
+        const card = savedRecipeCard(record);
+        return card ? [card] : [];
+      }),
+    [saved],
+  );
 
   if (isPending || personalizationLoading) {
     return (

@@ -146,12 +146,19 @@ const uniqueDietKeysSchema = z
 
 const recipeBoxBodySchema = z
   .object({
-    staticRecipeSlugs: z
-      .array(recipeSlugSchema)
-      .max(100)
-      .transform((values) => Array.from(new Set(values))),
+    recipeSlugs: z.array(recipeSlugSchema).max(100).optional(),
+    // Temporary deploy-order compatibility for the previous static catalog UI.
+    staticRecipeSlugs: z.array(recipeSlugSchema).max(100).optional(),
   })
-  .strict();
+  .strict()
+  .refine((body) => body.recipeSlugs || body.staticRecipeSlugs, {
+    message: "recipeSlugs is required",
+  })
+  .transform((body) => ({
+    recipeSlugs: Array.from(
+      new Set(body.recipeSlugs ?? body.staticRecipeSlugs ?? []),
+    ),
+  }));
 
 const MAX_RECIPE_BODY_BYTES = 100_000;
 const savedRecipePayloadSchema = z
@@ -311,11 +318,14 @@ async function recipeBoxResponse(db: Db, userId: string) {
       .where(eq(schema.userRecipeBoxItem.userId, userId)),
   ]);
 
+  const recipeSlugs = items
+    .map((item) => item.recipeSlug)
+    .sort((first, second) => first.localeCompare(second));
   return {
     completed: Boolean(profile[0]),
-    staticRecipeSlugs: items
-      .map((item) => item.recipeSlug)
-      .sort((first, second) => first.localeCompare(second)),
+    recipeSlugs,
+    // Remove after the Postgres-backed UI has been deployed everywhere.
+    staticRecipeSlugs: recipeSlugs,
   };
 }
 
@@ -1633,9 +1643,9 @@ app.put("/api/profile/recipe-box", async (c) => {
         await tx
           .delete(schema.userRecipeBoxItem)
           .where(eq(schema.userRecipeBoxItem.userId, session.user.id));
-        if (body.data.staticRecipeSlugs.length > 0) {
+        if (body.data.recipeSlugs.length > 0) {
           await tx.insert(schema.userRecipeBoxItem).values(
-            body.data.staticRecipeSlugs.map((recipeSlug) => ({
+            body.data.recipeSlugs.map((recipeSlug) => ({
               userId: session.user.id,
               recipeSlug,
             })),

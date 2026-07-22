@@ -41,7 +41,7 @@ describe("RecipeBoxView", () => {
 
   it("hides the previous user's count as soon as the account changes", async () => {
     const user = userEvent.setup();
-    const view = render(<RecipeBoxView recipes={[]} catalogStats={[]} />);
+    const view = render(<RecipeBoxView />);
 
     await user.click(
       screen.getByRole("button", { name: "Report visible recipes" }),
@@ -52,7 +52,7 @@ describe("RecipeBoxView", () => {
       data: { user: { id: "user-2" } },
       isPending: false,
     };
-    view.rerender(<RecipeBoxView recipes={[]} catalogStats={[]} />);
+    view.rerender(<RecipeBoxView />);
 
     expect(screen.queryByText("7 recipes")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Loading recipe count")).toBeInTheDocument();

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   useSession: vi.fn(),
+  fetchAllSavedRecipes: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -21,6 +22,14 @@ vi.mock("@/components/recipes/recipe-home-skeleton", () => ({
   RecipeHomeSkeleton: () => <div>Neutral recipe shell</div>,
 }));
 
+vi.mock("@/lib/api/saved-recipes", () => ({
+  fetchAllSavedRecipes: mocks.fetchAllSavedRecipes,
+}));
+
+vi.mock("@/lib/api/recipes", () => ({
+  recipeRecordsToCards: () => [],
+}));
+
 import { RecipeHome } from "@/components/recipes/recipe-home";
 
 describe("RecipeHome", () => {
@@ -29,12 +38,12 @@ describe("RecipeHome", () => {
     document.title = "";
   });
 
-  it("shows the public landing page to logged-out visitors", () => {
+  it("shows the public landing page to logged-out visitors", async () => {
     mocks.useSession.mockReturnValue({ data: null, isPending: false });
 
-    render(<RecipeHome recipes={[]} catalogStats={[]} />);
+    render(<RecipeHome />);
 
-    expect(screen.getByText("Public landing")).toBeInTheDocument();
+    expect(await screen.findByText("Public landing")).toBeInTheDocument();
     expect(screen.queryByText("Your recipe box")).not.toBeInTheDocument();
   });
 
@@ -44,7 +53,7 @@ describe("RecipeHome", () => {
       isPending: false,
     });
 
-    render(<RecipeHome recipes={[]} catalogStats={[]} />);
+    render(<RecipeHome />);
 
     expect(screen.getByText("Your recipe box")).toBeInTheDocument();
     expect(screen.queryByText("Public landing")).not.toBeInTheDocument();
@@ -54,7 +63,7 @@ describe("RecipeHome", () => {
   it("renders a neutral shell while the session is loading", () => {
     mocks.useSession.mockReturnValue({ data: null, isPending: true });
 
-    render(<RecipeHome recipes={[]} catalogStats={[]} />);
+    render(<RecipeHome />);
 
     expect(screen.getByText("Neutral recipe shell")).toBeInTheDocument();
     expect(screen.queryByText("Public landing")).not.toBeInTheDocument();

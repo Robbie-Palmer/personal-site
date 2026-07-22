@@ -1,20 +1,12 @@
 import type { Metadata } from "next";
-import { KitchenView } from "@/components/recipes/kitchen/kitchen-view";
-import { getKitchenIngredients, getKitchenRecipes } from "@/lib/api/recipes";
+import { RecipeKitchen } from "@/components/recipes/kitchen/recipe-kitchen";
 
 export const metadata: Metadata = {
   title: "Kitchen",
   description: "Track what is in your kitchen and find recipes you can make.",
-  robots: {
-    index: false,
-  },
+  robots: { index: false },
 };
 
 export default function KitchenPage() {
-  return (
-    <KitchenView
-      ingredients={getKitchenIngredients()}
-      recipes={getKitchenRecipes()}
-    />
-  );
+  return <RecipeKitchen />;
 }

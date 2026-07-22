@@ -5,7 +5,6 @@ import { AddRecipeButton } from "@/components/recipes/add-recipe-button";
 import { RecipeCollection } from "@/components/recipes/recipe-collection";
 import { CardGridSkeleton } from "@/components/ui/card-grid-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { RecipeCardView } from "@/lib/api/recipes";
 import { authClient } from "@/lib/auth-client";
 
 type VisibleRecipeCountState = {
@@ -19,13 +18,7 @@ function formatRecipeCount(count: number | null) {
   return `${count.toLocaleString()} ${label}`;
 }
 
-export function RecipeBoxView({
-  recipes,
-  catalogStats,
-}: Readonly<{
-  recipes: RecipeCardView[];
-  catalogStats: string[];
-}>) {
+export function RecipeBoxView() {
   const { data: session, isPending } = authClient.useSession();
   const sessionUserId = session?.user.id ?? null;
   const [countState, setCountState] = useState<VisibleRecipeCountState | null>(
@@ -40,9 +33,6 @@ export function RecipeBoxView({
       ? countState.count
       : null;
   const recipeCountLabel = formatRecipeCount(visibleRecipeCount);
-  const stats = recipeCountLabel
-    ? [recipeCountLabel, ...catalogStats]
-    : catalogStats;
 
   return (
     <div className="container mx-auto min-h-screen max-w-7xl px-4 pt-5 pb-10 md:pt-7 md:pb-14">
@@ -59,12 +49,9 @@ export function RecipeBoxView({
                 className="h-5 w-52"
               />
             ) : (
-              stats.map((stat, index) => (
+              [recipeCountLabel].map((stat) => (
                 <span key={stat} className="whitespace-nowrap">
                   {stat}
-                  {index < stats.length - 1 && (
-                    <span className="text-[var(--ink-3)]"> ·</span>
-                  )}
                 </span>
               ))
             )}
@@ -74,10 +61,7 @@ export function RecipeBoxView({
       </div>
 
       <Suspense fallback={<CardGridSkeleton variant="filters" />}>
-        <RecipeCollection
-          recipes={recipes}
-          onDietVisibleCountChange={updateVisibleRecipeCount}
-        />
+        <RecipeCollection onDietVisibleCountChange={updateVisibleRecipeCount} />
       </Suspense>
     </div>
   );
