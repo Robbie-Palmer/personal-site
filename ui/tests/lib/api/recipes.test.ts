@@ -53,9 +53,9 @@ describe("saved recipe API adapters", () => {
     const newer = recipeRecord("newer", "Newer", "2026-07-22");
     const invalid = { ...newer, slug: "invalid", body: null };
 
-    expect(
-      recipeRecordsToCards([older, invalid, newer]).map(({ slug }) => slug),
-    ).toEqual(["newer", "older"]);
+    const cards = recipeRecordsToCards([older, invalid, newer]);
+    expect(cards.map(({ slug }) => slug)).toEqual(["newer", "older"]);
+    expect(cards.every((card) => card.saved === undefined)).toBe(true);
     expect(
       recipeRecordsToDetails([invalid, newer]).map(({ slug }) => slug),
     ).toEqual(["newer"]);

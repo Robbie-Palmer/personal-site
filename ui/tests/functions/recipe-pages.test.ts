@@ -201,8 +201,8 @@ describe("dynamic recipe pages", () => {
         body: JSON.stringify(escapedPayload),
       }),
     ) as typeof fetch;
-    const assetFetch = vi.fn(
-      async () =>
+    const assetFetchMock = vi.fn(
+      async (_request: Request) =>
         new Response(
           '<html><head><title>Saved Recipe</title><meta name="description" content="Saved"><meta name="robots" content="noindex"></head><body></body></html>',
           {
@@ -210,16 +210,23 @@ describe("dynamic recipe pages", () => {
             headers: {
               "content-length": "999",
               "content-encoding": "gzip",
+              etag: '"shell-v1"',
+              "last-modified": "Wed, 22 Jul 2026 12:00:00 GMT",
               "x-asset": "saved-recipe",
             },
           },
         ),
-    ) as typeof fetch;
+    );
+    const assetFetch = assetFetchMock as unknown as typeof fetch;
 
     const response = await onRequest(
       context(
         "https://robbiepalmer.me/recipes/lentil-soup",
-        { accept: "text/html" },
+        {
+          accept: "text/html",
+          "if-none-match": '"recipe-v1"',
+          "if-modified-since": "Wed, 22 Jul 2026 12:00:00 GMT",
+        },
         assetFetch,
       ),
     );
@@ -229,6 +236,11 @@ describe("dynamic recipe pages", () => {
     expect(response.headers.get("x-asset")).toBe("saved-recipe");
     expect(response.headers.has("content-length")).toBe(false);
     expect(response.headers.has("content-encoding")).toBe(false);
+    expect(response.headers.has("etag")).toBe(false);
+    expect(response.headers.has("last-modified")).toBe(false);
+    const shellRequest = assetFetchMock.mock.calls[0]?.[0] as Request;
+    expect(shellRequest.headers.has("if-none-match")).toBe(false);
+    expect(shellRequest.headers.has("if-modified-since")).toBe(false);
     expect(html).toContain('<title>&lt;Soup &amp; "Stuff"&gt;</title>');
     expect(html).toContain(
       'content="Stored &quot;description&quot; &amp; &lt;detail&gt;"',
