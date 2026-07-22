@@ -53,6 +53,12 @@ variable "gcp_terraform_service_account_id" {
   default     = "github-terraform"
 }
 
+variable "gcp_terraform_plan_service_account_id" {
+  description = "Account ID for the read-only service account GitHub Actions impersonates for pull-request plans"
+  type        = string
+  default     = "github-terraform-plan"
+}
+
 variable "gcp_github_workload_identity_pool_id" {
   description = "Workload Identity Pool ID for GitHub Actions"
   type        = string
@@ -65,6 +71,12 @@ variable "gcp_github_workload_identity_provider_id" {
   default     = "personal-site"
 }
 
+variable "gcp_github_workload_identity_plan_provider_id" {
+  description = "Workload Identity Provider ID for pull-request bootstrap Terraform plans"
+  type        = string
+  default     = "personal-site-plan"
+}
+
 variable "gcp_terraform_service_account_roles" {
   description = "Project-level roles granted to the privileged GCP Terraform service account"
   type        = set(string)
@@ -74,5 +86,17 @@ variable "gcp_terraform_service_account_roles" {
     "roles/iam.workloadIdentityPoolAdmin",
     "roles/resourcemanager.projectIamAdmin",
     "roles/serviceusage.serviceUsageAdmin",
+  ]
+}
+
+variable "gcp_terraform_plan_service_account_roles" {
+  description = "Project-level read-only roles granted to the pull-request Terraform plan service account"
+  type        = set(string)
+  default = [
+    "roles/browser",
+    "roles/iam.securityReviewer",
+    "roles/iam.serviceAccountViewer",
+    "roles/iam.workloadIdentityPoolViewer",
+    "roles/serviceusage.serviceUsageViewer",
   ]
 }
