@@ -1,8 +1,10 @@
 import {
   escapeHtmlAttribute,
   escapeHtmlText,
+  formatRecipeIngredientText,
   formatRecipeCooklang,
 } from "recipe-domain/serialization";
+import { isRecipeAppRouteSlug } from "recipe-domain/slugs";
 import {
   loadPublicRecipe,
   type PublicRecipeEnv,
@@ -20,18 +22,6 @@ type Context = {
   next: () => Promise<Response>;
 };
 
-const APP_ROUTES = new Set([
-  "add",
-  "cooks",
-  "discover",
-  "kitchen",
-  "notifications",
-  "onboarding",
-  "profile",
-  "saved",
-  "settings",
-  "shopping",
-]);
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function textResponse(body: string, contentType: string): Response {
@@ -55,7 +45,9 @@ function recipeJsonLd(payload: RecipePayload, url: URL, slug: string): string {
       recipeYield: String(recipe.servings),
       recipeCuisine: recipe.cuisine,
       recipeIngredient: recipe.ingredientGroups.flatMap((group) =>
-        group.items.map((item) => item.ingredient.replaceAll("-", " ")),
+        group.items.map((item) =>
+          formatRecipeIngredientText(item, { includeNote: true }),
+        ),
       ),
       recipeInstructions: recipe.instructions.map((text) => ({
         "@type": "HowToStep",
@@ -78,7 +70,7 @@ export const onRequest = async (context: Context): Promise<Response> => {
   const slug = extension
     ? relativePath.slice(0, -(extension.length + 1))
     : relativePath;
-  if (!SLUG.test(slug) || (!extension && APP_ROUTES.has(slug))) {
+  if (!SLUG.test(slug) || (!extension && isRecipeAppRouteSlug(slug))) {
     return context.next();
   }
 

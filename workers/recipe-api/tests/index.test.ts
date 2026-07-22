@@ -1897,6 +1897,57 @@ describe("POST /recipes", () => {
       ]),
     );
   });
+
+  it("rejects recipe slugs reserved for application routes", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/recipes",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          slug: "kitchen",
+          title: "Kitchen",
+          body: JSON.stringify({
+            version: 1,
+            source: "Cook @salt{}.",
+            recipe: {
+              title: "Kitchen",
+              description: "A reserved route test.",
+              cuisine: [],
+              servings: 1,
+              ingredientGroups: [{ items: [{ ingredient: "salt" }] }],
+              instructions: ["Cook."],
+              cookware: [],
+              cookBody: "Cook @salt{}.",
+              date: "2026-07-22",
+              tags: [],
+            },
+          }),
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      error: "Invalid request body",
+      details: [
+        {
+          path: ["slug"],
+          message: "Slug is reserved for a recipe application route",
+        },
+      ],
+    });
+  });
 });
 
 describe("POST /recipes/import-url", () => {

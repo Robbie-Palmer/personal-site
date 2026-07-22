@@ -101,6 +101,7 @@ describe("dynamic recipe pages", () => {
     expect(await jsonResponse.json()).toMatchObject({
       "@type": "Recipe",
       name: "Lentil Soup",
+      recipeIngredient: ["200g red lentils"],
     });
     expect(await cookResponse.text()).toContain('title: "Lentil Soup"');
   });

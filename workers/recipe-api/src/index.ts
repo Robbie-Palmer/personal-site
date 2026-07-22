@@ -16,6 +16,7 @@ import {
 import { z } from "zod";
 import { createDb, type Db, type DbClient, schema } from "recipe-db";
 import { SavedRecipePayloadSchema } from "recipe-domain/serialization";
+import { isRecipeAppRouteSlug } from "recipe-domain/slugs";
 import { parseSchemaOrgRecipeHtml } from "recipe-parsing/schema-org";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
@@ -122,6 +123,10 @@ const recipeSlugSchema = z
   });
 
 const recipeVisibilitySchema = z.enum(["public", "private", "household"]);
+const creatableRecipeSlugSchema = recipeSlugSchema.refine(
+  (slug) => !isRecipeAppRouteSlug(slug),
+  { message: "Slug is reserved for a recipe application route" },
+);
 const dietRecipeMatchModeSchema = z.enum(["hide", "warn"]);
 const feedScopeSchema = z.enum(["public", "household"]);
 const feedLimitSchema = z.coerce.number().int().min(1).max(30).default(12);
@@ -213,7 +218,7 @@ const RECIPE_URL_IMPORT_RATE_LIMIT = { max: 20, windowSeconds: 60 * 60 };
 const RECIPE_PHOTO_IMPORT_RATE_LIMIT = { max: 20, windowSeconds: 60 * 60 };
 
 const createRecipeBodySchema = z.object({
-  slug: recipeSlugSchema,
+  slug: creatableRecipeSlugSchema,
   title: z.string().trim().min(1).max(120),
   description: z.string().trim().min(1).max(500).optional(),
   body: savedRecipeBodySchema,
