@@ -1,0 +1,64 @@
+name: Bootstrap Infrastructure CI
+
+on:
+  pull_request:
+    paths:
+      - "infra-bootstrap/**"
+      - ".github/workflows/infra-bootstrap-ci.yml"
+
+permissions: {}
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    environment:
+      name: production-infra-bootstrap-plan
+    defaults:
+      run:
+        working-directory: infra-bootstrap
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
+        with:
+          experimental: true
+
+      - name: Create empty .env for mise
+        run: touch .env
+
+      - name: Check Terraform formatting
+        run: mise run //infra-bootstrap:format:check
+
+      - name: Authenticate to Google Cloud via Workload Identity
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_TERRAFORM_SERVICE_ACCOUNT }}
+
+      - name: Terraform Plan
+        run: mise run //infra-bootstrap:plan
+        env:
+          DOPPLER_BOOTSTRAP_INFRA_CONFIG: prd_bootstrap_plan
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          TF_VAR_gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Add Terraform Plan to PR Comment
+        uses: borchero/terraform-plan-comment@2d41e908725447b1677913001dfb92fa7010c025 # v3
+        with:
+          token: ${{ github.token }}
+          planfile: .planfile
+          working-directory: ./infra-bootstrap
+
+      - name: Remove Google credentials file
+        if: ${{ always() }}
+        run: |
+          if [ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]; then
+            rm -f "$GOOGLE_APPLICATION_CREDENTIALS"
+          fi
