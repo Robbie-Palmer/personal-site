@@ -13,11 +13,25 @@ const payload = {
     date: "2026-07-22",
     cuisine: ["Irish"],
     servings: 4,
-    prepTime: 10,
-    cookTime: 20,
+    prepTime: 10 as number | undefined,
+    cookTime: 20 as number | undefined,
     tags: ["soup"],
+    image: undefined as string | undefined,
+    imageAlt: undefined as string | undefined,
+    canonical: undefined as string | undefined,
     ingredientGroups: [
-      { items: [{ ingredient: "red-lentils", amount: 200, unit: "g" }] },
+      {
+        name: undefined as string | undefined,
+        items: [
+          {
+            ingredient: "red-lentils",
+            amount: 200 as number | undefined,
+            unit: "g" as string | undefined,
+            preparation: undefined as string | undefined,
+            note: undefined as string | undefined,
+          },
+        ],
+      },
     ],
     instructions: ["Simmer the lentils."],
     cookware: ["pot"],
@@ -28,9 +42,10 @@ function context(
   url: string,
   headers?: HeadersInit,
   assetFetch: typeof fetch = vi.fn() as unknown as typeof fetch,
+  method = "GET",
 ): Context {
   return {
-    request: new Request(url, { headers }),
+    request: new Request(url, { headers, method }),
     env: {
       RECIPE_API_URL: "https://recipe-api.example.test",
       ASSETS: { fetch: assetFetch },
@@ -89,6 +104,56 @@ describe("dynamic recipe pages", () => {
     expect(await cookResponse.text()).toContain('title: "Lentil Soup"');
   });
 
+  it("includes optional ingredient and Cooklang metadata", async () => {
+    const detailedPayload = structuredClone(payload);
+    detailedPayload.recipe.prepTime = undefined;
+    detailedPayload.recipe.cookTime = undefined;
+    detailedPayload.recipe.cuisine = [];
+    detailedPayload.recipe.image = "https://images.example.test/soup.jpg";
+    detailedPayload.recipe.imageAlt = "A bowl of soup";
+    detailedPayload.recipe.canonical = "https://example.test/soup";
+    detailedPayload.recipe.ingredientGroups = [
+      {
+        name: "Soup",
+        items: [
+          {
+            ingredient: "red-lentils",
+            amount: undefined,
+            unit: undefined,
+            preparation: "rinsed",
+            note: "well drained",
+          },
+        ],
+      },
+    ];
+    globalThis.fetch = vi.fn(async () =>
+      Response.json({
+        slug: "lentil-soup",
+        title: "Lentil Soup",
+        description: "A useful soup.",
+        body: JSON.stringify(detailedPayload),
+      }),
+    ) as typeof fetch;
+
+    const markdownResponse = await onRequest(
+      context("https://robbiepalmer.me/recipes/lentil-soup.md"),
+    );
+    const markdown = await markdownResponse.text();
+    expect(markdown).toContain("### Soup");
+    expect(markdown).toContain("- red lentils (rinsed, well drained)");
+    expect(markdown).not.toContain("Prep time:");
+    expect(markdown).not.toContain("Cuisine:");
+
+    const cookResponse = await onRequest(
+      context("https://robbiepalmer.me/recipes/lentil-soup.cook"),
+    );
+    const cooklang = await cookResponse.text();
+    expect(cooklang).toContain('image: "https://images.example.test/soup.jpg"');
+    expect(cooklang).toContain('imageAlt: "A bowl of soup"');
+    expect(cooklang).toContain('canonical: "https://example.test/soup"');
+    expect(cooklang).not.toContain("prepTime:");
+  });
+
   it("serves an indexable HTML shell with recipe-specific metadata", async () => {
     globalThis.fetch = vi.fn(async () =>
       Response.json({
@@ -122,10 +187,122 @@ describe("dynamic recipe pages", () => {
     expect(html).not.toContain("noindex");
   });
 
+  it("escapes HTML metadata and preserves the static asset response", async () => {
+    const escapedPayload = structuredClone(payload);
+    escapedPayload.recipe.title = '<Soup & "Stuff">';
+    escapedPayload.recipe.description = "";
+    globalThis.fetch = vi.fn(async () =>
+      Response.json({
+        slug: "lentil-soup",
+        title: escapedPayload.recipe.title,
+        description: 'Stored "description" & <detail>',
+        body: JSON.stringify(escapedPayload),
+      }),
+    ) as typeof fetch;
+    const assetFetch = vi.fn(
+      async () =>
+        new Response(
+          '<html><head><title>Saved Recipe</title><meta name="description" content="Saved"><meta name="robots" content="noindex"></head><body></body></html>',
+          {
+            status: 201,
+            headers: {
+              "content-length": "999",
+              "x-asset": "saved-recipe",
+            },
+          },
+        ),
+    ) as typeof fetch;
+
+    const response = await onRequest(
+      context(
+        "https://robbiepalmer.me/recipes/lentil-soup",
+        { accept: "text/html" },
+        assetFetch,
+      ),
+    );
+    const html = await response.text();
+
+    expect(response.status).toBe(201);
+    expect(response.headers.get("x-asset")).toBe("saved-recipe");
+    expect(response.headers.has("content-length")).toBe(false);
+    expect(html).toContain(
+      "<title>&lt;Soup &amp; &quot;Stuff&quot;&gt;</title>",
+    );
+    expect(html).toContain(
+      'content="Stored &quot;description&quot; &amp; &lt;detail&gt;"',
+    );
+    expect(html).toContain(String.raw`\u003cSoup & \"Stuff\">`);
+  });
+
+  it("returns the static asset unchanged for HEAD and asset failures", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      Response.json({
+        slug: "lentil-soup",
+        title: "Lentil Soup",
+        description: null,
+        body: JSON.stringify(payload),
+      }),
+    ) as typeof fetch;
+    const failedAsset = new Response("asset unavailable", { status: 503 });
+    const failedResponse = await onRequest(
+      context(
+        "https://robbiepalmer.me/recipes/lentil-soup",
+        undefined,
+        vi.fn(async () => failedAsset) as typeof fetch,
+      ),
+    );
+    expect(failedResponse).toBe(failedAsset);
+
+    const headAsset = new Response(null, { headers: { etag: "cached" } });
+    const headResponse = await onRequest(
+      context(
+        "https://robbiepalmer.me/recipes/lentil-soup",
+        undefined,
+        vi.fn(async () => headAsset) as typeof fetch,
+        "HEAD",
+      ),
+    );
+    expect(headResponse).toBe(headAsset);
+  });
+
+  it("returns not found when the public recipe cannot be decoded", async () => {
+    const noApiContext = context(
+      "https://robbiepalmer.me/recipes/lentil-soup.md",
+    );
+    delete noApiContext.env.RECIPE_API_URL;
+    expect((await onRequest(noApiContext)).status).toBe(404);
+
+    const apiResponses = [
+      new Response("unavailable", { status: 503 }),
+      Response.json({ body: null }),
+      Response.json({ body: "{" }),
+      Response.json({ body: JSON.stringify({ ...payload, version: 2 }) }),
+    ];
+    for (const apiResponse of apiResponses) {
+      globalThis.fetch = vi.fn(async () => apiResponse) as typeof fetch;
+      const response = await onRequest(
+        context("https://robbiepalmer.me/recipes/lentil-soup.json"),
+      );
+      expect(response.status).toBe(404);
+    }
+  });
+
   it("leaves named application routes to their static pages", async () => {
     const requestContext = context(
       "https://robbiepalmer.me/recipes/onboarding",
     );
+    const response = await onRequest(requestContext);
+
+    expect(await response.text()).toBe("next");
+    expect(requestContext.next).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    "https://robbiepalmer.me/recipes",
+    "https://robbiepalmer.me/recipes/folder/lentil-soup",
+    "https://robbiepalmer.me/recipes/Invalid-Slug",
+  ])("passes non-recipe path %s to the next handler", async (url) => {
+    const requestContext = context(url);
     const response = await onRequest(requestContext);
 
     expect(await response.text()).toBe("next");

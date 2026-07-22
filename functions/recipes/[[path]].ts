@@ -112,9 +112,11 @@ function recipeMarkdown(payload: RecipePayload): string {
     ...group.items.map((item) => {
       const quantity = [item.amount, item.unit].filter(Boolean).join(" ");
       const detail = [item.preparation, item.note].filter(Boolean).join(", ");
-      return `- ${[quantity, item.ingredient.replaceAll("-", " ")]
+      const ingredient = [quantity, item.ingredient.replaceAll("-", " ")]
         .filter(Boolean)
-        .join(" ")}${detail ? ` (${detail})` : ""}`;
+        .join(" ");
+      const detailSuffix = detail ? ` (${detail})` : "";
+      return `- ${ingredient}${detailSuffix}`;
     }),
     "",
   ]);
@@ -183,7 +185,7 @@ function recipeJsonLd(payload: RecipePayload, url: URL, slug: string): string {
     },
     null,
     2,
-  ).replaceAll("<", "\\u003c");
+  ).replaceAll("<", String.raw`\u003c`);
   return `${json}\n`;
 }
 
@@ -192,7 +194,7 @@ export const onRequest = async (context: Context): Promise<Response> => {
   const relativePath = url.pathname.replace(/^\/recipes\/?/, "");
   if (!relativePath || relativePath.includes("/")) return context.next();
 
-  const extension = relativePath.match(/\.(md|json|cook)$/)?.[1];
+  const extension = /\.(md|json|cook)$/.exec(relativePath)?.[1];
   const slug = extension
     ? relativePath.slice(0, -(extension.length + 1))
     : relativePath;

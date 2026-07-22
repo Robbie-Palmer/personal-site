@@ -26,8 +26,8 @@ export function SavedRecipeView() {
   const [state, setState] = useState<State>({ status: "loading" });
 
   useEffect(() => {
-    const pathSlug = window.location.pathname.match(
-      /^\/recipes\/([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/,
+    const pathSlug = /^\/recipes\/([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/.exec(
+      window.location.pathname,
     )?.[1];
     const slug = searchSlug ?? pathSlug;
     if (
