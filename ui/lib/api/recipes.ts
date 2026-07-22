@@ -5,19 +5,19 @@ import type {
   KitchenIngredientView,
   KitchenRecipeView,
 } from "@/lib/domain/recipe/kitchen";
-import type { RecipeGridItem } from "@/lib/domain/recipe/recipeDraft";
 import {
   parseSavedRecipe,
+  type RecipeGridItem,
   type SavedRecipeApiRecord,
   savedRecipeCard,
   savedRecipeHref,
 } from "@/lib/domain/recipe/recipeDraft";
-import type {
+import type { RecipeDetailView } from "@/lib/domain/recipe/recipeViews";
+
+export type {
   RecipeCardView,
   RecipeDetailView,
 } from "@/lib/domain/recipe/recipeViews";
-
-export type { RecipeCardView, RecipeDetailView };
 
 export function recipeRecordsToCards(
   records: SavedRecipeApiRecord[],
