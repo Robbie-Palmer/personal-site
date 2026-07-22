@@ -28,6 +28,7 @@ import {
   type PhotoRecipeImportDraft,
 } from "@/components/recipes/photo-recipe-import";
 import { RecipeContent } from "@/components/recipes/recipe-content";
+import { RecipeLoadError } from "@/components/recipes/recipe-load-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCooklangRecipe } from "@/hooks/use-cooklang-recipe";
@@ -110,6 +111,7 @@ export function AddRecipeView({
     [initialRecipe],
   );
   const editing = Boolean(initialRecipe);
+  const unreadableRecipe = editing && !initialPayload;
   const titleId = useId();
   const descriptionId = useId();
   const cuisineId = useId();
@@ -371,6 +373,15 @@ export function AddRecipeView({
       savingRef.current = false;
       setSaving(false);
     }
+  }
+
+  if (unreadableRecipe) {
+    return (
+      <RecipeLoadError
+        title="Recipe unavailable"
+        message="This recipe's saved content could not be read. Editing is disabled to avoid overwriting it."
+      />
+    );
   }
 
   if (sessionPending) {

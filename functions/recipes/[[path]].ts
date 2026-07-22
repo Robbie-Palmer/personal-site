@@ -11,6 +11,7 @@ import {
   type RecipePayload,
   recipeMarkdown,
 } from "../lib/public-recipes";
+import { rewrittenRecipeAssetHeaders } from "../lib/recipe-asset";
 
 interface Env extends PublicRecipeEnv {
   ASSETS: { fetch: typeof fetch };
@@ -83,10 +84,13 @@ export const onRequest = async (context: Context): Promise<Response> => {
       return textResponse(recipeMarkdown(loaded.payload), "text/markdown");
     }
     const assetUrl = new URL("/recipes/saved.html", url);
+    const assetHeaders = new Headers(context.request.headers);
+    assetHeaders.delete("if-none-match");
+    assetHeaders.delete("if-modified-since");
     const asset = await context.env.ASSETS.fetch(
       new Request(assetUrl, {
         method: context.request.method,
-        headers: context.request.headers,
+        headers: assetHeaders,
       }),
     );
     if (!asset.ok || context.request.method === "HEAD") return asset;
@@ -115,9 +119,7 @@ export const onRequest = async (context: Context): Promise<Response> => {
       )
       .replace(/<meta name="robots"[^>]*>/i, "")
       .replace("</head>", `${headMarkup}</head>`);
-    const headers = new Headers(asset.headers);
-    headers.delete("content-length");
-    headers.delete("content-encoding");
+    const headers = rewrittenRecipeAssetHeaders(asset);
     return new Response(html, { status: asset.status, headers });
   }
 

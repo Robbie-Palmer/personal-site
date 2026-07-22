@@ -191,4 +191,33 @@ describe("AddRecipeView visibility", () => {
       "/recipes/saved?slug=weeknight-rice",
     );
   });
+
+  it("disables editing when the saved recipe body is unreadable", () => {
+    mocks.getHouseholds.mockResolvedValue([]);
+
+    render(
+      <AddRecipeView
+        initialRecipe={{
+          slug: "broken-recipe",
+          title: "Broken Recipe",
+          description: "This body cannot be parsed.",
+          body: "{",
+          visibility: "private",
+          createdAt: "2026-07-22T12:00:00.000Z",
+          updatedAt: "2026-07-22T12:00:00.000Z",
+          owned: true,
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Recipe unavailable" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Editing is disabled to avoid overwriting it/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
+  });
 });

@@ -48,6 +48,8 @@ describe("savedRecipeCard", () => {
       cuisine: [],
       servings: 2,
       tags: [],
+      image: "recipes/weeknight-rice-2026-07-22",
+      imageAlt: "A bowl of rice",
       ingredientGroups: [
         {
           items: [{ ingredient: "rice", amount: 200, unit: "g" }],
@@ -72,9 +74,12 @@ describe("savedRecipeCard", () => {
   }
 
   it("uses the indexable route for public recipes", () => {
-    expect(savedRecipeCard(record("public"))?.href).toBe(
-      "/recipes/weeknight-rice",
-    );
+    expect(savedRecipeCard(record("public"))).toMatchObject({
+      href: "/recipes/weeknight-rice",
+      image: "recipes/weeknight-rice-2026-07-22",
+      imageAlt: "A bowl of rice",
+      canonical: "https://example.test/weeknight-rice",
+    });
   });
 
   it.each(["private", "household"] as const)(

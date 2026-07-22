@@ -1715,6 +1715,34 @@ describe("GET /recipes/:slug", () => {
     });
   });
 
+  it("includes ownership when an owner reads a public recipe", async () => {
+    dbMock.state.recipes.push({
+      id: "recipe-1",
+      slug: "public-soup",
+      title: "Public Soup",
+      description: null,
+      body: null,
+      userId: "owner-user",
+      visibility: "public",
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request("/recipes/public-soup", {}, env);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      slug: "public-soup",
+      visibility: "public",
+      owned: true,
+    });
+  });
+
   it("allows household members to read household-shared recipes", async () => {
     seedHousehold();
     dbMock.state.recipes.push({

@@ -6,6 +6,16 @@ export interface RecipeAssetContext {
   env: PublicRecipeEnv & { ASSETS: { fetch: typeof fetch } };
 }
 
+export function rewrittenRecipeAssetHeaders(asset: Response): Headers {
+  const headers = new Headers(asset.headers);
+  headers.delete("content-length");
+  headers.delete("content-encoding");
+  headers.delete("etag");
+  headers.delete("last-modified");
+  headers.set("cache-control", "public, max-age=60, s-maxage=300");
+  return headers;
+}
+
 export async function augmentRecipeAsset(
   context: RecipeAssetContext,
   render: (assetBody: string, recipes: StoredRecipe[], url: URL) => string,
@@ -17,11 +27,6 @@ export async function augmentRecipeAsset(
   if (!recipes) return asset;
 
   const body = render(await asset.text(), recipes, new URL(context.request.url));
-  const headers = new Headers(asset.headers);
-  headers.delete("content-length");
-  headers.delete("content-encoding");
-  headers.delete("etag");
-  headers.delete("last-modified");
-  headers.set("cache-control", "public, max-age=60, s-maxage=300");
+  const headers = rewrittenRecipeAssetHeaders(asset);
   return new Response(body, { status: asset.status, headers });
 }

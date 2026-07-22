@@ -7,24 +7,27 @@ import type {
 } from "@/lib/domain/recipe/kitchen";
 import {
   parseSavedRecipe,
+  type RecipeGridItem,
   type SavedRecipeApiRecord,
   savedRecipeCard,
   savedRecipeHref,
 } from "@/lib/domain/recipe/recipeDraft";
-import type {
+import type { RecipeDetailView } from "@/lib/domain/recipe/recipeViews";
+
+export type {
   RecipeCardView,
   RecipeDetailView,
 } from "@/lib/domain/recipe/recipeViews";
 
-export type { RecipeCardView, RecipeDetailView };
-
 export function recipeRecordsToCards(
   records: SavedRecipeApiRecord[],
-): RecipeCardView[] {
+): RecipeGridItem[] {
   return records
     .flatMap((record) => {
       const card = savedRecipeCard(record);
-      return card ? [card] : [];
+      if (!card) return [];
+      const { saved: _saved, ...catalogCard } = card;
+      return [catalogCard];
     })
     .sort(
       (left, right) =>
