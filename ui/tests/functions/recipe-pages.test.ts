@@ -35,6 +35,7 @@ const payload = {
     ],
     instructions: ["Simmer the lentils."],
     cookware: ["pot"],
+    cookBody: "Simmer @lentils{200%g} for ~{20%minutes}.",
   },
 };
 
@@ -109,7 +110,7 @@ describe("dynamic recipe pages", () => {
     detailedPayload.recipe.prepTime = undefined;
     detailedPayload.recipe.cookTime = undefined;
     detailedPayload.recipe.cuisine = [];
-    detailedPayload.recipe.image = "https://images.example.test/soup.jpg";
+    detailedPayload.recipe.image = "recipes/soup-2026-07-22";
     detailedPayload.recipe.imageAlt = "A bowl of soup";
     detailedPayload.recipe.canonical = "https://example.test/soup";
     detailedPayload.recipe.ingredientGroups = [
@@ -140,7 +141,7 @@ describe("dynamic recipe pages", () => {
     );
     const markdown = await markdownResponse.text();
     expect(markdown).toContain("### Soup");
-    expect(markdown).toContain("- red lentils (rinsed, well drained)");
+    expect(markdown).toContain("- red lentils (rinsed) – well drained");
     expect(markdown).not.toContain("Prep time:");
     expect(markdown).not.toContain("Cuisine:");
 
@@ -148,7 +149,7 @@ describe("dynamic recipe pages", () => {
       context("https://robbiepalmer.me/recipes/lentil-soup.cook"),
     );
     const cooklang = await cookResponse.text();
-    expect(cooklang).toContain('image: "https://images.example.test/soup.jpg"');
+    expect(cooklang).toContain('image: "recipes/soup-2026-07-22"');
     expect(cooklang).toContain('imageAlt: "A bowl of soup"');
     expect(cooklang).toContain('canonical: "https://example.test/soup"');
     expect(cooklang).not.toContain("prepTime:");
@@ -225,9 +226,7 @@ describe("dynamic recipe pages", () => {
     expect(response.status).toBe(201);
     expect(response.headers.get("x-asset")).toBe("saved-recipe");
     expect(response.headers.has("content-length")).toBe(false);
-    expect(html).toContain(
-      "<title>&lt;Soup &amp; &quot;Stuff&quot;&gt;</title>",
-    );
+    expect(html).toContain('<title>&lt;Soup &amp; "Stuff"&gt;</title>');
     expect(html).toContain(
       'content="Stored &quot;description&quot; &amp; &lt;detail&gt;"',
     );
@@ -285,6 +284,34 @@ describe("dynamic recipe pages", () => {
       );
       expect(response.status).toBe(404);
     }
+
+    const requestSignals: AbortSignal[] = [];
+    globalThis.fetch = vi.fn(async (_input, init) => {
+      if (init?.signal) requestSignals.push(init.signal);
+      throw new Error("network unavailable");
+    }) as typeof fetch;
+    expect(
+      (
+        await onRequest(
+          context("https://robbiepalmer.me/recipes/lentil-soup.md"),
+        )
+      ).status,
+    ).toBe(404);
+    expect(requestSignals[0]).toBeInstanceOf(AbortSignal);
+
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response("not JSON", {
+          headers: { "content-type": "application/json" },
+        }),
+    ) as typeof fetch;
+    expect(
+      (
+        await onRequest(
+          context("https://robbiepalmer.me/recipes/lentil-soup.md"),
+        )
+      ).status,
+    ).toBe(404);
   });
 
   it("leaves named application routes to their static pages", async () => {

@@ -15,7 +15,7 @@ import {
 } from "drizzle-orm";
 import { z } from "zod";
 import { createDb, type Db, type DbClient, schema } from "recipe-db";
-import { RecipeContentSchema } from "recipe-domain";
+import { SavedRecipePayloadSchema } from "recipe-domain/serialization";
 import { parseSchemaOrgRecipeHtml } from "recipe-parsing/schema-org";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
@@ -152,7 +152,8 @@ const recipeBoxBodySchema = z
   })
   .strict()
   .refine((body) => body.recipeSlugs || body.staticRecipeSlugs, {
-    message: "recipeSlugs is required",
+    message:
+      "At least one of recipeSlugs or staticRecipeSlugs must be provided",
   })
   .transform((body) => ({
     recipeSlugs: Array.from(
@@ -161,12 +162,9 @@ const recipeBoxBodySchema = z
   }));
 
 const MAX_RECIPE_BODY_BYTES = 100_000;
-const savedRecipePayloadSchema = z
-  .object({
-    version: z.literal(1),
-    source: z.string().trim().min(1).max(10_000),
-    recipe: RecipeContentSchema,
-  })
+const savedRecipePayloadSchema = SavedRecipePayloadSchema.extend({
+  source: z.string().trim().min(1).max(10_000),
+})
   .strict();
 
 const savedRecipeBodySchema = z

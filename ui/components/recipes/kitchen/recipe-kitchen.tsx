@@ -1,32 +1,43 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
 import { KitchenView } from "@/components/recipes/kitchen/kitchen-view";
+import { RecipeAuthRequired } from "@/components/recipes/recipe-auth-required";
+import { useAbortableLoad } from "@/hooks/use-abortable-load";
 import { buildKitchenCatalog } from "@/lib/api/recipes";
 import { fetchRecipeBoxRecipes } from "@/lib/api/saved-recipes";
+import { authClient } from "@/lib/auth-client";
 
 type Catalog = ReturnType<typeof buildKitchenCatalog>;
 
-export function RecipeKitchen() {
-  const [catalog, setCatalog] = useState<Catalog | null>(null);
-  const [error, setError] = useState(false);
+async function loadKitchenCatalog(signal: AbortSignal): Promise<Catalog> {
+  const { recipes } = await fetchRecipeBoxRecipes(signal);
+  return buildKitchenCatalog(recipes);
+}
 
-  useEffect(() => {
-    const controller = new AbortController();
-    void fetchRecipeBoxRecipes(controller.signal)
-      .then(({ recipes }) => setCatalog(buildKitchenCatalog(recipes)))
-      .catch((loadError: unknown) => {
-        if (
-          loadError instanceof DOMException &&
-          loadError.name === "AbortError"
-        )
-          return;
-        console.error("Kitchen recipes could not be loaded", loadError);
-        setError(true);
-      });
-    return () => controller.abort();
-  }, []);
+export function RecipeKitchen() {
+  const { data: session, isPending } = authClient.useSession();
+  const { data: catalog, error } = useAbortableLoad(
+    session?.user.id ?? null,
+    loadKitchenCatalog,
+    "Kitchen recipes could not be loaded",
+  );
+
+  if (isPending) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="animate-spin text-[var(--terracotta)]" />
+      </div>
+    );
+  }
+  if (!session) {
+    return (
+      <RecipeAuthRequired
+        title="Your kitchen is waiting"
+        description="Log in to stock your kitchen from the recipes in your box."
+      />
+    );
+  }
 
   if (error) {
     return (

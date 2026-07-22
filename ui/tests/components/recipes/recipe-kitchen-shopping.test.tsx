@@ -5,6 +5,15 @@ const mocks = vi.hoisted(() => ({
   buildKitchenCatalog: vi.fn(),
   fetchRecipeBoxRecipes: vi.fn(),
   recipeRecordsToShoppingRecipes: vi.fn(),
+  useSession: vi.fn(),
+}));
+
+vi.mock("@/lib/auth-client", () => ({
+  authClient: { useSession: mocks.useSession },
+}));
+
+vi.mock("@/components/recipes/auth-button", () => ({
+  AuthButton: () => <button type="button">Log in</button>,
 }));
 
 vi.mock("@/lib/api/saved-recipes", () => ({
@@ -33,12 +42,29 @@ import { RecipeShopping } from "@/components/recipes/shopping/recipe-shopping";
 describe("database-backed kitchen and shopping pages", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.useSession.mockReturnValue({
+      data: { user: { id: "cook-1" } },
+      isPending: false,
+    });
     mocks.buildKitchenCatalog.mockReturnValue({
       recipes: [],
       initialStock: [],
       pantry: [],
     });
     mocks.recipeRecordsToShoppingRecipes.mockReturnValue([]);
+  });
+
+  it("prompts signed-out visitors to log in without requesting owned recipes", () => {
+    mocks.useSession.mockReturnValue({ data: null, isPending: false });
+
+    const kitchen = render(<RecipeKitchen />);
+    expect(screen.getByText("Your kitchen is waiting")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
+    kitchen.unmount();
+
+    render(<RecipeShopping />);
+    expect(screen.getByText("Log in to make a list")).toBeInTheDocument();
+    expect(mocks.fetchRecipeBoxRecipes).not.toHaveBeenCalled();
   });
 
   it("loads recipe-box recipes into the kitchen and aborts on unmount", async () => {

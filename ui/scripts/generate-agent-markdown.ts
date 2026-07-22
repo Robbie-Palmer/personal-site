@@ -25,10 +25,7 @@ import {
   getProjectADR,
   type ProjectWithADRs,
 } from "@/lib/api/projects";
-import type {
-  RecipeCardView,
-  RecipeDetailView,
-} from "@/lib/api/recipes";
+import type { RecipeCardView } from "@/lib/api/recipes";
 import { siteConfig } from "@/lib/config/site-config";
 import {
   markdownUrl,
@@ -36,51 +33,12 @@ import {
   renderPage,
 } from "@/lib/content/agent-markdown";
 import { loadDomainRepository } from "@/lib/domain";
-import { formatIngredientStaticText } from "@/lib/domain/recipe/ingredientText";
 import {
   getAllTechnologySlugs,
   getRelatedContentForTechnology,
   getTechnologyDetail,
 } from "@/lib/domain/technology";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
-import { buildRecipeJsonLd } from "@/lib/seo/recipe-jsonld";
-
-function formatCooklangExport(recipe: RecipeDetailView): string {
-  const ingredientAnnotations = Object.fromEntries(
-    recipe.ingredientGroups
-      .flatMap((group) => group.items)
-      .filter((item) => item.preparation || item.note)
-      .map((item) => [
-        item.ingredient,
-        {
-          ...(item.preparation ? { preparation: item.preparation } : {}),
-          ...(item.note ? { note: item.note } : {}),
-        },
-      ]),
-  );
-  const frontmatter = [
-    "---",
-    `title: ${JSON.stringify(recipe.title)}`,
-    `description: ${JSON.stringify(recipe.description)}`,
-    `date: ${JSON.stringify(recipe.date)}`,
-    `cuisine: ${JSON.stringify(recipe.cuisine)}`,
-    `servings: ${recipe.servings}`,
-    ...(recipe.prepTime != null ? [`prepTime: ${recipe.prepTime}`] : []),
-    ...(recipe.cookTime != null ? [`cookTime: ${recipe.cookTime}`] : []),
-    `tags: ${JSON.stringify(recipe.tags)}`,
-    ...(recipe.image ? [`image: ${JSON.stringify(recipe.image)}`] : []),
-    ...(recipe.imageAlt ? [`imageAlt: ${JSON.stringify(recipe.imageAlt)}`] : []),
-    ...(recipe.canonical
-      ? [`canonical: ${JSON.stringify(recipe.canonical)}`]
-      : []),
-    ...(Object.keys(ingredientAnnotations).length > 0
-      ? [`ingredientAnnotations: ${JSON.stringify(ingredientAnnotations)}`]
-      : []),
-    "---",
-  ];
-
-  return `${frontmatter.join("\n")}\n${recipe.cookBody.trim()}\n`;
-}
 
 const OUT_DIR = path.join(process.cwd(), "out");
 
@@ -303,49 +261,6 @@ function buildExperiencePage(): GeneratedPage {
     title: "Experience",
     description: `Professional experience of ${siteConfig.name} — ${siteConfig.description}`,
     content: sections.join("\n"),
-  };
-}
-
-function buildRecipePage(recipe: RecipeDetailView): GeneratedPage {
-  const facts: [string, string][] = [["Servings", String(recipe.servings)]];
-  if (recipe.prepTime) facts.push(["Prep time", `${recipe.prepTime} min`]);
-  if (recipe.cookTime) facts.push(["Cook time", `${recipe.cookTime} min`]);
-  if (recipe.totalTime) facts.push(["Total time", `${recipe.totalTime} min`]);
-  if (recipe.cuisine.length > 0) {
-    facts.push(["Cuisine", recipe.cuisine.join(", ")]);
-  }
-  if (recipe.tags.length > 0) facts.push(["Tags", recipe.tags.join(", ")]);
-
-  const ingredients = recipe.ingredientGroups.flatMap((group) => [
-    ...(group.name ? [`### ${group.name}`, ""] : []),
-    ...group.items.map(
-      (item) => `- ${formatIngredientStaticText(item, { includeNote: true })}`,
-    ),
-    "",
-  ]);
-  const cookware =
-    recipe.cookware.length > 0
-      ? ["## Cookware", "", ...recipe.cookware.map((item) => `- ${item}`), ""]
-      : [];
-  const instructions = recipe.instructions.map(
-    (step, index) => `${index + 1}. ${step}`,
-  );
-
-  return {
-    htmlPath: `/recipes/${recipe.slug}`,
-    filePath: `recipes/${recipe.slug}.md`,
-    title: recipe.title,
-    description: recipe.description,
-    content: [
-      "## Ingredients",
-      "",
-      ...ingredients,
-      ...cookware,
-      "## Instructions",
-      "",
-      ...instructions,
-    ].join("\n"),
-    facts,
   };
 }
 
@@ -577,6 +492,9 @@ function buildRoutesJson(): string {
         "/api/recipe-imports",
         "/api/recipe-imports/*",
         "/ingest/*",
+        "/llms.txt",
+        "/llms-full.txt",
+        "/sitemap.xml",
         "/",
         "/experience",
         "/projects",
@@ -636,7 +554,6 @@ function main(): void {
   const philosophy = getBuildingPhilosophy();
   // Recipes are database-backed and served dynamically by the Pages Function.
   const recipes: RecipeCardView[] = [];
-  const recipeDetails: RecipeDetailView[] = [];
   const technologyPages = buildTechnologyPages(projects);
 
   const pages: GeneratedPage[] = [
@@ -648,7 +565,6 @@ function main(): void {
     buildBlogIndexPage(posts),
     ...buildBlogPostPages(posts),
     buildRecipesIndexPage(recipes),
-    ...recipeDetails.map(buildRecipePage),
     ...technologyPages,
   ];
 
@@ -667,20 +583,6 @@ function main(): void {
     );
   }
 
-  // Recipe twins provide machine-readable JSON and portable Cooklang source.
-  for (const recipe of recipeDetails) {
-    const jsonLd = buildRecipeJsonLd(
-      recipe,
-      siteConfig.author.name,
-      `${siteConfig.url}/recipes/${recipe.slug}`,
-    );
-    writeFile(
-      `recipes/${recipe.slug}.json`,
-      `${JSON.stringify(jsonLd, null, 2)}\n`,
-    );
-    writeFile(`recipes/${recipe.slug}.cook`, formatCooklangExport(recipe));
-  }
-
   writeFile("llms.txt", buildLlmsTxt(projects, posts, recipes, technologyPages));
 
   // The llms.txt index is deliberately not prepended: its navigation links
@@ -694,7 +596,7 @@ function main(): void {
   writeFile("_routes.json", buildRoutesJson());
 
   console.log(
-    `Generated ${pages.length} Markdown pages and ${recipeDetails.length} recipe JSON/Cooklang exports, llms.txt, llms-full.txt, _headers, and _routes.json in out/`,
+    `Generated ${pages.length} Markdown pages, llms.txt, llms-full.txt, _headers, and _routes.json in out/`,
   );
 }
 

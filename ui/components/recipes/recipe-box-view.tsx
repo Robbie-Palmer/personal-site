@@ -49,11 +49,7 @@ export function RecipeBoxView() {
                 className="h-5 w-52"
               />
             ) : (
-              [recipeCountLabel].map((stat) => (
-                <span key={stat} className="whitespace-nowrap">
-                  {stat}
-                </span>
-              ))
+              <span className="whitespace-nowrap">{recipeCountLabel}</span>
             )}
           </div>
         </div>
