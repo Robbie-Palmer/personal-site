@@ -43,7 +43,7 @@ function isStoredRecipe(value: unknown): value is StoredRecipe {
   );
 }
 
-async function fetchApiJson(url: URL): Promise<unknown | null> {
+async function fetchApiJson(url: URL): Promise<unknown> {
   try {
     const response = await fetch(url, {
       headers: { accept: "application/json" },

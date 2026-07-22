@@ -1,4 +1,3 @@
-import { encodeXML, escapeText } from "entities";
 import { z } from "zod";
 import { pluralizeIngredientTerm } from "./pluralization";
 import {
@@ -52,6 +51,25 @@ function ingredientName(item: ExportIngredient): string {
   return item.name ?? item.ingredient.replaceAll("-", " ");
 }
 
+function ingredientUnit(
+  item: ExportIngredient,
+): { value: string; noSpace: boolean } | null {
+  if (item.unit === undefined || item.unit === "piece") return null;
+  const label = UNIT_LABELS[item.unit];
+  return {
+    value:
+      item.amount != null && item.amount > 1 ? label.plural : label.singular,
+    noSpace: Boolean(label.noSpace),
+  };
+}
+
+function displayedIngredientName(item: ExportIngredient): string {
+  const name = ingredientName(item);
+  if (item.amount == null || item.amount === 1) return name;
+  if (item.pluralName) return item.pluralName;
+  return item.unit === "piece" ? pluralizeIngredientTerm(name) : name;
+}
+
 export function formatRecipeIngredientText(
   item: ExportIngredient,
   options?: { includeNote?: boolean },
@@ -59,26 +77,16 @@ export function formatRecipeIngredientText(
   const parts: string[] = [];
   if (item.amount != null) parts.push(formatAmount(item.amount));
 
-  const label = item.unit === undefined ? undefined : UNIT_LABELS[item.unit];
-  if (label && item.unit !== "piece") {
-    const unit =
-      item.amount != null && item.amount > 1 ? label.plural : label.singular;
-    if (label.noSpace && parts.length > 0) {
-      parts[parts.length - 1] += unit;
+  const unit = ingredientUnit(item);
+  if (unit) {
+    if (unit.noSpace && parts.length > 0) {
+      parts[parts.length - 1] += unit.value;
     } else {
-      parts.push(unit);
+      parts.push(unit.value);
     }
   }
 
-  const name = ingredientName(item);
-  const isPlural = item.amount != null && item.amount !== 1;
-  parts.push(
-    isPlural
-      ? item.unit === "piece"
-        ? (item.pluralName ?? pluralizeIngredientTerm(name))
-        : (item.pluralName ?? name)
-      : name,
-  );
+  parts.push(displayedIngredientName(item));
   if (item.preparation) parts.push(`(${item.preparation})`);
   if (options?.includeNote && item.note) parts.push(`– ${item.note}`);
   return parts.join(" ").trim();
@@ -169,5 +177,7 @@ export function formatRecipeCooklang(
   return `${frontmatter.join("\n")}\n${source.trim()}\n`;
 }
 
-export const escapeHtmlText = escapeText;
-export const escapeHtmlAttribute = encodeXML;
+export {
+  encodeXML as escapeHtmlAttribute,
+  escapeText as escapeHtmlText,
+} from "entities";

@@ -102,8 +102,11 @@ export const onRequest = async (context: Context): Promise<Response> => {
       loaded.payload.recipe.description ||
       loaded.record.description ||
       loaded.payload.recipe.title;
+    const canonicalHref = escapeHtmlAttribute(
+      `${url.origin}/recipes/${slug}`,
+    );
     const headMarkup =
-      `<link rel="canonical" href="${escapeHtmlAttribute(`${url.origin}/recipes/${slug}`)}">` +
+      `<link rel="canonical" href="${canonicalHref}">` +
       `<script type="application/ld+json">${recipeJsonLd(
         loaded.payload,
         url,
@@ -122,6 +125,7 @@ export const onRequest = async (context: Context): Promise<Response> => {
       .replace("</head>", `${headMarkup}</head>`);
     const headers = new Headers(asset.headers);
     headers.delete("content-length");
+    headers.delete("content-encoding");
     return new Response(html, { status: asset.status, headers });
   }
 

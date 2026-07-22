@@ -19,6 +19,7 @@ export async function augmentRecipeAsset(
   const body = render(await asset.text(), recipes, new URL(context.request.url));
   const headers = new Headers(asset.headers);
   headers.delete("content-length");
+  headers.delete("content-encoding");
   headers.delete("etag");
   headers.delete("last-modified");
   headers.set("cache-control", "public, max-age=60, s-maxage=300");

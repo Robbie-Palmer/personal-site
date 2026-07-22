@@ -62,9 +62,11 @@ describe("saved recipe API adapters", () => {
   });
 
   it("builds a deduplicated, categorized kitchen catalog", () => {
-    const catalog = buildKitchenCatalog([
-      recipeRecord("lentil-soup", "Lentil Soup", "2026-07-22"),
-    ]);
+    const privateRecipe = {
+      ...recipeRecord("lentil-soup", "Lentil Soup", "2026-07-22"),
+      visibility: "private" as const,
+    };
+    const catalog = buildKitchenCatalog([privateRecipe]);
 
     expect(catalog.ingredients).toEqual([
       { slug: "garlic", name: "Garlic", category: "vegetable" },
@@ -73,6 +75,7 @@ describe("saved recipe API adapters", () => {
     expect(catalog.recipes).toEqual([
       expect.objectContaining({
         slug: "lentil-soup",
+        href: "/recipes/saved?slug=lentil-soup",
         title: "Lentil Soup",
         totalTime: 15,
         ingredients: [

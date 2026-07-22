@@ -9,6 +9,7 @@ import {
   parseSavedRecipe,
   type SavedRecipeApiRecord,
   savedRecipeCard,
+  savedRecipeHref,
 } from "@/lib/domain/recipe/recipeDraft";
 import type {
   RecipeCardView,
@@ -45,7 +46,10 @@ export function buildKitchenCatalog(records: SavedRecipeApiRecord[]): {
   ingredients: KitchenIngredientView[];
   recipes: KitchenRecipeView[];
 } {
-  const details = recipeRecordsToDetails(records);
+  const details = records.flatMap((record) => {
+    const recipe = parseSavedRecipe(record);
+    return recipe ? [{ recipe, record }] : [];
+  });
   const ingredientCategories = new Map(
     definedIngredients.map((ingredient) => [
       resolveIngredientSlug(ingredient),
@@ -53,7 +57,7 @@ export function buildKitchenCatalog(records: SavedRecipeApiRecord[]): {
     ]),
   );
   const ingredients = new Map<string, KitchenIngredientView>();
-  const recipes = details.map((recipe): KitchenRecipeView => {
+  const recipes = details.map(({ recipe, record }): KitchenRecipeView => {
     const recipeIngredients = new Map<
       string,
       KitchenRecipeView["ingredients"][number]
@@ -73,6 +77,7 @@ export function buildKitchenCatalog(records: SavedRecipeApiRecord[]): {
     }
     return {
       slug: recipe.slug,
+      href: savedRecipeHref(record),
       title: recipe.title,
       cuisine: recipe.cuisine,
       totalTime: recipe.totalTime,

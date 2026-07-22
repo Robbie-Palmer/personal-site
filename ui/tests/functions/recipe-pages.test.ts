@@ -208,6 +208,7 @@ describe("dynamic recipe pages", () => {
             status: 201,
             headers: {
               "content-length": "999",
+              "content-encoding": "gzip",
               "x-asset": "saved-recipe",
             },
           },
@@ -226,6 +227,7 @@ describe("dynamic recipe pages", () => {
     expect(response.status).toBe(201);
     expect(response.headers.get("x-asset")).toBe("saved-recipe");
     expect(response.headers.has("content-length")).toBe(false);
+    expect(response.headers.has("content-encoding")).toBe(false);
     expect(html).toContain('<title>&lt;Soup &amp; "Stuff"&gt;</title>');
     expect(html).toContain(
       'content="Stored &quot;description&quot; &amp; &lt;detail&gt;"',

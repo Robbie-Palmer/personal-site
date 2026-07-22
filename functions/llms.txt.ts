@@ -7,7 +7,7 @@ import {
 function escapeMarkdownInline(value: string): string {
   return value
     .replaceAll(/\s+/g, " ")
-    .replaceAll(/([\\[\]])/g, "\\$1")
+    .replaceAll(/([\\[\]])/g, String.raw`\$1`)
     .trim();
 }
 

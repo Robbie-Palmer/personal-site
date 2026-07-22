@@ -69,7 +69,11 @@ describe("runtime public recipe discovery", () => {
       context(
         "https://robbiepalmer.me/sitemap.xml",
         new Response('<?xml version="1.0"?><urlset><url></url></urlset>', {
-          headers: { etag: "static", "content-length": "50" },
+          headers: {
+            etag: "static",
+            "content-length": "50",
+            "content-encoding": "gzip",
+          },
         }),
       ),
     );
@@ -81,6 +85,7 @@ describe("runtime public recipe discovery", () => {
     expect(body).toContain("<lastmod>2026-07-22T12:00:00.000Z</lastmod>");
     expect(response.headers.has("etag")).toBe(false);
     expect(response.headers.has("content-length")).toBe(false);
+    expect(response.headers.has("content-encoding")).toBe(false);
   });
 
   it("indexes public recipe Markdown twins in llms.txt", async () => {
