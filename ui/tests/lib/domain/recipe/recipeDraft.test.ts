@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRecipeDraft,
   normalizeRecipeSource,
+  parseSavedRecipePayload,
   savedRecipeCard,
 } from "@/lib/domain/recipe/recipeDraft";
 
@@ -81,6 +82,19 @@ describe("savedRecipeCard", () => {
       expect(savedRecipeCard(record(visibility))?.href).toBe(
         "/recipes/saved?slug=weeknight-rice",
       );
+    },
+  );
+
+  it("parses the source and recipe needed by the editor", () => {
+    expect(parseSavedRecipePayload(record("private"))).toEqual(savedPayload);
+  });
+
+  it.each([null, "{", JSON.stringify({ version: 1, recipe: {} })])(
+    "rejects an unsupported saved payload: %s",
+    (body) => {
+      expect(
+        parseSavedRecipePayload({ ...record("private"), body }),
+      ).toBeNull();
     },
   );
 });

@@ -15,6 +15,7 @@ const RECIPE_APP_PAGES = new Set([
   "add",
   "cooks",
   "discover",
+  "edit",
   "kitchen",
   "notifications",
   "onboarding",

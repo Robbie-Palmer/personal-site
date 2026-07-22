@@ -42,12 +42,8 @@ export function parseSavedRecipePayload(
 ): SavedRecipePayload | null {
   if (!record.body) return null;
   try {
-    const payload = JSON.parse(record.body) as Partial<SavedRecipePayload>;
-    if (payload.version !== 1 || typeof payload.source !== "string")
-      return null;
-    const parsed = RecipeContentSchema.safeParse(payload.recipe);
-    if (!parsed.success) return null;
-    return { version: 1, source: payload.source, recipe: parsed.data };
+    const parsed = SavedRecipePayloadSchema.safeParse(JSON.parse(record.body));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }

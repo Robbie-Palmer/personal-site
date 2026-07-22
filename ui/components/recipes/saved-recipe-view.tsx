@@ -1,10 +1,16 @@
 "use client";
 
-import { ArrowLeft, Loader2, LockKeyhole, Pencil } from "lucide-react";
+import { ArrowLeft, LockKeyhole, Pencil } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { RecipeContent } from "@/components/recipes/recipe-content";
+import {
+  errorMessage,
+  isAbortError,
+  RecipeLoadError,
+  RecipeLoading,
+} from "@/components/recipes/recipe-load-state";
 import { Button } from "@/components/ui/button";
 import {
   parseSavedRecipe,
@@ -69,38 +75,20 @@ export function SavedRecipeView() {
         });
       })
       .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
+        if (isAbortError(error)) return;
         setState({
           status: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "The recipe could not be loaded.",
+          message: errorMessage(error, "The recipe could not be loaded."),
         });
       });
     return () => controller.abort();
   }, [pathname, searchSlug]);
 
   if (state.status === "loading") {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="animate-spin text-[var(--terracotta)]" />
-      </div>
-    );
+    return <RecipeLoading />;
   }
   if (state.status === "error") {
-    return (
-      <div className="container mx-auto max-w-xl px-4 py-20 text-center">
-        <h1 className="rt-display text-5xl">Recipe not found</h1>
-        <p className="rt-body mt-3 text-[var(--ink-2)]">{state.message}</p>
-        <Button asChild variant="outline" className="mt-6 rounded-full">
-          <Link href="/recipes">
-            <ArrowLeft /> Back to recipes
-          </Link>
-        </Button>
-      </div>
-    );
+    return <RecipeLoadError title="Recipe not found" message={state.message} />;
   }
 
   return (
