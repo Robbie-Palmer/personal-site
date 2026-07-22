@@ -145,7 +145,7 @@ resource "google_iam_workload_identity_pool_provider" "bootstrap_plan" {
     "attribute.ref"         = "assertion.ref"
   }
 
-  attribute_condition = "assertion.repository == '${local.github_repository}' && assertion.environment == 'production-infra-bootstrap-plan' && assertion.event_name == 'pull_request' && assertion.base_ref == 'refs/heads/main' && assertion.ref.startsWith('refs/pull/')"
+  attribute_condition = "assertion.repository == '${local.github_repository}' && assertion.environment == 'production-infra-bootstrap-plan' && assertion.event_name == 'pull_request' && assertion.base_ref == 'main' && assertion.ref.startsWith('refs/pull/')"
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
