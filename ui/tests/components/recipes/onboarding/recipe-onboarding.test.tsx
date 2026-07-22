@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { RecipeCardView } from "@/lib/api/recipes";
+import type { SavedRecipeApiRecord } from "@/lib/domain/recipe/recipeDraft";
 
 const mocks = vi.hoisted(() => ({
   getDietOptions: vi.fn(),
@@ -33,6 +33,23 @@ vi.mock("@/components/recipes/recipe-card", () => ({
   recipeMetaLabel: () => "",
 }));
 
+vi.mock("@/lib/api/recipes", () => ({
+  recipeRecordsToCards: (records: Array<{ slug: string; title: string }>) =>
+    records.map((record) => ({
+      ...record,
+      ingredientSlugs: ["lentils"],
+      ingredientNames: ["Lentils"],
+    })),
+}));
+
+vi.mock("@/lib/domain/recipe/recipeDraft", () => ({
+  savedRecipeCard: (record: { slug: string; title: string }) => ({
+    ...record,
+    ingredientSlugs: ["lentils"],
+    ingredientNames: ["Lentils"],
+  }),
+}));
+
 import { RecipeOnboarding } from "@/components/recipes/onboarding/recipe-onboarding";
 
 const emptyDiet = {
@@ -42,12 +59,40 @@ const emptyDiet = {
   recipeMatchMode: "hide" as const,
 };
 
-const recipe = {
-  slug: "vegan-soup",
-  title: "Vegan Soup",
-  ingredientSlugs: ["lentils"],
-  ingredientNames: ["Lentils"],
-} as RecipeCardView;
+function recipeRecord(slug: string, title: string): SavedRecipeApiRecord {
+  return {
+    slug,
+    title,
+    description: null,
+    body: null,
+    visibility: "public",
+    createdAt: "2026-07-22T00:00:00.000Z",
+    updatedAt: "2026-07-22T00:00:00.000Z",
+  };
+}
+
+const veganSoup = recipeRecord("vegan-soup", "Vegan Soup");
+
+function stubRecipeFetch({
+  owned = [],
+  readable = [veganSoup],
+}: {
+  owned?: SavedRecipeApiRecord[];
+  readable?: SavedRecipeApiRecord[];
+} = {}) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((input: RequestInfo | URL) => {
+      const url = new URL(String(input), "https://recipes.example.test");
+      const items =
+        url.searchParams.get("scope") === "owned" ? owned : readable;
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ items, nextCursor: null }),
+      });
+    }),
+  );
+}
 
 describe("RecipeOnboarding", () => {
   beforeEach(() => {
@@ -65,21 +110,15 @@ describe("RecipeOnboarding", () => {
     });
     mocks.getRecipeBoxProfile.mockResolvedValue({
       completed: false,
-      staticRecipeSlugs: [],
+      recipeSlugs: [],
     });
     mocks.saveDietProfile.mockResolvedValue(emptyDiet);
     mocks.saveRecipeBoxProfile.mockResolvedValue(undefined);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ items: [], nextCursor: null }),
-      }),
-    );
+    stubRecipeFetch();
   });
 
   it("continues with no diet selections without a redundant skip action", async () => {
-    render(<RecipeOnboarding recipes={[recipe]} />);
+    render(<RecipeOnboarding />);
 
     expect(
       await screen.findByRole("heading", { name: /anything you don't eat/i }),
@@ -96,9 +135,29 @@ describe("RecipeOnboarding", () => {
     ).toBeInTheDocument();
   });
 
+  it("does not offer recipes the onboarding user already owns", async () => {
+    const ownedRecipe = recipeRecord("owned-stew", "Owned Stew");
+    stubRecipeFetch({
+      owned: [ownedRecipe],
+      readable: [ownedRecipe, veganSoup],
+    });
+    const user = userEvent.setup();
+
+    render(<RecipeOnboarding />);
+    await screen.findByRole("heading", { name: /anything you don't eat/i });
+    await user.click(screen.getByRole("button", { name: /continue/i }));
+
+    expect(
+      screen.queryByRole("button", { name: /owned stew/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /vegan soup/i }),
+    ).toBeInTheDocument();
+  });
+
   it("preserves selected starters in the author-recipe return URL", async () => {
     const user = userEvent.setup();
-    render(<RecipeOnboarding recipes={[recipe]} />);
+    render(<RecipeOnboarding />);
     await screen.findByRole("heading", { name: /anything you don't eat/i });
     await user.click(screen.getByRole("button", { name: /continue/i }));
     await user.click(screen.getByRole("button", { name: /vegan soup/i }));
@@ -116,7 +175,7 @@ describe("RecipeOnboarding", () => {
 
   it("lets the user return from completion to correct recipe choices", async () => {
     const user = userEvent.setup();
-    render(<RecipeOnboarding recipes={[recipe]} />);
+    render(<RecipeOnboarding />);
     await screen.findByRole("heading", { name: /anything you don't eat/i });
     await user.click(screen.getByRole("button", { name: /continue/i }));
     await user.click(screen.getByRole("button", { name: /vegan soup/i }));
@@ -138,7 +197,7 @@ describe("RecipeOnboarding", () => {
 
   it("uses completed progress steps as back navigation", async () => {
     const user = userEvent.setup();
-    render(<RecipeOnboarding recipes={[recipe]} />);
+    render(<RecipeOnboarding />);
     await screen.findByRole("heading", { name: /anything you don't eat/i });
     await user.click(screen.getByRole("button", { name: /continue/i }));
 

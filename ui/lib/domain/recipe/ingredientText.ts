@@ -2,8 +2,10 @@ import {
   pluralizeIngredientTerm,
   singularizeIngredientTerm,
 } from "recipe-domain/pluralization";
+
+export { formatRecipeIngredientText as formatIngredientStaticText } from "recipe-domain/serialization";
+
 import type { RecipeIngredientView } from "./recipeViews";
-import { UNIT_LABELS } from "./unit";
 
 type IngredientNameFields = Pick<RecipeIngredientView, "name" | "pluralName">;
 type IngredientPluralizationFields = Pick<
@@ -57,79 +59,4 @@ export function formatIngredientName(
   }
 
   return pluralizeIngredientName(item);
-}
-
-const FRACTION_MAP: Array<[number, string]> = [
-  [1 / 4, "¼"],
-  [1 / 3, "⅓"],
-  [1 / 2, "½"],
-  [2 / 3, "⅔"],
-  [3 / 4, "¾"],
-];
-
-function formatStaticAmount(amount: number): string {
-  const whole = Math.floor(amount);
-  const frac = amount - whole;
-  if (frac < 0.01) return String(whole);
-  for (const [value, symbol] of FRACTION_MAP) {
-    if (Math.abs(frac - value) < 0.02) {
-      return whole > 0 ? `${whole}${symbol}` : symbol;
-    }
-  }
-  return amount.toFixed(1);
-}
-
-/**
- * Unscaled plain-text rendering of an ingredient for static exports
- * (schema.org JSON-LD and the agent Markdown twins): fractional amounts,
- * pluralised unit/name, preparation in parens, and — when requested — the
- * free-text note after a dash.
- */
-export function formatIngredientStaticText(
-  item: RecipeIngredientView,
-  options?: { includeNote?: boolean },
-): string {
-  const parts: string[] = [];
-
-  if (item.amount != null) {
-    parts.push(formatStaticAmount(item.amount));
-  }
-
-  // "piece" is a counting placeholder, not a label the UI ever renders. The
-  // label lookup is guarded so an unrecognised unit degrades to no label
-  // instead of crashing a build-time export.
-  const label =
-    item.unit && item.unit !== "piece" ? UNIT_LABELS[item.unit] : undefined;
-  if (label) {
-    const isPluralUnit = item.amount != null && item.amount > 1;
-    const unitStr = isPluralUnit ? label.plural : label.singular;
-    if (label.noSpace && parts.length > 0) {
-      parts[parts.length - 1] += unitStr;
-    } else {
-      parts.push(unitStr);
-    }
-  }
-
-  // Mirror the UI formatter: names auto-pluralise only for bare "piece"
-  // counts. Measured and unitless ingredients rely on an explicit pluralName
-  // override, so unitless fractions like "½ red onion" stay singular.
-  const isPlural = item.amount != null && item.amount !== 1;
-  let name = item.name;
-  if (isPlural) {
-    name =
-      item.unit === "piece"
-        ? pluralizeIngredientName(item)
-        : (item.pluralName ?? item.name);
-  }
-  parts.push(name);
-
-  if (item.preparation) {
-    parts.push(`(${item.preparation})`);
-  }
-
-  if (options?.includeNote && item.note) {
-    parts.push(`– ${item.note}`);
-  }
-
-  return parts.join(" ").trim();
 }

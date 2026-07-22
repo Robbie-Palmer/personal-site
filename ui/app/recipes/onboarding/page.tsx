@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { RecipeOnboarding } from "@/components/recipes/onboarding/recipe-onboarding";
-import { getAllRecipes } from "@/lib/api/recipes";
 
 export const metadata: Metadata = {
   title: "Set up your recipe box",
@@ -9,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function RecipeOnboardingPage() {
-  return <RecipeOnboarding recipes={getAllRecipes()} />;
+  return <RecipeOnboarding />;
 }

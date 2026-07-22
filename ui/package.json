@@ -10,7 +10,7 @@
     "generate:rss": "tsx scripts/generate-rss.ts",
     "start": "next start",
     "test": "vitest run --exclude 'tests/integration/**'",
-    "test:coverage": "vitest run --coverage --exclude 'tests/integration/**'",
+    "test:coverage": "UI_COVERAGE=true vitest run --coverage --exclude 'ui/tests/integration/**'",
     "test:integration": "vitest run --no-file-parallelism tests/integration",
     "test:watch": "vitest --exclude 'tests/integration/**'",
     "lint": "biome check",

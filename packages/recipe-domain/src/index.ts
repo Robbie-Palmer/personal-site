@@ -5,4 +5,5 @@ export * from "./ingredient";
 export * from "./ingredient-merge";
 export * from "./ingredient-normalization";
 export * from "./recipe";
+export * from "./serialization";
 export * from "./pluralization";

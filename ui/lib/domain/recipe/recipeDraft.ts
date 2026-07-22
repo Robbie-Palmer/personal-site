@@ -1,4 +1,8 @@
 import type { CooklangRecipe as ParsedCooklangRecipe } from "@cooklang/cooklang";
+import {
+  type SavedRecipePayload,
+  SavedRecipePayloadSchema,
+} from "recipe-domain/serialization";
 import { buildRecipeContentFromParsed } from "@/lib/domain/recipe/cooklangTransform";
 import {
   type RecipeContent,
@@ -20,11 +24,7 @@ export type RecipeDraftMetadata = {
   canonical?: string;
 };
 
-export type SavedRecipePayload = {
-  version: 1;
-  source: string;
-  recipe: RecipeContent;
-};
+export type { SavedRecipePayload } from "recipe-domain/serialization";
 
 export type SavedRecipeApiRecord = {
   slug: string;
@@ -127,11 +127,13 @@ export function serializeSavedRecipe(
   source: string,
   recipe: RecipeDetailView,
 ): string {
-  return JSON.stringify({
-    version: 1,
-    source,
-    recipe: RecipeContentSchema.parse(recipe),
-  } satisfies SavedRecipePayload);
+  return JSON.stringify(
+    SavedRecipePayloadSchema.parse({
+      version: 1,
+      source,
+      recipe: RecipeContentSchema.parse(recipe),
+    } satisfies SavedRecipePayload),
+  );
 }
 
 export function parseSavedRecipe(
@@ -139,11 +141,9 @@ export function parseSavedRecipe(
 ): RecipeDetailView | null {
   if (!record.body) return null;
   try {
-    const payload = JSON.parse(record.body) as Partial<SavedRecipePayload>;
-    if (payload.version !== 1 || !payload.recipe) return null;
-    const parsed = RecipeContentSchema.safeParse(payload.recipe);
+    const parsed = SavedRecipePayloadSchema.safeParse(JSON.parse(record.body));
     if (!parsed.success) return null;
-    return recipeContentToDetail(parsed.data, record.slug);
+    return recipeContentToDetail(parsed.data.recipe, record.slug);
   } catch {
     return null;
   }
@@ -153,6 +153,15 @@ export type RecipeGridItem = RecipeCardView & {
   href?: string;
   saved?: boolean;
 };
+
+export function savedRecipeHref(
+  record: Pick<SavedRecipeApiRecord, "slug" | "visibility">,
+): string {
+  const slug = encodeURIComponent(record.slug);
+  return record.visibility === "public"
+    ? `/recipes/${slug}`
+    : `/recipes/saved?slug=${slug}`;
+}
 
 export function savedRecipeCard(
   record: SavedRecipeApiRecord,
@@ -177,7 +186,7 @@ export function savedRecipeCard(
     ...recipe,
     ingredientNames,
     ingredientSlugs,
-    href: `/recipes/saved?slug=${encodeURIComponent(record.slug)}`,
+    href: savedRecipeHref(record),
     saved: true,
   };
 }

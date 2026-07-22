@@ -43,6 +43,7 @@ export type KitchenRecipeIngredientView = {
 
 export type KitchenRecipeView = {
   slug: string;
+  href?: string;
   title: string;
   cuisine: string[];
   totalTime?: number;

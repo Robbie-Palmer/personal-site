@@ -15,7 +15,8 @@ import {
 } from "drizzle-orm";
 import { z } from "zod";
 import { createDb, type Db, type DbClient, schema } from "recipe-db";
-import { RecipeContentSchema } from "recipe-domain";
+import { SavedRecipePayloadSchema } from "recipe-domain/serialization";
+import { isRecipeAppRouteSlug } from "recipe-domain/slugs";
 import { parseSchemaOrgRecipeHtml } from "recipe-parsing/schema-org";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
@@ -122,6 +123,10 @@ const recipeSlugSchema = z
   });
 
 const recipeVisibilitySchema = z.enum(["public", "private", "household"]);
+const creatableRecipeSlugSchema = recipeSlugSchema.refine(
+  (slug) => !isRecipeAppRouteSlug(slug),
+  { message: "Slug is reserved for a recipe application route" },
+);
 const dietRecipeMatchModeSchema = z.enum(["hide", "warn"]);
 const feedScopeSchema = z.enum(["public", "household"]);
 const feedLimitSchema = z.coerce.number().int().min(1).max(30).default(12);
@@ -146,20 +151,25 @@ const uniqueDietKeysSchema = z
 
 const recipeBoxBodySchema = z
   .object({
-    staticRecipeSlugs: z
-      .array(recipeSlugSchema)
-      .max(100)
-      .transform((values) => Array.from(new Set(values))),
+    recipeSlugs: z.array(recipeSlugSchema).max(100).optional(),
+    // Temporary deploy-order compatibility for the previous static catalog UI.
+    staticRecipeSlugs: z.array(recipeSlugSchema).max(100).optional(),
   })
-  .strict();
+  .strict()
+  .refine((body) => body.recipeSlugs || body.staticRecipeSlugs, {
+    message:
+      "At least one of recipeSlugs or staticRecipeSlugs must be provided",
+  })
+  .transform((body) => ({
+    recipeSlugs: Array.from(
+      new Set(body.recipeSlugs ?? body.staticRecipeSlugs ?? []),
+    ),
+  }));
 
 const MAX_RECIPE_BODY_BYTES = 100_000;
-const savedRecipePayloadSchema = z
-  .object({
-    version: z.literal(1),
-    source: z.string().trim().min(1).max(10_000),
-    recipe: RecipeContentSchema,
-  })
+const savedRecipePayloadSchema = SavedRecipePayloadSchema.extend({
+  source: z.string().trim().min(1).max(10_000),
+})
   .strict();
 
 const savedRecipeBodySchema = z
@@ -208,7 +218,7 @@ const RECIPE_URL_IMPORT_RATE_LIMIT = { max: 20, windowSeconds: 60 * 60 };
 const RECIPE_PHOTO_IMPORT_RATE_LIMIT = { max: 20, windowSeconds: 60 * 60 };
 
 const createRecipeBodySchema = z.object({
-  slug: recipeSlugSchema,
+  slug: creatableRecipeSlugSchema,
   title: z.string().trim().min(1).max(120),
   description: z.string().trim().min(1).max(500).optional(),
   body: savedRecipeBodySchema,
@@ -311,11 +321,14 @@ async function recipeBoxResponse(db: Db, userId: string) {
       .where(eq(schema.userRecipeBoxItem.userId, userId)),
   ]);
 
+  const recipeSlugs = items
+    .map((item) => item.recipeSlug)
+    .sort((first, second) => first.localeCompare(second));
   return {
     completed: Boolean(profile[0]),
-    staticRecipeSlugs: items
-      .map((item) => item.recipeSlug)
-      .sort((first, second) => first.localeCompare(second)),
+    recipeSlugs,
+    // Remove after the Postgres-backed UI has been deployed everywhere.
+    staticRecipeSlugs: recipeSlugs,
   };
 }
 
@@ -1633,9 +1646,9 @@ app.put("/api/profile/recipe-box", async (c) => {
         await tx
           .delete(schema.userRecipeBoxItem)
           .where(eq(schema.userRecipeBoxItem.userId, session.user.id));
-        if (body.data.staticRecipeSlugs.length > 0) {
+        if (body.data.recipeSlugs.length > 0) {
           await tx.insert(schema.userRecipeBoxItem).values(
-            body.data.staticRecipeSlugs.map((recipeSlug) => ({
+            body.data.recipeSlugs.map((recipeSlug) => ({
               userId: session.user.id,
               recipeSlug,
             })),

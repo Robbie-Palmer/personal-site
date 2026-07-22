@@ -1,3 +1,20 @@
+const RECIPE_APP_ROUTE_SLUGS = new Set([
+  "add",
+  "cooks",
+  "discover",
+  "kitchen",
+  "notifications",
+  "onboarding",
+  "profile",
+  "saved",
+  "settings",
+  "shopping",
+]);
+
+export function isRecipeAppRouteSlug(slug: string): boolean {
+  return RECIPE_APP_ROUTE_SLUGS.has(slug);
+}
+
 export function normalizeSlug(text: string): string {
   if (!text) return "";
   return text

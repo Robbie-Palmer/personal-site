@@ -30,6 +30,7 @@ import {
   saveRecipeBoxProfile,
 } from "@/lib/api/recipe-box";
 import type { RecipeCardView } from "@/lib/api/recipes";
+import { recipeRecordsToCards } from "@/lib/api/recipes";
 import { fetchAllSavedRecipes } from "@/lib/api/saved-recipes";
 import { authClient } from "@/lib/auth-client";
 import { buildEffectiveDiet, filterRecipesForDiet } from "@/lib/domain/diet";
@@ -144,7 +145,7 @@ function Intro() {
   );
 }
 
-async function fetchAuthoredRecipes(signal: AbortSignal) {
+async function fetchOwnedRecipes(signal: AbortSignal) {
   try {
     return await fetchAllSavedRecipes({
       scope: "owned",
@@ -259,9 +260,7 @@ function StarterRecipeTile({
   );
 }
 
-export function RecipeOnboarding({
-  recipes,
-}: Readonly<{ recipes: RecipeCardView[] }>) {
+export function RecipeOnboarding() {
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const userId = session?.user.id;
   const [step, setStep] = useState(0);
@@ -269,6 +268,7 @@ export function RecipeOnboarding({
   const [dietOptions, setDietOptions] = useState<DietOptions>(emptyDietOptions);
   const [selectedSlugs, setSelectedSlugs] = useState<string[]>([]);
   const [authoredRecipeSlugs, setAuthoredRecipeSlugs] = useState<string[]>([]);
+  const [recipes, setRecipes] = useState<RecipeCardView[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -286,29 +286,40 @@ export function RecipeOnboarding({
       getDietProfile(controller.signal),
       getDietOptions(controller.signal),
       getRecipeBoxProfile(controller.signal),
-      fetchAuthoredRecipes(controller.signal),
+      fetchOwnedRecipes(controller.signal),
+      fetchAllSavedRecipes({ signal: controller.signal }),
     ])
-      .then(([profile, options, box, saved]) => {
+      .then(([profile, options, box, owned, readable]) => {
+        const ownedSlugs = owned.flatMap((record) =>
+          savedRecipeCard(record) ? [record.slug] : [],
+        );
+        const authoredDuringOnboarding: string[] = [];
+        if (
+          returnedAuthoredSlug &&
+          /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(returnedAuthoredSlug)
+        ) {
+          ownedSlugs.push(returnedAuthoredSlug);
+          authoredDuringOnboarding.push(returnedAuthoredSlug);
+        }
+        const ownedSlugSet = new Set(ownedSlugs);
+        const publicRecipes = recipeRecordsToCards(
+          readable.filter(
+            (record) =>
+              record.visibility === "public" && !ownedSlugSet.has(record.slug),
+          ),
+        );
+        setRecipes(publicRecipes);
         setStep(authenticatedOnboardingStep(box.completed, requestedBoxStep));
         setDiet(profile);
         setDietOptions(options);
         setSelectedSlugs(
           resolveOnboardingRecipeSelection(
             window.location.search,
-            box.staticRecipeSlugs,
-            new Set(recipes.map((recipe) => recipe.slug)),
+            box.recipeSlugs,
+            new Set(publicRecipes.map((recipe) => recipe.slug)),
           ),
         );
-        const authoredSlugs = saved.flatMap((record) =>
-          savedRecipeCard(record) ? [record.slug] : [],
-        );
-        if (
-          returnedAuthoredSlug &&
-          /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(returnedAuthoredSlug)
-        ) {
-          authoredSlugs.push(returnedAuthoredSlug);
-        }
-        setAuthoredRecipeSlugs(Array.from(new Set(authoredSlugs)));
+        setAuthoredRecipeSlugs(authoredDuringOnboarding);
       })
       .catch((error_: unknown) => {
         if (!(error_ instanceof DOMException && error_.name === "AbortError")) {
@@ -325,7 +336,7 @@ export function RecipeOnboarding({
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [loadAttempt, recipes, userId]);
+  }, [loadAttempt, userId]);
 
   const effectiveDiet = useMemo(
     () => buildEffectiveDiet(diet, dietOptions),
@@ -341,7 +352,7 @@ export function RecipeOnboarding({
       })),
     [effectiveDiet, recipes],
   );
-  const compatibleRecipes = allCompatibleRecipes.slice(0, 12);
+  const compatibleRecipes = allCompatibleRecipes;
   const compatibleRecipeSlugs = useMemo(
     () => new Set(allCompatibleRecipes.map((recipe) => recipe.slug)),
     [allCompatibleRecipes],
@@ -354,7 +365,8 @@ export function RecipeOnboarding({
     () => new Set(compatibleSelectedSlugs),
     [compatibleSelectedSlugs],
   );
-  const boxCount = compatibleSelectedSlugs.length + authoredRecipeSlugs.length;
+  const boxCount = new Set([...compatibleSelectedSlugs, ...authoredRecipeSlugs])
+    .size;
   const authorRecipeHref = buildRecipeAuthoringHref(compatibleSelectedSlugs);
 
   function toggleDietPreset(key: string) {

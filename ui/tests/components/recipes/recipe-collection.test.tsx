@@ -4,8 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   session: { data: { user: { id: "user-1" } }, isPending: false },
   dietLoading: false,
-  fetchSaved: vi.fn(),
-  fetchBox: vi.fn(),
+  fetchRecipeBoxRecipes: vi.fn(),
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -17,11 +16,7 @@ vi.mock("@/components/recipes/diet-provider", () => ({
 }));
 
 vi.mock("@/lib/api/saved-recipes", () => ({
-  fetchAllSavedRecipes: mocks.fetchSaved,
-}));
-
-vi.mock("@/lib/api/recipe-box", () => ({
-  getRecipeBoxProfile: mocks.fetchBox,
+  fetchRecipeBoxRecipes: mocks.fetchRecipeBoxRecipes,
 }));
 
 vi.mock("@/lib/domain/recipe/recipeDraft", () => ({
@@ -49,12 +44,6 @@ vi.mock("@/components/recipes/recipe-list", () => ({
 }));
 
 import { RecipeCollection } from "@/components/recipes/recipe-collection";
-import type { RecipeCardView } from "@/lib/api/recipes";
-
-const staticRecipes = [
-  { slug: "starter", title: "Selected starter" },
-  { slug: "not-selected", title: "Default catalogue recipe" },
-] as RecipeCardView[];
 
 describe("RecipeCollection", () => {
   beforeEach(() => {
@@ -66,53 +55,42 @@ describe("RecipeCollection", () => {
     mocks.dietLoading = false;
   });
 
-  it("keeps default recipes hidden until personalization is ready", async () => {
-    let resolveSaved!: (value: { slug: string; title: string }[]) => void;
+  it("keeps recipes hidden until personalization is ready", async () => {
     let resolveBox!: (value: {
-      completed: boolean;
-      staticRecipeSlugs: string[];
+      recipes: { slug: string; title: string }[];
+      box: { completed: boolean; recipeSlugs: string[] };
     }) => void;
-    mocks.fetchSaved.mockReturnValue(
-      new Promise((resolve) => {
-        resolveSaved = resolve;
-      }),
-    );
-    mocks.fetchBox.mockReturnValue(
+    mocks.fetchRecipeBoxRecipes.mockReturnValue(
       new Promise((resolve) => {
         resolveBox = resolve;
       }),
     );
 
-    render(<RecipeCollection recipes={staticRecipes} />);
-
+    render(<RecipeCollection />);
     expect(
       screen.getByText("Loading personalized recipes"),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByText(/Default catalogue recipe/),
-    ).not.toBeInTheDocument();
 
-    resolveSaved([{ slug: "saved", title: "My saved recipe" }]);
-    resolveBox({ completed: true, staticRecipeSlugs: ["starter"] });
+    resolveBox({
+      recipes: [
+        { slug: "saved", title: "My saved recipe" },
+        { slug: "starter", title: "Selected starter" },
+      ],
+      box: { completed: true, recipeSlugs: ["starter"] },
+    });
 
     expect(
       await screen.findByText("Recipes: My saved recipe, Selected starter"),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByText(/Default catalogue recipe/),
-    ).not.toBeInTheDocument();
   });
 
   it("does not expose one user's recipes while another user loads", async () => {
-    mocks.fetchSaved.mockResolvedValueOnce([
-      { slug: "first", title: "First user's recipe" },
-    ]);
-    mocks.fetchBox.mockResolvedValueOnce({
-      completed: true,
-      staticRecipeSlugs: [],
+    mocks.fetchRecipeBoxRecipes.mockResolvedValueOnce({
+      recipes: [{ slug: "first", title: "First user's recipe" }],
+      box: { completed: true, recipeSlugs: [] },
     });
 
-    const view = render(<RecipeCollection recipes={staticRecipes} />);
+    const view = render(<RecipeCollection />);
     expect(
       await screen.findByText("Recipes: First user's recipe"),
     ).toBeInTheDocument();
@@ -121,9 +99,10 @@ describe("RecipeCollection", () => {
       data: { user: { id: "user-2" } },
       isPending: false,
     };
-    mocks.fetchSaved.mockReturnValueOnce(new Promise(() => undefined));
-    mocks.fetchBox.mockReturnValueOnce(new Promise(() => undefined));
-    view.rerender(<RecipeCollection recipes={staticRecipes} />);
+    mocks.fetchRecipeBoxRecipes.mockReturnValueOnce(
+      new Promise(() => undefined),
+    );
+    view.rerender(<RecipeCollection />);
 
     expect(
       await screen.findByText("Loading personalized recipes"),
@@ -133,19 +112,18 @@ describe("RecipeCollection", () => {
 
   it("waits for diet preferences before rendering the recipe list", async () => {
     mocks.dietLoading = true;
-    mocks.fetchSaved.mockResolvedValue([]);
-    mocks.fetchBox.mockResolvedValue({
-      completed: true,
-      staticRecipeSlugs: ["starter"],
+    mocks.fetchRecipeBoxRecipes.mockResolvedValue({
+      recipes: [{ slug: "starter", title: "Selected starter" }],
+      box: { completed: true, recipeSlugs: ["starter"] },
     });
 
-    const view = render(<RecipeCollection recipes={staticRecipes} />);
+    const view = render(<RecipeCollection />);
     expect(
       screen.getByText("Loading personalized recipes"),
     ).toBeInTheDocument();
 
     mocks.dietLoading = false;
-    view.rerender(<RecipeCollection recipes={staticRecipes} />);
+    view.rerender(<RecipeCollection />);
 
     expect(
       await screen.findByText("Recipes: Selected starter"),

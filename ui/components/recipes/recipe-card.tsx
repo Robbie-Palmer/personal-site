@@ -125,7 +125,7 @@ export function RecipeMatchCard({
         />
       ) : (
         <Link
-          href={`/recipes/${recipe.slug}`}
+          href={recipe.href ?? `/recipes/${recipe.slug}`}
           aria-label={`Open ${recipe.title}`}
           className="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--ring)]/50"
         />

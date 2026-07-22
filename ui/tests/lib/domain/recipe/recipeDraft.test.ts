@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRecipeDraft,
   normalizeRecipeSource,
+  savedRecipeCard,
 } from "@/lib/domain/recipe/recipeDraft";
 
 describe("normalizeRecipeSource", () => {
@@ -32,4 +33,54 @@ describe("buildRecipeDraft", () => {
 
     expect(draft.cuisine).toEqual(["Italian", "American"]);
   });
+});
+
+describe("savedRecipeCard", () => {
+  const savedPayload = {
+    version: 1 as const,
+    source: "Cook @rice{200%g}.",
+    recipe: {
+      title: "Weeknight Rice",
+      description: "A quick dinner.",
+      date: "2026-07-22",
+      cuisine: [],
+      servings: 2,
+      tags: [],
+      ingredientGroups: [
+        {
+          items: [{ ingredient: "rice", amount: 200, unit: "g" }],
+        },
+      ],
+      instructions: ["Cook the rice."],
+      cookware: [],
+      cookBody: "Cook @rice{200%g}.",
+    },
+  };
+
+  function record(visibility: "public" | "private" | "household") {
+    return {
+      slug: "weeknight-rice",
+      title: "Weeknight Rice",
+      description: "A quick dinner.",
+      body: JSON.stringify(savedPayload),
+      visibility,
+      createdAt: "2026-07-22T12:00:00.000Z",
+      updatedAt: "2026-07-22T12:00:00.000Z",
+    };
+  }
+
+  it("uses the indexable route for public recipes", () => {
+    expect(savedRecipeCard(record("public"))?.href).toBe(
+      "/recipes/weeknight-rice",
+    );
+  });
+
+  it.each(["private", "household"] as const)(
+    "uses the authenticated route for %s recipes",
+    (visibility) => {
+      expect(savedRecipeCard(record(visibility))?.href).toBe(
+        "/recipes/saved?slug=weeknight-rice",
+      );
+    },
+  );
 });

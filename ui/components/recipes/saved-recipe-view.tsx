@@ -2,7 +2,7 @@
 
 import { ArrowLeft, Loader2, LockKeyhole } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { RecipeContent } from "@/components/recipes/recipe-content";
 import { Button } from "@/components/ui/button";
@@ -22,10 +22,15 @@ type State =
     };
 
 export function SavedRecipeView() {
-  const slug = useSearchParams().get("slug");
+  const pathname = usePathname();
+  const searchSlug = useSearchParams().get("slug");
   const [state, setState] = useState<State>({ status: "loading" });
 
   useEffect(() => {
+    const pathSlug = /^\/recipes\/([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/.exec(
+      pathname,
+    )?.[1];
+    const slug = searchSlug ?? pathSlug;
     if (
       !slug ||
       slug.length > 120 ||
@@ -69,7 +74,7 @@ export function SavedRecipeView() {
         });
       });
     return () => controller.abort();
-  }, [slug]);
+  }, [pathname, searchSlug]);
 
   if (state.status === "loading") {
     return (

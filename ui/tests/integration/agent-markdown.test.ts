@@ -63,24 +63,17 @@ describe("agent markdown generation", () => {
     }
   });
 
-  it("generates a markdown twin for every recipe and technology page", () => {
-    for (const section of ["recipes", "technologies"]) {
-      const htmlPages = fs
-        .readdirSync(path.join(OUT_DIR, section))
-        .filter(
-          (file) =>
-            file.endsWith(".html") &&
-            (section !== "recipes" ||
-              !RECIPE_APP_PAGES.has(file.replace(/\.html$/, ""))),
-        );
-      expect(htmlPages.length).toBeGreaterThan(0);
-      for (const htmlPage of htmlPages) {
-        const mdPage = htmlPage.replace(/\.html$/, ".md");
-        expect(
-          fs.existsSync(path.join(OUT_DIR, section, mdPage)),
-          `${section}/${mdPage}`,
-        ).toBe(true);
-      }
+  it("generates a markdown twin for every technology page", () => {
+    const htmlPages = fs
+      .readdirSync(path.join(OUT_DIR, "technologies"))
+      .filter((file) => file.endsWith(".html"));
+    expect(htmlPages.length).toBeGreaterThan(0);
+    for (const htmlPage of htmlPages) {
+      const mdPage = htmlPage.replace(/\.html$/, ".md");
+      expect(
+        fs.existsSync(path.join(OUT_DIR, "technologies", mdPage)),
+        `technologies/${mdPage}`,
+      ).toBe(true);
     }
   });
 
@@ -100,44 +93,17 @@ describe("agent markdown generation", () => {
     }
   });
 
-  it("renders recipe ingredients and instructions as markdown", () => {
-    const recipeFiles = fs
-      .readdirSync(path.join(OUT_DIR, "recipes"))
-      .filter((file) => file.endsWith(".md"));
-    const recipe = read(`recipes/${recipeFiles[0]}`);
-    expect(recipe).toContain("## Ingredients");
-    expect(recipe).toContain("## Instructions");
-    expect(recipe).not.toContain("{%"); // no leftover cooklang markup
-  });
-
-  it("generates JSON and Cooklang exports for every recipe", () => {
-    const recipePages = fs
-      .readdirSync(path.join(OUT_DIR, "recipes"))
-      .filter(
-        (file) =>
-          file.endsWith(".html") &&
-          !RECIPE_APP_PAGES.has(file.replace(/\.html$/, "")),
-      );
-
-    for (const recipePage of recipePages) {
-      const slug = recipePage.replace(/\.html$/, "");
-      expect(
-        fs.existsSync(path.join(OUT_DIR, "recipes", `${slug}.json`)),
-        `recipes/${slug}.json`,
-      ).toBe(true);
-      expect(
-        fs.existsSync(path.join(OUT_DIR, "recipes", `${slug}.cook`)),
-        `recipes/${slug}.cook`,
-      ).toBe(true);
-    }
-  });
-
-  it("preserves ingredient annotations in Cooklang exports", () => {
-    const recipe = read("recipes/breakfast-flatbreads.cook");
-
-    expect(recipe).toContain("ingredientAnnotations:");
-    expect(recipe).toContain('"cherry-tomato":{"preparation":"halved"}');
-    expect(recipe).toContain('"naan":{"note":"plain"}');
+  it("leaves recipe detail representations to the runtime function", () => {
+    const recipeFiles = fs.readdirSync(path.join(OUT_DIR, "recipes"));
+    expect(
+      recipeFiles.filter((file) => /\.(md|json|cook)$/.test(file)),
+    ).toEqual([]);
+    expect(
+      recipeFiles
+        .filter((file) => file.endsWith(".html"))
+        .map((file) => file.replace(/\.html$/, ""))
+        .filter((page) => !RECIPE_APP_PAGES.has(page)),
+    ).toEqual([]);
   });
 
   it("scopes the middleware to page routes in _routes.json", () => {
@@ -153,6 +119,9 @@ describe("agent markdown generation", () => {
     expect(routes.include).toContain("/api/recipe-imports");
     expect(routes.include).toContain("/api/recipe-imports/*");
     expect(routes.include).toContain("/ingest/*");
+    expect(routes.include).toContain("/llms.txt");
+    expect(routes.include).toContain("/llms-full.txt");
+    expect(routes.include).toContain("/sitemap.xml");
     expect(routes.include).toContain("/projects/*");
     expect(routes.exclude).toContain("/_next/*");
     expect(routes.include.length + routes.exclude.length).toBeLessThanOrEqual(
