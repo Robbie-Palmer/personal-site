@@ -5,6 +5,7 @@ import type {
   KitchenIngredientView,
   KitchenRecipeView,
 } from "@/lib/domain/recipe/kitchen";
+import type { RecipeGridItem } from "@/lib/domain/recipe/recipeDraft";
 import {
   parseSavedRecipe,
   type SavedRecipeApiRecord,
@@ -20,11 +21,13 @@ export type { RecipeCardView, RecipeDetailView };
 
 export function recipeRecordsToCards(
   records: SavedRecipeApiRecord[],
-): RecipeCardView[] {
+): RecipeGridItem[] {
   return records
     .flatMap((record) => {
       const card = savedRecipeCard(record);
-      return card ? [card] : [];
+      if (!card) return [];
+      const { saved: _saved, ...catalogCard } = card;
+      return [catalogCard];
     })
     .sort(
       (left, right) =>
