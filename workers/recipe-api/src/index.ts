@@ -2795,9 +2795,6 @@ app.patch("/recipes/:slug", async (c) => {
       const body = await parseJsonBody(c, updateRecipeBodySchema);
       if (!body.success) return body.response;
 
-      const ownerDecision = authorizeOwnerOnly(session.user, recipe);
-      if (!ownerDecision.allowed) return authorizationResponse(c, ownerDecision);
-
       if (body.data.visibility === "household") {
         const membership = await findUserHouseholdMembership(
           db,

@@ -44,6 +44,7 @@ describe("savedRecipeCard", () => {
       title: "Weeknight Rice",
       description: "A quick dinner.",
       date: "2026-07-22",
+      canonical: "https://example.test/weeknight-rice",
       cuisine: [],
       servings: 2,
       tags: [],
@@ -87,6 +88,12 @@ describe("savedRecipeCard", () => {
 
   it("parses the source and recipe needed by the editor", () => {
     expect(parseSavedRecipePayload(record("private"))).toEqual(savedPayload);
+  });
+
+  it("preserves the canonical source URL in saved recipe views", () => {
+    expect(savedRecipeCard(record("private"))?.canonical).toBe(
+      "https://example.test/weeknight-rice",
+    );
   });
 
   it.each([null, "{", JSON.stringify({ version: 1, recipe: {} })])(

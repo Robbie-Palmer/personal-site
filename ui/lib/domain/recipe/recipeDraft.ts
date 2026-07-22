@@ -121,6 +121,7 @@ function recipeContentToDetail(
     prepTime: content.prepTime,
     cookTime: content.cookTime,
     totalTime,
+    canonical: content.canonical,
     cookBody: content.cookBody,
     cookware: content.cookware,
     ingredientGroups: content.ingredientGroups.map((group) => ({

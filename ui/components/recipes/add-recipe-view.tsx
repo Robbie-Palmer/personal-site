@@ -38,6 +38,7 @@ import {
   normalizeRecipeSource,
   parseSavedRecipePayload,
   type SavedRecipeApiRecord,
+  savedRecipeHref,
   serializeSavedRecipe,
 } from "@/lib/domain/recipe/recipeDraft";
 import { recipeSaveReturnPath } from "@/lib/generic/safe-return-path";
@@ -119,7 +120,9 @@ export function AddRecipeView({
   const [recipeUrl, setRecipeUrl] = useState("");
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
-  const [importedUrl, setImportedUrl] = useState<string | null>(null);
+  const [importedUrl, setImportedUrl] = useState<string | null>(
+    initialPayload?.recipe.canonical ?? null,
+  );
   const [title, setTitle] = useState(initialRecipe?.title ?? "");
   const [description, setDescription] = useState(
     initialRecipe?.description ?? "",
@@ -308,17 +311,21 @@ export function AddRecipeView({
       const endpoint = initialRecipe
         ? `/api/recipes/${encodeURIComponent(initialRecipe.slug)}`
         : "/api/recipes";
+      const recipeBody = {
+        title: title.trim(),
+        description: description.trim(),
+        body: serializeSavedRecipe(source, preview),
+        visibility,
+      };
       const response = await fetch(endpoint, {
         method: initialRecipe ? "PATCH" : "POST",
         credentials: "include",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          ...(initialRecipe ? {} : { slug: normalizeSlug(title) }),
-          title: title.trim(),
-          description: description.trim(),
-          body: serializeSavedRecipe(source, preview),
-          visibility,
-        }),
+        body: JSON.stringify(
+          initialRecipe
+            ? recipeBody
+            : { ...recipeBody, slug: normalizeSlug(title) },
+        ),
       });
       if (!response.ok) {
         if (response.status === 409) {
@@ -340,7 +347,7 @@ export function AddRecipeView({
       }
       const saved = (await response.json()) as { slug: string };
       if (initialRecipe) {
-        router.push(`/recipes/${encodeURIComponent(saved.slug)}`);
+        router.push(savedRecipeHref({ slug: saved.slug, visibility }));
         return;
       }
       const returnTo = new URLSearchParams(window.location.search).get(

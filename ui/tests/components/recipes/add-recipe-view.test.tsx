@@ -108,6 +108,7 @@ describe("AddRecipeView visibility", () => {
 
   it("loads and updates an existing recipe without changing its slug", async () => {
     const source = "Cook @rice{200%g}.";
+    const canonical = "https://example.test/weeknight-rice";
     const [parsedRecipe] = new CooklangParser().parse(source);
     mocks.useCooklangRecipe.mockReturnValue({
       recipe: parsedRecipe,
@@ -132,6 +133,7 @@ describe("AddRecipeView visibility", () => {
               title: "Weeknight Rice",
               description: "A quick dinner.",
               date: "2026-07-22",
+              canonical,
               cuisine: ["Japanese"],
               servings: 2,
               tags: [],
@@ -145,7 +147,7 @@ describe("AddRecipeView visibility", () => {
               cookBody: source,
             },
           }),
-          visibility: "public",
+          visibility: "private",
           createdAt: "2026-07-22T12:00:00.000Z",
           updatedAt: "2026-07-22T12:00:00.000Z",
           owned: true,
@@ -160,7 +162,7 @@ describe("AddRecipeView visibility", () => {
     expect(screen.getByLabelText("Cuisine")).toHaveValue("Japanese");
     expect(screen.getByDisplayValue(source)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Public", pressed: true }),
+      screen.getByRole("button", { name: "Private", pressed: true }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Import from URL" }),
@@ -177,7 +179,16 @@ describe("AddRecipeView visibility", () => {
       ),
     );
     const [, request] = vi.mocked(globalThis.fetch).mock.calls[0] ?? [];
-    expect(JSON.parse(String(request?.body))).not.toHaveProperty("slug");
-    expect(mocks.routerPush).toHaveBeenCalledWith("/recipes/weeknight-rice");
+    const requestBody = JSON.parse(String(request?.body));
+    expect(Object.keys(requestBody).sort()).toEqual([
+      "body",
+      "description",
+      "title",
+      "visibility",
+    ]);
+    expect(JSON.parse(requestBody.body).recipe.canonical).toBe(canonical);
+    expect(mocks.routerPush).toHaveBeenCalledWith(
+      "/recipes/saved?slug=weeknight-rice",
+    );
   });
 });
