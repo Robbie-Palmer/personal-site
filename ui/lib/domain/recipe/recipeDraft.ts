@@ -34,7 +34,24 @@ export type SavedRecipeApiRecord = {
   visibility: "public" | "private" | "household";
   createdAt: string;
   updatedAt: string;
+  owned?: boolean;
 };
+
+export function parseSavedRecipePayload(
+  record: SavedRecipeApiRecord,
+): SavedRecipePayload | null {
+  if (!record.body) return null;
+  try {
+    const payload = JSON.parse(record.body) as Partial<SavedRecipePayload>;
+    if (payload.version !== 1 || typeof payload.source !== "string")
+      return null;
+    const parsed = RecipeContentSchema.safeParse(payload.recipe);
+    if (!parsed.success) return null;
+    return { version: 1, source: payload.source, recipe: parsed.data };
+  } catch {
+    return null;
+  }
+}
 
 export function normalizeRecipeSource(source: string): string {
   return source.trim();
@@ -139,14 +156,8 @@ export function serializeSavedRecipe(
 export function parseSavedRecipe(
   record: SavedRecipeApiRecord,
 ): RecipeDetailView | null {
-  if (!record.body) return null;
-  try {
-    const parsed = SavedRecipePayloadSchema.safeParse(JSON.parse(record.body));
-    if (!parsed.success) return null;
-    return recipeContentToDetail(parsed.data.recipe, record.slug);
-  } catch {
-    return null;
-  }
+  const payload = parseSavedRecipePayload(record);
+  return payload ? recipeContentToDetail(payload.recipe, record.slug) : null;
 }
 
 export type RecipeGridItem = RecipeCardView & {

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Loader2, LockKeyhole } from "lucide-react";
+import { ArrowLeft, Loader2, LockKeyhole, Pencil } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -19,6 +19,7 @@ type State =
       status: "ready";
       recipe: RecipeDetailView;
       visibility: SavedRecipeApiRecord["visibility"];
+      owned: boolean;
     };
 
 export function SavedRecipeView() {
@@ -60,7 +61,12 @@ export function SavedRecipeView() {
         const recipe = parseSavedRecipe(record);
         if (!recipe)
           throw new Error("The saved recipe is not in a supported format.");
-        setState({ status: "ready", recipe, visibility: record.visibility });
+        setState({
+          status: "ready",
+          recipe,
+          visibility: record.visibility,
+          owned: record.owned === true,
+        });
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError")
@@ -106,9 +112,25 @@ export function SavedRecipeView() {
         >
           <ArrowLeft className="size-3.5" /> All recipes
         </Link>
-        <span className="rt-mono inline-flex items-center gap-1.5 rounded-full border border-[var(--line-strong)] bg-[var(--paper-warm)] px-3 py-1 text-[var(--ink-3)]">
-          <LockKeyhole className="size-3" /> {state.visibility}
-        </span>
+        <div className="flex items-center gap-2">
+          {state.owned && (
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+            >
+              <Link
+                href={`/recipes/edit?slug=${encodeURIComponent(state.recipe.slug)}`}
+              >
+                <Pencil /> Edit recipe
+              </Link>
+            </Button>
+          )}
+          <span className="rt-mono inline-flex items-center gap-1.5 rounded-full border border-[var(--line-strong)] bg-[var(--paper-warm)] px-3 py-1 text-[var(--ink-3)]">
+            <LockKeyhole className="size-3" /> {state.visibility}
+          </span>
+        </div>
       </div>
       <RecipeContent recipe={state.recipe} />
     </div>

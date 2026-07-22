@@ -2718,7 +2718,10 @@ app.get("/recipes/:slug", async (c) => {
         if (!decision.allowed) return c.notFound();
       }
 
-      return c.json(recipeResponse(recipe));
+      return c.json({
+        ...recipeResponse(recipe),
+        owned: session?.user.id === recipe.userId,
+      });
     },
   );
 });
