@@ -81,8 +81,8 @@ describe("AuthButton", () => {
 
     expect(mocks.signInSocial).toHaveBeenCalledWith({
       provider: "github",
-      callbackURL: "/recipes/pasta?servings=4#method",
-      errorCallbackURL: "/recipes/pasta?servings=4#method",
+      callbackURL: "http://localhost:3000/recipes/pasta?servings=4#method",
+      errorCallbackURL: "http://localhost:3000/recipes/pasta?servings=4#method",
     });
   });
 

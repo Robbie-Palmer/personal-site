@@ -322,9 +322,7 @@ export function AuthButton({
     setError(null);
 
     const currentURL =
-      intent === "signup"
-        ? "/recipes/onboarding"
-        : `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      intent === "signup" ? "/recipes/onboarding" : window.location.href;
     try {
       const result = await authClient.signIn.social({
         provider,
