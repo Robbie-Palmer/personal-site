@@ -165,7 +165,7 @@ const EQUIPMENT_QUANTITY_TOKENS = new Set([
 ]);
 
 export function equipmentDisplayName(slug: string): string {
-  return slug.replace(/-/g, " ");
+  return slug.replaceAll("-", " ");
 }
 
 /**

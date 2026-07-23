@@ -105,7 +105,7 @@ function ingredientStems(base: string): string[] {
 
 function generateDeterministicCandidates(base: string): string[] {
   const forms = ingredientStems(base).flatMap((stem) => {
-    const phrase = stem.replace(/-/g, " ");
+    const phrase = stem.replaceAll("-", " ");
     return [
       stem,
       normalizeSlug(singularizeIngredientTerm(phrase)),
