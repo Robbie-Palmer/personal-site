@@ -10,8 +10,11 @@ export function getShareUrl(
   { url, title }: ShareTarget,
 ): string {
   switch (platform) {
+    // `intent/tweet` rather than `intent/post`: despite the rebrand, only
+    // `tweet` is documented, and `post` bounces between the X app and the
+    // in-app browser on iOS and Android instead of opening the composer.
     case "x":
-      return `https://x.com/intent/post?${new URLSearchParams({
+      return `https://x.com/intent/tweet?${new URLSearchParams({
         url,
         text: title,
       }).toString()}`;

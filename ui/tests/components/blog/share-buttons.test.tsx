@@ -27,7 +27,7 @@ describe("ShareButtons", () => {
 
     expect(screen.getByLabelText("Share on X")).toHaveAttribute(
       "href",
-      "https://x.com/intent/post?url=https%3A%2F%2Frobbiepalmer.me%2Fblog%2Fjust-right-engineering&text=Just+Right+Engineering",
+      "https://x.com/intent/tweet?url=https%3A%2F%2Frobbiepalmer.me%2Fblog%2Fjust-right-engineering&text=Just+Right+Engineering",
     );
   });
 
