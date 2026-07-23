@@ -16,6 +16,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  type ReactNode,
   useCallback,
   useEffect,
   useId,
@@ -64,6 +65,52 @@ type ImportedRecipe = {
   source: string;
   url: string;
 };
+
+function RecipeEditorGate({
+  unreadable,
+  pending,
+  authenticated,
+  children,
+}: Readonly<{
+  unreadable: boolean;
+  pending: boolean;
+  authenticated: boolean;
+  children: ReactNode;
+}>) {
+  if (unreadable) {
+    return (
+      <RecipeLoadError
+        title="Recipe unavailable"
+        message="This recipe's saved content could not be read. Editing is disabled to avoid overwriting it."
+      />
+    );
+  }
+  if (pending) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Loader2 className="animate-spin" />
+      </div>
+    );
+  }
+  if (!authenticated) {
+    return (
+      <div className="container mx-auto max-w-2xl px-4 py-16 text-center">
+        <FileText className="mx-auto size-10 text-[var(--terracotta)]" />
+        <h1 className="rt-display mt-4 text-5xl">Log in to save a recipe</h1>
+        <p className="rt-body mt-3 text-[var(--ink-2)]">
+          Use the log-in button above, then come back to add recipes to your
+          private recipe box.
+        </p>
+        <Button asChild variant="outline" className="mt-6 rounded-full">
+          <Link href="/recipes">
+            <ArrowLeft /> Back to recipes
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+  return children;
+}
 
 function NumberField({
   label,
@@ -202,6 +249,7 @@ export function AddRecipeView({
           {
             title,
             description,
+            date: initialPayload?.recipe.date,
             cuisine,
             servings,
             prepTime,
@@ -219,6 +267,7 @@ export function AddRecipeView({
     parse.recipe,
     title,
     description,
+    initialPayload?.recipe.date,
     cuisine,
     servings,
     prepTime,
@@ -375,42 +424,7 @@ export function AddRecipeView({
     }
   }
 
-  if (unreadableRecipe) {
-    return (
-      <RecipeLoadError
-        title="Recipe unavailable"
-        message="This recipe's saved content could not be read. Editing is disabled to avoid overwriting it."
-      />
-    );
-  }
-
-  if (sessionPending) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2 className="animate-spin" />
-      </div>
-    );
-  }
-
-  if (!session) {
-    return (
-      <div className="container mx-auto max-w-2xl px-4 py-16 text-center">
-        <FileText className="mx-auto size-10 text-[var(--terracotta)]" />
-        <h1 className="rt-display mt-4 text-5xl">Log in to save a recipe</h1>
-        <p className="rt-body mt-3 text-[var(--ink-2)]">
-          Use the log-in button above, then come back to add recipes to your
-          private recipe box.
-        </p>
-        <Button asChild variant="outline" className="mt-6 rounded-full">
-          <Link href="/recipes">
-            <ArrowLeft /> Back to recipes
-          </Link>
-        </Button>
-      </div>
-    );
-  }
-
-  return (
+  const editor = (
     <div className="container mx-auto max-w-[1600px] px-4 py-6 md:py-10">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -751,5 +765,15 @@ export function AddRecipeView({
         </section>
       </div>
     </div>
+  );
+
+  return (
+    <RecipeEditorGate
+      unreadable={unreadableRecipe}
+      pending={sessionPending}
+      authenticated={Boolean(session)}
+    >
+      {editor}
+    </RecipeEditorGate>
   );
 }

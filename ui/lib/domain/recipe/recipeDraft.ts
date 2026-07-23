@@ -17,6 +17,7 @@ import { normalizeSlug } from "@/lib/generic/slugs";
 export type RecipeDraftMetadata = {
   title: string;
   description: string;
+  date?: string;
   servings: number;
   prepTime?: number;
   cookTime?: number;
@@ -80,7 +81,7 @@ export function buildRecipeDraft(
     {
       title: metadata.title.trim(),
       description: metadata.description.trim(),
-      date: new Date().toISOString().slice(0, 10),
+      date: metadata.date ?? new Date().toISOString().slice(0, 10),
       cuisine: parseCuisineLabels(metadata.cuisine),
       servings: metadata.servings,
       prepTime: metadata.prepTime,

@@ -34,6 +34,24 @@ describe("buildRecipeDraft", () => {
 
     expect(draft.cuisine).toEqual(["Italian", "American"]);
   });
+
+  it("preserves an existing publication date", () => {
+    const source = "Cook @rice{200%g}.";
+    const [parsed] = new CooklangParser().parse(source);
+
+    const draft = buildRecipeDraft(
+      parsed,
+      {
+        title: "Weeknight Rice",
+        description: "A quick dinner.",
+        date: "2025-05-04",
+        servings: 2,
+      },
+      source,
+    );
+
+    expect(draft.date).toBe("2025-05-04");
+  });
 });
 
 describe("savedRecipeCard", () => {

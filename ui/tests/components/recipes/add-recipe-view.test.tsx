@@ -132,7 +132,7 @@ describe("AddRecipeView visibility", () => {
             recipe: {
               title: "Weeknight Rice",
               description: "A quick dinner.",
-              date: "2026-07-22",
+              date: "2025-05-04",
               canonical,
               cuisine: ["Japanese"],
               servings: 2,
@@ -187,6 +187,7 @@ describe("AddRecipeView visibility", () => {
       "visibility",
     ]);
     expect(JSON.parse(requestBody.body).recipe.canonical).toBe(canonical);
+    expect(JSON.parse(requestBody.body).recipe.date).toBe("2025-05-04");
     expect(mocks.routerPush).toHaveBeenCalledWith(
       "/recipes/saved?slug=weeknight-rice",
     );
