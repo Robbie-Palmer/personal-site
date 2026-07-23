@@ -20,16 +20,23 @@ vi.mock("@/lib/api/saved-recipes", () => ({
 }));
 
 vi.mock("@/lib/domain/recipe/recipeDraft", () => ({
-  savedRecipeCard: (record: { slug: string; title: string }) => ({
+  savedRecipeCard: (record: {
+    slug: string;
+    title: string;
+    cuisine?: string[];
+    ingredientNames?: string[];
+    ingredientSlugs?: string[];
+    cookware?: string[];
+  }) => ({
     ...record,
     description: "Saved recipe",
     date: "2026-07-19",
-    cuisine: [],
+    cuisine: record.cuisine ?? [],
     tags: [],
     servings: 2,
-    ingredientNames: [],
-    ingredientSlugs: [],
-    cookware: [],
+    ingredientNames: record.ingredientNames ?? [],
+    ingredientSlugs: record.ingredientSlugs ?? [],
+    cookware: record.cookware ?? [],
   }),
 }));
 
@@ -128,5 +135,37 @@ describe("RecipeCollection", () => {
     expect(
       await screen.findByText("Recipes: Selected starter"),
     ).toBeInTheDocument();
+  });
+
+  it("reports unique catalog stats from the loaded recipe box", async () => {
+    const onCatalogStatsChange = vi.fn();
+    mocks.fetchRecipeBoxRecipes.mockResolvedValue({
+      recipes: [
+        {
+          slug: "pasta",
+          title: "Pasta",
+          cuisine: ["Italian"],
+          ingredientNames: ["tomato", "pasta"],
+          cookware: ["pot", "spoon"],
+        },
+        {
+          slug: "soup",
+          title: "Soup",
+          cuisine: ["Italian", "French"],
+          ingredientNames: ["tomato", "stock"],
+          cookware: ["pot", "ladle"],
+        },
+      ],
+      box: { completed: true, recipeSlugs: [] },
+    });
+
+    render(<RecipeCollection onCatalogStatsChange={onCatalogStatsChange} />);
+
+    await screen.findByText("Recipes: Pasta, Soup");
+    expect(onCatalogStatsChange).toHaveBeenCalledWith({
+      cuisineCount: 2,
+      ingredientCount: 3,
+      equipmentCount: 3,
+    });
   });
 });

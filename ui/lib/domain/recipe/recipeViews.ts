@@ -2,6 +2,12 @@ import type { IngredientSlug } from "./ingredient";
 import type { RecipeInstructionSdk } from "./recipe";
 import type { Unit } from "./unit";
 
+export type RecipeCatalogStats = {
+  cuisineCount: number;
+  ingredientCount: number;
+  equipmentCount: number;
+};
+
 export type RecipeIngredientView = {
   ingredient: IngredientSlug;
   name: string;

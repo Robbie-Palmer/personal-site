@@ -12,6 +12,7 @@ import {
   type SavedRecipeApiRecord,
   savedRecipeCard,
 } from "@/lib/domain/recipe/recipeDraft";
+import type { RecipeCatalogStats } from "@/lib/domain/recipe/recipeViews";
 
 type RecipeCollectionState = {
   userId: string | null;
@@ -22,8 +23,10 @@ type RecipeCollectionState = {
 };
 
 export function RecipeCollection({
+  onCatalogStatsChange,
   onDietVisibleCountChange,
 }: Readonly<{
+  onCatalogStatsChange?: (stats: RecipeCatalogStats) => void;
   onDietVisibleCountChange?: (count: number) => void;
 }>) {
   const { data: session, isPending } = authClient.useSession();
@@ -101,6 +104,30 @@ export function RecipeCollection({
       }),
     [saved],
   );
+  const catalogStats = useMemo(
+    () => ({
+      cuisineCount: new Set(combined.flatMap((recipe) => recipe.cuisine)).size,
+      ingredientCount: new Set(
+        combined.flatMap((recipe) => recipe.ingredientNames),
+      ).size,
+      equipmentCount: new Set(combined.flatMap((recipe) => recipe.cookware))
+        .size,
+    }),
+    [combined],
+  );
+
+  useEffect(() => {
+    if (!sessionUserId || !stateMatchesSession || state.status !== "ready") {
+      return;
+    }
+    onCatalogStatsChange?.(catalogStats);
+  }, [
+    catalogStats,
+    onCatalogStatsChange,
+    sessionUserId,
+    state.status,
+    stateMatchesSession,
+  ]);
 
   if (isPending || personalizationLoading) {
     return (
