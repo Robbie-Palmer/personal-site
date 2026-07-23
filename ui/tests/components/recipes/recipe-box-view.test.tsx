@@ -7,6 +7,12 @@ const mocks = vi.hoisted(() => ({
     data: { user: { id: "user-1" } },
     isPending: false,
   },
+  visibleRecipeCount: 7,
+  catalogStats: {
+    cuisineCount: 2,
+    ingredientCount: 18,
+    equipmentCount: 6,
+  },
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -32,12 +38,8 @@ vi.mock("@/components/recipes/recipe-collection", () => ({
     <button
       type="button"
       onClick={() => {
-        onDietVisibleCountChange?.(7);
-        onCatalogStatsChange?.({
-          cuisineCount: 2,
-          ingredientCount: 18,
-          equipmentCount: 6,
-        });
+        onDietVisibleCountChange?.(mocks.visibleRecipeCount);
+        onCatalogStatsChange?.(mocks.catalogStats);
       }}
     >
       Report visible recipes
@@ -52,6 +54,12 @@ describe("RecipeBoxView", () => {
     mocks.session = {
       data: { user: { id: "user-1" } },
       isPending: false,
+    };
+    mocks.visibleRecipeCount = 7;
+    mocks.catalogStats = {
+      cuisineCount: 2,
+      ingredientCount: 18,
+      equipmentCount: 6,
     };
   });
 
@@ -76,5 +84,43 @@ describe("RecipeBoxView", () => {
     expect(screen.queryByText("7 recipes")).not.toBeInTheDocument();
     expect(screen.queryByText("2 cuisines")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Loading recipe stats")).toBeInTheDocument();
+  });
+
+  it("hides a zero cuisine count while showing populated stats", async () => {
+    const user = userEvent.setup();
+    mocks.catalogStats = {
+      cuisineCount: 0,
+      ingredientCount: 18,
+      equipmentCount: 6,
+    };
+
+    render(<RecipeBoxView />);
+    await user.click(
+      screen.getByRole("button", { name: "Report visible recipes" }),
+    );
+
+    expect(screen.queryByText("0 cuisines")).not.toBeInTheDocument();
+    expect(screen.getByText("18 ingredients")).toBeInTheDocument();
+    expect(screen.getByText("6 tools")).toBeInTheDocument();
+  });
+
+  it("shows only the recipe count when every catalog stat is zero", async () => {
+    const user = userEvent.setup();
+    mocks.visibleRecipeCount = 0;
+    mocks.catalogStats = {
+      cuisineCount: 0,
+      ingredientCount: 0,
+      equipmentCount: 0,
+    };
+
+    render(<RecipeBoxView />);
+    await user.click(
+      screen.getByRole("button", { name: "Report visible recipes" }),
+    );
+
+    expect(screen.getByText("0 recipes")).toBeInTheDocument();
+    expect(screen.queryByText("0 cuisines")).not.toBeInTheDocument();
+    expect(screen.queryByText("0 ingredients")).not.toBeInTheDocument();
+    expect(screen.queryByText("0 tools")).not.toBeInTheDocument();
   });
 });

@@ -17,10 +17,17 @@ type RecipeCatalogStatsState = RecipeCatalogStats & {
   userId: string | null;
 };
 
-function formatRecipeCount(count: number | null) {
-  if (count == null) return null;
-  const label = count === 1 ? "recipe" : "recipes";
+function formatCount(count: number, singular: string, plural: string) {
+  const label = count === 1 ? singular : plural;
   return `${count.toLocaleString()} ${label}`;
+}
+
+function formatRecipeCount(count: number | null) {
+  return count == null ? null : formatCount(count, "recipe", "recipes");
+}
+
+function formatCatalogCount(count: number, singular: string, plural: string) {
+  return count > 0 ? formatCount(count, singular, plural) : null;
 }
 
 export function RecipeBoxView() {
@@ -56,11 +63,9 @@ export function RecipeBoxView() {
     const { cuisineCount, ingredientCount, equipmentCount } = catalogStatsState;
     return [
       recipeCountLabel,
-      cuisineCount > 0
-        ? `${cuisineCount.toLocaleString()} ${cuisineCount === 1 ? "cuisine" : "cuisines"}`
-        : null,
-      `${ingredientCount.toLocaleString()} ${ingredientCount === 1 ? "ingredient" : "ingredients"}`,
-      `${equipmentCount.toLocaleString()} ${equipmentCount === 1 ? "tool" : "tools"}`,
+      formatCatalogCount(cuisineCount, "cuisine", "cuisines"),
+      formatCatalogCount(ingredientCount, "ingredient", "ingredients"),
+      formatCatalogCount(equipmentCount, "tool", "tools"),
     ].filter((stat): stat is string => stat != null);
   }, [catalogStatsState, isPending, recipeCountLabel, sessionUserId]);
 
