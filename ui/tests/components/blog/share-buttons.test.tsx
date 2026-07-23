@@ -1,5 +1,4 @@
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { fireEvent, render, screen } from "@testing-library/react";
 import posthog from "posthog-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ShareButtons } from "@/components/blog/share-buttons";
@@ -64,13 +63,19 @@ describe("ShareButtons", () => {
     }
   });
 
-  it("captures a share event with the platform and post", async () => {
+  it.each([
+    ["Share on X", "x"],
+    ["Share on LinkedIn", "linkedin"],
+    ["Share on Hacker News", "hackernews"],
+  ])("captures a share event when %s is clicked", (label, platform) => {
     renderShareButtons();
 
-    await userEvent.click(screen.getByLabelText("Share on Hacker News"));
+    // fireEvent, not userEvent: userEvent's hover opens the Radix tooltip
+    // (delayDuration 0), and the resulting re-render can swallow the click.
+    fireEvent.click(screen.getByLabelText(label));
 
     expect(posthog.capture).toHaveBeenCalledWith("blog_post_shared", {
-      platform: "hackernews",
+      platform,
       slug: post.slug,
       url: post.url,
     });
