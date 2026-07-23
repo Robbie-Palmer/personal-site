@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRecipeDraft,
   normalizeRecipeSource,
+  parseSavedRecipePayload,
   savedRecipeCard,
 } from "@/lib/domain/recipe/recipeDraft";
 
@@ -33,6 +34,24 @@ describe("buildRecipeDraft", () => {
 
     expect(draft.cuisine).toEqual(["Italian", "American"]);
   });
+
+  it("preserves an existing publication date", () => {
+    const source = "Cook @rice{200%g}.";
+    const [parsed] = new CooklangParser().parse(source);
+
+    const draft = buildRecipeDraft(
+      parsed,
+      {
+        title: "Weeknight Rice",
+        description: "A quick dinner.",
+        date: "2025-05-04",
+        servings: 2,
+      },
+      source,
+    );
+
+    expect(draft.date).toBe("2025-05-04");
+  });
 });
 
 describe("savedRecipeCard", () => {
@@ -43,12 +62,12 @@ describe("savedRecipeCard", () => {
       title: "Weeknight Rice",
       description: "A quick dinner.",
       date: "2026-07-22",
+      canonical: "https://example.test/weeknight-rice",
       cuisine: [],
       servings: 2,
       tags: [],
       image: "recipes/weeknight-rice-2026-07-22",
       imageAlt: "A bowl of rice",
-      canonical: "https://example.test/weeknight-rice",
       ingredientGroups: [
         {
           items: [{ ingredient: "rice", amount: 200, unit: "g" }],
@@ -87,6 +106,25 @@ describe("savedRecipeCard", () => {
       expect(savedRecipeCard(record(visibility))?.href).toBe(
         "/recipes/saved?slug=weeknight-rice",
       );
+    },
+  );
+
+  it("parses the source and recipe needed by the editor", () => {
+    expect(parseSavedRecipePayload(record("private"))).toEqual(savedPayload);
+  });
+
+  it("preserves the canonical source URL in saved recipe views", () => {
+    expect(savedRecipeCard(record("private"))?.canonical).toBe(
+      "https://example.test/weeknight-rice",
+    );
+  });
+
+  it.each([null, "{", JSON.stringify({ version: 1, recipe: {} })])(
+    "rejects an unsupported saved payload: %s",
+    (body) => {
+      expect(
+        parseSavedRecipePayload({ ...record("private"), body }),
+      ).toBeNull();
     },
   );
 });

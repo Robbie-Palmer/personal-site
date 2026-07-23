@@ -18,7 +18,7 @@ import { SavedRecipeView } from "@/components/recipes/saved-recipe-view";
 
 const originalFetch = globalThis.fetch;
 
-function record(slug: string, title: string) {
+function record(slug: string, title: string, owned = false) {
   return {
     slug,
     title,
@@ -26,6 +26,7 @@ function record(slug: string, title: string) {
     visibility: "public",
     createdAt: "2026-07-22T12:00:00.000Z",
     updatedAt: "2026-07-22T12:00:00.000Z",
+    owned,
     body: JSON.stringify({
       version: 1,
       source: "Simmer @lentils{200%g}.",
@@ -76,6 +77,20 @@ describe("SavedRecipeView", () => {
     expect(globalThis.fetch).toHaveBeenLastCalledWith(
       "/api/recipes/second-soup",
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
+  it("offers owners a link to edit the recipe", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      Response.json(record("first-soup", "First Soup", true)),
+    ) as typeof fetch;
+
+    render(<SavedRecipeView />);
+
+    expect(await screen.findByText("First Soup")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Edit recipe" })).toHaveAttribute(
+      "href",
+      "/recipes/edit?slug=first-soup",
     );
   });
 });

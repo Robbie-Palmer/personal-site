@@ -2718,7 +2718,10 @@ app.get("/recipes/:slug", async (c) => {
         if (!decision.allowed) return c.notFound();
       }
 
-      return c.json(recipeResponse(recipe));
+      return c.json({
+        ...recipeResponse(recipe),
+        owned: session?.user.id === recipe.userId,
+      });
     },
   );
 });
@@ -2791,9 +2794,6 @@ app.patch("/recipes/:slug", async (c) => {
 
       const body = await parseJsonBody(c, updateRecipeBodySchema);
       if (!body.success) return body.response;
-
-      const ownerDecision = authorizeOwnerOnly(session.user, recipe);
-      if (!ownerDecision.allowed) return authorizationResponse(c, ownerDecision);
 
       if (body.data.visibility === "household") {
         const membership = await findUserHouseholdMembership(

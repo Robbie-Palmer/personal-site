@@ -329,10 +329,11 @@ describe("dynamic recipe pages", () => {
     ).toBe(404);
   });
 
-  it("leaves named application routes to their static pages", async () => {
-    const requestContext = context(
-      "https://robbiepalmer.me/recipes/onboarding",
-    );
+  it.each([
+    "https://robbiepalmer.me/recipes/onboarding",
+    "https://robbiepalmer.me/recipes/edit?slug=lentil-soup",
+  ])("leaves named application route %s to its static page", async (url) => {
+    const requestContext = context(url);
     const response = await onRequest(requestContext);
 
     expect(await response.text()).toBe("next");

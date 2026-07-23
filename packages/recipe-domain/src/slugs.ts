@@ -2,6 +2,7 @@ const RECIPE_APP_ROUTE_SLUGS = new Set([
   "add",
   "cooks",
   "discover",
+  "edit",
   "kitchen",
   "notifications",
   "onboarding",

@@ -17,6 +17,7 @@ import { normalizeSlug } from "@/lib/generic/slugs";
 export type RecipeDraftMetadata = {
   title: string;
   description: string;
+  date?: string;
   servings: number;
   prepTime?: number;
   cookTime?: number;
@@ -34,7 +35,20 @@ export type SavedRecipeApiRecord = {
   visibility: "public" | "private" | "household";
   createdAt: string;
   updatedAt: string;
+  owned?: boolean;
 };
+
+export function parseSavedRecipePayload(
+  record: SavedRecipeApiRecord,
+): SavedRecipePayload | null {
+  if (!record.body) return null;
+  try {
+    const parsed = SavedRecipePayloadSchema.safeParse(JSON.parse(record.body));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
 
 export function normalizeRecipeSource(source: string): string {
   return source.trim();
@@ -67,7 +81,7 @@ export function buildRecipeDraft(
     {
       title: metadata.title.trim(),
       description: metadata.description.trim(),
-      date: new Date().toISOString().slice(0, 10),
+      date: metadata.date ?? new Date().toISOString().slice(0, 10),
       cuisine: parseCuisineLabels(metadata.cuisine),
       servings: metadata.servings,
       prepTime: metadata.prepTime,
@@ -142,14 +156,8 @@ export function serializeSavedRecipe(
 export function parseSavedRecipe(
   record: SavedRecipeApiRecord,
 ): RecipeDetailView | null {
-  if (!record.body) return null;
-  try {
-    const parsed = SavedRecipePayloadSchema.safeParse(JSON.parse(record.body));
-    if (!parsed.success) return null;
-    return recipeContentToDetail(parsed.data.recipe, record.slug);
-  } catch {
-    return null;
-  }
+  const payload = parseSavedRecipePayload(record);
+  return payload ? recipeContentToDetail(payload.recipe, record.slug) : null;
 }
 
 export type RecipeGridItem = RecipeCardView & {

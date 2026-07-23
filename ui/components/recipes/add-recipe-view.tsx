@@ -16,6 +16,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  type ReactNode,
   useCallback,
   useEffect,
   useId,
@@ -28,6 +29,7 @@ import {
   type PhotoRecipeImportDraft,
 } from "@/components/recipes/photo-recipe-import";
 import { RecipeContent } from "@/components/recipes/recipe-content";
+import { RecipeLoadError } from "@/components/recipes/recipe-load-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCooklangRecipe } from "@/hooks/use-cooklang-recipe";
@@ -36,6 +38,9 @@ import { authClient } from "@/lib/auth-client";
 import {
   buildRecipeDraft,
   normalizeRecipeSource,
+  parseSavedRecipePayload,
+  type SavedRecipeApiRecord,
+  savedRecipeHref,
   serializeSavedRecipe,
 } from "@/lib/domain/recipe/recipeDraft";
 import { recipeSaveReturnPath } from "@/lib/generic/safe-return-path";
@@ -60,6 +65,52 @@ type ImportedRecipe = {
   source: string;
   url: string;
 };
+
+function RecipeEditorGate({
+  unreadable,
+  pending,
+  authenticated,
+  children,
+}: Readonly<{
+  unreadable: boolean;
+  pending: boolean;
+  authenticated: boolean;
+  children: ReactNode;
+}>) {
+  if (unreadable) {
+    return (
+      <RecipeLoadError
+        title="Recipe unavailable"
+        message="This recipe's saved content could not be read. Editing is disabled to avoid overwriting it."
+      />
+    );
+  }
+  if (pending) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Loader2 className="animate-spin" />
+      </div>
+    );
+  }
+  if (!authenticated) {
+    return (
+      <div className="container mx-auto max-w-2xl px-4 py-16 text-center">
+        <FileText className="mx-auto size-10 text-[var(--terracotta)]" />
+        <h1 className="rt-display mt-4 text-5xl">Log in to save a recipe</h1>
+        <p className="rt-body mt-3 text-[var(--ink-2)]">
+          Use the log-in button above, then come back to add recipes to your
+          private recipe box.
+        </p>
+        <Button asChild variant="outline" className="mt-6 rounded-full">
+          <Link href="/recipes">
+            <ArrowLeft /> Back to recipes
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+  return children;
+}
 
 function NumberField({
   label,
@@ -99,7 +150,15 @@ function NumberField({
   );
 }
 
-export function AddRecipeView() {
+export function AddRecipeView({
+  initialRecipe,
+}: Readonly<{ initialRecipe?: SavedRecipeApiRecord }>) {
+  const initialPayload = useMemo(
+    () => (initialRecipe ? parseSavedRecipePayload(initialRecipe) : null),
+    [initialRecipe],
+  );
+  const editing = Boolean(initialRecipe);
+  const unreadableRecipe = editing && !initialPayload;
   const titleId = useId();
   const descriptionId = useId();
   const cuisineId = useId();
@@ -110,20 +169,34 @@ export function AddRecipeView() {
   const [recipeUrl, setRecipeUrl] = useState("");
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
-  const [importedUrl, setImportedUrl] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [cuisine, setCuisine] = useState("");
-  const [servings, setServings] = useState<number | undefined>(2);
-  const [prepTime, setPrepTime] = useState<number | undefined>();
-  const [cookTime, setCookTime] = useState<number | undefined>();
-  const [source, setSource] = useState("");
-  const [visibility, setVisibility] = useState<RecipeVisibility>("private");
+  const [importedUrl, setImportedUrl] = useState<string | null>(
+    initialPayload?.recipe.canonical ?? null,
+  );
+  const [title, setTitle] = useState(initialRecipe?.title ?? "");
+  const [description, setDescription] = useState(
+    initialRecipe?.description ?? "",
+  );
+  const [cuisine, setCuisine] = useState(
+    initialPayload?.recipe.cuisine.join(", ") ?? "",
+  );
+  const [servings, setServings] = useState<number | undefined>(
+    initialPayload?.recipe.servings ?? 2,
+  );
+  const [prepTime, setPrepTime] = useState<number | undefined>(
+    initialPayload?.recipe.prepTime,
+  );
+  const [cookTime, setCookTime] = useState<number | undefined>(
+    initialPayload?.recipe.cookTime,
+  );
+  const [source, setSource] = useState(initialPayload?.source ?? "");
+  const [visibility, setVisibility] = useState<RecipeVisibility>(
+    initialRecipe?.visibility ?? "private",
+  );
   const [householdPending, setHouseholdPending] = useState(true);
   const [hasHousehold, setHasHousehold] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
-  const visibilityTouchedRef = useRef(false);
+  const visibilityTouchedRef = useRef(editing);
   const importRequestRef = useRef<{
     id: number;
     controller: AbortController;
@@ -144,7 +217,7 @@ export function AddRecipeView() {
     }
 
     const controller = new AbortController();
-    visibilityTouchedRef.current = false;
+    visibilityTouchedRef.current = editing;
     setHouseholdPending(true);
     void getHouseholds(controller.signal)
       .then((households) => {
@@ -164,7 +237,7 @@ export function AddRecipeView() {
         if (!controller.signal.aborted) setHouseholdPending(false);
       });
     return () => controller.abort();
-  }, [sessionPending, sessionUserId]);
+  }, [editing, sessionPending, sessionUserId]);
 
   const previewResult = useMemo(() => {
     if (!parse.recipe || !title.trim() || !description.trim() || !servings)
@@ -176,6 +249,7 @@ export function AddRecipeView() {
           {
             title,
             description,
+            date: initialPayload?.recipe.date,
             cuisine,
             servings,
             prepTime,
@@ -193,6 +267,7 @@ export function AddRecipeView() {
     parse.recipe,
     title,
     description,
+    initialPayload?.recipe.date,
     cuisine,
     servings,
     prepTime,
@@ -284,17 +359,24 @@ export function AddRecipeView() {
     setSaving(true);
     setSaveError(null);
     try {
-      const response = await fetch("/api/recipes", {
-        method: "POST",
+      const endpoint = initialRecipe
+        ? `/api/recipes/${encodeURIComponent(initialRecipe.slug)}`
+        : "/api/recipes";
+      const recipeBody = {
+        title: title.trim(),
+        description: description.trim(),
+        body: serializeSavedRecipe(source, preview),
+        visibility,
+      };
+      const response = await fetch(endpoint, {
+        method: initialRecipe ? "PATCH" : "POST",
         credentials: "include",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          slug: normalizeSlug(title),
-          title: title.trim(),
-          description: description.trim(),
-          body: serializeSavedRecipe(source, preview),
-          visibility,
-        }),
+        body: JSON.stringify(
+          initialRecipe
+            ? recipeBody
+            : { ...recipeBody, slug: normalizeSlug(title) },
+        ),
       });
       if (!response.ok) {
         if (response.status === 409) {
@@ -315,6 +397,10 @@ export function AddRecipeView() {
         );
       }
       const saved = (await response.json()) as { slug: string };
+      if (initialRecipe) {
+        router.push(savedRecipeHref({ slug: saved.slug, visibility }));
+        return;
+      }
       const returnTo = new URLSearchParams(window.location.search).get(
         "returnTo",
       );
@@ -338,33 +424,7 @@ export function AddRecipeView() {
     }
   }
 
-  if (sessionPending) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2 className="animate-spin" />
-      </div>
-    );
-  }
-
-  if (!session) {
-    return (
-      <div className="container mx-auto max-w-2xl px-4 py-16 text-center">
-        <FileText className="mx-auto size-10 text-[var(--terracotta)]" />
-        <h1 className="rt-display mt-4 text-5xl">Log in to save a recipe</h1>
-        <p className="rt-body mt-3 text-[var(--ink-2)]">
-          Use the log-in button above, then come back to add recipes to your
-          private recipe box.
-        </p>
-        <Button asChild variant="outline" className="mt-6 rounded-full">
-          <Link href="/recipes">
-            <ArrowLeft /> Back to recipes
-          </Link>
-        </Button>
-      </div>
-    );
-  }
-
-  return (
+  const editor = (
     <div className="container mx-auto max-w-[1600px] px-4 py-6 md:py-10">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -375,11 +435,13 @@ export function AddRecipeView() {
             <ArrowLeft className="size-3.5" /> Recipe box
           </Link>
           <h1 className="rt-display mt-2 text-5xl sm:text-6xl">
-            Add a <span className="text-[var(--terracotta)]">recipe</span>
+            {editing ? "Edit" : "Add a"}{" "}
+            <span className="text-[var(--terracotta)]">recipe</span>
           </h1>
           <p className="rt-body mt-2 text-[var(--ink-2)]">
-            Write with Cooklang, import a webpage, or scan a recipe photo. Every
-            method feeds the same editable preview.
+            {editing
+              ? "Update the Cooklang recipe and review every change in the live preview."
+              : "Write with Cooklang, import a webpage, or scan a recipe photo. Every method feeds the same editable preview."}
           </p>
         </div>
         <Button
@@ -387,7 +449,8 @@ export function AddRecipeView() {
           disabled={!preview || saving || householdPending}
           className="rounded-full bg-[var(--ink)] px-5 text-[var(--paper)] hover:bg-[var(--terracotta-deep)]"
         >
-          {saving ? <Loader2 className="animate-spin" /> : <Save />} Save recipe
+          {saving ? <Loader2 className="animate-spin" /> : <Save />}{" "}
+          {editing ? "Save changes" : "Save recipe"}
         </Button>
       </div>
 
@@ -404,55 +467,57 @@ export function AddRecipeView() {
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(380px,0.8fr)_minmax(540px,1.2fr)]">
         <section className="rounded-xl border-[1.25px] border-[var(--line-strong)] bg-[var(--card)] p-4 shadow-[var(--paper-shadow)] xl:sticky xl:top-24">
           <div className="grid gap-4">
-            <fieldset
-              className="grid grid-cols-3 rounded-lg border border-[var(--line-strong)] bg-[var(--paper-warm)] p-1"
-              aria-label="Choose how to add a recipe"
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  invalidateImportRequest();
-                  setMethod("write");
-                }}
-                aria-pressed={method === "write"}
-                className={`rt-mono inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
-                  method === "write"
-                    ? "bg-[var(--card)] text-[var(--ink)] shadow-sm"
-                    : "text-[var(--ink-3)] hover:text-[var(--ink)]"
-                }`}
+            {!editing && (
+              <fieldset
+                className="grid grid-cols-3 rounded-lg border border-[var(--line-strong)] bg-[var(--paper-warm)] p-1"
+                aria-label="Choose how to add a recipe"
               >
-                <PenLine className="size-4" /> Write with Cooklang
-              </button>
-              <button
-                type="button"
-                onClick={() => setMethod("url")}
-                aria-pressed={method === "url"}
-                className={`rt-mono inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
-                  method === "url"
-                    ? "bg-[var(--card)] text-[var(--ink)] shadow-sm"
-                    : "text-[var(--ink-3)] hover:text-[var(--ink)]"
-                }`}
-              >
-                <Globe2 className="size-4" /> Import from URL
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  invalidateImportRequest();
-                  setMethod("photo");
-                }}
-                aria-pressed={method === "photo"}
-                className={`rt-mono inline-flex items-center justify-center gap-2 rounded-md px-2 py-2 text-sm transition-colors ${
-                  method === "photo"
-                    ? "bg-[var(--card)] text-[var(--ink)] shadow-sm"
-                    : "text-[var(--ink-3)] hover:text-[var(--ink)]"
-                }`}
-              >
-                <Camera className="size-4" /> Scan photo
-              </button>
-            </fieldset>
+                <button
+                  type="button"
+                  onClick={() => {
+                    invalidateImportRequest();
+                    setMethod("write");
+                  }}
+                  aria-pressed={method === "write"}
+                  className={`rt-mono inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
+                    method === "write"
+                      ? "bg-[var(--card)] text-[var(--ink)] shadow-sm"
+                      : "text-[var(--ink-3)] hover:text-[var(--ink)]"
+                  }`}
+                >
+                  <PenLine className="size-4" /> Write with Cooklang
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMethod("url")}
+                  aria-pressed={method === "url"}
+                  className={`rt-mono inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
+                    method === "url"
+                      ? "bg-[var(--card)] text-[var(--ink)] shadow-sm"
+                      : "text-[var(--ink-3)] hover:text-[var(--ink)]"
+                  }`}
+                >
+                  <Globe2 className="size-4" /> Import from URL
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    invalidateImportRequest();
+                    setMethod("photo");
+                  }}
+                  aria-pressed={method === "photo"}
+                  className={`rt-mono inline-flex items-center justify-center gap-2 rounded-md px-2 py-2 text-sm transition-colors ${
+                    method === "photo"
+                      ? "bg-[var(--card)] text-[var(--ink)] shadow-sm"
+                      : "text-[var(--ink-3)] hover:text-[var(--ink)]"
+                  }`}
+                >
+                  <Camera className="size-4" /> Scan photo
+                </button>
+              </fieldset>
+            )}
 
-            {method === "url" && (
+            {!editing && method === "url" && (
               <div className="grid gap-2 rounded-lg border border-dashed border-[var(--line-strong)] bg-[var(--paper-warm)] p-3">
                 <label htmlFor="recipe-import-url" className="grid gap-1.5">
                   <span className="rt-mono text-[var(--ink-3)]">
@@ -513,12 +578,14 @@ export function AddRecipeView() {
               </div>
             )}
 
-            <div className={method === "photo" ? undefined : "hidden"}>
-              <PhotoRecipeImport
-                active={method === "photo"}
-                onDraftReady={applyPhotoDraft}
-              />
-            </div>
+            {!editing && (
+              <div className={method === "photo" ? undefined : "hidden"}>
+                <PhotoRecipeImport
+                  active={method === "photo"}
+                  onDraftReady={applyPhotoDraft}
+                />
+              </div>
+            )}
 
             <label htmlFor={titleId} className="grid gap-1.5">
               <span className="rt-mono text-[var(--ink-3)]">Recipe name</span>
@@ -628,24 +695,26 @@ export function AddRecipeView() {
                     : "Use @ingredients, #cookware and ~timers directly in each step."}
                 </p>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-full"
-                onClick={() => {
-                  invalidateImportRequest();
-                  setTitle("Weeknight tomato pasta");
-                  setDescription("A quick, cosy pasta for busy evenings.");
-                  setCuisine("Italian");
-                  setPrepTime(5);
-                  setCookTime(25);
-                  setSource(EXAMPLE_RECIPE);
-                  setImportedUrl(null);
-                }}
-              >
-                <Sparkles /> Try example
-              </Button>
+              {!editing && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={() => {
+                    invalidateImportRequest();
+                    setTitle("Weeknight tomato pasta");
+                    setDescription("A quick, cosy pasta for busy evenings.");
+                    setCuisine("Italian");
+                    setPrepTime(5);
+                    setCookTime(25);
+                    setSource(EXAMPLE_RECIPE);
+                    setImportedUrl(null);
+                  }}
+                >
+                  <Sparkles /> Try example
+                </Button>
+              )}
             </div>
             <textarea
               value={source}
@@ -696,5 +765,15 @@ export function AddRecipeView() {
         </section>
       </div>
     </div>
+  );
+
+  return (
+    <RecipeEditorGate
+      unreadable={unreadableRecipe}
+      pending={sessionPending}
+      authenticated={Boolean(session)}
+    >
+      {editor}
+    </RecipeEditorGate>
   );
 }
