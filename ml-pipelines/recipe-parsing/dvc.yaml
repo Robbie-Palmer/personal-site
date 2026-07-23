@@ -131,8 +131,11 @@ stages:
     deps:
       - outputs/predictions.json
       - ../../packages/recipe-parsing/src/data/canonical-ingredients.json
+      - ../../packages/recipe-parsing/src/data/canonical-equipment.json
       - ../../packages/recipe-parsing/src/lib/canonical-ingredients-data.ts
+      - ../../packages/recipe-parsing/src/lib/canonical-equipment-data.ts
       - src/stages/canonicalize.ts
+      - ../../packages/recipe-parsing/src/lib/slug-matching.ts
       - ../../packages/recipe-parsing/src/lib/ingredient-canonicalization.ts
       - ../../packages/recipe-parsing/src/lib/disambiguation.ts
       - ../../packages/recipe-parsing/src/lib/ingredient-normalization-rules.ts
@@ -145,6 +148,7 @@ stages:
       - src/lib/io.ts
       - ../../packages/recipe-parsing/src/schemas/ground-truth.ts
       - ../../packages/recipe-parsing/src/schemas/canonical-ingredients.ts
+      - ../../packages/recipe-parsing/src/schemas/canonical-equipment.ts
     outs:
       - outputs/predictions-canonicalized.json
       - outputs/canonicalization-decisions.json

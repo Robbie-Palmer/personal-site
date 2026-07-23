@@ -13,24 +13,24 @@ import {
   canonicalizeCookwareList,
   type EquipmentCanonicalizationDecision,
 } from "./equipment-canonicalization.js";
-
-export type CanonicalizationMethod =
-  | "exact"
-  | "fuzzy"
-  | "llm"
-  | "none";
-
-export interface CandidateScore {
-  slug: string;
-  score: number;
-}
+import {
+  buildOntologyIndex,
+  detokenize,
+  matchSlug,
+  tokenize,
+  uniqueSlugs,
+  type CandidateScore,
+  type CanonicalizationMethod,
+  type CanonicalizationReason,
+  type OntologyIndex,
+} from "./slug-matching.js";
 
 export interface IngredientCanonicalizationDecision {
   originalSlug: string;
   baseSlug: string;
   canonicalSlug: string;
   method: CanonicalizationMethod;
-  reason?: "below-threshold" | "ambiguous" | "no-candidates";
+  reason?: CanonicalizationReason;
   score?: number;
   threshold?: number;
   margin?: number;
@@ -41,6 +41,13 @@ export interface EntryCanonicalizationDecisions {
   images: string[];
   decisions: IngredientCanonicalizationDecision[];
   cookwareDecisions?: EquipmentCanonicalizationDecision[];
+}
+
+export interface CanonicalizationOntologies {
+  ingredients: Set<string>;
+  ingredientIndex?: OntologyIndex;
+  equipment: Set<string>;
+  equipmentIndex?: OntologyIndex;
 }
 
 const MODIFIER_TOKENS = new Set([
@@ -65,32 +72,11 @@ const NOISE_TOKENS = new Set([
   "cooked",
 ]);
 
-const FUZZY_THRESHOLD = 0.85;
-const FUZZY_MARGIN = 0.04;
-type OntologyIndex = {
-  ontology: Set<string>;
-  byLength: Map<number, string[]>;
-  byToken: Map<string, Set<string>>;
-};
-
 export function normalizeIngredientSlug(slug: string): string {
   return normalizeSlug(slug);
 }
 
-function unique(values: string[]): string[] {
-  return [...new Set(values.filter((value) => value.length > 0))];
-}
-
-function tokenize(slug: string): string[] {
-  return slug.split("-").filter(Boolean);
-}
-
-function detokenize(tokens: string[]): string {
-  return tokens.join("-");
-}
-
-function generateDeterministicCandidates(slug: string): string[] {
-  const base = normalizeSlug(slug);
+function generateDeterministicCandidates(base: string): string[] {
   const out = new Set<string>([base]);
   const tokens = tokenize(base);
 
@@ -138,127 +124,7 @@ function generateDeterministicCandidates(slug: string): string[] {
     if (alias) out.add(alias);
   }
 
-  return unique([...out]);
-}
-
-function levenshtein(a: string, b: string): number {
-  if (a === b) return 0;
-  if (a.length === 0) return b.length;
-  if (b.length === 0) return a.length;
-
-  const dp = Array.from({ length: a.length + 1 }, () =>
-    new Array<number>(b.length + 1).fill(0),
-  );
-
-  for (let i = 0; i <= a.length; i++) dp[i]![0] = i;
-  for (let j = 0; j <= b.length; j++) dp[0]![j] = j;
-
-  for (let i = 1; i <= a.length; i++) {
-    for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      dp[i]![j] = Math.min(
-        dp[i - 1]![j]! + 1,
-        dp[i]![j - 1]! + 1,
-        dp[i - 1]![j - 1]! + cost,
-      );
-    }
-  }
-
-  return dp[a.length]![b.length]!;
-}
-
-function scoreSimilarity(left: string, right: string): number {
-  const leftTokens = new Set(tokenize(left));
-  const rightTokens = new Set(tokenize(right));
-  const intersection = [...leftTokens].filter((token) => rightTokens.has(token)).length;
-  const union = new Set([...leftTokens, ...rightTokens]).size;
-  const tokenScore = union === 0 ? 0 : intersection / union;
-
-  const distance = levenshtein(left, right);
-  const maxLen = Math.max(left.length, right.length, 1);
-  const editScore = 1 - distance / maxLen;
-
-  return 0.6 * tokenScore + 0.4 * editScore;
-}
-
-function exactCandidate(
-  candidates: string[],
-  ontology: Set<string>,
-): string | undefined {
-  for (const candidate of candidates) {
-    if (ontology.has(candidate)) {
-      return candidate;
-    }
-  }
-  return undefined;
-}
-
-export function buildOntologyIndex(ontology: Set<string>): OntologyIndex {
-  const byLength = new Map<number, string[]>();
-  const byToken = new Map<string, Set<string>>();
-  for (const slug of ontology) {
-    const len = slug.length;
-    const sameLen = byLength.get(len) ?? [];
-    sameLen.push(slug);
-    byLength.set(len, sameLen);
-
-    for (const token of tokenize(slug)) {
-      const slugs = byToken.get(token) ?? new Set<string>();
-      slugs.add(slug);
-      byToken.set(token, slugs);
-    }
-  }
-  return { ontology, byLength, byToken };
-}
-
-function topFuzzyCandidates(
-  candidates: string[],
-  ontologyIndex: OntologyIndex,
-): CandidateScore[] {
-  if (ontologyIndex.ontology.size === 0 || candidates.length === 0) {
-    return [];
-  }
-
-  const scored: CandidateScore[] = [];
-  for (const candidate of candidates) {
-    const shortlist = new Set<string>();
-    for (const token of tokenize(candidate)) {
-      for (const slug of ontologyIndex.byToken.get(token) ?? []) {
-        shortlist.add(slug);
-      }
-    }
-    if (shortlist.size === 0) {
-      for (let len = candidate.length - 2; len <= candidate.length + 2; len++) {
-        for (const slug of ontologyIndex.byLength.get(len) ?? []) {
-          shortlist.add(slug);
-        }
-      }
-    }
-    if (shortlist.size === 0) {
-      for (const slug of ontologyIndex.ontology) {
-        shortlist.add(slug);
-      }
-    }
-
-    for (const slug of shortlist) {
-      scored.push({
-        slug,
-        score: scoreSimilarity(candidate, slug),
-      });
-    }
-  }
-
-  scored.sort((a, b) => b.score - a.score || a.slug.localeCompare(b.slug));
-  const seen = new Set<string>();
-  const result: CandidateScore[] = [];
-  for (const row of scored) {
-    if (!seen.has(row.slug)) {
-      seen.add(row.slug);
-      result.push(row);
-      if (result.length === 5) break;
-    }
-  }
-  return result;
+  return uniqueSlugs([...out]);
 }
 
 export function canonicalizeIngredientSlug(params: {
@@ -267,65 +133,14 @@ export function canonicalizeIngredientSlug(params: {
   ontologyIndex?: OntologyIndex;
 }): IngredientCanonicalizationDecision {
   const baseSlug = normalizeSlug(params.rawSlug);
-  const ruleCandidates = generateDeterministicCandidates(params.rawSlug);
-  const ontologyIndex =
-    params.ontologyIndex ?? buildOntologyIndex(params.ontology);
-
-  const exact = exactCandidate(ruleCandidates, params.ontology);
-  if (exact) {
-    return {
-      originalSlug: params.rawSlug,
-      baseSlug,
-      canonicalSlug: exact,
-      method: "exact",
-      score: 1,
-      threshold: 1,
-      candidates: [{ slug: exact, score: 1 }],
-    };
-  }
-
-  const fuzzy = topFuzzyCandidates(ruleCandidates, ontologyIndex);
-  const best = fuzzy[0];
-  if (best && best.score >= FUZZY_THRESHOLD) {
-    const second = fuzzy[1];
-    const margin = second ? best.score - second.score : 1;
-    if (margin >= FUZZY_MARGIN) {
-      return {
-        originalSlug: params.rawSlug,
-        baseSlug,
-        canonicalSlug: best.slug,
-        method: "fuzzy",
-        score: best.score,
-        threshold: FUZZY_THRESHOLD,
-        margin,
-        candidates: fuzzy,
-      };
-    }
-    return {
-      originalSlug: params.rawSlug,
-      baseSlug,
-      canonicalSlug: baseSlug,
-      method: "none",
-      reason: "ambiguous",
-      score: best.score,
-      threshold: FUZZY_THRESHOLD,
-      margin,
-      candidates: fuzzy,
-    };
-  }
-
-  return {
-    originalSlug: params.rawSlug,
+  const match = matchSlug({
     baseSlug,
-    canonicalSlug: baseSlug,
-    method: "none",
-    reason: fuzzy.length > 0 ? "below-threshold" : "no-candidates",
-    score: fuzzy[0]?.score,
-    threshold: FUZZY_THRESHOLD,
-    margin:
-      fuzzy.length > 1 ? fuzzy[0]!.score - fuzzy[1]!.score : undefined,
-    candidates: fuzzy,
-  };
+    candidateSlugs: generateDeterministicCandidates(baseSlug),
+    ontology: params.ontology,
+    ontologyIndex: params.ontologyIndex,
+  });
+
+  return { originalSlug: params.rawSlug, ...match };
 }
 
 export function canonicalizeRecipeIngredients(
@@ -360,8 +175,7 @@ export function canonicalizeRecipeIngredients(
 
 export function canonicalizePredictionEntry(
   entry: PredictionEntry,
-  ontology: Set<string>,
-  ontologyIndex?: OntologyIndex,
+  ontologies: CanonicalizationOntologies,
 ): {
   entry: PredictionEntry;
   decisions: IngredientCanonicalizationDecision[];
@@ -369,11 +183,13 @@ export function canonicalizePredictionEntry(
 } {
   const canonicalized = canonicalizeRecipeIngredients(
     entry.predicted,
-    ontology,
-    ontologyIndex,
+    ontologies.ingredients,
+    ontologies.ingredientIndex,
   );
   const canonicalizedCookware = canonicalizeCookwareList(
     canonicalized.recipe.cookware,
+    ontologies.equipment,
+    ontologies.equipmentIndex,
   );
   return {
     entry: {

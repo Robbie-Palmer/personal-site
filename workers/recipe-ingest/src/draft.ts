@@ -1,6 +1,7 @@
 import { recipeToCooklang } from "recipe-parsing/cooklang";
-import type {
-  EquipmentCanonicalizationDecision,
+import {
+  equipmentDisplayName,
+  type EquipmentCanonicalizationDecision,
 } from "recipe-parsing/equipment-canonicalization";
 import type { Recipe } from "recipe-parsing/schemas/ground-truth";
 import type { CooklangRecipe } from "recipe-parsing/schemas/stage-artifacts";
@@ -50,10 +51,11 @@ function canonicalCookwareReplacements(
 ): Map<string, string> {
   const replacements = new Map<string, string>();
   for (const decision of decisions) {
-    if (decision.originalName !== decision.canonicalName) {
+    const originalName = normalizeTokenName(decision.originalName);
+    if (originalName !== decision.canonicalSlug) {
       replacements.set(
-        normalizeTokenName(decision.originalName),
-        decision.canonicalName,
+        originalName,
+        equipmentDisplayName(decision.canonicalSlug),
       );
     }
   }

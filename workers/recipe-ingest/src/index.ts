@@ -5,6 +5,7 @@ import {
   type WorkflowStepConfig,
 } from "cloudflare:workers";
 import { NonRetryableError } from "cloudflare:workflows";
+import { canonicalEquipment } from "recipe-parsing/canonical-equipment-data";
 import { canonicalIngredients } from "recipe-parsing/canonical-ingredients-data";
 import {
   buildCooklangDraftFromExtraction,
@@ -12,16 +13,20 @@ import {
 } from "recipe-parsing/cooklang";
 import {
   applyDisambiguationChoices,
+  applyEquipmentDecisionsToEntry,
   applyLlmDecisionsToEntry,
   buildCategoryMap,
   collectUnresolved,
+  extractEquipmentContext,
   extractRecipeContext,
 } from "recipe-parsing/disambiguation";
+import { canonicalizePredictionEntry } from "recipe-parsing/ingredient-canonicalization";
 import {
+  buildOntology,
   buildOntologyIndex,
-  canonicalizePredictionEntry,
-} from "recipe-parsing/ingredient-canonicalization";
+} from "recipe-parsing/slug-matching";
 import {
+  disambiguateEquipment,
   disambiguateIngredients,
   extractRecipeFromImages,
   normalizeExtractionToCooklang,
@@ -225,36 +230,80 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
             );
           }
 
-          const ontology = new Set(
-            canonicalIngredients.ingredients.map((i) => i.slug),
+          const ingredientOntology = buildOntology(
+            canonicalIngredients.ingredients,
+            "ingredient",
           );
-          const ontologyIndex = buildOntologyIndex(ontology);
+          const equipmentOntology = buildOntology(
+            canonicalEquipment.equipment,
+            "equipment",
+          );
           const { entry, decisions, cookwareDecisions } =
             canonicalizePredictionEntry(
               { images: sourceKeys, predicted: recipe },
-              ontology,
-              ontologyIndex,
+              {
+                ingredients: ingredientOntology,
+                ingredientIndex: buildOntologyIndex(ingredientOntology),
+                equipment: equipmentOntology,
+                equipmentIndex: buildOntologyIndex(equipmentOntology),
+              },
             );
 
-          const categoryMap = buildCategoryMap(canonicalIngredients.ingredients);
-          const unresolved = collectUnresolved(decisions, categoryMap);
-          if (unresolved.length > 0) {
+          const unresolvedIngredients = collectUnresolved(
+            decisions,
+            buildCategoryMap(canonicalIngredients.ingredients),
+          );
+          const unresolvedEquipment = collectUnresolved(
+            cookwareDecisions,
+            buildCategoryMap(canonicalEquipment.equipment),
+          );
+          if (unresolvedIngredients.length > 0 || unresolvedEquipment.length > 0) {
             try {
-              const choices = await runLlmCall({
-                env,
-                jobId,
-                stage: "canonicalize",
-                model: canonicalizeParams.model,
-                call: () =>
-                  disambiguateIngredients({
-                    apiKey: env.OPENROUTER_API_KEY,
-                    unresolvedItems: unresolved,
-                    recipeContext: extractRecipeContext(entry, decisions),
-                    model: canonicalizeParams.model,
-                    requestTimeoutMs: canonicalizeParams.requestTimeoutMs,
-                  }),
-              });
-              applyDisambiguationChoices(decisions, unresolved, choices);
+              if (unresolvedIngredients.length > 0) {
+                const choices = await runLlmCall({
+                  env,
+                  jobId,
+                  stage: "canonicalize",
+                  model: canonicalizeParams.model,
+                  call: () =>
+                    disambiguateIngredients({
+                      apiKey: env.OPENROUTER_API_KEY,
+                      unresolvedItems: unresolvedIngredients,
+                      recipeContext: extractRecipeContext(entry, decisions),
+                      model: canonicalizeParams.model,
+                      requestTimeoutMs: canonicalizeParams.requestTimeoutMs,
+                    }),
+                });
+                applyDisambiguationChoices(
+                  decisions,
+                  unresolvedIngredients,
+                  choices,
+                );
+              }
+              if (unresolvedEquipment.length > 0) {
+                const choices = await runLlmCall({
+                  env,
+                  jobId,
+                  stage: "canonicalize",
+                  model: canonicalizeParams.model,
+                  call: () =>
+                    disambiguateEquipment({
+                      apiKey: env.OPENROUTER_API_KEY,
+                      unresolvedItems: unresolvedEquipment,
+                      equipmentContext: extractEquipmentContext(
+                        entry,
+                        cookwareDecisions,
+                      ),
+                      model: canonicalizeParams.model,
+                      requestTimeoutMs: canonicalizeParams.requestTimeoutMs,
+                    }),
+                });
+                applyDisambiguationChoices(
+                  cookwareDecisions,
+                  unresolvedEquipment,
+                  choices,
+                );
+              }
             } catch (error) {
               // Rethrow retryable provider errors while step attempts remain;
               // otherwise disambiguation is best-effort — keep the
@@ -272,7 +321,10 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
             }
           }
 
-          const finalEntry = applyLlmDecisionsToEntry(entry, decisions);
+          const finalEntry = applyEquipmentDecisionsToEntry(
+            applyLlmDecisionsToEntry(entry, decisions),
+            cookwareDecisions,
+          );
           return { recipe: finalEntry.predicted, decisions, cookwareDecisions };
         },
       );

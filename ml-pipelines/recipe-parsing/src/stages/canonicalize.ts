@@ -7,19 +7,24 @@ import {
   type CanonicalizationParams,
 } from "../lib/io.js";
 import { canonicalIngredients } from "recipe-parsing/canonical-ingredients-data";
+import { canonicalEquipment } from "recipe-parsing/canonical-equipment-data";
 import {
   canonicalizePredictionEntry,
-  buildOntologyIndex,
   type IngredientCanonicalizationDecision,
 } from "recipe-parsing/ingredient-canonicalization";
+import type { EquipmentCanonicalizationDecision } from "recipe-parsing/equipment-canonicalization";
+import { buildOntology, buildOntologyIndex } from "recipe-parsing/slug-matching";
 import {
   applyDisambiguationChoices,
+  applyEquipmentDecisionsToEntry,
   applyLlmDecisionsToEntry,
   buildCategoryMap,
   collectUnresolved,
+  extractEquipmentContext,
   extractRecipeContext,
 } from "recipe-parsing/disambiguation";
 import {
+  disambiguateEquipment,
   disambiguateIngredients,
   type DisambiguationChoice,
 } from "recipe-parsing/openrouter";
@@ -31,39 +36,21 @@ function hasApiKey(): boolean {
   return Boolean(process.env.OPENROUTER_API_KEY);
 }
 
-async function runLlmDisambiguation(
-  apiKey: string,
-  entry: PredictionEntry,
-  decisions: IngredientCanonicalizationDecision[],
-  categoryMap: Map<string, string>,
+async function callWithRetries(
+  label: string,
   params: CanonicalizationParams,
-): Promise<void> {
-  const unresolved = collectUnresolved(decisions, categoryMap);
-  if (unresolved.length === 0) return;
-
-  const recipeContext = extractRecipeContext(entry, decisions);
-
-  let choices: DisambiguationChoice[] | undefined;
-
+  call: () => Promise<{ value: DisambiguationChoice[] }>,
+): Promise<DisambiguationChoice[] | undefined> {
   for (let attempt = 0; attempt <= params.max_retries; attempt++) {
     try {
-      choices = (
-        await disambiguateIngredients({
-          apiKey,
-          unresolvedItems: unresolved,
-          recipeContext,
-          model: params.model,
-          requestTimeoutMs: params.request_timeout_ms,
-        })
-      ).value;
-      break;
+      return (await call()).value;
     } catch (err) {
       const isLastAttempt = attempt === params.max_retries;
       if (isLastAttempt) {
         console.warn(
-          `  LLM disambiguation failed for "${entry.predicted.title}" after ${attempt + 1} attempt(s): ${err instanceof Error ? err.message : String(err)}`,
+          `  LLM disambiguation failed for ${label} after ${attempt + 1} attempt(s): ${err instanceof Error ? err.message : String(err)}`,
         );
-        return;
+        return undefined;
       }
       const delay = computeBackoffDelayMs(
         attempt,
@@ -76,31 +63,101 @@ async function runLlmDisambiguation(
       await sleep(delay);
     }
   }
+  return undefined;
+}
 
+async function runIngredientDisambiguation(
+  apiKey: string,
+  entry: PredictionEntry,
+  decisions: IngredientCanonicalizationDecision[],
+  categoryMap: Map<string, string>,
+  params: CanonicalizationParams,
+): Promise<void> {
+  const unresolved = collectUnresolved(decisions, categoryMap);
+  if (unresolved.length === 0) return;
+
+  const choices = await callWithRetries(
+    `ingredients in "${entry.predicted.title}"`,
+    params,
+    () =>
+      disambiguateIngredients({
+        apiKey,
+        unresolvedItems: unresolved,
+        recipeContext: extractRecipeContext(entry, decisions),
+        model: params.model,
+        requestTimeoutMs: params.request_timeout_ms,
+      }),
+  );
   if (!choices) return;
 
   applyDisambiguationChoices(decisions, unresolved, choices);
 }
 
+async function runEquipmentDisambiguation(
+  apiKey: string,
+  entry: PredictionEntry,
+  decisions: EquipmentCanonicalizationDecision[],
+  categoryMap: Map<string, string>,
+  params: CanonicalizationParams,
+): Promise<void> {
+  const unresolved = collectUnresolved(decisions, categoryMap);
+  if (unresolved.length === 0) return;
+
+  const choices = await callWithRetries(
+    `equipment in "${entry.predicted.title}"`,
+    params,
+    () =>
+      disambiguateEquipment({
+        apiKey,
+        unresolvedItems: unresolved,
+        equipmentContext: extractEquipmentContext(entry, decisions),
+        model: params.model,
+        requestTimeoutMs: params.request_timeout_ms,
+      }),
+  );
+  if (!choices) return;
+
+  applyDisambiguationChoices(decisions, unresolved, choices);
+}
+
+function countUnresolved(
+  decisions: Array<{ method: string; candidates: unknown[] }>,
+): number {
+  return decisions.filter((d) => d.method === "none" && d.candidates.length > 0)
+    .length;
+}
+
+function countResolvedByLlm(decisions: Array<{ method: string }>): number {
+  return decisions.filter((d) => d.method === "llm").length;
+}
+
 async function main() {
-  console.log("Loading predictions and canonical ingredients...");
+  console.log("Loading predictions and canonical registries...");
   const [predictions, pipelineParams] = await Promise.all([
     loadPredictions(),
     loadParams(),
   ]);
-  const canonicalData = canonicalIngredients;
 
-  const ontology = new Set<string>();
-  for (const { slug } of canonicalData.ingredients) {
-    if (ontology.has(slug)) {
-      throw new Error(`Duplicate canonical ingredient slug: ${slug}`);
-    }
-    ontology.add(slug);
-  }
-  console.log(`Canonical ingredient registry: ${ontology.size} ingredients`);
+  const ingredientOntology = buildOntology(
+    canonicalIngredients.ingredients,
+    "ingredient",
+  );
+  const equipmentOntology = buildOntology(
+    canonicalEquipment.equipment,
+    "equipment",
+  );
+  console.log(
+    `Canonical registries: ${ingredientOntology.size} ingredients, ${equipmentOntology.size} equipment`,
+  );
 
-  const ontologyIndex = buildOntologyIndex(ontology);
-  const categoryMap = buildCategoryMap(canonicalData.ingredients);
+  const ontologies = {
+    ingredients: ingredientOntology,
+    ingredientIndex: buildOntologyIndex(ingredientOntology),
+    equipment: equipmentOntology,
+    equipmentIndex: buildOntologyIndex(equipmentOntology),
+  };
+  const ingredientCategories = buildCategoryMap(canonicalIngredients.ingredients);
+  const equipmentCategories = buildCategoryMap(canonicalEquipment.equipment);
   const canonicalizeParams = pipelineParams.canonicalize;
   const llmEnabled = Boolean(canonicalizeParams) && hasApiKey();
 
@@ -118,19 +175,21 @@ async function main() {
   const decisions = {
     entries: [] as Array<{
       images: string[];
-      decisions: ReturnType<typeof canonicalizePredictionEntry>["decisions"];
-      cookwareDecisions: ReturnType<typeof canonicalizePredictionEntry>["cookwareDecisions"];
+      decisions: IngredientCanonicalizationDecision[];
+      cookwareDecisions: EquipmentCanonicalizationDecision[];
     }>,
   };
 
   // Pass 1: Deterministic canonicalization
   console.log("Pass 1: Deterministic canonicalization...");
   const allEntryDecisions: IngredientCanonicalizationDecision[][] = [];
+  const allEntryCookwareDecisions: EquipmentCanonicalizationDecision[][] = [];
 
   for (const entry of predictions.entries) {
-    const result = canonicalizePredictionEntry(entry, ontology, ontologyIndex);
+    const result = canonicalizePredictionEntry(entry, ontologies);
     canonicalized.entries.push(result.entry);
     allEntryDecisions.push(result.decisions);
+    allEntryCookwareDecisions.push(result.cookwareDecisions);
     decisions.entries.push({
       images: entry.images,
       decisions: result.decisions,
@@ -138,48 +197,73 @@ async function main() {
     });
   }
 
-  // Pass 2: LLM disambiguation for unresolved ingredients
+  // Pass 2: LLM disambiguation for unresolved ingredients and equipment
   if (llmEnabled) {
     const apiKey = requiredEnv("OPENROUTER_API_KEY");
-    const unresolvedCount = allEntryDecisions.reduce(
-      (sum, d) => sum + d.filter((x) => x.method === "none" && x.candidates.length > 0).length,
+    const unresolvedIngredients = allEntryDecisions.reduce(
+      (sum, d) => sum + countUnresolved(d),
       0,
     );
-    console.log(`Pass 2: LLM disambiguation for ${unresolvedCount} unresolved ingredient(s)...`);
+    const unresolvedEquipment = allEntryCookwareDecisions.reduce(
+      (sum, d) => sum + countUnresolved(d),
+      0,
+    );
+    console.log(
+      `Pass 2: LLM disambiguation for ${unresolvedIngredients} unresolved ingredient(s) and ${unresolvedEquipment} unresolved equipment item(s)...`,
+    );
 
     for (let i = 0; i < predictions.entries.length; i++) {
       const entry = predictions.entries[i]!;
       const entryDecisions = allEntryDecisions[i]!;
+      const entryCookwareDecisions = allEntryCookwareDecisions[i]!;
 
-      const unresolvedInEntry = entryDecisions.filter(
-        (d) => d.method === "none" && d.candidates.length > 0,
-      );
-      if (unresolvedInEntry.length === 0) continue;
+      const entryUnresolvedIngredients = countUnresolved(entryDecisions);
+      const entryUnresolvedEquipment = countUnresolved(entryCookwareDecisions);
+      if (entryUnresolvedIngredients === 0 && entryUnresolvedEquipment === 0) {
+        continue;
+      }
 
       console.log(
-        `  Processing "${entry.predicted.title}" (${unresolvedInEntry.length} unresolved)...`,
+        `  Processing "${entry.predicted.title}" (${entryUnresolvedIngredients} ingredient(s), ${entryUnresolvedEquipment} equipment item(s) unresolved)...`,
       );
 
-      await runLlmDisambiguation(
-        apiKey,
-        entry,
-        entryDecisions,
-        categoryMap,
-        canonicalizeParams!,
-      );
+      if (entryUnresolvedIngredients > 0) {
+        await runIngredientDisambiguation(
+          apiKey,
+          entry,
+          entryDecisions,
+          ingredientCategories,
+          canonicalizeParams!,
+        );
+      }
+      if (entryUnresolvedEquipment > 0) {
+        await runEquipmentDisambiguation(
+          apiKey,
+          entry,
+          entryCookwareDecisions,
+          equipmentCategories,
+          canonicalizeParams!,
+        );
+      }
 
       // Apply LLM decisions back to the canonicalized entry
-      canonicalized.entries[i] = applyLlmDecisionsToEntry(
-        canonicalized.entries[i]!,
-        entryDecisions,
+      canonicalized.entries[i] = applyEquipmentDecisionsToEntry(
+        applyLlmDecisionsToEntry(canonicalized.entries[i]!, entryDecisions),
+        entryCookwareDecisions,
       );
     }
 
-    const resolvedByLlm = allEntryDecisions.reduce(
-      (sum, d) => sum + d.filter((x) => x.method === "llm").length,
+    const resolvedIngredients = allEntryDecisions.reduce(
+      (sum, d) => sum + countResolvedByLlm(d),
       0,
     );
-    console.log(`LLM resolved ${resolvedByLlm} of ${unresolvedCount} ingredient(s)`);
+    const resolvedEquipment = allEntryCookwareDecisions.reduce(
+      (sum, d) => sum + countResolvedByLlm(d),
+      0,
+    );
+    console.log(
+      `LLM resolved ${resolvedIngredients} of ${unresolvedIngredients} ingredient(s) and ${resolvedEquipment} of ${unresolvedEquipment} equipment item(s)`,
+    );
   }
 
   await Promise.all([

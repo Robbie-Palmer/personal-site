@@ -52,13 +52,12 @@ describe("buildFinalDraft", () => {
       [
         {
           originalName: "skillet",
-          baseName: "skillet",
-          canonicalName: "frying pan",
+          baseSlug: "skillet",
+          canonicalSlug: "frying-pan",
           method: "exact",
-          candidates: [
-            { name: "skillet", score: 0.95 },
-            { name: "frying pan", score: 1 },
-          ],
+          score: 1,
+          threshold: 1,
+          candidates: [{ slug: "frying-pan", score: 1 }],
         },
       ],
     );

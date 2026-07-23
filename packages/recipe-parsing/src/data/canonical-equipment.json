@@ -1,0 +1,268 @@
+{
+  "equipment": [
+    {
+      "slug": "air-fryer",
+      "category": "appliance"
+    },
+    {
+      "slug": "baking-paper",
+      "category": "other"
+    },
+    {
+      "slug": "baking-tray",
+      "category": "bakeware"
+    },
+    {
+      "slug": "barbecue",
+      "category": "appliance"
+    },
+    {
+      "slug": "blender",
+      "category": "appliance"
+    },
+    {
+      "slug": "bowl",
+      "category": "vessel"
+    },
+    {
+      "slug": "cake-tin",
+      "category": "bakeware"
+    },
+    {
+      "slug": "can-opener",
+      "category": "utensil"
+    },
+    {
+      "slug": "chopping-board",
+      "category": "utensil"
+    },
+    {
+      "slug": "cling-film",
+      "category": "other"
+    },
+    {
+      "slug": "cooling-rack",
+      "category": "bakeware"
+    },
+    {
+      "slug": "deep-fryer",
+      "category": "appliance"
+    },
+    {
+      "slug": "dutch-oven",
+      "category": "cookware"
+    },
+    {
+      "slug": "foil",
+      "category": "other"
+    },
+    {
+      "slug": "food-processor",
+      "category": "appliance"
+    },
+    {
+      "slug": "frying-pan",
+      "category": "cookware"
+    },
+    {
+      "slug": "garlic-press",
+      "category": "utensil"
+    },
+    {
+      "slug": "grater",
+      "category": "utensil"
+    },
+    {
+      "slug": "griddle-pan",
+      "category": "cookware"
+    },
+    {
+      "slug": "grill",
+      "category": "appliance"
+    },
+    {
+      "slug": "hand-mixer",
+      "category": "appliance"
+    },
+    {
+      "slug": "hob",
+      "category": "appliance"
+    },
+    {
+      "slug": "jug",
+      "category": "vessel"
+    },
+    {
+      "slug": "kettle",
+      "category": "appliance"
+    },
+    {
+      "slug": "knife",
+      "category": "utensil"
+    },
+    {
+      "slug": "ladle",
+      "category": "utensil"
+    },
+    {
+      "slug": "loaf-tin",
+      "category": "bakeware"
+    },
+    {
+      "slug": "mandoline",
+      "category": "utensil"
+    },
+    {
+      "slug": "measuring-jug",
+      "category": "vessel"
+    },
+    {
+      "slug": "measuring-spoons",
+      "category": "utensil"
+    },
+    {
+      "slug": "microwave",
+      "category": "appliance"
+    },
+    {
+      "slug": "mixing-bowl",
+      "category": "vessel"
+    },
+    {
+      "slug": "muffin-tin",
+      "category": "bakeware"
+    },
+    {
+      "slug": "oven",
+      "category": "appliance"
+    },
+    {
+      "slug": "oven-dish",
+      "category": "bakeware"
+    },
+    {
+      "slug": "pastry-brush",
+      "category": "utensil"
+    },
+    {
+      "slug": "peeler",
+      "category": "utensil"
+    },
+    {
+      "slug": "pestle-and-mortar",
+      "category": "utensil"
+    },
+    {
+      "slug": "pie-dish",
+      "category": "bakeware"
+    },
+    {
+      "slug": "piping-bag",
+      "category": "utensil"
+    },
+    {
+      "slug": "potato-masher",
+      "category": "utensil"
+    },
+    {
+      "slug": "pressure-cooker",
+      "category": "appliance"
+    },
+    {
+      "slug": "ramekin",
+      "category": "vessel"
+    },
+    {
+      "slug": "rice-cooker",
+      "category": "appliance"
+    },
+    {
+      "slug": "roasting-tin",
+      "category": "bakeware"
+    },
+    {
+      "slug": "rolling-pin",
+      "category": "utensil"
+    },
+    {
+      "slug": "saucepan",
+      "category": "cookware"
+    },
+    {
+      "slug": "scales",
+      "category": "utensil"
+    },
+    {
+      "slug": "scissors",
+      "category": "utensil"
+    },
+    {
+      "slug": "sieve",
+      "category": "utensil"
+    },
+    {
+      "slug": "skewer",
+      "category": "utensil"
+    },
+    {
+      "slug": "slotted-spoon",
+      "category": "utensil"
+    },
+    {
+      "slug": "slow-cooker",
+      "category": "appliance"
+    },
+    {
+      "slug": "spatula",
+      "category": "utensil"
+    },
+    {
+      "slug": "springform-tin",
+      "category": "bakeware"
+    },
+    {
+      "slug": "stand-mixer",
+      "category": "appliance"
+    },
+    {
+      "slug": "steamer",
+      "category": "cookware"
+    },
+    {
+      "slug": "stick-blender",
+      "category": "appliance"
+    },
+    {
+      "slug": "stockpot",
+      "category": "cookware"
+    },
+    {
+      "slug": "thermometer",
+      "category": "utensil"
+    },
+    {
+      "slug": "toaster",
+      "category": "appliance"
+    },
+    {
+      "slug": "tongs",
+      "category": "utensil"
+    },
+    {
+      "slug": "whisk",
+      "category": "utensil"
+    },
+    {
+      "slug": "wok",
+      "category": "cookware"
+    },
+    {
+      "slug": "wooden-spoon",
+      "category": "utensil"
+    },
+    {
+      "slug": "zester",
+      "category": "utensil"
+    }
+  ]
+}
