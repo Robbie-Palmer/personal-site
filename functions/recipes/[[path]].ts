@@ -6,14 +6,18 @@ import {
 } from "recipe-domain/serialization";
 import { isRecipeAppRouteSlug } from "recipe-domain/slugs";
 import {
+  proxyRecipeApiRequest,
+  type RecipeApiProxyEnv,
+} from "../api/auth/routing";
+import {
+  decodeRecipeResponse,
   loadPublicRecipe,
-  type PublicRecipeEnv,
   type RecipePayload,
   recipeMarkdown,
 } from "../lib/public-recipes";
 import { rewrittenRecipeAssetHeaders } from "../lib/recipe-asset";
 
-interface Env extends PublicRecipeEnv {
+interface Env extends RecipeApiProxyEnv {
   ASSETS: { fetch: typeof fetch };
 }
 
@@ -76,9 +80,18 @@ export const onRequest = async (context: Context): Promise<Response> => {
   }
 
   if (!extension) {
-    const loaded = await loadPublicRecipe(context.env, slug);
+    const apiRequest = new Request(context.request.url, {
+      method: "GET",
+      headers: context.request.headers,
+    });
+    const apiResponse = await proxyRecipeApiRequest(
+      { request: apiRequest, env: context.env },
+      "Recipe pages are available on the canonical PR preview URL only",
+    );
+    const loaded = await decodeRecipeResponse(apiResponse);
     if (!loaded) return new Response("Not found", { status: 404 });
     if (
+      loaded.record.visibility === "public" &&
       (context.request.headers.get("accept") ?? "").includes("text/markdown")
     ) {
       return textResponse(recipeMarkdown(loaded.payload), "text/markdown");
@@ -98,17 +111,18 @@ export const onRequest = async (context: Context): Promise<Response> => {
       loaded.payload.recipe.description ||
       loaded.record.description ||
       loaded.payload.recipe.title;
-    const canonicalHref = escapeHtmlAttribute(
-      `${url.origin}/recipes/${slug}`,
-    );
-    const headMarkup =
-      `<link rel="canonical" href="${canonicalHref}">` +
-      `<script type="application/ld+json">${recipeJsonLd(
-        loaded.payload,
-        url,
-        slug,
-      ).trim()}</script>`;
-    const html = (await asset.text())
+    const isPublic = loaded.record.visibility === "public";
+    const headMarkup = isPublic
+      ? `<link rel="canonical" href="${escapeHtmlAttribute(
+          `${url.origin}/recipes/${slug}`,
+        )}">` +
+        `<script type="application/ld+json">${recipeJsonLd(
+          loaded.payload,
+          url,
+          slug,
+        ).trim()}</script>`
+      : "";
+    let html = (await asset.text())
       .replace(
         /<title>[\s\S]*?<\/title>/,
         `<title>${escapeHtmlText(loaded.payload.recipe.title)}</title>`,
@@ -117,9 +131,16 @@ export const onRequest = async (context: Context): Promise<Response> => {
         /<meta name="description" content="[^"]*"\s*\/?>/i,
         `<meta name="description" content="${escapeHtmlAttribute(description)}">`,
       )
-      .replace(/<meta name="robots"[^>]*>/i, "")
       .replace("</head>", `${headMarkup}</head>`);
-    const headers = rewrittenRecipeAssetHeaders(asset);
+    if (isPublic) {
+      html = html.replace(/<meta name="robots"[^>]*>/i, "");
+    }
+    const headers = rewrittenRecipeAssetHeaders(
+      asset,
+      isPublic
+        ? "public, max-age=60, s-maxage=300"
+        : "private, no-store",
+    );
     return new Response(html, { status: asset.status, headers });
   }
 

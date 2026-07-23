@@ -91,21 +91,15 @@ describe("savedRecipeCard", () => {
     };
   }
 
-  it("uses the indexable route for public recipes", () => {
-    expect(savedRecipeCard(record("public"))).toMatchObject({
-      href: "/recipes/weeknight-rice",
-      image: "recipes/weeknight-rice-2026-07-22",
-      imageAlt: "A bowl of rice",
-      canonical: "https://example.test/weeknight-rice",
-    });
-  });
-
-  it.each(["private", "household"] as const)(
-    "uses the authenticated route for %s recipes",
+  it.each(["public", "private", "household"] as const)(
+    "uses the unified recipe route for %s recipes",
     (visibility) => {
-      expect(savedRecipeCard(record(visibility))?.href).toBe(
-        "/recipes/saved?slug=weeknight-rice",
-      );
+      expect(savedRecipeCard(record(visibility))).toMatchObject({
+        href: "/recipes/weeknight-rice",
+        image: "recipes/weeknight-rice-2026-07-22",
+        imageAlt: "A bowl of rice",
+        canonical: "https://example.test/weeknight-rice",
+      });
     },
   );
 

@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { RecipeAvatar } from "@/components/recipes/recipe-avatar";
 import { RecipeThumb } from "@/components/recipes/recipe-card";
+import { RecipePageLink } from "@/components/recipes/recipe-page-link";
 import { Button } from "@/components/ui/button";
 import {
   getPublicCook,
@@ -78,9 +79,9 @@ function CookProfile({ cook }: Readonly<{ cook: PublicCookProfile }>) {
         {cook.activity.map((item) => {
           const recipe = savedRecipeCard(item.recipe);
           return (
-            <Link
+            <RecipePageLink
               key={`${item.recipe.slug}-${item.createdAt}`}
-              href={`/recipes/saved?slug=${encodeURIComponent(item.recipe.slug)}`}
+              href={`/recipes/${encodeURIComponent(item.recipe.slug)}`}
               className="group flex items-center gap-4 rounded-xl border border-[var(--line-strong)] bg-[var(--card)] p-4 shadow-[var(--paper-shadow)]"
             >
               {recipe ? (
@@ -96,7 +97,7 @@ function CookProfile({ cook }: Readonly<{ cook: PublicCookProfile }>) {
                   {item.recipe.title}
                 </h2>
               </div>
-            </Link>
+            </RecipePageLink>
           );
         })}
       </div>

@@ -33,14 +33,10 @@ describe("RecipePageLink", () => {
   });
 
   it("keeps static application routes on Next client navigation", () => {
-    render(
-      <RecipePageLink href="/recipes/saved?slug=weeknight-rice">
-        Weeknight Rice
-      </RecipePageLink>,
-    );
+    render(<RecipePageLink href="/recipes/discover">Discover</RecipePageLink>);
 
-    const link = screen.getByRole("link", { name: "Weeknight Rice" });
-    expect(link).toHaveAttribute("href", "/recipes/saved?slug=weeknight-rice");
+    const link = screen.getByRole("link", { name: "Discover" });
+    expect(link).toHaveAttribute("href", "/recipes/discover");
     expect(link).toHaveAttribute("data-next-link");
   });
 });

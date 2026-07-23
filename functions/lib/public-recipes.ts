@@ -13,11 +13,16 @@ export type StoredRecipe = {
   title: string;
   description: string | null;
   body: string | null;
+  visibility: "public" | "private" | "household";
   createdAt?: string;
   updatedAt?: string;
 };
 
 export type RecipePayload = SavedRecipePayload;
+export type LoadedRecipe = {
+  record: StoredRecipe;
+  payload: RecipePayload;
+};
 
 const API_TIMEOUT_MS = 5_000;
 const PAGE_LIMIT = 100;
@@ -31,6 +36,12 @@ function isOptionalString(value: unknown): value is string | undefined {
   return value === undefined || typeof value === "string";
 }
 
+function isRecipeVisibility(
+  value: unknown,
+): value is StoredRecipe["visibility"] {
+  return value === "public" || value === "private" || value === "household";
+}
+
 function isStoredRecipe(value: unknown): value is StoredRecipe {
   return (
     isRecord(value) &&
@@ -38,6 +49,7 @@ function isStoredRecipe(value: unknown): value is StoredRecipe {
     typeof value.title === "string" &&
     (value.description === null || typeof value.description === "string") &&
     (value.body === null || typeof value.body === "string") &&
+    isRecipeVisibility(value.visibility) &&
     isOptionalString(value.createdAt) &&
     isOptionalString(value.updatedAt)
   );
@@ -67,17 +79,38 @@ export function decodeRecipePayload(record: StoredRecipe): RecipePayload | null 
   }
 }
 
+export async function decodeRecipeResponse(
+  response: Response,
+): Promise<LoadedRecipe | null> {
+  if (!response.ok) return null;
+  try {
+    const result: unknown = await response.json();
+    if (!isStoredRecipe(result)) return null;
+    const payload = decodeRecipePayload(result);
+    return payload ? { record: result, payload } : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function loadPublicRecipe(
   env: PublicRecipeEnv,
   slug: string,
-): Promise<{ record: StoredRecipe; payload: RecipePayload } | null> {
+): Promise<LoadedRecipe | null> {
   if (!env.RECIPE_API_URL) return null;
-  const result = await fetchApiJson(
-    new URL(`/recipes/${slug}`, env.RECIPE_API_URL),
-  );
-  if (!isStoredRecipe(result)) return null;
-  const payload = decodeRecipePayload(result);
-  return payload ? { record: result, payload } : null;
+  try {
+    const response = await fetch(
+      new URL(`/recipes/${slug}`, env.RECIPE_API_URL),
+      {
+        headers: { accept: "application/json" },
+        signal: AbortSignal.timeout(API_TIMEOUT_MS),
+      },
+    );
+    const loaded = await decodeRecipeResponse(response);
+    return loaded?.record.visibility === "public" ? loaded : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function listPublicRecipes(
@@ -94,7 +127,12 @@ export async function listPublicRecipes(
     if (cursor) apiUrl.searchParams.set("cursor", cursor);
     const result = await fetchApiJson(apiUrl);
     if (!isRecord(result) || !Array.isArray(result.items)) return null;
-    recipes.push(...result.items.filter(isStoredRecipe));
+    recipes.push(
+      ...result.items.filter(
+        (item): item is StoredRecipe =>
+          isStoredRecipe(item) && item.visibility === "public",
+      ),
+    );
 
     const nextCursor = result.nextCursor;
     if (nextCursor === null) return recipes;

@@ -68,6 +68,7 @@ describe("dynamic recipe pages", () => {
         title: "Lentil Soup",
         description: "A useful soup.",
         body: JSON.stringify(payload),
+        visibility: "public",
       }),
     ) as typeof fetch;
 
@@ -88,6 +89,7 @@ describe("dynamic recipe pages", () => {
         title: "Lentil Soup",
         description: "A useful soup.",
         body: JSON.stringify(payload),
+        visibility: "public",
       }),
     ) as typeof fetch;
 
@@ -134,6 +136,7 @@ describe("dynamic recipe pages", () => {
         title: "Lentil Soup",
         description: "A useful soup.",
         body: JSON.stringify(detailedPayload),
+        visibility: "public",
       }),
     ) as typeof fetch;
 
@@ -163,6 +166,7 @@ describe("dynamic recipe pages", () => {
         title: "Lentil Soup",
         description: "A useful soup.",
         body: JSON.stringify(payload),
+        visibility: "public",
       }),
     ) as typeof fetch;
     const assetFetch = vi.fn(
@@ -189,6 +193,71 @@ describe("dynamic recipe pages", () => {
     expect(html).not.toContain("noindex");
   });
 
+  it.each(["private", "household"] as const)(
+    "serves an authorized %s recipe at its canonical path without indexing it",
+    async (visibility) => {
+      const apiFetch = vi.fn(async (request: Request) => {
+        expect(request.url).toBe(
+          "https://recipe-api.example.test/recipes/lentil-soup",
+        );
+        expect(request.headers.get("cookie")).toBe(
+          "better-auth.session_token=valid",
+        );
+        return Response.json({
+          slug: "lentil-soup",
+          title: "Lentil Soup",
+          description: "A useful soup.",
+          body: JSON.stringify(payload),
+          visibility,
+        });
+      });
+      globalThis.fetch = apiFetch as unknown as typeof fetch;
+      const assetFetch = vi.fn(
+        async () =>
+          new Response(
+            '<html><head><title>Saved Recipe</title><meta name="description" content="Saved"><meta name="robots" content="noindex, nofollow"></head><body></body></html>',
+          ),
+      ) as typeof fetch;
+
+      const response = await onRequest(
+        context(
+          "https://robbiepalmer.me/recipes/lentil-soup",
+          {
+            accept: "text/html",
+            cookie: "better-auth.session_token=valid",
+          },
+          assetFetch,
+        ),
+      );
+      const html = await response.text();
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+      expect(html).toContain("<title>Lentil Soup</title>");
+      expect(html).toContain('name="robots" content="noindex, nofollow"');
+      expect(html).not.toContain('rel="canonical"');
+      expect(html).not.toContain('type="application/ld+json"');
+    },
+  );
+
+  it("returns 404 when the visitor cannot read the requested recipe", async () => {
+    globalThis.fetch = vi.fn(
+      async () => new Response("Not found", { status: 404 }),
+    ) as typeof fetch;
+    const assetFetch = vi.fn() as unknown as typeof fetch;
+
+    const response = await onRequest(
+      context(
+        "https://robbiepalmer.me/recipes/private-soup",
+        { accept: "text/html" },
+        assetFetch,
+      ),
+    );
+
+    expect(response.status).toBe(404);
+    expect(assetFetch).not.toHaveBeenCalled();
+  });
+
   it("escapes HTML metadata and preserves the static asset response", async () => {
     const escapedPayload = structuredClone(payload);
     escapedPayload.recipe.title = '<Soup & "Stuff">';
@@ -199,6 +268,7 @@ describe("dynamic recipe pages", () => {
         title: escapedPayload.recipe.title,
         description: 'Stored "description" & <detail>',
         body: JSON.stringify(escapedPayload),
+        visibility: "public",
       }),
     ) as typeof fetch;
     const assetFetchMock = vi.fn(
@@ -255,6 +325,7 @@ describe("dynamic recipe pages", () => {
         title: "Lentil Soup",
         description: null,
         body: JSON.stringify(payload),
+        visibility: "public",
       }),
     ) as typeof fetch;
     const failedAsset = new Response("asset unavailable", { status: 503 });

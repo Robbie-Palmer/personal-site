@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getHouseholds: vi.fn(),
+  navigateToRecipePage: vi.fn(),
   routerPush: vi.fn(),
   useCooklangRecipe: vi.fn(),
   useSession: vi.fn(),
@@ -19,6 +20,10 @@ vi.mock("@/lib/auth-client", () => ({
 
 vi.mock("@/lib/api/households", () => ({
   getHouseholds: mocks.getHouseholds,
+}));
+
+vi.mock("@/components/recipes/recipe-page-link", () => ({
+  navigateToRecipePage: mocks.navigateToRecipePage,
 }));
 
 vi.mock("@/hooks/use-cooklang-recipe", () => ({
@@ -188,9 +193,9 @@ describe("AddRecipeView visibility", () => {
     ]);
     expect(JSON.parse(requestBody.body).recipe.canonical).toBe(canonical);
     expect(JSON.parse(requestBody.body).recipe.date).toBe("2025-05-04");
-    expect(mocks.routerPush).toHaveBeenCalledWith(
-      "/recipes/saved?slug=weeknight-rice",
-    );
+    expect(mocks.navigateToRecipePage).toHaveBeenCalledWith({
+      slug: "weeknight-rice",
+    });
   });
 
   it("disables editing when the saved recipe body is unreadable", () => {

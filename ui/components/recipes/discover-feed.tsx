@@ -1,9 +1,9 @@
 "use client";
 
 import { Globe2, Home, LoaderCircle, UtensilsCrossed } from "lucide-react";
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RecipeThumb } from "@/components/recipes/recipe-card";
+import { RecipePageLink } from "@/components/recipes/recipe-page-link";
 import { Button } from "@/components/ui/button";
 import {
   type DiscoverFeedItem,
@@ -68,8 +68,8 @@ function FeedCard({ item }: Readonly<{ item: DiscoverFeedItem }>) {
           </time>
         </div>
       </header>
-      <Link
-        href={`/recipes/saved?slug=${encodeURIComponent(item.recipe.slug)}`}
+      <RecipePageLink
+        href={`/recipes/${encodeURIComponent(item.recipe.slug)}`}
         className="group flex gap-4 border-t border-[var(--line)] p-4 transition-colors hover:bg-[var(--paper-warm)]/60 sm:p-5"
       >
         {recipe ? (
@@ -92,7 +92,7 @@ function FeedCard({ item }: Readonly<{ item: DiscoverFeedItem }>) {
             </p>
           ) : null}
         </div>
-      </Link>
+      </RecipePageLink>
     </article>
   );
 }

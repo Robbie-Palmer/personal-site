@@ -11,6 +11,7 @@ import {
   RecipeLoadError,
   RecipeLoading,
 } from "@/components/recipes/recipe-load-state";
+import { replaceWithRecipePage } from "@/components/recipes/recipe-page-link";
 import { Button } from "@/components/ui/button";
 import {
   parseSavedRecipe,
@@ -44,6 +45,10 @@ export function SavedRecipeView() {
       !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)
     ) {
       setState({ status: "error", message: "No saved recipe was selected." });
+      return;
+    }
+    if (pathname === "/recipes/saved") {
+      replaceWithRecipePage({ slug });
       return;
     }
     const controller = new AbortController();
