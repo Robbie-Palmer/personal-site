@@ -8,7 +8,6 @@ import {
   Timer,
   UtensilsCrossed,
 } from "lucide-react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   memo,
@@ -21,6 +20,7 @@ import {
 } from "react";
 import { DietListNotice, DietWarning } from "@/components/recipes/diet-notice";
 import { useDiet } from "@/components/recipes/diet-provider";
+import { RecipePageLink } from "@/components/recipes/recipe-page-link";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -235,7 +235,7 @@ const RecipeCard = memo(function RecipeCard({
   return (
     <Card className="h-full flex flex-col overflow-hidden rounded-xl border-[1.25px] border-[var(--line-strong)] gap-0 py-0 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--paper-shadow)]">
       {recipe.image && (
-        <Link href={href} className="block">
+        <RecipePageLink href={href} className="block">
           <div className="relative w-full h-48 bg-muted overflow-hidden">
             {/* biome-ignore lint/performance/noImgElement: Need native img for srcset control with SSG */}
             <img
@@ -251,14 +251,14 @@ const RecipeCard = memo(function RecipeCard({
               fetchPriority={index < 3 ? "high" : "auto"}
             />
           </div>
-        </Link>
+        </RecipePageLink>
       )}
       <CardHeader className="pt-4 pb-2 gap-1">
-        <Link href={href}>
+        <RecipePageLink href={href}>
           <CardTitle className="rt-display text-2xl leading-tight hover:text-[var(--terracotta)] transition-colors">
             {recipe.title}
           </CardTitle>
-        </Link>
+        </RecipePageLink>
         {recipe.saved && (
           <span className="rt-mono w-fit rounded-full bg-[var(--butter-soft)] px-2 py-0.5 text-[0.625rem] text-[var(--terracotta-deep)]">
             Your recipe
