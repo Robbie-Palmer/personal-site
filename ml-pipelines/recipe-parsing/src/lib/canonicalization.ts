@@ -13,15 +13,13 @@ import {
   extractEquipmentContext,
   extractRecipeContext,
 } from "recipe-parsing/disambiguation";
-import type {
-  DisambiguationChoice,
-  EquipmentContext,
-  RecipeContext,
-  UnresolvedItem,
-} from "recipe-parsing/openrouter";
 import {
   disambiguateEquipment,
   disambiguateIngredients,
+  type DisambiguationChoice,
+  type EquipmentContext,
+  type RecipeContext,
+  type UnresolvedItem,
 } from "recipe-parsing/openrouter";
 import { computeBackoffDelayMs, sleep } from "recipe-parsing/attempts";
 import { canonicalIngredients } from "recipe-parsing/canonical-ingredients-data";
@@ -177,21 +175,21 @@ function sum(counts: number[]): number {
 }
 
 export async function disambiguateEntries(
-  canonicalizations: EntryCanonicalization[],
+  entries: EntryCanonicalization[],
   params: DisambiguationSetup,
 ): Promise<EntryCanonicalization[]> {
   const unresolvedIngredients = sum(
-    canonicalizations.map((c) => countUnresolved(c.decisions)),
+    entries.map((c) => countUnresolved(c.decisions)),
   );
   const unresolvedEquipment = sum(
-    canonicalizations.map((c) => countUnresolved(c.cookwareDecisions)),
+    entries.map((c) => countUnresolved(c.cookwareDecisions)),
   );
   console.log(
     `Pass 2: LLM disambiguation for ${unresolvedIngredients} unresolved ingredient(s) and ${unresolvedEquipment} unresolved equipment item(s)...`,
   );
 
   const results: EntryCanonicalization[] = [];
-  for (const canonicalization of canonicalizations) {
+  for (const canonicalization of entries) {
     const entryIngredients = countUnresolved(canonicalization.decisions);
     const entryEquipment = countUnresolved(canonicalization.cookwareDecisions);
     if (entryIngredients === 0 && entryEquipment === 0) {
@@ -281,7 +279,7 @@ export async function canonicalizePredictions(params: {
     equipment,
     equipmentIndex: buildOntologyIndex(equipment),
   };
-  let canonicalizations = params.predictions.entries.map((entry) =>
+  let canonicalized = params.predictions.entries.map((entry) =>
     canonicalizeEntry(entry, ontologies),
   );
 
@@ -295,16 +293,16 @@ export async function canonicalizePredictions(params: {
     console.log(
       `LLM disambiguation enabled (model: ${params.canonicalizeParams.model})`,
     );
-    canonicalizations = await disambiguateEntries(
-      canonicalizations,
+    canonicalized = await disambiguateEntries(
+      canonicalized,
       llmResolvers(params.apiKey, params.canonicalizeParams),
     );
   }
 
   return {
-    canonicalized: { entries: canonicalizations.map((c) => c.entry) },
+    canonicalized: { entries: canonicalized.map((c) => c.entry) },
     decisions: {
-      entries: canonicalizations.map((c) => ({
+      entries: canonicalized.map((c) => ({
         images: c.entry.images,
         decisions: c.decisions,
         cookwareDecisions: c.cookwareDecisions,
