@@ -90,6 +90,47 @@ describe("buildFinalDraft", () => {
     ]);
   });
 
+  it("rewrites slug-form cookware tokens to their canonical display form", () => {
+    const normalizedRecipe = {
+      title: "Pan Toast",
+      description: "Toast in a pan.",
+      cuisine: [],
+      servings: 1,
+      ingredientGroups: [{ items: [{ ingredient: "bread", amount: 1 }] }],
+      instructions: ["Toast the bread in a frying pan."],
+      cookware: ["frying-pan"],
+    };
+    const draft = buildFinalDraft(
+      ["imports/job/source/1.jpg"],
+      {
+        frontmatter: {
+          title: normalizedRecipe.title,
+          description: normalizedRecipe.description,
+          servings: normalizedRecipe.servings,
+          tags: [],
+        },
+        body: "@bread{1}\n\nToast the @bread in a #frying-pan{}.",
+        diagnostics: [],
+        derived: normalizedRecipe,
+      },
+      { ...normalizedRecipe, cookware: ["frying pan"] },
+      [
+        {
+          originalName: "frying-pan",
+          baseSlug: "frying-pan",
+          canonicalSlug: "frying-pan",
+          method: "exact",
+          score: 1,
+          threshold: 1,
+          candidates: [{ slug: "frying-pan", score: 1 }],
+        },
+      ],
+    );
+
+    expect(draft.cooklang.body).toContain("#frying pan{}");
+    expect(draft.cooklang.body).not.toContain("#frying-pan");
+  });
+
   it("does not replace prefixes of longer braced tokens", () => {
     const normalizedRecipe = {
       title: "Rice Dressing",

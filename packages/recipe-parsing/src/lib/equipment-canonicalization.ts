@@ -33,10 +33,7 @@ const EQUIPMENT_ALIASES: Record<string, string> = {
   "saute-pan": "frying-pan",
   "saut-pan": "frying-pan",
   "sautee-pan": "frying-pan",
-  pan: "frying-pan",
   "sauce-pan": "saucepan",
-  pot: "saucepan",
-  "cooking-pot": "saucepan",
   "stock-pot": "stockpot",
   "soup-pot": "stockpot",
   "casserole-pot": "dutch-oven",
@@ -71,7 +68,6 @@ const EQUIPMENT_ALIASES: Record<string, string> = {
   "hand-blender": "stick-blender",
   liquidiser: "blender",
   liquidizer: "blender",
-  mixer: "stand-mixer",
   "electric-mixer": "hand-mixer",
   "electric-whisk": "hand-mixer",
   "balloon-whisk": "whisk",
@@ -121,9 +117,7 @@ const EQUIPMENT_ALIASES: Record<string, string> = {
   "plastic-wrap": "cling-film",
 };
 
-// Size, material, and condition adjectives never change which piece of
-// equipment is meant.
-const EQUIPMENT_MODIFIER_TOKENS = new Set([
+const EQUIPMENT_SIZE_TOKENS = new Set([
   "large",
   "small",
   "medium",
@@ -144,6 +138,12 @@ const EQUIPMENT_MODIFIER_TOKENS = new Set([
   "nonstick",
   "non",
   "stick",
+]);
+
+// Material and quantity words can each be part of a canonical name
+// ("wooden spoon", "mixing bowl"), so they are dropped in their own passes
+// only after the fuller forms fail to match.
+const EQUIPMENT_MATERIAL_TOKENS = new Set([
   "cast",
   "iron",
   "stainless",
@@ -156,9 +156,7 @@ const EQUIPMENT_MODIFIER_TOKENS = new Set([
   "ceramic",
 ]);
 
-// These can be part of a canonical name ("mixing bowl"), so they are only
-// dropped after the fuller forms fail to match.
-const EQUIPMENT_WEAK_TOKENS = new Set([
+const EQUIPMENT_QUANTITY_TOKENS = new Set([
   "mixing",
   "separate",
   "another",
@@ -170,41 +168,44 @@ export function equipmentDisplayName(slug: string): string {
   return slug.replace(/-/g, " ");
 }
 
-function generateEquipmentCandidates(baseSlug: string): string[] {
-  const out = new Set<string>([baseSlug]);
+/**
+ * Strips one tier of modifiers at a time so the fuller name still gets to
+ * match first — "large wooden spoon" must reach "wooden-spoon" before "spoon".
+ */
+function equipmentStems(baseSlug: string): string[] {
   const tokens = tokenize(baseSlug);
-
-  const withoutModifiers = tokens.filter(
-    (token) => !EQUIPMENT_MODIFIER_TOKENS.has(token),
+  const withoutSize = tokens.filter(
+    (token) => !EQUIPMENT_SIZE_TOKENS.has(token),
   );
-  if (withoutModifiers.length > 0 && withoutModifiers.length !== tokens.length) {
-    out.add(detokenize(withoutModifiers));
-  }
-
-  const withoutWeakTokens = withoutModifiers.filter(
-    (token) => !EQUIPMENT_WEAK_TOKENS.has(token),
+  const withoutMaterial = withoutSize.filter(
+    (token) => !EQUIPMENT_MATERIAL_TOKENS.has(token),
   );
-  if (
-    withoutWeakTokens.length > 0 &&
-    withoutWeakTokens.length !== withoutModifiers.length
-  ) {
-    out.add(detokenize(withoutWeakTokens));
-  }
+  const withoutQuantity = withoutMaterial.filter(
+    (token) => !EQUIPMENT_QUANTITY_TOKENS.has(token),
+  );
 
-  for (const candidate of [...out]) {
-    const phrase = equipmentDisplayName(candidate);
-    const singular = normalizeSlug(singularizeIngredientTerm(phrase));
-    const plural = normalizeSlug(pluralizeIngredientTerm(phrase));
-    if (singular) out.add(singular);
-    if (plural) out.add(plural);
-  }
+  return uniqueSlugs([
+    baseSlug,
+    detokenize(withoutSize),
+    detokenize(withoutMaterial),
+    detokenize(withoutQuantity),
+  ]);
+}
 
-  for (const candidate of [...out]) {
-    const alias = EQUIPMENT_ALIASES[candidate];
-    if (alias) out.add(alias);
-  }
+function generateEquipmentCandidates(baseSlug: string): string[] {
+  const forms = equipmentStems(baseSlug).flatMap((stem) => {
+    const phrase = equipmentDisplayName(stem);
+    return [
+      stem,
+      normalizeSlug(singularizeIngredientTerm(phrase)),
+      normalizeSlug(pluralizeIngredientTerm(phrase)),
+    ];
+  });
 
-  return uniqueSlugs([...out]);
+  return uniqueSlugs([
+    ...forms,
+    ...forms.map((form) => EQUIPMENT_ALIASES[form] ?? ""),
+  ]);
 }
 
 export function canonicalizeEquipmentName(params: {

@@ -51,12 +51,9 @@ function canonicalCookwareReplacements(
 ): Map<string, string> {
   const replacements = new Map<string, string>();
   for (const decision of decisions) {
-    const originalName = normalizeTokenName(decision.originalName);
-    if (originalName !== decision.canonicalSlug) {
-      replacements.set(
-        originalName,
-        equipmentDisplayName(decision.canonicalSlug),
-      );
+    const displayName = equipmentDisplayName(decision.canonicalSlug);
+    if (decision.originalName !== displayName) {
+      replacements.set(normalizeTokenName(decision.originalName), displayName);
     }
   }
   return replacements;

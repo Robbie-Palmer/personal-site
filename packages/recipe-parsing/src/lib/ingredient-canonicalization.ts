@@ -76,55 +76,47 @@ export function normalizeIngredientSlug(slug: string): string {
   return normalizeSlug(slug);
 }
 
+function withoutToken(tokens: string[], unwanted: string): string[] {
+  return tokens.length > 2 && tokens.includes(unwanted)
+    ? tokens.filter((token) => token !== unwanted)
+    : [];
+}
+
+function ingredientStems(base: string): string[] {
+  const tokens = applyIngredientTokenFixups(tokenize(base));
+  const withoutNoise = tokens.filter((token) => !NOISE_TOKENS.has(token));
+
+  const stems = [
+    [base],
+    tokens,
+    tokens.length === 2 ? [tokens[1]!, tokens[0]!] : [],
+    tokens.filter((token) => !MODIFIER_TOKENS.has(token)),
+    withoutNoise,
+    withoutToken(tokens, "and"),
+    withoutToken(withoutNoise, "and"),
+  ].map(detokenize);
+
+  return uniqueSlugs(
+    stems.flatMap((stem) =>
+      stem.endsWith("-cheese") ? [stem, stem.replace(/-cheese$/, "")] : [stem],
+    ),
+  );
+}
+
 function generateDeterministicCandidates(base: string): string[] {
-  const out = new Set<string>([base]);
-  const tokens = tokenize(base);
+  const forms = ingredientStems(base).flatMap((stem) => {
+    const phrase = stem.replace(/-/g, " ");
+    return [
+      stem,
+      normalizeSlug(singularizeIngredientTerm(phrase)),
+      normalizeSlug(pluralizeIngredientTerm(phrase)),
+    ];
+  });
 
-  const fixedTokens = applyIngredientTokenFixups(tokens);
-  out.add(detokenize(fixedTokens));
-
-  if (fixedTokens.length === 2) {
-    out.add(detokenize([fixedTokens[1]!, fixedTokens[0]!]));
-  }
-
-  const withoutModifiers = fixedTokens.filter((token) => !MODIFIER_TOKENS.has(token));
-  if (withoutModifiers.length > 0 && withoutModifiers.length !== fixedTokens.length) {
-    out.add(detokenize(withoutModifiers));
-  }
-
-  const withoutNoise = fixedTokens.filter((token) => !NOISE_TOKENS.has(token));
-  if (withoutNoise.length > 0 && withoutNoise.length !== fixedTokens.length) {
-    out.add(detokenize(withoutNoise));
-  }
-
-  if (fixedTokens.length > 2 && fixedTokens.includes("and")) {
-    out.add(detokenize(fixedTokens.filter((token) => token !== "and")));
-  }
-
-  if (withoutNoise.length > 2 && withoutNoise.includes("and")) {
-    out.add(detokenize(withoutNoise.filter((token) => token !== "and")));
-  }
-
-  for (const candidate of [...out]) {
-    if (candidate.endsWith("-cheese")) {
-      out.add(candidate.replace(/-cheese$/, ""));
-    }
-  }
-
-  for (const candidate of [...out]) {
-    const phrase = candidate.replace(/-/g, " ");
-    const singular = normalizeSlug(singularizeIngredientTerm(phrase));
-    const plural = normalizeSlug(pluralizeIngredientTerm(phrase));
-    if (singular) out.add(singular);
-    if (plural) out.add(plural);
-  }
-
-  for (const candidate of [...out]) {
-    const alias = EXACT_ALIASES[candidate];
-    if (alias) out.add(alias);
-  }
-
-  return uniqueSlugs([...out]);
+  return uniqueSlugs([
+    ...forms,
+    ...forms.map((form) => EXACT_ALIASES[form] ?? ""),
+  ]);
 }
 
 export function canonicalizeIngredientSlug(params: {

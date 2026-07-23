@@ -24,7 +24,10 @@ describe("canonicalizeEquipmentName", () => {
     { rawName: "frying pan", expected: "frying-pan" },
     { rawName: "large skillet", expected: "frying-pan" },
     { rawName: "heavy-bottomed saucepan", expected: "saucepan" },
-    { rawName: "non-stick pan", expected: "frying-pan" },
+    { rawName: "cast iron skillet", expected: "frying-pan" },
+    { rawName: "large wooden spoon", expected: "wooden-spoon" },
+    { rawName: "large plastic wrap", expected: "cling-film" },
+    { rawName: "stainless steel mixing bowl", expected: "mixing-bowl" },
     { rawName: "baking sheet", expected: "baking-tray" },
     { rawName: "baking trays", expected: "baking-tray" },
     { rawName: "casserole dish", expected: "oven-dish" },
@@ -41,6 +44,20 @@ describe("canonicalizeEquipmentName", () => {
     "should canonicalize $rawName to $expected",
     ({ rawName, expected }) => {
       expect(canonicalize(rawName).canonicalSlug).toBe(expected);
+    },
+  );
+
+  it.each([
+    { rawName: "pan", candidates: ["frying-pan", "griddle-pan"] },
+    { rawName: "mixer", candidates: ["hand-mixer", "stand-mixer"] },
+  ])(
+    "should leave the ambiguous $rawName for the LLM rather than guessing",
+    ({ rawName, candidates }) => {
+      const decision = canonicalize(rawName);
+      expect(decision.method).toBe("none");
+      expect(decision.candidates.map((c) => c.slug)).toEqual(
+        expect.arrayContaining(candidates),
+      );
     },
   );
 

@@ -127,6 +127,57 @@ function exactCandidate(
   return undefined;
 }
 
+function slugsSharingATokenWith(
+  candidate: string,
+  ontologyIndex: OntologyIndex,
+): Set<string> {
+  const shortlist = new Set<string>();
+  for (const token of tokenize(candidate)) {
+    for (const slug of ontologyIndex.byToken.get(token) ?? []) {
+      shortlist.add(slug);
+    }
+  }
+  return shortlist;
+}
+
+function slugsOfSimilarLength(
+  candidate: string,
+  ontologyIndex: OntologyIndex,
+): Set<string> {
+  const shortlist = new Set<string>();
+  for (let len = candidate.length - 2; len <= candidate.length + 2; len++) {
+    for (const slug of ontologyIndex.byLength.get(len) ?? []) {
+      shortlist.add(slug);
+    }
+  }
+  return shortlist;
+}
+
+function shortlistFor(
+  candidate: string,
+  ontologyIndex: OntologyIndex,
+): Iterable<string> {
+  const sharingAToken = slugsSharingATokenWith(candidate, ontologyIndex);
+  if (sharingAToken.size > 0) return sharingAToken;
+
+  const similarLength = slugsOfSimilarLength(candidate, ontologyIndex);
+  return similarLength.size > 0 ? similarLength : ontologyIndex.ontology;
+}
+
+function highestScoringUnique(scored: CandidateScore[]): CandidateScore[] {
+  scored.sort((a, b) => b.score - a.score || a.slug.localeCompare(b.slug));
+
+  const seen = new Set<string>();
+  const result: CandidateScore[] = [];
+  for (const row of scored) {
+    if (seen.has(row.slug)) continue;
+    seen.add(row.slug);
+    result.push(row);
+    if (result.length === MAX_CANDIDATES) break;
+  }
+  return result;
+}
+
 function topFuzzyCandidates(
   candidates: string[],
   ontologyIndex: OntologyIndex,
@@ -135,46 +186,14 @@ function topFuzzyCandidates(
     return [];
   }
 
-  const scored: CandidateScore[] = [];
-  for (const candidate of candidates) {
-    const shortlist = new Set<string>();
-    for (const token of tokenize(candidate)) {
-      for (const slug of ontologyIndex.byToken.get(token) ?? []) {
-        shortlist.add(slug);
-      }
-    }
-    if (shortlist.size === 0) {
-      for (let len = candidate.length - 2; len <= candidate.length + 2; len++) {
-        for (const slug of ontologyIndex.byLength.get(len) ?? []) {
-          shortlist.add(slug);
-        }
-      }
-    }
-    if (shortlist.size === 0) {
-      for (const slug of ontologyIndex.ontology) {
-        shortlist.add(slug);
-      }
-    }
+  const scored = candidates.flatMap((candidate) =>
+    [...shortlistFor(candidate, ontologyIndex)].map((slug) => ({
+      slug,
+      score: scoreSimilarity(candidate, slug),
+    })),
+  );
 
-    for (const slug of shortlist) {
-      scored.push({
-        slug,
-        score: scoreSimilarity(candidate, slug),
-      });
-    }
-  }
-
-  scored.sort((a, b) => b.score - a.score || a.slug.localeCompare(b.slug));
-  const seen = new Set<string>();
-  const result: CandidateScore[] = [];
-  for (const row of scored) {
-    if (!seen.has(row.slug)) {
-      seen.add(row.slug);
-      result.push(row);
-      if (result.length === MAX_CANDIDATES) break;
-    }
-  }
-  return result;
+  return highestScoringUnique(scored);
 }
 
 /**
