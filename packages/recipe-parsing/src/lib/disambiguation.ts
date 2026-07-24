@@ -1,24 +1,42 @@
-import type { CanonicalIngredient } from "../schemas/canonical-ingredients.js";
 import type { PredictionEntry } from "../schemas/ground-truth.js";
+import {
+  cookwareFromDecisions,
+  equipmentDisplayName,
+  type EquipmentCanonicalizationDecision,
+} from "./equipment-canonicalization.js";
 import type { IngredientCanonicalizationDecision } from "./ingredient-canonicalization.js";
 import type {
+  CandidateScore,
+  CanonicalizationMethod,
+  CanonicalizationReason,
+} from "./slug-matching.js";
+import type {
   DisambiguationChoice,
+  EquipmentContext,
   RecipeContext,
   UnresolvedItem,
 } from "./openrouter.js";
 
+interface ResolvableDecision {
+  baseSlug: string;
+  canonicalSlug: string;
+  method: CanonicalizationMethod;
+  reason?: CanonicalizationReason;
+  candidates: CandidateScore[];
+}
+
 export function buildCategoryMap(
-  ingredients: CanonicalIngredient[],
+  entries: Array<{ slug: string; category: string }>,
 ): Map<string, string> {
   const map = new Map<string, string>();
-  for (const { slug, category } of ingredients) {
+  for (const { slug, category } of entries) {
     map.set(slug, category);
   }
   return map;
 }
 
 export function collectUnresolved(
-  decisions: IngredientCanonicalizationDecision[],
+  decisions: ResolvableDecision[],
   categoryMap: Map<string, string>,
 ): UnresolvedItem[] {
   const seen = new Set<string>();
@@ -52,12 +70,27 @@ export function extractRecipeContext(
   };
 }
 
+export function extractEquipmentContext(
+  entry: PredictionEntry,
+  decisions: EquipmentCanonicalizationDecision[],
+): EquipmentContext {
+  const resolved = decisions
+    .filter((d) => d.method !== "none")
+    .map((d) => equipmentDisplayName(d.canonicalSlug));
+  return {
+    title: entry.predicted.title,
+    cuisine: entry.predicted.cuisine,
+    otherEquipment: [...new Set(resolved)],
+    instructions: entry.predicted.instructions,
+  };
+}
+
 /**
  * Validate LLM choices against the candidate lists and mark the matching
  * decisions as resolved by the LLM. Invalid choices are skipped with a warning.
  */
 export function applyDisambiguationChoices(
-  decisions: IngredientCanonicalizationDecision[],
+  decisions: ResolvableDecision[],
   unresolved: UnresolvedItem[],
   choices: DisambiguationChoice[],
 ): void {
@@ -72,9 +105,7 @@ export function applyDisambiguationChoices(
   for (const choice of choices) {
     const allowed = validCandidateSlugs.get(choice.slug);
     if (!allowed) {
-      console.warn(
-        `  LLM returned unknown ingredient slug "${choice.slug}", skipping`,
-      );
+      console.warn(`  LLM returned unknown slug "${choice.slug}", skipping`);
       continue;
     }
     if (!allowed.has(choice.canonicalSlug)) {
@@ -127,5 +158,21 @@ export function applyLlmDecisionsToEntry(
         }),
       })),
     },
+  };
+}
+
+export function applyEquipmentDecisionsToEntry(
+  entry: PredictionEntry,
+  cookwareDecisions: EquipmentCanonicalizationDecision[],
+): PredictionEntry {
+  const cookware = cookwareFromDecisions(cookwareDecisions);
+  const unchanged =
+    cookware.length === entry.predicted.cookware.length &&
+    cookware.every((name, index) => name === entry.predicted.cookware[index]);
+  if (unchanged) return entry;
+
+  return {
+    ...entry,
+    predicted: { ...entry.predicted, cookware },
   };
 }

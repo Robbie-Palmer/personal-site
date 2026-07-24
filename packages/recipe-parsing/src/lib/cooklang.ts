@@ -754,9 +754,10 @@ export function deriveRecipeFromCooklang(cooklang: CooklangRecipe): CooklangReci
   const instructions: string[] = [];
   let currentGroup: ReturnType<typeof createIngredientGroupAccumulator> | null = null;
   const annotations = cooklang.frontmatter.ingredientAnnotations;
-  const cookware = normalizeCookwareList(
-    parsed.cookware.map((item) => cookware_display_name(item)),
-  );
+  // The registered name, not the display name: `#baking tray|tray{}` reads as
+  // "tray" in the step but belongs to the recipe as a baking tray. Ingredients
+  // already resolve their slug the same way.
+  const cookware = normalizeCookwareList(parsed.cookware.map((item) => item.name));
   const declaredIngredientSlugs = findDeclaredIngredientSlugs(parsed);
 
   for (const section of parsed.sections) {

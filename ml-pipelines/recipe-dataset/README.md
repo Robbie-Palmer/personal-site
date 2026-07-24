@@ -88,15 +88,16 @@ mise //ml-pipelines/recipe-dataset:push
 ## R2
 
 For local pushes, add `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` to the
-`personal-site` project's `dev_personal` Doppler config. The access-key ID may
-be unmasked; keep the secret access key masked. Then run:
+`personal-site` project's `dev_ml_pipelines` Doppler config. The access-key ID
+may be unmasked; keep the secret access key masked. Then run:
 
 ```bash
 mise //ml-pipelines/recipe-dataset:push
 ```
 
-The task loads that Doppler config automatically. Credentials already present
-as either `R2_*` or standard `AWS_*` variables take precedence.
+The task injects that Doppler config through `../scripts/doppler-pipeline-env`,
+which maps the `R2_*` names onto the `AWS_*` ones DVC reads. Credentials
+already set in the environment take precedence.
 
 The committed `dvc.lock` identifies the exact raw and derived dataset versions;
 `dvc pull` restores them without reacquiring upstream sites.
