@@ -16,7 +16,11 @@ import {
 import { z } from "zod";
 import { createDb, type Db, type DbClient, schema } from "recipe-db";
 import { SavedRecipePayloadSchema } from "recipe-domain/serialization";
-import { isRecipeAppRouteSlug } from "recipe-domain/slugs";
+import {
+  isRecipeAppRouteSlug,
+  LOWERCASE_KEBAB_CASE_PATTERN,
+  RECIPE_SLUG_MAX_LENGTH,
+} from "recipe-domain/slugs";
 import { parseSchemaOrgRecipeHtml } from "recipe-parsing/schema-org";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
@@ -116,8 +120,8 @@ const recipeSlugSchema = z
   .string()
   .trim()
   .min(1)
-  .max(120)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+  .max(RECIPE_SLUG_MAX_LENGTH)
+  .regex(LOWERCASE_KEBAB_CASE_PATTERN, {
     message:
       "Slug must use lowercase letters, numbers, and single hyphens between words",
   });
@@ -139,7 +143,7 @@ const dietKeySchema = z
   .toLowerCase()
   .min(1)
   .max(80)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+  .regex(LOWERCASE_KEBAB_CASE_PATTERN, {
     message:
       "Diet keys must use lowercase letters, numbers, and single hyphens between words",
   });

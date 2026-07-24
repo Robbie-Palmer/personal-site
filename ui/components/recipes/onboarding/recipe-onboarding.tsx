@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { isRecipeSlug } from "recipe-domain/slugs";
 import { AuthButton } from "@/components/recipes/auth-button";
 import { RecipeThumb, recipeMetaLabel } from "@/components/recipes/recipe-card";
 import { Button } from "@/components/ui/button";
@@ -302,10 +303,7 @@ export function RecipeOnboarding() {
           savedRecipeCard(record) ? [record.slug] : [],
         );
         const authoredDuringOnboarding: string[] = [];
-        if (
-          returnedAuthoredSlug &&
-          /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(returnedAuthoredSlug)
-        ) {
+        if (isRecipeSlug(returnedAuthoredSlug)) {
           ownedSlugs.push(returnedAuthoredSlug);
           authoredDuringOnboarding.push(returnedAuthoredSlug);
         }

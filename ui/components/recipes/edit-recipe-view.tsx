@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
+import { isRecipeSlug } from "recipe-domain/slugs";
 import { AddRecipeView } from "@/components/recipes/add-recipe-view";
 import {
   errorMessage,
@@ -14,9 +15,7 @@ import { savedRecipeQuery } from "@/lib/query/recipe-queries";
 export function EditRecipeView() {
   const slug = useSearchParams().get("slug");
   const { data: session, isPending: sessionPending } = authClient.useSession();
-  const validSlug = Boolean(
-    slug && slug.length <= 120 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug),
-  );
+  const validSlug = isRecipeSlug(slug);
   const result = useQuery({
     ...savedRecipeQuery(session?.user.id ?? "pending", slug ?? "invalid"),
     enabled: !sessionPending && Boolean(session) && validSlug,

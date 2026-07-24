@@ -1,6 +1,5 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check,
   Leaf,
@@ -15,22 +14,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  type DietGroupOption,
-  type DietIngredientOption,
-  type DietOptions,
-  type DietPresetOption,
-  type DietProfile,
-  type DietRecipeMatchMode,
-  emptyDietOptions,
-  emptyDietProfile,
+  type DietEditorSaveState,
+  useDietProfileEditor,
+} from "@/hooks/use-diet-profile-editor";
+import type {
+  DietGroupOption,
+  DietIngredientOption,
+  DietOptions,
+  DietPresetOption,
+  DietProfile,
 } from "@/lib/api/diet";
-import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/generic/styles";
-import { saveDietProfileMutation } from "@/lib/query/recipe-mutations";
-import { dietOptionsQuery, dietProfileQuery } from "@/lib/query/recipe-queries";
 import { PanelHead } from "./panel-head";
-
-type SaveState = "idle" | "saving" | "saved" | "error";
 
 const INGREDIENT_RESULT_LIMIT = 8;
 
@@ -48,21 +43,6 @@ function normalizeQuery(value: string): string {
 
 function unique(values: string[]): string[] {
   return Array.from(new Set(values));
-}
-
-function sortAlphabetically(values: string[]): string[] {
-  return [...values].sort((first, second) => first.localeCompare(second));
-}
-
-function serialize(profile: DietProfile): string {
-  return JSON.stringify({
-    ...profile,
-    presetDietKeys: sortAlphabetically(profile.presetDietKeys),
-    excludedIngredientSlugs: sortAlphabetically(
-      profile.excludedIngredientSlugs,
-    ),
-    excludedGroupKeys: sortAlphabetically(profile.excludedGroupKeys),
-  });
 }
 
 function toggleValue(values: string[], value: string): string[] {
@@ -124,7 +104,7 @@ function Status({
   state,
   error,
 }: Readonly<{
-  state: SaveState;
+  state: DietEditorSaveState;
   error: string | null;
 }>) {
   const content = {
@@ -357,56 +337,7 @@ function IngredientPicker({
   );
 }
 
-function dietPanelError(
-  saveError: string | null,
-  loadError: unknown,
-): string | null {
-  if (saveError) return saveError;
-  if (loadError instanceof Error) return loadError.message;
-  if (loadError) return "Couldn't load your diet profile.";
-  return null;
-}
-
-function dietPanelSaveState(
-  mutation: {
-    isError: boolean;
-    isPending: boolean;
-    isSuccess: boolean;
-  },
-  loadError: unknown,
-): SaveState {
-  if (mutation.isPending) return "saving";
-  if (mutation.isError || loadError) return "error";
-  if (mutation.isSuccess) return "saved";
-  return "idle";
-}
-
-function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
-}
-
-function useDietPanelState() {
-  const { data: session, isPending: sessionPending } = authClient.useSession();
-  const userId = session?.user.id;
-  const queryClient = useQueryClient();
-  const [profile, setProfile] = useState<DietProfile>(emptyDietProfile);
-  const [savedProfile, setSavedProfile] =
-    useState<DietProfile>(emptyDietProfile);
-  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const profileResult = useQuery({
-    ...dietProfileQuery(userId ?? "pending"),
-    enabled: !sessionPending && Boolean(userId),
-  });
-  const optionsResult = useQuery({
-    ...dietOptionsQuery(userId ?? "pending"),
-    enabled: !sessionPending && Boolean(userId),
-  });
-  const options: DietOptions = optionsResult.data ?? emptyDietOptions;
-  const saveMutation = useMutation(
-    saveDietProfileMutation(queryClient, userId ?? "pending"),
-  );
-  const resetSaveMutation = saveMutation.reset;
+function useDietPanelModel(profile: DietProfile, options: DietOptions) {
   const ingredientBySlug = useMemo(
     () =>
       new Map(
@@ -418,33 +349,6 @@ function useDietPanelState() {
     () => new Map(options.presets.map((preset) => [preset.key, preset])),
     [options.presets],
   );
-
-  useEffect(() => {
-    if (!userId) {
-      if (loadedUserId !== null) {
-        setProfile(emptyDietProfile);
-        setSavedProfile(emptyDietProfile);
-        setLoadedUserId(null);
-        setSaveError(null);
-        resetSaveMutation();
-      }
-      return;
-    }
-    if (!profileResult.data || loadedUserId === userId) return;
-    setProfile(profileResult.data);
-    setSavedProfile(profileResult.data);
-    setLoadedUserId(userId);
-    setSaveError(null);
-    resetSaveMutation();
-  }, [loadedUserId, profileResult.data, resetSaveMutation, userId]);
-
-  const dirty = serialize(profile) !== serialize(savedProfile);
-  const loading =
-    sessionPending ||
-    Boolean(userId && (profileResult.isPending || optionsResult.isPending));
-  const loadError = profileResult.error ?? optionsResult.error;
-  const error = dietPanelError(saveError, loadError);
-  const saveState = dietPanelSaveState(saveMutation, loadError);
   const exclusions = useMemo(
     () => effectiveExclusions(profile, presetByKey),
     [presetByKey, profile],
@@ -458,81 +362,37 @@ function useDietPanelState() {
     );
   });
 
-  function updateProfile(next: DietProfile) {
-    setProfile(next);
-    setSaveError(null);
-    resetSaveMutation();
-  }
-
-  function addIngredient(ingredient: DietIngredientOption) {
-    updateProfile({
-      ...profile,
-      excludedIngredientSlugs: unique([
-        ...profile.excludedIngredientSlugs,
-        ingredient.slug,
-      ]),
-    });
-  }
-
-  function removeIngredient(slug: string) {
-    updateProfile({
-      ...profile,
-      excludedIngredientSlugs: profile.excludedIngredientSlugs.filter(
-        (ingredient) => ingredient !== slug,
-      ),
-    });
-  }
-
-  function setMode(recipeMatchMode: DietRecipeMatchMode) {
-    updateProfile({ ...profile, recipeMatchMode });
-  }
-
-  async function save() {
-    setSaveError(null);
-    try {
-      const saved = await saveMutation.mutateAsync(profile);
-      setProfile(saved);
-      setSavedProfile(saved);
-    } catch (error) {
-      setSaveError(errorMessage(error, "Couldn't save your diet profile."));
-    }
-  }
-
-  return {
-    addIngredient,
-    dirty,
-    error,
-    exclusions,
-    loading,
-    options,
-    presetByKey,
-    profile,
-    removeIngredient,
-    save,
-    saveState,
-    selectedIngredients,
-    setMode,
-    updateProfile,
-  };
+  return { exclusions, presetByKey, selectedIngredients };
 }
 
 export function DietPanel() {
   const {
-    addIngredient,
-    dirty,
-    error,
-    exclusions,
-    loading,
-    options,
-    presetByKey,
+    actions: { save, updateProfile },
+    state: { dirty, error, loading, options, profile, saveState },
+  } = useDietProfileEditor();
+  const { exclusions, presetByKey, selectedIngredients } = useDietPanelModel(
     profile,
-    removeIngredient,
-    save,
-    saveState,
-    selectedIngredients,
-    setMode,
-    updateProfile,
-  } = useDietPanelState();
+    options,
+  );
+
+  function addIngredient(ingredient: DietIngredientOption) {
+    updateProfile((current) => ({
+      ...current,
+      excludedIngredientSlugs: unique([
+        ...current.excludedIngredientSlugs,
+        ingredient.slug,
+      ]),
+    }));
+  }
+
+  function removeIngredient(slug: string) {
+    updateProfile((current) => ({
+      ...current,
+      excludedIngredientSlugs: current.excludedIngredientSlugs.filter(
+        (ingredient) => ingredient !== slug,
+      ),
+    }));
+  }
 
   return (
     <div>
@@ -575,13 +435,13 @@ export function DietPanel() {
                     className="min-h-20"
                     label={preset.label}
                     onClick={() =>
-                      updateProfile({
-                        ...profile,
+                      updateProfile((current) => ({
+                        ...current,
                         presetDietKeys: toggleValue(
-                          profile.presetDietKeys,
+                          current.presetDietKeys,
                           preset.key,
                         ),
-                      })
+                      }))
                     }
                   >
                     <span className="rt-mono mt-1 block text-[var(--ink-4)]">
@@ -616,13 +476,13 @@ export function DietPanel() {
                       disabled={coveredByPreset}
                       label={group.label}
                       onClick={() =>
-                        updateProfile({
-                          ...profile,
+                        updateProfile((current) => ({
+                          ...current,
                           excludedGroupKeys: toggleValue(
-                            profile.excludedGroupKeys,
+                            current.excludedGroupKeys,
                             group.key,
                           ),
-                        })
+                        }))
                       }
                     >
                       <span className="rt-mono mt-0.5 block text-[var(--ink-4)]">
@@ -684,7 +544,12 @@ export function DietPanel() {
                     key={value}
                     type="button"
                     aria-pressed={active}
-                    onClick={() => setMode(value)}
+                    onClick={() =>
+                      updateProfile((current) => ({
+                        ...current,
+                        recipeMatchMode: value,
+                      }))
+                    }
                     className={cn(
                       "rt-body rounded-full px-4 py-1.5 text-sm transition-colors",
                       active

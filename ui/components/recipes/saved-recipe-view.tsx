@@ -5,6 +5,7 @@ import { ArrowLeft, LockKeyhole, Pencil } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
+import { isRecipeSlug, recipeSlugFromPathname } from "recipe-domain/slugs";
 import { RecipeContent } from "@/components/recipes/recipe-content";
 import {
   errorMessage,
@@ -21,14 +22,10 @@ export function SavedRecipeView() {
   const pathname = usePathname();
   const searchSlug = useSearchParams().get("slug");
   const { data: session, isPending: sessionPending } = authClient.useSession();
-  const pathSlug = /^\/recipes\/([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/.exec(
-    pathname,
-  )?.[1];
+  const pathSlug = recipeSlugFromPathname(pathname);
   const slug =
     pathname === "/recipes/saved" ? searchSlug : (searchSlug ?? pathSlug);
-  const validSlug = Boolean(
-    slug && slug.length <= 120 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug),
-  );
+  const validSlug = isRecipeSlug(slug);
   const needsRedirect =
     pathname === "/recipes/saved" && Boolean(searchSlug && validSlug);
   const result = useQuery({
