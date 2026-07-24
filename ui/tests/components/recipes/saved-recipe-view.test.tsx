@@ -1,11 +1,19 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const navigation = vi.hoisted(() => ({ pathname: "/recipes/first-soup" }));
+const navigation = vi.hoisted(() => ({
+  pathname: "/recipes/first-soup",
+  replaceWithRecipePage: vi.fn(),
+  search: "",
+}));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => navigation.pathname,
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(navigation.search),
+}));
+
+vi.mock("@/components/recipes/recipe-page-link", () => ({
+  replaceWithRecipePage: navigation.replaceWithRecipePage,
 }));
 
 vi.mock("@/components/recipes/recipe-content", () => ({
@@ -53,6 +61,8 @@ function record(slug: string, title: string, owned = false) {
 afterEach(() => {
   globalThis.fetch = originalFetch;
   navigation.pathname = "/recipes/first-soup";
+  navigation.search = "";
+  navigation.replaceWithRecipePage.mockReset();
   vi.restoreAllMocks();
 });
 
@@ -92,5 +102,31 @@ describe("SavedRecipeView", () => {
       "href",
       "/recipes/edit?slug=first-soup",
     );
+  });
+
+  it("redirects the legacy saved-recipe URL to the unified recipe path", () => {
+    globalThis.fetch = vi.fn();
+    navigation.pathname = "/recipes/saved";
+    navigation.search = "slug=first-soup";
+
+    render(<SavedRecipeView />);
+
+    expect(navigation.replaceWithRecipePage).toHaveBeenCalledWith({
+      slug: "first-soup",
+    });
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not redirect the saved-recipe route without a slug", async () => {
+    globalThis.fetch = vi.fn();
+    navigation.pathname = "/recipes/saved";
+
+    render(<SavedRecipeView />);
+
+    expect(
+      await screen.findByText("No saved recipe was selected."),
+    ).toBeInTheDocument();
+    expect(navigation.replaceWithRecipePage).not.toHaveBeenCalled();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 });

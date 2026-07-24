@@ -25,7 +25,10 @@ vi.mock("@/lib/preview-environment", () => ({
   isPreviewDeployment: mocks.isPreviewDeployment,
 }));
 
-import { AuthButton } from "@/components/recipes/auth-button";
+import {
+  AuthButton,
+  redirectAfterSignOut,
+} from "@/components/recipes/auth-button";
 
 describe("AuthButton", () => {
   beforeEach(() => {
@@ -257,7 +260,17 @@ describe("AuthButton", () => {
 
     await user.click(screen.getByRole("button", { name: "Sign out" }));
 
-    expect(mocks.signOut).toHaveBeenCalledOnce();
+    expect(mocks.signOut).toHaveBeenCalledWith({
+      fetchOptions: { onSuccess: redirectAfterSignOut },
+    });
+  });
+
+  it("redirects successful sign-out to the recipe home", () => {
+    const replace = vi.fn();
+
+    redirectAfterSignOut(undefined, replace);
+
+    expect(replace).toHaveBeenCalledWith("/recipes");
   });
 
   it("shows an error when sign out fails", async () => {

@@ -31,6 +31,15 @@ type PreviewScenario = {
   description: string;
 };
 
+export function redirectAfterSignOut(
+  _context?: unknown,
+  replace: (url: string) => void = window.location.replace.bind(
+    window.location,
+  ),
+) {
+  replace("/recipes");
+}
+
 function authPrompt(
   isPreview: boolean,
   previewBackendDisabled: boolean,
@@ -194,7 +203,7 @@ export function AuthButton({
     setError(null);
     try {
       const result = await authClient.signOut({
-        fetchOptions: { onSuccess: () => window.location.reload() },
+        fetchOptions: { onSuccess: redirectAfterSignOut },
       });
       if (result?.error) {
         setError(result.error.message ?? "Sign-out failed. Please try again.");

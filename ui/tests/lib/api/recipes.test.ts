@@ -75,7 +75,7 @@ describe("saved recipe API adapters", () => {
     expect(catalog.recipes).toEqual([
       expect.objectContaining({
         slug: "lentil-soup",
-        href: "/recipes/saved?slug=lentil-soup",
+        href: "/recipes/lentil-soup",
         title: "Lentil Soup",
         totalTime: 15,
         ingredients: [

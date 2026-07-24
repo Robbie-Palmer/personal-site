@@ -30,6 +30,7 @@ import {
 } from "@/components/recipes/photo-recipe-import";
 import { RecipeContent } from "@/components/recipes/recipe-content";
 import { RecipeLoadError } from "@/components/recipes/recipe-load-state";
+import { navigateToRecipePage } from "@/components/recipes/recipe-page-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCooklangRecipe } from "@/hooks/use-cooklang-recipe";
@@ -40,7 +41,6 @@ import {
   normalizeRecipeSource,
   parseSavedRecipePayload,
   type SavedRecipeApiRecord,
-  savedRecipeHref,
   serializeSavedRecipe,
 } from "@/lib/domain/recipe/recipeDraft";
 import { recipeSaveReturnPath } from "@/lib/generic/safe-return-path";
@@ -398,7 +398,7 @@ export function AddRecipeView({
       }
       const saved = (await response.json()) as { slug: string };
       if (initialRecipe) {
-        router.push(savedRecipeHref({ slug: saved.slug, visibility }));
+        navigateToRecipePage(saved);
         return;
       }
       const returnTo = new URLSearchParams(window.location.search).get(
@@ -409,9 +409,11 @@ export function AddRecipeView({
         saved.slug,
         window.location.origin,
       );
-      router.push(
-        safeReturnTo ?? `/recipes/saved?slug=${encodeURIComponent(saved.slug)}`,
-      );
+      if (safeReturnTo) {
+        router.push(safeReturnTo);
+      } else {
+        navigateToRecipePage(saved);
+      }
     } catch (error) {
       setSaveError(
         error instanceof Error
