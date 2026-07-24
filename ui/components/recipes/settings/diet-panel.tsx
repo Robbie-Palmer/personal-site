@@ -357,7 +357,35 @@ function IngredientPicker({
   );
 }
 
-export function DietPanel() {
+function dietPanelError(
+  saveError: string | null,
+  loadError: unknown,
+): string | null {
+  if (saveError) return saveError;
+  if (loadError instanceof Error) return loadError.message;
+  if (loadError) return "Couldn't load your diet profile.";
+  return null;
+}
+
+function dietPanelSaveState(
+  mutation: {
+    isError: boolean;
+    isPending: boolean;
+    isSuccess: boolean;
+  },
+  loadError: unknown,
+): SaveState {
+  if (mutation.isPending) return "saving";
+  if (mutation.isError || loadError) return "error";
+  if (mutation.isSuccess) return "saved";
+  return "idle";
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function useDietPanelState() {
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const userId = session?.user.id;
   const queryClient = useQueryClient();
@@ -422,20 +450,8 @@ export function DietPanel() {
     sessionPending ||
     Boolean(userId && (profileResult.isPending || optionsResult.isPending));
   const loadError = profileResult.error ?? optionsResult.error;
-  const error =
-    saveError ??
-    (loadError instanceof Error
-      ? loadError.message
-      : loadError
-        ? "Couldn't load your diet profile."
-        : null);
-  const saveState: SaveState = saveMutation.isPending
-    ? "saving"
-    : saveMutation.isError || loadError
-      ? "error"
-      : saveMutation.isSuccess
-        ? "saved"
-        : "idle";
+  const error = dietPanelError(saveError, loadError);
+  const saveState = dietPanelSaveState(saveMutation, loadError);
   const exclusions = useMemo(
     () => effectiveExclusions(profile, presetByKey),
     [presetByKey, profile],
@@ -482,14 +498,46 @@ export function DietPanel() {
     setSaveError(null);
     try {
       await saveMutation.mutateAsync(profile);
-    } catch (saveError) {
-      setSaveError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Couldn't save your diet profile.",
-      );
+    } catch (error) {
+      setSaveError(errorMessage(error, "Couldn't save your diet profile."));
     }
   }
+
+  return {
+    addIngredient,
+    dirty,
+    error,
+    exclusions,
+    loading,
+    options,
+    presetByKey,
+    profile,
+    removeIngredient,
+    save,
+    saveState,
+    selectedIngredients,
+    setMode,
+    updateProfile,
+  };
+}
+
+export function DietPanel() {
+  const {
+    addIngredient,
+    dirty,
+    error,
+    exclusions,
+    loading,
+    options,
+    presetByKey,
+    profile,
+    removeIngredient,
+    save,
+    saveState,
+    selectedIngredients,
+    setMode,
+    updateProfile,
+  } = useDietPanelState();
 
   return (
     <div>
