@@ -48,13 +48,18 @@ export async function clearPrivateRecipeQueries(
   const predicate = (query: { queryKey: QueryKey }) =>
     startsWith(query.queryKey, prefix);
 
-  await queryClient.cancelQueries({ predicate });
+  try {
+    await queryClient.cancelQueries({ predicate });
+  } catch {
+    // Removal is the safety boundary; cancellation is only best-effort.
+  }
   queryClient.removeQueries({ predicate });
 }
 
 export async function clearOtherPrivateRecipeQueries(
   queryClient: QueryClient,
   currentUserId: string | null,
+  isCurrentAccount: () => boolean = () => true,
 ): Promise<void> {
   const privatePrefix = recipeQueryKeys.private();
   const currentUserPrefix = currentUserId
@@ -64,6 +69,10 @@ export async function clearOtherPrivateRecipeQueries(
     startsWith(query.queryKey, privatePrefix) &&
     (!currentUserPrefix || !startsWith(query.queryKey, currentUserPrefix));
 
-  await queryClient.cancelQueries({ predicate });
-  queryClient.removeQueries({ predicate });
+  try {
+    await queryClient.cancelQueries({ predicate });
+  } catch {
+    // A failed cancellation must not prevent cache isolation.
+  }
+  if (isCurrentAccount()) queryClient.removeQueries({ predicate });
 }

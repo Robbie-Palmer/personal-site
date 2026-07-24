@@ -2,7 +2,7 @@
 
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import {
   clearOtherPrivateRecipeQueries,
@@ -32,10 +32,19 @@ export function RecipeAccountCacheBoundary() {
   const { data: session, isPending } = authClient.useSession();
   const queryClient = useQueryClient();
   const userId = session?.user.id ?? null;
+  const activeAccount = useRef({ isPending, userId });
+  activeAccount.current = { isPending, userId };
 
   useEffect(() => {
     if (isPending) return;
-    void clearOtherPrivateRecipeQueries(queryClient, userId);
+    void clearOtherPrivateRecipeQueries(queryClient, userId, () => {
+      return (
+        !activeAccount.current.isPending &&
+        activeAccount.current.userId === userId
+      );
+    }).catch(() => {
+      // Cache removal is best-effort; the active account guard prevents leaks.
+    });
   }, [isPending, queryClient, userId]);
 
   return null;

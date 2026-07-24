@@ -1,7 +1,8 @@
 import { QueryClient } from "@tanstack/react-query";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/api-error";
 import {
+  clearOtherPrivateRecipeQueries,
   clearPrivateRecipeQueries,
   shouldRetryRecipeRequest,
 } from "@/lib/query/recipe-query-client";
@@ -70,5 +71,51 @@ describe("recipe query policy", () => {
         queryKey: recipeQueryKeys.private(),
       }),
     ).toHaveLength(0);
+  });
+
+  it("removes private data even when query cancellation fails", async () => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(
+      recipeQueryKeys.recipeBoxRecipes("user-1"),
+      "private",
+    );
+    vi.spyOn(queryClient, "cancelQueries").mockRejectedValueOnce(
+      new Error("cancellation failed"),
+    );
+
+    await expect(
+      clearPrivateRecipeQueries(queryClient),
+    ).resolves.toBeUndefined();
+
+    expect(
+      queryClient.getQueryData(recipeQueryKeys.recipeBoxRecipes("user-1")),
+    ).toBeUndefined();
+  });
+
+  it("does not let a stale account cleanup remove the active account", async () => {
+    const queryClient = new QueryClient();
+    let releaseCancellation: () => void = () => {};
+    const cancellation = new Promise<void>((resolve) => {
+      releaseCancellation = resolve;
+    });
+    vi.spyOn(queryClient, "cancelQueries").mockReturnValueOnce(cancellation);
+    let currentAccount = true;
+    const cleanup = clearOtherPrivateRecipeQueries(
+      queryClient,
+      "user-1",
+      () => currentAccount,
+    );
+
+    currentAccount = false;
+    queryClient.setQueryData(
+      recipeQueryKeys.recipeBoxRecipes("user-2"),
+      "active",
+    );
+    releaseCancellation();
+    await cleanup;
+
+    expect(
+      queryClient.getQueryData(recipeQueryKeys.recipeBoxRecipes("user-2")),
+    ).toBe("active");
   });
 });

@@ -275,6 +275,9 @@ describe("AuthButton", () => {
       expect.any(Function),
     );
 
+    vi.spyOn(queryClient, "cancelQueries").mockRejectedValueOnce(
+      new Error("cancellation failed"),
+    );
     await signOutOptions?.fetchOptions?.onSuccess();
 
     expect(queryClient.getQueryData(privateKey)).toBeUndefined();

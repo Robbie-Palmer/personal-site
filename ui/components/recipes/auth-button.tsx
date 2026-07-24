@@ -210,8 +210,11 @@ export function AuthButton({
       const result = await authClient.signOut({
         fetchOptions: {
           onSuccess: async () => {
-            await clearPrivateRecipeQueries(queryClient);
-            signOutRedirect();
+            try {
+              await clearPrivateRecipeQueries(queryClient);
+            } finally {
+              signOutRedirect();
+            }
           },
         },
       });
