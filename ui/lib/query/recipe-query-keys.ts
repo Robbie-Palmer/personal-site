@@ -6,6 +6,7 @@ export const recipeQueryKeys = {
   publicRecipes: () => [...recipeRoot, "public", "saved"] as const,
   publicSavedRecipe: (slug: string) =>
     [...recipeRoot, "public", "saved", slug] as const,
+  publicDiscoverFeed: () => [...recipeRoot, "public", "discover"] as const,
   private: () => [...recipeRoot, "private"] as const,
   user: (userId: string) => [...recipeRoot, "private", userId] as const,
   recipeBox: (userId: string) =>
@@ -21,4 +22,6 @@ export const recipeQueryKeys = {
     [...recipeRoot, "private", userId, "diet", "options"] as const,
   householdSettings: (userId: string) =>
     [...recipeRoot, "private", userId, "household", "settings"] as const,
+  householdDiscoverFeed: (userId: string) =>
+    [...recipeRoot, "private", userId, "discover", "household"] as const,
 };

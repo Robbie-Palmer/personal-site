@@ -401,7 +401,7 @@ export function AddRecipeView({
       }
       const saved = (await response.json()) as { slug: string };
       if (sessionUserId) {
-        await Promise.all([
+        const invalidations = [
           queryClient.invalidateQueries({
             queryKey: recipeQueryKeys.recipeBoxRecipes(sessionUserId),
           }),
@@ -414,7 +414,27 @@ export function AddRecipeView({
           queryClient.invalidateQueries({
             queryKey: recipeQueryKeys.publicRecipes(),
           }),
-        ]);
+        ];
+        if (visibility === "public" || initialRecipe?.visibility === "public") {
+          invalidations.push(
+            queryClient.invalidateQueries({
+              queryKey: recipeQueryKeys.publicDiscoverFeed(),
+            }),
+          );
+        }
+        if (
+          visibility === "public" ||
+          visibility === "household" ||
+          initialRecipe?.visibility === "public" ||
+          initialRecipe?.visibility === "household"
+        ) {
+          invalidations.push(
+            queryClient.invalidateQueries({
+              queryKey: recipeQueryKeys.householdDiscoverFeed(sessionUserId),
+            }),
+          );
+        }
+        await Promise.all(invalidations);
       }
       if (initialRecipe) {
         navigateToRecipePage(saved);
