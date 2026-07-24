@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Camera,
   FileText,
+  FileUp,
   Globe2,
   Home,
   Loader2,
@@ -52,7 +53,7 @@ Meanwhile, warm @olive oil{2%tbsp} in a #frying pan{}. Add @garlic{2%cloves} and
 
 Stir in @chopped tomatoes{400%g} and simmer for ~{15%minutes}. Drain the pasta, toss it through the sauce, and serve.`;
 
-type AddMethod = "write" | "url" | "photo";
+type AddMethod = "write" | "url" | "photo" | "file";
 type RecipeVisibility = "private" | "household" | "public";
 
 type ImportedRecipe = {
@@ -63,8 +64,10 @@ type ImportedRecipe = {
   prepTime?: number;
   cookTime?: number;
   source: string;
-  url: string;
+  url?: string;
 };
+
+const MAX_RECIPE_FILE_LENGTH = 100_000;
 
 function RecipeEditorGate({
   unreadable,
@@ -162,13 +165,17 @@ export function AddRecipeView({
   const titleId = useId();
   const descriptionId = useId();
   const cuisineId = useId();
+  const recipeFileId = useId();
   const router = useRouter();
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const sessionUserId = session?.user.id;
   const [method, setMethod] = useState<AddMethod>("write");
   const [recipeUrl, setRecipeUrl] = useState("");
+  const [recipeFile, setRecipeFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [urlImportSuccess, setUrlImportSuccess] = useState(false);
+  const [importedFileName, setImportedFileName] = useState<string | null>(null);
   const [importedUrl, setImportedUrl] = useState<string | null>(
     initialPayload?.recipe.canonical ?? null,
   );
@@ -277,6 +284,17 @@ export function AddRecipeView({
   ]);
   const preview = previewResult.recipe;
 
+  const applyImportedRecipe = useCallback((recipe: ImportedRecipe) => {
+    setTitle(recipe.title);
+    setDescription(recipe.description);
+    setCuisine(recipe.cuisine);
+    setServings(recipe.servings);
+    setPrepTime(recipe.prepTime);
+    setCookTime(recipe.cookTime);
+    setSource(recipe.source);
+    setImportedUrl(recipe.url ?? null);
+  }, []);
+
   async function importRecipeUrl() {
     if (!recipeUrl.trim() || importing) return;
     importRequestRef.current?.controller.abort();
@@ -287,6 +305,7 @@ export function AddRecipeView({
     importRequestRef.current = request;
     setImporting(true);
     setImportError(null);
+    setUrlImportSuccess(false);
     try {
       const response = await fetch("/api/recipes/import-url", {
         method: "POST",
@@ -306,15 +325,10 @@ export function AddRecipeView({
         );
       }
       if (importRequestRef.current?.id !== request.id) return;
-      setTitle(body.title);
-      setDescription(body.description);
-      setCuisine(body.cuisine);
-      setServings(body.servings);
-      setPrepTime(body.prepTime);
-      setCookTime(body.cookTime);
-      setSource(body.source);
-      setRecipeUrl(body.url);
-      setImportedUrl(body.url);
+      applyImportedRecipe(body);
+      setRecipeUrl(body.url ?? recipeUrl.trim());
+      setUrlImportSuccess(true);
+      setImportedFileName(null);
     } catch (error) {
       if (
         request.controller.signal.aborted ||
@@ -326,6 +340,63 @@ export function AddRecipeView({
         error instanceof Error
           ? error.message
           : "The recipe could not be imported.",
+      );
+    } finally {
+      if (importRequestRef.current?.id === request.id) {
+        importRequestRef.current = null;
+        setImporting(false);
+      }
+    }
+  }
+
+  async function importRecipeFile() {
+    if (!recipeFile || importing) return;
+    importRequestRef.current?.controller.abort();
+    const request = {
+      id: ++nextImportRequestIdRef.current,
+      controller: new AbortController(),
+    };
+    importRequestRef.current = request;
+    setImporting(true);
+    setImportError(null);
+    setImportedFileName(null);
+    try {
+      const content = await recipeFile.text();
+      if (content.length > MAX_RECIPE_FILE_LENGTH) {
+        throw new Error("Choose a recipe file smaller than 100 KB.");
+      }
+      const response = await fetch("/api/recipes/import-file", {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ filename: recipeFile.name, content }),
+        signal: request.controller.signal,
+      });
+      const body = (await response.json().catch(() => null)) as
+        | ImportedRecipe
+        | { error?: string }
+        | null;
+      if (!response.ok || !body || !("source" in body)) {
+        throw new Error(
+          (body && "error" in body && body.error) ||
+            "The recipe file could not be imported.",
+        );
+      }
+      if (importRequestRef.current?.id !== request.id) return;
+      applyImportedRecipe(body);
+      setImportedFileName(recipeFile.name);
+      setUrlImportSuccess(false);
+    } catch (error) {
+      if (
+        request.controller.signal.aborted ||
+        importRequestRef.current?.id !== request.id
+      ) {
+        return;
+      }
+      setImportError(
+        error instanceof Error
+          ? error.message
+          : "The recipe file could not be imported.",
       );
     } finally {
       if (importRequestRef.current?.id === request.id) {
@@ -351,6 +422,8 @@ export function AddRecipeView({
     setCookTime(draft.recipe.cookTime);
     setSource(body);
     setImportedUrl(null);
+    setUrlImportSuccess(false);
+    setImportedFileName(null);
   }, []);
 
   async function saveRecipe() {
@@ -443,7 +516,7 @@ export function AddRecipeView({
           <p className="rt-body mt-2 text-[var(--ink-2)]">
             {editing
               ? "Update the Cooklang recipe and review every change in the live preview."
-              : "Write with Cooklang, import a webpage, or scan a recipe photo. Every method feeds the same editable preview."}
+              : "Enter a recipe manually, import a webpage or local file, or scan a recipe photo. Every method feeds the same editable preview."}
           </p>
         </div>
         <Button
@@ -471,7 +544,7 @@ export function AddRecipeView({
           <div className="grid gap-4">
             {!editing && (
               <fieldset
-                className="grid grid-cols-3 rounded-lg border border-[var(--line-strong)] bg-[var(--paper-warm)] p-1"
+                className="grid grid-cols-2 rounded-lg border border-[var(--line-strong)] bg-[var(--paper-warm)] p-1 sm:grid-cols-4"
                 aria-label="Choose how to add a recipe"
               >
                 <button
@@ -487,11 +560,15 @@ export function AddRecipeView({
                       : "text-[var(--ink-3)] hover:text-[var(--ink)]"
                   }`}
                 >
-                  <PenLine className="size-4" /> Write with Cooklang
+                  <PenLine className="size-4" /> Manual entry
                 </button>
                 <button
                   type="button"
-                  onClick={() => setMethod("url")}
+                  onClick={() => {
+                    invalidateImportRequest();
+                    setImportError(null);
+                    setMethod("url");
+                  }}
                   aria-pressed={method === "url"}
                   className={`rt-mono inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
                     method === "url"
@@ -499,7 +576,7 @@ export function AddRecipeView({
                       : "text-[var(--ink-3)] hover:text-[var(--ink)]"
                   }`}
                 >
-                  <Globe2 className="size-4" /> Import from URL
+                  <Globe2 className="size-4" /> Import URL
                 </button>
                 <button
                   type="button"
@@ -515,6 +592,22 @@ export function AddRecipeView({
                   }`}
                 >
                   <Camera className="size-4" /> Scan photo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    invalidateImportRequest();
+                    setImportError(null);
+                    setMethod("file");
+                  }}
+                  aria-pressed={method === "file"}
+                  className={`rt-mono inline-flex items-center justify-center gap-2 rounded-md px-2 py-2 text-sm transition-colors ${
+                    method === "file"
+                      ? "bg-[var(--card)] text-[var(--ink)] shadow-sm"
+                      : "text-[var(--ink-3)] hover:text-[var(--ink)]"
+                  }`}
+                >
+                  <FileUp className="size-4" /> Upload file
                 </button>
               </fieldset>
             )}
@@ -572,9 +665,63 @@ export function AddRecipeView({
                     {importError}
                   </p>
                 )}
-                {importedUrl && !importError && (
+                {urlImportSuccess && !importError && (
                   <output className="text-sm text-[var(--sage)]">
                     Imported successfully. You can edit any field before saving.
+                  </output>
+                )}
+              </div>
+            )}
+
+            {!editing && method === "file" && (
+              <div className="grid gap-2 rounded-lg border border-dashed border-[var(--line-strong)] bg-[var(--paper-warm)] p-3">
+                <label htmlFor={recipeFileId} className="grid gap-1.5">
+                  <span className="rt-mono text-[var(--ink-3)]">
+                    Recipe file
+                  </span>
+                  <Input
+                    id={recipeFileId}
+                    type="file"
+                    accept=".cook,.cooklang,.json,.jsonld,application/json,application/ld+json"
+                    onChange={(event) => {
+                      invalidateImportRequest();
+                      setRecipeFile(event.target.files?.[0] ?? null);
+                      setImportError(null);
+                      setImportedFileName(null);
+                    }}
+                    className="border-[var(--line-strong)] bg-[var(--paper)] file:mr-3 file:font-medium"
+                  />
+                </label>
+                <Button
+                  type="button"
+                  onClick={() => void importRecipeFile()}
+                  disabled={!recipeFile || importing}
+                  className="justify-self-start bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]"
+                >
+                  {importing ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <FileUp className="size-4" />
+                  )}
+                  {importing ? "Importing…" : "Import recipe"}
+                </Button>
+                <p className="text-xs text-[var(--ink-3)]">
+                  Upload Cooklang (.cook or .cooklang) or schema.org Recipe
+                  JSON-LD (.json or .jsonld), up to 100 KB.
+                </p>
+                {importError && (
+                  <p
+                    role="alert"
+                    className="flex items-start gap-1.5 text-sm text-destructive"
+                  >
+                    <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                    {importError}
+                  </p>
+                )}
+                {importedFileName && !importError && (
+                  <output className="text-sm text-[var(--sage)]">
+                    Imported {importedFileName}. You can edit any field before
+                    saving.
                   </output>
                 )}
               </div>
@@ -692,7 +839,7 @@ export function AddRecipeView({
               <div>
                 <p className="rt-mono text-[var(--ink-3)]">Recipe text</p>
                 <p className="text-xs text-[var(--ink-3)]">
-                  {method === "url" || method === "photo"
+                  {method === "url" || method === "photo" || method === "file"
                     ? "Imported as editable Cooklang. Adjust anything before saving."
                     : "Use @ingredients, #cookware and ~timers directly in each step."}
                 </p>
@@ -712,6 +859,8 @@ export function AddRecipeView({
                     setCookTime(25);
                     setSource(EXAMPLE_RECIPE);
                     setImportedUrl(null);
+                    setUrlImportSuccess(false);
+                    setImportedFileName(null);
                   }}
                 >
                   <Sparkles /> Try example
@@ -753,8 +902,8 @@ export function AddRecipeView({
               </h2>
               <p className="rt-body mt-2 max-w-md text-[var(--ink-3)]">
                 Add a name and write your steps with inline Cooklang—or use the
-                example, URL importer, or a recipe photo to see ingredients and
-                timers come alive.
+                example, URL importer, local file importer, or a recipe photo to
+                see ingredients and timers come alive.
               </p>
               {(parse.error || previewResult.error) && (
                 <p role="alert" className="mt-4 text-sm text-destructive">
