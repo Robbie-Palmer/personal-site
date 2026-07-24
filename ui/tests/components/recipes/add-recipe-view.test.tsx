@@ -1,6 +1,6 @@
 import { CooklangParser } from "@cooklang/cooklang";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@/tests/test-utils";
 
 const mocks = vi.hoisted(() => ({
   getHouseholds: vi.fn(),

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check,
   Leaf,
@@ -11,7 +12,6 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DIET_PROFILE_UPDATED_EVENT } from "@/components/recipes/diet-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,11 +23,11 @@ import {
   type DietRecipeMatchMode,
   emptyDietOptions,
   emptyDietProfile,
-  getDietOptions,
-  getDietProfile,
-  saveDietProfile,
 } from "@/lib/api/diet";
+import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/generic/styles";
+import { saveDietProfileMutation } from "@/lib/query/recipe-mutations";
+import { dietOptionsQuery, dietProfileQuery } from "@/lib/query/recipe-queries";
 import { PanelHead } from "./panel-head";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -358,14 +358,34 @@ function IngredientPicker({
 }
 
 export function DietPanel() {
+  const { data: session, isPending: sessionPending } = authClient.useSession();
+  const userId = session?.user.id;
+  const queryClient = useQueryClient();
   const [profile, setProfile] = useState<DietProfile>(emptyDietProfile);
   const [savedProfile, setSavedProfile] =
     useState<DietProfile>(emptyDietProfile);
-  const [options, setOptions] = useState<DietOptions>(emptyDietOptions);
-  const [loading, setLoading] = useState(true);
-  const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const saveControllerRef = useRef<AbortController | null>(null);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const profileResult = useQuery({
+    ...dietProfileQuery(userId ?? "pending"),
+    enabled: !sessionPending && Boolean(userId),
+  });
+  const optionsResult = useQuery({
+    ...dietOptionsQuery(userId ?? "pending"),
+    enabled: !sessionPending && Boolean(userId),
+  });
+  const options: DietOptions = optionsResult.data ?? emptyDietOptions;
+  const saveMutation = useMutation({
+    ...saveDietProfileMutation(queryClient, userId ?? "pending"),
+    onSuccess: (saved) => {
+      if (userId) {
+        queryClient.setQueryData(dietProfileQuery(userId).queryKey, saved);
+      }
+      setProfile(saved);
+      setSavedProfile(saved);
+      setSaveError(null);
+    },
+  });
   const ingredientBySlug = useMemo(
     () =>
       new Map(
@@ -379,42 +399,43 @@ export function DietPanel() {
   );
 
   useEffect(() => {
-    const controller = new AbortController();
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const [nextProfile, nextOptions] = await Promise.all([
-          getDietProfile(controller.signal),
-          getDietOptions(controller.signal),
-        ]);
-        setProfile(nextProfile);
-        setSavedProfile(nextProfile);
-        setOptions(nextOptions);
-        setSaveState("idle");
-      } catch (loadError) {
-        if (!controller.signal.aborted) {
-          setSaveState("error");
-          setError(
-            loadError instanceof Error
-              ? loadError.message
-              : "Couldn't load your diet profile.",
-          );
-        }
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
+    if (!userId) {
+      if (loadedUserId !== null) {
+        setProfile(emptyDietProfile);
+        setSavedProfile(emptyDietProfile);
+        setLoadedUserId(null);
+        setSaveError(null);
+        saveMutation.reset();
       }
+      return;
     }
-
-    void load();
-    return () => controller.abort();
-  }, []);
-
-  useEffect(() => {
-    return () => saveControllerRef.current?.abort();
-  }, []);
+    if (!profileResult.data || loadedUserId === userId) return;
+    setProfile(profileResult.data);
+    setSavedProfile(profileResult.data);
+    setLoadedUserId(userId);
+    setSaveError(null);
+    saveMutation.reset();
+  }, [loadedUserId, profileResult.data, saveMutation, userId]);
 
   const dirty = serialize(profile) !== serialize(savedProfile);
+  const loading =
+    sessionPending ||
+    Boolean(userId && (profileResult.isPending || optionsResult.isPending));
+  const loadError = profileResult.error ?? optionsResult.error;
+  const error =
+    saveError ??
+    (loadError instanceof Error
+      ? loadError.message
+      : loadError
+        ? "Couldn't load your diet profile."
+        : null);
+  const saveState: SaveState = saveMutation.isPending
+    ? "saving"
+    : saveMutation.isError || loadError
+      ? "error"
+      : saveMutation.isSuccess
+        ? "saved"
+        : "idle";
   const exclusions = useMemo(
     () => effectiveExclusions(profile, presetByKey),
     [presetByKey, profile],
@@ -430,8 +451,8 @@ export function DietPanel() {
 
   function updateProfile(next: DietProfile) {
     setProfile(next);
-    setSaveState("idle");
-    setError(null);
+    setSaveError(null);
+    saveMutation.reset();
   }
 
   function addIngredient(ingredient: DietIngredientOption) {
@@ -458,30 +479,15 @@ export function DietPanel() {
   }
 
   async function save() {
-    saveControllerRef.current?.abort();
-    const controller = new AbortController();
-    saveControllerRef.current = controller;
-    setSaveState("saving");
-    setError(null);
+    setSaveError(null);
     try {
-      const saved = await saveDietProfile(profile, controller.signal);
-      if (controller.signal.aborted) return;
-      setProfile(saved);
-      setSavedProfile(saved);
-      setSaveState("saved");
-      globalThis.dispatchEvent(new Event(DIET_PROFILE_UPDATED_EVENT));
+      await saveMutation.mutateAsync(profile);
     } catch (saveError) {
-      if (controller.signal.aborted) return;
-      setSaveState("error");
-      setError(
+      setSaveError(
         saveError instanceof Error
           ? saveError.message
           : "Couldn't save your diet profile.",
       );
-    } finally {
-      if (saveControllerRef.current === controller) {
-        saveControllerRef.current = null;
-      }
     }
   }
 

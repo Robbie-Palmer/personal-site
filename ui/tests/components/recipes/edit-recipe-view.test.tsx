@@ -1,10 +1,17 @@
-import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@/tests/test-utils";
 
-const mocks = vi.hoisted(() => ({ slug: "weeknight-rice" }));
+const mocks = vi.hoisted(() => ({
+  slug: "weeknight-rice",
+  useSession: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams({ slug: mocks.slug }),
+}));
+
+vi.mock("@/lib/auth-client", () => ({
+  authClient: { useSession: mocks.useSession },
 }));
 
 vi.mock("@/components/recipes/add-recipe-view", () => ({
@@ -34,6 +41,10 @@ const recipe = {
 
 beforeEach(() => {
   mocks.slug = "weeknight-rice";
+  mocks.useSession.mockReturnValue({
+    data: { user: { id: "recipe-owner" } },
+    isPending: false,
+  });
 });
 
 afterEach(() => {
@@ -54,7 +65,7 @@ describe("EditRecipeView", () => {
     expect(globalThis.fetch).toHaveBeenCalledWith(
       "/api/recipes/weeknight-rice",
       expect.objectContaining({
-        credentials: "include",
+        credentials: "same-origin",
         signal: expect.any(AbortSignal),
       }),
     );

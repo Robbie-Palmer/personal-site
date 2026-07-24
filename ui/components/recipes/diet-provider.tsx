@@ -1,21 +1,15 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import {
   createContext,
   type ReactNode,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState,
 } from "react";
 import { DietLoadErrorNotice } from "@/components/recipes/diet-notice";
-import {
-  emptyDietOptions,
-  emptyDietProfile,
-  getDietOptions,
-  getDietProfile,
-} from "@/lib/api/diet";
+import { emptyDietOptions, emptyDietProfile } from "@/lib/api/diet";
 import { authClient } from "@/lib/auth-client";
 import {
   buildEffectiveDiet,
@@ -24,6 +18,7 @@ import {
   type EffectiveDiet,
   matchRecipeToDiet,
 } from "@/lib/domain/diet";
+import { dietOptionsQuery, dietProfileQuery } from "@/lib/query/recipe-queries";
 
 type DietContextValue = {
   diet: EffectiveDiet;
@@ -32,95 +27,31 @@ type DietContextValue = {
   matchRecipe: (recipe: DietRecipe) => DietMatch;
 };
 
-export const DIET_PROFILE_UPDATED_EVENT = "recipe-diet-profile-updated";
-
 const fallbackDiet = buildEffectiveDiet(emptyDietProfile, emptyDietOptions);
 const DietContext = createContext<DietContextValue | null>(null);
-
-type DietState = {
-  userId: string | null;
-  diet: EffectiveDiet;
-  status: "idle" | "loading" | "ready" | "error";
-};
-
-async function fetchEffectiveDiet(signal: AbortSignal) {
-  const [profile, options] = await Promise.all([
-    getDietProfile(signal),
-    getDietOptions(signal),
-  ]);
-  return buildEffectiveDiet(profile, options);
-}
 
 export function DietProvider({ children }: Readonly<{ children: ReactNode }>) {
   const { data: session, isPending } = authClient.useSession();
   const sessionUserId = session?.user.id;
-  const [state, setState] = useState<DietState>({
-    userId: null,
-    diet: fallbackDiet,
-    status: "idle",
+  const profile = useQuery({
+    ...dietProfileQuery(sessionUserId ?? "pending"),
+    enabled: !isPending && Boolean(sessionUserId),
   });
-
-  useEffect(() => {
-    if (isPending) return;
-    if (!sessionUserId) {
-      setState({ userId: null, diet: fallbackDiet, status: "idle" });
-      return;
-    }
-
-    let controller: AbortController | null = null;
-    let retainedDiet = fallbackDiet;
-    const load = () => {
-      controller?.abort();
-      controller = new AbortController();
-      const signal = controller.signal;
-      setState({
-        userId: sessionUserId,
-        diet: retainedDiet,
-        status: "loading",
-      });
-      void fetchEffectiveDiet(signal)
-        .then((diet) => {
-          if (signal.aborted) return;
-          retainedDiet = diet;
-          setState({
-            userId: sessionUserId,
-            diet,
-            status: "ready",
-          });
-        })
-        .catch((error: unknown) => {
-          if (signal.aborted) return;
-          setState({
-            userId: sessionUserId,
-            diet: retainedDiet,
-            status: "error",
-          });
-          console.error(
-            "[DietProvider] Failed to load diet preferences.",
-            error,
-          );
-        });
-    };
-
-    load();
-    globalThis.addEventListener(DIET_PROFILE_UPDATED_EVENT, load);
-    return () => {
-      globalThis.removeEventListener(DIET_PROFILE_UPDATED_EVENT, load);
-      controller?.abort();
-    };
-  }, [isPending, sessionUserId]);
-
-  const diet =
-    sessionUserId && state.userId === sessionUserId ? state.diet : fallbackDiet;
+  const options = useQuery({
+    ...dietOptionsQuery(sessionUserId ?? "pending"),
+    enabled: !isPending && Boolean(sessionUserId),
+  });
+  const diet = useMemo(
+    () =>
+      sessionUserId && profile.data && options.data
+        ? buildEffectiveDiet(profile.data, options.data)
+        : fallbackDiet,
+    [options.data, profile.data, sessionUserId],
+  );
   const loading =
     isPending ||
-    Boolean(
-      sessionUserId &&
-        (state.userId !== sessionUserId || state.status === "loading"),
-    );
-  const error = Boolean(
-    sessionUserId && state.userId === sessionUserId && state.status === "error",
-  );
+    Boolean(sessionUserId && (profile.isPending || options.isPending));
+  const error = Boolean(sessionUserId && (profile.isError || options.isError));
 
   const matchRecipe = useCallback(
     (recipe: DietRecipe) => matchRecipeToDiet(recipe, diet),

@@ -1,30 +1,20 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { RecipeAuthRequired } from "@/components/recipes/recipe-auth-required";
 import { ShoppingView } from "@/components/recipes/shopping/shopping-view";
-import { useAbortableLoad } from "@/hooks/use-abortable-load";
-import { fetchRecipeBoxRecipes } from "@/lib/api/saved-recipes";
-import {
-  recipeRecordsToShoppingRecipes,
-  type ShoppingRecipe,
-} from "@/lib/api/shopping";
+import { recipeRecordsToShoppingRecipes } from "@/lib/api/shopping";
 import { authClient } from "@/lib/auth-client";
-
-async function loadShoppingRecipes(
-  signal: AbortSignal,
-): Promise<ShoppingRecipe[]> {
-  const { recipes } = await fetchRecipeBoxRecipes(signal);
-  return recipeRecordsToShoppingRecipes(recipes);
-}
+import { recipeBoxRecipesQuery } from "@/lib/query/recipe-queries";
 
 export function RecipeShopping() {
   const { data: session, isPending } = authClient.useSession();
-  const { data: recipes, error } = useAbortableLoad(
-    session?.user.id ?? null,
-    loadShoppingRecipes,
-    "Shopping recipes could not be loaded",
-  );
+  const recipeBox = useQuery({
+    ...recipeBoxRecipesQuery(session?.user.id ?? "pending"),
+    enabled: !isPending && Boolean(session),
+    select: ({ recipes }) => recipeRecordsToShoppingRecipes(recipes),
+  });
 
   if (isPending) {
     return (
@@ -42,19 +32,19 @@ export function RecipeShopping() {
     );
   }
 
-  if (error) {
+  if (recipeBox.isError) {
     return (
       <p className="rt-body p-8 text-center">
         Your recipes could not be loaded.
       </p>
     );
   }
-  if (!recipes) {
+  if (recipeBox.isPending) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="animate-spin text-[var(--terracotta)]" />
       </div>
     );
   }
-  return <ShoppingView recipes={recipes} />;
+  return <ShoppingView recipes={recipeBox.data} />;
 }

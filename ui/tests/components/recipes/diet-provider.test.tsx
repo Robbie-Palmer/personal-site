@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DietProvider, useDiet } from "@/components/recipes/diet-provider";
+import { render, screen } from "@/tests/test-utils";
 
 const apiMocks = vi.hoisted(() => ({
   getDietOptions: vi.fn(),

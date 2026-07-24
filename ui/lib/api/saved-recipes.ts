@@ -1,3 +1,4 @@
+import { ApiError } from "@/lib/api/api-error";
 import type { RecipeBoxProfile } from "@/lib/api/recipe-box";
 import { getRecipeBoxProfile } from "@/lib/api/recipe-box";
 import type { SavedRecipeApiRecord } from "@/lib/domain/recipe/recipeDraft";
@@ -25,7 +26,9 @@ export async function fetchAllSavedRecipes(options?: {
   do {
     // Bound the walk so a buggy nextCursor can never loop the browser forever.
     pages += 1;
-    if (pages > MAX_PAGES) throw new Error("Saved recipes unavailable");
+    if (pages > MAX_PAGES) {
+      throw new ApiError("Saved recipes unavailable", 422);
+    }
     const params = new URLSearchParams({ limit: String(PAGE_LIMIT) });
     if (options?.scope) params.set("scope", options.scope);
     if (cursor) params.set("cursor", cursor);
@@ -34,12 +37,38 @@ export async function fetchAllSavedRecipes(options?: {
       credentials: options?.credentials ?? "same-origin",
       signal: options?.signal,
     });
-    if (!response.ok) throw new Error("Saved recipes unavailable");
+    if (!response.ok) {
+      throw new ApiError("Saved recipes unavailable", response.status);
+    }
     const page = (await response.json()) as SavedRecipesPage;
     records.push(...page.items);
     cursor = page.nextCursor;
   } while (cursor);
   return records;
+}
+
+export async function getSavedRecipe(
+  slug: string,
+  signal?: AbortSignal,
+): Promise<SavedRecipeApiRecord> {
+  const response = await fetch(`/api/recipes/${encodeURIComponent(slug)}`, {
+    credentials: "same-origin",
+    signal,
+  });
+  if (response.status === 404) {
+    throw new ApiError(
+      "That recipe was not found, or it belongs to another profile.",
+      response.status,
+    );
+  }
+  if (!response.ok) {
+    throw new ApiError("The recipe could not be loaded.", response.status);
+  }
+  try {
+    return (await response.json()) as SavedRecipeApiRecord;
+  } catch {
+    throw new ApiError("The recipe could not be loaded.", 422);
+  }
 }
 
 export async function fetchRecipeBoxRecipes(

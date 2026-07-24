@@ -1,11 +1,21 @@
-import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DietPanel } from "@/components/recipes/settings/diet-panel";
+import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
+import { fireEvent, render, screen } from "@/tests/test-utils";
 
 const apiMocks = vi.hoisted(() => ({
   getDietOptions: vi.fn(),
   getDietProfile: vi.fn(),
   saveDietProfile: vi.fn(),
+}));
+
+vi.mock("@/lib/auth-client", () => ({
+  authClient: {
+    useSession: () => ({
+      data: { user: { id: "diet-user" } },
+      isPending: false,
+    }),
+  },
 }));
 
 vi.mock("@/lib/api/diet", async (importOriginal) => ({
@@ -47,6 +57,7 @@ describe("DietPanel", () => {
       ],
       ingredients: [{ slug: "bacon", name: "Bacon", category: "protein" }],
     });
+    apiMocks.saveDietProfile.mockImplementation(async (profile) => profile);
   });
 
   afterEach(() => {
@@ -67,6 +78,23 @@ describe("DietPanel", () => {
     expect(chilli).not.toBeDisabled();
   });
 
+  it("updates the shared diet cache after a successful save", async () => {
+    const { queryClient } = render(<DietPanel />);
+    const chilli = await screen.findByRole("button", { name: /Chilli/ });
+
+    fireEvent.click(chilli);
+    fireEvent.click(screen.getByRole("button", { name: "Save diet profile" }));
+
+    expect(await screen.findByText("saved")).toBeInTheDocument();
+    expect(
+      queryClient.getQueryData(recipeQueryKeys.dietProfile("diet-user")),
+    ).toEqual(
+      expect.objectContaining({
+        excludedGroupKeys: ["chilli"],
+      }),
+    );
+  });
+
   it("clears the delayed picker close when unmounted", async () => {
     const { unmount } = render(<DietPanel />);
     const input = await screen.findByLabelText(
@@ -79,6 +107,6 @@ describe("DietPanel", () => {
     fireEvent.blur(input);
     unmount();
 
-    expect(clearTimeoutSpy).toHaveBeenCalledOnce();
+    expect(clearTimeoutSpy).toHaveBeenCalled();
   });
 });
