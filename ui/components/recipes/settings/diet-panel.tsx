@@ -403,17 +403,10 @@ function useDietPanelState() {
     enabled: !sessionPending && Boolean(userId),
   });
   const options: DietOptions = optionsResult.data ?? emptyDietOptions;
-  const saveMutation = useMutation({
-    ...saveDietProfileMutation(queryClient, userId ?? "pending"),
-    onSuccess: (saved) => {
-      if (userId) {
-        queryClient.setQueryData(dietProfileQuery(userId).queryKey, saved);
-      }
-      setProfile(saved);
-      setSavedProfile(saved);
-      setSaveError(null);
-    },
-  });
+  const saveMutation = useMutation(
+    saveDietProfileMutation(queryClient, userId ?? "pending"),
+  );
+  const resetSaveMutation = saveMutation.reset;
   const ingredientBySlug = useMemo(
     () =>
       new Map(
@@ -433,7 +426,7 @@ function useDietPanelState() {
         setSavedProfile(emptyDietProfile);
         setLoadedUserId(null);
         setSaveError(null);
-        saveMutation.reset();
+        resetSaveMutation();
       }
       return;
     }
@@ -442,8 +435,8 @@ function useDietPanelState() {
     setSavedProfile(profileResult.data);
     setLoadedUserId(userId);
     setSaveError(null);
-    saveMutation.reset();
-  }, [loadedUserId, profileResult.data, saveMutation, userId]);
+    resetSaveMutation();
+  }, [loadedUserId, profileResult.data, resetSaveMutation, userId]);
 
   const dirty = serialize(profile) !== serialize(savedProfile);
   const loading =
@@ -468,7 +461,7 @@ function useDietPanelState() {
   function updateProfile(next: DietProfile) {
     setProfile(next);
     setSaveError(null);
-    saveMutation.reset();
+    resetSaveMutation();
   }
 
   function addIngredient(ingredient: DietIngredientOption) {
@@ -497,7 +490,9 @@ function useDietPanelState() {
   async function save() {
     setSaveError(null);
     try {
-      await saveMutation.mutateAsync(profile);
+      const saved = await saveMutation.mutateAsync(profile);
+      setProfile(saved);
+      setSavedProfile(saved);
     } catch (error) {
       setSaveError(errorMessage(error, "Couldn't save your diet profile."));
     }
