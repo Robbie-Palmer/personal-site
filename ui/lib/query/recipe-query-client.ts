@@ -51,3 +51,19 @@ export async function clearPrivateRecipeQueries(
   await queryClient.cancelQueries({ predicate });
   queryClient.removeQueries({ predicate });
 }
+
+export async function clearOtherPrivateRecipeQueries(
+  queryClient: QueryClient,
+  currentUserId: string | null,
+): Promise<void> {
+  const privatePrefix = recipeQueryKeys.private();
+  const currentUserPrefix = currentUserId
+    ? recipeQueryKeys.user(currentUserId)
+    : null;
+  const predicate = (query: { queryKey: QueryKey }) =>
+    startsWith(query.queryKey, privatePrefix) &&
+    (!currentUserPrefix || !startsWith(query.queryKey, currentUserPrefix));
+
+  await queryClient.cancelQueries({ predicate });
+  queryClient.removeQueries({ predicate });
+}

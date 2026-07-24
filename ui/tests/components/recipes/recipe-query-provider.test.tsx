@@ -1,7 +1,14 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { RecipeAccountCacheBoundary } from "@/components/recipes/recipe-query-provider";
+import {
+  RecipeAccountCacheBoundary,
+  RecipeQueryProvider,
+} from "@/components/recipes/recipe-query-provider";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 const authMocks = vi.hoisted(() => ({
@@ -28,7 +35,7 @@ describe("RecipeAccountCacheBoundary", () => {
     };
   });
 
-  it("clears the previous account without removing the next account's cache", async () => {
+  it("keeps only the current account's private cache", async () => {
     const queryClient = new QueryClient();
     queryClient.setQueryData(
       recipeQueryKeys.recipeBoxRecipes("user-1"),
@@ -38,10 +45,23 @@ describe("RecipeAccountCacheBoundary", () => {
       recipeQueryKeys.recipeBoxRecipes("user-2"),
       "second",
     );
+    queryClient.setQueryData(recipeQueryKeys.publicRecipes(), "public");
     const view = render(
       <QueryClientProvider client={queryClient}>
         <RecipeAccountCacheBoundary />
       </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryData(recipeQueryKeys.recipeBoxRecipes("user-2")),
+      ).toBeUndefined();
+    });
+    expect(
+      queryClient.getQueryData(recipeQueryKeys.recipeBoxRecipes("user-1")),
+    ).toBe("first");
+    expect(queryClient.getQueryData(recipeQueryKeys.publicRecipes())).toBe(
+      "public",
     );
 
     authMocks.session = {
@@ -59,8 +79,42 @@ describe("RecipeAccountCacheBoundary", () => {
         queryClient.getQueryData(recipeQueryKeys.recipeBoxRecipes("user-1")),
       ).toBeUndefined();
     });
-    expect(
-      queryClient.getQueryData(recipeQueryKeys.recipeBoxRecipes("user-2")),
-    ).toBe("second");
+    expect(queryClient.getQueryData(recipeQueryKeys.publicRecipes())).toBe(
+      "public",
+    );
+  });
+
+  it("retains the browser cache when the recipe layout remounts", () => {
+    let firstClient: QueryClient | undefined;
+    let secondClient: QueryClient | undefined;
+
+    function FirstProbe() {
+      firstClient = useQueryClient();
+      return null;
+    }
+
+    function SecondProbe() {
+      secondClient = useQueryClient();
+      return null;
+    }
+
+    const firstView = render(
+      <RecipeQueryProvider>
+        <FirstProbe />
+      </RecipeQueryProvider>,
+    );
+    firstClient?.setQueryData(recipeQueryKeys.publicRecipes(), "cached");
+    firstView.unmount();
+
+    render(
+      <RecipeQueryProvider>
+        <SecondProbe />
+      </RecipeQueryProvider>,
+    );
+
+    expect(secondClient).toBe(firstClient);
+    expect(secondClient?.getQueryData(recipeQueryKeys.publicRecipes())).toBe(
+      "cached",
+    );
   });
 });
