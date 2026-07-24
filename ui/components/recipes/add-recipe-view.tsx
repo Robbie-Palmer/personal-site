@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   ArrowLeft,
@@ -45,6 +46,7 @@ import {
 } from "@/lib/domain/recipe/recipeDraft";
 import { recipeSaveReturnPath } from "@/lib/generic/safe-return-path";
 import { normalizeSlug } from "@/lib/generic/slugs";
+import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 const EXAMPLE_RECIPE = `Bring a large #pot{} of salted water to the boil. Add @dried pasta{200%g} and cook for ~{10%minutes}.
 
@@ -165,6 +167,7 @@ export function AddRecipeView({
   const router = useRouter();
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const sessionUserId = session?.user.id;
+  const queryClient = useQueryClient();
   const [method, setMethod] = useState<AddMethod>("write");
   const [recipeUrl, setRecipeUrl] = useState("");
   const [importing, setImporting] = useState(false);
@@ -397,6 +400,22 @@ export function AddRecipeView({
         );
       }
       const saved = (await response.json()) as { slug: string };
+      if (sessionUserId) {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: recipeQueryKeys.recipeBoxRecipes(sessionUserId),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: recipeQueryKeys.savedRecipe(
+              sessionUserId,
+              initialRecipe?.slug ?? saved.slug,
+            ),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: recipeQueryKeys.publicRecipes(),
+          }),
+        ]);
+      }
       if (initialRecipe) {
         navigateToRecipePage(saved);
         return;

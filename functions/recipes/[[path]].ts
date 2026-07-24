@@ -4,7 +4,10 @@ import {
   formatRecipeIngredientText,
   formatRecipeCooklang,
 } from "recipe-domain/serialization";
-import { isRecipeAppRouteSlug } from "recipe-domain/slugs";
+import {
+  isRecipeAppRouteSlug,
+  isRecipeSlug,
+} from "recipe-domain/slugs";
 import {
   proxyRecipeApiRequest,
   type RecipeApiProxyEnv,
@@ -26,8 +29,6 @@ type Context = {
   env: Env;
   next: () => Promise<Response>;
 };
-
-const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function textResponse(body: string, contentType: string): Response {
   return new Response(body, {
@@ -75,7 +76,7 @@ export const onRequest = async (context: Context): Promise<Response> => {
   const slug = extension
     ? relativePath.slice(0, -(extension.length + 1))
     : relativePath;
-  if (!SLUG.test(slug) || (!extension && isRecipeAppRouteSlug(slug))) {
+  if (!isRecipeSlug(slug) || (!extension && isRecipeAppRouteSlug(slug))) {
     return context.next();
   }
 

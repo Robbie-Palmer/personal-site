@@ -1,27 +1,21 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { KitchenView } from "@/components/recipes/kitchen/kitchen-view";
 import { RecipeAuthRequired } from "@/components/recipes/recipe-auth-required";
-import { useAbortableLoad } from "@/hooks/use-abortable-load";
+import { RecipeQueryStatus } from "@/components/recipes/recipe-load-state";
 import { buildKitchenCatalog } from "@/lib/api/recipes";
-import { fetchRecipeBoxRecipes } from "@/lib/api/saved-recipes";
 import { authClient } from "@/lib/auth-client";
-
-type Catalog = ReturnType<typeof buildKitchenCatalog>;
-
-async function loadKitchenCatalog(signal: AbortSignal): Promise<Catalog> {
-  const { recipes } = await fetchRecipeBoxRecipes(signal);
-  return buildKitchenCatalog(recipes);
-}
+import { recipeBoxRecipesQuery } from "@/lib/query/recipe-queries";
 
 export function RecipeKitchen() {
   const { data: session, isPending } = authClient.useSession();
-  const { data: catalog, error } = useAbortableLoad(
-    session?.user.id ?? null,
-    loadKitchenCatalog,
-    "Kitchen recipes could not be loaded",
-  );
+  const recipeBox = useQuery({
+    ...recipeBoxRecipesQuery(session?.user.id ?? "pending"),
+    enabled: !isPending && Boolean(session),
+    select: ({ recipes }) => buildKitchenCatalog(recipes),
+  });
 
   if (isPending) {
     return (
@@ -39,19 +33,30 @@ export function RecipeKitchen() {
     );
   }
 
-  if (error) {
+  if (recipeBox.isError && recipeBox.data === undefined) {
     return (
       <p className="rt-body p-8 text-center">
         Your kitchen could not be loaded.
       </p>
     );
   }
-  if (!catalog) {
+  if (recipeBox.isPending) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="animate-spin text-[var(--terracotta)]" />
       </div>
     );
   }
-  return <KitchenView {...catalog} />;
+  return (
+    <>
+      <RecipeQueryStatus
+        error={recipeBox.error}
+        hasData
+        isFetching={recipeBox.isFetching}
+        isStale={recipeBox.isStale}
+        subject="your kitchen"
+      />
+      <KitchenView {...recipeBox.data} />
+    </>
+  );
 }

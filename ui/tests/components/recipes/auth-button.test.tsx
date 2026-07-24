@@ -1,6 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@/tests/test-utils";
 
 const mocks = vi.hoisted(() => ({
   useSession: vi.fn(),
@@ -261,7 +261,7 @@ describe("AuthButton", () => {
     await user.click(screen.getByRole("button", { name: "Sign out" }));
 
     expect(mocks.signOut).toHaveBeenCalledWith({
-      fetchOptions: { onSuccess: redirectAfterSignOut },
+      fetchOptions: { onSuccess: expect.any(Function) },
     });
   });
 

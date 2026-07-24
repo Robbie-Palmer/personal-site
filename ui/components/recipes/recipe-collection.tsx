@@ -1,26 +1,16 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useDiet } from "@/components/recipes/diet-provider";
 import { RecipeList } from "@/components/recipes/recipe-list";
+import { RecipeQueryStatus } from "@/components/recipes/recipe-load-state";
 import { CardGridSkeleton } from "@/components/ui/card-grid-skeleton";
-import type { RecipeBoxProfile } from "@/lib/api/recipe-box";
-import { fetchRecipeBoxRecipes } from "@/lib/api/saved-recipes";
 import { authClient } from "@/lib/auth-client";
-import {
-  type SavedRecipeApiRecord,
-  savedRecipeCard,
-} from "@/lib/domain/recipe/recipeDraft";
+import { savedRecipeCard } from "@/lib/domain/recipe/recipeDraft";
 import type { RecipeCatalogStats } from "@/lib/domain/recipe/recipeViews";
-
-type RecipeCollectionState = {
-  userId: string | null;
-  status: "idle" | "loading" | "ready";
-  saved: SavedRecipeApiRecord[];
-  box: RecipeBoxProfile | null;
-  loadError: string | null;
-};
+import { recipeBoxRecipesQuery } from "@/lib/query/recipe-queries";
 
 export function RecipeCollection({
   onCatalogStatsChange,
@@ -32,69 +22,15 @@ export function RecipeCollection({
   const { data: session, isPending } = authClient.useSession();
   const { loading: dietLoading } = useDiet();
   const sessionUserId = session?.user.id;
-  const [state, setState] = useState<RecipeCollectionState>({
-    userId: null,
-    status: "idle",
-    saved: [],
-    box: null,
-    loadError: null,
+  const recipeBox = useQuery({
+    ...recipeBoxRecipesQuery(sessionUserId ?? "pending"),
+    enabled: !isPending && Boolean(sessionUserId),
   });
-
-  useEffect(() => {
-    if (isPending) return;
-    if (!sessionUserId) {
-      setState({
-        userId: null,
-        status: "idle",
-        saved: [],
-        box: null,
-        loadError: null,
-      });
-      return;
-    }
-    const controller = new AbortController();
-    const userId = sessionUserId;
-    setState({
-      userId,
-      status: "loading",
-      saved: [],
-      box: null,
-      loadError: null,
-    });
-    void fetchRecipeBoxRecipes(controller.signal)
-      .then(({ recipes, box }) => {
-        if (controller.signal.aborted) return;
-        setState({
-          userId,
-          status: "ready",
-          saved: recipes,
-          box,
-          loadError: null,
-        });
-      })
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
-        console.error("Failed to load recipe box data", error);
-        setState({
-          userId,
-          status: "ready",
-          saved: [],
-          box: null,
-          loadError: "Your recipe box could not be loaded.",
-        });
-      });
-    return () => controller.abort();
-  }, [isPending, sessionUserId]);
-
-  const stateMatchesSession = state.userId === sessionUserId;
   const personalizationLoading = Boolean(
-    sessionUserId &&
-      (!stateMatchesSession || state.status !== "ready" || dietLoading),
+    sessionUserId && (recipeBox.isPending || dietLoading),
   );
-  const saved = stateMatchesSession ? state.saved : [];
-  const box = stateMatchesSession ? state.box : null;
-  const loadError = stateMatchesSession ? state.loadError : null;
+  const saved = recipeBox.data?.recipes ?? [];
+  const box = recipeBox.data?.box ?? null;
 
   const combined = useMemo(
     () =>
@@ -117,17 +53,11 @@ export function RecipeCollection({
   );
 
   useEffect(() => {
-    if (!sessionUserId || !stateMatchesSession || state.status !== "ready") {
+    if (!sessionUserId || recipeBox.isPending) {
       return;
     }
     onCatalogStatsChange?.(catalogStats);
-  }, [
-    catalogStats,
-    onCatalogStatsChange,
-    sessionUserId,
-    state.status,
-    stateMatchesSession,
-  ]);
+  }, [catalogStats, onCatalogStatsChange, sessionUserId, recipeBox.isPending]);
 
   if (isPending || personalizationLoading) {
     return (
@@ -142,11 +72,13 @@ export function RecipeCollection({
 
   return (
     <>
-      {loadError ? (
-        <output className="rt-body mb-5 block rounded-lg border border-[var(--terracotta)]/30 bg-[var(--terracotta)]/5 px-4 py-3 text-sm text-[var(--ink-2)]">
-          {loadError}
-        </output>
-      ) : null}
+      <RecipeQueryStatus
+        error={recipeBox.error}
+        hasData={recipeBox.data !== undefined}
+        isFetching={recipeBox.isFetching}
+        isStale={recipeBox.isStale}
+        subject="your recipe box"
+      />
       {session && box && !box.completed ? (
         <div className="rt-body mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--terracotta)]/30 bg-[var(--butter-soft)] px-4 py-3 text-sm text-[var(--ink-2)]">
           <span>

@@ -1,7 +1,7 @@
-import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SavedRecipeApiRecord } from "@/lib/domain/recipe/recipeDraft";
+import { render, screen, waitFor } from "@/tests/test-utils";
 
 const mocks = vi.hoisted(() => ({
   getDietOptions: vi.fn(),

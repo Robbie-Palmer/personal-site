@@ -1,5 +1,6 @@
 "use client";
 
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ArrowRight,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { isRecipeSlug } from "recipe-domain/slugs";
 import { AuthButton } from "@/components/recipes/auth-button";
 import { RecipeThumb, recipeMetaLabel } from "@/components/recipes/recipe-card";
 import { Button } from "@/components/ui/button";
@@ -23,12 +25,8 @@ import {
   emptyDietProfile,
   getDietOptions,
   getDietProfile,
-  saveDietProfile,
 } from "@/lib/api/diet";
-import {
-  getRecipeBoxProfile,
-  saveRecipeBoxProfile,
-} from "@/lib/api/recipe-box";
+import { getRecipeBoxProfile } from "@/lib/api/recipe-box";
 import type { RecipeCardView } from "@/lib/api/recipes";
 import { recipeRecordsToCards } from "@/lib/api/recipes";
 import { fetchAllSavedRecipes } from "@/lib/api/saved-recipes";
@@ -40,6 +38,10 @@ import {
 } from "@/lib/domain/recipe/onboarding";
 import { savedRecipeCard } from "@/lib/domain/recipe/recipeDraft";
 import { cn } from "@/lib/generic/styles";
+import {
+  saveDietProfileMutation,
+  saveRecipeBoxMutation,
+} from "@/lib/query/recipe-mutations";
 
 const STEPS = ["sign up", "your diet", "fill your box", "ready"];
 
@@ -263,6 +265,13 @@ function StarterRecipeTile({
 export function RecipeOnboarding() {
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const userId = session?.user.id;
+  const queryClient = useQueryClient();
+  const dietMutation = useMutation(
+    saveDietProfileMutation(queryClient, userId ?? "pending"),
+  );
+  const recipeBoxMutation = useMutation(
+    saveRecipeBoxMutation(queryClient, userId ?? "pending"),
+  );
   const [step, setStep] = useState(0);
   const [diet, setDiet] = useState<DietProfile>(emptyDietProfile);
   const [dietOptions, setDietOptions] = useState<DietOptions>(emptyDietOptions);
@@ -294,10 +303,7 @@ export function RecipeOnboarding() {
           savedRecipeCard(record) ? [record.slug] : [],
         );
         const authoredDuringOnboarding: string[] = [];
-        if (
-          returnedAuthoredSlug &&
-          /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(returnedAuthoredSlug)
-        ) {
+        if (isRecipeSlug(returnedAuthoredSlug)) {
           ownedSlugs.push(returnedAuthoredSlug);
           authoredDuringOnboarding.push(returnedAuthoredSlug);
         }
@@ -390,7 +396,7 @@ export function RecipeOnboarding() {
     setSaving(true);
     setError(null);
     try {
-      setDiet(await saveDietProfile(diet));
+      setDiet(await dietMutation.mutateAsync(diet));
       setStep(2);
     } catch (error_) {
       setError(
@@ -407,7 +413,7 @@ export function RecipeOnboarding() {
     setSaving(true);
     setError(null);
     try {
-      await saveRecipeBoxProfile(compatibleSelectedSlugs);
+      await recipeBoxMutation.mutateAsync(compatibleSelectedSlugs);
       setStep(3);
     } catch (error_) {
       setError(

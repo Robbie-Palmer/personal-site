@@ -1,65 +1,64 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { isRecipeSlug } from "recipe-domain/slugs";
 import { AddRecipeView } from "@/components/recipes/add-recipe-view";
 import {
   errorMessage,
-  isAbortError,
   RecipeLoadError,
   RecipeLoading,
+  RecipeQueryStatus,
 } from "@/components/recipes/recipe-load-state";
-import type { SavedRecipeApiRecord } from "@/lib/domain/recipe/recipeDraft";
-
-type State =
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  | { status: "ready"; recipe: SavedRecipeApiRecord };
+import { authClient } from "@/lib/auth-client";
+import { savedRecipeQuery } from "@/lib/query/recipe-queries";
 
 export function EditRecipeView() {
   const slug = useSearchParams().get("slug");
-  const [state, setState] = useState<State>({ status: "loading" });
+  const { data: session, isPending: sessionPending } = authClient.useSession();
+  const validSlug = isRecipeSlug(slug);
+  const result = useQuery({
+    ...savedRecipeQuery(session?.user.id ?? "pending", slug ?? "invalid"),
+    enabled: !sessionPending && Boolean(session) && validSlug,
+  });
 
-  useEffect(() => {
-    if (
-      !slug ||
-      slug.length > 120 ||
-      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)
-    ) {
-      setState({ status: "error", message: "No recipe was selected." });
-      return;
-    }
-    const controller = new AbortController();
-    void fetch(`/api/recipes/${encodeURIComponent(slug)}`, {
-      credentials: "include",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("The recipe could not be loaded.");
-        return (await response.json()) as SavedRecipeApiRecord;
-      })
-      .then((recipe) => {
-        if (!recipe.owned)
-          throw new Error("Only the recipe owner can edit it.");
-        setState({ status: "ready", recipe });
-      })
-      .catch((error: unknown) => {
-        if (isAbortError(error)) return;
-        setState({
-          status: "error",
-          message: errorMessage(error, "The recipe could not be loaded."),
-        });
-      });
-    return () => controller.abort();
-  }, [slug]);
-
-  if (state.status === "loading") {
-    return <RecipeLoading />;
-  }
-  if (state.status === "error") {
+  if (!validSlug) {
     return (
-      <RecipeLoadError title="Recipe unavailable" message={state.message} />
+      <RecipeLoadError
+        title="Recipe unavailable"
+        message="No recipe was selected."
+      />
     );
   }
-  return <AddRecipeView initialRecipe={state.recipe} />;
+  if (sessionPending || result.isPending) {
+    return <RecipeLoading />;
+  }
+  if (result.isError && result.data === undefined) {
+    return (
+      <RecipeLoadError
+        title="Recipe unavailable"
+        message={errorMessage(result.error, "The recipe could not be loaded.")}
+      />
+    );
+  }
+  if (!result.data.owned) {
+    return (
+      <RecipeLoadError
+        title="Recipe unavailable"
+        message="Only the recipe owner can edit it."
+      />
+    );
+  }
+  return (
+    <>
+      <RecipeQueryStatus
+        error={result.error}
+        hasData
+        isFetching={result.isFetching}
+        isStale={result.isStale}
+        subject="this recipe"
+      />
+      <AddRecipeView initialRecipe={result.data} />
+    </>
+  );
 }
