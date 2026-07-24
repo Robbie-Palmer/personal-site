@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { normalizeSlug } from "recipe-domain/slugs";
+import { singularizeIngredientTerm } from "recipe-domain/pluralization";
 import {
   canonicalizeCookwareList,
   canonicalizeEquipmentName,
+  equipmentDisplayName,
 } from "../../src/lib/equipment-canonicalization.js";
 import { canonicalEquipment } from "../../src/lib/canonical-equipment-data.js";
 import { buildOntology, buildOntologyIndex } from "../../src/lib/slug-matching.js";
@@ -16,6 +19,20 @@ function canonicalize(rawName: string) {
 describe("canonical equipment registry", () => {
   it("should hold unique slugs", () => {
     expect(ontology.size).toBe(canonicalEquipment.equipment.length);
+  });
+
+  // "scissors", "tongs", and "scales" have no singular form in normal use.
+  it("should name equipment in the singular unless the noun has no singular", () => {
+    const pluralOnly = new Set(["scissors", "tongs", "scales"]);
+    const plural = canonicalEquipment.equipment
+      .map(({ slug }) => slug)
+      .filter((slug) => !pluralOnly.has(slug))
+      .filter(
+        (slug) =>
+          normalizeSlug(singularizeIngredientTerm(equipmentDisplayName(slug))) !==
+          slug,
+      );
+    expect(plural).toEqual([]);
   });
 });
 
@@ -34,7 +51,10 @@ describe("canonicalizeEquipmentName", () => {
     { rawName: "colander", expected: "sieve" },
     { rawName: "fine mesh strainer", expected: "sieve" },
     { rawName: "large mixing bowl", expected: "mixing-bowl" },
-    { rawName: "measuring spoon", expected: "measuring-spoons" },
+    { rawName: "measuring spoon", expected: "measuring-spoon" },
+    { rawName: "measuring spoons", expected: "measuring-spoon" },
+    { rawName: "scissors", expected: "scissors" },
+    { rawName: "tongs", expected: "tongs" },
     { rawName: "wire rack", expected: "cooling-rack" },
     { rawName: "hand blender", expected: "stick-blender" },
     { rawName: "chef's knife", expected: "knife" },

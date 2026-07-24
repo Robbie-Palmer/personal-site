@@ -6,7 +6,7 @@
     },
     {
       "slug": "baking-paper",
-      "category": "other"
+      "category": "consumable"
     },
     {
       "slug": "baking-tray",
@@ -34,15 +34,15 @@
     },
     {
       "slug": "chopping-board",
-      "category": "utensil"
+      "category": "surface"
     },
     {
       "slug": "cling-film",
-      "category": "other"
+      "category": "consumable"
     },
     {
       "slug": "cooling-rack",
-      "category": "bakeware"
+      "category": "surface"
     },
     {
       "slug": "deep-fryer",
@@ -54,7 +54,7 @@
     },
     {
       "slug": "foil",
-      "category": "other"
+      "category": "consumable"
     },
     {
       "slug": "food-processor",
@@ -114,11 +114,11 @@
     },
     {
       "slug": "measuring-jug",
-      "category": "vessel"
+      "category": "measuring"
     },
     {
-      "slug": "measuring-spoons",
-      "category": "utensil"
+      "slug": "measuring-spoon",
+      "category": "measuring"
     },
     {
       "slug": "microwave",
@@ -190,7 +190,7 @@
     },
     {
       "slug": "scales",
-      "category": "utensil"
+      "category": "measuring"
     },
     {
       "slug": "scissors",
@@ -238,7 +238,7 @@
     },
     {
       "slug": "thermometer",
-      "category": "utensil"
+      "category": "measuring"
     },
     {
       "slug": "toaster",

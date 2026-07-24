@@ -5,8 +5,10 @@ export const EquipmentCategorySchema = z.enum([
   "bakeware",
   "appliance",
   "utensil",
+  "measuring",
   "vessel",
-  "other",
+  "surface",
+  "consumable",
 ]);
 
 export type EquipmentCategory = z.infer<typeof EquipmentCategorySchema>;
