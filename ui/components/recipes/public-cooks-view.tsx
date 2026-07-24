@@ -173,11 +173,15 @@ function CooksError({ error }: Readonly<{ error: string }>) {
   );
 }
 
-function fatalCooksError(data: unknown, error: unknown): string | null {
+function fatalCooksError(
+  data: unknown,
+  error: unknown,
+  subject: string,
+): string | null {
   if (data !== undefined || !error) return null;
   return error instanceof Error
     ? error.message
-    : "The cooks directory could not be loaded.";
+    : `${subject} could not be loaded.`;
 }
 
 function CooksContent({
@@ -200,6 +204,7 @@ function CooksContent({
 export function PublicCooksView() {
   const searchParams = useSearchParams();
   const selectedCookId = searchParams.get("cook");
+  const subject = selectedCookId ? "This cook" : "The cooks directory";
   const directory = useQuery({
     ...publicCooksQuery(),
     enabled: !selectedCookId,
@@ -228,12 +233,12 @@ export function PublicCooksView() {
         hasData={result.data !== undefined}
         isFetching={result.isFetching}
         isStale={result.isStale}
-        subject={selectedCookId ? "this cook" : "the cooks directory"}
+        subject={subject.toLowerCase()}
       />
       <div className="container mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:py-14">
         <CooksContent
           cooks={directory.data ?? []}
-          error={fatalCooksError(result.data, result.error)}
+          error={fatalCooksError(result.data, result.error, subject)}
           selectedCook={profile.data ?? null}
           selectedCookId={selectedCookId}
         />

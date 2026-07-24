@@ -147,4 +147,15 @@ describe("PublicCooksView", () => {
     expect(screen.getByText("Service unavailable")).toBeInTheDocument();
     expect(screen.queryByText("Cook not found.")).not.toBeInTheDocument();
   });
+
+  it("names the selected cook when a non-Error request fails", async () => {
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams("cook=cook-1"));
+    mocks.getPublicCook.mockRejectedValue("offline");
+
+    render(<PublicCooksView />);
+
+    expect(
+      await screen.findAllByText("This cook could not be loaded."),
+    ).toHaveLength(2);
+  });
 });

@@ -85,6 +85,18 @@ describe("RecipePageLink", () => {
     expect(navigation.push).not.toHaveBeenCalled();
   });
 
+  it("falls back to document navigation without a navigation provider", () => {
+    render(
+      <RecipePageLink href="/recipes/weeknight-rice">
+        Weeknight Rice
+      </RecipePageLink>,
+    );
+
+    fireEvent.click(screen.getByRole("link", { name: "Weeknight Rice" }));
+
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
   it("keeps static application routes on Next client navigation", () => {
     renderRecipeLink(
       <RecipePageLink href="/recipes/discover">Discover</RecipePageLink>,

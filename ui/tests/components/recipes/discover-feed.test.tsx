@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DiscoverFeed } from "@/components/recipes/discover-feed";
+import type { DiscoverFeedItem } from "@/lib/api/discover-feed";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 import { fireEvent, render, screen, waitFor } from "@/tests/test-utils";
 
@@ -18,7 +19,7 @@ vi.mock("@/lib/auth-client", () => ({
 const originalFetch = globalThis.fetch;
 const originalIntersectionObserver = globalThis.IntersectionObserver;
 
-function feedItem(slug: string, title: string) {
+function feedItem(slug: string, title: string): DiscoverFeedItem {
   return {
     type: "recipe_added",
     recipe: {
