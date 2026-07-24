@@ -51,15 +51,20 @@ export type IngestParams = {
   jobId: string;
 };
 
-function llmStepConfig(params: StageParams): WorkflowStepConfig {
+function llmStepConfig(
+  params: StageParams,
+  providerCalls = 1,
+): WorkflowStepConfig {
   return {
     retries: {
       limit: params.retryLimit,
       delay: 1_000,
       backoff: "exponential",
     },
-    // Per-attempt ceiling: R2 reads + one provider call + attempt bookkeeping.
-    timeout: params.requestTimeoutMs + 60_000,
+    // Per-attempt ceiling: R2 reads + the step's provider calls + attempt
+    // bookkeeping. A step that makes its calls in sequence needs the timeout
+    // to cover all of them, not just the first.
+    timeout: params.requestTimeoutMs * providerCalls + 60_000,
   };
 }
 
@@ -221,7 +226,8 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
       const canonicalizeParams = stageParams(env, "canonicalize");
       const canonical = await step.do(
         "canonicalize",
-        llmStepConfig(canonicalizeParams),
+        // Ingredients and equipment are disambiguated in sequence.
+        llmStepConfig(canonicalizeParams, 2),
         async (ctx) => {
           const recipe = cooklang.derived;
           if (!recipe) {
