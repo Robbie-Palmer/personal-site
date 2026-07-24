@@ -1,6 +1,6 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   ArrowLeft,
@@ -67,6 +67,51 @@ type ImportedRecipe = {
   source: string;
   url: string;
 };
+
+async function invalidateSavedRecipeQueries({
+  queryClient,
+  userId,
+  slug,
+  visibility,
+  previousVisibility,
+}: {
+  queryClient: QueryClient;
+  userId: string | null;
+  slug: string;
+  visibility: RecipeVisibility;
+  previousVisibility?: RecipeVisibility;
+}) {
+  if (!userId) return;
+  const invalidations = [
+    queryClient.invalidateQueries({
+      queryKey: recipeQueryKeys.recipeBoxRecipes(userId),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: recipeQueryKeys.savedRecipe(userId, slug),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: recipeQueryKeys.publicRecipes(),
+    }),
+  ];
+  if (visibility === "public" || previousVisibility === "public") {
+    invalidations.push(
+      queryClient.invalidateQueries({
+        queryKey: recipeQueryKeys.publicDiscoverFeed(),
+      }),
+    );
+  }
+  if (
+    visibility !== "private" ||
+    (previousVisibility !== undefined && previousVisibility !== "private")
+  ) {
+    invalidations.push(
+      queryClient.invalidateQueries({
+        queryKey: recipeQueryKeys.householdDiscoverFeed(userId),
+      }),
+    );
+  }
+  await Promise.all(invalidations);
+}
 
 function RecipeEditorGate({
   unreadable,
@@ -400,42 +445,13 @@ export function AddRecipeView({
         );
       }
       const saved = (await response.json()) as { slug: string };
-      if (sessionUserId) {
-        const invalidations = [
-          queryClient.invalidateQueries({
-            queryKey: recipeQueryKeys.recipeBoxRecipes(sessionUserId),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: recipeQueryKeys.savedRecipe(
-              sessionUserId,
-              initialRecipe?.slug ?? saved.slug,
-            ),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: recipeQueryKeys.publicRecipes(),
-          }),
-        ];
-        if (visibility === "public" || initialRecipe?.visibility === "public") {
-          invalidations.push(
-            queryClient.invalidateQueries({
-              queryKey: recipeQueryKeys.publicDiscoverFeed(),
-            }),
-          );
-        }
-        if (
-          visibility === "public" ||
-          visibility === "household" ||
-          initialRecipe?.visibility === "public" ||
-          initialRecipe?.visibility === "household"
-        ) {
-          invalidations.push(
-            queryClient.invalidateQueries({
-              queryKey: recipeQueryKeys.householdDiscoverFeed(sessionUserId),
-            }),
-          );
-        }
-        await Promise.all(invalidations);
-      }
+      await invalidateSavedRecipeQueries({
+        queryClient,
+        userId: sessionUserId ?? null,
+        slug: initialRecipe?.slug ?? saved.slug,
+        visibility,
+        previousVisibility: initialRecipe?.visibility,
+      });
       if (initialRecipe) {
         navigateToRecipePage(saved);
         return;

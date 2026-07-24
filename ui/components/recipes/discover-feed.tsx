@@ -102,6 +102,115 @@ function FeedCard({ item }: Readonly<{ item: DiscoverFeedItem }>) {
   );
 }
 
+function FeedScopeTabs({
+  scope,
+  householdEnabled,
+  showSignedOutMessage,
+  onScopeChange,
+}: Readonly<{
+  scope: DiscoverFeedScope;
+  householdEnabled: boolean;
+  showSignedOutMessage: boolean;
+  onScopeChange: (scope: DiscoverFeedScope) => void;
+}>) {
+  return (
+    <>
+      <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl border border-[var(--line)] bg-[var(--paper-warm)] p-1.5">
+        <button
+          type="button"
+          aria-pressed={scope === "public"}
+          onClick={() => onScopeChange("public")}
+          className={cn(
+            "rt-body flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors",
+            scope === "public"
+              ? "bg-[var(--card)] text-[var(--terracotta-deep)] shadow-sm"
+              : "text-[var(--ink-3)] hover:text-[var(--ink)]",
+          )}
+        >
+          <Globe2 className="size-4" /> Public
+        </button>
+        <button
+          type="button"
+          aria-pressed={scope === "household"}
+          disabled={!householdEnabled}
+          onClick={() => onScopeChange("household")}
+          className={cn(
+            "rt-body flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-45",
+            scope === "household"
+              ? "bg-[var(--card)] text-[var(--terracotta-deep)] shadow-sm"
+              : "text-[var(--ink-3)] hover:text-[var(--ink)]",
+          )}
+        >
+          <Home className="size-4" /> Household
+        </button>
+      </div>
+      {showSignedOutMessage ? (
+        <p className="rt-body mb-5 text-center text-sm text-[var(--ink-3)]">
+          You’re seeing public additions. Sign in to unlock your household feed.
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function FeedResults({
+  items,
+  loading,
+  error,
+  hasMore,
+  onRetry,
+}: Readonly<{
+  items: DiscoverFeedItem[];
+  loading: boolean;
+  error: unknown;
+  hasMore: boolean;
+  onRetry: () => void;
+}>) {
+  return (
+    <>
+      <div className="space-y-4">
+        {items.map((item) => (
+          <FeedCard key={`${item.recipe.slug}-${item.createdAt}`} item={item} />
+        ))}
+      </div>
+      {!loading && !error && items.length === 0 ? (
+        <div className="mt-10 rounded-xl border border-dashed border-[var(--line-strong)] px-6 py-12 text-center">
+          <UtensilsCrossed className="mx-auto size-8 text-[var(--terracotta)]" />
+          <p className="rt-display mt-3 text-3xl">Nothing here yet.</p>
+          <p className="rt-body mt-1 text-sm text-[var(--ink-3)]">
+            New recipe additions will show up here.
+          </p>
+        </div>
+      ) : null}
+      {error ? (
+        <div className="mt-6 text-center">
+          <p className="rt-body text-sm text-[var(--terracotta-deep)]">
+            {error instanceof Error
+              ? error.message
+              : "The feed could not be loaded."}
+          </p>
+          <Button variant="outline" className="mt-3" onClick={onRetry}>
+            Try again
+          </Button>
+        </div>
+      ) : null}
+      {loading ? (
+        <output
+          className="flex justify-center py-8"
+          aria-label="Loading more recipes"
+        >
+          <LoaderCircle className="size-6 animate-spin text-[var(--terracotta)]" />
+        </output>
+      ) : null}
+      {!hasMore && items.length > 0 ? (
+        <p className="rt-mono py-8 text-center text-xs text-[var(--ink-3)]">
+          · you’re all caught up ·
+        </p>
+      ) : null}
+    </>
+  );
+}
+
 export function DiscoverFeed() {
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const [scope, setScope] = useState<DiscoverFeedScope>("public");
@@ -145,6 +254,14 @@ export function DiscoverFeed() {
     return () => observer.disconnect();
   }, [error, feed.fetchNextPage, hasMore, loading]);
 
+  function retryFeed() {
+    if (items.length > 0 && feed.hasNextPage) {
+      void feed.fetchNextPage();
+      return;
+    }
+    void feed.refetch();
+  }
+
   return (
     <>
       <RecipeQueryStatus
@@ -169,97 +286,19 @@ export function DiscoverFeed() {
           </p>
         </div>
 
-        <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl border border-[var(--line)] bg-[var(--paper-warm)] p-1.5">
-          <button
-            type="button"
-            aria-pressed={scope === "public"}
-            onClick={() => setScope("public")}
-            className={cn(
-              "rt-body flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors",
-              scope === "public"
-                ? "bg-[var(--card)] text-[var(--terracotta-deep)] shadow-sm"
-                : "text-[var(--ink-3)] hover:text-[var(--ink)]",
-            )}
-          >
-            <Globe2 className="size-4" /> Public
-          </button>
-          <button
-            type="button"
-            aria-pressed={scope === "household"}
-            disabled={!mounted || !session}
-            onClick={() => setScope("household")}
-            className={cn(
-              "rt-body flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-45",
-              scope === "household"
-                ? "bg-[var(--card)] text-[var(--terracotta-deep)] shadow-sm"
-                : "text-[var(--ink-3)] hover:text-[var(--ink)]",
-            )}
-          >
-            <Home className="size-4" /> Household
-          </button>
-        </div>
-
-        {mounted && !session && !sessionPending ? (
-          <p className="rt-body mb-5 text-center text-sm text-[var(--ink-3)]">
-            You’re seeing public additions. Sign in to unlock your household
-            feed.
-          </p>
-        ) : null}
-
-        <div className="space-y-4">
-          {items.map((item) => (
-            <FeedCard
-              key={`${item.recipe.slug}-${item.createdAt}`}
-              item={item}
-            />
-          ))}
-        </div>
-
-        {!loading && !error && items.length === 0 ? (
-          <div className="mt-10 rounded-xl border border-dashed border-[var(--line-strong)] px-6 py-12 text-center">
-            <UtensilsCrossed className="mx-auto size-8 text-[var(--terracotta)]" />
-            <p className="rt-display mt-3 text-3xl">Nothing here yet.</p>
-            <p className="rt-body mt-1 text-sm text-[var(--ink-3)]">
-              New recipe additions will show up here.
-            </p>
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="mt-6 text-center">
-            <p className="rt-body text-sm text-[var(--terracotta-deep)]">
-              {error instanceof Error
-                ? error.message
-                : "The feed could not be loaded."}
-            </p>
-            <Button
-              variant="outline"
-              className="mt-3"
-              onClick={() => {
-                if (items.length > 0 && feed.hasNextPage) {
-                  void feed.fetchNextPage();
-                  return;
-                }
-                void feed.refetch();
-              }}
-            >
-              Try again
-            </Button>
-          </div>
-        ) : null}
-        {loading ? (
-          <output
-            className="flex justify-center py-8"
-            aria-label="Loading more recipes"
-          >
-            <LoaderCircle className="size-6 animate-spin text-[var(--terracotta)]" />
-          </output>
-        ) : null}
-        {!hasMore && items.length > 0 ? (
-          <p className="rt-mono py-8 text-center text-xs text-[var(--ink-3)]">
-            · you’re all caught up ·
-          </p>
-        ) : null}
+        <FeedScopeTabs
+          scope={scope}
+          householdEnabled={mounted && signedIn}
+          showSignedOutMessage={mounted && !signedIn && !sessionPending}
+          onScopeChange={setScope}
+        />
+        <FeedResults
+          items={items}
+          loading={loading}
+          error={error}
+          hasMore={hasMore}
+          onRetry={retryFeed}
+        />
         <div ref={sentinel} className="h-px" aria-hidden="true" />
       </div>
     </>
