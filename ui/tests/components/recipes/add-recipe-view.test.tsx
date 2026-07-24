@@ -170,7 +170,7 @@ describe("AddRecipeView visibility", () => {
       screen.getByRole("button", { name: "Private", pressed: true }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Import from URL" }),
+      screen.queryByRole("button", { name: "Import URL" }),
     ).not.toBeInTheDocument();
 
     fireEvent.click(
@@ -225,5 +225,63 @@ describe("AddRecipeView visibility", () => {
     expect(
       screen.queryByRole("button", { name: "Save changes" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("imports a local schema.org file into the editable fields", async () => {
+    mocks.getHouseholds.mockResolvedValue([]);
+    const content = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Recipe",
+      name: "Tomato pasta",
+      recipeIngredient: ["200 g pasta"],
+      recipeInstructions: ["Boil the pasta."],
+    });
+    const file = new File([content], "tomato-pasta.json", {
+      type: "application/ld+json",
+    });
+    Object.defineProperty(file, "text", {
+      value: vi.fn().mockResolvedValue(content),
+    });
+    globalThis.fetch = vi.fn(async (input) => {
+      if (String(input) !== "/api/recipes/import-file") {
+        throw new Error(`Unexpected request: ${String(input)}`);
+      }
+      return Response.json({
+        title: "Tomato pasta",
+        description: "A quick dinner.",
+        cuisine: "Italian",
+        servings: 2,
+        prepTime: 5,
+        cookTime: 20,
+        source: "@pasta{200%g}\n\nBoil the pasta.",
+      });
+    }) as typeof fetch;
+
+    render(<AddRecipeView />);
+    fireEvent.click(screen.getByRole("button", { name: "Upload file" }));
+    fireEvent.change(screen.getByLabelText("Recipe file"), {
+      target: { files: [file] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import recipe" }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Recipe name")).toHaveValue("Tomato pasta"),
+    );
+    expect(screen.getByLabelText("Short description")).toHaveValue(
+      "A quick dinner.",
+    );
+    expect(screen.getByLabelText("Cuisine")).toHaveValue("Italian");
+    expect(screen.getByLabelText("Servings")).toHaveValue(2);
+    expect(
+      screen.getByText(
+        "Imported tomato-pasta.json. You can edit any field before saving.",
+      ),
+    ).toBeInTheDocument();
+
+    const [, request] = vi.mocked(globalThis.fetch).mock.calls[0] ?? [];
+    expect(JSON.parse(String(request?.body))).toEqual({
+      filename: "tomato-pasta.json",
+      content,
+    });
   });
 });

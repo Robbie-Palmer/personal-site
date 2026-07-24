@@ -13,8 +13,66 @@ export type SchemaOrgRecipeImport = {
   source: string;
 };
 
+export type SchemaOrgRecipeFileImport = SchemaOrgRecipeImport & {
+  url?: string;
+};
+
 function servings(value: string): string {
   return /\d+(?:\.\d+)?/.exec(value)?.[0] ?? "1";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isRecipeType(value: unknown): boolean {
+  const types = Array.isArray(value) ? value : [value];
+  return types.some(
+    (type) =>
+      typeof type === "string" && /(?:^|\/)Recipe\/?$/i.test(type.trim()),
+  );
+}
+
+function findRecipeObject(value: unknown): Record<string, unknown> | undefined {
+  const pending: unknown[] = [value];
+  while (pending.length > 0) {
+    const candidate = pending.pop();
+    if (Array.isArray(candidate)) {
+      for (let index = candidate.length - 1; index >= 0; index--) {
+        pending.push(candidate[index]);
+      }
+      continue;
+    }
+    if (!isRecord(candidate)) continue;
+    if (isRecipeType(candidate["@type"])) return candidate;
+    const children = Object.values(candidate);
+    for (let index = children.length - 1; index >= 0; index--) {
+      pending.push(children[index]);
+    }
+  }
+  return undefined;
+}
+
+function httpUrl(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:"
+      ? url.toString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function recipeCanonicalUrl(
+  recipe: Record<string, unknown> | undefined,
+): string | undefined {
+  if (!recipe) return undefined;
+  const directUrl = httpUrl(recipe.url);
+  if (directUrl) return directUrl;
+  if (isRecord(recipe.isBasedOn)) return httpUrl(recipe.isBasedOn.url);
+  return httpUrl(recipe.isBasedOn);
 }
 
 function unwrapJsonLd(source: string): string {
@@ -40,13 +98,15 @@ function normalizeRecipeMarkup(html: string, url: string): string {
 
     try {
       const data: unknown = JSON.parse(source);
-      const visit = (value: unknown): void => {
+      const pending: unknown[] = [data];
+      while (pending.length > 0) {
+        const value = pending.pop();
         if (Array.isArray(value)) {
-          for (const entry of value) visit(entry);
-          return;
+          pending.push(...value);
+          continue;
         }
-        if (!value || typeof value !== "object") return;
-        const object = value as Record<string, unknown>;
+        if (!isRecord(value)) continue;
+        const object = value;
         const types = Array.isArray(object["@type"])
           ? object["@type"]
           : [object["@type"]];
@@ -67,9 +127,8 @@ function normalizeRecipeMarkup(html: string, url: string): string {
           object.image ??= url;
           object.recipeYield ??= "1 serving";
         }
-        for (const child of Object.values(object)) visit(child);
-      };
-      visit(data);
+        pending.push(...Object.values(object));
+      }
       $(element).text(JSON.stringify(data));
     } catch {
       // recipe-scrapers can recover some malformed JSON-LD itself.
@@ -133,4 +192,29 @@ export async function parseSchemaOrgRecipeHtml(
     cookTime: cooklang.frontmatter.cookTime,
     source: cooklang.body,
   };
+}
+
+/**
+ * Parse a standalone schema.org JSON-LD document. Recipe apps commonly
+ * exchange either a single Recipe object, a top-level array, or an @graph.
+ */
+export async function parseSchemaOrgRecipeJson(
+  source: string,
+): Promise<SchemaOrgRecipeFileImport | null> {
+  let data: unknown;
+  try {
+    data = JSON.parse(source);
+  } catch {
+    return null;
+  }
+
+  const recipeObject = findRecipeObject(data);
+  if (!recipeObject) return null;
+  const url = recipeCanonicalUrl(recipeObject);
+  const safeJson = JSON.stringify(data).replaceAll("<", String.raw`\u003c`);
+  const parsed = await parseSchemaOrgRecipeHtml(
+    `<script type="application/ld+json">${safeJson}</script>`,
+    url ?? "https://example.com/imported-recipe",
+  );
+  return parsed ? { ...parsed, ...(url ? { url } : {}) } : null;
 }
