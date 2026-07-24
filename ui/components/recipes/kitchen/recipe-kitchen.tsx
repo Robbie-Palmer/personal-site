@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { KitchenView } from "@/components/recipes/kitchen/kitchen-view";
 import { RecipeAuthRequired } from "@/components/recipes/recipe-auth-required";
+import { RecipeQueryStatus } from "@/components/recipes/recipe-load-state";
 import { buildKitchenCatalog } from "@/lib/api/recipes";
 import { authClient } from "@/lib/auth-client";
 import { recipeBoxRecipesQuery } from "@/lib/query/recipe-queries";
@@ -32,7 +33,7 @@ export function RecipeKitchen() {
     );
   }
 
-  if (recipeBox.isError) {
+  if (recipeBox.isError && recipeBox.data === undefined) {
     return (
       <p className="rt-body p-8 text-center">
         Your kitchen could not be loaded.
@@ -46,5 +47,16 @@ export function RecipeKitchen() {
       </div>
     );
   }
-  return <KitchenView {...recipeBox.data} />;
+  return (
+    <>
+      <RecipeQueryStatus
+        error={recipeBox.error}
+        hasData
+        isFetching={recipeBox.isFetching}
+        isStale={recipeBox.isStale}
+        subject="your kitchen"
+      />
+      <KitchenView {...recipeBox.data} />
+    </>
+  );
 }

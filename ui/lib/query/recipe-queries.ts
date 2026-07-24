@@ -16,6 +16,7 @@ export const publicRecipesQuery = () =>
     queryFn: ({ signal }) =>
       fetchAllSavedRecipes({ signal }).then(recipeRecordsToCards),
     staleTime: 2 * 60_000,
+    refetchOnWindowFocus: true,
   });
 
 export const recipeBoxRecipesQuery = (userId: string) =>

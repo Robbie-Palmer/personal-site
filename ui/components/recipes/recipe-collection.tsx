@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import { useDiet } from "@/components/recipes/diet-provider";
 import { RecipeList } from "@/components/recipes/recipe-list";
+import { RecipeQueryStatus } from "@/components/recipes/recipe-load-state";
 import { CardGridSkeleton } from "@/components/ui/card-grid-skeleton";
 import { authClient } from "@/lib/auth-client";
 import { savedRecipeCard } from "@/lib/domain/recipe/recipeDraft";
@@ -71,11 +72,13 @@ export function RecipeCollection({
 
   return (
     <>
-      {recipeBox.isError ? (
-        <output className="rt-body mb-5 block rounded-lg border border-[var(--terracotta)]/30 bg-[var(--terracotta)]/5 px-4 py-3 text-sm text-[var(--ink-2)]">
-          Your recipe box could not be loaded.
-        </output>
-      ) : null}
+      <RecipeQueryStatus
+        error={recipeBox.error}
+        hasData={recipeBox.data !== undefined}
+        isFetching={recipeBox.isFetching}
+        isStale={recipeBox.isStale}
+        subject="your recipe box"
+      />
       {session && box && !box.completed ? (
         <div className="rt-body mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--terracotta)]/30 bg-[var(--butter-soft)] px-4 py-3 text-sm text-[var(--ink-2)]">
           <span>

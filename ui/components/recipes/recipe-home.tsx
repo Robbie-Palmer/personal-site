@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { LoggedOutLanding } from "@/components/recipes/logged-out-landing";
 import { RecipeBoxView } from "@/components/recipes/recipe-box-view";
 import { RecipeHomeSkeleton } from "@/components/recipes/recipe-home-skeleton";
+import { RecipeQueryStatus } from "@/components/recipes/recipe-load-state";
 import { authClient } from "@/lib/auth-client";
 import { publicRecipesQuery } from "@/lib/query/recipe-queries";
 
@@ -26,5 +27,23 @@ export function RecipeHome() {
     return <RecipeHomeSkeleton />;
   }
   if (session) return <RecipeBoxView />;
-  return <LoggedOutLanding recipes={publicRecipes.data ?? []} />;
+  const hasPublicRecipes = publicRecipes.data !== undefined;
+  const queryStatus = (
+    <RecipeQueryStatus
+      error={publicRecipes.error}
+      hasData={hasPublicRecipes}
+      isFetching={publicRecipes.isFetching}
+      isStale={publicRecipes.isStale}
+      subject="public recipes"
+    />
+  );
+
+  if (!hasPublicRecipes) return queryStatus;
+
+  return (
+    <>
+      {queryStatus}
+      <LoggedOutLanding recipes={publicRecipes.data} />
+    </>
+  );
 }

@@ -8,6 +8,7 @@ import {
   errorMessage,
   RecipeLoadError,
   RecipeLoading,
+  RecipeQueryStatus,
 } from "@/components/recipes/recipe-load-state";
 import { authClient } from "@/lib/auth-client";
 import { savedRecipeQuery } from "@/lib/query/recipe-queries";
@@ -32,7 +33,7 @@ export function EditRecipeView() {
   if (sessionPending || result.isPending) {
     return <RecipeLoading />;
   }
-  if (result.isError) {
+  if (result.isError && result.data === undefined) {
     return (
       <RecipeLoadError
         title="Recipe unavailable"
@@ -48,5 +49,16 @@ export function EditRecipeView() {
       />
     );
   }
-  return <AddRecipeView initialRecipe={result.data} />;
+  return (
+    <>
+      <RecipeQueryStatus
+        error={result.error}
+        hasData
+        isFetching={result.isFetching}
+        isStale={result.isStale}
+        subject="this recipe"
+      />
+      <AddRecipeView initialRecipe={result.data} />
+    </>
+  );
 }

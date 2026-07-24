@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { RecipeAuthRequired } from "@/components/recipes/recipe-auth-required";
+import { RecipeQueryStatus } from "@/components/recipes/recipe-load-state";
 import { ShoppingView } from "@/components/recipes/shopping/shopping-view";
 import { recipeRecordsToShoppingRecipes } from "@/lib/api/shopping";
 import { authClient } from "@/lib/auth-client";
@@ -32,7 +33,7 @@ export function RecipeShopping() {
     );
   }
 
-  if (recipeBox.isError) {
+  if (recipeBox.isError && recipeBox.data === undefined) {
     return (
       <p className="rt-body p-8 text-center">
         Your recipes could not be loaded.
@@ -46,5 +47,16 @@ export function RecipeShopping() {
       </div>
     );
   }
-  return <ShoppingView recipes={recipeBox.data} />;
+  return (
+    <>
+      <RecipeQueryStatus
+        error={recipeBox.error}
+        hasData
+        isFetching={recipeBox.isFetching}
+        isStale={recipeBox.isStale}
+        subject="your shopping recipes"
+      />
+      <ShoppingView recipes={recipeBox.data} />
+    </>
+  );
 }
