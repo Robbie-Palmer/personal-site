@@ -5,7 +5,6 @@ import { render, screen } from "@/tests/test-utils";
 
 const navigation = vi.hoisted(() => ({
   pathname: "/recipes/first-soup",
-  replaceWithRecipePage: vi.fn(),
   search: "",
 }));
 
@@ -20,10 +19,6 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/auth-client", () => ({
   authClient: { useSession: () => auth.session },
-}));
-
-vi.mock("@/components/recipes/recipe-page-link", () => ({
-  replaceWithRecipePage: navigation.replaceWithRecipePage,
 }));
 
 vi.mock("@/components/recipes/recipe-content", () => ({
@@ -72,7 +67,6 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
   navigation.pathname = "/recipes/first-soup";
   navigation.search = "";
-  navigation.replaceWithRecipePage.mockReset();
   vi.restoreAllMocks();
 });
 
@@ -133,17 +127,23 @@ describe("SavedRecipeView", () => {
     ).toEqual(expect.objectContaining({ slug: "first-soup" }));
   });
 
-  it("redirects the legacy saved-recipe URL to the unified recipe path", () => {
-    globalThis.fetch = vi.fn();
+  it("shows the cached route at its canonical recipe URL", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      Response.json(record("first-soup", "First Soup")),
+    ) as typeof fetch;
     navigation.pathname = "/recipes/saved";
     navigation.search = "slug=first-soup";
+    const replaceState = vi.spyOn(window.history, "replaceState");
 
     render(<SavedRecipeView />);
 
-    expect(navigation.replaceWithRecipePage).toHaveBeenCalledWith({
-      slug: "first-soup",
-    });
-    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(await screen.findByText("First Soup")).toBeInTheDocument();
+    expect(replaceState).toHaveBeenCalledWith(
+      window.history.state,
+      "",
+      "/recipes/first-soup",
+    );
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
   });
 
   it("does not redirect the saved-recipe route without a slug", async () => {
@@ -155,7 +155,6 @@ describe("SavedRecipeView", () => {
     expect(
       await screen.findByText("No saved recipe was selected."),
     ).toBeInTheDocument();
-    expect(navigation.replaceWithRecipePage).not.toHaveBeenCalled();
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 });

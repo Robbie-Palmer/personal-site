@@ -1,9 +1,10 @@
-import { act, render, screen } from "@testing-library/react";
+import { act } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   PublicCookProfile,
   PublicCookSummary,
 } from "@/lib/api/public-cooks";
+import { render, screen } from "@/tests/test-utils";
 
 const mocks = vi.hoisted(() => ({
   getPublicCook: vi.fn(),
@@ -103,6 +104,33 @@ describe("PublicCooksView", () => {
       expect.any(AbortSignal),
     );
     expect(mocks.getPublicCooks).not.toHaveBeenCalled();
+  });
+
+  it("reuses the directory and profile when navigating around in a loop", async () => {
+    const view = render(<PublicCooksView />);
+    expect(await screen.findByText("Ada Cook")).toBeInTheDocument();
+
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams("cook=cook-1"));
+    view.rerender(<PublicCooksView />);
+    expect(
+      await screen.findByRole("heading", {
+        name: /Ada.*recipe activity/,
+      }),
+    ).toBeInTheDocument();
+
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams());
+    view.rerender(<PublicCooksView />);
+    expect(await screen.findByText("Ada Cook")).toBeInTheDocument();
+
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams("cook=cook-1"));
+    view.rerender(<PublicCooksView />);
+    expect(
+      await screen.findByRole("heading", {
+        name: /Ada.*recipe activity/,
+      }),
+    ).toBeInTheDocument();
+    expect(mocks.getPublicCooks).toHaveBeenCalledTimes(1);
+    expect(mocks.getPublicCook).toHaveBeenCalledTimes(1);
   });
 
   it("shows request errors instead of a missing-cook message", async () => {

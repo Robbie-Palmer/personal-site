@@ -13,10 +13,12 @@ import {
   RecipeLoading,
   RecipeQueryStatus,
 } from "@/components/recipes/recipe-load-state";
-import { replaceWithRecipePage } from "@/components/recipes/recipe-page-link";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
-import { parseSavedRecipe } from "@/lib/domain/recipe/recipeDraft";
+import {
+  parseSavedRecipe,
+  recipePageHref,
+} from "@/lib/domain/recipe/recipeDraft";
 import { savedRecipeQuery } from "@/lib/query/recipe-queries";
 
 export function SavedRecipeView() {
@@ -27,18 +29,20 @@ export function SavedRecipeView() {
   const slug =
     pathname === "/recipes/saved" ? searchSlug : (searchSlug ?? pathSlug);
   const validSlug = isRecipeSlug(slug);
-  const needsRedirect =
-    pathname === "/recipes/saved" && Boolean(searchSlug && validSlug);
   const result = useQuery({
     ...savedRecipeQuery(session?.user.id ?? null, slug ?? "invalid"),
-    enabled: !sessionPending && validSlug && !needsRedirect,
+    enabled: !sessionPending && validSlug,
   });
 
   useEffect(() => {
-    if (needsRedirect && searchSlug) {
-      replaceWithRecipePage({ slug: searchSlug });
+    if (pathname === "/recipes/saved" && searchSlug && validSlug) {
+      window.history.replaceState(
+        window.history.state,
+        "",
+        recipePageHref({ slug: searchSlug }),
+      );
     }
-  }, [needsRedirect, searchSlug]);
+  }, [pathname, searchSlug, validSlug]);
 
   if (!validSlug) {
     return (
@@ -48,7 +52,7 @@ export function SavedRecipeView() {
       />
     );
   }
-  if (sessionPending || needsRedirect || result.isPending) {
+  if (sessionPending || result.isPending) {
     return <RecipeLoading />;
   }
   if (result.isError && result.data === undefined) {
