@@ -12,7 +12,6 @@ export interface CandidateScore {
 
 export interface OntologyIndex {
   ontology: Set<string>;
-  byLength: Map<number, string[]>;
   byToken: Map<string, Set<string>>;
 }
 
@@ -58,21 +57,15 @@ export function buildOntology(
 }
 
 export function buildOntologyIndex(ontology: Set<string>): OntologyIndex {
-  const byLength = new Map<number, string[]>();
   const byToken = new Map<string, Set<string>>();
   for (const slug of ontology) {
-    const len = slug.length;
-    const sameLen = byLength.get(len) ?? [];
-    sameLen.push(slug);
-    byLength.set(len, sameLen);
-
     for (const token of tokenize(slug)) {
       const slugs = byToken.get(token) ?? new Set<string>();
       slugs.add(slug);
       byToken.set(token, slugs);
     }
   }
-  return { ontology, byLength, byToken };
+  return { ontology, byToken };
 }
 
 function levenshtein(a: string, b: string): number {
@@ -127,10 +120,16 @@ function exactCandidate(
   return undefined;
 }
 
-function slugsSharingATokenWith(
+/**
+ * Only slugs sharing a token are worth scoring. Without one the token score is
+ * 0, capping similarity at 0.4 — below any usable threshold — so a wider
+ * shortlist cannot produce a match, it can only put unrelated slugs in front
+ * of the LLM as if they were plausible.
+ */
+function shortlistFor(
   candidate: string,
   ontologyIndex: OntologyIndex,
-): Set<string> {
+): Iterable<string> {
   const shortlist = new Set<string>();
   for (const token of tokenize(candidate)) {
     for (const slug of ontologyIndex.byToken.get(token) ?? []) {
@@ -138,30 +137,6 @@ function slugsSharingATokenWith(
     }
   }
   return shortlist;
-}
-
-function slugsOfSimilarLength(
-  candidate: string,
-  ontologyIndex: OntologyIndex,
-): Set<string> {
-  const shortlist = new Set<string>();
-  for (let len = candidate.length - 2; len <= candidate.length + 2; len++) {
-    for (const slug of ontologyIndex.byLength.get(len) ?? []) {
-      shortlist.add(slug);
-    }
-  }
-  return shortlist;
-}
-
-function shortlistFor(
-  candidate: string,
-  ontologyIndex: OntologyIndex,
-): Iterable<string> {
-  const sharingAToken = slugsSharingATokenWith(candidate, ontologyIndex);
-  if (sharingAToken.size > 0) return sharingAToken;
-
-  const similarLength = slugsOfSimilarLength(candidate, ontologyIndex);
-  return similarLength.size > 0 ? similarLength : ontologyIndex.ontology;
 }
 
 function highestScoringUnique(scored: CandidateScore[]): CandidateScore[] {

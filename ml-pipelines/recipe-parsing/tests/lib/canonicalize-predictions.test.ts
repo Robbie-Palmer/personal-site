@@ -38,7 +38,7 @@ function predictions(): { entries: PredictionEntry[] } {
             { items: [{ ingredient: "chicken-fillets", amount: 2 }] },
           ],
           instructions: ["Roast everything."],
-          cookware: ["large skillet", "spider strainer"],
+          cookware: ["large skillet", "pizza pan"],
         },
       },
     ],
@@ -62,7 +62,7 @@ describe("canonicalizePredictions", () => {
     expect(entry.predicted.ingredientGroups[0]?.items[0]?.ingredient).toBe(
       "chicken-breast",
     );
-    expect(entry.predicted.cookware).toEqual(["frying pan", "spider strainer"]);
+    expect(entry.predicted.cookware).toEqual(["frying pan", "pizza pan"]);
     expect(result.decisions.entries[0]?.images).toEqual(["a.jpg"]);
     expect(result.decisions.entries[0]?.cookwareDecisions).toHaveLength(2);
     expect(disambiguateEquipment).not.toHaveBeenCalled();
@@ -161,7 +161,7 @@ describe("canonicalizePredictions", () => {
 
     expect(result.canonicalized.entries[0]?.predicted.cookware).toEqual([
       "frying pan",
-      "spider strainer",
+      "pizza pan",
     ]);
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining('equipment in "Chicken Traybake"'),

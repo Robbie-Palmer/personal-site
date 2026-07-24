@@ -61,6 +61,10 @@
       "category": "appliance"
     },
     {
+      "slug": "fork",
+      "category": "utensil"
+    },
+    {
       "slug": "frying-pan",
       "category": "cookware"
     },
@@ -97,12 +101,20 @@
       "category": "appliance"
     },
     {
+      "slug": "kitchen-roll",
+      "category": "consumable"
+    },
+    {
       "slug": "knife",
       "category": "utensil"
     },
     {
       "slug": "ladle",
       "category": "utensil"
+    },
+    {
+      "slug": "lid",
+      "category": "cookware"
     },
     {
       "slug": "loaf-tin",
@@ -141,6 +153,10 @@
       "category": "bakeware"
     },
     {
+      "slug": "pan",
+      "category": "cookware"
+    },
+    {
       "slug": "pastry-brush",
       "category": "utensil"
     },
@@ -159,6 +175,14 @@
     {
       "slug": "piping-bag",
       "category": "utensil"
+    },
+    {
+      "slug": "plate",
+      "category": "vessel"
+    },
+    {
+      "slug": "pot",
+      "category": "cookware"
     },
     {
       "slug": "potato-masher",
@@ -217,6 +241,10 @@
       "category": "utensil"
     },
     {
+      "slug": "spoon",
+      "category": "utensil"
+    },
+    {
       "slug": "springform-tin",
       "category": "bakeware"
     },
@@ -235,6 +263,10 @@
     {
       "slug": "stockpot",
       "category": "cookware"
+    },
+    {
+      "slug": "teaspoon",
+      "category": "utensil"
     },
     {
       "slug": "thermometer",

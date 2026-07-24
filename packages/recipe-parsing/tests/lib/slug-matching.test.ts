@@ -42,11 +42,11 @@ describe("matchSlug", () => {
 
   it("should accept a fuzzy match that clears the threshold and margin", () => {
     const match = matchSlug({
-      baseSlug: "fryingpan",
-      candidateSlugs: ["fryingpan"],
+      baseSlug: "frying-pan-lid",
+      candidateSlugs: ["frying-pan-lid"],
       ontology,
       ontologyIndex,
-      fuzzyThreshold: 0.3,
+      fuzzyThreshold: 0.6,
       fuzzyMargin: 0.05,
     });
     expect(match.method).toBe("fuzzy");
@@ -73,14 +73,14 @@ describe("matchSlug", () => {
 
   it("should report a below-threshold near miss with its candidates", () => {
     const match = matchSlug({
-      baseSlug: "tagine",
-      candidateSlugs: ["tagine"],
+      baseSlug: "pizza-pan",
+      candidateSlugs: ["pizza-pan"],
       ontology,
       ontologyIndex,
     });
     expect(match.method).toBe("none");
     expect(match.reason).toBe("below-threshold");
-    expect(match.candidates.length).toBeGreaterThan(0);
+    expect(match.candidates.map((c) => c.slug)).toContain("frying-pan");
   });
 
   it("should report no candidates against an empty ontology", () => {
@@ -97,7 +97,7 @@ describe("matchSlug", () => {
     });
   });
 
-  it("should shortlist by length when no token is shared", () => {
+  it("should offer no candidates when nothing shares a token", () => {
     const match = matchSlug({
       baseSlug: "wok",
       candidateSlugs: ["wok"],
@@ -105,6 +105,7 @@ describe("matchSlug", () => {
       fuzzyThreshold: 0.1,
       fuzzyMargin: 0,
     });
-    expect(match.candidates.map((c) => c.slug).sort()).toEqual(["jug", "pot"]);
+    expect(match.candidates).toEqual([]);
+    expect(match.reason).toBe("no-candidates");
   });
 });

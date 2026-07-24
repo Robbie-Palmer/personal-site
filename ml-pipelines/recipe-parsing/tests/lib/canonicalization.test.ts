@@ -216,13 +216,13 @@ describe("disambiguateEntries", () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const resolved = canonicalizeEntry(makeEntry(), ontologies);
     const unresolved = canonicalizeEntry(
-      makeEntry({ cookware: ["oven thing"] }),
+      makeEntry({ cookware: ["roasting tray"] }),
       ontologies,
     );
 
     const resolveEquipment = vi.fn().mockResolvedValue([
       {
-        slug: "oven-thing",
+        slug: "roasting-tray",
         canonicalSlug: "baking-tray",
         confidence: "high",
       },

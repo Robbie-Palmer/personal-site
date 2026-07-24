@@ -67,19 +67,26 @@ describe("canonicalizeEquipmentName", () => {
     },
   );
 
-  it.each([
-    { rawName: "pan", candidates: ["frying-pan", "griddle-pan"] },
-    { rawName: "mixer", candidates: ["hand-mixer", "stand-mixer"] },
-  ])(
-    "should leave the ambiguous $rawName for the LLM rather than guessing",
-    ({ rawName, candidates }) => {
-      const decision = canonicalize(rawName);
-      expect(decision.method).toBe("none");
-      expect(decision.candidates.map((c) => c.slug)).toEqual(
-        expect.arrayContaining(candidates),
-      );
+  // A recipe that says "pan" chose that level of detail; the registry carries
+  // the generic terms so canonicalization keeps them instead of inventing a
+  // specific one.
+  it.each(["pan", "pot", "spoon", "lid"])(
+    "should keep the generic %s rather than narrowing it",
+    (rawName) => {
+      expect(canonicalize(rawName)).toMatchObject({
+        canonicalSlug: rawName,
+        method: "exact",
+      });
     },
   );
+
+  it("should leave a genuinely ambiguous name for the LLM rather than guessing", () => {
+    const decision = canonicalize("mixer");
+    expect(decision.method).toBe("none");
+    expect(decision.candidates.map((c) => c.slug)).toEqual(
+      expect.arrayContaining(["hand-mixer", "stand-mixer"]),
+    );
+  });
 
   it("should record an exact match against the registry", () => {
     const decision = canonicalize("sheet pan");

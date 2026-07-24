@@ -165,58 +165,91 @@ stages:
   canonicalize:
     cmd: pnpm exec tsx src/stages/canonicalize.ts
     deps:
-    - path: data/canonical-ingredients.json
+    - path: ../../packages/recipe-parsing/src/data/canonical-equipment.json
       hash: md5
-      md5: a4992fcd89324c76b5064f03680d2e09
-      size: 12862
+      md5: 0abc354883c181ef3b5ee1835d7c37e0
+      size: 5095
+    - path: ../../packages/recipe-parsing/src/data/canonical-ingredients.json
+      hash: md5
+      md5: ce77c460060c2b2b01d9c9edfba09c2b
+      size: 12799
+    - path: ../../packages/recipe-parsing/src/lib/attempts.ts
+      hash: md5
+      md5: c4c48a48ff96019f264bea43b80679da
+      size: 2318
+    - path: ../../packages/recipe-parsing/src/lib/canonical-equipment-data.ts
+      hash: md5
+      md5: 35c982460cbdc45f8c824bcae05b1ed5
+      size: 328
+    - path: ../../packages/recipe-parsing/src/lib/canonical-ingredients-data.ts
+      hash: md5
+      md5: 671097cb129472f1866a3f7be983cf87
+      size: 346
+    - path: ../../packages/recipe-parsing/src/lib/cuisine-normalization.ts
+      hash: md5
+      md5: 40c86e63898ed17a7cbfeb2c1b410db3
+      size: 749
+    - path: ../../packages/recipe-parsing/src/lib/disambiguation.ts
+      hash: md5
+      md5: d1e6b8627093efdea7b47e44351f3234
+      size: 5093
+    - path: ../../packages/recipe-parsing/src/lib/equipment-canonicalization.ts
+      hash: md5
+      md5: e6ca2d8a8e99427be3a9b9edb1566b9e
+      size: 6387
+    - path: ../../packages/recipe-parsing/src/lib/ingredient-canonicalization.ts
+      hash: md5
+      md5: ce9d8879a0483e4a0040247596d994a8
+      size: 5150
+    - path: 
+        ../../packages/recipe-parsing/src/lib/ingredient-normalization-rules.ts
+      hash: md5
+      md5: 834d1921d7b48ef22dfb9afcb59271d6
+      size: 157
+    - path: ../../packages/recipe-parsing/src/lib/openrouter.ts
+      hash: md5
+      md5: ab9df806fd89547e8868925281a11ca7
+      size: 20102
+    - path: ../../packages/recipe-parsing/src/lib/slug-matching.ts
+      hash: md5
+      md5: 2a0a5073e11c5c3d656c6776c135e985
+      size: 6515
+    - path: ../../packages/recipe-parsing/src/schemas/canonical-equipment.ts
+      hash: md5
+      md5: 6e876845e5f613e18d4f0b6ba4221cd3
+      size: 659
+    - path: ../../packages/recipe-parsing/src/schemas/canonical-ingredients.ts
+      hash: md5
+      md5: f9fd36508b59772cb34fff03886e40d1
+      size: 491
+    - path: ../../packages/recipe-parsing/src/schemas/ground-truth.ts
+      hash: md5
+      md5: 10e68a7cc31664b338b4f3af7ae11b20
+      size: 1246
     - path: outputs/predictions.json
       hash: md5
       md5: fb7e65feb96d284180c8a921b9346268
       size: 151536
-    - path: src/lib/cuisine-normalization.ts
+    - path: src/lib/canonicalization.ts
       hash: md5
-      md5: 40c86e63898ed17a7cbfeb2c1b410db3
-      size: 749
+      md5: 104444537a2450cfdd60938a80d2d7d4
+      size: 9486
     - path: src/lib/env.ts
       hash: md5
       md5: 1ad5cf2fca9426a8faa637e965f84001
       size: 196
-    - path: src/lib/equipment-canonicalization.ts
-      hash: md5
-      md5: 83cffc94e1ddaac665f59bebd4917ca1
-      size: 2793
-    - path: src/lib/ingredient-canonicalization.ts
-      hash: md5
-      md5: f56a612cb2dad7755f00cd105da783c9
-      size: 10454
-    - path: src/lib/ingredient-normalization-rules.ts
-      hash: md5
-      md5: 77004f13e8ca531f601af7c203495a8f
-      size: 1662
     - path: src/lib/io.ts
       hash: md5
-      md5: 06f1d1ef3debf05262f8fb45cad309ee
-      size: 7872
-    - path: src/lib/openrouter.ts
-      hash: md5
-      md5: 55b003cc2701ad953119918b98a0cdde
-      size: 18195
+      md5: a3e8bbdeeea752d293054bd3be46f95c
+      size: 7469
     - path: src/lib/stage-runner.ts
       hash: md5
-      md5: 699b206f91c4c1fb7229d30de6611ff8
-      size: 3288
-    - path: src/schemas/canonical-ingredients.ts
-      hash: md5
-      md5: f9fd36508b59772cb34fff03886e40d1
-      size: 491
-    - path: src/schemas/ground-truth.ts
-      hash: md5
-      md5: 10e68a7cc31664b338b4f3af7ae11b20
-      size: 1246
+      md5: 48567896b3e49d59ca4cdd3543c278c0
+      size: 875
     - path: src/stages/canonicalize.ts
       hash: md5
-      md5: de4a58f64292914a08670d4017c0ee2b
-      size: 9147
+      md5: 035e68a3b5e43bedaf27aad6706f7c3b
+      size: 1039
     params:
       params.yaml:
         canonicalize:
@@ -229,35 +262,35 @@ stages:
     outs:
     - path: outputs/canonicalization-decisions.json
       hash: md5
-      md5: 482d002ab1b75badd02e3aa6a9a44ff9
-      size: 312951
+      md5: df3fa9cdf413e60ea829ee5b7a31957e
+      size: 303286
     - path: outputs/predictions-canonicalized.json
       hash: md5
-      md5: af3907b29a7bd477c24e7f437ab8e1c0
-      size: 151375
+      md5: 26eecc13d1fdc8969aa8554aded11daa
+      size: 151492
   evaluate:
     cmd: pnpm exec tsx src/stages/evaluate.ts
     deps:
     - path: outputs/predictions-canonicalized.json
       hash: md5
-      md5: af3907b29a7bd477c24e7f437ab8e1c0
-      size: 151375
+      md5: 26eecc13d1fdc8969aa8554aded11daa
+      size: 151492
     - path: outputs/prepared.json
       hash: md5
       md5: d2a3ed50e3c76014f0390befd7647caf
       size: 295775
     - path: src/evaluation/metrics.ts
       hash: md5
-      md5: 2fa7b42b67de4a5f4fa5bb0cac6f5623
-      size: 20506
+      md5: 7aef8932705e8a9c9223ed882e6c0ef6
+      size: 20529
     - path: src/lib/image-key.ts
       hash: md5
       md5: 116109e930c80c186e78c1946e9f03b1
       size: 135
     - path: src/lib/io.ts
       hash: md5
-      md5: 06f1d1ef3debf05262f8fb45cad309ee
-      size: 7872
+      md5: a3e8bbdeeea752d293054bd3be46f95c
+      size: 7469
     - path: src/stages/evaluate.ts
       hash: md5
       md5: 5ddf0fa1031e5fe94cccc6745ed9a6e9
@@ -265,12 +298,12 @@ stages:
     outs:
     - path: outputs/metrics.json
       hash: md5
-      md5: e24022bff025a04f3a8fa1d6467ee047
-      size: 1584
+      md5: 67e9f2a975ac2cfe5d44d6875d6cb90f
+      size: 1585
     - path: outputs/per-entry-score-plot.json
       hash: md5
-      md5: 69c5919a54187435dc8c9893a5e68aed
-      size: 18648
+      md5: 00147f55faa4147b004ba71cf11bd561
+      size: 18594
   dataset_stats:
     cmd: pnpm exec tsx src/stages/dataset-stats.ts
     deps:
