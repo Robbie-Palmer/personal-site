@@ -1,4 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { clearOtherPrivateRecipeQueries } from "@/lib/query/recipe-query-client";
+import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 import { render, screen } from "@/tests/test-utils";
 
 const navigation = vi.hoisted(() => ({
@@ -7,9 +9,17 @@ const navigation = vi.hoisted(() => ({
   search: "",
 }));
 
+const auth = vi.hoisted(() => ({
+  session: { data: null, isPending: false },
+}));
+
 vi.mock("next/navigation", () => ({
   usePathname: () => navigation.pathname,
   useSearchParams: () => new URLSearchParams(navigation.search),
+}));
+
+vi.mock("@/lib/auth-client", () => ({
+  authClient: { useSession: () => auth.session },
 }));
 
 vi.mock("@/components/recipes/recipe-page-link", () => ({
@@ -66,6 +76,10 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+beforeEach(() => {
+  auth.session = { data: null, isPending: false };
+});
+
 describe("SavedRecipeView", () => {
   it("reloads when client-side navigation changes the recipe pathname", async () => {
     globalThis.fetch = vi.fn(async (input) => {
@@ -102,6 +116,21 @@ describe("SavedRecipeView", () => {
       "href",
       "/recipes/edit?slug=first-soup",
     );
+  });
+
+  it("keeps a signed-out recipe in the public cache namespace", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      Response.json(record("first-soup", "First Soup")),
+    ) as typeof fetch;
+
+    const { queryClient } = render(<SavedRecipeView />);
+
+    expect(await screen.findByText("First Soup")).toBeInTheDocument();
+    await clearOtherPrivateRecipeQueries(queryClient, null);
+
+    expect(
+      queryClient.getQueryData(recipeQueryKeys.publicSavedRecipe("first-soup")),
+    ).toEqual(expect.objectContaining({ slug: "first-soup" }));
   });
 
   it("redirects the legacy saved-recipe URL to the unified recipe path", () => {

@@ -42,9 +42,11 @@ export const dietOptionsQuery = (userId: string) =>
     staleTime: 60 * 60_000,
   });
 
-export const savedRecipeQuery = (userId: string, slug: string) =>
+export const savedRecipeQuery = (userId: string | null, slug: string) =>
   queryOptions({
-    queryKey: recipeQueryKeys.savedRecipe(userId, slug),
+    queryKey: userId
+      ? recipeQueryKeys.savedRecipe(userId, slug)
+      : recipeQueryKeys.publicSavedRecipe(slug),
     queryFn: ({ signal }) => getSavedRecipe(slug, signal),
     staleTime: USER_DATA_STALE_TIME,
     refetchOnWindowFocus: true,

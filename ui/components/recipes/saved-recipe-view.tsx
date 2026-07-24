@@ -30,7 +30,7 @@ export function SavedRecipeView() {
   const needsRedirect =
     pathname === "/recipes/saved" && Boolean(searchSlug && validSlug);
   const result = useQuery({
-    ...savedRecipeQuery(session?.user.id ?? "anonymous", slug ?? "invalid"),
+    ...savedRecipeQuery(session?.user.id ?? null, slug ?? "invalid"),
     enabled: !sessionPending && validSlug && !needsRedirect,
   });
 
