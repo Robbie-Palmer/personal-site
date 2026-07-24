@@ -78,28 +78,38 @@ function applyCanonicalTokens(
         .map(escapeRegExp)
         .join(String.raw`[\s-]+`),
     );
+  // A token may already carry an alias, either because the recipe was written
+  // that way or because a previous pass added one. Only its registered name is
+  // rewritten; the words it displays are left as they are.
   const token = new RegExp(
-    String.raw`${escapeRegExp(marker)}(?:${alternatives.join("|")})(?=\{|[.,;:()!?]|$|\s(?![^@#~{}\n]*\{))`,
+    String.raw`${escapeRegExp(marker)}(?:${alternatives.join("|")})(\|[^{}|\n]*)?(?=\{|[.,;:()!?]|$|\s(?![^@#~{}\n]*\{))`,
     "giu",
   );
 
-  return body.replace(token, (match, offset: number) => {
-    const authoredName = match.slice(1);
-    const canonicalName = replacements.get(normalizeTokenName(authoredName));
-    if (!canonicalName) return match;
+  return body.replace(
+    token,
+    (match: string, aliasPart: string | undefined, offset: number) => {
+      const authoredName = match.slice(1, aliasPart ? -aliasPart.length : undefined);
+      const canonicalName = replacements.get(normalizeTokenName(authoredName));
+      if (!canonicalName) return match;
 
-    // Cooklang reads `name|alias` as the registered name plus the words to
-    // show, so the step keeps the wording the recipe used while the recipe
-    // itself records the canonical one. Wording that differs only in spacing
-    // or case is not worth preserving.
-    const displayName = canonicalName.replaceAll("-", " ");
-    const rewordsIt =
-      normalizeTokenName(authoredName) !== normalizeTokenName(displayName);
-    const token = rewordsIt ? `${displayName}|${authoredName}` : displayName;
-    const alreadyBraced = body[offset + match.length] === "{";
-    const needsBraces = !alreadyBraced && /[\s|]/u.test(token);
-    return `${marker}${token}${needsBraces ? "{}" : ""}`;
-  });
+      // Cooklang reads `name|alias` as the registered name plus the words to
+      // show, so the step keeps the wording the recipe used while the recipe
+      // itself records the canonical one. Wording that differs only in spacing
+      // or case is not worth preserving.
+      const displayName = canonicalName.replaceAll("-", " ");
+      const authoredAlias = aliasPart?.slice(1) || authoredName;
+      const alias =
+        normalizeTokenName(authoredAlias) === normalizeTokenName(displayName)
+          ? undefined
+          : authoredAlias;
+
+      const rewritten = alias ? `${displayName}|${alias}` : displayName;
+      const alreadyBraced = body[offset + match.length] === "{";
+      const needsBraces = !alreadyBraced && /[\s|]/u.test(rewritten);
+      return `${marker}${rewritten}${needsBraces ? "{}" : ""}`;
+    },
+  );
 }
 
 export function buildFinalDraft(

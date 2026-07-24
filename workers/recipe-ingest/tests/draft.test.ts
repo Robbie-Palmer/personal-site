@@ -133,6 +133,54 @@ describe("buildFinalDraft", () => {
     expect(draft.cooklang.body).not.toContain("#frying-pan");
   });
 
+  it("recanonicalizes a token that already carries an alias, keeping its wording", () => {
+    const normalizedRecipe = {
+      title: "Tray Roast",
+      description: "Roast on a tray.",
+      cuisine: [],
+      servings: 2,
+      ingredientGroups: [{ items: [{ ingredient: "potato", amount: 4 }] }],
+      instructions: ["Roast the potato on a tray."],
+      cookware: ["roasting tray"],
+    };
+    const draft = buildFinalDraft(
+      ["imports/job/source/1.jpg"],
+      {
+        frontmatter: {
+          title: normalizedRecipe.title,
+          description: normalizedRecipe.description,
+          servings: normalizedRecipe.servings,
+          tags: [],
+        },
+        body: "@potato{4}\n\nRoast the @potato on a #roasting tray|tray{}.",
+        diagnostics: [],
+        derived: normalizedRecipe,
+      },
+      { ...normalizedRecipe, cookware: ["baking tray"] },
+      [
+        {
+          originalName: "roasting tray",
+          baseSlug: "roasting-tray",
+          canonicalSlug: "baking-tray",
+          method: "exact",
+          score: 1,
+          threshold: 1,
+          candidates: [{ slug: "baking-tray", score: 1 }],
+        },
+      ],
+    );
+
+    // The registered name is canonicalized; the step still reads "tray".
+    expect(draft.cooklang.body).toContain("#baking tray|tray{}");
+    expect(draft.cooklang.body).not.toContain("#roasting tray");
+
+    const reparsed = deriveRecipeFromCooklang(draft.cooklang);
+    expect(reparsed.derived?.cookware).toEqual(["baking tray"]);
+    expect(reparsed.derived?.instructions).toEqual([
+      "Roast the potato on a tray.",
+    ]);
+  });
+
   it("does not replace prefixes of longer braced tokens", () => {
     const normalizedRecipe = {
       title: "Rice Dressing",
