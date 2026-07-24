@@ -20,6 +20,10 @@ vi.mock("@/components/recipes/add-recipe-view", () => ({
   ),
 }));
 
+vi.mock("@/components/recipes/recipe-auth-required", () => ({
+  RecipeAuthRequired: ({ title }: { title: string }) => <div>{title}</div>,
+}));
+
 import { EditRecipeView } from "@/components/recipes/edit-recipe-view";
 import {
   errorMessage,
@@ -81,6 +85,17 @@ describe("EditRecipeView", () => {
       await screen.findByRole("heading", { name: "Recipe unavailable" }),
     ).toBeInTheDocument();
     expect(screen.getByText("No recipe was selected.")).toBeInTheDocument();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("prompts signed-out visitors instead of waiting on a disabled query", () => {
+    mocks.useSession.mockReturnValue({ data: null, isPending: false });
+    globalThis.fetch = vi.fn();
+
+    render(<EditRecipeView />);
+
+    expect(screen.getByText("Log in to edit recipes")).toBeInTheDocument();
+    expect(document.querySelector(".animate-spin")).not.toBeInTheDocument();
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { isRecipeSlug } from "recipe-domain/slugs";
 import { AddRecipeView } from "@/components/recipes/add-recipe-view";
+import { RecipeAuthRequired } from "@/components/recipes/recipe-auth-required";
 import {
   errorMessage,
   RecipeLoadError,
@@ -30,9 +31,18 @@ export function EditRecipeView() {
       />
     );
   }
-  if (sessionPending || result.isPending) {
+  if (sessionPending) {
     return <RecipeLoading />;
   }
+  if (!session) {
+    return (
+      <RecipeAuthRequired
+        title="Log in to edit recipes"
+        description="Only signed-in recipe owners can edit their recipes."
+      />
+    );
+  }
+  if (result.isPending) return <RecipeLoading />;
   if (result.isError && result.data === undefined) {
     return (
       <RecipeLoadError

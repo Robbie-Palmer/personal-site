@@ -152,10 +152,12 @@ export function AuthButton({
   className,
   compactOnMobile = false,
   intent = "signin",
+  signOutRedirect = redirectAfterSignOut,
 }: Readonly<{
   className?: string;
   compactOnMobile?: boolean;
   intent?: "signin" | "signup";
+  signOutRedirect?: () => void;
 }>) {
   const previewBackendDisabled =
     process.env.NEXT_PUBLIC_PREVIEW_BACKEND === "false";
@@ -209,7 +211,7 @@ export function AuthButton({
         fetchOptions: {
           onSuccess: async () => {
             await clearPrivateRecipeQueries(queryClient);
-            redirectAfterSignOut();
+            signOutRedirect();
           },
         },
       });
