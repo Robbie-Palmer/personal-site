@@ -1,6 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@/tests/test-utils";
 
 const mocks = vi.hoisted(() => ({
   useSession: vi.fn(),
@@ -29,6 +29,7 @@ import {
   AuthButton,
   redirectAfterSignOut,
 } from "@/components/recipes/auth-button";
+import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 describe("AuthButton", () => {
   beforeEach(() => {
@@ -242,11 +243,20 @@ describe("AuthButton", () => {
 
   it("opens an account menu linking to settings and supports sign out", async () => {
     const user = userEvent.setup();
+    const replace = vi.fn();
     mocks.useSession.mockReturnValue({
       data: { user: { name: "Robbie", email: "robbie@example.com" } },
       isPending: false,
     });
-    render(<AuthButton />);
+    const { queryClient } = render(
+      <AuthButton
+        signOutRedirect={() => redirectAfterSignOut(undefined, replace)}
+      />,
+    );
+    const privateKey = recipeQueryKeys.recipeBoxRecipes("user-1");
+    const publicKey = recipeQueryKeys.publicRecipes();
+    queryClient.setQueryData(privateKey, { recipes: ["private"] });
+    queryClient.setQueryData(publicKey, { recipes: ["public"] });
 
     await user.click(
       screen.getByRole("button", { name: "Account for Robbie" }),
@@ -260,9 +270,21 @@ describe("AuthButton", () => {
 
     await user.click(screen.getByRole("button", { name: "Sign out" }));
 
-    expect(mocks.signOut).toHaveBeenCalledWith({
-      fetchOptions: { onSuccess: redirectAfterSignOut },
+    const signOutOptions = mocks.signOut.mock.calls[0]?.[0];
+    expect(signOutOptions?.fetchOptions?.onSuccess).toEqual(
+      expect.any(Function),
+    );
+
+    vi.spyOn(queryClient, "cancelQueries").mockRejectedValueOnce(
+      new Error("cancellation failed"),
+    );
+    await signOutOptions?.fetchOptions?.onSuccess();
+
+    expect(queryClient.getQueryData(privateKey)).toBeUndefined();
+    expect(queryClient.getQueryData(publicKey)).toEqual({
+      recipes: ["public"],
     });
+    expect(replace).toHaveBeenCalledWith("/recipes");
   });
 
   it("redirects successful sign-out to the recipe home", () => {

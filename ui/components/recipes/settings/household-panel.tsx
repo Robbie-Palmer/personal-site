@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check,
   CircleX,
@@ -12,13 +13,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import {
-  type FormEvent,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { RecipeAvatar } from "@/components/recipes/recipe-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,10 +22,6 @@ import {
   createHousehold,
   declineHouseholdInvitation,
   deleteHousehold,
-  getHouseholdInvitations,
-  getHouseholdMembers,
-  getHouseholds,
-  getIncomingHouseholdInvitations,
   type Household,
   type HouseholdInvitation,
   type HouseholdMember,
@@ -41,6 +32,11 @@ import {
   renameHousehold,
   revokeHouseholdInvitation,
 } from "@/lib/api/households";
+import {
+  type HouseholdSettingsData,
+  householdSettingsQuery,
+} from "@/lib/query/household-queries";
+import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 import { PanelHead } from "./panel-head";
 
 type Mutation =
@@ -57,14 +53,6 @@ type Mutation =
 
 type ActiveMutation = Exclude<Mutation, null>;
 
-type LoadedHouseholdData = {
-  household: Household | null;
-  members: HouseholdMember[];
-  invitations: HouseholdInvitation[];
-  incoming: IncomingHouseholdInvitation[];
-  detailError: string | null;
-};
-
 function friendlyDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     day: "numeric",
@@ -77,50 +65,8 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-function reportUnexpectedLoadError(error: unknown) {
-  console.error("Unexpected household load failure", error);
-}
-
-function fulfilledValue<T>(result: PromiseSettledResult<T>, fallback: T): T {
-  return result.status === "fulfilled" ? result.value : fallback;
-}
-
 function excludeById<T extends { id: string }>(items: T[], id: string): T[] {
   return items.filter((item) => item.id !== id);
-}
-
-async function loadHouseholdData(
-  signal?: AbortSignal,
-): Promise<LoadedHouseholdData> {
-  const households = await getHouseholds(signal);
-  const household = households[0] ?? null;
-  const [incomingResult, membersResult, invitationsResult] =
-    await Promise.allSettled([
-      getIncomingHouseholdInvitations(signal),
-      household
-        ? getHouseholdMembers(household.id, signal)
-        : Promise.resolve([]),
-      household?.membership.role === "owner"
-        ? getHouseholdInvitations(household.id, signal)
-        : Promise.resolve([]),
-    ]);
-  const failedResult = [incomingResult, membersResult, invitationsResult].find(
-    (result) => result.status === "rejected",
-  );
-
-  return {
-    household,
-    incoming: fulfilledValue(incomingResult, []),
-    members: fulfilledValue(membersResult, []),
-    invitations: fulfilledValue(invitationsResult, []),
-    detailError:
-      failedResult?.status === "rejected"
-        ? errorMessage(
-            failedResult.reason,
-            "Some household details couldn't be loaded.",
-          )
-        : null,
-  };
 }
 
 function Section({
@@ -738,56 +684,54 @@ export function HouseholdPanel({
 }: Readonly<{
   currentUser: { id: string; email: string; name: string };
 }>) {
-  const [household, setHousehold] = useState<Household | null>(null);
-  const [members, setMembers] = useState<HouseholdMember[]>([]);
-  const [invitations, setInvitations] = useState<HouseholdInvitation[]>([]);
-  const [incoming, setIncoming] = useState<IncomingHouseholdInvitation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadFailed, setLoadFailed] = useState(false);
+  const queryClient = useQueryClient();
+  const settingsKey = recipeQueryKeys.householdSettings(currentUser.id);
+  const householdResult = useQuery(householdSettingsQuery(currentUser.id));
   const [mutation, setMutation] = useState<Mutation>(null);
   const mutationRef = useRef<Mutation>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(householdResult.data?.household?.name ?? "");
   const [inviteEmail, setInviteEmail] = useState("");
-
-  const load = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
-    setLoadFailed(false);
-    setError(null);
-    try {
-      const data = await loadHouseholdData(signal);
-      if (signal?.aborted) return;
-      setHousehold(data.household);
-      setName(data.household?.name ?? "");
-      setMembers(data.members);
-      setInvitations(data.invitations);
-      setIncoming(data.incoming);
-      setError(data.detailError);
-    } catch (loadError) {
-      if (signal?.aborted) return;
-      setLoadFailed(true);
-      setError(errorMessage(loadError, "Couldn't load your household."));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const household = householdResult.data?.household ?? null;
+  const members = householdResult.data?.members ?? [];
+  const invitations = householdResult.data?.invitations ?? [];
+  const incoming = householdResult.data?.incoming ?? [];
+  const error =
+    actionError ??
+    householdResult.data?.detailError ??
+    (householdResult.isError && householdResult.data
+      ? errorMessage(householdResult.error, "Couldn't refresh your household.")
+      : null);
 
   useEffect(() => {
-    const controller = new AbortController();
-    load(controller.signal).catch(reportUnexpectedLoadError);
-    return () => controller.abort();
-  }, [load]);
+    setName(household?.name ?? "");
+  }, [household?.name]);
+
+  function updateHouseholdData(
+    updater: (data: HouseholdSettingsData) => HouseholdSettingsData,
+  ) {
+    queryClient.setQueryData<HouseholdSettingsData>(settingsKey, (current) =>
+      current ? updater(current) : current,
+    );
+  }
+
+  async function refreshHouseholdData() {
+    await queryClient.invalidateQueries({
+      queryKey: settingsKey,
+      exact: true,
+    });
+  }
 
   function run(kind: ActiveMutation, action: () => Promise<void>) {
     if (mutationRef.current) return;
     mutationRef.current = kind;
     setMutation(kind);
-    setError(null);
+    setActionError(null);
     setNotice(null);
     action()
       .catch((actionError) => {
-        setError(
+        setActionError(
           errorMessage(actionError, "Something went wrong. Please try again."),
         );
       })
@@ -803,13 +747,13 @@ export function HouseholdPanel({
     event.preventDefault();
     const nextName = name.trim();
     if (!nextName) {
-      setError("Give your household a name first.");
+      setActionError("Give your household a name first.");
       return;
     }
     run("create", async () => {
       await createHousehold(nextName);
       setNotice("Household created.");
-      await load();
+      await refreshHouseholdData();
     });
   }
 
@@ -818,15 +762,18 @@ export function HouseholdPanel({
     if (!household) return;
     const nextName = name.trim();
     if (!nextName) {
-      setError("Household name can't be empty.");
+      setActionError("Household name can't be empty.");
       return;
     }
     if (nextName === household.name) return;
     run("rename", async () => {
       const updated = await renameHousehold(household.id, nextName);
-      setHousehold((current) =>
-        current ? { ...current, ...updated } : current,
-      );
+      updateHouseholdData((current) => ({
+        ...current,
+        household: current.household
+          ? { ...current.household, ...updated }
+          : current.household,
+      }));
       setName(updated.name);
       setNotice("Household name saved.");
     });
@@ -839,28 +786,34 @@ export function HouseholdPanel({
     if (!email) return;
     run("invite", async () => {
       const invitation = await inviteHouseholdMember(household.id, email);
-      setInvitations((current) => [...current, invitation]);
+      updateHouseholdData((current) => ({
+        ...current,
+        invitations: [...current.invitations, invitation],
+      }));
       setInviteEmail("");
       setNotice(`Invitation created for ${invitation.email}.`);
     });
   }
 
   function retryLoad() {
-    load().catch(reportUnexpectedLoadError);
+    void householdResult.refetch();
   }
 
   function acceptInvitation(invitation: IncomingHouseholdInvitation) {
     run("accept", async () => {
       await acceptHouseholdInvitation(invitation.id);
       setNotice(`Welcome to ${invitation.household.name}.`);
-      await load();
+      await refreshHouseholdData();
     });
   }
 
   function declineInvitation(invitation: IncomingHouseholdInvitation) {
     run("decline", async () => {
       await declineHouseholdInvitation(invitation.id);
-      setIncoming((current) => excludeById(current, invitation.id));
+      updateHouseholdData((current) => ({
+        ...current,
+        incoming: excludeById(current.incoming, invitation.id),
+      }));
       setNotice("Invitation declined.");
     });
   }
@@ -872,7 +825,10 @@ export function HouseholdPanel({
     }
     run("remove", async () => {
       await removeHouseholdMember(household.id, member.id);
-      setMembers((current) => excludeById(current, member.id));
+      updateHouseholdData((current) => ({
+        ...current,
+        members: excludeById(current.members, member.id),
+      }));
       setNotice(`${member.user.name} was removed.`);
     });
   }
@@ -881,7 +837,10 @@ export function HouseholdPanel({
     if (!household) return;
     run("revoke", async () => {
       await revokeHouseholdInvitation(household.id, invitation.id);
-      setInvitations((current) => excludeById(current, invitation.id));
+      updateHouseholdData((current) => ({
+        ...current,
+        invitations: excludeById(current.invitations, invitation.id),
+      }));
       setNotice(`Invitation for ${invitation.email} revoked.`);
     });
   }
@@ -893,11 +852,15 @@ export function HouseholdPanel({
     }
     run("delete", async () => {
       await deleteHousehold(household.id);
-      setHousehold(null);
-      setMembers([]);
-      setInvitations([]);
+      updateHouseholdData((current) => ({
+        ...current,
+        household: null,
+        members: [],
+        invitations: [],
+      }));
       setName("");
       setNotice("Household deleted.");
+      await refreshHouseholdData();
     });
   }
 
@@ -906,20 +869,32 @@ export function HouseholdPanel({
     if (!window.confirm(`Leave ${household.name}?`)) return;
     run("leave", async () => {
       await leaveHousehold(household.id);
-      setHousehold(null);
-      setMembers([]);
-      setInvitations([]);
+      updateHouseholdData((current) => ({
+        ...current,
+        household: null,
+        members: [],
+        invitations: [],
+      }));
       setName("");
       setNotice("You've left the household.");
+      await refreshHouseholdData();
     });
   }
 
-  if (loading) {
+  if (householdResult.isPending) {
     return <HouseholdLoading />;
   }
 
-  if (loadFailed) {
-    return <HouseholdLoadError error={error} onRetry={retryLoad} />;
+  if (householdResult.isError && !householdResult.data) {
+    return (
+      <HouseholdLoadError
+        error={errorMessage(
+          householdResult.error,
+          "Couldn't load your household.",
+        )}
+        onRetry={retryLoad}
+      />
+    );
   }
 
   if (!household) {

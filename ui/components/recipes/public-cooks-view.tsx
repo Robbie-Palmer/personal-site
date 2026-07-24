@@ -1,20 +1,23 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, LoaderCircle, Users } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import { RecipeAvatar } from "@/components/recipes/recipe-avatar";
 import { RecipeThumb } from "@/components/recipes/recipe-card";
+import { RecipeQueryStatus } from "@/components/recipes/recipe-load-state";
 import { RecipePageLink } from "@/components/recipes/recipe-page-link";
 import { Button } from "@/components/ui/button";
-import {
-  getPublicCook,
-  getPublicCooks,
-  type PublicCookProfile,
-  type PublicCookSummary,
+import type {
+  PublicCookProfile,
+  PublicCookSummary,
 } from "@/lib/api/public-cooks";
 import { savedRecipeCard } from "@/lib/domain/recipe/recipeDraft";
+import {
+  publicCookQuery,
+  publicCooksQuery,
+} from "@/lib/query/public-cook-queries";
 
 function CookCard({ cook }: Readonly<{ cook: PublicCookSummary }>) {
   return (
@@ -170,6 +173,17 @@ function CooksError({ error }: Readonly<{ error: string }>) {
   );
 }
 
+function fatalCooksError(
+  data: unknown,
+  error: unknown,
+  subject: string,
+): string | null {
+  if (data !== undefined || !error) return null;
+  return error instanceof Error
+    ? error.message
+    : `${subject} could not be loaded.`;
+}
+
 function CooksContent({
   cooks,
   error,
@@ -190,41 +204,18 @@ function CooksContent({
 export function PublicCooksView() {
   const searchParams = useSearchParams();
   const selectedCookId = searchParams.get("cook");
-  const [cooks, setCooks] = useState<PublicCookSummary[]>([]);
-  const [selectedCook, setSelectedCook] = useState<PublicCookProfile | null>(
-    null,
-  );
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const subject = selectedCookId ? "This cook" : "The cooks directory";
+  const directory = useQuery({
+    ...publicCooksQuery(),
+    enabled: !selectedCookId,
+  });
+  const profile = useQuery({
+    ...publicCookQuery(selectedCookId ?? "none"),
+    enabled: Boolean(selectedCookId),
+  });
+  const result = selectedCookId ? profile : directory;
 
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    setError(null);
-    setSelectedCook(null);
-    const request = selectedCookId
-      ? getPublicCook(selectedCookId, controller.signal).then((cook) => {
-          if (!controller.signal.aborted) setSelectedCook(cook);
-        })
-      : getPublicCooks(controller.signal).then((nextCooks) => {
-          if (!controller.signal.aborted) setCooks(nextCooks);
-        });
-    void request
-      .catch((cause: unknown) => {
-        if (controller.signal.aborted) return;
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : "The cooks directory could not be loaded.",
-        );
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, [selectedCookId]);
-
-  if (loading) {
+  if (result.isPending) {
     return (
       <output
         aria-label="Loading cooks"
@@ -236,13 +227,22 @@ export function PublicCooksView() {
   }
 
   return (
-    <div className="container mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:py-14">
-      <CooksContent
-        cooks={cooks}
-        error={error}
-        selectedCook={selectedCook ?? null}
-        selectedCookId={selectedCookId}
+    <>
+      <RecipeQueryStatus
+        error={result.error}
+        hasData={result.data !== undefined}
+        isFetching={result.isFetching}
+        isStale={result.isStale}
+        subject={subject.toLowerCase()}
       />
-    </div>
+      <div className="container mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:py-14">
+        <CooksContent
+          cooks={directory.data ?? []}
+          error={fatalCooksError(result.data, result.error, subject)}
+          selectedCook={profile.data ?? null}
+          selectedCookId={selectedCookId}
+        />
+      </div>
+    </>
   );
 }

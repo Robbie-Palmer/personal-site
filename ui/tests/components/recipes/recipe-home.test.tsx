@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@/tests/test-utils";
 
 const mocks = vi.hoisted(() => ({
   useSession: vi.fn(),
@@ -35,6 +35,7 @@ import { RecipeHome } from "@/components/recipes/recipe-home";
 describe("RecipeHome", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.fetchAllSavedRecipes.mockResolvedValue([]);
     document.title = "";
   });
 
@@ -69,5 +70,17 @@ describe("RecipeHome", () => {
     expect(screen.queryByText("Public landing")).not.toBeInTheDocument();
     expect(screen.queryByText("Your recipe box")).not.toBeInTheDocument();
     expect(document.title).toBe("");
+  });
+
+  it("distinguishes a public recipe load error from an empty catalog", async () => {
+    mocks.useSession.mockReturnValue({ data: null, isPending: false });
+    mocks.fetchAllSavedRecipes.mockRejectedValueOnce(new Error("offline"));
+
+    render(<RecipeHome />);
+
+    expect(
+      await screen.findByText("Public recipes could not be loaded."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Public landing")).not.toBeInTheDocument();
   });
 });

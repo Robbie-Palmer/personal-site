@@ -1,16 +1,27 @@
-import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@/tests/test-utils";
 
-const mocks = vi.hoisted(() => ({ slug: "weeknight-rice" }));
+const mocks = vi.hoisted(() => ({
+  slug: "weeknight-rice",
+  useSession: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams({ slug: mocks.slug }),
+}));
+
+vi.mock("@/lib/auth-client", () => ({
+  authClient: { useSession: mocks.useSession },
 }));
 
 vi.mock("@/components/recipes/add-recipe-view", () => ({
   AddRecipeView: ({ initialRecipe }: { initialRecipe: { title: string } }) => (
     <div>Editing {initialRecipe.title}</div>
   ),
+}));
+
+vi.mock("@/components/recipes/recipe-auth-required", () => ({
+  RecipeAuthRequired: ({ title }: { title: string }) => <div>{title}</div>,
 }));
 
 import { EditRecipeView } from "@/components/recipes/edit-recipe-view";
@@ -34,6 +45,10 @@ const recipe = {
 
 beforeEach(() => {
   mocks.slug = "weeknight-rice";
+  mocks.useSession.mockReturnValue({
+    data: { user: { id: "recipe-owner" } },
+    isPending: false,
+  });
 });
 
 afterEach(() => {
@@ -54,7 +69,7 @@ describe("EditRecipeView", () => {
     expect(globalThis.fetch).toHaveBeenCalledWith(
       "/api/recipes/weeknight-rice",
       expect.objectContaining({
-        credentials: "include",
+        credentials: "same-origin",
         signal: expect.any(AbortSignal),
       }),
     );
@@ -70,6 +85,17 @@ describe("EditRecipeView", () => {
       await screen.findByRole("heading", { name: "Recipe unavailable" }),
     ).toBeInTheDocument();
     expect(screen.getByText("No recipe was selected.")).toBeInTheDocument();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("prompts signed-out visitors instead of waiting on a disabled query", () => {
+    mocks.useSession.mockReturnValue({ data: null, isPending: false });
+    globalThis.fetch = vi.fn();
+
+    render(<EditRecipeView />);
+
+    expect(screen.getByText("Log in to edit recipes")).toBeInTheDocument();
+    expect(document.querySelector(".animate-spin")).not.toBeInTheDocument();
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 

@@ -1,3 +1,5 @@
+import { ApiError } from "@/lib/api/api-error";
+
 export type RecipeBoxProfile = {
   completed: boolean;
   recipeSlugs: string[];
@@ -8,7 +10,10 @@ async function parseRecipeBoxResponse(response: Response) {
     const body = (await response.json().catch(() => null)) as {
       error?: string;
     } | null;
-    throw new Error(body?.error ?? "Recipe box request failed.");
+    throw new ApiError(
+      body?.error ?? "Recipe box request failed.",
+      response.status,
+    );
   }
   const body = (await response.json()) as RecipeBoxProfile & {
     staticRecipeSlugs?: string[];

@@ -1,4 +1,3 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsView } from "@/components/recipes/settings/settings-view";
@@ -7,6 +6,7 @@ import {
   resetUnitPreferenceServerSnapshot,
   UNIT_PREFERENCE_STORAGE_KEY,
 } from "@/hooks/use-unit-preference";
+import { fireEvent, render, screen, waitFor } from "@/tests/test-utils";
 
 const mocks = vi.hoisted(() => ({
   useSession: vi.fn(),
@@ -300,6 +300,23 @@ describe("SettingsView", () => {
     expect(
       screen.getByRole("button", { name: /create household/i }),
     ).toBeInTheDocument();
+  });
+
+  it("reuses household data when returning to the settings tab", async () => {
+    const user = userEvent.setup();
+    renderSettingsView();
+
+    await user.click(screen.getByRole("button", { name: "Household" }));
+    expect(await screen.findByText("Start a household.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Account" }));
+    await user.click(screen.getByRole("button", { name: "Household" }));
+
+    expect(screen.getByText("Start a household.")).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Loading household"),
+    ).not.toBeInTheDocument();
+    expect(mocks.getHouseholds).toHaveBeenCalledOnce();
   });
 
   it("requires a successful household lookup before offering creation", async () => {

@@ -34,3 +34,43 @@ export function RecipeLoadError({
     </div>
   );
 }
+
+export function RecipeQueryStatus({
+  error,
+  hasData,
+  isFetching,
+  isStale,
+  subject,
+}: Readonly<{
+  error: unknown;
+  hasData: boolean;
+  isFetching: boolean;
+  isStale: boolean;
+  subject: string;
+}>) {
+  let message: string | null = null;
+  let tone = "border-[var(--line)] bg-[var(--paper-warm)]";
+
+  if (error) {
+    message = hasData
+      ? `The latest refresh failed; cached data for ${subject} is still shown.`
+      : `${subject.charAt(0).toUpperCase()}${subject.slice(1)} could not be loaded.`;
+    tone =
+      "border-[var(--terracotta)]/30 bg-[var(--terracotta)]/5 text-[var(--ink-2)]";
+  } else if (hasData && isFetching) {
+    message = `Refreshing ${subject}…`;
+  } else if (hasData && isStale) {
+    message = `Cached data for ${subject} is shown; updates will refresh in the background.`;
+  }
+
+  if (!message) return null;
+
+  return (
+    <output
+      aria-live="polite"
+      className={`rt-body container mx-auto my-4 block max-w-5xl rounded-lg border px-4 py-3 text-sm text-[var(--ink-3)] ${tone}`}
+    >
+      {message}
+    </output>
+  );
+}
