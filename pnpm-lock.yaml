@@ -314,7 +314,7 @@ importers:
         version: 0.4.6(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       posthog-js:
         specifier: ^1.343.0
-        version: 1.403.0
+        version: 1.404.0
       react:
         specifier: ^19.2.0
         version: 19.2.7
@@ -5100,8 +5100,8 @@ packages:
     resolution: {integrity: sha512-GD3qdB0x1z9xgFI6cdRD6xu2Sp2WCOEoe3mtnyB5Ee0XrrL5Pe+e4CCnJrRMnL1zYtRDZmQQVbvOttLnKDLnaw==}
     engines: {node: '>=12'}
 
-  posthog-js@1.403.0:
-    resolution: {integrity: sha512-K4kInJ4JuTE4B7f1AEb1X6NbJFezA6bUB/bd2LXn2spX+ALm4e2bH4LfItbvguevgBOFjSu7EA0JNvRinKLYeg==}
+  posthog-js@1.404.0:
+    resolution: {integrity: sha512-8uQ6fPctCYEH6Us5nXxx79n1TkwzKx309xIYd9XquGZkFBAIZZr4znfhYQmwYKzFzdrdiHEJ7SYnSyO5q7ZGYQ==}
 
   preact@10.29.7:
     resolution: {integrity: sha512-DCHYrK/B10yUD3ZjLfhZ3WIE/9Vf9VFUODcRE2dRomTYDpJk6z6L9wecSfhfE6M9ZTHUdyQkoC46arIDhEV84Q==}
@@ -10742,7 +10742,7 @@ snapshots:
 
   postgres@3.4.9: {}
 
-  posthog-js@1.403.0:
+  posthog-js@1.404.0:
     dependencies:
       '@posthog/core': 1.45.0
       '@posthog/types': 1.398.0
