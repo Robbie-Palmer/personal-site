@@ -9,6 +9,10 @@
       "category": "consumable"
     },
     {
+      "slug": "baking-tin",
+      "category": "bakeware"
+    },
+    {
       "slug": "baking-tray",
       "category": "bakeware"
     },
@@ -41,6 +45,10 @@
       "category": "consumable"
     },
     {
+      "slug": "container",
+      "category": "vessel"
+    },
+    {
       "slug": "cooling-rack",
       "category": "surface"
     },
@@ -54,6 +62,10 @@
     },
     {
       "slug": "foil",
+      "category": "consumable"
+    },
+    {
+      "slug": "food-bag",
       "category": "consumable"
     },
     {
@@ -177,6 +189,14 @@
       "category": "utensil"
     },
     {
+      "slug": "pizza-peel",
+      "category": "utensil"
+    },
+    {
+      "slug": "pizza-stone",
+      "category": "bakeware"
+    },
+    {
       "slug": "plate",
       "category": "vessel"
     },
@@ -218,6 +238,10 @@
     },
     {
       "slug": "scissors",
+      "category": "utensil"
+    },
+    {
+      "slug": "shaker",
       "category": "utensil"
     },
     {
@@ -266,6 +290,10 @@
     },
     {
       "slug": "teaspoon",
+      "category": "utensil"
+    },
+    {
+      "slug": "tenderiser",
       "category": "utensil"
     },
     {

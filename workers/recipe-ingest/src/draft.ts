@@ -84,14 +84,21 @@ function applyCanonicalTokens(
   );
 
   return body.replace(token, (match, offset: number) => {
-    const originalName = normalizeTokenName(match.slice(1));
-    const canonicalName = replacements.get(originalName);
+    const authoredName = match.slice(1);
+    const canonicalName = replacements.get(normalizeTokenName(authoredName));
     if (!canonicalName) return match;
 
+    // Cooklang reads `name|alias` as the registered name plus the words to
+    // show, so the step keeps the wording the recipe used while the recipe
+    // itself records the canonical one. Wording that differs only in spacing
+    // or case is not worth preserving.
     const displayName = canonicalName.replaceAll("-", " ");
+    const rewordsIt =
+      normalizeTokenName(authoredName) !== normalizeTokenName(displayName);
+    const token = rewordsIt ? `${displayName}|${authoredName}` : displayName;
     const alreadyBraced = body[offset + match.length] === "{";
-    const emptyBraces = !alreadyBraced && displayName.includes(" ") ? "{}" : "";
-    return `${marker}${displayName}${emptyBraces}`;
+    const needsBraces = !alreadyBraced && /[\s|]/u.test(token);
+    return `${marker}${token}${needsBraces ? "{}" : ""}`;
   });
 }
 

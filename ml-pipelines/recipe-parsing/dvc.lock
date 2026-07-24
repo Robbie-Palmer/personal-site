@@ -3,10 +3,14 @@ stages:
   prepare:
     cmd: pnpm exec tsx src/stages/prepare.ts
     deps:
+    - path: ../../packages/recipe-parsing/src/schemas/ground-truth.ts
+      hash: md5
+      md5: 10e68a7cc31664b338b4f3af7ae11b20
+      size: 1246
     - path: data/ground-truth.json
       hash: md5
-      md5: d2a3ed50e3c76014f0390befd7647caf
-      size: 295775
+      md5: 21113e935b0b79db2319c3649c5d04f3
+      size: 295756
     - path: data/recipe-images
       hash: md5
       md5: 5d9a48e5ae2ba6c020e8329ab64b0308.dir
@@ -14,12 +18,8 @@ stages:
       nfiles: 68
     - path: src/lib/io.ts
       hash: md5
-      md5: 06f1d1ef3debf05262f8fb45cad309ee
-      size: 7872
-    - path: src/schemas/ground-truth.ts
-      hash: md5
-      md5: 10e68a7cc31664b338b4f3af7ae11b20
-      size: 1246
+      md5: a3e8bbdeeea752d293054bd3be46f95c
+      size: 7469
     - path: src/stages/prepare.ts
       hash: md5
       md5: 552709ef0d95195354ae3a47f9fef789
@@ -31,8 +31,8 @@ stages:
       size: 4390
     - path: outputs/prepared.json
       hash: md5
-      md5: d2a3ed50e3c76014f0390befd7647caf
-      size: 295775
+      md5: 21113e935b0b79db2319c3649c5d04f3
+      size: 295756
   parse:
     cmd: pnpm exec tsx src/stages/parse.ts
     deps:
@@ -167,8 +167,8 @@ stages:
     deps:
     - path: ../../packages/recipe-parsing/src/data/canonical-equipment.json
       hash: md5
-      md5: 0abc354883c181ef3b5ee1835d7c37e0
-      size: 5095
+      md5: 0ddbdbeb342a88c7f8a7220e2df7f1c1
+      size: 5576
     - path: ../../packages/recipe-parsing/src/data/canonical-ingredients.json
       hash: md5
       md5: ce77c460060c2b2b01d9c9edfba09c2b
@@ -195,8 +195,8 @@ stages:
       size: 5093
     - path: ../../packages/recipe-parsing/src/lib/equipment-canonicalization.ts
       hash: md5
-      md5: e6ca2d8a8e99427be3a9b9edb1566b9e
-      size: 6387
+      md5: dc14953ade2908748d6f72a3c55773b8
+      size: 6450
     - path: ../../packages/recipe-parsing/src/lib/ingredient-canonicalization.ts
       hash: md5
       md5: ce9d8879a0483e4a0040247596d994a8
@@ -262,23 +262,23 @@ stages:
     outs:
     - path: outputs/canonicalization-decisions.json
       hash: md5
-      md5: df3fa9cdf413e60ea829ee5b7a31957e
-      size: 303286
+      md5: aa4e7f1b092594e4fe83c1fbe6a6f328
+      size: 303211
     - path: outputs/predictions-canonicalized.json
       hash: md5
-      md5: 26eecc13d1fdc8969aa8554aded11daa
-      size: 151492
+      md5: 4c8d66b7a6d03cdb74f8193b24955269
+      size: 151468
   evaluate:
     cmd: pnpm exec tsx src/stages/evaluate.ts
     deps:
     - path: outputs/predictions-canonicalized.json
       hash: md5
-      md5: 26eecc13d1fdc8969aa8554aded11daa
-      size: 151492
+      md5: 4c8d66b7a6d03cdb74f8193b24955269
+      size: 151468
     - path: outputs/prepared.json
       hash: md5
-      md5: d2a3ed50e3c76014f0390befd7647caf
-      size: 295775
+      md5: 21113e935b0b79db2319c3649c5d04f3
+      size: 295756
     - path: src/evaluation/metrics.ts
       hash: md5
       md5: 7aef8932705e8a9c9223ed882e6c0ef6
@@ -298,15 +298,19 @@ stages:
     outs:
     - path: outputs/metrics.json
       hash: md5
-      md5: 67e9f2a975ac2cfe5d44d6875d6cb90f
-      size: 1585
+      md5: 9ceb496f8fccf4244e40dc9c7c08ad6f
+      size: 1586
     - path: outputs/per-entry-score-plot.json
       hash: md5
-      md5: 00147f55faa4147b004ba71cf11bd561
-      size: 18594
+      md5: 120103b3362a4b29ced7c5573bf9fb71
+      size: 18510
   dataset_stats:
     cmd: pnpm exec tsx src/stages/dataset-stats.ts
     deps:
+    - path: ../../packages/recipe-parsing/src/schemas/ground-truth.ts
+      hash: md5
+      md5: 10e68a7cc31664b338b4f3af7ae11b20
+      size: 1246
     - path: data/recipe-images
       hash: md5
       md5: 5d9a48e5ae2ba6c020e8329ab64b0308.dir
@@ -314,20 +318,16 @@ stages:
       nfiles: 68
     - path: outputs/prepared.json
       hash: md5
-      md5: d2a3ed50e3c76014f0390befd7647caf
-      size: 295775
+      md5: 21113e935b0b79db2319c3649c5d04f3
+      size: 295756
     - path: src/lib/io.ts
       hash: md5
-      md5: 06f1d1ef3debf05262f8fb45cad309ee
-      size: 7872
-    - path: src/schemas/ground-truth.ts
-      hash: md5
-      md5: 10e68a7cc31664b338b4f3af7ae11b20
-      size: 1246
+      md5: a3e8bbdeeea752d293054bd3be46f95c
+      size: 7469
     - path: src/stages/dataset-stats.ts
       hash: md5
-      md5: a26d3031ef4e5738a0caf4bc744079b0
-      size: 5748
+      md5: 1538177e4af4d54ad8f83eddb434e8d8
+      size: 5763
     outs:
     - path: outputs/cuisine-distribution.json
       hash: md5
@@ -509,40 +509,40 @@ stages:
   evaluate_normalization:
     cmd: pnpm exec tsx src/stages/evaluate-normalization.ts
     deps:
+    - path: ../../packages/recipe-parsing/src/schemas/ground-truth.ts
+      hash: md5
+      md5: 10e68a7cc31664b338b4f3af7ae11b20
+      size: 1246
     - path: outputs/predictions.json
       hash: md5
       md5: fb7e65feb96d284180c8a921b9346268
       size: 151536
     - path: outputs/prepared.json
       hash: md5
-      md5: d2a3ed50e3c76014f0390befd7647caf
-      size: 295775
+      md5: 21113e935b0b79db2319c3649c5d04f3
+      size: 295756
     - path: src/evaluation/metrics.ts
       hash: md5
-      md5: 2fa7b42b67de4a5f4fa5bb0cac6f5623
-      size: 20506
+      md5: 7aef8932705e8a9c9223ed882e6c0ef6
+      size: 20529
     - path: src/lib/image-key.ts
       hash: md5
       md5: 116109e930c80c186e78c1946e9f03b1
       size: 135
     - path: src/lib/io.ts
       hash: md5
-      md5: 06f1d1ef3debf05262f8fb45cad309ee
-      size: 7872
-    - path: src/schemas/ground-truth.ts
-      hash: md5
-      md5: 10e68a7cc31664b338b4f3af7ae11b20
-      size: 1246
+      md5: a3e8bbdeeea752d293054bd3be46f95c
+      size: 7469
     - path: src/stages/evaluate-normalization.ts
       hash: md5
-      md5: f6ac5bda0f6c8d34a3ba882f83929162
-      size: 3861
+      md5: ee3d9c2506bb8d8765624ffb6292d0ba
+      size: 3884
     outs:
     - path: outputs/normalization-metrics.json
       hash: md5
-      md5: e3b66c3fee5258cfec61db778d405afd
+      md5: db7129cc1c60591492f85e34528d44c9
       size: 1584
     - path: outputs/normalization-per-image-scores.json
       hash: md5
-      md5: 779fba2be3a2d98aa65f2ab1c4c781b5
-      size: 13498
+      md5: 361025a4639e5d5da539a8636d387c89
+      size: 13517

@@ -62,10 +62,12 @@ describe("buildFinalDraft", () => {
       ],
     );
 
-    expect(draft.cooklang.body).toContain("@bell pepper{1%piece}");
+    // The canonical name is registered, the wording the recipe used is kept
+    // as the Cooklang alias.
+    expect(draft.cooklang.body).toContain("@bell pepper|capsicum{1%piece}");
     expect(draft.cooklang.body).not.toContain("@capsicum");
     expect(draft.cooklang.body).toContain(
-      "Cook @bell pepper{} in a #frying pan{} for ~{10%minutes}.",
+      "Cook @bell pepper|capsicum{} in a #frying pan|skillet{} for ~{10%minutes}.",
     );
     expect(draft.cooklang.body).not.toContain("#skillet{}");
     expect(draft.cooklang.body).toContain("~{10%minutes}");
@@ -86,7 +88,7 @@ describe("buildFinalDraft", () => {
     );
     expect(reparsed.derived?.cookware).toEqual(["frying pan"]);
     expect(reparsed.derived?.instructions).toEqual([
-      "Cook bell pepper in a frying pan for 10 minutes.",
+      "Cook capsicum in a skillet for 10 minutes.",
     ]);
   });
 
@@ -183,7 +185,7 @@ describe("buildFinalDraft", () => {
       [],
     );
 
-    expect(draft.cooklang.body).toContain("@white rice{1}");
+    expect(draft.cooklang.body).toContain("@white rice|rice{1}");
     expect(draft.cooklang.body).toContain("@rice wine vinegar{2%tbsp}");
     expect(draft.cooklang.body).not.toContain("@white rice wine vinegar");
   });

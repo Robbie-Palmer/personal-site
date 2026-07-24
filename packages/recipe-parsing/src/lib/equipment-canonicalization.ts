@@ -115,6 +115,8 @@ const EQUIPMENT_ALIASES: Record<string, string> = {
   parchment: "baking-paper",
   "baking-parchment": "baking-paper",
   "plastic-wrap": "cling-film",
+  tenderizer: "tenderiser",
+  "meat-tenderiser": "tenderiser",
 };
 
 const EQUIPMENT_SIZE_TOKENS = new Set([
