@@ -10,7 +10,17 @@ type RecipePageLinkProps = Omit<ComponentPropsWithoutRef<"a">, "href"> & {
   href: string;
 };
 
-const RECIPE_PATH = /^\/recipes\/([a-z0-9]+(?:-[a-z0-9]+)*)$/;
+const RECIPE_PATH = /^\/recipes\/([^/]+)$/;
+
+function decodedRecipeSlug(href: string): string | null {
+  const segment = RECIPE_PATH.exec(href)?.[1];
+  if (!segment) return null;
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
 
 /**
  * Recipe detail pages are resolved by a Cloudflare Pages Function rather than
@@ -21,7 +31,7 @@ export function RecipePageLink({
   href,
   ...props
 }: Readonly<RecipePageLinkProps>) {
-  const slug = RECIPE_PATH.exec(href)?.[1];
+  const slug = decodedRecipeSlug(href);
   if (slug && !isRecipeAppRouteSlug(slug)) {
     return <a href={href} {...props} />;
   }

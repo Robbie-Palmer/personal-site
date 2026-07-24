@@ -62,6 +62,7 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
   navigation.pathname = "/recipes/first-soup";
   navigation.search = "";
+  navigation.replaceWithRecipePage.mockReset();
   vi.restoreAllMocks();
 });
 
@@ -113,6 +114,19 @@ describe("SavedRecipeView", () => {
     expect(navigation.replaceWithRecipePage).toHaveBeenCalledWith({
       slug: "first-soup",
     });
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not redirect the saved-recipe route without a slug", async () => {
+    globalThis.fetch = vi.fn();
+    navigation.pathname = "/recipes/saved";
+
+    render(<SavedRecipeView />);
+
+    expect(
+      await screen.findByText("No saved recipe was selected."),
+    ).toBeInTheDocument();
+    expect(navigation.replaceWithRecipePage).not.toHaveBeenCalled();
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 });

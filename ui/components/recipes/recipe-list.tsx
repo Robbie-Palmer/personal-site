@@ -41,7 +41,10 @@ import {
   buildDietRecipeMatches,
   type DietMatch,
 } from "@/lib/domain/diet";
-import type { RecipeGridItem } from "@/lib/domain/recipe/recipeDraft";
+import {
+  type RecipeGridItem,
+  recipePageHref,
+} from "@/lib/domain/recipe/recipeDraft";
 import { formatRecipeTime } from "@/lib/domain/recipe/time";
 import { formatDate } from "@/lib/generic/date";
 import { cycleFilterFromCard } from "@/lib/generic/filter-cycle";
@@ -231,7 +234,7 @@ const RecipeCard = memo(function RecipeCard({
   onToggleTotalTime,
   dietMatch,
 }: RecipeCardProps) {
-  const href = recipe.href ?? `/recipes/${recipe.slug}`;
+  const href = recipe.href ?? recipePageHref(recipe);
   return (
     <Card className="h-full flex flex-col overflow-hidden rounded-xl border-[1.25px] border-[var(--line-strong)] gap-0 py-0 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--paper-shadow)]">
       {recipe.image && (

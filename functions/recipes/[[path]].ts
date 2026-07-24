@@ -96,6 +96,7 @@ export const onRequest = async (context: Context): Promise<Response> => {
     ) {
       return textResponse(recipeMarkdown(loaded.payload), "text/markdown");
     }
+    const isPublic = loaded.record.visibility === "public";
     const assetUrl = new URL("/recipes/saved.html", url);
     const assetHeaders = new Headers(context.request.headers);
     assetHeaders.delete("if-none-match");
@@ -106,12 +107,20 @@ export const onRequest = async (context: Context): Promise<Response> => {
         headers: assetHeaders,
       }),
     );
-    if (!asset.ok || context.request.method === "HEAD") return asset;
+    if (!asset.ok) return asset;
+    const headers = rewrittenRecipeAssetHeaders(
+      asset,
+      isPublic
+        ? "public, max-age=60, s-maxage=300"
+        : "private, no-store",
+    );
+    if (context.request.method === "HEAD") {
+      return new Response(null, { status: asset.status, headers });
+    }
     const description =
       loaded.payload.recipe.description ||
       loaded.record.description ||
       loaded.payload.recipe.title;
-    const isPublic = loaded.record.visibility === "public";
     const headMarkup = isPublic
       ? `<link rel="canonical" href="${escapeHtmlAttribute(
           `${url.origin}/recipes/${slug}`,
@@ -135,12 +144,6 @@ export const onRequest = async (context: Context): Promise<Response> => {
     if (isPublic) {
       html = html.replace(/<meta name="robots"[^>]*>/i, "");
     }
-    const headers = rewrittenRecipeAssetHeaders(
-      asset,
-      isPublic
-        ? "public, max-age=60, s-maxage=300"
-        : "private, no-store",
-    );
     return new Response(html, { status: asset.status, headers });
   }
 

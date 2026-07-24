@@ -11,6 +11,7 @@ import { RecipeThumb, recipeMetaLabel } from "@/components/recipes/recipe-card";
 import { RecipeList } from "@/components/recipes/recipe-list";
 import { RecipePageLink } from "@/components/recipes/recipe-page-link";
 import type { RecipeCardView } from "@/lib/api/recipes";
+import { recipePageHref } from "@/lib/domain/recipe/recipeDraft";
 
 const steps = [
   {
@@ -101,7 +102,7 @@ export function LoggedOutLanding({
               {previewRecipes.map((recipe, index) => (
                 <RecipePageLink
                   key={recipe.slug}
-                  href={`/recipes/${recipe.slug}`}
+                  href={recipePageHref(recipe)}
                   className="group flex items-center gap-4 py-4"
                 >
                   <RecipeThumb recipe={recipe} size={72} />

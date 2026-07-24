@@ -318,7 +318,7 @@ describe("dynamic recipe pages", () => {
     expect(html).toContain(String.raw`\u003cSoup & \"Stuff\">`);
   });
 
-  it("returns the static asset unchanged for HEAD and asset failures", async () => {
+  it("rewrites HEAD headers and returns asset failures unchanged", async () => {
     globalThis.fetch = vi.fn(async () =>
       Response.json({
         slug: "lentil-soup",
@@ -338,6 +338,15 @@ describe("dynamic recipe pages", () => {
     );
     expect(failedResponse).toBe(failedAsset);
 
+    globalThis.fetch = vi.fn(async () =>
+      Response.json({
+        slug: "lentil-soup",
+        title: "Lentil Soup",
+        description: null,
+        body: JSON.stringify(payload),
+        visibility: "private",
+      }),
+    ) as typeof fetch;
     const headAsset = new Response(null, { headers: { etag: "cached" } });
     const headResponse = await onRequest(
       context(
@@ -347,7 +356,9 @@ describe("dynamic recipe pages", () => {
         "HEAD",
       ),
     );
-    expect(headResponse).toBe(headAsset);
+    expect(headResponse.status).toBe(200);
+    expect(headResponse.headers.get("cache-control")).toBe("private, no-store");
+    expect(headResponse.headers.has("etag")).toBe(false);
   });
 
   it("returns not found when the public recipe cannot be decoded", async () => {

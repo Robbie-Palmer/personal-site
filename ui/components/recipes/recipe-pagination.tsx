@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { RecipePageLink } from "@/components/recipes/recipe-page-link";
 import type { RecipeCardView } from "@/lib/api/recipes";
+import { recipePageHref } from "@/lib/domain/recipe/recipeDraft";
 import { cn } from "@/lib/generic/styles";
 
 interface RecipePaginationProps {
@@ -35,7 +36,7 @@ export function RecipePagination({
       >
         {prevRecipe ? (
           <RecipePageLink
-            href={`/recipes/${prevRecipe.slug}`}
+            href={recipePageHref(prevRecipe)}
             className="block min-w-0"
           >
             <div className="flex h-full min-w-0 items-center gap-3 rounded-lg border border-border/60 bg-muted/20 px-4 py-3 transition-colors hover:bg-muted/40">
@@ -57,7 +58,7 @@ export function RecipePagination({
 
         {nextRecipe ? (
           <RecipePageLink
-            href={`/recipes/${nextRecipe.slug}`}
+            href={recipePageHref(nextRecipe)}
             className="block min-w-0"
           >
             <div className="flex h-full min-w-0 items-center gap-3 rounded-lg border border-border/60 bg-muted/20 px-4 py-3 transition-colors hover:bg-muted/40">

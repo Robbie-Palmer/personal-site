@@ -38,7 +38,8 @@ export function SavedRecipeView() {
     const pathSlug = /^\/recipes\/([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/.exec(
       pathname,
     )?.[1];
-    const slug = searchSlug ?? pathSlug;
+    const slug =
+      pathname === "/recipes/saved" ? searchSlug : (searchSlug ?? pathSlug);
     if (
       !slug ||
       slug.length > 120 ||
@@ -47,8 +48,8 @@ export function SavedRecipeView() {
       setState({ status: "error", message: "No saved recipe was selected." });
       return;
     }
-    if (pathname === "/recipes/saved") {
-      replaceWithRecipePage({ slug });
+    if (pathname === "/recipes/saved" && searchSlug) {
+      replaceWithRecipePage({ slug: searchSlug });
       return;
     }
     const controller = new AbortController();

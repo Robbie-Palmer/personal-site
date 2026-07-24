@@ -32,6 +32,18 @@ describe("RecipePageLink", () => {
     expect(link).not.toHaveAttribute("data-next-link");
   });
 
+  it("uses a document navigation for encoded runtime recipe slugs", () => {
+    render(
+      <RecipePageLink href="/recipes/weeknight%20rice">
+        Weeknight Rice
+      </RecipePageLink>,
+    );
+
+    const link = screen.getByRole("link", { name: "Weeknight Rice" });
+    expect(link).toHaveAttribute("href", "/recipes/weeknight%20rice");
+    expect(link).not.toHaveAttribute("data-next-link");
+  });
+
   it("keeps static application routes on Next client navigation", () => {
     render(<RecipePageLink href="/recipes/discover">Discover</RecipePageLink>);
 
