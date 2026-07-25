@@ -1,11 +1,20 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TimerDock } from "@/components/recipes/timer-dock";
-import { CookModeProvider } from "@/contexts/cook-mode-context";
+import { CookModeProvider, useCookMode } from "@/contexts/cook-mode-context";
 import {
   __resetTimerStoreForTests,
   startTimer,
 } from "@/lib/cooking/timerStore";
+
+function OpenCookModeButton() {
+  const { setCookModeOpen } = useCookMode();
+  return (
+    <button type="button" onClick={() => setCookModeOpen(true)}>
+      Open cook mode
+    </button>
+  );
+}
 
 describe("TimerDock", () => {
   beforeEach(() => {
@@ -139,5 +148,43 @@ describe("TimerDock", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Time's up for roast.");
     // The completion must not tear down the open popover or discard the label.
     expect(screen.getByPlaceholderText("e.g. pasta")).toHaveValue("pasta");
+  });
+
+  it("resets a dragged position after the last timer is dismissed", () => {
+    localStorage.setItem(
+      "cooking-timer-dock-pos:v1",
+      JSON.stringify({ right: 72, bottom: 180 }),
+    );
+    startTimer({
+      id: "pasta-timer",
+      label: "pasta",
+      durationSeconds: 600,
+    });
+
+    render(
+      <CookModeProvider>
+        <OpenCookModeButton />
+        <TimerDock />
+      </CookModeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open cook mode" }));
+    expect(screen.getByRole("region", { name: "Cooking timers" })).toHaveStyle({
+      right: "72px",
+      bottom: "180px",
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Expand cooking timers (1)" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Dismiss pasta timer" }),
+    );
+
+    expect(localStorage.getItem("cooking-timer-dock-pos:v1")).toBeNull();
+
+    const idleDock = screen.getByRole("region", { name: "Cooking timers" });
+    expect(idleDock.style.right).toBe("");
+    expect(idleDock.style.bottom).toBe("116px");
   });
 });

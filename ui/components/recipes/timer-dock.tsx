@@ -72,6 +72,14 @@ function savePosition(position: DockPosition): void {
   }
 }
 
+function clearPosition(): void {
+  try {
+    localStorage.removeItem(POSITION_KEY);
+  } catch {
+    // localStorage unavailable
+  }
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), Math.max(min, max));
 }
@@ -263,6 +271,16 @@ export function TimerDock() {
     setMounted(true);
     setPosition(loadPosition());
   }, []);
+
+  // A dragged position only belongs to the current batch of timers. Once the
+  // last timer is dismissed, return the idle dock (and the next timer) to its
+  // default corner instead of stranding it at a location that can no longer be
+  // adjusted while idle.
+  useEffect(() => {
+    if (timers.length > 0) return;
+    setPosition(null);
+    clearPosition();
+  }, [timers.length]);
 
   const completedTimers = timers.filter((timer) => timer.state === "completed");
   const completedIdsKey = completedTimerIdsKey(timers);
