@@ -1,0 +1,38 @@
+name: Stateful AI review CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "ai-review/**"
+      - ".github/workflows/ai-review-cd.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production-ai-review
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
+        with:
+          experimental: true
+
+      - name: Deploy Worker, Durable Object, and Workflow
+        env:
+          AI_REVIEW_APP_ID: ${{ vars.AI_REVIEW_APP_ID }}
+          AI_REVIEW_APP_INSTALLATION_ID: ${{ vars.AI_REVIEW_APP_INSTALLATION_ID }}
+          AI_REVIEW_APP_PRIVATE_KEY: ${{ secrets.AI_REVIEW_APP_PRIVATE_KEY }}
+          AI_REVIEW_WEBHOOK_SECRET: ${{ secrets.AI_REVIEW_WEBHOOK_SECRET }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: mise run //ai-review:deploy

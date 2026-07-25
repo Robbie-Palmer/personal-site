@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-project="${DOPPLER_PROJECT:-personal-site}"
+default_project="${DOPPLER_PROJECT:-personal-site}"
 requested_environments=("$@")
 
 require_command() {
@@ -21,11 +21,18 @@ contains_name() {
 }
 
 load_config_entries() {
-  local doppler_config="$1"
+  local config_spec="$1"
+  local doppler_project="$default_project"
+  local doppler_config="$config_spec"
   local secrets_json
 
-  secrets_json=$(doppler secrets --project "$project" --config "$doppler_config" --json)
-  jq -c --arg source "$doppler_config" '
+  if [[ "$config_spec" == */* ]]; then
+    doppler_project="${config_spec%%/*}"
+    doppler_config="${config_spec#*/}"
+  fi
+
+  secrets_json=$(doppler secrets --project "$doppler_project" --config "$doppler_config" --json)
+  jq -c --arg source "$doppler_project/$doppler_config" '
     to_entries
     | map(select(.key | startswith("DOPPLER_") | not))
     | map({
@@ -159,6 +166,7 @@ known_environments=(
   production-infra-bootstrap-plan
   production-database-backup
   production-ci
+  production-ai-review
 )
 
 for requested_environment in "${requested_environments[@]}"; do
@@ -179,6 +187,7 @@ sync_requested_env production-infra-bootstrap prd_bootstrap_infra
 sync_requested_env production-infra-bootstrap-plan prd_bootstrap_plan
 sync_requested_env production-database-backup prd_database_backup
 sync_requested_env production-ci prd_ci_repo
+sync_requested_env production-ai-review ai-review/prd
 
 if ((${#requested_environments[@]} == 0)); then
   echo "Manual Doppler to GitHub environment sync complete."

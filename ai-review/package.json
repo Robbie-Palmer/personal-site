@@ -1,0 +1,19 @@
+{
+  "name": "ai-review",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.0.0",
+    "@types/node": "^24",
+    "typescript": "^5",
+    "vitest": "^4.1.7",
+    "wrangler": "^4"
+  }
+}

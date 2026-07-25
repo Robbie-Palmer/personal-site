@@ -7,6 +7,9 @@
       "entry": ["functions/**/*.ts"],
       "ignoreDependencies": ["lint-staged", "markdownlint-cli", "remark-cli", "remark-lint", "yaml-lint"]
     },
+    "ai-review": {
+      "ignoreDependencies": ["cloudflare"]
+    },
     "ui": {
       "ignore": ["content/**"],
       "ignoreDependencies": ["serve"]

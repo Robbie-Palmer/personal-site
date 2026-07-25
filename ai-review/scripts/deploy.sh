@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+required_values=(
+  AI_REVIEW_APP_ID
+  AI_REVIEW_APP_INSTALLATION_ID
+  AI_REVIEW_APP_PRIVATE_KEY
+  AI_REVIEW_WEBHOOK_SECRET
+  CLOUDFLARE_ACCOUNT_ID
+  CLOUDFLARE_API_TOKEN
+  OPENROUTER_API_KEY
+)
+
+missing_values=()
+for name in "${required_values[@]}"; do
+  if [[ -z "${!name:-}" ]]; then
+    missing_values+=("$name")
+  fi
+done
+
+if ((${#missing_values[@]} > 0)); then
+  if [[ "${CI:-}" == "true" || "${AI_REVIEW_DOPPLER_WRAPPED:-}" == "1" ]]; then
+    echo "Cannot deploy AI review: missing required values: ${missing_values[*]}" >&2
+    exit 1
+  fi
+  if ! command -v doppler >/dev/null 2>&1; then
+    echo "Cannot deploy AI review: required values are missing and Doppler is unavailable." >&2
+    exit 1
+  fi
+
+  export AI_REVIEW_DOPPLER_WRAPPED=1
+  exec doppler run \
+    --project "${AI_REVIEW_DOPPLER_PROJECT:-ai-review}" \
+    --config "${AI_REVIEW_DOPPLER_CONFIG:-prd}" \
+    --preserve-env=AI_REVIEW_DOPPLER_WRAPPED \
+    -- bash "$0" "$@"
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "Cannot deploy AI review: jq is required to construct the Worker secrets payload." >&2
+  exit 1
+fi
+
+secrets_dir="$(mktemp -d)"
+secrets_pipe="${secrets_dir}/worker-secrets.json"
+mkfifo "$secrets_pipe"
+writer_pid=0
+
+cleanup() {
+  if [[ "$writer_pid" -gt 0 ]]; then
+    kill "$writer_pid" 2>/dev/null || true
+  fi
+  if [[ -p "$secrets_pipe" ]]; then
+    unlink "$secrets_pipe"
+  fi
+  rmdir "$secrets_dir" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+jq -n '
+  env
+  | {
+      AI_REVIEW_APP_ID,
+      AI_REVIEW_APP_INSTALLATION_ID,
+      AI_REVIEW_APP_PRIVATE_KEY,
+      AI_REVIEW_WEBHOOK_SECRET,
+      OPENROUTER_API_KEY
+    }
+' > "$secrets_pipe" &
+writer_pid="$!"
+
+pnpm exec wrangler deploy --secrets-file "$secrets_pipe" "$@"
+wait "$writer_pid"
+writer_pid=0

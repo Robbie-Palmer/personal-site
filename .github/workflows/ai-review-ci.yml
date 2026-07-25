@@ -1,0 +1,28 @@
+name: Stateful AI review CI
+
+on:
+  pull_request:
+    paths:
+      - "ai-review/**"
+      - ".github/workflows/ai-review-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
+        with:
+          experimental: true
+
+      - name: Check standalone project
+        run: mise run //ai-review:check
+
+      - name: Verify deploy bundle
+        run: mise x -- pnpm --dir ai-review exec wrangler deploy --dry-run

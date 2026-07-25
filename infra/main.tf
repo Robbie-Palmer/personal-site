@@ -122,6 +122,19 @@ resource "cloudflare_r2_bucket" "database_backups" {
   }
 }
 
+# Versioned review-run and finding outcomes for the standalone AI review
+# project. Worker bindings are owned by ai-review/wrangler.toml; Terraform owns
+# the bucket and prevents application deploys from deleting the corpus.
+resource "cloudflare_r2_bucket" "ai_review_data" {
+  account_id = var.cloudflare_account_id
+  name       = var.r2_ai_review_data_bucket_name
+  location   = "ENAM"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
 # Neon
 
 resource "neon_project" "recipes" {

@@ -14,13 +14,17 @@ short-lived Doppler read/write service tokens, then revoke those tokens.
 
 ## Doppler Project
 
-The Doppler project is `personal-site`. It covers the monorepo because the
-current personal site, recipe site, asset tracker, Pages Functions, Worker, and
-Terraform all ship as one deployed system.
+The Doppler project is `personal-site`. It covers the monorepo's coupled site
+and recipe runtimes because they ship as one deployed system.
 
 Split into separate Doppler projects only when ownership, access control,
 rotation cadence, or deployability diverge. Until then, separate configs inside
 one project give enough structure without fragmenting the setup.
+
+The stateful AI reviewer is the first deliberate exception. It is independently
+deployable, has a GitHub App identity and inference budget unrelated to the
+sites, and may eventually move to its own repository. Its secrets live in
+Doppler project `ai-review`, not in `personal-site`.
 
 ## Config Layout
 
@@ -44,6 +48,7 @@ Configs are split by environment and runtime/control boundary:
 | `prd_bootstrap_plan` | Read-only bootstrap Terraform plan credentials | `production-infra-bootstrap-plan` |
 | `prd_database_backup` | Encrypted Neon-to-R2 backup credentials and public encryption recipient | `production-database-backup` |
 | `prd_ci_repo` | Repo-wide sensitive CI like AI review and DVC | `production-ci` |
+| `ai-review/prd` | Standalone stateful AI reviewer deploy and runtime config | `production-ai-review` |
 
 Doppler config inheritance is not available on this workspace plan, so local
 full-stack dev uses nested `doppler run` calls instead of duplicating values
@@ -185,6 +190,7 @@ The GitHub environments are runtime/job boundaries, not provider names:
 | `production-infra-bootstrap-plan` | `prd_bootstrap_plan` | Read-only bootstrap Terraform PR plans |
 | `production-database-backup` | `prd_database_backup` | Scheduled encrypted Neon backup |
 | `production-ci` | `prd_ci_repo` | AI review and ML pipeline CI |
+| `production-ai-review` | `ai-review/prd` | Stateful AI reviewer Worker deployment |
 
 `production-infra-bootstrap-plan` must require environment approval before its
 Terraform Cloud token is released. The Google identity is read-only, but the
@@ -321,6 +327,22 @@ This OpenRouter key is for repo-wide CI, such as AI review and ML pipeline
 jobs. Recipe ingestion uses the separate key in `prd_recipe_ingest` so its
 budget and limits can be managed independently.
 
+The standalone Doppler project `ai-review`, config `prd`, should own:
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID` (unmasked)
+- `AI_REVIEW_APP_ID` (unmasked)
+- `AI_REVIEW_APP_INSTALLATION_ID` (unmasked)
+- `AI_REVIEW_APP_PRIVATE_KEY`
+- `AI_REVIEW_WEBHOOK_SECRET`
+- `OPENROUTER_API_KEY`
+- `R2_AI_REVIEW_DATA_BUCKET_NAME` (unmasked)
+
+The GitHub App is installed only on `Robbie-Palmer/personal-site`. Its App ID
+and installation ID are identifiers, while its private key and webhook secret
+must remain masked. The OpenRouter key is a separate, spend-limited escape-hatch
+credential; Workers AI is the default inference path.
+
 ## QA Commands
 
 These commands validate the wiring without printing secret values:
@@ -332,8 +354,10 @@ doppler secrets --project personal-site --config dev_infra --only-names
 doppler secrets --project personal-site --config dev_bootstrap_infra --only-names
 doppler secrets --project personal-site --config prd_bootstrap_plan --only-names
 doppler secrets --project personal-site --config prd_database_backup --only-names
+doppler secrets --project ai-review --config prd --only-names
 scripts/sync-doppler-github-envs.sh production-infra-bootstrap-plan
 scripts/sync-doppler-github-envs.sh production-database-backup
+scripts/sync-doppler-github-envs.sh production-ai-review
 
 mise run //:dev
 mise run //infra:format:check
