@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   completionContent,
   ignored,
+  isCreditExhaustion,
   markdownText,
   parseModelPayload,
   renderComment,
@@ -59,6 +60,30 @@ test("completion accepts a null finish reason but rejects truncation", () => {
     () => completionContent({ finish_reason: "length", message: { content: "{}" } }, "model"),
     /stopped with length/,
   );
+});
+
+test("credit exhaustion only matches payment and key-limit failures", () => {
+  assert.equal(
+    isCreditExhaustion(
+      new Error(
+        'POST /chat/completions failed (403): {"error":{"message":"Key limit exceeded (monthly limit)"}}',
+      ),
+    ),
+    true,
+  );
+  assert.equal(
+    isCreditExhaustion(
+      new Error('POST /chat/completions failed (402): {"error":{"message":"Insufficient credits"}}'),
+    ),
+    true,
+  );
+  assert.equal(
+    isCreditExhaustion(
+      new Error('POST /chat/completions failed (403): {"error":{"message":"Guardrail blocked request"}}'),
+    ),
+    false,
+  );
+  assert.equal(isCreditExhaustion(new Error("All scout models failed")), false);
 });
 
 test("model payload accepts a single JSON fence but rejects prose", () => {
