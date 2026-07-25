@@ -29,7 +29,6 @@ import {
   buildDietRecipeMatches,
 } from "@/lib/domain/diet";
 import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
-import type { KitchenStock } from "@/lib/domain/recipe/kitchen";
 import {
   getDietRelevantKitchenIngredients,
   getKitchenRecipeMatches,
@@ -37,6 +36,7 @@ import {
   type KitchenIngredientView,
   type KitchenLocation,
   type KitchenRecipeView,
+  type KitchenStock,
 } from "@/lib/domain/recipe/kitchen";
 import { cn } from "@/lib/generic/styles";
 import { toggleRecipe } from "@/lib/shopping/shoppingListStore";
