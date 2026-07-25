@@ -14,6 +14,8 @@ enabled = true
 destinations = ["posthog-logs"]
 
 [vars]
+DEPLOYMENT_ENV = "preview"
+POSTHOG_OTLP_BASE_URL = "https://eu.i.posthog.com"
 EXTRACT_MODEL = "google/gemini-3-flash-preview"
 EXTRACT_TIMEOUT_MS = "30000"
 EXTRACT_RETRIES = "2"
@@ -25,7 +27,7 @@ CANONICALIZE_TIMEOUT_MS = "15000"
 CANONICALIZE_RETRIES = "1"
 
 [secrets]
-required = ["DATABASE_URL", "OPENROUTER_API_KEY"]
+required = ["DATABASE_URL", "OPENROUTER_API_KEY", "POSTHOG_KEY"]
 
 [[workflows]]
 name = "__PREVIEW_INGEST_NAME__"

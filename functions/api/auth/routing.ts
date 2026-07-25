@@ -1,11 +1,18 @@
+import {
+  injectTraceContext,
+  withPostHogSpan,
+  type PostHogObservabilityEnv,
+} from "observability";
+
 export type AuthProxyRoutingEnv = {
   RECIPE_API_PREVIEW_ORIGIN_TEMPLATE?: string;
   CF_PAGES_HOST?: string;
 };
 
-export type RecipeApiProxyEnv = AuthProxyRoutingEnv & {
-  RECIPE_API_URL?: string;
-};
+export type RecipeApiProxyEnv = AuthProxyRoutingEnv &
+  PostHogObservabilityEnv & {
+    RECIPE_API_URL?: string;
+  };
 
 export type RecipeApiProxyContext = {
   request: Request;
@@ -63,8 +70,12 @@ const FORWARDED_REQUEST_HEADERS = [
   "content-type",
   "cookie",
   "origin",
+  "traceparent",
+  "tracestate",
   "referer",
   "user-agent",
+  "x-posthog-distinct-id",
+  "x-posthog-session-id",
   "x-forwarded-for",
 ] as const;
 
@@ -151,13 +162,26 @@ export async function proxyRecipeApiRequest(
 
   let response: Response;
   try {
-    response = await fetch(
-      new Request(destination, {
-        method: context.request.method,
-        headers,
-        body,
-        redirect: "manual",
-      }),
+    response = await withPostHogSpan(
+      {
+        env: context.env,
+        serviceName: "recipe-pages",
+        spanName: `HTTP ${context.request.method} recipe-api`,
+        attributes: {
+          "http.request.method": context.request.method,
+          "server.address": destinationUrl.hostname,
+          "url.path": destinationPath,
+        },
+      },
+      async () =>
+        fetch(
+          new Request(destination, {
+            method: context.request.method,
+            headers: injectTraceContext(headers),
+            body,
+            redirect: "manual",
+          }),
+        ),
     );
   } catch (error) {
     if (logLabel) {

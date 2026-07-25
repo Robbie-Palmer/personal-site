@@ -4,6 +4,9 @@ export type Env = {
   ARTIFACTS: R2Bucket;
   RECIPE_INGEST_WORKFLOW: Workflow;
   OPENROUTER_API_KEY: string;
+  POSTHOG_KEY?: string;
+  POSTHOG_OTLP_BASE_URL?: string;
+  DEPLOYMENT_ENV?: string;
   EXTRACT_MODEL?: string;
   EXTRACT_TIMEOUT_MS?: string;
   EXTRACT_RETRIES?: string;

@@ -36,6 +36,7 @@ type WranglerConfig = {
     enabled?: boolean;
     logs?: { enabled?: boolean; destinations?: string[] };
   };
+  secrets?: { required?: string[] };
 };
 
 type StageParamsYaml = Record<
@@ -128,6 +129,21 @@ describe("shared infrastructure bindings", () => {
         enabled: true,
         logs: { enabled: true, destinations: ["posthog-logs"] },
       });
+    }
+  });
+
+  it("production and preview workers configure direct PostHog tracing", () => {
+    const posthogOtlpBaseUrl = terraformDefault("posthog_otlp_base_url");
+
+    for (const config of [
+      apiWrangler,
+      ingestWrangler,
+      apiPreviewWrangler,
+      ingestPreviewWrangler,
+    ]) {
+      expect(config.vars?.POSTHOG_OTLP_BASE_URL).toBe(posthogOtlpBaseUrl);
+      expect(config.vars?.DEPLOYMENT_ENV).toMatch(/^(production|preview)$/);
+      expect(config.secrets?.required).toContain("POSTHOG_KEY");
     }
   });
 

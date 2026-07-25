@@ -197,20 +197,33 @@ jobs:
         env:
           DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
         run: |
           : "${OPENROUTER_API_KEY:?OPENROUTER_API_KEY is required}"
+          : "${POSTHOG_KEY:?POSTHOG_KEY is required}"
           API_SECRETS_FILE="$RUNNER_TEMP/preview-api-secrets.json"
           INGEST_SECRETS_FILE="$RUNNER_TEMP/preview-ingest-secrets.json"
           jq -n \
             --arg database_url "$DATABASE_URL" \
             --arg auth_secret "$BETTER_AUTH_SECRET" \
             --arg preview_password "$PREVIEW_AUTH_PASSWORD" \
-            '{DATABASE_URL: $database_url, BETTER_AUTH_SECRET: $auth_secret, PREVIEW_AUTH_PASSWORD: $preview_password}' \
+            --arg posthog_key "$POSTHOG_KEY" \
+            '{
+              DATABASE_URL: $database_url,
+              BETTER_AUTH_SECRET: $auth_secret,
+              PREVIEW_AUTH_PASSWORD: $preview_password,
+              POSTHOG_KEY: $posthog_key
+            }' \
             > "$API_SECRETS_FILE"
           jq -n \
             --arg database_url "$DATABASE_URL" \
             --arg openrouter_api_key "$OPENROUTER_API_KEY" \
-            '{DATABASE_URL: $database_url, OPENROUTER_API_KEY: $openrouter_api_key}' \
+            --arg posthog_key "$POSTHOG_KEY" \
+            '{
+              DATABASE_URL: $database_url,
+              OPENROUTER_API_KEY: $openrouter_api_key,
+              POSTHOG_KEY: $posthog_key
+            }' \
             > "$INGEST_SECRETS_FILE"
           echo "api_secrets_file=$API_SECRETS_FILE" >> "$GITHUB_OUTPUT"
           echo "ingest_secrets_file=$INGEST_SECRETS_FILE" >> "$GITHUB_OUTPUT"

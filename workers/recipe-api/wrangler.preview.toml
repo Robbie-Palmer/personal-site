@@ -13,11 +13,16 @@ enabled = true
 enabled = true
 destinations = ["posthog-logs"]
 
+[vars]
+DEPLOYMENT_ENV = "preview"
+POSTHOG_OTLP_BASE_URL = "https://eu.i.posthog.com"
+
 [secrets]
 required = [
   "DATABASE_URL",
   "BETTER_AUTH_SECRET",
   "PREVIEW_AUTH_PASSWORD",
+  "POSTHOG_KEY",
 ]
 
 # The preview workflow injects the isolated Neon branch's pooled DATABASE_URL

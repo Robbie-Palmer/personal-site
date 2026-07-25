@@ -3,8 +3,10 @@ main = "src/index.ts"
 compatibility_date = "2026-05-28"
 compatibility_flags = ["nodejs_compat"]
 
-# Export Worker logs to PostHog via OTLP. The "posthog-logs" destination
-# (endpoint + auth header) is configured in the Cloudflare dashboard, not here.
+# Retain native Worker logs and export them to PostHog as a platform fallback.
+# Application traces and their correlated logs are exported directly as
+# OTLP/protobuf because Cloudflare's OTLP/JSON trace export is incompatible
+# with PostHog's tracing endpoint.
 [observability]
 enabled = true
 
@@ -13,6 +15,8 @@ enabled = true
 destinations = ["posthog-logs"]
 
 [vars]
+DEPLOYMENT_ENV = "production"
+POSTHOG_OTLP_BASE_URL = "https://eu.i.posthog.com"
 # Stage parameters mirror ml-pipelines/recipe-parsing/params.yaml so production
 # runs the same models/timeouts the evaluation pipeline scores.
 EXTRACT_MODEL = "google/gemini-3-flash-preview"
@@ -26,7 +30,7 @@ CANONICALIZE_TIMEOUT_MS = "15000"
 CANONICALIZE_RETRIES = "1"
 
 [secrets]
-required = ["OPENROUTER_API_KEY"]
+required = ["OPENROUTER_API_KEY", "POSTHOG_KEY"]
 
 [[workflows]]
 name = "recipe-ingest"

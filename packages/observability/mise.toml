@@ -1,0 +1,17 @@
+[tasks.install]
+description = "Install observability package dependencies"
+run = "pnpm install --frozen-lockfile --filter observability..."
+
+[tasks.typecheck]
+description = "Typecheck the shared observability package"
+depends = ["install"]
+run = "pnpm typecheck"
+
+[tasks.test]
+description = "Run observability package tests"
+depends = ["install"]
+run = "pnpm test"
+
+[tasks.check]
+description = "Run all observability package checks"
+depends = ["typecheck", "test"]

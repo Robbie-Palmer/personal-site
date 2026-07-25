@@ -46,26 +46,31 @@ Secrets and config mirrored from Doppler:
      key — it already ships to browsers via `NEXT_PUBLIC_POSTHOG_KEY`, so it is
      not secret in the usual sense, but it is sourced from Doppler for
      single-source-of-truth config management.
-   - Mapped to `TF_VAR_posthog_key` (Terraform → Pages env var) and to
-     `NEXT_PUBLIC_POSTHOG_KEY` (UI build). It is **also** used — outside both
-     Terraform and Doppler's reach — as the auth header on the `posthog-logs`
-     Workers Observability destination. See [Rotating `POSTHOG_KEY`](#rotating-posthog_key).
+   - Mapped to `TF_VAR_posthog_key` (Terraform → Pages Functions and UI) and
+     deployed as a secret to both recipe Workers for direct OTLP tracing.
+     It is **also** used — outside Terraform's reach — as the auth header on
+     the `posthog-logs` Workers Observability destination. See
+     [Rotating `POSTHOG_KEY`](#rotating-posthog_key).
 7. **`POSTHOG_HOST`**
-   - PostHog ingestion host (`https://eu.posthog.com`).
+   - PostHog application host (`https://eu.posthog.com`).
    - Mapped to `NEXT_PUBLIC_POSTHOG_HOST` for the UI build.
-8. **`MISE_GITHUB_TOKEN`**
+8. **`POSTHOG_OTLP_BASE_URL`** (optional)
+   - Regional OTLP ingestion origin (default: `https://eu.i.posthog.com`).
+   - Mapped to `TF_VAR_posthog_otlp_base_url`; the same default is declared in
+     both Worker Wrangler configs and checked for drift in tests.
+9. **`MISE_GITHUB_TOKEN`**
    - GitHub token used by mise to download tools during Cloudflare Pages builds.
    - Mapped to `TF_VAR_github_token`, which Terraform passes into the Pages
      build configuration (`var.github_token`, required — no default).
-9. **`POSTHOG_API_KEY`**
-   - Create at: PostHog → Settings → Personal API keys
-   - Required scopes:
-     - `dashboard:read`
-     - `dashboard:write`
-     - `insight:read`
-     - `insight:write`
-   - Used by the PostHog Terraform provider
-10. **`POSTHOG_PROJECT_ID`**
+10. **`POSTHOG_API_KEY`**
+    - Create at: PostHog → Settings → Personal API keys
+    - Required scopes:
+      - `dashboard:read`
+      - `dashboard:write`
+      - `insight:read`
+      - `insight:write`
+    - Used by the PostHog Terraform provider
+11. **`POSTHOG_PROJECT_ID`**
     - Find in the PostHog project/environment settings or API URLs
     - Passed as `TF_VAR_posthog_project_id`
     - Mark unmasked in Doppler so the GitHub sync publishes it as an Actions
@@ -188,15 +193,19 @@ creates a project-scoped API key for GitHub branch automation; publish the
 
 ## Rotating `POSTHOG_KEY`
 
-`POSTHOG_KEY` lives in Doppler, but it lands in **three** places — two are
-automated, one is **manual**. The manual one will break silently (logs just
-stop arriving in PostHog, no error) if you forget it, so rotate in this order:
+`POSTHOG_KEY` lives in Doppler. It is used by browser analytics, direct
+OTLP/protobuf trace and correlated-log export from Pages/Workers, and the
+Cloudflare native-log fallback. All direct exporters are automated; the
+Cloudflare observability destination remains manual. Rotate in this order:
 
 1. **Doppler** — update the value. This is the source of truth.
-2. **Pages / UI build** — run `scripts/sync-doppler-github-envs.sh`; the next
-   infra apply / UI build picks it up via
-   `TF_VAR_posthog_key` and `NEXT_PUBLIC_POSTHOG_KEY`. Nothing to do by hand.
-3. **`posthog-logs` Workers Observability destination** (⚠️ **manual**) —
+2. **GitHub environments** — run `scripts/sync-doppler-github-envs.sh`. The
+   next infra apply sets both the browser and Pages Function values; the API
+   and ingestion deploy workflows write the same key as a Worker secret.
+3. **Deploy the three runtimes** — apply Terraform for Pages, then redeploy
+   `recipe-api` and `recipe-ingest`. Direct trace/log export now uses the new
+   key everywhere.
+4. **`posthog-logs` Workers Observability destination** (⚠️ **manual**) —
    Cloudflare Dashboard → Workers & Pages → Observability → Telemetry →
    `posthog-logs` → update the `Authorization: Bearer <phc_…>` header. Neither
    Terraform nor Doppler can reach this: there is a Cloudflare API for
@@ -206,7 +215,31 @@ stop arriving in PostHog, no error) if you forget it, so rotate in this order:
    and it is not a Worker secret or Pages var that the manual GitHub sync
    manages.
 
-This destination is referenced by `workers/recipe-api/wrangler.toml`
-(`[observability.logs]`). In practice, the public `phc_` project key rarely
-rotates, which is why the manual step is an acceptable trade-off — but it is the
-one to remember.
+This destination is referenced by both Worker Wrangler files
+(`[observability.logs]`) and provides platform invocation logs and a fallback
+copy of console output. Application traces and their correlated logs do not
+use it: `packages/observability` sends OTLP/protobuf directly to PostHog because
+Cloudflare's native OTLP exporter currently cannot export PostHog traces.
+
+## PostHog Distributed Tracing
+
+The recipe stack propagates standard W3C `traceparent`/`tracestate` context
+across:
+
+1. `recipe-pages` (the same-origin Pages Function proxy)
+2. `recipe-api` (the Cloudflare API Worker)
+3. `recipe-ingest` (the Cloudflare Workflow and its durable steps)
+
+The browser also adds `posthogDistinctId` and `sessionId` correlation data to
+same-origin API requests, so backend logs can link back to the affected person
+and session replay. The workflow emits a span for each durable ingestion step,
+including extraction, normalization, canonicalization, persistence, and
+finalization.
+
+`posthog_otlp_base_url` selects the regional ingestion origin and defaults to
+`https://eu.i.posthog.com`. Traces go to `/i/v1/traces`; correlated logs go to
+`/i/v1/logs`. Both use the project token, not the PostHog personal API key.
+
+PostHog distributed tracing is currently alpha. Cloudflare's own tracing/export
+features are also evolving, so keep the direct exporter until Cloudflare lists
+PostHog trace export as supported.
