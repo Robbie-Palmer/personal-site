@@ -288,6 +288,24 @@ describe("enabled telemetry", () => {
     });
   });
 
+  it("exports a successful internal span without optional attributes", async () => {
+    await expect(
+      withPostHogSpan(
+        {
+          env: enabledEnv,
+          serviceName: "test-service",
+          spanName: "workflow.complete",
+        },
+        async () => "complete",
+      ),
+    ).resolves.toBe("complete");
+
+    expect(exported.logs.at(-1)).toMatchObject({
+      body: "workflow.complete",
+      attributes: {},
+    });
+  });
+
   it("rejects reinitialization for a different service", async () => {
     await expect(
       withPostHogSpan(
@@ -301,6 +319,27 @@ describe("enabled telemetry", () => {
     ).rejects.toThrow(
       "OpenTelemetry already initialized for test-service; cannot reinitialize it for other-service",
     );
+  });
+
+  it("uses PostHog's EU endpoint and production environment defaults", async () => {
+    vi.resetModules();
+    const freshObservability = await import("../src");
+
+    await freshObservability.withPostHogSpan(
+      {
+        env: { POSTHOG_KEY: "default-token" },
+        serviceName: "default-service",
+        spanName: "default span",
+      },
+      async () => undefined,
+    );
+
+    expect(exported.traceExporterOptions.at(-1)).toMatchObject({
+      url: "https://eu.i.posthog.com/i/v1/traces",
+    });
+    expect(exported.logExporterOptions.at(-1)).toMatchObject({
+      url: "https://eu.i.posthog.com/i/v1/logs",
+    });
   });
 });
 
@@ -319,5 +358,15 @@ describe("traceCarrierFromHeaders", () => {
 
   it("omits an absent trace context", () => {
     expect(traceCarrierFromHeaders(new Headers())).toBeUndefined();
+  });
+
+  it("supports trace context without optional tracestate", () => {
+    const traceparent =
+      "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0be902b7-01";
+    const carrier = traceCarrierFromHeaders(new Headers({ traceparent }));
+    const headers = new Headers();
+
+    expect(carrier).toEqual({ traceparent });
+    expect(injectTraceContext(headers)).toBe(headers);
   });
 });
