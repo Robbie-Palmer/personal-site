@@ -275,6 +275,7 @@ description = "Generate all LCOV reports imported by SonarQube Cloud"
 depends = [
     "//ai-review:test:coverage",
     "//ui:test:coverage",
+    "//packages/observability:test:coverage",
     "//packages/recipe-parsing:test:coverage",
     "//ml-pipelines/recipe-parsing:test:coverage",
     "//workers/recipe-api:test:coverage",

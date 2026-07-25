@@ -202,6 +202,9 @@ importers:
       '@types/node':
         specifier: ^24
         version: 24.13.3
+      '@vitest/coverage-v8':
+        specifier: ^4.1.10
+        version: 4.1.10(vitest@4.1.10)
       typescript:
         specifier: ^5
         version: 5.9.3
