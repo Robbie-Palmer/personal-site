@@ -1,9 +1,18 @@
 ---
 title: "ADR 046: Custom Agentic Code Review"
 date: "2026-06-21"
-status: "Proposed"
+status: "Deprecated"
 tech_stack: ["OpenRouter"]
 ---
+
+# Deprecation
+
+This proposal is superseded by
+[ADR 056: Stateful Workers AI Code Review](/projects/personal-site/adrs/056-stateful-workers-ai-code-review).
+The custom review strategy proved valuable, but its stateless per-push GitHub
+Actions architecture consumes too many repeated input tokens. ADR 056 retains
+the scorecard and model agility while moving orchestration and PR memory to
+Cloudflare Workers.
 
 # Context
 
