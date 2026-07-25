@@ -28,12 +28,12 @@ describe("traceIdentityFromHeaders", () => {
 describe("traceCarrierFromHeaders", () => {
   it("copies W3C trace context for explicit propagation", () => {
     const headers = new Headers({
-      traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0be902b7-01",
       tracestate: "vendor=value",
     });
 
     expect(traceCarrierFromHeaders(headers)).toEqual({
-      traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0be902b7-01",
       tracestate: "vendor=value",
     });
   });
