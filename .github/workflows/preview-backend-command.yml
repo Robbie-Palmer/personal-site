@@ -1,0 +1,83 @@
+name: Request Backend Preview
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+jobs:
+  request:
+    if: >
+      github.event.issue.pull_request
+      && github.event.comment.body == '/preview-backend'
+      && contains(
+        fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
+        github.event.comment.author_association
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Request and rerun backend preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          pr=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+
+          if [[ "$(jq -r '.head.repo.full_name' <<< "$pr")" != "$REPO" ]]; then
+            echo "::error::Backend previews are only available for same-repository pull requests."
+            exit 1
+          fi
+
+          author=$(jq -r '.user.login' <<< "$pr")
+          if [[ "$author" == "renovate[bot]" || "$author" == "dependabot[bot]" ]]; then
+            echo "::error::Backend previews are not available for dependency bot pull requests."
+            exit 1
+          fi
+
+          head_sha=$(jq -r '.head.sha' <<< "$pr")
+          if [[ ! "$head_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Pull request #$PR_NUMBER returned an invalid head SHA."
+            exit 1
+          fi
+
+          if jq -e '[.labels[].name] | index("preview:frontend-only") != null' <<< "$pr" >/dev/null; then
+            gh api \
+              --method DELETE \
+              "repos/$REPO/issues/$PR_NUMBER/labels/preview%3Afrontend-only" >/dev/null
+          fi
+          gh api \
+            --method POST \
+            "repos/$REPO/issues/$PR_NUMBER/labels" \
+            -f 'labels[]=preview:backend' >/dev/null
+
+          run_id=$(
+            gh api \
+              --method GET \
+              "repos/$REPO/actions/workflows/preview-environment.yml/runs" \
+              -f event=pull_request \
+              -f head_sha="$head_sha" \
+              -f per_page=1 \
+              --jq '.workflow_runs[0].id'
+          )
+          if [[ ! "$run_id" =~ ^[0-9]+$ ]]; then
+            echo "::error::No preview workflow run was found for pull request #$PR_NUMBER at $head_sha."
+            exit 1
+          fi
+
+          gh api \
+            --method POST \
+            "repos/$REPO/actions/runs/$run_id/rerun"
+          gh api \
+            --method POST \
+            "repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
+            -f content=rocket >/dev/null
