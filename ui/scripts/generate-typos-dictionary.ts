@@ -5,11 +5,11 @@
  * curated correction dictionary, so the recipe editor's inline spell-checker
  * flags exactly what the pre-commit / CI `typos` gate does.
  *
- * The typos version is read from .mise.toml so the dictionary can never silently
- * drift from the tool. The repo-root _typos.toml allowlist/overrides are applied
- * on top. The output is committed; re-run only when bumping the typos version:
- *
- *   mise run //ui:generate:typos-dictionary
+ * The typos version is read from .mise.toml so the dictionary can never drift
+ * from the tool. The repo-root _typos.toml allowlist/overrides are applied on
+ * top. The output is NOT committed — it is generated into public/ on `dev` and
+ * `build` (see ui/package.json). A version stamp lets repeat runs skip the
+ * network once the current version has been fetched; pass FORCE=1 to refetch.
  */
 
 import fs from "node:fs";
@@ -29,12 +29,24 @@ const OUTPUT = path.join(
   "recipes",
   "typos-dictionary.tsv",
 );
+// Records which typos version produced OUTPUT so a stale local copy is refetched
+// after a version bump instead of being reused forever.
+const STAMP = `${OUTPUT}.version`;
 
 async function main(): Promise<void> {
   const miseToml = fs.readFileSync(path.join(REPO_ROOT, ".mise.toml"), "utf8");
   const version = parseTyposVersion(miseToml);
-  const csvUrl = `https://raw.githubusercontent.com/crate-ci/typos/v${version}/crates/typos-dict/assets/words.csv`;
 
+  const current =
+    fs.existsSync(OUTPUT) && fs.existsSync(STAMP)
+      ? fs.readFileSync(STAMP, "utf8").trim()
+      : null;
+  if (current === version && !process.env.FORCE) {
+    console.log(`typos v${version} dictionary already present; skipping fetch.`);
+    return;
+  }
+
+  const csvUrl = `https://raw.githubusercontent.com/crate-ci/typos/v${version}/crates/typos-dict/assets/words.csv`;
   console.log(`Fetching typos v${version} dictionary: ${csvUrl}`);
   const response = await fetch(csvUrl);
   if (!response.ok) {
@@ -48,9 +60,9 @@ async function main(): Promise<void> {
   const typosToml = fs.readFileSync(path.join(REPO_ROOT, "_typos.toml"), "utf8");
   applyExtendWords(dict, parseExtendWords(typosToml));
 
-  const tsv = serializeDictionary(dict);
   fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });
-  fs.writeFileSync(OUTPUT, tsv);
+  fs.writeFileSync(OUTPUT, serializeDictionary(dict));
+  fs.writeFileSync(STAMP, `${version}\n`);
   console.log(
     `Wrote ${dict.size.toLocaleString()} corrections to ${path.relative(process.cwd(), OUTPUT)}`,
   );

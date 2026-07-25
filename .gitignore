@@ -14,6 +14,10 @@ build/
 # Images
 ui/source-images/
 
+# Generated at dev/build from the pinned typos version (not committed)
+ui/public/recipes/typos-dictionary.tsv
+ui/public/recipes/typos-dictionary.tsv.version
+
 # Testing
 coverage/
 lighthouse-reports/
