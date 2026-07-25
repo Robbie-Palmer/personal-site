@@ -80,7 +80,10 @@ const recordGetter = {
 };
 
 function normalizedBaseUrl(env: PostHogObservabilityEnv): string {
-  return (env.POSTHOG_OTLP_BASE_URL || DEFAULT_OTLP_BASE_URL).replace(/\/+$/, "");
+  const baseUrl = env.POSTHOG_OTLP_BASE_URL || DEFAULT_OTLP_BASE_URL;
+  let end = baseUrl.length;
+  while (end > 0 && baseUrl.charCodeAt(end - 1) === 47) end -= 1;
+  return baseUrl.slice(0, end);
 }
 
 function registerGlobals(
