@@ -1,3 +1,5 @@
+import { assertLegacyPantryEmpty } from "@/lib/api/pantry";
+
 export type HouseholdNotificationKind =
   | "household_invited"
   | "household_removed"
@@ -102,6 +104,7 @@ export async function performNotificationAction(
   id: string,
   actionKey: string,
 ): Promise<InAppNotification> {
+  if (actionKey === "accept") assertLegacyPantryEmpty();
   const response = await checked(
     await fetch(`/api/notifications/${id}/actions/${actionKey}`, {
       method: "POST",

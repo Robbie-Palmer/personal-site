@@ -19,7 +19,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useKitchenStock } from "@/hooks/use-kitchen-stock";
+import {
+  useKitchenStockActions,
+  useKitchenStockQuery,
+} from "@/hooks/use-kitchen-stock";
 import { useShoppingList } from "@/hooks/use-shopping-list";
 import {
   applyDietRecipeVisibility,
@@ -35,13 +38,7 @@ import {
   type KitchenRecipeView,
 } from "@/lib/domain/recipe/kitchen";
 import { cn } from "@/lib/generic/styles";
-import {
-  clearStock as clearKitchenStock,
-  type KitchenStock,
-  removeFromStock,
-  replaceStock,
-  setStockLocation,
-} from "@/lib/kitchen/kitchenStockStore";
+import type { KitchenStock } from "@/lib/kitchen/kitchenStockStore";
 import { toggleRecipe } from "@/lib/shopping/shoppingListStore";
 
 const CATALOG_RESULT_LIMIT = 18;
@@ -81,7 +78,9 @@ export function KitchenView({
     () => new Set<string>(ingredients.map((ingredient) => ingredient.slug)),
     [ingredients],
   );
-  const stock = useKitchenStock();
+  const pantry = useKitchenStockQuery();
+  const stock = pantry.data?.stock ?? {};
+  const stockActions = useKitchenStockActions();
   const shoppingList = useShoppingList();
   const selectedRecipeSlugs = useMemo(
     () => new Set(shoppingList.recipes.map((entry) => entry.slug)),
@@ -196,12 +195,12 @@ export function KitchenView({
     ingredient: KitchenIngredientView,
     location = targetLocation,
   ) => {
-    setStockLocation(ingredient.slug, location);
+    stockActions.setStockLocation(ingredient.slug, location);
     setLastClearedStock(null);
   };
 
   const removeIngredient = (slug: IngredientSlug) => {
-    removeFromStock(slug);
+    stockActions.removeFromStock(slug);
   };
 
   const focusAddIngredients = (location: KitchenLocation) => {
@@ -217,16 +216,20 @@ export function KitchenView({
 
   const clearStock = () => {
     setLastClearedStock(stock);
-    clearKitchenStock();
+    stockActions.clearStock();
   };
 
   const undoClear = () => {
     if (!lastClearedStock) return;
-    replaceStock(lastClearedStock);
+    stockActions.replaceStock(lastClearedStock);
     setLastClearedStock(null);
   };
 
   const stockedCount = stockedSlugs.length;
+  const householdName =
+    pantry.data?.scope.type === "household"
+      ? pantry.data.scope.household.name
+      : null;
 
   return (
     <div className="container mx-auto min-h-screen max-w-7xl px-4 pt-5 pb-16 md:pt-7">
@@ -240,11 +243,24 @@ export function KitchenView({
           </h1>
           <p className="rt-body mt-3 max-w-2xl text-[var(--ink-2)]">
             Add ingredients from the canonical recipe catalog, split them across
-            fridge, cupboards and fresh, then compare your kitchen against the
-            recipe box.
+            fridge, cupboards and fresh, then compare{" "}
+            {householdName
+              ? `${householdName}'s shared kitchen`
+              : "your kitchen"}{" "}
+            against the recipe box.
           </p>
         </div>
       </div>
+
+      {(pantry.error || stockActions.error) && (
+        <div
+          role="alert"
+          className="rt-body mb-6 rounded-md border border-[var(--berry)]/35 bg-[var(--berry)]/8 px-4 py-3 text-sm text-[var(--berry)]"
+        >
+          Your pantry could not be synced. Your latest change may not have been
+          saved.
+        </div>
+      )}
 
       {diet.active && (
         <DietListNotice
@@ -264,8 +280,15 @@ export function KitchenView({
                 <div>
                   <p className="rt-mono text-[var(--terracotta)]">In stock</p>
                   <CardTitle className="rt-display text-4xl">
-                    Your kitchen.
+                    {householdName
+                      ? `${householdName}'s kitchen.`
+                      : "Your kitchen."}
                   </CardTitle>
+                  {householdName && (
+                    <p className="rt-body mt-1 text-sm text-[var(--ink-3)]">
+                      Shared with everyone in your household.
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   {stockedCount > 0 && (

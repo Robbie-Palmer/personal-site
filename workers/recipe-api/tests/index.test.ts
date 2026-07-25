@@ -108,6 +108,15 @@ const dbMock = vi.hoisted(() => {
     createdAt: Date;
     updatedAt: Date;
   };
+  type PantryItemRow = {
+    id: string;
+    userId: string | null;
+    organizationId: string | null;
+    ingredientSlug: string;
+    location: "fridge" | "cupboards" | "fresh";
+    createdAt: Date;
+    updatedAt: Date;
+  };
 
   const state = {
     users: [] as UserRow[],
@@ -144,6 +153,7 @@ const dbMock = vi.hoisted(() => {
     dietPresets: [] as DietPresetRow[],
     ingredientGroups: [] as IngredientGroupRow[],
     ingredients: [] as IngredientRow[],
+    pantryItems: [] as PantryItemRow[],
     ingredientGroupMembers: [] as {
       groupKey: string;
       ingredientSlug: string;
@@ -261,6 +271,7 @@ const dbMock = vi.hoisted(() => {
     state.dietPresets = [];
     state.ingredientGroups = [];
     state.ingredients = [];
+    state.pantryItems = [];
     state.ingredientGroupMembers = [];
     state.dietPresetExcludedGroups = [];
     state.dietPresetExcludedIngredients = [];
@@ -401,6 +412,21 @@ const dbMock = vi.hoisted(() => {
       };
       state.invitations.push(invitation);
       return [invitationRow(invitation)];
+    }
+
+    if (query.startsWith('insert into "pantry_item"')) {
+      for (let index = 0; index < params.length; index += 4) {
+        state.pantryItems.push({
+          id: crypto.randomUUID(),
+          userId: (params[index] as string | null) ?? null,
+          organizationId: (params[index + 1] as string | null) ?? null,
+          ingredientSlug: params[index + 2] as string,
+          location: params[index + 3] as PantryItemRow["location"],
+          createdAt: date,
+          updatedAt: date,
+        });
+      }
+      return [];
     }
 
     if (query.startsWith('insert into "user_diet_profile"')) {
@@ -625,6 +651,24 @@ const dbMock = vi.hoisted(() => {
 
     if (query.startsWith('delete from "app_rate_limit"')) {
       state.rateLimitSweeps += 1;
+      return [];
+    }
+
+    if (query.startsWith('delete from "pantry_item"')) {
+      const ownerId = params[0] as string;
+      const ingredientSlug = params[1] as string | undefined;
+      const personal = query.includes(
+        'where "pantry_item"."user_id"',
+      );
+      state.pantryItems = state.pantryItems.filter(
+        (item) =>
+          !(
+            (personal
+              ? item.userId === ownerId
+              : item.organizationId === ownerId) &&
+            (!ingredientSlug || item.ingredientSlug === ingredientSlug)
+          ),
+      );
       return [];
     }
 
@@ -926,6 +970,23 @@ const dbMock = vi.hoisted(() => {
             member.organizationId === householdId && member.role === role,
         )
         .map(memberRow);
+    }
+
+    if (query.includes('from "pantry_item"')) {
+      const ownerId = params[0] as string;
+      const personal = query.includes(
+        'where "pantry_item"."user_id"',
+      );
+      const pantryItems = state.pantryItems.filter((item) =>
+        personal
+          ? item.userId === ownerId
+          : item.organizationId === ownerId,
+      );
+      return pantryItems.map((item) =>
+        query.includes('select "ingredient_slug", "location"')
+          ? [item.ingredientSlug, item.location]
+          : [item.id],
+      );
     }
 
     if (
@@ -3202,6 +3263,47 @@ describe("profile cooking insights", () => {
 });
 
 describe("household membership flows", () => {
+  it("returns the same household pantry to every member", async () => {
+    seedHousehold();
+    dbMock.state.pantryItems.push({
+      id: crypto.randomUUID(),
+      userId: null,
+      organizationId: HOUSEHOLD_ID,
+      ingredientSlug: "onion",
+      location: "fresh",
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+
+    for (const user of [
+      {
+        id: "owner-user",
+        email: "owner@example.test",
+        name: "Owner",
+      },
+      {
+        id: "member-user",
+        email: "member@example.test",
+        name: "Member",
+      },
+    ]) {
+      authzMock.session = sessionFor(user);
+      const response = await app.request("/pantry", undefined, env);
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({
+        scope: {
+          type: "household",
+          household: {
+            id: HOUSEHOLD_ID,
+            name: "Owner household",
+          },
+        },
+        stock: { onion: "fresh" },
+      });
+    }
+  });
+
   it("requires authentication before creating a household", async () => {
     const res = await app.request(
       "/households",
@@ -3867,6 +3969,54 @@ describe("household membership flows", () => {
           userId: "outsider-user",
           role: "member",
         }),
+      ]),
+    );
+  });
+
+  it("rejects an invitation when the invitee's personal pantry is populated", async () => {
+    seedHousehold();
+    dbMock.state.invitations.push({
+      id: INVITATION_ID,
+      organizationId: HOUSEHOLD_ID,
+      email: "outsider@example.test",
+      role: "member",
+      status: "pending",
+      expiresAt: new Date("2027-01-02T00:00:00.000Z"),
+      inviterId: "owner-user",
+      createdAt: dbMock.date,
+    });
+    dbMock.state.pantryItems.push({
+      id: crypto.randomUUID(),
+      userId: "outsider-user",
+      organizationId: null,
+      ingredientSlug: "onion",
+      location: "fresh",
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "outsider-user",
+      email: "outsider@example.test",
+      name: "Outsider",
+    });
+
+    const response = await app.request(
+      `/households/invitations/${INVITATION_ID}/accept`,
+      {
+        method: "POST",
+        headers: { origin: "http://localhost:3000" },
+      },
+      env,
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "Pantry must be empty before joining a household",
+    });
+    expect(dbMock.state.invitations[0]?.status).toBe("pending");
+    expect(dbMock.state.members).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: "outsider-user" }),
       ]),
     );
   });

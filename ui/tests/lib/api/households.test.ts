@@ -1,15 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  acceptHouseholdInvitation,
   createHousehold,
   getHouseholds,
   getIncomingHouseholdInvitations,
   removeHouseholdMember,
   revokeHouseholdInvitation,
 } from "@/lib/api/households";
+import {
+  __resetKitchenStockForTests,
+  setStockLocation,
+} from "@/lib/kitchen/kitchenStockStore";
 
 describe("household API client", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    localStorage.clear();
+    __resetKitchenStockForTests();
   });
 
   it("loads the signed-in user's households", async () => {
@@ -121,5 +128,15 @@ describe("household API client", () => {
     await expect(
       revokeHouseholdInvitation("household-1", "invitation-1"),
     ).resolves.toBeUndefined();
+  });
+
+  it("does not send an acceptance request while legacy pantry stock exists", async () => {
+    setStockLocation("onion", "fresh");
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    await expect(acceptHouseholdInvitation("invitation-1")).rejects.toThrow(
+      "Pantry must be empty before joining a household",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

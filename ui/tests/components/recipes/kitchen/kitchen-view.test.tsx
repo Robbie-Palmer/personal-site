@@ -33,18 +33,22 @@ vi.mock("@/components/recipes/diet-provider", () => ({
 }));
 
 vi.mock("@/hooks/use-kitchen-stock", () => ({
-  useKitchenStock: () => ({}),
+  useKitchenStockActions: () => ({
+    clearStock: vi.fn(),
+    error: null,
+    isPending: false,
+    removeFromStock: vi.fn(),
+    replaceStock: vi.fn(),
+    setStockLocation: vi.fn(),
+  }),
+  useKitchenStockQuery: () => ({
+    data: { scope: { type: "personal" }, stock: {} },
+    error: null,
+  }),
 }));
 
 vi.mock("@/hooks/use-shopping-list", () => ({
   useShoppingList: () => ({ recipes: [] }),
-}));
-
-vi.mock("@/lib/kitchen/kitchenStockStore", () => ({
-  clearStock: vi.fn(),
-  removeFromStock: vi.fn(),
-  replaceStock: vi.fn(),
-  setStockLocation: vi.fn(),
 }));
 
 vi.mock("@/lib/shopping/shoppingListStore", () => ({

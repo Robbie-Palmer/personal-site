@@ -1,13 +1,10 @@
 /**
- * Client-side kitchen-stock store.
+ * Legacy browser-only kitchen-stock store.
  *
- * A module-level store (consumed via useSyncExternalStore in
- * `use-kitchen-stock`) holding which ingredients the user has at home and where
- * they live (fridge / cupboards / fresh). Persisted to localStorage so the
- * kitchen survives reloads and stays in sync across tabs — and, crucially, so
- * the shopping list can read the same source to check off what's already in the
- * kitchen. Mirrors the shopping-list and unit-preference stores; there is no
- * server component (the site is a static export, so state lives in the browser).
+ * Pantry stock now lives in the recipe API so household members share one
+ * source of truth. These helpers remain temporarily to migrate the previous
+ * `localStorage` value into a solo user's persisted pantry and to protect invite
+ * acceptance until that migration has happened.
  */
 
 import { captureRecipeProductActivity } from "@/lib/analytics/recipe-product";

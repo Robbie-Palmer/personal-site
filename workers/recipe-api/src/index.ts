@@ -99,6 +99,14 @@ type RecipeImportJob = typeof schema.recipeImportJob.$inferSelect;
 type Household = typeof schema.organization.$inferSelect;
 type HouseholdMember = typeof schema.member.$inferSelect;
 type HouseholdInvitation = typeof schema.invitation.$inferSelect;
+type PantryLocation = (typeof schema.pantryLocationEnum.enumValues)[number];
+type PantryScope =
+  | { type: "personal"; userId: string }
+  | {
+      type: "household";
+      householdId: string;
+      householdName: string;
+    };
 type InvitationNotificationStatus =
   | "pending"
   | "accepted"
@@ -145,6 +153,8 @@ const creatableRecipeSlugSchema = recipeSlugSchema.refine(
   { message: "Slug is reserved for a recipe application route" },
 );
 const dietRecipeMatchModeSchema = z.enum(["hide", "warn"]);
+const pantryLocationSchema = z.enum(["fridge", "cupboards", "fresh"]);
+const pantryIngredientSlugSchema = z.string().min(1).max(200);
 const feedScopeSchema = z.enum(["public", "household"]);
 const feedLimitSchema = z.coerce.number().int().min(1).max(30).default(12);
 const recipeListLimitSchema = z.coerce.number().int().min(1).max(100).default(100);
@@ -315,6 +325,22 @@ const updateHouseholdBodySchema = z
 const inviteHouseholdMemberBodySchema = z
   .object({
     email: z.string().trim().email(),
+  })
+  .strict();
+
+const pantryStockBodySchema = z
+  .object({
+    stock: z
+      .record(pantryIngredientSlugSchema, pantryLocationSchema)
+      .refine((stock) => Object.keys(stock).length <= 500, {
+        message: "A pantry can contain at most 500 ingredients",
+      }),
+  })
+  .strict();
+
+const pantryItemBodySchema = z
+  .object({
+    location: pantryLocationSchema,
   })
   .strict();
 
@@ -793,7 +819,7 @@ async function usersShareHousehold(
 }
 
 async function findUserHouseholdMembership(
-  db: Db,
+  db: Pick<Db, "select">,
   userId: string,
 ): Promise<HouseholdMember | undefined> {
   const [member] = await db
@@ -802,6 +828,83 @@ async function findUserHouseholdMembership(
     .where(eq(schema.member.userId, userId))
     .limit(1);
   return member;
+}
+
+async function lockUser(db: Pick<Db, "select">, userId: string): Promise<void> {
+  await db
+    .select({ id: schema.user.id })
+    .from(schema.user)
+    .where(eq(schema.user.id, userId))
+    .for("update")
+    .limit(1);
+}
+
+async function resolvePantryScope(
+  db: Pick<Db, "select">,
+  userId: string,
+): Promise<PantryScope> {
+  const membership = await findUserHouseholdMembership(db, userId);
+  if (!membership) return { type: "personal", userId };
+
+  const household = await findHouseholdById(db, membership.organizationId);
+  if (!household) {
+    throw new Error("Household membership has no household");
+  }
+  return {
+    type: "household",
+    householdId: household.id,
+    householdName: household.name,
+  };
+}
+
+function pantryScopeFilter(scope: PantryScope): SQL {
+  return scope.type === "household"
+    ? eq(schema.pantryItem.organizationId, scope.householdId)
+    : eq(schema.pantryItem.userId, scope.userId);
+}
+
+async function lockPantryScope(
+  db: Pick<Db, "select">,
+  userId: string,
+): Promise<PantryScope> {
+  await lockUser(db, userId);
+  const scope = await resolvePantryScope(db, userId);
+  if (scope.type === "household") {
+    await db
+      .select({ id: schema.organization.id })
+      .from(schema.organization)
+      .where(eq(schema.organization.id, scope.householdId))
+      .for("update")
+      .limit(1);
+  }
+  return scope;
+}
+
+async function pantryResponse(db: Pick<Db, "select">, userId: string) {
+  const scope = await resolvePantryScope(db, userId);
+  const items = await db
+    .select({
+      ingredientSlug: schema.pantryItem.ingredientSlug,
+      location: schema.pantryItem.location,
+    })
+    .from(schema.pantryItem)
+    .where(pantryScopeFilter(scope));
+
+  return {
+    scope:
+      scope.type === "household"
+        ? {
+            type: scope.type,
+            household: {
+              id: scope.householdId,
+              name: scope.householdName,
+            },
+          }
+        : { type: scope.type },
+    stock: Object.fromEntries(
+      items.map(({ ingredientSlug, location }) => [ingredientSlug, location]),
+    ) as Record<string, PantryLocation>,
+  };
 }
 
 async function acceptPendingInvitation(
@@ -816,6 +919,16 @@ async function acceptPendingInvitation(
   },
 ): Promise<HouseholdMember> {
   return db.transaction(async (tx) => {
+    await lockUser(tx, userId);
+    const [pantryItem] = await tx
+      .select({ id: schema.pantryItem.id })
+      .from(schema.pantryItem)
+      .where(eq(schema.pantryItem.userId, userId))
+      .limit(1);
+    if (pantryItem) {
+      throw new Error("Pantry must be empty before joining a household");
+    }
+
     const mutationTime = new Date();
     const [accepted] = await tx
       .update(schema.invitation)
@@ -1114,6 +1227,12 @@ function invitationAcceptanceFailure(
   if (error instanceof Error && error.message === "Invitation has expired") {
     return c.json({ error: "Invitation has expired" }, 410);
   }
+  if (
+    error instanceof Error &&
+    error.message === "Pantry must be empty before joining a household"
+  ) {
+    return c.json({ error: error.message }, 409);
+  }
   return undefined;
 }
 
@@ -1330,7 +1449,7 @@ async function findHouseholdMemberUserIds(
 }
 
 async function findHouseholdById(
-  db: Db,
+  db: Pick<Db, "select">,
   householdId: string,
 ): Promise<Household | undefined> {
   const [household] = await db
@@ -2008,6 +2127,155 @@ app.post("/api/profile/cooking-insights", async (c) => {
   );
 });
 
+app.get("/pantry", async (c) => {
+  return withRecipeSession(
+    c,
+    "query",
+    "GET /pantry query failed",
+    async ({ db, session }) =>
+      c.json(await pantryResponse(db, session.user.id)),
+  );
+});
+
+app.put("/pantry", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "PUT /pantry mutation failed",
+    async ({ db, session }) => {
+      const body = await parseJsonBody(c, pantryStockBodySchema);
+      if (!body.success) return body.response;
+
+      const stockEntries = Object.entries(body.data.stock);
+      const ingredientSlugs = stockEntries.map(([ingredientSlug]) => ingredientSlug);
+      if (ingredientSlugs.length > 0) {
+        const knownIngredients = await db
+          .select({ slug: schema.ingredient.slug })
+          .from(schema.ingredient)
+          .where(inArray(schema.ingredient.slug, ingredientSlugs));
+        const knownSlugs = new Set(knownIngredients.map(({ slug }) => slug));
+        const unknownSlug = ingredientSlugs.find(
+          (slug) => !knownSlugs.has(slug),
+        );
+        if (unknownSlug) {
+          return c.json({ error: `Unknown ingredient: ${unknownSlug}` }, 400);
+        }
+      }
+
+      await db.transaction(async (tx) => {
+        const scope = await lockPantryScope(tx, session.user.id);
+        await tx
+          .delete(schema.pantryItem)
+          .where(pantryScopeFilter(scope));
+        if (ingredientSlugs.length > 0) {
+          await tx.insert(schema.pantryItem).values(
+            stockEntries.map(([ingredientSlug, location]) => ({
+              userId: scope.type === "personal" ? scope.userId : null,
+              organizationId:
+                scope.type === "household" ? scope.householdId : null,
+              ingredientSlug,
+              location,
+            })),
+          );
+        }
+      });
+
+      return c.json(await pantryResponse(db, session.user.id));
+    },
+  );
+});
+
+app.put("/pantry/items/:ingredientSlug", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "PUT /pantry/items/:ingredientSlug mutation failed",
+    async ({ db, session }) => {
+      const ingredientSlugResult = pantryIngredientSlugSchema.safeParse(
+        c.req.param("ingredientSlug"),
+      );
+      if (!ingredientSlugResult.success) {
+        return c.json({ error: "Invalid ingredient slug" }, 400);
+      }
+      const body = await parseJsonBody(c, pantryItemBodySchema);
+      if (!body.success) return body.response;
+
+      const ingredientSlug = ingredientSlugResult.data;
+      const [ingredient] = await db
+        .select({ slug: schema.ingredient.slug })
+        .from(schema.ingredient)
+        .where(eq(schema.ingredient.slug, ingredientSlug))
+        .limit(1);
+      if (!ingredient) {
+        return c.json({ error: `Unknown ingredient: ${ingredientSlug}` }, 400);
+      }
+
+      await db.transaction(async (tx) => {
+        const scope = await lockPantryScope(tx, session.user.id);
+        await tx
+          .delete(schema.pantryItem)
+          .where(
+            and(
+              pantryScopeFilter(scope),
+              eq(schema.pantryItem.ingredientSlug, ingredientSlug),
+            ),
+          );
+        await tx.insert(schema.pantryItem).values({
+          userId: scope.type === "personal" ? scope.userId : null,
+          organizationId:
+            scope.type === "household" ? scope.householdId : null,
+          ingredientSlug,
+          location: body.data.location,
+        });
+      });
+
+      return c.json(await pantryResponse(db, session.user.id));
+    },
+  );
+});
+
+app.delete("/pantry/items/:ingredientSlug", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "DELETE /pantry/items/:ingredientSlug mutation failed",
+    async ({ db, session }) => {
+      const ingredientSlugResult = pantryIngredientSlugSchema.safeParse(
+        c.req.param("ingredientSlug"),
+      );
+      if (!ingredientSlugResult.success) {
+        return c.json({ error: "Invalid ingredient slug" }, 400);
+      }
+
+      await db.transaction(async (tx) => {
+        const scope = await lockPantryScope(tx, session.user.id);
+        await tx
+          .delete(schema.pantryItem)
+          .where(
+            and(
+              pantryScopeFilter(scope),
+              eq(
+                schema.pantryItem.ingredientSlug,
+                ingredientSlugResult.data,
+              ),
+            ),
+          );
+      });
+
+      return c.json(await pantryResponse(db, session.user.id));
+    },
+  );
+});
+
 app.get("/households", async (c) => {
   return withRecipeSession(
     c,
@@ -2104,6 +2372,11 @@ app.post("/households", async (c) => {
 
       const householdId = createId();
       const household = await db.transaction(async (tx) => {
+        await lockUser(tx, session.user.id);
+        if (await findUserHouseholdMembership(tx, session.user.id)) {
+          throw new Error("User already belongs to a household");
+        }
+
         const [createdHousehold] = await tx
           .insert(schema.organization)
           .values({
@@ -2121,6 +2394,14 @@ app.post("/households", async (c) => {
           role: "owner",
         });
 
+        await tx
+          .update(schema.pantryItem)
+          .set({
+            userId: null,
+            organizationId: householdId,
+          })
+          .where(eq(schema.pantryItem.userId, session.user.id));
+
         return createdHousehold;
       });
 
@@ -2128,7 +2409,9 @@ app.post("/households", async (c) => {
     },
     {
       onError: (error) =>
-        isUniqueViolation(error)
+        isUniqueViolation(error) ||
+        (error instanceof Error &&
+          error.message === "User already belongs to a household")
           ? c.json({ error: "User already belongs to a household" }, 409)
           : undefined,
     },
@@ -2605,6 +2888,13 @@ app.delete("/households/:householdId", async (c) => {
               inArray(schema.recipe.userId, memberIds),
             ),
           );
+        await tx
+          .update(schema.pantryItem)
+          .set({
+            userId: session.user.id,
+            organizationId: null,
+          })
+          .where(eq(schema.pantryItem.organizationId, householdId));
         await tx.delete(schema.organization).where(eq(schema.organization.id, householdId));
       });
       return c.body(null, 204);
