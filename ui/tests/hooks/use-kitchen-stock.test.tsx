@@ -197,8 +197,10 @@ describe("useKitchenStockActions", () => {
         personalPantry({ milk: "fridge", onion: "fresh" }),
       ),
     );
-    expect(result.current.error).toBeNull();
-    expect(result.current.isPending).toBe(false);
+    await waitFor(() => {
+      expect(result.current.error).toBeNull();
+      expect(result.current.isPending).toBe(false);
+    });
   });
 
   it("rolls an optimistic update back when persistence fails", async () => {
@@ -222,6 +224,7 @@ describe("useKitchenStockActions", () => {
 
   it("can optimistically set stock before the pantry query has loaded", async () => {
     const queryClient = createQueryClient();
+    const queryKey = recipeQueryKeys.pantry("user-1");
     mocks.setPantryItem.mockResolvedValue(personalPantry({ onion: "fresh" }));
 
     const { result } = renderHook(() => useKitchenStockActions(), {
@@ -232,6 +235,11 @@ describe("useKitchenStockActions", () => {
 
     await waitFor(() =>
       expect(mocks.setPantryItem).toHaveBeenCalledWith("onion", "fresh"),
+    );
+    await waitFor(() =>
+      expect(queryClient.getQueryData(queryKey)).toEqual(
+        personalPantry({ onion: "fresh" }),
+      ),
     );
   });
 });

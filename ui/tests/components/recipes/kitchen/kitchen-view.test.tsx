@@ -124,6 +124,7 @@ describe("KitchenView diet ingredient catalog", () => {
     await user.click(screen.getByRole("button", { name: "clear all" }));
     expect(kitchenStockState.actions.clearStock).toHaveBeenCalled();
 
+    // Replace the stock object so the view retains the cleared snapshot by reference.
     kitchenStockState.pantry.data = {
       scope: { type: "personal" },
       stock: {},

@@ -192,6 +192,8 @@ const dbMock = vi.hoisted(() => {
     member.role,
     member.createdAt,
   ];
+  const isPersonalPantryQuery = (query: string) =>
+    query.includes('"pantry_item"."user_id" =');
   const invitationRow = (invitation: InvitationRow) => [
     invitation.id,
     invitation.organizationId,
@@ -667,9 +669,7 @@ const dbMock = vi.hoisted(() => {
     if (query.startsWith('delete from "pantry_item"')) {
       const ownerId = params[0] as string;
       const ingredientSlug = params[1] as string | undefined;
-      const personal = query.includes(
-        'where "pantry_item"."user_id"',
-      );
+      const personal = isPersonalPantryQuery(query);
       state.pantryItems = state.pantryItems.filter(
         (item) =>
           !(
@@ -984,9 +984,7 @@ const dbMock = vi.hoisted(() => {
 
     if (query.includes('from "pantry_item"')) {
       const ownerId = params[0] as string;
-      const personal = query.includes(
-        'where "pantry_item"."user_id"',
-      );
+      const personal = isPersonalPantryQuery(query);
       const pantryItems = state.pantryItems.filter((item) =>
         personal
           ? item.userId === ownerId
@@ -3426,6 +3424,10 @@ describe("pantry mutation flows", () => {
       stock: {},
     });
     expect(dbMock.state.pantryItems).toEqual([]);
+  });
+
+  it("restores only missing household pantry items", async () => {
+    seedHousehold();
 
     dbMock.state.pantryItems.push({
       id: crypto.randomUUID(),

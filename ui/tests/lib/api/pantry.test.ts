@@ -55,19 +55,24 @@ describe("pantry API client", () => {
       "/api/pantry/items/red-onion",
       expect.objectContaining({
         method: "PUT",
+        credentials: "same-origin",
         body: JSON.stringify({ location: "fridge" }),
       }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       "/api/pantry/items/red-onion",
-      expect.objectContaining({ method: "DELETE" }),
+      expect.objectContaining({
+        method: "DELETE",
+        credentials: "same-origin",
+      }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
       "/api/pantry/restore",
       expect.objectContaining({
         method: "PUT",
+        credentials: "same-origin",
         body: JSON.stringify({ stock: { red: "fresh" } }),
       }),
     );
