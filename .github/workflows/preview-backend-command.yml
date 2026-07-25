@@ -59,25 +59,84 @@ jobs:
             --method POST \
             "repos/$REPO/issues/$PR_NUMBER/labels" \
             -f 'labels[]=preview:backend' >/dev/null
-
-          run_id=$(
-            gh api \
-              --method GET \
-              "repos/$REPO/actions/workflows/preview-environment.yml/runs" \
-              -f event=pull_request \
-              -f head_sha="$head_sha" \
-              -f per_page=1 \
-              --jq '.workflow_runs[0].id'
-          )
-          if [[ ! "$run_id" =~ ^[0-9]+$ ]]; then
-            echo "::error::No preview workflow run was found for pull request #$PR_NUMBER at $head_sha."
-            exit 1
-          fi
-
-          gh api \
-            --method POST \
-            "repos/$REPO/actions/runs/$run_id/rerun"
           gh api \
             --method POST \
             "repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
-            -f content=rocket >/dev/null
+            -f content=eyes >/dev/null
+
+          # A command can arrive while the current preview is still running.
+          # Wait for a completed run whose detect job actually ran, then rerun
+          # that exact PR/SHA execution. This excludes unrelated label events,
+          # other PRs sharing a commit, and ineligible active runs.
+          for _ in {1..60}; do
+            runs=$(
+              gh api \
+                --method GET \
+                "repos/$REPO/actions/workflows/preview-environment.yml/runs" \
+                -f event=pull_request \
+                -f head_sha="$head_sha" \
+                -f per_page=100
+            )
+            run_id=""
+            while IFS=$'\t' read -r candidate_id candidate_status; do
+              jobs=$(
+                gh api \
+                  --method GET \
+                  "repos/$REPO/actions/runs/$candidate_id/jobs" \
+                  -f filter=latest \
+                  -f per_page=100
+              )
+              if ! jq -e \
+                'any(.jobs[]?; .name == "detect" and .conclusion == "success")' \
+                <<< "$jobs" >/dev/null; then
+                continue
+              fi
+              if [[ "$candidate_status" == "completed" ]]; then
+                run_id=$candidate_id
+                break
+              fi
+            done < <(
+              jq -r \
+                --arg sha "$head_sha" \
+                --argjson pr "$PR_NUMBER" \
+                '.workflow_runs[]
+                 | select(.head_sha == $sha)
+                 | select(any(.pull_requests[]?; .number == $pr))
+                 | [.id, .status]
+                 | @tsv' \
+                <<< "$runs"
+            )
+
+            if [[ "$run_id" =~ ^[0-9]+$ ]]; then
+              rerun_error="$RUNNER_TEMP/preview-rerun-error"
+              if gh api \
+                --method POST \
+                "repos/$REPO/actions/runs/$run_id/rerun" \
+                2>"$rerun_error"; then
+                gh api \
+                  --method POST \
+                  "repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
+                  -f content=rocket >/dev/null
+                exit 0
+              fi
+
+              # A concurrent rerun may have started after selection. Retry
+              # after it completes; surface permanent API errors immediately.
+              run_status=$(
+                gh api \
+                  --method GET \
+                  "repos/$REPO/actions/runs/$run_id" \
+                  --jq '.status'
+              )
+              if [[ "$run_status" == "completed" ]]; then
+                cat "$rerun_error" >&2
+                exit 1
+              fi
+            fi
+
+            echo "::notice::Waiting for an eligible preview run for PR #$PR_NUMBER at $head_sha."
+            sleep 10
+          done
+
+          echo "::error::No completed eligible preview run was found for pull request #$PR_NUMBER at $head_sha within 10 minutes."
+          exit 1
