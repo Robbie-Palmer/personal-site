@@ -1,4 +1,8 @@
-import { withPostHogRequest } from "observability";
+import {
+  traceCarrierFromSpan,
+  withPostHogRequest,
+  type TraceCarrier,
+} from "observability";
 
 /**
  * Serves the pre-generated Markdown twin of a page from its canonical URL
@@ -17,6 +21,9 @@ interface Env {
 export interface MarkdownMiddlewareContext {
   request: Request;
   env: Env;
+  data?: {
+    posthogTraceCarrier?: TraceCarrier;
+  };
   next: () => Promise<Response>;
   waitUntil?: (promise: Promise<unknown>) => void;
 }
@@ -106,6 +113,13 @@ export const onRequest = async (
         ? { waitUntil: context.waitUntil.bind(context) }
         : undefined,
     },
-    () => handleRequest(context),
+    (span) => {
+      const traceCarrier = traceCarrierFromSpan(span);
+      if (traceCarrier) {
+        context.data ??= {};
+        context.data.posthogTraceCarrier = traceCarrier;
+      }
+      return handleRequest(context);
+    },
   );
 };

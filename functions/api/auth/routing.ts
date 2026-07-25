@@ -1,7 +1,10 @@
 import {
   injectTraceContext,
+  traceCarrierFromHeaders,
+  traceCarrierFromSpan,
   withPostHogSpan,
   type PostHogObservabilityEnv,
+  type TraceCarrier,
 } from "observability";
 
 export type AuthProxyRoutingEnv = {
@@ -17,6 +20,9 @@ export type RecipeApiProxyEnv = AuthProxyRoutingEnv &
 export type RecipeApiProxyContext = {
   request: Request;
   env: RecipeApiProxyEnv;
+  data?: {
+    posthogTraceCarrier?: TraceCarrier;
+  };
 };
 
 const MAX_PROXY_PATH_LENGTH = 2_048;
@@ -167,17 +173,23 @@ export async function proxyRecipeApiRequest(
         env: context.env,
         serviceName: "recipe-pages",
         spanName: `HTTP ${context.request.method} recipe-api`,
+        traceCarrier:
+          context.data?.posthogTraceCarrier ??
+          traceCarrierFromHeaders(context.request.headers),
         attributes: {
           "http.request.method": context.request.method,
           "server.address": destinationUrl.hostname,
           "url.path": destinationPath,
         },
       },
-      async () =>
+      async (span) =>
         fetch(
           new Request(destination, {
             method: context.request.method,
-            headers: injectTraceContext(headers),
+            headers: injectTraceContext(
+              headers,
+              traceCarrierFromSpan(span),
+            ),
             body,
             redirect: "manual",
           }),

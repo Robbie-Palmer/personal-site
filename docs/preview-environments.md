@@ -145,7 +145,8 @@ Create GitHub environments named `preview-recipe-api` and `preview-site-ui`.
 Populate them from Doppler by running `scripts/sync-doppler-github-envs.sh`;
 do not use the Doppler GitHub sync integration on the free plan.
 
-`preview-recipe-api` receives values from `stg_recipe_api`.
+`preview-recipe-api` receives deployment and database values from
+`stg_recipe_api`, plus the shared PostHog runtime values from `stg_pages_env`.
 
 `preview-recipe-api` receives these environment secrets:
 
@@ -171,6 +172,8 @@ openssl rand -base64 48
 | `CLOUDFLARE_PAGES_HOST` | `personal-site-bu5.pages.dev` |
 | `CF_ACCESS_TEAM_DOMAIN` | `https://your-team.cloudflareaccess.com` |
 | `CF_ACCESS_AUD` | Audience tag from the Pages preview Access application |
+| `POSTHOG_KEY` | Public, write-only project token used for OTLP export |
+| `POSTHOG_HOST` | PostHog application host |
 
 `preview-site-ui` receives values from `stg_site_ui` and `stg_pages_env`.
 
@@ -196,11 +199,10 @@ Project-scoped), so it can manage branches in that project and nothing else.
 Keep it in the `preview-recipe-api` environment only and rotate it if GitHub
 reports any exposure.
 
-`POSTHOG_KEY` and `POSTHOG_HOST` are currently omitted, so previews run without
-browser analytics. The UI build only requires `CF_IMAGES_ACCOUNT_HASH`; the
-PostHog client no-ops when its key is unset. Preview API and ingestion Worker
-logs are still retained in Cloudflare Workers Logs and exported through the
-account-level `posthog-logs` observability destination.
+`POSTHOG_KEY` and `POSTHOG_HOST` are shared through `stg_pages_env` because the
+same public project token correlates browser analytics, Pages requests, API
+requests, and ingestion workflow spans. Preview Worker logs also remain
+available in Cloudflare Workers Logs.
 
 ### 6. Smoke-test a preview
 

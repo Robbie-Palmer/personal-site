@@ -177,10 +177,10 @@ for requested_environment in "${requested_environments[@]}"; do
   fi
 done
 
-sync_requested_env preview-recipe-api stg_recipe_api stg_site_ui
+sync_requested_env preview-recipe-api stg_recipe_api stg_pages_env
 sync_requested_env preview-site-ui stg_site_ui stg_pages_env
-sync_requested_env production-recipe-api prd_recipe_api prd_site_ui
-sync_requested_env production-recipe-ingest prd_recipe_ingest prd_site_ui
+sync_requested_env production-recipe-api prd_recipe_api prd_site_ui prd_pages_env
+sync_requested_env production-recipe-ingest prd_recipe_ingest prd_site_ui prd_pages_env
 sync_requested_env production-site-ui prd_site_ui prd_pages_env
 sync_requested_env production-infra prd_infra
 sync_requested_env production-infra-bootstrap prd_bootstrap_infra

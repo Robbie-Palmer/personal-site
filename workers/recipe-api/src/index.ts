@@ -1,6 +1,8 @@
 import { Hono, type Context } from "hono";
 import {
-  currentTraceCarrier,
+  injectTraceContext,
+  traceCarrierFromHeaders,
+  traceCarrierFromSpan,
   withPostHogRequest,
   withPostHogSpan,
 } from "observability";
@@ -3187,10 +3189,11 @@ app.post("/recipe-imports", async (c) => {
             env: c.env,
             serviceName: "recipe-api",
             spanName: "workflow.start recipe-ingest",
+            traceCarrier: traceCarrierFromHeaders(c.req.raw.headers),
             attributes: { "recipe.import.job_id": job.id },
           },
-          async () => {
-            const traceContext = currentTraceCarrier();
+          async (span) => {
+            const traceContext = traceCarrierFromSpan(span);
             await workflow.create({
               id: job.id,
               params: {
@@ -3340,7 +3343,13 @@ export default {
         request,
         waitUntil: ctx,
       },
-      async () => app.fetch(request, env, ctx),
+      async (span) => {
+        const headers = injectTraceContext(
+          new Headers(request.headers),
+          traceCarrierFromSpan(span),
+        );
+        return app.fetch(new Request(request, { headers }), env, ctx);
+      },
     ),
   scheduled: (_event, env, ctx) => {
     ctx.waitUntil(cleanupRateLimits(env));

@@ -1,5 +1,4 @@
 import {
-  context,
   propagation,
   ROOT_CONTEXT,
   SpanKind,
@@ -10,7 +9,6 @@ import {
   type Span,
 } from "@opentelemetry/api";
 import { logs, SeverityNumber } from "@opentelemetry/api-logs";
-import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
 import { W3CTraceContextPropagator } from "@opentelemetry/core";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-proto";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
@@ -91,9 +89,6 @@ function registerGlobals(
 ): void {
   if (globalsRegistered) return;
 
-  context.setGlobalContextManager(
-    new AsyncLocalStorageContextManager().enable(),
-  );
   propagation.setGlobalPropagator(new W3CTraceContextPropagator());
   trace.setGlobalTracerProvider(traceProvider);
   logs.setGlobalLoggerProvider(logProvider);
@@ -165,7 +160,7 @@ function emitLog(
   severityText: string,
   body: string,
   attributes: Attributes,
-  logContext: Context = context.active(),
+  logContext: Context,
 ): void {
   state.logProvider.getLogger(state.serviceName).emit({
     severityNumber,
@@ -181,17 +176,25 @@ function recordFailure(
   state: TelemetryState,
   error: unknown,
   attributes: Attributes,
+  logContext: Context,
 ): void {
   const message = error instanceof Error ? error.message : String(error);
   const errorType =
     error instanceof Error && error.name ? error.name : "UnknownError";
   span.recordException(error instanceof Error ? error : new Error(message));
   span.setStatus({ code: SpanStatusCode.ERROR, message });
-  emitLog(state, SeverityNumber.ERROR, "ERROR", message, {
-    ...attributes,
-    "error.type": errorType,
-    "error.message": message,
-  });
+  emitLog(
+    state,
+    SeverityNumber.ERROR,
+    "ERROR",
+    message,
+    {
+      ...attributes,
+      "error.type": errorType,
+      "error.message": message,
+    },
+    logContext,
+  );
 }
 
 async function flushTelemetry(state: TelemetryState): Promise<void> {
@@ -221,8 +224,31 @@ export function traceIdentityFromHeaders(headers: Headers): TraceIdentity {
   };
 }
 
-export function injectTraceContext(headers: Headers): Headers {
-  propagation.inject(context.active(), headers, {
+export function traceCarrierFromHeaders(
+  headers: Headers,
+): TraceCarrier | undefined {
+  const traceparent = headers.get("traceparent");
+  if (!traceparent) return undefined;
+
+  const tracestate = headers.get("tracestate");
+  return {
+    traceparent,
+    ...(tracestate ? { tracestate } : {}),
+  };
+}
+
+export function injectTraceContext(
+  headers: Headers,
+  traceCarrier?: TraceCarrier,
+): Headers {
+  if (!traceCarrier) return headers;
+
+  const carrierContext = propagation.extract(
+    ROOT_CONTEXT,
+    traceCarrier,
+    recordGetter,
+  );
+  propagation.inject(carrierContext, headers, {
     set(carrier, key, value) {
       carrier.set(key, value);
     },
@@ -230,9 +256,9 @@ export function injectTraceContext(headers: Headers): Headers {
   return headers;
 }
 
-export function currentTraceCarrier(): TraceCarrier | undefined {
+export function traceCarrierFromSpan(span: Span): TraceCarrier | undefined {
   const carrier: Partial<TraceCarrier> = {};
-  propagation.inject(context.active(), carrier, {
+  propagation.inject(trace.setSpan(ROOT_CONTEXT, span), carrier, {
     set(target, key, value) {
       if (key === "traceparent") target.traceparent = value;
       if (key === "tracestate") target.tracestate = value;
@@ -255,10 +281,17 @@ export async function withPostHogRequest<T extends Response>(
     waitUntil?: WaitUntilContext;
     attributes?: Attributes;
   },
-  operation: () => Promise<T>,
+  operation: (span: Span) => Promise<T>,
 ): Promise<T> {
   const state = getTelemetry(options.env, options.serviceName);
-  if (!state) return operation();
+  if (!state) {
+    const span = trace.getTracer(options.serviceName).startSpan("noop");
+    try {
+      return await operation(span);
+    } finally {
+      span.end();
+    }
+  }
 
   const identity = traceIdentityFromHeaders(options.request.headers);
   const attributes: Attributes = {
@@ -273,38 +306,38 @@ export async function withPostHogRequest<T extends Response>(
     headerGetter,
   );
   const tracer = state.traceProvider.getTracer(options.serviceName);
-
-  return tracer.startActiveSpan(
+  const span = tracer.startSpan(
     options.spanName,
     { kind: SpanKind.SERVER, attributes },
     parentContext,
-    async (span) => {
-      try {
-        const response = await operation();
-        span.setAttribute("http.response.status_code", response.status);
-        if (response.status >= 500) {
-          span.setStatus({
-            code: SpanStatusCode.ERROR,
-            message: `HTTP ${response.status}`,
-          });
-        }
-        emitLog(
-          state,
-          response.status >= 500 ? SeverityNumber.ERROR : SeverityNumber.INFO,
-          response.status >= 500 ? "ERROR" : "INFO",
-          `${options.request.method} ${new URL(options.request.url).pathname}`,
-          { ...attributes, "http.response.status_code": response.status },
-        );
-        return response;
-      } catch (error) {
-        recordFailure(span, state, error, attributes);
-        throw error;
-      } finally {
-        span.end();
-        await flushAfter(state, options.waitUntil);
-      }
-    },
   );
+  const spanContext = trace.setSpan(parentContext, span);
+
+  try {
+    const response = await operation(span);
+    span.setAttribute("http.response.status_code", response.status);
+    if (response.status >= 500) {
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: `HTTP ${response.status}`,
+      });
+    }
+    emitLog(
+      state,
+      response.status >= 500 ? SeverityNumber.ERROR : SeverityNumber.INFO,
+      response.status >= 500 ? "ERROR" : "INFO",
+      `${options.request.method} ${new URL(options.request.url).pathname}`,
+      { ...attributes, "http.response.status_code": response.status },
+      spanContext,
+    );
+    return response;
+  } catch (error) {
+    recordFailure(span, state, error, attributes, spanContext);
+    throw error;
+  } finally {
+    span.end();
+    await flushAfter(state, options.waitUntil);
+  }
 }
 
 export async function withPostHogSpan<T>(
@@ -331,36 +364,42 @@ export async function withPostHogSpan<T>(
 
   const parentContext = options.traceCarrier
     ? propagation.extract(ROOT_CONTEXT, options.traceCarrier, recordGetter)
-    : context.active();
+    : ROOT_CONTEXT;
   const tracer = state.traceProvider.getTracer(options.serviceName);
-
-  return tracer.startActiveSpan(
+  const span = tracer.startSpan(
     options.spanName,
     {
       kind: options.kind ?? SpanKind.INTERNAL,
       attributes: options.attributes,
     },
     parentContext,
-    async (span) => {
-      try {
-        const result = await operation(span);
-        emitLog(
-          state,
-          SeverityNumber.INFO,
-          "INFO",
-          options.spanName,
-          options.attributes ?? {},
-        );
-        return result;
-      } catch (error) {
-        recordFailure(span, state, error, options.attributes ?? {});
-        throw error;
-      } finally {
-        span.end();
-        await flushAfter(state, options.waitUntil);
-      }
-    },
   );
+  const spanContext = trace.setSpan(parentContext, span);
+
+  try {
+    const result = await operation(span);
+    emitLog(
+      state,
+      SeverityNumber.INFO,
+      "INFO",
+      options.spanName,
+      options.attributes ?? {},
+      spanContext,
+    );
+    return result;
+  } catch (error) {
+    recordFailure(
+      span,
+      state,
+      error,
+      options.attributes ?? {},
+      spanContext,
+    );
+    throw error;
+  } finally {
+    span.end();
+    await flushAfter(state, options.waitUntil);
+  }
 }
 
 export { SpanKind };
