@@ -1,0 +1,159 @@
+---
+title: "ADR 056: Stateful Workers AI Code Review"
+date: "2026-07-25"
+status: "Proposed"
+supersedes: "personal-site:046-custom-agentic-code-review"
+tech_stack: ["Cloudflare Workers", "Cloudflare Workflows", "Cloudflare Workers AI", "OpenRouter"]
+---
+
+# Context
+
+[ADR 046](/projects/personal-site/adrs/046-custom-agentic-code-review)
+established that a focused, custom reviewer is economically credible. In
+practice it produced better findings per dollar than Qodo, CodeRabbit,
+Greptile, or the other evaluated services. Its weakness is now orchestration:
+the GitHub Actions implementation is stateless and fires on every push,
+re-sending largely unchanged diffs and repository context. Commit frequency
+therefore drives token spend even when a new commit does not justify another
+full review.
+
+The managed alternatives have also weakened. Gemini's consumer GitHub reviewer
+has shut down and now continues only as an enterprise product
+([ADR 041](/projects/personal-site/adrs/041-gemini-code-assist)). Qodo's free
+integration produced no useful activity, and its useful trial ended
+([ADR 045](/projects/personal-site/adrs/045-qodo)). Paying for Qodo remains
+possible, but observed value per dollar was below the custom reviewer.
+
+Meanwhile, inference is becoming more competitive: strong closed and
+open-weight coding models are being released rapidly across providers.
+Review-specific orchestration, repository policy, retained state, and
+evaluation data are therefore more durable investments than coupling the
+workflow to today's best model or review SaaS.
+
+# Decision
+
+I propose moving the custom reviewer from per-push GitHub Actions to a
+**stateful service on Cloudflare Workers**:
+
+1. A Worker receives verified GitHub webhooks and applies a deterministic
+   eligibility policy before invoking a model.
+2. One SQLite-backed
+   [Durable Object](https://developers.cloudflare.com/durable-objects/) per Pull
+   Request serialises events and stores the reviewed head SHA, changed-hunk
+   fingerprints, prior findings and dispositions, prompt/model versions, and
+   token and cost metrics.
+3. An alarm coalesces rapid pushes. A
+   [Cloudflare Workflow](https://developers.cloudflare.com/workflows/) performs
+   the retryable fetch, scout, merge, and GitHub publication steps; all steps
+   are idempotent against the PR state.
+4. Workers AI is the default inference path. Model identifiers remain
+   configuration selected by the existing scorecard, not architecture.
+   OpenRouter remains an escape hatch when a materially better model is not
+   available on Workers AI.
+
+The reviewer will run at the **Pull Request level, not the commit level**:
+
+* run a full review when a non-draft PR becomes ready, on an explicit command
+  or label, and before merge when material changes have not been reviewed;
+* run an incremental review after a quiet period when changed hunks are
+  materially different, touch security- or data-sensitive paths, or invalidate
+  an unresolved finding;
+* skip superseded webhook deliveries, already-reviewed content, generated
+  files, lockfile-only changes, and small non-semantic edits unless explicitly
+  requested; and
+* update existing findings instead of publishing duplicate threads.
+
+Incremental prompts will contain the stable review policy first, followed by
+bounded relevant context, unresolved findings, and only the new or modified
+hunks. The same PR/model pair will use a stable session-affinity key.
+[Workers AI prefix caching](https://developers.cloudflare.com/workers-ai/features/prompt-caching/)
+can then bill supported cached prefixes at a discount, while the durable state
+prevents unnecessary calls and unnecessary context from being sent at all.
+These are separate optimisations: Durable Objects do not themselves cache model
+computation, and prefix-cache hits are not guaranteed.
+
+The service remains advisory during evaluation. It becomes **Accepted** only
+when replaying representative PR histories and then running live PRs shows:
+
+* materially fewer model calls and uncached input tokens per PR than the
+  GitHub Actions baseline;
+* equal or better accepted findings per dollar, with manageable duplicates and
+  false positives;
+* no material loss of coverage from batching and incremental review; and
+* maintenance effort and total spend remain below the value of buying Qodo or
+  another managed reviewer.
+
+# Strategic Considerations
+
+* **Own the compounding layer.** Prompts, review policy, PR memory, accepted and
+  rejected findings, and cost/quality measurements improve future model
+  selection. A vendor subscription does not make that evidence portable.
+* **Exploit model competition.** Provider and model adapters must keep the
+  structured finding schema stable so new closed or open-weight models can be
+  benchmarked and promoted without redesigning the service.
+* **Spend by risk, not activity.** Deterministic triage and a cheap scout should
+  handle routine deltas; the multi-scout and merger path is reserved for
+  material or high-risk changes.
+* **Preserve an exit.** Cloudflare consolidates webhook compute, state,
+  inference, observability, and existing project infrastructure, but it becomes
+  a larger platform dependency. The provider-neutral inference boundary and
+  stored scorecard preserve migration to OpenRouter, direct APIs, or another
+  runtime.
+* **Keep the scope narrow.** This is one repository's review loop, not a
+  general code-review platform. Dashboards, repository-wide semantic indexing,
+  compliance policy, and team administration remain out of scope until evidence
+  shows they improve findings per dollar.
+
+# Alternatives
+
+## Tune the Existing GitHub Action
+
+GitHub concurrency, path filters, labels, and scheduled runs could reduce
+invocations cheaply. They do not provide authoritative cross-run PR memory,
+finding lifecycle, or efficient incremental context, so the workflow would
+remain a set of stateless jobs with increasingly complex coordination.
+
+## Pay for Qodo
+
+Qodo was useful during its trial and would remove most maintenance. Its free
+version is not producing reviews, however, and the custom workflow delivered
+better observed value per dollar. Reconsider if maintenance cost reverses that
+comparison.
+
+## Adopt Gemini Enterprise Code Review
+
+This restores a managed Gemini reviewer but adds enterprise billing,
+configuration, and product coupling to replace a consumer service that was
+withdrawn. It is a poor fit for a solo public repository.
+
+## Keep the Stateless OpenRouter Reviewer
+
+This retains broad model access and the best observed review economics with no
+migration. It leaves the core problem intact: every qualifying push purchases
+another review of mostly repeated context.
+
+# Consequences
+
+## Positive
+
+* Review timing follows PR risk and readiness rather than commit count.
+* Durable hunk and finding state removes redundant calls; prefix caching can
+  further reduce the price and latency of repeated context.
+* Serialisation, debounce, and idempotency prevent races and duplicate comments.
+* Per-PR model, token, cache-hit, finding, and disposition data strengthen the
+  existing evaluation flywheel.
+* Cloudflare-hosted open-weight models can improve economics while model and
+  provider escape hatches preserve competition.
+
+## Negative
+
+* Webhook security, GitHub App permissions, retries, state migrations, model
+  churn, and comment reconciliation become owned infrastructure.
+* Incremental review can miss interactions outside changed hunks; risk rules and
+  a final full-review path mitigate but cannot eliminate this.
+* Durable Objects, Workflows, Workers AI, and AI Gateway pricing and limits can
+  change. Spend limits and per-PR budgets are required before production use.
+* Session affinity improves prefix-cache probability but is not durable storage
+  or a cache guarantee; savings must be measured from returned usage data.
+* Consolidating on Cloudflare reduces operational surface while increasing
+  Cloudflare concentration risk.
