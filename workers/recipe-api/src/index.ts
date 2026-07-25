@@ -910,6 +910,20 @@ async function pantryResponse(db: Pick<Db, "select">, userId: string) {
   return pantryResponseForScope(db, await resolvePantryScope(db, userId));
 }
 
+async function findUnknownPantryIngredient(
+  db: Pick<Db, "select">,
+  ingredientSlugs: string[],
+): Promise<string | undefined> {
+  if (ingredientSlugs.length === 0) return undefined;
+
+  const knownIngredients = await db
+    .select({ slug: schema.ingredient.slug })
+    .from(schema.ingredient)
+    .where(inArray(schema.ingredient.slug, ingredientSlugs));
+  const knownSlugs = new Set(knownIngredients.map(({ slug }) => slug));
+  return ingredientSlugs.find((slug) => !knownSlugs.has(slug));
+}
+
 async function acceptPendingInvitation(
   db: Db,
   invitation: HouseholdInvitation,
@@ -2154,18 +2168,9 @@ app.put("/pantry", async (c) => {
 
       const stockEntries = Object.entries(body.data.stock);
       const ingredientSlugs = stockEntries.map(([ingredientSlug]) => ingredientSlug);
-      if (ingredientSlugs.length > 0) {
-        const knownIngredients = await db
-          .select({ slug: schema.ingredient.slug })
-          .from(schema.ingredient)
-          .where(inArray(schema.ingredient.slug, ingredientSlugs));
-        const knownSlugs = new Set(knownIngredients.map(({ slug }) => slug));
-        const unknownSlug = ingredientSlugs.find(
-          (slug) => !knownSlugs.has(slug),
-        );
-        if (unknownSlug) {
-          return c.json({ error: `Unknown ingredient: ${unknownSlug}` }, 400);
-        }
+      const unknownSlug = await findUnknownPantryIngredient(db, ingredientSlugs);
+      if (unknownSlug) {
+        return c.json({ error: `Unknown ingredient: ${unknownSlug}` }, 400);
       }
 
       const pantry = await db.transaction(async (tx) => {
@@ -2192,6 +2197,62 @@ app.put("/pantry", async (c) => {
   );
 });
 
+app.put("/pantry/import", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "PUT /pantry/import mutation failed",
+    async ({ db, session }) => {
+      const body = await parseJsonBody(c, pantryStockBodySchema);
+      if (!body.success) return body.response;
+
+      const stockEntries = Object.entries(body.data.stock);
+      const ingredientSlugs = stockEntries.map(([ingredientSlug]) => ingredientSlug);
+      const unknownSlug = await findUnknownPantryIngredient(db, ingredientSlugs);
+      if (unknownSlug) {
+        return c.json({ error: `Unknown ingredient: ${unknownSlug}` }, 400);
+      }
+
+      const result = await db.transaction(async (tx) => {
+        const scope = await lockPantryScope(tx, session.user.id);
+        if (scope.type !== "personal") return null;
+
+        const [existingItem] = await tx
+          .select({ id: schema.pantryItem.id })
+          .from(schema.pantryItem)
+          .where(pantryScopeFilter(scope))
+          .limit(1);
+        if (existingItem) return null;
+
+        if (stockEntries.length > 0) {
+          await tx.insert(schema.pantryItem).values(
+            stockEntries.map(([ingredientSlug, location]) => ({
+              userId: scope.userId,
+              organizationId: null,
+              ingredientSlug,
+              location,
+            })),
+          );
+        }
+        return pantryResponseForScope(tx, scope);
+      });
+
+      return result
+        ? c.json(result)
+        : c.json(
+            {
+              error:
+                "Legacy pantry can only be imported into an empty personal pantry",
+            },
+            409,
+          );
+    },
+  );
+});
+
 app.put("/pantry/restore", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
@@ -2206,16 +2267,9 @@ app.put("/pantry/restore", async (c) => {
 
       const stockEntries = Object.entries(body.data.stock);
       const ingredientSlugs = stockEntries.map(([ingredientSlug]) => ingredientSlug);
-      if (ingredientSlugs.length > 0) {
-        const knownIngredients = await db
-          .select({ slug: schema.ingredient.slug })
-          .from(schema.ingredient)
-          .where(inArray(schema.ingredient.slug, ingredientSlugs));
-        const knownSlugs = new Set(knownIngredients.map(({ slug }) => slug));
-        const unknownSlug = ingredientSlugs.find((slug) => !knownSlugs.has(slug));
-        if (unknownSlug) {
-          return c.json({ error: `Unknown ingredient: ${unknownSlug}` }, 400);
-        }
+      const unknownSlug = await findUnknownPantryIngredient(db, ingredientSlugs);
+      if (unknownSlug) {
+        return c.json({ error: `Unknown ingredient: ${unknownSlug}` }, 400);
       }
 
       const pantry = await db.transaction(async (tx) => {

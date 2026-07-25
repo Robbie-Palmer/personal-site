@@ -104,40 +104,31 @@ export async function getPantryWithLegacyMigration(
     pantry.scope.type === "personal" &&
     Object.keys(pantry.stock).length === 0
   ) {
-    const migrated = await replacePantry(legacyStock);
+    const migrated = await importLegacyStock(legacyStock);
     clearLegacyPantry();
     return migrated;
   }
 
-  if (
-    legacyOwner === null &&
-    pantry.scope.type === "personal" &&
-    Object.keys(pantry.stock).length === 0
-  ) {
+  if (legacyOwner === null) {
     return { ...pantry, pendingLegacyStock: legacyStock };
   }
 
-  // Persisted stock is already authoritative (or belongs to a household), so
-  // this browser's old v1 cache must not be merged or resurrected later.
-  clearLegacyPantry();
-  return pantry;
+  // Keep claimed stock recoverable when an import precondition changes. The
+  // server will only accept it while this account has an empty personal pantry.
+  return { ...pantry, pendingLegacyStock: legacyStock };
 }
 
 export async function importLegacyPantry(userId: string): Promise<Pantry> {
   setLegacyPantryOwner(userId);
-  const pantry = await getPantry();
   const legacyStock = getKitchenStockSnapshot();
-  if (
-    Object.keys(legacyStock).length > 0 &&
-    pantry.scope.type === "personal" &&
-    Object.keys(pantry.stock).length === 0
-  ) {
-    const migrated = await replacePantry(legacyStock);
+  if (Object.keys(legacyStock).length === 0) {
     clearLegacyPantry();
-    return migrated;
+    return getPantry();
   }
+
+  const migrated = await importLegacyStock(legacyStock);
   clearLegacyPantry();
-  return pantry;
+  return migrated;
 }
 
 export function discardLegacyPantry(pantry: Pantry): Pantry {
@@ -149,6 +140,12 @@ export function discardLegacyPantry(pantry: Pantry): Pantry {
 export async function replacePantry(stock: KitchenStock): Promise<Pantry> {
   return parsePantryResponse(
     await pantryRequest("/api/pantry", "PUT", { stock }),
+  );
+}
+
+async function importLegacyStock(stock: KitchenStock): Promise<Pantry> {
+  return parsePantryResponse(
+    await pantryRequest("/api/pantry/import", "PUT", { stock }),
   );
 }
 

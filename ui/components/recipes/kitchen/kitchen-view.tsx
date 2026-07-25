@@ -227,6 +227,9 @@ export function KitchenView({
 
   const stockedCount = stockedSlugs.length;
   const pendingLegacyStock = pantry.data?.pendingLegacyStock;
+  const canImportLegacyStock =
+    pantry.data?.scope.type === "personal" &&
+    Object.keys(pantry.data.stock).length === 0;
   const householdName =
     pantry.data?.scope.type === "household"
       ? pantry.data.scope.household.name
@@ -257,16 +260,21 @@ export function KitchenView({
         <div className="rt-body mb-6 rounded-md border border-[var(--terracotta)]/35 bg-[var(--terracotta)]/8 px-4 py-3 text-sm text-[var(--ink-2)]">
           <p>
             We found pantry stock saved by an older version of this site on this
-            browser. Import it only if it belongs to your account.
+            browser.{" "}
+            {canImportLegacyStock
+              ? "Import it only if it belongs to your account."
+              : "To protect your current pantry, import is available only from an empty personal pantry."}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              onClick={stockActions.importLegacyStock}
-            >
-              Import old pantry
-            </Button>
+            {canImportLegacyStock && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={stockActions.importLegacyStock}
+              >
+                Import old pantry
+              </Button>
+            )}
             <Button
               type="button"
               size="sm"

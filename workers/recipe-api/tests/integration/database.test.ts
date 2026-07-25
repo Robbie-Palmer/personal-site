@@ -330,11 +330,24 @@ describe("recipe API PostgreSQL integration", () => {
     const owner = await createUser("Household Owner", "owner@example.test");
     const invitee = await createUser("Household Member", "member@example.test");
 
-    const ownerPantryResponse = await authenticatedRequest(owner, "/pantry", {
-      method: "PUT",
-      body: { stock: { onion: "fresh" } },
-    });
+    const ownerPantryResponse = await authenticatedRequest(
+      owner,
+      "/pantry/import",
+      {
+        method: "PUT",
+        body: { stock: { onion: "fresh" } },
+      },
+    );
     expect(ownerPantryResponse.status).toBe(200);
+    const repeatedImport = await authenticatedRequest(
+      owner,
+      "/pantry/import",
+      {
+        method: "PUT",
+        body: { stock: { salt: "cupboards" } },
+      },
+    );
+    expect(repeatedImport.status).toBe(409);
 
     const householdResponse = await authenticatedRequest(owner, "/households", {
       method: "POST",

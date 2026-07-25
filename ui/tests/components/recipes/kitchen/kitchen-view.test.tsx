@@ -164,6 +164,27 @@ describe("KitchenView diet ingredient catalog", () => {
     expect(kitchenStockState.actions.discardLegacyStock).toHaveBeenCalled();
   });
 
+  it("keeps legacy stock recoverable when the current pantry is not empty", async () => {
+    kitchenStockState.pantry.data = {
+      scope: { type: "personal" },
+      stock: { chickpeas: "cupboards" },
+      pendingLegacyStock: { onion: "fresh" },
+    };
+    const user = userEvent.setup();
+    render(<KitchenView ingredients={ingredients} recipes={[]} />);
+
+    expect(
+      screen.getByText(
+        /import is available only from an empty personal pantry/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Import old pantry" }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Discard" }));
+    expect(kitchenStockState.actions.discardLegacyStock).toHaveBeenCalled();
+  });
+
   it("hides mismatched recipes until the user chooses to show them", async () => {
     const user = userEvent.setup();
     render(<KitchenView ingredients={ingredients} recipes={recipes} />);
