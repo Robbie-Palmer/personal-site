@@ -416,7 +416,7 @@ const dbMock = vi.hoisted(() => {
 
     if (query.startsWith('insert into "pantry_item"')) {
       for (let index = 0; index < params.length; index += 4) {
-        state.pantryItems.push({
+        const pantryItem: PantryItemRow = {
           id: crypto.randomUUID(),
           userId: (params[index] as string | null) ?? null,
           organizationId: (params[index + 1] as string | null) ?? null,
@@ -424,7 +424,17 @@ const dbMock = vi.hoisted(() => {
           location: params[index + 3] as PantryItemRow["location"],
           createdAt: date,
           updatedAt: date,
-        });
+        };
+        const conflicts = state.pantryItems.some(
+          (candidate) =>
+            candidate.ingredientSlug === pantryItem.ingredientSlug &&
+            ((pantryItem.userId !== null && candidate.userId === pantryItem.userId) ||
+              (pantryItem.organizationId !== null &&
+                candidate.organizationId === pantryItem.organizationId)),
+        );
+        if (!query.includes("on conflict do nothing") || !conflicts) {
+          state.pantryItems.push(pantryItem);
+        }
       }
       return [];
     }
@@ -3258,6 +3268,246 @@ describe("profile cooking insights", () => {
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({
       error: "Cooking session ID is already in use",
+    });
+  });
+});
+
+describe("pantry mutation flows", () => {
+  const mutationHeaders = {
+    "content-type": "application/json",
+    origin: "http://localhost:3000",
+  };
+
+  beforeEach(() => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+    dbMock.state.ingredients.push(
+      {
+        slug: "onion",
+        name: "Onion",
+        category: "vegetable",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+      {
+        slug: "milk",
+        name: "Milk",
+        category: "dairy",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+    );
+  });
+
+  it("replaces a personal pantry and validates every ingredient", async () => {
+    const response = await app.request(
+      "/pantry",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({
+          stock: { onion: "fresh", milk: "fridge" },
+        }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      scope: { type: "personal" },
+      stock: { onion: "fresh", milk: "fridge" },
+    });
+    expect(dbMock.state.pantryItems).toEqual([
+      expect.objectContaining({
+        userId: "owner-user",
+        organizationId: null,
+        ingredientSlug: "onion",
+        location: "fresh",
+      }),
+      expect.objectContaining({
+        userId: "owner-user",
+        organizationId: null,
+        ingredientSlug: "milk",
+        location: "fridge",
+      }),
+    ]);
+
+    const unknownIngredient = await app.request(
+      "/pantry",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({ stock: { dragonfruit: "fresh" } }),
+      },
+      env,
+    );
+    expect(unknownIngredient.status).toBe(400);
+    expect(await unknownIngredient.json()).toEqual({
+      error: "Unknown ingredient: dragonfruit",
+    });
+
+    const invalidBody = await app.request(
+      "/pantry",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({ stock: { onion: "freezer" } }),
+      },
+      env,
+    );
+    expect(invalidBody.status).toBe(400);
+  });
+
+  it("sets, moves, and removes a household pantry item", async () => {
+    seedHousehold();
+
+    const setResponse = await app.request(
+      "/pantry/items/onion",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({ location: "cupboards" }),
+      },
+      env,
+    );
+    expect(setResponse.status).toBe(200);
+    expect(await setResponse.json()).toEqual({
+      scope: {
+        type: "household",
+        household: { id: HOUSEHOLD_ID, name: "Owner household" },
+      },
+      stock: { onion: "cupboards" },
+    });
+    expect(dbMock.state.pantryItems[0]).toEqual(
+      expect.objectContaining({
+        userId: null,
+        organizationId: HOUSEHOLD_ID,
+        ingredientSlug: "onion",
+        location: "cupboards",
+      }),
+    );
+
+    const moveResponse = await app.request(
+      "/pantry/items/onion",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({ location: "fresh" }),
+      },
+      env,
+    );
+    expect(moveResponse.status).toBe(200);
+    expect(await moveResponse.json()).toEqual({
+      scope: {
+        type: "household",
+        household: { id: HOUSEHOLD_ID, name: "Owner household" },
+      },
+      stock: { onion: "fresh" },
+    });
+    expect(dbMock.state.pantryItems).toHaveLength(1);
+
+    const removeResponse = await app.request(
+      "/pantry/items/onion",
+      {
+        method: "DELETE",
+        headers: { origin: "http://localhost:3000" },
+      },
+      env,
+    );
+    expect(removeResponse.status).toBe(200);
+    expect(await removeResponse.json()).toEqual({
+      scope: {
+        type: "household",
+        household: { id: HOUSEHOLD_ID, name: "Owner household" },
+      },
+      stock: {},
+    });
+    expect(dbMock.state.pantryItems).toEqual([]);
+
+    dbMock.state.pantryItems.push({
+      id: crypto.randomUUID(),
+      userId: null,
+      organizationId: HOUSEHOLD_ID,
+      ingredientSlug: "milk",
+      location: "fresh",
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    const restoreResponse = await app.request(
+      "/pantry/restore",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({
+          stock: { onion: "cupboards", milk: "fridge" },
+        }),
+      },
+      env,
+    );
+    expect(restoreResponse.status).toBe(200);
+    expect(await restoreResponse.json()).toEqual({
+      scope: {
+        type: "household",
+        household: { id: HOUSEHOLD_ID, name: "Owner household" },
+      },
+      stock: { milk: "fresh", onion: "cupboards" },
+    });
+  });
+
+  it("rejects invalid item mutations", async () => {
+    const invalidSlug = await app.request(
+      `/pantry/items/${"x".repeat(201)}`,
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({ location: "fresh" }),
+      },
+      env,
+    );
+    expect(invalidSlug.status).toBe(400);
+    expect(await invalidSlug.json()).toEqual({
+      error: "Invalid ingredient slug",
+    });
+
+    const invalidLocation = await app.request(
+      "/pantry/items/onion",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({ location: "freezer" }),
+      },
+      env,
+    );
+    expect(invalidLocation.status).toBe(400);
+
+    const unknownIngredient = await app.request(
+      "/pantry/items/dragonfruit",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({ location: "fresh" }),
+      },
+      env,
+    );
+    expect(unknownIngredient.status).toBe(400);
+    expect(await unknownIngredient.json()).toEqual({
+      error: "Unknown ingredient: dragonfruit",
+    });
+
+    const invalidDelete = await app.request(
+      `/pantry/items/${"x".repeat(201)}`,
+      {
+        method: "DELETE",
+        headers: { origin: "http://localhost:3000" },
+      },
+      env,
+    );
+    expect(invalidDelete.status).toBe(400);
+    expect(await invalidDelete.json()).toEqual({
+      error: "Invalid ingredient slug",
     });
   });
 });

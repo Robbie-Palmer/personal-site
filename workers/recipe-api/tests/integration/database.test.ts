@@ -435,6 +435,50 @@ describe("recipe API PostgreSQL integration", () => {
       stock: { onion: "fresh", salt: "cupboards" },
     });
 
+    const clearSharedPantry = await authenticatedRequest(invitee, "/pantry", {
+      method: "PUT",
+      body: { stock: {} },
+    });
+    expect(clearSharedPantry.status).toBe(200);
+    const concurrentAddition = await authenticatedRequest(
+      owner,
+      "/pantry/items/almond-milk",
+      {
+        method: "PUT",
+        body: { location: "fridge" },
+      },
+    );
+    expect(concurrentAddition.status).toBe(200);
+    const restoredPantry = await authenticatedRequest(
+      invitee,
+      "/pantry/restore",
+      {
+        method: "PUT",
+        body: {
+          stock: {
+            onion: "fresh",
+            salt: "cupboards",
+            "almond-milk": "cupboards",
+          },
+        },
+      },
+    );
+    expect(restoredPantry.status).toBe(200);
+    expect(await json(restoredPantry)).toEqual({
+      scope: {
+        type: "household",
+        household: {
+          id: household.id,
+          name: "Integration Household",
+        },
+      },
+      stock: {
+        "almond-milk": "fridge",
+        onion: "fresh",
+        salt: "cupboards",
+      },
+    });
+
     const recipeResponse = await authenticatedRequest(invitee, "/recipes", {
       method: "POST",
       body: {
@@ -456,7 +500,11 @@ describe("recipe API PostgreSQL integration", () => {
     const inheritedPantry = await authenticatedRequest(owner, "/pantry");
     expect(await json(inheritedPantry)).toEqual({
       scope: { type: "personal" },
-      stock: { onion: "fresh", salt: "cupboards" },
+      stock: {
+        "almond-milk": "fridge",
+        onion: "fresh",
+        salt: "cupboards",
+      },
     });
 
     expect(

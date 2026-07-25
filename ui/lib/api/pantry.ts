@@ -16,10 +16,38 @@ export type PantryScope =
 export type Pantry = {
   scope: PantryScope;
   stock: KitchenStock;
+  pendingLegacyStock?: KitchenStock;
 };
 
 const POPULATED_PANTRY_INVITE_ERROR =
   "Pantry must be empty before joining a household";
+const LEGACY_PANTRY_OWNER_KEY = "recipe-kitchen-stock-v1-owner";
+
+function getLegacyPantryOwner(): string | null {
+  try {
+    return localStorage.getItem(LEGACY_PANTRY_OWNER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function setLegacyPantryOwner(userId: string): void {
+  try {
+    localStorage.setItem(LEGACY_PANTRY_OWNER_KEY, userId);
+  } catch {
+    // The explicit import can still proceed when storage metadata is
+    // unavailable; the stock is only cleared after persistence succeeds.
+  }
+}
+
+function clearLegacyPantry(): void {
+  clearLegacyKitchenStock();
+  try {
+    localStorage.removeItem(LEGACY_PANTRY_OWNER_KEY);
+  } catch {
+    // localStorage unavailable
+  }
+}
 
 async function parsePantryResponse(response: Response): Promise<Pantry> {
   if (!response.ok) {
@@ -58,35 +86,75 @@ export async function getPantry(signal?: AbortSignal): Promise<Pantry> {
 }
 
 export async function getPantryWithLegacyMigration(
+  userId: string,
   signal?: AbortSignal,
 ): Promise<Pantry> {
   const pantry = await getPantry(signal);
   const legacyStock = getKitchenStockSnapshot();
   if (Object.keys(legacyStock).length === 0) return pantry;
 
+  const legacyOwner = getLegacyPantryOwner();
+  if (legacyOwner && legacyOwner !== userId) {
+    clearLegacyPantry();
+    return pantry;
+  }
+
   if (
+    legacyOwner === userId &&
     pantry.scope.type === "personal" &&
     Object.keys(pantry.stock).length === 0
   ) {
     const migrated = await replacePantry(legacyStock);
-    clearLegacyKitchenStock();
+    clearLegacyPantry();
     return migrated;
+  }
+
+  if (
+    legacyOwner === null &&
+    pantry.scope.type === "personal" &&
+    Object.keys(pantry.stock).length === 0
+  ) {
+    return { ...pantry, pendingLegacyStock: legacyStock };
   }
 
   // Persisted stock is already authoritative (or belongs to a household), so
   // this browser's old v1 cache must not be merged or resurrected later.
-  clearLegacyKitchenStock();
+  clearLegacyPantry();
   return pantry;
 }
 
-export async function migrateLegacyPantryBeforeHouseholdCreation(): Promise<void> {
-  if (Object.keys(getKitchenStockSnapshot()).length === 0) return;
-  await getPantryWithLegacyMigration();
+export async function importLegacyPantry(userId: string): Promise<Pantry> {
+  setLegacyPantryOwner(userId);
+  const pantry = await getPantry();
+  const legacyStock = getKitchenStockSnapshot();
+  if (
+    Object.keys(legacyStock).length > 0 &&
+    pantry.scope.type === "personal" &&
+    Object.keys(pantry.stock).length === 0
+  ) {
+    const migrated = await replacePantry(legacyStock);
+    clearLegacyPantry();
+    return migrated;
+  }
+  clearLegacyPantry();
+  return pantry;
+}
+
+export function discardLegacyPantry(pantry: Pantry): Pantry {
+  clearLegacyPantry();
+  const { pendingLegacyStock: _discarded, ...persistedPantry } = pantry;
+  return persistedPantry;
 }
 
 export async function replacePantry(stock: KitchenStock): Promise<Pantry> {
   return parsePantryResponse(
     await pantryRequest("/api/pantry", "PUT", { stock }),
+  );
+}
+
+export async function restorePantry(stock: KitchenStock): Promise<Pantry> {
+  return parsePantryResponse(
+    await pantryRequest("/api/pantry/restore", "PUT", { stock }),
   );
 }
 
@@ -114,8 +182,10 @@ export async function removePantryItem(
   );
 }
 
-export function assertLegacyPantryEmpty(): void {
+export function assertLegacyPantryEmpty(
+  message = POPULATED_PANTRY_INVITE_ERROR,
+): void {
   if (Object.keys(getKitchenStockSnapshot()).length > 0) {
-    throw new Error(POPULATED_PANTRY_INVITE_ERROR);
+    throw new Error(message);
   }
 }

@@ -1,7 +1,4 @@
-import {
-  assertLegacyPantryEmpty,
-  migrateLegacyPantryBeforeHouseholdCreation,
-} from "@/lib/api/pantry";
+import { assertLegacyPantryEmpty } from "@/lib/api/pantry";
 
 export type HouseholdRole = "owner" | "member";
 
@@ -111,7 +108,9 @@ export async function getIncomingHouseholdInvitations(
 }
 
 export async function createHousehold(name: string): Promise<HouseholdDetails> {
-  await migrateLegacyPantryBeforeHouseholdCreation();
+  assertLegacyPantryEmpty(
+    "Import or discard this browser's old pantry before creating a household",
+  );
   const response = await mutate("/api/households", "POST", { name });
   return parseResponse<HouseholdDetails>(
     response,

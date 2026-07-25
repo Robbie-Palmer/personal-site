@@ -221,11 +221,12 @@ export function KitchenView({
 
   const undoClear = () => {
     if (!lastClearedStock) return;
-    stockActions.replaceStock(lastClearedStock);
+    stockActions.restoreStock(lastClearedStock);
     setLastClearedStock(null);
   };
 
   const stockedCount = stockedSlugs.length;
+  const pendingLegacyStock = pantry.data?.pendingLegacyStock;
   const householdName =
     pantry.data?.scope.type === "household"
       ? pantry.data.scope.household.name
@@ -251,6 +252,32 @@ export function KitchenView({
           </p>
         </div>
       </div>
+
+      {pendingLegacyStock && (
+        <div className="rt-body mb-6 rounded-md border border-[var(--terracotta)]/35 bg-[var(--terracotta)]/8 px-4 py-3 text-sm text-[var(--ink-2)]">
+          <p>
+            We found pantry stock saved by an older version of this site on this
+            browser. Import it only if it belongs to your account.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={stockActions.importLegacyStock}
+            >
+              Import old pantry
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={stockActions.discardLegacyStock}
+            >
+              Discard
+            </Button>
+          </div>
+        </div>
+      )}
 
       {(pantry.error || stockActions.error) && (
         <div

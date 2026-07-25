@@ -153,7 +153,7 @@ const creatableRecipeSlugSchema = recipeSlugSchema.refine(
   { message: "Slug is reserved for a recipe application route" },
 );
 const dietRecipeMatchModeSchema = z.enum(["hide", "warn"]);
-const pantryLocationSchema = z.enum(["fridge", "cupboards", "fresh"]);
+const pantryLocationSchema = z.enum(schema.pantryLocationEnum.enumValues);
 const pantryIngredientSlugSchema = z.string().min(1).max(200);
 const feedScopeSchema = z.enum(["public", "household"]);
 const feedLimitSchema = z.coerce.number().int().min(1).max(30).default(12);
@@ -880,8 +880,7 @@ async function lockPantryScope(
   return scope;
 }
 
-async function pantryResponse(db: Pick<Db, "select">, userId: string) {
-  const scope = await resolvePantryScope(db, userId);
+async function pantryResponseForScope(db: Pick<Db, "select">, scope: PantryScope) {
   const items = await db
     .select({
       ingredientSlug: schema.pantryItem.ingredientSlug,
@@ -905,6 +904,10 @@ async function pantryResponse(db: Pick<Db, "select">, userId: string) {
       items.map(({ ingredientSlug, location }) => [ingredientSlug, location]),
     ) as Record<string, PantryLocation>,
   };
+}
+
+async function pantryResponse(db: Pick<Db, "select">, userId: string) {
+  return pantryResponseForScope(db, await resolvePantryScope(db, userId));
 }
 
 async function acceptPendingInvitation(
@@ -2165,7 +2168,7 @@ app.put("/pantry", async (c) => {
         }
       }
 
-      await db.transaction(async (tx) => {
+      const pantry = await db.transaction(async (tx) => {
         const scope = await lockPantryScope(tx, session.user.id);
         await tx
           .delete(schema.pantryItem)
@@ -2181,9 +2184,59 @@ app.put("/pantry", async (c) => {
             })),
           );
         }
+        return pantryResponseForScope(tx, scope);
       });
 
-      return c.json(await pantryResponse(db, session.user.id));
+      return c.json(pantry);
+    },
+  );
+});
+
+app.put("/pantry/restore", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "PUT /pantry/restore mutation failed",
+    async ({ db, session }) => {
+      const body = await parseJsonBody(c, pantryStockBodySchema);
+      if (!body.success) return body.response;
+
+      const stockEntries = Object.entries(body.data.stock);
+      const ingredientSlugs = stockEntries.map(([ingredientSlug]) => ingredientSlug);
+      if (ingredientSlugs.length > 0) {
+        const knownIngredients = await db
+          .select({ slug: schema.ingredient.slug })
+          .from(schema.ingredient)
+          .where(inArray(schema.ingredient.slug, ingredientSlugs));
+        const knownSlugs = new Set(knownIngredients.map(({ slug }) => slug));
+        const unknownSlug = ingredientSlugs.find((slug) => !knownSlugs.has(slug));
+        if (unknownSlug) {
+          return c.json({ error: `Unknown ingredient: ${unknownSlug}` }, 400);
+        }
+      }
+
+      const pantry = await db.transaction(async (tx) => {
+        const scope = await lockPantryScope(tx, session.user.id);
+        if (stockEntries.length > 0) {
+          await tx
+            .insert(schema.pantryItem)
+            .values(
+              stockEntries.map(([ingredientSlug, location]) => ({
+                userId: scope.type === "personal" ? scope.userId : null,
+                organizationId: scope.type === "household" ? scope.householdId : null,
+                ingredientSlug,
+                location,
+              })),
+            )
+            .onConflictDoNothing();
+        }
+        return pantryResponseForScope(tx, scope);
+      });
+
+      return c.json(pantry);
     },
   );
 });
@@ -2216,7 +2269,7 @@ app.put("/pantry/items/:ingredientSlug", async (c) => {
         return c.json({ error: `Unknown ingredient: ${ingredientSlug}` }, 400);
       }
 
-      await db.transaction(async (tx) => {
+      const pantry = await db.transaction(async (tx) => {
         const scope = await lockPantryScope(tx, session.user.id);
         await tx
           .delete(schema.pantryItem)
@@ -2233,9 +2286,10 @@ app.put("/pantry/items/:ingredientSlug", async (c) => {
           ingredientSlug,
           location: body.data.location,
         });
+        return pantryResponseForScope(tx, scope);
       });
 
-      return c.json(await pantryResponse(db, session.user.id));
+      return c.json(pantry);
     },
   );
 });
@@ -2256,7 +2310,7 @@ app.delete("/pantry/items/:ingredientSlug", async (c) => {
         return c.json({ error: "Invalid ingredient slug" }, 400);
       }
 
-      await db.transaction(async (tx) => {
+      const pantry = await db.transaction(async (tx) => {
         const scope = await lockPantryScope(tx, session.user.id);
         await tx
           .delete(schema.pantryItem)
@@ -2269,9 +2323,10 @@ app.delete("/pantry/items/:ingredientSlug", async (c) => {
               ),
             ),
           );
+        return pantryResponseForScope(tx, scope);
       });
 
-      return c.json(await pantryResponse(db, session.user.id));
+      return c.json(pantry);
     },
   );
 });

@@ -4,6 +4,29 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { KitchenView } from "@/components/recipes/kitchen/kitchen-view";
 
 const dietState = vi.hoisted(() => ({ mode: "hide" as "hide" | "warn" }));
+const kitchenStockState = vi.hoisted(() => ({
+  actions: {
+    clearStock: vi.fn(),
+    discardLegacyStock: vi.fn(),
+    error: null,
+    importLegacyStock: vi.fn(),
+    isPending: false,
+    removeFromStock: vi.fn(),
+    replaceStock: vi.fn(),
+    restoreStock: vi.fn(),
+    setStockLocation: vi.fn(),
+  },
+  pantry: {
+    data: {
+      scope: { type: "personal" as const },
+      stock: {} as Record<string, "fridge" | "cupboards" | "fresh">,
+      pendingLegacyStock: undefined as
+        | Record<string, "fridge" | "cupboards" | "fresh">
+        | undefined,
+    },
+    error: null,
+  },
+}));
 
 vi.mock("@/components/recipes/diet-provider", () => ({
   useDiet: () => ({
@@ -33,18 +56,8 @@ vi.mock("@/components/recipes/diet-provider", () => ({
 }));
 
 vi.mock("@/hooks/use-kitchen-stock", () => ({
-  useKitchenStockActions: () => ({
-    clearStock: vi.fn(),
-    error: null,
-    isPending: false,
-    removeFromStock: vi.fn(),
-    replaceStock: vi.fn(),
-    setStockLocation: vi.fn(),
-  }),
-  useKitchenStockQuery: () => ({
-    data: { scope: { type: "personal" }, stock: {} },
-    error: null,
-  }),
+  useKitchenStockActions: () => kitchenStockState.actions,
+  useKitchenStockQuery: () => kitchenStockState.pantry,
 }));
 
 vi.mock("@/hooks/use-shopping-list", () => ({
@@ -77,7 +90,13 @@ const recipes = [
 
 describe("KitchenView diet ingredient catalog", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     dietState.mode = "hide";
+    kitchenStockState.pantry.data = {
+      scope: { type: "personal" },
+      stock: {},
+      pendingLegacyStock: undefined,
+    };
   });
 
   it("hides excluded ingredients and supports a temporary override", async () => {
@@ -98,6 +117,51 @@ describe("KitchenView diet ingredient catalog", () => {
     expect(
       screen.getByRole("button", { name: "Hide diet exclusions" }),
     ).toBeInTheDocument();
+  });
+
+  it("restores only cleared entries through the merge-safe pantry operation", async () => {
+    kitchenStockState.pantry.data = {
+      scope: { type: "personal" },
+      stock: { chickpeas: "cupboards" },
+      pendingLegacyStock: undefined,
+    };
+    const user = userEvent.setup();
+    const view = render(<KitchenView ingredients={ingredients} recipes={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "clear all" }));
+    expect(kitchenStockState.actions.clearStock).toHaveBeenCalled();
+
+    kitchenStockState.pantry.data = {
+      scope: { type: "personal" },
+      stock: {},
+      pendingLegacyStock: undefined,
+    };
+    view.rerender(<KitchenView ingredients={ingredients} recipes={[]} />);
+    await user.click(screen.getByRole("button", { name: "undo clear" }));
+
+    expect(kitchenStockState.actions.restoreStock).toHaveBeenCalledWith({
+      chickpeas: "cupboards",
+    });
+    expect(kitchenStockState.actions.replaceStock).not.toHaveBeenCalled();
+  });
+
+  it("requires an explicit choice before importing unowned legacy stock", async () => {
+    kitchenStockState.pantry.data = {
+      scope: { type: "personal" },
+      stock: {},
+      pendingLegacyStock: { chickpeas: "cupboards" },
+    };
+    const user = userEvent.setup();
+    render(<KitchenView ingredients={ingredients} recipes={[]} />);
+
+    expect(
+      screen.getByText(/import it only if it belongs to your account/i),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Import old pantry" }));
+    await user.click(screen.getByRole("button", { name: "Discard" }));
+
+    expect(kitchenStockState.actions.importLegacyStock).toHaveBeenCalled();
+    expect(kitchenStockState.actions.discardLegacyStock).toHaveBeenCalled();
   });
 
   it("hides mismatched recipes until the user chooses to show them", async () => {
