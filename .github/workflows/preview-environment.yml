@@ -5,27 +5,81 @@ on:
   # secrets they need while fork PRs get none.
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
 
 concurrency:
-  group: preview-${{ github.event.pull_request.number }}
+  group: preview-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: true
 
 jobs:
+  context:
+    if: >
+      (
+        github.event_name == 'pull_request'
+        && github.event.pull_request.head.repo.full_name == github.repository
+        && github.event.pull_request.user.login != 'renovate[bot]'
+        && github.event.pull_request.user.login != 'dependabot[bot]'
+        && (
+          (github.event.action != 'labeled' && github.event.action != 'unlabeled')
+          || startsWith(github.event.label.name, 'preview:')
+        )
+      ) || (
+        github.event_name == 'issue_comment'
+        && github.event.issue.pull_request
+        && github.event.comment.body == '/preview-backend'
+        && contains(
+          fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
+          github.event.comment.author_association
+        )
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      eligible: ${{ steps.resolve.outputs.eligible }}
+      pr_number: ${{ steps.resolve.outputs.pr_number }}
+      head_sha: ${{ steps.resolve.outputs.head_sha }}
+      force_frontend: ${{ steps.resolve.outputs.force_frontend }}
+      force_backend: ${{ steps.resolve.outputs.force_backend }}
+    steps:
+      - name: Resolve pull request context
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          pr=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          if [[ "$(jq -r '.head.repo.full_name' <<< "$pr")" != "$REPO" ]]; then
+            echo "eligible=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          author=$(jq -r '.user.login' <<< "$pr")
+          if [[ "$author" == "renovate[bot]" || "$author" == "dependabot[bot]" ]]; then
+            echo "eligible=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          {
+            echo "eligible=true"
+            echo "head_sha=$(jq -r '.head.sha' <<< "$pr")"
+            echo "force_frontend=$(jq -r '[.labels[].name] | index("preview:frontend-only") != null' <<< "$pr")"
+            echo "force_backend=$(jq -r '[.labels[].name] | index("preview:backend") != null' <<< "$pr")"
+          } >> "$GITHUB_OUTPUT"
+
   # Decide whether this PR needs a database-backed backend preview.
   detect:
-    # On label events, only react to the preview:* labels so unrelated label
-    # changes don't rebuild the preview.
-    if: >
-      github.event.pull_request.head.repo.full_name == github.repository
-      && github.event.pull_request.user.login != 'renovate[bot]'
-      && github.event.pull_request.user.login != 'dependabot[bot]'
-      && (
-        (github.event.action != 'labeled' && github.event.action != 'unlabeled')
-        || startsWith(github.event.label.name, 'preview:')
-      )
+    needs: context
+    if: needs.context.outputs.eligible == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -37,12 +91,18 @@ jobs:
         id: decide
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ needs.context.outputs.pr_number }}
           REPO: ${{ github.repository }}
-          FORCE_FRONTEND: ${{ contains(github.event.pull_request.labels.*.name, 'preview:frontend-only') }}
-          FORCE_BACKEND: ${{ contains(github.event.pull_request.labels.*.name, 'preview:backend') }}
+          COMMENT_REQUEST: ${{ github.event_name == 'issue_comment' }}
+          FORCE_FRONTEND: ${{ needs.context.outputs.force_frontend }}
+          FORCE_BACKEND: ${{ needs.context.outputs.force_backend }}
         run: |
           set -euo pipefail
+          if [[ "$COMMENT_REQUEST" == "true" ]]; then
+            echo "The /preview-backend command requests a backend preview."
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [[ "$FORCE_FRONTEND" == "true" ]]; then
             echo "Label preview:frontend-only forces frontend-only preview."
             echo "backend=false" >> "$GITHUB_OUTPUT"
@@ -63,7 +123,7 @@ jobs:
           fi
 
   backend:
-    needs: detect
+    needs: [context, detect]
     if: needs.detect.outputs.backend == 'true'
     runs-on: ubuntu-latest
     environment:
@@ -73,7 +133,7 @@ jobs:
     steps:
       - name: Set preview resource names
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ needs.context.outputs.pr_number }}
           PAGES_HOST: ${{ vars.CLOUDFLARE_PAGES_HOST }}
           PREVIEW_AUTH_SEED: ${{ secrets.PREVIEW_AUTH_SEED }}
         run: |
@@ -109,7 +169,7 @@ jobs:
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           api_key: ${{ secrets.NEON_API_KEY }}
-          branch: preview-pr-${{ github.event.pull_request.number }}
+          branch: preview-pr-${{ needs.context.outputs.pr_number }}
 
       - name: Wait for previous Neon preview branch deletion
         env:
@@ -137,7 +197,7 @@ jobs:
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           api_key: ${{ secrets.NEON_API_KEY }}
-          branch_name: preview-pr-${{ github.event.pull_request.number }}
+          branch_name: preview-pr-${{ needs.context.outputs.pr_number }}
           parent_branch: preview-base
           database: recipes
           role: recipes_owner
@@ -155,7 +215,7 @@ jobs:
       # never see the Neon API key.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ needs.context.outputs.head_sha }}
           persist-credentials: false
 
       - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
@@ -188,7 +248,7 @@ jobs:
         run: mise run //workers/recipe-api:db:seed:preview
         env:
           DATABASE_URL: ${{ steps.neon.outputs.db_url }}
-          BETTER_AUTH_URL: https://pr-${{ github.event.pull_request.number }}.${{ vars.CLOUDFLARE_PAGES_HOST }}
+          BETTER_AUTH_URL: https://pr-${{ needs.context.outputs.pr_number }}.${{ vars.CLOUDFLARE_PAGES_HOST }}
 
       - name: Create atomic Worker secrets files
         id: worker-secrets
@@ -233,7 +293,7 @@ jobs:
   # backend job. NEXT_PUBLIC_PREVIEW_BACKEND tells the build whether sign-in is
   # backed by a per-PR Worker so the UI can present the right state.
   frontend:
-    needs: detect
+    needs: [context, detect]
     if: needs.detect.result == 'success'
     runs-on: ubuntu-latest
     environment:
@@ -243,7 +303,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ needs.context.outputs.head_sha }}
           persist-credentials: false
 
       - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
@@ -286,12 +346,12 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          DEPLOY_BRANCH: pr-${{ github.event.pull_request.number }}
+          DEPLOY_BRANCH: pr-${{ needs.context.outputs.pr_number }}
           NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH: ${{ vars.CF_IMAGES_ACCOUNT_HASH }}
           NEXT_PUBLIC_PREVIEW_BACKEND: ${{ needs.detect.outputs.backend }}
 
   comment:
-    needs: [detect, backend, frontend]
+    needs: [context, detect, backend, frontend]
     if: always() && needs.frontend.result == 'success'
     runs-on: ubuntu-latest
     # The preview URL is built from vars.CLOUDFLARE_PAGES_HOST, which is scoped
@@ -307,9 +367,9 @@ jobs:
       - name: Comment preview URL on PR
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
-          PREVIEW_SITE_URL: https://pr-${{ github.event.pull_request.number }}.${{ vars.CLOUDFLARE_PAGES_HOST }}
-          PREVIEW_WORKER_NAME: recipe-api-pr-${{ github.event.pull_request.number }}
-          PREVIEW_BRANCH: preview-pr-${{ github.event.pull_request.number }}
+          PREVIEW_SITE_URL: https://pr-${{ needs.context.outputs.pr_number }}.${{ vars.CLOUDFLARE_PAGES_HOST }}
+          PREVIEW_WORKER_NAME: recipe-api-pr-${{ needs.context.outputs.pr_number }}
+          PREVIEW_BRANCH: preview-pr-${{ needs.context.outputs.pr_number }}
           BACKEND_REQUESTED: ${{ needs.detect.outputs.backend }}
           BACKEND_RESULT: ${{ needs.backend.result }}
         with:
@@ -328,16 +388,22 @@ jobs:
                 'The site is protected by Cloudflare Access. Use the **Sign in** menu to choose a seeded QA scenario.',
               ];
             } else if (requested && !ok) {
-              backendLines = ['**Backend:** ⚠️ provisioning failed — the frontend is deployed, but sign-in is unavailable. Re-run the workflow to retry.'];
+              backendLines = ['**Backend:** ⚠️ provisioning failed — the frontend is deployed, but sign-in is unavailable. Comment `/preview-backend` again to retry.'];
             } else {
-              backendLines = ['**Backend:** frontend-only preview — sign-in is disabled. Add the `preview:backend` label to provision an isolated Worker + database.'];
+              backendLines = [
+                '**Backend:** frontend-only preview — sign-in is disabled.',
+                '',
+                'Need sign-in and seeded QA data? Comment `/preview-backend` on this PR to provision an isolated Worker + database.',
+              ];
             }
 
             const body = [
               marker,
               '### Preview environment',
               '',
-              `**Site:** ${process.env.PREVIEW_SITE_URL}`,
+              `**Personal site:** ${process.env.PREVIEW_SITE_URL}`,
+              `**Recipes:** ${process.env.PREVIEW_SITE_URL}/recipes`,
+              `**AssetTracker:** ${process.env.PREVIEW_SITE_URL}/assettracker`,
               ...backendLines,
             ].join('\n');
 
