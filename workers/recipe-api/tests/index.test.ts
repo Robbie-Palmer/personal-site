@@ -3361,57 +3361,6 @@ describe("pantry mutation flows", () => {
     expect(invalidBody.status).toBe(400);
   });
 
-  it("imports legacy stock only while the personal pantry is empty", async () => {
-    const imported = await app.request(
-      "/pantry/import",
-      {
-        method: "PUT",
-        headers: mutationHeaders,
-        body: JSON.stringify({ stock: { onion: "fresh" } }),
-      },
-      env,
-    );
-    expect(imported.status).toBe(200);
-    expect(await imported.json()).toEqual({
-      scope: { type: "personal" },
-      stock: { onion: "fresh" },
-    });
-
-    const populatedConflict = await app.request(
-      "/pantry/import",
-      {
-        method: "PUT",
-        headers: mutationHeaders,
-        body: JSON.stringify({ stock: { milk: "fridge" } }),
-      },
-      env,
-    );
-    expect(populatedConflict.status).toBe(409);
-    expect(await populatedConflict.json()).toEqual({
-      error: "Legacy pantry can only be imported into an empty personal pantry",
-    });
-    expect(dbMock.state.pantryItems).toEqual([
-      expect.objectContaining({
-        ingredientSlug: "onion",
-        location: "fresh",
-      }),
-    ]);
-
-    dbMock.state.pantryItems.length = 0;
-    seedHousehold();
-    const householdConflict = await app.request(
-      "/pantry/import",
-      {
-        method: "PUT",
-        headers: mutationHeaders,
-        body: JSON.stringify({ stock: { milk: "fridge" } }),
-      },
-      env,
-    );
-    expect(householdConflict.status).toBe(409);
-    expect(dbMock.state.pantryItems).toEqual([]);
-  });
-
   it("sets, moves, and removes a household pantry item", async () => {
     seedHousehold();
 

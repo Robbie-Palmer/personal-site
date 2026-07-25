@@ -2,18 +2,19 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  discardLegacyPantry,
-  importLegacyPantry,
   type Pantry,
   removePantryItem,
   replacePantry,
   restorePantry,
   setPantryItem,
 } from "@/lib/api/pantry";
+import { captureRecipeProductActivity } from "@/lib/analytics/recipe-product";
 import { authClient } from "@/lib/auth-client";
 import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
-import type { KitchenLocation } from "@/lib/domain/recipe/kitchen";
-import type { KitchenStock } from "@/lib/kitchen/kitchenStockStore";
+import type {
+  KitchenLocation,
+  KitchenStock,
+} from "@/lib/domain/recipe/kitchen";
 import { pantryQuery } from "@/lib/query/pantry-queries";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
@@ -38,15 +39,6 @@ type PantryMutation =
   | {
       kind: "restore";
       stock: KitchenStock;
-      optimisticStock: KitchenStock;
-    }
-  | {
-      kind: "importLegacy";
-      optimisticStock: KitchenStock;
-    }
-  | {
-      kind: "discardLegacy";
-      pantry: Pantry;
       optimisticStock: KitchenStock;
     };
 
@@ -81,10 +73,6 @@ export function useKitchenStockActions() {
           return replacePantry(operation.optimisticStock);
         case "restore":
           return restorePantry(operation.stock);
-        case "importLegacy":
-          return importLegacyPantry(userId);
-        case "discardLegacy":
-          return Promise.resolve(discardLegacyPantry(operation.pantry));
       }
     },
     onMutate: async (operation) => {
@@ -94,11 +82,6 @@ export function useKitchenStockActions() {
         queryClient.setQueryData<Pantry>(queryKey, {
           ...previous,
           stock: operation.optimisticStock,
-          pendingLegacyStock:
-            operation.kind === "importLegacy" ||
-            operation.kind === "discardLegacy"
-              ? undefined
-              : previous.pendingLegacyStock,
         });
       }
       return { previous };
@@ -122,23 +105,6 @@ export function useKitchenStockActions() {
       mutation.mutate({ kind: "replace", optimisticStock: {} });
     },
     error: mutation.error,
-    discardLegacyStock() {
-      const pantry = queryClient.getQueryData<Pantry>(queryKey);
-      if (!pantry?.pendingLegacyStock) return;
-      mutation.mutate({
-        kind: "discardLegacy",
-        pantry,
-        optimisticStock: pantry.stock,
-      });
-    },
-    importLegacyStock() {
-      const pantry = queryClient.getQueryData<Pantry>(queryKey);
-      if (!pantry?.pendingLegacyStock) return;
-      mutation.mutate({
-        kind: "importLegacy",
-        optimisticStock: pantry.pendingLegacyStock,
-      });
-    },
     isPending: mutation.isPending,
     removeFromStock(ingredientSlug: IngredientSlug) {
       const optimisticStock = { ...currentStock() };
@@ -159,14 +125,23 @@ export function useKitchenStockActions() {
       ingredientSlug: IngredientSlug,
       location: KitchenLocation,
     ) {
+      const stock = currentStock();
+      const optimisticStock = {
+        ...stock,
+        [ingredientSlug]: location,
+      };
+      if (stock[ingredientSlug] !== location) {
+        captureRecipeProductActivity("kitchen_ingredient_added", {
+          ingredient_slug: ingredientSlug,
+          kitchen_location: location,
+          stocked_ingredient_count: Object.keys(optimisticStock).length,
+        });
+      }
       mutation.mutate({
         kind: "set",
         ingredientSlug,
         location,
-        optimisticStock: {
-          ...currentStock(),
-          [ingredientSlug]: location,
-        },
+        optimisticStock,
       });
     },
   };

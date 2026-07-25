@@ -14,14 +14,8 @@ import type { Pantry } from "@/lib/api/pantry";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 const mocks = vi.hoisted(() => ({
-  discardLegacyPantry: vi.fn(
-    (pantry: Pantry): Pantry => ({
-      scope: pantry.scope,
-      stock: pantry.stock,
-    }),
-  ),
-  getPantryWithLegacyMigration: vi.fn(),
-  importLegacyPantry: vi.fn(),
+  captureRecipeProductActivity: vi.fn(),
+  getPantry: vi.fn(),
   removePantryItem: vi.fn(),
   replacePantry: vi.fn(),
   restorePantry: vi.fn(),
@@ -32,10 +26,12 @@ const mocks = vi.hoisted(() => ({
   setPantryItem: vi.fn(),
 }));
 
+vi.mock("@/lib/analytics/recipe-product", () => ({
+  captureRecipeProductActivity: mocks.captureRecipeProductActivity,
+}));
+
 vi.mock("@/lib/api/pantry", () => ({
-  discardLegacyPantry: mocks.discardLegacyPantry,
-  getPantryWithLegacyMigration: mocks.getPantryWithLegacyMigration,
-  importLegacyPantry: mocks.importLegacyPantry,
+  getPantry: mocks.getPantry,
   removePantryItem: mocks.removePantryItem,
   replacePantry: mocks.replacePantry,
   restorePantry: mocks.restorePantry,
@@ -81,7 +77,7 @@ describe("useKitchenStockQuery", () => {
 
   it("loads persisted pantry stock for the signed-in user", async () => {
     const pantry = personalPantry({ onion: "fresh" });
-    mocks.getPantryWithLegacyMigration.mockResolvedValue(pantry);
+    mocks.getPantry.mockResolvedValue(pantry);
     const queryClient = createQueryClient();
 
     const { result } = renderHook(() => useKitchenStockQuery(), {
@@ -89,10 +85,7 @@ describe("useKitchenStockQuery", () => {
     });
 
     await waitFor(() => expect(result.current.data).toEqual(pantry));
-    expect(mocks.getPantryWithLegacyMigration).toHaveBeenCalledWith(
-      "user-1",
-      expect.any(AbortSignal),
-    );
+    expect(mocks.getPantry).toHaveBeenCalledWith(expect.any(AbortSignal));
   });
 
   it("stays disabled while the session is pending", () => {
@@ -109,7 +102,7 @@ describe("useKitchenStockQuery", () => {
 
     expect(query.result.current.fetchStatus).toBe("idle");
     expect(stock.result.current).toEqual({});
-    expect(mocks.getPantryWithLegacyMigration).not.toHaveBeenCalled();
+    expect(mocks.getPantry).not.toHaveBeenCalled();
   });
 });
 
@@ -149,6 +142,14 @@ describe("useKitchenStockActions", () => {
       expect(queryClient.getQueryData(queryKey)).toEqual(
         personalPantry({ milk: "fridge", onion: "fresh" }),
       ),
+    );
+    expect(mocks.captureRecipeProductActivity).toHaveBeenCalledWith(
+      "kitchen_ingredient_added",
+      {
+        ingredient_slug: "onion",
+        kitchen_location: "fresh",
+        stocked_ingredient_count: 2,
+      },
     );
 
     act(() => result.current.removeFromStock("milk"));
@@ -231,42 +232,6 @@ describe("useKitchenStockActions", () => {
 
     await waitFor(() =>
       expect(mocks.setPantryItem).toHaveBeenCalledWith("onion", "fresh"),
-    );
-  });
-
-  it("imports or discards an explicitly confirmed legacy pantry", async () => {
-    const queryClient = createQueryClient();
-    const queryKey = recipeQueryKeys.pantry("user-1");
-    const pendingPantry: Pantry = {
-      ...personalPantry({}),
-      pendingLegacyStock: { onion: "fresh" },
-    };
-    queryClient.setQueryData(queryKey, pendingPantry);
-    mocks.importLegacyPantry.mockResolvedValue(
-      personalPantry({ onion: "fresh" }),
-    );
-
-    const { result } = renderHook(() => useKitchenStockActions(), {
-      wrapper: wrapper(queryClient),
-    });
-
-    act(() => result.current.importLegacyStock());
-    await waitFor(() =>
-      expect(mocks.importLegacyPantry).toHaveBeenCalledWith("user-1"),
-    );
-    await waitFor(() =>
-      expect(queryClient.getQueryData(queryKey)).toEqual(
-        personalPantry({ onion: "fresh" }),
-      ),
-    );
-
-    queryClient.setQueryData(queryKey, pendingPantry);
-    act(() => result.current.discardLegacyStock());
-    await waitFor(() =>
-      expect(mocks.discardLegacyPantry).toHaveBeenCalledWith(pendingPantry),
-    );
-    await waitFor(() =>
-      expect(queryClient.getQueryData(queryKey)).toEqual(personalPantry({})),
     );
   });
 });

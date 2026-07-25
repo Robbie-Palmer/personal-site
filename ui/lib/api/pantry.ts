@@ -1,10 +1,8 @@
 import { ApiError } from "@/lib/api/api-error";
-import type { KitchenLocation } from "@/lib/domain/recipe/kitchen";
-import {
-  clearStock as clearLegacyKitchenStock,
-  getKitchenStockSnapshot,
-  type KitchenStock,
-} from "@/lib/kitchen/kitchenStockStore";
+import type {
+  KitchenLocation,
+  KitchenStock,
+} from "@/lib/domain/recipe/kitchen";
 
 export type PantryScope =
   | { type: "personal" }
@@ -16,36 +14,17 @@ export type PantryScope =
 export type Pantry = {
   scope: PantryScope;
   stock: KitchenStock;
-  pendingLegacyStock?: KitchenStock;
 };
 
-const POPULATED_PANTRY_INVITE_ERROR =
-  "Pantry must be empty before joining a household";
+const LEGACY_PANTRY_STORAGE_KEY = "recipe-kitchen-stock-v1";
 const LEGACY_PANTRY_OWNER_KEY = "recipe-kitchen-stock-v1-owner";
 
-function getLegacyPantryOwner(): string | null {
+function deleteLegacyBrowserPantry(): void {
   try {
-    return localStorage.getItem(LEGACY_PANTRY_OWNER_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function setLegacyPantryOwner(userId: string): void {
-  try {
-    localStorage.setItem(LEGACY_PANTRY_OWNER_KEY, userId);
-  } catch {
-    // The explicit import can still proceed when storage metadata is
-    // unavailable; the stock is only cleared after persistence succeeds.
-  }
-}
-
-function clearLegacyPantry(): void {
-  clearLegacyKitchenStock();
-  try {
+    localStorage.removeItem(LEGACY_PANTRY_STORAGE_KEY);
     localStorage.removeItem(LEGACY_PANTRY_OWNER_KEY);
   } catch {
-    // localStorage unavailable
+    // localStorage unavailable (SSR, private browsing, etc.)
   }
 }
 
@@ -77,6 +56,7 @@ function pantryRequest(
 }
 
 export async function getPantry(signal?: AbortSignal): Promise<Pantry> {
+  deleteLegacyBrowserPantry();
   return parsePantryResponse(
     await fetch("/api/pantry", {
       credentials: "same-origin",
@@ -85,67 +65,9 @@ export async function getPantry(signal?: AbortSignal): Promise<Pantry> {
   );
 }
 
-export async function getPantryWithLegacyMigration(
-  userId: string,
-  signal?: AbortSignal,
-): Promise<Pantry> {
-  const pantry = await getPantry(signal);
-  const legacyStock = getKitchenStockSnapshot();
-  if (Object.keys(legacyStock).length === 0) return pantry;
-
-  const legacyOwner = getLegacyPantryOwner();
-  if (legacyOwner && legacyOwner !== userId) {
-    clearLegacyPantry();
-    return pantry;
-  }
-
-  if (
-    legacyOwner === userId &&
-    pantry.scope.type === "personal" &&
-    Object.keys(pantry.stock).length === 0
-  ) {
-    const migrated = await importLegacyStock(legacyStock);
-    clearLegacyPantry();
-    return migrated;
-  }
-
-  if (legacyOwner === null) {
-    return { ...pantry, pendingLegacyStock: legacyStock };
-  }
-
-  // Keep claimed stock recoverable when an import precondition changes. The
-  // server will only accept it while this account has an empty personal pantry.
-  return { ...pantry, pendingLegacyStock: legacyStock };
-}
-
-export async function importLegacyPantry(userId: string): Promise<Pantry> {
-  setLegacyPantryOwner(userId);
-  const legacyStock = getKitchenStockSnapshot();
-  if (Object.keys(legacyStock).length === 0) {
-    clearLegacyPantry();
-    return getPantry();
-  }
-
-  const migrated = await importLegacyStock(legacyStock);
-  clearLegacyPantry();
-  return migrated;
-}
-
-export function discardLegacyPantry(pantry: Pantry): Pantry {
-  clearLegacyPantry();
-  const { pendingLegacyStock: _discarded, ...persistedPantry } = pantry;
-  return persistedPantry;
-}
-
 export async function replacePantry(stock: KitchenStock): Promise<Pantry> {
   return parsePantryResponse(
     await pantryRequest("/api/pantry", "PUT", { stock }),
-  );
-}
-
-async function importLegacyStock(stock: KitchenStock): Promise<Pantry> {
-  return parsePantryResponse(
-    await pantryRequest("/api/pantry/import", "PUT", { stock }),
   );
 }
 
@@ -177,12 +99,4 @@ export async function removePantryItem(
       "DELETE",
     ),
   );
-}
-
-export function assertLegacyPantryEmpty(
-  message = POPULATED_PANTRY_INVITE_ERROR,
-): void {
-  if (Object.keys(getKitchenStockSnapshot()).length > 0) {
-    throw new Error(message);
-  }
 }

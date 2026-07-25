@@ -15,12 +15,16 @@ import { useMemo, useState } from "react";
 import { ShoppingCheckbox } from "@/components/recipes/shopping/shopping-checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { useKitchenStock } from "@/hooks/use-kitchen-stock";
+import {
+  useKitchenStock,
+  useKitchenStockActions,
+} from "@/hooks/use-kitchen-stock";
 import { useShoppingList } from "@/hooks/use-shopping-list";
 import { useUnitPreference } from "@/hooks/use-unit-preference";
 import { captureRecipeValue } from "@/lib/analytics/recipe-product";
 import type { ShoppingRecipe } from "@/lib/api/shopping";
 import type { MeasurementPreference } from "@/lib/domain/recipe";
+import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
 import type { KitchenLocation } from "@/lib/domain/recipe/kitchen";
 import {
   aggregateShoppingList,
@@ -32,7 +36,6 @@ import {
   formatShoppingName,
   formatShoppingQuantities,
 } from "@/lib/domain/shopping/display";
-import { removeFromStock } from "@/lib/kitchen/kitchenStockStore";
 import {
   addExtra,
   clearChecked,
@@ -106,17 +109,19 @@ function KitchenItemRow({
   system,
   location,
   checked,
+  onRemoveFromStock,
 }: Readonly<{
   line: ShoppingLine;
   system: MeasurementPreference;
   location: KitchenLocation;
   checked: boolean;
+  onRemoveFromStock: (ingredientSlug: IngredientSlug) => void;
 }>) {
   const quantity = formatShoppingQuantities(line.quantities, system);
   const name = formatShoppingName(line);
   const { label, icon: Icon } = LOCATION_META[location];
   const returnToList = () => {
-    removeFromStock(line.ingredient);
+    onRemoveFromStock(line.ingredient);
     // A tick from before the item entered the kitchen would bring it back
     // struck through — clear it so "put back on the list" means exactly that.
     if (checked) toggleChecked(line.ingredient);
@@ -158,6 +163,7 @@ function ItemRow({
   kitchenLocation,
   onToggle,
   showRecipes,
+  onRemoveFromStock,
 }: Readonly<{
   line: ShoppingLine;
   system: MeasurementPreference;
@@ -165,6 +171,7 @@ function ItemRow({
   kitchenLocation?: KitchenLocation;
   onToggle: (line: ShoppingLine) => void;
   showRecipes: boolean;
+  onRemoveFromStock: (ingredientSlug: IngredientSlug) => void;
 }>) {
   if (kitchenLocation) {
     return (
@@ -173,6 +180,7 @@ function ItemRow({
         system={system}
         location={kitchenLocation}
         checked={checked}
+        onRemoveFromStock={onRemoveFromStock}
       />
     );
   }
@@ -309,6 +317,7 @@ export function ShoppingList({
 }: Readonly<{ recipes: ShoppingRecipe[] }>) {
   const state = useShoppingList();
   const stock = useKitchenStock();
+  const stockActions = useKitchenStockActions();
   const [system] = useUnitPreference();
   const [view, setView] = useState<ListView>("aisle");
 
@@ -490,6 +499,7 @@ export function ShoppingList({
                 kitchenLocation={locationOf(line)}
                 onToggle={handleIngredientToggle}
                 showRecipes
+                onRemoveFromStock={stockActions.removeFromStock}
               />
             ))}
           </div>
@@ -512,6 +522,7 @@ export function ShoppingList({
                       kitchenLocation={locationOf(line)}
                       onToggle={handleIngredientToggle}
                       showRecipes
+                      onRemoveFromStock={stockActions.removeFromStock}
                     />
                   ))}
                 </div>
@@ -539,6 +550,7 @@ export function ShoppingList({
                       kitchenLocation={locationOf(line)}
                       onToggle={handleIngredientToggle}
                       showRecipes={false}
+                      onRemoveFromStock={stockActions.removeFromStock}
                     />
                   ))}
                 </div>
@@ -575,6 +587,7 @@ export function ShoppingList({
                 kitchenLocation={locationOf(line)}
                 onToggle={handleIngredientToggle}
                 showRecipes={false}
+                onRemoveFromStock={stockActions.removeFromStock}
               />
             ))}
           </div>

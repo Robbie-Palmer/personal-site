@@ -1,33 +1,24 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  assertLegacyPantryEmpty,
-  discardLegacyPantry,
   getPantry,
-  getPantryWithLegacyMigration,
-  importLegacyPantry,
   removePantryItem,
   replacePantry,
   restorePantry,
   setPantryItem,
 } from "@/lib/api/pantry";
-import {
-  __resetKitchenStockForTests,
-  getKitchenStockSnapshot,
-  setStockLocation,
-} from "@/lib/kitchen/kitchenStockStore";
 
 describe("pantry API client", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
-    __resetKitchenStockForTests();
   });
 
-  afterEach(() => {
-    __resetKitchenStockForTests();
-  });
-
-  it("loads a household-scoped pantry", async () => {
+  it("loads a household pantry and deletes obsolete browser stock", async () => {
+    localStorage.setItem(
+      "recipe-kitchen-stock-v1",
+      JSON.stringify({ milk: "fridge" }),
+    );
+    localStorage.setItem("recipe-kitchen-stock-v1-owner", "old-user");
     const pantry = {
       scope: {
         type: "household" as const,
@@ -44,47 +35,8 @@ describe("pantry API client", () => {
       credentials: "same-origin",
       signal: undefined,
     });
-  });
-
-  it("requires confirmation before importing unowned legacy browser stock", async () => {
-    setStockLocation("onion", "fresh");
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(
-        Response.json({ scope: { type: "personal" }, stock: {} }),
-      );
-
-    await expect(getPantryWithLegacyMigration("user-1")).resolves.toEqual({
-      scope: { type: "personal" },
-      stock: {},
-      pendingLegacyStock: { onion: "fresh" },
-    });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(getKitchenStockSnapshot()).toEqual({ onion: "fresh" });
-  });
-
-  it("imports legacy stock after the user explicitly claims it", async () => {
-    setStockLocation("onion", "fresh");
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      Response.json({
-        scope: { type: "personal" },
-        stock: { onion: "fresh" },
-      }),
-    );
-
-    await expect(importLegacyPantry("user-1")).resolves.toEqual({
-      scope: { type: "personal" },
-      stock: { onion: "fresh" },
-    });
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      "/api/pantry/import",
-      expect.objectContaining({
-        method: "PUT",
-        body: JSON.stringify({ stock: { onion: "fresh" } }),
-      }),
-    );
-    expect(getKitchenStockSnapshot()).toEqual({});
+    expect(localStorage.getItem("recipe-kitchen-stock-v1")).toBeNull();
+    expect(localStorage.getItem("recipe-kitchen-stock-v1-owner")).toBeNull();
   });
 
   it("updates and removes individual shared-stock entries", async () => {
@@ -138,124 +90,5 @@ describe("pantry API client", () => {
       message: "Pantry request failed.",
       status: 502,
     });
-  });
-
-  it("keeps unowned legacy stock pending when persisted stock already exists", async () => {
-    setStockLocation("milk", "fridge");
-    const pantry = {
-      scope: { type: "personal" as const },
-      stock: { onion: "fresh" as const },
-    };
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(pantry));
-
-    await expect(getPantryWithLegacyMigration("user-1")).resolves.toEqual({
-      ...pantry,
-      pendingLegacyStock: { milk: "fridge" },
-    });
-    expect(getKitchenStockSnapshot()).toEqual({ milk: "fridge" });
-  });
-
-  it("imports owned legacy stock through the atomic import endpoint", async () => {
-    setStockLocation("milk", "fridge");
-    localStorage.setItem("recipe-kitchen-stock-v1-owner", "user-1");
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(
-        Response.json({ scope: { type: "personal" }, stock: {} }),
-      )
-      .mockResolvedValueOnce(
-        Response.json({
-          scope: { type: "personal" },
-          stock: { milk: "fridge" },
-        }),
-      );
-
-    await expect(getPantryWithLegacyMigration("user-1")).resolves.toEqual({
-      scope: { type: "personal" },
-      stock: { milk: "fridge" },
-    });
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      "/api/pantry/import",
-      expect.objectContaining({
-        method: "PUT",
-        body: JSON.stringify({ stock: { milk: "fridge" } }),
-      }),
-    );
-    expect(getKitchenStockSnapshot()).toEqual({});
-  });
-
-  it("does not migrate legacy stock owned by another account", async () => {
-    setStockLocation("onion", "fresh");
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(
-        Response.json({ error: "temporarily unavailable" }, { status: 503 }),
-      )
-      .mockResolvedValueOnce(
-        Response.json({ scope: { type: "personal" }, stock: {} }),
-      );
-
-    await expect(importLegacyPantry("user-1")).rejects.toThrow(
-      "temporarily unavailable",
-    );
-    await expect(getPantryWithLegacyMigration("user-2")).resolves.toEqual({
-      scope: { type: "personal" },
-      stock: {},
-    });
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(getKitchenStockSnapshot()).toEqual({});
-  });
-
-  it("keeps claimed legacy stock recoverable after an import conflict", async () => {
-    setStockLocation("onion", "fresh");
-    vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(
-        Response.json(
-          {
-            error:
-              "Legacy pantry can only be imported into an empty personal pantry",
-          },
-          { status: 409 },
-        ),
-      )
-      .mockResolvedValueOnce(
-        Response.json({
-          scope: { type: "personal" },
-          stock: { milk: "fridge" },
-        }),
-      );
-
-    await expect(importLegacyPantry("user-1")).rejects.toThrow(
-      "Legacy pantry can only be imported into an empty personal pantry",
-    );
-    await expect(getPantryWithLegacyMigration("user-1")).resolves.toEqual({
-      scope: { type: "personal" },
-      stock: { milk: "fridge" },
-      pendingLegacyStock: { onion: "fresh" },
-    });
-    expect(getKitchenStockSnapshot()).toEqual({ onion: "fresh" });
-  });
-
-  it("discards a pending legacy pantry without changing persisted stock", () => {
-    setStockLocation("onion", "fresh");
-    expect(
-      discardLegacyPantry({
-        scope: { type: "personal" },
-        stock: {},
-        pendingLegacyStock: { onion: "fresh" },
-      }),
-    ).toEqual({ scope: { type: "personal" }, stock: {} });
-    expect(getKitchenStockSnapshot()).toEqual({});
-  });
-
-  it("blocks invitation acceptance while legacy stock remains", () => {
-    expect(() => assertLegacyPantryEmpty()).not.toThrow();
-
-    setStockLocation("onion", "fresh");
-    expect(() => assertLegacyPantryEmpty()).toThrow(
-      "Pantry must be empty before joining a household",
-    );
   });
 });
