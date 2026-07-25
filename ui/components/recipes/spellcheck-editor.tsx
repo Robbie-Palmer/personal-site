@@ -237,6 +237,8 @@ function SpellcheckSuggestionRow({
 }
 
 interface BackdropSegment {
+  /** Source offset where this segment starts — a stable React key. */
+  readonly offset: number;
   readonly text: string;
   readonly misspelling: Misspelling | null;
 }
@@ -250,17 +252,23 @@ function buildSegments(
   for (const misspelling of misspellings) {
     if (misspelling.start > cursor) {
       segments.push({
+        offset: cursor,
         text: value.slice(cursor, misspelling.start),
         misspelling: null,
       });
     }
     segments.push({
+      offset: misspelling.start,
       text: value.slice(misspelling.start, misspelling.end),
       misspelling,
     });
     cursor = misspelling.end;
   }
-  segments.push({ text: value.slice(cursor), misspelling: null });
+  segments.push({
+    offset: cursor,
+    text: value.slice(cursor),
+    misspelling: null,
+  });
   return segments;
 }
 
@@ -293,9 +301,9 @@ function HighlightBackdrop({
         "pointer-events-none absolute inset-0 z-10 select-none overflow-hidden whitespace-pre-wrap break-words border-transparent text-[var(--ink)]",
       )}
     >
-      {segments.map((segment, index) =>
+      {segments.map((segment) =>
         segment.misspelling ? (
-          <Popover key={`${index}:${segment.misspelling.start}`}>
+          <Popover key={segment.offset}>
             <PopoverTrigger asChild>
               <mark className="pointer-events-auto cursor-pointer rounded-[2px] bg-transparent text-[var(--ink)] underline decoration-[var(--terracotta)] decoration-wavy decoration-2 underline-offset-2">
                 {segment.text}
@@ -310,7 +318,7 @@ function HighlightBackdrop({
             </PopoverContent>
           </Popover>
         ) : (
-          <Fragment key={index}>{segment.text}</Fragment>
+          <Fragment key={segment.offset}>{segment.text}</Fragment>
         ),
       )}
       {/* Keeps the backdrop's final line height in step with the textarea when

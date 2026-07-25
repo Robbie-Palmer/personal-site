@@ -7,7 +7,7 @@
 
 /** Extracts the pinned typos version (e.g. `1.48.0`) from a `.mise.toml`. */
 export function parseTyposVersion(miseToml: string): string {
-  const version = miseToml.match(/^\s*typos\s*=\s*"([^"]+)"/m)?.[1];
+  const version = /^[ \t]*typos[ \t]*=[ \t]*"([^"]+)"/m.exec(miseToml)?.[1];
   if (!version) {
     throw new Error('Could not find a pinned `typos = "…"` version in .mise.toml');
   }
@@ -52,7 +52,7 @@ export function parseExtendWords(typosToml: string): Map<string, string> {
       continue;
     }
     if (!inSection) continue;
-    const match = line.match(/^"?([^"=]+?)"?\s*=\s*"([^"]*)"/);
+    const match = /^"?([^"=\s]+)"?[ \t]*=[ \t]*"([^"]*)"/.exec(line);
     const key = match?.[1];
     const value = match?.[2];
     if (key !== undefined && value !== undefined) {
@@ -87,7 +87,7 @@ export function applyExtendWords(
  */
 export function serializeDictionary(dict: Map<string, string[]>): string {
   const lines: string[] = [];
-  for (const typo of [...dict.keys()].sort()) {
+  for (const typo of [...dict.keys()].sort((a, b) => a.localeCompare(b))) {
     lines.push(`${typo}\t${dict.get(typo)?.join(",") ?? ""}`);
   }
   return `${lines.join("\n")}\n`;

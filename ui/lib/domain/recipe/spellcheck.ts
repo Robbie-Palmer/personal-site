@@ -31,20 +31,14 @@ interface WordToken {
 // "200g" contribute only "g" and never the numeric part.
 const RUN_RE = /\p{L}[\p{L}\p{M}'’]*/gu;
 
-function isUpper(char: string | undefined): boolean {
-  return (
-    char !== undefined &&
-    char.toUpperCase() === char &&
-    char.toLowerCase() !== char
-  );
+// Empty string (used for out-of-range neighbours) reports as neither upper nor
+// lower, so callers can treat missing characters as uncased without a guard.
+function isUpper(char: string): boolean {
+  return char.toUpperCase() === char && char.toLowerCase() !== char;
 }
 
-function isLower(char: string | undefined): boolean {
-  return (
-    char !== undefined &&
-    char.toLowerCase() === char &&
-    char.toUpperCase() !== char
-  );
+function isLower(char: string): boolean {
+  return char.toLowerCase() === char && char.toUpperCase() !== char;
 }
 
 /**
@@ -65,9 +59,9 @@ function splitIdentifier(run: string, offset: number): WordToken[] {
     }
   };
   for (let i = 1; i < run.length; i++) {
-    const prev = run[i - 1];
-    const cur = run[i];
-    const next = run[i + 1];
+    const prev = run[i - 1] ?? "";
+    const cur = run[i] ?? "";
+    const next = run[i + 1] ?? "";
     const lowerToUpper = isLower(prev) && isUpper(cur);
     const acronymEnd = isUpper(prev) && isUpper(cur) && isLower(next);
     if (lowerToUpper || acronymEnd) {
@@ -109,7 +103,9 @@ function isAllUpper(word: string): boolean {
 }
 
 function isTitleCase(word: string): boolean {
-  return isUpper(word[0]) && word.slice(1) === word.slice(1).toLowerCase();
+  return (
+    isUpper(word[0] ?? "") && word.slice(1) === word.slice(1).toLowerCase()
+  );
 }
 
 function matchCase(word: string, suggestion: string): string {
