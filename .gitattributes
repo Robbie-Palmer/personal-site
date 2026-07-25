@@ -2,3 +2,5 @@
 # not hand-authored app code. Collapse in diffs and exclude from language stats.
 ui/content/projects/*/designs/** linguist-vendored
 ui/public/recipe-site-design/** linguist-generated
+# Generated from the pinned `typos` dictionary; collapse in diffs.
+ui/public/recipes/typos-dictionary.tsv linguist-generated -diff

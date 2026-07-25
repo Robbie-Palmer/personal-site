@@ -69,6 +69,11 @@ description = "Run TypeScript type checking"
 depends = ["//ui:typegen"]
 run = "pnpm typecheck"
 
+[tasks."generate:typos-dictionary"]
+description = "Regenerate the recipe editor spell-check dictionary from the pinned typos version (run on typos bump)"
+depends = ["//ui:install"]
+run = "pnpm generate:typos-dictionary"
+
 [tasks.clean]
 description = "Clean build artifacts and dependencies"
 run = """

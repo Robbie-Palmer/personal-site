@@ -18,4 +18,13 @@ extend-exclude = [
     "ui/content/projects/personal-site/adrs/055-typos.mdx",
     # Standalone design artifact full of encoded SVG/data strings
     "ui/public/recipe-site-design/",
+    # Generated correction dictionary for the recipe editor spell-checker: it is
+    # a list of typos by construction, so typos must not scan it (see
+    # ui/scripts/generate-typos-dictionary.ts).
+    "ui/public/recipes/typos-dictionary.tsv",
+    # Spell-checker tests use deliberate misspellings as fixtures.
+    "ui/tests/lib/domain/recipe/spellcheck.test.ts",
+    "ui/tests/lib/domain/recipe/typoDictionary.test.ts",
+    "ui/tests/scripts/typos-dictionary.test.ts",
+    "ui/tests/components/recipes/spellcheck-editor.test.tsx",
 ]
