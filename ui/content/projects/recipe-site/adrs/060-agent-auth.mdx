@@ -110,15 +110,19 @@ agent can still make many bad calls. The real control is fast, reliable recovery
 Before enabling `pantry.reconcile`, store each agent mutation as an immutable change set:
 
 * actor user, agent, and host; target household; capability; reason; timestamp; and idempotency key
-* one or more item changes with stable item IDs, before/after values, and row versions
+* one or more item changes with stable item IDs, before/after values, and row versions; a removal
+  retains a tombstone or equivalent absence-revision record carrying the removal's `after` version
 * a transaction that updates the current pantry projection and appends the immutable change set
   atomically
 * an undo operation that appends a compensating change set rather than deleting history
 
-Undo must be concurrency-aware. It applies automatically when the current row version still matches
-the original change's `after` version. If a person or another agent has edited the item since, the UI
-shows a three-way preview and asks which values to restore. A batch reconciliation can be undone as
-one unit or item by item.
+Undo must use compare-and-swap against the original change's `after` version. For a present item, the
+compensating change applies only when the current row version matches. For a removed item, restoration
+applies only when its current tombstone or absence revision matches the removal's `after` version;
+the restore clears that absence marker and writes a new revision. A missing marker, a recreated item,
+or any different revision means the state changed after removal, so the UI must show the existing
+three-way conflict preview instead of restoring automatically. A batch reconciliation can be undone
+as one unit or item by item.
 
 An audit log alone is insufficient: it explains what happened but may not contain enough structured
 state to reverse it safely. The domain change set is the recovery mechanism; the security audit
