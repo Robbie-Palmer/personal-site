@@ -12,8 +12,7 @@ on:
         required: true
         type: number
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   run-review:
