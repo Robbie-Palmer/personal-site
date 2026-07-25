@@ -6,7 +6,7 @@
     "predev": "tsx scripts/generate-typos-dictionary.ts",
     "dev": "next dev --turbopack",
     "dev:qr": "node scripts/qr-dev.mjs && pnpm run dev",
-    "build": "tsx scripts/generate-typos-dictionary.ts && next build && tsx scripts/generate-agent-markdown.ts && tsx scripts/generate-rss.ts",
+    "build": "next build && tsx scripts/generate-typos-dictionary.ts --out out/recipes && tsx scripts/generate-agent-markdown.ts && tsx scripts/generate-rss.ts",
     "generate:agent-markdown": "tsx scripts/generate-agent-markdown.ts",
     "generate:rss": "tsx scripts/generate-rss.ts",
     "generate:typos-dictionary": "tsx scripts/generate-typos-dictionary.ts",

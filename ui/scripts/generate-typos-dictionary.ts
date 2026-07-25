@@ -7,9 +7,12 @@
  *
  * The typos version is read from .mise.toml so the dictionary can never drift
  * from the tool. The repo-root _typos.toml allowlist/overrides are applied on
- * top. The output is NOT committed — it is generated into public/ on `dev` and
- * `build` (see ui/package.json). A version stamp lets repeat runs skip the
- * network once the current version has been fetched; pass FORCE=1 to refetch.
+ * top. The output is NOT committed — it is generated into `public/` for `dev`
+ * and, post-`next build`, straight into `out/` for the export (see
+ * ui/package.json). `--out <dir>` overrides the target directory; writing the
+ * build copy into `out/` (not `public/`) keeps it out of the mise build task's
+ * cached `sources`. A version stamp lets repeat runs skip the network once the
+ * current version has been fetched; pass FORCE=1 to refetch.
  */
 
 import fs from "node:fs";
@@ -23,12 +26,12 @@ import {
 } from "./lib/typos-dictionary";
 
 const REPO_ROOT = path.resolve(process.cwd(), "..");
-const OUTPUT = path.join(
-  process.cwd(),
-  "public",
-  "recipes",
-  "typos-dictionary.tsv",
-);
+const outFlag = process.argv.indexOf("--out");
+const OUT_DIR =
+  outFlag !== -1 && process.argv[outFlag + 1]
+    ? path.resolve(process.cwd(), process.argv[outFlag + 1] as string)
+    : path.join(process.cwd(), "public", "recipes");
+const OUTPUT = path.join(OUT_DIR, "typos-dictionary.tsv");
 // Records which typos version produced OUTPUT so a stale local copy is refetched
 // after a version bump instead of being reused forever.
 const STAMP = `${OUTPUT}.version`;
