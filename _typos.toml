@@ -27,4 +27,5 @@ extend-exclude = [
     "ui/tests/lib/domain/recipe/typoDictionary.test.ts",
     "ui/tests/scripts/typos-dictionary.test.ts",
     "ui/tests/components/recipes/spellcheck-editor.test.tsx",
+    "ui/tests/hooks/use-typo-dictionary.test.tsx",
 ]

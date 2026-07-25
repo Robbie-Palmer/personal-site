@@ -46,7 +46,12 @@ async function main(): Promise<void> {
   const overrides = parseExtendWords(typosToml);
   const overridesHash = crypto
     .createHash("sha256")
-    .update([...overrides].sort().join("\n"))
+    .update(
+      [...overrides]
+        .map(([key, value]) => `${key}=${value}`)
+        .sort((a, b) => a.localeCompare(b))
+        .join("\n"),
+    )
     .digest("hex")
     .slice(0, 12);
   const stamp = `${version}:${overridesHash}`;

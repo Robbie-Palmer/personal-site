@@ -45,7 +45,7 @@ export function parseExtendWords(typosToml: string): Map<string, string> {
   const lines = typosToml.split("\n");
   let inSection = false;
   for (const rawLine of lines) {
-    const line = rawLine.replace(/#.*$/, "").trim();
+    const line = (rawLine.split("#")[0] ?? "").trim();
     if (!line) continue;
     if (line.startsWith("[")) {
       inSection = line === "[default.extend-words]";
