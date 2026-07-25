@@ -1,0 +1,142 @@
+name: Request Backend Preview
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+jobs:
+  request:
+    if: >
+      github.event.issue.pull_request
+      && github.event.comment.body == '/preview-backend'
+      && contains(
+        fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
+        github.event.comment.author_association
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Request and rerun backend preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          pr=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+
+          if [[ "$(jq -r '.head.repo.full_name' <<< "$pr")" != "$REPO" ]]; then
+            echo "::error::Backend previews are only available for same-repository pull requests."
+            exit 1
+          fi
+
+          author=$(jq -r '.user.login' <<< "$pr")
+          if [[ "$author" == "renovate[bot]" || "$author" == "dependabot[bot]" ]]; then
+            echo "::error::Backend previews are not available for dependency bot pull requests."
+            exit 1
+          fi
+
+          head_sha=$(jq -r '.head.sha' <<< "$pr")
+          if [[ ! "$head_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Pull request #$PR_NUMBER returned an invalid head SHA."
+            exit 1
+          fi
+
+          if jq -e '[.labels[].name] | index("preview:frontend-only") != null' <<< "$pr" >/dev/null; then
+            gh api \
+              --method DELETE \
+              "repos/$REPO/issues/$PR_NUMBER/labels/preview%3Afrontend-only" >/dev/null
+          fi
+          gh api \
+            --method POST \
+            "repos/$REPO/issues/$PR_NUMBER/labels" \
+            -f 'labels[]=preview:backend' >/dev/null
+          gh api \
+            --method POST \
+            "repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
+            -f content=eyes >/dev/null
+
+          # A command can arrive while the current preview is still running.
+          # Wait for a completed run whose detect job actually ran, then rerun
+          # that exact PR/SHA execution. This excludes unrelated label events,
+          # other PRs sharing a commit, and ineligible active runs.
+          for _ in {1..60}; do
+            runs=$(
+              gh api \
+                --method GET \
+                "repos/$REPO/actions/workflows/preview-environment.yml/runs" \
+                -f event=pull_request \
+                -f head_sha="$head_sha" \
+                -f per_page=100
+            )
+            run_id=""
+            while IFS=$'\t' read -r candidate_id candidate_status; do
+              jobs=$(
+                gh api \
+                  --method GET \
+                  "repos/$REPO/actions/runs/$candidate_id/jobs" \
+                  -f filter=latest \
+                  -f per_page=100
+              )
+              if ! jq -e \
+                'any(.jobs[]?; .name == "detect" and .conclusion == "success")' \
+                <<< "$jobs" >/dev/null; then
+                continue
+              fi
+              if [[ "$candidate_status" == "completed" ]]; then
+                run_id=$candidate_id
+                break
+              fi
+            done < <(
+              jq -r \
+                --arg sha "$head_sha" \
+                --argjson pr "$PR_NUMBER" \
+                '.workflow_runs[]
+                 | select(.head_sha == $sha)
+                 | select(any(.pull_requests[]?; .number == $pr))
+                 | [.id, .status]
+                 | @tsv' \
+                <<< "$runs"
+            )
+
+            if [[ "$run_id" =~ ^[0-9]+$ ]]; then
+              rerun_error="$RUNNER_TEMP/preview-rerun-error"
+              if gh api \
+                --method POST \
+                "repos/$REPO/actions/runs/$run_id/rerun" \
+                2>"$rerun_error"; then
+                gh api \
+                  --method POST \
+                  "repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
+                  -f content=rocket >/dev/null
+                exit 0
+              fi
+
+              # A concurrent rerun may have started after selection. Retry
+              # after it completes; surface permanent API errors immediately.
+              run_status=$(
+                gh api \
+                  --method GET \
+                  "repos/$REPO/actions/runs/$run_id" \
+                  --jq '.status'
+              )
+              if [[ "$run_status" == "completed" ]]; then
+                cat "$rerun_error" >&2
+                exit 1
+              fi
+            fi
+
+            echo "::notice::Waiting for an eligible preview run for PR #$PR_NUMBER at $head_sha."
+            sleep 10
+          done
+
+          echo "::error::No completed eligible preview run was found for pull request #$PR_NUMBER at $head_sha within 10 minutes."
+          exit 1

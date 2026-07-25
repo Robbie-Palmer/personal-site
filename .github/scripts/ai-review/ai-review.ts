@@ -1,3 +1,4 @@
+import { appendFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
@@ -266,6 +267,21 @@ function settingsFromEnv(): Settings {
 
 function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+export function isCreditExhaustion(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    /OpenRouter credits exhausted/.test(message) ||
+    /failed \(402\)/.test(message) ||
+    (/failed \(403\)/.test(message) &&
+      /(?:key limit exceeded|insufficient credits|out of credits|payment required)/i.test(message))
+  );
+}
+
+function setWorkflowStatus(status: "success" | "credits" | "failure"): void {
+  const output = process.env.GITHUB_OUTPUT;
+  if (output) appendFileSync(output, `status=${status}\n`, "utf8");
 }
 
 class JsonClient {
@@ -821,11 +837,13 @@ async function main(): Promise<void> {
   const outOfScopeCounts: Record<string, number> = {};
   const candidateCounts: Record<string, number> = {};
   const failed: string[] = [];
+  const creditFailures: string[] = [];
   const allowedFiles = new Set(paths);
   settled.forEach((outcome, index) => {
     const model = settings.scouts[index];
     if (outcome.status === "rejected") {
       failed.push(model);
+      if (isCreditExhaustion(outcome.reason)) creditFailures.push(model);
       console.error(`::warning::Scout ${model} failed: ${String(outcome.reason)}`);
       return;
     }
@@ -847,7 +865,12 @@ async function main(): Promise<void> {
       console.error(`::warning::Scout ${model} returned invalid payload: ${String(error)}`);
     }
   });
-  if (!Object.keys(candidates).length) throw new Error("All scout models failed; refusing to publish an empty review");
+  if (!Object.keys(candidates).length) {
+    if (creditFailures.length === settings.scouts.length) {
+      throw new Error("OpenRouter credits exhausted for all scout models");
+    }
+    throw new Error("All scout models failed; refusing to publish an empty review");
+  }
 
   const threads = await reviewer.reviewThreadContext();
   const mergerPrompt = `<DATA kind=scout-candidates>\n${JSON.stringify(candidates)}\n</DATA>
@@ -897,8 +920,18 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().catch((error) => {
-    console.error(`::error::${error instanceof Error ? error.message : String(error)}`);
-    process.exitCode = 1;
-  });
+  main()
+    .then(() => {
+      setWorkflowStatus("success");
+    })
+    .catch((error) => {
+      if (isCreditExhaustion(error)) {
+        console.log("::notice::AI code review skipped because the OpenRouter API key is out of credits.");
+        setWorkflowStatus("credits");
+        return;
+      }
+      console.error(`::error::${error instanceof Error ? error.message : String(error)}`);
+      setWorkflowStatus("failure");
+      process.exitCode = 1;
+    });
 }

@@ -46,6 +46,10 @@ per-model cost, model failures, and incomplete-coverage warnings. These
 cumulative scorecard fields are intended to support removing scouts that are
 noisy or not cost-effective.
 
+When OpenRouter reports exhausted account credits or an exhausted API-key
+spending limit, the stable `review` check is marked as skipped. Authentication,
+provider, reviewer, and workflow failures continue to fail the check.
+
 Scout responses allow up to 8,000 output tokens because reasoning tokens count
 against the same limit and thinking models can otherwise exhaust the budget
 before emitting their final structured response. The default Kimi K2.6 scout

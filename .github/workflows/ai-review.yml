@@ -12,13 +12,10 @@ on:
         required: true
         type: number
 
-permissions:
-  contents: read
-  issues: write
-  pull-requests: write
+permissions: {}
 
 jobs:
-  review:
+  run-review:
     if: >-
       (github.event_name == 'pull_request' &&
        github.event.pull_request.draft == false &&
@@ -33,6 +30,12 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production-ci
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      status: ${{ steps.review.outputs.status }}
     timeout-minutes: 20
     concurrency:
       group: ai-review-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}
@@ -59,6 +62,7 @@ jobs:
           node --check .github/scripts/ai-review/ai-review.ts
 
       - name: Review pull request
+        id: review
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -69,3 +73,23 @@ jobs:
           AI_REVIEW_IGNORED_AUTHORS: ${{ vars.AI_REVIEW_IGNORED_AUTHORS }}
           AI_REVIEW_ZDR: ${{ vars.AI_REVIEW_ZDR }}
         run: node .github/scripts/ai-review/ai-review.ts
+
+  # A job can only receive GitHub's "skipped" conclusion when its job-level
+  # condition is false. Keep this lightweight sentinel as the stable PR check:
+  # exhausted credits skip it, while genuine execution failures still fail it.
+  review:
+    needs: run-review
+    if: >
+      always()
+      && needs.run-review.result != 'skipped'
+      && needs.run-review.outputs.status != 'credits'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report review result
+        env:
+          REVIEW_STATUS: ${{ needs.run-review.outputs.status }}
+        run: |
+          if [[ "$REVIEW_STATUS" != "success" ]]; then
+            echo "::error::AI reviewer failed before completing successfully."
+            exit 1
+          fi
