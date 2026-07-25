@@ -11,10 +11,12 @@
  * and, post-`next build`, straight into `out/` for the export (see
  * ui/package.json). `--out <dir>` overrides the target directory; writing the
  * build copy into `out/` (not `public/`) keeps it out of the mise build task's
- * cached `sources`. A version stamp lets repeat runs skip the network once the
- * current version has been fetched; pass FORCE=1 to refetch.
+ * cached `sources`. A stamp of the typos version plus the _typos.toml overrides
+ * lets repeat runs skip the network once that exact input has been built, and
+ * refetches when either changes; pass FORCE=1 to refetch unconditionally.
  */
 
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -32,19 +34,28 @@ const OUT_DIR =
     ? path.resolve(process.cwd(), process.argv[outFlag + 1] as string)
     : path.join(process.cwd(), "public", "recipes");
 const OUTPUT = path.join(OUT_DIR, "typos-dictionary.tsv");
-// Records which typos version produced OUTPUT so a stale local copy is refetched
-// after a version bump instead of being reused forever.
+// Records the exact inputs (typos version + _typos.toml overrides) that produced
+// OUTPUT so a stale local copy is refetched when either changes, not reused
+// forever.
 const STAMP = `${OUTPUT}.version`;
 
 async function main(): Promise<void> {
   const miseToml = fs.readFileSync(path.join(REPO_ROOT, ".mise.toml"), "utf8");
   const version = parseTyposVersion(miseToml);
+  const typosToml = fs.readFileSync(path.join(REPO_ROOT, "_typos.toml"), "utf8");
+  const overrides = parseExtendWords(typosToml);
+  const overridesHash = crypto
+    .createHash("sha256")
+    .update([...overrides].sort().join("\n"))
+    .digest("hex")
+    .slice(0, 12);
+  const stamp = `${version}:${overridesHash}`;
 
   const current =
     fs.existsSync(OUTPUT) && fs.existsSync(STAMP)
       ? fs.readFileSync(STAMP, "utf8").trim()
       : null;
-  if (current === version && !process.env.FORCE) {
+  if (current === stamp && !process.env.FORCE) {
     console.log(`typos v${version} dictionary already present; skipping fetch.`);
     return;
   }
@@ -60,12 +71,11 @@ async function main(): Promise<void> {
   const csv = await response.text();
 
   const dict = parseWordsCsv(csv);
-  const typosToml = fs.readFileSync(path.join(REPO_ROOT, "_typos.toml"), "utf8");
-  applyExtendWords(dict, parseExtendWords(typosToml));
+  applyExtendWords(dict, overrides);
 
   fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });
   fs.writeFileSync(OUTPUT, serializeDictionary(dict));
-  fs.writeFileSync(STAMP, `${version}\n`);
+  fs.writeFileSync(STAMP, `${stamp}\n`);
   console.log(
     `Wrote ${dict.size.toLocaleString()} corrections to ${path.relative(process.cwd(), OUTPUT)}`,
   );
