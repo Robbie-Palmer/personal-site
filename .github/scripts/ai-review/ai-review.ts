@@ -173,9 +173,6 @@ const MERGED_FINDINGS_LIMIT = 100;
 // Reasoning tokens count against max_tokens. The retained scouts can finish
 // within 8,000 tokens or fail independently without blocking the ensemble.
 const SCOUT_MAX_TOKENS = 8_000;
-const SCOUT_MAX_TOKENS_BY_MODEL: Record<string, number> = {
-  "deepseek/deepseek-v4-pro": 16_000,
-};
 const SCOUT_TIMEOUT_MS = 120_000;
 const SCOUT_TIMEOUT_BY_MODEL: Record<string, number> = {
   "nemotron-3-ultra-free": 180_000,
@@ -682,7 +679,7 @@ class Reviewer {
       body: {
         model,
         temperature: 0,
-        max_tokens: SCOUT_MAX_TOKENS_BY_MODEL[model] ?? SCOUT_MAX_TOKENS,
+        max_tokens: SCOUT_MAX_TOKENS,
         provider,
         ...(reasoning ? { reasoning } : {}),
         response_format: {

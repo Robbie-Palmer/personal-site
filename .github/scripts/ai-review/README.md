@@ -66,11 +66,11 @@ Free-model availability is refreshed from OpenCode at the start of every run.
 Models removed from the catalogue are skipped. The four default scouts—Kimi
 K2.6, DeepSeek V4 Pro, Big Pickle, and Nemotron 3 Ultra Free—run concurrently.
 Transient failures such as rate limits are retried, Nemotron receives a
-180-second timeout, and DeepSeek V4 Pro receives a 16,000-token completion
-budget. Individual failures do not block the remaining scouts. Any successful
-scout is enough to continue to reconciliation. If every scout is unavailable,
-rate-limited, or invalid, the workflow publishes an explicit no-coverage warning
-and does not spend money on the merger; the stable `review` check is skipped.
+180-second timeout, and individual failures do not block the remaining scouts.
+Any successful scout is enough to continue to reconciliation. If every scout is
+unavailable, rate-limited, or invalid, the workflow publishes an explicit
+no-coverage warning and does not spend money on the merger; the stable `review`
+check is skipped.
 
 When OpenRouter reports exhausted account credits or an exhausted API-key
 spending limit, the stable `review` check is also marked as skipped.
