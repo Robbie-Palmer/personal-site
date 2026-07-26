@@ -88,7 +88,7 @@ test("credit exhaustion only matches payment and key-limit failures", () => {
   assert.equal(isCreditExhaustion(new Error("All scout models failed")), false);
 });
 
-test("OpenCode model discovery includes eligible free models and excludes noisy scouts", () => {
+test("OpenCode model discovery keeps live supplementary scouts and excludes failed ones", () => {
   assert.deepEqual(
     selectFreeScoutModels({
       data: [
@@ -96,12 +96,14 @@ test("OpenCode model discovery includes eligible free models and excludes noisy 
         { id: "deepseek-v4-flash-free" },
         { id: "big-pickle" },
         { id: "deepseek-v4-flash-free" },
+        { id: "mimo-v2.5-free" },
+        { id: "nemotron-3-ultra-free" },
         { id: "laguna-s-2.1-free" },
         { id: "ling-3.0-flash-free" },
         { id: "north-mini-code-free" },
       ],
     }),
-    ["deepseek-v4-flash-free", "big-pickle"],
+    ["big-pickle", "nemotron-3-ultra-free"],
   );
   assert.throws(() => selectFreeScoutModels({ models: [] }), /no data array/);
 });

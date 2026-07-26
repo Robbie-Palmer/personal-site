@@ -69,6 +69,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}
+          AI_REVIEW_MODELS: ${{ vars.AI_REVIEW_MODELS }}
           AI_REVIEW_OPENCODE_MODELS: ${{ vars.AI_REVIEW_OPENCODE_MODELS }}
           AI_REVIEW_MERGER_MODEL: ${{ vars.AI_REVIEW_MERGER_MODEL }}
           AI_REVIEW_IGNORED_AUTHORS: ${{ vars.AI_REVIEW_IGNORED_AUTHORS }}

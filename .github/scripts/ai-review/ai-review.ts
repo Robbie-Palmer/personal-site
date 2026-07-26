@@ -29,7 +29,8 @@ interface Settings {
   openCodeKey?: string;
   repository: string;
   prNumber: number;
-  scouts: string[];
+  openRouterScouts: string[];
+  openCodeScouts: string[];
   merger: string;
   ignoredAuthors: string[];
   requireZdr: boolean;
@@ -54,6 +55,16 @@ interface ModelResult {
   cost: number;
 }
 
+interface ReasoningSettings {
+  enabled: boolean;
+  exclude: boolean;
+}
+
+interface Scout {
+  model: string;
+  provider: "opencode" | "openrouter";
+}
+
 interface ModelStats {
   runs: number;
   candidates: number;
@@ -73,18 +84,23 @@ interface ReviewState {
 const MARKER = "<!-- ai-code-review -->";
 const COST_PATTERN = /<!-- ai-review-cost:(\{[^\n]*\}) -->/;
 const BOT_LOGINS = new Set(["github-actions[bot]"]);
+const DEFAULT_OPENROUTER_SCOUTS = [
+  "moonshotai/kimi-k2.6",
+  "deepseek/deepseek-v4-pro",
+];
 const KNOWN_FREE_SCOUTS = [
   "big-pickle",
-  "deepseek-v4-flash-free",
-  "mimo-v2.5-free",
   "nemotron-3-ultra-free",
 ];
 const FREE_SCOUT_EXCEPTIONS = new Set(["big-pickle"]);
 const EXCLUDED_FREE_SCOUTS = new Set([
+  "deepseek-v4-flash-free",
   "laguna-s-2.1-free",
   "ling-3.0-flash-free",
+  "mimo-v2.5-free",
   "north-mini-code-free",
 ]);
+const REASONING_DISABLED_MODELS = new Set(["moonshotai/kimi-k2.6"]);
 const DEFAULT_MERGER = "anthropic/claude-sonnet-4.6";
 const DEFAULT_IGNORED_AUTHORS = ["renovate[bot]", "dependabot[bot]"];
 const IGNORED_FILENAMES = new Set([
@@ -154,19 +170,17 @@ const MAX_THREAD_CHARS = 40_000;
 const MAX_COMMENT_CHARS = 60_000;
 const SCOUT_FINDINGS_LIMIT = 25;
 const MERGED_FINDINGS_LIMIT = 100;
-// Reasoning tokens count against max_tokens. Most scouts can finish within
-// 8,000 tokens; DeepSeek exhausted that budget in the first live Actions run.
+// Reasoning tokens count against max_tokens. The retained scouts can finish
+// within 8,000 tokens or fail independently without blocking the ensemble.
 const SCOUT_MAX_TOKENS = 8_000;
-const SCOUT_MAX_TOKENS_BY_MODEL: Record<string, number> = {
-  "deepseek-v4-flash-free": 16_000,
-};
 const SCOUT_TIMEOUT_MS = 120_000;
 const SCOUT_TIMEOUT_BY_MODEL: Record<string, number> = {
   "nemotron-3-ultra-free": 180_000,
 };
 const MERGER_MAX_TOKENS = 6_000;
 const SCOUT_CONCURRENCY = 4;
-const MAX_SCOUTS = 12;
+const MAX_OPENROUTER_SCOUTS = 6;
+const MAX_OPENCODE_SCOUTS = 6;
 const HTTP_TIMEOUT_MS = 300_000;
 const RETRIES = 3;
 
@@ -258,11 +272,15 @@ function csv(value: string | undefined, fallback: string[]): string[] {
 }
 
 function settingsFromEnv(): Settings {
-  const scouts = csv(process.env.AI_REVIEW_OPENCODE_MODELS, []);
-  if (scouts.length > MAX_SCOUTS) {
-    throw new Error(`AI_REVIEW_OPENCODE_MODELS must contain at most ${MAX_SCOUTS} model IDs`);
+  const openRouterScouts = csv(process.env.AI_REVIEW_MODELS, DEFAULT_OPENROUTER_SCOUTS);
+  if (openRouterScouts.length > MAX_OPENROUTER_SCOUTS) {
+    throw new Error(`AI_REVIEW_MODELS must contain at most ${MAX_OPENROUTER_SCOUTS} model IDs`);
   }
-  const rejectedScouts = scouts.filter((model) => !isEligibleFreeScoutModelId(model));
+  const openCodeScouts = csv(process.env.AI_REVIEW_OPENCODE_MODELS, []);
+  if (openCodeScouts.length > MAX_OPENCODE_SCOUTS) {
+    throw new Error(`AI_REVIEW_OPENCODE_MODELS must contain at most ${MAX_OPENCODE_SCOUTS} model IDs`);
+  }
+  const rejectedScouts = openCodeScouts.filter((model) => !isEligibleFreeScoutModelId(model));
   if (rejectedScouts.length) {
     throw new Error(
       `AI_REVIEW_OPENCODE_MODELS only accepts enabled free OpenCode model IDs; rejected: ${rejectedScouts.join(", ")}`,
@@ -274,7 +292,8 @@ function settingsFromEnv(): Settings {
     openCodeKey: process.env.OPENCODE_API_KEY?.trim() || undefined,
     repository: env("GITHUB_REPOSITORY"),
     prNumber: Number.parseInt(env("PR_NUMBER"), 10),
-    scouts,
+    openRouterScouts,
+    openCodeScouts,
     merger: process.env.AI_REVIEW_MERGER_MODEL?.trim() || DEFAULT_MERGER,
     ignoredAuthors: csv(process.env.AI_REVIEW_IGNORED_AUTHORS, DEFAULT_IGNORED_AUTHORS).map((author) =>
       author.toLowerCase(),
@@ -302,7 +321,7 @@ export function selectFreeScoutModels(payload: unknown): string[] {
         .map((model) => String(model.id ?? ""))
         .filter(isEligibleFreeScoutModelId),
     ),
-  ].slice(0, MAX_SCOUTS);
+  ].slice(0, MAX_OPENCODE_SCOUTS);
 }
 
 function sleep(milliseconds: number): Promise<void> {
@@ -603,33 +622,33 @@ class Reviewer {
     return "";
   }
 
-  async scoutModels(): Promise<{ models: string[]; unavailable: string[] }> {
+  async openCodeScoutModels(): Promise<{ models: string[]; unavailable: string[] }> {
     try {
       const available = selectFreeScoutModels(await this.openCode.request<JsonObject>("GET", "/models"));
-      if (!this.settings.scouts.length) {
+      if (!this.settings.openCodeScouts.length) {
         if (!available.length) throw new Error("OpenCode currently advertises no free scout models");
         return { models: available, unavailable: [] };
       }
       const availableSet = new Set(available);
       return {
-        models: this.settings.scouts.filter((model) => availableSet.has(model)),
-        unavailable: this.settings.scouts.filter((model) => !availableSet.has(model)),
+        models: this.settings.openCodeScouts.filter((model) => availableSet.has(model)),
+        unavailable: this.settings.openCodeScouts.filter((model) => !availableSet.has(model)),
       };
     } catch (error) {
       console.error(`::warning::Could not refresh OpenCode free models; using configured fallback: ${String(error)}`);
       return {
-        models: this.settings.scouts.length ? this.settings.scouts : KNOWN_FREE_SCOUTS,
+        models: this.settings.openCodeScouts.length ? this.settings.openCodeScouts : KNOWN_FREE_SCOUTS,
         unavailable: [],
       };
     }
   }
 
-  async callScout(model: string, system: string, user: string): Promise<ModelResult> {
+  async callOpenCodeScout(model: string, system: string, user: string): Promise<ModelResult> {
     const response = await this.openCode.request<JsonObject>("POST", "/chat/completions", {
       body: {
         model,
         temperature: 0,
-        max_tokens: SCOUT_MAX_TOKENS_BY_MODEL[model] ?? SCOUT_MAX_TOKENS,
+        max_tokens: SCOUT_MAX_TOKENS,
         messages: [
           {
             role: "system",
@@ -646,6 +665,38 @@ class Reviewer {
     const usage = isObject(response.usage) ? response.usage : {};
     return {
       payload: parseModelPayload(completionContent(choice, model)),
+      cost: finiteNumber(response.cost ?? usage.cost),
+    };
+  }
+
+  async callOpenRouterScout(model: string, system: string, user: string): Promise<ModelResult> {
+    const provider: JsonObject = { require_parameters: true };
+    if (this.settings.requireZdr) Object.assign(provider, { zdr: true, data_collection: "deny" });
+    const reasoning: ReasoningSettings | undefined = REASONING_DISABLED_MODELS.has(model)
+      ? { enabled: false, exclude: true }
+      : undefined;
+    const response = await this.openRouter.request<JsonObject>("POST", "/chat/completions", {
+      body: {
+        model,
+        temperature: 0,
+        max_tokens: SCOUT_MAX_TOKENS,
+        provider,
+        ...(reasoning ? { reasoning } : {}),
+        response_format: {
+          type: "json_schema",
+          json_schema: { name: "code_review_findings", strict: true, schema: scoutSchema },
+        },
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      },
+    });
+    const choices = response.choices;
+    if (!Array.isArray(choices) || !isObject(choices[0])) throw new Error(`Invalid response from ${model}`);
+    const usage = isObject(response.usage) ? response.usage : {};
+    return {
+      payload: parseModelPayload(completionContent(choices[0], model)),
       cost: finiteNumber(response.cost ?? usage.cost),
     };
   }
@@ -934,15 +985,23 @@ async function main(): Promise<"success" | "no_coverage"> {
   }
 
   const source = dataPrompt(diff, await reviewer.fileContext(paths, initialHead), await reviewer.guidelines());
-  const availability = await reviewer.scoutModels();
-  const scouts = [...availability.models, ...availability.unavailable];
+  const availability = await reviewer.openCodeScoutModels();
+  const runnableScouts: Scout[] = [
+    ...settings.openRouterScouts.map((model): Scout => ({ model, provider: "openrouter" })),
+    ...availability.models.map((model): Scout => ({ model, provider: "opencode" })),
+  ];
+  const scouts = [...runnableScouts.map(({ model }) => model), ...availability.unavailable];
   const settled: Array<{ model: string; outcome: PromiseSettledResult<ModelResult> }> = [];
-  for (let offset = 0; offset < availability.models.length; offset += SCOUT_CONCURRENCY) {
-    const batch = availability.models.slice(offset, offset + SCOUT_CONCURRENCY);
+  for (let offset = 0; offset < runnableScouts.length; offset += SCOUT_CONCURRENCY) {
+    const batch = runnableScouts.slice(offset, offset + SCOUT_CONCURRENCY);
     const outcomes = await Promise.allSettled(
-      batch.map((model) => reviewer.callScout(model, scoutSystem, source)),
+      batch.map(({ model, provider }) =>
+        provider === "openrouter"
+          ? reviewer.callOpenRouterScout(model, scoutSystem, source)
+          : reviewer.callOpenCodeScout(model, scoutSystem, source),
+      ),
     );
-    batch.forEach((model, index) => settled.push({ model, outcome: outcomes[index] }));
+    batch.forEach(({ model }, index) => settled.push({ model, outcome: outcomes[index] }));
   }
   const candidates: Record<string, Finding[]> = {};
   const costs: Record<string, number> = {};
@@ -995,7 +1054,7 @@ async function main(): Promise<"success" | "no_coverage"> {
   } else {
     merged = {
       payload: {
-        summary: "All OpenCode scouts failed or were unavailable, so this run has no review coverage.",
+        summary: "All scouts failed or were unavailable, so this run has no review coverage.",
         findings: [],
       },
       cost: 0,
