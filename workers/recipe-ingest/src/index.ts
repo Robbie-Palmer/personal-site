@@ -221,6 +221,8 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
 
       const canonicalizeParams = stageParams(env, "canonicalize");
 
+      // Deterministic canonicalization only — no provider call, so it needs no
+      // LLM retry budget. The two disambiguation steps below own the retries.
       const { entry, decisions, cookwareDecisions } = await step.do(
         "canonicalize",
         async () => {
