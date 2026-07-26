@@ -628,17 +628,9 @@ class Reviewer {
   }
 
   async openCodeScoutModels(): Promise<{ models: string[]; unavailable: string[] }> {
+    let available: string[];
     try {
-      const available = selectFreeScoutModels(await this.openCode.request<JsonObject>("GET", "/models"));
-      if (!this.settings.openCodeScouts.length) {
-        if (!available.length) throw new Error("OpenCode currently advertises no free scout models");
-        return { models: available, unavailable: [] };
-      }
-      const availableSet = new Set(available);
-      return {
-        models: this.settings.openCodeScouts.filter((model) => availableSet.has(model)),
-        unavailable: this.settings.openCodeScouts.filter((model) => !availableSet.has(model)),
-      };
+      available = selectFreeScoutModels(await this.openCode.request<JsonObject>("GET", "/models"));
     } catch (error) {
       console.error(`::warning::Could not refresh OpenCode free models; using configured fallback: ${String(error)}`);
       return {
@@ -646,6 +638,15 @@ class Reviewer {
         unavailable: [],
       };
     }
+    if (!this.settings.openCodeScouts.length) {
+      if (!available.length) console.error("::warning::OpenCode currently advertises no eligible free scout models");
+      return { models: available, unavailable: [] };
+    }
+    const availableSet = new Set(available);
+    return {
+      models: this.settings.openCodeScouts.filter((model) => availableSet.has(model)),
+      unavailable: this.settings.openCodeScouts.filter((model) => !availableSet.has(model)),
+    };
   }
 
   async callOpenCodeScout(model: string, system: string, user: string): Promise<ModelResult> {

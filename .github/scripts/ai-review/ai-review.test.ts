@@ -106,6 +106,7 @@ test("OpenCode model discovery keeps live supplementary scouts and excludes fail
     }),
     ["big-pickle", "nemotron-3-ultra-free"],
   );
+  assert.deepEqual(selectFreeScoutModels({ data: [] }), []);
   assert.throws(() => selectFreeScoutModels({ models: [] }), /no data array/);
 });
 
