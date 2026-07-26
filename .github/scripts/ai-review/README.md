@@ -12,8 +12,10 @@ future performance analytics.
 
 1. Add `OPENROUTER_API_KEY` as an Actions repository secret and set a suitable
    credit limit on the key. It is used by the paid scouts and merger.
-2. Open or update a non-draft pull request from a branch in this repository as
-   an owner, member, or collaborator. Every commit is reviewed automatically.
+2. Open a non-draft pull request, or mark a draft pull request ready for review,
+   from a branch in this repository as an owner, member, or collaborator. Later
+   commits and reopened pull requests are not reviewed automatically; comment
+   exactly `/ai-review` to request another review.
 3. Fork pull requests never run automatically. An owner, member, or collaborator
    must comment exactly `/ai-review` or manually dispatch the workflow.
 
