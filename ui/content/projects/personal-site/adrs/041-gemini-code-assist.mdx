@@ -1,9 +1,18 @@
 ---
 title: "ADR 041: Gemini Code Assist"
 date: "2026-06-20"
-status: "Accepted"
+status: "Deprecated"
 tech_stack: ["Google Gemini"]
 ---
+
+# Deprecation
+
+This decision is superseded by
+[ADR 056: Stateful Workers AI Code Review](/projects/personal-site/adrs/056-stateful-workers-ai-code-review).
+Google ended consumer Gemini Code Assist reviews on GitHub on July 17, 2026;
+the integration now continues only for enterprise customers. Enterprise
+billing and administration do not fit this solo public repository, so the
+consumer reviewer has not been replaced with the enterprise product.
 
 # Context
 
@@ -51,10 +60,11 @@ Gemini Code Assist is a complementary reviewer, not a replacement for CodeRabbit
 * **No Guaranteed Consensus**: Agreement between two AI reviewers does not prove that a change is correct, and disagreement still requires human judgement.
 * **Second Provider Dependency**: The approach reduces dependence on CodeRabbit but introduces dependence on Google's continued support for the integration.
 
-# Planned Deprecation
+# Deprecation History
 
 Google has announced the **[sunset of the consumer version of Gemini Code Assist on GitHub](https://developers.google.com/gemini-code-assist/docs/deprecations/consumer-code-review)**. New consumer installations are blocked from June 18, 2026, and consumer code review activity will cease on July 17, 2026. The enterprise version is not affected.
 
-This ADR remains **Accepted** while the existing installation continues to review Pull Requests. Unless the enterprise version is adopted, its status should change to **Deprecated** when consumer review activity ceases on July 17, 2026.
+The ADR changed to **Deprecated** after consumer review activity ceased on July
+17, 2026.
 
 The enterprise GitHub integration is currently in Preview and requires Google Cloud billing, IAM configuration, and a Developer Connect connection in `us-east1`. Google does not publish product-specific pricing for it. Its uncertain post-preview cost and additional operational overhead make it unsuitable as a direct continuation of the original no-cost decision.

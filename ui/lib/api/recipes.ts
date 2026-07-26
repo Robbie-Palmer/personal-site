@@ -8,9 +8,9 @@ import type {
 import {
   parseSavedRecipe,
   type RecipeGridItem,
+  recipePageHref,
   type SavedRecipeApiRecord,
   savedRecipeCard,
-  savedRecipeHref,
 } from "@/lib/domain/recipe/recipeDraft";
 import type { RecipeDetailView } from "@/lib/domain/recipe/recipeViews";
 
@@ -80,7 +80,7 @@ export function buildKitchenCatalog(records: SavedRecipeApiRecord[]): {
     }
     return {
       slug: recipe.slug,
-      href: savedRecipeHref(record),
+      href: recipePageHref(record),
       title: recipe.title,
       cuisine: recipe.cuisine,
       totalTime: recipe.totalTime,

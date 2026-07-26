@@ -1,0 +1,4 @@
+interface:
+  display_name: "Complete PR Review Loop"
+  short_description: "Shepherd a PR until every review settles"
+  default_prompt: "Use $complete-pr-review-loop to publish the completed changes and shepherd the pull request until all checks and reviews settle."

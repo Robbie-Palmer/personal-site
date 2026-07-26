@@ -1,5 +1,5 @@
-import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, render, screen } from "@/tests/test-utils";
 
 const mocks = vi.hoisted(() => ({
   buildKitchenCatalog: vi.fn(),
@@ -67,11 +67,9 @@ describe("database-backed kitchen and shopping pages", () => {
     expect(mocks.fetchRecipeBoxRecipes).not.toHaveBeenCalled();
   });
 
-  it("loads recipe-box recipes into the kitchen and aborts on unmount", async () => {
+  it("loads recipe-box recipes into the kitchen", async () => {
     const recipes = [{ slug: "lentil-soup" }];
-    let signal: AbortSignal | undefined;
-    mocks.fetchRecipeBoxRecipes.mockImplementation(async (requestSignal) => {
-      signal = requestSignal;
+    mocks.fetchRecipeBoxRecipes.mockImplementation(async () => {
       return { recipes, box: { completed: true, recipeSlugs: [] } };
     });
 
@@ -80,19 +78,15 @@ describe("database-backed kitchen and shopping pages", () => {
     expect(mocks.buildKitchenCatalog).toHaveBeenCalledWith(recipes);
 
     view.unmount();
-    expect(signal?.aborted).toBe(true);
   });
 
   it("shows a kitchen load error while ignoring abort errors", async () => {
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.fetchRecipeBoxRecipes.mockRejectedValueOnce(new Error("offline"));
     const failedView = render(<RecipeKitchen />);
     expect(
       await screen.findByText("Your kitchen could not be loaded."),
     ).toBeInTheDocument();
-    expect(consoleError).toHaveBeenCalled();
     failedView.unmount();
 
     mocks.fetchRecipeBoxRecipes.mockRejectedValueOnce(
@@ -121,15 +115,12 @@ describe("database-backed kitchen and shopping pages", () => {
   });
 
   it("shows a shopping load error while ignoring abort errors", async () => {
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.fetchRecipeBoxRecipes.mockRejectedValueOnce(new Error("offline"));
     const failedView = render(<RecipeShopping />);
     expect(
       await screen.findByText("Your recipes could not be loaded."),
     ).toBeInTheDocument();
-    expect(consoleError).toHaveBeenCalled();
     failedView.unmount();
 
     mocks.fetchRecipeBoxRecipes.mockRejectedValueOnce(

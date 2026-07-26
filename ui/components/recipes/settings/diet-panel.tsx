@@ -11,26 +11,21 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DIET_PROFILE_UPDATED_EVENT } from "@/components/recipes/diet-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  type DietGroupOption,
-  type DietIngredientOption,
-  type DietOptions,
-  type DietPresetOption,
-  type DietProfile,
-  type DietRecipeMatchMode,
-  emptyDietOptions,
-  emptyDietProfile,
-  getDietOptions,
-  getDietProfile,
-  saveDietProfile,
+  type DietEditorSaveState,
+  useDietProfileEditor,
+} from "@/hooks/use-diet-profile-editor";
+import type {
+  DietGroupOption,
+  DietIngredientOption,
+  DietOptions,
+  DietPresetOption,
+  DietProfile,
 } from "@/lib/api/diet";
 import { cn } from "@/lib/generic/styles";
 import { PanelHead } from "./panel-head";
-
-type SaveState = "idle" | "saving" | "saved" | "error";
 
 const INGREDIENT_RESULT_LIMIT = 8;
 
@@ -48,21 +43,6 @@ function normalizeQuery(value: string): string {
 
 function unique(values: string[]): string[] {
   return Array.from(new Set(values));
-}
-
-function sortAlphabetically(values: string[]): string[] {
-  return [...values].sort((first, second) => first.localeCompare(second));
-}
-
-function serialize(profile: DietProfile): string {
-  return JSON.stringify({
-    ...profile,
-    presetDietKeys: sortAlphabetically(profile.presetDietKeys),
-    excludedIngredientSlugs: sortAlphabetically(
-      profile.excludedIngredientSlugs,
-    ),
-    excludedGroupKeys: sortAlphabetically(profile.excludedGroupKeys),
-  });
 }
 
 function toggleValue(values: string[], value: string): string[] {
@@ -124,7 +104,7 @@ function Status({
   state,
   error,
 }: Readonly<{
-  state: SaveState;
+  state: DietEditorSaveState;
   error: string | null;
 }>) {
   const content = {
@@ -357,15 +337,7 @@ function IngredientPicker({
   );
 }
 
-export function DietPanel() {
-  const [profile, setProfile] = useState<DietProfile>(emptyDietProfile);
-  const [savedProfile, setSavedProfile] =
-    useState<DietProfile>(emptyDietProfile);
-  const [options, setOptions] = useState<DietOptions>(emptyDietOptions);
-  const [loading, setLoading] = useState(true);
-  const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const saveControllerRef = useRef<AbortController | null>(null);
+function useDietPanelModel(profile: DietProfile, options: DietOptions) {
   const ingredientBySlug = useMemo(
     () =>
       new Map(
@@ -377,44 +349,6 @@ export function DietPanel() {
     () => new Map(options.presets.map((preset) => [preset.key, preset])),
     [options.presets],
   );
-
-  useEffect(() => {
-    const controller = new AbortController();
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const [nextProfile, nextOptions] = await Promise.all([
-          getDietProfile(controller.signal),
-          getDietOptions(controller.signal),
-        ]);
-        setProfile(nextProfile);
-        setSavedProfile(nextProfile);
-        setOptions(nextOptions);
-        setSaveState("idle");
-      } catch (loadError) {
-        if (!controller.signal.aborted) {
-          setSaveState("error");
-          setError(
-            loadError instanceof Error
-              ? loadError.message
-              : "Couldn't load your diet profile.",
-          );
-        }
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }
-
-    void load();
-    return () => controller.abort();
-  }, []);
-
-  useEffect(() => {
-    return () => saveControllerRef.current?.abort();
-  }, []);
-
-  const dirty = serialize(profile) !== serialize(savedProfile);
   const exclusions = useMemo(
     () => effectiveExclusions(profile, presetByKey),
     [presetByKey, profile],
@@ -428,61 +362,36 @@ export function DietPanel() {
     );
   });
 
-  function updateProfile(next: DietProfile) {
-    setProfile(next);
-    setSaveState("idle");
-    setError(null);
-  }
+  return { exclusions, presetByKey, selectedIngredients };
+}
+
+export function DietPanel() {
+  const {
+    actions: { save, updateProfile },
+    state: { dirty, error, loading, options, profile, saveState },
+  } = useDietProfileEditor();
+  const { exclusions, presetByKey, selectedIngredients } = useDietPanelModel(
+    profile,
+    options,
+  );
 
   function addIngredient(ingredient: DietIngredientOption) {
-    updateProfile({
-      ...profile,
+    updateProfile((current) => ({
+      ...current,
       excludedIngredientSlugs: unique([
-        ...profile.excludedIngredientSlugs,
+        ...current.excludedIngredientSlugs,
         ingredient.slug,
       ]),
-    });
+    }));
   }
 
   function removeIngredient(slug: string) {
-    updateProfile({
-      ...profile,
-      excludedIngredientSlugs: profile.excludedIngredientSlugs.filter(
+    updateProfile((current) => ({
+      ...current,
+      excludedIngredientSlugs: current.excludedIngredientSlugs.filter(
         (ingredient) => ingredient !== slug,
       ),
-    });
-  }
-
-  function setMode(recipeMatchMode: DietRecipeMatchMode) {
-    updateProfile({ ...profile, recipeMatchMode });
-  }
-
-  async function save() {
-    saveControllerRef.current?.abort();
-    const controller = new AbortController();
-    saveControllerRef.current = controller;
-    setSaveState("saving");
-    setError(null);
-    try {
-      const saved = await saveDietProfile(profile, controller.signal);
-      if (controller.signal.aborted) return;
-      setProfile(saved);
-      setSavedProfile(saved);
-      setSaveState("saved");
-      globalThis.dispatchEvent(new Event(DIET_PROFILE_UPDATED_EVENT));
-    } catch (saveError) {
-      if (controller.signal.aborted) return;
-      setSaveState("error");
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Couldn't save your diet profile.",
-      );
-    } finally {
-      if (saveControllerRef.current === controller) {
-        saveControllerRef.current = null;
-      }
-    }
+    }));
   }
 
   return (
@@ -526,13 +435,13 @@ export function DietPanel() {
                     className="min-h-20"
                     label={preset.label}
                     onClick={() =>
-                      updateProfile({
-                        ...profile,
+                      updateProfile((current) => ({
+                        ...current,
                         presetDietKeys: toggleValue(
-                          profile.presetDietKeys,
+                          current.presetDietKeys,
                           preset.key,
                         ),
-                      })
+                      }))
                     }
                   >
                     <span className="rt-mono mt-1 block text-[var(--ink-4)]">
@@ -567,13 +476,13 @@ export function DietPanel() {
                       disabled={coveredByPreset}
                       label={group.label}
                       onClick={() =>
-                        updateProfile({
-                          ...profile,
+                        updateProfile((current) => ({
+                          ...current,
                           excludedGroupKeys: toggleValue(
-                            profile.excludedGroupKeys,
+                            current.excludedGroupKeys,
                             group.key,
                           ),
-                        })
+                        }))
                       }
                     >
                       <span className="rt-mono mt-0.5 block text-[var(--ink-4)]">
@@ -635,7 +544,12 @@ export function DietPanel() {
                     key={value}
                     type="button"
                     aria-pressed={active}
-                    onClick={() => setMode(value)}
+                    onClick={() =>
+                      updateProfile((current) => ({
+                        ...current,
+                        recipeMatchMode: value,
+                      }))
+                    }
                     className={cn(
                       "rt-body rounded-full px-4 py-1.5 text-sm transition-colors",
                       active

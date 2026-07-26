@@ -1,3 +1,5 @@
+import { ApiError } from "@/lib/api/api-error";
+
 export type DietRecipeMatchMode = "hide" | "warn";
 
 export type DietProfile = {
@@ -72,7 +74,10 @@ async function parseDietResponse(response: Response): Promise<DietProfile> {
     const body = (await response
       .json()
       .catch(() => null)) as ApiErrorBody | null;
-    throw new Error(messageFromApiError(body, "Diet profile request failed."));
+    throw new ApiError(
+      messageFromApiError(body, "Diet profile request failed."),
+      response.status,
+    );
   }
   return response.json() as Promise<DietProfile>;
 }
@@ -84,7 +89,10 @@ async function parseDietOptionsResponse(
     const body = (await response
       .json()
       .catch(() => null)) as ApiErrorBody | null;
-    throw new Error(messageFromApiError(body, "Diet options request failed."));
+    throw new ApiError(
+      messageFromApiError(body, "Diet options request failed."),
+      response.status,
+    );
   }
   return response.json() as Promise<DietOptions>;
 }

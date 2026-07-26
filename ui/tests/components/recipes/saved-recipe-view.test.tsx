@@ -1,11 +1,24 @@
-import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { clearOtherPrivateRecipeQueries } from "@/lib/query/recipe-query-client";
+import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
+import { render, screen } from "@/tests/test-utils";
 
-const navigation = vi.hoisted(() => ({ pathname: "/recipes/first-soup" }));
+const navigation = vi.hoisted(() => ({
+  pathname: "/recipes/first-soup",
+  search: "",
+}));
+
+const auth = vi.hoisted(() => ({
+  session: { data: null, isPending: false },
+}));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => navigation.pathname,
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(navigation.search),
+}));
+
+vi.mock("@/lib/auth-client", () => ({
+  authClient: { useSession: () => auth.session },
 }));
 
 vi.mock("@/components/recipes/recipe-content", () => ({
@@ -53,7 +66,12 @@ function record(slug: string, title: string, owned = false) {
 afterEach(() => {
   globalThis.fetch = originalFetch;
   navigation.pathname = "/recipes/first-soup";
+  navigation.search = "";
   vi.restoreAllMocks();
+});
+
+beforeEach(() => {
+  auth.session = { data: null, isPending: false };
 });
 
 describe("SavedRecipeView", () => {
@@ -92,5 +110,51 @@ describe("SavedRecipeView", () => {
       "href",
       "/recipes/edit?slug=first-soup",
     );
+  });
+
+  it("keeps a signed-out recipe in the public cache namespace", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      Response.json(record("first-soup", "First Soup")),
+    ) as typeof fetch;
+
+    const { queryClient } = render(<SavedRecipeView />);
+
+    expect(await screen.findByText("First Soup")).toBeInTheDocument();
+    await clearOtherPrivateRecipeQueries(queryClient, null);
+
+    expect(
+      queryClient.getQueryData(recipeQueryKeys.publicSavedRecipe("first-soup")),
+    ).toEqual(expect.objectContaining({ slug: "first-soup" }));
+  });
+
+  it("shows the cached route at its canonical recipe URL", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      Response.json(record("first-soup", "First Soup")),
+    ) as typeof fetch;
+    navigation.pathname = "/recipes/saved";
+    navigation.search = "slug=first-soup";
+    const replaceState = vi.spyOn(window.history, "replaceState");
+
+    render(<SavedRecipeView />);
+
+    expect(await screen.findByText("First Soup")).toBeInTheDocument();
+    expect(replaceState).toHaveBeenCalledWith(
+      window.history.state,
+      "",
+      "/recipes/first-soup",
+    );
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not redirect the saved-recipe route without a slug", async () => {
+    globalThis.fetch = vi.fn();
+    navigation.pathname = "/recipes/saved";
+
+    render(<SavedRecipeView />);
+
+    expect(
+      await screen.findByText("No saved recipe was selected."),
+    ).toBeInTheDocument();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 });

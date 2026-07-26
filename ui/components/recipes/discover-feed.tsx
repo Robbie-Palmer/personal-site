@@ -1,18 +1,23 @@
 "use client";
 
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { Globe2, Home, LoaderCircle, UtensilsCrossed } from "lucide-react";
-import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RecipeThumb } from "@/components/recipes/recipe-card";
+import { RecipeQueryStatus } from "@/components/recipes/recipe-load-state";
+import { RecipePageLink } from "@/components/recipes/recipe-page-link";
 import { Button } from "@/components/ui/button";
-import {
-  type DiscoverFeedItem,
-  type DiscoverFeedScope,
-  getDiscoverFeedPage,
+import type {
+  DiscoverFeedItem,
+  DiscoverFeedScope,
 } from "@/lib/api/discover-feed";
 import { authClient } from "@/lib/auth-client";
 import { savedRecipeCard } from "@/lib/domain/recipe/recipeDraft";
 import { cn } from "@/lib/generic/styles";
+import {
+  householdDiscoverFeedQuery,
+  publicDiscoverFeedQuery,
+} from "@/lib/query/discover-queries";
 
 function authorInitials(name: string) {
   return name
@@ -68,8 +73,8 @@ function FeedCard({ item }: Readonly<{ item: DiscoverFeedItem }>) {
           </time>
         </div>
       </header>
-      <Link
-        href={`/recipes/saved?slug=${encodeURIComponent(item.recipe.slug)}`}
+      <RecipePageLink
+        href={`/recipes/${encodeURIComponent(item.recipe.slug)}`}
         className="group flex gap-4 border-t border-[var(--line)] p-4 transition-colors hover:bg-[var(--paper-warm)]/60 sm:p-5"
       >
         {recipe ? (
@@ -92,118 +97,29 @@ function FeedCard({ item }: Readonly<{ item: DiscoverFeedItem }>) {
             </p>
           ) : null}
         </div>
-      </Link>
+      </RecipePageLink>
     </article>
   );
 }
 
-export function DiscoverFeed() {
-  const { data: session, isPending: sessionPending } = authClient.useSession();
-  const [scope, setScope] = useState<DiscoverFeedScope>("public");
-  const [items, setItems] = useState<DiscoverFeedItem[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
-  const [mounted, setMounted] = useState(false);
-  const sentinel = useRef<HTMLDivElement>(null);
-  const requestId = useRef(0);
-  const signedIn = Boolean(session);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const loadMore = useCallback(async () => {
-    if (loading || !hasMore || sessionPending) return;
-    const id = ++requestId.current;
-    setLoading(true);
-    setError(null);
-    try {
-      const page = await getDiscoverFeedPage(scope, cursor);
-      if (id !== requestId.current) return;
-      setItems((current) => [...current, ...page.items]);
-      setCursor(page.nextCursor);
-      setHasMore(Boolean(page.nextCursor));
-    } catch (cause) {
-      if (id !== requestId.current) return;
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "The feed could not be loaded.",
-      );
-    } finally {
-      if (id === requestId.current) setLoading(false);
-    }
-  }, [cursor, hasMore, loading, scope, sessionPending]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey intentionally retriggers a failed first-page request.
-  useEffect(() => {
-    if (sessionPending) return;
-    if (!signedIn && scope === "household") {
-      setScope("public");
-      return;
-    }
-    const id = ++requestId.current;
-    setItems([]);
-    setCursor(null);
-    setHasMore(true);
-    setError(null);
-    setLoading(true);
-    void getDiscoverFeedPage(scope, null)
-      .then((page) => {
-        if (id !== requestId.current) return;
-        setItems(page.items);
-        setCursor(page.nextCursor);
-        setHasMore(Boolean(page.nextCursor));
-      })
-      .catch((cause: unknown) => {
-        if (id !== requestId.current) return;
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : "The feed could not be loaded.",
-        );
-      })
-      .finally(() => {
-        if (id === requestId.current) setLoading(false);
-      });
-  }, [reloadKey, scope, sessionPending, signedIn]);
-
-  useEffect(() => {
-    const node = sentinel.current;
-    if (!node || !hasMore || loading || error) return;
-    const observer = new IntersectionObserver(
-      async ([entry]) => {
-        if (entry?.isIntersecting) await loadMore();
-      },
-      { rootMargin: "300px" },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [error, hasMore, loadMore, loading]);
-
+function FeedScopeTabs({
+  scope,
+  householdEnabled,
+  showSignedOutMessage,
+  onScopeChange,
+}: Readonly<{
+  scope: DiscoverFeedScope;
+  householdEnabled: boolean;
+  showSignedOutMessage: boolean;
+  onScopeChange: (scope: DiscoverFeedScope) => void;
+}>) {
   return (
-    <div className="container mx-auto w-full max-w-3xl px-4 py-7 sm:py-10">
-      <div className="mb-7 sm:mb-9">
-        <p className="rt-mono text-[var(--terracotta)]">
-          Discover {mounted && session ? "· your feed" : "· no account needed"}
-        </p>
-        <h1 className="rt-display mt-2 text-5xl leading-none sm:text-6xl">
-          Fresh from other{" "}
-          <span className="text-[var(--terracotta)]">kitchens.</span>
-        </h1>
-        <p className="rt-body mt-3 max-w-2xl text-base text-[var(--ink-2)] sm:text-lg">
-          See the newest recipes people have added.
-        </p>
-      </div>
-
+    <>
       <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl border border-[var(--line)] bg-[var(--paper-warm)] p-1.5">
         <button
           type="button"
           aria-pressed={scope === "public"}
-          onClick={() => setScope("public")}
+          onClick={() => onScopeChange("public")}
           className={cn(
             "rt-body flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors",
             scope === "public"
@@ -216,8 +132,8 @@ export function DiscoverFeed() {
         <button
           type="button"
           aria-pressed={scope === "household"}
-          disabled={!mounted || !session}
-          onClick={() => setScope("household")}
+          disabled={!householdEnabled}
+          onClick={() => onScopeChange("household")}
           className={cn(
             "rt-body flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-45",
             scope === "household"
@@ -228,19 +144,35 @@ export function DiscoverFeed() {
           <Home className="size-4" /> Household
         </button>
       </div>
-
-      {mounted && !session && !sessionPending ? (
+      {showSignedOutMessage ? (
         <p className="rt-body mb-5 text-center text-sm text-[var(--ink-3)]">
           You’re seeing public additions. Sign in to unlock your household feed.
         </p>
       ) : null}
+    </>
+  );
+}
 
+function FeedResults({
+  items,
+  loading,
+  error,
+  hasMore,
+  onRetry,
+}: Readonly<{
+  items: DiscoverFeedItem[];
+  loading: boolean;
+  error: unknown;
+  hasMore: boolean;
+  onRetry: () => void;
+}>) {
+  return (
+    <>
       <div className="space-y-4">
         {items.map((item) => (
           <FeedCard key={`${item.recipe.slug}-${item.createdAt}`} item={item} />
         ))}
       </div>
-
       {!loading && !error && items.length === 0 ? (
         <div className="mt-10 rounded-xl border border-dashed border-[var(--line-strong)] px-6 py-12 text-center">
           <UtensilsCrossed className="mx-auto size-8 text-[var(--terracotta)]" />
@@ -250,23 +182,14 @@ export function DiscoverFeed() {
           </p>
         </div>
       ) : null}
-
       {error ? (
         <div className="mt-6 text-center">
           <p className="rt-body text-sm text-[var(--terracotta-deep)]">
-            {error}
+            {error instanceof Error
+              ? error.message
+              : "The feed could not be loaded."}
           </p>
-          <Button
-            variant="outline"
-            className="mt-3"
-            onClick={async () => {
-              if (items.length === 0) {
-                setReloadKey((current) => current + 1);
-              } else {
-                await loadMore();
-              }
-            }}
-          >
+          <Button variant="outline" className="mt-3" onClick={onRetry}>
             Try again
           </Button>
         </div>
@@ -284,7 +207,100 @@ export function DiscoverFeed() {
           · you’re all caught up ·
         </p>
       ) : null}
-      <div ref={sentinel} className="h-px" aria-hidden="true" />
-    </div>
+    </>
+  );
+}
+
+export function DiscoverFeed() {
+  const { data: session, isPending: sessionPending } = authClient.useSession();
+  const [scope, setScope] = useState<DiscoverFeedScope>("public");
+  const [mounted, setMounted] = useState(false);
+  const sentinel = useRef<HTMLDivElement>(null);
+  const signedIn = Boolean(session);
+  const publicFeed = useInfiniteQuery({
+    ...publicDiscoverFeedQuery(),
+    enabled: scope === "public",
+  });
+  const householdFeed = useInfiniteQuery({
+    ...householdDiscoverFeedQuery(session?.user.id ?? "pending"),
+    enabled: scope === "household" && signedIn && !sessionPending,
+  });
+  const feed = scope === "household" ? householdFeed : publicFeed;
+  const items = feed.data?.pages.flatMap((page) => page.items) ?? [];
+  const hasMore = Boolean(feed.hasNextPage);
+  const loading = feed.isPending || feed.isFetchingNextPage;
+  const error = feed.error;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!signedIn && scope === "household") {
+      setScope("public");
+    }
+  }, [scope, signedIn]);
+
+  useEffect(() => {
+    const node = sentinel.current;
+    if (!node || !hasMore || loading || error) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) void feed.fetchNextPage();
+      },
+      { rootMargin: "300px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [error, feed.fetchNextPage, hasMore, loading]);
+
+  function retryFeed() {
+    if (items.length > 0 && feed.hasNextPage) {
+      void feed.fetchNextPage();
+      return;
+    }
+    void feed.refetch();
+  }
+
+  return (
+    <>
+      <RecipeQueryStatus
+        error={error}
+        hasData={items.length > 0}
+        isFetching={feed.isFetching && !feed.isFetchingNextPage}
+        isStale={feed.isStale}
+        subject={`${scope} recipes`}
+      />
+      <div className="container mx-auto w-full max-w-3xl px-4 py-7 sm:py-10">
+        <div className="mb-7 sm:mb-9">
+          <p className="rt-mono text-[var(--terracotta)]">
+            Discover{" "}
+            {mounted && session ? "· your feed" : "· no account needed"}
+          </p>
+          <h1 className="rt-display mt-2 text-5xl leading-none sm:text-6xl">
+            Fresh from other{" "}
+            <span className="text-[var(--terracotta)]">kitchens.</span>
+          </h1>
+          <p className="rt-body mt-3 max-w-2xl text-base text-[var(--ink-2)] sm:text-lg">
+            See the newest recipes people have added.
+          </p>
+        </div>
+
+        <FeedScopeTabs
+          scope={scope}
+          householdEnabled={mounted && signedIn}
+          showSignedOutMessage={mounted && !signedIn && !sessionPending}
+          onScopeChange={setScope}
+        />
+        <FeedResults
+          items={items}
+          loading={loading}
+          error={error}
+          hasMore={hasMore}
+          onRetry={retryFeed}
+        />
+        <div ref={sentinel} className="h-px" aria-hidden="true" />
+      </div>
+    </>
   );
 }

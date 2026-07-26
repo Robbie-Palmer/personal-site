@@ -1,6 +1,7 @@
 "use client";
 
 import * as PopoverPrimitive from "@radix-ui/react-popover";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown,
   FlaskConical,
@@ -24,12 +25,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/generic/styles";
 import { isPreviewDeployment } from "@/lib/preview-environment";
+import { clearPrivateRecipeQueries } from "@/lib/query/recipe-query-client";
 
 type PreviewScenario = {
   id: string;
   name: string;
   description: string;
 };
+
+export function redirectAfterSignOut(
+  _context?: unknown,
+  replace: (url: string) => void = window.location.replace.bind(
+    window.location,
+  ),
+) {
+  replace("/recipes");
+}
 
 function authPrompt(
   isPreview: boolean,
@@ -141,13 +152,16 @@ export function AuthButton({
   className,
   compactOnMobile = false,
   intent = "signin",
+  signOutRedirect = redirectAfterSignOut,
 }: Readonly<{
   className?: string;
   compactOnMobile?: boolean;
   intent?: "signin" | "signup";
+  signOutRedirect?: () => void;
 }>) {
   const previewBackendDisabled =
     process.env.NEXT_PUBLIC_PREVIEW_BACKEND === "false";
+  const queryClient = useQueryClient();
   const { data: session, isPending } = authClient.useSession();
   const triggerLabel = intent === "signup" ? "Sign up" : "Log in";
   const [open, setOpen] = useState(false);
@@ -194,7 +208,15 @@ export function AuthButton({
     setError(null);
     try {
       const result = await authClient.signOut({
-        fetchOptions: { onSuccess: () => window.location.reload() },
+        fetchOptions: {
+          onSuccess: async () => {
+            try {
+              await clearPrivateRecipeQueries(queryClient);
+            } finally {
+              signOutRedirect();
+            }
+          },
+        },
       });
       if (result?.error) {
         setError(result.error.message ?? "Sign-out failed. Please try again.");

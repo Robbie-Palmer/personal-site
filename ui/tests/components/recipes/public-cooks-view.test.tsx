@@ -1,9 +1,10 @@
-import { act, render, screen } from "@testing-library/react";
+import { act } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   PublicCookProfile,
   PublicCookSummary,
 } from "@/lib/api/public-cooks";
+import { render, screen } from "@/tests/test-utils";
 
 const mocks = vi.hoisted(() => ({
   getPublicCook: vi.fn(),
@@ -105,6 +106,33 @@ describe("PublicCooksView", () => {
     expect(mocks.getPublicCooks).not.toHaveBeenCalled();
   });
 
+  it("reuses the directory and profile when navigating around in a loop", async () => {
+    const view = render(<PublicCooksView />);
+    expect(await screen.findByText("Ada Cook")).toBeInTheDocument();
+
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams("cook=cook-1"));
+    view.rerender(<PublicCooksView />);
+    expect(
+      await screen.findByRole("heading", {
+        name: /Ada.*recipe activity/,
+      }),
+    ).toBeInTheDocument();
+
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams());
+    view.rerender(<PublicCooksView />);
+    expect(await screen.findByText("Ada Cook")).toBeInTheDocument();
+
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams("cook=cook-1"));
+    view.rerender(<PublicCooksView />);
+    expect(
+      await screen.findByRole("heading", {
+        name: /Ada.*recipe activity/,
+      }),
+    ).toBeInTheDocument();
+    expect(mocks.getPublicCooks).toHaveBeenCalledTimes(1);
+    expect(mocks.getPublicCook).toHaveBeenCalledTimes(1);
+  });
+
   it("shows request errors instead of a missing-cook message", async () => {
     mocks.useSearchParams.mockReturnValue(
       new URLSearchParams("cook=older-cook"),
@@ -118,5 +146,16 @@ describe("PublicCooksView", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Service unavailable")).toBeInTheDocument();
     expect(screen.queryByText("Cook not found.")).not.toBeInTheDocument();
+  });
+
+  it("names the selected cook when a non-Error request fails", async () => {
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams("cook=cook-1"));
+    mocks.getPublicCook.mockRejectedValue("offline");
+
+    render(<PublicCooksView />);
+
+    expect(
+      await screen.findAllByText("This cook could not be loaded."),
+    ).toHaveLength(2);
   });
 });

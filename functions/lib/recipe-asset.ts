@@ -6,13 +6,16 @@ export interface RecipeAssetContext {
   env: PublicRecipeEnv & { ASSETS: { fetch: typeof fetch } };
 }
 
-export function rewrittenRecipeAssetHeaders(asset: Response): Headers {
+export function rewrittenRecipeAssetHeaders(
+  asset: Response,
+  cacheControl = "public, max-age=60, s-maxage=300",
+): Headers {
   const headers = new Headers(asset.headers);
   headers.delete("content-length");
   headers.delete("content-encoding");
   headers.delete("etag");
   headers.delete("last-modified");
-  headers.set("cache-control", "public, max-age=60, s-maxage=300");
+  headers.set("cache-control", cacheControl);
   return headers;
 }
 

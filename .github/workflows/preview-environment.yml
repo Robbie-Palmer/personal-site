@@ -39,16 +39,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
-          FORCE_FRONTEND: ${{ contains(github.event.pull_request.labels.*.name, 'preview:frontend-only') }}
-          FORCE_BACKEND: ${{ contains(github.event.pull_request.labels.*.name, 'preview:backend') }}
         run: |
           set -euo pipefail
-          if [[ "$FORCE_FRONTEND" == "true" ]]; then
+          pr=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+          force_frontend=$(jq -r '[.labels[].name] | index("preview:frontend-only") != null' <<< "$pr")
+          force_backend=$(jq -r '[.labels[].name] | index("preview:backend") != null' <<< "$pr")
+
+          if [[ "$force_frontend" == "true" ]]; then
             echo "Label preview:frontend-only forces frontend-only preview."
             echo "backend=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if [[ "$FORCE_BACKEND" == "true" ]]; then
+          if [[ "$force_backend" == "true" ]]; then
             echo "Label preview:backend forces a backend preview."
             echo "backend=true" >> "$GITHUB_OUTPUT"
             exit 0
@@ -328,16 +330,22 @@ jobs:
                 'The site is protected by Cloudflare Access. Use the **Sign in** menu to choose a seeded QA scenario.',
               ];
             } else if (requested && !ok) {
-              backendLines = ['**Backend:** ⚠️ provisioning failed — the frontend is deployed, but sign-in is unavailable. Re-run the workflow to retry.'];
+              backendLines = ['**Backend:** ⚠️ provisioning failed — the frontend is deployed, but sign-in is unavailable. Comment `/preview-backend` again to retry.'];
             } else {
-              backendLines = ['**Backend:** frontend-only preview — sign-in is disabled. Add the `preview:backend` label to provision an isolated Worker + database.'];
+              backendLines = [
+                '**Backend:** frontend-only preview — sign-in is disabled.',
+                '',
+                'Need sign-in and seeded QA data? Comment `/preview-backend` on this PR to provision an isolated Worker + database.',
+              ];
             }
 
             const body = [
               marker,
               '### Preview environment',
               '',
-              `**Site:** ${process.env.PREVIEW_SITE_URL}`,
+              `**Personal site:** ${process.env.PREVIEW_SITE_URL}`,
+              `**Recipes:** ${process.env.PREVIEW_SITE_URL}/recipes`,
+              `**AssetTracker:** ${process.env.PREVIEW_SITE_URL}/assettracker`,
               ...backendLines,
             ].join('\n');
 

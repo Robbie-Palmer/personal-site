@@ -9,7 +9,9 @@ import Link from "next/link";
 import { AuthButton } from "@/components/recipes/auth-button";
 import { RecipeThumb, recipeMetaLabel } from "@/components/recipes/recipe-card";
 import { RecipeList } from "@/components/recipes/recipe-list";
+import { RecipePageLink } from "@/components/recipes/recipe-page-link";
 import type { RecipeCardView } from "@/lib/api/recipes";
+import { recipePageHref } from "@/lib/domain/recipe/recipeDraft";
 
 const steps = [
   {
@@ -98,9 +100,9 @@ export function LoggedOutLanding({
             </div>
             <div className="mt-2 divide-y divide-dashed divide-[var(--line)]">
               {previewRecipes.map((recipe, index) => (
-                <Link
+                <RecipePageLink
                   key={recipe.slug}
-                  href={`/recipes/${recipe.slug}`}
+                  href={recipePageHref(recipe)}
                   className="group flex items-center gap-4 py-4"
                 >
                   <RecipeThumb recipe={recipe} size={72} />
@@ -116,7 +118,7 @@ export function LoggedOutLanding({
                     </p>
                   </div>
                   <ArrowRight className="size-4 shrink-0 text-[var(--ink-3)] transition-transform group-hover:translate-x-1 group-hover:text-[var(--terracotta)]" />
-                </Link>
+                </RecipePageLink>
               ))}
             </div>
             <Link

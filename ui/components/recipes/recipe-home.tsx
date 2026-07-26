@@ -1,33 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { LoggedOutLanding } from "@/components/recipes/logged-out-landing";
 import { RecipeBoxView } from "@/components/recipes/recipe-box-view";
 import { RecipeHomeSkeleton } from "@/components/recipes/recipe-home-skeleton";
-import type { RecipeCardView } from "@/lib/api/recipes";
-import { recipeRecordsToCards } from "@/lib/api/recipes";
-import { fetchAllSavedRecipes } from "@/lib/api/saved-recipes";
+import { RecipeQueryStatus } from "@/components/recipes/recipe-load-state";
 import { authClient } from "@/lib/auth-client";
+import { publicRecipesQuery } from "@/lib/query/recipe-queries";
 
 export function RecipeHome() {
   const { data: session, isPending } = authClient.useSession();
-  const [publicRecipes, setPublicRecipes] = useState<RecipeCardView[] | null>(
-    null,
-  );
-
-  useEffect(() => {
-    if (isPending || session) return;
-    const controller = new AbortController();
-    void fetchAllSavedRecipes({ signal: controller.signal })
-      .then((records) => setPublicRecipes(recipeRecordsToCards(records)))
-      .catch((error: unknown) => {
-        if (!(error instanceof DOMException && error.name === "AbortError")) {
-          console.error("Public recipes could not be loaded", error);
-          setPublicRecipes([]);
-        }
-      });
-    return () => controller.abort();
-  }, [isPending, session]);
+  const publicRecipes = useQuery({
+    ...publicRecipesQuery(),
+    enabled: !isPending && !session,
+  });
 
   useEffect(() => {
     if (isPending) return;
@@ -36,9 +23,27 @@ export function RecipeHome() {
       : "Recipes for real life | Robbie's Recipes";
   }, [isPending, session]);
 
-  if (isPending || (!session && publicRecipes === null)) {
+  if (isPending || (!session && publicRecipes.isPending)) {
     return <RecipeHomeSkeleton />;
   }
   if (session) return <RecipeBoxView />;
-  return <LoggedOutLanding recipes={publicRecipes ?? []} />;
+  const hasPublicRecipes = publicRecipes.data !== undefined;
+  const queryStatus = (
+    <RecipeQueryStatus
+      error={publicRecipes.error}
+      hasData={hasPublicRecipes}
+      isFetching={publicRecipes.isFetching}
+      isStale={publicRecipes.isStale}
+      subject="public recipes"
+    />
+  );
+
+  if (!hasPublicRecipes) return queryStatus;
+
+  return (
+    <>
+      {queryStatus}
+      <LoggedOutLanding recipes={publicRecipes.data} />
+    </>
+  );
 }

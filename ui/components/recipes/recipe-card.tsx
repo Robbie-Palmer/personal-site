@@ -1,11 +1,12 @@
 import { Check, ChefHat, Plus } from "lucide-react";
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { DietWarning } from "@/components/recipes/diet-notice";
+import { RecipePageLink } from "@/components/recipes/recipe-page-link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { DietMatch } from "@/lib/domain/diet";
 import type { KitchenRecipeMatch } from "@/lib/domain/recipe/kitchen";
+import { recipePageHref } from "@/lib/domain/recipe/recipeDraft";
 import { cn } from "@/lib/generic/styles";
 import { getImageUrl } from "@/lib/integrations/cloudflare-images";
 
@@ -124,8 +125,8 @@ export function RecipeMatchCard({
           className="absolute inset-0 cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--ring)]/50"
         />
       ) : (
-        <Link
-          href={recipe.href ?? `/recipes/${recipe.slug}`}
+        <RecipePageLink
+          href={recipe.href ?? recipePageHref(recipe)}
           aria-label={`Open ${recipe.title}`}
           className="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--ring)]/50"
         />

@@ -6,6 +6,7 @@ import { DebtInvestmentChart } from "@/components/blog/how-to-build-wealth/debt-
 import { FinancialIndependenceChart } from "@/components/blog/how-to-build-wealth/financial-independence-chart";
 import { LisaComparisonChart } from "@/components/blog/how-to-build-wealth/lisa-comparison-chart";
 import { PensionReturnsChart } from "@/components/blog/how-to-build-wealth/pension-returns-chart";
+import { ShareButtons } from "@/components/blog/share-buttons";
 import { Markdown } from "@/components/markdown";
 import { Mermaid } from "@/components/mermaid";
 import { Badge } from "@/components/ui/badge";
@@ -118,6 +119,14 @@ export default async function BlogPostPage(props: Readonly<PageProps>) {
                 </Badge>
               </Link>
             ))}
+          </div>
+
+          <div className="sm:ml-auto">
+            <ShareButtons
+              slug={slug}
+              title={post.title}
+              url={`${siteConfig.url}/blog/${slug}`}
+            />
           </div>
         </div>
       </header>

@@ -165,13 +165,10 @@ export type RecipeGridItem = RecipeCardView & {
   saved?: boolean;
 };
 
-export function savedRecipeHref(
-  record: Pick<SavedRecipeApiRecord, "slug" | "visibility">,
+export function recipePageHref(
+  record: Pick<SavedRecipeApiRecord, "slug">,
 ): string {
-  const slug = encodeURIComponent(record.slug);
-  return record.visibility === "public"
-    ? `/recipes/${slug}`
-    : `/recipes/saved?slug=${slug}`;
+  return `/recipes/${encodeURIComponent(record.slug)}`;
 }
 
 export function savedRecipeCard(
@@ -197,7 +194,7 @@ export function savedRecipeCard(
     ...recipe,
     ingredientNames,
     ingredientSlugs,
-    href: savedRecipeHref(record),
+    href: recipePageHref(record),
     saved: true,
   };
 }

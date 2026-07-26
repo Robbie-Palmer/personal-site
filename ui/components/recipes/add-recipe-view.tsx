@@ -1,5 +1,6 @@
 "use client";
 
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   ArrowLeft,
@@ -30,6 +31,7 @@ import {
 } from "@/components/recipes/photo-recipe-import";
 import { RecipeContent } from "@/components/recipes/recipe-content";
 import { RecipeLoadError } from "@/components/recipes/recipe-load-state";
+import { navigateToRecipePage } from "@/components/recipes/recipe-page-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCooklangRecipe } from "@/hooks/use-cooklang-recipe";
@@ -40,11 +42,11 @@ import {
   normalizeRecipeSource,
   parseSavedRecipePayload,
   type SavedRecipeApiRecord,
-  savedRecipeHref,
   serializeSavedRecipe,
 } from "@/lib/domain/recipe/recipeDraft";
 import { recipeSaveReturnPath } from "@/lib/generic/safe-return-path";
 import { normalizeSlug } from "@/lib/generic/slugs";
+import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 const EXAMPLE_RECIPE = `Bring a large #pot{} of salted water to the boil. Add @dried pasta{200%g} and cook for ~{10%minutes}.
 
@@ -65,6 +67,51 @@ type ImportedRecipe = {
   source: string;
   url: string;
 };
+
+async function invalidateSavedRecipeQueries({
+  queryClient,
+  userId,
+  slug,
+  visibility,
+  previousVisibility,
+}: {
+  queryClient: QueryClient;
+  userId: string | null;
+  slug: string;
+  visibility: RecipeVisibility;
+  previousVisibility?: RecipeVisibility;
+}) {
+  if (!userId) return;
+  const invalidations = [
+    queryClient.invalidateQueries({
+      queryKey: recipeQueryKeys.recipeBoxRecipes(userId),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: recipeQueryKeys.savedRecipe(userId, slug),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: recipeQueryKeys.publicRecipes(),
+    }),
+  ];
+  if (visibility === "public" || previousVisibility === "public") {
+    invalidations.push(
+      queryClient.invalidateQueries({
+        queryKey: recipeQueryKeys.publicDiscoverFeed(),
+      }),
+    );
+  }
+  if (
+    visibility !== "private" ||
+    (previousVisibility !== undefined && previousVisibility !== "private")
+  ) {
+    invalidations.push(
+      queryClient.invalidateQueries({
+        queryKey: recipeQueryKeys.householdDiscoverFeed(userId),
+      }),
+    );
+  }
+  await Promise.all(invalidations);
+}
 
 function RecipeEditorGate({
   unreadable,
@@ -165,6 +212,7 @@ export function AddRecipeView({
   const router = useRouter();
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const sessionUserId = session?.user.id;
+  const queryClient = useQueryClient();
   const [method, setMethod] = useState<AddMethod>("write");
   const [recipeUrl, setRecipeUrl] = useState("");
   const [importing, setImporting] = useState(false);
@@ -397,8 +445,15 @@ export function AddRecipeView({
         );
       }
       const saved = (await response.json()) as { slug: string };
+      await invalidateSavedRecipeQueries({
+        queryClient,
+        userId: sessionUserId ?? null,
+        slug: initialRecipe?.slug ?? saved.slug,
+        visibility,
+        previousVisibility: initialRecipe?.visibility,
+      });
       if (initialRecipe) {
-        router.push(savedRecipeHref({ slug: saved.slug, visibility }));
+        navigateToRecipePage(saved);
         return;
       }
       const returnTo = new URLSearchParams(window.location.search).get(
@@ -409,9 +464,11 @@ export function AddRecipeView({
         saved.slug,
         window.location.origin,
       );
-      router.push(
-        safeReturnTo ?? `/recipes/saved?slug=${encodeURIComponent(saved.slug)}`,
-      );
+      if (safeReturnTo) {
+        router.push(safeReturnTo);
+      } else {
+        navigateToRecipePage(saved);
+      }
     } catch (error) {
       setSaveError(
         error instanceof Error
