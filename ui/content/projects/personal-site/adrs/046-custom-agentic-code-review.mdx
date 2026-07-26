@@ -14,6 +14,14 @@ Actions architecture consumes too many repeated input tokens. ADR 056 retains
 the scorecard and model agility while moving orchestration and PR memory to
 Cloudflare Workers.
 
+While the Actions implementation remains in service during that migration, its
+paid OpenRouter scouts have been replaced by the free models advertised by
+OpenCode Zen. OpenRouter remains the paid reconciliation layer. Scout
+availability is discovered at run time, individual free-model failures degrade
+coverage rather than failing the review, and a total scout outage publishes an
+explicit no-coverage result, skips the stable review check, and does not invoke
+the paid merger.
+
 # Context
 
 [ADR 009: CodeRabbit](/projects/personal-site/adrs/009-code-rabbit) records why this project uses automated review. [ADR 041: Gemini Code Assist](/projects/personal-site/adrs/041-gemini-code-assist), [ADR 042: Greptile](/projects/personal-site/adrs/042-greptile), [ADR 044: Codex Code Review](/projects/personal-site/adrs/044-codex-code-review), and [ADR 045: Qodo](/projects/personal-site/adrs/045-qodo) record the successive attempts to maintain diverse review coverage. This ADR does not repeat that rationale.

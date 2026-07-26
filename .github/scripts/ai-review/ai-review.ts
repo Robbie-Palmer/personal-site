@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 type JsonObject = Record<string, unknown>;
 type Severity = "critical" | "high" | "medium" | "low";
 type FindingStatus = "open" | "resolved";
+type WorkflowStatus = "success" | "credits" | "no_coverage" | "failure";
 
 export interface Finding {
   severity: Severity;
@@ -25,6 +26,7 @@ interface MergedFinding extends Finding {
 interface Settings {
   githubToken: string;
   openRouterKey: string;
+  openCodeKey?: string;
   repository: string;
   prNumber: number;
   scouts: string[];
@@ -52,13 +54,6 @@ interface ModelResult {
   cost: number;
 }
 
-interface ReasoningSettings {
-  enabled: boolean;
-  // OpenRouter's unified reasoning API supports excluding reasoning text while
-  // still controlling whether the model reasons internally.
-  exclude: boolean;
-}
-
 interface ModelStats {
   runs: number;
   candidates: number;
@@ -78,11 +73,16 @@ interface ReviewState {
 const MARKER = "<!-- ai-code-review -->";
 const COST_PATTERN = /<!-- ai-review-cost:(\{[^\n]*\}) -->/;
 const BOT_LOGINS = new Set(["github-actions[bot]"]);
-const DEFAULT_SCOUTS = [
-  "moonshotai/kimi-k2.6",
-  "deepseek/deepseek-v4-pro",
+const KNOWN_FREE_SCOUTS = [
+  "big-pickle",
+  "deepseek-v4-flash-free",
+  "mimo-v2.5-free",
+  "laguna-s-2.1-free",
+  "ling-3.0-flash-free",
+  "north-mini-code-free",
+  "nemotron-3-ultra-free",
 ];
-const REASONING_DISABLED_MODELS = new Set(["moonshotai/kimi-k2.6"]);
+const FREE_SCOUT_EXCEPTIONS = new Set(["big-pickle"]);
 const DEFAULT_MERGER = "anthropic/claude-sonnet-4.6";
 const DEFAULT_IGNORED_AUTHORS = ["renovate[bot]", "dependabot[bot]"];
 const IGNORED_FILENAMES = new Set([
@@ -156,6 +156,8 @@ const MERGED_FINDINGS_LIMIT = 100;
 // and DeepSeek have exhausted a 4,000-token budget before emitting final JSON.
 const SCOUT_MAX_TOKENS = 8_000;
 const MERGER_MAX_TOKENS = 6_000;
+const SCOUT_CONCURRENCY = 3;
+const MAX_SCOUTS = 12;
 const HTTP_TIMEOUT_MS = 300_000;
 const RETRIES = 3;
 
@@ -243,17 +245,24 @@ function csv(value: string | undefined, fallback: string[]): string[] {
     ?.split(",")
     .map((item) => item.trim())
     .filter(Boolean);
-  return values?.length ? values : fallback;
+  return values?.length ? [...new Set(values)] : fallback;
 }
 
 function settingsFromEnv(): Settings {
-  const scouts = csv(process.env.AI_REVIEW_MODELS, DEFAULT_SCOUTS);
-  if (scouts.length < 1 || scouts.length > 6) {
-    throw new Error("AI_REVIEW_MODELS must contain between one and six model IDs");
+  const scouts = csv(process.env.AI_REVIEW_OPENCODE_MODELS, []);
+  if (scouts.length > MAX_SCOUTS) {
+    throw new Error(`AI_REVIEW_OPENCODE_MODELS must contain at most ${MAX_SCOUTS} model IDs`);
+  }
+  const paidScouts = scouts.filter((model) => !isFreeScoutModelId(model));
+  if (paidScouts.length) {
+    throw new Error(
+      `AI_REVIEW_OPENCODE_MODELS only accepts free OpenCode model IDs; rejected: ${paidScouts.join(", ")}`,
+    );
   }
   return {
     githubToken: env("GITHUB_TOKEN"),
     openRouterKey: env("OPENROUTER_API_KEY"),
+    openCodeKey: process.env.OPENCODE_API_KEY?.trim() || undefined,
     repository: env("GITHUB_REPOSITORY"),
     prNumber: Number.parseInt(env("PR_NUMBER"), 10),
     scouts,
@@ -263,6 +272,24 @@ function settingsFromEnv(): Settings {
     ),
     requireZdr: ["1", "true", "yes", "on"].includes(process.env.AI_REVIEW_ZDR?.trim().toLowerCase() ?? ""),
   };
+}
+
+function isFreeScoutModelId(model: string): boolean {
+  return model.endsWith("-free") || FREE_SCOUT_EXCEPTIONS.has(model);
+}
+
+export function selectFreeScoutModels(payload: unknown): string[] {
+  if (!isObject(payload) || !Array.isArray(payload.data)) {
+    throw new Error("OpenCode model catalogue has no data array");
+  }
+  return [
+    ...new Set(
+      payload.data
+        .filter(isObject)
+        .map((model) => String(model.id ?? ""))
+        .filter(isFreeScoutModelId),
+    ),
+  ].slice(0, MAX_SCOUTS);
 }
 
 function sleep(milliseconds: number): Promise<void> {
@@ -279,18 +306,30 @@ export function isCreditExhaustion(error: unknown): boolean {
   );
 }
 
-function setWorkflowStatus(status: "success" | "credits" | "failure"): void {
+function setWorkflowStatus(status: WorkflowStatus): void {
   const output = process.env.GITHUB_OUTPUT;
   if (output) appendFileSync(output, `status=${status}\n`, "utf8");
+}
+
+export function workflowStatusForCoverage(successfulScouts: number): "success" | "no_coverage" {
+  return successfulScouts > 0 ? "success" : "no_coverage";
 }
 
 class JsonClient {
   private readonly baseUrl: string;
   private readonly headers: Record<string, string>;
+  private readonly timeoutMs: number;
+  private readonly retries: number;
 
-  constructor(baseUrl: string, headers: Record<string, string>) {
+  constructor(
+    baseUrl: string,
+    headers: Record<string, string>,
+    options: { timeoutMs?: number; retries?: number } = {},
+  ) {
     this.baseUrl = baseUrl;
     this.headers = headers;
+    this.timeoutMs = options.timeoutMs ?? HTTP_TIMEOUT_MS;
+    this.retries = options.retries ?? RETRIES;
   }
 
   async request<T>(
@@ -301,13 +340,13 @@ class JsonClient {
     const url = new URL(`${this.baseUrl.replace(/\/$/, "")}${path}`);
     for (const [key, value] of Object.entries(options.query ?? {})) url.searchParams.set(key, String(value));
     let lastError: Error | undefined;
-    for (let attempt = 0; attempt < RETRIES; attempt += 1) {
+    for (let attempt = 0; attempt < this.retries; attempt += 1) {
       try {
         const response = await fetch(url, {
           method,
           headers: { ...this.headers, ...(options.accept ? { Accept: options.accept } : {}) },
           body: options.body === undefined ? undefined : JSON.stringify(options.body),
-          signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
+          signal: AbortSignal.timeout(this.timeoutMs),
         });
         if (response.ok) {
           const raw = await response.text();
@@ -315,7 +354,7 @@ class JsonClient {
         }
         const detail = (await response.text()).slice(0, 1_000);
         const retryable = [408, 409, 429, 500, 502, 503, 504].includes(response.status);
-        if (!retryable || attempt === RETRIES - 1) {
+        if (!retryable || attempt === this.retries - 1) {
           throw new Error(`${method} ${path} failed (${response.status}): ${detail}`);
         }
         const retryAfter = Number.parseInt(response.headers.get("retry-after") ?? "", 10);
@@ -323,7 +362,7 @@ class JsonClient {
         await sleep(Math.min(delay + Math.random() * 1_000, 15_000));
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        if (attempt === RETRIES - 1 || /failed \(4\d\d\)/.test(lastError.message)) throw lastError;
+        if (attempt === this.retries - 1 || /failed \(4\d\d\)/.test(lastError.message)) throw lastError;
         await sleep(2 ** attempt * 1_000 + Math.random() * 1_000);
       }
     }
@@ -420,6 +459,7 @@ export function validateFindings(
 
 class Reviewer {
   private readonly github: JsonClient;
+  private readonly openCode: JsonClient;
   private readonly openRouter: JsonClient;
   private readonly settings: Settings;
 
@@ -432,6 +472,14 @@ class Reviewer {
       Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",
     });
+    this.openCode = new JsonClient(
+      "https://opencode.ai/zen/v1",
+      {
+        ...common,
+        ...(settings.openCodeKey ? { Authorization: `Bearer ${settings.openCodeKey}` } : {}),
+      },
+      { timeoutMs: 120_000, retries: 2 },
+    );
     this.openRouter = new JsonClient("https://openrouter.ai/api/v1", {
       ...common,
       Authorization: `Bearer ${settings.openRouterKey}`,
@@ -537,14 +585,59 @@ class Reviewer {
     return "";
   }
 
-  async callModel(
+  async scoutModels(): Promise<{ models: string[]; unavailable: string[] }> {
+    try {
+      const available = selectFreeScoutModels(await this.openCode.request<JsonObject>("GET", "/models"));
+      if (!this.settings.scouts.length) {
+        if (!available.length) throw new Error("OpenCode currently advertises no free scout models");
+        return { models: available, unavailable: [] };
+      }
+      const availableSet = new Set(available);
+      return {
+        models: this.settings.scouts.filter((model) => availableSet.has(model)),
+        unavailable: this.settings.scouts.filter((model) => !availableSet.has(model)),
+      };
+    } catch (error) {
+      console.error(`::warning::Could not refresh OpenCode free models; using configured fallback: ${String(error)}`);
+      return {
+        models: this.settings.scouts.length ? this.settings.scouts : KNOWN_FREE_SCOUTS,
+        unavailable: [],
+      };
+    }
+  }
+
+  async callScout(model: string, system: string, user: string): Promise<ModelResult> {
+    const response = await this.openCode.request<JsonObject>("POST", "/chat/completions", {
+      body: {
+        model,
+        temperature: 0,
+        max_tokens: SCOUT_MAX_TOKENS,
+        messages: [
+          {
+            role: "system",
+            content: `${system}\n\nOUTPUT JSON SCHEMA:\n${JSON.stringify(scoutSchema)}`,
+          },
+          { role: "user", content: user },
+        ],
+      },
+    });
+    const choices = response.choices;
+    if (!Array.isArray(choices) || !isObject(choices[0])) throw new Error(`Invalid response from ${model}`);
+    const choice = choices[0];
+    const usage = isObject(response.usage) ? response.usage : {};
+    return {
+      payload: parseModelPayload(completionContent(choice, model)),
+      cost: finiteNumber(response.cost ?? usage.cost),
+    };
+  }
+
+  async callMerger(
     model: string,
     system: string,
     user: string,
     schemaName: string,
     schema: JsonObject,
     maxTokens: number,
-    reasoning?: ReasoningSettings,
   ): Promise<ModelResult> {
     const provider: JsonObject = { require_parameters: true };
     if (this.settings.requireZdr) Object.assign(provider, { zdr: true, data_collection: "deny" });
@@ -554,7 +647,6 @@ class Reviewer {
         temperature: 0,
         max_tokens: maxTokens,
         provider,
-        ...(reasoning ? { reasoning } : {}),
         response_format: { type: "json_schema", json_schema: { name: schemaName, strict: true, schema } },
         messages: [
           { role: "system", content: system },
@@ -722,7 +814,13 @@ export function renderComment(options: {
     markdownText(options.result.summary, 1_000) || "Review complete.",
     "",
   ];
-  if (!open.length) lines.push("No open findings reported.", "");
+  if (!open.length) {
+    const message =
+      options.failed.length === options.models.length
+        ? "No findings were evaluated because every scout failed."
+        : "No open findings reported.";
+    lines.push(message, "");
+  }
   for (const finding of open) {
     const location = `${markdownText(finding.file, 500)}${finding.line && finding.line > 0 ? `:${finding.line}` : ""}`;
     lines.push(
@@ -790,19 +888,19 @@ export function renderComment(options: {
   return lines.join("\n");
 }
 
-async function main(): Promise<void> {
+async function main(): Promise<"success" | "no_coverage"> {
   const settings = settingsFromEnv();
   if (!Number.isInteger(settings.prNumber) || settings.prNumber < 1) throw new Error("PR_NUMBER must be positive");
   const reviewer = new Reviewer(settings);
   const pr = await reviewer.getPr();
   if (pr.state !== "open") {
     console.log(`Skipping PR #${settings.prNumber} because it is ${pr.state}`);
-    return;
+    return "success";
   }
   const author = pr.user.login.toLowerCase();
   if (settings.ignoredAuthors.includes(author)) {
     console.log(`Skipping PR #${settings.prNumber} from ignored author ${author}`);
-    return;
+    return "success";
   }
   const initialHead = pr.head.sha;
   const { diff, paths, omitted } = await reviewer.changedFiles();
@@ -813,43 +911,39 @@ async function main(): Promise<void> {
       existing.id,
       `${MARKER}\n<!-- ai-review-cost:${state} -->\n## AI code review\n\nNo reviewable text changes found.`,
     );
-    return;
+    return "success";
   }
 
   const source = dataPrompt(diff, await reviewer.fileContext(paths, initialHead), await reviewer.guidelines());
-  const settled = await Promise.allSettled(
-    settings.scouts.map(async (model) => ({
-      model,
-      result: await reviewer.callModel(
-        model,
-        scoutSystem,
-        source,
-        "code_review_findings",
-        scoutSchema,
-        SCOUT_MAX_TOKENS,
-        REASONING_DISABLED_MODELS.has(model) ? { enabled: false, exclude: true } : undefined,
-      ),
-    })),
-  );
+  const availability = await reviewer.scoutModels();
+  const scouts = [...availability.models, ...availability.unavailable];
+  const settled: Array<{ model: string; outcome: PromiseSettledResult<ModelResult> }> = [];
+  for (let offset = 0; offset < availability.models.length; offset += SCOUT_CONCURRENCY) {
+    const batch = availability.models.slice(offset, offset + SCOUT_CONCURRENCY);
+    const outcomes = await Promise.allSettled(
+      batch.map((model) => reviewer.callScout(model, scoutSystem, source)),
+    );
+    batch.forEach((model, index) => settled.push({ model, outcome: outcomes[index] }));
+  }
   const candidates: Record<string, Finding[]> = {};
   const costs: Record<string, number> = {};
   const invalidCounts: Record<string, number> = {};
   const outOfScopeCounts: Record<string, number> = {};
   const candidateCounts: Record<string, number> = {};
-  const failed: string[] = [];
-  const creditFailures: string[] = [];
+  const failed = [...availability.unavailable];
+  for (const model of availability.unavailable) {
+    console.error(`::warning::Scout ${model} is no longer present in the OpenCode free-model catalogue`);
+  }
   const allowedFiles = new Set(paths);
-  settled.forEach((outcome, index) => {
-    const model = settings.scouts[index];
+  settled.forEach(({ model, outcome }) => {
     if (outcome.status === "rejected") {
       failed.push(model);
-      if (isCreditExhaustion(outcome.reason)) creditFailures.push(model);
       console.error(`::warning::Scout ${model} failed: ${String(outcome.reason)}`);
       return;
     }
-    costs[model] = outcome.value.result.cost;
+    costs[model] = outcome.value.cost;
     try {
-      const raw = outcome.value.result.payload;
+      const raw = outcome.value.payload;
       const structurallyValid = validateFindings(raw, { merged: false }) as Finding[];
       const accepted = structurallyValid.filter((finding) => allowedFiles.has(finding.file));
       const rawCount = isObject(raw) && Array.isArray(raw.findings) ? raw.findings.length : 0;
@@ -865,31 +959,36 @@ async function main(): Promise<void> {
       console.error(`::warning::Scout ${model} returned invalid payload: ${String(error)}`);
     }
   });
-  if (!Object.keys(candidates).length) {
-    if (creditFailures.length === settings.scouts.length) {
-      throw new Error("OpenRouter credits exhausted for all scout models");
-    }
-    throw new Error("All scout models failed; refusing to publish an empty review");
-  }
 
-  const threads = await reviewer.reviewThreadContext();
-  const mergerPrompt = `<DATA kind=scout-candidates>\n${JSON.stringify(candidates)}\n</DATA>
+  let merged: ModelResult;
+  if (Object.keys(candidates).length) {
+    const threads = await reviewer.reviewThreadContext();
+    const mergerPrompt = `<DATA kind=scout-candidates>\n${JSON.stringify(candidates)}\n</DATA>
 <DATA kind=github-review-threads>\n${threads}\n</DATA>`;
-  const merged = await reviewer.callModel(
-    settings.merger,
-    mergerSystem,
-    mergerPrompt,
-    "merged_code_review",
-    mergerSchema,
-    MERGER_MAX_TOKENS,
-  );
+    merged = await reviewer.callMerger(
+      settings.merger,
+      mergerSystem,
+      mergerPrompt,
+      "merged_code_review",
+      mergerSchema,
+      MERGER_MAX_TOKENS,
+    );
+  } else {
+    merged = {
+      payload: {
+        summary: "All OpenCode scouts failed or were unavailable, so this run has no review coverage.",
+        findings: [],
+      },
+      cost: 0,
+    };
+  }
   merged.payload.findings = (validateFindings(merged.payload, {
     merged: true,
     allowedFiles,
   }) as MergedFinding[])
     .map((finding) => ({
       ...finding,
-      source_models: [...new Set(finding.source_models.filter((model) => settings.scouts.includes(model)))],
+      source_models: [...new Set(finding.source_models.filter((model) => scouts.includes(model)))],
     }))
     .filter((finding) => finding.source_models.length > 0);
 
@@ -903,7 +1002,7 @@ async function main(): Promise<void> {
     renderComment({
       result: merged.payload,
       headSha: initialHead,
-      models: settings.scouts,
+      models: scouts,
       merger: settings.merger,
       failed,
       candidateCounts,
@@ -917,12 +1016,13 @@ async function main(): Promise<void> {
     }),
   );
   console.log(`Reviewed PR #${settings.prNumber} at ${initialHead.slice(0, 12)}; cost $${runCost.toFixed(4)}`);
+  return workflowStatusForCoverage(Object.keys(candidates).length);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main()
-    .then(() => {
-      setWorkflowStatus("success");
+    .then((status) => {
+      setWorkflowStatus(status);
     })
     .catch((error) => {
       if (isCreditExhaustion(error)) {

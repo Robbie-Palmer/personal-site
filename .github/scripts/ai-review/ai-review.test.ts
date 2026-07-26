@@ -8,7 +8,9 @@ import {
   markdownText,
   parseModelPayload,
   renderComment,
+  selectFreeScoutModels,
   validateFindings,
+  workflowStatusForCoverage,
 } from "./ai-review.ts";
 
 const finding = {
@@ -86,6 +88,26 @@ test("credit exhaustion only matches payment and key-limit failures", () => {
   assert.equal(isCreditExhaustion(new Error("All scout models failed")), false);
 });
 
+test("free OpenCode model discovery includes free suffixes and the stealth exception", () => {
+  assert.deepEqual(
+    selectFreeScoutModels({
+      data: [
+        { id: "paid-model" },
+        { id: "deepseek-v4-flash-free" },
+        { id: "big-pickle" },
+        { id: "deepseek-v4-flash-free" },
+      ],
+    }),
+    ["deepseek-v4-flash-free", "big-pickle"],
+  );
+  assert.throws(() => selectFreeScoutModels({ models: [] }), /no data array/);
+});
+
+test("workflow skips its stable check when no scout provides coverage", () => {
+  assert.equal(workflowStatusForCoverage(0), "no_coverage");
+  assert.equal(workflowStatusForCoverage(1), "success");
+});
+
 test("model payload accepts a single JSON fence but rejects prose", () => {
   assert.deepEqual(parseModelPayload('```json\n{"findings":[]}\n```'), { findings: [] });
   assert.deepEqual(parseModelPayload('```json\n{"findings":[]}```'), { findings: [] });
@@ -153,4 +175,24 @@ test("historical scorecard schema drift cannot produce NaN", () => {
     },
   });
   assert.doesNotMatch(body, /NaN/);
+});
+
+test("rendered comment makes total scout failure explicit", () => {
+  const body = renderComment({
+    result: { summary: "No coverage", findings: [] },
+    headSha: "a".repeat(40),
+    models: ["free-a", "free-b"],
+    merger: "paid-merger",
+    failed: ["free-a", "free-b"],
+    candidateCounts: {},
+    invalidCounts: {},
+    outOfScopeCounts: {},
+    modelCosts: {},
+    mergerCost: 0,
+    omitted: [],
+    runCost: 0,
+    previousState: { runs: 0, total_usd: 0 },
+  });
+  assert.match(body, /No findings were evaluated because every scout failed/);
+  assert.doesNotMatch(body, /No open findings reported/);
 });
