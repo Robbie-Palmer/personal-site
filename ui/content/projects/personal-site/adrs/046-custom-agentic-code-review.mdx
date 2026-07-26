@@ -14,6 +14,17 @@ Actions architecture consumes too many repeated input tokens. ADR 056 retains
 the scorecard and model agility while moving orchestration and PR memory to
 Cloudflare Workers.
 
+While the Actions implementation remains in service during that migration, it
+uses Kimi K2.6 and DeepSeek V4 Pro as paid OpenRouter anchor scouts alongside
+the retained free models advertised by OpenCode Zen. OpenRouter remains the
+paid reconciliation layer. Free-scout availability is discovered at run time,
+individual model failures degrade coverage rather than failing the review, and
+a total scout outage publishes an explicit no-coverage result, skips the stable
+review check, and does not invoke the paid merger. The retained scouts run
+concurrently; unreliable free models are excluded rather than reducing their
+reasoning quality. Retained free scouts submit real candidates to reconciliation
+so their downstream outcomes can feed the planned review data lake.
+
 # Context
 
 [ADR 009: CodeRabbit](/projects/personal-site/adrs/009-code-rabbit) records why this project uses automated review. [ADR 041: Gemini Code Assist](/projects/personal-site/adrs/041-gemini-code-assist), [ADR 042: Greptile](/projects/personal-site/adrs/042-greptile), [ADR 044: Codex Code Review](/projects/personal-site/adrs/044-codex-code-review), and [ADR 045: Qodo](/projects/personal-site/adrs/045-qodo) record the successive attempts to maintain diverse review coverage. This ADR does not repeat that rationale.
@@ -37,9 +48,9 @@ This challenges the normal preference to buy rather than build. A focused vendor
 
 I propose evaluating the repository's custom **OpenRouter-based multi-model Pull Request reviewer** as a complement to the existing services.
 
-The current implementation sends each eligible diff to two configurable scout models. The scouts independently return structured findings covering correctness, security, reliability, data loss, concurrency, and material performance. A separate merger model deduplicates findings and reconciles them with resolved GitHub review threads without judging whether a finding is correct.
+The current implementation sends each eligible diff to four scout models by default: two paid OpenRouter anchors and two free OpenCode Zen supplements. The scouts independently return structured findings covering correctness, security, reliability, data loss, concurrency, and material performance. A separate merger model deduplicates findings and reconciles them with resolved GitHub review threads without judging whether a finding is correct.
 
-The scout configuration retains Kimi K2.6 and DeepSeek V4 Pro as the models validated to provide useful review coverage at good value. These exact models are configuration rather than architecture: they should be replaced as stronger or more cost-effective models become available, and OpenRouter fallbacks can preserve a review run when a preferred model or provider is unavailable. A closed-weight merger may be used where it improves reliable orchestration because foundation-model purity is not the objective; useful, diverse, economical review is.
+The scout configuration retains Kimi K2.6 and DeepSeek V4 Pro as the models validated to provide useful review coverage at good value, with Big Pickle and Nemotron 3 Ultra Free adding breadth while their real-world performance is measured. These exact models are configuration rather than architecture: they should be replaced as stronger or more cost-effective models become available, and OpenRouter fallbacks can preserve a review run when a preferred model or provider is unavailable. A closed-weight merger may be used where it improves reliable orchestration because foundation-model purity is not the objective; useful, diverse, economical review is.
 
 The workflow records findings retained from each model, invalid and out-of-scope responses, failures, and cumulative cost. This scorecard makes model selection empirical rather than reputational and creates a continuing evaluation of frontier open-weight models that can inform other projects.
 

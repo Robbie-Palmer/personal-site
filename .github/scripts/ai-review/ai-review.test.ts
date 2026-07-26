@@ -3,12 +3,15 @@ import test from "node:test";
 
 import {
   completionContent,
+  duplicateScoutModels,
   ignored,
   isCreditExhaustion,
   markdownText,
   parseModelPayload,
   renderComment,
+  selectFreeScoutModels,
   validateFindings,
+  workflowStatusForCoverage,
 } from "./ai-review.ts";
 
 const finding = {
@@ -86,6 +89,40 @@ test("credit exhaustion only matches payment and key-limit failures", () => {
   assert.equal(isCreditExhaustion(new Error("All scout models failed")), false);
 });
 
+test("OpenCode model discovery keeps live supplementary scouts and excludes failed ones", () => {
+  assert.deepEqual(
+    selectFreeScoutModels({
+      data: [
+        { id: "paid-model" },
+        { id: "deepseek-v4-flash-free" },
+        { id: "big-pickle" },
+        { id: "deepseek-v4-flash-free" },
+        { id: "mimo-v2.5-free" },
+        { id: "nemotron-3-ultra-free" },
+        { id: "laguna-s-2.1-free" },
+        { id: "ling-3.0-flash-free" },
+        { id: "north-mini-code-free" },
+      ],
+    }),
+    ["big-pickle", "nemotron-3-ultra-free"],
+  );
+  assert.deepEqual(selectFreeScoutModels({ data: [] }), []);
+  assert.throws(() => selectFreeScoutModels({ models: [] }), /no data array/);
+});
+
+test("duplicate scout model IDs are detected across providers", () => {
+  assert.deepEqual(
+    duplicateScoutModels(["provider/model-a", "big-pickle"], ["big-pickle", "free-model"]),
+    ["big-pickle"],
+  );
+  assert.deepEqual(duplicateScoutModels(["provider/model-a"], ["free-model"]), []);
+});
+
+test("workflow skips its stable check when no scout provides coverage", () => {
+  assert.equal(workflowStatusForCoverage(0), "no_coverage");
+  assert.equal(workflowStatusForCoverage(1), "success");
+});
+
 test("model payload accepts a single JSON fence but rejects prose", () => {
   assert.deepEqual(parseModelPayload('```json\n{"findings":[]}\n```'), { findings: [] });
   assert.deepEqual(parseModelPayload('```json\n{"findings":[]}```'), { findings: [] });
@@ -153,4 +190,24 @@ test("historical scorecard schema drift cannot produce NaN", () => {
     },
   });
   assert.doesNotMatch(body, /NaN/);
+});
+
+test("rendered comment makes total scout failure explicit", () => {
+  const body = renderComment({
+    result: { summary: "No coverage", findings: [] },
+    headSha: "a".repeat(40),
+    models: ["free-a", "free-b"],
+    merger: "paid-merger",
+    failed: ["free-a", "free-b"],
+    candidateCounts: {},
+    invalidCounts: {},
+    outOfScopeCounts: {},
+    modelCosts: {},
+    mergerCost: 0,
+    omitted: [],
+    runCost: 0,
+    previousState: { runs: 0, total_usd: 0 },
+  });
+  assert.match(body, /No findings were evaluated because every scout failed/);
+  assert.doesNotMatch(body, /No open findings reported/);
 });

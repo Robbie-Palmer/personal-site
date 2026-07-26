@@ -66,9 +66,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}
           AI_REVIEW_MODELS: ${{ vars.AI_REVIEW_MODELS }}
+          AI_REVIEW_OPENCODE_MODELS: ${{ vars.AI_REVIEW_OPENCODE_MODELS }}
           AI_REVIEW_MERGER_MODEL: ${{ vars.AI_REVIEW_MERGER_MODEL }}
           AI_REVIEW_IGNORED_AUTHORS: ${{ vars.AI_REVIEW_IGNORED_AUTHORS }}
           AI_REVIEW_ZDR: ${{ vars.AI_REVIEW_ZDR }}
@@ -76,13 +78,15 @@ jobs:
 
   # A job can only receive GitHub's "skipped" conclusion when its job-level
   # condition is false. Keep this lightweight sentinel as the stable PR check:
-  # exhausted credits skip it, while genuine execution failures still fail it.
+  # exhausted credits or absent scout coverage skip it, while genuine execution
+  # failures still fail it.
   review:
     needs: run-review
     if: >
       always()
       && needs.run-review.result != 'skipped'
       && needs.run-review.outputs.status != 'credits'
+      && needs.run-review.outputs.status != 'no_coverage'
     runs-on: ubuntu-latest
     steps:
       - name: Report review result
