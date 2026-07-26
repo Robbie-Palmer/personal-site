@@ -324,6 +324,11 @@ export function selectFreeScoutModels(payload: unknown): string[] {
   ].slice(0, MAX_OPENCODE_SCOUTS);
 }
 
+export function duplicateScoutModels(openRouterModels: string[], openCodeModels: string[]): string[] {
+  const openCodeSet = new Set(openCodeModels);
+  return openRouterModels.filter((model) => openCodeSet.has(model));
+}
+
 function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
@@ -986,6 +991,15 @@ async function main(): Promise<"success" | "no_coverage"> {
 
   const source = dataPrompt(diff, await reviewer.fileContext(paths, initialHead), await reviewer.guidelines());
   const availability = await reviewer.openCodeScoutModels();
+  const duplicateModels = duplicateScoutModels(
+    settings.openRouterScouts,
+    [...availability.models, ...availability.unavailable],
+  );
+  if (duplicateModels.length) {
+    throw new Error(
+      `Scout model IDs must be unique across OpenRouter and OpenCode; duplicates: ${duplicateModels.join(", ")}`,
+    );
+  }
   const runnableScouts: Scout[] = [
     ...settings.openRouterScouts.map((model): Scout => ({ model, provider: "openrouter" })),
     ...availability.models.map((model): Scout => ({ model, provider: "opencode" })),

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   completionContent,
+  duplicateScoutModels,
   ignored,
   isCreditExhaustion,
   markdownText,
@@ -106,6 +107,14 @@ test("OpenCode model discovery keeps live supplementary scouts and excludes fail
     ["big-pickle", "nemotron-3-ultra-free"],
   );
   assert.throws(() => selectFreeScoutModels({ models: [] }), /no data array/);
+});
+
+test("duplicate scout model IDs are detected across providers", () => {
+  assert.deepEqual(
+    duplicateScoutModels(["provider/model-a", "big-pickle"], ["big-pickle", "free-model"]),
+    ["big-pickle"],
+  );
+  assert.deepEqual(duplicateScoutModels(["provider/model-a"], ["free-model"]), []);
 });
 
 test("workflow skips its stable check when no scout provides coverage", () => {
