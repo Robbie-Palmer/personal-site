@@ -30,6 +30,7 @@ import {
   disambiguateIngredients,
   extractRecipeFromImages,
   normalizeExtractionToCooklang,
+  type DisambiguationChoice,
 } from "recipe-parsing/openrouter";
 import type { ExtractionRecipe } from "recipe-parsing/schemas/ground-truth";
 import type { CooklangRecipe } from "recipe-parsing/schemas/stage-artifacts";
@@ -51,20 +52,15 @@ export type IngestParams = {
   jobId: string;
 };
 
-function llmStepConfig(
-  params: StageParams,
-  providerCalls = 1,
-): WorkflowStepConfig {
+function llmStepConfig(params: StageParams): WorkflowStepConfig {
   return {
     retries: {
       limit: params.retryLimit,
       delay: 1_000,
       backoff: "exponential",
     },
-    // Per-attempt ceiling: R2 reads + the step's provider calls + attempt
-    // bookkeeping. A step that makes its calls in sequence needs the timeout
-    // to cover all of them, not just the first.
-    timeout: params.requestTimeoutMs * providerCalls + 60_000,
+    // Per-attempt ceiling: R2 reads + one provider call + attempt bookkeeping.
+    timeout: params.requestTimeoutMs + 60_000,
   };
 }
 
@@ -224,11 +220,10 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
       });
 
       const canonicalizeParams = stageParams(env, "canonicalize");
-      const canonical = await step.do(
+
+      const { entry, decisions, cookwareDecisions } = await step.do(
         "canonicalize",
-        // Ingredients and equipment are disambiguated in sequence.
-        llmStepConfig(canonicalizeParams, 2),
-        async (ctx) => {
+        async () => {
           const recipe = cooklang.derived;
           if (!recipe) {
             throw new NonRetryableError(
@@ -244,96 +239,115 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
             canonicalEquipment.equipment,
             "equipment",
           );
-          const { entry, decisions, cookwareDecisions } =
-            canonicalizePredictionEntry(
-              { images: sourceKeys, predicted: recipe },
-              {
-                ingredients: ingredientOntology,
-                ingredientIndex: buildOntologyIndex(ingredientOntology),
-                equipment: equipmentOntology,
-                equipmentIndex: buildOntologyIndex(equipmentOntology),
-              },
-            );
-
-          const unresolvedIngredients = collectUnresolved(
-            decisions,
-            buildCategoryMap(canonicalIngredients.ingredients),
+          return canonicalizePredictionEntry(
+            { images: sourceKeys, predicted: recipe },
+            {
+              ingredients: ingredientOntology,
+              ingredientIndex: buildOntologyIndex(ingredientOntology),
+              equipment: equipmentOntology,
+              equipmentIndex: buildOntologyIndex(equipmentOntology),
+            },
           );
-          const unresolvedEquipment = collectUnresolved(
-            cookwareDecisions,
-            buildCategoryMap(canonicalEquipment.equipment),
-          );
-          if (unresolvedIngredients.length > 0 || unresolvedEquipment.length > 0) {
-            try {
-              if (unresolvedIngredients.length > 0) {
-                const choices = await runLlmCall({
-                  env,
-                  jobId,
-                  stage: "canonicalize",
-                  model: canonicalizeParams.model,
-                  call: () =>
-                    disambiguateIngredients({
-                      apiKey: env.OPENROUTER_API_KEY,
-                      unresolvedItems: unresolvedIngredients,
-                      recipeContext: extractRecipeContext(entry, decisions),
-                      model: canonicalizeParams.model,
-                      requestTimeoutMs: canonicalizeParams.requestTimeoutMs,
-                    }),
-                });
-                applyDisambiguationChoices(
-                  decisions,
-                  unresolvedIngredients,
-                  choices,
-                );
-              }
-              if (unresolvedEquipment.length > 0) {
-                const choices = await runLlmCall({
-                  env,
-                  jobId,
-                  stage: "canonicalize",
-                  model: canonicalizeParams.model,
-                  call: () =>
-                    disambiguateEquipment({
-                      apiKey: env.OPENROUTER_API_KEY,
-                      unresolvedItems: unresolvedEquipment,
-                      equipmentContext: extractEquipmentContext(
-                        entry,
-                        cookwareDecisions,
-                      ),
-                      model: canonicalizeParams.model,
-                      requestTimeoutMs: canonicalizeParams.requestTimeoutMs,
-                    }),
-                });
-                applyDisambiguationChoices(
-                  cookwareDecisions,
-                  unresolvedEquipment,
-                  choices,
-                );
-              }
-            } catch (error) {
-              // Rethrow retryable provider errors while step attempts remain;
-              // otherwise disambiguation is best-effort — keep the
-              // deterministic results.
-              const attemptsRemain =
-                ctx.attempt <= canonicalizeParams.retryLimit;
-              if (attemptsRemain && !(error instanceof NonRetryableError)) {
-                throw error;
-              }
-              console.warn(
-                `LLM disambiguation failed for job ${jobId}: ${
-                  error instanceof Error ? error.message : String(error)
-                }`,
-              );
-            }
-          }
-
-          const finalEntry = applyEquipmentDecisionsToEntry(
-            applyLlmDecisionsToEntry(entry, decisions),
-            cookwareDecisions,
-          );
-          return { recipe: finalEntry.predicted, decisions, cookwareDecisions };
         },
       );
+
+      // Each registry is disambiguated in its own step so retrying one provider
+      // call never re-runs (or re-charges) the other. Disambiguation is
+      // best-effort: once retries are exhausted the deterministic result stands.
+      const bestEffortDisambiguation = async (
+        ctx: { attempt: number },
+        call: () => Promise<DisambiguationChoice[]>,
+      ): Promise<DisambiguationChoice[]> => {
+        try {
+          return await call();
+        } catch (error) {
+          const attemptsRemain = ctx.attempt <= canonicalizeParams.retryLimit;
+          if (attemptsRemain && !(error instanceof NonRetryableError)) {
+            throw error;
+          }
+          console.warn(
+            `LLM disambiguation failed for job ${jobId}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+          return [];
+        }
+      };
+
+      const unresolvedIngredients = collectUnresolved(
+        decisions,
+        buildCategoryMap(canonicalIngredients.ingredients),
+      );
+      if (unresolvedIngredients.length > 0) {
+        const choices = await step.do(
+          "disambiguate-ingredients",
+          llmStepConfig(canonicalizeParams),
+          (ctx) =>
+            bestEffortDisambiguation(ctx, () =>
+              runLlmCall({
+                env,
+                jobId,
+                stage: "canonicalize",
+                model: canonicalizeParams.model,
+                call: () =>
+                  disambiguateIngredients({
+                    apiKey: env.OPENROUTER_API_KEY,
+                    unresolvedItems: unresolvedIngredients,
+                    recipeContext: extractRecipeContext(entry, decisions),
+                    model: canonicalizeParams.model,
+                    requestTimeoutMs: canonicalizeParams.requestTimeoutMs,
+                  }),
+              }),
+            ),
+        );
+        applyDisambiguationChoices(decisions, unresolvedIngredients, choices);
+      }
+
+      const unresolvedEquipment = collectUnresolved(
+        cookwareDecisions,
+        buildCategoryMap(canonicalEquipment.equipment),
+      );
+      if (unresolvedEquipment.length > 0) {
+        const choices = await step.do(
+          "disambiguate-equipment",
+          llmStepConfig(canonicalizeParams),
+          (ctx) =>
+            bestEffortDisambiguation(ctx, () =>
+              runLlmCall({
+                env,
+                jobId,
+                stage: "canonicalize",
+                model: canonicalizeParams.model,
+                call: () =>
+                  disambiguateEquipment({
+                    apiKey: env.OPENROUTER_API_KEY,
+                    unresolvedItems: unresolvedEquipment,
+                    equipmentContext: extractEquipmentContext(
+                      entry,
+                      cookwareDecisions,
+                    ),
+                    model: canonicalizeParams.model,
+                    requestTimeoutMs: canonicalizeParams.requestTimeoutMs,
+                  }),
+              }),
+            ),
+        );
+        applyDisambiguationChoices(
+          cookwareDecisions,
+          unresolvedEquipment,
+          choices,
+        );
+      }
+
+      const finalEntry = applyEquipmentDecisionsToEntry(
+        applyLlmDecisionsToEntry(entry, decisions),
+        cookwareDecisions,
+      );
+      const canonical = {
+        recipe: finalEntry.predicted,
+        decisions,
+        cookwareDecisions,
+      };
 
       await step.do("persist-canonicalize", async () => {
         await withDb(env, async (db) => {

@@ -132,14 +132,16 @@ export function applyLlmDecisionsToEntry(
   entry: PredictionEntry,
   decisions: IngredientCanonicalizationDecision[],
 ): PredictionEntry {
-  const decisionByOriginal = new Map<string, string>();
+  // The deterministic pass leaves an unresolved item's slug as its baseSlug, so
+  // that is the key the entry can be matched on.
+  const resolvedByBaseSlug = new Map<string, string>();
   for (const d of decisions) {
     if (d.method === "llm") {
-      decisionByOriginal.set(d.originalSlug, d.canonicalSlug);
+      resolvedByBaseSlug.set(d.baseSlug, d.canonicalSlug);
     }
   }
 
-  if (decisionByOriginal.size === 0) return entry;
+  if (resolvedByBaseSlug.size === 0) return entry;
 
   return {
     ...entry,
@@ -148,12 +150,7 @@ export function applyLlmDecisionsToEntry(
       ingredientGroups: entry.predicted.ingredientGroups.map((group) => ({
         ...group,
         items: group.items.map((item) => {
-          const resolved = decisionByOriginal.get(item.ingredient) ??
-            decisionByOriginal.get(
-              decisions.find(
-                (d) => d.method === "llm" && d.baseSlug === item.ingredient,
-              )?.originalSlug ?? "",
-            );
+          const resolved = resolvedByBaseSlug.get(item.ingredient);
           return resolved ? { ...item, ingredient: resolved } : item;
         }),
       })),

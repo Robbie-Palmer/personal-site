@@ -26,6 +26,10 @@ export interface SlugMatch {
   candidates: CandidateScore[];
 }
 
+// Must stay above 0.4: `shortlistFor` only scores slugs that share a token, and
+// a slug with no shared token can score at most 0.4 (see `scoreSimilarity`), so
+// nothing below that ceiling is reachable anyway. A threshold under 0.4 would
+// promise matches the shortlist never evaluates.
 const FUZZY_THRESHOLD = 0.85;
 const FUZZY_MARGIN = 0.04;
 const MAX_CANDIDATES = 5;
