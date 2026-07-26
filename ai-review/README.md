@@ -47,10 +47,11 @@ Unmasked values:
 - `CLOUDFLARE_ACCOUNT_ID`
 - `AI_REVIEW_APP_ID`
 - `AI_REVIEW_APP_INSTALLATION_ID`
-- `R2_AI_REVIEW_DATA_BUCKET_NAME`
 
 GitHub Actions reserves the `GITHUB_` prefix, so App credentials use the
 `AI_REVIEW_` prefix in Doppler and the Worker.
+The committed `ai-review-data` name is authoritative in Terraform, Wrangler,
+and lifecycle verification; it is not a deployment input.
 
 ## Deploy
 

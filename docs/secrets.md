@@ -336,7 +336,6 @@ The standalone Doppler project `ai-review`, config `prd`, should own:
 - `AI_REVIEW_APP_PRIVATE_KEY`
 - `AI_REVIEW_WEBHOOK_SECRET`
 - `OPENROUTER_API_KEY`
-- `R2_AI_REVIEW_DATA_BUCKET_NAME` (unmasked)
 
 The GitHub App is installed only on `Robbie-Palmer/personal-site`. Its App ID
 and installation ID are identifiers, while its private key and webhook secret

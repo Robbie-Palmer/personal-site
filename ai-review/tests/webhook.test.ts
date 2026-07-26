@@ -18,6 +18,15 @@ describe("verifyGitHubSignature", () => {
       verifyGitHubSignature("body", "sha256=deadbeef", "secret"),
     ).resolves.toBe(false);
   });
+
+  it("rejects missing and malformed signature headers", async () => {
+    await expect(
+      verifyGitHubSignature("body", null, "secret"),
+    ).resolves.toBe(false);
+    await expect(
+      verifyGitHubSignature("body", "sha1=deadbeef", "secret"),
+    ).resolves.toBe(false);
+  });
 });
 
 describe("parseReviewEvent", () => {
@@ -46,6 +55,51 @@ describe("parseReviewEvent", () => {
         issue: { number: 1 },
       }),
     ).toBeNull();
+  });
+
+  it("ignores pull request actions that do not warrant a review", () => {
+    expect(
+      parseReviewEvent("pull_request", "delivery-ignored", {
+        action: "labeled",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        pull_request: { number: 816, head: { sha: "abc123" } },
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects malformed webhook envelopes", () => {
+    expect(parseReviewEvent("pull_request", "", null)).toBeNull();
+    expect(
+      parseReviewEvent("pull_request", "", {
+        action: "opened",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+      }),
+    ).toBeNull();
+    expect(
+      parseReviewEvent("pull_request", "delivery", {
+        action: "opened",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+      }),
+    ).toBeNull();
+    expect(
+      parseReviewEvent("unsupported", "delivery", {
+        action: "created",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+      }),
+    ).toBeNull();
+  });
+
+  it("extracts pull request issue comments", () => {
+    expect(
+      parseReviewEvent("issue_comment", "delivery-comment", {
+        action: "created",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        issue: { number: 816, pull_request: {} },
+      }),
+    ).toMatchObject({
+      eventName: "issue_comment",
+      pullRequestNumber: 816,
+    });
   });
 
   it("extracts pull request review thread events", () => {

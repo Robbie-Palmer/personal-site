@@ -7,10 +7,16 @@ on:
     paths:
       - "ai-review/**"
       - ".github/workflows/ai-review-cd.yml"
+      - ".mise.toml"
+      - "pnpm-workspace.yaml"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ai-review-production-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:

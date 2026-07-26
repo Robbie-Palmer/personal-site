@@ -20,12 +20,8 @@ function coordinatorName(event: ReviewWorkflowParams): string {
 }
 
 export class PullRequestCoordinator extends DurableObject<Env> {
-  async fetch(request: Request): Promise<Response> {
-    if (request.method !== "POST") {
-      return new Response("Method not allowed", { status: 405 });
-    }
-
-    const event = await request.json<ReviewWorkflowParams>();
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
     this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS webhook_deliveries (
         delivery_id TEXT PRIMARY KEY,
@@ -37,13 +33,21 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         received_at TEXT NOT NULL
       )
     `);
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+
+    const event = await request.json<ReviewWorkflowParams>();
     const existing = this.ctx.storage.sql
       .exec<{ delivery_id: string }>(
         "SELECT delivery_id FROM webhook_deliveries WHERE delivery_id = ?",
         event.deliveryId,
       )
-      .one();
-    if (existing) {
+      .toArray();
+    if (existing.length > 0) {
       return json({ accepted: true, duplicate: true });
     }
 
@@ -85,15 +89,13 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       return;
     }
 
-    const instanceId = [
-      event.repository.replaceAll("/", "-"),
-      `pr-${event.pullRequestNumber}`,
-      event.headSha?.slice(0, 12) ?? event.deliveryId.slice(0, 12),
-    ].join("-");
-    await this.env.REVIEW_WORKFLOW.create({
-      id: instanceId,
-      params: event,
-    });
+    const instanceId = `review-${event.deliveryId}`;
+    await this.env.REVIEW_WORKFLOW.createBatch([
+      {
+        id: instanceId,
+        params: event,
+      },
+    ]);
     await this.ctx.storage.delete("pending-event");
   }
 }

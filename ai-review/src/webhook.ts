@@ -1,6 +1,12 @@
 import type { ReviewWorkflowParams } from "./env";
 
 const encoder = new TextEncoder();
+const REVIEW_RELEVANT_PULL_REQUEST_ACTIONS = new Set([
+  "opened",
+  "synchronize",
+  "reopened",
+  "ready_for_review",
+]);
 
 function toHex(bytes: ArrayBuffer): string {
   return [...new Uint8Array(bytes)]
@@ -15,7 +21,8 @@ function constantTimeEqual(left: string, right: string): boolean {
 
   let difference = 0;
   for (let index = 0; index < left.length; index += 1) {
-    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+    difference |=
+      (left.codePointAt(index) ?? 0) ^ (right.codePointAt(index) ?? 0);
   }
   return difference === 0;
 }
@@ -78,6 +85,9 @@ export function parseReviewEvent(
   }
 
   if (eventName === "pull_request") {
+    if (!REVIEW_RELEVANT_PULL_REQUEST_ACTIONS.has(action)) {
+      return null;
+    }
     const pullRequestNumber = event.pull_request?.number;
     if (typeof pullRequestNumber !== "number") {
       return null;
@@ -101,12 +111,12 @@ export function parseReviewEvent(
       "pull_request_review_thread",
     ].includes(eventName)
   ) {
-    const pullRequestNumber =
-      eventName === "issue_comment"
-        ? event.issue?.pull_request
-          ? event.issue.number
-          : undefined
-        : event.pull_request?.number;
+    let pullRequestNumber = event.pull_request?.number;
+    if (eventName === "issue_comment") {
+      pullRequestNumber = event.issue?.pull_request
+        ? event.issue.number
+        : undefined;
+    }
     if (typeof pullRequestNumber !== "number") {
       return null;
     }

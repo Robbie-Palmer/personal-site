@@ -127,7 +127,7 @@ resource "cloudflare_r2_bucket" "database_backups" {
 # the bucket and prevents application deploys from deleting the corpus.
 resource "cloudflare_r2_bucket" "ai_review_data" {
   account_id = var.cloudflare_account_id
-  name       = var.r2_ai_review_data_bucket_name
+  name       = "ai-review-data"
   location   = "ENAM"
 
   lifecycle {

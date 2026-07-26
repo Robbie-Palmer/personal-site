@@ -101,12 +101,6 @@ variable "r2_database_backups_bucket_name" {
   default     = "personal-site-database-backups"
 }
 
-variable "r2_ai_review_data_bucket_name" {
-  description = "Name of the private R2 bucket for the standalone AI review project's analytical records"
-  type        = string
-  default     = "ai-review-data"
-}
-
 variable "recipe_api_url" {
   description = "URL of the recipe-api Worker for the auth proxy"
   type        = string

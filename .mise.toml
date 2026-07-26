@@ -272,6 +272,7 @@ run = "pnpm install"
 [tasks."sonar:coverage"]
 description = "Generate all LCOV reports imported by SonarQube Cloud"
 depends = [
+    "//ai-review:test:coverage",
     "//ui:test:coverage",
     "//packages/recipe-parsing:test:coverage",
     "//ml-pipelines/recipe-parsing:test:coverage",

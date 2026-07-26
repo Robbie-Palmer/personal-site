@@ -5,6 +5,8 @@ on:
     paths:
       - "ai-review/**"
       - ".github/workflows/ai-review-ci.yml"
+      - ".mise.toml"
+      - "pnpm-workspace.yaml"
 
 permissions:
   contents: read
