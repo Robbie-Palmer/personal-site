@@ -7,6 +7,12 @@ const REVIEW_RELEVANT_PULL_REQUEST_ACTIONS = new Set([
   "reopened",
   "ready_for_review",
 ]);
+const REVIEW_ACTIVITY_EVENTS = new Set([
+  "issue_comment",
+  "pull_request_review",
+  "pull_request_review_comment",
+  "pull_request_review_thread",
+]);
 
 function toHex(bytes: ArrayBuffer): string {
   return [...new Uint8Array(bytes)]
@@ -64,6 +70,40 @@ type GitHubWebhook = {
   };
 };
 
+type WebhookIdentity = Pick<
+  ReviewWorkflowParams,
+  "deliveryId" | "eventName" | "action" | "repository"
+>;
+
+function parsePullRequestEvent(
+  event: GitHubWebhook,
+  identity: WebhookIdentity,
+): ReviewWorkflowParams | null {
+  if (!REVIEW_RELEVANT_PULL_REQUEST_ACTIONS.has(identity.action)) {
+    return null;
+  }
+  const pullRequestNumber = event.pull_request?.number;
+  if (typeof pullRequestNumber !== "number") {
+    return null;
+  }
+  const headSha = event.pull_request?.head?.sha;
+  return {
+    ...identity,
+    pullRequestNumber,
+    ...(typeof headSha === "string" ? { headSha } : {}),
+  };
+}
+
+function reviewActivityPullRequestNumber(
+  eventName: string,
+  event: GitHubWebhook,
+): unknown {
+  if (eventName === "issue_comment") {
+    return event.issue?.pull_request ? event.issue.number : undefined;
+  }
+  return event.pull_request?.number;
+}
+
 export function parseReviewEvent(
   eventName: string,
   deliveryId: string,
@@ -84,50 +124,17 @@ export function parseReviewEvent(
     return null;
   }
 
+  const identity = { deliveryId, eventName, action, repository };
   if (eventName === "pull_request") {
-    if (!REVIEW_RELEVANT_PULL_REQUEST_ACTIONS.has(action)) {
-      return null;
-    }
-    const pullRequestNumber = event.pull_request?.number;
-    if (typeof pullRequestNumber !== "number") {
-      return null;
-    }
-    const headSha = event.pull_request?.head?.sha;
-    return {
-      deliveryId,
-      eventName,
-      action,
-      repository,
-      pullRequestNumber,
-      ...(typeof headSha === "string" ? { headSha } : {}),
-    };
+    return parsePullRequestEvent(event, identity);
   }
 
-  if (
-    [
-      "issue_comment",
-      "pull_request_review",
-      "pull_request_review_comment",
-      "pull_request_review_thread",
-    ].includes(eventName)
-  ) {
-    let pullRequestNumber = event.pull_request?.number;
-    if (eventName === "issue_comment") {
-      pullRequestNumber = event.issue?.pull_request
-        ? event.issue.number
-        : undefined;
-    }
-    if (typeof pullRequestNumber !== "number") {
-      return null;
-    }
-    return {
-      deliveryId,
-      eventName,
-      action,
-      repository,
-      pullRequestNumber,
-    };
+  if (!REVIEW_ACTIVITY_EVENTS.has(eventName)) {
+    return null;
   }
-
-  return null;
+  const pullRequestNumber = reviewActivityPullRequestNumber(eventName, event);
+  if (typeof pullRequestNumber !== "number") {
+    return null;
+  }
+  return { ...identity, pullRequestNumber };
 }
