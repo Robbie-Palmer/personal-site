@@ -77,12 +77,14 @@ const KNOWN_FREE_SCOUTS = [
   "big-pickle",
   "deepseek-v4-flash-free",
   "mimo-v2.5-free",
-  "laguna-s-2.1-free",
-  "ling-3.0-flash-free",
-  "north-mini-code-free",
   "nemotron-3-ultra-free",
 ];
 const FREE_SCOUT_EXCEPTIONS = new Set(["big-pickle"]);
+const EXCLUDED_FREE_SCOUTS = new Set([
+  "laguna-s-2.1-free",
+  "ling-3.0-flash-free",
+  "north-mini-code-free",
+]);
 const DEFAULT_MERGER = "anthropic/claude-sonnet-4.6";
 const DEFAULT_IGNORED_AUTHORS = ["renovate[bot]", "dependabot[bot]"];
 const IGNORED_FILENAMES = new Set([
@@ -152,11 +154,18 @@ const MAX_THREAD_CHARS = 40_000;
 const MAX_COMMENT_CHARS = 60_000;
 const SCOUT_FINDINGS_LIMIT = 25;
 const MERGED_FINDINGS_LIMIT = 100;
-// Reasoning tokens count against max_tokens. Kimi always thinks, and both Kimi
-// and DeepSeek have exhausted a 4,000-token budget before emitting final JSON.
+// Reasoning tokens count against max_tokens. Most scouts can finish within
+// 8,000 tokens; DeepSeek exhausted that budget in the first live Actions run.
 const SCOUT_MAX_TOKENS = 8_000;
+const SCOUT_MAX_TOKENS_BY_MODEL: Record<string, number> = {
+  "deepseek-v4-flash-free": 16_000,
+};
+const SCOUT_TIMEOUT_MS = 120_000;
+const SCOUT_TIMEOUT_BY_MODEL: Record<string, number> = {
+  "nemotron-3-ultra-free": 180_000,
+};
 const MERGER_MAX_TOKENS = 6_000;
-const SCOUT_CONCURRENCY = 3;
+const SCOUT_CONCURRENCY = 4;
 const MAX_SCOUTS = 12;
 const HTTP_TIMEOUT_MS = 300_000;
 const RETRIES = 3;
@@ -253,10 +262,10 @@ function settingsFromEnv(): Settings {
   if (scouts.length > MAX_SCOUTS) {
     throw new Error(`AI_REVIEW_OPENCODE_MODELS must contain at most ${MAX_SCOUTS} model IDs`);
   }
-  const paidScouts = scouts.filter((model) => !isFreeScoutModelId(model));
-  if (paidScouts.length) {
+  const rejectedScouts = scouts.filter((model) => !isEligibleFreeScoutModelId(model));
+  if (rejectedScouts.length) {
     throw new Error(
-      `AI_REVIEW_OPENCODE_MODELS only accepts free OpenCode model IDs; rejected: ${paidScouts.join(", ")}`,
+      `AI_REVIEW_OPENCODE_MODELS only accepts enabled free OpenCode model IDs; rejected: ${rejectedScouts.join(", ")}`,
     );
   }
   return {
@@ -278,6 +287,10 @@ function isFreeScoutModelId(model: string): boolean {
   return model.endsWith("-free") || FREE_SCOUT_EXCEPTIONS.has(model);
 }
 
+function isEligibleFreeScoutModelId(model: string): boolean {
+  return isFreeScoutModelId(model) && !EXCLUDED_FREE_SCOUTS.has(model);
+}
+
 export function selectFreeScoutModels(payload: unknown): string[] {
   if (!isObject(payload) || !Array.isArray(payload.data)) {
     throw new Error("OpenCode model catalogue has no data array");
@@ -287,7 +300,7 @@ export function selectFreeScoutModels(payload: unknown): string[] {
       payload.data
         .filter(isObject)
         .map((model) => String(model.id ?? ""))
-        .filter(isFreeScoutModelId),
+        .filter(isEligibleFreeScoutModelId),
     ),
   ].slice(0, MAX_SCOUTS);
 }
@@ -335,7 +348,12 @@ class JsonClient {
   async request<T>(
     method: string,
     path: string,
-    options: { query?: Record<string, string | number>; body?: unknown; accept?: string } = {},
+    options: {
+      query?: Record<string, string | number>;
+      body?: unknown;
+      accept?: string;
+      timeoutMs?: number;
+    } = {},
   ): Promise<T> {
     const url = new URL(`${this.baseUrl.replace(/\/$/, "")}${path}`);
     for (const [key, value] of Object.entries(options.query ?? {})) url.searchParams.set(key, String(value));
@@ -346,7 +364,7 @@ class JsonClient {
           method,
           headers: { ...this.headers, ...(options.accept ? { Accept: options.accept } : {}) },
           body: options.body === undefined ? undefined : JSON.stringify(options.body),
-          signal: AbortSignal.timeout(this.timeoutMs),
+          signal: AbortSignal.timeout(options.timeoutMs ?? this.timeoutMs),
         });
         if (response.ok) {
           const raw = await response.text();
@@ -478,7 +496,7 @@ class Reviewer {
         ...common,
         ...(settings.openCodeKey ? { Authorization: `Bearer ${settings.openCodeKey}` } : {}),
       },
-      { timeoutMs: 120_000, retries: 2 },
+      { timeoutMs: SCOUT_TIMEOUT_MS, retries: 2 },
     );
     this.openRouter = new JsonClient("https://openrouter.ai/api/v1", {
       ...common,
@@ -611,7 +629,7 @@ class Reviewer {
       body: {
         model,
         temperature: 0,
-        max_tokens: SCOUT_MAX_TOKENS,
+        max_tokens: SCOUT_MAX_TOKENS_BY_MODEL[model] ?? SCOUT_MAX_TOKENS,
         messages: [
           {
             role: "system",
@@ -620,6 +638,7 @@ class Reviewer {
           { role: "user", content: user },
         ],
       },
+      timeoutMs: SCOUT_TIMEOUT_BY_MODEL[model] ?? SCOUT_TIMEOUT_MS,
     });
     const choices = response.choices;
     if (!Array.isArray(choices) || !isObject(choices[0])) throw new Error(`Invalid response from ${model}`);

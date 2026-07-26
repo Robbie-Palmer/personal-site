@@ -88,7 +88,7 @@ test("credit exhaustion only matches payment and key-limit failures", () => {
   assert.equal(isCreditExhaustion(new Error("All scout models failed")), false);
 });
 
-test("free OpenCode model discovery includes free suffixes and the stealth exception", () => {
+test("OpenCode model discovery includes eligible free models and excludes noisy scouts", () => {
   assert.deepEqual(
     selectFreeScoutModels({
       data: [
@@ -96,6 +96,9 @@ test("free OpenCode model discovery includes free suffixes and the stealth excep
         { id: "deepseek-v4-flash-free" },
         { id: "big-pickle" },
         { id: "deepseek-v4-flash-free" },
+        { id: "laguna-s-2.1-free" },
+        { id: "ling-3.0-flash-free" },
+        { id: "north-mini-code-free" },
       ],
     }),
     ["deepseek-v4-flash-free", "big-pickle"],

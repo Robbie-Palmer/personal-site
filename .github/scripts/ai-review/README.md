@@ -20,8 +20,11 @@ Outside contributors cannot trigger a paid run themselves.
 Optional Actions repository variables:
 
 - `AI_REVIEW_OPENCODE_MODELS`: comma-separated free OpenCode model IDs. When it
-  is unset, the reviewer discovers all IDs ending in `-free` plus `big-pickle`
-  from the live OpenCode catalogue. The override is limited to 12 free IDs.
+  is unset, the reviewer discovers eligible IDs ending in `-free` plus
+  `big-pickle` from the live OpenCode catalogue. Laguna S 2.1, Ling 3.0 Flash,
+  and North Mini Code are excluded after the first live run showed that retaining
+  them would require reduced reasoning or add rate-limited noise. The override is
+  limited to 12 enabled free IDs.
 - `AI_REVIEW_MERGER_MODEL`: defaults to `anthropic/claude-sonnet-4.6`.
 - `AI_REVIEW_IGNORED_AUTHORS`: comma-separated PR authors to skip. Defaults to
   `renovate[bot],dependabot[bot]`.
@@ -56,11 +59,13 @@ cumulative scorecard fields are intended to support removing scouts that are
 noisy or not cost-effective.
 
 Free-model availability is refreshed from OpenCode at the start of every run.
-Models removed from the catalogue are skipped. Scouts run with concurrency
-limited to three, and retry transient errors such as rate limits. Any successful
-scout is enough to continue to reconciliation. If every scout is unavailable,
-rate-limited, or invalid, the workflow publishes an explicit no-coverage warning
-and does not spend money on the merger; the stable `review` check is skipped.
+Models removed from the catalogue are skipped. The four currently retained
+scouts run concurrently in one batch and retry transient errors such as rate
+limits. DeepSeek receives a 16,000-token completion budget, and Nemotron receives
+a 180-second timeout for one further evaluation. Any successful scout is enough
+to continue to reconciliation. If every scout is unavailable, rate-limited, or
+invalid, the workflow publishes an explicit no-coverage warning and does not
+spend money on the merger; the stable `review` check is skipped.
 
 When OpenRouter reports exhausted account credits or an exhausted API-key
 spending limit, the stable `review` check is also marked as skipped.

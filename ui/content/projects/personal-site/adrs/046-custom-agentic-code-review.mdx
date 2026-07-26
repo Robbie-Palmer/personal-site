@@ -20,7 +20,9 @@ OpenCode Zen. OpenRouter remains the paid reconciliation layer. Scout
 availability is discovered at run time, individual free-model failures degrade
 coverage rather than failing the review, and a total scout outage publishes an
 explicit no-coverage result, skips the stable review check, and does not invoke
-the paid merger.
+the paid merger. The retained scouts run concurrently; free models that would
+require low or disabled reasoning to complete reliably are excluded rather than
+adding lower-quality candidates to reconciliation.
 
 # Context
 
