@@ -476,12 +476,9 @@ export function ShoppingList({
       </div>
 
       {pantry.isPending && (
-        <p
-          className="rt-body mt-3 rounded-md border border-[var(--line)] bg-[var(--paper-warm)] px-3 py-2 text-sm text-[var(--ink-3)]"
-          role="status"
-        >
+        <output className="rt-body mt-3 block rounded-md border border-[var(--line)] bg-[var(--paper-warm)] px-3 py-2 text-sm text-[var(--ink-3)]">
           Checking your pantry before sorting the shopping list…
-        </p>
+        </output>
       )}
 
       {pantry.error && (
