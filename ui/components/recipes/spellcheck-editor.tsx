@@ -83,9 +83,14 @@ export function SpellcheckEditor({
     maxLength === undefined || text.length <= maxLength;
 
   const accept = (misspelling: Misspelling, replacement: string) => {
+    setActive(null);
+    // Guard against a stale offset: only rewrite if the flagged range still
+    // holds the exact word (the source may have shifted since it was flagged).
+    if (value.slice(misspelling.start, misspelling.end) !== misspelling.word) {
+      return;
+    }
     const next = applyCorrection(value, misspelling, replacement);
     if (withinLimit(next)) onChange(next);
-    setActive(null);
   };
 
   const ignore = (word: string) => {

@@ -75,10 +75,17 @@ async function main(): Promise<void> {
     const response = await fetch(csvUrl, { signal: controller.signal });
     if (!response.ok) {
       throw new Error(
-        `Failed to fetch words.csv (${response.status} ${response.statusText}) from ${csvUrl}`,
+        `${response.status} ${response.statusText} from ${csvUrl}`,
       );
     }
     csv = await response.text();
+  } catch (error) {
+    // Degrade gracefully rather than block dev/build on a network blip: leave
+    // any existing asset in place; the editor shows a Retry when it's missing.
+    console.warn(
+      `⚠ Could not fetch the typos dictionary (${error instanceof Error ? error.message : error}). Spell-check will be unavailable until the next successful generation.`,
+    );
+    return;
   } finally {
     clearTimeout(timeout);
   }

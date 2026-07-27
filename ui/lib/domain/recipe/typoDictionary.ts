@@ -36,13 +36,23 @@ export function loadTypoDictionary(
   // in-flight request, and on failure only clear the cache if it still points at
   // this attempt (a later retry may have already replaced it).
   const pending = (async () => {
-    const response = await fetchImpl(TYPO_DICTIONARY_URL);
-    if (!response.ok) {
-      throw new Error(
-        `Failed to load spell-check dictionary (${response.status})`,
-      );
+    // Bound the request so the editor never hangs on "Checking spelling…" if
+    // the asset stalls; on timeout the load rejects and the hook offers a retry.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+    try {
+      const response = await fetchImpl(TYPO_DICTIONARY_URL, {
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new Error(
+          `Failed to load spell-check dictionary (${response.status})`,
+        );
+      }
+      return parseDictionaryTsv(await response.text());
+    } finally {
+      clearTimeout(timeout);
     }
-    return parseDictionaryTsv(await response.text());
   })().catch((error: unknown) => {
     if (cache === pending) cache = null;
     throw error;
