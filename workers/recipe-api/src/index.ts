@@ -957,7 +957,10 @@ async function acceptPendingInvitation(
       .where(eq(schema.pantryItem.userId, userId))
       .limit(1);
     if (pantryItem) {
-      throw new Error("Pantry must be empty before joining a household");
+      throw new InvitationActionError(
+        409,
+        "Pantry must be empty before joining a household",
+      );
     }
 
     const mutationTime = new Date();
@@ -1257,12 +1260,6 @@ function invitationAcceptanceFailure(
   }
   if (error instanceof Error && error.message === "Invitation has expired") {
     return c.json({ error: "Invitation has expired" }, 410);
-  }
-  if (
-    error instanceof Error &&
-    error.message === "Pantry must be empty before joining a household"
-  ) {
-    return c.json({ error: error.message }, 409);
   }
   return undefined;
 }
