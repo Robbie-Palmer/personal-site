@@ -125,13 +125,21 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       return true;
     });
 
-    if (this.env.AI_REVIEW_ENABLED === "true") {
+    if (this.env.AI_REVIEW_ENABLED === "true" && inserted) {
       const delayMs = debounceDelayMs(this.env.AI_REVIEW_DEBOUNCE_SECONDS);
       // Resetting the alarm creates the ADR's trailing-edge quiet period.
-      // Duplicate delivery retries also retry a previously failed alarm write.
       await this.ctx.storage.setAlarm(Date.now() + delayMs);
     }
     if (!inserted) {
+      // A retry after a failed alarm write must restore the alarm, but a
+      // duplicate must not extend an alarm that is already scheduled.
+      if (
+        this.env.AI_REVIEW_ENABLED === "true" &&
+        (await this.ctx.storage.getAlarm()) === null
+      ) {
+        const delayMs = debounceDelayMs(this.env.AI_REVIEW_DEBOUNCE_SECONDS);
+        await this.ctx.storage.setAlarm(Date.now() + delayMs);
+      }
       return json({ accepted: true, duplicate: true });
     }
 
@@ -219,6 +227,8 @@ export default {
     }
 
     const body = await request.text();
+    const eventName = request.headers.get("x-github-event");
+    const deliveryId = request.headers.get("x-github-delivery");
     const verified = await verifyGitHubSignature(
       body,
       request.headers.get("x-hub-signature-256"),
@@ -226,6 +236,9 @@ export default {
     );
     if (!verified) {
       return json({ error: "Invalid webhook signature" }, 401);
+    }
+    if (!eventName || !deliveryId) {
+      return json({ error: "Missing GitHub webhook headers" }, 400);
     }
 
     let payload: unknown;
@@ -235,11 +248,7 @@ export default {
       return json({ error: "Malformed JSON payload" }, 400);
     }
 
-    const parsed = parseReviewEvent(
-      request.headers.get("x-github-event") ?? "",
-      request.headers.get("x-github-delivery") ?? "",
-      payload,
-    );
+    const parsed = parseReviewEvent(eventName, deliveryId, payload);
     if (parsed.kind === "ignored") {
       return json({ ignored: true, reason: parsed.reason }, 202);
     }
@@ -271,11 +280,19 @@ export default {
         console.error("Coordinator rejected a validated webhook", {
           status: response.status,
         });
+        if (response.status >= 400 && response.status < 500) {
+          return json({ error: "Invalid coordinator request" }, 400);
+        }
         return json({ error: "Coordinator unavailable" }, 503);
       }
       return response;
     } catch (error) {
-      console.error("Coordinator request failed", error);
+      console.error(
+        "Coordinator request failed",
+        error instanceof Error
+          ? { name: error.name, message: error.message }
+          : { type: typeof error },
+      );
       return json({ error: "Coordinator unavailable" }, 503);
     }
   },

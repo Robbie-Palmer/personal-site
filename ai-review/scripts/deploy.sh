@@ -2,6 +2,11 @@
 set -euo pipefail
 umask 077
 
+if (($# > 0)); then
+  echo "AI review deploy does not accept passthrough arguments." >&2
+  exit 1
+fi
+
 required_values=(
   AI_REVIEW_APP_ID
   AI_REVIEW_APP_INSTALLATION_ID
@@ -33,7 +38,7 @@ if ((${#missing_values[@]} > 0)); then
     --project "${AI_REVIEW_DOPPLER_PROJECT:-ai-review}" \
     --config "${AI_REVIEW_DOPPLER_CONFIG:-prd}" \
     --preserve-env=AI_REVIEW_DOPPLER_WRAPPED \
-    -- bash "$0" "$@"
+    -- bash "$0"
 fi
 
 if ! command -v jq >/dev/null 2>&1; then
@@ -68,4 +73,4 @@ jq -n '
 ' > "$secrets_file"
 chmod 600 "$secrets_file"
 
-pnpm exec wrangler deploy --secrets-file "$secrets_file" "$@"
+pnpm exec wrangler deploy --secrets-file "$secrets_file"

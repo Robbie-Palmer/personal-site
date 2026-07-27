@@ -13,7 +13,10 @@ export default defineConfig({
   test: {
     coverage: {
       provider: "v8",
-      reporter: ["text", ["lcovonly", { projectRoot: ".." }]],
+      reporter: [
+        "text",
+        ["lcovonly", { projectRoot: path.resolve(__dirname, "..") }],
+      ],
       reportsDirectory: path.resolve(__dirname, "coverage"),
     },
   },

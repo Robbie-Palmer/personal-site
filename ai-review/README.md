@@ -109,3 +109,5 @@ and routing behavior can be exercised deterministically. Type checking against
 the current Workers types and the Wrangler deployment dry-run validate the
 runtime surface; workerd integration tests belong with the later review-engine
 implementation, once there is runtime behavior beyond orchestration to test.
+The `/health` response is intentionally a non-mutating binding-presence check;
+the deployment dry-run is the functional binding-configuration check.

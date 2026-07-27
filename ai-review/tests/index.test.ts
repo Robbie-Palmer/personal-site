@@ -26,6 +26,9 @@ function coordinatorFixture(existingDeliveries: string[] = []) {
     kv: { put: vi.fn() },
     get: vi.fn(),
     delete: vi.fn(),
+    getAlarm: vi.fn(
+      (): Promise<number | null> => Promise.resolve(Date.now() + 2_000),
+    ),
     setAlarm: vi.fn(),
     transactionSync: vi.fn((operation: () => unknown) => operation()),
   };
@@ -176,11 +179,41 @@ describe("PullRequestCoordinator", () => {
       duplicate: true,
     });
     expect(storage.kv.put).not.toHaveBeenCalled();
+    expect(storage.setAlarm).not.toHaveBeenCalled();
 
     const rejected = await coordinator.fetch(
       new Request("https://coordinator.test/events"),
     );
     expect(rejected.status).toBe(405);
+  });
+
+  it("restores a missing alarm for a duplicate without extending an existing one", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-27T00:00:00.000Z"));
+    const { coordinator, storage } = coordinatorFixture([event.deliveryId]);
+    storage.getAlarm.mockResolvedValueOnce(null);
+
+    await coordinator.fetch(
+      new Request("https://coordinator.test/events", {
+        method: "POST",
+        body: JSON.stringify(event),
+      }),
+    );
+    expect(storage.setAlarm).toHaveBeenCalledWith(
+      new Date("2026-07-27T00:00:02.000Z").getTime(),
+    );
+
+    storage.setAlarm.mockClear();
+    storage.getAlarm.mockResolvedValueOnce(
+      new Date("2026-07-27T00:00:02.000Z").getTime(),
+    );
+    await coordinator.fetch(
+      new Request("https://coordinator.test/events", {
+        method: "POST",
+        body: JSON.stringify(event),
+      }),
+    );
+    expect(storage.setAlarm).not.toHaveBeenCalled();
   });
 
   it("rejects invalid coordinator event bodies", async () => {
@@ -413,6 +446,22 @@ describe("HTTP Worker", () => {
     });
   });
 
+  it("rejects signed webhooks missing routing headers", async () => {
+    const { env } = workerEnv();
+
+    const missingEvent = await worker.fetch(
+      signedWebhookRequest(validBody, secret, { "x-github-event": "" }),
+      env,
+    );
+    const missingDelivery = await worker.fetch(
+      signedWebhookRequest(validBody, secret, { "x-github-delivery": "" }),
+      env,
+    );
+
+    expect(missingEvent.status).toBe(400);
+    expect(missingDelivery.status).toBe(400);
+  });
+
   it("ignores unsupported events and forwards accepted events", async () => {
     const { env, fetch } = workerEnv();
     const ignored = await worker.fetch(
@@ -452,12 +501,22 @@ describe("HTTP Worker", () => {
       error: "Coordinator unavailable",
     });
 
+    fetch.mockResolvedValueOnce(new Response("invalid", { status: 400 }));
+    const invalid = await worker.fetch(
+      signedWebhookRequest(validBody, secret),
+      env,
+    );
+    expect(invalid.status).toBe(400);
+    await expect(invalid.json()).resolves.toEqual({
+      error: "Invalid coordinator request",
+    });
+
     fetch.mockRejectedValueOnce(new Error("internal binding details"));
     const failed = await worker.fetch(
       signedWebhookRequest(validBody, secret),
       env,
     );
     expect(failed.status).toBe(503);
-    expect(consoleError).toHaveBeenCalledTimes(2);
+    expect(consoleError).toHaveBeenCalledTimes(3);
   });
 });
