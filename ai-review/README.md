@@ -76,12 +76,17 @@ mise run //ai-review:deploy
 ```
 
 The deploy task loads `ai-review/prd` when required values are not already in
-the environment. It exposes only the four bootstrap runtime secrets to Wrangler
-through a mode-`0600` file inside a mode-`0700` temporary directory. The
-cleanup trap unlinks the file after Wrangler exits or the deploy is
-interrupted. Linux deployments, including GitHub-hosted runners, place that
-directory on `/dev/shm` so even an untrappable process termination leaves
-secrets only in the runner's memory-backed temporary filesystem.
+the environment. `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` authenticate
+Wrangler for deployment; they are not installed as Worker runtime secrets. The
+mode-`0600` Wrangler secrets file contains exactly `AI_REVIEW_APP_ID`,
+`AI_REVIEW_APP_INSTALLATION_ID`, `AI_REVIEW_APP_PRIVATE_KEY`, and
+`AI_REVIEW_WEBHOOK_SECRET` inside a mode-`0700` temporary directory.
+`OPENROUTER_API_KEY` may be staged in Doppler or the generated GitHub
+environment, but the deploy script does not copy it into that file or expose it
+as a Worker binding. The cleanup trap unlinks the file after Wrangler exits or
+the deploy is interrupted. Linux deployments, including GitHub-hosted runners,
+place that directory on `/dev/shm` so even an untrappable process termination
+leaves secrets only in the runner's memory-backed temporary filesystem.
 The GitHub App webhook URL is:
 
 ```text
