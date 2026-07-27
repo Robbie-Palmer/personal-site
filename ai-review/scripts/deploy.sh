@@ -9,7 +9,6 @@ required_values=(
   AI_REVIEW_WEBHOOK_SECRET
   CLOUDFLARE_ACCOUNT_ID
   CLOUDFLARE_API_TOKEN
-  OPENROUTER_API_KEY
 )
 
 missing_values=()
@@ -64,8 +63,7 @@ jq -n '
       AI_REVIEW_APP_ID,
       AI_REVIEW_APP_INSTALLATION_ID,
       AI_REVIEW_APP_PRIVATE_KEY,
-      AI_REVIEW_WEBHOOK_SECRET,
-      OPENROUTER_API_KEY
+      AI_REVIEW_WEBHOOK_SECRET
     }
 ' > "$secrets_file"
 chmod 600 "$secrets_file"

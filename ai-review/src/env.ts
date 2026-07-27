@@ -22,5 +22,4 @@ export interface Env {
   AI_REVIEW_APP_INSTALLATION_ID: string;
   AI_REVIEW_APP_PRIVATE_KEY: string;
   AI_REVIEW_WEBHOOK_SECRET: string;
-  OPENROUTER_API_KEY: string;
 }

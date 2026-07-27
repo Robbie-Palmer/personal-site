@@ -52,6 +52,9 @@ Unmasked values:
 
 GitHub Actions reserves the `GITHUB_` prefix, so App credentials use the
 `AI_REVIEW_` prefix in Doppler and the Worker.
+The spend-limited OpenRouter key is staged in Doppler and its generated GitHub
+environment for the later merger implementation, but is deliberately withheld
+from the bootstrap Worker's runtime until code needs it.
 The committed `ai-review-data` name is authoritative in Terraform, Wrangler,
 and lifecycle verification; it is not a deployment input.
 `AI_REVIEW_DATA_RETENTION_DAYS` documents the intended bucket policy only. The
@@ -73,7 +76,7 @@ mise run //ai-review:deploy
 ```
 
 The deploy task loads `ai-review/prd` when required values are not already in
-the environment. It exposes only the five Worker runtime secrets to Wrangler
+the environment. It exposes only the four bootstrap runtime secrets to Wrangler
 through a mode-`0600` file inside a mode-`0700` temporary directory. The
 cleanup trap unlinks the file after Wrangler exits or the deploy is
 interrupted. Linux deployments, including GitHub-hosted runners, place that
