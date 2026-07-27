@@ -124,7 +124,7 @@ export function parseReviewEvent(
   deliveryId: string,
   body: unknown,
 ): ReviewEventParseResult {
-  if (!body || typeof body !== "object") {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
     return { kind: "invalid", reason: "Malformed webhook payload" };
   }
 

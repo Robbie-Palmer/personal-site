@@ -23,10 +23,11 @@ function coordinatorFixture(existingDeliveries: string[] = []) {
   }));
   const storage = {
     sql: { exec: sqlExec },
-    put: vi.fn(),
+    kv: { put: vi.fn() },
     get: vi.fn(),
     delete: vi.fn(),
     setAlarm: vi.fn(),
+    transactionSync: vi.fn((operation: () => unknown) => operation()),
   };
   const createBatch = vi.fn();
   const env = {
@@ -82,7 +83,7 @@ describe("PullRequestCoordinator", () => {
       enabled: true,
     });
     expect(sqlExec.mock.calls[0]?.[0]).toContain("CREATE TABLE IF NOT EXISTS");
-    expect(storage.put).toHaveBeenCalledWith("latest-pending-event", event);
+    expect(storage.kv.put).toHaveBeenCalledWith("latest-pending-event", event);
     expect(storage.setAlarm).toHaveBeenCalledWith(
       new Date("2026-07-27T00:00:02.000Z").getTime(),
     );
@@ -152,7 +153,7 @@ describe("PullRequestCoordinator", () => {
       }),
     );
 
-    expect(storage.put).toHaveBeenLastCalledWith(
+    expect(storage.kv.put).toHaveBeenLastCalledWith(
       "latest-pending-event",
       latestEvent,
     );
@@ -174,7 +175,7 @@ describe("PullRequestCoordinator", () => {
       accepted: true,
       duplicate: true,
     });
-    expect(storage.put).not.toHaveBeenCalled();
+    expect(storage.kv.put).not.toHaveBeenCalled();
 
     const rejected = await coordinator.fetch(
       new Request("https://coordinator.test/events"),
@@ -207,7 +208,7 @@ describe("PullRequestCoordinator", () => {
     expect(wrongType.status).toBe(400);
     expect(malformed.status).toBe(400);
     expect(empty.status).toBe(400);
-    expect(storage.put).not.toHaveBeenCalled();
+    expect(storage.kv.put).not.toHaveBeenCalled();
   });
 
   it("does not schedule while reviews are disabled", async () => {

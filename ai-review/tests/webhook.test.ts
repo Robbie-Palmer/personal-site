@@ -108,6 +108,16 @@ describe("parseReviewEvent", () => {
         repository: { full_name: "Robbie-Palmer/personal-site" },
       }),
     ).toEqual({ kind: "ignored", reason: "unsupported-event" });
+    expect(parseReviewEvent("pull_request", "delivery", [])).toEqual({
+      kind: "invalid",
+      reason: "Malformed webhook payload",
+    });
+    expect(
+      parseReviewEvent("pull_request_review", "delivery", {
+        action: "submitted",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+      }),
+    ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
   });
 
   it("extracts pull request issue comments", () => {

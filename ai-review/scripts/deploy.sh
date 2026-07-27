@@ -68,5 +68,6 @@ jq -n '
       OPENROUTER_API_KEY
     }
 ' > "$secrets_file"
+chmod 600 "$secrets_file"
 
 pnpm exec wrangler deploy --secrets-file "$secrets_file" "$@"

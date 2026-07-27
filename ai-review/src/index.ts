@@ -23,6 +23,7 @@ const CREATE_WEBHOOK_DELIVERIES_TABLE =
 const DEFAULT_DEBOUNCE_DELAY_MS = 120_000;
 const MINIMUM_DEBOUNCE_DELAY_MS = 1_000;
 const MAXIMUM_DEBOUNCE_DELAY_MS = 3_600_000;
+const COORDINATOR_TIMEOUT_MS = 10_000;
 const PENDING_EVENT_KEY = "latest-pending-event";
 
 function json(data: unknown, status = 200): Response {
@@ -95,36 +96,43 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     if (!isReviewWorkflowParams(event)) {
       return json({ error: "Invalid coordinator event" }, 400);
     }
-    const existing = this.ctx.storage.sql
-      .exec<{ delivery_id: string }>(
-        "SELECT delivery_id FROM webhook_deliveries WHERE delivery_id = ?",
-        event.deliveryId,
-      )
-      .toArray();
-    if (existing.length > 0) {
-      return json({ accepted: true, duplicate: true });
-    }
+    const inserted = this.ctx.storage.transactionSync(() => {
+      const existing = this.ctx.storage.sql
+        .exec<{ delivery_id: string }>(
+          "SELECT delivery_id FROM webhook_deliveries WHERE delivery_id = ?",
+          event.deliveryId,
+        )
+        .toArray();
+      if (existing.length > 0) {
+        return false;
+      }
 
-    this.ctx.storage.sql.exec(
-      `INSERT INTO webhook_deliveries
+      this.ctx.storage.sql.exec(
+        `INSERT INTO webhook_deliveries
         (delivery_id, event_name, action, repository, pull_request_number, head_sha, received_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      event.deliveryId,
-      event.eventName,
-      event.action,
-      event.repository,
-      event.pullRequestNumber,
-      event.headSha ?? null,
-      new Date().toISOString(),
-    );
-    // The coordinator reviews current PR state, so rapid deliveries deliberately
-    // coalesce to the latest trigger rather than enqueueing redundant runs.
-    await this.ctx.storage.put(PENDING_EVENT_KEY, event);
+        event.deliveryId,
+        event.eventName,
+        event.action,
+        event.repository,
+        event.pullRequestNumber,
+        event.headSha ?? null,
+        new Date().toISOString(),
+      );
+      // The coordinator reviews current PR state, so rapid deliveries deliberately
+      // coalesce to the latest trigger rather than enqueueing redundant runs.
+      this.ctx.storage.kv.put(PENDING_EVENT_KEY, event);
+      return true;
+    });
 
     if (this.env.AI_REVIEW_ENABLED === "true") {
       const delayMs = debounceDelayMs(this.env.AI_REVIEW_DEBOUNCE_SECONDS);
       // Resetting the alarm creates the ADR's trailing-edge quiet period.
+      // Duplicate delivery retries also retry a previously failed alarm write.
       await this.ctx.storage.setAlarm(Date.now() + delayMs);
+    }
+    if (!inserted) {
+      return json({ accepted: true, duplicate: true });
     }
 
     return json({
@@ -147,6 +155,8 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         params: event,
       },
     ]);
+    // Delete only after Workflow confirms creation. If creation throws, the
+    // platform retries the alarm and the delivery-derived ID is idempotent.
     await this.ctx.storage.delete(PENDING_EVENT_KEY);
   }
 }
@@ -247,11 +257,14 @@ export default {
 
     const id = env.PR_STATE.idFromName(coordinatorName(event));
     try {
+      // This fixed URL is the standard Durable Object stub-fetch target; the
+      // validated event body contains all provenance the coordinator needs.
       const response = await env.PR_STATE.get(id).fetch(
         "https://coordinator.internal/events",
         {
           method: "POST",
           body: JSON.stringify(event),
+          signal: AbortSignal.timeout(COORDINATOR_TIMEOUT_MS),
         },
       );
       if (!response.ok) {
