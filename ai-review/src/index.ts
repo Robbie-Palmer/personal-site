@@ -8,6 +8,7 @@ import type { Env, ReviewWorkflowParams } from "./env";
 import { parseReviewEvent, verifyGitHubSignature } from "./webhook";
 
 const JSON_HEADERS = {
+  "cache-control": "no-store",
   "content-type": "application/json; charset=utf-8",
 };
 const CREATE_WEBHOOK_DELIVERIES_TABLE =
@@ -21,6 +22,8 @@ const CREATE_WEBHOOK_DELIVERIES_TABLE =
   "received_at TEXT NOT NULL)";
 const DEFAULT_DEBOUNCE_DELAY_MS = 120_000;
 const MINIMUM_DEBOUNCE_DELAY_MS = 1_000;
+const MAXIMUM_DEBOUNCE_DELAY_MS = 3_600_000;
+const PENDING_EVENT_KEY = "latest-pending-event";
 
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: JSON_HEADERS });
@@ -30,12 +33,37 @@ function coordinatorName(event: ReviewWorkflowParams): string {
   return `${event.repository}#${event.pullRequestNumber}`;
 }
 
+function isReviewWorkflowParams(value: unknown): value is ReviewWorkflowParams {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const event = value as Partial<ReviewWorkflowParams>;
+  return (
+    typeof event.deliveryId === "string" &&
+    event.deliveryId.length > 0 &&
+    typeof event.eventName === "string" &&
+    event.eventName.length > 0 &&
+    typeof event.action === "string" &&
+    event.action.length > 0 &&
+    typeof event.repository === "string" &&
+    event.repository.length > 0 &&
+    typeof event.pullRequestNumber === "number" &&
+    Number.isSafeInteger(event.pullRequestNumber) &&
+    event.pullRequestNumber > 0 &&
+    (event.headSha === undefined ||
+      (typeof event.headSha === "string" && event.headSha.length > 0))
+  );
+}
+
 function debounceDelayMs(rawSeconds: string): number {
   const seconds = Number(rawSeconds);
   if (!Number.isFinite(seconds)) {
     return DEFAULT_DEBOUNCE_DELAY_MS;
   }
-  return Math.max(MINIMUM_DEBOUNCE_DELAY_MS, seconds * 1_000);
+  return Math.min(
+    MAXIMUM_DEBOUNCE_DELAY_MS,
+    Math.max(MINIMUM_DEBOUNCE_DELAY_MS, seconds * 1_000),
+  );
 }
 
 function bindingHealth(env: Env) {
@@ -58,7 +86,15 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       return new Response("Method not allowed", { status: 405 });
     }
 
-    const event = await request.json<ReviewWorkflowParams>();
+    let event: unknown;
+    try {
+      event = await request.json();
+    } catch {
+      return json({ error: "Invalid coordinator event" }, 400);
+    }
+    if (!isReviewWorkflowParams(event)) {
+      return json({ error: "Invalid coordinator event" }, 400);
+    }
     const existing = this.ctx.storage.sql
       .exec<{ delivery_id: string }>(
         "SELECT delivery_id FROM webhook_deliveries WHERE delivery_id = ?",
@@ -81,10 +117,13 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       event.headSha ?? null,
       new Date().toISOString(),
     );
-    await this.ctx.storage.put("pending-event", event);
+    // The coordinator reviews current PR state, so rapid deliveries deliberately
+    // coalesce to the latest trigger rather than enqueueing redundant runs.
+    await this.ctx.storage.put(PENDING_EVENT_KEY, event);
 
     if (this.env.AI_REVIEW_ENABLED === "true") {
       const delayMs = debounceDelayMs(this.env.AI_REVIEW_DEBOUNCE_SECONDS);
+      // Resetting the alarm creates the ADR's trailing-edge quiet period.
       await this.ctx.storage.setAlarm(Date.now() + delayMs);
     }
 
@@ -96,7 +135,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
 
   override async alarm(): Promise<void> {
     const event =
-      await this.ctx.storage.get<ReviewWorkflowParams>("pending-event");
+      await this.ctx.storage.get<ReviewWorkflowParams>(PENDING_EVENT_KEY);
     if (!event || this.env.AI_REVIEW_ENABLED !== "true") {
       return;
     }
@@ -108,7 +147,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         params: event,
       },
     ]);
-    await this.ctx.storage.delete("pending-event");
+    await this.ctx.storage.delete(PENDING_EVENT_KEY);
   }
 }
 
@@ -179,24 +218,52 @@ export default {
       return json({ error: "Invalid webhook signature" }, 401);
     }
 
-    const event = parseReviewEvent(
+    let payload: unknown;
+    try {
+      payload = JSON.parse(body) as unknown;
+    } catch {
+      return json({ error: "Malformed JSON payload" }, 400);
+    }
+
+    const parsed = parseReviewEvent(
       request.headers.get("x-github-event") ?? "",
       request.headers.get("x-github-delivery") ?? "",
-      JSON.parse(body) as unknown,
+      payload,
     );
-    if (!event) {
-      return json({ ignored: true, reason: "unsupported-event" }, 202);
+    if (parsed.kind === "ignored") {
+      return json({ ignored: true, reason: parsed.reason }, 202);
     }
+    if (parsed.kind === "invalid") {
+      return json({ error: parsed.reason }, 400);
+    }
+    const event = parsed.event;
+    const allowedRepository = env.AI_REVIEW_REPOSITORY?.trim().toLowerCase();
     if (
-      event.repository.toLowerCase() !== env.AI_REVIEW_REPOSITORY.toLowerCase()
+      !allowedRepository ||
+      event.repository.trim().toLowerCase() !== allowedRepository
     ) {
       return json({ error: "Repository is not allowed" }, 403);
     }
 
     const id = env.PR_STATE.idFromName(coordinatorName(event));
-    return env.PR_STATE.get(id).fetch("https://coordinator.internal/events", {
-      method: "POST",
-      body: JSON.stringify(event),
-    });
+    try {
+      const response = await env.PR_STATE.get(id).fetch(
+        "https://coordinator.internal/events",
+        {
+          method: "POST",
+          body: JSON.stringify(event),
+        },
+      );
+      if (!response.ok) {
+        console.error("Coordinator rejected a validated webhook", {
+          status: response.status,
+        });
+        return json({ error: "Coordinator unavailable" }, 503);
+      }
+      return response;
+    } catch (error) {
+      console.error("Coordinator request failed", error);
+      return json({ error: "Coordinator unavailable" }, 503);
+    }
   },
 } satisfies ExportedHandler<Env>;

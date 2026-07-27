@@ -82,7 +82,7 @@ describe("PullRequestCoordinator", () => {
       enabled: true,
     });
     expect(sqlExec.mock.calls[0]?.[0]).toContain("CREATE TABLE IF NOT EXISTS");
-    expect(storage.put).toHaveBeenCalledWith("pending-event", event);
+    expect(storage.put).toHaveBeenCalledWith("latest-pending-event", event);
     expect(storage.setAlarm).toHaveBeenCalledWith(
       new Date("2026-07-27T00:00:02.000Z").getTime(),
     );
@@ -114,6 +114,51 @@ describe("PullRequestCoordinator", () => {
     expect(invalid.storage.setAlarm).toHaveBeenCalledWith(
       new Date("2026-07-27T00:02:00.000Z").getTime(),
     );
+
+    const excessive = coordinatorFixture();
+    excessive.env.AI_REVIEW_DEBOUNCE_SECONDS = "999999999";
+    await excessive.coordinator.fetch(
+      new Request("https://coordinator.test/events", {
+        method: "POST",
+        body: JSON.stringify(event),
+      }),
+    );
+    expect(excessive.storage.setAlarm).toHaveBeenCalledWith(
+      new Date("2026-07-27T01:00:00.000Z").getTime(),
+    );
+  });
+
+  it("coalesces rapid deliveries and moves the alarm to the quiet-period edge", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-27T00:00:00.000Z"));
+    const { coordinator, storage } = coordinatorFixture();
+    await coordinator.fetch(
+      new Request("https://coordinator.test/events", {
+        method: "POST",
+        body: JSON.stringify(event),
+      }),
+    );
+
+    vi.advanceTimersByTime(500);
+    const latestEvent = {
+      ...event,
+      deliveryId: "delivery-456",
+      headSha: "fedcba654321",
+    };
+    await coordinator.fetch(
+      new Request("https://coordinator.test/events", {
+        method: "POST",
+        body: JSON.stringify(latestEvent),
+      }),
+    );
+
+    expect(storage.put).toHaveBeenLastCalledWith(
+      "latest-pending-event",
+      latestEvent,
+    );
+    expect(storage.setAlarm).toHaveBeenLastCalledWith(
+      new Date("2026-07-27T00:00:02.500Z").getTime(),
+    );
   });
 
   it("returns early for duplicate deliveries and unsupported methods", async () => {
@@ -135,6 +180,34 @@ describe("PullRequestCoordinator", () => {
       new Request("https://coordinator.test/events"),
     );
     expect(rejected.status).toBe(405);
+  });
+
+  it("rejects invalid coordinator event bodies", async () => {
+    const { coordinator, storage } = coordinatorFixture();
+
+    const wrongType = await coordinator.fetch(
+      new Request("https://coordinator.test/events", {
+        method: "POST",
+        body: JSON.stringify({ ...event, pullRequestNumber: "821" }),
+      }),
+    );
+    const malformed = await coordinator.fetch(
+      new Request("https://coordinator.test/events", {
+        method: "POST",
+        body: "{",
+      }),
+    );
+    const empty = await coordinator.fetch(
+      new Request("https://coordinator.test/events", {
+        method: "POST",
+        body: "null",
+      }),
+    );
+
+    expect(wrongType.status).toBe(400);
+    expect(malformed.status).toBe(400);
+    expect(empty.status).toBe(400);
+    expect(storage.put).not.toHaveBeenCalled();
   });
 
   it("does not schedule while reviews are disabled", async () => {
@@ -161,7 +234,7 @@ describe("PullRequestCoordinator", () => {
     expect(createBatch).toHaveBeenCalledWith([
       { id: `review-${event.deliveryId}`, params: event },
     ]);
-    expect(storage.delete).toHaveBeenCalledWith("pending-event");
+    expect(storage.delete).toHaveBeenCalledWith("latest-pending-event");
   });
 
   it("leaves disabled or absent pending work alone", async () => {
@@ -261,6 +334,7 @@ describe("HTTP Worker", () => {
         workflow: true,
       },
     });
+    expect(health.headers.get("cache-control")).toBe("no-store");
 
     const missing = await worker.fetch(
       new Request("https://ai-review.test/missing"),
@@ -305,6 +379,37 @@ describe("HTTP Worker", () => {
       env,
     );
     expect(disallowed.status).toBe(403);
+
+    env.AI_REVIEW_REPOSITORY = "";
+    const unconfigured = await worker.fetch(
+      signedWebhookRequest(validBody, secret),
+      env,
+    );
+    expect(unconfigured.status).toBe(403);
+  });
+
+  it("rejects malformed signed JSON without throwing", async () => {
+    const { env } = workerEnv();
+
+    const response = await worker.fetch(signedWebhookRequest("{", secret), env);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Malformed JSON payload",
+    });
+
+    const invalidPayload = JSON.stringify({
+      action: "opened",
+      repository: { full_name: "Robbie-Palmer/personal-site" },
+    });
+    const invalid = await worker.fetch(
+      signedWebhookRequest(invalidPayload, secret),
+      env,
+    );
+    expect(invalid.status).toBe(400);
+    await expect(invalid.json()).resolves.toEqual({
+      error: "Malformed webhook payload",
+    });
   });
 
   it("ignores unsupported events and forwards accepted events", async () => {
@@ -326,5 +431,32 @@ describe("HTTP Worker", () => {
       "https://coordinator.internal/events",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("sanitizes coordinator failures", async () => {
+    const { env, fetch } = workerEnv();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    fetch.mockResolvedValueOnce(
+      new Response("SQLite internals", { status: 500 }),
+    );
+    const rejected = await worker.fetch(
+      signedWebhookRequest(validBody, secret),
+      env,
+    );
+    expect(rejected.status).toBe(503);
+    await expect(rejected.json()).resolves.toEqual({
+      error: "Coordinator unavailable",
+    });
+
+    fetch.mockRejectedValueOnce(new Error("internal binding details"));
+    const failed = await worker.fetch(
+      signedWebhookRequest(validBody, secret),
+      env,
+    );
+    expect(failed.status).toBe(503);
+    expect(consoleError).toHaveBeenCalledTimes(2);
   });
 });

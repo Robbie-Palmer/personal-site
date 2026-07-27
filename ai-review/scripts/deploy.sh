@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 required_values=(
   AI_REVIEW_APP_ID
@@ -41,7 +42,11 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 1
 fi
 
-secrets_dir="$(mktemp -d)"
+secrets_root="${TMPDIR:-/tmp}"
+if [[ -d /dev/shm && -w /dev/shm ]]; then
+  secrets_root="/dev/shm"
+fi
+secrets_dir="$(mktemp -d "${secrets_root%/}/ai-review-secrets.XXXXXX")"
 secrets_file="${secrets_dir}/worker-secrets.json"
 chmod 700 "$secrets_dir"
 
@@ -53,7 +58,6 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-umask 077
 jq -n '
   env
   | {

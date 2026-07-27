@@ -10,7 +10,9 @@ The initial deployment is deliberately an infrastructure bootstrap:
 - a Worker verifies GitHub App webhook signatures and rejects other
   repositories;
 - one SQLite Durable Object per pull request deduplicates webhook deliveries;
-- Durable Object alarms provide the debounce boundary;
+- Durable Object alarms provide a trailing-edge debounce boundary, coalescing
+  rapid events to one review of the latest pull request state after a quiet
+  period;
 - a Cloudflare Workflow and Workers AI binding are provisioned for the review
   loop;
 - the private `ai-review-data` R2 bucket stores versioned analytical records;
@@ -74,7 +76,9 @@ The deploy task loads `ai-review/prd` when required values are not already in
 the environment. It exposes only the five Worker runtime secrets to Wrangler
 through a mode-`0600` file inside a mode-`0700` temporary directory. The
 cleanup trap unlinks the file after Wrangler exits or the deploy is
-interrupted.
+interrupted. Linux deployments, including GitHub-hosted runners, place that
+directory on `/dev/shm` so even an untrappable process termination leaves
+secrets only in the runner's memory-backed temporary filesystem.
 The GitHub App webhook URL is:
 
 ```text
@@ -96,3 +100,9 @@ mise run //infra:format:check
 mise run //infra:precommit-lint
 mise run //:lint:actions
 ```
+
+The bootstrap unit tests use thin `cloudflare:workers` class stubs so storage
+and routing behavior can be exercised deterministically. Type checking against
+the current Workers types and the Wrangler deployment dry-run validate the
+runtime surface; workerd integration tests belong with the later review-engine
+implementation, once there is runtime behavior beyond orchestration to test.

@@ -76,25 +76,36 @@ type WebhookIdentity = Pick<
   "deliveryId" | "eventName" | "action" | "repository"
 >;
 
+export type ReviewEventParseResult =
+  | { kind: "accepted"; event: ReviewWorkflowParams }
+  | { kind: "ignored"; reason: "unsupported-event" }
+  | { kind: "invalid"; reason: "Malformed webhook payload" };
+
 function parsePullRequestEvent(
   event: GitHubWebhook,
   identity: WebhookIdentity,
-): ReviewWorkflowParams | null {
+): ReviewEventParseResult {
   if (!REVIEW_RELEVANT_PULL_REQUEST_ACTIONS.has(identity.action)) {
-    return null;
+    return { kind: "ignored", reason: "unsupported-event" };
   }
   const pullRequestNumber = event.pull_request?.number;
-  if (typeof pullRequestNumber !== "number") {
-    return null;
-  }
   const headSha = event.pull_request?.head?.sha;
-  if (typeof headSha !== "string" || headSha.length === 0) {
-    return null;
+  if (
+    typeof pullRequestNumber !== "number" ||
+    !Number.isSafeInteger(pullRequestNumber) ||
+    pullRequestNumber <= 0 ||
+    typeof headSha !== "string" ||
+    headSha.length === 0
+  ) {
+    return { kind: "invalid", reason: "Malformed webhook payload" };
   }
   return {
-    ...identity,
-    pullRequestNumber,
-    headSha,
+    kind: "accepted",
+    event: {
+      ...identity,
+      pullRequestNumber,
+      headSha,
+    },
   };
 }
 
@@ -112,9 +123,9 @@ export function parseReviewEvent(
   eventName: string,
   deliveryId: string,
   body: unknown,
-): ReviewWorkflowParams | null {
+): ReviewEventParseResult {
   if (!body || typeof body !== "object") {
-    return null;
+    return { kind: "invalid", reason: "Malformed webhook payload" };
   }
 
   const event = body as GitHubWebhook;
@@ -122,10 +133,12 @@ export function parseReviewEvent(
   const action = event.action;
   if (
     typeof repository !== "string" ||
+    repository.length === 0 ||
     typeof action !== "string" ||
+    action.length === 0 ||
     deliveryId.length === 0
   ) {
-    return null;
+    return { kind: "invalid", reason: "Malformed webhook payload" };
   }
 
   const identity = { deliveryId, eventName, action, repository };
@@ -134,11 +147,21 @@ export function parseReviewEvent(
   }
 
   if (!REVIEW_ACTIVITY_EVENTS.has(eventName)) {
-    return null;
+    return { kind: "ignored", reason: "unsupported-event" };
+  }
+  if (eventName === "issue_comment" && !event.issue?.pull_request) {
+    return { kind: "ignored", reason: "unsupported-event" };
   }
   const pullRequestNumber = reviewActivityPullRequestNumber(eventName, event);
-  if (typeof pullRequestNumber !== "number") {
-    return null;
+  if (
+    typeof pullRequestNumber !== "number" ||
+    !Number.isSafeInteger(pullRequestNumber) ||
+    pullRequestNumber <= 0
+  ) {
+    return { kind: "invalid", reason: "Malformed webhook payload" };
   }
-  return { ...identity, pullRequestNumber };
+  return {
+    kind: "accepted",
+    event: { ...identity, pullRequestNumber },
+  };
 }

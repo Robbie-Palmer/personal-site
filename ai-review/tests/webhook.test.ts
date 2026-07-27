@@ -41,12 +41,15 @@ describe("parseReviewEvent", () => {
         pull_request: { number: 816, head: { sha: "abc123" } },
       }),
     ).toEqual({
-      deliveryId: "delivery-1",
-      eventName: "pull_request",
-      action: "synchronize",
-      repository: "Robbie-Palmer/personal-site",
-      pullRequestNumber: 816,
-      headSha: "abc123",
+      kind: "accepted",
+      event: {
+        deliveryId: "delivery-1",
+        eventName: "pull_request",
+        action: "synchronize",
+        repository: "Robbie-Palmer/personal-site",
+        pullRequestNumber: 816,
+        headSha: "abc123",
+      },
     });
   });
 
@@ -57,7 +60,7 @@ describe("parseReviewEvent", () => {
         repository: { full_name: "Robbie-Palmer/personal-site" },
         issue: { number: 1 },
       }),
-    ).toBeNull();
+    ).toEqual({ kind: "ignored", reason: "unsupported-event" });
   });
 
   it("ignores pull request actions that do not warrant a review", () => {
@@ -67,7 +70,7 @@ describe("parseReviewEvent", () => {
         repository: { full_name: "Robbie-Palmer/personal-site" },
         pull_request: { number: 816, head: { sha: "abc123" } },
       }),
-    ).toBeNull();
+    ).toEqual({ kind: "ignored", reason: "unsupported-event" });
   });
 
   it("requires a non-empty head SHA for pull request events", () => {
@@ -78,30 +81,33 @@ describe("parseReviewEvent", () => {
           repository: { full_name: "Robbie-Palmer/personal-site" },
           pull_request: { number: 816, head: { sha } },
         }),
-      ).toBeNull();
+      ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
     }
   });
 
   it("rejects malformed webhook envelopes", () => {
-    expect(parseReviewEvent("pull_request", "", null)).toBeNull();
+    expect(parseReviewEvent("pull_request", "", null)).toEqual({
+      kind: "invalid",
+      reason: "Malformed webhook payload",
+    });
     expect(
       parseReviewEvent("pull_request", "", {
         action: "opened",
         repository: { full_name: "Robbie-Palmer/personal-site" },
       }),
-    ).toBeNull();
+    ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
     expect(
       parseReviewEvent("pull_request", "delivery", {
         action: "opened",
         repository: { full_name: "Robbie-Palmer/personal-site" },
       }),
-    ).toBeNull();
+    ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
     expect(
       parseReviewEvent("unsupported", "delivery", {
         action: "created",
         repository: { full_name: "Robbie-Palmer/personal-site" },
       }),
-    ).toBeNull();
+    ).toEqual({ kind: "ignored", reason: "unsupported-event" });
   });
 
   it("extracts pull request issue comments", () => {
@@ -111,9 +117,12 @@ describe("parseReviewEvent", () => {
         repository: { full_name: "Robbie-Palmer/personal-site" },
         issue: { number: 816, pull_request: {} },
       }),
-    ).toMatchObject({
-      eventName: "issue_comment",
-      pullRequestNumber: 816,
+    ).toEqual({
+      kind: "accepted",
+      event: expect.objectContaining({
+        eventName: "issue_comment",
+        pullRequestNumber: 816,
+      }),
     });
   });
 
@@ -124,10 +133,13 @@ describe("parseReviewEvent", () => {
         repository: { full_name: "Robbie-Palmer/personal-site" },
         pull_request: { number: 816 },
       }),
-    ).toMatchObject({
-      eventName: "pull_request_review_thread",
-      action: "resolved",
-      pullRequestNumber: 816,
+    ).toEqual({
+      kind: "accepted",
+      event: expect.objectContaining({
+        eventName: "pull_request_review_thread",
+        action: "resolved",
+        pullRequestNumber: 816,
+      }),
     });
   });
 });
