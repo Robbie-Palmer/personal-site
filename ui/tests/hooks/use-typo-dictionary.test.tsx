@@ -34,4 +34,24 @@ describe("useTypoDictionary", () => {
     await waitFor(() => expect(result.current.ready).toBe(true));
     expect(result.current.dictionary).toBeNull();
   });
+
+  it("refetches when retry is called after a failed load", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("nope", { status: 500 }))
+      .mockResolvedValueOnce(new Response("teh\tthe\n", { status: 200 }));
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    const { result } = renderHook(() => useTypoDictionary());
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.dictionary).toBeNull();
+
+    result.current.retry();
+
+    await waitFor(() =>
+      expect(result.current.dictionary?.get("teh")).toEqual(["the"]),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });

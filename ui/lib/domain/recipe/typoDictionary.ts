@@ -32,7 +32,10 @@ export function loadTypoDictionary(
   fetchImpl: typeof fetch = fetch,
 ): Promise<Map<string, string[]>> {
   if (cache) return cache;
-  cache = (async () => {
+  // Assign synchronously before the first await so concurrent callers share one
+  // in-flight request, and on failure only clear the cache if it still points at
+  // this attempt (a later retry may have already replaced it).
+  const pending = (async () => {
     const response = await fetchImpl(TYPO_DICTIONARY_URL);
     if (!response.ok) {
       throw new Error(
@@ -41,13 +44,14 @@ export function loadTypoDictionary(
     }
     return parseDictionaryTsv(await response.text());
   })().catch((error: unknown) => {
-    cache = null;
+    if (cache === pending) cache = null;
     throw error;
   });
+  cache = pending;
   return cache;
 }
 
-/** Test-only: resets the module-level cache between cases. */
+/** Clears the memoised dictionary so the next load refetches (retry / tests). */
 export function resetTypoDictionaryCache(): void {
   cache = null;
 }

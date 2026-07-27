@@ -1,10 +1,11 @@
 "use client";
 
-import { Check, SpellCheck, X } from "lucide-react";
+import { Check, RefreshCw, SpellCheck, X } from "lucide-react";
 import { Fragment, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
+  PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
@@ -30,6 +31,12 @@ interface SpellcheckEditorProps {
   readonly ariaLabel?: string;
 }
 
+/** A misspelling the user clicked, with the viewport rect of its highlight. */
+interface ActiveMark {
+  readonly misspelling: Misspelling;
+  readonly rect: DOMRect;
+}
+
 /**
  * Cooklang text editor with inline, `typos`-parity spell-checking. Misspellings
  * are underlined in a highlight layer over the textarea; clicking one (or using
@@ -44,10 +51,11 @@ export function SpellcheckEditor({
   maxLength,
   ariaLabel,
 }: SpellcheckEditorProps) {
-  const { dictionary, ready } = useTypoDictionary();
+  const { dictionary, ready, retry } = useTypoDictionary();
   const [ignored, setIgnored] = useState<ReadonlySet<string>>(
     () => new Set<string>(),
   );
+  const [active, setActive] = useState<ActiveMark | null>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
 
   const misspellings = useMemo(
@@ -55,12 +63,20 @@ export function SpellcheckEditor({
     [dictionary, value, ignored],
   );
 
+  // A correction rewrites the source via onChange, bypassing the textarea's
+  // maxLength; skip any that would push the recipe past the save limit.
+  const withinLimit = (text: string) =>
+    maxLength === undefined || text.length <= maxLength;
+
   const accept = (misspelling: Misspelling, replacement: string) => {
-    onChange(applyCorrection(value, misspelling, replacement));
+    const next = applyCorrection(value, misspelling, replacement);
+    if (withinLimit(next)) onChange(next);
+    setActive(null);
   };
 
   const ignore = (word: string) => {
     setIgnored((prev) => new Set(prev).add(word.toLowerCase()));
+    setActive(null);
   };
 
   const fixAll = () => {
@@ -69,7 +85,9 @@ export function SpellcheckEditor({
       .sort((a, b) => b.start - a.start)
       .reduce((text, m) => {
         const replacement = m.suggestions[0];
-        return replacement ? applyCorrection(text, m, replacement) : text;
+        if (!replacement) return text;
+        const candidate = applyCorrection(text, m, replacement);
+        return withinLimit(candidate) ? candidate : text;
       }, value);
     onChange(next);
   };
@@ -82,11 +100,13 @@ export function SpellcheckEditor({
     <div className="grid gap-2">
       <SpellcheckSummary
         ready={ready}
+        unavailable={ready && !dictionary}
         misspellings={misspellings}
         fixableCount={fixableCount}
         onFixAll={fixAll}
         onAccept={accept}
         onIgnore={ignore}
+        onRetry={retry}
       />
       <div className="relative">
         <textarea
@@ -98,6 +118,8 @@ export function SpellcheckEditor({
               backdrop.scrollTop = event.currentTarget.scrollTop;
               backdrop.scrollLeft = event.currentTarget.scrollLeft;
             }
+            // Rects captured on click go stale once the text scrolls.
+            setActive(null);
           }}
           placeholder={placeholder}
           maxLength={maxLength}
@@ -114,9 +136,40 @@ export function SpellcheckEditor({
           ref={backdropRef}
           value={value}
           misspellings={misspellings}
-          onAccept={accept}
-          onIgnore={ignore}
+          onMarkClick={(misspelling, rect) => setActive({ misspelling, rect })}
         />
+        {/* One shared popover repositions to the clicked mark rather than
+            mounting a Radix root per highlight. */}
+        <Popover
+          open={active !== null}
+          onOpenChange={(open) => {
+            if (!open) setActive(null);
+          }}
+        >
+          {active && (
+            <PopoverAnchor asChild>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none fixed"
+                style={{
+                  top: active.rect.top,
+                  left: active.rect.left,
+                  width: active.rect.width,
+                  height: active.rect.height,
+                }}
+              />
+            </PopoverAnchor>
+          )}
+          <PopoverContent align="start" className="w-64 p-2">
+            {active && (
+              <SpellcheckSuggestionRow
+                misspelling={active.misspelling}
+                onAccept={accept}
+                onIgnore={ignore}
+              />
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   );
@@ -124,19 +177,39 @@ export function SpellcheckEditor({
 
 function SpellcheckSummary({
   ready,
+  unavailable,
   misspellings,
   fixableCount,
   onFixAll,
   onAccept,
   onIgnore,
+  onRetry,
 }: {
   readonly ready: boolean;
+  readonly unavailable: boolean;
   readonly misspellings: readonly Misspelling[];
   readonly fixableCount: number;
   readonly onFixAll: () => void;
   readonly onAccept: (misspelling: Misspelling, replacement: string) => void;
   readonly onIgnore: (word: string) => void;
+  readonly onRetry: () => void;
 }) {
+  if (unavailable) {
+    return (
+      <p className="rt-mono flex items-center gap-2 text-xs text-[var(--ink-4)]">
+        <SpellCheck className="size-3.5" />
+        Spell-check unavailable
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex items-center gap-1 text-[var(--terracotta-deep)] hover:underline"
+        >
+          <RefreshCw className="size-3" /> Retry
+        </button>
+      </p>
+    );
+  }
+
   if (!ready || misspellings.length === 0) {
     return (
       <p className="rt-mono flex items-center gap-1.5 text-xs text-[var(--ink-4)]">
@@ -276,14 +349,12 @@ function HighlightBackdrop({
   ref,
   value,
   misspellings,
-  onAccept,
-  onIgnore,
+  onMarkClick,
 }: {
   readonly ref: React.Ref<HTMLDivElement>;
   readonly value: string;
   readonly misspellings: readonly Misspelling[];
-  readonly onAccept: (misspelling: Misspelling, replacement: string) => void;
-  readonly onIgnore: (word: string) => void;
+  readonly onMarkClick: (misspelling: Misspelling, rect: DOMRect) => void;
 }) {
   const segments = useMemo(
     () => buildSegments(value, misspellings),
@@ -303,20 +374,20 @@ function HighlightBackdrop({
     >
       {segments.map((segment) =>
         segment.misspelling ? (
-          <Popover key={segment.offset}>
-            <PopoverTrigger asChild>
-              <mark className="pointer-events-auto cursor-pointer rounded-[2px] bg-transparent text-[var(--ink)] underline decoration-[var(--terracotta)] decoration-wavy decoration-2 underline-offset-2">
-                {segment.text}
-              </mark>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-64 p-2">
-              <SpellcheckSuggestionRow
-                misspelling={segment.misspelling}
-                onAccept={onAccept}
-                onIgnore={onIgnore}
-              />
-            </PopoverContent>
-          </Popover>
+          // biome-ignore lint/a11y/useKeyWithClickEvents: decorative aria-hidden layer; keyboard and screen-reader users act via the issues list
+          <mark
+            key={segment.offset}
+            onClick={(event) =>
+              onMarkClick(
+                // Non-null: this branch only runs for misspelling segments.
+                segment.misspelling as Misspelling,
+                event.currentTarget.getBoundingClientRect(),
+              )
+            }
+            className="pointer-events-auto cursor-pointer rounded-[2px] bg-transparent text-[var(--ink)] underline decoration-[var(--terracotta)] decoration-wavy decoration-2 underline-offset-2"
+          >
+            {segment.text}
+          </mark>
         ) : (
           <Fragment key={segment.offset}>{segment.text}</Fragment>
         ),
