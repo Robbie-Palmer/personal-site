@@ -24,7 +24,9 @@ const DEFAULT_DEBOUNCE_DELAY_MS = 120_000;
 const MINIMUM_DEBOUNCE_DELAY_MS = 1_000;
 const MAXIMUM_DEBOUNCE_DELAY_MS = 3_600_000;
 const COORDINATOR_TIMEOUT_MS = 10_000;
+const MAXIMUM_WEBHOOK_BODY_BYTES = 2 * 1024 * 1024;
 const PENDING_EVENT_KEY = "latest-pending-event";
+const textEncoder = new TextEncoder();
 
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: JSON_HEADERS });
@@ -226,7 +228,17 @@ export default {
       return new Response("Not found", { status: 404 });
     }
 
+    const declaredBodyBytes = Number(request.headers.get("content-length"));
+    if (
+      Number.isFinite(declaredBodyBytes) &&
+      declaredBodyBytes > MAXIMUM_WEBHOOK_BODY_BYTES
+    ) {
+      return json({ error: "Webhook payload is too large" }, 413);
+    }
     const body = await request.text();
+    if (textEncoder.encode(body).byteLength > MAXIMUM_WEBHOOK_BODY_BYTES) {
+      return json({ error: "Webhook payload is too large" }, 413);
+    }
     const eventName = request.headers.get("x-github-event");
     const deliveryId = request.headers.get("x-github-delivery");
     const verified = await verifyGitHubSignature(
@@ -289,9 +301,7 @@ export default {
     } catch (error) {
       console.error(
         "Coordinator request failed",
-        error instanceof Error
-          ? { name: error.name, message: error.message }
-          : { type: typeof error },
+        error instanceof Error ? { name: error.name } : { type: typeof error },
       );
       return json({ error: "Coordinator unavailable" }, 503);
     }

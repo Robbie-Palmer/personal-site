@@ -92,8 +92,11 @@ Verify the out-of-band R2 retention rule without reading any objects:
 
 ```bash
 doppler run --project ai-review --config prd -- \
-  mise x -- pnpm --dir ai-review exec wrangler r2 bucket lifecycle list ai-review-data
+  mise run //ai-review:lifecycle:verify
 ```
+
+Production deployment runs the same verification and fails if the 365-day
+expiry or seven-day multipart-abort policy drifts.
 
 ## Validation
 

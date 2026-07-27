@@ -61,6 +61,13 @@ describe("parseReviewEvent", () => {
         issue: { number: 1 },
       }),
     ).toEqual({ kind: "ignored", reason: "unsupported-event" });
+    expect(
+      parseReviewEvent("issue_comment", "delivery-2", {
+        action: "created",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        issue: { number: 1, pull_request: true },
+      }),
+    ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
   });
 
   it("ignores pull request actions that do not warrant a review", () => {

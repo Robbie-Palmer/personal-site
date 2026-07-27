@@ -149,8 +149,18 @@ export function parseReviewEvent(
   if (!REVIEW_ACTIVITY_EVENTS.has(eventName)) {
     return { kind: "ignored", reason: "unsupported-event" };
   }
-  if (eventName === "issue_comment" && !event.issue?.pull_request) {
-    return { kind: "ignored", reason: "unsupported-event" };
+  if (eventName === "issue_comment") {
+    const pullRequestMarker = event.issue?.pull_request;
+    if (pullRequestMarker === undefined) {
+      return { kind: "ignored", reason: "unsupported-event" };
+    }
+    if (
+      !pullRequestMarker ||
+      typeof pullRequestMarker !== "object" ||
+      Array.isArray(pullRequestMarker)
+    ) {
+      return { kind: "invalid", reason: "Malformed webhook payload" };
+    }
   }
   const pullRequestNumber = reviewActivityPullRequestNumber(eventName, event);
   if (

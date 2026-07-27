@@ -25,3 +25,8 @@ depends = ["typecheck", "test"]
 description = "Deploy the stateful AI review Worker"
 depends = ["install"]
 run = "bash scripts/deploy.sh"
+
+[tasks."lifecycle:verify"]
+description = "Verify the AI review R2 lifecycle policy"
+depends = ["install"]
+run = "bash scripts/verify-lifecycle.sh"

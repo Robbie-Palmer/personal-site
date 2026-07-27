@@ -446,6 +446,31 @@ describe("HTTP Worker", () => {
     });
   });
 
+  it("rejects oversized webhook payloads before verification", async () => {
+    const { env } = workerEnv();
+
+    const declaredOversizeResponse = await worker.fetch(
+      new Request("https://ai-review.test/webhooks/github", {
+        method: "POST",
+        body: "{}",
+        headers: { "content-length": String(2 * 1024 * 1024 + 1) },
+      }),
+      env,
+    );
+
+    expect(declaredOversizeResponse.status).toBe(413);
+
+    const actualOversizeResponse = await worker.fetch(
+      new Request("https://ai-review.test/webhooks/github", {
+        method: "POST",
+        body: "x".repeat(2 * 1024 * 1024 + 1),
+      }),
+      env,
+    );
+
+    expect(actualOversizeResponse.status).toBe(413);
+  });
+
   it("rejects signed webhooks missing routing headers", async () => {
     const { env } = workerEnv();
 
