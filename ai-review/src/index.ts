@@ -78,6 +78,38 @@ function bindingHealth(env: Env) {
   };
 }
 
+function healthResponse(env: Env): Response {
+  const bindings = bindingHealth(env);
+  const ok = Object.values(bindings).every(Boolean);
+  return json(
+    {
+      ok,
+      service: "ai-review",
+      enabled: env.AI_REVIEW_ENABLED === "true",
+      bindings,
+    },
+    ok ? 200 : 503,
+  );
+}
+
+async function readWebhookBody(
+  request: Request,
+): Promise<{ body: string } | { response: Response }> {
+  const declaredBodyBytes = Number(request.headers.get("content-length"));
+  if (
+    Number.isFinite(declaredBodyBytes) &&
+    declaredBodyBytes > MAXIMUM_WEBHOOK_BODY_BYTES
+  ) {
+    return { response: json({ error: "Webhook payload is too large" }, 413) };
+  }
+
+  const body = await request.text();
+  if (textEncoder.encode(body).byteLength > MAXIMUM_WEBHOOK_BODY_BYTES) {
+    return { response: json({ error: "Webhook payload is too large" }, 413) };
+  }
+  return { body };
+}
+
 export class PullRequestCoordinator extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -211,34 +243,18 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/health") {
-      const bindings = bindingHealth(env);
-      const ok = Object.values(bindings).every(Boolean);
-      return json(
-        {
-          ok,
-          service: "ai-review",
-          enabled: env.AI_REVIEW_ENABLED === "true",
-          bindings,
-        },
-        ok ? 200 : 503,
-      );
+      return healthResponse(env);
     }
 
     if (request.method !== "POST" || url.pathname !== "/webhooks/github") {
       return new Response("Not found", { status: 404 });
     }
 
-    const declaredBodyBytes = Number(request.headers.get("content-length"));
-    if (
-      Number.isFinite(declaredBodyBytes) &&
-      declaredBodyBytes > MAXIMUM_WEBHOOK_BODY_BYTES
-    ) {
-      return json({ error: "Webhook payload is too large" }, 413);
+    const bodyResult = await readWebhookBody(request);
+    if ("response" in bodyResult) {
+      return bodyResult.response;
     }
-    const body = await request.text();
-    if (textEncoder.encode(body).byteLength > MAXIMUM_WEBHOOK_BODY_BYTES) {
-      return json({ error: "Webhook payload is too large" }, 413);
-    }
+    const { body } = bodyResult;
     const eventName = request.headers.get("x-github-event");
     const deliveryId = request.headers.get("x-github-delivery");
     const verified = await verifyGitHubSignature(
