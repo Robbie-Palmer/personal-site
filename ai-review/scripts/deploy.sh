@@ -42,21 +42,18 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 secrets_dir="$(mktemp -d)"
-secrets_pipe="${secrets_dir}/worker-secrets.json"
-mkfifo "$secrets_pipe"
-writer_pid=0
+secrets_file="${secrets_dir}/worker-secrets.json"
+chmod 700 "$secrets_dir"
 
 cleanup() {
-  if [[ "$writer_pid" -gt 0 ]]; then
-    kill "$writer_pid" 2>/dev/null || true
-  fi
-  if [[ -p "$secrets_pipe" ]]; then
-    unlink "$secrets_pipe"
+  if [[ -f "$secrets_file" ]]; then
+    unlink "$secrets_file"
   fi
   rmdir "$secrets_dir" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
+umask 077
 jq -n '
   env
   | {
@@ -66,9 +63,6 @@ jq -n '
       AI_REVIEW_WEBHOOK_SECRET,
       OPENROUTER_API_KEY
     }
-' > "$secrets_pipe" &
-writer_pid="$!"
+' > "$secrets_file"
 
-pnpm exec wrangler deploy --secrets-file "$secrets_pipe" "$@"
-wait "$writer_pid"
-writer_pid=0
+pnpm exec wrangler deploy --secrets-file "$secrets_file" "$@"

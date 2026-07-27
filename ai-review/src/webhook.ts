@@ -14,23 +14,16 @@ const REVIEW_ACTIVITY_EVENTS = new Set([
   "pull_request_review_thread",
 ]);
 
-function toHex(bytes: ArrayBuffer): string {
-  return [...new Uint8Array(bytes)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function constantTimeEqual(left: string, right: string): boolean {
-  if (left.length !== right.length) {
-    return false;
+function hexBytes(value: string): Uint8Array | null {
+  if (!/^[\da-f]{64}$/i.test(value)) {
+    return null;
   }
 
-  let difference = 0;
-  for (let index = 0; index < left.length; index += 1) {
-    difference |=
-      (left.codePointAt(index) ?? 0) ^ (right.codePointAt(index) ?? 0);
+  const bytes = new Uint8Array(value.length / 2);
+  for (let index = 0; index < value.length; index += 2) {
+    bytes[index / 2] = Number.parseInt(value.slice(index, index + 2), 16);
   }
-  return difference === 0;
+  return bytes;
 }
 
 export async function verifyGitHubSignature(
@@ -41,16 +34,24 @@ export async function verifyGitHubSignature(
   if (!signature?.startsWith("sha256=")) {
     return false;
   }
+  const signatureBytes = hexBytes(signature.slice("sha256=".length));
+  if (!signatureBytes) {
+    return false;
+  }
 
   const key = await crypto.subtle.importKey(
     "raw",
     encoder.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"],
+    ["verify"],
   );
-  const digest = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
-  return constantTimeEqual(signature, `sha256=${toHex(digest)}`);
+  return crypto.subtle.verify(
+    "HMAC",
+    key,
+    signatureBytes,
+    encoder.encode(body),
+  );
 }
 
 type GitHubWebhook = {
@@ -87,10 +88,13 @@ function parsePullRequestEvent(
     return null;
   }
   const headSha = event.pull_request?.head?.sha;
+  if (typeof headSha !== "string" || headSha.length === 0) {
+    return null;
+  }
   return {
     ...identity,
     pullRequestNumber,
-    ...(typeof headSha === "string" ? { headSha } : {}),
+    headSha,
   };
 }
 

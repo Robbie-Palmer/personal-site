@@ -8,21 +8,24 @@ describe("verifyGitHubSignature", () => {
     const secret = "test-secret";
     const signature = `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
 
-    await expect(
-      verifyGitHubSignature(body, signature, secret),
-    ).resolves.toBe(true);
+    await expect(verifyGitHubSignature(body, signature, secret)).resolves.toBe(
+      true,
+    );
   });
 
   it("rejects a mismatched signature", async () => {
     await expect(
       verifyGitHubSignature("body", "sha256=deadbeef", "secret"),
     ).resolves.toBe(false);
+    await expect(
+      verifyGitHubSignature("body", `sha256=${"0".repeat(64)}`, "secret"),
+    ).resolves.toBe(false);
   });
 
   it("rejects missing and malformed signature headers", async () => {
-    await expect(
-      verifyGitHubSignature("body", null, "secret"),
-    ).resolves.toBe(false);
+    await expect(verifyGitHubSignature("body", null, "secret")).resolves.toBe(
+      false,
+    );
     await expect(
       verifyGitHubSignature("body", "sha1=deadbeef", "secret"),
     ).resolves.toBe(false);
@@ -65,6 +68,18 @@ describe("parseReviewEvent", () => {
         pull_request: { number: 816, head: { sha: "abc123" } },
       }),
     ).toBeNull();
+  });
+
+  it("requires a non-empty head SHA for pull request events", () => {
+    for (const sha of [undefined, ""]) {
+      expect(
+        parseReviewEvent("pull_request", "delivery-missing-sha", {
+          action: "synchronize",
+          repository: { full_name: "Robbie-Palmer/personal-site" },
+          pull_request: { number: 816, head: { sha } },
+        }),
+      ).toBeNull();
+    }
   });
 
   it("rejects malformed webhook envelopes", () => {

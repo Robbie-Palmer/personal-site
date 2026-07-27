@@ -52,6 +52,9 @@ GitHub Actions reserves the `GITHUB_` prefix, so App credentials use the
 `AI_REVIEW_` prefix in Doppler and the Worker.
 The committed `ai-review-data` name is authoritative in Terraform, Wrangler,
 and lifecycle verification; it is not a deployment input.
+`AI_REVIEW_DATA_RETENTION_DAYS` documents the intended bucket policy only. The
+Worker neither treats object metadata as enforcement nor deletes records; the
+bucket-level lifecycle rule above is authoritative.
 
 ## Deploy
 
@@ -69,8 +72,9 @@ mise run //ai-review:deploy
 
 The deploy task loads `ai-review/prd` when required values are not already in
 the environment. It exposes only the five Worker runtime secrets to Wrangler
-through a temporary named pipe, so neither local deploys nor CI write a
-plaintext secrets file.
+through a mode-`0600` file inside a mode-`0700` temporary directory. The
+cleanup trap unlinks the file after Wrangler exits or the deploy is
+interrupted.
 The GitHub App webhook URL is:
 
 ```text

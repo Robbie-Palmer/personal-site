@@ -13,7 +13,7 @@ AI_REVIEW_ENABLED = "false"
 AI_REVIEW_REPOSITORY = "Robbie-Palmer/personal-site"
 AI_REVIEW_DEBOUNCE_SECONDS = "120"
 AI_REVIEW_DATA_RETENTION_DAYS = "365"
-AI_REVIEW_SCOUT_MODEL = "@cf/qwen/qwen3-coder-next"
+AI_REVIEW_SCOUT_MODEL = "@cf/qwen/qwen2.5-coder-32b-instruct"
 AI_REVIEW_PROMPT_VERSION = "bootstrap-v1"
 
 [secrets]

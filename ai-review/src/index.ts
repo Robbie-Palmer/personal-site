@@ -10,6 +10,17 @@ import { parseReviewEvent, verifyGitHubSignature } from "./webhook";
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
 };
+const CREATE_WEBHOOK_DELIVERIES_TABLE =
+  "CREATE TABLE IF NOT EXISTS webhook_deliveries (" +
+  "delivery_id TEXT PRIMARY KEY, " +
+  "event_name TEXT NOT NULL, " +
+  "action TEXT NOT NULL, " +
+  "repository TEXT NOT NULL, " +
+  "pull_request_number INTEGER NOT NULL, " +
+  "head_sha TEXT, " +
+  "received_at TEXT NOT NULL)";
+const DEFAULT_DEBOUNCE_DELAY_MS = 120_000;
+const MINIMUM_DEBOUNCE_DELAY_MS = 1_000;
 
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: JSON_HEADERS });
@@ -19,20 +30,27 @@ function coordinatorName(event: ReviewWorkflowParams): string {
   return `${event.repository}#${event.pullRequestNumber}`;
 }
 
+function debounceDelayMs(rawSeconds: string): number {
+  const seconds = Number(rawSeconds);
+  if (!Number.isFinite(seconds)) {
+    return DEFAULT_DEBOUNCE_DELAY_MS;
+  }
+  return Math.max(MINIMUM_DEBOUNCE_DELAY_MS, seconds * 1_000);
+}
+
+function bindingHealth(env: Env) {
+  return {
+    ai: env.AI !== undefined,
+    durableObject: env.PR_STATE !== undefined,
+    r2: env.REVIEW_DATA !== undefined,
+    workflow: env.REVIEW_WORKFLOW !== undefined,
+  };
+}
+
 export class PullRequestCoordinator extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    this.ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS webhook_deliveries (
-        delivery_id TEXT PRIMARY KEY,
-        event_name TEXT NOT NULL,
-        action TEXT NOT NULL,
-        repository TEXT NOT NULL,
-        pull_request_number INTEGER NOT NULL,
-        head_sha TEXT,
-        received_at TEXT NOT NULL
-      )
-    `);
+    this.ctx.storage.sql.exec(CREATE_WEBHOOK_DELIVERIES_TABLE);
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -66,14 +84,8 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     await this.ctx.storage.put("pending-event", event);
 
     if (this.env.AI_REVIEW_ENABLED === "true") {
-      const debounceSeconds = Number.parseInt(
-        this.env.AI_REVIEW_DEBOUNCE_SECONDS,
-        10,
-      );
-      const delay = Number.isFinite(debounceSeconds)
-        ? Math.max(0, debounceSeconds) * 1_000
-        : 120_000;
-      await this.ctx.storage.setAlarm(Date.now() + delay);
+      const delayMs = debounceDelayMs(this.env.AI_REVIEW_DEBOUNCE_SECONDS);
+      await this.ctx.storage.setAlarm(Date.now() + delayMs);
     }
 
     return json({
@@ -130,9 +142,6 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
         }),
         {
           httpMetadata: { contentType: "application/json" },
-          customMetadata: {
-            retentionDays: this.env.AI_REVIEW_DATA_RETENTION_DAYS,
-          },
         },
       );
     });
@@ -143,11 +152,17 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/health") {
-      return json({
-        ok: true,
-        service: "ai-review",
-        enabled: env.AI_REVIEW_ENABLED === "true",
-      });
+      const bindings = bindingHealth(env);
+      const ok = Object.values(bindings).every(Boolean);
+      return json(
+        {
+          ok,
+          service: "ai-review",
+          enabled: env.AI_REVIEW_ENABLED === "true",
+          bindings,
+        },
+        ok ? 200 : 503,
+      );
     }
 
     if (request.method !== "POST" || url.pathname !== "/webhooks/github") {
@@ -172,7 +187,9 @@ export default {
     if (!event) {
       return json({ ignored: true, reason: "unsupported-event" }, 202);
     }
-    if (event.repository.toLowerCase() !== env.AI_REVIEW_REPOSITORY.toLowerCase()) {
+    if (
+      event.repository.toLowerCase() !== env.AI_REVIEW_REPOSITORY.toLowerCase()
+    ) {
       return json({ error: "Repository is not allowed" }, 403);
     }
 

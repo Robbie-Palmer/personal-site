@@ -1,11 +1,8 @@
-import { createHmac } from "node:crypto";
 import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers";
+import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Env, ReviewWorkflowParams } from "../src/env";
-import worker, {
-  PullRequestCoordinator,
-  ReviewWorkflow,
-} from "../src/index";
+import worker, { PullRequestCoordinator, ReviewWorkflow } from "../src/index";
 
 const event: ReviewWorkflowParams = {
   deliveryId: "delivery-123",
@@ -69,6 +66,8 @@ describe("PullRequestCoordinator", () => {
   });
 
   it("initializes storage and schedules a new delivery", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-27T00:00:00.000Z"));
     const { coordinator, sqlExec, storage } = coordinatorFixture();
 
     const response = await coordinator.fetch(
@@ -84,7 +83,37 @@ describe("PullRequestCoordinator", () => {
     });
     expect(sqlExec.mock.calls[0]?.[0]).toContain("CREATE TABLE IF NOT EXISTS");
     expect(storage.put).toHaveBeenCalledWith("pending-event", event);
-    expect(storage.setAlarm).toHaveBeenCalledOnce();
+    expect(storage.setAlarm).toHaveBeenCalledWith(
+      new Date("2026-07-27T00:00:02.000Z").getTime(),
+    );
+  });
+
+  it("clamps immediate delays and defaults invalid configuration", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-27T00:00:00.000Z"));
+    const immediate = coordinatorFixture();
+    immediate.env.AI_REVIEW_DEBOUNCE_SECONDS = "0";
+    await immediate.coordinator.fetch(
+      new Request("https://coordinator.test/events", {
+        method: "POST",
+        body: JSON.stringify(event),
+      }),
+    );
+    expect(immediate.storage.setAlarm).toHaveBeenCalledWith(
+      new Date("2026-07-27T00:00:01.000Z").getTime(),
+    );
+
+    const invalid = coordinatorFixture();
+    invalid.env.AI_REVIEW_DEBOUNCE_SECONDS = "not-a-number";
+    await invalid.coordinator.fetch(
+      new Request("https://coordinator.test/events", {
+        method: "POST",
+        body: JSON.stringify(event),
+      }),
+    );
+    expect(invalid.storage.setAlarm).toHaveBeenCalledWith(
+      new Date("2026-07-27T00:02:00.000Z").getTime(),
+    );
   });
 
   it("returns early for duplicate deliveries and unsupported methods", async () => {
@@ -182,6 +211,9 @@ describe("ReviewWorkflow", () => {
       status: "bootstrap-only",
       event,
     });
+    expect(put.mock.calls[0]?.[2]).toEqual({
+      httpMetadata: { contentType: "application/json" },
+    });
   });
 });
 
@@ -204,6 +236,9 @@ describe("HTTP Worker", () => {
           idFromName: vi.fn(() => "coordinator-id"),
           get: vi.fn(() => ({ fetch })),
         },
+        REVIEW_DATA: {},
+        REVIEW_WORKFLOW: {},
+        AI: {},
       } as unknown as Env,
       fetch,
     };
@@ -219,6 +254,12 @@ describe("HTTP Worker", () => {
       ok: true,
       service: "ai-review",
       enabled: false,
+      bindings: {
+        ai: true,
+        durableObject: true,
+        r2: true,
+        workflow: true,
+      },
     });
 
     const missing = await worker.fetch(
@@ -226,6 +267,22 @@ describe("HTTP Worker", () => {
       env,
     );
     expect(missing.status).toBe(404);
+  });
+
+  it("reports degraded health when a critical binding is absent", async () => {
+    const { env } = workerEnv();
+    Object.assign(env, { AI: undefined });
+
+    const health = await worker.fetch(
+      new Request("https://ai-review.test/health"),
+      env,
+    );
+
+    expect(health.status).toBe(503);
+    await expect(health.json()).resolves.toMatchObject({
+      ok: false,
+      bindings: { ai: false },
+    });
   });
 
   it("rejects invalid signatures and disallowed repositories", async () => {
