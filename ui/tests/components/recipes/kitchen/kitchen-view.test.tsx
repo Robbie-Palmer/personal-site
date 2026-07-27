@@ -7,7 +7,7 @@ const dietState = vi.hoisted(() => ({ mode: "hide" as "hide" | "warn" }));
 const kitchenStockState = vi.hoisted(() => ({
   actions: {
     clearStock: vi.fn(),
-    error: null,
+    error: null as Error | null,
     isPending: false,
     removeFromStock: vi.fn(),
     replaceStock: vi.fn(),
@@ -19,7 +19,8 @@ const kitchenStockState = vi.hoisted(() => ({
       scope: { type: "personal" as const },
       stock: {} as Record<string, "fridge" | "cupboards" | "fresh">,
     },
-    error: null,
+    error: null as Error | null,
+    isPending: false,
   },
 }));
 
@@ -91,6 +92,39 @@ describe("KitchenView diet ingredient catalog", () => {
       scope: { type: "personal" },
       stock: {},
     };
+    kitchenStockState.pantry.error = null;
+    kitchenStockState.pantry.isPending = false;
+    kitchenStockState.actions.error = null;
+  });
+
+  it("shows a loading state instead of an empty pantry", () => {
+    kitchenStockState.pantry.isPending = true;
+
+    render(<KitchenView ingredients={ingredients} recipes={[]} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Loading your pantry…",
+    );
+    expect(screen.queryByRole("button", { name: /add chickpeas/i })).toBeNull();
+  });
+
+  it("distinguishes loading failures from unsaved changes", () => {
+    kitchenStockState.pantry.error = new Error("load failed");
+    kitchenStockState.actions.error = new Error("save failed");
+
+    render(<KitchenView ingredients={ingredients} recipes={[]} />);
+
+    expect(screen.getAllByRole("alert")).toHaveLength(2);
+    expect(
+      screen.getByText(
+        "Your pantry could not be loaded. Refresh the page to try again.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Your latest pantry change could not be saved. Please try again.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("hides excluded ingredients and supports a temporary override", async () => {

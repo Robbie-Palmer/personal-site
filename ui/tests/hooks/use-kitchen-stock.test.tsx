@@ -222,6 +222,49 @@ describe("useKitchenStockActions", () => {
     expect(queryClient.getQueryData(queryKey)).toEqual(original);
   });
 
+  it("bases optimistic removal on the cache after pending queries are cancelled", async () => {
+    const queryClient = createQueryClient();
+    const queryKey = recipeQueryKeys.pantry("user-1");
+    queryClient.setQueryData(
+      queryKey,
+      personalPantry({ milk: "fridge", onion: "fresh" }),
+    );
+    vi.spyOn(queryClient, "cancelQueries").mockImplementation(async () => {
+      queryClient.setQueryData(
+        queryKey,
+        personalPantry({
+          egg: "cupboards",
+          milk: "fridge",
+          onion: "fresh",
+        }),
+      );
+    });
+    let resolveRemoval: ((pantry: Pantry) => void) | undefined;
+    mocks.removePantryItem.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRemoval = resolve;
+        }),
+    );
+
+    const { result } = renderHook(() => useKitchenStockActions(), {
+      wrapper: wrapper(queryClient),
+    });
+
+    act(() => result.current.removeFromStock("milk"));
+
+    await waitFor(() =>
+      expect(queryClient.getQueryData(queryKey)).toEqual(
+        personalPantry({ egg: "cupboards", onion: "fresh" }),
+      ),
+    );
+
+    act(() =>
+      resolveRemoval?.(personalPantry({ egg: "cupboards", onion: "fresh" })),
+    );
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+  });
+
   it("can optimistically set stock before the pantry query has loaded", async () => {
     const queryClient = createQueryClient();
     const queryKey = recipeQueryKeys.pantry("user-1");

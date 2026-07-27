@@ -25,21 +25,18 @@ type PantryMutation =
       kind: "set";
       ingredientSlug: IngredientSlug;
       location: KitchenLocation;
-      optimisticStock: KitchenStock;
     }
   | {
       kind: "remove";
       ingredientSlug: IngredientSlug;
-      optimisticStock: KitchenStock;
     }
   | {
       kind: "replace";
-      optimisticStock: KitchenStock;
+      stock: KitchenStock;
     }
   | {
       kind: "restore";
       stock: KitchenStock;
-      optimisticStock: KitchenStock;
     };
 
 export function useKitchenStockQuery() {
@@ -70,7 +67,7 @@ export function useKitchenStockActions() {
         case "remove":
           return removePantryItem(operation.ingredientSlug);
         case "replace":
-          return replacePantry(operation.optimisticStock);
+          return replacePantry(operation.stock);
         case "restore":
           return restorePantry(operation.stock);
       }
@@ -79,9 +76,28 @@ export function useKitchenStockActions() {
       await queryClient.cancelQueries({ queryKey, exact: true });
       const previous = queryClient.getQueryData<Pantry>(queryKey);
       if (previous) {
+        let optimisticStock: KitchenStock;
+        switch (operation.kind) {
+          case "set":
+            optimisticStock = {
+              ...previous.stock,
+              [operation.ingredientSlug]: operation.location,
+            };
+            break;
+          case "remove":
+            optimisticStock = { ...previous.stock };
+            delete optimisticStock[operation.ingredientSlug];
+            break;
+          case "replace":
+            optimisticStock = { ...operation.stock };
+            break;
+          case "restore":
+            optimisticStock = { ...operation.stock, ...previous.stock };
+            break;
+        }
         queryClient.setQueryData<Pantry>(queryKey, {
           ...previous,
-          stock: operation.optimisticStock,
+          stock: optimisticStock,
         });
       }
       return { previous };
@@ -96,36 +112,30 @@ export function useKitchenStockActions() {
     },
   });
 
-  function currentStock(): KitchenStock {
-    return queryClient.getQueryData<Pantry>(queryKey)?.stock ?? EMPTY_STOCK;
-  }
-
   return {
     clearStock() {
-      mutation.mutate({ kind: "replace", optimisticStock: {} });
+      mutation.mutate({ kind: "replace", stock: {} });
     },
     error: mutation.error,
     isPending: mutation.isPending,
     removeFromStock(ingredientSlug: IngredientSlug) {
-      const optimisticStock = { ...currentStock() };
-      delete optimisticStock[ingredientSlug];
-      mutation.mutate({ kind: "remove", ingredientSlug, optimisticStock });
+      mutation.mutate({ kind: "remove", ingredientSlug });
     },
     replaceStock(stock: KitchenStock) {
-      mutation.mutate({ kind: "replace", optimisticStock: { ...stock } });
+      mutation.mutate({ kind: "replace", stock: { ...stock } });
     },
     restoreStock(stock: KitchenStock) {
       mutation.mutate({
         kind: "restore",
         stock: { ...stock },
-        optimisticStock: { ...stock, ...currentStock() },
       });
     },
     setStockLocation(
       ingredientSlug: IngredientSlug,
       location: KitchenLocation,
     ) {
-      const stock = currentStock();
+      const stock =
+        queryClient.getQueryData<Pantry>(queryKey)?.stock ?? EMPTY_STOCK;
       const optimisticStock = {
         ...stock,
         [ingredientSlug]: location,
@@ -141,7 +151,6 @@ export function useKitchenStockActions() {
         kind: "set",
         ingredientSlug,
         location,
-        optimisticStock,
       });
     },
   };

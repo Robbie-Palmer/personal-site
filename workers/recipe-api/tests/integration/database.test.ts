@@ -490,6 +490,14 @@ describe("recipe API PostgreSQL integration", () => {
     });
     expect(recipeResponse.status).toBe(201);
 
+    // Defensively simulate a stale personal duplicate. Household stock remains
+    // authoritative when the owner carries it forward during deletion.
+    await db.insert(schema.pantryItem).values({
+      userId: owner.id,
+      ingredientSlug: "onion",
+      location: "cupboards",
+    });
+
     const deleteResponse = await authenticatedRequest(
       owner,
       `/households/${household.id}`,

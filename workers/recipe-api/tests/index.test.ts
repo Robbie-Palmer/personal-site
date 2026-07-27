@@ -661,6 +661,24 @@ const dbMock = vi.hoisted(() => {
       return [];
     }
 
+    if (query.startsWith('update "pantry_item"')) {
+      const userId = (params[0] as string | null) ?? null;
+      const organizationId = (params[1] as string | null) ?? null;
+      const previousOwnerId = params.at(-1) as string;
+      const personal = isPersonalPantryQuery(query);
+      for (const item of state.pantryItems) {
+        const matchesPreviousOwner = personal
+          ? item.userId === previousOwnerId
+          : item.organizationId === previousOwnerId;
+        if (matchesPreviousOwner) {
+          item.userId = userId;
+          item.organizationId = organizationId;
+          item.updatedAt = date;
+        }
+      }
+      return [];
+    }
+
     if (query.startsWith('delete from "app_rate_limit"')) {
       state.rateLimitSweeps += 1;
       return [];
@@ -668,7 +686,7 @@ const dbMock = vi.hoisted(() => {
 
     if (query.startsWith('delete from "pantry_item"')) {
       const ownerId = params[0] as string;
-      const ingredientSlug = params[1] as string | undefined;
+      const ingredientSlugs = new Set(params.slice(1) as string[]);
       const personal = isPersonalPantryQuery(query);
       state.pantryItems = state.pantryItems.filter(
         (item) =>
@@ -676,7 +694,8 @@ const dbMock = vi.hoisted(() => {
             (personal
               ? item.userId === ownerId
               : item.organizationId === ownerId) &&
-            (!ingredientSlug || item.ingredientSlug === ingredientSlug)
+            (ingredientSlugs.size === 0 ||
+              ingredientSlugs.has(item.ingredientSlug))
           ),
       );
       return [];
@@ -990,11 +1009,14 @@ const dbMock = vi.hoisted(() => {
           ? item.userId === ownerId
           : item.organizationId === ownerId,
       );
-      return pantryItems.map((item) =>
-        query.includes('select "ingredient_slug", "location"')
-          ? [item.ingredientSlug, item.location]
-          : [item.id],
-      );
+      return pantryItems.map((item) => {
+        if (query.includes('select "ingredient_slug", "location"')) {
+          return [item.ingredientSlug, item.location];
+        }
+        return query.includes('select "ingredient_slug"')
+          ? [item.ingredientSlug]
+          : [item.id];
+      });
     }
 
     if (
@@ -3768,6 +3790,35 @@ describe("household membership flows", () => {
 
   it("allows owners to delete the household", async () => {
     seedHousehold();
+    dbMock.state.pantryItems.push(
+      {
+        id: crypto.randomUUID(),
+        userId: "owner-user",
+        organizationId: null,
+        ingredientSlug: "onion",
+        location: "cupboards",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+      {
+        id: crypto.randomUUID(),
+        userId: null,
+        organizationId: HOUSEHOLD_ID,
+        ingredientSlug: "onion",
+        location: "fresh",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+      {
+        id: crypto.randomUUID(),
+        userId: null,
+        organizationId: HOUSEHOLD_ID,
+        ingredientSlug: "milk",
+        location: "fridge",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+    );
     authzMock.session = sessionFor({
       id: "owner-user",
       email: "owner@example.test",
@@ -3786,6 +3837,20 @@ describe("household membership flows", () => {
     expect(res.status).toBe(204);
     expect(dbMock.state.organizations).toHaveLength(0);
     expect(dbMock.state.members).toHaveLength(0);
+    expect(dbMock.state.pantryItems).toEqual([
+      expect.objectContaining({
+        userId: "owner-user",
+        organizationId: null,
+        ingredientSlug: "onion",
+        location: "fresh",
+      }),
+      expect.objectContaining({
+        userId: "owner-user",
+        organizationId: null,
+        ingredientSlug: "milk",
+        location: "fridge",
+      }),
+    ]);
     expect(dbMock.state.notificationEvents).toEqual([
       expect.objectContaining({ kind: "household_deleted" }),
     ]);

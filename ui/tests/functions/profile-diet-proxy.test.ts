@@ -141,14 +141,17 @@ describe("household proxy", () => {
 });
 
 describe("pantry proxy", () => {
-  it("maps pantry item requests to the Worker path", async () => {
+  it("maps pantry item requests and query parameters to the Worker URL", async () => {
     const fetchMock = vi.fn(async (_request: Request) => new Response("ok"));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     const response = await onPantryRequest({
-      request: new Request("https://robbiepalmer.me/api/pantry/items/onion", {
-        method: "PUT",
-      }),
+      request: new Request(
+        "https://robbiepalmer.me/api/pantry/items/onion?source=kitchen",
+        {
+          method: "PUT",
+        },
+      ),
       env: { RECIPE_API_URL: "https://recipe-api.example.test" },
     });
 
@@ -159,7 +162,7 @@ describe("pantry proxy", () => {
       throw new Error("Expected pantry proxy to forward a Request");
     }
     expect(forwarded.url).toBe(
-      "https://recipe-api.example.test/pantry/items/onion",
+      "https://recipe-api.example.test/pantry/items/onion?source=kitchen",
     );
     expect(forwarded.method).toBe("PUT");
   });

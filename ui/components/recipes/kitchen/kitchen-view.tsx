@@ -252,13 +252,21 @@ export function KitchenView({
         </div>
       </div>
 
-      {(pantry.error || stockActions.error) && (
+      {pantry.error && (
         <div
           role="alert"
           className="rt-body mb-6 rounded-md border border-[var(--berry)]/35 bg-[var(--berry)]/8 px-4 py-3 text-sm text-[var(--berry)]"
         >
-          Your pantry could not be synced. Your latest change may not have been
-          saved.
+          Your pantry could not be loaded. Refresh the page to try again.
+        </div>
+      )}
+
+      {stockActions.error && (
+        <div
+          role="alert"
+          className="rt-body mb-6 rounded-md border border-[var(--berry)]/35 bg-[var(--berry)]/8 px-4 py-3 text-sm text-[var(--berry)]"
+        >
+          Your latest pantry change could not be saved. Please try again.
         </div>
       )}
 
@@ -272,7 +280,22 @@ export function KitchenView({
         />
       )}
 
-      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.85fr)]">
+      {pantry.isPending && (
+        <Card
+          role="status"
+          aria-live="polite"
+          className="rounded-lg border-[1.25px] border-[var(--line-strong)] bg-[var(--card)]"
+        >
+          <CardContent className="rt-body py-8 text-[var(--ink-3)]">
+            Loading your pantry…
+          </CardContent>
+        </Card>
+      )}
+
+      <div
+        hidden={pantry.isPending}
+        className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.85fr)]"
+      >
         <div className="min-w-0 space-y-6">
           <Card className="rounded-lg border-[1.25px] border-[var(--line-strong)] bg-[var(--card)]">
             <CardHeader className="gap-3">

@@ -2912,6 +2912,9 @@ app.delete("/households/:householdId", async (c) => {
       if (!household) return c.notFound();
 
       await db.transaction(async (tx) => {
+        // Match pantry mutation lock ordering so deleting a household cannot
+        // race an owner pantry write while its stock changes ownership.
+        await lockUser(tx, session.user.id);
         const [lockedHousehold] = await tx
           .select({ id: schema.organization.id })
           .from(schema.organization)
@@ -2941,6 +2944,28 @@ app.delete("/households/:householdId", async (c) => {
               inArray(schema.recipe.userId, memberIds),
             ),
           );
+        const householdPantryItems = await tx
+          .select({ ingredientSlug: schema.pantryItem.ingredientSlug })
+          .from(schema.pantryItem)
+          .where(eq(schema.pantryItem.organizationId, householdId));
+        const householdIngredientSlugs = householdPantryItems.map(
+          ({ ingredientSlug }) => ingredientSlug,
+        );
+        if (householdIngredientSlugs.length > 0) {
+          // Household stock is authoritative. Remove any defensive/stale
+          // personal duplicates before carrying the household pantry forward.
+          await tx
+            .delete(schema.pantryItem)
+            .where(
+              and(
+                eq(schema.pantryItem.userId, session.user.id),
+                inArray(
+                  schema.pantryItem.ingredientSlug,
+                  householdIngredientSlugs,
+                ),
+              ),
+            );
+        }
         await tx
           .update(schema.pantryItem)
           .set({
