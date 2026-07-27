@@ -110,6 +110,41 @@ async function readWebhookBody(
   return { body };
 }
 
+async function forwardToCoordinator(
+  event: ReviewWorkflowParams,
+  env: Env,
+): Promise<Response> {
+  const id = env.PR_STATE.idFromName(coordinatorName(event));
+  try {
+    // This fixed URL is the standard Durable Object stub-fetch target; the
+    // validated event body contains all provenance the coordinator needs.
+    const response = await env.PR_STATE.get(id).fetch(
+      "https://coordinator.internal/events",
+      {
+        method: "POST",
+        body: JSON.stringify(event),
+        signal: AbortSignal.timeout(COORDINATOR_TIMEOUT_MS),
+      },
+    );
+    if (!response.ok) {
+      console.error("Coordinator rejected a validated webhook", {
+        status: response.status,
+      });
+      if (response.status >= 400 && response.status < 500) {
+        return json({ error: "Invalid coordinator request" }, 400);
+      }
+      return json({ error: "Coordinator unavailable" }, 503);
+    }
+    return response;
+  } catch (error) {
+    console.error(
+      "Coordinator request failed",
+      error instanceof Error ? { name: error.name } : { type: typeof error },
+    );
+    return json({ error: "Coordinator unavailable" }, 503);
+  }
+}
+
 export class PullRequestCoordinator extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -292,34 +327,6 @@ export default {
       return json({ error: "Repository is not allowed" }, 403);
     }
 
-    const id = env.PR_STATE.idFromName(coordinatorName(event));
-    try {
-      // This fixed URL is the standard Durable Object stub-fetch target; the
-      // validated event body contains all provenance the coordinator needs.
-      const response = await env.PR_STATE.get(id).fetch(
-        "https://coordinator.internal/events",
-        {
-          method: "POST",
-          body: JSON.stringify(event),
-          signal: AbortSignal.timeout(COORDINATOR_TIMEOUT_MS),
-        },
-      );
-      if (!response.ok) {
-        console.error("Coordinator rejected a validated webhook", {
-          status: response.status,
-        });
-        if (response.status >= 400 && response.status < 500) {
-          return json({ error: "Invalid coordinator request" }, 400);
-        }
-        return json({ error: "Coordinator unavailable" }, 503);
-      }
-      return response;
-    } catch (error) {
-      console.error(
-        "Coordinator request failed",
-        error instanceof Error ? { name: error.name } : { type: typeof error },
-      );
-      return json({ error: "Coordinator unavailable" }, 503);
-    }
+    return forwardToCoordinator(event, env);
   },
 } satisfies ExportedHandler<Env>;
