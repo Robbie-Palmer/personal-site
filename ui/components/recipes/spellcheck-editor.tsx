@@ -372,26 +372,30 @@ function HighlightBackdrop({
         "pointer-events-none absolute inset-0 z-10 select-none overflow-hidden whitespace-pre-wrap break-words border-transparent text-[var(--ink)]",
       )}
     >
-      {segments.map((segment) =>
-        segment.misspelling ? (
-          // biome-ignore lint/a11y/useKeyWithClickEvents: decorative aria-hidden layer; keyboard and screen-reader users act via the issues list
-          <mark
+      {segments.map((segment) => {
+        const flagged = segment.misspelling;
+        if (!flagged) {
+          return <Fragment key={segment.offset}>{segment.text}</Fragment>;
+        }
+        // A real (inline) button is keyboard/AT-native so it satisfies the a11y
+        // linters, while inline display keeps the highlight metrically identical
+        // to the textarea text. It sits in the aria-hidden layer with tabIndex
+        // -1, so screen-reader and keyboard users act through the issues list.
+        return (
+          <button
             key={segment.offset}
+            type="button"
+            tabIndex={-1}
+            data-spellcheck-mark
             onClick={(event) =>
-              onMarkClick(
-                // Non-null: this branch only runs for misspelling segments.
-                segment.misspelling as Misspelling,
-                event.currentTarget.getBoundingClientRect(),
-              )
+              onMarkClick(flagged, event.currentTarget.getBoundingClientRect())
             }
-            className="pointer-events-auto cursor-pointer rounded-[2px] bg-transparent text-[var(--ink)] underline decoration-[var(--terracotta)] decoration-wavy decoration-2 underline-offset-2"
+            className="pointer-events-auto inline cursor-pointer border-0 bg-transparent p-0 text-[var(--ink)] underline decoration-[var(--terracotta)] decoration-wavy decoration-2 underline-offset-2"
           >
             {segment.text}
-          </mark>
-        ) : (
-          <Fragment key={segment.offset}>{segment.text}</Fragment>
-        ),
-      )}
+          </button>
+        );
+      })}
       {/* Keeps the backdrop's final line height in step with the textarea when
           the text ends on a newline. */}
       {"\n"}

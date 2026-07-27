@@ -55,7 +55,7 @@ describe("SpellcheckEditor", () => {
     const { container } = render(<ControlledEditor initial="teh @tomatoe{}" />);
 
     expect(screen.getByText("2 possible spelling issues")).toBeInTheDocument();
-    const marks = container.querySelectorAll("mark");
+    const marks = container.querySelectorAll("[data-spellcheck-mark]");
     expect([...marks].map((mark) => mark.textContent)).toEqual([
       "teh",
       "tomatoe",
@@ -77,7 +77,7 @@ describe("SpellcheckEditor", () => {
     const user = userEvent.setup();
     const { container } = render(<ControlledEditor initial="teh onion" />);
 
-    const mark = container.querySelector("mark");
+    const mark = container.querySelector("[data-spellcheck-mark]");
     expect(mark).not.toBeNull();
     await user.click(mark as HTMLElement);
     await user.click(await screen.findByRole("button", { name: "the" }));
