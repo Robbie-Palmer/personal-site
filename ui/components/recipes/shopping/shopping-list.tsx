@@ -16,8 +16,8 @@ import { ShoppingCheckbox } from "@/components/recipes/shopping/shopping-checkbo
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-  useKitchenStock,
   useKitchenStockActions,
+  useKitchenStockQuery,
 } from "@/hooks/use-kitchen-stock";
 import { useShoppingList } from "@/hooks/use-shopping-list";
 import { useUnitPreference } from "@/hooks/use-unit-preference";
@@ -316,7 +316,8 @@ export function ShoppingList({
   recipes,
 }: Readonly<{ recipes: ShoppingRecipe[] }>) {
   const state = useShoppingList();
-  const stock = useKitchenStock();
+  const pantry = useKitchenStockQuery();
+  const stock = pantry.data?.stock ?? {};
   const stockActions = useKitchenStockActions();
   const [system] = useUnitPreference();
   const [view, setView] = useState<ListView>("aisle");
@@ -449,6 +450,33 @@ export function ShoppingList({
         <p className="rt-body text-[var(--ink-3)] mt-2">
           Pick some recipes above and their ingredients will gather here,
           combined and sorted for the shop.
+        </p>
+      </div>
+    );
+  }
+
+  if (pantry.isPending) {
+    return (
+      <div
+        className="rounded-xl border-[1.25px] border-[var(--line-strong)] bg-[var(--card)] p-10 text-center"
+        role="status"
+      >
+        <p className="rt-body text-[var(--ink-3)]">
+          Loading your pantry before building the shopping list…
+        </p>
+      </div>
+    );
+  }
+
+  if (pantry.error) {
+    return (
+      <div
+        className="rounded-xl border-[1.25px] border-[var(--line-strong)] bg-[var(--card)] p-10 text-center"
+        role="alert"
+      >
+        <p className="rt-body text-[var(--berry)]">
+          Your pantry could not be loaded. Refresh the page to build an accurate
+          shopping list.
         </p>
       </div>
     );

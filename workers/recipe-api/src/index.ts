@@ -937,6 +937,15 @@ async function acceptPendingInvitation(
 ): Promise<HouseholdMember> {
   return db.transaction(async (tx) => {
     await lockUser(tx, userId);
+    const [household] = await tx
+      .select({ id: schema.organization.id })
+      .from(schema.organization)
+      .where(eq(schema.organization.id, invitation.organizationId))
+      .for("update")
+      .limit(1);
+    if (!household) {
+      throw new InvitationActionError(404, "Household not found");
+    }
     const [pantryItem] = await tx
       .select({ id: schema.pantryItem.id })
       .from(schema.pantryItem)

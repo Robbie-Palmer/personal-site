@@ -14,13 +14,27 @@ const mocks = vi.hoisted(() => ({
   captureRecipeValue: vi.fn(),
 }));
 
+const pantryState = vi.hoisted(() => ({
+  error: null as Error | null,
+  isPending: false,
+}));
+
 vi.mock("@/lib/analytics/recipe-product", () => ({
   captureRecipeProductActivity: mocks.captureRecipeProductActivity,
   captureRecipeValue: mocks.captureRecipeValue,
 }));
 
 vi.mock("@/hooks/use-kitchen-stock", () => ({
-  useKitchenStock: () => ({}),
+  useKitchenStockActions: () => ({
+    error: null,
+    isPending: false,
+    removeFromStock: vi.fn(),
+  }),
+  useKitchenStockQuery: () => ({
+    data: { scope: { type: "personal" }, stock: {} },
+    error: pantryState.error,
+    isPending: pantryState.isPending,
+  }),
 }));
 
 vi.mock("@/hooks/use-unit-preference", async () => {
@@ -52,6 +66,8 @@ const recipes: ShoppingRecipe[] = [
 
 describe("ShoppingList value analytics", () => {
   beforeEach(() => {
+    pantryState.error = null;
+    pantryState.isPending = false;
     localStorage.clear();
     __resetShoppingListForTests();
     addRecipe("garlic-pasta");
@@ -100,5 +116,41 @@ describe("ShoppingList value analytics", () => {
     await user.click(garlic);
 
     expect(mocks.captureRecipeValue).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ShoppingList pantry state", () => {
+  beforeEach(() => {
+    pantryState.error = null;
+    pantryState.isPending = false;
+    localStorage.clear();
+    __resetShoppingListForTests();
+    addRecipe("garlic-pasta");
+  });
+
+  afterEach(() => {
+    __resetShoppingListForTests();
+  });
+
+  it("waits for pantry stock before classifying shopping items", () => {
+    pantryState.isPending = true;
+
+    render(<ShoppingList recipes={recipes} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Loading your pantry before building the shopping list…",
+    );
+    expect(screen.queryByRole("button", { name: /garlic/i })).toBeNull();
+  });
+
+  it("does not classify shopping items when pantry loading fails", () => {
+    pantryState.error = new Error("load failed");
+
+    render(<ShoppingList recipes={recipes} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Your pantry could not be loaded.",
+    );
+    expect(screen.queryByRole("button", { name: /garlic/i })).toBeNull();
   });
 });

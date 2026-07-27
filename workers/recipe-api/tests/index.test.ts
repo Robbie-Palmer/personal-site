@@ -4338,6 +4338,42 @@ describe("household membership flows", () => {
     );
   });
 
+  it("rejects an invitation when its household no longer exists", async () => {
+    dbMock.state.invitations.push({
+      id: INVITATION_ID,
+      organizationId: HOUSEHOLD_ID,
+      email: "outsider@example.test",
+      role: "member",
+      status: "pending",
+      expiresAt: new Date("2027-01-02T00:00:00.000Z"),
+      inviterId: "owner-user",
+      createdAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "outsider-user",
+      email: "outsider@example.test",
+      name: "Outsider",
+    });
+
+    const response = await app.request(
+      `/households/invitations/${INVITATION_ID}/accept`,
+      {
+        method: "POST",
+        headers: { origin: "http://localhost:3000" },
+      },
+      env,
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "Household not found" });
+    expect(dbMock.state.invitations[0]?.status).toBe("pending");
+    expect(dbMock.state.members).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: "outsider-user" }),
+      ]),
+    );
+  });
+
   it("allows users to accept invitations sent to a verified email alias", async () => {
     seedHousehold();
     dbMock.state.userEmails.push({

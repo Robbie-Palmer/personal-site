@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api/api-error";
+import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
 import type {
   KitchenLocation,
   KitchenStock,
@@ -78,7 +79,7 @@ export async function restorePantry(stock: KitchenStock): Promise<Pantry> {
 }
 
 export async function setPantryItem(
-  ingredientSlug: string,
+  ingredientSlug: IngredientSlug,
   location: KitchenLocation,
 ): Promise<Pantry> {
   return parsePantryResponse(
@@ -91,7 +92,7 @@ export async function setPantryItem(
 }
 
 export async function removePantryItem(
-  ingredientSlug: string,
+  ingredientSlug: IngredientSlug,
 ): Promise<Pantry> {
   return parsePantryResponse(
     await pantryRequest(
