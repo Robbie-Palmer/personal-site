@@ -52,21 +52,22 @@ describe("buildFinalDraft", () => {
       [
         {
           originalName: "skillet",
-          baseName: "skillet",
-          canonicalName: "frying pan",
+          baseSlug: "skillet",
+          canonicalSlug: "frying-pan",
           method: "exact",
-          candidates: [
-            { name: "skillet", score: 0.95 },
-            { name: "frying pan", score: 1 },
-          ],
+          score: 1,
+          threshold: 1,
+          candidates: [{ slug: "frying-pan", score: 1 }],
         },
       ],
     );
 
-    expect(draft.cooklang.body).toContain("@bell pepper{1%piece}");
+    // The canonical name is registered, the wording the recipe used is kept
+    // as the Cooklang alias.
+    expect(draft.cooklang.body).toContain("@bell pepper|capsicum{1%piece}");
     expect(draft.cooklang.body).not.toContain("@capsicum");
     expect(draft.cooklang.body).toContain(
-      "Cook @bell pepper{} in a #frying pan{} for ~{10%minutes}.",
+      "Cook @bell pepper|capsicum{} in a #frying pan|skillet{} for ~{10%minutes}.",
     );
     expect(draft.cooklang.body).not.toContain("#skillet{}");
     expect(draft.cooklang.body).toContain("~{10%minutes}");
@@ -87,7 +88,96 @@ describe("buildFinalDraft", () => {
     );
     expect(reparsed.derived?.cookware).toEqual(["frying pan"]);
     expect(reparsed.derived?.instructions).toEqual([
-      "Cook bell pepper in a frying pan for 10 minutes.",
+      "Cook capsicum in a skillet for 10 minutes.",
+    ]);
+  });
+
+  it("rewrites slug-form cookware tokens to their canonical display form", () => {
+    const normalizedRecipe = {
+      title: "Pan Toast",
+      description: "Toast in a pan.",
+      cuisine: [],
+      servings: 1,
+      ingredientGroups: [{ items: [{ ingredient: "bread", amount: 1 }] }],
+      instructions: ["Toast the bread in a frying pan."],
+      cookware: ["frying-pan"],
+    };
+    const draft = buildFinalDraft(
+      ["imports/job/source/1.jpg"],
+      {
+        frontmatter: {
+          title: normalizedRecipe.title,
+          description: normalizedRecipe.description,
+          servings: normalizedRecipe.servings,
+          tags: [],
+        },
+        body: "@bread{1}\n\nToast the @bread in a #frying-pan{}.",
+        diagnostics: [],
+        derived: normalizedRecipe,
+      },
+      { ...normalizedRecipe, cookware: ["frying pan"] },
+      [
+        {
+          originalName: "frying-pan",
+          baseSlug: "frying-pan",
+          canonicalSlug: "frying-pan",
+          method: "exact",
+          score: 1,
+          threshold: 1,
+          candidates: [{ slug: "frying-pan", score: 1 }],
+        },
+      ],
+    );
+
+    expect(draft.cooklang.body).toContain("#frying pan{}");
+    expect(draft.cooklang.body).not.toContain("#frying-pan");
+  });
+
+  it("recanonicalizes a token that already carries an alias, keeping its wording", () => {
+    const normalizedRecipe = {
+      title: "Tray Roast",
+      description: "Roast on a tray.",
+      cuisine: [],
+      servings: 2,
+      ingredientGroups: [{ items: [{ ingredient: "potato", amount: 4 }] }],
+      instructions: ["Roast the potato on a tray."],
+      cookware: ["roasting tray"],
+    };
+    const draft = buildFinalDraft(
+      ["imports/job/source/1.jpg"],
+      {
+        frontmatter: {
+          title: normalizedRecipe.title,
+          description: normalizedRecipe.description,
+          servings: normalizedRecipe.servings,
+          tags: [],
+        },
+        body: "@potato{4}\n\nRoast the @potato on a #roasting tray|tray{}.",
+        diagnostics: [],
+        derived: normalizedRecipe,
+      },
+      { ...normalizedRecipe, cookware: ["baking tray"] },
+      [
+        {
+          originalName: "roasting tray",
+          baseSlug: "roasting-tray",
+          canonicalSlug: "baking-tray",
+          method: "exact",
+          score: 1,
+          threshold: 1,
+          candidates: [{ slug: "baking-tray", score: 1 }],
+        },
+      ],
+    );
+
+    // The registered name is canonicalized; the step still reads "tray".
+    expect(draft.cooklang.body).toContain("#baking tray|tray{}");
+    expect(draft.cooklang.body).not.toContain("#roasting tray");
+
+    const reparsed = deriveRecipeFromCooklang(draft.cooklang);
+    expect(reparsed.derived?.cookware).toEqual(["baking tray"]);
+    expect(reparsed.derived?.instructions).toEqual([
+      "Roast the potato on a tray.",
     ]);
   });
 
@@ -143,7 +233,7 @@ describe("buildFinalDraft", () => {
       [],
     );
 
-    expect(draft.cooklang.body).toContain("@white rice{1}");
+    expect(draft.cooklang.body).toContain("@white rice|rice{1}");
     expect(draft.cooklang.body).toContain("@rice wine vinegar{2%tbsp}");
     expect(draft.cooklang.body).not.toContain("@white rice wine vinegar");
   });

@@ -20,7 +20,7 @@ export interface CanonicalizationDecision {
   candidates: CanonicalizationCandidate[];
 }
 
-export type CanonicalizationMethod = "exact" | "fuzzy" | "none";
+export type CanonicalizationMethod = "exact" | "fuzzy" | "llm" | "none";
 
 export interface CanonicalizationCandidate {
   slug: string;
@@ -29,13 +29,14 @@ export interface CanonicalizationCandidate {
 
 export interface CookwareCanonicalizationDecision {
   originalName: string;
-  baseName: string;
-  canonicalName: string;
-  method: "exact" | "none";
-  candidates: Array<{
-    name: string;
-    score: number;
-  }>;
+  baseSlug: string;
+  canonicalSlug: string;
+  method: CanonicalizationMethod;
+  score?: number;
+  threshold?: number;
+  margin?: number;
+  reason?: string | null;
+  candidates: CanonicalizationCandidate[];
 }
 
 export interface CanonicalIngredient {

@@ -174,7 +174,10 @@ describe("canonicalizePredictionEntry", () => {
         instructions: ["step"],
         cookware: ["large skillet", "strainer", "frying pan"],
       },
-    }, new Set(["chicken-breast", "garlic"]));
+    }, {
+      ingredients: new Set(["chicken-breast", "garlic"]),
+      equipment: new Set(["frying-pan", "sieve"]),
+    });
 
     expect(
       result.entry.predicted.ingredientGroups[0]?.items.map((i) => i.ingredient),
@@ -198,12 +201,12 @@ describe("canonicalizePredictionEntry", () => {
       expect.arrayContaining([
         expect.objectContaining({
           originalName: "large skillet",
-          canonicalName: "frying pan",
+          canonicalSlug: "frying-pan",
           method: "exact",
         }),
         expect.objectContaining({
           originalName: "strainer",
-          canonicalName: "sieve",
+          canonicalSlug: "sieve",
           method: "exact",
         }),
       ]),
@@ -222,7 +225,7 @@ describe("canonicalizePredictionEntry", () => {
         instructions: ["step"],
         cookware: [],
       },
-    }, new Set(["garlic"]));
+    }, { ingredients: new Set(["garlic"]), equipment: new Set() });
 
     expect(result.entry.predicted.cuisine).toEqual(["Tex-Mex"]);
   });
@@ -239,7 +242,7 @@ describe("canonicalizePredictionEntry", () => {
         instructions: ["step"],
         cookware: [],
       },
-    }, new Set(["garlic"]));
+    }, { ingredients: new Set(["garlic"]), equipment: new Set() });
 
     expect(result.entry.predicted.cuisine).toEqual(["Italian", "American"]);
   });

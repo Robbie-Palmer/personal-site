@@ -356,6 +356,13 @@ export interface RecipeContext {
   otherIngredients: string[];
 }
 
+export interface EquipmentContext {
+  title: string;
+  cuisine: string[];
+  otherEquipment: string[];
+  instructions: string[];
+}
+
 export interface DisambiguationChoice {
   slug: string;
   canonicalSlug: string;
@@ -374,42 +381,29 @@ const DisambiguationResponseSchema = z.object({
 
 const DISAMBIGUATION_JSON_SCHEMA = z.toJSONSchema(DisambiguationResponseSchema);
 
-export async function disambiguateIngredients(params: {
+function formatUnresolvedItems(items: UnresolvedItem[]): string {
+  return items
+    .map((item) => {
+      const options = item.candidates
+        .map((c) => `${c.slug} (${c.category})`)
+        .join(", ");
+      return `- "${item.slug}" → candidates: [${options}]`;
+    })
+    .join("\n");
+}
+
+async function requestDisambiguation(params: {
   apiKey: string;
-  unresolvedItems: UnresolvedItem[];
-  recipeContext: RecipeContext;
+  prompt: string;
   model: string;
   requestTimeoutMs: number;
 }): Promise<LlmResult<DisambiguationChoice[]>> {
   const client = getOrCreateOpenRouterClient(params.apiKey);
 
-  const itemLines = params.unresolvedItems.map((item) => {
-    const options = item.candidates
-      .map((c) => `${c.slug} (${c.category})`)
-      .join(", ");
-    return `- "${item.slug}" → candidates: [${options}]`;
-  });
-
-  const prompt =
-    "You are a recipe ingredient classifier. Given a recipe's context and a list of " +
-    "ambiguous ingredient names, pick the best canonical match from the provided candidates.\n\n" +
-    "Recipe context:\n" +
-    `- Title: ${params.recipeContext.title}\n` +
-    `- Cuisine: ${params.recipeContext.cuisine.length > 0 ? params.recipeContext.cuisine.join(", ") : "unknown"}\n` +
-    `- Other ingredients: ${params.recipeContext.otherIngredients.join(", ") || "none"}\n\n` +
-    "Unresolved ingredients:\n" +
-    itemLines.join("\n") +
-    "\n\n" +
-    "For each unresolved ingredient, return your best match from the candidate list. " +
-    "Only pick from the provided candidates. " +
-    "Include a confidence level: 'high' if the context makes it obvious, " +
-    "'medium' if it's a reasonable guess, 'low' if uncertain.\n" +
-    "Return JSON only.";
-
   const completion = await client.chat.completions.create(
     {
       model: params.model,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: params.prompt }],
       response_format: {
         type: "json_schema",
         json_schema: {
@@ -427,4 +421,60 @@ export async function disambiguateIngredients(params: {
     DisambiguationResponseSchema,
   );
   return { value: result.choices, usage: extractUsage(completion) };
+}
+
+export async function disambiguateIngredients(params: {
+  apiKey: string;
+  unresolvedItems: UnresolvedItem[];
+  recipeContext: RecipeContext;
+  model: string;
+  requestTimeoutMs: number;
+}): Promise<LlmResult<DisambiguationChoice[]>> {
+  const prompt =
+    "You are a recipe ingredient classifier. Given a recipe's context and a list of " +
+    "ambiguous ingredient names, pick the best canonical match from the provided candidates.\n\n" +
+    "Recipe context:\n" +
+    `- Title: ${params.recipeContext.title}\n` +
+    `- Cuisine: ${params.recipeContext.cuisine.length > 0 ? params.recipeContext.cuisine.join(", ") : "unknown"}\n` +
+    `- Other ingredients: ${params.recipeContext.otherIngredients.join(", ") || "none"}\n\n` +
+    "Unresolved ingredients:\n" +
+    formatUnresolvedItems(params.unresolvedItems) +
+    "\n\n" +
+    "For each unresolved ingredient, return your best match from the candidate list. " +
+    "Only pick from the provided candidates. " +
+    "Include a confidence level: 'high' if the context makes it obvious, " +
+    "'medium' if it's a reasonable guess, 'low' if uncertain.\n" +
+    "Return JSON only.";
+
+  return requestDisambiguation({ ...params, prompt });
+}
+
+export async function disambiguateEquipment(params: {
+  apiKey: string;
+  unresolvedItems: UnresolvedItem[];
+  equipmentContext: EquipmentContext;
+  model: string;
+  requestTimeoutMs: number;
+}): Promise<LlmResult<DisambiguationChoice[]>> {
+  const prompt =
+    "You are a kitchen equipment classifier. Given a recipe's context and a list of " +
+    "ambiguous equipment names, pick the best canonical match from the provided candidates.\n\n" +
+    "Recipe context:\n" +
+    `- Title: ${params.equipmentContext.title}\n` +
+    `- Cuisine: ${params.equipmentContext.cuisine.length > 0 ? params.equipmentContext.cuisine.join(", ") : "unknown"}\n` +
+    `- Other equipment: ${params.equipmentContext.otherEquipment.join(", ") || "none"}\n` +
+    `- Instructions: ${params.equipmentContext.instructions.join(" ") || "none"}\n\n` +
+    "Unresolved equipment:\n" +
+    formatUnresolvedItems(params.unresolvedItems) +
+    "\n\n" +
+    "For each unresolved item, return the candidate that names the same piece of equipment. " +
+    "Only pick from the provided candidates, and only when it is genuinely the same tool — " +
+    "a pan is not a tray, and a sieve is not a bowl. " +
+    "Use the instructions to judge how the item is actually used. " +
+    "Omit an item entirely rather than forcing a match. " +
+    "Include a confidence level: 'high' if the context makes it obvious, " +
+    "'medium' if it's a reasonable guess, 'low' if uncertain.\n" +
+    "Return JSON only.";
+
+  return requestDisambiguation({ ...params, prompt });
 }

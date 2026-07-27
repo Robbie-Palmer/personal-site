@@ -27,9 +27,9 @@ recipe-parsing/
 ```
 
 The parsing algorithm itself (prompts, OpenRouter calls, Cooklang handling,
-canonicalization, and the canonical ingredient registry) lives in the shared
-[`recipe-parsing` package](../../packages/recipe-parsing/), which the
-production ingestion backend also consumes. This pipeline owns dataset
+canonicalization, and the canonical ingredient and equipment registries) lives
+in the shared [`recipe-parsing` package](../../packages/recipe-parsing/), which
+the production ingestion backend also consumes. This pipeline owns dataset
 management, stage orchestration, and evaluation.
 
 ## Pipeline Stages
@@ -99,12 +99,20 @@ Outputs:
 ### 4. Canonicalize
 
 `canonicalize` maps parsed ingredient slugs to the canonical ingredient registry
-in `packages/recipe-parsing/src/data/canonical-ingredients.json`.
+in `packages/recipe-parsing/src/data/canonical-ingredients.json`, and cookware
+names to the canonical equipment registry in
+`packages/recipe-parsing/src/data/canonical-equipment.json`.
+
+Both registries are matched the same way: rule-generated candidates (modifier
+stripping, singular/plural forms, aliases) are checked for an exact registry
+hit, then scored fuzzily against the registry with a threshold and a margin over
+the runner-up. Anything still unresolved with plausible candidates is handed to
+the LLM disambiguation pass, which picks from those candidates only.
 
 Outputs:
 
-- `outputs/predictions-canonicalized.json`: predictions with canonical ingredient slugs
-- `outputs/canonicalization-decisions.json`: per-ingredient canonicalization decisions
+- `outputs/predictions-canonicalized.json`: predictions with canonical ingredient slugs and equipment names
+- `outputs/canonicalization-decisions.json`: per-ingredient and per-cookware canonicalization decisions
 
 ### 5. Evaluate
 
