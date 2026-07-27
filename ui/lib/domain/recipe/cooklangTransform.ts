@@ -379,6 +379,10 @@ export function buildScaledRecipeParts(
   const ingredientDisplayValues = ingredients.map(formatIngredientDisplay);
   const ingredientAmounts = resolvedIngredients.map((r) => r.amount ?? null);
   const ingredientUnits = resolvedIngredients.map((r) => r.unit ?? null);
+  // The registered name is the canonical one (`#baking tray|tray{}` → "baking
+  // tray"); the display value is the alias shown inline ("tray"). The equipment
+  // list uses the canonical name, steps keep the authored wording.
+  const cookwareNames = cookware.map((item) => item.name);
   const cookwareDisplayValues = cookware.map(formatCookwareDisplay);
   const timerDisplayValues = timers.map(formatTimerDisplay);
   const timerDurations = timers.map(timerDurationSeconds);
@@ -434,9 +438,7 @@ export function buildScaledRecipeParts(
   return {
     ingredientGroups,
     instructions,
-    cookware: [
-      ...new Set(cookwareDisplayValues.map((v) => v.trim().toLowerCase())),
-    ],
+    cookware: [...new Set(cookwareNames.map((v) => v.trim().toLowerCase()))],
     instructionSdk: {
       sections: sections.map((s) => ({
         ...s,

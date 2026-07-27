@@ -202,6 +202,26 @@ describe("buildScaledRecipeParts", () => {
     ]);
   });
 
+  it("lists cookware by its registered name while steps keep the alias", () => {
+    const parts = buildScaledRecipeParts(
+      parsedAt(
+        [
+          "Sear in a #frying pan|skillet{}.",
+          "",
+          "Roast on a #baking tray|baking sheet{} then serve on a #baking tray|tray{}.",
+        ].join("\n"),
+      ),
+    );
+
+    // Registered names, deduped — the two "baking tray" aliases collapse to one.
+    expect(parts.cookware).toEqual(["frying pan", "baking tray"]);
+    // Steps keep the authored wording.
+    expect(parts.instructions).toEqual([
+      "Sear in a skillet.",
+      "Roast on a baking sheet then serve on a tray.",
+    ]);
+  });
+
   it("trusts cooklang for fixed-quantity ingredients (= prefix is no-op for unit conversion)", () => {
     // The recovery branch only fires when units differ; cooklang preserves
     // both unit and amount for `=` ingredients, so we should pass them through.
