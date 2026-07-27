@@ -67,13 +67,21 @@ async function main(): Promise<void> {
 
   const csvUrl = `https://raw.githubusercontent.com/crate-ci/typos/v${version}/crates/typos-dict/assets/words.csv`;
   console.log(`Fetching typos v${version} dictionary: ${csvUrl}`);
-  const response = await fetch(csvUrl);
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch words.csv (${response.status} ${response.statusText}) from ${csvUrl}`,
-    );
+  // Bound the request so a slow/hung GitHub can't stall dev startup or a build.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  let csv: string;
+  try {
+    const response = await fetch(csvUrl, { signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch words.csv (${response.status} ${response.statusText}) from ${csvUrl}`,
+      );
+    }
+    csv = await response.text();
+  } finally {
+    clearTimeout(timeout);
   }
-  const csv = await response.text();
 
   const dict = parseWordsCsv(csv);
   applyExtendWords(dict, overrides);

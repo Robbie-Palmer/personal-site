@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, RefreshCw, SpellCheck, X } from "lucide-react";
-import { Fragment, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -63,6 +63,20 @@ export function SpellcheckEditor({
     [dictionary, value, ignored],
   );
 
+  // The popover anchor is a fixed-position rect captured at click time, so any
+  // scroll (capture phase catches the textarea's too) or resize would leave it
+  // stale — close it instead of letting it drift.
+  useEffect(() => {
+    if (!active) return;
+    const close = () => setActive(null);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [active]);
+
   // A correction rewrites the source via onChange, bypassing the textarea's
   // maxLength; skip any that would push the recipe past the save limit.
   const withinLimit = (text: string) =>
@@ -118,8 +132,6 @@ export function SpellcheckEditor({
               backdrop.scrollTop = event.currentTarget.scrollTop;
               backdrop.scrollLeft = event.currentTarget.scrollLeft;
             }
-            // Rects captured on click go stale once the text scrolls.
-            setActive(null);
           }}
           placeholder={placeholder}
           maxLength={maxLength}
