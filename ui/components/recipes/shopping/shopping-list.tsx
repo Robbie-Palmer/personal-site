@@ -455,33 +455,6 @@ export function ShoppingList({
     );
   }
 
-  if (pantry.isPending) {
-    return (
-      <div
-        className="rounded-xl border-[1.25px] border-[var(--line-strong)] bg-[var(--card)] p-10 text-center"
-        role="status"
-      >
-        <p className="rt-body text-[var(--ink-3)]">
-          Loading your pantry before building the shopping list…
-        </p>
-      </div>
-    );
-  }
-
-  if (pantry.error) {
-    return (
-      <div
-        className="rounded-xl border-[1.25px] border-[var(--line-strong)] bg-[var(--card)] p-10 text-center"
-        role="alert"
-      >
-        <p className="rt-body text-[var(--berry)]">
-          Your pantry could not be loaded. Refresh the page to build an accurate
-          shopping list.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="rounded-xl border-[1.25px] border-[var(--line-strong)] bg-[var(--card)] p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -502,6 +475,25 @@ export function ShoppingList({
         </div>
       </div>
 
+      {pantry.isPending && (
+        <p
+          className="rt-body mt-3 rounded-md border border-[var(--line)] bg-[var(--paper-warm)] px-3 py-2 text-sm text-[var(--ink-3)]"
+          role="status"
+        >
+          Checking your pantry before sorting the shopping list…
+        </p>
+      )}
+
+      {pantry.error && (
+        <p
+          className="rt-body mt-3 rounded-md border border-[var(--berry)]/35 bg-[var(--berry)]/8 px-3 py-2 text-sm text-[var(--berry)]"
+          role="alert"
+        >
+          Your pantry could not be loaded, so this is the full shopping list
+          without kitchen filtering.
+        </p>
+      )}
+
       {hasTicked && (
         <button
           type="button"
@@ -512,7 +504,10 @@ export function ShoppingList({
         </button>
       )}
 
-      <div className="mt-3">
+      <div
+        className={`mt-3 ${pantry.isPending ? "pointer-events-none opacity-50" : ""}`}
+        aria-busy={pantry.isPending}
+      >
         {view === "flat" && (
           <div>
             <div className="rt-mono text-[var(--ink-3)] mb-1">

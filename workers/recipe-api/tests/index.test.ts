@@ -3565,6 +3565,7 @@ describe("household membership flows", () => {
       const response = await app.request("/pantry", undefined, env);
 
       expect(response.status).toBe(200);
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
       expect(await response.json()).toEqual({
         scope: {
           type: "household",

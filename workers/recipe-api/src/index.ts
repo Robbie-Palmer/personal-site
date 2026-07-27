@@ -839,6 +839,19 @@ async function lockUser(db: Pick<Db, "select">, userId: string): Promise<void> {
     .limit(1);
 }
 
+async function lockHousehold(
+  db: Pick<Db, "select">,
+  householdId: string,
+): Promise<boolean> {
+  const [household] = await db
+    .select({ id: schema.organization.id })
+    .from(schema.organization)
+    .where(eq(schema.organization.id, householdId))
+    .for("update")
+    .limit(1);
+  return Boolean(household);
+}
+
 async function resolvePantryScope(
   db: Pick<Db, "select">,
   userId: string,
@@ -869,13 +882,11 @@ async function lockPantryScope(
 ): Promise<PantryScope> {
   await lockUser(db, userId);
   const scope = await resolvePantryScope(db, userId);
-  if (scope.type === "household") {
-    await db
-      .select({ id: schema.organization.id })
-      .from(schema.organization)
-      .where(eq(schema.organization.id, scope.householdId))
-      .for("update")
-      .limit(1);
+  if (
+    scope.type === "household" &&
+    !(await lockHousehold(db, scope.householdId))
+  ) {
+    throw new Error("Household no longer exists");
   }
   return scope;
 }
@@ -937,13 +948,7 @@ async function acceptPendingInvitation(
 ): Promise<HouseholdMember> {
   return db.transaction(async (tx) => {
     await lockUser(tx, userId);
-    const [household] = await tx
-      .select({ id: schema.organization.id })
-      .from(schema.organization)
-      .where(eq(schema.organization.id, invitation.organizationId))
-      .for("update")
-      .limit(1);
-    if (!household) {
+    if (!(await lockHousehold(tx, invitation.organizationId))) {
       throw new InvitationActionError(404, "Household not found");
     }
     const [pantryItem] = await tx
@@ -1504,7 +1509,7 @@ async function findHouseholdOwner(
 }
 
 async function findHouseholdMembership(
-  db: Db,
+  db: Pick<Db, "select">,
   householdId: string,
   userId: string,
 ): Promise<HouseholdMember | undefined> {
@@ -2158,8 +2163,10 @@ app.get("/pantry", async (c) => {
     c,
     "query",
     "GET /pantry query failed",
-    async ({ db, session }) =>
-      c.json(await pantryResponse(db, session.user.id)),
+    async ({ db, session }) => {
+      c.header("Cache-Control", "private, no-store");
+      return c.json(await pantryResponse(db, session.user.id));
+    },
   );
 });
 
@@ -2821,6 +2828,15 @@ app.delete("/households/:householdId/members/:memberId", async (c) => {
       if (!household) return c.notFound();
 
       await db.transaction(async (tx) => {
+        await lockUser(tx, member.userId);
+        if (!(await lockHousehold(tx, householdId))) return;
+        const currentMember = await findHouseholdMembership(
+          tx,
+          householdId,
+          member.userId,
+        );
+        if (!currentMember || currentMember.role === "owner") return;
+
         await tx
           .update(schema.recipe)
           .set({ visibility: "private" })
@@ -2839,7 +2855,9 @@ app.delete("/households/:householdId/members/:memberId", async (c) => {
             name: session.user.name,
           },
         });
-        await tx.delete(schema.member).where(eq(schema.member.id, memberId));
+        await tx
+          .delete(schema.member)
+          .where(eq(schema.member.id, currentMember.id));
       });
       return c.body(null, 204);
     },
@@ -2873,6 +2891,15 @@ app.post("/households/:householdId/leave", async (c) => {
       const owner = await findHouseholdOwner(db, householdId);
 
       await db.transaction(async (tx) => {
+        await lockUser(tx, session.user.id);
+        if (!(await lockHousehold(tx, householdId))) return;
+        const currentMember = await findHouseholdMembership(
+          tx,
+          householdId,
+          session.user.id,
+        );
+        if (!currentMember || currentMember.role === "owner") return;
+
         await tx
           .update(schema.recipe)
           .set({ visibility: "private" })
@@ -2893,7 +2920,9 @@ app.post("/households/:householdId/leave", async (c) => {
             },
           });
         }
-        await tx.delete(schema.member).where(eq(schema.member.id, member.id));
+        await tx
+          .delete(schema.member)
+          .where(eq(schema.member.id, currentMember.id));
       });
       return c.body(null, 204);
     },

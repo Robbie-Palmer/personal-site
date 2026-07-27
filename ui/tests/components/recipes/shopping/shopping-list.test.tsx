@@ -132,25 +132,29 @@ describe("ShoppingList pantry state", () => {
     __resetShoppingListForTests();
   });
 
-  it("waits for pantry stock before classifying shopping items", () => {
+  it("keeps the local list visible while pantry classification is pending", () => {
     pantryState.isPending = true;
 
     render(<ShoppingList recipes={recipes} />);
 
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Loading your pantry before building the shopping list…",
+      "Checking your pantry before sorting the shopping list…",
     );
-    expect(screen.queryByRole("button", { name: /garlic/i })).toBeNull();
+    expect(screen.getByText("garlic")).toBeInTheDocument();
+    expect(screen.getByText("garlic").closest("[aria-busy]")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
   });
 
-  it("does not classify shopping items when pantry loading fails", () => {
+  it("shows the full local list when pantry loading fails", () => {
     pantryState.error = new Error("load failed");
 
     render(<ShoppingList recipes={recipes} />);
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Your pantry could not be loaded.",
+      "full shopping list without kitchen filtering",
     );
-    expect(screen.queryByRole("button", { name: /garlic/i })).toBeNull();
+    expect(screen.getByText("garlic")).toBeInTheDocument();
   });
 });
