@@ -1,17 +1,16 @@
 ---
-title: "ADR 060: Direct OTLP Export to PostHog Without a Collector"
+title: "ADR 062: Direct OTLP Export to PostHog Without a Collector"
 date: "2026-07-25"
 status: "Accepted"
 supersedes: "recipe-site:048-cloudflare-observability-destinations"
-tech_stack: ["PostHog", "OpenTelemetry", "Cloudflare Workers", "Cloudflare Workflows"]
+tech_stack: ["PostHog", "OpenTelemetry"]
 ---
 
 ## Summary
 
-Export application traces and their correlated logs directly from the recipe site's Pages
-Functions, API Worker, and ingestion Workflow to PostHog over OTLP/HTTP protobuf. Do not operate an
-OpenTelemetry Collector yet. Continue retaining Cloudflare's built-in logs and native PostHog log
-destination as an independent fallback.
+Export application traces and their correlated logs directly from the recipe site's instrumented
+runtimes to PostHog over OTLP/HTTP protobuf. Do not operate an OpenTelemetry Collector yet. Continue
+retaining Cloudflare's built-in logs and native PostHog log destination as an independent fallback.
 
 This is an intentionally small-scale serverless decision, not a claim that collectors are
 unnecessary in general. Direct export keeps traces, logs, product events, people, and session
@@ -23,16 +22,11 @@ vendor before the traffic or incident load justifies one.
 
 ## Context
 
-A recipe import crosses four independently executed components:
-
-```text
-browser → Pages Function → recipe-api Worker → recipe-ingest Workflow steps
-```
-
-Logs in separate service views cannot reliably identify which stage made one user's import slow or
-fail. The system needs W3C trace-context propagation, a single trace waterfall, logs carrying the
-active trace and span IDs, and PostHog person/session identifiers for movement from an operational
-failure to the affected user's replay and product journey.
+Recipe operations cross independently executed compute boundaries. Logs in separate service views
+cannot reliably identify which stage made one user's operation slow or fail. The system needs W3C
+trace-context propagation, a single trace waterfall, logs carrying the active trace and span IDs,
+and PostHog person/session identifiers for movement from an operational failure to the affected
+user's replay and product journey.
 
 An OpenTelemetry Collector is the usual production recommendation because it can batch, retry,
 filter, redact, sample, transform, and fan out telemetry independently of application processes.
@@ -53,7 +47,7 @@ Cloudflare can still export logs to PostHog, so that path remains useful as a fa
 
 ## Decision
 
-Use the shared `packages/observability` OpenTelemetry library in all three server runtimes:
+Use the shared `packages/observability` OpenTelemetry library in instrumented server runtimes:
 
 * export traces to the regional PostHog `/i/v1/traces` endpoint and correlated application logs to
   `/i/v1/logs`, authenticated with the PostHog project token;
@@ -80,13 +74,13 @@ portable.
 
 ## Alternatives Considered
 
-| Option                                                            | Advantages                                                                                                                                                                                                                | Costs and gaps                                                                                                                                                                                                                                                                                                     | Decision                                                                   |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| **Direct OTLP to PostHog**                                        | No new platform or always-on service; complete application-controlled propagation across Pages, Workers, and Workflows; one investigation surface connected to people, events, replays, and product impact; standard OTLP | PostHog tracing is alpha; each runtime carries exporter code; only best-effort buffering/retry; PostHog outage or isolate termination can lose telemetry; no collector-side redaction, tail sampling, or fan-out                                                                                                   | **Adopt now**                                                              |
-| **OTel Collector gateway → PostHog**                              | Central batching, retries, filtering, redaction, sampling, routing, and backend changes; application exports to one stable endpoint                                                                                       | No true Worker sidecar; requires a separately hosted and monitored gateway; adds network hop, credentials, deployment, cost, and another component that can fail; does not remove PostHog's alpha risk                                                                                                             | Defer until its operational benefits exceed its operational cost           |
-| **Cloudflare logs and traces only**                               | Lowest application complexity; platform-managed capture and retention; no application exporter; Cloudflare-native request details                                                                                         | Cloudflare tracing is itself [open beta](https://developers.cloudflare.com/workers/observability/traces/known-limitations/); external trace propagation is currently incomplete; data is separated from PostHog users, feature flags, funnels, and session replay; Cloudflare cannot export traces to PostHog      | Keep as fallback, not the primary investigation surface                    |
-| **Grafana Cloud (Tempo/Loki), with direct export or a collector** | Established, full-featured logs/traces platform; mature querying, dashboards, alerting, service graphs, sampling, and multi-signal operations; native Cloudflare OTLP endpoints                                           | Adds another account, token set, dashboards, alerts, on-call workflow, billing surface, and vendor to maintain; operational data is not natively connected to the existing PostHog person, replay, experiment, and funnel context; correlation would require duplicated identity attributes and manual cross-links | Reconsider when observability depth or reliability outweighs consolidation |
-| **Self-hosted collector plus Grafana/Tempo/Loki**                 | Maximum control and portability; no SaaS dependency for storage                                                                                                                                                           | Highest operational burden: hosting, upgrades, storage, retention, backups, security, alerting, and availability become part of this personal site's production surface                                                                                                                                            | Reject at current scale                                                    |
+| Option                                                            | Advantages                                                                                                                                                                                              | Costs and gaps                                                                                                                                                                                                                                                                                                     | Decision                                                                   |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| **Direct OTLP to PostHog**                                        | No new platform or always-on service; application-controlled propagation across execution boundaries; one investigation surface connected to people, events, replays, and product impact; standard OTLP | PostHog tracing is alpha; each runtime carries exporter code; only best-effort buffering/retry; PostHog outage or isolate termination can lose telemetry; no collector-side redaction, tail sampling, or fan-out                                                                                                   | **Adopt now**                                                              |
+| **OTel Collector gateway → PostHog**                              | Central batching, retries, filtering, redaction, sampling, routing, and backend changes; application exports to one stable endpoint                                                                     | No true Worker sidecar; requires a separately hosted and monitored gateway; adds network hop, credentials, deployment, cost, and another component that can fail; does not remove PostHog's alpha risk                                                                                                             | Defer until its operational benefits exceed its operational cost           |
+| **Cloudflare logs and traces only**                               | Lowest application complexity; platform-managed capture and retention; no application exporter; Cloudflare-native request details                                                                       | Cloudflare tracing is itself [open beta](https://developers.cloudflare.com/workers/observability/traces/known-limitations/); external trace propagation is currently incomplete; data is separated from PostHog users, feature flags, funnels, and session replay; Cloudflare cannot export traces to PostHog      | Keep as fallback, not the primary investigation surface                    |
+| **Grafana Cloud (Tempo/Loki), with direct export or a collector** | Established, full-featured logs/traces platform; mature querying, dashboards, alerting, service graphs, sampling, and multi-signal operations; native Cloudflare OTLP endpoints                         | Adds another account, token set, dashboards, alerts, on-call workflow, billing surface, and vendor to maintain; operational data is not natively connected to the existing PostHog person, replay, experiment, and funnel context; correlation would require duplicated identity attributes and manual cross-links | Reconsider when observability depth or reliability outweighs consolidation |
+| **Self-hosted collector plus Grafana/Tempo/Loki**                 | Maximum control and portability; no SaaS dependency for storage                                                                                                                                         | Highest operational burden: hosting, upgrades, storage, retention, backups, security, alerting, and availability become part of this personal site's production surface                                                                                                                                            | Reject at current scale                                                    |
 
 Grafana Cloud currently has a useful free allowance, so adopting it would not necessarily create an
 immediate bill. It nevertheless creates a second metered platform and future payment path:
@@ -100,7 +94,7 @@ that user/product connection.
 
 ### Positive
 
-* One trace follows a user action through every recipe-site compute boundary.
+* One trace follows a user action through every instrumented compute boundary.
 * Trace-local logs can lead directly to the affected PostHog person and session replay.
 * The project avoids operating an always-on gateway or adopting another vendor at low volume.
 * W3C Trace Context and OTLP preserve a migration path to a collector or another backend.
@@ -121,8 +115,8 @@ that user/product connection.
 
 * Instrumentation failure must be swallowed, while application errors are recorded and rethrown.
 * CI type-checks and dry-run bundles every instrumented runtime.
-* A deployment smoke test must verify the complete Pages → API → Workflow trace and its correlated
-  logs in PostHog.
+* A deployment smoke test must verify a complete end-to-end trace and its correlated logs in
+  PostHog.
 * Periodically verify that Cloudflare fallback logs are still arriving independently.
 * Review telemetry volume and configure billing limits before removing full sampling.
 * Treat identifiers as correlation metadata, not permission checks; never emit secrets or payloads.
