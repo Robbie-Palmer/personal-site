@@ -202,6 +202,22 @@ function NumberField({
   );
 }
 
+function recipeEditorCopy(editing: boolean) {
+  return editing
+    ? {
+        action: "Save changes",
+        description:
+          "Update the Cooklang recipe and review every change in the live preview.",
+        heading: "Edit",
+      }
+    : {
+        action: "Save recipe",
+        description:
+          "Enter a recipe manually, import a webpage or local file, or scan a recipe photo. Every method feeds the same editable preview.",
+        heading: "Add a",
+      };
+}
+
 export function AddRecipeView({
   initialRecipe,
 }: Readonly<{ initialRecipe?: SavedRecipeApiRecord }>) {
@@ -210,6 +226,7 @@ export function AddRecipeView({
     [initialRecipe],
   );
   const editing = Boolean(initialRecipe);
+  const editorCopy = recipeEditorCopy(editing);
   const unreadableRecipe = editing && !initialPayload;
   const titleId = useId();
   const descriptionId = useId();
@@ -577,13 +594,11 @@ export function AddRecipeView({
             <ArrowLeft className="size-3.5" /> Recipe box
           </Link>
           <h1 className="rt-display mt-2 text-5xl sm:text-6xl">
-            {editing ? "Edit" : "Add a"}{" "}
+            {editorCopy.heading}{" "}
             <span className="text-[var(--terracotta)]">recipe</span>
           </h1>
           <p className="rt-body mt-2 text-[var(--ink-2)]">
-            {editing
-              ? "Update the Cooklang recipe and review every change in the live preview."
-              : "Enter a recipe manually, import a webpage or local file, or scan a recipe photo. Every method feeds the same editable preview."}
+            {editorCopy.description}
           </p>
         </div>
         <Button
@@ -592,7 +607,7 @@ export function AddRecipeView({
           className="rounded-full bg-[var(--ink)] px-5 text-[var(--paper)] hover:bg-[var(--terracotta-deep)]"
         >
           {saving ? <Loader2 className="animate-spin" /> : <Save />}{" "}
-          {editing ? "Save changes" : "Save recipe"}
+          {editorCopy.action}
         </Button>
       </div>
 

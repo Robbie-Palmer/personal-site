@@ -36,23 +36,19 @@ function metadataValue(
   return undefined;
 }
 
+function numericValue(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return Number.parseFloat(value);
+  return Number.NaN;
+}
+
 function positiveNumber(value: unknown): number | undefined {
-  const parsed =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number.parseFloat(value)
-        : Number.NaN;
+  const parsed = numericValue(value);
   return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : undefined;
 }
 
 function nonNegativeNumber(value: unknown): number | undefined {
-  const parsed =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number.parseFloat(value)
-        : Number.NaN;
+  const parsed = numericValue(value);
   return Number.isFinite(parsed) && parsed >= 0
     ? Math.round(parsed)
     : undefined;
