@@ -95,6 +95,40 @@ function unwrapJsonLd(source: string): string {
   return cleaned;
 }
 
+function normalizeRecipeObject(object: Record<string, unknown>, url: string) {
+  const types = Array.isArray(object["@type"])
+    ? object["@type"]
+    : [object["@type"]];
+  const recipeIndex = types.findIndex(
+    (type) => typeof type === "string" && /(?:^|\/)Recipe\/?$/i.test(type),
+  );
+  if (recipeIndex < 0) return;
+
+  object["@type"] = [
+    "Recipe",
+    ...types.filter((type, index) => index !== recipeIndex && type !== "Recipe"),
+  ];
+  object.author ??= "Imported recipe";
+  const recipeName = typeof object.name === "string" ? object.name : "this dish";
+  object.description ??= `Recipe for ${recipeName}, imported from the web.`;
+  object.image ??= url;
+  object.recipeYield ??= "1 serving";
+}
+
+function normalizeJsonLdData(data: unknown, url: string) {
+  const pending: unknown[] = [data];
+  while (pending.length > 0) {
+    const value = pending.pop();
+    if (Array.isArray(value)) {
+      for (const child of value) pending.push(child);
+      continue;
+    }
+    if (!isRecord(value)) continue;
+    normalizeRecipeObject(value, url);
+    for (const child of Object.values(value)) pending.push(child);
+  }
+}
+
 function normalizeRecipeMarkup(html: string, url: string): string {
   const $ = cheerio.load(html);
   $("script[type='application/ld+json']").each((_, element) => {
@@ -104,37 +138,7 @@ function normalizeRecipeMarkup(html: string, url: string): string {
 
     try {
       const data: unknown = JSON.parse(source);
-      const pending: unknown[] = [data];
-      while (pending.length > 0) {
-        const value = pending.pop();
-        if (Array.isArray(value)) {
-          for (const child of value) pending.push(child);
-          continue;
-        }
-        if (!isRecord(value)) continue;
-        const object = value;
-        const types = Array.isArray(object["@type"])
-          ? object["@type"]
-          : [object["@type"]];
-        const recipeIndex = types.findIndex(
-          (type) => typeof type === "string" && /(?:^|\/)Recipe\/?$/i.test(type),
-        );
-        if (recipeIndex >= 0) {
-          object["@type"] = [
-            "Recipe",
-            ...types.filter(
-              (type, index) => index !== recipeIndex && type !== "Recipe",
-            ),
-          ];
-          object.author ??= "Imported recipe";
-          const recipeName =
-            typeof object.name === "string" ? object.name : "this dish";
-          object.description ??= `Recipe for ${recipeName}, imported from the web.`;
-          object.image ??= url;
-          object.recipeYield ??= "1 serving";
-        }
-        for (const child of Object.values(object)) pending.push(child);
-      }
+      normalizeJsonLdData(data, url);
       $(element).text(JSON.stringify(data));
     } catch {
       // recipe-scrapers can recover some malformed JSON-LD itself.
