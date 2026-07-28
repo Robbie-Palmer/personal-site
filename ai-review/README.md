@@ -18,8 +18,9 @@ The service is a visible, stateful publisher:
 - a Cloudflare Workflow fetches the PR through GitHub App authentication, runs
   the same OpenRouter and OpenCode scout ensemble as the existing Action,
   reconciles candidates with the same OpenRouter merger, and publishes a
-  separate rolling comment; paid model steps make one Workflow attempt while
-  deterministic publication and storage steps remain retryable;
+  separate rolling comment; OpenRouter and OpenCode scouts use separate
+  Workflow steps so a stalled free provider cannot replay completed paid calls,
+  while deterministic publication and storage steps remain retryable;
 - the private `ai-review-data` R2 bucket stores versioned findings plus provider
   cost, latency, token, cache, availability, and failure metrics; and
 - the existing stateless GitHub Action remains enabled as an independent,

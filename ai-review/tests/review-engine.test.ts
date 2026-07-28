@@ -8,6 +8,7 @@ import type { Env, ReviewWorkflowParams } from "../src/env";
 import {
   STATEFUL_REVIEW_MARKER,
   claimReview,
+  combineScoutRuns,
   completeReview,
   failReview,
   mergeFindings,
@@ -294,6 +295,53 @@ describe("stateful review engine", () => {
     });
 
     expect(result.models).toEqual(DEFAULT_OPENROUTER_SCOUTS);
+  });
+
+  it("isolates paid and free scout executions before combining them", async () => {
+    const openCodeModels = vi.spyOn(
+      Reviewer.prototype,
+      "openCodeScoutModels",
+    );
+    const openRouterScout = vi
+      .spyOn(Reviewer.prototype, "callOpenRouterScout")
+      .mockResolvedValue({ payload: { findings: [] }, cost: 0.01 });
+    const openCodeScout = vi
+      .spyOn(Reviewer.prototype, "callOpenCodeScout")
+      .mockResolvedValue({ payload: { findings: [] }, cost: 0 });
+    const prepared = {
+      headSha: HEAD_SHA,
+      diff: "diff",
+      paths: ["app.ts"],
+      omitted: [],
+    };
+
+    const paid = await runScouts(environment(), params, prepared, {
+      providers: ["openrouter"],
+    });
+    expect(openCodeModels).not.toHaveBeenCalled();
+    expect(openCodeScout).not.toHaveBeenCalled();
+    expect(paid.models).toEqual([
+      "moonshotai/kimi-k2.6",
+      "deepseek/deepseek-v4-pro",
+    ]);
+
+    openCodeModels.mockResolvedValue({
+      models: ["big-pickle"],
+      unavailable: [],
+    });
+    const free = await runScouts(environment(), params, prepared, {
+      providers: ["opencode"],
+    });
+    expect(openRouterScout).toHaveBeenCalledTimes(2);
+    expect(free.models).toEqual(["big-pickle"]);
+
+    const combined = combineScoutRuns(paid, free);
+    expect(combined.models).toEqual([
+      "moonshotai/kimi-k2.6",
+      "deepseek/deepseek-v4-pro",
+      "big-pickle",
+    ]);
+    expect(combined.metrics).toHaveLength(3);
   });
 
   it("records unavailable, rejected, and invalid scout outcomes", async () => {

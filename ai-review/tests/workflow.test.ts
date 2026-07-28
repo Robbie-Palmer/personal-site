@@ -4,6 +4,7 @@ import type { Env, ReviewWorkflowParams } from "../src/env";
 
 const engine = vi.hoisted(() => ({
   claimReview: vi.fn(),
+  combineScoutRuns: vi.fn(),
   completeReview: vi.fn(),
   failReview: vi.fn(),
   mergeFindings: vi.fn(),
@@ -58,6 +59,17 @@ const merged = {
   cost: 0.2,
 };
 
+const emptyScouts = {
+  models: [],
+  candidates: {},
+  failed: [],
+  candidateCounts: {},
+  invalidCounts: {},
+  outOfScopeCounts: {},
+  costs: {},
+  metrics: [],
+};
+
 function fixture() {
   const workflow = new ReviewWorkflow(
     {} as ExecutionContext,
@@ -89,7 +101,10 @@ beforeEach(() => {
     claimed: true,
     previousState: { runs: 0, total_usd: 0 },
   });
-  engine.runScouts.mockResolvedValue(scouts);
+  engine.runScouts
+    .mockResolvedValueOnce(scouts)
+    .mockResolvedValueOnce(emptyScouts);
+  engine.combineScoutRuns.mockReturnValue(scouts);
   engine.mergeFindings.mockResolvedValue(merged);
   engine.publishReview.mockResolvedValue({
     commentId: 123,
@@ -106,12 +121,30 @@ describe("ReviewWorkflow orchestration", () => {
 
     await workflow.run(event, step);
 
-    expect(engine.runScouts).toHaveBeenCalledOnce();
+    expect(engine.runScouts).toHaveBeenCalledTimes(2);
+    expect(engine.runScouts).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      payload,
+      prepared,
+      { providers: ["openrouter"] },
+    );
+    expect(engine.runScouts).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      payload,
+      prepared,
+      { providers: ["opencode"] },
+    );
+    expect(engine.combineScoutRuns).toHaveBeenCalledWith(scouts, emptyScouts);
     expect(engine.mergeFindings).toHaveBeenCalledOnce();
     expect(vi.mocked(step.do).mock.calls[2]?.[1]).toMatchObject({
       retries: { limit: 1 },
     });
     expect(vi.mocked(step.do).mock.calls[3]?.[1]).toMatchObject({
+      retries: { limit: 1 },
+    });
+    expect(vi.mocked(step.do).mock.calls[4]?.[1]).toMatchObject({
       retries: { limit: 1 },
     });
     expect(engine.publishReview).toHaveBeenCalledOnce();
@@ -130,7 +163,8 @@ describe("ReviewWorkflow orchestration", () => {
     ).toEqual([
       "prepare-review",
       "claim-review",
-      "run-current-scout-ensemble",
+      "run-openrouter-scouts",
+      "run-opencode-scouts",
       "merge-current-scout-findings",
       "publish-rolling-comment",
       "record-versioned-review",
@@ -201,7 +235,9 @@ describe("ReviewWorkflow orchestration", () => {
   });
 
   it("preserves the original failure when failure-state recording also fails", async () => {
-    engine.runScouts.mockRejectedValue(new Error("scouts unavailable"));
+    engine.runScouts
+      .mockReset()
+      .mockRejectedValue(new Error("scouts unavailable"));
     engine.failReview.mockRejectedValue(new Error("coordinator unavailable"));
     const consoleError = vi
       .spyOn(console, "error")

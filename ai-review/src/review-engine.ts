@@ -71,6 +71,10 @@ export interface ScoutRun {
   metrics: ModelMetric[];
 }
 
+interface ScoutRunOptions {
+  providers?: Array<Scout["provider"]>;
+}
+
 export interface MergedRun {
   result: JsonObject;
   cost: number;
@@ -269,13 +273,19 @@ export async function runScouts(
   env: Env,
   params: ReviewWorkflowParams,
   prepared: PreparedReview,
+  options: ScoutRunOptions = {},
 ): Promise<ScoutRun> {
   if (!prepared.diff || !prepared.headSha) {
     throw new Error("Cannot run scouts without a prepared diff");
   }
   const settings = modelSettings(env, params, "not-used-for-model-calls");
   const reviewer = new Reviewer(settings);
-  const availability = await reviewer.openCodeScoutModels();
+  const providers = new Set(
+    options.providers ?? (["openrouter", "opencode"] as const),
+  );
+  const availability = providers.has("opencode")
+    ? await reviewer.openCodeScoutModels()
+    : { models: [], unavailable: [] };
   const duplicateModels = duplicateScoutModels(
     settings.openRouterScouts,
     [...availability.models, ...availability.unavailable],
@@ -286,12 +296,16 @@ export async function runScouts(
     );
   }
   const runnableScouts: Scout[] = [
-    ...settings.openRouterScouts.map(
-      (model): Scout => ({ model, provider: "openrouter" }),
-    ),
-    ...availability.models.map(
-      (model): Scout => ({ model, provider: "opencode" }),
-    ),
+    ...(providers.has("openrouter")
+      ? settings.openRouterScouts.map(
+          (model): Scout => ({ model, provider: "openrouter" }),
+        )
+      : []),
+    ...(providers.has("opencode")
+      ? availability.models.map(
+          (model): Scout => ({ model, provider: "opencode" }),
+        )
+      : []),
   ];
   const models = [
     ...runnableScouts.map(({ model }) => model),
@@ -407,6 +421,28 @@ export async function runScouts(
     outOfScopeCounts,
     costs,
     metrics,
+  };
+}
+
+export function combineScoutRuns(...runs: ScoutRun[]): ScoutRun {
+  return {
+    models: runs.flatMap(({ models }) => models),
+    candidates: Object.assign({}, ...runs.map(({ candidates }) => candidates)),
+    failed: runs.flatMap(({ failed }) => failed),
+    candidateCounts: Object.assign(
+      {},
+      ...runs.map(({ candidateCounts }) => candidateCounts),
+    ),
+    invalidCounts: Object.assign(
+      {},
+      ...runs.map(({ invalidCounts }) => invalidCounts),
+    ),
+    outOfScopeCounts: Object.assign(
+      {},
+      ...runs.map(({ outOfScopeCounts }) => outOfScopeCounts),
+    ),
+    costs: Object.assign({}, ...runs.map(({ costs }) => costs)),
+    metrics: runs.flatMap(({ metrics }) => metrics),
   };
 }
 

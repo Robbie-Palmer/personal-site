@@ -8,6 +8,7 @@ import {
 import type { Env, ReviewWorkflowParams } from "./env";
 import {
   claimReview,
+  combineScoutRuns,
   completeReview,
   failReview,
   mergeFindings,
@@ -54,10 +55,10 @@ const COORDINATOR_TIMEOUT_MS = 10_000;
 const MAXIMUM_WEBHOOK_BODY_BYTES = 2 * 1024 * 1024;
 const REVIEW_RUN_LEASE_MS = 30 * 60 * 1_000;
 const PENDING_EVENT_KEY = "latest-pending-event";
-const PAID_MODEL_STEP_CONFIG = {
-  // Model providers do not expose an idempotency boundary for these calls.
-  // One Workflow attempt prevents a successful request from being charged
-  // again if its step result cannot be checkpointed.
+const MODEL_STEP_CONFIG = {
+  // This is one configured application attempt. Paid and free providers use
+  // separate steps so recovery from a stalled free call cannot replay a
+  // completed OpenRouter ensemble.
   retries: {
     limit: 1,
     delay: 0,
@@ -532,18 +533,30 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
       let scouts: ScoutRun;
       let merged: MergedRun;
       if (prepared.diff?.trim()) {
-        scouts = await workflowStep.do(
-          "run-current-scout-ensemble",
-          PAID_MODEL_STEP_CONFIG,
-          () => runScouts(this.env, event.payload, prepared),
+        const openRouterScouts = await workflowStep.do(
+          "run-openrouter-scouts",
+          MODEL_STEP_CONFIG,
+          () =>
+            runScouts(this.env, event.payload, prepared, {
+              providers: ["openrouter"],
+            }),
         );
-        incurredCostUsd = Object.values(scouts.costs).reduce(
+        incurredCostUsd = Object.values(openRouterScouts.costs).reduce(
           (total, cost) => total + cost,
           0,
         );
+        const openCodeScouts = await workflowStep.do(
+          "run-opencode-scouts",
+          MODEL_STEP_CONFIG,
+          () =>
+            runScouts(this.env, event.payload, prepared, {
+              providers: ["opencode"],
+            }),
+        );
+        scouts = combineScoutRuns(openRouterScouts, openCodeScouts);
         merged = await workflowStep.do(
           "merge-current-scout-findings",
-          PAID_MODEL_STEP_CONFIG,
+          MODEL_STEP_CONFIG,
           () => mergeFindings(this.env, event.payload, prepared, scouts),
         );
         incurredCostUsd += merged.cost;
