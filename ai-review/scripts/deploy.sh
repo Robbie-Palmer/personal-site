@@ -7,6 +7,8 @@ if (($# > 0)); then
   exit 1
 fi
 
+wrangler_config="${AI_REVIEW_WRANGLER_CONFIG:-wrangler.toml}"
+
 required_values=(
   AI_REVIEW_APP_ID
   AI_REVIEW_APP_INSTALLATION_ID
@@ -38,7 +40,7 @@ if ((${#missing_values[@]} > 0)); then
   exec doppler run \
     --project "${AI_REVIEW_DOPPLER_PROJECT:-ai-review}" \
     --config "${AI_REVIEW_DOPPLER_CONFIG:-prd}" \
-    --preserve-env=AI_REVIEW_DOPPLER_WRAPPED \
+    --preserve-env=AI_REVIEW_DOPPLER_WRAPPED,AI_REVIEW_DOPPLER_PROJECT,AI_REVIEW_DOPPLER_CONFIG,AI_REVIEW_WRANGLER_CONFIG \
     -- bash "$0"
 fi
 
@@ -79,8 +81,10 @@ jq -n '
 ' > "$secrets_file"
 chmod 600 "$secrets_file"
 
-pnpm exec wrangler deploy --secrets-file "$secrets_file"
+pnpm exec wrangler deploy --config "$wrangler_config" --secrets-file "$secrets_file"
 # `deploy --secrets-file` preserves omitted/null secrets. The bulk endpoint
 # applies JSON merge-patch semantics, so this second operation removes a stale
 # optional OpenCode key while leaving configured keys at the deployed values.
-CI=true pnpm exec wrangler secret bulk "$secrets_file"
+CI=true pnpm exec wrangler secret bulk \
+  --config "$wrangler_config" \
+  "$secrets_file"

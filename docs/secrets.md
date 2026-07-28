@@ -48,6 +48,7 @@ Configs are split by environment and runtime/control boundary:
 | `prd_bootstrap_plan` | Read-only bootstrap Terraform plan credentials | `production-infra-bootstrap-plan` |
 | `prd_database_backup` | Encrypted Neon-to-R2 backup credentials and public encryption recipient | `production-database-backup` |
 | `prd_ci_repo` | Repo-wide sensitive CI like AI review and DVC | `production-ci` |
+| `ai-review/stg` | Isolated live-QA deployment of the stateful AI reviewer | None |
 | `ai-review/prd` | Standalone stateful AI reviewer deploy and runtime config | `production-ai-review` |
 
 Doppler config inheritance is not available on this workspace plan, so local

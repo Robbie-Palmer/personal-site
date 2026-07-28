@@ -19,7 +19,7 @@ afterEach(() => {
   }
 });
 
-function runDeploy(openCodeKey?: string) {
+function runDeploy(openCodeKey?: string, wranglerConfig?: string) {
   const directory = mkdtempSync(join(tmpdir(), "ai-review-deploy-test-"));
   temporaryDirectories.push(directory);
   const bin = join(directory, "bin");
@@ -37,7 +37,7 @@ while [ "$#" -gt 0 ]; do
     cp "$1" "$CAPTURE_FILE"
     exit 0
   fi
-  if [ -f "$1" ]; then
+  if [ -f "$1" ] && [ "\${1##*.}" = "json" ]; then
     cp "$1" "$CAPTURE_FILE"
     exit 0
   fi
@@ -61,6 +61,7 @@ exit 0
       CLOUDFLARE_ACCOUNT_ID: "cloudflare-account",
       CLOUDFLARE_API_TOKEN: "cloudflare-token",
       OPENCODE_API_KEY: openCodeKey ?? "",
+      AI_REVIEW_WRANGLER_CONFIG: wranglerConfig ?? "",
       PATH: `${bin}:${process.env.PATH ?? ""}`,
       TMPDIR: directory,
       CAPTURE_FILE: capture,
@@ -84,13 +85,23 @@ describe("AI review deployment", () => {
     const result = runDeploy();
 
     expect(result.secrets.OPENCODE_API_KEY).toBeNull();
-    expect(result.calls).toContain("wrangler deploy --secrets-file");
-    expect(result.calls).toContain("wrangler secret bulk");
+    expect(result.calls).toContain(
+      "wrangler deploy --config wrangler.toml --secrets-file",
+    );
+    expect(result.calls).toContain(
+      "wrangler secret bulk --config wrangler.toml",
+    );
   });
 
   it("uploads a configured OpenCode secret", () => {
     expect(runDeploy("opencode-key").secrets.OPENCODE_API_KEY).toBe(
       "opencode-key",
+    );
+  });
+
+  it("targets an explicitly selected staging configuration", () => {
+    expect(runDeploy(undefined, "wrangler.staging.toml").calls).toContain(
+      "--config wrangler.staging.toml",
     );
   });
 });

@@ -46,6 +46,28 @@ description = "Bundle the stateful AI review Worker without deploying it"
 depends = ["install"]
 run = "pnpm exec wrangler deploy --dry-run"
 
+[tasks."deploy:staging"]
+description = "Deploy the isolated staging AI review Worker"
+depends = ["install"]
+env = {
+  AI_REVIEW_DOPPLER_CONFIG = "stg",
+  AI_REVIEW_WRANGLER_CONFIG = "wrangler.staging.toml",
+}
+run = "bash scripts/deploy.sh"
+
+[tasks."deploy:staging:dry-run"]
+description = "Bundle the isolated staging AI review Worker without deploying it"
+depends = ["install"]
+run = "pnpm exec wrangler deploy --config wrangler.staging.toml --dry-run"
+
+[tasks."e2e:staging"]
+description = "Send a signed staging webhook and verify visible and R2 results"
+depends = ["install"]
+run = """
+doppler run --project ai-review --config stg -- \
+  bash scripts/staging-e2e.sh
+"""
+
 [tasks."lifecycle:verify"]
 description = "Verify the AI review R2 lifecycle policy"
 depends = ["install"]

@@ -1,0 +1,52 @@
+name = "ai-review-staging"
+main = "src/index.ts"
+compatibility_date = "2026-07-25"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+
+[vars]
+AI_REVIEW_ENABLED = "true"
+AI_REVIEW_REPOSITORY = "Robbie-Palmer/personal-site"
+AI_REVIEW_DEBOUNCE_SECONDS = "1"
+AI_REVIEW_DATA_RETENTION_DAYS = "7"
+AI_REVIEW_MODELS = "moonshotai/kimi-k2.6,deepseek/deepseek-v4-pro"
+AI_REVIEW_OPENCODE_MODELS = ""
+AI_REVIEW_MERGER_MODEL = "anthropic/claude-sonnet-4.6"
+AI_REVIEW_IGNORED_AUTHORS = "renovate[bot],dependabot[bot]"
+AI_REVIEW_ZDR = "false"
+AI_REVIEW_APP_BOT_LOGIN = "robbie-palmer-ai-review[bot]"
+AI_REVIEW_MAX_PR_COST_USD = "5"
+AI_REVIEW_MAX_RUNS_PER_PR = "5"
+AI_REVIEW_PROMPT_VERSION = "stateless-parity-v1"
+
+[secrets]
+required = [
+  "AI_REVIEW_APP_ID",
+  "AI_REVIEW_APP_INSTALLATION_ID",
+  "AI_REVIEW_APP_PRIVATE_KEY",
+  "AI_REVIEW_WEBHOOK_SECRET",
+  "OPENROUTER_API_KEY",
+]
+
+[[durable_objects.bindings]]
+name = "PR_STATE"
+class_name = "PullRequestCoordinator"
+
+[exports.PullRequestCoordinator]
+type = "durable-object"
+storage = "sqlite"
+
+[[workflows]]
+name = "ai-review-staging"
+binding = "REVIEW_WORKFLOW"
+class_name = "ReviewWorkflow"
+
+[[r2_buckets]]
+binding = "REVIEW_DATA"
+bucket_name = "ai-review-data-staging"

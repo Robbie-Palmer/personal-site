@@ -48,6 +48,8 @@ justify higher published prices than the current multi-provider route.
   uploads after seven days. Cloudflare provider v4 cannot represent those
   rules, so they are configured once with Wrangler and verified during setup.
 - Doppler project `ai-review`, config `prd`, owns deploy and runtime secrets.
+- Doppler config `ai-review/stg` mirrors those credentials for the isolated
+  `ai-review-staging` Worker used only for explicit end-to-end QA.
 - GitHub environment `production-ai-review` is a generated deployment mirror
   of `ai-review/prd`.
 - The private
@@ -71,6 +73,11 @@ Unmasked values:
 
 GitHub Actions reserves the `GITHUB_` prefix, so App credentials use the
 `AI_REVIEW_` prefix in Doppler and the Worker.
+`AI_REVIEW_APP_PRIVATE_KEY` must be the unencrypted PKCS#8 representation of
+the GitHub-generated PKCS#1 key. Convert it once before storage with
+`openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt`; runtime authentication
+is delegated to `@octokit/auth-app` and does not parse or rewrite private-key
+formats.
 The spend-limited OpenRouter key is installed as a Worker runtime secret.
 `OPENCODE_API_KEY` is optional while OpenCode Zen permits anonymous free-model
 requests; if present in Doppler it is installed as a runtime secret too.
@@ -116,6 +123,20 @@ For a local deployment:
 ```bash
 mise run //ai-review:deploy
 ```
+
+For an isolated staging deployment and live review of the current branch's PR:
+
+```bash
+mise run //ai-review:deploy:staging
+mise run //ai-review:e2e:staging
+```
+
+Staging deploys as `ai-review-staging`, uses its own Durable Object namespace,
+Workflow, and private `ai-review-data-staging` bucket, and publishes through the
+real GitHub App. The E2E task sends a correctly signed synthetic `/ai-review`
+webhook, waits for its versioned R2 record, and verifies that the visible
+stateful PR comment targets the current head.
+Set `AI_REVIEW_E2E_PULL_REQUEST` to test another pull request explicitly.
 
 The deploy task loads `ai-review/prd` when required values are not already in
 the environment. `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` authenticate
