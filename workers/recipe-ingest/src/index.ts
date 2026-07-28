@@ -379,7 +379,6 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
                       model: canonicalizeParams.model,
                       requestTimeoutMs: canonicalizeParams.requestTimeoutMs,
                     }),
-                  }),
                 }),
               ),
             ),
