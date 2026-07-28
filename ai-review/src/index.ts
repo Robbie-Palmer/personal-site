@@ -3,8 +3,22 @@ import {
   WorkflowEntrypoint,
   type WorkflowEvent,
   type WorkflowStep,
+  type WorkflowStepConfig,
 } from "cloudflare:workers";
 import type { Env, ReviewWorkflowParams } from "./env";
+import {
+  claimReview,
+  combineScoutRuns,
+  completeReview,
+  failReview,
+  mergeFindings,
+  prepareReview,
+  publishReview,
+  recordReview,
+  runScouts,
+  type MergedRun,
+  type ScoutRun,
+} from "./review-engine";
 import { parseReviewEvent, verifyGitHubSignature } from "./webhook";
 
 const JSON_HEADERS = {
@@ -20,12 +34,43 @@ const CREATE_WEBHOOK_DELIVERIES_TABLE =
   "pull_request_number INTEGER NOT NULL, " +
   "head_sha TEXT, " +
   "received_at TEXT NOT NULL)";
+const CREATE_REVIEW_RUNS_TABLE =
+  "CREATE TABLE IF NOT EXISTS review_runs (" +
+  "run_id TEXT PRIMARY KEY, " +
+  "head_sha TEXT NOT NULL, " +
+  "diff_fingerprint TEXT NOT NULL, " +
+  "config_fingerprint TEXT NOT NULL, " +
+  "status TEXT NOT NULL, " +
+  "force_run INTEGER NOT NULL, " +
+  "started_at TEXT NOT NULL, " +
+  "completed_at TEXT, " +
+  "cost_usd REAL NOT NULL DEFAULT 0, " +
+  "comment_id INTEGER, " +
+  "findings_json TEXT, " +
+  "error TEXT)";
 const DEFAULT_DEBOUNCE_DELAY_MS = 120_000;
 const MINIMUM_DEBOUNCE_DELAY_MS = 1_000;
 const MAXIMUM_DEBOUNCE_DELAY_MS = 3_600_000;
 const COORDINATOR_TIMEOUT_MS = 10_000;
 const MAXIMUM_WEBHOOK_BODY_BYTES = 2 * 1024 * 1024;
+const REVIEW_RUN_LEASE_MS = 30 * 60 * 1_000;
+const TERMINAL_WORKFLOW_STATUSES = new Set([
+  "complete",
+  "errored",
+  "terminated",
+]);
 const PENDING_EVENT_KEY = "latest-pending-event";
+const MODEL_STEP_CONFIG = {
+  // This is one configured application attempt. Paid and free providers use
+  // separate steps so recovery from a stalled free call cannot replay a
+  // completed OpenRouter ensemble.
+  retries: {
+    limit: 1,
+    delay: 0,
+    backoff: "constant",
+  },
+  timeout: "10 minutes",
+} satisfies WorkflowStepConfig;
 const textEncoder = new TextEncoder();
 
 function json(data: unknown, status = 200): Response {
@@ -53,6 +98,7 @@ function isReviewWorkflowParams(value: unknown): value is ReviewWorkflowParams {
     typeof event.pullRequestNumber === "number" &&
     Number.isSafeInteger(event.pullRequestNumber) &&
     event.pullRequestNumber > 0 &&
+    typeof event.force === "boolean" &&
     (event.headSha === undefined ||
       (typeof event.headSha === "string" && event.headSha.length > 0))
   );
@@ -71,7 +117,6 @@ function debounceDelayMs(rawSeconds: string): number {
 
 function bindingHealth(env: Env) {
   return {
-    ai: env.AI !== undefined,
     durableObject: env.PR_STATE !== undefined,
     r2: env.REVIEW_DATA !== undefined,
     workflow: env.REVIEW_WORKFLOW !== undefined,
@@ -149,13 +194,74 @@ export class PullRequestCoordinator extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.ctx.storage.sql.exec(CREATE_WEBHOOK_DELIVERIES_TABLE);
+    this.ctx.storage.sql.exec(CREATE_REVIEW_RUNS_TABLE);
   }
 
   async fetch(request: Request): Promise<Response> {
     if (request.method !== "POST") {
       return new Response("Method not allowed", { status: 405 });
     }
+    const path = new URL(request.url).pathname;
+    if (path === "/events") return this.receiveEvent(request);
+    if (path === "/reviews/claim") return this.claimReview(request);
+    if (path === "/reviews/complete") return this.completeReview(request);
+    if (path === "/reviews/fail") return this.failReview(request);
+    return new Response("Not found", { status: 404 });
+  }
 
+  private async terminateExpiredReview(
+    completedAt: string,
+    leaseCutoff: string,
+  ): Promise<void> {
+    const expiredRunId = this.ctx.storage.transactionSync(() => {
+      const expired = this.ctx.storage.sql
+        .exec<{ run_id: string }>(
+          `SELECT run_id FROM review_runs
+           WHERE status = 'running' AND started_at < ?
+           LIMIT 1`,
+          leaseCutoff,
+        )
+        .toArray()[0];
+      if (!expired) return undefined;
+      const claimed = this.ctx.storage.sql.exec(
+        `UPDATE review_runs
+         SET status = 'terminating',
+             error = 'review lease expired; terminating Workflow'
+         WHERE run_id = ? AND status = 'running'`,
+        expired.run_id,
+      );
+      return claimed.rowsWritten > 0 ? expired.run_id : undefined;
+    });
+    if (!expiredRunId) return;
+
+    try {
+      const instance = await this.env.REVIEW_WORKFLOW.get(expiredRunId);
+      const { status } = await instance.status();
+      if (!TERMINAL_WORKFLOW_STATUSES.has(status)) {
+        await instance.terminate();
+      }
+    } catch (error) {
+      this.ctx.storage.sql.exec(
+        `UPDATE review_runs
+         SET status = 'running',
+             error = 'could not terminate expired Workflow'
+         WHERE run_id = ? AND status = 'terminating'`,
+        expiredRunId,
+      );
+      throw error;
+    }
+
+    this.ctx.storage.sql.exec(
+      `UPDATE review_runs
+       SET status = 'failed', completed_at = ?,
+           error = 'review lease expired; Workflow terminated before replacement'
+       WHERE run_id = ? AND status = 'terminating'`,
+      completedAt,
+      expiredRunId,
+    );
+  }
+
+  private async receiveEvent(request: Request): Promise<Response> {
     let event: unknown;
     try {
       event = await request.json();
@@ -165,6 +271,9 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     if (!isReviewWorkflowParams(event)) {
       return json({ error: "Invalid coordinator event" }, 400);
     }
+    const pending =
+      await this.ctx.storage.get<ReviewWorkflowParams>(PENDING_EVENT_KEY);
+    const coalesced = pending?.force ? { ...event, force: true } : event;
     const inserted = this.ctx.storage.transactionSync(() => {
       const existing = this.ctx.storage.sql
         .exec<{ delivery_id: string }>(
@@ -190,7 +299,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       );
       // The coordinator reviews current PR state, so rapid deliveries deliberately
       // coalesce to the latest trigger rather than enqueueing redundant runs.
-      this.ctx.storage.kv.put(PENDING_EVENT_KEY, event);
+      this.ctx.storage.kv.put(PENDING_EVENT_KEY, coalesced);
       return true;
     });
 
@@ -216,6 +325,212 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       accepted: true,
       enabled: this.env.AI_REVIEW_ENABLED === "true",
     });
+  }
+
+  private async claimReview(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => null)) as {
+      runId?: unknown;
+      headSha?: unknown;
+      diffFingerprint?: unknown;
+      configFingerprint?: unknown;
+      force?: unknown;
+      maxRuns?: unknown;
+      maxCostUsd?: unknown;
+    } | null;
+    if (
+      !body ||
+      typeof body.runId !== "string" ||
+      typeof body.headSha !== "string" ||
+      typeof body.diffFingerprint !== "string" ||
+      typeof body.configFingerprint !== "string" ||
+      typeof body.force !== "boolean" ||
+      typeof body.maxRuns !== "number" ||
+      !Number.isFinite(body.maxRuns) ||
+      typeof body.maxCostUsd !== "number" ||
+      !Number.isFinite(body.maxCostUsd)
+    ) {
+      return json({ error: "Invalid review claim" }, 400);
+    }
+    const maxRuns = body.maxRuns;
+    const maxCostUsd = body.maxCostUsd;
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const leaseCutoff = new Date(
+      now.getTime() - REVIEW_RUN_LEASE_MS,
+    ).toISOString();
+    try {
+      await this.terminateExpiredReview(nowIso, leaseCutoff);
+    } catch (error) {
+      console.error(
+        "Could not terminate an expired review Workflow",
+        error instanceof Error ? { name: error.name } : { type: typeof error },
+      );
+      return json({ error: "Expired review Workflow is still active" }, 503);
+    }
+
+    const result = this.ctx.storage.transactionSync(() => {
+      const aggregate = this.ctx.storage.sql
+        .exec<{ attempts: number; runs: number; total_cost: number }>(
+          `SELECT COUNT(*) AS attempts,
+                  SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS runs,
+                  COALESCE(SUM(cost_usd), 0) AS total_cost
+           FROM review_runs`,
+        )
+        .toArray()[0] ?? { attempts: 0, runs: 0, total_cost: 0 };
+      const previousState = {
+        runs: Number(aggregate.runs),
+        total_usd: Number(aggregate.total_cost),
+      };
+      const existingRun = this.ctx.storage.sql
+        .exec<{ status: string }>(
+          "SELECT status FROM review_runs WHERE run_id = ?",
+          body.runId,
+        )
+        .toArray()[0];
+      if (existingRun) {
+        const claimed = existingRun.status === "running";
+        let reason: string | undefined;
+        if (!claimed) {
+          reason =
+            existingRun.status === "completed"
+              ? "workflow instance already completed"
+              : `workflow instance is ${existingRun.status}`;
+        }
+        return {
+          claimed,
+          reason,
+          previousState,
+        };
+      }
+      const active = this.ctx.storage.sql
+        .exec<{ run_id: string }>(
+          `SELECT run_id FROM review_runs
+           WHERE status IN ('running', 'terminating')
+           LIMIT 1`,
+        )
+        .toArray()[0];
+      if (active) {
+        return {
+          claimed: false,
+          reason: "another review is already running",
+          previousState,
+        };
+      }
+      if (!body.force) {
+        const completed = this.ctx.storage.sql
+          .exec<{ run_id: string }>(
+            `SELECT run_id FROM review_runs
+             WHERE diff_fingerprint = ? AND config_fingerprint = ?
+               AND status = 'completed'
+             LIMIT 1`,
+            body.diffFingerprint,
+            body.configFingerprint,
+          )
+          .toArray()[0];
+        if (completed) {
+          return {
+            claimed: false,
+            reason: "this content and reviewer configuration were already reviewed",
+            previousState,
+          };
+        }
+      }
+      if (Number(aggregate.attempts) >= maxRuns) {
+        return {
+          claimed: false,
+          reason: "per-PR review-run budget reached",
+          previousState,
+        };
+      }
+      if (previousState.total_usd >= maxCostUsd) {
+        return {
+          claimed: false,
+          reason: "per-PR cost budget reached",
+          previousState,
+        };
+      }
+      this.ctx.storage.sql.exec(
+        `INSERT INTO review_runs
+         (run_id, head_sha, diff_fingerprint, config_fingerprint, status,
+          force_run, started_at)
+         VALUES (?, ?, ?, ?, 'running', ?, ?)`,
+        body.runId,
+        body.headSha,
+        body.diffFingerprint,
+        body.configFingerprint,
+        body.force ? 1 : 0,
+        nowIso,
+      );
+      return { claimed: true, previousState };
+    });
+    return json(result);
+  }
+
+  private async completeReview(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => null)) as {
+      runId?: unknown;
+      headSha?: unknown;
+      costUsd?: unknown;
+      commentId?: unknown;
+      findings?: unknown;
+    } | null;
+    if (
+      !body ||
+      typeof body.runId !== "string" ||
+      typeof body.headSha !== "string" ||
+      typeof body.costUsd !== "number" ||
+      !Number.isFinite(body.costUsd) ||
+      body.costUsd < 0 ||
+      (body.commentId !== undefined && typeof body.commentId !== "number") ||
+      !Array.isArray(body.findings)
+    ) {
+      return json({ error: "Invalid review completion" }, 400);
+    }
+    const update = this.ctx.storage.sql.exec(
+      `UPDATE review_runs
+       SET status = 'completed', completed_at = ?, cost_usd = ?,
+           comment_id = ?, findings_json = ?, error = NULL
+       WHERE run_id = ? AND head_sha = ? AND status = 'running'`,
+      new Date().toISOString(),
+      body.costUsd,
+      body.commentId ?? null,
+      JSON.stringify(body.findings),
+      body.runId,
+      body.headSha,
+    );
+    if (update.rowsWritten === 0) {
+      return json({ error: "No matching review run to complete" }, 409);
+    }
+    return json({ completed: true });
+  }
+
+  private async failReview(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => null)) as {
+      runId?: unknown;
+      error?: unknown;
+      costUsd?: unknown;
+    } | null;
+    if (
+      !body ||
+      typeof body.runId !== "string" ||
+      typeof body.error !== "string" ||
+      typeof body.costUsd !== "number" ||
+      !Number.isFinite(body.costUsd) ||
+      body.costUsd < 0
+    ) {
+      return json({ error: "Invalid review failure" }, 400);
+    }
+    this.ctx.storage.sql.exec(
+      `UPDATE review_runs
+       SET status = 'failed', completed_at = ?, error = ?, cost_usd = ?
+       WHERE run_id = ? AND status = 'running'`,
+      new Date().toISOString(),
+      body.error.slice(0, 500),
+      body.costUsd,
+      body.runId,
+    );
+    return json({ failed: true });
   }
 
   override async alarm(): Promise<void> {
@@ -246,31 +561,137 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
     event: WorkflowEvent<ReviewWorkflowParams>,
     step: WorkflowStep,
   ): Promise<void> {
-    await step.do("record-bootstrap-run", async () => {
-      const key = [
-        "v1",
-        event.payload.repository,
-        `pr-${event.payload.pullRequestNumber}`,
-        `${event.timestamp.toISOString()}-${event.instanceId}.json`,
-      ].join("/");
-      await this.env.REVIEW_DATA.put(
-        key,
-        JSON.stringify({
-          schemaVersion: 1,
-          status: "bootstrap-only",
-          promptVersion: this.env.AI_REVIEW_PROMPT_VERSION,
-          model: this.env.AI_REVIEW_SCOUT_MODEL,
-          event: event.payload,
-          workflow: {
-            instanceId: event.instanceId,
-            timestamp: event.timestamp.toISOString(),
-          },
-        }),
-        {
-          httpMetadata: { contentType: "application/json" },
-        },
+    const workflowStep = step as unknown as {
+      do<T>(name: string, operation: () => Promise<T>): Promise<T>;
+      do<T>(
+        name: string,
+        config: WorkflowStepConfig,
+        operation: () => Promise<T>,
+      ): Promise<T>;
+    };
+    let incurredCostUsd = 0;
+    try {
+      const prepared = await workflowStep.do("prepare-review", () =>
+        prepareReview(this.env, event.payload),
       );
-    });
+      if (prepared.skipReason) {
+        console.log("Skipping stateful AI review", {
+          repository: event.payload.repository,
+          pullRequestNumber: event.payload.pullRequestNumber,
+          reason: prepared.skipReason,
+        });
+        return;
+      }
+      const claim = await workflowStep.do("claim-review", () =>
+        claimReview(this.env, event.payload, event.instanceId, prepared),
+      );
+      if (!claim.claimed) {
+        console.log("Skipping duplicate or over-budget AI review", {
+          repository: event.payload.repository,
+          pullRequestNumber: event.payload.pullRequestNumber,
+          reason: claim.reason,
+        });
+        return;
+      }
+
+      let scouts: ScoutRun;
+      let merged: MergedRun;
+      if (prepared.diff?.trim()) {
+        const openRouterScouts = await workflowStep.do(
+          "run-openrouter-scouts",
+          MODEL_STEP_CONFIG,
+          () =>
+            runScouts(this.env, event.payload, prepared, {
+              providers: ["openrouter"],
+            }),
+        );
+        incurredCostUsd = Object.values(openRouterScouts.costs).reduce(
+          (total, cost) => total + cost,
+          0,
+        );
+        const openCodeScouts = await workflowStep.do(
+          "run-opencode-scouts",
+          MODEL_STEP_CONFIG,
+          () =>
+            runScouts(this.env, event.payload, prepared, {
+              providers: ["opencode"],
+            }),
+        );
+        scouts = combineScoutRuns(openRouterScouts, openCodeScouts);
+        merged = await workflowStep.do(
+          "merge-current-scout-findings",
+          MODEL_STEP_CONFIG,
+          () => mergeFindings(this.env, event.payload, prepared, scouts),
+        );
+        incurredCostUsd += merged.cost;
+      } else {
+        scouts = {
+          models: [],
+          candidates: {},
+          failed: [],
+          candidateCounts: {},
+          invalidCounts: {},
+          outOfScopeCounts: {},
+          costs: {},
+          metrics: [],
+        };
+        merged = {
+          result: {
+            summary: "No reviewable text changes found.",
+            findings: [],
+          },
+          cost: 0,
+        };
+      }
+      const publication = await workflowStep.do("publish-rolling-comment", () =>
+        publishReview(
+          this.env,
+          event.payload,
+          prepared,
+          scouts,
+          merged,
+          claim.previousState,
+        ),
+      );
+      await workflowStep.do("record-versioned-review", () =>
+        recordReview({
+          env: this.env,
+          params: event.payload,
+          instanceId: event.instanceId,
+          prepared,
+          scouts,
+          merged,
+          publication,
+          timestamp: event.timestamp,
+        }),
+      );
+      await workflowStep.do("complete-review-state", () =>
+        completeReview(
+          this.env,
+          event.payload,
+          event.instanceId,
+          prepared,
+          merged,
+          publication,
+        ),
+      );
+    } catch (error) {
+      try {
+        await failReview(
+          this.env,
+          event.payload,
+          event.instanceId,
+          error,
+          incurredCostUsd,
+        );
+      } catch (stateError) {
+        console.error("Could not record failed review state", {
+          type:
+            stateError instanceof Error ? stateError.name : typeof stateError,
+        });
+      }
+      throw error;
+    }
   }
 }
 

@@ -49,6 +49,7 @@ describe("parseReviewEvent", () => {
         repository: "Robbie-Palmer/personal-site",
         pullRequestNumber: 816,
         headSha: "abc123",
+        force: false,
       },
     });
   });
@@ -66,6 +67,10 @@ describe("parseReviewEvent", () => {
         action: "created",
         repository: { full_name: "Robbie-Palmer/personal-site" },
         issue: { number: 1, pull_request: true },
+        comment: {
+          body: "/ai-review",
+          author_association: "OWNER",
+        },
       }),
     ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
   });
@@ -124,7 +129,7 @@ describe("parseReviewEvent", () => {
         action: "submitted",
         repository: { full_name: "Robbie-Palmer/personal-site" },
       }),
-    ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
+    ).toEqual({ kind: "ignored", reason: "unsupported-event" });
   });
 
   it("extracts pull request issue comments", () => {
@@ -133,30 +138,45 @@ describe("parseReviewEvent", () => {
         action: "created",
         repository: { full_name: "Robbie-Palmer/personal-site" },
         issue: { number: 816, pull_request: {} },
+        comment: {
+          body: "/ai-review",
+          author_association: "OWNER",
+        },
       }),
     ).toEqual({
       kind: "accepted",
       event: expect.objectContaining({
         eventName: "issue_comment",
         pullRequestNumber: 816,
+        force: true,
       }),
     });
   });
 
-  it("extracts pull request review thread events", () => {
+  it("does not spend on review-thread activity", () => {
     expect(
       parseReviewEvent("pull_request_review_thread", "delivery-3", {
         action: "resolved",
         repository: { full_name: "Robbie-Palmer/personal-site" },
         pull_request: { number: 816 },
       }),
-    ).toEqual({
-      kind: "accepted",
-      event: expect.objectContaining({
-        eventName: "pull_request_review_thread",
-        action: "resolved",
-        pullRequestNumber: 816,
-      }),
-    });
+    ).toEqual({ kind: "ignored", reason: "unsupported-event" });
+  });
+
+  it("ignores ordinary and untrusted issue comments", () => {
+    for (const comment of [
+      { body: "looks good", author_association: "OWNER" },
+      { body: " /ai-review\n", author_association: "OWNER" },
+      { body: "/ai-review", author_association: "NONE" },
+    ]) {
+      expect(
+        parseReviewEvent("issue_comment", "delivery-comment", {
+          action: "created",
+          repository: { full_name: "Robbie-Palmer/personal-site" },
+          issue: { number: 816, pull_request: {} },
+          comment,
+        }),
+      ).toEqual({ kind: "ignored", reason: "unsupported-event" });
+    }
   });
 });

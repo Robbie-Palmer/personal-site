@@ -9,6 +9,7 @@ import {
   markdownText,
   parseModelPayload,
   renderComment,
+  Reviewer,
   selectFreeScoutModels,
   validateFindings,
   workflowStatusForCoverage,
@@ -108,6 +109,31 @@ test("OpenCode model discovery keeps live supplementary scouts and excludes fail
   );
   assert.deepEqual(selectFreeScoutModels({ data: [] }), []);
   assert.throws(() => selectFreeScoutModels({ models: [] }), /no data array/);
+});
+
+test("paid OpenRouter completions are never retried by the HTTP client", async (context) => {
+  let attempts = 0;
+  context.mock.method(globalThis, "fetch", async () => {
+    attempts += 1;
+    return new Response("temporary upstream failure", { status: 503 });
+  });
+  const reviewer = new Reviewer({
+    githubToken: "github-token",
+    openRouterKey: "openrouter-key",
+    repository: "Robbie-Palmer/personal-site",
+    prNumber: 837,
+    openRouterScouts: ["model-a"],
+    openCodeScouts: [],
+    merger: "model-b",
+    ignoredAuthors: [],
+    requireZdr: false,
+  });
+
+  await assert.rejects(
+    reviewer.callOpenRouterScout("model-a", "system", "user"),
+    /failed \(503\)/,
+  );
+  assert.equal(attempts, 1);
 });
 
 test("duplicate scout model IDs are detected across providers", () => {

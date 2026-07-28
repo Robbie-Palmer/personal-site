@@ -8,6 +8,12 @@ threads; it does not judge correctness. Free-scout findings are real review
 inputs rather than shadow telemetry, so their downstream outcomes can inform
 future performance analytics.
 
+The stateful Worker imports the model clients, prompts, validation, filtering,
+and comment rendering from this trusted implementation so both paths use the
+same ensemble. The GitHub Action remains enabled as an independent visible
+baseline while the stateful orchestration accumulates review cost, latency,
+reliability, and outcome data.
+
 ## Setup
 
 1. Add `OPENROUTER_API_KEY` as an Actions repository secret and set a suitable
@@ -67,12 +73,13 @@ noisy or not cost-effective.
 Free-model availability is refreshed from OpenCode at the start of every run.
 Models removed from the catalogue are skipped. The four default scouts—Kimi
 K2.6, DeepSeek V4 Pro, Big Pickle, and Nemotron 3 Ultra Free—run concurrently.
-Transient failures such as rate limits are retried, Nemotron receives a
-180-second timeout, and individual failures do not block the remaining scouts.
-Any successful scout is enough to continue to reconciliation. If every scout is
-unavailable, rate-limited, or invalid, the workflow publishes an explicit
-no-coverage warning and does not spend money on the merger; the stable `review`
-check is skipped.
+GitHub and free-provider transient failures use bounded retries, while paid
+OpenRouter completion POSTs make one HTTP attempt because the provider exposes
+no idempotency key. Nemotron receives a 180-second timeout, and individual
+failures do not block the remaining scouts. Any successful scout is enough to
+continue to reconciliation. If every scout is unavailable, rate-limited, or
+invalid, the workflow publishes an explicit no-coverage warning and does not
+spend money on the merger; the stable `review` check is skipped.
 
 When OpenRouter reports exhausted account credits or an exhausted API-key
 spending limit, the stable `review` check is also marked as skipped.
@@ -112,8 +119,10 @@ those files as omitted rather than sending them to a model. The PR comment lists
 all unexpectedly omitted files; intentionally ignored files do not produce an
 incomplete-coverage warning. It does not fetch files over 200 KB. For files it
 does fetch, it includes at most 40,000 characters per file and 180,000 characters
-of combined file context. It also caps each patch at 60,000 characters and the
-combined diff at 280,000 characters. Split large PRs when full coverage matters.
+of combined file context. File contents are fetched through bounded GraphQL
+batches, and later batches are skipped once that combined budget is full. It
+also caps each patch at 60,000 characters and the combined diff at 280,000
+characters. Split large PRs when full coverage matters.
 
 ## Validation
 

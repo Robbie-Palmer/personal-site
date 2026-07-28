@@ -385,14 +385,6 @@ export const technologies: TechnologyContent[] = [
     type: "platform",
   },
   {
-    name: "Cloudflare Workers AI",
-    added: "2026-07-25",
-    description: "Serverless AI inference on Cloudflare's network",
-    website: "https://developers.cloudflare.com/workers-ai/",
-    iconSlug: "cloudflare",
-    type: "platform",
-  },
-  {
     name: "Terraform Cloud",
     added: "2026-01-04",
     description:

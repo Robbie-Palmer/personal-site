@@ -1,9 +1,9 @@
 ---
-title: "ADR 056: Stateful Workers AI Code Review"
+title: "ADR 056: Stateful AI Code Review"
 date: "2026-07-25"
 status: "Proposed"
 supersedes: "personal-site:046-custom-agentic-code-review"
-tech_stack: ["Cloudflare Workers", "Cloudflare Workflows", "Cloudflare Workers AI", "Cloudflare R2", "OpenRouter"]
+tech_stack: ["Cloudflare Workers", "Cloudflare Workflows", "Cloudflare R2", "OpenRouter"]
 ---
 
 # Context
@@ -44,12 +44,24 @@ I propose moving the custom reviewer from per-push GitHub Actions to a
    token and cost metrics.
 3. An alarm coalesces rapid pushes. A
    [Cloudflare Workflow](https://developers.cloudflare.com/workflows/) performs
-   the retryable fetch, scout, merge, and GitHub publication steps; all steps
-   are idempotent against the PR state.
-4. Workers AI is the default inference path. Model identifiers remain
-   configuration selected by the existing scorecard, not architecture.
-   OpenRouter remains an escape hatch when a materially better model is not
-   available on Workers AI.
+   the fetch, scout, merge, and GitHub publication steps. Deterministic,
+   idempotent steps remain retryable, but paid model steps make one Workflow
+   and one HTTP attempt because the providers do not expose an idempotency
+   boundary. An expired per-PR lease terminates its old Workflow before a
+   replacement is admitted.
+4. OpenRouter is the paid inference gateway. At decision time,
+   [OpenRouter publishes 400+ models and 70+ providers](https://openrouter.ai/pricing).
+   It provides
+   [automatic provider failover and routing controls](https://openrouter.ai/docs/guides/routing/provider-selection)
+   for price, latency, and throughput, plus
+   [explicit model fallbacks](https://openrouter.ai/docs/guides/routing/model-fallbacks).
+   Its [published fee structure](https://openrouter.ai/docs/faq) adds a 5.5%
+   credit-purchase fee with a USD 0.80 minimum; BYOK has a separate fee after
+   its free monthly request allowance. For the dozens-of-dollars top-ups used
+   here, the percentage rather than the minimum governs. Even including that
+   fee, OpenRouter is cheaper for the exact Kimi K2.6 anchor model used here.
+   The stateful implementation therefore preserves the proven OpenRouter
+   scouts and merger, plus OpenCode's eligible free scouts.
 5. Each run appends a versioned analytical record to R2, forming a small data
    lake separate from the Durable Object's operational state. It captures task
    and change characteristics, originating coding agent where known, model and
@@ -68,7 +80,7 @@ subgraph ONLINE["Review loop — latency sensitive"]
 W["Webhook Worker"]
 DO[("Pull Request Durable Object")]
 WF["Review Workflow"]
-AI["Workers AI / OpenRouter"]
+AI["OpenRouter / OpenCode"]
 R2[("R2 review data lake")]
 
 W --> DO
@@ -113,12 +125,10 @@ The reviewer will run at the **Pull Request level, not the commit level**:
 
 Incremental prompts will contain the stable review policy first, followed by
 bounded relevant context, unresolved findings, and only the new or modified
-hunks. The same PR/model pair will use a stable session-affinity key.
-[Workers AI prefix caching](https://developers.cloudflare.com/workers-ai/features/prompt-caching/)
-can then bill supported cached prefixes at a discount, while the durable state
-prevents unnecessary calls and unnecessary context from being sent at all.
-These are separate optimisations: Durable Objects do not themselves cache model
-computation, and prefix-cache hits are not guaranteed.
+hunks. The same PR/model pair will use a stable session-affinity key where the
+selected provider supports it. The durable state prevents unnecessary calls
+and context independently of provider-side caching; Durable Objects do not
+themselves cache model computation, and prefix-cache hits are not guaranteed.
 
 # Evaluation and Success Metrics
 
@@ -200,10 +210,10 @@ when replaying representative PR histories and then running live PRs shows:
   handle routine deltas; the multi-scout and merger path is reserved for
   material or high-risk changes.
 * **Preserve an exit.** Cloudflare consolidates webhook compute, state,
-  inference, observability, and existing project infrastructure, but it becomes
-  a larger platform dependency. The provider-neutral inference boundary and
-  stored scorecard preserve migration to OpenRouter, direct APIs, or another
-  runtime.
+  observability, and existing project infrastructure, but it becomes a larger
+  platform dependency. The provider-neutral inference boundary and stored
+  scorecard preserve migration among OpenRouter, OpenCode, direct APIs, or
+  another gateway.
 * **Create reusable review infrastructure.** Webhook ingestion, durable
   context, policy-based triggering, multi-model review, suggestion delivery,
   and feedback capture generalise beyond code. Future products could reuse
@@ -245,6 +255,27 @@ This retains broad model access and the best observed review economics with no
 migration. It leaves the core problem intact: every qualifying push purchases
 another review of mostly repeated context.
 
+## Use Workers AI for Inference
+
+Workers AI would keep orchestration and inference on Cloudflare, but that
+consolidation does not justify its current economics or reduced routing
+capability. At decision time its Kimi K2.6 route costs
+[USD 0.95 per million input tokens and USD 4.00 per million output tokens](https://developers.cloudflare.com/workers-ai/models/kimi-k2.6/).
+OpenRouter's live pricing page lists the same model at an average USD 0.67 and
+USD 3.39 respectively; after the 5.5% credit-purchase fee on the top-up size
+used here, those prices are approximately USD 0.71 and USD 3.58. Workers AI is
+therefore about 34% more expensive for input and 12% more expensive for output
+after the allowance is used. Provider-specific OpenRouter rates vary, so these
+figures record the decision-time comparison rather than a permanent price.
+
+The [10,000-neuron daily allowance](https://developers.cloudflare.com/workers-ai/platform/pricing/)
+is worth only USD 0.11 per day at the published USD 0.011 per 1,000-neuron
+rate. That is immaterial beside this review workflow's inference spend and does
+not warrant another adapter, quota accounting, or a single-provider route with
+fewer model and fallback choices. Reconsider only if published total pricing
+becomes competitive or it provides a uniquely valuable capability unavailable
+through the existing gateway.
+
 # Consequences
 
 ## Positive
@@ -252,15 +283,17 @@ another review of mostly repeated context.
 * Review timing follows PR risk and readiness rather than commit count.
 * Durable hunk and finding state removes redundant calls; prefix caching can
   further reduce the price and latency of repeated context.
-* Serialisation, debounce, and idempotency prevent races and duplicate comments.
+* Serialisation permits only one paid review at a time per PR; debounce and
+  idempotency prevent races and duplicate comments.
 * Per-PR model, token, cache-hit, finding, and disposition data strengthen the
   existing evaluation flywheel.
 * Recurring defects can feed back into tests, skills, repository instructions,
   and agent selection, reducing failures earlier in the development loop.
 * A portable real-work corpus supports model evaluation that reflects actual
   tasks and creates a foundation for review agents in future products.
-* Cloudflare-hosted open-weight models can improve economics while model and
-  provider escape hatches preserve competition.
+* OpenRouter supplies broad model access and multi-provider resilience behind
+  one integration, while the inference boundary preserves direct APIs and
+  future gateways as alternatives.
 
 ## Negative
 
@@ -268,8 +301,9 @@ another review of mostly repeated context.
   churn, and comment reconciliation become owned infrastructure.
 * Incremental review can miss interactions outside changed hunks; risk rules and
   a final full-review path mitigate but cannot eliminate this.
-* Durable Objects, Workflows, Workers AI, and AI Gateway pricing and limits can
-  change. Spend limits and per-PR budgets are required before production use.
+* Durable Objects, Workflows, inference-provider pricing, and platform limits
+  can change. Spend limits and per-PR budgets are required before production
+  use.
 * Session affinity improves prefix-cache probability but is not durable storage
   or a cache guarantee; savings must be measured from returned usage data.
 * The private benchmark is observational: task mix, prompts, and coding agents
