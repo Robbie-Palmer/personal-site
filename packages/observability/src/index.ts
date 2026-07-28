@@ -200,12 +200,41 @@ function recordFailure(
   );
 }
 
+function reportTelemetryFailure(stage: string, error: unknown): void {
+  try {
+    console.error(
+      JSON.stringify({
+        message: "PostHog telemetry failure",
+        stage,
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  } catch {
+    // Telemetry reporting must remain fail-open, including its fallback log.
+  }
+}
+
+function safelyRecordTelemetry(stage: string, operation: () => void): void {
+  try {
+    operation();
+  } catch (error) {
+    reportTelemetryFailure(stage, error);
+  }
+}
+
 async function flushTelemetry(state: TelemetryState): Promise<void> {
-  // Telemetry must never become a new failure mode for the application.
-  await Promise.allSettled([
-    state.traceProvider.forceFlush(),
-    state.logProvider.forceFlush(),
+  const results = await Promise.allSettled([
+    Promise.resolve().then(() => state.traceProvider.forceFlush()),
+    Promise.resolve().then(() => state.logProvider.forceFlush()),
   ]);
+  for (const [index, result] of results.entries()) {
+    if (result.status === "rejected") {
+      reportTelemetryFailure(
+        index === 0 ? "flush traces" : "flush logs",
+        result.reason,
+      );
+    }
+  }
 }
 
 async function flushAfter(
@@ -214,9 +243,37 @@ async function flushAfter(
 ): Promise<void> {
   const flush = flushTelemetry(state);
   if (waitUntil) {
-    waitUntil.waitUntil(flush);
+    try {
+      waitUntil.waitUntil(flush);
+    } catch (error) {
+      reportTelemetryFailure("schedule flush", error);
+    }
   } else {
     await flush;
+  }
+}
+
+async function runWithoutTelemetry<T>(
+  serviceName: string,
+  operation: (span: Span) => Promise<T>,
+): Promise<T> {
+  const span = trace.getTracer(serviceName).startSpan("noop");
+  try {
+    return await operation(span);
+  } finally {
+    safelyRecordTelemetry("end fallback span", () => span.end());
+  }
+}
+
+function safelyGetTelemetry(
+  env: PostHogObservabilityEnv,
+  serviceName: string,
+): TelemetryState | undefined {
+  try {
+    return getTelemetry(env, serviceName);
+  } catch (error) {
+    reportTelemetryFailure("initialize", error);
+    return undefined;
   }
 }
 
@@ -286,60 +343,75 @@ export async function withPostHogRequest<T extends Response>(
   },
   operation: (span: Span) => Promise<T>,
 ): Promise<T> {
-  const state = getTelemetry(options.env, options.serviceName);
+  const state = safelyGetTelemetry(options.env, options.serviceName);
   if (!state) {
-    const span = trace.getTracer(options.serviceName).startSpan("noop");
-    try {
-      return await operation(span);
-    } finally {
-      span.end();
-    }
+    return runWithoutTelemetry(options.serviceName, operation);
   }
 
-  const identity = traceIdentityFromHeaders(options.request.headers);
-  const attributes: Attributes = {
-    "http.request.method": options.request.method,
-    "url.path": new URL(options.request.url).pathname,
-    ...identityAttributes(identity),
-    ...options.attributes,
-  };
-  const parentContext = propagation.extract(
-    ROOT_CONTEXT,
-    options.request.headers,
-    headerGetter,
-  );
-  const tracer = state.traceProvider.getTracer(options.serviceName);
-  const span = tracer.startSpan(
-    options.spanName,
-    { kind: SpanKind.SERVER, attributes },
-    parentContext,
-  );
-  const spanContext = trace.setSpan(parentContext, span);
+  let attributes: Attributes;
+  let span: Span;
+  let spanContext: Context;
+  try {
+    const identity = traceIdentityFromHeaders(options.request.headers);
+    attributes = {
+      "http.request.method": options.request.method,
+      "url.path": new URL(options.request.url).pathname,
+      ...identityAttributes(identity),
+      ...options.attributes,
+    };
+    const parentContext = propagation.extract(
+      ROOT_CONTEXT,
+      options.request.headers,
+      headerGetter,
+    );
+    const tracer = state.traceProvider.getTracer(options.serviceName);
+    span = tracer.startSpan(
+      options.spanName,
+      { kind: SpanKind.SERVER, attributes },
+      parentContext,
+    );
+    spanContext = trace.setSpan(parentContext, span);
+  } catch (error) {
+    reportTelemetryFailure("start request span", error);
+    return runWithoutTelemetry(options.serviceName, operation);
+  }
 
   try {
-    const response = await operation(span);
-    span.setAttribute("http.response.status_code", response.status);
-    if (response.status >= 500) {
-      span.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: `HTTP ${response.status}`,
-      });
+    let response: T;
+    try {
+      response = await operation(span);
+    } catch (error) {
+      safelyRecordTelemetry("record request failure", () =>
+        recordFailure(span, state, error, attributes, spanContext),
+      );
+      throw error;
     }
-    emitLog(
-      state,
-      response.status >= 500 ? SeverityNumber.ERROR : SeverityNumber.INFO,
-      response.status >= 500 ? "ERROR" : "INFO",
-      `${options.request.method} ${new URL(options.request.url).pathname}`,
-      { ...attributes, "http.response.status_code": response.status },
-      spanContext,
-    );
+
+    safelyRecordTelemetry("record request success", () => {
+      span.setAttribute("http.response.status_code", response.status);
+      if (response.status >= 500) {
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: `HTTP ${response.status}`,
+        });
+      }
+      emitLog(
+        state,
+        response.status >= 500 ? SeverityNumber.ERROR : SeverityNumber.INFO,
+        response.status >= 500 ? "ERROR" : "INFO",
+        `${options.request.method} ${new URL(options.request.url).pathname}`,
+        { ...attributes, "http.response.status_code": response.status },
+        spanContext,
+      );
+    });
     return response;
-  } catch (error) {
-    recordFailure(span, state, error, attributes, spanContext);
-    throw error;
   } finally {
-    span.end();
-    await flushAfter(state, options.waitUntil);
+    safelyRecordTelemetry("end request span", () => span.end());
+    try {
+      await flushAfter(state, options.waitUntil);
+    } catch (error) {
+      reportTelemetryFailure("flush request telemetry", error);
+    }
   }
 }
 
@@ -355,53 +427,67 @@ export async function withPostHogSpan<T>(
   },
   operation: (span: Span) => Promise<T>,
 ): Promise<T> {
-  const state = getTelemetry(options.env, options.serviceName);
+  const state = safelyGetTelemetry(options.env, options.serviceName);
   if (!state) {
-    const span = trace.getTracer(options.serviceName).startSpan("noop");
-    try {
-      return await operation(span);
-    } finally {
-      span.end();
-    }
+    return runWithoutTelemetry(options.serviceName, operation);
   }
 
-  const parentContext = options.traceCarrier
-    ? propagation.extract(ROOT_CONTEXT, options.traceCarrier, recordGetter)
-    : ROOT_CONTEXT;
-  const tracer = state.traceProvider.getTracer(options.serviceName);
-  const span = tracer.startSpan(
-    options.spanName,
-    {
-      kind: options.kind ?? SpanKind.INTERNAL,
-      attributes: options.attributes,
-    },
-    parentContext,
-  );
-  const spanContext = trace.setSpan(parentContext, span);
+  let span: Span;
+  let spanContext: Context;
+  try {
+    const parentContext = options.traceCarrier
+      ? propagation.extract(ROOT_CONTEXT, options.traceCarrier, recordGetter)
+      : ROOT_CONTEXT;
+    const tracer = state.traceProvider.getTracer(options.serviceName);
+    span = tracer.startSpan(
+      options.spanName,
+      {
+        kind: options.kind ?? SpanKind.INTERNAL,
+        attributes: options.attributes,
+      },
+      parentContext,
+    );
+    spanContext = trace.setSpan(parentContext, span);
+  } catch (error) {
+    reportTelemetryFailure("start span", error);
+    return runWithoutTelemetry(options.serviceName, operation);
+  }
 
   try {
-    const result = await operation(span);
-    emitLog(
-      state,
-      SeverityNumber.INFO,
-      "INFO",
-      options.spanName,
-      options.attributes ?? {},
-      spanContext,
+    let result: T;
+    try {
+      result = await operation(span);
+    } catch (error) {
+      safelyRecordTelemetry("record span failure", () =>
+        recordFailure(
+          span,
+          state,
+          error,
+          options.attributes ?? {},
+          spanContext,
+        ),
+      );
+      throw error;
+    }
+
+    safelyRecordTelemetry("record span success", () =>
+      emitLog(
+        state,
+        SeverityNumber.INFO,
+        "INFO",
+        options.spanName,
+        options.attributes ?? {},
+        spanContext,
+      ),
     );
     return result;
-  } catch (error) {
-    recordFailure(
-      span,
-      state,
-      error,
-      options.attributes ?? {},
-      spanContext,
-    );
-    throw error;
   } finally {
-    span.end();
-    await flushAfter(state, options.waitUntil);
+    safelyRecordTelemetry("end span", () => span.end());
+    try {
+      await flushAfter(state, options.waitUntil);
+    } catch (error) {
+      reportTelemetryFailure("flush span telemetry", error);
+    }
   }
 }
 

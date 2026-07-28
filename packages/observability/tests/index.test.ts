@@ -14,11 +14,16 @@ const exported = vi.hoisted(() => ({
   logs: [] as Array<Record<string, unknown>>,
   traceExporterOptions: [] as Array<Record<string, unknown>>,
   logExporterOptions: [] as Array<Record<string, unknown>>,
+  throwTraceExporterOnInit: false,
+  rejectTraceExporterFlush: false,
 }));
 
 vi.mock("@opentelemetry/exporter-trace-otlp-proto", () => ({
   OTLPTraceExporter: class {
     constructor(options: Record<string, unknown>) {
+      if (exported.throwTraceExporterOnInit) {
+        throw new Error("trace exporter setup failed");
+      }
       exported.traceExporterOptions.push(options);
     }
 
@@ -31,7 +36,9 @@ vi.mock("@opentelemetry/exporter-trace-otlp-proto", () => ({
     }
 
     forceFlush() {
-      return Promise.resolve();
+      return exported.rejectTraceExporterFlush
+        ? Promise.reject(new Error("trace exporter flush failed"))
+        : Promise.resolve();
     }
 
     shutdown() {
@@ -306,7 +313,35 @@ describe("enabled telemetry", () => {
     });
   });
 
-  it("rejects reinitialization for a different service", async () => {
+  it("keeps operations successful and reports exporter flush failures", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    exported.rejectTraceExporterFlush = true;
+
+    await expect(
+      withPostHogSpan(
+        {
+          env: enabledEnv,
+          serviceName: "test-service",
+          spanName: "workflow.flush-failure",
+        },
+        async () => "application result",
+      ),
+    ).resolves.toBe("application result");
+
+    exported.rejectTraceExporterFlush = false;
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining('"stage":"flush traces"'),
+    );
+    consoleError.mockRestore();
+  });
+
+  it("fails open if a bundle requests a different service name", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
     await expect(
       withPostHogSpan(
         {
@@ -316,9 +351,11 @@ describe("enabled telemetry", () => {
         },
         async () => undefined,
       ),
-    ).rejects.toThrow(
-      "OpenTelemetry already initialized for test-service; cannot reinitialize it for other-service",
+    ).resolves.toBeUndefined();
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining('"stage":"initialize"'),
     );
+    consoleError.mockRestore();
   });
 
   it("uses PostHog's EU endpoint and production environment defaults", async () => {
@@ -340,6 +377,34 @@ describe("enabled telemetry", () => {
     expect(exported.logExporterOptions.at(-1)).toMatchObject({
       url: "https://eu.i.posthog.com/i/v1/logs",
     });
+  });
+
+  it("runs the application operation once when telemetry setup fails", async () => {
+    vi.resetModules();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    exported.throwTraceExporterOnInit = true;
+    const operation = vi.fn(async () => new Response("ok"));
+    const freshObservability = await import("../src");
+
+    const response = await freshObservability.withPostHogRequest(
+      {
+        env: enabledEnv,
+        serviceName: "setup-failure-service",
+        spanName: "GET /setup-failure",
+        request: new Request("https://example.test/setup-failure"),
+      },
+      operation,
+    );
+
+    exported.throwTraceExporterOnInit = false;
+    expect(response.status).toBe(200);
+    expect(operation).toHaveBeenCalledOnce();
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining('"stage":"initialize"'),
+    );
+    consoleError.mockRestore();
   });
 });
 
