@@ -91,4 +91,24 @@ describe("PostHog browser instrumentation", () => {
     expect(apiHeaders.has("x-posthog-distinct-id")).toBe(false);
     expect(apiHeaders.has("x-posthog-session-id")).toBe(false);
   });
+
+  it("keeps API requests working when an identity lookup fails", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_KEY", "phc_test");
+    posthog.get_distinct_id.mockImplementationOnce(() => {
+      throw new Error("PostHog is not ready");
+    });
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response("ok"),
+    );
+    window.fetch = fetchMock as typeof window.fetch;
+
+    await import("../instrumentation-client");
+    const response = await window.fetch("/api/recipes");
+
+    expect(response.status).toBe(200);
+    const apiHeaders = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(apiHeaders.has("x-posthog-distinct-id")).toBe(false);
+    expect(apiHeaders.get("x-posthog-session-id")).toBe("session-456");
+  });
 });

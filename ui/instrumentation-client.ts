@@ -2,6 +2,19 @@ import posthog from "posthog-js";
 
 const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 
+function setIdentityHeader(
+  headers: Headers,
+  name: string,
+  identity: () => string,
+): void {
+  try {
+    const value = identity();
+    if (value) headers.set(name, value);
+  } catch {
+    // Correlation is best-effort and must never break the application request.
+  }
+}
+
 if (posthogKey) {
   posthog.init(posthogKey, {
     api_host: "/ingest",
@@ -31,10 +44,12 @@ if (posthogKey) {
     const headers = new Headers(
       init?.headers ?? (input instanceof Request ? input.headers : undefined),
     );
-    const distinctId = posthog.get_distinct_id();
-    const sessionId = posthog.get_session_id();
-    if (distinctId) headers.set("x-posthog-distinct-id", distinctId);
-    if (sessionId) headers.set("x-posthog-session-id", sessionId);
+    setIdentityHeader(headers, "x-posthog-distinct-id", () =>
+      posthog.get_distinct_id(),
+    );
+    setIdentityHeader(headers, "x-posthog-session-id", () =>
+      posthog.get_session_id(),
+    );
 
     return originalFetch(input, { ...init, headers });
   };

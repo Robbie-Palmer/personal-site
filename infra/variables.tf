@@ -72,8 +72,8 @@ variable "posthog_otlp_base_url" {
   default     = "https://eu.i.posthog.com"
 
   validation {
-    condition     = can(regex("^https://[^/]+$", var.posthog_otlp_base_url))
-    error_message = "posthog_otlp_base_url must be an HTTPS origin with no path."
+    condition     = can(regex("^https://[^/?#]+$", var.posthog_otlp_base_url))
+    error_message = "posthog_otlp_base_url must be an HTTPS origin with no path, query string, or fragment."
   }
 }
 

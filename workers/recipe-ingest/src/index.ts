@@ -96,6 +96,7 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
           spanName: `workflow.step ${name}`,
           traceCarrier: event.payload.traceContext,
           kind: SpanKind.CONSUMER,
+          waitUntil: this.ctx,
           attributes: {
             "recipe.import.job_id": jobId,
             "cloudflare.workflow.instance_id": event.instanceId,
