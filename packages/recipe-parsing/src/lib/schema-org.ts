@@ -108,7 +108,7 @@ function normalizeRecipeMarkup(html: string, url: string): string {
       while (pending.length > 0) {
         const value = pending.pop();
         if (Array.isArray(value)) {
-          pending.push(...value);
+          for (const child of value) pending.push(child);
           continue;
         }
         if (!isRecord(value)) continue;
@@ -133,7 +133,7 @@ function normalizeRecipeMarkup(html: string, url: string): string {
           object.image ??= url;
           object.recipeYield ??= "1 serving";
         }
-        pending.push(...Object.values(object));
+        for (const child of Object.values(object)) pending.push(child);
       }
       $(element).text(JSON.stringify(data));
     } catch {

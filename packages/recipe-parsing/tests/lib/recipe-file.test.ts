@@ -46,6 +46,30 @@ Boil the pasta, then stir in the tomatoes.`;
     });
   });
 
+  it.each(["json", "jsonld"])(
+    "routes .%s files through the schema.org importer",
+    async (extension) => {
+      const source = JSON.stringify({
+        "@type": "Recipe",
+        name: "Tomato pasta",
+        url: "https://recipes.example.test/tomato-pasta",
+        recipeYield: "2 servings",
+        recipeIngredient: ["200 g pasta", "400 g tomatoes"],
+        recipeInstructions: ["Boil the pasta.", "Add the tomatoes."],
+      });
+
+      await expect(
+        parseRecipeFile(`tomato-pasta.${extension}`, source),
+      ).resolves.toMatchObject({
+        title: "Tomato pasta",
+        servings: 2,
+        url: "https://recipes.example.test/tomato-pasta",
+        source:
+          "@pasta{200%g}\n@tomatoes{400%g}\n\nBoil the pasta.\n\nAdd the tomatoes.",
+      });
+    },
+  );
+
   it("rejects unsupported and incomplete files", async () => {
     await expect(parseRecipeFile("recipe.txt", "Cook.")).resolves.toBeNull();
     await expect(

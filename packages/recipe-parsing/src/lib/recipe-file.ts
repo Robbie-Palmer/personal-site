@@ -148,7 +148,7 @@ export async function parseRecipeFile(
       return parseCooklangRecipeFile(source, filename);
     }
     if (format === "schema-org") {
-      return parseSchemaOrgRecipeJson(source);
+      return await parseSchemaOrgRecipeJson(source);
     }
     return null;
   } catch {

@@ -67,7 +67,9 @@ describe("parseSchemaOrgRecipeHtml", () => {
     await expect(parseSchemaOrgRecipeHtml(`<script type="application/ld+json">{"@type":"Article"}</script>`)).resolves.toBeNull();
     await expect(parseSchemaOrgRecipeHtml(`<script type="application/ld+json">{"@type":"Recipe","name":"Empty"}</script>`)).resolves.toBeNull();
   });
+});
 
+describe("parseSchemaOrgRecipeJson", () => {
   it("imports standalone JSON-LD and preserves its canonical URL", async () => {
     const source = JSON.stringify({
       "@context": "https://schema.org",

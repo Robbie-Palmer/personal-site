@@ -2200,6 +2200,66 @@ Boil the pasta, then add the tomatoes.`;
     });
   });
 
+  it("reports files without a complete recipe", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/recipes/import-file",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          filename: "article.json",
+          content: JSON.stringify({ "@type": "Article" }),
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(422);
+    expect(await res.json()).toEqual({
+      error:
+        "No complete recipe was found in that file. Cooklang files need ingredients and instructions; schema.org files need a Recipe with a name, ingredients, and instructions.",
+    });
+  });
+
+  it("reports imported drafts longer than 10,000 characters", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/recipes/import-file",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          filename: "long-recipe.cook",
+          content: `@rice{1%cup}\n\n${"Cook the rice. ".repeat(800)}`,
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(422);
+    expect(await res.json()).toEqual({
+      error:
+        "That recipe is too long to import. The Cooklang draft exceeds 10,000 characters.",
+    });
+  });
+
   it("rejects file content larger than 100 KB when encoded", async () => {
     authzMock.session = sessionFor({
       id: "owner-user",
