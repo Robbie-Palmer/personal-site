@@ -7,6 +7,8 @@ locals {
     NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH = var.cf_images_account_hash
     NEXT_PUBLIC_POSTHOG_KEY            = var.posthog_key
     NEXT_PUBLIC_POSTHOG_HOST           = var.posthog_host
+    POSTHOG_KEY                        = var.posthog_key
+    POSTHOG_OTLP_BASE_URL              = var.posthog_otlp_base_url
     GITHUB_TOKEN                       = var.github_token
     RECIPE_API_URL                     = var.recipe_api_url
     RECIPE_API_PREVIEW_ORIGIN_TEMPLATE = var.recipe_api_preview_origin_template
@@ -44,10 +46,14 @@ resource "cloudflare_pages_project" "personal_site" {
   deployment_configs {
     production {
       environment_variables = local.pages_environment_variables
+      compatibility_date    = "2026-05-28"
+      compatibility_flags   = ["nodejs_compat"]
     }
 
     preview {
       environment_variables = local.pages_environment_variables
+      compatibility_date    = "2026-05-28"
+      compatibility_flags   = ["nodejs_compat"]
     }
   }
 }

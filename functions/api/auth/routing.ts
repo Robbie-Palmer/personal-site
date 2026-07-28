@@ -1,15 +1,30 @@
+import {
+  injectTraceContext,
+  SpanKind,
+  traceCarrierFromHeaders,
+  traceCarrierFromSpan,
+  withPostHogSpan,
+  type PostHogObservabilityEnv,
+  type TraceCarrier,
+} from "observability";
+
 export type AuthProxyRoutingEnv = {
   RECIPE_API_PREVIEW_ORIGIN_TEMPLATE?: string;
   CF_PAGES_HOST?: string;
 };
 
-export type RecipeApiProxyEnv = AuthProxyRoutingEnv & {
-  RECIPE_API_URL?: string;
-};
+export type RecipeApiProxyEnv = AuthProxyRoutingEnv &
+  PostHogObservabilityEnv & {
+    RECIPE_API_URL?: string;
+  };
 
 export type RecipeApiProxyContext = {
   request: Request;
   env: RecipeApiProxyEnv;
+  waitUntil?: (promise: Promise<unknown>) => void;
+  data?: {
+    posthogTraceCarrier?: TraceCarrier;
+  };
 };
 
 const MAX_PROXY_PATH_LENGTH = 2_048;
@@ -63,8 +78,12 @@ const FORWARDED_REQUEST_HEADERS = [
   "content-type",
   "cookie",
   "origin",
+  "traceparent",
+  "tracestate",
   "referer",
   "user-agent",
+  "x-posthog-distinct-id",
+  "x-posthog-session-id",
   "x-forwarded-for",
 ] as const;
 
@@ -97,6 +116,46 @@ export function previewApiBase(
   } catch {
     return null;
   }
+}
+
+function logProxyRequest(
+  logLabel: string | undefined,
+  request: Request,
+  path: string,
+  destination: string,
+): void {
+  if (!logLabel) return;
+  console.log(
+    JSON.stringify({
+      message: `${logLabel} proxy request`,
+      method: request.method,
+      path,
+      destination,
+    }),
+  );
+}
+
+function logProxyFailure(logLabel: string | undefined, error: unknown): void {
+  if (!logLabel) return;
+  console.error(
+    JSON.stringify({
+      message: `${logLabel} proxy request failed`,
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  );
+}
+
+function logProxyResponse(
+  logLabel: string | undefined,
+  response: Response,
+): void {
+  if (!logLabel) return;
+  console.log(
+    JSON.stringify({
+      message: `${logLabel} proxy response`,
+      status: response.status,
+    }),
+  );
 }
 
 export async function proxyRecipeApiRequest(
@@ -134,16 +193,12 @@ export async function proxyRecipeApiRequest(
     if (value) headers.set(name, value);
   }
 
-  if (logLabel) {
-    console.log(
-      JSON.stringify({
-        message: `${logLabel} proxy request`,
-        method: context.request.method,
-        path: url.pathname,
-        destination: `${apiBase}${destinationPath}`,
-      }),
-    );
-  }
+  logProxyRequest(
+    logLabel,
+    context.request,
+    url.pathname,
+    `${apiBase}${destinationPath}`,
+  );
 
   const body = ["GET", "HEAD"].includes(context.request.method)
     ? undefined
@@ -151,37 +206,48 @@ export async function proxyRecipeApiRequest(
 
   let response: Response;
   try {
-    response = await fetch(
-      new Request(destination, {
-        method: context.request.method,
-        headers,
-        body,
-        redirect: "manual",
-      }),
+    response = await withPostHogSpan(
+      {
+        env: context.env,
+        serviceName: "recipe-pages",
+        spanName: `HTTP ${context.request.method} recipe-api`,
+        kind: SpanKind.CLIENT,
+        traceCarrier:
+          context.data?.posthogTraceCarrier ??
+          traceCarrierFromHeaders(context.request.headers),
+        attributes: {
+          "http.request.method": context.request.method,
+          "server.address": destinationUrl.hostname,
+          "url.path": destinationPath,
+        },
+        waitUntil: context.waitUntil
+          ? {
+              waitUntil: (promise) => context.waitUntil?.(promise),
+            }
+          : undefined,
+      },
+      async (span) =>
+        fetch(
+          new Request(destination, {
+            method: context.request.method,
+            headers: injectTraceContext(
+              headers,
+              traceCarrierFromSpan(span),
+            ),
+            body,
+            redirect: "manual",
+          }),
+        ),
     );
   } catch (error) {
-    if (logLabel) {
-      console.error(
-        JSON.stringify({
-          message: `${logLabel} proxy request failed`,
-          error: error instanceof Error ? error.message : String(error),
-        }),
-      );
-    }
+    logProxyFailure(logLabel, error);
     return Response.json(
       { error: "Failed to reach the recipe API" },
       { status: 502 },
     );
   }
 
-  if (logLabel) {
-    console.log(
-      JSON.stringify({
-        message: `${logLabel} proxy response`,
-        status: response.status,
-      }),
-    );
-  }
+  logProxyResponse(logLabel, response);
 
   return response;
 }

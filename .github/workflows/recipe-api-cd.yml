@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "workers/recipe-api/**"
+      - "packages/observability/**"
       - "packages/recipe-db/**"
       - ".github/workflows/recipe-api-cd.yml"
   workflow_dispatch:
@@ -63,6 +64,7 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET || secrets.GCP_OAUTH_CLIENT_SECRET }}
           GITHUB_CLIENT_ID: ${{ vars.OAUTH_CLIENT_ID_GITHUB }}
           GITHUB_CLIENT_SECRET: ${{ secrets.OAUTH_CLIENT_SECRET_GITHUB }}
+          POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
         run: |
           set -euo pipefail
           : "${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}"
@@ -70,6 +72,7 @@ jobs:
           : "${GOOGLE_CLIENT_SECRET:?GOOGLE_CLIENT_SECRET or GCP_OAUTH_CLIENT_SECRET is required}"
           : "${GITHUB_CLIENT_ID:?OAUTH_CLIENT_ID_GITHUB is required}"
           : "${GITHUB_CLIENT_SECRET:?OAUTH_CLIENT_SECRET_GITHUB is required}"
+          : "${POSTHOG_KEY:?POSTHOG_KEY is required}"
 
           SECRETS_FILE="$RUNNER_TEMP/recipe-api-worker-secrets.json"
           jq -n \
@@ -78,12 +81,14 @@ jobs:
             --arg google_client_secret "$GOOGLE_CLIENT_SECRET" \
             --arg github_client_id "$GITHUB_CLIENT_ID" \
             --arg github_client_secret "$GITHUB_CLIENT_SECRET" \
+            --arg posthog_key "$POSTHOG_KEY" \
             '{
               BETTER_AUTH_SECRET: $better_auth_secret,
               GOOGLE_CLIENT_ID: $google_client_id,
               GOOGLE_CLIENT_SECRET: $google_client_secret,
               GITHUB_CLIENT_ID: $github_client_id,
-              GITHUB_CLIENT_SECRET: $github_client_secret
+              GITHUB_CLIENT_SECRET: $github_client_secret,
+              POSTHOG_KEY: $posthog_key
             }' \
             > "$SECRETS_FILE"
           echo "WORKER_SECRETS_FILE=$SECRETS_FILE" >> "$GITHUB_ENV"

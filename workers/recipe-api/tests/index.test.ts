@@ -1457,6 +1457,21 @@ describe("GET /health", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ status: "ok" });
   });
+
+  it("runs through the Worker fetch handler", async () => {
+    const ctx = {
+      waitUntil: vi.fn(),
+    } as unknown as ExecutionContext;
+
+    const res = await handler.fetch(
+      new Request("https://recipe-api.example.test/health"),
+      env,
+      ctx,
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: "ok" });
+  });
 });
 
 describe("GET /recipes", () => {

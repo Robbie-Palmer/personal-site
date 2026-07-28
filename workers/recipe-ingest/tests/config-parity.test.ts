@@ -36,6 +36,7 @@ type WranglerConfig = {
     enabled?: boolean;
     logs?: { enabled?: boolean; destinations?: string[] };
   };
+  secrets?: { required?: string[] };
 };
 
 type StageParamsYaml = Record<
@@ -60,7 +61,7 @@ const pipelineParams = parseYaml(
 ) as StageParamsYaml;
 const terraformVariables = readRepoFile("infra/variables.tf");
 
-function terraformDefault(variableName: string): string {
+function terraformVariableBlock(variableName: string): string {
   // Slice out the variable's block (up to the next top-level declaration)
   // before matching, so nested blocks at any depth can't derail the search.
   const blockStart = terraformVariables.indexOf(`variable "${variableName}" {`);
@@ -75,6 +76,11 @@ function terraformDefault(variableName: string): string {
     blockStart,
     blockEnd === -1 ? undefined : blockEnd,
   );
+  return block;
+}
+
+function terraformDefault(variableName: string): string {
+  const block = terraformVariableBlock(variableName);
   const match = /default\s*=\s*"([^"]+)"/.exec(block);
   if (!match?.[1]) {
     throw new Error(`No default found for Terraform variable ${variableName}`);
@@ -117,6 +123,21 @@ describe("LLM stage parameters", () => {
 });
 
 describe("shared infrastructure bindings", () => {
+  it.each([
+    ["https://eu.i.posthog.com", true],
+    ["https://localhost:4318", true],
+    ["http://eu.i.posthog.com", false],
+    ["https://eu.i.posthog.com/i/v1", false],
+    ["https://eu.i.posthog.com?region=eu", false],
+    ["https://eu.i.posthog.com#traces", false],
+  ])("validates the PostHog OTLP origin %s", (value, expected) => {
+    const block = terraformVariableBlock("posthog_otlp_base_url");
+    const pattern = /condition\s*=\s*can\(regex\("([^"]+)"/.exec(block)?.[1];
+    if (!pattern) throw new Error("PostHog OTLP validation regex not found");
+
+    expect(new RegExp(pattern).test(value)).toBe(expected);
+  });
+
   it("production and preview workers retain and export logs", () => {
     for (const config of [
       apiWrangler,
@@ -128,6 +149,21 @@ describe("shared infrastructure bindings", () => {
         enabled: true,
         logs: { enabled: true, destinations: ["posthog-logs"] },
       });
+    }
+  });
+
+  it("production and preview workers configure direct PostHog tracing", () => {
+    const posthogOtlpBaseUrl = terraformDefault("posthog_otlp_base_url");
+
+    for (const { config, expectedEnvironment } of [
+      { config: apiWrangler, expectedEnvironment: "production" },
+      { config: ingestWrangler, expectedEnvironment: "production" },
+      { config: apiPreviewWrangler, expectedEnvironment: "preview" },
+      { config: ingestPreviewWrangler, expectedEnvironment: "preview" },
+    ]) {
+      expect(config.vars?.POSTHOG_OTLP_BASE_URL).toBe(posthogOtlpBaseUrl);
+      expect(config.vars?.DEPLOYMENT_ENV).toBe(expectedEnvironment);
+      expect(config.secrets?.required).toContain("POSTHOG_KEY");
     }
   });
 

@@ -66,6 +66,17 @@ variable "posthog_host" {
   default     = "https://eu.posthog.com"
 }
 
+variable "posthog_otlp_base_url" {
+  description = "Regional PostHog OTLP ingestion base URL"
+  type        = string
+  default     = "https://eu.i.posthog.com"
+
+  validation {
+    condition     = can(regex("^https://[^/?#]+$", var.posthog_otlp_base_url))
+    error_message = "posthog_otlp_base_url must be an HTTPS origin with no path, query string, or fragment."
+  }
+}
+
 variable "posthog_project_id" {
   description = "PostHog project/environment ID used by the Terraform provider"
   type        = string

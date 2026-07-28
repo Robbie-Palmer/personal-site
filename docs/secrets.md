@@ -36,10 +36,10 @@ Configs are split by environment and runtime/control boundary:
 | `dev_recipe_api` | Local recipe Worker/API/DB/OAuth config | None |
 | `dev_infra` | Local Terraform/provider credentials | None |
 | `dev_bootstrap_infra` | Local bootstrap Terraform credentials | None |
-| `stg_pages_env` | Shared PR preview Cloudflare Pages env vars | `preview-site-ui` |
+| `stg_pages_env` | Shared PR preview runtime env vars | `preview-site-ui`, `preview-recipe-api` |
 | `stg_site_ui` | PR preview UI deploy credentials | `preview-site-ui` |
 | `stg_recipe_api` | PR preview Worker/API automation config | `preview-recipe-api` |
-| `prd_pages_env` | Shared production Cloudflare Pages env vars | `production-site-ui` |
+| `prd_pages_env` | Shared production runtime env vars | `production-site-ui`, `production-recipe-api`, `production-recipe-ingest` |
 | `prd_site_ui` | Production UI deploy credentials | `production-site-ui`, `production-recipe-api`, `production-recipe-ingest` |
 | `prd_recipe_api` | Production Worker/API/DB/OAuth config | `production-recipe-api` |
 | `prd_recipe_ingest` | Production recipe ingest Worker LLM config | `production-recipe-ingest` |
@@ -180,10 +180,10 @@ The GitHub environments are runtime/job boundaries, not provider names:
 
 | GitHub environment | Doppler configs | Used by |
 | --- | --- | --- |
-| `preview-recipe-api` | `stg_recipe_api` | PR preview Worker/database jobs and preview cleanup |
+| `preview-recipe-api` | `stg_recipe_api`, `stg_pages_env` | PR preview Worker/database jobs and preview cleanup |
 | `preview-site-ui` | `stg_site_ui`, `stg_pages_env` | PR preview Pages build/deploy and preview comment |
-| `production-recipe-api` | `prd_recipe_api`, `prd_site_ui` | Production recipe API deploy |
-| `production-recipe-ingest` | `prd_recipe_ingest`, `prd_site_ui` | Production recipe ingest Worker deploy |
+| `production-recipe-api` | `prd_recipe_api`, `prd_site_ui`, `prd_pages_env` | Production recipe API deploy |
+| `production-recipe-ingest` | `prd_recipe_ingest`, `prd_site_ui`, `prd_pages_env` | Production recipe ingest Worker deploy |
 | `production-site-ui` | `prd_site_ui`, `prd_pages_env` | Production UI CI/CD and Cloudflare Images health check |
 | `production-infra` | `prd_infra` | Terraform CI/CD |
 | `production-infra-bootstrap` | `prd_bootstrap_infra` | Manual bootstrap Terraform |
@@ -215,7 +215,7 @@ sync only those environments; omit them to sync every mapped environment.
 - `CF_ACCESS_AUD`
 - `NEON_PROJECT_ID`
 
-`stg_pages_env` should own preview UI build/runtime config:
+`stg_pages_env` should own shared preview runtime config:
 
 - `CF_IMAGES_ACCOUNT_HASH`
 - `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH`
@@ -251,7 +251,7 @@ spend-limited `OPENROUTER_API_KEY` so recipe imports can be QA'd end to end.
 
 - `OPENROUTER_API_KEY`
 
-`prd_pages_env` should own production UI build/runtime config:
+`prd_pages_env` should own shared production runtime config:
 
 - `CF_IMAGES_ACCOUNT_HASH`
 - `NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH`
@@ -268,10 +268,10 @@ spend-limited `OPENROUTER_API_KEY` so recipe imports can be QA'd end to end.
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
-The sync script also includes `prd_site_ui` when publishing
-`production-recipe-api` and `production-recipe-ingest`, so Worker deploy jobs
-reuse the shared Cloudflare deploy token without duplicating it into each
-runtime-specific Doppler config.
+The sync script includes `prd_site_ui` and `prd_pages_env` when publishing the
+production recipe environments. Worker deploy jobs therefore reuse the shared
+Cloudflare deploy token and PostHog runtime settings without duplicating them
+into each service-specific Doppler config.
 
 `prd_infra` should own:
 

@@ -63,6 +63,19 @@ The client-side PostHog initialization in `ui/instrumentation-client.ts` uses
 - `POSTHOG_ASSETS_HOST` - Override the assets endpoint
   (default: `https://eu-assets.i.posthog.com`)
 
+### API distributed tracing
+
+The root middleware creates an OpenTelemetry server span for `/api/*` Pages
+Function requests. The API proxy injects W3C `traceparent` and `tracestate`
+headers into the request to `recipe-api`, and the browser supplies PostHog
+person/session IDs so correlated backend logs can link to session replay.
+
+Pages Functions export OTLP/protobuf traces and logs directly to PostHog using:
+
+- `POSTHOG_KEY` - the `phc_…` project token
+- `POSTHOG_OTLP_BASE_URL` - regional ingestion origin
+  (default: `https://eu.i.posthog.com`)
+
 ## Future Migration
 
 When migrating to Cloudflare Workers (for SSR support, subdomain routing,

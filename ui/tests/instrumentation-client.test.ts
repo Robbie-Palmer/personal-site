@@ -1,0 +1,114 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const posthog = vi.hoisted(() => ({
+  init: vi.fn(),
+  get_distinct_id: vi.fn(() => "person-123"),
+  get_session_id: vi.fn(() => "session-456"),
+}));
+
+vi.mock("posthog-js", () => ({ default: posthog }));
+
+describe("PostHog browser instrumentation", () => {
+  let originalFetch: typeof window.fetch;
+
+  beforeEach(() => {
+    vi.resetModules();
+    vi.unstubAllEnvs();
+    posthog.init.mockClear();
+    posthog.get_distinct_id.mockClear();
+    posthog.get_session_id.mockClear();
+    originalFetch = window.fetch;
+  });
+
+  afterEach(() => {
+    window.fetch = originalFetch;
+    vi.unstubAllEnvs();
+  });
+
+  it("does not initialize without a project token", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_KEY", "");
+
+    await import("../instrumentation-client");
+
+    expect(posthog.init).not.toHaveBeenCalled();
+  });
+
+  it("adds PostHog identity to same-origin API requests only", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_KEY", "phc_test");
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_HOST", "https://eu.posthog.com");
+    vi.stubEnv("NODE_ENV", "development");
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response("ok"),
+    );
+    window.fetch = fetchMock as typeof window.fetch;
+
+    await import("../instrumentation-client");
+
+    expect(posthog.init).toHaveBeenCalledWith("phc_test", {
+      api_host: "/ingest",
+      ui_host: "https://eu.posthog.com",
+      defaults: "2025-11-30",
+      capture_exceptions: true,
+      debug: true,
+    });
+
+    await window.fetch("/api/recipes", {
+      headers: { "x-existing": "value" },
+    });
+    const apiInit = fetchMock.mock.calls[0]?.[1];
+    const apiHeaders = new Headers(apiInit?.headers);
+    expect(apiHeaders.get("x-existing")).toBe("value");
+    expect(apiHeaders.get("x-posthog-distinct-id")).toBe("person-123");
+    expect(apiHeaders.get("x-posthog-session-id")).toBe("session-456");
+
+    await window.fetch("https://example.test/api/recipes");
+    expect(fetchMock.mock.calls[1]).toEqual([
+      "https://example.test/api/recipes",
+      undefined,
+    ]);
+  });
+
+  it("preserves Request headers and omits unavailable identity values", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_KEY", "phc_test");
+    posthog.get_distinct_id.mockReturnValueOnce("");
+    posthog.get_session_id.mockReturnValueOnce("");
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response("ok"),
+    );
+    window.fetch = fetchMock as typeof window.fetch;
+
+    await import("../instrumentation-client");
+    await window.fetch(
+      new Request(`${window.location.origin}/api/recipes`, {
+        headers: { "x-existing": "value" },
+      }),
+    );
+
+    const apiHeaders = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(apiHeaders.get("x-existing")).toBe("value");
+    expect(apiHeaders.has("x-posthog-distinct-id")).toBe(false);
+    expect(apiHeaders.has("x-posthog-session-id")).toBe(false);
+  });
+
+  it("keeps API requests working when an identity lookup fails", async () => {
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_KEY", "phc_test");
+    posthog.get_distinct_id.mockImplementationOnce(() => {
+      throw new Error("PostHog is not ready");
+    });
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response("ok"),
+    );
+    window.fetch = fetchMock as typeof window.fetch;
+
+    await import("../instrumentation-client");
+    const response = await window.fetch("/api/recipes");
+
+    expect(response.status).toBe(200);
+    const apiHeaders = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(apiHeaders.has("x-posthog-distinct-id")).toBe(false);
+    expect(apiHeaders.get("x-posthog-session-id")).toBe("session-456");
+  });
+});

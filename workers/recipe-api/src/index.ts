@@ -1,5 +1,12 @@
 import { Hono, type Context } from "hono";
 import {
+  injectTraceContext,
+  traceCarrierFromHeaders,
+  traceCarrierFromSpan,
+  withPostHogRequest,
+  withPostHogSpan,
+} from "observability";
+import {
   and,
   count,
   desc,
@@ -68,6 +75,8 @@ export type Bindings = {
   HYPERDRIVE?: Hyperdrive;
   DATABASE_URL?: string;
   DEPLOYMENT_ENV?: string;
+  POSTHOG_KEY?: string;
+  POSTHOG_OTLP_BASE_URL?: string;
   BETTER_AUTH_URL: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
@@ -3175,7 +3184,26 @@ app.post("/recipe-imports", async (c) => {
             ),
           ),
         );
-        await workflow.create({ id: job.id, params: { jobId: job.id } });
+        await withPostHogSpan(
+          {
+            env: c.env,
+            serviceName: "recipe-api",
+            spanName: "workflow.start recipe-ingest",
+            traceCarrier: traceCarrierFromHeaders(c.req.raw.headers),
+            attributes: { "recipe.import.job_id": job.id },
+            waitUntil: c.executionCtx,
+          },
+          async (span) => {
+            const traceContext = traceCarrierFromSpan(span);
+            await workflow.create({
+              id: job.id,
+              params: {
+                jobId: job.id,
+                ...(traceContext ? { traceContext } : {}),
+              },
+            });
+          },
+        );
       } catch (error) {
         console.error("POST /recipe-imports failed to start workflow", error);
         // Best-effort cleanup so partially uploaded images don't accumulate.
@@ -3307,7 +3335,23 @@ async function cleanupRateLimits(env: Bindings): Promise<void> {
 }
 
 export default {
-  fetch: app.fetch,
+  fetch: (request, env, ctx) =>
+    withPostHogRequest(
+      {
+        env,
+        serviceName: "recipe-api",
+        spanName: `${request.method} ${new URL(request.url).pathname}`,
+        request,
+        waitUntil: ctx,
+      },
+      async (span) => {
+        const headers = injectTraceContext(
+          new Headers(request.headers),
+          traceCarrierFromSpan(span),
+        );
+        return app.fetch(new Request(request, { headers }), env, ctx);
+      },
+    ),
   scheduled: (_event, env, ctx) => {
     ctx.waitUntil(cleanupRateLimits(env));
   },

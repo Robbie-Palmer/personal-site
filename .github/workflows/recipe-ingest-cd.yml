@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "workers/recipe-ingest/**"
+      - "packages/observability/**"
       - "packages/recipe-parsing/**"
       - "packages/recipe-db/**"
       - "packages/recipe-domain/**"
@@ -50,14 +51,20 @@ jobs:
       - name: Create Worker secrets file
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
         run: |
           set -euo pipefail
           : "${OPENROUTER_API_KEY:?OPENROUTER_API_KEY is required}"
+          : "${POSTHOG_KEY:?POSTHOG_KEY is required}"
 
           SECRETS_FILE="$RUNNER_TEMP/recipe-ingest-worker-secrets.json"
           jq -n \
             --arg openrouter_api_key "$OPENROUTER_API_KEY" \
-            '{ OPENROUTER_API_KEY: $openrouter_api_key }' \
+            --arg posthog_key "$POSTHOG_KEY" \
+            '{
+              OPENROUTER_API_KEY: $openrouter_api_key,
+              POSTHOG_KEY: $posthog_key
+            }' \
             > "$SECRETS_FILE"
           echo "WORKER_SECRETS_FILE=$SECRETS_FILE" >> "$GITHUB_ENV"
 

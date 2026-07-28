@@ -573,6 +573,9 @@ describe("recipe API PostgreSQL integration", () => {
         body: form,
       },
       importEnv,
+      {
+        waitUntil: vi.fn(),
+      } as unknown as ExecutionContext,
     );
     expect(importResponse.status).toBe(202);
     const importJob = await json<{ id: string }>(importResponse);

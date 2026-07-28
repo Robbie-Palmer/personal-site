@@ -15,6 +15,18 @@ function createContext(
 }
 
 describe("Markdown content-negotiation middleware", () => {
+  it("wraps API requests and continues to the route handler", async () => {
+    const context = createContext(
+      new Request("https://robbiepalmer.me/api/recipes"),
+      vi.fn() as unknown as typeof fetch,
+    );
+
+    const response = await onRequest(context);
+
+    expect(await response.text()).toBe("next");
+    expect(context.next).toHaveBeenCalledOnce();
+  });
+
   it("returns a bodyless 304 for a conditional Markdown asset request", async () => {
     const assetFetch = vi.fn(
       async () => new Response(null, { status: 304, headers: { etag: "v1" } }),

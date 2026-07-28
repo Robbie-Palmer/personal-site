@@ -1,3 +1,9 @@
+import {
+  traceCarrierFromSpan,
+  withPostHogRequest,
+  type TraceCarrier,
+} from "observability";
+
 /**
  * Serves the pre-generated Markdown twin of a page from its canonical URL
  * when the client asks for Markdown (via Accept header) or looks like an
@@ -7,12 +13,19 @@
 
 interface Env {
   ASSETS: { fetch: typeof fetch };
+  POSTHOG_KEY?: string;
+  POSTHOG_OTLP_BASE_URL?: string;
+  DEPLOYMENT_ENV?: string;
 }
 
 export interface MarkdownMiddlewareContext {
   request: Request;
   env: Env;
+  data?: {
+    posthogTraceCarrier?: TraceCarrier;
+  };
   next: () => Promise<Response>;
+  waitUntil?: (promise: Promise<unknown>) => void;
 }
 
 const AGENT_USER_AGENTS =
@@ -29,7 +42,7 @@ function markdownPathFor(pathname: string): string | null {
   return `${normalized}.md`;
 }
 
-export const onRequest = async (
+const handleRequest = async (
   context: MarkdownMiddlewareContext,
 ): Promise<Response> => {
   const { request } = context;
@@ -80,4 +93,33 @@ export const onRequest = async (
     status: asset.status,
     headers,
   });
+};
+
+export const onRequest = async (
+  context: MarkdownMiddlewareContext,
+): Promise<Response> => {
+  const url = new URL(context.request.url);
+  if (!url.pathname.startsWith("/api/")) {
+    return handleRequest(context);
+  }
+
+  return withPostHogRequest(
+    {
+      env: context.env,
+      serviceName: "recipe-pages",
+      spanName: `${context.request.method} ${url.pathname}`,
+      request: context.request,
+      waitUntil: context.waitUntil
+        ? { waitUntil: context.waitUntil.bind(context) }
+        : undefined,
+    },
+    (span) => {
+      const traceCarrier = traceCarrierFromSpan(span);
+      if (traceCarrier) {
+        context.data ??= {};
+        context.data.posthogTraceCarrier = traceCarrier;
+      }
+      return handleRequest(context);
+    },
+  );
 };

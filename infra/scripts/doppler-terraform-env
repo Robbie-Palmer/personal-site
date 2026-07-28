@@ -11,7 +11,7 @@ if [ "${DOPPLER_TERRAFORM_ENV_WRAPPED:-}" != "1" ]; then
     exec doppler run --project "$project" --config "$pages_env_config" -- doppler run \
       --project "$project" \
       --config "$infra_config" \
-      --preserve-env=CF_IMAGES_ACCOUNT_HASH,NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH,POSTHOG_KEY,NEXT_PUBLIC_POSTHOG_KEY,POSTHOG_HOST,NEXT_PUBLIC_POSTHOG_HOST,RECIPE_API_URL,RECIPE_API_PREVIEW_ORIGIN_TEMPLATE,CF_PAGES_HOST \
+      --preserve-env=CF_IMAGES_ACCOUNT_HASH,NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH,POSTHOG_KEY,NEXT_PUBLIC_POSTHOG_KEY,POSTHOG_HOST,NEXT_PUBLIC_POSTHOG_HOST,POSTHOG_OTLP_BASE_URL,RECIPE_API_URL,RECIPE_API_PREVIEW_ORIGIN_TEMPLATE,CF_PAGES_HOST \
       -- bash "$0" "$@"
   elif [ "${CI:-}" != "true" ]; then
     echo "Cannot run Terraform locally: doppler is required." >&2
@@ -35,6 +35,7 @@ set_if_unset TF_VAR_github_token "${MISE_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}"
 set_if_unset TF_VAR_neon_org_id "${NEON_ORG_ID:-}"
 set_if_unset TF_VAR_posthog_host "${POSTHOG_HOST:-${NEXT_PUBLIC_POSTHOG_HOST:-}}"
 set_if_unset TF_VAR_posthog_key "${POSTHOG_KEY:-${NEXT_PUBLIC_POSTHOG_KEY:-}}"
+set_if_unset TF_VAR_posthog_otlp_base_url "${POSTHOG_OTLP_BASE_URL:-}"
 set_if_unset TF_VAR_posthog_project_id "${POSTHOG_PROJECT_ID:-}"
 # POSTHOG_API_KEY is canonical; this fallback can be removed once all Doppler
 # configs have migrated away from POSTHOG_PERSONAL_API_KEY.
