@@ -11,6 +11,15 @@ AI_REVIEW_DEBOUNCE_SECONDS = "120"
 name = "PR_STATE"
 class_name = "PullRequestCoordinator"
 
+[[workflows]]
+name = "ai-review-test"
+binding = "REVIEW_WORKFLOW"
+class_name = "ReviewWorkflow"
+
+[[r2_buckets]]
+binding = "REVIEW_DATA"
+bucket_name = "ai-review-data-test"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["PullRequestCoordinator"]

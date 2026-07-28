@@ -1,4 +1,7 @@
-import type { ReviewWorkflowParams } from "./env";
+import {
+  TRUSTED_AUTHOR_ASSOCIATIONS,
+  type ReviewWorkflowParams,
+} from "./env";
 
 const encoder = new TextEncoder();
 const REVIEW_RELEVANT_PULL_REQUEST_ACTIONS = new Set([
@@ -7,12 +10,6 @@ const REVIEW_RELEVANT_PULL_REQUEST_ACTIONS = new Set([
   "reopened",
   "ready_for_review",
 ]);
-const TRUSTED_AUTHOR_ASSOCIATIONS = new Set([
-  "OWNER",
-  "MEMBER",
-  "COLLABORATOR",
-]);
-
 function hexBytes(value: string): Uint8Array | null {
   if (!/^[\da-f]{64}$/i.test(value)) {
     return null;

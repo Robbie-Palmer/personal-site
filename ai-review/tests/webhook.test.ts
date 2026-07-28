@@ -166,6 +166,7 @@ describe("parseReviewEvent", () => {
   it("ignores ordinary and untrusted issue comments", () => {
     for (const comment of [
       { body: "looks good", author_association: "OWNER" },
+      { body: " /ai-review\n", author_association: "OWNER" },
       { body: "/ai-review", author_association: "NONE" },
     ]) {
       expect(

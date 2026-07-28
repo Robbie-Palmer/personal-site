@@ -126,8 +126,10 @@ mode-`0600` Wrangler secrets file contains `AI_REVIEW_APP_ID`,
 `OPENCODE_API_KEY` when configured, inside a mode-`0700` temporary directory.
 The cleanup trap unlinks the file after Wrangler exits or the deploy is
 interrupted. Linux deployments, including GitHub-hosted runners, place that
-directory on `/dev/shm` so even an untrappable process termination leaves
-secrets only in the runner's memory-backed temporary filesystem.
+directory on `/dev/shm` when it is available and writable, so even an
+untrappable process termination leaves secrets only in the runner's
+memory-backed temporary filesystem. Other environments fall back to
+`${TMPDIR:-/tmp}` and retain only the unlink-on-exit protection.
 The GitHub App webhook URL is:
 
 ```text

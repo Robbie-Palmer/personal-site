@@ -74,9 +74,13 @@ jq -n '
     }
   | if env.OPENCODE_API_KEY // "" | length > 0
     then . + {OPENCODE_API_KEY: env.OPENCODE_API_KEY}
-    else .
+    else . + {OPENCODE_API_KEY: null}
     end
 ' > "$secrets_file"
 chmod 600 "$secrets_file"
 
 pnpm exec wrangler deploy --secrets-file "$secrets_file"
+# `deploy --secrets-file` preserves omitted/null secrets. The bulk endpoint
+# applies JSON merge-patch semantics, so this second operation removes a stale
+# optional OpenCode key while leaving configured keys at the deployed values.
+CI=true pnpm exec wrangler secret bulk "$secrets_file"

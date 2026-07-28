@@ -408,7 +408,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     ) {
       return json({ error: "Invalid review completion" }, 400);
     }
-    this.ctx.storage.sql.exec(
+    const update = this.ctx.storage.sql.exec(
       `UPDATE review_runs
        SET status = 'completed', completed_at = ?, cost_usd = ?,
            comment_id = ?, findings_json = ?, error = NULL
@@ -420,6 +420,9 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       body.runId,
       body.headSha,
     );
+    if (update.rowsWritten === 0) {
+      return json({ error: "No matching review run to complete" }, 409);
+    }
     return json({ completed: true });
   }
 

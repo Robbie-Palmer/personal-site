@@ -19,13 +19,18 @@ afterEach(() => {
 });
 
 function coordinatorFixture(existingDeliveries: string[] = []) {
-  const sqlExec = vi.fn((query: string): { toArray: () => unknown[] } => ({
-    toArray: () =>
-      query.startsWith("SELECT") &&
-      existingDeliveries.includes(event.deliveryId)
-        ? [{ delivery_id: event.deliveryId }]
-        : [],
-  }));
+  const sqlExec = vi.fn(
+    (
+      query: string,
+    ): { rowsWritten: number; toArray: () => unknown[] } => ({
+      rowsWritten: 1,
+      toArray: () =>
+        query.startsWith("SELECT") &&
+        existingDeliveries.includes(event.deliveryId)
+          ? [{ delivery_id: event.deliveryId }]
+          : [],
+    }),
+  );
   const storage = {
     sql: { exec: sqlExec },
     kv: { put: vi.fn() },
@@ -335,6 +340,31 @@ describe("PullRequestCoordinator", () => {
     ).toBe(true);
   });
 
+  it("reports a completion that does not match a claimed run", async () => {
+    const { coordinator, sqlExec } = coordinatorFixture();
+    sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: query.includes("UPDATE review_runs") ? 0 : 1,
+      toArray: () => [],
+    }));
+
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/complete", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "missing-review",
+          headSha: event.headSha,
+          costUsd: 0.42,
+          findings: [],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "No matching review run to complete",
+    });
+  });
+
   it("rejects malformed internal review-state updates", async () => {
     const { coordinator } = coordinatorFixture();
     for (const path of [
@@ -358,6 +388,7 @@ describe("PullRequestCoordinator", () => {
   ])("refuses a claim after the per-PR %s is reached", async (aggregate, reason) => {
     const { coordinator, sqlExec } = coordinatorFixture();
     sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: 1,
       toArray: () =>
         query.includes("COUNT(*) AS attempts") ? [aggregate] : [],
     }));
@@ -391,6 +422,7 @@ describe("PullRequestCoordinator", () => {
   it("allows only one in-flight paid review per pull request", async () => {
     const { coordinator, sqlExec } = coordinatorFixture();
     sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: 1,
       toArray: () => {
         if (query.includes("COUNT(*) AS attempts")) {
           return [{ attempts: 1, runs: 0, total_cost: 0 }];

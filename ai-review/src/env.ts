@@ -8,6 +8,12 @@ export type ReviewWorkflowParams = {
   force: boolean;
 };
 
+export const TRUSTED_AUTHOR_ASSOCIATIONS = new Set([
+  "OWNER",
+  "MEMBER",
+  "COLLABORATOR",
+]);
+
 export interface Env {
   PR_STATE: DurableObjectNamespace;
   REVIEW_DATA: R2Bucket;
@@ -16,11 +22,11 @@ export interface Env {
   AI_REVIEW_REPOSITORY: string;
   AI_REVIEW_DEBOUNCE_SECONDS: string;
   AI_REVIEW_DATA_RETENTION_DAYS: string;
-  AI_REVIEW_MODELS: string;
-  AI_REVIEW_OPENCODE_MODELS: string;
-  AI_REVIEW_MERGER_MODEL: string;
-  AI_REVIEW_IGNORED_AUTHORS: string;
-  AI_REVIEW_ZDR: string;
+  AI_REVIEW_MODELS?: string;
+  AI_REVIEW_OPENCODE_MODELS?: string;
+  AI_REVIEW_MERGER_MODEL?: string;
+  AI_REVIEW_IGNORED_AUTHORS?: string;
+  AI_REVIEW_ZDR?: string;
   AI_REVIEW_APP_BOT_LOGIN: string;
   AI_REVIEW_MAX_PR_COST_USD: string;
   AI_REVIEW_MAX_RUNS_PER_PR: string;

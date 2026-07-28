@@ -1,6 +1,9 @@
 import { generateKeyPairSync } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Reviewer } from "../../.github/scripts/ai-review/ai-review";
+import {
+  DEFAULT_OPENROUTER_SCOUTS,
+  Reviewer,
+} from "../../.github/scripts/ai-review/ai-review";
 import type { Env, ReviewWorkflowParams } from "../src/env";
 import {
   STATEFUL_REVIEW_MARKER,
@@ -178,6 +181,31 @@ describe("stateful review engine", () => {
         omitted: [],
       }),
     ).rejects.toThrow("without a prepared diff");
+  });
+
+  it("uses reviewer defaults when optional model settings are absent", async () => {
+    const env = environment();
+    env.AI_REVIEW_MODELS = undefined;
+    env.AI_REVIEW_OPENCODE_MODELS = undefined;
+    env.AI_REVIEW_MERGER_MODEL = undefined;
+    env.AI_REVIEW_IGNORED_AUTHORS = undefined;
+    env.AI_REVIEW_ZDR = undefined;
+    vi.spyOn(Reviewer.prototype, "openCodeScoutModels").mockResolvedValue({
+      models: [],
+      unavailable: [],
+    });
+    vi.spyOn(Reviewer.prototype, "callOpenRouterScout").mockRejectedValue(
+      new Error("provider unavailable"),
+    );
+
+    const result = await runScouts(env, params, {
+      headSha: params.headSha,
+      diff: "diff",
+      paths: ["app.ts"],
+      omitted: [],
+    });
+
+    expect(result.models).toEqual(DEFAULT_OPENROUTER_SCOUTS);
   });
 
   it("records unavailable, rejected, and invalid scout outcomes", async () => {

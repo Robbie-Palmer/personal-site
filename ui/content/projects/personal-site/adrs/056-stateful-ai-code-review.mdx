@@ -54,11 +54,12 @@ I propose moving the custom reviewer from per-push GitHub Actions to a
    for price, latency, and throughput, plus
    [explicit model fallbacks](https://openrouter.ai/docs/guides/routing/model-fallbacks).
    Its [published fee structure](https://openrouter.ai/docs/faq) adds a 5.5%
-   credit-purchase fee to the provider inference prices needed to run the
-   service; BYOK has a separate fee after its free monthly request allowance.
-   Even including that fee, OpenRouter is cheaper for the exact Kimi K2.6 anchor
-   model used here. The stateful implementation therefore preserves the proven
-   OpenRouter scouts and merger plus OpenCode's eligible free scouts.
+   credit-purchase fee with a USD 0.80 minimum; BYOK has a separate fee after
+   its free monthly request allowance. For the dozens-of-dollars top-ups used
+   here, the percentage rather than the minimum governs. Even including that
+   fee, OpenRouter is cheaper for the exact Kimi K2.6 anchor model used here.
+   The stateful implementation therefore preserves the proven OpenRouter
+   scouts and merger, plus OpenCode's eligible free scouts.
 5. Each run appends a versioned analytical record to R2, forming a small data
    lake separate from the Durable Object's operational state. It captures task
    and change characteristics, originating coding agent where known, model and
@@ -258,10 +259,12 @@ Workers AI would keep orchestration and inference on Cloudflare, but that
 consolidation does not justify its current economics or reduced routing
 capability. At decision time its Kimi K2.6 route costs
 [USD 0.95 per million input tokens and USD 4.00 per million output tokens](https://developers.cloudflare.com/workers-ai/models/kimi-k2.6/).
-OpenRouter lists the same model at USD 0.646 and USD 2.72 respectively; after
-the 5.5% credit-purchase fee, those prices are approximately USD 0.682 and USD
-2.87. Workers AI is therefore about 39% more expensive after the allowance is
-used.
+OpenRouter's live pricing page lists the same model at an average USD 0.67 and
+USD 3.39 respectively; after the 5.5% credit-purchase fee on the top-up size
+used here, those prices are approximately USD 0.71 and USD 3.58. Workers AI is
+therefore about 34% more expensive for input and 12% more expensive for output
+after the allowance is used. Provider-specific OpenRouter rates vary, so these
+figures record the decision-time comparison rather than a permanent price.
 
 The [10,000-neuron daily allowance](https://developers.cloudflare.com/workers-ai/platform/pricing/)
 is worth only USD 0.11 per day at the published USD 0.011 per 1,000-neuron

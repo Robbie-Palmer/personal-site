@@ -25,17 +25,16 @@ import {
   type Scout,
   type Settings,
 } from "../../.github/scripts/ai-review/ai-review.ts";
-import type { Env, ReviewWorkflowParams } from "./env";
+import {
+  TRUSTED_AUTHOR_ASSOCIATIONS,
+  type Env,
+  type ReviewWorkflowParams,
+} from "./env";
 import { createInstallationToken } from "./github-app";
 
 type JsonObject = Record<string, unknown>;
 
 export const STATEFUL_REVIEW_MARKER = "<!-- stateful-ai-code-review -->";
-const TRUSTED_AUTHOR_ASSOCIATIONS = new Set([
-  "OWNER",
-  "MEMBER",
-  "COLLABORATOR",
-]);
 
 export interface PreparedReview {
   skipReason?: string;
@@ -125,13 +124,13 @@ function modelSettings(
     prNumber: params.pullRequestNumber,
     openRouterScouts,
     openCodeScouts,
-    merger: env.AI_REVIEW_MERGER_MODEL.trim() || DEFAULT_MERGER,
+    merger: env.AI_REVIEW_MERGER_MODEL?.trim() || DEFAULT_MERGER,
     ignoredAuthors: csv(
       env.AI_REVIEW_IGNORED_AUTHORS,
       DEFAULT_IGNORED_AUTHORS,
     ).map((author) => author.toLowerCase()),
     requireZdr: ["1", "true", "yes", "on"].includes(
-      env.AI_REVIEW_ZDR.trim().toLowerCase(),
+      env.AI_REVIEW_ZDR?.trim().toLowerCase() ?? "",
     ),
   };
 }
