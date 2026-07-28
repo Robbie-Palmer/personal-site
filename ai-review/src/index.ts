@@ -3,6 +3,7 @@ import {
   WorkflowEntrypoint,
   type WorkflowEvent,
   type WorkflowStep,
+  type WorkflowStepConfig,
 } from "cloudflare:workers";
 import type { Env, ReviewWorkflowParams } from "./env";
 import {
@@ -52,6 +53,17 @@ const MAXIMUM_DEBOUNCE_DELAY_MS = 3_600_000;
 const COORDINATOR_TIMEOUT_MS = 10_000;
 const MAXIMUM_WEBHOOK_BODY_BYTES = 2 * 1024 * 1024;
 const PENDING_EVENT_KEY = "latest-pending-event";
+const PAID_MODEL_STEP_CONFIG = {
+  // Model providers do not expose an idempotency boundary for these calls.
+  // One Workflow attempt prevents a successful request from being charged
+  // again if its step result cannot be checkpointed.
+  retries: {
+    limit: 1,
+    delay: 0,
+    backoff: "constant",
+  },
+  timeout: "10 minutes",
+} satisfies WorkflowStepConfig;
 const textEncoder = new TextEncoder();
 
 function json(data: unknown, status = 200): Response {
@@ -315,16 +327,14 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       const active = this.ctx.storage.sql
         .exec<{ run_id: string }>(
           `SELECT run_id FROM review_runs
-           WHERE head_sha = ? AND config_fingerprint = ? AND status = 'running'
+           WHERE status = 'running'
            LIMIT 1`,
-          body.headSha,
-          body.configFingerprint,
         )
         .toArray()[0];
       if (active) {
         return {
           claimed: false,
-          reason: "an equivalent review is already running",
+          reason: "another review is already running",
           previousState,
         };
       }
@@ -471,6 +481,11 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
   ): Promise<void> {
     const workflowStep = step as unknown as {
       do<T>(name: string, operation: () => Promise<T>): Promise<T>;
+      do<T>(
+        name: string,
+        config: WorkflowStepConfig,
+        operation: () => Promise<T>,
+      ): Promise<T>;
     };
     let incurredCostUsd = 0;
     try {
@@ -500,15 +515,19 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
       let scouts: ScoutRun;
       let merged: MergedRun;
       if (prepared.diff?.trim()) {
-        scouts = await workflowStep.do("run-current-scout-ensemble", () =>
-          runScouts(this.env, event.payload, prepared),
+        scouts = await workflowStep.do(
+          "run-current-scout-ensemble",
+          PAID_MODEL_STEP_CONFIG,
+          () => runScouts(this.env, event.payload, prepared),
         );
         incurredCostUsd = Object.values(scouts.costs).reduce(
           (total, cost) => total + cost,
           0,
         );
-        merged = await workflowStep.do("merge-current-scout-findings", () =>
-          mergeFindings(this.env, event.payload, prepared, scouts),
+        merged = await workflowStep.do(
+          "merge-current-scout-findings",
+          PAID_MODEL_STEP_CONFIG,
+          () => mergeFindings(this.env, event.payload, prepared, scouts),
         );
         incurredCostUsd += merged.cost;
       } else {

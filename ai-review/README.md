@@ -18,7 +18,8 @@ The service is a visible, stateful publisher:
 - a Cloudflare Workflow fetches the PR through GitHub App authentication, runs
   the same OpenRouter and OpenCode scout ensemble as the existing Action,
   reconciles candidates with the same OpenRouter merger, and publishes a
-  separate rolling comment;
+  separate rolling comment; paid model steps make one Workflow attempt while
+  deterministic publication and storage steps remain retryable;
 - the private `ai-review-data` R2 bucket stores versioned findings plus provider
   cost, latency, token, cache, availability, and failure metrics; and
 - the existing stateless GitHub Action remains enabled as an independent,
@@ -97,6 +98,10 @@ Committed non-secret defaults in `wrangler.toml` mirror the stateless reviewer:
 - `AI_REVIEW_MAX_RUNS_PER_PR=20` caps attempted stateful runs per PR; and
 - `AI_REVIEW_PROMPT_VERSION` participates in the durable idempotency key, so an
   intentional prompt/configuration change can review an unchanged head once.
+
+The per-PR Durable Object permits only one paid review to be in flight. This
+ensures a later head cannot bypass the cost ceiling while an earlier review's
+spend is still unknown.
 
 ## Deploy
 

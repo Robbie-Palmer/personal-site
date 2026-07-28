@@ -64,10 +64,20 @@ function fixture() {
     {} as unknown as Env,
   );
   const step = {
-    do: vi.fn(
-      async <T>(_name: string, operation: () => Promise<T>): Promise<T> =>
-        operation(),
-    ),
+    do: vi.fn(async <T>(
+      _name: string,
+      configOrOperation:
+        | { retries: { limit: number } }
+        | (() => Promise<T>),
+      maybeOperation?: () => Promise<T>,
+    ): Promise<T> => {
+      const operation =
+        typeof configOrOperation === "function"
+          ? configOrOperation
+          : maybeOperation;
+      if (!operation) throw new Error("Missing Workflow operation");
+      return operation();
+    }),
   } as unknown as WorkflowStep;
   return { workflow, step };
 }
@@ -98,6 +108,12 @@ describe("ReviewWorkflow orchestration", () => {
 
     expect(engine.runScouts).toHaveBeenCalledOnce();
     expect(engine.mergeFindings).toHaveBeenCalledOnce();
+    expect(vi.mocked(step.do).mock.calls[2]?.[1]).toMatchObject({
+      retries: { limit: 1 },
+    });
+    expect(vi.mocked(step.do).mock.calls[3]?.[1]).toMatchObject({
+      retries: { limit: 1 },
+    });
     expect(engine.publishReview).toHaveBeenCalledOnce();
     expect(engine.recordReview).toHaveBeenCalledWith(
       expect.objectContaining({

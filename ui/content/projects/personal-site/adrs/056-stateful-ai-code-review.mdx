@@ -44,8 +44,9 @@ I propose moving the custom reviewer from per-push GitHub Actions to a
    token and cost metrics.
 3. An alarm coalesces rapid pushes. A
    [Cloudflare Workflow](https://developers.cloudflare.com/workflows/) performs
-   the retryable fetch, scout, merge, and GitHub publication steps; all steps
-   are idempotent against the PR state.
+   the fetch, scout, merge, and GitHub publication steps. Deterministic,
+   idempotent steps remain retryable, but paid model steps make one Workflow
+   attempt because the providers do not expose an idempotency boundary.
 4. OpenRouter is the paid inference gateway. At decision time,
    [OpenRouter publishes 400+ models and 70+ providers](https://openrouter.ai/pricing).
    It provides
@@ -277,7 +278,8 @@ through the existing gateway.
 * Review timing follows PR risk and readiness rather than commit count.
 * Durable hunk and finding state removes redundant calls; prefix caching can
   further reduce the price and latency of repeated context.
-* Serialisation, debounce, and idempotency prevent races and duplicate comments.
+* Serialisation permits only one paid review at a time per PR; debounce and
+  idempotency prevent races and duplicate comments.
 * Per-PR model, token, cache-hit, finding, and disposition data strengthen the
   existing evaluation flywheel.
 * Recurring defects can feed back into tests, skills, repository instructions,
