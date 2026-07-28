@@ -1,5 +1,6 @@
 import {
   injectTraceContext,
+  SpanKind,
   traceCarrierFromHeaders,
   traceCarrierFromSpan,
   withPostHogSpan,
@@ -174,6 +175,7 @@ export async function proxyRecipeApiRequest(
         env: context.env,
         serviceName: "recipe-pages",
         spanName: `HTTP ${context.request.method} recipe-api`,
+        kind: SpanKind.CLIENT,
         traceCarrier:
           context.data?.posthogTraceCarrier ??
           traceCarrierFromHeaders(context.request.headers),

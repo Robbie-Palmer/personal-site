@@ -1,3 +1,4 @@
+import { SpanKind } from "observability";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RecipeApiProxyContext } from "../../../functions/api/auth/routing";
 import { onRequest } from "../../../functions/api/recipe-imports/[[path]]";
@@ -62,8 +63,10 @@ describe("recipe imports proxy", () => {
 
     expect(response.status).toBe(200);
     const spanOptions = withPostHogSpanMock.mock.calls.at(-1)?.[0] as {
+      kind?: SpanKind;
       waitUntil?: { waitUntil: (promise: Promise<unknown>) => void };
     };
+    expect(spanOptions.kind).toBe(SpanKind.CLIENT);
     spanOptions.waitUntil?.waitUntil(Promise.resolve());
     expect(pending).toHaveLength(1);
     await Promise.all(pending);
