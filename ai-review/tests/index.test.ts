@@ -1,6 +1,6 @@
 import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers";
-import { createHmac } from "node:crypto";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createHmac, generateKeyPairSync } from "node:crypto";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Env, ReviewWorkflowParams } from "../src/env";
 import worker, { PullRequestCoordinator, ReviewWorkflow } from "../src/index";
 
@@ -11,10 +11,15 @@ const event: ReviewWorkflowParams = {
   repository: "Robbie-Palmer/personal-site",
   pullRequestNumber: 821,
   headSha: "abcdef123456",
+  force: false,
 };
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 function coordinatorFixture(existingDeliveries: string[] = []) {
-  const sqlExec = vi.fn((query: string) => ({
+  const sqlExec = vi.fn((query: string): { toArray: () => unknown[] } => ({
     toArray: () =>
       query.startsWith("SELECT") &&
       existingDeliveries.includes(event.deliveryId)
@@ -283,16 +288,143 @@ describe("PullRequestCoordinator", () => {
     await coordinator.alarm();
     expect(createBatch).not.toHaveBeenCalled();
   });
+
+  it("claims and completes a review run idempotently through internal routes", async () => {
+    const { coordinator, sqlExec } = coordinatorFixture();
+    const claim = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/claim", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-delivery-123",
+          headSha: event.headSha,
+          diffFingerprint: "diff-hash",
+          configFingerprint: "config-hash",
+          force: false,
+          maxRuns: 20,
+          maxCostUsd: 5,
+        }),
+      }),
+    );
+    await expect(claim.json()).resolves.toEqual({
+      claimed: true,
+      previousState: { runs: 0, total_usd: 0 },
+    });
+    expect(
+      sqlExec.mock.calls.some(([query]) =>
+        String(query).includes("INSERT INTO review_runs"),
+      ),
+    ).toBe(true);
+
+    const completion = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/complete", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-delivery-123",
+          headSha: event.headSha,
+          costUsd: 0.42,
+          commentId: 987,
+          findings: [{ title: "Finding" }],
+        }),
+      }),
+    );
+    await expect(completion.json()).resolves.toEqual({ completed: true });
+    expect(
+      sqlExec.mock.calls.some(([query]) =>
+        String(query).includes("SET status = 'completed'"),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects malformed internal review-state updates", async () => {
+    const { coordinator } = coordinatorFixture();
+    for (const path of [
+      "/reviews/claim",
+      "/reviews/complete",
+      "/reviews/fail",
+    ]) {
+      const response = await coordinator.fetch(
+        new Request(`https://coordinator.test${path}`, {
+          method: "POST",
+          body: "{}",
+        }),
+      );
+      expect(response.status).toBe(400);
+    }
+  });
+
+  it.each([
+    [{ attempts: 20, runs: 18, total_cost: 1 }, "review-run budget"],
+    [{ attempts: 2, runs: 2, total_cost: 5 }, "cost budget"],
+  ])("refuses a claim after the per-PR %s is reached", async (aggregate, reason) => {
+    const { coordinator, sqlExec } = coordinatorFixture();
+    sqlExec.mockImplementation((query: string) => ({
+      toArray: () =>
+        query.includes("COUNT(*) AS attempts") ? [aggregate] : [],
+    }));
+
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/claim", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-budgeted",
+          headSha: event.headSha,
+          diffFingerprint: "diff-hash",
+          configFingerprint: "config-hash",
+          force: false,
+          maxRuns: 20,
+          maxCostUsd: 5,
+        }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      claimed: false,
+      reason: expect.stringContaining(reason),
+    });
+    expect(
+      sqlExec.mock.calls.some(([query]) =>
+        String(query).includes("INSERT INTO review_runs"),
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("ReviewWorkflow", () => {
-  it("records a versioned bootstrap result", async () => {
+  it("stops before model calls when the pull request is closed", async () => {
     const put = vi.fn();
+    const privateKey = generateKeyPairSync("rsa", {
+      modulusLength: 2048,
+    }).privateKey
+      .export({ type: "pkcs8", format: "pem" })
+      .toString();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ token: "installation-token" }))
+      .mockResolvedValueOnce(
+        Response.json({
+          state: "closed",
+          draft: false,
+          author_association: "OWNER",
+          user: { login: "robbie" },
+          head: {
+            sha: event.headSha,
+            repo: { full_name: event.repository },
+          },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
     const env = {
       REVIEW_DATA: { put },
-      AI_REVIEW_DATA_RETENTION_DAYS: "365",
-      AI_REVIEW_PROMPT_VERSION: "adr-056-v1",
-      AI_REVIEW_SCOUT_MODEL: "@cf/meta/llama-3.2-3b-instruct",
+      AI_REVIEW_PROMPT_VERSION: "stateless-parity-v1",
+      AI_REVIEW_MODELS: "",
+      AI_REVIEW_OPENCODE_MODELS: "",
+      AI_REVIEW_MERGER_MODEL: "",
+      AI_REVIEW_IGNORED_AUTHORS: "",
+      AI_REVIEW_ZDR: "false",
+      AI_REVIEW_APP_ID: "123",
+      AI_REVIEW_APP_INSTALLATION_ID: "456",
+      AI_REVIEW_APP_PRIVATE_KEY: privateKey,
+      OPENROUTER_API_KEY: "openrouter-key",
     } as unknown as Env;
     const workflow = new ReviewWorkflow({} as ExecutionContext, env);
     const step = {
@@ -310,17 +442,9 @@ describe("ReviewWorkflow", () => {
       step,
     );
 
-    expect(put).toHaveBeenCalledOnce();
-    expect(put.mock.calls[0]?.[0]).toContain(
-      "v1/Robbie-Palmer/personal-site/pr-821/",
-    );
-    expect(JSON.parse(String(put.mock.calls[0]?.[1]))).toMatchObject({
-      status: "bootstrap-only",
-      event,
-    });
-    expect(put.mock.calls[0]?.[2]).toEqual({
-      httpMetadata: { contentType: "application/json" },
-    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(put).not.toHaveBeenCalled();
+    expect(step.do).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -345,7 +469,6 @@ describe("HTTP Worker", () => {
         },
         REVIEW_DATA: {},
         REVIEW_WORKFLOW: {},
-        AI: {},
       } as unknown as Env,
       fetch,
     };
@@ -362,7 +485,6 @@ describe("HTTP Worker", () => {
       service: "ai-review",
       enabled: false,
       bindings: {
-        ai: true,
         durableObject: true,
         r2: true,
         workflow: true,
@@ -379,7 +501,7 @@ describe("HTTP Worker", () => {
 
   it("reports degraded health when a critical binding is absent", async () => {
     const { env } = workerEnv();
-    Object.assign(env, { AI: undefined });
+    Object.assign(env, { PR_STATE: undefined });
 
     const health = await worker.fetch(
       new Request("https://ai-review.test/health"),
@@ -389,7 +511,7 @@ describe("HTTP Worker", () => {
     expect(health.status).toBe(503);
     await expect(health.json()).resolves.toMatchObject({
       ok: false,
-      bindings: { ai: false },
+      bindings: { durableObject: false },
     });
   });
 

@@ -8,6 +8,12 @@ threads; it does not judge correctness. Free-scout findings are real review
 inputs rather than shadow telemetry, so their downstream outcomes can inform
 future performance analytics.
 
+The stateful Worker imports the model clients, prompts, validation, filtering,
+and comment rendering from this trusted implementation so both paths use the
+same ensemble. The GitHub Action remains enabled as an independent visible
+baseline while the stateful orchestration accumulates review cost, latency,
+reliability, and outcome data.
+
 ## Setup
 
 1. Add `OPENROUTER_API_KEY` as an Actions repository secret and set a suitable

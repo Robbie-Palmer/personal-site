@@ -336,13 +336,16 @@ The standalone Doppler project `ai-review`, config `prd`, should own:
 - `AI_REVIEW_APP_PRIVATE_KEY`
 - `AI_REVIEW_WEBHOOK_SECRET`
 - `OPENROUTER_API_KEY`
+- `OPENCODE_API_KEY` (optional while anonymous free-model access is available)
 
 The GitHub App is installed only on `Robbie-Palmer/personal-site`. Its App ID
 and installation ID are identifiers, while its private key and webhook secret
-must remain masked. The OpenRouter key is a separate, spend-limited escape-hatch
-credential; Workers AI is the default inference path. The key is mirrored into
-the production GitHub environment for the later merger implementation but is
-not exposed to the bootstrap Worker deployment step or runtime.
+must remain masked. The OpenRouter key is a separate, spend-limited runtime
+credential used by the current scouts and merger. OpenRouter is the default
+paid gateway because its broad model/provider catalogue and routing/failover
+features fit the reviewer. Workers AI is not a runtime dependency: its
+provider-specific integration and higher price for the current anchor model do
+not improve this review pipeline.
 
 ## QA Commands
 

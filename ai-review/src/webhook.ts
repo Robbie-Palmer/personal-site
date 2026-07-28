@@ -7,11 +7,10 @@ const REVIEW_RELEVANT_PULL_REQUEST_ACTIONS = new Set([
   "reopened",
   "ready_for_review",
 ]);
-const REVIEW_ACTIVITY_EVENTS = new Set([
-  "issue_comment",
-  "pull_request_review",
-  "pull_request_review_comment",
-  "pull_request_review_thread",
+const TRUSTED_AUTHOR_ASSOCIATIONS = new Set([
+  "OWNER",
+  "MEMBER",
+  "COLLABORATOR",
 ]);
 
 function hexBytes(value: string): Uint8Array | null {
@@ -69,6 +68,10 @@ type GitHubWebhook = {
     number?: unknown;
     pull_request?: unknown;
   };
+  comment?: {
+    body?: unknown;
+    author_association?: unknown;
+  };
 };
 
 type WebhookIdentity = Pick<
@@ -105,18 +108,9 @@ function parsePullRequestEvent(
       ...identity,
       pullRequestNumber,
       headSha,
+      force: false,
     },
   };
-}
-
-function reviewActivityPullRequestNumber(
-  eventName: string,
-  event: GitHubWebhook,
-): unknown {
-  if (eventName === "issue_comment") {
-    return event.issue?.pull_request ? event.issue.number : undefined;
-  }
-  return event.pull_request?.number;
 }
 
 export function parseReviewEvent(
@@ -146,23 +140,27 @@ export function parseReviewEvent(
     return parsePullRequestEvent(event, identity);
   }
 
-  if (!REVIEW_ACTIVITY_EVENTS.has(eventName)) {
+  if (
+    eventName !== "issue_comment" ||
+    identity.action !== "created" ||
+    event.comment?.body !== "/ai-review" ||
+    typeof event.comment.author_association !== "string" ||
+    !TRUSTED_AUTHOR_ASSOCIATIONS.has(event.comment.author_association)
+  ) {
     return { kind: "ignored", reason: "unsupported-event" };
   }
-  if (eventName === "issue_comment") {
-    const pullRequestMarker = event.issue?.pull_request;
-    if (pullRequestMarker === undefined) {
-      return { kind: "ignored", reason: "unsupported-event" };
-    }
-    if (
-      !pullRequestMarker ||
-      typeof pullRequestMarker !== "object" ||
-      Array.isArray(pullRequestMarker)
-    ) {
-      return { kind: "invalid", reason: "Malformed webhook payload" };
-    }
+  const pullRequestMarker = event.issue?.pull_request;
+  if (pullRequestMarker === undefined) {
+    return { kind: "ignored", reason: "unsupported-event" };
   }
-  const pullRequestNumber = reviewActivityPullRequestNumber(eventName, event);
+  if (
+    !pullRequestMarker ||
+    typeof pullRequestMarker !== "object" ||
+    Array.isArray(pullRequestMarker)
+  ) {
+    return { kind: "invalid", reason: "Malformed webhook payload" };
+  }
+  const pullRequestNumber = event.issue?.number;
   if (
     typeof pullRequestNumber !== "number" ||
     !Number.isSafeInteger(pullRequestNumber) ||
@@ -172,6 +170,6 @@ export function parseReviewEvent(
   }
   return {
     kind: "accepted",
-    event: { ...identity, pullRequestNumber },
+    event: { ...identity, pullRequestNumber, force: true },
   };
 }

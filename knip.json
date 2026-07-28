@@ -8,7 +8,11 @@
       "ignoreDependencies": ["lint-staged", "markdownlint-cli", "remark-cli", "remark-lint", "yaml-lint"]
     },
     "ai-review": {
-      "entry": ["tests/cloudflare-workers.ts"],
+      "entry": [
+        "tests/cloudflare-workers.ts",
+        "tests-runtime/**/*.test.ts",
+        "vitest.workerd.config.ts"
+      ],
       "ignoreDependencies": ["cloudflare"]
     },
     "ui": {

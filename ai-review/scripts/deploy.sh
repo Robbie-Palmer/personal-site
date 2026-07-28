@@ -12,6 +12,7 @@ required_values=(
   AI_REVIEW_APP_INSTALLATION_ID
   AI_REVIEW_APP_PRIVATE_KEY
   AI_REVIEW_WEBHOOK_SECRET
+  OPENROUTER_API_KEY
   CLOUDFLARE_ACCOUNT_ID
   CLOUDFLARE_API_TOKEN
 )
@@ -68,8 +69,13 @@ jq -n '
       AI_REVIEW_APP_ID,
       AI_REVIEW_APP_INSTALLATION_ID,
       AI_REVIEW_APP_PRIVATE_KEY,
-      AI_REVIEW_WEBHOOK_SECRET
+      AI_REVIEW_WEBHOOK_SECRET,
+      OPENROUTER_API_KEY
     }
+  | if env.OPENCODE_API_KEY // "" | length > 0
+    then . + {OPENCODE_API_KEY: env.OPENCODE_API_KEY}
+    else .
+    end
 ' > "$secrets_file"
 chmod 600 "$secrets_file"
 
