@@ -390,14 +390,16 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         .toArray()[0];
       if (existingRun) {
         const claimed = existingRun.status === "running";
-        return {
-          claimed,
-          reason:
+        let reason: string | undefined;
+        if (!claimed) {
+          reason =
             existingRun.status === "completed"
               ? "workflow instance already completed"
-              : claimed
-                ? undefined
-                : `workflow instance is ${existingRun.status}`,
+              : `workflow instance is ${existingRun.status}`;
+        }
+        return {
+          claimed,
+          reason,
           previousState,
         };
       }
