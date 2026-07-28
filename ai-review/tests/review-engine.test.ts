@@ -17,13 +17,15 @@ import {
   runScouts,
 } from "../src/review-engine";
 
+const HEAD_SHA = "a".repeat(40);
+
 const params: ReviewWorkflowParams = {
   deliveryId: "delivery-1",
   eventName: "pull_request",
   action: "synchronize",
   repository: "Robbie-Palmer/personal-site",
   pullRequestNumber: 42,
-  headSha: "a".repeat(40),
+  headSha: HEAD_SHA,
   force: false,
 };
 
@@ -55,12 +57,98 @@ function json(payload: unknown): Response {
   return Response.json(payload);
 }
 
+function reviewer(): Reviewer {
+  return new Reviewer({
+    githubToken: "github-token",
+    openRouterKey: "openrouter-key",
+    repository: params.repository,
+    prNumber: params.pullRequestNumber,
+    openRouterScouts: [],
+    openCodeScouts: [],
+    merger: "merger",
+    ignoredAuthors: [],
+    requireZdr: false,
+  });
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
 describe("stateful review engine", () => {
+  it("batches exact-head file context instead of fetching every path", async () => {
+    const paths = Array.from({ length: 37 }, (_, index) => `src/file-${index}.ts`);
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as {
+        query: string;
+        variables: Record<string, string>;
+      };
+      expect(body.query).toContain("query FileContext");
+      const expressionCount = Object.keys(body.variables).filter((key) =>
+        key.startsWith("expression"),
+      ).length;
+      return json({
+        data: {
+          repository: Object.fromEntries(
+            Array.from({ length: expressionCount }, (_, index) => [
+              `file${index}`,
+              {
+                byteSize: 24,
+                isBinary: false,
+                isTruncated: false,
+                text: `export const file${index} = true;`,
+              },
+            ]),
+          ),
+        },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const context = await reviewer().fileContext(paths, HEAD_SHA);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(context).toContain("FILE src/file-0.ts");
+    expect(context).toContain("FILE src/file-36.ts");
+    for (const [, init] of fetchMock.mock.calls) {
+      const body = JSON.parse(String(init?.body)) as {
+        variables: Record<string, string>;
+      };
+      for (const [key, expression] of Object.entries(body.variables)) {
+        if (key.startsWith("expression")) {
+          expect(expression).toMatch(new RegExp(`^${HEAD_SHA}:src/file-`));
+        }
+      }
+    }
+  });
+
+  it("caps per-file REST fallbacks when a GraphQL batch fails", async () => {
+    const paths = Array.from({ length: 10 }, (_, index) => `src/file-${index}.ts`);
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.pathname === "/graphql") {
+        return json({ errors: [{ message: "temporary GraphQL failure" }] });
+      }
+      if (url.pathname.includes("/contents/")) {
+        return json({
+          encoding: "base64",
+          size: 20,
+          content: Buffer.from("export default true;").toString("base64"),
+        });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const context = await reviewer().fileContext(paths, HEAD_SHA);
+
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(context).toContain("FILE src/file-0.ts");
+    expect(context).toContain("FILE src/file-3.ts");
+    expect(context).not.toContain("FILE src/file-4.ts");
+  });
+
   it("does not automatically spend on fork pull requests", async () => {
     vi.stubGlobal(
       "fetch",
@@ -462,6 +550,24 @@ describe("stateful review engine", () => {
         return new Response("missing", { status: 404 });
       }
       if (url.pathname === "/graphql") {
+        const body = JSON.parse(String(init?.body)) as {
+          query: string;
+          variables: Record<string, string>;
+        };
+        if (body.query.includes("query FileContext")) {
+          return json({
+            data: {
+              repository: {
+                file0: {
+                  byteSize: 18,
+                  isBinary: false,
+                  isTruncated: false,
+                  text: "export default true",
+                },
+              },
+            },
+          });
+        }
         return json({
           data: {
             repository: {

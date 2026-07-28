@@ -173,6 +173,8 @@ const MAX_PATCH_CHARS = 60_000;
 const MAX_CONTEXT_CHARS = 180_000;
 const MAX_FILE_CHARS = 40_000;
 const MAX_FILE_BYTES = 200_000;
+const FILE_CONTEXT_BATCH_SIZE = 20;
+const MAX_FILE_CONTEXT_REST_FALLBACKS = 4;
 const MAX_GUIDELINES_CHARS = 20_000;
 const MAX_THREAD_CHARS = 40_000;
 const MAX_COMMENT_CHARS = 60_000;
@@ -610,30 +612,110 @@ export class Reviewer {
     }
   }
 
-  async fileContext(paths: string[], headSha: string): Promise<string> {
-    const contents: Array<readonly [string, string | undefined]> = [];
-    for (let offset = 0; offset < paths.length; offset += 8) {
-      const batch = await Promise.all(
-        paths.slice(offset, offset + 8).map(async (path) => {
-          try {
-            return [path, await this.fileContent(path, headSha)] as const;
-          } catch (error) {
-            console.error(`::warning::Could not fetch ${path}: ${String(error)}`);
-            return [path, undefined] as const;
-          }
-        }),
-      );
-      contents.push(...batch);
+  private async fileContentBatch(
+    paths: string[],
+    headSha: string,
+  ): Promise<Array<readonly [string, string | undefined]>> {
+    const [owner, repository] = this.settings.repository.split("/", 2);
+    if (!owner || !repository) {
+      throw new Error(`Invalid GitHub repository ${this.settings.repository}`);
     }
+    const expressions = Object.fromEntries(
+      paths.map((path, index) => [`expression${index}`, `${headSha}:${path}`]),
+    );
+    const variableDefinitions = paths
+      .map((_, index) => `$expression${index}: String!`)
+      .join(", ");
+    const selections = paths
+      .map(
+        (_, index) =>
+          `file${index}: object(expression: $expression${index}) {
+            ... on Blob { byteSize isBinary isTruncated text }
+          }`,
+      )
+      .join("\n");
+    const query = `query FileContext(
+      $owner: String!
+      $repository: String!
+      ${variableDefinitions}
+    ) {
+      repository(owner: $owner, name: $repository) {
+        ${selections}
+      }
+    }`;
+    const payload = await this.github.request<JsonObject>("POST", "/graphql", {
+      body: {
+        query,
+        variables: { owner, repository, ...expressions },
+      },
+    });
+    if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+      throw new Error(
+        `GitHub file-context GraphQL errors: ${JSON.stringify(payload.errors).slice(0, 1_000)}`,
+      );
+    }
+    const data = payload.data;
+    if (!isObject(data) || !isObject(data.repository)) {
+      throw new Error("GitHub file-context GraphQL response has no repository");
+    }
+    const repositoryData = data.repository;
+    return paths.map((path, index) => {
+      const blob = repositoryData[`file${index}`];
+      if (
+        !isObject(blob) ||
+        blob.isBinary === true ||
+        blob.isTruncated === true ||
+        Number(blob.byteSize ?? 0) > MAX_FILE_BYTES ||
+        typeof blob.text !== "string"
+      ) {
+        return [path, undefined] as const;
+      }
+      return [path, blob.text] as const;
+    });
+  }
+
+  async fileContext(paths: string[], headSha: string): Promise<string> {
     const blocks: string[] = [];
     let used = 0;
-    for (const [path, raw] of contents) {
-      if (!raw) continue;
-      const content = raw.slice(0, MAX_FILE_CHARS);
-      const block = `FILE ${path}\n${content}\nEND FILE ${path}\n`;
-      if (used + block.length > MAX_CONTEXT_CHARS) break;
-      blocks.push(block);
-      used += block.length;
+    let remainingFallbacks = MAX_FILE_CONTEXT_REST_FALLBACKS;
+    for (
+      let offset = 0;
+      offset < paths.length && used < MAX_CONTEXT_CHARS;
+      offset += FILE_CONTEXT_BATCH_SIZE
+    ) {
+      const batchPaths = paths.slice(offset, offset + FILE_CONTEXT_BATCH_SIZE);
+      let contents: Array<readonly [string, string | undefined]>;
+      try {
+        contents = await this.fileContentBatch(batchPaths, headSha);
+      } catch (error) {
+        console.error(
+          `::warning::Could not batch GitHub file context: ${String(error)}`,
+        );
+        const fallbackPaths = batchPaths.slice(0, remainingFallbacks);
+        remainingFallbacks -= fallbackPaths.length;
+        contents = await Promise.all(
+          fallbackPaths.map(async (path) => {
+            try {
+              return [path, await this.fileContent(path, headSha)] as const;
+            } catch (fallbackError) {
+              console.error(
+                `::warning::Could not fetch ${path}: ${String(fallbackError)}`,
+              );
+              return [path, undefined] as const;
+            }
+          }),
+        );
+      }
+      for (const [path, raw] of contents) {
+        if (!raw) continue;
+        const content = raw.slice(0, MAX_FILE_CHARS);
+        const block = `FILE ${path}\n${content}\nEND FILE ${path}\n`;
+        if (used + block.length > MAX_CONTEXT_CHARS) {
+          return blocks.join("\n");
+        }
+        blocks.push(block);
+        used += block.length;
+      }
     }
     return blocks.join("\n");
   }

@@ -43,9 +43,10 @@ justify higher published prices than the current multi-provider route.
 
 - `ai-review/wrangler.toml` owns the Worker, Durable Object, Workflow, bindings,
   and non-secret runtime configuration.
-- The exact stateless file-context pipeline can exceed the Free plan's
-  50-subrequest Workflow ceiling on large pull requests. Both environments set
-  a 1,000-subrequest safety ceiling and therefore require Workers Paid.
+- Changed-file context is fetched through bounded GitHub GraphQL batches rather
+  than one REST request per path. This keeps large reviews comfortably below
+  Cloudflare's subrequest ceiling without changing the stateless prompt or
+  coverage budgets.
 - `infra/` owns the shared Cloudflare account's private R2 bucket.
 - R2 expires review records after 365 days and aborts incomplete multipart
   uploads after seven days. Cloudflare provider v4 cannot represent those
