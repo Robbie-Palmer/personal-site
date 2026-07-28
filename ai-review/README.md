@@ -43,6 +43,9 @@ justify higher published prices than the current multi-provider route.
 
 - `ai-review/wrangler.toml` owns the Worker, Durable Object, Workflow, bindings,
   and non-secret runtime configuration.
+- The exact stateless file-context pipeline can exceed the Free plan's
+  50-subrequest Workflow ceiling on large pull requests. Both environments set
+  a 1,000-subrequest safety ceiling and therefore require Workers Paid.
 - `infra/` owns the shared Cloudflare account's private R2 bucket.
 - R2 expires review records after 365 days and aborts incomplete multipart
   uploads after seven days. Cloudflare provider v4 cannot represent those
@@ -135,7 +138,8 @@ Staging deploys as `ai-review-staging`, uses its own Durable Object namespace,
 Workflow, and private `ai-review-data-staging` bucket, and publishes through the
 real GitHub App. The E2E task sends a correctly signed synthetic `/ai-review`
 webhook, waits for its versioned R2 record, and verifies that the visible
-stateful PR comment targets the current head.
+stateful PR comment targets the current head and that at least one scout
+provided actual review coverage.
 Set `AI_REVIEW_E2E_PULL_REQUEST` to test another pull request explicitly.
 
 The deploy task loads `ai-review/prd` when required values are not already in

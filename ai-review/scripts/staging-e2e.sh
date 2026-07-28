@@ -118,7 +118,11 @@ fi
 
 jq -e \
   --arg head_sha "$head_sha" \
-  '.status == "published" and .headSha == $head_sha' \
+  '
+    .status == "published"
+    and .headSha == $head_sha
+    and any(.models[]; .role == "scout" and .ok == true)
+  ' \
   "$record_file" >/dev/null
 comment="$(
   gh api "repos/${repository}/issues/${pull_request}/comments" \

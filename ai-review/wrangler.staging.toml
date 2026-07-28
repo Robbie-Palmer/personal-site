@@ -10,6 +10,9 @@ enabled = true
 [observability.logs]
 enabled = true
 
+[limits]
+subrequests = 1_000
+
 [vars]
 AI_REVIEW_ENABLED = "true"
 AI_REVIEW_REPOSITORY = "Robbie-Palmer/personal-site"
