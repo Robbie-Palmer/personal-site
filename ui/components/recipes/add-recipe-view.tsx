@@ -116,6 +116,8 @@ async function invalidateSavedRecipeQueries({
 
 const MAX_RECIPE_FILE_LENGTH = 100_000;
 
+class RecipeFileImportError extends Error {}
+
 function RecipeEditorGate({
   unreadable,
   pending,
@@ -409,10 +411,12 @@ export function AddRecipeView({
     setImportError(null);
     setImportedFileName(null);
     try {
-      const content = await recipeFile.text();
-      if (content.length > MAX_RECIPE_FILE_LENGTH) {
-        throw new Error("Choose a recipe file smaller than 100 KB.");
+      if (recipeFile.size > MAX_RECIPE_FILE_LENGTH) {
+        throw new RecipeFileImportError(
+          "Choose a recipe file smaller than 100 KB.",
+        );
       }
+      const content = await recipeFile.text();
       const response = await fetch("/api/recipes/import-file", {
         method: "POST",
         credentials: "include",
@@ -425,7 +429,7 @@ export function AddRecipeView({
         | { error?: string }
         | null;
       if (!response.ok || !body || !("source" in body)) {
-        throw new Error(
+        throw new RecipeFileImportError(
           (body && "error" in body && body.error) ||
             "The recipe file could not be imported.",
         );
@@ -442,7 +446,7 @@ export function AddRecipeView({
         return;
       }
       setImportError(
-        error instanceof Error
+        error instanceof RecipeFileImportError
           ? error.message
           : "The recipe file could not be imported.",
       );
@@ -458,6 +462,14 @@ export function AddRecipeView({
     importRequestRef.current?.controller.abort();
     importRequestRef.current = null;
     setImporting(false);
+  }
+
+  function selectMethod(nextMethod: AddMethod) {
+    invalidateImportRequest();
+    setImportError(null);
+    setImportedFileName(null);
+    setUrlImportSuccess(false);
+    setMethod(nextMethod);
   }
 
   const applyPhotoDraft = useCallback((draft: PhotoRecipeImportDraft) => {
@@ -604,10 +616,7 @@ export function AddRecipeView({
               >
                 <button
                   type="button"
-                  onClick={() => {
-                    invalidateImportRequest();
-                    setMethod("write");
-                  }}
+                  onClick={() => selectMethod("write")}
                   aria-pressed={method === "write"}
                   className={`rt-mono inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
                     method === "write"
@@ -619,11 +628,7 @@ export function AddRecipeView({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    invalidateImportRequest();
-                    setImportError(null);
-                    setMethod("url");
-                  }}
+                  onClick={() => selectMethod("url")}
                   aria-pressed={method === "url"}
                   className={`rt-mono inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
                     method === "url"
@@ -635,10 +640,7 @@ export function AddRecipeView({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    invalidateImportRequest();
-                    setMethod("photo");
-                  }}
+                  onClick={() => selectMethod("photo")}
                   aria-pressed={method === "photo"}
                   className={`rt-mono inline-flex items-center justify-center gap-2 rounded-md px-2 py-2 text-sm transition-colors ${
                     method === "photo"
@@ -650,11 +652,7 @@ export function AddRecipeView({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    invalidateImportRequest();
-                    setImportError(null);
-                    setMethod("file");
-                  }}
+                  onClick={() => selectMethod("file")}
                   aria-pressed={method === "file"}
                   className={`rt-mono inline-flex items-center justify-center gap-2 rounded-md px-2 py-2 text-sm transition-colors ${
                     method === "file"

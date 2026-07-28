@@ -255,7 +255,13 @@ const importRecipeFileBodySchema = z
         /\.(?:cook|cooklang|json|jsonld)$/i,
         "Use a .cook, .cooklang, .json, or .jsonld file",
       ),
-    content: z.string().min(1).max(100_000),
+    content: z
+      .string()
+      .min(1)
+      .refine(
+        (value) => new TextEncoder().encode(value).byteLength <= 100_000,
+        "File content must be 100 KB or smaller",
+      ),
   })
   .strict();
 

@@ -2199,6 +2199,41 @@ Boil the pasta, then add the tomatoes.`;
       ],
     });
   });
+
+  it("rejects file content larger than 100 KB when encoded", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/recipes/import-file",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          filename: "pasta.cook",
+          content: "é".repeat(50_001),
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      error: "Invalid request body",
+      details: [
+        expect.objectContaining({
+          path: ["content"],
+          message: "File content must be 100 KB or smaller",
+        }),
+      ],
+    });
+  });
 });
 
 describe("profile diet preferences", () => {

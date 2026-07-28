@@ -71,8 +71,14 @@ function recipeCanonicalUrl(
   if (!recipe) return undefined;
   const directUrl = httpUrl(recipe.url);
   if (directUrl) return directUrl;
-  if (isRecord(recipe.isBasedOn)) return httpUrl(recipe.isBasedOn.url);
-  return httpUrl(recipe.isBasedOn);
+  const candidates = Array.isArray(recipe.isBasedOn)
+    ? recipe.isBasedOn
+    : [recipe.isBasedOn];
+  for (const candidate of candidates) {
+    const url = isRecord(candidate) ? httpUrl(candidate.url) : httpUrl(candidate);
+    if (url) return url;
+  }
+  return undefined;
 }
 
 function unwrapJsonLd(source: string): string {

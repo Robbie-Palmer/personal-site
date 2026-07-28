@@ -16,11 +16,12 @@ function fileFormat(filename: string): RecipeFileFormat | undefined {
   return undefined;
 }
 
-function cooklangBody(source: string): string {
+function cooklangBody(source: string): string | undefined {
   const normalized = source.replace(/^\uFEFF/, "");
   const frontmatter = /^---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/.exec(
     normalized,
   );
+  if (normalized.startsWith("---") && !frontmatter) return undefined;
   return (frontmatter ? normalized.slice(frontmatter[0].length) : normalized).trim();
 }
 
@@ -97,6 +98,7 @@ function parseCooklangRecipeFile(
   if (!body) return null;
 
   const [parsed] = parser.parse(source.replace(/^\uFEFF/, ""));
+  if (!parsed) return null;
   const title = (parsed.title?.trim() || fallbackTitle(filename)).slice(0, 120);
   const description = (
     parsed.description?.trim() ||

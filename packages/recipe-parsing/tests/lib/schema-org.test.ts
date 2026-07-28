@@ -94,6 +94,24 @@ describe("parseSchemaOrgRecipeHtml", () => {
     });
   });
 
+  it("uses the first valid canonical URL from an isBasedOn array", async () => {
+    const source = JSON.stringify({
+      "@type": "Recipe",
+      name: "Tomato pasta",
+      isBasedOn: [
+        "not a URL",
+        { url: "https://recipes.example.test/original-pasta" },
+      ],
+      recipeIngredient: ["200 g pasta"],
+      recipeInstructions: ["Boil the pasta."],
+    });
+
+    await expect(parseSchemaOrgRecipeJson(source)).resolves.toMatchObject({
+      title: "Tomato pasta",
+      url: "https://recipes.example.test/original-pasta",
+    });
+  });
+
   it("rejects malformed standalone JSON-LD", async () => {
     await expect(parseSchemaOrgRecipeJson("{")).resolves.toBeNull();
     await expect(

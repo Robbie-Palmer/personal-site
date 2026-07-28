@@ -284,4 +284,77 @@ describe("AddRecipeView visibility", () => {
       content,
     });
   });
+
+  it("rejects oversized files before reading or uploading them", async () => {
+    mocks.getHouseholds.mockResolvedValue([]);
+    const file = new File(["recipe"], "large.cook");
+    const text = vi.fn();
+    Object.defineProperties(file, {
+      size: { value: 100_001 },
+      text: { value: text },
+    });
+    globalThis.fetch = vi.fn();
+
+    render(<AddRecipeView />);
+    fireEvent.click(screen.getByRole("button", { name: "Upload file" }));
+    fireEvent.change(screen.getByLabelText("Recipe file"), {
+      target: { files: [file] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import recipe" }));
+
+    expect(
+      await screen.findByText("Choose a recipe file smaller than 100 KB."),
+    ).toBeInTheDocument();
+    expect(text).not.toHaveBeenCalled();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("clears file import feedback when switching methods", async () => {
+    mocks.getHouseholds.mockResolvedValue([]);
+    const file = new File(["@rice{1%cup}\n\nCook."], "rice.cook");
+    Object.defineProperty(file, "text", {
+      value: vi.fn().mockResolvedValue("@rice{1%cup}\n\nCook."),
+    });
+    globalThis.fetch = vi.fn(async () =>
+      Response.json({
+        title: "Rice",
+        description: "Rice.",
+        cuisine: "",
+        servings: 1,
+        source: "@rice{1%cup}\n\nCook.",
+      }),
+    ) as typeof fetch;
+
+    render(<AddRecipeView />);
+    fireEvent.click(screen.getByRole("button", { name: "Upload file" }));
+    fireEvent.change(screen.getByLabelText("Recipe file"), {
+      target: { files: [file] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import recipe" }));
+    expect(await screen.findByText(/Imported rice\.cook/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Import URL" }));
+    fireEvent.click(screen.getByRole("button", { name: "Upload file" }));
+    expect(screen.queryByText(/Imported rice\.cook/)).not.toBeInTheDocument();
+  });
+
+  it("shows a generic message for unexpected file import failures", async () => {
+    mocks.getHouseholds.mockResolvedValue([]);
+    const file = new File(["recipe"], "recipe.cook");
+    Object.defineProperty(file, "text", {
+      value: vi.fn().mockRejectedValue(new Error("internal detail")),
+    });
+
+    render(<AddRecipeView />);
+    fireEvent.click(screen.getByRole("button", { name: "Upload file" }));
+    fireEvent.change(screen.getByLabelText("Recipe file"), {
+      target: { files: [file] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import recipe" }));
+
+    expect(
+      await screen.findByText("The recipe file could not be imported."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("internal detail")).not.toBeInTheDocument();
+  });
 });
