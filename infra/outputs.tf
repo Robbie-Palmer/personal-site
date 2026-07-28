@@ -48,6 +48,11 @@ output "r2_database_backups_bucket_name" {
   value       = cloudflare_r2_bucket.database_backups.name
 }
 
+output "r2_ai_review_data_bucket_name" {
+  description = "Name of the private bucket for AI review analytical records"
+  value       = cloudflare_r2_bucket.ai_review_data.name
+}
+
 # Neon
 
 output "neon_project_id" {

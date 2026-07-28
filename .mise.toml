@@ -11,6 +11,7 @@ config_roots = [
     "ml-pipelines/recipe-parsing",
     "packages/recipe-db",
     "packages/recipe-parsing",
+    "ai-review",
     "workers/recipe-api",
     "workers/recipe-ingest",
 ]
@@ -35,7 +36,7 @@ MISE_EXPERIMENTAL = "1"
 # Root-level tasks for repo-wide tooling
 [tasks.lint]
 description = "Lint all files across the entire repo"
-depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:typos", "//:lint:knip", "//:lint:actions", "//ui:lint", "//infra:lint", "//infra:lint:tflint", "//infra-bootstrap:lint", "//infra-bootstrap:lint:tflint"]
+depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:typos", "//:lint:knip", "//:lint:actions", "//ai-review:check", "//ui:lint", "//infra:lint", "//infra:lint:tflint", "//infra-bootstrap:lint", "//infra-bootstrap:lint:tflint"]
 
 [tasks."lint:markdown"]
 description = "Lint and fix Markdown files (optionally pass files as args)"
@@ -271,6 +272,7 @@ run = "pnpm install"
 [tasks."sonar:coverage"]
 description = "Generate all LCOV reports imported by SonarQube Cloud"
 depends = [
+    "//ai-review:test:coverage",
     "//ui:test:coverage",
     "//packages/recipe-parsing:test:coverage",
     "//ml-pipelines/recipe-parsing:test:coverage",

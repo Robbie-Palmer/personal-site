@@ -1,0 +1,45 @@
+name = "ai-review"
+main = "src/index.ts"
+compatibility_date = "2026-07-25"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+
+[vars]
+AI_REVIEW_ENABLED = "false"
+AI_REVIEW_REPOSITORY = "Robbie-Palmer/personal-site"
+AI_REVIEW_DEBOUNCE_SECONDS = "120"
+AI_REVIEW_DATA_RETENTION_DAYS = "365"
+AI_REVIEW_SCOUT_MODEL = "@cf/qwen/qwen2.5-coder-32b-instruct"
+AI_REVIEW_PROMPT_VERSION = "bootstrap-v1"
+
+[secrets]
+required = [
+  "AI_REVIEW_APP_ID",
+  "AI_REVIEW_APP_INSTALLATION_ID",
+  "AI_REVIEW_APP_PRIVATE_KEY",
+  "AI_REVIEW_WEBHOOK_SECRET",
+]
+
+[ai]
+binding = "AI"
+
+[[durable_objects.bindings]]
+name = "PR_STATE"
+class_name = "PullRequestCoordinator"
+
+[exports.PullRequestCoordinator]
+type = "durable-object"
+storage = "sqlite"
+
+[[workflows]]
+name = "ai-review"
+binding = "REVIEW_WORKFLOW"
+class_name = "ReviewWorkflow"
+
+[[r2_buckets]]
+binding = "REVIEW_DATA"
+bucket_name = "ai-review-data"
