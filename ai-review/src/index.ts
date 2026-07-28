@@ -52,6 +52,7 @@ const MINIMUM_DEBOUNCE_DELAY_MS = 1_000;
 const MAXIMUM_DEBOUNCE_DELAY_MS = 3_600_000;
 const COORDINATOR_TIMEOUT_MS = 10_000;
 const MAXIMUM_WEBHOOK_BODY_BYTES = 2 * 1024 * 1024;
+const REVIEW_RUN_LEASE_MS = 30 * 60 * 1_000;
 const PENDING_EVENT_KEY = "latest-pending-event";
 const PAID_MODEL_STEP_CONFIG = {
   // Model providers do not expose an idempotency boundary for these calls.
@@ -296,6 +297,19 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     const maxCostUsd = body.maxCostUsd;
 
     const result = this.ctx.storage.transactionSync(() => {
+      const now = new Date();
+      const nowIso = now.toISOString();
+      const leaseCutoff = new Date(
+        now.getTime() - REVIEW_RUN_LEASE_MS,
+      ).toISOString();
+      this.ctx.storage.sql.exec(
+        `UPDATE review_runs
+         SET status = 'failed', completed_at = ?,
+             error = 'review lease expired before completion'
+         WHERE status = 'running' AND started_at < ?`,
+        nowIso,
+        leaseCutoff,
+      );
       const aggregate = this.ctx.storage.sql
         .exec<{ attempts: number; runs: number; total_cost: number }>(
           `SELECT COUNT(*) AS attempts,
@@ -381,7 +395,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         body.diffFingerprint,
         body.configFingerprint,
         body.force ? 1 : 0,
-        new Date().toISOString(),
+        nowIso,
       );
       return { claimed: true, previousState };
     });

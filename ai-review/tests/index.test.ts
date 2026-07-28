@@ -459,6 +459,54 @@ describe("PullRequestCoordinator", () => {
       ),
     ).toBe(false);
   });
+
+  it("expires an abandoned review lease before claiming a replacement", async () => {
+    const { coordinator, sqlExec } = coordinatorFixture();
+    let expired = false;
+    sqlExec.mockImplementation((query: string) => {
+      if (
+        query.includes("UPDATE review_runs") &&
+        query.includes("review lease expired")
+      ) {
+        expired = true;
+      }
+      return {
+        rowsWritten: 1,
+        toArray: () => {
+          if (query.includes("COUNT(*) AS attempts")) {
+            return [{ attempts: 1, runs: 0, total_cost: 0 }];
+          }
+          if (query.includes("WHERE status = 'running'")) {
+            return expired ? [] : [{ run_id: "review-abandoned" }];
+          }
+          return [];
+        },
+      };
+    });
+
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/claim", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-replacement",
+          headSha: "def456",
+          diffFingerprint: "new-diff-hash",
+          configFingerprint: "new-config-hash",
+          force: true,
+          maxRuns: 20,
+          maxCostUsd: 5,
+        }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toMatchObject({ claimed: true });
+    expect(expired).toBe(true);
+    expect(
+      sqlExec.mock.calls.some(([query]) =>
+        String(query).includes("INSERT INTO review_runs"),
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("ReviewWorkflow", () => {
