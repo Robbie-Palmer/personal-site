@@ -20,6 +20,7 @@ export type RecipeApiProxyEnv = AuthProxyRoutingEnv &
 export type RecipeApiProxyContext = {
   request: Request;
   env: RecipeApiProxyEnv;
+  waitUntil?: (promise: Promise<unknown>) => void;
   data?: {
     posthogTraceCarrier?: TraceCarrier;
   };
@@ -181,6 +182,11 @@ export async function proxyRecipeApiRequest(
           "server.address": destinationUrl.hostname,
           "url.path": destinationPath,
         },
+        waitUntil: context.waitUntil
+          ? {
+              waitUntil: (promise) => context.waitUntil?.(promise),
+            }
+          : undefined,
       },
       async (span) =>
         fetch(

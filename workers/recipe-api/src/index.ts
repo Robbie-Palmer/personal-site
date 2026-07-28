@@ -3191,6 +3191,7 @@ app.post("/recipe-imports", async (c) => {
             spanName: "workflow.start recipe-ingest",
             traceCarrier: traceCarrierFromHeaders(c.req.raw.headers),
             attributes: { "recipe.import.job_id": job.id },
+            waitUntil: c.executionCtx,
           },
           async (span) => {
             const traceContext = traceCarrierFromSpan(span);

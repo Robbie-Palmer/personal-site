@@ -28,6 +28,7 @@ type Context = {
   request: Request;
   env: Env;
   next: () => Promise<Response>;
+  waitUntil?: (promise: Promise<unknown>) => void;
 };
 
 function textResponse(body: string, contentType: string): Response {
@@ -86,7 +87,13 @@ export const onRequest = async (context: Context): Promise<Response> => {
       headers: context.request.headers,
     });
     const apiResponse = await proxyRecipeApiRequest(
-      { request: apiRequest, env: context.env },
+      {
+        request: apiRequest,
+        env: context.env,
+        waitUntil: context.waitUntil
+          ? (promise) => context.waitUntil?.(promise)
+          : undefined,
+      },
       "Recipe pages are available on the canonical PR preview URL only",
     );
     const loaded = await decodeRecipeResponse(apiResponse);
