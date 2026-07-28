@@ -541,16 +541,16 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
         ),
       );
       await workflowStep.do("record-versioned-review", () =>
-        recordReview(
-          this.env,
-          event.payload,
-          event.instanceId,
+        recordReview({
+          env: this.env,
+          params: event.payload,
+          instanceId: event.instanceId,
           prepared,
           scouts,
           merged,
           publication,
-          event.timestamp,
-        ),
+          timestamp: event.timestamp,
+        }),
       );
       await workflowStep.do("complete-review-state", () =>
         completeReview(

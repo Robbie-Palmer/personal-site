@@ -525,16 +525,26 @@ export async function publishReview(
   };
 }
 
-export async function recordReview(
-  env: Env,
-  params: ReviewWorkflowParams,
-  instanceId: string,
-  prepared: PreparedReview,
-  scouts: ScoutRun,
-  merged: MergedRun,
-  publication: { commentId?: number; runCostUsd: number },
-  timestamp: Date,
-): Promise<void> {
+export async function recordReview(options: {
+  env: Env;
+  params: ReviewWorkflowParams;
+  instanceId: string;
+  prepared: PreparedReview;
+  scouts: ScoutRun;
+  merged: MergedRun;
+  publication: { commentId?: number; runCostUsd: number };
+  timestamp: Date;
+}): Promise<void> {
+  const {
+    env,
+    params,
+    instanceId,
+    prepared,
+    scouts,
+    merged,
+    publication,
+    timestamp,
+  } = options;
   if (!prepared.headSha) throw new Error("Cannot record an unprepared review");
   const key = [
     "v1",

@@ -1,8 +1,12 @@
 import { generateKeyPairSync } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Reviewer } from "../../.github/scripts/ai-review/ai-review";
 import type { Env, ReviewWorkflowParams } from "../src/env";
 import {
   STATEFUL_REVIEW_MARKER,
+  claimReview,
+  completeReview,
+  failReview,
   mergeFindings,
   prepareReview,
   publishReview,
@@ -33,6 +37,8 @@ function environment(put = vi.fn()): Env {
     AI_REVIEW_IGNORED_AUTHORS: "renovate[bot],dependabot[bot]",
     AI_REVIEW_ZDR: "false",
     AI_REVIEW_APP_BOT_LOGIN: "robbie-palmer-ai-review[bot]",
+    AI_REVIEW_MAX_PR_COST_USD: "5",
+    AI_REVIEW_MAX_RUNS_PER_PR: "20",
     AI_REVIEW_PROMPT_VERSION: "stateless-parity-v1",
     AI_REVIEW_APP_ID: "123",
     AI_REVIEW_APP_INSTALLATION_ID: "456",
@@ -48,6 +54,7 @@ function json(payload: unknown): Response {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("stateful review engine", () => {
@@ -74,6 +81,308 @@ describe("stateful review engine", () => {
     await expect(prepareReview(environment(), params)).resolves.toMatchObject({
       skipReason: "automatic review is not eligible for this author or fork",
     });
+  });
+
+  it("skips drafts and ignored authors but permits a forced draft review", async () => {
+    const draft = {
+      state: "open",
+      draft: true,
+      author_association: "OWNER",
+      user: { login: "robbie" },
+      head: {
+        sha: params.headSha,
+        repo: { full_name: params.repository },
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(json({ token: "installation-token" }))
+        .mockResolvedValueOnce(json(draft)),
+    );
+    await expect(prepareReview(environment(), params)).resolves.toMatchObject({
+      skipReason: "pull request is draft",
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(json({ token: "installation-token" }))
+        .mockResolvedValueOnce(
+          json({
+            ...draft,
+            draft: false,
+            user: { login: "renovate[bot]" },
+          }),
+        ),
+    );
+    await expect(prepareReview(environment(), params)).resolves.toMatchObject({
+      skipReason: "ignored author renovate[bot]",
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(json({ token: "installation-token" }))
+        .mockResolvedValueOnce(json(draft))
+        .mockResolvedValueOnce(json([])),
+    );
+    await expect(
+      prepareReview(environment(), { ...params, force: true }),
+    ).resolves.toMatchObject({
+      headSha: params.headSha,
+      diff: "",
+      context: "",
+      guidelines: "",
+      threads: "",
+    });
+  });
+
+  it("rejects invalid model configuration before making model calls", async () => {
+    const prepared = {
+      headSha: params.headSha,
+      diff: "diff",
+      paths: ["app.ts"],
+      omitted: [],
+    };
+
+    const tooManyPaid = environment();
+    tooManyPaid.AI_REVIEW_MODELS = Array.from(
+      { length: 7 },
+      (_, index) => `provider/model-${index}`,
+    ).join(",");
+    await expect(runScouts(tooManyPaid, params, prepared)).rejects.toThrow(
+      "AI_REVIEW_MODELS must contain at most 6",
+    );
+
+    const tooManyFree = environment();
+    tooManyFree.AI_REVIEW_OPENCODE_MODELS = Array.from(
+      { length: 7 },
+      (_, index) => `model-${index}-free`,
+    ).join(",");
+    await expect(runScouts(tooManyFree, params, prepared)).rejects.toThrow(
+      "AI_REVIEW_OPENCODE_MODELS must contain at most 6",
+    );
+
+    const ineligible = environment();
+    ineligible.AI_REVIEW_OPENCODE_MODELS = "paid-model";
+    await expect(runScouts(ineligible, params, prepared)).rejects.toThrow(
+      "contains ineligible IDs",
+    );
+    await expect(
+      runScouts(environment(), params, {
+        paths: [],
+        omitted: [],
+      }),
+    ).rejects.toThrow("without a prepared diff");
+  });
+
+  it("records unavailable, rejected, and invalid scout outcomes", async () => {
+    vi.spyOn(Reviewer.prototype, "openCodeScoutModels").mockResolvedValue({
+      models: [],
+      unavailable: ["unavailable-free"],
+    });
+    vi.spyOn(Reviewer.prototype, "callOpenRouterScout")
+      .mockRejectedValueOnce(new Error("provider unavailable"))
+      .mockResolvedValueOnce({
+        payload: { unexpected: [] },
+        cost: 0.1,
+      });
+
+    const result = await runScouts(environment(), params, {
+      headSha: params.headSha,
+      diff: "diff",
+      paths: ["app.ts"],
+      omitted: [],
+    });
+
+    expect(result.failed).toEqual([
+      "unavailable-free",
+      "moonshotai/kimi-k2.6",
+      "deepseek/deepseek-v4-pro",
+    ]);
+    expect(result.invalidCounts["deepseek/deepseek-v4-pro"]).toBe(1);
+    expect(result.metrics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          model: "unavailable-free",
+          ok: false,
+        }),
+        expect.objectContaining({
+          model: "moonshotai/kimi-k2.6",
+          error: "provider unavailable",
+        }),
+        expect.objectContaining({
+          model: "deepseek/deepseek-v4-pro",
+          ok: false,
+        }),
+      ]),
+    );
+  });
+
+  it("rejects duplicate providers and skips merging without candidates", async () => {
+    vi.spyOn(Reviewer.prototype, "openCodeScoutModels").mockResolvedValue({
+      models: ["moonshotai/kimi-k2.6"],
+      unavailable: [],
+    });
+    await expect(
+      runScouts(environment(), params, {
+        headSha: params.headSha,
+        diff: "diff",
+        paths: ["app.ts"],
+        omitted: [],
+      }),
+    ).rejects.toThrow("must be unique across providers");
+
+    await expect(
+      mergeFindings(
+        environment(),
+        params,
+        { paths: [], omitted: [] },
+        {
+          models: [],
+          candidates: {},
+          failed: [],
+          candidateCounts: {},
+          invalidCounts: {},
+          outOfScopeCounts: {},
+          costs: {},
+          metrics: [],
+        },
+      ),
+    ).resolves.toEqual({
+      result: {
+        summary:
+          "All scouts failed or were unavailable, so this run has no review coverage.",
+        findings: [],
+      },
+      cost: 0,
+    });
+  });
+
+  it("uses durable claims and records completion and failure state", async () => {
+    const coordinatorFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = new URL(String(input)).pathname;
+      if (path === "/reviews/claim") {
+        const body = JSON.parse(String(init?.body));
+        expect(body).toMatchObject({ maxRuns: 20, maxCostUsd: 5 });
+        return json({
+          claimed: true,
+          previousState: { runs: 0, total_usd: 0 },
+        });
+      }
+      return json(path === "/reviews/complete" ? { completed: true } : { failed: true });
+    });
+    const env = environment();
+    env.AI_REVIEW_MAX_RUNS_PER_PR = "-1";
+    env.AI_REVIEW_MAX_PR_COST_USD = "not-a-number";
+    Object.assign(env, {
+      PR_STATE: {
+        idFromName: vi.fn(() => "coordinator-id"),
+        get: vi.fn(() => ({ fetch: coordinatorFetch })),
+      },
+    });
+    const prepared = {
+      headSha: params.headSha,
+      diffFingerprint: "diff-fingerprint",
+      configFingerprint: "config-fingerprint",
+      paths: [],
+      omitted: [],
+    };
+
+    await expect(
+      claimReview(env, params, "review-1", prepared),
+    ).resolves.toMatchObject({ claimed: true });
+    await completeReview(
+      env,
+      params,
+      "review-1",
+      prepared,
+      { result: { findings: [] }, cost: 0 },
+      { commentId: 42, runCostUsd: 0.25 },
+    );
+    await failReview(env, params, "review-1", "failed");
+    expect(coordinatorFetch).toHaveBeenCalledTimes(3);
+
+    coordinatorFetch.mockResolvedValueOnce(
+      new Response("unavailable", { status: 503 }),
+    );
+    await expect(
+      claimReview(env, params, "review-2", prepared),
+    ).rejects.toThrow("Coordinator /reviews/claim failed (503)");
+    await expect(
+      claimReview(env, params, "review-3", { paths: [], omitted: [] }),
+    ).rejects.toThrow("Cannot claim an unprepared review");
+  });
+
+  it("refuses unprepared or stale publication and records only prepared runs", async () => {
+    const env = environment();
+    const emptyScouts = {
+      models: [],
+      candidates: {},
+      failed: [],
+      candidateCounts: {},
+      invalidCounts: {},
+      outOfScopeCounts: {},
+      costs: {},
+      metrics: [],
+    };
+    const emptyMerged = {
+      result: { summary: "Clean.", findings: [] },
+      cost: 0,
+    };
+    await expect(
+      publishReview(
+        env,
+        params,
+        { paths: [], omitted: [] },
+        emptyScouts,
+        emptyMerged,
+        { runs: 0, total_usd: 0 },
+      ),
+    ).rejects.toThrow("Cannot publish an unprepared review");
+
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(json({ token: "installation-token" }))
+        .mockResolvedValueOnce(
+          json({
+            head: { sha: "b".repeat(40) },
+          }),
+        ),
+    );
+    await expect(
+      publishReview(
+        env,
+        params,
+        {
+          headSha: params.headSha,
+          paths: [],
+          omitted: [],
+        },
+        emptyScouts,
+        emptyMerged,
+        { runs: 0, total_usd: 0 },
+      ),
+    ).rejects.toThrow("refusing stale comment");
+
+    await expect(
+      recordReview({
+        env,
+        params,
+        instanceId: "review-1",
+        prepared: { paths: [], omitted: [] },
+        scouts: emptyScouts,
+        merged: emptyMerged,
+        publication: { runCostUsd: 0 },
+        timestamp: new Date(),
+      }),
+    ).rejects.toThrow("Cannot record an unprepared review");
   });
 
   it("runs and visibly publishes the same OpenRouter plus OpenCode ensemble", async () => {
@@ -226,16 +535,16 @@ describe("stateful review engine", () => {
       merged,
       { runs: 0, total_usd: 0 },
     );
-    await recordReview(
+    await recordReview({
       env,
       params,
-      "review-delivery-1",
+      instanceId: "review-delivery-1",
       prepared,
       scouts,
       merged,
       publication,
-      new Date("2026-07-28T12:00:00Z"),
-    );
+      timestamp: new Date("2026-07-28T12:00:00Z"),
+    });
 
     expect(scouts.models).toEqual([
       "moonshotai/kimi-k2.6",

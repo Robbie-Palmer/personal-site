@@ -6,11 +6,11 @@ const RSA_PRIVATE_KEY_LABEL = ["RSA", PRIVATE_KEY_LABEL].join(" ");
 
 function base64Url(bytes: Uint8Array): string {
   let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
+  for (const byte of bytes) binary += String.fromCodePoint(byte);
   return btoa(binary)
     .replaceAll("+", "-")
     .replaceAll("/", "_")
-    .replace(/=+$/, "");
+    .replaceAll("=", "");
 }
 
 function encodeJson(value: unknown): string {
@@ -73,7 +73,7 @@ function privateKeyBytes(pem: string): Uint8Array {
     throw new Error("GitHub App private key is not valid PEM");
   }
   const bytes = Uint8Array.from(binary, (character) =>
-    character.charCodeAt(0),
+    character.codePointAt(0) ?? 0,
   );
   return isPkcs1 ? pkcs1ToPkcs8(bytes) : bytes;
 }
