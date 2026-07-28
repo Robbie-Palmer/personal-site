@@ -269,6 +269,30 @@ function errorMessage(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).slice(0, 500);
 }
 
+function validateScoutPayload(
+  payload: JsonObject,
+  allowedFiles: Set<string>,
+): {
+  accepted: Finding[];
+  invalidCount: number;
+  outOfScopeCount: number;
+} {
+  const structurallyValid = validateFindings(payload, {
+    merged: false,
+  }) as Finding[];
+  const accepted = structurallyValid.filter((finding) =>
+    allowedFiles.has(finding.file),
+  );
+  const rawCount = Array.isArray(payload.findings)
+    ? payload.findings.length
+    : 0;
+  return {
+    accepted,
+    invalidCount: rawCount - structurallyValid.length,
+    outOfScopeCount: structurallyValid.length - accepted.length,
+  };
+}
+
 export async function runScouts(
   env: Env,
   params: ReviewWorkflowParams,
@@ -382,22 +406,12 @@ export async function runScouts(
       usage: outcome.value.usage,
     });
     try {
-      const raw = outcome.value.payload;
-      const structurallyValid = validateFindings(raw, {
-        merged: false,
-      }) as Finding[];
-      const accepted = structurallyValid.filter((finding) =>
-        allowedFiles.has(finding.file),
+      const { accepted, invalidCount, outOfScopeCount } = validateScoutPayload(
+        outcome.value.payload,
+        allowedFiles,
       );
-      const rawCount =
-        typeof raw === "object" &&
-        raw !== null &&
-        Array.isArray(raw.findings)
-          ? raw.findings.length
-          : 0;
-      invalidCounts[scout.model] = rawCount - structurallyValid.length;
-      outOfScopeCounts[scout.model] =
-        structurallyValid.length - accepted.length;
+      invalidCounts[scout.model] = invalidCount;
+      outOfScopeCounts[scout.model] = outOfScopeCount;
       candidateCounts[scout.model] = accepted.length;
       candidates[scout.model] = accepted;
     } catch (error) {
