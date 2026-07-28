@@ -81,9 +81,21 @@ const recordGetter = {
 
 function normalizedBaseUrl(env: PostHogObservabilityEnv): string {
   const baseUrl = env.POSTHOG_OTLP_BASE_URL || DEFAULT_OTLP_BASE_URL;
-  let end = baseUrl.length;
-  while (end > 0 && baseUrl.charCodeAt(end - 1) === 47) end -= 1;
-  return baseUrl.slice(0, end);
+  const url = new URL(baseUrl);
+  const hasOnlyTrailingSlashes = Array.from(url.pathname).every(
+    (character) => character === "/",
+  );
+  if (
+    url.protocol !== "https:" ||
+    url.username ||
+    url.password ||
+    !hasOnlyTrailingSlashes ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error("POSTHOG_OTLP_BASE_URL must be an HTTPS origin");
+  }
+  return url.origin;
 }
 
 function registerGlobals(

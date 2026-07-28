@@ -118,6 +118,46 @@ export function previewApiBase(
   }
 }
 
+function logProxyRequest(
+  logLabel: string | undefined,
+  request: Request,
+  path: string,
+  destination: string,
+): void {
+  if (!logLabel) return;
+  console.log(
+    JSON.stringify({
+      message: `${logLabel} proxy request`,
+      method: request.method,
+      path,
+      destination,
+    }),
+  );
+}
+
+function logProxyFailure(logLabel: string | undefined, error: unknown): void {
+  if (!logLabel) return;
+  console.error(
+    JSON.stringify({
+      message: `${logLabel} proxy request failed`,
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  );
+}
+
+function logProxyResponse(
+  logLabel: string | undefined,
+  response: Response,
+): void {
+  if (!logLabel) return;
+  console.log(
+    JSON.stringify({
+      message: `${logLabel} proxy response`,
+      status: response.status,
+    }),
+  );
+}
+
 export async function proxyRecipeApiRequest(
   context: RecipeApiProxyContext,
   invalidPreviewMessage: string,
@@ -153,16 +193,12 @@ export async function proxyRecipeApiRequest(
     if (value) headers.set(name, value);
   }
 
-  if (logLabel) {
-    console.log(
-      JSON.stringify({
-        message: `${logLabel} proxy request`,
-        method: context.request.method,
-        path: url.pathname,
-        destination: `${apiBase}${destinationPath}`,
-      }),
-    );
-  }
+  logProxyRequest(
+    logLabel,
+    context.request,
+    url.pathname,
+    `${apiBase}${destinationPath}`,
+  );
 
   const body = ["GET", "HEAD"].includes(context.request.method)
     ? undefined
@@ -204,28 +240,14 @@ export async function proxyRecipeApiRequest(
         ),
     );
   } catch (error) {
-    if (logLabel) {
-      console.error(
-        JSON.stringify({
-          message: `${logLabel} proxy request failed`,
-          error: error instanceof Error ? error.message : String(error),
-        }),
-      );
-    }
+    logProxyFailure(logLabel, error);
     return Response.json(
       { error: "Failed to reach the recipe API" },
       { status: 502 },
     );
   }
 
-  if (logLabel) {
-    console.log(
-      JSON.stringify({
-        message: `${logLabel} proxy response`,
-        status: response.status,
-      }),
-    );
-  }
+  logProxyResponse(logLabel, response);
 
   return response;
 }

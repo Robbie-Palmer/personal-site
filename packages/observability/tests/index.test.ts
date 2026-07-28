@@ -406,6 +406,38 @@ describe("enabled telemetry", () => {
     );
     consoleError.mockRestore();
   });
+
+  it("uses URL parsing to reject a non-origin OTLP base URL", async () => {
+    vi.resetModules();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const traceExporterCount = exported.traceExporterOptions.length;
+    const freshObservability = await import("../src");
+
+    await expect(
+      freshObservability.withPostHogSpan(
+        {
+          env: {
+            ...enabledEnv,
+            POSTHOG_OTLP_BASE_URL:
+              "https://telemetry.example.test/unexpected-path",
+          },
+          serviceName: "invalid-origin-service",
+          spanName: "invalid origin",
+        },
+        async () => "application result",
+      ),
+    ).resolves.toBe("application result");
+
+    expect(exported.traceExporterOptions).toHaveLength(traceExporterCount);
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "POSTHOG_OTLP_BASE_URL must be an HTTPS origin",
+      ),
+    );
+    consoleError.mockRestore();
+  });
 });
 
 describe("traceCarrierFromHeaders", () => {

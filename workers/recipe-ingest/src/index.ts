@@ -326,6 +326,14 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
         buildCategoryMap(canonicalIngredients.ingredients),
       );
       if (unresolvedIngredients.length > 0) {
+        const requestIngredientDisambiguation = () =>
+          disambiguateIngredients({
+            apiKey: env.OPENROUTER_API_KEY,
+            unresolvedItems: unresolvedIngredients,
+            recipeContext: extractRecipeContext(entry, decisions),
+            model: canonicalizeParams.model,
+            requestTimeoutMs: canonicalizeParams.requestTimeoutMs,
+          });
         const choices = await step.do(
           "disambiguate-ingredients",
           llmStepConfig(canonicalizeParams),
@@ -337,14 +345,7 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
                   jobId,
                   stage: "canonicalize",
                   model: canonicalizeParams.model,
-                  call: () =>
-                    disambiguateIngredients({
-                      apiKey: env.OPENROUTER_API_KEY,
-                      unresolvedItems: unresolvedIngredients,
-                      recipeContext: extractRecipeContext(entry, decisions),
-                      model: canonicalizeParams.model,
-                      requestTimeoutMs: canonicalizeParams.requestTimeoutMs,
-                    }),
+                  call: requestIngredientDisambiguation,
                 }),
               ),
             ),
@@ -357,6 +358,17 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
         buildCategoryMap(canonicalEquipment.equipment),
       );
       if (unresolvedEquipment.length > 0) {
+        const requestEquipmentDisambiguation = () =>
+          disambiguateEquipment({
+            apiKey: env.OPENROUTER_API_KEY,
+            unresolvedItems: unresolvedEquipment,
+            equipmentContext: extractEquipmentContext(
+              entry,
+              cookwareDecisions,
+            ),
+            model: canonicalizeParams.model,
+            requestTimeoutMs: canonicalizeParams.requestTimeoutMs,
+          });
         const choices = await step.do(
           "disambiguate-equipment",
           llmStepConfig(canonicalizeParams),
@@ -368,17 +380,7 @@ export class RecipeIngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> 
                   jobId,
                   stage: "canonicalize",
                   model: canonicalizeParams.model,
-                  call: () =>
-                    disambiguateEquipment({
-                      apiKey: env.OPENROUTER_API_KEY,
-                      unresolvedItems: unresolvedEquipment,
-                      equipmentContext: extractEquipmentContext(
-                        entry,
-                        cookwareDecisions,
-                      ),
-                      model: canonicalizeParams.model,
-                      requestTimeoutMs: canonicalizeParams.requestTimeoutMs,
-                    }),
+                  call: requestEquipmentDisambiguation,
                 }),
               ),
             ),
