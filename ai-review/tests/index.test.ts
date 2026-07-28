@@ -43,17 +43,33 @@ function coordinatorFixture(existingDeliveries: string[] = []) {
     transactionSync: vi.fn((operation: () => unknown) => operation()),
   };
   const createBatch = vi.fn();
+  const terminate = vi.fn();
+  const workflowStatus = vi.fn(() =>
+    Promise.resolve({ status: "running" as const }),
+  );
+  const workflowGet = vi.fn(() =>
+    Promise.resolve({ status: workflowStatus, terminate }),
+  );
   const env = {
     AI_REVIEW_ENABLED: "true",
     AI_REVIEW_DEBOUNCE_SECONDS: "2",
-    REVIEW_WORKFLOW: { createBatch },
+    REVIEW_WORKFLOW: { createBatch, get: workflowGet },
   } as unknown as Env;
   const coordinator = new PullRequestCoordinator(
     { storage } as unknown as DurableObjectState,
     env,
   );
 
-  return { coordinator, createBatch, env, sqlExec, storage };
+  return {
+    coordinator,
+    createBatch,
+    env,
+    sqlExec,
+    storage,
+    terminate,
+    workflowGet,
+    workflowStatus,
+  };
 }
 
 function signedWebhookRequest(
@@ -427,7 +443,7 @@ describe("PullRequestCoordinator", () => {
         if (query.includes("COUNT(*) AS attempts")) {
           return [{ attempts: 1, runs: 0, total_cost: 0 }];
         }
-        if (query.includes("WHERE status = 'running'")) {
+        if (query.includes("WHERE status IN")) {
           return [{ run_id: "review-earlier-head" }];
         }
         return [];
@@ -460,24 +476,21 @@ describe("PullRequestCoordinator", () => {
     ).toBe(false);
   });
 
-  it("expires an abandoned review lease before claiming a replacement", async () => {
-    const { coordinator, sqlExec } = coordinatorFixture();
-    let expired = false;
+  it("terminates an expired Workflow before claiming a replacement", async () => {
+    const { coordinator, sqlExec, terminate, workflowGet } =
+      coordinatorFixture();
     sqlExec.mockImplementation((query: string) => {
-      if (
-        query.includes("UPDATE review_runs") &&
-        query.includes("review lease expired")
-      ) {
-        expired = true;
-      }
       return {
         rowsWritten: 1,
         toArray: () => {
+          if (
+            query.includes("WHERE status = 'running'") &&
+            query.includes("started_at <")
+          ) {
+            return [{ run_id: "review-abandoned" }];
+          }
           if (query.includes("COUNT(*) AS attempts")) {
             return [{ attempts: 1, runs: 0, total_cost: 0 }];
-          }
-          if (query.includes("WHERE status = 'running'")) {
-            return expired ? [] : [{ run_id: "review-abandoned" }];
           }
           return [];
         },
@@ -500,12 +513,62 @@ describe("PullRequestCoordinator", () => {
     );
 
     await expect(response.json()).resolves.toMatchObject({ claimed: true });
-    expect(expired).toBe(true);
+    expect(workflowGet).toHaveBeenCalledWith("review-abandoned");
+    expect(terminate).toHaveBeenCalledOnce();
+    expect(
+      sqlExec.mock.calls.some(
+        ([query]) =>
+          String(query).includes("status = 'failed'") &&
+          String(query).includes("Workflow terminated before replacement"),
+      ),
+    ).toBe(true);
     expect(
       sqlExec.mock.calls.some(([query]) =>
         String(query).includes("INSERT INTO review_runs"),
       ),
     ).toBe(true);
+  });
+
+  it("keeps an expired claim active when Workflow termination fails", async () => {
+    const fixture = coordinatorFixture();
+    fixture.terminate.mockRejectedValue(new Error("Cloudflare unavailable"));
+    fixture.sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: 1,
+      toArray: () =>
+        query.includes("WHERE status = 'running'") &&
+        query.includes("started_at <")
+          ? [{ run_id: "review-still-running" }]
+          : [],
+    }));
+
+    const response = await fixture.coordinator.fetch(
+      new Request("https://coordinator.test/reviews/claim", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-replacement",
+          headSha: "def456",
+          diffFingerprint: "new-diff-hash",
+          configFingerprint: "new-config-hash",
+          force: true,
+          maxRuns: 20,
+          maxCostUsd: 5,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(503);
+    expect(
+      fixture.sqlExec.mock.calls.some(
+        ([query]) =>
+          String(query).includes("status = 'running'") &&
+          String(query).includes("could not terminate expired Workflow"),
+      ),
+    ).toBe(true);
+    expect(
+      fixture.sqlExec.mock.calls.some(([query]) =>
+        String(query).includes("INSERT INTO review_runs"),
+      ),
+    ).toBe(false);
   });
 });
 

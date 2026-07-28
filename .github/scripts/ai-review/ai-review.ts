@@ -546,10 +546,16 @@ export class Reviewer {
       },
       { timeoutMs: SCOUT_TIMEOUT_MS, retries: 2 },
     );
-    this.openRouter = new JsonClient("https://openrouter.ai/api/v1", {
-      ...common,
-      Authorization: `Bearer ${settings.openRouterKey}`,
-    });
+    this.openRouter = new JsonClient(
+      "https://openrouter.ai/api/v1",
+      {
+        ...common,
+        Authorization: `Bearer ${settings.openRouterKey}`,
+      },
+      // Completion POSTs have no provider idempotency key. Retrying after a
+      // timeout or 5xx can duplicate a completion that the provider accepted.
+      { retries: 1 },
+    );
   }
 
   private get prPath(): string {

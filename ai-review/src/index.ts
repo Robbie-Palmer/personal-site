@@ -54,6 +54,11 @@ const MAXIMUM_DEBOUNCE_DELAY_MS = 3_600_000;
 const COORDINATOR_TIMEOUT_MS = 10_000;
 const MAXIMUM_WEBHOOK_BODY_BYTES = 2 * 1024 * 1024;
 const REVIEW_RUN_LEASE_MS = 30 * 60 * 1_000;
+const TERMINAL_WORKFLOW_STATUSES = new Set([
+  "complete",
+  "errored",
+  "terminated",
+]);
 const PENDING_EVENT_KEY = "latest-pending-event";
 const MODEL_STEP_CONFIG = {
   // This is one configured application attempt. Paid and free providers use
@@ -204,6 +209,58 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     return new Response("Not found", { status: 404 });
   }
 
+  private async terminateExpiredReview(
+    completedAt: string,
+    leaseCutoff: string,
+  ): Promise<void> {
+    const expiredRunId = this.ctx.storage.transactionSync(() => {
+      const expired = this.ctx.storage.sql
+        .exec<{ run_id: string }>(
+          `SELECT run_id FROM review_runs
+           WHERE status = 'running' AND started_at < ?
+           LIMIT 1`,
+          leaseCutoff,
+        )
+        .toArray()[0];
+      if (!expired) return undefined;
+      const claimed = this.ctx.storage.sql.exec(
+        `UPDATE review_runs
+         SET status = 'terminating',
+             error = 'review lease expired; terminating Workflow'
+         WHERE run_id = ? AND status = 'running'`,
+        expired.run_id,
+      );
+      return claimed.rowsWritten > 0 ? expired.run_id : undefined;
+    });
+    if (!expiredRunId) return;
+
+    try {
+      const instance = await this.env.REVIEW_WORKFLOW.get(expiredRunId);
+      const { status } = await instance.status();
+      if (!TERMINAL_WORKFLOW_STATUSES.has(status)) {
+        await instance.terminate();
+      }
+    } catch (error) {
+      this.ctx.storage.sql.exec(
+        `UPDATE review_runs
+         SET status = 'running',
+             error = 'could not terminate expired Workflow'
+         WHERE run_id = ? AND status = 'terminating'`,
+        expiredRunId,
+      );
+      throw error;
+    }
+
+    this.ctx.storage.sql.exec(
+      `UPDATE review_runs
+       SET status = 'failed', completed_at = ?,
+           error = 'review lease expired; Workflow terminated before replacement'
+       WHERE run_id = ? AND status = 'terminating'`,
+      completedAt,
+      expiredRunId,
+    );
+  }
+
   private async receiveEvent(request: Request): Promise<Response> {
     let event: unknown;
     try {
@@ -297,20 +354,22 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     const maxRuns = body.maxRuns;
     const maxCostUsd = body.maxCostUsd;
 
-    const result = this.ctx.storage.transactionSync(() => {
-      const now = new Date();
-      const nowIso = now.toISOString();
-      const leaseCutoff = new Date(
-        now.getTime() - REVIEW_RUN_LEASE_MS,
-      ).toISOString();
-      this.ctx.storage.sql.exec(
-        `UPDATE review_runs
-         SET status = 'failed', completed_at = ?,
-             error = 'review lease expired before completion'
-         WHERE status = 'running' AND started_at < ?`,
-        nowIso,
-        leaseCutoff,
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const leaseCutoff = new Date(
+      now.getTime() - REVIEW_RUN_LEASE_MS,
+    ).toISOString();
+    try {
+      await this.terminateExpiredReview(nowIso, leaseCutoff);
+    } catch (error) {
+      console.error(
+        "Could not terminate an expired review Workflow",
+        error instanceof Error ? { name: error.name } : { type: typeof error },
       );
+      return json({ error: "Expired review Workflow is still active" }, 503);
+    }
+
+    const result = this.ctx.storage.transactionSync(() => {
       const aggregate = this.ctx.storage.sql
         .exec<{ attempts: number; runs: number; total_cost: number }>(
           `SELECT COUNT(*) AS attempts,
@@ -330,19 +389,22 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         )
         .toArray()[0];
       if (existingRun) {
+        const claimed = existingRun.status === "running";
         return {
-          claimed: existingRun.status !== "completed",
+          claimed,
           reason:
             existingRun.status === "completed"
               ? "workflow instance already completed"
-              : undefined,
+              : claimed
+                ? undefined
+                : `workflow instance is ${existingRun.status}`,
           previousState,
         };
       }
       const active = this.ctx.storage.sql
         .exec<{ run_id: string }>(
           `SELECT run_id FROM review_runs
-           WHERE status = 'running'
+           WHERE status IN ('running', 'terminating')
            LIMIT 1`,
         )
         .toArray()[0];
@@ -427,7 +489,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       `UPDATE review_runs
        SET status = 'completed', completed_at = ?, cost_usd = ?,
            comment_id = ?, findings_json = ?, error = NULL
-       WHERE run_id = ? AND head_sha = ?`,
+       WHERE run_id = ? AND head_sha = ? AND status = 'running'`,
       new Date().toISOString(),
       body.costUsd,
       body.commentId ?? null,
@@ -460,7 +522,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     this.ctx.storage.sql.exec(
       `UPDATE review_runs
        SET status = 'failed', completed_at = ?, error = ?, cost_usd = ?
-       WHERE run_id = ? AND status != 'completed'`,
+       WHERE run_id = ? AND status = 'running'`,
       new Date().toISOString(),
       body.error.slice(0, 500),
       body.costUsd,

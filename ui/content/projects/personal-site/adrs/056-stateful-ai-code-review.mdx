@@ -46,7 +46,9 @@ I propose moving the custom reviewer from per-push GitHub Actions to a
    [Cloudflare Workflow](https://developers.cloudflare.com/workflows/) performs
    the fetch, scout, merge, and GitHub publication steps. Deterministic,
    idempotent steps remain retryable, but paid model steps make one Workflow
-   attempt because the providers do not expose an idempotency boundary.
+   and one HTTP attempt because the providers do not expose an idempotency
+   boundary. An expired per-PR lease terminates its old Workflow before a
+   replacement is admitted.
 4. OpenRouter is the paid inference gateway. At decision time,
    [OpenRouter publishes 400+ models and 70+ providers](https://openrouter.ai/pricing).
    It provides

@@ -115,6 +115,11 @@ The per-PR Durable Object permits only one paid review to be in flight. This
 ensures a later head cannot bypass the cost ceiling while an earlier review's
 spend is still unknown. A running claim expires after 30 minutes so a Workflow
 terminated outside application code cannot block that pull request forever.
+Before admitting a replacement, the coordinator terminates the expired
+Cloudflare Workflow and waits for that operation to succeed. Paid OpenRouter
+completion requests also make exactly one HTTP attempt because the provider
+does not expose an idempotency key; GitHub and free-provider requests retain
+their bounded transient retries.
 
 ## Deploy
 
