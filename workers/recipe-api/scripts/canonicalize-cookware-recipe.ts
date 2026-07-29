@@ -3,6 +3,7 @@ import {
 	SavedRecipePayloadSchema,
 } from "recipe-domain";
 import { canonicalEquipment } from "recipe-parsing/canonical-equipment-data";
+import { extractCookwareFromBody } from "recipe-parsing/cooklang";
 import {
 	applyCanonicalTokens,
 	canonicalCookwareReplacements,
@@ -24,16 +25,6 @@ export interface CookwareCanonicalization {
 	cookwareAfter: string[];
 }
 
-function canonicalNames(names: string[]): string[] {
-	return [
-		...new Set(
-			canonicalizeCookwareList(names, equipment, equipmentIndex).cookware.map(
-				(name) => name.trim().toLowerCase(),
-			),
-		),
-	];
-}
-
 function sameList(left: string[], right: string[]): boolean {
 	return (
 		left.length === right.length &&
@@ -43,24 +34,22 @@ function sameList(left: string[], right: string[]): boolean {
 
 /**
  * Resolves a recipe's cookware against the canonical equipment registry. The
- * structured equipment list moves to the canonical name; the cooklang source
- * keeps the authored wording as a `#canonical|authored{}` alias so the prose
- * reads exactly as before. The transform is idempotent — a body that already
- * uses canonical names comes back unchanged.
+ * registered names come from the cooklang source itself, so the rewrite and the
+ * structured equipment list stay in step: the source keeps each authored
+ * wording as a `#canonical|authored{}` alias while the equipment list and the
+ * cooklang tokens both carry the canonical name. Deriving from the source is
+ * what keeps a token that already has an alias (`#baking dish|casserole{}`)
+ * consistent — the registered name is what gets rewritten, not the alias. The
+ * transform is idempotent; a body already on canonical names comes back
+ * unchanged.
  */
 export function canonicalizeSavedRecipeCookware(
 	payload: SavedRecipePayload,
 ): CookwareCanonicalization {
 	const { recipe } = payload;
 
-	// The display values are the wording each cookware token shows in the prose
-	// ("skillet", "large frying pan"); their registered names come from
-	// canonicalizing them. Fall back to the stored equipment list for older
-	// records saved without an instruction SDK.
-	const authoredNames =
-		recipe.instructionSdk?.cookwareDisplayValues ?? recipe.cookware;
-	const { decisions } = canonicalizeCookwareList(
-		authoredNames,
+	const { cookware, decisions } = canonicalizeCookwareList(
+		extractCookwareFromBody(payload.source),
 		equipment,
 		equipmentIndex,
 	);
@@ -68,7 +57,9 @@ export function canonicalizeSavedRecipeCookware(
 
 	const nextSource = applyCanonicalTokens(payload.source, "#", replacements);
 	const nextCookBody = applyCanonicalTokens(recipe.cookBody, "#", replacements);
-	const nextCookware = canonicalNames(recipe.cookware);
+	const nextCookware = [
+		...new Set(cookware.map((name) => name.trim().toLowerCase())),
+	];
 
 	const changed =
 		nextSource !== payload.source ||

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { createDb, schema } from "recipe-db";
 import { SavedRecipePayloadSchema } from "recipe-domain";
 import { canonicalizeSavedRecipeCookware } from "./canonicalize-cookware-recipe";
@@ -23,6 +23,7 @@ const { db, client } = createDb(requiredEnv("DATABASE_URL"));
 let scanned = 0;
 let skipped = 0;
 let changed = 0;
+let conflicts = 0;
 
 try {
 	const recipes = await db
@@ -37,7 +38,16 @@ try {
 		scanned += 1;
 		if (!record.body) continue;
 
-		const parsed = SavedRecipePayloadSchema.safeParse(JSON.parse(record.body));
+		let json: unknown;
+		try {
+			json = JSON.parse(record.body);
+		} catch {
+			skipped += 1;
+			console.warn(`skip ${record.slug}: body is not valid JSON`);
+			continue;
+		}
+
+		const parsed = SavedRecipePayloadSchema.safeParse(json);
 		if (!parsed.success) {
 			skipped += 1;
 			console.warn(`skip ${record.slug}: body is not a valid saved recipe`);
@@ -58,14 +68,30 @@ try {
 
 		if (!APPLY) continue;
 
-		await db
+		// Guard against a recipe edited between the scan and this write: match the
+		// body we transformed, so a concurrent edit is reported rather than
+		// silently overwritten with our stale copy.
+		const written = await db
 			.update(schema.recipe)
 			.set({ body: JSON.stringify(result.payload) })
-			.where(eq(schema.recipe.id, record.id));
+			.where(
+				and(
+					eq(schema.recipe.id, record.id),
+					eq(schema.recipe.body, record.body),
+				),
+			)
+			.returning({ id: schema.recipe.id });
+		if (written.length === 0) {
+			conflicts += 1;
+			changed -= 1;
+			console.warn(
+				`  conflict: ${record.slug} changed since the scan; skipped`,
+			);
+		}
 	}
 
 	console.log(
-		`\n${APPLY ? "Updated" : "Would update"} ${changed} of ${scanned} recipes (${skipped} skipped).`,
+		`\n${APPLY ? "Updated" : "Would update"} ${changed} of ${scanned} recipes (${skipped} skipped${conflicts > 0 ? `, ${conflicts} conflicts` : ""}).`,
 	);
 	if (!APPLY && changed > 0) {
 		console.log("Re-run with --apply to write these changes.");

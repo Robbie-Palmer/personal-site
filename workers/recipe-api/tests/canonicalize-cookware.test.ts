@@ -2,11 +2,7 @@ import { SavedRecipePayloadSchema } from "recipe-domain";
 import { describe, expect, it } from "vitest";
 import { canonicalizeSavedRecipeCookware } from "../scripts/canonicalize-cookware-recipe";
 
-function payload(options: {
-	source: string;
-	cookware: string[];
-	cookwareDisplayValues?: string[];
-}) {
+function payload(options: { source: string; cookware: string[] }) {
 	return SavedRecipePayloadSchema.parse({
 		version: 1,
 		source: options.source,
@@ -21,21 +17,6 @@ function payload(options: {
 			cookware: options.cookware,
 			ingredientGroups: [{ items: [{ ingredient: "salt", amount: 1 }] }],
 			instructions: ["Do the thing."],
-			...(options.cookwareDisplayValues
-				? {
-						instructionSdk: {
-							sections: [],
-							ingredientNames: [],
-							ingredientDisplayValues: [],
-							ingredientAmounts: [],
-							ingredientUnits: [],
-							cookwareDisplayValues: options.cookwareDisplayValues,
-							inlineQuantityDisplayValues: [],
-							timerDisplayValues: [],
-							timerDurationSeconds: [],
-						},
-					}
-				: {}),
 		},
 	});
 }
@@ -97,17 +78,19 @@ describe("canonicalizeSavedRecipeCookware", () => {
 		]);
 	});
 
-	it("prefers the instruction SDK display wording as the authored alias", () => {
+	it("rewrites the registered name of a token that already carries an alias", () => {
+		// Registered name "baking dish" is non-canonical; the authored alias
+		// "casserole" is the prose. Only the registered name should move, keeping
+		// the source and the equipment list on the same canonical value.
 		const result = canonicalizeSavedRecipeCookware(
 			payload({
-				source: "Fry in a #skillet{}.",
-				cookware: ["skillet"],
-				cookwareDisplayValues: ["skillet"],
+				source: "Bake in a #baking dish|casserole{}.",
+				cookware: ["baking dish"],
 			}),
 		);
 
-		expect(result.cookwareAfter).toEqual(["frying pan"]);
-		expect(result.payload.source).toBe("Fry in a #frying pan|skillet{}.");
+		expect(result.cookwareAfter).toEqual(["oven dish"]);
+		expect(result.payload.source).toBe("Bake in a #oven dish|casserole{}.");
 	});
 
 	it("leaves an already-canonical recipe untouched", () => {
