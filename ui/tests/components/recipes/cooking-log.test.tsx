@@ -4,13 +4,15 @@ import { CookingLog } from "@/components/recipes/cooking-log";
 
 const mocks = vi.hoisted(() => ({
   getCookingInsights: vi.fn(),
+  session: { user: { id: "cook-1" } } as { user: { id: string } } | null,
+  sessionPending: false,
 }));
 
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
     useSession: () => ({
-      data: { user: { id: "cook-1" } },
-      isPending: false,
+      data: mocks.session,
+      isPending: mocks.sessionPending,
     }),
   },
 }));
@@ -22,6 +24,8 @@ vi.mock("@/lib/api/cooking-insights", () => ({
 describe("CookingLog", () => {
   beforeEach(() => {
     mocks.getCookingInsights.mockReset();
+    mocks.session = { user: { id: "cook-1" } };
+    mocks.sessionPending = false;
     mocks.getCookingInsights.mockResolvedValue({
       cookModeStarts: 9,
       mealsCooked: 6,
@@ -53,5 +57,25 @@ describe("CookingLog", () => {
       screen.getByText("Cook-mode starts").nextElementSibling,
     ).toHaveTextContent("9");
     expect(screen.getByText("Served 3")).toBeInTheDocument();
+  });
+
+  it("shows pending, signed-out, and load-error states", async () => {
+    mocks.sessionPending = true;
+    const { rerender } = render(<CookingLog />);
+    expect(screen.getByText("Opening your cook log…")).toBeInTheDocument();
+
+    mocks.sessionPending = false;
+    mocks.session = null;
+    rerender(<CookingLog />);
+    expect(
+      screen.getByText("Log in to remember what you cooked."),
+    ).toBeInTheDocument();
+
+    mocks.session = { user: { id: "cook-1" } };
+    mocks.getCookingInsights.mockRejectedValue(
+      new Error("Cook log unavailable"),
+    );
+    rerender(<CookingLog />);
+    expect(await screen.findByText("Cook log unavailable")).toBeInTheDocument();
   });
 });

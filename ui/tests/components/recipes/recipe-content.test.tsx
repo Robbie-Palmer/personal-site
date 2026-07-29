@@ -72,7 +72,7 @@ const recipe: RecipeDetailView = {
 describe("RecipeContent", () => {
   beforeEach(() => {
     mocks.setUnitPreference.mockClear();
-    mocks.recordCookingSession.mockClear();
+    mocks.recordCookingSession.mockReset().mockResolvedValue({});
     window.history.replaceState(null, "", "/recipes/saved?slug=weeknight");
     mocks.tokenizeInstructionSdk.mockReturnValue({
       ok: true,
@@ -153,5 +153,23 @@ describe("RecipeContent", () => {
         event: "completed",
       }),
     );
+  });
+
+  it("keeps cooking usable when activity tracking fails", async () => {
+    const user = userEvent.setup();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mocks.recordCookingSession.mockRejectedValue(new Error("offline"));
+    render(
+      <CookModeProvider>
+        <RecipeContent recipe={recipe} />
+      </CookModeProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Start cooking" }));
+    await waitFor(() => expect(consoleError).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByRole("button", { name: "Finish ✓" }));
+    await waitFor(() => expect(consoleError).toHaveBeenCalledTimes(2));
   });
 });

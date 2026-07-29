@@ -56,4 +56,18 @@ describe("cooking insights API", () => {
       keepalive: true,
     });
   });
+
+  it("surfaces API errors", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json(
+        { error: "Cooking history is unavailable" },
+        { status: 503 },
+      ),
+    );
+
+    await expect(getCookingInsights()).rejects.toMatchObject({
+      message: "Cooking history is unavailable",
+      status: 503,
+    });
+  });
 });
