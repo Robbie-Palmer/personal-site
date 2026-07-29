@@ -44,16 +44,20 @@ function Metric({
 
 export function CookingLog() {
   const { data: session, isPending: sessionPending } = authClient.useSession();
-  const [insights, setInsights] = useState<CookingInsights | null>(null);
+  const [loadedInsights, setLoadedInsights] = useState<{
+    userId: string;
+    data: CookingInsights;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (sessionPending || !session) return;
+    const userId = session.user.id;
     const controller = new AbortController();
     setError(null);
     void getCookingInsights(controller.signal)
       .then((data) => {
-        if (!controller.signal.aborted) setInsights(data);
+        if (!controller.signal.aborted) setLoadedInsights({ userId, data });
       })
       .catch((loadError: unknown) => {
         if (!controller.signal.aborted) {
@@ -66,6 +70,11 @@ export function CookingLog() {
       });
     return () => controller.abort();
   }, [session, sessionPending]);
+
+  const insights =
+    loadedInsights && loadedInsights.userId === session?.user.id
+      ? loadedInsights.data
+      : null;
 
   if (sessionPending) {
     return (

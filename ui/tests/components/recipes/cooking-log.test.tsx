@@ -78,4 +78,41 @@ describe("CookingLog", () => {
     rerender(<CookingLog />);
     expect(await screen.findByText("Cook log unavailable")).toBeInTheDocument();
   });
+
+  it("never shows one user's cook log after switching accounts", async () => {
+    const firstUserInsights = {
+      cookModeStarts: 3,
+      mealsCooked: 2,
+      distinctRecipesCooked: 1,
+      recent: [
+        {
+          id: "0b620ec7-4727-4432-9498-10f9027ed76e",
+          recipeSlug: "private-pasta",
+          recipeTitle: "First user's private pasta",
+          servings: 2,
+          startedAt: "2026-07-28T17:30:00.000Z",
+          completedAt: "2026-07-28T18:05:00.000Z",
+        },
+      ],
+    };
+    mocks.getCookingInsights.mockResolvedValueOnce(firstUserInsights);
+    const { rerender } = render(<CookingLog />);
+    expect(
+      await screen.findByText("First user's private pasta"),
+    ).toBeInTheDocument();
+
+    mocks.session = { user: { id: "cook-2" } };
+    mocks.getCookingInsights.mockResolvedValueOnce({
+      cookModeStarts: 0,
+      mealsCooked: 0,
+      distinctRecipesCooked: 0,
+      recent: [],
+    });
+    rerender(<CookingLog />);
+
+    expect(
+      screen.queryByText("First user's private pasta"),
+    ).not.toBeInTheDocument();
+    expect(await screen.findByText("Nothing cooked yet.")).toBeInTheDocument();
+  });
 });
