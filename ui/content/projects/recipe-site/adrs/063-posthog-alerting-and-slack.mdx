@@ -65,7 +65,7 @@ This provides several parts of an incident-management loop, but not all of them:
 | Notification transport                           | Native PostHog Slack integration                          | Proposed; not yet verified   |
 | Notification inbox                               | Private Slack channel in a dedicated workspace            | Proposed; not yet configured |
 | Investigation                                    | PostHog filtered logs, traces, users, and session replays | Implemented                  |
-| Cloudflare platform incidents                    | Cloudflare native notifications                           | Separate complementary path  |
+| Cloudflare platform incidents                    | Terraform-managed Cloudflare notifications → Slack        | Proposed complementary path  |
 | Independent availability monitoring              | None                                                      | Deferred                     |
 | Acknowledgement and ownership                    | One owner reading Slack                                   | Proposed informal process    |
 | Escalation, schedules, SMS, and voice            | None                                                      | Deferred                     |
@@ -165,6 +165,50 @@ Keep destination attachment manual while PostHog models alert destinations as in
 functions without a stable Terraform resource. Record that manual step in operational setup and
 verify it after alert recreation or workspace integration changes.
 
+### Cloudflare Notifications
+
+Use [Cloudflare Notifications](https://developers.cloudflare.com/notifications/) as a complementary
+source for failures that originate in Cloudflare or can prevent application telemetry from reaching
+PostHog. Route them to the same private Slack channel, or to a separate private
+`#cloudflare-alerts` channel if their volume or ownership later diverges.
+
+Manage the destination and policies with Cloudflare's
+[Terraform alerting resources](https://developers.cloudflare.com/api/terraform/resources/alerting/)
+where the account entitlement and provider schema allow it:
+
+* use `cloudflare_notification_policy_webhooks` for the Slack-formatted webhook destination;
+* use `cloudflare_notification_policy` for individual alert types and filters;
+* grant the routine Cloudflare Terraform token the least-privilege Notifications read and write
+  permissions required by those resources;
+* initially cover production Pages deployment failures, material Cloudflare incidents affecting
+  the services in use, certificate or service-token expiry, and relevant billing or usage
+  thresholds;
+* add Workers Observability notifications only when they close a gap not already covered by the
+  PostHog log alerts.
+
+The Slack incoming-webhook URL is itself a bearer credential. Pass it to Terraform as a sensitive
+value from Doppler, do not output it, restrict access to Terraform Cloud state, and rotate it if it
+is disclosed. This is still a smaller security and maintenance surface than a project-owned relay:
+the credential authorizes posting to one Slack channel rather than access to application
+infrastructure, and there is no receiver code, public project endpoint, schema parser, or
+email-delivery path to operate.
+
+Cloudflare's
+[webhook documentation](https://developers.cloudflare.com/notifications/get-started/configure-webhooks/)
+states that webhook delivery normally requires at least one Pro-or-higher zone. At the time of this
+proposal, the account has only a Free zone, but Cloudflare's live delivery eligibility API reports
+webhooks as eligible and ready. Treat that as an entitlement to verify, not a guarantee: create and
+test the destination before accepting this ADR. If Cloudflare rejects or later withdraws webhook
+delivery, keep its native email or dashboard notifications as the temporary fallback rather than
+building a relay solely for this path, and reconsider a plan upgrade when the alerts justify it.
+
+The repository currently uses Cloudflare Terraform provider v4.52.8. It supports notification
+destinations and policies, but its alert-type validation predates the current
+`workers_observability_alert` identifier returned by Cloudflare. Manage the policies supported by
+the existing provider first. Evaluate a provider v5 upgrade or a narrowly scoped API resource
+separately before adding a Workers Observability policy; do not broaden this documentation PR into a
+provider migration.
+
 ### Incident Workflow
 
 When a Slack alert arrives, the proposed response process is:
@@ -182,15 +226,14 @@ objectives.
 
 ## Deliberate Implementation Boundary
 
-PostHog owns alert evaluation and state; Slack supplies notification delivery. The current system
-must not grow custom versions of capabilities already supplied by dedicated platforms. Its initial
-implementation must not include:
+PostHog owns alert evaluation and state; Slack supplies notification delivery. This ADR keeps the
+initial notification path small; it does not prejudge whether later triage and coordination
+capabilities should be built or bought. The initial implementation must not include:
 
 * a Cloudflare webhook or email relay;
 * a hosted automation relay;
 * durable delivery storage or a retry ledger;
 * acknowledgement, escalation, rota, or paging policies;
-* a Slack bot, interactive commands, or notification-preference UI;
 * polling PostHog for alert state;
 * copying complete log or trace payloads into Slack;
 * routing application or customer notifications through the operational channel.
@@ -198,6 +241,14 @@ implementation must not include:
 PostHog already owns alert state, cooldowns, evaluation history, and event generation. Slack owns
 workspace authentication and channel delivery. Introducing a relay between them would increase the
 number of credentials and failure modes without improving the current solo-founder workflow.
+
+A Slack bot, interactive commands, an LLM-backed triage agent, or a notification-preference UI are
+not prohibited by this decision. They are outside its initial scope and require a separate ADR. That
+ADR must compare building with buying against the agentic tooling available at the time rather than
+assuming a durable vendor abstraction exists. It must also define Slack permissions, PostHog data
+access, prompt-injection and data-exfiltration boundaries, human approval for consequential actions,
+cost controls, auditability, failure behaviour, and how the bot remains optional to the basic alert
+delivery path.
 
 ## Failure Independence
 
@@ -211,8 +262,8 @@ dispatch. A PostHog outage or an export failure can therefore prevent applicatio
 two complementary signal paths:
 
 * **Application and workflow failures:** PostHog alert → private Slack channel.
-* **Cloudflare-originated incidents:** Cloudflare's native account and platform notifications,
-  managed separately from PostHog.
+* **Cloudflare-originated incidents:** Terraform-managed Cloudflare notifications → Slack, subject
+  to webhook entitlement verification.
 
 Cloudflare Notifications cannot evaluate arbitrary PostHog telemetry, and PostHog cannot detect a
 failure that prevents telemetry from reaching it. If the site later needs independently verified
@@ -229,18 +280,23 @@ loop that the current PostHog-centred system only partially covers.
 | **PostHog alerts with native Slack delivery**                                           | Keeps detection beside logs, traces, users, replays, and product impact; avoids a public receiver; visible and isolated mobile/desktop alert inbox | Requires workspace, identity recovery, MFA, clients, permission review, and notification administration; free-plan retention is limited; Slack is not durable incident management                                                           | **Propose; accept after setup and end-to-end verification**                       |
 | **Dedicated Cloudflare email relay**                                                    | Fixed email recipient; infrastructure could remain in the existing Cloudflare account                                                              | Requires a secret URL, Worker, route, email binding, rotation, schema and failure-path tests, deployment and security monitoring, plus a high-visibility mailbox; a single-purpose patch that compounds poorly as people and use cases grow | Reject while native Slack meets the need                                          |
 | **Microsoft Teams**                                                                     | Similar chat-based notification surface; strong fit if the project later adopts Microsoft 365 and Entra                                            | PostHog's Teams destination requires a webhook URL; adds Microsoft account and workflow complexity; weaker Linux experience; no current Microsoft ecosystem benefit                                                                         | Reject for the current stack                                                      |
+| **Discord**                                                                             | Free private channels, capable desktop and mobile clients, roles, webhooks, and a strong bot ecosystem                                             | PostHog uses a bearer webhook URL rather than an installed workspace integration; less aligned with future operational SaaS integrations and professional responder onboarding than Slack                                                   | Viable fallback, but Slack better fits the expected direction                     |
 | **Hosted automation relay**                                                             | Low-code payload transformation and access to more delivery destinations                                                                           | The PostHog-facing endpoint still relies on a secret URL unless the vendor provides a native authenticated PostHog integration; adds another vendor and failure boundary                                                                    | Reject                                                                            |
-| **Cloudflare observability and notifications only**                                     | Lowest integration effort; strong platform-native request and infrastructure context                                                               | Application signals remain separated from PostHog users and product impact; cannot evaluate arbitrary PostHog telemetry; same-provider blind spot                                                                                           | Keep as fallback and complementary platform signal                                |
+| **Cloudflare observability and notifications only**                                     | Lowest integration effort; strong platform-native request and infrastructure context; Terraform-managed Slack delivery where eligible              | Application signals remain separated from PostHog users and product impact; cannot evaluate arbitrary PostHog telemetry; same-provider blind spot; webhook entitlement and bearer Slack URL still require management                        | Use only as a complementary platform signal                                       |
 | **Dedicated error tracking such as Sentry or Bugsnag**                                  | Exception grouping, stack-trace triage, release health, regressions, ownership, and issue workflows                                                | Another SDK or export path, data store, alert configuration, billing surface, and investigation UI; weaker native connection to PostHog product context                                                                                     | Reconsider when exception triage outgrows log alerts                              |
 | **Dedicated observability such as Grafana Cloud, Honeycomb, Datadog, or Better Stack**  | Mature metrics, logs, traces, dashboards, SLOs, query languages, alert correlation, retention, and integrations                                    | New vendor and credentials; duplicated telemetry and cost; product and user context may split across systems; more configuration to keep aligned                                                                                            | Reconsider when service reliability requires SLOs or deeper multi-signal analysis |
 | **Independent uptime monitoring such as Checkly, Better Uptime, or UptimeRobot**        | External availability checks outside Cloudflare and PostHog; detects total site or telemetry-export failure                                        | Detects symptoms rather than application causes; another service and notification policy; does not replace PostHog investigation                                                                                                            | Add when availability has meaningful user or revenue impact                       |
 | **On-call and incident management such as PagerDuty, incident.io, Rootly, or Opsgenie** | Durable routing, acknowledgement, escalation, schedules, SMS or voice paging, incident timelines, collaboration, audit history, and status flows   | Designed for teams and rotations; cost and setup are disproportionate for one owner; still needs PostHog or another monitoring source                                                                                                       | Reconsider with a second responder or formal response objectives                  |
-| **WhatsApp through Meta or Twilio**                                                     | High-visibility phone notifications                                                                                                                | Adds provider onboarding, business messaging configuration, credentials, templates, policy constraints, and possible usage cost; still not acknowledgement or escalation                                                                    | Defer                                                                             |
 | **Build a custom incident platform**                                                    | Exact fit and full control                                                                                                                         | Recreates alert history, retries, acknowledgement, escalation, schedules, and UI; largest reliability and maintenance burden                                                                                                                | Reject                                                                            |
 
 Moving to a dedicated platform would be beneficial when it replaces real manual work or closes a
 measured reliability gap. Adopting one merely because it is more specialised would split
 operational context and add configuration without improving current incident outcomes.
+
+WhatsApp and Twilio are not retained as separate alternatives. Slack already supplies the desired
+high-visibility mobile notifications without their additional business-messaging onboarding,
+credentials, templates, policy constraints, and delivery costs, so they offer no relevant advantage
+for this decision.
 
 ## Consequences
 
@@ -258,6 +314,8 @@ operational context and add configuration without improving current incident out
 * Slack is independent of Cloudflare application deployments and runtime failures.
 * The workspace can later onboard other responders and useful integrations without expanding
   project-owned notification infrastructure.
+* PostHog and Cloudflare alerts can share one high-visibility operational inbox while retaining
+  independent detection paths.
 * The design can later route alerts to a dedicated incident platform without changing detection
   thresholds.
 
@@ -271,6 +329,10 @@ operational context and add configuration without improving current incident out
   integration-permission, and notification administration.
 * Slack's free-plan searchable history and retention are limited.
 * PostHog destination attachment remains a manual configuration step.
+* Cloudflare-to-Slack delivery uses a bearer webhook URL that Terraform Cloud state and Cloudflare
+  must store, protect, and support rotating.
+* Cloudflare webhook entitlement on the current Free account must be verified despite the live API
+  reporting it as eligible, and the older provider cannot express every current alert type.
 * A PostHog outage or telemetry-export failure can impair both detection and delivery.
 * Slack notification delivery is not guaranteed paging and can be affected by client settings,
   connectivity, or account access.
@@ -293,7 +355,14 @@ Keep this ADR in `Proposed` status until all of the following have been complete
 * verify that notification links open the correct PostHog alert and filtered investigation views;
 * confirm that no raw secrets, request headers, full payloads, or unnecessary personal data are
   copied into Slack;
-* test the separate Cloudflare-native notification path that complements PostHog.
+* grant the Terraform Cloudflare token least-privilege Notifications permissions and create the
+  Slack webhook destination and selected policies through Terraform;
+* verify Terraform Cloud treats the Slack webhook URL as sensitive, restrict state access, and
+  document its rotation procedure;
+* trigger at least one Cloudflare test notification and verify that it reaches Slack; if webhook
+  entitlement fails on the current plan, record the fallback and leave the ADR proposed;
+* verify the initial Pages, incident, certificate or token, and billing or usage policies against
+  the account's live available-alert list rather than assuming every provider enum is entitled;
 
 Record the verification outcome and change the ADR status to `Accepted` in a follow-up commit only
 after every criterion passes. Until then, the existing PostHog alert definitions remain implemented,
@@ -314,8 +383,10 @@ but Slack delivery and the incident workflow described here are not operational.
 * Configure and test desktop and mobile notifications specifically for the alert channel.
 * Trigger a synthetic alert after initial setup and after material integration changes; verify both
   firing and resolved messages reach Slack and their PostHog links work.
-* Configure Cloudflare's applicable native notifications separately and test that complementary
-  path.
+* Keep Cloudflare notification policies in Terraform, test their Slack destination independently,
+  and compare configured alert types periodically with Cloudflare's live available-alert list.
+* Keep any future bot or LLM triage path optional; a bot failure must not prevent PostHog or
+  Cloudflare from posting the original notification.
 
 ## When To Revisit
 
