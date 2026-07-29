@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parseSchemaOrgRecipeHtml } from "../../src/lib/schema-org.js";
+import {
+  parseSchemaOrgRecipeHtml,
+  parseSchemaOrgRecipeJson,
+} from "../../src/lib/schema-org.js";
 
 describe("parseSchemaOrgRecipeHtml", () => {
   it("imports a Recipe from a JSON-LD graph into Cooklang source", async () => {
@@ -63,5 +66,58 @@ describe("parseSchemaOrgRecipeHtml", () => {
   it("rejects pages without a complete Recipe", async () => {
     await expect(parseSchemaOrgRecipeHtml(`<script type="application/ld+json">{"@type":"Article"}</script>`)).resolves.toBeNull();
     await expect(parseSchemaOrgRecipeHtml(`<script type="application/ld+json">{"@type":"Recipe","name":"Empty"}</script>`)).resolves.toBeNull();
+  });
+});
+
+describe("parseSchemaOrgRecipeJson", () => {
+  it("imports standalone JSON-LD and preserves its canonical URL", async () => {
+    const source = JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": [
+        { "@type": "WebPage", name: "Dinner" },
+        {
+          "@type": "Recipe",
+          name: "Tomato pasta",
+          url: "https://recipes.example.test/tomato-pasta",
+          description: "A quick dinner.",
+          recipeYield: "2 servings",
+          recipeIngredient: ["200 g pasta", "400 g tomatoes"],
+          recipeInstructions: ["Boil the pasta.", "Add the tomatoes."],
+        },
+      ],
+    });
+
+    await expect(parseSchemaOrgRecipeJson(source)).resolves.toMatchObject({
+      title: "Tomato pasta",
+      servings: 2,
+      url: "https://recipes.example.test/tomato-pasta",
+      source:
+        "@pasta{200%g}\n@tomatoes{400%g}\n\nBoil the pasta.\n\nAdd the tomatoes.",
+    });
+  });
+
+  it("uses the first valid canonical URL from an isBasedOn array", async () => {
+    const source = JSON.stringify({
+      "@type": "Recipe",
+      name: "Tomato pasta",
+      isBasedOn: [
+        "not a URL",
+        { url: "https://recipes.example.test/original-pasta" },
+      ],
+      recipeIngredient: ["200 g pasta"],
+      recipeInstructions: ["Boil the pasta."],
+    });
+
+    await expect(parseSchemaOrgRecipeJson(source)).resolves.toMatchObject({
+      title: "Tomato pasta",
+      url: "https://recipes.example.test/original-pasta",
+    });
+  });
+
+  it("rejects malformed standalone JSON-LD", async () => {
+    await expect(parseSchemaOrgRecipeJson("{")).resolves.toBeNull();
+    await expect(
+      parseSchemaOrgRecipeJson(JSON.stringify({ "@type": "Article" })),
+    ).resolves.toBeNull();
   });
 });

@@ -28,6 +28,7 @@ import {
   LOWERCASE_KEBAB_CASE_PATTERN,
   RECIPE_SLUG_MAX_LENGTH,
 } from "recipe-domain/slugs";
+import { parseRecipeFile } from "recipe-parsing/recipe-file";
 import { parseSchemaOrgRecipeHtml } from "recipe-parsing/schema-org";
 import { createAuth } from "./auth";
 import { verifyCloudflareAccess } from "./cloudflare-access";
@@ -228,6 +229,7 @@ const NOTIFICATION_PAGE_SIZE = 100;
 
 const HOUSEHOLD_INVITE_RATE_LIMIT = { max: 10, windowSeconds: 60 * 60 };
 const RECIPE_URL_IMPORT_RATE_LIMIT = { max: 20, windowSeconds: 60 * 60 };
+const RECIPE_FILE_IMPORT_RATE_LIMIT = { max: 20, windowSeconds: 60 * 60 };
 const RECIPE_PHOTO_IMPORT_RATE_LIMIT = { max: 20, windowSeconds: 60 * 60 };
 
 const createRecipeBodySchema = z.object({
@@ -240,6 +242,27 @@ const createRecipeBodySchema = z.object({
 
 const importRecipeUrlBodySchema = z
   .object({ url: z.string().trim().min(1).max(2_048) })
+  .strict();
+
+const importRecipeFileBodySchema = z
+  .object({
+    filename: z
+      .string()
+      .trim()
+      .min(1)
+      .max(255)
+      .regex(
+        /\.(?:cook|cooklang|json|jsonld)$/i,
+        "Use a .cook, .cooklang, .json, or .jsonld file",
+      ),
+    content: z
+      .string()
+      .min(1)
+      .refine(
+        (value) => new TextEncoder().encode(value).byteLength <= 100_000,
+        "File content must be 100 KB or smaller",
+      ),
+  })
   .strict();
 
 const updateRecipeBodySchema = z
@@ -2701,6 +2724,54 @@ app.post("/recipes/import-url", async (c) => {
         error instanceof RecipeUrlImportError
           ? c.json({ error: error.message }, error.status)
           : undefined,
+    },
+  );
+});
+
+app.post("/recipes/import-file", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "POST /recipes/import-file failed",
+    async ({ db, session }) => {
+      const body = await parseJsonBody(c, importRecipeFileBodySchema);
+      if (!body.success) return body.response;
+
+      const importLimit = await enforceRateLimit(
+        db,
+        `recipe-file-import:${session.user.id}`,
+        RECIPE_FILE_IMPORT_RATE_LIMIT,
+      );
+      if (!importLimit.allowed) {
+        return rateLimitedResponse(c, importLimit.retryAfter);
+      }
+
+      const recipe = await parseRecipeFile(
+        body.data.filename,
+        body.data.content,
+      );
+      if (!recipe) {
+        return c.json(
+          {
+            error:
+              "No complete recipe was found in that file. Cooklang files need ingredients and instructions; schema.org files need a Recipe with a name, ingredients, and instructions.",
+          },
+          422,
+        );
+      }
+      if (recipe.source.length > 10_000) {
+        return c.json(
+          {
+            error:
+              "That recipe is too long to import. The Cooklang draft exceeds 10,000 characters.",
+          },
+          422,
+        );
+      }
+      return c.json(recipe);
     },
   );
 });

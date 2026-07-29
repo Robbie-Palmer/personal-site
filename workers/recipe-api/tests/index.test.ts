@@ -2099,6 +2099,203 @@ describe("POST /recipes/import-url", () => {
   });
 });
 
+describe("POST /recipes/import-file", () => {
+  it("requires authentication before parsing the file", async () => {
+    const res = await app.request(
+      "/recipes/import-file",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          filename: "pasta.cook",
+          content: "@pasta{200%g}\n\nBoil the pasta.",
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(401);
+  });
+
+  it("returns an editable draft from a local Cooklang file", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+    const content = `---
+title: "Tomato pasta"
+description: "A quick dinner."
+cuisine: ["Italian"]
+servings: 2
+prepTime: 5
+cookTime: 20
+---
+@pasta{200%g}
+@tomatoes{400%g}
+
+Boil the pasta, then add the tomatoes.`;
+
+    const res = await app.request(
+      "/recipes/import-file",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ filename: "pasta.cook", content }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      title: "Tomato pasta",
+      description: "A quick dinner.",
+      cuisine: "Italian",
+      servings: 2,
+      prepTime: 5,
+      cookTime: 20,
+      source:
+        "@pasta{200%g}\n@tomatoes{400%g}\n\nBoil the pasta, then add the tomatoes.",
+    });
+  });
+
+  it("validates the supported file extensions", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/recipes/import-file",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          filename: "pasta.txt",
+          content: "@pasta{200%g}\n\nBoil the pasta.",
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      error: "Invalid request body",
+      details: [
+        expect.objectContaining({
+          path: ["filename"],
+          message: "Use a .cook, .cooklang, .json, or .jsonld file",
+        }),
+      ],
+    });
+  });
+
+  it("reports files without a complete recipe", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/recipes/import-file",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          filename: "article.json",
+          content: JSON.stringify({ "@type": "Article" }),
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(422);
+    expect(await res.json()).toEqual({
+      error:
+        "No complete recipe was found in that file. Cooklang files need ingredients and instructions; schema.org files need a Recipe with a name, ingredients, and instructions.",
+    });
+  });
+
+  it("reports imported drafts longer than 10,000 characters", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/recipes/import-file",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          filename: "long-recipe.cook",
+          content: `@rice{1%cup}\n\n${"Cook the rice. ".repeat(800)}`,
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(422);
+    expect(await res.json()).toEqual({
+      error:
+        "That recipe is too long to import. The Cooklang draft exceeds 10,000 characters.",
+    });
+  });
+
+  it("rejects file content larger than 100 KB when encoded", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/recipes/import-file",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({
+          filename: "pasta.cook",
+          content: "é".repeat(50_001),
+        }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      error: "Invalid request body",
+      details: [
+        expect.objectContaining({
+          path: ["content"],
+          message: "File content must be 100 KB or smaller",
+        }),
+      ],
+    });
+  });
+});
+
 describe("profile diet preferences", () => {
   it("requires authentication before returning a diet profile", async () => {
     const res = await app.request("/api/profile/diet", {}, env);
