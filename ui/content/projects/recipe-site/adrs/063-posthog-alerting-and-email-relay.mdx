@@ -1,0 +1,273 @@
+---
+title: "ADR 063: PostHog Alerting and Lightweight Incident Management"
+date: "2026-07-29"
+status: "Accepted"
+tech_stack: ["PostHog", "Cloudflare Workers"]
+---
+
+## Summary
+
+Use PostHog log alerts as the recipe system's operational detection, alert-state, and investigation
+layer. Deliver those alerts to the project owner's existing personal inbox through a small,
+dedicated Cloudflare Worker.
+
+Together, PostHog and the relay form an intentionally lightweight incident workflow for a solo
+founder:
+
+* application logs and traces provide the signals;
+* Terraform-managed PostHog alerts detect abnormal error conditions;
+* PostHog maintains firing, resolved, evaluation-error, and auto-disabled states;
+* the Worker translates PostHog webhook events into email;
+* the email links back to PostHog for investigation.
+
+This is not a claim that PostHog is a complete incident-management platform. The current system has
+no on-call schedule, acknowledgement, escalation, SMS or voice paging, incident collaboration,
+status page, or independently hosted uptime check. Those capabilities are unnecessary at the
+current team size and incident volume, but the decision defines when a dedicated error-tracking,
+observability, uptime, or incident-management product becomes justified.
+
+## Context
+
+[ADR 047](/projects/recipe-site/adrs/047-posthog-logs) and
+[ADR 062](/projects/recipe-site/adrs/062-direct-otlp-export-to-posthog) place operational logs and
+traces in PostHog so failures can be correlated with users, replays, and product outcomes. That
+telemetry is useful for retrospective diagnosis, but without active detection it still requires the
+project owner to notice a problem and open PostHog manually.
+
+The recipe system now has three production log alerts:
+
+| Alert                       | Signal                                       | Evaluation     | Purpose                                                                 |
+| --------------------------- | -------------------------------------------- | -------------- | ----------------------------------------------------------------------- |
+| Recipe API sustained errors | More than 5 error or fatal logs in 5 minutes | 2 of 3 periods | Detect sustained API degradation without paging on one isolated failure |
+| Recipe ingestion errors     | More than 0 error or fatal logs in 5 minutes | 1 of 1 period  | Detect any failed background ingestion attempt                          |
+| Recipe Pages errors         | More than 0 error or fatal logs in 5 minutes | 1 of 1 period  | Detect failures in the comparatively quiet Pages runtime                |
+
+Each alert has a 30-minute cooldown. The thresholds were simulated against the preceding seven days
+of production data before adoption: the API and ingestion alerts each produced one representative
+fire, while the Pages alert produced none. Application failures recorded on traces also emit
+correlated error logs, so these alerts cover the operational failures visible in both Logs and
+Traces without maintaining duplicate trace-alert definitions.
+
+Terraform owns the alert filters, thresholds, periods, cooldowns, and enabled state. PostHog's
+official Terraform provider does not yet expose the newer Logs Alert API, so the definitions use a
+generic REST provider with validation and deletion protection. PostHog owns evaluation scheduling,
+state transitions, history, and investigation links.
+
+This provides several parts of an incident-management loop, but not all of them:
+
+| Capability                                       | Current owner                                             | Coverage                    |
+| ------------------------------------------------ | --------------------------------------------------------- | --------------------------- |
+| Signal capture                                   | PostHog Logs and Traces, with Cloudflare logs as fallback | Implemented                 |
+| Detection and thresholds                         | Terraform-managed PostHog log alerts                      | Implemented                 |
+| Alert state and history                          | PostHog                                                   | Implemented                 |
+| Notification transport                           | PostHog webhook → Cloudflare Worker → email               | Adopted by this ADR         |
+| Investigation                                    | PostHog filtered logs, traces, users, and session replays | Implemented                 |
+| Cloudflare platform incidents                    | Cloudflare native email notifications                     | Separate complementary path |
+| Independent availability monitoring              | None                                                      | Deferred                    |
+| Acknowledgement and ownership                    | One owner reading email                                   | Informal                    |
+| Escalation, schedules, SMS, and voice            | None                                                      | Deferred                    |
+| Incident coordination, timeline, and status page | None                                                      | Deferred                    |
+
+PostHog log alerts currently support Slack, Microsoft Teams, and generic webhook destinations. They
+do not provide an email destination. Their
+[alert destination implementation](https://github.com/PostHog/posthog/blob/8335cbd86f934b36e96109268e1ca372fa2cb7f7/products/logs/backend/alert_destinations.py)
+emits structured events for firing, resolved, evaluation-error, and automatic-disable states.
+Creating a Slack or Teams workspace solely for one person's operational alerts would add an
+otherwise unused collaboration product. WhatsApp delivery would add a business messaging account,
+credentials, templates, policy constraints, and another paid or metered integration.
+
+The project already runs Cloudflare Workers and uses Cloudflare Email Routing for its domain.
+[Cloudflare Email Routing](https://developers.cloudflare.com/email-service/configuration/email-routing-addresses/)
+forwards domain addresses to verified destination inboxes; it does not create a mailbox. Cloudflare
+also permits Workers to send directly to those verified destination addresses, including on the
+free plan when only Email Routing is configured. A
+[send binding](https://developers.cloudflare.com/email-service/configuration/send-bindings/) can be
+restricted to one destination address and, where supported by the binding configuration, an
+allowlist of sender addresses.
+
+A short Worker therefore fills the one missing transport capability without replacing PostHog's
+alert evaluation or adopting another operational platform.
+
+## Decision
+
+### Detection and Alert State
+
+Keep the three production alert definitions in Terraform and treat PostHog as the source of truth
+for operational alert state.
+
+* Alert on error and fatal logs for `recipe-api`, `recipe-ingest`, and `recipe-pages`.
+* Preserve the different sensitivity of interactive API, background ingestion, and quiet Pages
+  workloads rather than applying one global threshold.
+* Simulate material threshold changes against at least seven days of production history.
+* Aim for actionable, low-noise alerts; a recurring non-incident notification is a threshold or
+  signal-quality problem, not something to tolerate indefinitely.
+* Link notifications to the filtered PostHog logs and alert detail so email remains a prompt to
+  investigate, not a second diagnostic interface.
+* Keep alert definitions in code. Do not make threshold changes only in the PostHog UI because
+  Terraform will treat them as drift.
+
+### Email Delivery
+
+Add a dedicated `posthog-alert-relay` Cloudflare Worker with the following responsibilities:
+
+* accept HTTPS `POST` requests at a dedicated hostname and secret path;
+* compare the path credential with a Worker secret and treat the full webhook URL as a credential;
+* reject unexpected methods, content types, oversized bodies, unknown event types, and malformed
+  payloads;
+* accept the PostHog log-alert event types for firing, resolved, evaluation error, and automatic
+  disablement;
+* translate the event into a concise plain-text email containing the alert name, state, threshold
+  result, affected services, and PostHog investigation links when present;
+* send from a domain address such as `posthog-alerts@robbiepalmer.me` to one fixed, verified personal
+  destination inbox through a restricted Cloudflare email binding;
+* return success only after Cloudflare accepts the email, so an immediate delivery failure is not
+  acknowledged as successful;
+* emit minimal structured operational logs without logging the secret URL or full email payload.
+
+Deploy the relay independently from `recipe-api`, `recipe-ingest`, and the Pages application. An
+application deployment or application-level failure must not remove the alert-delivery endpoint.
+The relay may share the Cloudflare account and repository tooling, but it must not depend on the
+recipe database, Hyperdrive, application authentication, or the monitored Workers.
+
+Attach the relay URL to each managed log alert as a generic webhook destination in the PostHog UI.
+Keep this attachment manual while PostHog models alert destinations as internal Hog functions
+without a stable Terraform resource. Keep the Worker code, hostname, email binding, and non-secret
+infrastructure in version control; keep the webhook credential in Doppler and Worker secrets.
+
+### Incident Workflow
+
+When an email arrives, the current response process is:
+
+1. open the PostHog alert or filtered-log link;
+2. identify the affected service, route, trace, and user impact;
+3. mitigate or deploy a fix through the normal repository workflow;
+4. confirm that PostHog transitions the alert to resolved;
+5. adjust the alert only when the event was noisy or failed to represent a real incident.
+
+Email receipt is the informal acknowledgement mechanism while there is one owner. The system does
+not claim delivery, acknowledgement, or resolution service-level objectives.
+
+## Deliberate Implementation Boundary
+
+PostHog is the alerting component; the relay is only an adapter. The current system must not grow
+custom versions of capabilities already supplied by dedicated platforms. Its initial implementation
+must not include:
+
+* durable storage or a delivery-history database;
+* a Cloudflare Queue, Durable Object, or custom retry scheduler;
+* acknowledgement, escalation, rota, or paging policies;
+* configurable recipients or arbitrary outbound email;
+* HTML templating or a notification-preference UI;
+* polling PostHog for alert state;
+* routing application notifications through the operational relay.
+
+PostHog already owns alert state, cooldowns, evaluation history, and event generation. Cloudflare
+Email Service owns mail delivery. Reimplementing either responsibility would increase failure modes
+without improving the current solo-founder workflow.
+
+## Failure Independence
+
+Separating the relay from the monitored application protects against recipe-code failures,
+deployment failures, database outages, and failures isolated to one Worker. It does not protect
+against a Cloudflare account-wide or platform-wide outage because the monitored compute, relay, and
+email sender share a provider.
+
+Use two complementary paths:
+
+* **Application and workflow failures:** PostHog alert → relay Worker → personal inbox.
+* **Cloudflare-originated incidents:** Cloudflare's native
+  [email notifications](https://developers.cloudflare.com/notifications/) → personal inbox.
+
+Cloudflare Notifications cannot receive arbitrary PostHog alerts; it is a separate source of
+Cloudflare account and platform signals. If the site later needs independently verified uptime,
+add one simple external monitor hosted outside Cloudflare. Do not introduce one solely to remove a
+theoretical dependency before availability has meaningful business impact.
+
+## Alternatives and More Advanced Platforms
+
+The alternatives are not interchangeable. Each category solves a different part of the operational
+loop that the current PostHog-centred system only partially covers.
+
+| Option                                                                                  | What it would improve                                                                                                                                   | Costs and gaps at the current scale                                                                                                                                        | Decision                                                                          |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| **PostHog alerts plus dedicated Cloudflare email relay**                                | Keeps detection beside logs, traces, users, replays, and product impact; minimal new code; fixed email recipient; alert definitions remain in Terraform | PostHog is less mature than dedicated operations tools; manual destination attachment; email is not paging; Cloudflare-wide correlated failure                             | **Adopt now**                                                                     |
+| **Cloudflare observability and notifications only**                                     | Lowest integration effort; strong platform-native request and infrastructure context; direct Cloudflare email notifications                             | Application signals remain separated from PostHog users and product impact; Cloudflare Notifications cannot evaluate arbitrary PostHog telemetry; same-provider blind spot | Keep as fallback and complementary platform signal                                |
+| **Dedicated error tracking such as Sentry or Bugsnag**                                  | Exception grouping, stack-trace triage, release health, regressions, ownership, and issue workflows                                                     | Another SDK or export path, data store, alert configuration, billing surface, and investigation UI; weaker native connection to PostHog product context                    | Reconsider when exception triage outgrows log alerts                              |
+| **Dedicated observability such as Grafana Cloud, Honeycomb, Datadog, or Better Stack**  | Mature metrics, logs, traces, dashboards, SLOs, query languages, alert correlation, retention, and integrations                                         | New vendor and credentials; duplicated telemetry and cost; product and user context may split across systems; more configuration to keep aligned                           | Reconsider when service reliability requires SLOs or deeper multi-signal analysis |
+| **Independent uptime monitoring such as Checkly, Better Uptime, or UptimeRobot**        | External availability checks outside Cloudflare; detects total site or provider failure even when telemetry cannot be exported                          | Detects symptoms rather than application causes; another service and notification policy; does not replace PostHog investigation                                           | Add when availability has meaningful user or revenue impact                       |
+| **On-call and incident management such as PagerDuty, incident.io, Rootly, or Opsgenie** | Durable routing, acknowledgement, escalation, schedules, SMS or voice paging, incident timelines, collaboration, audit history, and status workflows    | Designed for teams and rotations; cost and setup are disproportionate for one owner; still needs PostHog or another monitoring source                                      | Reconsider with a second responder or formal response objectives                  |
+| **Create a solo Slack or Teams workspace**                                              | Native PostHog destination with no relay                                                                                                                | Adds an otherwise unused collaboration product, client, and notification surface without adding real incident-management capability                                        | Reject at current team size                                                       |
+| **WhatsApp through Meta or Twilio**                                                     | High-visibility phone notifications                                                                                                                     | Adds provider onboarding, business messaging configuration, credentials, templates, policy constraints, and possible usage cost; still not acknowledgement or escalation   | Defer                                                                             |
+| **Telegram, Discord, or a hosted automation relay**                                     | Lightweight push delivery or low-code webhook transformation                                                                                            | Introduces another account and notification surface; payload transformation is still required; delivery alone does not add incident state                                  | Reconsider if email is routinely missed                                           |
+| **Build a custom incident platform**                                                    | Exact fit and full control                                                                                                                              | Recreates alert history, retries, acknowledgement, escalation, schedules, and UI; largest reliability and maintenance burden                                               | Reject                                                                            |
+
+Moving to a dedicated platform would be beneficial when it replaces real manual work or closes a
+measured reliability gap. Adopting one merely because the current chain looks unconventional would
+split operational context and add configuration without improving incident outcomes.
+
+## Consequences
+
+### Positive
+
+* The system actively detects production failures instead of relying on dashboard inspection.
+* Alert thresholds and filters are reviewable, reproducible, and protected from accidental deletion.
+* The project owner receives actionable alerts in an inbox already checked regularly.
+* PostHog remains the single alert-evaluation and investigation surface.
+* The project avoids creating an artificial team collaboration workspace.
+* The relay is isolated from recipe application code and data dependencies.
+* The fixed-recipient binding and secret endpoint keep the attack surface narrow.
+* The design can later fan out to Telegram or an incident platform without changing alert
+  definitions.
+
+### Negative
+
+* Log-count thresholds cannot perform every form of anomaly detection, uptime check, metric alert,
+  or exception grouping supplied by mature dedicated products.
+* The workflow has no durable acknowledgement, escalation, or formal incident record.
+* A small Worker and deployment pipeline must be maintained.
+* PostHog webhook destination attachment remains a manual configuration step.
+* The secret is embedded in the webhook URL because the PostHog destination does not expose custom
+  authentication headers; URL disclosure therefore requires rotation.
+* Email is not paging: delivery can be delayed, filtered, or missed among other messages.
+* A Cloudflare-wide failure can impair both the application and relay.
+* Without initial durable queuing, transient delivery failures rely on the sender's delivery
+  behaviour rather than a project-owned retry ledger.
+
+## Guardrails and Verification
+
+* Simulate new and materially changed alerts against recent production history before enabling them.
+* Review firing frequency and investigate repeated false positives rather than muting them
+  indefinitely.
+* Periodically verify that each managed alert is enabled and has the email destination attached.
+* Restrict the email binding to the single verified personal destination address.
+* Generate a high-entropy webhook credential, store it in Doppler, and never print it in logs,
+  Terraform plans, test snapshots, or error responses.
+* Cap request-body size before parsing and construct email content only from an explicit schema.
+* Escape or render alert fields as plain text; never forward arbitrary HTML.
+* Test authentication failures, malformed payloads, each supported event state, and email-binding
+  failures.
+* Verify a test alert reaches the inbox and contains working links to the PostHog alert and filtered
+  logs.
+* Configure Cloudflare's own applicable notifications directly to email and test that path
+  independently.
+* Monitor relay failures through Cloudflare Workers Logs, but do not recursively send relay errors
+  through the same relay.
+
+## When To Revisit
+
+Reconsider the delivery design when any of these becomes true:
+
+* email alerts are routinely missed or delayed;
+* PostHog alert evaluation, history, or investigation is insufficient for recurring incidents;
+* exception grouping and regression detection require dedicated error tracking;
+* service-level objectives require metrics, burn-rate alerts, or independent availability checks;
+* transient webhook or email failures cause material blind spots;
+* another person joins the operational rota;
+* acknowledgement, escalation, schedules, SMS, voice calls, or incident timelines become necessary;
+* the number of services, alert destinations, or notification policies makes fixed routing
+  unmanageable;
+* a Cloudflare-wide outage or correlated-failure risk becomes commercially material;
+* PostHog adds a reliable native email destination;
+* PostHog exposes stable destination resources that Terraform can safely reconcile;
+* the project adopts a messenger or incident-management service for other reasons, making a native
+  destination lower maintenance than the relay.
