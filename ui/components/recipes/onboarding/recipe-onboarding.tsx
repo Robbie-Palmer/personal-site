@@ -18,6 +18,10 @@ import { AuthButton } from "@/components/recipes/auth-button";
 import { RecipeThumb, recipeMetaLabel } from "@/components/recipes/recipe-card";
 import { Button } from "@/components/ui/button";
 import {
+  captureRecipeEvent,
+  captureRecipeProductActivity,
+} from "@/lib/analytics/recipe-product";
+import {
   type DietOptions,
   type DietPresetOption,
   type DietProfile,
@@ -282,6 +286,7 @@ export function RecipeOnboarding() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const [onboardingStarted, setOnboardingStarted] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -326,6 +331,7 @@ export function RecipeOnboarding() {
           ),
         );
         setAuthoredRecipeSlugs(authoredDuringOnboarding);
+        if (!box.completed) setOnboardingStarted(true);
       })
       .catch((error_: unknown) => {
         if (!(error_ instanceof DOMException && error_.name === "AbortError")) {
@@ -343,6 +349,11 @@ export function RecipeOnboarding() {
       .finally(() => setLoading(false));
     return () => controller.abort();
   }, [loadAttempt, userId]);
+
+  useEffect(() => {
+    if (!onboardingStarted) return;
+    captureRecipeEvent("recipe_onboarding_started");
+  }, [onboardingStarted]);
 
   const effectiveDiet = useMemo(
     () => buildEffectiveDiet(diet, dietOptions),
@@ -414,6 +425,14 @@ export function RecipeOnboarding() {
     setError(null);
     try {
       await recipeBoxMutation.mutateAsync(compatibleSelectedSlugs);
+      captureRecipeEvent("recipe_onboarding_completed", {
+        authored_recipe_count: authoredRecipeSlugs.length,
+        recipe_box_size: boxCount,
+        selected_recipe_count: compatibleSelectedSlugs.length,
+      });
+      captureRecipeProductActivity("onboarding_completed", {
+        recipe_box_size: boxCount,
+      });
       setStep(3);
     } catch (error_) {
       setError(

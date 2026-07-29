@@ -10,6 +10,7 @@
  * server component (the site is a static export, so state lives in the browser).
  */
 
+import { captureRecipeProductActivity } from "@/lib/analytics/recipe-product";
 import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
 import {
   isKitchenLocation,
@@ -116,6 +117,11 @@ export function setStockLocation(
 ): void {
   if (state[slug] === location) return;
   setState({ ...state, [slug]: location });
+  captureRecipeProductActivity("kitchen_ingredient_added", {
+    ingredient_slug: slug,
+    kitchen_location: location,
+    stocked_ingredient_count: Object.keys(state).length,
+  });
 }
 
 export function removeFromStock(slug: IngredientSlug): void {

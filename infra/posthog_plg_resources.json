@@ -1,0 +1,464 @@
+{
+  "dashboards": {
+    "recipe_product_growth": {
+      "description": "Product-led growth for the recipe app: onboarding activation, time-to-value, meaningful active users, retention, and usage depth. Production traffic only.",
+      "name": "Recipe product growth",
+      "pinned": true,
+      "tags": [
+        "plg",
+        "recipes"
+      ]
+    }
+  },
+  "insights": {
+    "recipe_activation_rate": {
+      "dashboard_keys": [
+        "recipe_product_growth"
+      ],
+      "description": "Share of authenticated users who complete recipe-box onboarding within 7 days of starting it. This is the initial activation hypothesis.",
+      "name": "Activation rate · onboarding completed",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-90d"
+          },
+          "filterTestAccounts": true,
+          "funnelsFilter": {
+            "funnelOrderType": "ordered",
+            "funnelStepReference": "total",
+            "funnelVizType": "steps",
+            "funnelWindowInterval": 7,
+            "funnelWindowIntervalUnit": "day",
+            "layout": "horizontal"
+          },
+          "kind": "FunnelsQuery",
+          "properties": [
+            {
+              "key": "environment",
+              "operator": "exact",
+              "type": "event",
+              "value": "production"
+            }
+          ],
+          "series": [
+            {
+              "custom_name": "Onboarding started",
+              "event": "recipe_onboarding_started",
+              "kind": "EventsNode"
+            },
+            {
+              "custom_name": "Recipe box activated",
+              "event": "recipe_onboarding_completed",
+              "kind": "EventsNode"
+            }
+          ]
+        }
+      },
+      "tags": [
+        "activation",
+        "plg",
+        "recipes"
+      ]
+    },
+    "recipe_time_to_value": {
+      "dashboard_keys": [
+        "recipe_product_growth"
+      ],
+      "description": "Median elapsed time from starting onboarding to completing a usable recipe box, within a 7-day conversion window.",
+      "name": "Time-to-value · onboarding to recipe box",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-90d"
+          },
+          "filterTestAccounts": true,
+          "funnelsFilter": {
+            "funnelOrderType": "ordered",
+            "funnelStepReference": "total",
+            "funnelVizType": "time_to_convert",
+            "funnelWindowInterval": 7,
+            "funnelWindowIntervalUnit": "day",
+            "layout": "horizontal"
+          },
+          "kind": "FunnelsQuery",
+          "properties": [
+            {
+              "key": "environment",
+              "operator": "exact",
+              "type": "event",
+              "value": "production"
+            }
+          ],
+          "series": [
+            {
+              "custom_name": "Onboarding started",
+              "event": "recipe_onboarding_started",
+              "kind": "EventsNode"
+            },
+            {
+              "custom_name": "First value",
+              "event": "recipe_onboarding_completed",
+              "kind": "EventsNode"
+            }
+          ]
+        }
+      },
+      "tags": [
+        "activation",
+        "plg",
+        "recipes"
+      ]
+    },
+    "recipe_daily_active_users": {
+      "dashboard_keys": [
+        "recipe_product_growth"
+      ],
+      "description": "Daily unique users performing a meaningful recipe action; excludes pageviews with no product interaction.",
+      "name": "Recipe DAU · meaningful use",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-90d"
+          },
+          "filterTestAccounts": true,
+          "interval": "day",
+          "kind": "TrendsQuery",
+          "properties": [
+            {
+              "key": "environment",
+              "operator": "exact",
+              "type": "event",
+              "value": "production"
+            }
+          ],
+          "series": [
+            {
+              "custom_name": "DAU",
+              "event": "recipe_product_used",
+              "kind": "EventsNode",
+              "math": "dau"
+            }
+          ],
+          "trendsFilter": {
+            "display": "ActionsLineGraph",
+            "showLegend": false,
+            "showValuesOnSeries": true
+          }
+        }
+      },
+      "tags": [
+        "engagement",
+        "plg",
+        "recipes"
+      ]
+    },
+    "recipe_weekly_active_users": {
+      "dashboard_keys": [
+        "recipe_product_growth"
+      ],
+      "description": "Weekly unique users performing a meaningful recipe action.",
+      "name": "Recipe WAU · meaningful use",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-180d"
+          },
+          "filterTestAccounts": true,
+          "interval": "week",
+          "kind": "TrendsQuery",
+          "properties": [
+            {
+              "key": "environment",
+              "operator": "exact",
+              "type": "event",
+              "value": "production"
+            }
+          ],
+          "series": [
+            {
+              "custom_name": "WAU",
+              "event": "recipe_product_used",
+              "kind": "EventsNode",
+              "math": "dau"
+            }
+          ],
+          "trendsFilter": {
+            "display": "ActionsLineGraph",
+            "showLegend": false,
+            "showValuesOnSeries": true
+          }
+        }
+      },
+      "tags": [
+        "engagement",
+        "plg",
+        "recipes"
+      ]
+    },
+    "recipe_monthly_active_users": {
+      "dashboard_keys": [
+        "recipe_product_growth"
+      ],
+      "description": "Monthly unique users performing a meaningful recipe action.",
+      "name": "Recipe MAU · meaningful use",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-365d"
+          },
+          "filterTestAccounts": true,
+          "interval": "month",
+          "kind": "TrendsQuery",
+          "properties": [
+            {
+              "key": "environment",
+              "operator": "exact",
+              "type": "event",
+              "value": "production"
+            }
+          ],
+          "series": [
+            {
+              "custom_name": "MAU",
+              "event": "recipe_product_used",
+              "kind": "EventsNode",
+              "math": "dau"
+            }
+          ],
+          "trendsFilter": {
+            "display": "ActionsLineGraph",
+            "showLegend": false,
+            "showValuesOnSeries": true
+          }
+        }
+      },
+      "tags": [
+        "engagement",
+        "plg",
+        "recipes"
+      ]
+    },
+    "recipe_activated_user_retention": {
+      "dashboard_keys": [
+        "recipe_product_growth"
+      ],
+      "description": "Weekly retention after activation: users complete onboarding, then return for any meaningful recipe activity.",
+      "name": "Activated user retention · weekly",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-90d"
+          },
+          "filterTestAccounts": true,
+          "kind": "RetentionQuery",
+          "properties": [
+            {
+              "key": "environment",
+              "operator": "exact",
+              "type": "event",
+              "value": "production"
+            }
+          ],
+          "retentionFilter": {
+            "period": "Week",
+            "retentionType": "retention_first_time",
+            "returningEntity": {
+              "id": "recipe_product_used",
+              "type": "events"
+            },
+            "targetEntity": {
+              "id": "recipe_onboarding_completed",
+              "type": "events"
+            },
+            "totalIntervals": 12
+          }
+        }
+      },
+      "tags": [
+        "plg",
+        "recipes",
+        "retention"
+      ]
+    },
+    "recipe_usage_frequency": {
+      "dashboard_keys": [
+        "recipe_product_growth"
+      ],
+      "description": "Distribution of the number of active days per user in the last 30 days, based on meaningful recipe actions.",
+      "name": "Recipe usage frequency · active days",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-30d"
+          },
+          "filterTestAccounts": true,
+          "kind": "StickinessQuery",
+          "properties": [
+            {
+              "key": "environment",
+              "operator": "exact",
+              "type": "event",
+              "value": "production"
+            }
+          ],
+          "series": [
+            {
+              "event": "recipe_product_used",
+              "kind": "EventsNode",
+              "math": "dau",
+              "name": "Meaningful recipe use"
+            }
+          ],
+          "stickinessFilter": {
+            "computedAs": "non_cumulative"
+          }
+        }
+      },
+      "tags": [
+        "depth",
+        "engagement",
+        "plg",
+        "recipes"
+      ]
+    },
+    "recipe_feature_adoption": {
+      "dashboard_keys": [
+        "recipe_product_growth"
+      ],
+      "description": "Meaningful product actions by feature, showing which parts of the recipe workflow users adopt.",
+      "name": "Feature adoption · meaningful actions",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "breakdownFilter": {
+            "breakdown": "activity",
+            "breakdown_type": "event"
+          },
+          "dateRange": {
+            "date_from": "-30d"
+          },
+          "filterTestAccounts": true,
+          "kind": "TrendsQuery",
+          "properties": [
+            {
+              "key": "environment",
+              "operator": "exact",
+              "type": "event",
+              "value": "production"
+            }
+          ],
+          "series": [
+            {
+              "custom_name": "Product actions",
+              "event": "recipe_product_used",
+              "kind": "EventsNode"
+            }
+          ],
+          "trendsFilter": {
+            "display": "ActionsBar",
+            "showValuesOnSeries": true
+          }
+        }
+      },
+      "tags": [
+        "depth",
+        "plg",
+        "recipes"
+      ]
+    },
+    "recipe_actions_per_active_user": {
+      "dashboard_keys": [
+        "recipe_product_growth"
+      ],
+      "description": "Average meaningful recipe actions per active user, a simple intensity measure to complement feature breadth.",
+      "name": "Usage depth · actions per active user",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-90d"
+          },
+          "filterTestAccounts": true,
+          "interval": "week",
+          "kind": "TrendsQuery",
+          "properties": [
+            {
+              "key": "environment",
+              "operator": "exact",
+              "type": "event",
+              "value": "production"
+            }
+          ],
+          "series": [
+            {
+              "custom_name": "Actions / active user",
+              "event": "recipe_product_used",
+              "kind": "EventsNode",
+              "math": "avg_count_per_actor"
+            }
+          ],
+          "trendsFilter": {
+            "display": "ActionsLineGraph",
+            "showLegend": false,
+            "showValuesOnSeries": true
+          }
+        }
+      },
+      "tags": [
+        "depth",
+        "engagement",
+        "plg",
+        "recipes"
+      ]
+    },
+    "recipe_growth_accounting": {
+      "dashboard_keys": [
+        "recipe_product_growth"
+      ],
+      "description": "Weekly new, returning, resurrecting, and dormant users based on meaningful recipe activity.",
+      "name": "Recipe growth accounting · weekly",
+      "query": {
+        "kind": "InsightVizNode",
+        "source": {
+          "dateRange": {
+            "date_from": "-90d"
+          },
+          "filterTestAccounts": true,
+          "interval": "week",
+          "kind": "LifecycleQuery",
+          "lifecycleFilter": {
+            "showLegend": true
+          },
+          "properties": [
+            {
+              "key": "environment",
+              "operator": "exact",
+              "type": "event",
+              "value": "production"
+            }
+          ],
+          "series": [
+            {
+              "event": "recipe_product_used",
+              "kind": "EventsNode",
+              "name": "Meaningful recipe use"
+            }
+          ]
+        }
+      },
+      "tags": [
+        "growth",
+        "plg",
+        "recipes",
+        "retention"
+      ]
+    }
+  }
+}

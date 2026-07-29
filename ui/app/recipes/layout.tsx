@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AuthButton } from "@/components/recipes/auth-button";
 import { DietProvider } from "@/components/recipes/diet-provider";
 import { NotificationBell } from "@/components/recipes/notifications/notification-bell";
+import { RecipeAnalyticsIdentity } from "@/components/recipes/recipe-analytics-identity";
 import { RecipeNavigationProvider } from "@/components/recipes/recipe-page-link";
 import { RecipeQueryProvider } from "@/components/recipes/recipe-query-provider";
 import { RecipeSiteNav } from "@/components/recipes/recipe-site-nav";
@@ -52,6 +53,7 @@ export default function RecipesLayout({
 
   return (
     <RecipeQueryProvider>
+      <RecipeAnalyticsIdentity />
       <RecipeNavigationProvider>
         <CookModeProvider>
           {/* Mirror the theme + fonts onto <body> so portaled UI (mobile filter

@@ -152,6 +152,26 @@ PostHog dashboards and insights are managed in Terraform via the official
 `posthog_resources.json`, with `posthog.tf` converting that data into
 Terraform-managed dashboard and insight resources.
 
+Recipe product-growth resources live separately in
+`posthog_plg_resources.json` and are merged into the same Terraform resources.
+The `Recipe product growth` dashboard uses these definitions:
+
+- **Activation:** an authenticated user completes recipe-box onboarding within
+  seven days of starting it.
+- **Time-to-value:** elapsed time from onboarding start to a completed,
+  usable recipe box.
+- **Active user:** a person performs `recipe_product_used`, emitted for recipe
+  viewing, cook mode, meal planning, shopping, kitchen stock, timers, or
+  onboarding completion. DAU/WAU/MAU therefore exclude passive site pageviews.
+- **Retention:** an activated user returns in a later week and performs any
+  meaningful recipe action.
+- **Usage depth:** actions per active user, feature mix, and active-day
+  stickiness. The controlled `activity` property is the feature dimension.
+
+Every recipe analytics event has `app_area=recipes` and an `environment`
+property. Managed PLG insights filter to `environment=production`, keeping
+local development and preview QA out of product metrics.
+
 Production log-alert definitions are managed in `posthog_alerts.tf`. PostHog's
 official provider currently supports insight alerts but not the separate Logs
 Alert API, so these use the `Mastercard/restapi` provider until first-class

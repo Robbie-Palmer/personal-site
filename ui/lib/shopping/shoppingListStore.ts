@@ -10,6 +10,8 @@
  * export, so the list lives entirely in the browser for this first pass.
  */
 
+import { captureRecipeProductActivity } from "@/lib/analytics/recipe-product";
+
 export type SelectedRecipeEntry = {
   slug: string;
   /** Chosen servings; when absent the recipe's own servings are used. */
@@ -239,6 +241,10 @@ export function isRecipeSelected(slug: string): boolean {
 export function addRecipe(slug: string): void {
   if (isRecipeSelected(slug)) return;
   setState({ ...state, recipes: [...state.recipes, { slug }] });
+  captureRecipeProductActivity("shopping_recipe_added", {
+    recipe_slug: slug,
+    shopping_recipe_count: state.recipes.length,
+  });
 }
 
 export function removeRecipe(slug: string): void {
@@ -281,6 +287,14 @@ export function setPlannedMeal(
     recipes,
     plan: slug ? [...plan, { day, slot, slug }] : plan,
   });
+  if (slug) {
+    captureRecipeProductActivity("meal_planned", {
+      meal_day: day,
+      meal_slot: slot,
+      planned_meal_count: state.plan.length,
+      recipe_slug: slug,
+    });
+  }
 }
 
 export function clearMealPlan(): void {
@@ -289,10 +303,16 @@ export function clearMealPlan(): void {
 }
 
 export function toggleChecked(key: string): void {
-  const checked = state.checked.includes(key)
+  const wasChecked = state.checked.includes(key);
+  const checked = wasChecked
     ? state.checked.filter((k) => k !== key)
     : [...state.checked, key];
   setState({ ...state, checked });
+  if (!wasChecked) {
+    captureRecipeProductActivity("shopping_item_checked", {
+      checked_item_count: state.checked.length,
+    });
+  }
 }
 
 export function clearChecked(): void {

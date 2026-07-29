@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/popover";
 import { useScaledRecipe } from "@/hooks/use-scaled-recipe";
 import { useUnitPreference } from "@/hooks/use-unit-preference";
+import { captureRecipeProductActivity } from "@/lib/analytics/recipe-product";
 import {
   buildIngredientAnnotationMap,
   formatIngredient,
@@ -243,6 +244,12 @@ export function RecipeContent({
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(
     () => new Set(),
   );
+  useEffect(() => {
+    captureRecipeProductActivity("recipe_viewed", {
+      recipe_slug: recipe.slug,
+      recipe_source: recipe.canonical ? "imported" : "native",
+    });
+  }, [recipe.canonical, recipe.slug]);
 
   const toggleIngredient = useCallback((ingredient: string) => {
     setCheckedIngredients((prev) => {
@@ -341,11 +348,15 @@ export function RecipeContent({
   }, []);
 
   const openCookMode = useCallback(() => {
+    captureRecipeProductActivity("cook_mode_started", {
+      recipe_slug: recipe.slug,
+      step_count: cookSteps.length,
+    });
     globalThis.history.pushState(null, "", buildCookUrl(true, 0));
     pushedCookEntryRef.current = true;
     setCookStep(0);
     setCookOpen(true);
-  }, []);
+  }, [cookSteps.length, recipe.slug]);
 
   const exitCookMode = useCallback(() => {
     if (pushedCookEntryRef.current) {

@@ -5,7 +5,16 @@
 # dashboards and insights instead of creating starter examples.
 
 locals {
-  posthog_resources  = jsondecode(file("${path.module}/posthog_resources.json"))
+  posthog_resources = {
+    dashboards = merge(
+      jsondecode(file("${path.module}/posthog_resources.json")).dashboards,
+      jsondecode(file("${path.module}/posthog_plg_resources.json")).dashboards,
+    )
+    insights = merge(
+      jsondecode(file("${path.module}/posthog_resources.json")).insights,
+      jsondecode(file("${path.module}/posthog_plg_resources.json")).insights,
+    )
+  }
   posthog_dashboards = local.posthog_resources.dashboards
   posthog_insights   = local.posthog_resources.insights
 }
