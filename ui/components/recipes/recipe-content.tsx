@@ -212,7 +212,8 @@ export function RecipeContent({
   timersEnabled = true,
 }: Readonly<{ recipe: RecipeDetailView; timersEnabled?: boolean }>) {
   const { diet, matchRecipe } = useDiet();
-  const { data: authSession } = authClient.useSession();
+  const { data: authSession, isPending: authSessionPending } =
+    authClient.useSession();
   const dietMatch = useMemo(
     () =>
       matchRecipe({
@@ -369,7 +370,11 @@ export function RecipeContent({
       cookingSessionIdRef.current = null;
       return;
     }
-    if (cookingSessionIdRef.current || !authSession || !timersEnabled) {
+    if (
+      cookingSessionIdRef.current ||
+      (!authSession && !authSessionPending) ||
+      !timersEnabled
+    ) {
       return;
     }
 
@@ -388,6 +393,7 @@ export function RecipeContent({
     });
   }, [
     authSession,
+    authSessionPending,
     cookOpen,
     portions,
     recipe.slug,
@@ -397,7 +403,7 @@ export function RecipeContent({
 
   const finishCookMode = useCallback(() => {
     const sessionId = cookingSessionIdRef.current;
-    if (sessionId && authSession && timersEnabled) {
+    if (sessionId && (authSession || authSessionPending) && timersEnabled) {
       void recordCookingSession({
         sessionId,
         recipeSlug: recipe.slug,
@@ -411,6 +417,7 @@ export function RecipeContent({
     exitCookMode();
   }, [
     authSession,
+    authSessionPending,
     exitCookMode,
     portions,
     recipe.slug,

@@ -56,6 +56,11 @@ function createNextConfig(phase: string): NextConfig {
                 destination: "http://localhost:8787/api/profile/recipe-box",
               },
               {
+                source: "/api/profile/cooking-insights",
+                destination:
+                  "http://localhost:8787/api/profile/cooking-insights",
+              },
+              {
                 source: "/api/households/:path*",
                 destination: "http://localhost:8787/api/households/:path*",
               },

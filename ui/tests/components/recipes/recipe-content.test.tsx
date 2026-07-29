@@ -10,6 +10,12 @@ const mocks = vi.hoisted(() => ({
   setUnitPreference: vi.fn(),
   tokenizeInstructionSdk: vi.fn(),
   recordCookingSession: vi.fn().mockResolvedValue({}),
+  authState: {
+    data: { user: { id: "cook-1" } } as {
+      user: { id: string };
+    } | null,
+    isPending: false,
+  },
 }));
 
 const customPreference = {
@@ -43,10 +49,7 @@ vi.mock("@/lib/domain/recipe/instructionTokens", () => ({
 
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
-    useSession: () => ({
-      data: { user: { id: "cook-1" } },
-      isPending: false,
-    }),
+    useSession: () => mocks.authState,
   },
 }));
 
@@ -73,6 +76,8 @@ describe("RecipeContent", () => {
   beforeEach(() => {
     mocks.setUnitPreference.mockClear();
     mocks.recordCookingSession.mockReset().mockResolvedValue({});
+    mocks.authState.data = { user: { id: "cook-1" } };
+    mocks.authState.isPending = false;
     window.history.replaceState(null, "", "/recipes/saved?slug=weeknight");
     mocks.tokenizeInstructionSdk.mockReturnValue({
       ok: true,
@@ -171,5 +176,33 @@ describe("RecipeContent", () => {
     await waitFor(() => expect(consoleError).toHaveBeenCalledTimes(1));
     await user.click(screen.getByRole("button", { name: "Finish ✓" }));
     await waitFor(() => expect(consoleError).toHaveBeenCalledTimes(2));
+  });
+
+  it("preserves tracking while the browser session is hydrating", async () => {
+    const user = userEvent.setup();
+    mocks.authState.data = null;
+    mocks.authState.isPending = true;
+    render(
+      <CookModeProvider>
+        <RecipeContent recipe={recipe} />
+      </CookModeProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Start cooking" }));
+    await waitFor(() =>
+      expect(mocks.recordCookingSession).toHaveBeenCalledWith(
+        expect.objectContaining({ event: "started" }),
+      ),
+    );
+
+    const started = mocks.recordCookingSession.mock.calls[0]?.[0];
+    await user.click(screen.getByRole("button", { name: "Finish ✓" }));
+
+    expect(mocks.recordCookingSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        sessionId: started.sessionId,
+        event: "completed",
+      }),
+    );
   });
 });
