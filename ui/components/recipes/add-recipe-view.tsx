@@ -33,6 +33,7 @@ import {
 import { RecipeContent } from "@/components/recipes/recipe-content";
 import { RecipeLoadError } from "@/components/recipes/recipe-load-state";
 import { navigateToRecipePage } from "@/components/recipes/recipe-page-link";
+import { SpellcheckEditor } from "@/components/recipes/spellcheck-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCooklangRecipe } from "@/hooks/use-cooklang-recipe";
@@ -935,13 +936,12 @@ export function AddRecipeView({
                 </Button>
               )}
             </div>
-            <textarea
+            <SpellcheckEditor
               value={source}
-              onChange={(event) => setSource(event.target.value)}
+              onChange={setSource}
               placeholder={EXAMPLE_RECIPE}
               maxLength={10000}
-              spellCheck
-              className="rt-body min-h-[360px] w-full resize-y rounded-lg border border-[var(--line-strong)] bg-[var(--paper)] p-3 text-base leading-relaxed outline-none transition-shadow placeholder:text-[var(--ink-4)] focus:border-[var(--terracotta)] focus:ring-3 focus:ring-[var(--terracotta)]/15"
+              ariaLabel="Recipe text"
             />
           </div>
         </section>

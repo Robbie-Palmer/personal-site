@@ -30,6 +30,12 @@ vi.mock("@/hooks/use-cooklang-recipe", () => ({
   useCooklangRecipe: mocks.useCooklangRecipe,
 }));
 
+// The editor's spell-checker lazily fetches its dictionary on mount; stub it so
+// these tests don't add an extra fetch call or hit the network.
+vi.mock("@/hooks/use-typo-dictionary", () => ({
+  useTypoDictionary: () => ({ dictionary: null, ready: true }),
+}));
+
 vi.mock("@/components/recipes/recipe-content", () => ({
   RecipeContent: ({ recipe }: { recipe: { title: string } }) => (
     <div>{recipe.title}</div>
