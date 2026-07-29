@@ -1,7 +1,7 @@
 import {
   proxyRecipeApiRequest,
   type RecipeApiProxyContext,
-} from "../../auth/routing";
+} from "../auth/routing";
 
 export const onRequest = (context: RecipeApiProxyContext): Promise<Response> =>
   proxyRecipeApiRequest(
