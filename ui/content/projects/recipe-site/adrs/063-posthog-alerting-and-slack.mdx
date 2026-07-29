@@ -164,9 +164,10 @@ number of credentials and failure modes without improving the current solo-found
 
 ## Failure Independence
 
-Slack is hosted outside Cloudflare, so recipe-code failures, recipe deployments, database outages,
-and Cloudflare application-runtime failures do not remove the notification inbox. This is better
-failure isolation than delivering through another Cloudflare Worker.
+Slack is hosted outside Cloudflare, so Cloudflare application-runtime failures do not remove the
+Slack inbox. This isolates notification transport only: recipe-code, database, or telemetry-export
+failures can prevent PostHog from generating an alert. It is still better transport isolation than
+delivering through another Cloudflare Worker.
 
 PostHog remains a shared dependency for telemetry ingestion, alert evaluation, and notification
 dispatch. A PostHog outage or an export failure can therefore prevent application alerts. Maintain
