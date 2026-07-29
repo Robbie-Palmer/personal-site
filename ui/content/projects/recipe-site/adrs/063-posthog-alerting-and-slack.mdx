@@ -230,8 +230,8 @@ PostHog owns alert evaluation and state; Slack supplies notification delivery. T
 initial notification path small; it does not prejudge whether later triage and coordination
 capabilities should be built or bought. The initial implementation must not include:
 
-* a Cloudflare webhook or email relay;
-* a hosted automation relay;
+* a custom webhook receiver, email relay, or hosted automation relay between PostHog or Cloudflare
+  and Slack;
 * durable delivery storage or a retry ledger;
 * acknowledgement, escalation, rota, or paging policies;
 * polling PostHog for alert state;
