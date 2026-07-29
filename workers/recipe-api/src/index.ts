@@ -1168,71 +1168,7 @@ async function dispatchNotificationAction(
   actionKey: string,
 ) {
   if (event.kind === "recipe_recommended") {
-    if (actionKey !== "add_to_recipe_box") {
-      throw new InvitationActionError(400, "Unknown notification action");
-    }
-    const [detail] = await db
-      .select({
-        recipeId: schema.notificationRecipeRecommendationEvent.recipeId,
-        recipeSlug:
-          schema.notificationRecipeRecommendationEvent.recipeSlugSnapshot,
-      })
-      .from(schema.notificationRecipeRecommendationEvent)
-      .where(
-        eq(schema.notificationRecipeRecommendationEvent.eventId, event.id),
-      )
-      .limit(1);
-    if (!detail?.recipeId) {
-      throw new InvitationActionError(
-        409,
-        "This recipe is no longer available",
-      );
-    }
-    const recipe = await findRecipeBySlug(db, detail.recipeSlug);
-    if (!recipe || recipe.id !== detail.recipeId) {
-      throw new InvitationActionError(
-        409,
-        "This recipe is no longer available",
-      );
-    }
-    if (recipe.visibility !== "public") {
-      const decision = authorizeRecipeRead(user, recipe, {
-        userSharesHouseholdWithOwner: await usersShareHousehold(
-          db,
-          recipe.userId,
-          user.id,
-        ),
-      });
-      if (!decision.allowed) {
-        throw new InvitationActionError(
-          409,
-          "This recipe is no longer available to you",
-        );
-      }
-    }
-    await db.transaction(async (tx) => {
-      const mutationTime = new Date();
-      await tx
-        .insert(schema.userRecipeBox)
-        .values({ userId: user.id, completedAt: mutationTime })
-        .onConflictDoUpdate({
-          target: schema.userRecipeBox.userId,
-          set: { updatedAt: mutationTime },
-        });
-      await tx
-        .insert(schema.userRecipeBoxItem)
-        .values({ userId: user.id, recipeSlug: detail.recipeSlug })
-        .onConflictDoNothing();
-      await tx
-        .update(schema.notificationDelivery)
-        .set({ readAt: mutationTime })
-        .where(
-          and(
-            eq(schema.notificationDelivery.eventId, event.id),
-            eq(schema.notificationDelivery.recipientUserId, user.id),
-          ),
-        );
-    });
+    await performRecipeRecommendationAction(db, user, event.id, actionKey);
     return;
   }
   if (event.kind !== "household_invited") {
@@ -1258,6 +1194,71 @@ async function dispatchNotificationAction(
     );
   }
   await performInvitationAction(db, user, detail.invitationId, actionKey);
+}
+
+async function performRecipeRecommendationAction(
+  db: Db,
+  user: AuthenticatedSession["user"],
+  eventId: string,
+  actionKey: string,
+) {
+  if (actionKey !== "add_to_recipe_box") {
+    throw new InvitationActionError(400, "Unknown notification action");
+  }
+  const [detail] = await db
+    .select({
+      recipeId: schema.notificationRecipeRecommendationEvent.recipeId,
+      recipeSlug:
+        schema.notificationRecipeRecommendationEvent.recipeSlugSnapshot,
+    })
+    .from(schema.notificationRecipeRecommendationEvent)
+    .where(eq(schema.notificationRecipeRecommendationEvent.eventId, eventId))
+    .limit(1);
+  if (!detail?.recipeId) {
+    throw new InvitationActionError(409, "This recipe is no longer available");
+  }
+  const recipe = await findRecipeBySlug(db, detail.recipeSlug);
+  if (recipe?.id !== detail.recipeId) {
+    throw new InvitationActionError(409, "This recipe is no longer available");
+  }
+  if (recipe.visibility !== "public") {
+    const decision = authorizeRecipeRead(user, recipe, {
+      userSharesHouseholdWithOwner: await usersShareHousehold(
+        db,
+        recipe.userId,
+        user.id,
+      ),
+    });
+    if (!decision.allowed) {
+      throw new InvitationActionError(
+        409,
+        "This recipe is no longer available to you",
+      );
+    }
+  }
+  await db.transaction(async (tx) => {
+    const mutationTime = new Date();
+    await tx
+      .insert(schema.userRecipeBox)
+      .values({ userId: user.id, completedAt: mutationTime })
+      .onConflictDoUpdate({
+        target: schema.userRecipeBox.userId,
+        set: { updatedAt: mutationTime },
+      });
+    await tx
+      .insert(schema.userRecipeBoxItem)
+      .values({ userId: user.id, recipeSlug: detail.recipeSlug })
+      .onConflictDoNothing();
+    await tx
+      .update(schema.notificationDelivery)
+      .set({ readAt: mutationTime })
+      .where(
+        and(
+          eq(schema.notificationDelivery.eventId, eventId),
+          eq(schema.notificationDelivery.recipientUserId, user.id),
+        ),
+      );
+  });
 }
 
 async function findHouseholdMemberUserIds(
