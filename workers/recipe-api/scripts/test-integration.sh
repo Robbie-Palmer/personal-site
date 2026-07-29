@@ -43,7 +43,7 @@ else
 
   # Set the exact cleanup target before Docker starts, so an interrupt between
   # container creation and ID capture cannot leave the labelled container behind.
-  container_name="personal-site-recipe-api-integration-$BASHPID"
+  container_name="personal-site-recipe-api-integration-$$"
   container_id=$(docker run --detach --rm \
     --name "$container_name" \
     --env POSTGRES_DB=recipes_integration \

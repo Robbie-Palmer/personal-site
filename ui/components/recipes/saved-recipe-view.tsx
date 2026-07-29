@@ -13,6 +13,7 @@ import {
   RecipeLoading,
   RecipeQueryStatus,
 } from "@/components/recipes/recipe-load-state";
+import { ShareRecipeButton } from "@/components/recipes/share-recipe-button";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import {
@@ -90,7 +91,13 @@ export function SavedRecipeView() {
           >
             <ArrowLeft className="size-3.5" /> All recipes
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {result.data.visibility !== "private" && (
+              <ShareRecipeButton
+                recipeSlug={recipe.slug}
+                recipeTitle={recipe.title}
+              />
+            )}
             {result.data.owned === true && (
               <Button
                 asChild

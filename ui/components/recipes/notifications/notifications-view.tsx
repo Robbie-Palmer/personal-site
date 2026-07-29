@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { Bell, LoaderCircle, Lock, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -14,6 +15,7 @@ import {
   updateNotification,
 } from "@/lib/api/notifications";
 import { authClient } from "@/lib/auth-client";
+import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 function bucket(date: string) {
   const age = Date.now() - new Date(date).getTime();
@@ -118,6 +120,7 @@ function NotificationGroup({
 
 export function NotificationsView() {
   const { data: session, isPending: sessionPending } = authClient.useSession();
+  const queryClient = useQueryClient();
   const sessionUserId = session?.user.id;
   const [items, setItems] = useState<InAppNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -179,6 +182,21 @@ export function NotificationsView() {
       );
       if (!item.readAt && updated.readAt) {
         setUnreadCount((current) => Math.max(0, current - 1));
+      }
+      if (
+        actionKey === "add_to_recipe_box" &&
+        sessionUserId &&
+        updated.detail?.type === "recipe_recommendation" &&
+        updated.detail.saved
+      ) {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: recipeQueryKeys.recipeBox(sessionUserId),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: recipeQueryKeys.recipeBoxRecipes(sessionUserId),
+          }),
+        ]);
       }
     } catch (cause) {
       setError(

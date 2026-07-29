@@ -1,9 +1,11 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   HouseholdNotification,
   NotificationPage,
+  RecipeRecommendationNotification,
 } from "@/lib/api/notifications";
 
 const mocks = vi.hoisted(() => ({
@@ -29,6 +31,17 @@ vi.mock("@/lib/api/notifications", async (importOriginal) => ({
 }));
 
 import { NotificationsView } from "@/components/recipes/notifications/notifications-view";
+
+function renderNotifications() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(<NotificationsView />, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    ),
+  });
+}
 
 const invitation = {
   id: "notification-1",
@@ -72,7 +85,7 @@ describe("NotificationsView", () => {
 
   it("keeps an accepted invitation as a read, resolved notification", async () => {
     const user = userEvent.setup();
-    render(<NotificationsView />);
+    renderNotifications();
 
     await user.click(await screen.findByRole("button", { name: "Accept" }));
 
@@ -91,6 +104,54 @@ describe("NotificationsView", () => {
     expect(mocks.updateNotification).not.toHaveBeenCalled();
   });
 
+  it("adds a recommended recipe to the recipe box", async () => {
+    const recommendation = {
+      id: "notification-recipe-1",
+      eventId: "event-recipe-1",
+      kind: "recipe_recommended",
+      actor: { id: "user-alex", name: "Alex" },
+      actions: ["add_to_recipe_box"],
+      detail: {
+        type: "recipe_recommendation",
+        recipe: {
+          slug: "weekday-stew",
+          title: "Weekday Stew",
+          available: true,
+        },
+        saved: false,
+      },
+      readAt: null,
+      occurredAt: "2026-07-14T12:00:00.000Z",
+    } satisfies RecipeRecommendationNotification;
+    const savedRecommendation = {
+      ...recommendation,
+      actions: [],
+      detail: { ...recommendation.detail, saved: true },
+      readAt: "2026-07-14T12:01:00.000Z",
+    } satisfies RecipeRecommendationNotification;
+    mocks.getNotificationPage.mockResolvedValue({
+      items: [recommendation],
+      nextOffset: null,
+      unreadCount: 1,
+    });
+    mocks.performNotificationAction.mockResolvedValue(savedRecommendation);
+    const user = userEvent.setup();
+    renderNotifications();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Add to recipe box" }),
+    );
+
+    expect(
+      await screen.findByText("Added to your recipe box"),
+    ).toBeInTheDocument();
+    expect(mocks.performNotificationAction).toHaveBeenCalledWith(
+      "notification-recipe-1",
+      "add_to_recipe_box",
+    );
+    expect(screen.getByText(/0 unread/)).toBeInTheDocument();
+  });
+
   it("prevents dismissing an invitation while its response is pending", async () => {
     let resolveResponse:
       | ((notification: HouseholdNotification) => void)
@@ -101,7 +162,7 @@ describe("NotificationsView", () => {
       }),
     );
     const user = userEvent.setup();
-    render(<NotificationsView />);
+    renderNotifications();
 
     await user.click(await screen.findByRole("button", { name: "Accept" }));
 
@@ -118,7 +179,7 @@ describe("NotificationsView", () => {
 
   it("marks all as read without removing notifications", async () => {
     const user = userEvent.setup();
-    render(<NotificationsView />);
+    renderNotifications();
 
     await user.click(
       await screen.findByRole("button", { name: "Mark all read" }),
@@ -140,7 +201,7 @@ describe("NotificationsView", () => {
       unreadCount: 4,
     });
 
-    render(<NotificationsView />);
+    renderNotifications();
 
     expect(await screen.findByText(/4 unread/)).toBeInTheDocument();
     expect(
@@ -160,7 +221,7 @@ describe("NotificationsView", () => {
         unreadCount: 1,
       })
       .mockReturnValueOnce(replacementPage);
-    const { rerender } = render(<NotificationsView />);
+    const { rerender } = renderNotifications();
     expect(
       await screen.findByText(/invited you to join Park Road/),
     ).toBeInTheDocument();
@@ -180,7 +241,7 @@ describe("NotificationsView", () => {
 
   it("clears every notification from the archive", async () => {
     const user = userEvent.setup();
-    render(<NotificationsView />);
+    renderNotifications();
 
     await user.click(await screen.findByRole("button", { name: "Clear all" }));
 
@@ -215,7 +276,7 @@ describe("NotificationsView", () => {
         unreadCount: 1,
       });
     const user = userEvent.setup();
-    render(<NotificationsView />);
+    renderNotifications();
 
     await user.click(await screen.findByRole("button", { name: "Load more" }));
 
