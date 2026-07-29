@@ -41,7 +41,10 @@ locals {
 resource "restapi_object" "posthog_log_alert" {
   for_each = local.posthog_log_alerts
 
-  path         = "/api/projects/${var.posthog_project_id}/logs/alerts"
+  path         = "/api/projects/${var.posthog_project_id}/logs/alerts/"
+  read_path    = "/api/projects/${var.posthog_project_id}/logs/alerts/{id}/"
+  update_path  = "/api/projects/${var.posthog_project_id}/logs/alerts/{id}/"
+  destroy_path = "/api/projects/${var.posthog_project_id}/logs/alerts/{id}/"
   id_attribute = "id"
   data = jsonencode({
     name    = each.value.name
