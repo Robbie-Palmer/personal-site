@@ -86,10 +86,12 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PAGES_HOST: ${{ vars.CLOUDFLARE_PAGES_HOST }}
+          PREVIEW_API_ORIGIN_TEMPLATE: ${{ vars.RECIPE_API_PREVIEW_ORIGIN_TEMPLATE }}
           PREVIEW_AUTH_SEED: ${{ secrets.PREVIEW_AUTH_SEED }}
         run: |
           set -euo pipefail
           : "${PAGES_HOST:?CLOUDFLARE_PAGES_HOST is required}"
+          : "${PREVIEW_API_ORIGIN_TEMPLATE:?RECIPE_API_PREVIEW_ORIGIN_TEMPLATE is required}"
           : "${PREVIEW_AUTH_SEED:?PREVIEW_AUTH_SEED is required}"
 
           BETTER_AUTH_SECRET=$(printf 'better-auth:%s' "$PR_NUMBER" | openssl dgst -sha256 -hmac "$PREVIEW_AUTH_SEED" -binary | base64)
@@ -102,6 +104,7 @@ jobs:
             echo "PREVIEW_WORKER_NAME=recipe-api-pr-$PR_NUMBER"
             echo "PREVIEW_INGEST_NAME=recipe-ingest-pr-$PR_NUMBER"
             echo "PREVIEW_SITE_URL=https://pr-$PR_NUMBER.$PAGES_HOST"
+            echo "PREVIEW_API_URL=${PREVIEW_API_ORIGIN_TEMPLATE/\{pr\}/$PR_NUMBER}"
             echo "BETTER_AUTH_URL=https://pr-$PR_NUMBER.$PAGES_HOST"
             echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET"
             echo "PREVIEW_AUTH_PASSWORD=$PREVIEW_AUTH_PASSWORD"
@@ -252,6 +255,11 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CF_ACCESS_TEAM_DOMAIN: ${{ vars.CF_ACCESS_TEAM_DOMAIN }}
           CF_ACCESS_AUD: ${{ vars.CF_ACCESS_AUD }}
+
+      - name: Smoke-test cooking insights through a direct preview session
+        run: mise run //workers/recipe-api:preview:smoke
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
 
   # Always deploy the static frontend for non-bot PRs, independent of the
   # backend job. NEXT_PUBLIC_PREVIEW_BACKEND tells the build whether sign-in is
