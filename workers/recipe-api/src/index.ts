@@ -184,7 +184,7 @@ const recipeBoxBodySchema = z
 
 const cookingSessionBodySchema = z
   .object({
-    sessionId: z.string().uuid(),
+    sessionId: z.uuid(),
     recipeSlug: recipeSlugSchema,
     recipeTitle: z.string().trim().min(1).max(120),
     servings: z.number().int().min(1).max(1_000),
