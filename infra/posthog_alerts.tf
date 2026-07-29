@@ -10,6 +10,9 @@
 # - recipe-pages: no fires
 
 locals {
+  posthog_log_alert_collection_path = "/api/projects/${var.posthog_project_id}/logs/alerts/"
+  posthog_log_alert_item_path       = "${local.posthog_log_alert_collection_path}{id}/"
+
   posthog_log_alerts = {
     recipe_api_sustained_errors = {
       name                = "Recipe API sustained errors"
@@ -41,10 +44,10 @@ locals {
 resource "restapi_object" "posthog_log_alert" {
   for_each = local.posthog_log_alerts
 
-  path         = "/api/projects/${var.posthog_project_id}/logs/alerts/"
-  read_path    = "/api/projects/${var.posthog_project_id}/logs/alerts/{id}/"
-  update_path  = "/api/projects/${var.posthog_project_id}/logs/alerts/{id}/"
-  destroy_path = "/api/projects/${var.posthog_project_id}/logs/alerts/{id}/"
+  path         = local.posthog_log_alert_collection_path
+  read_path    = local.posthog_log_alert_item_path
+  update_path  = local.posthog_log_alert_item_path
+  destroy_path = local.posthog_log_alert_item_path
   id_attribute = "id"
   data = jsonencode({
     name    = each.value.name
