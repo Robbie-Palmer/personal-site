@@ -1912,7 +1912,7 @@ describe("POST /recipes/:slug/recommend", () => {
       description: null,
       body: null,
       userId: "owner-user",
-      visibility: "public",
+      visibility: "household",
       createdAt: dbMock.date,
       updatedAt: dbMock.date,
     });
@@ -1976,6 +1976,13 @@ describe("POST /recipes/:slug/recommend", () => {
         saved: false,
       },
     });
+
+    const unknownActionResponse = await app.request(
+      `/notifications/${archive.items[0]?.id}/actions/dismiss`,
+      { method: "POST", headers: { origin: "http://localhost:3000" } },
+      env,
+    );
+    expect(unknownActionResponse.status).toBe(400);
 
     const actionResponse = await app.request(
       `/notifications/${archive.items[0]?.id}/actions/add_to_recipe_box`,
@@ -2066,6 +2073,53 @@ describe("POST /recipes/:slug/recommend", () => {
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({
       error: "Recipes can only be recommended to household members",
+    });
+  });
+
+  it("rejects recommendations to the owner or from a sender without a household", async () => {
+    seedHousehold();
+    dbMock.state.recipes.push({
+      id: "recipe-1",
+      slug: "public-soup",
+      title: "Public Soup",
+      description: null,
+      body: null,
+      userId: "owner-user",
+      visibility: "public",
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    const recommend = (recipientUserId: string) =>
+      app.request(
+        "/recipes/public-soup/recommend",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            origin: "http://localhost:3000",
+          },
+          body: JSON.stringify({ recipientUserId }),
+        },
+        env,
+      );
+
+    authzMock.session = sessionFor({
+      id: "member-user",
+      email: "member@example.test",
+      name: "Member",
+    });
+    const ownerResponse = await recommend("owner-user");
+    expect(ownerResponse.status).toBe(409);
+
+    authzMock.session = sessionFor({
+      id: "outsider-user",
+      email: "outsider@example.test",
+      name: "Outsider",
+    });
+    const noHouseholdResponse = await recommend("member-user");
+    expect(noHouseholdResponse.status).toBe(409);
+    expect(await noHouseholdResponse.json()).toEqual({
+      error: "Join a household before recommending recipes",
     });
   });
 });
