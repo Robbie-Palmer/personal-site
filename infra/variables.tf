@@ -54,6 +54,12 @@ variable "posthog_key" {
   sensitive   = true
 }
 
+variable "posthog_api_key" {
+  description = "PostHog personal API key used to manage resources through Terraform"
+  type        = string
+  sensitive   = true
+}
+
 variable "github_token" {
   description = "GitHub personal access token for mise tool downloads in Cloudflare Pages builds"
   type        = string
