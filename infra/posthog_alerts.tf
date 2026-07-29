@@ -39,30 +39,34 @@ locals {
       cooldown_minutes    = 30
     }
   }
+
+  posthog_log_alert_payloads = {
+    for key, alert in local.posthog_log_alerts : key => {
+      name    = alert.name
+      enabled = true
+      filters = {
+        severityLevels = ["error", "fatal"]
+        serviceNames   = alert.service_names
+      }
+      threshold_count     = alert.threshold_count
+      threshold_operator  = "above"
+      window_minutes      = 5
+      evaluation_periods  = alert.evaluation_periods
+      datapoints_to_alarm = alert.datapoints_to_alarm
+      cooldown_minutes    = alert.cooldown_minutes
+    }
+  }
 }
 
 resource "restapi_object" "posthog_log_alert" {
-  for_each = local.posthog_log_alerts
+  for_each = local.posthog_log_alert_payloads
 
   path         = local.posthog_log_alert_collection_path
   read_path    = local.posthog_log_alert_item_path
   update_path  = local.posthog_log_alert_item_path
   destroy_path = local.posthog_log_alert_item_path
   id_attribute = "id"
-  data = jsonencode({
-    name    = each.value.name
-    enabled = true
-    filters = {
-      severityLevels = ["error", "fatal"]
-      serviceNames   = each.value.service_names
-    }
-    threshold_count     = each.value.threshold_count
-    threshold_operator  = "above"
-    window_minutes      = 5
-    evaluation_periods  = each.value.evaluation_periods
-    datapoints_to_alarm = each.value.datapoints_to_alarm
-    cooldown_minutes    = each.value.cooldown_minutes
-  })
+  data         = jsonencode(each.value)
 
   # PostHog returns scheduling, state, history, and creator metadata alongside
   # the managed definition. Ignore only those server-added fields while still
@@ -71,5 +75,25 @@ resource "restapi_object" "posthog_log_alert" {
 
   lifecycle {
     prevent_destroy = true
+
+    precondition {
+      condition = (
+        length(trimspace(each.value.name)) > 0 &&
+        length(each.value.filters.serviceNames) > 0 &&
+        alltrue([
+          for service_name in each.value.filters.serviceNames :
+          length(trimspace(service_name)) > 0
+        ]) &&
+        each.value.threshold_count >= 0 &&
+        contains(["above", "below"], each.value.threshold_operator) &&
+        contains([5, 10, 15, 30, 60], each.value.window_minutes) &&
+        each.value.evaluation_periods >= 1 &&
+        each.value.datapoints_to_alarm >= 1 &&
+        each.value.datapoints_to_alarm <= each.value.evaluation_periods &&
+        each.value.cooldown_minutes >= 0
+      )
+
+      error_message = "PostHog log alerts must have valid names, services, thresholds, operators, windows, evaluation periods, datapoints, and cooldowns."
+    }
   }
 }
