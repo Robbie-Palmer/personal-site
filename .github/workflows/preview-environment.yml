@@ -17,11 +17,20 @@ jobs:
   # Decide whether this PR needs a database-backed backend preview.
   detect:
     # On label events, only react to the preview:* labels so unrelated label
-    # changes don't rebuild the preview.
+    # changes don't rebuild the preview. Dependency-bot PRs stay skipped by
+    # default, but preview:frontend-only is an explicit, low-cost QA opt-in.
     if: >
       github.event.pull_request.head.repo.full_name == github.repository
-      && github.event.pull_request.user.login != 'renovate[bot]'
-      && github.event.pull_request.user.login != 'dependabot[bot]'
+      && (
+        (
+          github.event.pull_request.user.login != 'renovate[bot]'
+          && github.event.pull_request.user.login != 'dependabot[bot]'
+        )
+        || (
+          github.event.action == 'labeled'
+          && github.event.label.name == 'preview:frontend-only'
+        )
+      )
       && (
         (github.event.action != 'labeled' && github.event.action != 'unlabeled')
         || startsWith(github.event.label.name, 'preview:')
