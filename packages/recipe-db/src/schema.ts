@@ -477,6 +477,44 @@ export const userRecipeBoxItem = pgTable(
   (table) => [primaryKey({ columns: [table.userId, table.recipeSlug] })],
 );
 
+/**
+ * One attempt to cook a recipe. Entering cook mode creates the row; clicking
+ * Finish sets completedAt. Keeping incomplete starts lets us measure cook-mode
+ * usefulness without treating every open as a meal cooked.
+ *
+ * Recipe details are snapshots rather than foreign keys so a user's history
+ * survives recipe edits and deletions, and works for built-in recipes too.
+ */
+export const cookingSession = pgTable(
+  "cooking_session",
+  {
+    id: uuid().primaryKey(),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    recipeSlug: text().notNull(),
+    recipeTitle: text().notNull(),
+    servings: integer().notNull(),
+    startedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp({ withTimezone: true }),
+  },
+  (table) => [
+    index("cooking_session_user_started_idx").on(
+      table.userId,
+      table.startedAt.desc(),
+    ),
+    index("cooking_session_user_completed_idx").on(
+      table.userId,
+      table.completedAt.desc(),
+    ),
+    index("cooking_session_user_recipe_completed_idx").on(
+      table.userId,
+      table.recipeSlug,
+      table.completedAt.desc(),
+    ),
+  ],
+);
+
 export const appRateLimit = pgTable("app_rate_limit", {
   key: text().primaryKey(),
   count: integer().notNull().default(0),

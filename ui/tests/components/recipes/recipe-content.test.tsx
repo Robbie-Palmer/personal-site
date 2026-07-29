@@ -1,13 +1,15 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RecipeContent } from "@/components/recipes/recipe-content";
+import { CookModeProvider } from "@/contexts/cook-mode-context";
 import type { RecipeDetailView } from "@/lib/domain/recipe/recipeViews";
 import { preferenceForSystem } from "@/lib/domain/recipe/unit";
 
 const mocks = vi.hoisted(() => ({
   setUnitPreference: vi.fn(),
   tokenizeInstructionSdk: vi.fn(),
+  recordCookingSession: vi.fn().mockResolvedValue({}),
 }));
 
 const customPreference = {
@@ -39,6 +41,19 @@ vi.mock("@/lib/domain/recipe/instructionTokens", () => ({
   tokenizeInstructionSdk: mocks.tokenizeInstructionSdk,
 }));
 
+vi.mock("@/lib/auth-client", () => ({
+  authClient: {
+    useSession: () => ({
+      data: { user: { id: "cook-1" } },
+      isPending: false,
+    }),
+  },
+}));
+
+vi.mock("@/lib/api/cooking-insights", () => ({
+  recordCookingSession: mocks.recordCookingSession,
+}));
+
 const recipe: RecipeDetailView = {
   slug: "weeknight",
   title: "Weeknight pasta",
@@ -57,6 +72,8 @@ const recipe: RecipeDetailView = {
 describe("RecipeContent", () => {
   beforeEach(() => {
     mocks.setUnitPreference.mockClear();
+    mocks.recordCookingSession.mockClear();
+    window.history.replaceState(null, "", "/recipes/saved?slug=weeknight");
     mocks.tokenizeInstructionSdk.mockReturnValue({
       ok: true,
       steps: [
@@ -106,5 +123,35 @@ describe("RecipeContent", () => {
     const method = container.querySelector(".rt-method-steps");
     expect(method).toHaveClass("list-decimal", "marker:text-transparent");
     expect(method).not.toHaveClass("list-none");
+  });
+
+  it("tracks a cook-mode start but only counts the meal when Finish is clicked", async () => {
+    const user = userEvent.setup();
+    render(
+      <CookModeProvider>
+        <RecipeContent recipe={recipe} />
+      </CookModeProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Start cooking" }));
+    await waitFor(() =>
+      expect(mocks.recordCookingSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recipeSlug: "weeknight",
+          servings: 2,
+          event: "started",
+        }),
+      ),
+    );
+
+    const started = mocks.recordCookingSession.mock.calls[0]?.[0];
+    await user.click(screen.getByRole("button", { name: "Finish ✓" }));
+
+    expect(mocks.recordCookingSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        sessionId: started.sessionId,
+        event: "completed",
+      }),
+    );
   });
 });
