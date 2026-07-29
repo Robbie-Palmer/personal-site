@@ -32,13 +32,22 @@ async function expectJson<T>(
   init?: RequestInit,
   expectedStatus = 200,
 ): Promise<T> {
-  const response = await fetch(`${apiURL}${path}`, init);
-  if (response.status !== expectedStatus) {
+  for (let attempt = 1; attempt <= 10; attempt += 1) {
+    const response = await fetch(`${apiURL}${path}`, init);
+    if (response.status === expectedStatus) {
+      return response.json() as Promise<T>;
+    }
+    // A freshly deployed Worker can become reachable before its Neon pool has
+    // resumed. Retry read-only readiness probes, but never replay mutations.
+    if (!init?.method && response.status === 503 && attempt < 10) {
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+      continue;
+    }
     throw new Error(
       `${init?.method ?? "GET"} ${path} returned ${response.status}: ${await response.text()}`,
     );
   }
-  return response.json() as Promise<T>;
+  throw new Error(`GET ${path} did not become ready`);
 }
 
 try {
