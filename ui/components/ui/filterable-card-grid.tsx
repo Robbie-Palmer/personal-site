@@ -357,6 +357,14 @@ export function FilterableCardGrid<T>({
     });
   }, [filterOptions, getState, peekState, cycleValue, captureFilterChange]);
 
+  const handleCycleFilter = (paramName: string, value: string) => {
+    // Derive the action from the same latest read the write uses, so analytics
+    // can't drift from the URL (mirrors the mobile drawer's cycle handler).
+    const next = nextFilterState(peekState(paramName, value));
+    captureFilterChange(paramName, value, next);
+    setState(paramName, value, next);
+  };
+
   const handleRemoveFilter = (paramName: string, value: string) => {
     captureFilterChange(paramName, value, "off");
     if (filterConfigs) {
@@ -390,6 +398,7 @@ export function FilterableCardGrid<T>({
         stackControls={stackControls}
         activeFilters={activeFilters}
         onRemoveFilter={handleRemoveFilter}
+        onCycleFilter={filterConfigs ? handleCycleFilter : undefined}
         onClearAll={clearAllFilters}
         hasActiveFilters={hasActiveFilters}
         activeFilterCount={activeFilterCount}

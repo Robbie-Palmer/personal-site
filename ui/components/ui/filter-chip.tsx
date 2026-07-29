@@ -10,6 +10,12 @@ interface FilterChipProps
   extends Omit<React.ComponentProps<"span">, "onClick">,
     VariantProps<typeof badgeVariants> {
   onRemove: () => void;
+  /**
+   * Advance the value's tri-state when the chip body is activated: an included
+   * chip becomes excluded, an excluded chip turns off. Omit to render a static
+   * chip whose only action is the remove button.
+   */
+  onCycle?: () => void;
   icon?: React.ReactNode;
   children: React.ReactNode;
   disabled?: boolean;
@@ -19,6 +25,7 @@ interface FilterChipProps
 
 export function FilterChip({
   onRemove,
+  onCycle,
   icon,
   children,
   disabled = false,
@@ -35,6 +42,28 @@ export function FilterChip({
     }
   };
 
+  const handleCycle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!disabled) {
+      onCycle?.();
+    }
+  };
+
+  const label = (
+    <>
+      {excluded ? (
+        <Minus className="size-3 shrink-0" aria-hidden />
+      ) : (
+        icon && <span className="shrink-0 [&>svg]:size-3">{icon}</span>
+      )}
+      <span className={cn("truncate", excluded && "line-through")}>
+        {children}
+        {excluded && <span className="sr-only"> (excluded)</span>}
+      </span>
+    </>
+  );
+
   return (
     <Badge
       variant={excluded ? "destructive" : variant}
@@ -45,15 +74,27 @@ export function FilterChip({
       )}
       {...props}
     >
-      {excluded ? (
-        <Minus className="size-3 shrink-0" aria-hidden />
+      {onCycle ? (
+        <button
+          type="button"
+          onClick={handleCycle}
+          disabled={disabled}
+          className={cn(
+            "flex min-w-0 items-center gap-1.5 rounded-sm transition-colors",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            disabled ? "cursor-not-allowed" : "cursor-pointer",
+          )}
+          aria-label={
+            excluded
+              ? `${children} excluded. Activate to clear this filter.`
+              : `${children} included. Activate to exclude it.`
+          }
+        >
+          {label}
+        </button>
       ) : (
-        icon && <span className="shrink-0 [&>svg]:size-3">{icon}</span>
+        label
       )}
-      <span className={cn("truncate", excluded && "line-through")}>
-        {children}
-        {excluded && <span className="sr-only"> (excluded)</span>}
-      </span>
       <button
         type="button"
         onClick={handleRemove}
