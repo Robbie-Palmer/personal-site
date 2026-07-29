@@ -67,8 +67,10 @@ try {
   if (!setCookie) {
     throw new Error(`Preview sign-in returned no session cookie (${signIn.status})`);
   }
-  const cookie = setCookie.split(";")[0];
-  if (!cookie) throw new Error("Preview sign-in returned an empty session cookie");
+  const cookie = setCookie.match(
+    /(?:__Secure-)?better-auth[.-]session_token=[^;,\s]+/,
+  )?.[0];
+  if (!cookie) throw new Error("Preview sign-in returned no session-token cookie");
   const headers = {
     cookie,
     origin: siteURL,
