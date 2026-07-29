@@ -2001,7 +2001,80 @@ describe("POST /recipes/:slug/recommend", () => {
       userId: "member-user",
       recipeSlug: "public-soup",
     });
+    expect(dbMock.state.recipeBoxes).toHaveLength(0);
     expect(dbMock.state.notificationDeliveries[0]?.readAt).not.toBeNull();
+  });
+
+  it("keeps unavailable recommendations out of the recipe box", async () => {
+    seedHousehold();
+    dbMock.state.recipes.push({
+      id: "recipe-1",
+      slug: "public-soup",
+      title: "Public Soup",
+      description: null,
+      body: null,
+      userId: "owner-user",
+      visibility: "public",
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+    const recommendResponse = await app.request(
+      "/recipes/public-soup/recommend",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ recipientUserId: "member-user" }),
+      },
+      env,
+    );
+    expect(recommendResponse.status).toBe(201);
+    const recipe = dbMock.state.recipes[0];
+    if (!recipe) throw new Error("Missing seeded recipe");
+    recipe.visibility = "private";
+
+    authzMock.session = sessionFor({
+      id: "member-user",
+      email: "member@example.test",
+      name: "Member",
+    });
+    const archiveResponse = await app.request("/notifications", {}, env);
+    const archive = (await archiveResponse.json()) as {
+      items: Array<{
+        id: string;
+        actions: string[];
+        detail: { recipe: { available: boolean } };
+      }>;
+    };
+    expect(archive.items[0]).toMatchObject({
+      actions: [],
+      detail: { recipe: { available: false } },
+    });
+
+    const actionResponse = await app.request(
+      `/notifications/${archive.items[0]?.id}/actions/add_to_recipe_box`,
+      { method: "POST", headers: { origin: "http://localhost:3000" } },
+      env,
+    );
+    expect(actionResponse.status).toBe(409);
+    expect(dbMock.state.recipeBoxItems).toHaveLength(0);
+
+    const recommendation = dbMock.state.notificationRecipeRecommendationEvents[0];
+    if (!recommendation) throw new Error("Missing recommendation event");
+    recommendation.recipeId = null;
+    const deletedRecipeResponse = await app.request(
+      `/notifications/${archive.items[0]?.id}/actions/add_to_recipe_box`,
+      { method: "POST", headers: { origin: "http://localhost:3000" } },
+      env,
+    );
+    expect(deletedRecipeResponse.status).toBe(409);
   });
 
   it("rejects self-recommendations and private recipes", async () => {

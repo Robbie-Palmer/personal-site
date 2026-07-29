@@ -7,6 +7,7 @@ import type {
   NotificationPage,
   RecipeRecommendationNotification,
 } from "@/lib/api/notifications";
+import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 const mocks = vi.hoisted(() => ({
   useSession: vi.fn(),
@@ -36,11 +37,16 @@ function renderNotifications() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(<NotificationsView />, {
-    wrapper: ({ children }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    ),
-  });
+  return {
+    ...render(<NotificationsView />, {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      ),
+    }),
+    queryClient,
+  };
 }
 
 const invitation = {
@@ -136,7 +142,10 @@ describe("NotificationsView", () => {
     });
     mocks.performNotificationAction.mockResolvedValue(savedRecommendation);
     const user = userEvent.setup();
-    renderNotifications();
+    const { queryClient } = renderNotifications();
+    const invalidateQueries = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockRejectedValue(new Error("Background refresh failed"));
 
     await user.click(
       await screen.findByRole("button", { name: "Add to recipe box" }),
@@ -150,6 +159,12 @@ describe("NotificationsView", () => {
       "add_to_recipe_box",
     );
     expect(screen.getByText(/0 unread/)).toBeInTheDocument();
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: recipeQueryKeys.recipeBox("user-1"),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: recipeQueryKeys.recipeBoxRecipes("user-1"),
+    });
   });
 
   it("prevents dismissing an invitation while its response is pending", async () => {

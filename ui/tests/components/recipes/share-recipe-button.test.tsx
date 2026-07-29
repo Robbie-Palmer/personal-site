@@ -60,4 +60,44 @@ describe("ShareRecipeButton", () => {
     );
     expect(toast.success).toHaveBeenCalledWith("Recipe link copied");
   });
+
+  it("falls back to the clipboard when native sharing fails", async () => {
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: vi.fn().mockRejectedValue(new Error("Share failed")),
+    });
+    render(
+      <ShareRecipeButton
+        recipeSlug="weekday-stew"
+        recipeTitle="Weekday Stew"
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Share" }));
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      "http://localhost:3000/recipes/weekday-stew",
+    );
+    expect(toast.success).toHaveBeenCalledWith("Recipe link copied");
+  });
+
+  it("does not copy when native sharing is cancelled", async () => {
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: vi
+        .fn()
+        .mockRejectedValue(new DOMException("Cancelled", "AbortError")),
+    });
+    render(
+      <ShareRecipeButton
+        recipeSlug="weekday-stew"
+        recipeTitle="Weekday Stew"
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Share" }));
+
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
+  });
 });

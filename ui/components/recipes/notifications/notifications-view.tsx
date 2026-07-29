@@ -189,7 +189,7 @@ export function NotificationsView() {
         updated.detail?.type === "recipe_recommendation" &&
         updated.detail.saved
       ) {
-        await Promise.all([
+        void Promise.allSettled([
           queryClient.invalidateQueries({
             queryKey: recipeQueryKeys.recipeBox(sessionUserId),
           }),

@@ -1239,13 +1239,6 @@ async function performRecipeRecommendationAction(
   await db.transaction(async (tx) => {
     const mutationTime = new Date();
     await tx
-      .insert(schema.userRecipeBox)
-      .values({ userId: user.id, completedAt: mutationTime })
-      .onConflictDoUpdate({
-        target: schema.userRecipeBox.userId,
-        set: { updatedAt: mutationTime },
-      });
-    await tx
       .insert(schema.userRecipeBoxItem)
       .values({ userId: user.id, recipeSlug: detail.recipeSlug })
       .onConflictDoNothing();
