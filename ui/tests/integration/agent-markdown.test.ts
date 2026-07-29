@@ -17,6 +17,7 @@ const RECIPE_APP_PAGES = new Set([
   "discover",
   "edit",
   "kitchen",
+  "log",
   "notifications",
   "onboarding",
   "profile",
@@ -81,6 +82,7 @@ describe("agent markdown generation", () => {
   it("keeps runtime-backed app pages out of agent markdown outputs", () => {
     for (const page of [
       "cooks",
+      "log",
       "notifications",
       "onboarding",
       "profile",
