@@ -29,23 +29,38 @@ const databaseURL = requiredEnv("DATABASE_URL");
 const siteURL = requiredEnv("BETTER_AUTH_URL");
 const apiURL = requiredEnv("PREVIEW_API_URL").replace(/\/$/, "");
 
-async function expectJson<T>(path: string, cookie: string): Promise<T> {
+async function fetchWhenReady(
+  path: string,
+  init?: RequestInit,
+): Promise<Response> {
   for (let attempt = 1; attempt <= 30; attempt += 1) {
-    const response = await fetch(`${apiURL}${path}`, {
-      headers: { cookie },
-    });
-    if (response.ok) return response.json() as Promise<T>;
+    const response = await fetch(`${apiURL}${path}`, init);
     // Wrangler can report success before every request reaches the new Worker
     // version, and the previous version points at the just-deleted Neon branch.
     if (response.status === 503 && attempt < 30) {
       await new Promise((resolve) => setTimeout(resolve, 2_000));
       continue;
     }
-    throw new Error(
-      `GET ${path} returned ${response.status}: ${await response.text()}`,
-    );
+    return response;
   }
   throw new Error(`GET ${path} did not become ready`);
+}
+
+async function expectJson<T>(path: string, cookie: string): Promise<T> {
+  const response = await fetchWhenReady(path, { headers: { cookie } });
+  if (response.ok) return response.json() as Promise<T>;
+  throw new Error(
+    `GET ${path} returned ${response.status}: ${await response.text()}`,
+  );
+}
+
+async function expectAuthenticationRequired(path: string): Promise<void> {
+  const response = await fetchWhenReady(path);
+  if (response.status !== 401) {
+    throw new Error(
+      `Unauthenticated GET ${path} returned ${response.status}, expected 401: ${await response.text()}`,
+    );
+  }
 }
 
 async function createSessionCookie(): Promise<string> {
@@ -90,6 +105,8 @@ function assertStringArray(
   }
 }
 
+await expectAuthenticationRequired("/api/profile/recipe-box");
+
 const cookie = await createSessionCookie();
 const recipeBox = await expectJson<RecipeBoxProfile>(
   "/api/profile/recipe-box",
@@ -100,6 +117,13 @@ if (typeof recipeBox.completed !== "boolean") {
 }
 assertStringArray(recipeBox.recipeSlugs, "recipeSlugs");
 assertStringArray(recipeBox.staticRecipeSlugs, "staticRecipeSlugs");
+if (
+  recipeBox.completed ||
+  recipeBox.recipeSlugs.length > 0 ||
+  recipeBox.staticRecipeSlugs.length > 0
+) {
+  throw new Error("Empty-account recipe-box fixture did not match");
+}
 
 const dietProfile = await expectJson<DietProfile>("/api/profile/diet", cookie);
 assertStringArray(dietProfile.presetDietKeys, "presetDietKeys");
@@ -113,6 +137,14 @@ if (
   dietProfile.recipeMatchMode !== "warn"
 ) {
   throw new TypeError("recipeMatchMode must be hide or warn");
+}
+if (
+  dietProfile.presetDietKeys.length > 0 ||
+  dietProfile.excludedIngredientSlugs.length > 0 ||
+  dietProfile.excludedGroupKeys.length > 0 ||
+  dietProfile.recipeMatchMode !== "hide"
+) {
+  throw new Error("Empty-account diet fixture did not match");
 }
 
 console.log("Authenticated preview profile smoke test passed.");
