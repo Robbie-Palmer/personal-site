@@ -2982,7 +2982,7 @@ app.get("/recipes/:slug", async (c) => {
   );
 });
 
-app.post("/recipes/:slug/recommend", async (c) => {
+app.post("/recipes/:slug/recommendations", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
   const slug = parseRecipeSlug(c);
@@ -2991,7 +2991,7 @@ app.post("/recipes/:slug/recommend", async (c) => {
   return withRecipeSession(
     c,
     "mutation",
-    "POST /recipes/:slug/recommend failed",
+    "POST /recipes/:slug/recommendations failed",
     async ({ db, session }) => {
       const body = await parseJsonBody(c, recommendRecipeBodySchema);
       if (!body.success) return body.response;

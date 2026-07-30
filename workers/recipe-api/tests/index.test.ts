@@ -1902,7 +1902,7 @@ describe("GET /recipes/:slug", () => {
   });
 });
 
-describe("POST /recipes/:slug/recommend", () => {
+describe("POST /recipes/:slug/recommendations", () => {
   it("notifies a household member who can add the recipe to their recipe box", async () => {
     seedHousehold();
     dbMock.state.recipes.push({
@@ -1923,7 +1923,7 @@ describe("POST /recipes/:slug/recommend", () => {
     });
 
     const recommendResponse = await app.request(
-      "/recipes/public-soup/recommend",
+      "/recipes/public-soup/recommendations",
       {
         method: "POST",
         headers: {
@@ -2024,7 +2024,7 @@ describe("POST /recipes/:slug/recommend", () => {
       name: "Owner",
     });
     const recommendResponse = await app.request(
-      "/recipes/public-soup/recommend",
+      "/recipes/public-soup/recommendations",
       {
         method: "POST",
         headers: {
@@ -2097,7 +2097,7 @@ describe("POST /recipes/:slug/recommend", () => {
     });
     const request = (recipientUserId: string) =>
       app.request(
-        "/recipes/private-soup/recommend",
+        "/recipes/private-soup/recommendations",
         {
           method: "POST",
           headers: {
@@ -2134,7 +2134,7 @@ describe("POST /recipes/:slug/recommend", () => {
       name: "Owner",
     });
 
-    const response = await app.request("/recipes/public-soup/recommend", {
+    const response = await app.request("/recipes/public-soup/recommendations", {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -2164,7 +2164,7 @@ describe("POST /recipes/:slug/recommend", () => {
     });
     const recommend = (recipientUserId: string) =>
       app.request(
-        "/recipes/public-soup/recommend",
+        "/recipes/public-soup/recommendations",
         {
           method: "POST",
           headers: {

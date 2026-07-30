@@ -464,7 +464,7 @@ describe("recipe API PostgreSQL integration", () => {
     ).toBe(201);
     const recommendationResponse = await authenticatedRequest(
       owner,
-      "/recipes/recommended-stew/recommend",
+      "/recipes/recommended-stew/recommendations",
       { method: "POST", body: { recipientUserId: member.id } },
     );
     expect(recommendationResponse.status).toBe(201);
