@@ -257,6 +257,7 @@ export function FilterBar({
             <FilterChip
               key={`${filter.paramName}-${filter.excluded ? "!" : ""}${filter.value}`}
               icon={filter.icon}
+              name={filter.displayValue}
               excluded={filter.excluded}
               onRemove={() => onRemoveFilter?.(filter.paramName, filter.value)}
               onCycle={

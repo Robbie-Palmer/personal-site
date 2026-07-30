@@ -18,6 +18,8 @@ interface FilterChipProps
   onCycle?: () => void;
   icon?: React.ReactNode;
   children: React.ReactNode;
+  /** Plain-text value name for the buttons' accessible labels. */
+  name: string;
   disabled?: boolean;
   /** Render as an exclude filter (destructive, struck through, minus glyph). */
   excluded?: boolean;
@@ -28,6 +30,7 @@ export function FilterChip({
   onCycle,
   icon,
   children,
+  name,
   disabled = false,
   excluded = false,
   variant = "secondary",
@@ -50,7 +53,7 @@ export function FilterChip({
     }
   };
 
-  const label = (
+  const body = (
     <>
       {excluded ? (
         <Minus className="size-3 shrink-0" aria-hidden />
@@ -86,14 +89,14 @@ export function FilterChip({
           )}
           aria-label={
             excluded
-              ? `${children} excluded. Activate to clear this filter.`
-              : `${children} included. Activate to exclude it.`
+              ? `${name} excluded. Activate to clear this filter.`
+              : `${name} included. Activate to exclude it.`
           }
         >
-          {label}
+          {body}
         </button>
       ) : (
-        label
+        body
       )}
       <button
         type="button"
@@ -105,7 +108,7 @@ export function FilterChip({
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           disabled && "cursor-not-allowed",
         )}
-        aria-label={`Remove ${children} filter`}
+        aria-label={`Remove ${name} filter`}
       >
         <X className="size-3" />
       </button>
