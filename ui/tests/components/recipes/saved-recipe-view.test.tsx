@@ -31,12 +31,17 @@ import { SavedRecipeView } from "@/components/recipes/saved-recipe-view";
 
 const originalFetch = globalThis.fetch;
 
-function record(slug: string, title: string, owned = false) {
+function record(
+  slug: string,
+  title: string,
+  owned = false,
+  visibility: "public" | "private" | "household" = "public",
+) {
   return {
     slug,
     title,
     description: "A useful soup.",
-    visibility: "public",
+    visibility,
     createdAt: "2026-07-22T12:00:00.000Z",
     updatedAt: "2026-07-22T12:00:00.000Z",
     owned,
@@ -110,6 +115,26 @@ describe("SavedRecipeView", () => {
       "href",
       "/recipes/edit?slug=first-soup",
     );
+  });
+
+  it("offers sharing only for readable non-private recipes", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      Response.json(record("first-soup", "First Soup")),
+    ) as typeof fetch;
+    const view = render(<SavedRecipeView />);
+
+    expect(
+      await screen.findByRole("button", { name: "Share" }),
+    ).toBeInTheDocument();
+
+    globalThis.fetch = vi.fn(async () =>
+      Response.json(record("first-soup", "First Soup", true, "private")),
+    ) as typeof fetch;
+    view.queryClient.clear();
+    view.rerender(<SavedRecipeView />);
+
+    await screen.findByText("First Soup");
+    expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
   });
 
   it("keeps a signed-out recipe in the public cache namespace", async () => {
