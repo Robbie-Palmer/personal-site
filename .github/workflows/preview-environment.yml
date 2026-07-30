@@ -258,7 +258,7 @@ jobs:
 
       - name: Smoke-test authenticated recipe profiles
         env:
-          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
         run: mise run //workers/recipe-api:preview:smoke:profiles
 
   # Always deploy the static frontend for non-bot PRs, independent of the
