@@ -136,6 +136,32 @@ test("paid OpenRouter completions are never retried by the HTTP client", async (
   assert.equal(attempts, 1);
 });
 
+test("default OpenRouter scouts enforce their model-specific price ceiling", async (context) => {
+  context.mock.method(globalThis, "fetch", async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as {
+      provider?: { max_price?: { prompt?: number; completion?: number } };
+    };
+    assert.deepEqual(body.provider?.max_price, { prompt: 0.7, completion: 2.2 });
+    return Response.json({
+      choices: [{ finish_reason: "stop", message: { content: '{"findings":[]}' } }],
+      usage: { cost: 0 },
+    });
+  });
+  const reviewer = new Reviewer({
+    githubToken: "github-token",
+    openRouterKey: "openrouter-key",
+    repository: "Robbie-Palmer/personal-site",
+    prNumber: 837,
+    openRouterScouts: ["z-ai/glm-5.2"],
+    openCodeScouts: [],
+    merger: "model-b",
+    ignoredAuthors: [],
+    requireZdr: false,
+  });
+
+  await reviewer.callOpenRouterScout("z-ai/glm-5.2", "system", "user");
+});
+
 test("duplicate scout model IDs are detected across providers", () => {
   assert.deepEqual(
     duplicateScoutModels(["provider/model-a", "big-pickle"], ["big-pickle", "free-model"]),

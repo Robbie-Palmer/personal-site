@@ -2,7 +2,7 @@
 
 This directory contains the provider-neutral prompts, model clients,
 validation, filtering, and comment rendering used by the stateful
-[`ai-review`](../../../ai-review) GitHub App. Two paid OpenRouter scouts and the
+[`ai-review`](../../../ai-review) GitHub App. Four paid OpenRouter scouts and the
 retained free models advertised by OpenCode Zen independently produce structured
 findings. A paid OpenRouter merger only deduplicates those findings and
 reconciles them with resolved GitHub review threads; it does not judge
@@ -21,7 +21,10 @@ The GitHub App owns triggers, authentication, secrets, and deployment. See its
 The shared engine accepts these runtime variables:
 
 - `AI_REVIEW_MODELS`: comma-separated paid OpenRouter scout models. Defaults to
-  `moonshotai/kimi-k2.6,deepseek/deepseek-v4-pro`.
+  `moonshotai/kimi-k2.6,deepseek/deepseek-v4-pro,z-ai/glm-5.2,inclusionai/ling-2.6-1t`.
+  The default models have per-token price ceilings so a promotional provider
+  price increase fails that scout instead of silently spending above the
+  expected rate.
 - `AI_REVIEW_OPENCODE_MODELS`: comma-separated free OpenCode model IDs. When it
   is unset, the reviewer discovers eligible IDs ending in `-free` plus
   `big-pickle` from the live OpenCode catalogue. DeepSeek V4 Flash, MiMo V2.5,
@@ -57,8 +60,9 @@ cumulative scorecard fields are intended to support removing scouts that are
 noisy or not cost-effective.
 
 Free-model availability is refreshed from OpenCode at the start of every run.
-Models removed from the catalogue are skipped. The four default scouts—Kimi
-K2.6, DeepSeek V4 Pro, Big Pickle, and Nemotron 3 Ultra Free—run concurrently.
+Models removed from the catalogue are skipped. The six default scouts—Kimi
+K2.6, DeepSeek V4 Pro, GLM 5.2, Ling 2.6 1T, Big Pickle, and Nemotron 3 Ultra
+Free—run in bounded concurrent batches.
 GitHub and free-provider transient failures use bounded retries, while paid
 OpenRouter completion POSTs make one HTTP attempt because the provider exposes
 no idempotency key. Nemotron receives a 180-second timeout, and individual
