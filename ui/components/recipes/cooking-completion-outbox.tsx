@@ -15,11 +15,21 @@ export function CookingCompletionOutbox() {
     if (isPending || !userId) return;
 
     let cancelled = false;
+    let flushInProgress = false;
+    let flushRequested = false;
     let retryDelay = INITIAL_RETRY_DELAY_MS;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
     const flush = async () => {
-      if (retryTimer) clearTimeout(retryTimer);
+      if (flushInProgress) {
+        flushRequested = true;
+        return;
+      }
+      flushInProgress = true;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+        retryTimer = undefined;
+      }
       try {
         await flushCookingCompletionOutbox(userId);
         retryDelay = INITIAL_RETRY_DELAY_MS;
@@ -31,6 +41,12 @@ export function CookingCompletionOutbox() {
         if (!cancelled) {
           retryTimer = setTimeout(flush, retryDelay);
           retryDelay = Math.min(retryDelay * 2, MAX_RETRY_DELAY_MS);
+        }
+      } finally {
+        flushInProgress = false;
+        if (flushRequested && !cancelled) {
+          flushRequested = false;
+          void flush();
         }
       }
     };

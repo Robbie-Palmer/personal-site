@@ -52,6 +52,29 @@ describe("CookingCompletionOutbox", () => {
     expect(mocks.flushCookingCompletionOutbox).not.toHaveBeenCalled();
   });
 
+  it("coalesces reconnects while a flush is already in progress", async () => {
+    let resolveFirstFlush: (() => void) | undefined;
+    mocks.flushCookingCompletionOutbox.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveFirstFlush = resolve;
+        }),
+    );
+
+    render(<CookingCompletionOutbox />);
+    await waitFor(() =>
+      expect(mocks.flushCookingCompletionOutbox).toHaveBeenCalledOnce(),
+    );
+
+    act(() => globalThis.dispatchEvent(new Event("online")));
+    expect(mocks.flushCookingCompletionOutbox).toHaveBeenCalledOnce();
+
+    await act(async () => resolveFirstFlush?.());
+    await waitFor(() =>
+      expect(mocks.flushCookingCompletionOutbox).toHaveBeenCalledTimes(2),
+    );
+  });
+
   it("retries transient failures with backoff", async () => {
     vi.useFakeTimers();
     const consoleError = vi
