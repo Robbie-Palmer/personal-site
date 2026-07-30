@@ -37,7 +37,7 @@ const privateKey = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKe
 function environment(put = vi.fn()): Env {
   return {
     AI_REVIEW_MODELS:
-      "moonshotai/kimi-k2.6,deepseek/deepseek-v4-pro",
+      "moonshotai/kimi-k2.6,deepseek/deepseek-v4-pro,z-ai/glm-5.2,inclusionai/ling-2.6-1t",
     AI_REVIEW_OPENCODE_MODELS: "",
     AI_REVIEW_MERGER_MODEL: "anthropic/claude-sonnet-4.6",
     AI_REVIEW_IGNORED_AUTHORS: "renovate[bot],dependabot[bot]",
@@ -323,6 +323,8 @@ describe("stateful review engine", () => {
     expect(paid.models).toEqual([
       "moonshotai/kimi-k2.6",
       "deepseek/deepseek-v4-pro",
+      "z-ai/glm-5.2",
+      "inclusionai/ling-2.6-1t",
     ]);
 
     openCodeModels.mockResolvedValue({
@@ -332,16 +334,18 @@ describe("stateful review engine", () => {
     const free = await runScouts(environment(), params, prepared, {
       providers: ["opencode"],
     });
-    expect(openRouterScout).toHaveBeenCalledTimes(2);
+    expect(openRouterScout).toHaveBeenCalledTimes(4);
     expect(free.models).toEqual(["big-pickle"]);
 
     const combined = combineScoutRuns(paid, free);
     expect(combined.models).toEqual([
       "moonshotai/kimi-k2.6",
       "deepseek/deepseek-v4-pro",
+      "z-ai/glm-5.2",
+      "inclusionai/ling-2.6-1t",
       "big-pickle",
     ]);
-    expect(combined.metrics).toHaveLength(3);
+    expect(combined.metrics).toHaveLength(5);
   });
 
   it("records unavailable, rejected, and invalid scout outcomes", async () => {
@@ -367,6 +371,8 @@ describe("stateful review engine", () => {
       "unavailable-free",
       "moonshotai/kimi-k2.6",
       "deepseek/deepseek-v4-pro",
+      "z-ai/glm-5.2",
+      "inclusionai/ling-2.6-1t",
     ]);
     expect(result.invalidCounts["deepseek/deepseek-v4-pro"]).toBe(1);
     expect(result.metrics).toEqual(
@@ -381,6 +387,14 @@ describe("stateful review engine", () => {
         }),
         expect.objectContaining({
           model: "deepseek/deepseek-v4-pro",
+          ok: false,
+        }),
+        expect.objectContaining({
+          model: "z-ai/glm-5.2",
+          ok: false,
+        }),
+        expect.objectContaining({
+          model: "inclusionai/ling-2.6-1t",
           ok: false,
         }),
       ]),
@@ -731,11 +745,13 @@ describe("stateful review engine", () => {
     expect(scouts.models).toEqual([
       "moonshotai/kimi-k2.6",
       "deepseek/deepseek-v4-pro",
+      "z-ai/glm-5.2",
+      "inclusionai/ling-2.6-1t",
       "big-pickle",
       "nemotron-3-ultra-free",
     ]);
     expect(merged.result.findings).toHaveLength(1);
-    expect(publication).toEqual({ commentId: 987, runCostUsd: 0.06 });
+    expect(publication).toEqual({ commentId: 987, runCostUsd: 0.08 });
     expect(publishedBodies[0]).toContain(STATEFUL_REVIEW_MARKER);
     expect(publishedBodies[0]).toContain("## Stateful AI code review");
     expect(publishedBodies[0]).toContain("Reported by: `moonshotai/kimi-k2.6`");

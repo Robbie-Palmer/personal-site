@@ -136,6 +136,45 @@ test("paid OpenRouter completions are never retried by the HTTP client", async (
   assert.equal(attempts, 1);
 });
 
+test("default OpenRouter scouts enforce their model-specific price ceiling", async (context) => {
+  const expectedByModel = new Map<string, { prompt: number; completion: number }>([
+    ["moonshotai/kimi-k2.6", { prompt: 0.7, completion: 2.8 }],
+    ["deepseek/deepseek-v4-pro", { prompt: 0.65, completion: 1.3 }],
+    ["z-ai/glm-5.2", { prompt: 0.7, completion: 2.2 }],
+    ["inclusionai/ling-2.6-1t", { prompt: 0.08, completion: 0.65 }],
+  ]);
+  let attempts = 0;
+  context.mock.method(globalThis, "fetch", async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as {
+      model?: string;
+      provider?: { max_price?: { prompt?: number; completion?: number } };
+    };
+    assert.ok(body.model && expectedByModel.has(body.model));
+    assert.deepEqual(body.provider?.max_price, expectedByModel.get(body.model));
+    attempts += 1;
+    return Response.json({
+      choices: [{ finish_reason: "stop", message: { content: '{"findings":[]}' } }],
+      usage: { cost: 0 },
+    });
+  });
+  const reviewer = new Reviewer({
+    githubToken: "github-token",
+    openRouterKey: "openrouter-key",
+    repository: "Robbie-Palmer/personal-site",
+    prNumber: 837,
+    openRouterScouts: [...expectedByModel.keys()],
+    openCodeScouts: [],
+    merger: "model-b",
+    ignoredAuthors: [],
+    requireZdr: false,
+  });
+
+  for (const model of expectedByModel.keys()) {
+    await reviewer.callOpenRouterScout(model, "system", "user");
+  }
+  assert.equal(attempts, expectedByModel.size);
+});
+
 test("duplicate scout model IDs are detected across providers", () => {
   assert.deepEqual(
     duplicateScoutModels(["provider/model-a", "big-pickle"], ["big-pickle", "free-model"]),
