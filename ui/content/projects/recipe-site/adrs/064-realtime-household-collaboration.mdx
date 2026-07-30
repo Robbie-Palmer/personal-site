@@ -164,6 +164,14 @@ the server must also re-check authorization when a connection is renewed. A late
 path would require authorization on every command, but client mutations remain HTTP requests in the
 initial design.
 
+The membership/session mutation path sends a typed `revokeAccess` call to the household Durable
+Object through its Worker binding after the database commit. The room enumerates `getWebSockets()`,
+matches server-authored socket attachments by user or session, and closes those connections. Each
+attachment includes `authorizationExpiresAt`; the room schedules its alarm for the earliest
+expiration, closes expired sockets when the alarm fires, and schedules the next expiration.
+Reconnection always passes through the outer Worker again. A missed revocation signal is therefore
+bounded by the authorization lifetime rather than granting access indefinitely.
+
 ## Mutation and Publication Flow
 
 Keep writes on the existing typed HTTP API. WebSockets initially carry server-to-client change
@@ -200,7 +208,8 @@ post-commit publisher, including human API calls, delegated agent calls, adminis
 and workflow completions. Do not scatter direct Durable Object calls across route handlers.
 
 The publication call occurs only after the database commit. Broadcasting before commit could expose
-state that later rolls back. Failure to broadcast after commit must:
+state that later rolls back. The publisher makes a small bounded number of idempotent retry attempts
+with jitter inside the request's execution budget. Failure to broadcast after those attempts must:
 
 * not convert the committed mutation into an apparent failed mutation;
 * return the canonical committed response and revision to the caller;
@@ -210,7 +219,9 @@ state that later rolls back. Failure to broadcast after commit must:
 
 There is intentionally no distributed transaction between Neon and the Durable Object. If later
 requirements demand durable delivery of every intermediate event, add a Postgres transactional
-outbox or adopt a change-data capture service in a separate decision.
+outbox or adopt a change-data capture service in a separate decision. The normal-path latency target
+assumes a successful publish; bounded repair is the exceptional fallback and its observed duration
+must be measured.
 
 ## Revisions and the Wire Protocol
 
@@ -255,9 +266,17 @@ Clients maintain the highest accepted revision for each resource:
 * while a collaborative screen is active, a low-frequency poll provides bounded repair when the
   only post-commit notification was lost and no later revision exposes a gap.
 
+The revision guard applies to every cache installation, not only WebSocket messages. A mutation
+response, refetch result, event patch, or optimistic rollback with a revision lower than the highest
+confirmed revision must never replace newer cached state. Coalesce concurrent invalidations for one
+resource into one in-flight fetch through the TanStack Query key; if another event arrives during
+that fetch, compare its revision with the fetched snapshot and make at most one follow-up fetch.
+
 The exact active-page interval is a product measurement, not a protocol guarantee. Start around
 30–60 seconds with no background polling when the page is hidden. WebSockets provide normal
-low-latency updates; polling only bounds silent failure.
+low-latency updates; socket close/error, browser `online`, and window focus trigger immediate
+reconnection and snapshot recovery. Polling only bounds otherwise silent failure and its interval
+remains configurable from observed reliability.
 
 ## Optimistic UI
 
@@ -268,9 +287,10 @@ Use TanStack Query optimistic updates for interactions whose local result is obv
 * change an uncomplicated quantity;
 * remove an item when restoration is deterministic.
 
-The mutation response remains canonical. On rejection, restore the captured cache state or refetch.
-On success, reconcile the optimistic entity with the returned row and revision. TanStack Query
-documents the corresponding
+The mutation response remains canonical. On rejection, restore the captured cache state only if
+that optimistic layer still owns the affected fields; otherwise refetch. On success, reconcile the
+optimistic entity only when the returned revision is not older than the highest confirmed cache
+revision. TanStack Query documents the corresponding
 [optimistic update and rollback model](https://tanstack.com/query/latest/docs/framework/react/guides/optimistic-updates).
 
 Prefer invalidation and refetch for pantry reconciliation, ingredient normalization, merging,
@@ -293,10 +313,11 @@ Use explicit, idempotent domain commands rather than ambiguous CRUD or UI gestur
 Do not implement a `toggle` command. Retrying a toggle can reverse an already successful operation,
 whereas retrying `setItemChecked(true)` is safe.
 
-Every mutation carries a client-generated operation ID and is protected by a database uniqueness
-constraint or mutation ledger. Repeating an accepted operation returns its recorded canonical
-outcome rather than applying the change again. This provides retry-safe application semantics
-without claiming transport-level exactly-once delivery.
+Every mutation carries a client-generated operation ID. Persist it and its canonical outcome in
+Neon in the same transaction that applies the mutation, protected by a unique
+`(household_id, operation_id)` constraint or equivalent scoped key. A concurrent or later retry
+returns the committed recorded outcome rather than applying the command again. This provides
+retry-safe application semantics without claiming transport-level exactly-once delivery.
 
 These commands also form the compatibility boundary for a future offline outbox. Operations such as
 adding distinct items, setting a checkbox to an explicit value, and applying quantity deltas can be
@@ -325,6 +346,10 @@ indicators from connected sockets and tagged WebSocket attachments. Presence:
 Cloudflare's hibernation API keeps sockets connected while allowing the Durable Object's in-memory
 state to be discarded. Attachments and `getWebSockets()` provide the reconstruction mechanism; see
 the [WebSocket hibernation documentation](https://developers.cloudflare.com/durable-objects/best-practices/websockets/).
+On activation, reconstruct the current presence set from all live sockets and their attachments
+before emitting a snapshot or subsequent deltas. Do not add a separate durable presence record:
+duplicating connection state in storage would introduce another stale-state cleanup path without
+making presence authoritative.
 
 ## Offline Boundary
 
@@ -393,6 +418,10 @@ Realtime transport does not weaken the authorization model:
 * never accept a household or user identity from an untrusted forwarded header;
 * bound message size, connection count per session/user, and presence update rate;
 * validate every message against a versioned schema and close malformed or abusive connections;
+* coalesce superseded invalidations for the same resource and never grow an unbounded per-socket
+  queue;
+* close a persistently slow socket with a retryable application close code rather than delaying the
+  room; its reconnect snapshot repairs any dropped invalidations;
 * do not log WebSocket payloads containing pantry/list contents;
 * close or expire sockets after membership, household, session, or authorization changes;
 * treat realtime receipt as a view permission only—writes continue through the existing
@@ -483,7 +512,8 @@ representative hosted alternative with
 4. **Post-commit publication:** centralize the publisher in the shared domain mutation path and emit
    revisioned invalidations only after successful commits.
 5. **Client recovery:** add subscription readiness, initial snapshots, highest-revision tracking,
-   gap detection, reconnect snapshots, visibility-aware repair polling, and stale-message rejection.
+   gap detection, reconnect snapshots, visibility-aware repair polling, coalesced refetches, and
+   stale-result rejection across every cache write path.
 6. **Presence:** derive household/list presence from authenticated connections after the core change
    path is reliable.
 7. **Broader writers:** route agent and workflow pantry/list changes through the same mutation and
@@ -508,15 +538,20 @@ Accept this proposal when an implementation spike demonstrates that:
 * a user outside the household cannot connect, infer presence, or receive resource notifications;
 * reconnecting after a network interruption obtains the canonical snapshot and current revision;
 * duplicate operation delivery does not apply a mutation twice;
+* a delayed mutation response or refetch at revision N cannot overwrite cached state already
+  confirmed at revision N+1;
 * out-of-order, duplicate, stale, and revision-gap notifications converge to the current Postgres
   snapshot;
 * a successful Postgres commit followed by a simulated publication failure remains successful and
   becomes visible to another active client through the bounded repair path;
 * household membership removal prevents new subscriptions and closes or expires existing access
   within the documented authorization lifetime;
+* a simulated missed revocation signal still closes the socket at its bounded authorization expiry;
 * an atomic multi-item pantry reconciliation is never rendered as a partially committed database
   state;
 * the Durable Object can hibernate and resume connections without relying on lost in-memory state;
+* a deliberately slow socket is disconnected without blocking room fan-out and converges after
+  reconnecting;
 * preview deployments have isolated Durable Object namespaces and cannot join production rooms;
 * connection and message costs remain proportionate to the small household workload;
 * the implementation spike records whether raw Durable Objects or PartyKit better fits the existing
