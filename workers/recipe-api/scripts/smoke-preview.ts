@@ -37,12 +37,25 @@ async function expectJson<T>(
 ): Promise<T> {
   const deadline = Date.now() + READY_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const response = await fetch(`${apiURL}${path}`, {
-      ...init,
-      signal: AbortSignal.timeout(
-        Math.min(REQUEST_TIMEOUT_MS, Math.max(1, deadline - Date.now())),
-      ),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${apiURL}${path}`, {
+        ...init,
+        signal: AbortSignal.timeout(
+          Math.min(REQUEST_TIMEOUT_MS, Math.max(1, deadline - Date.now())),
+        ),
+      });
+    } catch (error) {
+      // A fresh Worker can briefly reject connections while its route
+      // converges. Readiness probes are safe to replay; mutations are not.
+      if (init?.method) throw error;
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.min(RETRY_DELAY_MS, remaining)),
+      );
+      continue;
+    }
     if (response.status === expectedStatus) {
       return response.json() as Promise<T>;
     }
