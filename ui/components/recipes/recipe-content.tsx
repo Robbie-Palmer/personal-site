@@ -33,6 +33,10 @@ import {
 import { useScaledRecipe } from "@/hooks/use-scaled-recipe";
 import { useUnitPreference } from "@/hooks/use-unit-preference";
 import {
+  captureRecipeProductActivity,
+  captureRecipeValue,
+} from "@/lib/analytics/recipe-product";
+import {
   buildIngredientAnnotationMap,
   formatIngredient,
   formatInstructionIngredientToken,
@@ -243,6 +247,12 @@ export function RecipeContent({
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(
     () => new Set(),
   );
+  useEffect(() => {
+    captureRecipeProductActivity("recipe_viewed", {
+      recipe_slug: recipe.slug,
+      recipe_source: recipe.canonical ? "imported" : "native",
+    });
+  }, [recipe.canonical, recipe.slug]);
 
   const toggleIngredient = useCallback((ingredient: string) => {
     setCheckedIngredients((prev) => {
@@ -341,11 +351,15 @@ export function RecipeContent({
   }, []);
 
   const openCookMode = useCallback(() => {
+    captureRecipeProductActivity("cook_mode_started", {
+      recipe_slug: recipe.slug,
+      step_count: cookSteps.length,
+    });
     globalThis.history.pushState(null, "", buildCookUrl(true, 0));
     pushedCookEntryRef.current = true;
     setCookStep(0);
     setCookOpen(true);
-  }, []);
+  }, [cookSteps.length, recipe.slug]);
 
   const exitCookMode = useCallback(() => {
     if (pushedCookEntryRef.current) {
@@ -359,6 +373,15 @@ export function RecipeContent({
       setCookStep(0);
     }
   }, []);
+
+  const completeCookMode = useCallback(() => {
+    captureRecipeValue("recipe_cooked", {
+      recipe_slug: recipe.slug,
+      serving_count: portions,
+      step_count: cookSteps.length,
+    });
+    exitCookMode();
+  }, [cookSteps.length, exitCookMode, portions, recipe.slug]);
 
   const changeCookStep = useCallback((step: number) => {
     globalThis.history.replaceState(null, "", buildCookUrl(true, step));
@@ -710,6 +733,7 @@ export function RecipeContent({
             step={cookStep}
             onStepChange={changeCookStep}
             onExit={exitCookMode}
+            onComplete={completeCookMode}
           />,
           document.body,
         )}

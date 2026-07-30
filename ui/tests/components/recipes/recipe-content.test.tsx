@@ -2,10 +2,13 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RecipeContent } from "@/components/recipes/recipe-content";
+import { CookModeProvider } from "@/contexts/cook-mode-context";
 import type { RecipeDetailView } from "@/lib/domain/recipe/recipeViews";
 import { preferenceForSystem } from "@/lib/domain/recipe/unit";
 
 const mocks = vi.hoisted(() => ({
+  captureRecipeProductActivity: vi.fn(),
+  captureRecipeValue: vi.fn(),
   setUnitPreference: vi.fn(),
   tokenizeInstructionSdk: vi.fn(),
 }));
@@ -39,6 +42,11 @@ vi.mock("@/lib/domain/recipe/instructionTokens", () => ({
   tokenizeInstructionSdk: mocks.tokenizeInstructionSdk,
 }));
 
+vi.mock("@/lib/analytics/recipe-product", () => ({
+  captureRecipeProductActivity: mocks.captureRecipeProductActivity,
+  captureRecipeValue: mocks.captureRecipeValue,
+}));
+
 const recipe: RecipeDetailView = {
   slug: "weeknight",
   title: "Weeknight pasta",
@@ -56,6 +64,8 @@ const recipe: RecipeDetailView = {
 
 describe("RecipeContent", () => {
   beforeEach(() => {
+    mocks.captureRecipeProductActivity.mockClear();
+    mocks.captureRecipeValue.mockClear();
     mocks.setUnitPreference.mockClear();
     mocks.tokenizeInstructionSdk.mockReturnValue({
       ok: true,
@@ -106,5 +116,24 @@ describe("RecipeContent", () => {
     const method = container.querySelector(".rt-method-steps");
     expect(method).toHaveClass("list-decimal", "marker:text-transparent");
     expect(method).not.toHaveClass("list-none");
+  });
+
+  it("records value only when cook mode is explicitly finished", async () => {
+    const user = userEvent.setup();
+    render(
+      <CookModeProvider>
+        <RecipeContent recipe={recipe} />
+      </CookModeProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Start cooking" }));
+    expect(mocks.captureRecipeValue).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Finish ✓" }));
+    expect(mocks.captureRecipeValue).toHaveBeenCalledWith("recipe_cooked", {
+      recipe_slug: "weeknight",
+      serving_count: 2,
+      step_count: 1,
+    });
   });
 });

@@ -114,6 +114,7 @@ export function CookMode({
   step,
   onStepChange,
   onExit,
+  onComplete,
 }: Readonly<{
   recipeSlug: string;
   recipeTitle: string;
@@ -126,6 +127,7 @@ export function CookMode({
   step: number;
   onStepChange: (step: number) => void;
   onExit: () => void;
+  onComplete: () => void;
 }>) {
   const { setCookModeOpen } = useCookMode();
   const clampedStep = Math.min(Math.max(step, 0), steps.length - 1);
@@ -133,6 +135,7 @@ export function CookMode({
   const [showIngredients, setShowIngredients] = useState(false);
   const containerRef = useRef<HTMLDialogElement>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const completionReportedRef = useRef(false);
 
   const goTo = useCallback(
     (next: number) => {
@@ -513,7 +516,15 @@ export function CookMode({
                 Prev
               </Button>
               <Button
-                onClick={() => (isLastStep ? onExit() : goTo(clampedStep + 1))}
+                onClick={() => {
+                  if (!isLastStep) {
+                    goTo(clampedStep + 1);
+                    return;
+                  }
+                  if (completionReportedRef.current) return;
+                  completionReportedRef.current = true;
+                  onComplete();
+                }}
                 className="h-12 flex-1 bg-[var(--terracotta)] text-base text-white hover:bg-[var(--terracotta-deep)] md:max-w-44"
               >
                 {isLastStep ? "Finish ✓" : "Next"}

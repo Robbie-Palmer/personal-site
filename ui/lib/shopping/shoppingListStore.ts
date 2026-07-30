@@ -10,6 +10,8 @@
  * export, so the list lives entirely in the browser for this first pass.
  */
 
+import { captureRecipeProductActivity } from "@/lib/analytics/recipe-product";
+
 export type SelectedRecipeEntry = {
   slug: string;
   /** Chosen servings; when absent the recipe's own servings are used. */
@@ -67,6 +69,8 @@ export type ShoppingListState = {
 };
 
 const STORAGE_KEY = "recipe-shopping-list:v1";
+const COMPLETED_TRIP_STORAGE_KEY = "recipe-shopping-trip-completed:v1";
+const COMPLETED_TRIP_LOCK_NAME = "recipe-shopping-trip-completion";
 
 const EMPTY_STATE: ShoppingListState = {
   recipes: [],
@@ -77,7 +81,50 @@ const EMPTY_STATE: ShoppingListState = {
 
 let state: ShoppingListState = EMPTY_STATE;
 let hydrated = false;
+let completedTripRecordedFallback = false;
 const listeners = new Set<() => void>();
+
+/**
+ * Persistently remember that the current checked-list cycle already produced
+ * its value event. `clearChecked` starts a new cycle; merely unchecking and
+ * rechecking the last item does not.
+ */
+function claimShoppingTripCompletion(): boolean {
+  try {
+    if (localStorage.getItem(COMPLETED_TRIP_STORAGE_KEY) === "true") {
+      return false;
+    }
+    localStorage.setItem(COMPLETED_TRIP_STORAGE_KEY, "true");
+    return true;
+  } catch {
+    if (completedTripRecordedFallback) return false;
+    completedTripRecordedFallback = true;
+    return true;
+  }
+}
+
+export async function markShoppingTripCompleted(): Promise<boolean> {
+  const locks = globalThis.navigator?.locks;
+  if (locks) {
+    try {
+      return await locks.request(COMPLETED_TRIP_LOCK_NAME, () =>
+        claimShoppingTripCompletion(),
+      );
+    } catch {
+      // Fall through when the Web Locks API is unavailable for this origin.
+    }
+  }
+  return claimShoppingTripCompletion();
+}
+
+function resetShoppingTripCompletion(): void {
+  completedTripRecordedFallback = false;
+  try {
+    localStorage.removeItem(COMPLETED_TRIP_STORAGE_KEY);
+  } catch {
+    // The in-memory fallback still starts a new completion cycle.
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -239,6 +286,10 @@ export function isRecipeSelected(slug: string): boolean {
 export function addRecipe(slug: string): void {
   if (isRecipeSelected(slug)) return;
   setState({ ...state, recipes: [...state.recipes, { slug }] });
+  captureRecipeProductActivity("shopping_recipe_added", {
+    recipe_slug: slug,
+    shopping_recipe_count: state.recipes.length,
+  });
 }
 
 export function removeRecipe(slug: string): void {
@@ -281,6 +332,14 @@ export function setPlannedMeal(
     recipes,
     plan: slug ? [...plan, { day, slot, slug }] : plan,
   });
+  if (slug) {
+    captureRecipeProductActivity("meal_planned", {
+      meal_day: day,
+      meal_slot: slot,
+      planned_meal_count: state.plan.length,
+      recipe_slug: slug,
+    });
+  }
 }
 
 export function clearMealPlan(): void {
@@ -289,10 +348,16 @@ export function clearMealPlan(): void {
 }
 
 export function toggleChecked(key: string): void {
-  const checked = state.checked.includes(key)
+  const wasChecked = state.checked.includes(key);
+  const checked = wasChecked
     ? state.checked.filter((k) => k !== key)
     : [...state.checked, key];
   setState({ ...state, checked });
+  if (!wasChecked) {
+    captureRecipeProductActivity("shopping_item_checked", {
+      checked_item_count: state.checked.length,
+    });
+  }
 }
 
 export function clearChecked(): void {
@@ -304,6 +369,7 @@ export function clearChecked(): void {
     checked: [],
     extras: state.extras.map((e) => ({ ...e, checked: false })),
   });
+  resetShoppingTripCompletion();
 }
 
 export function addExtra(text: string): void {
@@ -337,6 +403,7 @@ export function removeExtra(id: string): void {
 
 export function clearList(): void {
   setState({ ...EMPTY_STATE });
+  resetShoppingTripCompletion();
 }
 
 /** Reset module state between tests (mirrors the cooking-timer store). */
@@ -347,5 +414,6 @@ export function __resetShoppingListForTests(): void {
   }
   state = EMPTY_STATE;
   hydrated = false;
+  completedTripRecordedFallback = false;
   listeners.clear();
 }
