@@ -20,6 +20,7 @@ vi.mock("posthog-js", () => ({
 
 describe("RecipeAnalyticsIdentity", () => {
   beforeEach(() => {
+    localStorage.clear();
     mocks.useSession.mockReset();
     vi.mocked(posthog.identify).mockReset();
     vi.mocked(posthog.reset).mockReset();
@@ -63,5 +64,32 @@ describe("RecipeAnalyticsIdentity", () => {
     view.rerender(<RecipeAnalyticsIdentity />);
 
     await waitFor(() => expect(posthog.reset).toHaveBeenCalledOnce());
+    expect(localStorage).toHaveLength(0);
+  });
+
+  it("clears a persisted identity when the auth session expired", async () => {
+    localStorage.setItem("recipe-posthog-identified-user:v1", "expired-user");
+    mocks.useSession.mockReturnValue({ data: null, isPending: false });
+
+    render(<RecipeAnalyticsIdentity />);
+
+    await waitFor(() => expect(posthog.reset).toHaveBeenCalledOnce());
+    expect(localStorage).toHaveLength(0);
+  });
+
+  it("resets before identifying a different user on the same browser", async () => {
+    localStorage.setItem("recipe-posthog-identified-user:v1", "previous-user");
+    mocks.useSession.mockReturnValue({
+      data: { user: { id: "next-user", role: "user" } },
+      isPending: false,
+    });
+
+    render(<RecipeAnalyticsIdentity />);
+
+    await waitFor(() => expect(posthog.identify).toHaveBeenCalledOnce());
+    expect(posthog.reset).toHaveBeenCalledOnce();
+    expect(vi.mocked(posthog.reset).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(posthog.identify).mock.invocationCallOrder[0] ?? 0,
+    );
   });
 });
