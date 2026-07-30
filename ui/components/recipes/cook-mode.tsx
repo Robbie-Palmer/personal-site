@@ -114,6 +114,7 @@ export function CookMode({
   step,
   onStepChange,
   onExit,
+  onComplete,
 }: Readonly<{
   recipeSlug: string;
   recipeTitle: string;
@@ -126,6 +127,7 @@ export function CookMode({
   step: number;
   onStepChange: (step: number) => void;
   onExit: () => void;
+  onComplete: () => void;
 }>) {
   const { setCookModeOpen } = useCookMode();
   const clampedStep = Math.min(Math.max(step, 0), steps.length - 1);
@@ -513,7 +515,9 @@ export function CookMode({
                 Prev
               </Button>
               <Button
-                onClick={() => (isLastStep ? onExit() : goTo(clampedStep + 1))}
+                onClick={() =>
+                  isLastStep ? onComplete() : goTo(clampedStep + 1)
+                }
                 className="h-12 flex-1 bg-[var(--terracotta)] text-base text-white hover:bg-[var(--terracotta-deep)] md:max-w-44"
               >
                 {isLastStep ? "Finish ✓" : "Next"}

@@ -1,7 +1,7 @@
 {
   "dashboards": {
     "recipe_product_growth": {
-      "description": "Product-led growth for the recipe app: onboarding activation, time-to-value, meaningful active users, retention, and usage depth. Production traffic only.",
+      "description": "Product-led growth for the recipe app: outcome-based activation, time-to-value, meaningful active users, retention, and usage depth. Production traffic only.",
       "name": "Recipe product growth",
       "pinned": true,
       "tags": [
@@ -15,8 +15,8 @@
       "dashboard_keys": [
         "recipe_product_growth"
       ],
-      "description": "Share of authenticated users who complete recipe-box onboarding within 7 days of starting it. This is the initial activation hypothesis.",
-      "name": "Activation rate · onboarding completed",
+      "description": "Share of authenticated users who reach a demonstrated value moment—finishing a cook or completing an app-assisted shop—within 30 days of starting onboarding.",
+      "name": "Activation rate · first value reached",
       "query": {
         "kind": "InsightVizNode",
         "source": {
@@ -28,7 +28,7 @@
             "funnelOrderType": "ordered",
             "funnelStepReference": "total",
             "funnelVizType": "steps",
-            "funnelWindowInterval": 7,
+            "funnelWindowInterval": 30,
             "funnelWindowIntervalUnit": "day",
             "layout": "horizontal"
           },
@@ -48,8 +48,8 @@
               "kind": "EventsNode"
             },
             {
-              "custom_name": "Recipe box activated",
-              "event": "recipe_onboarding_completed",
+              "custom_name": "First value reached",
+              "event": "recipe_value_reached",
               "kind": "EventsNode"
             }
           ]
@@ -65,8 +65,8 @@
       "dashboard_keys": [
         "recipe_product_growth"
       ],
-      "description": "Median elapsed time from starting onboarding to completing a usable recipe box, within a 7-day conversion window.",
-      "name": "Time-to-value · onboarding to recipe box",
+      "description": "Median elapsed time from starting onboarding to finishing a cook or completing an app-assisted shop, within a 30-day conversion window.",
+      "name": "Time-to-value · first outcome",
       "query": {
         "kind": "InsightVizNode",
         "source": {
@@ -78,7 +78,7 @@
             "funnelOrderType": "ordered",
             "funnelStepReference": "total",
             "funnelVizType": "time_to_convert",
-            "funnelWindowInterval": 7,
+            "funnelWindowInterval": 30,
             "funnelWindowIntervalUnit": "day",
             "layout": "horizontal"
           },
@@ -99,7 +99,7 @@
             },
             {
               "custom_name": "First value",
-              "event": "recipe_onboarding_completed",
+              "event": "recipe_value_reached",
               "kind": "EventsNode"
             }
           ]
@@ -247,7 +247,7 @@
       "dashboard_keys": [
         "recipe_product_growth"
       ],
-      "description": "Weekly retention after activation: users complete onboarding, then return for any meaningful recipe activity.",
+      "description": "Weekly retention after activation: users reach a demonstrated value moment, then return for any meaningful recipe activity.",
       "name": "Activated user retention · weekly",
       "query": {
         "kind": "InsightVizNode",
@@ -273,7 +273,7 @@
               "type": "events"
             },
             "targetEntity": {
-              "id": "recipe_onboarding_completed",
+              "id": "recipe_value_reached",
               "type": "events"
             },
             "totalIntervals": 12

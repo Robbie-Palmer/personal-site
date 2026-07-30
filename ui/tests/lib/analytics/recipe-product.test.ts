@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   captureRecipeEvent,
   captureRecipeProductActivity,
+  captureRecipeValue,
   recipeAnalyticsEnvironment,
 } from "@/lib/analytics/recipe-product";
 
@@ -45,5 +46,24 @@ describe("recipe product analytics", () => {
         recipe_box_size: 3,
       },
     );
+  });
+
+  it("records a value moment as both an outcome and meaningful usage", () => {
+    captureRecipeValue("recipe_cooked", {
+      recipe_slug: "weeknight-pasta",
+    });
+
+    expect(posthog.capture).toHaveBeenNthCalledWith(1, "recipe_value_reached", {
+      app_area: "recipes",
+      environment: "development",
+      recipe_slug: "weeknight-pasta",
+      value_moment: "recipe_cooked",
+    });
+    expect(posthog.capture).toHaveBeenNthCalledWith(2, "recipe_product_used", {
+      activity: "recipe_cooked",
+      app_area: "recipes",
+      environment: "development",
+      recipe_slug: "weeknight-pasta",
+    });
   });
 });

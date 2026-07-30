@@ -156,13 +156,15 @@ Recipe product-growth resources live separately in
 `posthog_plg_resources.json` and are merged into the same Terraform resources.
 The `Recipe product growth` dashboard uses these definitions:
 
-- **Activation:** an authenticated user completes recipe-box onboarding within
-  seven days of starting it.
-- **Time-to-value:** elapsed time from onboarding start to a completed,
-  usable recipe box.
+- **Activation:** an authenticated user finishes cooking a recipe or completes
+  an app-assisted shop within 30 days of starting onboarding. Completing setup
+  or storing recipes is not treated as value received.
+- **Time-to-value:** elapsed time from onboarding start to the first completed
+  cook or app-assisted shop.
 - **Active user:** a person performs `recipe_product_used`, emitted for recipe
   viewing, cook mode, meal planning, shopping, kitchen stock, timers, or
-  onboarding completion. DAU/WAU/MAU therefore exclude passive site pageviews.
+  completed value moments. DAU/WAU/MAU therefore exclude passive site
+  pageviews. Recipe views count as engagement, but not activation or value.
 - **Retention:** an activated user returns in a later week and performs any
   meaningful recipe action.
 - **Usage depth:** actions per active user, feature mix, and active-day

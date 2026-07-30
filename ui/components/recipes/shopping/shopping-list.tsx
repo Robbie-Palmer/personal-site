@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { useKitchenStock } from "@/hooks/use-kitchen-stock";
 import { useShoppingList } from "@/hooks/use-shopping-list";
 import { useUnitPreference } from "@/hooks/use-unit-preference";
+import { captureRecipeValue } from "@/lib/analytics/recipe-product";
 import type { ShoppingRecipe } from "@/lib/api/shopping";
 import type { MeasurementPreference } from "@/lib/domain/recipe";
 import type { KitchenLocation } from "@/lib/domain/recipe/kitchen";
@@ -154,12 +155,14 @@ function ItemRow({
   system,
   checked,
   kitchenLocation,
+  onToggle,
   showRecipes,
 }: Readonly<{
   line: ShoppingLine;
   system: MeasurementPreference;
   checked: boolean;
   kitchenLocation?: KitchenLocation;
+  onToggle: (line: ShoppingLine) => void;
   showRecipes: boolean;
 }>) {
   if (kitchenLocation) {
@@ -179,7 +182,7 @@ function ItemRow({
     <button
       type="button"
       aria-pressed={checked}
-      onClick={() => toggleChecked(line.ingredient)}
+      onClick={() => onToggle(line)}
       className="w-full flex items-center gap-2.5 py-1.5 text-left border-b border-dashed border-[var(--line)] last:border-0"
     >
       <ShoppingCheckbox checked={checked} />
@@ -219,8 +222,10 @@ function SectionHeading({
 
 function ExtrasSection({
   extras,
+  onToggle,
 }: Readonly<{
   extras: { id: string; text: string; checked: boolean }[];
+  onToggle: (id: string, checked: boolean) => void;
 }>) {
   const [text, setText] = useState("");
   const submit = () => {
@@ -245,7 +250,7 @@ function ExtrasSection({
               <button
                 type="button"
                 aria-pressed={extra.checked}
-                onClick={() => toggleExtra(extra.id)}
+                onClick={() => onToggle(extra.id, extra.checked)}
                 className="flex items-center gap-2.5 flex-1 text-left"
               >
                 <ShoppingCheckbox checked={extra.checked} />
@@ -379,6 +384,34 @@ export function ShoppingList({
     aggregated.filter((l) => checkedSet.has(l.ingredient)).length +
     state.extras.filter((e) => e.checked).length;
   const itemCount = aggregated.length + state.extras.length;
+  const shoppingItemCount =
+    aggregated.filter((line) => !inKitchen(line)).length + state.extras.length;
+  const checkedShoppingItemCount =
+    aggregated.filter(
+      (line) => !inKitchen(line) && checkedSet.has(line.ingredient),
+    ).length + state.extras.filter((extra) => extra.checked).length;
+  const recordCompletedShop = (itemWillBeChecked: boolean) => {
+    if (
+      itemWillBeChecked &&
+      shoppingItemCount > 0 &&
+      checkedShoppingItemCount + 1 === shoppingItemCount
+    ) {
+      captureRecipeValue("shopping_trip_completed", {
+        item_count: shoppingItemCount,
+        recipe_count: selected.length,
+      });
+    }
+  };
+  const handleIngredientToggle = (line: ShoppingLine) => {
+    const itemWillBeChecked = !checkedSet.has(line.ingredient);
+    toggleChecked(line.ingredient);
+    recordCompletedShop(itemWillBeChecked);
+  };
+  const handleExtraToggle = (id: string, checked: boolean) => {
+    toggleExtra(id);
+    recordCompletedShop(!checked);
+  };
+
   const servingCount = recipeGroups.reduce(
     (total, group) => total + group.servings,
     0,
@@ -453,6 +486,7 @@ export function ShoppingList({
                 system={system}
                 checked={checkedSet.has(line.ingredient)}
                 kitchenLocation={locationOf(line)}
+                onToggle={handleIngredientToggle}
                 showRecipes
               />
             ))}
@@ -474,6 +508,7 @@ export function ShoppingList({
                       system={system}
                       checked={checkedSet.has(line.ingredient)}
                       kitchenLocation={locationOf(line)}
+                      onToggle={handleIngredientToggle}
                       showRecipes
                     />
                   ))}
@@ -500,6 +535,7 @@ export function ShoppingList({
                       system={system}
                       checked={checkedSet.has(line.ingredient)}
                       kitchenLocation={locationOf(line)}
+                      onToggle={handleIngredientToggle}
                       showRecipes={false}
                     />
                   ))}
@@ -535,6 +571,7 @@ export function ShoppingList({
                 system={system}
                 checked={checkedSet.has(line.ingredient)}
                 kitchenLocation={locationOf(line)}
+                onToggle={handleIngredientToggle}
                 showRecipes={false}
               />
             ))}
@@ -542,7 +579,7 @@ export function ShoppingList({
         </div>
       )}
 
-      <ExtrasSection extras={state.extras} />
+      <ExtrasSection extras={state.extras} onToggle={handleExtraToggle} />
     </div>
   );
 }

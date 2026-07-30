@@ -32,7 +32,10 @@ import {
 } from "@/components/ui/popover";
 import { useScaledRecipe } from "@/hooks/use-scaled-recipe";
 import { useUnitPreference } from "@/hooks/use-unit-preference";
-import { captureRecipeProductActivity } from "@/lib/analytics/recipe-product";
+import {
+  captureRecipeProductActivity,
+  captureRecipeValue,
+} from "@/lib/analytics/recipe-product";
 import {
   buildIngredientAnnotationMap,
   formatIngredient,
@@ -370,6 +373,15 @@ export function RecipeContent({
       setCookStep(0);
     }
   }, []);
+
+  const completeCookMode = useCallback(() => {
+    captureRecipeValue("recipe_cooked", {
+      recipe_slug: recipe.slug,
+      serving_count: portions,
+      step_count: cookSteps.length,
+    });
+    exitCookMode();
+  }, [cookSteps.length, exitCookMode, portions, recipe.slug]);
 
   const changeCookStep = useCallback((step: number) => {
     globalThis.history.replaceState(null, "", buildCookUrl(true, step));
@@ -721,6 +733,7 @@ export function RecipeContent({
             step={cookStep}
             onStepChange={changeCookStep}
             onExit={exitCookMode}
+            onComplete={completeCookMode}
           />,
           document.body,
         )}

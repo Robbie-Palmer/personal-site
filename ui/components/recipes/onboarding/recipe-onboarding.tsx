@@ -17,10 +17,7 @@ import { isRecipeSlug } from "recipe-domain/slugs";
 import { AuthButton } from "@/components/recipes/auth-button";
 import { RecipeThumb, recipeMetaLabel } from "@/components/recipes/recipe-card";
 import { Button } from "@/components/ui/button";
-import {
-  captureRecipeEvent,
-  captureRecipeProductActivity,
-} from "@/lib/analytics/recipe-product";
+import { captureRecipeEvent } from "@/lib/analytics/recipe-product";
 import {
   type DietOptions,
   type DietPresetOption,
@@ -442,9 +439,6 @@ export function RecipeOnboarding() {
         authored_recipe_count: authoredRecipeSlugs.length,
         recipe_box_size: boxCount,
         selected_recipe_count: compatibleSelectedSlugs.length,
-      });
-      captureRecipeProductActivity("onboarding_completed", {
-        recipe_box_size: boxCount,
       });
       setStep(3);
     } catch (error_) {
