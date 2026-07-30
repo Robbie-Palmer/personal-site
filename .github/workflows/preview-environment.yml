@@ -261,7 +261,7 @@ jobs:
           DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
         run: |
           set -euo pipefail
-          session_cookie=$(mise run //workers/recipe-api:preview:session)
+          session_cookie=$(mise run --quiet //workers/recipe-api:preview:session)
 
           recipe_box=$(
             curl --fail-with-body --silent --show-error \
