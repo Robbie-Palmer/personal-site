@@ -98,6 +98,7 @@ async function createSessionCookie(): Promise<string> {
       asResponse: true,
     });
     const setCookie = signIn.headers.get("set-cookie");
+    await signIn.body?.cancel();
     if (!setCookie) {
       throw new Error(
         `Preview sign-in returned no session cookie (${signIn.status})`,

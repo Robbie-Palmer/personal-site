@@ -70,6 +70,7 @@ export type ShoppingListState = {
 
 const STORAGE_KEY = "recipe-shopping-list:v1";
 const COMPLETED_TRIP_STORAGE_KEY = "recipe-shopping-trip-completed:v1";
+const COMPLETED_TRIP_LOCK_NAME = "recipe-shopping-trip-completion";
 
 const EMPTY_STATE: ShoppingListState = {
   recipes: [],
@@ -88,7 +89,7 @@ const listeners = new Set<() => void>();
  * its value event. `clearChecked` starts a new cycle; merely unchecking and
  * rechecking the last item does not.
  */
-export function markShoppingTripCompleted(): boolean {
+function claimShoppingTripCompletion(): boolean {
   try {
     if (localStorage.getItem(COMPLETED_TRIP_STORAGE_KEY) === "true") {
       return false;
@@ -100,6 +101,20 @@ export function markShoppingTripCompleted(): boolean {
     completedTripRecordedFallback = true;
     return true;
   }
+}
+
+export async function markShoppingTripCompleted(): Promise<boolean> {
+  const locks = globalThis.navigator?.locks;
+  if (locks) {
+    try {
+      return await locks.request(COMPLETED_TRIP_LOCK_NAME, () =>
+        claimShoppingTripCompletion(),
+      );
+    } catch {
+      // Fall through when the Web Locks API is unavailable for this origin.
+    }
+  }
+  return claimShoppingTripCompletion();
 }
 
 function resetShoppingTripCompletion(): void {

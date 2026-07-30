@@ -391,12 +391,12 @@ export function ShoppingList({
     aggregated.filter(
       (line) => !inKitchen(line) && checkedSet.has(line.ingredient),
     ).length + state.extras.filter((extra) => extra.checked).length;
-  const recordCompletedShop = (itemWillBeChecked: boolean) => {
+  const recordCompletedShop = async (itemWillBeChecked: boolean) => {
     if (
       itemWillBeChecked &&
       shoppingItemCount > 0 &&
       checkedShoppingItemCount + 1 === shoppingItemCount &&
-      markShoppingTripCompleted()
+      (await markShoppingTripCompleted())
     ) {
       captureRecipeValue("shopping_trip_completed", {
         item_count: shoppingItemCount,
@@ -407,11 +407,11 @@ export function ShoppingList({
   const handleIngredientToggle = (line: ShoppingLine) => {
     const itemWillBeChecked = !checkedSet.has(line.ingredient);
     toggleChecked(line.ingredient);
-    recordCompletedShop(itemWillBeChecked);
+    void recordCompletedShop(itemWillBeChecked);
   };
   const handleExtraToggle = (id: string, checked: boolean) => {
     toggleExtra(id);
-    recordCompletedShop(!checked);
+    void recordCompletedShop(!checked);
   };
 
   const servingCount = recipeGroups.reduce(

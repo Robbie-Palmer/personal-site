@@ -1,5 +1,5 @@
 import posthog from "posthog-js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   captureRecipeEvent,
   captureRecipeProductActivity,
@@ -16,6 +16,10 @@ vi.mock("posthog-js", () => ({
 describe("recipe product analytics", () => {
   beforeEach(() => {
     vi.mocked(posthog.capture).mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("marks local events as development traffic", () => {
@@ -46,6 +50,17 @@ describe("recipe product analytics", () => {
         recipe_box_size: 3,
       },
     );
+  });
+
+  it("separates production and preview traffic by deployment hostname", () => {
+    vi.stubEnv("NODE_ENV", "production");
+
+    expect(recipeAnalyticsEnvironment("www.robbiepalmer.dev")).toBe(
+      "production",
+    );
+    expect(
+      recipeAnalyticsEnvironment("pr-859.personal-site-bu5.pages.dev"),
+    ).toBe("preview");
   });
 
   it("records a value moment as both an outcome and meaningful usage", () => {

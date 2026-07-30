@@ -174,14 +174,14 @@ describe("shoppingListStore", () => {
     expect(snap.extras).toHaveLength(1); // extra itself is retained
   });
 
-  it("starts a new shopping-trip completion cycle only after clearing checks", () => {
+  it("starts a new shopping-trip completion cycle only after clearing checks", async () => {
     toggleChecked("garlic");
-    expect(markShoppingTripCompleted()).toBe(true);
-    expect(markShoppingTripCompleted()).toBe(false);
+    await expect(markShoppingTripCompleted()).resolves.toBe(true);
+    await expect(markShoppingTripCompleted()).resolves.toBe(false);
 
     clearChecked();
 
-    expect(markShoppingTripCompleted()).toBe(true);
+    await expect(markShoppingTripCompleted()).resolves.toBe(true);
   });
 
   it("clearList wipes everything", () => {
