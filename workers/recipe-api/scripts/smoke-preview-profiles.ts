@@ -48,7 +48,9 @@ async function fetchWhenReady(
       });
       // Wrangler can report success before every request reaches the new Worker
       // version, and the previous version points at the just-deleted Neon branch.
-      if (response.status !== 503) return response;
+      if (response.status < 500) return response;
+      lastError = new Error(`GET ${path} returned ${response.status}`);
+      await response.body?.cancel();
     } catch (error) {
       lastError = error;
     }

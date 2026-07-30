@@ -66,4 +66,37 @@ describe("recipe product analytics", () => {
       recipe_slug: "weeknight-pasta",
     });
   });
+
+  it("does not let caller properties override controlled dimensions", () => {
+    captureRecipeEvent("custom_recipe_event", {
+      app_area: "other",
+      environment: "production",
+    });
+    captureRecipeProductActivity("recipe_viewed", {
+      activity: "timer_started",
+    });
+    captureRecipeValue("recipe_cooked", {
+      value_moment: "shopping_trip_completed",
+    });
+
+    expect(posthog.capture).toHaveBeenNthCalledWith(1, "custom_recipe_event", {
+      app_area: "recipes",
+      environment: "development",
+    });
+    expect(posthog.capture).toHaveBeenNthCalledWith(2, "recipe_product_used", {
+      activity: "recipe_viewed",
+      app_area: "recipes",
+      environment: "development",
+    });
+    expect(posthog.capture).toHaveBeenNthCalledWith(3, "recipe_value_reached", {
+      app_area: "recipes",
+      environment: "development",
+      value_moment: "recipe_cooked",
+    });
+    expect(posthog.capture).toHaveBeenNthCalledWith(4, "recipe_product_used", {
+      activity: "recipe_cooked",
+      app_area: "recipes",
+      environment: "development",
+    });
+  });
 });

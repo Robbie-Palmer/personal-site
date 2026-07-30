@@ -40,14 +40,14 @@ export function captureRecipeEvent(
   event: string,
   properties: RecipeAnalyticsProperties = {},
 ): void {
-  posthog.capture(event, { ...baseProperties(), ...properties });
+  posthog.capture(event, { ...properties, ...baseProperties() });
 }
 
 export function captureRecipeProductActivity(
   activity: RecipeProductActivity,
   properties: RecipeAnalyticsProperties = {},
 ): void {
-  captureRecipeEvent(RECIPE_PRODUCT_EVENT, { activity, ...properties });
+  captureRecipeEvent(RECIPE_PRODUCT_EVENT, { ...properties, activity });
 }
 
 /**
@@ -58,9 +58,11 @@ export function captureRecipeValue(
   valueMoment: RecipeValueMoment,
   properties: RecipeAnalyticsProperties = {},
 ): void {
+  const productProperties = { ...properties };
+  delete productProperties.value_moment;
   captureRecipeEvent(RECIPE_VALUE_EVENT, {
-    value_moment: valueMoment,
     ...properties,
+    value_moment: valueMoment,
   });
-  captureRecipeProductActivity(valueMoment, properties);
+  captureRecipeProductActivity(valueMoment, productProperties);
 }
