@@ -49,7 +49,7 @@ async function expectJson<T>(path: string, cookie: string): Promise<T> {
 
 function assertStringArray(value: unknown, name: string): asserts value is string[] {
   if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) {
-    throw new Error(`${name} must be an array of strings`);
+    throw new TypeError(`${name} must be an array of strings`);
   }
 }
 
@@ -80,7 +80,7 @@ try {
     cookie,
   );
   if (typeof recipeBox.completed !== "boolean") {
-    throw new Error("Recipe-box completion state must be boolean");
+    throw new TypeError("Recipe-box completion state must be boolean");
   }
   assertStringArray(recipeBox.recipeSlugs, "recipeSlugs");
   assertStringArray(recipeBox.staticRecipeSlugs, "staticRecipeSlugs");
@@ -96,7 +96,7 @@ try {
     dietProfile.recipeMatchMode !== "hide" &&
     dietProfile.recipeMatchMode !== "warn"
   ) {
-    throw new Error("recipeMatchMode must be hide or warn");
+    throw new TypeError("recipeMatchMode must be hide or warn");
   }
 
   console.log("Authenticated preview profile smoke test passed.");
