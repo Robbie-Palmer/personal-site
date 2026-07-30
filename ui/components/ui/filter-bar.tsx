@@ -60,6 +60,7 @@ interface FilterBarProps {
   stackControls?: boolean;
   activeFilters?: ActiveFilter[];
   onRemoveFilter?: (paramName: string, value: string) => void;
+  onCycleFilter?: (paramName: string, value: string) => void;
   onClearAll?: () => void;
   hasActiveFilters?: boolean;
   activeFilterCount?: number;
@@ -79,6 +80,7 @@ export function FilterBar({
   stackControls = false,
   activeFilters = [],
   onRemoveFilter,
+  onCycleFilter,
   onClearAll,
   hasActiveFilters = false,
   activeFilterCount = 0,
@@ -254,8 +256,14 @@ export function FilterBar({
             <FilterChip
               key={`${filter.paramName}-${filter.excluded ? "!" : ""}${filter.value}`}
               icon={filter.icon}
+              name={filter.displayValue}
               excluded={filter.excluded}
               onRemove={() => onRemoveFilter?.(filter.paramName, filter.value)}
+              onCycle={
+                onCycleFilter
+                  ? () => onCycleFilter(filter.paramName, filter.value)
+                  : undefined
+              }
             >
               {filter.displayValue}
             </FilterChip>

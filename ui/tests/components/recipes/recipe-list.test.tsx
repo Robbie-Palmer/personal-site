@@ -188,6 +188,30 @@ describe("RecipeList", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("cycles an included active filter chip to excluded", async () => {
+    currentSearchParams = new URLSearchParams("cuisine=Mexican");
+    const user = userEvent.setup();
+
+    render(<RecipeList recipes={recipes} />);
+
+    await user.click(screen.getByRole("button", { name: /Mexican included/i }));
+
+    expect(replaceMock).toHaveBeenCalledWith("/recipes?cuisine=%21Mexican", {
+      scroll: false,
+    });
+  });
+
+  it("clears an excluded active filter chip on the next tap", async () => {
+    currentSearchParams = new URLSearchParams("cuisine=!Mexican");
+    const user = userEvent.setup();
+
+    render(<RecipeList recipes={recipes} />);
+
+    await user.click(screen.getByRole("button", { name: /Mexican excluded/i }));
+
+    expect(replaceMock).toHaveBeenCalledWith("/recipes", { scroll: false });
+  });
+
   it("filters recipes from the inline search field", async () => {
     const user = userEvent.setup();
 
