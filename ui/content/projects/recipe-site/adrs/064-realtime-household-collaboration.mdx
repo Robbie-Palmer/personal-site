@@ -172,6 +172,11 @@ expiration, closes expired sockets when the alarm fires, and schedules the next 
 Reconnection always passes through the outer Worker again. A missed revocation signal is therefore
 bounded by the authorization lifetime rather than granting access indefinitely.
 
+The socket authorization lifetime is shorter than the underlying browser session. Start at five
+minutes, cap it at fifteen minutes without a separate review, and reconnect proactively before
+expiry. Apply the same bounded retry and operational-error policy to the post-commit revocation call
+as to ordinary change publication.
+
 ## Mutation and Publication Flow
 
 Keep writes on the existing typed HTTP API. WebSockets initially carry server-to-client change
@@ -234,6 +239,12 @@ Each independently fetched collaborative aggregate has a monotonic `bigint` revi
 * the mutation response and subsequent snapshot contain the committed revision;
 * the broadcast identifies that revision.
 
+Each mutable pantry/list row also has a distinct per-row version used for optimistic concurrency.
+`expectedVersion` compares against that stored item version, never the aggregate revision. A
+successful transaction increments every affected row version and increments the aggregate revision
+exactly once, whether it changes one row or many. The aggregate revision orders snapshots and
+notifications; row versions detect conflicts for commands targeting a particular item.
+
 Allocate a revision with a locked or atomic aggregate-row update such as
 `revision = revision + 1 RETURNING revision`. Do not derive it from client time, `updated_at`, or
 WebSocket arrival order. Serialize `bigint` revisions as decimal strings at the JSON boundary.
@@ -273,10 +284,10 @@ resource into one in-flight fetch through the TanStack Query key; if another eve
 that fetch, compare its revision with the fetched snapshot and make at most one follow-up fetch.
 
 The exact active-page interval is a product measurement, not a protocol guarantee. Start around
-30–60 seconds with no background polling when the page is hidden. WebSockets provide normal
-low-latency updates; socket close/error, browser `online`, and window focus trigger immediate
-reconnection and snapshot recovery. Polling only bounds otherwise silent failure and its interval
-remains configurable from observed reliability.
+30–60 seconds with per-client jitter and no background polling when the page is hidden. WebSockets
+provide normal low-latency updates; socket close/error, browser `online`, and window focus trigger
+immediate reconnection and snapshot recovery. Polling only bounds otherwise silent failure and its
+interval remains configurable from observed reliability.
 
 ## Optimistic UI
 
@@ -313,8 +324,9 @@ Use explicit, idempotent domain commands rather than ambiguous CRUD or UI gestur
 Do not implement a `toggle` command. Retrying a toggle can reverse an already successful operation,
 whereas retrying `setItemChecked(true)` is safe.
 
-Every mutation carries a client-generated operation ID. Persist it and its canonical outcome in
-Neon in the same transaction that applies the mutation, protected by a unique
+Every mutation carries a globally unique client-generated UUIDv7 or equivalent sortable
+high-entropy operation ID. Persist it and its canonical outcome in Neon in the same transaction
+that applies the mutation, protected by a unique
 `(household_id, operation_id)` constraint or equivalent scoped key. A concurrent or later retry
 returns the committed recorded outcome rather than applying the command again. This provides
 retry-safe application semantics without claiming transport-level exactly-once delivery.
@@ -377,6 +389,10 @@ command payload, originating schema version, and creation time. The Worker remai
 it rechecks the current session and household membership, deduplicates the operation, applies or
 rejects it under current business rules, and returns the canonical revision. The UI must distinguish
 pending local intent from confirmed shared state.
+
+The server advertises an explicit compatibility window for queued command schema versions. The
+client may migrate a queued command before replay; the server rejects unknown or expired versions
+without partially applying them, and the UI exposes an actionable discard or manual-reapply path.
 
 Durable offline shared mutations additionally require:
 
