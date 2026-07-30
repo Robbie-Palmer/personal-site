@@ -7,6 +7,7 @@ import {
   clearList,
   clearMealPlan,
   getShoppingListSnapshot,
+  markShoppingTripCompleted,
   removeExtra,
   removeRecipe,
   setPlannedMeal,
@@ -171,6 +172,16 @@ describe("shoppingListStore", () => {
     expect(snap.checked).toEqual([]);
     expect(snap.extras[0]!.checked).toBe(false);
     expect(snap.extras).toHaveLength(1); // extra itself is retained
+  });
+
+  it("starts a new shopping-trip completion cycle only after clearing checks", () => {
+    toggleChecked("garlic");
+    expect(markShoppingTripCompleted()).toBe(true);
+    expect(markShoppingTripCompleted()).toBe(false);
+
+    clearChecked();
+
+    expect(markShoppingTripCompleted()).toBe(true);
   });
 
   it("clearList wipes everything", () => {

@@ -36,6 +36,7 @@ import { removeFromStock } from "@/lib/kitchen/kitchenStockStore";
 import {
   addExtra,
   clearChecked,
+  markShoppingTripCompleted,
   removeExtra,
   toggleChecked,
   toggleExtra,
@@ -394,7 +395,8 @@ export function ShoppingList({
     if (
       itemWillBeChecked &&
       shoppingItemCount > 0 &&
-      checkedShoppingItemCount + 1 === shoppingItemCount
+      checkedShoppingItemCount + 1 === shoppingItemCount &&
+      markShoppingTripCompleted()
     ) {
       captureRecipeValue("shopping_trip_completed", {
         item_count: shoppingItemCount,

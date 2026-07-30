@@ -89,4 +89,16 @@ describe("ShoppingList value analytics", () => {
 
     expect(mocks.captureRecipeValue).not.toHaveBeenCalled();
   });
+
+  it("records one value event when the final item is unchecked and rechecked", async () => {
+    const user = userEvent.setup();
+    render(<ShoppingList recipes={recipes} />);
+    const garlic = screen.getByRole("button", { name: /garlic/i });
+
+    await user.click(garlic);
+    await user.click(garlic);
+    await user.click(garlic);
+
+    expect(mocks.captureRecipeValue).toHaveBeenCalledTimes(1);
+  });
 });

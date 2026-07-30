@@ -69,6 +69,7 @@ export type ShoppingListState = {
 };
 
 const STORAGE_KEY = "recipe-shopping-list:v1";
+const COMPLETED_TRIP_STORAGE_KEY = "recipe-shopping-trip-completed:v1";
 
 const EMPTY_STATE: ShoppingListState = {
   recipes: [],
@@ -79,7 +80,36 @@ const EMPTY_STATE: ShoppingListState = {
 
 let state: ShoppingListState = EMPTY_STATE;
 let hydrated = false;
+let completedTripRecordedFallback = false;
 const listeners = new Set<() => void>();
+
+/**
+ * Persistently remember that the current checked-list cycle already produced
+ * its value event. `clearChecked` starts a new cycle; merely unchecking and
+ * rechecking the last item does not.
+ */
+export function markShoppingTripCompleted(): boolean {
+  try {
+    if (localStorage.getItem(COMPLETED_TRIP_STORAGE_KEY) === "true") {
+      return false;
+    }
+    localStorage.setItem(COMPLETED_TRIP_STORAGE_KEY, "true");
+    return true;
+  } catch {
+    if (completedTripRecordedFallback) return false;
+    completedTripRecordedFallback = true;
+    return true;
+  }
+}
+
+function resetShoppingTripCompletion(): void {
+  completedTripRecordedFallback = false;
+  try {
+    localStorage.removeItem(COMPLETED_TRIP_STORAGE_KEY);
+  } catch {
+    // The in-memory fallback still starts a new completion cycle.
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -324,6 +354,7 @@ export function clearChecked(): void {
     checked: [],
     extras: state.extras.map((e) => ({ ...e, checked: false })),
   });
+  resetShoppingTripCompletion();
 }
 
 export function addExtra(text: string): void {
@@ -357,6 +388,7 @@ export function removeExtra(id: string): void {
 
 export function clearList(): void {
   setState({ ...EMPTY_STATE });
+  resetShoppingTripCompletion();
 }
 
 /** Reset module state between tests (mirrors the cooking-timer store). */
@@ -367,5 +399,6 @@ export function __resetShoppingListForTests(): void {
   }
   state = EMPTY_STATE;
   hydrated = false;
+  completedTripRecordedFallback = false;
   listeners.clear();
 }

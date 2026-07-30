@@ -28,22 +28,39 @@ type DietProfile = {
 const databaseURL = requiredEnv("DATABASE_URL");
 const siteURL = requiredEnv("BETTER_AUTH_URL");
 const apiURL = requiredEnv("PREVIEW_API_URL").replace(/\/$/, "");
+const READY_TIMEOUT_MS = 120_000;
+const REQUEST_TIMEOUT_MS = 15_000;
+const RETRY_DELAY_MS = 2_000;
 
 async function fetchWhenReady(
   path: string,
   init?: RequestInit,
 ): Promise<Response> {
-  for (let attempt = 1; attempt <= 30; attempt += 1) {
-    const response = await fetch(`${apiURL}${path}`, init);
-    // Wrangler can report success before every request reaches the new Worker
-    // version, and the previous version points at the just-deleted Neon branch.
-    if (response.status === 503 && attempt < 30) {
-      await new Promise((resolve) => setTimeout(resolve, 2_000));
-      continue;
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  let lastError: unknown;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(`${apiURL}${path}`, {
+        ...init,
+        signal: AbortSignal.timeout(
+          Math.min(REQUEST_TIMEOUT_MS, Math.max(1, deadline - Date.now())),
+        ),
+      });
+      // Wrangler can report success before every request reaches the new Worker
+      // version, and the previous version points at the just-deleted Neon branch.
+      if (response.status !== 503) return response;
+    } catch (error) {
+      lastError = error;
     }
-    return response;
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.min(RETRY_DELAY_MS, remaining)),
+    );
   }
-  throw new Error(`GET ${path} did not become ready`);
+  throw new Error(`GET ${path} did not become ready within 120 seconds`, {
+    cause: lastError,
+  });
 }
 
 async function expectJson<T>(path: string, cookie: string): Promise<T> {
