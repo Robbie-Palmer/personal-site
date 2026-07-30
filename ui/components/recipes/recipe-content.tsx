@@ -36,7 +36,10 @@ import {
   captureRecipeProductActivity,
   captureRecipeValue,
 } from "@/lib/analytics/recipe-product";
-import { recordCookingSession } from "@/lib/api/cooking-insights";
+import {
+  recordCookingCompletionReliably,
+  recordCookingSession,
+} from "@/lib/api/cooking-insights";
 import { authClient } from "@/lib/auth-client";
 import {
   buildIngredientAnnotationMap,
@@ -423,13 +426,17 @@ export function RecipeContent({
     });
     const sessionId = cookingSessionIdRef.current;
     if (sessionId && (authSession || authSessionPending) && timersEnabled) {
-      void recordCookingSession({
+      const completion = {
         sessionId,
         recipeSlug: recipe.slug,
         recipeTitle: recipe.title,
         servings: portions,
-        event: "completed",
-      }).catch((error: unknown) => {
+        event: "completed" as const,
+      };
+      const request = authSession
+        ? recordCookingCompletionReliably(authSession.user.id, completion)
+        : recordCookingSession(completion);
+      void request.catch((error: unknown) => {
         console.error("[RecipeContent] Could not record cooked meal", error);
       });
     }

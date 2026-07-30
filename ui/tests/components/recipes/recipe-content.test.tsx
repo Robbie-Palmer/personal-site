@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   setUnitPreference: vi.fn(),
   tokenizeInstructionSdk: vi.fn(),
   recordCookingSession: vi.fn().mockResolvedValue({}),
+  recordCookingCompletionReliably: vi.fn().mockResolvedValue({}),
   authState: {
     data: { user: { id: "cook-1" } } as {
       user: { id: string };
@@ -56,6 +57,7 @@ vi.mock("@/lib/auth-client", () => ({
 }));
 
 vi.mock("@/lib/api/cooking-insights", () => ({
+  recordCookingCompletionReliably: mocks.recordCookingCompletionReliably,
   recordCookingSession: mocks.recordCookingSession,
 }));
 
@@ -85,6 +87,7 @@ describe("RecipeContent", () => {
     mocks.captureRecipeValue.mockClear();
     mocks.setUnitPreference.mockClear();
     mocks.recordCookingSession.mockReset().mockResolvedValue({});
+    mocks.recordCookingCompletionReliably.mockReset().mockResolvedValue({});
     mocks.authState.data = { user: { id: "cook-1" } };
     mocks.authState.isPending = false;
     window.history.replaceState(null, "", "/recipes/saved?slug=weeknight");
@@ -162,7 +165,8 @@ describe("RecipeContent", () => {
     const started = mocks.recordCookingSession.mock.calls[0]?.[0];
     await user.click(screen.getByRole("button", { name: "Finish ✓" }));
 
-    expect(mocks.recordCookingSession).toHaveBeenLastCalledWith(
+    expect(mocks.recordCookingCompletionReliably).toHaveBeenCalledWith(
+      "cook-1",
       expect.objectContaining({
         sessionId: started.sessionId,
         event: "completed",
@@ -181,6 +185,9 @@ describe("RecipeContent", () => {
       .spyOn(console, "error")
       .mockImplementation(() => {});
     mocks.recordCookingSession.mockRejectedValue(new Error("offline"));
+    mocks.recordCookingCompletionReliably.mockRejectedValue(
+      new Error("offline"),
+    );
     render(
       <CookModeProvider>
         <RecipeContent recipe={recipe} />
