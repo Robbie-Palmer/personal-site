@@ -261,7 +261,7 @@ jobs:
       - name: Smoke-test cooking insights through a direct preview session
         run: mise run //workers/recipe-api:preview:smoke
         env:
-          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
 
       - name: Smoke-test authenticated recipe profiles
         env:

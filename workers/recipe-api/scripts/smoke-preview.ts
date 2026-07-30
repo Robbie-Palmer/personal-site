@@ -25,6 +25,9 @@ type CookingInsights = {
 const databaseURL = requiredEnv("DATABASE_URL");
 const siteURL = requiredEnv("BETTER_AUTH_URL");
 const apiURL = requiredEnv("PREVIEW_API_URL").replace(/\/$/, "");
+const READY_TIMEOUT_MS = 120_000;
+const REQUEST_TIMEOUT_MS = 15_000;
+const RETRY_DELAY_MS = 2_000;
 const { db, client } = createDb(databaseURL);
 
 async function expectJson<T>(
@@ -32,22 +35,33 @@ async function expectJson<T>(
   init?: RequestInit,
   expectedStatus = 200,
 ): Promise<T> {
-  for (let attempt = 1; attempt <= 10; attempt += 1) {
-    const response = await fetch(`${apiURL}${path}`, init);
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const response = await fetch(`${apiURL}${path}`, {
+      ...init,
+      signal: AbortSignal.timeout(
+        Math.min(REQUEST_TIMEOUT_MS, Math.max(1, deadline - Date.now())),
+      ),
+    });
     if (response.status === expectedStatus) {
       return response.json() as Promise<T>;
     }
-    // A freshly deployed Worker can become reachable before its Neon pool has
-    // resumed. Retry read-only readiness probes, but never replay mutations.
-    if (!init?.method && response.status === 503 && attempt < 10) {
-      await new Promise((resolve) => setTimeout(resolve, 2_000));
+    // Wrangler can report success before every request reaches the new Worker
+    // version. Retry read-only readiness probes, but never replay mutations.
+    if (!init?.method && response.status >= 500) {
+      await response.body?.cancel();
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.min(RETRY_DELAY_MS, remaining)),
+      );
       continue;
     }
     throw new Error(
       `${init?.method ?? "GET"} ${path} returned ${response.status}: ${await response.text()}`,
     );
   }
-  throw new Error(`GET ${path} did not become ready`);
+  throw new Error(`GET ${path} did not become ready within 120 seconds`);
 }
 
 try {
