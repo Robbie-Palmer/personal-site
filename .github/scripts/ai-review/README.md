@@ -44,7 +44,9 @@ OpenAI-compatible API, so the engine calls the Zen API directly.
 
 Pull-request code is untrusted. The GitHub App downloads proposed changes
 through GitHub's API as text and never checks out or executes code from the
-reviewed pull-request branch.
+reviewed pull-request branch. Production CD builds the Worker and this imported
+shared engine only after a push to `main`, and reruns the complete
+`//ai-review:check` suite before deploying with production credentials.
 
 The reviewer is advisory: it creates one rolling comment, does not submit a
 formal review, and is not intended to be a required merge check initially. Its
