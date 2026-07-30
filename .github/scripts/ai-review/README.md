@@ -1,33 +1,24 @@
-# AI code review
+# Shared AI review engine
 
-This directory contains the repository's custom multi-model pull-request
-reviewer. Two paid OpenRouter scouts and the retained free models advertised by
-OpenCode Zen independently produce structured findings. A paid OpenRouter merger
-only deduplicates those findings and reconciles them with resolved GitHub review
-threads; it does not judge correctness. Free-scout findings are real review
-inputs rather than shadow telemetry, so their downstream outcomes can inform
-future performance analytics.
+This directory contains the provider-neutral prompts, model clients,
+validation, filtering, and comment rendering used by the stateful
+[`ai-review`](../../../ai-review) GitHub App. Two paid OpenRouter scouts and the
+retained free models advertised by OpenCode Zen independently produce structured
+findings. A paid OpenRouter merger only deduplicates those findings and
+reconciles them with resolved GitHub review threads; it does not judge
+correctness. Free-scout findings are real review inputs rather than shadow
+telemetry, so their downstream outcomes can inform future performance
+analytics.
 
-The stateful Worker imports the model clients, prompts, validation, filtering,
-and comment rendering from this trusted implementation so both paths use the
-same ensemble. The GitHub Action remains enabled as an independent visible
-baseline while the stateful orchestration accumulates review cost, latency,
-reliability, and outcome data.
+The former `.github/workflows/ai-review.yml` orchestrator was retired after the
+GitHub App completed live reviews successfully. Keep this shared implementation:
+the stateful Worker imports it directly.
 
-## Setup
+## Runtime configuration
 
-1. Add `OPENROUTER_API_KEY` as an Actions repository secret and set a suitable
-   credit limit on the key. It is used by the paid scouts and merger.
-2. Open a non-draft pull request, or mark a draft pull request ready for review,
-   from a branch in this repository as an owner, member, or collaborator. Later
-   commits and reopened pull requests are not reviewed automatically; comment
-   exactly `/ai-review` to request another review.
-3. Fork pull requests never run automatically. An owner, member, or collaborator
-   must comment exactly `/ai-review` or manually dispatch the workflow.
-
-Outside contributors cannot trigger a paid run themselves.
-
-Optional Actions repository variables:
+The GitHub App owns triggers, authentication, secrets, and deployment. See its
+[README](../../../ai-review/README.md) for setup and operational instructions.
+The shared engine accepts these runtime variables:
 
 - `AI_REVIEW_MODELS`: comma-separated paid OpenRouter scout models. Defaults to
   `moonshotai/kimi-k2.6,deepseek/deepseek-v4-pro`.
@@ -44,23 +35,16 @@ Optional Actions repository variables:
   zero-data-retention providers. It does not change OpenCode scout routing.
 
 OpenCode currently accepts anonymous requests for its free models. An
-`OPENCODE_API_KEY` Actions secret may be added if OpenCode requires
+`OPENCODE_API_KEY` Worker secret may be added if OpenCode requires
 authentication in the future; it is optional today. The TypeScript OpenCode SDK
 controls an OpenCode server, while Zen exposes these models through an
-OpenAI-compatible API, so the workflow calls the Zen API directly and does not
-need to install the CLI or SDK on each runner.
+OpenAI-compatible API, so the engine calls the Zen API directly.
 
 ## Security and behavior
 
-The workflow needs the OpenRouter secret, but code in a pull request is untrusted.
-`pull_request_target` makes the secret available. Automatic reviews
-check out the PR's exact base commit. Manual comment and dispatch runs check out
-the protected default branch for comments. Maintainer-only manual dispatches
-check out their explicitly selected ref so reviewer changes can be tested before
-merge. The trusted reviewer then downloads the proposed changes through GitHub's
-API as text. It never checks out or executes code from the reviewed Pull Request
-branch. Do not change automatic or comment-triggered checkout to the PR head
-while the OpenRouter secret is present.
+Pull-request code is untrusted. The GitHub App downloads proposed changes
+through GitHub's API as text and never checks out or executes code from the
+reviewed pull-request branch.
 
 The reviewer is advisory: it creates one rolling comment, does not submit a
 formal review, and is not intended to be a required merge check initially. Its
@@ -78,13 +62,12 @@ OpenRouter completion POSTs make one HTTP attempt because the provider exposes
 no idempotency key. Nemotron receives a 180-second timeout, and individual
 failures do not block the remaining scouts. Any successful scout is enough to
 continue to reconciliation. If every scout is unavailable, rate-limited, or
-invalid, the workflow publishes an explicit no-coverage warning and does not
-spend money on the merger; the stable `review` check is skipped.
+invalid, the run records an explicit no-coverage result and does not spend money
+on the merger.
 
 When OpenRouter reports exhausted account credits or an exhausted API-key
-spending limit, the stable `review` check is also marked as skipped.
-Authentication, merger, reviewer, and workflow failures continue to fail the
-check.
+spending limit, the run records the provider failure rather than claiming clean
+review coverage.
 
 Scout responses allow up to 8,000 output tokens because reasoning tokens count
 against the same limit and thinking models can otherwise exhaust the budget
@@ -94,22 +77,6 @@ OpenCode describes the free models as limited-time feedback programmes. Prompts
 and outputs may be collected or used to improve those models, depending on the
 model's terms. Do not use this scout path for private or sensitive repositories
 without reviewing the current OpenCode privacy terms.
-
-## Testing reviewer changes
-
-`pull_request_target` deliberately runs the reviewer from the Pull Request's
-trusted base commit, so it cannot validate reviewer changes in that Pull Request.
-To run a branch version end to end, a maintainer can manually dispatch the
-workflow against that branch and supply an open Pull Request number:
-
-```sh
-gh workflow run ai-review.yml --ref <branch> -f pr_number=<number>
-```
-
-The manual run checks out the selected branch commit. Do not add untrusted users
-as repository collaborators: collaborators can dispatch workflows with access to
-Actions secrets. Every live review runs the reviewer unit tests and syntax check
-before making paid model calls.
 
 The reviewer excludes lock files, generated/minified files, dependency/build
 directories, images, fonts, archives, documents, audio/video, compiled objects,
@@ -131,5 +98,5 @@ Node.js 24 runs TypeScript directly using native type stripping:
 ```sh
 node --test .github/scripts/ai-review/ai-review.test.ts
 node --check .github/scripts/ai-review/ai-review.ts
-mise run //:lint:yaml
+mise run //ai-review:check
 ```
