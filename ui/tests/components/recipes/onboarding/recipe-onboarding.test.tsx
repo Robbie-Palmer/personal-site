@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   getDietOptions: vi.fn(),
   getDietProfile: vi.fn(),
   getRecipeBoxProfile: vi.fn(),
+  captureRecipeEvent: vi.fn(),
+  captureRecipeProductActivity: vi.fn(),
   saveDietProfile: vi.fn(),
   saveRecipeBoxProfile: vi.fn(),
   useSession: vi.fn(),
@@ -26,6 +28,11 @@ vi.mock("@/lib/api/diet", async (importOriginal) => ({
 vi.mock("@/lib/api/recipe-box", () => ({
   getRecipeBoxProfile: mocks.getRecipeBoxProfile,
   saveRecipeBoxProfile: mocks.saveRecipeBoxProfile,
+}));
+
+vi.mock("@/lib/analytics/recipe-product", () => ({
+  captureRecipeEvent: mocks.captureRecipeEvent,
+  captureRecipeProductActivity: mocks.captureRecipeProductActivity,
 }));
 
 vi.mock("@/components/recipes/recipe-card", () => ({
@@ -97,6 +104,7 @@ function stubRecipeFetch({
 describe("RecipeOnboarding", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.removeItem("recipe-onboarding-started:v1:qa-user");
     window.history.replaceState({}, "", "/recipes/onboarding");
     mocks.useSession.mockReturnValue({
       data: { user: { id: "qa-user" } },
@@ -115,6 +123,25 @@ describe("RecipeOnboarding", () => {
     mocks.saveDietProfile.mockResolvedValue(emptyDiet);
     mocks.saveRecipeBoxProfile.mockResolvedValue(undefined);
     stubRecipeFetch();
+  });
+
+  it("captures onboarding start only once per user across revisits", async () => {
+    const firstVisit = render(<RecipeOnboarding />);
+
+    await screen.findByRole("heading", { name: /anything you don't eat/i });
+    expect(mocks.captureRecipeEvent).toHaveBeenCalledWith(
+      "recipe_onboarding_started",
+    );
+
+    firstVisit.unmount();
+    render(<RecipeOnboarding />);
+    await screen.findByRole("heading", { name: /anything you don't eat/i });
+
+    expect(
+      mocks.captureRecipeEvent.mock.calls.filter(
+        ([event]) => event === "recipe_onboarding_started",
+      ),
+    ).toHaveLength(1);
   });
 
   it("continues with no diet selections without a redundant skip action", async () => {

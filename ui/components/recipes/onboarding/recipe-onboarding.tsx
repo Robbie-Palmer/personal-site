@@ -12,7 +12,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { isRecipeSlug } from "recipe-domain/slugs";
 import { AuthButton } from "@/components/recipes/auth-button";
 import { RecipeThumb, recipeMetaLabel } from "@/components/recipes/recipe-card";
@@ -48,6 +48,19 @@ import {
 } from "@/lib/query/recipe-mutations";
 
 const STEPS = ["sign up", "your diet", "fill your box", "ready"];
+const ONBOARDING_STARTED_STORAGE_PREFIX = "recipe-onboarding-started:v1:";
+
+function recordOnboardingStart(userId: string): boolean {
+  try {
+    const key = `${ONBOARDING_STARTED_STORAGE_PREFIX}${userId}`;
+    if (localStorage.getItem(key)) return false;
+    localStorage.setItem(key, "1");
+    return true;
+  } catch {
+    // The component-local guard still prevents duplicates during this mount.
+    return true;
+  }
+}
 
 function StepRail({
   disabled,
@@ -286,7 +299,7 @@ export function RecipeOnboarding() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
-  const [onboardingStarted, setOnboardingStarted] = useState(false);
+  const onboardingStartedUserId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -331,7 +344,12 @@ export function RecipeOnboarding() {
           ),
         );
         setAuthoredRecipeSlugs(authoredDuringOnboarding);
-        if (!box.completed) setOnboardingStarted(true);
+        if (!box.completed && onboardingStartedUserId.current !== userId) {
+          onboardingStartedUserId.current = userId;
+          if (recordOnboardingStart(userId)) {
+            captureRecipeEvent("recipe_onboarding_started");
+          }
+        }
       })
       .catch((error_: unknown) => {
         if (!(error_ instanceof DOMException && error_.name === "AbortError")) {
@@ -349,11 +367,6 @@ export function RecipeOnboarding() {
       .finally(() => setLoading(false));
     return () => controller.abort();
   }, [loadAttempt, userId]);
-
-  useEffect(() => {
-    if (!onboardingStarted) return;
-    captureRecipeEvent("recipe_onboarding_started");
-  }, [onboardingStarted]);
 
   const effectiveDiet = useMemo(
     () => buildEffectiveDiet(diet, dietOptions),
