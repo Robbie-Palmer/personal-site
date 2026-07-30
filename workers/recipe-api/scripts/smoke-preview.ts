@@ -30,6 +30,32 @@ const REQUEST_TIMEOUT_MS = 15_000;
 const RETRY_DELAY_MS = 2_000;
 const { db, client } = createDb(databaseURL);
 
+async function fetchPreview(
+  path: string,
+  init: RequestInit | undefined,
+  deadline: number,
+): Promise<Response | null> {
+  try {
+    return await fetch(`${apiURL}${path}`, {
+      ...init,
+      signal: AbortSignal.timeout(
+        Math.min(REQUEST_TIMEOUT_MS, Math.max(1, deadline - Date.now())),
+      ),
+    });
+  } catch (error) {
+    // A fresh Worker can briefly reject connections while its route
+    // converges. Readiness probes are safe to replay; mutations are not.
+    if (init?.method) throw error;
+    const remaining = deadline - Date.now();
+    if (remaining > 0) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.min(RETRY_DELAY_MS, remaining)),
+      );
+    }
+    return null;
+  }
+}
+
 async function expectJson<T>(
   path: string,
   init?: RequestInit,
@@ -37,25 +63,8 @@ async function expectJson<T>(
 ): Promise<T> {
   const deadline = Date.now() + READY_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    let response: Response;
-    try {
-      response = await fetch(`${apiURL}${path}`, {
-        ...init,
-        signal: AbortSignal.timeout(
-          Math.min(REQUEST_TIMEOUT_MS, Math.max(1, deadline - Date.now())),
-        ),
-      });
-    } catch (error) {
-      // A fresh Worker can briefly reject connections while its route
-      // converges. Readiness probes are safe to replay; mutations are not.
-      if (init?.method) throw error;
-      const remaining = deadline - Date.now();
-      if (remaining <= 0) break;
-      await new Promise((resolve) =>
-        setTimeout(resolve, Math.min(RETRY_DELAY_MS, remaining)),
-      );
-      continue;
-    }
+    const response = await fetchPreview(path, init, deadline);
+    if (!response) continue;
     if (response.status === expectedStatus) {
       return response.json() as Promise<T>;
     }
