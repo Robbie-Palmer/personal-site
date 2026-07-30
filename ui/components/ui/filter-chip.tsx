@@ -84,7 +84,7 @@ export function FilterChip({
           disabled={disabled}
           className={cn(
             "flex min-w-0 items-center gap-1.5 rounded-sm transition-colors",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
             disabled ? "cursor-not-allowed" : "cursor-pointer",
           )}
           aria-label={
@@ -105,7 +105,7 @@ export function FilterChip({
         className={cn(
           "rounded-full p-0.5 transition-colors",
           "hover:bg-background/50 focus-visible:bg-background/50",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
           disabled && "cursor-not-allowed",
         )}
         aria-label={`Remove ${name} filter`}
