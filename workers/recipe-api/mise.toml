@@ -46,10 +46,10 @@ description = "Seed deterministic preview users and data"
 depends = ["install"]
 run = "pnpm preview:seed"
 
-[tasks."preview:session"]
-description = "Create a direct session for a seeded preview user"
+[tasks."preview:smoke:profiles"]
+description = "Smoke-test authenticated profiles on a deployed preview Worker"
 depends = ["install"]
-run = "pnpm exec tsx scripts/local-session.ts"
+run = "pnpm exec tsx scripts/smoke-preview-profiles.ts"
 
 [tasks."db:backfill:cookware"]
 description = "Canonicalize existing recipe cookware against the equipment registry (read-only; pass -- --apply to write)"
