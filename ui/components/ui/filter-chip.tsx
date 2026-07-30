@@ -10,8 +10,11 @@ interface FilterChipProps
   extends Omit<React.ComponentProps<"span">, "onClick">,
     VariantProps<typeof badgeVariants> {
   onRemove: () => void;
+  onCycle?: () => void;
   icon?: React.ReactNode;
   children: React.ReactNode;
+  /** Plain-text name for the buttons' accessible labels. */
+  name: string;
   disabled?: boolean;
   /** Render as an exclude filter (destructive, struck through, minus glyph). */
   excluded?: boolean;
@@ -19,8 +22,10 @@ interface FilterChipProps
 
 export function FilterChip({
   onRemove,
+  onCycle,
   icon,
   children,
+  name,
   disabled = false,
   excluded = false,
   variant = "secondary",
@@ -35,6 +40,28 @@ export function FilterChip({
     }
   };
 
+  const handleCycle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!disabled) {
+      onCycle?.();
+    }
+  };
+
+  const body = (
+    <>
+      {excluded ? (
+        <Minus className="size-3 shrink-0" aria-hidden />
+      ) : (
+        icon && <span className="shrink-0 [&>svg]:size-3">{icon}</span>
+      )}
+      <span className={cn("truncate", excluded && "line-through")}>
+        {children}
+        {excluded && <span className="sr-only"> (excluded)</span>}
+      </span>
+    </>
+  );
+
   return (
     <Badge
       variant={excluded ? "destructive" : variant}
@@ -45,15 +72,27 @@ export function FilterChip({
       )}
       {...props}
     >
-      {excluded ? (
-        <Minus className="size-3 shrink-0" aria-hidden />
+      {onCycle ? (
+        <button
+          type="button"
+          onClick={handleCycle}
+          disabled={disabled}
+          className={cn(
+            "flex min-w-0 items-center gap-1.5 rounded-sm transition-colors",
+            "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+            disabled ? "cursor-not-allowed" : "cursor-pointer",
+          )}
+          aria-label={
+            excluded
+              ? `${name} excluded. Activate to clear this filter.`
+              : `${name} included. Activate to exclude it.`
+          }
+        >
+          {body}
+        </button>
       ) : (
-        icon && <span className="shrink-0 [&>svg]:size-3">{icon}</span>
+        body
       )}
-      <span className={cn("truncate", excluded && "line-through")}>
-        {children}
-        {excluded && <span className="sr-only"> (excluded)</span>}
-      </span>
       <button
         type="button"
         onClick={handleRemove}
@@ -61,10 +100,10 @@ export function FilterChip({
         className={cn(
           "rounded-full p-0.5 transition-colors",
           "hover:bg-background/50 focus-visible:bg-background/50",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
           disabled && "cursor-not-allowed",
         )}
-        aria-label={`Remove ${children} filter`}
+        aria-label={`Remove ${name} filter`}
       >
         <X className="size-3" />
       </button>

@@ -33,6 +33,9 @@ jobs:
         with:
           experimental: true
 
+      - name: Check standalone project
+        run: mise run //ai-review:check
+
       - name: Deploy Worker, Durable Object, and Workflow
         env:
           AI_REVIEW_APP_ID: ${{ vars.AI_REVIEW_APP_ID }}

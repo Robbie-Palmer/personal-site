@@ -132,6 +132,12 @@ const dbMock = vi.hoisted(() => {
       eventId: string;
       invitationId: string | null;
     }[],
+    notificationRecipeRecommendationEvents: [] as {
+      eventId: string;
+      recipeId: string | null;
+      recipeSlugSnapshot: string;
+      recipeTitleSnapshot: string;
+    }[],
     recipes: [] as RecipeRow[],
     cookingSessions: [] as CookingSessionRow[],
     dietProfiles: [] as DietProfileRow[],
@@ -248,6 +254,7 @@ const dbMock = vi.hoisted(() => {
     state.notificationDeliveries = [];
     state.notificationHouseholdEvents = [];
     state.notificationHouseholdInvitationEvents = [];
+    state.notificationRecipeRecommendationEvents = [];
     state.recipes = [];
     state.cookingSessions = [];
     state.dietProfiles = [];
@@ -318,6 +325,20 @@ const dbMock = vi.hoisted(() => {
       state.notificationHouseholdInvitationEvents.push({
         eventId: params[0] as string,
         invitationId: (params[1] as string | undefined) ?? null,
+      });
+      return [];
+    }
+
+    if (
+      query.startsWith(
+        'insert into "notification_recipe_recommendation_event"',
+      )
+    ) {
+      state.notificationRecipeRecommendationEvents.push({
+        eventId: params[0] as string,
+        recipeId: (params[1] as string | undefined) ?? null,
+        recipeSlugSnapshot: params[2] as string,
+        recipeTitleSnapshot: params[3] as string,
       });
       return [];
     }
@@ -530,10 +551,14 @@ const dbMock = vi.hoisted(() => {
           (placeholder) => params[Number(placeholder.slice(1)) - 1] as string,
         ),
       );
+      const eventId = placeholderValue(
+        /where[\s\S]*?"notification_delivery"\."event_id" = \$(\d+)/,
+      ) as string | undefined;
       for (const delivery of state.notificationDeliveries) {
         if (
           (!deliveryId || delivery.id === deliveryId) &&
           (!recipientUserId || delivery.recipientUserId === recipientUserId) &&
+          (!eventId || delivery.eventId === eventId) &&
           (eventIds.size === 0 || eventIds.has(delivery.eventId)) &&
           (!query.includes('"read_at" is null') || !delivery.readAt) &&
           (!query.includes('"dismissed_at" is null') || !delivery.dismissedAt)
@@ -782,6 +807,28 @@ const dbMock = vi.hoisted(() => {
             row.householdNameSnapshot,
             invitation?.status ?? null,
             invitation?.expiresAt ?? null,
+          ];
+        });
+    }
+
+    if (query.includes('from "notification_recipe_recommendation_event"')) {
+      const eventIds = new Set(params as string[]);
+      return state.notificationRecipeRecommendationEvents
+        .filter((row) => eventIds.has(row.eventId))
+        .map((row) => {
+          if (!query.includes('left join "recipe"')) {
+            return [row.recipeId, row.recipeSlugSnapshot];
+          }
+          const recipe = state.recipes.find(
+            (candidate) => candidate.id === row.recipeId,
+          );
+          return [
+            row.eventId,
+            row.recipeId,
+            row.recipeSlugSnapshot,
+            row.recipeTitleSnapshot,
+            recipe?.visibility ?? null,
+            recipe?.userId ?? null,
           ];
         });
     }
@@ -1943,6 +1990,301 @@ describe("GET /recipes/:slug", () => {
     const res = await app.request("/recipes/stale-soup", {}, env);
 
     expect(res.status).toBe(404);
+  });
+});
+
+describe("POST /recipes/:slug/recommendations", () => {
+  it("notifies a household member who can add the recipe to their recipe box", async () => {
+    seedHousehold();
+    dbMock.state.recipes.push({
+      id: "recipe-1",
+      slug: "public-soup",
+      title: "Public Soup",
+      description: null,
+      body: null,
+      userId: "owner-user",
+      visibility: "household",
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const recommendResponse = await app.request(
+      "/recipes/public-soup/recommendations",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ recipientUserId: "member-user" }),
+      },
+      env,
+    );
+
+    expect(recommendResponse.status).toBe(201);
+    expect(await recommendResponse.json()).toEqual({ recommended: true });
+    expect(dbMock.state.notificationRecipeRecommendationEvents).toEqual([
+      expect.objectContaining({
+        recipeId: "recipe-1",
+        recipeSlugSnapshot: "public-soup",
+        recipeTitleSnapshot: "Public Soup",
+      }),
+    ]);
+
+    authzMock.session = sessionFor({
+      id: "member-user",
+      email: "member@example.test",
+      name: "Member",
+    });
+    const archiveResponse = await app.request("/notifications", {}, env);
+    expect(archiveResponse.status).toBe(200);
+    const archive = (await archiveResponse.json()) as {
+      items: Array<{
+        id: string;
+        kind: string;
+        actions: string[];
+        detail: {
+          recipe: { slug: string; title: string; available: boolean };
+          saved: boolean;
+        };
+      }>;
+    };
+    expect(archive.items).toHaveLength(1);
+    expect(archive.items[0]).toMatchObject({
+      kind: "recipe_recommended",
+      actions: ["add_to_recipe_box"],
+      detail: {
+        recipe: {
+          slug: "public-soup",
+          title: "Public Soup",
+          available: true,
+        },
+        saved: false,
+      },
+    });
+
+    const unknownActionResponse = await app.request(
+      `/notifications/${archive.items[0]?.id}/actions/dismiss`,
+      { method: "POST", headers: { origin: "http://localhost:3000" } },
+      env,
+    );
+    expect(unknownActionResponse.status).toBe(400);
+
+    const actionResponse = await app.request(
+      `/notifications/${archive.items[0]?.id}/actions/add_to_recipe_box`,
+      { method: "POST", headers: { origin: "http://localhost:3000" } },
+      env,
+    );
+
+    expect(actionResponse.status).toBe(200);
+    expect(await actionResponse.json()).toMatchObject({
+      item: {
+        actions: [],
+        detail: { saved: true },
+      },
+    });
+    expect(dbMock.state.recipeBoxItems).toContainEqual({
+      userId: "member-user",
+      recipeSlug: "public-soup",
+    });
+    expect(dbMock.state.recipeBoxes).toHaveLength(0);
+    expect(dbMock.state.notificationDeliveries[0]?.readAt).not.toBeNull();
+  });
+
+  it("keeps unavailable recommendations out of the recipe box", async () => {
+    seedHousehold();
+    dbMock.state.recipes.push({
+      id: "recipe-1",
+      slug: "public-soup",
+      title: "Public Soup",
+      description: null,
+      body: null,
+      userId: "owner-user",
+      visibility: "public",
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+    const recommendResponse = await app.request(
+      "/recipes/public-soup/recommendations",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ recipientUserId: "member-user" }),
+      },
+      env,
+    );
+    expect(recommendResponse.status).toBe(201);
+    const recipe = dbMock.state.recipes[0];
+    if (!recipe) throw new Error("Missing seeded recipe");
+    recipe.visibility = "private";
+
+    authzMock.session = sessionFor({
+      id: "member-user",
+      email: "member@example.test",
+      name: "Member",
+    });
+    const archiveResponse = await app.request("/notifications", {}, env);
+    const archive = (await archiveResponse.json()) as {
+      items: Array<{
+        id: string;
+        actions: string[];
+        detail: { recipe: { available: boolean } };
+      }>;
+    };
+    expect(archive.items[0]).toMatchObject({
+      actions: [],
+      detail: { recipe: { available: false } },
+    });
+
+    const actionResponse = await app.request(
+      `/notifications/${archive.items[0]?.id}/actions/add_to_recipe_box`,
+      { method: "POST", headers: { origin: "http://localhost:3000" } },
+      env,
+    );
+    expect(actionResponse.status).toBe(409);
+    expect(dbMock.state.recipeBoxItems).toHaveLength(0);
+
+    const recommendation = dbMock.state.notificationRecipeRecommendationEvents[0];
+    if (!recommendation) throw new Error("Missing recommendation event");
+    recommendation.recipeId = null;
+    const deletedRecipeResponse = await app.request(
+      `/notifications/${archive.items[0]?.id}/actions/add_to_recipe_box`,
+      { method: "POST", headers: { origin: "http://localhost:3000" } },
+      env,
+    );
+    expect(deletedRecipeResponse.status).toBe(409);
+  });
+
+  it("rejects self-recommendations and private recipes", async () => {
+    seedHousehold();
+    dbMock.state.recipes.push({
+      id: "recipe-1",
+      slug: "private-soup",
+      title: "Private Soup",
+      description: null,
+      body: null,
+      userId: "owner-user",
+      visibility: "private",
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+    const request = (recipientUserId: string) =>
+      app.request(
+        "/recipes/private-soup/recommendations",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            origin: "http://localhost:3000",
+          },
+          body: JSON.stringify({ recipientUserId }),
+        },
+        env,
+      );
+
+    const selfResponse = await request("owner-user");
+    expect(selfResponse.status).toBe(400);
+    const privateResponse = await request("member-user");
+    expect(privateResponse.status).toBe(409);
+  });
+
+  it("requires the recipient to share the sender's household", async () => {
+    seedHousehold();
+    dbMock.state.recipes.push({
+      id: "recipe-1",
+      slug: "public-soup",
+      title: "Public Soup",
+      description: null,
+      body: null,
+      userId: "owner-user",
+      visibility: "public",
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const response = await app.request("/recipes/public-soup/recommendations", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "http://localhost:3000",
+      },
+      body: JSON.stringify({ recipientUserId: "outsider-user" }),
+    }, env);
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      error: "Recipes can only be recommended to household members",
+    });
+  });
+
+  it("rejects recommendations to the owner or from a sender without a household", async () => {
+    seedHousehold();
+    dbMock.state.recipes.push({
+      id: "recipe-1",
+      slug: "public-soup",
+      title: "Public Soup",
+      description: null,
+      body: null,
+      userId: "owner-user",
+      visibility: "public",
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    const recommend = (recipientUserId: string) =>
+      app.request(
+        "/recipes/public-soup/recommendations",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            origin: "http://localhost:3000",
+          },
+          body: JSON.stringify({ recipientUserId }),
+        },
+        env,
+      );
+
+    authzMock.session = sessionFor({
+      id: "member-user",
+      email: "member@example.test",
+      name: "Member",
+    });
+    const ownerResponse = await recommend("owner-user");
+    expect(ownerResponse.status).toBe(409);
+
+    authzMock.session = sessionFor({
+      id: "outsider-user",
+      email: "outsider@example.test",
+      name: "Outsider",
+    });
+    const noHouseholdResponse = await recommend("member-user");
+    expect(noHouseholdResponse.status).toBe(409);
+    expect(await noHouseholdResponse.json()).toEqual({
+      error: "Join a household before recommending recipes",
+    });
   });
 });
 

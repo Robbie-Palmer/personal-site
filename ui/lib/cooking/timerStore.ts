@@ -9,6 +9,7 @@
  * while the tab is away.
  */
 
+import { captureRecipeProductActivity } from "@/lib/analytics/recipe-product";
 import { ensureAudioUnlocked, playAlertTone } from "./alertTone";
 import { releaseWakeLock, retainWakeLock } from "./wakeLock";
 
@@ -235,6 +236,11 @@ export function startTimer(input: StartTimerInput): void {
     endTimeMs: Date.now() + input.durationSeconds * 1000,
   };
   commit([...timers.filter((t) => t.id !== input.id), timer]);
+  captureRecipeProductActivity("timer_started", {
+    recipe_slug: input.recipeSlug,
+    timer_duration_seconds: input.durationSeconds,
+    timer_kind: input.id.startsWith("custom:") ? "custom" : "recipe",
+  });
 }
 
 let customTimerSeq = 0;

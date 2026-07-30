@@ -64,7 +64,9 @@ jobs:
             echo "backend=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          files=$(gh pr diff "$PR_NUMBER" --repo "$REPO" --name-only)
+          files=$(gh api --paginate \
+            "repos/$REPO/pulls/$PR_NUMBER/files?per_page=100" \
+            --jq '.[].filename')
           if echo "$files" | grep -qE '^(workers/recipe-(api|ingest)/|functions/|packages/)'; then
             echo "Backend-affecting paths changed; provisioning a backend preview."
             echo "backend=true" >> "$GITHUB_OUTPUT"
@@ -260,6 +262,11 @@ jobs:
         run: mise run //workers/recipe-api:preview:smoke
         env:
           DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+
+      - name: Smoke-test authenticated recipe profiles
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
+        run: mise run //workers/recipe-api:preview:smoke:profiles
 
   # Always deploy the static frontend for non-bot PRs, independent of the
   # backend job. NEXT_PUBLIC_PREVIEW_BACKEND tells the build whether sign-in is

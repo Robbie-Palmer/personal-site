@@ -4,7 +4,10 @@
   "ignoreBinaries": ["mise", "typecheck", "wrangler"],
   "workspaces": {
     ".": {
-      "entry": ["functions/**/*.ts"],
+      "entry": [
+        ".github/scripts/ai-review/ai-review.test.ts",
+        "functions/**/*.ts"
+      ],
       "ignoreDependencies": ["lint-staged", "markdownlint-cli", "remark-cli", "remark-lint", "yaml-lint"]
     },
     "ai-review": {

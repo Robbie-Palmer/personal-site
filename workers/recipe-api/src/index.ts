@@ -59,6 +59,7 @@ import { parseJsonBody } from "./http/validation";
 import { hasExpectedImageSignature } from "./image-signature";
 import {
   createHouseholdNotification,
+  createRecipeRecommendationNotification,
   type HouseholdNotificationKind,
   markInvitationNotificationRead,
 } from "./notifications";
@@ -192,6 +193,12 @@ const cookingSessionBodySchema = z
   })
   .strict();
 
+const recommendRecipeBodySchema = z
+  .object({
+    recipientUserId: z.string().trim().min(1).max(128),
+  })
+  .strict();
+
 const MAX_RECIPE_BODY_BYTES = 100_000;
 const savedRecipePayloadSchema = SavedRecipePayloadSchema.extend({
   source: z.string().trim().min(1).max(10_000),
@@ -240,6 +247,10 @@ const INVITATION_EXPIRY_MS = 48 * 60 * 60 * 1000;
 const NOTIFICATION_PAGE_SIZE = 100;
 
 const HOUSEHOLD_INVITE_RATE_LIMIT = { max: 10, windowSeconds: 60 * 60 };
+const RECIPE_RECOMMENDATION_RATE_LIMIT = {
+  max: 30,
+  windowSeconds: 60 * 60,
+};
 const RECIPE_URL_IMPORT_RATE_LIMIT = { max: 20, windowSeconds: 60 * 60 };
 const RECIPE_FILE_IMPORT_RATE_LIMIT = { max: 20, windowSeconds: 60 * 60 };
 const RECIPE_PHOTO_IMPORT_RATE_LIMIT = { max: 20, windowSeconds: 60 * 60 };
@@ -907,7 +918,11 @@ function isHouseholdNotificationKind(
   return householdNotificationKinds.has(kind as HouseholdNotificationKind);
 }
 
-async function hydrateNotifications(db: Db, rows: NotificationBaseRow[]) {
+async function hydrateNotifications(
+  db: Db,
+  recipientUserId: string,
+  rows: NotificationBaseRow[],
+) {
   const householdEventIds = rows
     .filter(({ kind }) => isHouseholdNotificationKind(kind))
     .map(({ eventId }) => eventId);
@@ -947,6 +962,70 @@ async function hydrateNotifications(db: Db, rows: NotificationBaseRow[]) {
   const householdsByEventId = new Map(
     householdRows.map((row) => [row.eventId, row]),
   );
+  const recommendationEventIds = rows
+    .filter(({ kind }) => kind === "recipe_recommended")
+    .map(({ eventId }) => eventId);
+  const recommendationRows =
+    recommendationEventIds.length === 0
+      ? []
+      : await db
+          .select({
+            eventId: schema.notificationRecipeRecommendationEvent.eventId,
+            recipeId: schema.notificationRecipeRecommendationEvent.recipeId,
+            recipeSlug:
+              schema.notificationRecipeRecommendationEvent.recipeSlugSnapshot,
+            recipeTitle:
+              schema.notificationRecipeRecommendationEvent.recipeTitleSnapshot,
+            recipeVisibility: schema.recipe.visibility,
+            recipeOwnerUserId: schema.recipe.userId,
+          })
+          .from(schema.notificationRecipeRecommendationEvent)
+          .leftJoin(
+            schema.recipe,
+            eq(
+              schema.notificationRecipeRecommendationEvent.recipeId,
+              schema.recipe.id,
+            ),
+          )
+          .where(
+            inArray(
+              schema.notificationRecipeRecommendationEvent.eventId,
+              recommendationEventIds,
+            ),
+          );
+  const recommendationsByEventId = new Map(
+    recommendationRows.map((row) => [row.eventId, row]),
+  );
+  const recommendationSlugs = recommendationRows.map(
+    ({ recipeSlug }) => recipeSlug,
+  );
+  const savedRecommendationSlugs =
+    recommendationSlugs.length === 0
+      ? []
+      : await db
+          .select({ recipeSlug: schema.userRecipeBoxItem.recipeSlug })
+          .from(schema.userRecipeBoxItem)
+          .where(
+            and(
+              eq(schema.userRecipeBoxItem.userId, recipientUserId),
+              inArray(schema.userRecipeBoxItem.recipeSlug, recommendationSlugs),
+            ),
+          );
+  const savedRecipeSlugs = new Set(
+    savedRecommendationSlugs.map(({ recipeSlug }) => recipeSlug),
+  );
+  const recipientMembership =
+    recommendationRows.length === 0
+      ? undefined
+      : await findUserHouseholdMembership(db, recipientUserId);
+  const householdMemberUserIds = new Set(
+    recipientMembership
+      ? await findHouseholdMemberUserIds(
+          db,
+          recipientMembership.organizationId,
+        )
+      : [],
+  );
 
   return rows.map((row) => {
     const base = {
@@ -960,6 +1039,36 @@ async function hydrateNotifications(db: Db, rows: NotificationBaseRow[]) {
       readAt: row.readAt,
       occurredAt: row.occurredAt,
     };
+    if (row.kind === "recipe_recommended") {
+      const detail = recommendationsByEventId.get(row.eventId);
+      if (!detail) {
+        throw new Error(
+          `Recipe recommendation notification ${row.eventId} has no subtype row`,
+        );
+      }
+      const saved = savedRecipeSlugs.has(detail.recipeSlug);
+      const available =
+        detail.recipeId !== null &&
+        (detail.recipeVisibility === "public" ||
+          (detail.recipeVisibility === "household" &&
+            detail.recipeOwnerUserId !== null &&
+            householdMemberUserIds.has(detail.recipeOwnerUserId)));
+      return {
+        ...base,
+        kind: "recipe_recommended" as const,
+        detail: {
+          type: "recipe_recommendation" as const,
+          recipe: {
+            slug: detail.recipeSlug,
+            title: detail.recipeTitle,
+            available,
+          },
+          saved,
+        },
+        actions:
+          available && !saved ? (["add_to_recipe_box"] as const) : [],
+      };
+    }
     if (!isHouseholdNotificationKind(row.kind)) {
       return { ...base, detail: null, actions: [] as string[] };
     }
@@ -1122,6 +1231,10 @@ async function dispatchNotificationAction(
   event: { id: string; kind: string },
   actionKey: string,
 ) {
+  if (event.kind === "recipe_recommended") {
+    await performRecipeRecommendationAction(db, user, event.id, actionKey);
+    return;
+  }
   if (event.kind !== "household_invited") {
     throw new InvitationActionError(
       409,
@@ -1145,6 +1258,64 @@ async function dispatchNotificationAction(
     );
   }
   await performInvitationAction(db, user, detail.invitationId, actionKey);
+}
+
+async function performRecipeRecommendationAction(
+  db: Db,
+  user: AuthenticatedSession["user"],
+  eventId: string,
+  actionKey: string,
+) {
+  if (actionKey !== "add_to_recipe_box") {
+    throw new InvitationActionError(400, "Unknown notification action");
+  }
+  const [detail] = await db
+    .select({
+      recipeId: schema.notificationRecipeRecommendationEvent.recipeId,
+      recipeSlug:
+        schema.notificationRecipeRecommendationEvent.recipeSlugSnapshot,
+    })
+    .from(schema.notificationRecipeRecommendationEvent)
+    .where(eq(schema.notificationRecipeRecommendationEvent.eventId, eventId))
+    .limit(1);
+  if (!detail?.recipeId) {
+    throw new InvitationActionError(409, "This recipe is no longer available");
+  }
+  const recipe = await findRecipeBySlug(db, detail.recipeSlug);
+  if (recipe?.id !== detail.recipeId) {
+    throw new InvitationActionError(409, "This recipe is no longer available");
+  }
+  if (recipe.visibility !== "public") {
+    const decision = authorizeRecipeRead(user, recipe, {
+      userSharesHouseholdWithOwner: await usersShareHousehold(
+        db,
+        recipe.userId,
+        user.id,
+      ),
+    });
+    if (!decision.allowed) {
+      throw new InvitationActionError(
+        409,
+        "This recipe is no longer available to you",
+      );
+    }
+  }
+  await db.transaction(async (tx) => {
+    const mutationTime = new Date();
+    await tx
+      .insert(schema.userRecipeBoxItem)
+      .values({ userId: user.id, recipeSlug: detail.recipeSlug })
+      .onConflictDoNothing();
+    await tx
+      .update(schema.notificationDelivery)
+      .set({ readAt: mutationTime })
+      .where(
+        and(
+          eq(schema.notificationDelivery.eventId, eventId),
+          eq(schema.notificationDelivery.recipientUserId, user.id),
+        ),
+      );
+  });
 }
 
 async function findHouseholdMemberUserIds(
@@ -2491,6 +2662,7 @@ app.get("/notifications", async (c) => {
       const hasMore = deliveries.length > NOTIFICATION_PAGE_SIZE;
       const items = await hydrateNotifications(
         db,
+        session.user.id,
         deliveries.slice(0, NOTIFICATION_PAGE_SIZE),
       );
       return c.json(
@@ -2601,7 +2773,7 @@ app.post("/notifications/:notificationId/actions/:actionKey", async (c) => {
         )
         .limit(1);
       if (!updated) return c.notFound();
-      const [item] = await hydrateNotifications(db, [updated]);
+      const [item] = await hydrateNotifications(db, session.user.id, [updated]);
       return c.json({ item });
     },
     { onError: (error) => invitationActionFailure(c, error) },
@@ -2946,6 +3118,88 @@ app.get("/recipes/:slug", async (c) => {
         ...recipeResponse(recipe),
         owned: session?.user.id === recipe.userId,
       });
+    },
+  );
+});
+
+app.post("/recipes/:slug/recommendations", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+  const slug = parseRecipeSlug(c);
+  if (!slug.success) return slug.response;
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "POST /recipes/:slug/recommendations failed",
+    async ({ db, session }) => {
+      const body = await parseJsonBody(c, recommendRecipeBodySchema);
+      if (!body.success) return body.response;
+      if (body.data.recipientUserId === session.user.id) {
+        return c.json({ error: "You cannot recommend a recipe to yourself" }, 400);
+      }
+
+      const recipe = await findRecipeBySlug(db, slug.slug);
+      if (!recipe) return c.notFound();
+      if (recipe.visibility === "private") {
+        return c.json(
+          { error: "Only public or household recipes can be recommended" },
+          409,
+        );
+      }
+      if (recipe.visibility === "household") {
+        const decision = authorizeRecipeRead(session.user, recipe, {
+          userSharesHouseholdWithOwner: await usersShareHousehold(
+            db,
+            recipe.userId,
+            session.user.id,
+          ),
+        });
+        if (!decision.allowed) return c.notFound();
+      }
+      if (recipe.userId === body.data.recipientUserId) {
+        return c.json({ error: "That person already owns this recipe" }, 409);
+      }
+
+      const senderMembership = await findUserHouseholdMembership(
+        db,
+        session.user.id,
+      );
+      if (!senderMembership) {
+        return c.json(
+          { error: "Join a household before recommending recipes" },
+          409,
+        );
+      }
+      const recipientMembership = await findHouseholdMembership(
+        db,
+        senderMembership.organizationId,
+        body.data.recipientUserId,
+      );
+      if (!recipientMembership) {
+        return c.json(
+          { error: "Recipes can only be recommended to household members" },
+          403,
+        );
+      }
+
+      const recommendationLimit = await enforceRateLimit(
+        db,
+        `recipe-recommendation:${session.user.id}`,
+        RECIPE_RECOMMENDATION_RATE_LIMIT,
+      );
+      if (!recommendationLimit.allowed) {
+        return rateLimitedResponse(c, recommendationLimit.retryAfter);
+      }
+
+      await db.transaction(async (tx) => {
+        await createRecipeRecommendationNotification(tx, {
+          recipientUserId: body.data.recipientUserId,
+          recipe,
+          actor: { id: session.user.id, name: session.user.name },
+        });
+      });
+      return c.json({ recommended: true }, 201);
     },
   );
 });

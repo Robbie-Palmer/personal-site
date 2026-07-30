@@ -7,6 +7,8 @@ import type { RecipeDetailView } from "@/lib/domain/recipe/recipeViews";
 import { preferenceForSystem } from "@/lib/domain/recipe/unit";
 
 const mocks = vi.hoisted(() => ({
+  captureRecipeProductActivity: vi.fn(),
+  captureRecipeValue: vi.fn(),
   setUnitPreference: vi.fn(),
   tokenizeInstructionSdk: vi.fn(),
   recordCookingSession: vi.fn().mockResolvedValue({}),
@@ -57,6 +59,11 @@ vi.mock("@/lib/api/cooking-insights", () => ({
   recordCookingSession: mocks.recordCookingSession,
 }));
 
+vi.mock("@/lib/analytics/recipe-product", () => ({
+  captureRecipeProductActivity: mocks.captureRecipeProductActivity,
+  captureRecipeValue: mocks.captureRecipeValue,
+}));
+
 const recipe: RecipeDetailView = {
   slug: "weeknight",
   title: "Weeknight pasta",
@@ -74,6 +81,8 @@ const recipe: RecipeDetailView = {
 
 describe("RecipeContent", () => {
   beforeEach(() => {
+    mocks.captureRecipeProductActivity.mockClear();
+    mocks.captureRecipeValue.mockClear();
     mocks.setUnitPreference.mockClear();
     mocks.recordCookingSession.mockReset().mockResolvedValue({});
     mocks.authState.data = { user: { id: "cook-1" } };
@@ -139,6 +148,7 @@ describe("RecipeContent", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Start cooking" }));
+    expect(mocks.captureRecipeValue).not.toHaveBeenCalled();
     await waitFor(() =>
       expect(mocks.recordCookingSession).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -158,6 +168,11 @@ describe("RecipeContent", () => {
         event: "completed",
       }),
     );
+    expect(mocks.captureRecipeValue).toHaveBeenCalledWith("recipe_cooked", {
+      recipe_slug: "weeknight",
+      serving_count: 2,
+      step_count: 1,
+    });
   });
 
   it("keeps cooking usable when activity tracking fails", async () => {

@@ -69,7 +69,9 @@ Secrets and config mirrored from Doppler:
       - `dashboard:write`
       - `insight:read`
       - `insight:write`
-    - Used by the PostHog Terraform provider
+      - `logs:read`
+      - `logs:write`
+    - Used by the PostHog Terraform and REST providers
 11. **`POSTHOG_PROJECT_ID`**
     - Find in the PostHog project/environment settings or API URLs
     - Passed as `TF_VAR_posthog_project_id`
@@ -150,10 +152,49 @@ PostHog dashboards and insights are managed in Terraform via the official
 `posthog_resources.json`, with `posthog.tf` converting that data into
 Terraform-managed dashboard and insight resources.
 
+Recipe product-growth resources live separately in
+`posthog_plg_resources.json` and are merged into the same Terraform resources.
+The `Recipe product growth` dashboard uses these definitions:
+
+- **Activation:** an authenticated user finishes cooking a recipe or completes
+  an app-assisted shop within 30 days of starting onboarding. Completing setup
+  or storing recipes is not treated as value received.
+- **Time-to-value:** elapsed time from onboarding start to the first completed
+  cook or app-assisted shop.
+- **Active user:** a person performs `recipe_product_used`, emitted for recipe
+  viewing, cook mode, meal planning, shopping, kitchen stock, timers, or
+  completed value moments. DAU/WAU/MAU therefore exclude passive site
+  pageviews. Recipe views count as engagement, but not activation or value.
+- **Retention:** an activated user returns in a later week and performs any
+  meaningful recipe action.
+- **Usage depth:** actions per active user, feature mix, and active-day
+  stickiness. The controlled `activity` property is the feature dimension.
+
+Every recipe analytics event has `app_area=recipes` and an `environment`
+property. Managed PLG insights filter to `environment=production`, keeping
+local development and preview QA out of product metrics.
+
+Production log-alert definitions are managed in `posthog_alerts.tf`. PostHog's
+official provider currently supports insight alerts but not the separate Logs
+Alert API, so these use the `Mastercard/restapi` provider until first-class
+support is available. The alerts cover error/fatal logs for `recipe-pages`,
+`recipe-api`, and `recipe-ingest`; application errors recorded on traces also
+emit a correlated error log and are therefore covered by the same alerts.
+
+PostHog log-alert notification destinations are managed in the PostHog UI.
+The API models each Slack, Teams, or webhook destination as a group of internal
+Hog functions and does not expose a stable destination resource that Terraform
+can safely reconcile. After the first apply, attach at least one destination to
+each alert; an alert without a destination records state but sends no
+notification. Editing the alert definition itself in the UI will be reverted
+by Terraform.
+
 ### Managed PostHog Resources
 
 - Existing dashboards in project `123162`
 - Existing insights in project `123162`, including their dashboard attachments
+- Production log alerts for the recipe Pages Function, API Worker, and ingestion
+  Workflow
 
 ### Importing PostHog Resources
 

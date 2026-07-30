@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import * as schema from "recipe-db/schema";
 import {
   createHouseholdNotification,
+  createRecipeRecommendationNotification,
   markInvitationNotificationRead,
 } from "../src/notifications";
 
@@ -55,6 +56,46 @@ describe("notification persistence", () => {
       household: { id: "household-1", name: "Park Road" },
     });
     expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("stores a recipe recommendation with stable recipe snapshots", async () => {
+    const inserts: Array<{ table: unknown; values: unknown }> = [];
+    const db = {
+      insert: (table: unknown) => ({
+        values: (values: unknown) => {
+          inserts.push({ table, values });
+          return Promise.resolve();
+        },
+      }),
+    };
+
+    await createRecipeRecommendationNotification(db as never, {
+      recipientUserId: "recipient-1",
+      recipe: {
+        id: "706db8bc-cabe-4e26-a1bf-d67a99d2c071",
+        slug: "weekday-stew",
+        title: "Weekday Stew",
+      },
+      actor: { id: "cook-1", name: "Alex" },
+    });
+
+    expect(inserts.map(({ table }) => table)).toEqual([
+      schema.notificationEvent,
+      schema.notificationRecipeRecommendationEvent,
+      schema.notificationDelivery,
+    ]);
+    expect(inserts[0]?.values).toMatchObject({
+      kind: "recipe_recommended",
+      actorUserId: "cook-1",
+      actorNameSnapshot: "Alex",
+    });
+    expect(inserts[1]?.values).toMatchObject({
+      recipeSlugSnapshot: "weekday-stew",
+      recipeTitleSnapshot: "Weekday Stew",
+    });
+    expect(inserts[2]?.values).toMatchObject({
+      recipientUserId: "recipient-1",
+    });
   });
 
   it("marks deliveries for an invitation event as read", async () => {

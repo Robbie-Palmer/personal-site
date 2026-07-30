@@ -51,6 +51,16 @@ description = "Smoke-test a deployed preview Worker with a direct seeded session
 depends = ["install"]
 run = "pnpm exec tsx scripts/smoke-preview.ts"
 
+[tasks."preview:smoke:profiles"]
+description = "Smoke-test authenticated profiles on a deployed preview Worker"
+depends = ["install"]
+run = "pnpm exec tsx scripts/smoke-preview-profiles.ts"
+
+[tasks."db:backfill:cookware"]
+description = "Canonicalize existing recipe cookware against the equipment registry (read-only; pass -- --apply to write)"
+depends = ["install"]
+run = "pnpm backfill:cookware"
+
 [tasks."db:studio"]
 description = "Open Drizzle Studio for DATABASE_URL"
 depends = ["install"]

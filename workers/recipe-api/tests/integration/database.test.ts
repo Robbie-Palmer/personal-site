@@ -148,8 +148,8 @@ beforeAll(async () => {
     where slug in ('almond-milk', 'cajun-powder', 'cajun-seasoning')
     order by slug
   `;
-  expect(migrationCount?.count).toBe(4);
-  expect(tableCount?.count).toBe(30);
+  expect(migrationCount?.count).toBe(5);
+  expect(tableCount?.count).toBe(31);
   expect(catalogRows).toEqual([
     { category: "dairy", slug: "almond-milk" },
     { category: "spice", slug: "cajun-seasoning" },
@@ -484,6 +484,103 @@ describe("recipe API PostgreSQL integration", () => {
         .from(schema.notificationHouseholdEvent)
         .where(eq(schema.notificationHouseholdEvent.eventId, invitedEvent.id)),
     ).toHaveLength(0);
+  });
+
+  it("recommends a readable recipe and adds it to the recipient recipe box", async () => {
+    const owner = await createUser("Recommendation Owner", "rec-owner@example.test");
+    const member = await createUser("Recommendation Member", "rec-member@example.test");
+
+    const householdResponse = await authenticatedRequest(owner, "/households", {
+      method: "POST",
+      body: { name: "Recommendation Household" },
+    });
+    const household = await json<{ id: string }>(householdResponse);
+    const invitationResponse = await authenticatedRequest(
+      owner,
+      `/households/${household.id}/invitations`,
+      { method: "POST", body: { email: member.email } },
+    );
+    const invitation = await json<{ id: string }>(invitationResponse);
+    expect(
+      (
+        await authenticatedRequest(
+          member,
+          `/households/invitations/${invitation.id}/accept`,
+          { method: "POST" },
+        )
+      ).status,
+    ).toBe(200);
+
+    expect(
+      (
+        await authenticatedRequest(owner, "/recipes", {
+          method: "POST",
+          body: {
+            slug: "recommended-stew",
+            title: "Recommended Stew",
+            body: savedRecipeBody("recommended-stew", "Recommended Stew"),
+            visibility: "household",
+          },
+        })
+      ).status,
+    ).toBe(201);
+    const recommendationResponse = await authenticatedRequest(
+      owner,
+      "/recipes/recommended-stew/recommendations",
+      { method: "POST", body: { recipientUserId: member.id } },
+    );
+    expect(recommendationResponse.status).toBe(201);
+
+    const notificationsResponse = await authenticatedRequest(
+      member,
+      "/notifications",
+    );
+    const notifications = await json<{
+      items: Array<{
+        actions: string[];
+        detail: {
+          recipe: { slug: string; title: string };
+          saved: boolean;
+          type: string;
+        };
+        id: string;
+        kind: string;
+      }>;
+    }>(notificationsResponse);
+    const recommendation = notifications.items.find(
+      ({ kind }) => kind === "recipe_recommended",
+    );
+    expect(recommendation).toMatchObject({
+      actions: ["add_to_recipe_box"],
+      detail: {
+        type: "recipe_recommendation",
+        recipe: {
+          slug: "recommended-stew",
+          title: "Recommended Stew",
+        },
+        saved: false,
+      },
+    });
+    if (!recommendation) throw new Error("Recommendation was not delivered");
+
+    const addResponse = await authenticatedRequest(
+      member,
+      `/notifications/${recommendation.id}/actions/add_to_recipe_box`,
+      { method: "POST" },
+    );
+    expect(addResponse.status).toBe(200);
+    expect(
+      await json<{ item: { actions: string[]; detail: { saved: boolean } } }>(
+        addResponse,
+      ),
+    ).toMatchObject({
+      item: { actions: [], detail: { saved: true } },
+    });
+    expect(
+      await json<{ recipeSlugs: string[] }>(
+        await authenticatedRequest(member, "/api/profile/recipe-box"),
+      ),
+    ).toMatchObject({ recipeSlugs: ["recommended-stew"] });
   });
 
   it("persists diet settings and cascades an import job graph", async () => {

@@ -757,6 +757,13 @@ export const technologies: TechnologyContent[] = [
     type: "platform",
   },
   {
+    name: "Slack",
+    added: "2026-07-29",
+    description: "Team messaging and operational notification platform",
+    website: "https://slack.com",
+    type: "platform",
+  },
+  {
     name: "cooklang-rs",
     added: "2026-02-28",
     description:

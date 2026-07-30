@@ -5,7 +5,28 @@
 # dashboards and insights instead of creating starter examples.
 
 locals {
-  posthog_resources  = jsondecode(file("${path.module}/posthog_resources.json"))
+  posthog_existing_resources = jsondecode(file("${path.module}/posthog_resources.json"))
+  posthog_plg_resources      = jsondecode(file("${path.module}/posthog_plg_resources.json"))
+
+  posthog_dashboard_key_collisions = setintersection(
+    toset(keys(local.posthog_existing_resources.dashboards)),
+    toset(keys(local.posthog_plg_resources.dashboards)),
+  )
+  posthog_insight_key_collisions = setintersection(
+    toset(keys(local.posthog_existing_resources.insights)),
+    toset(keys(local.posthog_plg_resources.insights)),
+  )
+
+  posthog_resources = {
+    dashboards = merge(
+      local.posthog_existing_resources.dashboards,
+      local.posthog_plg_resources.dashboards,
+    )
+    insights = merge(
+      local.posthog_existing_resources.insights,
+      local.posthog_plg_resources.insights,
+    )
+  }
   posthog_dashboards = local.posthog_resources.dashboards
   posthog_insights   = local.posthog_resources.insights
 }
@@ -20,6 +41,11 @@ resource "posthog_dashboard" "managed" {
 
   lifecycle {
     prevent_destroy = true
+
+    precondition {
+      condition     = length(local.posthog_dashboard_key_collisions) == 0
+      error_message = "PostHog dashboard keys must be unique across posthog_resources.json and posthog_plg_resources.json. Duplicates: ${join(", ", local.posthog_dashboard_key_collisions)}"
+    }
   }
 }
 
@@ -39,5 +65,10 @@ resource "posthog_insight" "managed" {
 
   lifecycle {
     prevent_destroy = true
+
+    precondition {
+      condition     = length(local.posthog_insight_key_collisions) == 0
+      error_message = "PostHog insight keys must be unique across posthog_resources.json and posthog_plg_resources.json. Duplicates: ${join(", ", local.posthog_insight_key_collisions)}"
+    }
   }
 }

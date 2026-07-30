@@ -16,15 +16,16 @@ The service is a visible, stateful publisher:
   rapid events to one review of the latest pull request state after a quiet
   period;
 - a Cloudflare Workflow fetches the PR through GitHub App authentication, runs
-  the same OpenRouter and OpenCode scout ensemble as the existing Action,
+  the shared OpenRouter and OpenCode scout ensemble,
   reconciles candidates with the same OpenRouter merger, and publishes a
   separate rolling comment; OpenRouter and OpenCode scouts use separate
   Workflow steps so a stalled free provider cannot replay completed paid calls,
   while deterministic publication and storage steps remain retryable;
 - the private `ai-review-data` R2 bucket stores versioned findings plus provider
   cost, latency, token, cache, availability, and failure metrics; and
-- the existing stateless GitHub Action remains enabled as an independent,
-  visible baseline.
+- the former stateless GitHub Actions orchestrator is retired; its prompts,
+  model clients, validation, and rendering code remain as the shared review
+  engine imported by this service.
 
 Automatic runs cover non-draft PR opens, ready-for-review transitions, reopens,
 and synchronized heads. An exact `/ai-review` issue comment from an owner,
@@ -34,9 +35,9 @@ Ordinary comments and review-thread activity never schedule paid work.
 OpenRouter is the default paid inference gateway because its broader model and
 provider catalogue, provider failover, model fallbacks, and price/performance
 routing are useful properties of the architecture itself. The initial route
-deliberately matches the current stateless reviewer: Kimi K2.6 and DeepSeek V4
-Pro through OpenRouter, eligible live free models through OpenCode Zen, and
-Claude Sonnet 4.6 as the OpenRouter merger. Workers AI is deliberately not
+retains the proven ensemble: Kimi K2.6 and DeepSeek V4 Pro through OpenRouter,
+eligible live free models through OpenCode Zen, and Claude Sonnet 4.6 as the
+OpenRouter merger. Workers AI is deliberately not
 bound or used: its narrower catalogue and provider-specific integration do not
 justify higher published prices than the current multi-provider route.
 
@@ -46,7 +47,7 @@ justify higher published prices than the current multi-provider route.
   and non-secret runtime configuration.
 - Changed-file context is fetched through bounded GitHub GraphQL batches rather
   than one REST request per path. This keeps large reviews comfortably below
-  Cloudflare's subrequest ceiling without changing the stateless prompt or
+  Cloudflare's subrequest ceiling without changing the shared prompt or
   coverage budgets.
 - `infra/` owns the shared Cloudflare account's private R2 bucket.
 - R2 expires review records after 365 days and aborts incomplete multipart
@@ -100,11 +101,11 @@ access, and issues read/write access for its rolling comment. Subscribe it to
 PR state, draft state, author, exact command text, command-author association,
 and current head before spending or publishing.
 
-Committed non-secret defaults in `wrangler.toml` mirror the stateless reviewer:
+Committed non-secret defaults in `wrangler.toml` configure the shared reviewer:
 
 - `AI_REVIEW_MODELS`, `AI_REVIEW_OPENCODE_MODELS`, and
   `AI_REVIEW_MERGER_MODEL` select the current ensemble;
-- `AI_REVIEW_ZDR` applies the stateless OpenRouter routing constraint;
+- `AI_REVIEW_ZDR` applies the OpenRouter routing constraint;
 - `AI_REVIEW_MAX_PR_COST_USD=5` stops new runs after recorded successful or
   failed stateful runs on the PR reach that cumulative cost;
 - `AI_REVIEW_MAX_RUNS_PER_PR=20` caps attempted stateful runs per PR; and

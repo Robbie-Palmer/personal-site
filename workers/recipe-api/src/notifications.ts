@@ -49,6 +49,34 @@ export async function createHouseholdNotification(
   );
 }
 
+export async function createRecipeRecommendationNotification(
+  db: Pick<Db, "insert">,
+  values: {
+    recipientUserId: string;
+    recipe: { id: string; slug: string; title: string };
+    actor: { id: string; name: string };
+  },
+) {
+  const eventId = crypto.randomUUID();
+  await db.insert(schema.notificationEvent).values({
+    id: eventId,
+    kind: "recipe_recommended",
+    actorUserId: values.actor.id,
+    actorNameSnapshot: values.actor.name,
+  });
+  await db.insert(schema.notificationRecipeRecommendationEvent).values({
+    eventId,
+    recipeId: values.recipe.id,
+    recipeSlugSnapshot: values.recipe.slug,
+    recipeTitleSnapshot: values.recipe.title,
+  });
+  await db.insert(schema.notificationDelivery).values({
+    id: crypto.randomUUID(),
+    eventId,
+    recipientUserId: values.recipientUserId,
+  });
+}
+
 export async function markInvitationNotificationRead(
   db: Pick<Db, "select" | "update">,
   recipientUserId: string,

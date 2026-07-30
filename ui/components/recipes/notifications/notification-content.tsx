@@ -1,9 +1,10 @@
-import { Bell, House } from "lucide-react";
-import type { ComponentType } from "react";
+import { Bell, BookHeart, House } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type {
   HouseholdNotification,
   InAppNotification,
+  RecipeRecommendationNotification,
 } from "@/lib/api/notifications";
 
 type RendererProps<T extends InAppNotification = InAppNotification> = Readonly<{
@@ -84,6 +85,58 @@ function HouseholdNotificationContent({
   );
 }
 
+function RecipeRecommendationContent({
+  item,
+  acting,
+  onAction,
+}: RendererProps<RecipeRecommendationNotification>) {
+  const actor = item.actor?.name ?? "Someone";
+  const recipe = item.detail.recipe;
+  return (
+    <>
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--ink)] bg-[var(--butter)] text-[var(--ink)]">
+        <BookHeart className="size-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="rt-body text-[0.95rem] text-[var(--ink-2)]">
+          {actor} recommended{" "}
+          {recipe.available ? (
+            <Link
+              href={`/recipes/${encodeURIComponent(recipe.slug)}`}
+              className="font-semibold text-[var(--ink)] underline decoration-[var(--terracotta)] underline-offset-2"
+            >
+              {recipe.title}
+            </Link>
+          ) : (
+            <strong>{recipe.title}</strong>
+          )}{" "}
+          to you.
+        </p>
+        {item.actions.includes("add_to_recipe_box") && (
+          <Button
+            className="mt-2"
+            size="sm"
+            disabled={acting}
+            onClick={() => onAction("add_to_recipe_box")}
+          >
+            Add to recipe box
+          </Button>
+        )}
+        {item.detail.saved && (
+          <p className="rt-mono mt-2 text-[var(--sage)]">
+            Added to your recipe box
+          </p>
+        )}
+        {!recipe.available && (
+          <p className="rt-mono mt-2 text-[var(--ink-3)]">
+            This recipe is no longer available
+          </p>
+        )}
+      </div>
+    </>
+  );
+}
+
 function UnsupportedNotificationContent({ item }: RendererProps) {
   return (
     <>
@@ -99,21 +152,20 @@ function UnsupportedNotificationContent({ item }: RendererProps) {
   );
 }
 
-const renderers: Record<
-  NonNullable<InAppNotification["detail"]>["type"],
-  ComponentType<RendererProps<HouseholdNotification>>
-> = {
-  household: HouseholdNotificationContent,
-};
-
 export function NotificationContent(props: RendererProps) {
   if (!props.item.detail) return <UnsupportedNotificationContent {...props} />;
-  const Renderer = renderers[props.item.detail.type];
+  if (props.item.detail.type === "recipe_recommendation") {
+    return (
+      <RecipeRecommendationContent
+        {...props}
+        item={props.item as RecipeRecommendationNotification}
+      />
+    );
+  }
   return (
-    <Renderer
+    <HouseholdNotificationContent
+      {...props}
       item={props.item as HouseholdNotification}
-      acting={props.acting}
-      onAction={props.onAction}
     />
   );
 }
