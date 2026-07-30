@@ -31,11 +31,27 @@ export type HouseholdNotification = NotificationBase & {
   };
 };
 
+export type RecipeRecommendationNotification = NotificationBase & {
+  kind: "recipe_recommended";
+  detail: {
+    type: "recipe_recommendation";
+    recipe: {
+      slug: string;
+      title: string;
+      available: boolean;
+    };
+    saved: boolean;
+  };
+};
+
 export type UnsupportedNotification = NotificationBase & {
   detail: null;
 };
 
-export type InAppNotification = HouseholdNotification | UnsupportedNotification;
+export type InAppNotification =
+  | HouseholdNotification
+  | RecipeRecommendationNotification
+  | UnsupportedNotification;
 
 export type NotificationPage = {
   items: InAppNotification[];

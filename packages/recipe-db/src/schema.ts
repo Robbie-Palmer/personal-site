@@ -285,6 +285,21 @@ export const recipe = pgTable(
   ],
 );
 
+export const notificationRecipeRecommendationEvent = pgTable(
+  "notification_recipe_recommendation_event",
+  {
+    eventId: text()
+      .primaryKey()
+      .references(() => notificationEvent.id, { onDelete: "cascade" }),
+    recipeId: uuid().references(() => recipe.id, { onDelete: "set null" }),
+    recipeSlugSnapshot: text().notNull(),
+    recipeTitleSnapshot: text().notNull(),
+  },
+  (table) => [
+    index("notification_recipe_recommendation_recipe_idx").on(table.recipeId),
+  ],
+);
+
 export const ingredient = pgTable("ingredient", {
   slug: text().primaryKey(),
   name: text().notNull(),
