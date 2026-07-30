@@ -10,15 +10,10 @@ interface FilterChipProps
   extends Omit<React.ComponentProps<"span">, "onClick">,
     VariantProps<typeof badgeVariants> {
   onRemove: () => void;
-  /**
-   * Advance the value's tri-state when the chip body is activated: an included
-   * chip becomes excluded, an excluded chip turns off. Omit to render a static
-   * chip whose only action is the remove button.
-   */
   onCycle?: () => void;
   icon?: React.ReactNode;
   children: React.ReactNode;
-  /** Plain-text value name for the buttons' accessible labels. */
+  /** Plain-text name for the buttons' accessible labels. */
   name: string;
   disabled?: boolean;
   /** Render as an exclude filter (destructive, struck through, minus glyph). */

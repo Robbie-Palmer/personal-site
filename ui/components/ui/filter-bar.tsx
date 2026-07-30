@@ -60,7 +60,6 @@ interface FilterBarProps {
   stackControls?: boolean;
   activeFilters?: ActiveFilter[];
   onRemoveFilter?: (paramName: string, value: string) => void;
-  /** Advance an active chip's tri-state on tap (include → exclude → off). */
   onCycleFilter?: (paramName: string, value: string) => void;
   onClearAll?: () => void;
   hasActiveFilters?: boolean;

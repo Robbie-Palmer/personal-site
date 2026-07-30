@@ -128,7 +128,6 @@ export function FilterableCardGrid<T>({
     getSelection,
     getState,
     peekState,
-    cycleValue,
     setValues,
     setState,
     clearFilter,
@@ -314,6 +313,17 @@ export function FilterableCardGrid<T>({
     [pathname],
   );
 
+  const cycleFilter = useCallback(
+    (paramName: string, value: string) => {
+      // peekState, not getState: the reactive read can lag the URL, which would
+      // record an action that doesn't match the state written here.
+      const next = nextFilterState(peekState(paramName, value));
+      captureFilterChange(paramName, value, next);
+      setState(paramName, value, next);
+    },
+    [captureFilterChange, peekState, setState],
+  );
+
   const filterOptions = useMemo(() => {
     if (!filterConfigs) return [];
     return filterConfigs.map((config) => {
@@ -346,24 +356,10 @@ export function FilterableCardGrid<T>({
           icon: option.icon ?? config.icon,
         })),
         getOptionState: (value: string) => getState(config.paramName, value),
-        onCycleOption: (value: string) => {
-          // Derive the analytics action from the same latest read cycleValue
-          // writes from, so the recorded action can't drift from the URL.
-          const next = nextFilterState(peekState(config.paramName, value));
-          captureFilterChange(config.paramName, value, next);
-          cycleValue(config.paramName, value);
-        },
+        onCycleOption: (value: string) => cycleFilter(config.paramName, value),
       };
     });
-  }, [filterOptions, getState, peekState, cycleValue, captureFilterChange]);
-
-  const handleCycleFilter = (paramName: string, value: string) => {
-    // Derive the action from the same latest read the write uses, so analytics
-    // can't drift from the URL (mirrors the mobile drawer's cycle handler).
-    const next = nextFilterState(peekState(paramName, value));
-    captureFilterChange(paramName, value, next);
-    setState(paramName, value, next);
-  };
+  }, [filterOptions, getState, cycleFilter]);
 
   const handleRemoveFilter = (paramName: string, value: string) => {
     captureFilterChange(paramName, value, "off");
@@ -398,7 +394,7 @@ export function FilterableCardGrid<T>({
         stackControls={stackControls}
         activeFilters={activeFilters}
         onRemoveFilter={handleRemoveFilter}
-        onCycleFilter={filterConfigs ? handleCycleFilter : undefined}
+        onCycleFilter={filterConfigs ? cycleFilter : undefined}
         onClearAll={clearAllFilters}
         hasActiveFilters={hasActiveFilters}
         activeFilterCount={activeFilterCount}
