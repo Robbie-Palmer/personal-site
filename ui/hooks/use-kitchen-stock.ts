@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { captureRecipeProductActivity } from "@/lib/analytics/recipe-product";
 import {
   type Pantry,
   removePantryItem,
@@ -8,7 +9,6 @@ import {
   restorePantry,
   setPantryItem,
 } from "@/lib/api/pantry";
-import { captureRecipeProductActivity } from "@/lib/analytics/recipe-product";
 import { authClient } from "@/lib/auth-client";
 import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
 import type {
