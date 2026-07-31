@@ -26,7 +26,7 @@ const VERB_PREFIXES = new Set([
   "send",
 ]);
 
-export default (path) => {
+const noVerbPaths = (path) => {
   if (typeof path !== "string") return [];
   const results = [];
   for (const segment of path.split("/")) {
@@ -40,3 +40,5 @@ export default (path) => {
   }
   return results;
 };
+
+export default noVerbPaths;

@@ -10,16 +10,18 @@ const SINGLETONS = new Set([
   "health",
 ]);
 
-export default (path) => {
+const pluralCollections = (path) => {
   if (typeof path !== "string") return [];
   const segments = path.split("/").filter(Boolean);
   const results = [];
   segments.forEach((segment, i) => {
     const next = segments[i + 1];
-    const isCollection = Boolean(next && next.startsWith("{"));
+    const isCollection = Boolean(next?.startsWith("{"));
     if (!isCollection || segment.startsWith("{")) return;
     if (SINGLETONS.has(segment) || segment.endsWith("s")) return;
     results.push({ message: `collection '${segment}' should be plural` });
   });
   return results;
 };
+
+export default pluralCollections;
