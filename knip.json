@@ -23,7 +23,11 @@
       "ignoreDependencies": ["serve"]
     },
     "workers/recipe-api": {
-      "entry": ["vitest.integration.config.ts", "scripts/**/*.ts"]
+      "entry": [
+        "vitest.integration.config.ts",
+        "scripts/**/*.ts",
+        "spectral-functions/*.js"
+      ]
     },
     "workers/recipe-ingest": {
       "ignoreDependencies": ["cloudflare"]

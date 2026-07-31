@@ -911,4 +911,28 @@ export const technologies: TechnologyContent[] = [
     website: "https://github.com/crate-ci/typos",
     type: "tool",
   },
+  {
+    name: "OpenAPI",
+    added: "2026-07-31",
+    description:
+      "Language-agnostic specification describing HTTP APIs — paths, methods, and request/response schemas — as a machine-readable contract",
+    website: "https://www.openapis.org",
+    type: "tool",
+  },
+  {
+    name: "Spectral",
+    added: "2026-07-31",
+    description:
+      "JSON/YAML and OpenAPI linter enforcing API conventions with composable rulesets: naming, method correctness, security, and response consistency",
+    website: "https://stoplight.io/open-source/spectral",
+    type: "tool",
+  },
+  {
+    name: "oasdiff",
+    added: "2026-07-31",
+    description:
+      "Diffs two OpenAPI specs and classifies changes, failing CI on breaking changes such as removed endpoints, narrowed enums, or newly required fields",
+    website: "https://www.oasdiff.com",
+    type: "tool",
+  },
 ];
