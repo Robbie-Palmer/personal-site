@@ -152,18 +152,20 @@ export function AuthButton({
   className,
   compactOnMobile = false,
   intent = "signin",
+  label,
   signOutRedirect = redirectAfterSignOut,
 }: Readonly<{
   className?: string;
   compactOnMobile?: boolean;
   intent?: "signin" | "signup";
+  label?: string;
   signOutRedirect?: () => void;
 }>) {
   const previewBackendDisabled =
     process.env.NEXT_PUBLIC_PREVIEW_BACKEND === "false";
   const queryClient = useQueryClient();
   const { data: session, isPending } = authClient.useSession();
-  const triggerLabel = intent === "signup" ? "Sign up" : "Log in";
+  const triggerLabel = label ?? (intent === "signup" ? "Sign up" : "Log in");
   const [open, setOpen] = useState(false);
   const [pendingSignIn, setPendingSignIn] = useState<string | null>(null);
   const [isPreview, setIsPreview] = useState(false);
