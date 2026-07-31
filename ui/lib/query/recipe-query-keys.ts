@@ -25,6 +25,8 @@ export const recipeQueryKeys = {
     [...recipeRoot, "private", userId, "diet", "options"] as const,
   householdSettings: (userId: string) =>
     [...recipeRoot, "private", userId, "household", "settings"] as const,
-  householdDiscoverFeed: (userId: string) =>
-    [...recipeRoot, "private", userId, "discover", "household"] as const,
+  followingDiscoverFeed: (userId: string) =>
+    [...recipeRoot, "private", userId, "discover", "following"] as const,
+  cookFollowStatus: (userId: string, cookId: string) =>
+    [...recipeRoot, "private", userId, "cooks", cookId, "follow"] as const,
 };

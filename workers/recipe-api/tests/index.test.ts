@@ -161,6 +161,11 @@ const dbMock = vi.hoisted(() => {
     userDietExcludedGroups: [] as { userId: string; groupKey: string }[],
     recipeBoxes: [] as { userId: string; completedAt: Date; updatedAt: Date }[],
     recipeBoxItems: [] as { userId: string; recipeSlug: string }[],
+    userFollows: [] as {
+      followerUserId: string;
+      followedUserId: string;
+      createdAt: Date;
+    }[],
     rateLimitCounts: new Map<string, number>(),
     rateLimitSweeps: 0,
     expireInvitationOnUpdate: false,
@@ -269,6 +274,7 @@ const dbMock = vi.hoisted(() => {
     state.userDietExcludedGroups = [];
     state.recipeBoxes = [];
     state.recipeBoxItems = [];
+    state.userFollows = [];
     state.rateLimitCounts.clear();
     state.rateLimitSweeps = 0;
     state.expireInvitationOnUpdate = false;
@@ -369,6 +375,25 @@ const dbMock = vi.hoisted(() => {
         createdAt: date,
         updatedAt: date,
       });
+      return [];
+    }
+
+    if (query.startsWith('insert into "user_follow"')) {
+      const followerUserId = params[0] as string;
+      const followedUserId = params[1] as string;
+      if (
+        !state.userFollows.some(
+          (follow) =>
+            follow.followerUserId === followerUserId &&
+            follow.followedUserId === followedUserId,
+        )
+      ) {
+        state.userFollows.push({
+          followerUserId,
+          followedUserId,
+          createdAt: date,
+        });
+      }
       return [];
     }
 
@@ -681,6 +706,17 @@ const dbMock = vi.hoisted(() => {
       return [];
     }
 
+    if (query.startsWith('delete from "user_follow"')) {
+      const followerUserId = params[0] as string;
+      const followedUserId = params[1] as string;
+      state.userFollows = state.userFollows.filter(
+        (follow) =>
+          follow.followerUserId !== followerUserId ||
+          follow.followedUserId !== followedUserId,
+      );
+      return [];
+    }
+
     if (query.startsWith('update "recipe"')) {
       if (
         query.includes('"recipe"."user_id"') &&
@@ -841,6 +877,28 @@ const dbMock = vi.hoisted(() => {
       return state.users
         .filter((candidate) => candidate.email === email)
         .map((candidate) => [candidate.id]);
+    }
+
+    if (
+      query.includes('from "user"') &&
+      query.includes('"user"."id" =')
+    ) {
+      const userId = params[0] as string;
+      return state.users
+        .filter((candidate) => candidate.id === userId)
+        .map((candidate) => [candidate.id]);
+    }
+
+    if (query.includes('from "user_follow"')) {
+      const followerUserId = params[0] as string;
+      const followedUserId = params[1] as string | undefined;
+      return state.userFollows
+        .filter(
+          (follow) =>
+            follow.followerUserId === followerUserId &&
+            (!followedUserId || follow.followedUserId === followedUserId),
+        )
+        .map((follow) => [follow.followedUserId]);
     }
 
     if (
@@ -1051,6 +1109,57 @@ const dbMock = vi.hoisted(() => {
             (!expiresAfter || invitation.expiresAt > expiresAfter),
         )
         .map(invitationRow);
+    }
+
+    if (
+      query.includes('from "recipe"') &&
+      query.includes('inner join "user"') &&
+      query.includes("::text")
+    ) {
+      const viewerId = (
+        authzMock.session as { user?: { id?: string } } | null
+      )?.user?.id;
+      const viewerMembership = state.members.find(
+        (member) => member.userId === viewerId,
+      );
+      const householdUserIds = new Set(
+        viewerMembership
+          ? state.members
+              .filter(
+                (member) =>
+                  member.organizationId === viewerMembership.organizationId,
+              )
+              .map((member) => member.userId)
+          : [],
+      );
+      const followedUserIds = new Set(
+        state.userFollows
+          .filter((follow) => follow.followerUserId === viewerId)
+          .map((follow) => follow.followedUserId),
+      );
+      const personalized = query.includes('"recipe"."user_id" in');
+      const visibleRecipes = state.recipes.filter((recipe) =>
+        personalized
+          ? (householdUserIds.has(recipe.userId) &&
+              (recipe.visibility === "public" ||
+                recipe.visibility === "household")) ||
+            (followedUserIds.has(recipe.userId) &&
+              recipe.visibility === "public")
+          : recipe.visibility === "public",
+      );
+      const cursorParamCount = query.includes("::timestamptz") ? 3 : 0;
+      const limitParamCount = query.includes("limit ") ? 1 : 0;
+      const cursorParamIndex =
+        params.length - cursorParamCount - limitParamCount;
+      return paginatedRecipeRows(
+        visibleRecipes,
+        query,
+        params,
+        cursorParamIndex,
+      ).map((row) => {
+        const user = state.users.find((candidate) => candidate.id === row[5])!;
+        return [...row, user.id, user.name, user.image];
+      });
     }
 
     if (
@@ -1755,6 +1864,100 @@ describe("GET /recipes", () => {
   });
 });
 
+describe("recipe discover following feed", () => {
+  it("requires authentication", async () => {
+    const res = await app.request(
+      "/recipes/discover/feed?scope=following",
+      {},
+      env,
+    );
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Authentication required" });
+  });
+
+  it("combines household activity with public recipes from followed cooks", async () => {
+    seedHousehold();
+    dbMock.state.users.push({
+      id: "unfollowed-user",
+      name: "Unfollowed",
+      email: "unfollowed@example.test",
+      emailVerified: true,
+      image: null,
+      role: "user",
+      banned: null,
+      banReason: null,
+      banExpires: null,
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    dbMock.state.userFollows.push({
+      followerUserId: "owner-user",
+      followedUserId: "outsider-user",
+      createdAt: dbMock.date,
+    });
+    dbMock.state.recipes.push(
+      {
+        id: "recipe-household",
+        slug: "household-stew",
+        title: "Household Stew",
+        description: null,
+        body: null,
+        userId: "member-user",
+        visibility: "household",
+        createdAt: new Date("2026-01-03T00:00:00.000Z"),
+        updatedAt: dbMock.date,
+      },
+      {
+        id: "recipe-followed",
+        slug: "outsider-soup",
+        title: "Outsider Soup",
+        description: null,
+        body: null,
+        userId: "outsider-user",
+        visibility: "public",
+        createdAt: new Date("2026-01-02T00:00:00.000Z"),
+        updatedAt: dbMock.date,
+      },
+      {
+        id: "recipe-unfollowed",
+        slug: "unfollowed-pasta",
+        title: "Unfollowed Pasta",
+        description: null,
+        body: null,
+        userId: "unfollowed-user",
+        visibility: "public",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        updatedAt: dbMock.date,
+      },
+    );
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await app.request(
+      "/recipes/discover/feed?scope=following",
+      {},
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      items: Array<{ recipe: { slug: string }; author: { id: string } }>;
+    };
+    expect(body.items.map((item) => item.recipe.slug)).toEqual([
+      "household-stew",
+      "outsider-soup",
+    ]);
+    expect(body.items.map((item) => item.author.id)).toEqual([
+      "member-user",
+      "outsider-user",
+    ]);
+  });
+});
+
 describe("GET /recipes/cooks", () => {
   function seedCook() {
     dbMock.state.users.push({
@@ -1844,6 +2047,74 @@ describe("GET /recipes/cooks", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ cook: null });
+  });
+});
+
+describe("cook follows", () => {
+  beforeEach(() => {
+    seedHousehold();
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+  });
+
+  it("follows and unfollows another cook idempotently", async () => {
+    const follow = await app.request(
+      "/recipes/cooks/outsider-user/follow",
+      { method: "PUT", headers: { origin: "http://localhost" } },
+      env,
+    );
+    expect(follow.status).toBe(200);
+    expect(await follow.json()).toEqual({
+      following: true,
+      canFollow: true,
+    });
+
+    const repeat = await app.request(
+      "/recipes/cooks/outsider-user/follow",
+      { method: "PUT", headers: { origin: "http://localhost" } },
+      env,
+    );
+    expect(repeat.status).toBe(200);
+    expect(dbMock.state.userFollows).toHaveLength(1);
+
+    const status = await app.request(
+      "/recipes/cooks/outsider-user/follow",
+      {},
+      env,
+    );
+    expect(status.status).toBe(200);
+    expect(await status.json()).toEqual({
+      following: true,
+      canFollow: true,
+    });
+
+    const unfollow = await app.request(
+      "/recipes/cooks/outsider-user/follow",
+      { method: "DELETE", headers: { origin: "http://localhost" } },
+      env,
+    );
+    expect(unfollow.status).toBe(200);
+    expect(await unfollow.json()).toEqual({
+      following: false,
+      canFollow: true,
+    });
+    expect(dbMock.state.userFollows).toHaveLength(0);
+  });
+
+  it("does not allow cooks to follow themselves", async () => {
+    const res = await app.request(
+      "/recipes/cooks/owner-user/follow",
+      { method: "PUT", headers: { origin: "http://localhost" } },
+      env,
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "You cannot follow yourself",
+    });
   });
 });
 

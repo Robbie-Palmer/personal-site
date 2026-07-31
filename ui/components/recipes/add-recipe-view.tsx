@@ -108,7 +108,7 @@ async function invalidateSavedRecipeQueries({
   ) {
     invalidations.push(
       queryClient.invalidateQueries({
-        queryKey: recipeQueryKeys.householdDiscoverFeed(userId),
+        queryKey: recipeQueryKeys.followingDiscoverFeed(userId),
       }),
     );
   }

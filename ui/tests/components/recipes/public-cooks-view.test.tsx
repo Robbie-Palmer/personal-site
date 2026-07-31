@@ -4,11 +4,17 @@ import type {
   PublicCookProfile,
   PublicCookSummary,
 } from "@/lib/api/public-cooks";
-import { render, screen } from "@/tests/test-utils";
+import { fireEvent, render, screen, waitFor } from "@/tests/test-utils";
 
 const mocks = vi.hoisted(() => ({
+  getCookFollowStatus: vi.fn(),
   getPublicCook: vi.fn(),
   getPublicCooks: vi.fn(),
+  setCookFollowing: vi.fn(),
+  session: {
+    data: null as { user: { id: string; name: string } } | null,
+    isPending: false,
+  },
   useSearchParams: vi.fn(),
 }));
 
@@ -18,8 +24,17 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/api/public-cooks", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/public-cooks")>()),
+  getCookFollowStatus: mocks.getCookFollowStatus,
   getPublicCook: mocks.getPublicCook,
   getPublicCooks: mocks.getPublicCooks,
+  setCookFollowing: mocks.setCookFollowing,
+}));
+
+vi.mock("@/lib/auth-client", () => ({
+  authClient: {
+    getLastUsedLoginMethod: vi.fn(() => null),
+    useSession: () => mocks.session,
+  },
 }));
 
 import { PublicCooksView } from "@/components/recipes/public-cooks-view";
@@ -56,9 +71,18 @@ const profile = {
 describe("PublicCooksView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.session.data = { user: { id: "viewer-1", name: "Viewer" } };
     mocks.useSearchParams.mockReturnValue(new URLSearchParams());
     mocks.getPublicCooks.mockResolvedValue([summary]);
     mocks.getPublicCook.mockResolvedValue(profile);
+    mocks.getCookFollowStatus.mockResolvedValue({
+      following: false,
+      canFollow: true,
+    });
+    mocks.setCookFollowing.mockResolvedValue({
+      following: true,
+      canFollow: true,
+    });
   });
 
   it("renders lightweight cook summaries", async () => {
@@ -104,6 +128,97 @@ describe("PublicCooksView", () => {
       expect.any(AbortSignal),
     );
     expect(mocks.getPublicCooks).not.toHaveBeenCalled();
+    expect(mocks.getCookFollowStatus).toHaveBeenCalledWith(
+      "cook-1",
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("follows a cook from their profile", async () => {
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams("cook=cook-1"));
+
+    render(<PublicCooksView />);
+
+    const followButton = await screen.findByRole("button", { name: "Follow" });
+    await waitFor(() => expect(followButton).toBeEnabled());
+    fireEvent.click(followButton);
+
+    await waitFor(() =>
+      expect(mocks.setCookFollowing).toHaveBeenCalledWith("cook-1", true),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Following" }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("unfollows a cook from their profile", async () => {
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams("cook=cook-1"));
+    mocks.getCookFollowStatus.mockResolvedValue({
+      following: true,
+      canFollow: true,
+    });
+    mocks.setCookFollowing.mockResolvedValue({
+      following: false,
+      canFollow: true,
+    });
+
+    render(<PublicCooksView />);
+
+    const followingButton = await screen.findByRole("button", {
+      name: "Following",
+    });
+    await waitFor(() => expect(followingButton).toBeEnabled());
+    fireEvent.click(followingButton);
+
+    await waitFor(() =>
+      expect(mocks.setCookFollowing).toHaveBeenCalledWith("cook-1", false),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Follow" }),
+    ).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("asks signed-out visitors to log in before following", async () => {
+    mocks.session.data = null;
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams("cook=cook-1"));
+
+    render(<PublicCooksView />);
+
+    expect(
+      await screen.findByRole("button", { name: "Log in to follow" }),
+    ).toBeInTheDocument();
+    expect(mocks.getCookFollowStatus).not.toHaveBeenCalled();
+  });
+
+  it("does not show follow controls on the viewer's own profile", async () => {
+    mocks.session.data = { user: { id: "cook-1", name: "Ada Cook" } };
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams("cook=cook-1"));
+
+    render(<PublicCooksView />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: /Ada.*recipe activity/,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Follow" }),
+    ).not.toBeInTheDocument();
+    expect(mocks.getCookFollowStatus).not.toHaveBeenCalled();
+  });
+
+  it("shows follow-status errors without hiding the profile", async () => {
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams("cook=cook-1"));
+    mocks.getCookFollowStatus.mockRejectedValue(
+      new Error("Follow status unavailable"),
+    );
+
+    render(<PublicCooksView />);
+
+    expect(
+      await screen.findByText("Follow status unavailable"),
+    ).toHaveAttribute("role", "alert");
+    expect(screen.getByText("Ada's Stew")).toBeInTheDocument();
   });
 
   it("reuses the directory and profile when navigating around in a loop", async () => {

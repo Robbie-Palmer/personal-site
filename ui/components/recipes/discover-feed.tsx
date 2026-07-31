@@ -1,7 +1,13 @@
 "use client";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { Globe2, Home, LoaderCircle, UtensilsCrossed } from "lucide-react";
+import {
+  LoaderCircle,
+  Sparkles,
+  UsersRound,
+  UtensilsCrossed,
+} from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { RecipeThumb } from "@/components/recipes/recipe-card";
 import { RecipeQueryStatus } from "@/components/recipes/recipe-load-state";
@@ -15,7 +21,7 @@ import { authClient } from "@/lib/auth-client";
 import { savedRecipeCard } from "@/lib/domain/recipe/recipeDraft";
 import { cn } from "@/lib/generic/styles";
 import {
-  householdDiscoverFeedQuery,
+  followingDiscoverFeedQuery,
   publicDiscoverFeedQuery,
 } from "@/lib/query/discover-queries";
 
@@ -47,31 +53,39 @@ function FeedCard({ item }: Readonly<{ item: DiscoverFeedItem }>) {
   return (
     <article className="overflow-hidden rounded-xl border border-[var(--line-strong)] bg-[var(--card)] shadow-[var(--paper-shadow)]">
       <header className="flex items-center gap-3 px-4 py-3 sm:px-5">
-        <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--line-strong)] bg-[var(--butter-soft)]">
-          {item.author.image ? (
-            // biome-ignore lint/performance/noImgElement: remote auth avatars do not have a stable image host.
-            <img
-              src={item.author.image}
-              alt=""
-              className="size-full object-cover"
-            />
-          ) : (
-            <span className="rt-display text-lg text-[var(--terracotta-deep)]">
-              {authorInitials(item.author.name)}
-            </span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="rt-body truncate text-sm text-[var(--ink)]">
-            <span className="font-bold">{item.author.name}</span> added a recipe
-          </p>
-          <time
-            dateTime={item.createdAt}
-            className="rt-mono text-[0.68rem] uppercase tracking-wide text-[var(--ink-3)]"
-          >
-            {relativeDate(item.createdAt)}
-          </time>
-        </div>
+        <Link
+          href={`/recipes/cooks?cook=${encodeURIComponent(item.author.id)}`}
+          className="group/author flex min-w-0 flex-1 items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[var(--terracotta)]"
+        >
+          <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--line-strong)] bg-[var(--butter-soft)]">
+            {item.author.image ? (
+              // biome-ignore lint/performance/noImgElement: remote auth avatars do not have a stable image host.
+              <img
+                src={item.author.image}
+                alt=""
+                className="size-full object-cover"
+              />
+            ) : (
+              <span className="rt-display text-lg text-[var(--terracotta-deep)]">
+                {authorInitials(item.author.name)}
+              </span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="rt-body truncate text-sm text-[var(--ink)]">
+              <span className="font-bold underline-offset-2 group-hover/author:underline">
+                {item.author.name}
+              </span>{" "}
+              added a recipe
+            </p>
+            <time
+              dateTime={item.createdAt}
+              className="rt-mono text-[0.68rem] uppercase tracking-wide text-[var(--ink-3)]"
+            >
+              {relativeDate(item.createdAt)}
+            </time>
+          </div>
+        </Link>
       </header>
       <RecipePageLink
         href={`/recipes/${encodeURIComponent(item.recipe.slug)}`}
@@ -104,12 +118,12 @@ function FeedCard({ item }: Readonly<{ item: DiscoverFeedItem }>) {
 
 function FeedScopeTabs({
   scope,
-  householdEnabled,
+  followingEnabled,
   showSignedOutMessage,
   onScopeChange,
 }: Readonly<{
   scope: DiscoverFeedScope;
-  householdEnabled: boolean;
+  followingEnabled: boolean;
   showSignedOutMessage: boolean;
   onScopeChange: (scope: DiscoverFeedScope) => void;
 }>) {
@@ -127,26 +141,27 @@ function FeedScopeTabs({
               : "text-[var(--ink-3)] hover:text-[var(--ink)]",
           )}
         >
-          <Globe2 className="size-4" /> Public
+          <Sparkles className="size-4" /> For you
         </button>
         <button
           type="button"
-          aria-pressed={scope === "household"}
-          disabled={!householdEnabled}
-          onClick={() => onScopeChange("household")}
+          aria-pressed={scope === "following"}
+          disabled={!followingEnabled}
+          onClick={() => onScopeChange("following")}
           className={cn(
             "rt-body flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-45",
-            scope === "household"
+            scope === "following"
               ? "bg-[var(--card)] text-[var(--terracotta-deep)] shadow-sm"
               : "text-[var(--ink-3)] hover:text-[var(--ink)]",
           )}
         >
-          <Home className="size-4" /> Household
+          <UsersRound className="size-4" /> Following
         </button>
       </div>
       {showSignedOutMessage ? (
         <p className="rt-body mb-5 text-center text-sm text-[var(--ink-3)]">
-          You’re seeing public additions. Sign in to unlock your household feed.
+          You’re seeing public additions. Sign in to see your household and
+          cooks you follow.
         </p>
       ) : null}
     </>
@@ -158,12 +173,14 @@ function FeedResults({
   loading,
   error,
   hasMore,
+  scope,
   onRetry,
 }: Readonly<{
   items: DiscoverFeedItem[];
   loading: boolean;
   error: unknown;
   hasMore: boolean;
+  scope: DiscoverFeedScope;
   onRetry: () => void;
 }>) {
   return (
@@ -178,8 +195,15 @@ function FeedResults({
           <UtensilsCrossed className="mx-auto size-8 text-[var(--terracotta)]" />
           <p className="rt-display mt-3 text-3xl">Nothing here yet.</p>
           <p className="rt-body mt-1 text-sm text-[var(--ink-3)]">
-            New recipe additions will show up here.
+            {scope === "following"
+              ? "Follow a cook to see their public recipes here, alongside your household."
+              : "New recipe additions will show up here."}
           </p>
+          {scope === "following" ? (
+            <Button asChild variant="outline" className="mt-5">
+              <Link href="/recipes/cooks">Find cooks to follow</Link>
+            </Button>
+          ) : null}
         </div>
       ) : null}
       {error ? (
@@ -221,11 +245,11 @@ export function DiscoverFeed() {
     ...publicDiscoverFeedQuery(),
     enabled: scope === "public",
   });
-  const householdFeed = useInfiniteQuery({
-    ...householdDiscoverFeedQuery(session?.user.id ?? "pending"),
-    enabled: scope === "household" && signedIn && !sessionPending,
+  const followingFeed = useInfiniteQuery({
+    ...followingDiscoverFeedQuery(session?.user.id ?? "pending"),
+    enabled: scope === "following" && signedIn && !sessionPending,
   });
-  const feed = scope === "household" ? householdFeed : publicFeed;
+  const feed = scope === "following" ? followingFeed : publicFeed;
   const items = feed.data?.pages.flatMap((page) => page.items) ?? [];
   const hasMore = Boolean(feed.hasNextPage);
   const loading = feed.isPending || feed.isFetchingNextPage;
@@ -236,7 +260,7 @@ export function DiscoverFeed() {
   }, []);
 
   useEffect(() => {
-    if (!signedIn && scope === "household") {
+    if (!signedIn && scope === "following") {
       setScope("public");
     }
   }, [scope, signedIn]);
@@ -282,13 +306,14 @@ export function DiscoverFeed() {
             <span className="text-[var(--terracotta)]">kitchens.</span>
           </h1>
           <p className="rt-body mt-3 max-w-2xl text-base text-[var(--ink-2)] sm:text-lg">
-            See the newest recipes people have added.
+            Explore what everyone is cooking, or catch up with your household
+            and the cooks you follow.
           </p>
         </div>
 
         <FeedScopeTabs
           scope={scope}
-          householdEnabled={mounted && signedIn}
+          followingEnabled={mounted && signedIn}
           showSignedOutMessage={mounted && !signedIn && !sessionPending}
           onScopeChange={setScope}
         />
@@ -297,6 +322,7 @@ export function DiscoverFeed() {
           loading={loading}
           error={error}
           hasMore={hasMore}
+          scope={scope}
           onRetry={retryFeed}
         />
         <div ref={sentinel} className="h-px" aria-hidden="true" />

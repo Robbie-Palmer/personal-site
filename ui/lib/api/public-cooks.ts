@@ -19,6 +19,11 @@ export type PublicCookProfile = {
   }>;
 };
 
+export type CookFollowStatus = {
+  following: boolean;
+  canFollow: boolean;
+};
+
 async function apiJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(url, {
     credentials: "same-origin",
@@ -47,4 +52,33 @@ export async function getPublicCook(id: string, signal?: AbortSignal) {
     signal,
   );
   return page.cook;
+}
+
+export function getCookFollowStatus(id: string, signal?: AbortSignal) {
+  return apiJson<CookFollowStatus>(
+    `/api/recipes/cooks/${encodeURIComponent(id)}/follow`,
+    signal,
+  );
+}
+
+export async function setCookFollowing(id: string, following: boolean) {
+  const response = await fetch(
+    `/api/recipes/cooks/${encodeURIComponent(id)}/follow`,
+    {
+      method: following ? "PUT" : "DELETE",
+      credentials: "same-origin",
+    },
+  );
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    throw new Error(
+      body?.error ??
+        (following
+          ? "This cook could not be followed."
+          : "This cook could not be unfollowed."),
+    );
+  }
+  return response.json() as Promise<CookFollowStatus>;
 }

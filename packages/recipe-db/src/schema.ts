@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -150,6 +152,30 @@ export const member = pgTable(
     index("member_organization_id_idx").on(table.organizationId),
     index("member_user_id_idx").on(table.userId),
     uniqueIndex("member_user_unique").on(table.userId),
+  ],
+);
+
+export const userFollow = pgTable(
+  "user_follow",
+  {
+    followerUserId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    followedUserId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.followerUserId, table.followedUserId],
+      name: "user_follow_pk",
+    }),
+    check(
+      "user_follow_not_self",
+      sql`${table.followerUserId} <> ${table.followedUserId}`,
+    ),
+    index("user_follow_followed_user_id_idx").on(table.followedUserId),
   ],
 );
 

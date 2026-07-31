@@ -148,8 +148,8 @@ beforeAll(async () => {
     where slug in ('almond-milk', 'cajun-powder', 'cajun-seasoning')
     order by slug
   `;
-  expect(migrationCount?.count).toBe(5);
-  expect(tableCount?.count).toBe(31);
+  expect(migrationCount?.count).toBe(6);
+  expect(tableCount?.count).toBe(32);
   expect(catalogRows).toEqual([
     { category: "dairy", slug: "almond-milk" },
     { category: "spice", slug: "cajun-seasoning" },
@@ -175,6 +175,95 @@ afterAll(async () => {
 });
 
 describe("recipe API PostgreSQL integration", () => {
+  it("combines household and followed-cook activity in the following feed", async () => {
+    const viewer = await createUser(
+      "Following Viewer",
+      "following-viewer@example.test",
+    );
+    const householdCook = await createUser(
+      "Household Cook",
+      "household-cook@example.test",
+    );
+    const followedCook = await createUser(
+      "Followed Cook",
+      "followed-cook@example.test",
+    );
+    const unfollowedCook = await createUser(
+      "Unfollowed Cook",
+      "unfollowed-cook@example.test",
+    );
+    const householdId = "integration-following-household";
+    await db.insert(schema.organization).values({
+      id: householdId,
+      name: "Following household",
+      slug: householdId,
+    });
+    await db.insert(schema.member).values([
+      {
+        id: "integration-following-viewer-member",
+        organizationId: householdId,
+        userId: viewer.id,
+        role: "owner",
+      },
+      {
+        id: "integration-following-cook-member",
+        organizationId: householdId,
+        userId: householdCook.id,
+      },
+    ]);
+    await db.insert(schema.recipe).values([
+      {
+        slug: "integration-household-stew",
+        title: "Integration Household Stew",
+        userId: householdCook.id,
+        visibility: "household",
+        createdAt: new Date("2026-07-31T03:00:00.000Z"),
+      },
+      {
+        slug: "integration-followed-soup",
+        title: "Integration Followed Soup",
+        userId: followedCook.id,
+        visibility: "public",
+        createdAt: new Date("2026-07-31T02:00:00.000Z"),
+      },
+      {
+        slug: "integration-unfollowed-pasta",
+        title: "Integration Unfollowed Pasta",
+        userId: unfollowedCook.id,
+        visibility: "public",
+        createdAt: new Date("2026-07-31T01:00:00.000Z"),
+      },
+    ]);
+
+    const followResponse = await authenticatedRequest(
+      viewer,
+      `/recipes/cooks/${followedCook.id}/follow`,
+      { method: "PUT" },
+    );
+    expect(followResponse.status).toBe(200);
+    expect(await json(followResponse)).toEqual({
+      following: true,
+      canFollow: true,
+    });
+
+    const feedResponse = await authenticatedRequest(
+      viewer,
+      "/recipes/discover/feed?scope=following",
+    );
+    expect(feedResponse.status).toBe(200);
+    const feed = await json<{
+      items: Array<{ author: { id: string }; recipe: { slug: string } }>;
+    }>(feedResponse);
+    expect(feed.items.map((item) => item.recipe.slug)).toEqual([
+      "integration-household-stew",
+      "integration-followed-soup",
+    ]);
+    expect(feed.items.map((item) => item.author.id)).toEqual([
+      householdCook.id,
+      followedCook.id,
+    ]);
+  });
+
   it("persists recipe CRUD and cascades a deleted user aggregate", async () => {
     const cook = await createUser("Recipe Cook", "recipe-cook@example.test");
 

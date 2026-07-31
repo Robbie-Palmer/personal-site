@@ -145,7 +145,7 @@ const creatableRecipeSlugSchema = recipeSlugSchema.refine(
   { message: "Slug is reserved for a recipe application route" },
 );
 const dietRecipeMatchModeSchema = z.enum(["hide", "warn"]);
-const feedScopeSchema = z.enum(["public", "household"]);
+const feedScopeSchema = z.enum(["public", "following"]);
 const feedLimitSchema = z.coerce.number().int().min(1).max(30).default(12);
 const recipeListLimitSchema = z.coerce.number().int().min(1).max(100).default(100);
 const publicCookIdSchema = z.string().trim().min(1).max(128);
@@ -2872,20 +2872,48 @@ app.get("/recipes/discover/feed", async (c) => {
     "query",
     "GET /recipes/discover/feed query failed",
     async (db) => {
-      let visibilityFilter = eq(schema.recipe.visibility, "public");
-      if (scope.data === "household") {
-        const session = await loadOptionalRecipeSession(c, db);
-        if (!session) return authorizationResponse(c, unauthenticated());
-        const membership = await findUserHouseholdMembership(db, session.user.id);
-        if (!membership) return c.json({ items: [], nextCursor: null });
-        const memberIds = await findHouseholdMemberUserIds(
+      let visibilityFilter: SQL = eq(schema.recipe.visibility, "public");
+      if (scope.data !== "public") {
+        const session = await requireRecipeSession(c, db);
+        if (!session.success) return session.response;
+        const membership = await findUserHouseholdMembership(
           db,
-          membership.organizationId,
+          session.session.user.id,
         );
-        visibilityFilter = and(
-          inArray(schema.recipe.userId, memberIds),
-          inArray(schema.recipe.visibility, ["public", "household"]),
-        )!;
+        const memberIds = membership
+          ? await findHouseholdMemberUserIds(db, membership.organizationId)
+          : [];
+        const follows = await db
+          .select({ followedUserId: schema.userFollow.followedUserId })
+          .from(schema.userFollow)
+          .where(
+            eq(
+              schema.userFollow.followerUserId,
+              session.session.user.id,
+            ),
+          );
+        const followedUserIds = follows.map((follow) => follow.followedUserId);
+        const followingFilters: SQL[] = [];
+        if (memberIds.length > 0) {
+          followingFilters.push(
+            and(
+              inArray(schema.recipe.userId, memberIds),
+              inArray(schema.recipe.visibility, ["public", "household"]),
+            )!,
+          );
+        }
+        if (followedUserIds.length > 0) {
+          followingFilters.push(
+            and(
+              inArray(schema.recipe.userId, followedUserIds),
+              eq(schema.recipe.visibility, "public"),
+            )!,
+          );
+        }
+        visibilityFilter =
+          followingFilters.length > 0
+            ? or(...followingFilters)!
+            : sql<boolean>`false`;
       }
 
       const cursorFilter = recipeFeedCursorFilter(cursor);
@@ -2984,6 +3012,98 @@ app.get("/recipes/cooks", async (c) => {
         .groupBy(schema.user.id, schema.user.name, schema.user.image)
         .orderBy(desc(latestActivityAt));
       return c.json({ cooks });
+    },
+  );
+});
+
+app.get("/recipes/cooks/:cookId/follow", async (c) => {
+  const cookId = publicCookIdSchema.safeParse(c.req.param("cookId"));
+  if (!cookId.success) return c.json({ error: "Invalid cook ID" }, 400);
+
+  return withRecipeSession(
+    c,
+    "query",
+    "GET /recipes/cooks/:cookId/follow failed",
+    async ({ db, session }) => {
+      if (cookId.data === session.user.id) {
+        return c.json({ following: false, canFollow: false });
+      }
+      const [cook] = await db
+        .select({ id: schema.user.id })
+        .from(schema.user)
+        .where(eq(schema.user.id, cookId.data))
+        .limit(1);
+      if (!cook) return c.notFound();
+      const [follow] = await db
+        .select({ followedUserId: schema.userFollow.followedUserId })
+        .from(schema.userFollow)
+        .where(
+          and(
+            eq(schema.userFollow.followerUserId, session.user.id),
+            eq(schema.userFollow.followedUserId, cookId.data),
+          ),
+        )
+        .limit(1);
+      return c.json({ following: Boolean(follow), canFollow: true });
+    },
+  );
+});
+
+app.put("/recipes/cooks/:cookId/follow", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+  const cookId = publicCookIdSchema.safeParse(c.req.param("cookId"));
+  if (!cookId.success) return c.json({ error: "Invalid cook ID" }, 400);
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "PUT /recipes/cooks/:cookId/follow failed",
+    async ({ db, session }) => {
+      if (cookId.data === session.user.id) {
+        return c.json({ error: "You cannot follow yourself" }, 400);
+      }
+      const [cook] = await db
+        .select({ id: schema.user.id })
+        .from(schema.user)
+        .where(eq(schema.user.id, cookId.data))
+        .limit(1);
+      if (!cook) return c.notFound();
+      await db
+        .insert(schema.userFollow)
+        .values({
+          followerUserId: session.user.id,
+          followedUserId: cookId.data,
+        })
+        .onConflictDoNothing();
+      return c.json({ following: true, canFollow: true });
+    },
+  );
+});
+
+app.delete("/recipes/cooks/:cookId/follow", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+  const cookId = publicCookIdSchema.safeParse(c.req.param("cookId"));
+  if (!cookId.success) return c.json({ error: "Invalid cook ID" }, 400);
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "DELETE /recipes/cooks/:cookId/follow failed",
+    async ({ db, session }) => {
+      if (cookId.data === session.user.id) {
+        return c.json({ error: "You cannot follow yourself" }, 400);
+      }
+      await db
+        .delete(schema.userFollow)
+        .where(
+          and(
+            eq(schema.userFollow.followerUserId, session.user.id),
+            eq(schema.userFollow.followedUserId, cookId.data),
+          ),
+        );
+      return c.json({ following: false, canFollow: true });
     },
   );
 });
