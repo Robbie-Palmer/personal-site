@@ -10,6 +10,7 @@ import {
 describe("household API client", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    localStorage.clear();
   });
 
   it("loads the signed-in user's households", async () => {

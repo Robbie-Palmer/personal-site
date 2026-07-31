@@ -4,6 +4,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { KitchenView } from "@/components/recipes/kitchen/kitchen-view";
 
 const dietState = vi.hoisted(() => ({ mode: "hide" as "hide" | "warn" }));
+const kitchenStockState = vi.hoisted(() => ({
+  actions: {
+    clearStock: vi.fn(),
+    error: null as Error | null,
+    isPending: false,
+    removeFromStock: vi.fn(),
+    replaceStock: vi.fn(),
+    restoreStock: vi.fn(),
+    setStockLocation: vi.fn(),
+  },
+  pantry: {
+    data: {
+      scope: { type: "personal" as const },
+      stock: {} as Record<string, "fridge" | "cupboards" | "fresh">,
+    },
+    error: null as Error | null,
+    isPending: false,
+  },
+}));
 
 vi.mock("@/components/recipes/diet-provider", () => ({
   useDiet: () => ({
@@ -33,18 +52,12 @@ vi.mock("@/components/recipes/diet-provider", () => ({
 }));
 
 vi.mock("@/hooks/use-kitchen-stock", () => ({
-  useKitchenStock: () => ({}),
+  useKitchenStockActions: () => kitchenStockState.actions,
+  useKitchenStockQuery: () => kitchenStockState.pantry,
 }));
 
 vi.mock("@/hooks/use-shopping-list", () => ({
   useShoppingList: () => ({ recipes: [] }),
-}));
-
-vi.mock("@/lib/kitchen/kitchenStockStore", () => ({
-  clearStock: vi.fn(),
-  removeFromStock: vi.fn(),
-  replaceStock: vi.fn(),
-  setStockLocation: vi.fn(),
 }));
 
 vi.mock("@/lib/shopping/shoppingListStore", () => ({
@@ -73,7 +86,45 @@ const recipes = [
 
 describe("KitchenView diet ingredient catalog", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     dietState.mode = "hide";
+    kitchenStockState.pantry.data = {
+      scope: { type: "personal" },
+      stock: {},
+    };
+    kitchenStockState.pantry.error = null;
+    kitchenStockState.pantry.isPending = false;
+    kitchenStockState.actions.error = null;
+  });
+
+  it("shows a loading state instead of an empty pantry", () => {
+    kitchenStockState.pantry.isPending = true;
+
+    render(<KitchenView ingredients={ingredients} recipes={[]} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Loading your pantry…",
+    );
+    expect(screen.queryByRole("button", { name: /add chickpeas/i })).toBeNull();
+  });
+
+  it("distinguishes loading failures from unsaved changes", () => {
+    kitchenStockState.pantry.error = new Error("load failed");
+    kitchenStockState.actions.error = new Error("save failed");
+
+    render(<KitchenView ingredients={ingredients} recipes={[]} />);
+
+    expect(screen.getAllByRole("alert")).toHaveLength(2);
+    expect(
+      screen.getByText(
+        "Your pantry could not be loaded. Refresh the page to try again.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Your latest pantry change could not be saved. Please try again.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("hides excluded ingredients and supports a temporary override", async () => {
@@ -94,6 +145,31 @@ describe("KitchenView diet ingredient catalog", () => {
     expect(
       screen.getByRole("button", { name: "Hide diet exclusions" }),
     ).toBeInTheDocument();
+  });
+
+  it("restores only cleared entries through the merge-safe pantry operation", async () => {
+    kitchenStockState.pantry.data = {
+      scope: { type: "personal" },
+      stock: { chickpeas: "cupboards" },
+    };
+    const user = userEvent.setup();
+    const view = render(<KitchenView ingredients={ingredients} recipes={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "clear all" }));
+    expect(kitchenStockState.actions.clearStock).toHaveBeenCalled();
+
+    // Replace the stock object so the view retains the cleared snapshot by reference.
+    kitchenStockState.pantry.data = {
+      scope: { type: "personal" },
+      stock: {},
+    };
+    view.rerender(<KitchenView ingredients={ingredients} recipes={[]} />);
+    await user.click(screen.getByRole("button", { name: "undo clear" }));
+
+    expect(kitchenStockState.actions.restoreStock).toHaveBeenCalledWith({
+      chickpeas: "cupboards",
+    });
+    expect(kitchenStockState.actions.replaceStock).not.toHaveBeenCalled();
   });
 
   it("hides mismatched recipes until the user chooses to show them", async () => {

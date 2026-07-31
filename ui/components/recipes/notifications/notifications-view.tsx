@@ -198,6 +198,18 @@ export function NotificationsView() {
           }),
         ]);
       }
+      if (actionKey === "accept" && sessionUserId) {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: recipeQueryKeys.pantry(sessionUserId),
+            exact: true,
+          }),
+          queryClient.invalidateQueries({
+            queryKey: recipeQueryKeys.householdSettings(sessionUserId),
+            exact: true,
+          }),
+        ]);
+      }
     } catch (cause) {
       setError(
         cause instanceof Error

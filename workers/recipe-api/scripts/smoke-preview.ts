@@ -70,7 +70,10 @@ async function expectJson<T>(
     }
     // Wrangler can report success before every request reaches the new Worker
     // version. Retry read-only readiness probes, but never replay mutations.
-    if (!init?.method && response.status >= 500) {
+    if (
+      !init?.method &&
+      (response.status === 404 || response.status >= 500)
+    ) {
       await response.body?.cancel();
       const remaining = deadline - Date.now();
       if (remaining <= 0) break;

@@ -8,6 +8,7 @@ import {
 describe("notification API client", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    localStorage.clear();
   });
 
   it("clears all notifications through the same-origin proxy", async () => {

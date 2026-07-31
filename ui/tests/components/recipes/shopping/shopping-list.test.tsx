@@ -14,13 +14,27 @@ const mocks = vi.hoisted(() => ({
   captureRecipeValue: vi.fn(),
 }));
 
+const pantryState = vi.hoisted(() => ({
+  error: null as Error | null,
+  isPending: false,
+}));
+
 vi.mock("@/lib/analytics/recipe-product", () => ({
   captureRecipeProductActivity: mocks.captureRecipeProductActivity,
   captureRecipeValue: mocks.captureRecipeValue,
 }));
 
 vi.mock("@/hooks/use-kitchen-stock", () => ({
-  useKitchenStock: () => ({}),
+  useKitchenStockActions: () => ({
+    error: null,
+    isPending: false,
+    removeFromStock: vi.fn(),
+  }),
+  useKitchenStockQuery: () => ({
+    data: { scope: { type: "personal" }, stock: {} },
+    error: pantryState.error,
+    isPending: pantryState.isPending,
+  }),
 }));
 
 vi.mock("@/hooks/use-unit-preference", async () => {
@@ -52,6 +66,8 @@ const recipes: ShoppingRecipe[] = [
 
 describe("ShoppingList value analytics", () => {
   beforeEach(() => {
+    pantryState.error = null;
+    pantryState.isPending = false;
     localStorage.clear();
     __resetShoppingListForTests();
     addRecipe("garlic-pasta");
@@ -100,5 +116,44 @@ describe("ShoppingList value analytics", () => {
     await user.click(garlic);
 
     expect(mocks.captureRecipeValue).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ShoppingList pantry state", () => {
+  beforeEach(() => {
+    pantryState.error = null;
+    pantryState.isPending = false;
+    localStorage.clear();
+    __resetShoppingListForTests();
+    addRecipe("garlic-pasta");
+  });
+
+  afterEach(() => {
+    __resetShoppingListForTests();
+  });
+
+  it("keeps the local list visible while pantry classification is pending", () => {
+    pantryState.isPending = true;
+
+    render(<ShoppingList recipes={recipes} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Checking your pantry before sorting the shopping list…",
+    );
+    expect(screen.getByText("garlic")).toBeInTheDocument();
+    const pendingList = screen.getByText("garlic").closest("[aria-busy]");
+    expect(pendingList).toHaveAttribute("aria-busy", "true");
+    expect(pendingList).toHaveAttribute("inert");
+  });
+
+  it("shows the full local list when pantry loading fails", () => {
+    pantryState.error = new Error("load failed");
+
+    render(<ShoppingList recipes={recipes} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "full shopping list without kitchen filtering",
+    );
+    expect(screen.getByText("garlic")).toBeInTheDocument();
   });
 });

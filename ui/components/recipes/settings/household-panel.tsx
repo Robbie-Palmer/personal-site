@@ -717,10 +717,16 @@ export function HouseholdPanel({
   }
 
   async function refreshHouseholdData() {
-    await queryClient.invalidateQueries({
-      queryKey: settingsKey,
-      exact: true,
-    });
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: settingsKey,
+        exact: true,
+      }),
+      queryClient.invalidateQueries({
+        queryKey: recipeQueryKeys.pantry(currentUser.id),
+        exact: true,
+      }),
+    ]);
   }
 
   function run(kind: ActiveMutation, action: () => Promise<void>) {
