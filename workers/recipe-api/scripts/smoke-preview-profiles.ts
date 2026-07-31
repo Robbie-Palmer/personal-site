@@ -25,6 +25,15 @@ type DietProfile = {
   recipeMatchMode: "hide" | "warn";
 };
 
+type FollowStatus = {
+  following: boolean;
+  canFollow: boolean;
+};
+
+type DiscoverFeed = {
+  items: Array<{ recipe: { slug: string }; author: { id: string } }>;
+};
+
 const databaseURL = requiredEnv("DATABASE_URL");
 const siteURL = requiredEnv("BETTER_AUTH_URL");
 const apiURL = requiredEnv("PREVIEW_API_URL").replace(/\/$/, "");
@@ -65,11 +74,17 @@ async function fetchWhenReady(
   });
 }
 
-async function expectJson<T>(path: string, cookie: string): Promise<T> {
-  const response = await fetchWhenReady(path, { headers: { cookie } });
+async function expectJson<T>(
+  path: string,
+  cookie: string,
+  init?: RequestInit,
+): Promise<T> {
+  const headers = new Headers(init?.headers);
+  headers.set("cookie", cookie);
+  const response = await fetchWhenReady(path, { ...init, headers });
   if (response.ok) return response.json() as Promise<T>;
   throw new Error(
-    `GET ${path} returned ${response.status}: ${await response.text()}`,
+    `${init?.method ?? "GET"} ${path} returned ${response.status}: ${await response.text()}`,
   );
 }
 
@@ -126,6 +141,7 @@ function assertStringArray(
 }
 
 await expectAuthenticationRequired("/api/profile/recipe-box");
+await expectAuthenticationRequired("/recipes/discover/feed?scope=following");
 
 const cookie = await createSessionCookie();
 const recipeBox = await expectJson<RecipeBoxProfile>(
@@ -165,6 +181,56 @@ if (
   dietProfile.recipeMatchMode !== "hide"
 ) {
   throw new Error("Empty-account diet fixture did not match");
+}
+
+const cooks = await expectJson<{
+  cooks: Array<{ id: string; latestRecipeTitle: string }>;
+}>("/recipes/cooks", cookie);
+const followedCook = cooks.cooks.find(
+  (cook) => cook.latestRecipeTitle === "Preview Tomato Toast",
+);
+if (!followedCook) {
+  throw new Error("Public preview cook fixture was not available");
+}
+
+const initialFollow = await expectJson<FollowStatus>(
+  `/recipes/cooks/${followedCook.id}/follow`,
+  cookie,
+);
+if (!initialFollow.canFollow || initialFollow.following) {
+  throw new Error("Empty-account follow fixture did not start unfollowed");
+}
+
+const followed = await expectJson<FollowStatus>(
+  `/recipes/cooks/${followedCook.id}/follow`,
+  cookie,
+  { method: "PUT", headers: { origin: siteURL } },
+);
+if (!followed.canFollow || !followed.following) {
+  throw new Error("Preview cook could not be followed");
+}
+
+const followingFeed = await expectJson<DiscoverFeed>(
+  "/recipes/discover/feed?scope=following",
+  cookie,
+);
+if (
+  !followingFeed.items.some(
+    (item) =>
+      item.author.id === followedCook.id &&
+      item.recipe.slug === "preview-public-tomato-toast",
+  )
+) {
+  throw new Error("Following feed did not include the followed cook");
+}
+
+const unfollowed = await expectJson<FollowStatus>(
+  `/recipes/cooks/${followedCook.id}/follow`,
+  cookie,
+  { method: "DELETE", headers: { origin: siteURL } },
+);
+if (!unfollowed.canFollow || unfollowed.following) {
+  throw new Error("Preview cook could not be unfollowed");
 }
 
 console.log("Authenticated preview profile smoke test passed.");
