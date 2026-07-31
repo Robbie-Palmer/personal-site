@@ -504,6 +504,7 @@ export function ShoppingList({
       <div
         className={`mt-3 ${pantry.isPending ? "pointer-events-none opacity-50" : ""}`}
         aria-busy={pantry.isPending}
+        inert={pantry.isPending ? true : undefined}
       >
         {view === "flat" && (
           <div>

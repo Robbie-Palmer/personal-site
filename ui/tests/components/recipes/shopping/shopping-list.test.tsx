@@ -141,10 +141,9 @@ describe("ShoppingList pantry state", () => {
       "Checking your pantry before sorting the shopping list…",
     );
     expect(screen.getByText("garlic")).toBeInTheDocument();
-    expect(screen.getByText("garlic").closest("[aria-busy]")).toHaveAttribute(
-      "aria-busy",
-      "true",
-    );
+    const pendingList = screen.getByText("garlic").closest("[aria-busy]");
+    expect(pendingList).toHaveAttribute("aria-busy", "true");
+    expect(pendingList).toHaveAttribute("inert");
   });
 
   it("shows the full local list when pantry loading fails", () => {
