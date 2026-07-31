@@ -75,6 +75,19 @@ export function useKitchenStockActions() {
     onMutate: async (operation) => {
       await queryClient.cancelQueries({ queryKey, exact: true });
       const previous = queryClient.getQueryData<Pantry>(queryKey);
+      if (operation.kind === "set") {
+        const stock = previous?.stock ?? EMPTY_STOCK;
+        if (stock[operation.ingredientSlug] !== operation.location) {
+          captureRecipeProductActivity("kitchen_ingredient_added", {
+            ingredient_slug: operation.ingredientSlug,
+            kitchen_location: operation.location,
+            stocked_ingredient_count: Object.keys({
+              ...stock,
+              [operation.ingredientSlug]: operation.location,
+            }).length,
+          });
+        }
+      }
       if (previous) {
         let optimisticStock: KitchenStock;
         switch (operation.kind) {
@@ -134,19 +147,6 @@ export function useKitchenStockActions() {
       ingredientSlug: IngredientSlug,
       location: KitchenLocation,
     ) {
-      const stock =
-        queryClient.getQueryData<Pantry>(queryKey)?.stock ?? EMPTY_STOCK;
-      const optimisticStock = {
-        ...stock,
-        [ingredientSlug]: location,
-      };
-      if (stock[ingredientSlug] !== location) {
-        captureRecipeProductActivity("kitchen_ingredient_added", {
-          ingredient_slug: ingredientSlug,
-          kitchen_location: location,
-          stocked_ingredient_count: Object.keys(optimisticStock).length,
-        });
-      }
       mutation.mutate({
         kind: "set",
         ingredientSlug,
