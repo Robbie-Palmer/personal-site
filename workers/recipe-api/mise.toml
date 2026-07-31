@@ -46,6 +46,11 @@ description = "Seed deterministic preview users and data"
 depends = ["install"]
 run = "pnpm preview:seed"
 
+[tasks."preview:smoke"]
+description = "Smoke-test a deployed preview Worker with a direct seeded session"
+depends = ["install"]
+run = "pnpm exec tsx scripts/smoke-preview.ts"
+
 [tasks."preview:smoke:profiles"]
 description = "Smoke-test authenticated profiles on a deployed preview Worker"
 depends = ["install"]

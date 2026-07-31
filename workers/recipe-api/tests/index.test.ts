@@ -65,6 +65,15 @@ const dbMock = vi.hoisted(() => {
     createdAt: Date;
     updatedAt: Date;
   };
+  type CookingSessionRow = {
+    id: string;
+    userId: string;
+    recipeSlug: string;
+    recipeTitle: string;
+    servings: number;
+    startedAt: Date;
+    completedAt: Date | null;
+  };
   type NotificationEventRow = {
     id: string;
     kind: string;
@@ -130,6 +139,7 @@ const dbMock = vi.hoisted(() => {
       recipeTitleSnapshot: string;
     }[],
     recipes: [] as RecipeRow[],
+    cookingSessions: [] as CookingSessionRow[],
     dietProfiles: [] as DietProfileRow[],
     dietPresets: [] as DietPresetRow[],
     ingredientGroups: [] as IngredientGroupRow[],
@@ -246,6 +256,7 @@ const dbMock = vi.hoisted(() => {
     state.notificationHouseholdInvitationEvents = [];
     state.notificationRecipeRecommendationEvents = [];
     state.recipes = [];
+    state.cookingSessions = [];
     state.dietProfiles = [];
     state.dietPresets = [];
     state.ingredientGroups = [];
@@ -432,6 +443,25 @@ const dbMock = vi.hoisted(() => {
       return [];
     }
 
+    if (query.startsWith('insert into "cooking_session"')) {
+      const session: CookingSessionRow = {
+        id: params[0] as string,
+        userId: params[1] as string,
+        recipeSlug: params[2] as string,
+        recipeTitle: params[3] as string,
+        servings: params[4] as number,
+        startedAt: date,
+        completedAt: (params[5] as Date | undefined) ?? null,
+      };
+      if (
+        state.cookingSessions.some((candidate) => candidate.id === session.id)
+      ) {
+        return [];
+      }
+      state.cookingSessions.push(session);
+      return [[session.id]];
+    }
+
     if (query.startsWith('insert into "user_diet_preset"')) {
       for (let index = 0; index < params.length; index += 2) {
         state.userDietPresets.push({
@@ -577,6 +607,20 @@ const dbMock = vi.hoisted(() => {
       organization.name = params[0] as string;
       organization.updatedAt = date;
       return query.includes("returning") ? [organizationRow(organization)] : [];
+    }
+
+    if (query.startsWith('update "cooking_session"')) {
+      const completedAt = params[0] as Date;
+      const sessionId = params[1] as string;
+      const userId = params[2] as string;
+      const session = state.cookingSessions.find(
+        (candidate) =>
+          candidate.id === sessionId &&
+          candidate.userId === userId &&
+          candidate.completedAt === null,
+      );
+      if (session) session.completedAt = completedAt;
+      return [];
     }
 
     if (query.startsWith('delete from "app_rate_limit"')) {
@@ -1213,6 +1257,53 @@ const dbMock = vi.hoisted(() => {
       return state.dietProfiles
         .filter((profile) => profile.userId === userId)
         .map(dietProfileRow);
+    }
+
+    if (query.includes('from "cooking_session"')) {
+      const userId = query.includes('"cooking_session"."id" =')
+        ? (params[1] as string)
+        : (params[0] as string);
+      const sessions = state.cookingSessions.filter(
+        (session) => session.userId === userId,
+      );
+
+      if (query.includes("count(distinct")) {
+        return [
+          [
+            new Set(
+              sessions
+                .filter((session) => session.completedAt)
+                .map((session) => session.recipeSlug),
+            ).size,
+          ],
+        ];
+      }
+      if (query.includes("count(*)")) {
+        return [
+          [
+            sessions.length,
+            sessions.filter((session) => session.completedAt).length,
+          ],
+        ];
+      }
+
+      const selected = query.includes('"cooking_session"."id" =')
+        ? sessions.filter((session) => session.id === params[0])
+        : sessions
+            .filter((session) => session.completedAt)
+            .sort(
+              (first, second) =>
+                second.completedAt!.getTime() - first.completedAt!.getTime(),
+            )
+            .slice(0, 20);
+      return selected.map((session) => [
+        session.id,
+        session.recipeSlug,
+        session.recipeTitle,
+        session.servings,
+        session.startedAt,
+        session.completedAt,
+      ]);
     }
 
     if (query.includes('from "user_recipe_box_item"')) {
@@ -2994,6 +3085,119 @@ describe("profile recipe box", () => {
     expect(dbMock.state.recipeBoxItems).toEqual([
       { userId: "owner-user", recipeSlug: "breakfast-flatbreads" },
     ]);
+  });
+});
+
+describe("profile cooking insights", () => {
+  const cookingEvent = {
+    sessionId: "018f2b16-43b4-7e7a-8d4b-9f3559865353",
+    recipeSlug: "lentil-soup",
+    recipeTitle: "Lentil soup",
+    servings: 4,
+  };
+
+  const postCookingEvent = (event: "started" | "completed") =>
+    app.request(
+      "/api/profile/cooking-insights",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+        },
+        body: JSON.stringify({ ...cookingEvent, event }),
+      },
+      env,
+    );
+
+  it("requires authentication", async () => {
+    const res = await app.request("/api/profile/cooking-insights", {}, env);
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Authentication required" });
+  });
+
+  it("records a start, completes it, and returns cooking statistics", async () => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const initial = await app.request(
+      "/api/profile/cooking-insights",
+      {},
+      env,
+    );
+    expect(await initial.json()).toEqual({
+      cookModeStarts: 0,
+      mealsCooked: 0,
+      distinctRecipesCooked: 0,
+      recent: [],
+    });
+
+    const started = await postCookingEvent("started");
+    expect(started.status).toBe(201);
+    expect(await started.json()).toMatchObject({
+      cookingSession: {
+        id: cookingEvent.sessionId,
+        recipeSlug: cookingEvent.recipeSlug,
+        completedAt: null,
+      },
+    });
+
+    const completed = await postCookingEvent("completed");
+    expect(completed.status).toBe(200);
+    expect(await completed.json()).toMatchObject({
+      cookingSession: {
+        id: cookingEvent.sessionId,
+        completedAt: expect.any(String),
+      },
+    });
+
+    const insights = await app.request(
+      "/api/profile/cooking-insights",
+      {},
+      env,
+    );
+    expect(await insights.json()).toMatchObject({
+      cookModeStarts: 1,
+      mealsCooked: 1,
+      distinctRecipesCooked: 1,
+      recent: [
+        {
+          id: cookingEvent.sessionId,
+          recipeSlug: cookingEvent.recipeSlug,
+          recipeTitle: cookingEvent.recipeTitle,
+          servings: cookingEvent.servings,
+          completedAt: expect.any(String),
+        },
+      ],
+    });
+  });
+
+  it("rejects a session ID already owned by another user", async () => {
+    dbMock.state.cookingSessions.push({
+      id: cookingEvent.sessionId,
+      userId: "another-user",
+      recipeSlug: "pizza",
+      recipeTitle: "Pizza",
+      servings: 2,
+      startedAt: dbMock.date,
+      completedAt: null,
+    });
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+
+    const res = await postCookingEvent("started");
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      error: "Cooking session ID is already in use",
+    });
   });
 });
 

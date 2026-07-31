@@ -148,8 +148,8 @@ beforeAll(async () => {
     where slug in ('almond-milk', 'cajun-powder', 'cajun-seasoning')
     order by slug
   `;
-  expect(migrationCount?.count).toBe(4);
-  expect(tableCount?.count).toBe(30);
+  expect(migrationCount?.count).toBe(5);
+  expect(tableCount?.count).toBe(31);
   expect(catalogRows).toEqual([
     { category: "dairy", slug: "almond-milk" },
     { category: "spice", slug: "cajun-seasoning" },
@@ -236,6 +236,62 @@ describe("recipe API PostgreSQL integration", () => {
     });
     expect(retainedResponse.status).toBe(201);
 
+    const cookingSession = {
+      sessionId: "2f64837b-3f3e-4c18-ae39-35df6808dc6c",
+      recipeSlug: "cascade-soup",
+      recipeTitle: "Cascade Soup",
+      servings: 4,
+    };
+    const cookingStartedResponse = await authenticatedRequest(
+      cook,
+      "/api/profile/cooking-insights",
+      {
+        method: "POST",
+        body: { ...cookingSession, event: "started" },
+      },
+    );
+    expect(cookingStartedResponse.status).toBe(201);
+
+    const startedInsightsResponse = await authenticatedRequest(
+      cook,
+      "/api/profile/cooking-insights",
+    );
+    expect(startedInsightsResponse.status).toBe(200);
+    expect(await startedInsightsResponse.json()).toMatchObject({
+      cookModeStarts: 1,
+      mealsCooked: 0,
+      distinctRecipesCooked: 0,
+      recent: [],
+    });
+
+    const cookingCompletedResponse = await authenticatedRequest(
+      cook,
+      "/api/profile/cooking-insights",
+      {
+        method: "POST",
+        body: { ...cookingSession, event: "completed" },
+      },
+    );
+    expect(cookingCompletedResponse.status).toBe(200);
+
+    const completedInsightsResponse = await authenticatedRequest(
+      cook,
+      "/api/profile/cooking-insights",
+    );
+    expect(completedInsightsResponse.status).toBe(200);
+    expect(await completedInsightsResponse.json()).toMatchObject({
+      cookModeStarts: 1,
+      mealsCooked: 1,
+      distinctRecipesCooked: 1,
+      recent: [
+        expect.objectContaining({
+          recipeSlug: "cascade-soup",
+          recipeTitle: "Cascade Soup",
+          servings: 4,
+        }),
+      ],
+    });
+
     await db.delete(schema.user).where(eq(schema.user.id, cook.id));
 
     expect(
@@ -261,6 +317,12 @@ describe("recipe API PostgreSQL integration", () => {
         .select()
         .from(schema.userRecipeBoxItem)
         .where(eq(schema.userRecipeBoxItem.userId, cook.id)),
+    ).toHaveLength(0);
+    expect(
+      await db
+        .select()
+        .from(schema.cookingSession)
+        .where(eq(schema.cookingSession.userId, cook.id)),
     ).toHaveLength(0);
   });
 

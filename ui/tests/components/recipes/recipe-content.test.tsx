@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RecipeContent } from "@/components/recipes/recipe-content";
@@ -11,6 +11,14 @@ const mocks = vi.hoisted(() => ({
   captureRecipeValue: vi.fn(),
   setUnitPreference: vi.fn(),
   tokenizeInstructionSdk: vi.fn(),
+  recordCookingSession: vi.fn().mockResolvedValue({}),
+  recordCookingCompletionReliably: vi.fn().mockResolvedValue({}),
+  authState: {
+    data: { user: { id: "cook-1" } } as {
+      user: { id: string };
+    } | null,
+    isPending: false,
+  },
 }));
 
 const customPreference = {
@@ -42,6 +50,17 @@ vi.mock("@/lib/domain/recipe/instructionTokens", () => ({
   tokenizeInstructionSdk: mocks.tokenizeInstructionSdk,
 }));
 
+vi.mock("@/lib/auth-client", () => ({
+  authClient: {
+    useSession: () => mocks.authState,
+  },
+}));
+
+vi.mock("@/lib/api/cooking-insights", () => ({
+  recordCookingCompletionReliably: mocks.recordCookingCompletionReliably,
+  recordCookingSession: mocks.recordCookingSession,
+}));
+
 vi.mock("@/lib/analytics/recipe-product", () => ({
   captureRecipeProductActivity: mocks.captureRecipeProductActivity,
   captureRecipeValue: mocks.captureRecipeValue,
@@ -67,6 +86,11 @@ describe("RecipeContent", () => {
     mocks.captureRecipeProductActivity.mockClear();
     mocks.captureRecipeValue.mockClear();
     mocks.setUnitPreference.mockClear();
+    mocks.recordCookingSession.mockReset().mockResolvedValue({});
+    mocks.recordCookingCompletionReliably.mockReset().mockResolvedValue({});
+    mocks.authState.data = { user: { id: "cook-1" } };
+    mocks.authState.isPending = false;
+    window.history.replaceState(null, "", "/recipes/saved?slug=weeknight");
     mocks.tokenizeInstructionSdk.mockReturnValue({
       ok: true,
       steps: [
@@ -118,7 +142,7 @@ describe("RecipeContent", () => {
     expect(method).not.toHaveClass("list-none");
   });
 
-  it("records value only when cook mode is explicitly finished", async () => {
+  it("tracks a cook-mode start but only counts the meal when Finish is clicked", async () => {
     const user = userEvent.setup();
     render(
       <CookModeProvider>
@@ -128,12 +152,79 @@ describe("RecipeContent", () => {
 
     await user.click(screen.getByRole("button", { name: "Start cooking" }));
     expect(mocks.captureRecipeValue).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(mocks.recordCookingSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recipeSlug: "weeknight",
+          servings: 2,
+          event: "started",
+        }),
+      ),
+    );
 
+    const started = mocks.recordCookingSession.mock.calls[0]?.[0];
     await user.click(screen.getByRole("button", { name: "Finish ✓" }));
+
+    expect(mocks.recordCookingCompletionReliably).toHaveBeenCalledWith(
+      "cook-1",
+      expect.objectContaining({
+        sessionId: started.sessionId,
+        event: "completed",
+      }),
+    );
     expect(mocks.captureRecipeValue).toHaveBeenCalledWith("recipe_cooked", {
       recipe_slug: "weeknight",
       serving_count: 2,
       step_count: 1,
     });
+  });
+
+  it("keeps cooking usable when activity tracking fails", async () => {
+    const user = userEvent.setup();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mocks.recordCookingSession.mockRejectedValue(new Error("offline"));
+    mocks.recordCookingCompletionReliably.mockRejectedValue(
+      new Error("offline"),
+    );
+    render(
+      <CookModeProvider>
+        <RecipeContent recipe={recipe} />
+      </CookModeProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Start cooking" }));
+    await waitFor(() => expect(consoleError).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByRole("button", { name: "Finish ✓" }));
+    await waitFor(() => expect(consoleError).toHaveBeenCalledTimes(2));
+  });
+
+  it("preserves tracking while the browser session is hydrating", async () => {
+    const user = userEvent.setup();
+    mocks.authState.data = null;
+    mocks.authState.isPending = true;
+    render(
+      <CookModeProvider>
+        <RecipeContent recipe={recipe} />
+      </CookModeProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Start cooking" }));
+    await waitFor(() =>
+      expect(mocks.recordCookingSession).toHaveBeenCalledWith(
+        expect.objectContaining({ event: "started" }),
+      ),
+    );
+
+    const started = mocks.recordCookingSession.mock.calls[0]?.[0];
+    await user.click(screen.getByRole("button", { name: "Finish ✓" }));
+
+    expect(mocks.recordCookingSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        sessionId: started.sessionId,
+        event: "completed",
+      }),
+    );
   });
 });

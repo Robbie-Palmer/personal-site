@@ -258,6 +258,11 @@ jobs:
           CF_ACCESS_TEAM_DOMAIN: ${{ vars.CF_ACCESS_TEAM_DOMAIN }}
           CF_ACCESS_AUD: ${{ vars.CF_ACCESS_AUD }}
 
+      - name: Smoke-test cooking insights through a direct preview session
+        run: mise run //workers/recipe-api:preview:smoke
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
+
       - name: Smoke-test authenticated recipe profiles
         env:
           DATABASE_URL: ${{ steps.neon.outputs.db_url }}

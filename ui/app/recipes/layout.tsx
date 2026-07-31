@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Caveat, JetBrains_Mono, Kalam } from "next/font/google";
 import Link from "next/link";
 import { AuthButton } from "@/components/recipes/auth-button";
+import { CookingCompletionOutbox } from "@/components/recipes/cooking-completion-outbox";
 import { DietProvider } from "@/components/recipes/diet-provider";
 import { NotificationBell } from "@/components/recipes/notifications/notification-bell";
 import { RecipeAnalyticsIdentity } from "@/components/recipes/recipe-analytics-identity";
@@ -54,6 +55,7 @@ export default function RecipesLayout({
   return (
     <RecipeQueryProvider>
       <RecipeAnalyticsIdentity />
+      <CookingCompletionOutbox />
       <RecipeNavigationProvider>
         <CookModeProvider>
           {/* Mirror the theme + fonts onto <body> so portaled UI (mobile filter

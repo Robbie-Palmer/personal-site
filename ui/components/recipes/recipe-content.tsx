@@ -37,6 +37,11 @@ import {
   captureRecipeValue,
 } from "@/lib/analytics/recipe-product";
 import {
+  recordCookingCompletionReliably,
+  recordCookingSession,
+} from "@/lib/api/cooking-insights";
+import { authClient } from "@/lib/auth-client";
+import {
   buildIngredientAnnotationMap,
   formatIngredient,
   formatInstructionIngredientToken,
@@ -214,6 +219,8 @@ export function RecipeContent({
   timersEnabled = true,
 }: Readonly<{ recipe: RecipeDetailView; timersEnabled?: boolean }>) {
   const { diet, matchRecipe } = useDiet();
+  const { data: authSession, isPending: authSessionPending } =
+    authClient.useSession();
   const dietMatch = useMemo(
     () =>
       matchRecipe({
@@ -337,6 +344,7 @@ export function RecipeContent({
   const [cookOpen, setCookOpen] = useState(false);
   const [cookStep, setCookStep] = useState(0);
   const pushedCookEntryRef = useRef(false);
+  const cookingSessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const applyLocation = () => {
@@ -374,14 +382,75 @@ export function RecipeContent({
     }
   }, []);
 
+  useEffect(() => {
+    if (!cookOpen) {
+      cookingSessionIdRef.current = null;
+      return;
+    }
+    if (
+      cookingSessionIdRef.current ||
+      (!authSession && !authSessionPending) ||
+      !timersEnabled
+    ) {
+      return;
+    }
+
+    const sessionId = globalThis.crypto.randomUUID();
+    cookingSessionIdRef.current = sessionId;
+    void recordCookingSession({
+      sessionId,
+      recipeSlug: recipe.slug,
+      recipeTitle: recipe.title,
+      servings: portions,
+      event: "started",
+    }).catch((error: unknown) => {
+      // Tracking must never interrupt cooking. Keep the same id so Finish can
+      // retry by upserting the completed session.
+      console.error("[RecipeContent] Could not record cook-mode start", error);
+    });
+  }, [
+    authSession,
+    authSessionPending,
+    cookOpen,
+    portions,
+    recipe.slug,
+    recipe.title,
+    timersEnabled,
+  ]);
+
   const completeCookMode = useCallback(() => {
     captureRecipeValue("recipe_cooked", {
       recipe_slug: recipe.slug,
       serving_count: portions,
       step_count: cookSteps.length,
     });
+    const sessionId = cookingSessionIdRef.current;
+    if (sessionId && (authSession || authSessionPending) && timersEnabled) {
+      const completion = {
+        sessionId,
+        recipeSlug: recipe.slug,
+        recipeTitle: recipe.title,
+        servings: portions,
+        event: "completed" as const,
+      };
+      const request = authSession
+        ? recordCookingCompletionReliably(authSession.user.id, completion)
+        : recordCookingSession(completion);
+      void request.catch((error: unknown) => {
+        console.error("[RecipeContent] Could not record cooked meal", error);
+      });
+    }
     exitCookMode();
-  }, [cookSteps.length, exitCookMode, portions, recipe.slug]);
+  }, [
+    authSession,
+    authSessionPending,
+    cookSteps.length,
+    exitCookMode,
+    portions,
+    recipe.slug,
+    recipe.title,
+    timersEnabled,
+  ]);
 
   const changeCookStep = useCallback((step: number) => {
     globalThis.history.replaceState(null, "", buildCookUrl(true, step));

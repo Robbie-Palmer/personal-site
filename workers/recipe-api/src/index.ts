@@ -9,11 +9,13 @@ import {
 import {
   and,
   count,
+  countDistinct,
   desc,
   eq,
   gt,
   gte,
   inArray,
+  isNotNull,
   isNull,
   lt,
   or,
@@ -180,6 +182,16 @@ const recipeBoxBodySchema = z
       new Set(body.recipeSlugs ?? body.staticRecipeSlugs ?? []),
     ),
   }));
+
+const cookingSessionBodySchema = z
+  .object({
+    sessionId: z.uuid(),
+    recipeSlug: recipeSlugSchema,
+    recipeTitle: z.string().trim().min(1).max(120),
+    servings: z.number().int().min(1).max(1_000),
+    event: z.enum(["started", "completed"]),
+  })
+  .strict();
 
 const recommendRecipeBodySchema = z
   .object({
@@ -376,6 +388,58 @@ async function recipeBoxResponse(db: Db, userId: string) {
     recipeSlugs,
     // Remove after the Postgres-backed UI has been deployed everywhere.
     staticRecipeSlugs: recipeSlugs,
+  };
+}
+
+async function cookingInsightsResponse(db: Db, userId: string) {
+  const [summaries, recent] = await Promise.all([
+    db
+      .select({
+        cookModeStarts: count(),
+        mealsCooked: count(schema.cookingSession.completedAt),
+      })
+      .from(schema.cookingSession)
+      .where(eq(schema.cookingSession.userId, userId)),
+    db
+      .select({
+        id: schema.cookingSession.id,
+        recipeSlug: schema.cookingSession.recipeSlug,
+        recipeTitle: schema.cookingSession.recipeTitle,
+        servings: schema.cookingSession.servings,
+        startedAt: schema.cookingSession.startedAt,
+        completedAt: schema.cookingSession.completedAt,
+      })
+      .from(schema.cookingSession)
+      .where(
+        and(
+          eq(schema.cookingSession.userId, userId),
+          isNotNull(schema.cookingSession.completedAt),
+        ),
+      )
+      .orderBy(desc(schema.cookingSession.completedAt))
+      .limit(20),
+  ]);
+  const summary = summaries[0];
+
+  // count(column) excludes NULL; distinct recipes need their own completed-only
+  // query because the slug itself is present on incomplete starts too.
+  const [completedDistinct] = await db
+    .select({
+      count: countDistinct(schema.cookingSession.recipeSlug),
+    })
+    .from(schema.cookingSession)
+    .where(
+      and(
+        eq(schema.cookingSession.userId, userId),
+        isNotNull(schema.cookingSession.completedAt),
+      ),
+    );
+
+  return {
+    cookModeStarts: summary?.cookModeStarts ?? 0,
+    mealsCooked: summary?.mealsCooked ?? 0,
+    distinctRecipesCooked: completedDistinct?.count ?? 0,
+    recent,
   };
 }
 
@@ -1864,6 +1928,82 @@ app.put("/api/profile/recipe-box", async (c) => {
       });
 
       return c.json(await recipeBoxResponse(db, session.user.id));
+    },
+  );
+});
+
+app.get("/api/profile/cooking-insights", async (c) => {
+  return withRecipeSession(
+    c,
+    "query",
+    "GET /api/profile/cooking-insights query failed",
+    async ({ db, session }) =>
+      c.json(await cookingInsightsResponse(db, session.user.id)),
+  );
+});
+
+app.post("/api/profile/cooking-insights", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+
+  const body = await parseJsonBody(c, cookingSessionBodySchema);
+  if (!body.success) return body.response;
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "POST /api/profile/cooking-insights mutation failed",
+    async ({ db, session }) => {
+      const completedAt =
+        body.data.event === "completed" ? new Date() : undefined;
+      const [created] = await db
+        .insert(schema.cookingSession)
+        .values({
+          id: body.data.sessionId,
+          userId: session.user.id,
+          recipeSlug: body.data.recipeSlug,
+          recipeTitle: body.data.recipeTitle,
+          servings: body.data.servings,
+          completedAt,
+        })
+        .onConflictDoNothing()
+        .returning({ id: schema.cookingSession.id });
+
+      if (!created && completedAt) {
+        await db
+          .update(schema.cookingSession)
+          .set({ completedAt })
+          .where(
+            and(
+              eq(schema.cookingSession.id, body.data.sessionId),
+              eq(schema.cookingSession.userId, session.user.id),
+              isNull(schema.cookingSession.completedAt),
+            ),
+          );
+      }
+
+      const [cookingSession] = await db
+        .select({
+          id: schema.cookingSession.id,
+          recipeSlug: schema.cookingSession.recipeSlug,
+          recipeTitle: schema.cookingSession.recipeTitle,
+          servings: schema.cookingSession.servings,
+          startedAt: schema.cookingSession.startedAt,
+          completedAt: schema.cookingSession.completedAt,
+        })
+        .from(schema.cookingSession)
+        .where(
+          and(
+            eq(schema.cookingSession.id, body.data.sessionId),
+            eq(schema.cookingSession.userId, session.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (!cookingSession) {
+        return c.json({ error: "Cooking session ID is already in use" }, 409);
+      }
+      return c.json({ cookingSession }, created ? 201 : 200);
     },
   );
 });
