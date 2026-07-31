@@ -100,6 +100,12 @@ function FollowCookAction({
   const following = status.data?.following ?? false;
   const pending = status.isPending || mutation.isPending;
   const followError = mutation.error ?? status.error;
+  let followIcon = <UserPlus />;
+  if (pending) {
+    followIcon = <LoaderCircle className="animate-spin" />;
+  } else if (following) {
+    followIcon = <UserCheck />;
+  }
   return (
     <div className="sm:ml-auto sm:text-right">
       <Button
@@ -114,13 +120,7 @@ function FollowCookAction({
         }
         onClick={() => mutation.mutate(!following)}
       >
-        {pending ? (
-          <LoaderCircle className="animate-spin" />
-        ) : following ? (
-          <UserCheck />
-        ) : (
-          <UserPlus />
-        )}
+        {followIcon}
         {following ? "Following" : "Follow"}
       </Button>
       {followError ? (
