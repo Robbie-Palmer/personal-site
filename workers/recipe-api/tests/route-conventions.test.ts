@@ -67,6 +67,14 @@ function staticSegments(path: string): string[] {
     .filter((s) => s.length > 0 && !s.startsWith(":") && s !== "*");
 }
 
+function hasVerbSegment(path: string): boolean {
+  return staticSegments(path).some(
+    (segment) =>
+      !ACTION_ALLOWLIST.has(segment) &&
+      VERB_PREFIXES.has(segment.split("-")[0] ?? ""),
+  );
+}
+
 describe("recipe-api route conventions", () => {
   const routes = httpRoutes();
 
@@ -92,13 +100,11 @@ describe("recipe-api route conventions", () => {
   });
 
   it("keeps verbs out of paths (allowlisted actions and baseline aside)", () => {
-    const offenders = routes.filter(({ method, path }) => {
-      if (KNOWN_VERB_PATH_VIOLATIONS.has(`${method} ${path}`)) return false;
-      return staticSegments(path).some((segment) => {
-        if (ACTION_ALLOWLIST.has(segment)) return false;
-        return VERB_PREFIXES.has(segment.split("-")[0] ?? "");
-      });
-    });
+    const offenders = routes.filter(
+      ({ method, path }) =>
+        !KNOWN_VERB_PATH_VIOLATIONS.has(`${method} ${path}`) &&
+        hasVerbSegment(path),
+    );
     expect(
       offenders,
       `verb-shaped path segments: ${JSON.stringify(offenders)}`,
@@ -106,11 +112,21 @@ describe("recipe-api route conventions", () => {
   });
 
   it("keeps the ADR 065 violation baseline free of stale entries", () => {
-    const live = new Set(routes.map(({ method, path }) => `${method} ${path}`));
-    const stale = [...KNOWN_VERB_PATH_VIOLATIONS].filter((v) => !live.has(v));
+    // The baseline is shrink-only: every entry must name a route that still
+    // exists AND still violates the verb rule. A route that was renamed,
+    // removed, or made compliant (verb dropped, or its segment allowlisted)
+    // no longer qualifies, so its baseline entry is stale and must be deleted.
+    const liveViolations = new Set(
+      routes
+        .filter(({ path }) => hasVerbSegment(path))
+        .map(({ method, path }) => `${method} ${path}`),
+    );
+    const stale = [...KNOWN_VERB_PATH_VIOLATIONS].filter(
+      (v) => !liveViolations.has(v),
+    );
     expect(
       stale,
-      `baseline lists routes that no longer exist — delete them: ${JSON.stringify(stale)}`,
+      `baseline entries that no longer violate — delete them: ${JSON.stringify(stale)}`,
     ).toEqual([]);
   });
 });

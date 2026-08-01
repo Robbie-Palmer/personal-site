@@ -25,7 +25,7 @@ rules:
     then:
       function: pattern
       functionOptions:
-        match: "^(/([a-z0-9]+(-[a-z0-9]+)*|\\{[a-zA-Z0-9]+\\}))+$"
+        match: "^(/([a-z0-9]+(-[a-z0-9]+)*|\\{[a-zA-Z0-9._-]+\\}))+$"
 
   paths-no-verbs:
     description: Resource paths are nouns; only allowlisted actions may be verbs.
@@ -46,12 +46,15 @@ rules:
     description: 4xx/5xx responses reference the shared Error schema.
     message: "{{path}}: error responses must $ref components.schemas.Error"
     severity: error
-    given: "$.paths[*][*].responses[?(@property.match(/^[45]\\d\\d$/))].content['application/json'].schema"
+    # Status-code keys are strings; Spectral's JSONPath coerces them for the
+    # numeric comparison, which avoids brittle regex-on-property syntax. `[*]`
+    # covers every media type, not just application/json.
+    given: "$.paths[*][*].responses[?( @property >= 400 && @property < 600 )].content[*].schema"
     then:
       field: "$ref"
       function: pattern
       functionOptions:
-        match: "Error$"
+        match: "^#/components/schemas/Error$"
 
   operation-defines-server-error:
     description: Every operation documents a 500 response.
