@@ -1,0 +1,10 @@
+---
+inherits_from: "recipe-site:029-dvc"
+---
+
+Applied to the GPU worker: the 1TB HDD on the Asus desktop holds local copies
+of datasets as a DVC remote, so batch CV jobs run against a local cache
+instead of re-pulling over the network each time. The same principles —
+dataset hashes pinned to git commits, stage caching via `dvc repro`, and
+metrics surfaced in PRs — govern how datasets are managed across the ML
+pipelines (`ml-pipelines/recipe-parsing/`).

@@ -1,0 +1,78 @@
+---
+title: "ADR 011: Jellyfin media server"
+date: "2026-08-02"
+status: "Proposed"
+tech_stack: ["Jellyfin"]
+---
+
+# Context
+
+I want to serve TV shows and movies to my Fire TV Stick from the home hub,
+so the media I actually own has a proper home instead of sitting as a pile of
+files. I already pay for Netflix, Disney Plus, Amazon Prime, and Apple TV,
+and still end up rewatching things — the library I've bought deserves a
+better player than the streaming apps I pay for repeatedly.
+
+This is **Proposed**, not Accepted, for reasons that aren't about scope:
+
+* It's strictly for local use in my own home — it will never be a public
+  service, so there's no exposure or multi-user internet angle to design for.
+* The UX has to be good enough to switch to from the streaming apps, and
+  playback latency has to be low enough to not be noticed.
+* Adoption is the real test: it only gets built out if it's tested with my
+  family and they actually use it.
+
+# Decision (proposed)
+
+Run **Jellyfin** on the Mac mini to serve my media library to the Fire TV
+Stick.
+
+Jellyfin is free, open source, self-hosted, and has a first-class Fire TV
+client. The library lives on the hub's storage (the same machine that already
+holds the photo backup), served only over the home network/tailnet — not
+exposed publicly.
+
+# Alternatives
+
+## Plex
+
+* **Pros**: Polished clients, easy setup.
+* **Cons**: Closed source, account required, and its newer features keep
+  pushing toward the paid tier.
+* **Decision**: Rejected. For a home-lab library, open source with no
+  account wins.
+
+## Keep using streaming subscriptions only
+
+* **Pros**: Zero maintenance, content discovery built in.
+* **Cons**: I already pay for Netflix, Disney Plus, Amazon Prime, and Apple
+  TV, and still end up rewatching things; my own library stays a pile of
+  files.
+* **Decision**: Rejected as the only mechanism. Jellyfin serves content I
+  already own; it doesn't replace the subscriptions.
+
+## Emby
+
+* **Pros**: Mature, close to Jellyfin.
+* **Cons**: Closed source core; Jellyfin is the actively-forked, open-source
+  evolution of the same codebase.
+* **Decision**: Rejected. Jellyfin is the open, no-account choice.
+
+# Consequences (if accepted)
+
+### Pros
+
+* **Own library, self-hosted**: free, open source, and account-free on the
+  Fire TV Stick.
+* **Strictly local**: served over the home network/tailnet only, never
+  public.
+* **Better use of the library I already own**, instead of rewatching the
+  same titles on the streaming apps I pay for.
+
+### Cons
+
+* **Media library management** (curation, metadata, storage growth) becomes
+  an ongoing task.
+* **Storage pressure** on the hub alongside the photo backup.
+* **Adoption risk**: if the UX or latency isn't good enough for the family,
+  it won't get used — the reason it stays Proposed until tested.

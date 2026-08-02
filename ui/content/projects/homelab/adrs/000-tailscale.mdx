@@ -1,0 +1,89 @@
+---
+title: "ADR 000: Tailscale"
+date: "2026-08-02"
+status: "Accepted"
+tech_stack: ["Tailscale"]
+---
+
+# Context
+
+The home lab spans several machines in different roles — a Mac mini hub, a
+Raspberry Pi, and an Asus desktop — and I want to reach all of them from any
+of my personal devices (laptops, phones) with no port forwarding, no
+public exposure, and no per-machine VPN configuration. The machines are
+behind a home router doing NAT; some of them are only ever on the tailnet.
+
+Requirements:
+
+* **No public exposure.** None of the lab services should be reachable from
+  the internet. No ports forwarded, no public DNS, no dashboards exposed.
+* **Zero-config joining.** A new node (the NixOS box, a laptop, a phone)
+  should join the network in one command and be reachable by name, not by
+  remembering IP addresses.
+* **Survives heterogeneous networks.** The lab has to work from home Wi-Fi,
+  mobile data, and other people's networks without reconfiguration.
+* **Name-based addressing.** I want to `ssh robbie@asus-desktop` and open the
+  hub's GUIs by hostname, from anywhere.
+
+# Decision
+
+Use **Tailscale**, a WireGuard-based mesh VPN, to overlay all lab nodes and
+personal devices on a single private tailnet.
+
+Each node runs the Tailscale client and joins the tailnet; the control plane
+(coordinated through Tailscale's service) handles NAT traversal and hands out
+stable `100.x.y.z` addresses and DNS names. My router stays closed: no inbound
+ports, no dynamic DNS, no port forwarding. Wake-on-LAN on the Asus desktop is
+sent *over* the tailnet from the Mac mini, and the NixOS box trusts the
+`tailscale0` interface in its firewall so SSH and agent traffic just work.
+
+# Alternatives
+
+## Self-hosted WireGuard + static config
+
+* **Pros**: No third-party coordination service; full control.
+* **Cons**: Manual key exchange and endpoint management on every node, no
+  NAT traversal, painful on changing networks, and it doesn't give me
+  name-based discovery. For a handful of devices it's all maintenance and no
+  benefit.
+* **Decision**: Rejected. The lab's goal is boring reliability, not running
+  a VPN control plane.
+
+## Tailscale vs. other mesh providers (ZeroTier, Netbird)
+
+* **Pros**: ZeroTier and Netbird are viable open-source meshes.
+* **Cons**: Tailscale has the simplest join flow, is built on WireGuard
+  (auditable, fast), and has first-class support in NixOS (`services.tailscale.enable`).
+* **Decision**: Accepted. Tailscale wins on ecosystem fit with NixOS and
+  simplicity.
+
+## Cloudflare Tunnel / other reverse proxies
+
+* **Pros**: Exposes specific HTTP services via the edge.
+* **Cons**: Still creates public surface and requires a domain + access
+  policy per service. The lab services don't need to be public at all.
+* **Decision**: Rejected. A mesh VPN covers every service uniformly without
+  per-service edge configuration.
+
+# Consequences
+
+### Pros
+
+* **One network for everything**: Mac mini, Pi, Asus desktop, laptop, and
+  phone all reachable by hostname with no port forwarding.
+* **Inspectable from any device**: The entire lab is reachable from any
+  machine on the tailnet, which is the point of the project.
+* **NixOS-native**: `services.tailscale.enable = true` in the GPU worker
+  config, with `tailscale0` as a trusted firewall interface.
+* **No public attack surface**: Every dashboard, printer port, and agent
+  endpoint is tailnet-only.
+
+### Cons
+
+* **Third-party control plane**: Node-to-node traffic is end-to-end
+  encrypted, but the coordination service is a dependency. If it's
+  unavailable, existing connections may still work, but new ones can't join.
+* **Dependency on a free-tier account**: The personal tailnet relies on
+  Tailscale's free tier for coordination.
+* **Another credential**: Nodes authenticate to the tailnet, adding one more
+  trust boundary to keep secure.

@@ -1,0 +1,80 @@
+---
+title: "ADR 009: Netdata for monitoring"
+date: "2026-08-02"
+status: "Accepted"
+tech_stack: ["Netdata"]
+---
+
+# Context
+
+The lab's two core workloads — photo backup and agent hosting — both depend
+on the Mac mini being up and healthy, and DNS (AdGuard Home) depends on both
+the Mac mini and the Raspberry Pi. I want to know about problems *before*
+they matter: a dead hub, a full backup drive, or a Pi overheating. Waiting to
+notice manually is how failures slip through — and a backup that fails
+quietly just means the library quietly isn't being backed up.
+
+I already use Slack for ops notifications (the recipe site's
+[PostHog alerting](/projects/recipe-site/adrs/063-posthog-alerting-and-slack)
+was the first link), so alerts should land in my personal Slack workspace.
+
+Requirements:
+
+* **Low-friction install** on both the Mac mini and the Pi.
+* **Hub-and-spoke collection**: the Pi exports its metrics to the Mac mini
+  as the central point, so there's one place to look.
+* **Slack delivery**: alert on anything going wrong — host down, disk full,
+  temperature too high — via a Slack app.
+* **Real-time**, not batch polling.
+
+# Decision
+
+Install **Netdata** on the Mac mini and the Raspberry Pi, with the Pi
+exporting to the Mac mini as the main hub. A Slack app in my personal
+workspace receives alerts: anything going wrong on the Mac mini, and on the
+Pi, notably if its temperature climbs too high.
+
+# Alternatives
+
+## Prometheus + Grafana
+
+* **Pros**: The industry-standard stack; extremely flexible.
+* **Cons**: Heavier to operate (scrapers, TSDB, dashboards, alert rules)
+  than a two-node home lab needs. I'd rather spend effort on the lab itself
+  than on maintaining an observability platform.
+* **Decision**: Rejected. Netdata gives real-time metrics and alerts with a
+  fraction of the operations burden.
+
+## Uptime checks / pinging only
+
+* **Pros**: Simple.
+* **Cons**: Tells me a host is down but nothing about *why* — disk full,
+  overheating, or memory pressure happen before a host dies.
+* **Decision**: Rejected. I need the metrics, not just the outage.
+
+## Vendor monitoring (e.g. a cloud SaaS agent)
+
+* **Pros**: Zero maintenance.
+* **Cons**: Sends my home infrastructure telemetry to a third party and
+  costs money at the scale of a whole home network.
+* **Decision**: Rejected. Monitoring the privacy box should itself stay
+  private.
+
+# Consequences
+
+### Pros
+
+* **Early warning on the critical path**: DNS, backup, and agent-hosting
+  health all monitored.
+* **One place to look**: the Pi's metrics flow to the hub.
+* **Slack as the single alert surface**, consistent with how I already
+  operate.
+* **Self-hosted and private** telemetry.
+
+### Cons
+
+* **Another always-on service** to keep updated on both boxes.
+* **Alert noise**: thresholds need tuning (temperature alerts especially) to
+  avoid paging Slack for nothing.
+* **Hub dependency**: if the Mac mini is down, the Pi's central export
+  destination is down too — the Pi must still alarm independently.
