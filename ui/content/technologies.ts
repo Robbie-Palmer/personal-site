@@ -997,7 +997,7 @@ export const technologies: TechnologyContent[] = [
     description:
       "Reproducible Linux distribution built on the Nix package manager with declarative system configuration",
     website: "https://nixos.org",
-    type: "tool",
+    type: "platform",
   },
   {
     name: "Ente",
@@ -1013,6 +1013,6 @@ export const technologies: TechnologyContent[] = [
     description:
       "Free, self-hosted media server for streaming movies and TV shows to any client",
     website: "https://jellyfin.org",
-    type: "platform",
+    type: "tool",
   },
 ];

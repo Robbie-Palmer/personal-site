@@ -33,9 +33,11 @@ personal devices on a single private tailnet.
 Each node runs the Tailscale client and joins the tailnet; the control plane
 (coordinated through Tailscale's service) handles NAT traversal and hands out
 stable `100.x.y.z` addresses and DNS names. My router stays closed: no inbound
-ports, no dynamic DNS, no port forwarding. Wake-on-LAN on the Asus desktop is
-sent *over* the tailnet from the Mac mini, and the NixOS box trusts the
-`tailscale0` interface in its firewall so SSH and agent traffic just work.
+ports, no dynamic DNS, no port forwarding. Waking the Asus desktop is a
+two-hop affair: the tailnet carries the wake *request* to the Mac mini, which
+then sends the Wake-on-LAN magic packet on the home LAN, because that packet
+is a Layer 2 broadcast and can't route over the tailnet. The NixOS box trusts
+the `tailscale0` interface in its firewall so SSH and agent traffic just work.
 
 # Alternatives
 
@@ -49,12 +51,12 @@ sent *over* the tailnet from the Mac mini, and the NixOS box trusts the
 * **Decision**: Rejected. The lab's goal is boring reliability, not running
   a VPN control plane.
 
-## Tailscale vs. other mesh providers (ZeroTier, Netbird)
+## Other mesh providers (ZeroTier, Netbird)
 
 * **Pros**: ZeroTier and Netbird are viable open-source meshes.
 * **Cons**: Tailscale has the simplest join flow, is built on WireGuard
   (auditable, fast), and has first-class support in NixOS (`services.tailscale.enable`).
-* **Decision**: Accepted. Tailscale wins on ecosystem fit with NixOS and
+* **Decision**: Rejected. Tailscale wins on ecosystem fit with NixOS and
   simplicity.
 
 ## Cloudflare Tunnel / other reverse proxies

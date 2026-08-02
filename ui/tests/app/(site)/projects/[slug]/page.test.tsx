@@ -26,7 +26,22 @@ vi.mock("@/components/projects/project-tabs", () => ({
 }));
 
 vi.mock("@/components/markdown", () => ({
-  Markdown: ({ source }: { source: string }) => <div>{source}</div>,
+  Markdown: ({
+    source,
+    components,
+  }: {
+    source: string;
+    components?: Record<string, unknown>;
+  }) => (
+    <div>
+      <div>{source}</div>
+      <div data-testid="registered-components">
+        {Object.keys(components ?? {})
+          .sort()
+          .join(",")}
+      </div>
+    </div>
+  ),
 }));
 
 vi.mock("@/components/mermaid", () => ({
@@ -83,5 +98,15 @@ describe("project page", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Test description")).toBeInTheDocument();
     expect(screen.getByText("adr-list")).toBeInTheDocument();
+  });
+
+  it("passes Mermaid and DesignEmbed to the project markdown renderer", async () => {
+    (getProject as Mock).mockReturnValue(fixture);
+
+    render(await ProjectPage({ params: Promise.resolve({ slug: "homelab" }) }));
+
+    expect(screen.getByTestId("registered-components")).toHaveTextContent(
+      "DesignEmbed,Mermaid",
+    );
   });
 });

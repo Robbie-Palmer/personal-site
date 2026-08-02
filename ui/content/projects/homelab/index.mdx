@@ -116,7 +116,7 @@ subgraph pi["Raspberry Pi"]
     NET2["Netdata → hub"]
     CUP["CUPS"]
 end
-subgraph asus["Asus desktop (NixOS)"]
+subgraph asus["Asus desktop (NixOS) — proposed"]
     GPU["GTX 1060 — CV jobs"]
     DVC["DVC dataset cache"]
 end
@@ -181,22 +181,23 @@ the whole house depends on: DNS and monitoring.
   open-source driver suite, I can still print to it (and even print remotely
   from my phone), keeping working hardware out of landfill.
 
-## Asus desktop — the NixOS GPU worker (in progress)
+## Asus desktop — the NixOS GPU worker (proposed)
 
-A headless wake-on-demand box, configured declaratively with
+A headless wake-on-demand box, to be configured declaratively with
 [NixOS](/projects/homelab/adrs/010-nixos-gpu-worker).
 
 * **Old, unsupported 1060 GPU.** The GTX 1060 is Pascal-era (`sm_61`) — CUDA
   13 and the newer driver branches dropped support for it, so the config
-  pins an LTS kernel and the 580 driver branch, the last with Pascal support.
+  will pin an LTS kernel and the 580 driver branch, the last with Pascal
+  support.
 * **Batch GPU CV jobs.** The ambition is to use it for running batch computer
   vision jobs — the exact workload that doesn't need a modern GPU, just many
   GPU-hours.
 * **DVC data cache.** It inherits the
-  [DVC ADR](/projects/homelab/adrs/008-dvc) and its 1TB connected HDD holds
-  local copies of datasets for the ML pipelines (`ml-pipelines/recipe-parsing/`)
-  and any CV work.
-* **Wake-on-LAN.** It sleeps when idle and is woken on demand. The WoL magic
+  [DVC ADR](/projects/homelab/adrs/008-dvc) and its 1TB connected HDD will
+  hold local copies of datasets for the ML pipelines
+  (`ml-pipelines/recipe-parsing/`) and any CV work.
+* **Wake-on-LAN.** It will sleep when idle and be woken on demand. The WoL magic
   packet is a Layer 2 broadcast, so it can't travel over the tailnet — the
   Mac mini, on the home LAN, sends it when a wake request arrives from a
   remote device.
@@ -227,7 +228,7 @@ workloads and layering on the rest:
 | 2     | Agentic development hub (t3-code + agents)                    | Live        |
 | 3     | DNS privacy (AdGuard Home, primary + failover)                | Live        |
 | 4     | CUPS printing on the Pi (avoiding printer ewaste)             | Live        |
-| 5     | NixOS GPU worker for batch CV jobs, with DVC-managed datasets | In progress |
+| 5     | NixOS GPU worker for batch CV jobs, with DVC-managed datasets | Proposed    |
 | 6     | Jellyfin media server for the Fire TV Stick                   | Proposed    |
 | 7     | Second compute node (idle 4080 laptop)                        | Idea        |
 
