@@ -103,41 +103,38 @@ constraint is software, not silicon.
 
 <Mermaid
   chart={`flowchart LR
-  Internet["Internet"] -->|"router DNS"| Router["Home router"]
-  subgraph hub["Mac mini — home hub"]
-      ADG1["AdGuard Home — primary DNS"]
-      ENT["Ente sync"]
-      NET1["Netdata"]
-      T3["t3-code + agents"]
-      CUP["CUPS"]
-      JEL["Jellyfin — planned"]
-  end
-  subgraph pi["Raspberry Pi"]
-      ADG2["AdGuard Home — fallback DNS"]
-      NET2["Netdata → hub"]
-  end
-  subgraph asus["Asus desktop (NixOS)"]
-      GPU["GTX 1060 — CV jobs"]
-      DVC["DVC dataset cache"]
-  end
-  Router --> ADG1
-  Router --> ADG2
-  ADG2 --> ADG1
-  ENT <-->|"photo sync"| Ente["Ente cloud"]
-  ENT --> HDD[("10TB HDD")]
-  NET1 --> Slack["Slack"]
-  NET2 --> Slack
-  CUP --> Printer["Canon MX3100 (2011)"]
-  JEL --> FireStick["Fire TV Stick"]
-  subgraph tailnet["Tailnet overlay"]
-      Phone["Phone"]
-      Lap["Laptop (4080 — future)"]
-  end
-  Phone -->|"agents"| T3
-  Lap -->|"agents"| T3
-  Lap -->|"wake request"| hub
-  hub -->|"WoL (L2 broadcast)"| asus
-  Lap -->|"SSH / tailnet"| asus
+Internet["Internet"] -->|"router DNS"| Router["Home router"]
+subgraph hub["Mac mini — home hub"]
+    ADG1["AdGuard Home — primary DNS"]
+    ENT["Ente sync"]
+    NET1["Netdata"]
+    T3["t3-code + agents"]
+    JEL["Jellyfin — planned"]
+end
+subgraph pi["Raspberry Pi"]
+    ADG2["AdGuard Home — fallback DNS"]
+    NET2["Netdata → hub"]
+    CUP["CUPS"]
+end
+subgraph asus["Asus desktop (NixOS)"]
+    GPU["GTX 1060 — CV jobs"]
+    DVC["DVC dataset cache"]
+end
+Router --> ADG1
+Router --> ADG2
+ADG2 --> ADG1
+Phone -->|"photo upload"| Ente["Ente cloud"]
+Ente -->|"download backup"| ENT
+ENT --> HDD[("10TB HDD")]
+NET1 --> Slack["Slack"]
+NET2 --> Slack
+CUP --> Printer["Canon MX3100 (2011)"]
+JEL --> FireStick["Fire TV Stick"]
+GitHub["GitHub"]
+Phone["Phone"]
+Phone -->|"agents"| T3
+T3 -->|"repos / PRs"| GitHub
+hub -->|"WoL (L2 broadcast)"| asus
 `}
 />
 
