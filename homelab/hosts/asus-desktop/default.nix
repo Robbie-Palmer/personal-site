@@ -36,6 +36,8 @@
     ];
   };
 
+  networking.hostName = "asus-desktop";
+
   services.tailscale.enable = true;
   networking.firewall.trustedInterfaces = [ "tailscale0" ];
   services.openssh.enable = true;
