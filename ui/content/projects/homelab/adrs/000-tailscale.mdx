@@ -33,11 +33,15 @@ personal devices on a single private tailnet.
 Each node runs the Tailscale client and joins the tailnet; the control plane
 (coordinated through Tailscale's service) handles NAT traversal and hands out
 stable `100.x.y.z` addresses and DNS names. My router stays closed: no inbound
-ports, no dynamic DNS, no port forwarding. Waking the Asus desktop is a
-two-hop affair: the tailnet carries the wake *request* to the Mac mini, which
-then sends the Wake-on-LAN magic packet on the home LAN, because that packet
-is a Layer 2 broadcast and can't route over the tailnet. The NixOS box trusts
-the `tailscale0` interface in its firewall so SSH and agent traffic just work.
+ports, no dynamic DNS, no port forwarding. Waking the
+[planned Asus desktop](/projects/homelab/adrs/010-nixos-gpu-worker) will take
+two hops: the tailnet carries the wake *request* to the Mac mini, which then
+sends the Wake-on-LAN magic packet on the home LAN, because that packet is a
+Layer 2 broadcast and can't route over the tailnet. That box will also put
+`tailscale0` in `networking.firewall.trustedInterfaces`, which accepts *all*
+traffic arriving on that interface — a deliberate choice that makes the
+tailnet itself the security boundary, rather than maintaining per-service
+firewall rules behind it.
 
 # Alternatives
 
