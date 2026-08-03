@@ -37,8 +37,10 @@ personal devices on a single private tailnet.
 
 Each node runs the Tailscale client and joins the tailnet; the control plane
 (coordinated through Tailscale's service) handles NAT traversal and hands out
-stable `100.x.y.z` addresses and DNS names. My router stays closed: no inbound
-ports, no dynamic DNS, no port forwarding.
+stable `100.x.y.z` addresses. MagicDNS resolves those to short device names,
+which is what makes the name-based access above work — I reach nodes as
+`hostname`, never as an IP. My router stays closed: no inbound ports, no
+dynamic DNS, no port forwarding.
 
 Waking a sleeping machine takes two hops, because a Wake-on-LAN magic packet
 is a Layer 2 broadcast and can't route over the tailnet: the tailnet carries

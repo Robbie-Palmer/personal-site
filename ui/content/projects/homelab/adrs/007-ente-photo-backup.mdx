@@ -29,9 +29,9 @@ which stays in Ente's cloud — down on a schedule into the backup drive. The
 drive is
 formatted as a straightforward filesystem layout (not a proprietary archive)
 so the photos remain readable by normal tools even if every Ente tool
-disappears. Netdata monitors the sync job and alerts Slack if it fails or the
-drive fills up, so a silent failure is caught instead of discovered months
-later.
+disappears. A backup that fails quietly is barely better than no backup, so
+the sync has to be watched and has to raise an alarm on failure or a full
+drive — a pipeline to monitor, not a script to forget.
 
 The Mac mini is the right owner for this: it's always on, and it already
 hosts the backup drive. That does mean sharing a box with the
@@ -71,8 +71,8 @@ least-privilege rules tight around the photo library and backup drive.
 ### Pros
 
 * **An offline copy I own**: photos are no longer hostage to one vendor.
-* **Automated and monitored**: the sync runs on a schedule; failures page
-  Slack.
+* **Automated and observable**: the sync runs on a schedule and is built to
+  surface its failures rather than swallow them.
 * **Plain files on disk**: readable with normal tools, no proprietary lock-in.
 
 ### Cons

@@ -106,7 +106,6 @@ were making to trackers and ad servers.
   and need adding to the block list as things change.
 * **DNS is critical infrastructure now**: If both boxes are down, the whole
   network loses resolution. The redundant pair covers any single-box
-  failure — but a total outage also takes out Netdata's path to Slack, since
-  Netdata runs on the same boxes and DNS is needed to reach it. In that
-  scenario nothing alerts; the failure is noticed when the network doesn't
-  work.
+  failure, but a total outage is self-concealing — anything that would tell
+  me about it needs DNS to reach the outside world too. In that scenario the
+  failure is noticed when the network stops working.

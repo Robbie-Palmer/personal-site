@@ -31,8 +31,30 @@ Requirements:
 
 Install **Netdata** on the Mac mini and the Raspberry Pi, with the Pi
 exporting to the Mac mini as the main hub. A Slack app in my personal
-workspace receives alerts: anything going wrong on the Mac mini, and on the
-Pi, notably if its temperature climbs too high.
+workspace receives the alerts.
+
+What it watches, and why each earns its place:
+
+* **Host health on both boxes.** A dead Mac mini takes the agent stack and
+  the photo backup down with it; a dead Pi takes the fallback resolver and
+  the print server.
+* **The photo backup sync.** The
+  [Ente pipeline](/projects/homelab/adrs/007-ente-photo-backup) is the job
+  that most needs watching, because a sync failing quietly looks exactly
+  like one that works. Alert on the job failing or the 10TB drive filling
+  up, so it's caught instead of discovered months later.
+* **Pi temperature.** The Pi is fanless and does real work; heat is its
+  most likely way to fail.
+* **The DNS pair.** [AdGuard Home](/projects/homelab/adrs/001-adguard-home)
+  runs on both boxes, so host-level alerting covers resolver availability
+  and catches any single-box outage.
+
+One gap is worth stating plainly, because it's structural rather than
+fixable by tuning: this monitoring shares fate with the network it watches.
+Netdata runs on the same two boxes as the resolvers and needs DNS to reach
+Slack, so a *total* DNS outage is precisely the case where nothing alerts —
+it gets noticed when the network stops working. Single-box failure, which is
+what the redundant pair exists for, does alert normally.
 
 # Alternatives
 
