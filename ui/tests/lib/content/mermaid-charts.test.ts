@@ -12,7 +12,10 @@ const CONTENT_ROOT = join(import.meta.dirname, "../../../content");
 // [^>]* keeps the match inside a single tag, so props may precede `chart` but a
 // propless <Mermaid /> can't pair with a later element's chart.
 const CHART_PATTERN = /<Mermaid\b[^>]*?chart=\{`([\s\S]*?)`\}/g;
-const TAG_PATTERN = /<Mermaid\b/g;
+// MDX requires a JSX block to start its own line, so anchoring to line start
+// counts real elements while ignoring prose that documents the component in a
+// code span (`<Mermaid chart={...} />`). \b keeps <MermaidDemo /> out.
+const TAG_PATTERN = /^<Mermaid\b/gm;
 
 function extractCharts(source: string): string[] {
   return Array.from(source.matchAll(CHART_PATTERN))
@@ -20,15 +23,8 @@ function extractCharts(source: string): string[] {
     .filter((chart) => chart !== undefined);
 }
 
-// Prose that documents the component (`<Mermaid chart={...} />` in a code span)
-// isn't rendered, so it must not count as a chart the test failed to read.
-// Fences first — they are backtick runs the inline-span pattern would misread.
-function stripCode(source: string): string {
-  return source.replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, "");
-}
-
 function countTags(source: string): number {
-  return Array.from(stripCode(source).matchAll(TAG_PATTERN)).length;
+  return Array.from(source.matchAll(TAG_PATTERN)).length;
 }
 
 function contentFiles(): string[] {
