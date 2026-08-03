@@ -7,23 +7,28 @@ tech_stack: ["Tailscale"]
 
 # Context
 
-The home lab spans several machines in different roles — a Mac mini hub, a
-Raspberry Pi, and an Asus desktop — and I want to reach all of them from any
-of my personal devices (laptops, phones) with no port forwarding, no
-public exposure, and no per-machine VPN configuration. The machines are
-behind a home router doing NAT; some of them are only ever on the tailnet.
+The home lab spans several machines in different roles — an always-on hub, a
+small always-on sidekick, and desktop-class hardware I expect to bring in
+later — and I want to reach all of them from any of my personal devices
+(laptops, phones) with no port forwarding, no public exposure, and no
+per-machine VPN configuration. The machines are behind a home router doing
+NAT; some of them are only ever on the tailnet.
 
 Requirements:
 
 * **No public exposure.** None of the lab services should be reachable from
   the internet. No ports forwarded, no public DNS, no dashboards exposed.
-* **Zero-config joining.** A new node (the NixOS box, a laptop, a phone)
-  should join the network in one command and be reachable by name, not by
+* **Zero-config joining.** A new node (a desktop, a laptop, a phone) should
+  join the network in one command and be reachable by name, not by
   remembering IP addresses.
 * **Survives heterogeneous networks.** The lab has to work from home Wi-Fi,
   mobile data, and other people's networks without reconfiguration.
-* **Name-based addressing.** I want to `ssh robbie@asus-desktop` and open the
-  hub's GUIs by hostname, from anywhere.
+* **Name-based addressing.** I want to `ssh` to any node and open the hub's
+  GUIs by hostname, from anywhere.
+* **Reaching machines that sleep.** I plan to add higher-powered machines
+  that are only used occasionally. Those should sleep when idle rather than
+  burn electricity and make noise around the clock, so the network has to
+  give me a way to wake them on demand from anywhere.
 
 # Decision
 
@@ -33,15 +38,18 @@ personal devices on a single private tailnet.
 Each node runs the Tailscale client and joins the tailnet; the control plane
 (coordinated through Tailscale's service) handles NAT traversal and hands out
 stable `100.x.y.z` addresses and DNS names. My router stays closed: no inbound
-ports, no dynamic DNS, no port forwarding. Waking the
-[planned Asus desktop](/projects/homelab/adrs/010-nixos-gpu-worker) will take
-two hops: the tailnet carries the wake *request* to the Mac mini, which then
-sends the Wake-on-LAN magic packet on the home LAN, because that packet is a
-Layer 2 broadcast and can't route over the tailnet. That box will also put
-`tailscale0` in `networking.firewall.trustedInterfaces`, which accepts *all*
-traffic arriving on that interface — a deliberate choice that makes the
-tailnet itself the security boundary, rather than maintaining per-service
-firewall rules behind it.
+ports, no dynamic DNS, no port forwarding.
+
+Waking a sleeping machine takes two hops, because a Wake-on-LAN magic packet
+is a Layer 2 broadcast and can't route over the tailnet: the tailnet carries
+the wake *request* to an always-on node on the same physical LAN, and that
+node broadcasts the magic packet locally. The always-on hub is what makes
+this work from anywhere.
+
+The tailnet is the lab's trust boundary. Nodes treat traffic arriving over it
+as trusted rather than filtering service by service — the mesh is what keeps
+things private, so anything joining the tailnet is inside the boundary by
+definition.
 
 # Alternatives
 
@@ -59,9 +67,9 @@ firewall rules behind it.
 
 * **Pros**: ZeroTier and Netbird are viable open-source meshes.
 * **Cons**: Tailscale has the simplest join flow, is built on WireGuard
-  (auditable, fast), and has first-class support in NixOS (`services.tailscale.enable`).
-* **Decision**: Rejected. Tailscale wins on ecosystem fit with NixOS and
-  simplicity.
+  (auditable, fast), and is first-class packaged on every operating system
+  the lab runs.
+* **Decision**: Rejected. Tailscale wins on ecosystem fit and simplicity.
 
 ## Cloudflare Tunnel / other reverse proxies
 
@@ -75,13 +83,14 @@ firewall rules behind it.
 
 ### Pros
 
-* **One network for everything**: Mac mini, Pi, Asus desktop, laptop, and
-  phone all reachable by hostname with no port forwarding.
+* **One network for everything**: every lab machine, laptop, and phone
+  reachable by hostname with no port forwarding.
 * **Inspectable from any device**: The entire lab is reachable from any
   machine on the tailnet, which is the point of the project.
-* **NixOS-native**: `services.tailscale.enable = true` in the GPU worker
-  config, with `tailscale0` as a trusted firewall interface.
-* **No public attack surface**: Every dashboard, printer port, and agent
+* **Wake-on-demand stays possible**: machines that sleep to save power and
+  noise can still be woken from anywhere, via a request over the tailnet
+  relayed as a broadcast on the local network.
+* **No public attack surface**: Every dashboard, service port, and agent
   endpoint is tailnet-only.
 
 ### Cons
