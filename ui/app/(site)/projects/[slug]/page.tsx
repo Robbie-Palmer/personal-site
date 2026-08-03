@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Markdown } from "@/components/markdown";
+import { Mermaid } from "@/components/mermaid";
 import { ADRList } from "@/components/projects/adr-list";
 import { DesignEmbed } from "@/components/projects/design-embed";
 import { ProjectRoleBadge } from "@/components/projects/project-role-badge";
@@ -18,7 +19,7 @@ import {
   type ProjectWithADRs,
 } from "@/lib/api/projects";
 
-const projectComponents = { DesignEmbed };
+const projectComponents = { DesignEmbed, Mermaid };
 
 interface PageProps {
   params: Promise<{ slug: string }>;
