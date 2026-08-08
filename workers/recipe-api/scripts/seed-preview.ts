@@ -261,7 +261,7 @@ try {
     { slug: "chicken-breast", location: "fridge" },
     { slug: "pasta", location: "cupboards" },
     { slug: "rice", location: "cupboards" },
-    { slug: "chicken-stock", location: "cupboards" },
+    { slug: "vegetable-stock", location: "cupboards" },
     { slug: "tomato-passata", location: "cupboards" },
     { slug: "olive-oil", location: "cupboards" },
     { slug: "coconut-milk", location: "cupboards" },
