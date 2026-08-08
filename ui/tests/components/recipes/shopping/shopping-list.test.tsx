@@ -119,6 +119,73 @@ describe("ShoppingList value analytics", () => {
   });
 });
 
+type Slug = ShoppingRecipe["ingredients"][number]["ingredient"];
+
+const twoAisleRecipes: ShoppingRecipe[] = [
+  {
+    slug: "veg-and-chicken",
+    title: "Veg and chicken",
+    servings: 2,
+    cuisine: [],
+    ingredients: [
+      {
+        ingredient: "garlic" as Slug,
+        name: "garlic",
+        amount: 1,
+        unit: "clove",
+        category: "vegetable",
+      },
+      {
+        ingredient: "chicken-breast" as Slug,
+        name: "chicken breast",
+        amount: 200,
+        unit: "g",
+        category: "protein",
+      },
+    ],
+  },
+];
+
+const aisleHeadings = () =>
+  screen
+    .getAllByRole("heading", { level: 3 })
+    .filter((h) => /fruit & veg|meat & fish/i.test(h.textContent ?? ""));
+
+describe("ShoppingList aisle view section completion", () => {
+  beforeEach(() => {
+    pantryState.error = null;
+    pantryState.isPending = false;
+    localStorage.clear();
+    __resetShoppingListForTests();
+    addRecipe("veg-and-chicken");
+  });
+
+  afterEach(() => {
+    __resetShoppingListForTests();
+  });
+
+  it("sinks a fully-checked aisle below aisles still to buy and strikes its header", async () => {
+    const user = userEvent.setup();
+    render(<ShoppingList recipes={twoAisleRecipes} />);
+
+    const [first, second] = aisleHeadings();
+    expect(first).toHaveTextContent("Fruit & veg");
+    expect(second).toHaveTextContent("Meat & fish");
+    expect(first).not.toHaveClass("line-through");
+
+    // Tick off the only produce item, completing the Fruit & veg aisle.
+    await user.click(screen.getByRole("button", { name: /garlic/i }));
+
+    const [newFirst, newSecond] = aisleHeadings();
+    // Meat & fish (still to buy) rises above the completed Fruit & veg aisle.
+    expect(newFirst).toHaveTextContent("Meat & fish");
+    expect(newSecond).toHaveTextContent("Fruit & veg");
+    // The completed aisle's header is scored off.
+    expect(newSecond).toHaveClass("line-through");
+    expect(newFirst).not.toHaveClass("line-through");
+  });
+});
+
 describe("ShoppingList pantry state", () => {
   beforeEach(() => {
     pantryState.error = null;
