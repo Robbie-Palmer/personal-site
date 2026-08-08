@@ -201,11 +201,22 @@ if (!household.id || household.membership.role !== "owner") {
   throw new Error("Household owner fixture did not match");
 }
 
+// The ID must be a UUID — that is exactly what the household routes require —
+// and validating it before building the request path keeps untrusted response
+// data out of the URL.
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+if (!uuidPattern.test(household.id)) {
+  throw new Error(`Household ID is not a UUID: ${household.id}`);
+}
+
 const members = await expectJson<HouseholdMember[]>(
-  `/households/${household.id}/members`,
+  `/households/${encodeURIComponent(household.id)}/members`,
   ownerCookie,
 );
-const memberRoles = members.map((member) => member.role).sort();
+const memberRoles = members
+  .map((member) => member.role)
+  .sort((a, b) => a.localeCompare(b));
 if (
   members.length !== 2 ||
   memberRoles[0] !== "member" ||
