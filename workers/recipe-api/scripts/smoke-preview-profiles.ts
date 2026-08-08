@@ -25,9 +25,32 @@ type DietProfile = {
   recipeMatchMode: "hide" | "warn";
 };
 
+type HouseholdSummary = {
+  id: string;
+  name: string;
+  membership: { id: string; role: string };
+};
+
+type HouseholdMember = {
+  id: string;
+  userId: string;
+  role: string;
+};
+
 type FollowStatus = {
   following: boolean;
   canFollow: boolean;
+};
+
+type CookConnection = {
+  id: string;
+  name: string;
+};
+
+type PublicCookProfile = {
+  id: string;
+  followers: CookConnection[];
+  following: CookConnection[];
 };
 
 type DiscoverFeed = {
@@ -56,8 +79,9 @@ async function fetchWhenReady(
         ),
       });
       // Wrangler can report success before every request reaches the new Worker
-      // version, and the previous version points at the just-deleted Neon branch.
-      if (response.status < 500) return response;
+      // version. The previous version can lack a new route (404) or point at the
+      // just-deleted Neon branch (5xx).
+      if (response.status !== 404 && response.status < 500) return response;
       lastError = new Error(`GET ${path} returned ${response.status}`);
       await response.body?.cancel();
     } catch (error) {
@@ -97,7 +121,9 @@ async function expectAuthenticationRequired(path: string): Promise<void> {
   }
 }
 
-async function createSessionCookie(): Promise<string> {
+async function createSessionCookie(
+  email: string = previewScenarios[0].email,
+): Promise<string> {
   const { db, client } = createDb(databaseURL);
   try {
     const auth = createAuth(db, {
@@ -107,7 +133,7 @@ async function createSessionCookie(): Promise<string> {
     });
     const signIn = await auth.api.signInEmail({
       body: {
-        email: previewScenarios[0].email,
+        email,
         password: requiredEnv("PREVIEW_AUTH_PASSWORD"),
       },
       asResponse: true,
@@ -183,54 +209,163 @@ if (
   throw new Error("Empty-account diet fixture did not match");
 }
 
-const cooks = await expectJson<{
-  cooks: Array<{ id: string; latestRecipeTitle: string }>;
-}>("/recipes/cooks", cookie);
-const followedCook = cooks.cooks.find(
-  (cook) => cook.latestRecipeTitle === "Preview Tomato Toast",
+// Household owner scenario. The household routes accept only UUID-form
+// `householdId`/`memberId`, so drive them end to end — resolve the household,
+// then read its members — to confirm the seeded household is reachable through
+// the API rather than merely present in the database.
+const ownerCookie = await createSessionCookie("household-owner@preview.invalid");
+const households = await expectJson<HouseholdSummary[]>(
+  "/households",
+  ownerCookie,
 );
-if (!followedCook) {
-  throw new Error("Public preview cook fixture was not available");
+const household = households[0];
+if (households.length !== 1 || !household) {
+  throw new Error(
+    `Household owner should belong to exactly one household, saw ${households.length}`,
+  );
+}
+if (!household.id || household.membership.role !== "owner") {
+  throw new Error("Household owner fixture did not match");
 }
 
-const initialFollow = await expectJson<FollowStatus>(
-  `/recipes/cooks/${followedCook.id}/follow`,
+// The ID must be a UUID — that is exactly what the household routes require —
+// and validating it before building the request path keeps untrusted response
+// data out of the URL.
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+if (!uuidPattern.test(household.id)) {
+  throw new Error(`Household ID is not a UUID: ${household.id}`);
+}
+
+const members = await expectJson<HouseholdMember[]>(
+  `/households/${encodeURIComponent(household.id)}/members`,
+  ownerCookie,
+);
+const memberRoles = members
+  .map((member) => member.role)
+  .sort((a, b) => a.localeCompare(b));
+if (
+  members.length !== 2 ||
+  memberRoles[0] !== "member" ||
+  memberRoles[1] !== "owner"
+) {
+  throw new Error(
+    `Household should have one owner and one member, saw roles: ${memberRoles.join(", ")}`,
+  );
+}
+
+// Cross-household social graph. The solo recipes cook and household owner are
+// seeded as reciprocal follows, while only the owner's public recipe may cross
+// the household boundary.
+const recipesCookie = await createSessionCookie(
+  "recipes-user@preview.invalid",
+);
+const cooks = await expectJson<{
+  cooks: Array<{ id: string; name: string }>;
+}>("/recipes/cooks", recipesCookie);
+const recipesCook = cooks.cooks.find(
+  (cook) => cook.name === "User with recipes",
+);
+const ownerCook = cooks.cooks.find((cook) => cook.name === "Household owner");
+if (!recipesCook || !ownerCook) {
+  throw new Error("Cross-household public cook fixtures were not available");
+}
+if (members.some((member) => member.userId === recipesCook.id)) {
+  throw new Error("Solo recipes cook unexpectedly belongs to the household");
+}
+
+const ownerFollowsRecipes = await expectJson<FollowStatus>(
+  `/recipes/cooks/${recipesCook.id}/follow`,
+  ownerCookie,
+);
+const recipesFollowsOwner = await expectJson<FollowStatus>(
+  `/recipes/cooks/${ownerCook.id}/follow`,
+  recipesCookie,
+);
+if (!ownerFollowsRecipes.following || !recipesFollowsOwner.following) {
+  throw new Error("Cross-household reciprocal follow fixture did not match");
+}
+
+const ownerProfile = await expectJson<{ cook: PublicCookProfile }>(
+  `/recipes/cooks?cook=${ownerCook.id}`,
+  recipesCookie,
+);
+const recipesProfile = await expectJson<{ cook: PublicCookProfile }>(
+  `/recipes/cooks?cook=${recipesCook.id}`,
+  ownerCookie,
+);
+if (
+  !ownerProfile.cook.followers.some((cook) => cook.id === recipesCook.id) ||
+  !ownerProfile.cook.following.some((cook) => cook.id === recipesCook.id) ||
+  !recipesProfile.cook.followers.some((cook) => cook.id === ownerCook.id) ||
+  !recipesProfile.cook.following.some((cook) => cook.id === ownerCook.id)
+) {
+  throw new Error("Public cook profiles did not expose reciprocal follows");
+}
+
+const recipesFollowingFeed = await expectJson<DiscoverFeed>(
+  "/recipes/discover/feed?scope=following",
+  recipesCookie,
+);
+if (
+  !recipesFollowingFeed.items.some(
+    (item) =>
+      item.author.id === ownerCook.id &&
+      item.recipe.slug === "preview-public-household-flatbread",
+  )
+) {
+  throw new Error("Solo cook feed did not include the followed owner's public recipe");
+}
+if (
+  recipesFollowingFeed.items.some(
+    (item) => item.recipe.slug === "preview-household-veggie-curry",
+  )
+) {
+  throw new Error("Household-only recipe leaked to an outside follower");
+}
+
+const ownerFollowingFeed = await expectJson<DiscoverFeed>(
+  "/recipes/discover/feed?scope=following",
+  ownerCookie,
+);
+if (
+  !ownerFollowingFeed.items.some(
+    (item) =>
+      item.author.id === recipesCook.id &&
+      item.recipe.slug === "preview-public-tomato-toast",
+  ) ||
+  !ownerFollowingFeed.items.some(
+    (item) => item.recipe.slug === "preview-household-veggie-curry",
+  )
+) {
+  throw new Error(
+    "Household owner feed did not combine followed public and household activity",
+  );
+}
+
+// Keep mutation coverage independent from the seeded reciprocal relationship.
+const emptyInitialFollow = await expectJson<FollowStatus>(
+  `/recipes/cooks/${ownerCook.id}/follow`,
   cookie,
 );
-if (!initialFollow.canFollow || initialFollow.following) {
+if (!emptyInitialFollow.canFollow || emptyInitialFollow.following) {
   throw new Error("Empty-account follow fixture did not start unfollowed");
 }
-
-const followed = await expectJson<FollowStatus>(
-  `/recipes/cooks/${followedCook.id}/follow`,
+const emptyFollowed = await expectJson<FollowStatus>(
+  `/recipes/cooks/${ownerCook.id}/follow`,
   cookie,
   { method: "PUT", headers: { origin: siteURL } },
 );
-if (!followed.canFollow || !followed.following) {
-  throw new Error("Preview cook could not be followed");
+if (!emptyFollowed.following) {
+  throw new Error("Empty account could not follow the household owner");
 }
-
-const followingFeed = await expectJson<DiscoverFeed>(
-  "/recipes/discover/feed?scope=following",
-  cookie,
-);
-if (
-  !followingFeed.items.some(
-    (item) =>
-      item.author.id === followedCook.id &&
-      item.recipe.slug === "preview-public-tomato-toast",
-  )
-) {
-  throw new Error("Following feed did not include the followed cook");
-}
-
-const unfollowed = await expectJson<FollowStatus>(
-  `/recipes/cooks/${followedCook.id}/follow`,
+const emptyUnfollowed = await expectJson<FollowStatus>(
+  `/recipes/cooks/${ownerCook.id}/follow`,
   cookie,
   { method: "DELETE", headers: { origin: siteURL } },
 );
-if (!unfollowed.canFollow || unfollowed.following) {
-  throw new Error("Preview cook could not be unfollowed");
+if (emptyUnfollowed.following) {
+  throw new Error("Empty account could not clean up its preview follow");
 }
 
 console.log("Authenticated preview profile smoke test passed.");

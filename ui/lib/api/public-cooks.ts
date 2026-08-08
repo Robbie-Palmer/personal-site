@@ -12,11 +12,19 @@ export type PublicCookProfile = {
   id: string;
   name: string;
   image: string | null;
+  followers: PublicCookConnection[];
+  following: PublicCookConnection[];
   activity: Array<{
     type: "recipe_added";
     recipe: SavedRecipeApiRecord;
     createdAt: string;
   }>;
+};
+
+export type PublicCookConnection = {
+  id: string;
+  name: string;
+  image: string | null;
 };
 
 export type CookFollowStatus = {

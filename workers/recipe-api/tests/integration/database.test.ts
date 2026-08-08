@@ -148,8 +148,8 @@ beforeAll(async () => {
     where slug in ('almond-milk', 'cajun-powder', 'cajun-seasoning')
     order by slug
   `;
-  expect(migrationCount?.count).toBe(6);
-  expect(tableCount?.count).toBe(32);
+  expect(migrationCount?.count).toBe(7);
+  expect(tableCount?.count).toBe(33);
   expect(catalogRows).toEqual([
     { category: "dairy", slug: "almond-milk" },
     { category: "spice", slug: "cajun-seasoning" },
@@ -244,6 +244,30 @@ describe("recipe API PostgreSQL integration", () => {
     expect(await json(followResponse)).toEqual({
       following: true,
       canFollow: true,
+    });
+
+    const reciprocalFollowResponse = await authenticatedRequest(
+      followedCook,
+      `/recipes/cooks/${viewer.id}/follow`,
+      { method: "PUT" },
+    );
+    expect(reciprocalFollowResponse.status).toBe(200);
+
+    const profileResponse = await app.request(
+      `/recipes/cooks?cook=${followedCook.id}`,
+      {},
+      baseEnv,
+    );
+    expect(profileResponse.status).toBe(200);
+    expect(await json(profileResponse)).toMatchObject({
+      cook: {
+        followers: [
+          { id: viewer.id, name: "Following Viewer", image: null },
+        ],
+        following: [
+          { id: viewer.id, name: "Following Viewer", image: null },
+        ],
+      },
     });
 
     const feedResponse = await authenticatedRequest(
@@ -419,6 +443,12 @@ describe("recipe API PostgreSQL integration", () => {
     const owner = await createUser("Household Owner", "owner@example.test");
     const invitee = await createUser("Household Member", "member@example.test");
 
+    const ownerPantryResponse = await authenticatedRequest(owner, "/pantry", {
+      method: "PUT",
+      body: { stock: { onion: "fresh" } },
+    });
+    expect(ownerPantryResponse.status).toBe(200);
+
     const householdResponse = await authenticatedRequest(owner, "/households", {
       method: "POST",
       body: { name: "Integration Household" },
@@ -456,6 +486,36 @@ describe("recipe API PostgreSQL integration", () => {
       .limit(1);
     expect(invitedEvent).toBeDefined();
 
+    const inviteePantryResponse = await authenticatedRequest(
+      invitee,
+      "/pantry",
+      {
+        method: "PUT",
+        body: { stock: { salt: "cupboards" } },
+      },
+    );
+    expect(inviteePantryResponse.status).toBe(200);
+
+    const blockedAcceptResponse = await authenticatedRequest(
+      invitee,
+      `/households/invitations/${invitation.id}/accept`,
+      { method: "POST" },
+    );
+    expect(blockedAcceptResponse.status).toBe(409);
+    expect(await json<{ error: string }>(blockedAcceptResponse)).toEqual({
+      error: "Pantry must be empty before joining a household",
+    });
+
+    const clearedPantryResponse = await authenticatedRequest(
+      invitee,
+      "/pantry",
+      {
+        method: "PUT",
+        body: { stock: {} },
+      },
+    );
+    expect(clearedPantryResponse.status).toBe(200);
+
     const acceptResponse = await authenticatedRequest(
       invitee,
       `/households/invitations/${invitation.id}/accept`,
@@ -465,6 +525,72 @@ describe("recipe API PostgreSQL integration", () => {
     expect(
       await json<{ membershipCreated: boolean }>(acceptResponse),
     ).toMatchObject({ membershipCreated: true });
+
+    const sharedPantryUpdate = await authenticatedRequest(
+      invitee,
+      "/pantry/items/salt",
+      {
+        method: "PUT",
+        body: { location: "cupboards" },
+      },
+    );
+    expect(sharedPantryUpdate.status).toBe(200);
+
+    const sharedPantry = await authenticatedRequest(owner, "/pantry");
+    expect(await json(sharedPantry)).toEqual({
+      scope: {
+        type: "household",
+        household: {
+          id: household.id,
+          name: "Integration Household",
+        },
+      },
+      stock: { onion: "fresh", salt: "cupboards" },
+    });
+
+    const clearSharedPantry = await authenticatedRequest(invitee, "/pantry", {
+      method: "PUT",
+      body: { stock: {} },
+    });
+    expect(clearSharedPantry.status).toBe(200);
+    const concurrentAddition = await authenticatedRequest(
+      owner,
+      "/pantry/items/almond-milk",
+      {
+        method: "PUT",
+        body: { location: "fridge" },
+      },
+    );
+    expect(concurrentAddition.status).toBe(200);
+    const restoredPantry = await authenticatedRequest(
+      invitee,
+      "/pantry/restore",
+      {
+        method: "PUT",
+        body: {
+          stock: {
+            onion: "fresh",
+            salt: "cupboards",
+            "almond-milk": "cupboards",
+          },
+        },
+      },
+    );
+    expect(restoredPantry.status).toBe(200);
+    expect(await json(restoredPantry)).toEqual({
+      scope: {
+        type: "household",
+        household: {
+          id: household.id,
+          name: "Integration Household",
+        },
+      },
+      stock: {
+        "almond-milk": "fridge",
+        onion: "fresh",
+        salt: "cupboards",
+      },
+    });
 
     const recipeResponse = await authenticatedRequest(invitee, "/recipes", {
       method: "POST",
@@ -477,12 +603,30 @@ describe("recipe API PostgreSQL integration", () => {
     });
     expect(recipeResponse.status).toBe(201);
 
+    // Defensively simulate a stale personal duplicate. Household stock remains
+    // authoritative when the owner carries it forward during deletion.
+    await db.insert(schema.pantryItem).values({
+      userId: owner.id,
+      ingredientSlug: "onion",
+      location: "cupboards",
+    });
+
     const deleteResponse = await authenticatedRequest(
       owner,
       `/households/${household.id}`,
       { method: "DELETE" },
     );
     expect(deleteResponse.status).toBe(204);
+
+    const inheritedPantry = await authenticatedRequest(owner, "/pantry");
+    expect(await json(inheritedPantry)).toEqual({
+      scope: { type: "personal" },
+      stock: {
+        "almond-milk": "fridge",
+        onion: "fresh",
+        salt: "cupboards",
+      },
+    });
 
     expect(
       await db

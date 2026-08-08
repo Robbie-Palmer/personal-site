@@ -911,4 +911,108 @@ export const technologies: TechnologyContent[] = [
     website: "https://github.com/crate-ci/typos",
     type: "tool",
   },
+  {
+    name: "OpenAPI",
+    added: "2026-07-31",
+    description:
+      "Language-agnostic specification describing HTTP APIs — paths, methods, and request/response schemas — as a machine-readable contract",
+    website: "https://www.openapis.org",
+    type: "tool",
+  },
+  {
+    name: "Spectral",
+    added: "2026-07-31",
+    description:
+      "JSON/YAML and OpenAPI linter enforcing API conventions with composable rulesets: naming, method correctness, security, and response consistency",
+    website: "https://stoplight.io/open-source/spectral",
+    type: "tool",
+  },
+  {
+    name: "oasdiff",
+    added: "2026-07-31",
+    description:
+      "Diffs two OpenAPI specs and classifies changes, failing CI on breaking changes such as removed endpoints, narrowed enums, or newly required fields",
+    website: "https://www.oasdiff.com",
+    type: "tool",
+  },
+  {
+    name: "Tailscale",
+    added: "2026-08-02",
+    description:
+      "WireGuard-based mesh VPN overlaying the internet with private device networking across all machines",
+    website: "https://tailscale.com",
+    type: "tool",
+  },
+  {
+    name: "AdGuard Home",
+    added: "2026-08-02",
+    description:
+      "Self-hosted network-wide DNS filtering with ad and tracker blocking, acting as a local DNS resolver",
+    website: "https://adguard.com/en/adguard-home.html",
+    type: "tool",
+  },
+  {
+    name: "t3-code",
+    added: "2026-08-02",
+    description:
+      "Open-source web GUI for managing coding agents (Claude Code, Codex, opencode, Grok Build) from one surface",
+    website: "https://t3.codes",
+    type: "tool",
+  },
+  {
+    name: "opencode",
+    added: "2026-08-02",
+    description:
+      "Open-source terminal-based AI coding agent built for custom models and agentic workflows",
+    website: "https://opencode.ai",
+    type: "tool",
+  },
+  {
+    name: "Grok Build",
+    added: "2026-08-02",
+    description:
+      "xAI's terminal coding agent and CLI powered by Grok models, with skills, plugins, and headless mode",
+    website: "https://x.ai/cli",
+    type: "tool",
+  },
+  {
+    name: "Netdata",
+    added: "2026-08-02",
+    description:
+      "Real-time infrastructure monitoring with alerts delivered to Slack and distributed metric collection",
+    website: "https://www.netdata.cloud",
+    type: "tool",
+  },
+  {
+    name: "CUPS",
+    added: "2026-08-02",
+    description:
+      "Unix printing system that keeps unsupported printers working via generic drivers and IPP",
+    website: "https://www.cups.org",
+    type: "tool",
+  },
+  {
+    name: "NixOS",
+    added: "2026-08-02",
+    description:
+      "Reproducible Linux distribution built on the Nix package manager with declarative system configuration",
+    website: "https://nixos.org",
+    type: "platform",
+  },
+  {
+    name: "Ente",
+    added: "2026-08-02",
+    description:
+      "Open-source, end-to-end encrypted cloud photo storage with a self-hostable server",
+    website: "https://ente.io",
+    type: "tool",
+  },
+  {
+    name: "Jellyfin",
+    added: "2026-08-02",
+    description:
+      "Free, self-hosted media server for streaming movies and TV shows to any client",
+    website: "https://jellyfin.org",
+    type: "tool",
+  },
 ];

@@ -6,6 +6,8 @@ import type {
 
 export type KitchenLocation = "fridge" | "cupboards" | "fresh";
 
+export type KitchenStock = Record<string, KitchenLocation>;
+
 export type KitchenLocationView = {
   id: KitchenLocation;
   label: string;

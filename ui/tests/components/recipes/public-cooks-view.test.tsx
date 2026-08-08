@@ -51,6 +51,8 @@ const profile = {
   id: "cook-1",
   name: "Ada Cook",
   image: null,
+  followers: [{ id: "follower-1", name: "Grace Baker", image: null }],
+  following: [{ id: "followed-1", name: "Lin Chef", image: null }],
   activity: [
     {
       type: "recipe_added",
@@ -132,6 +134,16 @@ describe("PublicCooksView", () => {
       "cook-1",
       expect.any(AbortSignal),
     );
+    expect(screen.getByText("1 Followers")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Grace Baker/ })).toHaveAttribute(
+      "href",
+      "/recipes/cooks?cook=follower-1",
+    );
+    expect(screen.getByText("1 Following")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Lin Chef/ })).toHaveAttribute(
+      "href",
+      "/recipes/cooks?cook=followed-1",
+    );
   });
 
   it("follows a cook from their profile", async () => {
@@ -146,6 +158,7 @@ describe("PublicCooksView", () => {
     await waitFor(() =>
       expect(mocks.setCookFollowing).toHaveBeenCalledWith("cook-1", true),
     );
+    await waitFor(() => expect(mocks.getPublicCook).toHaveBeenCalledTimes(2));
     expect(
       await screen.findByRole("button", { name: "Following" }),
     ).toHaveAttribute("aria-pressed", "true");

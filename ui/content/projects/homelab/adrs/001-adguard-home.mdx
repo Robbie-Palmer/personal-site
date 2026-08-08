@@ -1,0 +1,111 @@
+---
+title: "ADR 001: AdGuard Home for DNS"
+date: "2026-08-02"
+status: "Accepted"
+tech_stack: ["AdGuard Home"]
+---
+
+# Context
+
+Every device on my home network — phones, laptops, TVs, and streaming boxes —
+was sending DNS lookups through the router's upstream, with embedded trackers
+phoning home to advertisers and analytics vendors on every device. There was
+no network-wide way to stop that. I want network-wide ad and tracker blocking
+applied at the DNS layer.
+
+Running a local resolver adds a dependency: if the resolver is down, every
+device on the network loses DNS. So resilience is a requirement from the
+start, not an afterthought.
+
+Requirements:
+
+* **Network-wide filtering.** Blocking must apply to every device on the
+  LAN regardless of what it's running. Per-device ad blockers don't cover the
+  IoT and streaming boxes.
+* **Resilient resolution.** DNS is a single point of failure for the whole
+  house — if the resolver is down, the internet "is down". There must be no
+  single box whose failure takes the network with it.
+* **Self-hosted.** No external DNS proxy or commercial filtering service
+  sitting between me and my lookups.
+* **Configurable from a web UI**, with block stats I can actually read.
+
+# Decision
+
+Run **AdGuard Home** as the local, network-wide DNS filter, deployed in a
+redundant pair: the Mac mini is the primary resolver my home router points
+at, and the Raspberry Pi is the secondary resolver the router also points at.
+If one box is down — e.g. during a reboot — the other keeps the home network
+functioning.
+
+The two instances stay in sync with **AdGuardHome-Sync**
+([bakito/adguardhome-sync](https://github.com/bakito/adguardhome-sync)),
+which runs on a schedule and replicates filters, rewrites, and settings from
+the primary to the replica. Config is maintained in one place; the Pi mirrors
+it automatically.
+
+Because the nodes are on the [Tailscale tailnet](/projects/homelab/adrs/000-tailscale),
+AdGuard Home's DNS is reachable off the home network too: the phone can point
+at the tailnet resolver while on cellular or any other network, so tracking
+and ad blocking follow the device wherever it goes — coverage a
+router-level setup can't provide.
+
+The result has been remarkable: AdGuard Home blocks roughly **33% of all
+requests** over my home network. That's a third of the queries my devices
+were making to trackers and ad servers.
+
+# Alternatives
+
+## Pi-hole
+
+* **Pros**: The best-known self-hosted DNS blocker, huge community, battle-tested.
+* **Cons**: Slightly more assembly required (the famous DHCP+adblocking
+  combo needs a web server and extra packages). On a Pi it does the same job
+  with the same result.
+* **Decision**: Rejected. AdGuard Home was picked for its easier install, a
+  friendlier admin UI, and built-in DoH/DoT upstream support — the practical
+  difference on my network is marginal.
+
+## Router-integrated filtering (e.g. OpenWrt adblock)
+
+* **Pros**: No extra hardware; filtering lives in the router.
+* **Cons**: Ties blocking to the router's lifecycle and firmware, and my
+  router doesn't run OpenWrt. Locks filtering into whatever the router does.
+* **Decision**: Rejected. Keeping DNS filtering on dedicated boxes decouples
+  it from router upgrades and lets me move it between hardware freely.
+
+## Commercial DNS filtering (e.g. NextDNS, Cloudflare 1.1.1.1)
+
+* **Pros**: Zero maintenance, managed dashboards.
+* **Cons**: DNS lookups (and their filtering) become a privacy dependency on
+  a third party; I want the data about my own network's DNS to stay mine.
+* **Decision**: Rejected. Self-hosting was the point — this ADR exists
+  partly because of the privacy motivation.
+
+# Consequences
+
+### Pros
+
+* **Privacy win**: A third of network DNS traffic was tracking — now blocked
+  at the source, including on devices I can't install anything on.
+* **Resilience**: Two independent DNS nodes on separate hardware; router
+  fails over automatically.
+* **Self-hosted and transparent**: Full logs and block stats in the AdGuard
+  Home UI, on hardware I own.
+* **Portable filtering**: the tailnet resolver means blocking follows the
+  phone off the home network, onto cellular or any other Wi-Fi.
+* **Single config to maintain**: AdGuardHome-Sync keeps both instances in
+  sync, so filters and settings are managed once rather than twice.
+
+### Cons
+
+* **Another service to maintain**: Two AdGuard Home instances to keep
+  updated. AdGuardHome-Sync keeps their configs in sync automatically, but
+  it's still one more tool that has to run.
+* **Blocklist churn to manage**: Legit domains can get caught by blocklists
+  and need occasional allowlisting, and new tracker domains keep appearing
+  and need adding to the block list as things change.
+* **DNS is critical infrastructure now**: If both boxes are down, the whole
+  network loses resolution. The redundant pair covers any single-box
+  failure, but a total outage is self-concealing — anything that would tell
+  me about it needs DNS to reach the outside world too. In that scenario the
+  failure is noticed when the network stops working.

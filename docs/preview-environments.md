@@ -214,7 +214,8 @@ open or update an internal PR — the workflow runs from `main`. Confirm:
    of `preview-base`, with no production rows.
 3. Cloudflare contains `recipe-api-pr-<number>` with no Hyperdrive binding.
 4. The canonical `https://pr-<number>.<pages-host>` URL requires Access.
-5. The sign-in menu offers the empty, populated, and administrator scenarios.
+5. The sign-in menu offers the empty, populated, administrator, and paired
+   household (owner and member) scenarios.
 6. The onboarding sign-up button creates a new empty QA account on every use.
 7. Closing the PR removes both the Neon branch and Worker.
 

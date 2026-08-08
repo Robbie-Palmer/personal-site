@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RecipeApiProxyContext } from "../../../functions/api/auth/routing";
 import { onRequest as onHouseholdRequest } from "../../../functions/api/households/[[path]]";
+import { onRequest as onPantryRequest } from "../../../functions/api/pantry/[[path]]";
 import { onRequest } from "../../../functions/api/profile/diet";
 import { onRequest as onOptionsRequest } from "../../../functions/api/profile/diet/options";
 
@@ -136,5 +137,33 @@ describe("household proxy", () => {
     }
     expect(forwarded.url).toBe(`https://recipe-api.example.test${workerPath}`);
     expect(forwarded.method).toBe("DELETE");
+  });
+});
+
+describe("pantry proxy", () => {
+  it("maps pantry item requests and query parameters to the Worker URL", async () => {
+    const fetchMock = vi.fn(async (_request: Request) => new Response("ok"));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onPantryRequest({
+      request: new Request(
+        "https://robbiepalmer.me/api/pantry/items/onion?source=kitchen",
+        {
+          method: "PUT",
+        },
+      ),
+      env: { RECIPE_API_URL: "https://recipe-api.example.test" },
+    });
+
+    expect(response.status).toBe(200);
+    const forwarded = fetchMock.mock.calls[0]?.[0];
+    expect(forwarded).toBeInstanceOf(Request);
+    if (!(forwarded instanceof Request)) {
+      throw new Error("Expected pantry proxy to forward a Request");
+    }
+    expect(forwarded.url).toBe(
+      "https://recipe-api.example.test/pantry/items/onion?source=kitchen",
+    );
+    expect(forwarded.method).toBe("PUT");
   });
 });

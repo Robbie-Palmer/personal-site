@@ -9,7 +9,8 @@ export const previewScenarios = [
   {
     id: "user-with-recipes",
     name: "User with recipes",
-    description: "A standard user with private and public recipe fixtures.",
+    description:
+      "A solo cook with private and public recipes who follows the household owner.",
     email: "recipes-user@preview.invalid",
     role: "user",
   },
@@ -19,6 +20,22 @@ export const previewScenarios = [
     description: "An administrator with representative recipe fixtures.",
     email: "admin-user@preview.invalid",
     role: "admin",
+  },
+  {
+    id: "household-owner",
+    name: "Household owner",
+    description:
+      "Owns a shared household and mutually follows the solo recipes cook.",
+    email: "household-owner@preview.invalid",
+    role: "user",
+  },
+  {
+    id: "household-member",
+    name: "Household member",
+    description:
+      "Shares the household pantry and household-only recipes with the owner.",
+    email: "household-member@preview.invalid",
+    role: "user",
   },
 ] as const;
 

@@ -23,6 +23,8 @@ describe("public cooks API client", () => {
       id: "cook-1",
       name: "Ada Cook",
       image: null,
+      followers: [],
+      following: [],
       activity: [],
     };
     const fetchMock = vi

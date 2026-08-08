@@ -337,6 +337,51 @@ export const ingredient = pgTable("ingredient", {
     .$onUpdate(() => new Date()),
 });
 
+export const pantryLocationEnum = pgEnum("pantry_location", [
+  "fridge",
+  "cupboards",
+  "fresh",
+]);
+
+/**
+ * Pantry stock has exactly one owner. Solo cooks own their stock directly;
+ * joining or creating a household switches them to the household-owned rows.
+ */
+export const pantryItem = pgTable(
+  "pantry_item",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: text().references(() => user.id, { onDelete: "cascade" }),
+    organizationId: text().references(() => organization.id, {
+      onDelete: "cascade",
+    }),
+    ingredientSlug: text()
+      .notNull()
+      .references(() => ingredient.slug, { onDelete: "cascade" }),
+    location: pantryLocationEnum().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    check(
+      "pantry_item_owner_check",
+      sql`num_nonnulls(${table.userId}, ${table.organizationId}) = 1`,
+    ),
+    uniqueIndex("pantry_item_user_ingredient_uidx").on(
+      table.userId,
+      table.ingredientSlug,
+    ),
+    uniqueIndex("pantry_item_household_ingredient_uidx").on(
+      table.organizationId,
+      table.ingredientSlug,
+    ),
+    index("pantry_item_ingredient_slug_idx").on(table.ingredientSlug),
+  ],
+);
+
 export const ingredientGroup = pgTable("ingredient_group", {
   key: text().primaryKey(),
   label: text().notNull(),

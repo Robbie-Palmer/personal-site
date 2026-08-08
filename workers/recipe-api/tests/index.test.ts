@@ -108,6 +108,15 @@ const dbMock = vi.hoisted(() => {
     createdAt: Date;
     updatedAt: Date;
   };
+  type PantryItemRow = {
+    id: string;
+    userId: string | null;
+    organizationId: string | null;
+    ingredientSlug: string;
+    location: "fridge" | "cupboards" | "fresh";
+    createdAt: Date;
+    updatedAt: Date;
+  };
 
   const state = {
     users: [] as UserRow[],
@@ -144,6 +153,7 @@ const dbMock = vi.hoisted(() => {
     dietPresets: [] as DietPresetRow[],
     ingredientGroups: [] as IngredientGroupRow[],
     ingredients: [] as IngredientRow[],
+    pantryItems: [] as PantryItemRow[],
     ingredientGroupMembers: [] as {
       groupKey: string;
       ingredientSlug: string;
@@ -187,6 +197,8 @@ const dbMock = vi.hoisted(() => {
     member.role,
     member.createdAt,
   ];
+  const isPersonalPantryQuery = (query: string) =>
+    query.includes('"pantry_item"."user_id" =');
   const invitationRow = (invitation: InvitationRow) => [
     invitation.id,
     invitation.organizationId,
@@ -266,6 +278,7 @@ const dbMock = vi.hoisted(() => {
     state.dietPresets = [];
     state.ingredientGroups = [];
     state.ingredients = [];
+    state.pantryItems = [];
     state.ingredientGroupMembers = [];
     state.dietPresetExcludedGroups = [];
     state.dietPresetExcludedIngredients = [];
@@ -426,6 +439,31 @@ const dbMock = vi.hoisted(() => {
       };
       state.invitations.push(invitation);
       return [invitationRow(invitation)];
+    }
+
+    if (query.startsWith('insert into "pantry_item"')) {
+      for (let index = 0; index < params.length; index += 4) {
+        const pantryItem: PantryItemRow = {
+          id: crypto.randomUUID(),
+          userId: (params[index] as string | null) ?? null,
+          organizationId: (params[index + 1] as string | null) ?? null,
+          ingredientSlug: params[index + 2] as string,
+          location: params[index + 3] as PantryItemRow["location"],
+          createdAt: date,
+          updatedAt: date,
+        };
+        const conflicts = state.pantryItems.some(
+          (candidate) =>
+            candidate.ingredientSlug === pantryItem.ingredientSlug &&
+            ((pantryItem.userId !== null && candidate.userId === pantryItem.userId) ||
+              (pantryItem.organizationId !== null &&
+                candidate.organizationId === pantryItem.organizationId)),
+        );
+        if (!query.includes("on conflict do nothing") || !conflicts) {
+          state.pantryItems.push(pantryItem);
+        }
+      }
+      return [];
     }
 
     if (query.startsWith('insert into "user_diet_profile"')) {
@@ -648,8 +686,43 @@ const dbMock = vi.hoisted(() => {
       return [];
     }
 
+    if (query.startsWith('update "pantry_item"')) {
+      const userId = (params[0] as string | null) ?? null;
+      const organizationId = (params[1] as string | null) ?? null;
+      const previousOwnerId = params.at(-1) as string;
+      const personal = isPersonalPantryQuery(query);
+      for (const item of state.pantryItems) {
+        const matchesPreviousOwner = personal
+          ? item.userId === previousOwnerId
+          : item.organizationId === previousOwnerId;
+        if (matchesPreviousOwner) {
+          item.userId = userId;
+          item.organizationId = organizationId;
+          item.updatedAt = date;
+        }
+      }
+      return [];
+    }
+
     if (query.startsWith('delete from "app_rate_limit"')) {
       state.rateLimitSweeps += 1;
+      return [];
+    }
+
+    if (query.startsWith('delete from "pantry_item"')) {
+      const ownerId = params[0] as string;
+      const ingredientSlugs = new Set(params.slice(1) as string[]);
+      const personal = isPersonalPantryQuery(query);
+      state.pantryItems = state.pantryItems.filter(
+        (item) =>
+          !(
+            (personal
+              ? item.userId === ownerId
+              : item.organizationId === ownerId) &&
+            (ingredientSlugs.size === 0 ||
+              ingredientSlugs.has(item.ingredientSlug))
+          ),
+      );
       return [];
     }
 
@@ -889,6 +962,31 @@ const dbMock = vi.hoisted(() => {
         .map((candidate) => [candidate.id]);
     }
 
+    if (
+      query.includes('from "user_follow"') &&
+      query.includes('inner join "user"')
+    ) {
+      const cookId = params[0] as string;
+      const selectsFollowers = query.includes(
+        'where "user_follow"."followed_user_id" =',
+      );
+      const connectedIds = state.userFollows
+        .filter((follow) =>
+          selectsFollowers
+            ? follow.followedUserId === cookId
+            : follow.followerUserId === cookId,
+        )
+        .map((follow) =>
+          selectsFollowers ? follow.followerUserId : follow.followedUserId,
+        );
+      return connectedIds.map((connectedId) => {
+        const user = state.users.find(
+          (candidate) => candidate.id === connectedId,
+        )!;
+        return [user.id, user.name, user.image];
+      });
+    }
+
     if (query.includes('from "user_follow"')) {
       const followerUserId = params[0] as string;
       const followedUserId = params[1] as string | undefined;
@@ -984,6 +1082,24 @@ const dbMock = vi.hoisted(() => {
             member.organizationId === householdId && member.role === role,
         )
         .map(memberRow);
+    }
+
+    if (query.includes('from "pantry_item"')) {
+      const ownerId = params[0] as string;
+      const personal = isPersonalPantryQuery(query);
+      const pantryItems = state.pantryItems.filter((item) =>
+        personal
+          ? item.userId === ownerId
+          : item.organizationId === ownerId,
+      );
+      return pantryItems.map((item) => {
+        if (query.includes('select "ingredient_slug", "location"')) {
+          return [item.ingredientSlug, item.location];
+        }
+        return query.includes('select "ingredient_slug"')
+          ? [item.ingredientSlug]
+          : [item.id];
+      });
     }
 
     if (
@@ -2020,6 +2136,46 @@ describe("GET /recipes/cooks", () => {
 
   it("returns recent public activity for one cook", async () => {
     seedCook();
+    dbMock.state.users.push(
+      {
+        id: "follower-user",
+        name: "Grace Baker",
+        email: "grace@example.test",
+        emailVerified: true,
+        image: null,
+        role: null,
+        banned: null,
+        banReason: null,
+        banExpires: null,
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+      {
+        id: "followed-user",
+        name: "Lin Chef",
+        email: "lin@example.test",
+        emailVerified: true,
+        image: null,
+        role: null,
+        banned: null,
+        banReason: null,
+        banExpires: null,
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+    );
+    dbMock.state.userFollows.push(
+      {
+        followerUserId: "follower-user",
+        followedUserId: "cook-1",
+        createdAt: dbMock.date,
+      },
+      {
+        followerUserId: "cook-1",
+        followedUserId: "followed-user",
+        createdAt: dbMock.date,
+      },
+    );
 
     const res = await app.request("/recipes/cooks?cook=cook-1", {}, env);
 
@@ -2029,6 +2185,12 @@ describe("GET /recipes/cooks", () => {
         id: "cook-1",
         name: "Ada Cook",
         image: null,
+        followers: [
+          { id: "follower-user", name: "Grace Baker", image: null },
+        ],
+        following: [
+          { id: "followed-user", name: "Lin Chef", image: null },
+        ],
         activity: [
           expect.objectContaining({
             type: "recipe_added",
@@ -3472,7 +3634,293 @@ describe("profile cooking insights", () => {
   });
 });
 
+describe("pantry mutation flows", () => {
+  const mutationHeaders = {
+    "content-type": "application/json",
+    origin: "http://localhost:3000",
+  };
+
+  beforeEach(() => {
+    authzMock.session = sessionFor({
+      id: "owner-user",
+      email: "owner@example.test",
+      name: "Owner",
+    });
+    dbMock.state.ingredients.push(
+      {
+        slug: "onion",
+        name: "Onion",
+        category: "vegetable",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+      {
+        slug: "milk",
+        name: "Milk",
+        category: "dairy",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+    );
+  });
+
+  it("replaces a personal pantry and validates every ingredient", async () => {
+    const response = await app.request(
+      "/pantry",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({
+          stock: { onion: "fresh", milk: "fridge" },
+        }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      scope: { type: "personal" },
+      stock: { onion: "fresh", milk: "fridge" },
+    });
+    expect(dbMock.state.pantryItems).toEqual([
+      expect.objectContaining({
+        userId: "owner-user",
+        organizationId: null,
+        ingredientSlug: "onion",
+        location: "fresh",
+      }),
+      expect.objectContaining({
+        userId: "owner-user",
+        organizationId: null,
+        ingredientSlug: "milk",
+        location: "fridge",
+      }),
+    ]);
+
+    const unknownIngredient = await app.request(
+      "/pantry",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({ stock: { dragonfruit: "fresh" } }),
+      },
+      env,
+    );
+    expect(unknownIngredient.status).toBe(400);
+    expect(await unknownIngredient.json()).toEqual({
+      error: "Unknown ingredient: dragonfruit",
+    });
+
+    const invalidBody = await app.request(
+      "/pantry",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({ stock: { onion: "freezer" } }),
+      },
+      env,
+    );
+    expect(invalidBody.status).toBe(400);
+  });
+
+  it("sets, moves, and removes a household pantry item", async () => {
+    seedHousehold();
+
+    const setResponse = await app.request(
+      "/pantry/items/onion",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({ location: "cupboards" }),
+      },
+      env,
+    );
+    expect(setResponse.status).toBe(200);
+    expect(await setResponse.json()).toEqual({
+      scope: {
+        type: "household",
+        household: { id: HOUSEHOLD_ID, name: "Owner household" },
+      },
+      stock: { onion: "cupboards" },
+    });
+    expect(dbMock.state.pantryItems[0]).toEqual(
+      expect.objectContaining({
+        userId: null,
+        organizationId: HOUSEHOLD_ID,
+        ingredientSlug: "onion",
+        location: "cupboards",
+      }),
+    );
+
+    const moveResponse = await app.request(
+      "/pantry/items/onion",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({ location: "fresh" }),
+      },
+      env,
+    );
+    expect(moveResponse.status).toBe(200);
+    expect(await moveResponse.json()).toEqual({
+      scope: {
+        type: "household",
+        household: { id: HOUSEHOLD_ID, name: "Owner household" },
+      },
+      stock: { onion: "fresh" },
+    });
+    expect(dbMock.state.pantryItems).toHaveLength(1);
+
+    const removeResponse = await app.request(
+      "/pantry/items/onion",
+      {
+        method: "DELETE",
+        headers: { origin: "http://localhost:3000" },
+      },
+      env,
+    );
+    expect(removeResponse.status).toBe(200);
+    expect(await removeResponse.json()).toEqual({
+      scope: {
+        type: "household",
+        household: { id: HOUSEHOLD_ID, name: "Owner household" },
+      },
+      stock: {},
+    });
+    expect(dbMock.state.pantryItems).toEqual([]);
+  });
+
+  it("restores only missing household pantry items", async () => {
+    seedHousehold();
+
+    dbMock.state.pantryItems.push({
+      id: crypto.randomUUID(),
+      userId: null,
+      organizationId: HOUSEHOLD_ID,
+      ingredientSlug: "milk",
+      location: "fresh",
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    const restoreResponse = await app.request(
+      "/pantry/restore",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({
+          stock: { onion: "cupboards", milk: "fridge" },
+        }),
+      },
+      env,
+    );
+    expect(restoreResponse.status).toBe(200);
+    expect(await restoreResponse.json()).toEqual({
+      scope: {
+        type: "household",
+        household: { id: HOUSEHOLD_ID, name: "Owner household" },
+      },
+      stock: { milk: "fresh", onion: "cupboards" },
+    });
+  });
+
+  it("rejects invalid item mutations", async () => {
+    const invalidSlug = await app.request(
+      `/pantry/items/${"x".repeat(201)}`,
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({ location: "fresh" }),
+      },
+      env,
+    );
+    expect(invalidSlug.status).toBe(400);
+    expect(await invalidSlug.json()).toEqual({
+      error: "Invalid ingredient slug",
+    });
+
+    const invalidLocation = await app.request(
+      "/pantry/items/onion",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({ location: "freezer" }),
+      },
+      env,
+    );
+    expect(invalidLocation.status).toBe(400);
+
+    const unknownIngredient = await app.request(
+      "/pantry/items/dragonfruit",
+      {
+        method: "PUT",
+        headers: mutationHeaders,
+        body: JSON.stringify({ location: "fresh" }),
+      },
+      env,
+    );
+    expect(unknownIngredient.status).toBe(400);
+    expect(await unknownIngredient.json()).toEqual({
+      error: "Unknown ingredient: dragonfruit",
+    });
+
+    const invalidDelete = await app.request(
+      `/pantry/items/${"x".repeat(201)}`,
+      {
+        method: "DELETE",
+        headers: { origin: "http://localhost:3000" },
+      },
+      env,
+    );
+    expect(invalidDelete.status).toBe(400);
+    expect(await invalidDelete.json()).toEqual({
+      error: "Invalid ingredient slug",
+    });
+  });
+});
+
 describe("household membership flows", () => {
+  it("returns the same household pantry to every member", async () => {
+    seedHousehold();
+    dbMock.state.pantryItems.push({
+      id: crypto.randomUUID(),
+      userId: null,
+      organizationId: HOUSEHOLD_ID,
+      ingredientSlug: "onion",
+      location: "fresh",
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+
+    for (const user of [
+      {
+        id: "owner-user",
+        email: "owner@example.test",
+        name: "Owner",
+      },
+      {
+        id: "member-user",
+        email: "member@example.test",
+        name: "Member",
+      },
+    ]) {
+      authzMock.session = sessionFor(user);
+      const response = await app.request("/pantry", undefined, env);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+      expect(await response.json()).toEqual({
+        scope: {
+          type: "household",
+          household: {
+            id: HOUSEHOLD_ID,
+            name: "Owner household",
+          },
+        },
+        stock: { onion: "fresh" },
+      });
+    }
+  });
+
   it("requires authentication before creating a household", async () => {
     const res = await app.request(
       "/households",
@@ -3685,6 +4133,35 @@ describe("household membership flows", () => {
 
   it("allows owners to delete the household", async () => {
     seedHousehold();
+    dbMock.state.pantryItems.push(
+      {
+        id: crypto.randomUUID(),
+        userId: "owner-user",
+        organizationId: null,
+        ingredientSlug: "onion",
+        location: "cupboards",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+      {
+        id: crypto.randomUUID(),
+        userId: null,
+        organizationId: HOUSEHOLD_ID,
+        ingredientSlug: "onion",
+        location: "fresh",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+      {
+        id: crypto.randomUUID(),
+        userId: null,
+        organizationId: HOUSEHOLD_ID,
+        ingredientSlug: "milk",
+        location: "fridge",
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      },
+    );
     authzMock.session = sessionFor({
       id: "owner-user",
       email: "owner@example.test",
@@ -3703,6 +4180,20 @@ describe("household membership flows", () => {
     expect(res.status).toBe(204);
     expect(dbMock.state.organizations).toHaveLength(0);
     expect(dbMock.state.members).toHaveLength(0);
+    expect(dbMock.state.pantryItems).toEqual([
+      expect.objectContaining({
+        userId: "owner-user",
+        organizationId: null,
+        ingredientSlug: "onion",
+        location: "fresh",
+      }),
+      expect.objectContaining({
+        userId: "owner-user",
+        organizationId: null,
+        ingredientSlug: "milk",
+        location: "fridge",
+      }),
+    ]);
     expect(dbMock.state.notificationEvents).toEqual([
       expect.objectContaining({ kind: "household_deleted" }),
     ]);
@@ -4138,6 +4629,90 @@ describe("household membership flows", () => {
           userId: "outsider-user",
           role: "member",
         }),
+      ]),
+    );
+  });
+
+  it("rejects an invitation when the invitee's personal pantry is populated", async () => {
+    seedHousehold();
+    dbMock.state.invitations.push({
+      id: INVITATION_ID,
+      organizationId: HOUSEHOLD_ID,
+      email: "outsider@example.test",
+      role: "member",
+      status: "pending",
+      expiresAt: new Date("2027-01-02T00:00:00.000Z"),
+      inviterId: "owner-user",
+      createdAt: dbMock.date,
+    });
+    dbMock.state.pantryItems.push({
+      id: crypto.randomUUID(),
+      userId: "outsider-user",
+      organizationId: null,
+      ingredientSlug: "onion",
+      location: "fresh",
+      createdAt: dbMock.date,
+      updatedAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "outsider-user",
+      email: "outsider@example.test",
+      name: "Outsider",
+    });
+
+    const response = await app.request(
+      `/households/invitations/${INVITATION_ID}/accept`,
+      {
+        method: "POST",
+        headers: { origin: "http://localhost:3000" },
+      },
+      env,
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "Pantry must be empty before joining a household",
+    });
+    expect(dbMock.state.invitations[0]?.status).toBe("pending");
+    expect(dbMock.state.members).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: "outsider-user" }),
+      ]),
+    );
+  });
+
+  it("rejects an invitation when its household no longer exists", async () => {
+    dbMock.state.invitations.push({
+      id: INVITATION_ID,
+      organizationId: HOUSEHOLD_ID,
+      email: "outsider@example.test",
+      role: "member",
+      status: "pending",
+      expiresAt: new Date("2027-01-02T00:00:00.000Z"),
+      inviterId: "owner-user",
+      createdAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "outsider-user",
+      email: "outsider@example.test",
+      name: "Outsider",
+    });
+
+    const response = await app.request(
+      `/households/invitations/${INVITATION_ID}/accept`,
+      {
+        method: "POST",
+        headers: { origin: "http://localhost:3000" },
+      },
+      env,
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "Household not found" });
+    expect(dbMock.state.invitations[0]?.status).toBe("pending");
+    expect(dbMock.state.members).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: "outsider-user" }),
       ]),
     );
   });
