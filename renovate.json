@@ -46,6 +46,59 @@
       "automerge": true
     },
     {
+      "description": "Auto-merge mise-managed dev tooling - linters, scanners and toolchains that CI exercises on every PR",
+      "matchManagers": ["mise"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "minimumReleaseAge": "3 days",
+      "automerge": true
+    },
+    {
+      "description": "Review the Neon backup toolchain by hand - the backup job runs against real data and no CI job proves these beforehand",
+      "matchManagers": ["mise"],
+      "matchDepNames": ["awscli", "age", "jq"],
+      "minimumReleaseAge": "7 days",
+      "automerge": false
+    },
+    {
+      "description": "Auto-merge pip tooling pinned in workflow run steps (e.g. dvc)",
+      "matchManagers": ["custom.regex"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "minimumReleaseAge": "3 days",
+      "automerge": true
+    },
+    {
+      "description": "ml-pipelines is offline tooling with no deploy of its own, so treat its runtime dependencies like devDependencies",
+      "matchFileNames": ["ml-pipelines/**"],
+      "matchDepTypes": ["dependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "minimumReleaseAge": "3 days",
+      "automerge": true
+    },
+    {
+      "description": "Keep the pnpm version pinned in package.json (packageManager) and .mise.toml in one PR so they land together",
+      "matchPackageNames": ["pnpm", "pnpm/pnpm"],
+      "groupName": "pnpm"
+    },
+    {
+      "description": "pnpm is dev tooling in practice, so auto-merge it on the devDependencies terms",
+      "matchPackageNames": ["pnpm", "pnpm/pnpm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "minimumReleaseAge": "3 days",
+      "automerge": true
+    },
+    {
+      "description": "drizzle-orm (dependencies) and drizzle-kit (devDependencies) generate and apply the same migrations, so land them together and review by hand",
+      "matchPackageNames": ["drizzle-orm", "drizzle-kit"],
+      "groupName": "drizzle",
+      "minimumReleaseAge": "7 days",
+      "automerge": false
+    },
+    {
+      "description": "Group the Cloudflare Workers toolchain so wrangler and its types/test-pool packages stay aligned",
+      "matchPackageNames": ["wrangler", "@cloudflare/**"],
+      "groupName": "cloudflare workers toolchain"
+    },
+    {
       "description": "Disable release age for lockfile maintenance",
       "matchUpdateTypes": ["lockFileMaintenance"],
       "minimumReleaseAge": null
