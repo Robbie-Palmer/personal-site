@@ -156,7 +156,8 @@ Review transitions are validated server-side and recorded in an audit log. Proce
 moves a waiting item to `ready`, `needs_attention`, or `possible_duplicate`; acceptance requires a
 current draft version and resolution of blocking validation or duplicate warnings; retry applies
 only to failed execution; and accepted items cannot return to an editable state through an ordinary
-review action.
+review action. Accepted, skipped, and rejected are terminal for batch accounting; reopening a
+skipped or rejected item is an explicit, audited transition rather than an incidental edit.
 
 ## Use One Review Workspace
 
@@ -174,9 +175,10 @@ The product surface is a persistent review workspace:
 The browser may leave while jobs run. The batch list and item routes are reconstructed entirely from
 server state rather than depending on an open tab.
 
-The coordinator applies explicit per-owner and per-provider active-job caps, reserves quota before
-admission, and leaves excess work queued rather than starting unbounded workflows. Queue depth and
-throttled state are visible to the workspace so backpressure is not presented as stalled work.
+The coordinator applies explicit per-owner and per-provider active-job caps. Cap checks, quota
+reservation, and child-job admission occur atomically with job creation; excess work remains queued
+rather than starting unbounded workflows. Queue depth and throttled state are visible to the
+workspace so backpressure is not presented as stalled work.
 
 ## Treat Collection Archives as Batch Sources
 
@@ -189,7 +191,8 @@ entry identifier as source provenance.
 
 Archive preparation enforces compressed size, expanded size, entry-count, compression-ratio, and
 normalized-path limits before creating child work. Expansion is streamed with bounded memory;
-invalid entries receive item-level diagnostics while valid siblings can continue to review.
+each entry is parsed with bounded memory and execution time; and an over-budget or invalid entry
+receives item-level diagnostics while valid siblings can continue to review.
 
 Every structurally valid entry produces a mutable review draft. The user must open, review, and
 explicitly accept each draft before it creates a canonical recipe. Shared batch defaults can reduce
@@ -231,7 +234,9 @@ version rather than moving or rewriting image objects.
 
 Confirmed manifest versions are immutable and checksummed. Every child job binds to the exact
 confirmed version it executes, and an unconfirmed or superseded version cannot start new work.
-Prior confirmed versions are retained with the source artifacts for replay and audit.
+The job's immutable artifact metadata records that manifest version and checksum so the binding is
+verified again before acceptance. Prior confirmed versions are retained with the source artifacts
+for replay and audit.
 
 ## API Shape
 
