@@ -1061,7 +1061,7 @@ const dbMock = vi.hoisted(() => {
         });
     }
 
-    if (query.includes('from "member"') && query.includes('inner join "user"')) {
+    if (query.includes('from "member" inner join "user"')) {
       const householdId = params[0] as string;
       return state.members
         .filter((member) => member.organizationId === householdId)

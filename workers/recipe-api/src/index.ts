@@ -23,6 +23,7 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { createDb, type Db, type DbClient, schema } from "recipe-db";
 import { SavedRecipePayloadSchema } from "recipe-domain/serialization";
@@ -161,6 +162,11 @@ const feedLimitSchema = z.coerce.number().int().min(1).max(30).default(12);
 const recipeListLimitSchema = z.coerce.number().int().min(1).max(100).default(100);
 const publicCookIdSchema = z.string().trim().min(1).max(128);
 const PUBLIC_COOK_CONNECTION_LIMIT = 50;
+const feedViewerMembership = alias(schema.member, "feed_viewer_membership");
+const feedRecipeOwnerMembership = alias(
+  schema.member,
+  "feed_recipe_owner_membership",
+);
 
 const dietKeySchema = z
   .string()
@@ -3281,23 +3287,34 @@ app.get("/recipes/discover/feed", async (c) => {
       if (scope.data !== "public") {
         const session = await requireRecipeSession(c, db);
         if (!session.success) return session.response;
-        const membership = await findUserHouseholdMembership(
-          db,
-          session.session.user.id,
-        );
-        const memberIds = membership
-          ? await findHouseholdMemberUserIds(db, membership.organizationId)
-          : [];
-        const followingFilters: SQL[] = [];
-        if (memberIds.length > 0) {
-          followingFilters.push(
-            and(
-              inArray(schema.recipe.userId, memberIds),
-              inArray(schema.recipe.visibility, ["public", "household"]),
-            )!,
-          );
-        }
-        followingFilters.push(
+        const followingFilters: SQL[] = [
+          and(
+            inArray(schema.recipe.visibility, ["public", "household"]),
+            exists(
+              db
+                .select({ id: feedRecipeOwnerMembership.id })
+                .from(feedRecipeOwnerMembership)
+                .innerJoin(
+                  feedViewerMembership,
+                  eq(
+                    feedRecipeOwnerMembership.organizationId,
+                    feedViewerMembership.organizationId,
+                  ),
+                )
+                .where(
+                  and(
+                    eq(
+                      feedRecipeOwnerMembership.userId,
+                      schema.recipe.userId,
+                    ),
+                    eq(
+                      feedViewerMembership.userId,
+                      session.session.user.id,
+                    ),
+                  ),
+                ),
+            ),
+          )!,
           and(
             eq(schema.recipe.visibility, "public"),
             exists(
@@ -3318,7 +3335,7 @@ app.get("/recipes/discover/feed", async (c) => {
                 ),
             ),
           )!,
-        );
+        ];
         visibilityFilter = or(...followingFilters)!;
       }
 
