@@ -46,6 +46,11 @@
       "automerge": true
     },
     {
+      "description": "Keep the pnpm version pinned in package.json (packageManager) and .mise.toml in one PR so they land together",
+      "matchPackageNames": ["pnpm", "pnpm/pnpm"],
+      "groupName": "pnpm"
+    },
+    {
       "description": "Disable release age for lockfile maintenance",
       "matchUpdateTypes": ["lockFileMaintenance"],
       "minimumReleaseAge": null
