@@ -53,9 +53,9 @@
       "automerge": true
     },
     {
-      "description": "Review mise tools that touch real infrastructure or backup data by hand - no CI job proves these before they run for real",
+      "description": "Review the Neon backup toolchain by hand - the backup job runs against real data and no CI job proves these beforehand",
       "matchManagers": ["mise"],
-      "matchDepNames": ["terraform", "awscli", "age", "jq"],
+      "matchDepNames": ["awscli", "age", "jq"],
       "minimumReleaseAge": "7 days",
       "automerge": false
     },
