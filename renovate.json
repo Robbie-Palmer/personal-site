@@ -67,8 +67,8 @@
       "automerge": true
     },
     {
-      "description": "ai-review and ml-pipelines never ship to production, so treat their runtime dependencies like devDependencies",
-      "matchFileNames": ["ai-review/**", "ml-pipelines/**"],
+      "description": "ml-pipelines is offline tooling with no deploy of its own, so treat its runtime dependencies like devDependencies",
+      "matchFileNames": ["ml-pipelines/**"],
       "matchDepTypes": ["dependencies"],
       "matchUpdateTypes": ["minor", "patch"],
       "minimumReleaseAge": "3 days",
