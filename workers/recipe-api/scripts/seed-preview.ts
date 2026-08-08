@@ -103,22 +103,17 @@ try {
   const userIdByEmail = new Map(
     seededUsers.map((seededUser) => [seededUser.email, seededUser.id]),
   );
-  const recipesUserId = userIdByEmail.get("recipes-user@preview.invalid");
-  const adminUserId = userIdByEmail.get("admin-user@preview.invalid");
-  const householdOwnerUserId = userIdByEmail.get(
-    "household-owner@preview.invalid",
-  );
-  const householdMemberUserId = userIdByEmail.get(
+  const requireUserId = (email: string): string => {
+    const id = userIdByEmail.get(email);
+    if (!id) throw new Error(`Preview user was not created correctly: ${email}`);
+    return id;
+  };
+  const recipesUserId = requireUserId("recipes-user@preview.invalid");
+  const adminUserId = requireUserId("admin-user@preview.invalid");
+  const householdOwnerUserId = requireUserId("household-owner@preview.invalid");
+  const householdMemberUserId = requireUserId(
     "household-member@preview.invalid",
   );
-  if (
-    !recipesUserId ||
-    !adminUserId ||
-    !householdOwnerUserId ||
-    !householdMemberUserId
-  ) {
-    throw new Error("Preview users were not created correctly");
-  }
 
   const previewRecipes: Array<typeof schema.recipe.$inferInsert> = [
     {
@@ -183,16 +178,16 @@ try {
           "preview-household-veggie-curry",
           "Preview Household Veggie Curry",
           "Household-only fixture for shared feed and pantry QA.",
-          "Fry the @garlic{2%cloves} and @carrot{1}, add @frozen vegetables{300%g}, then simmer in @coconut milk{200%ml} and @chicken stock{200%ml}.",
+          "Fry the @garlic{2%cloves} and @carrot{1}, add @frozen vegetables{300%g}, then simmer in @coconut milk{200%ml} and @vegetable stock{200%ml}.",
           [
             { ingredient: "garlic", amount: 2 },
             { ingredient: "carrot", amount: 1 },
             { ingredient: "frozen-vegetables", amount: 300, unit: "g" },
             { ingredient: "coconut-milk", amount: 200, unit: "ml" },
-            { ingredient: "chicken-stock", amount: 200, unit: "ml" },
+            { ingredient: "vegetable-stock", amount: 200, unit: "ml" },
           ],
           [
-            "Fry the garlic and carrot, add the frozen vegetables, then simmer in coconut milk and chicken stock.",
+            "Fry the garlic and carrot, add the frozen vegetables, then simmer in coconut milk and vegetable stock.",
           ],
         ),
         userId: householdOwnerUserId,
@@ -340,7 +335,9 @@ try {
     .values({ userId: householdOwnerUserId, ingredientSlug: "coconut-milk" })
     .onConflictDoNothing();
 
-  console.log(`Seeded ${previewScenarios.length} preview scenarios.`);
+  console.log(
+    `Seeded ${previewScenarios.length} preview scenarios with household, pantry, and diet fixtures.`,
+  );
 } finally {
   await client.end({ timeout: 5 });
 }
