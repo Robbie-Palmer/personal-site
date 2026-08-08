@@ -12,6 +12,8 @@ export type PublicCookProfile = {
   id: string;
   name: string;
   image: string | null;
+  followersCount: number;
+  followingCount: number;
   followers: PublicCookConnection[];
   following: PublicCookConnection[];
   activity: Array<{

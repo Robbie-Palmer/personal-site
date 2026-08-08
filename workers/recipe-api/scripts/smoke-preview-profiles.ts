@@ -49,6 +49,8 @@ type CookConnection = {
 
 type PublicCookProfile = {
   id: string;
+  followersCount: number;
+  followingCount: number;
   followers: CookConnection[];
   following: CookConnection[];
 };
@@ -298,7 +300,11 @@ if (
   !ownerProfile.cook.followers.some((cook) => cook.id === recipesCook.id) ||
   !ownerProfile.cook.following.some((cook) => cook.id === recipesCook.id) ||
   !recipesProfile.cook.followers.some((cook) => cook.id === ownerCook.id) ||
-  !recipesProfile.cook.following.some((cook) => cook.id === ownerCook.id)
+  !recipesProfile.cook.following.some((cook) => cook.id === ownerCook.id) ||
+  ownerProfile.cook.followersCount < 1 ||
+  ownerProfile.cook.followingCount < 1 ||
+  recipesProfile.cook.followersCount < 1 ||
+  recipesProfile.cook.followingCount < 1
 ) {
   throw new Error("Public cook profiles did not expose reciprocal follows");
 }

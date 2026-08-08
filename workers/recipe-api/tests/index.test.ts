@@ -970,20 +970,28 @@ const dbMock = vi.hoisted(() => {
       const selectsFollowers = query.includes(
         'where "user_follow"."followed_user_id" =',
       );
-      const connectedIds = state.userFollows
+      const connections = state.userFollows
         .filter((follow) =>
           selectsFollowers
             ? follow.followedUserId === cookId
             : follow.followerUserId === cookId,
         )
+        .sort(
+          (first, second) =>
+            second.createdAt.getTime() - first.createdAt.getTime(),
+        );
+      const connectedIds = connections
         .map((follow) =>
           selectsFollowers ? follow.followerUserId : follow.followedUserId,
         );
-      return connectedIds.map((connectedId) => {
+      const requestedLimit = query.includes("limit ")
+        ? (params.at(-1) as number)
+        : connectedIds.length;
+      return connectedIds.slice(0, requestedLimit).map((connectedId) => {
         const user = state.users.find(
           (candidate) => candidate.id === connectedId,
         )!;
-        return [user.id, user.name, user.image];
+        return [user.id, user.name, user.image, connectedIds.length];
       });
     }
 
@@ -2217,6 +2225,8 @@ describe("GET /recipes/cooks", () => {
         id: "cook-1",
         name: "Ada Cook",
         image: null,
+        followersCount: 1,
+        followingCount: 1,
         followers: [
           { id: "follower-user", name: "Grace Baker", image: null },
         ],
@@ -2234,6 +2244,41 @@ describe("GET /recipes/cooks", () => {
         ],
       },
     });
+  });
+
+  it("bounds social graph previews while retaining full counts", async () => {
+    seedCook();
+    for (let index = 0; index < 55; index += 1) {
+      const followerId = `follower-${index}`;
+      dbMock.state.users.push({
+        id: followerId,
+        name: `Follower ${index}`,
+        email: `follower-${index}@example.test`,
+        emailVerified: true,
+        image: null,
+        role: null,
+        banned: null,
+        banReason: null,
+        banExpires: null,
+        createdAt: dbMock.date,
+        updatedAt: dbMock.date,
+      });
+      dbMock.state.userFollows.push({
+        followerUserId: followerId,
+        followedUserId: "cook-1",
+        createdAt: new Date(Date.UTC(2026, 0, 1, 0, index)),
+      });
+    }
+
+    const res = await app.request("/recipes/cooks?cook=cook-1", {}, env);
+    const body = (await res.json()) as {
+      cook: { followersCount: number; followers: Array<{ id: string }> };
+    };
+
+    expect(res.status).toBe(200);
+    expect(body.cook.followersCount).toBe(55);
+    expect(body.cook.followers).toHaveLength(50);
+    expect(body.cook.followers[0]?.id).toBe("follower-54");
   });
 
   it("returns null for a cook without public activity", async () => {

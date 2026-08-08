@@ -159,6 +159,7 @@ const feedScopeSchema = z.enum(["public", "following"]);
 const feedLimitSchema = z.coerce.number().int().min(1).max(30).default(12);
 const recipeListLimitSchema = z.coerce.number().int().min(1).max(100).default(100);
 const publicCookIdSchema = z.string().trim().min(1).max(128);
+const PUBLIC_COOK_CONNECTION_LIMIT = 50;
 
 const dietKeySchema = z
   .string()
@@ -3391,30 +3392,38 @@ app.get("/recipes/cooks", async (c) => {
             id: schema.user.id,
             name: schema.user.name,
             image: schema.user.image,
+            totalCount: sql<number>`count(*) over()`.mapWith(Number),
           })
           .from(schema.userFollow)
           .innerJoin(
             schema.user,
             eq(schema.userFollow.followerUserId, schema.user.id),
           )
-          .where(eq(schema.userFollow.followedUserId, cookId.data));
+          .where(eq(schema.userFollow.followedUserId, cookId.data))
+          .orderBy(desc(schema.userFollow.createdAt))
+          .limit(PUBLIC_COOK_CONNECTION_LIMIT);
         const following = await db
           .select({
             id: schema.user.id,
             name: schema.user.name,
             image: schema.user.image,
+            totalCount: sql<number>`count(*) over()`.mapWith(Number),
           })
           .from(schema.userFollow)
           .innerJoin(
             schema.user,
             eq(schema.userFollow.followedUserId, schema.user.id),
           )
-          .where(eq(schema.userFollow.followerUserId, cookId.data));
+          .where(eq(schema.userFollow.followerUserId, cookId.data))
+          .orderBy(desc(schema.userFollow.createdAt))
+          .limit(PUBLIC_COOK_CONNECTION_LIMIT);
         return c.json({
           cook: {
             ...first.author,
-            followers,
-            following,
+            followersCount: followers[0]?.totalCount ?? 0,
+            followingCount: following[0]?.totalCount ?? 0,
+            followers: followers.map(({ totalCount: _, ...cook }) => cook),
+            following: following.map(({ totalCount: _, ...cook }) => cook),
             activity: rows.map(({ recipe }) => ({
               type: "recipe_added" as const,
               recipe: recipeResponse(recipe),

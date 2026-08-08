@@ -52,6 +52,8 @@ const profile = {
   id: "cook-1",
   name: "Ada Cook",
   image: null,
+  followersCount: 1,
+  followingCount: 1,
   followers: [{ id: "follower-1", name: "Grace Baker", image: null }],
   following: [{ id: "followed-1", name: "Lin Chef", image: null }],
   activity: [
@@ -145,6 +147,19 @@ describe("PublicCooksView", () => {
       "href",
       "/recipes/cooks?cook=followed-1",
     );
+  });
+
+  it("shows full connection totals when the profile contains a bounded preview", async () => {
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams("cook=cook-1"));
+    mocks.getPublicCook.mockResolvedValue({
+      ...profile,
+      followersCount: 55,
+    });
+
+    render(<PublicCooksView />);
+
+    expect(await screen.findByText("55 Followers")).toBeInTheDocument();
+    expect(screen.getByText("Showing the 1 most recent.")).toBeInTheDocument();
   });
 
   it("follows a cook from their profile", async () => {

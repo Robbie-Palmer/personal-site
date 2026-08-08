@@ -261,6 +261,8 @@ describe("recipe API PostgreSQL integration", () => {
     expect(profileResponse.status).toBe(200);
     expect(await json(profileResponse)).toMatchObject({
       cook: {
+        followersCount: 1,
+        followingCount: 1,
         followers: [
           { id: viewer.id, name: "Following Viewer", image: null },
         ],

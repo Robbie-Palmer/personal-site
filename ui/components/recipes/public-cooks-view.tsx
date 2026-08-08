@@ -148,14 +148,16 @@ function FollowCookAction({
 function CookConnectionList({
   label,
   cooks,
+  count,
 }: Readonly<{
   label: "Followers" | "Following";
   cooks: PublicCookProfile["followers"];
+  count: number;
 }>) {
   return (
     <section className="rounded-xl border border-[var(--line-strong)] bg-[var(--card)] p-4 shadow-[var(--paper-shadow)]">
       <h2 className="rt-display text-2xl">
-        {cooks.length} {label}
+        {count} {label}
       </h2>
       {cooks.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -175,6 +177,11 @@ function CookConnectionList({
           No {label.toLowerCase()} yet.
         </p>
       )}
+      {count > cooks.length ? (
+        <p className="rt-body mt-3 text-xs text-[var(--ink-3)]">
+          Showing the {cooks.length} most recent.
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -211,8 +218,16 @@ function CookProfile({
         <FollowCookAction cook={cook} currentUserId={currentUserId} />
       </header>
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        <CookConnectionList label="Followers" cooks={cook.followers} />
-        <CookConnectionList label="Following" cooks={cook.following} />
+        <CookConnectionList
+          label="Followers"
+          cooks={cook.followers}
+          count={cook.followersCount}
+        />
+        <CookConnectionList
+          label="Following"
+          cooks={cook.following}
+          count={cook.followingCount}
+        />
       </div>
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         {cook.activity.map((item) => {
