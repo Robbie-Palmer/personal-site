@@ -23,7 +23,7 @@ verbose = false
 
 [tools]
 node = "lts"
-"github:pnpm/pnpm" = "11.17.0"
+"github:pnpm/pnpm" = "11.19.0"
 terraform = "1.15.8"
 tflint = "0.64.0"
 actionlint = "1.7.12"
