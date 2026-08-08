@@ -25,6 +25,18 @@ type DietProfile = {
   recipeMatchMode: "hide" | "warn";
 };
 
+type HouseholdSummary = {
+  id: string;
+  name: string;
+  membership: { id: string; role: string };
+};
+
+type HouseholdMember = {
+  id: string;
+  userId: string;
+  role: string;
+};
+
 const databaseURL = requiredEnv("DATABASE_URL");
 const siteURL = requiredEnv("BETTER_AUTH_URL");
 const apiURL = requiredEnv("PREVIEW_API_URL").replace(/\/$/, "");
@@ -83,7 +95,9 @@ async function expectAuthenticationRequired(path: string): Promise<void> {
   }
 }
 
-async function createSessionCookie(): Promise<string> {
+async function createSessionCookie(
+  email: string = previewScenarios[0].email,
+): Promise<string> {
   const { db, client } = createDb(databaseURL);
   try {
     const auth = createAuth(db, {
@@ -93,7 +107,7 @@ async function createSessionCookie(): Promise<string> {
     });
     const signIn = await auth.api.signInEmail({
       body: {
-        email: previewScenarios[0].email,
+        email,
         password: requiredEnv("PREVIEW_AUTH_PASSWORD"),
       },
       asResponse: true,
@@ -166,6 +180,51 @@ if (
   dietProfile.recipeMatchMode !== "hide"
 ) {
   throw new Error("Empty-account diet fixture did not match");
+}
+
+// Household owner scenario. The household routes accept only UUID-form
+// `householdId`/`memberId`, so drive them end to end — resolve the household,
+// then read its members — to confirm the seeded household is reachable through
+// the API rather than merely present in the database.
+const ownerCookie = await createSessionCookie("household-owner@preview.invalid");
+const households = await expectJson<HouseholdSummary[]>(
+  "/households",
+  ownerCookie,
+);
+const household = households[0];
+if (households.length !== 1 || !household) {
+  throw new Error(
+    `Household owner should belong to exactly one household, saw ${households.length}`,
+  );
+}
+if (!household.id || household.membership.role !== "owner") {
+  throw new Error("Household owner fixture did not match");
+}
+
+// The ID must be a UUID — that is exactly what the household routes require —
+// and validating it before building the request path keeps untrusted response
+// data out of the URL.
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+if (!uuidPattern.test(household.id)) {
+  throw new Error(`Household ID is not a UUID: ${household.id}`);
+}
+
+const members = await expectJson<HouseholdMember[]>(
+  `/households/${encodeURIComponent(household.id)}/members`,
+  ownerCookie,
+);
+const memberRoles = members
+  .map((member) => member.role)
+  .sort((a, b) => a.localeCompare(b));
+if (
+  members.length !== 2 ||
+  memberRoles[0] !== "member" ||
+  memberRoles[1] !== "owner"
+) {
+  throw new Error(
+    `Household should have one owner and one member, saw roles: ${memberRoles.join(", ")}`,
+  );
 }
 
 console.log("Authenticated preview profile smoke test passed.");

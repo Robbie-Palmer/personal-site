@@ -20,6 +20,22 @@ export const previewScenarios = [
     email: "admin-user@preview.invalid",
     role: "admin",
   },
+  {
+    id: "household-owner",
+    name: "Household owner",
+    description:
+      "Owns a shared household with a stocked pantry and a dietary profile.",
+    email: "household-owner@preview.invalid",
+    role: "user",
+  },
+  {
+    id: "household-member",
+    name: "Household member",
+    description:
+      "Shares the household pantry and household-only recipes with the owner.",
+    email: "household-member@preview.invalid",
+    role: "user",
+  },
 ] as const;
 
 export type PreviewScenario = (typeof previewScenarios)[number];
