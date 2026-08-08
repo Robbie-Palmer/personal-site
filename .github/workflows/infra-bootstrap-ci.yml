@@ -50,7 +50,7 @@ jobs:
           TF_VAR_gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
 
       - name: Add Terraform Plan to PR Comment
-        uses: borchero/terraform-plan-comment@2d41e908725447b1677913001dfb92fa7010c025 # v3
+        uses: borchero/terraform-plan-comment@f585438eda2fa77c6f275994b92aeccd86ef3542 # v3
         with:
           token: ${{ github.token }}
           planfile: .planfile
