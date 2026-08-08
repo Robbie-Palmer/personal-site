@@ -105,6 +105,11 @@ states are:
 
 A failed child job does not normally make the batch itself `failed`.
 
+Child-state transitions and any denormalized batch counters or status projection update in the
+same database transaction. Child records remain authoritative, so a periodic reconciliation can
+rebuild the projection and alert on drift rather than letting an inconsistent aggregate become a
+second source of truth.
+
 ## Separate Execution, Review, and Recipe State
 
 Execution and editorial review are independent state machines.
@@ -129,6 +134,11 @@ The mutable draft contains the normalized recipe payload or Cooklang source, edi
 validation state, optimistic-concurrency version, and update timestamp. Autosave updates this
 record. It does not rewrite the immutable model artifact.
 
+Autosave is a conditional update against the version last read by the client. A stale write is
+rejected without overwriting the newer draft, and the workspace surfaces a conflict that lets the
+user reload or compare changes. The same version check guards acceptance so an older browser tab
+cannot publish over newer edits.
+
 Accepting a draft runs one authenticated transaction that:
 
 1. verifies ownership, current review state, and draft version;
@@ -137,7 +147,16 @@ Accepting a draft runs one authenticated transaction that:
 4. records the accepted recipe ID and correction/provenance metadata;
 5. marks the item accepted.
 
-The operation uses an item-level idempotency key so retries cannot create duplicate recipes.
+The operation uses an item-level idempotency key so retries cannot create duplicate recipes. The
+key, requested draft version, and resulting recipe ID are stored durably with a uniqueness
+constraint scoped to the owner, item, and accept action. Replaying a completed request returns the
+recorded result; a second key still cannot accept an already accepted item.
+
+Review transitions are validated server-side and recorded in an audit log. Processing success
+moves a waiting item to `ready`, `needs_attention`, or `possible_duplicate`; acceptance requires a
+current draft version and resolution of blocking validation or duplicate warnings; retry applies
+only to failed execution; and accepted items cannot return to an editable state through an ordinary
+review action.
 
 ## Use One Review Workspace
 
@@ -155,6 +174,10 @@ The product surface is a persistent review workspace:
 The browser may leave while jobs run. The batch list and item routes are reconstructed entirely from
 server state rather than depending on an open tab.
 
+The coordinator applies explicit per-owner and per-provider active-job caps, reserves quota before
+admission, and leaves excess work queued rather than starting unbounded workflows. Queue depth and
+throttled state are visible to the workspace so backpressure is not presented as stalled work.
+
 ## Treat Collection Archives as Batch Sources
 
 Supported structured archives from known recipe applications use the same batch and review model
@@ -163,6 +186,10 @@ as URL, file, and photo imports.
 The archive adapter validates and expands the uploaded archive during batch preparation. Each
 logical recipe entry becomes its own ordered batch item and job, retaining the archive checksum and
 entry identifier as source provenance.
+
+Archive preparation enforces compressed size, expanded size, entry-count, compression-ratio, and
+normalized-path limits before creating child work. Expansion is streamed with bounded memory;
+invalid entries receive item-level diagnostics while valid siblings can continue to review.
 
 Every structurally valid entry produces a mutable review draft. The user must open, review, and
 explicitly accept each draft before it creates a canonical recipe. Shared batch defaults can reduce
@@ -176,6 +203,12 @@ reported and left intact for manual resolution.
 Undo is an explicit authenticated background operation with per-item results; it is not a broad
 delete by label or timestamp. Batch labels remain useful for discovery but are not the integrity
 boundary.
+
+Before execution, undo produces a dry-run summary from immutable batch provenance. Each deletion
+then locks the canonical recipe and its provenance record, rechecks dependent transfers, forks,
+logs, and other protected references inside one transaction, and deletes only if those guards still
+pass. Concurrent changes therefore preserve the recipe and produce a per-item diagnostic rather
+than racing the safety check.
 
 ## Require a Photo Grouping Manifest
 
@@ -195,6 +228,10 @@ only from the confirmed manifest.
 
 Source images remain immutable R2 objects. Regrouping before processing creates a new manifest
 version rather than moving or rewriting image objects.
+
+Confirmed manifest versions are immutable and checksummed. Every child job binds to the exact
+confirmed version it executes, and an unconfirmed or superseded version cannot start new work.
+Prior confirmed versions are retained with the source artifacts for replay and audit.
 
 ## API Shape
 
