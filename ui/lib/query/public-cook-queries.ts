@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
   getCookFollowStatus,
+  getOwnCookConnections,
   getPublicCook,
   getPublicCooks,
 } from "@/lib/api/public-cooks";
@@ -28,6 +29,14 @@ export const cookFollowStatusQuery = (userId: string, cookId: string) =>
   queryOptions({
     queryKey: recipeQueryKeys.cookFollowStatus(userId, cookId),
     queryFn: ({ signal }) => getCookFollowStatus(cookId, signal),
+    staleTime: PUBLIC_COOKS_STALE_TIME,
+    refetchOnWindowFocus: true,
+  });
+
+export const ownCookConnectionsQuery = (userId: string) =>
+  queryOptions({
+    queryKey: recipeQueryKeys.cookConnections(userId),
+    queryFn: ({ signal }) => getOwnCookConnections(signal),
     staleTime: PUBLIC_COOKS_STALE_TIME,
     refetchOnWindowFocus: true,
   });

@@ -167,6 +167,12 @@ describe("PublicCooksView", () => {
 
     const { queryClient } = render(<PublicCooksView />);
     queryClient.setQueryData(recipeQueryKeys.publicCook("viewer-1"), profile);
+    queryClient.setQueryData(recipeQueryKeys.cookConnections("viewer-1"), {
+      followersCount: 0,
+      followingCount: 0,
+      followers: [],
+      following: [],
+    });
 
     const followButton = await screen.findByRole("button", { name: "Follow" });
     await waitFor(() => expect(followButton).toBeEnabled());
@@ -178,6 +184,10 @@ describe("PublicCooksView", () => {
     await waitFor(() => expect(mocks.getPublicCook).toHaveBeenCalledTimes(2));
     expect(
       queryClient.getQueryState(recipeQueryKeys.publicCook("viewer-1"))
+        ?.isInvalidated,
+    ).toBe(true);
+    expect(
+      queryClient.getQueryState(recipeQueryKeys.cookConnections("viewer-1"))
         ?.isInvalidated,
     ).toBe(true);
     expect(

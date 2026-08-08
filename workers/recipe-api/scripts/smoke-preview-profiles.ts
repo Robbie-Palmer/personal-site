@@ -55,6 +55,8 @@ type PublicCookProfile = {
   following: CookConnection[];
 };
 
+type CookConnections = Omit<PublicCookProfile, "id">;
+
 type DiscoverFeed = {
   items: Array<{ recipe: { slug: string }; author: { id: string } }>;
 };
@@ -170,6 +172,7 @@ function assertStringArray(
 
 await expectAuthenticationRequired("/api/profile/recipe-box");
 await expectAuthenticationRequired("/recipes/discover/feed?scope=following");
+await expectAuthenticationRequired("/recipes/cooks/me/connections");
 
 const cookie = await createSessionCookie();
 const recipeBox = await expectJson<RecipeBoxProfile>(
@@ -307,6 +310,23 @@ if (
   recipesProfile.cook.followingCount < 1
 ) {
   throw new Error("Public cook profiles did not expose reciprocal follows");
+}
+
+const ownerConnections = await expectJson<CookConnections>(
+  "/recipes/cooks/me/connections",
+  ownerCookie,
+);
+const recipesConnections = await expectJson<CookConnections>(
+  "/recipes/cooks/me/connections",
+  recipesCookie,
+);
+if (
+  !ownerConnections.followers.some((cook) => cook.id === recipesCook.id) ||
+  !ownerConnections.following.some((cook) => cook.id === recipesCook.id) ||
+  !recipesConnections.followers.some((cook) => cook.id === ownerCook.id) ||
+  !recipesConnections.following.some((cook) => cook.id === ownerCook.id)
+) {
+  throw new Error("Signed-in profiles did not expose reciprocal follows");
 }
 
 const recipesFollowingFeed = await expectJson<DiscoverFeed>(

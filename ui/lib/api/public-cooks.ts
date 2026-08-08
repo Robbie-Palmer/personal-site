@@ -12,15 +12,18 @@ export type PublicCookProfile = {
   id: string;
   name: string;
   image: string | null;
-  followersCount: number;
-  followingCount: number;
-  followers: PublicCookConnection[];
-  following: PublicCookConnection[];
   activity: Array<{
     type: "recipe_added";
     recipe: SavedRecipeApiRecord;
     createdAt: string;
   }>;
+} & CookConnections;
+
+export type CookConnections = {
+  followersCount: number;
+  followingCount: number;
+  followers: PublicCookConnection[];
+  following: PublicCookConnection[];
 };
 
 export type PublicCookConnection = {
@@ -69,6 +72,10 @@ export function getCookFollowStatus(id: string, signal?: AbortSignal) {
     `/api/recipes/cooks/${encodeURIComponent(id)}/follow`,
     signal,
   );
+}
+
+export function getOwnCookConnections(signal?: AbortSignal) {
+  return apiJson<CookConnections>("/api/recipes/cooks/me/connections", signal);
 }
 
 export async function setCookFollowing(id: string, following: boolean) {

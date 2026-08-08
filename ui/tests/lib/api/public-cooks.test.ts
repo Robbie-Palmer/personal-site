@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getCookFollowStatus,
+  getOwnCookConnections,
   getPublicCook,
   getPublicCooks,
   setCookFollowing,
@@ -87,6 +88,25 @@ describe("public cooks API client", () => {
       2,
       "/api/recipes/cooks/cook%201/follow",
       { method: "DELETE", credentials: "same-origin" },
+    );
+  });
+
+  it("loads the signed-in cook's connections", async () => {
+    const connections = {
+      followersCount: 1,
+      followingCount: 1,
+      followers: [{ id: "cook-2", name: "Grace Baker", image: null }],
+      following: [{ id: "cook-2", name: "Grace Baker", image: null }],
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json(connections));
+    const signal = new AbortController().signal;
+
+    await expect(getOwnCookConnections(signal)).resolves.toEqual(connections);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/recipes/cooks/me/connections",
+      { credentials: "same-origin", signal },
     );
   });
 

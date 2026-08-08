@@ -272,6 +272,18 @@ describe("recipe API PostgreSQL integration", () => {
       },
     });
 
+    const ownConnectionsResponse = await authenticatedRequest(
+      viewer,
+      "/recipes/cooks/me/connections",
+    );
+    expect(ownConnectionsResponse.status).toBe(200);
+    expect(await json(ownConnectionsResponse)).toEqual({
+      followersCount: 1,
+      followingCount: 1,
+      followers: [{ id: followedCook.id, name: "Followed Cook", image: null }],
+      following: [{ id: followedCook.id, name: "Followed Cook", image: null }],
+    });
+
     const feedResponse = await authenticatedRequest(
       viewer,
       "/recipes/discover/feed?scope=following",

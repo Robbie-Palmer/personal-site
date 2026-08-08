@@ -3353,6 +3353,46 @@ app.get("/recipes/discover/feed", async (c) => {
   );
 });
 
+async function cookConnections(db: Db, cookId: string) {
+  const followers = await db
+    .select({
+      id: schema.user.id,
+      name: schema.user.name,
+      image: schema.user.image,
+      totalCount: sql<number>`count(*) over()`.mapWith(Number),
+    })
+    .from(schema.userFollow)
+    .innerJoin(
+      schema.user,
+      eq(schema.userFollow.followerUserId, schema.user.id),
+    )
+    .where(eq(schema.userFollow.followedUserId, cookId))
+    .orderBy(desc(schema.userFollow.createdAt))
+    .limit(PUBLIC_COOK_CONNECTION_LIMIT);
+  const following = await db
+    .select({
+      id: schema.user.id,
+      name: schema.user.name,
+      image: schema.user.image,
+      totalCount: sql<number>`count(*) over()`.mapWith(Number),
+    })
+    .from(schema.userFollow)
+    .innerJoin(
+      schema.user,
+      eq(schema.userFollow.followedUserId, schema.user.id),
+    )
+    .where(eq(schema.userFollow.followerUserId, cookId))
+    .orderBy(desc(schema.userFollow.createdAt))
+    .limit(PUBLIC_COOK_CONNECTION_LIMIT);
+
+  return {
+    followersCount: followers[0]?.totalCount ?? 0,
+    followingCount: following[0]?.totalCount ?? 0,
+    followers: followers.map(({ totalCount: _, ...cook }) => cook),
+    following: following.map(({ totalCount: _, ...cook }) => cook),
+  };
+}
+
 app.get("/recipes/cooks", async (c) => {
   const cookValue = c.req.query("cook");
   const cookId =
@@ -3388,44 +3428,11 @@ app.get("/recipes/cooks", async (c) => {
           .limit(30);
         const first = rows[0];
         if (!first) return c.json({ cook: null });
-
-        const followers = await db
-          .select({
-            id: schema.user.id,
-            name: schema.user.name,
-            image: schema.user.image,
-            totalCount: sql<number>`count(*) over()`.mapWith(Number),
-          })
-          .from(schema.userFollow)
-          .innerJoin(
-            schema.user,
-            eq(schema.userFollow.followerUserId, schema.user.id),
-          )
-          .where(eq(schema.userFollow.followedUserId, cookId.data))
-          .orderBy(desc(schema.userFollow.createdAt))
-          .limit(PUBLIC_COOK_CONNECTION_LIMIT);
-        const following = await db
-          .select({
-            id: schema.user.id,
-            name: schema.user.name,
-            image: schema.user.image,
-            totalCount: sql<number>`count(*) over()`.mapWith(Number),
-          })
-          .from(schema.userFollow)
-          .innerJoin(
-            schema.user,
-            eq(schema.userFollow.followedUserId, schema.user.id),
-          )
-          .where(eq(schema.userFollow.followerUserId, cookId.data))
-          .orderBy(desc(schema.userFollow.createdAt))
-          .limit(PUBLIC_COOK_CONNECTION_LIMIT);
+        const connections = await cookConnections(db, cookId.data);
         return c.json({
           cook: {
             ...first.author,
-            followersCount: followers[0]?.totalCount ?? 0,
-            followingCount: following[0]?.totalCount ?? 0,
-            followers: followers.map(({ totalCount: _, ...cook }) => cook),
-            following: following.map(({ totalCount: _, ...cook }) => cook),
+            ...connections,
             activity: rows.map(({ recipe }) => ({
               type: "recipe_added" as const,
               recipe: recipeResponse(recipe),
@@ -3453,6 +3460,16 @@ app.get("/recipes/cooks", async (c) => {
         .orderBy(desc(latestActivityAt));
       return c.json({ cooks });
     },
+  );
+});
+
+app.get("/recipes/cooks/me/connections", async (c) => {
+  return withRecipeSession(
+    c,
+    "query",
+    "GET /recipes/cooks/me/connections failed",
+    async ({ db, session }) =>
+      c.json(await cookConnections(db, session.user.id)),
   );
 });
 

@@ -2346,6 +2346,40 @@ describe("cook follows", () => {
     expect(dbMock.state.userFollows).toHaveLength(0);
   });
 
+  it("returns the signed-in cook's connections without requiring public activity", async () => {
+    dbMock.state.userFollows.push(
+      {
+        followerUserId: "outsider-user",
+        followedUserId: "owner-user",
+        createdAt: dbMock.date,
+      },
+      {
+        followerUserId: "owner-user",
+        followedUserId: "outsider-user",
+        createdAt: dbMock.date,
+      },
+    );
+
+    const res = await app.request("/recipes/cooks/me/connections", {}, env);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      followersCount: 1,
+      followingCount: 1,
+      followers: [{ id: "outsider-user", name: "Outsider", image: null }],
+      following: [{ id: "outsider-user", name: "Outsider", image: null }],
+    });
+  });
+
+  it("requires authentication for the signed-in cook's connections", async () => {
+    authzMock.session = null;
+
+    const res = await app.request("/recipes/cooks/me/connections", {}, env);
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Authentication required" });
+  });
+
   it("does not allow cooks to follow themselves", async () => {
     const res = await app.request(
       "/recipes/cooks/owner-user/follow",
