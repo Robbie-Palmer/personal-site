@@ -4,6 +4,7 @@ import type {
   PublicCookProfile,
   PublicCookSummary,
 } from "@/lib/api/public-cooks";
+import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 import { fireEvent, render, screen, waitFor } from "@/tests/test-utils";
 
 const mocks = vi.hoisted(() => ({
@@ -149,7 +150,8 @@ describe("PublicCooksView", () => {
   it("follows a cook from their profile", async () => {
     mocks.useSearchParams.mockReturnValue(new URLSearchParams("cook=cook-1"));
 
-    render(<PublicCooksView />);
+    const { queryClient } = render(<PublicCooksView />);
+    queryClient.setQueryData(recipeQueryKeys.publicCook("viewer-1"), profile);
 
     const followButton = await screen.findByRole("button", { name: "Follow" });
     await waitFor(() => expect(followButton).toBeEnabled());
@@ -159,6 +161,10 @@ describe("PublicCooksView", () => {
       expect(mocks.setCookFollowing).toHaveBeenCalledWith("cook-1", true),
     );
     await waitFor(() => expect(mocks.getPublicCook).toHaveBeenCalledTimes(2));
+    expect(
+      queryClient.getQueryState(recipeQueryKeys.publicCook("viewer-1"))
+        ?.isInvalidated,
+    ).toBe(true);
     expect(
       await screen.findByRole("button", { name: "Following" }),
     ).toHaveAttribute("aria-pressed", "true");

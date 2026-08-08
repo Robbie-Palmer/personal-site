@@ -89,6 +89,9 @@ function FollowCookAction({
         queryClient.invalidateQueries({
           queryKey: recipeQueryKeys.publicCook(cook.id),
         }),
+        queryClient.invalidateQueries({
+          queryKey: recipeQueryKeys.publicCook(currentUserId),
+        }),
       ]);
     },
   });

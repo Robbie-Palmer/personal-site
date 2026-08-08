@@ -1253,9 +1253,12 @@ const dbMock = vi.hoisted(() => {
           .filter((follow) => follow.followerUserId === viewerId)
           .map((follow) => follow.followedUserId),
       );
+      const noFollowingSources = query.includes("where false");
       const personalized = query.includes('"recipe"."user_id" in');
       const visibleRecipes = state.recipes.filter((recipe) =>
-        personalized
+        noFollowingSources
+          ? false
+          : personalized
           ? (householdUserIds.has(recipe.userId) &&
               (recipe.visibility === "public" ||
                 recipe.visibility === "household")) ||
@@ -1990,6 +1993,35 @@ describe("recipe discover following feed", () => {
 
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "Authentication required" });
+  });
+
+  it("returns an empty feed without a household or followed cooks", async () => {
+    seedHousehold();
+    dbMock.state.recipes.push({
+      id: "recipe-public",
+      slug: "public-stew",
+      title: "Public Stew",
+      description: null,
+      body: null,
+      userId: "owner-user",
+      visibility: "public",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: dbMock.date,
+    });
+    authzMock.session = sessionFor({
+      id: "outsider-user",
+      email: "outsider@example.test",
+      name: "Outsider",
+    });
+
+    const res = await app.request(
+      "/recipes/discover/feed?scope=following",
+      {},
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ items: [], nextCursor: null });
   });
 
   it("combines household activity with public recipes from followed cooks", async () => {
