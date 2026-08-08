@@ -964,7 +964,8 @@ const dbMock = vi.hoisted(() => {
 
     if (
       query.includes('from "user_follow"') &&
-      query.includes('inner join "user"')
+      query.includes('inner join "user"') &&
+      !query.includes('from "recipe"')
     ) {
       const cookId = params[0] as string;
       const selectsFollowers = query.includes(
@@ -995,7 +996,10 @@ const dbMock = vi.hoisted(() => {
       });
     }
 
-    if (query.includes('from "user_follow"')) {
+    if (
+      query.includes('from "user_follow"') &&
+      !query.includes('from "recipe"')
+    ) {
       const followerUserId = params[0] as string;
       const followedUserId = params[1] as string | undefined;
       return state.userFollows
@@ -1261,12 +1265,11 @@ const dbMock = vi.hoisted(() => {
           .filter((follow) => follow.followerUserId === viewerId)
           .map((follow) => follow.followedUserId),
       );
-      const noFollowingSources = query.includes("where false");
-      const personalized = query.includes('"recipe"."user_id" in');
+      const personalized =
+        query.includes('"recipe"."user_id" in') ||
+        query.includes('from "user_follow"');
       const visibleRecipes = state.recipes.filter((recipe) =>
-        noFollowingSources
-          ? false
-          : personalized
+        personalized
           ? (householdUserIds.has(recipe.userId) &&
               (recipe.visibility === "public" ||
                 recipe.visibility === "household")) ||

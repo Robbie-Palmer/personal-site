@@ -12,6 +12,7 @@ import {
   countDistinct,
   desc,
   eq,
+  exists,
   gt,
   gte,
   inArray,
@@ -3287,16 +3288,6 @@ app.get("/recipes/discover/feed", async (c) => {
         const memberIds = membership
           ? await findHouseholdMemberUserIds(db, membership.organizationId)
           : [];
-        const follows = await db
-          .select({ followedUserId: schema.userFollow.followedUserId })
-          .from(schema.userFollow)
-          .where(
-            eq(
-              schema.userFollow.followerUserId,
-              session.session.user.id,
-            ),
-          );
-        const followedUserIds = follows.map((follow) => follow.followedUserId);
         const followingFilters: SQL[] = [];
         if (memberIds.length > 0) {
           followingFilters.push(
@@ -3306,18 +3297,29 @@ app.get("/recipes/discover/feed", async (c) => {
             )!,
           );
         }
-        if (followedUserIds.length > 0) {
-          followingFilters.push(
-            and(
-              inArray(schema.recipe.userId, followedUserIds),
-              eq(schema.recipe.visibility, "public"),
-            )!,
-          );
-        }
-        visibilityFilter =
-          followingFilters.length > 0
-            ? or(...followingFilters)!
-            : sql<boolean>`false`;
+        followingFilters.push(
+          and(
+            eq(schema.recipe.visibility, "public"),
+            exists(
+              db
+                .select({ id: schema.userFollow.followedUserId })
+                .from(schema.userFollow)
+                .where(
+                  and(
+                    eq(
+                      schema.userFollow.followerUserId,
+                      session.session.user.id,
+                    ),
+                    eq(
+                      schema.userFollow.followedUserId,
+                      schema.recipe.userId,
+                    ),
+                  ),
+                ),
+            ),
+          )!,
+        );
+        visibilityFilter = or(...followingFilters)!;
       }
 
       const cursorFilter = recipeFeedCursorFilter(cursor);
