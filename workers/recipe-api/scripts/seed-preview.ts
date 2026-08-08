@@ -208,10 +208,10 @@ try {
   // A ready-made household so household features (shared pantry, member list,
   // household-only recipes, invitations) have data on first sign-in. Both
   // members belong to one household from the start. The IDs are deterministic
-  // (so the seed is idempotent across retries within a workflow run) but must
-  // be valid UUIDs: the household routes validate `householdId`/`memberId` with
-  // `z.string().uuid()`, matching the `crypto.randomUUID()` IDs real
-  // households get at runtime. Plain-string IDs 400 with "Invalid household ID".
+  // (keeping the seed idempotent across retries within a run) and must be valid
+  // UUIDs: the household routes accept `householdId`/`memberId` only as
+  // `z.string().uuid()`, the same shape `crypto.randomUUID()` produces for
+  // households created at runtime.
   const HOUSEHOLD_ID = "11111111-1111-4111-8111-111111111111";
   const HOUSEHOLD_SLUG = "preview-shared-household";
 

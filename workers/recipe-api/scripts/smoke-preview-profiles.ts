@@ -182,10 +182,10 @@ if (
   throw new Error("Empty-account diet fixture did not match");
 }
 
-// Household owner scenario. This exercises the household routes, which validate
-// `householdId` (and `memberId`) as UUIDs. A non-UUID seeded organization/member
-// ID passes the seed insert (the columns are `text`) but 400s here, so this is
-// the coverage that catches an "Invalid household ID" regression.
+// Household owner scenario. The household routes accept only UUID-form
+// `householdId`/`memberId`, so drive them end to end — resolve the household,
+// then read its members — to confirm the seeded household is reachable through
+// the API rather than merely present in the database.
 const ownerCookie = await createSessionCookie("household-owner@preview.invalid");
 const households = await expectJson<HouseholdSummary[]>(
   "/households",
