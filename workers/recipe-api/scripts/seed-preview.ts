@@ -268,6 +268,7 @@ try {
     { slug: "tomato-passata", location: "cupboards" },
     { slug: "olive-oil", location: "cupboards" },
     { slug: "coconut-milk", location: "cupboards" },
+    { slug: "frozen-vegetables", location: "fridge" },
     { slug: "garlic", location: "fresh" },
     { slug: "carrot", location: "fresh" },
     { slug: "spinach", location: "fresh" },

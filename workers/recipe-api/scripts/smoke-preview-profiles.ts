@@ -25,6 +25,18 @@ type DietProfile = {
   recipeMatchMode: "hide" | "warn";
 };
 
+type HouseholdSummary = {
+  id: string;
+  name: string;
+  membership: { id: string; role: string };
+};
+
+type HouseholdMember = {
+  id: string;
+  userId: string;
+  role: string;
+};
+
 const databaseURL = requiredEnv("DATABASE_URL");
 const siteURL = requiredEnv("BETTER_AUTH_URL");
 const apiURL = requiredEnv("PREVIEW_API_URL").replace(/\/$/, "");
@@ -83,7 +95,9 @@ async function expectAuthenticationRequired(path: string): Promise<void> {
   }
 }
 
-async function createSessionCookie(): Promise<string> {
+async function createSessionCookie(
+  email: string = previewScenarios[0].email,
+): Promise<string> {
   const { db, client } = createDb(databaseURL);
   try {
     const auth = createAuth(db, {
@@ -93,7 +107,7 @@ async function createSessionCookie(): Promise<string> {
     });
     const signIn = await auth.api.signInEmail({
       body: {
-        email: previewScenarios[0].email,
+        email,
         password: requiredEnv("PREVIEW_AUTH_PASSWORD"),
       },
       asResponse: true,
@@ -166,6 +180,40 @@ if (
   dietProfile.recipeMatchMode !== "hide"
 ) {
   throw new Error("Empty-account diet fixture did not match");
+}
+
+// Household owner scenario. This exercises the household routes, which validate
+// `householdId` (and `memberId`) as UUIDs. A non-UUID seeded organization/member
+// ID passes the seed insert (the columns are `text`) but 400s here, so this is
+// the coverage that catches an "Invalid household ID" regression.
+const ownerCookie = await createSessionCookie("household-owner@preview.invalid");
+const households = await expectJson<HouseholdSummary[]>(
+  "/households",
+  ownerCookie,
+);
+const household = households[0];
+if (households.length !== 1 || !household) {
+  throw new Error(
+    `Household owner should belong to exactly one household, saw ${households.length}`,
+  );
+}
+if (!household.id || household.membership.role !== "owner") {
+  throw new Error("Household owner fixture did not match");
+}
+
+const members = await expectJson<HouseholdMember[]>(
+  `/households/${household.id}/members`,
+  ownerCookie,
+);
+const memberRoles = members.map((member) => member.role).sort();
+if (
+  members.length !== 2 ||
+  memberRoles[0] !== "member" ||
+  memberRoles[1] !== "owner"
+) {
+  throw new Error(
+    `Household should have one owner and one member, saw roles: ${memberRoles.join(", ")}`,
+  );
 }
 
 console.log("Authenticated preview profile smoke test passed.");
