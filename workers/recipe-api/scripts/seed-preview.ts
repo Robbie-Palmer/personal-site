@@ -207,9 +207,12 @@ try {
 
   // A ready-made household so household features (shared pantry, member list,
   // household-only recipes, invitations) have data on first sign-in. Both
-  // members belong to one household from the start. Deterministic IDs keep the
-  // seed idempotent across retries within a workflow run.
-  const HOUSEHOLD_ID = "preview-household-shared";
+  // members belong to one household from the start. The IDs are deterministic
+  // (so the seed is idempotent across retries within a workflow run) but must
+  // be valid UUIDs: the household routes validate `householdId`/`memberId` with
+  // `z.string().uuid()`, matching the `crypto.randomUUID()` IDs real
+  // households get at runtime. Plain-string IDs 400 with "Invalid household ID".
+  const HOUSEHOLD_ID = "11111111-1111-4111-8111-111111111111";
   const HOUSEHOLD_SLUG = "preview-shared-household";
 
   await db
@@ -226,13 +229,13 @@ try {
 
   const householdMembers: Array<typeof schema.member.$inferInsert> = [
     {
-      id: "preview-member-household-owner",
+      id: "22222222-2222-4222-8222-222222222222",
       organizationId: HOUSEHOLD_ID,
       userId: householdOwnerUserId,
       role: "owner",
     },
     {
-      id: "preview-member-household-member",
+      id: "33333333-3333-4333-8333-333333333333",
       organizationId: HOUSEHOLD_ID,
       userId: householdMemberUserId,
       role: "member",
