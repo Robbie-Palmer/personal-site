@@ -170,6 +170,23 @@ hardest ingestion problem, but also one of the most differentiated.
 Imported recipes should enter a review flow before becoming part of the collection. The exact
 mechanism can evolve; the important point is preserving quality control and editorial oversight.
 
+### Batch Import Workspace
+
+People migrating an existing collection may have dozens of local recipe files or a list of recipe
+URLs. Batch import should accept those sources together, process them durably in the background,
+and present the results as a review queue. Each source becomes an independently editable draft with
+its own processing, review, duplicate, failure, saved, or skipped state.
+
+The workspace should combine an editing form and live preview for the selected item with queue
+navigation, filters, autosaved draft edits, and a primary **Save and next** action. Every recipe
+should be reviewed and saved independently, while ambiguous or duplicate items receive additional
+warnings and resolution choices.
+
+Photo batches require an earlier grouping step because one recipe can span several images. Users
+should either confirm that every image is a separate recipe or arrange thumbnails into recipe
+groups before extraction. Automatic boundary suggestions may assist this step, but should not
+silently decide which pages belong together.
+
 ### Portable Recipe Data
 
 Recipes should remain exportable in a broadly understood structured format. That supports SEO,
@@ -421,6 +438,39 @@ testing ($10-25/month plus \~$350 test kit). Has recipes and meal planning, but
 is laborious, and the recipe submission experience is poor. Recipes are a byproduct of the nutrition
 platform, not a core focus.
 
+## Batch Import and Review Patterns
+
+Recipe products divide import into two distinct experiences. Adding one uncertain recipe normally
+opens an editor for confirmation, while moving a whole collection normally creates a durable
+background job with progress, per-item errors, and a way to identify or undo the resulting records.
+The useful opportunity is to combine those patterns: durable batch processing followed by a
+focused, item-by-item review queue.
+
+| Product or pattern                                                                                                                   | Batch behaviour                                                                                                                                                                                                                                                                                                                                                  | Review and recovery behaviour                                                                                                                                                                      | Lesson for Recipe Site                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[RecipeSage](https://docs.recipesage.com/docs/tutorials/settings/import/)**                                                        | Accepts newline-separated [URL lists](https://docs.recipesage.com/docs/tutorials/settings/import/urls/) and ZIP archives containing one recipe per [text file](https://docs.recipesage.com/docs/tutorials/settings/import/textfiles/), PDF, or [image](https://docs.recipesage.com/docs/tutorials/settings/import/images/). Imports continue as background jobs. | Every import receives an automatic label, making the batch easy to find and delete. It warns against retrying jobs because duplicates can be created.                                              | Make recipe boundaries explicit, persist the import as a first-class object, and provide batch-level recovery.                               |
+| **[Plan to Eat](https://learn.plantoeat.com/help/import-recipe-files-from-other-programs)**                                          | Imports established collection formats, supports up to 3,000 recipes in one file, and continues after the user leaves the page.                                                                                                                                                                                                                                  | Users choose whether matching titles should be overwritten. Progress and failures are reported beside individual recipe titles.                                                                    | Decide duplicate policy during preflight and isolate failures to individual items rather than failing the batch.                             |
+| **[Paprika](https://www.paprikaapp.com/help/windows/)** and **[AnyList](https://www.anylist.com/recipes/browser-extensions/safari)** | Paprika imports trusted database formats wholesale; both products handle ordinary website capture one recipe at a time.                                                                                                                                                                                                                                          | Individual web imports are shown in an editable recipe screen before the user saves them.                                                                                                          | Keep migration and everyday capture as related but distinct modes, and reuse the familiar edit-before-save experience for uncertain results. |
+| **[CookBook](https://help.cookbookmanager.com/en/article/how-to-import-recipes-from-another-app-1wqhgjs/)**                          | Individual files are self-service, while large collection transfers are queued as a separate assisted service.                                                                                                                                                                                                                                                   | A single imported file is reviewed before saving; collection imports complete in the background and notify the user.                                                                               | A collection import is migration infrastructure, not merely a file input with `multiple` enabled.                                            |
+| **Document and receipt tools**                                                                                                       | [Expensify](https://help.expensify.com/articles/expensify-classic/expenses/Add-an-expense) treats rapid-fire receipt photos as separate items. [Dext](https://help.dext.com/en/articles/416680-why-was-my-document-rejected) sends uploads containing several transactions to a manual split tool.                                                               | [Adobe Acrobat](https://helpx.adobe.com/acrobat/web/edit-pdfs/organize-documents/organize-pages.html) uses a visual thumbnail workspace to reorder, insert, rotate, or remove pages before saving. | For photos, expose page grouping and ordering before extraction instead of relying on an invisible boundary guess.                           |
+
+### Product Direction
+
+The batch experience should be one persistent workspace rather than many browser tabs or unrelated
+editor pages. Each draft still gets a stable route for refresh and back-button safety, but the
+interface keeps the queue, selected editor, and live preview together. Edits autosave to the import
+draft; **Save recipe** promotes only that item into the recipe box; **Save and next** advances to
+the next item needing review.
+
+Delivery is deliberately phased:
+
+1. **URL lists and local recipe files.** One URL or file equals one recipe. Add preflight
+   validation, duplicate warnings, durable background processing, and the review queue.
+2. **Collection archives.** Expand supported archive formats into the same review queue, retain
+   source provenance on every accepted recipe, and support whole-batch undo.
+3. **Photo batches.** Add a thumbnail grouping board where users can create, split, merge, and
+   reorder recipe groups before extraction.
+
 ## Feature Comparison
 
 | Feature                | Paprika       | Crouton      | Mealie    | Flavorish | Recify                | Honeydew | **Recipe Site**    |
@@ -546,9 +596,18 @@ that should be made through ADRs when the constraints are clearer.
 
 ## Recipe Ingestion
 
-Short/medium term: import tooling for photos, websites, and social media that feeds a human review
-workflow. Longer term: content management can evolve if the collection or contributor model outgrows
-the current approach.
+Import tooling for photos, websites, social media, local recipe files, and collection archives
+should feed a human review workflow. Single imports open one editable preview; batch imports create
+a persistent queue in which every recipe can be corrected, retried, skipped, and saved
+independently.
+
+For URL and local-file batches, one URL or file represents one recipe. Collection archives expand
+into separate review items while preserving their source. Photo batches require users to group and
+order images before extraction because one recipe may span several pages. One failed or ambiguous
+item should never block the rest of a batch.
+
+Longer term, content management can evolve if the collection or contributor model outgrows this
+approach.
 
 # Building Philosophy
 
