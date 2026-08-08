@@ -4,7 +4,7 @@ import { SelectedProfile } from "@/components/recipes/profile/selected-profile";
 
 export const metadata: Metadata = {
   title: "Profile",
-  description: "See who you share a household and kitchen with.",
+  description: "See your household, followers, and the cooks you follow.",
   robots: { index: false, follow: false },
 };
 

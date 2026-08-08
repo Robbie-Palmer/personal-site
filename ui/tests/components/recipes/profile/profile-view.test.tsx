@@ -1,10 +1,11 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, render, screen, waitFor } from "@/tests/test-utils";
 
 const mocks = vi.hoisted(() => ({
   useSession: vi.fn(),
   getHouseholds: vi.fn(),
   getHouseholdMembers: vi.fn(),
+  getOwnCookConnections: vi.fn(),
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -14,6 +15,11 @@ vi.mock("@/lib/auth-client", () => ({
 vi.mock("@/lib/api/households", () => ({
   getHouseholds: mocks.getHouseholds,
   getHouseholdMembers: mocks.getHouseholdMembers,
+}));
+
+vi.mock("@/lib/api/public-cooks", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/public-cooks")>()),
+  getOwnCookConnections: mocks.getOwnCookConnections,
 }));
 
 import { ProfileView } from "@/components/recipes/profile/profile-view";
@@ -69,6 +75,30 @@ describe("ProfileView", () => {
     });
     mocks.getHouseholds.mockResolvedValue([household]);
     mocks.getHouseholdMembers.mockResolvedValue(members);
+    mocks.getOwnCookConnections.mockResolvedValue({
+      followersCount: 1,
+      followingCount: 1,
+      followers: [{ id: "follower-1", name: "Grace Baker", image: null }],
+      following: [{ id: "followed-1", name: "Lin Chef", image: null }],
+    });
+  });
+
+  it("shows who the signed-in user follows and who follows them", async () => {
+    render(<ProfileView />);
+
+    expect(await screen.findByText("1 Followers")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Grace Baker/ })).toHaveAttribute(
+      "href",
+      "/recipes/cooks?cook=follower-1",
+    );
+    expect(screen.getByText("1 Following")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Lin Chef/ })).toHaveAttribute(
+      "href",
+      "/recipes/cooks?cook=followed-1",
+    );
+    expect(mocks.getOwnCookConnections).toHaveBeenCalledWith(
+      expect.any(AbortSignal),
+    );
   });
 
   it("shows the selected member and links every household member profile", async () => {
@@ -101,6 +131,7 @@ describe("ProfileView", () => {
     expect(
       screen.queryByRole("link", { name: /^settings$/i }),
     ).not.toBeInTheDocument();
+    expect(screen.queryByText("1 Followers")).not.toBeInTheDocument();
   });
 
   it("shows the signed-in user's profile without a household", async () => {

@@ -9,7 +9,8 @@ export const previewScenarios = [
   {
     id: "user-with-recipes",
     name: "User with recipes",
-    description: "A standard user with private and public recipe fixtures.",
+    description:
+      "A solo cook with private and public recipes who follows the household owner.",
     email: "recipes-user@preview.invalid",
     role: "user",
   },
@@ -24,7 +25,7 @@ export const previewScenarios = [
     id: "household-owner",
     name: "Household owner",
     description:
-      "Owns a shared household with a stocked pantry and a dietary profile.",
+      "Owns a shared household and mutually follows the solo recipes cook.",
     email: "household-owner@preview.invalid",
     role: "user",
   },

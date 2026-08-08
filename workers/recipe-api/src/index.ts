@@ -12,6 +12,7 @@ import {
   countDistinct,
   desc,
   eq,
+  exists,
   gt,
   gte,
   inArray,
@@ -22,6 +23,7 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { createDb, type Db, type DbClient, schema } from "recipe-db";
 import { SavedRecipePayloadSchema } from "recipe-domain/serialization";
@@ -155,10 +157,16 @@ const creatableRecipeSlugSchema = recipeSlugSchema.refine(
 const dietRecipeMatchModeSchema = z.enum(["hide", "warn"]);
 const pantryLocationSchema = z.enum(schema.pantryLocationEnum.enumValues);
 const pantryIngredientSlugSchema = z.string().min(1).max(200);
-const feedScopeSchema = z.enum(["public", "household"]);
+const feedScopeSchema = z.enum(["public", "following"]);
 const feedLimitSchema = z.coerce.number().int().min(1).max(30).default(12);
 const recipeListLimitSchema = z.coerce.number().int().min(1).max(100).default(100);
 const publicCookIdSchema = z.string().trim().min(1).max(128);
+const PUBLIC_COOK_CONNECTION_LIMIT = 50;
+const feedViewerMembership = alias(schema.member, "feed_viewer_membership");
+const feedRecipeOwnerMembership = alias(
+  schema.member,
+  "feed_recipe_owner_membership",
+);
 
 const dietKeySchema = z
   .string()
@@ -3275,20 +3283,60 @@ app.get("/recipes/discover/feed", async (c) => {
     "query",
     "GET /recipes/discover/feed query failed",
     async (db) => {
-      let visibilityFilter = eq(schema.recipe.visibility, "public");
-      if (scope.data === "household") {
-        const session = await loadOptionalRecipeSession(c, db);
-        if (!session) return authorizationResponse(c, unauthenticated());
-        const membership = await findUserHouseholdMembership(db, session.user.id);
-        if (!membership) return c.json({ items: [], nextCursor: null });
-        const memberIds = await findHouseholdMemberUserIds(
-          db,
-          membership.organizationId,
-        );
-        visibilityFilter = and(
-          inArray(schema.recipe.userId, memberIds),
-          inArray(schema.recipe.visibility, ["public", "household"]),
-        )!;
+      let visibilityFilter: SQL = eq(schema.recipe.visibility, "public");
+      if (scope.data !== "public") {
+        const session = await requireRecipeSession(c, db);
+        if (!session.success) return session.response;
+        const followingFilters: SQL[] = [
+          and(
+            inArray(schema.recipe.visibility, ["public", "household"]),
+            exists(
+              db
+                .select({ id: feedRecipeOwnerMembership.id })
+                .from(feedRecipeOwnerMembership)
+                .innerJoin(
+                  feedViewerMembership,
+                  eq(
+                    feedRecipeOwnerMembership.organizationId,
+                    feedViewerMembership.organizationId,
+                  ),
+                )
+                .where(
+                  and(
+                    eq(
+                      feedRecipeOwnerMembership.userId,
+                      schema.recipe.userId,
+                    ),
+                    eq(
+                      feedViewerMembership.userId,
+                      session.session.user.id,
+                    ),
+                  ),
+                ),
+            ),
+          )!,
+          and(
+            eq(schema.recipe.visibility, "public"),
+            exists(
+              db
+                .select({ id: schema.userFollow.followedUserId })
+                .from(schema.userFollow)
+                .where(
+                  and(
+                    eq(
+                      schema.userFollow.followerUserId,
+                      session.session.user.id,
+                    ),
+                    eq(
+                      schema.userFollow.followedUserId,
+                      schema.recipe.userId,
+                    ),
+                  ),
+                ),
+            ),
+          )!,
+        ];
+        visibilityFilter = or(...followingFilters)!;
       }
 
       const cursorFilter = recipeFeedCursorFilter(cursor);
@@ -3321,6 +3369,46 @@ app.get("/recipes/discover/feed", async (c) => {
     },
   );
 });
+
+async function cookConnections(db: Db, cookId: string) {
+  const followers = await db
+    .select({
+      id: schema.user.id,
+      name: schema.user.name,
+      image: schema.user.image,
+      totalCount: sql<number>`count(*) over()`.mapWith(Number),
+    })
+    .from(schema.userFollow)
+    .innerJoin(
+      schema.user,
+      eq(schema.userFollow.followerUserId, schema.user.id),
+    )
+    .where(eq(schema.userFollow.followedUserId, cookId))
+    .orderBy(desc(schema.userFollow.createdAt))
+    .limit(PUBLIC_COOK_CONNECTION_LIMIT);
+  const following = await db
+    .select({
+      id: schema.user.id,
+      name: schema.user.name,
+      image: schema.user.image,
+      totalCount: sql<number>`count(*) over()`.mapWith(Number),
+    })
+    .from(schema.userFollow)
+    .innerJoin(
+      schema.user,
+      eq(schema.userFollow.followedUserId, schema.user.id),
+    )
+    .where(eq(schema.userFollow.followerUserId, cookId))
+    .orderBy(desc(schema.userFollow.createdAt))
+    .limit(PUBLIC_COOK_CONNECTION_LIMIT);
+
+  return {
+    followersCount: followers[0]?.totalCount ?? 0,
+    followingCount: following[0]?.totalCount ?? 0,
+    followers: followers.map(({ totalCount: _, ...cook }) => cook),
+    following: following.map(({ totalCount: _, ...cook }) => cook),
+  };
+}
 
 app.get("/recipes/cooks", async (c) => {
   const cookValue = c.req.query("cook");
@@ -3356,17 +3444,18 @@ app.get("/recipes/cooks", async (c) => {
           .orderBy(desc(schema.recipe.createdAt), desc(schema.recipe.id))
           .limit(30);
         const first = rows[0];
+        if (!first) return c.json({ cook: null });
+        const connections = await cookConnections(db, cookId.data);
         return c.json({
-          cook: first
-            ? {
-                ...first.author,
-                activity: rows.map(({ recipe }) => ({
-                  type: "recipe_added" as const,
-                  recipe: recipeResponse(recipe),
-                  createdAt: recipe.createdAt,
-                })),
-              }
-            : null,
+          cook: {
+            ...first.author,
+            ...connections,
+            activity: rows.map(({ recipe }) => ({
+              type: "recipe_added" as const,
+              recipe: recipeResponse(recipe),
+              createdAt: recipe.createdAt,
+            })),
+          },
         });
       }
 
@@ -3387,6 +3476,108 @@ app.get("/recipes/cooks", async (c) => {
         .groupBy(schema.user.id, schema.user.name, schema.user.image)
         .orderBy(desc(latestActivityAt));
       return c.json({ cooks });
+    },
+  );
+});
+
+app.get("/recipes/cooks/me/connections", async (c) => {
+  return withRecipeSession(
+    c,
+    "query",
+    "GET /recipes/cooks/me/connections failed",
+    async ({ db, session }) =>
+      c.json(await cookConnections(db, session.user.id)),
+  );
+});
+
+app.get("/recipes/cooks/:cookId/follow", async (c) => {
+  const cookId = publicCookIdSchema.safeParse(c.req.param("cookId"));
+  if (!cookId.success) return c.json({ error: "Invalid cook ID" }, 400);
+
+  return withRecipeSession(
+    c,
+    "query",
+    "GET /recipes/cooks/:cookId/follow failed",
+    async ({ db, session }) => {
+      if (cookId.data === session.user.id) {
+        return c.json({ following: false, canFollow: false });
+      }
+      const [cook] = await db
+        .select({ id: schema.user.id })
+        .from(schema.user)
+        .where(eq(schema.user.id, cookId.data))
+        .limit(1);
+      if (!cook) return c.notFound();
+      const [follow] = await db
+        .select({ followedUserId: schema.userFollow.followedUserId })
+        .from(schema.userFollow)
+        .where(
+          and(
+            eq(schema.userFollow.followerUserId, session.user.id),
+            eq(schema.userFollow.followedUserId, cookId.data),
+          ),
+        )
+        .limit(1);
+      return c.json({ following: Boolean(follow), canFollow: true });
+    },
+  );
+});
+
+app.put("/recipes/cooks/:cookId/follow", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+  const cookId = publicCookIdSchema.safeParse(c.req.param("cookId"));
+  if (!cookId.success) return c.json({ error: "Invalid cook ID" }, 400);
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "PUT /recipes/cooks/:cookId/follow failed",
+    async ({ db, session }) => {
+      if (cookId.data === session.user.id) {
+        return c.json({ error: "You cannot follow yourself" }, 400);
+      }
+      const [cook] = await db
+        .select({ id: schema.user.id })
+        .from(schema.user)
+        .where(eq(schema.user.id, cookId.data))
+        .limit(1);
+      if (!cook) return c.notFound();
+      await db
+        .insert(schema.userFollow)
+        .values({
+          followerUserId: session.user.id,
+          followedUserId: cookId.data,
+        })
+        .onConflictDoNothing();
+      return c.json({ following: true, canFollow: true });
+    },
+  );
+});
+
+app.delete("/recipes/cooks/:cookId/follow", async (c) => {
+  const csrfFailure = validateCsrf(c);
+  if (csrfFailure) return csrfFailure;
+  const cookId = publicCookIdSchema.safeParse(c.req.param("cookId"));
+  if (!cookId.success) return c.json({ error: "Invalid cook ID" }, 400);
+
+  return withRecipeSession(
+    c,
+    "mutation",
+    "DELETE /recipes/cooks/:cookId/follow failed",
+    async ({ db, session }) => {
+      if (cookId.data === session.user.id) {
+        return c.json({ error: "You cannot follow yourself" }, 400);
+      }
+      await db
+        .delete(schema.userFollow)
+        .where(
+          and(
+            eq(schema.userFollow.followerUserId, session.user.id),
+            eq(schema.userFollow.followedUserId, cookId.data),
+          ),
+        );
+      return c.json({ following: false, canFollow: true });
     },
   );
 });

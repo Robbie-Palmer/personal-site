@@ -1,6 +1,6 @@
 import type { SavedRecipeApiRecord } from "@/lib/domain/recipe/recipeDraft";
 
-export type DiscoverFeedScope = "public" | "household";
+export type DiscoverFeedScope = "public" | "following";
 
 export type DiscoverFeedItem = {
   type: "recipe_added";

@@ -15,11 +15,11 @@ export const publicDiscoverFeedQuery = () =>
     refetchOnWindowFocus: true,
   });
 
-export const householdDiscoverFeedQuery = (userId: string) =>
+export const followingDiscoverFeedQuery = (userId: string) =>
   infiniteQueryOptions({
-    queryKey: recipeQueryKeys.householdDiscoverFeed(userId),
+    queryKey: recipeQueryKeys.followingDiscoverFeed(userId),
     queryFn: ({ pageParam, signal }) =>
-      getDiscoverFeedPage("household", pageParam, signal),
+      getDiscoverFeedPage("following", pageParam, signal),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     staleTime: FEED_STALE_TIME,

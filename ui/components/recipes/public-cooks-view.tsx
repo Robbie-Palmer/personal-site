@@ -1,23 +1,37 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, LoaderCircle, Users } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  ArrowRight,
+  LoaderCircle,
+  UserCheck,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { AuthButton } from "@/components/recipes/auth-button";
+import { CookConnectionList } from "@/components/recipes/cook-connection-list";
 import { RecipeAvatar } from "@/components/recipes/recipe-avatar";
 import { RecipeThumb } from "@/components/recipes/recipe-card";
 import { RecipeQueryStatus } from "@/components/recipes/recipe-load-state";
 import { RecipePageLink } from "@/components/recipes/recipe-page-link";
 import { Button } from "@/components/ui/button";
 import type {
+  CookFollowStatus,
   PublicCookProfile,
   PublicCookSummary,
 } from "@/lib/api/public-cooks";
+import { setCookFollowing } from "@/lib/api/public-cooks";
+import { authClient } from "@/lib/auth-client";
 import { savedRecipeCard } from "@/lib/domain/recipe/recipeDraft";
 import {
+  cookFollowStatusQuery,
   publicCookQuery,
   publicCooksQuery,
 } from "@/lib/query/public-cook-queries";
+import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 function CookCard({ cook }: Readonly<{ cook: PublicCookSummary }>) {
   return (
@@ -51,7 +65,94 @@ function CookCard({ cook }: Readonly<{ cook: PublicCookSummary }>) {
   );
 }
 
-function CookProfile({ cook }: Readonly<{ cook: PublicCookProfile }>) {
+function FollowCookAction({
+  cook,
+  currentUserId,
+}: Readonly<{ cook: PublicCookProfile; currentUserId?: string }>) {
+  const queryClient = useQueryClient();
+  const isOwnProfile = currentUserId === cook.id;
+  const status = useQuery({
+    ...cookFollowStatusQuery(currentUserId ?? "anonymous", cook.id),
+    enabled: Boolean(currentUserId) && !isOwnProfile,
+  });
+  const mutation = useMutation({
+    mutationFn: (following: boolean) => setCookFollowing(cook.id, following),
+    onSuccess: async (nextStatus: CookFollowStatus) => {
+      if (!currentUserId) return;
+      queryClient.setQueryData(
+        recipeQueryKeys.cookFollowStatus(currentUserId, cook.id),
+        nextStatus,
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: recipeQueryKeys.followingDiscoverFeed(currentUserId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: recipeQueryKeys.publicCook(cook.id),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: recipeQueryKeys.publicCook(currentUserId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: recipeQueryKeys.cookConnections(currentUserId),
+        }),
+      ]);
+    },
+  });
+
+  if (isOwnProfile) return null;
+  if (!currentUserId) {
+    return (
+      <div className="sm:ml-auto">
+        <AuthButton label="Log in to follow" />
+      </div>
+    );
+  }
+
+  const following = status.data?.following ?? false;
+  const pending = status.isPending || mutation.isPending;
+  const followError = mutation.error ?? status.error;
+  let followIcon = <UserPlus />;
+  if (pending) {
+    followIcon = <LoaderCircle className="animate-spin" />;
+  } else if (following) {
+    followIcon = <UserCheck />;
+  }
+  return (
+    <div className="sm:ml-auto sm:text-right">
+      <Button
+        type="button"
+        variant={following ? "outline" : "default"}
+        aria-pressed={following}
+        disabled={pending}
+        className={
+          following
+            ? ""
+            : "bg-[var(--terracotta)] text-white hover:bg-[var(--terracotta-deep)]"
+        }
+        onClick={() => mutation.mutate(!following)}
+      >
+        {followIcon}
+        {following ? "Following" : "Follow"}
+      </Button>
+      {followError ? (
+        <p
+          role="alert"
+          className="rt-body mt-2 max-w-52 text-xs text-[var(--terracotta-deep)]"
+        >
+          {followError instanceof Error
+            ? followError.message
+            : "Follow status could not be updated."}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function CookProfile({
+  cook,
+  currentUserId,
+}: Readonly<{ cook: PublicCookProfile; currentUserId?: string }>) {
   const firstName = cook.name.trim().split(/\s+/)[0] || "This cook";
   return (
     <div>
@@ -67,7 +168,7 @@ function CookProfile({ cook }: Readonly<{ cook: PublicCookProfile }>) {
           size={88}
           className="shadow-[var(--paper-shadow)]"
         />
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="rt-mono text-[var(--terracotta)]">Cook profile</p>
           <h1 className="rt-display mt-2 text-5xl sm:text-6xl">
             {firstName}’s{" "}
@@ -77,7 +178,20 @@ function CookProfile({ cook }: Readonly<{ cook: PublicCookProfile }>) {
             Public recipes this cook has recently added.
           </p>
         </div>
+        <FollowCookAction cook={cook} currentUserId={currentUserId} />
       </header>
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <CookConnectionList
+          label="Followers"
+          cooks={cook.followers}
+          count={cook.followersCount}
+        />
+        <CookConnectionList
+          label="Following"
+          cooks={cook.following}
+          count={cook.followingCount}
+        />
+      </div>
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         {cook.activity.map((item) => {
           const recipe = savedRecipeCard(item.recipe);
@@ -189,20 +303,25 @@ function CooksContent({
   error,
   selectedCook,
   selectedCookId,
+  currentUserId,
 }: Readonly<{
   cooks: PublicCookSummary[];
   error: string | null;
   selectedCook: PublicCookProfile | null;
   selectedCookId: string | null;
+  currentUserId?: string;
 }>) {
   if (error) return <CooksError error={error} />;
-  if (selectedCook) return <CookProfile cook={selectedCook} />;
+  if (selectedCook) {
+    return <CookProfile cook={selectedCook} currentUserId={currentUserId} />;
+  }
   if (selectedCookId) return <CookNotFound />;
   return <CookDirectory cooks={cooks} />;
 }
 
 export function PublicCooksView() {
   const searchParams = useSearchParams();
+  const { data: session } = authClient.useSession();
   const selectedCookId = searchParams.get("cook");
   const subject = selectedCookId ? "This cook" : "The cooks directory";
   const directory = useQuery({
@@ -241,6 +360,7 @@ export function PublicCooksView() {
           error={fatalCooksError(result.data, result.error, subject)}
           selectedCook={profile.data ?? null}
           selectedCookId={selectedCookId}
+          currentUserId={session?.user.id}
         />
       </div>
     </>

@@ -1,8 +1,10 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Home, Settings, Users } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { CookConnectionList } from "@/components/recipes/cook-connection-list";
 import { RecipeAvatar } from "@/components/recipes/recipe-avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +14,7 @@ import {
   type HouseholdMember,
 } from "@/lib/api/households";
 import { authClient } from "@/lib/auth-client";
+import { ownCookConnectionsQuery } from "@/lib/query/public-cook-queries";
 
 type ProfileData = {
   household: Household | null;
@@ -31,6 +34,13 @@ export function ProfileView({ userId }: Readonly<{ userId?: string | null }>) {
   const [data, setData] = useState<ProfileData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const ownConnectionsEnabled = Boolean(
+    session && (!userId || userId === session.user.id),
+  );
+  const ownConnections = useQuery({
+    ...ownCookConnectionsQuery(session?.user.id ?? "anonymous"),
+    enabled: ownConnectionsEnabled,
+  });
 
   useEffect(() => {
     if (sessionPending) return;
@@ -96,7 +106,11 @@ export function ProfileView({ userId }: Readonly<{ userId?: string | null }>) {
     return () => controller.abort();
   }, [session, sessionPending, userId]);
 
-  if (sessionPending || loading) {
+  if (
+    sessionPending ||
+    loading ||
+    (ownConnectionsEnabled && ownConnections.isPending)
+  ) {
     return (
       <div className="container mx-auto flex max-w-5xl flex-1 items-center justify-center px-4 py-20">
         <p className="rt-mono text-[var(--ink-3)]">Loading kitchen profile…</p>
@@ -171,6 +185,32 @@ export function ProfileView({ userId }: Readonly<{ userId?: string | null }>) {
           </Button>
         )}
       </header>
+
+      {isSelf && ownConnections.data ? (
+        <section aria-label="Cook connections" className="mt-8">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <CookConnectionList
+              label="Followers"
+              cooks={ownConnections.data.followers}
+              count={ownConnections.data.followersCount}
+            />
+            <CookConnectionList
+              label="Following"
+              cooks={ownConnections.data.following}
+              count={ownConnections.data.followingCount}
+            />
+          </div>
+        </section>
+      ) : null}
+
+      {isSelf && ownConnections.error ? (
+        <p
+          role="alert"
+          className="rt-body mt-8 rounded-xl border border-dashed border-[var(--line-strong)] p-4 text-sm text-[var(--terracotta-deep)]"
+        >
+          {loadErrorMessage(ownConnections.error)}
+        </p>
+      ) : null}
 
       {household && (
         <section className="mt-8 rounded-xl border border-[var(--line-strong)] bg-[var(--card)] p-5 shadow-[var(--paper-shadow)] sm:p-6">

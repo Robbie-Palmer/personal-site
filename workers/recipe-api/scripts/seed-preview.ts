@@ -193,6 +193,26 @@ try {
         userId: householdOwnerUserId,
         visibility: "household",
     },
+    {
+        slug: "preview-public-household-flatbread",
+        title: "Preview Household Flatbread",
+        description:
+          "Public fixture from a household cook for cross-household following QA.",
+        body: previewRecipeBody(
+          "preview-public-household-flatbread",
+          "Preview Household Flatbread",
+          "Public fixture from a household cook for cross-household following QA.",
+          "Top the @bread{2%slices} with @cheddar cheese{80%g} and @vine tomato{1}.",
+          [
+            { ingredient: "bread", amount: 2 },
+            { ingredient: "cheddar-cheese", amount: 80, unit: "g" },
+            { ingredient: "vine-tomato", amount: 1 },
+          ],
+          ["Top the bread with cheddar cheese and vine tomato, then grill."],
+        ),
+        userId: householdOwnerUserId,
+        visibility: "public",
+    },
   ];
 
   for (const previewRecipe of previewRecipes) {
@@ -253,6 +273,23 @@ try {
         },
       });
   }
+
+  // A reciprocal connection across household boundaries. This gives both the
+  // household owner and the solo recipes cook a ready-made Following feed and
+  // exercises the public-only visibility boundary for non-household followers.
+  await db
+    .insert(schema.userFollow)
+    .values([
+      {
+        followerUserId: householdOwnerUserId,
+        followedUserId: recipesUserId,
+      },
+      {
+        followerUserId: recipesUserId,
+        followedUserId: householdOwnerUserId,
+      },
+    ])
+    .onConflictDoNothing();
 
   // Shared household pantry: owned by the organization, so every member sees the
   // same stock. Ingredients are canonical slugs that also appear in the seeded
@@ -340,7 +377,7 @@ try {
     .onConflictDoNothing();
 
   console.log(
-    `Seeded ${previewScenarios.length} preview scenarios with household, pantry, and diet fixtures.`,
+    `Seeded ${previewScenarios.length} preview scenarios with household, pantry, diet, and cross-household follow fixtures.`,
   );
 } finally {
   await client.end({ timeout: 5 });

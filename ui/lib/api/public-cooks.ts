@@ -17,6 +17,24 @@ export type PublicCookProfile = {
     recipe: SavedRecipeApiRecord;
     createdAt: string;
   }>;
+} & CookConnections;
+
+export type CookConnections = {
+  followersCount: number;
+  followingCount: number;
+  followers: PublicCookConnection[];
+  following: PublicCookConnection[];
+};
+
+export type PublicCookConnection = {
+  id: string;
+  name: string;
+  image: string | null;
+};
+
+export type CookFollowStatus = {
+  following: boolean;
+  canFollow: boolean;
 };
 
 async function apiJson<T>(url: string, signal?: AbortSignal): Promise<T> {
@@ -47,4 +65,37 @@ export async function getPublicCook(id: string, signal?: AbortSignal) {
     signal,
   );
   return page.cook;
+}
+
+export function getCookFollowStatus(id: string, signal?: AbortSignal) {
+  return apiJson<CookFollowStatus>(
+    `/api/recipes/cooks/${encodeURIComponent(id)}/follow`,
+    signal,
+  );
+}
+
+export function getOwnCookConnections(signal?: AbortSignal) {
+  return apiJson<CookConnections>("/api/recipes/cooks/me/connections", signal);
+}
+
+export async function setCookFollowing(id: string, following: boolean) {
+  const response = await fetch(
+    `/api/recipes/cooks/${encodeURIComponent(id)}/follow`,
+    {
+      method: following ? "PUT" : "DELETE",
+      credentials: "same-origin",
+    },
+  );
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    throw new Error(
+      body?.error ??
+        (following
+          ? "This cook could not be followed."
+          : "This cook could not be unfollowed."),
+    );
+  }
+  return response.json() as Promise<CookFollowStatus>;
 }

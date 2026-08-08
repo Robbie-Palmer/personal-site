@@ -70,12 +70,12 @@ afterEach(() => {
 });
 
 describe("DiscoverFeed", () => {
-  it("reuses cached public and household feeds across tabs and remounts", async () => {
+  it("reuses cached for-you and following feeds across tabs and remounts", async () => {
     globalThis.fetch = vi.fn(async (input) => {
       const url = String(input);
       return Response.json({
         items: [
-          url.includes("scope=household")
+          url.includes("scope=following")
             ? feedItem("household-stew", "Household Stew")
             : feedItem("public-soup", "Public Soup"),
         ],
@@ -86,10 +86,10 @@ describe("DiscoverFeed", () => {
     const { queryClient } = render(<DiscoverHarness />);
 
     expect(await screen.findByText("Public Soup")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Household" }));
+    fireEvent.click(screen.getByRole("button", { name: "Following" }));
     expect(await screen.findByText("Household Stew")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Public" }));
+    fireEvent.click(screen.getByRole("button", { name: "For you" }));
     expect(screen.getByText("Public Soup")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Toggle discover" }));
     fireEvent.click(screen.getByRole("button", { name: "Toggle discover" }));
@@ -100,7 +100,7 @@ describe("DiscoverFeed", () => {
       queryClient.getQueryData(recipeQueryKeys.publicDiscoverFeed()),
     ).toBeDefined();
     expect(
-      queryClient.getQueryData(recipeQueryKeys.householdDiscoverFeed("user-1")),
+      queryClient.getQueryData(recipeQueryKeys.followingDiscoverFeed("user-1")),
     ).toBeDefined();
   });
 });
