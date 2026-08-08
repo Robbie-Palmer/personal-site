@@ -218,10 +218,18 @@ function ItemRow({
 function SectionHeading({
   title,
   hint,
-}: Readonly<{ title: string; hint?: string }>) {
+  done = false,
+}: Readonly<{ title: string; hint?: string; done?: boolean }>) {
   return (
     <div className="flex items-baseline justify-between border-b border-[var(--line)] pb-1 mt-5 first:mt-0">
-      <h3 className="rt-display text-2xl text-[var(--terracotta)]">
+      <h3
+        className={[
+          "rt-display text-2xl transition-colors",
+          done
+            ? "text-[var(--ink-3)] line-through"
+            : "text-[var(--terracotta)]",
+        ].join(" ")}
+      >
         · {title}
       </h3>
       {hint && <span className="rt-mono text-[var(--ink-3)]">{hint}</span>}
@@ -441,6 +449,24 @@ export function ShoppingList({
     .join(" · ");
   const hasTicked = tickedCount > 0;
 
+  // In aisle view, once every (still-to-buy) item in a section is ticked off,
+  // the whole section is done: its header gets struck through and the section
+  // sinks below the aisles that still have shopping left, keeping attention on
+  // what remains. Ordering is stable within each partition.
+  const aisleSections = aisleGroups
+    .map((group) => {
+      const lines = groupLines(group.lines);
+      const done =
+        lines.length > 0 &&
+        lines.every((line) => checkedSet.has(line.ingredient));
+      return { group, lines, done };
+    })
+    .filter((section) => section.lines.length > 0);
+  const orderedAisleSections = [
+    ...aisleSections.filter((section) => !section.done),
+    ...aisleSections.filter((section) => section.done),
+  ];
+
   if (selected.length === 0 && state.extras.length === 0) {
     return (
       <div className="rounded-xl border-[1.25px] border-dashed border-[var(--line-strong)] bg-[var(--card)] p-10 text-center">
@@ -527,29 +553,25 @@ export function ShoppingList({
         )}
 
         {view === "aisle" &&
-          aisleGroups.map((group) => {
-            const lines = groupLines(group.lines);
-            if (lines.length === 0) return null;
-            return (
-              <div key={group.id}>
-                <SectionHeading title={group.name} />
-                <div className="mt-1">
-                  {lines.map((line) => (
-                    <ItemRow
-                      key={line.ingredient}
-                      line={line}
-                      system={system}
-                      checked={checkedSet.has(line.ingredient)}
-                      kitchenLocation={locationOf(line)}
-                      onToggle={handleIngredientToggle}
-                      showRecipes
-                      onRemoveFromStock={stockActions.removeFromStock}
-                    />
-                  ))}
-                </div>
+          orderedAisleSections.map(({ group, lines, done }) => (
+            <div key={group.id}>
+              <SectionHeading title={group.name} done={done} />
+              <div className="mt-1">
+                {lines.map((line) => (
+                  <ItemRow
+                    key={line.ingredient}
+                    line={line}
+                    system={system}
+                    checked={checkedSet.has(line.ingredient)}
+                    kitchenLocation={locationOf(line)}
+                    onToggle={handleIngredientToggle}
+                    showRecipes
+                    onRemoveFromStock={stockActions.removeFromStock}
+                  />
+                ))}
               </div>
-            );
-          })}
+            </div>
+          ))}
 
         {view === "recipe" &&
           recipeGroups.map((group) => {
