@@ -8,6 +8,7 @@ import {
 } from "@/lib/api/pantry";
 
 describe("pantry API client", () => {
+  const operationId = "0198f1f0-1111-7111-8111-111111111111";
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
@@ -20,11 +21,14 @@ describe("pantry API client", () => {
     );
     localStorage.setItem("recipe-kitchen-stock-v1-owner", "old-user");
     const pantry = {
+      resourceId: "household-1",
+      revision: "4",
       scope: {
         type: "household" as const,
         household: { id: "household-1", name: "Park Road" },
       },
       stock: { onion: "fresh" as const },
+      itemVersions: { onion: "2" },
     };
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
@@ -46,9 +50,9 @@ describe("pantry API client", () => {
         Response.json({ scope: { type: "personal" }, stock: {} }),
       );
 
-    await setPantryItem("red-onion", "fridge");
-    await removePantryItem("red-onion");
-    await restorePantry({ red: "fresh" });
+    await setPantryItem("red-onion", "fridge", operationId);
+    await removePantryItem("red-onion", operationId);
+    await restorePantry({ red: "fresh" }, operationId);
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -76,6 +80,11 @@ describe("pantry API client", () => {
         body: JSON.stringify({ stock: { red: "fresh" } }),
       }),
     );
+    for (const [, request] of fetchMock.mock.calls) {
+      expect(new Headers(request?.headers).get("Idempotency-Key")).toBe(
+        operationId,
+      );
+    }
   });
 
   it("surfaces pantry API errors with their status and message", async () => {
