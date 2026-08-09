@@ -108,6 +108,7 @@ function authenticatedRequest(
     body?: unknown;
     env?: Bindings;
     method?: "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
+    operationId?: string;
   } = {},
 ) {
   const method = options.method ?? "GET";
@@ -116,6 +117,9 @@ function authenticatedRequest(
   if (options.body !== undefined) {
     headers.set("content-type", "application/json");
     body = JSON.stringify(options.body);
+  }
+  if (options.operationId) {
+    headers.set("idempotency-key", options.operationId);
   }
   if (method !== "GET") headers.set("origin", authOrigin);
 
@@ -148,8 +152,8 @@ beforeAll(async () => {
     where slug in ('almond-milk', 'cajun-powder', 'cajun-seasoning')
     order by slug
   `;
-  expect(migrationCount?.count).toBe(7);
-  expect(tableCount?.count).toBe(33);
+  expect(migrationCount?.count).toBe(8);
+  expect(tableCount?.count).toBe(35);
   expect(catalogRows).toEqual([
     { category: "dairy", slug: "almond-milk" },
     { category: "spice", slug: "cajun-seasoning" },
@@ -175,6 +179,42 @@ afterAll(async () => {
 });
 
 describe("recipe API PostgreSQL integration", () => {
+  it("allocates pantry revisions and item versions exactly once per operation", async () => {
+    const cook = await createUser("Revision Cook", "revision@example.test");
+    const firstOperationId = "0198f1f0-3333-7333-8333-333333333333";
+    const secondOperationId = "0198f1f0-4444-7444-8444-444444444444";
+
+    const first = await authenticatedRequest(cook, "/pantry/items/onion", {
+      method: "PUT",
+      body: { location: "cupboards" },
+      operationId: firstOperationId,
+    });
+    expect(await json(first)).toMatchObject({
+      operationId: firstOperationId,
+      revision: "1",
+      itemVersions: { onion: "1" },
+    });
+
+    const update = () =>
+      authenticatedRequest(cook, "/pantry/items/onion", {
+        method: "PUT",
+        body: { location: "fresh" },
+        operationId: secondOperationId,
+      });
+    const updated = await update();
+    const duplicate = await update();
+    expect(await json(duplicate)).toEqual(await json(updated));
+
+    const snapshot = await authenticatedRequest(cook, "/pantry");
+    expect(await json(snapshot)).toEqual({
+      resourceId: cook.id,
+      revision: "2",
+      scope: { type: "personal" },
+      stock: { onion: "fresh" },
+      itemVersions: { onion: "2" },
+    });
+  });
+
   it("combines household and followed-cook activity in the following feed", async () => {
     const viewer = await createUser(
       "Following Viewer",
@@ -540,18 +580,44 @@ describe("recipe API PostgreSQL integration", () => {
       await json<{ membershipCreated: boolean }>(acceptResponse),
     ).toMatchObject({ membershipCreated: true });
 
+    const sharedOperationId = "0198f1f0-2222-7222-8222-222222222222";
     const sharedPantryUpdate = await authenticatedRequest(
       invitee,
       "/pantry/items/salt",
       {
         method: "PUT",
         body: { location: "cupboards" },
+        operationId: sharedOperationId,
       },
     );
     expect(sharedPantryUpdate.status).toBe(200);
+    const duplicateSharedPantryUpdate = await authenticatedRequest(
+      invitee,
+      "/pantry/items/salt",
+      {
+        method: "PUT",
+        body: { location: "cupboards" },
+        operationId: sharedOperationId,
+      },
+    );
+    expect(await json(duplicateSharedPantryUpdate)).toEqual(
+      await json(sharedPantryUpdate),
+    );
+    const conflictingSharedPantryUpdate = await authenticatedRequest(
+      invitee,
+      "/pantry/items/salt",
+      {
+        method: "PUT",
+        body: { location: "fresh" },
+        operationId: sharedOperationId,
+      },
+    );
+    expect(conflictingSharedPantryUpdate.status).toBe(409);
 
     const sharedPantry = await authenticatedRequest(owner, "/pantry");
     expect(await json(sharedPantry)).toEqual({
+      resourceId: household.id,
+      revision: "2",
       scope: {
         type: "household",
         household: {
@@ -560,6 +626,7 @@ describe("recipe API PostgreSQL integration", () => {
         },
       },
       stock: { onion: "fresh", salt: "cupboards" },
+      itemVersions: { onion: "1", salt: "1" },
     });
 
     const clearSharedPantry = await authenticatedRequest(invitee, "/pantry", {
@@ -592,6 +659,9 @@ describe("recipe API PostgreSQL integration", () => {
     );
     expect(restoredPantry.status).toBe(200);
     expect(await json(restoredPantry)).toEqual({
+      resourceId: household.id,
+      revision: "5",
+      operationId: expect.any(String),
       scope: {
         type: "household",
         household: {
@@ -603,6 +673,11 @@ describe("recipe API PostgreSQL integration", () => {
         "almond-milk": "fridge",
         onion: "fresh",
         salt: "cupboards",
+      },
+      itemVersions: {
+        "almond-milk": "1",
+        onion: "1",
+        salt: "1",
       },
     });
 
@@ -634,11 +709,18 @@ describe("recipe API PostgreSQL integration", () => {
 
     const inheritedPantry = await authenticatedRequest(owner, "/pantry");
     expect(await json(inheritedPantry)).toEqual({
+      resourceId: owner.id,
+      revision: "5",
       scope: { type: "personal" },
       stock: {
         "almond-milk": "fridge",
         onion: "fresh",
         salt: "cupboards",
+      },
+      itemVersions: {
+        "almond-milk": "1",
+        onion: "1",
+        salt: "1",
       },
     });
 

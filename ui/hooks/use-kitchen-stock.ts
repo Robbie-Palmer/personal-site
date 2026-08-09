@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { captureRecipeProductActivity } from "@/lib/analytics/recipe-product";
 import {
+  installPantrySnapshot,
   type Pantry,
   removePantryItem,
   replacePantry,
@@ -20,22 +21,34 @@ import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 const EMPTY_STOCK: KitchenStock = {};
 
+function stocksEqual(first: KitchenStock, second: KitchenStock): boolean {
+  const firstEntries = Object.entries(first);
+  return (
+    firstEntries.length === Object.keys(second).length &&
+    firstEntries.every(([slug, location]) => second[slug] === location)
+  );
+}
+
 type PantryMutation =
   | {
       kind: "set";
+      operationId: string;
       ingredientSlug: IngredientSlug;
       location: KitchenLocation;
     }
   | {
       kind: "remove";
+      operationId: string;
       ingredientSlug: IngredientSlug;
     }
   | {
       kind: "replace";
+      operationId: string;
       stock: KitchenStock;
     }
   | {
       kind: "restore";
+      operationId: string;
       stock: KitchenStock;
     };
 
@@ -63,13 +76,20 @@ export function useKitchenStockActions() {
     mutationFn: (operation: PantryMutation) => {
       switch (operation.kind) {
         case "set":
-          return setPantryItem(operation.ingredientSlug, operation.location);
+          return setPantryItem(
+            operation.ingredientSlug,
+            operation.location,
+            operation.operationId,
+          );
         case "remove":
-          return removePantryItem(operation.ingredientSlug);
+          return removePantryItem(
+            operation.ingredientSlug,
+            operation.operationId,
+          );
         case "replace":
-          return replacePantry(operation.stock);
+          return replacePantry(operation.stock, operation.operationId);
         case "restore":
-          return restorePantry(operation.stock);
+          return restorePantry(operation.stock, operation.operationId);
       }
     },
     onMutate: async (operation) => {
@@ -88,8 +108,8 @@ export function useKitchenStockActions() {
           });
         }
       }
+      let optimisticStock: KitchenStock | undefined;
       if (previous) {
-        let optimisticStock: KitchenStock;
         switch (operation.kind) {
           case "set":
             optimisticStock = {
@@ -111,35 +131,68 @@ export function useKitchenStockActions() {
         queryClient.setQueryData<Pantry>(queryKey, {
           ...previous,
           stock: optimisticStock,
+          itemVersions:
+            operation.kind === "remove"
+              ? Object.fromEntries(
+                  Object.entries(previous.itemVersions).filter(
+                    ([ingredientSlug]) =>
+                      ingredientSlug !== operation.ingredientSlug,
+                  ),
+                )
+              : previous.itemVersions,
         });
       }
-      return { previous };
+      return { optimisticStock, previous };
     },
     onError: (_error, _operation, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(queryKey, context.previous);
+      const previous = context?.previous;
+      const optimisticStock = context?.optimisticStock;
+      if (previous) {
+        queryClient.setQueryData<Pantry>(queryKey, (current) =>
+          current &&
+          (current.resourceId !== previous.resourceId ||
+            current.revision !== previous.revision ||
+            (optimisticStock && !stocksEqual(current.stock, optimisticStock)))
+            ? current
+            : previous,
+        );
       }
     },
     onSuccess: (pantry) => {
-      queryClient.setQueryData(queryKey, pantry);
+      queryClient.setQueryData<Pantry>(queryKey, (current) =>
+        installPantrySnapshot(current, pantry),
+      );
     },
   });
 
   return {
     clearStock() {
-      mutation.mutate({ kind: "replace", stock: {} });
+      mutation.mutate({
+        kind: "replace",
+        operationId: crypto.randomUUID(),
+        stock: {},
+      });
     },
     error: mutation.error,
     isPending: mutation.isPending,
     removeFromStock(ingredientSlug: IngredientSlug) {
-      mutation.mutate({ kind: "remove", ingredientSlug });
+      mutation.mutate({
+        kind: "remove",
+        ingredientSlug,
+        operationId: crypto.randomUUID(),
+      });
     },
     replaceStock(stock: KitchenStock) {
-      mutation.mutate({ kind: "replace", stock: { ...stock } });
+      mutation.mutate({
+        kind: "replace",
+        operationId: crypto.randomUUID(),
+        stock: { ...stock },
+      });
     },
     restoreStock(stock: KitchenStock) {
       mutation.mutate({
         kind: "restore",
+        operationId: crypto.randomUUID(),
         stock: { ...stock },
       });
     },
@@ -151,6 +204,7 @@ export function useKitchenStockActions() {
         kind: "set",
         ingredientSlug,
         location,
+        operationId: crypto.randomUUID(),
       });
     },
   };

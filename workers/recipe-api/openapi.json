@@ -3390,6 +3390,20 @@
             "sessionCookie": []
           }
         ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "format": "uuid",
+              "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result."
+            },
+            "required": false,
+            "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result.",
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -3550,6 +3564,20 @@
         "security": [
           {
             "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "format": "uuid",
+              "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result."
+            },
+            "required": false,
+            "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result.",
+            "name": "idempotency-key",
+            "in": "header"
           }
         ],
         "requestBody": {
@@ -3726,6 +3754,18 @@
             "required": true,
             "name": "ingredientSlug",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "format": "uuid",
+              "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result."
+            },
+            "required": false,
+            "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result.",
+            "name": "idempotency-key",
+            "in": "header"
           }
         ],
         "requestBody": {
@@ -3897,6 +3937,18 @@
             "required": true,
             "name": "ingredientSlug",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "format": "uuid",
+              "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result."
+            },
+            "required": false,
+            "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result.",
+            "name": "idempotency-key",
+            "in": "header"
           }
         ],
         "responses": {

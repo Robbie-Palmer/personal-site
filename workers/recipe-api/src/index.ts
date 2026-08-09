@@ -25,6 +25,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  notInArray,
   or,
   sql,
   type SQL,
@@ -115,6 +116,17 @@ type PantryScope =
       householdId: string;
       householdName: string;
     };
+type PantryResponse = {
+  resourceId: string;
+  revision: string;
+  operationId?: string;
+  scope:
+    | { type: "personal" }
+    | { type: "household"; household: { id: string; name: string } };
+  stock: Record<string, PantryLocation>;
+  itemVersions: Record<string, string>;
+};
+type DbTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
 type InvitationNotificationStatus =
   | "pending"
   | "accepted"
@@ -416,6 +428,20 @@ const openApiRequestBodySchemas = new Map<string, z.ZodType>([
   ["PATCH /recipes/:slug", updateRecipeBodySchema],
 ]);
 
+const pantryOperationHeadersSchema = z.object({
+  "idempotency-key": z.uuid().max(36).optional().openapi({
+    description:
+      "Client-generated operation ID. Reusing it for the same pantry command returns the committed result.",
+  }),
+});
+
+const PANTRY_MUTATION_OPERATIONS = new Set([
+  "PUT /pantry",
+  "PATCH /pantry",
+  "PUT /pantry/items/:ingredientSlug",
+  "DELETE /pantry/items/:ingredientSlug",
+]);
+
 const openApiQuerySchemas = new Map<string, z.ZodObject>([
   [
     "GET /notifications",
@@ -572,6 +598,9 @@ function registerRoute(
   const key = `${method.toUpperCase()} ${path}`;
   const requestBodySchema = openApiRequestBodySchemas.get(key);
   const querySchema = openApiQuerySchemas.get(key);
+  const headersSchema = PANTRY_MUTATION_OPERATIONS.has(key)
+    ? pantryOperationHeadersSchema
+    : undefined;
   const paramsSchema = pathParamsSchema(path);
   const errorResponses = Object.fromEntries(
     ERROR_STATUS_CODES.map((status) => [
@@ -616,6 +645,7 @@ function registerRoute(
     request: {
       ...(paramsSchema ? { params: paramsSchema } : {}),
       ...(querySchema ? { query: querySchema } : {}),
+      ...(headersSchema ? { headers: headersSchema } : {}),
       ...(requestBodySchema
         ? {
             body: {
@@ -1181,6 +1211,16 @@ function pantryScopeFilter(scope: PantryScope): SQL {
     : eq(schema.pantryItem.userId, scope.userId);
 }
 
+function pantryAggregateScopeFilter(scope: PantryScope): SQL {
+  return scope.type === "household"
+    ? eq(schema.pantryAggregate.organizationId, scope.householdId)
+    : eq(schema.pantryAggregate.userId, scope.userId);
+}
+
+function pantryResourceId(scope: PantryScope): string {
+  return scope.type === "household" ? scope.householdId : scope.userId;
+}
+
 async function lockPantryScope(
   db: Pick<Db, "select">,
   userId: string,
@@ -1196,16 +1236,80 @@ async function lockPantryScope(
   return scope;
 }
 
-async function pantryResponseForScope(db: Pick<Db, "select">, scope: PantryScope) {
+async function findPantryAggregate(
+  db: Pick<Db, "select">,
+  scope: PantryScope,
+) {
+  const [aggregate] = await db
+    .select({
+      id: schema.pantryAggregate.id,
+      revision: schema.pantryAggregate.revision,
+    })
+    .from(schema.pantryAggregate)
+    .where(pantryAggregateScopeFilter(scope))
+    .limit(1);
+  return aggregate;
+}
+
+async function ensurePantryAggregate(tx: DbTransaction, scope: PantryScope) {
+  const [created] = await tx
+    .insert(schema.pantryAggregate)
+    .values({
+      userId: scope.type === "personal" ? scope.userId : null,
+      organizationId: scope.type === "household" ? scope.householdId : null,
+    })
+    .onConflictDoNothing()
+    .returning({
+      id: schema.pantryAggregate.id,
+      revision: schema.pantryAggregate.revision,
+    });
+  if (created) return created;
+
+  const [aggregate] = await tx
+    .select({
+      id: schema.pantryAggregate.id,
+      revision: schema.pantryAggregate.revision,
+    })
+    .from(schema.pantryAggregate)
+    .where(pantryAggregateScopeFilter(scope))
+    .for("update")
+    .limit(1);
+  if (!aggregate) throw new Error("Pantry aggregate could not be created");
+  return aggregate;
+}
+
+async function clearPantryOperationsForScope(
+  tx: DbTransaction,
+  scope: PantryScope,
+): Promise<void> {
+  const aggregate = await findPantryAggregate(tx, scope);
+  if (!aggregate) return;
+  await tx
+    .delete(schema.pantryOperation)
+    .where(eq(schema.pantryOperation.aggregateId, aggregate.id));
+}
+
+async function pantryResponseForScope(
+  db: Pick<Db, "select">,
+  scope: PantryScope,
+  options: { operationId?: string; revision?: bigint } = {},
+): Promise<PantryResponse> {
   const items = await db
     .select({
       ingredientSlug: schema.pantryItem.ingredientSlug,
       location: schema.pantryItem.location,
+      version: schema.pantryItem.version,
     })
     .from(schema.pantryItem)
     .where(pantryScopeFilter(scope));
 
+  const revision =
+    options.revision ?? (await findPantryAggregate(db, scope))?.revision ?? 0n;
+
   return {
+    resourceId: pantryResourceId(scope),
+    revision: revision.toString(),
+    ...(options.operationId ? { operationId: options.operationId } : {}),
     scope:
       scope.type === "household"
         ? {
@@ -1219,11 +1323,117 @@ async function pantryResponseForScope(db: Pick<Db, "select">, scope: PantryScope
     stock: Object.fromEntries(
       items.map(({ ingredientSlug, location }) => [ingredientSlug, location]),
     ) as Record<string, PantryLocation>,
+    itemVersions: Object.fromEntries(
+      items.map(({ ingredientSlug, version }) => [
+        ingredientSlug,
+        version.toString(),
+      ]),
+    ),
   };
 }
 
-async function pantryResponse(db: Pick<Db, "select">, userId: string) {
-  return pantryResponseForScope(db, await resolvePantryScope(db, userId));
+async function pantryResponse(db: Db, userId: string) {
+  return db.transaction(
+    async (tx) =>
+      pantryResponseForScope(tx, await resolvePantryScope(tx, userId)),
+    { accessMode: "read only", isolationLevel: "repeatable read" },
+  );
+}
+
+class PantryOperationConflictError extends Error {
+  constructor() {
+    super("Operation ID was already used for a different pantry command");
+  }
+}
+
+class UnknownPantryIngredientError extends Error {
+  constructor(readonly ingredientSlug: string) {
+    super(`Unknown ingredient: ${ingredientSlug}`);
+  }
+}
+
+function pantryOperationId(c: Context<AppEnv>): string | Response {
+  const supplied = c.req.header("Idempotency-Key");
+  if (!supplied) return crypto.randomUUID();
+  const parsed = uuidIdSchema.safeParse(supplied);
+  return parsed.success
+    ? parsed.data
+    : c.json({ error: "Invalid Idempotency-Key header" }, 400);
+}
+
+function pantryStockFingerprint(
+  kind: "replace" | "restore",
+  stock: Record<string, PantryLocation>,
+): string {
+  return JSON.stringify([
+    kind,
+    Object.entries(stock).sort(([a], [b]) => a.localeCompare(b)),
+  ]);
+}
+
+async function executePantryOperation(
+  db: Db,
+  userId: string,
+  operationId: string,
+  commandFingerprint: string,
+  mutate: (tx: DbTransaction, scope: PantryScope) => Promise<void>,
+): Promise<PantryResponse> {
+  return db.transaction(async (tx) => {
+    const scope = await lockPantryScope(tx, userId);
+    const aggregate = await ensurePantryAggregate(tx, scope);
+    const [recorded] = await tx
+      .select({
+        commandFingerprint: schema.pantryOperation.commandFingerprint,
+        result: schema.pantryOperation.result,
+      })
+      .from(schema.pantryOperation)
+      .where(
+        and(
+          eq(schema.pantryOperation.aggregateId, aggregate.id),
+          eq(schema.pantryOperation.operationId, operationId),
+        ),
+      )
+      .limit(1);
+    if (recorded) {
+      if (recorded.commandFingerprint !== commandFingerprint) {
+        throw new PantryOperationConflictError();
+      }
+      return recorded.result as PantryResponse;
+    }
+
+    await mutate(tx, scope);
+    const [updatedAggregate] = await tx
+      .update(schema.pantryAggregate)
+      .set({
+        revision: sql`${schema.pantryAggregate.revision} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.pantryAggregate.id, aggregate.id))
+      .returning({ revision: schema.pantryAggregate.revision });
+    if (!updatedAggregate) throw new Error("Pantry revision update failed");
+
+    const result = await pantryResponseForScope(tx, scope, {
+      operationId,
+      revision: updatedAggregate.revision,
+    });
+    await tx.insert(schema.pantryOperation).values({
+      aggregateId: aggregate.id,
+      operationId,
+      commandFingerprint,
+      result,
+    });
+    return result;
+  });
+}
+
+function pantryMutationErrorResponse(c: Context<AppEnv>, error: unknown) {
+  if (error instanceof PantryOperationConflictError) {
+    return c.json({ error: error.message }, 409);
+  }
+  if (error instanceof UnknownPantryIngredientError) {
+    return c.json({ error: error.message }, 400);
+  }
+  return undefined;
 }
 
 async function findUnknownPantryIngredient(
@@ -1267,6 +1477,11 @@ async function acceptPendingInvitation(
         "Pantry must be empty before joining a household",
       );
     }
+    // An empty personal aggregate must not carry stale operation receipts into
+    // a future solo pantry if this member later leaves the household.
+    await tx
+      .delete(schema.pantryAggregate)
+      .where(eq(schema.pantryAggregate.userId, userId));
 
     const mutationTime = new Date();
     const [accepted] = await tx
@@ -2475,6 +2690,8 @@ registerRoute("get", "/pantry", async (c) => {
 registerRoute("put", "/pantry", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
+  const operationId = pantryOperationId(c);
+  if (operationId instanceof Response) return operationId;
 
   return withRecipeSession(
     c,
@@ -2485,39 +2702,79 @@ registerRoute("put", "/pantry", async (c) => {
       if (!body.success) return body.response;
 
       const stockEntries = Object.entries(body.data.stock);
-      const ingredientSlugs = stockEntries.map(([ingredientSlug]) => ingredientSlug);
-      const unknownSlug = await findUnknownPantryIngredient(db, ingredientSlugs);
-      if (unknownSlug) {
-        return c.json({ error: `Unknown ingredient: ${unknownSlug}` }, 400);
-      }
+      const ingredientSlugs = stockEntries.map(
+        ([ingredientSlug]) => ingredientSlug,
+      );
 
-      const pantry = await db.transaction(async (tx) => {
-        const scope = await lockPantryScope(tx, session.user.id);
-        await tx
-          .delete(schema.pantryItem)
-          .where(pantryScopeFilter(scope));
-        if (ingredientSlugs.length > 0) {
-          await tx.insert(schema.pantryItem).values(
-            stockEntries.map(([ingredientSlug, location]) => ({
-              userId: scope.type === "personal" ? scope.userId : null,
-              organizationId:
-                scope.type === "household" ? scope.householdId : null,
-              ingredientSlug,
-              location,
-            })),
+      const pantry = await executePantryOperation(
+        db,
+        session.user.id,
+        operationId,
+        pantryStockFingerprint("replace", body.data.stock),
+        async (tx, scope) => {
+          const unknownSlug = await findUnknownPantryIngredient(
+            tx,
+            ingredientSlugs,
           );
-        }
-        return pantryResponseForScope(tx, scope);
-      });
+          if (unknownSlug) throw new UnknownPantryIngredientError(unknownSlug);
+          const scopeFilter = pantryScopeFilter(scope);
+          await tx
+            .delete(schema.pantryItem)
+            .where(
+              ingredientSlugs.length > 0
+                ? and(
+                    scopeFilter,
+                    notInArray(
+                      schema.pantryItem.ingredientSlug,
+                      ingredientSlugs,
+                    ),
+                  )
+                : scopeFilter,
+            );
+          if (ingredientSlugs.length > 0) {
+            await tx
+              .insert(schema.pantryItem)
+              .values(
+                stockEntries.map(([ingredientSlug, location]) => ({
+                  userId: scope.type === "personal" ? scope.userId : null,
+                  organizationId:
+                    scope.type === "household" ? scope.householdId : null,
+                  ingredientSlug,
+                  location,
+                })),
+              )
+              .onConflictDoUpdate({
+                target:
+                  scope.type === "household"
+                    ? [
+                        schema.pantryItem.organizationId,
+                        schema.pantryItem.ingredientSlug,
+                      ]
+                    : [
+                        schema.pantryItem.userId,
+                        schema.pantryItem.ingredientSlug,
+                      ],
+                set: {
+                  location: sql`excluded.location`,
+                  version: sql`${schema.pantryItem.version} + 1`,
+                  updatedAt: new Date(),
+                },
+              });
+          }
+        },
+      );
 
       return c.json(pantry);
     },
+    { onError: (error) => pantryMutationErrorResponse(c, error) },
   );
 });
 
 registerRoute("patch", "/pantry", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
+  const operationId = pantryOperationId(c);
+  if (operationId instanceof Response) return operationId;
 
   return withRecipeSession(
     c,
@@ -2528,38 +2785,49 @@ registerRoute("patch", "/pantry", async (c) => {
       if (!body.success) return body.response;
 
       const stockEntries = Object.entries(body.data.stock);
-      const ingredientSlugs = stockEntries.map(([ingredientSlug]) => ingredientSlug);
-      const unknownSlug = await findUnknownPantryIngredient(db, ingredientSlugs);
-      if (unknownSlug) {
-        return c.json({ error: `Unknown ingredient: ${unknownSlug}` }, 400);
-      }
+      const ingredientSlugs = stockEntries.map(
+        ([ingredientSlug]) => ingredientSlug,
+      );
 
-      const pantry = await db.transaction(async (tx) => {
-        const scope = await lockPantryScope(tx, session.user.id);
-        if (stockEntries.length > 0) {
-          await tx
-            .insert(schema.pantryItem)
-            .values(
-              stockEntries.map(([ingredientSlug, location]) => ({
-                userId: scope.type === "personal" ? scope.userId : null,
-                organizationId: scope.type === "household" ? scope.householdId : null,
-                ingredientSlug,
-                location,
-              })),
-            )
-            .onConflictDoNothing();
-        }
-        return pantryResponseForScope(tx, scope);
-      });
+      const pantry = await executePantryOperation(
+        db,
+        session.user.id,
+        operationId,
+        pantryStockFingerprint("restore", body.data.stock),
+        async (tx, scope) => {
+          const unknownSlug = await findUnknownPantryIngredient(
+            tx,
+            ingredientSlugs,
+          );
+          if (unknownSlug) throw new UnknownPantryIngredientError(unknownSlug);
+          if (stockEntries.length > 0) {
+            await tx
+              .insert(schema.pantryItem)
+              .values(
+                stockEntries.map(([ingredientSlug, location]) => ({
+                  userId: scope.type === "personal" ? scope.userId : null,
+                  organizationId:
+                    scope.type === "household" ? scope.householdId : null,
+                  ingredientSlug,
+                  location,
+                })),
+              )
+              .onConflictDoNothing();
+          }
+        },
+      );
 
       return c.json(pantry);
     },
+    { onError: (error) => pantryMutationErrorResponse(c, error) },
   );
 });
 
 registerRoute("put", "/pantry/items/:ingredientSlug", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
+  const operationId = pantryOperationId(c);
+  if (operationId instanceof Response) return operationId;
 
   return withRecipeSession(
     c,
@@ -2576,43 +2844,56 @@ registerRoute("put", "/pantry/items/:ingredientSlug", async (c) => {
       if (!body.success) return body.response;
 
       const ingredientSlug = ingredientSlugResult.data;
-      const [ingredient] = await db
-        .select({ slug: schema.ingredient.slug })
-        .from(schema.ingredient)
-        .where(eq(schema.ingredient.slug, ingredientSlug))
-        .limit(1);
-      if (!ingredient) {
-        return c.json({ error: `Unknown ingredient: ${ingredientSlug}` }, 400);
-      }
-
-      const pantry = await db.transaction(async (tx) => {
-        const scope = await lockPantryScope(tx, session.user.id);
-        await tx
-          .delete(schema.pantryItem)
-          .where(
-            and(
-              pantryScopeFilter(scope),
-              eq(schema.pantryItem.ingredientSlug, ingredientSlug),
-            ),
-          );
-        await tx.insert(schema.pantryItem).values({
-          userId: scope.type === "personal" ? scope.userId : null,
-          organizationId:
-            scope.type === "household" ? scope.householdId : null,
-          ingredientSlug,
-          location: body.data.location,
-        });
-        return pantryResponseForScope(tx, scope);
-      });
+      const pantry = await executePantryOperation(
+        db,
+        session.user.id,
+        operationId,
+        `set:${ingredientSlug}:${body.data.location}`,
+        async (tx, scope) => {
+          const unknownSlug = await findUnknownPantryIngredient(tx, [
+            ingredientSlug,
+          ]);
+          if (unknownSlug) throw new UnknownPantryIngredientError(unknownSlug);
+          await tx
+            .insert(schema.pantryItem)
+            .values({
+              userId: scope.type === "personal" ? scope.userId : null,
+              organizationId:
+                scope.type === "household" ? scope.householdId : null,
+              ingredientSlug,
+              location: body.data.location,
+            })
+            .onConflictDoUpdate({
+              target:
+                scope.type === "household"
+                  ? [
+                      schema.pantryItem.organizationId,
+                      schema.pantryItem.ingredientSlug,
+                    ]
+                  : [
+                      schema.pantryItem.userId,
+                      schema.pantryItem.ingredientSlug,
+                    ],
+              set: {
+                location: body.data.location,
+                version: sql`${schema.pantryItem.version} + 1`,
+                updatedAt: new Date(),
+              },
+            });
+        },
+      );
 
       return c.json(pantry);
     },
+    { onError: (error) => pantryMutationErrorResponse(c, error) },
   );
 });
 
 registerRoute("delete", "/pantry/items/:ingredientSlug", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
+  const operationId = pantryOperationId(c);
+  if (operationId instanceof Response) return operationId;
 
   return withRecipeSession(
     c,
@@ -2626,24 +2907,29 @@ registerRoute("delete", "/pantry/items/:ingredientSlug", async (c) => {
         return c.json({ error: "Invalid ingredient slug" }, 400);
       }
 
-      const pantry = await db.transaction(async (tx) => {
-        const scope = await lockPantryScope(tx, session.user.id);
-        await tx
-          .delete(schema.pantryItem)
-          .where(
-            and(
-              pantryScopeFilter(scope),
-              eq(
-                schema.pantryItem.ingredientSlug,
-                ingredientSlugResult.data,
+      const pantry = await executePantryOperation(
+        db,
+        session.user.id,
+        operationId,
+        `remove:${ingredientSlugResult.data}`,
+        async (tx, scope) => {
+          await tx
+            .delete(schema.pantryItem)
+            .where(
+              and(
+                pantryScopeFilter(scope),
+                eq(
+                  schema.pantryItem.ingredientSlug,
+                  ingredientSlugResult.data,
+                ),
               ),
-            ),
-          );
-        return pantryResponseForScope(tx, scope);
-      });
+            );
+        },
+      );
 
       return c.json(pantry);
     },
+    { onError: (error) => pantryMutationErrorResponse(c, error) },
   );
 });
 
@@ -2772,6 +3058,14 @@ registerRoute("post", "/households", async (c) => {
             organizationId: householdId,
           })
           .where(eq(schema.pantryItem.userId, session.user.id));
+        await clearPantryOperationsForScope(tx, {
+          type: "personal",
+          userId: session.user.id,
+        });
+        await tx
+          .update(schema.pantryAggregate)
+          .set({ userId: null, organizationId: householdId })
+          .where(eq(schema.pantryAggregate.userId, session.user.id));
 
         return createdHousehold;
       });
@@ -3314,7 +3608,21 @@ registerRoute("delete", "/households/:householdId", async (c) => {
             organizationId: null,
           })
           .where(eq(schema.pantryItem.organizationId, householdId));
-        await tx.delete(schema.organization).where(eq(schema.organization.id, householdId));
+        await clearPantryOperationsForScope(tx, {
+          type: "household",
+          householdId,
+          householdName: household.name,
+        });
+        await tx
+          .delete(schema.pantryAggregate)
+          .where(eq(schema.pantryAggregate.userId, session.user.id));
+        await tx
+          .update(schema.pantryAggregate)
+          .set({ userId: session.user.id, organizationId: null })
+          .where(eq(schema.pantryAggregate.organizationId, householdId));
+        await tx
+          .delete(schema.organization)
+          .where(eq(schema.organization.id, householdId));
       });
       return c.body(null, 204);
     },

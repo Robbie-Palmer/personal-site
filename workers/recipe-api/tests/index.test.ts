@@ -114,8 +114,24 @@ const dbMock = vi.hoisted(() => {
     organizationId: string | null;
     ingredientSlug: string;
     location: "fridge" | "cupboards" | "fresh";
+    version?: bigint;
     createdAt: Date;
     updatedAt: Date;
+  };
+  type PantryAggregateRow = {
+    id: string;
+    userId: string | null;
+    organizationId: string | null;
+    revision: bigint;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+  type PantryOperationRow = {
+    aggregateId: string;
+    operationId: string;
+    commandFingerprint: string;
+    result: Record<string, unknown>;
+    createdAt: Date;
   };
 
   const state = {
@@ -154,6 +170,8 @@ const dbMock = vi.hoisted(() => {
     ingredientGroups: [] as IngredientGroupRow[],
     ingredients: [] as IngredientRow[],
     pantryItems: [] as PantryItemRow[],
+    pantryAggregates: [] as PantryAggregateRow[],
+    pantryOperations: [] as PantryOperationRow[],
     ingredientGroupMembers: [] as {
       groupKey: string;
       ingredientSlug: string;
@@ -279,6 +297,8 @@ const dbMock = vi.hoisted(() => {
     state.ingredientGroups = [];
     state.ingredients = [];
     state.pantryItems = [];
+    state.pantryAggregates = [];
+    state.pantryOperations = [];
     state.ingredientGroupMembers = [];
     state.dietPresetExcludedGroups = [];
     state.dietPresetExcludedIngredients = [];
@@ -441,14 +461,53 @@ const dbMock = vi.hoisted(() => {
       return [invitationRow(invitation)];
     }
 
+    if (query.startsWith('insert into "pantry_aggregate"')) {
+      const userId = (params[0] as string | null) ?? null;
+      const organizationId = (params[1] as string | null) ?? null;
+      const existing = state.pantryAggregates.find(
+        (candidate) =>
+          (userId !== null && candidate.userId === userId) ||
+          (organizationId !== null &&
+            candidate.organizationId === organizationId),
+      );
+      if (existing) return [];
+      const aggregate: PantryAggregateRow = {
+        id: crypto.randomUUID(),
+        userId,
+        organizationId,
+        revision: 0n,
+        createdAt: date,
+        updatedAt: date,
+      };
+      state.pantryAggregates.push(aggregate);
+      return [[aggregate.id, aggregate.revision.toString()]];
+    }
+
+    if (query.startsWith('insert into "pantry_operation"')) {
+      state.pantryOperations.push({
+        aggregateId: params[0] as string,
+        operationId: params[1] as string,
+        commandFingerprint: params[2] as string,
+        result: params[3] as Record<string, unknown>,
+        createdAt: date,
+      });
+      return [];
+    }
+
     if (query.startsWith('insert into "pantry_item"')) {
-      for (let index = 0; index < params.length; index += 4) {
+      const valuesClause = query.split(" values ")[1]?.split(" on conflict")[0] ?? "";
+      const valueParameterCount = Math.max(
+        0,
+        ...[...valuesClause.matchAll(/\$(\d+)/g)].map((match) => Number(match[1])),
+      );
+      for (let index = 0; index < valueParameterCount; index += 4) {
         const pantryItem: PantryItemRow = {
           id: crypto.randomUUID(),
           userId: (params[index] as string | null) ?? null,
           organizationId: (params[index + 1] as string | null) ?? null,
           ingredientSlug: params[index + 2] as string,
           location: params[index + 3] as PantryItemRow["location"],
+          version: 1n,
           createdAt: date,
           updatedAt: date,
         };
@@ -459,7 +518,21 @@ const dbMock = vi.hoisted(() => {
               (pantryItem.organizationId !== null &&
                 candidate.organizationId === pantryItem.organizationId)),
         );
-        if (!query.includes("on conflict do nothing") || !conflicts) {
+        if (query.includes("do update set") && conflicts) {
+          const existing = state.pantryItems.find(
+            (candidate) =>
+              candidate.ingredientSlug === pantryItem.ingredientSlug &&
+              ((pantryItem.userId !== null &&
+                candidate.userId === pantryItem.userId) ||
+                (pantryItem.organizationId !== null &&
+                  candidate.organizationId === pantryItem.organizationId)),
+          );
+          if (existing) {
+            existing.location = pantryItem.location;
+            existing.version = (existing.version ?? 1n) + 1n;
+            existing.updatedAt = date;
+          }
+        } else if (!query.includes("on conflict do nothing") || !conflicts) {
           state.pantryItems.push(pantryItem);
         }
       }
@@ -704,6 +777,34 @@ const dbMock = vi.hoisted(() => {
       return [];
     }
 
+    if (query.startsWith('update "pantry_aggregate"')) {
+      if (query.includes('"revision" = "pantry_aggregate"."revision" + 1')) {
+        const aggregateId = params.at(-1) as string;
+        const aggregate = state.pantryAggregates.find(
+          (candidate) => candidate.id === aggregateId,
+        );
+        if (!aggregate) return [];
+        aggregate.revision += 1n;
+        aggregate.updatedAt = date;
+        return [[aggregate.revision.toString()]];
+      }
+      const userId = (params[0] as string | null) ?? null;
+      const organizationId = (params[1] as string | null) ?? null;
+      const previousOwnerId = params.at(-1) as string;
+      const personal = query.includes('"pantry_aggregate"."user_id" =');
+      for (const aggregate of state.pantryAggregates) {
+        const matchesPreviousOwner = personal
+          ? aggregate.userId === previousOwnerId
+          : aggregate.organizationId === previousOwnerId;
+        if (matchesPreviousOwner) {
+          aggregate.userId = userId;
+          aggregate.organizationId = organizationId;
+          aggregate.updatedAt = date;
+        }
+      }
+      return [];
+    }
+
     if (query.startsWith('delete from "app_rate_limit"')) {
       state.rateLimitSweeps += 1;
       return [];
@@ -722,6 +823,35 @@ const dbMock = vi.hoisted(() => {
             (ingredientSlugs.size === 0 ||
               ingredientSlugs.has(item.ingredientSlug))
           ),
+      );
+      return [];
+    }
+
+    if (query.startsWith('delete from "pantry_operation"')) {
+      const aggregateId = params[0] as string;
+      state.pantryOperations = state.pantryOperations.filter(
+        (operation) => operation.aggregateId !== aggregateId,
+      );
+      return [];
+    }
+
+    if (query.startsWith('delete from "pantry_aggregate"')) {
+      const ownerId = params[0] as string;
+      const personal = query.includes('"pantry_aggregate"."user_id" =');
+      const removedIds = new Set(
+        state.pantryAggregates
+          .filter((aggregate) =>
+            personal
+              ? aggregate.userId === ownerId
+              : aggregate.organizationId === ownerId,
+          )
+          .map((aggregate) => aggregate.id),
+      );
+      state.pantryAggregates = state.pantryAggregates.filter(
+        (aggregate) => !removedIds.has(aggregate.id),
+      );
+      state.pantryOperations = state.pantryOperations.filter(
+        (operation) => !removedIds.has(operation.aggregateId),
       );
       return [];
     }
@@ -1105,13 +1235,41 @@ const dbMock = vi.hoisted(() => {
           : item.organizationId === ownerId,
       );
       return pantryItems.map((item) => {
-        if (query.includes('select "ingredient_slug", "location"')) {
-          return [item.ingredientSlug, item.location];
+        if (query.includes('select "ingredient_slug", "location", "version"')) {
+          return [
+            item.ingredientSlug,
+            item.location,
+            (item.version ?? 1n).toString(),
+          ];
         }
         return query.includes('select "ingredient_slug"')
           ? [item.ingredientSlug]
           : [item.id];
       });
+    }
+
+
+    if (query.includes('from "pantry_aggregate"')) {
+      const ownerId = params[0] as string;
+      const personal = query.includes('"pantry_aggregate"."user_id" =');
+      return state.pantryAggregates
+        .filter((aggregate) =>
+          personal
+            ? aggregate.userId === ownerId
+            : aggregate.organizationId === ownerId,
+        )
+        .map((aggregate) => [aggregate.id, aggregate.revision.toString()]);
+    }
+
+    if (query.includes('from "pantry_operation"')) {
+      const [aggregateId, operationId] = params as [string, string];
+      return state.pantryOperations
+        .filter(
+          (operation) =>
+            operation.aggregateId === aggregateId &&
+            operation.operationId === operationId,
+        )
+        .map((operation) => [operation.commandFingerprint, operation.result]);
     }
 
     if (
@@ -3793,8 +3951,12 @@ describe("pantry mutation flows", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
+      resourceId: "owner-user",
+      revision: "1",
+      operationId: expect.any(String),
       scope: { type: "personal" },
       stock: { onion: "fresh", milk: "fridge" },
+      itemVersions: { onion: "1", milk: "1" },
     });
     expect(dbMock.state.pantryItems).toEqual([
       expect.objectContaining({
@@ -3851,11 +4013,15 @@ describe("pantry mutation flows", () => {
     );
     expect(setResponse.status).toBe(200);
     expect(await setResponse.json()).toEqual({
+      resourceId: HOUSEHOLD_ID,
+      revision: "1",
+      operationId: expect.any(String),
       scope: {
         type: "household",
         household: { id: HOUSEHOLD_ID, name: "Owner household" },
       },
       stock: { onion: "cupboards" },
+      itemVersions: { onion: "1" },
     });
     expect(dbMock.state.pantryItems[0]).toEqual(
       expect.objectContaining({
@@ -3877,11 +4043,15 @@ describe("pantry mutation flows", () => {
     );
     expect(moveResponse.status).toBe(200);
     expect(await moveResponse.json()).toEqual({
+      resourceId: HOUSEHOLD_ID,
+      revision: "2",
+      operationId: expect.any(String),
       scope: {
         type: "household",
         household: { id: HOUSEHOLD_ID, name: "Owner household" },
       },
       stock: { onion: "fresh" },
+      itemVersions: { onion: "2" },
     });
     expect(dbMock.state.pantryItems).toHaveLength(1);
 
@@ -3895,11 +4065,15 @@ describe("pantry mutation flows", () => {
     );
     expect(removeResponse.status).toBe(200);
     expect(await removeResponse.json()).toEqual({
+      resourceId: HOUSEHOLD_ID,
+      revision: "3",
+      operationId: expect.any(String),
       scope: {
         type: "household",
         household: { id: HOUSEHOLD_ID, name: "Owner household" },
       },
       stock: {},
+      itemVersions: {},
     });
     expect(dbMock.state.pantryItems).toEqual([]);
   });
@@ -3929,15 +4103,75 @@ describe("pantry mutation flows", () => {
     );
     expect(restoreResponse.status).toBe(200);
     expect(await restoreResponse.json()).toEqual({
+      resourceId: HOUSEHOLD_ID,
+      revision: "1",
+      operationId: expect.any(String),
       scope: {
         type: "household",
         household: { id: HOUSEHOLD_ID, name: "Owner household" },
       },
       stock: { milk: "fresh", onion: "cupboards" },
+      itemVersions: { milk: "1", onion: "1" },
+    });
+  });
+
+  it("replays a duplicate pantry operation without incrementing its revision", async () => {
+    seedHousehold();
+    const operationId = "0198f1f0-1111-7111-8111-111111111111";
+    const request = () =>
+      app.request(
+        "/pantry/items/onion",
+        {
+          method: "PUT",
+          headers: { ...mutationHeaders, "idempotency-key": operationId },
+          body: JSON.stringify({ location: "fresh" }),
+        },
+        env,
+      );
+
+    const first = await request();
+    const duplicate = await request();
+
+    expect(first.status).toBe(200);
+    expect(await duplicate.json()).toEqual(await first.json());
+    expect(dbMock.state.pantryAggregates).toEqual([
+      expect.objectContaining({ revision: 1n }),
+    ]);
+    expect(dbMock.state.pantryOperations).toHaveLength(1);
+
+    const conflictingReuse = await app.request(
+      "/pantry/items/onion",
+      {
+        method: "PUT",
+        headers: { ...mutationHeaders, "idempotency-key": operationId },
+        body: JSON.stringify({ location: "cupboards" }),
+      },
+      env,
+    );
+    expect(conflictingReuse.status).toBe(409);
+    expect(await conflictingReuse.json()).toEqual({
+      error: "Operation ID was already used for a different pantry command",
     });
   });
 
   it("rejects invalid item mutations", async () => {
+    const invalidOperationId = await app.request(
+      "/pantry/items/onion",
+      {
+        method: "PUT",
+        headers: {
+          ...mutationHeaders,
+          "idempotency-key": "not-a-uuid",
+        },
+        body: JSON.stringify({ location: "fresh" }),
+      },
+      env,
+    );
+    expect(invalidOperationId.status).toBe(400);
+    expect(await invalidOperationId.json()).toEqual({
+      error: "Invalid Idempotency-Key header",
+    });
+
     const invalidSlug = await app.request(
       `/pantry/items/${"x".repeat(201)}`,
       {
@@ -4023,6 +4257,8 @@ describe("household membership flows", () => {
       expect(response.status).toBe(200);
       expect(response.headers.get("cache-control")).toBe("private, no-store");
       expect(await response.json()).toEqual({
+        resourceId: HOUSEHOLD_ID,
+        revision: "0",
         scope: {
           type: "household",
           household: {
@@ -4031,6 +4267,7 @@ describe("household membership flows", () => {
           },
         },
         stock: { onion: "fresh" },
+        itemVersions: { onion: "1" },
       });
     }
   });

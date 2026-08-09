@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   check,
   index,
@@ -344,6 +345,52 @@ export const pantryLocationEnum = pgEnum("pantry_location", [
 ]);
 
 /**
+ * Revision state for one logical pantry. The owner mirrors pantry_item so a
+ * solo pantry can become the household pantry without losing revision
+ * continuity. Operation receipts are cleared when that resource identity
+ * changes.
+ */
+export const pantryAggregate = pgTable(
+  "pantry_aggregate",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: text().references(() => user.id, { onDelete: "cascade" }),
+    organizationId: text().references(() => organization.id, {
+      onDelete: "cascade",
+    }),
+    revision: bigint({ mode: "bigint" }).notNull().default(sql`0`),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    check(
+      "pantry_aggregate_owner_check",
+      sql`num_nonnulls(${table.userId}, ${table.organizationId}) = 1`,
+    ),
+    uniqueIndex("pantry_aggregate_user_uidx").on(table.userId),
+    uniqueIndex("pantry_aggregate_household_uidx").on(table.organizationId),
+  ],
+);
+
+/** A committed pantry command and its canonical response for retry safety. */
+export const pantryOperation = pgTable(
+  "pantry_operation",
+  {
+    aggregateId: uuid()
+      .notNull()
+      .references(() => pantryAggregate.id, { onDelete: "cascade" }),
+    operationId: uuid().notNull(),
+    commandFingerprint: text().notNull(),
+    result: jsonb().$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.aggregateId, table.operationId] })],
+);
+
+/**
  * Pantry stock has exactly one owner. Solo cooks own their stock directly;
  * joining or creating a household switches them to the household-owned rows.
  */
@@ -359,6 +406,7 @@ export const pantryItem = pgTable(
       .notNull()
       .references(() => ingredient.slug, { onDelete: "cascade" }),
     location: pantryLocationEnum().notNull(),
+    version: bigint({ mode: "bigint" }).notNull().default(sql`1`),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()

@@ -36,6 +36,12 @@ vi.mock("@/lib/api/pantry", () => ({
   replacePantry: mocks.replacePantry,
   restorePantry: mocks.restorePantry,
   setPantryItem: mocks.setPantryItem,
+  installPantrySnapshot: (current: Pantry | undefined, incoming: Pantry) =>
+    !current ||
+    current.resourceId !== incoming.resourceId ||
+    BigInt(incoming.revision) >= BigInt(current.revision)
+      ? incoming
+      : current,
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -44,9 +50,14 @@ vi.mock("@/lib/auth-client", () => ({
   },
 }));
 
-const personalPantry = (stock: Pantry["stock"]): Pantry => ({
+const personalPantry = (stock: Pantry["stock"], revision = "1"): Pantry => ({
+  resourceId: "user-1",
+  revision,
   scope: { type: "personal" },
   stock,
+  itemVersions: Object.fromEntries(
+    Object.keys(stock).map((ingredientSlug) => [ingredientSlug, "1"]),
+  ),
 });
 
 function createQueryClient() {
@@ -136,7 +147,11 @@ describe("useKitchenStockActions", () => {
 
     act(() => result.current.setStockLocation("onion", "fresh"));
     await waitFor(() =>
-      expect(mocks.setPantryItem).toHaveBeenCalledWith("onion", "fresh"),
+      expect(mocks.setPantryItem).toHaveBeenCalledWith(
+        "onion",
+        "fresh",
+        expect.any(String),
+      ),
     );
     await waitFor(() =>
       expect(queryClient.getQueryData(queryKey)).toEqual(
@@ -154,7 +169,10 @@ describe("useKitchenStockActions", () => {
 
     act(() => result.current.removeFromStock("milk"));
     await waitFor(() =>
-      expect(mocks.removePantryItem).toHaveBeenCalledWith("milk"),
+      expect(mocks.removePantryItem).toHaveBeenCalledWith(
+        "milk",
+        expect.any(String),
+      ),
     );
     await waitFor(() =>
       expect(queryClient.getQueryData(queryKey)).toEqual(
@@ -164,9 +182,10 @@ describe("useKitchenStockActions", () => {
 
     act(() => result.current.replaceStock({ egg: "cupboards" }));
     await waitFor(() =>
-      expect(mocks.replacePantry).toHaveBeenCalledWith({
-        egg: "cupboards",
-      }),
+      expect(mocks.replacePantry).toHaveBeenCalledWith(
+        { egg: "cupboards" },
+        expect.any(String),
+      ),
     );
     await waitFor(() =>
       expect(queryClient.getQueryData(queryKey)).toEqual(
@@ -175,7 +194,9 @@ describe("useKitchenStockActions", () => {
     );
 
     act(() => result.current.clearStock());
-    await waitFor(() => expect(mocks.replacePantry).toHaveBeenCalledWith({}));
+    await waitFor(() =>
+      expect(mocks.replacePantry).toHaveBeenCalledWith({}, expect.any(String)),
+    );
     await waitFor(() =>
       expect(queryClient.getQueryData(queryKey)).toEqual(personalPantry({})),
     );
@@ -187,10 +208,10 @@ describe("useKitchenStockActions", () => {
       }),
     );
     await waitFor(() =>
-      expect(mocks.restorePantry).toHaveBeenCalledWith({
-        milk: "fridge",
-        onion: "fresh",
-      }),
+      expect(mocks.restorePantry).toHaveBeenCalledWith(
+        { milk: "fridge", onion: "fresh" },
+        expect.any(String),
+      ),
     );
     await waitFor(() =>
       expect(queryClient.getQueryData(queryKey)).toEqual(
@@ -220,6 +241,32 @@ describe("useKitchenStockActions", () => {
       expect(result.current.error).toEqual(new Error("network unavailable")),
     );
     expect(queryClient.getQueryData(queryKey)).toEqual(original);
+  });
+
+  it("does not roll back over another cache writer at the same revision", async () => {
+    const queryClient = createQueryClient();
+    const queryKey = recipeQueryKeys.pantry("user-1");
+    queryClient.setQueryData(queryKey, personalPantry({ milk: "fridge" }));
+    let rejectMutation: ((error: Error) => void) | undefined;
+    mocks.setPantryItem.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectMutation = reject;
+        }),
+    );
+    const { result } = renderHook(() => useKitchenStockActions(), {
+      wrapper: wrapper(queryClient),
+    });
+
+    act(() => result.current.setStockLocation("onion", "fresh"));
+    await waitFor(() => expect(mocks.setPantryItem).toHaveBeenCalled());
+
+    const independentlyInstalled = personalPantry({ egg: "cupboards" });
+    act(() => queryClient.setQueryData(queryKey, independentlyInstalled));
+    act(() => rejectMutation?.(new Error("network unavailable")));
+
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+    expect(queryClient.getQueryData(queryKey)).toEqual(independentlyInstalled);
   });
 
   it("bases optimistic removal on the cache after pending queries are cancelled", async () => {
@@ -277,12 +324,42 @@ describe("useKitchenStockActions", () => {
     act(() => result.current.setStockLocation("onion", "fresh"));
 
     await waitFor(() =>
-      expect(mocks.setPantryItem).toHaveBeenCalledWith("onion", "fresh"),
+      expect(mocks.setPantryItem).toHaveBeenCalledWith(
+        "onion",
+        "fresh",
+        expect.any(String),
+      ),
     );
     await waitFor(() =>
       expect(queryClient.getQueryData(queryKey)).toEqual(
         personalPantry({ onion: "fresh" }),
       ),
     );
+  });
+
+  it("does not let a delayed mutation response replace a newer snapshot", async () => {
+    const queryClient = createQueryClient();
+    const queryKey = recipeQueryKeys.pantry("user-1");
+    queryClient.setQueryData(queryKey, personalPantry({ milk: "fridge" }, "1"));
+    let resolveMutation: ((pantry: Pantry) => void) | undefined;
+    mocks.setPantryItem.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveMutation = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useKitchenStockActions(), {
+      wrapper: wrapper(queryClient),
+    });
+
+    act(() => result.current.setStockLocation("onion", "fresh"));
+    await waitFor(() => expect(mocks.setPantryItem).toHaveBeenCalled());
+
+    const newer = personalPantry({ egg: "cupboards" }, "3");
+    act(() => queryClient.setQueryData(queryKey, newer));
+    act(() => resolveMutation?.(personalPantry({ onion: "fresh" }, "2")));
+
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+    expect(queryClient.getQueryData(queryKey)).toEqual(newer);
   });
 });

@@ -50,6 +50,13 @@
       "when": 1786216368940,
       "tag": "0006_cook_follows",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786273611769,
+      "tag": "0007_revisioned_pantry_commands",
+      "breakpoints": true
     }
   ]
 }
