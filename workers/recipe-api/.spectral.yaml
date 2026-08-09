@@ -1,10 +1,10 @@
 # Spectral ruleset for the recipe API's generated OpenAPI document.
 # See recipe-site ADR 065 (Spectral / OpenAPI Linting & API Governance).
 #
-# Runs once an openapi.json is generated from the Hono route Zod schemas
-# (@hono/zod-openapi createRoute definitions). Until then,
-# tests/route-conventions.test.ts enforces the path/method subset directly
-# against app.routes.
+# openapi.json is generated from the Hono route Zod schemas and createRoute
+# definitions. lint:api checks that the committed contract is current before
+# Spectral evaluates it; tests/route-conventions.test.ts also enforces runtime
+# route/spec parity.
 
 extends:
   - "spectral:oas" # OpenAPI correctness + path-keys-no-trailing-slash, operation-operationId, etc.
@@ -64,10 +64,38 @@ rules:
       field: "500"
       function: truthy
 
+  # The upstream OWASP rule requires rate-limit headers on every 2xx/4xx
+  # response, including endpoints that are not rate-limited. Keep the useful
+  # contract invariant scoped to operations that actually call
+  # enforceRateLimit, and require both the 429 body and Retry-After header.
+  owasp:api4:2023-rate-limit: off
+  owasp:api4:2023-rate-limit-responses-429: off
+  # Free-form titles and human-readable error messages cannot honestly declare
+  # a semantic format/pattern. maxLength remains blocking through string-limit.
+  owasp:api4:2023-string-restricted: off
+  # This API is same-origin behind Pages Functions, so it intentionally emits
+  # no Access-Control-Allow-Origin header. The upstream rule otherwise fires
+  # merely because a response documents any header (Retry-After here).
+  owasp:api8:2023-define-cors-origin: off
+
+  rate-limited-operations-document-429:
+    description: Rate-limited operations document a shared 429 response.
+    severity: error
+    given:
+      - "$.paths['/api/households/{householdId}/invitations'].post.responses"
+      - "$.paths['/api/recipe-drafts/url'].post.responses"
+      - "$.paths['/api/recipe-drafts/file'].post.responses"
+      - "$.paths['/api/recipes/{slug}/recommendations'].post.responses"
+      - "$.paths['/api/recipe-imports'].post.responses"
+    then:
+      - field: "429.$ref"
+        function: falsy
+      - field: "429.content.application/json.schema.$ref"
+        function: pattern
+        functionOptions:
+          match: "^#/components/schemas/Error$"
+      - field: "429.headers.Retry-After"
+        function: truthy
+
 # --- OWASP severity tuning ------------------------------------------------
-# Turn the whole OWASP set to `warn` for the first PR to gauge volume, then
-# promote the cheap-to-green rules to `error`. Pin these ids to the installed
-# ruleset version before uncommenting — they shift between releases.
-#
-#   owasp:api4:2023-string-limit: warn   # noisy on internal-only string fields
-#   owasp:api3:2023-no-additionalProperties: warn  # enable once bodies are Zod .strict()
+# Bounded-length checks are blocking while free-form human text stays valid.

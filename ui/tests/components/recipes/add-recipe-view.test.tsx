@@ -249,7 +249,7 @@ describe("AddRecipeView visibility", () => {
       value: vi.fn().mockResolvedValue(content),
     });
     globalThis.fetch = vi.fn(async (input) => {
-      if (String(input) !== "/api/recipes/import-file") {
+      if (String(input) !== "/api/recipe-drafts/file") {
         throw new Error(`Unexpected request: ${String(input)}`);
       }
       return Response.json({

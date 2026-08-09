@@ -30,6 +30,7 @@ actionlint = "1.7.12"
 zizmor = "1.29.0"
 gitleaks = "8.30.1"
 typos = "1.49.0"
+"github:oasdiff/oasdiff" = "1.28.0"
 
 [env]
 MISE_EXPERIMENTAL = "1"
@@ -37,7 +38,11 @@ MISE_EXPERIMENTAL = "1"
 # Root-level tasks for repo-wide tooling
 [tasks.lint]
 description = "Lint all files across the entire repo"
-depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:typos", "//:lint:knip", "//:lint:actions", "//ai-review:check", "//ui:lint", "//infra:lint", "//infra:lint:tflint", "//infra-bootstrap:lint", "//infra-bootstrap:lint:tflint"]
+depends = ["//:lint:markdown", "//:lint:mdx", "//:lint:yaml", "//:lint:typos", "//:lint:knip", "//:lint:actions", "//:lint:api", "//ai-review:check", "//ui:lint", "//infra:lint", "//infra:lint:tflint", "//infra-bootstrap:lint", "//infra-bootstrap:lint:tflint"]
+
+[tasks."lint:api"]
+description = "Generate-check and lint the recipe API OpenAPI contract"
+depends = ["//workers/recipe-api:lint:api"]
 
 [tasks."lint:markdown"]
 description = "Lint and fix Markdown files (optionally pass files as args)"

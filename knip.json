@@ -27,7 +27,8 @@
         "vitest.integration.config.ts",
         "scripts/**/*.ts",
         "spectral-functions/*.js"
-      ]
+      ],
+      "ignoreDependencies": ["@stoplight/spectral-owasp-ruleset"]
     },
     "workers/recipe-ingest": {
       "ignoreDependencies": ["cloudflare"]

@@ -44,7 +44,7 @@ async function parsePantryResponse(response: Response): Promise<Pantry> {
 
 function pantryRequest(
   path: string,
-  method: "PUT" | "DELETE",
+  method: "PUT" | "PATCH" | "DELETE",
   body?: unknown,
 ): Promise<Response> {
   return fetch(path, {
@@ -74,7 +74,7 @@ export async function replacePantry(stock: KitchenStock): Promise<Pantry> {
 
 export async function restorePantry(stock: KitchenStock): Promise<Pantry> {
   return parsePantryResponse(
-    await pantryRequest("/api/pantry/restore", "PUT", { stock }),
+    await pantryRequest("/api/pantry", "PATCH", { stock }),
   );
 }
 

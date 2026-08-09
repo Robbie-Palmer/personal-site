@@ -34,15 +34,6 @@ const VERB_PREFIXES = new Set([
   "send",
 ]);
 
-// Convention violations that exist today, tracked as debt to burn down under
-// recipe-site ADR 065. Remove an entry when its route is fixed — the "no stale
-// baseline" test fails if you forget, so the list can only shrink.
-const KNOWN_VERB_PATH_VIOLATIONS = new Set([
-  "POST /recipes/import-url",
-  "POST /recipes/import-file",
-  "PUT /pantry/restore",
-]);
-
 type Route = { method: string; path: string };
 
 function httpRoutes(): Route[] {
@@ -99,11 +90,9 @@ describe("recipe-api route conventions", () => {
     expect(offenders, JSON.stringify(offenders)).toEqual([]);
   });
 
-  it("keeps verbs out of paths (allowlisted actions and baseline aside)", () => {
+  it("keeps verbs out of paths except for allowlisted state transitions", () => {
     const offenders = routes.filter(
-      ({ method, path }) =>
-        !KNOWN_VERB_PATH_VIOLATIONS.has(`${method} ${path}`) &&
-        hasVerbSegment(path),
+      ({ path }) => hasVerbSegment(path),
     );
     expect(
       offenders,
@@ -111,22 +100,31 @@ describe("recipe-api route conventions", () => {
     ).toEqual([]);
   });
 
-  it("keeps the ADR 065 violation baseline free of stale entries", () => {
-    // The baseline is shrink-only: every entry must name a route that still
-    // exists AND still violates the verb rule. A route that was renamed,
-    // removed, or made compliant (verb dropped, or its segment allowlisted)
-    // no longer qualifies, so its baseline entry is stale and must be deleted.
-    const liveViolations = new Set(
+  it("documents every registered route in the generated OpenAPI contract", () => {
+    const document = app.getOpenAPIDocument({
+      openapi: "3.1.0",
+      info: { title: "route parity", version: "test" },
+    });
+    const documented = new Set(
+      Object.entries(document.paths).flatMap(([path, pathItem]) =>
+        Object.keys(pathItem ?? {})
+          .filter((method) => HTTP_METHODS.has(method.toUpperCase()))
+          .map((method) => `${method.toUpperCase()} ${path}`),
+      ),
+    );
+    const registered = new Set(
       routes
-        .filter(({ path }) => hasVerbSegment(path))
-        .map(({ method, path }) => `${method} ${path}`),
+        // Better Auth owns a wildcard handler whose concrete endpoints vary
+        // with its pinned configuration. ADR 065 governs the recipe API routes
+        // registered through createRoute; the auth adapter remains isolated at
+        // this explicit boundary.
+        .filter(({ path }) => path !== "/api/auth/*")
+        .map(
+          ({ method, path }) =>
+            `${method} ${path.replace(/:([A-Za-z0-9_]+)/g, "{$1}")}`,
+        ),
     );
-    const stale = [...KNOWN_VERB_PATH_VIOLATIONS].filter(
-      (v) => !liveViolations.has(v),
-    );
-    expect(
-      stale,
-      `baseline entries that no longer violate — delete them: ${JSON.stringify(stale)}`,
-    ).toEqual([]);
+
+    expect([...documented].sort()).toEqual([...registered].sort());
   });
 });

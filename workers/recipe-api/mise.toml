@@ -12,6 +12,21 @@ description = "Run recipe API tests"
 depends = ["install"]
 run = "pnpm test"
 
+[tasks."openapi:generate"]
+description = "Generate the committed recipe API OpenAPI contract"
+depends = ["install"]
+run = "pnpm openapi:generate"
+
+[tasks."lint:api"]
+description = "Check and lint the committed recipe API OpenAPI contract"
+depends = ["install"]
+run = "pnpm lint:api"
+
+[tasks."openapi:breaking"]
+description = "Fail when openapi.json breaks the contract at a Git revision"
+depends = ["lint:api"]
+run = "bash scripts/check-openapi-breaking.sh"
+
 [tasks."test:coverage"]
 description = "Run recipe API tests with LCOV coverage"
 depends = ["//:install"]
@@ -24,7 +39,7 @@ run = "pnpm test:integration"
 
 [tasks.check]
 description = "Run all recipe API checks"
-depends = ["typecheck", "test", "db:check"]
+depends = ["typecheck", "test", "db:check", "lint:api"]
 
 [tasks."db:check"]
 description = "Validate the Drizzle migration history and schema snapshot"

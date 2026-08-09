@@ -61,6 +61,11 @@ function createNextConfig(phase: string): NextConfig {
                   "http://localhost:8787/api/profile/cooking-insights",
               },
               {
+                source: "/api/profile/cooking-sessions",
+                destination:
+                  "http://localhost:8787/api/profile/cooking-sessions",
+              },
+              {
                 source: "/api/households/:path*",
                 destination: "http://localhost:8787/api/households/:path*",
               },

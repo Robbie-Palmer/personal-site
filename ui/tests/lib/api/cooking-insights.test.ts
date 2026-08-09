@@ -56,7 +56,7 @@ describe("cooking insights API", () => {
     };
 
     await expect(recordCookingSession(event)).resolves.toEqual(cookingSession);
-    expect(fetchMock).toHaveBeenCalledWith("/api/profile/cooking-insights", {
+    expect(fetchMock).toHaveBeenCalledWith("/api/profile/cooking-sessions", {
       method: "POST",
       credentials: "same-origin",
       headers: { "content-type": "application/json" },

@@ -1,4 +1,10 @@
-import { Hono, type Context } from "hono";
+import {
+  createRoute,
+  extendZodWithOpenApi,
+  OpenAPIHono,
+  type RouteConfig,
+} from "@hono/zod-openapi";
+import type { Context, Handler } from "hono";
 import {
   injectTraceContext,
   traceCarrierFromHeaders,
@@ -133,10 +139,12 @@ type AppEnv = {
   Variables: Partial<AuthorizationVariables>;
 };
 
-const app = new Hono<AppEnv>();
+extendZodWithOpenApi(z);
+
+const app = new OpenAPIHono<AppEnv>();
 
 const previewSignInBodySchema = z.object({
-  scenario: z.string().trim().min(1),
+  scenario: z.string().trim().min(1).max(100),
 });
 
 const recipeSlugSchema = z
@@ -203,10 +211,15 @@ const recipeBoxBodySchema = z
 
 const cookingSessionBodySchema = z
   .object({
-    sessionId: z.uuid(),
+    sessionId: z.string().uuid().max(36),
     recipeSlug: recipeSlugSchema,
     recipeTitle: z.string().trim().min(1).max(120),
-    servings: z.number().int().min(1).max(1_000),
+    servings: z
+      .number()
+      .int()
+      .min(1)
+      .max(1_000)
+      .openapi({ format: "int32" }),
     event: z.enum(["started", "completed"]),
   })
   .strict();
@@ -299,6 +312,7 @@ const importRecipeFileBodySchema = z
     content: z
       .string()
       .min(1)
+      .max(100_000)
       .refine(
         (value) => new TextEncoder().encode(value).byteLength <= 100_000,
         "File content must be 100 KB or smaller",
@@ -332,7 +346,7 @@ const updateHouseholdBodySchema = z
 
 const inviteHouseholdMemberBodySchema = z
   .object({
-    email: z.string().trim().email(),
+    email: z.string().trim().email().max(320),
   })
   .strict();
 
@@ -361,7 +375,249 @@ const updateDietProfileBodySchema = z
   })
   .strict();
 
-app.get("/health", (c) => c.json({ status: "ok" }));
+const errorSchema = z
+  .object({
+    error: z.string().max(500),
+    details: z
+      .array(
+        z.object({
+          path: z.array(z.union([z.string().max(200), z.number()])).max(20),
+          message: z.string().max(500),
+        }),
+      )
+      .max(100)
+      .optional(),
+  })
+  .openapi("Error");
+
+const jsonResponseSchema = z
+  .object({})
+  .catchall(z.unknown())
+  .openapi("JsonResponse");
+
+const openApiRequestBodySchemas = new Map<string, z.ZodType>([
+  ["POST /api/auth/preview/sign-in", previewSignInBodySchema],
+  ["PUT /api/profile/diet", updateDietProfileBodySchema],
+  ["PUT /api/profile/recipe-box", recipeBoxBodySchema],
+  ["POST /api/profile/cooking-sessions", cookingSessionBodySchema],
+  ["PUT /pantry", pantryStockBodySchema],
+  ["PATCH /pantry", pantryStockBodySchema],
+  ["PUT /pantry/items/:ingredientSlug", pantryItemBodySchema],
+  ["POST /households", createHouseholdBodySchema],
+  ["PATCH /households/:householdId", updateHouseholdBodySchema],
+  [
+    "POST /households/:householdId/invitations",
+    inviteHouseholdMemberBodySchema,
+  ],
+  ["POST /recipe-drafts/url", importRecipeUrlBodySchema],
+  ["POST /recipe-drafts/file", importRecipeFileBodySchema],
+  ["POST /recipes/:slug/recommendations", recommendRecipeBodySchema],
+  ["POST /recipes", createRecipeBodySchema],
+  ["PATCH /recipes/:slug", updateRecipeBodySchema],
+]);
+
+const openApiQuerySchemas = new Map<string, z.ZodObject>([
+  [
+    "GET /notifications",
+    z.object({ offset: z.string().regex(/^\d+$/).max(10).optional() }),
+  ],
+  [
+    "GET /recipes",
+    z.object({
+      scope: z.literal("owned").optional(),
+      limit: z.string().regex(/^\d+$/).max(3).optional(),
+      cursor: z.string().max(500).optional(),
+    }),
+  ],
+  [
+    "GET /recipes/discover/feed",
+    z.object({
+      scope: feedScopeSchema.optional(),
+      limit: z.string().regex(/^\d+$/).max(2).optional(),
+      cursor: z.string().max(500).optional(),
+    }),
+  ],
+  ["GET /recipes/cooks", z.object({ cook: z.string().max(128).optional() })],
+]);
+
+const ERROR_STATUS_CODES = [
+  400, 401, 403, 404, 409, 410, 415, 422, 500, 502, 503,
+] as const;
+
+const RATE_LIMITED_OPERATIONS = new Set([
+  "POST /households/:householdId/invitations",
+  "POST /recipe-drafts/url",
+  "POST /recipe-drafts/file",
+  "POST /recipes/:slug/recommendations",
+  "POST /recipe-imports",
+]);
+
+type SuccessStatus = 200 | 201 | 202 | 204;
+
+const SUCCESS_STATUS_OVERRIDES = new Map<string, readonly SuccessStatus[]>([
+  ["POST /api/profile/cooking-sessions", [200, 201]],
+  ["POST /households", [201]],
+  ["POST /households/:householdId/invitations", [201]],
+  ["POST /households/:householdId/leave", [204]],
+  ["POST /notifications/read-all", [204]],
+  ["POST /notifications/clear-all", [204]],
+  ["POST /recipes/:slug/recommendations", [201]],
+  ["POST /recipes", [201]],
+  ["POST /recipe-imports", [202]],
+  ["DELETE /pantry/items/:ingredientSlug", [200]],
+  ["DELETE /recipes/cooks/:cookId/follow", [200]],
+  ["DELETE /recipes/:slug/household-share", [200]],
+]);
+
+function openApiPath(path: string): string {
+  return path.replace(/:([A-Za-z0-9_]+)/g, "{$1}");
+}
+
+function operationId(method: string, path: string): string {
+  const words = `${method}-${path}`
+    .replace(/[{}:]/g, "")
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean);
+  return words
+    .map((word, index) =>
+      index === 0
+        ? word.toLowerCase()
+        : `${word[0]?.toUpperCase()}${word.slice(1)}`,
+    )
+    .join("");
+}
+
+function registerRoute(
+  method: "get" | "post" | "put" | "patch" | "delete",
+  path: string,
+  handler: Handler<AppEnv>,
+): void {
+  const key = `${method.toUpperCase()} ${path}`;
+  const requestBodySchema = openApiRequestBodySchemas.get(key);
+  const querySchema = openApiQuerySchemas.get(key);
+  const parameterNames = [...path.matchAll(/:([A-Za-z0-9_]+)/g)].map(
+    (match) => match[1] as string,
+  );
+  const paramsSchema =
+    parameterNames.length > 0
+      ? z.object(
+          Object.fromEntries(
+            parameterNames.map((name) => [name, z.string().min(1).max(200)]),
+          ),
+        )
+      : undefined;
+  const errorResponses = Object.fromEntries(
+    ERROR_STATUS_CODES.map((status) => [
+      status,
+      {
+        description: `Error (${status})`,
+        content: { "application/json": { schema: errorSchema } },
+      },
+    ]),
+  );
+  const successStatuses =
+    SUCCESS_STATUS_OVERRIDES.get(key) ??
+    ([method === "delete" ? 204 : 200] as const);
+  const successResponses: RouteConfig["responses"] = {};
+  for (const status of successStatuses) {
+    successResponses[status] =
+      status === 204
+        ? { description: "Successful response with no content" }
+        : {
+            description:
+              status === 201
+                ? "Resource created"
+                : status === 202
+                  ? "Request accepted for asynchronous processing"
+                  : "Successful response",
+            content: {
+              "application/json": { schema: jsonResponseSchema },
+            },
+          };
+  }
+  const rateLimitResponses: RouteConfig["responses"] = {};
+  if (RATE_LIMITED_OPERATIONS.has(key)) {
+    rateLimitResponses[429] = {
+      description: "Rate limit exceeded",
+      headers: {
+        "Retry-After": {
+          description: "Seconds until the request may be retried",
+          schema: {
+            type: "string" as const,
+            pattern: "^[1-9][0-9]*$",
+            maxLength: 10,
+          },
+        },
+      },
+      content: { "application/json": { schema: errorSchema } },
+    };
+  }
+  const route = createRoute({
+    method,
+    path: openApiPath(path),
+    operationId: operationId(method, path),
+    summary: `${method.toUpperCase()} ${path}`,
+    description: `Recipe API operation for ${method.toUpperCase()} ${path}.`,
+    tags: [
+      path
+        .split("/")
+        .filter(Boolean)
+        .at(path.startsWith("/api/") ? 1 : 0) ?? "system",
+    ],
+    security:
+      path === "/health"
+        ? []
+        : path.startsWith("/api/auth/preview/")
+          ? [{ cloudflareAccess: [] }]
+        : [{ sessionCookie: [] }],
+    request: {
+      ...(paramsSchema ? { params: paramsSchema } : {}),
+      ...(querySchema ? { query: querySchema } : {}),
+      ...(requestBodySchema
+        ? {
+            body: {
+              required: true,
+              content: {
+                "application/json": { schema: requestBodySchema },
+              },
+            },
+          }
+        : {}),
+    },
+    responses: {
+      ...successResponses,
+      ...errorResponses,
+      ...rateLimitResponses,
+    },
+  });
+
+  // Handler validation remains in parseJsonBody and the route-specific guards,
+  // which preserve the API's shared Error envelope and media-type semantics.
+  // Register a hidden request-free runtime route, then add the complete route
+  // definition to the OpenAPI registry. Both are derived from this one
+  // createRoute declaration, so routing and documentation cannot diverge.
+  const runtimeRoute = createRoute({ ...route, request: {}, hide: true });
+  app.openapi(runtimeRoute, handler as never);
+  app.openAPIRegistry.registerPath(route);
+}
+
+app.openAPIRegistry.registerComponent("securitySchemes", "sessionCookie", {
+  type: "apiKey",
+  in: "cookie",
+  name: "better-auth.session_token",
+  description: "Better Auth session cookie",
+});
+
+app.openAPIRegistry.registerComponent("securitySchemes", "cloudflareAccess", {
+  type: "http",
+  scheme: "bearer",
+  bearerFormat: "Cloudflare Access JWT",
+  description: "Cloudflare Access identity token used by preview environments",
+});
+
+app.notFound((c) => c.json({ error: "Not found" }, 404));
+
+registerRoute("get", "/health", (c) => c.json({ status: "ok" }));
 
 function isValidAuthURL(value: string): boolean {
   try {
@@ -1767,7 +2023,7 @@ async function hasPreviewAccess(request: Request, env: Bindings) {
   );
 }
 
-app.get("/api/auth/preview/scenarios", async (c) => {
+registerRoute("get", "/api/auth/preview/scenarios", async (c) => {
   if (c.env.DEPLOYMENT_ENV !== "preview") return c.notFound();
   if (!hasAuthConfiguration(c.env)) {
     return c.json({ error: "Preview auth configuration is incomplete" }, 503);
@@ -1785,7 +2041,7 @@ app.get("/api/auth/preview/scenarios", async (c) => {
   );
 });
 
-app.post("/api/auth/preview/sign-up", async (c) => {
+registerRoute("post", "/api/auth/preview/sign-up", async (c) => {
   if (c.env.DEPLOYMENT_ENV !== "preview") return c.notFound();
   if (!hasAuthConfiguration(c.env)) {
     return c.json({ error: "Preview auth configuration is incomplete" }, 503);
@@ -1829,7 +2085,7 @@ app.post("/api/auth/preview/sign-up", async (c) => {
   }
 });
 
-app.post("/api/auth/preview/sign-in", async (c) => {
+registerRoute("post", "/api/auth/preview/sign-in", async (c) => {
   if (c.env.DEPLOYMENT_ENV !== "preview") return c.notFound();
   if (!hasAuthConfiguration(c.env)) {
     return c.json({ error: "Preview auth configuration is incomplete" }, 503);
@@ -1913,7 +2169,7 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => {
   }
 });
 
-app.get("/api/profile/diet", async (c) => {
+registerRoute("get", "/api/profile/diet", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -1927,7 +2183,7 @@ app.get("/api/profile/diet", async (c) => {
   );
 });
 
-app.get("/api/profile/diet/options", async (c) => {
+registerRoute("get", "/api/profile/diet/options", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -1936,7 +2192,7 @@ app.get("/api/profile/diet/options", async (c) => {
   );
 });
 
-app.put("/api/profile/diet", async (c) => {
+registerRoute("put", "/api/profile/diet", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -2040,7 +2296,7 @@ app.put("/api/profile/diet", async (c) => {
   );
 });
 
-app.get("/api/profile/recipe-box", async (c) => {
+registerRoute("get", "/api/profile/recipe-box", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -2049,7 +2305,7 @@ app.get("/api/profile/recipe-box", async (c) => {
   );
 });
 
-app.put("/api/profile/recipe-box", async (c) => {
+registerRoute("put", "/api/profile/recipe-box", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -2087,7 +2343,7 @@ app.put("/api/profile/recipe-box", async (c) => {
   );
 });
 
-app.get("/api/profile/cooking-insights", async (c) => {
+registerRoute("get", "/api/profile/cooking-insights", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -2097,7 +2353,7 @@ app.get("/api/profile/cooking-insights", async (c) => {
   );
 });
 
-app.post("/api/profile/cooking-insights", async (c) => {
+registerRoute("post", "/api/profile/cooking-sessions", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -2107,7 +2363,7 @@ app.post("/api/profile/cooking-insights", async (c) => {
   return withRecipeSession(
     c,
     "mutation",
-    "POST /api/profile/cooking-insights mutation failed",
+    "POST /api/profile/cooking-sessions mutation failed",
     async ({ db, session }) => {
       const completedAt =
         body.data.event === "completed" ? new Date() : undefined;
@@ -2163,7 +2419,7 @@ app.post("/api/profile/cooking-insights", async (c) => {
   );
 });
 
-app.get("/pantry", async (c) => {
+registerRoute("get", "/pantry", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -2175,7 +2431,7 @@ app.get("/pantry", async (c) => {
   );
 });
 
-app.put("/pantry", async (c) => {
+registerRoute("put", "/pantry", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -2218,14 +2474,14 @@ app.put("/pantry", async (c) => {
   );
 });
 
-app.put("/pantry/restore", async (c) => {
+registerRoute("patch", "/pantry", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
   return withRecipeSession(
     c,
     "mutation",
-    "PUT /pantry/restore mutation failed",
+    "PATCH /pantry mutation failed",
     async ({ db, session }) => {
       const body = await parseJsonBody(c, pantryStockBodySchema);
       if (!body.success) return body.response;
@@ -2260,7 +2516,7 @@ app.put("/pantry/restore", async (c) => {
   );
 });
 
-app.put("/pantry/items/:ingredientSlug", async (c) => {
+registerRoute("put", "/pantry/items/:ingredientSlug", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -2313,7 +2569,7 @@ app.put("/pantry/items/:ingredientSlug", async (c) => {
   );
 });
 
-app.delete("/pantry/items/:ingredientSlug", async (c) => {
+registerRoute("delete", "/pantry/items/:ingredientSlug", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -2350,7 +2606,7 @@ app.delete("/pantry/items/:ingredientSlug", async (c) => {
   );
 });
 
-app.get("/households", async (c) => {
+registerRoute("get", "/households", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -2384,7 +2640,7 @@ app.get("/households", async (c) => {
   );
 });
 
-app.get("/households/invitations", async (c) => {
+registerRoute("get", "/households/invitations", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -2424,7 +2680,7 @@ app.get("/households/invitations", async (c) => {
   );
 });
 
-app.post("/households", async (c) => {
+registerRoute("post", "/households", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -2492,7 +2748,7 @@ app.post("/households", async (c) => {
   );
 });
 
-app.patch("/households/:householdId", async (c) => {
+registerRoute("patch", "/households/:householdId", async (c) => {
   const householdId = uuidParam(c, "householdId", "household ID");
   if (householdId instanceof Response) return householdId;
   const csrfFailure = validateCsrf(c);
@@ -2526,7 +2782,7 @@ app.patch("/households/:householdId", async (c) => {
   );
 });
 
-app.get("/households/:householdId/members", async (c) => {
+registerRoute("get", "/households/:householdId/members", async (c) => {
   const householdId = uuidParam(c, "householdId", "household ID");
   if (householdId instanceof Response) return householdId;
   return withRecipeSession(
@@ -2565,7 +2821,7 @@ app.get("/households/:householdId/members", async (c) => {
   );
 });
 
-app.get("/households/:householdId/invitations", async (c) => {
+registerRoute("get", "/households/:householdId/invitations", async (c) => {
   const householdId = uuidParam(c, "householdId", "household ID");
   if (householdId instanceof Response) return householdId;
   return withRecipeSession(
@@ -2597,7 +2853,7 @@ app.get("/households/:householdId/invitations", async (c) => {
   );
 });
 
-app.post("/households/:householdId/invitations", async (c) => {
+registerRoute("post", "/households/:householdId/invitations", async (c) => {
   const householdId = uuidParam(c, "householdId", "household ID");
   if (householdId instanceof Response) return householdId;
   const csrfFailure = validateCsrf(c);
@@ -2686,7 +2942,7 @@ app.post("/households/:householdId/invitations", async (c) => {
   );
 });
 
-app.post("/households/invitations/:invitationId/accept", async (c) => {
+registerRoute("post", "/households/invitations/:invitationId/accept", async (c) => {
   const invitationId = uuidParam(c, "invitationId", "invitation ID");
   if (invitationId instanceof Response) return invitationId;
   const csrfFailure = validateCsrf(c);
@@ -2712,7 +2968,7 @@ app.post("/households/invitations/:invitationId/accept", async (c) => {
   );
 });
 
-app.post("/households/invitations/:invitationId/decline", async (c) => {
+registerRoute("post", "/households/invitations/:invitationId/decline", async (c) => {
   const invitationId = uuidParam(c, "invitationId", "invitation ID");
   if (invitationId instanceof Response) return invitationId;
   const csrfFailure = validateCsrf(c);
@@ -2735,7 +2991,8 @@ app.post("/households/invitations/:invitationId/decline", async (c) => {
   );
 });
 
-app.delete(
+registerRoute(
+  "delete",
   "/households/:householdId/invitations/:invitationId",
   async (c) => {
     const householdId = uuidParam(c, "householdId", "household ID");
@@ -2793,7 +3050,7 @@ app.delete(
   },
 );
 
-app.delete("/households/:householdId/members/:memberId", async (c) => {
+registerRoute("delete", "/households/:householdId/members/:memberId", async (c) => {
   const householdId = uuidParam(c, "householdId", "household ID");
   if (householdId instanceof Response) return householdId;
   const memberId = uuidParam(c, "memberId", "member ID");
@@ -2869,7 +3126,7 @@ app.delete("/households/:householdId/members/:memberId", async (c) => {
   );
 });
 
-app.post("/households/:householdId/leave", async (c) => {
+registerRoute("post", "/households/:householdId/leave", async (c) => {
   const householdId = uuidParam(c, "householdId", "household ID");
   if (householdId instanceof Response) return householdId;
   const csrfFailure = validateCsrf(c);
@@ -2934,7 +3191,7 @@ app.post("/households/:householdId/leave", async (c) => {
   );
 });
 
-app.delete("/households/:householdId", async (c) => {
+registerRoute("delete", "/households/:householdId", async (c) => {
   const householdId = uuidParam(c, "householdId", "household ID");
   if (householdId instanceof Response) return householdId;
   const csrfFailure = validateCsrf(c);
@@ -3023,7 +3280,7 @@ app.delete("/households/:householdId", async (c) => {
   );
 });
 
-app.get("/notifications", async (c) => {
+registerRoute("get", "/notifications", async (c) => {
   const offset = Number(c.req.query("offset") ?? "0");
   if (!Number.isSafeInteger(offset) || offset < 0) {
     return c.json({ error: "Invalid notification offset" }, 400);
@@ -3124,13 +3381,14 @@ async function mutateAllNotifications(
   );
 }
 
-app.post("/notifications/read-all", (c) => mutateAllNotifications(c, "read"));
-app.post("/notifications/clear-all", (c) => mutateAllNotifications(c, "clear"));
+registerRoute("post", "/notifications/read-all", (c) => mutateAllNotifications(c, "read"));
+registerRoute("post", "/notifications/clear-all", (c) => mutateAllNotifications(c, "clear"));
 
-app.post("/notifications/:notificationId/actions/:actionKey", async (c) => {
+registerRoute("post", "/notifications/:notificationId/actions/:actionKey", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
   const action = c.req.param("actionKey");
+  if (!action) return c.json({ error: "Unknown notification action" }, 400);
   const notificationId = uuidParam(c, "notificationId", "notification ID");
   if (notificationId instanceof Response) return notificationId;
   return withRecipeSession(
@@ -3191,7 +3449,7 @@ app.post("/notifications/:notificationId/actions/:actionKey", async (c) => {
   );
 });
 
-app.patch("/notifications/:notificationId", async (c) => {
+registerRoute("patch", "/notifications/:notificationId", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
   const notificationId = uuidParam(c, "notificationId", "notification ID");
@@ -3232,7 +3490,7 @@ app.patch("/notifications/:notificationId", async (c) => {
   );
 });
 
-app.get("/recipes", async (c) => {
+registerRoute("get", "/recipes", async (c) => {
   const scope = c.req.query("scope");
   if (scope && scope !== "owned") {
     return c.json({ error: "Invalid recipe scope" }, 400);
@@ -3269,7 +3527,7 @@ app.get("/recipes", async (c) => {
   );
 });
 
-app.get("/recipes/discover/feed", async (c) => {
+registerRoute("get", "/recipes/discover/feed", async (c) => {
   const scope = feedScopeSchema.safeParse(c.req.query("scope") ?? "public");
   const limit = feedLimitSchema.safeParse(c.req.query("limit"));
   const cursorValue = c.req.query("cursor");
@@ -3410,7 +3668,7 @@ async function cookConnections(db: Db, cookId: string) {
   };
 }
 
-app.get("/recipes/cooks", async (c) => {
+registerRoute("get", "/recipes/cooks", async (c) => {
   const cookValue = c.req.query("cook");
   const cookId =
     cookValue === undefined ? null : publicCookIdSchema.safeParse(cookValue);
@@ -3480,7 +3738,7 @@ app.get("/recipes/cooks", async (c) => {
   );
 });
 
-app.get("/recipes/cooks/me/connections", async (c) => {
+registerRoute("get", "/recipes/cooks/me/connections", async (c) => {
   return withRecipeSession(
     c,
     "query",
@@ -3490,7 +3748,7 @@ app.get("/recipes/cooks/me/connections", async (c) => {
   );
 });
 
-app.get("/recipes/cooks/:cookId/follow", async (c) => {
+registerRoute("get", "/recipes/cooks/:cookId/follow", async (c) => {
   const cookId = publicCookIdSchema.safeParse(c.req.param("cookId"));
   if (!cookId.success) return c.json({ error: "Invalid cook ID" }, 400);
 
@@ -3523,7 +3781,7 @@ app.get("/recipes/cooks/:cookId/follow", async (c) => {
   );
 });
 
-app.put("/recipes/cooks/:cookId/follow", async (c) => {
+registerRoute("put", "/recipes/cooks/:cookId/follow", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
   const cookId = publicCookIdSchema.safeParse(c.req.param("cookId"));
@@ -3555,7 +3813,7 @@ app.put("/recipes/cooks/:cookId/follow", async (c) => {
   );
 });
 
-app.delete("/recipes/cooks/:cookId/follow", async (c) => {
+registerRoute("delete", "/recipes/cooks/:cookId/follow", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
   const cookId = publicCookIdSchema.safeParse(c.req.param("cookId"));
@@ -3582,14 +3840,14 @@ app.delete("/recipes/cooks/:cookId/follow", async (c) => {
   );
 });
 
-app.post("/recipes/import-url", async (c) => {
+registerRoute("post", "/recipe-drafts/url", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
   return withRecipeSession(
     c,
     "mutation",
-    "POST /recipes/import-url failed",
+    "POST /recipe-drafts/url failed",
     async ({ db, session }) => {
       const body = await parseJsonBody(c, importRecipeUrlBodySchema);
       if (!body.success) return body.response;
@@ -3634,14 +3892,14 @@ app.post("/recipes/import-url", async (c) => {
   );
 });
 
-app.post("/recipes/import-file", async (c) => {
+registerRoute("post", "/recipe-drafts/file", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
   return withRecipeSession(
     c,
     "mutation",
-    "POST /recipes/import-file failed",
+    "POST /recipe-drafts/file failed",
     async ({ db, session }) => {
       const body = await parseJsonBody(c, importRecipeFileBodySchema);
       if (!body.success) return body.response;
@@ -3682,7 +3940,7 @@ app.post("/recipes/import-file", async (c) => {
   );
 });
 
-app.get("/recipes/:slug", async (c) => {
+registerRoute("get", "/recipes/:slug", async (c) => {
   const slug = parseRecipeSlug(c);
   if (!slug.success) return slug.response;
 
@@ -3716,7 +3974,7 @@ app.get("/recipes/:slug", async (c) => {
   );
 });
 
-app.post("/recipes/:slug/recommendations", async (c) => {
+registerRoute("post", "/recipes/:slug/recommendations", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
   const slug = parseRecipeSlug(c);
@@ -3798,7 +4056,7 @@ app.post("/recipes/:slug/recommendations", async (c) => {
   );
 });
 
-app.post("/recipes", async (c) => {
+registerRoute("post", "/recipes", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -3845,7 +4103,7 @@ app.post("/recipes", async (c) => {
   );
 });
 
-app.patch("/recipes/:slug", async (c) => {
+registerRoute("patch", "/recipes/:slug", async (c) => {
   const slug = parseRecipeSlug(c);
   if (!slug.success) return slug.response;
 
@@ -3897,7 +4155,7 @@ app.patch("/recipes/:slug", async (c) => {
   );
 });
 
-app.post("/recipes/:slug/household-share", async (c) => {
+registerRoute("post", "/recipes/:slug/household-share", async (c) => {
   const slug = parseRecipeSlug(c);
   if (!slug.success) return slug.response;
 
@@ -3941,7 +4199,7 @@ app.post("/recipes/:slug/household-share", async (c) => {
   );
 });
 
-app.delete("/recipes/:slug/household-share", async (c) => {
+registerRoute("delete", "/recipes/:slug/household-share", async (c) => {
   const slug = parseRecipeSlug(c);
   if (!slug.success) return slug.response;
 
@@ -3984,7 +4242,7 @@ app.delete("/recipes/:slug/household-share", async (c) => {
   );
 });
 
-app.delete("/recipes/:slug", async (c) => {
+registerRoute("delete", "/recipes/:slug", async (c) => {
   const slug = parseRecipeSlug(c);
   if (!slug.success) return slug.response;
 
@@ -4134,7 +4392,7 @@ async function parseImportImages(
   return { success: true, images };
 }
 
-app.post("/recipe-imports", async (c) => {
+registerRoute("post", "/recipe-imports", async (c) => {
   const csrfFailure = validateCsrf(c);
   if (csrfFailure) return csrfFailure;
 
@@ -4297,7 +4555,7 @@ app.post("/recipe-imports", async (c) => {
   );
 });
 
-app.get("/recipe-imports", async (c) => {
+registerRoute("get", "/recipe-imports", async (c) => {
   return withRecipeSession(
     c,
     "lookup",
@@ -4315,7 +4573,7 @@ app.get("/recipe-imports", async (c) => {
   );
 });
 
-app.get("/recipe-imports/:jobId", async (c) => {
+registerRoute("get", "/recipe-imports/:jobId", async (c) => {
   const jobId = recipeImportIdSchema.safeParse(c.req.param("jobId"));
   if (!jobId.success) return c.json({ error: "Import not found" }, 404);
 
