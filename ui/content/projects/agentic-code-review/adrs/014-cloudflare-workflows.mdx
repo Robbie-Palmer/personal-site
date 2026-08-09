@@ -1,8 +1,105 @@
 ---
-inherits_from: "recipe-site:049-cloudflare-workflows-recipe-ingestion"
+title: "ADR 014: Cloudflare Workflows for Code Review"
+date: "2026-07-25"
+status: "Accepted"
+tech_stack:
+  - "Cloudflare Workflows"
+  - "Cloudflare Workers"
+  - "Cloudflare R2"
+  - "OpenRouter"
 ---
 
-The product reuses Cloudflare Workflows for durable, retryable multi-step
-orchestration and explicit progress boundaries. Its steps fetch Pull Request
-context, run independent scouts, merge findings, publish to GitHub, and retain
-evidence; recipe ingestion and Neon-specific decisions do not carry over.
+# Context
+
+[ADR 032](/projects/agentic-code-review/adrs/032-stateful-ai-code-review)
+establishes a stateful GitHub App with one Durable Object per Pull Request.
+Each admitted review still contains a long-running sequence of external work:
+fetch the current change, claim the review budget, run independent model scouts,
+merge their findings, publish the rolling GitHub comment, append the analytical
+record to R2, and complete the PR state.
+
+GitHub can deliver several webhook events while a review is active. Model calls
+can take minutes, and paid inference providers do not expose an idempotency key.
+Restarting the whole sequence after a transient failure could repeat spend or
+publication. Keeping the whole sequence inside a webhook request or Durable
+Object alarm would also couple durable PR coordination to long-running model
+execution.
+
+# Decision
+
+Use **Cloudflare Workflows** for every review run admitted by the Pull Request's
+Durable Object.
+
+The Durable Object remains the authority for delivery deduplication, the latest
+pending event, trailing-edge debounce, reviewed-head state, cumulative budgets,
+and the single active paid-review lease. It creates a Workflow only after the
+quiet period and uses the GitHub delivery ID as the Workflow instance identity.
+
+The Workflow owns these explicit steps:
+
+1. prepare the current GitHub context and determine whether the run is still
+   eligible;
+2. atomically claim the review against the per-PR state and budgets;
+3. run paid OpenRouter scouts and free OpenCode scouts in separate steps;
+4. merge structured findings against the current review state;
+5. publish or update the rolling GitHub review comment;
+6. append the versioned run and finding record to R2; and
+7. mark the review complete in the Durable Object.
+
+Deterministic operations retain bounded retries. Each model step permits one
+configured application attempt, and paid and free providers occupy separate
+steps so recovery from a stalled free provider cannot replay completed paid
+calls. A failed run records its state and known spend before the Workflow
+surfaces the error.
+
+Only one paid review may be in flight for a Pull Request. A lease expires after
+30 minutes; before admitting a replacement, the coordinator terminates the old
+Workflow and waits for termination to succeed. A new push received during an
+active run becomes the latest pending event and is reconsidered after the
+current run releases the lease.
+
+# Alternatives Considered
+
+## Run the Review in GitHub Actions
+
+The previous implementation used one stateless job per push. GitHub Actions can
+cancel jobs and apply path filters, but it does not provide authoritative
+cross-run PR memory or an economical incremental-review boundary.
+
+## Run the Entire Sequence in the Durable Object
+
+This would remove one Cloudflare primitive, but long external model calls would
+share the same execution concern as webhook ordering, debounce, and PR state.
+Separating coordination from execution keeps each boundary smaller and gives
+the review sequence durable step history.
+
+## Adopt a Separate Workflow Platform
+
+Temporal, Inngest, and similar systems offer mature orchestration features.
+They add another runtime, deployment path, credential boundary, and operational
+surface while the service already runs on Cloudflare Workers. Current review
+lifecycles do not justify that additional platform.
+
+# Consequences
+
+## Positive
+
+* Review progress survives Worker request lifetimes and transient failures.
+* Step boundaries make retries, failures, latency, and model spend inspectable.
+* Paid model calls are isolated from retryable free-provider and publication
+  work.
+* Durable Objects keep per-PR ordering while Workflows handle long-running
+  execution.
+
+## Negative
+
+* The service depends more deeply on Cloudflare's runtime and Workflow limits.
+* Durable Object state and Workflow lifecycle must be reconciled explicitly.
+* Provider calls still require application-level spend accounting because paid
+  inference has no idempotency boundary.
+
+# When to Revisit
+
+Revisit this decision when review lifecycles require long human-approval waits,
+cross-repository transactions, compensation across many external systems, or
+Workflow limits make another orchestrator materially simpler or safer.
