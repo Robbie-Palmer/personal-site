@@ -3396,10 +3396,10 @@
               "type": "string",
               "maxLength": 36,
               "format": "uuid",
-              "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result."
+              "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result while its receipt is retained for at least 24 hours."
             },
             "required": false,
-            "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result.",
+            "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result while its receipt is retained for at least 24 hours.",
             "name": "idempotency-key",
             "in": "header"
           }
@@ -3572,10 +3572,10 @@
               "type": "string",
               "maxLength": 36,
               "format": "uuid",
-              "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result."
+              "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result while its receipt is retained for at least 24 hours."
             },
             "required": false,
-            "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result.",
+            "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result while its receipt is retained for at least 24 hours.",
             "name": "idempotency-key",
             "in": "header"
           }
@@ -3760,10 +3760,10 @@
               "type": "string",
               "maxLength": 36,
               "format": "uuid",
-              "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result."
+              "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result while its receipt is retained for at least 24 hours."
             },
             "required": false,
-            "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result.",
+            "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result while its receipt is retained for at least 24 hours.",
             "name": "idempotency-key",
             "in": "header"
           }
@@ -3943,10 +3943,10 @@
               "type": "string",
               "maxLength": 36,
               "format": "uuid",
-              "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result."
+              "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result while its receipt is retained for at least 24 hours."
             },
             "required": false,
-            "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result.",
+            "description": "Client-generated operation ID. Reusing it for the same pantry command returns the committed result while its receipt is retained for at least 24 hours.",
             "name": "idempotency-key",
             "in": "header"
           }

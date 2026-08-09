@@ -172,6 +172,7 @@ const dbMock = vi.hoisted(() => {
     pantryItems: [] as PantryItemRow[],
     pantryAggregates: [] as PantryAggregateRow[],
     pantryOperations: [] as PantryOperationRow[],
+    pantryOperationSweeps: 0,
     ingredientGroupMembers: [] as {
       groupKey: string;
       ingredientSlug: string;
@@ -299,6 +300,7 @@ const dbMock = vi.hoisted(() => {
     state.pantryItems = [];
     state.pantryAggregates = [];
     state.pantryOperations = [];
+    state.pantryOperationSweeps = 0;
     state.ingredientGroupMembers = [];
     state.dietPresetExcludedGroups = [];
     state.dietPresetExcludedIngredients = [];
@@ -484,11 +486,15 @@ const dbMock = vi.hoisted(() => {
     }
 
     if (query.startsWith('insert into "pantry_operation"')) {
+      const result = params[3];
       state.pantryOperations.push({
         aggregateId: params[0] as string,
         operationId: params[1] as string,
         commandFingerprint: params[2] as string,
-        result: params[3] as Record<string, unknown>,
+        result:
+          typeof result === "string"
+            ? (JSON.parse(result) as Record<string, unknown>)
+            : (result as Record<string, unknown>),
         createdAt: date,
       });
       return [];
@@ -828,9 +834,16 @@ const dbMock = vi.hoisted(() => {
     }
 
     if (query.startsWith('delete from "pantry_operation"')) {
+      if (query.includes('"created_at" <')) {
+        state.pantryOperationSweeps += 1;
+        return [];
+      }
       const aggregateId = params[0] as string;
+      const operationId = params[1] as string | undefined;
       state.pantryOperations = state.pantryOperations.filter(
-        (operation) => operation.aggregateId !== aggregateId,
+        (operation) =>
+          operation.aggregateId !== aggregateId ||
+          (operationId !== undefined && operation.operationId !== operationId),
       );
       return [];
     }
@@ -4154,6 +4167,34 @@ describe("pantry mutation flows", () => {
     });
   });
 
+  it("replaces an incompatible pantry operation receipt instead of replaying it", async () => {
+    seedHousehold();
+    const operationId = "0198f1f0-1111-7111-8111-111111111111";
+    const request = () =>
+      app.request(
+        "/pantry/items/onion",
+        {
+          method: "PUT",
+          headers: { ...mutationHeaders, "idempotency-key": operationId },
+          body: JSON.stringify({ location: "fresh" }),
+        },
+        env,
+      );
+
+    expect((await request()).status).toBe(200);
+    dbMock.state.pantryOperations[0]!.result = { version: 0 };
+
+    expect(await (await request()).json()).toMatchObject({
+      operationId,
+      revision: "2",
+      itemVersions: { onion: "2" },
+    });
+    expect(dbMock.state.pantryOperations).toHaveLength(1);
+    expect(dbMock.state.pantryOperations[0]?.result).toMatchObject({
+      version: 1,
+    });
+  });
+
   it("rejects invalid item mutations", async () => {
     const invalidOperationId = await app.request(
       "/pantry/items/onion",
@@ -6096,7 +6137,7 @@ describe("unknown routes", () => {
   });
 });
 
-describe("scheduled rate-limit cleanup", () => {
+describe("scheduled operational-row cleanup", () => {
   function runScheduled(bindings: typeof env) {
     const pending: Promise<unknown>[] = [];
     const ctx = {
@@ -6106,9 +6147,10 @@ describe("scheduled rate-limit cleanup", () => {
     return Promise.all(pending);
   }
 
-  it("sweeps stale counters", async () => {
+  it("sweeps stale counters and pantry operation receipts", async () => {
     await runScheduled(env);
     expect(dbMock.state.rateLimitSweeps).toBe(1);
+    expect(dbMock.state.pantryOperationSweeps).toBe(1);
   });
 
   it("no-ops without a database connection", async () => {

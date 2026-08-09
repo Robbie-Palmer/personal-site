@@ -177,6 +177,29 @@ const creatableRecipeSlugSchema = recipeSlugSchema.refine(
 const dietRecipeMatchModeSchema = z.enum(["hide", "warn"]);
 const pantryLocationSchema = z.enum(schema.pantryLocationEnum.enumValues);
 const pantryIngredientSlugSchema = z.string().min(1).max(200);
+const pantryResponseSchema = z
+  .object({
+    resourceId: z.string().min(1),
+    revision: z.string().regex(/^\d+$/),
+    operationId: z.uuid().optional(),
+    scope: z.discriminatedUnion("type", [
+      z.object({ type: z.literal("personal") }).strict(),
+      z
+        .object({
+          type: z.literal("household"),
+          household: z
+            .object({ id: z.string().min(1), name: z.string() })
+            .strict(),
+        })
+        .strict(),
+    ]),
+    stock: z.record(z.string().min(1), pantryLocationSchema),
+    itemVersions: z.record(z.string().min(1), z.string().regex(/^\d+$/)),
+  })
+  .strict();
+const pantryOperationReceiptSchema = z
+  .object({ version: z.literal(1), pantry: pantryResponseSchema })
+  .strict();
 const feedScopeSchema = z.enum(["public", "following"]);
 const feedLimitSchema = z.coerce.number().int().min(1).max(30).default(12);
 const recipeListLimitSchema = z.coerce.number().int().min(1).max(100).default(100);
@@ -431,7 +454,7 @@ const openApiRequestBodySchemas = new Map<string, z.ZodType>([
 const pantryOperationHeadersSchema = z.object({
   "idempotency-key": z.uuid().max(36).optional().openapi({
     description:
-      "Client-generated operation ID. Reusing it for the same pantry command returns the committed result.",
+      "Client-generated operation ID. Reusing it for the same pantry command returns the committed result while its receipt is retained for at least 24 hours.",
   }),
 });
 
@@ -1398,7 +1421,16 @@ async function executePantryOperation(
       if (recorded.commandFingerprint !== commandFingerprint) {
         throw new PantryOperationConflictError();
       }
-      return recorded.result as PantryResponse;
+      const receipt = pantryOperationReceiptSchema.safeParse(recorded.result);
+      if (receipt.success) return receipt.data.pantry;
+      await tx
+        .delete(schema.pantryOperation)
+        .where(
+          and(
+            eq(schema.pantryOperation.aggregateId, aggregate.id),
+            eq(schema.pantryOperation.operationId, operationId),
+          ),
+        );
     }
 
     await mutate(tx, scope);
@@ -1420,7 +1452,7 @@ async function executePantryOperation(
       aggregateId: aggregate.id,
       operationId,
       commandFingerprint,
-      result,
+      result: { version: 1, pantry: result },
     });
     return result;
   });
@@ -4979,22 +5011,25 @@ registerRoute("get", "/recipe-imports/:jobId", async (c) => {
 
 export { app };
 
-// Rows reset in place on each request, so only keys that fall idle linger. A
-// daily sweep past the longest window keeps the table bounded.
-const RATE_LIMIT_RETENTION_MS = 24 * 60 * 60 * 1000;
+// Idle rate-limit keys and pantry idempotency receipts do not need permanent
+// storage. The daily sweep retains both for at least the longest retry window.
+const OPERATIONAL_ROW_RETENTION_MS = 24 * 60 * 60 * 1000;
 
-async function cleanupRateLimits(env: Bindings): Promise<void> {
+async function cleanupOperationalRows(env: Bindings): Promise<void> {
   const connectionString = databaseConnection(env);
   if (!connectionString) return;
 
   const { db, client } = createDb(connectionString);
   try {
-    const cutoff = new Date(Date.now() - RATE_LIMIT_RETENTION_MS);
+    const cutoff = new Date(Date.now() - OPERATIONAL_ROW_RETENTION_MS);
     await db
       .delete(schema.appRateLimit)
       .where(lt(schema.appRateLimit.windowStart, cutoff));
+    await db
+      .delete(schema.pantryOperation)
+      .where(lt(schema.pantryOperation.createdAt, cutoff));
   } catch (e) {
-    console.error("Rate limit cleanup failed", e);
+    console.error("Operational row cleanup failed", e);
   } finally {
     await closeDbClient(client);
   }
@@ -5019,6 +5054,6 @@ export default {
       },
     ),
   scheduled: (_event, env, ctx) => {
-    ctx.waitUntil(cleanupRateLimits(env));
+    ctx.waitUntil(cleanupOperationalRows(env));
   },
 } satisfies ExportedHandler<Bindings>;

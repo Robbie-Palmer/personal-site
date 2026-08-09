@@ -387,7 +387,10 @@ export const pantryOperation = pgTable(
     result: jsonb().$type<Record<string, unknown>>().notNull(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.aggregateId, table.operationId] })],
+  (table) => [
+    primaryKey({ columns: [table.aggregateId, table.operationId] }),
+    index("pantry_operation_created_at_idx").on(table.createdAt),
+  ],
 );
 
 /**

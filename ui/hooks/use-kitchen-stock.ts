@@ -160,7 +160,9 @@ export function useKitchenStockActions() {
     },
     onSuccess: (pantry) => {
       queryClient.setQueryData<Pantry>(queryKey, (current) =>
-        installPantrySnapshot(current, pantry),
+        current && current.resourceId !== pantry.resourceId
+          ? current
+          : installPantrySnapshot(current, pantry),
       );
     },
   });

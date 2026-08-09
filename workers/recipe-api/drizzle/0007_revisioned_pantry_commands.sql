@@ -22,4 +22,5 @@ ALTER TABLE "pantry_aggregate" ADD CONSTRAINT "pantry_aggregate_user_id_user_id_
 ALTER TABLE "pantry_aggregate" ADD CONSTRAINT "pantry_aggregate_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pantry_operation" ADD CONSTRAINT "pantry_operation_aggregate_id_pantry_aggregate_id_fk" FOREIGN KEY ("aggregate_id") REFERENCES "public"."pantry_aggregate"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "pantry_aggregate_user_uidx" ON "pantry_aggregate" USING btree ("user_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "pantry_aggregate_household_uidx" ON "pantry_aggregate" USING btree ("organization_id");
+CREATE UNIQUE INDEX "pantry_aggregate_household_uidx" ON "pantry_aggregate" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "pantry_operation_created_at_idx" ON "pantry_operation" USING btree ("created_at");

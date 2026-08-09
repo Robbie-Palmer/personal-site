@@ -362,4 +362,37 @@ describe("useKitchenStockActions", () => {
     await waitFor(() => expect(result.current.isPending).toBe(false));
     expect(queryClient.getQueryData(queryKey)).toEqual(newer);
   });
+
+  it("does not install a mutation response from an obsolete pantry resource", async () => {
+    const queryClient = createQueryClient();
+    const queryKey = recipeQueryKeys.pantry("user-1");
+    queryClient.setQueryData(queryKey, personalPantry({ milk: "fridge" }, "1"));
+    let resolveMutation: ((pantry: Pantry) => void) | undefined;
+    mocks.setPantryItem.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveMutation = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useKitchenStockActions(), {
+      wrapper: wrapper(queryClient),
+    });
+
+    act(() => result.current.setStockLocation("onion", "fresh"));
+    await waitFor(() => expect(mocks.setPantryItem).toHaveBeenCalled());
+
+    const householdPantry: Pantry = {
+      ...personalPantry({ egg: "cupboards" }, "1"),
+      resourceId: "household-1",
+      scope: {
+        type: "household",
+        household: { id: "household-1", name: "Shared household" },
+      },
+    };
+    act(() => queryClient.setQueryData(queryKey, householdPantry));
+    act(() => resolveMutation?.(personalPantry({ onion: "fresh" }, "2")));
+
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+    expect(queryClient.getQueryData(queryKey)).toEqual(householdPantry);
+  });
 });

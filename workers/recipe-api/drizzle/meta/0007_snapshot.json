@@ -1734,7 +1734,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "pantry_operation_created_at_idx": {
+          "name": "pantry_operation_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "pantry_operation_aggregate_id_pantry_aggregate_id_fk": {
           "name": "pantry_operation_aggregate_id_pantry_aggregate_id_fk",
