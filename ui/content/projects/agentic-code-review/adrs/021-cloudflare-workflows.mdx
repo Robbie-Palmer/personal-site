@@ -1,0 +1,8 @@
+---
+inherits_from: "recipe-site:049-cloudflare-workflows-recipe-ingestion"
+---
+
+The product reuses Cloudflare Workflows for durable, retryable multi-step
+orchestration and explicit progress boundaries. Its steps fetch Pull Request
+context, run independent scouts, merge findings, publish to GitHub, and retain
+evidence; recipe ingestion and Neon-specific decisions do not carry over.
