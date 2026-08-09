@@ -401,6 +401,7 @@ export function FilterableCardGrid<T>({
         activeFilterCount={activeFilterCount}
         sortButton={sortButton}
         mobileFilterSections={mobileFilterSections}
+        mobileExtraContentLabel={dateRangeConfig ? "Date Range" : undefined}
         mobileExtraContent={
           dateRangeConfig ? (
             <DateRangeFilter

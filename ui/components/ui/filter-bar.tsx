@@ -69,6 +69,7 @@ interface FilterBarProps {
   sortButton?: React.ReactNode;
   mobileFilterSections?: MobileFilterSection[];
   mobileExtraContent?: React.ReactNode;
+  mobileExtraContentLabel?: string;
 }
 
 export function FilterBar({
@@ -89,34 +90,43 @@ export function FilterBar({
   sortButton,
   mobileFilterSections,
   mobileExtraContent,
+  mobileExtraContentLabel,
 }: Readonly<FilterBarProps>) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileSectionName, setMobileSectionName] = useState<string>();
   const [mobileFilterQuery, setMobileFilterQuery] = useState("");
+  const [mobileOptionOrder, setMobileOptionOrder] = useState<string[]>([]);
   const mobileOptionsId = useId();
   const mobileResultsStatusId = useId();
-  const mobileSection = mobileFilterSections?.find(
+  const availableMobileFilterSections = mobileFilterSections ?? [];
+  const mobileSection = availableMobileFilterSections.find(
     (section) => section.paramName === mobileSectionName,
   );
+  const hasMobileFilterSections = availableMobileFilterSections.length > 0;
+  const orderedMobileOptions = useMemo(() => {
+    if (!mobileSection) return [];
+
+    const orderByValue = new Map(
+      mobileOptionOrder.map((value, index) => [value, index]),
+    );
+    return [...mobileSection.options].sort((a, b) => {
+      const aIndex = orderByValue.get(a.value);
+      const bIndex = orderByValue.get(b.value);
+      if (aIndex === undefined && bIndex === undefined) return 0;
+      if (aIndex === undefined) return 1;
+      if (bIndex === undefined) return -1;
+      return aIndex - bIndex;
+    });
+  }, [mobileOptionOrder, mobileSection]);
   const visibleMobileOptions = useMemo(() => {
     if (!mobileSection) return [];
 
     const query = mobileFilterQuery.trim().toLocaleLowerCase();
-    const matchingOptions = query
-      ? mobileSection.options.filter((option) =>
-          option.label.toLocaleLowerCase().includes(query),
-        )
-      : mobileSection.options;
-
-    // Keep active values within easy reach when returning to a category.
-    if (query) return matchingOptions;
-    return [...matchingOptions].sort((a, b) => {
-      const aIsActive = mobileSection.getOptionState(a.value) !== "off";
-      const bIsActive = mobileSection.getOptionState(b.value) !== "off";
-      if (aIsActive === bIsActive) return 0;
-      return aIsActive ? -1 : 1;
-    });
-  }, [mobileFilterQuery, mobileSection]);
+    if (!query) return orderedMobileOptions;
+    return orderedMobileOptions.filter((option) =>
+      option.label.toLocaleLowerCase().includes(query),
+    );
+  }, [mobileFilterQuery, mobileSection, orderedMobileOptions]);
 
   const handleMobileOpenChange = (open: boolean) => {
     // Keep the current content mounted during Vaul's close animation, then
@@ -124,18 +134,34 @@ export function FilterBar({
     if (open) {
       setMobileSectionName(undefined);
       setMobileFilterQuery("");
+      setMobileOptionOrder([]);
     }
     setMobileOpen(open);
   };
 
   const openMobileSection = (paramName: string) => {
+    const section = availableMobileFilterSections.find(
+      (candidate) => candidate.paramName === paramName,
+    );
+    const orderedOptions = section
+      ? [...section.options].sort((a, b) => {
+          const aIsActive = section.getOptionState(a.value) !== "off";
+          const bIsActive = section.getOptionState(b.value) !== "off";
+          if (aIsActive === bIsActive) return 0;
+          return aIsActive ? -1 : 1;
+        })
+      : [];
     setMobileSectionName(paramName);
     setMobileFilterQuery("");
+    // Capture the active-first order when entering the category. Keeping it
+    // stable prevents a tapped row from moving underneath the user's finger.
+    setMobileOptionOrder(orderedOptions.map((option) => option.value));
   };
 
   const closeMobileSection = () => {
     setMobileSectionName(undefined);
     setMobileFilterQuery("");
+    setMobileOptionOrder([]);
   };
   const searchControl = showSearch && onSearchChange && (
     <div
@@ -233,7 +259,7 @@ export function FilterBar({
 
         {/* Mobile filters use a category-first drill-down so large option sets
             never turn the drawer into one long, difficult-to-scan page. */}
-        {mobileFilterSections?.length && mobileSection && (
+        {hasMobileFilterSections && mobileSection && (
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="shrink-0 border-b p-4">
               <div className="relative">
@@ -334,19 +360,23 @@ export function FilterBar({
             </div>
           </div>
         )}
-        {mobileFilterSections?.length && !mobileSection && (
+        {hasMobileFilterSections && !mobileSection && (
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
             <p className="mb-3 text-sm text-muted-foreground">
               Choose a category, then search or browse its values.
             </p>
             {mobileExtraContent && (
               <div className="mb-4 rounded-lg border p-3">
-                <h4 className="mb-2 text-sm font-medium">Date Range</h4>
+                {mobileExtraContentLabel && (
+                  <h4 className="mb-2 text-sm font-medium">
+                    {mobileExtraContentLabel}
+                  </h4>
+                )}
                 {mobileExtraContent}
               </div>
             )}
             <div className="space-y-2">
-              {mobileFilterSections.map((section) => {
+              {availableMobileFilterSections.map((section) => {
                 const activeCount = section.options.reduce(
                   (count, option) =>
                     count +
@@ -387,7 +417,7 @@ export function FilterBar({
             </div>
           </div>
         )}
-        {!mobileFilterSections?.length && (
+        {!hasMobileFilterSections && (
           /* Fallback to children if no mobile sections provided */
           <div className="flex flex-col gap-3 py-4">{children}</div>
         )}
