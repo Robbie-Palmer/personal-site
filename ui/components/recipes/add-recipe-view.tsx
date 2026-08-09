@@ -71,6 +71,21 @@ type ImportedRecipe = {
   url?: string;
 };
 
+function isImportedRecipe(value: unknown): value is ImportedRecipe {
+  if (!value || typeof value !== "object") return false;
+  const recipe = value as Record<string, unknown>;
+  return (
+    typeof recipe.title === "string" &&
+    typeof recipe.description === "string" &&
+    typeof recipe.cuisine === "string" &&
+    typeof recipe.servings === "number" &&
+    (recipe.prepTime === undefined || typeof recipe.prepTime === "number") &&
+    (recipe.cookTime === undefined || typeof recipe.cookTime === "number") &&
+    typeof recipe.source === "string" &&
+    (recipe.url === undefined || typeof recipe.url === "string")
+  );
+}
+
 async function invalidateSavedRecipeQueries({
   queryClient,
   userId,
@@ -382,10 +397,10 @@ export function AddRecipeView({
         signal: request.controller.signal,
         fallbackMessage: "The recipe could not be imported.",
       });
-      if (!body || typeof body !== "object" || !("source" in body)) {
+      if (!isImportedRecipe(body)) {
         throw new Error("The recipe could not be imported.");
       }
-      const importedRecipe = body as ImportedRecipe;
+      const importedRecipe = body;
       if (importRequestRef.current?.id !== request.id) return;
       applyImportedRecipe(importedRecipe);
       setRecipeUrl(importedRecipe.url ?? recipeUrl.trim());
@@ -435,12 +450,12 @@ export function AddRecipeView({
         signal: request.controller.signal,
         fallbackMessage: "The recipe file could not be imported.",
       });
-      if (!body || typeof body !== "object" || !("source" in body)) {
+      if (!isImportedRecipe(body)) {
         throw new RecipeFileImportError(
           "The recipe file could not be imported.",
         );
       }
-      const importedRecipe = body as ImportedRecipe;
+      const importedRecipe = body;
       if (importRequestRef.current?.id !== request.id) return;
       applyImportedRecipe(importedRecipe);
       setImportedFileName(recipeFile.name);
