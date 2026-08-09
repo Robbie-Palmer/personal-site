@@ -15,7 +15,7 @@ terraform {
     }
     neon = {
       source  = "kislerdm/neon"
-      version = "~> 0.14"
+      version = "~> 0.15"
     }
     posthog = {
       source  = "PostHog/posthog"
