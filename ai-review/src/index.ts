@@ -251,6 +251,18 @@ function isReviewHunk(value: unknown): value is ReviewHunk {
   );
 }
 
+function sameReviewHunk(left: ReviewHunk, right: ReviewHunk): boolean {
+  return (
+    left.hunkId === right.hunkId &&
+    left.fingerprint === right.fingerprint &&
+    left.file === right.file &&
+    left.oldStart === right.oldStart &&
+    left.oldLines === right.oldLines &&
+    left.newStart === right.newStart &&
+    left.newLines === right.newLines
+  );
+}
+
 function isIdentifiedFinding(value: unknown): value is IdentifiedMergedFinding {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const finding = value as Partial<IdentifiedMergedFinding>;
@@ -960,7 +972,9 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     const completionHunkIds = new Set(
       reviewedHunks.map(({ hunkId }) => hunkId),
     );
-    const currentHunkIds = new Set(currentHunks.map(({ hunkId }) => hunkId));
+    const currentHunksById = new Map(
+      currentHunks.map((hunk) => [hunk.hunkId, hunk]),
+    );
     const completionFindings = body.findings as IdentifiedMergedFinding[];
     const completionFindingsById = new Map(
       completionFindings.map((finding) => [finding.findingId, finding]),
@@ -968,7 +982,12 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     const findingPublications = (body.findingPublications ??
       []) as FindingPublication[];
     if (
-      reviewedHunks.some((hunk) => !currentHunkIds.has(hunk.hunkId)) ||
+      completionHunkIds.size !== reviewedHunks.length ||
+      currentHunksById.size !== currentHunks.length ||
+      reviewedHunks.some((hunk) => {
+        const current = currentHunksById.get(hunk.hunkId);
+        return !current || !sameReviewHunk(hunk, current);
+      }) ||
       completionFindings.some((finding) =>
         finding.hunkIds.some((hunkId) => !completionHunkIds.has(hunkId)),
       ) ||

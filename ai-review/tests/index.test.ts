@@ -665,6 +665,28 @@ describe("PullRequestCoordinator", () => {
     });
   });
 
+  it("rejects conflicting metadata for the same completed hunk", async () => {
+    const { coordinator } = coordinatorFixture();
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/complete", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-delivery-123",
+          headSha: event.headSha,
+          costUsd: 0,
+          hunks: [identifiedHunk],
+          currentHunks: [{ ...identifiedHunk, file: "different.ts" }],
+          findings: [],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid review completion",
+    });
+  });
+
   it("rejects inconsistent finding publication mappings", async () => {
     const { coordinator } = coordinatorFixture();
     const validPublication = {
