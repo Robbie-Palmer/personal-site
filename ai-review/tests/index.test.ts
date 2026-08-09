@@ -14,6 +14,31 @@ const event: ReviewWorkflowParams = {
   force: false,
 };
 
+const identifiedFinding = {
+  findingId: `f_${"b".repeat(24)}`,
+  hunkIds: [`h_${"c".repeat(24)}`],
+  severity: "high",
+  file: "app.ts",
+  line: 1,
+  title: "Finding",
+  evidence: "Evidence",
+  recommendation: "Fix it",
+  confidence: 0.9,
+  source_models: ["model/scout"],
+  status: "open",
+  resolution_note: "",
+};
+
+const identifiedHunk = {
+  hunkId: `h_${"c".repeat(24)}`,
+  fingerprint: "d".repeat(64),
+  file: "app.ts",
+  oldStart: 1,
+  oldLines: 1,
+  newStart: 1,
+  newLines: 1,
+};
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -344,7 +369,8 @@ describe("PullRequestCoordinator", () => {
           headSha: event.headSha,
           costUsd: 0.42,
           commentId: 987,
-          findings: [{ title: "Finding" }],
+          hunks: [identifiedHunk],
+          findings: [identifiedFinding],
         }),
       }),
     );
@@ -370,6 +396,7 @@ describe("PullRequestCoordinator", () => {
           runId: "missing-review",
           headSha: event.headSha,
           costUsd: 0.42,
+          hunks: [],
           findings: [],
         }),
       }),
@@ -626,8 +653,13 @@ describe("ReviewWorkflow", () => {
     );
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(put).not.toHaveBeenCalled();
-    expect(step.do).toHaveBeenCalledTimes(1);
+    expect(put).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(put.mock.calls[0]?.[1]))).toMatchObject({
+      schemaVersion: 2,
+      status: "skipped",
+      terminal: { reason: "pull request is closed" },
+    });
+    expect(step.do).toHaveBeenCalledTimes(2);
   });
 });
 

@@ -11,12 +11,18 @@ import {
   combineScoutRuns,
   completeReview,
   failReview,
+  identifyReviewArtifacts,
   mergeFindings,
   prepareReview,
   publishReview,
   recordReview,
+  recordReviewTerminal,
   runScouts,
+  type IdentifiedMergedFinding,
+  type IdentifiedReviewArtifacts,
   type MergedRun,
+  type PreparedReview,
+  type ReviewHunk,
   type ScoutRun,
 } from "./review-engine";
 import { parseReviewEvent, verifyGitHubSignature } from "./webhook";
@@ -48,6 +54,32 @@ const CREATE_REVIEW_RUNS_TABLE =
   "comment_id INTEGER, " +
   "findings_json TEXT, " +
   "error TEXT)";
+const CREATE_REVIEW_HUNKS_TABLE =
+  "CREATE TABLE IF NOT EXISTS review_hunks (" +
+  "hunk_id TEXT PRIMARY KEY, " +
+  "fingerprint TEXT NOT NULL, " +
+  "file_path TEXT NOT NULL, " +
+  "first_seen_head_sha TEXT NOT NULL, " +
+  "last_seen_head_sha TEXT NOT NULL, " +
+  "first_seen_at TEXT NOT NULL, " +
+  "last_seen_at TEXT NOT NULL)";
+const CREATE_REVIEW_FINDINGS_TABLE =
+  "CREATE TABLE IF NOT EXISTS review_findings (" +
+  "finding_id TEXT PRIMARY KEY, " +
+  "file_path TEXT NOT NULL, " +
+  "title TEXT NOT NULL, " +
+  "status TEXT NOT NULL, " +
+  "first_seen_head_sha TEXT NOT NULL, " +
+  "last_seen_head_sha TEXT NOT NULL, " +
+  "first_seen_run_id TEXT NOT NULL, " +
+  "last_seen_run_id TEXT NOT NULL, " +
+  "first_seen_at TEXT NOT NULL, " +
+  "last_seen_at TEXT NOT NULL)";
+const CREATE_REVIEW_FINDING_HUNKS_TABLE =
+  "CREATE TABLE IF NOT EXISTS review_finding_hunks (" +
+  "finding_id TEXT NOT NULL, " +
+  "hunk_id TEXT NOT NULL, " +
+  "PRIMARY KEY (finding_id, hunk_id))";
 const DEFAULT_DEBOUNCE_DELAY_MS = 120_000;
 const MINIMUM_DEBOUNCE_DELAY_MS = 1_000;
 const MAXIMUM_DEBOUNCE_DELAY_MS = 3_600_000;
@@ -123,6 +155,49 @@ function bindingHealth(env: Env) {
   };
 }
 
+function isReviewHunk(value: unknown): value is ReviewHunk {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const hunk = value as Partial<ReviewHunk>;
+  return (
+    typeof hunk.hunkId === "string" &&
+    /^h_[a-f0-9]{24}$/.test(hunk.hunkId) &&
+    typeof hunk.fingerprint === "string" &&
+    /^[a-f0-9]{64}$/.test(hunk.fingerprint) &&
+    typeof hunk.file === "string" &&
+    hunk.file.length > 0 &&
+    typeof hunk.oldStart === "number" &&
+    Number.isSafeInteger(hunk.oldStart) &&
+    hunk.oldStart >= 0 &&
+    typeof hunk.oldLines === "number" &&
+    Number.isSafeInteger(hunk.oldLines) &&
+    hunk.oldLines >= 0 &&
+    typeof hunk.newStart === "number" &&
+    Number.isSafeInteger(hunk.newStart) &&
+    hunk.newStart >= 0 &&
+    typeof hunk.newLines === "number" &&
+    Number.isSafeInteger(hunk.newLines) &&
+    hunk.newLines >= 0
+  );
+}
+
+function isIdentifiedFinding(value: unknown): value is IdentifiedMergedFinding {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const finding = value as Partial<IdentifiedMergedFinding>;
+  return (
+    typeof finding.findingId === "string" &&
+    /^f_[a-f0-9]{24}$/.test(finding.findingId) &&
+    typeof finding.file === "string" &&
+    finding.file.length > 0 &&
+    typeof finding.title === "string" &&
+    finding.title.length > 0 &&
+    (finding.status === "open" || finding.status === "resolved") &&
+    Array.isArray(finding.hunkIds) &&
+    finding.hunkIds.every(
+      (hunkId) => typeof hunkId === "string" && /^h_[a-f0-9]{24}$/.test(hunkId),
+    )
+  );
+}
+
 function healthResponse(env: Env): Response {
   const bindings = bindingHealth(env);
   const ok = Object.values(bindings).every(Boolean);
@@ -195,6 +270,9 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     super(ctx, env);
     this.ctx.storage.sql.exec(CREATE_WEBHOOK_DELIVERIES_TABLE);
     this.ctx.storage.sql.exec(CREATE_REVIEW_RUNS_TABLE);
+    this.ctx.storage.sql.exec(CREATE_REVIEW_HUNKS_TABLE);
+    this.ctx.storage.sql.exec(CREATE_REVIEW_FINDINGS_TABLE);
+    this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_HUNKS_TABLE);
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -473,6 +551,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       headSha?: unknown;
       costUsd?: unknown;
       commentId?: unknown;
+      hunks?: unknown;
       findings?: unknown;
     } | null;
     if (
@@ -483,26 +562,101 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       !Number.isFinite(body.costUsd) ||
       body.costUsd < 0 ||
       (body.commentId !== undefined && typeof body.commentId !== "number") ||
-      !Array.isArray(body.findings)
+      !Array.isArray(body.hunks) ||
+      !body.hunks.every(isReviewHunk) ||
+      !Array.isArray(body.findings) ||
+      !body.findings.every(isIdentifiedFinding)
     ) {
       return json({ error: "Invalid review completion" }, 400);
     }
-    const update = this.ctx.storage.sql.exec(
-      `UPDATE review_runs
-       SET status = 'completed', completed_at = ?, cost_usd = ?,
-           comment_id = ?, findings_json = ?, error = NULL
-       WHERE run_id = ? AND head_sha = ? AND status = 'running'`,
-      new Date().toISOString(),
-      body.costUsd,
-      body.commentId ?? null,
-      JSON.stringify(body.findings),
-      body.runId,
-      body.headSha,
-    );
-    if (update.rowsWritten === 0) {
+    const completedAt = new Date().toISOString();
+    const completion = this.ctx.storage.transactionSync(() => {
+      const update = this.ctx.storage.sql.exec(
+        `UPDATE review_runs
+         SET status = 'completed', completed_at = ?, cost_usd = ?,
+             comment_id = ?, findings_json = ?, error = NULL
+         WHERE run_id = ? AND head_sha = ? AND status = 'running'`,
+        completedAt,
+        body.costUsd,
+        body.commentId ?? null,
+        JSON.stringify(body.findings),
+        body.runId,
+        body.headSha,
+      );
+      if (update.rowsWritten === 0) {
+        const existing = this.ctx.storage.sql
+          .exec<{ head_sha: string; status: string }>(
+            "SELECT head_sha, status FROM review_runs WHERE run_id = ?",
+            body.runId,
+          )
+          .toArray()[0];
+        return existing?.head_sha === body.headSha &&
+          existing?.status === "completed"
+          ? "duplicate"
+          : "missing";
+      }
+      for (const hunk of body.hunks as ReviewHunk[]) {
+        this.ctx.storage.sql.exec(
+          `INSERT INTO review_hunks
+           (hunk_id, fingerprint, file_path, first_seen_head_sha,
+            last_seen_head_sha, first_seen_at, last_seen_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(hunk_id) DO UPDATE SET
+             last_seen_head_sha = excluded.last_seen_head_sha,
+             last_seen_at = excluded.last_seen_at`,
+          hunk.hunkId,
+          hunk.fingerprint,
+          hunk.file,
+          body.headSha,
+          body.headSha,
+          completedAt,
+          completedAt,
+        );
+      }
+      for (const finding of body.findings as IdentifiedMergedFinding[]) {
+        this.ctx.storage.sql.exec(
+          `INSERT INTO review_findings
+           (finding_id, file_path, title, status, first_seen_head_sha,
+            last_seen_head_sha, first_seen_run_id, last_seen_run_id,
+            first_seen_at, last_seen_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(finding_id) DO UPDATE SET
+             file_path = excluded.file_path,
+             title = excluded.title,
+             status = excluded.status,
+             last_seen_head_sha = excluded.last_seen_head_sha,
+             last_seen_run_id = excluded.last_seen_run_id,
+             last_seen_at = excluded.last_seen_at`,
+          finding.findingId,
+          finding.file,
+          finding.title,
+          finding.status,
+          body.headSha,
+          body.headSha,
+          body.runId,
+          body.runId,
+          completedAt,
+          completedAt,
+        );
+        for (const hunkId of finding.hunkIds) {
+          this.ctx.storage.sql.exec(
+            `INSERT OR IGNORE INTO review_finding_hunks (finding_id, hunk_id)
+             VALUES (?, ?)`,
+            finding.findingId,
+            hunkId,
+          );
+        }
+      }
+      return "completed";
+    });
+    if (completion === "missing") {
       return json({ error: "No matching review run to complete" }, 409);
     }
-    return json({ completed: true });
+    return json(
+      completion === "duplicate"
+        ? { completed: true, duplicate: true }
+        : { completed: true },
+    );
   }
 
   private async failReview(request: Request): Promise<Response> {
@@ -570,8 +724,13 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
       ): Promise<T>;
     };
     let incurredCostUsd = 0;
+    let failedPhase = "prepare-review";
+    let prepared: PreparedReview | undefined;
+    let scouts: ScoutRun | undefined;
+    let merged: MergedRun | undefined;
+    let artifacts: IdentifiedReviewArtifacts | undefined;
     try {
-      const prepared = await workflowStep.do("prepare-review", () =>
+      prepared = await workflowStep.do("prepare-review", () =>
         prepareReview(this.env, event.payload),
       );
       if (prepared.skipReason) {
@@ -580,10 +739,22 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
           pullRequestNumber: event.payload.pullRequestNumber,
           reason: prepared.skipReason,
         });
+        await workflowStep.do("record-skipped-review", () =>
+          recordReviewTerminal({
+            env: this.env,
+            params: event.payload,
+            instanceId: event.instanceId,
+            status: "skipped",
+            reason: prepared?.skipReason,
+            prepared,
+            timestamp: event.timestamp,
+          }),
+        );
         return;
       }
+      failedPhase = "claim-review";
       const claim = await workflowStep.do("claim-review", () =>
-        claimReview(this.env, event.payload, event.instanceId, prepared),
+        claimReview(this.env, event.payload, event.instanceId, prepared!),
       );
       if (!claim.claimed) {
         console.log("Skipping duplicate or over-budget AI review", {
@@ -591,17 +762,27 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
           pullRequestNumber: event.payload.pullRequestNumber,
           reason: claim.reason,
         });
+        await workflowStep.do("record-denied-review", () =>
+          recordReviewTerminal({
+            env: this.env,
+            params: event.payload,
+            instanceId: event.instanceId,
+            status: "denied",
+            reason: claim.reason,
+            prepared,
+            timestamp: event.timestamp,
+          }),
+        );
         return;
       }
 
-      let scouts: ScoutRun;
-      let merged: MergedRun;
       if (prepared.diff?.trim()) {
+        failedPhase = "run-openrouter-scouts";
         const openRouterScouts = await workflowStep.do(
           "run-openrouter-scouts",
           MODEL_STEP_CONFIG,
           () =>
-            runScouts(this.env, event.payload, prepared, {
+            runScouts(this.env, event.payload, prepared!, {
               providers: ["openrouter"],
             }),
         );
@@ -609,19 +790,21 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
           (total, cost) => total + cost,
           0,
         );
+        failedPhase = "run-opencode-scouts";
         const openCodeScouts = await workflowStep.do(
           "run-opencode-scouts",
           MODEL_STEP_CONFIG,
           () =>
-            runScouts(this.env, event.payload, prepared, {
+            runScouts(this.env, event.payload, prepared!, {
               providers: ["opencode"],
             }),
         );
         scouts = combineScoutRuns(openRouterScouts, openCodeScouts);
+        failedPhase = "merge-current-scout-findings";
         merged = await workflowStep.do(
           "merge-current-scout-findings",
           MODEL_STEP_CONFIG,
-          () => mergeFindings(this.env, event.payload, prepared, scouts),
+          () => mergeFindings(this.env, event.payload, prepared!, scouts!),
         );
         incurredCostUsd += merged.cost;
       } else {
@@ -643,35 +826,43 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
           cost: 0,
         };
       }
+      failedPhase = "identify-review-artifacts";
+      artifacts = await workflowStep.do("identify-review-artifacts", () =>
+        identifyReviewArtifacts(prepared!, scouts!, merged!),
+      );
+      failedPhase = "publish-rolling-comment";
       const publication = await workflowStep.do("publish-rolling-comment", () =>
         publishReview(
           this.env,
           event.payload,
-          prepared,
-          scouts,
-          merged,
+          prepared!,
+          scouts!,
+          merged!,
           claim.previousState,
         ),
       );
+      failedPhase = "record-versioned-review";
       await workflowStep.do("record-versioned-review", () =>
         recordReview({
           env: this.env,
           params: event.payload,
           instanceId: event.instanceId,
-          prepared,
-          scouts,
-          merged,
+          prepared: prepared!,
+          scouts: scouts!,
+          merged: merged!,
+          artifacts: artifacts!,
           publication,
           timestamp: event.timestamp,
         }),
       );
+      failedPhase = "complete-review-state";
       await workflowStep.do("complete-review-state", () =>
         completeReview(
           this.env,
           event.payload,
           event.instanceId,
-          prepared,
-          merged,
+          prepared!,
+          artifacts!,
           publication,
         ),
       );
@@ -689,6 +880,31 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
           type:
             stateError instanceof Error ? stateError.name : typeof stateError,
         });
+      }
+      try {
+        await workflowStep.do("record-failed-review", () =>
+          recordReviewTerminal({
+            env: this.env,
+            params: event.payload,
+            instanceId: event.instanceId,
+            status: "failed",
+            error: error instanceof Error ? error.message : String(error),
+            failedPhase,
+            incurredCostUsd,
+            prepared,
+            scouts,
+            merged,
+            artifacts,
+            timestamp: event.timestamp,
+          }),
+        );
+      } catch (recordError) {
+        console.error(
+          "Could not record failed review analytics",
+          recordError instanceof Error
+            ? { type: recordError.name }
+            : { type: typeof recordError },
+        );
       }
       throw error;
     }

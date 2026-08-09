@@ -95,7 +95,7 @@ fi
 printf 'Accepted staging delivery %s for head %s\n' \
   "$delivery_id" "${head_sha:0:12}"
 
-record_key="v1/${repository}/pr-${pull_request}/${head_sha}/${instance_id}.json"
+record_key="v2/${repository}/pr-${pull_request}/${head_sha}/${instance_id}/published.json"
 deadline=$((SECONDS + 600))
 while ((SECONDS < deadline)); do
   if pnpm exec wrangler r2 object get \
@@ -119,7 +119,9 @@ fi
 jq -e \
   --arg head_sha "$head_sha" \
   '
-    .status == "published"
+    .schemaVersion == 2
+    and .recordType == "review-run-terminal"
+    and .status == "published"
     and .headSha == $head_sha
     and any(.models[]; .role == "scout" and .ok == true)
   ' \
@@ -144,7 +146,9 @@ jq '{
   status,
   headSha,
   runCostUsd,
-  findingCount: (.findings.findings | length),
+  findingCount: (.findings.published | length),
+  candidateCount: ([.candidates[] | length] | add // 0),
+  hunkCount: (.hunks | length),
   models: [.models[] | {model, provider, role, ok, costUsd}]
 }' "$record_file"
 printf 'Visible comment: %s\n' "$(jq -r '.html_url' <<<"$comment")"

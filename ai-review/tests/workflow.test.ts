@@ -7,10 +7,12 @@ const engine = vi.hoisted(() => ({
   combineScoutRuns: vi.fn(),
   completeReview: vi.fn(),
   failReview: vi.fn(),
+  identifyReviewArtifacts: vi.fn(),
   mergeFindings: vi.fn(),
   prepareReview: vi.fn(),
   publishReview: vi.fn(),
   recordReview: vi.fn(),
+  recordReviewTerminal: vi.fn(),
   runScouts: vi.fn(),
 }));
 
@@ -57,6 +59,12 @@ const scouts = {
 const merged = {
   result: { summary: "Clean.", findings: [] },
   cost: 0.2,
+};
+
+const artifacts = {
+  hunks: [],
+  candidates: {},
+  publishedFindings: [],
 };
 
 const emptyScouts = {
@@ -106,11 +114,13 @@ beforeEach(() => {
     .mockResolvedValueOnce(emptyScouts);
   engine.combineScoutRuns.mockReturnValue(scouts);
   engine.mergeFindings.mockResolvedValue(merged);
+  engine.identifyReviewArtifacts.mockResolvedValue(artifacts);
   engine.publishReview.mockResolvedValue({
     commentId: 123,
     runCostUsd: 0.6,
   });
   engine.recordReview.mockResolvedValue(undefined);
+  engine.recordReviewTerminal.mockResolvedValue(undefined);
   engine.completeReview.mockResolvedValue(undefined);
   engine.failReview.mockResolvedValue(undefined);
 });
@@ -148,12 +158,18 @@ describe("ReviewWorkflow orchestration", () => {
       retries: { limit: 1 },
     });
     expect(engine.publishReview).toHaveBeenCalledOnce();
+    expect(engine.identifyReviewArtifacts).toHaveBeenCalledWith(
+      prepared,
+      scouts,
+      merged,
+    );
     expect(engine.recordReview).toHaveBeenCalledWith(
       expect.objectContaining({
         instanceId: event.instanceId,
         prepared,
         scouts,
         merged,
+        artifacts,
         timestamp: event.timestamp,
       }),
     );
@@ -166,6 +182,7 @@ describe("ReviewWorkflow orchestration", () => {
       "run-openrouter-scouts",
       "run-opencode-scouts",
       "merge-current-scout-findings",
+      "identify-review-artifacts",
       "publish-rolling-comment",
       "record-versioned-review",
       "complete-review-state",
@@ -205,6 +222,9 @@ describe("ReviewWorkflow orchestration", () => {
     });
     await skipped.workflow.run(event, skipped.step);
     expect(engine.claimReview).not.toHaveBeenCalled();
+    expect(engine.recordReviewTerminal).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "skipped" }),
+    );
 
     engine.prepareReview.mockResolvedValueOnce(prepared);
     engine.claimReview.mockResolvedValueOnce({
@@ -215,6 +235,9 @@ describe("ReviewWorkflow orchestration", () => {
     const duplicate = fixture();
     await duplicate.workflow.run(event, duplicate.step);
     expect(engine.runScouts).not.toHaveBeenCalled();
+    expect(engine.recordReviewTerminal).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "denied" }),
+    );
   });
 
   it("records known model spend before propagating a failure", async () => {
@@ -231,6 +254,13 @@ describe("ReviewWorkflow orchestration", () => {
       event.instanceId,
       expect.any(Error),
       0.4,
+    );
+    expect(engine.recordReviewTerminal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "failed",
+        failedPhase: "merge-current-scout-findings",
+        incurredCostUsd: 0.4,
+      }),
     );
   });
 

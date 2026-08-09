@@ -37,6 +37,39 @@ type JsonObject = Record<string, unknown>;
 
 export const STATEFUL_REVIEW_MARKER = "<!-- stateful-ai-code-review -->";
 
+export interface ReviewHunk {
+  hunkId: string;
+  fingerprint: string;
+  file: string;
+  oldStart: number;
+  oldLines: number;
+  newStart: number;
+  newLines: number;
+}
+
+export interface ChangeProfile {
+  diffCharacters: number;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  reviewableFiles: number;
+  omittedFiles: number;
+  hunks: number;
+  languages: string[];
+  repositoryAreas: string[];
+  riskSignals: string[];
+}
+
+export interface PullRequestMetadata {
+  author: string;
+  authorAssociation?: string;
+  title?: string;
+  labels: string[];
+  headRef?: string;
+  taskType?: "bug" | "dependency" | "documentation" | "feature";
+  originatingAgent?: "claude" | "codex" | "opencode";
+}
+
 export interface PreparedReview {
   skipReason?: string;
   headSha?: string;
@@ -45,6 +78,9 @@ export interface PreparedReview {
   diff?: string;
   paths: string[];
   omitted: string[];
+  hunks?: ReviewHunk[];
+  changeProfile?: ChangeProfile;
+  pullRequest?: PullRequestMetadata;
   context?: string;
   guidelines?: string;
   threads?: string;
@@ -81,6 +117,24 @@ export interface MergedRun {
   cost: number;
   metric?: ModelMetric;
 }
+
+export interface IdentifiedFinding extends Finding {
+  findingId: string;
+  hunkIds: string[];
+}
+
+export interface IdentifiedMergedFinding extends MergedFinding {
+  findingId: string;
+  hunkIds: string[];
+}
+
+export interface IdentifiedReviewArtifacts {
+  hunks: ReviewHunk[];
+  candidates: Record<string, IdentifiedFinding[]>;
+  publishedFindings: IdentifiedMergedFinding[];
+}
+
+export type ReviewRecordStatus = "denied" | "failed" | "published" | "skipped";
 
 interface ClaimResponse {
   claimed: boolean;
@@ -158,6 +212,269 @@ async function sha256(value: string): Promise<string> {
     .join("");
 }
 
+const EXTENSION_LANGUAGE: Record<string, string> = {
+  css: "CSS",
+  go: "Go",
+  html: "HTML",
+  java: "Java",
+  js: "JavaScript",
+  json: "JSON",
+  jsx: "JavaScript",
+  md: "Markdown",
+  mdx: "MDX",
+  py: "Python",
+  rs: "Rust",
+  sh: "Shell",
+  sql: "SQL",
+  tf: "Terraform",
+  toml: "TOML",
+  ts: "TypeScript",
+  tsx: "TypeScript",
+  yaml: "YAML",
+  yml: "YAML",
+};
+
+function countPatchLines(diff: string, prefix: "+" | "-"): number {
+  return diff
+    .split("\n")
+    .filter(
+      (line) =>
+        line.startsWith(prefix) &&
+        !line.startsWith(prefix === "+" ? "+++" : "---"),
+    ).length;
+}
+
+function taskType(labels: string[]): PullRequestMetadata["taskType"] {
+  const normalized = new Set(labels.map((label) => label.toLowerCase()));
+  if (["bug", "fix"].some((label) => normalized.has(label))) return "bug";
+  if (["dependencies", "dependency"].some((label) => normalized.has(label))) {
+    return "dependency";
+  }
+  if (["documentation", "docs"].some((label) => normalized.has(label))) {
+    return "documentation";
+  }
+  if (["enhancement", "feature"].some((label) => normalized.has(label))) {
+    return "feature";
+  }
+  return undefined;
+}
+
+function originatingAgent(
+  title: string | undefined,
+  headRef: string | undefined,
+): PullRequestMetadata["originatingAgent"] {
+  const source = `${title ?? ""} ${headRef ?? ""}`.toLowerCase();
+  if (/(^|[^a-z])claude([^a-z]|$)/.test(source)) return "claude";
+  if (/(^|[^a-z])codex([^a-z]|$)/.test(source)) return "codex";
+  if (/(^|[^a-z])opencode([^a-z]|$)/.test(source)) return "opencode";
+  return undefined;
+}
+
+function summarizeChange(
+  diff: string,
+  paths: string[],
+  omitted: string[],
+  hunks: ReviewHunk[],
+): ChangeProfile {
+  const allPaths = [...new Set([...paths, ...omitted])];
+  const languages = [
+    ...new Set(
+      allPaths
+        .map((path) => path.split(".").at(-1)?.toLowerCase())
+        .map((extension) => (extension ? EXTENSION_LANGUAGE[extension] : undefined))
+        .filter((language): language is string => language !== undefined),
+    ),
+  ].sort();
+  const repositoryAreas = [
+    ...new Set(
+      allPaths.map((path) => {
+        const [first] = path.split("/");
+        return path.includes("/") && first ? first : "root";
+      }),
+    ),
+  ].sort();
+  const riskSignals = [
+    allPaths.some((path) => /(^|\/)(auth|security|secrets?)(\/|\.|$)/i.test(path))
+      ? "authentication-or-secrets"
+      : undefined,
+    allPaths.some((path) => /(^|\/)(drizzle|migrations?|schema)(\/|\.|$)/i.test(path))
+      ? "database-schema"
+      : undefined,
+    allPaths.some((path) => /(^|\/)(infra|infra-bootstrap)(\/|$)/i.test(path))
+      ? "infrastructure"
+      : undefined,
+    allPaths.some((path) => path.startsWith(".github/workflows/"))
+      ? "ci-or-deployment"
+      : undefined,
+  ].filter((signal): signal is string => signal !== undefined);
+  return {
+    diffCharacters: diff.length,
+    additions: countPatchLines(diff, "+"),
+    deletions: countPatchLines(diff, "-"),
+    changedFiles: allPaths.length,
+    reviewableFiles: paths.length,
+    omittedFiles: omitted.length,
+    hunks: hunks.length,
+    languages,
+    repositoryAreas,
+    riskSignals,
+  };
+}
+
+function parseHunkHeader(line: string): {
+  oldStart: number;
+  oldLines: number;
+  newStart: number;
+  newLines: number;
+} | null {
+  const match = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(line);
+  if (!match) return null;
+  return {
+    oldStart: Number(match[1]),
+    oldLines: Number(match[2] ?? 1),
+    newStart: Number(match[3]),
+    newLines: Number(match[4] ?? 1),
+  };
+}
+
+export async function identifyDiffHunks(diff: string): Promise<ReviewHunk[]> {
+  const pending: Array<{
+    file: string;
+    body: string[];
+    oldStart: number;
+    oldLines: number;
+    newStart: number;
+    newLines: number;
+  }> = [];
+  let file: string | undefined;
+  let current: (typeof pending)[number] | undefined;
+  for (const line of diff.split("\n")) {
+    const fileMatch = /^diff --git a\/.* b\/(.+)$/.exec(line);
+    if (fileMatch) {
+      file = fileMatch[1];
+      current = undefined;
+      continue;
+    }
+    const header = parseHunkHeader(line);
+    if (header && file) {
+      current = { file, body: [], ...header };
+      pending.push(current);
+      continue;
+    }
+    if (current && line !== "\\ No newline at end of file") {
+      current.body.push(line);
+    }
+  }
+
+  const occurrences = new Map<string, number>();
+  return Promise.all(
+    pending.map(async ({ file: path, body, ...coordinates }) => {
+      const canonical = `${path}\n${body.join("\n")}`;
+      const occurrence = (occurrences.get(canonical) ?? 0) + 1;
+      occurrences.set(canonical, occurrence);
+      const fingerprint = await sha256(canonical);
+      const identity = await sha256(`${canonical}\noccurrence:${occurrence}`);
+      return {
+        hunkId: `h_${identity.slice(0, 24)}`,
+        fingerprint,
+        file: path,
+        ...coordinates,
+      };
+    }),
+  );
+}
+
+function normalizedFindingTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function hunkIdsForFinding(
+  finding: Pick<Finding, "file" | "line">,
+  hunks: ReviewHunk[],
+): string[] {
+  const sameFile = hunks.filter((hunk) => hunk.file === finding.file);
+  if (finding.line === null) return sameFile.map(({ hunkId }) => hunkId);
+  const containing = sameFile.filter(
+    (hunk) =>
+      finding.line !== null &&
+      finding.line >= hunk.newStart &&
+      finding.line < hunk.newStart + Math.max(hunk.newLines, 1),
+  );
+  if (containing.length > 0) return containing.map(({ hunkId }) => hunkId);
+  const nearest = [...sameFile].sort(
+    (left, right) =>
+      Math.abs(left.newStart - (finding.line ?? 0)) -
+      Math.abs(right.newStart - (finding.line ?? 0)),
+  )[0];
+  return nearest ? [nearest.hunkId] : [];
+}
+
+async function findingIdentity(finding: Pick<Finding, "file" | "title">) {
+  const digest = await sha256(
+    `${finding.file.toLowerCase()}\n${normalizedFindingTitle(finding.title)}`,
+  );
+  return `f_${digest.slice(0, 24)}`;
+}
+
+function findingSimilarity(left: Finding, right: Finding): number {
+  if (left.file !== right.file) return Number.NEGATIVE_INFINITY;
+  const leftTokens = new Set(normalizedFindingTitle(left.title).split(" "));
+  const rightTokens = new Set(normalizedFindingTitle(right.title).split(" "));
+  const overlap = [...leftTokens].filter((token) => rightTokens.has(token)).length;
+  const union = new Set([...leftTokens, ...rightTokens]).size || 1;
+  const lineDistance =
+    left.line === null || right.line === null ? 0 : Math.abs(left.line - right.line);
+  return overlap / union - Math.min(lineDistance, 100) / 1_000;
+}
+
+export async function identifyReviewArtifacts(
+  prepared: PreparedReview,
+  scouts: ScoutRun,
+  merged: MergedRun,
+): Promise<IdentifiedReviewArtifacts> {
+  const hunks = prepared.hunks ?? [];
+  const candidates: Record<string, IdentifiedFinding[]> = {};
+  for (const [model, findings] of Object.entries(scouts.candidates)) {
+    candidates[model] = await Promise.all(
+      findings.map(async (finding) => ({
+        ...finding,
+        findingId: await findingIdentity(finding),
+        hunkIds: hunkIdsForFinding(finding, hunks),
+      })),
+    );
+  }
+  const mergedFindings = Array.isArray(merged.result.findings)
+    ? (merged.result.findings as MergedFinding[])
+    : [];
+  const publishedFindings = await Promise.all(
+    mergedFindings.map(async (finding): Promise<IdentifiedMergedFinding> => {
+      const sourceCandidates = finding.source_models.flatMap(
+        (model) => candidates[model] ?? [],
+      );
+      const closest = [...sourceCandidates].sort(
+        (left, right) =>
+          findingSimilarity(finding, right) - findingSimilarity(finding, left),
+      )[0];
+      const sufficientlySimilar =
+        closest && findingSimilarity(finding, closest) >= 0.25;
+      return {
+        ...finding,
+        findingId: sufficientlySimilar
+          ? closest.findingId
+          : await findingIdentity(finding),
+        hunkIds: sufficientlySimilar
+          ? closest.hunkIds
+          : hunkIdsForFinding(finding, hunks),
+      };
+    }),
+  );
+  return { hunks, candidates, publishedFindings };
+}
+
 function coordinatorStub(env: Env, params: ReviewWorkflowParams) {
   const name = `${params.repository}#${params.pullRequestNumber}`;
   return env.PR_STATE.get(env.PR_STATE.idFromName(name));
@@ -218,6 +535,10 @@ export async function prepareReview(
 
   const headSha = pr.head.sha;
   const { diff, paths, omitted } = await reviewer.changedFiles();
+  const hunks = await identifyDiffHunks(diff);
+  const labels = (pr.labels ?? [])
+    .map(({ name }) => name?.trim())
+    .filter((name): name is string => Boolean(name));
   const config = JSON.stringify({
     promptVersion: env.AI_REVIEW_PROMPT_VERSION,
     openRouterScouts: settings.openRouterScouts,
@@ -237,6 +558,17 @@ export async function prepareReview(
     diff,
     paths,
     omitted,
+    hunks,
+    changeProfile: summarizeChange(diff, paths, omitted, hunks),
+    pullRequest: {
+      author: pr.user.login,
+      authorAssociation: pr.author_association,
+      title: pr.title,
+      labels,
+      headRef: pr.head.ref,
+      taskType: taskType(labels),
+      originatingAgent: originatingAgent(pr.title, pr.head.ref),
+    },
     context: diff.trim() ? await reviewer.fileContext(paths, headSha) : "",
     guidelines: diff.trim() ? await reviewer.headGuidelines(headSha) : "",
     threads: diff.trim() ? await reviewer.reviewThreadContext() : "",
@@ -583,54 +915,115 @@ export async function recordReview(options: {
   prepared: PreparedReview;
   scouts: ScoutRun;
   merged: MergedRun;
+  artifacts: IdentifiedReviewArtifacts;
   publication: { commentId?: number; runCostUsd: number };
   timestamp: Date;
+}): Promise<void> {
+  if (!options.prepared.headSha) {
+    throw new Error("Cannot record an unprepared review");
+  }
+  await recordReviewTerminal({ ...options, status: "published" });
+}
+
+export async function recordReviewTerminal(options: {
+  env: Env;
+  params: ReviewWorkflowParams;
+  instanceId: string;
+  status: ReviewRecordStatus;
+  timestamp: Date;
+  prepared?: PreparedReview;
+  scouts?: ScoutRun;
+  merged?: MergedRun;
+  artifacts?: IdentifiedReviewArtifacts;
+  publication?: { commentId?: number; runCostUsd: number };
+  reason?: string;
+  error?: string;
+  failedPhase?: string;
+  incurredCostUsd?: number;
 }): Promise<void> {
   const {
     env,
     params,
     instanceId,
+    status,
+    timestamp,
     prepared,
     scouts,
     merged,
+    artifacts,
     publication,
-    timestamp,
   } = options;
-  if (!prepared.headSha) throw new Error("Cannot record an unprepared review");
+  const headSha = prepared?.headSha ?? params.headSha ?? "unknown-head";
   const key = [
-    "v1",
+    "v2",
     params.repository,
     `pr-${params.pullRequestNumber}`,
-    prepared.headSha,
-    `${instanceId}.json`,
+    headSha,
+    instanceId,
+    `${status}.json`,
   ].join("/");
+  const summary =
+    merged && typeof merged.result.summary === "string"
+      ? merged.result.summary
+      : undefined;
   await env.REVIEW_DATA.put(
     key,
     JSON.stringify({
-      schemaVersion: 1,
-      status: "published",
+      schemaVersion: 2,
+      recordType: "review-run-terminal",
+      status,
       repository: params.repository,
       pullRequestNumber: params.pullRequestNumber,
-      headSha: prepared.headSha,
-      diffFingerprint: prepared.diffFingerprint,
-      configFingerprint: prepared.configFingerprint,
+      headSha,
+      diffFingerprint: prepared?.diffFingerprint,
+      configFingerprint: prepared?.configFingerprint,
       promptVersion: env.AI_REVIEW_PROMPT_VERSION,
+      reviewerConfiguration: {
+        openRouterScouts: csv(env.AI_REVIEW_MODELS, DEFAULT_OPENROUTER_SCOUTS),
+        openCodeScouts: csv(env.AI_REVIEW_OPENCODE_MODELS, []),
+        merger: env.AI_REVIEW_MERGER_MODEL?.trim() || DEFAULT_MERGER,
+        requireZeroDataRetention: ["1", "true", "yes", "on"].includes(
+          env.AI_REVIEW_ZDR?.trim().toLowerCase() ?? "",
+        ),
+      },
       trigger: {
+        deliveryId: params.deliveryId,
         eventName: params.eventName,
         action: params.action,
         force: params.force,
+        webhookHeadSha: params.headSha,
       },
-      coverage: {
-        paths: prepared.paths,
-        omitted: prepared.omitted,
+      pullRequest: prepared?.pullRequest,
+      change: prepared?.changeProfile,
+      coverage: prepared
+        ? {
+            paths: prepared.paths,
+            omitted: prepared.omitted,
+          }
+        : undefined,
+      hunks: artifacts?.hunks ?? prepared?.hunks ?? [],
+      candidates: artifacts?.candidates ?? {},
+      findings:
+        summary !== undefined || artifacts
+          ? {
+              summary,
+              published: artifacts?.publishedFindings ?? [],
+            }
+          : undefined,
+      models: scouts
+        ? [...scouts.metrics, ...(merged?.metric ? [merged.metric] : [])]
+        : [],
+      runCostUsd: publication?.runCostUsd ?? options.incurredCostUsd ?? 0,
+      commentId: publication?.commentId,
+      terminal: {
+        reason: options.reason,
+        error: options.error,
+        failedPhase: options.failedPhase,
       },
-      findings: merged.result,
-      models: [...scouts.metrics, ...(merged.metric ? [merged.metric] : [])],
-      runCostUsd: publication.runCostUsd,
-      commentId: publication.commentId,
       workflow: {
         instanceId,
-        timestamp: timestamp.toISOString(),
+        triggeredAt: timestamp.toISOString(),
+        recordedAt: new Date().toISOString(),
       },
     }),
     { httpMetadata: { contentType: "application/json" } },
@@ -642,7 +1035,7 @@ export async function completeReview(
   params: ReviewWorkflowParams,
   instanceId: string,
   prepared: PreparedReview,
-  merged: MergedRun,
+  artifacts: IdentifiedReviewArtifacts,
   publication: { commentId?: number; runCostUsd: number },
 ): Promise<void> {
   await coordinatorRequest(env, params, "/reviews/complete", {
@@ -650,7 +1043,8 @@ export async function completeReview(
     headSha: prepared.headSha,
     costUsd: publication.runCostUsd,
     commentId: publication.commentId,
-    findings: merged.result.findings ?? [],
+    hunks: artifacts.hunks,
+    findings: artifacts.publishedFindings,
   });
 }
 

@@ -11,6 +11,8 @@ import {
   combineScoutRuns,
   completeReview,
   failReview,
+  identifyReviewArtifacts,
+  identifyDiffHunks,
   mergeFindings,
   prepareReview,
   publishReview,
@@ -479,7 +481,7 @@ describe("stateful review engine", () => {
       params,
       "review-1",
       prepared,
-      { result: { findings: [] }, cost: 0 },
+      { hunks: [], candidates: {}, publishedFindings: [] },
       { commentId: 42, runCostUsd: 0.25 },
     );
     await failReview(env, params, "review-1", "failed");
@@ -557,6 +559,7 @@ describe("stateful review engine", () => {
         prepared: { paths: [], omitted: [] },
         scouts: emptyScouts,
         merged: emptyMerged,
+        artifacts: { hunks: [], candidates: {}, publishedFindings: [] },
         publication: { runCostUsd: 0 },
         timestamp: new Date(),
       }),
@@ -723,6 +726,7 @@ describe("stateful review engine", () => {
     const prepared = await prepareReview(env, params);
     const scouts = await runScouts(env, params, prepared);
     const merged = await mergeFindings(env, params, prepared, scouts);
+    const artifacts = await identifyReviewArtifacts(prepared, scouts, merged);
     const publication = await publishReview(
       env,
       params,
@@ -738,6 +742,7 @@ describe("stateful review engine", () => {
       prepared,
       scouts,
       merged,
+      artifacts,
       publication,
       timestamp: new Date("2026-07-28T12:00:00Z"),
     });
@@ -757,14 +762,34 @@ describe("stateful review engine", () => {
     expect(publishedBodies[0]).toContain("Reported by: `moonshotai/kimi-k2.6`");
     expect(put).toHaveBeenCalledOnce();
     const record = JSON.parse(String(put.mock.calls[0]?.[1])) as {
+      schemaVersion: number;
       status: string;
+      findings: { published: Array<{ findingId: string }> };
+      hunks: Array<{ hunkId: string }>;
       models: Array<{
         provider: string;
         usage?: { cachedInputTokens: number };
       }>;
     };
     expect(record.status).toBe("published");
+    expect(record.schemaVersion).toBe(2);
+    expect(record.findings.published[0]?.findingId).toMatch(/^f_[a-f0-9]{24}$/);
+    expect(record.hunks[0]?.hunkId).toMatch(/^h_[a-f0-9]{24}$/);
     expect(record.models.map(({ provider }) => provider)).toContain("opencode");
     expect(record.models.at(-1)?.usage?.cachedInputTokens).toBe(10);
+  });
+
+  it("keeps hunk identities stable when only unified-diff coordinates move", async () => {
+    const first = await identifyDiffHunks(
+      "diff --git a/app.ts b/app.ts\nstatus modified\n@@ -1,2 +1,2 @@\n-old\n+new\n context\n",
+    );
+    const moved = await identifyDiffHunks(
+      "diff --git a/app.ts b/app.ts\nstatus modified\n@@ -40,2 +55,2 @@\n-old\n+new\n context\n",
+    );
+
+    expect(first).toHaveLength(1);
+    expect(moved).toHaveLength(1);
+    expect(moved[0]?.hunkId).toBe(first[0]?.hunkId);
+    expect(moved[0]?.fingerprint).toBe(first[0]?.fingerprint);
   });
 });
