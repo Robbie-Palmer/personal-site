@@ -11,6 +11,9 @@ packages:
 # the policy to be explicit; keep installs reproducible without expanding the
 # set of third-party code allowed to execute during dependency installation.
 allowBuilds:
+  # Spectral pulls Scarf for optional install telemetry; linting does not need
+  # its lifecycle script, so keep dependency installation side-effect free.
+  '@scarf/scarf': false
   core-js: false
   esbuild: false
   puppeteer: false
@@ -69,3 +72,7 @@ overrides:
 patchedDependencies:
   '@cooklang/cooklang@0.18.7': patches/@cooklang__cooklang@0.18.7.patch
   gray-matter@4.0.3: patches/gray-matter@4.0.3.patch
+
+minimumReleaseAgeExclude:
+  # Exact ADR 065 bridge pin; reviewed as part of the adopting change.
+  - '@hono/zod-openapi@1.5.2'

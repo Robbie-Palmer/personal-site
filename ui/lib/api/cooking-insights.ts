@@ -149,7 +149,7 @@ export async function recordCookingSession(
   event: CookingSessionEvent,
 ): Promise<CookingSession> {
   const result = await parseResponse<{ cookingSession: CookingSession }>(
-    await fetch("/api/profile/cooking-insights", {
+    await fetch("/api/profile/cooking-sessions", {
       method: "POST",
       credentials: "same-origin",
       headers: { "content-type": "application/json" },

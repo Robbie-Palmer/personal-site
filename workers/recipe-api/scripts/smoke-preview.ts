@@ -129,7 +129,7 @@ try {
   };
 
   await expectJson(
-    "/api/profile/cooking-insights",
+    "/api/profile/cooking-sessions",
     {
       method: "POST",
       headers,
@@ -149,7 +149,7 @@ try {
   }
 
   await expectJson(
-    "/api/profile/cooking-insights",
+    "/api/profile/cooking-sessions",
     {
       method: "POST",
       headers,

@@ -69,9 +69,9 @@ describe("pantry API client", () => {
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
-      "/api/pantry/restore",
+      "/api/pantry",
       expect.objectContaining({
-        method: "PUT",
+        method: "PATCH",
         credentials: "same-origin",
         body: JSON.stringify({ stock: { red: "fresh" } }),
       }),

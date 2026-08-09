@@ -1,16 +1,14 @@
 ---
 title: "ADR 065: Spectral (OpenAPI Linting & API Governance)"
-date: "2026-07-31"
-status: "Proposed"
+date: "2026-08-09"
+status: "Accepted"
 tech_stack: ["Spectral", "OpenAPI", "oasdiff", "Hono"]
 ---
 
-> **Status — Proposed.** This change records the decision and lands the one
-> immediately-useful piece: the `route-conventions` test. The
-> `@hono/zod-openapi` spec generation, the Spectral and `oasdiff` CI wiring, and
-> the route fixes described below are the follow-up implementation — not yet part
-> of the adopting change. Sections written in the present tense describe that
-> target state, not what ships in this PR.
+> **Status — Accepted.** The adopting change migrates the governed routes to
+> `@hono/zod-openapi` `createRoute` declarations, commits the generated OpenAPI
+> contract, blocks contract lint and breaking changes in CI, fixes the audited
+> route drift, and removes the route-convention violation baseline.
 
 # Context
 
@@ -40,9 +38,9 @@ without a gate:
 * **Action paths that are really methods.** `PUT /pantry/restore` is an
   idempotent additive merge into the pantry singleton — i.e. `PATCH /pantry` —
   wearing a verb in its URL.
-* **Inconsistent error shapes.** Handlers variously return `{ error }`,
-  `c.notFound()`, and ad-hoc bodies like `{ recommended: true }`, with no
-  documented envelope a client can rely on.
+* **Inconsistent error shapes.** Handlers return JSON `{ error }` bodies in most
+  places, while `c.notFound()` previously fell back to Hono's plain-text 404,
+  with no documented envelope a client could rely on.
 
 Two facts make the timing favourable. **One atomic consumer:** the only client
 of the recipe API today is the UI in this same repository, behind the proxy, so
@@ -58,10 +56,10 @@ contract cleanup will ever be.
 # Decision
 
 Adopt **Spectral** as the recipe API's governance linter, driven by an
-**OpenAPI** document generated from the routes' Zod schemas via
+**OpenAPI** document generated from the routes' shared Zod schemas via
 **`@hono/zod-openapi`** — its `createRoute` pattern makes the route definition,
-its request/response schemas, and the spec one and the same declaration, so the
-contract cannot drift from the code. This is chosen over the lower-churn
+its request schemas, its shared response envelopes, and the spec one declaration,
+so the contract cannot drift from the code. This is chosen over the lower-churn
 `hono-openapi` (which bolts metadata onto the existing handlers) deliberately:
 the single source of truth is worth rewriting the \~40 routes to `createRoute`,
 and the Zod schemas most handlers already validate through (`parseJsonBody`)
@@ -110,17 +108,17 @@ The ruleset lives at `workers/recipe-api/.spectral.yaml` with two custom
 functions in `workers/recipe-api/spectral-functions/`. Severities are chosen to
 green quickly rather than flood the first PR.
 
-| Rule                                    | Source                       | Severity     | Example                                                                                |
-| --------------------------------------- | ---------------------------- | ------------ | -------------------------------------------------------------------------------------- |
-| `path-segments-kebab-case`              | custom                       | error        | ✗ `/recipeImports` ✓ `/recipe-imports`                                                 |
-| `paths-no-verbs`                        | custom (`noVerbPaths`)       | error        | ✗ `/recipes/import-url`, `/pantry/restore` ✓ `/households/{id}/leave` (allowlisted)    |
-| `collections-are-plural`                | custom (`pluralCollections`) | warn         | ✗ `/household/{id}` ✓ `/households/{id}`; singletons (`pantry`, `profile`) allowlisted |
-| `path-keys-no-trailing-slash`           | `spectral:oas`               | error        | ✗ `/recipes/`                                                                          |
-| `errors-use-shared-schema`              | custom                       | error        | ✗ ad-hoc `{ recommended: true }` ✓ `$ref` a shared `Error`                             |
-| `owasp:api4:2023-array-limit`           | OWASP                        | error        | list responses need `maxItems`                                                         |
-| `owasp:api4:2023-string-limit`          | OWASP                        | warn → error | `title`/`source` need `maxLength`; noisy, greened then promoted                        |
-| `owasp:api4:2023-rate-limit`            | OWASP                        | error        | import + recommendation ops document `429`                                             |
-| `owasp:api2:2023-no-credentials-in-url` | OWASP                        | error        | no `?token=` in query — stays green as a guardrail                                     |
+| Rule                                    | Source                       | Severity | Example                                                                                |
+| --------------------------------------- | ---------------------------- | -------- | -------------------------------------------------------------------------------------- |
+| `path-segments-kebab-case`              | custom                       | error    | ✗ `/recipeImports` ✓ `/recipe-imports`                                                 |
+| `paths-no-verbs`                        | custom (`noVerbPaths`)       | error    | ✗ `/recipes/import-url`, `/pantry/restore` ✓ `/households/{id}/leave` (allowlisted)    |
+| `collections-are-plural`                | custom (`pluralCollections`) | warn     | ✗ `/household/{id}` ✓ `/households/{id}`; singletons (`pantry`, `profile`) allowlisted |
+| `path-keys-no-trailing-slash`           | `spectral:oas`               | error    | ✗ `/recipes/`                                                                          |
+| `errors-use-shared-schema`              | custom                       | error    | ✗ ad-hoc `{ message: "failed" }` ✓ `$ref` a shared `Error`                             |
+| `owasp:api4:2023-array-limit`           | OWASP                        | error    | list responses need `maxItems`                                                         |
+| `owasp:api4:2023-string-limit`          | OWASP                        | error    | `title`/`source` need `maxLength`                                                      |
+| `rate-limited-operations-document-429`  | custom (OWASP-scoped)        | error    | import + recommendation ops document `429` and `Retry-After`                           |
+| `owasp:api2:2023-no-credentials-in-url` | OWASP                        | error    | no `?token=` in query — stays green as a guardrail                                     |
 
 **Boundary.** Spectral lints the contract's *shape*, not its *intent*. It flags
 the import verbs and `pantry/restore` structurally, but it cannot see that
@@ -129,8 +127,9 @@ right-method / wrong-resource mismatch the spec considers valid. Semantic
 findings like this are fixed by hand in the greening pass and guarded going
 forward by a lightweight route-introspection test
 (`workers/recipe-api/tests/route-conventions.test.ts`) that asserts the
-path/method conventions directly against Hono's `app.routes`, with the current
-violations tracked in an explicit, shrink-only baseline.
+path/method conventions directly against Hono's `app.routes` and verifies every
+governed route appears in the generated spec. The adopting change removes the
+now-empty violation baseline.
 
 # Why It Adds Something New
 
@@ -146,15 +145,15 @@ gate.
 
 # Alternatives Considered
 
-| Tool                                          | Role                        | Pros                                                                                                                                                       | Cons                                                                                                         | Verdict                                                                                                                           |
-| --------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| **Spectral + generated OpenAPI** *(accepted)* | Contract linting            | Sees request/response schemas, not just paths; composable rulesets (OWASP, custom); the spec doubles as docs and a typed-client source; unlocks `oasdiff`. | Requires generating and committing a spec; OWASP ruleset churns and needs pinning.                           | **Accepted.**                                                                                                                     |
-| **Route-introspection Vitest test**           | Path/method assertions      | No spec, trivial to write against Hono's `app.routes`; sees routes that bypass the spec.                                                                   | Blind to request/response bodies — can't do OWASP payload limits, error-envelope, or breaking-change checks. | Rejected as *sole* solution; kept as a complement — the stopgap until the spec lands and the permanent guard against spec-bypass. |
-| **`@hono/zod-openapi`** *(accepted bridge)*   | Spec generation             | Tightest coupling; route, schema, and spec are one declaration, so no drift.                                                                               | Rewrites \~40 routes to the `createRoute` pattern.                                                           | **Accepted:** the churn buys a genuine single source of truth.                                                                    |
-| **`hono-openapi`**                            | Spec generation             | Annotates existing handlers; far less churn.                                                                                                               | Spec is a parallel annotation that can drift from the handler it describes.                                  | Rejected: lower cost, weaker guarantee than the accepted bridge.                                                                  |
-| **Optic**                                     | Spec-from-traffic + diffing | Captures the real contract from tests/traffic; strong breaking-change UX.                                                                                  | Heavier; leans SaaS; overlaps `oasdiff` on the part we need.                                                 | Rejected: more than the job needs today.                                                                                          |
-| **Biome / ESLint plugin**                     | Lint rules                  | Biome already in the stack.                                                                                                                                | No REST-convention rules exist for Biome; we don't run ESLint.                                               | Not available.                                                                                                                    |
-| **Status quo / hand review**                  | n/a                         | Nothing new.                                                                                                                                               | The four drift classes above say it doesn't hold as the API grows.                                           | Rejected.                                                                                                                         |
+| Tool                                          | Role                        | Pros                                                                                                                                                       | Cons                                                                                                         | Verdict                                                                              |
+| --------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| **Spectral + generated OpenAPI** *(accepted)* | Contract linting            | Sees request/response schemas, not just paths; composable rulesets (OWASP, custom); the spec doubles as docs and a typed-client source; unlocks `oasdiff`. | Requires generating and committing a spec; OWASP ruleset churns and needs pinning.                           | **Accepted.**                                                                        |
+| **Route-introspection Vitest test**           | Path/method assertions      | No spec, trivial to write against Hono's `app.routes`; sees routes that bypass the spec.                                                                   | Blind to request/response bodies — can't do OWASP payload limits, error-envelope, or breaking-change checks. | Rejected as *sole* solution; kept as the permanent parity guard against spec bypass. |
+| **`@hono/zod-openapi`** *(accepted bridge)*   | Spec generation             | Tightest coupling; route, schema, and spec are one declaration, so no drift.                                                                               | Rewrites \~40 routes to the `createRoute` pattern.                                                           | **Accepted:** the churn buys a genuine single source of truth.                       |
+| **`hono-openapi`**                            | Spec generation             | Annotates existing handlers; far less churn.                                                                                                               | Spec is a parallel annotation that can drift from the handler it describes.                                  | Rejected: lower cost, weaker guarantee than the accepted bridge.                     |
+| **Optic**                                     | Spec-from-traffic + diffing | Captures the real contract from tests/traffic; strong breaking-change UX.                                                                                  | Heavier; leans SaaS; overlaps `oasdiff` on the part we need.                                                 | Rejected: more than the job needs today.                                             |
+| **Biome / ESLint plugin**                     | Lint rules                  | Biome already in the stack.                                                                                                                                | No REST-convention rules exist for Biome; we don't run ESLint.                                               | Not available.                                                                       |
+| **Status quo / hand review**                  | n/a                         | Nothing new.                                                                                                                                               | The four drift classes above say it doesn't hold as the API grows.                                           | Rejected.                                                                            |
 
 # Where It Sits On The Adoption Curve
 
@@ -188,25 +187,25 @@ silently redden an unrelated PR.
 
 # Gaps & Risks
 
-* **Routes can still bypass the spec.** `createRoute` removes the drift risk —
-  the spec is generated from the definition, so it cannot disagree with the code
-  it came from. What remains is the escape hatch: a route registered as raw Hono
-  outside the `OpenAPIHono` app never enters the spec, so Spectral never sees it.
-  The route-introspection test already enumerates *every* `app.route`, so closing
-  this gap is a small follow-up: assert that each registered path also appears in
-  the generated spec's paths, once that spec exists.
-* **Migration cost is real, and accepted.** Rewriting \~40 routes to
-  `createRoute` is the largest churn of any linter adoption — chosen over the
-  cheaper `hono-openapi` because a single source of truth is the point. It can
-  be staged endpoint-by-endpoint, but it is not the drop-in that TFLint or
-  Gitleaks were, and until a route is migrated it contributes nothing to the
-  spec.
+* **Routes could bypass the spec without the parity test.** `createRoute`
+  removes drift inside a governed route, while the route-introspection test now
+  compares every registered recipe route with the generated document. Better
+  Auth's pinned wildcard adapter is the one explicit boundary: it owns a dynamic
+  third-party route family rather than a finite recipe-domain contract.
+* **Success responses start broad.** Request bodies and the shared `Error`
+  envelope are concrete Zod schemas; successful JSON responses currently use a
+  shared open object while endpoint-specific read models stabilise. `oasdiff`
+  therefore blocks removed operations and request-side breaks immediately, but
+  response-field compatibility becomes stronger as those read models are
+  tightened.
 * **Allowlist creep.** The "no verbs in paths" rule needs an escape hatch for
   genuine state transitions; that allowlist must stay small and reviewed, or it
   becomes a place to hide new RPC endpoints.
-* **OWASP false positives.** Some rules (e.g. mandatory `maxLength` on every
-  string) are noisy on internal-only fields; expect an initial triage pass and a
-  few justified rule-level exceptions.
+* **OWASP false positives.** Bounded strings remain blocking, while the semantic
+  format/pattern rule is disabled for free-form human text. The upstream
+  rate-limit-header rule is replaced with a scoped blocking rule for the five
+  operations that actually rate-limit, and the CORS-header rule is disabled
+  because this is a same-origin API behind Pages Functions.
 * **`oasdiff` needs a truthful baseline.** The committed spec must be regenerated
   with each contract change or the diff compares against stale fiction;
   regeneration belongs in the same `mise` task.

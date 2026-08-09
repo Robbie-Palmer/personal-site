@@ -371,7 +371,7 @@ describe("recipe API PostgreSQL integration", () => {
     };
     const cookingStartedResponse = await authenticatedRequest(
       cook,
-      "/api/profile/cooking-insights",
+      "/api/profile/cooking-sessions",
       {
         method: "POST",
         body: { ...cookingSession, event: "started" },
@@ -393,7 +393,7 @@ describe("recipe API PostgreSQL integration", () => {
 
     const cookingCompletedResponse = await authenticatedRequest(
       cook,
-      "/api/profile/cooking-insights",
+      "/api/profile/cooking-sessions",
       {
         method: "POST",
         body: { ...cookingSession, event: "completed" },
@@ -578,9 +578,9 @@ describe("recipe API PostgreSQL integration", () => {
     expect(concurrentAddition.status).toBe(200);
     const restoredPantry = await authenticatedRequest(
       invitee,
-      "/pantry/restore",
+      "/pantry",
       {
-        method: "PUT",
+        method: "PATCH",
         body: {
           stock: {
             onion: "fresh",

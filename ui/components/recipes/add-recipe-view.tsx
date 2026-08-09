@@ -375,7 +375,7 @@ export function AddRecipeView({
     setImportError(null);
     setUrlImportSuccess(false);
     try {
-      const response = await fetch("/api/recipes/import-url", {
+      const response = await fetch("/api/recipe-drafts/url", {
         method: "POST",
         credentials: "include",
         headers: { "content-type": "application/json" },
@@ -435,7 +435,7 @@ export function AddRecipeView({
         );
       }
       const content = await recipeFile.text();
-      const response = await fetch("/api/recipes/import-file", {
+      const response = await fetch("/api/recipe-drafts/file", {
         method: "POST",
         credentials: "include",
         headers: { "content-type": "application/json" },

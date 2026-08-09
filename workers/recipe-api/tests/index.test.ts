@@ -2973,11 +2973,11 @@ describe("POST /recipes", () => {
   });
 });
 
-describe("POST /recipes/import-url", () => {
+describe("POST /recipe-drafts/url", () => {
   it("requires authentication before fetching the page", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const res = await app.request(
-      "/recipes/import-url",
+      "/recipe-drafts/url",
       {
         method: "POST",
         headers: {
@@ -3021,7 +3021,7 @@ describe("POST /recipes/import-url", () => {
     );
 
     const res = await app.request(
-      "/recipes/import-url",
+      "/recipe-drafts/url",
       {
         method: "POST",
         headers: {
@@ -3061,7 +3061,7 @@ describe("POST /recipes/import-url", () => {
     );
 
     const res = await app.request(
-      "/recipes/import-url",
+      "/recipe-drafts/url",
       {
         method: "POST",
         headers: {
@@ -3079,10 +3079,10 @@ describe("POST /recipes/import-url", () => {
   });
 });
 
-describe("POST /recipes/import-file", () => {
+describe("POST /recipe-drafts/file", () => {
   it("requires authentication before parsing the file", async () => {
     const res = await app.request(
-      "/recipes/import-file",
+      "/recipe-drafts/file",
       {
         method: "POST",
         headers: {
@@ -3120,7 +3120,7 @@ cookTime: 20
 Boil the pasta, then add the tomatoes.`;
 
     const res = await app.request(
-      "/recipes/import-file",
+      "/recipe-drafts/file",
       {
         method: "POST",
         headers: {
@@ -3153,7 +3153,7 @@ Boil the pasta, then add the tomatoes.`;
     });
 
     const res = await app.request(
-      "/recipes/import-file",
+      "/recipe-drafts/file",
       {
         method: "POST",
         headers: {
@@ -3188,7 +3188,7 @@ Boil the pasta, then add the tomatoes.`;
     });
 
     const res = await app.request(
-      "/recipes/import-file",
+      "/recipe-drafts/file",
       {
         method: "POST",
         headers: {
@@ -3218,7 +3218,7 @@ Boil the pasta, then add the tomatoes.`;
     });
 
     const res = await app.request(
-      "/recipes/import-file",
+      "/recipe-drafts/file",
       {
         method: "POST",
         headers: {
@@ -3248,7 +3248,7 @@ Boil the pasta, then add the tomatoes.`;
     });
 
     const res = await app.request(
-      "/recipes/import-file",
+      "/recipe-drafts/file",
       {
         method: "POST",
         headers: {
@@ -3645,7 +3645,7 @@ describe("profile cooking insights", () => {
 
   const postCookingEvent = (event: "started" | "completed") =>
     app.request(
-      "/api/profile/cooking-insights",
+      "/api/profile/cooking-sessions",
       {
         method: "POST",
         headers: {
@@ -3917,9 +3917,9 @@ describe("pantry mutation flows", () => {
       updatedAt: dbMock.date,
     });
     const restoreResponse = await app.request(
-      "/pantry/restore",
+      "/pantry",
       {
-        method: "PUT",
+        method: "PATCH",
         headers: mutationHeaders,
         body: JSON.stringify({
           stock: { onion: "cupboards", milk: "fridge" },
