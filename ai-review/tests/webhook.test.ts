@@ -1,6 +1,10 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { parseReviewEvent, verifyGitHubSignature } from "../src/webhook";
+import {
+  parseFindingInteraction,
+  parseReviewEvent,
+  verifyGitHubSignature,
+} from "../src/webhook";
 
 describe("verifyGitHubSignature", () => {
   it("accepts a valid sha256 signature", async () => {
@@ -67,9 +71,11 @@ describe("parseReviewEvent", () => {
         action: "created",
         repository: { full_name: "Robbie-Palmer/personal-site" },
         issue: { number: 1, pull_request: true },
+        sender: { login: "robbie" },
         comment: {
           body: "/ai-review",
           author_association: "OWNER",
+          user: { login: "robbie" },
         },
       }),
     ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
@@ -138,9 +144,11 @@ describe("parseReviewEvent", () => {
         action: "created",
         repository: { full_name: "Robbie-Palmer/personal-site" },
         issue: { number: 816, pull_request: {} },
+        sender: { login: "robbie" },
         comment: {
           body: "/ai-review",
           author_association: "OWNER",
+          user: { login: "robbie" },
         },
       }),
     ).toEqual({
@@ -178,5 +186,112 @@ describe("parseReviewEvent", () => {
         }),
       ).toEqual({ kind: "ignored", reason: "unsupported-event" });
     }
+  });
+});
+
+describe("parseFindingInteraction", () => {
+  it("accepts explicit dispositions from trusted pull request commenters", () => {
+    expect(
+      parseFindingInteraction("issue_comment", "feedback-1", {
+        action: "created",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        issue: { number: 816, pull_request: {} },
+        sender: { login: "robbie" },
+        comment: {
+          id: 99,
+          body: `/ai-review reject f_${"a".repeat(24)} false positive`,
+          author_association: "OWNER",
+          user: { login: "robbie" },
+          created_at: "2026-08-09T12:00:00Z",
+        },
+      }),
+    ).toEqual({
+      kind: "accepted",
+      event: expect.objectContaining({
+        interactionType: "disposition",
+        disposition: "rejected",
+        findingId: `f_${"a".repeat(24)}`,
+        reason: "false positive",
+      }),
+    });
+  });
+
+  it("rejects feedback from untrusted actors", () => {
+    expect(
+      parseFindingInteraction("issue_comment", "feedback-2", {
+        action: "created",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        issue: { number: 816, pull_request: {} },
+        sender: { login: "outside" },
+        comment: {
+          body: `/ai-review acknowledge f_${"a".repeat(24)} agreed`,
+          author_association: "CONTRIBUTOR",
+          user: { login: "outside" },
+        },
+      }),
+    ).toEqual({ kind: "ignored", reason: "unsupported-event" });
+
+    expect(
+      parseFindingInteraction("issue_comment", "feedback-spoofed", {
+        action: "created",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        issue: { number: 816, pull_request: {} },
+        sender: { login: "outside" },
+        comment: {
+          body: `/ai-review reject f_${"a".repeat(24)} spoofed actor`,
+          author_association: "OWNER",
+          user: { login: "robbie" },
+        },
+      }),
+    ).toEqual({ kind: "ignored", reason: "unsupported-event" });
+  });
+
+  it("captures replies, reaction snapshots, and thread resolution", () => {
+    expect(
+      parseFindingInteraction("pull_request_review_comment", "feedback-3", {
+        action: "created",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        pull_request: { number: 816 },
+        sender: { login: "maintainer" },
+        comment: {
+          id: 201,
+          in_reply_to_id: 200,
+          body: "Good catch; fixed in the next commit.",
+          author_association: "COLLABORATOR",
+          user: { login: "maintainer" },
+          reactions: { url: "ignored", "+1": 2, confused: 0 },
+        },
+      }),
+    ).toEqual({
+      kind: "accepted",
+      event: expect.objectContaining({
+        interactionType: "reply",
+        rootCommentId: 200,
+        commentId: 201,
+        reactions: { "+1": 2, confused: 0 },
+      }),
+    });
+
+    expect(
+      parseFindingInteraction("pull_request_review_thread", "feedback-4", {
+        action: "resolved",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        pull_request: { number: 816 },
+        sender: { login: "Robbie-Palmer" },
+        thread: {
+          node_id: "PRRT_thread",
+          comments: [{ id: 200, reactions: { "+1": 1, heart: 2 } }],
+          updated_at: "2026-08-09T12:10:00Z",
+        },
+      }),
+    ).toEqual({
+      kind: "accepted",
+      event: expect.objectContaining({
+        interactionType: "thread",
+        action: "resolved",
+        rootCommentId: 200,
+        reactions: { "+1": 1, heart: 2 },
+      }),
+    });
   });
 });

@@ -994,6 +994,8 @@ export function renderComment(options: {
   previousState: ReviewState;
   marker?: string;
   heading?: string;
+  summaryOnly?: boolean;
+  findingDelivery?: { line: number; fallback: number };
 }): string {
   const findings = validateFindings(options.result, { merged: true }) as MergedFinding[];
   const severityOrder: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -1050,7 +1052,17 @@ export function renderComment(options: {
         : "No open findings reported.";
     lines.push(message, "");
   }
-  for (const finding of open) {
+  if (options.summaryOnly && open.length) {
+    const delivery = options.findingDelivery ?? {
+      line: open.length,
+      fallback: 0,
+    };
+    lines.push(
+      `${delivery.line} open finding(s) published as review threads; ${delivery.fallback} shown below because GitHub could not attach them to a diff line.`,
+      "",
+    );
+  }
+  for (const finding of options.summaryOnly ? [] : open) {
     const location = `${markdownText(finding.file, 500)}${finding.line && finding.line > 0 ? `:${finding.line}` : ""}`;
     lines.push(
       `### ${finding.severity.toUpperCase()}: ${markdownText(finding.title, 300)}`,
@@ -1063,7 +1075,7 @@ export function renderComment(options: {
       "",
     );
   }
-  if (resolved.length) {
+  if (!options.summaryOnly && resolved.length) {
     lines.push("## Resolved threads", "");
     for (const finding of resolved) {
       const location = `${markdownText(finding.file, 500)}${finding.line && finding.line > 0 ? `:${finding.line}` : ""}`;

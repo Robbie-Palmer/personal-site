@@ -112,10 +112,68 @@ describe("PullRequestCoordinator in workerd", () => {
               resolution_note: "",
             },
           ],
+          findingPublications: [
+            {
+              findingId: `f_${"b".repeat(24)}`,
+              delivery: "line",
+              commentId: 321,
+              reconciled: false,
+              path: "app.ts",
+              line: 1,
+            },
+          ],
         }),
       },
     );
     await expect(completion.json()).resolves.toEqual({ completed: true });
+
+    const interaction = {
+      deliveryId: "workerd-feedback-1",
+      eventName: "pull_request_review_thread",
+      action: "resolved",
+      repository: event.repository,
+      pullRequestNumber: event.pullRequestNumber,
+      interactionType: "thread",
+      actor: "Robbie-Palmer",
+      rootCommentId: 321,
+      threadId: "PRRT_thread",
+      occurredAt: "2026-08-09T12:00:00Z",
+    };
+    const interactionResponse = await stub.fetch(
+      "https://coordinator.test/interactions",
+      { method: "POST", body: JSON.stringify(interaction) },
+    );
+    await expect(interactionResponse.json()).resolves.toEqual({
+      accepted: true,
+      duplicate: false,
+      findingId: `f_${"b".repeat(24)}`,
+    });
+    const duplicateInteraction = await stub.fetch(
+      "https://coordinator.test/interactions",
+      { method: "POST", body: JSON.stringify(interaction) },
+    );
+    await expect(duplicateInteraction.json()).resolves.toEqual({
+      accepted: true,
+      duplicate: true,
+      findingId: `f_${"b".repeat(24)}`,
+    });
+    const evidenceKey = [
+      "v2",
+      event.repository,
+      `pr-${event.pullRequestNumber}`,
+      "findings",
+      `f_${"b".repeat(24)}`,
+      "evidence",
+      `${interaction.deliveryId}.json`,
+    ].join("/");
+    const evidence = await (env as unknown as Env).REVIEW_DATA.get(evidenceKey);
+    expect(await evidence?.json()).toMatchObject({
+      schemaVersion: 2,
+      evidenceVersion: 1,
+      recordType: "finding-interaction-evidence",
+      action: "resolved",
+      findingId: `f_${"b".repeat(24)}`,
+    });
 
     const duplicateClaim = await stub.fetch(
       "https://coordinator.test/reviews/claim",
@@ -175,6 +233,16 @@ describe("PullRequestCoordinator in workerd", () => {
           resolution_note: "Fixed in the later head",
         },
       ],
+      findingPublications: [
+        {
+          findingId: `f_${"b".repeat(24)}`,
+          delivery: "line",
+          commentId: 321,
+          reconciled: true,
+          path: "app.ts",
+          line: 60,
+        },
+      ],
     });
     const laterCompletion = await stub.fetch(
       "https://coordinator.test/reviews/complete",
@@ -226,6 +294,13 @@ describe("PullRequestCoordinator in workerd", () => {
           last_seen_run_id: laterRunId,
         },
       ]);
+      expect(
+        state.storage.sql
+          .exec<{ action: string; r2_recorded: number }>(
+            "SELECT action, r2_recorded FROM review_finding_events",
+          )
+          .toArray(),
+      ).toEqual([{ action: "resolved", r2_recorded: 1 }]);
     });
   });
 });

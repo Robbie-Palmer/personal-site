@@ -921,6 +921,35 @@ describe("HTTP Worker", () => {
     );
   });
 
+  it("routes authorized finding feedback without scheduling review work", async () => {
+    const { env, fetch } = workerEnv();
+    const feedbackBody = JSON.stringify({
+      action: "created",
+      repository: { full_name: "Robbie-Palmer/personal-site" },
+      issue: { number: 821, pull_request: {} },
+      sender: { login: "Robbie-Palmer" },
+      comment: {
+        id: 900,
+        body: `/ai-review acknowledge f_${"a".repeat(24)} deferred`,
+        author_association: "OWNER",
+        user: { login: "Robbie-Palmer" },
+      },
+    });
+
+    const response = await worker.fetch(
+      signedWebhookRequest(feedbackBody, secret, {
+        "x-github-event": "issue_comment",
+      }),
+      env,
+    );
+
+    await expect(response.json()).resolves.toEqual({ accepted: true });
+    expect(fetch).toHaveBeenCalledWith(
+      "https://coordinator.internal/interactions",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
   it("sanitizes coordinator failures", async () => {
     const { env, fetch } = workerEnv();
     const consoleError = vi
