@@ -14,6 +14,31 @@ const event: ReviewWorkflowParams = {
   force: false,
 };
 
+const identifiedFinding = {
+  findingId: `f_${"b".repeat(24)}`,
+  hunkIds: [`h_${"c".repeat(24)}`],
+  severity: "high",
+  file: "app.ts",
+  line: 1,
+  title: "Finding",
+  evidence: "Evidence",
+  recommendation: "Fix it",
+  confidence: 0.9,
+  source_models: ["model/scout"],
+  status: "open",
+  resolution_note: "",
+};
+
+const identifiedHunk = {
+  hunkId: `h_${"c".repeat(24)}`,
+  fingerprint: "d".repeat(64),
+  file: "app.ts",
+  oldStart: 1,
+  oldLines: 1,
+  newStart: 1,
+  newLines: 1,
+};
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -344,7 +369,8 @@ describe("PullRequestCoordinator", () => {
           headSha: event.headSha,
           costUsd: 0.42,
           commentId: 987,
-          findings: [{ title: "Finding" }],
+          hunks: [identifiedHunk],
+          findings: [identifiedFinding],
         }),
       }),
     );
@@ -370,6 +396,7 @@ describe("PullRequestCoordinator", () => {
           runId: "missing-review",
           headSha: event.headSha,
           costUsd: 0.42,
+          hunks: [],
           findings: [],
         }),
       }),
@@ -378,6 +405,39 @@ describe("PullRequestCoordinator", () => {
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toEqual({
       error: "No matching review run to complete",
+    });
+  });
+
+  it("rejects a mismatched retry of an already completed run", async () => {
+    const { coordinator, sqlExec } = coordinatorFixture();
+    sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: query.includes("UPDATE review_runs") ? 0 : 1,
+      toArray: () =>
+        query.includes("SELECT head_sha, status, completion_hash")
+          ? [{
+              head_sha: event.headSha,
+              status: "completed",
+              completion_hash: "0".repeat(64),
+            }]
+          : [],
+    }));
+
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/complete", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-delivery-123",
+          headSha: event.headSha,
+          costUsd: 0.43,
+          hunks: [identifiedHunk],
+          findings: [identifiedFinding],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "Review completion payload does not match",
     });
   });
 
@@ -396,6 +456,49 @@ describe("PullRequestCoordinator", () => {
       );
       expect(response.status).toBe(400);
     }
+  });
+
+  it("rejects an incomplete identified finding at the completion boundary", async () => {
+    const { coordinator } = coordinatorFixture();
+    const { evidence: _evidence, ...incompleteFinding } = identifiedFinding;
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/complete", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-delivery-123",
+          headSha: event.headSha,
+          costUsd: 0.42,
+          hunks: [identifiedHunk],
+          findings: [incompleteFinding],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid review completion",
+    });
+  });
+
+  it("rejects a finding linked to a hunk absent from its completion", async () => {
+    const { coordinator } = coordinatorFixture();
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/complete", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-delivery-123",
+          headSha: event.headSha,
+          costUsd: 0.42,
+          hunks: [],
+          findings: [identifiedFinding],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid review completion",
+    });
   });
 
   it.each([
@@ -626,8 +729,13 @@ describe("ReviewWorkflow", () => {
     );
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(put).not.toHaveBeenCalled();
-    expect(step.do).toHaveBeenCalledTimes(1);
+    expect(put).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(put.mock.calls[0]?.[1]))).toMatchObject({
+      schemaVersion: 2,
+      status: "skipped",
+      terminal: { reason: "pull request is closed" },
+    });
+    expect(step.do).toHaveBeenCalledTimes(2);
   });
 });
 

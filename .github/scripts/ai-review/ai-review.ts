@@ -39,9 +39,11 @@ export interface Settings {
 export interface PullRequest {
   state: string;
   draft: boolean;
+  title?: string;
   author_association?: string;
+  labels?: Array<{ name?: string }>;
   user: { login: string };
-  head: { sha: string; repo?: { full_name?: string } };
+  head: { sha: string; ref?: string; repo?: { full_name?: string } };
 }
 
 interface ChangedFile {

@@ -10,8 +10,8 @@ The service is a visible, stateful publisher:
 - a Worker verifies GitHub App webhook signatures and rejects other
   repositories;
 - one SQLite Durable Object per pull request deduplicates deliveries, review
-  configurations, and already-reviewed heads while enforcing per-PR run and
-  cost ceilings;
+  configurations, and already-reviewed heads, assigns durable hunk and finding
+  identities, and enforces per-PR run and cost ceilings;
 - Durable Object alarms provide a trailing-edge debounce boundary, coalescing
   rapid events to one review of the latest pull request state after a quiet
   period;
@@ -21,7 +21,9 @@ The service is a visible, stateful publisher:
   separate rolling comment; OpenRouter and OpenCode scouts use separate
   Workflow steps so a stalled free provider cannot replay completed paid calls,
   while deterministic publication and storage steps remain retryable;
-- the private `ai-review-data` R2 bucket stores versioned findings plus provider
+- the private `ai-review-data` R2 bucket stores versioned terminal records for
+  published, skipped, denied, and failed runs, including raw candidates,
+  published findings, change characteristics, stable identities, and provider
   cost, latency, token, cache, availability, and failure metrics; and
 - the former stateless GitHub Actions orchestrator is retired; its prompts,
   model clients, validation, and rendering code remain as the shared review
@@ -121,6 +123,24 @@ Cloudflare Workflow and waits for that operation to succeed. Paid OpenRouter
 completion requests also make exactly one HTTP attempt because the provider
 does not expose an idempotency key; GitHub and free-provider requests retain
 their bounded transient retries.
+
+### Review data schema
+
+New analytical records use schema version 2 under
+`v2/<owner>/<repository>/pr-<number>/<head>/<workflow>/<status>.json`. The
+status is `published`, `skipped`, `denied`, or `failed`; using a distinct object
+per terminal status preserves a published record if a later deterministic
+completion step fails. Existing schema-version-1 objects remain readable and
+are not rewritten.
+
+PR-scoped hunk IDs hash the repository path and normalized unified-diff body while
+excluding hunk coordinates, so an unchanged hunk keeps its identity when lines
+move. PR-scoped finding IDs hash the path and normalized finding title, excluding line,
+severity, status, and model provenance. The Durable Object upserts these
+identities into `review_hunks`, `review_findings`, and
+`review_finding_hunks`; first-seen values remain immutable while last-seen
+values advance with later completed runs. R2 retains raw per-model candidates
+separately from the merged findings that were actually published.
 
 ## Deploy
 
