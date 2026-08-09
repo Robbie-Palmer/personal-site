@@ -1,0 +1,446 @@
+---
+title: "Agentic Code Review"
+description: "A stateful, model-agnostic GitHub App for high-signal code review at agentic development velocity"
+date: "2026-08-08"
+tech_stack:
+  - "GitHub"
+  - "Cloudflare Workers"
+  - "Cloudflare Workflows"
+  - "Cloudflare R2"
+  - "OpenRouter"
+repo_url: "https://github.com/Robbie-Palmer/personal-site/tree/main/ai-review"
+status: "in_progress"
+---
+
+# Vision
+
+Every software change should receive a strong, timely second opinion, however
+quickly coding agents produce it and whichever model happens to be best today.
+
+Agentic Code Review will make review capacity an owned part of the development
+loop. Reliable review should let agentic coding move quickly while strengthening
+the quality and stability of each change.
+
+# Mission
+
+Build a focused GitHub App that owns the durable, compounding parts of AI code
+review—repository policy, Pull Request state, review orchestration, feedback,
+and evaluation—while renting interchangeable model inference from a competitive
+market.
+
+The product should continually turn review outcomes into better prompts, model
+selection, tests, repository guidance, skills, and coding-agent choices.
+Recurring defects should move upstream into prevention so the whole agentic
+development system improves with use.
+
+# Problem Statement
+
+Agentic coding moves the bottleneck. Producing code is becoming dramatically
+faster, but understanding and validating a change remains expensive. A solo
+developer has no guaranteed second pair of eyes, while a team can easily create
+review queues that erase the velocity gained from coding agents. Weakening the
+review step is especially dangerous as the volume and ambition of agent-written
+changes increases.
+
+Managed AI reviewers initially appeared to solve this problem. In practice,
+their availability has become less dependable precisely as review has become
+more important:
+
+* free and open-source allowances are increasingly finite, variable, or
+  approval-dependent;
+* each push can consume scarce capacity even when most of the Pull Request is
+  unchanged;
+* useful consumer products can be retired in favour of enterprise versions;
+* fixed subscriptions increasingly bundle planning, administration,
+  compliance, analytics, and workflow features unrelated to the review findings
+  needed here; and
+* accumulated learnings and repository indexes make switching progressively
+  more costly even when the integration itself is easy to replace.
+
+This is an **enshittification** pattern in the useful sense coined by
+[Cory Doctorow](https://pluralistic.net/2023/08/27/an-audacious-plan-to-halt-the-internets-enshittification-and-throw-it-into-reverse/):
+value used to attract and retain users is clawed back once dependency has
+formed. Charging money and serving enterprise customers are normal business
+decisions. Free tiers carry no entitlement, and enterprise controls solve real
+problems. The enshittification is visible in the outcome for early users: value
+is clawed back while accumulated learnings, repository indexes, and workflow
+dependency raise the switching cost.
+
+Vendor intent has no bearing on the operational decision. Rate limits, product
+sunsets, opaque credits, rising prices, and roadmap drift make managed review
+allowances too volatile for core infrastructure.
+
+# Why Now
+
+## Review Demand Is Compounding
+
+Coding agents enable more parallel work, larger changes, and shorter delivery
+cycles. Review quality and latency grow in importance alongside that additional
+throughput. A strong reviewer is a force multiplier on every coding agent and
+enables several projects beyond the Personal Site.
+
+## Velocity and Quality Reinforce Each Other
+
+[DORA's software delivery performance research](https://dora.dev/guides/dora-metrics/)
+measures throughput and instability together. Its current model covers change
+lead time, deployment frequency, failed deployment recovery time, change failure
+rate, and deployment rework rate. DORA has repeatedly found that speed and
+stability are correlated for most teams, with top performers doing well across
+all five measures.
+
+[Working in small batches](https://dora.dev/capabilities/working-in-small-batches/)
+helps explain the relationship. Small changes produce feedback sooner, are
+easier to test and understand, and reduce the cost of triage and remediation.
+DORA now highlights small batches as a critical countermeasure to the delivery
+instability associated with AI adoption. Each batch can be tested, monitored,
+and verified before more risk accumulates.
+
+Code review belongs inside that fast feedback loop. Quotas and slow reviews
+encourage larger batches, delay evidence, increase reviewer cognitive load, and
+make failures harder to isolate. Fast, dependable review preserves the safety
+benefits of small changes and helps convert agentic coding throughput into
+stable delivery.
+
+## Managed Supply Is Becoming Less Predictable
+
+The project's reviewer history is a repeated substitution cycle: CodeRabbit,
+then Gemini Code Assist, Greptile, Codex code review, and Qodo; then a custom
+stateless ensemble; now a stateful service. On 8 August 2026, Greptile reported
+that this project had exhausted its 100 free public-repository reviews for the
+month. Its public Starter pricing now separately advertises only
+[50 standard-review credits per month](https://www.greptile.com/pricing).
+The public page and the project message may describe separate Starter and OSS
+entitlements. Both leave the next review governed by a mutable third-party
+quota.
+
+## Models Are Becoming Commodities Faster Than Review Systems
+
+The strategic bet is that strong closed and open-weight coding models will keep
+improving, inference providers will keep competing, and leadership will rotate
+among models. OpenRouter currently exposes
+[400+ models across 70+ providers](https://openrouter.ai/pricing) behind one
+interface, including price, latency, privacy, and fallback controls.
+
+Durable value concentrates in the system around the model: when to review, what
+context to retrieve, how to reconcile independent findings, what the repository
+considers important, which findings were accepted, and what those outcomes
+should change upstream.
+
+# Product Thesis
+
+1. **Code review is core infrastructure for agentic coding.** Generation
+   velocity needs proportional verification to produce stable delivery.
+2. **Retain the review-specific layer and rent inference.** Models and inference
+   providers should be replaceable configuration behind a stable finding
+   schema.
+3. **Use the Pull Request as the unit of work.** Durable PR state should prevent
+   each push from purchasing a full review of repeated context.
+4. **Optimise for accepted findings and low noise.** Product outcomes come from
+   useful findings and safer changes. Finding count, model calls, and reviewer
+   count provide diagnostic evidence.
+5. **Make learning portable.** Review policy, dispositions, evaluation data,
+   and scorecards belong to the product. Vendor-private "learnings" remain
+   optional inputs.
+6. **Spend according to risk.** Routine changes should be cheap; material or
+   security-sensitive changes justify deeper multi-model review.
+7. **Use competition as the moat.** A new capable model should improve the
+   product through an adapter and evaluation with minimal migration work.
+
+# Target User
+
+The initial user is a developer maintaining public repositories with coding
+agents and shipping too quickly for the quotas or economics of managed AI
+reviewers. The immediate implementation serves this project's own repositories.
+
+Supporting other developers, private repositories, teams, or a commercial
+multi-tenant service remains a future hypothesis. Those users introduce
+separate product, privacy, support, billing, isolation, and compliance
+requirements. Evidence from the initial product must justify that expansion.
+
+# User Stories
+
+* As a developer using several coding agents, I want every material Pull
+  Request reviewed promptly so validation scales with generation velocity.
+* As a solo maintainer, I want an independent second opinion on code I directed
+  an agent to write.
+* As a developer iterating through many commits, I want review to understand the
+  current PR state and avoid paying for or reposting unchanged code and resolved
+  findings.
+* As a maintainer, I want findings ranked by consequence and supported by
+  evidence so review reduces risk with manageable noise.
+* As a cost-conscious user, I want explicit per-PR budgets and cost attribution
+  so review spend is predictable and inspectable.
+* As a model buyer, I want new models evaluated on real changes and controlled
+  replays so observed value guides selection.
+* As an agentic-coding practitioner, I want recurring review failures converted
+  into tests, repository rules, skills, or better agent selection so the
+  development loop improves upstream.
+
+# Product Goals
+
+## 1. Sustain Agentic Development Velocity
+
+Provide review coverage at the pace changes are produced. Vendor quotas, manual
+triggers, and human queues should remain exceptional constraints.
+
+## 2. Increase Useful Defect Detection
+
+Find consequential correctness, security, reliability, data-loss, concurrency,
+and material-performance problems with manageable duplication and false
+positives.
+
+## 3. Make Cost Proportional to Value
+
+Reduce repeated context and model calls, cap spend per PR, and compare models
+using cost per accepted finding alongside token price.
+
+## 4. Build a Review Learning Flywheel
+
+Retain versioned findings, evidence, dispositions, model and prompt versions,
+cost, and latency. Feed stable lessons into deterministic checks and agent
+guidance so recurring problems are prevented upstream.
+
+## 5. Preserve Model and Provider Independence
+
+Keep orchestration, state, evaluation, and the finding contract independent of
+any one model vendor, inference host, or specialist review SaaS.
+
+## 6. Remain Narrow Enough to Win
+
+Build the smallest product that materially improves review for this workflow.
+Enterprise dashboards and broad code-quality-suite features require their own
+evidence of value before entering scope.
+
+# Current Product Scope
+
+The current output is a **GitHub App** implementing the stateful AI review
+described by
+[ADR 032](/projects/agentic-code-review/adrs/032-stateful-ai-code-review):
+
+* receive and verify GitHub webhook events;
+* apply deterministic eligibility, risk, debounce, and budget policies;
+* maintain one serialised state machine per Pull Request;
+* distinguish full reviews from incremental reviews of materially changed
+  hunks;
+* run multiple independent scouts and reconcile their structured findings;
+* publish or update native GitHub review findings without duplicating resolved
+  threads;
+* report model coverage failures and the resulting confidence explicitly; and
+* record versioned run, finding, model, outcome, latency, token, and cost data
+  for later evaluation.
+
+# Architecture Lineage
+
+The initial ADR set preserves three parts of the product's lineage. ADRs 000–014
+carry forward the platform decisions that shape the implementation: the public
+GitHub monorepo and toolchain, GitHub Actions delivery, Terraform and its state,
+secrets management, licensing, R2 storage, OpenRouter inference, and Cloudflare
+Workflow orchestration. ADRs 015–025 carry forward the development assurance
+applied to that implementation: local commit gates, dependency maintenance,
+deterministic code and infrastructure analysis, repository posture checks,
+secret detection, and spelling checks. ADRs 026–032 then record the succession
+of managed and custom AI reviewers that led to the current stateful product.
+
+Cloudflare Workers and the per-PR Durable Object are already selected by
+[ADR 032](/projects/agentic-code-review/adrs/032-stateful-ai-code-review).
+[ADR 014](/projects/agentic-code-review/adrs/014-cloudflare-workflows) inherits
+the Cloudflare Workflows platform decision and adds the orchestration, lease,
+and retry boundaries used by code review.
+
+The extraction test sets the boundary: inherit a decision when a standalone
+Agentic Code Review repository would need to keep or replace it on day one.
+Authoring assistants, project-management tools, user-interface choices, and
+unrelated Personal Site runtime decisions remain outside the lineage.
+
+The assurance ADRs govern how this service is developed. Their findings remain
+outside the GitHub App's review output. Adopting SonarQube, CodeQL, Trivy, or
+another deterministic analyser as product evidence requires a separate product
+decision because it changes the App's responsibilities and user experience.
+
+# Non-Goals
+
+The following capabilities remain outside the first release:
+
+* a coding agent or automatic remediation system;
+* a substitute for tests, deterministic analysis, human judgement, or required
+  approvals where those are appropriate;
+* a general code-quality, compliance, or software-development-lifecycle suite;
+* a repository-wide semantic search product;
+* a dashboard-first analytics product;
+* a GitLab, Bitbucket, Azure DevOps, or Gerrit integration;
+* a commercial multi-tenant service; or
+* a bundle of static-analysis tools.
+
+Static analysis may later enrich and validate the review output. It will be
+added only where it improves the product, and the relevant Personal Site ADRs
+will be inherited only when those decisions are actually adopted.
+
+# Success Measures
+
+The scorecard keeps quality, cost, coverage, latency, and noise visible together
+so improvement in one dimension cannot conceal damage elsewhere.
+
+<div className="overflow-x-auto">
+  | Outcome                 | Measure                                                                                                                  |
+  | ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+  | Useful findings         | Adjudicated acceptance rate and fix-through rate, with no-response outcomes reported separately                          |
+  | Low noise               | Rejected and duplicate findings as a share of published findings                                                         |
+  | Efficient spend         | Total inference, evaluation, runtime, and storage cost per accepted finding                                              |
+  | Efficient review        | Model calls and uncached input tokens per PR versus the stateless baseline                                               |
+  | Fast feedback           | Time from PR readiness or material change to the first published finding or terminal no-finding result                   |
+  | Adjudication latency    | Time from a published finding to acceptance, with rejected and no-response outcomes reported separately                  |
+  | Preserved coverage      | Downstream defects in review scope that no reviewer raised, used as an imperfect missed-defect proxy                     |
+  | Compounding improvement | Recurrence of a failure class before and after adding a test, rule, skill, or agent change                               |
+  | Operational fitness     | Monthly spend, failed runs, manual interventions, and maintenance time                                                   |
+  | Delivery system         | Change lead time, deployment frequency, failed deployment recovery time, change failure rate, and deployment rework rate |
+</div>
+
+Comparisons must be stratified by change size, risk, language, task type,
+repository area, and originating coding agent. Important model changes should
+also be tested against a frozen set of representative Pull Requests. Otherwise,
+task mix and Goodhart's Law will turn the scorecard into marketing.
+
+DORA metrics describe the whole delivery system. Causal claims about this
+reviewer require additional evidence, but those metrics provide essential
+guardrails for the core bet: higher agentic throughput should coincide with
+stable or improving failure, rework, and recovery outcomes.
+
+# Competitor Analysis
+
+This comparison records the market on **8 August 2026**. Prices and allowances
+provide a snapshot of vendor economics and a reminder to keep them outside
+architectural assumptions.
+
+## Managed Reviewers Used So Far
+
+<div className="overflow-x-auto">
+  | Product                                                                                                       | Current offer and strength                                                                                                                                                                                                                                                                                                       | Evidence from this workflow                                                                                                                                                                                                                       | Strategic assessment                                                                                                                                                                                                                                               |
+  | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+  | [CodeRabbit](https://docs.coderabbit.ai/management/plans)                                                     | Mature, broad reviews, PR summaries, repository learnings, and many bundled linters. OSS projects receive variable **1–10 reviews per rolling hour**. Pro costs **$24 per developer per month when billed annually, or $30 month-to-month** for five reviews per hour; Pro+ costs **$48/$60 per developer per month** for ten.   | Historically the broadest managed coverage, but this repository received the bottom OSS rate. Quality has shown little meaningful improvement over the past year; ranked reviews and newer workflow features have been buggy or low-value in use. | Strongest low-maintenance fallback, but variable OSS capacity, per-developer throttling, rising bundle prices, and expansion into planning, Slack automation, administration, and enterprise controls make it a poor foundation for unconstrained review velocity. |
+  | [Gemini Code Assist](https://developers.google.com/gemini-code-assist/docs/deprecations/consumer-code-review) | The consumer GitHub reviewer stopped accepting installations on 18 June 2026 and shut down on 17 July 2026. The enterprise product remains.                                                                                                                                                                                      | Added useful independent review at no cost, then disappeared as a consumer option.                                                                                                                                                                | Its withdrawal replaced a useful free reviewer with an enterprise-only path that is a poor fit for this user.                                                                                                                                                      |
+  | [Greptile](https://www.greptile.com/pricing)                                                                  | Whole-codebase graph context and learning from feedback. Starter is currently free for one active developer with **50 standard reviews per month**; Pro is **$30 per seat**, includes 50 credits, then charges **$1 per additional standard review**. Eligible OSS projects can apply for free access.                           | Reviews were complementary but insufficient alone and sometimes duplicated Gemini comments exactly. On 8 August 2026, the project was told it had exhausted a separate allowance of 100 free public-repository reviews for the month.             | Useful additional evidence, but finite credits, programme dependency, model correlation, and per-review overage make it another input rather than a dependable core.                                                                                               |
+  | [Codex code review](https://learn.chatgpt.com/docs/third-party/github)                                        | A high-severity GitHub review that follows `AGENTS.md`, normally reporting only P0/P1 issues. Automatic review is bundled into paid ChatGPT plans; current pricing uses task-dependent shared usage and optional credits, with no durable published review count.                                                                | Initially added a valuable independent high-severity pass, but review capacity was finite. The migration of Codex into the wider ChatGPT product made the review surface and its usage boundary less legible in practice.                         | Valuable when already included, but coupled to a broad agent subscription and mutable shared usage. It remains a supplementary reviewer with mutable capacity.                                                                                                     |
+  | [Qodo](https://www.qodo.ai/pricing/)                                                                          | Multi-agent, cross-repository review and governance. The general product has no permanent free tier after its trial; the **$30** Pro Team entry pack advertises roughly **18 reviews per month**, while qualified OSS projects can apply for free access. Enterprise adds governance, BYOK, on-premises deployment, and support. | The useful trial produced good findings, but the free integration produced no useful review activity after the trial. The custom prototype produced better findings per dollar.                                                                   | A credible paid fallback for a team wanting governance and support, but its credit economics and enterprise platform direction are a poor fit for this focused solo workflow.                                                                                      |
+</div>
+
+## Adjacent Alternatives
+
+<div className="overflow-x-auto">
+  | Product                                                                                      | Why it is credible                                                                                                                                                                                 | Constraint for this project                                                                                                                                                                                                                                                          |
+  | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+  | [GitHub Copilot code review](https://docs.github.com/en/copilot/concepts/agents/code-review) | Native GitHub integration, whole-repository context, suggested fixes, automatic reviews, and a low **$10/month** Copilot Pro entry price.                                                          | Review consumes shared GitHub AI Credits, model selection is intentionally unavailable, and from 1 June 2026 agentic reviews also consume GitHub Actions minutes. It consolidates the workflow but increases dependence on the repository host and another mutable shared allowance. |
+  | [Graphite AI Reviews](https://graphite.com/pricing)                                          | Integrates review with stacked PRs, inbox, merge queue, CI summaries, and fixes. Its **$40/user/month** Team plan advertises unlimited AI reviews.                                                 | The value proposition is a broader replacement PR workflow. Paying for stacking, inbox, automations, and merge-queue features is unnecessary when the required product is a reviewer inside GitHub.                                                                                  |
+  | [Cursor Bugbot](https://cursor.com/pricing)                                                  | Connects PR review to a popular coding-agent environment; agentic Bugbot review is included in the **$40/user/month** Teams product and available through usage-based billing on individual plans. | It couples independent review to the same product family that can generate the change and again bundles coding, cloud agents, administration, analytics, and marketplace features. Reviewer independence and portable evidence matter more here.                                     |
+  | [PR-Agent](https://github.com/The-PR-Agent/pr-agent)                                         | Apache-2.0, self-hostable, model-agnostic, and supports GitHub Actions, Docker, webhooks, several git providers, and multiple review tools.                                                        | It is now a community-maintained legacy project donated by Qodo. Adapting its generic single-call tools to the desired stateful scout-and-merger system required comparable effort to the focused implementation. It remains useful prior art.                                       |
+  | Direct single-model review                                                                   | Minimal orchestration and potentially the lowest cost for a strong frontier model.                                                                                                                 | Recreates one model's blind spots, provides no comparative evidence, and still needs state, GitHub delivery, budgets, and finding lifecycle. It remains a valid configuration if evaluation shows the ensemble adds no retained value.                                               |
+</div>
+
+## Competitive Position
+
+The incumbents are converging on broad software-development platforms: review
+plus planning, coding, fixes, analytics, compliance, administration, and
+workflow control. That is a rational way to increase enterprise contract value.
+It also leaves a gap for a narrow product whose job is to deliver the best
+available review under an explicit budget without owning the rest of the
+software-development lifecycle.
+
+Agentic Code Review competes on the review loop required by its initial user. It
+wins if it provides:
+
+* more accepted findings per dollar;
+* reliable capacity at the required development pace;
+* less repeated context and duplicate commentary;
+* faster adoption of better or cheaper models;
+* transparent degradation and cost controls; and
+* portable evidence that improves both reviewers and coding agents.
+
+The longitudinal review corpus and reliable outcome attribution provide the
+defensible asset. Prompts and preferred models remain replaceable components.
+
+# Roadmap Boundaries
+
+## Now: Stateful GitHub Review
+
+Move the proven custom ensemble from stateless per-push GitHub Actions into the
+stateful GitHub App. Validate lower repeated token usage and cost without losing
+useful coverage.
+
+## Next: Close the Evaluation Loop
+
+Attribute findings to later changes and human dispositions, replay a fixed PR
+set, compare models fairly, and feed stable lessons into tests and agent
+guidance.
+
+## Later: Evidence-Led Enrichment
+
+Static analysis may be incorporated to validate model findings, supply
+deterministic evidence, or handle work more reliably than a model. Each tool
+must improve the unified output enough to justify its integration and inherited
+ADR; scanner count carries no product value by itself.
+
+## Possible: Generalise the Review Primitive
+
+Webhook ingestion, durable context, policy-based triggering, multi-model
+review, suggestion delivery, and feedback capture may support other review
+domains or repositories. Demonstrated reuse will set the pace and direction of
+generalisation.
+
+# Risks and Counterarguments
+
+* **Buying should usually be cheaper than building.** This project explicitly
+  challenges [Less Is More](/projects?tab=philosophy#less-is-more). Review
+  policy, state, and evaluation now enable multiple projects, while coding
+  agents have reduced the cost of a narrow custom implementation. A managed
+  reviewer becomes the right choice if maintenance reverses that comparison.
+* **Specialist vendors may improve faster.** They have more users, review data,
+  and engineering investment. Measured outcomes must prove the value of
+  customization.
+* **Open-weight progress may stall or inference may consolidate.** The
+  provider-neutral boundary supports closed models and direct APIs as well.
+* **An ensemble can create correlated noise.** Retention and outcome data must
+  be able to remove scouts as readily as add them; model count alone has no
+  value.
+* **Evaluation data can mislead.** Sparse dispositions, changing task mix, and
+  subjective outcomes make controlled replays and stratification necessary.
+* **Owned infrastructure can become a hobby.** Dashboard work, general platform
+  features, and speculative abstractions are out of scope until review outcomes
+  justify them.
+* **Dependencies remain.** The product uses GitHub, Cloudflare, OpenRouter, and
+  inference providers. Replaceable boundaries keep any one review SaaS from
+  owning the learning layer.
+* **Review authority remains human.** The App is advisory. Tests, deterministic
+  checks, and human judgement still decide whether a change is safe.
+
+# Relation to Building Philosophy
+
+* **[Short Feedback Loops](/projects?tab=philosophy#short-feedback-loops):**
+  timely GitHub-native review keeps feedback inside the change and avoids quota
+  resets or a separate dashboard.
+* **[Build Flywheels](/projects?tab=philosophy#build-flywheels):** every review
+  can improve model selection, prompts, tests, skills, instructions, and future
+  coding-agent choices.
+* **[Avoid Negative Compounding](/projects?tab=philosophy#avoid-negative-compounding):**
+  review capacity prevents higher generation velocity from compounding defects
+  and slowing future delivery.
+* **[Less Is More](/projects?tab=philosophy#less-is-more):** own only the layer
+  that is now strategically differentiating; continue renting models,
+  inference, Git hosting, and compute.
+* **[LLM-Optimized](/projects?tab=philosophy#llm-optimized):** keep policy,
+  schemas, architecture, and decisions in the repository where both coding and
+  review agents can use them.
+* **[Build in Public](/projects?tab=philosophy#build-in-public):** expose the
+  decisions, trade-offs, failures, review output, and supporting evidence.
+* **[Respect Goodhart's Law](/projects?tab=philosophy#respect-goodharts-and-conways-laws):**
+  never substitute finding count, benchmark rank, or acceptance rate alone for
+  safer changes and sustained delivery velocity.
+
+# Product Bet
+
+Code generation will keep getting cheaper and faster. Models will keep trading
+places. Inference competition will get fiercer. Specialist review vendors will
+keep moving upmarket because enterprise governance and workflow consolidation
+support larger contracts than excellent reviews for solo developers.
+
+If that bet is right, owning a small, stateful, measurable review system will
+become more valuable with time while owning a particular model integration will
+become less valuable. Agentic Code Review exists to capture that asymmetry.

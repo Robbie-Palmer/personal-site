@@ -521,13 +521,25 @@ export function loadADRs(): ADRLoadResult {
         `Inherited ADR stub ${record.adrRef} must not define tech_stack; technologies are derived from '${inheritsFrom}'`,
       );
     }
+    const titleOverride = record.data.title;
+    if (
+      titleOverride !== undefined &&
+      (typeof titleOverride !== "string" || titleOverride.trim().length === 0)
+    ) {
+      throw new Error(
+        `Inherited ADR stub ${record.adrRef} has invalid title override`,
+      );
+    }
 
     const sourceRelations = relations.get(inheritsFrom);
     const adr: ADR = {
       adrRef: record.adrRef,
       slug: record.slug,
       projectSlug: record.projectSlug,
-      title: sourceADR.title,
+      title:
+        typeof titleOverride === "string"
+          ? titleOverride.trim()
+          : sourceADR.title,
       date: sourceADR.date,
       status: sourceADR.status,
       inheritsFrom,

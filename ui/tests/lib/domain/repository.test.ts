@@ -322,6 +322,96 @@ Recipe-site note: this is adopted as-is for now.
         result.relations.get("recipe-site:000-react")?.technologies,
       ).toEqual(["react"]);
     });
+
+    it("should allow an inherited ADR to override its local display title", () => {
+      const sourceADR = `---
+title: "ADR 049: Cloudflare Workflows for Source Domain"
+date: "2026-07-08"
+status: "Accepted"
+tech_stack: ["Cloudflare Workflows"]
+---
+
+Canonical source content.`;
+      const inheritedStub = `---
+inherits_from: "source:049-cloudflare-workflows"
+title: "Cloudflare Workflows"
+---
+
+Project-specific orchestration notes.`;
+
+      vi.mocked(fs.existsSync).mockImplementation(() => true);
+      vi.mocked(fs.readdirSync).mockImplementation(((path: string) => {
+        if (path.endsWith("projects")) {
+          return [mockDirent("source"), mockDirent("target")];
+        }
+        if (path.includes("source/adrs")) {
+          return ["049-cloudflare-workflows.mdx"];
+        }
+        if (path.includes("target/adrs")) {
+          return ["014-cloudflare-workflows.mdx"];
+        }
+        return [];
+      }) as unknown as typeof fs.readdirSync);
+      vi.mocked(fs.readFileSync).mockImplementation((path) => {
+        const pathString = path.toString();
+        if (pathString.includes("source/adrs")) return sourceADR;
+        if (pathString.includes("target/adrs")) return inheritedStub;
+        throw new Error(`Unexpected file read: ${pathString}`);
+      });
+
+      const result = loadADRs();
+      const inherited = result.entities.get("target:014-cloudflare-workflows");
+
+      expect(inherited?.title).toBe("Cloudflare Workflows");
+      expect(inherited?.status).toBe("Accepted");
+      expect(inherited?.inheritsFrom).toBe("source:049-cloudflare-workflows");
+      expect(
+        result.relations.get("target:014-cloudflare-workflows")?.technologies,
+      ).toEqual(["cloudflare-workflows"]);
+    });
+
+    it.each([
+      ["empty", 'title: ""'],
+      ["whitespace-only", 'title: "   "'],
+      ["non-string", "title: 123"],
+    ])("should reject a %s inherited ADR title override", (_case, title) => {
+      const sourceADR = `---
+title: "ADR 049: Cloudflare Workflows for Source Domain"
+date: "2026-07-08"
+status: "Accepted"
+tech_stack: ["Cloudflare Workflows"]
+---
+
+Canonical source content.`;
+      const inheritedStub = `---
+inherits_from: "source:049-cloudflare-workflows"
+${title}
+---
+
+Project-specific orchestration notes.`;
+
+      vi.mocked(fs.existsSync).mockImplementation(() => true);
+      vi.mocked(fs.readdirSync).mockImplementation(((path: string) => {
+        if (path.endsWith("projects")) {
+          return [mockDirent("source"), mockDirent("target")];
+        }
+        if (path.includes("source/adrs")) {
+          return ["049-cloudflare-workflows.mdx"];
+        }
+        if (path.includes("target/adrs")) {
+          return ["014-cloudflare-workflows.mdx"];
+        }
+        return [];
+      }) as unknown as typeof fs.readdirSync);
+      vi.mocked(fs.readFileSync).mockImplementation((path) => {
+        const pathString = path.toString();
+        if (pathString.includes("source/adrs")) return sourceADR;
+        if (pathString.includes("target/adrs")) return inheritedStub;
+        throw new Error(`Unexpected file read: ${pathString}`);
+      });
+
+      expect(() => loadADRs()).toThrow("has invalid title override");
+    });
   });
 
   describe("loadJobRoles", () => {
