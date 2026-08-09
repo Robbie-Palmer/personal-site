@@ -525,6 +525,12 @@ export function validateFindings(
     if (!isObject(candidate) || !required.every((key) => key in candidate)) continue;
     if (!["critical", "high", "medium", "low"].includes(String(candidate.severity))) continue;
     if (typeof candidate.file !== "string" || options.allowedFiles && !options.allowedFiles.has(candidate.file)) continue;
+    if (
+      candidate.line !== null &&
+      (typeof candidate.line !== "number" ||
+        !Number.isSafeInteger(candidate.line) ||
+        candidate.line <= 0)
+    ) continue;
     const confidence = Number(candidate.confidence);
     if (!Number.isFinite(confidence)) continue;
     if (options.merged) {

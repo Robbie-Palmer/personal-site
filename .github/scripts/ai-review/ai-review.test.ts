@@ -58,6 +58,16 @@ test("finding validation enforces confidence bounds at runtime", () => {
   assert.equal(validateFindings({ findings: [{ ...finding, confidence: 4 }] }, { merged: false })[0]?.confidence, 1);
 });
 
+test("finding validation accepts only positive or null diff lines", () => {
+  assert.deepEqual(
+    validateFindings(
+      { findings: [{ ...finding, line: 0 }, { ...finding, line: null }] },
+      { merged: false },
+    ),
+    [{ ...finding, line: null }],
+  );
+});
+
 test("completion accepts a null finish reason but rejects truncation", () => {
   assert.equal(completionContent({ finish_reason: null, message: { content: "{}" } }, "model"), "{}");
   assert.throws(

@@ -151,6 +151,22 @@ describe("finding lifecycle publication", () => {
     expect(request.body).toContain(`ai-review-finding:${finding.findingId}`);
   });
 
+  it("fails safely instead of duplicating findings beyond the reconciliation limit", async () => {
+    const fullPage = Array.from({ length: 100 }, (_, index) => ({
+      id: index + 1,
+      body: "unrelated review comment",
+      user: { login: options.botLogin },
+    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(() => Promise.resolve(Response.json(fullPage))),
+    );
+
+    await expect(publishFindingComments(options)).rejects.toThrow(
+      "1,000-comment safety limit",
+    );
+  });
+
   it("falls back to explicit commands for non-line and rejected locations", async () => {
     const nonLine = { ...finding, line: null };
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(Response.json([])));

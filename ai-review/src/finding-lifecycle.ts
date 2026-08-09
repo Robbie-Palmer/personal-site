@@ -128,6 +128,11 @@ async function existingFindingComments(options: {
       }
     }
     if (comments.length < 100) break;
+    if (page === 10) {
+      throw new Error(
+        "Review comment reconciliation exceeded the 1,000-comment safety limit",
+      );
+    }
   }
   return byFinding;
 }

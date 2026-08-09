@@ -232,7 +232,7 @@ function isIdentifiedFinding(value: unknown): value is IdentifiedMergedFinding {
     (finding.line === null ||
       (typeof finding.line === "number" &&
         Number.isSafeInteger(finding.line) &&
-        finding.line >= 0)) &&
+        finding.line > 0)) &&
     typeof finding.title === "string" &&
     finding.title.length > 0 &&
     typeof finding.evidence === "string" &&
