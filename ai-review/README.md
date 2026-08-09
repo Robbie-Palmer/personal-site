@@ -32,8 +32,19 @@ The service is a visible, stateful publisher:
   engine imported by this service.
 
 Automatic runs cover non-draft PR opens, ready-for-review transitions, reopens,
-and synchronized heads. An exact `/ai-review` issue comment from an owner,
-member, or collaborator requests a run explicitly, including on a draft.
+and synchronized heads. After the first completed review, synchronized heads
+send only new or materially changed hunks, bounded context for their files, and
+unchanged hunks tied to affected open findings. Generated files, lockfiles, and
+whitespace-only hunks are skipped. Authentication, secrets, database-schema,
+infrastructure, and deployment changes escalate deterministically to full
+coverage. The rolling comment always labels coverage as full, incremental, or
+skipped.
+
+An exact `/ai-review` or `/ai-review full` issue comment from an owner, member,
+or collaborator forces a full review of the current head, including on a draft.
+If that same head is subsequently merged, its latest successful full review is
+the final pre-merge review retrospectively; any later commit requires another
+full review.
 Ordinary comments and review-thread activity never schedule paid work. Replies,
 reaction-count snapshots, thread resolution, and trusted
 `/ai-review acknowledge f_<id> <reason>` or
@@ -151,8 +162,11 @@ move. PR-scoped finding IDs hash the path and normalized finding title, excludin
 severity, status, and model provenance. The Durable Object upserts these
 identities into `review_hunks`, `review_findings`, and
 `review_finding_hunks`; first-seen values remain immutable while last-seen
-values advance with later completed runs. R2 retains raw per-model candidates
-separately from the merged findings that were actually published.
+values advance with later completed runs. `review_run_hunks` records both the
+current-head hunk set and which subset was sent for review, allowing the next
+run to compare against the last completed head. R2 retains the trigger decision,
+full coverage accounting, raw per-model candidates, and the merged findings
+that were actually published.
 
 Native review-comment mappings live in `review_finding_comments`, so later
 heads reconcile the same finding instead of publishing another thread.

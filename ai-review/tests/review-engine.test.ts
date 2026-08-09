@@ -16,6 +16,7 @@ import {
   mergeFindings,
   prepareReview,
   publishReview,
+  publishSkippedReview,
   recordReview,
   runScouts,
 } from "../src/review-engine";
@@ -233,6 +234,148 @@ describe("stateful review engine", () => {
       guidelines: "",
       threads: "",
     });
+  });
+
+  it("skips generated, lockfile, and whitespace-only hunks unless forced", async () => {
+    const pullRequest = {
+      state: "open",
+      draft: false,
+      author_association: "OWNER",
+      user: { login: "robbie" },
+      head: {
+        sha: params.headSha,
+        repo: { full_name: params.repository },
+      },
+    };
+    const files = [
+      {
+        filename: "pnpm-lock.yaml",
+        status: "modified",
+        patch: "@@ -1 +1 @@\n-lock: one\n+lock: two",
+      },
+      {
+        filename: "src/client.generated.ts",
+        status: "modified",
+        patch: "@@ -1 +1 @@\n-export const value=1\n+export const value=2",
+      },
+      {
+        filename: "src/app.ts",
+        status: "modified",
+        patch: "@@ -1 +1 @@\n-  export const value = 1\n+    export const value = 1",
+      },
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(json({ token: "installation-token" }))
+        .mockResolvedValueOnce(json(pullRequest))
+        .mockResolvedValueOnce(json(files)),
+    );
+
+    await expect(prepareReview(environment(), params)).resolves.toMatchObject({
+      skipReason: "no semantic hunks to review",
+      diff: "",
+      coverage: {
+        mode: "skipped",
+        reviewedHunkIds: [],
+        skippedPaths: [
+          "pnpm-lock.yaml",
+          "src/app.ts",
+          "src/client.generated.ts",
+        ],
+      },
+    });
+  });
+
+  it("does not resend an unchanged hunk after synchronize", async () => {
+    const patch =
+      "@@ -1 +1 @@\n-old first\n+reviewed first\n" +
+      "@@ -10 +10 @@\n-old second\n+new second";
+    const fullDiff =
+      `diff --git a/app.ts b/app.ts\nstatus modified\n${patch}\n`;
+    const [reviewedHunk, newHunk] = await identifyDiffHunks(fullDiff);
+    expect(reviewedHunk).toBeDefined();
+    expect(newHunk).toBeDefined();
+
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(json({ token: "installation-token" }))
+        .mockResolvedValueOnce(
+          json({
+            state: "open",
+            draft: false,
+            author_association: "OWNER",
+            user: { login: "robbie" },
+            head: {
+              sha: params.headSha,
+              repo: { full_name: params.repository },
+            },
+          }),
+        )
+        .mockResolvedValueOnce(
+          json([{ filename: "app.ts", status: "modified", patch }]),
+        )
+        .mockResolvedValueOnce(
+          json({
+            data: {
+              repository: {
+                file0: {
+                  byteSize: 30,
+                  isBinary: false,
+                  isTruncated: false,
+                  text: "reviewed first\nnew second",
+                },
+              },
+            },
+          }),
+        )
+        .mockResolvedValueOnce(
+          json({
+            encoding: "base64",
+            size: 19,
+            content: Buffer.from("Review correctness.").toString("base64"),
+          }),
+        )
+        .mockResolvedValueOnce(
+          json({
+            data: {
+              repository: { pullRequest: { reviewThreads: { nodes: [] } } },
+            },
+          }),
+        ),
+    );
+    const env = environment();
+    Object.assign(env, {
+      PR_STATE: {
+        idFromName: vi.fn(() => "coordinator-id"),
+        get: vi.fn(() => ({
+          fetch: vi.fn(() =>
+            Promise.resolve(
+              json({
+                headSha: "b".repeat(40),
+                hunkIds: [reviewedHunk!.hunkId],
+                openFindings: [],
+              }),
+            ),
+          ),
+        })),
+      },
+    });
+
+    const prepared = await prepareReview(env, params);
+
+    expect(prepared.coverage).toMatchObject({
+      mode: "incremental",
+      reviewedHunkIds: [newHunk!.hunkId],
+      unchangedHunkIds: [reviewedHunk!.hunkId],
+    });
+    expect(prepared.diff).toContain("+new second");
+    expect(prepared.diff).not.toContain("+reviewed first");
+    expect(prepared.hunks).toEqual([newHunk]);
+    expect(prepared.allHunks).toEqual([reviewedHunk, newHunk]);
   });
 
   it("rejects invalid model configuration before making model calls", async () => {
@@ -568,6 +711,61 @@ describe("stateful review engine", () => {
     ).rejects.toThrow("Cannot record an unprepared review");
   });
 
+  it("publishes skipped coverage without erasing prior fallback findings", async () => {
+    const existingBody = [
+      STATEFUL_REVIEW_MARKER,
+      '<!-- ai-review-cost:{"runs":1,"total_usd":0.1} -->',
+      "## Stateful AI code review",
+      "",
+      "**Coverage: Full coverage.** 1/1 semantic hunk(s) reviewed. Initial.",
+      "",
+      "## Findings without a diff line",
+      "",
+      "- Existing fallback finding",
+    ].join("\n");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ token: "installation-token" }))
+      .mockResolvedValueOnce(json({ head: { sha: params.headSha } }))
+      .mockResolvedValueOnce(
+        json([
+          {
+            id: 99,
+            user: { login: "robbie-palmer-ai-review[bot]" },
+            body: existingBody,
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(json({}));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const publication = await publishSkippedReview(environment(), params, {
+      headSha: params.headSha,
+      paths: [],
+      omitted: [],
+      coverage: {
+        mode: "skipped",
+        reason: "all current semantic hunks were covered",
+        baselineHeadSha: "b".repeat(40),
+        totalHunks: 1,
+        reviewedHunkIds: [],
+        unchangedHunkIds: [`h_${"a".repeat(24)}`],
+        skippedHunkIds: [],
+        affectedFindingIds: [],
+        paths: [],
+        skippedPaths: [],
+      },
+    });
+
+    expect(publication).toMatchObject({ commentId: 99, runCostUsd: 0 });
+    const update = JSON.parse(
+      String(fetchMock.mock.calls[3]?.[1]?.body),
+    ) as { body: string };
+    expect(update.body).toContain("Coverage: Skipped coverage");
+    expect(update.body).toContain("Existing fallback finding");
+    expect(update.body).toContain('ai-review-cost:{"runs":1,"total_usd":0.1}');
+  });
+
   it("runs and visibly publishes the same OpenRouter plus OpenCode ensemble", async () => {
     const publishedBodies: string[] = [];
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -782,6 +980,7 @@ describe("stateful review engine", () => {
     expect(publishedBodies[0]).toContain("Reported by: `moonshotai/kimi-k2.6`");
     expect(publishedBodies[1]).toContain(STATEFUL_REVIEW_MARKER);
     expect(publishedBodies[1]).toContain("## Stateful AI code review");
+    expect(publishedBodies[1]).toContain("Coverage: Full coverage");
     expect(put).toHaveBeenCalledOnce();
     const record = JSON.parse(String(put.mock.calls[0]?.[1])) as {
       schemaVersion: number;

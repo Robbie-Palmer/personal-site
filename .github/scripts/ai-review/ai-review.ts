@@ -596,14 +596,18 @@ export class Reviewer {
     return output;
   }
 
-  async changedFiles(): Promise<{ diff: string; paths: string[]; omitted: string[] }> {
+  async changedFiles(options: { includeIgnored?: boolean } = {}): Promise<{
+    diff: string;
+    paths: string[];
+    omitted: string[];
+  }> {
     const files = await this.pages<ChangedFile>(`${this.prPath}/files`, 30);
     const blocks: string[] = [];
     const paths: string[] = [];
     const omitted: string[] = [];
     let used = 0;
     for (const file of files) {
-      if (!file.filename || ignored(file.filename)) continue;
+      if (!file.filename || (!options.includeIgnored && ignored(file.filename))) continue;
       if (typeof file.patch !== "string" || file.patch.length > MAX_PATCH_CHARS) {
         omitted.push(file.filename);
         continue;
@@ -891,7 +895,7 @@ export class Reviewer {
   async existingComment(
     marker = MARKER,
     botLogins: ReadonlySet<string> = BOT_LOGINS,
-  ): Promise<{ id?: number; state: ReviewState }> {
+  ): Promise<{ body?: string; id?: number; state: ReviewState }> {
     const comments = await this.pages<JsonObject>(
       `/repos/${this.settings.repository}/issues/${this.settings.prNumber}/comments`,
     );
@@ -911,12 +915,13 @@ export class Reviewer {
           // A malformed historical marker should not block a fresh review.
         }
       }
-      return { id: Number(comment.id), state };
+      return { body, id: Number(comment.id), state };
     }
     return { state: { runs: 0, total_usd: 0 } };
   }
 
-  async reviewThreadContext(): Promise<string> {
+  async reviewThreadContext(paths?: string[]): Promise<string> {
+    const relevantPaths = paths ? new Set(paths) : undefined;
     const [owner, repository] = this.settings.repository.split("/", 2);
     const query = `query($owner:String!, $repository:String!, $number:Int!) {
       repository(owner:$owner, name:$repository) {
@@ -946,10 +951,15 @@ export class Reviewer {
       const nodes = isObject(connection) && Array.isArray(connection.nodes) ? connection.nodes : [];
       const comments = nodes
         .filter(isObject)
+        .filter(
+          (comment) =>
+            !relevantPaths || relevantPaths.has(String(comment.path ?? "")),
+        )
         .map((comment) => {
           const author = isObject(comment.author) ? comment.author.login : "unknown";
           return `${String(author ?? "unknown")} at ${String(comment.path ?? "?")}:${String(comment.line ?? "?")}: ${String(comment.body ?? "").slice(0, 1_500)}`;
         });
+      if (comments.length === 0) continue;
       const block = `THREAD ${state}\n${comments.join("\n")}\nEND THREAD`;
       if (used + block.length > MAX_THREAD_CHARS) break;
       blocks.push(block);

@@ -20,6 +20,7 @@ import {
   mergeFindings,
   prepareReview,
   publishReview,
+  publishSkippedReview,
   recordReview,
   recordReviewTerminal,
   runScouts,
@@ -73,6 +74,12 @@ const CREATE_REVIEW_HUNKS_TABLE =
   "last_seen_head_sha TEXT NOT NULL, " +
   "first_seen_at TEXT NOT NULL, " +
   "last_seen_at TEXT NOT NULL)";
+const CREATE_REVIEW_RUN_HUNKS_TABLE =
+  "CREATE TABLE IF NOT EXISTS review_run_hunks (" +
+  "run_id TEXT NOT NULL, " +
+  "hunk_id TEXT NOT NULL, " +
+  "reviewed INTEGER NOT NULL, " +
+  "PRIMARY KEY (run_id, hunk_id))";
 const CREATE_REVIEW_FINDINGS_TABLE =
   "CREATE TABLE IF NOT EXISTS review_findings (" +
   "finding_id TEXT PRIMARY KEY, " +
@@ -403,6 +410,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       );
     }
     this.ctx.storage.sql.exec(CREATE_REVIEW_HUNKS_TABLE);
+    this.ctx.storage.sql.exec(CREATE_REVIEW_RUN_HUNKS_TABLE);
     this.ctx.storage.sql.exec(CREATE_REVIEW_FINDINGS_TABLE);
     const findingColumns = this.ctx.storage.sql
       .exec<{ name: string }>("PRAGMA table_info(review_findings)")
@@ -430,6 +438,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     if (path === "/events") return this.receiveEvent(request);
     if (path === "/interactions") return this.receiveInteraction(request);
     if (path === "/reviews/claim") return this.claimReview(request);
+    if (path === "/reviews/baseline") return this.reviewBaseline();
     if (path === "/reviews/complete") return this.completeReview(request);
     if (path === "/reviews/fail") return this.failReview(request);
     return new Response("Not found", { status: 404 });
@@ -837,6 +846,59 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     return json(result);
   }
 
+  private reviewBaseline(): Response {
+    const completed = this.ctx.storage.sql
+      .exec<{ run_id: string; head_sha: string }>(
+        `SELECT run_id, head_sha FROM review_runs
+         WHERE status = 'completed'
+         ORDER BY completed_at DESC, run_id DESC LIMIT 1`,
+      )
+      .toArray()[0];
+    if (!completed) {
+      return json({ hunkIds: [], openFindings: [] });
+    }
+    let hunkIds = this.ctx.storage.sql
+      .exec<{ hunk_id: string }>(
+        "SELECT hunk_id FROM review_run_hunks WHERE run_id = ? ORDER BY hunk_id",
+        completed.run_id,
+      )
+      .toArray()
+      .map(({ hunk_id }) => hunk_id);
+    // Runs completed before review_run_hunks was introduced still have enough
+    // durable state for a conservative one-time migration baseline.
+    if (hunkIds.length === 0) {
+      hunkIds = this.ctx.storage.sql
+        .exec<{ hunk_id: string }>(
+          `SELECT hunk_id FROM review_hunks
+           WHERE last_seen_head_sha = ? ORDER BY hunk_id`,
+          completed.head_sha,
+        )
+        .toArray()
+        .map(({ hunk_id }) => hunk_id);
+    }
+    const findings = this.ctx.storage.sql
+      .exec<{ finding_id: string; file_path: string; title: string }>(
+        `SELECT finding_id, file_path, title FROM review_findings
+         WHERE status = 'open' AND disposition IS NULL
+         ORDER BY finding_id LIMIT 100`,
+      )
+      .toArray();
+    const openFindings = findings.map((finding) => ({
+      findingId: finding.finding_id,
+      file: finding.file_path,
+      title: finding.title,
+      hunkIds: this.ctx.storage.sql
+        .exec<{ hunk_id: string }>(
+          `SELECT hunk_id FROM review_finding_hunks
+           WHERE finding_id = ? ORDER BY hunk_id`,
+          finding.finding_id,
+        )
+        .toArray()
+        .map(({ hunk_id }) => hunk_id),
+    }));
+    return json({ headSha: completed.head_sha, hunkIds, openFindings });
+  }
+
   private async completeReview(request: Request): Promise<Response> {
     const body = (await request.json().catch(() => null)) as {
       runId?: unknown;
@@ -844,6 +906,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       costUsd?: unknown;
       commentId?: unknown;
       hunks?: unknown;
+      currentHunks?: unknown;
       findings?: unknown;
       findingPublications?: unknown;
     } | null;
@@ -857,6 +920,9 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       (body.commentId !== undefined && typeof body.commentId !== "number") ||
       !Array.isArray(body.hunks) ||
       !body.hunks.every(isReviewHunk) ||
+      (body.currentHunks !== undefined &&
+        (!Array.isArray(body.currentHunks) ||
+          !body.currentHunks.every(isReviewHunk))) ||
       !Array.isArray(body.findings) ||
       !body.findings.every(isIdentifiedFinding) ||
       (body.findingPublications !== undefined &&
@@ -865,9 +931,12 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     ) {
       return json({ error: "Invalid review completion" }, 400);
     }
+    const reviewedHunks = body.hunks as ReviewHunk[];
+    const currentHunks = (body.currentHunks ?? body.hunks) as ReviewHunk[];
     const completionHunkIds = new Set(
-      (body.hunks as ReviewHunk[]).map(({ hunkId }) => hunkId),
+      reviewedHunks.map(({ hunkId }) => hunkId),
     );
+    const currentHunkIds = new Set(currentHunks.map(({ hunkId }) => hunkId));
     const completionFindings = body.findings as IdentifiedMergedFinding[];
     const completionFindingsById = new Map(
       completionFindings.map((finding) => [finding.findingId, finding]),
@@ -875,6 +944,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     const findingPublications = (body.findingPublications ??
       []) as FindingPublication[];
     if (
+      reviewedHunks.some((hunk) => !currentHunkIds.has(hunk.hunkId)) ||
       completionFindings.some((finding) =>
         finding.hunkIds.some((hunkId) => !completionHunkIds.has(hunkId)),
       ) ||
@@ -894,7 +964,8 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         headSha: body.headSha,
         costUsd: body.costUsd,
         commentId: body.commentId ?? null,
-        hunks: body.hunks,
+        hunks: reviewedHunks,
+        currentHunks,
         findings: body.findings,
         findingPublications,
       }),
@@ -934,7 +1005,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         }
         return "missing";
       }
-      for (const hunk of body.hunks as ReviewHunk[]) {
+      for (const hunk of currentHunks) {
         this.ctx.storage.sql.exec(
           `INSERT INTO review_hunks
            (hunk_id, fingerprint, file_path, first_seen_head_sha,
@@ -950,6 +1021,13 @@ export class PullRequestCoordinator extends DurableObject<Env> {
           body.headSha,
           completedAt,
           completedAt,
+        );
+        this.ctx.storage.sql.exec(
+          `INSERT INTO review_run_hunks (run_id, hunk_id, reviewed)
+           VALUES (?, ?, ?)`,
+          body.runId,
+          hunk.hunkId,
+          completionHunkIds.has(hunk.hunkId) ? 1 : 0,
         );
       }
       for (const finding of body.findings as IdentifiedMergedFinding[]) {
@@ -1104,6 +1182,12 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
           pullRequestNumber: event.payload.pullRequestNumber,
           reason: prepared.skipReason,
         });
+        const skippedPublication =
+          prepared.coverage?.mode === "skipped"
+            ? await workflowStep.do("publish-skipped-coverage", () =>
+                publishSkippedReview(this.env, event.payload, prepared!),
+              )
+            : undefined;
         await workflowStep.do("record-skipped-review", () =>
           recordReviewTerminal({
             env: this.env,
@@ -1112,6 +1196,7 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
             status: "skipped",
             reason: prepared?.skipReason,
             prepared,
+            publication: skippedPublication,
             timestamp: event.timestamp,
           }),
         );

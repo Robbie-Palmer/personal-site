@@ -127,6 +127,23 @@ describe("PullRequestCoordinator in workerd", () => {
     );
     await expect(completion.json()).resolves.toEqual({ completed: true });
 
+    const firstBaseline = await stub.fetch(
+      "https://coordinator.test/reviews/baseline",
+      { method: "POST", body: "{}" },
+    );
+    await expect(firstBaseline.json()).resolves.toEqual({
+      headSha: event.headSha,
+      hunkIds: [`h_${"c".repeat(24)}`],
+      openFindings: [
+        {
+          findingId: `f_${"b".repeat(24)}`,
+          file: "app.ts",
+          title: "Finding",
+          hunkIds: [`h_${"c".repeat(24)}`],
+        },
+      ],
+    });
+
     const interaction = {
       deliveryId: "workerd-feedback-1",
       eventName: "pull_request_review_thread",
@@ -217,6 +234,26 @@ describe("PullRequestCoordinator in workerd", () => {
           newLines: 1,
         },
       ],
+      currentHunks: [
+        {
+          hunkId: `h_${"c".repeat(24)}`,
+          fingerprint: "d".repeat(64),
+          file: "app.ts",
+          oldStart: 50,
+          oldLines: 1,
+          newStart: 60,
+          newLines: 1,
+        },
+        {
+          hunkId: `h_${"e".repeat(24)}`,
+          fingerprint: "f".repeat(64),
+          file: "unchanged.ts",
+          oldStart: 1,
+          oldLines: 1,
+          newStart: 1,
+          newLines: 1,
+        },
+      ],
       findings: [
         {
           findingId: `f_${"b".repeat(24)}`,
@@ -259,6 +296,14 @@ describe("PullRequestCoordinator in workerd", () => {
     await expect(retriedCompletion.json()).resolves.toEqual({
       completed: true,
       duplicate: true,
+    });
+    const laterBaseline = await stub.fetch(
+      "https://coordinator.test/reviews/baseline",
+      { method: "POST", body: "{}" },
+    );
+    await expect(laterBaseline.json()).resolves.toMatchObject({
+      headSha: laterHead,
+      hunkIds: [`h_${"c".repeat(24)}`, `h_${"e".repeat(24)}`],
     });
     await runInDurableObject(stub, async (_instance, state) => {
       expect(

@@ -425,14 +425,18 @@ export function parseReviewEvent(
     return parsePullRequestEvent(event, identity);
   }
 
+  const reviewCommand =
+    typeof event.comment?.body === "string"
+      ? /^\/ai-review(?: full)?$/.exec(event.comment.body)
+      : null;
   if (
     eventName !== "issue_comment" ||
     identity.action !== "created" ||
-    event.comment?.body !== "/ai-review" ||
-    typeof event.comment.author_association !== "string" ||
+    !reviewCommand ||
+    typeof event.comment?.author_association !== "string" ||
     !TRUSTED_AUTHOR_ASSOCIATIONS.has(event.comment.author_association) ||
     typeof event.sender?.login !== "string" ||
-    typeof event.comment.user?.login !== "string" ||
+    typeof event.comment?.user?.login !== "string" ||
     event.sender.login.toLowerCase() !== event.comment.user.login.toLowerCase()
   ) {
     return { kind: "ignored", reason: "unsupported-event" };

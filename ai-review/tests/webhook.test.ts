@@ -161,6 +161,27 @@ describe("parseReviewEvent", () => {
     });
   });
 
+  it("supports an explicit full review command", () => {
+    expect(
+      parseReviewEvent("issue_comment", "delivery-final", {
+        action: "created",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        issue: { number: 816, pull_request: {} },
+        sender: { login: "robbie" },
+        comment: {
+          body: "/ai-review full",
+          author_association: "OWNER",
+          user: { login: "robbie" },
+        },
+      }),
+    ).toEqual({
+      kind: "accepted",
+      event: expect.objectContaining({
+        force: true,
+      }),
+    });
+  });
+
   it("does not spend on review-thread activity", () => {
     expect(
       parseReviewEvent("pull_request_review_thread", "delivery-3", {

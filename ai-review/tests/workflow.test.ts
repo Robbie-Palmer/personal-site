@@ -11,6 +11,7 @@ const engine = vi.hoisted(() => ({
   mergeFindings: vi.fn(),
   prepareReview: vi.fn(),
   publishReview: vi.fn(),
+  publishSkippedReview: vi.fn(),
   recordReview: vi.fn(),
   recordReviewTerminal: vi.fn(),
   runScouts: vi.fn(),
@@ -118,6 +119,11 @@ beforeEach(() => {
   engine.publishReview.mockResolvedValue({
     commentId: 123,
     runCostUsd: 0.6,
+    findings: [],
+  });
+  engine.publishSkippedReview.mockResolvedValue({
+    commentId: 123,
+    runCostUsd: 0,
     findings: [],
   });
   engine.recordReview.mockResolvedValue(undefined);
@@ -240,6 +246,48 @@ describe("ReviewWorkflow orchestration", () => {
     expect(engine.recordReviewTerminal).toHaveBeenCalledWith(
       expect.objectContaining({ status: "denied" }),
     );
+  });
+
+  it("publishes deterministic skipped coverage without claiming or invoking models", async () => {
+    const coverage = {
+      mode: "skipped",
+      reason: "all current semantic hunks were covered",
+      totalHunks: 1,
+      reviewedHunkIds: [],
+      unchangedHunkIds: [`h_${"a".repeat(24)}`],
+      skippedHunkIds: [],
+      affectedFindingIds: [],
+      paths: [],
+      skippedPaths: [],
+    };
+    const skippedPrepared = {
+      ...prepared,
+      skipReason: coverage.reason,
+      coverage,
+    };
+    engine.prepareReview.mockResolvedValueOnce(skippedPrepared);
+    const { workflow, step } = fixture();
+
+    await workflow.run(event, step);
+
+    expect(engine.claimReview).not.toHaveBeenCalled();
+    expect(engine.runScouts).not.toHaveBeenCalled();
+    expect(engine.publishSkippedReview).toHaveBeenCalledWith(
+      expect.anything(),
+      payload,
+      skippedPrepared,
+    );
+    expect(engine.recordReviewTerminal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "skipped",
+        publication: expect.objectContaining({ runCostUsd: 0 }),
+      }),
+    );
+    expect(vi.mocked(step.do).mock.calls.map(([name]) => name)).toEqual([
+      "prepare-review",
+      "publish-skipped-coverage",
+      "record-skipped-review",
+    ]);
   });
 
   it("records known model spend before propagating a failure", async () => {
