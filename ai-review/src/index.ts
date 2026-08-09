@@ -167,9 +167,8 @@ function completionReplayStatus(
   completionHash: string,
 ): "conflict" | "duplicate" | "missing" {
   if (
-    !existing ||
-    existing.head_sha !== headSha ||
-    existing.status !== "completed"
+    existing?.head_sha !== headSha ||
+    existing?.status !== "completed"
   ) {
     return "missing";
   }
