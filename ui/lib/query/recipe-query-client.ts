@@ -1,5 +1,5 @@
 import { QueryClient, type QueryKey } from "@tanstack/react-query";
-import { isApiError } from "@/lib/api/api-error";
+import { isApiError } from "@/lib/api/http";
 import { recipeQueryKeys } from "@/lib/query/recipe-query-keys";
 
 const MAX_TRANSIENT_FAILURES = 2;

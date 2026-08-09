@@ -38,6 +38,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCooklangRecipe } from "@/hooks/use-cooklang-recipe";
 import { getHouseholds } from "@/lib/api/households";
+import { ApiError, apiRequest } from "@/lib/api/http";
 import { authClient } from "@/lib/auth-client";
 import {
   buildRecipeDraft,
@@ -69,6 +70,21 @@ type ImportedRecipe = {
   source: string;
   url?: string;
 };
+
+function isImportedRecipe(value: unknown): value is ImportedRecipe {
+  if (!value || typeof value !== "object") return false;
+  const recipe = value as Record<string, unknown>;
+  return (
+    typeof recipe.title === "string" &&
+    typeof recipe.description === "string" &&
+    typeof recipe.cuisine === "string" &&
+    typeof recipe.servings === "number" &&
+    (recipe.prepTime === undefined || typeof recipe.prepTime === "number") &&
+    (recipe.cookTime === undefined || typeof recipe.cookTime === "number") &&
+    typeof recipe.source === "string" &&
+    (recipe.url === undefined || typeof recipe.url === "string")
+  );
+}
 
 async function invalidateSavedRecipeQueries({
   queryClient,
@@ -375,26 +391,19 @@ export function AddRecipeView({
     setImportError(null);
     setUrlImportSuccess(false);
     try {
-      const response = await fetch("/api/recipe-drafts/url", {
+      const body = await apiRequest<unknown>("/api/recipe-drafts/url", {
         method: "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url: recipeUrl.trim() }),
+        json: { url: recipeUrl.trim() },
         signal: request.controller.signal,
+        fallbackMessage: "The recipe could not be imported.",
       });
-      const body = (await response.json().catch(() => null)) as
-        | ImportedRecipe
-        | { error?: string }
-        | null;
-      if (!response.ok || !body || !("source" in body)) {
-        throw new Error(
-          (body && "error" in body && body.error) ||
-            "The recipe could not be imported.",
-        );
+      if (!isImportedRecipe(body)) {
+        throw new Error("The recipe could not be imported.");
       }
+      const importedRecipe = body;
       if (importRequestRef.current?.id !== request.id) return;
-      applyImportedRecipe(body);
-      setRecipeUrl(body.url ?? recipeUrl.trim());
+      applyImportedRecipe(importedRecipe);
+      setRecipeUrl(importedRecipe.url ?? recipeUrl.trim());
       setUrlImportSuccess(true);
       setImportedFileName(null);
     } catch (error) {
@@ -435,25 +444,20 @@ export function AddRecipeView({
         );
       }
       const content = await recipeFile.text();
-      const response = await fetch("/api/recipe-drafts/file", {
+      const body = await apiRequest<unknown>("/api/recipe-drafts/file", {
         method: "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ filename: recipeFile.name, content }),
+        json: { filename: recipeFile.name, content },
         signal: request.controller.signal,
+        fallbackMessage: "The recipe file could not be imported.",
       });
-      const body = (await response.json().catch(() => null)) as
-        | ImportedRecipe
-        | { error?: string }
-        | null;
-      if (!response.ok || !body || !("source" in body)) {
+      if (!isImportedRecipe(body)) {
         throw new RecipeFileImportError(
-          (body && "error" in body && body.error) ||
-            "The recipe file could not be imported.",
+          "The recipe file could not be imported.",
         );
       }
+      const importedRecipe = body;
       if (importRequestRef.current?.id !== request.id) return;
-      applyImportedRecipe(body);
+      applyImportedRecipe(importedRecipe);
       setImportedFileName(recipeFile.name);
       setUrlImportSuccess(false);
     } catch (error) {
@@ -464,7 +468,7 @@ export function AddRecipeView({
         return;
       }
       setImportError(
-        error instanceof RecipeFileImportError
+        error instanceof RecipeFileImportError || error instanceof ApiError
           ? error.message
           : "The recipe file could not be imported.",
       );
@@ -519,35 +523,13 @@ export function AddRecipeView({
         body: serializeSavedRecipe(source, preview),
         visibility,
       };
-      const response = await fetch(endpoint, {
+      const saved = await apiRequest<{ slug: string }>(endpoint, {
         method: initialRecipe ? "PATCH" : "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(
-          initialRecipe
-            ? recipeBody
-            : { ...recipeBody, slug: normalizeSlug(title) },
-        ),
+        json: initialRecipe
+          ? recipeBody
+          : { ...recipeBody, slug: normalizeSlug(title) },
+        fallbackMessage: "The recipe could not be saved.",
       });
-      if (!response.ok) {
-        if (response.status === 409) {
-          throw new Error(
-            "A recipe with this name already exists. Choose a different name.",
-          );
-        }
-        const body = (await response.json().catch(() => null)) as {
-          error?: string;
-          details?: Array<{ message?: string }>;
-        } | null;
-        const details = body?.details
-          ?.map((detail) => detail.message)
-          .filter((message): message is string => Boolean(message))
-          .join(" ");
-        throw new Error(
-          details || body?.error || "The recipe could not be saved.",
-        );
-      }
-      const saved = (await response.json()) as { slug: string };
       await invalidateSavedRecipeQueries({
         queryClient,
         userId: sessionUserId ?? null,
@@ -573,11 +555,14 @@ export function AddRecipeView({
         navigateToRecipePage(saved);
       }
     } catch (error) {
-      setSaveError(
-        error instanceof Error
-          ? error.message
-          : "The recipe could not be saved.",
-      );
+      let message = "The recipe could not be saved.";
+      if (error instanceof ApiError && error.status === 409) {
+        message =
+          "A recipe with this name already exists. Choose a different name.";
+      } else if (error instanceof Error) {
+        message = error.message;
+      }
+      setSaveError(message);
     } finally {
       savingRef.current = false;
       setSaving(false);

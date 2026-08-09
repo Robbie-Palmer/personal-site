@@ -291,6 +291,59 @@ describe("AddRecipeView visibility", () => {
     });
   });
 
+  it("rejects a URL import missing a required recipe field", async () => {
+    mocks.getHouseholds.mockResolvedValue([]);
+    globalThis.fetch = vi.fn(async () =>
+      Response.json({
+        description: "A quick dinner.",
+        cuisine: "Italian",
+        servings: 2,
+        source: "@pasta{200%g}\n\nBoil the pasta.",
+      }),
+    ) as typeof fetch;
+
+    render(<AddRecipeView />);
+    fireEvent.click(screen.getByRole("button", { name: "Import URL" }));
+    fireEvent.change(screen.getByLabelText("Recipe webpage URL"), {
+      target: { value: "https://example.test/tomato-pasta" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import recipe" }));
+
+    expect(
+      await screen.findByText("The recipe could not be imported."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Recipe name")).toHaveValue("");
+  });
+
+  it("rejects a file import with an incorrectly typed recipe field", async () => {
+    mocks.getHouseholds.mockResolvedValue([]);
+    const file = new File(["recipe"], "recipe.cook");
+    Object.defineProperty(file, "text", {
+      value: vi.fn().mockResolvedValue("recipe"),
+    });
+    globalThis.fetch = vi.fn(async () =>
+      Response.json({
+        title: "Tomato pasta",
+        description: "A quick dinner.",
+        cuisine: "Italian",
+        servings: "2",
+        source: "@pasta{200%g}\n\nBoil the pasta.",
+      }),
+    ) as typeof fetch;
+
+    render(<AddRecipeView />);
+    fireEvent.click(screen.getByRole("button", { name: "Upload file" }));
+    fireEvent.change(screen.getByLabelText("Recipe file"), {
+      target: { files: [file] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import recipe" }));
+
+    expect(
+      await screen.findByText("The recipe file could not be imported."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Recipe name")).toHaveValue("");
+  });
+
   it("rejects oversized files before reading or uploading them", async () => {
     mocks.getHouseholds.mockResolvedValue([]);
     const file = new File(["recipe"], "large.cook");

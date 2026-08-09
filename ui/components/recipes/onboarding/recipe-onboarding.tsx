@@ -165,7 +165,6 @@ async function fetchOwnedRecipes(signal: AbortSignal) {
   try {
     return await fetchAllSavedRecipes({
       scope: "owned",
-      credentials: "include",
       signal,
     });
   } catch (error) {

@@ -189,6 +189,7 @@ describe("AuthButton", () => {
 
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(fetchMock).toHaveBeenCalledWith("/api/auth/preview/sign-up", {
+      credentials: "same-origin",
       method: "POST",
     });
     expect(await screen.findByRole("alert")).toHaveTextContent(

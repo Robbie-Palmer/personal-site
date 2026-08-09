@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { apiRequest } from "@/lib/api/http";
 
 type PhotoImportStatus = "queued" | "running" | "succeeded" | "failed";
 
@@ -122,27 +123,16 @@ function isPhotoImportJob(value: unknown): value is PhotoImportJob {
   );
 }
 
-function apiErrorMessage(body: unknown, fallback: string): string {
-  if (!isRecord(body)) return fallback;
-  if (typeof body.error === "string") return body.error;
-  return isRecord(body.error) && typeof body.error.message === "string"
-    ? body.error.message
-    : fallback;
-}
-
 async function fetchPhotoImportJob(
   jobId: string,
   signal: AbortSignal,
 ): Promise<PhotoImportJob> {
-  const response = await fetch(`/api/recipe-imports/${jobId}`, {
-    credentials: "include",
+  const body = await apiRequest<unknown>(`/api/recipe-imports/${jobId}`, {
     signal,
+    fallbackMessage: "We couldn't check the photo import status.",
   });
-  const body: unknown = await response.json().catch(() => null);
-  if (!response.ok || !isPhotoImportJob(body) || body.id !== jobId) {
-    throw new Error(
-      apiErrorMessage(body, "We couldn't check the photo import status."),
-    );
+  if (!isPhotoImportJob(body) || body.id !== jobId) {
+    throw new Error("We couldn't check the photo import status.");
   }
   return body;
 }
@@ -373,16 +363,13 @@ export function PhotoRecipeImport({
     const form = new FormData();
     for (const file of files) form.append("images", file);
     try {
-      const response = await fetch("/api/recipe-imports", {
+      const body = await apiRequest<unknown>("/api/recipe-imports", {
         method: "POST",
-        credentials: "include",
         body: form,
+        fallbackMessage: "The photos could not be uploaded.",
       });
-      const body: unknown = await response.json().catch(() => null);
-      if (!response.ok || !isPhotoImportJob(body)) {
-        throw new Error(
-          apiErrorMessage(body, "The photos could not be uploaded."),
-        );
+      if (!isPhotoImportJob(body)) {
+        throw new Error("The photos could not be uploaded.");
       }
       setJob(body);
     } catch (uploadError) {

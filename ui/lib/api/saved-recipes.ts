@@ -1,4 +1,4 @@
-import { ApiError } from "@/lib/api/api-error";
+import { ApiError, apiRequest } from "@/lib/api/http";
 import type { RecipeBoxProfile } from "@/lib/api/recipe-box";
 import { getRecipeBoxProfile } from "@/lib/api/recipe-box";
 import type { SavedRecipeApiRecord } from "@/lib/domain/recipe/recipeDraft";
@@ -18,7 +18,6 @@ type SavedRecipesPage = {
 export async function fetchAllSavedRecipes(options?: {
   scope?: "owned";
   signal?: AbortSignal;
-  credentials?: RequestCredentials;
 }): Promise<SavedRecipeApiRecord[]> {
   const records: SavedRecipeApiRecord[] = [];
   let cursor: string | null = null;
@@ -32,15 +31,11 @@ export async function fetchAllSavedRecipes(options?: {
     const params = new URLSearchParams({ limit: String(PAGE_LIMIT) });
     if (options?.scope) params.set("scope", options.scope);
     if (cursor) params.set("cursor", cursor);
-    const response = await fetch(`/api/recipes?${params}`, {
+    const page = await apiRequest<SavedRecipesPage>(`/api/recipes?${params}`, {
       cache: "no-store",
-      credentials: options?.credentials ?? "same-origin",
       signal: options?.signal,
+      fallbackMessage: "Saved recipes unavailable",
     });
-    if (!response.ok) {
-      throw new ApiError("Saved recipes unavailable", response.status);
-    }
-    const page = (await response.json()) as SavedRecipesPage;
     records.push(...page.items);
     cursor = page.nextCursor;
   } while (cursor);
@@ -51,23 +46,27 @@ export async function getSavedRecipe(
   slug: string,
   signal?: AbortSignal,
 ): Promise<SavedRecipeApiRecord> {
-  const response = await fetch(`/api/recipes/${encodeURIComponent(slug)}`, {
-    credentials: "same-origin",
-    signal,
-  });
-  if (response.status === 404) {
-    throw new ApiError(
-      "That recipe was not found, or it belongs to another profile.",
-      response.status,
-    );
-  }
-  if (!response.ok) {
-    throw new ApiError("The recipe could not be loaded.", response.status);
-  }
   try {
-    return (await response.json()) as SavedRecipeApiRecord;
-  } catch {
-    throw new ApiError("The recipe could not be loaded.", 422);
+    return await apiRequest(`/api/recipes/${encodeURIComponent(slug)}`, {
+      signal,
+      fallbackMessage: "The recipe could not be loaded.",
+    });
+  } catch (error) {
+    if (error instanceof ApiError) {
+      if (error.status === 404) {
+        throw new ApiError(
+          "That recipe was not found, or it belongs to another profile.",
+          error.status,
+          { code: error.code, details: error.details },
+        );
+      }
+      if (error.status >= 400) throw error;
+      throw new ApiError("The recipe could not be loaded.", 422, {
+        code: error.code,
+        details: error.details,
+      });
+    }
+    throw error;
   }
 }
 

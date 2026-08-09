@@ -1,23 +1,25 @@
-import { ApiError } from "@/lib/api/api-error";
+import { apiRequest } from "@/lib/api/http";
 
 export type RecipeBoxProfile = {
   completed: boolean;
   recipeSlugs: string[];
 };
 
-async function parseRecipeBoxResponse(response: Response) {
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as {
-      error?: string;
-    } | null;
-    throw new ApiError(
-      body?.error ?? "Recipe box request failed.",
-      response.status,
-    );
-  }
-  const body = (await response.json()) as RecipeBoxProfile & {
-    staticRecipeSlugs?: string[];
-  };
+async function recipeBoxRequest(
+  method: "GET" | "PUT",
+  recipeSlugs?: string[],
+  signal?: AbortSignal,
+) {
+  const body = await apiRequest<
+    RecipeBoxProfile & {
+      staticRecipeSlugs?: string[];
+    }
+  >("/api/profile/recipe-box", {
+    ...(method === "PUT" ? { method } : {}),
+    json: recipeSlugs === undefined ? undefined : { recipeSlugs },
+    ...(signal ? { signal } : {}),
+    fallbackMessage: "Recipe box request failed.",
+  });
   return {
     completed: body.completed,
     recipeSlugs: body.recipeSlugs ?? body.staticRecipeSlugs ?? [],
@@ -25,21 +27,9 @@ async function parseRecipeBoxResponse(response: Response) {
 }
 
 export async function getRecipeBoxProfile(signal?: AbortSignal) {
-  return parseRecipeBoxResponse(
-    await fetch("/api/profile/recipe-box", {
-      credentials: "same-origin",
-      signal,
-    }),
-  );
+  return recipeBoxRequest("GET", undefined, signal);
 }
 
 export async function saveRecipeBoxProfile(recipeSlugs: string[]) {
-  return parseRecipeBoxResponse(
-    await fetch("/api/profile/recipe-box", {
-      method: "PUT",
-      credentials: "same-origin",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ recipeSlugs }),
-    }),
-  );
+  return recipeBoxRequest("PUT", recipeSlugs);
 }

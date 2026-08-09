@@ -1,4 +1,4 @@
-import { ApiError } from "@/lib/api/api-error";
+import { apiRequest } from "@/lib/api/http";
 
 export type DietRecipeMatchMode = "hide" | "warn";
 
@@ -49,84 +49,32 @@ export const emptyDietOptions: DietOptions = {
   ingredients: [],
 };
 
-type ApiErrorBody = {
-  error?: string;
-  details?: { path?: string[]; message?: string }[];
-};
-
-function messageFromApiError(
-  body: ApiErrorBody | null,
-  fallback: string,
-): string {
-  const details = body?.details
-    ?.map((detail) => {
-      if (!detail.message) return undefined;
-      const path = detail.path?.join(".");
-      return path ? `${path}: ${detail.message}` : detail.message;
-    })
-    .filter(Boolean);
-  if (details && details.length > 0) return details.join("; ");
-  return body?.error ?? fallback;
-}
-
-async function parseDietResponse(response: Response): Promise<DietProfile> {
-  if (!response.ok) {
-    const body = (await response
-      .json()
-      .catch(() => null)) as ApiErrorBody | null;
-    throw new ApiError(
-      messageFromApiError(body, "Diet profile request failed."),
-      response.status,
-    );
-  }
-  return response.json() as Promise<DietProfile>;
-}
-
-async function parseDietOptionsResponse(
-  response: Response,
-): Promise<DietOptions> {
-  if (!response.ok) {
-    const body = (await response
-      .json()
-      .catch(() => null)) as ApiErrorBody | null;
-    throw new ApiError(
-      messageFromApiError(body, "Diet options request failed."),
-      response.status,
-    );
-  }
-  return response.json() as Promise<DietOptions>;
-}
-
 export async function getDietProfile(
   signal?: AbortSignal,
 ): Promise<DietProfile> {
-  const response = await fetch("/api/profile/diet", {
-    credentials: "same-origin",
+  return apiRequest("/api/profile/diet", {
     signal,
+    fallbackMessage: "Diet profile request failed.",
   });
-  return parseDietResponse(response);
 }
 
 export async function getDietOptions(
   signal?: AbortSignal,
 ): Promise<DietOptions> {
-  const response = await fetch("/api/profile/diet/options", {
-    credentials: "same-origin",
+  return apiRequest("/api/profile/diet/options", {
     signal,
+    fallbackMessage: "Diet options request failed.",
   });
-  return parseDietOptionsResponse(response);
 }
 
 export async function saveDietProfile(
   profile: DietProfile,
   signal?: AbortSignal,
 ): Promise<DietProfile> {
-  const response = await fetch("/api/profile/diet", {
+  return apiRequest("/api/profile/diet", {
     method: "PUT",
-    credentials: "same-origin",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(profile),
+    json: profile,
     signal,
+    fallbackMessage: "Diet profile request failed.",
   });
-  return parseDietResponse(response);
 }

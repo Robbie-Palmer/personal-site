@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   fetchAllSavedRecipes,
   fetchRecipeBoxRecipes,
+  getSavedRecipe,
 } from "@/lib/api/saved-recipes";
 
 function jsonResponse(body: unknown) {
@@ -46,11 +47,11 @@ describe("fetchAllSavedRecipes", () => {
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(jsonResponse({ items: [], nextCursor: null }));
 
-    await fetchAllSavedRecipes({ scope: "owned", credentials: "include" });
+    await fetchAllSavedRecipes({ scope: "owned" });
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/recipes?limit=100&scope=owned",
-      expect.objectContaining({ credentials: "include" }),
+      expect.objectContaining({ credentials: "same-origin" }),
     );
   });
 
@@ -62,6 +63,24 @@ describe("fetchAllSavedRecipes", () => {
     await expect(fetchAllSavedRecipes()).rejects.toThrow(
       "Saved recipes unavailable",
     );
+  });
+
+  it("preserves transient network failures so query retries can run", async () => {
+    const networkError = new TypeError("offline");
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(networkError);
+
+    await expect(getSavedRecipe("tomato-pasta")).rejects.toBe(networkError);
+  });
+
+  it("classifies malformed successful recipe payloads as unprocessable", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("not json", { status: 200 }),
+    );
+
+    await expect(getSavedRecipe("tomato-pasta")).rejects.toMatchObject({
+      message: "The recipe could not be loaded.",
+      status: 422,
+    });
   });
 
   it("combines owned recipes with starters before onboarding is complete", async () => {

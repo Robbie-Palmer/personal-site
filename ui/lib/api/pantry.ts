@@ -1,4 +1,4 @@
-import { ApiError } from "@/lib/api/api-error";
+import { apiRequest } from "@/lib/api/http";
 import type { IngredientSlug } from "@/lib/domain/recipe/ingredient";
 import type {
   KitchenLocation,
@@ -29,75 +29,50 @@ function deleteLegacyBrowserPantry(): void {
   }
 }
 
-async function parsePantryResponse(response: Response): Promise<Pantry> {
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as {
-      error?: string;
-    } | null;
-    throw new ApiError(
-      body?.error ?? "Pantry request failed.",
-      response.status,
-    );
-  }
-  return response.json() as Promise<Pantry>;
-}
-
 function pantryRequest(
   path: string,
   method: "PUT" | "PATCH" | "DELETE",
   body?: unknown,
-): Promise<Response> {
-  return fetch(path, {
+): Promise<Pantry> {
+  return apiRequest(path, {
     method,
-    credentials: "same-origin",
-    headers:
-      body === undefined ? undefined : { "content-type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    json: body,
+    fallbackMessage: "Pantry request failed.",
   });
 }
 
 export async function getPantry(signal?: AbortSignal): Promise<Pantry> {
   deleteLegacyBrowserPantry();
-  return parsePantryResponse(
-    await fetch("/api/pantry", {
-      credentials: "same-origin",
-      signal,
-    }),
-  );
+  return apiRequest("/api/pantry", {
+    signal,
+    fallbackMessage: "Pantry request failed.",
+  });
 }
 
 export async function replacePantry(stock: KitchenStock): Promise<Pantry> {
-  return parsePantryResponse(
-    await pantryRequest("/api/pantry", "PUT", { stock }),
-  );
+  return pantryRequest("/api/pantry", "PUT", { stock });
 }
 
 export async function restorePantry(stock: KitchenStock): Promise<Pantry> {
-  return parsePantryResponse(
-    await pantryRequest("/api/pantry", "PATCH", { stock }),
-  );
+  return pantryRequest("/api/pantry", "PATCH", { stock });
 }
 
 export async function setPantryItem(
   ingredientSlug: IngredientSlug,
   location: KitchenLocation,
 ): Promise<Pantry> {
-  return parsePantryResponse(
-    await pantryRequest(
-      `/api/pantry/items/${encodeURIComponent(ingredientSlug)}`,
-      "PUT",
-      { location },
-    ),
+  return pantryRequest(
+    `/api/pantry/items/${encodeURIComponent(ingredientSlug)}`,
+    "PUT",
+    { location },
   );
 }
 
 export async function removePantryItem(
   ingredientSlug: IngredientSlug,
 ): Promise<Pantry> {
-  return parsePantryResponse(
-    await pantryRequest(
-      `/api/pantry/items/${encodeURIComponent(ingredientSlug)}`,
-      "DELETE",
-    ),
+  return pantryRequest(
+    `/api/pantry/items/${encodeURIComponent(ingredientSlug)}`,
+    "DELETE",
   );
 }
