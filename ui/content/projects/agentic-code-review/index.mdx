@@ -232,7 +232,7 @@ described by
 # Architecture Lineage
 
 The initial ADR set preserves three parts of the product's lineage. ADRs 000–014
-establish the platform decisions that shape the implementation: the public
+carry forward the platform decisions that shape the implementation: the public
 GitHub monorepo and toolchain, GitHub Actions delivery, Terraform and its state,
 secrets management, licensing, R2 storage, OpenRouter inference, and Cloudflare
 Workflow orchestration. ADRs 015–025 carry forward the development assurance
@@ -243,9 +243,9 @@ of managed and custom AI reviewers that led to the current stateful product.
 
 Cloudflare Workers and the per-PR Durable Object are already selected by
 [ADR 032](/projects/agentic-code-review/adrs/032-stateful-ai-code-review).
-[ADR 014](/projects/agentic-code-review/adrs/014-cloudflare-workflows) records
-the Workflow decision locally because no earlier project-neutral ADR captures
-the orchestration and retry boundaries used by code review.
+[ADR 014](/projects/agentic-code-review/adrs/014-cloudflare-workflows) inherits
+the Cloudflare Workflows platform decision and adds the orchestration, lease,
+and retry boundaries used by code review.
 
 The extraction test sets the boundary: inherit a decision when a standalone
 Agentic Code Review repository would need to keep or replace it on day one.
