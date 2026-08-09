@@ -174,6 +174,8 @@ describe("RecipeList", () => {
   it("lets mobile users search within a filter category", () => {
     render(<RecipeList recipes={recipes} />);
 
+    // Vaul's pointer-capture gesture handling is not implemented by jsdom, so
+    // use click events here while asserting the resulting user-visible flow.
     fireEvent.click(screen.getByRole("button", { name: "Filters" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Ingredients, 5 values" }),
@@ -190,7 +192,7 @@ describe("RecipeList", () => {
     expect(
       screen.queryByRole("button", { name: "white onion" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("1 of 5")).toBeInTheDocument();
+    expect(screen.getByText("1 of 5")).toHaveAttribute("aria-atomic", "true");
 
     fireEvent.click(screen.getByRole("button", { name: "cheddar cheese" }));
 

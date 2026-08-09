@@ -170,6 +170,7 @@ export function FilterBar({
     <Drawer open={mobileOpen} onOpenChange={handleMobileOpenChange}>
       <DrawerTrigger asChild>
         <Button
+          type="button"
           variant="outline"
           size="sm"
           className="md:hidden flex items-center gap-2"
@@ -189,6 +190,7 @@ export function FilterBar({
             <span className="flex min-w-0 items-center gap-2">
               {mobileSection && (
                 <Button
+                  type="button"
                   variant="ghost"
                   size="icon-sm"
                   onClick={closeMobileSection}
@@ -204,11 +206,17 @@ export function FilterBar({
             </span>
             <span className="flex items-center gap-1">
               {!mobileSection && hasActiveFilters && onClearAll && (
-                <Button variant="ghost" size="sm" onClick={onClearAll}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onClearAll}
+                >
                   Clear all
                 </Button>
               )}
               <Button
+                type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => handleMobileOpenChange(false)}
@@ -247,7 +255,7 @@ export function FilterBar({
               </div>
               <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
                 <span>Tap once to include · again to exclude</span>
-                <span aria-live="polite">
+                <span aria-live="polite" aria-atomic="true">
                   {visibleMobileOptions.length} of{" "}
                   {mobileSection.options.length}
                 </span>
@@ -306,7 +314,7 @@ export function FilterBar({
                   <p className="font-medium">No matching values</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Try a different search for{" "}
-                    {mobileSection.label.toLowerCase()}.
+                    {mobileSection.label.toLocaleLowerCase()}.
                   </p>
                 </div>
               )}
@@ -381,6 +389,7 @@ export function FilterBar({
 
       {hasActiveFilters && onClearAll && (
         <Button
+          type="button"
           variant="ghost"
           size="sm"
           onClick={onClearAll}
