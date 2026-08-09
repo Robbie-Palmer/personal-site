@@ -1,4 +1,4 @@
-import { ApiError, isApiError } from "@/lib/api/api-error";
+import { apiRequest, isApiError } from "@/lib/api/http";
 
 export type CookingSession = {
   id: string;
@@ -120,43 +120,26 @@ export function queueCookingCompletion(
   writeCompletionOutbox(entries);
 }
 
-async function parseResponse<T>(
-  response: Response,
-  fallbackMessage: string,
-): Promise<T> {
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as {
-      error?: string;
-    } | null;
-    throw new ApiError(body?.error ?? fallbackMessage, response.status);
-  }
-  return response.json() as Promise<T>;
-}
-
 export async function getCookingInsights(
   signal?: AbortSignal,
 ): Promise<CookingInsights> {
-  return parseResponse(
-    await fetch("/api/profile/cooking-insights", {
-      credentials: "same-origin",
-      signal,
-    }),
-    "Cooking insights could not be loaded.",
-  );
+  return apiRequest("/api/profile/cooking-insights", {
+    signal,
+    fallbackMessage: "Cooking insights could not be loaded.",
+  });
 }
 
 export async function recordCookingSession(
   event: CookingSessionEvent,
 ): Promise<CookingSession> {
-  const result = await parseResponse<{ cookingSession: CookingSession }>(
-    await fetch("/api/profile/cooking-sessions", {
+  const result = await apiRequest<{ cookingSession: CookingSession }>(
+    "/api/profile/cooking-sessions",
+    {
       method: "POST",
-      credentials: "same-origin",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(event),
+      json: event,
       keepalive: true,
-    }),
-    "Cooking activity could not be saved.",
+      fallbackMessage: "Cooking activity could not be saved.",
+    },
   );
   return result.cookingSession;
 }

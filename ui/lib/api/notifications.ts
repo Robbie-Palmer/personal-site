@@ -1,3 +1,5 @@
+import { apiRequest } from "@/lib/api/http";
+
 export type HouseholdNotificationKind =
   | "household_invited"
   | "household_removed"
@@ -59,25 +61,14 @@ export type NotificationPage = {
   unreadCount: number;
 };
 
-async function checked(response: Response) {
-  if (response.ok) return response;
-  const body = (await response.json().catch(() => null)) as {
-    error?: string;
-  } | null;
-  throw new Error(body?.error ?? "Notification request failed.");
-}
-
 export async function getNotificationPage(
   offset = 0,
   signal?: AbortSignal,
 ): Promise<NotificationPage> {
-  const response = await checked(
-    await fetch(`/api/notifications?offset=${offset}`, {
-      credentials: "same-origin",
-      signal,
-    }),
-  );
-  return response.json() as Promise<NotificationPage>;
+  return apiRequest(`/api/notifications?offset=${offset}`, {
+    signal,
+    fallbackMessage: "Notification request failed.",
+  });
 }
 
 export async function getNotifications(signal?: AbortSignal) {
@@ -88,44 +79,40 @@ export async function updateNotification(
   id: string,
   update: { read?: boolean; dismissed?: boolean },
 ) {
-  await checked(
-    await fetch(`/api/notifications/${id}`, {
-      method: "PATCH",
-      credentials: "same-origin",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(update),
-    }),
-  );
+  await apiRequest(`/api/notifications/${id}`, {
+    method: "PATCH",
+    json: update,
+    responseType: "void",
+    fallbackMessage: "Notification request failed.",
+  });
 }
 
 export async function performNotificationAction(
   id: string,
   actionKey: string,
 ): Promise<InAppNotification> {
-  const response = await checked(
-    await fetch(`/api/notifications/${id}/actions/${actionKey}`, {
+  const body = await apiRequest<{ item: InAppNotification }>(
+    `/api/notifications/${id}/actions/${actionKey}`,
+    {
       method: "POST",
-      credentials: "same-origin",
-    }),
+      fallbackMessage: "Notification request failed.",
+    },
   );
-  const body = (await response.json()) as { item: InAppNotification };
   return body.item;
 }
 
 export async function markAllNotificationsRead() {
-  await checked(
-    await fetch("/api/notifications/read-all", {
-      method: "POST",
-      credentials: "same-origin",
-    }),
-  );
+  await apiRequest("/api/notifications/read-all", {
+    method: "POST",
+    responseType: "void",
+    fallbackMessage: "Notification request failed.",
+  });
 }
 
 export async function clearAllNotifications() {
-  await checked(
-    await fetch("/api/notifications/clear-all", {
-      method: "POST",
-      credentials: "same-origin",
-    }),
-  );
+  await apiRequest("/api/notifications/clear-all", {
+    method: "POST",
+    responseType: "void",
+    fallbackMessage: "Notification request failed.",
+  });
 }

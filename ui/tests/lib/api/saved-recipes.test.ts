@@ -46,11 +46,11 @@ describe("fetchAllSavedRecipes", () => {
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(jsonResponse({ items: [], nextCursor: null }));
 
-    await fetchAllSavedRecipes({ scope: "owned", credentials: "include" });
+    await fetchAllSavedRecipes({ scope: "owned" });
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/recipes?limit=100&scope=owned",
-      expect.objectContaining({ credentials: "include" }),
+      expect.objectContaining({ credentials: "same-origin" }),
     );
   });
 

@@ -22,6 +22,7 @@ import {
 import { RecipeAvatar } from "@/components/recipes/recipe-avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ApiError, apiRequest } from "@/lib/api/http";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/generic/styles";
 import { isPreviewDeployment } from "@/lib/preview-environment";
@@ -197,11 +198,9 @@ export function AuthButton({
 
     if (intent === "signup") return;
 
-    void fetch("/api/auth/preview/scenarios")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Preview scenarios unavailable");
-        return (await response.json()) as PreviewScenario[];
-      })
+    void apiRequest<PreviewScenario[]>("/api/auth/preview/scenarios", {
+      fallbackMessage: "Preview scenarios unavailable",
+    })
       .then(setPreviewScenarios)
       .catch(() => setError("Preview sign-in is not configured."));
   }, [intent, previewBackendDisabled]);
@@ -367,25 +366,23 @@ export function AuthButton({
     setPendingSignIn(scenario.id);
     setError(null);
     try {
-      const response = await fetch("/api/auth/preview/sign-in", {
+      await apiRequest<void>("/api/auth/preview/sign-in", {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ scenario: scenario.id }),
+        json: { scenario: scenario.id },
+        responseType: "void",
+        fallbackMessage: "Preview sign-in failed.",
       });
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        setError(body?.error ?? "Preview sign-in failed.");
-        return;
-      }
       if (intent === "signup") {
         window.location.assign("/recipes/onboarding");
       } else {
         window.location.reload();
       }
-    } catch {
-      setError("Preview sign-in failed.");
+    } catch (previewError) {
+      setError(
+        previewError instanceof ApiError
+          ? previewError.message
+          : "Preview sign-in failed.",
+      );
     } finally {
       setPendingSignIn(null);
     }
@@ -395,19 +392,18 @@ export function AuthButton({
     setPendingSignIn("fresh-signup");
     setError(null);
     try {
-      const response = await fetch("/api/auth/preview/sign-up", {
+      await apiRequest<void>("/api/auth/preview/sign-up", {
         method: "POST",
+        responseType: "void",
+        fallbackMessage: "Preview sign-up failed.",
       });
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        setError(body?.error ?? "Preview sign-up failed.");
-        return;
-      }
       window.location.assign("/recipes/onboarding");
-    } catch {
-      setError("Preview sign-up failed.");
+    } catch (previewError) {
+      setError(
+        previewError instanceof ApiError
+          ? previewError.message
+          : "Preview sign-up failed.",
+      );
     } finally {
       setPendingSignIn(null);
     }

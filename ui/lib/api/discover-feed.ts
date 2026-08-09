@@ -1,3 +1,4 @@
+import { apiRequest } from "@/lib/api/http";
 import type { SavedRecipeApiRecord } from "@/lib/domain/recipe/recipeDraft";
 
 export type DiscoverFeedScope = "public" | "following";
@@ -23,15 +24,8 @@ export async function getDiscoverFeedPage(
   const params = new URLSearchParams({ scope });
   if (cursor) params.set("cursor", cursor);
   if (limit !== undefined) params.set("limit", String(limit));
-  const response = await fetch(`/api/recipes/discover/feed?${params}`, {
-    credentials: "same-origin",
+  return apiRequest(`/api/recipes/discover/feed?${params}`, {
     signal,
+    fallbackMessage: "The feed could not be loaded.",
   });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as {
-      error?: string;
-    } | null;
-    throw new Error(body?.error ?? "The feed could not be loaded.");
-  }
-  return response.json() as Promise<DiscoverFeedPage>;
 }

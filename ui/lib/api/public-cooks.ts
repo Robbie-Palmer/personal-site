@@ -1,3 +1,4 @@
+import { apiRequest } from "@/lib/api/http";
 import type { SavedRecipeApiRecord } from "@/lib/domain/recipe/recipeDraft";
 
 export type PublicCookSummary = {
@@ -38,17 +39,10 @@ export type CookFollowStatus = {
 };
 
 async function apiJson<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(url, {
-    credentials: "same-origin",
+  return apiRequest(url, {
     signal,
+    fallbackMessage: "The cooks directory could not be loaded.",
   });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as {
-      error?: string;
-    } | null;
-    throw new Error(body?.error ?? "The cooks directory could not be loaded.");
-  }
-  return response.json() as Promise<T>;
 }
 
 export async function getPublicCooks(signal?: AbortSignal) {
@@ -79,23 +73,13 @@ export function getOwnCookConnections(signal?: AbortSignal) {
 }
 
 export async function setCookFollowing(id: string, following: boolean) {
-  const response = await fetch(
+  return apiRequest<CookFollowStatus>(
     `/api/recipes/cooks/${encodeURIComponent(id)}/follow`,
     {
       method: following ? "PUT" : "DELETE",
-      credentials: "same-origin",
+      fallbackMessage: following
+        ? "This cook could not be followed."
+        : "This cook could not be unfollowed.",
     },
   );
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as {
-      error?: string;
-    } | null;
-    throw new Error(
-      body?.error ??
-        (following
-          ? "This cook could not be followed."
-          : "This cook could not be unfollowed."),
-    );
-  }
-  return response.json() as Promise<CookFollowStatus>;
 }
