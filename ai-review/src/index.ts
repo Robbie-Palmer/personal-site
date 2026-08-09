@@ -261,22 +261,26 @@ function isIdentifiedFinding(value: unknown): value is IdentifiedMergedFinding {
 function isFindingPublication(value: unknown): value is FindingPublication {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const publication = value as Partial<FindingPublication>;
+  const commentIdIsValid =
+    typeof publication.commentId === "number" &&
+    Number.isSafeInteger(publication.commentId) &&
+    publication.commentId > 0;
+  const lineIsValid =
+    typeof publication.line === "number" &&
+    Number.isSafeInteger(publication.line) &&
+    publication.line > 0;
+  const deliveryIsConsistent =
+    publication.delivery === "line"
+      ? commentIdIsValid && lineIsValid
+      : publication.delivery === "fallback" && publication.commentId === undefined;
   return (
     typeof publication.findingId === "string" &&
     /^f_[a-f0-9]{24}$/.test(publication.findingId) &&
-    (publication.delivery === "line" || publication.delivery === "fallback") &&
-    (publication.commentId === undefined ||
-      (typeof publication.commentId === "number" &&
-        Number.isSafeInteger(publication.commentId) &&
-        publication.commentId > 0)) &&
+    deliveryIsConsistent &&
     typeof publication.reconciled === "boolean" &&
     typeof publication.path === "string" &&
     publication.path.length > 0 &&
-    (publication.line === null ||
-      (typeof publication.line === "number" &&
-        Number.isSafeInteger(publication.line) &&
-        publication.line >= 0)) &&
-    (publication.delivery !== "line" || publication.commentId !== undefined)
+    (publication.line === null || lineIsValid)
   );
 }
 
@@ -288,6 +292,7 @@ function isFindingInteractionEvent(
   return (
     typeof event.deliveryId === "string" &&
     event.deliveryId.length > 0 &&
+    event.deliveryId.length <= 255 &&
     typeof event.eventName === "string" &&
     typeof event.action === "string" &&
     typeof event.repository === "string" &&
@@ -299,6 +304,12 @@ function isFindingInteractionEvent(
       event.interactionType === "disposition") &&
     typeof event.actor === "string" &&
     event.actor.length > 0 &&
+    (event.threadId === undefined ||
+      (typeof event.threadId === "string" && event.threadId.length <= 255)) &&
+    (event.body === undefined ||
+      (typeof event.body === "string" && event.body.length <= 4_000)) &&
+    (event.reason === undefined ||
+      (typeof event.reason === "string" && event.reason.length <= 1_000)) &&
     (event.findingId === undefined || /^f_[a-f0-9]{24}$/.test(event.findingId)) &&
     (event.rootCommentId === undefined ||
       (Number.isSafeInteger(event.rootCommentId) && event.rootCommentId > 0)) &&
@@ -857,20 +868,24 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     const completionHunkIds = new Set(
       (body.hunks as ReviewHunk[]).map(({ hunkId }) => hunkId),
     );
-    const completionFindingIds = new Set(
-      (body.findings as IdentifiedMergedFinding[]).map(
-        ({ findingId }) => findingId,
-      ),
+    const completionFindings = body.findings as IdentifiedMergedFinding[];
+    const completionFindingsById = new Map(
+      completionFindings.map((finding) => [finding.findingId, finding]),
     );
     const findingPublications = (body.findingPublications ??
       []) as FindingPublication[];
     if (
-      (body.findings as IdentifiedMergedFinding[]).some((finding) =>
+      completionFindings.some((finding) =>
         finding.hunkIds.some((hunkId) => !completionHunkIds.has(hunkId)),
       ) ||
-      findingPublications.some(
-        ({ findingId }) => !completionFindingIds.has(findingId),
-      )
+      findingPublications.some((publication) => {
+        const finding = completionFindingsById.get(publication.findingId);
+        return (
+          !finding ||
+          publication.path !== finding.file ||
+          publication.line !== finding.line
+        );
+      })
     ) {
       return json({ error: "Invalid review completion" }, 400);
     }

@@ -498,7 +498,23 @@ describe("PullRequestCoordinator", () => {
 
   it("rejects malformed finding interactions", async () => {
     const { coordinator } = coordinatorFixture();
-    for (const body of [null, [], { ...findingInteraction, actor: "" }]) {
+    for (const body of [
+      null,
+      [],
+      { ...findingInteraction, actor: "" },
+      { ...findingInteraction, deliveryId: "x".repeat(256) },
+      { ...findingInteraction, reason: "x".repeat(1_001) },
+      { ...findingInteraction, body: "x".repeat(4_001) },
+      {
+        ...findingInteraction,
+        interactionType: "thread",
+        disposition: undefined,
+        findingId: undefined,
+        reason: undefined,
+        rootCommentId: 654,
+        threadId: "x".repeat(256),
+      },
+    ]) {
       const response = await coordinator.fetch(
         new Request("https://coordinator.test/interactions", {
           method: "POST",
@@ -626,6 +642,38 @@ describe("PullRequestCoordinator", () => {
     await expect(response.json()).resolves.toEqual({
       error: "Invalid review completion",
     });
+  });
+
+  it("rejects inconsistent finding publication mappings", async () => {
+    const { coordinator } = coordinatorFixture();
+    const validPublication = {
+      findingId: identifiedFinding.findingId,
+      delivery: "line",
+      commentId: 654,
+      reconciled: false,
+      path: identifiedFinding.file,
+      line: identifiedFinding.line,
+    };
+    for (const publication of [
+      { ...validPublication, path: "different.ts" },
+      { ...validPublication, line: 0 },
+      { ...validPublication, delivery: "fallback", commentId: 654 },
+    ]) {
+      const response = await coordinator.fetch(
+        new Request("https://coordinator.test/reviews/complete", {
+          method: "POST",
+          body: JSON.stringify({
+            runId: "review-delivery-123",
+            headSha: event.headSha,
+            costUsd: 0.42,
+            hunks: [identifiedHunk],
+            findings: [identifiedFinding],
+            findingPublications: [publication],
+          }),
+        }),
+      );
+      expect(response.status).toBe(400);
+    }
   });
 
   it.each([

@@ -13,6 +13,8 @@ const REVIEW_RELEVANT_PULL_REQUEST_ACTIONS = new Set([
 ]);
 const REVIEW_COMMENT_ACTIONS = new Set(["created", "edited", "deleted"]);
 const REVIEW_THREAD_ACTIONS = new Set(["resolved", "unresolved"]);
+const MAX_DELIVERY_ID_LENGTH = 255;
+const MAX_DISPOSITION_REASON_LENGTH = 1_000;
 function hexBytes(value: string): Uint8Array | null {
   if (!/^[\da-f]{64}$/i.test(value)) {
     return null;
@@ -129,7 +131,7 @@ function findingDispositionCommand(body: string):
   const findingId = body.slice(findingStart, findingEnd).toLowerCase();
   if (!/^f_[a-f0-9]{24}$/.test(findingId)) return undefined;
   const reason = body.slice(findingEnd + 1).trim();
-  if (!reason) return undefined;
+  if (!reason || reason.length > MAX_DISPOSITION_REASON_LENGTH) return undefined;
   return {
     disposition: action === "acknowledge" ? "acknowledged" : "rejected",
     findingId,
@@ -335,7 +337,8 @@ export function parseFindingInteraction(
     repository.length === 0 ||
     typeof action !== "string" ||
     action.length === 0 ||
-    deliveryId.length === 0
+    deliveryId.length === 0 ||
+    deliveryId.length > MAX_DELIVERY_ID_LENGTH
   ) {
     return { kind: "invalid", reason: "Malformed webhook payload" };
   }
@@ -407,7 +410,8 @@ export function parseReviewEvent(
     repository.length === 0 ||
     typeof action !== "string" ||
     action.length === 0 ||
-    deliveryId.length === 0
+    deliveryId.length === 0 ||
+    deliveryId.length > MAX_DELIVERY_ID_LENGTH
   ) {
     return { kind: "invalid", reason: "Malformed webhook payload" };
   }

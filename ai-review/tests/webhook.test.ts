@@ -261,6 +261,20 @@ describe("parseFindingInteraction", () => {
         },
       }),
     ).toEqual({ kind: "ignored", reason: "unsupported-event" });
+
+    expect(
+      parseFindingInteraction("issue_comment", "feedback-too-long", {
+        action: "created",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        issue: { number: 816, pull_request: {} },
+        sender: { login: "robbie" },
+        comment: {
+          body: `/ai-review reject f_${"a".repeat(24)} ${"x".repeat(1_001)}`,
+          author_association: "OWNER",
+          user: { login: "robbie" },
+        },
+      }),
+    ).toEqual({ kind: "ignored", reason: "unsupported-event" });
   });
 
   it("validates malformed interaction envelopes and event-specific identities", () => {
@@ -272,6 +286,19 @@ describe("parseFindingInteraction", () => {
       kind: "invalid",
       reason: "Malformed webhook payload",
     });
+    expect(
+      parseFindingInteraction("issue_comment", "x".repeat(256), {
+        action: "created",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+      }),
+    ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
+    expect(
+      parseReviewEvent("pull_request", "x".repeat(256), {
+        action: "opened",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        pull_request: { number: 816, head: { sha: "abc123" } },
+      }),
+    ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
     expect(
       parseFindingInteraction("issue_comment", "feedback", {
         action: "created",
