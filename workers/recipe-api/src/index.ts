@@ -487,6 +487,27 @@ function operationId(method: string, path: string): string {
     .join("");
 }
 
+const uuidIdSchema = z.uuid().max(36);
+
+const UUID_PATH_PARAMETER_NAMES = new Set([
+  "householdId",
+  "invitationId",
+  "memberId",
+  "notificationId",
+]);
+
+const notificationActionKeySchema = z.enum([
+  "accept",
+  "decline",
+  "add_to_recipe_box",
+]);
+
+function pathParameterSchema(name: string) {
+  if (UUID_PATH_PARAMETER_NAMES.has(name)) return uuidIdSchema;
+  if (name === "actionKey") return notificationActionKeySchema;
+  return z.string().min(1).max(200);
+}
+
 function pathParamsSchema(path: string) {
   const parameterNames = [...path.matchAll(/:(\w+)/g)].map(
     (match) => match[1] as string,
@@ -495,7 +516,7 @@ function pathParamsSchema(path: string) {
 
   return z.object(
     Object.fromEntries(
-      parameterNames.map((name) => [name, z.string().min(1).max(200)]),
+      parameterNames.map((name) => [name, pathParameterSchema(name)]),
     ),
   );
 }
@@ -862,8 +883,6 @@ function parseRecipeSlug(c: Context<AppEnv>) {
   }
   return { success: true, slug: result.data } as const;
 }
-
-const uuidIdSchema = z.string().uuid();
 
 function uuidParam(
   c: Context<AppEnv>,

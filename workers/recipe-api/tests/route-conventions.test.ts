@@ -35,6 +35,17 @@ const VERB_PREFIXES = new Set([
 ]);
 
 type Route = { method: string; path: string };
+type OpenApiParameter = {
+  in?: string;
+  name?: string;
+  required?: boolean;
+  schema?: {
+    enum?: string[];
+    format?: string;
+    maxLength?: number;
+    type?: string;
+  };
+};
 
 function httpRoutes(): Route[] {
   const seen = new Set<string>();
@@ -126,5 +137,35 @@ describe("recipe-api route conventions", () => {
     );
 
     expect([...documented].sort()).toEqual([...registered].sort());
+  });
+
+  it("documents constrained route parameters", () => {
+    const document = app.getOpenAPIDocument({
+      openapi: "3.1.0",
+      info: { title: "route parameters", version: "test" },
+    });
+    const householdParameters = document.paths["/households/{householdId}"]
+      ?.patch?.parameters as OpenApiParameter[] | undefined;
+    const notificationParameters = document.paths[
+      "/notifications/{notificationId}/actions/{actionKey}"
+    ]?.post?.parameters as OpenApiParameter[] | undefined;
+
+    expect(
+      householdParameters?.find(({ name }) => name === "householdId"),
+    ).toMatchObject({
+      in: "path",
+      required: true,
+      schema: { format: "uuid", maxLength: 36, type: "string" },
+    });
+    expect(
+      notificationParameters?.find(({ name }) => name === "actionKey"),
+    ).toMatchObject({
+      in: "path",
+      required: true,
+      schema: {
+        enum: ["accept", "decline", "add_to_recipe_box"],
+        type: "string",
+      },
+    });
   });
 });

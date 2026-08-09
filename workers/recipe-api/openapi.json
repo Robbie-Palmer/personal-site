@@ -862,8 +862,8 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 200
+              "maxLength": 36,
+              "format": "uuid"
             },
             "required": true,
             "name": "householdId",
@@ -1030,8 +1030,8 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 200
+              "maxLength": 36,
+              "format": "uuid"
             },
             "required": true,
             "name": "householdId",
@@ -1172,8 +1172,8 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 200
+              "maxLength": 36,
+              "format": "uuid"
             },
             "required": true,
             "name": "householdId",
@@ -1319,8 +1319,8 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 200
+              "maxLength": 36,
+              "format": "uuid"
             },
             "required": true,
             "name": "householdId",
@@ -1509,8 +1509,8 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 200
+              "maxLength": 36,
+              "format": "uuid"
             },
             "required": true,
             "name": "householdId",
@@ -1519,8 +1519,8 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 200
+              "maxLength": 36,
+              "format": "uuid"
             },
             "required": true,
             "name": "invitationId",
@@ -1661,8 +1661,8 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 200
+              "maxLength": 36,
+              "format": "uuid"
             },
             "required": true,
             "name": "householdId",
@@ -1803,8 +1803,8 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 200
+              "maxLength": 36,
+              "format": "uuid"
             },
             "required": true,
             "name": "householdId",
@@ -1952,8 +1952,8 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 200
+              "maxLength": 36,
+              "format": "uuid"
             },
             "required": true,
             "name": "householdId",
@@ -1962,8 +1962,8 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 200
+              "maxLength": 36,
+              "format": "uuid"
             },
             "required": true,
             "name": "memberId",
@@ -2241,8 +2241,8 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 200
+              "maxLength": 36,
+              "format": "uuid"
             },
             "required": true,
             "name": "invitationId",
@@ -2390,8 +2390,8 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 200
+              "maxLength": 36,
+              "format": "uuid"
             },
             "required": true,
             "name": "invitationId",
@@ -2688,8 +2688,8 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 200
+              "maxLength": 36,
+              "format": "uuid"
             },
             "required": true,
             "name": "notificationId",
@@ -2837,8 +2837,8 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 200
+              "maxLength": 36,
+              "format": "uuid"
             },
             "required": true,
             "name": "notificationId",
@@ -2847,8 +2847,11 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 200
+              "enum": [
+                "accept",
+                "decline",
+                "add_to_recipe_box"
+              ]
             },
             "required": true,
             "name": "actionKey",

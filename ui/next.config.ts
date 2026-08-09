@@ -82,6 +82,10 @@ function createNextConfig(phase: string): NextConfig {
                 destination: "http://localhost:8787/recipes/:path*",
               },
               {
+                source: "/api/recipe-drafts/:path*",
+                destination: "http://localhost:8787/recipe-drafts/:path*",
+              },
+              {
                 source: "/api/recipe-imports/:path*",
                 destination: "http://localhost:8787/recipe-imports/:path*",
               },

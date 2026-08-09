@@ -6,6 +6,11 @@ SPEC_PATH="workers/recipe-api/openapi.json"
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 CURRENT_SPEC="${SCRIPT_DIR}/../openapi.json"
 
+if ! git rev-parse --verify --quiet "${BASE_REVISION}^{commit}" >/dev/null; then
+  echo "Base revision ${BASE_REVISION} is unavailable; fetch it before comparing contracts." >&2
+  exit 1
+fi
+
 if ! git cat-file -e "${BASE_REVISION}:${SPEC_PATH}" 2>/dev/null; then
   echo "No OpenAPI contract exists at ${BASE_REVISION}; skipping the initial baseline diff."
   exit 0
