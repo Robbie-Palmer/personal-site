@@ -458,6 +458,28 @@ describe("PullRequestCoordinator", () => {
     }
   });
 
+  it("rejects an incomplete identified finding at the completion boundary", async () => {
+    const { coordinator } = coordinatorFixture();
+    const { evidence: _evidence, ...incompleteFinding } = identifiedFinding;
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/complete", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-delivery-123",
+          headSha: event.headSha,
+          costUsd: 0.42,
+          hunks: [identifiedHunk],
+          findings: [incompleteFinding],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid review completion",
+    });
+  });
+
   it.each([
     [{ attempts: 20, runs: 18, total_cost: 1 }, "review-run budget"],
     [{ attempts: 2, runs: 2, total_cost: 5 }, "cost budget"],

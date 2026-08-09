@@ -196,9 +196,28 @@ function isIdentifiedFinding(value: unknown): value is IdentifiedMergedFinding {
     /^f_[a-f0-9]{24}$/.test(finding.findingId) &&
     typeof finding.file === "string" &&
     finding.file.length > 0 &&
+    (finding.line === null ||
+      (typeof finding.line === "number" &&
+        Number.isSafeInteger(finding.line) &&
+        finding.line >= 0)) &&
     typeof finding.title === "string" &&
     finding.title.length > 0 &&
+    typeof finding.evidence === "string" &&
+    typeof finding.recommendation === "string" &&
+    typeof finding.confidence === "number" &&
+    Number.isFinite(finding.confidence) &&
+    finding.confidence >= 0 &&
+    finding.confidence <= 1 &&
+    (finding.severity === "critical" ||
+      finding.severity === "high" ||
+      finding.severity === "medium" ||
+      finding.severity === "low") &&
+    Array.isArray(finding.source_models) &&
+    finding.source_models.every(
+      (model) => typeof model === "string" && model.length > 0,
+    ) &&
     (finding.status === "open" || finding.status === "resolved") &&
+    typeof finding.resolution_note === "string" &&
     Array.isArray(finding.hunkIds) &&
     finding.hunkIds.every(
       (hunkId) => typeof hunkId === "string" && /^h_[a-f0-9]{24}$/.test(hunkId),
