@@ -179,12 +179,9 @@ export interface ReviewPublication {
 export type ReviewRecordStatus = "denied" | "failed" | "published" | "skipped";
 
 function coverageStatement(coverage: ReviewCoverage): string {
-  const label =
-    coverage.mode === "full"
-      ? "Full coverage"
-      : coverage.mode === "incremental"
-        ? "Incremental coverage"
-        : "Skipped coverage";
+  let label = "Skipped coverage";
+  if (coverage.mode === "full") label = "Full coverage";
+  if (coverage.mode === "incremental") label = "Incremental coverage";
   const counts =
     coverage.mode === "skipped"
       ? `${coverage.unchangedHunkIds.length} unchanged hunk(s) were not resent`
@@ -615,15 +612,19 @@ export function decideReviewCoverage(options: {
       .filter(({ hunkId }) => baselineIds.has(hunkId) && !reviewedIds.has(hunkId))
       .map(({ hunkId }) => hunkId),
     skippedHunkIds: options.skippedHunkIds ?? [],
-    affectedFindingIds: affectedFindings.map(({ findingId }) => findingId).sort(),
+    affectedFindingIds: affectedFindings
+      .map(({ findingId }) => findingId)
+      .sort((left, right) => left.localeCompare(right)),
     paths: [
       ...new Set(
         options.hunks
           .filter(({ hunkId }) => reviewedIds.has(hunkId))
           .map(({ file }) => file),
       ),
-    ].sort(),
-    skippedPaths: [...new Set(options.skippedPaths ?? [])].sort(),
+    ].sort((left, right) => left.localeCompare(right)),
+    skippedPaths: [...new Set(options.skippedPaths ?? [])].sort((left, right) =>
+      left.localeCompare(right),
+    ),
   };
 }
 
@@ -1226,10 +1227,14 @@ export async function publishReview(
       .filter(({ status }) => status === "open")
       .map(({ findingId }) => findingId),
   );
+  const reviewSummary =
+    typeof merged.result.summary === "string"
+      ? merged.result.summary
+      : "Review complete.";
   const result = prepared.coverage
     ? {
         ...merged.result,
-        summary: `${coverageStatement(prepared.coverage)}\n\n${String(merged.result.summary ?? "Review complete.")}`,
+        summary: `${coverageStatement(prepared.coverage)}\n\n${reviewSummary}`,
       }
     : merged.result;
   const body = renderComment({

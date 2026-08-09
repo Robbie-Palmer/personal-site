@@ -10,6 +10,7 @@ import {
   claimReview,
   combineScoutRuns,
   completeReview,
+  decideReviewCoverage,
   failReview,
   identifyReviewArtifacts,
   identifyDiffHunks,
@@ -766,6 +767,41 @@ describe("stateful review engine", () => {
     expect(update.body).toContain('ai-review-cost:{"runs":1,"total_usd":0.1}');
   });
 
+  it("rejects unprepared and stale skipped-coverage publication", async () => {
+    await expect(
+      publishSkippedReview(environment(), params, {
+        paths: [],
+        omitted: [],
+      }),
+    ).rejects.toThrow("unprepared review");
+
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(json({ token: "installation-token" }))
+        .mockResolvedValueOnce(json({ head: { sha: "b".repeat(40) } })),
+    );
+    await expect(
+      publishSkippedReview(environment(), params, {
+        headSha: params.headSha,
+        paths: [],
+        omitted: [],
+        coverage: {
+          mode: "skipped",
+          reason: "unchanged",
+          totalHunks: 0,
+          reviewedHunkIds: [],
+          unchangedHunkIds: [],
+          skippedHunkIds: [],
+          affectedFindingIds: [],
+          paths: [],
+          skippedPaths: [],
+        },
+      }),
+    ).rejects.toThrow("head changed");
+  });
+
   it("runs and visibly publishes the same OpenRouter plus OpenCode ensemble", async () => {
     const publishedBodies: string[] = [];
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -1012,6 +1048,66 @@ describe("stateful review engine", () => {
     expect(moved).toHaveLength(1);
     expect(moved[0]?.hunkId).toBe(first[0]?.hunkId);
     expect(moved[0]?.fingerprint).toBe(first[0]?.fingerprint);
+  });
+
+  it("selects risk, affected-finding, and unchanged coverage", () => {
+    const first = {
+      hunkId: `h_${"a".repeat(24)}`,
+      fingerprint: "a".repeat(64),
+      file: "app.ts",
+      oldStart: 1,
+      oldLines: 1,
+      newStart: 1,
+      newLines: 1,
+    };
+    const second = {
+      ...first,
+      hunkId: `h_${"b".repeat(24)}`,
+      fingerprint: "b".repeat(64),
+      newStart: 10,
+    };
+    const baseline = {
+      headSha: "c".repeat(40),
+      hunkIds: [first.hunkId],
+      openFindings: [
+        {
+          findingId: `f_${"d".repeat(24)}`,
+          file: "app.ts",
+          title: "Existing issue",
+          hunkIds: [first.hunkId],
+        },
+      ],
+    };
+
+    expect(
+      decideReviewCoverage({
+        force: false,
+        riskSignals: [],
+        hunks: [first, second],
+        baseline,
+      }),
+    ).toMatchObject({
+      mode: "incremental",
+      reviewedHunkIds: [first.hunkId, second.hunkId],
+      affectedFindingIds: [`f_${"d".repeat(24)}`],
+      paths: ["app.ts"],
+    });
+    expect(
+      decideReviewCoverage({
+        force: false,
+        riskSignals: ["database-schema"],
+        hunks: [first],
+        baseline,
+      }),
+    ).toMatchObject({ mode: "full", reviewedHunkIds: [first.hunkId] });
+    expect(
+      decideReviewCoverage({
+        force: false,
+        riskSignals: [],
+        hunks: [first],
+        baseline: { ...baseline, openFindings: [] },
+      }),
+    ).toMatchObject({ mode: "skipped", reviewedHunkIds: [] });
   });
 
   it("links a merged finding to its published line while retaining its source identity", async () => {

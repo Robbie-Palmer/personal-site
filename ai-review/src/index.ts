@@ -155,6 +155,30 @@ function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: JSON_HEADERS });
 }
 
+function errorType(error: unknown): string {
+  return error instanceof Error ? error.name : typeof error;
+}
+
+function completionReplayStatus(
+  existing:
+    | { head_sha: string; status: string; completion_hash: string | null }
+    | undefined,
+  headSha: string,
+  completionHash: string,
+): "conflict" | "duplicate" | "missing" {
+  if (
+    !existing ||
+    existing.head_sha !== headSha ||
+    existing.status !== "completed"
+  ) {
+    return "missing";
+  }
+  return existing.completion_hash === null ||
+    existing.completion_hash === completionHash
+    ? "duplicate"
+    : "conflict";
+}
+
 function coordinatorName(
   event: Pick<ReviewWorkflowParams, "repository" | "pullRequestNumber">,
 ): string {
@@ -933,6 +957,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     }
     const reviewedHunks = body.hunks as ReviewHunk[];
     const currentHunks = (body.currentHunks ?? body.hunks) as ReviewHunk[];
+    const completionHeadSha = body.headSha;
     const completionHunkIds = new Set(
       reviewedHunks.map(({ hunkId }) => hunkId),
     );
@@ -993,17 +1018,11 @@ export class PullRequestCoordinator extends DurableObject<Env> {
             body.runId,
           )
           .toArray()[0];
-        if (
-          existing &&
-          existing.head_sha === body.headSha &&
-          existing.status === "completed"
-        ) {
-          return existing.completion_hash === null ||
-            existing.completion_hash === completionHash
-            ? "duplicate"
-            : "conflict";
-        }
-        return "missing";
+        return completionReplayStatus(
+          existing,
+          completionHeadSha,
+          completionHash,
+        );
       }
       for (const hunk of currentHunks) {
         this.ctx.storage.sql.exec(
@@ -1328,8 +1347,7 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
         );
       } catch (stateError) {
         console.error("Could not record failed review state", {
-          type:
-            stateError instanceof Error ? stateError.name : typeof stateError,
+          type: errorType(stateError),
         });
       }
       try {
@@ -1352,9 +1370,7 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
       } catch (recordError) {
         console.error(
           "Could not record failed review analytics",
-          recordError instanceof Error
-            ? { type: recordError.name }
-            : { type: typeof recordError },
+          { type: errorType(recordError) },
         );
       }
       throw error;
