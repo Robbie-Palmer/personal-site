@@ -7,7 +7,7 @@ tech_stack: ["PostHog", "Slack"]
 
 ## Summary
 
-Propose using PostHog log alerts as the recipe system's operational detection, alert-state, and
+Use PostHog log alerts as the recipe system's operational detection, alert-state, and
 investigation layer, with delivery through PostHog's native Slack integration to a private channel
 in a dedicated workspace.
 
@@ -23,7 +23,7 @@ workflow for a solo founder:
 The PostHog and Slack path is accepted: the workspace, integration, notification settings, and
 end-to-end firing and resolution paths have been configured and tested. The Cloudflare-to-Slack
 complementary path is not yet operational. This ADR is not a claim that PostHog and Slack form a
-complete incident-management platform. The proposed system has no on-call schedule,
+complete incident-management platform. The system has no on-call schedule,
 acknowledgement deadline, escalation, SMS or voice paging, status page, or independently hosted
 uptime check. Those capabilities are unnecessary at the current team size and incident volume, but
 this decision defines when a dedicated error-tracking, observability, uptime, or
@@ -144,7 +144,8 @@ for operational alert state.
 ### Slack Delivery
 
 Create a Slack workspace dedicated to project operations and connect it using PostHog's native
-Slack integration. This is the proposed delivery design until the adoption criteria below pass.
+Slack integration. This is the accepted delivery design; the adoption criteria below were
+completed before acceptance.
 
 * Register the workspace with a domain-controlled project email address rather than a personal
   address.
@@ -212,7 +213,7 @@ provider migration.
 
 ### Incident Workflow
 
-When a Slack alert arrives, the proposed response process is:
+When a Slack alert arrives, the response process is:
 
 1. open the PostHog alert or filtered-log link;
 2. identify the affected service, route, trace, and user impact;
@@ -278,7 +279,7 @@ loop that the current PostHog-centred system only partially covers.
 
 | Option                                                                                  | What it would improve                                                                                                                              | Costs and gaps at the current scale                                                                                                                                                                                                         | Decision                                                                          |
 | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| **PostHog alerts with native Slack delivery**                                           | Keeps detection beside logs, traces, users, replays, and product impact; avoids a public receiver; visible and isolated mobile/desktop alert inbox | Requires workspace, identity recovery, MFA, clients, permission review, and notification administration; free-plan retention is limited; Slack is not durable incident management                                                           | **Propose; accept after setup and end-to-end verification**                       |
+| **PostHog alerts with native Slack delivery**                                           | Keeps detection beside logs, traces, users, replays, and product impact; avoids a public receiver; visible and isolated mobile/desktop alert inbox | Requires workspace, identity recovery, MFA, clients, permission review, and notification administration; free-plan retention is limited; Slack is not durable incident management                                                           | **Accepted**                                                                      |
 | **Dedicated Cloudflare email relay**                                                    | Fixed email recipient; infrastructure could remain in the existing Cloudflare account                                                              | Requires a secret URL, Worker, route, email binding, rotation, schema and failure-path tests, deployment and security monitoring, plus a high-visibility mailbox; a single-purpose patch that compounds poorly as people and use cases grow | Reject while native Slack meets the need                                          |
 | **Microsoft Teams**                                                                     | Similar chat-based notification surface; strong fit if the project later adopts Microsoft 365 and Entra                                            | PostHog's Teams destination requires a webhook URL; adds Microsoft account and workflow complexity; weaker Linux experience; no current Microsoft ecosystem benefit                                                                         | Reject for the current stack                                                      |
 | **Discord**                                                                             | Free private channels, capable desktop and mobile clients, roles, webhooks, and a strong bot ecosystem                                             | PostHog uses a bearer webhook URL rather than an installed workspace integration; less aligned with future operational SaaS integrations and professional responder onboarding than Slack                                                   | Viable fallback, but Slack better fits the expected direction                     |
