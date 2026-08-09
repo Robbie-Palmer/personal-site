@@ -215,7 +215,7 @@ evidence of value before entering scope.
 
 The current output is a **GitHub App** implementing the stateful AI review
 described by
-[ADR 006](/projects/agentic-code-review/adrs/006-stateful-ai-code-review):
+[ADR 032](/projects/agentic-code-review/adrs/032-stateful-ai-code-review):
 
 * receive and verify GitHub webhook events;
 * apply deterministic eligibility, risk, debounce, and budget policies;
@@ -231,18 +231,18 @@ described by
 
 # Architecture Lineage
 
-The initial ADR set preserves three parts of the product's lineage. ADRs 000–006
-record the succession of managed and custom AI reviewers that led here. ADRs
-007–021 carry forward the platform decisions that shape the implementation:
-the public GitHub monorepo and toolchain, GitHub Actions delivery, Terraform and
-its state, secrets management, licensing, R2 storage, OpenRouter inference, and
-Cloudflare Workflow orchestration. ADRs 022–032 carry forward the development
-assurance applied to that implementation: local commit gates, dependency
-maintenance, deterministic code and infrastructure analysis, repository
-posture checks, secret detection, and spelling checks.
+The initial ADR set preserves three parts of the product's lineage. ADRs 000–014
+carry forward the platform decisions that shape the implementation: the public
+GitHub monorepo and toolchain, GitHub Actions delivery, Terraform and its state,
+secrets management, licensing, R2 storage, OpenRouter inference, and Cloudflare
+Workflow orchestration. ADRs 015–025 carry forward the development assurance
+applied to that implementation: local commit gates, dependency maintenance,
+deterministic code and infrastructure analysis, repository posture checks,
+secret detection, and spelling checks. ADRs 026–032 then record the succession
+of managed and custom AI reviewers that led to the current stateful product.
 
 Cloudflare Workers and the per-PR Durable Object are already selected by
-[ADR 006](/projects/agentic-code-review/adrs/006-stateful-ai-code-review). No
+[ADR 032](/projects/agentic-code-review/adrs/032-stateful-ai-code-review). No
 earlier project-neutral ADR captures that exact runtime shape. The inherited
 Cloudflare Workflows record carries over the durable-orchestration principles;
 its recipe-ingestion domain and Neon-specific details do not apply here.
