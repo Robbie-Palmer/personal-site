@@ -284,7 +284,7 @@ function summarizeChange(
         .map((extension) => (extension ? EXTENSION_LANGUAGE[extension] : undefined))
         .filter((language): language is string => language !== undefined),
     ),
-  ].sort();
+  ].sort((left, right) => left.localeCompare(right));
   const repositoryAreas = [
     ...new Set(
       allPaths.map((path) => {
@@ -292,7 +292,7 @@ function summarizeChange(
         return path.includes("/") && first ? first : "root";
       }),
     ),
-  ].sort();
+  ].sort((left, right) => left.localeCompare(right));
   const riskSignals = [
     allPaths.some((path) => /(^|\/)(auth|security|secrets?)(\/|\.|$)/i.test(path))
       ? "authentication-or-secrets"
@@ -361,7 +361,7 @@ export async function identifyDiffHunks(diff: string): Promise<ReviewHunk[]> {
       pending.push(current);
       continue;
     }
-    if (current && line !== "\\ No newline at end of file") {
+    if (current && line !== String.raw`\ No newline at end of file`) {
       current.body.push(line);
     }
   }
