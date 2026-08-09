@@ -1,7 +1,7 @@
 ---
 title: "ADR 063: PostHog Alerting and Lightweight Incident Management"
 date: "2026-07-29"
-status: "Proposed"
+status: "Accepted"
 tech_stack: ["PostHog", "Slack"]
 ---
 
@@ -20,9 +20,10 @@ workflow for a solo founder:
 * Slack provides an isolated, high-visibility notification inbox;
 * each notification links back to PostHog for investigation.
 
-This ADR remains proposed until the workspace, integration, notification settings, and end-to-end
-firing and resolution paths have been configured and tested. It is not a claim that PostHog and
-Slack form a complete incident-management platform. The proposed system has no on-call schedule,
+The PostHog and Slack path is accepted: the workspace, integration, notification settings, and
+end-to-end firing and resolution paths have been configured and tested. The Cloudflare-to-Slack
+complementary path is not yet operational. This ADR is not a claim that PostHog and Slack form a
+complete incident-management platform. The proposed system has no on-call schedule,
 acknowledgement deadline, escalation, SMS or voice paging, status page, or independently hosted
 uptime check. Those capabilities are unnecessary at the current team size and incident volume, but
 this decision defines when a dedicated error-tracking, observability, uptime, or
@@ -62,12 +63,12 @@ This provides several parts of an incident-management loop, but not all of them:
 | Signal capture                                   | PostHog Logs and Traces, with Cloudflare logs as fallback | Implemented                  |
 | Detection and thresholds                         | Terraform-managed PostHog log alerts                      | Implemented                  |
 | Alert state and history                          | PostHog                                                   | Implemented                  |
-| Notification transport                           | Native PostHog Slack integration                          | Proposed; not yet verified   |
-| Notification inbox                               | Private Slack channel in a dedicated workspace            | Proposed; not yet configured |
+| Notification transport                           | Native PostHog Slack integration                          | Implemented and verified     |
+| Notification inbox                               | Private Slack channel in a dedicated workspace            | Implemented                  |
 | Investigation                                    | PostHog filtered logs, traces, users, and session replays | Implemented                  |
 | Cloudflare platform incidents                    | Terraform-managed Cloudflare notifications → Slack        | Proposed complementary path  |
 | Independent availability monitoring              | None                                                      | Deferred                     |
-| Acknowledgement and ownership                    | One owner reading Slack                                   | Proposed informal process    |
+| Acknowledgement and ownership                    | One owner reading Slack                                   | Implemented informal process |
 | Escalation, schedules, SMS, and voice            | None                                                      | Deferred                     |
 | Incident coordination, timeline, and status page | None                                                      | Deferred                     |
 
@@ -339,7 +340,8 @@ for this decision.
 
 ## Adoption Criteria
 
-Keep this ADR in `Proposed` status until all of the following have been completed:
+The PostHog alerting and Slack delivery criteria below were completed before this ADR was marked
+`Accepted`:
 
 * create the dedicated Slack workspace using a domain-controlled project identity with a tested
   account-recovery path;
@@ -355,18 +357,21 @@ Keep this ADR in `Proposed` status until all of the following have been complete
 * verify that notification links open the correct PostHog alert and filtered investigation views;
 * confirm that no raw secrets, request headers, full payloads, or unnecessary personal data are
   copied into Slack;
+
+The Cloudflare-to-Slack complementary path is not yet implemented or verified. Before it becomes
+operational, the following remain:
+
 * grant the Terraform Cloudflare token least-privilege Notifications permissions and create the
   Slack webhook destination and selected policies through Terraform;
 * verify Terraform Cloud treats the Slack webhook URL as sensitive, restrict state access, and
   document its rotation procedure;
-* trigger at least one Cloudflare test notification and verify that it reaches Slack; if webhook
-  entitlement fails on the current plan, record the fallback and leave the ADR proposed;
+* confirm Cloudflare webhook entitlement on the current plan, trigger at least one Cloudflare test
+  notification and verify that it reaches Slack, and record the fallback if entitlement fails;
 * verify the initial Pages, incident, certificate or token, and billing or usage policies against
   the account's live available-alert list rather than assuming every provider enum is entitled;
 
-Record the verification outcome and change the ADR status to `Accepted` in a follow-up commit only
-after every criterion passes. Until then, the existing PostHog alert definitions remain implemented,
-but Slack delivery and the incident workflow described here are not operational.
+Every criterion that gates the PostHog alerting and Slack delivery decision passed before the ADR
+was marked `Accepted`. Slack delivery and the incident workflow are operational.
 
 ## Guardrails and Verification
 
