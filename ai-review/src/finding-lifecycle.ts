@@ -163,6 +163,8 @@ async function reconcileFindingComment(options: {
     `/repos/${options.repository}/pulls/comments/${options.commentId}`,
     { body: { body: renderFindingComment(options.finding) } },
   );
+  // GitHub can make an existing native comment's current line null on later
+  // heads. It remains a line-delivered finding because the thread still exists.
   return publication(options.finding, "line", true, options.commentId);
 }
 

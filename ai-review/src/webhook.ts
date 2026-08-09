@@ -60,6 +60,7 @@ type GitHubWebhook = {
   repository?: {
     full_name?: unknown;
   };
+  updated_at?: unknown;
   pull_request?: {
     number?: unknown;
     author_association?: unknown;
@@ -84,9 +85,7 @@ type GitHubWebhook = {
   };
   sender?: { login?: unknown };
   thread?: {
-    id?: unknown;
     node_id?: unknown;
-    updated_at?: unknown;
     comments?: unknown;
   };
 };
@@ -188,13 +187,24 @@ function reactionCounts(value: unknown): Record<string, number> | undefined {
 
 function threadRootComment(
   thread: GitHubWebhook["thread"],
-): { id: number; reactions?: Record<string, number> } | undefined {
+): { id: number; threadId: string; reactions?: Record<string, number> } | undefined {
+  const threadId = thread?.node_id;
+  if (typeof threadId !== "string" || threadId.length === 0) return undefined;
   if (!Array.isArray(thread?.comments)) return undefined;
-  const first = thread.comments[0];
-  if (!first || typeof first !== "object" || Array.isArray(first)) return undefined;
-  const comment = first as { id?: unknown; reactions?: unknown };
+  const root = thread.comments.find(
+    (candidate) =>
+      candidate !== null &&
+      typeof candidate === "object" &&
+      !Array.isArray(candidate) &&
+      ((candidate as { in_reply_to_id?: unknown }).in_reply_to_id === null ||
+        (candidate as { in_reply_to_id?: unknown }).in_reply_to_id === undefined),
+  );
+  if (!root) return undefined;
+  const comment = root as { id?: unknown; reactions?: unknown };
   const id = positiveInteger(comment.id);
-  return id ? { id, reactions: reactionCounts(comment.reactions) } : undefined;
+  return id
+    ? { id, threadId, reactions: reactionCounts(comment.reactions) }
+    : undefined;
 }
 
 function webhookActor(event: GitHubWebhook): string | undefined {
@@ -299,7 +309,6 @@ function parseThreadInteraction(
   if (!actorIsTrusted(event, identity.repository)) {
     return { kind: "ignored", reason: "unsupported-event" };
   }
-  const threadId = event.thread?.node_id ?? event.thread?.id;
   return {
     kind: "accepted",
     event: {
@@ -309,14 +318,9 @@ function parseThreadInteraction(
       actor,
       rootCommentId: rootComment.id,
       reactions: rootComment.reactions,
-      threadId:
-        typeof threadId === "string" || typeof threadId === "number"
-          ? String(threadId)
-          : undefined,
+      threadId: rootComment.threadId,
       occurredAt:
-        typeof event.thread?.updated_at === "string"
-          ? event.thread.updated_at
-          : undefined,
+        typeof event.updated_at === "string" ? event.updated_at : undefined,
     },
   };
 }

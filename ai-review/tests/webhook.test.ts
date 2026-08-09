@@ -406,10 +406,17 @@ describe("parseFindingInteraction", () => {
         repository: { full_name: "Robbie-Palmer/personal-site" },
         pull_request: { number: 816 },
         sender: { login: "Robbie-Palmer" },
+        updated_at: "2026-08-09T12:10:00Z",
         thread: {
           node_id: "PRRT_thread",
-          comments: [{ id: 200, reactions: { "+1": 1, heart: 2 } }],
-          updated_at: "2026-08-09T12:10:00Z",
+          comments: [
+            { id: 201, in_reply_to_id: 200 },
+            {
+              id: 200,
+              in_reply_to_id: null,
+              reactions: { "+1": 1, heart: 2 },
+            },
+          ],
         },
       }),
     ).toEqual({
@@ -418,6 +425,8 @@ describe("parseFindingInteraction", () => {
         interactionType: "thread",
         action: "resolved",
         rootCommentId: 200,
+        threadId: "PRRT_thread",
+        occurredAt: "2026-08-09T12:10:00Z",
         reactions: { "+1": 1, heart: 2 },
       }),
     });

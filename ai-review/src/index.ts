@@ -265,13 +265,13 @@ function isFindingPublication(value: unknown): value is FindingPublication {
     typeof publication.commentId === "number" &&
     Number.isSafeInteger(publication.commentId) &&
     publication.commentId > 0;
-  const lineIsValid =
+  const lineIsPositive =
     typeof publication.line === "number" &&
     Number.isSafeInteger(publication.line) &&
     publication.line > 0;
   const deliveryIsConsistent =
     publication.delivery === "line"
-      ? commentIdIsValid && lineIsValid
+      ? commentIdIsValid
       : publication.delivery === "fallback" && publication.commentId === undefined;
   return (
     typeof publication.findingId === "string" &&
@@ -280,7 +280,7 @@ function isFindingPublication(value: unknown): value is FindingPublication {
     typeof publication.reconciled === "boolean" &&
     typeof publication.path === "string" &&
     publication.path.length > 0 &&
-    (publication.line === null || lineIsValid)
+    (publication.line === null || lineIsPositive)
   );
 }
 

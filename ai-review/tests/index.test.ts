@@ -676,6 +676,35 @@ describe("PullRequestCoordinator", () => {
     }
   });
 
+  it("accepts a reconciled native comment whose current line is null", async () => {
+    const { coordinator } = coordinatorFixture();
+    const findingWithoutCurrentLine = { ...identifiedFinding, line: null };
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/complete", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-delivery-123",
+          headSha: event.headSha,
+          costUsd: 0.42,
+          hunks: [identifiedHunk],
+          findings: [findingWithoutCurrentLine],
+          findingPublications: [
+            {
+              findingId: findingWithoutCurrentLine.findingId,
+              delivery: "line",
+              commentId: 654,
+              reconciled: true,
+              path: findingWithoutCurrentLine.file,
+              line: null,
+            },
+          ],
+        }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({ completed: true });
+  });
+
   it.each([
     [{ attempts: 20, runs: 18, total_cost: 1 }, "review-run budget"],
     [{ attempts: 2, runs: 2, total_cost: 5 }, "cost budget"],

@@ -95,6 +95,36 @@ describe("finding lifecycle publication", () => {
     );
   });
 
+  it("preserves native delivery when a reconciled comment no longer has a line", async () => {
+    const movedFinding = { ...finding, line: null };
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          Response.json([
+            {
+              id: 321,
+              body: `old\n<!-- ai-review-finding:${finding.findingId} -->`,
+              user: { login: "reviewer[bot]" },
+            },
+          ]),
+        )
+        .mockResolvedValueOnce(new Response(null, { status: 200 })),
+    );
+
+    await expect(
+      publishFindingComments({ ...options, findings: [movedFinding] }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        delivery: "line",
+        commentId: 321,
+        reconciled: true,
+        line: null,
+      }),
+    ]);
+  });
+
   it("publishes an addressable finding as a native review comment", async () => {
     const fetchMock = vi
       .fn()
