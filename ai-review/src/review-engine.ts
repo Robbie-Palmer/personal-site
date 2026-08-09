@@ -522,11 +522,11 @@ function hunkHasSemanticChange(hunk: ParsedDiffHunk): boolean {
   // so it deliberately remains material.
   const normalize = (line: string) => line.slice(1).trim();
   const removed = hunk.body
-    .filter((line) => line.startsWith("-") && !line.startsWith("---"))
+    .filter((line) => line.startsWith("-"))
     .map(normalize)
     .filter(Boolean);
   const added = hunk.body
-    .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+    .filter((line) => line.startsWith("+"))
     .map(normalize)
     .filter(Boolean);
   return JSON.stringify(removed) !== JSON.stringify(added);
@@ -815,9 +815,12 @@ export async function prepareReview(
     ...summarizeChange(rawDiff, rawPaths, omitted, rawHunks),
     riskSignals: triggerRiskSignals,
   };
-  const escalated = params.force || triggerRiskSignals.length > 0;
+  const riskEscalated = triggerRiskSignals.length > 0;
   const eligibleParsed = parsedHunks.filter(
-    (hunk) => escalated || (!ignored(hunk.file) && hunkHasSemanticChange(hunk)),
+    (hunk) =>
+      params.force ||
+      (!ignored(hunk.file) &&
+        (riskEscalated || hunkHasSemanticChange(hunk))),
   );
   const eligibleHunkIds = new Set(eligibleParsed.map(({ hunkId }) => hunkId));
   const eligibleHunks = rawHunks.filter(({ hunkId }) => eligibleHunkIds.has(hunkId));
@@ -866,7 +869,7 @@ export async function prepareReview(
     paths: selectedPaths,
     omitted,
     hunks: selectedHunks,
-    allHunks: eligibleHunks,
+    allHunks: rawHunks,
     coverage,
     changeProfile: {
       ...preliminaryProfile,

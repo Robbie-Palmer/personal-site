@@ -602,12 +602,25 @@ export class Reviewer {
     omitted: string[];
   }> {
     const files = await this.pages<ChangedFile>(`${this.prPath}/files`, 30);
+    const reviewableFiles = files.filter(
+      (file) => file.filename && !ignored(file.filename),
+    );
+    // Forced reviews may include ignored files, but process those files only
+    // after every normally reviewable patch has had access to the bounded diff
+    // budget. A large lockfile or generated patch must never displace source.
+    const selectedFiles = options.includeIgnored
+      ? [
+          ...reviewableFiles,
+          ...files.filter(
+            (file) => file.filename && ignored(file.filename),
+          ),
+        ]
+      : reviewableFiles;
     const blocks: string[] = [];
     const paths: string[] = [];
     const omitted: string[] = [];
     let used = 0;
-    for (const file of files) {
-      if (!file.filename || (!options.includeIgnored && ignored(file.filename))) continue;
+    for (const file of selectedFiles) {
       if (typeof file.patch !== "string" || file.patch.length > MAX_PATCH_CHARS) {
         omitted.push(file.filename);
         continue;

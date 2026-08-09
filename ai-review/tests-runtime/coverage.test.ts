@@ -18,6 +18,35 @@ function hunk(id: string, file = "app.ts"): ReviewHunk {
 }
 
 describe("incremental review coverage in workerd", () => {
+  it("uses deterministic first-review coverage without a completed baseline", () => {
+    const current = hunk("a");
+    const baseline = { hunkIds: [], openFindings: [] };
+
+    expect(
+      decideReviewCoverage({
+        force: false,
+        riskSignals: [],
+        hunks: [current],
+        baseline,
+      }),
+    ).toMatchObject({
+      mode: "full",
+      reason: "no completed review baseline",
+      reviewedHunkIds: [current.hunkId],
+    });
+    expect(
+      decideReviewCoverage({
+        force: false,
+        riskSignals: [],
+        hunks: [],
+        baseline,
+      }),
+    ).toMatchObject({
+      mode: "skipped",
+      reason: "no semantic hunks to review",
+    });
+  });
+
   it("reviews only new hunks and the unchanged hunk of an affected open finding", () => {
     const first = hunk("a");
     const unchanged = hunk("b", "other.ts");

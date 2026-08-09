@@ -348,4 +348,58 @@ describe("PullRequestCoordinator in workerd", () => {
       ).toEqual([{ action: "resolved", r2_recorded: 1 }]);
     });
   });
+
+  it("uses a zero-cost skipped completion as the next review baseline", async () => {
+    const stub = coordinator();
+    const runId = "workerd-skipped-review";
+    const currentHunk = {
+      hunkId: `h_${"a".repeat(24)}`,
+      fingerprint: "b".repeat(64),
+      file: "pnpm-lock.yaml",
+      oldStart: 1,
+      oldLines: 1,
+      newStart: 1,
+      newLines: 1,
+    };
+    const claim = await stub.fetch("https://coordinator.test/reviews/claim", {
+      method: "POST",
+      body: JSON.stringify({
+        runId,
+        headSha: event.headSha,
+        diffFingerprint: "skipped-diff-hash",
+        configFingerprint: "config-hash",
+        force: false,
+        maxRuns: 20,
+        maxCostUsd: 5,
+      }),
+    });
+    await expect(claim.json()).resolves.toMatchObject({ claimed: true });
+
+    const completion = await stub.fetch(
+      "https://coordinator.test/reviews/complete",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          runId,
+          headSha: event.headSha,
+          costUsd: 0,
+          hunks: [],
+          currentHunks: [currentHunk],
+          findings: [],
+          findingPublications: [],
+        }),
+      },
+    );
+    await expect(completion.json()).resolves.toEqual({ completed: true });
+
+    const baseline = await stub.fetch(
+      "https://coordinator.test/reviews/baseline",
+      { method: "POST", body: "{}" },
+    );
+    await expect(baseline.json()).resolves.toEqual({
+      headSha: event.headSha,
+      hunkIds: [currentHunk.hunkId],
+      openFindings: [],
+    });
+  });
 });

@@ -1200,12 +1200,43 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
           pullRequestNumber: event.payload.pullRequestNumber,
           reason: prepared.skipReason,
         });
-        const skippedPublication =
-          prepared.coverage?.mode === "skipped"
-            ? await workflowStep.do("publish-skipped-coverage", () =>
-                publishSkippedReview(this.env, event.payload, prepared!),
-              )
-            : undefined;
+        if (prepared.coverage?.mode !== "skipped") {
+          await workflowStep.do("record-skipped-review", () =>
+            recordReviewTerminal({
+              env: this.env,
+              params: event.payload,
+              instanceId: event.instanceId,
+              status: "skipped",
+              reason: prepared?.skipReason,
+              prepared,
+              timestamp: event.timestamp,
+            }),
+          );
+          return;
+        }
+        failedPhase = "claim-skipped-review";
+        const claim = await workflowStep.do("claim-skipped-review", () =>
+          claimReview(this.env, event.payload, event.instanceId, prepared!),
+        );
+        if (!claim.claimed) {
+          await workflowStep.do("record-denied-skipped-review", () =>
+            recordReviewTerminal({
+              env: this.env,
+              params: event.payload,
+              instanceId: event.instanceId,
+              status: "denied",
+              reason: claim.reason,
+              prepared,
+              timestamp: event.timestamp,
+            }),
+          );
+          return;
+        }
+        failedPhase = "publish-skipped-coverage";
+        const skippedPublication = await workflowStep.do(
+          "publish-skipped-coverage",
+          () => publishSkippedReview(this.env, event.payload, prepared!),
+        );
         await workflowStep.do("record-skipped-review", () =>
           recordReviewTerminal({
             env: this.env,
@@ -1217,6 +1248,17 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
             publication: skippedPublication,
             timestamp: event.timestamp,
           }),
+        );
+        failedPhase = "complete-skipped-review-state";
+        await workflowStep.do("complete-skipped-review-state", () =>
+          completeReview(
+            this.env,
+            event.payload,
+            event.instanceId,
+            prepared!,
+            { hunks: [], candidates: {}, publishedFindings: [] },
+            skippedPublication,
+          ),
         );
         return;
       }

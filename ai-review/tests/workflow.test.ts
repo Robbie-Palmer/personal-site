@@ -248,7 +248,7 @@ describe("ReviewWorkflow orchestration", () => {
     );
   });
 
-  it("publishes deterministic skipped coverage without claiming or invoking models", async () => {
+  it("claims and completes deterministic skipped coverage without invoking models", async () => {
     const coverage = {
       mode: "skipped",
       reason: "all current semantic hunks were covered",
@@ -270,7 +270,12 @@ describe("ReviewWorkflow orchestration", () => {
 
     await workflow.run(event, step);
 
-    expect(engine.claimReview).not.toHaveBeenCalled();
+    expect(engine.claimReview).toHaveBeenCalledWith(
+      expect.anything(),
+      payload,
+      event.instanceId,
+      skippedPrepared,
+    );
     expect(engine.runScouts).not.toHaveBeenCalled();
     expect(engine.publishSkippedReview).toHaveBeenCalledWith(
       expect.anything(),
@@ -283,10 +288,20 @@ describe("ReviewWorkflow orchestration", () => {
         publication: expect.objectContaining({ runCostUsd: 0 }),
       }),
     );
+    expect(engine.completeReview).toHaveBeenCalledWith(
+      expect.anything(),
+      payload,
+      event.instanceId,
+      skippedPrepared,
+      { hunks: [], candidates: {}, publishedFindings: [] },
+      expect.objectContaining({ runCostUsd: 0 }),
+    );
     expect(vi.mocked(step.do).mock.calls.map(([name]) => name)).toEqual([
       "prepare-review",
+      "claim-skipped-review",
       "publish-skipped-coverage",
       "record-skipped-review",
+      "complete-skipped-review-state",
     ]);
   });
 

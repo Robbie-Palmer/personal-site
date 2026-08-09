@@ -82,6 +82,30 @@ afterEach(() => {
 });
 
 describe("stateful review engine", () => {
+  it("reserves the bounded diff budget for reviewable files", async () => {
+    const ignoredPatch = `@@ -1 +1 @@\n-${"a".repeat(27_000)}\n+${"b".repeat(27_000)}`;
+    const sourcePatch = `@@ -1 +1 @@\n-${"a".repeat(5_000)}\n+${"b".repeat(5_000)}`;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        json([
+          ...Array.from({ length: 5 }, (_, index) => ({
+            filename: `src/client-${index}.generated.ts`,
+            status: "modified",
+            patch: ignoredPatch,
+          })),
+          { filename: "src/app.ts", status: "modified", patch: sourcePatch },
+        ]),
+      ),
+    );
+
+    const changed = await reviewer().changedFiles({ includeIgnored: true });
+
+    expect(changed.paths[0]).toBe("src/app.ts");
+    expect(changed.diff).toContain("diff --git a/src/app.ts b/src/app.ts");
+    expect(changed.omitted).not.toContain("src/app.ts");
+  });
+
   it("batches exact-head file context instead of fetching every path", async () => {
     const paths = Array.from({ length: 37 }, (_, index) => `src/file-${index}.ts`);
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -186,7 +210,7 @@ describe("stateful review engine", () => {
       author_association: "OWNER",
       user: { login: "robbie" },
       head: {
-        sha: params.headSha,
+        sha: HEAD_SHA,
         repo: { full_name: params.repository },
       },
     };
@@ -237,14 +261,14 @@ describe("stateful review engine", () => {
     });
   });
 
-  it("skips generated, lockfile, and whitespace-only hunks unless forced", async () => {
+  it("skips generated, lockfile, and whitespace-only hunks automatically", async () => {
     const pullRequest = {
       state: "open",
       draft: false,
       author_association: "OWNER",
       user: { login: "robbie" },
       head: {
-        sha: params.headSha,
+        sha: HEAD_SHA,
         repo: { full_name: params.repository },
       },
     };
@@ -287,6 +311,94 @@ describe("stateful review engine", () => {
         ],
       },
     });
+  });
+
+  it("keeps ignored hunks out of risk escalation but includes them when forced", async () => {
+    const pullRequest = {
+      state: "open",
+      draft: false,
+      author_association: "OWNER",
+      user: { login: "robbie" },
+      head: {
+        sha: HEAD_SHA,
+        ref: "feature",
+        repo: { full_name: params.repository },
+      },
+      labels: [],
+    };
+    const diff =
+      "diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml\n" +
+      "status modified\n@@ -1 +1 @@\n-old\n+new\n" +
+      "diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml\n" +
+      "status modified\n@@ -1 +1 @@\n-old lock\n+new lock\n";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(json({ token: "installation-token" })),
+    );
+    vi.spyOn(Reviewer.prototype, "getPr").mockResolvedValue(pullRequest);
+    vi.spyOn(Reviewer.prototype, "changedFiles").mockResolvedValue({
+      diff,
+      paths: [".github/workflows/deploy.yml", "pnpm-lock.yaml"],
+      omitted: [],
+    });
+    vi.spyOn(Reviewer.prototype, "fileContext").mockResolvedValue("");
+    vi.spyOn(Reviewer.prototype, "headGuidelines").mockResolvedValue("");
+    vi.spyOn(Reviewer.prototype, "reviewThreadContext").mockResolvedValue("");
+
+    const automatic = await prepareReview(environment(), params);
+    expect(automatic.coverage).toMatchObject({
+      mode: "full",
+      skippedPaths: ["pnpm-lock.yaml"],
+    });
+    expect(automatic.paths).toEqual([".github/workflows/deploy.yml"]);
+    expect(automatic.diff).not.toContain("pnpm-lock.yaml");
+    expect(automatic.allHunks).toHaveLength(2);
+
+    const forced = await prepareReview(environment(), {
+      ...params,
+      force: true,
+    });
+    expect(forced.paths).toEqual([
+      ".github/workflows/deploy.yml",
+      "pnpm-lock.yaml",
+    ]);
+    expect(forced.diff).toContain("pnpm-lock.yaml");
+  });
+
+  it("treats hunk content beginning with diff-header characters as semantic", async () => {
+    const diff =
+      "diff --git a/config.txt b/config.txt\n" +
+      "status modified\n@@ -1 +1 @@\n----\n++++\n";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(json({ token: "installation-token" })),
+    );
+    vi.spyOn(Reviewer.prototype, "getPr").mockResolvedValue({
+      state: "open",
+      draft: false,
+      author_association: "OWNER",
+      user: { login: "robbie" },
+      head: {
+        sha: HEAD_SHA,
+        ref: "feature",
+        repo: { full_name: params.repository },
+      },
+      labels: [],
+    });
+    vi.spyOn(Reviewer.prototype, "changedFiles").mockResolvedValue({
+      diff,
+      paths: ["config.txt"],
+      omitted: [],
+    });
+    vi.spyOn(Reviewer.prototype, "fileContext").mockResolvedValue("");
+    vi.spyOn(Reviewer.prototype, "headGuidelines").mockResolvedValue("");
+    vi.spyOn(Reviewer.prototype, "reviewThreadContext").mockResolvedValue("");
+
+    const prepared = await prepareReview(environment(), params);
+
+    expect(prepared.skipReason).toBeUndefined();
+    expect(prepared.coverage).toMatchObject({ mode: "full", totalHunks: 1 });
+    expect(prepared.diff).toContain("----\n++++");
   });
 
   it("does not resend an unchanged hunk after synchronize", async () => {
@@ -763,6 +875,8 @@ describe("stateful review engine", () => {
       String(fetchMock.mock.calls[3]?.[1]?.body),
     ) as { body: string };
     expect(update.body).toContain("Coverage: Skipped coverage");
+    expect(update.body).toContain("<!-- ai-review-coverage-head -->");
+    expect(update.body).toContain("did not require model review");
     expect(update.body).toContain("Existing fallback finding");
     expect(update.body).toContain('ai-review-cost:{"runs":1,"total_usd":0.1}');
   });
