@@ -604,6 +604,16 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     ) {
       return json({ error: "Invalid review completion" }, 400);
     }
+    const completionHunkIds = new Set(
+      (body.hunks as ReviewHunk[]).map(({ hunkId }) => hunkId),
+    );
+    if (
+      (body.findings as IdentifiedMergedFinding[]).some((finding) =>
+        finding.hunkIds.some((hunkId) => !completionHunkIds.has(hunkId)),
+      )
+    ) {
+      return json({ error: "Invalid review completion" }, 400);
+    }
     const completionHash = await sha256(
       JSON.stringify({
         headSha: body.headSha,
