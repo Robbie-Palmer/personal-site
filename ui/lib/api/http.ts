@@ -44,7 +44,7 @@ type ApiRequestOptions = Omit<RequestInit, "body" | "credentials"> & {
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function parseErrorBody(value: unknown): ApiErrorBody | null {
@@ -96,6 +96,7 @@ function errorMessage(body: ApiErrorBody | null, fallback: string): string {
 }
 
 async function responseJson(response: Response): Promise<unknown> {
+  if (response.status === 204 || response.status === 205) return undefined;
   if (typeof response.text !== "function") {
     try {
       return await response.json();
@@ -120,6 +121,9 @@ export async function apiRequest<T>(
   path: string,
   options: ApiRequestOptions = {},
 ): Promise<T> {
+  if (!path.startsWith("/") || path.startsWith("//")) {
+    throw new TypeError("apiRequest only accepts root-relative paths.");
+  }
   const {
     body,
     fallbackMessage = "API request failed.",
@@ -151,7 +155,10 @@ export async function apiRequest<T>(
     ...(headers !== undefined ? { headers } : {}),
     ...(requestBody !== undefined ? { body: requestBody } : {}),
   });
-  const parsed = await responseJson(response);
+  const parsed =
+    response.ok && responseType === "void"
+      ? undefined
+      : await responseJson(response);
   if (!response.ok) {
     const errorBody = parseErrorBody(parsed);
     throw new ApiError(
@@ -163,7 +170,11 @@ export async function apiRequest<T>(
       },
     );
   }
-  if (responseType === "void" || response.status === 204) {
+  if (
+    responseType === "void" ||
+    response.status === 204 ||
+    response.status === 205
+  ) {
     return undefined as T;
   }
   if (parsed === undefined) {

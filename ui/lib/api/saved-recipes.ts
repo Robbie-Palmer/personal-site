@@ -52,15 +52,21 @@ export async function getSavedRecipe(
       fallbackMessage: "The recipe could not be loaded.",
     });
   } catch (error) {
-    if (error instanceof ApiError && error.status === 404) {
-      throw new ApiError(
-        "That recipe was not found, or it belongs to another profile.",
-        error.status,
-        { code: error.code, details: error.details },
-      );
+    if (error instanceof ApiError) {
+      if (error.status === 404) {
+        throw new ApiError(
+          "That recipe was not found, or it belongs to another profile.",
+          error.status,
+          { code: error.code, details: error.details },
+        );
+      }
+      if (error.status >= 400) throw error;
+      throw new ApiError("The recipe could not be loaded.", 422, {
+        code: error.code,
+        details: error.details,
+      });
     }
-    if (error instanceof ApiError && error.status >= 400) throw error;
-    throw new ApiError("The recipe could not be loaded.", 422);
+    throw error;
   }
 }
 

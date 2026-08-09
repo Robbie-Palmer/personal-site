@@ -100,6 +100,29 @@ describe("apiRequest", () => {
     ).resolves.toBeUndefined();
   });
 
+  it.each([204, 205])(
+    "accepts a %i no-content response without an explicit response type",
+    async (status) => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(null, { status }),
+      );
+
+      await expect(apiRequest<void>("/api/example")).resolves.toBeUndefined();
+    },
+  );
+
+  it("rejects URLs outside the root-relative API boundary", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    await expect(apiRequest("https://example.test/api")).rejects.toThrow(
+      "apiRequest only accepts root-relative paths.",
+    );
+    await expect(apiRequest("//example.test/api")).rejects.toThrow(
+      "apiRequest only accepts root-relative paths.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("rejects malformed successful JSON with a typed error", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("not json", { status: 200 }),

@@ -135,7 +135,7 @@ export async function inviteHouseholdMember(
 export async function acceptHouseholdInvitation(
   invitationId: string,
 ): Promise<void> {
-  await householdRequest(
+  await householdRequest<void>(
     `/api/households/invitations/${invitationId}/accept`,
     "Couldn't accept the household invitation.",
     { method: "POST" },
@@ -145,7 +145,7 @@ export async function acceptHouseholdInvitation(
 export async function declineHouseholdInvitation(
   invitationId: string,
 ): Promise<void> {
-  await householdRequest(
+  await householdRequest<void>(
     `/api/households/invitations/${invitationId}/decline`,
     "Couldn't decline the household invitation.",
     { method: "POST" },
@@ -156,7 +156,7 @@ export async function revokeHouseholdInvitation(
   householdId: string,
   invitationId: string,
 ): Promise<void> {
-  await householdRequest<HouseholdInvitation>(
+  await householdRequest<void>(
     `/api/households/${householdId}/invitations/${invitationId}`,
     "Couldn't revoke the invitation.",
     { method: "DELETE" },
