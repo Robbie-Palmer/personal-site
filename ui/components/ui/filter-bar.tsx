@@ -1,9 +1,16 @@
 "use client";
 
-import { Check, Filter, Minus, Search, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  ChevronRight,
+  Filter,
+  Minus,
+  Search,
+  X,
+} from "lucide-react";
 import type * as React from "react";
-import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -19,14 +26,6 @@ import {
   filterStateAriaLabel,
 } from "@/hooks/use-filter-params";
 import { cn } from "@/lib/generic/styles";
-
-function chipVariantForState(
-  state: FilterState,
-): "destructive" | "default" | "outline" {
-  if (state === "exclude") return "destructive";
-  if (state === "include") return "default";
-  return "outline";
-}
 
 interface ActiveFilter {
   paramName: string;
@@ -46,6 +45,7 @@ export interface MobileFilterOption {
 export interface MobileFilterSection {
   paramName: string;
   label: string;
+  icon?: React.ReactNode;
   options: MobileFilterOption[];
   getOptionState: (value: string) => FilterState;
   onCycleOption: (value: string) => void;
@@ -91,6 +91,48 @@ export function FilterBar({
   mobileExtraContent,
 }: Readonly<FilterBarProps>) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileSectionName, setMobileSectionName] = useState<string>();
+  const [mobileFilterQuery, setMobileFilterQuery] = useState("");
+  const mobileSection = mobileFilterSections?.find(
+    (section) => section.paramName === mobileSectionName,
+  );
+  const visibleMobileOptions = useMemo(() => {
+    if (!mobileSection) return [];
+
+    const query = mobileFilterQuery.trim().toLocaleLowerCase();
+    const matchingOptions = query
+      ? mobileSection.options.filter((option) =>
+          option.label.toLocaleLowerCase().includes(query),
+        )
+      : mobileSection.options;
+
+    // Keep active values within easy reach when returning to a category.
+    if (query) return matchingOptions;
+    return [...matchingOptions].sort((a, b) => {
+      const aIsActive = mobileSection.getOptionState(a.value) !== "off";
+      const bIsActive = mobileSection.getOptionState(b.value) !== "off";
+      if (aIsActive === bIsActive) return 0;
+      return aIsActive ? -1 : 1;
+    });
+  }, [mobileFilterQuery, mobileSection]);
+
+  const handleMobileOpenChange = (open: boolean) => {
+    setMobileOpen(open);
+    if (!open) {
+      setMobileSectionName(undefined);
+      setMobileFilterQuery("");
+    }
+  };
+
+  const openMobileSection = (paramName: string) => {
+    setMobileSectionName(paramName);
+    setMobileFilterQuery("");
+  };
+
+  const closeMobileSection = () => {
+    setMobileSectionName(undefined);
+    setMobileFilterQuery("");
+  };
   const searchControl = showSearch && onSearchChange && (
     <div
       className={cn(
@@ -125,7 +167,7 @@ export function FilterBar({
     </div>
   );
   const mobileFilterButton = (
-    <Drawer open={mobileOpen} onOpenChange={setMobileOpen}>
+    <Drawer open={mobileOpen} onOpenChange={handleMobileOpenChange}>
       <DrawerTrigger asChild>
         <Button
           variant="outline"
@@ -141,70 +183,190 @@ export function FilterBar({
           )}
         </Button>
       </DrawerTrigger>
-      <DrawerContent className="max-h-[70vh] pb-8">
-        <DrawerHeader className="pb-2">
-          <DrawerTitle className="flex items-center justify-between">
-            <span>Filters</span>
-            {hasActiveFilters && onClearAll && (
+      <DrawerContent className="h-[85dvh] max-h-[85dvh] pb-[env(safe-area-inset-bottom)]">
+        <DrawerHeader className="border-b pb-3">
+          <DrawerTitle className="flex min-h-8 items-center justify-between gap-2">
+            <span className="flex min-w-0 items-center gap-2">
+              {mobileSection && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={closeMobileSection}
+                  aria-label="Back to filter categories"
+                  className="-ml-2"
+                >
+                  <ArrowLeft />
+                </Button>
+              )}
+              <span className="truncate">
+                {mobileSection?.label ?? "Filters"}
+              </span>
+            </span>
+            <span className="flex items-center gap-1">
+              {!mobileSection && hasActiveFilters && onClearAll && (
+                <Button variant="ghost" size="sm" onClick={onClearAll}>
+                  Clear all
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  onClearAll();
-                  setMobileOpen(false);
-                }}
+                onClick={() => handleMobileOpenChange(false)}
               >
-                Clear all
+                Done
               </Button>
-            )}
+            </span>
           </DrawerTitle>
         </DrawerHeader>
 
-        {/* Mobile filter sections - inline tappable chips */}
+        {/* Mobile filters use a category-first drill-down so large option sets
+            never turn the drawer into one long, difficult-to-scan page. */}
         {mobileFilterSections?.length ? (
-          <div className="overflow-y-auto max-h-[calc(70vh-100px)] px-1">
-            <div className="space-y-4">
-              {mobileExtraContent && (
-                <div className="mb-4 pb-4 border-b">
-                  <h4 className="text-sm font-medium mb-2 px-1">Date Range</h4>
-                  {mobileExtraContent}
+          mobileSection ? (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="shrink-0 border-b p-4">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder={`Search ${mobileSection.label.toLocaleLowerCase()}…`}
+                    value={mobileFilterQuery}
+                    onChange={(event) =>
+                      setMobileFilterQuery(event.target.value)
+                    }
+                    className="h-11 pl-9 pr-9 [&::-webkit-search-cancel-button]:appearance-none"
+                    aria-label={`Search ${mobileSection.label} filter values`}
+                  />
+                  {mobileFilterQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setMobileFilterQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:text-foreground"
+                      aria-label={`Clear ${mobileSection.label} search`}
+                    >
+                      <X className="size-4" />
+                    </button>
+                  )}
                 </div>
-              )}
-              {mobileFilterSections.map((section) => (
-                <div key={section.paramName}>
-                  <h4 className="text-sm font-medium mb-2 px-1">
-                    {section.label}
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {section.options.map((option) => {
-                      const state = section.getOptionState(option.value);
+                <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                  <span>Tap once to include · again to exclude</span>
+                  <span aria-live="polite">
+                    {visibleMobileOptions.length} of{" "}
+                    {mobileSection.options.length}
+                  </span>
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+                {visibleMobileOptions.length > 0 ? (
+                  <div className="space-y-1">
+                    {visibleMobileOptions.map((option) => {
+                      const state = mobileSection.getOptionState(option.value);
                       const isIncluded = state === "include";
                       const isExcluded = state === "exclude";
                       return (
-                        <Badge
+                        <button
                           key={option.value}
-                          variant={chipVariantForState(state)}
-                          interactive
-                          active={isIncluded || isExcluded}
+                          type="button"
                           aria-label={filterStateAriaLabel(option.label, state)}
                           className={cn(
-                            "cursor-pointer gap-1.5 py-1.5 px-3",
-                            isExcluded && "line-through",
+                            "flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            (isIncluded || isExcluded) && "bg-accent/60",
                           )}
-                          onClick={() => section.onCycleOption(option.value)}
+                          onClick={() =>
+                            mobileSection.onCycleOption(option.value)
+                          }
                         >
-                          {option.icon}
-                          <span>{option.label}</span>
-                          {isIncluded && <Check className="size-3 ml-0.5" />}
-                          {isExcluded && <Minus className="size-3 ml-0.5" />}
-                        </Badge>
+                          {option.icon && (
+                            <span className="shrink-0 text-muted-foreground">
+                              {option.icon}
+                            </span>
+                          )}
+                          <span
+                            className={cn(
+                              "min-w-0 flex-1 truncate",
+                              isExcluded && "line-through",
+                            )}
+                          >
+                            {option.label}
+                          </span>
+                          {isIncluded && (
+                            <span className="flex items-center gap-1 text-xs font-medium text-primary">
+                              Included <Check className="size-4" />
+                            </span>
+                          )}
+                          {isExcluded && (
+                            <span className="flex items-center gap-1 text-xs font-medium text-destructive">
+                              Excluded <Minus className="size-4" />
+                            </span>
+                          )}
+                        </button>
                       );
                     })}
                   </div>
-                </div>
-              ))}
+                ) : (
+                  <div className="px-4 py-12 text-center">
+                    <Search className="mx-auto mb-3 size-6 text-muted-foreground" />
+                    <p className="font-medium">No matching values</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Try a different search for{" "}
+                      {mobileSection.label.toLowerCase()}.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <p className="mb-3 text-sm text-muted-foreground">
+                Choose a category, then search or browse its values.
+              </p>
+              {mobileExtraContent && (
+                <div className="mb-4 rounded-lg border p-3">
+                  <h4 className="mb-2 text-sm font-medium">Date Range</h4>
+                  {mobileExtraContent}
+                </div>
+              )}
+              <div className="space-y-2">
+                {mobileFilterSections.map((section) => {
+                  const activeCount = section.options.reduce(
+                    (count, option) =>
+                      count +
+                      (section.getOptionState(option.value) === "off" ? 0 : 1),
+                    0,
+                  );
+                  return (
+                    <button
+                      key={section.paramName}
+                      type="button"
+                      onClick={() => openMobileSection(section.paramName)}
+                      aria-label={`${section.label}, ${section.options.length} values${activeCount ? `, ${activeCount} active` : ""}`}
+                      className="flex min-h-14 w-full items-center gap-3 rounded-lg border bg-card px-3 py-2 text-left shadow-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {section.icon && (
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                          {section.icon}
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-medium">
+                          {section.label}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {section.options.length} values
+                        </span>
+                      </span>
+                      {activeCount > 0 && (
+                        <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
+                          {activeCount}
+                        </span>
+                      )}
+                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )
         ) : (
           /* Fallback to children if no mobile sections provided */
           <div className="flex flex-col gap-3 py-4">{children}</div>

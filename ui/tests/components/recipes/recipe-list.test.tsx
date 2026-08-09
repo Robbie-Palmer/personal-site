@@ -171,6 +171,35 @@ describe("RecipeList", () => {
     ).toBeInTheDocument();
   });
 
+  it("lets mobile users search within a filter category", () => {
+    render(<RecipeList recipes={recipes} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Ingredients, 5 values" }),
+    );
+
+    const ingredientSearch = screen.getByRole("searchbox", {
+      name: "Search Ingredients filter values",
+    });
+    fireEvent.change(ingredientSearch, { target: { value: "cheddar" } });
+
+    expect(
+      screen.getByRole("button", { name: "cheddar cheese" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "white onion" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("1 of 5")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "cheddar cheese" }));
+
+    expect(replaceMock).toHaveBeenCalledWith(
+      "/recipes?ingredient=cheddar+cheese",
+      { scroll: false },
+    );
+  });
+
   it("applies the equipment filter via the equipment query param", () => {
     currentSearchParams = new URLSearchParams("equipment=slow cooker");
 
