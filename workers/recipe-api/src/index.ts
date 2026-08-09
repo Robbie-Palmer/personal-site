@@ -211,7 +211,7 @@ const recipeBoxBodySchema = z
 
 const cookingSessionBodySchema = z
   .object({
-    sessionId: z.string().uuid().max(36),
+    sessionId: z.uuid().max(36),
     recipeSlug: recipeSlugSchema,
     recipeTitle: z.string().trim().min(1).max(120),
     servings: z
@@ -346,7 +346,7 @@ const updateHouseholdBodySchema = z
 
 const inviteHouseholdMemberBodySchema = z
   .object({
-    email: z.string().trim().email().max(320),
+    email: z.string().trim().check(z.email()).max(320),
   })
   .strict();
 
@@ -470,7 +470,7 @@ const SUCCESS_STATUS_OVERRIDES = new Map<string, readonly SuccessStatus[]>([
 ]);
 
 function openApiPath(path: string): string {
-  return path.replace(/:([A-Za-z0-9_]+)/g, "{$1}");
+  return path.replace(/:(\w+)/g, "{$1}");
 }
 
 function operationId(method: string, path: string): string {
@@ -487,6 +487,62 @@ function operationId(method: string, path: string): string {
     .join("");
 }
 
+function pathParamsSchema(path: string) {
+  const parameterNames = [...path.matchAll(/:(\w+)/g)].map(
+    (match) => match[1] as string,
+  );
+  if (parameterNames.length === 0) return undefined;
+
+  return z.object(
+    Object.fromEntries(
+      parameterNames.map((name) => [name, z.string().min(1).max(200)]),
+    ),
+  );
+}
+
+function successDescription(status: SuccessStatus): string {
+  switch (status) {
+    case 201:
+      return "Resource created";
+    case 202:
+      return "Request accepted for asynchronous processing";
+    default:
+      return "Successful response";
+  }
+}
+
+function successResponsesFor(
+  key: string,
+  method: "get" | "post" | "put" | "patch" | "delete",
+): RouteConfig["responses"] {
+  const statuses =
+    SUCCESS_STATUS_OVERRIDES.get(key) ??
+    ([method === "delete" ? 204 : 200] as const);
+  const responses: RouteConfig["responses"] = {};
+
+  for (const status of statuses) {
+    responses[status] =
+      status === 204
+        ? { description: "Successful response with no content" }
+        : {
+            description: successDescription(status),
+            content: {
+              "application/json": { schema: jsonResponseSchema },
+            },
+          };
+  }
+
+  return responses;
+}
+
+function securityFor(path: string): NonNullable<RouteConfig["security"]> {
+  if (path === "/health") return [];
+  if (path.startsWith("/api/auth/preview/")) {
+    return [{ cloudflareAccess: [] }];
+  }
+  return [{ sessionCookie: [] }];
+}
+
 function registerRoute(
   method: "get" | "post" | "put" | "patch" | "delete",
   path: string,
@@ -495,17 +551,7 @@ function registerRoute(
   const key = `${method.toUpperCase()} ${path}`;
   const requestBodySchema = openApiRequestBodySchemas.get(key);
   const querySchema = openApiQuerySchemas.get(key);
-  const parameterNames = [...path.matchAll(/:([A-Za-z0-9_]+)/g)].map(
-    (match) => match[1] as string,
-  );
-  const paramsSchema =
-    parameterNames.length > 0
-      ? z.object(
-          Object.fromEntries(
-            parameterNames.map((name) => [name, z.string().min(1).max(200)]),
-          ),
-        )
-      : undefined;
+  const paramsSchema = pathParamsSchema(path);
   const errorResponses = Object.fromEntries(
     ERROR_STATUS_CODES.map((status) => [
       status,
@@ -515,26 +561,7 @@ function registerRoute(
       },
     ]),
   );
-  const successStatuses =
-    SUCCESS_STATUS_OVERRIDES.get(key) ??
-    ([method === "delete" ? 204 : 200] as const);
-  const successResponses: RouteConfig["responses"] = {};
-  for (const status of successStatuses) {
-    successResponses[status] =
-      status === 204
-        ? { description: "Successful response with no content" }
-        : {
-            description:
-              status === 201
-                ? "Resource created"
-                : status === 202
-                  ? "Request accepted for asynchronous processing"
-                  : "Successful response",
-            content: {
-              "application/json": { schema: jsonResponseSchema },
-            },
-          };
-  }
+  const successResponses = successResponsesFor(key, method);
   const rateLimitResponses: RouteConfig["responses"] = {};
   if (RATE_LIMITED_OPERATIONS.has(key)) {
     rateLimitResponses[429] = {
@@ -564,12 +591,7 @@ function registerRoute(
         .filter(Boolean)
         .at(path.startsWith("/api/") ? 1 : 0) ?? "system",
     ],
-    security:
-      path === "/health"
-        ? []
-        : path.startsWith("/api/auth/preview/")
-          ? [{ cloudflareAccess: [] }]
-        : [{ sessionCookie: [] }],
+    security: securityFor(path),
     request: {
       ...(paramsSchema ? { params: paramsSchema } : {}),
       ...(querySchema ? { query: querySchema } : {}),
