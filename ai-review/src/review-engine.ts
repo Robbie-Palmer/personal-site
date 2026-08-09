@@ -466,9 +466,7 @@ export async function identifyReviewArtifacts(
         findingId: sufficientlySimilar
           ? closest.findingId
           : await findingIdentity(finding),
-        hunkIds: sufficientlySimilar
-          ? closest.hunkIds
-          : hunkIdsForFinding(finding, hunks),
+        hunkIds: hunkIdsForFinding(finding, hunks),
       };
     }),
   );

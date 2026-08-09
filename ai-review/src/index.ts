@@ -53,6 +53,7 @@ const CREATE_REVIEW_RUNS_TABLE =
   "cost_usd REAL NOT NULL DEFAULT 0, " +
   "comment_id INTEGER, " +
   "findings_json TEXT, " +
+  "completion_hash TEXT, " +
   "error TEXT)";
 const CREATE_REVIEW_HUNKS_TABLE =
   "CREATE TABLE IF NOT EXISTS review_hunks (" +
@@ -104,6 +105,13 @@ const MODEL_STEP_CONFIG = {
   timeout: "10 minutes",
 } satisfies WorkflowStepConfig;
 const textEncoder = new TextEncoder();
+
+async function sha256(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", textEncoder.encode(value));
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: JSON_HEADERS });
@@ -270,6 +278,14 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     super(ctx, env);
     this.ctx.storage.sql.exec(CREATE_WEBHOOK_DELIVERIES_TABLE);
     this.ctx.storage.sql.exec(CREATE_REVIEW_RUNS_TABLE);
+    const reviewRunColumns = this.ctx.storage.sql
+      .exec<{ name: string }>("PRAGMA table_info(review_runs)")
+      .toArray();
+    if (!reviewRunColumns.some(({ name }) => name === "completion_hash")) {
+      this.ctx.storage.sql.exec(
+        "ALTER TABLE review_runs ADD COLUMN completion_hash TEXT",
+      );
+    }
     this.ctx.storage.sql.exec(CREATE_REVIEW_HUNKS_TABLE);
     this.ctx.storage.sql.exec(CREATE_REVIEW_FINDINGS_TABLE);
     this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_HUNKS_TABLE);
@@ -569,31 +585,49 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     ) {
       return json({ error: "Invalid review completion" }, 400);
     }
+    const completionHash = await sha256(
+      JSON.stringify({
+        headSha: body.headSha,
+        costUsd: body.costUsd,
+        commentId: body.commentId ?? null,
+        hunks: body.hunks,
+        findings: body.findings,
+      }),
+    );
     const completedAt = new Date().toISOString();
     const completion = this.ctx.storage.transactionSync(() => {
       const update = this.ctx.storage.sql.exec(
         `UPDATE review_runs
          SET status = 'completed', completed_at = ?, cost_usd = ?,
-             comment_id = ?, findings_json = ?, error = NULL
+             comment_id = ?, findings_json = ?, completion_hash = ?, error = NULL
          WHERE run_id = ? AND head_sha = ? AND status = 'running'`,
         completedAt,
         body.costUsd,
         body.commentId ?? null,
         JSON.stringify(body.findings),
+        completionHash,
         body.runId,
         body.headSha,
       );
       if (update.rowsWritten === 0) {
         const existing = this.ctx.storage.sql
-          .exec<{ head_sha: string; status: string }>(
-            "SELECT head_sha, status FROM review_runs WHERE run_id = ?",
+          .exec<{ head_sha: string; status: string; completion_hash: string | null }>(
+            `SELECT head_sha, status, completion_hash
+             FROM review_runs WHERE run_id = ?`,
             body.runId,
           )
           .toArray()[0];
-        return existing?.head_sha === body.headSha &&
-          existing?.status === "completed"
-          ? "duplicate"
-          : "missing";
+        if (
+          existing &&
+          existing.head_sha === body.headSha &&
+          existing.status === "completed"
+        ) {
+          return existing.completion_hash === null ||
+            existing.completion_hash === completionHash
+            ? "duplicate"
+            : "conflict";
+        }
+        return "missing";
       }
       for (const hunk of body.hunks as ReviewHunk[]) {
         this.ctx.storage.sql.exec(
@@ -651,6 +685,9 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     });
     if (completion === "missing") {
       return json({ error: "No matching review run to complete" }, 409);
+    }
+    if (completion === "conflict") {
+      return json({ error: "Review completion payload does not match" }, 409);
     }
     return json(
       completion === "duplicate"

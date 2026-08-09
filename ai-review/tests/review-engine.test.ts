@@ -792,4 +792,50 @@ describe("stateful review engine", () => {
     expect(moved[0]?.hunkId).toBe(first[0]?.hunkId);
     expect(moved[0]?.fingerprint).toBe(first[0]?.fingerprint);
   });
+
+  it("links a merged finding to its published line while retaining its source identity", async () => {
+    const hunks = await identifyDiffHunks(
+      "diff --git a/app.ts b/app.ts\n@@ -1 +1 @@\n-old\n+first\n@@ -20 +20 @@\n-old\n+second",
+    );
+    const candidate = {
+      severity: "high" as const,
+      file: "app.ts",
+      line: 1,
+      title: "Incorrect return value",
+      evidence: "Candidate evidence",
+      recommendation: "Fix it",
+      confidence: 0.9,
+    };
+    const artifacts = await identifyReviewArtifacts(
+      { paths: ["app.ts"], omitted: [], hunks },
+      {
+        models: ["model/scout"],
+        candidates: { "model/scout": [candidate] },
+        failed: [],
+        candidateCounts: { "model/scout": 1 },
+        invalidCounts: { "model/scout": 0 },
+        outOfScopeCounts: { "model/scout": 0 },
+        costs: { "model/scout": 0 },
+        metrics: [],
+      },
+      {
+        result: {
+          summary: "One issue.",
+          findings: [{
+            ...candidate,
+            line: 20,
+            source_models: ["model/scout"],
+            status: "open" as const,
+            resolution_note: "",
+          }],
+        },
+        cost: 0,
+      },
+    );
+
+    expect(artifacts.publishedFindings[0]?.findingId).toBe(
+      artifacts.candidates["model/scout"]?.[0]?.findingId,
+    );
+    expect(artifacts.publishedFindings[0]?.hunkIds).toEqual([hunks[1]?.hunkId]);
+  });
 });

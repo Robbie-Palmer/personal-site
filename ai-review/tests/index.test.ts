@@ -408,6 +408,39 @@ describe("PullRequestCoordinator", () => {
     });
   });
 
+  it("rejects a mismatched retry of an already completed run", async () => {
+    const { coordinator, sqlExec } = coordinatorFixture();
+    sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: query.includes("UPDATE review_runs") ? 0 : 1,
+      toArray: () =>
+        query.includes("SELECT head_sha, status, completion_hash")
+          ? [{
+              head_sha: event.headSha,
+              status: "completed",
+              completion_hash: "0".repeat(64),
+            }]
+          : [],
+    }));
+
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/complete", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-delivery-123",
+          headSha: event.headSha,
+          costUsd: 0.43,
+          hunks: [identifiedHunk],
+          findings: [identifiedFinding],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "Review completion payload does not match",
+    });
+  });
+
   it("rejects malformed internal review-state updates", async () => {
     const { coordinator } = coordinatorFixture();
     for (const path of [
