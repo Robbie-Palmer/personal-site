@@ -1,6 +1,6 @@
 ---
 title: "Recipe Site"
-description: "A digital recipe book that replaces handwritten collections with powerful search, filtering, and kitchen-friendly features"
+description: "A social cooking network that helps friends and families cook better using trusted, real-world kitchen signals"
 date: "2026-02-14"
 repo_url: "https://github.com/Robbie-Palmer/personal-site"
 demo_url: "https://robbiepalmer.me/recipes"
@@ -9,8 +9,56 @@ status: "in_progress"
 
 # Vision
 
-A digital recipe book that replaces our handwritten collection with a searchable, editable, shareable platform
-that works better in every scenario — especially the kitchen.
+Help friends and families cook more often and more successfully by learning from what their kitchens actually do.
+
+Recipe Site began as a digital replacement for our handwritten recipe book, but a searchable collection is no
+longer a sufficient product vision. The larger opportunity is a **social cooking network** whose public activity
+creates a compounding knowledge base and whose household context makes that knowledge useful. It is built from
+five connected models:
+
+* **A public cooking commons** lets people publish recipes and adaptations, follow cooks, share outcomes, and
+  discover what is actually being cooked—not merely what attracts clicks or reviews.
+* **A recipe graph** records provenance, exact versions, forks, and the adaptations that make a recipe work in a
+  particular home while allowing evidence to accumulate across related versions.
+* **A household kitchen twin** is a deliberately incomplete, useful model of the people eating, their dietary
+  constraints, available equipment and ingredients, planned meals, portions, leftovers, and recent cooking.
+* **A trust graph** connects households, friends, and cooks so public evidence can be weighted by whose judgement
+  and circumstances are personally relevant.
+* **A taste and utility graph** keeps likely enjoyment separate from practical, contextual fit. It learns from
+  recipes people actually cook, repeat, adapt, and abandon, allowing somebody to discover useful "taste
+  neighbours" and communities beyond the people they already know without turning frequency into a universal
+  score.
+
+The network cannot compensate for a weak personal product. People should first choose Recipe Site because it is
+an excellent way to run their own food lifecycle: **discover or capture → plan → shop or order → stock → cook →
+eat → store leftovers → repeat or adapt**. Social value should emerge from those useful actions rather than ask
+people to perform extra engagement work. This is why Tandoor is such a serious competitor: its breadth raises the
+single-player baseline that must be met before Recipe Site's network effects matter.
+
+Together they turn ordinary actions into useful evidence. A five-star review says that somebody liked a recipe;
+repeated cooks, successful adaptations, empty plates, and a recommendation that a friend actually planned and
+made show much more. The aim is not surveillance or engagement for its own sake. It is to collect the minimum
+explicit and ambient signals needed to answer practical questions: What will work for this household tonight?
+Which exact version succeeds most often? What can we cook with what is here? Who we trust has actually made
+this—and made it again?
+
+Taste is only one dimension of value. A spectacular five-star dish might be cooked once a year; a merely very
+good meal might become a weekly staple because it is fast, affordable, predictable, batchable, accepted by the
+household, and compatible with somebody's energy, mobility, training, or work pattern. A stay-at-home parent, an
+entrepreneur, an athlete, and somebody with limited mobility may all enjoy the same food while needing different
+recipes day to day. The graph should preserve both truths: **How good was it?** and **How well did it fit this
+life, household, and occasion?**
+
+The product should close the loop from **recommended → saved → planned → shopped → cooked → adapted → repeated**.
+When somebody chooses to make part of that loop public, it should strengthen the shared recipe and cooking graph:
+better recipes earn behavioural proof, useful adaptations retain attribution, cooks find people worth following,
+and discovery improves. That drives more cooking, which creates more evidence, which improves the next decision.
+Household state supplies local context—what is available, who is eating, and what tends to work—while ordinary
+visibility controls keep irrelevant domestic details out of the public graph.
+
+The discovery promise is: **Someone who eats like you tried something new and loved it. Maybe you should too.**
+That combines similarity with exploration. It should help people escape their existing social food bubble, not
+turn inferred taste into a narrower one.
 
 We have used a handwritten recipe book for years. It has genuine UX strengths: no lock screens, no risk of water
 or food damage to an expensive device, easy to prop open on a counter. But the limitations are severe enough
@@ -36,6 +84,17 @@ is a full page rewrite.
 no filtering by cuisine or cooking time, no way to answer "what can I make in under 30 minutes?" without
 reading every entry.
 
+**Discovering food is noisy and self-reinforcing.** Today we depend on celebrity chefs and editorial brands,
+friends or family doing the work of writing out what they cook, keyword search that assumes we already know what
+we want, or social-media creators rewarded when a video holds attention. Those channels can inspire, but they do
+not usually observe whether a recipe was cooked successfully or became part of somebody's rotation. Our existing
+relationships and viewing history can also keep us inside the cuisines and creators we already know.
+
+**Ratings collapse different kinds of value.** "Five stars" can mean delicious, impressive, easy, reliable,
+good for children, worth the effort, or simply successful on one occasion. It cannot explain why somebody loved
+a recipe but never repeated it, or why a less exciting dish became foundational to their week. Without actual
+planning and cooking behaviour, discovery cannot distinguish aspiration from practical fit.
+
 **Shopping is manual transcription.** To shop for a recipe, we manually copy ingredients from the book into
 a notes app on our phones to use as a checklist in the supermarket. This is tedious, error-prone, and
 completely unnecessary with digital data.
@@ -51,10 +110,12 @@ Fahrenheit, metric. These often don't match our measuring utensils and cause con
 **The book can be lost.** A single physical copy with no backup. If it's lost, damaged, or destroyed,
 years of collected recipes are gone.
 
-These aren't just our problems. The [competitor analysis](#competitor-analysis) below reveals a fragmented
-market where no product combines AI-powered recipe capture with a polished cooking experience — and
-accelerator backing for apps like Flavorish validates that the gap is widely felt. We're building for
-ourselves first, but the pain points are universal.
+These aren't just our problems, but competitors now solve most of them individually. The
+[competitor analysis](#competitor-analysis) below shows that Tandoor is already an excellent collection manager
+and Samsung Food already connects community, planning, shopping, pantry state, and cooking feedback. Recipe
+Site is justified as more than a personal build only if it connects these jobs differently: trusted
+relationships, a growing public cooking graph, household context, recipe lineage, and observed cooking behaviour
+must produce better decisions than a generic feature-rich manager or a public review feed.
 
 # User Stories
 
@@ -68,199 +129,323 @@ ourselves first, but the pain points are universal.
 * I want to save recipes as drafts without worrying about perfection, so I actually capture recipes when I find them instead of losing them
 * I want to edit recipes non-destructively, so I can iterate and improve without losing the original
 * I want to generate shopping lists from one or more recipes, so I never have to manually transcribe ingredients again
+* I want to hand a finalized list to my preferred supermarket or delivery service, so planning can become an
+  actual basket without entering every item again
+* I want nutrition calculated from the recipe version, servings, and meals I already cook, so useful guidance
+  does not require maintaining a separate food diary
+* I want nutritional suggestions while choosing, planning, shopping, or adapting a meal, so insight arrives when
+  I can act on it rather than as a score after the fact
+* I want deliciousness and everyday usefulness represented separately, so a special-occasion favourite and a
+  practical staple can both be valued for what they are
+* I want recommendations to account for the current occasion, available time, energy, equipment, budget, and
+  household—not assume that one global ranking describes what is useful today
 * I want to access my recipes from any device, anywhere, so I'm not dependent on being physically near a book
 
 **For friends and family:**
 
 * I want to browse their recipes on a shared website, so I can try dishes they've recommended
 * I want to share a link to a specific recipe, so I can send it to someone who asks "how do you make that?"
+* I want to recommend a specific version with a personal note, so context such as "the children ate this" or
+  "this worked without onion" travels with it
+* I want to know which recipes people I trust actually cook and repeat, so recommendations reflect behaviour
+  rather than only ratings or reviews
+* I want to see whether a recommendation was saved, planned, cooked, or adapted when the recipient chooses to
+  share that outcome, so useful recipes spread through real use
+* I want our household's meal plan, shopping, pantry, portions, and leftovers to stay coordinated, so cooking is
+  a shared activity rather than one person's administrative burden
 
-**For future users (with accounts):**
+**For cooks contributing publicly:**
+
+* I want to publish recipes and adaptations with provenance, so other people can build on them without erasing
+  authorship or confusing their version with mine
+* I want to see how often each version is actually cooked, repeated, or adapted, so feedback reflects real use
+  as well as what people choose to write
+* I want public cooking activity to help the right recipes and cooks become discoverable, so contribution creates
+  value beyond my immediate household
+* I want simple control over whether an individual cooking event is household-only, shared with connections, or
+  public, so I can contribute useful evidence without publishing irrelevant household details
+
+**For people discovering what to cook:**
+
+* I want to find cooks whose demonstrated tastes resemble mine, even when I do not already know or follow them,
+  so my discovery pool grows beyond celebrity chefs, influencers, and my immediate social circle
+* I want to understand why a recipe crossed into my feed—such as "people who repeat your favourites loved this"—
+  so personalization is useful and inspectable
+* I want some recommendations to bridge from familiar tastes into a new cuisine, ingredient, or technique, so
+  similarity helps me explore rather than trapping me in a tighter filter bubble
+* I want to form or join communities around shared cooking behaviour as well as declared interests, so groups
+  reflect food people make and value rather than whoever accumulated the most followers
+
+**For people building a personal collection:**
 
 * I want to add recommended recipes to my own collection, so I can personalize and adapt them
 * I want to favorite and rank recipes, so my most-loved dishes are easy to find
 * I want to track what I've cooked and when, so I can identify popular vs neglected recipes and avoid repeating meals too frequently
+* I want my adaptations to retain their source and outcomes, so improvements can travel without flattening every
+  household's version into one supposedly canonical recipe
 
-# Features
+# Product Today
 
-## Core (MVP)
+The first usable recipe list has grown into a multi-user cooking product. Delivery did not follow the
+original sequence of MVP followed by five discrete phases: authentication and persistence created critical
+paths, while agentic coding made it practical to advance independent surfaces in parallel. The product now
+includes:
 
-### Recipe Browsing & Discovery
+## Recipe Box, Discovery & Editing
 
-* **Full-text fuzzy search** across recipe titles, descriptions, cuisines, and ingredients
-* **Multi-filter system** — filter by cuisine, ingredient, prep time, total cooking time
-* **Recipe cards** with images, cuisine badges, and time estimates
+* **Database-backed recipe boxes** with public, private, and household visibility
+* **Search and tri-state filters** across cuisines, ingredients, time, and required equipment
+* **Structured Cooklang recipes** with grouped ingredients, cookware, attribution, and live editing preview
+* **Serving adjustment** that scales ingredient quantities both in the list and inside instruction text
+* **Configurable metric, US, and UK units**, with browser-persisted preferences
+* **Public profiles and discovery feeds**, including cook follows and a dedicated Following feed
 
-### Recipe Detail & Cooking
+## Cooking
 
-* **Serving size adjustment** — increase or decrease portions with all ingredient quantities scaling automatically
-* **Unit conversion** — global preference toggle (e.g., "show everything in metric") and per-ingredient inline conversion (tap to toggle between metric/imperial/cups)
-* **Structured ingredients** — grouped by category (e.g., "Spice Mix", "Sauce"), with quantities, units, and preparation notes
-* **Step-by-step instructions** — numbered, clear, scannable
+* **Large-text, step-by-step cooking mode** with previous/next navigation and an up-next preview
+* **Inline and custom timers** that persist while navigating, support several concurrent timers, and use the
+  Screen Wake Lock API where available
+* **Ingredient checklists and equipment lists** alongside the instructions
+* **Cooking sessions and insights** recording starts, completed meals, recently cooked recipes, and variety
 
-### Content Management
+## Shopping, Planning & Kitchen
 
-* **Draft status** — `draft | published` workflow so recipes can be captured immediately and refined later
-* **Attribution** — track recipe origin (e.g., "Grandma's book", "BBC Good Food", "Instagram @chef")
+* **Weekly meal planning** across breakfast, lunch, and dinner slots
+* **Aggregated shopping lists** that merge recipe quantities, support free-form extras, sort into aisles, and
+  subtract ingredients already in stock
+* **Pantry, fridge, and fresh-stock tracking** with recipe matching based on ingredients on hand
+* **Shared household pantry state** so members work from the same stock picture
 
-*Current implementation: Recipes are structured content files validated at build time and kept in
-version control. That gives us fast iteration, error checking, and clear history today without
-locking the long-term content model prematurely (see [Architecture](#architecture)).*
+The meal plan and shopping list currently persist in the browser and synchronize across tabs, not across
+devices or household members. That boundary is now more important than adding another planner view.
 
-## Phase 2: Kitchen Experience
+## Capture, Accounts & Collaboration
 
-### Cooking Mode
+* **Manual recipe creation and editing**, plus imports from Cooklang text/files and schema.org recipe URLs
+* **Photo-to-recipe ingestion** backed by a durable Cloudflare Workflow and an extract → normalize →
+  canonicalize → finalize pipeline, with an editable result rather than blind publishing
+* **Google and GitHub login**, onboarding, profile, security, diet, household, and unit settings
+* **Household invitations and administration**, recipe sharing, direct recommendations, and in-app
+  notifications with actionable states
+* **Diet-aware browsing and planning** using presets and ingredient exclusions
+* **Portable Cooklang, Markdown, and schema.org Recipe JSON representations** rather than a closed data silo
 
-A simplified, large-font, step-by-step view optimized for kitchen use. One step at a time with large tap
-targets to move forward and back. Designed for messy hands and quick glances — the digital equivalent
-of a propped-open book, but better.
+These are meaningful pieces of the larger vision, but they do not yet form the social learning loop. Public
+recipes and profiles create the beginnings of a commons; follows shape discovery; recommendations are
+person-to-person hand-offs; cooking sessions record starts and completions; and the pantry represents household
+state. The product cannot yet connect those facts to say that a recommendation led to a completed meal,
+distinguish a one-off cook from a household staple, publish well-defined behavioural proof, or carry the outcome
+of an adaptation back through its lineage. That is the most important product gap—not another isolated feature
+checkbox.
 
-### Inline Timers
+Discovery also stops at public recency and the explicit follow graph. The system cannot yet identify cooks with
+similar demonstrated tastes, explain an affinity-based recommendation, suggest an emerging community, or
+deliberately trade familiarity for exploration.
 
-Recipe steps that mention durations (e.g., "simmer for 20 minutes") get a tap-to-start countdown timer.
-Multiple timers can run simultaneously for complex recipes. Eliminates the need to context-switch to a
-separate app or shout at a voice assistant.
+The personal loop is also incomplete. Plans and shopping are not yet account-backed, shopping stops before a
+retailer basket, pantry updates are manual, leftovers are not represented, and nutrition is not derived from
+recipes or completed cooks. Closing those gaps is prerequisite work for the social graph because it both makes
+the product worth returning to and produces higher-quality outcome data.
 
-### Offline Access & Installability
+# Roadmap
 
-Recipes should remain available with poor signal, especially in kitchens and supermarkets.
-If the web experience benefits from it, home-screen installation should be possible without
-requiring native app distribution.
+The roadmap is organized around dependencies and product gaps, not release phases. Critical-path work is
+sequenced; the other tracks can move concurrently when they do not contend for the same data model or user
+journey.
 
-## Phase 3: Shopping & Meal Planning
+## Critical Path
 
-### Smart Shopping Lists
+### Complete the Personal Food Lifecycle
 
-* Generate a shopping list from a single recipe or aggregate across multiple recipes for meal planning
-* Deduplicate and merge ingredients (e.g., two recipes both needing onions combines into one entry)
-* Checkbox interface for ticking off items while shopping
-* Works offline for use in supermarkets with poor signal
+Make the single-player journey exceptional before expecting social features to retain anyone. Connect capture
+and discovery to server-backed plans, synchronized shopping, pantry and freezer state, cooking sessions,
+portions, leftovers, and repeat cooking. A person should get clear value from every stage even if none of their
+friends has joined yet.
 
-### Meal Planning Calendar
+Treat retailer hand-off as part of the journey, not permanently out of scope. Once the canonical shopping list
+is server-backed, integrate one retailer or grocery intermediary deeply enough to validate ingredient-to-product
+matching, quantities, substitutions, availability, and basket transfer. Prefer providers with broad coverage or
+stable partner interfaces before maintaining many retailer-specific adapters. Corrections made during product
+matching can improve the ingredient ontology and future lists.
 
-* Drag recipes onto days of the week
-* Auto-generate aggregated shopping lists for the planned period
-* Visual overview of the week's meals
+Nutrition should also fall out of normal use. Calculate recipe and serving nutrition from structured ingredients;
+when somebody completes a cook, infer the meal from the version and portion already selected, asking only about
+meaningful deviations. This is approximate decision support, not clinical intake measurement. Its job is to make
+the next plan, shop, adaptation, and meal better without creating another daily logging obligation. Barcode
+scanning does not solve this if users must assemble individual products into a meal, and meal photography does
+not solve it if every result requires full human reconstruction.
 
-## Phase 4: Recipe Ingestion Pipeline
+### Close the Social Cooking Loop
 
-> Import tooling is being explored in parallel with Phases 2-3, not sequentially after them.
-> The phasing here reflects when ingestion features ship to users, not when the underlying
-> work starts.
+Define a small, durable event model connecting recommendations, saves, plans, shopping, cooking sessions,
+adaptations, repeats, and lightweight outcomes. Move meal plans and shopping lists from browser-only storage to
+account or household state so those events describe one continuous journey rather than unrelated activity in
+different clients.
 
-### Photo-to-Recipe
+Give each event an explicit audience—personal, household, connections, or public—and derive public aggregates
+without conflating them with household coordination. A recommendation should be traceable from sender to outcome
+when both sides choose to share it. Counts must distinguish a recipe view, save, plan, cook-mode start, completed
+meal, repeat cook, and adaptation rather than collapsing all engagement into popularity.
 
-Extract structured recipe data from images — handwritten recipe pages, printed cookbook photos,
-recipe cards. Enables batch digitization of existing physical recipe collections and low-friction
-capture of any recipe image.
+### Turn Public Activity Into a Flywheel
 
-### Website Import
+Expand the public feed beyond newly published recipes to the high-value events people choose to share: completed
+cooks, repeat cooks, attributed adaptations, and deliberate recommendations. Recipe pages should show an
+evidence ladder such as "made 128 times," "54% made it again," and "three cooks you follow made this," with exact
+definitions and enough sample context to avoid false precision.
 
-Import recipes from URLs when sites already expose useful structure, with a fallback path for
-messier pages. The goal is one-click capture rather than manual transcription.
+Public discovery supplies reach and liquidity; the trust graph re-ranks that evidence for the individual; the
+household twin filters it through present constraints. Contributors get useful feedback and attribution, users
+get better discovery, and each real cooking outcome improves the graph for the next person. Text, photos,
+comments, and reviews add valuable context, but actual cooks, repeats, and adaptations are the stronger ranking
+signals.
 
-### Social Media Import
+Combine global and personal evidence rather than choosing one. Public aggregates reveal recipes that work beyond
+one social circle; relationship-aware views reveal who cooked a recipe, who made it again, which fork they used,
+what they changed, and whether it worked for a relevant diet or piece of equipment. Preserve deliberate personal
+recommendations and notes; do not replace them with an opaque feed.
 
-Extract recipes from Instagram posts/reels, TikTok videos, YouTube cooking videos, and Facebook
-posts. This addresses the core pain point of recipes scattered across platforms and is likely the
-hardest ingestion problem, but also one of the most differentiated.
+Samsung Food already exposes communities, "Made It" actions, ratings, and reviews. Its own documentation notes
+that editing creates a tweak whose ratings and reviews are then detached from the original. Recipe Site should
+make lineage the organizing principle, so evidence stays attached to the exact version it describes and can
+roll up carefully across related versions.
 
-### Review Workflow
+### Discover Through Taste Neighbours
 
-Imported recipes should enter a review flow before becoming part of the collection. The exact
-mechanism can evolve; the important point is preserving quality control and editorial oversight.
+Model two related but distinct questions: **Will I enjoy this?** and **Will this work for me now?** Taste affinity
+can learn from explicit deliciousness feedback, shared favourites, cuisines, ingredients, and adaptations.
+Practical fit can learn from plan-to-cook conversion, repeat cadence, actual effort, batch and leftover use,
+shopping corrections, household acceptance, and lightweight reasons for abandoning a plan. Repetition is useful
+evidence for both models, but it is proof of neither on its own.
 
-### Batch Import Workspace
+"Taste neighbour" should remain the human-facing discovery idea: somebody whose demonstrated palate makes their
+successful exploration relevant to you. Context then re-ranks that bridge for the present job. A useful
+weeknight taste neighbour may differ from a baking or dinner-party neighbour, and somebody with similar taste
+may have a completely different budget, schedule, household, equipment, energy, training load, or accessibility
+need. Dietary and accessibility constraints must not be mistaken for preference or inferred identity.
 
-People migrating an existing collection may have dozens of local recipe files or a list of recipe
-URLs. Batch import should accept those sources together, process them durably in the background,
-and present the results as a review queue. Each source becomes an independently editable draft with
-its own processing, review, duplicate, failure, saved, or skipped state.
+Candidate discovery should deliberately mix four sources:
 
-The workspace should combine an editing form and live preview for the selected item with queue
-navigation, filters, autosaved draft edits, and a primary **Save and next** action. Every recipe
-should be reviewed and saved independently, while ambiguous or duplicate items receive additional
-warnings and resolution choices.
+1. cooks and households the user explicitly follows;
+2. people with similar demonstrated taste, whether or not they are socially connected;
+3. communities organized around cuisines, constraints, techniques, goals, or emerging behaviour; and
+4. controlled exploration outside the current cluster.
 
-Photo batches require an earlier grouping step because one recipe can span several images. Users
-should either confirm that every image is a separate recipe or arrange thumbnails into recipe
-groups before extraction. Automatic boundary suggestions may assist this step, but should not
-silently decide which pages belong together.
+Rank for predicted cooking value, not predicted viewing time or one blended score. Explain both the taste bridge
+and the practical evidence: "taste neighbours who loved the same three dishes loved this Georgian stew," "cooks
+with your weekday pattern keep this in rotation," or "highly rated for special occasions; rarely repeated."
+Track whether the suggestion is saved, planned, cooked, repeated, or dismissed, and capture extra feedback only
+when the behaviour is ambiguous. Community suggestions can come from the graph, but joining, identity, and
+governance should remain human choices rather than silently assigning people to algorithmic cohorts.
 
-### Portable Recipe Data
+Discovery should expose several kinds of value instead of replacing five stars with frequency. A reliable
+Tuesday staple, a high-effort celebration dish, and a useful batch-cooking base can all succeed on different
+axes. Let people choose the occasion and show separate evidence for enjoyment, effort, reliability, and repeat
+use wherever the sample supports it.
 
-Recipes should remain exportable in a broadly understood structured format. That supports SEO,
-interoperability, and long-term portability without turning the collection into a closed system.
+Prevent the taste graph from becoming a stronger bubble by reserving space for adjacent novelty, allowing users
+to tune familiarity versus exploration, and testing whether recommendations broaden the cuisines, ingredients,
+and techniques people actually cook—not merely those they view.
 
-## Phase 5: Personalization & Social
+### Build the Household Kitchen Twin
 
-### User Accounts
+Join people and dietary constraints, recipes and lineage, pantry and freezer state, equipment, plans, shopping,
+servings, cooking sessions, and leftovers into one operational household model. This does not require perfect
+inventory accounting. It requires enough current state to coordinate work and make honest, context-aware
+suggestions—with confidence and provenance visible whenever the state is inferred.
 
-Accounts for personalization, not privacy — all recipes remain publicly accessible. Accounts enable:
+The twin must remain practical rather than pretending to be a perfect inventory ledger: make state easy to
+correct, distinguish observed facts from estimates, and never turn incomplete tracking into false certainty.
+Audience controls are necessary product hygiene, not the product thesis.
 
-* **Favorites** — bookmark recipes for quick access
-* **Personal rankings** — rate and sort by preference
-* **Cooking log** — tap to record what was cooked and when
-* **Recipe recommendations** — suggest recipes to friends, who can add them to "their recipe book"
-* **Personalized variations** — fork a recipe with edits, maintaining lineage to the original
+### Trustworthy Iteration and Lineage
 
-### Recipe Reviews & Collaboration
+Add user-visible version history, comparison, and restore for recipes now that Postgres—not git—is the source
+of truth. Then add recipe forking with explicit lineage so household adaptations and recommendations can be
+personalized without erasing the original. Record outcomes against immutable versions, not a mutable slug, so a
+later edit cannot rewrite the history of what people actually cooked.
 
-Multi-user comments and adaptations on shared recipes. The complexity is modelling reviews on forked
-recipe variants — when users personalise a base recipe, the review system needs to handle both the
-original and its derivatives. A
-[Cooklang blog post](https://cooklang.org/blog/09-cooklang-vs-paprika-vs-mealie/) describes a family
-in Italy using Mealie to preserve a 100-year-old recipe collection across three generations who
-contribute, comment, and adapt recipes — this multi-generational collaboration model is a direct
-reference for how this should work.
+### Cross-Device and Offline Continuity
 
-### Usage Analytics
+After moving shared operational state server-side, add an installable offline-capable web experience for
+recipes, active timers, the current plan, and the current shopping trip. Tandoor demonstrates the value of both
+[PWA installation with recently viewed recipes cached offline](https://docs.tandoor.dev/faq/) and
+[shared shopping lists with automatic synchronization](https://docs.tandoor.dev/features/shopping/).
+Recipe Site should go further by making offline edits converge safely when connectivity returns.
 
-* Identify popular vs rarely-cooked recipes
-* Sort by "haven't made in a while" to encourage variety
-* Track cooking frequency over time
+## Parallel Product Tracks
 
-## Phase 6: Nutrition & Intelligence
+### Collection Migration and Review
 
-### Nutritional Analysis
+Turn the existing single URL, Cooklang file, and photo flows into a durable batch-import workspace. Each source
+should become an independently reviewable draft with provenance, duplicate detection, retry/skip states,
+autosaved corrections, and **Save and next**. Collection archives need whole-batch recovery; photo batches need
+an explicit thumbnail grouping and ordering step before extraction.
 
-Structured digital ingredient data enables:
+Tandoor's broad
+[recipe-manager import support](https://docs.tandoor.dev/features/import_export/) makes migration breadth a
+competitive baseline. Migration matters because a social graph without people's real family collections has a
+cold-start problem, but accepting more file extensions is not itself the differentiated product.
 
-* Per-recipe nutritional breakdown (calories, macros, micronutrients)
-* Dietary pattern analysis — what ingredients appear most, what gaps exist
-* Cooking log integration — what nutrients were consumed over time, similar to aspects of Zoe
-  but with different emphasis (recipe-centric rather than food-logging-centric)
+### Library Organization and Data Hygiene
 
-### Portion Adjustment Memory
+Add cookbooks or named collections, favorites and personal rankings, saved searches, and bulk organization.
+Tandoor is particularly strong here: it combines cookbooks with customizable full-text search, batch tagging,
+and tools to merge or rename foods, units, and tags. Recipe Site already has canonical ingredient and cookware
+registries; the next step is exposing aliases, merges, and import cleanup rules as safe user-facing workflows.
+Tandoor's [import automations](https://docs.tandoor.dev/features/automation/) are a useful reference, especially
+for recurring source-specific cleanup.
 
-Remember the last portion size used per recipe — if the pasta bake is always made for 6, default to
-6 instead of the base recipe's 4.
+### Household Coordination
 
-## Future Ideas
+Extend the shared pantry into quantities, freshness, prepared portions, and explicit uncertainty. Add household
+activity and lightweight notes where they reduce coordination cost. Keep public follows and discovery separate
+from trusted household collaboration: they are different permission, evidence, and notification models, even if
+they sometimes share UI components.
 
-### "What Can I Make?"
+### Cooking Depth
 
-Enter ingredients on hand, find matching recipes. The ingredient graph already supports reverse
-lookups — this is primarily a UI feature. Photo-based pantry scanning (Honeydew's "Pantry Mode")
-is [out of scope](#out-of-scope) due to reliability concerns — this will be manual input only.
-Cooklang's CLI already implements this pattern (pantry management with recipe matching) and could
-serve as a reference.
+Add portion-size memory, hands-free step navigation, and eventually multi-recipe cooking with a shared timer
+timeline. Continue testing cooking mode during real meals; interaction quality under time pressure matters more
+than adding decorative recipe metadata.
 
-### Seasonal Suggestions
+### Passive Nutrition, Cost & Suggestions
 
-Tag ingredients as seasonal, surface relevant recipes by time of year.
+Calculate nutrition per recipe and serving, then let completed cooking sessions populate an approximate food
+history automatically. Ask for corrections only when reality differed materially: a different portion, skipped
+ingredient, substitution, shared meal, or unrecorded food. Avoid streaks and completeness pressure; a partially
+observed week should still improve the next decision without pretending to be a clinical record.
 
-### Voice / Hands-Free Navigation
+Use the highest-confidence source available: the exact cooked recipe and serving first, a known leftover or
+frequent meal second, a packaged-product barcode for a genuine exception, and photo inference only as an
+optional draft. Barcode scans should replace or amend a known ingredient rather than force people to construct
+meals product by product. A meal photo is successful only if confirming or correcting it is materially faster
+than entering the meal another way.
 
-Web Speech API for voice-controlled step navigation during cooking mode. Eliminates the need to
-touch the screen with messy hands — directly preserving the physical book's "no fiddling" advantage.
-Requires cooking mode (Phase 2) as a prerequisite.
+Tandoor's model of calculating
+[nutrition, price, diet points, or other ingredient-derived properties](https://tandoor.dev/) suggests a useful
+generalization: build an extensible property engine rather than hard-code calories as a one-off. Samsung Food
+similarly normalizes recipe ingredients to grams and calculates macro- and micronutrients automatically
+([methodology](https://support.samsungfood.com/hc/en-us/articles/18725068057620-Nutrition-calculations-Macronutrients-Micronutrients-and-Health-Score)).
+Recipe Site should use that foundation at decision points—recipe comparison, meal planning, basket building, and
+adaptation—not require a parallel diary whose main output is retrospective scoring. It can also support
+seasonality, cost, waste, and "what can I make?" ranking using household context and social evidence.
 
-### Printed Recipe Book
+### Portability and Operations
 
-Partner with a hardback book printing company to let users print their own physical recipe book
-from their account as a gift. Emphasis on this being a novelty souvenir/gift — a complement to
-the digital experience, not a replacement for it.
+Broaden round-trip import/export, add collection-level backup and restore, and document the stable public API.
+Where users connect external storage, prefer explicit read-only or one-way modes before attempting conflict-prone
+two-way synchronization. Tandoor's many importers and Dropbox/Nextcloud integration show the demand; Recipe
+Site should preserve provenance and reversibility as the differentiator.
+
+## Longer-Horizon Bets
+
+* **Social media ingestion** from Instagram, TikTok, YouTube, and Facebook once the batch review model can absorb
+  noisier sources
+* **Constraint-aware meal assistance** after server-backed planning, nutrition, kitchen state, and behavioural
+  signals are trustworthy; use AI only where it improves the explanation or plan, not as the product thesis
+* **Printed recipe books** as a gift or archival artifact that complements the digital collection
+* **Seasonal and neglected-recipe suggestions** driven by ingredient seasonality and the existing cooking log
 
 # Why Digital Beats Physical
 
@@ -269,9 +454,9 @@ the digital experience, not a replacement for it.
 | **Access**         | Must be near the book                        | Any device, anywhere                           |
 | **Search**         | Flick through every page                     | Instant full-text search                       |
 | **Filter**         | Read every recipe's details                  | One-click by cuisine, time, ingredient         |
-| **Edit**           | Destructive — rewrite entire page            | Non-destructive — full version history         |
+| **Edit**           | Destructive — rewrite entire page            | Edit in place; version history is next         |
 | **Share**          | Physically hand over the book                | Send a link                                    |
-| **Backup**         | Single copy, can be lost                     | Git + Cloudflare artifacts                     |
+| **Backup**         | Single copy, can be lost                     | Managed database + encrypted backups           |
 | **Shopping**       | Manual transcription to phone                | Auto-generated checklist                       |
 | **Portioning**     | Mental arithmetic, easy to forget mid-recipe | Click a button, page shows the truth           |
 | **Units**          | Whatever the source used                     | Converted to your preference                   |
@@ -284,8 +469,8 @@ The physical book isn't all bad. The recipe site should preserve its strengths:
 
 * **Glanceability** — cooking mode replicates the "propped open book" experience with large, readable text
 * **No fiddling** — large tap targets, no tiny buttons, no accidental navigation
-* **Resilience** — PWA works offline; no "phone died mid-recipe" failure mode
-* **Tangibility** — the printed recipe book feature lets users create physical artifacts when the occasion calls for it
+* **Resilience** — wake lock and persistent timers reduce interruptions today; offline recipes remain a critical-path gap
+* **Tangibility** — a future printed-book export can create a physical artifact when the occasion calls for it
 
 # Product Design
 
@@ -302,9 +487,16 @@ onboarding, a recommendations inbox, notifications, and a settings hub. Much of
 it is interactive — cooking-mode timers run live, and a "tweaks" panel re-casts
 household size, diet model, and activity density across the artboards.
 
-This is a design exploration of the full vision above, not a commitment to build
-all of it — it exists to pressure-test the ideas and seed the backlog. Breaking
-it into prioritised epics is the next step.
+This began as a design exploration rather than a commitment to build every surface. It has since shaped the
+live product: cooking mode, kitchen, shopping and meal planning, profiles, households, diet settings,
+recommendations, notifications, onboarding, and the cook log all draw from it. Unbuilt surfaces remain prompts
+for discovery, not a promise or delivery sequence.
+
+The prototype already contains an important piece of the differentiated vision that the earlier written
+strategy failed to explain: recommendation cards show behavioural signals such as **made 128×** and **54% made
+it again**, distinguish household members from followed cooks, and connect a personal note directly to save,
+plan, and cook actions. The roadmap now treats that as the core system to make real—not decorative social proof
+around an otherwise conventional recipe manager.
 
 <DesignEmbed src="/recipe-site-design/standalone.html" title="Recipe Site — mid-fi prototype" caption="All 17 surfaces, desktop + mobile · interactive · scroll and pan the canvas" height={760} />
 
@@ -314,56 +506,137 @@ document under [`designs/`](https://github.com/Robbie-Palmer/personal-site/tree/
 
 # Competitor Analysis
 
-The recipe app market is fragmented. No single product does everything well, and most users cobble together
-2-3 tools. As the Cooklang team
+The recipe app market has moved beyond the fragmented feature landscape that motivated this project. No single
+product leads every part of the lifecycle, but several now cover most of it. As the Cooklang team
 [put it](https://cooklang.org/blog/09-cooklang-vs-paprika-vs-mealie/): "every step between 'I want to
-make that' and 'I'm cooking' is a chance to order takeout instead." The best cooking experiences are locked
-to Apple's ecosystem. The 2024-2026 wave of AI-powered import apps can capture recipes from anywhere but
-lack kitchen UX. The self-hosted tools have the right data philosophy but no polish. Nobody combines a
-great cooking experience with intelligent recipe ingestion on a platform that enables rapid iteration.
+make that' and 'I'm cooking' is a chance to order takeout instead." The most polished cooking experiences still
+skew toward Apple's ecosystem. Import apps have expanded rapidly beyond capture. Self-hosted products cover the
+whole management loop: Tandoor now
+combines a PWA, offline caching, AI-assisted image/PDF/text import, meal planning, shared shopping, cookbooks,
+and extensive migration tooling. Samsung Food connects communities, "Made It" actions and reviews, shared
+planning and shopping, personalized plans, and a Food List that can update after cooking. The remaining
+opportunity is not an empty feature checklist or the claim that nobody has connected food and social interaction.
 
-There's external validation that this space has legs: Flavorish has secured backing from Google Cloud for
-Startups, YSpace, and Treefrog Accelerator — investors see a gap worth funding in AI-powered recipe
-management. But even the funded competitors are solving only half the problem (capture without kitchen UX),
-leaving the full-stack opportunity open.
+Flavorish's rapid expansion from import into cooking, meal planning, shared shopping, and collection migration
+shows that product breadth can converge quickly. Recipe Site therefore needs a model competitors would have to
+reorganize around: a public graph of real cooking activity, exact recipe lineage, socially relevant evidence,
+and household context. Cooking correctness, reviewable ingestion, owned data, and good household UX remain
+important supporting advantages, but none is a sufficient vision alone.
+
+General social media is also a discovery competitor even when it is not a recipe manager. TikTok explicitly
+describes video completion as a strong interest signal and advises creators that watch time affects distribution
+([recommendation system](https://newsroom.tiktok.com/how-tiktok-recommends-videos-for-you),
+[creator guidance](https://newsroom.tiktok.com/5-tips-for-tiktok-creators?lang=en)). It also acknowledges filter
+bubbles and deliberately injects diverse content. The structural mismatch is not that these systems make no
+attempt at relevance or diversity; it is that they can observe whether food content was watched, liked, or
+shared, but usually not whether the viewer cooked the recipe, enjoyed the result, changed it, or made it again.
+Recipe Site can optimize for those downstream outcomes because it owns the rest of the food journey.
+
+## The Build-or-Use Test
+
+If the job is to manage a large recipe collection, plan meals, share shopping lists, and self-host the data,
+**use Tandoor**. It is mature and far ahead of this project in collection administration and migration. If the
+job is broad community discovery, nutrition, grocery integration, and personalized planning, **evaluate Samsung
+Food**. Native cooking polish may make Crouton or Paprika the better choice for an Apple-centric household.
+
+Continuing to build Recipe Site is strategically justified by a different thesis: a public network becomes more
+useful whenever somebody actually cooks, repeats, recommends, or improves a recipe, while trust relationships
+and kitchen context turn that collective evidence into a better next decision. Competitor features are the
+commodity baseline. If this flywheel does not become useful in real friend and family networks, the honest
+outcome is to migrate to Tandoor rather than maintain a less capable recipe manager.
 
 ## Market Landscape
 
-| Segment                       | Examples                                           | Core focus                                     |
-| ----------------------------- | -------------------------------------------------- | ---------------------------------------------- |
-| **Recipe managers**           | Paprika, Crouton, Mela, Copy Me That, AnyList      | Store, organise, and cook your own collection  |
-| **Self-hosted / open-source** | Mealie, Tandoor, RecipeSage, Nextcloud Cookbook    | Privacy, data ownership, developer audience    |
-| **AI-powered capture**        | Flavorish, Honeydew, Recify, Recipe One, Preplo    | Import from social media, photos, URLs with AI |
-| **Meal planning / diet**      | Ollie, Zoe, Mealime, Samsung Food                  | Weekly plans, grocery delivery, nutrition      |
-| **Editorial platforms**       | NYT Cooking, BBC Good Food, AllRecipes, Epicurious | Discovery, community reviews, curated content  |
+| Segment                       | Examples                                           | Core focus                                         |
+| ----------------------------- | -------------------------------------------------- | -------------------------------------------------- |
+| **Recipe managers**           | Paprika, Crouton, Mela, Copy Me That, AnyList      | Store, organise, and cook your own collection      |
+| **Self-hosted / open-source** | Mealie, Tandoor, RecipeSage, Nextcloud Cookbook    | Data ownership, administration, developer audience |
+| **AI-powered capture**        | Flavorish, Honeydew, Recify, Recipe One, Preplo    | Import from social media, photos, and URLs with AI |
+| **Social cooking networks**   | Samsung Food, SideChef, Allrecipes                 | Communities, reviews, discovery, and sharing       |
+| **Meal planning / diet**      | Ollie, ZOE, Mealime, Samsung Food                  | Weekly plans, grocery delivery, and nutrition      |
+| **Editorial platforms**       | NYT Cooking, BBC Good Food, Allrecipes, Epicurious | Curated content and community commentary           |
 
-We span segments 1, 2, and 3 — personal library, open-source data ownership, and AI-powered capture.
-An ML pipeline for photo-to-recipe extraction is scaffolded (`ml-pipelines/recipe-parsing/` — DVC stages,
-evaluation framework, and ground-truth dataset built; model in development). The roadmap extends into meal
-planning and nutrition. The editorial platforms and pure diet apps are adjacent — they solve different
-problems for different audiences.
+Recipe Site crosses personal management, owned infrastructure, AI-assisted capture, planning, and social
+cooking. That breadth is not itself the advantage. The connective tissue is: exact versions of structured
+recipes, a public graph of observed use, relationship-aware ranking, and a household operating model.
 
 ## Key Competitors
 
-**[Paprika Recipe Manager 3](https://www.paprikaapp.com/)** — The incumbent. iOS, Android, Mac, Windows
-(one-time \~$5 per platform). Mature feature set: built-in web browser for recipe capture, auto-detected
-timers, full-screen cook mode, ingredient scaling, offline access. But no web version, dated UI, and
-per-platform purchase model is annoying.
-([2026 review](https://flavor365.com/paprika-3-recipe-manager-our-honest-2026-review/))
+**[Paprika Recipe Manager 3](https://www.paprikaapp.com/)** — The incumbent. iOS, Android, Mac, and Windows
+versions are purchased separately. The mature feature set includes a built-in browser, auto-detected timers,
+interactive cooking, ingredient scaling and conversion, pantry-aware grocery lists, reusable meal plans,
+offline access, and cloud sync. But there is no web version, the UI feels dated, and separately purchasing each
+platform adds friction.
 
-**[Crouton](https://crouton.app/)** — Best-in-class cooking UX. Apple Design Award winner. One step at a
-time with large font, highlights ingredients in the current step, wink-to-advance navigation, multi-recipe
-cooking mode. Beautiful design. But Apple-only (iOS/macOS), $3 one-time, no web, no Android.
-([MacStories review](https://www.macstories.net/reviews/crouton-review-an-elegant-modern-recipe-manager-and-cooking-aid/))
+**[Crouton](https://crouton.app/)** — Best-in-class cooking UX and the
+[2024 Apple Design Award winner for Interaction](https://developer.apple.com/design/awards/2024/). One step at a
+time with large font, wink-to-advance navigation, and multiple tappable timers. It has grown into automated
+meal planning, shopping lists, OCR scanning, metric/imperial conversion, and iCloud household sharing. The
+constraint is ecosystem reach: it remains Apple-only, with no web or Android client.
 
 **[Mealie](https://mealie.io/)** — Self-hosted, open source (Vue + Python), REST API, schema.org Recipe
 format, ML-powered ingredient parsing. Multi-user with granular permissions and comment threads — the
 Cooklang blog [describes](https://cooklang.org/blog/09-cooklang-vs-paprika-vs-mealie/) a family in Italy
 using Mealie to preserve a 100-year-old recipe collection across three generations who contribute, comment,
 and adapt recipes. This multi-generational collaboration model is directly relevant to our recipe forking
-and personalisation roadmap (Phase 5). But zero kitchen UX investment — no cooking mode, no timers, no
-wake lock, no PWA. Shows the gap between "recipe database" and "cooking tool."
+and personalisation roadmap. Mealie is now a PWA with meal plans, shopping lists, groups, and households, but
+its emphasis remains recipe management and collaboration rather than a dedicated, timer-rich cooking flow.
 ([GitHub](https://github.com/mealie-recipes/mealie))
+
+**[Tandoor Recipes](https://tandoor.dev/)** — The strongest self-hosted comparison by feature breadth and
+the clearest challenge to the original competitive thesis. Its 8,500-star repository combines meal planning,
+shopping lists, cookbooks, family collaboration, customizable full-text search, batch tagging, canonical data
+cleanup, recipe scaling, URL import, and Dropbox/Nextcloud sync
+([GitHub](https://github.com/TandoorRecipes/recipes)). It is also an installable
+[PWA that caches recently accessed recipes for offline use](https://docs.tandoor.dev/faq/), and its shopping
+lists support supermarket-specific ordering, sharing, and automatic synchronization between users
+([docs](https://docs.tandoor.dev/features/shopping/)).
+
+Tandoor is ahead on operating a large, long-lived collection. It imports archives from many established recipe
+managers and supports round-trip formats including its native representation and RecipeSage
+([import/export matrix](https://docs.tandoor.dev/features/import_export/)). Its current AI layer imports images,
+PDFs, and text, links ingredients to steps, and derives nutrition or other properties through configurable
+LiteLLM providers with usage and cost controls ([AI docs](https://docs.tandoor.dev/features/ai/)). The trade-offs
+are a power-user product with self-hosting overhead and a permission system its own documentation still describes
+as unsuitable for completely untrusted users ([permission docs](https://docs.tandoor.dev/system/permissions/)).
+There is no similarly differentiated, step-by-step cooking mode in its documented core feature set. The lesson
+for Recipe Site is to keep its stronger cooking interaction while learning from Tandoor's migration breadth,
+library hygiene, offline support, and household shopping coordination.
+
+**[Samsung Food](https://samsungfood.com/)** — The strongest challenge to the social-kitchen vision, not merely
+an adjacent meal-planning app. It has public and private communities, conversations, recipe sharing,
+collaborative meal plans and shopping lists, personalized plans, and a cross-platform web/mobile product. Its
+["Made It" and review model](https://support.samsungfood.com/hc/en-us/articles/18588391246740-Recipes-Made-Its-and-Review-FAQs)
+records that somebody cooked a recipe and exposes ratings, notes, and photos. Its Food List tracks ingredients
+by storage location and use-by date; after a user marks a recipe made, it can
+[suggest removing ingredients that were used](https://support.samsungfood.com/hc/en-us/articles/30025317487508-Getting-Started-with-Food-List).
+
+The core product is device-agnostic: Samsung documents clients for
+[web, iOS, Android, and a Chrome extension](https://support.samsungfood.com/hc/en-us/categories/360003109252-Samsung-Food-Apps),
+and even directs people in unsupported app regions to the web client. Samsung hardware is not required. The
+experience is not identical everywhere, however: some features are mobile-only or subscription-gated, a Samsung
+Account is recommended for reliable cross-device data synchronization, and SmartThings appliance control is
+necessarily ecosystem-specific.
+
+It also reaches beyond list-making. Samsung Food's grocery layer maps recipe ingredients to real products and
+[sends baskets to integrated retailers](https://support.samsungfood.com/hc/en-us/articles/360042706091-Integrated-Stores),
+including Tesco, Ocado, Amazon Fresh, and Sainsbury's in the UK and Walmart, Instacart, and Amazon Fresh in the
+US. Its nutrition engine automatically derives macro- and micronutrients from normalized recipe ingredients.
+That makes it a full-lifecycle competitor as well as a social one.
+
+Samsung Food proves that neither social recipes, public cooking signals, nor a basic kitchen twin is unique.
+The opening is in how those models connect. Its communities organize broad interests, while Recipe Site can
+combine global evidence with the cooks a person follows and the constraints of the kitchen they are standing
+in. Samsung's documentation says editing a saved recipe creates a "tweak" and removes the original ratings and
+reviews because they may no longer apply. Recipe Site should model that distinction explicitly: preserve
+lineage, attach outcomes to the exact cooked version, and roll evidence up carefully across related versions.
+
+Samsung's Home Feed already includes recipes personalized to stated preferences and asks whether users would
+make recent recipes again
+([feed documentation](https://support.samsungfood.com/hc/en-us/articles/18758565761812-About-Your-Home-Feed)).
+Its first-party documentation does not establish taste-neighbour matching based on shared cook and repeat
+behaviour, so that should be treated as a proposed distinction rather than a claimed gap verified through
+hands-on product testing.
 
 **[RecipeSage](https://recipesage.com/)** — Open source, web-based, with meal planning, shopping lists,
 and fuzzy search with synonym mapping. Notable for being one of the few apps that
@@ -371,31 +644,32 @@ and fuzzy search with synonym mapping. Notable for being one of the few apps tha
 using curly-brace markup — though it requires manual annotation.
 
 **[Recify](https://www.recify.app/)** — AI import from YouTube, Instagram, TikTok, Pinterest, and blogs.
-Distraction-free cooking mode with swipe navigation, voice commands, timers, and screen wake lock. 4.9/5 app
-store rating. But critical limitations: recipes are saved to device only with no cloud sync — meaning a lost
-or replaced phone means losing your entire collection. No sharing or social features. Only 6 free AI imports,
-then requires a subscription (pricing unclear — reports range from $4.99/week to $5.99/month). Native app
-only (iOS/Android), no web version. Combines AI capture with cooking UX on mobile, but the device-only
-storage is a dealbreaker for anyone building a long-term recipe collection.
+Its current first-party site confirms customizable collections, full-screen swipe-based cooking mode, editing,
+and recipe sharing on iOS and Android. It does not clearly document timer or voice support, storage architecture,
+multi-device synchronization, current import limits, or pricing, so those should not be treated as established
+competitive facts without testing the app.
 
-**[Flavorish](https://www.flavorish.ai/)** — The most credible AI-import-first competitor, and notable for
-its accelerator backing: [Google Cloud for Startups](https://cloud.google.com/startup),
-[YSpace](https://yspace.yorku.ca/) (York University), and
-[Treefrog Accelerator](https://treefrog.com/) — validating investor interest in the recipe app
-space. Toronto-based, 1M+ recipes saved, 4.7+ stars. Imports from Instagram, TikTok, YouTube, Facebook, and
-photos of handwritten recipes. Grocery lists by aisle, serving scaling, cross-platform (iOS, Android, web).
-Free with unlimited storage; Premium $4.99/month removes AI import limits. "No ads. No data-selling." But no
-cooking mode — strong on capture, weak on the kitchen experience.
+**[Flavorish](https://www.flavorish.ai/)** — The most credible commercial full-stack competitor. It imports from
+Instagram, TikTok, YouTube, Facebook, websites, and photos of handwritten recipes. It now has collections,
+weekly meal planning, multi-recipe cooking mode,
+aisle-sorted grocery lists with real-time sharing, cloud sync across iOS/Android/web, and
+[bulk migration from five established recipe apps](https://www.flavorish.ai/blog/importing-from-other-recipe-apps).
+The free tier keeps unlimited website imports and core planning; Premium is $4.99/month for unlimited AI/social/
+image imports. "No ads. No data-selling." Its product breadth means Recipe Site must differentiate on data
+ownership, cooking correctness, and transparent review—not simply on having a cooking screen.
 
-**[Honeydew](https://honeydewcook.com/)** — AI extraction from social media and websites, AI meal planner,
-family sharing (up to 6 members), Instacart integration, works offline, metric/imperial support. Free with
-10 AI imports/month; Plus $4-7/month for unlimited. No cooking mode. "Pantry Mode" lets you photograph
-your pantry for recipe suggestions — an interesting concept, though the reliability of photo-based pantry
-recognition is questionable.
+**[Honeydew](https://honeydewcook.com/)** — AI extraction from social media, websites, and photos; AI meal
+planning; Instacart integration; metric/imperial support; screen-on cooking; and offline recipes and shopping.
+Its support documentation confirms real-time multi-device synchronization, but describes family use as sharing
+one account and credentials rather than a granular household permission model. The free tier is limited and Plus
+pricing varies by platform and region. Honeydew's marketing blog claims voice cooking and automatic timers, but
+those features are not corroborated by its current support overview or Google Play listing, so they are excluded
+from the comparison. "Pantry Mode" lets people photograph their pantry for suggestions—an interesting concept
+whose recognition reliability still needs real-world validation.
 
-**[Copy Me That](https://www.copymethat.com/)** — The closest to a web-based personal recipe manager. iOS,
-Android, and web. Free for 40 recipes, $1/month unlimited. Web clipper, meal planner, shopping list sorted
-by aisle. But minimal cooking experience — no true step-by-step mode, no timers, dated UI.
+**[Copy Me That](https://www.copymethat.com/)** — A mature web and mobile personal recipe manager with a web
+clipper, meal planner, and aisle-sorted shopping lists. Current first-party pages do not make its cooking-mode,
+timer, recipe-limit, or pricing position clear enough to use those as comparison facts without testing the app.
 
 **[Cooklang](https://cooklang.org/)** — The closest philosophical match and a potential architectural
 building block. We share many of the same pain points and motivations — their
@@ -432,11 +706,21 @@ primarily developers and data scientists. There's no dedicated cooking mode opti
 evaluating as a foundation to build a polished kitchen experience on top of, rather than reimplementing
 from scratch.
 
-**[Zoe](https://zoe.com/)** — Adjacent, not competitive. Personalised nutrition based on gut microbiome
-testing ($10-25/month plus \~$350 test kit). Has recipes and meal planning, but
-[recipe UX is buggy](https://www.trustpilot.com/review/zoe.com) per user reports, adding homemade food
-is laborious, and the recipe submission experience is poor. Recipes are a byproduct of the nutrition
-platform, not a core focus.
+**[ZOE](https://zoe.com/en-us/app)** — An important product lesson rather than a direct recipe-manager
+competitor. Its current app has reduced manual entry through meal photos and barcode scans, then scores food,
+tracks habits and streaks, and connects logs to personalized nutrition coaching. ZOE's own evaluation concedes
+that visually ambiguous foods such as soup are difficult to identify and that quantities remain difficult to
+estimate ([photo-logging evaluation](https://zoe.com/learn/zoe-new-photologging-app)).
+
+In my own use, barcode scanning still worked at ingredient or packaged-product level, leaving me to reconstruct
+the meal from its parts. Complete-meal photos were practically useless without extensive human editing to make
+them accurate. The food log therefore remained too costly to maintain, while the gut-health tests and scores did
+not change enough day-to-day decisions to sustain the habit.
+
+Recipe Site should invert that model: planning, shopping, and cooking are already necessary actions, and a
+structured recipe plus selected serving is already a much stronger description of a meal than a photograph. The
+system should derive nutrition from those actions, return it at the next useful decision, and ask the user to
+correct exceptions instead of recreating every meal in a parallel diary.
 
 ## Batch Import and Review Patterns
 
@@ -473,63 +757,154 @@ Delivery is deliberately phased:
 
 ## Feature Comparison
 
-| Feature                | Paprika       | Crouton      | Mealie    | Flavorish | Recify                | Honeydew | **Recipe Site**    |
-| ---------------------- | ------------- | ------------ | --------- | --------- | --------------------- | -------- | ------------------ |
-| **Web-based**          | No            | No           | Self-host | Yes       | No                    | No       | **Yes (PWA)**      |
-| **Cooking mode**       | Yes           | Excellent    | No        | No        | Yes                   | No       | **Planned (P2)**   |
-| **Ingredient scaling** | Yes           | Yes          | Yes       | Yes       | Yes                   | Yes      | **Yes (MVP)**      |
-| **Inline timers**      | Auto-detect   | Tap-to-start | No        | No        | Yes                   | No       | **Planned (P2)**   |
-| **Unit conversion**    | Basic         | Basic        | No        | No        | No                    | Yes      | **Yes (MVP)**      |
-| **Offline / PWA**      | Native app    | Native app   | No        | No        | Device-only (no sync) | Yes      | **Planned (P2)**   |
-| **AI URL import**      | Browser       | Yes          | Yes       | AI        | AI                    | AI       | **Planned (P4)**   |
-| **AI photo import**    | No            | No           | No        | AI        | AI                    | AI       | **Scaffolded**     |
-| **Shopping list**      | Yes           | No           | Yes       | Yes       | No                    | Yes      | **Planned (P3)**   |
-| **Voice / hands-free** | No            | Wink         | No        | No        | Yes                   | No       | **Future**         |
-| **Version history**    | No            | No           | No        | No        | No                    | No       | **Yes (git → DB)** |
-| **Free (no sub)**      | \~$5/platform | $3           | Free      | Freemium  | Sub (6 free imports)  | Freemium | **Free**           |
+The comparison is split because management-first and import-first products create different competitive
+pressures. A single very wide matrix obscured more than it revealed.
+
+This is a first-party-documentation comparison, not an exhaustive hands-on review. "Not documented" means the
+current product site or docs do not establish the capability; it is deliberately not converted into "No."
+
+### Daily Use and Collection Management
+
+| Capability                       | Paprika                  | Crouton               | Mealie                      | Tandoor                                 | **Recipe Site**                              |
+| -------------------------------- | ------------------------ | --------------------- | --------------------------- | --------------------------------------- | -------------------------------------------- |
+| **Cross-platform web**           | No                       | Apple only            | Self-hosted PWA             | **Hosted or self-hosted PWA**           | **Public web app**                           |
+| **Dedicated cooking mode**       | Interactive view         | Excellent             | Not documented as dedicated | Not documented as dedicated             | **Yes, step-by-step**                        |
+| **Persistent / inline timers**   | Auto-detected            | Tap-to-start          | Not documented              | Not in documented core features         | **Yes, multiple + custom**                   |
+| **Scaling and conversion**       | Metric/imperial          | Metric/imperial       | Ingredient scaling          | Scaling, fractions, decimals            | **List + instruction scaling; metric/US/UK** |
+| **Offline use**                  | Native                   | Native                | Not documented              | **Recent recipes cached in PWA**        | Not yet                                      |
+| **Meal planning**                | Yes                      | Yes + auto-generate   | Yes                         | **Multiple meals per day**              | **Yes; currently device-local**              |
+| **Shopping**                     | Synced lists             | Yes                   | Yes                         | **Shared, auto-sync, store order**      | **Merged, aisle-sorted, device-local**       |
+| **Pantry / cook-from-stock**     | Pantry list              | Not documented        | Not documented              | **Ingredient-based recipe search**      | **Pantry + household stock matching**        |
+| **Collection administration**    | Mature categories        | Lightweight           | Tags and groups             | **Cookbooks, batch tags, merge/rename** | Filters and canonical registries             |
+| **Multi-user collaboration**     | Shared cloud account     | **iCloud households** | Users, groups, households   | **Spaces, roles, links**                | **Households, follows, recommendations**     |
+| **Portable structured data**     | `.paprikarecipes` export | Not documented        | API / schema.org            | **Broad import/export matrix**          | **Cooklang, Markdown, schema.org JSON**      |
+| **User-visible version history** | Not documented           | Not documented        | Not documented              | Not documented                          | Roadmap                                      |
+
+### Capture and Migration
+
+| Capability                  | Flavorish            | Recify            | Honeydew                    | Tandoor                             | **Recipe Site**                       |
+| --------------------------- | -------------------- | ----------------- | --------------------------- | ----------------------------------- | ------------------------------------- |
+| **Website import**          | AI                   | AI                | AI                          | Structured web import               | **schema.org import**                 |
+| **Photo / document import** | AI photos            | AI photos         | AI photos                   | **AI image, PDF, and text**         | **AI photo workflow**                 |
+| **Social media import**     | Major platforms      | Major platforms   | Major platforms             | No documented first-class flow      | Roadmap                               |
+| **Collection migration**    | Several app archives | Not documented    | Not documented              | **Many app archives and formats**   | Cooklang files today; batch roadmap   |
+| **Correction workflow**     | Edit after import    | Editing confirmed | **Review/edit before save** | Import/editor flow                  | **Live editor; durable queue next**   |
+| **AI provider choice**      | Vendor-managed       | Vendor-managed    | Vendor-managed              | **LiteLLM providers + cost limits** | OpenRouter behind owned pipeline      |
+| **Storage ownership**       | Vendor cloud         | Not documented    | Vendor cloud                | **Self-host or hosted**             | **Owned database + portable exports** |
+| **Cooking after capture**   | Multi-recipe mode    | Full-screen swipe | Screen-on + offline         | Standard recipe view                | **Step mode + persistent timers**     |
+
+### Personal Food Lifecycle
+
+| Capability                         | Tandoor                          | Samsung Food                           | ZOE                               | **Recipe Site**                             |
+| ---------------------------------- | -------------------------------- | -------------------------------------- | --------------------------------- | ------------------------------------------- |
+| **Device reach**                   | Web/PWA                          | **Web, iOS, and Android**              | iOS and Android                   | **Any modern web browser**                  |
+| **Capture and recipe management**  | **Broad and mature**             | Website, builder, photo                | Meal photos and barcode scans     | URL, Cooklang, photo; batch next            |
+| **Meal planning**                  | **Shared, server-backed**        | **Shared + personalized**              | Not a documented core flow        | Device-local today                          |
+| **Shopping list**                  | **Shared, synchronized**         | **Shared, recipe/product-aware**       | Shopping guidance                 | Merged and aisle-sorted; device-local       |
+| **Retailer basket hand-off**       | Not documented as a core feature | **Integrated regional retailers**      | Not documented                    | Roadmap after server-backed shopping        |
+| **Kitchen stock**                  | Ingredient-based recipe search   | **Food List + post-cook suggestions**  | Not documented                    | **Shared pantry and stock matching**        |
+| **Guided cooking**                 | Standard recipe view             | Guided/AI cooking on supported clients | Not a documented core flow        | **Step mode, timers, and wake lock**        |
+| **Nutrition from recipes**         | Nutrition/properties             | **Automatic macro/micronutrients**     | Nutrition inferred from meal logs | Roadmap from structured ingredients         |
+| **Low-effort consumption history** | Not clearly documented           | "Made It" plus optional review         | Requires repeated photo logging   | **Cook starts/completions; inference next** |
+| **Leftovers and repeat loop**      | Not documented                   | Not documented as a connected loop     | Not documented                    | Roadmap: portions → leftovers → repeat      |
+
+This table explains why personal utility is not separable from the social strategy. Samsung Food covers more of
+the lifecycle than the earlier analysis acknowledged, while Tandoor is a stronger everyday operating tool than
+many social products. Recipe Site needs both qualities: the personal loop must be worth using alone, and its
+normal use must generate the evidence that powers the public graph.
+
+### Social Learning and Kitchen Context
+
+| Capability                             | Tandoor                                      | Samsung Food                               | **Recipe Site**                                        |
+| -------------------------------------- | -------------------------------------------- | ------------------------------------------ | ------------------------------------------------------ |
+| **Public discovery network**           | Not intended as a public site                | **Public profiles and communities**        | **Public profiles, recipes, follows, and feeds**       |
+| **Direct trusted recommendations**     | Recipe sharing and spaces                    | Sharing and community contribution         | **Person-to-person recommendations with attribution**  |
+| **Taste-neighbour discovery**          | Not documented                               | Preference personalization; method unclear | Roadmap: affinity from cooks, repeats, and adaptations |
+| **Taste versus practical fit**         | Not documented as distinct                   | Not documented as distinct                 | Roadmap: separate enjoyment, utility, and context      |
+| **Behaviour-seeded communities**       | Spaces are administrator-defined             | User-created interest communities          | Roadmap: suggested by affinity, governed by people     |
+| **Observed cooking signal**            | Ratings; cook history not clearly documented | **"Made It," ratings, notes, and photos**  | **Started/completed cooking sessions**                 |
+| **Repeat-cook evidence**               | Not documented as a distinct signal          | Not documented as a distinct signal        | Roadmap: distinct public and relationship signals      |
+| **Adaptation lineage**                 | Not documented                               | Tweaks become detached copies              | Roadmap: explicit version and fork graph               |
+| **Household kitchen context**          | Shared planning and shopping                 | Food List, shared plans, shopping          | **Diet, pantry, cooking log; shared plan next**        |
+| **Recommendation-to-outcome loop**     | Not documented                               | Features exist; linkage not documented     | Roadmap: recommendation → repeat attribution           |
+| **Explainable relationship weighting** | Not documented                               | Personalized feed; method not documented   | Roadmap: global, followed-cook, and household evidence |
+| **Deliberate exploration**             | Not documented                               | Not documented                             | Roadmap: tune familiarity versus adjacent novelty      |
+
+This is the comparison that matters to the revised vision. Tandoor remains the operational benchmark and
+Samsung Food already has substantially more of the social and kitchen loop than the original analysis
+recognized. Recipe Site's proposed distinction is not the presence of any one row; it is treating the entire
+sequence as one version-aware, explainable graph whose public outcomes improve discovery.
 
 ## Where We Differentiate
 
-**Iteration velocity.** The current developer tooling — TypeScript + Zod schemas, git-backed content,
-static site on Cloudflare Pages, CI/CD pipeline — is not a user-facing competitive edge. It's an enabler.
-Type-safe schemas and build-time validation mean we catch errors before deployment. PR-based workflows mean
-every change is reviewed. Zero-ops infrastructure means we spend time on features, not servers. The
-competitive edge this drives is speed: we can ship and iterate faster than competitors burdened with heavier
-infrastructure, app store review cycles, or database migrations. The specific data format may evolve (e.g.
-Cooklang markup, database-backed models), but the velocity principles remain.
+**Come for the food tool; stay for the network.** The product must earn repeated personal use across capture,
+planning, shopping, cooking, leftovers, and nutrition before its social graph has meaningful data. Unlike a
+social feed with utility bolted on, each personal action should make the next action easier and create an honest
+signal as a by-product. Tandoor is the benchmark for this operating depth; Samsung Food is the benchmark for how
+much of the lifecycle and network a cross-platform commercial product can connect.
 
-**PWA-based cooking experience.** The premium cooking UX
+**Taste neighbours, not just influencers.** Explicit follows preserve recommendations from people already
+trusted; behavioural affinity discovers useful strangers. Someone who repeatedly cooks the same dishes as you
+is evidence about taste even if they have no audience, publishing cadence, or creator brand. When that person
+successfully crosses into a new cuisine or technique, their outcome can become a credible bridge out of your
+food bubble. Communities can then form around demonstrated affinity and exploration, not only celebrity reach
+or broad declared categories.
+
+**Value generated, not one rating.** Deliciousness and practical fit are different outputs. A five-star recipe
+that earns its place once a year and a dependable meal that quietly solves every Tuesday should both be visible
+for what they do. Planning, shopping, cooking, repeat, leftover, and adaptation behaviour can reveal effort,
+reliability, and routine fit that a review cannot, while lightweight feedback supplies the meaning behaviour
+alone lacks. Frequency is evidence, not the new universal score.
+
+**A public graph of what people actually cook.** Public recipes, follows, and discovery are already live. The
+next step is to make completed cooks, repeats, attributed adaptations, and recommendation outcomes first-class
+public signals. This creates the network effect: every real outcome can improve recipe ranking, reward useful
+contributors, reveal reliable cooks, and help the next person choose. Reviews and photos remain valuable
+qualitative context, but they should not carry the same evidential weight as repeated behaviour.
+
+**Exact lineage plus contextual ranking.** A signal is only trustworthy if it refers to the recipe version that
+was cooked. Forks and immutable versions allow an adaptation to earn its own evidence without discarding its
+relationship to the source. Global outcomes supply breadth, followed cooks and friends supply social relevance,
+and the household twin supplies constraints such as diet, equipment, stock, time, and prior success. The ranking
+can then explain itself instead of presenting a generic popularity score.
+
+**Nutrition without a second job.** Structured recipe ingredients, selected servings, shopping activity, and
+completed cooking sessions already describe much of a person's food. Use that operational trail to calculate
+approximate nutrition and improve the next plan, basket, or adaptation. Do not make retention depend on users
+photographing or reconstructing every meal solely to keep a diary complete.
+
+**A cooking experience on the open web.** The premium cooking UX
 ([Pestle](https://9to5mac.com/2022/01/21/pestle-cooking-app-for-ios-release/), Crouton, Mela) is
-exclusively Apple native apps. The web-based options (Copy Me That, Samsung Food) have minimal cooking
-investment. No competitor offers a high-quality PWA cooking experience that works offline, installs to the
-home screen, and rivals native app UX. A web-based approach means cross-platform by default, URL-shareable
-recipes, no app store overhead, and no per-platform purchase. The Web Wake Lock API enables screen-on.
-Service workers enable offline. Structured recipe data also enables full-text portion scaling — where
-quantities in instructions update alongside the ingredient list, not just the ingredient list alone (a
-[documented limitation](https://help.anylist.com/articles/scale-recipe/) in virtually every competitor
-including [AnyList](https://www.anylist.com/)).
+mostly native. Recipe Site already provides a large-text step flow, wake lock, concurrent persistent timers,
+and URL-shareable recipes without app-store distribution. Tandoor proves that installation and limited offline
+use are no longer unique to this vision; completing the offline critical path is necessary to turn a strong web
+cooking mode into a complete PWA proposition.
 
-**AI-powered recipe ingestion.** The 2024-2026 wave of AI-import apps (Flavorish, Honeydew, Recify)
-validates the market demand for intelligent recipe capture — from social media, URLs, and photos. But most
-of these apps treat capture as their *only* feature, without pairing it with a strong cooking experience.
-Meanwhile, the established recipe managers (Paprika, Crouton) rely on basic web clipping or manual entry.
-An ML pipeline for photo-to-recipe extraction is scaffolded (`ml-pipelines/recipe-parsing/` — DVC-managed
-with prepare → infer → evaluate stages, evaluation framework and ground-truth dataset built, model in
-development). Handwritten recipe OCR remains an
+**Correctness from structured cooking data.** Cooklang-backed recipes allow quantities in instructions to update
+alongside the ingredient list, not just the ingredient list alone (a
+[documented limitation](https://help.anylist.com/articles/scale-recipe/) in virtually every competitor
+including [AnyList](https://www.anylist.com/)). Fixed quantities can remain unchanged, cookware is filterable,
+and the same source produces human-readable recipes plus portable Cooklang, Markdown, and schema.org views.
+
+**Reviewable, measurable recipe ingestion.** The photo pipeline is no longer just a model experiment: the web
+capture flow starts a durable workflow whose stage artifacts and model attempts are recorded. The DVC-managed
+pipeline still provides the ground-truth dataset and evaluation loop used to improve extraction. The next
+differentiator is the batch review workspace—provenance, explicit boundaries, duplicate decisions, and isolated
+recovery—rather than pretending uncertain AI output is ready to publish. Handwritten recipe OCR remains an
 [unsolved problem industry-wide](https://flavor365.com/how-to-scan-recipes-the-definitive-2026-guide/) —
 no app reliably handles older cursive handwriting — making this a genuine technical differentiator if we
 can solve it well.
 
-**Zero cost, no vendor lock-in.** Most competitors charge $4-10/month or require per-platform purchase.
-Self-hosted options need server infrastructure. We're free, deployed on Cloudflare Pages free tier. No
-account required to browse. No data silo. Recipes are portable structured data that we own.
+**Open access and owned data.** Browsing public recipes requires no account or subscription. Signed-in users get
+household and personal scopes without losing public link sharing. Recipes have portable structured
+representations, while the application database and infrastructure remain under project control. User-visible
+version history is still roadmap work; it should not be claimed as shipped merely because the earlier static
+content happened to live in git.
 
-**Version history per recipe.** No competitor surfaces version history. Edits are overwrite-in-place or
-untracked. Git-backed content means every edit is already a commit with a full diff. The user-facing
-version history UI (browsing past versions, comparing changes) is planned for a future phase. Longer
-term, version history moves to a proper database as content management needs outgrow git workflows.
-Either way, this directly addresses the physical book's "destructive editing" problem in a way nobody
-else does.
+**Iteration velocity.** Type-safe domain schemas, committed database migrations, isolated preview databases,
+API governance, and end-to-end observability make rapid parallel delivery safer. This is still an enabler rather
+than a user feature, but it explains how the product moved across cooking, ingestion, household, kitchen, and
+social tracks without waiting for artificial phase boundaries.
 
 **The physical book replacement angle.** No competitor explicitly positions as "your handwritten recipe
 book, but better in every way." The Cooklang blog
@@ -540,19 +915,26 @@ resilience, and tangibility while eliminating the limitations — is under-explo
 
 ## Where Competitors Are Ahead
 
-### On our roadmap
-
-| Capability                     | Market leader                                                                                                                   | Our timeline                                                                                                                                                |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AI recipe import**           | [Flavorish](https://www.flavorish.ai/), [Honeydew](https://honeydewcook.com/), [Recify](https://www.recify.app/)                | In exploration                                                                                                                                              |
-| **Voice / hands-free cooking** | [Pestle](https://9to5mac.com/2022/01/21/pestle-cooking-app-for-ios-release/) (voice + wink), SideChef (voice + narrator)        | Future (after cooking mode lands)                                                                                                                           |
-| **Recipe reviews**             | [NYT Cooking](https://cooking.nytimes.com/) (community notes), [Mealie](https://mealie.io/) (multi-user comments + adaptations) | Future (complex — needs to handle forked recipe variants where users personalise a base recipe, similar to Mealie's multi-generational collaboration model) |
+| Capability                          | Market leader                                                                                                                                                                        | Recipe Site direction                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| **Offline and installability**      | [Tandoor](https://docs.tandoor.dev/faq/) and native apps                                                                                                                             | Critical path: offline recipes, active timers, plans, and shopping with safe resynchronization |
+| **Collection migration breadth**    | [Tandoor](https://docs.tandoor.dev/features/import_export/)                                                                                                                          | Parallel track: batch queue and recovery first, then additional trusted formats                |
+| **Library administration**          | [Tandoor](https://github.com/TandoorRecipes/recipes)                                                                                                                                 | Parallel track: collections, saved searches, bulk organization, aliases, and merge workflows   |
+| **Shared shopping synchronization** | [Tandoor](https://docs.tandoor.dev/features/shopping/)                                                                                                                               | Move the device-local planner and list into household state                                    |
+| **Retailer basket integration**     | [Samsung Food](https://support.samsungfood.com/hc/en-us/articles/360042706091-Integrated-Stores)                                                                                     | Validate one intermediary or retailer after server-backed shopping                             |
+| **Automatic recipe nutrition**      | [Samsung Food](https://support.samsungfood.com/hc/en-us/articles/18725068057620-Nutrition-calculations-Macronutrients-Micronutrients-and-Health-Score)                               | Derive serving nutrition and passive history from structured recipes and completed cooks       |
+| **Public social network**           | [Samsung Food](https://support.samsungfood.com/hc/en-us/articles/18365296571412-Getting-Started-with-Samsung-Food-Communities)                                                       | Turn follows and feeds into a cooking-outcome flywheel                                         |
+| **Cooking feedback at scale**       | [Samsung Food](https://support.samsungfood.com/hc/en-us/articles/18588391246740-Recipes-Made-Its-and-Review-FAQs)                                                                    | Publish defined cook, repeat, adaptation, and recommendation-outcome signals                   |
+| **Personalized discovery at scale** | [TikTok](https://newsroom.tiktok.com/how-tiktok-recommends-videos-for-you) and [Samsung Food](https://support.samsungfood.com/hc/en-us/articles/18758565761812-About-Your-Home-Feed) | Learn affinity from cooking outcomes and reserve space for explainable exploration             |
+| **Voice / hands-free cooking**      | [Pestle](https://9to5mac.com/2022/01/21/pestle-cooking-app-for-ios-release/) (voice + wink), SideChef (voice + narrator)                                                             | Cooking-depth track now that cooking mode and timers are live                                  |
+| **Recipe reviews**                  | [NYT Cooking](https://cooking.nytimes.com/) (community notes), [Mealie](https://mealie.io/) (multi-user comments + adaptations)                                                      | Follow recipe lineage and forking; avoid attaching all feedback to a mutable canonical recipe  |
 
 ### Out of scope
 
-**Grocery delivery integration** ([Honeydew](https://honeydewcook.com/)/Instacart,
-[Ollie](https://ollie.ai/)/Amazon Fresh/Walmart) — integrating with delivery APIs that change frequently
-is a maintenance nightmare. Not a strong enough differentiator to justify the ongoing cost.
+**One-off adapters for every supermarket** — retailer basket hand-off is now part of the intended lifecycle,
+but maintaining a bespoke integration for every chain would overwhelm the core product. Start with a stable
+intermediary or one relevant retailer, validate that people complete baskets, then expand according to measured
+demand and partner quality.
 
 **Smart appliance integration** ([Samsung Food](https://samsungfood.com/), SideChef/Home Connect) — same
 maintenance concerns, fragmented smart home ecosystem. A feature that sounds impressive on a feature list
@@ -560,54 +942,77 @@ but rarely works well in practice.
 
 **Pantry photo scanning** ([Honeydew](https://honeydewcook.com/)'s "Pantry Mode") — the "What Can I Make?"
 concept is genuinely interesting, but photo-based pantry recognition is technically unreliable. We'd rather
-approach this via manual ingredient input (already planned as a future feature) than invest in computer
-vision we can't trust.
+use the manual pantry and recipe matching that have already shipped than invest in computer vision we can't
+trust.
 
 ### Future consideration
 
-**AI meal planning** ([Ollie](https://ollie.ai/), Honeydew, Samsung Food) — worth evaluating once
-shopping lists and meal planning are built. The infrastructure for this (structured recipes, ingredient
-data, user preferences) will already exist.
+**AI-generated meal plans** ([Ollie](https://ollie.ai/), Honeydew, Samsung Food) — worth evaluating only after
+the product can rank and explain plans from server-backed household state, nutrition, pantry stock, cooking
+history, social evidence, and preferences. AI may improve the interaction, but the differentiated asset is the
+underlying cooking graph.
 
 # Architecture
 
-## Current: Static Site
+## Current: Static Frontend, Dynamic Product
 
-The recipe site is a section of the personal site — a Next.js 15 static export deployed to
-Cloudflare Pages. Recipes are TypeScript objects with Zod schema validation, stored in git.
+The recipe site keeps a statically exported Next.js frontend on Cloudflare Pages, but it is no longer a static
+content site:
 
-This architecture is intentionally simple:
+* **Cloudflare Pages and Pages Functions** serve the web application, proxy same-origin APIs, and expose public
+  Markdown, Cooklang, and schema.org Recipe representations
+* **The recipe API Worker** owns recipes, authorization, profiles, households, pantry stock, diet settings,
+  notifications, recommendations, follows, discovery, and cooking sessions
+* **Neon Postgres through Hyperdrive** is the source of truth for accounts, recipes, collaboration state, and
+  ingestion metadata; Drizzle owns committed, reviewed migrations
+* **Better Auth** provides Google and GitHub login, account linking, session management, and administrative
+  controls
+* **The recipe-ingest Worker** runs durable Cloudflare Workflows, stores immutable stage artifacts in R2, and
+  calls OpenRouter through the shared recipe-parsing package
+* **TanStack Query** coordinates client/server state while Zod schemas and the shared recipe-domain package keep
+  data boundaries explicit
 
-* **No backend** — no servers, no database, no auth
-* **No cost** — Cloudflare Pages free tier
-* **No ops** — static files served from a CDN
-* **Type-safe** — Zod schemas catch errors at build time
-* **Version-controlled** — every change is a git commit
+The static shell still keeps delivery simple and public pages fast. Dynamic infrastructure was introduced only
+where ownership, identity, long-running work, or shared state required it.
 
-## Future: Dynamic Features
+Some state remains deliberately local: active timers, unit preferences, meal plans, and shopping lists persist
+in the browser. That was an effective first pass, but cross-device and household continuity now make the planner
+and shopping store the most important boundary to move server-side.
 
-Features like user accounts, cooking logs, shopping list state, and favorites require persistent
-user state. The likely direction is to add dynamic infrastructure only where user-specific state
-actually requires it, while keeping the core recipe experience simple and fast.
+## Social Cooking Graph
 
-Recipes themselves may remain version-controlled content while user-specific data moves to a
-database-backed layer. The exact runtime, storage choices, and content model are future decisions
-that should be made through ADRs when the constraints are clearer.
+The current relational model already contains public recipes, follows, recommendation events, household state,
+pantry items, and cooking sessions with separate start and completion timestamps. The next architectural step is
+to connect them without reducing everything to analytics events. Product facts such as a completed cook, repeat,
+fork, recommendation outcome, retailer hand-off, or leftover portion need durable domain records tied to the
+exact recipe version, servings, actor, household where relevant, and chosen audience.
+
+Public counts and rankings should be reproducible projections of those records, not mutable counters or opaque
+model outputs. That makes definitions inspectable, allows ranking to evolve, and supports multiple views of the
+same graph: global evidence for discovery, followed-cook evidence for social relevance, and household evidence
+for immediate feasibility. Nutrition and cost should be similarly reproducible projections from versioned
+ingredients and recorded portions, with corrections layered on top rather than copied into a separate diary.
+
+Taste affinity and practical fit should be separate derived, versioned projections rather than one permanent
+label on a person or recipe. Their inputs and purposes must remain distinguishable: declared dietary and
+accessibility constraints filter unsuitable candidates; explicit follows express trust; enjoyment feedback and
+shared favourites estimate taste; observed planning and cooking outcomes estimate contextual utility; the
+exploration policy introduces novelty. Context can be declared for an occasion or inferred narrowly for recipe
+fit, but the system must not infer that somebody is an athlete, has a mobility issue, is a parent, or holds any
+other identity from their cooking pattern. Keeping these roles separate makes recommendations explainable and
+allows the projections to be recalculated as circumstances change.
 
 ## Recipe Ingestion
 
-Import tooling for photos, websites, social media, local recipe files, and collection archives
-should feed a human review workflow. Single imports open one editable preview; batch imports create
-a persistent queue in which every recipe can be corrected, retried, skipped, and saved
-independently.
+URL imports extract schema.org data synchronously. Cooklang text and local files are parsed into the shared domain
+model. Photo imports create persistent jobs and run extract → normalize → canonicalize → finalize as a durable
+workflow; Postgres records job state and attempts while R2 retains source and stage artifacts. All three paths
+lead to an editable preview before a recipe is saved.
 
-For URL and local-file batches, one URL or file represents one recipe. Collection archives expand
-into separate review items while preserving their source. Photo batches require users to group and
-order images before extraction because one recipe may span several pages. One failed or ambiguous
-item should never block the rest of a batch.
-
-Longer term, content management can evolve if the collection or contributor model outgrows this
-approach.
+Batch migration is the next architectural step. One URL or ordinary file should map to one review item;
+collection archives should expand into independently recoverable items with shared provenance. Photo batches
+need an explicit grouping board because one recipe may span several images. Failures and ambiguity must remain
+item-scoped so one bad source never blocks the rest of a collection.
 
 # Building Philosophy
 
@@ -615,38 +1020,139 @@ This project follows my [building philosophy](/projects?tab=philosophy).
 
 The recipe site is a textbook case for several principles:
 
-* **Short feedback loops** — ship the static recipe list first, learn from real kitchen use, then build features
-* **Build flywheels** — every recipe added makes the site more valuable. The ingredient graph, search index, and filtering all improve with more content. Structured data compounds into nutritional analysis, shopping lists, and meal planning
-* **Leverage tech debt** — start with recipes as version-controlled structured content. It's not scalable for non-technical users, but it's perfect for a tiny initial contributor set. Move to a richer content workflow when the constraint actually bites
-* **Less is more** — built on the existing personal site infrastructure. No new deployment pipeline, no new hosting, no new CI/CD. The recipe site is a route, not a separate application
+* **Short feedback loops** — the static recipe list shipped first; real use then pulled cooking mode, timers,
+  shopping, and kitchen state forward
+* **Validate pain, not feature presence** — an import, scan, recommendation, or nutrition screen is not successful
+  because it shipped; it succeeds only when it removes more work than it creates during real use
+* **Build flywheels** — every published recipe or adaptation expands the graph; every completed and repeated cook
+  adds evidence; better evidence improves discovery and recommendations; better discovery drives more cooking
+* **Leverage tech debt** — version-controlled recipe content was the right starting constraint; recipes moved to
+  Postgres when accounts, editing, visibility, and collaboration made that constraint expensive
+* **Less is more** — the product still reuses the personal site's frontend and delivery path while introducing
+  dedicated workers only for shared state and durable ingestion
+* **Sequence dependencies, parallelize surfaces** — identity and persistence are genuine critical paths; kitchen,
+  cooking, discovery, and design work can advance concurrently around stable contracts
+
+## Hypothesis-Led Delivery
+
+The project cannot outspend large commercial teams, but it can maintain a tighter loop between a real pain point,
+a small intervention, and observed use. Broad feature coverage is not evidence of product-market fit. Each part
+of the lifecycle should advance through a falsifiable ladder before the next layer depends on it.
+
+For passive nutrition, that ladder is:
+
+1. Structured ingredients produce recipe and serving estimates credible enough to influence a choice.
+2. Completing a cook proposes the right meal and portion often enough that confirmation is easier than logging.
+3. Substitutions, shared portions, and leftovers can be corrected in seconds, not reconstructed ingredient by
+   ingredient.
+4. The resulting history changes a later plan, basket, recipe adaptation, or repeat decision often enough to be
+   useful.
+5. Only then should photos, barcodes, or AI address the remaining unstructured meals—and they must beat the
+   correction burden of the simpler fallback.
+
+Apply the same discipline elsewhere: validate that synchronized lists reduce coordination before adding many
+retailers; validate that one basket integration reaches checkout before building adapters; validate that public
+cook and repeat signals improve discovery before inventing a complex ranking model; validate that taste-neighbour
+recommendations lead to successful novel cooks before generating algorithmic communities. Useful metrics include
+accept-without-edit rate, median correction time, completed journeys, recommendation cook-through, repeat use,
+plan-to-cook conversion, actual versus expected effort, leftover use, and cuisines or techniques newly cooked—not
+click-through rate, viewing time, or the number of AI-powered surfaces shipped. No single metric should define
+value: repeat cadence identifies staples, while explicit enjoyment and occasion context preserve recipes worth
+making rarely.
 
 # Risks
 
+## Cold start and weak network effects
+
+A public graph is not valuable merely because the schema exists. With few cooks, follows, or repeated meals,
+"social" ranking will be sparse and aggregate percentages will be misleading. Household utility can
+retain users, but it cannot validate the public flywheel by itself.
+
+**Mitigation:** Test with connected friend and family cohorts rather than isolated accounts. Seed useful public
+collections, make publishing and following natural extensions of existing cooking, and measure whether recipes
+travel through save → plan → cook → repeat. Do not display percentages without meaningful denominators.
+
+## Signal quality and incentives
+
+Cook-mode starts are not cooked meals, repeats are not necessarily endorsements, and public metrics invite
+gaming once they affect discovery. A neat-looking activity score could become less honest than the reviews it
+was meant to improve.
+
+**Mitigation:** Keep event definitions explicit, show the evidence behind rankings, separate intent from action,
+rate-limit implausible activity, and let qualitative notes explain outcomes. Optimize for successful cooking and
+useful adaptations rather than feed engagement. Add moderation and abuse controls in proportion to public reach.
+
+## Taste bubbles and popularity feedback
+
+Collaborative filtering can make a food bubble more confident instead of helping somebody escape it. Popular
+recipes collect more outcome data, similar cooks reinforce one another, and new recipes or cuisines struggle to
+enter the candidate pool. A community inferred from behaviour can also feel reductive if treated as identity.
+
+**Mitigation:** Separate candidate generation from ranking, reserve an explicit exploration budget, normalize
+for exposure, and let users tune familiarity versus novelty. Explain which shared tastes form the bridge, never
+label an inferred cohort as identity without consent, and measure successful new cuisines, ingredients, and
+techniques alongside immediate cook-through and repeat rate.
+
+## Frequency bias and contextual stereotyping
+
+Observed behaviour can create a different bad proxy if frequent, easy meals always outrank ambitious or
+special-occasion food. It can also mistake circumstances for identity: a period of low-effort cooking does not
+prove somebody's occupation, health, mobility, family role, or long-term preference.
+
+**Mitigation:** Keep deliciousness, practicality, effort, occasion, and repeat evidence separate; use
+multi-objective ranking and ask for current context when it materially changes a recommendation. Prefer declared
+constraints over inferred personal attributes, keep behavioural inference narrow and revisable, explain why a
+recipe was suggested, and let people correct it. Evaluate whether the system serves both reliable routines and
+occasional aspiration rather than maximizing frequency alone.
+
 ## Adoption friction
 
-The primary users (us) need to actually use this instead of the physical book. If the digital
-experience is worse in the kitchen — too small, too fiddly, too many taps — we'll default back
-to the book. Cooking mode is the critical feature that determines whether this replaces or merely
-supplements the physical book.
+The primary users no longer choose only between this and the physical book. Tandoor, Samsung Food, Paprika, and
+others offer mature personal workflows; no social vision excuses a worse everyday tool. Poor connectivity,
+browser-local planning, missing retailer hand-off, or excessive nutrition logging can break the journey before
+the network receives a useful signal.
 
-**Mitigation:** Build cooking mode early (Phase 2, not Phase 6). Test in actual cooking sessions.
-Optimize for the messiest, most stressful moments — hands covered in flour, timer going off,
+**Mitigation:** Test complete journeys during real shopping and cooking sessions, not isolated screens. Prioritize
+server-backed household planning, shopping hand-off, passive nutrition, and offline continuity, then optimize the
+messiest moments—choosing under time pressure, matching products, hands covered in flour, a timer going off, and
 three things on the stove.
+
+## Nutrition accuracy and logging burden
+
+Ingredient normalization, serving assumptions, substitutions, leftovers, restaurant meals, and shared dishes
+make passive nutrition approximate. Asking users to resolve every ambiguity would recreate the food-log burden
+that made ZOE difficult to sustain; hiding the uncertainty would create false confidence.
+
+**Mitigation:** Use nutrition for directional planning rather than clinical claims, show assumptions and ranges,
+ask only high-impact questions, and let users correct exceptions quickly. Track accept-without-edit rate and
+median correction time; if a photo or barcode flow creates ingredient-level reconstruction work, it has failed
+regardless of model accuracy in a benchmark. Measure whether guidance changes plans, baskets, and repeat
+cooking—not whether users maintain an artificial logging streak.
+
+## Retail integration brittleness
+
+Retailer catalogs, product identifiers, availability, authentication, and partner APIs vary by region and change
+outside this project's control. A failed product match at checkout can erase the convenience gained earlier in
+the journey.
+
+**Mitigation:** Keep the canonical ingredient and shopping models retailer-independent. Begin with one strong
+partner path, make every match reviewable, retain manual and export fallbacks, and expand only when completed
+baskets justify the maintenance cost.
 
 ## Content migration effort
 
-18 recipes are already digitized, but the physical book likely contains many more. Batch
-digitization requires the ML parsing pipeline to work well enough to be faster than manual entry.
+The physical collection and potential users' existing app libraries contain many more recipes than a one-at-a-time
+flow can comfortably absorb. Extraction quality alone does not solve grouping, duplicates, correction, retries,
+or whole-batch recovery.
 
-**Mitigation:** The photo-to-recipe pipeline infrastructure is built (`ml-pipelines/recipe-parsing/` —
-DVC stages, evaluation framework, ground-truth dataset). The model itself is in development. Even
-imperfect parsing that requires manual correction is faster than transcribing from scratch. And the
-draft workflow means partially-parsed recipes can be saved immediately and refined later.
+**Mitigation:** Keep improving the evaluated photo pipeline, but measure migration time through the entire review
+journey. Build the durable batch workspace before adding a long tail of formats or noisy social sources.
 
 ## Feature creep
 
 The feature list above is ambitious. Building everything before shipping anything would violate
 every principle in the building philosophy.
 
-**Mitigation:** Strict phasing. MVP is already live. Each phase ships independently and delivers
-value on its own. No phase depends on a later phase being built.
+**Mitigation:** Maintain a small critical path and bounded parallel tracks. New ideas must strengthen a current
+journey, close a measured competitive gap, or provide a reusable foundation; they do not earn priority merely by
+appearing on a competitor's feature list.
