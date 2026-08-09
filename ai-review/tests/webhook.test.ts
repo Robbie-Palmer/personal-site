@@ -246,6 +246,23 @@ describe("parseFindingInteraction", () => {
     ).toEqual({ kind: "ignored", reason: "unsupported-event" });
   });
 
+  it("rejects incomplete disposition commands without regex backtracking", () => {
+    const body = `/ai-review reject f_${"a".repeat(24)}${" ".repeat(100_000)}`;
+    expect(
+      parseFindingInteraction("issue_comment", "feedback-incomplete", {
+        action: "created",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        issue: { number: 816, pull_request: {} },
+        sender: { login: "robbie" },
+        comment: {
+          body,
+          author_association: "OWNER",
+          user: { login: "robbie" },
+        },
+      }),
+    ).toEqual({ kind: "ignored", reason: "unsupported-event" });
+  });
+
   it("captures replies, reaction snapshots, and thread resolution", () => {
     expect(
       parseFindingInteraction("pull_request_review_comment", "feedback-3", {

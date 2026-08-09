@@ -102,8 +102,34 @@ export type FindingInteractionParseResult =
   | { kind: "ignored"; reason: "unsupported-event" }
   | { kind: "invalid"; reason: "Malformed webhook payload" };
 
-const FINDING_DISPOSITION_COMMAND =
-  /^\/ai-review\s+(acknowledge|reject)\s+(f_[a-f0-9]{24})(?:\s+([\s\S]*\S))?$/i;
+function findingDispositionCommand(body: string):
+  | {
+      disposition: "acknowledged" | "rejected";
+      findingId: string;
+      reason: string;
+    }
+  | undefined {
+  if (body !== body.trim() || !body.startsWith("/ai-review ")) {
+    return undefined;
+  }
+  const actionStart = "/ai-review ".length;
+  const actionEnd = body.indexOf(" ", actionStart);
+  if (actionEnd < 0) return undefined;
+  const action = body.slice(actionStart, actionEnd).toLowerCase();
+  if (action !== "acknowledge" && action !== "reject") return undefined;
+  const findingStart = actionEnd + 1;
+  const findingEnd = body.indexOf(" ", findingStart);
+  if (findingEnd < 0) return undefined;
+  const findingId = body.slice(findingStart, findingEnd).toLowerCase();
+  if (!/^f_[a-f0-9]{24}$/.test(findingId)) return undefined;
+  const reason = body.slice(findingEnd + 1).trim();
+  if (!reason) return undefined;
+  return {
+    disposition: action === "acknowledge" ? "acknowledged" : "rejected",
+    findingId,
+    reason,
+  };
+}
 
 function positiveInteger(value: unknown): number | undefined {
   return typeof value === "number" &&
@@ -188,7 +214,7 @@ export function parseFindingInteraction(
     if (typeof event.comment?.body !== "string") {
       return { kind: "ignored", reason: "unsupported-event" };
     }
-    const command = FINDING_DISPOSITION_COMMAND.exec(event.comment.body);
+    const command = findingDispositionCommand(event.comment.body);
     if (!command) return { kind: "ignored", reason: "unsupported-event" };
     const pullRequestNumber = positiveInteger(event.issue?.number);
     if (!pullRequestNumber || event.issue?.pull_request === undefined) {
@@ -211,12 +237,9 @@ export function parseFindingInteraction(
         interactionType: "disposition",
         actor,
         actorAssociation: String(event.comment.author_association ?? ""),
-        findingId: command[2]?.toLowerCase(),
-        disposition:
-          command[1]?.toLowerCase() === "acknowledge"
-            ? "acknowledged"
-            : "rejected",
-        reason: command[3]?.trim(),
+        findingId: command.findingId,
+        disposition: command.disposition,
+        reason: command.reason,
         commentId: positiveInteger(event.comment.id),
         body: event.comment.body.slice(0, 4_000),
         occurredAt:
