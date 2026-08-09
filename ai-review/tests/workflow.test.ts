@@ -305,6 +305,47 @@ describe("ReviewWorkflow orchestration", () => {
     ]);
   });
 
+  it("records a denied skipped review without publishing coverage", async () => {
+    const skippedPrepared = {
+      ...prepared,
+      skipReason: "all current semantic hunks were covered",
+      coverage: {
+        mode: "skipped",
+        reason: "all current semantic hunks were covered",
+        totalHunks: 1,
+        reviewedHunkIds: [],
+        unchangedHunkIds: [`h_${"a".repeat(24)}`],
+        skippedHunkIds: [],
+        affectedFindingIds: [],
+        paths: [],
+        skippedPaths: [],
+      },
+    };
+    engine.prepareReview.mockResolvedValueOnce(skippedPrepared);
+    engine.claimReview.mockResolvedValueOnce({
+      claimed: false,
+      reason: "this content and reviewer configuration were already reviewed",
+      previousState: { runs: 1, total_usd: 0.6 },
+    });
+    const { workflow, step } = fixture();
+
+    await workflow.run(event, step);
+
+    expect(engine.publishSkippedReview).not.toHaveBeenCalled();
+    expect(engine.completeReview).not.toHaveBeenCalled();
+    expect(engine.recordReviewTerminal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "denied",
+        reason: "this content and reviewer configuration were already reviewed",
+      }),
+    );
+    expect(vi.mocked(step.do).mock.calls.map(([name]) => name)).toEqual([
+      "prepare-review",
+      "claim-skipped-review",
+      "record-denied-skipped-review",
+    ]);
+  });
+
   it("records known model spend before propagating a failure", async () => {
     engine.mergeFindings.mockRejectedValue(new Error("merger unavailable"));
     const { workflow, step } = fixture();

@@ -675,7 +675,9 @@ describe("PullRequestCoordinator", () => {
           headSha: event.headSha,
           costUsd: 0,
           hunks: [identifiedHunk],
-          currentHunks: [{ ...identifiedHunk, file: "different.ts" }],
+          currentHunks: [
+            { ...identifiedHunk, newLines: identifiedHunk.newLines + 1 },
+          ],
           findings: [],
         }),
       }),
