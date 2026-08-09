@@ -88,6 +88,8 @@ rules:
       - "$.paths['/api/recipes/{slug}/recommendations'].post.responses"
       - "$.paths['/api/recipe-imports'].post.responses"
     then:
+      # Deliberately reject a response-level $ref: the following assertions
+      # require the inline 429 body schema and Retry-After header.
       - field: "429.$ref"
         function: falsy
       - field: "429.content.application/json.schema.$ref"
