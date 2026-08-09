@@ -98,7 +98,7 @@ export function installPantrySnapshot(
   current: Pantry | undefined,
   incoming: Pantry,
 ): Pantry {
-  if (!current || current.resourceId !== incoming.resourceId) return incoming;
+  if (current?.resourceId !== incoming.resourceId) return incoming;
   return BigInt(incoming.revision) >= BigInt(current.revision)
     ? incoming
     : current;
