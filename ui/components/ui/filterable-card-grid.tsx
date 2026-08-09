@@ -351,6 +351,7 @@ export function FilterableCardGrid<T>({
       return {
         paramName: config.paramName,
         label: config.label,
+        icon: config.icon,
         options: options.map((option) => ({
           ...option,
           icon: option.icon ?? config.icon,
@@ -400,6 +401,7 @@ export function FilterableCardGrid<T>({
         activeFilterCount={activeFilterCount}
         sortButton={sortButton}
         mobileFilterSections={mobileFilterSections}
+        mobileExtraContentLabel={dateRangeConfig ? "Date Range" : undefined}
         mobileExtraContent={
           dateRangeConfig ? (
             <DateRangeFilter

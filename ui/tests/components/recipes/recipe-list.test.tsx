@@ -171,6 +171,45 @@ describe("RecipeList", () => {
     ).toBeInTheDocument();
   });
 
+  it("lets mobile users search within a filter category", () => {
+    render(<RecipeList recipes={recipes} />);
+
+    // Vaul's pointer-capture gesture handling is not implemented by jsdom, so
+    // use click events here while asserting the resulting user-visible flow.
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Ingredients, 5 values" }),
+    );
+
+    const ingredientSearch = screen.getByRole("searchbox", {
+      name: "Search Ingredients filter values",
+    });
+    const optionListId = ingredientSearch.getAttribute("aria-controls");
+    expect(optionListId).not.toBeNull();
+    expect(document.getElementById(optionListId ?? "")).toBeInTheDocument();
+    fireEvent.change(ingredientSearch, { target: { value: "cheddar" } });
+
+    expect(
+      screen.getByRole("button", { name: "cheddar cheese" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "white onion" }),
+    ).not.toBeInTheDocument();
+    const resultCount = screen.getByText("1 of 5");
+    expect(resultCount).toHaveAttribute("aria-atomic", "true");
+    expect(ingredientSearch).toHaveAttribute(
+      "aria-describedby",
+      resultCount.id,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "cheddar cheese" }));
+
+    expect(replaceMock).toHaveBeenCalledWith(
+      "/recipes?ingredient=cheddar+cheese",
+      { scroll: false },
+    );
+  });
+
   it("applies the equipment filter via the equipment query param", () => {
     currentSearchParams = new URLSearchParams("equipment=slow cooker");
 
