@@ -8,6 +8,28 @@ export type ReviewWorkflowParams = {
   force: boolean;
 };
 
+export type FindingDisposition = "acknowledged" | "rejected";
+
+export type FindingInteractionEvent = {
+  deliveryId: string;
+  eventName: string;
+  action: string;
+  repository: string;
+  pullRequestNumber: number;
+  interactionType: "reply" | "thread" | "disposition";
+  actor: string;
+  actorAssociation?: string;
+  findingId?: string;
+  rootCommentId?: number;
+  commentId?: number;
+  threadId?: string;
+  body?: string;
+  reactions?: Record<string, number>;
+  disposition?: FindingDisposition;
+  reason?: string;
+  occurredAt?: string;
+};
+
 export const TRUSTED_AUTHOR_ASSOCIATIONS = new Set([
   "OWNER",
   "MEMBER",

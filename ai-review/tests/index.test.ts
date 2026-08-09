@@ -39,6 +39,22 @@ const identifiedHunk = {
   newLines: 1,
 };
 
+const findingInteraction = {
+  deliveryId: "feedback-delivery-1",
+  eventName: "issue_comment",
+  action: "created",
+  repository: event.repository,
+  pullRequestNumber: event.pullRequestNumber,
+  interactionType: "disposition",
+  actor: "Robbie-Palmer",
+  actorAssociation: "OWNER",
+  findingId: identifiedFinding.findingId,
+  commentId: 900,
+  disposition: "acknowledged",
+  reason: "Accepted risk",
+  occurredAt: "2026-08-09T12:00:00Z",
+} as const;
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -75,9 +91,11 @@ function coordinatorFixture(existingDeliveries: string[] = []) {
   const workflowGet = vi.fn(() =>
     Promise.resolve({ status: workflowStatus, terminate }),
   );
+  const put = vi.fn();
   const env = {
     AI_REVIEW_ENABLED: "true",
     AI_REVIEW_DEBOUNCE_SECONDS: "2",
+    REVIEW_DATA: { put },
     REVIEW_WORKFLOW: { createBatch, get: workflowGet },
   } as unknown as Env;
   const coordinator = new PullRequestCoordinator(
@@ -89,6 +107,7 @@ function coordinatorFixture(existingDeliveries: string[] = []) {
     coordinator,
     createBatch,
     env,
+    put,
     sqlExec,
     storage,
     terminate,
@@ -371,6 +390,16 @@ describe("PullRequestCoordinator", () => {
           commentId: 987,
           hunks: [identifiedHunk],
           findings: [identifiedFinding],
+          findingPublications: [
+            {
+              findingId: identifiedFinding.findingId,
+              delivery: "line",
+              commentId: 654,
+              reconciled: false,
+              path: identifiedFinding.file,
+              line: identifiedFinding.line,
+            },
+          ],
         }),
       }),
     );
@@ -380,6 +409,120 @@ describe("PullRequestCoordinator", () => {
         String(query).includes("SET status = 'completed'"),
       ),
     ).toBe(true);
+    expect(
+      sqlExec.mock.calls.some(([query]) =>
+        String(query).includes("INSERT INTO review_finding_comments"),
+      ),
+    ).toBe(true);
+  });
+
+  it("records finding dispositions in SQLite and append-only evidence", async () => {
+    const { coordinator, put, sqlExec } = coordinatorFixture();
+    sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: 1,
+      toArray: () =>
+        query.includes("SELECT finding_id FROM review_findings")
+          ? [{ finding_id: identifiedFinding.findingId }]
+          : [],
+    }));
+
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/interactions", {
+        method: "POST",
+        body: JSON.stringify(findingInteraction),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      accepted: true,
+      duplicate: false,
+      findingId: identifiedFinding.findingId,
+    });
+    expect(put).toHaveBeenCalledWith(
+      expect.stringContaining("/evidence/feedback-delivery-1.json"),
+      expect.stringContaining('"disposition":"acknowledged"'),
+      { httpMetadata: { contentType: "application/json" } },
+    );
+    expect(
+      sqlExec.mock.calls.some(([query]) =>
+        String(query).includes("SET disposition = ?"),
+      ),
+    ).toBe(true);
+  });
+
+  it("deduplicates finding evidence and rejects unknown findings", async () => {
+    const duplicate = coordinatorFixture();
+    duplicate.sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: 1,
+      toArray: () =>
+        query.includes("FROM review_finding_events")
+          ? [{
+              finding_id: identifiedFinding.findingId,
+              payload_json: JSON.stringify({ recorded: true }),
+              r2_recorded: 1,
+            }]
+          : [],
+    }));
+    const duplicateResponse = await duplicate.coordinator.fetch(
+      new Request("https://coordinator.test/interactions", {
+        method: "POST",
+        body: JSON.stringify(findingInteraction),
+      }),
+    );
+    await expect(duplicateResponse.json()).resolves.toMatchObject({
+      accepted: true,
+      duplicate: true,
+    });
+    expect(duplicate.put).not.toHaveBeenCalled();
+
+    const unknown = coordinatorFixture();
+    const unknownResponse = await unknown.coordinator.fetch(
+      new Request("https://coordinator.test/interactions", {
+        method: "POST",
+        body: JSON.stringify({
+          ...findingInteraction,
+          findingId: undefined,
+          rootCommentId: 654,
+          interactionType: "reply",
+          disposition: undefined,
+          reason: undefined,
+        }),
+      }),
+    );
+    expect(unknownResponse.status).toBe(202);
+    await expect(unknownResponse.json()).resolves.toEqual({
+      accepted: false,
+      reason: "unknown-finding",
+    });
+  });
+
+  it("rejects malformed finding interactions", async () => {
+    const { coordinator } = coordinatorFixture();
+    for (const body of [
+      null,
+      [],
+      { ...findingInteraction, actor: "" },
+      { ...findingInteraction, deliveryId: "x".repeat(256) },
+      { ...findingInteraction, reason: "x".repeat(1_001) },
+      { ...findingInteraction, body: "x".repeat(4_001) },
+      {
+        ...findingInteraction,
+        interactionType: "thread",
+        disposition: undefined,
+        findingId: undefined,
+        reason: undefined,
+        rootCommentId: 654,
+        threadId: "x".repeat(256),
+      },
+    ]) {
+      const response = await coordinator.fetch(
+        new Request("https://coordinator.test/interactions", {
+          method: "POST",
+          body: JSON.stringify(body),
+        }),
+      );
+      expect(response.status).toBe(400);
+    }
   });
 
   it("reports a completion that does not match a claimed run", async () => {
@@ -480,6 +623,27 @@ describe("PullRequestCoordinator", () => {
     });
   });
 
+  it("rejects a zero-based identified finding at the completion boundary", async () => {
+    const { coordinator } = coordinatorFixture();
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/complete", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-delivery-123",
+          headSha: event.headSha,
+          costUsd: 0.42,
+          hunks: [identifiedHunk],
+          findings: [{ ...identifiedFinding, line: 0 }],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid review completion",
+    });
+  });
+
   it("rejects a finding linked to a hunk absent from its completion", async () => {
     const { coordinator } = coordinatorFixture();
     const response = await coordinator.fetch(
@@ -499,6 +663,67 @@ describe("PullRequestCoordinator", () => {
     await expect(response.json()).resolves.toEqual({
       error: "Invalid review completion",
     });
+  });
+
+  it("rejects inconsistent finding publication mappings", async () => {
+    const { coordinator } = coordinatorFixture();
+    const validPublication = {
+      findingId: identifiedFinding.findingId,
+      delivery: "line",
+      commentId: 654,
+      reconciled: false,
+      path: identifiedFinding.file,
+      line: identifiedFinding.line,
+    };
+    for (const publication of [
+      { ...validPublication, path: "different.ts" },
+      { ...validPublication, line: 0 },
+      { ...validPublication, delivery: "fallback", commentId: 654 },
+    ]) {
+      const response = await coordinator.fetch(
+        new Request("https://coordinator.test/reviews/complete", {
+          method: "POST",
+          body: JSON.stringify({
+            runId: "review-delivery-123",
+            headSha: event.headSha,
+            costUsd: 0.42,
+            hunks: [identifiedHunk],
+            findings: [identifiedFinding],
+            findingPublications: [publication],
+          }),
+        }),
+      );
+      expect(response.status).toBe(400);
+    }
+  });
+
+  it("accepts a reconciled native comment whose current line is null", async () => {
+    const { coordinator } = coordinatorFixture();
+    const findingWithoutCurrentLine = { ...identifiedFinding, line: null };
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/reviews/complete", {
+        method: "POST",
+        body: JSON.stringify({
+          runId: "review-delivery-123",
+          headSha: event.headSha,
+          costUsd: 0.42,
+          hunks: [identifiedHunk],
+          findings: [findingWithoutCurrentLine],
+          findingPublications: [
+            {
+              findingId: findingWithoutCurrentLine.findingId,
+              delivery: "line",
+              commentId: 654,
+              reconciled: true,
+              path: findingWithoutCurrentLine.file,
+              line: null,
+            },
+          ],
+        }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({ completed: true });
   });
 
   it.each([
@@ -917,6 +1142,35 @@ describe("HTTP Worker", () => {
     await expect(accepted.json()).resolves.toEqual({ accepted: true });
     expect(fetch).toHaveBeenCalledWith(
       "https://coordinator.internal/events",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("routes authorized finding feedback without scheduling review work", async () => {
+    const { env, fetch } = workerEnv();
+    const feedbackBody = JSON.stringify({
+      action: "created",
+      repository: { full_name: "Robbie-Palmer/personal-site" },
+      issue: { number: 821, pull_request: {} },
+      sender: { login: "Robbie-Palmer" },
+      comment: {
+        id: 900,
+        body: `/ai-review acknowledge f_${"a".repeat(24)} deferred`,
+        author_association: "OWNER",
+        user: { login: "Robbie-Palmer" },
+      },
+    });
+
+    const response = await worker.fetch(
+      signedWebhookRequest(feedbackBody, secret, {
+        "x-github-event": "issue_comment",
+      }),
+      env,
+    );
+
+    await expect(response.json()).resolves.toEqual({ accepted: true });
+    expect(fetch).toHaveBeenCalledWith(
+      "https://coordinator.internal/interactions",
       expect.objectContaining({ method: "POST" }),
     );
   });

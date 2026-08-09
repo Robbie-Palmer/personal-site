@@ -17,8 +17,10 @@ The service is a visible, stateful publisher:
   period;
 - a Cloudflare Workflow fetches the PR through GitHub App authentication, runs
   the shared OpenRouter and OpenCode scout ensemble,
-  reconciles candidates with the same OpenRouter merger, and publishes a
-  separate rolling comment; OpenRouter and OpenCode scouts use separate
+  reconciles candidates with the same OpenRouter merger, publishes each
+  line-addressable finding as a native review comment with a stable hidden
+  finding ID, and keeps a separate rolling run/cost/coverage comment;
+  OpenRouter and OpenCode scouts use separate
   Workflow steps so a stalled free provider cannot replay completed paid calls,
   while deterministic publication and storage steps remain retryable;
 - the private `ai-review-data` R2 bucket stores versioned terminal records for
@@ -32,7 +34,12 @@ The service is a visible, stateful publisher:
 Automatic runs cover non-draft PR opens, ready-for-review transitions, reopens,
 and synchronized heads. An exact `/ai-review` issue comment from an owner,
 member, or collaborator requests a run explicitly, including on a draft.
-Ordinary comments and review-thread activity never schedule paid work.
+Ordinary comments and review-thread activity never schedule paid work. Replies,
+reaction-count snapshots, thread resolution, and trusted
+`/ai-review acknowledge f_<id> <reason>` or
+`/ai-review reject f_<id> <reason>` commands instead take a storage-only path.
+Findings that GitHub cannot attach to a current diff line remain in the rolling
+comment with those explicit command fallbacks.
 
 OpenRouter is the default paid inference gateway because its broader model and
 provider catalogue, provider failover, model fallbacks, and price/performance
@@ -97,11 +104,16 @@ bucket-level lifecycle rule above is authoritative.
 
 ## GitHub App and review policy
 
-The App requires repository metadata and contents read access, pull-request read
-access, and issues read/write access for its rolling comment. Subscribe it to
-`pull_request` and `issue_comment` events. The Worker re-checks repository,
-PR state, draft state, author, exact command text, command-author association,
-and current head before spending or publishing.
+The App requires repository metadata and contents read access, **pull-request
+read/write access** for native review comments, and issues read/write access for
+its rolling comment and command fallback. Subscribe it to `pull_request`,
+`issue_comment`, `pull_request_review_comment`, and
+`pull_request_review_thread` events. Changes to the existing App are made in
+its GitHub settings and require the installation owner to approve the expanded
+pull-request permission. The Worker verifies every signature and re-checks the
+repository, PR state, draft state, author, exact command text,
+command-author association, feedback actor, and current head before accepting
+an event, spending, or publishing.
 
 Committed non-secret defaults in `wrangler.toml` configure the shared reviewer:
 
@@ -141,6 +153,15 @@ identities into `review_hunks`, `review_findings`, and
 `review_finding_hunks`; first-seen values remain immutable while last-seen
 values advance with later completed runs. R2 retains raw per-model candidates
 separately from the merged findings that were actually published.
+
+Native review-comment mappings live in `review_finding_comments`, so later
+heads reconcile the same finding instead of publishing another thread.
+Accepted feedback deliveries are deduplicated by GitHub delivery ID and stored
+in `review_finding_events`. Each is also appended as schema-v2 evidence at
+`v2/<owner>/<repository>/pr-<number>/findings/<finding-id>/evidence/<delivery>.json`.
+These records preserve the event/action, trusted actor, reply or command body,
+reaction counts present on review-comment events, thread state, explicit
+disposition and timestamps without mutating earlier evidence.
 
 ## Deploy
 

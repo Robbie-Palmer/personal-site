@@ -482,7 +482,7 @@ describe("stateful review engine", () => {
       "review-1",
       prepared,
       { hunks: [], candidates: {}, publishedFindings: [] },
-      { commentId: 42, runCostUsd: 0.25 },
+      { commentId: 42, runCostUsd: 0.25, findings: [] },
     );
     await failReview(env, params, "review-1", "failed");
     expect(coordinatorFetch).toHaveBeenCalledTimes(3);
@@ -521,6 +521,7 @@ describe("stateful review engine", () => {
         { paths: [], omitted: [] },
         emptyScouts,
         emptyMerged,
+        { hunks: [], candidates: {}, publishedFindings: [] },
         { runs: 0, total_usd: 0 },
       ),
     ).rejects.toThrow("Cannot publish an unprepared review");
@@ -547,6 +548,7 @@ describe("stateful review engine", () => {
         },
         emptyScouts,
         emptyMerged,
+        { hunks: [], candidates: {}, publishedFindings: [] },
         { runs: 0, total_usd: 0 },
       ),
     ).rejects.toThrow("refusing stale comment");
@@ -560,7 +562,7 @@ describe("stateful review engine", () => {
         scouts: emptyScouts,
         merged: emptyMerged,
         artifacts: { hunks: [], candidates: {}, publishedFindings: [] },
-        publication: { runCostUsd: 0 },
+        publication: { runCostUsd: 0, findings: [] },
         timestamp: new Date(),
       }),
     ).rejects.toThrow("Cannot record an unprepared review");
@@ -712,6 +714,14 @@ describe("stateful review engine", () => {
       if (url.pathname.endsWith("/issues/42/comments") && init?.method === "GET") {
         return json([]);
       }
+      if (url.pathname.endsWith("/pulls/42/comments") && init?.method === "GET") {
+        return json([]);
+      }
+      if (url.pathname.endsWith("/pulls/42/comments") && init?.method === "POST") {
+        const body = JSON.parse(String(init.body)) as { body: string };
+        publishedBodies.push(body.body);
+        return json({ id: 654 });
+      }
       if (url.pathname.endsWith("/issues/42/comments") && init?.method === "POST") {
         const body = JSON.parse(String(init.body)) as { body: string };
         publishedBodies.push(body.body);
@@ -733,6 +743,7 @@ describe("stateful review engine", () => {
       prepared,
       scouts,
       merged,
+      artifacts,
       { runs: 0, total_usd: 0 },
     );
     await recordReview({
@@ -756,10 +767,21 @@ describe("stateful review engine", () => {
       "nemotron-3-ultra-free",
     ]);
     expect(merged.result.findings).toHaveLength(1);
-    expect(publication).toEqual({ commentId: 987, runCostUsd: 0.08 });
-    expect(publishedBodies[0]).toContain(STATEFUL_REVIEW_MARKER);
-    expect(publishedBodies[0]).toContain("## Stateful AI code review");
+    expect(publication).toEqual({
+      commentId: 987,
+      runCostUsd: 0.08,
+      findings: [
+        expect.objectContaining({
+          commentId: 654,
+          delivery: "line",
+          reconciled: false,
+        }),
+      ],
+    });
+    expect(publishedBodies[0]).toContain("ai-review-finding:");
     expect(publishedBodies[0]).toContain("Reported by: `moonshotai/kimi-k2.6`");
+    expect(publishedBodies[1]).toContain(STATEFUL_REVIEW_MARKER);
+    expect(publishedBodies[1]).toContain("## Stateful AI code review");
     expect(put).toHaveBeenCalledOnce();
     const record = JSON.parse(String(put.mock.calls[0]?.[1])) as {
       schemaVersion: number;

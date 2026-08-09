@@ -32,6 +32,11 @@ import {
   type ReviewWorkflowParams,
 } from "./env";
 import { createInstallationToken } from "./github-app";
+import {
+  publishFindingComments,
+  renderFallbackFindings,
+  type FindingPublication,
+} from "./finding-lifecycle";
 
 type JsonObject = Record<string, unknown>;
 
@@ -132,6 +137,12 @@ export interface IdentifiedReviewArtifacts {
   hunks: ReviewHunk[];
   candidates: Record<string, IdentifiedFinding[]>;
   publishedFindings: IdentifiedMergedFinding[];
+}
+
+export interface ReviewPublication {
+  commentId?: number;
+  runCostUsd: number;
+  findings: FindingPublication[];
 }
 
 export type ReviewRecordStatus = "denied" | "failed" | "published" | "skipped";
@@ -864,10 +875,12 @@ export async function publishReview(
   prepared: PreparedReview,
   scouts: ScoutRun,
   merged: MergedRun,
+  artifacts: IdentifiedReviewArtifacts,
   previousState: ReviewState,
-): Promise<{ commentId?: number; runCostUsd: number }> {
+): Promise<ReviewPublication> {
   if (!prepared.headSha) throw new Error("Cannot publish an unprepared review");
-  const settings = modelSettings(env, params, await installationToken(env));
+  const token = await installationToken(env);
+  const settings = modelSettings(env, params, token);
   const reviewer = new Reviewer(settings);
   const currentHead = (await reviewer.getPr()).head.sha;
   if (currentHead !== prepared.headSha) {
@@ -882,6 +895,24 @@ export async function publishReview(
   const runCostUsd =
     Object.values(scouts.costs).reduce((total, cost) => total + cost, 0) +
     merged.cost;
+  const findingPublications = await publishFindingComments({
+    token,
+    repository: params.repository,
+    pullRequestNumber: params.pullRequestNumber,
+    botLogin: env.AI_REVIEW_APP_BOT_LOGIN,
+    headSha: prepared.headSha,
+    findings: artifacts.publishedFindings,
+    hunks: artifacts.hunks,
+  });
+  const fallback = renderFallbackFindings(
+    artifacts.publishedFindings,
+    findingPublications,
+  );
+  const openFindingIds = new Set(
+    artifacts.publishedFindings
+      .filter(({ status }) => status === "open")
+      .map(({ findingId }) => findingId),
+  );
   const body = renderComment({
     result: merged.result,
     headSha: prepared.headSha,
@@ -899,10 +930,23 @@ export async function publishReview(
       existing.id !== undefined ? existing.state : previousState,
     marker: STATEFUL_REVIEW_MARKER,
     heading: "## Stateful AI code review",
+    summaryOnly: true,
+    findingDelivery: {
+      line: findingPublications.filter(({ delivery }) => delivery === "line")
+        .filter(({ findingId }) => openFindingIds.has(findingId)).length,
+      fallback: findingPublications.filter(
+        ({ delivery, findingId }) =>
+          delivery === "fallback" && openFindingIds.has(findingId),
+      ).length,
+    },
   });
   return {
-    commentId: await reviewer.writeComment(existing.id, body),
+    commentId: await reviewer.writeComment(
+      existing.id,
+      fallback ? `${body}\n\n${fallback}` : body,
+    ),
     runCostUsd,
+    findings: findingPublications,
   };
 }
 
@@ -914,7 +958,7 @@ export async function recordReview(options: {
   scouts: ScoutRun;
   merged: MergedRun;
   artifacts: IdentifiedReviewArtifacts;
-  publication: { commentId?: number; runCostUsd: number };
+  publication: ReviewPublication;
   timestamp: Date;
 }): Promise<void> {
   if (!options.prepared.headSha) {
@@ -933,7 +977,7 @@ export async function recordReviewTerminal(options: {
   scouts?: ScoutRun;
   merged?: MergedRun;
   artifacts?: IdentifiedReviewArtifacts;
-  publication?: { commentId?: number; runCostUsd: number };
+  publication?: ReviewPublication;
   reason?: string;
   error?: string;
   failedPhase?: string;
@@ -1013,6 +1057,7 @@ export async function recordReviewTerminal(options: {
         : [],
       runCostUsd: publication?.runCostUsd ?? options.incurredCostUsd ?? 0,
       commentId: publication?.commentId,
+      findingPublications: publication?.findings ?? [],
       terminal: {
         reason: options.reason,
         error: options.error,
@@ -1034,13 +1079,14 @@ export async function completeReview(
   instanceId: string,
   prepared: PreparedReview,
   artifacts: IdentifiedReviewArtifacts,
-  publication: { commentId?: number; runCostUsd: number },
+  publication: ReviewPublication,
 ): Promise<void> {
   await coordinatorRequest(env, params, "/reviews/complete", {
     runId: instanceId,
     headSha: prepared.headSha,
     costUsd: publication.runCostUsd,
     commentId: publication.commentId,
+    findingPublications: publication.findings,
     hunks: artifacts.hunks,
     findings: artifacts.publishedFindings,
   });

@@ -5,7 +5,12 @@ import {
   type WorkflowStep,
   type WorkflowStepConfig,
 } from "cloudflare:workers";
-import type { Env, ReviewWorkflowParams } from "./env";
+import type {
+  Env,
+  FindingInteractionEvent,
+  ReviewWorkflowParams,
+} from "./env";
+import type { FindingPublication } from "./finding-lifecycle";
 import {
   claimReview,
   combineScoutRuns,
@@ -25,7 +30,11 @@ import {
   type ReviewHunk,
   type ScoutRun,
 } from "./review-engine";
-import { parseReviewEvent, verifyGitHubSignature } from "./webhook";
+import {
+  parseFindingInteraction,
+  parseReviewEvent,
+  verifyGitHubSignature,
+} from "./webhook";
 
 const JSON_HEADERS = {
   "cache-control": "no-store",
@@ -81,6 +90,28 @@ const CREATE_REVIEW_FINDING_HUNKS_TABLE =
   "finding_id TEXT NOT NULL, " +
   "hunk_id TEXT NOT NULL, " +
   "PRIMARY KEY (finding_id, hunk_id))";
+const CREATE_REVIEW_FINDING_COMMENTS_TABLE =
+  "CREATE TABLE IF NOT EXISTS review_finding_comments (" +
+  "comment_id INTEGER PRIMARY KEY, " +
+  "finding_id TEXT NOT NULL UNIQUE, " +
+  "head_sha TEXT NOT NULL, " +
+  "file_path TEXT NOT NULL, " +
+  "line INTEGER, " +
+  "created_at TEXT NOT NULL, " +
+  "updated_at TEXT NOT NULL)";
+const CREATE_REVIEW_FINDING_EVENTS_TABLE =
+  "CREATE TABLE IF NOT EXISTS review_finding_events (" +
+  "delivery_id TEXT PRIMARY KEY, " +
+  "schema_version INTEGER NOT NULL, " +
+  "evidence_version INTEGER NOT NULL, " +
+  "finding_id TEXT NOT NULL, " +
+  "event_type TEXT NOT NULL, " +
+  "action TEXT NOT NULL, " +
+  "actor TEXT NOT NULL, " +
+  "payload_json TEXT NOT NULL, " +
+  "occurred_at TEXT NOT NULL, " +
+  "recorded_at TEXT NOT NULL, " +
+  "r2_recorded INTEGER NOT NULL DEFAULT 0)";
 const DEFAULT_DEBOUNCE_DELAY_MS = 120_000;
 const MINIMUM_DEBOUNCE_DELAY_MS = 1_000;
 const MAXIMUM_DEBOUNCE_DELAY_MS = 3_600_000;
@@ -117,7 +148,9 @@ function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: JSON_HEADERS });
 }
 
-function coordinatorName(event: ReviewWorkflowParams): string {
+function coordinatorName(
+  event: Pick<ReviewWorkflowParams, "repository" | "pullRequestNumber">,
+): string {
   return `${event.repository}#${event.pullRequestNumber}`;
 }
 
@@ -199,7 +232,7 @@ function isIdentifiedFinding(value: unknown): value is IdentifiedMergedFinding {
     (finding.line === null ||
       (typeof finding.line === "number" &&
         Number.isSafeInteger(finding.line) &&
-        finding.line >= 0)) &&
+        finding.line > 0)) &&
     typeof finding.title === "string" &&
     finding.title.length > 0 &&
     typeof finding.evidence === "string" &&
@@ -222,6 +255,69 @@ function isIdentifiedFinding(value: unknown): value is IdentifiedMergedFinding {
     finding.hunkIds.every(
       (hunkId) => typeof hunkId === "string" && /^h_[a-f0-9]{24}$/.test(hunkId),
     )
+  );
+}
+
+function isFindingPublication(value: unknown): value is FindingPublication {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const publication = value as Partial<FindingPublication>;
+  const commentIdIsValid =
+    typeof publication.commentId === "number" &&
+    Number.isSafeInteger(publication.commentId) &&
+    publication.commentId > 0;
+  const lineIsPositive =
+    typeof publication.line === "number" &&
+    Number.isSafeInteger(publication.line) &&
+    publication.line > 0;
+  const deliveryIsConsistent =
+    publication.delivery === "line"
+      ? commentIdIsValid
+      : publication.delivery === "fallback" && publication.commentId === undefined;
+  return (
+    typeof publication.findingId === "string" &&
+    /^f_[a-f0-9]{24}$/.test(publication.findingId) &&
+    deliveryIsConsistent &&
+    typeof publication.reconciled === "boolean" &&
+    typeof publication.path === "string" &&
+    publication.path.length > 0 &&
+    (publication.line === null || lineIsPositive)
+  );
+}
+
+function isFindingInteractionEvent(
+  value: unknown,
+): value is FindingInteractionEvent {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const event = value as Partial<FindingInteractionEvent>;
+  return (
+    typeof event.deliveryId === "string" &&
+    event.deliveryId.length > 0 &&
+    event.deliveryId.length <= 255 &&
+    typeof event.eventName === "string" &&
+    typeof event.action === "string" &&
+    typeof event.repository === "string" &&
+    typeof event.pullRequestNumber === "number" &&
+    Number.isSafeInteger(event.pullRequestNumber) &&
+    event.pullRequestNumber > 0 &&
+    (event.interactionType === "reply" ||
+      event.interactionType === "thread" ||
+      event.interactionType === "disposition") &&
+    typeof event.actor === "string" &&
+    event.actor.length > 0 &&
+    (event.threadId === undefined ||
+      (typeof event.threadId === "string" && event.threadId.length <= 255)) &&
+    (event.body === undefined ||
+      (typeof event.body === "string" && event.body.length <= 4_000)) &&
+    (event.reason === undefined ||
+      (typeof event.reason === "string" && event.reason.length <= 1_000)) &&
+    (event.findingId === undefined || /^f_[a-f0-9]{24}$/.test(event.findingId)) &&
+    (event.rootCommentId === undefined ||
+      (Number.isSafeInteger(event.rootCommentId) && event.rootCommentId > 0)) &&
+    (event.interactionType !== "disposition" ||
+      (event.findingId !== undefined &&
+        (event.disposition === "acknowledged" ||
+          event.disposition === "rejected"))) &&
+    (event.interactionType === "disposition" || event.rootCommentId !== undefined)
   );
 }
 
@@ -258,15 +354,16 @@ async function readWebhookBody(
 }
 
 async function forwardToCoordinator(
-  event: ReviewWorkflowParams,
+  event: ReviewWorkflowParams | FindingInteractionEvent,
   env: Env,
+  path = "/events",
 ): Promise<Response> {
   const id = env.PR_STATE.idFromName(coordinatorName(event));
   try {
     // This fixed URL is the standard Durable Object stub-fetch target; the
     // validated event body contains all provenance the coordinator needs.
     const response = await env.PR_STATE.get(id).fetch(
-      "https://coordinator.internal/events",
+      `https://coordinator.internal${path}`,
       {
         method: "POST",
         body: JSON.stringify(event),
@@ -307,7 +404,22 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     }
     this.ctx.storage.sql.exec(CREATE_REVIEW_HUNKS_TABLE);
     this.ctx.storage.sql.exec(CREATE_REVIEW_FINDINGS_TABLE);
+    const findingColumns = this.ctx.storage.sql
+      .exec<{ name: string }>("PRAGMA table_info(review_findings)")
+      .toArray();
+    if (!findingColumns.some(({ name }) => name === "disposition")) {
+      this.ctx.storage.sql.exec(
+        "ALTER TABLE review_findings ADD COLUMN disposition TEXT",
+      );
+    }
+    if (!findingColumns.some(({ name }) => name === "disposition_reason")) {
+      this.ctx.storage.sql.exec(
+        "ALTER TABLE review_findings ADD COLUMN disposition_reason TEXT",
+      );
+    }
     this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_HUNKS_TABLE);
+    this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_COMMENTS_TABLE);
+    this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_EVENTS_TABLE);
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -316,6 +428,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     }
     const path = new URL(request.url).pathname;
     if (path === "/events") return this.receiveEvent(request);
+    if (path === "/interactions") return this.receiveInteraction(request);
     if (path === "/reviews/claim") return this.claimReview(request);
     if (path === "/reviews/complete") return this.completeReview(request);
     if (path === "/reviews/fail") return this.failReview(request);
@@ -437,6 +550,150 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     return json({
       accepted: true,
       enabled: this.env.AI_REVIEW_ENABLED === "true",
+    });
+  }
+
+  private async receiveInteraction(request: Request): Promise<Response> {
+    const event = await request.json().catch(() => null);
+    if (!isFindingInteractionEvent(event)) {
+      return json({ error: "Invalid finding interaction" }, 400);
+    }
+
+    const recordedAt = new Date().toISOString();
+    const result = this.ctx.storage.transactionSync(() => {
+      const existing = this.ctx.storage.sql
+        .exec<{
+          finding_id: string;
+          payload_json: string;
+          r2_recorded: number;
+        }>(
+          `SELECT finding_id, payload_json, r2_recorded
+           FROM review_finding_events WHERE delivery_id = ?`,
+          event.deliveryId,
+        )
+        .toArray()[0];
+      if (existing) {
+        return {
+          duplicate: true,
+          findingId: existing.finding_id,
+          evidence: JSON.parse(existing.payload_json) as unknown,
+          r2Recorded: existing.r2_recorded === 1,
+        };
+      }
+
+      const findingId =
+        event.findingId ??
+        this.ctx.storage.sql
+          .exec<{ finding_id: string }>(
+            `SELECT finding_id FROM review_finding_comments
+             WHERE comment_id = ?`,
+            event.rootCommentId ?? null,
+          )
+          .toArray()[0]?.finding_id;
+      if (!findingId) return { unknownFinding: true };
+      const finding = this.ctx.storage.sql
+        .exec<{ finding_id: string }>(
+          "SELECT finding_id FROM review_findings WHERE finding_id = ?",
+          findingId,
+        )
+        .toArray()[0];
+      if (!finding) return { unknownFinding: true };
+
+      const occurredAt = event.occurredAt ?? recordedAt;
+      const evidence = {
+        schemaVersion: 2,
+        recordType: "finding-interaction-evidence",
+        evidenceVersion: 1,
+        repository: event.repository,
+        pullRequestNumber: event.pullRequestNumber,
+        findingId,
+        deliveryId: event.deliveryId,
+        eventName: event.eventName,
+        action: event.action,
+        interactionType: event.interactionType,
+        actor: event.actor,
+        actorAssociation: event.actorAssociation,
+        rootCommentId: event.rootCommentId,
+        commentId: event.commentId,
+        threadId: event.threadId,
+        body: event.body,
+        reactions: event.reactions,
+        disposition: event.disposition,
+        reason: event.reason,
+        occurredAt,
+        recordedAt,
+      };
+      const payloadJson = JSON.stringify(evidence);
+      this.ctx.storage.sql.exec(
+        `INSERT INTO webhook_deliveries
+         (delivery_id, event_name, action, repository, pull_request_number,
+          head_sha, received_at)
+         VALUES (?, ?, ?, ?, ?, NULL, ?)`,
+        event.deliveryId,
+        event.eventName,
+        event.action,
+        event.repository,
+        event.pullRequestNumber,
+        recordedAt,
+      );
+      this.ctx.storage.sql.exec(
+        `INSERT INTO review_finding_events
+         (delivery_id, schema_version, evidence_version, finding_id,
+          event_type, action, actor, payload_json, occurred_at, recorded_at)
+         VALUES (?, 2, 1, ?, ?, ?, ?, ?, ?, ?)`,
+        event.deliveryId,
+        findingId,
+        event.interactionType,
+        event.action,
+        event.actor,
+        payloadJson,
+        occurredAt,
+        recordedAt,
+      );
+      if (event.disposition) {
+        this.ctx.storage.sql.exec(
+          `UPDATE review_findings
+           SET disposition = ?, disposition_reason = ?
+           WHERE finding_id = ?`,
+          event.disposition,
+          event.reason ?? null,
+          findingId,
+        );
+      }
+      return {
+        duplicate: false,
+        findingId,
+        evidence,
+        r2Recorded: false,
+      };
+    });
+
+    if ("unknownFinding" in result) {
+      return json({ accepted: false, reason: "unknown-finding" }, 202);
+    }
+    if (!result.r2Recorded) {
+      const key = [
+        "v2",
+        event.repository,
+        `pr-${event.pullRequestNumber}`,
+        "findings",
+        result.findingId,
+        "evidence",
+        `${event.deliveryId}.json`,
+      ].join("/");
+      await this.env.REVIEW_DATA.put(key, JSON.stringify(result.evidence), {
+        httpMetadata: { contentType: "application/json" },
+      });
+      this.ctx.storage.sql.exec(
+        `UPDATE review_finding_events SET r2_recorded = 1
+         WHERE delivery_id = ?`,
+        event.deliveryId,
+      );
+    }
+    return json({
+      accepted: true,
+      duplicate: result.duplicate,
+      findingId: result.findingId,
     });
   }
 
@@ -588,6 +845,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       commentId?: unknown;
       hunks?: unknown;
       findings?: unknown;
+      findingPublications?: unknown;
     } | null;
     if (
       !body ||
@@ -600,17 +858,34 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       !Array.isArray(body.hunks) ||
       !body.hunks.every(isReviewHunk) ||
       !Array.isArray(body.findings) ||
-      !body.findings.every(isIdentifiedFinding)
+      !body.findings.every(isIdentifiedFinding) ||
+      (body.findingPublications !== undefined &&
+        (!Array.isArray(body.findingPublications) ||
+          !body.findingPublications.every(isFindingPublication)))
     ) {
       return json({ error: "Invalid review completion" }, 400);
     }
     const completionHunkIds = new Set(
       (body.hunks as ReviewHunk[]).map(({ hunkId }) => hunkId),
     );
+    const completionFindings = body.findings as IdentifiedMergedFinding[];
+    const completionFindingsById = new Map(
+      completionFindings.map((finding) => [finding.findingId, finding]),
+    );
+    const findingPublications = (body.findingPublications ??
+      []) as FindingPublication[];
     if (
-      (body.findings as IdentifiedMergedFinding[]).some((finding) =>
+      completionFindings.some((finding) =>
         finding.hunkIds.some((hunkId) => !completionHunkIds.has(hunkId)),
-      )
+      ) ||
+      findingPublications.some((publication) => {
+        const finding = completionFindingsById.get(publication.findingId);
+        return (
+          !finding ||
+          publication.path !== finding.file ||
+          publication.line !== finding.line
+        );
+      })
     ) {
       return json({ error: "Invalid review completion" }, 400);
     }
@@ -621,6 +896,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         commentId: body.commentId ?? null,
         hunks: body.hunks,
         findings: body.findings,
+        findingPublications,
       }),
     );
     const completedAt = new Date().toISOString();
@@ -709,6 +985,29 @@ export class PullRequestCoordinator extends DurableObject<Env> {
             hunkId,
           );
         }
+      }
+      for (const publication of findingPublications) {
+        if (publication.delivery !== "line" || publication.commentId === undefined) {
+          continue;
+        }
+        this.ctx.storage.sql.exec(
+          `INSERT INTO review_finding_comments
+           (comment_id, finding_id, head_sha, file_path, line, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(finding_id) DO UPDATE SET
+             comment_id = excluded.comment_id,
+             head_sha = excluded.head_sha,
+             file_path = excluded.file_path,
+             line = excluded.line,
+             updated_at = excluded.updated_at`,
+          publication.commentId,
+          publication.findingId,
+          body.headSha,
+          publication.path,
+          publication.line,
+          completedAt,
+          completedAt,
+        );
       }
       return "completed";
     });
@@ -904,6 +1203,7 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
           prepared!,
           scouts!,
           merged!,
+          artifacts!,
           claim.previousState,
         ),
       );
@@ -977,59 +1277,66 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
   }
 }
 
+function acceptedWebhookEvent(
+  review: ReturnType<typeof parseReviewEvent>,
+  interaction: ReturnType<typeof parseFindingInteraction> | undefined,
+): ReviewWorkflowParams | FindingInteractionEvent | undefined {
+  if (review.kind === "accepted") return review.event;
+  if (interaction?.kind === "accepted") return interaction.event;
+  return undefined;
+}
+
+async function handleGitHubWebhook(request: Request, env: Env): Promise<Response> {
+  const bodyResult = await readWebhookBody(request);
+  if ("response" in bodyResult) return bodyResult.response;
+  const { body } = bodyResult;
+  const eventName = request.headers.get("x-github-event");
+  const deliveryId = request.headers.get("x-github-delivery");
+  const verified = await verifyGitHubSignature(
+    body,
+    request.headers.get("x-hub-signature-256"),
+    env.AI_REVIEW_WEBHOOK_SECRET,
+  );
+  if (!verified) return json({ error: "Invalid webhook signature" }, 401);
+  if (!eventName || !deliveryId) {
+    return json({ error: "Missing GitHub webhook headers" }, 400);
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(body) as unknown;
+  } catch {
+    return json({ error: "Malformed JSON payload" }, 400);
+  }
+
+  const parsedReview = parseReviewEvent(eventName, deliveryId, payload);
+  const parsedInteraction =
+    parsedReview.kind === "ignored"
+      ? parseFindingInteraction(eventName, deliveryId, payload)
+      : undefined;
+  if (parsedReview.kind === "invalid" || parsedInteraction?.kind === "invalid") {
+    return json({ error: "Malformed webhook payload" }, 400);
+  }
+  const event = acceptedWebhookEvent(parsedReview, parsedInteraction);
+  if (!event) return json({ ignored: true, reason: "unsupported-event" }, 202);
+
+  const allowedRepository = env.AI_REVIEW_REPOSITORY?.trim().toLowerCase();
+  if (!allowedRepository || event.repository.trim().toLowerCase() !== allowedRepository) {
+    return json({ error: "Repository is not allowed" }, 403);
+  }
+  const coordinatorPath = "interactionType" in event ? "/interactions" : "/events";
+  return forwardToCoordinator(event, env, coordinatorPath);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/health") {
       return healthResponse(env);
     }
-
     if (request.method !== "POST" || url.pathname !== "/webhooks/github") {
       return new Response("Not found", { status: 404 });
     }
-
-    const bodyResult = await readWebhookBody(request);
-    if ("response" in bodyResult) {
-      return bodyResult.response;
-    }
-    const { body } = bodyResult;
-    const eventName = request.headers.get("x-github-event");
-    const deliveryId = request.headers.get("x-github-delivery");
-    const verified = await verifyGitHubSignature(
-      body,
-      request.headers.get("x-hub-signature-256"),
-      env.AI_REVIEW_WEBHOOK_SECRET,
-    );
-    if (!verified) {
-      return json({ error: "Invalid webhook signature" }, 401);
-    }
-    if (!eventName || !deliveryId) {
-      return json({ error: "Missing GitHub webhook headers" }, 400);
-    }
-
-    let payload: unknown;
-    try {
-      payload = JSON.parse(body) as unknown;
-    } catch {
-      return json({ error: "Malformed JSON payload" }, 400);
-    }
-
-    const parsed = parseReviewEvent(eventName, deliveryId, payload);
-    if (parsed.kind === "ignored") {
-      return json({ ignored: true, reason: parsed.reason }, 202);
-    }
-    if (parsed.kind === "invalid") {
-      return json({ error: parsed.reason }, 400);
-    }
-    const event = parsed.event;
-    const allowedRepository = env.AI_REVIEW_REPOSITORY?.trim().toLowerCase();
-    if (
-      !allowedRepository ||
-      event.repository.trim().toLowerCase() !== allowedRepository
-    ) {
-      return json({ error: "Repository is not allowed" }, 403);
-    }
-
-    return forwardToCoordinator(event, env);
+    return handleGitHubWebhook(request, env);
   },
 } satisfies ExportedHandler<Env>;

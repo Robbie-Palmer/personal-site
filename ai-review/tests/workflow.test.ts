@@ -118,6 +118,7 @@ beforeEach(() => {
   engine.publishReview.mockResolvedValue({
     commentId: 123,
     runCostUsd: 0.6,
+    findings: [],
   });
   engine.recordReview.mockResolvedValue(undefined);
   engine.recordReviewTerminal.mockResolvedValue(undefined);
@@ -209,6 +210,7 @@ describe("ReviewWorkflow orchestration", () => {
         },
         cost: 0,
       }),
+      artifacts,
       { runs: 0, total_usd: 0 },
     );
   });

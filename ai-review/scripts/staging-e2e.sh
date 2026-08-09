@@ -55,14 +55,21 @@ trap cleanup EXIT INT TERM
 head_sha="$(
   gh api "repos/${repository}/pulls/${pull_request}" --jq '.head.sha'
 )"
+actor="${repository%%/*}"
 jq -n \
   --arg repository "$repository" \
+  --arg actor "$actor" \
   --argjson pull_request "$pull_request" \
   '{
     action: "created",
     repository: {full_name: $repository},
     issue: {number: $pull_request, pull_request: {}},
-    comment: {body: "/ai-review", author_association: "OWNER"}
+    sender: {login: $actor},
+    comment: {
+      body: "/ai-review",
+      author_association: "OWNER",
+      user: {login: $actor}
+    }
   }' > "$payload_file"
 chmod 600 "$payload_file"
 
