@@ -133,7 +133,10 @@ async function existingFindingComments(options: {
 }
 
 function isUnprocessableReviewComment(error: unknown): boolean {
-  return error instanceof Error && /failed \(422\)/.test(error.message);
+  if (!(error instanceof Error) || !/failed \(422\)/.test(error.message)) {
+    return false;
+  }
+  return /line (?:is not|must be) part of the diff/i.test(error.message);
 }
 
 function publication(

@@ -197,4 +197,22 @@ describe("finding lifecycle publication", () => {
       "GitHub returned an invalid review comment ID",
     );
   });
+
+  it("does not hide unrelated GitHub validation failures as fallbacks", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(Response.json([]))
+        .mockResolvedValueOnce(
+          new Response('{"message":"Validation Failed: commit_id is invalid"}', {
+            status: 422,
+          }),
+        ),
+    );
+
+    await expect(publishFindingComments(options)).rejects.toThrow(
+      "commit_id is invalid",
+    );
+  });
 });
