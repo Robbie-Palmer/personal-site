@@ -540,13 +540,14 @@ export function AddRecipeView({
         navigateToRecipePage(saved);
       }
     } catch (error) {
-      setSaveError(
-        error instanceof ApiError && error.status === 409
-          ? "A recipe with this name already exists. Choose a different name."
-          : error instanceof Error
-            ? error.message
-            : "The recipe could not be saved.",
-      );
+      let message = "The recipe could not be saved.";
+      if (error instanceof ApiError && error.status === 409) {
+        message =
+          "A recipe with this name already exists. Choose a different name.";
+      } else if (error instanceof Error) {
+        message = error.message;
+      }
+      setSaveError(message);
     } finally {
       savingRef.current = false;
       setSaving(false);
