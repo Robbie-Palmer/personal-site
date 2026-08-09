@@ -5,6 +5,8 @@ import {
 } from "../../.github/scripts/ai-review/ai-review.ts";
 
 export const FINDING_MARKER_PREFIX = "ai-review-finding:";
+const FINDING_MARKER_PATTERN =
+  /<!--\s*ai-review-finding:(f_[a-f0-9]{24})\s*-->/i;
 
 export interface PublishableFinding extends MergedFinding {
   findingId: string;
@@ -36,9 +38,8 @@ function findingMarker(findingId: string): string {
 }
 
 export function findingIdFromComment(body: unknown): string | undefined {
-  const match = String(body ?? "").match(
-    /<!--\s*ai-review-finding:(f_[a-f0-9]{24})\s*-->/i,
-  );
+  if (typeof body !== "string") return undefined;
+  const match = FINDING_MARKER_PATTERN.exec(body);
   return match?.[1]?.toLowerCase();
 }
 
@@ -135,6 +136,68 @@ function isUnprocessableReviewComment(error: unknown): boolean {
   return error instanceof Error && /failed \(422\)/.test(error.message);
 }
 
+function publication(
+  finding: PublishableFinding,
+  delivery: FindingPublication["delivery"],
+  reconciled: boolean,
+  commentId?: number,
+): FindingPublication {
+  return {
+    findingId: finding.findingId,
+    delivery,
+    ...(commentId === undefined ? {} : { commentId }),
+    reconciled,
+    path: finding.file,
+    line: finding.line,
+  };
+}
+
+async function reconcileFindingComment(options: {
+  client: JsonClient;
+  repository: string;
+  finding: PublishableFinding;
+  commentId: number;
+}): Promise<FindingPublication> {
+  await options.client.request(
+    "PATCH",
+    `/repos/${options.repository}/pulls/comments/${options.commentId}`,
+    { body: { body: renderFindingComment(options.finding) } },
+  );
+  return publication(options.finding, "line", true, options.commentId);
+}
+
+async function publishLineFinding(options: {
+  client: JsonClient;
+  repository: string;
+  pullRequestNumber: number;
+  headSha: string;
+  finding: PublishableFinding;
+}): Promise<FindingPublication> {
+  try {
+    const response = await options.client.request<ReviewCommentResponse>(
+      "POST",
+      `/repos/${options.repository}/pulls/${options.pullRequestNumber}/comments`,
+      {
+        body: {
+          body: renderFindingComment(options.finding),
+          commit_id: options.headSha,
+          path: options.finding.file,
+          line: options.finding.line,
+          side: "RIGHT",
+        },
+      },
+    );
+    const commentId = Number(response.id);
+    if (!Number.isSafeInteger(commentId)) {
+      throw new TypeError("GitHub returned an invalid review comment ID");
+    }
+    return publication(options.finding, "line", false, commentId);
+  } catch (error) {
+    if (!isUnprocessableReviewComment(error)) throw error;
+    return publication(options.finding, "fallback", false);
+  }
+}
+
 export async function publishFindingComments(options: {
   token: string;
   repository: string;
@@ -159,70 +222,23 @@ export async function publishFindingComments(options: {
     processed.add(finding.findingId);
     const existingCommentId = existing.get(finding.findingId);
     if (existingCommentId !== undefined) {
-      await client.request(
-        "PATCH",
-        `/repos/${options.repository}/pulls/comments/${existingCommentId}`,
-        { body: { body: renderFindingComment(finding) } },
+      publications.push(
+        await reconcileFindingComment({
+          client,
+          repository: options.repository,
+          finding,
+          commentId: existingCommentId,
+        }),
       );
-      publications.push({
-        findingId: finding.findingId,
-        delivery: "line",
-        commentId: existingCommentId,
-        reconciled: true,
-        path: finding.file,
-        line: finding.line,
-      });
       continue;
     }
 
     if (finding.status === "resolved") continue;
     if (!lineIsAddressable(finding, options.hunks)) {
-      publications.push({
-        findingId: finding.findingId,
-        delivery: "fallback",
-        reconciled: false,
-        path: finding.file,
-        line: finding.line,
-      });
+      publications.push(publication(finding, "fallback", false));
       continue;
     }
-
-    try {
-      const response = await client.request<ReviewCommentResponse>(
-        "POST",
-        `/repos/${options.repository}/pulls/${options.pullRequestNumber}/comments`,
-        {
-          body: {
-            body: renderFindingComment(finding),
-            commit_id: options.headSha,
-            path: finding.file,
-            line: finding.line,
-            side: "RIGHT",
-          },
-        },
-      );
-      const commentId = Number(response.id);
-      if (!Number.isSafeInteger(commentId)) {
-        throw new Error("GitHub returned an invalid review comment ID");
-      }
-      publications.push({
-        findingId: finding.findingId,
-        delivery: "line",
-        commentId,
-        reconciled: false,
-        path: finding.file,
-        line: finding.line,
-      });
-    } catch (error) {
-      if (!isUnprocessableReviewComment(error)) throw error;
-      publications.push({
-        findingId: finding.findingId,
-        delivery: "fallback",
-        reconciled: false,
-        path: finding.file,
-        line: finding.line,
-      });
-    }
+    publications.push(await publishLineFinding({ ...options, client, finding }));
   }
   return publications;
 }
@@ -246,7 +262,8 @@ export function renderFallbackFindings(
     "",
   ];
   for (const finding of fallback) {
-    const location = `${markdownText(finding.file, 500)}${finding.line ? `:${finding.line}` : ""}`;
+    const lineSuffix = finding.line ? `:${finding.line}` : "";
+    const location = `${markdownText(finding.file, 500)}${lineSuffix}`;
     lines.push(
       `- **${finding.severity.toUpperCase()}: ` +
         `${markdownText(finding.title, 300)}** (\`${location}\`, ` +

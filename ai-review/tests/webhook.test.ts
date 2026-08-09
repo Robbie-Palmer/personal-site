@@ -263,6 +263,90 @@ describe("parseFindingInteraction", () => {
     ).toEqual({ kind: "ignored", reason: "unsupported-event" });
   });
 
+  it("validates malformed interaction envelopes and event-specific identities", () => {
+    expect(parseFindingInteraction("issue_comment", "feedback", null)).toEqual({
+      kind: "invalid",
+      reason: "Malformed webhook payload",
+    });
+    expect(parseFindingInteraction("issue_comment", "", { action: "created" })).toEqual({
+      kind: "invalid",
+      reason: "Malformed webhook payload",
+    });
+    expect(
+      parseFindingInteraction("issue_comment", "feedback", {
+        action: "created",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+      }),
+    ).toEqual({ kind: "ignored", reason: "unsupported-event" });
+    expect(
+      parseFindingInteraction("issue_comment", "feedback", {
+        action: "created",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        sender: { login: "Robbie-Palmer" },
+        comment: {
+          body: `/ai-review acknowledge f_${"a".repeat(24)} accepted`,
+        },
+      }),
+    ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
+    expect(
+      parseFindingInteraction("pull_request_review_comment", "feedback", {
+        action: "created",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        pull_request: { number: 816 },
+        comment: { id: 201 },
+      }),
+    ).toEqual({ kind: "ignored", reason: "unsupported-event" });
+    expect(
+      parseFindingInteraction("pull_request_review_thread", "feedback", {
+        action: "resolved",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        pull_request: { number: 816 },
+        sender: { login: "Robbie-Palmer" },
+        thread: { comments: [] },
+      }),
+    ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
+  });
+
+  it("accepts a trusted pull request author and rejects untrusted reply actors", () => {
+    const reply = {
+      action: "edited",
+      repository: { full_name: "Robbie-Palmer/personal-site" },
+      pull_request: {
+        number: 816,
+        author_association: "MEMBER",
+        user: { login: "maintainer" },
+      },
+      sender: { login: "maintainer" },
+      comment: {
+        id: 201,
+        in_reply_to_id: 200,
+        body: "Updated reply",
+        created_at: "2026-08-09T12:00:00Z",
+      },
+    };
+    expect(
+      parseFindingInteraction(
+        "pull_request_review_comment",
+        "feedback-author",
+        reply,
+      ),
+    ).toEqual({
+      kind: "accepted",
+      event: expect.objectContaining({ actor: "maintainer", action: "edited" }),
+    });
+    expect(
+      parseFindingInteraction(
+        "pull_request_review_comment",
+        "feedback-outsider",
+        {
+          ...reply,
+          pull_request: { number: 816 },
+          sender: { login: "outside" },
+        },
+      ),
+    ).toEqual({ kind: "ignored", reason: "unsupported-event" });
+  });
+
   it("captures replies, reaction snapshots, and thread resolution", () => {
     expect(
       parseFindingInteraction("pull_request_review_comment", "feedback-3", {

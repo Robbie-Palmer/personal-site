@@ -39,6 +39,22 @@ const identifiedHunk = {
   newLines: 1,
 };
 
+const findingInteraction = {
+  deliveryId: "feedback-delivery-1",
+  eventName: "issue_comment",
+  action: "created",
+  repository: event.repository,
+  pullRequestNumber: event.pullRequestNumber,
+  interactionType: "disposition",
+  actor: "Robbie-Palmer",
+  actorAssociation: "OWNER",
+  findingId: identifiedFinding.findingId,
+  commentId: 900,
+  disposition: "acknowledged",
+  reason: "Accepted risk",
+  occurredAt: "2026-08-09T12:00:00Z",
+} as const;
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -75,9 +91,11 @@ function coordinatorFixture(existingDeliveries: string[] = []) {
   const workflowGet = vi.fn(() =>
     Promise.resolve({ status: workflowStatus, terminate }),
   );
+  const put = vi.fn();
   const env = {
     AI_REVIEW_ENABLED: "true",
     AI_REVIEW_DEBOUNCE_SECONDS: "2",
+    REVIEW_DATA: { put },
     REVIEW_WORKFLOW: { createBatch, get: workflowGet },
   } as unknown as Env;
   const coordinator = new PullRequestCoordinator(
@@ -89,6 +107,7 @@ function coordinatorFixture(existingDeliveries: string[] = []) {
     coordinator,
     createBatch,
     env,
+    put,
     sqlExec,
     storage,
     terminate,
@@ -371,6 +390,16 @@ describe("PullRequestCoordinator", () => {
           commentId: 987,
           hunks: [identifiedHunk],
           findings: [identifiedFinding],
+          findingPublications: [
+            {
+              findingId: identifiedFinding.findingId,
+              delivery: "line",
+              commentId: 654,
+              reconciled: false,
+              path: identifiedFinding.file,
+              line: identifiedFinding.line,
+            },
+          ],
         }),
       }),
     );
@@ -380,6 +409,104 @@ describe("PullRequestCoordinator", () => {
         String(query).includes("SET status = 'completed'"),
       ),
     ).toBe(true);
+    expect(
+      sqlExec.mock.calls.some(([query]) =>
+        String(query).includes("INSERT INTO review_finding_comments"),
+      ),
+    ).toBe(true);
+  });
+
+  it("records finding dispositions in SQLite and append-only evidence", async () => {
+    const { coordinator, put, sqlExec } = coordinatorFixture();
+    sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: 1,
+      toArray: () =>
+        query.includes("SELECT finding_id FROM review_findings")
+          ? [{ finding_id: identifiedFinding.findingId }]
+          : [],
+    }));
+
+    const response = await coordinator.fetch(
+      new Request("https://coordinator.test/interactions", {
+        method: "POST",
+        body: JSON.stringify(findingInteraction),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      accepted: true,
+      duplicate: false,
+      findingId: identifiedFinding.findingId,
+    });
+    expect(put).toHaveBeenCalledWith(
+      expect.stringContaining("/evidence/feedback-delivery-1.json"),
+      expect.stringContaining('"disposition":"acknowledged"'),
+      { httpMetadata: { contentType: "application/json" } },
+    );
+    expect(
+      sqlExec.mock.calls.some(([query]) =>
+        String(query).includes("SET disposition = ?"),
+      ),
+    ).toBe(true);
+  });
+
+  it("deduplicates finding evidence and rejects unknown findings", async () => {
+    const duplicate = coordinatorFixture();
+    duplicate.sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: 1,
+      toArray: () =>
+        query.includes("FROM review_finding_events")
+          ? [{
+              finding_id: identifiedFinding.findingId,
+              payload_json: JSON.stringify({ recorded: true }),
+              r2_recorded: 1,
+            }]
+          : [],
+    }));
+    const duplicateResponse = await duplicate.coordinator.fetch(
+      new Request("https://coordinator.test/interactions", {
+        method: "POST",
+        body: JSON.stringify(findingInteraction),
+      }),
+    );
+    await expect(duplicateResponse.json()).resolves.toMatchObject({
+      accepted: true,
+      duplicate: true,
+    });
+    expect(duplicate.put).not.toHaveBeenCalled();
+
+    const unknown = coordinatorFixture();
+    const unknownResponse = await unknown.coordinator.fetch(
+      new Request("https://coordinator.test/interactions", {
+        method: "POST",
+        body: JSON.stringify({
+          ...findingInteraction,
+          findingId: undefined,
+          rootCommentId: 654,
+          interactionType: "reply",
+          disposition: undefined,
+          reason: undefined,
+        }),
+      }),
+    );
+    expect(unknownResponse.status).toBe(202);
+    await expect(unknownResponse.json()).resolves.toEqual({
+      accepted: false,
+      reason: "unknown-finding",
+    });
+  });
+
+  it("rejects malformed finding interactions", async () => {
+    const { coordinator } = coordinatorFixture();
+    for (const body of [null, [], { ...findingInteraction, actor: "" }]) {
+      const response = await coordinator.fetch(
+        new Request("https://coordinator.test/interactions", {
+          method: "POST",
+          body: JSON.stringify(body),
+        }),
+      );
+      expect(response.status).toBe(400);
+    }
   });
 
   it("reports a completion that does not match a claimed run", async () => {

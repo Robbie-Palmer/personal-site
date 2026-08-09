@@ -11,6 +11,8 @@ const REVIEW_RELEVANT_PULL_REQUEST_ACTIONS = new Set([
   "reopened",
   "ready_for_review",
 ]);
+const REVIEW_COMMENT_ACTIONS = new Set(["created", "edited", "deleted"]);
+const REVIEW_THREAD_ACTIONS = new Set(["resolved", "unresolved"]);
 function hexBytes(value: string): Uint8Array | null {
   if (!/^[\da-f]{64}$/i.test(value)) {
     return null;
@@ -91,6 +93,10 @@ type WebhookIdentity = Pick<
   ReviewWorkflowParams,
   "deliveryId" | "eventName" | "action" | "repository"
 >;
+type FindingInteractionIdentity = Pick<
+  FindingInteractionEvent,
+  "deliveryId" | "eventName" | "action" | "repository"
+>;
 
 export type ReviewEventParseResult =
   | { kind: "accepted"; event: ReviewWorkflowParams }
@@ -153,9 +159,10 @@ function actorIsTrusted(event: GitHubWebhook, repository: string): boolean {
   }
   const [owner] = repository.split("/", 1);
   if (actor.toLowerCase() === owner?.toLowerCase()) return true;
+  const pullRequestAuthor = event.pull_request?.user?.login;
   return (
-    actor.toLowerCase() ===
-      String(event.pull_request?.user?.login ?? "").toLowerCase() &&
+    typeof pullRequestAuthor === "string" &&
+    actor.toLowerCase() === pullRequestAuthor.toLowerCase() &&
     typeof event.pull_request?.author_association === "string" &&
     TRUSTED_AUTHOR_ASSOCIATIONS.has(event.pull_request.author_association)
   );
@@ -188,6 +195,130 @@ function threadRootComment(
   return id ? { id, reactions: reactionCounts(comment.reactions) } : undefined;
 }
 
+function webhookActor(event: GitHubWebhook): string | undefined {
+  const actor = event.sender?.login;
+  return typeof actor === "string" && actor.length > 0 ? actor : undefined;
+}
+
+function commentTimestamp(comment: GitHubWebhook["comment"]): string | undefined {
+  if (typeof comment?.updated_at === "string") return comment.updated_at;
+  return typeof comment?.created_at === "string" ? comment.created_at : undefined;
+}
+
+function parseDispositionInteraction(
+  event: GitHubWebhook,
+  identity: FindingInteractionIdentity,
+): FindingInteractionParseResult {
+  const comment = event.comment;
+  if (typeof comment?.body !== "string") {
+    return { kind: "ignored", reason: "unsupported-event" };
+  }
+  const command = findingDispositionCommand(comment.body);
+  if (!command) return { kind: "ignored", reason: "unsupported-event" };
+  const pullRequestNumber = positiveInteger(event.issue?.number);
+  if (!pullRequestNumber || event.issue?.pull_request === undefined) {
+    return { kind: "invalid", reason: "Malformed webhook payload" };
+  }
+  const actor = webhookActor(event);
+  if (!actor) return { kind: "invalid", reason: "Malformed webhook payload" };
+  if (!actorIsTrusted(event, identity.repository)) {
+    return { kind: "ignored", reason: "unsupported-event" };
+  }
+  const actorAssociation =
+    typeof comment.author_association === "string"
+      ? comment.author_association
+      : undefined;
+  return {
+    kind: "accepted",
+    event: {
+      ...identity,
+      pullRequestNumber,
+      interactionType: "disposition",
+      actor,
+      actorAssociation,
+      findingId: command.findingId,
+      disposition: command.disposition,
+      reason: command.reason,
+      commentId: positiveInteger(comment.id),
+      body: comment.body.slice(0, 4_000),
+      occurredAt: commentTimestamp(comment),
+    },
+  };
+}
+
+function parseReplyInteraction(
+  event: GitHubWebhook,
+  identity: FindingInteractionIdentity,
+): FindingInteractionParseResult {
+  const comment = event.comment;
+  const pullRequestNumber = positiveInteger(event.pull_request?.number);
+  const rootCommentId = positiveInteger(comment?.in_reply_to_id);
+  const commentId = positiveInteger(comment?.id);
+  if (!pullRequestNumber || !rootCommentId || !commentId) {
+    return { kind: "ignored", reason: "unsupported-event" };
+  }
+  const actor = webhookActor(event);
+  if (!actor) return { kind: "invalid", reason: "Malformed webhook payload" };
+  if (!actorIsTrusted(event, identity.repository)) {
+    return { kind: "ignored", reason: "unsupported-event" };
+  }
+  return {
+    kind: "accepted",
+    event: {
+      ...identity,
+      pullRequestNumber,
+      interactionType: "reply",
+      actor,
+      actorAssociation:
+        typeof comment?.author_association === "string"
+          ? comment.author_association
+          : undefined,
+      rootCommentId,
+      commentId,
+      body:
+        typeof comment?.body === "string" ? comment.body.slice(0, 4_000) : undefined,
+      reactions: reactionCounts(comment?.reactions),
+      occurredAt: commentTimestamp(comment),
+    },
+  };
+}
+
+function parseThreadInteraction(
+  event: GitHubWebhook,
+  identity: FindingInteractionIdentity,
+): FindingInteractionParseResult {
+  const pullRequestNumber = positiveInteger(event.pull_request?.number);
+  const rootComment = threadRootComment(event.thread);
+  if (!pullRequestNumber || !rootComment) {
+    return { kind: "invalid", reason: "Malformed webhook payload" };
+  }
+  const actor = webhookActor(event);
+  if (!actor) return { kind: "invalid", reason: "Malformed webhook payload" };
+  if (!actorIsTrusted(event, identity.repository)) {
+    return { kind: "ignored", reason: "unsupported-event" };
+  }
+  const threadId = event.thread?.node_id ?? event.thread?.id;
+  return {
+    kind: "accepted",
+    event: {
+      ...identity,
+      pullRequestNumber,
+      interactionType: "thread",
+      actor,
+      rootCommentId: rootComment.id,
+      reactions: rootComment.reactions,
+      threadId:
+        typeof threadId === "string" || typeof threadId === "number"
+          ? String(threadId)
+          : undefined,
+      occurredAt:
+        typeof event.thread?.updated_at === "string"
+          ? event.thread.updated_at
+          : undefined,
+    },
+  };
+}
+
 export function parseFindingInteraction(
   eventName: string,
   deliveryId: string,
@@ -208,133 +339,23 @@ export function parseFindingInteraction(
   ) {
     return { kind: "invalid", reason: "Malformed webhook payload" };
   }
-  const actor = event.sender?.login;
-
+  const identity = { deliveryId, eventName, action, repository };
   if (eventName === "issue_comment" && action === "created") {
-    if (typeof event.comment?.body !== "string") {
-      return { kind: "ignored", reason: "unsupported-event" };
-    }
-    const command = findingDispositionCommand(event.comment.body);
-    if (!command) return { kind: "ignored", reason: "unsupported-event" };
-    const pullRequestNumber = positiveInteger(event.issue?.number);
-    if (!pullRequestNumber || event.issue?.pull_request === undefined) {
-      return { kind: "invalid", reason: "Malformed webhook payload" };
-    }
-    if (typeof actor !== "string" || actor.length === 0) {
-      return { kind: "invalid", reason: "Malformed webhook payload" };
-    }
-    if (!actorIsTrusted(event, repository)) {
-      return { kind: "ignored", reason: "unsupported-event" };
-    }
-    return {
-      kind: "accepted",
-      event: {
-        deliveryId,
-        eventName,
-        action,
-        repository,
-        pullRequestNumber,
-        interactionType: "disposition",
-        actor,
-        actorAssociation: String(event.comment.author_association ?? ""),
-        findingId: command.findingId,
-        disposition: command.disposition,
-        reason: command.reason,
-        commentId: positiveInteger(event.comment.id),
-        body: event.comment.body.slice(0, 4_000),
-        occurredAt:
-          typeof event.comment.created_at === "string"
-            ? event.comment.created_at
-            : undefined,
-      },
-    };
+    return parseDispositionInteraction(event, identity);
   }
 
   if (
     eventName === "pull_request_review_comment" &&
-    new Set(["created", "edited", "deleted"]).has(action)
+    REVIEW_COMMENT_ACTIONS.has(action)
   ) {
-    const pullRequestNumber = positiveInteger(event.pull_request?.number);
-    const rootCommentId = positiveInteger(event.comment?.in_reply_to_id);
-    const commentId = positiveInteger(event.comment?.id);
-    if (!pullRequestNumber || !rootCommentId || !commentId) {
-      return { kind: "ignored", reason: "unsupported-event" };
-    }
-    if (typeof actor !== "string" || actor.length === 0) {
-      return { kind: "invalid", reason: "Malformed webhook payload" };
-    }
-    if (!actorIsTrusted(event, repository)) {
-      return { kind: "ignored", reason: "unsupported-event" };
-    }
-    return {
-      kind: "accepted",
-      event: {
-        deliveryId,
-        eventName,
-        action,
-        repository,
-        pullRequestNumber,
-        interactionType: "reply",
-        actor,
-        actorAssociation:
-          typeof event.comment?.author_association === "string"
-            ? event.comment.author_association
-            : undefined,
-        rootCommentId,
-        commentId,
-        body:
-          typeof event.comment?.body === "string"
-            ? event.comment.body.slice(0, 4_000)
-            : undefined,
-        reactions: reactionCounts(event.comment?.reactions),
-        occurredAt:
-          typeof event.comment?.updated_at === "string"
-            ? event.comment.updated_at
-            : typeof event.comment?.created_at === "string"
-              ? event.comment.created_at
-              : undefined,
-      },
-    };
+    return parseReplyInteraction(event, identity);
   }
 
   if (
     eventName === "pull_request_review_thread" &&
-    new Set(["resolved", "unresolved"]).has(action)
+    REVIEW_THREAD_ACTIONS.has(action)
   ) {
-    const pullRequestNumber = positiveInteger(event.pull_request?.number);
-    const rootComment = threadRootComment(event.thread);
-    if (!pullRequestNumber || !rootComment) {
-      return { kind: "invalid", reason: "Malformed webhook payload" };
-    }
-    if (typeof actor !== "string" || actor.length === 0) {
-      return { kind: "invalid", reason: "Malformed webhook payload" };
-    }
-    if (!actorIsTrusted(event, repository)) {
-      return { kind: "ignored", reason: "unsupported-event" };
-    }
-    const threadId = event.thread?.node_id ?? event.thread?.id;
-    return {
-      kind: "accepted",
-      event: {
-        deliveryId,
-        eventName,
-        action,
-        repository,
-        pullRequestNumber,
-        interactionType: "thread",
-        actor,
-        rootCommentId: rootComment.id,
-        reactions: rootComment.reactions,
-        threadId:
-          typeof threadId === "string" || typeof threadId === "number"
-            ? String(threadId)
-            : undefined,
-        occurredAt:
-          typeof event.thread?.updated_at === "string"
-            ? event.thread.updated_at
-            : undefined,
-      },
-    };
+    return parseThreadInteraction(event, identity);
   }
 
   return { kind: "ignored", reason: "unsupported-event" };

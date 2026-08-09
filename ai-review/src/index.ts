@@ -1262,79 +1262,66 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
   }
 }
 
+function acceptedWebhookEvent(
+  review: ReturnType<typeof parseReviewEvent>,
+  interaction: ReturnType<typeof parseFindingInteraction> | undefined,
+): ReviewWorkflowParams | FindingInteractionEvent | undefined {
+  if (review.kind === "accepted") return review.event;
+  if (interaction?.kind === "accepted") return interaction.event;
+  return undefined;
+}
+
+async function handleGitHubWebhook(request: Request, env: Env): Promise<Response> {
+  const bodyResult = await readWebhookBody(request);
+  if ("response" in bodyResult) return bodyResult.response;
+  const { body } = bodyResult;
+  const eventName = request.headers.get("x-github-event");
+  const deliveryId = request.headers.get("x-github-delivery");
+  const verified = await verifyGitHubSignature(
+    body,
+    request.headers.get("x-hub-signature-256"),
+    env.AI_REVIEW_WEBHOOK_SECRET,
+  );
+  if (!verified) return json({ error: "Invalid webhook signature" }, 401);
+  if (!eventName || !deliveryId) {
+    return json({ error: "Missing GitHub webhook headers" }, 400);
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(body) as unknown;
+  } catch {
+    return json({ error: "Malformed JSON payload" }, 400);
+  }
+
+  const parsedReview = parseReviewEvent(eventName, deliveryId, payload);
+  const parsedInteraction =
+    parsedReview.kind === "ignored"
+      ? parseFindingInteraction(eventName, deliveryId, payload)
+      : undefined;
+  if (parsedReview.kind === "invalid" || parsedInteraction?.kind === "invalid") {
+    return json({ error: "Malformed webhook payload" }, 400);
+  }
+  const event = acceptedWebhookEvent(parsedReview, parsedInteraction);
+  if (!event) return json({ ignored: true, reason: "unsupported-event" }, 202);
+
+  const allowedRepository = env.AI_REVIEW_REPOSITORY?.trim().toLowerCase();
+  if (!allowedRepository || event.repository.trim().toLowerCase() !== allowedRepository) {
+    return json({ error: "Repository is not allowed" }, 403);
+  }
+  const coordinatorPath = "interactionType" in event ? "/interactions" : "/events";
+  return forwardToCoordinator(event, env, coordinatorPath);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/health") {
       return healthResponse(env);
     }
-
     if (request.method !== "POST" || url.pathname !== "/webhooks/github") {
       return new Response("Not found", { status: 404 });
     }
-
-    const bodyResult = await readWebhookBody(request);
-    if ("response" in bodyResult) {
-      return bodyResult.response;
-    }
-    const { body } = bodyResult;
-    const eventName = request.headers.get("x-github-event");
-    const deliveryId = request.headers.get("x-github-delivery");
-    const verified = await verifyGitHubSignature(
-      body,
-      request.headers.get("x-hub-signature-256"),
-      env.AI_REVIEW_WEBHOOK_SECRET,
-    );
-    if (!verified) {
-      return json({ error: "Invalid webhook signature" }, 401);
-    }
-    if (!eventName || !deliveryId) {
-      return json({ error: "Missing GitHub webhook headers" }, 400);
-    }
-
-    let payload: unknown;
-    try {
-      payload = JSON.parse(body) as unknown;
-    } catch {
-      return json({ error: "Malformed JSON payload" }, 400);
-    }
-
-    const parsedReview = parseReviewEvent(eventName, deliveryId, payload);
-    const parsedInteraction =
-      parsedReview.kind === "ignored"
-        ? parseFindingInteraction(eventName, deliveryId, payload)
-        : undefined;
-    if (
-      parsedReview.kind === "invalid" ||
-      parsedInteraction?.kind === "invalid"
-    ) {
-      return json({ error: "Malformed webhook payload" }, 400);
-    }
-    if (
-      parsedReview.kind === "ignored" &&
-      parsedInteraction?.kind === "ignored"
-    ) {
-      return json({ ignored: true, reason: "unsupported-event" }, 202);
-    }
-    const event =
-      parsedReview.kind === "accepted"
-        ? parsedReview.event
-        : parsedInteraction?.kind === "accepted"
-          ? parsedInteraction.event
-          : undefined;
-    if (!event) return json({ ignored: true, reason: "unsupported-event" }, 202);
-    const allowedRepository = env.AI_REVIEW_REPOSITORY?.trim().toLowerCase();
-    if (
-      !allowedRepository ||
-      event.repository.trim().toLowerCase() !== allowedRepository
-    ) {
-      return json({ error: "Repository is not allowed" }, 403);
-    }
-
-    return forwardToCoordinator(
-      event,
-      env,
-      "interactionType" in event ? "/interactions" : "/events",
-    );
+    return handleGitHubWebhook(request, env);
   },
 } satisfies ExportedHandler<Env>;

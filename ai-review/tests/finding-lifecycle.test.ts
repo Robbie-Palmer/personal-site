@@ -48,13 +48,25 @@ describe("finding lifecycle publication", () => {
       findingIdFromComment(`body\n<!-- ai-review-finding:${finding.findingId} -->`),
     ).toBe(finding.findingId);
     expect(findingIdFromComment("ordinary comment")).toBeUndefined();
+    expect(findingIdFromComment({ body: finding.findingId })).toBeUndefined();
   });
 
   it("reconciles an existing bot comment instead of republishing it", async () => {
+    const resolvedFinding = {
+      ...finding,
+      status: "resolved" as const,
+      resolution_note: "Fixed by validating the fallback.",
+    };
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
         Response.json([
+          {
+            id: 320,
+            in_reply_to_id: 100,
+            body: `reply\n<!-- ai-review-finding:${finding.findingId} -->`,
+            user: { login: "reviewer[bot]" },
+          },
           {
             id: 321,
             body: `old\n<!-- ai-review-finding:${finding.findingId} -->`,
@@ -65,7 +77,9 @@ describe("finding lifecycle publication", () => {
       .mockResolvedValueOnce(new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(publishFindingComments(options)).resolves.toEqual([
+    await expect(
+      publishFindingComments({ ...options, findings: [resolvedFinding] }),
+    ).resolves.toEqual([
       expect.objectContaining({
         findingId: finding.findingId,
         commentId: 321,
@@ -76,6 +90,9 @@ describe("finding lifecycle publication", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: "PATCH" });
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain("/pulls/comments/321");
+    expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain(
+      "Fixed by validating the fallback.",
+    );
   });
 
   it("publishes an addressable finding as a native review comment", async () => {
@@ -128,8 +145,26 @@ describe("finding lifecycle publication", () => {
         }),
       );
     vi.stubGlobal("fetch", rejectedFetch);
-    await expect(publishFindingComments(options)).resolves.toEqual([
+    const rejectedPublications = await publishFindingComments(options);
+    expect(rejectedPublications).toEqual([
       expect.objectContaining({ delivery: "fallback" }),
     ]);
+    expect(renderFallbackFindings([finding], rejectedPublications)).toContain(
+      "app.ts:12",
+    );
+  });
+
+  it("rejects an invalid native review comment identifier", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(Response.json([]))
+        .mockResolvedValueOnce(Response.json({ id: "not-an-id" }, { status: 201 })),
+    );
+
+    await expect(publishFindingComments(options)).rejects.toThrow(
+      "GitHub returned an invalid review comment ID",
+    );
   });
 });
