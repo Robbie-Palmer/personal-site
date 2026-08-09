@@ -10,7 +10,7 @@ import {
   X,
 } from "lucide-react";
 import type * as React from "react";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -93,6 +93,8 @@ export function FilterBar({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileSectionName, setMobileSectionName] = useState<string>();
   const [mobileFilterQuery, setMobileFilterQuery] = useState("");
+  const mobileOptionsId = useId();
+  const mobileResultsStatusId = useId();
   const mobileSection = mobileFilterSections?.find(
     (section) => section.paramName === mobileSectionName,
   );
@@ -117,11 +119,13 @@ export function FilterBar({
   }, [mobileFilterQuery, mobileSection]);
 
   const handleMobileOpenChange = (open: boolean) => {
-    setMobileOpen(open);
-    if (!open) {
+    // Keep the current content mounted during Vaul's close animation, then
+    // reset the navigation state just before the next open.
+    if (open) {
       setMobileSectionName(undefined);
       setMobileFilterQuery("");
     }
+    setMobileOpen(open);
   };
 
   const openMobileSection = (paramName: string) => {
@@ -186,8 +190,8 @@ export function FilterBar({
       </DrawerTrigger>
       <DrawerContent className="h-[85dvh] max-h-[85dvh] pb-[env(safe-area-inset-bottom)]">
         <DrawerHeader className="border-b pb-3">
-          <DrawerTitle className="flex min-h-8 items-center justify-between gap-2">
-            <span className="flex min-w-0 items-center gap-2">
+          <div className="flex min-h-8 items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               {mobileSection && (
                 <Button
                   type="button"
@@ -200,11 +204,11 @@ export function FilterBar({
                   <ArrowLeft />
                 </Button>
               )}
-              <span className="truncate">
+              <DrawerTitle className="truncate">
                 {mobileSection?.label ?? "Filters"}
-              </span>
-            </span>
-            <span className="flex items-center gap-1">
+              </DrawerTitle>
+            </div>
+            <div className="flex items-center gap-1">
               {!mobileSection && hasActiveFilters && onClearAll && (
                 <Button
                   type="button"
@@ -223,8 +227,8 @@ export function FilterBar({
               >
                 Done
               </Button>
-            </span>
-          </DrawerTitle>
+            </div>
+          </div>
         </DrawerHeader>
 
         {/* Mobile filters use a category-first drill-down so large option sets
@@ -241,6 +245,8 @@ export function FilterBar({
                   onChange={(event) => setMobileFilterQuery(event.target.value)}
                   className="h-11 pl-9 pr-9 [&::-webkit-search-cancel-button]:appearance-none"
                   aria-label={`Search ${mobileSection.label} filter values`}
+                  aria-controls={mobileOptionsId}
+                  aria-describedby={mobileResultsStatusId}
                 />
                 {mobileFilterQuery && (
                   <button
@@ -255,13 +261,20 @@ export function FilterBar({
               </div>
               <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
                 <span>Tap once to include · again to exclude</span>
-                <span aria-live="polite" aria-atomic="true">
+                <span
+                  id={mobileResultsStatusId}
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
                   {visibleMobileOptions.length} of{" "}
                   {mobileSection.options.length}
                 </span>
               </div>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+            <div
+              id={mobileOptionsId}
+              className="min-h-0 flex-1 overflow-y-auto px-2 py-2"
+            >
               {visibleMobileOptions.length > 0 ? (
                 <div className="space-y-1">
                   {visibleMobileOptions.map((option) => {

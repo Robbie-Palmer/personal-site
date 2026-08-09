@@ -184,6 +184,9 @@ describe("RecipeList", () => {
     const ingredientSearch = screen.getByRole("searchbox", {
       name: "Search Ingredients filter values",
     });
+    const optionListId = ingredientSearch.getAttribute("aria-controls");
+    expect(optionListId).not.toBeNull();
+    expect(document.getElementById(optionListId ?? "")).toBeInTheDocument();
     fireEvent.change(ingredientSearch, { target: { value: "cheddar" } });
 
     expect(
@@ -192,7 +195,12 @@ describe("RecipeList", () => {
     expect(
       screen.queryByRole("button", { name: "white onion" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("1 of 5")).toHaveAttribute("aria-atomic", "true");
+    const resultCount = screen.getByText("1 of 5");
+    expect(resultCount).toHaveAttribute("aria-atomic", "true");
+    expect(ingredientSearch).toHaveAttribute(
+      "aria-describedby",
+      resultCount.id,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "cheddar cheese" }));
 
