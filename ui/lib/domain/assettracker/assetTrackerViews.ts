@@ -126,15 +126,15 @@ export function computeEquitySummary(
   };
 }
 
-/** Recorded transfers as signed flows from the account's perspective */
-function toExternalFlows(
+/**
+ * Selects recorded capital history when present, otherwise deriving signed
+ * external flows from transfers into and out of the account.
+ */
+export function selectAccountExternalFlows(
   accountId: string,
   transfers: Transfer[],
-  capitalFlows: CapitalFlow[],
+  recordedCapital: ExternalFlow[],
 ): ExternalFlow[] {
-  const recordedCapital = capitalFlows
-    .filter((flow) => flow.accountId === accountId)
-    .map((flow) => ({ date: flow.date, amount: flow.amount }));
   // Pasted capital history is authoritative when present. Falling back keeps
   // existing transfer-driven accounts compatible without double counting.
   if (recordedCapital.length > 0) return recordedCapital;
@@ -147,6 +147,20 @@ function toExternalFlows(
     }
   }
   return flows;
+}
+
+function toExternalFlows(
+  accountId: string,
+  transfers: Transfer[],
+  capitalFlows: CapitalFlow[],
+): ExternalFlow[] {
+  return selectAccountExternalFlows(
+    accountId,
+    transfers,
+    capitalFlows
+      .filter((flow) => flow.accountId === accountId)
+      .map((flow) => ({ date: flow.date, amount: flow.amount })),
+  );
 }
 
 export function toAccountSummaryView(

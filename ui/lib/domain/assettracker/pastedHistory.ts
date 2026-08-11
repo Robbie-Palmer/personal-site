@@ -60,12 +60,13 @@ function normaliseDate(raw: string): string | null {
 function parseAmount(rawFields: string[]): number | null {
   // Joining trailing fields also accepts an unquoted thousands separator,
   // e.g. 2024-01-31,£1,234.56 copied from a simple CSV export.
-  const raw = rawFields.join("").trim();
-  const parenthesised = raw.startsWith("(") && raw.endsWith(")");
-  const cleaned = raw
+  const normalised = rawFields
+    .join("")
+    .trim()
     .replace(/[£$€\s]/g, "")
-    .replaceAll(",", "")
-    .replace(/^\((.*)\)$/, "$1");
+    .replaceAll(",", "");
+  const parenthesised = normalised.startsWith("(") && normalised.endsWith(")");
+  const cleaned = normalised.replace(/^\((.*)\)$/, "$1");
   if (cleaned === "") return null;
   const value = Number(cleaned);
   if (!Number.isFinite(value)) return null;

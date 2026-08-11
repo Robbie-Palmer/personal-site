@@ -37,6 +37,12 @@ describe("parsePastedHistory", () => {
     );
   });
 
+  it("recognises accounting negatives after a currency symbol", () => {
+    expect(parsePastedHistory("2024-01-31,£(1,234.56)").rows[0]?.value).toBe(
+      -1234.56,
+    );
+  });
+
   it("reports every malformed and duplicate row", () => {
     const result = parsePastedHistory(
       "2024-02-30,10\n2024-01-31,nope\n2024-01-31,20\n2024-01-31,30",

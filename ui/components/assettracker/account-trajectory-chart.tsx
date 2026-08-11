@@ -20,6 +20,7 @@ import {
   formatAccountCurrency,
   formatAxisTick,
   isLiability,
+  selectAccountExternalFlows,
 } from "@/lib/domain/assettracker";
 import { useAssetTracker } from "./asset-tracker-provider";
 
@@ -51,21 +52,11 @@ export function AccountTrajectoryChart({
   account,
 }: Readonly<AccountTrajectoryChartProps>) {
   const { transfers } = useAssetTracker();
-  const transferFlows = transfers
-    .filter(
-      (transfer) =>
-        transfer.fromAccountId === account.id ||
-        transfer.toAccountId === account.id,
-    )
-    .map((transfer) => ({
-      date: transfer.date,
-      amount:
-        transfer.toAccountId === account.id
-          ? transfer.amount
-          : -transfer.amount,
-    }));
-  const externalFlows =
-    account.capitalFlows.length > 0 ? account.capitalFlows : transferFlows;
+  const externalFlows = selectAccountExternalFlows(
+    account.id,
+    transfers,
+    account.capitalFlows,
+  );
   const trajectory = buildExpectedTrajectory(
     account,
     account.snapshots,
