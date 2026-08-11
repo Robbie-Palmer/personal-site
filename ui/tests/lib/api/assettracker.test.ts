@@ -82,6 +82,26 @@ describe("createLocalAssetTrackerApi", () => {
     });
   });
 
+  it("persists clearing one account history without removing the account", async () => {
+    const api = createApi();
+    const seed = getSeedData();
+    const accountId = seed.snapshots[0]?.accountId;
+    if (!accountId) throw new Error("seed data has no balance history");
+
+    await api.clearAccountHistory({ accountId, kind: "balances" });
+
+    const { data } = await createApi().load();
+    expect(data.accounts.some((account) => account.id === accountId)).toBe(
+      true,
+    );
+    expect(data.snapshots.some((row) => row.accountId === accountId)).toBe(
+      false,
+    );
+    expect(data.snapshots.some((row) => row.accountId !== accountId)).toBe(
+      true,
+    );
+  });
+
   it("falls back to seed data when stored JSON is corrupt", async () => {
     window.localStorage.setItem(ASSET_TRACKER_STORAGE_KEY, "{not json");
 

@@ -28,6 +28,7 @@ import { AccountHistoryImportDrawer } from "./account-history-import-drawer";
 import { AccountProjection } from "./account-projection";
 import { AccountTrajectoryChart } from "./account-trajectory-chart";
 import { useAssetTracker } from "./asset-tracker-provider";
+import { ClearAccountHistoryButton } from "./clear-account-history-button";
 import { CloseAccountControls } from "./close-account-controls";
 import { EquityProjection } from "./equity-projection";
 import { ExpectedReturnEditor } from "./expected-return-editor";
@@ -256,7 +257,16 @@ function BalanceHistory({ account }: Readonly<{ account: AccountDetailView }>) {
 
   return (
     <div>
-      <h3 className="mb-2 text-sm font-medium">Balance history</h3>
+      <div className="mb-2 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="text-sm font-medium">Balance history</h3>
+        {account.snapshots.length > 0 && (
+          <ClearAccountHistoryButton
+            accountId={account.id}
+            kind="balances"
+            count={account.snapshots.length}
+          />
+        )}
+      </div>
       {account.snapshots.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No balances recorded yet.
@@ -312,7 +322,16 @@ function CapitalFlowHistory({
 
   return (
     <div>
-      <h3 className="mb-2 text-sm font-medium">Deposit / withdrawal history</h3>
+      <div className="mb-2 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="text-sm font-medium">Deposit / withdrawal history</h3>
+        {account.capitalFlows.length > 0 && (
+          <ClearAccountHistoryButton
+            accountId={account.id}
+            kind="capitalFlows"
+            count={account.capitalFlows.length}
+          />
+        )}
+      </div>
       {account.capitalFlows.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No deposits or withdrawals recorded yet.

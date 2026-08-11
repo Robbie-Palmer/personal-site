@@ -3,6 +3,7 @@ import {
   type AssetTrackerData,
   AssetTrackerDataSchema,
   applyAddRecurringFlow,
+  applyClearAccountHistory,
   applyCloseAccount,
   applyCreateAccount,
   applyDeleteCapitalFlow,
@@ -16,6 +17,7 @@ import {
   applySetInflation,
   applySetNetWorthTarget,
   buildRepository,
+  type ClearAccountHistoryInput,
   type CloseAccountInput,
   type CreateAccountInput,
   type DeleteCapitalFlowInput,
@@ -45,6 +47,9 @@ export interface AssetTrackerApi {
   recordBalance(input: RecordBalanceInput): Promise<AssetTrackerData>;
   recordTransfer(input: RecordTransferInput): Promise<AssetTrackerData>;
   closeAccount(input: CloseAccountInput): Promise<AssetTrackerData>;
+  clearAccountHistory(
+    input: ClearAccountHistoryInput,
+  ): Promise<AssetTrackerData>;
   deleteSnapshot(input: DeleteSnapshotInput): Promise<AssetTrackerData>;
   deleteCapitalFlow(input: DeleteCapitalFlowInput): Promise<AssetTrackerData>;
   importAccountHistory(
@@ -115,6 +120,9 @@ export function createLocalAssetTrackerApi(storage: Storage): AssetTrackerApi {
     },
     async closeAccount(input) {
       return write(applyCloseAccount(current(), input));
+    },
+    async clearAccountHistory(input) {
+      return write(applyClearAccountHistory(current(), input));
     },
     async deleteSnapshot(input) {
       return write(applyDeleteSnapshot(current(), input));

@@ -100,6 +100,17 @@ export type DeleteCapitalFlowInput = z.infer<
   typeof DeleteCapitalFlowInputSchema
 >;
 
+export const AccountHistoryKindSchema = z.enum(["balances", "capitalFlows"]);
+export type AccountHistoryKind = z.infer<typeof AccountHistoryKindSchema>;
+
+export const ClearAccountHistoryInputSchema = z.object({
+  accountId: AccountIdSchema,
+  kind: AccountHistoryKindSchema,
+});
+export type ClearAccountHistoryInput = z.infer<
+  typeof ClearAccountHistoryInputSchema
+>;
+
 const HistoryValueSchema = z.object({
   date: IsoDateSchema,
   value: z.number(),
@@ -550,6 +561,28 @@ export function applyDeleteCapitalFlow(
     );
   }
   return { ...data, capitalFlows };
+}
+
+export function applyClearAccountHistory(
+  data: AssetTrackerData,
+  input: ClearAccountHistoryInput,
+): AssetTrackerData {
+  const parsed = ClearAccountHistoryInputSchema.parse(input);
+  requireAccount(data, parsed.accountId);
+  if (parsed.kind === "balances") {
+    return {
+      ...data,
+      snapshots: data.snapshots.filter(
+        (snapshot) => snapshot.accountId !== parsed.accountId,
+      ),
+    };
+  }
+  return {
+    ...data,
+    capitalFlows: data.capitalFlows.filter(
+      (flow) => flow.accountId !== parsed.accountId,
+    ),
+  };
 }
 
 export function applyAddRecurringFlow(

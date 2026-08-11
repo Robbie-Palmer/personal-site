@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AssetTrackerCommandError,
   applyAddRecurringFlow,
+  applyClearAccountHistory,
   applyCloseAccount,
   applyCreateAccount,
   applyDeleteCapitalFlow,
@@ -802,5 +803,48 @@ describe("applyDeleteSnapshot", () => {
         date: "1999-01-01",
       }),
     ).toThrow(/No balance recorded/);
+  });
+});
+
+describe("applyClearAccountHistory", () => {
+  it("clears only the selected account's balance history", () => {
+    const data = baseData();
+    const next = applyClearAccountHistory(data, {
+      accountId: "stocks-isa",
+      kind: "balances",
+    });
+
+    expect(next.accounts).toEqual(data.accounts);
+    expect(next.snapshots.some((row) => row.accountId === "stocks-isa")).toBe(
+      false,
+    );
+    expect(next.snapshots).toContainEqual({
+      accountId: "savings",
+      date: "2024-06-01",
+      balance: 5000,
+    });
+  });
+
+  it("clears only the selected account's deposit and withdrawal history", () => {
+    const data = applyImportAccountHistory(baseData(), {
+      accountId: "stocks-isa",
+      balances: [],
+      capitalFlows: [{ date: "2024-06-01", value: 500 }],
+    });
+    const otherAccount = applyImportAccountHistory(data, {
+      accountId: "savings",
+      balances: [],
+      capitalFlows: [{ date: "2024-06-01", value: 100 }],
+    });
+
+    const next = applyClearAccountHistory(otherAccount, {
+      accountId: "stocks-isa",
+      kind: "capitalFlows",
+    });
+
+    expect(next.snapshots).toEqual(otherAccount.snapshots);
+    expect(next.capitalFlows).toEqual([
+      { accountId: "savings", date: "2024-06-01", amount: 100 },
+    ]);
   });
 });

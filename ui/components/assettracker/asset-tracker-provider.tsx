@@ -22,6 +22,7 @@ import {
   type AssetTrackerData,
   type AssetType,
   buildRepository,
+  type ClearAccountHistoryInput,
   type CreateAccountInput,
   type DeleteCapitalFlowInput,
   type DeleteSnapshotInput,
@@ -66,6 +67,7 @@ interface AssetTrackerContextValue {
     accountId: AccountId,
     transferToAccountId?: AccountId,
   ): Promise<void>;
+  clearAccountHistory(input: ClearAccountHistoryInput): Promise<void>;
   deleteSnapshot(input: DeleteSnapshotInput): Promise<void>;
   deleteCapitalFlow(input: DeleteCapitalFlowInput): Promise<void>;
   importAccountHistory(input: ImportAccountHistoryInput): Promise<void>;
@@ -174,6 +176,8 @@ export function AssetTrackerProvider({
             transferToAccountId,
           }),
         ),
+      clearAccountHistory: (input) =>
+        mutate((api) => api.clearAccountHistory(input)),
       deleteSnapshot: (input) => mutate((api) => api.deleteSnapshot(input)),
       deleteCapitalFlow: (input) =>
         mutate((api) => api.deleteCapitalFlow(input)),
