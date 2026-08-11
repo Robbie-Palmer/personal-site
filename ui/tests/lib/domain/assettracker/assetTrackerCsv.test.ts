@@ -19,6 +19,7 @@ function csvData(): AssetTrackerData {
       { accountId: "isa", date: "2024-06-01", balance: 12000 },
       { accountId: "isa", date: "2024-01-01", balance: 10000 },
     ],
+    capitalFlows: [],
     transfers: [],
     recurringFlows: [],
     settings: { expectedAnnualInflation: 0.025 },

@@ -10,6 +10,7 @@ import {
   type ExternalFlow,
 } from "./assetTrackerAnalytics";
 import type { BalanceSnapshot } from "./balanceSnapshot";
+import type { CapitalFlow } from "./capitalFlow";
 import type { Transfer } from "./transfer";
 
 function compareIsoDates(a: string, b: string): number {
@@ -75,6 +76,11 @@ export type AccountDetailView = AccountSummaryView & {
   expectedReturnChanges?: ExpectedReturnChange[];
   linkedAccountId?: string;
   snapshots: BalanceSnapshotView[];
+  capitalFlows: { date: string; amount: number }[];
+  /** Deposits minus withdrawals recorded across the account history */
+  netContributed: number | null;
+  /** Current market value minus net contributed capital */
+  gainLoss: number | null;
 };
 
 export type NetWorthDataPoint = {
@@ -120,11 +126,18 @@ export function computeEquitySummary(
   };
 }
 
-/** Recorded transfers as signed flows from the account's perspective */
-function toExternalFlows(
+/**
+ * Selects recorded capital history when present, otherwise deriving signed
+ * external flows from transfers into and out of the account.
+ */
+export function selectAccountExternalFlows(
   accountId: string,
   transfers: Transfer[],
+  recordedCapital: ExternalFlow[],
 ): ExternalFlow[] {
+  // Pasted capital history is authoritative when present. Falling back keeps
+  // existing transfer-driven accounts compatible without double counting.
+  if (recordedCapital.length > 0) return recordedCapital;
   const flows: ExternalFlow[] = [];
   for (const transfer of transfers) {
     if (transfer.toAccountId === accountId) {
@@ -136,10 +149,25 @@ function toExternalFlows(
   return flows;
 }
 
+function toExternalFlows(
+  accountId: string,
+  transfers: Transfer[],
+  capitalFlows: CapitalFlow[],
+): ExternalFlow[] {
+  return selectAccountExternalFlows(
+    accountId,
+    transfers,
+    capitalFlows
+      .filter((flow) => flow.accountId === accountId)
+      .map((flow) => ({ date: flow.date, amount: flow.amount })),
+  );
+}
+
 export function toAccountSummaryView(
   account: Account,
   snapshots: BalanceSnapshot[],
   transfers: Transfer[] = [],
+  capitalFlows: CapitalFlow[] = [],
 ): AccountSummaryView {
   const accountSnapshots = snapshots
     .filter((s) => s.accountId === account.id)
@@ -162,7 +190,7 @@ export function toAccountSummaryView(
         ? null
         : computeMoneyWeightedReturn(
             accountSnapshots,
-            toExternalFlows(account.id, transfers),
+            toExternalFlows(account.id, transfers, capitalFlows),
           ),
   };
 }
@@ -171,6 +199,7 @@ export function toAccountDetailView(
   account: Account,
   snapshots: BalanceSnapshot[],
   transfers: Transfer[] = [],
+  capitalFlows: CapitalFlow[] = [],
 ): AccountDetailView {
   // Single filter and sort (descending for latest first)
   const accountSnapshots = snapshots
@@ -178,6 +207,13 @@ export function toAccountDetailView(
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const latest = accountSnapshots[0] ?? null;
+  const accountCapitalFlows = capitalFlows
+    .filter((flow) => flow.accountId === account.id)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const netContributed =
+    accountCapitalFlows.length === 0
+      ? null
+      : accountCapitalFlows.reduce((sum, flow) => sum + flow.amount, 0);
 
   return {
     id: account.id,
@@ -193,7 +229,7 @@ export function toAccountDetailView(
       ? null
       : computeMoneyWeightedReturn(
           accountSnapshots,
-          toExternalFlows(account.id, transfers),
+          toExternalFlows(account.id, transfers, capitalFlows),
         ),
     createdAt: account.createdAt,
     expectedReturnChanges: account.expectedReturnChanges,
@@ -206,6 +242,15 @@ export function toAccountDetailView(
         balance: s.balance,
       }))
       .reverse(),
+    capitalFlows: accountCapitalFlows.map(({ date, amount }) => ({
+      date,
+      amount,
+    })),
+    netContributed,
+    gainLoss:
+      latest == null || netContributed == null
+        ? null
+        : latest.balance - netContributed,
   };
 }
 

@@ -22,7 +22,9 @@ import {
   type AssetTrackerData,
   type AssetType,
   buildRepository,
+  type ClearAccountHistoryInput,
   type CreateAccountInput,
+  type DeleteCapitalFlowInput,
   type DeleteSnapshotInput,
   getAllAccountDetails,
   getAllAccountSummaries,
@@ -30,6 +32,7 @@ import {
   getPortfolioAnnualReturn,
   getSeedData,
   getTotalByAssetType,
+  type ImportAccountHistoryInput,
   type NetWorthDataPoint,
   type RecordBalanceInput,
   type RecordTransferInput,
@@ -64,7 +67,10 @@ interface AssetTrackerContextValue {
     accountId: AccountId,
     transferToAccountId?: AccountId,
   ): Promise<void>;
+  clearAccountHistory(input: ClearAccountHistoryInput): Promise<void>;
   deleteSnapshot(input: DeleteSnapshotInput): Promise<void>;
+  deleteCapitalFlow(input: DeleteCapitalFlowInput): Promise<void>;
+  importAccountHistory(input: ImportAccountHistoryInput): Promise<void>;
   addRecurringFlow(input: AddRecurringFlowInput): Promise<void>;
   deleteRecurringFlow(id: string): Promise<void>;
   materializeFlow(flowId: string): Promise<void>;
@@ -74,6 +80,7 @@ interface AssetTrackerContextValue {
     target: number | null,
     inTodaysMoney?: boolean,
   ): Promise<void>;
+  clearData(): Promise<void>;
   resetData(): Promise<void>;
   exportData(): void;
   exportCsv(): void;
@@ -169,7 +176,13 @@ export function AssetTrackerProvider({
             transferToAccountId,
           }),
         ),
+      clearAccountHistory: (input) =>
+        mutate((api) => api.clearAccountHistory(input)),
       deleteSnapshot: (input) => mutate((api) => api.deleteSnapshot(input)),
+      deleteCapitalFlow: (input) =>
+        mutate((api) => api.deleteCapitalFlow(input)),
+      importAccountHistory: (input) =>
+        mutate((api) => api.importAccountHistory(input)),
       addRecurringFlow: (input) => mutate((api) => api.addRecurringFlow(input)),
       deleteRecurringFlow: (id) =>
         mutate((api) => api.deleteRecurringFlow({ id })),
@@ -182,6 +195,7 @@ export function AssetTrackerProvider({
       setInflation: (rate) => mutate((api) => api.setInflation({ rate })),
       setNetWorthTarget: (target, inTodaysMoney) =>
         mutate((api) => api.setNetWorthTarget({ target, inTodaysMoney })),
+      clearData: () => mutate((api) => api.clear()),
       resetData: async () => {
         const seed = await getApi().reset();
         setData(seed);

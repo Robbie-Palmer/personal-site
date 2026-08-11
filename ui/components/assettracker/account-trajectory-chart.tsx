@@ -16,21 +16,30 @@ import {
 } from "@/components/ui/chart";
 import {
   type AccountDetailView,
-  buildExpectedTrajectory,
+  buildAccountHistorySeries,
   formatAccountCurrency,
   formatAxisTick,
   isLiability,
+  selectAccountExternalFlows,
 } from "@/lib/domain/assettracker";
 import { useAssetTracker } from "./asset-tracker-provider";
 
 const ASSET_COPY = {
   title: "Actual vs expected growth",
   description:
-    "Expected compounds the first balance at the expected return and steps with recorded transfers, so the remaining gap is pure out/under-performance.",
+    "Actual uses logged market values. Expected compounds the first balance and adjusts for deposits and withdrawals; net contributed shows the exact capital history.",
   config: {
     actual: { label: "Actual", color: "hsl(220, 70%, 50%)" },
     expected: { label: "Expected", color: "hsl(220, 10%, 60%)" },
+    contributed: { label: "Net contributed", color: "hsl(150, 55%, 42%)" },
   } satisfies ChartConfig,
+};
+
+const CONTRIBUTION_COPY = {
+  title: "Contribution history",
+  description:
+    "Net contributed is exact and steps with each deposit or withdrawal. Market value appears only on dates where a balance was logged.",
+  config: ASSET_COPY.config,
 };
 
 const LIABILITY_COPY = {
@@ -40,6 +49,7 @@ const LIABILITY_COPY = {
   config: {
     actual: { label: "Actual", color: "hsl(220, 70%, 50%)" },
     expected: { label: "Interest only", color: "hsl(220, 10%, 60%)" },
+    contributed: { label: "Net contributed", color: "hsl(150, 55%, 42%)" },
   } satisfies ChartConfig,
 };
 
@@ -51,22 +61,25 @@ export function AccountTrajectoryChart({
   account,
 }: Readonly<AccountTrajectoryChartProps>) {
   const { transfers } = useAssetTracker();
-  const externalFlows = transfers
-    .filter(
-      (t) => t.fromAccountId === account.id || t.toAccountId === account.id,
-    )
-    .map((t) => ({
-      date: t.date,
-      amount: t.toAccountId === account.id ? t.amount : -t.amount,
-    }));
-  const trajectory = buildExpectedTrajectory(
+  const externalFlows = selectAccountExternalFlows(
+    account.id,
+    transfers,
+    account.capitalFlows,
+  );
+  const trajectory = buildAccountHistorySeries(
     account,
     account.snapshots,
     externalFlows,
   );
   if (trajectory.length < 2) return null;
 
-  const copy = isLiability(account.assetType) ? LIABILITY_COPY : ASSET_COPY;
+  const hasPerformanceHistory = account.snapshots.length >= 2;
+  let copy = CONTRIBUTION_COPY;
+  if (isLiability(account.assetType)) {
+    copy = LIABILITY_COPY;
+  } else if (hasPerformanceHistory) {
+    copy = ASSET_COPY;
+  }
 
   return (
     <div>
@@ -96,16 +109,30 @@ export function AccountTrajectoryChart({
               dataKey="actual"
               stroke="hsl(220, 70%, 50%)"
               strokeWidth={2}
-              dot={false}
+              dot={account.snapshots.length < 2}
+              connectNulls
             />
-            <Line
-              type="monotone"
-              dataKey="expected"
-              stroke="hsl(220, 10%, 60%)"
-              strokeWidth={2}
-              strokeDasharray="6 4"
-              dot={false}
-            />
+            {hasPerformanceHistory && (
+              <Line
+                type="monotone"
+                dataKey="expected"
+                stroke="hsl(220, 10%, 60%)"
+                strokeWidth={2}
+                strokeDasharray="6 4"
+                dot={false}
+                connectNulls
+              />
+            )}
+            {externalFlows.length > 0 && (
+              <Line
+                type="stepAfter"
+                dataKey="contributed"
+                stroke="hsl(150, 55%, 42%)"
+                strokeWidth={2}
+                dot={false}
+                connectNulls
+              />
+            )}
           </LineChart>
         </ResponsiveContainer>
       </ChartContainer>

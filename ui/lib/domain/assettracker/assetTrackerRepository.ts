@@ -7,12 +7,14 @@ import {
   AssetTrackerDataSchema,
 } from "./assetTrackerData";
 import type { BalanceSnapshot } from "./balanceSnapshot";
+import type { CapitalFlow } from "./capitalFlow";
 import type { RecurringFlow } from "./recurringFlow";
 import type { Transfer } from "./transfer";
 
 export interface AssetTrackerRepository {
   accounts: Map<AccountId, Account>;
   snapshots: BalanceSnapshot[];
+  capitalFlows: CapitalFlow[];
   transfers: Transfer[];
   recurringFlows: RecurringFlow[];
   settings: AssetTrackerData["settings"];
@@ -29,6 +31,11 @@ export function getSeedData(): AssetTrackerData {
     transfers: [],
     recurringFlows: definedRecurringFlows,
   });
+}
+
+/** A persisted blank slate, distinct from the demo seed. */
+export function getEmptyData(): AssetTrackerData {
+  return AssetTrackerDataSchema.parse({ accounts: [], snapshots: [] });
 }
 
 function indexAccounts(accounts: Account[]): Map<AccountId, Account> {
@@ -55,10 +62,28 @@ function assertKnownAccount(
   }
 }
 
+function assertUniqueAccountDates(
+  records: ReadonlyArray<{ accountId: AccountId; date: string }>,
+  label: string,
+): void {
+  const seen = new Set<string>();
+  for (const record of records) {
+    const key = `${record.accountId}\0${record.date}`;
+    if (seen.has(key)) {
+      throw new Error(
+        `Duplicate ${label} for account "${record.accountId}" on ${record.date}`,
+      );
+    }
+    seen.add(key);
+  }
+}
+
 function validateReferences(
   data: AssetTrackerData,
   accounts: Map<AccountId, Account>,
 ): void {
+  assertUniqueAccountDates(data.snapshots, "snapshot");
+  assertUniqueAccountDates(data.capitalFlows, "capital flow");
   for (const account of data.accounts) {
     assertKnownAccount(
       accounts,
@@ -71,6 +96,13 @@ function validateReferences(
       accounts,
       snapshot.accountId,
       `Snapshot on date ${snapshot.date}`,
+    );
+  }
+  for (const capitalFlow of data.capitalFlows) {
+    assertKnownAccount(
+      accounts,
+      capitalFlow.accountId,
+      `Capital flow on date ${capitalFlow.date}`,
     );
   }
   for (const transfer of data.transfers) {
@@ -104,12 +136,16 @@ export function buildRepository(
 ): AssetTrackerRepository {
   const accounts = indexAccounts(data.accounts);
   validateReferences(data, accounts);
-  const snapshots = [...data.snapshots].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  const snapshots = [...data.snapshots].sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
+  const capitalFlows = [...data.capitalFlows].sort((a, b) =>
+    a.date.localeCompare(b.date),
   );
   return {
     accounts,
     snapshots,
+    capitalFlows,
     transfers: data.transfers,
     recurringFlows: data.recurringFlows,
     settings: data.settings,

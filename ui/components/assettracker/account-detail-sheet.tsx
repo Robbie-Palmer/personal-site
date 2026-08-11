@@ -24,9 +24,11 @@ import {
   todayIsoDate,
 } from "@/lib/domain/assettracker";
 import { AccountFlows } from "./account-flows";
+import { AccountHistoryImportDrawer } from "./account-history-import-drawer";
 import { AccountProjection } from "./account-projection";
 import { AccountTrajectoryChart } from "./account-trajectory-chart";
 import { useAssetTracker } from "./asset-tracker-provider";
+import { ClearAccountHistoryButton } from "./clear-account-history-button";
 import { CloseAccountControls } from "./close-account-controls";
 import { EquityProjection } from "./equity-projection";
 import { ExpectedReturnEditor } from "./expected-return-editor";
@@ -70,6 +72,9 @@ export function AccountDetailSheet({
             <AccountSheetHeader account={account} />
             <div className="flex flex-col gap-6 px-4 pb-8">
               <StatsCards account={account} inflation={inflation} />
+              {account.netContributed != null && (
+                <CapitalPerformanceCard account={account} />
+              )}
               <AccountTrajectoryChart account={account} />
               {equity && <EquityCard account={account} equity={equity} />}
               {account.isOpen && (
@@ -92,7 +97,12 @@ export function AccountDetailSheet({
                 )}
               <AccountFlows account={account} />
               <ExpectedReturnEditor account={account} />
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-medium">Recorded history</h3>
+                <AccountHistoryImportDrawer account={account} />
+              </div>
               <BalanceHistory account={account} />
+              <CapitalFlowHistory account={account} />
               <TransfersList account={account} />
               {account.isOpen && (
                 <div className="flex flex-col gap-3 border-t pt-4">
@@ -111,6 +121,34 @@ export function AccountDetailSheet({
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+function CapitalPerformanceCard({
+  account,
+}: Readonly<{ account: AccountDetailView }>) {
+  if (account.netContributed == null || account.gainLoss == null) return null;
+  let gainClass = "";
+  if (account.gainLoss > 0) {
+    gainClass = "text-emerald-600 dark:text-emerald-400";
+  } else if (account.gainLoss < 0) {
+    gainClass = "text-destructive";
+  }
+  return (
+    <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3">
+      <div>
+        <p className="text-xs text-muted-foreground">Net contributed</p>
+        <p className="mt-1 font-semibold">
+          {formatAccountCurrency(account.netContributed, account.currency)}
+        </p>
+      </div>
+      <div>
+        <p className="text-xs text-muted-foreground">Gain / loss</p>
+        <p className={`mt-1 font-semibold ${gainClass}`}>
+          {formatAccountCurrency(account.gainLoss, account.currency)}
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -202,19 +240,33 @@ function EquityCard({
 function BalanceHistory({ account }: Readonly<{ account: AccountDetailView }>) {
   const { deleteSnapshot } = useAssetTracker();
   const [error, setError] = useState<string | null>(null);
+  const [deletingDate, setDeletingDate] = useState<string | null>(null);
 
   async function handleDelete(date: string) {
+    if (deletingDate != null) return;
+    setDeletingDate(date);
     try {
       await deleteSnapshot({ accountId: account.id, date });
       setError(null);
     } catch (err) {
       setError(formatAssetTrackerError(err));
+    } finally {
+      setDeletingDate(null);
     }
   }
 
   return (
     <div>
-      <h3 className="mb-2 text-sm font-medium">Balance history</h3>
+      <div className="mb-2 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="text-sm font-medium">Balance history</h3>
+        {account.snapshots.length > 0 && (
+          <ClearAccountHistoryButton
+            accountId={account.id}
+            kind="balances"
+            count={account.snapshots.length}
+          />
+        )}
+      </div>
       {account.snapshots.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No balances recorded yet.
@@ -235,6 +287,73 @@ function BalanceHistory({ account }: Readonly<{ account: AccountDetailView }>) {
                 size="icon-sm"
                 aria-label={`Delete balance from ${snapshot.date}`}
                 onClick={() => handleDelete(snapshot.date)}
+                disabled={deletingDate != null}
+              >
+                <Trash2Icon />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+function CapitalFlowHistory({
+  account,
+}: Readonly<{ account: AccountDetailView }>) {
+  const { deleteCapitalFlow } = useAssetTracker();
+  const [error, setError] = useState<string | null>(null);
+  const [deletingDate, setDeletingDate] = useState<string | null>(null);
+
+  async function handleDelete(date: string) {
+    if (deletingDate != null) return;
+    setDeletingDate(date);
+    try {
+      await deleteCapitalFlow({ accountId: account.id, date });
+      setError(null);
+    } catch (err) {
+      setError(formatAssetTrackerError(err));
+    } finally {
+      setDeletingDate(null);
+    }
+  }
+
+  return (
+    <div>
+      <div className="mb-2 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="text-sm font-medium">Deposit / withdrawal history</h3>
+        {account.capitalFlows.length > 0 && (
+          <ClearAccountHistoryButton
+            accountId={account.id}
+            kind="capitalFlows"
+            count={account.capitalFlows.length}
+          />
+        )}
+      </div>
+      {account.capitalFlows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No deposits or withdrawals recorded yet.
+        </p>
+      ) : (
+        <ul className="divide-y rounded-lg border">
+          {[...account.capitalFlows].reverse().map((flow) => (
+            <li
+              key={flow.date}
+              className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
+            >
+              <span className="text-muted-foreground">{flow.date}</span>
+              <span className="ml-auto font-mono">
+                {flow.amount > 0 ? "+" : ""}
+                {formatAccountCurrency(flow.amount, account.currency)}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Delete deposit or withdrawal from ${flow.date}`}
+                onClick={() => handleDelete(flow.date)}
+                disabled={deletingDate != null}
               >
                 <Trash2Icon />
               </Button>

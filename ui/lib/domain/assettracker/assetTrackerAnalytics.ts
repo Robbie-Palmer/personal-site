@@ -122,6 +122,14 @@ export type TrajectoryPoint = {
   expected: number;
 };
 
+export type AccountHistoryPoint = {
+  date: string;
+  actual?: number;
+  expected?: number;
+  /** Cumulative external capital paid into the account, net of withdrawals. */
+  contributed?: number;
+};
+
 /**
  * Compounds `principal` from `fromDate` to `toDate`, splitting the span at any
  * scheduled rate-change boundaries so a change mid-interval is applied from
@@ -191,6 +199,55 @@ export function buildExpectedTrajectory(
       date: snapshot.date,
       actual: snapshot.balance,
       expected: Math.round(expected * 100) / 100,
+    };
+  });
+}
+
+/**
+ * Adds an exact cumulative-capital series to the sparse actual/expected
+ * trajectory. Capital-flow dates remain visible even where no market-value
+ * snapshot exists; missing actual values stay missing rather than being
+ * fabricated from contribution history.
+ */
+export function buildAccountHistorySeries(
+  schedule: ReturnSchedule,
+  snapshots: BalanceSnapshotView[],
+  flows: ExternalFlow[] = [],
+): AccountHistoryPoint[] {
+  const performanceByDate = new Map(
+    buildExpectedTrajectory(schedule, snapshots, flows).map((point) => [
+      point.date,
+      point,
+    ]),
+  );
+  const sortedFlows = [...flows].sort((a, b) => a.date.localeCompare(b.date));
+  const dates = Array.from(
+    new Set([
+      ...performanceByDate.keys(),
+      ...sortedFlows.map((flow) => flow.date),
+    ]),
+  ).sort((a, b) => a.localeCompare(b));
+
+  let flowIndex = 0;
+  let contributed = 0;
+  let hasContributionHistory = false;
+  return dates.map((date) => {
+    let flow = sortedFlows[flowIndex];
+    while (flow && flow.date <= date) {
+      contributed += flow.amount;
+      flowIndex++;
+      hasContributionHistory = true;
+      flow = sortedFlows[flowIndex];
+    }
+    const performance = performanceByDate.get(date);
+    return {
+      date,
+      ...(performance == null
+        ? {}
+        : { actual: performance.actual, expected: performance.expected }),
+      ...(hasContributionHistory
+        ? { contributed: Math.round(contributed * 100) / 100 }
+        : {}),
     };
   });
 }

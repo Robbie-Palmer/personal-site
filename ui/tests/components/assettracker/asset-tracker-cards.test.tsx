@@ -151,6 +151,9 @@ describe("UpcomingFlows", () => {
           cagr: null,
           createdAt: today,
           snapshots: [{ date: today, balance: 1000 }],
+          capitalFlows: [],
+          netContributed: null,
+          gainLoss: null,
         },
       ],
       recurringFlows: [
@@ -198,6 +201,9 @@ describe("FlowSankeyChart", () => {
           cagr: null,
           createdAt: today,
           snapshots: [{ date: today, balance: 1000 }],
+          capitalFlows: [],
+          netContributed: null,
+          gainLoss: null,
         },
         {
           id: "isa",
@@ -212,6 +218,9 @@ describe("FlowSankeyChart", () => {
           cagr: null,
           createdAt: today,
           snapshots: [{ date: today, balance: 5000 }],
+          capitalFlows: [],
+          netContributed: null,
+          gainLoss: null,
         },
       ],
       recurringFlows: [

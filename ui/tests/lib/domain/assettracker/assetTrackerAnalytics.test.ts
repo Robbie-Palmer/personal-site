@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { effectiveExpectedReturn } from "@/lib/domain/assettracker/account";
 import {
   addRealValues,
+  buildAccountHistorySeries,
   buildExpectedTrajectory,
   buildPortfolioProjection,
   buildProjection,
@@ -286,6 +287,48 @@ describe("buildExpectedTrajectory", () => {
     ]);
 
     expect(trajectory.map((p) => p.date)).toEqual(["2023-01-01", "2024-01-01"]);
+  });
+});
+
+describe("buildAccountHistorySeries", () => {
+  it("plots contribution-only history without inventing market values", () => {
+    expect(
+      buildAccountHistorySeries(
+        { expectedAnnualReturn: 0.07 },
+        [],
+        [
+          { date: "2022-01-01", amount: 10_000 },
+          { date: "2022-02-01", amount: 500 },
+          { date: "2022-03-01", amount: -200 },
+        ],
+      ),
+    ).toEqual([
+      { date: "2022-01-01", contributed: 10_000 },
+      { date: "2022-02-01", contributed: 10_500 },
+      { date: "2022-03-01", contributed: 10_300 },
+    ]);
+  });
+
+  it("carries contributed capital onto sparse actual balance dates", () => {
+    expect(
+      buildAccountHistorySeries(
+        { expectedAnnualReturn: 0 },
+        [{ date: "2024-01-01", balance: 12_000 }],
+        [
+          { date: "2022-01-01", amount: 8_000 },
+          { date: "2023-01-01", amount: 2_000 },
+        ],
+      ),
+    ).toEqual([
+      { date: "2022-01-01", contributed: 8_000 },
+      { date: "2023-01-01", contributed: 10_000 },
+      {
+        date: "2024-01-01",
+        actual: 12_000,
+        expected: 12_000,
+        contributed: 10_000,
+      },
+    ]);
   });
 });
 

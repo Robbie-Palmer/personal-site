@@ -10,6 +10,7 @@ import {
 } from "./account";
 import type { AssetTrackerData } from "./assetTrackerData";
 import type { BalanceSnapshot } from "./balanceSnapshot";
+import type { CapitalFlow } from "./capitalFlow";
 import {
   FlowFrequencySchema,
   flowOccurrenceDates,
@@ -30,6 +31,7 @@ export type AssetTrackerCommandErrorCode =
   | "ACCOUNT_ALREADY_CLOSED"
   | "ACCOUNT_HAS_LATER_HISTORY"
   | "SNAPSHOT_NOT_FOUND"
+  | "CAPITAL_FLOW_NOT_FOUND"
   | "FLOW_NOT_FOUND"
   | "INVALID_ACCOUNT_NAME";
 
@@ -89,6 +91,46 @@ export const DeleteSnapshotInputSchema = z.object({
   date: IsoDateSchema,
 });
 export type DeleteSnapshotInput = z.infer<typeof DeleteSnapshotInputSchema>;
+
+export const DeleteCapitalFlowInputSchema = z.object({
+  accountId: AccountIdSchema,
+  date: IsoDateSchema,
+});
+export type DeleteCapitalFlowInput = z.infer<
+  typeof DeleteCapitalFlowInputSchema
+>;
+
+export const AccountHistoryKindSchema = z.enum(["balances", "capitalFlows"]);
+export type AccountHistoryKind = z.infer<typeof AccountHistoryKindSchema>;
+
+export const ClearAccountHistoryInputSchema = z.object({
+  accountId: AccountIdSchema,
+  kind: AccountHistoryKindSchema,
+});
+export type ClearAccountHistoryInput = z.infer<
+  typeof ClearAccountHistoryInputSchema
+>;
+
+const HistoryValueSchema = z.object({
+  date: IsoDateSchema,
+  value: z.number(),
+});
+
+export const ImportAccountHistoryInputSchema = z
+  .object({
+    accountId: AccountIdSchema,
+    balances: z.array(HistoryValueSchema).default([]),
+    capitalFlows: z.array(HistoryValueSchema).default([]),
+    /** Complete cumulative imports replace this account's existing flow series. */
+    replaceCapitalFlows: z.boolean().optional(),
+  })
+  .refine(
+    (input) => input.balances.length > 0 || input.capitalFlows.length > 0,
+    { message: "Paste at least one balance or deposit/withdrawal" },
+  );
+export type ImportAccountHistoryInput = z.infer<
+  typeof ImportAccountHistoryInputSchema
+>;
 
 export const RecordTransferInputSchema = z
   .object({
@@ -294,6 +336,63 @@ export function applyRecordBalance(
   return { ...data, snapshots: upsertSnapshot(data.snapshots, parsed) };
 }
 
+/**
+ * Atomically upserts pasted balance and signed capital-flow history. Input rows
+ * may be in any order; repository projections sort them chronologically.
+ */
+export function applyImportAccountHistory(
+  data: AssetTrackerData,
+  input: ImportAccountHistoryInput,
+): AssetTrackerData {
+  const parsed = ImportAccountHistoryInputSchema.parse(input);
+  // Validate every date before constructing the next state. A closed-account
+  // error on one row must not leave the earlier rows partially imported.
+  for (const row of [...parsed.balances, ...parsed.capitalFlows]) {
+    requireOpenOn(data, parsed.accountId, row.date);
+  }
+
+  const snapshotsByAccountDate = new Map(
+    data.snapshots.map((snapshot) => [
+      `${snapshot.accountId}\0${snapshot.date}`,
+      snapshot,
+    ]),
+  );
+  for (const row of parsed.balances) {
+    const snapshot: BalanceSnapshot = {
+      accountId: parsed.accountId,
+      date: row.date,
+      balance: row.value,
+    };
+    snapshotsByAccountDate.set(
+      `${snapshot.accountId}\0${snapshot.date}`,
+      snapshot,
+    );
+  }
+
+  const existingCapitalFlows = parsed.replaceCapitalFlows
+    ? data.capitalFlows.filter((flow) => flow.accountId !== parsed.accountId)
+    : data.capitalFlows;
+  const capitalFlowsByAccountDate = new Map(
+    existingCapitalFlows.map((flow) => [
+      `${flow.accountId}\0${flow.date}`,
+      flow,
+    ]),
+  );
+  for (const row of parsed.capitalFlows) {
+    const flow: CapitalFlow = {
+      accountId: parsed.accountId,
+      date: row.date,
+      amount: row.value,
+    };
+    capitalFlowsByAccountDate.set(`${flow.accountId}\0${flow.date}`, flow);
+  }
+  return {
+    ...data,
+    snapshots: Array.from(snapshotsByAccountDate.values()),
+    capitalFlows: Array.from(capitalFlowsByAccountDate.values()),
+  };
+}
+
 export function applyRecordTransfer(
   data: AssetTrackerData,
   input: RecordTransferInput,
@@ -453,6 +552,47 @@ export function applyDeleteSnapshot(
   return { ...data, snapshots };
 }
 
+export function applyDeleteCapitalFlow(
+  data: AssetTrackerData,
+  input: DeleteCapitalFlowInput,
+): AssetTrackerData {
+  const parsed = DeleteCapitalFlowInputSchema.parse(input);
+  requireAccount(data, parsed.accountId);
+  const capitalFlows = data.capitalFlows.filter(
+    (flow) =>
+      !(flow.accountId === parsed.accountId && flow.date === parsed.date),
+  );
+  if (capitalFlows.length === data.capitalFlows.length) {
+    throw new AssetTrackerCommandError(
+      "CAPITAL_FLOW_NOT_FOUND",
+      `No deposit or withdrawal recorded for ${parsed.accountId} on ${parsed.date}`,
+    );
+  }
+  return { ...data, capitalFlows };
+}
+
+export function applyClearAccountHistory(
+  data: AssetTrackerData,
+  input: ClearAccountHistoryInput,
+): AssetTrackerData {
+  const parsed = ClearAccountHistoryInputSchema.parse(input);
+  requireAccount(data, parsed.accountId);
+  if (parsed.kind === "balances") {
+    return {
+      ...data,
+      snapshots: data.snapshots.filter(
+        (snapshot) => snapshot.accountId !== parsed.accountId,
+      ),
+    };
+  }
+  return {
+    ...data,
+    capitalFlows: data.capitalFlows.filter(
+      (flow) => flow.accountId !== parsed.accountId,
+    ),
+  };
+}
+
 export function applyAddRecurringFlow(
   data: AssetTrackerData,
   input: AddRecurringFlowInput,
@@ -546,6 +686,5 @@ export function formatAssetTrackerError(error: unknown): string {
     return error.issues[0]?.message ?? "Invalid input";
   }
   if (error instanceof SyntaxError) return "File is not valid JSON";
-  if (error instanceof Error) return error.message;
   return "Something went wrong";
 }
