@@ -33,6 +33,7 @@ export type AssetTrackerCommandErrorCode =
   | "SNAPSHOT_NOT_FOUND"
   | "CAPITAL_FLOW_NOT_FOUND"
   | "FLOW_NOT_FOUND"
+  | "DUPLICATE_INCOME_DATE"
   | "INVALID_ACCOUNT_NAME";
 
 export class AssetTrackerCommandError extends Error {
@@ -426,7 +427,10 @@ export function applyImportIncomeHistory(
   const byDate = new Map<string, number>();
   for (const row of parsed.income) {
     if (byDate.has(row.date)) {
-      throw new Error(`Duplicate income record on ${row.date}`);
+      throw new AssetTrackerCommandError(
+        "DUPLICATE_INCOME_DATE",
+        `Duplicate income record on ${row.date}`,
+      );
     }
     byDate.set(row.date, row.amount);
   }

@@ -165,6 +165,26 @@ describe("createLocalAssetTrackerApi", () => {
     expect(data.settings.withdrawalRate).toBe(0.04);
   });
 
+  it("repairs duplicate persisted income dates without hiding the portfolio", async () => {
+    const seed = getSeedData();
+    window.localStorage.setItem(
+      ASSET_TRACKER_STORAGE_KEY,
+      JSON.stringify({
+        ...seed,
+        incomeHistory: [
+          { date: "2025-01-31", amount: 4_100 },
+          { date: "2025-01-31", amount: 4_200 },
+        ],
+      }),
+    );
+
+    const { data, persisted } = await createApi().load();
+
+    expect(persisted).toBe(true);
+    expect(data.accounts).toEqual(seed.accounts);
+    expect(data.incomeHistory).toEqual([{ date: "2025-01-31", amount: 4_200 }]);
+  });
+
   it("persists portfolio income history and the withdrawal rate", async () => {
     const api = createApi();
     await api.importIncomeHistory({

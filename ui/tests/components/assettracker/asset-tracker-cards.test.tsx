@@ -107,6 +107,23 @@ describe("PortfolioGoal", () => {
     expect(setWithdrawalRate).not.toHaveBeenCalled();
   });
 
+  it("rejects an out-of-range withdrawal rate before saving", async () => {
+    const setWithdrawalRate = vi.fn().mockResolvedValue(undefined);
+    mockAssetTracker({ setWithdrawalRate });
+
+    render(<PortfolioGoal />);
+
+    const input = screen.getByLabelText("Withdrawal rate");
+    await userEvent.clear(input);
+    await userEvent.type(input, "0");
+    await userEvent.tab();
+
+    expect(setWithdrawalRate).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Withdrawal rate must be between 0.1% and 100%"),
+    ).toBeVisible();
+  });
+
   it("uses constrained mobile layout classes", () => {
     mockAssetTracker();
 

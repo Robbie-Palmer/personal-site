@@ -67,7 +67,9 @@ function median(values: readonly number[]): number | null {
   const sorted = values.toSorted((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
   if (sorted.length % 2 === 1) return sorted[middle] ?? null;
-  return ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2;
+  const lower = sorted[middle - 1];
+  const upper = sorted[middle];
+  return lower == null || upper == null ? null : (lower + upper) / 2;
 }
 
 /**
@@ -101,7 +103,9 @@ export function reconcilePortfolio(
     const startDate = previousIncome?.date ?? opening.date;
     if (opening.date !== startDate || closing.date !== record.date) continue;
     const days = calendarDaysBetween(startDate, record.date);
-    if (days <= 0 || closing.date <= opening.date) continue;
+    if (!Number.isFinite(days) || days <= 0 || closing.date <= opening.date) {
+      continue;
+    }
 
     const netCapitalFlow = repository.capitalFlows.reduce(
       (sum, flow) =>
@@ -148,7 +152,10 @@ export function getPortfolioFinancialIndependence(
   const withdrawalRate =
     repository.settings.withdrawalRate ?? DEFAULT_WITHDRAWAL_RATE;
   const target =
-    annualExpenditure == null || withdrawalRate == null
+    annualExpenditure == null ||
+    !Number.isFinite(withdrawalRate) ||
+    withdrawalRate <= 0 ||
+    withdrawalRate > 1
       ? null
       : annualExpenditure / withdrawalRate;
   const currentNetWorth = getNetWorthTimeSeries(repository).at(-1)?.total ?? 0;

@@ -401,14 +401,20 @@ describe("portfolio income settings", () => {
   });
 
   it("rejects duplicate income dates and invalid withdrawal rates", () => {
-    expect(() =>
+    let duplicateError: unknown;
+    try {
       applyImportIncomeHistory(baseData(), {
         income: [
           { date: "2025-01-31", amount: 4_100 },
           { date: "2025-01-31", amount: 4_200 },
         ],
-      }),
-    ).toThrow("Duplicate income record on 2025-01-31");
+      });
+    } catch (error) {
+      duplicateError = error;
+    }
+    expect(formatAssetTrackerError(duplicateError)).toBe(
+      "Duplicate income record on 2025-01-31",
+    );
     expect(() => applySetWithdrawalRate(baseData(), { rate: 0 })).toThrow(
       "Withdrawal rate must be positive",
     );

@@ -18,6 +18,12 @@ import {
 } from "@/lib/domain/assettracker";
 import { useAssetTracker } from "./asset-tracker-provider";
 
+function parseIncomeSource(source: string) {
+  return source.trim() === ""
+    ? { rows: [], issues: [] }
+    : parsePastedHistory(source);
+}
+
 export function IncomeHistoryImportDrawer() {
   const { incomeHistory, importIncomeHistory, clearIncomeHistory } =
     useAssetTracker();
@@ -25,21 +31,16 @@ export function IncomeHistoryImportDrawer() {
   const [source, setSource] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const result = useMemo(
-    () =>
-      source.trim() === ""
-        ? { rows: [], issues: [] }
-        : parsePastedHistory(source),
-    [source],
-  );
+  const result = useMemo(() => parseIncomeSource(source), [source]);
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (result.issues.length > 0) {
+    const submitted = parseIncomeSource(source);
+    if (submitted.issues.length > 0) {
       setError("Fix the invalid rows before importing");
       return;
     }
-    if (result.rows.length === 0) {
+    if (submitted.rows.length === 0) {
       setError("Paste at least one income row");
       return;
     }
@@ -47,7 +48,7 @@ export function IncomeHistoryImportDrawer() {
     setError(null);
     try {
       await importIncomeHistory({
-        income: result.rows.map(({ date, value }) => ({
+        income: submitted.rows.map(({ date, value }) => ({
           date,
           amount: value,
         })),

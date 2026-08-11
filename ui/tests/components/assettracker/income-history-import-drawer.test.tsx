@@ -1,5 +1,14 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { useAssetTracker } from "@/components/assettracker/asset-tracker-provider";
 import { IncomeHistoryImportDrawer } from "@/components/assettracker/income-history-import-drawer";
 
@@ -8,6 +17,29 @@ vi.mock("@/components/assettracker/asset-tracker-provider", () => ({
 }));
 
 const mockUseAssetTracker = vi.mocked(useAssetTracker);
+
+beforeAll(() => {
+  for (const method of [
+    "setPointerCapture",
+    "releasePointerCapture",
+    "hasPointerCapture",
+  ]) {
+    Object.defineProperty(HTMLElement.prototype, method, {
+      configurable: true,
+      value: vi.fn(),
+    });
+  }
+});
+
+afterAll(() => {
+  for (const method of [
+    "setPointerCapture",
+    "releasePointerCapture",
+    "hasPointerCapture",
+  ]) {
+    Reflect.deleteProperty(HTMLElement.prototype, method);
+  }
+});
 
 describe("IncomeHistoryImportDrawer", () => {
   const importIncomeHistory = vi.fn().mockResolvedValue(undefined);
@@ -25,13 +57,16 @@ describe("IncomeHistoryImportDrawer", () => {
   it("imports sorted portfolio income rows and accepts an income header", async () => {
     render(<IncomeHistoryImportDrawer />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Add income history" }));
-    fireEvent.change(screen.getByLabelText("Period end and income"), {
-      target: {
-        value: "date,income\n2025-02-28,4200\n2025-01-31,4100",
-      },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Import 2 periods" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add income history" }),
+    );
+    await userEvent.type(
+      screen.getByLabelText("Period end and income"),
+      "date,income\n2025-02-28,4200\n2025-01-31,4100",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Import 2 periods" }),
+    );
 
     expect(importIncomeHistory).toHaveBeenCalledWith({
       income: [
@@ -49,10 +84,10 @@ describe("IncomeHistoryImportDrawer", () => {
     } as unknown as ReturnType<typeof useAssetTracker>);
     render(<IncomeHistoryImportDrawer />);
 
-    fireEvent.click(
+    await userEvent.click(
       screen.getByRole("button", { name: "Replace income history" }),
     );
-    fireEvent.click(
+    await userEvent.click(
       screen.getByRole("button", { name: "Clear income history" }),
     );
 

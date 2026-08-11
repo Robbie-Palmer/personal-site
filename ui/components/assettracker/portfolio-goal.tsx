@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -31,14 +31,23 @@ export function PortfolioGoal() {
     setWithdrawalRate,
   } = useAssetTracker();
   const [error, setError] = useState<string | null>(null);
+  const [withdrawalRateDraft, setWithdrawalRateDraft] = useState(() =>
+    String(withdrawalRate * 100),
+  );
   const currentNetWorth = computeTotalBalance(accounts);
   const { periods, representativeAnnualExpenditure, target, progress } =
     financialIndependence;
 
+  useEffect(() => {
+    setWithdrawalRateDraft(String(withdrawalRate * 100));
+  }, [withdrawalRate]);
+
   async function handleWithdrawalRate(value: string) {
-    if (value === "") return;
     const percent = Number(value);
-    if (!Number.isFinite(percent)) return;
+    if (!Number.isFinite(percent) || percent < 0.1 || percent > 100) {
+      setError("Withdrawal rate must be between 0.1% and 100%");
+      return;
+    }
     const rate = percent / 100;
     if (rate === withdrawalRate) return;
     try {
@@ -50,7 +59,7 @@ export function PortfolioGoal() {
   }
 
   return (
-    <Card className="min-w-0 lg:col-span-2">
+    <Card className="min-w-0">
       <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1.5">
           <CardTitle>Financial independence</CardTitle>
@@ -91,10 +100,13 @@ export function PortfolioGoal() {
                   inputMode="decimal"
                   min="0.1"
                   max="100"
-                  step="0.1"
+                  step="any"
                   className="h-7 w-16 text-right"
-                  key={withdrawalRate}
-                  defaultValue={withdrawalRate * 100}
+                  value={withdrawalRateDraft}
+                  onChange={(event) => {
+                    setWithdrawalRateDraft(event.target.value);
+                    setError(null);
+                  }}
                   onBlur={(event) => handleWithdrawalRate(event.target.value)}
                 />
                 <span>%</span>

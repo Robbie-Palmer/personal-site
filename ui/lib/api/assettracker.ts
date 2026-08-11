@@ -87,7 +87,21 @@ export type AssetTrackerLoadResult = {
 export const ASSET_TRACKER_STORAGE_KEY = "assettracker:data:v1";
 
 function parseStored(raw: string): AssetTrackerData {
-  const data = AssetTrackerDataSchema.parse(JSON.parse(raw));
+  const parsed = AssetTrackerDataSchema.parse(JSON.parse(raw));
+  const incomeByDate = new Map(
+    parsed.incomeHistory.map((record) => [record.date, record]),
+  );
+  // Earlier/hand-edited data may contain duplicate period ends. Keep the last
+  // value so one bad series cannot hide the user's otherwise valid portfolio.
+  const data =
+    incomeByDate.size === parsed.incomeHistory.length
+      ? parsed
+      : {
+          ...parsed,
+          incomeHistory: Array.from(incomeByDate.values()).sort((a, b) =>
+            a.date.localeCompare(b.date),
+          ),
+        };
   buildRepository(data); // referential integrity (duplicate IDs, orphan snapshots)
   return data;
 }
