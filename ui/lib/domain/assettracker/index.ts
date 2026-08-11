@@ -10,6 +10,8 @@ export * from "./balanceSnapshot";
 export * from "./capitalFlow";
 export * from "./constants";
 export * from "./flowSankeyData";
+export * from "./incomeRecord";
 export * from "./pastedHistory";
+export * from "./portfolioReconciliation";
 export * from "./recurringFlow";
 export * from "./transfer";

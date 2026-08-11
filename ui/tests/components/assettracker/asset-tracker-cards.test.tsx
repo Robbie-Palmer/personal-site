@@ -35,10 +35,18 @@ function mockAssetTracker(
     assetAllocation: [],
     transfers: [],
     recurringFlows: [],
+    incomeHistory: [],
+    financialIndependence: {
+      periods: [],
+      representativeAnnualExpenditure: null,
+      target: null,
+      progress: null,
+    },
     portfolioReturn: null,
     inflation: 0.025,
     netWorthTarget: null,
     netWorthTargetIsReal: false,
+    withdrawalRate: 0.04,
     hasLocalChanges: false,
     createAccount: vi.fn(),
     recordBalance: vi.fn(),
@@ -50,7 +58,10 @@ function mockAssetTracker(
     materializeFlow: vi.fn(),
     setExpectedReturn: vi.fn(),
     setInflation: vi.fn(),
+    setWithdrawalRate: vi.fn(),
     setNetWorthTarget: vi.fn(),
+    importIncomeHistory: vi.fn(),
+    clearIncomeHistory: vi.fn(),
     resetData: vi.fn(),
     exportData: vi.fn(),
     exportCsv: vi.fn(),
@@ -68,22 +79,18 @@ describe("PortfolioGoal", () => {
     vi.clearAllMocks();
   });
 
-  it("accepts whole-number goals that are not offset from the minimum", async () => {
-    const setNetWorthTarget = vi.fn().mockResolvedValue(undefined);
-    mockAssetTracker({ setNetWorthTarget });
+  it("updates the withdrawal rate used to derive the FI target", async () => {
+    const setWithdrawalRate = vi.fn().mockResolvedValue(undefined);
+    mockAssetTracker({ setWithdrawalRate });
 
     render(<PortfolioGoal />);
 
-    const input = screen.getByLabelText("Target net worth") as HTMLInputElement;
-    await userEvent.type(input, "500000");
+    const input = screen.getByLabelText("Withdrawal rate");
+    await userEvent.clear(input);
+    await userEvent.type(input, "3.5");
+    await userEvent.tab();
 
-    expect(input).toHaveAttribute("step", "any");
-    expect(input.validity.stepMismatch).toBe(false);
-    expect(input.checkValidity()).toBe(true);
-
-    await userEvent.click(screen.getByRole("button", { name: "Set goal" }));
-
-    expect(setNetWorthTarget).toHaveBeenCalledWith(500000, true);
+    expect(setWithdrawalRate).toHaveBeenCalledWith(0.035);
   });
 
   it("uses constrained mobile layout classes", () => {
@@ -94,21 +101,29 @@ describe("PortfolioGoal", () => {
     expect(container.querySelector('[data-slot="card"]')).toHaveClass(
       "min-w-0",
     );
-    expect(screen.getByRole("button", { name: "Set goal" })).toHaveClass(
-      "w-full",
-      "sm:w-auto",
-    );
+    expect(
+      screen.getByRole("button", { name: "Add income history" }),
+    ).toBeVisible();
   });
 
   it("uses a native progress element for an active goal", () => {
-    mockAssetTracker({ netWorthTarget: 500_000 });
+    mockAssetTracker({
+      financialIndependence: {
+        periods: [],
+        representativeAnnualExpenditure: 20_000,
+        target: 500_000,
+        progress: 0.25,
+      },
+    });
 
     render(<PortfolioGoal />);
 
-    const progress = screen.getByRole("progressbar");
+    const progress = screen.getByRole("progressbar", {
+      name: "Financial independence progress",
+    });
     expect(progress.tagName).toBe("PROGRESS");
     expect(progress).toHaveAttribute("max", "1");
-    expect(progress).toHaveAttribute("value", "0");
+    expect(progress).toHaveAttribute("value", "0.25");
   });
 });
 

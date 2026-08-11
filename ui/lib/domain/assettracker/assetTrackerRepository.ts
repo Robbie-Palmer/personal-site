@@ -8,6 +8,7 @@ import {
 } from "./assetTrackerData";
 import type { BalanceSnapshot } from "./balanceSnapshot";
 import type { CapitalFlow } from "./capitalFlow";
+import type { IncomeRecord } from "./incomeRecord";
 import type { RecurringFlow } from "./recurringFlow";
 import type { Transfer } from "./transfer";
 
@@ -15,6 +16,7 @@ export interface AssetTrackerRepository {
   accounts: Map<AccountId, Account>;
   snapshots: BalanceSnapshot[];
   capitalFlows: CapitalFlow[];
+  incomeHistory: IncomeRecord[];
   transfers: Transfer[];
   recurringFlows: RecurringFlow[];
   settings: AssetTrackerData["settings"];
@@ -84,6 +86,13 @@ function validateReferences(
 ): void {
   assertUniqueAccountDates(data.snapshots, "snapshot");
   assertUniqueAccountDates(data.capitalFlows, "capital flow");
+  const incomeDates = new Set<string>();
+  for (const income of data.incomeHistory) {
+    if (incomeDates.has(income.date)) {
+      throw new Error(`Duplicate income record on ${income.date}`);
+    }
+    incomeDates.add(income.date);
+  }
   for (const account of data.accounts) {
     assertKnownAccount(
       accounts,
@@ -146,6 +155,9 @@ export function buildRepository(
     accounts,
     snapshots,
     capitalFlows,
+    incomeHistory: [...data.incomeHistory].sort((a, b) =>
+      a.date.localeCompare(b.date),
+    ),
     transfers: data.transfers,
     recurringFlows: data.recurringFlows,
     settings: data.settings,

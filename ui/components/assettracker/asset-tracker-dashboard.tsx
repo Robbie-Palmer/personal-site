@@ -82,11 +82,11 @@ export function AssetTrackerDashboard() {
         </div>
       </div>
       <NetWorthChart data={netWorthData} />
+      <PortfolioGoal />
       <div className="grid gap-8 lg:grid-cols-2">
-        <PortfolioGoal />
         <UpcomingFlows />
+        <FlowSankeyChart />
       </div>
-      <FlowSankeyChart />
       <div className="grid gap-8 lg:grid-cols-2">
         <AssetAllocationChart data={assetAllocation} />
         <AccountBalanceChart accounts={accountDetails} />

@@ -22,7 +22,7 @@ export type ContributionHistoryFormat = "cumulative" | "changes";
 
 const HEADER_DATE = /^(date|month)$/i;
 const HEADER_VALUE =
-  /^(value|market value|current value|balance|amount|deposits?\/withdrawals?|deposit|withdrawal|flow)$/i;
+  /^(value|market value|current value|balance|amount|income|earnings|deposits?\/withdrawals?|deposit|withdrawal|flow)$/i;
 const MAX_PASTED_HISTORY_CHARACTERS = 1_000_000;
 
 function csvFields(line: string): string[] {
