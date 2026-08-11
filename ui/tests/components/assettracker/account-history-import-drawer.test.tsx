@@ -104,6 +104,21 @@ describe("AccountHistoryImportDrawer", () => {
     expect(
       screen.getByText(/also-wrong\s+1100/, { selector: "code" }),
     ).toBeVisible();
+    const lineNumbers = document.getElementById(
+      "balance-history-stocks-isa-line-numbers",
+    );
+    textarea.scrollTop = 40;
+    fireEvent.scroll(textarea);
+    expect(lineNumbers?.scrollTop).toBe(40);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Line 3: Use YYYY-MM-DD or DD\/MM\/YYYY/,
+      }),
+    );
+    expect(
+      textarea.value.slice(textarea.selectionStart, textarea.selectionEnd),
+    ).toBe("wrong-date\t200");
 
     fireEvent.click(
       screen.getByRole("button", {
@@ -115,9 +130,6 @@ describe("AccountHistoryImportDrawer", () => {
       textarea.value.slice(textarea.selectionStart, textarea.selectionEnd),
     ).toBe("also-wrong\t1100");
     expect(textarea.scrollTop).toBeGreaterThan(0);
-    const lineNumbers = document.getElementById(
-      "balance-history-stocks-isa-line-numbers",
-    );
     expect(lineNumbers).toHaveTextContent("12");
     expect(lineNumbers?.scrollTop).toBe(textarea.scrollTop);
   });
