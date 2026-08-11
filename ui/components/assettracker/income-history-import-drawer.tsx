@@ -111,7 +111,7 @@ export function IncomeHistoryImportDrawer() {
             value={source}
             onChange={(event) => setSource(event.target.value)}
           />
-          {result.issues.length > 0 ? (
+          {result.issues.length > 0 && (
             <ul className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-destructive/30 p-2 text-xs text-destructive">
               {result.issues.map((issue) => (
                 <li key={`${issue.line}-${issue.message}`}>
@@ -119,12 +119,13 @@ export function IncomeHistoryImportDrawer() {
                 </li>
               ))}
             </ul>
-          ) : result.rows.length > 0 ? (
+          )}
+          {result.issues.length === 0 && result.rows.length > 0 && (
             <p className="text-xs text-muted-foreground">
               {result.rows.length}{" "}
               {result.rows.length === 1 ? "period" : "periods"} ready.
             </p>
-          ) : null}
+          )}
           <p className="text-xs text-muted-foreground">
             For a meaningful reconciliation, use the same period ends as your
             complete account balance history. Internal account transfers must be
