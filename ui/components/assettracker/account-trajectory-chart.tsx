@@ -74,11 +74,12 @@ export function AccountTrajectoryChart({
   if (trajectory.length < 2) return null;
 
   const hasPerformanceHistory = account.snapshots.length >= 2;
-  const copy = isLiability(account.assetType)
-    ? LIABILITY_COPY
-    : hasPerformanceHistory
-      ? ASSET_COPY
-      : CONTRIBUTION_COPY;
+  let copy = CONTRIBUTION_COPY;
+  if (isLiability(account.assetType)) {
+    copy = LIABILITY_COPY;
+  } else if (hasPerformanceHistory) {
+    copy = ASSET_COPY;
+  }
 
   return (
     <div>
