@@ -1,6 +1,7 @@
 import { format, isValid, parse } from "date-fns";
 
 export type PastedHistoryRow = {
+  /** Calendar date; each pasted series accepts at most one row per day. */
   date: string;
   value: number;
 };
@@ -19,6 +20,7 @@ const HEADER_DATE = /^(date|month)$/i;
 const HEADER_VALUE =
   /^(value|market value|current value|balance|amount|deposits?\/withdrawals?|deposit|withdrawal|flow)$/i;
 const DATE_FORMATS = ["yyyy-MM-dd", "dd/MM/yyyy", "dd-MM-yyyy", "yyyy/MM/dd"];
+const MAX_PASTED_HISTORY_CHARACTERS = 1_000_000;
 
 function csvFields(line: string): string[] {
   if (line.includes("\t")) return line.split("\t");
@@ -63,7 +65,7 @@ function parseAmount(rawFields: string[]): number | null {
   const normalised = rawFields
     .join("")
     .trim()
-    .replace(/[£$€\s]/g, "")
+    .replace(/[\p{Sc}\s]/gu, "")
     .replaceAll(",", "");
   const parenthesised = normalised.startsWith("(") && normalised.endsWith(")");
   const cleaned = normalised.replace(/^\((.*)\)$/, "$1");
@@ -79,6 +81,18 @@ function parseAmount(rawFields: string[]): number | null {
  * issues are returned together so the UI can reject the import atomically.
  */
 export function parsePastedHistory(input: string): PastedHistoryResult {
+  if (input.length > MAX_PASTED_HISTORY_CHARACTERS) {
+    return {
+      rows: [],
+      issues: [
+        {
+          line: 1,
+          message: "Paste is too large (maximum 1,000,000 characters)",
+        },
+      ],
+    };
+  }
+
   const rows: PastedHistoryRow[] = [];
   const issues: PastedHistoryIssue[] = [];
   const seenDates = new Set<string>();

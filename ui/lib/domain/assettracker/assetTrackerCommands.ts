@@ -266,20 +266,6 @@ function upsertSnapshot(
   return [...others, snapshot];
 }
 
-function upsertCapitalFlow(
-  capitalFlows: CapitalFlow[],
-  capitalFlow: CapitalFlow,
-): CapitalFlow[] {
-  const others = capitalFlows.filter(
-    (flow) =>
-      !(
-        flow.accountId === capitalFlow.accountId &&
-        flow.date === capitalFlow.date
-      ),
-  );
-  return [...others, capitalFlow];
-}
-
 /** The recorded balance in force on a date: latest snapshot on or before it */
 export function balanceAsOf(
   snapshots: BalanceSnapshot[],
@@ -337,7 +323,10 @@ export function applyRecordBalance(
   return { ...data, snapshots: upsertSnapshot(data.snapshots, parsed) };
 }
 
-/** Atomically upserts pasted balance and signed capital-flow history. */
+/**
+ * Atomically upserts pasted balance and signed capital-flow history. Input rows
+ * may be in any order; repository projections sort them chronologically.
+ */
 export function applyImportAccountHistory(
   data: AssetTrackerData,
   input: ImportAccountHistoryInput,
@@ -349,23 +338,40 @@ export function applyImportAccountHistory(
     requireOpenOn(data, parsed.accountId, row.date);
   }
 
-  let snapshots = data.snapshots;
+  const snapshotsByAccountDate = new Map(
+    data.snapshots.map((snapshot) => [
+      `${snapshot.accountId}\0${snapshot.date}`,
+      snapshot,
+    ]),
+  );
   for (const row of parsed.balances) {
-    snapshots = upsertSnapshot(snapshots, {
+    const snapshot: BalanceSnapshot = {
       accountId: parsed.accountId,
       date: row.date,
       balance: row.value,
-    });
+    };
+    snapshotsByAccountDate.set(
+      `${snapshot.accountId}\0${snapshot.date}`,
+      snapshot,
+    );
   }
-  let capitalFlows = data.capitalFlows;
+
+  const capitalFlowsByAccountDate = new Map(
+    data.capitalFlows.map((flow) => [`${flow.accountId}\0${flow.date}`, flow]),
+  );
   for (const row of parsed.capitalFlows) {
-    capitalFlows = upsertCapitalFlow(capitalFlows, {
+    const flow: CapitalFlow = {
       accountId: parsed.accountId,
       date: row.date,
       amount: row.value,
-    });
+    };
+    capitalFlowsByAccountDate.set(`${flow.accountId}\0${flow.date}`, flow);
   }
-  return { ...data, snapshots, capitalFlows };
+  return {
+    ...data,
+    snapshots: Array.from(snapshotsByAccountDate.values()),
+    capitalFlows: Array.from(capitalFlowsByAccountDate.values()),
+  };
 }
 
 export function applyRecordTransfer(
@@ -639,6 +645,5 @@ export function formatAssetTrackerError(error: unknown): string {
     return error.issues[0]?.message ?? "Invalid input";
   }
   if (error instanceof SyntaxError) return "File is not valid JSON";
-  if (error instanceof Error) return error.message;
   return "Something went wrong";
 }

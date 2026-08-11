@@ -239,13 +239,18 @@ function EquityCard({
 function BalanceHistory({ account }: Readonly<{ account: AccountDetailView }>) {
   const { deleteSnapshot } = useAssetTracker();
   const [error, setError] = useState<string | null>(null);
+  const [deletingDate, setDeletingDate] = useState<string | null>(null);
 
   async function handleDelete(date: string) {
+    if (deletingDate != null) return;
+    setDeletingDate(date);
     try {
       await deleteSnapshot({ accountId: account.id, date });
       setError(null);
     } catch (err) {
       setError(formatAssetTrackerError(err));
+    } finally {
+      setDeletingDate(null);
     }
   }
 
@@ -272,6 +277,7 @@ function BalanceHistory({ account }: Readonly<{ account: AccountDetailView }>) {
                 size="icon-sm"
                 aria-label={`Delete balance from ${snapshot.date}`}
                 onClick={() => handleDelete(snapshot.date)}
+                disabled={deletingDate != null}
               >
                 <Trash2Icon />
               </Button>
@@ -289,13 +295,18 @@ function CapitalFlowHistory({
 }: Readonly<{ account: AccountDetailView }>) {
   const { deleteCapitalFlow } = useAssetTracker();
   const [error, setError] = useState<string | null>(null);
+  const [deletingDate, setDeletingDate] = useState<string | null>(null);
 
   async function handleDelete(date: string) {
+    if (deletingDate != null) return;
+    setDeletingDate(date);
     try {
       await deleteCapitalFlow({ accountId: account.id, date });
       setError(null);
     } catch (err) {
       setError(formatAssetTrackerError(err));
+    } finally {
+      setDeletingDate(null);
     }
   }
 
@@ -323,6 +334,7 @@ function CapitalFlowHistory({
                 size="icon-sm"
                 aria-label={`Delete deposit or withdrawal from ${flow.date}`}
                 onClick={() => handleDelete(flow.date)}
+                disabled={deletingDate != null}
               >
                 <Trash2Icon />
               </Button>

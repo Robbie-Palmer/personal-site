@@ -13,6 +13,7 @@ import {
   applyRecordTransfer,
   applySetExpectedReturn,
   applySetNetWorthTarget,
+  formatAssetTrackerError,
 } from "@/lib/domain/assettracker/assetTrackerCommands";
 import type { AssetTrackerData } from "@/lib/domain/assettracker/assetTrackerData";
 import { flowOccurrenceDates } from "@/lib/domain/assettracker/recurringFlow";
@@ -306,6 +307,32 @@ describe("applyImportAccountHistory", () => {
     expect(data).toEqual(baseData());
   });
 
+  it("preserves last-row-wins upsert semantics within one bulk import", () => {
+    const next = applyImportAccountHistory(baseData(), {
+      accountId: "stocks-isa",
+      balances: [
+        { date: "2024-06-01", value: 12500 },
+        { date: "2024-06-01", value: 13000 },
+      ],
+      capitalFlows: [
+        { date: "2024-06-01", value: 1000 },
+        { date: "2024-06-01", value: 1500 },
+      ],
+    });
+
+    expect(
+      next.snapshots.filter(
+        (snapshot) =>
+          snapshot.accountId === "stocks-isa" && snapshot.date === "2024-06-01",
+      ),
+    ).toEqual([
+      { accountId: "stocks-isa", date: "2024-06-01", balance: 13000 },
+    ]);
+    expect(next.capitalFlows).toEqual([
+      { accountId: "stocks-isa", date: "2024-06-01", amount: 1500 },
+    ]);
+  });
+
   it("deletes a capital-flow observation", () => {
     const imported = applyImportAccountHistory(baseData(), {
       accountId: "stocks-isa",
@@ -324,6 +351,14 @@ describe("applyImportAccountHistory", () => {
         date: "2024-06-01",
       }),
     ).toThrow(/No deposit or withdrawal/);
+  });
+});
+
+describe("formatAssetTrackerError", () => {
+  it("does not expose unexpected internal error messages", () => {
+    expect(formatAssetTrackerError(new Error("internal storage detail"))).toBe(
+      "Something went wrong",
+    );
   });
 });
 

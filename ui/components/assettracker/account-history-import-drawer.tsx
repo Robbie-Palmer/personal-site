@@ -148,7 +148,7 @@ export function AccountHistoryImportDrawer({
           Paste history
         </Button>
       </DrawerTrigger>
-      <DrawerContent className="max-h-[92vh] overflow-y-auto">
+      <DrawerContent className="max-h-[92dvh] overflow-y-auto">
         <DrawerHeader className="mx-auto w-full max-w-4xl">
           <DrawerTitle>Paste history for {account.name}</DrawerTitle>
           <DrawerDescription>
@@ -176,7 +176,7 @@ export function AccountHistoryImportDrawer({
             <HistoryTextarea
               id={`capital-history-${account.id}`}
               label="Deposits / withdrawals"
-              description="First row: total contributed at the starting point. Later rows: change since the previous observation, with deposits positive and withdrawals negative."
+              description="First row: total contributed at the starting point. Later rows: change since the previous observation, with deposits positive and withdrawals negative. When present, this history replaces transfer-derived flows in return calculations."
               placeholder={"date,value\n2024-01-31,500\n2024-02-29,-200"}
               value={capitalFlows}
               onChange={setCapitalFlows}

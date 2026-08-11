@@ -43,6 +43,22 @@ describe("parsePastedHistory", () => {
     );
   });
 
+  it("accepts other Unicode currency symbols", () => {
+    expect(parsePastedHistory("2024-01-31,¥1,234").rows[0]?.value).toBe(1234);
+  });
+
+  it("rejects an excessively large paste before parsing rows", () => {
+    const result = parsePastedHistory("x".repeat(1_000_001));
+
+    expect(result.rows).toEqual([]);
+    expect(result.issues).toEqual([
+      {
+        line: 1,
+        message: "Paste is too large (maximum 1,000,000 characters)",
+      },
+    ]);
+  });
+
   it("reports every malformed and duplicate row", () => {
     const result = parsePastedHistory(
       "2024-02-30,10\n2024-01-31,nope\n2024-01-31,20\n2024-01-31,30",

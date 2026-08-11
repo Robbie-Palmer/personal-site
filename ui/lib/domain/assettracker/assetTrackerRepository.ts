@@ -57,10 +57,28 @@ function assertKnownAccount(
   }
 }
 
+function assertUniqueAccountDates(
+  records: ReadonlyArray<{ accountId: AccountId; date: string }>,
+  label: string,
+): void {
+  const seen = new Set<string>();
+  for (const record of records) {
+    const key = `${record.accountId}\0${record.date}`;
+    if (seen.has(key)) {
+      throw new Error(
+        `Duplicate ${label} for account "${record.accountId}" on ${record.date}`,
+      );
+    }
+    seen.add(key);
+  }
+}
+
 function validateReferences(
   data: AssetTrackerData,
   accounts: Map<AccountId, Account>,
 ): void {
+  assertUniqueAccountDates(data.snapshots, "snapshot");
+  assertUniqueAccountDates(data.capitalFlows, "capital flow");
   for (const account of data.accounts) {
     assertKnownAccount(
       accounts,
@@ -113,8 +131,8 @@ export function buildRepository(
 ): AssetTrackerRepository {
   const accounts = indexAccounts(data.accounts);
   validateReferences(data, accounts);
-  const snapshots = [...data.snapshots].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  const snapshots = [...data.snapshots].sort((a, b) =>
+    a.date.localeCompare(b.date),
   );
   const capitalFlows = [...data.capitalFlows].sort((a, b) =>
     a.date.localeCompare(b.date),

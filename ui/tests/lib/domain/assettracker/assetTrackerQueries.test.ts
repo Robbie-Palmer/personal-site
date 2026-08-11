@@ -95,4 +95,16 @@ describe("getAccountDetail", () => {
       { date: "2024-01-01", amount: 10000 },
     ]);
   });
+
+  it("rejects duplicate dated capital records before rendering date keys", () => {
+    const data = homeData();
+    data.capitalFlows = [
+      { accountId: "home", date: "2024-01-01", amount: 1000 },
+      { accountId: "home", date: "2024-01-01", amount: 2000 },
+    ];
+
+    expect(() => buildRepository(data)).toThrow(
+      'Duplicate capital flow for account "home" on 2024-01-01',
+    );
+  });
 });
