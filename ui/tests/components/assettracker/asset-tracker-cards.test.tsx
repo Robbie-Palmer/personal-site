@@ -93,6 +93,20 @@ describe("PortfolioGoal", () => {
     expect(setWithdrawalRate).toHaveBeenCalledWith(0.035);
   });
 
+  it("preserves a stored withdrawal rate without persisting on an unchanged blur", async () => {
+    const setWithdrawalRate = vi.fn().mockResolvedValue(undefined);
+    mockAssetTracker({ withdrawalRate: 0.0355, setWithdrawalRate });
+
+    render(<PortfolioGoal />);
+
+    const input = screen.getByLabelText("Withdrawal rate");
+    expect(input).toHaveValue(3.55);
+    await userEvent.click(input);
+    await userEvent.tab();
+
+    expect(setWithdrawalRate).not.toHaveBeenCalled();
+  });
+
   it("uses constrained mobile layout classes", () => {
     mockAssetTracker();
 

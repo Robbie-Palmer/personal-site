@@ -39,8 +39,10 @@ export function PortfolioGoal() {
     if (value === "") return;
     const percent = Number(value);
     if (!Number.isFinite(percent)) return;
+    const rate = percent / 100;
+    if (rate === withdrawalRate) return;
     try {
-      await setWithdrawalRate(percent / 100);
+      await setWithdrawalRate(rate);
       setError(null);
     } catch (err) {
       setError(formatAssetTrackerError(err));
@@ -92,7 +94,7 @@ export function PortfolioGoal() {
                   step="0.1"
                   className="h-7 w-16 text-right"
                   key={withdrawalRate}
-                  defaultValue={(withdrawalRate * 100).toFixed(1)}
+                  defaultValue={withdrawalRate * 100}
                   onBlur={(event) => handleWithdrawalRate(event.target.value)}
                 />
                 <span>%</span>

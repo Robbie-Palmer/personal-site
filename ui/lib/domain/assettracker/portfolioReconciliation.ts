@@ -99,6 +99,7 @@ export function reconcilePortfolio(
     if (opening == null || closing == null) continue;
 
     const startDate = previousIncome?.date ?? opening.date;
+    if (opening.date !== startDate || closing.date !== record.date) continue;
     const days = calendarDaysBetween(startDate, record.date);
     if (days <= 0 || closing.date <= opening.date) continue;
 

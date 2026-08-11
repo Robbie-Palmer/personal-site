@@ -101,6 +101,16 @@ describe("reconcilePortfolio", () => {
     );
   });
 
+  it("skips periods whose income boundaries do not match balance observations", () => {
+    const data = portfolioData();
+    data.snapshots = [
+      { accountId: "portfolio", date: "2024-01-31", balance: 100_000 },
+      { accountId: "portfolio", date: "2024-03-31", balance: 113_000 },
+    ];
+
+    expect(reconcilePortfolio(buildRepository(data))).toEqual([]);
+  });
+
   it("uses the median annualised expenditure as the representative amount", () => {
     const periods = reconcilePortfolio(buildRepository(portfolioData()));
     const expected = (5_000 * (365.2425 / 29) + 6_000 * (365.2425 / 31)) / 2;
