@@ -127,12 +127,12 @@ function CapitalPerformanceCard({
   account,
 }: Readonly<{ account: AccountDetailView }>) {
   if (account.netContributed == null || account.gainLoss == null) return null;
-  const gainClass =
-    account.gainLoss > 0
-      ? "text-emerald-600 dark:text-emerald-400"
-      : account.gainLoss < 0
-        ? "text-destructive"
-        : "";
+  let gainClass = "";
+  if (account.gainLoss > 0) {
+    gainClass = "text-emerald-600 dark:text-emerald-400";
+  } else if (account.gainLoss < 0) {
+    gainClass = "text-destructive";
+  }
   return (
     <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3">
       <div>

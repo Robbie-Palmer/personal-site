@@ -120,7 +120,7 @@ export function parsePastedHistory(input: string): PastedHistoryResult {
   }
 
   return {
-    rows: rows.sort((a, b) => a.date.localeCompare(b.date)),
+    rows: rows.toSorted((a, b) => a.date.localeCompare(b.date)),
     issues,
   };
 }

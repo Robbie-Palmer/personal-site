@@ -1,7 +1,7 @@
 "use client";
 
 import { ClipboardPasteIcon } from "lucide-react";
-import { type FormEvent, useMemo, useState } from "react";
+import { type SubmitEvent, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -112,7 +112,7 @@ export function AccountHistoryImportDrawer({
     balanceResult.issues.length > 0 || capitalResult.issues.length > 0;
   const rowCount = balanceResult.rows.length + capitalResult.rows.length;
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (hasIssues) {
       setError("Fix the highlighted rows before importing");
