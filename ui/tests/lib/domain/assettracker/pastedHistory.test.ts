@@ -66,9 +66,21 @@ describe("parsePastedHistory", () => {
 
     expect(result.rows).toEqual([{ date: "2024-01-31", value: 20 }]);
     expect(result.issues).toEqual([
-      { line: 1, message: "Use YYYY-MM-DD or DD/MM/YYYY for the date" },
-      { line: 2, message: "Value must be a valid number" },
-      { line: 4, message: "Duplicate date 2024-01-31" },
+      {
+        line: 1,
+        message: "Use YYYY-MM-DD or DD/MM/YYYY for the date",
+        source: "2024-02-30,10",
+      },
+      {
+        line: 2,
+        message: "Value must be a valid number",
+        source: "2024-01-31,nope",
+      },
+      {
+        line: 4,
+        message: "Duplicate date 2024-01-31",
+        source: "2024-01-31,30",
+      },
     ]);
   });
 });

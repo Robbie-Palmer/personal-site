@@ -25,19 +25,67 @@ const EMPTY_RESULT: PastedHistoryResult = { rows: [], issues: [] };
 function HistoryPreview({
   label,
   result,
-}: Readonly<{ label: string; result: PastedHistoryResult }>) {
+  source,
+  textareaId,
+}: Readonly<{
+  label: string;
+  result: PastedHistoryResult;
+  source: string;
+  textareaId: string;
+}>) {
+  function selectLine(line: number) {
+    const textarea = document.getElementById(textareaId);
+    if (!(textarea instanceof HTMLTextAreaElement)) return;
+
+    let start = 0;
+    for (let currentLine = 1; currentLine < line; currentLine++) {
+      const newline = source.indexOf("\n", start);
+      if (newline === -1) return;
+      start = newline + 1;
+    }
+    let end = source.indexOf("\n", start);
+    if (end === -1) end = source.length;
+    if (source[end - 1] === "\r") end--;
+
+    textarea.focus();
+    textarea.setSelectionRange(start, end);
+  }
+
   if (result.issues.length > 0) {
     return (
-      <ul className="space-y-1 text-xs text-destructive">
-        {result.issues.slice(0, 4).map((issue) => (
-          <li key={`${issue.line}-${issue.message}`}>
-            {label}, line {issue.line}: {issue.message}
-          </li>
-        ))}
-        {result.issues.length > 4 && (
-          <li>Plus {result.issues.length - 4} more errors</li>
+      <div className="space-y-2 text-xs">
+        <p className="text-destructive">
+          {result.issues.length} {label.toLowerCase()}{" "}
+          {result.issues.length === 1 ? "row needs" : "rows need"} attention.
+          Select one to jump to it.
+        </p>
+        <ul className="max-h-56 space-y-1 overflow-y-auto rounded-md border border-destructive/30 p-1">
+          {result.issues.map((issue) => (
+            <li key={`${issue.line}-${issue.message}`}>
+              <button
+                type="button"
+                className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => selectLine(issue.line)}
+              >
+                <span className="font-medium text-destructive">
+                  Line {issue.line}: {issue.message}
+                </span>
+                {issue.source != null && (
+                  <code className="mt-0.5 block whitespace-pre-wrap break-all text-muted-foreground">
+                    {issue.source}
+                  </code>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+        {result.rows.length > 0 && (
+          <p className="text-muted-foreground">
+            {result.rows.length} other{" "}
+            {result.rows.length === 1 ? "row is" : "rows are"} valid.
+          </p>
         )}
-      </ul>
+      </div>
     );
   }
   if (result.rows.length === 0) return null;
@@ -111,6 +159,8 @@ export function AccountHistoryImportDrawer({
   const hasIssues =
     balanceResult.issues.length > 0 || capitalResult.issues.length > 0;
   const rowCount = balanceResult.rows.length + capitalResult.rows.length;
+  const balanceTextareaId = `balance-history-${account.id}`;
+  const capitalTextareaId = `capital-history-${account.id}`;
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -163,25 +213,35 @@ export function AccountHistoryImportDrawer({
         >
           <div className="flex min-w-0 flex-col gap-2">
             <HistoryTextarea
-              id={`balance-history-${account.id}`}
+              id={balanceTextareaId}
               label="Balance / market value"
               description="The account value observed on each date."
               placeholder={"date,value\n2024-01-31,12500\n2024-02-29,13120"}
               value={balances}
               onChange={setBalances}
             />
-            <HistoryPreview label="Balance" result={balanceResult} />
+            <HistoryPreview
+              label="Balance"
+              result={balanceResult}
+              source={balances}
+              textareaId={balanceTextareaId}
+            />
           </div>
           <div className="flex min-w-0 flex-col gap-2">
             <HistoryTextarea
-              id={`capital-history-${account.id}`}
+              id={capitalTextareaId}
               label="Deposits / withdrawals"
               description="First row: total contributed at the starting point. Later rows: change since the previous observation, with deposits positive and withdrawals negative. When present, this history replaces transfer-derived flows in return calculations."
               placeholder={"date,value\n2024-01-31,500\n2024-02-29,-200"}
               value={capitalFlows}
               onChange={setCapitalFlows}
             />
-            <HistoryPreview label="Capital flow" result={capitalResult} />
+            <HistoryPreview
+              label="Capital flow"
+              result={capitalResult}
+              source={capitalFlows}
+              textareaId={capitalTextareaId}
+            />
           </div>
           <div className="flex flex-col gap-2 md:col-span-2">
             {error && <p className="text-sm text-destructive">{error}</p>}

@@ -9,6 +9,8 @@ export type PastedHistoryRow = {
 export type PastedHistoryIssue = {
   line: number;
   message: string;
+  /** Original pasted row, retained so the UI can show what failed. */
+  source?: string;
 };
 
 export type PastedHistoryResult = {
@@ -109,7 +111,11 @@ export function parsePastedHistory(input: string): PastedHistoryResult {
       continue;
     }
     if (fields.length < 2) {
-      issues.push({ line, message: "Expected two columns: date and value" });
+      issues.push({
+        line,
+        message: "Expected two columns: date and value",
+        source: rawLine,
+      });
       continue;
     }
 
@@ -118,16 +124,25 @@ export function parsePastedHistory(input: string): PastedHistoryResult {
       issues.push({
         line,
         message: "Use YYYY-MM-DD or DD/MM/YYYY for the date",
+        source: rawLine,
       });
       continue;
     }
     const value = parseAmount(fields.slice(1));
     if (value == null) {
-      issues.push({ line, message: "Value must be a valid number" });
+      issues.push({
+        line,
+        message: "Value must be a valid number",
+        source: rawLine,
+      });
       continue;
     }
     if (seenDates.has(date)) {
-      issues.push({ line, message: `Duplicate date ${date}` });
+      issues.push({
+        line,
+        message: `Duplicate date ${date}`,
+        source: rawLine,
+      });
       continue;
     }
     seenDates.add(date);

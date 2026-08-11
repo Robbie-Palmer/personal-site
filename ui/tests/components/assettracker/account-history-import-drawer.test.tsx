@@ -81,4 +81,38 @@ describe("AccountHistoryImportDrawer", () => {
     ).toBeDisabled();
     expect(importAccountHistory).not.toHaveBeenCalled();
   });
+
+  it("shows every invalid source row and selects it in the textarea", async () => {
+    const user = userEvent.setup();
+    render(<AccountHistoryImportDrawer account={account} />);
+
+    await user.click(screen.getByRole("button", { name: "Paste history" }));
+    const textarea = screen.getByLabelText(
+      "Balance / market value",
+    ) as HTMLTextAreaElement;
+    fireEvent.change(textarea, {
+      target: {
+        value:
+          "date\tvalue\n2024-01-31\t100\nwrong-date\t200\n2024-02-29\t300\nalso-wrong\t400",
+      },
+    });
+
+    expect(screen.getByText(/2 balance rows need attention/)).toBeVisible();
+    expect(
+      screen.getByText(/wrong-date\s+200/, { selector: "code" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/also-wrong\s+400/, { selector: "code" }),
+    ).toBeVisible();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Line 5: Use YYYY-MM-DD or DD\/MM\/YYYY/,
+      }),
+    );
+    expect(textarea).toHaveFocus();
+    expect(
+      textarea.value.slice(textarea.selectionStart, textarea.selectionEnd),
+    ).toBe("also-wrong\t400");
+  });
 });
