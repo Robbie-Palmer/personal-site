@@ -93,7 +93,7 @@ describe("AccountHistoryImportDrawer", () => {
     fireEvent.change(textarea, {
       target: {
         value:
-          "date\tvalue\n2024-01-31\t100\nwrong-date\t200\n2024-02-29\t300\nalso-wrong\t400",
+          "date\tvalue\n2024-01-01\t100\nwrong-date\t200\n2024-01-03\t300\n2024-01-04\t400\n2024-01-05\t500\n2024-01-06\t600\n2024-01-07\t700\n2024-01-08\t800\n2024-01-09\t900\n2024-01-10\t1000\nalso-wrong\t1100",
       },
     });
 
@@ -102,17 +102,23 @@ describe("AccountHistoryImportDrawer", () => {
       screen.getByText(/wrong-date\s+200/, { selector: "code" }),
     ).toBeVisible();
     expect(
-      screen.getByText(/also-wrong\s+400/, { selector: "code" }),
+      screen.getByText(/also-wrong\s+1100/, { selector: "code" }),
     ).toBeVisible();
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: /Line 5: Use YYYY-MM-DD or DD\/MM\/YYYY/,
+        name: /Line 12: Use YYYY-MM-DD or DD\/MM\/YYYY/,
       }),
     );
     expect(textarea).toHaveFocus();
     expect(
       textarea.value.slice(textarea.selectionStart, textarea.selectionEnd),
-    ).toBe("also-wrong\t400");
+    ).toBe("also-wrong\t1100");
+    expect(textarea.scrollTop).toBeGreaterThan(0);
+    const lineNumbers = document.getElementById(
+      "balance-history-stocks-isa-line-numbers",
+    );
+    expect(lineNumbers).toHaveTextContent("12");
+    expect(lineNumbers?.scrollTop).toBe(textarea.scrollTop);
   });
 });

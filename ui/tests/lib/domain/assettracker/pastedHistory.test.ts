@@ -28,6 +28,20 @@ describe("parsePastedHistory", () => {
     });
   });
 
+  it("accepts single-digit days and months and normalises them", () => {
+    const result = parsePastedHistory(
+      "2024-1-7\t100\n2024-02-8\t200\n9/3/2024\t300\n10/4/2024\t400",
+    );
+
+    expect(result.issues).toEqual([]);
+    expect(result.rows.map((row) => row.date)).toEqual([
+      "2024-01-07",
+      "2024-02-08",
+      "2024-03-09",
+      "2024-04-10",
+    ]);
+  });
+
   it("accepts quoted and unquoted thousands separators", () => {
     expect(parsePastedHistory('2024-01-31,"£1,234.56"').rows[0]?.value).toBe(
       1234.56,
@@ -68,7 +82,7 @@ describe("parsePastedHistory", () => {
     expect(result.issues).toEqual([
       {
         line: 1,
-        message: "Use YYYY-MM-DD or DD/MM/YYYY for the date",
+        message: "Use YYYY-MM-DD or DD/MM/YYYY (leading zeroes are optional)",
         source: "2024-02-30,10",
       },
       {

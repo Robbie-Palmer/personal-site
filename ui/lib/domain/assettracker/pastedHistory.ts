@@ -21,7 +21,6 @@ export type PastedHistoryResult = {
 const HEADER_DATE = /^(date|month)$/i;
 const HEADER_VALUE =
   /^(value|market value|current value|balance|amount|deposits?\/withdrawals?|deposit|withdrawal|flow)$/i;
-const DATE_FORMATS = ["yyyy-MM-dd", "dd/MM/yyyy", "dd-MM-yyyy", "yyyy/MM/dd"];
 const MAX_PASTED_HISTORY_CHARACTERS = 1_000_000;
 
 function csvFields(line: string): string[] {
@@ -52,13 +51,22 @@ function csvFields(line: string): string[] {
 
 function normaliseDate(raw: string): string | null {
   const value = raw.trim();
-  for (const dateFormat of DATE_FORMATS) {
-    const parsed = parse(value, dateFormat, new Date(2000, 0, 1));
-    if (isValid(parsed) && format(parsed, dateFormat) === value) {
-      return format(parsed, "yyyy-MM-dd");
-    }
-  }
-  return null;
+  const yearFirst = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/.exec(value);
+  const dayFirst = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/.exec(value);
+  const match = yearFirst ?? dayFirst;
+  if (match == null) return null;
+
+  const [, first, second, third] = match;
+  const year = yearFirst ? first : third;
+  const month = second;
+  const day = yearFirst ? third : first;
+  if (year == null || month == null || day == null) return null;
+
+  const canonical = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  const parsed = parse(canonical, "yyyy-MM-dd", new Date(2000, 0, 1));
+  return isValid(parsed) && format(parsed, "yyyy-MM-dd") === canonical
+    ? canonical
+    : null;
 }
 
 function parseAmount(rawFields: string[]): number | null {
@@ -123,7 +131,7 @@ export function parsePastedHistory(input: string): PastedHistoryResult {
     if (date == null) {
       issues.push({
         line,
-        message: "Use YYYY-MM-DD or DD/MM/YYYY for the date",
+        message: "Use YYYY-MM-DD or DD/MM/YYYY (leading zeroes are optional)",
         source: rawLine,
       });
       continue;

@@ -1,7 +1,7 @@
 "use client";
 
 import { ClipboardPasteIcon } from "lucide-react";
-import { type SubmitEvent, useMemo, useState } from "react";
+import { type SubmitEvent, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -47,8 +47,19 @@ function HistoryPreview({
     if (end === -1) end = source.length;
     if (source[end - 1] === "\r") end--;
 
-    textarea.focus();
+    textarea.focus({ preventScroll: true });
     textarea.setSelectionRange(start, end);
+    const parsedLineHeight = Number.parseFloat(
+      window.getComputedStyle(textarea).lineHeight,
+    );
+    const lineHeight = Number.isFinite(parsedLineHeight)
+      ? parsedLineHeight
+      : 20;
+    const scrollTop = Math.max(0, (line - 2) * lineHeight);
+    textarea.scrollTop = scrollTop;
+    textarea.scrollLeft = 0;
+    const lineNumbers = document.getElementById(`${textareaId}-line-numbers`);
+    if (lineNumbers) lineNumbers.scrollTop = scrollTop;
   }
 
   if (result.issues.length > 0) {
@@ -115,21 +126,44 @@ function HistoryTextarea({
   value: string;
   onChange(value: string): void;
 }>) {
+  const lineNumbersRef = useRef<HTMLDivElement>(null);
+  const lineCount = value.split(/\r?\n/).length;
+
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <label htmlFor={id} className="text-sm font-medium">
         {label}
       </label>
       <p className="text-xs text-muted-foreground">{description}</p>
-      <textarea
-        id={id}
-        rows={10}
-        spellCheck={false}
-        className="min-h-44 w-full resize-y rounded-md border bg-transparent px-3 py-2 font-mono text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-        placeholder={placeholder}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
+      <div className="flex min-h-44 w-full items-stretch overflow-hidden rounded-md border bg-transparent shadow-xs focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]">
+        <div
+          id={`${id}-line-numbers`}
+          ref={lineNumbersRef}
+          aria-hidden="true"
+          className="w-12 shrink-0 overflow-hidden border-r bg-muted/40 px-2 py-2 text-right font-mono text-sm leading-5 text-muted-foreground select-none"
+        >
+          <div className="whitespace-pre">
+            {Array.from({ length: lineCount }, (_, index) => index + 1).join(
+              "\n",
+            )}
+          </div>
+        </div>
+        <textarea
+          id={id}
+          rows={10}
+          wrap="off"
+          spellCheck={false}
+          className="min-h-44 min-w-0 flex-1 resize-y overflow-x-auto bg-transparent px-3 py-2 font-mono text-sm leading-5 outline-none"
+          placeholder={placeholder}
+          value={value}
+          onScroll={(event) => {
+            if (lineNumbersRef.current) {
+              lineNumbersRef.current.scrollTop = event.currentTarget.scrollTop;
+            }
+          }}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </div>
     </div>
   );
 }

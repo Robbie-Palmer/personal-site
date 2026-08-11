@@ -27,6 +27,9 @@ export function DataControls() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<"clear" | "reset" | null>(null);
+  const clearLabel = hasLocalChanges ? "Clear all data" : "Clear demo data";
+  const clearButtonLabel =
+    confirming === "clear" ? `${clearLabel}?` : clearLabel;
 
   async function handleInflationChange(value: string) {
     if (value === "") return;
@@ -129,13 +132,7 @@ export function DataControls() {
             onClick={handleClear}
           >
             <Trash2Icon />
-            {confirming === "clear"
-              ? hasLocalChanges
-                ? "Clear all data?"
-                : "Clear demo data?"
-              : hasLocalChanges
-                ? "Clear all data"
-                : "Clear demo data"}
+            {clearButtonLabel}
           </Button>
           {hasLocalChanges && (
             <Button
