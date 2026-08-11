@@ -135,7 +135,7 @@ function HistoryTextarea({
         {label}
       </label>
       <p className="text-xs text-muted-foreground">{description}</p>
-      <div className="flex min-h-44 w-full items-stretch overflow-hidden rounded-md border bg-transparent shadow-xs focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]">
+      <div className="flex h-52 w-full items-stretch overflow-hidden rounded-md border bg-transparent shadow-xs focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]">
         <div
           id={`${id}-line-numbers`}
           ref={lineNumbersRef}
@@ -153,7 +153,7 @@ function HistoryTextarea({
           rows={10}
           wrap="off"
           spellCheck={false}
-          className="min-h-44 min-w-0 flex-1 resize-y overflow-x-auto bg-transparent px-3 py-2 font-mono text-sm leading-5 outline-none"
+          className="h-full min-h-0 min-w-0 flex-1 resize-none overflow-auto bg-transparent px-3 py-2 font-mono text-sm leading-5 outline-none"
           placeholder={placeholder}
           value={value}
           onScroll={(event) => {
@@ -232,8 +232,8 @@ export function AccountHistoryImportDrawer({
           Paste history
         </Button>
       </DrawerTrigger>
-      <DrawerContent className="max-h-[92dvh] overflow-y-auto">
-        <DrawerHeader className="mx-auto w-full max-w-4xl">
+      <DrawerContent className="h-[92dvh] max-h-[92dvh] overflow-hidden">
+        <DrawerHeader className="mx-auto w-full max-w-4xl shrink-0">
           <DrawerTitle>Paste history for {account.name}</DrawerTitle>
           <DrawerDescription>
             Copy two columns from your spreadsheet. Headers are optional; comma-
@@ -242,42 +242,48 @@ export function AccountHistoryImportDrawer({
           </DrawerDescription>
         </DrawerHeader>
         <form
+          aria-label={`Import history for ${account.name}`}
           onSubmit={handleSubmit}
-          className="mx-auto grid w-full max-w-4xl gap-5 p-4 pb-8 md:grid-cols-2"
+          className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col overflow-hidden"
         >
-          <div className="flex min-w-0 flex-col gap-2">
-            <HistoryTextarea
-              id={balanceTextareaId}
-              label="Balance / market value"
-              description="The account value observed on each date."
-              placeholder={"date,value\n2024-01-31,12500\n2024-02-29,13120"}
-              value={balances}
-              onChange={setBalances}
-            />
-            <HistoryPreview
-              label="Balance"
-              result={balanceResult}
-              source={balances}
-              textareaId={balanceTextareaId}
-            />
+          <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto overscroll-contain p-4 md:grid-cols-2">
+            <div className="flex min-w-0 flex-col gap-2">
+              <HistoryTextarea
+                id={balanceTextareaId}
+                label="Balance / market value"
+                description="The account value observed on each date."
+                placeholder={"date,value\n2024-01-31,12500\n2024-02-29,13120"}
+                value={balances}
+                onChange={setBalances}
+              />
+              <HistoryPreview
+                label="Balance"
+                result={balanceResult}
+                source={balances}
+                textareaId={balanceTextareaId}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-2">
+              <HistoryTextarea
+                id={capitalTextareaId}
+                label="Deposits / withdrawals"
+                description="First row: total contributed at the starting point. Later rows: change since the previous observation, with deposits positive and withdrawals negative. When present, this history replaces transfer-derived flows in return calculations."
+                placeholder={"date,value\n2024-01-31,500\n2024-02-29,-200"}
+                value={capitalFlows}
+                onChange={setCapitalFlows}
+              />
+              <HistoryPreview
+                label="Capital flow"
+                result={capitalResult}
+                source={capitalFlows}
+                textareaId={capitalTextareaId}
+              />
+            </div>
           </div>
-          <div className="flex min-w-0 flex-col gap-2">
-            <HistoryTextarea
-              id={capitalTextareaId}
-              label="Deposits / withdrawals"
-              description="First row: total contributed at the starting point. Later rows: change since the previous observation, with deposits positive and withdrawals negative. When present, this history replaces transfer-derived flows in return calculations."
-              placeholder={"date,value\n2024-01-31,500\n2024-02-29,-200"}
-              value={capitalFlows}
-              onChange={setCapitalFlows}
-            />
-            <HistoryPreview
-              label="Capital flow"
-              result={capitalResult}
-              source={capitalFlows}
-              textareaId={capitalTextareaId}
-            />
-          </div>
-          <div className="flex flex-col gap-2 md:col-span-2">
+          <div
+            data-slot="history-import-actions"
+            className="flex shrink-0 flex-col gap-2 border-t bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+          >
             {error && <p className="text-sm text-destructive">{error}</p>}
             <p className="text-xs text-muted-foreground">
               Nothing is saved unless every pasted row is valid.

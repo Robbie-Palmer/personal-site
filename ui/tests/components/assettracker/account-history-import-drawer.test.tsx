@@ -133,4 +133,31 @@ describe("AccountHistoryImportDrawer", () => {
     expect(lineNumbers).toHaveTextContent("12");
     expect(lineNumbers?.scrollTop).toBe(textarea.scrollTop);
   });
+
+  it("keeps a large paste inside a bounded editor with visible actions", async () => {
+    const user = userEvent.setup();
+    render(<AccountHistoryImportDrawer account={account} />);
+
+    await user.click(screen.getByRole("button", { name: "Paste history" }));
+    const textarea = screen.getByLabelText("Balance / market value");
+    const rows = Array.from(
+      { length: 214 },
+      (_, index) => `${2000 + index}-1-1\t${index + 1}`,
+    ).join("\n");
+    fireEvent.change(textarea, { target: { value: rows } });
+
+    expect(screen.getByText(/214 balance rows ready/)).toBeVisible();
+    expect(textarea.parentElement).toHaveClass("h-52", "overflow-hidden");
+    expect(textarea).toHaveClass("h-full", "resize-none", "overflow-auto");
+    expect(document.querySelector('[data-slot="drawer-content"]')).toHaveClass(
+      "h-[92dvh]",
+      "overflow-hidden",
+    );
+    expect(
+      screen.getByRole("form", { name: "Import history for Stocks ISA" }),
+    ).toHaveClass("min-h-0", "flex-1", "overflow-hidden");
+    expect(
+      document.querySelector('[data-slot="history-import-actions"]'),
+    ).toContainElement(screen.getByRole("button", { name: "Import 214 rows" }));
+  });
 });
