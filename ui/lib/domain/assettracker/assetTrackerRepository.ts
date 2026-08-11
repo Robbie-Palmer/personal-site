@@ -33,6 +33,11 @@ export function getSeedData(): AssetTrackerData {
   });
 }
 
+/** A persisted blank slate, distinct from the demo seed. */
+export function getEmptyData(): AssetTrackerData {
+  return AssetTrackerDataSchema.parse({ accounts: [], snapshots: [] });
+}
+
 function indexAccounts(accounts: Account[]): Map<AccountId, Account> {
   const byId = new Map<AccountId, Account>();
   for (const account of accounts) {

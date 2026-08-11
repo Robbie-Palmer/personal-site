@@ -21,6 +21,7 @@ import {
   type DeleteCapitalFlowInput,
   type DeleteRecurringFlowInput,
   type DeleteSnapshotInput,
+  getEmptyData,
   getSeedData,
   type ImportAccountHistoryInput,
   type MaterializeFlowInput,
@@ -58,6 +59,7 @@ export interface AssetTrackerApi {
   setInflation(input: SetInflationInput): Promise<AssetTrackerData>;
   setNetWorthTarget(input: SetNetWorthTargetInput): Promise<AssetTrackerData>;
   importData(raw: unknown): Promise<AssetTrackerData>;
+  clear(): Promise<AssetTrackerData>;
   reset(): Promise<AssetTrackerData>;
 }
 
@@ -145,6 +147,9 @@ export function createLocalAssetTrackerApi(storage: Storage): AssetTrackerApi {
       const data = AssetTrackerDataSchema.parse(raw);
       buildRepository(data);
       return write(data);
+    },
+    async clear() {
+      return write(getEmptyData());
     },
     async reset() {
       storage.removeItem(ASSET_TRACKER_STORAGE_KEY);

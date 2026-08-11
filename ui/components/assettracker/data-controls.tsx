@@ -4,6 +4,7 @@ import {
   DownloadIcon,
   FileSpreadsheetIcon,
   RotateCcwIcon,
+  Trash2Icon,
   UploadIcon,
 } from "lucide-react";
 import { type ChangeEvent, useRef, useState } from "react";
@@ -20,11 +21,12 @@ export function DataControls() {
     exportData,
     exportCsv,
     importData,
+    clearData,
     resetData,
   } = useAssetTracker();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [confirmingReset, setConfirmingReset] = useState(false);
+  const [confirming, setConfirming] = useState<"clear" | "reset" | null>(null);
 
   async function handleInflationChange(value: string) {
     if (value === "") return;
@@ -51,13 +53,27 @@ export function DataControls() {
   }
 
   async function handleReset() {
-    if (!confirmingReset) {
-      setConfirmingReset(true);
+    if (confirming !== "reset") {
+      setConfirming("reset");
       return;
     }
     try {
       await resetData();
-      setConfirmingReset(false);
+      setConfirming(null);
+      setError(null);
+    } catch (err) {
+      setError(formatAssetTrackerError(err));
+    }
+  }
+
+  async function handleClear() {
+    if (confirming !== "clear") {
+      setConfirming("clear");
+      return;
+    }
+    try {
+      await clearData();
+      setConfirming(null);
       setError(null);
     } catch (err) {
       setError(formatAssetTrackerError(err));
@@ -107,14 +123,28 @@ export function DataControls() {
             <UploadIcon />
             Import
           </Button>
+          <Button
+            variant={confirming === "clear" ? "destructive" : "ghost"}
+            size="sm"
+            onClick={handleClear}
+          >
+            <Trash2Icon />
+            {confirming === "clear"
+              ? hasLocalChanges
+                ? "Clear all data?"
+                : "Clear demo data?"
+              : hasLocalChanges
+                ? "Clear all data"
+                : "Clear demo data"}
+          </Button>
           {hasLocalChanges && (
             <Button
-              variant={confirmingReset ? "destructive" : "ghost"}
+              variant={confirming === "reset" ? "destructive" : "ghost"}
               size="sm"
               onClick={handleReset}
             >
               <RotateCcwIcon />
-              {confirmingReset ? "Discard my data?" : "Reset demo"}
+              {confirming === "reset" ? "Discard my data?" : "Restore demo"}
             </Button>
           )}
           <input

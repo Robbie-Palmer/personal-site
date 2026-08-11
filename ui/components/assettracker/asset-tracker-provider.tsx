@@ -78,6 +78,7 @@ interface AssetTrackerContextValue {
     target: number | null,
     inTodaysMoney?: boolean,
   ): Promise<void>;
+  clearData(): Promise<void>;
   resetData(): Promise<void>;
   exportData(): void;
   exportCsv(): void;
@@ -190,6 +191,7 @@ export function AssetTrackerProvider({
       setInflation: (rate) => mutate((api) => api.setInflation({ rate })),
       setNetWorthTarget: (target, inTodaysMoney) =>
         mutate((api) => api.setNetWorthTarget({ target, inTodaysMoney })),
+      clearData: () => mutate((api) => api.clear()),
       resetData: async () => {
         const seed = await getApi().reset();
         setData(seed);

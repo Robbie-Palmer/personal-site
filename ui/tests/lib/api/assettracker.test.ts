@@ -151,4 +151,16 @@ describe("createLocalAssetTrackerApi", () => {
     const { persisted } = await createApi().load();
     expect(persisted).toBe(false);
   });
+
+  it("persists a blank slate instead of falling back to the demo seed", async () => {
+    const data = await createApi().clear();
+
+    expect(data.accounts).toEqual([]);
+    expect(data.snapshots).toEqual([]);
+    expect(data.capitalFlows).toEqual([]);
+
+    const loaded = await createApi().load();
+    expect(loaded.persisted).toBe(true);
+    expect(loaded.data).toEqual(data);
+  });
 });
