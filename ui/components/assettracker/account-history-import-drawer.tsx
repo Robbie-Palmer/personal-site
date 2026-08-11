@@ -14,9 +14,11 @@ import {
 } from "@/components/ui/drawer";
 import {
   type AccountDetailView,
+  type ContributionHistoryFormat,
   formatAssetTrackerError,
   type PastedHistoryResult,
   parsePastedHistory,
+  toCapitalFlowRows,
 } from "@/lib/domain/assettracker";
 import { useAssetTracker } from "./asset-tracker-provider";
 
@@ -175,6 +177,8 @@ export function AccountHistoryImportDrawer({
   const [open, setOpen] = useState(false);
   const [balances, setBalances] = useState("");
   const [capitalFlows, setCapitalFlows] = useState("");
+  const [contributionFormat, setContributionFormat] =
+    useState<ContributionHistoryFormat>("cumulative");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -192,7 +196,11 @@ export function AccountHistoryImportDrawer({
   );
   const hasIssues =
     balanceResult.issues.length > 0 || capitalResult.issues.length > 0;
-  const rowCount = balanceResult.rows.length + capitalResult.rows.length;
+  const capitalFlowRows = useMemo(
+    () => toCapitalFlowRows(capitalResult.rows, contributionFormat),
+    [capitalResult.rows, contributionFormat],
+  );
+  const rowCount = balanceResult.rows.length + capitalFlowRows.length;
   const balanceTextareaId = `balance-history-${account.id}`;
   const capitalTextareaId = `capital-history-${account.id}`;
 
@@ -212,7 +220,8 @@ export function AccountHistoryImportDrawer({
       await importAccountHistory({
         accountId: account.id,
         balances: balanceResult.rows,
-        capitalFlows: capitalResult.rows,
+        capitalFlows: capitalFlowRows,
+        replaceCapitalFlows: contributionFormat === "cumulative",
       });
       setBalances("");
       setCapitalFlows("");
@@ -264,20 +273,66 @@ export function AccountHistoryImportDrawer({
               />
             </div>
             <div className="flex min-w-0 flex-col gap-2">
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor={`contribution-format-${account.id}`}
+                  className="text-sm font-medium"
+                >
+                  Contribution history format
+                </label>
+                <select
+                  id={`contribution-format-${account.id}`}
+                  value={contributionFormat}
+                  onChange={(event) =>
+                    setContributionFormat(
+                      event.target.value as ContributionHistoryFormat,
+                    )
+                  }
+                  className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+                >
+                  <option value="cumulative">Total contributed to date</option>
+                  <option value="changes">Deposit / withdrawal per row</option>
+                </select>
+              </div>
               <HistoryTextarea
                 id={capitalTextareaId}
-                label="Deposits / withdrawals"
-                description="First row: total contributed at the starting point. Later rows: change since the previous observation, with deposits positive and withdrawals negative. When present, this history replaces transfer-derived flows in return calculations."
-                placeholder={"date,value\n2024-01-31,500\n2024-02-29,-200"}
+                label={
+                  contributionFormat === "cumulative"
+                    ? "Total contributed to date"
+                    : "Deposits / withdrawals"
+                }
+                description={
+                  contributionFormat === "cumulative"
+                    ? "Paste the complete series of cumulative amounts contributed by each date, net of withdrawals. Changes between rows become deposits or withdrawals automatically, replacing existing contribution history."
+                    : "The amount deposited (positive) or withdrawn (negative) on each row."
+                }
+                placeholder={
+                  contributionFormat === "cumulative"
+                    ? "date,value\n2024-01-31,10000\n2024-02-29,10500\n2024-03-31,10300"
+                    : "date,value\n2024-01-31,500\n2024-02-29,-200"
+                }
                 value={capitalFlows}
                 onChange={setCapitalFlows}
               />
               <HistoryPreview
-                label="Capital flow"
+                label={
+                  contributionFormat === "cumulative"
+                    ? "Contribution total"
+                    : "Capital flow"
+                }
                 result={capitalResult}
                 source={capitalFlows}
                 textareaId={capitalTextareaId}
               />
+              {contributionFormat === "cumulative" &&
+                capitalResult.issues.length === 0 &&
+                capitalResult.rows.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Creates {capitalFlowRows.length} deposit/withdrawal{" "}
+                    {capitalFlowRows.length === 1 ? "record" : "records"}.
+                    Unchanged totals create none.
+                  </p>
+                )}
             </div>
           </div>
           <div

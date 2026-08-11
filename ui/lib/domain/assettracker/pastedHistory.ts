@@ -18,6 +18,8 @@ export type PastedHistoryResult = {
   issues: PastedHistoryIssue[];
 };
 
+export type ContributionHistoryFormat = "cumulative" | "changes";
+
 const HEADER_DATE = /^(date|month)$/i;
 const HEADER_VALUE =
   /^(value|market value|current value|balance|amount|deposits?\/withdrawals?|deposit|withdrawal|flow)$/i;
@@ -161,4 +163,26 @@ export function parsePastedHistory(input: string): PastedHistoryResult {
     rows: rows.toSorted((a, b) => a.date.localeCompare(b.date)),
     issues,
   };
+}
+
+/**
+ * Converts cumulative net-contribution observations into the actual external
+ * money movements used by return and gain/loss calculations. Unchanged totals
+ * are observations, not transactions, so they intentionally produce no row.
+ */
+export function toCapitalFlowRows(
+  rows: readonly PastedHistoryRow[],
+  format: ContributionHistoryFormat,
+): PastedHistoryRow[] {
+  const sorted = rows.toSorted((a, b) => a.date.localeCompare(b.date));
+  if (format === "changes") return sorted;
+
+  const flows: PastedHistoryRow[] = [];
+  let previousTotal = 0;
+  for (const row of sorted) {
+    const change = row.value - previousTotal;
+    previousTotal = row.value;
+    if (change !== 0) flows.push({ date: row.date, value: change });
+  }
+  return flows;
 }

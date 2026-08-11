@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parsePastedHistory } from "@/lib/domain/assettracker/pastedHistory";
+import {
+  parsePastedHistory,
+  toCapitalFlowRows,
+} from "@/lib/domain/assettracker/pastedHistory";
 
 describe("parsePastedHistory", () => {
   it("accepts CSV with an optional header and sorts by date", () => {
@@ -96,5 +99,36 @@ describe("parsePastedHistory", () => {
         source: "2024-01-31,30",
       },
     ]);
+  });
+});
+
+describe("toCapitalFlowRows", () => {
+  it("derives deposits and withdrawals from cumulative contribution totals", () => {
+    expect(
+      toCapitalFlowRows(
+        [
+          { date: "2024-01-31", value: 10_000 },
+          { date: "2024-02-29", value: 10_500 },
+          { date: "2024-03-31", value: 10_300 },
+        ],
+        "cumulative",
+      ),
+    ).toEqual([
+      { date: "2024-01-31", value: 10_000 },
+      { date: "2024-02-29", value: 500 },
+      { date: "2024-03-31", value: -200 },
+    ]);
+  });
+
+  it("omits unchanged cumulative observations and preserves change rows", () => {
+    const rows = [
+      { date: "2024-01-31", value: 100 },
+      { date: "2024-02-29", value: 100 },
+    ];
+
+    expect(toCapitalFlowRows(rows, "cumulative")).toEqual([
+      { date: "2024-01-31", value: 100 },
+    ]);
+    expect(toCapitalFlowRows(rows, "changes")).toEqual(rows);
   });
 });

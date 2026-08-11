@@ -38,7 +38,7 @@ describe("AccountHistoryImportDrawer", () => {
     } as unknown as ReturnType<typeof useAssetTracker>);
   });
 
-  it("previews and imports pasted balances and capital flows together", async () => {
+  it("converts cumulative contribution totals while importing balances", async () => {
     const user = userEvent.setup();
     render(<AccountHistoryImportDrawer account={account} />);
 
@@ -46,13 +46,20 @@ describe("AccountHistoryImportDrawer", () => {
     fireEvent.change(screen.getByLabelText("Balance / market value"), {
       target: { value: "date,value\n2024-01-31,10000" },
     });
-    fireEvent.change(screen.getByLabelText("Deposits / withdrawals"), {
-      target: { value: "date,value\n2024-01-31,8000\n2024-02-29,500" },
+    fireEvent.change(screen.getByLabelText("Total contributed to date"), {
+      target: {
+        value: "date,value\n2024-01-31,8000\n2024-02-29,8500\n2024-03-31,8300",
+      },
     });
 
     expect(screen.getByText(/1 balance row ready/)).toBeInTheDocument();
-    expect(screen.getByText(/2 capital flow rows ready/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Import 3 rows" }));
+    expect(
+      screen.getByText(/3 contribution total rows ready/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Creates 3 deposit\/withdrawal records/),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Import 4 rows" }));
 
     await waitFor(() =>
       expect(importAccountHistory).toHaveBeenCalledWith({
@@ -61,7 +68,36 @@ describe("AccountHistoryImportDrawer", () => {
         capitalFlows: [
           { date: "2024-01-31", value: 8000 },
           { date: "2024-02-29", value: 500 },
+          { date: "2024-03-31", value: -200 },
         ],
+        replaceCapitalFlows: true,
+      }),
+    );
+  });
+
+  it("can import rows that are already deposits and withdrawals", async () => {
+    const user = userEvent.setup();
+    render(<AccountHistoryImportDrawer account={account} />);
+
+    await user.click(screen.getByRole("button", { name: "Paste history" }));
+    fireEvent.change(
+      screen.getByRole("combobox", { name: "Contribution history format" }),
+      { target: { value: "changes" } },
+    );
+    fireEvent.change(screen.getByLabelText("Deposits / withdrawals"), {
+      target: { value: "2024-01-31,500\n2024-02-29,-200" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import 2 rows" }));
+
+    await waitFor(() =>
+      expect(importAccountHistory).toHaveBeenCalledWith({
+        accountId: "stocks-isa",
+        balances: [],
+        capitalFlows: [
+          { date: "2024-01-31", value: 500 },
+          { date: "2024-02-29", value: -200 },
+        ],
+        replaceCapitalFlows: false,
       }),
     );
   });

@@ -334,6 +334,31 @@ describe("applyImportAccountHistory", () => {
     ]);
   });
 
+  it("can replace one account's complete capital-flow series", () => {
+    const imported = applyImportAccountHistory(baseData(), {
+      accountId: "stocks-isa",
+      balances: [],
+      capitalFlows: [{ date: "2024-01-01", value: 100 }],
+    });
+    const withOtherAccount = applyImportAccountHistory(imported, {
+      accountId: "savings",
+      balances: [],
+      capitalFlows: [{ date: "2024-01-01", value: 50 }],
+    });
+
+    const next = applyImportAccountHistory(withOtherAccount, {
+      accountId: "stocks-isa",
+      balances: [],
+      capitalFlows: [{ date: "2024-06-01", value: 250 }],
+      replaceCapitalFlows: true,
+    });
+
+    expect(next.capitalFlows).toEqual([
+      { accountId: "savings", date: "2024-01-01", amount: 50 },
+      { accountId: "stocks-isa", date: "2024-06-01", amount: 250 },
+    ]);
+  });
+
   it("deletes a capital-flow observation", () => {
     const imported = applyImportAccountHistory(baseData(), {
       accountId: "stocks-isa",

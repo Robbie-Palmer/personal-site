@@ -121,6 +121,8 @@ export const ImportAccountHistoryInputSchema = z
     accountId: AccountIdSchema,
     balances: z.array(HistoryValueSchema).default([]),
     capitalFlows: z.array(HistoryValueSchema).default([]),
+    /** Complete cumulative imports replace this account's existing flow series. */
+    replaceCapitalFlows: z.boolean().optional(),
   })
   .refine(
     (input) => input.balances.length > 0 || input.capitalFlows.length > 0,
@@ -367,8 +369,14 @@ export function applyImportAccountHistory(
     );
   }
 
+  const existingCapitalFlows = parsed.replaceCapitalFlows
+    ? data.capitalFlows.filter((flow) => flow.accountId !== parsed.accountId)
+    : data.capitalFlows;
   const capitalFlowsByAccountDate = new Map(
-    data.capitalFlows.map((flow) => [`${flow.accountId}\0${flow.date}`, flow]),
+    existingCapitalFlows.map((flow) => [
+      `${flow.accountId}\0${flow.date}`,
+      flow,
+    ]),
   );
   for (const row of parsed.capitalFlows) {
     const flow: CapitalFlow = {
