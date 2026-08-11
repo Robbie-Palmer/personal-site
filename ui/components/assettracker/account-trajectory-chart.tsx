@@ -26,7 +26,7 @@ import { useAssetTracker } from "./asset-tracker-provider";
 const ASSET_COPY = {
   title: "Actual vs expected growth",
   description:
-    "Expected compounds the first balance at the expected return and steps with recorded transfers, so the remaining gap is pure out/under-performance.",
+    "Expected compounds the first balance at the expected return and steps with recorded deposits and withdrawals, so the remaining gap is pure out/under-performance.",
   config: {
     actual: { label: "Actual", color: "hsl(220, 70%, 50%)" },
     expected: { label: "Expected", color: "hsl(220, 10%, 60%)" },
@@ -51,14 +51,21 @@ export function AccountTrajectoryChart({
   account,
 }: Readonly<AccountTrajectoryChartProps>) {
   const { transfers } = useAssetTracker();
-  const externalFlows = transfers
+  const transferFlows = transfers
     .filter(
-      (t) => t.fromAccountId === account.id || t.toAccountId === account.id,
+      (transfer) =>
+        transfer.fromAccountId === account.id ||
+        transfer.toAccountId === account.id,
     )
-    .map((t) => ({
-      date: t.date,
-      amount: t.toAccountId === account.id ? t.amount : -t.amount,
+    .map((transfer) => ({
+      date: transfer.date,
+      amount:
+        transfer.toAccountId === account.id
+          ? transfer.amount
+          : -transfer.amount,
     }));
+  const externalFlows =
+    account.capitalFlows.length > 0 ? account.capitalFlows : transferFlows;
   const trajectory = buildExpectedTrajectory(
     account,
     account.snapshots,

@@ -58,6 +58,30 @@ describe("createLocalAssetTrackerApi", () => {
     expect(data.accounts.map((a) => a.id)).toContain("premium-bonds");
   });
 
+  it("persists an atomic account-history import", async () => {
+    const seed = getSeedData();
+    const accountId = seed.accounts.find((account) => !account.closedAt)?.id;
+    if (!accountId) throw new Error("seed data has no open account");
+
+    await createApi().importAccountHistory({
+      accountId,
+      balances: [{ date: "2025-01-31", value: 15000 }],
+      capitalFlows: [{ date: "2025-01-31", value: 500 }],
+    });
+
+    const { data } = await createApi().load();
+    expect(data.snapshots).toContainEqual({
+      accountId,
+      date: "2025-01-31",
+      balance: 15000,
+    });
+    expect(data.capitalFlows).toContainEqual({
+      accountId,
+      date: "2025-01-31",
+      amount: 500,
+    });
+  });
+
   it("falls back to seed data when stored JSON is corrupt", async () => {
     window.localStorage.setItem(ASSET_TRACKER_STORAGE_KEY, "{not json");
 
@@ -74,6 +98,19 @@ describe("createLocalAssetTrackerApi", () => {
 
     const { persisted } = await createApi().load();
     expect(persisted).toBe(false);
+  });
+
+  it("loads older saved data with no capital-flow collection", async () => {
+    const { capitalFlows: _capitalFlows, ...legacy } = getSeedData();
+    window.localStorage.setItem(
+      ASSET_TRACKER_STORAGE_KEY,
+      JSON.stringify(legacy),
+    );
+
+    const { data, persisted } = await createApi().load();
+
+    expect(persisted).toBe(true);
+    expect(data.capitalFlows).toEqual([]);
   });
 
   it("rejects importing data that fails validation", async () => {

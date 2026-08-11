@@ -4,8 +4,10 @@ import {
   applyAddRecurringFlow,
   applyCloseAccount,
   applyCreateAccount,
+  applyDeleteCapitalFlow,
   applyDeleteRecurringFlow,
   applyDeleteSnapshot,
+  applyImportAccountHistory,
   applyMaterializeFlow,
   applyRecordBalance,
   applyRecordTransfer,
@@ -63,6 +65,7 @@ function baseData(): AssetTrackerData {
       { accountId: "credit-card", date: "2024-06-01", balance: -800 },
       { accountId: "old-pension", date: "2023-06-30", balance: 0 },
     ],
+    capitalFlows: [],
     transfers: [],
     recurringFlows: [],
     settings: { expectedAnnualInflation: 0.025 },
@@ -258,6 +261,69 @@ describe("applyRecordBalance", () => {
       date: "2024-12-01",
       balance: -1500,
     });
+  });
+});
+
+describe("applyImportAccountHistory", () => {
+  it("atomically upserts balances and signed deposits or withdrawals", () => {
+    const next = applyImportAccountHistory(baseData(), {
+      accountId: "stocks-isa",
+      balances: [
+        { date: "2024-06-01", value: 12500 },
+        { date: "2024-12-01", value: 14000 },
+      ],
+      capitalFlows: [
+        { date: "2024-06-01", value: 2500 },
+        { date: "2024-12-01", value: -500 },
+      ],
+    });
+
+    expect(next.snapshots.filter((s) => s.accountId === "stocks-isa")).toEqual(
+      expect.arrayContaining([
+        { accountId: "stocks-isa", date: "2024-06-01", balance: 12500 },
+        { accountId: "stocks-isa", date: "2024-12-01", balance: 14000 },
+      ]),
+    );
+    expect(next.capitalFlows).toEqual([
+      { accountId: "stocks-isa", date: "2024-06-01", amount: 2500 },
+      { accountId: "stocks-isa", date: "2024-12-01", amount: -500 },
+    ]);
+  });
+
+  it("rejects the whole import when one row is after account closure", () => {
+    const data = baseData();
+
+    expect(() =>
+      applyImportAccountHistory(data, {
+        accountId: "old-pension",
+        balances: [
+          { date: "2022-01-01", value: 10000 },
+          { date: "2024-01-01", value: 12000 },
+        ],
+        capitalFlows: [],
+      }),
+    ).toThrow(/closed/);
+    expect(data).toEqual(baseData());
+  });
+
+  it("deletes a capital-flow observation", () => {
+    const imported = applyImportAccountHistory(baseData(), {
+      accountId: "stocks-isa",
+      balances: [],
+      capitalFlows: [{ date: "2024-06-01", value: 500 }],
+    });
+
+    const next = applyDeleteCapitalFlow(imported, {
+      accountId: "stocks-isa",
+      date: "2024-06-01",
+    });
+    expect(next.capitalFlows).toEqual([]);
+    expect(() =>
+      applyDeleteCapitalFlow(next, {
+        accountId: "stocks-isa",
+        date: "2024-06-01",
+      }),
+    ).toThrow(/No deposit or withdrawal/);
   });
 });
 

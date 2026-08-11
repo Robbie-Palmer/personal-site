@@ -10,6 +10,7 @@ import {
 } from "./account";
 import type { AssetTrackerData } from "./assetTrackerData";
 import type { BalanceSnapshot } from "./balanceSnapshot";
+import type { CapitalFlow } from "./capitalFlow";
 import {
   FlowFrequencySchema,
   flowOccurrenceDates,
@@ -30,6 +31,7 @@ export type AssetTrackerCommandErrorCode =
   | "ACCOUNT_ALREADY_CLOSED"
   | "ACCOUNT_HAS_LATER_HISTORY"
   | "SNAPSHOT_NOT_FOUND"
+  | "CAPITAL_FLOW_NOT_FOUND"
   | "FLOW_NOT_FOUND"
   | "INVALID_ACCOUNT_NAME";
 
@@ -89,6 +91,33 @@ export const DeleteSnapshotInputSchema = z.object({
   date: IsoDateSchema,
 });
 export type DeleteSnapshotInput = z.infer<typeof DeleteSnapshotInputSchema>;
+
+export const DeleteCapitalFlowInputSchema = z.object({
+  accountId: AccountIdSchema,
+  date: IsoDateSchema,
+});
+export type DeleteCapitalFlowInput = z.infer<
+  typeof DeleteCapitalFlowInputSchema
+>;
+
+const HistoryValueSchema = z.object({
+  date: IsoDateSchema,
+  value: z.number(),
+});
+
+export const ImportAccountHistoryInputSchema = z
+  .object({
+    accountId: AccountIdSchema,
+    balances: z.array(HistoryValueSchema).default([]),
+    capitalFlows: z.array(HistoryValueSchema).default([]),
+  })
+  .refine(
+    (input) => input.balances.length > 0 || input.capitalFlows.length > 0,
+    { message: "Paste at least one balance or deposit/withdrawal" },
+  );
+export type ImportAccountHistoryInput = z.infer<
+  typeof ImportAccountHistoryInputSchema
+>;
 
 export const RecordTransferInputSchema = z
   .object({
@@ -237,6 +266,20 @@ function upsertSnapshot(
   return [...others, snapshot];
 }
 
+function upsertCapitalFlow(
+  capitalFlows: CapitalFlow[],
+  capitalFlow: CapitalFlow,
+): CapitalFlow[] {
+  const others = capitalFlows.filter(
+    (flow) =>
+      !(
+        flow.accountId === capitalFlow.accountId &&
+        flow.date === capitalFlow.date
+      ),
+  );
+  return [...others, capitalFlow];
+}
+
 /** The recorded balance in force on a date: latest snapshot on or before it */
 export function balanceAsOf(
   snapshots: BalanceSnapshot[],
@@ -292,6 +335,37 @@ export function applyRecordBalance(
   const parsed = RecordBalanceInputSchema.parse(input);
   requireOpenOn(data, parsed.accountId, parsed.date);
   return { ...data, snapshots: upsertSnapshot(data.snapshots, parsed) };
+}
+
+/** Atomically upserts pasted balance and signed capital-flow history. */
+export function applyImportAccountHistory(
+  data: AssetTrackerData,
+  input: ImportAccountHistoryInput,
+): AssetTrackerData {
+  const parsed = ImportAccountHistoryInputSchema.parse(input);
+  // Validate every date before constructing the next state. A closed-account
+  // error on one row must not leave the earlier rows partially imported.
+  for (const row of [...parsed.balances, ...parsed.capitalFlows]) {
+    requireOpenOn(data, parsed.accountId, row.date);
+  }
+
+  let snapshots = data.snapshots;
+  for (const row of parsed.balances) {
+    snapshots = upsertSnapshot(snapshots, {
+      accountId: parsed.accountId,
+      date: row.date,
+      balance: row.value,
+    });
+  }
+  let capitalFlows = data.capitalFlows;
+  for (const row of parsed.capitalFlows) {
+    capitalFlows = upsertCapitalFlow(capitalFlows, {
+      accountId: parsed.accountId,
+      date: row.date,
+      amount: row.value,
+    });
+  }
+  return { ...data, snapshots, capitalFlows };
 }
 
 export function applyRecordTransfer(
@@ -451,6 +525,25 @@ export function applyDeleteSnapshot(
     );
   }
   return { ...data, snapshots };
+}
+
+export function applyDeleteCapitalFlow(
+  data: AssetTrackerData,
+  input: DeleteCapitalFlowInput,
+): AssetTrackerData {
+  const parsed = DeleteCapitalFlowInputSchema.parse(input);
+  requireAccount(data, parsed.accountId);
+  const capitalFlows = data.capitalFlows.filter(
+    (flow) =>
+      !(flow.accountId === parsed.accountId && flow.date === parsed.date),
+  );
+  if (capitalFlows.length === data.capitalFlows.length) {
+    throw new AssetTrackerCommandError(
+      "CAPITAL_FLOW_NOT_FOUND",
+      `No deposit or withdrawal recorded for ${parsed.accountId} on ${parsed.date}`,
+    );
+  }
+  return { ...data, capitalFlows };
 }
 
 export function applyAddRecurringFlow(

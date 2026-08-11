@@ -19,7 +19,12 @@ export function getAllAccountSummaries(
   repository: AssetTrackerRepository,
 ): AccountSummaryView[] {
   return Array.from(repository.accounts.values()).map((account) =>
-    toAccountSummaryView(account, repository.snapshots, repository.transfers),
+    toAccountSummaryView(
+      account,
+      repository.snapshots,
+      repository.transfers,
+      repository.capitalFlows,
+    ),
   );
 }
 
@@ -33,6 +38,7 @@ export function getAccountDetail(
     account,
     repository.snapshots,
     repository.transfers,
+    repository.capitalFlows,
   );
 }
 
@@ -40,7 +46,12 @@ export function getAllAccountDetails(
   repository: AssetTrackerRepository,
 ): AccountDetailView[] {
   return Array.from(repository.accounts.values()).map((account) =>
-    toAccountDetailView(account, repository.snapshots, repository.transfers),
+    toAccountDetailView(
+      account,
+      repository.snapshots,
+      repository.transfers,
+      repository.capitalFlows,
+    ),
   );
 }
 
@@ -51,7 +62,12 @@ export function getAccountsByAssetType(
   return Array.from(repository.accounts.values())
     .filter((account) => account.assetType === assetType)
     .map((account) =>
-      toAccountSummaryView(account, repository.snapshots, repository.transfers),
+      toAccountSummaryView(
+        account,
+        repository.snapshots,
+        repository.transfers,
+        repository.capitalFlows,
+      ),
     );
 }
 

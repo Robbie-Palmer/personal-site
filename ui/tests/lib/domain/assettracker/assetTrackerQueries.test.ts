@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AssetTrackerData } from "@/lib/domain/assettracker/assetTrackerData";
 import {
+  getAccountDetail,
   getNetWorthTimeSeries,
   getTotalByAssetType,
 } from "@/lib/domain/assettracker/assetTrackerQueries";
@@ -43,6 +44,7 @@ function homeData(): AssetTrackerData {
       { accountId: "mortgage", date: "2024-01-01", balance: -210000 },
       { accountId: "card", date: "2024-01-01", balance: -2000 },
     ],
+    capitalFlows: [],
     transfers: [],
     recurringFlows: [],
     settings: { expectedAnnualInflation: 0.025 },
@@ -73,5 +75,24 @@ describe("getNetWorthTimeSeries", () => {
     expect(point?.Home).toBe(90000);
     expect(point?.Mortgage).toBeUndefined();
     expect(point?.total).toBe(88000); // 90,000 equity − 2,000 card
+  });
+});
+
+describe("getAccountDetail", () => {
+  it("derives net contributed capital and current gain or loss", () => {
+    const data = homeData();
+    data.capitalFlows = [
+      { accountId: "home", date: "2023-01-01", amount: 80000 },
+      { accountId: "home", date: "2024-01-01", amount: 10000 },
+    ];
+
+    const account = getAccountDetail(buildRepository(data), "home");
+
+    expect(account?.netContributed).toBe(90000);
+    expect(account?.gainLoss).toBe(210000);
+    expect(account?.capitalFlows).toEqual([
+      { date: "2023-01-01", amount: 80000 },
+      { date: "2024-01-01", amount: 10000 },
+    ]);
   });
 });

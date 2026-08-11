@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { AccountContentSchema } from "./account";
 import { BalanceSnapshotSchema } from "./balanceSnapshot";
+import { CapitalFlowSchema } from "./capitalFlow";
 import { RecurringFlowSchema } from "./recurringFlow";
 import { TransferSchema } from "./transfer";
 
@@ -9,8 +10,8 @@ import { TransferSchema } from "./transfer";
  * persistence: today it round-trips through browser storage and JSON
  * export/import; a future backend persists the same shape in D1.
  *
- * transfers and recurringFlows default to empty so data saved by earlier
- * versions still parses.
+ * New collections default to empty so data saved by earlier versions still
+ * parses as the model evolves.
  */
 export const DEFAULT_EXPECTED_INFLATION = 0.025;
 
@@ -27,6 +28,7 @@ export type AssetTrackerSettings = z.infer<typeof AssetTrackerSettingsSchema>;
 export const AssetTrackerDataSchema = z.object({
   accounts: z.array(AccountContentSchema),
   snapshots: z.array(BalanceSnapshotSchema),
+  capitalFlows: z.array(CapitalFlowSchema).default([]),
   transfers: z.array(TransferSchema).default([]),
   recurringFlows: z.array(RecurringFlowSchema).default([]),
   settings: AssetTrackerSettingsSchema.default({

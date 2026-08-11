@@ -23,6 +23,7 @@ import {
   type AssetType,
   buildRepository,
   type CreateAccountInput,
+  type DeleteCapitalFlowInput,
   type DeleteSnapshotInput,
   getAllAccountDetails,
   getAllAccountSummaries,
@@ -30,6 +31,7 @@ import {
   getPortfolioAnnualReturn,
   getSeedData,
   getTotalByAssetType,
+  type ImportAccountHistoryInput,
   type NetWorthDataPoint,
   type RecordBalanceInput,
   type RecordTransferInput,
@@ -65,6 +67,8 @@ interface AssetTrackerContextValue {
     transferToAccountId?: AccountId,
   ): Promise<void>;
   deleteSnapshot(input: DeleteSnapshotInput): Promise<void>;
+  deleteCapitalFlow(input: DeleteCapitalFlowInput): Promise<void>;
+  importAccountHistory(input: ImportAccountHistoryInput): Promise<void>;
   addRecurringFlow(input: AddRecurringFlowInput): Promise<void>;
   deleteRecurringFlow(id: string): Promise<void>;
   materializeFlow(flowId: string): Promise<void>;
@@ -170,6 +174,10 @@ export function AssetTrackerProvider({
           }),
         ),
       deleteSnapshot: (input) => mutate((api) => api.deleteSnapshot(input)),
+      deleteCapitalFlow: (input) =>
+        mutate((api) => api.deleteCapitalFlow(input)),
+      importAccountHistory: (input) =>
+        mutate((api) => api.importAccountHistory(input)),
       addRecurringFlow: (input) => mutate((api) => api.addRecurringFlow(input)),
       deleteRecurringFlow: (id) =>
         mutate((api) => api.deleteRecurringFlow({ id })),

@@ -5,8 +5,10 @@ import {
   applyAddRecurringFlow,
   applyCloseAccount,
   applyCreateAccount,
+  applyDeleteCapitalFlow,
   applyDeleteRecurringFlow,
   applyDeleteSnapshot,
+  applyImportAccountHistory,
   applyMaterializeFlow,
   applyRecordBalance,
   applyRecordTransfer,
@@ -16,9 +18,11 @@ import {
   buildRepository,
   type CloseAccountInput,
   type CreateAccountInput,
+  type DeleteCapitalFlowInput,
   type DeleteRecurringFlowInput,
   type DeleteSnapshotInput,
   getSeedData,
+  type ImportAccountHistoryInput,
   type MaterializeFlowInput,
   type RecordBalanceInput,
   type RecordTransferInput,
@@ -41,6 +45,10 @@ export interface AssetTrackerApi {
   recordTransfer(input: RecordTransferInput): Promise<AssetTrackerData>;
   closeAccount(input: CloseAccountInput): Promise<AssetTrackerData>;
   deleteSnapshot(input: DeleteSnapshotInput): Promise<AssetTrackerData>;
+  deleteCapitalFlow(input: DeleteCapitalFlowInput): Promise<AssetTrackerData>;
+  importAccountHistory(
+    input: ImportAccountHistoryInput,
+  ): Promise<AssetTrackerData>;
   addRecurringFlow(input: AddRecurringFlowInput): Promise<AssetTrackerData>;
   deleteRecurringFlow(
     input: DeleteRecurringFlowInput,
@@ -108,6 +116,12 @@ export function createLocalAssetTrackerApi(storage: Storage): AssetTrackerApi {
     },
     async deleteSnapshot(input) {
       return write(applyDeleteSnapshot(current(), input));
+    },
+    async deleteCapitalFlow(input) {
+      return write(applyDeleteCapitalFlow(current(), input));
+    },
+    async importAccountHistory(input) {
+      return write(applyImportAccountHistory(current(), input));
     },
     async addRecurringFlow(input) {
       return write(applyAddRecurringFlow(current(), input));
