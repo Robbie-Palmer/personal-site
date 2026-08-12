@@ -60,6 +60,9 @@ describe("IncomeHistoryImportDrawer", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "Add income history" }),
     );
+    expect(
+      screen.queryByText(/replace all existing income history/i),
+    ).not.toBeInTheDocument();
     await userEvent.type(
       screen.getByLabelText("Period end and income"),
       "date,income\n2025-02-28,4200\n2025-01-31,4100",
@@ -76,7 +79,7 @@ describe("IncomeHistoryImportDrawer", () => {
     });
   });
 
-  it("can clear an existing income series", async () => {
+  it("warns before replacing and can clear existing income history", async () => {
     mockUseAssetTracker.mockReturnValue({
       incomeHistory: [{ date: "2025-01-31", amount: 4100 }],
       importIncomeHistory,
@@ -87,6 +90,9 @@ describe("IncomeHistoryImportDrawer", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "Replace income history" }),
     );
+    expect(
+      screen.getByText(/importing will replace all existing income history/i),
+    ).toBeInTheDocument();
     await userEvent.click(
       screen.getByRole("button", { name: "Clear income history" }),
     );

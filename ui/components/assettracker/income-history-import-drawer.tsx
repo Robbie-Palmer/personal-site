@@ -87,8 +87,9 @@ export function IncomeHistoryImportDrawer() {
           <DrawerTitle>Portfolio income history</DrawerTitle>
           <DrawerDescription>
             Paste income received in each period. Use the period-end date and
-            the total income across the household. This replaces the current
-            income series.
+            the total income across the household.
+            {incomeHistory.length > 0 &&
+              " Importing will replace all existing income history."}
           </DrawerDescription>
         </DrawerHeader>
         <form
