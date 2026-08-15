@@ -139,12 +139,11 @@ for attempt in 1 2 3; do
     --data-urlencode "project=$doppler_project" \
     --data-urlencode "config=$doppler_config" \
     --data-urlencode "format=json" \
-    --data-urlencode "secrets=CF_ACCESS_CLIENT_ID,CF_ACCESS_CLIENT_SECRET"); then
-    if [[ "$(jq -r '.CF_ACCESS_CLIENT_ID' <<<"$stored_credentials")" == "$client_id" ]] && \
-      [[ "$(jq -r '.CF_ACCESS_CLIENT_SECRET' <<<"$stored_credentials")" == "$client_secret" ]]; then
-      credentials_verified=true
-      break
-    fi
+    --data-urlencode "secrets=CF_ACCESS_CLIENT_ID,CF_ACCESS_CLIENT_SECRET") && \
+    [[ "$(jq -r '.CF_ACCESS_CLIENT_ID' <<<"$stored_credentials")" == "$client_id" ]] && \
+    [[ "$(jq -r '.CF_ACCESS_CLIENT_SECRET' <<<"$stored_credentials")" == "$client_secret" ]]; then
+    credentials_verified=true
+    break
   fi
 
   if [[ "$attempt" -lt 3 ]]; then
