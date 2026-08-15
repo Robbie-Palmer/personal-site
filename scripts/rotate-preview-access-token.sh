@@ -37,7 +37,7 @@ service_tokens=$(curl \
   --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN")
 
 match_count=$(jq --arg name "$service_token_name" '[.result[] | select(.name == $name)] | length' <<<"$service_tokens")
-if [ "$match_count" -ne 1 ]; then
+if [[ "$match_count" -ne 1 ]]; then
   echo "Expected exactly one Cloudflare Access service token named '$service_token_name'; found $match_count." >&2
   exit 1
 fi
@@ -98,8 +98,8 @@ stored_credentials=$(curl \
   --data-urlencode "format=json" \
   --data-urlencode "secrets=CF_ACCESS_CLIENT_ID,CF_ACCESS_CLIENT_SECRET")
 
-if [ "$(jq -r '.CF_ACCESS_CLIENT_ID' <<<"$stored_credentials")" != "$client_id" ] || \
-  [ "$(jq -r '.CF_ACCESS_CLIENT_SECRET' <<<"$stored_credentials")" != "$client_secret" ]; then
+if [[ "$(jq -r '.CF_ACCESS_CLIENT_ID' <<<"$stored_credentials")" != "$client_id" ]] || \
+  [[ "$(jq -r '.CF_ACCESS_CLIENT_SECRET' <<<"$stored_credentials")" != "$client_secret" ]]; then
   echo "Doppler did not return the newly rotated Access credentials." >&2
   echo "The previous secret remains valid until $previous_secret_expires_at." >&2
   exit 1
