@@ -96,7 +96,10 @@ describe("HouseholdRealtimeRoom", () => {
     const response = await room.fetch(
       new Request("https://room.test/publish", {
         method: "POST",
-        body: JSON.stringify(event),
+        body: JSON.stringify({
+          event,
+          authorizedUserIds: ["user-1"],
+        }),
       }),
     );
 
@@ -193,12 +196,15 @@ describe("HouseholdRealtimeRoom", () => {
       new Request("https://room.test/publish", {
         method: "POST",
         body: JSON.stringify({
-          type: "resource.changed",
-          resourceType: "pantry",
-          resourceId: "household-1",
-          revision: "43",
-          operationId: crypto.randomUUID(),
-          changeKind: "pantry.item-removed",
+          event: {
+            type: "resource.changed",
+            resourceType: "pantry",
+            resourceId: "household-1",
+            revision: "43",
+            operationId: crypto.randomUUID(),
+            changeKind: "pantry.item-removed",
+          },
+          authorizedUserIds: ["user-1"],
         }),
       }),
     );
@@ -209,11 +215,43 @@ describe("HouseholdRealtimeRoom", () => {
     });
     expect(expired.close).toHaveBeenCalledWith(
       REALTIME_AUTHORIZATION_CLOSE_CODE,
-      "Authorization expired",
+      "Authorization expired or revoked",
     );
     expect(sendFailure.close).toHaveBeenCalledWith(
       1_011,
       "Realtime delivery failed",
+    );
+  });
+
+  it("revokes removed household members before publishing", async () => {
+    const active = socket(attachment({ userId: "user-1" }));
+    const removed = socket(attachment({ userId: "user-2" }));
+    const { room } = roomWith([active, removed]);
+    const event = {
+      type: "resource.changed",
+      resourceType: "pantry",
+      resourceId: "household-1",
+      revision: "44",
+      operationId: crypto.randomUUID(),
+      changeKind: "pantry.item-set",
+    };
+
+    const response = await room.fetch(
+      new Request("https://room.test/publish", {
+        method: "POST",
+        body: JSON.stringify({ event, authorizedUserIds: ["user-1"] }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      delivered: 1,
+      disconnected: 1,
+    });
+    expect(active.send).toHaveBeenCalledWith(JSON.stringify(event));
+    expect(removed.send).not.toHaveBeenCalled();
+    expect(removed.close).toHaveBeenCalledWith(
+      REALTIME_AUTHORIZATION_CLOSE_CODE,
+      "Authorization expired or revoked",
     );
   });
 

@@ -41,7 +41,7 @@ depends = ["//ui:build"]
 
 [tasks."test:e2e:preview"]
 description = "Run Playwright realtime QA against an authenticated PR preview"
-depends = ["//ui:install"]
+depends = ["//ui:test:e2e:install"]
 run = "pnpm test:e2e:preview"
 
 [tasks."test:e2e:install"]

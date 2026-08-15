@@ -1479,6 +1479,7 @@ async function executePantryOperation(
 }
 
 const PANTRY_PUBLICATION_ATTEMPTS = 2;
+const PANTRY_PUBLICATION_TIMEOUT_MS = 2_000;
 
 function pantryPublicationRetryDelayMs(): number {
   const [sample = 0] = crypto.getRandomValues(new Uint8Array(1));
@@ -1490,6 +1491,7 @@ function pantryPublicationRetryDelayMs(): number {
 
 async function publishPantryChange(
   env: Bindings,
+  db: Db,
   pantry: PantryResponse,
   changeKind: PantryChangeKind,
 ): Promise<void> {
@@ -1509,27 +1511,43 @@ async function publishPantryChange(
     operationId: pantry.operationId,
     changeKind,
   };
-  const room = env.HOUSEHOLD_REALTIME.get(
-    env.HOUSEHOLD_REALTIME.idFromName(pantry.resourceId),
-  );
   let lastError: unknown;
-  for (let attempt = 1; attempt <= PANTRY_PUBLICATION_ATTEMPTS; attempt += 1) {
-    try {
-      const response = await room.fetch("https://household-realtime/publish", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(event),
-      });
-      if (response.ok) return;
-      lastError = new Error(`Realtime room returned ${response.status}`);
-    } catch (error) {
-      lastError = error;
+  try {
+    const authorizedUserIds = await findHouseholdMemberUserIds(
+      db,
+      pantry.scope.household.id,
+    );
+    const room = env.HOUSEHOLD_REALTIME.get(
+      env.HOUSEHOLD_REALTIME.idFromName(pantry.resourceId),
+    );
+    for (
+      let attempt = 1;
+      attempt <= PANTRY_PUBLICATION_ATTEMPTS;
+      attempt += 1
+    ) {
+      try {
+        const response = await room.fetch(
+          "https://household-realtime/publish",
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ event, authorizedUserIds }),
+            signal: AbortSignal.timeout(PANTRY_PUBLICATION_TIMEOUT_MS),
+          },
+        );
+        if (response.ok) return;
+        lastError = new Error(`Realtime room returned ${response.status}`);
+      } catch (error) {
+        lastError = error;
+      }
+      if (attempt < PANTRY_PUBLICATION_ATTEMPTS) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, pantryPublicationRetryDelayMs()),
+        );
+      }
     }
-    if (attempt < PANTRY_PUBLICATION_ATTEMPTS) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, pantryPublicationRetryDelayMs()),
-      );
-    }
+  } catch (error) {
+    lastError = error;
   }
 
   console.error(
@@ -1563,7 +1581,7 @@ async function executeCollaborativePantryOperation(
   );
   // The transaction above has committed before fan-out. A failed publication
   // is logged but cannot turn a successful pantry command into an API failure.
-  await publishPantryChange(env, pantry, changeKind);
+  await publishPantryChange(env, db, pantry, changeKind);
   return pantry;
 }
 
@@ -2837,7 +2855,21 @@ registerRoute("get", "/pantry/realtime", async (c) => {
   }
   const requestOrigin = c.req.header("origin");
   const allowedOrigin = new URL(c.env.BETTER_AUTH_URL).origin;
-  if (requestOrigin !== allowedOrigin) {
+  let parsedRequestOrigin: URL | undefined;
+  try {
+    parsedRequestOrigin = requestOrigin ? new URL(requestOrigin) : undefined;
+  } catch {
+    // Invalid Origin headers are rejected below.
+  }
+  if (
+    !parsedRequestOrigin ||
+    parsedRequestOrigin.username ||
+    parsedRequestOrigin.password ||
+    parsedRequestOrigin.pathname !== "/" ||
+    parsedRequestOrigin.search ||
+    parsedRequestOrigin.hash ||
+    parsedRequestOrigin.origin !== allowedOrigin
+  ) {
     return c.json({ error: "Realtime origin is not allowed" }, 403);
   }
   const realtimeRooms = c.env.HOUSEHOLD_REALTIME;

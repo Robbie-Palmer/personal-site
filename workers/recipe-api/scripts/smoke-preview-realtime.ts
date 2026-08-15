@@ -218,11 +218,20 @@ let garlicWasRemoved = false;
 
 try {
   await mutatePantry(ownerCookie, "PUT", crypto.randomUUID());
-  const [owner, member] = await Promise.all([
+  const connections = await Promise.allSettled([
     connectPantry(ownerCookie),
     connectPantry(memberCookie),
   ]);
-  sockets.push(owner.socket, member.socket);
+  for (const connection of connections) {
+    if (connection.status === "fulfilled") {
+      sockets.push(connection.value.socket);
+    }
+  }
+  const [ownerResult, memberResult] = connections;
+  if (ownerResult?.status !== "fulfilled") throw ownerResult?.reason;
+  if (memberResult?.status !== "fulfilled") throw memberResult?.reason;
+  const owner = ownerResult.value;
+  const member = memberResult.value;
   if (owner.resourceId !== member.resourceId) {
     throw new Error(
       "Household owner and member joined different realtime rooms",

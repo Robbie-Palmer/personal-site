@@ -16,13 +16,7 @@ during cleanup. Do not point them at production.
 
 ## Run
 
-Install the Chromium browser once:
-
-```sh
-mise //ui:test:e2e:install
-```
-
-Then run the suite with the canonical preview URL and inject the preview-only
+Run the suite with the canonical preview URL and inject the preview-only
 Cloudflare Access service-token credentials from Doppler:
 
 ```sh
@@ -30,6 +24,8 @@ PREVIEW_SITE_URL=https://pr-123.example.pages.dev \
 doppler run --project personal-site --config dev_agent -- \
   mise //ui:test:e2e:preview
 ```
+
+The mise task installs the required Chromium build when needed.
 
 Agent launchers that already inject `dev_agent` can run the mise task directly
 with only `PREVIEW_SITE_URL` set.

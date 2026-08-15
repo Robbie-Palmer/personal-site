@@ -76,9 +76,20 @@ export function PantryRealtimeBoundary() {
     let reconnectAttempt = 0;
     let disposed = false;
     let recovery: Promise<void> | undefined;
+    let recoveryRetryTimer: ReturnType<typeof setTimeout> | undefined;
+    let resolveRecoveryRetry: (() => void) | undefined;
     let requestedRevision: bigint | undefined;
 
     const cachedPantry = () => queryClient.getQueryData<Pantry>(queryKey);
+    const waitForRecoveryRetry = () =>
+      new Promise<void>((resolve) => {
+        resolveRecoveryRetry = resolve;
+        recoveryRetryTimer = setTimeout(() => {
+          recoveryRetryTimer = undefined;
+          resolveRecoveryRetry = undefined;
+          resolve();
+        }, 1_000);
+      });
     const recover = (minimumRevision?: bigint) => {
       if (
         minimumRevision !== undefined &&
@@ -89,27 +100,36 @@ export function PantryRealtimeBoundary() {
       if (recovery) return;
 
       recovery = (async () => {
-        // One fetch plus at most one follow-up covers an event that arrives
-        // while the first canonical snapshot is in flight.
-        for (let attempt = 0; attempt < 2; attempt += 1) {
-          await queryClient.refetchQueries({ queryKey, exact: true });
+        let attemptsSinceDelay = 0;
+        while (!disposed) {
+          const targetAtStart = requestedRevision;
+          try {
+            await queryClient.refetchQueries({ queryKey, exact: true });
+          } catch {
+            // Retry below while the requested canonical revision is unmet.
+          }
+          if (disposed) return;
           const pantry = cachedPantry();
           if (
             requestedRevision === undefined ||
             (pantry?.resourceId === activePantry.resourceId &&
               BigInt(pantry.revision) >= requestedRevision)
           ) {
-            break;
+            requestedRevision = undefined;
+            return;
+          }
+          attemptsSinceDelay += 1;
+          // A revision received during the fetch deserves an immediate
+          // follow-up. Preserve the original immediate second attempt, then
+          // rate-limit canonical repair while the same target remains unmet.
+          if (requestedRevision === targetAtStart && attemptsSinceDelay >= 2) {
+            await waitForRecoveryRetry();
+            attemptsSinceDelay = 0;
           }
         }
-      })()
-        .catch(() => {
-          // Focus, reconnect, and repair polling retain recovery responsibility.
-        })
-        .finally(() => {
-          recovery = undefined;
-          requestedRevision = undefined;
-        });
+      })().finally(() => {
+        recovery = undefined;
+      });
     };
 
     const scheduleReconnect = () => {
@@ -178,6 +198,8 @@ export function PantryRealtimeBoundary() {
     return () => {
       disposed = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (recoveryRetryTimer) clearTimeout(recoveryRetryTimer);
+      resolveRecoveryRetry?.();
       window.removeEventListener("online", reconnectNow);
       document.removeEventListener("visibilitychange", recoverOnVisible);
       socket?.close(1_000, "Pantry subscription inactive");

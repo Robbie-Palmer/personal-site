@@ -34,6 +34,11 @@ export type PantryRealtimeEvent = {
   changeKind: PantryChangeKind;
 };
 
+type PantryRealtimePublication = {
+  event: PantryRealtimeEvent;
+  authorizedUserIds: string[];
+};
+
 function json(value: unknown, status = 200): Response {
   return Response.json(value, {
     status,
@@ -77,6 +82,24 @@ function parseChangeEvent(value: unknown): PantryRealtimeEvent | undefined {
     return undefined;
   }
   return event as PantryRealtimeEvent;
+}
+
+function parsePublication(
+  value: unknown,
+): PantryRealtimePublication | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const publication = value as Partial<PantryRealtimePublication>;
+  const event = parseChangeEvent(publication.event);
+  if (
+    !event ||
+    !Array.isArray(publication.authorizedUserIds) ||
+    publication.authorizedUserIds.some(
+      (userId) => typeof userId !== "string" || userId.length === 0,
+    )
+  ) {
+    return undefined;
+  }
+  return { event, authorizedUserIds: publication.authorizedUserIds };
 }
 
 function closeSocket(socket: WebSocket, code: number, reason: string): void {
@@ -204,8 +227,13 @@ export class HouseholdRealtimeRoom {
   }
 
   private async publish(request: Request): Promise<Response> {
-    const event = parseChangeEvent(await request.json().catch(() => null));
-    if (!event) return json({ error: "Invalid realtime event" }, 400);
+    const publication = parsePublication(
+      await request.json().catch(() => null),
+    );
+    if (!publication) return json({ error: "Invalid realtime event" }, 400);
+
+    const { event } = publication;
+    const authorizedUserIds = new Set(publication.authorizedUserIds);
 
     let delivered = 0;
     let disconnected = 0;
@@ -214,13 +242,14 @@ export class HouseholdRealtimeRoom {
       const attachment = attachmentFor(socket);
       if (
         attachment?.resourceId !== event.resourceId ||
-        attachment.authorizationExpiresAt <= Date.now()
+        attachment.authorizationExpiresAt <= Date.now() ||
+        !authorizedUserIds.has(attachment.userId)
       ) {
         disconnected += 1;
         closeSocket(
           socket,
           REALTIME_AUTHORIZATION_CLOSE_CODE,
-          "Authorization expired",
+          "Authorization expired or revoked",
         );
         continue;
       }

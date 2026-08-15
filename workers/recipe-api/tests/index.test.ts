@@ -4119,13 +4119,17 @@ describe("pantry mutation flows", () => {
     expect(publishRequest).toBe("https://household-realtime/publish");
     const publishInit = roomFetch.mock.calls[0]?.[1];
     expect(JSON.parse(String(publishInit?.body))).toEqual({
-      type: "resource.changed",
-      resourceType: "pantry",
-      resourceId: HOUSEHOLD_ID,
-      revision: "1",
-      operationId,
-      changeKind: "pantry.item-set",
+      event: {
+        type: "resource.changed",
+        resourceType: "pantry",
+        resourceId: HOUSEHOLD_ID,
+        revision: "1",
+        operationId,
+        changeKind: "pantry.item-set",
+      },
+      authorizedUserIds: ["owner-user", "member-user"],
     });
+    expect(publishInit?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it("keeps a committed mutation successful when publication retries fail", async () => {
@@ -4140,21 +4144,25 @@ describe("pantry mutation flows", () => {
     } as unknown as DurableObjectNamespace;
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const response = await app.request(
-      "/pantry/items/onion",
-      {
-        method: "PUT",
-        headers: mutationHeaders,
-        body: JSON.stringify({ location: "fresh" }),
-      },
-      { ...env, HOUSEHOLD_REALTIME: realtime },
-    );
+    try {
+      const response = await app.request(
+        "/pantry/items/onion",
+        {
+          method: "PUT",
+          headers: mutationHeaders,
+          body: JSON.stringify({ location: "fresh" }),
+        },
+        { ...env, HOUSEHOLD_REALTIME: realtime },
+      );
 
-    expect(response.status).toBe(200);
-    expect(roomFetch).toHaveBeenCalledTimes(2);
-    expect(consoleError).toHaveBeenCalledWith(
-      expect.stringContaining("Pantry realtime publication failed"),
-    );
+      expect(response.status).toBe(200);
+      expect(roomFetch).toHaveBeenCalledTimes(2);
+      expect(consoleError).toHaveBeenCalledWith(
+        expect.stringContaining("Pantry realtime publication failed"),
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it("restores only missing household pantry items", async () => {
@@ -4383,6 +4391,29 @@ describe("household membership flows", () => {
     await expect(response.json()).resolves.toEqual({
       error: "Realtime origin is not allowed",
     });
+  });
+
+  it("canonicalizes the realtime origin before comparing it", async () => {
+    seedHousehold();
+    authzMock.session = sessionFor({
+      id: "member-user",
+      email: "member@example.test",
+      name: "Member",
+    });
+    const roomFetch = vi.fn(() => Promise.resolve(new Response(null)));
+    const realtime = {
+      idFromName: vi.fn(() => ({ household: HOUSEHOLD_ID })),
+      get: vi.fn(() => ({ fetch: roomFetch })),
+    } as unknown as DurableObjectNamespace;
+
+    const response = await app.request(
+      "/pantry/realtime",
+      { headers: { origin: "HTTP://LOCALHOST:3000", upgrade: "websocket" } },
+      { ...env, HOUSEHOLD_REALTIME: realtime },
+    );
+
+    expect(response.status).toBe(200);
+    expect(roomFetch).toHaveBeenCalledOnce();
   });
 
   it("does not create a collaborative room for a solo pantry", async () => {

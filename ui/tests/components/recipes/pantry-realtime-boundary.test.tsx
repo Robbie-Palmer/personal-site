@@ -65,6 +65,14 @@ const pantry = (revision: string): Pantry => ({
   itemVersions: { onion: revision },
 });
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}
+
 beforeEach(() => {
   FakeWebSocket.instances = [];
   vi.stubGlobal("WebSocket", FakeWebSocket);
@@ -182,6 +190,74 @@ describe("PantryRealtimeBoundary", () => {
     await waitFor(() => {
       expect(FakeWebSocket.instances).toHaveLength(2);
       expect(queryFn).toHaveBeenCalledTimes(3);
+    });
+    view.unmount();
+  });
+
+  it("retains a newer revision received during a follow-up recovery", async () => {
+    const firstRecovery = deferred<Pantry>();
+    const secondRecovery = deferred<Pantry>();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const queryFn = vi
+      .fn<() => Promise<Pantry>>()
+      .mockResolvedValueOnce(pantry("1"))
+      .mockReturnValueOnce(firstRecovery.promise)
+      .mockReturnValueOnce(secondRecovery.promise)
+      .mockResolvedValue(pantry("3"));
+
+    function PantryObserver() {
+      useQuery({
+        ...pantryQuery("user-1"),
+        queryFn,
+        refetchInterval: false,
+      });
+      return null;
+    }
+
+    const view = render(
+      <QueryClientProvider client={queryClient}>
+        <PantryRealtimeBoundary />
+        <PantryObserver />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(FakeWebSocket.instances).toHaveLength(1);
+      expect(queryFn).toHaveBeenCalledTimes(1);
+    });
+    const realtime = FakeWebSocket.instances[0];
+    if (!realtime) throw new Error("Expected realtime socket");
+
+    realtime.receive({
+      type: "resource.changed",
+      resourceType: "pantry",
+      resourceId: "household-1",
+      revision: "2",
+      operationId: "operation-2",
+      changeKind: "pantry.item-set",
+    });
+    await waitFor(() => expect(queryFn).toHaveBeenCalledTimes(2));
+    firstRecovery.resolve(pantry("1"));
+    await waitFor(() => expect(queryFn).toHaveBeenCalledTimes(3));
+
+    realtime.receive({
+      type: "resource.changed",
+      resourceType: "pantry",
+      resourceId: "household-1",
+      revision: "3",
+      operationId: "operation-3",
+      changeKind: "pantry.item-set",
+    });
+    secondRecovery.resolve(pantry("2"));
+
+    await waitFor(() => {
+      expect(queryFn).toHaveBeenCalledTimes(4);
+      expect(
+        queryClient.getQueryData<Pantry>(recipeQueryKeys.pantry("user-1"))
+          ?.revision,
+      ).toBe("3");
     });
     view.unmount();
   });
