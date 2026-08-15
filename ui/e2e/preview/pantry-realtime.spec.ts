@@ -68,6 +68,27 @@ async function createScenarioSession(
   });
 
   try {
+    await context.addInitScript(({ realtimePath }) => {
+      const NativeWebSocket = window.WebSocket;
+      Object.defineProperty(window, "WebSocket", {
+        configurable: true,
+        writable: true,
+        value: class extends NativeWebSocket {
+          constructor(url: string | URL, protocols?: string | string[]) {
+            if (protocols === undefined) super(url);
+            else super(url, protocols);
+
+            if (new URL(this.url).pathname === realtimePath) {
+              Object.defineProperty(window, "__closePantryRealtimeSocket", {
+                configurable: true,
+                value: () => this.close(4_000, "Playwright disconnect"),
+              });
+            }
+          }
+        },
+      });
+    }, { realtimePath: pantryRealtimePath });
+
     // Prime the Access application cookie before the browser opens the page.
     // Sending the service-token headers only on this exact-origin request keeps
     // them away from redirects and any third-party resources loaded by the UI.
@@ -156,13 +177,25 @@ function waitForSocketClose(socket: WebSocket): Promise<void> {
     .then(() => undefined);
 }
 
+async function disconnectPantrySocket(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const closeSocket = (
+      window as typeof window & {
+        __closePantryRealtimeSocket?: () => void;
+      }
+    ).__closePantryRealtimeSocket;
+    if (!closeSocket) throw new Error("Pantry WebSocket test control is absent");
+    closeSocket();
+  });
+}
+
 async function openKitchen(session: ScenarioSession): Promise<WebSocket> {
   const subscription = waitForPantrySubscription(session.page);
   await session.page.goto("/recipes/kitchen");
   const socket = await subscription;
   await expect(
-    session.page.getByRole("heading", {
-      name: "Preview Shared Household's kitchen.",
+    session.page.getByText("Preview Shared Household's kitchen.", {
+      exact: true,
     }),
   ).toBeVisible();
   return socket;
@@ -260,6 +293,7 @@ test.describe("deployed household pantry realtime", () => {
 
       const memberDisconnected = waitForSocketClose(memberSocket);
       await member.context.setOffline(true);
+      await disconnectPantrySocket(member.page);
       await memberDisconnected;
       await owner.page
         .getByRole("button", { name: "Remove Garlic" })

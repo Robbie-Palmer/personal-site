@@ -22,16 +22,17 @@ Install the Chromium browser once:
 mise //ui:test:e2e:install
 ```
 
-Then run the suite with the canonical preview URL and Cloudflare Access
-service-token credentials:
+Then run the suite with the canonical preview URL and inject the preview-only
+Cloudflare Access service-token credentials from Doppler:
 
 ```sh
 PREVIEW_SITE_URL=https://pr-123.example.pages.dev \
-CLOUDFLARE_PAGES_HOST=example.pages.dev \
-CF_ACCESS_CLIENT_ID=... \
-CF_ACCESS_CLIENT_SECRET=... \
-mise //ui:test:e2e:preview
+doppler run --project personal-site --config dev_agent -- \
+  mise //ui:test:e2e:preview
 ```
+
+Agent launchers that already inject `dev_agent` can run the mise task directly
+with only `PREVIEW_SITE_URL` set.
 
 The suite validates that the URL is the canonical PR alias for the configured
 Pages host. It sends the Access credentials only on an exact-origin priming
