@@ -19,8 +19,9 @@ SELECT CASE WHEN count(*) = 0 THEN 1 ELSE error(
   'Unknown schema version or record type: ' || string_agg(filename || ' (' || coalesce(schema_version, 'null') || ', ' || coalesce(record_type, 'null') || ')', ', ')
 ) END FROM invalid_objects;
 
-CREATE TABLE review_runs AS
+CREATE TABLE review_run_candidates AS
 SELECT
+  filename,
   json_extract_string(json, '$.workflow.instanceId') AS run_id,
   json_extract_string(json, '$.repository') AS repository,
   try_cast(json_extract_string(json, '$.pullRequestNumber') AS INTEGER) AS pull_request_number,
@@ -42,16 +43,41 @@ SELECT
   json_extract(json, '$.models') AS models
 FROM raw_objects WHERE json_extract_string(json, '$.recordType') = 'review-run-terminal';
 
-SELECT CASE WHEN count(*) > 0 THEN 1 ELSE error('At least one review-run-terminal object is required') END FROM review_runs;
-SELECT CASE WHEN count(*) = 0 THEN 1 ELSE error('Review runs have missing, invalid, or duplicate required fields') END
+SELECT CASE WHEN count(*) > 0 THEN 1 ELSE error('At least one review-run-terminal object is required') END FROM review_run_candidates;
+SELECT CASE WHEN count(*) = 0 THEN 1 ELSE error('Review runs have missing or invalid required fields') END
+FROM review_run_candidates
+WHERE run_id IS NULL OR repository IS NULL OR pull_request_number IS NULL OR head_sha IS NULL
+   OR status NOT IN ('denied', 'failed', 'published', 'skipped');
+
+-- A publication can succeed before the enclosing workflow later records a
+-- failure (for example, when a post-publication step exceeds its lease). R2
+-- retains both immutable terminal records. Reconcile only that known pair and
+-- keep rejecting all other duplicate or conflicting terminal combinations.
+SELECT CASE WHEN count(*) = 0 THEN 1 ELSE error('Review runs have conflicting or duplicate terminal records') END
 FROM (
-  SELECT run_id FROM review_runs
-  GROUP BY run_id HAVING run_id IS NULL OR count(*) > 1
-  UNION ALL
-  SELECT run_id FROM review_runs
-  WHERE repository IS NULL OR pull_request_number IS NULL OR head_sha IS NULL
-     OR status NOT IN ('denied', 'failed', 'published', 'skipped')
+  SELECT run_id
+  FROM review_run_candidates
+  GROUP BY run_id
+  HAVING count(*) > 1 AND NOT (
+    count(*) = 2
+    AND count(*) FILTER (WHERE status = 'published') = 1
+    AND count(*) FILTER (WHERE status = 'failed') = 1
+    AND count(DISTINCT repository) = 1
+    AND count(DISTINCT pull_request_number) = 1
+    AND count(DISTINCT head_sha) = 1
+  )
 );
+
+CREATE TABLE review_runs AS
+SELECT * EXCLUDE (filename, terminal_rank)
+FROM (
+  SELECT *, row_number() OVER (
+    PARTITION BY run_id
+    ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, filename
+  ) AS terminal_rank
+  FROM review_run_candidates
+)
+WHERE terminal_rank = 1;
 
 CREATE TABLE finding_history AS
 SELECT

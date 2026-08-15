@@ -25,6 +25,8 @@ The transformation must also preserve the evaluation contract:
 * schema versions and joins fail visibly instead of silently losing records;
 * immutable outcome revisions remain auditable while the highest revision is
   selected as the current outcome;
+* a `published` terminal record takes precedence over a later `failed` record
+  for the same workflow, while other conflicting terminal combinations fail;
 * metric denominators match ADR 032 rather than changing with each report;
 * model comparisons retain prompt, risk, change-size, repository-area, and time
   dimensions; and

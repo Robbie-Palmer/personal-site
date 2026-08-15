@@ -5,7 +5,8 @@ output=$(mktemp -d)
 second=$(mktemp -d)
 bad=$(mktemp -d)
 special=$(mktemp -d)
-trap 'rm -rf "$output" "$second" "$bad" "$special"' EXIT
+duplicate=$(mktemp -d)
+trap 'rm -rf "$output" "$second" "$bad" "$special" "$duplicate"' EXIT
 
 "$here/build-scorecard.sh" "$here/fixtures" "$output"
 "$here/build-scorecard.sh" "$here/fixtures" "$second"
@@ -20,6 +21,13 @@ done
 duckdb -csv -noheader <<SQL | diff -u - <(printf '0.5,0.3333333333333333,0.3333333333333333,0.3,0.75\n')
 SELECT acceptance_rate, fix_through_rate, noise_rate, cost_per_accepted_finding, coverage_rate
 FROM read_parquet('$output/v1/review_run_fact.parquet') WHERE run_id = 'run-1';
+SQL
+
+duckdb -csv -noheader <<SQL | diff -u - <(printf 'published,1\n')
+SELECT status, count(*)
+FROM read_parquet('$output/v1/review_run_fact.parquet')
+WHERE run_id = 'run-1'
+GROUP BY status;
 SQL
 
 duckdb -csv -noheader <<SQL | diff -u - <(printf '3.0,3\n')
@@ -43,6 +51,18 @@ if schema_error=$("$here/build-scorecard.sh" "$bad" "$bad/output" 2>&1); then
 fi
 if [[ "$schema_error" != *"Unknown schema version"* ]]; then
   echo "unknown schema version failed for the wrong reason: $schema_error" >&2
+  exit 1
+fi
+
+mkdir -p "$duplicate/a" "$duplicate/b"
+cp "$here/fixtures/v2/acme/widgets/pr-7/head-1/run-1/published.json" "$duplicate/a/published.json"
+cp "$here/fixtures/v2/acme/widgets/pr-7/head-1/run-1/published.json" "$duplicate/b/published.json"
+if duplicate_error=$("$here/build-scorecard.sh" "$duplicate" "$duplicate/output" 2>&1); then
+  echo "duplicate terminal status was not rejected" >&2
+  exit 1
+fi
+if [[ "$duplicate_error" != *"conflicting or duplicate terminal records"* ]]; then
+  echo "duplicate terminal status failed for the wrong reason: $duplicate_error" >&2
   exit 1
 fi
 

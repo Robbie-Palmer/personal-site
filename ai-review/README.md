@@ -220,7 +220,9 @@ a checksum-bearing machine-readable manifest. The latest outcome is the highest
 `outcomeVersion`; `finding_history` remains in the transient DuckDB build so
 revision resolution is explicit and testable. Unknown schema versions, unknown
 record types, duplicate revisions, and outcome/evidence joins to unpublished
-findings stop the build.
+findings stop the build. When one workflow has both `published` and `failed`
+terminal records, the published record is authoritative; every other duplicate
+or conflicting terminal combination stops the build.
 
 Run one deterministic rebuild from a fixed local R2 export prefix with:
 
