@@ -71,6 +71,11 @@ description = "Smoke-test authenticated profiles on a deployed preview Worker"
 depends = ["install"]
 run = "pnpm exec tsx scripts/smoke-preview-profiles.ts"
 
+[tasks."preview:smoke:realtime"]
+description = "Smoke-test two-session realtime pantry fan-out on a deployed preview Worker"
+depends = ["install"]
+run = "pnpm exec tsx scripts/smoke-preview-realtime.ts"
+
 [tasks."db:backfill:cookware"]
 description = "Canonicalize existing recipe cookware against the equipment registry (read-only; pass -- --apply to write)"
 depends = ["install"]

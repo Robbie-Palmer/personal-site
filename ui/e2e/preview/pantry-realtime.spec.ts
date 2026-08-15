@@ -125,37 +125,6 @@ function waitForPantrySubscription(page: Page): Promise<WebSocket> {
   });
 }
 
-function waitForPantryChange(
-  socket: WebSocket,
-  changeKind: "pantry.item-removed" | "pantry.item-set",
-): Promise<Record<string, unknown>> {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error(`Timed out waiting for ${changeKind}`));
-    }, realtimeTimeoutMs);
-
-    const onFrame = ({ payload }: { payload: string | Buffer }) => {
-      const message = parseFrame(payload);
-      if (
-        message?.type === "resource.changed" &&
-        message.resourceType === "pantry" &&
-        message.changeKind === changeKind
-      ) {
-        cleanup();
-        resolve(message);
-      }
-    };
-
-    const cleanup = () => {
-      clearTimeout(timeout);
-      socket.off("framereceived", onFrame);
-    };
-
-    socket.on("framereceived", onFrame);
-  });
-}
-
 function waitForSocketClose(socket: WebSocket): Promise<void> {
   return socket
     .waitForEvent("close", { timeout: realtimeTimeoutMs })
@@ -216,7 +185,7 @@ test.describe("deployed household pantry realtime", () => {
       sessions.push(member);
       await restoreGarlic(owner.context);
 
-      const [ownerSocket, memberSocket] = await Promise.all([
+      await Promise.all([
         openKitchen(owner),
         openKitchen(member),
       ]);
@@ -227,28 +196,15 @@ test.describe("deployed household pantry realtime", () => {
         member.page.getByRole("button", { name: "Remove Garlic" }),
       ).toBeVisible();
 
-      const memberChange = waitForPantryChange(
-        memberSocket,
-        "pantry.item-removed",
-      );
       await owner.page
         .getByRole("button", { name: "Remove Garlic" })
         .click();
       pantryWasChanged = true;
-      const event = await memberChange;
-
-      expect(event.revision).toMatch(/^\d+$/);
-      expect(event.operationId).toEqual(expect.any(String));
       await expect(
         member.page.getByRole("button", { name: "Remove Garlic" }),
       ).toHaveCount(0, { timeout: realtimeTimeoutMs });
 
-      const ownerChange = waitForPantryChange(
-        ownerSocket,
-        "pantry.item-set",
-      );
       await restoreGarlic(member.context);
-      await ownerChange;
       await expect(
         owner.page.getByRole("button", { name: "Remove Garlic" }),
       ).toBeVisible({ timeout: realtimeTimeoutMs });

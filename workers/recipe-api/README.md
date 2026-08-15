@@ -75,6 +75,11 @@ cannot enter production rooms. Realtime delivery is best-effort: the browser
 refetches the canonical pantry on subscription, reconnect, newer revision, and
 the existing visibility-aware repair interval.
 
+Realtime verification is layered. Unit tests cover the room and Worker route,
+the preview deployment runs `preview:smoke:realtime` with independent owner and
+member sessions against the deployed Worker, and the Access-authenticated
+Playwright suite covers visible two-browser convergence and reconnect recovery.
+
 ## Rate limiting
 
 Rate limiting is layered, with counters in Postgres.
