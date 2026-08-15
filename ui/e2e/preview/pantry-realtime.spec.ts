@@ -8,6 +8,7 @@ import {
 } from "@playwright/test";
 
 const previewSiteURL = new URL(requiredEnv("PREVIEW_SITE_URL"));
+const pagesHost = requiredEnv("CLOUDFLARE_PAGES_HOST");
 const accessHeaders = {
   "CF-Access-Client-Id": requiredEnv("CF_ACCESS_CLIENT_ID"),
   "CF-Access-Client-Secret": requiredEnv("CF_ACCESS_CLIENT_SECRET"),
@@ -30,6 +31,23 @@ function requiredEnv(name: string): string {
   return value;
 }
 
+function assertCanonicalPreviewURL(): void {
+  const previewLabel = previewSiteURL.hostname.split(".", 1)[0];
+  if (
+    previewSiteURL.protocol !== "https:" ||
+    previewSiteURL.origin !== previewSiteURL.href.replace(/\/$/, "") ||
+    !previewLabel ||
+    !/^pr-[1-9]\d*$/.test(previewLabel) ||
+    previewSiteURL.hostname !== `${previewLabel}.${pagesHost}`
+  ) {
+    throw new Error(
+      "PREVIEW_SITE_URL must be the canonical HTTPS PR alias for CLOUDFLARE_PAGES_HOST",
+    );
+  }
+}
+
+assertCanonicalPreviewURL();
+
 function parseFrame(payload: string | Buffer): Record<string, unknown> | null {
   try {
     const value: unknown = JSON.parse(payload.toString());
@@ -47,13 +65,20 @@ async function createScenarioSession(
 ): Promise<ScenarioSession> {
   const context = await browser.newContext({
     baseURL: previewSiteURL.origin,
-    extraHTTPHeaders: accessHeaders,
   });
 
   try {
     // Prime the Access application cookie before the browser opens the page.
-    // The cookie is then available to the page's own WebSocket handshake.
-    const accessResponse = await context.request.get("/recipes");
+    // Sending the service-token headers only on this exact-origin request keeps
+    // them away from redirects and any third-party resources loaded by the UI.
+    // The resulting cookie is available to the page's WebSocket handshake.
+    const accessResponse = await context.request.get(
+      `${previewSiteURL.origin}/recipes`,
+      {
+        headers: accessHeaders,
+        maxRedirects: 0,
+      },
+    );
     const accessResponseURL = new URL(accessResponse.url());
     if (
       !accessResponse.ok() ||

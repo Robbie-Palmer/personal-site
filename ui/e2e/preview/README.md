@@ -27,10 +27,16 @@ service-token credentials:
 
 ```sh
 PREVIEW_SITE_URL=https://pr-123.example.pages.dev \
+CLOUDFLARE_PAGES_HOST=example.pages.dev \
 CF_ACCESS_CLIENT_ID=... \
 CF_ACCESS_CLIENT_SECRET=... \
 mise //ui:test:e2e:preview
 ```
+
+The suite validates that the URL is the canonical PR alias for the configured
+Pages host. It sends the Access credentials only on an exact-origin priming
+request; subsequent page and WebSocket requests use the resulting Access
+cookie, so the service-token headers cannot accompany third-party requests.
 
 The preview must have its backend enabled and seeded preview scenarios. The
 suite is not part of the generic UI check because it requires a deployed,
