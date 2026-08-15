@@ -11,7 +11,7 @@ trap 'rm -rf "$output" "$second" "$bad" "$special"' EXIT
 "$here/build-scorecard.sh" "$here/fixtures" "$second"
 "$here/build-scorecard.sh" "$here/fixtures" "$output"
 
-test -L "$output/v1"
+[[ -L "$output/v1" ]]
 
 for file in finding_latest.parquet review_run_fact.parquet model_run_fact.parquet pull_request_fact.parquet scorecard-manifest.json; do
   cmp "$output/v1/$file" "$second/v1/$file"
