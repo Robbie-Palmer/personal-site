@@ -14,6 +14,14 @@ client_secret="${CF_ACCESS_CLIENT_SECRET:-}"
 : "${client_id:?CF_ACCESS_CLIENT_ID is required}"
 : "${client_secret:?CF_ACCESS_CLIENT_SECRET is required}"
 
+curl_version=$(curl --version | awk 'NR == 1 { print $2 }')
+IFS=. read -r curl_major curl_minor _ <<<"$curl_version"
+if [[ ! "$curl_major" =~ ^[0-9]+$ ]] || [[ ! "$curl_minor" =~ ^[0-9]+$ ]] || \
+  ((curl_major < 7 || (curl_major == 7 && curl_minor < 55))); then
+  echo "curl 7.55.0 or newer is required to pass Access headers through stdin." >&2
+  exit 2
+fi
+
 case "$preview_url" in
   "https://"*/*) preview_host="${preview_url#https://}"; preview_host="${preview_host%%/*}" ;;
   "https://"*) preview_host="${preview_url#https://}" ;;
@@ -30,16 +38,16 @@ if [[ ! "$preview_label" =~ ^pr-[1-9][0-9]*$ ]] || [[ "$preview_host" != "$previ
 fi
 
 # Make redirects an error so Access headers never leave the validated origin.
-curl \
-  --disable \
-  --connect-timeout 10 \
-  --fail-with-body \
-  --location \
-  --max-redirs 0 \
-  --max-time 30 \
-  --proto '=https' \
-  --silent \
-  --show-error \
-  --header "CF-Access-Client-Id: $client_id" \
-  --header "CF-Access-Client-Secret: $client_secret" \
-  --url "$preview_url"
+printf 'CF-Access-Client-Id: %s\nCF-Access-Client-Secret: %s\n' "$client_id" "$client_secret" | \
+  curl \
+    --disable \
+    --connect-timeout 10 \
+    --fail-with-body \
+    --header @- \
+    --location \
+    --max-redirs 0 \
+    --max-time 30 \
+    --proto '=https' \
+    --silent \
+    --show-error \
+    --url "$preview_url"
