@@ -114,12 +114,15 @@ free-form prose remains a first-class artifact.
   space as one project, and expose `bm mcp --project <name>` to each compatible
   t3-code agent. Keep its SQLite data as a disposable index outside the Git
   repository; `bm reset` can rebuild it from the files.
-* Run a pinned SilverBullet container on the Mac mini, listening only on
-  localhost, with the same live space mounted as `/space`.
+* Run a digest-pinned SilverBullet container on the Mac mini, listening only on
+  localhost, with the same live space mounted as `/space`. Drop unnecessary
+  Linux capabilities and enable the container runtime's no-new-privileges
+  control.
 * Use the connected external drive for scheduled, versioned backups of the
   space, including attachments and Git metadata. Monitor the job and available
-  space through the lab's existing Netdata alerting. The live corpus should not
-  depend on the removable drive being mounted.
+  space through the lab's existing Netdata alerting. Monitor SilverBullet and
+  Tailscale Serve availability there too. The live corpus should not depend on
+  the removable drive being mounted.
 * Put the PWA behind Tailscale Serve, proxying the localhost service over HTTPS
   to the tailnet only. Tailscale documents this exact private reverse-proxy
   pattern in [Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve).
@@ -131,9 +134,10 @@ free-form prose remains a first-class artifact.
   Do not install SilverBullet's AI plug during the pilot; Basic Memory and the
   existing t3-code agents already own that responsibility.
 * Grant agents access to the notes space, but not to the rest of the external
-  drive. Diary-like content may be sent to the selected model provider when an
-  agent is asked to work on it; self-hosting the files does not make a cloud
-  agent local.
+  drive. Invoke a cloud-backed agent over diary-like content only deliberately;
+  do not add a background process that uploads the corpus. Content may be sent
+  to the selected model provider when an agent is asked to work on it;
+  self-hosting the files does not make a cloud agent local.
 
 ## Agent workflow
 
@@ -145,8 +149,11 @@ The initial workflow should stay deliberately small:
    restructure knowledge. The agent uses Basic Memory's MCP tools or `bm` CLI
    for graph-aware work and falls back to normal file operations when that is
    simpler.
-3. The agent checkpoints the Git worktree before a broad mutation, makes small
-   inspectable edits, and records the result in Git. Git is an audit and undo
+3. Before a broad graph-driven mutation, the agent lets file watchers settle
+   and reads each target file from disk; an index is for discovery, not
+   authority. It then checkpoints the Git worktree, makes small inspectable
+   edits, and records the result in Git. Agents must not rewrite existing
+   checkpoints or force-push the live corpus. Git is an audit and undo
    mechanism, not a pull-request ceremony for every thought.
 4. Agents may add lightweight observations, frontmatter, and wiki-link
    relations when they are useful, but no fixed ontology is required during
