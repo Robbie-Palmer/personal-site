@@ -1482,7 +1482,7 @@ const PANTRY_PUBLICATION_ATTEMPTS = 2;
 
 function randomUnitInterval(): number {
   const [sample] = crypto.getRandomValues(new Uint32Array(1));
-  return (sample ?? 0) / 0x1_0000_0000;
+  return (sample ?? 0) / 2 ** 32;
 }
 
 async function publishPantryChange(
