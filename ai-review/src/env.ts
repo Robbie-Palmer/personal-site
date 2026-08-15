@@ -8,7 +8,28 @@ export type ReviewWorkflowParams = {
   force: boolean;
 };
 
-export type FindingDisposition = "acknowledged" | "rejected";
+export type FindingDisposition =
+  | "acknowledged"
+  | "confirmed-fixed"
+  | "rejected";
+
+export type FindingOutcome =
+  | "confirmed-fixed"
+  | "acknowledged"
+  | "rejected"
+  | "superseded"
+  | "no-observable-response";
+
+export type PullRequestFinalizationEvent = {
+  deliveryId: string;
+  eventName: "pull_request";
+  action: "closed";
+  repository: string;
+  pullRequestNumber: number;
+  headSha: string;
+  finalState: "merged" | "closed";
+  occurredAt?: string;
+};
 
 export type FindingInteractionEvent = {
   deliveryId: string;
@@ -16,6 +37,7 @@ export type FindingInteractionEvent = {
   action: string;
   repository: string;
   pullRequestNumber: number;
+  headSha?: string;
   interactionType: "reply" | "thread" | "disposition";
   actor: string;
   actorAssociation?: string;

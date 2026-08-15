@@ -1,6 +1,7 @@
 import {
   TRUSTED_AUTHOR_ASSOCIATIONS,
   type FindingInteractionEvent,
+  type PullRequestFinalizationEvent,
   type ReviewWorkflowParams,
 } from "./env";
 
@@ -57,12 +58,15 @@ export async function verifyGitHubSignature(
 
 type GitHubWebhook = {
   action?: unknown;
+  number?: unknown;
   repository?: {
     full_name?: unknown;
   };
   updated_at?: unknown;
   pull_request?: {
     number?: unknown;
+    merged?: unknown;
+    closed_at?: unknown;
     author_association?: unknown;
     user?: { login?: unknown };
     head?: {
@@ -109,9 +113,14 @@ export type FindingInteractionParseResult =
   | { kind: "ignored"; reason: "unsupported-event" }
   | { kind: "invalid"; reason: "Malformed webhook payload" };
 
+export type PullRequestFinalizationParseResult =
+  | { kind: "accepted"; event: PullRequestFinalizationEvent }
+  | { kind: "ignored"; reason: "unsupported-event" }
+  | { kind: "invalid"; reason: "Malformed webhook payload" };
+
 function findingDispositionCommand(body: string):
   | {
-      disposition: "acknowledged" | "rejected";
+      disposition: "acknowledged" | "confirmed-fixed" | "rejected";
       findingId: string;
       reason: string;
     }
@@ -123,7 +132,13 @@ function findingDispositionCommand(body: string):
   const actionEnd = body.indexOf(" ", actionStart);
   if (actionEnd < 0) return undefined;
   const action = body.slice(actionStart, actionEnd).toLowerCase();
-  if (action !== "acknowledge" && action !== "reject") return undefined;
+  if (
+    action !== "acknowledge" &&
+    action !== "confirm-fixed" &&
+    action !== "reject"
+  ) {
+    return undefined;
+  }
   const findingStart = actionEnd + 1;
   const findingEnd = body.indexOf(" ", findingStart);
   if (findingEnd < 0) return undefined;
@@ -132,7 +147,12 @@ function findingDispositionCommand(body: string):
   const reason = body.slice(findingEnd + 1).trim();
   if (!reason || reason.length > MAX_DISPOSITION_REASON_LENGTH) return undefined;
   return {
-    disposition: action === "acknowledge" ? "acknowledged" : "rejected",
+    disposition:
+      action === "acknowledge"
+        ? "acknowledged"
+        : action === "confirm-fixed"
+          ? "confirmed-fixed"
+          : "rejected",
     findingId,
     reason,
   };
@@ -144,6 +164,15 @@ function positiveInteger(value: unknown): number | undefined {
     value > 0
     ? value
     : undefined;
+}
+
+function isIsoTimestamp(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= 64 &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value) &&
+    !Number.isNaN(Date.parse(value))
+  );
 }
 
 function actorIsTrusted(event: GitHubWebhook, repository: string): boolean {
@@ -368,6 +397,50 @@ export function parseFindingInteraction(
   return { kind: "ignored", reason: "unsupported-event" };
 }
 
+export function parsePullRequestFinalization(
+  eventName: string,
+  deliveryId: string,
+  body: unknown,
+): PullRequestFinalizationParseResult {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return { kind: "invalid", reason: "Malformed webhook payload" };
+  }
+  const event = body as GitHubWebhook;
+  if (eventName !== "pull_request" || event.action !== "closed") {
+    return { kind: "ignored", reason: "unsupported-event" };
+  }
+  const repository = event.repository?.full_name;
+  const pullRequestNumber = positiveInteger(event.number);
+  const headSha = event.pull_request?.head?.sha;
+  const occurredAt = event.pull_request?.closed_at;
+  if (
+    typeof repository !== "string" ||
+    repository.length === 0 ||
+    !pullRequestNumber ||
+    typeof headSha !== "string" ||
+    headSha.length === 0 ||
+    typeof event.pull_request?.merged !== "boolean" ||
+    (occurredAt !== undefined && !isIsoTimestamp(occurredAt)) ||
+    deliveryId.length === 0 ||
+    deliveryId.length > MAX_DELIVERY_ID_LENGTH
+  ) {
+    return { kind: "invalid", reason: "Malformed webhook payload" };
+  }
+  return {
+    kind: "accepted",
+    event: {
+      deliveryId,
+      eventName: "pull_request",
+      action: "closed",
+      repository,
+      pullRequestNumber,
+      headSha,
+      finalState: event.pull_request.merged ? "merged" : "closed",
+      occurredAt: typeof occurredAt === "string" ? occurredAt : undefined,
+    },
+  };
+}
+
 function parsePullRequestEvent(
   event: GitHubWebhook,
   identity: WebhookIdentity,
@@ -375,7 +448,7 @@ function parsePullRequestEvent(
   if (!REVIEW_RELEVANT_PULL_REQUEST_ACTIONS.has(identity.action)) {
     return { kind: "ignored", reason: "unsupported-event" };
   }
-  const pullRequestNumber = event.pull_request?.number;
+  const pullRequestNumber = event.number;
   const headSha = event.pull_request?.head?.sha;
   if (
     typeof pullRequestNumber !== "number" ||

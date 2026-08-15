@@ -15,6 +15,9 @@ The service is a visible, stateful publisher:
 - Durable Object alarms provide a trailing-edge debounce boundary, coalescing
   rapid events to one review of the latest pull request state after a quiet
   period;
+- the same alarm handler retries committed finding outcomes that could not be
+  published to R2, so a finalization-time outage cannot strand them in SQLite
+  when no later pull-request event arrives;
 - a Cloudflare Workflow fetches the PR through GitHub App authentication, runs
   the shared OpenRouter and OpenCode scout ensemble,
   reconciles candidates with the same OpenRouter merger, publishes each
@@ -49,6 +52,8 @@ Ordinary comments and review-thread activity never schedule paid work. Replies,
 reaction-count snapshots, thread resolution, and trusted
 `/ai-review acknowledge f_<id> <reason>` or
 `/ai-review reject f_<id> <reason>` commands instead take a storage-only path.
+After a controlled replay returns `fixed`, a trusted
+`/ai-review confirm-fixed f_<id> <reason>` command adjudicates that evidence.
 Findings that GitHub cannot attach to a current diff line remain in the rolling
 comment with those explicit command fallbacks.
 
@@ -176,6 +181,36 @@ in `review_finding_events`. Each is also appended as schema-v2 evidence at
 These records preserve the event/action, trusted actor, reply or command body,
 reaction counts present on review-comment events, thread state, explicit
 disposition and timestamps without mutating earlier evidence.
+
+`review_finding_outcomes` turns that evidence into a versioned evaluation
+label. An explicit acknowledgement or rejection creates an outcome immediately.
+When a later review covers the finding's file after its affected hunks change,
+the merger performs a controlled replay of the durable finding against the
+current diff and file context, recording `fixed`, `still-present`, or `uncertain`
+with direct code evidence. Replay is evidence, not adjudication: the coordinator
+adds a `confirmed-fixed` outcome only after a trusted actor submits
+`/ai-review confirm-fixed <finding-id> <reason>` for a recorded `fixed` replay.
+The replay head must match the authoritative current PR head fetched from
+GitHub when the trusted command is handled. The outcome links the trusted actor
+and reason to that replay's head, run, and
+evidence. PR content, stale replay, model omission, or a resolved GitHub thread
+cannot mint a confirmed label by itself. Confirmation suppresses replay only on
+that exact head; a later head makes the finding eligible for replay again. On
+`pull_request.closed`, any finding without an outcome becomes `superseded` when
+the final reviewed diff no longer contains its affected hunks, or
+`no-observable-response` otherwise. A legacy finding with a persisted explicit
+disposition but no outcome row receives the matching `acknowledged` or
+`rejected` label. The closure evidence records whether the final head was
+actually reviewed so censored outcomes remain distinguishable from complete
+coverage.
+
+Outcome revisions are immutable schema-v2 objects at
+`v2/<owner>/<repository>/pr-<number>/findings/<finding-id>/outcomes/v<version>.json`.
+The highest version is the current outcome; earlier labels remain available to
+show how later code evidence changed the attribution. SQLite commits the outcome
+before R2 publication and retains an `r2_recorded` flag, so a retried webhook or
+review completion repairs an interrupted object write without creating another
+revision.
 
 ## Deploy
 

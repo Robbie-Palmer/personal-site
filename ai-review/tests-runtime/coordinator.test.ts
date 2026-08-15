@@ -81,6 +81,8 @@ describe("PullRequestCoordinator in workerd", () => {
       {
         method: "POST",
         body: JSON.stringify({
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
           runId: claimBody.runId,
           headSha: event.headSha,
           costUsd: 0.25,
@@ -129,7 +131,7 @@ describe("PullRequestCoordinator in workerd", () => {
 
     const firstBaseline = await stub.fetch(
       "https://coordinator.test/reviews/baseline",
-      { method: "POST", body: "{}" },
+      { method: "POST", body: JSON.stringify({ headSha: event.headSha }) },
     );
     await expect(firstBaseline.json()).resolves.toEqual({
       headSha: event.headSha,
@@ -139,6 +141,10 @@ describe("PullRequestCoordinator in workerd", () => {
           findingId: `f_${"b".repeat(24)}`,
           file: "app.ts",
           title: "Finding",
+          severity: "high",
+          line: 1,
+          evidence: "Evidence",
+          recommendation: "Fix it",
           hunkIds: [`h_${"c".repeat(24)}`],
         },
       ],
@@ -191,6 +197,51 @@ describe("PullRequestCoordinator in workerd", () => {
       action: "resolved",
       findingId: `f_${"b".repeat(24)}`,
     });
+    const dispositionInteraction = {
+      deliveryId: "workerd-feedback-2",
+      eventName: "issue_comment",
+      action: "created",
+      repository: event.repository,
+      pullRequestNumber: event.pullRequestNumber,
+      interactionType: "disposition",
+      actor: "Robbie-Palmer",
+      actorAssociation: "OWNER",
+      findingId: `f_${"b".repeat(24)}`,
+      disposition: "acknowledged",
+      reason: "Accepted and fixing now",
+      occurredAt: "2026-08-09T12:05:00Z",
+    };
+    const dispositionResponse = await stub.fetch(
+      "https://coordinator.test/interactions",
+      { method: "POST", body: JSON.stringify(dispositionInteraction) },
+    );
+    await expect(dispositionResponse.json()).resolves.toMatchObject({
+      accepted: true,
+      duplicate: false,
+      findingId: dispositionInteraction.findingId,
+    });
+    const outcomePrefix = [
+      "v2",
+      event.repository,
+      `pr-${event.pullRequestNumber}`,
+      "findings",
+      `f_${"b".repeat(24)}`,
+      "outcomes",
+    ].join("/");
+    const acknowledgedOutcome = await (env as unknown as Env).REVIEW_DATA.get(
+      `${outcomePrefix}/v1.json`,
+    );
+    expect(await acknowledgedOutcome?.json()).toMatchObject({
+      schemaVersion: 2,
+      recordType: "finding-outcome",
+      outcomeVersion: 1,
+      outcome: "acknowledged",
+      basis: "explicit-disposition",
+      evidence: {
+        deliveryId: dispositionInteraction.deliveryId,
+        actor: dispositionInteraction.actor,
+      },
+    });
 
     const duplicateClaim = await stub.fetch(
       "https://coordinator.test/reviews/claim",
@@ -220,6 +271,8 @@ describe("PullRequestCoordinator in workerd", () => {
     );
     await expect(laterClaim.json()).resolves.toMatchObject({ claimed: true });
     const laterCompletionBody = JSON.stringify({
+      repository: event.repository,
+      pullRequestNumber: event.pullRequestNumber,
       runId: laterRunId,
       headSha: laterHead,
       costUsd: 0.1,
@@ -297,13 +350,133 @@ describe("PullRequestCoordinator in workerd", () => {
       completed: true,
       duplicate: true,
     });
+    expect(
+      await (env as unknown as Env).REVIEW_DATA.get(`${outcomePrefix}/v2.json`),
+    ).toBeNull();
+
+    const fixedHead = "f".repeat(40);
+    const fixedRunId = "workerd-review-4";
+    const fixedHunk = {
+      hunkId: `h_${"f".repeat(24)}`,
+      fingerprint: "1".repeat(64),
+      file: "app.ts",
+      oldStart: 50,
+      oldLines: 1,
+      newStart: 60,
+      newLines: 1,
+    };
+    const fixedTrigger = await stub.fetch("https://coordinator.test/events", {
+      method: "POST",
+      body: JSON.stringify({
+        ...event,
+        deliveryId: "workerd-fixed-head-trigger",
+        headSha: fixedHead,
+      }),
+    });
+    await expect(fixedTrigger.json()).resolves.toMatchObject({ accepted: true });
+    const fixedClaim = await stub.fetch(
+      "https://coordinator.test/reviews/claim",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          ...claimBody,
+          runId: fixedRunId,
+          headSha: fixedHead,
+          diffFingerprint: "fixed-diff-hash",
+        }),
+      },
+    );
+    await expect(fixedClaim.json()).resolves.toMatchObject({ claimed: true });
+    const fixedCompletion = await stub.fetch(
+      "https://coordinator.test/reviews/complete",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
+          runId: fixedRunId,
+          headSha: fixedHead,
+          costUsd: 0.1,
+          hunks: [fixedHunk],
+          currentHunks: [
+            fixedHunk,
+            {
+              hunkId: `h_${"e".repeat(24)}`,
+              fingerprint: "f".repeat(64),
+              file: "unchanged.ts",
+              oldStart: 1,
+              oldLines: 1,
+              newStart: 1,
+              newLines: 1,
+            },
+          ],
+          findings: [],
+          findingResolutions: [{
+            findingId: `f_${"b".repeat(24)}`,
+            verdict: "fixed",
+            evidence: "The later diff removes the defective branch.",
+          }],
+        }),
+      },
+    );
+    await expect(fixedCompletion.json()).resolves.toEqual({ completed: true });
+    const confirmation = {
+      deliveryId: "workerd-feedback-confirmed-fixed",
+      eventName: "issue_comment",
+      action: "created",
+      repository: event.repository,
+      pullRequestNumber: event.pullRequestNumber,
+      headSha: fixedHead,
+      interactionType: "disposition",
+      actor: "Robbie-Palmer",
+      actorAssociation: "OWNER",
+      findingId: `f_${"b".repeat(24)}`,
+      disposition: "confirmed-fixed",
+      reason: "Reviewed the replay evidence and verified the retry repair",
+      occurredAt: "2026-08-09T12:10:00Z",
+    };
+    const confirmationResponse = await stub.fetch(
+      "https://coordinator.test/interactions",
+      { method: "POST", body: JSON.stringify(confirmation) },
+    );
+    await expect(confirmationResponse.json()).resolves.toMatchObject({
+      accepted: true,
+      duplicate: false,
+    });
+    const fixedOutcome = await (env as unknown as Env).REVIEW_DATA.get(
+      `${outcomePrefix}/v2.json`,
+    );
+    expect(await fixedOutcome?.json()).toMatchObject({
+      schemaVersion: 2,
+      recordType: "finding-outcome",
+      outcomeVersion: 2,
+      outcome: "confirmed-fixed",
+      basis: "explicit-disposition",
+      evidence: {
+        actor: "Robbie-Palmer",
+        reason: "Reviewed the replay evidence and verified the retry repair",
+      },
+    });
     const laterBaseline = await stub.fetch(
       "https://coordinator.test/reviews/baseline",
-      { method: "POST", body: "{}" },
+      { method: "POST", body: JSON.stringify({ headSha: fixedHead }) },
     );
     await expect(laterBaseline.json()).resolves.toMatchObject({
-      headSha: laterHead,
-      hunkIds: [`h_${"c".repeat(24)}`, `h_${"e".repeat(24)}`],
+      headSha: fixedHead,
+      hunkIds: [`h_${"e".repeat(24)}`, fixedHunk.hunkId],
+      openFindings: [],
+    });
+    const nextHeadBaseline = await stub.fetch(
+      "https://coordinator.test/reviews/baseline",
+      {
+        method: "POST",
+        body: JSON.stringify({ headSha: "3".repeat(40) }),
+      },
+    );
+    await expect(nextHeadBaseline.json()).resolves.toMatchObject({
+      openFindings: [expect.objectContaining({
+        findingId: `f_${"b".repeat(24)}`,
+      })],
     });
     await runInDurableObject(stub, async (_instance, state) => {
       expect(
@@ -342,10 +515,41 @@ describe("PullRequestCoordinator in workerd", () => {
       expect(
         state.storage.sql
           .exec<{ action: string; r2_recorded: number }>(
-            "SELECT action, r2_recorded FROM review_finding_events",
+            `SELECT action, r2_recorded FROM review_finding_events
+             ORDER BY occurred_at`,
           )
           .toArray(),
-      ).toEqual([{ action: "resolved", r2_recorded: 1 }]);
+      ).toEqual([
+        { action: "resolved", r2_recorded: 1 },
+        { action: "created", r2_recorded: 1 },
+        { action: "created", r2_recorded: 1 },
+      ]);
+      expect(
+        state.storage.sql
+          .exec<{
+            outcome_version: number;
+            outcome: string;
+            basis: string;
+            r2_recorded: number;
+          }>(
+            `SELECT outcome_version, outcome, basis, r2_recorded
+             FROM review_finding_outcomes ORDER BY outcome_version`,
+          )
+          .toArray(),
+      ).toEqual([
+        {
+          outcome_version: 1,
+          outcome: "acknowledged",
+          basis: "explicit-disposition",
+          r2_recorded: 1,
+        },
+        {
+          outcome_version: 2,
+          outcome: "confirmed-fixed",
+          basis: "explicit-disposition",
+          r2_recorded: 1,
+        },
+      ]);
     });
   });
 
@@ -380,6 +584,8 @@ describe("PullRequestCoordinator in workerd", () => {
       {
         method: "POST",
         body: JSON.stringify({
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
           runId,
           headSha: event.headSha,
           costUsd: 0,
@@ -394,12 +600,165 @@ describe("PullRequestCoordinator in workerd", () => {
 
     const baseline = await stub.fetch(
       "https://coordinator.test/reviews/baseline",
-      { method: "POST", body: "{}" },
+      { method: "POST", body: JSON.stringify({ headSha: event.headSha }) },
     );
     await expect(baseline.json()).resolves.toEqual({
       headSha: event.headSha,
       hunkIds: [currentHunk.hunkId],
-      openFindings: [],
+      openFindings: [expect.objectContaining({
+        findingId: `f_${"b".repeat(24)}`,
+      })],
+    });
+  });
+
+  it("finalizes unanswered and superseded findings when a pull request closes", async () => {
+    const bindings = env as unknown as Env;
+    const pullRequestNumber = 43;
+    const repository = event.repository;
+    const stub = bindings.PR_STATE.getByName(
+      `${repository}#${pullRequestNumber}`,
+    );
+    const initialHead = "1".repeat(40);
+    const finalHead = "2".repeat(40);
+    const remainingHunk = {
+      hunkId: `h_${"1".repeat(24)}`,
+      fingerprint: "1".repeat(64),
+      file: "remaining.ts",
+      oldStart: 1,
+      oldLines: 1,
+      newStart: 1,
+      newLines: 1,
+    };
+    const removedHunk = {
+      hunkId: `h_${"2".repeat(24)}`,
+      fingerprint: "2".repeat(64),
+      file: "removed.ts",
+      oldStart: 1,
+      oldLines: 1,
+      newStart: 1,
+      newLines: 1,
+    };
+    const finding = (suffix: string, hunk: typeof remainingHunk) => ({
+      findingId: `f_${suffix.repeat(24)}`,
+      hunkIds: [hunk.hunkId],
+      severity: "medium",
+      file: hunk.file,
+      line: 1,
+      title: `${hunk.file} finding`,
+      evidence: "Evidence",
+      recommendation: "Fix it",
+      confidence: 0.8,
+      source_models: ["model/scout"],
+      status: "open",
+      resolution_note: "",
+    });
+    const remainingFinding = finding("3", remainingHunk);
+    const removedFinding = finding("4", removedHunk);
+
+    const claim = async (runId: string, headSha: string, fingerprint: string) =>
+      stub.fetch("https://coordinator.test/reviews/claim", {
+        method: "POST",
+        body: JSON.stringify({
+          runId,
+          headSha,
+          diffFingerprint: fingerprint,
+          configFingerprint: "config-hash",
+          force: false,
+          maxRuns: 20,
+          maxCostUsd: 5,
+        }),
+      });
+    await expect(
+      (await claim("outcome-initial", initialHead, "initial-diff")).json(),
+    ).resolves.toMatchObject({ claimed: true });
+    const initialCompletion = await stub.fetch(
+      "https://coordinator.test/reviews/complete",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          repository,
+          pullRequestNumber,
+          runId: "outcome-initial",
+          headSha: initialHead,
+          costUsd: 0.1,
+          hunks: [remainingHunk, removedHunk],
+          findings: [remainingFinding, removedFinding],
+        }),
+      },
+    );
+    await expect(initialCompletion.json()).resolves.toEqual({ completed: true });
+
+    await expect(
+      (await claim("outcome-final", finalHead, "final-diff")).json(),
+    ).resolves.toMatchObject({ claimed: true });
+    const finalCompletion = await stub.fetch(
+      "https://coordinator.test/reviews/complete",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          repository,
+          pullRequestNumber,
+          runId: "outcome-final",
+          headSha: finalHead,
+          costUsd: 0,
+          hunks: [],
+          currentHunks: [remainingHunk],
+          findings: [],
+        }),
+      },
+    );
+    await expect(finalCompletion.json()).resolves.toEqual({ completed: true });
+
+    const finalization = {
+      deliveryId: "outcome-finalization",
+      eventName: "pull_request",
+      action: "closed",
+      repository,
+      pullRequestNumber,
+      headSha: finalHead,
+      finalState: "merged",
+      occurredAt: "2026-08-15T12:00:00Z",
+    };
+    const finalized = await stub.fetch(
+      "https://coordinator.test/finalizations",
+      { method: "POST", body: JSON.stringify(finalization) },
+    );
+    await expect(finalized.json()).resolves.toEqual({
+      accepted: true,
+      duplicate: false,
+      outcomes: 2,
+    });
+    const duplicate = await stub.fetch(
+      "https://coordinator.test/finalizations",
+      { method: "POST", body: JSON.stringify(finalization) },
+    );
+    await expect(duplicate.json()).resolves.toEqual({
+      accepted: true,
+      duplicate: true,
+      outcomes: 0,
+    });
+
+    const outcome = async (findingId: string) => {
+      const key = [
+        "v2",
+        repository,
+        `pr-${pullRequestNumber}`,
+        "findings",
+        findingId,
+        "outcomes",
+        "v1.json",
+      ].join("/");
+      return bindings.REVIEW_DATA.get(key).then((record) => record?.json());
+    };
+    await expect(outcome(remainingFinding.findingId)).resolves.toMatchObject({
+      outcome: "no-observable-response",
+      basis: "pull-request-finalization",
+      evidence: { finalHeadWasReviewed: true, affectedCodeRemains: true },
+    });
+    await expect(outcome(removedFinding.findingId)).resolves.toMatchObject({
+      outcome: "superseded",
+      basis: "pull-request-finalization",
+      evidence: { finalHeadWasReviewed: true, affectedCodeRemains: false },
     });
   });
 });

@@ -8,8 +8,16 @@ import {
 import type {
   Env,
   FindingInteractionEvent,
+  FindingOutcome,
+  PullRequestFinalizationEvent,
   ReviewWorkflowParams,
 } from "./env";
+import {
+  buildFindingOutcomeRecord,
+  classifyFinalizedFinding,
+  type FindingOutcomeBasis,
+} from "./finding-outcomes";
+import { createInstallationToken } from "./github-app";
 import type { FindingPublication } from "./finding-lifecycle";
 import {
   claimReview,
@@ -26,6 +34,7 @@ import {
   runScouts,
   type IdentifiedMergedFinding,
   type IdentifiedReviewArtifacts,
+  type FindingResolution,
   type MergedRun,
   type PreparedReview,
   type ReviewHunk,
@@ -33,6 +42,7 @@ import {
 } from "./review-engine";
 import {
   parseFindingInteraction,
+  parsePullRequestFinalization,
   parseReviewEvent,
   verifyGitHubSignature,
 } from "./webhook";
@@ -40,6 +50,15 @@ import {
 const JSON_HEADERS = {
   "cache-control": "no-store",
   "content-type": "application/json; charset=utf-8",
+};
+const OUTCOME_FLUSH_CONCURRENCY = 20;
+const OUTCOME_FLUSH_LIMIT = 100;
+const OUTCOME_FLUSH_RETRY_DELAY_MS = 60_000;
+const OUTCOME_FLUSH_RETRY_KEY = "pending-finding-outcome-flush";
+type FindingOutcomeFlushRetry = {
+  kind: "finding-outcomes";
+  repository: string;
+  pullRequestNumber: number;
 };
 const CREATE_WEBHOOK_DELIVERIES_TABLE =
   "CREATE TABLE IF NOT EXISTS webhook_deliveries (" +
@@ -63,6 +82,7 @@ const CREATE_REVIEW_RUNS_TABLE =
   "cost_usd REAL NOT NULL DEFAULT 0, " +
   "comment_id INTEGER, " +
   "findings_json TEXT, " +
+  "finding_resolutions_json TEXT, " +
   "completion_hash TEXT, " +
   "error TEXT)";
 const CREATE_REVIEW_HUNKS_TABLE =
@@ -119,6 +139,18 @@ const CREATE_REVIEW_FINDING_EVENTS_TABLE =
   "occurred_at TEXT NOT NULL, " +
   "recorded_at TEXT NOT NULL, " +
   "r2_recorded INTEGER NOT NULL DEFAULT 0)";
+const CREATE_REVIEW_FINDING_OUTCOMES_TABLE =
+  "CREATE TABLE IF NOT EXISTS review_finding_outcomes (" +
+  "finding_id TEXT NOT NULL, " +
+  "outcome_version INTEGER NOT NULL, " +
+  "outcome TEXT NOT NULL, " +
+  "basis TEXT NOT NULL, " +
+  "source_id TEXT NOT NULL UNIQUE, " +
+  "payload_json TEXT NOT NULL, " +
+  "occurred_at TEXT NOT NULL, " +
+  "recorded_at TEXT NOT NULL, " +
+  "r2_recorded INTEGER NOT NULL DEFAULT 0, " +
+  "PRIMARY KEY (finding_id, outcome_version))";
 const DEFAULT_DEBOUNCE_DELAY_MS = 120_000;
 const MINIMUM_DEBOUNCE_DELAY_MS = 1_000;
 const MAXIMUM_DEBOUNCE_DELAY_MS = 3_600_000;
@@ -153,6 +185,10 @@ async function sha256(value: string): Promise<string> {
 
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: JSON_HEADERS });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function errorType(error: unknown): string {
@@ -326,6 +362,73 @@ function isFindingPublication(value: unknown): value is FindingPublication {
   );
 }
 
+function isFindingResolution(value: unknown): value is FindingResolution {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.findingId === "string" &&
+    /^f_[a-f0-9]{24}$/.test(value.findingId) &&
+    ["fixed", "still-present", "uncertain"].includes(
+      String(value.verdict),
+    ) &&
+    typeof value.evidence === "string" &&
+    value.evidence.trim().length > 0 &&
+    value.evidence.length <= 2_000
+  );
+}
+
+function storedFindingContext(
+  findingsJson: string | null | undefined,
+  findingId: string,
+): {
+  severity?: string;
+  line?: number | null;
+  evidence?: string;
+  recommendation?: string;
+} {
+  if (!findingsJson) return {};
+  try {
+    const parsed = JSON.parse(findingsJson) as unknown;
+    if (!Array.isArray(parsed)) return {};
+    const original = parsed.find(
+      (candidate) => isRecord(candidate) && candidate.findingId === findingId,
+    );
+    if (!isRecord(original)) return {};
+    return {
+      severity:
+        typeof original.severity === "string" ? original.severity : undefined,
+      line:
+        typeof original.line === "number" || original.line === null
+          ? original.line
+          : undefined,
+      evidence:
+        typeof original.evidence === "string" ? original.evidence : undefined,
+      recommendation:
+        typeof original.recommendation === "string"
+          ? original.recommendation
+          : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function storedFindingResolution(
+  resolutionsJson: string | null | undefined,
+  findingId: string,
+): FindingResolution | undefined {
+  if (!resolutionsJson) return undefined;
+  try {
+    const parsed = JSON.parse(resolutionsJson) as unknown;
+    if (!Array.isArray(parsed)) return undefined;
+    return parsed.find(
+      (candidate): candidate is FindingResolution =>
+        isFindingResolution(candidate) && candidate.findingId === findingId,
+    );
+  } catch {
+    return undefined;
+  }
+}
+
 function isFindingInteractionEvent(
   value: unknown,
 ): value is FindingInteractionEvent {
@@ -341,6 +444,10 @@ function isFindingInteractionEvent(
     typeof event.pullRequestNumber === "number" &&
     Number.isSafeInteger(event.pullRequestNumber) &&
     event.pullRequestNumber > 0 &&
+    (event.headSha === undefined ||
+      (typeof event.headSha === "string" &&
+        event.headSha.length > 0 &&
+        event.headSha.length <= 64)) &&
     (event.interactionType === "reply" ||
       event.interactionType === "thread" ||
       event.interactionType === "disposition") &&
@@ -358,8 +465,68 @@ function isFindingInteractionEvent(
     (event.interactionType !== "disposition" ||
       (event.findingId !== undefined &&
         (event.disposition === "acknowledged" ||
+          event.disposition === "confirmed-fixed" ||
           event.disposition === "rejected"))) &&
+    (event.disposition !== "confirmed-fixed" || event.headSha !== undefined) &&
     (event.interactionType === "disposition" || event.rootCommentId !== undefined)
+  );
+}
+
+async function currentPullRequestHead(
+  env: Env,
+  event: FindingInteractionEvent,
+): Promise<string | undefined> {
+  const [owner, repository, ...extra] = event.repository.split("/");
+  if (!owner || !repository || extra.length > 0) return undefined;
+  const token = await createInstallationToken({
+    appId: env.AI_REVIEW_APP_ID,
+    installationId: env.AI_REVIEW_APP_INSTALLATION_ID,
+    privateKey: env.AI_REVIEW_APP_PRIVATE_KEY,
+  });
+  const response = await fetch(
+    `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/pulls/${event.pullRequestNumber}`,
+    {
+      headers: {
+        accept: "application/vnd.github+json",
+        authorization: `Bearer ${token}`,
+        "user-agent": "personal-site-ai-review",
+        "x-github-api-version": "2022-11-28",
+      },
+      signal: AbortSignal.timeout(COORDINATOR_TIMEOUT_MS),
+    },
+  );
+  if (!response.ok) return undefined;
+  const pullRequest = (await response.json().catch(() => null)) as
+    | { head?: { sha?: unknown } }
+    | null;
+  return typeof pullRequest?.head?.sha === "string" &&
+      pullRequest.head.sha.length > 0
+    ? pullRequest.head.sha
+    : undefined;
+}
+
+function isPullRequestFinalizationEvent(
+  value: unknown,
+): value is PullRequestFinalizationEvent {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const event = value as Partial<PullRequestFinalizationEvent>;
+  return (
+    typeof event.deliveryId === "string" &&
+    event.deliveryId.length > 0 &&
+    event.deliveryId.length <= 255 &&
+    event.eventName === "pull_request" &&
+    event.action === "closed" &&
+    typeof event.repository === "string" &&
+    event.repository.length > 0 &&
+    typeof event.pullRequestNumber === "number" &&
+    Number.isSafeInteger(event.pullRequestNumber) &&
+    event.pullRequestNumber > 0 &&
+    typeof event.headSha === "string" &&
+    event.headSha.length > 0 &&
+    event.headSha.length <= 64 &&
+    (event.finalState === "merged" || event.finalState === "closed") &&
+    (event.occurredAt === undefined ||
+      (typeof event.occurredAt === "string" && event.occurredAt.length <= 64))
   );
 }
 
@@ -396,7 +563,10 @@ async function readWebhookBody(
 }
 
 async function forwardToCoordinator(
-  event: ReviewWorkflowParams | FindingInteractionEvent,
+  event:
+    | ReviewWorkflowParams
+    | FindingInteractionEvent
+    | PullRequestFinalizationEvent,
   env: Env,
   path = "/events",
 ): Promise<Response> {
@@ -444,6 +614,13 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         "ALTER TABLE review_runs ADD COLUMN completion_hash TEXT",
       );
     }
+    if (
+      !reviewRunColumns.some(({ name }) => name === "finding_resolutions_json")
+    ) {
+      this.ctx.storage.sql.exec(
+        "ALTER TABLE review_runs ADD COLUMN finding_resolutions_json TEXT",
+      );
+    }
     this.ctx.storage.sql.exec(CREATE_REVIEW_HUNKS_TABLE);
     this.ctx.storage.sql.exec(CREATE_REVIEW_RUN_HUNKS_TABLE);
     this.ctx.storage.sql.exec(CREATE_REVIEW_FINDINGS_TABLE);
@@ -463,6 +640,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_HUNKS_TABLE);
     this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_COMMENTS_TABLE);
     this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_EVENTS_TABLE);
+    this.ctx.storage.sql.exec(CREATE_REVIEW_FINDING_OUTCOMES_TABLE);
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -472,11 +650,150 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     const path = new URL(request.url).pathname;
     if (path === "/events") return this.receiveEvent(request);
     if (path === "/interactions") return this.receiveInteraction(request);
+    if (path === "/finalizations") return this.receiveFinalization(request);
     if (path === "/reviews/claim") return this.claimReview(request);
-    if (path === "/reviews/baseline") return this.reviewBaseline();
+    if (path === "/reviews/baseline") return this.reviewBaseline(request);
     if (path === "/reviews/complete") return this.completeReview(request);
     if (path === "/reviews/fail") return this.failReview(request);
     return new Response("Not found", { status: 404 });
+  }
+
+  private appendFindingOutcome(options: {
+    repository: string;
+    pullRequestNumber: number;
+    findingId: string;
+    outcome: FindingOutcome;
+    basis: FindingOutcomeBasis;
+    sourceId: string;
+    occurredAt: string;
+    recordedAt: string;
+    evidence: Record<string, unknown>;
+  }): boolean {
+    const existing = this.ctx.storage.sql
+      .exec<{ source_id: string }>(
+        "SELECT source_id FROM review_finding_outcomes WHERE source_id = ?",
+        options.sourceId,
+      )
+      .toArray()[0];
+    if (existing) return false;
+
+    const latest = this.ctx.storage.sql
+      .exec<{ outcome_version: number }>(
+        `SELECT outcome_version FROM review_finding_outcomes
+         WHERE finding_id = ? ORDER BY outcome_version DESC LIMIT 1`,
+        options.findingId,
+      )
+      .toArray()[0];
+    const outcomeVersion = Number(latest?.outcome_version ?? 0) + 1;
+    const payload = buildFindingOutcomeRecord({
+      repository: options.repository,
+      pullRequestNumber: options.pullRequestNumber,
+      findingId: options.findingId,
+      outcome: options.outcome,
+      basis: options.basis,
+      sourceId: options.sourceId,
+      outcomeVersion,
+      evidence: options.evidence,
+      occurredAt: options.occurredAt,
+      recordedAt: options.recordedAt,
+    });
+    const inserted = this.ctx.storage.sql.exec(
+      `INSERT OR IGNORE INTO review_finding_outcomes
+       (finding_id, outcome_version, outcome, basis, source_id, payload_json,
+        occurred_at, recorded_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      options.findingId,
+      outcomeVersion,
+      options.outcome,
+      options.basis,
+      options.sourceId,
+      JSON.stringify(payload),
+      options.occurredAt,
+      options.recordedAt,
+    );
+    return inserted.rowsWritten > 0;
+  }
+
+  private async flushFindingOutcomes(
+    repository: string,
+    pullRequestNumber: number,
+  ): Promise<void> {
+    const pending = this.ctx.storage.sql
+      .exec<{
+        finding_id: string;
+        outcome_version: number;
+        payload_json: string;
+      }>(
+        `SELECT finding_id, outcome_version, payload_json
+         FROM review_finding_outcomes WHERE r2_recorded = 0
+         ORDER BY finding_id, outcome_version LIMIT ?`,
+        OUTCOME_FLUSH_LIMIT,
+      )
+      .toArray();
+    let recorded = 0;
+    for (
+      let index = 0;
+      index < pending.length;
+      index += OUTCOME_FLUSH_CONCURRENCY
+    ) {
+      const batch = pending.slice(index, index + OUTCOME_FLUSH_CONCURRENCY);
+      const results = await Promise.all(
+        batch.map(async (outcome) => {
+          const key = [
+            "v2",
+            repository,
+            `pr-${pullRequestNumber}`,
+            "findings",
+            outcome.finding_id,
+            "outcomes",
+            `v${outcome.outcome_version}.json`,
+          ].join("/");
+          try {
+            await this.env.REVIEW_DATA.put(key, outcome.payload_json, {
+              httpMetadata: { contentType: "application/json" },
+            });
+          } catch (error) {
+            console.error("Could not publish a finding outcome", {
+              type: errorType(error),
+            });
+            return false;
+          }
+          this.ctx.storage.sql.exec(
+            `UPDATE review_finding_outcomes SET r2_recorded = 1
+             WHERE finding_id = ? AND outcome_version = ?`,
+            outcome.finding_id,
+            outcome.outcome_version,
+          );
+          return true;
+        }),
+      );
+      recorded += results.filter(Boolean).length;
+    }
+    const failed = pending.length - recorded;
+    if (failed > 0) {
+      this.ctx.storage.kv.put(OUTCOME_FLUSH_RETRY_KEY, {
+        kind: "finding-outcomes",
+        repository,
+        pullRequestNumber,
+      } satisfies FindingOutcomeFlushRetry);
+      const now = Date.now();
+      const retryAt = now + OUTCOME_FLUSH_RETRY_DELAY_MS;
+      const scheduledAlarm = await this.ctx.storage.getAlarm();
+      if (
+        scheduledAlarm === null ||
+        scheduledAlarm <= now ||
+        scheduledAlarm > retryAt
+      ) {
+        await this.ctx.storage.setAlarm(retryAt);
+      }
+    } else if (pending.length < OUTCOME_FLUSH_LIMIT) {
+      await this.ctx.storage.delete(OUTCOME_FLUSH_RETRY_KEY);
+    }
+    if (pending.length === OUTCOME_FLUSH_LIMIT && recorded > 0) {
+      this.ctx.waitUntil(
+        this.flushFindingOutcomes(repository, pullRequestNumber),
+      );
+    }
   }
 
   private async terminateExpiredReview(
@@ -644,12 +961,58 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       if (!finding) return { unknownFinding: true };
 
       const occurredAt = event.occurredAt ?? recordedAt;
+      const controlledReplay =
+        event.disposition === "confirmed-fixed"
+          ? this.ctx.storage.sql
+              .exec<{
+                run_id: string;
+                head_sha: string;
+                finding_resolutions_json: string;
+              }>(
+                `SELECT run_id, head_sha, finding_resolutions_json
+                 FROM review_runs
+                 WHERE status = 'completed'
+                   AND finding_resolutions_json IS NOT NULL
+                 ORDER BY completed_at DESC, run_id DESC LIMIT 100`,
+              )
+              .toArray()
+              .map((run) => {
+                const resolution = storedFindingResolution(
+                  run.finding_resolutions_json,
+                  findingId,
+                );
+                return resolution
+                  ? {
+                      runId: run.run_id,
+                      headSha: run.head_sha,
+                      verdict: resolution.verdict,
+                      evidence: resolution.evidence,
+                    }
+                  : undefined;
+              })
+              .find((resolution) => resolution !== undefined)
+          : undefined;
+      if (
+        event.disposition === "confirmed-fixed" &&
+        (controlledReplay?.verdict !== "fixed" ||
+          !event.headSha ||
+          controlledReplay.headSha !== event.headSha)
+      ) {
+        return {
+          unconfirmedFix: true,
+          reason:
+            controlledReplay?.verdict === "fixed" && event.headSha
+              ? "stale-fixed-replay"
+              : "no-fixed-replay",
+        };
+      }
       const evidence = {
         schemaVersion: 2,
         recordType: "finding-interaction-evidence",
         evidenceVersion: 1,
         repository: event.repository,
         pullRequestNumber: event.pullRequestNumber,
+        currentHeadSha: event.headSha,
         findingId,
         deliveryId: event.deliveryId,
         eventName: event.eventName,
@@ -664,6 +1027,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         reactions: event.reactions,
         disposition: event.disposition,
         reason: event.reason,
+        controlledReplay,
         occurredAt,
         recordedAt,
       };
@@ -703,6 +1067,24 @@ export class PullRequestCoordinator extends DurableObject<Env> {
           event.reason ?? null,
           findingId,
         );
+        this.appendFindingOutcome({
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
+          findingId,
+          outcome: event.disposition,
+          basis: "explicit-disposition",
+          sourceId: `delivery:${event.deliveryId}`,
+          occurredAt,
+          recordedAt,
+          evidence: {
+            deliveryId: event.deliveryId,
+            actor: event.actor,
+            actorAssociation: event.actorAssociation,
+            reason: event.reason,
+            currentHeadSha: event.headSha,
+            controlledReplay,
+          },
+        });
       }
       return {
         duplicate: false,
@@ -714,6 +1096,9 @@ export class PullRequestCoordinator extends DurableObject<Env> {
 
     if ("unknownFinding" in result) {
       return json({ accepted: false, reason: "unknown-finding" }, 202);
+    }
+    if ("unconfirmedFix" in result) {
+      return json({ accepted: false, reason: result.reason }, 202);
     }
     if (!result.r2Recorded) {
       const key = [
@@ -734,11 +1119,140 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         event.deliveryId,
       );
     }
+    await this.flushFindingOutcomes(
+      event.repository,
+      event.pullRequestNumber,
+    );
     return json({
       accepted: true,
       duplicate: result.duplicate,
       findingId: result.findingId,
     });
+  }
+
+  private async receiveFinalization(request: Request): Promise<Response> {
+    const event = await request.json().catch(() => null);
+    if (!isPullRequestFinalizationEvent(event)) {
+      return json({ error: "Invalid pull request finalization" }, 400);
+    }
+
+    const recordedAt = new Date().toISOString();
+    const result = this.ctx.storage.transactionSync(() => {
+      const existing = this.ctx.storage.sql
+        .exec<{ delivery_id: string }>(
+          "SELECT delivery_id FROM webhook_deliveries WHERE delivery_id = ?",
+          event.deliveryId,
+        )
+        .toArray()[0];
+      if (existing) return { duplicate: true, outcomes: 0 };
+
+      this.ctx.storage.sql.exec(
+        `INSERT INTO webhook_deliveries
+         (delivery_id, event_name, action, repository, pull_request_number,
+          head_sha, received_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        event.deliveryId,
+        event.eventName,
+        event.action,
+        event.repository,
+        event.pullRequestNumber,
+        event.headSha,
+        recordedAt,
+      );
+      const completed = this.ctx.storage.sql
+        .exec<{ run_id: string; head_sha: string }>(
+          `SELECT run_id, head_sha FROM review_runs
+           WHERE status = 'completed'
+           ORDER BY completed_at DESC, run_id DESC LIMIT 1`,
+        )
+        .toArray()[0];
+      const currentHunkIds = new Set(
+        completed
+          ? this.ctx.storage.sql
+              .exec<{ hunk_id: string }>(
+                "SELECT hunk_id FROM review_run_hunks WHERE run_id = ?",
+                completed.run_id,
+              )
+              .toArray()
+              .map(({ hunk_id }) => hunk_id)
+          : [],
+      );
+      const finalHeadWasReviewed = completed?.head_sha === event.headSha;
+      const findings = this.ctx.storage.sql
+        .exec<{
+          finding_id: string;
+          disposition: string | null;
+          disposition_reason: string | null;
+          first_seen_head_sha: string;
+          last_seen_head_sha: string;
+          first_seen_run_id: string;
+          last_seen_run_id: string;
+        }>(
+          `SELECT finding_id, disposition, disposition_reason,
+                  first_seen_head_sha, last_seen_head_sha,
+                  first_seen_run_id, last_seen_run_id
+           FROM review_findings ORDER BY finding_id`,
+        )
+        .toArray();
+      let outcomes = 0;
+      for (const finding of findings) {
+        const priorOutcome = this.ctx.storage.sql
+          .exec<{ outcome: string }>(
+            `SELECT outcome FROM review_finding_outcomes
+             WHERE finding_id = ? ORDER BY outcome_version DESC LIMIT 1`,
+            finding.finding_id,
+          )
+          .toArray()[0];
+        if (priorOutcome) continue;
+
+        const findingHunkIds = this.ctx.storage.sql
+          .exec<{ hunk_id: string }>(
+            `SELECT hunk_id FROM review_finding_hunks
+             WHERE finding_id = ?`,
+            finding.finding_id,
+          )
+          .toArray()
+          .map(({ hunk_id }) => hunk_id);
+        const affectedCodeRemains = findingHunkIds.some((hunkId) =>
+          currentHunkIds.has(hunkId),
+        );
+        const outcome = classifyFinalizedFinding({
+          disposition: finding.disposition,
+          finalHeadWasReviewed,
+          affectedCodeRemains,
+        });
+        const inserted = this.appendFindingOutcome({
+          repository: event.repository,
+          pullRequestNumber: event.pullRequestNumber,
+          findingId: finding.finding_id,
+          outcome,
+          basis: "pull-request-finalization",
+          sourceId: `finalization:${event.deliveryId}:${finding.finding_id}`,
+          occurredAt: event.occurredAt ?? recordedAt,
+          recordedAt,
+          evidence: {
+            finalState: event.finalState,
+            finalHeadSha: event.headSha,
+            latestReviewedHeadSha: completed?.head_sha,
+            finalHeadWasReviewed,
+            affectedCodeRemains,
+            dispositionReason: finding.disposition_reason,
+            firstSeenHeadSha: finding.first_seen_head_sha,
+            lastSeenHeadSha: finding.last_seen_head_sha,
+            firstSeenRunId: finding.first_seen_run_id,
+            lastSeenRunId: finding.last_seen_run_id,
+          },
+        });
+        if (inserted) outcomes += 1;
+      }
+      return { duplicate: false, outcomes };
+    });
+
+    await this.flushFindingOutcomes(
+      event.repository,
+      event.pullRequestNumber,
+    );
+    return json({ accepted: true, ...result });
   }
 
   private async claimReview(request: Request): Promise<Response> {
@@ -881,7 +1395,18 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     return json(result);
   }
 
-  private reviewBaseline(): Response {
+  private async reviewBaseline(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => null)) as {
+      headSha?: unknown;
+    } | null;
+    if (
+      !body ||
+      typeof body.headSha !== "string" ||
+      body.headSha.length === 0 ||
+      body.headSha.length > 64
+    ) {
+      return json({ error: "Invalid review baseline" }, 400);
+    }
     const completed = this.ctx.storage.sql
       .exec<{ run_id: string; head_sha: string }>(
         `SELECT run_id, head_sha FROM review_runs
@@ -900,13 +1425,34 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       .toArray()
       .map(({ hunk_id }) => hunk_id);
     const findings = this.ctx.storage.sql
-      .exec<{ finding_id: string; file_path: string; title: string }>(
-        `SELECT finding_id, file_path, title FROM review_findings
-         WHERE status = 'open' AND disposition IS NULL
-         ORDER BY finding_id LIMIT 100`,
+      .exec<{
+        finding_id: string;
+        file_path: string;
+        title: string;
+        first_seen_run_id: string;
+        findings_json: string | null;
+      }>(
+        `SELECT finding.finding_id, finding.file_path, finding.title,
+                finding.first_seen_run_id, run.findings_json
+         FROM review_findings finding
+         LEFT JOIN review_runs run ON run.run_id = finding.first_seen_run_id
+         WHERE NOT EXISTS (
+           SELECT 1 FROM review_finding_outcomes outcome
+           WHERE outcome.finding_id = finding.finding_id
+             AND outcome.outcome = 'confirmed-fixed'
+             AND json_extract(
+               outcome.payload_json, '$.evidence.currentHeadSha'
+             ) = ?
+         )
+         ORDER BY finding.finding_id LIMIT 100`,
+        body.headSha,
       )
       .toArray();
     const openFindings = findings.map((finding) => ({
+      ...storedFindingContext(
+        finding.findings_json,
+        finding.finding_id,
+      ),
       findingId: finding.finding_id,
       file: finding.file_path,
       title: finding.title,
@@ -924,6 +1470,8 @@ export class PullRequestCoordinator extends DurableObject<Env> {
 
   private async completeReview(request: Request): Promise<Response> {
     const body = (await request.json().catch(() => null)) as {
+      repository?: unknown;
+      pullRequestNumber?: unknown;
       runId?: unknown;
       headSha?: unknown;
       costUsd?: unknown;
@@ -932,9 +1480,15 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       currentHunks?: unknown;
       findings?: unknown;
       findingPublications?: unknown;
+      findingResolutions?: unknown;
     } | null;
     if (
       !body ||
+      typeof body.repository !== "string" ||
+      body.repository.length === 0 ||
+      typeof body.pullRequestNumber !== "number" ||
+      !Number.isSafeInteger(body.pullRequestNumber) ||
+      body.pullRequestNumber <= 0 ||
       typeof body.runId !== "string" ||
       typeof body.headSha !== "string" ||
       typeof body.costUsd !== "number" ||
@@ -948,6 +1502,9 @@ export class PullRequestCoordinator extends DurableObject<Env> {
           !body.currentHunks.every(isReviewHunk))) ||
       !Array.isArray(body.findings) ||
       !body.findings.every(isIdentifiedFinding) ||
+      (body.findingResolutions !== undefined &&
+        (!Array.isArray(body.findingResolutions) ||
+          !body.findingResolutions.every(isFindingResolution))) ||
       (body.findingPublications !== undefined &&
         (!Array.isArray(body.findingPublications) ||
           !body.findingPublications.every(isFindingPublication)))
@@ -956,6 +1513,8 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     }
     const reviewedHunks = body.hunks as ReviewHunk[];
     const currentHunks = (body.currentHunks ?? body.hunks) as ReviewHunk[];
+    const completionRepository = body.repository;
+    const completionPullRequestNumber = body.pullRequestNumber;
     const completionHeadSha = body.headSha;
     const completionHunkIds = new Set(
       reviewedHunks.map(({ hunkId }) => hunkId),
@@ -969,9 +1528,15 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     );
     const findingPublications = (body.findingPublications ??
       []) as FindingPublication[];
+    const findingResolutions = (body.findingResolutions ??
+      []) as FindingResolution[];
+    const findingResolutionsById = new Map(
+      findingResolutions.map((resolution) => [resolution.findingId, resolution]),
+    );
     if (
       completionHunkIds.size !== reviewedHunks.length ||
       currentHunksById.size !== currentHunks.length ||
+      findingResolutionsById.size !== findingResolutions.length ||
       reviewedHunks.some((hunk) => {
         const current = currentHunksById.get(hunk.hunkId);
         return !current || !sameReviewHunk(hunk, current);
@@ -999,6 +1564,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         currentHunks,
         findings: body.findings,
         findingPublications,
+        findingResolutions,
       }),
     );
     const completedAt = new Date().toISOString();
@@ -1006,12 +1572,14 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       const update = this.ctx.storage.sql.exec(
         `UPDATE review_runs
          SET status = 'completed', completed_at = ?, cost_usd = ?,
-             comment_id = ?, findings_json = ?, completion_hash = ?, error = NULL
+             comment_id = ?, findings_json = ?, finding_resolutions_json = ?,
+             completion_hash = ?, error = NULL
          WHERE run_id = ? AND head_sha = ? AND status = 'running'`,
         completedAt,
         body.costUsd,
         body.commentId ?? null,
         JSON.stringify(body.findings),
+        JSON.stringify(findingResolutions),
         completionHash,
         body.runId,
         body.headSha,
@@ -1120,6 +1688,10 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     if (completion === "conflict") {
       return json({ error: "Review completion payload does not match" }, 409);
     }
+    await this.flushFindingOutcomes(
+      completionRepository,
+      completionPullRequestNumber,
+    );
     return json(
       completion === "duplicate"
         ? { completed: true, duplicate: true }
@@ -1156,9 +1728,29 @@ export class PullRequestCoordinator extends DurableObject<Env> {
   }
 
   override async alarm(): Promise<void> {
+    const outcomeRetry =
+      await this.ctx.storage.get<FindingOutcomeFlushRetry>(
+        OUTCOME_FLUSH_RETRY_KEY,
+      );
+    if (
+      outcomeRetry?.kind === "finding-outcomes" &&
+      typeof outcomeRetry.repository === "string" &&
+      Number.isSafeInteger(outcomeRetry.pullRequestNumber) &&
+      outcomeRetry.pullRequestNumber > 0
+    ) {
+      await this.flushFindingOutcomes(
+        outcomeRetry.repository,
+        outcomeRetry.pullRequestNumber,
+      );
+    }
+
     const event =
       await this.ctx.storage.get<ReviewWorkflowParams>(PENDING_EVENT_KEY);
-    if (!event || this.env.AI_REVIEW_ENABLED !== "true") {
+    if (
+      !event ||
+      !isReviewWorkflowParams(event) ||
+      this.env.AI_REVIEW_ENABLED !== "true"
+    ) {
       return;
     }
 
@@ -1263,6 +1855,7 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
             event.payload,
             event.instanceId,
             prepared!,
+            { result: { finding_resolutions: [] }, cost: 0 },
             { hunks: [], candidates: {}, publishedFindings: [] },
             skippedPublication,
           ),
@@ -1380,6 +1973,7 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
           event.payload,
           event.instanceId,
           prepared!,
+          merged!,
           artifacts!,
           publication,
         ),
@@ -1429,10 +2023,27 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
 function acceptedWebhookEvent(
   review: ReturnType<typeof parseReviewEvent>,
   interaction: ReturnType<typeof parseFindingInteraction> | undefined,
-): ReviewWorkflowParams | FindingInteractionEvent | undefined {
+  finalization: ReturnType<typeof parsePullRequestFinalization> | undefined,
+):
+  | ReviewWorkflowParams
+  | FindingInteractionEvent
+  | PullRequestFinalizationEvent
+  | undefined {
   if (review.kind === "accepted") return review.event;
   if (interaction?.kind === "accepted") return interaction.event;
+  if (finalization?.kind === "accepted") return finalization.event;
   return undefined;
+}
+
+function coordinatorPathForEvent(
+  event:
+    | ReviewWorkflowParams
+    | FindingInteractionEvent
+    | PullRequestFinalizationEvent,
+): "/events" | "/interactions" | "/finalizations" {
+  if ("interactionType" in event) return "/interactions";
+  if ("finalState" in event) return "/finalizations";
+  return "/events";
 }
 
 async function handleGitHubWebhook(request: Request, env: Env): Promise<Response> {
@@ -1463,18 +2074,51 @@ async function handleGitHubWebhook(request: Request, env: Env): Promise<Response
     parsedReview.kind === "ignored"
       ? parseFindingInteraction(eventName, deliveryId, payload)
       : undefined;
-  if (parsedReview.kind === "invalid" || parsedInteraction?.kind === "invalid") {
+  const parsedFinalization =
+    parsedReview.kind === "ignored" && parsedInteraction?.kind === "ignored"
+      ? parsePullRequestFinalization(eventName, deliveryId, payload)
+      : undefined;
+  if (
+    parsedReview.kind === "invalid" ||
+    parsedInteraction?.kind === "invalid" ||
+    parsedFinalization?.kind === "invalid"
+  ) {
     return json({ error: "Malformed webhook payload" }, 400);
   }
-  const event = acceptedWebhookEvent(parsedReview, parsedInteraction);
+  const event = acceptedWebhookEvent(
+    parsedReview,
+    parsedInteraction,
+    parsedFinalization,
+  );
   if (!event) return json({ ignored: true, reason: "unsupported-event" }, 202);
 
   const allowedRepository = env.AI_REVIEW_REPOSITORY?.trim().toLowerCase();
   if (!allowedRepository || event.repository.trim().toLowerCase() !== allowedRepository) {
     return json({ error: "Repository is not allowed" }, 403);
   }
-  const coordinatorPath = "interactionType" in event ? "/interactions" : "/events";
-  return forwardToCoordinator(event, env, coordinatorPath);
+  let forwardedEvent = event;
+  if (
+    "interactionType" in event &&
+    event.disposition === "confirmed-fixed"
+  ) {
+    let headSha: string | undefined;
+    try {
+      headSha = await currentPullRequestHead(env, event);
+    } catch (error) {
+      console.error("Could not load the authoritative pull request head", {
+        type: errorType(error),
+      });
+    }
+    if (!headSha) {
+      return json({ error: "Could not verify current pull request head" }, 503);
+    }
+    forwardedEvent = { ...event, headSha };
+  }
+  return forwardToCoordinator(
+    forwardedEvent,
+    env,
+    coordinatorPathForEvent(forwardedEvent),
+  );
 }
 
 export default {

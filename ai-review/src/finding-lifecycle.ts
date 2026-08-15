@@ -64,6 +64,7 @@ function renderFindingComment(finding: PublishableFinding): string {
     "",
     `<sub>Finding \`${finding.findingId}\`. Reply or resolve this thread, ` +
       `or use \`/ai-review acknowledge ${finding.findingId} reason\` / ` +
+      `\`/ai-review confirm-fixed ${finding.findingId} reason\` / ` +
       `\`/ai-review reject ${finding.findingId} reason\`.</sub>`,
   );
   return lines.join("\n");
@@ -279,6 +280,7 @@ export function renderFallbackFindings(
         `${markdownText(finding.title, 300)}** (\`${location}\`, ` +
         `\`${finding.findingId}\`) — ${markdownText(finding.evidence, 700)}`,
       `  - \`/ai-review acknowledge ${finding.findingId} <reason>\``,
+      `  - \`/ai-review confirm-fixed ${finding.findingId} <reason>\``,
       `  - \`/ai-review reject ${finding.findingId} <reason>\``,
     );
   }

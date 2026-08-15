@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   parseFindingInteraction,
+  parsePullRequestFinalization,
   parseReviewEvent,
   verifyGitHubSignature,
 } from "../src/webhook";
@@ -41,8 +42,9 @@ describe("parseReviewEvent", () => {
     expect(
       parseReviewEvent("pull_request", "delivery-1", {
         action: "synchronize",
+        number: 816,
         repository: { full_name: "Robbie-Palmer/personal-site" },
-        pull_request: { number: 816, head: { sha: "abc123" } },
+        pull_request: { head: { sha: "abc123" } },
       }),
     ).toEqual({
       kind: "accepted",
@@ -96,8 +98,9 @@ describe("parseReviewEvent", () => {
       expect(
         parseReviewEvent("pull_request", "delivery-missing-sha", {
           action: "synchronize",
+          number: 816,
           repository: { full_name: "Robbie-Palmer/personal-site" },
-          pull_request: { number: 816, head: { sha } },
+          pull_request: { head: { sha } },
         }),
       ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
     }
@@ -210,6 +213,65 @@ describe("parseReviewEvent", () => {
   });
 });
 
+describe("parsePullRequestFinalization", () => {
+  it("captures merged and unmerged PR closure without scheduling review", () => {
+    for (const merged of [true, false]) {
+      expect(
+        parsePullRequestFinalization("pull_request", `closed-${merged}`, {
+          action: "closed",
+          number: 816,
+          repository: { full_name: "Robbie-Palmer/personal-site" },
+          pull_request: {
+            merged,
+            closed_at: "2026-08-15T12:00:00Z",
+            head: { sha: "abc123" },
+          },
+        }),
+      ).toEqual({
+        kind: "accepted",
+        event: {
+          deliveryId: `closed-${merged}`,
+          eventName: "pull_request",
+          action: "closed",
+          repository: "Robbie-Palmer/personal-site",
+          pullRequestNumber: 816,
+          headSha: "abc123",
+          finalState: merged ? "merged" : "closed",
+          occurredAt: "2026-08-15T12:00:00Z",
+        },
+      });
+    }
+  });
+
+  it("rejects malformed closure evidence and ignores other events", () => {
+    expect(
+      parsePullRequestFinalization("pull_request", "delivery", {
+        action: "closed",
+        number: 816,
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        pull_request: { head: { sha: "abc123" } },
+      }),
+    ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
+    expect(
+      parsePullRequestFinalization("pull_request", "delivery", {
+        action: "closed",
+        number: 816,
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        pull_request: {
+          merged: true,
+          closed_at: "not-a-timestamp",
+          head: { sha: "abc123" },
+        },
+      }),
+    ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
+    expect(
+      parsePullRequestFinalization("pull_request", "delivery", {
+        action: "synchronize",
+      }),
+    ).toEqual({ kind: "ignored", reason: "unsupported-event" });
+  });
+});
+
 describe("parseFindingInteraction", () => {
   it("accepts explicit dispositions from trusted pull request commenters", () => {
     expect(
@@ -233,6 +295,28 @@ describe("parseFindingInteraction", () => {
         disposition: "rejected",
         findingId: `f_${"a".repeat(24)}`,
         reason: "false positive",
+      }),
+    });
+    expect(
+      parseFindingInteraction("issue_comment", "feedback-fixed", {
+        action: "created",
+        repository: { full_name: "Robbie-Palmer/personal-site" },
+        issue: { number: 816, pull_request: {} },
+        sender: { login: "robbie" },
+        comment: {
+          id: 100,
+          body: `/ai-review confirm-fixed f_${"a".repeat(24)} verified retry`,
+          author_association: "OWNER",
+          user: { login: "robbie" },
+        },
+      }),
+    ).toEqual({
+      kind: "accepted",
+      event: expect.objectContaining({
+        interactionType: "disposition",
+        disposition: "confirmed-fixed",
+        findingId: `f_${"a".repeat(24)}`,
+        reason: "verified retry",
       }),
     });
   });
@@ -316,8 +400,9 @@ describe("parseFindingInteraction", () => {
     expect(
       parseReviewEvent("pull_request", "x".repeat(256), {
         action: "opened",
+        number: 816,
         repository: { full_name: "Robbie-Palmer/personal-site" },
-        pull_request: { number: 816, head: { sha: "abc123" } },
+        pull_request: { head: { sha: "abc123" } },
       }),
     ).toEqual({ kind: "invalid", reason: "Malformed webhook payload" });
     expect(

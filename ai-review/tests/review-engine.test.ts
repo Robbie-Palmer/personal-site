@@ -697,6 +697,147 @@ describe("stateful review engine", () => {
       },
       cost: 0,
     });
+
+    const replayFindingId = `f_${"d".repeat(24)}`;
+    await expect(
+      mergeFindings(
+        environment(),
+        params,
+        {
+          paths: [],
+          omitted: [],
+          replayFindings: [{
+            findingId: replayFindingId,
+            file: "app.ts",
+            title: "Replay unavailable",
+            hunkIds: [],
+          }],
+        },
+        {
+          models: [],
+          candidates: {},
+          failed: [],
+          candidateCounts: {},
+          invalidCounts: {},
+          outOfScopeCounts: {},
+          costs: {},
+          metrics: [],
+        },
+      ),
+    ).resolves.toMatchObject({
+      result: {
+        finding_resolutions: [{
+          finding_id: replayFindingId,
+          verdict: "uncertain",
+        }],
+      },
+    });
+  });
+
+  it("keeps only evidence-backed controlled replay verdicts", async () => {
+    const findingId = `f_${"d".repeat(24)}`;
+    const callMerger = vi
+      .spyOn(Reviewer.prototype, "callMerger")
+      .mockResolvedValue({
+        payload: {
+          summary: "Replay complete.",
+          findings: [],
+          finding_resolutions: [
+            {
+              finding_id: findingId,
+              verdict: "fixed",
+              evidence: "The current branch now schedules an alarm retry.",
+            },
+            {
+              finding_id: `f_${"e".repeat(24)}`,
+              verdict: "fixed",
+              evidence: "Unknown finding.",
+            },
+          ],
+        },
+        cost: 0.01,
+        usage: {},
+      } as never);
+    const merged = await mergeFindings(
+      environment(),
+      params,
+      {
+        paths: ["app.ts"],
+        omitted: [],
+        diff: "+scheduleRetry()",
+        context: "FILE app.ts\nscheduleRetry();",
+        replayFindings: [{
+          findingId,
+          file: "app.ts",
+          title: "Outcome is never retried",
+          hunkIds: [`h_${"a".repeat(24)}`],
+          evidence: "A failed R2 put remains pending forever.",
+        }],
+      },
+      {
+        models: ["model/scout"],
+        candidates: { "model/scout": [] },
+        failed: [],
+        candidateCounts: { "model/scout": 0 },
+        invalidCounts: { "model/scout": 0 },
+        outOfScopeCounts: { "model/scout": 0 },
+        costs: { "model/scout": 0 },
+        metrics: [],
+      },
+    );
+
+    expect(callMerger.mock.calls[0]?.[2]).toContain(
+      "A failed R2 put remains pending forever.",
+    );
+    expect(merged.result.finding_resolutions).toEqual([{
+      finding_id: findingId,
+      verdict: "fixed",
+      evidence: "The current branch now schedules an alarm retry.",
+    }]);
+  });
+
+  it("rejects a merger response that omits a controlled replay verdict", async () => {
+    const findingId = `f_${"d".repeat(24)}`;
+    vi.spyOn(Reviewer.prototype, "callMerger").mockResolvedValue({
+      payload: {
+        summary: "Replay omitted.",
+        findings: [],
+        finding_resolutions: [],
+      },
+      cost: 0.01,
+      usage: {},
+    } as never);
+
+    await expect(
+      mergeFindings(
+        environment(),
+        params,
+        {
+          paths: ["app.ts"],
+          omitted: [],
+          diff: "+scheduleRetry()",
+          context: "FILE app.ts\nscheduleRetry();",
+          replayFindings: [{
+            findingId,
+            file: "app.ts",
+            title: "Outcome is never retried",
+            hunkIds: [`h_${"a".repeat(24)}`],
+          }],
+        },
+        {
+          models: ["model/scout"],
+          candidates: { "model/scout": [] },
+          failed: [],
+          candidateCounts: { "model/scout": 0 },
+          invalidCounts: { "model/scout": 0 },
+          outOfScopeCounts: { "model/scout": 0 },
+          costs: { "model/scout": 0 },
+          metrics: [],
+        },
+      ),
+    ).rejects.toThrow(
+      "Merger omitted or invalidated a required controlled replay resolution",
+    );
   });
 
   it("uses durable claims and records completion and failure state", async () => {
@@ -737,6 +878,7 @@ describe("stateful review engine", () => {
       params,
       "review-1",
       prepared,
+      { result: { finding_resolutions: [] }, cost: 0 },
       { hunks: [], candidates: {}, publishedFindings: [] },
       { commentId: 42, runCostUsd: 0.25, findings: [] },
     );
