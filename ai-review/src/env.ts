@@ -37,6 +37,7 @@ export type FindingInteractionEvent = {
   action: string;
   repository: string;
   pullRequestNumber: number;
+  headSha?: string;
   interactionType: "reply" | "thread" | "disposition";
   actor: string;
   actorAssociation?: string;

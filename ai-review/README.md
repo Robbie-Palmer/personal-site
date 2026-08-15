@@ -190,8 +190,9 @@ current diff and file context, recording `fixed`, `still-present`, or `uncertain
 with direct code evidence. Replay is evidence, not adjudication: the coordinator
 adds a `confirmed-fixed` outcome only after a trusted actor submits
 `/ai-review confirm-fixed <finding-id> <reason>` for a recorded `fixed` replay.
-The replay head must still be the coordinator's latest observed PR head. The
-outcome links the trusted actor and reason to that replay's head, run, and
+The replay head must match the authoritative current PR head fetched from
+GitHub when the trusted command is handled. The outcome links the trusted actor
+and reason to that replay's head, run, and
 evidence. PR content, stale replay, model omission, or a resolved GitHub thread
 cannot mint a confirmed label by itself. On
 `pull_request.closed`, any finding without an outcome becomes `superseded` when

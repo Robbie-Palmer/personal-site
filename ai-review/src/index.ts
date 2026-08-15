@@ -17,6 +17,7 @@ import {
   classifyFinalizedFinding,
   type FindingOutcomeBasis,
 } from "./finding-outcomes";
+import { createInstallationToken } from "./github-app";
 import type { FindingPublication } from "./finding-lifecycle";
 import {
   claimReview,
@@ -443,6 +444,10 @@ function isFindingInteractionEvent(
     typeof event.pullRequestNumber === "number" &&
     Number.isSafeInteger(event.pullRequestNumber) &&
     event.pullRequestNumber > 0 &&
+    (event.headSha === undefined ||
+      (typeof event.headSha === "string" &&
+        event.headSha.length > 0 &&
+        event.headSha.length <= 64)) &&
     (event.interactionType === "reply" ||
       event.interactionType === "thread" ||
       event.interactionType === "disposition") &&
@@ -462,8 +467,42 @@ function isFindingInteractionEvent(
         (event.disposition === "acknowledged" ||
           event.disposition === "confirmed-fixed" ||
           event.disposition === "rejected"))) &&
+    (event.disposition !== "confirmed-fixed" || event.headSha !== undefined) &&
     (event.interactionType === "disposition" || event.rootCommentId !== undefined)
   );
+}
+
+async function currentPullRequestHead(
+  env: Env,
+  event: FindingInteractionEvent,
+): Promise<string | undefined> {
+  const [owner, repository, ...extra] = event.repository.split("/");
+  if (!owner || !repository || extra.length > 0) return undefined;
+  const token = await createInstallationToken({
+    appId: env.AI_REVIEW_APP_ID,
+    installationId: env.AI_REVIEW_APP_INSTALLATION_ID,
+    privateKey: env.AI_REVIEW_APP_PRIVATE_KEY,
+  });
+  const response = await fetch(
+    `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/pulls/${event.pullRequestNumber}`,
+    {
+      headers: {
+        accept: "application/vnd.github+json",
+        authorization: `Bearer ${token}`,
+        "user-agent": "personal-site-ai-review",
+        "x-github-api-version": "2022-11-28",
+      },
+      signal: AbortSignal.timeout(COORDINATOR_TIMEOUT_MS),
+    },
+  );
+  if (!response.ok) return undefined;
+  const pullRequest = (await response.json().catch(() => null)) as
+    | { head?: { sha?: unknown } }
+    | null;
+  return typeof pullRequest?.head?.sha === "string" &&
+      pullRequest.head.sha.length > 0
+    ? pullRequest.head.sha
+    : undefined;
 }
 
 function isPullRequestFinalizationEvent(
@@ -922,16 +961,6 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       if (!finding) return { unknownFinding: true };
 
       const occurredAt = event.occurredAt ?? recordedAt;
-      const latestObservedHead =
-        event.disposition === "confirmed-fixed"
-          ? this.ctx.storage.sql
-              .exec<{ head_sha: string }>(
-                `SELECT head_sha FROM webhook_deliveries
-                 WHERE head_sha IS NOT NULL
-                 ORDER BY rowid DESC LIMIT 1`,
-              )
-              .toArray()[0]?.head_sha
-          : undefined;
       const controlledReplay =
         event.disposition === "confirmed-fixed"
           ? this.ctx.storage.sql
@@ -966,13 +995,13 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       if (
         event.disposition === "confirmed-fixed" &&
         (controlledReplay?.verdict !== "fixed" ||
-          !latestObservedHead ||
-          controlledReplay.headSha !== latestObservedHead)
+          !event.headSha ||
+          controlledReplay.headSha !== event.headSha)
       ) {
         return {
           unconfirmedFix: true,
           reason:
-            controlledReplay?.verdict === "fixed" && latestObservedHead
+            controlledReplay?.verdict === "fixed" && event.headSha
               ? "stale-fixed-replay"
               : "no-fixed-replay",
         };
@@ -983,6 +1012,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         evidenceVersion: 1,
         repository: event.repository,
         pullRequestNumber: event.pullRequestNumber,
+        currentHeadSha: event.headSha,
         findingId,
         deliveryId: event.deliveryId,
         eventName: event.eventName,
@@ -2050,7 +2080,29 @@ async function handleGitHubWebhook(request: Request, env: Env): Promise<Response
   if (!allowedRepository || event.repository.trim().toLowerCase() !== allowedRepository) {
     return json({ error: "Repository is not allowed" }, 403);
   }
-  return forwardToCoordinator(event, env, coordinatorPathForEvent(event));
+  let forwardedEvent = event;
+  if (
+    "interactionType" in event &&
+    event.disposition === "confirmed-fixed"
+  ) {
+    let headSha: string | undefined;
+    try {
+      headSha = await currentPullRequestHead(env, event);
+    } catch (error) {
+      console.error("Could not load the authoritative pull request head", {
+        type: errorType(error),
+      });
+    }
+    if (!headSha) {
+      return json({ error: "Could not verify current pull request head" }, 503);
+    }
+    forwardedEvent = { ...event, headSha };
+  }
+  return forwardToCoordinator(
+    forwardedEvent,
+    env,
+    coordinatorPathForEvent(forwardedEvent),
+  );
 }
 
 export default {

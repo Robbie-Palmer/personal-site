@@ -426,6 +426,7 @@ describe("PullRequestCoordinator in workerd", () => {
       action: "created",
       repository: event.repository,
       pullRequestNumber: event.pullRequestNumber,
+      headSha: fixedHead,
       interactionType: "disposition",
       actor: "Robbie-Palmer",
       actorAssociation: "OWNER",

@@ -521,6 +521,7 @@ describe("PullRequestCoordinator", () => {
         body: JSON.stringify({
           ...findingInteraction,
           deliveryId: "feedback-confirmation-without-replay",
+          headSha: "2".repeat(40),
           disposition: "confirmed-fixed",
           reason: "Looks fixed",
         }),
@@ -535,7 +536,7 @@ describe("PullRequestCoordinator", () => {
     expect(put).not.toHaveBeenCalled();
   });
 
-  it("rejects trusted confirmation after a newer head arrives", async () => {
+  it("rejects trusted confirmation against a newer authoritative head", async () => {
     const { coordinator, put, sqlExec } = coordinatorFixture();
     const replayHead = "1".repeat(40);
     const currentHead = "2".repeat(40);
@@ -544,9 +545,6 @@ describe("PullRequestCoordinator", () => {
       toArray: () => {
         if (query.includes("SELECT finding_id FROM review_findings")) {
           return [{ finding_id: identifiedFinding.findingId }];
-        }
-        if (query.includes("SELECT head_sha FROM webhook_deliveries")) {
-          return [{ head_sha: currentHead }];
         }
         if (query.includes("finding_resolutions_json IS NOT NULL")) {
           return [{
@@ -569,6 +567,7 @@ describe("PullRequestCoordinator", () => {
         body: JSON.stringify({
           ...findingInteraction,
           deliveryId: "feedback-stale-confirmation",
+          headSha: currentHead,
           disposition: "confirmed-fixed",
           reason: "Looks fixed",
         }),
@@ -1559,6 +1558,100 @@ describe("HTTP Worker", () => {
       "https://coordinator.internal/interactions",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("binds trusted fix confirmation to GitHub's current pull request head", async () => {
+    const { env, fetch: coordinatorFetch } = workerEnv();
+    const privateKey = generateKeyPairSync("rsa", {
+      modulusLength: 2048,
+    }).privateKey
+      .export({ type: "pkcs8", format: "pem" })
+      .toString();
+    Object.assign(env, {
+      AI_REVIEW_APP_ID: "123",
+      AI_REVIEW_APP_INSTALLATION_ID: "456",
+      AI_REVIEW_APP_PRIVATE_KEY: privateKey,
+    });
+    const githubFetch = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ token: "installation-token" }))
+      .mockResolvedValueOnce(Response.json({ head: { sha: "2".repeat(40) } }));
+    vi.stubGlobal("fetch", githubFetch);
+    const feedbackBody = JSON.stringify({
+      action: "created",
+      repository: { full_name: "Robbie-Palmer/personal-site" },
+      issue: { number: 821, pull_request: {} },
+      sender: { login: "Robbie-Palmer" },
+      comment: {
+        id: 901,
+        body: `/ai-review confirm-fixed f_${"a".repeat(24)} verified`,
+        author_association: "OWNER",
+        user: { login: "Robbie-Palmer" },
+      },
+    });
+
+    const response = await worker.fetch(
+      signedWebhookRequest(feedbackBody, secret, {
+        "x-github-event": "issue_comment",
+      }),
+      env,
+    );
+
+    await expect(response.json()).resolves.toEqual({ accepted: true });
+    expect(githubFetch).toHaveBeenCalledTimes(2);
+    expect(coordinatorFetch).toHaveBeenCalledWith(
+      "https://coordinator.internal/interactions",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining(`"headSha":"${"2".repeat(40)}"`),
+      }),
+    );
+  });
+
+  it("fails closed when GitHub's current pull request head is unavailable", async () => {
+    const { env, fetch: coordinatorFetch } = workerEnv();
+    const privateKey = generateKeyPairSync("rsa", {
+      modulusLength: 2048,
+    }).privateKey
+      .export({ type: "pkcs8", format: "pem" })
+      .toString();
+    Object.assign(env, {
+      AI_REVIEW_APP_ID: "123",
+      AI_REVIEW_APP_INSTALLATION_ID: "456",
+      AI_REVIEW_APP_PRIVATE_KEY: privateKey,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(Response.json({ token: "installation-token" }))
+        .mockResolvedValueOnce(new Response("unavailable", { status: 503 })),
+    );
+    const feedbackBody = JSON.stringify({
+      action: "created",
+      repository: { full_name: "Robbie-Palmer/personal-site" },
+      issue: { number: 821, pull_request: {} },
+      sender: { login: "Robbie-Palmer" },
+      comment: {
+        id: 902,
+        body: `/ai-review confirm-fixed f_${"a".repeat(24)} verified`,
+        author_association: "OWNER",
+        user: { login: "Robbie-Palmer" },
+      },
+    });
+
+    const response = await worker.fetch(
+      signedWebhookRequest(feedbackBody, secret, {
+        "x-github-event": "issue_comment",
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: "Could not verify current pull request head",
+    });
+    expect(coordinatorFetch).not.toHaveBeenCalled();
   });
 
   it("routes pull request closure to outcome finalization", async () => {
