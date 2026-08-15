@@ -1182,11 +1182,21 @@ export async function mergeFindings(
   scouts: ScoutRun,
 ): Promise<MergedRun> {
   if (Object.keys(scouts.candidates).length === 0) {
+    const findingResolutions = (prepared.replayFindings ?? []).map(
+      ({ findingId }) => ({
+        finding_id: findingId,
+        verdict: "uncertain" as const,
+        evidence: "No scout produced coverage, so controlled replay could not be evaluated.",
+      }),
+    );
     return {
       result: {
         summary:
           "All scouts failed or were unavailable, so this run has no review coverage.",
         findings: [],
+        ...(findingResolutions.length > 0
+          ? { finding_resolutions: findingResolutions }
+          : {}),
       },
       cost: 0,
     };
@@ -1268,6 +1278,11 @@ ${prepared.threads ?? ""}
           evidence: String(resolution.evidence).slice(0, 2_000),
         }))
     : [];
+  if (seenResolutionIds.size !== replayIds.size) {
+    throw new Error(
+      "Merger omitted or invalidated a required controlled replay resolution",
+    );
+  }
   return {
     result: merged.payload,
     cost: merged.cost,
