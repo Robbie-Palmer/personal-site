@@ -184,11 +184,11 @@ function coverageStatement(coverage: ReviewCoverage): string {
   if (coverage.mode === "incremental") label = "Incremental coverage";
   const counts =
     coverage.mode === "skipped"
-      ? `${coverage.unchangedHunkIds.length} unchanged hunk(s) were not resent`
+      ? `${coverage.unchangedHunkIds.length} unchanged hunk(s) were not reviewed again`
       : `${coverage.reviewedHunkIds.length}/${coverage.totalHunks} semantic hunk(s) reviewed`;
   const unchanged =
     coverage.mode === "incremental"
-      ? `; ${coverage.unchangedHunkIds.length} unchanged hunk(s) were not resent`
+      ? `; ${coverage.unchangedHunkIds.length} unchanged hunk(s) were not reviewed again`
       : "";
   return `**Coverage: ${label}.** ${counts}${unchanged}. ${coverage.reason}.`;
 }

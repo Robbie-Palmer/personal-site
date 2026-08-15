@@ -875,6 +875,7 @@ describe("stateful review engine", () => {
       String(fetchMock.mock.calls[3]?.[1]?.body),
     ) as { body: string };
     expect(update.body).toContain("Coverage: Skipped coverage");
+    expect(update.body).toContain("1 unchanged hunk(s) were not reviewed again");
     expect(update.body).toContain("<!-- ai-review-coverage-head -->");
     expect(update.body).toContain("did not require model review");
     expect(update.body).toContain("Existing fallback finding");
