@@ -657,8 +657,10 @@ describe("PullRequestCoordinator", () => {
   });
 
   it("keeps committed finalization successful when outcome publication fails", async () => {
-    const { coordinator, put, sqlExec } = coordinatorFixture();
+    const { coordinator, put, sqlExec, storage } = coordinatorFixture();
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
+    storage.getAlarm.mockResolvedValue(null);
     put.mockRejectedValueOnce(new Error("R2 unavailable"));
     sqlExec.mockImplementation((query: string) => ({
       rowsWritten: 1,
@@ -693,7 +695,55 @@ describe("PullRequestCoordinator", () => {
         String(query).includes("SET r2_recorded = 1"),
       ),
     ).toBe(false);
+    expect(storage.kv.put).toHaveBeenCalledWith(
+      "pending-finding-outcome-flush",
+      {
+        kind: "finding-outcomes",
+        repository: event.repository,
+        pullRequestNumber: event.pullRequestNumber,
+      },
+    );
+    expect(storage.setAlarm).toHaveBeenCalledWith(1_060_000);
+    now.mockRestore();
     consoleError.mockRestore();
+  });
+
+  it("retries pending outcome publication from an alarm", async () => {
+    const { coordinator, put, sqlExec, storage } = coordinatorFixture();
+    const pendingOutcome = {
+      finding_id: identifiedFinding.findingId,
+      outcome_version: 1,
+      payload_json: "{}",
+    };
+    storage.get.mockImplementation((key: string) =>
+      Promise.resolve(
+        key === "pending-finding-outcome-flush"
+          ? {
+              kind: "finding-outcomes",
+              repository: event.repository,
+              pullRequestNumber: event.pullRequestNumber,
+            }
+          : undefined,
+      ),
+    );
+    sqlExec.mockImplementation((query: string) => ({
+      rowsWritten: 1,
+      toArray: () =>
+        query.includes("WHERE r2_recorded = 0") ? [pendingOutcome] : [],
+    }));
+
+    await coordinator.alarm();
+
+    expect(put).toHaveBeenCalledWith(
+      expect.stringContaining(
+        `/findings/${identifiedFinding.findingId}/outcomes/v1.json`,
+      ),
+      pendingOutcome.payload_json,
+      { httpMetadata: { contentType: "application/json" } },
+    );
+    expect(storage.delete).toHaveBeenCalledWith(
+      "pending-finding-outcome-flush",
+    );
   });
 
   it("deduplicates finding evidence and rejects unknown findings", async () => {

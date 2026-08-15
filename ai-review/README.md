@@ -15,6 +15,9 @@ The service is a visible, stateful publisher:
 - Durable Object alarms provide a trailing-edge debounce boundary, coalescing
   rapid events to one review of the latest pull request state after a quiet
   period;
+- the same alarm handler retries committed finding outcomes that could not be
+  published to R2, so a finalization-time outage cannot strand them in SQLite
+  when no later pull-request event arrives;
 - a Cloudflare Workflow fetches the PR through GitHub App authentication, runs
   the shared OpenRouter and OpenCode scout ensemble,
   reconciles candidates with the same OpenRouter merger, publishes each

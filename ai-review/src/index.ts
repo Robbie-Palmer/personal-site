@@ -52,6 +52,13 @@ const JSON_HEADERS = {
 };
 const OUTCOME_FLUSH_CONCURRENCY = 20;
 const OUTCOME_FLUSH_LIMIT = 100;
+const OUTCOME_FLUSH_RETRY_DELAY_MS = 60_000;
+const OUTCOME_FLUSH_RETRY_KEY = "pending-finding-outcome-flush";
+type FindingOutcomeFlushRetry = {
+  kind: "finding-outcomes";
+  repository: string;
+  pullRequestNumber: number;
+};
 type FindingOutcomeCandidate = {
   findingId: string;
   file: string;
@@ -736,6 +743,26 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         }),
       );
       recorded += results.filter(Boolean).length;
+    }
+    const failed = pending.length - recorded;
+    if (failed > 0) {
+      this.ctx.storage.kv.put(OUTCOME_FLUSH_RETRY_KEY, {
+        kind: "finding-outcomes",
+        repository,
+        pullRequestNumber,
+      } satisfies FindingOutcomeFlushRetry);
+      const now = Date.now();
+      const retryAt = now + OUTCOME_FLUSH_RETRY_DELAY_MS;
+      const scheduledAlarm = await this.ctx.storage.getAlarm();
+      if (
+        scheduledAlarm === null ||
+        scheduledAlarm <= now ||
+        scheduledAlarm > retryAt
+      ) {
+        await this.ctx.storage.setAlarm(retryAt);
+      }
+    } else if (pending.length < OUTCOME_FLUSH_LIMIT) {
+      await this.ctx.storage.delete(OUTCOME_FLUSH_RETRY_KEY);
     }
     if (pending.length === OUTCOME_FLUSH_LIMIT && recorded > 0) {
       this.ctx.waitUntil(
@@ -1597,9 +1624,29 @@ export class PullRequestCoordinator extends DurableObject<Env> {
   }
 
   override async alarm(): Promise<void> {
+    const outcomeRetry =
+      await this.ctx.storage.get<FindingOutcomeFlushRetry>(
+        OUTCOME_FLUSH_RETRY_KEY,
+      );
+    if (
+      outcomeRetry?.kind === "finding-outcomes" &&
+      typeof outcomeRetry.repository === "string" &&
+      Number.isSafeInteger(outcomeRetry.pullRequestNumber) &&
+      outcomeRetry.pullRequestNumber > 0
+    ) {
+      await this.flushFindingOutcomes(
+        outcomeRetry.repository,
+        outcomeRetry.pullRequestNumber,
+      );
+    }
+
     const event =
       await this.ctx.storage.get<ReviewWorkflowParams>(PENDING_EVENT_KEY);
-    if (!event || this.env.AI_REVIEW_ENABLED !== "true") {
+    if (
+      !event ||
+      !isReviewWorkflowParams(event) ||
+      this.env.AI_REVIEW_ENABLED !== "true"
+    ) {
       return;
     }
 
