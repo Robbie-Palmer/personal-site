@@ -92,6 +92,7 @@ export interface PreparedReview {
   context?: string;
   guidelines?: string;
   threads?: string;
+  replayFindings?: OpenFindingBaseline[];
 }
 
 export type ReviewCoverageMode = "full" | "incremental" | "skipped";
@@ -101,6 +102,16 @@ export interface OpenFindingBaseline {
   file: string;
   title: string;
   hunkIds: string[];
+  severity?: string;
+  line?: number | null;
+  evidence?: string;
+  recommendation?: string;
+}
+
+export interface FindingResolution {
+  findingId: string;
+  verdict: "fixed" | "still-present" | "uncertain";
+  evidence: string;
 }
 
 export interface ReviewBaseline {
@@ -153,6 +164,41 @@ export interface MergedRun {
   cost: number;
   metric?: ModelMetric;
 }
+
+const findingResolutionProperties = {
+  finding_id: { type: "string" },
+  verdict: {
+    type: "string",
+    enum: ["fixed", "still-present", "uncertain"],
+  },
+  evidence: { type: "string" },
+};
+
+const statefulMergerSchema = {
+  ...mergerSchema,
+  properties: {
+    ...mergerSchema.properties,
+    finding_resolutions: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: findingResolutionProperties,
+        required: Object.keys(findingResolutionProperties),
+        additionalProperties: false,
+      },
+    },
+  },
+  required: [...mergerSchema.required, "finding_resolutions"],
+};
+
+const statefulMergerSystem = `${mergerSystem}
+For every durable open finding supplied for controlled replay, also return one
+finding_resolutions entry. Mark it fixed only when the supplied current diff and
+file context directly demonstrate that the finding's root cause was removed.
+Mark it still-present when the defect is directly visible, and uncertain when
+the evidence is insufficient. A missing scout finding or a resolved GitHub
+thread is never by itself evidence of a fix. Copy each durable finding_id
+exactly and give concise code evidence for the verdict.`;
 
 export interface IdentifiedFinding extends Finding {
   findingId: string;
@@ -857,8 +903,8 @@ export async function prepareReview(
     requireZdr: settings.requireZdr,
     scoutSystem,
     scoutSchema,
-    mergerSystem,
-    mergerSchema,
+    statefulMergerSystem,
+    statefulMergerSchema,
   });
   return {
     headSha,
@@ -890,6 +936,9 @@ export async function prepareReview(
       ? await reviewer.fileContext(selectedPaths, headSha)
       : "",
     guidelines: selectedDiff.trim() ? await reviewer.headGuidelines(headSha) : "",
+    replayFindings: baseline.openFindings.filter((finding) =>
+      coverage.affectedFindingIds.includes(finding.findingId),
+    ),
     threads: selectedDiff.trim()
       ? [
           affectedFindingContext(baseline, coverage),
@@ -1141,16 +1190,25 @@ export async function mergeFindings(
   const prompt = `<DATA kind=scout-candidates>
 ${JSON.stringify(scouts.candidates)}
 </DATA>
+<DATA kind=durable-open-findings-for-controlled-replay>
+${JSON.stringify(prepared.replayFindings ?? [])}
+</DATA>
+<DATA kind=current-reviewed-diff>
+${prepared.diff ?? ""}
+</DATA>
+<DATA kind=current-file-context>
+${prepared.context ?? ""}
+</DATA>
 <DATA kind=github-review-threads>
 ${prepared.threads ?? ""}
 </DATA>`;
   const started = Date.now();
   const merged = await reviewer.callMerger(
     settings.merger,
-    mergerSystem,
+    statefulMergerSystem,
     prompt,
     "merged_code_review",
-    mergerSchema,
+    statefulMergerSchema,
     MERGER_MAX_TOKENS,
   );
   const allowedFiles = new Set(prepared.paths);
@@ -1171,6 +1229,39 @@ ${prepared.threads ?? ""}
       ],
     }))
     .filter((finding) => finding.source_models.length > 0);
+  const replayIds = new Set(
+    (prepared.replayFindings ?? []).map(({ findingId }) => findingId),
+  );
+  const seenResolutionIds = new Set<string>();
+  merged.payload.finding_resolutions = Array.isArray(
+    merged.payload.finding_resolutions,
+  )
+    ? merged.payload.finding_resolutions.filter((resolution): boolean => {
+        if (
+          typeof resolution !== "object" ||
+          resolution === null ||
+          !("finding_id" in resolution) ||
+          typeof resolution.finding_id !== "string" ||
+          !replayIds.has(resolution.finding_id) ||
+          seenResolutionIds.has(resolution.finding_id) ||
+          !("verdict" in resolution) ||
+          !["fixed", "still-present", "uncertain"].includes(
+            String(resolution.verdict),
+          ) ||
+          !("evidence" in resolution) ||
+          typeof resolution.evidence !== "string" ||
+          resolution.evidence.trim().length === 0
+        ) {
+          return false;
+        }
+        seenResolutionIds.add(resolution.finding_id);
+        return true;
+      })
+        .map((resolution) => ({
+          ...resolution,
+          evidence: String(resolution.evidence).slice(0, 2_000),
+        }))
+    : [];
   return {
     result: merged.payload,
     cost: merged.cost,
@@ -1460,9 +1551,24 @@ export async function completeReview(
   params: ReviewWorkflowParams,
   instanceId: string,
   prepared: PreparedReview,
+  merged: MergedRun,
   artifacts: IdentifiedReviewArtifacts,
   publication: ReviewPublication,
 ): Promise<void> {
+  const findingResolutions = Array.isArray(merged.result.finding_resolutions)
+    ? merged.result.finding_resolutions.map((resolution) => {
+        const record = resolution as {
+          finding_id: string;
+          verdict: FindingResolution["verdict"];
+          evidence: string;
+        };
+        return {
+          findingId: record.finding_id,
+          verdict: record.verdict,
+          evidence: record.evidence,
+        };
+      })
+    : [];
   await coordinatorRequest(env, params, "/reviews/complete", {
     repository: params.repository,
     pullRequestNumber: params.pullRequestNumber,
@@ -1474,6 +1580,7 @@ export async function completeReview(
     hunks: artifacts.hunks,
     currentHunks: prepared.allHunks ?? artifacts.hunks,
     findings: artifacts.publishedFindings,
+    findingResolutions,
   });
 }
 

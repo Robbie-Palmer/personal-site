@@ -182,10 +182,12 @@ disposition and timestamps without mutating earlier evidence.
 
 `review_finding_outcomes` turns that evidence into a versioned evaluation
 label. An explicit acknowledgement or rejection creates an outcome immediately.
-When a later review covers the finding's file after its affected hunks change
-and does not rediscover the finding, the coordinator adds a higher-confidence
-`confirmed-fixed` outcome linked to the original and confirming heads, runs, and
-hunk IDs. A manually resolved GitHub thread is not fix evidence by itself. On
+When a later review covers the finding's file after its affected hunks change,
+the merger performs a controlled replay of the durable finding against the
+current diff and file context. The coordinator adds a `confirmed-fixed` outcome
+only for an affirmative `fixed` verdict with direct code evidence, linking the
+original and confirming heads, runs, hunk IDs, and replay evidence. A model
+omission or manually resolved GitHub thread is not fix evidence by itself. On
 `pull_request.closed`, any finding without an outcome becomes `superseded` when
 the final reviewed diff no longer contains its affected hunks, or
 `no-observable-response` otherwise. A legacy finding with a persisted explicit

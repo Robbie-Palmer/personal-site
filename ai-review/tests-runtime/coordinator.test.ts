@@ -141,6 +141,10 @@ describe("PullRequestCoordinator in workerd", () => {
           findingId: `f_${"b".repeat(24)}`,
           file: "app.ts",
           title: "Finding",
+          severity: "high",
+          line: 1,
+          evidence: "Evidence",
+          recommendation: "Fix it",
           hunkIds: [`h_${"c".repeat(24)}`],
         },
       ],
@@ -398,6 +402,11 @@ describe("PullRequestCoordinator in workerd", () => {
             },
           ],
           findings: [],
+          findingResolutions: [{
+            findingId: `f_${"b".repeat(24)}`,
+            verdict: "fixed",
+            evidence: "The later diff removes the defective branch.",
+          }],
         }),
       },
     );
@@ -412,7 +421,8 @@ describe("PullRequestCoordinator in workerd", () => {
       outcome: "confirmed-fixed",
       basis: "later-reviewed-head",
       evidence: {
-        confirmation: "not-rediscovered-after-affected-code-change",
+        confirmation: "affirmative-controlled-replay",
+        replayEvidence: "The later diff removes the defective branch.",
         firstSeenHeadSha: event.headSha,
         outcomeHeadSha: fixedHead,
         outcomeRunId: fixedRunId,

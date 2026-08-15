@@ -30,10 +30,11 @@ describe("finding outcomes", () => {
     },
   );
 
-  it("confirms a fix only when changed affected code is not rediscovered", () => {
+  it("confirms a fix only with an affirmative controlled replay", () => {
     const baseline = {
       alreadyConfirmed: false,
       rediscovered: false,
+      replayVerdict: "fixed" as const,
       firstSeenHeadSha: "a",
       reviewedHeadSha: "b",
       file: "app.ts",
@@ -43,6 +44,10 @@ describe("finding outcomes", () => {
     };
     expect(confirmsFindingFixed(baseline)).toBe(true);
     expect(confirmsFindingFixed({ ...baseline, rediscovered: true })).toBe(false);
+    expect(confirmsFindingFixed({
+      ...baseline,
+      replayVerdict: "uncertain",
+    })).toBe(false);
     expect(confirmsFindingFixed({
       ...baseline,
       currentHunkIds: new Set(["old-hunk"]),

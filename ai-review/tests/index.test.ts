@@ -481,6 +481,11 @@ describe("PullRequestCoordinator", () => {
           costUsd: 0.25,
           hunks: [changedHunk],
           findings: [],
+          findingResolutions: [{
+            findingId: identifiedFinding.findingId,
+            verdict: "fixed",
+            evidence: "The later diff adds the missing retry alarm.",
+          }],
         }),
       }),
     );

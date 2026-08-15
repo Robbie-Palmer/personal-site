@@ -34,6 +34,7 @@ import {
   runScouts,
   type IdentifiedMergedFinding,
   type IdentifiedReviewArtifacts,
+  type FindingResolution,
   type MergedRun,
   type PreparedReview,
   type ReviewHunk,
@@ -191,6 +192,10 @@ async function sha256(value: string): Promise<string> {
 
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: JSON_HEADERS });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function errorType(error: unknown): string {
@@ -362,6 +367,56 @@ function isFindingPublication(value: unknown): value is FindingPublication {
     publication.path.length > 0 &&
     (publication.line === null || lineIsPositive)
   );
+}
+
+function isFindingResolution(value: unknown): value is FindingResolution {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.findingId === "string" &&
+    /^f_[a-f0-9]{24}$/.test(value.findingId) &&
+    ["fixed", "still-present", "uncertain"].includes(
+      String(value.verdict),
+    ) &&
+    typeof value.evidence === "string" &&
+    value.evidence.trim().length > 0 &&
+    value.evidence.length <= 2_000
+  );
+}
+
+function storedFindingContext(
+  findingsJson: string | null | undefined,
+  findingId: string,
+): {
+  severity?: string;
+  line?: number | null;
+  evidence?: string;
+  recommendation?: string;
+} {
+  if (!findingsJson) return {};
+  try {
+    const parsed = JSON.parse(findingsJson) as unknown;
+    if (!Array.isArray(parsed)) return {};
+    const original = parsed.find(
+      (candidate) => isRecord(candidate) && candidate.findingId === findingId,
+    );
+    if (!isRecord(original)) return {};
+    return {
+      severity:
+        typeof original.severity === "string" ? original.severity : undefined,
+      line:
+        typeof original.line === "number" || original.line === null
+          ? original.line
+          : undefined,
+      evidence:
+        typeof original.evidence === "string" ? original.evidence : undefined,
+      recommendation:
+        typeof original.recommendation === "string"
+          ? original.recommendation
+          : undefined,
+    };
+  } catch {
+    return {};
+  }
 }
 
 function isFindingInteractionEvent(
@@ -633,12 +688,12 @@ export class PullRequestCoordinator extends DurableObject<Env> {
           .map(({ hunk_id }) => hunk_id),
         alreadyConfirmed:
           this.ctx.storage.sql
-            .exec<{ outcome: string }>(
-              `SELECT outcome FROM review_finding_outcomes
-               WHERE finding_id = ? ORDER BY outcome_version DESC LIMIT 1`,
+            .exec<{ finding_id: string }>(
+              `SELECT finding_id FROM review_finding_outcomes
+               WHERE finding_id = ? AND outcome = 'confirmed-fixed' LIMIT 1`,
               finding.finding_id,
             )
-            .toArray()[0]?.outcome === "confirmed-fixed",
+            .toArray()[0] !== undefined,
       }));
   }
 
@@ -649,15 +704,19 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     headSha: string;
     completedAt: string;
     candidates: FindingOutcomeCandidate[];
+    findingResolutions: Map<string, FindingResolution>;
     currentFindingIds: Set<string>;
     currentHunkIds: Set<string>;
     reviewedFiles: Set<string>;
   }): void {
     for (const candidate of options.candidates) {
       if (
+        !options.findingResolutions.has(candidate.findingId) ||
         !confirmsFindingFixed({
           alreadyConfirmed: candidate.alreadyConfirmed,
           rediscovered: options.currentFindingIds.has(candidate.findingId),
+          replayVerdict: options.findingResolutions.get(candidate.findingId)
+            ?.verdict,
           firstSeenHeadSha: candidate.firstSeenHeadSha,
           reviewedHeadSha: options.headSha,
           file: candidate.file,
@@ -678,7 +737,9 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         occurredAt: options.completedAt,
         recordedAt: options.completedAt,
         evidence: {
-          confirmation: "not-rediscovered-after-affected-code-change",
+          confirmation: "affirmative-controlled-replay",
+          replayEvidence: options.findingResolutions.get(candidate.findingId)
+            ?.evidence,
           firstSeenHeadSha: candidate.firstSeenHeadSha,
           firstSeenRunId: candidate.firstSeenRunId,
           outcomeHeadSha: options.headSha,
@@ -1337,13 +1398,30 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       .toArray()
       .map(({ hunk_id }) => hunk_id);
     const findings = this.ctx.storage.sql
-      .exec<{ finding_id: string; file_path: string; title: string }>(
-        `SELECT finding_id, file_path, title FROM review_findings
-         WHERE status = 'open' AND disposition IS NULL
-         ORDER BY finding_id LIMIT 100`,
+      .exec<{
+        finding_id: string;
+        file_path: string;
+        title: string;
+        first_seen_run_id: string;
+        findings_json: string | null;
+      }>(
+        `SELECT finding.finding_id, finding.file_path, finding.title,
+                finding.first_seen_run_id, run.findings_json
+         FROM review_findings finding
+         LEFT JOIN review_runs run ON run.run_id = finding.first_seen_run_id
+         WHERE NOT EXISTS (
+           SELECT 1 FROM review_finding_outcomes outcome
+           WHERE outcome.finding_id = finding.finding_id
+             AND outcome.outcome = 'confirmed-fixed'
+         )
+         ORDER BY finding.finding_id LIMIT 100`,
       )
       .toArray();
     const openFindings = findings.map((finding) => ({
+      ...storedFindingContext(
+        finding.findings_json,
+        finding.finding_id,
+      ),
       findingId: finding.finding_id,
       file: finding.file_path,
       title: finding.title,
@@ -1371,6 +1449,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
       currentHunks?: unknown;
       findings?: unknown;
       findingPublications?: unknown;
+      findingResolutions?: unknown;
     } | null;
     if (
       !body ||
@@ -1392,6 +1471,9 @@ export class PullRequestCoordinator extends DurableObject<Env> {
           !body.currentHunks.every(isReviewHunk))) ||
       !Array.isArray(body.findings) ||
       !body.findings.every(isIdentifiedFinding) ||
+      (body.findingResolutions !== undefined &&
+        (!Array.isArray(body.findingResolutions) ||
+          !body.findingResolutions.every(isFindingResolution))) ||
       (body.findingPublications !== undefined &&
         (!Array.isArray(body.findingPublications) ||
           !body.findingPublications.every(isFindingPublication)))
@@ -1419,9 +1501,15 @@ export class PullRequestCoordinator extends DurableObject<Env> {
     );
     const findingPublications = (body.findingPublications ??
       []) as FindingPublication[];
+    const findingResolutions = (body.findingResolutions ??
+      []) as FindingResolution[];
+    const findingResolutionsById = new Map(
+      findingResolutions.map((resolution) => [resolution.findingId, resolution]),
+    );
     if (
       completionHunkIds.size !== reviewedHunks.length ||
       currentHunksById.size !== currentHunks.length ||
+      findingResolutionsById.size !== findingResolutions.length ||
       reviewedHunks.some((hunk) => {
         const current = currentHunksById.get(hunk.hunkId);
         return !current || !sameReviewHunk(hunk, current);
@@ -1449,6 +1537,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         currentHunks,
         findings: body.findings,
         findingPublications,
+        findingResolutions,
       }),
     );
     const completedAt = new Date().toISOString();
@@ -1549,6 +1638,7 @@ export class PullRequestCoordinator extends DurableObject<Env> {
         headSha: completionHeadSha,
         completedAt,
         candidates: outcomeCandidates,
+        findingResolutions: findingResolutionsById,
         currentFindingIds: new Set(completionFindingsById.keys()),
         currentHunkIds: new Set(currentHunksById.keys()),
         reviewedFiles: completionReviewedFiles,
@@ -1751,6 +1841,7 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
             event.payload,
             event.instanceId,
             prepared!,
+            { result: { finding_resolutions: [] }, cost: 0 },
             { hunks: [], candidates: {}, publishedFindings: [] },
             skippedPublication,
           ),
@@ -1868,6 +1959,7 @@ export class ReviewWorkflow extends WorkflowEntrypoint<
           event.payload,
           event.instanceId,
           prepared!,
+          merged!,
           artifacts!,
           publication,
         ),

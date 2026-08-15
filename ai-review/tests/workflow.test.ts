@@ -293,6 +293,7 @@ describe("ReviewWorkflow orchestration", () => {
       payload,
       event.instanceId,
       skippedPrepared,
+      { result: { finding_resolutions: [] }, cost: 0 },
       { hunks: [], candidates: {}, publishedFindings: [] },
       expect.objectContaining({ runCostUsd: 0 }),
     );

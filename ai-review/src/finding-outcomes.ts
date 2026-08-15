@@ -67,6 +67,7 @@ export function classifyFinalizedFinding(options: {
 export function confirmsFindingFixed(options: {
   alreadyConfirmed: boolean;
   rediscovered: boolean;
+  replayVerdict: "fixed" | "still-present" | "uncertain" | undefined;
   firstSeenHeadSha: string;
   reviewedHeadSha: string;
   file: string;
@@ -77,6 +78,7 @@ export function confirmsFindingFixed(options: {
   if (
     options.alreadyConfirmed ||
     options.rediscovered ||
+    options.replayVerdict !== "fixed" ||
     options.firstSeenHeadSha === options.reviewedHeadSha ||
     options.priorHunkIds.length === 0
   ) {
