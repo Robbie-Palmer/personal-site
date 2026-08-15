@@ -21,11 +21,23 @@ run the manual sync script.
 Secrets and config mirrored from Doppler:
 
 1. **`CLOUDFLARE_API_TOKEN`**
-   - Create at: Cloudflare Dashboard → My Profile → API Tokens
+   - Account-owned token: `personal-site-terraform`
+   - Create at: Cloudflare Dashboard → Manage Account → Account API Tokens
+   - Store only in Doppler `dev_infra` and `prd_infra`.
    - Required permissions:
-     - Account.Cloudflare Pages: Edit
-     - Account.Account Settings: Read
-     - Zone.DNS: Edit (for domain management)
+      - Account.Cloudflare Pages: Edit
+      - Account.Account Settings: Read
+      - Account.Workers R2 Storage: Edit
+      - Account.Hyperdrive: Edit
+      - Account.Account Rulesets: Edit
+      - Account.Access Apps: Read
+      - Account.Access Organizations: Read
+      - Account.Access Policies: Edit
+      - Account.Access: Service Tokens: Edit
+      - Zone.DNS: Edit, scoped to `robbiepalmer.me`
+      - Zone.Cache Settings: Edit, scoped to `robbiepalmer.me`
+      - Zone.Transform Rules: Edit, scoped to `robbiepalmer.me`
+   - Do not reuse this token for Pages/Workers deployment or AI-review.
 2. **`TF_API_TOKEN`**
    - Create at: Terraform Cloud → User Settings → Tokens
    - Used for remote state management
@@ -60,8 +72,8 @@ Secrets and config mirrored from Doppler:
      both Worker Wrangler configs and checked for drift in tests.
 9. **`MISE_GITHUB_TOKEN`**
    - GitHub token used by mise to download tools during Cloudflare Pages builds.
-   - Mapped to `TF_VAR_github_token`, which Terraform passes into the Pages
-     build configuration (`var.github_token`, required — no default).
+   - Mapped to `TF_VAR_github_token`, which Terraform passes into the encrypted
+     Pages build secrets (`var.github_token`, required — no default).
 10. **`POSTHOG_API_KEY`**
     - Create at: PostHog → Settings → Personal API keys
     - Required scopes:
@@ -78,6 +90,11 @@ Secrets and config mirrored from Doppler:
     - Mark unmasked in Doppler so the GitHub sync publishes it as an Actions
       variable, not a secret. Terraform requires a non-empty value and has no
       production default.
+12. **`CF_PAGES_PREVIEW_ACCESS_APPLICATION_ID`**
+    - Find in: Cloudflare Zero Trust → Access → Applications → the Pages
+      preview application → application overview or URL
+    - Mark unmasked in Doppler; it is a resource identifier, not a credential
+    - Passed as `TF_VAR_cloudflare_pages_preview_access_application_id`
 
 ### Required Environment
 
@@ -86,14 +103,16 @@ Create GitHub environments that match the Doppler config boundaries:
 1. Go to: Settings → Environments → New environment
 2. Create `production-infra`, `production-infra-bootstrap`, `production-site-ui`,
    `production-recipe-api`, `production-recipe-ingest`,
-   `production-database-backup`, `production-ci`, `preview-site-ui`, and
-   `preview-recipe-api`
+   `production-database-backup`, `production-ci`, `preview-site-ui`,
+   `preview-recipe-api`, and `preview-agent-access`
 3. (Optional) Add protection rules for production deployments
 
 PR infrastructure uses the `preview-*` environments with least-privilege
 credentials. Follow the
 [preview environment runbook](../docs/preview-environments.md); do not copy the
 production Cloudflare token or production database URL into them.
+`preview-agent-access` is used only to rotate the preview Access secret into
+Doppler. Restrict it to the default branch and follow the same runbook.
 
 ### Terraform Cloud Workspace
 

@@ -116,6 +116,14 @@ run = "typos --write-changes"
 description = "Lint GitHub Actions workflows with actionlint"
 run = "actionlint"
 
+[tasks."preview:fetch"]
+description = "Fetch an Access-protected PR preview using agent credentials"
+run = "bash scripts/fetch-preview.sh"
+
+[tasks."preview:access:rotate"]
+description = "Rotate preview agent Access credentials into Doppler with overlap"
+run = "bash scripts/rotate-preview-access-token.sh"
+
 [tasks."security:actions"]
 description = "Audit GitHub Actions workflows for security issues with zizmor"
 run = "zizmor ."

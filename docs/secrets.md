@@ -33,12 +33,14 @@ Configs are split by environment and runtime/control boundary:
 | Config | Purpose | GitHub target |
 | --- | --- | --- |
 | `dev_pages_env` | Shared local Cloudflare Pages env vars | None |
+| `dev_agent` | Preview-only credentials consumed by coding agents | None |
 | `dev_recipe_api` | Local recipe Worker/API/DB/OAuth config | None |
 | `dev_infra` | Local Terraform/provider credentials | None |
 | `dev_bootstrap_infra` | Local bootstrap Terraform credentials | None |
 | `stg_pages_env` | Shared PR preview runtime env vars | `preview-site-ui`, `preview-recipe-api` |
 | `stg_site_ui` | PR preview UI deploy credentials | `preview-site-ui` |
 | `stg_recipe_api` | PR preview Worker/API automation config | `preview-recipe-api` |
+| `ops_preview_agent_access` | Quarterly Access credential rotation | `preview-agent-access` |
 | `prd_pages_env` | Shared production runtime env vars | `production-site-ui`, `production-recipe-api`, `production-recipe-ingest` |
 | `prd_site_ui` | Production UI deploy credentials | `production-site-ui`, `production-recipe-api`, `production-recipe-ingest` |
 | `prd_recipe_api` | Production Worker/API/DB/OAuth config | `production-recipe-api` |
@@ -58,6 +60,21 @@ into a composite config.
 `dev_personal` is a locked legacy catch-all config kept only as a migration
 reference. The repo should not depend on it.
 
+Cloudflare automation uses account-owned API tokens so CI/CD is not coupled to
+an individual Cloudflare user. Keep these boundaries separate:
+
+| Token | Doppler configs | Scope |
+| --- | --- | --- |
+| `personal-site-terraform` | `dev_infra`, `prd_infra` | Terraform-managed Pages, R2, Hyperdrive, rulesets, DNS for `robbiepalmer.me`, and preview Access resources |
+| `personal-site-production-deploy` | `prd_site_ui` | Production Pages/Workers deploys plus read-only R2, Hyperdrive, and Images access |
+| `ai-review-staging-deploy` | `ai-review/stg` | Staging AI-review Worker deployment and read-only R2 access |
+| `ai-review-production-deploy` | `ai-review/prd` | Production AI-review Worker deployment and read-only R2 access |
+
+Never copy the Terraform token into UI, Worker, AI-review, preview, or legacy
+configs. Roll each token independently, update its owning Doppler config, sync
+the mapped GitHub environments, verify the new credential, and only then revoke
+the previous secret.
+
 ## Pages Functions
 
 Pages Functions use the Cloudflare Pages project environment. There is no
@@ -74,6 +91,9 @@ Current Pages Function config:
 - `CF_PAGES_HOST` - recognizes canonical PR aliases
 - `POSTHOG_API_HOST` - optional PostHog ingest proxy override
 - `POSTHOG_ASSETS_HOST` - optional PostHog assets proxy override
+
+`MISE_GITHUB_TOKEN` is deployed as the encrypted Pages secret `GITHUB_TOKEN`;
+never place it in the plain-text environment-variable map.
 
 OAuth provider secrets and `BETTER_AUTH_SECRET` belong to the recipe Worker
 configs, not the Pages UI/Functions configs.
@@ -160,6 +180,7 @@ Pages:
 `dev_infra` owns normal provider credentials. Terraform should not receive UI
 deploy credentials or privileged GCP credentials:
 
+- `CF_PAGES_PREVIEW_ACCESS_APPLICATION_ID` (unmasked)
 - `CLOUDFLARE_API_TOKEN`
 - `GITHUB_TOKEN` or `MISE_GITHUB_TOKEN`
 - `TF_API_TOKEN`
@@ -183,6 +204,7 @@ The GitHub environments are runtime/job boundaries, not provider names:
 | --- | --- | --- |
 | `preview-recipe-api` | `stg_recipe_api`, `stg_pages_env` | PR preview Worker/database jobs and preview cleanup |
 | `preview-site-ui` | `stg_site_ui`, `stg_pages_env` | PR preview Pages build/deploy and preview comment |
+| `preview-agent-access` | `ops_preview_agent_access` | Quarterly and on-demand coding-agent Access secret rotation |
 | `production-recipe-api` | `prd_recipe_api`, `prd_site_ui`, `prd_pages_env` | Production recipe API deploy |
 | `production-recipe-ingest` | `prd_recipe_ingest`, `prd_site_ui`, `prd_pages_env` | Production recipe ingest Worker deploy |
 | `production-site-ui` | `prd_site_ui`, `prd_pages_env` | Production UI CI/CD and Cloudflare Images health check |
@@ -202,6 +224,19 @@ reach GitHub Actions. The script reads Doppler visibility metadata: unmasked
 values become GitHub environment variables, while masked/restricted values
 become GitHub environment secrets. Pass one or more GitHub environment names to
 sync only those environments; omit them to sync every mapped environment.
+
+Restrict `preview-agent-access` deployments to the default branch. Its source
+config, `ops_preview_agent_access`, should contain:
+
+- `CLOUDFLARE_ACCOUNT_ID` (unmasked)
+- `CLOUDFLARE_API_TOKEN` with only Access Service Tokens Read/Edit
+- `DOPPLER_AGENT_CONFIG=dev_agent` (unmasked)
+- `DOPPLER_PROJECT=personal-site` (unmasked)
+- `DOPPLER_SERVICE_TOKEN` with read/write access only to `dev_agent`
+
+`dev_agent` contains only `CF_ACCESS_CLIENT_ID`,
+`CF_ACCESS_CLIENT_SECRET`, and `CLOUDFLARE_PAGES_HOST`. Agent launchers read
+this config; they must not receive `dev_infra` or deployment credentials.
 
 ## Preview Values
 
@@ -276,6 +311,7 @@ into each service-specific Doppler config.
 
 `prd_infra` should own:
 
+- `CF_PAGES_PREVIEW_ACCESS_APPLICATION_ID` (unmasked; syncs to a GitHub Actions variable)
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CF_IMAGES_ACCOUNT_HASH`

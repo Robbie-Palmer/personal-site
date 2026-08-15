@@ -13,6 +13,17 @@ output "pages_project_domains" {
   value       = cloudflare_pages_project.personal_site.domains
 }
 
+output "preview_access_service_token_client_id" {
+  description = "Client ID for coding-agent access to protected Pages previews"
+  value       = cloudflare_zero_trust_access_service_token.preview_qa_agents.client_id
+}
+
+output "preview_access_service_token_client_secret" {
+  description = "Client secret for coding-agent access to protected Pages previews"
+  value       = cloudflare_zero_trust_access_service_token.preview_qa_agents.client_secret
+  sensitive   = true
+}
+
 output "r2_map_tiles_bucket_name" {
   description = "Name of the R2 bucket for map tiles"
   value       = cloudflare_r2_bucket.map_tiles.name
