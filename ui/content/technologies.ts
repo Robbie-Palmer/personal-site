@@ -1024,14 +1024,6 @@ export const technologies: TechnologyContent[] = [
     type: "tool",
   },
   {
-    name: "Obsidian",
-    added: "2026-08-15",
-    description:
-      "Local Markdown knowledge base with polished native clients and an extensive community plugin ecosystem",
-    website: "https://obsidian.md",
-    type: "tool",
-  },
-  {
     name: "Jellyfin",
     added: "2026-08-02",
     description:

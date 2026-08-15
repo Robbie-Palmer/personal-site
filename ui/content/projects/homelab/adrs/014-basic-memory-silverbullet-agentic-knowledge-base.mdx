@@ -1,8 +1,8 @@
 ---
-title: "ADR 014: Basic Memory and Obsidian for an extensible agentic knowledge base"
+title: "ADR 014: Basic Memory and SilverBullet for an extensible agentic knowledge base"
 date: "2026-08-15"
 status: "Proposed"
-tech_stack: ["Basic Memory", "Obsidian"]
+tech_stack: ["Basic Memory", "SilverBullet"]
 ---
 
 # Context
@@ -60,16 +60,15 @@ Requirements, in priority order:
 7. **Extensible without trapping the corpus.** The client should have credible
    paths into future workflows, but extensions must remain optional views and
    tools over durable knowledge rather than make their private formats the
-   source of truth. Prefer ecosystems benefiting from broader agent, Markdown,
-   and local-first adoption over bespoke customization that I must maintain.
+   source of truth. Prefer extension models benefiting from broader agent,
+   Markdown, and local-first adoption; bespoke customization must stay small
+   enough that owning it is an advantage rather than a new hobby.
 
 # Decision (proposed)
 
-Run a staged pilot with **Basic Memory as the agent-facing knowledge engine**
-and **Obsidian as the human-facing notes application**, both operating over the
-same local Markdown vault. Validate Obsidian locally before buying anything;
-only enable the supported Obsidian Sync service when the client and its
-ecosystem have demonstrated enough value to justify $4–5/month.
+Run a pilot with **Basic Memory as the agent-facing knowledge engine** and
+**SilverBullet as the human-facing notes application and programmable view**,
+both operating over the same Markdown folder on the always-on Mac mini.
 
 This intentionally separates responsibilities:
 
@@ -84,14 +83,14 @@ This intentionally separates responsibilities:
   search, read, write, section editing, schema operations, and graph-aware
   context building. Agents without MCP support can use the CLI and its JSON
   output or ordinary file tools.
-* **Obsidian is the human editor and extensibility layer.** Its native Android,
-  macOS, and Linux clients keep each vault as local files. More importantly,
-  its official
-  [community plugin registry](https://github.com/obsidianmd/obsidian-releases)
-  contains more than 6,000 plugins, backed by a documented
-  [TypeScript plugin API](https://docs.obsidian.md/Plugins/Getting%20started/Build%20a%20plugin).
-  That gives future needs a much better chance of being installed and vetted
-  before they become another personal software project.
+* **SilverBullet is the human editor and programmable view.** Its
+  [Docker installation](https://silverbullet.md/Install/Docker) mounts an
+  ordinary folder as its space, while its
+  [offline-first PWA](https://v2.silverbullet.md/Sync) provides an app-like
+  Android experience and browser access from macOS and Ubuntu. Its primary
+  extension mechanism is made from Space Lua scripts, templates, and Markdown
+  pages inside the space, so agents can inspect and change the behavior using
+  the same file and Git tools as the knowledge itself.
 
 Basic Memory's
 [knowledge format](https://docs.basicmemory.com/concepts/knowledge-format) is
@@ -103,16 +102,18 @@ be introduced only after repeated structures emerge. Its own documentation
 explicitly says the human does not need to write observations and relations by
 hand.
 
-Obsidian independently indexes wiki links, properties, tags, and Markdown for
-its UI. Basic Memory officially supports using an
-[Obsidian vault as a local project](https://docs.basicmemory.com/integrations/obsidian/),
-so a note written through either interface becomes visible to the other. Their
-indexes and caches are derived; neither owns the knowledge.
+SilverBullet independently indexes wiki links, frontmatter, tags, and Markdown
+objects for its UI and queries. The two derived indexes may be rebuilt; neither
+owns the knowledge. SilverBullet
+[reindexes external file changes](https://v2.silverbullet.md/Objects), so a
+note written through Basic Memory or directly by an agent becomes visible in
+the PWA.
 
 This makes two deliberate rising-tide bets without coupling them. Basic Memory
-bets on Markdown, MCP, CLI automation, and reusable agent skills. Obsidian bets
-on the largest local-notes extension ecosystem and polished native clients.
-Either layer can be replaced without migrating the other. This is the knowledge
+bets on Markdown, MCP, CLI automation, and reusable agent skills. SilverBullet
+bets on open, end-user-programmable software at the same time that capable
+agents are making small custom tools dramatically cheaper to create. Either
+layer can be replaced without migrating the other. This is the knowledge
 analogue of the successful Beads pattern: a purpose-built agent CLI and graph
 rather than a GUI integration bolted on later. Unlike Beads, the schema does
 not force everything into tasks, statuses, and dependencies; free-form prose
@@ -120,54 +121,67 @@ remains a first-class artifact.
 
 ## Extension policy
 
-The size of Obsidian's ecosystem is option value, not a reason to install a
-large starter pack. Plugins inherit Obsidian's permissions and can access files,
-connect to the internet, and even install programs; Obsidian cannot reliably
-sandbox them. Its own
-[plugin security guidance](https://obsidian.md/help/plugin-security) therefore
-starts with Restricted Mode and an explicit trust decision.
+Cheap code is not free ownership. An agent can write a useful command or view
+quickly, but upgrades, tests, security, documentation, and interaction design
+remain maintenance. The pilot therefore distinguishes **micro-extensions**
+from **product development**.
 
-During the pilot:
+* Use built-in behavior first. For an observed gap, compare a reusable library
+  with a small agent-authored Space Lua library on usefulness, trust, and
+  maintenance; do not assume either source is automatically better. Compiled
+  TypeScript plugs are the last resort.
+* Keep custom libraries small, needs-driven, documented, and versioned with the
+  space. An agent encountering the repository should be able to explain and
+  modify them without reconstructing hidden application state.
+* Preserve durable semantics as Markdown, YAML frontmatter, tags, and links.
+  An extension may provide commands, templates, queries, widgets, styles, or a
+  virtual page, but cannot become the only representation of knowledge.
+* Review extension changes through Git and test them against a disposable copy
+  of the space before changing the live corpus.
+* Do not build a second agent system inside the editor. Basic Memory and
+  t3-code remain the stable agent contract; SilverBullet extensions serve
+  human workflows or genuinely missing capabilities.
 
-* start with Obsidian's core features and add a community plugin only for an
-  observed need;
-* keep a short allowlist with the reason, source, and review date for every
-  plugin, and remove anything that turns capture into configuration work;
-* preserve durable semantics as Markdown, YAML properties, tags, and links;
-  plugin-specific databases or metadata may enhance a view but cannot become
-  the only representation of knowledge;
-* version the useful, non-sensitive parts of `.obsidian` so the setup is
-  reproducible, while excluding workspace state, credentials, and device-local
-  files; and
-* do not add a second AI or agent plugin merely because one exists. Basic Memory
-  and t3-code remain the stable agent contract; Obsidian plugins serve human
-  workflows or genuinely missing capabilities.
+SilverBullet's
+[Library Manager](https://v2.silverbullet.md/Library) distributes libraries as
+collections of Space Lua, templates, and pages, usually through Git-backed
+spaces. Its documented extension surface covers commands, slash and page
+templates, widgets, styles, virtual pages, event handlers, and maintenance
+pages. Lower-level
+[plugs](https://v2.silverbullet.md/Plugs) run in isolated workers and cover
+product-sized features such as graph views, PDF support, Mermaid, Draw\.io, and
+Excalidraw. If a desired workflow cannot stay in the first, legible category
+and repeatedly pushes into the second, that is evidence for buying a more
+polished client rather than endlessly rebuilding one.
 
 ## Deployment and data layout
 
-* Make the live vault a private Git repository on the Mac mini's internal
+* Make the live space a private Git repository on the Mac mini's internal
   storage. Git records reviewable agent changes and makes bad reorganizations
   easy to undo; it is history, not the only backup.
 * Install the free local Basic Memory CLI on the Mac mini, register the live
-  vault as one project, and expose `bm mcp --project <name>` to each compatible
+  space as one project, and expose `bm mcp --project <name>` to each compatible
   t3-code agent. Keep its SQLite data as a disposable index outside the Git
   repository; `bm reset` can rebuild it from the files.
-* First open a representative copy of the vault in Obsidian on macOS and Ubuntu
-  and test the editing and extension workflow locally. This proves the client
-  before introducing a subscription or a synchronization boundary.
-* If it passes, subscribe to Obsidian Sync and run the official
-  [Headless Sync client](https://obsidian.md/help/sync/headless) on the Mac mini
-  so the lab's canonical working copy stays synchronized without keeping the
-  desktop application open. Use Obsidian's native apps on Android, macOS, and
-  Ubuntu. Run only one Obsidian sync client against any given working copy; if
-  desktop Obsidian uses the Mac mini vault, it replaces Headless Sync there.
-  Sync is end-to-end encrypted and costs
-  [$4/month annually or $5 monthly](https://obsidian.md/pricing).
+* Run a digest-pinned SilverBullet container on the Mac mini, listening only on
+  localhost, with the same live space mounted as `/space`. Drop unnecessary
+  Linux capabilities and enable the container runtime's no-new-privileges
+  control.
 * Use the connected external drive for scheduled, versioned backups of the
-  vault, including attachments and Git metadata. Monitor the job and available
-  space through the lab's existing Netdata alerting. Monitor Basic Memory and
-  Headless Sync health there too. The live corpus must not depend on the
-  removable drive being mounted, and sync is not a backup.
+  space, including attachments and Git metadata. Monitor the job and available
+  space through the lab's existing Netdata alerting. Monitor SilverBullet and
+  Tailscale Serve availability there too. The live corpus must not depend on
+  the removable drive being mounted, and sync is not a backup.
+* Put the PWA behind Tailscale Serve, proxying the localhost service over HTTPS
+  to the tailnet only. Tailscale documents this exact private reverse-proxy
+  pattern in [Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve).
+  Do not use Funnel or expose the container port to the LAN or internet.
+* Keep SilverBullet authentication enabled as defence in depth. Disable its
+  shell backend initially because the t3-code agents already provide the
+  automation layer and SilverBullet documents that plugs can otherwise
+  [execute shell commands](https://v2.silverbullet.md/Install/Configuration).
+  Do not install an in-editor AI system during the pilot; Basic Memory and the
+  existing t3-code agents already own that responsibility.
 * Grant agents access to the notes space, but not to the rest of the external
   drive. Invoke a cloud-backed agent over diary-like content only deliberately;
   do not add a background process that uploads the corpus. Content may be sent
@@ -193,7 +207,7 @@ The initial workflow should stay deliberately small:
 4. Agents may add lightweight observations, frontmatter, and wiki-link
    relations when they are useful, but no fixed ontology is required during
    the pilot. Repeated natural structures can graduate into optional Basic
-   Memory schemas or Obsidian views later.
+   Memory schemas, SilverBullet queries, or small Space Lua libraries later.
 5. Material intended for publication is copied and rewritten into this site's
    existing reviewed Markdown workflow. The private knowledge base is never
    published directly.
@@ -206,11 +220,9 @@ merge of two rewrites.
 
 Keep the ADR Proposed until the pilot demonstrates all of the following:
 
-* Before buying Sync, Obsidian is comfortable for representative capture,
-  browsing, and editing on macOS and Ubuntu.
-* After buying Sync, capturing and editing notes on Android is comfortable
-  enough to use without reaching for another notes app, including after an
-  offline edit and reconnect.
+* Capturing and editing notes on Android is comfortable enough to use without
+  reaching for another notes app, including after an offline edit and
+  reconnect.
 * Each t3-code agent can discover the Basic Memory workflow, answer corpus-wide
   questions, and make a multi-note reorganization with a clear, reversible
   diff through MCP, the CLI, or both.
@@ -218,19 +230,23 @@ Keep the ADR Proposed until the pilot demonstrates all of the following:
   plain text search alone.
 * Links and metadata improve retrieval without creating a new manual gardening
   habit.
-* At least two real, previously unmet needs are tested against the community
-  ecosystem. A plugin is adopted only if it saves more work than it creates,
-  and disabling it leaves the underlying notes intelligible and editable.
-* The plugin allowlist stays small enough to audit, upgrade, and explain.
+* At least two real, previously unmet needs are tested against SilverBullet's
+  extension surface. At least one should be satisfied with built-in behavior or
+  a reusable library, and one with a small agent-authored Space Lua library.
+* Each adopted extension saves more work than it creates, remains explainable
+  to a fresh agent session, survives a SilverBullet upgrade, and can be disabled
+  while leaving the underlying notes intelligible and editable.
 * A restore from the external-drive backup succeeds into a clean test
   directory.
 * The service, sync, backup, and disk-space failures are visible rather than
   silent.
 
-If Obsidian does not earn its subscription or its proprietary/plugin trust
-boundary is unacceptable, keep Basic Memory and run SilverBullet over the same
-Markdown corpus as the self-hosted fallback. That is a client swap rather than
-a knowledge migration.
+If SilverBullet's editing experience stops me writing, or useful customization
+repeatedly becomes product development rather than a small library, keep Basic
+Memory and open the same project as an Obsidian vault. Basic Memory officially
+supports that
+[integration](https://docs.basicmemory.com/integrations/obsidian/), so it is a
+client swap rather than a knowledge migration.
 
 # Comparison
 
@@ -239,16 +255,16 @@ choices have precise scores. `++` is a strong fit, `+` is workable, `~` is a
 meaningful compromise, and `-` conflicts with the requirement.
 
 <div className="overflow-x-auto">
-  | Option                           | Agent interface                    | Durable/open corpus                        | Cross-device UX                    | Extension ecosystem and trajectory             | Privacy/cost               | Fit          |
-  | -------------------------------- | ---------------------------------- | ------------------------------------------ | ---------------------------------- | ---------------------------------------------- | -------------------------- | ------------ |
-  | **Basic Memory + Obsidian Sync** | `++` MCP, CLI, files, Obsidian CLI | `++` canonical Markdown                    | `++` native Mac/Linux/Android      | `++` 6,000+ plugins; large, active registry    | `+` E2EE, $4–5/month       | **Pilot**    |
-  | **Basic Memory + SilverBullet**  | `++` native MCP, CLI, files        | `++` canonical Markdown                    | `+` offline PWA                    | `+` deeply programmable; smaller ecosystem     | `++` local, free           | Fallback     |
-  | **Basic Memory Cloud**           | `++` hosted MCP and local CLI      | `++` Markdown with local sync              | `++` hosted web/mobile             | `+` young but fast-moving agent/skills surface | `-` hosted, $15/month      | Rejected     |
-  | **Obsidian + self-managed sync** | `++` files and CLI                 | `++` canonical Markdown                    | `+` native apps, fragile sync edge | `++` same large plugin ecosystem               | `++` self-hosted, free     | Not selected |
-  | **TriliumNext**                  | `+` ETAPI and scripts              | `~` canonical database, exports            | `+` desktop/web; mobile PWA online | `+` powerful scripting/widgets; active project | `++` self-hosted, free     | Rejected     |
-  | **Joplin + Joplin Server**       | `+` terminal app and REST API      | `+` Markdown bodies, app-managed sync data | `++` native Mac/Linux/Android      | `+` mature API and 300+ plugin registry        | `++` self-hosted, free     | Rejected     |
-  | **Notion**                       | `++` official MCP and API          | `~` SaaS blocks; Markdown export is a copy | `++` polished web/native clients   | `++` large integration and SaaS platform       | `~` free solo tier, hosted | Rejected     |
-  | **Roam Research**                | `++` official MCP, CLI, and APIs   | `~` SaaS graph with exports                | `+` web/native clients             | `+` extension API and Roam Depot               | `-` hosted, $15/month      | Rejected     |
+  | Option                           | Agent interface                    | Durable/open corpus                        | Cross-device UX                    | Relevant extension leverage                      | Privacy/cost               | Fit          |
+  | -------------------------------- | ---------------------------------- | ------------------------------------------ | ---------------------------------- | ------------------------------------------------ | -------------------------- | ------------ |
+  | **Basic Memory + SilverBullet**  | `++` native MCP, CLI, files        | `++` canonical Markdown                    | `+` offline PWA                    | `++` built-ins plus agent-writable Lua/libraries | `++` local, free           | **Pilot**    |
+  | **Basic Memory + Obsidian Sync** | `++` MCP, CLI, files, Obsidian CLI | `++` canonical Markdown                    | `++` native Mac/Linux/Android      | `+` huge registry; much relevant overlap         | `+` E2EE, $4–5/month       | Fallback     |
+  | **Basic Memory Cloud**           | `++` hosted MCP and local CLI      | `++` Markdown with local sync              | `++` hosted web/mobile             | `+` young but fast-moving agent/skills surface   | `-` hosted, $15/month      | Rejected     |
+  | **Obsidian + self-managed sync** | `++` files and CLI                 | `++` canonical Markdown                    | `+` native apps, fragile sync edge | `+` same registry; custom sync burden            | `++` self-hosted, free     | Not selected |
+  | **TriliumNext**                  | `+` ETAPI and scripts              | `~` canonical database, exports            | `+` desktop/web; mobile PWA online | `+` powerful scripting/widgets; active project   | `++` self-hosted, free     | Rejected     |
+  | **Joplin + Joplin Server**       | `+` terminal app and REST API      | `+` Markdown bodies, app-managed sync data | `++` native Mac/Linux/Android      | `+` mature API and 300+ plugin registry          | `++` self-hosted, free     | Rejected     |
+  | **Notion**                       | `++` official MCP and API          | `~` SaaS blocks; Markdown export is a copy | `++` polished web/native clients   | `++` large integration and SaaS platform         | `~` free solo tier, hosted | Rejected     |
+  | **Roam Research**                | `++` official MCP, CLI, and APIs   | `~` SaaS graph with exports                | `+` web/native clients             | `+` extension API and Roam Depot                 | `-` hosted, $15/month      | Rejected     |
 </div>
 
 ## Ecosystem and rising-tide assessment
@@ -264,27 +280,26 @@ to leave without a data migration.
   [cross-agent skills](https://github.com/basicmachines-co/basic-memory-skills)
   are nevertheless aligned with a wider move toward agent-operable local data.
   If Basic Memory loses momentum, the files and Git workflow survive.
-* **Obsidian is the ecosystem bet.** Its registry is an order of magnitude
-  larger than the other packaged note-plugin ecosystems considered here and
-  already spans databases and queries, spatial thinking, automation, local
-  APIs, semantic search, publishing, and many workflows not yet required.
-  Representative options include
-  [Dataview](https://github.com/blacksmithgu/obsidian-dataview) for computed
-  views, [Obsidian Git](https://github.com/Vinzent03/obsidian-git) for
-  version-aware workflows, and
-  [Local REST API with MCP](https://github.com/coddingtonbear/obsidian-local-rest-api)
-  as an alternate automation surface. These demonstrate option value, not a
-  recommended starter pack. The closed-source core and broad plugin permissions
-  are real concentration and supply-chain risks, mitigated by keeping the
-  corpus portable and the allowlist small.
-* **SilverBullet is the builder-platform bet.** It is open source, actively
-  released, and arguably the most coherent self-hosted extension design:
-  [Space Lua libraries](https://silverbullet.md/Extensions) can add commands,
-  templates, widgets, styles, and virtual pages, while lower-level TypeScript
-  plugs compile to WebAssembly. That is excellent if I want to build the
-  system. Its smaller distributed library ecosystem, however, makes it more
-  likely that future polish becomes my maintenance burden—the failure mode this
-  decision is meant to avoid.
+* **SilverBullet is the agent-buildable platform bet.** It is open source and
+  actively released. Most high-level customization is ordinary Space Lua,
+  templates, and Markdown pages inside the corpus rather than a separate Node
+  project. Agents make that unusually cheap to create, review, and adapt. The
+  smaller ecosystem remains a maturity risk, but a rising tide in generated
+  software favors a legible, programmable platform when the needed behavior is
+  a command, query, template, dashboard, or widget—not a whole application.
+* **Obsidian is the packaged-ecosystem bet.** Its official
+  [community registry](https://github.com/obsidianmd/obsidian-releases) has more
+  than 6,000 plugins and a documented
+  [TypeScript API](https://docs.obsidian.md/Plugins/Getting%20started/Build%20a%20plugin).
+  Raw breadth is misleading here, though. Dataview-style queries overlap
+  SilverBullet's object index;
+  templating and quick capture overlap its commands and templates; Git plugins
+  overlap the existing agent/Git workflow; and REST/MCP, semantic search, and AI
+  plugins overlap Basic Memory and t3-code. Tasks, calendars, daily notes, web
+  clipping, collaboration, and publishing are explicitly unimportant or a poor
+  workflow fit. Obsidian's ecosystem becomes decisive only when a **specific**
+  product-quality plugin solves an observed recurring need better than a small
+  SilverBullet library.
 * **Joplin and TriliumNext are durable open-source tides**, with mature plugin
   APIs in Joplin and deep scripting plus ETAPI in Trilium. Their extensions are
   more tightly coupled to application-managed storage and conventional notebook
@@ -311,20 +326,19 @@ to leave without a data migration.
 * **Decision**: Rejected. Use the free AGPL local edition and retain the option
   to reconsider cloud sync without migrating the Markdown format.
 
-## Basic Memory with SilverBullet
+## SilverBullet without Basic Memory
 
-* **Pros**: Fully self-hosted and free, with a good offline PWA over the same
-  Markdown corpus. SilverBullet is unusually programmable: Space Lua libraries
-  make high-level customization accessible, and lower-level plugs can reshape
-  the editor without waiting for a vendor. Basic Memory still supplies the
-  consistent graph-aware contract across all four agents.
-* **Cons**: It has a much smaller ecosystem of reusable libraries and plugs than
-  Obsidian. Its flexibility therefore increases the temptation to build and
-  maintain bespoke workflows. The browser-based mobile experience is also less
-  polished than Obsidian's native application.
-* **Decision**: Keep as the self-hosted control and fallback. Choose it if
-  Obsidian fails the qualitative pilot, does not earn its subscription, or its
-  proprietary/plugin security boundary proves unacceptable.
+* **Pros**: The simplest deployment. Agents can edit Markdown directly or use
+  SilverBullet's file-oriented HTTP and runtime APIs, and its own links, object
+  index, queries, and programmable libraries cover much of the human browsing
+  need.
+* **Cons**: Direct file tools provide no consistent, graph-aware contract across
+  the four agents. Coupling the agent contract to editor extensions would also
+  make replacing the human client harder. Basic Memory more closely matches
+  the part of Beads that is working: a dedicated CLI/MCP surface, JSON output,
+  consistency checks, and a rebuildable index designed for agents.
+* **Decision**: Rejected. Keep the notes UI and agent knowledge engine separate
+  while letting them share the same durable files.
 
 ## Basic Memory with paid Obsidian Sync
 
@@ -343,8 +357,9 @@ to leave without a data migration.
   plugins run with broad application permissions and vary in maintenance
   quality. There is no web client, and ecosystem enthusiasm can itself become
   configuration gardening.
-* **Decision**: Proposed, but staged. Prove the local client and needs-driven
-  plugin policy first; buy Sync only after that zero-cost validation succeeds.
+* **Decision**: Keep as the polished-client fallback. Move only when an observed
+  plugin need or sustained PWA friction makes its native UX and supported sync
+  worth the subscription; do not choose it for the abstract registry count.
 
 ## Obsidian with self-managed synchronization
 
@@ -445,34 +460,36 @@ to leave without a data migration.
   CLI/MCP tools, graph navigation, and machine-readable results instead of
   inventing its own filesystem conventions.
 * **Plain Markdown remains authoritative**, so search, scripts, Git, backup,
-  migration, and future tools are independent of Basic Memory and Obsidian.
-* **The strongest ready-made extension ecosystem considered** creates option
-  value for future workflows without requiring those extensions to own the
-  corpus.
+  migration, and future tools are independent of Basic Memory and SilverBullet.
+* **An agent-buildable extension surface** makes small, personal workflows
+  cheaper to create without requiring extensions to own the corpus.
 * **Structure can emerge after capture**: agents can perform the connection and
   normalization work that was too expensive to do manually in Roam.
 * **Uses the lab that already exists**: the Mac mini supplies the always-on
   host, Tailscale supplies private multi-device access, the external drive
   supplies a backup target, and Netdata supplies observability.
-* **No payment before validation**: Obsidian can be evaluated locally for free,
-  and Sync is enabled only if the qualitative pilot earns its $4–5/month cost.
+* **Zero mandatory subscription**, with a clear $4–5/month Obsidian fallback if
+  a native client or a specific mature plugin proves more valuable than the
+  self-hosted programmable PWA.
 
 ### Cons
 
-* **Obsidian's core is proprietary and Sync is hosted**. Local Markdown limits
-  exit cost but does not make the application or synchronization service open
-  source or self-hosted.
-* **Community plugins are a supply-chain and privacy boundary** because they
-  inherit Obsidian's access. The ecosystem is useful only with a deliberately
-  small, reviewed allowlist.
-* **The Mac mini is the agent availability boundary**, although native clients
-  and synchronized local vaults remain usable during a temporary outage.
+* **SilverBullet is less polished than Obsidian**, especially on mobile. The
+  PWA still has to earn its place through actual daily capture.
+* **A smaller reusable ecosystem shifts some ownership back here.** Agents make
+  extension coding cheaper, but generated code still needs review, upgrade
+  testing, documentation, and eventual removal.
+* **Libraries and plugs are a supply-chain boundary.** Even sandboxed extension
+  code can read or change the space through exposed APIs, so third-party and
+  agent-authored code must remain needs-driven and reviewable.
+* **The Mac mini is the availability boundary** for online access and sync,
+  although offline PWA copies reduce the impact of a temporary outage.
 * **Concurrent edits can create conflicts** between an offline client and an
   agent changing the same file; workflow discipline and recoverable copies are
   still needed.
-* **Derived indexes and synchronization must stay fresh**. Basic Memory watches
-  the Markdown vault while Obsidian Sync replicates it. Either can lag or fail
-  independently, although neither changes the source format.
+* **Two derived indexes must stay fresh**. Basic Memory and SilverBullet each
+  watch the same Markdown folder. Either index can lag or fail independently,
+  although both can be rebuilt without changing the source files.
 * **Agent access creates a large privacy and deletion boundary**. A model can
   see any note supplied to it, and an over-broad instruction can reorganize or
   delete a large corpus. Scoped filesystem permissions, Git checkpoints, and
@@ -481,5 +498,5 @@ to leave without a data migration.
   tree does not remove it from repository history or existing backups. A later
   secure-erasure requirement would need an explicit history-rewrite and backup
   retention policy.
-* **Headless Sync and Basic Memory add processes to patch and monitor**, even if
-  the data itself stays simple.
+* **Self-hosting adds a service to patch and monitor**, even if the data itself
+  stays simple.
